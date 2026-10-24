@@ -25,6 +25,8 @@ final class FurnishingBuilder {
     private static final float CLOCK_SMALLEST = 0.8f, CLOCK_LARGEST = 1.6f;
     /** How near the end of its square the sprite of one length of a long picture stops for the length to be stood to the end. */
     private static final float LENGTHS_MEET = 0.1f;
+    /** How much prouder of its wall each sheet of a collage stands than the one under it, in tiles: a sheet pinned over another lies on it. */
+    private static final float SHEET_PROUD = 0.002f;
     /** The object on a square that shows the sprite, or null. */
     private static IsoObject holding(IsoGridSquare square, IsoSprite sprite) {
         if (square == null || sprite == null) {
@@ -246,6 +248,9 @@ final class FurnishingBuilder {
             return addDrape(drape, sprite, texture, x, y, z);
         }
         Furniture piece = Furniture.known(sprite);
+        if (piece != null && piece.collage != null) {
+            return addCollage(object, piece, x, y, z);
+        }
         // The mod's picture for the sprite in the room it hangs in, where its pictures are on. A poster hangs as the
         // mod's sheet only to show one, and a frame, a clock or a lamp only where the mod's
         // furniture is on or it has a picture to show.
@@ -281,24 +286,14 @@ final class FurnishingBuilder {
             build.hungAt[WallHung.TOP] = wholeAt[WallHung.TOP];
         }
         Models.Model model = placeHung(piece, build.hungAt, build.geometry.raised, hungPlace);
-        float along = hungPlace[ALONG], foot = hungPlace[FOOT], scale = hungPlace[SCALE], scaleUp = hungPlace[SCALE_UP];
-        // Its back clear of the wall's skin, which stands that far inside the square's edge, and of
-        // a moulding along the wall behind it.
-        Models.turn(piece.turns, 0f, -1f, build.hungWay);
-        float behind = piece.wall == WallHung.NORTH || piece.wall == WallHung.WEST
-                ? build.trimClear(piece.wall == WallHung.NORTH, build.hungAt[WallHung.FROM], build.hungAt[WallHung.TO], foot / ViewCamera.LEVEL_HEIGHT,
-                        (foot + model.height() * scaleUp) / ViewCamera.LEVEL_HEIGHT)
-                : 0f;
-        float out = WorldScene.WALL_HALF + WorldScene.HUNG_CLEAR + behind + model.depth() * scale / 2f;
+        float along = hungPlace[ALONG], scale = hungPlace[SCALE], scaleUp = hungPlace[SCALE_UP];
         float a = WallHung.a(piece.wall, along), b = WallHung.b(piece.wall, along);
-        float[] lift = build.geometry.lift;
-        // On a wall on the square's north or west edge it hangs as high as the wall stands (Frame.standOnKerbTop).
-        float rise = piece.wall == WallHung.NORTH || piece.wall == WallHung.WEST ? build.kerbTopRise(z, piece.wall == WallHung.NORTH) : 0f;
-        build.building.plain = false;
-        build.placed.add(model, build.frame, x, y, x + a + build.hungWay[0] * out, y + b + build.hungWay[1] * out,
-                z * ViewCamera.LEVEL_HEIGHT + (lift[0] + lift[1] + lift[2] + lift[3]) / 4f + rise + foot, piece.turns, scale, scaleUp,
-                !piece.pictured ? WorldScene.PLAIN : picture != Decor.NONE ? Decor.held(picture) : texture.getID(),
-                piece.pictured ? 1 << Models.PANE : 0, 0f, 0f, 0, 0f, 0f);
+        // Clear of a moulding along the wall behind it.
+        float foot = hungPlace[FOOT];
+        float clear = behind(piece, build.hungAt[WallHung.FROM], build.hungAt[WallHung.TO], foot / ViewCamera.LEVEL_HEIGHT,
+                (foot + model.height() * scaleUp) / ViewCamera.LEVEL_HEIGHT);
+        standHung(piece, model, x, y, z, clear, !piece.pictured ? WorldScene.PLAIN : picture != Decor.NONE ? Decor.held(picture) : texture.getID(),
+                piece.pictured ? 1 << Models.PANE : 0);
         if (piece.mirror) {
             build.placed.glass(model);
         }
@@ -332,6 +327,84 @@ final class FurnishingBuilder {
     }
 
     /**
+     * How far out a moulding along the piece's wall stands behind the stretch of it from to to along the wall and
+     * bottom to top in levels, which what hangs there stands clear of.
+     */
+    private float behind(Furniture piece, float from, float to, float bottom, float top) {
+        return piece.wall == WallHung.NORTH || piece.wall == WallHung.WEST ? build.trimClear(piece.wall == WallHung.NORTH, from, to, bottom, top) : 0f;
+    }
+
+    /**
+     * Stands a model placeHung has just placed, with hungPlace as it left it, on its wall: its back clear of the wall's
+     * skin by standOut, and its dye and dyed surfaces as Models.Instances.add takes them.
+     */
+    private void standHung(Furniture piece, Models.Model model, int x, int y, int z, float standOut, int dye, int dyedSurfaces) {
+        float along = hungPlace[ALONG], foot = hungPlace[FOOT], scale = hungPlace[SCALE], scaleUp = hungPlace[SCALE_UP];
+        // Its back clear of the wall's skin, which stands that far inside the square's edge.
+        Models.turn(piece.turns, 0f, -1f, build.hungWay);
+        float out = WorldScene.WALL_HALF + WorldScene.HUNG_CLEAR + standOut + model.depth() * scale / 2f;
+        float a = WallHung.a(piece.wall, along), b = WallHung.b(piece.wall, along);
+        float[] lift = build.geometry.lift;
+        // On a wall on the square's north or west edge it hangs as high as the wall stands (Frame.standOnKerbTop).
+        float rise = piece.wall == WallHung.NORTH || piece.wall == WallHung.WEST ? build.kerbTopRise(z, piece.wall == WallHung.NORTH) : 0f;
+        build.building.plain = false;
+        build.placed.add(model, build.frame, x, y, x + a + build.hungWay[0] * out, y + b + build.hungWay[1] * out,
+                z * ViewCamera.LEVEL_HEIGHT + (lift[0] + lift[1] + lift[2] + lift[3]) / 4f + rise + foot, piece.turns, scale, scaleUp,
+                dye, dyedSurfaces, 0f, 0f, 0, 0f, 0f);
+    }
+
+    /**
+     * Hangs a sheaf of notices as the mod's sheets of it, each where its share of the place the sprite paints says and
+     * each a little proud of those under it. False, leaving the sprite, where the player's pictures are off, where the
+     * sprite is not painted as something on its wall or the next square's length of it, and while a sheet's picture is
+     * still being read.
+     */
+    private boolean addCollage(IsoObject object, Furniture piece, int x, int y, int z) {
+        Decor.Collage collage = piece.collage;
+        // The game pins some sheaves near a square's end, running onto the next square's length of the wall.
+        if (!Own.pictures(build.playerIndex) || !WallHung.painted(build.frame, piece.wall, build.hungAt) && !WallHung.paintedAlong(build.hungAt)) {
+            return false;
+        }
+        boolean ready = true;
+        for (int picture : collage.pictures()) {
+            if (!Decor.ready(picture)) {
+                // The sprite paints the notices until a build made again once every sheet is read.
+                Decor.held(picture);
+                ready = false;
+            }
+        }
+        if (!ready) {
+            build.building.signed = false;
+            return false;
+        }
+        float from = build.hungAt[WallHung.FROM], to = build.hungAt[WallHung.TO], bottom = build.hungAt[WallHung.BOTTOM], top = build.hungAt[WallHung.TOP];
+        // Whoever faces a north wall has the map's x growing to their right, and whoever faces a west one has its y growing to their left.
+        boolean north = piece.wall == WallHung.NORTH;
+        float[] boxes = collage.boxes();
+        // The whole sheaf stands clear of a moulding behind any of it, so no sheet is pushed out past one pinned over it.
+        float clear = behind(piece, from, to, bottom, top);
+        for (int k = 0; k < collage.count(); k++) {
+            float left = boxes[4 * k], up = boxes[4 * k + 1], right = boxes[4 * k + 2], down = boxes[4 * k + 3];
+            build.hungAt[WallHung.FROM] = north ? from + left * (to - from) : to - right * (to - from);
+            build.hungAt[WallHung.TO] = north ? from + right * (to - from) : to - left * (to - from);
+            build.hungAt[WallHung.TOP] = top - up * (top - bottom);
+            build.hungAt[WallHung.BOTTOM] = top - down * (top - bottom);
+            int picture = collage.pictures()[k];
+            Models.Model model = placeHung(piece, build.hungAt, build.geometry.raised, hungPlace);
+            standHung(piece, model, x, y, z, clear + k * SHEET_PROUD, Decor.held(picture), 1 << Models.PANE);
+            float[] pane = Decor.pane(model);
+            Decor.lay(pane[0], pane[1], pane[2], pane[3], (pane[1] - pane[0]) * hungPlace[SCALE], (pane[3] - pane[2]) * hungPlace[SCALE_UP], 0f,
+                    Decor.wideForHigh(picture), build.hungShows);
+            build.placed.picture(build.hungShows);
+        }
+        if (SightTrace.ON && build.building.pictured != null) {
+            build.building.pictured.add(object);
+        }
+        build.furnished++;
+        return true;
+    }
+
+    /**
      * Where on its wall a hung piece stands and how big, from where its sprite paints it (hungAt, as WallHung.painted
      * leaves it) and how many levels the game raises the object by: into place, as ALONG to SCALE_UP. The model it is.
      */
@@ -341,7 +414,7 @@ final class FurnishingBuilder {
         float along = (hungAt[WallHung.FROM] + hungAt[WallHung.TO]) / 2f;
         Models.Model model = piece.model != null ? piece.model : Models.get(FRAMES[WallHung.frameFor(wide / high)]);
         float scale = wide / model.width(), scaleUp = high / model.height(), foot = hungAt[WallHung.BOTTOM] * ViewCamera.LEVEL_HEIGHT;
-        if (piece.model != null && !piece.model.name.equals("canvas")) {
+        if (piece.model != null && !piece.model.name.equals("canvas") && !piece.model.name.equals("sheet")) {
             // A clock is round whatever its sprite's outline comes to, and hangs about the middle of it.
             scale = scaleUp = piece.ownSize ? Furniture.TILES_PER_METRE : Math.clamp(Math.min(scale, scaleUp), CLOCK_SMALLEST, CLOCK_LARGEST);
             foot += (high - model.height() * scale) / 2f;

@@ -266,6 +266,34 @@ pool-church-00	525	768
 pool-church-01	525	768
 pool-church-02	525	768
 pool-church-03	525	768
+notice-wanted-0	543	744
+notice-wanted-1	530	713
+notice-wanted-2	543	728
+notice-wanted-3	543	728
+notice-advert-0	523	768
+notice-advert-1	416	565
+notice-collection-0	251	548
+notice-collection-1	622	756
+notice-collection-2	476	622
+notice-collection-3	185	193
+notice-collection-4	185	178
+notice-collection-5	450	533
+notice-collection-6	476	563
+notice-collection-7	450	400
+notice-paper-0	416	441
+notice-paper-1	447	543
+notice-paper-2	447	499
+notice-paper-3	489	676
+notice-paper-4	489	749
+notice-random-0	464	768
+notice-random-1	441	706
+notice-random-2	334	280
+notice-random-3	349	280
+notice-random-4	380	329
+notice-weathered-0	583	768
+notice-weathered-1	277	647
+notice-battered-0	569	712
+notice-battered-1	532	736
 screen-bars	640	480
 screen-grey-bars	640	480
 screen-any-0	640	480
@@ -1153,6 +1181,34 @@ screen-stage-3	640	480
 =Sign|Legal Services	sign-legal-services
 =Sign|Property	sign-property
 =Sign|Coffee High	sign-coffee-low
+%Notices|Wanted	notice-wanted-0	0.01 0.01 0.43 0.49
+%Notices|Wanted	notice-wanted-1	0.58 0.03 0.99 0.49
+%Notices|Wanted	notice-wanted-2	0.01 0.52 0.43 0.99
+%Notices|Wanted	notice-wanted-3	0.5 0.52 0.92 0.99
+%Notices|Advertisement	notice-advert-0	0.07 0.21 0.99 0.99
+%Notices|Advertisement	notice-advert-1	0.01 0.01 0.52 0.41
+%Notices|Collection of	notice-collection-0	0.37 0.31 0.56 0.68
+%Notices|Collection of	notice-collection-1	0.01 0.43 0.48 0.94
+%Notices|Collection of	notice-collection-2	0.01 0.01 0.37 0.43
+%Notices|Collection of	notice-collection-3	0.42 0.07 0.56 0.2
+%Notices|Collection of	notice-collection-4	0.42 0.2 0.56 0.32
+%Notices|Collection of	notice-collection-5	0.55 0.3 0.89 0.66
+%Notices|Collection of	notice-collection-6	0.63 0.02 0.99 0.4
+%Notices|Collection of	notice-collection-7	0.42 0.7 0.76 0.97
+%Notices|Paper	notice-paper-0	0.3 0.3 0.7 0.6
+%Notices|Paper	notice-paper-1	0.05 0.01 0.48 0.38
+%Notices|Paper	notice-paper-2	0.52 0.06 0.95 0.4
+%Notices|Paper	notice-paper-3	0.01 0.53 0.48 0.99
+%Notices|Paper	notice-paper-4	0.52 0.48 0.99 0.99
+%Notices|Random	notice-random-0	0.01 0.01 0.46 0.94
+%Notices|Random	notice-random-1	0.53 0.28 0.82 0.86
+%Notices|Random	notice-random-2	0.49 0.01 0.71 0.24
+%Notices|Random	notice-random-3	0.74 0.07 0.97 0.3
+%Notices|Random	notice-random-4	0.74 0.71 0.99 0.98
+%Notices|Weathered	notice-weathered-0	0.01 0.01 0.83 0.98
+%Notices|Weathered	notice-weathered-1	0.78 0.55 0.99 0.99
+%Notices|Battered	notice-battered-0	0.01 0.01 0.47 0.6
+%Notices|Battered	notice-battered-1	0.56 0.38 0.99 0.99
 @certificate	restaurant	certificate-food-permit certificate-grade-a
 @certificate	shop	certificate-business-license certificate-chamber
 @certificate	office	certificate-cpa certificate-employee

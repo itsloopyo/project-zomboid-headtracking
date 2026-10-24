@@ -82,6 +82,8 @@ final class Furniture {
     int picture = Decor.NONE;
     /** Whether this is a sheet pinned to a wall, a poster, which the mod hangs only to show its own picture of it. */
     boolean pinned;
+    /** For a sheaf of notices pinned to a wall, the mod's sheets it hangs in their place, or null: see FurnishingBuilder.addCollage. */
+    Decor.Collage collage;
     /** Whether this is the board the game lays over a counter as its top: see FurnishingBuilder.addCountertop. */
     boolean countertop;
     /** Whether it is a lettered board, which shows the mod's picture only where every square of it can: half a name in one hand and half in another reads as neither. */
@@ -444,6 +446,16 @@ final class Furniture {
                 framed.picture = Decor.of(name, called, group, grid != null);
                 framed.rail = grid != null && called.startsWith("Painting") ? PAINTED_RAIL : 0f;
                 return framed;
+            }
+            // Notices are sheets pinned over each other, and hang as the mod's sheets only where it has them.
+            if (Decor.SHEETS && called.equals("Notices") && grid == null && (facing == IsoDirections.S || facing == IsoDirections.E)) {
+                Decor.Collage collage = Decor.collage(name, called, group);
+                if (collage != null) {
+                    Furniture notices = new Furniture(sprite, "sheet", faces).hang(WallHung.behind(facing), true);
+                    notices.collage = collage;
+                    notices.pinned = true;
+                    return notices;
+                }
             }
             // A poster is a sheet with no frame, and hangs as one only where the mod has a
             // picture for it: laid on its wall as the game's sprite it needs no model.

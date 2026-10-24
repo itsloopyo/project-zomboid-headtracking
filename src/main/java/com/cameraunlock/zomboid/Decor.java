@@ -10,6 +10,7 @@ import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
@@ -45,6 +46,12 @@ import zombie.iso.RoomDef;
  * a subject, a tab, a kind of room, a tab and pictures with a space between: a picture of that
  * subject hung in a room of that kind shows one of these instead (inRoom).
  *
+ * A sheet is a line that starts with %, then a key, a tab, a picture's name, a tab and where on
+ * the place the key's sprite paints the sheet lies: its left, top, right and bottom with a space
+ * between, as shares of that place across from the viewer's left and down from its top. A key
+ * with sheets is a collage of them, pinned to the wall in the order listed, each over those
+ * before it (collage).
+ *
  * What kind a room is comes from its name by /pictures/rooms.txt, lines of the name, a tab and
  * its kind, or UNSAID or OFFICE_LIKE for a name that does not say what its building is, which
  * then takes its kind from its building's other rooms (kind). tools/pictures/rooms.py writes
@@ -52,6 +59,8 @@ import zombie.iso.RoomDef;
  */
 final class Decor {
     static final int NONE = -1;
+    /** Notices hung as the mod's sheets (collage) are held back for a later release: without this the game's sprites show. */
+    static final boolean SHEETS = Boolean.getBoolean("cameraunlock.zomboid.noticeSheets");
 
     private static final String FOLDER = "/pictures/";
     private static final int GL_TEXTURE_2D = 0x0DE1, GL_RGBA = 0x1908, GL_RGBA8 = 0x8058, GL_UNSIGNED_BYTE = 0x1401;
@@ -87,6 +96,14 @@ final class Decor {
         final List<Integer> ordinals = new ArrayList<>();
         /** The pools, by subject, a tab and the kind of room. */
         final Map<String, int[]> pools = new HashMap<>();
+        final Map<String, Collage> collages = new HashMap<>();
+    }
+
+    /** The sheets of a collage, from the one against the wall out: each one's picture, and four shares a sheet in boxes as the index gives them. */
+    record Collage(int[] pictures, float[] boxes) {
+        int count() {
+            return pictures.length;
+        }
     }
 
     /** What each room name on the map says it is, read the first time a room is asked about. */
@@ -196,6 +213,26 @@ final class Decor {
                     throw new IOException(path + " has a line that shows no picture listed before it: " + line);
                 }
                 (line.startsWith("+") ? read.showsLong : read.shows).put(parts[0].substring(1), picture);
+            } else if (line.startsWith("%")) {
+                Integer picture = parts.length == 3 ? numbers.get(parts[1]) : null;
+                String[] box = parts.length == 3 ? parts[2].split(" ") : new String[0];
+                if (picture == null || box.length != 4) {
+                    throw new IOException(path + " has a sheet that is not a picture listed before it and four shares: " + line);
+                }
+                float left = Float.parseFloat(box[0]), top = Float.parseFloat(box[1]), right = Float.parseFloat(box[2]), bottom = Float.parseFloat(box[3]);
+                if (!(0f <= left && left < right && right <= 1f && 0f <= top && top < bottom && bottom <= 1f)) {
+                    throw new IOException(path + " has a sheet outside its place or turned inside out: " + line);
+                }
+                Collage was = read.collages.get(parts[0].substring(1));
+                int n = was == null ? 0 : was.count();
+                int[] pictures = was == null ? new int[1] : Arrays.copyOf(was.pictures(), n + 1);
+                float[] boxes = was == null ? new float[4] : Arrays.copyOf(was.boxes(), 4 * n + 4);
+                pictures[n] = picture;
+                boxes[4 * n] = left;
+                boxes[4 * n + 1] = top;
+                boxes[4 * n + 2] = right;
+                boxes[4 * n + 3] = bottom;
+                read.collages.put(parts[0].substring(1), new Collage(pictures, boxes));
             } else if (line.startsWith("@")) {
                 if (parts.length != 3) {
                     throw new IOException(path + " has a pool that is not a subject, a kind of room and pictures: " + line);
@@ -380,6 +417,13 @@ final class Decor {
             }
         }
         return picture == null ? NONE : picture;
+    }
+
+    /** The collage a sprite shows, by its name or failing that by what the game calls the piece and its group, or null. */
+    static Collage collage(String sprite, String called, String group) {
+        Index read = index();
+        Collage collage = read.collages.get(sprite);
+        return collage != null ? collage : read.collages.get(called + "|" + group);
     }
 
     /** The picture of a name in the index. Thrown when the jar has none of that name. */

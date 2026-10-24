@@ -35,6 +35,7 @@ final class DecorTests {
         Checks.run("aRoomThatSaysNothingTakesItsKindFromItsBuilding", DecorTests::aRoomThatSaysNothingTakesItsKindFromItsBuilding);
         Checks.run("aPoolGivesEachPictureOfABuildingItsOwn", DecorTests::aPoolGivesEachPictureOfABuildingItsOwn);
         Checks.run("theIndexListsSubjectsAndPools", DecorTests::theIndexListsSubjectsAndPools);
+        Checks.run("theIndexListsTheSheetsOfACollageFromTheWallOut", DecorTests::theIndexListsTheSheetsOfACollageFromTheWallOut);
     }
 
     private static void everyPictureInTheJarReadsAsItsColoursDotForDot() {
@@ -42,7 +43,7 @@ final class DecorTests {
         try (InputStream in = Decor.class.getResourceAsStream("/pictures/index.txt")) {
             BufferedReader lines = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
             for (String line = lines.readLine(); line != null; line = lines.readLine()) {
-                if (!line.startsWith("=") && !line.startsWith("+") && !line.startsWith("@")) {
+                if (!line.startsWith("=") && !line.startsWith("+") && !line.startsWith("@") && !line.startsWith("%")) {
                     pictures.add(line.split("\t"));
                 }
             }
@@ -341,6 +342,31 @@ final class DecorTests {
         for (String pooled : jar.pools.keySet()) {
             check(Decor.KINDS.contains(pooled.split("\t")[1]), "the jar pools pictures for a kind of room there is: " + pooled);
         }
+    }
+
+    private static void theIndexListsTheSheetsOfACollageFromTheWallOut() throws IOException {
+        String good = "under\t500\t700\nover\t300\t300\n%Notices|Random\tunder\t0 0 0.5 1\n%Notices|Random\tover\t0.4 0.1 0.9 0.6\n";
+        Decor.Collage collage = Decor.read(new BufferedReader(new StringReader(good)), "test").collages.get("Notices|Random");
+        check(collage != null && collage.count() == 2 && collage.pictures()[0] == 0 && collage.pictures()[1] == 1,
+                "a collage holds its sheets in the order listed, the one against the wall first");
+        check(collage != null && near(collage.boxes()[4], 0.4f) && near(collage.boxes()[5], 0.1f) && near(collage.boxes()[6], 0.9f)
+                && near(collage.boxes()[7], 0.6f), "each sheet keeps its left, top, right and bottom");
+        for (String bad : new String[] {good + "%Notices|Paper\tnone\t0 0 1 1\n", good + "%Notices|Paper\tover\t0 0 1\n",
+                good + "%Notices|Paper\tover\t0.6 0 0.4 1\n", good + "%Notices|Paper\tover\t0 0 1 1.2\n"}) {
+            boolean threw = false;
+            try {
+                Decor.read(new BufferedReader(new StringReader(bad)), "test");
+            } catch (IOException expected) {
+                threw = true;
+            }
+            check(threw, "a sheet of a picture not listed, with no four shares, or outside its place or inside out is refused: " + bad);
+        }
+        Decor.Index jar;
+        try (InputStream in = Decor.class.getResourceAsStream("/pictures/index.txt")) {
+            jar = Decor.read(new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8)), "/pictures/index.txt");
+        }
+        check(jar.collages.containsKey("Notices|Random") && jar.collages.get("Notices|Random").count() > 1,
+                "the jar has the sheets of the notices the game pins up at random");
     }
 
     private static boolean near(float a, float b) {

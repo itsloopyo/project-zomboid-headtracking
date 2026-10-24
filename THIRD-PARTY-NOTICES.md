@@ -1962,10 +1962,19 @@ DEALINGS IN THE SOFTWARE.
 
 ## Pictures shot in Project Zomboid
 
-- **Files:** every `pictures/*.jpg` inside the mod's jar but `screen-bars.jpg` and `screen-grey-bars.jpg`, packed by `tools/pictures/pack.py`
+- **Files:** every `pictures/*.jpg` inside the mod's jar but `screen-bars.jpg`, `screen-grey-bars.jpg` and the `notice-*.jpg` sheets, packed by `tools/pictures/pack.py`; and the portraits on `notice-wanted-*.jpg`
 - **License:** screenshots of Project Zomboid, The Indie Stone's game, used under the [Indie Stone Terms](https://projectzomboid.com/blog/support/terms-conditions/) (clause 2.2, non-commercial fan productions). They are not under this mod's MIT licence.
 - **Upstream:** https://projectzomboid.com
 - **Usage:** The first person view hangs them in place of the game's paintings, photographs, posters and boards, and a television shows them as its programmes. Each was staged and shot inside the game.
+- **Bundled:** yes.
+
+---
+
+## Notice sheets
+
+- **Files:** `pictures/notice-*.jpg` inside the mod's jar, drawn by `tools/pictures/notices.py`
+- **License:** MIT, as the rest of the mod, but for the portraits on the wanted posters, which are the pictures shot in Project Zomboid above.
+- **Usage:** Held back for a later release: with `-Dcameraunlock.zomboid.noticeSheets=true` the first person view pins them to walls in place of the game's sprites of pinned notices. The paper is drawn from noise and the lettering is set in fonts installed with Windows (Impact, Arial, Courier New, Georgia, Ink Free). Only the letters' shapes as drawn are in the pictures; no font file is bundled.
 - **Bundled:** yes.
 
 Thanks to The Indie Stone for creating Project Zomboid

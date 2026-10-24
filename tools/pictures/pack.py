@@ -7,7 +7,7 @@ larger than it is worth at the size it hangs, and saved as src/main/resources/pi
 pictures not picked yet are left out, and the sprites that would show them keep the game's own painting.
 
 The index lists each picture with its size, and its subject where catalogue.subject gives one; then what shows each;
-then catalogue.POOLS, a line a pool: @subject, a tab, the kind of room, a tab and its pictures with a space between.
+then notices.COLLAGES, a line a sheet: %key, a tab, the sheet's picture, a tab and its box; then catalogue.POOLS, a line a pool: @subject, a tab, the kind of room, a tab and its pictures with a space between.
 
 What a television shows (catalogue.SHOTS) is cut four wide for three high, and the count of each show's shots in
 shows.txt (schedule.py) is set to how many of them were made: a show with none shows the bars. The bars a set shows with nothing coming
@@ -24,13 +24,14 @@ import tempfile
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 import catalogue
+import notices
 import signs
 
 OUT = pathlib.Path(__file__).resolve().parents[2] / 'src' / 'main' / 'resources' / 'pictures'
 FONTS = pathlib.Path('C:/Windows/Fonts')
 QUALITY = 86
 # The longest side a picture is kept at, by what it is: a snapshot in a frame a hand across is worth fewer pixels than a hoarding.
-LONGEST = {'family': 768, 'painting': 1024, 'board': 1024, 'certificate': 1024, 'music': 768, 'film': 1344, 'sign': signs.LONGEST}
+LONGEST = {'family': 768, 'painting': 1024, 'board': 1024, 'certificate': 1024, 'music': 768, 'film': 1344, 'sign': signs.LONGEST, 'notice': notices.LONGEST}
 SMALL = 768
 # How many times as wide as it is high each shape cut from square art is.
 SHAPES = {'tall': 2 / 3, 'wide': 3 / 2, 'broad': 16 / 9}
@@ -201,6 +202,8 @@ def made(folder, name):
 
 def picture(folder, name):
     """The finished picture of that name, or None where its art is not made yet."""
+    if name in notices.PICTURES:
+        return notices.picture(name, lambda art: made(folder, art))
     if name in signs.PICTURES:
         return signs.picture(signs.PICTURES[name], lambda art: made(folder, art))
     if name in catalogue.LETTERED:
@@ -240,7 +243,7 @@ def main():
     missing = []
     total = 0
     pooled = [name for pool in catalogue.POOLS.values() for name in pool]
-    for name in dict.fromkeys([shown for _, shown in catalogue.HUNG] + pooled):
+    for name in dict.fromkeys([shown for _, shown in catalogue.HUNG] + pooled + list(notices.PICTURES)):
         image = picture(folder, name)
         if image is None:
             missing.append(name)
@@ -274,6 +277,11 @@ def main():
         for key, name in catalogue.HUNG:
             if name in sizes:
                 index.write(f"{'+' if key in catalogue.LONG else '='}{key}\t{name}\n")
+        # A collage only where every sheet of it is made: one with a sheet missing would hang with a hole in it.
+        for key, (_, _, sheets) in notices.COLLAGES.items():
+            if all(name in sizes for name, _, _ in sheets):
+                for name, box, _ in sheets:
+                    index.write(f"%{key}\t{name}\t{' '.join(f'{share:g}' for share in box)}\n")
         for (subject, kind), pool in catalogue.POOLS.items():
             made_of = [name for name in pool if name in sizes]
             if made_of:
