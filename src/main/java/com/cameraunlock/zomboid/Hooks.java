@@ -178,9 +178,9 @@ public final class Hooks {
         String progress = Pipeline.shaderProgress();
         if (progress != null) {
             zombie.core.Core screen = zombie.core.Core.getInstance();
-            // Over the line the game writes "Click to start" on, which sits over its quick tip.
-            double y = screen.getScreenHeight() - 40 - TextManager.instance.getFontHeight(UIFont.NewSmall) - TextManager.instance.getFontHeight(UIFont.NewLarge) - 12;
-            TextManager.instance.DrawStringCentre(UIFont.NewSmall, screen.getScreenWidth() / 2.0, y, progress, 0.8, 0.8, 0.8, 1.0);
+            // Where and as the game writes "Click to Start", which clickToStartShown holds back meanwhile.
+            double y = screen.getScreenHeight() - 40 - TextManager.instance.getFontHeight(UIFont.NewSmall) - 5;
+            TextManager.instance.DrawStringCentre(UIFont.NewLarge, screen.getScreenWidth() / 2.0, y, progress, 1.0, 1.0, 1.0, 1.0);
         }
     }
 
