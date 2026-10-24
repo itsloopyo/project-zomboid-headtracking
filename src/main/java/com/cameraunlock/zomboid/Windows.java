@@ -41,6 +41,10 @@ final class Windows {
     private static final int THINNEST_LIGHT = 2;
     /** A pane with less glass in it than the lower has none, and with more than the upper is whole. */
     static final float NO_GLASS = 0.08f, WHOLE_GLASS = 0.85f;
+    /** A dot from this much cover up is painted solid, as a wall is: glass the game darkens stops short of it. */
+    private static final int SOLID_COVER = 250;
+    /** How much of the foot or head of a window has to be painted solid for it to be wall and not darkened glass. */
+    private static final float PAINTED_SOLID = 0.5f;
     static final int BANDS = 16;
 
     /** One window: all places are shares of the wall's length, then heights in levels. */
@@ -52,6 +56,13 @@ final class Windows {
         float start, end, foot, head, startWide, endWide, footHigh, headHigh;
         /** The colour the frame is painted in. */
         float red, green, blue;
+        /**
+         * Whether the sprite paints the foot and the head of the frame solid, as a shop front's
+         * panels are. A tower's windows (walls_commercial_01_16, 17) darken their glass towards
+         * the floor past FRAME_COVER, so a third of the glass reads as foot; shown as the sprite,
+         * it was taken for a pane's film and sifted, a different set of pixels every frame.
+         */
+        boolean footSolid, headSolid;
         /** Four numbers a bar: where along it starts and ends, how high its foot and its head. */
         float[] bars = new float[0];
         /** Five numbers a pane: as a bar, then how much of it is glass. */
@@ -119,6 +130,7 @@ final class Windows {
         byte[] dots = laid(sheet, width, left, top, right, bottom, wanted.north, false, wanted.originU, wanted.originV, wanted.scale,
                 wanted.left, wanted.top, wanted.width, wanted.height, margin, at);
         Shape shape = measure(dots, across + 2 * margin, high);
+        int offset = margin;
         if (shape == null || shape.arch != null) {
             // An arch is read evenly from start to end, and one cut at the square's end would be read wrong: read the square alone.
             int wide = across + 2 * margin;
@@ -130,6 +142,7 @@ final class Windows {
             }
             dots = square;
             at = squareAt;
+            offset = 0;
             shape = measure(dots, across, high);
         } else {
             shape = onSquare(shape, across, margin);
@@ -139,6 +152,9 @@ final class Windows {
             return;
         }
         colour(sheet, dots, at, shape);
+        int wide = across + 2 * offset;
+        shape.footSolid = paintedSolid(sheet, dots, at, wide, high, offset, across, shape, shape.foot, shape.foot + shape.footHigh);
+        shape.headSolid = paintedSolid(sheet, dots, at, wide, high, offset, across, shape, shape.head - shape.headHigh, shape.head);
         shape.north = wanted.north;
         shape.originU = wanted.originU;
         shape.originV = wanted.originV;
@@ -221,6 +237,24 @@ final class Windows {
         shape.red = red / (255f * count);
         shape.green = green / (255f * count);
         shape.blue = blue / (255f * count);
+    }
+
+    /**
+     * Whether the sprite paints the part of the window between heights from and to (in levels)
+     * solid: dots holds rows wide dots long, the square's across of them from offset on.
+     */
+    static boolean paintedSolid(ByteBuffer sheet, byte[] dots, int[] at, int wide, int high, int offset, int across, Shape shape, float from, float to) {
+        int solid = 0, painted = 0;
+        int c0 = offset + (int) Math.floor(shape.start * across), c1 = offset + (int) Math.ceil(shape.end * across);
+        for (int row = (int) Math.floor((1f - to) * high); row < (int) Math.ceil((1f - from) * high); row++) {
+            for (int column = Math.max(c0, 0); column < Math.min(c1, wide); column++) {
+                if (dots[row * wide + column] != EMPTY) {
+                    painted++;
+                    solid += (sheet.get(at[row * wide + column] + 3) & 0xff) >= SOLID_COVER ? 1 : 0;
+                }
+            }
+        }
+        return painted > 0 && solid >= PAINTED_SOLID * painted;
     }
 
     static int band(ByteBuffer sheet, int at) {

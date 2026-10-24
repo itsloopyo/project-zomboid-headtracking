@@ -777,8 +777,8 @@ final class OpeningBuilder {
             if (shape.endWide > 0f) {
                 addMember(joinery, wall, x, y, z, inEnd, shape.end + FRAME_LAP, shape.foot - lap, shape.head + lap, out * deep, r, g, b, sideOpen[side]);
             }
-            addMember(joinery, wall, x, y, z, inStart, inEnd, shape.head - shape.headHigh, shape.head + lap, out * deep, r, g, b, sideOpen[side]);
-            addMember(joinery, wall, x, y, z, inStart, inEnd, shape.foot - lap, shape.foot + shape.footHigh, out * deep, r, g, b, sideOpen[side]);
+            addMember(joinery, shape.headSolid ? wall : null, x, y, z, inStart, inEnd, shape.head - shape.headHigh, shape.head + lap, out * deep, r, g, b, sideOpen[side]);
+            addMember(joinery, shape.footSolid ? wall : null, x, y, z, inStart, inEnd, shape.foot - lap, shape.foot + shape.footHigh, out * deep, r, g, b, sideOpen[side]);
             if (shape.arch != null) {
                 addArch(joinery, shape, out * deep, r, g, b);
             }
