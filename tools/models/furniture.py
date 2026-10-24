@@ -9253,8 +9253,13 @@ def flood_light():
     cuboid(mast, -0.5, 0.5, -0.02, 0.02, bar - 0.02, bar + 0.02)
     model.turned(mast, "paint", sharp=40.0)
     cases, cages, glass = bmesh.new(), bmesh.new(), bmesh.new()
+    yokes = bmesh.new()
     for x in (-0.4, 0.4):
-        cuboid(cases, x - 0.015, x + 0.015, -0.015, 0.015, bar + 0.02, bar + 0.1)
+        # A yoke holds each light by its sides: from across a street a thin stem under the case is not seen, and the light floats.
+        cuboid(yokes, x - 0.02, x + 0.02, -0.02, 0.02, bar + 0.02, bar + 0.07)
+        cuboid(yokes, x - 0.19, x + 0.19, -0.02, 0.02, bar + 0.05, bar + 0.08)
+        for side in (-1, 1):
+            cuboid(yokes, x + side * 0.165, x + side * 0.19, -0.02, 0.02, bar + 0.05, bar + 0.29)
         prism_y(cases, (x, bar + 0.27, 0.32, 0.32, -0.06), (x, bar + 0.27, 0.26, 0.26, 0.08))
         cuboid(glass, x - 0.14, x + 0.14, -0.064, -0.06, bar + 0.13, bar + 0.41)
         for n in range(4):
@@ -9263,6 +9268,7 @@ def flood_light():
         for z in (bar + 0.11, bar + 0.43):
             cuboid(cages, x - 0.16, x + 0.16, -0.09, -0.08, z - 0.005, z + 0.005)
     model.hard(cases, "plastic", bevel=0.006, segments=1)
+    model.hard(yokes, "paint", bevel=0.003, segments=1)
     model.plain(cages, "metal")
     model.plain(glass, "shade")
     return model
