@@ -5993,7 +5993,7 @@ final class Pipeline {
         pieces.add(new Piece(CabinDraw::link));
         pieces.add(new Piece(CharacterDraw::link));
         for (Supplier<SmallProgram> small : List.<Supplier<SmallProgram>>of(() -> Crosshair.flat, () -> FireCards.program, () -> FireDraw.program,
-                () -> ImpactDraw.debris, () -> ImpactDraw.holeProgram, () -> ModeFade.program, () -> MuzzleFlash.burst)) {
+                () -> ImpactDraw.debris, () -> ImpactDraw.holeProgram, () -> ModeFade.program, () -> MuzzleFlash.burst, () -> SpriteColours.unpack)) {
             pieces.add(new Piece(() -> {
                 small.get().make();
                 return null;
