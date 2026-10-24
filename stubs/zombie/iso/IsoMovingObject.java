@@ -15,4 +15,6 @@ public class IsoMovingObject extends IsoObject {
     public float setX(float x) { throw new UnsupportedOperationException("reference stub"); }
     public float setY(float y) { throw new UnsupportedOperationException("reference stub"); }
     public float setZ(float z) { throw new UnsupportedOperationException("reference stub"); }
+    public void ensureOnTile() { throw new UnsupportedOperationException("reference stub"); }
+    public void setOnFloor(boolean onFloor) { throw new UnsupportedOperationException("reference stub"); }
 }

@@ -15,6 +15,7 @@ import zombie.CombatManager;
 import zombie.Lua.LuaEventManager;
 import zombie.EffectsManager;
 import zombie.GameTime;
+import zombie.characters.CharacterDiedListener;
 import zombie.characters.IsoGameCharacter;
 import zombie.characters.IsoPlayer;
 import zombie.characters.IsoZombie;
@@ -197,6 +198,9 @@ public final class Hooks {
         Pieces.forget();
         LimbDecals.forget();
         SharedHeads.forget();
+        if (LazarusRing.ON) {
+            Lazarus.forget();
+        }
         for (int i = 0; i < View.COUNT; i++) {
             View view = View.of(i);
             if (view != null) {
@@ -535,6 +539,14 @@ public final class Hooks {
     public static void worldUpdate() {
         Bleeding.tick(wounds);
         Pieces.tick();
+        if (LazarusRing.ON) {
+            Lazarus.tick();
+        }
+    }
+
+    /** Called at the start of IsoGameCharacter.Kill with what it was called with. Says whether to leave the Kill out: see Lazarus. */
+    public static boolean heldDeath(IsoGameCharacter dying, IsoGameCharacter killer, HandWeapon weapon, boolean gory, CharacterDiedListener listener) {
+        return Lazarus.holds(dying, killer, weapon, gory, listener);
     }
 
     /** How often a limb a shot takes off bursts in blood and shards rather than coming off whole. */

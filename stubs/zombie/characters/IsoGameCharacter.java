@@ -64,4 +64,17 @@ public abstract class IsoGameCharacter extends IsoMovingObject {
     public zombie.inventory.types.HandWeapon getAttackingWeapon() { throw new UnsupportedOperationException("reference stub"); }
     public void ensureNotInVehicle() { throw new UnsupportedOperationException("reference stub"); }
     public void PlayAnim(String name) { throw new UnsupportedOperationException("reference stub"); }
+    public final void Kill(IsoGameCharacter killer, zombie.inventory.types.HandWeapon weapon, boolean gory, CharacterDiedListener listener) { throw new UnsupportedOperationException("reference stub"); }
+    public void setHealth(float health) { throw new UnsupportedOperationException("reference stub"); }
+    public void setOnKillDone(boolean done) { throw new UnsupportedOperationException("reference stub"); }
+    public void setOnDeathDone(boolean done) { throw new UnsupportedOperationException("reference stub"); }
+    public void setDeathDragDown(boolean dragged) { throw new UnsupportedOperationException("reference stub"); }
+    public void setAttackedBy(IsoGameCharacter by) { throw new UnsupportedOperationException("reference stub"); }
+    public void setKnockedDown(boolean down) { throw new UnsupportedOperationException("reference stub"); }
+    public void setHitReaction(String reaction) { throw new UnsupportedOperationException("reference stub"); }
+    public void setBumpType(String type) { throw new UnsupportedOperationException("reference stub"); }
+    public void setPlayingDeathSound(boolean playing) { throw new UnsupportedOperationException("reference stub"); }
+    public void setDefaultState() { throw new UnsupportedOperationException("reference stub"); }
+    public void resetModelNextFrame() { throw new UnsupportedOperationException("reference stub"); }
+    public void StopAllActionQueue() { throw new UnsupportedOperationException("reference stub"); }
 }

@@ -10,4 +10,5 @@ public final class GameTime {
     public float getTimeOfDay() { throw new UnsupportedOperationException("reference stub"); }
     public void setTimeOfDay(float hours) { throw new UnsupportedOperationException("reference stub"); }
     public double getWorldAgeHours() { throw new UnsupportedOperationException("reference stub"); }
+    public float getRealworldSecondsSinceLastUpdate() { throw new UnsupportedOperationException("reference stub"); }
 }

@@ -378,6 +378,9 @@ public final class Agent {
         add(instrumentation, new PatchTransformer(loadingPatches()));
         add(instrumentation, new PatchTransformer(luaLoadedPatches()));
         add(instrumentation, new PatchTransformer(knockdownPatches()));
+        if (LazarusRing.ON) {
+            add(instrumentation, new PatchTransformer(lazarusPatches()));
+        }
         add(instrumentation, new PatchTransformer(carPhysicsPatches()));
         add(instrumentation, new PatchTransformer(controllerPatches()));
         chunkMarks = new PatchTransformer(chunkMarkPatches());
@@ -880,6 +883,26 @@ public final class Agent {
                 new Patch(vehicle, "applyImpulseFromHitPlant passed over where plants give way", classBytes -> CallSite.returnAtOnceIf(classBytes,
                         new CallSite.Method(vehicle, "applyImpulseFromHitPlant", "(L" + object + ";F)V"),
                         new CallSite.Method(HOOKS, "plantGivesWay", "()Z"))));
+    }
+
+    /**
+     * Apart from everything else: without it a death is final, as the game has it. Every death
+     * of a character goes through this Kill, before the game makes a body or tells its Lua. See Lazarus.
+     */
+    private static List<Patch> lazarusPatches() {
+        String character = "zombie/characters/IsoGameCharacter";
+        return List.of(new Patch(character, "Kill passed over while Lazarus holds the death", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
+                new CallSite.Method(character, "Kill", "(L" + character + ";Lzombie/inventory/types/HandWeapon;ZLzombie/characters/CharacterDiedListener;)V"),
+                code -> {
+                    code.aload(0);
+                    code.aload(1);
+                    code.aload(2);
+                    code.iload(3);
+                    code.aload(4);
+                    CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "heldDeath",
+                            "(L" + character + ";L" + character + ";Lzombie/inventory/types/HandWeapon;ZLzombie/characters/CharacterDiedListener;)Z"));
+                    code.ifThen(Opcode.IFNE, CodeBuilder::return_);
+                })));
     }
 
     /**
