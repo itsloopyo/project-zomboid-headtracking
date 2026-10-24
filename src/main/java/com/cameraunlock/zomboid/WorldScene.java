@@ -4063,7 +4063,10 @@ final class WorldScene {
                 IsoChunk north = gridY > 0 ? map.getChunk(gridX, gridY - 1) : null, west = gridX > 0 ? map.getChunk(gridX - 1, gridY) : null;
                 int readings = roomMap.read(chunk, north != null && north.loaded ? north : null, west != null && west.loaded ? west : null, ChunkMarks.live, now,
                         roomMap.mayRead());
-                inReach += (((long) chunk.wx * 31 + chunk.wy) * 31 + readings) * 0x9E3779B97F4A7C15L;
+                // Each chunk's term is mixed before it is added: summed as they were, two sets of chunks and readings could sum the same.
+                long term = (((long) chunk.wx * 31 + chunk.wy) * 31 + readings) * 0x9E3779B97F4A7C15L;
+                term = (term ^ term >>> 31) * 0xBF58476D1CE4E5B9L;
+                inReach += term ^ term >>> 29;
                 if (readings == RoomMap.UNREAD) {
                     unreadChunks++;
                 }
