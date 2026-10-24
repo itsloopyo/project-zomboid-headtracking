@@ -496,6 +496,7 @@ final class Decor {
                     } else if (made != null) {
                         waiting[picture] = made;
                     }
+                    SpriteColours.answered();
                     if (stale && wantedAgain[picture]) {
                         read(picture, false);
                     }

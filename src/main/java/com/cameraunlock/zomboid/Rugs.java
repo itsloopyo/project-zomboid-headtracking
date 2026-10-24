@@ -372,6 +372,7 @@ final class Rugs {
                 made.poll();
                 reads++;
                 square.asRead = name;
+                SpriteColours.answered();
                 continue;
             }
             if (one.levels == null) {

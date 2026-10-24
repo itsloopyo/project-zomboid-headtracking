@@ -6,6 +6,7 @@ import java.util.Arrays;
 import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
@@ -80,6 +81,11 @@ final class SpriteColours {
     private static final int WAITED_FOR_A_SHEET = 240;
     private static int sizeless;
     /**
+     * How many answers a build can be left waiting for have come in: copies of a sheet read, rugs put on the graphics card,
+     * pictures read. A build left without a sum for want of one has nothing new to be made from until this moves.
+     */
+    private static final AtomicInteger readings = new AtomicInteger();
+    /**
      * Whether the shader that unpacks the part of a sheet read into a target of its own linked
      * (see copying), else whether the graphics card copies back part of a sheet, asked once on
      * the first reading.
@@ -146,6 +152,16 @@ final class SpriteColours {
             return null;
         }
         return colour.length == 0 ? null : colour;
+    }
+
+    /** How many answers a build can wait for have come in since the game started. */
+    static int readings() {
+        return readings.get();
+    }
+
+    /** Counts an answer a build may have been left waiting for, from any thread. */
+    static void answered() {
+        readings.incrementAndGet();
     }
 
     /** Whether the sprite has still to be read: of() gives null for it, and may not once a frame has been drawn. */
@@ -571,6 +587,7 @@ final class SpriteColours {
             }
         } finally {
             copied.clear();
+            readings.incrementAndGet();
         }
     }
 

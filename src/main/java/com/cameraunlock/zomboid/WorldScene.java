@@ -292,6 +292,8 @@ final class WorldScene {
         private final byte[] groundLayers = new byte[CHUNK_TILES * CHUNK_TILES];
         /** Whether what the build read of the map was summed as it was made, and the sum: see signature. */
         boolean signed;
+        /** SpriteColours.readings() as the build began, or -1 for one not summed: see where a build is trusted. */
+        int readingsAtBuild;
         private long signature;
         /** The frame and the time from which the chunk's builds are summed again, after one was found changed with the eye still. */
         private int summedFrom;
@@ -1745,6 +1747,9 @@ final class WorldScene {
      */
     private static final float[] BAND_ENDS = {4f, 9f, 16f, 24f, 40f};
     static final float[] BAND_AWAY = {2f, 6f, 12f, 20f, 30f, 70f};
+    /** Dev only: a chunk build longer than this is said, with why it was due and where its time went. */
+    private static final long SLOW_BUILD_NANOS = 10_000_000L;
+    private static final String[] CAUSES = {"new", "the eye moved", "changed", "aged", "unsigned", "left unread", "kept on"};
     /** How far past its band's ends a chunk keeps the build made for the band, so that one on the line is not made over and over. */
     private static final float BAND_SLACK = 0.5f;
 
@@ -3486,10 +3491,15 @@ final class WorldScene {
                         reband(current, slot, band(nearest));
                     }
                     boolean stands = !missing && inBand(current.band, nearest);
-                    boolean still = missing ? eyeStill : stands && (eyeStill || current.signed);
+                    // A build left without a sum for want of a sprite, a rug or a picture not read yet would come out the same
+                    // again until another has been (SpriteColours.readings): until then it is trusted as one with a
+                    // sum. It was made again every time it fell due, and right by the eye that was every frame: in a tower, walls with
+                    // grime over them and tiled floors left a dozen chunks of thirty storeys unsigned, and each was built every frame.
+                    boolean trusted = !missing && (current.signed || current.readingsAtBuild == SpriteColours.readings());
+                    boolean still = missing ? eyeStill : stands && (eyeStill || trusted);
                     // A build that is held is only read through to see whether its chunk has changed: half as often will do,
                     // and a change twenty tiles off shows a tenth of a second later.
-                    boolean held = !missing && still && current.signed;
+                    boolean held = !missing && still && trusted;
                     boolean waited = missing || (every > 1 ? since >= every * NANOS_A_FRAME_COUNTED * (held ? 2 : 1)
                             : held ? since >= UNCHANGED_READ_EVERY_NANOS : !stands || since >= CHANGING_BUILT_EVERY_NANOS);
                     // With the game telling of its changes, a chunk nothing has been said of is not read:
@@ -3523,7 +3533,7 @@ final class WorldScene {
                     boolean settled = !missing && (start - current.bornNanos >= SETTLES_IN_NANOS
                             || start - current.builtNanos < (distance < BUILT_EVERY_FRAME ? KEPT_WHILE_SETTLING_NANOS : Math.max(KEPT_WHILE_SETTLING_NANOS, (start - current.bornNanos) / 2)));
                     boolean landChanged = !missing && terrain.version(chunk.wx, chunk.wy) != current.terrainVersion;
-                    boolean quiet = telling && !missing && !landChanged && stands && current.signed && !current.restless && marks == current.marks && toldSoFar == current.told
+                    boolean quiet = telling && !missing && !landChanged && stands && trusted && !current.restless && marks == current.marks && toldSoFar == current.told
                             && current.epoch == epoch && seasonHolds(current, slot) && current.gamesView == gamesView && land == current.land && ringAsItWas && settled;
                     // Only so many a frame are read for the time that has passed: a head that turns back to a street finds every chunk of it overdue at once.
                     if (quiet && since >= sweptEvery(distance, slot) && swept++ < SWEPT_A_FRAME) {
@@ -3563,7 +3573,7 @@ final class WorldScene {
                     // Nothing but light has been marked on it since it was last read, and the frame has
                     // spent its time: the build it has is right but for that light, and is shown a frame or a few longer.
                     // Not one told of a room come into the rooms built or gone (ChunkMarks.tell): its contents would wait.
-                    if (due && !landChanged && telling && stands && current.signed && current.things == things && current.told == toldSoFar && since < LIT_WAITS_NANOS
+                    if (due && !landChanged && telling && stands && trusted && current.things == things && current.told == toldSoFar && since < LIT_WAITS_NANOS
                             && System.nanoTime() - start > LIT_NANOS_A_FRAME / sharing) {
                         due = false;
                     }
@@ -3576,7 +3586,7 @@ final class WorldScene {
                     boolean faced = cosCone <= -1f || toChunkX * forwardX + toChunkY * forwardY >= cosCone * distance - CHUNK_REACH
                             || mirrored && toChunkX * behindX + toChunkY * behindY >= COS_MIRROR_CONE * distance - CHUNK_REACH
                             || glassShown;
-                    boolean onlyLit = telling && !missing && !landChanged && stands && current.signed && !current.restless && settled && ringAsItWas
+                    boolean onlyLit = telling && !missing && !landChanged && stands && trusted && !current.restless && settled && ringAsItWas
                             && marks != current.marks && current.things == things && current.told == toldSoFar && current.epoch == epoch
                             && seasonHolds(current, slot) && current.gamesView == gamesView && current.land == land
                             && current.litLoose == ChunkMarks.litLooseAround(chunk.wx, chunk.wy);
@@ -3603,10 +3613,12 @@ final class WorldScene {
                         due = false;
                         tollChangedWaited++;
                     }
+                    int readings = SpriteColours.readings();
                     boolean summed = (missing || due) && frames >= summedFrom && start >= summedFromNanos;
                     if (missing || due) {
                         surround(map, chunk, gridX, gridY, side);
                     }
+                    long sumNanos = 0L;
                     if (summed) {
                         long summing = System.nanoTime();
                         // Read for nothing but light the game marked, which it marks by its level: the other levels are as they were summed.
@@ -3635,8 +3647,9 @@ final class WorldScene {
                         }
                         slowed(summing);
                         tollSums++;
-                        tollSumNanos += System.nanoTime() - summing;
-                        boolean sameEye = still && due && current.signed;
+                        sumNanos = System.nanoTime() - summing;
+                        tollSumNanos += sumNanos;
+                        boolean sameEye = still && due && trusted;
                         if (AUDIT_MARKS) {
                             for (int bit = 0; bit < tollWhy.length; bit++) {
                                 tollWhy[bit] += why >> bit & 1;
@@ -3660,7 +3673,7 @@ final class WorldScene {
                         // within a valley's width of it are worked out again: most move by a few hundredths of a
                         // tile, and each passes its edges on to the chunks beside it. Far off, a build whose heights
                         // have moved by less than the picture can show is that build still.
-                        if (!same && !missing && current.signed && distance >= BUILT_WHATEVER_IT_TAKES && current.signature == read && current.told == toldSoFar
+                        if (!same && !missing && trusted && distance >= BUILT_WHATEVER_IT_TAKES && current.signature == read && current.told == toldSoFar
                                 && current.epoch == epoch && seasonHolds(current, slot) && (!current.wantsMap || current.loaded == loadedNow)
                                 && heightsHeld(current, distance * tanHalfFieldOfView / HELD_ROWS)) {
                             same = true;
@@ -3682,7 +3695,7 @@ final class WorldScene {
                             young = true;
                         }
                         if (due) {
-                            cause = !still ? MOVED : !current.signed ? UNSIGNED : !same ? CHANGED : young ? KEPT_ON : AGED;
+                            cause = !still ? MOVED : !trusted ? UNSIGNED : !same ? CHANGED : young ? KEPT_ON : AGED;
                             // One found changed that is not right by the eye is shown as it was built while the
                             // frame has spent its time: a turn has the game show a tower's rooms and finds a dozen
                             // of its chunks changed at once, each of thirty storeys, and built together they held
@@ -3763,6 +3776,7 @@ final class WorldScene {
                         fresh.bornNanos = missing ? start : current.bornNanos;
                         fresh.putOffNanos = 0L;
                         fresh.signed = summed;
+                        fresh.readingsAtBuild = summed ? readings : -1;
                         fresh.signature = read;
                         fresh.landSum = readLand;
                         fresh.summedFrom = summedFrom;
@@ -3800,8 +3814,10 @@ final class WorldScene {
                         growing = false;
                         long began = System.nanoTime();
                         addSquares(chunk, chunkX, chunkY, lowest);
+                        long squaresNanos = System.nanoTime() - began;
                         kerbBuilder.noKerb();
                         roofBuilder.addBacks(chunk, chunkX, chunkY);
+                        long backsNanos = System.nanoTime() - began - squaresNanos;
                         fresh.plain &= !canopied;
                         // As it was before the build. A build may itself tell its own chunk, part way through: the roof first
                         // read from one of its squares lays slopes over squares the build has already passed, which asked
@@ -3850,6 +3866,14 @@ final class WorldScene {
                         fresh.fill(solid, laid);
                         slowed(began);
                         long took = System.nanoTime() - began;
+                        if (DevBuild.ON && took + sumNanos > SLOW_BUILD_NANOS) {
+                            Log.info(String.format(Locale.ROOT, "slow build: the chunk at %d, %d (levels %d to %d) %.1f tiles off, %s, in %.1f ms: sums %.1f, squares %.1f, roofs' backs %.1f, the rest %.1f"
+                                    + " | eye still %b, in its band %b (band %d now %d, alike %s), signed %b, trusted %b, summed %b, restless %b, built %.0f ms ago",
+                                    chunk.wx, chunk.wy, lowest, chunk.getMaxLevel(), distance, CAUSES[cause], (took + sumNanos) / 1e6, sumNanos / 1e6, squaresNanos / 1e6, backsNanos / 1e6,
+                                    (took - squaresNanos - backsNanos) / 1e6, eyeStill, stands, missing ? -1 : current.band, band(nearest),
+                                    missing ? "-" : Integer.toBinaryString(current.alike), !missing && current.signed, trusted, summed, !missing && current.restless,
+                                    missing ? 0.0 : (start - current.builtNanos) / 1e6));
+                        }
                         tollBuildNanos += took;
                         tollBuiltNanos[cause] += took;
                         if (cause == MOVED) {
