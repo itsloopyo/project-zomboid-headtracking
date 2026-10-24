@@ -3011,11 +3011,13 @@ final class WorldScene {
             sky.layersFromUp = pose.eyeUp;
             sky.acrossX = rightX;
             sky.acrossY = rightY;
+            playerIndex = player.getIndex();
+            cell = IsoWorld.instance.currentCell;
+            // The eye's light reads the room it is in off the room map, which the view set down let go of.
+            roomMap.begin(cell, terrain);
             exposure = adaptEye(player, fromOutside);
             Lightning.see(view.index, sky, pose.eyeX, pose.eyeY, pose.eyeUp, System.nanoTime());
             Fires.gather(sky, terrain, player.getIndex(), pose.eyeX, pose.eyeY);
-            playerIndex = player.getIndex();
-            cell = IsoWorld.instance.currentCell;
             Lamps.gather(sky, cell, terrain, pose.eyeX, pose.eyeY, Quality.lightDistance(view.index));
             roomLamps.gather(sky, cell, terrain, view.torchLess, playerIndex, pose.eyeX, pose.eyeY, (int) Math.floor(player.getZ()), Quality.lightDistance(view.index));
             leafTrees.gather(sky, cell, terrain, roundNow, Core.tileScale, pose.eyeX, pose.eyeY, start);
