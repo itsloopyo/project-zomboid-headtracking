@@ -427,6 +427,7 @@ public final class FirstPerson {
      */
     void leftSave() {
         SnowPrints.forget();
+        WallTiles.leftSave();
         view.heldLight.forget();
         view.modeFade.giveBack("the save was left");
         giveBack("the save was left");

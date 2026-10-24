@@ -531,33 +531,36 @@ final class SpriteColours {
     /** Reads every sprite the copy was made for out of the page. */
     private static void readCopied() {
         int fromX = copyFromX, fromY = copyFromY, across = copyAcross, width = copyWidth, height = copyHeight;
-        for (int i = 0; i < copied.size(); i++) {
-            Texture texture = copied.get(i).texture();
-            float[] colour = new float[WallSides.MEAN + 3];
-            place(texture, width, height);
-            int left = placed[0] - fromX, top = placed[1] - fromY, right = placed[2] - fromX, bottom = placed[3] - fromY;
-            boolean painted = WallSides.usualColour(page, across, left, top, right, bottom, colour);
-            if (painted) {
-                WallSides.meanColour(page, across, left, top, right, bottom, colour);
+        try {
+            for (int i = 0; i < copied.size(); i++) {
+                Texture texture = copied.get(i).texture();
+                float[] colour = new float[WallSides.MEAN + 3];
+                place(texture, width, height);
+                int left = placed[0] - fromX, top = placed[1] - fromY, right = placed[2] - fromX, bottom = placed[3] - fromY;
+                boolean painted = WallSides.usualColour(page, across, left, top, right, bottom, colour);
+                if (painted) {
+                    WallSides.meanColour(page, across, left, top, right, bottom, colour);
+                }
+                known.put(texture, painted ? colour : UNPAINTED);
+                Windows.read(texture, page, across, left, top, right, bottom);
+                Drapes.read(texture, page, across, left, top, right, bottom);
+                Doors.read(texture, page, across, left, top, right, bottom);
+                Casings.read(texture, page, across, left, top, right, bottom);
+                Papers.read(texture, page, across, left, top, right, bottom);
+                WallTiles.read(texture, page, across, left, top, right, bottom);
+                Tiles.read(texture, page, across, left, top, right, bottom);
+                Solids.read(texture, page, across, left, top, right, bottom);
+                SeeThrough.read(texture, page, across, left, top, right, bottom);
+                Flats.read(texture, page, across, left, top, right, bottom);
+                Rugs.read(texture, page, across, left, top, right, bottom);
+                Trims.read(texture, page, across, left, top, right, bottom);
+                RoadPaint.read(texture, page, across, left, top, right, bottom);
+                Masonry.read(texture, page, across, left, top, right, bottom);
+                Stains.read(texture, page, across, left, top, right, bottom);
             }
-            known.put(texture, painted ? colour : UNPAINTED);
-            Windows.read(texture, page, across, left, top, right, bottom);
-            Drapes.read(texture, page, across, left, top, right, bottom);
-            Doors.read(texture, page, across, left, top, right, bottom);
-            Casings.read(texture, page, across, left, top, right, bottom);
-            Papers.read(texture, page, across, left, top, right, bottom);
-            WallTiles.read(texture, page, across, left, top, right, bottom);
-            Tiles.read(texture, page, across, left, top, right, bottom);
-            Solids.read(texture, page, across, left, top, right, bottom);
-            SeeThrough.read(texture, page, across, left, top, right, bottom);
-            Flats.read(texture, page, across, left, top, right, bottom);
-            Rugs.read(texture, page, across, left, top, right, bottom);
-            Trims.read(texture, page, across, left, top, right, bottom);
-            RoadPaint.read(texture, page, across, left, top, right, bottom);
-            Masonry.read(texture, page, across, left, top, right, bottom);
-            Stains.read(texture, page, across, left, top, right, bottom);
+        } finally {
+            copied.clear();
         }
-        copied.clear();
     }
 
     /** Where a sprite lies on its sheet, in texels: left, top, right and bottom, into placed. */

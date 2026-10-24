@@ -8,6 +8,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicReference;
 import zombie.core.textures.Texture;
 
 /**
@@ -346,8 +347,8 @@ final class WallTiles {
         thread.setPriority(Thread.MIN_PRIORITY);
         return thread;
     });
-    /** What stopped the reader, thrown on the next asking. */
-    private static volatile Throwable readerFailed;
+    /** What stopped the reader on a sprite, thrown once on the next asking: the sprite is asked for again after that. */
+    private static final AtomicReference<IllegalStateException> readerFailed = new AtomicReference<>();
 
     private static int way(boolean north, boolean overlay) {
         return (north ? 0 : 1) + (overlay ? 2 : 0);
@@ -447,10 +448,15 @@ final class WallTiles {
     }
 
     private static void throwIfTheReaderFailed() {
-        Throwable failed = readerFailed;
+        IllegalStateException failed = readerFailed.getAndSet(null);
         if (failed != null) {
-            throw new IllegalStateException("reading a tiled wall failed", failed);
+            throw new IllegalStateException(failed.getMessage(), failed.getCause());
         }
+    }
+
+    /** Forgets a failure of the reader not yet thrown, as the save it was read for is left. */
+    static void leftSave() {
+        readerFailed.set(null);
     }
 
     /**
@@ -489,8 +495,10 @@ final class WallTiles {
                     }
                     known.get(into).put(texture, wall == null ? NONE : wall);
                 } catch (Throwable failed) {
-                    Log.error("reading the tiled wall " + texture.getName() + (north ? " north" : " west") + (overlay ? " over a wall" : "") + " failed", failed);
-                    readerFailed = failed;
+                    asked.get(into).remove(texture);
+                    reading.get(into).remove(texture);
+                    readerFailed.compareAndSet(null, new IllegalStateException("reading the tiled wall " + texture.getName() + (north ? " north" : " west")
+                            + (overlay ? " over a wall" : "") + " failed", failed));
                 }
             });
         }
