@@ -1104,6 +1104,94 @@ final class ArmHolds {
         return true;
     }
 
+    /**
+     * Where the left hand is while it carries something, a torch, beside a weapon held in the
+     * right alone, in the aim's axes in metres from the eye: at the foot of the picture on its
+     * left, the elbow down under it, the palm in, the fingers down and ahead. Left
+     * where the game's animation has it, the game's attack lifted the hand flat across the eye.
+     */
+    static final float[] CARRY_AT = {-0.12f, -0.26f, -0.46f}, CARRY_PALM = {0.92f, -0.32f, 0.23f}, CARRY_FINGERS = {0.10f, -0.38f, -0.92f};
+    /** Where the carrying forearm seems to come from, in metres from the eye. */
+    static final float[] CARRY_FROM = {-0.30f, -0.65f, -0.10f};
+    /**
+     * The way the length of what a carrying hand holds runs out of its fist, in its fingers, palm
+     * and thumb's side. The game's hand holds its torch with the lamp out of the thumb's side
+     * leaning 28 degrees towards the fingers (0.46 along them, 0.88 out of the thumb's side,
+     * measured on Base.HandTorch); held so, no hand this arm reaches with its forearm turned 80
+     * degrees or less points the lamp nearer ahead than 28 degrees up. Leaning 40 degrees further
+     * towards the fingers, as a torch lies aslant in a fist, it points ahead with the forearm
+     * turned 38.
+     */
+    static final float[] CARRY_LONG = {0.915f, -0.14f, 0.377f};
+
+    /**
+     * The ways in the view the length of what a carrying hand holds runs, and across it towards
+     * the back of the hand.
+     *
+     * @param hand   the hand, in the view
+     * @param along  the answer: the way along its length, of length one
+     * @param across the answer: square to that, towards the back of the hand, of length one
+     */
+    static void carried(TimedActs.Hand hand, float[] along, float[] across) {
+        float[] fingers = new float[3], palm = new float[3], thumb = new float[3];
+        ArmPose.unit(hand.fingers[0], hand.fingers[1], hand.fingers[2], fingers);
+        ArmPose.unit(hand.out[0], hand.out[1], hand.out[2], palm);
+        ArmPose.cross(palm, fingers, thumb);
+        for (int axis = 0; axis < 3; axis++) {
+            along[axis] = CARRY_LONG[0] * fingers[axis] + CARRY_LONG[1] * palm[axis] + CARRY_LONG[2] * thumb[axis];
+        }
+        ArmPose.unit(along[0], along[1], along[2], along);
+        float onto = -ArmPose.dot(palm, along);
+        ArmPose.unit(-palm[0] - along[0] * onto, -palm[1] - along[1] * onto, -palm[2] - along[2] * onto, across);
+    }
+
+    /**
+     * Places the left arm on a hand carrying something beside a weapon held in the right alone,
+     * steady in the aim's axes whatever the weapon does, and swung from the shoulder to point
+     * what it carries the way `toward` goes. False if the arm cannot be placed.
+     *
+     * @param toward unit, in the aim's axes (x right, y up, z back): the way the carried light shines, the head's share of the
+     *               light's turn on the aim's
+     * @param seen   the answer: the hand as it is placed, in the view, to put what it carries in
+     */
+    static boolean carry(ArmModel model, float scale, float[] fromAim, float[] toward, float[][] skins, float[][] said, TimedActs.Hand seen) {
+        float yaw = (float) Math.atan2(toward[0], -toward[2]), pitch = (float) Math.asin(Math.max(-1f, Math.min(1f, toward[1])));
+        float[] shoulderAt = {-SHOULDER[0], SHOULDER[1], SHOULDER[2]};
+        float[] place = swung(CARRY_AT, shoulderAt, yaw, pitch), towards = swung(CARRY_FROM, shoulderAt, yaw, pitch);
+        float[] at = new float[3], palm = new float[3], fingers = new float[3];
+        ViewModelMath.place(fromAim, place[0] * scale, place[1] * scale, place[2] * scale, at);
+        ViewModelMath.turned(fromAim, swung(CARRY_PALM, null, yaw, pitch), palm);
+        ViewModelMath.turned(fromAim, swung(CARRY_FINGERS, null, yaw, pitch), fingers);
+        Hold hold = new Hold(model).set(at, palm, fingers, true, model.pose("handle"));
+        float[] shoulder = new float[3], from = new float[3];
+        starts(false, 1, scale, 0f, 0f, fromAim, shoulder, from);
+        ViewModelMath.place(fromAim, towards[0] * scale, towards[1] * scale, towards[2] * scale, from);
+        if (!solve(model, scale, hold, shoulder, from, 1, skins, said)) {
+            return false;
+        }
+        // From the hold as solved, which may have been turned back about the forearm.
+        System.arraycopy(hold.at, 0, seen.at, 0, 3);
+        System.arraycopy(hold.out, 0, seen.out, 0, 3);
+        ArmPose.cross(hold.across, hold.out, seen.fingers);
+        return true;
+    }
+
+    /** A point turned about `about` (a direction when that is null) by a pitch about the aim's right, then a yaw to the right about its up. */
+    private static float[] swung(float[] v, float[] about, float yaw, float pitch) {
+        float x = v[0], y = v[1], z = v[2];
+        if (about != null) {
+            x -= about[0]; y -= about[1]; z -= about[2];
+        }
+        float cp = (float) Math.cos(pitch), sp = (float) Math.sin(pitch), cy = (float) Math.cos(yaw), sy = (float) Math.sin(yaw);
+        float y1 = y * cp - z * sp, z1 = y * sp + z * cp;
+        float x2 = x * cy - z1 * sy, z2 = x * sy + z1 * cy;
+        float[] out = {x2, y1, z2};
+        if (about != null) {
+            out[0] += about[0]; out[1] += about[1]; out[2] += about[2];
+        }
+        return out;
+    }
+
     /** Where an arm on this weapon starts and where its forearm is to seem to come from, in the view, with the weapon raised `aim` of the way to the sights. */
     private static void starts(Weapon weapon, int side, float scale, float turned, float aim, float[] fromAim, float[] shoulder, float[] from) {
         starts(weapon.firearm() && !weapon.handgun(), side, scale, turned, aim, fromAim, shoulder, from);
@@ -1178,6 +1266,11 @@ final class ArmHolds {
     private static boolean solve(ArmModel model, Weapon weapon, float scale, float turned, float aim, Hold hold, float[] fromAim, int side, float[][] skins, float[][] said) {
         float[] shoulder = new float[3], from = new float[3];
         starts(weapon, side, scale, turned, aim, fromAim, shoulder, from);
+        return solve(model, scale, hold, shoulder, from, side, skins, said);
+    }
+
+    /** Places an arm on a hold, as above, from a shoulder and with its forearm seeming to come from a place, both in the view. */
+    private static boolean solve(ArmModel model, float scale, Hold hold, float[] shoulder, float[] from, int side, float[][] skins, float[][] said) {
         float[] turn = new float[9];
         for (int pass = 0; ; pass++) {
             if (!ArmPose.solve(model, scale, hold.weights, hold.at, hold.across, hold.out, shoulder, from, side == 1, hold.round, skins[side], said[side])) {

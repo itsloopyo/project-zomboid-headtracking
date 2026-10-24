@@ -22,6 +22,7 @@ final class OwnArmTests {
         Checks.run("handKeepsTimeWithTheRoundsGoingIn", OwnArmTests::handKeepsTimeWithTheRoundsGoingIn);
         rightHandWorksTheBoltAndComesBackToTheGrip(model);
         leftHandComesToAPistolOnlyToLoadItAndBringsTheMagazine(model);
+        leftHandCarriesATorchLowBesideAOneHandedWeapon(model);
         leftHandLeavesTheForeEndToFeedShellsAndIsBackOnItAfter(model);
         somethingSwungInBothHandsHasAFistUnderTheOther(model);
         handCrossesToAHoldThatIsNotBesideItAndDoesNotJump(model);
@@ -478,6 +479,31 @@ final class OwnArmTests {
         ArmHolds.place(model, SCALE, pistol, new ArmHolds.Doing(0f, false, ArmActs.HANDGUN, -1f, ArmActs.LOADING, 0.1f, 0f, 1f, -1f, false, -1f, 0.1f, 2f, 0f), SAME, skins, said, carried, new ArmHolds.Settled());
         float long3 = (float) Math.sqrt(carried.at[4] * carried.at[4] + carried.at[5] * carried.at[5] + carried.at[6] * carried.at[6]);
         check(near(long3, SCALE, 1e-4f), "and is drawn the size the arm is");
+    }
+
+    private static void leftHandCarriesATorchLowBesideAOneHandedWeapon(ArmModel model) {
+        float[][] skins = new float[2][model.bones.length * 16], said = new float[2][ArmPose.SAYS];
+        TimedActs.Hand seen = new TimedActs.Hand();
+        check(ArmHolds.carry(model, SCALE, SAME, new float[] {0f, 0f, -1f}, skins, said, seen), "a left arm carrying something beside a one-handed weapon is placed");
+        float[] at = {ArmHolds.CARRY_AT[0] * SCALE, ArmHolds.CARRY_AT[1] * SCALE, ArmHolds.CARRY_AT[2] * SCALE};
+        check(ArmPose.apart(placed(skins[1], model.wrist, model.holds[model.pose("handle")]), at) < 1e-3f, "its fist where the carry puts it");
+        check(ArmPose.apart(seen.at, at) < 1e-6f, "and what it carries is put there");
+        check(Math.abs(said[1][ArmPose.TWISTED]) <= ArmPose.TWIST_MOST + 1e-4f, "its forearm turned no further than a forearm turns");
+        check(Math.abs(said[1][ArmPose.ASKED]) <= ArmPose.TWIST_MOST, "turned as it was asked, not turned back about its forearm");
+        check(said[1][ArmPose.BENT] < Math.toRadians(36), "its wrist bent " + Math.toDegrees(said[1][ArmPose.BENT]) + " degrees, under 36");
+        float[] along = new float[3], across = new float[3];
+        ArmHolds.carried(seen, along, across);
+        check(-along[2] > 0.99f, "what it carries points ahead, " + Arrays.toString(along));
+        check(Math.abs(ArmPose.dot(along, across)) < 1e-5f && Math.abs(ArmPose.dot(across, across) - 1f) < 1e-5f, "and has a way across it, square to it");
+        // A light that follows the head is pointed where it shines, by the arm swung from the shoulder.
+        for (float[] turn : new float[][] {{-35f, 0f}, {35f, 0f}, {0f, 25f}, {0f, -25f}, {30f, 20f}, {-30f, -20f}}) {
+            float yaw = (float) Math.toRadians(turn[0]), pitch = (float) Math.toRadians(turn[1]);
+            float[] toward = {(float) (Math.sin(yaw) * Math.cos(pitch)), (float) Math.sin(pitch), (float) (-Math.cos(yaw) * Math.cos(pitch))};
+            check(ArmHolds.carry(model, SCALE, SAME, toward, skins, said, seen), "carrying a light turned " + Arrays.toString(turn) + " the arm is placed");
+            ArmHolds.carried(seen, along, across);
+            check(ArmPose.dot(along, toward) > 0.99f, "and points it where it shines, " + Arrays.toString(along) + " for " + Arrays.toString(toward));
+            check(Math.abs(said[1][ArmPose.ASKED]) <= ArmPose.TWIST_MOST && said[1][ArmPose.BENT] < Math.toRadians(36), "with the forearm and wrist as a carrying arm has them");
+        }
     }
 
     private static void leftHandLeavesTheForeEndToFeedShellsAndIsBackOnItAfter(ArmModel model) {

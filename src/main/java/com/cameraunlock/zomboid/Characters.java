@@ -639,6 +639,7 @@ public final class Characters {
         notedFrames++;
         holding = null;
         carrying = false;
+        leftCarried = false;
     }
 
     /**
@@ -649,6 +650,7 @@ public final class Characters {
     boolean drawViewer(ViewCamera.Pose camera, float[] held, float tanHalfFieldOfView, float aspect, float nearFrom, float far) {
         holding = null;
         carrying = false;
+        leftCarried = false;
         ownLight = held[HeldLight.LIGHT];
         ownOutside = held[HeldLight.OUTSIDE] > 0.5f;
         System.arraycopy(held, HeldLight.CABIN, ownAmbient, 0, 3);
@@ -966,6 +968,8 @@ public final class Characters {
      * and in a shove or a stamp with no weapon in hand, from drawViewer until the frame is done.
      */
     private boolean carrying;
+    /** Whether the mod's own left hand carries what the game has in it beside a weapon held in the right alone, from drawViewer until the frame is done. */
+    private boolean leftCarried, leftCarryRefused;
     private boolean taskRefused;
     private final TimedActs.Hand[] taskHands = {new TimedActs.Hand(), new TimedActs.Hand()}, seenHands = {new TimedActs.Hand(), new TimedActs.Hand()};
     /** The matrix that carries what the left hand holds to before the eye, as heldView does what the right holds. */
@@ -1223,6 +1227,21 @@ public final class Characters {
      */
     private static final float ARM_SCALE = 0.4461f / 0.9015f * CHARACTER_SCALE;
 
+    /** The way the carried light shines, in the aim's axes (x right, y up, z back): the aim's turned by the light's share of the head (HeadFollowLight). */
+    private float[] beamFromAim() {
+        HeadFollowLight light = view.headFollowLight;
+        float turn = light.turn(), up = light.up(aim);
+        float cos = (float) Math.cos(turn), sin = (float) Math.sin(turn);
+        float x = aim.forwardX * cos - aim.forwardY * sin, y = aim.forwardX * sin + aim.forwardY * cos;
+        float flat = (float) Math.sqrt(Math.max(0f, 1f - up * up) / (x * x + y * y));
+        x *= flat;
+        y *= flat;
+        return new float[] {
+                x * aim.rightX + y * aim.rightY + up * aim.rightUp,
+                x * aim.upX + y * aim.upY + up * aim.upUp,
+                -(x * aim.forwardX + y * aim.forwardY + up * aim.forwardUp)};
+    }
+
     /** Places the mod's own arms on the weapon held up. False if either cannot be placed, and the game's own arms are then drawn. */
     private boolean reachOwn(ModelSlotRenderData data, ViewModel.Held hands) {
         float[] grip = view.viewModel.gripSeen;
@@ -1247,7 +1266,34 @@ public final class Characters {
         long now = System.nanoTime();
         armSettled.seconds = Math.min((now - armsAsOf) / 1e9f, 0.1f);
         armsAsOf = now;
-        int arms = ArmHolds.place(OwnArms.model(), ARM_SCALE * data.finalScale, weapon, doing, fromAim, armSkins, armSaid, armCarries, armSettled);
+        float scale = ARM_SCALE * data.finalScale;
+        int arms = ArmHolds.place(OwnArms.model(), scale, weapon, doing, fromAim, armSkins, armSaid, armCarries, armSettled);
+        // A left hand with something in it beside a weapon held in the right alone carries that in the mod's own hand, out of the
+        // way of the game's animation of the attack, which lifted it across the eye.
+        ModelInstanceRenderData carried = arms > 0 && !heldBoth ? leftOf(data) : null;
+        if (carried != null) {
+            if (ArmHolds.carry(OwnArms.model(), scale, fromAim, beamFromAim(), armSkins, armSaid, seenHands[1]) && inTheHand(data, 1, carried, seenHands[1], scale, leftView)) {
+                inTheFist(carried, seenHands[1]);
+                arms = 2;
+                leftCarried = true;
+                armCarries.what = ArmHolds.NOTHING;
+                if (DevBuild.ON && !carried.model.name.equals(leftCarriedSaid)) {
+                    leftCarriedSaid = carried.model.name;
+                    describeCarried(carried);
+                }
+            } else if (!leftCarryRefused) {
+                leftCarryRefused = true;
+                Log.info("what is in the viewer's left hand beside " + hands.item() + " could not be put in the mod's own hand (the game's hand, or the item's mesh or place, is not read yet): the game's own left arm is drawn for it, as often as that happens");
+            }
+        }
+        if (DevBuild.ON) {
+            String state = (carried == null ? (arms == 0 ? "no arms" : heldBoth ? "in both hands" : "nothing in the left hand") : leftCarried ? "carried" : "not carried") + " " + Math.round(hands.aim() * 4f);
+            if (!state.equals(leftCarryState)) {
+                leftCarryState = state;
+                Log.info(String.format(Locale.ROOT, "the left hand beside %s: %s, doing %d, aim %.2f, arms %d, the aim's middle in the view (%.3f, %.3f, %.3f)",
+                        hands.item(), state, hands.doing(), hands.aim(), arms, fromAim[12], fromAim[13], fromAim[14]));
+            }
+        }
         // The left hand comes to a weapon held in one hand to load it or rack it.
         heldBoth = arms == 2;
         return arms > 0;
@@ -1701,6 +1747,9 @@ public final class Characters {
             float[] stains = view.ride.dress.stains;
             OwnArms.draw(projection, armSkins[0], false, armFemale, armSkin, ownLight, outside, worn, stains);
             if (heldBoth) {
+                if (leftCarried) {
+                    drawLeftCarried(data);
+                }
                 OwnArms.draw(projection, armSkins[1], true, armFemale, armSkin, ownLight, outside, worn, stains);
                 // A gun of the mod's own that has a magazine of its own draws it in the hand itself.
                 OwnModel drawsItsOwn = hands == null ? null : hands.ownDrawn();
@@ -1746,6 +1795,105 @@ public final class Characters {
         data.ambientR = red;
         data.ambientG = green;
         data.ambientB = blue;
+    }
+
+    private String leftCarriedSaid, leftCarryState;
+
+    /** For the trace: what the left hand carries and the way its length points in the view. */
+    private void describeCarried(ModelInstanceRenderData item) {
+        float[] along = new float[3], across = new float[3];
+        ArmHolds.carried(seenHands[1], along, across);
+        Vector3f low = item.model.mesh.minXyz, high = item.model.mesh.maxXyz;
+        Log.info(String.format(Locale.ROOT, "the left hand carries %s, mesh (%.3f, %.3f, %.3f) to (%.3f, %.3f, %.3f), its length along (%.2f, %.2f, %.2f) in the view",
+                item.model.name, low.x, low.y, low.z, high.x, high.y, high.z, along[0], along[1], along[2]));
+    }
+
+    /**
+     * Lays what the left hand carries in the mod's fist by its own mesh: its longest axis along
+     * the way ArmHolds.carried says, out of the fist the way it reaches furthest from the point the
+     * game hangs it by, and that point in the middle of the fist. The matrix inTheHand made from
+     * the game's hand says only how big it is drawn and which way round: the game's hand is
+     * where the game's animation has it, which moves as it shoots and aims.
+     */
+    private void inTheFist(ModelInstanceRenderData item, TimedActs.Hand hand) {
+        // The game's draw takes the part's matrix by rows, the picture's by columns.
+        float[] part = item.xfrm.get(itemPlace), turn = new float[9], drawn = new float[9];
+        for (int row = 0; row < 3; row++) {
+            for (int column = 0; column < 3; column++) {
+                turn[column * 3 + row] = part[row * 4 + column];
+            }
+        }
+        for (int row = 0; row < 3; row++) {
+            for (int column = 0; column < 3; column++) {
+                drawn[column * 3 + row] = leftView[row] * turn[column * 3] + leftView[4 + row] * turn[column * 3 + 1] + leftView[8 + row] * turn[column * 3 + 2];
+            }
+        }
+        float size = determinant(drawn), big = (float) Math.cbrt(Math.abs(size));
+        Vector3f low = item.model.mesh.minXyz, high = item.model.mesh.maxXyz;
+        float[] extent = {high.x - low.x, high.y - low.y, high.z - low.z}, lows = {low.x, low.y, low.z}, highs = {high.x, high.y, high.z};
+        int length = extent[0] >= extent[1] && extent[0] >= extent[2] ? 0 : extent[1] >= extent[2] ? 1 : 2, second = (length + 1) % 3, third = (length + 2) % 3;
+        float[] along = new float[3], across = new float[3], square = new float[3];
+        ArmHolds.carried(hand, along, across);
+        if (-lows[length] > highs[length]) {
+            for (int axis = 0; axis < 3; axis++) {
+                along[axis] = -along[axis];
+            }
+        }
+        ArmPose.cross(along, across, square);
+        // Laid so, the mesh's axes go round as the view's do; the game draws it in a mirror when its matrix turns them the other way.
+        float[] laid = new float[9];
+        for (int axis = 0; axis < 3; axis++) {
+            laid[length * 3 + axis] = along[axis] * big;
+            laid[second * 3 + axis] = across[axis] * big;
+            laid[third * 3 + axis] = square[axis] * big * (size < 0f ? -1f : 1f);
+        }
+        // From the person's axes to the mesh's, then laid in the fist: the point the mesh hangs by goes to the middle of the fist.
+        float[] back = inverse(turn), shift = {part[3], part[7], part[11]};
+        for (int column = 0; column < 4; column++) {
+            for (int row = 0; row < 3; row++) {
+                float value = 0f;
+                for (int k = 0; k < 3; k++) {
+                    float from = column < 3 ? back[column * 3 + k] : -(back[k] * shift[0] + back[3 + k] * shift[1] + back[6 + k] * shift[2]);
+                    value += laid[k * 3 + row] * from;
+                }
+                leftView[column * 4 + row] = value + (column == 3 ? hand.at[row] : 0f);
+            }
+            leftView[column * 4 + 3] = column == 3 ? 1f : 0f;
+        }
+    }
+
+    /** The determinant of a three by three matrix held by columns. */
+    private static float determinant(float[] m) {
+        return m[0] * (m[4] * m[8] - m[7] * m[5]) - m[3] * (m[1] * m[8] - m[7] * m[2]) + m[6] * (m[1] * m[5] - m[4] * m[2]);
+    }
+
+    /** The inverse of a three by three matrix held by columns. */
+    private static float[] inverse(float[] m) {
+        float d = determinant(m);
+        return new float[] {
+            (m[4] * m[8] - m[7] * m[5]) / d, (m[7] * m[2] - m[1] * m[8]) / d, (m[1] * m[5] - m[4] * m[2]) / d,
+            (m[6] * m[5] - m[3] * m[8]) / d, (m[0] * m[8] - m[6] * m[2]) / d, (m[3] * m[2] - m[0] * m[5]) / d,
+            (m[3] * m[7] - m[6] * m[4]) / d, (m[6] * m[1] - m[0] * m[7]) / d, (m[0] * m[4] - m[3] * m[1]) / d,
+        };
+    }
+
+    /** Draws what the game has in the viewer's left hand where the mod's own left hand carries it. */
+    private void drawLeftCarried(ModelSlotRenderData data) {
+        // The camera takes its matrix as it is begun: begun again for the left hand, and again for the weapon's after.
+        EYE.End();
+        System.arraycopy(leftView, 0, combined, 0, 16);
+        EYE.Begin();
+        for (int part = 0; part < parts(data).size(); part++) {
+            ModelInstanceRenderData model = parts(data).get(part);
+            if (model.model != null && model.model.isStatic && inLeftHand(model.modelInstance)) {
+                unshifted(model.modelInstance);
+                GL11.glDepthMask(true);
+                drawPart(model, data);
+            }
+        }
+        EYE.End();
+        System.arraycopy(heldView, 0, combined, 0, 16);
+        EYE.Begin();
     }
 
     /** Draws the hands at a timed action, or in a shove or a stamp, and what the game has in them, as drawHeld does the weapon. */
@@ -2136,7 +2284,7 @@ public final class Characters {
             }
             if (held) {
                 // The weapon and the arms on it are drawn apart, held up before the eye, and so is what the left hand holds at a timed action.
-                if (inHand(model.modelInstance) || carrying && inLeftHand(model.modelInstance)) {
+                if (inHand(model.modelInstance) || (carrying || leftCarried) && inLeftHand(model.modelInstance)) {
                     continue;
                 }
                 CharacterDraw.release();
