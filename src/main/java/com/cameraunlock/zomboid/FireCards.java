@@ -117,7 +117,7 @@ final class FireCards {
     private static final int GL_QUADS = 0x0007, GL_PROJECTION = 0x1701, GL_MODELVIEW = 0x1700;
     private static final int GL_ONE = 1, GL_ONE_MINUS_SRC_ALPHA = 0x0303, GL_BLEND = 0x0BE2;
 
-    private static final SmallProgram program = new SmallProgram("fire cards", VERTEX, FRAGMENT);
+    static final SmallProgram program = new SmallProgram("fire cards", VERTEX, FRAGMENT);
 
     private final float[] projection = new float[16], turned = new float[16];
     private final ViewCamera.Pose atEye = new ViewCamera.Pose();

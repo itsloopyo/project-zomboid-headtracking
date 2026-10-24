@@ -359,14 +359,17 @@ public final class FirstPerson {
      * map round the player, so that neither waits for the first switch to first person. The
      * game's loading screen is no frame of the sprite renderer's: both go by the render
      * thread's own queue.
+     *
+     * @return whether shader programs are still to be made, which the save is not begun without
      */
-    void whileLoading(IsoPlayer player) {
+    boolean whileLoading(IsoPlayer player) {
         held = true;
         view.worldScene.tendFar(player.getX(), player.getY());
         RenderThread.queueInvokeOnRenderContext(view.pipeline.HAND_FAR::render);
         if (view.pipeline.unprepared() || view.pipeline.contentWaited()) {
             RenderThread.queueInvokeOnRenderContext(view.pipeline.PREPARE::render);
         }
+        return view.pipeline.shadersWaited();
     }
 
     /**

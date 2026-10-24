@@ -34,7 +34,7 @@ final class Crosshair {
     private static final int GL_BLEND = 0x0BE2, GL_SRC_ALPHA = 0x0302, GL_ONE_MINUS_SRC_ALPHA = 0x0303;
     private static final int GL_DEPTH_TEST = 0x0B71, GL_CULL_FACE = 0x0B44, GL_TRIANGLE_STRIP = 0x0005, GL_TRIANGLE_FAN = 0x0006;
 
-    private static final SmallProgram flat = new SmallProgram("crosshair", SmallProgram.FLAT_VERTEX, FRAGMENT);
+    static final SmallProgram flat = new SmallProgram("crosshair", SmallProgram.FLAT_VERTEX, FRAGMENT);
 
     /** Where it is, -1 to 1 across the picture and up it, how spread, and whether it is the dot alone. */
     private record Mark(float x, float y, float spread, boolean dot) {

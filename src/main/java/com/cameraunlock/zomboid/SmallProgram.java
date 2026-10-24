@@ -4,9 +4,9 @@ import java.util.HashMap;
 import org.lwjgl.opengl.GL20;
 
 /**
- * A shader program for something small drawn over the picture, made the first time it is
- * wanted. One the driver refuses is said in the log once and what it draws is left out: the
- * picture itself does not depend on it.
+ * A shader program for something small drawn over the picture, made with the core's shaders
+ * (Pipeline.SHADERS), or the first time it is wanted if that is sooner. One the driver refuses
+ * is said in the log once and what it draws is left out: the picture itself does not depend on it.
  *
  * Render thread only.
  */
@@ -35,15 +35,20 @@ final class SmallProgram {
 
     /** Makes the program current. False if the driver refused it, with nothing changed. */
     boolean use() {
-        if (!made) {
-            made = true;
-            id = link();
-        }
+        make();
         if (id == 0) {
             return false;
         }
         Program.useOther(id);
         return true;
+    }
+
+    /** Compiles and links the program, once. */
+    void make() {
+        if (!made) {
+            made = true;
+            id = link();
+        }
     }
 
     int at(String uniform) {

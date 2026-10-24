@@ -41,7 +41,7 @@ final class ModeFade {
                 gl_FragColor = vec4(texture2D(uBefore, at).rgb, uShown);
             }
             """;
-    private static final SmallProgram program = new SmallProgram("fade between graphics modes", SmallProgram.FLAT_VERTEX, FRAGMENT);
+    static final SmallProgram program = new SmallProgram("fade between graphics modes", SmallProgram.FLAT_VERTEX, FRAGMENT);
 
     private static final int GL_TEXTURE_2D = 0x0DE1, GL_RGBA = 0x1908, GL_RGBA8 = 0x8058, GL_UNSIGNED_BYTE = 0x1401;
     private static final int GL_TEXTURE_MIN_FILTER = 0x2801, GL_TEXTURE_MAG_FILTER = 0x2800, GL_LINEAR = 0x2601;

@@ -921,15 +921,19 @@ public final class Agent {
     }
 
     /**
-     * Apart again: without it first person works as it does, and what it is drawn with is made
-     * in the first frames of play instead. GameLoadingState.update asks WorldStreamer.isBusy once,
-     * and only once the world is loaded: from then until the click that begins the save.
+     * Apart again: without the first, first person works as it does, and what it is drawn with is
+     * made in the first frames of play instead, shaders included. GameLoadingState.update asks
+     * WorldStreamer.isBusy once, and only once the world is loaded: from then until the click that
+     * begins the save. Without the second the loading screen does not say that it waits for the shaders.
      */
     private static List<Patch> loadingPatches() {
-        return List.of(new Patch("zombie/gameStates/GameLoadingState", "update after isBusy", classBytes -> CallSite.insertAfter(classBytes,
-                new CallSite.Method("zombie/gameStates/GameLoadingState", "update", "()Lzombie/gameStates/GameStateMachine$StateAction;"),
-                new CallSite.Method("zombie/iso/WorldStreamer", "isBusy", "()Z"),
-                new CallSite.Method(HOOKS, "worldLoaded", BOOLEAN_FILTER))));
+        String state = "zombie/gameStates/GameLoadingState";
+        return List.of(new Patch(state, "update after isBusy", classBytes -> CallSite.insertAfter(classBytes,
+                        new CallSite.Method(state, "update", "()Lzombie/gameStates/GameStateMachine$StateAction;"),
+                        new CallSite.Method("zombie/iso/WorldStreamer", "isBusy", "()Z"),
+                        new CallSite.Method(HOOKS, "worldLoaded", BOOLEAN_FILTER))),
+                after(new CallSite.Method(state, "render", "()V"), new CallSite.Method(state, "doQuickTips", "()V"),
+                        new CallSite.Method(HOOKS, "loadingText", "()V")));
     }
 
     /**

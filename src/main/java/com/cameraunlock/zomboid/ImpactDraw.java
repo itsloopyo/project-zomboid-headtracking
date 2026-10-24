@@ -383,8 +383,8 @@ final class ImpactDraw {
             }
             """;
 
-    private static final SmallProgram debris = new SmallProgram("debris of shots", DEBRIS_VERTEX, DEBRIS_FRAGMENT);
-    private static final SmallProgram holeProgram = new SmallProgram("bullet holes", HOLE_VERTEX, HOLE_FRAGMENT);
+    static final SmallProgram debris = new SmallProgram("debris of shots", DEBRIS_VERTEX, DEBRIS_FRAGMENT);
+    static final SmallProgram holeProgram = new SmallProgram("bullet holes", HOLE_VERTEX, HOLE_FRAGMENT);
 
     private static final int GL_TEXTURE_2D = 0x0DE1, GL_RGBA16F = 0x881A, GL_RGBA = 0x1908, GL_FLOAT = 0x1406;
     private static final int GL_VERTEX_ARRAY = 0x8074, GL_NORMAL_ARRAY = 0x8075, GL_COLOR_ARRAY = 0x8076, GL_TEXTURE_COORD_ARRAY = 0x8078;

@@ -372,6 +372,8 @@ final class CabinDraw {
             """;
 
     private static Program program, shadowProgram, glassProgram;
+    /** What the driver refused when the programs were linked, said again by every fitting asked for after it. */
+    private static String refused;
     /** The vertex attributes, in the places both programs have them. */
     private static final String[] ATTRIBUTES = {"aPlace", "aNormal", "aTangent", "aWay", "aUv", "aSky", "aFinish", "aNear", "aKind"};
     private int shadowTarget, shadowDepth;
@@ -448,7 +450,23 @@ final class CabinDraw {
         return made;
     }
 
+    /**
+     * Links the programs, as a piece of the core's shaders. Always null: a refusal is said when
+     * an interior is first asked for, and the game's own is drawn, as when they were linked then.
+     */
+    static String link() {
+        try {
+            ensurePrograms();
+        } catch (IOException e) {
+            refused = e.getMessage();
+        }
+        return null;
+    }
+
     private static void ensurePrograms() throws IOException {
+        if (refused != null) {
+            throw new IOException(refused);
+        }
         if (program == null) {
             StringBuilder problem = new StringBuilder();
             program = Program.link("cabin", VERTEX, FRAGMENT, problem, ATTRIBUTES);

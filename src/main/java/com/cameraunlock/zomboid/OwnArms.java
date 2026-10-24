@@ -262,6 +262,9 @@ final class OwnArms {
                 if (read.bones.length > MOST_BONES) {
                     throw new IOException("the arms file has " + read.bones.length + " bones and the program has room for " + MOST_BONES);
                 }
+                if (refused != null) {
+                    throw new IllegalStateException(refused);
+                }
                 if (program == 0) {
                     link();
                 }
@@ -305,6 +308,25 @@ final class OwnArms {
         indices = 0;
         props = 0;
         propIndices = 0;
+    }
+
+    /** What the driver refused when the program was linked, said when the arms are first made. */
+    private static String refused;
+
+    /**
+     * Links the program, as a piece of the core's shaders, whether or not the arms are switched
+     * on. Always null: a refusal is said when the arms are first made, and the game's own arms
+     * are drawn, as when it was linked then.
+     */
+    static String linkProgram() {
+        if (program == 0 && refused == null) {
+            try {
+                link();
+            } catch (IllegalStateException e) {
+                refused = e.getMessage();
+            }
+        }
+        return null;
     }
 
     /** Links the program, once: it is kept when the buffers and pictures are given back. */

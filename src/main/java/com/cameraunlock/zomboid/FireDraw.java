@@ -365,7 +365,7 @@ final class FireDraw {
     private static final int GL_BLEND = 0x0BE2, GL_ONE = 1, GL_SRC_ALPHA = 0x0302, GL_ONE_MINUS_SRC_ALPHA = 0x0303;
     private static final int GL_DEPTH_TEST = 0x0B71, GL_CULL_FACE = 0x0B44, GL_TRIANGLE_STRIP = 0x0005, GL_LEQUAL = 0x0203, GL_TEXTURE_3D = 0x806F;
 
-    private static final SmallProgram program = new SmallProgram("fire", SmallProgram.FLAT_VERTEX, FRAGMENT);
+    static final SmallProgram program = new SmallProgram("fire", SmallProgram.FLAT_VERTEX, FRAGMENT);
 
     /** This picture's fires: the squares that burn, then the hearths in sight, Fires.FLOATS each. */
     private float[] fires = new float[Fires.MOST * Fires.FLOATS * 2];

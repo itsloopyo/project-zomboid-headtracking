@@ -1615,10 +1615,7 @@ final class CharacterDraw {
 
     /** Whether the viewer's body can be drawn in two pieces on this machine. */
     static boolean cuts() {
-        if (!prepared) {
-            prepared = true;
-            prepare();
-        }
+        link();
         return !off && cut != null;
     }
 
@@ -1941,12 +1938,9 @@ final class CharacterDraw {
         if (effect != null && !GAME_PROGRAM.equals(effect.getName())) {
             return false;
         }
-        if (!prepared) {
-            prepared = true;
-            prepare();
-            if (off) {
-                return false;
-            }
+        link();
+        if (off) {
+            return false;
         }
         Copy copy = copy(model);
         if (copy == null || copy.count == 0) {
@@ -2170,6 +2164,15 @@ final class CharacterDraw {
             elementsField = field("elements");
             formatField = field("vertexFormat");
         }
+    }
+
+    /** Links the programs and finds what they read the game's meshes through, once: a piece of the core's shaders. Always null: see refuse. */
+    static String link() {
+        if (!prepared) {
+            prepared = true;
+            prepare();
+        }
+        return null;
     }
 
     private static void prepare() {

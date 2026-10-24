@@ -147,7 +147,7 @@ final class MuzzleFlash {
     private static final int GL_DEPTH_TEST = 0x0B71, GL_LEQUAL = 0x0203;
     private static final int GL_TRIANGLE_STRIP = 0x0005;
 
-    private static final SmallProgram burst = new SmallProgram("muzzle flash", SmallProgram.FLAT_VERTEX, BURST_FRAGMENT);
+    static final SmallProgram burst = new SmallProgram("muzzle flash", SmallProgram.FLAT_VERTEX, BURST_FRAGMENT);
 
     /** The MuzzleFlash row of CameraUnlock.ini. The thread that watches the file sets it, the render thread reads it. */
     private static volatile boolean on = true;

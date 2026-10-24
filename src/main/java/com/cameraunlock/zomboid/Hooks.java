@@ -41,6 +41,8 @@ import zombie.iso.Vector2;
 import zombie.iso.Vector3;
 import zombie.iso.weather.ThunderStorm;
 import zombie.ui.TextDrawObject;
+import zombie.ui.TextManager;
+import zombie.ui.UIFont;
 import zombie.vehicles.BaseVehicle;
 
 /**
@@ -141,17 +143,36 @@ public final class Hooks {
 
     /**
      * Called on each of the loading screen's frames from the one the save's world is loaded on to
-     * the click that begins it, with whether the game is still reading the map round the player,
-     * which it returns unchanged.
+     * the click that begins it, with whether the game is still reading the map round the player.
+     * It is returned as still reading while the mod's shader programs are being compiled, so that
+     * the click that begins the save waits for them and none is compiled in play.
      */
     public static boolean worldLoaded(boolean streaming) {
+        boolean shaders = false;
         for (int i = 0; i < View.COUNT; i++) {
             IsoPlayer player = IsoPlayer.players[i];
             if (player != null) {
-                View.join(i).firstPerson.whileLoading(player);
+                shaders |= View.join(i).firstPerson.whileLoading(player);
             }
         }
-        return streaming;
+        if (shaders != loadingHeld) {
+            loadingHeld = shaders;
+            Log.info(shaders ? "the save is not begun until the mod's shaders are compiled" : "the save's loading screen no longer waits for the mod's shaders");
+        }
+        return streaming || shaders;
+    }
+
+    private static boolean loadingHeld;
+
+    /** Called from GameLoadingState.render after the game's quick tip: says how far the compiling of the shaders has come, while it goes on. */
+    public static void loadingText() {
+        String progress = Pipeline.shaderProgress();
+        if (progress != null) {
+            zombie.core.Core screen = zombie.core.Core.getInstance();
+            // Over the line the game writes "Click to start" on, which sits over its quick tip.
+            double y = screen.getScreenHeight() - 40 - TextManager.instance.getFontHeight(UIFont.NewSmall) - TextManager.instance.getFontHeight(UIFont.NewLarge) - 12;
+            TextManager.instance.DrawStringCentre(UIFont.NewSmall, screen.getScreenWidth() / 2.0, y, progress, 0.8, 0.8, 0.8, 1.0);
+        }
     }
 
     /** Called as the game begins to leave a save for its menu, or to quit, before it saves. */

@@ -1,5 +1,5 @@
 package zombie.ui;
 
 public enum UIFont {
-    Small, Medium, Large
+    Small, Medium, Large, NewSmall, NewLarge
 }

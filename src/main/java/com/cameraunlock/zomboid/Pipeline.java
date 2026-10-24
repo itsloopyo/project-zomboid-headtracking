@@ -5525,9 +5525,23 @@ final class Pipeline {
     private static final Set<String> ALWAYS_READ = Set.of("soil", "wood", "carpet", "vinyl", "cloth");
 
     /**
-     * What every picture is drawn with, in any graphics mode: the programs, the cloud noise,
-     * the scope's program, the rain and the surfaces every mode reads. Nothing of
-     * it is made until first person is first asked for.
+     * Every shader program the mod draws with, first of the core and a piece a frame, so that all of
+     * them are made while the save loads and none is compiled in play (Shaders, Hooks.worldLoaded). The
+     * picture's own are each tried, and what the driver refused of any fails the core at the last
+     * of them. Every other refusal leaves out what that program draws, as it did when the program
+     * was made on first use.
+     */
+    private static final List<Piece> SHADERS = shaderPieces();
+    /** What the driver refused of the picture's own programs. */
+    private static final StringBuilder linkProblem = new StringBuilder();
+    /** How many of SHADERS are made, -1 before their making is asked for: read by the logic thread for the indicator. */
+    private static volatile int shadersMade = -1;
+    private static long shadersBegan;
+
+    /**
+     * What every picture is drawn with, in any graphics mode: the shader programs, the cloud
+     * noise, the rain and the surfaces every mode reads. It is made while a save loads, or when
+     * first person is first asked for if that is sooner.
      */
     private static final List<Piece> CORE = corePieces();
     /**
@@ -5540,8 +5554,7 @@ final class Pipeline {
 
     private static List<Piece> corePieces() {
         List<Piece> pieces = new ArrayList<>();
-        pieces.add(new Piece(Pipeline::linkPrograms));
-        pieces.add(new Piece(Pipeline::linkGrassPrograms));
+        pieces.addAll(SHADERS);
         pieces.add(new Piece(() -> Ahead.begin(NOISE_AHEAD, () -> CloudNoise.build(NOISE_SIZE)), () -> Ahead.done(NOISE_AHEAD), () -> {
             GL11.glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
             GL11.glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
@@ -5550,10 +5563,7 @@ final class Pipeline {
             makeWhite();
             return makeNoise();
         }));
-        pieces.add(new Piece(Scope::prepare));
         pieces.add(new Piece(() -> { }, SkinCuts::bodiesLoaded, () -> SkinCuts.begin() ? null : "the game's body models have no vertex buffer on the graphics card"));
-        // Linked on a frame that draws no picture, as the rest of the core is. It never fails the core: see OwnGun.link.
-        pieces.add(new Piece(OwnGun::link));
         pieces.add(new Piece(() -> {
             makeSamplers();
             makeRainDrops();
@@ -5648,6 +5658,11 @@ final class Pipeline {
         return !prepared && failure() == null;
     }
 
+    /** Whether shader programs are still to be made before the first picture can be drawn. Read by the logic thread. */
+    boolean shadersWaited() {
+        return unprepared() && shadersMade < SHADERS.size();
+    }
+
     /**
      * Whether the pictures of the mod's own are on the graphics card. Until they are, a mode
      * that shows the mod's own is drawn as the one that shows none is: see Own.
@@ -5730,6 +5745,7 @@ final class Pipeline {
             Pictures.askCard();
             picturesSmall = small();
             Pictures.small = picturesSmall;
+            shadersMade = Math.min(preparing, SHADERS.size());
             // From the next to be made: after LET_GO that is the first of the surfaces, and the pieces before it are made.
             for (int piece = preparing; piece < CORE.size(); piece++) {
                 CORE.get(piece).begin.run();
@@ -5800,8 +5816,14 @@ final class Pipeline {
         OwnModel model = null;
         int step = 0;
         if (makes == CORE) {
+            if (preparing == 0) {
+                shadersBegan = start;
+            }
             problem = CORE.get(preparing++).make.get();
             lastOfCore = preparing == CORE.size();
+            if (preparing <= SHADERS.size()) {
+                shadersMade = preparing;
+            }
         } else if (makes == CONTENT) {
             problem = CONTENT.get(contentPreparing++).make.get();
             lastOfContent = contentPreparing == CONTENT.size();
@@ -5850,6 +5872,9 @@ final class Pipeline {
             preparingNanos += took;
             preparingWorst = Math.max(preparingWorst, took);
         }
+        if (makes == CORE && preparing == SHADERS.size() && problem == null) {
+            Shaders.finished(shadersBegan);
+        }
         if (lastOfCore && problem == null) {
             prepared = true;
             Log.info(String.format(Locale.ROOT, "first person picture ready: its pieces took %.0f ms in all, the longest %.0f ms",
@@ -5880,46 +5905,66 @@ final class Pipeline {
         return problem;
     }
 
-    /** Null, or what the driver refused. A step of its own: the world's fragment stage is the longest to compile, and these are two more of it. */
-    private static String linkGrassPrograms() {
-        StringBuilder problem = new StringBuilder();
-        grassLit = Program.link("grass", WORLD_VERTEX, GRASS_FRAGMENT, problem, PLACED_ATTRIBUTES, PLACED_NAMES);
-        grassDepth = Program.link("grass depth", WORLD_VERTEX, GRASS_FRAGMENT_DEPTH, problem, PLACED_ATTRIBUTES, PLACED_NAMES);
-        return problem.length() > 0 ? problem.toString() : null;
+    private static List<Piece> shaderPieces() {
+        List<Runnable> own = List.of(
+                () -> world = Program.link("world", WORLD_VERTEX, WORLD_FRAGMENT, linkProblem, PLACED_ATTRIBUTES, PLACED_NAMES),
+                () -> worldDepth = Program.link("world depth", WORLD_VERTEX, WORLD_FRAGMENT_DEPTH, linkProblem, PLACED_ATTRIBUTES, PLACED_NAMES),
+                () -> paneMask = Program.link("pane mask", PipelineShaders.PANE_VERTEX, PipelineShaders.PANE_FRAGMENT, linkProblem),
+                () -> glassShown = Program.link("mirror's glass", LookingGlass.VERTEX, LookingGlass.SHOWN, linkProblem),
+                () -> windowShown = Program.link("window's glass", LookingGlass.VERTEX, LookingGlass.THROWN, linkProblem),
+                () -> partKind = Program.link("cabin parts", PipelineShaders.PANE_VERTEX, PipelineShaders.PART_FRAGMENT, linkProblem),
+                () -> shadow = Program.link("shadow", SHADOW_VERTEX, SHADOW_FRAGMENT, linkProblem, SHADOW_PLACES_FROM, "aPlace", "aFoot", "aTurn"),
+                () -> solidShadow = Program.link("solid shadow", SHADOW_VERTEX, PipelineShaders.SOLID_SHADOW_FRAGMENT, linkProblem, SHADOW_PLACES_FROM, "aPlace", "aFoot", "aTurn"),
+                () -> rain = Program.link("rain", PipelineShaders.RAIN_VERTEX, PipelineShaders.RAIN_FRAGMENT, linkProblem),
+                () -> snow = Program.link("snow", PipelineShaders.SNOW_VERTEX, PipelineShaders.SNOW_FRAGMENT, linkProblem),
+                () -> dust = Program.link("dust", PipelineShaders.DUST_VERTEX, PipelineShaders.DUST_FRAGMENT, linkProblem),
+                () -> leaf = Program.link("falling leaves", PipelineShaders.LEAF_VERTEX, PipelineShaders.LEAF_FRAGMENT, linkProblem),
+                () -> sky = Program.link("sky", SCREEN_VERTEX, Sky.FRAGMENT, linkProblem),
+                () -> clouds = Program.link("clouds", SCREEN_VERTEX, Sky.CLOUDS, linkProblem),
+                () -> skyNear = Program.link("sky near", SCREEN_VERTEX, Sky.SKY_NEAR, linkProblem),
+                () -> bolt = Program.link("lightning", Lightning.BOLT_VERTEX, Lightning.BOLT_FRAGMENT, linkProblem),
+                () -> far = Program.link("far land", PipelineShaders.FAR_VERTEX, PipelineShaders.FAR_FRAGMENT, linkProblem),
+                () -> farTree = Program.link("far trees", PipelineShaders.FAR_TREE_VERTEX, PipelineShaders.FAR_TREE_FRAGMENT, linkProblem),
+                () -> figureLight = Program.link("character light", SCREEN_VERTEX, FIGURE_LIGHT, linkProblem),
+                () -> occlusion = Program.link("occlusion", SCREEN_VERTEX, PipelineShaders.OCCLUSION, linkProblem),
+                () -> soften = Program.link("occlusion soften", SCREEN_VERTEX, PipelineShaders.SOFTEN, linkProblem),
+                () -> volume = Program.link("lit air", SCREEN_VERTEX, PipelineShaders.VOLUME, linkProblem),
+                () -> bloomDown = Program.link("glow down", SCREEN_VERTEX, PipelineShaders.BLOOM_DOWN, linkProblem),
+                () -> bloomUp = Program.link("glow up", SCREEN_VERTEX, PipelineShaders.BLOOM_UP, linkProblem),
+                () -> develop = Program.link("develop", SCREEN_VERTEX, PipelineShaders.DEVELOP, linkProblem),
+                () -> meter = Program.link("light meter", SCREEN_VERTEX, PipelineShaders.METER, linkProblem),
+                () -> smooth = Program.link("smooth", SCREEN_VERTEX, PipelineShaders.SMOOTH, linkProblem),
+                () -> steady = Program.link("steady", SCREEN_VERTEX, PipelineShaders.STEADY, linkProblem),
+                () -> grassLit = Program.link("grass", WORLD_VERTEX, GRASS_FRAGMENT, linkProblem, PLACED_ATTRIBUTES, PLACED_NAMES),
+                () -> grassDepth = Program.link("grass depth", WORLD_VERTEX, GRASS_FRAGMENT_DEPTH, linkProblem, PLACED_ATTRIBUTES, PLACED_NAMES));
+        List<Piece> pieces = new ArrayList<>();
+        for (int each = 0; each < own.size(); each++) {
+            Runnable link = own.get(each);
+            boolean last = each == own.size() - 1;
+            pieces.add(new Piece(() -> {
+                link.run();
+                return last && linkProblem.length() > 0 ? linkProblem.toString() : null;
+            }));
+        }
+        pieces.add(new Piece(Scope::prepare));
+        pieces.add(new Piece(OwnGun::link));
+        pieces.add(new Piece(OwnArms::linkProgram));
+        pieces.add(new Piece(CabinDraw::link));
+        pieces.add(new Piece(CharacterDraw::link));
+        for (Supplier<SmallProgram> small : List.<Supplier<SmallProgram>>of(() -> Crosshair.flat, () -> FireCards.program, () -> FireDraw.program,
+                () -> ImpactDraw.debris, () -> ImpactDraw.holeProgram, () -> ModeFade.program, () -> MuzzleFlash.burst)) {
+            pieces.add(new Piece(() -> {
+                small.get().make();
+                return null;
+            }));
+        }
+        return pieces;
     }
 
-    /** Null, or what the driver refused. */
-    private static String linkPrograms() {
-        StringBuilder problem = new StringBuilder();
-        world = Program.link("world", WORLD_VERTEX, WORLD_FRAGMENT, problem, PLACED_ATTRIBUTES, PLACED_NAMES);
-        worldDepth = Program.link("world depth", WORLD_VERTEX, WORLD_FRAGMENT_DEPTH, problem, PLACED_ATTRIBUTES, PLACED_NAMES);
-        paneMask = Program.link("pane mask", PipelineShaders.PANE_VERTEX, PipelineShaders.PANE_FRAGMENT, problem);
-        glassShown = Program.link("mirror's glass", LookingGlass.VERTEX, LookingGlass.SHOWN, problem);
-        windowShown = Program.link("window's glass", LookingGlass.VERTEX, LookingGlass.THROWN, problem);
-        partKind = Program.link("cabin parts", PipelineShaders.PANE_VERTEX, PipelineShaders.PART_FRAGMENT, problem);
-        shadow = Program.link("shadow", SHADOW_VERTEX, SHADOW_FRAGMENT, problem, SHADOW_PLACES_FROM, "aPlace", "aFoot", "aTurn");
-        solidShadow = Program.link("solid shadow", SHADOW_VERTEX, PipelineShaders.SOLID_SHADOW_FRAGMENT, problem, SHADOW_PLACES_FROM, "aPlace", "aFoot", "aTurn");
-        rain = Program.link("rain", PipelineShaders.RAIN_VERTEX, PipelineShaders.RAIN_FRAGMENT, problem);
-        snow = Program.link("snow", PipelineShaders.SNOW_VERTEX, PipelineShaders.SNOW_FRAGMENT, problem);
-        dust = Program.link("dust", PipelineShaders.DUST_VERTEX, PipelineShaders.DUST_FRAGMENT, problem);
-        leaf = Program.link("falling leaves", PipelineShaders.LEAF_VERTEX, PipelineShaders.LEAF_FRAGMENT, problem);
-        sky = Program.link("sky", SCREEN_VERTEX, Sky.FRAGMENT, problem);
-        clouds = Program.link("clouds", SCREEN_VERTEX, Sky.CLOUDS, problem);
-        skyNear = Program.link("sky near", SCREEN_VERTEX, Sky.SKY_NEAR, problem);
-        bolt = Program.link("lightning", Lightning.BOLT_VERTEX, Lightning.BOLT_FRAGMENT, problem);
-        far = Program.link("far land", PipelineShaders.FAR_VERTEX, PipelineShaders.FAR_FRAGMENT, problem);
-        farTree = Program.link("far trees", PipelineShaders.FAR_TREE_VERTEX, PipelineShaders.FAR_TREE_FRAGMENT, problem);
-        figureLight = Program.link("character light", SCREEN_VERTEX, FIGURE_LIGHT, problem);
-        occlusion = Program.link("occlusion", SCREEN_VERTEX, PipelineShaders.OCCLUSION, problem);
-        soften = Program.link("occlusion soften", SCREEN_VERTEX, PipelineShaders.SOFTEN, problem);
-        volume = Program.link("lit air", SCREEN_VERTEX, PipelineShaders.VOLUME, problem);
-        bloomDown = Program.link("glow down", SCREEN_VERTEX, PipelineShaders.BLOOM_DOWN, problem);
-        bloomUp = Program.link("glow up", SCREEN_VERTEX, PipelineShaders.BLOOM_UP, problem);
-        develop = Program.link("develop", SCREEN_VERTEX, PipelineShaders.DEVELOP, problem);
-        meter = Program.link("light meter", SCREEN_VERTEX, PipelineShaders.METER, problem);
-        smooth = Program.link("smooth", SCREEN_VERTEX, PipelineShaders.SMOOTH, problem);
-        steady = Program.link("steady", SCREEN_VERTEX, PipelineShaders.STEADY, problem);
-        return problem.length() > 0 ? problem.toString() : null;
+    /** "Preparing shaders 12 / 44" while the shader programs are being made, or null. */
+    static String shaderProgress() {
+        int made = shadersMade;
+        return made < 0 || made >= SHADERS.size() || broken != null ? null : "Preparing shaders " + made + " / " + SHADERS.size();
     }
 
     private static String makeNoise() {

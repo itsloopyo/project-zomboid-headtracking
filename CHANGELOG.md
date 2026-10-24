@@ -127,6 +127,7 @@
 - `Automatic` lowers the quality when the frame rate drops below 45 and raises it when it holds above 57.
 - `Low` is the game's own look, apart from first person's furniture, windows and doors, which are the mod's models in every mode (`VanillaFurniture`, `VanillaBuildings`). `Medium` and `High` also redraw the isometric view.
 - `F8` cycles the picture styles `Vivid`, `Natural` and `Bleak` (default).
+- Every shader the mod draws with is compiled while a save loads, with a count on the loading screen, and the save starts once they are done, so none is compiled in play.
 - `ZombiesAndPropsDrawDistance` (16 to 80 tiles) and `Reflections` settings.
 - `GrassDensity` setting (10 to 100 percent): fewer grass plants for a faster picture. `High` grows all of it, `Medium` and `Low` 40 percent.
 - A first person view larger than 2560x1440 is drawn in `Low`, `Medium`, `High` and `Automatic` with no more pixels than 2560x1440, and scaled up. `Custom` draws at its `RenderScale` at any size.
