@@ -9,8 +9,10 @@ import zombie.core.skinnedmodel.DeadBodyAtlas;
 import fmod.fmod.FMODSoundEmitter;
 import fmod.javafmod;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Stack;
+import java.util.function.Supplier;
 import zombie.CombatManager;
 import zombie.Lua.LuaEventManager;
 import zombie.EffectsManager;
@@ -174,14 +176,20 @@ public final class Hooks {
         return done && !loadingHeld;
     }
 
-    /** Called from GameLoadingState.render after the game's quick tip: says how far the compiling of the shaders has come, while it goes on. */
+    /** What the save's start waits for, each a line while it goes on, or null once it is done: the first where the game writes "Click to Start", the next above it. */
+    private static final List<Supplier<String>> LOADING_LINES = List.of(Pipeline::shaderProgress);
+
+    /** Called from GameLoadingState.render after the game's quick tip: says how far what the save's start waits for has come, while it goes on. */
     public static void loadingText() {
-        String progress = Pipeline.shaderProgress();
-        if (progress != null) {
-            zombie.core.Core screen = zombie.core.Core.getInstance();
-            // Where and as the game writes "Click to Start", which clickToStartShown holds back meanwhile.
-            double y = screen.getScreenHeight() - 40 - TextManager.instance.getFontHeight(UIFont.NewSmall) - 5;
-            TextManager.instance.DrawStringCentre(UIFont.NewLarge, screen.getScreenWidth() / 2.0, y, progress, 1.0, 1.0, 1.0, 1.0);
+        zombie.core.Core screen = zombie.core.Core.getInstance();
+        // Where and as the game writes "Click to Start", which clickToStartShown holds back meanwhile.
+        double y = screen.getScreenHeight() - 40 - TextManager.instance.getFontHeight(UIFont.NewSmall) - 5;
+        for (Supplier<String> line : LOADING_LINES) {
+            String progress = line.get();
+            if (progress != null) {
+                TextManager.instance.DrawStringCentre(UIFont.NewLarge, screen.getScreenWidth() / 2.0, y, progress, 1.0, 1.0, 1.0, 1.0);
+                y -= TextManager.instance.getFontHeight(UIFont.NewLarge);
+            }
         }
     }
 
