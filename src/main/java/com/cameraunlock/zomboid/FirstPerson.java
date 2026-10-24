@@ -497,7 +497,7 @@ public final class FirstPerson {
                 pictureUp = false;
                 RenderThread.queueInvokeOnRenderContext(view.pipeline.RELEASE::render);
             }
-            if (held && GlFloor.missing() == null) {
+            if (held) {
                 letGo();
                 RenderThread.queueInvokeOnRenderContext(view.pipeline.LET_GO::render);
                 Log.info(why + ": first person has let go of the map, and the render thread is asked for what the graphics card holds of it");
@@ -763,7 +763,11 @@ public final class FirstPerson {
                 SpriteRenderer.instance.drawGeneric(view.pipeline.RELEASE);
             }
             // Whatever loading left unmade is made in play, one piece a frame, then the world is rehearsed, the far land handed over,
-            // and all of it is kept until the save is left. Off, the view is there at once when asked for.
+            // and all of it is kept until the save is left. Off, the view is there at once when asked for. A view that cannot be
+            // drawn here holds nothing, so a player who leaves has nothing to give back.
+            if (view.pipeline.failure() != null) {
+                return;
+            }
             boolean making = !gettingReady && !view.characters.wanted
                     && (view.pipeline.unprepared() || view.pipeline.contentWaited() || view.pipeline.contentHalfMade());
             if (making) {
