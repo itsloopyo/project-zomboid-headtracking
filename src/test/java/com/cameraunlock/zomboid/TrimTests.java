@@ -2,6 +2,8 @@ package com.cameraunlock.zomboid;
 
 import static com.cameraunlock.zomboid.Checks.check;
 
+import java.util.Arrays;
+
 /** Tests of the skirting boards, rails and cornices built along inside walls: see Trims. */
 final class TrimTests {
     private static final int LONG = Flats.WALL_LONG, HIGH = Flats.WALL_HIGH;
@@ -16,6 +18,9 @@ final class TrimTests {
     static void run() {
         Checks.run("aSkirtingAndACorniceAreReadAsTwoBands", TrimTests::aSkirtingAndACorniceAreReadAsTwoBands);
         Checks.run("anEvenlyPaintedPanelIsABoardAndABrickOrBlockOneIsLeftToItsSprite", TrimTests::anEvenlyPaintedPanelIsABoardAndABrickOrBlockOneIsLeftToItsSprite);
+        Checks.run("aDadoPanelUnderItsRailIsABoardBelowItsCornice", TrimTests::aDadoPanelUnderItsRailIsABoardBelowItsCornice);
+        Checks.run("blocksWithFaintJointsAreLeftToTheirSprite", TrimTests::blocksWithFaintJointsAreLeftToTheirSprite);
+        Checks.run("blocksAreToldByTheirUprightJointsWhereTheLightUnderACourseFades", TrimTests::blocksAreToldByTheirUprightJointsWhereTheLightUnderACourseFades);
         Checks.run("everyCorniceIsOneMouldingWhateverItsBand", TrimTests::everyCorniceIsOneMouldingWhateverItsBand);
         Checks.run("aBandsHeightsAreRoundedSoTwoEdgesMeet", TrimTests::aBandsHeightsAreRoundedSoTwoEdgesMeet);
         Checks.run("aSkirtingStopsWhereADoorwayIs", TrimTests::aSkirtingStopsWhereADoorwayIs);
@@ -78,9 +83,81 @@ final class TrimTests {
         check(Trims.bands(dots, LONG, HIGH, 1f).length == 0, "a panel of blocks is a surface, left to its sprite");
     }
 
+    /** A wall stood square with a band painted from the floor up, row by row in the greys given from its top down. */
+    private static byte[] panel(int[] greys) {
+        byte[] dots = new byte[LONG * HIGH * 4];
+        for (int i = 0; i < greys.length; i++) {
+            int row = HIGH - greys.length + i;
+            paint(dots, row, row, 0, LONG - 1, greys[i]);
+        }
+        return dots;
+    }
+
+    private static void aDadoPanelUnderItsRailIsABoardBelowItsCornice() {
+        // walls_interior_detailing_01_2 as read: a rail shaded round with its shadow under it,
+        // the panel painted evenly, a bead and its shadow along the floor.
+        int[] greys = new int[53];
+        Arrays.fill(greys, 214);
+        int[] rail = {165, 199, 230, 221, 213, 214, 214, 214, 215, 206, 192, 202, 211, 187, 158, 197, 221, 213, 213};
+        System.arraycopy(rail, 0, greys, 0, rail.length);
+        int[] foot = {210, 206, 178, 151};
+        System.arraycopy(foot, 0, greys, greys.length - foot.length, foot.length);
+        byte[] dots = panel(greys);
+        paint(dots, 0, 17, 0, LONG - 1, 220);
+        Trims.Band[] bands = Trims.bands(dots, LONG, HIGH, 1f);
+        check(bands.length == 2, "a cornice and a board: " + Arrays.toString(bands));
+        check(bands.length == 2 && Trims.cornice(bands[0]), "the cornice is kept: " + Arrays.toString(bands));
+        check(bands.length == 2 && bands[1].foot() == 0f && Math.abs(bands[1].top() - 9f / 32f) < 1e-4f, "the panel is one board from the floor up to its rail: " + Arrays.toString(bands));
+    }
+
+    private static void blocksWithFaintJointsAreLeftToTheirSprite() {
+        // walls_interior_detailing_01_82 as read: green blocks a course of 26 rows high, their
+        // joints 2 to 4 hundredths darker than the faces, about as faint as the shading of a rail.
+        int[] greys = new int[57];
+        Arrays.fill(greys, 163);
+        greys[4] = 160;
+        greys[5] = 157;
+        greys[7] = 165;
+        greys[31] = 159;
+        greys[32] = 159;
+        greys[34] = 166;
+        greys[35] = 165;
+        check(Trims.bands(panel(greys), LONG, HIGH, 1f).length == 0, "a panel of green blocks is a surface, left to its sprite");
+    }
+
+    private static void blocksAreToldByTheirUprightJointsWhereTheLightUnderACourseFades() {
+        // walls_interior_detailing_01_116 as the game reads it: grey blocks, one joint too near
+        // the panel's top to have a face over it, the other with a light edge under it fading
+        // over three rows, so the face under it is not even.
+        int[] greys = new int[58];
+        Arrays.fill(greys, 78);
+        System.arraycopy(new int[] {75, 74, 85, 81, 79}, 0, greys, 6, 5);
+        System.arraycopy(new int[] {74, 82, 87, 81}, 0, greys, 34, 4);
+        byte[] dots = panel(greys);
+        check(Trims.bands(dots, LONG, HIGH, 1f).length == 1, "without its upright joints it reads as a board");
+        int first = HIGH - greys.length;
+        for (int column : new int[] {10, 32, 54}) {
+            paint(dots, first + 11, first + 33, column, column, 72);
+        }
+        for (int column : new int[] {21, 43}) {
+            paint(dots, first + 38, HIGH - 1, column, column, 72);
+        }
+        check(Trims.bands(dots, LONG, HIGH, 1f).length == 0, "with them it is a panel of blocks, left to its sprite");
+        // A plaster panel beside a doorway: the reveal is dark the panel's whole height, and is no joint.
+        dots = new byte[LONG * HIGH * 4];
+        paint(dots, first, HIGH - 1, 0, LONG - 1, 200);
+        paint(dots, first, HIGH - 1, 6, 6, 180);
+        check(Trims.bands(dots, LONG, HIGH, 1f).length == 1, "a panel with a doorway's reveal is still a board");
+        // A panel stopping short of the wall's end, shaded dark beside its end for part of its height.
+        dots = new byte[LONG * HIGH * 4];
+        paint(dots, first, HIGH - 1, 0, LONG - 3, 200);
+        paint(dots, first + 10, first + 40, LONG - 5, LONG - 5, 180);
+        check(Trims.bands(dots, LONG, HIGH, 1f).length == 1, "a panel shaded beside its end is still a board");
+    }
+
     private static void everyCorniceIsOneMouldingWhateverItsBand() {
         float[] wide = Trims.section(new Trims.Band(0.88f, 1f, 0f, 1f, 0.9f, 0.9f, 0.9f)), narrow = Trims.section(new Trims.Band(0.9f, 1f, 0f, 1f, 0.9f, 0.9f, 0.9f));
-        check(java.util.Arrays.equals(wide, narrow), "two cornices read from bands of two depths are one moulding, so they meet where their squares do");
+        check(Arrays.equals(wide, narrow), "two cornices read from bands of two depths are one moulding, so they meet where their squares do");
         float lowest = Float.MAX_VALUE;
         for (int i = 1; i < wide.length; i += 2) {
             lowest = Math.min(lowest, wide[i]);

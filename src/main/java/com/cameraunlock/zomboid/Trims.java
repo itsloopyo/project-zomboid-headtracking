@@ -25,12 +25,23 @@ final class Trims {
     /** A panel is painted evenly where the spread of its dots' brightness is under this share of their mean: brick and tiles have courses and joints. */
     private static final float EVEN = 0.12f;
     /**
-     * Cast blocks are as even as paint, and their joints are a dark row over a light one a dot
-     * each: a row this much of its brightness off the rows two either side of it is a joint, and
-     * a panel with one is blocks. A few rows at its top and foot are its outline and its shadow.
+     * Cast blocks are as even as paint, and their joints are a thin dark line between two faces
+     * each painted evenly: a row this much darker than the rows FACE_NEAR to FACE_FAR above it
+     * and below it, each run within FLAT of its mean, is a joint, and a panel with one is blocks.
+     * A dado rail's shadow is a dark line too, but the rail over it is shaded round, not even.
+     * A few rows at a panel's top and foot are its outline and its shadow.
      */
-    private static final float JOINT = 0.06f;
-    private static final int OUTLINE_ROWS = 3;
+    private static final float JOINT = 0.01f, FLAT = 0.03f;
+    private static final int FACE_NEAR = 3, FACE_FAR = 5, OUTLINE_ROWS = 3;
+    /**
+     * The faces either side of a course's joint are not always even within FLAT, as the light
+     * edge under the joint can fade over a few rows. The upright joints between the blocks of a
+     * course tell them too: a dot this much darker than the dots two either side of it, in a
+     * column UPRIGHT_ROWS or more rows on end, read where the panel is painted EDGE dots either
+     * side. A column that dark the panel's whole height is the reveal of a doorway, not a joint.
+     */
+    private static final float UPRIGHT = 0.02f;
+    private static final int UPRIGHT_ROWS = 10, EDGE = 3;
     /**
      * How far a cornice falls down the wall, in tiles. The game draws a cornice as seen from
      * above, its depth along the ceiling shown as height, so its band says less of its size
@@ -265,7 +276,8 @@ final class Trims {
             }
         }
         double mean = sum / count;
-        return Math.sqrt(Math.max(squares / count - mean * mean, 0.0)) < EVEN * mean && !jointed(dots, long_, first + OUTLINE_ROWS, last - OUTLINE_ROWS);
+        return Math.sqrt(Math.max(squares / count - mean * mean, 0.0)) < EVEN * mean
+                && !jointed(dots, long_, first + OUTLINE_ROWS, last - OUTLINE_ROWS) && !uprightJoint(dots, long_, first + OUTLINE_ROWS, last - OUTLINE_ROWS);
     }
 
     private static boolean jointed(byte[] dots, int long_, int first, int last) {
@@ -282,13 +294,63 @@ final class Trims {
             }
             light[row - first] = sum / count;
         }
-        for (int i = 2; i < light.length - 2; i++) {
-            double around = (light[i - 2] + light[i + 2]) / 2.0;
-            if (Math.abs(light[i] - around) > JOINT * around) {
+        for (int i = FACE_FAR; i < light.length - FACE_FAR; i++) {
+            int aboveFrom = i - FACE_FAR, aboveTo = i - FACE_NEAR, belowFrom = i + FACE_NEAR, belowTo = i + FACE_FAR;
+            if (face(light, aboveFrom, aboveTo) && face(light, belowFrom, belowTo)
+                    && light[i] < (1.0 - JOINT) * Math.min(mean(light, aboveFrom, aboveTo), mean(light, belowFrom, belowTo))) {
                 return true;
             }
         }
         return false;
+    }
+
+    private static boolean uprightJoint(byte[] dots, int long_, int first, int last) {
+        for (int column = EDGE; column < long_ - EDGE; column++) {
+            int run = 0;
+            for (int row = first; row <= last + 1; row++) {
+                if (row <= last && darkerThanAside(dots, long_, row, column)) {
+                    run++;
+                    continue;
+                }
+                if (run >= UPRIGHT_ROWS && run < last - first + 1) {
+                    return true;
+                }
+                run = 0;
+            }
+        }
+        return false;
+    }
+
+    private static boolean darkerThanAside(byte[] dots, int long_, int row, int column) {
+        for (int aside = column - EDGE; aside <= column + EDGE; aside++) {
+            if (dots[(row * long_ + aside) * 4 + 3] == 0) {
+                return false;
+            }
+        }
+        return light(dots, long_, row, column) < (1.0 - UPRIGHT) * (light(dots, long_, row, column - 2) + light(dots, long_, row, column + 2)) / 2.0;
+    }
+
+    private static double light(byte[] dots, int long_, int row, int column) {
+        int at = (row * long_ + column) * 4;
+        return 0.299 * (dots[at] & 0xff) + 0.587 * (dots[at + 1] & 0xff) + 0.114 * (dots[at + 2] & 0xff);
+    }
+
+    /** Whether the rows from to to are a face painted evenly: their brightness keeps within FLAT of its mean. */
+    private static boolean face(double[] light, int from, int to) {
+        double least = Double.MAX_VALUE, most = 0.0;
+        for (int i = from; i <= to; i++) {
+            least = Math.min(least, light[i]);
+            most = Math.max(most, light[i]);
+        }
+        return most - least <= FLAT * mean(light, from, to);
+    }
+
+    private static double mean(double[] light, int from, int to) {
+        double sum = 0.0;
+        for (int i = from; i <= to; i++) {
+            sum += light[i];
+        }
+        return sum / (to - from + 1);
     }
 
     /**
