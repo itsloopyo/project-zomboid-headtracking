@@ -86,6 +86,8 @@ def outputs():
     for model in MODELS:
         for which in ('colour', 'surface'):
             made[f'{model}.{which}'] = ('models', [[f'models/{model}.{which}.gz']])
+    # The stained glass windows (tools/glass/stained.py), every one in an atlas, drawn in place of the game's sprites of them.
+    made['stained'] = ('materials', [['materials/stained.png']])
     made['cabins-detail.surface'] = ('cabins', [[f'cabins/detail.surface.{k}.gz'] for k in range(8)])
     for cabin in CABINS:
         for which in ('colour', 'surface'):

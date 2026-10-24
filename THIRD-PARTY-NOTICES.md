@@ -1977,7 +1977,7 @@ fan production for non-commercial purposes made under the Indie Stone Terms
 
 ## Generated material textures
 
-- **Files:** every `materials/*.bc` inside the mod's jar but `sprigs-form.bc`, each packed by `tools/textures/compress.py` from the picture of its name in `src/textures/materials` (the eight barks into the one `bark.bc`): asphalt, gravel, soil, grass, shingles, wood, eight barks (`bark-*.jpg`), planks, carpet, leaves, vinyl, cloth, jersey, paint, litter, rock, frond, ivy and sprigs; and `rugs/fur.jpg` and `rugs/hide.jpg`, the fine grain `tools/materials/grain.py` keeps of a generated picture of a sheepskin and of a cowhide
+- **Files:** every `materials/*.bc` inside the mod's jar but `sprigs-form.bc` and `stained.bc`, each packed by `tools/textures/compress.py` from the picture of its name in `src/textures/materials` (the eight barks into the one `bark.bc`): asphalt, gravel, soil, grass, shingles, wood, eight barks (`bark-*.jpg`), planks, carpet, leaves, vinyl, cloth, jersey, paint, litter, rock, frond, ivy and sprigs; and `rugs/fur.jpg` and `rugs/hide.jpg`, the fine grain `tools/materials/grain.py` keeps of a generated picture of a sheepskin and of a cowhide
 - **Version:** made from text prompts alone, for this mod. No image from Project Zomboid or anywhere else was given to either model. Asphalt, gravel, soil, grass, shingles, wood, the barks, planks, carpet, vinyl, cloth, jersey, paint, litter, rock and the two rugs were made with Z-Image Turbo. Leaves, frond, ivy and sprigs were made with Stable Diffusion XL base 1.0.
 - **License:** Z-Image Turbo is under the Apache License 2.0, https://huggingface.co/Tongyi-MAI/Z-Image-Turbo, from Tongyi-MAI. Stable Diffusion XL base 1.0 is under the CreativeML Open RAIL++-M License, https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/blob/main/LICENSE.md, Copyright (c) 2023 Stability AI. That licence says its licensor claims no rights in what the model generates, and that no use of the output may go against the licence's use restrictions. The textures are grain for surfaces in a game and are used for nothing else.
 - **Upstream:** https://huggingface.co/Tongyi-MAI/Z-Image-Turbo (revision f332072aa78be7aecdf3ee76d5c247082da564a6) and https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0
@@ -2017,6 +2017,18 @@ fan production for non-commercial purposes made under the Indie Stone Terms
 - **Upstream:** https://huggingface.co/Tongyi-MAI/Z-Image-Turbo, revision f332072aa78be7aecdf3ee76d5c247082da564a6
 - **Usage:** In the first person view the mod makes the game's own picture of each garment, head of hair and beard finer as the game runs, reading it from the player's installed copy, and multiplies the light and dark of one of the fabrics into it. Nothing of the game's pictures is in the jar. The blood and the dirt stand in for the game's own where its combiner composes what a person wears.
 - **Bundled:** the pictures, yes. The model is not.
+
+---
+
+## Stained glass windows
+
+- **Files:** `materials/stained.bc` inside the mod's jar, packed by `tools/textures/compress.py` from `src/textures/materials/stained.png`, and `materials/stained.txt`, which says where each window is in it
+- **Version:** made by `tools/glass/stained.py` in this repository. Each of Project Zomboid's 28 sprites of a stained glass window, read from the player's installed copy, was enlarged, its glass made deeper in colour, and given to Z-Image Turbo with a text prompt, which kept the window's design and layout and drew its glass, leading and streaks again. On the dove window the flowers at its foot were first painted over with a priest and an altar in the game's own chunky pixels. The window's stone or wooden frame is the game's sprite enlarged.
+- **License:** derived from sprites of Project Zomboid, The Indie Stone's game, under the [Indie Stone Terms](https://projectzomboid.com/blog/support/terms-conditions/) (clause 2.2, non-commercial fan productions); not under this mod's MIT licence. The model is under the Apache License 2.0, https://huggingface.co/Tongyi-MAI/Z-Image-Turbo, from Tongyi-MAI.
+- **Upstream:** https://projectzomboid.com and https://huggingface.co/Tongyi-MAI/Z-Image-Turbo, revision f332072aa78be7aecdf3ee76d5c247082da564a6
+- **Usage:** In `Medium` and `High` the first person view draws each church window from it in place of the game's sprite, unless `OwnTextures` is off.
+- **Bundled:** the atlas, yes. The model is not.
+
 ---
 
 ## Shotgun model
