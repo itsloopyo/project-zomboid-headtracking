@@ -2192,8 +2192,13 @@ final class CharacterDraw {
         int plain = program("character", problem, GL_VERTEX_SHADER, OLD + WHOLE_VERTEX, GL_FRAGMENT_SHADER, OLD + FRAGMENT);
         int cast = program("character's shadow", problem, GL_VERTEX_SHADER, OLD + DEPTH_VERTEX, GL_FRAGMENT_SHADER, OLD + DEPTH_FRAGMENT);
         boolean divides = Integer.parseInt(numbers.group(1)) >= 4;
-        int bowed = divides ? program("rounded character", problem, GL_VERTEX_SHADER, NEW + DIVIDED_VERTEX, GL_TESS_CONTROL_SHADER, DIVIDE,
+        StringBuilder roundProblem = new StringBuilder();
+        int bowed = divides ? program("rounded character", roundProblem, GL_VERTEX_SHADER, NEW + DIVIDED_VERTEX, GL_TESS_CONTROL_SHADER, DIVIDE,
                 GL_TESS_EVALUATION_SHADER, BOW, GL_FRAGMENT_SHADER, NEW + FRAGMENT) : 0;
+        if (roundProblem.length() > 0) {
+            divides = false;
+            Log.info("characters are drawn with the game's triangles as they are, not rounded: " + roundProblem);
+        }
         if (problem.length() > 0) {
             refuse(problem.toString());
             return;
@@ -2235,7 +2240,7 @@ final class CharacterDraw {
         if (divides) {
             divided = new Skin(bowed);
             Log.info("characters are drawn by the picture, rounded near the eye (OpenGL " + version + ")");
-        } else {
+        } else if (roundProblem.length() == 0) {
             Log.info("characters are drawn by the picture, with the game's triangles as they are: rounding them needs OpenGL 4.0 and this is " + version);
         }
     }
