@@ -130,10 +130,14 @@ final class ShaderTests {
             }
         }
         Checks.check(samplers == GlFloor.FRAGMENT_SAMPLERS, "the " + mostSamplers + " fragment stage reads " + samplers
-                + " textures, the most of any, and GlFloor.FRAGMENT_SAMPLERS says " + GlFloor.FRAGMENT_SAMPLERS);
+                + " textures, the most of any, and GlFloor.FRAGMENT_SAMPLERS says " + GlFloor.FRAGMENT_SAMPLERS + RAISING);
         Checks.check(components == GlFloor.FRAGMENT_UNIFORM_COMPONENTS, "the " + mostComponents + " fragment stage holds " + components
-                + " uniform components, the most of any, and GlFloor.FRAGMENT_UNIFORM_COMPONENTS says " + GlFloor.FRAGMENT_UNIFORM_COMPONENTS);
+                + " uniform components, the most of any, and GlFloor.FRAGMENT_UNIFORM_COMPONENTS says " + GlFloor.FRAGMENT_UNIFORM_COMPONENTS + RAISING);
     }
+
+    /** Said when the shaders and GlFloor disagree, since the fix that reads easiest is the one players pay for. */
+    private static final String RAISING = ". Raising the constant to match raises the floor for players: a card with fewer is then refused first person,"
+            + " so first look for a way to read fewer";
 
     private static void figuresAndTerrainShareSunsetHaze() {
         Checks.check(PipelineShaders.WORLD_FRAGMENT_MAIN.contains("distanceHaze(-view, range)"),
