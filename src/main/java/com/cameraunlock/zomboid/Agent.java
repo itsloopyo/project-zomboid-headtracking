@@ -554,9 +554,10 @@ public final class Agent {
                         new CallSite.Method(zombie, "hitConsequences", "(Lzombie/inventory/types/HandWeapon;" + character + "ZFZ)V"), code -> {
                             code.aload(0);
                             code.aload(1);
+                            code.aload(2);
                             code.fload(4);
                             code.iload(5);
-                            CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "zombieHit", "(L" + zombie + ";Lzombie/inventory/types/HandWeapon;FZ)V"));
+                            CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "zombieHit", "(L" + zombie + ";Lzombie/inventory/types/HandWeapon;" + character + "FZ)V"));
                         })),
                 new Patch(zombie, "resetForReuse at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
                         new CallSite.Method(zombie, "resetForReuse", "()V"), code -> {

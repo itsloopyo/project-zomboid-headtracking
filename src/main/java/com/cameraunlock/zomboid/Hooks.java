@@ -374,12 +374,12 @@ public final class Hooks {
      * {@link #shotAt} has just been called for this hit again from inside it, unless it came from
      * the network.
      */
-    public static void zombieHit(IsoZombie zombie, HandWeapon weapon, float damage, boolean fromNetwork) {
+    public static void zombieHit(IsoZombie zombie, HandWeapon weapon, IsoGameCharacter shooter, float damage, boolean fromNetwork) {
         if (fromNetwork || !Rules.wounds() || aimedPart == HitPart.NONE || !weapon.isRanged()) {
             return;
         }
         if (aimedPart == RagdollBodyPart.BODYPART_HEAD.ordinal()) {
-            headShot(zombie, weapon, damage);
+            headShot(zombie, weapon, shooter, damage);
             return;
         }
         int limb = limbOf(aimedPart);
@@ -402,7 +402,6 @@ public final class Hooks {
         String cut = stage != Wounds.SEVERED ? "" : (bursts ? "burst at the " : "cut off at the ") + joint + ", ";
         if (stage == Wounds.SEVERED) {
             float high = zombie.isOnFloor() ? 0.2f : leg ? 0.45f : 1f;
-            IsoPlayer shooter = IsoPlayer.getInstance();
             Stumps.bloody(zombie, limb, where);
             if (bursts) {
                 Bleeding.mist(zombie, high, 7, 3f, shooter.getX(), shooter.getY());
@@ -526,7 +525,7 @@ public final class Hooks {
     private static final java.util.Random chance = new java.util.Random();
 
     /** A head shot that killed: one that left the zombie far enough below no health may burst its head. */
-    private static void headShot(IsoZombie zombie, HandWeapon weapon, float damage) {
+    private static void headShot(IsoZombie zombie, HandWeapon weapon, IsoGameCharacter from, float damage) {
         if (!zombie.isDead()) {
             return;
         }
@@ -535,7 +534,6 @@ public final class Hooks {
         }
         // A blast's pellets each come here: the head is rolled for once, by the first hard enough.
         float roll = chance.nextFloat();
-        IsoPlayer from = IsoPlayer.getInstance();
         boolean closeBlast = ImpactFinder.size(weapon) == ImpactFinder.PELLET
                 && Math.hypot(zombie.getX() - from.getX(), zombie.getY() - from.getY()) <= CLOSE_BLAST;
         float pops = closeBlast ? 0f : POPS, bursts = closeBlast ? CLOSE_BLAST_BURSTS : BURSTS;
