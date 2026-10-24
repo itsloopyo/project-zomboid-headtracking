@@ -94,6 +94,14 @@ final class WireBuilder {
         this.build = build;
     }
 
+    /** Where the span found for one line of a wire sprite on a square is kept: line 0-3, pole 4-11, level 12-16, y 17-38, x 39 up. */
+    static long spanKey(int x, int y, int z, int pole, int line) {
+        if (line < 0 || line > 15 || pole < 0 || pole > 255 || z < 0 || z > 31 || y < 0 || y >= 1 << 22 || x < 0) {
+            throw new IllegalArgumentException("wire span key out of range: square " + x + "," + y + "," + z + " pole " + pole + " line " + line);
+        }
+        return (long) x << 39 | (long) y << 17 | (long) z << 12 | (long) pole << 4 | line;
+    }
+
     /**
      * The wires a sprite of overhead wire shows, each hung where it is painted over the map
      * and as high as its span has it there: a wire is held at the insulators of two poles and
@@ -109,9 +117,9 @@ final class WireBuilder {
             spansFrame = world.frames;
         }
         float[] lines = wiresOn(texture, name, build.frame);
-        long square = (long) x << 38 | (long) y << 16 | (long) z << 12 | (long) Poles.index(name) << 4;
+        int pole = Poles.index(name);
         for (int i = 0; i < lines.length; i += 4) {
-            long key = square | i / 4;
+            long key = spanKey(x, y, z, pole, i / 4);
             float[] pieces = world.strung.get(key);
             if (pieces == null) {
                 pieces = spans.find(x, y, z, x + lines[i], y + lines[i + 1], x + lines[i + 2], y + lines[i + 3]);

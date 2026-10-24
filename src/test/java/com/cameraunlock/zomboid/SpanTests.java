@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /** Tests of what a length of overhead wire hangs between, on made-up maps, and of the curve it hangs in. */
 final class SpanTests {
@@ -28,6 +29,35 @@ final class SpanTests {
         Checks.run("aRunHangsFromAPoleTheMapMayYetShowMoreOf", SpanTests::aRunHangsFromAPoleTheMapMayYetShowMoreOf);
         Checks.run("aTallPoleWhoseTopMayBeDrawnUpOntoMapNotLoadedWantsTheMap", SpanTests::aTallPoleWhoseTopMayBeDrawnUpOntoMapNotLoadedWantsTheMap);
         Checks.run("spansFoundTogetherInAFrameAreThoseFoundOneByOne", SpanTests::spansFoundTogetherInAFrameAreThoseFoundOneByOne);
+        Checks.run("spansOfOneSquareOnDifferentLevelsAreKeptApart", SpanTests::spansOfOneSquareOnDifferentLevelsAreKeptApart);
+    }
+
+    /** Build 42's levels run past 15: the span found on level 17 of a square is neither the one on its level 1 nor the one on the next square's. */
+    private static void spansOfOneSquareOnDifferentLevelsAreKeptApart() {
+        Set<Long> keys = new HashSet<>();
+        for (int z = 0; z <= 31; z++) {
+            for (int line = 0; line <= 15; line++) {
+                keys.add(WireBuilder.spanKey(12345, 6789, z, 135, line));
+            }
+        }
+        Checks.check(keys.size() == 32 * 16, "every level and line of one square has a key of its own");
+        Checks.check(WireBuilder.spanKey(12345, 6789, 1, 96, 0) != WireBuilder.spanKey(12345, 6789, 17, 96, 0), "levels 1 and 17 of one square get different keys");
+        Checks.check(WireBuilder.spanKey(12345, 6789, 17, 96, 0) != WireBuilder.spanKey(12345, 6790, 1, 96, 0), "level 17 of a square is not level 1 of the square next to it");
+        Checks.check(WireBuilder.spanKey(12345, 6789, 31, 255, 15) != WireBuilder.spanKey(12345, 6790, 0, 0, 0), "the top level, pole and line stay off the next square's key");
+        boolean refused = false;
+        try {
+            WireBuilder.spanKey(12345, 6789, 1, 96, 16);
+        } catch (IllegalArgumentException expected) {
+            refused = true;
+        }
+        Checks.check(refused, "a line index past 15 is refused");
+        refused = false;
+        try {
+            WireBuilder.spanKey(12345, 6789, 1, 256, 0);
+        } catch (IllegalArgumentException expected) {
+            refused = true;
+        }
+        Checks.check(refused, "a pole index past 255 is refused");
     }
 
     /**
