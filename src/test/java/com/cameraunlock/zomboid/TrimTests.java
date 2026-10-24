@@ -149,21 +149,27 @@ final class TrimTests {
 
     private static void aDadoDoorwayPieceAsTheGameReadsItIsBuiltLikeItsSiblings() {
         // walls_interior_detailing_01_42 west as the game reads it, in brightness by row: the
-        // panel a dot's paint at one end of the wall and eight at the other, a doorway between,
-        // its rail's shadow half as bright as the panel.
-        int[] cornice = {43, 43, 43, 47, 54, 52, 51, 49, 42, 47, 51, 50, 50, 49, 46, 45, 46, 48, 47, 39, 34};
+        // panel four dots of paint at one end of the wall and eight at the other, a doorway
+        // between, and the last three dots the sprite's edge, taken on past its side, half as
+        // bright again as the board and darker in its shadows.
+        int[] cornice = {42, 42, 42, 46, 53, 51, 49, 48, 42, 46, 49, 49, 49, 48, 44, 44, 45, 47, 46, 40, 34};
+        int[] corniceEdge = {73, 73, 73, 75, 77, 77, 77, 77, 23, 59, 77, 77, 74, 73, 73, 73, 74, 74, 74, 22, 26};
         byte[] dots = new byte[LONG * HIGH * 4];
         for (int row = 0; row < cornice.length; row++) {
-            paint(dots, row, row, 0, LONG - 1, cornice[row]);
+            paint(dots, row, row, 0, LONG - 4, cornice[row]);
+            paint(dots, row, row, LONG - 3, LONG - 1, corniceEdge[row]);
         }
         paint(dots, 21, 21, 0, 30, 29);
         paint(dots, 138, 138, 57, 63, 18);
-        int[] greys = {49, 59, 58, 56, 55, 55, 56, 56, 54, 52, 55, 56, 38, 27, 47, 58, 57, 57, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56,
-                56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 55, 37, 26, 43};
+        int[] greys = {44, 53, 52, 50, 49, 49, 49, 50, 48, 44, 48, 50, 43, 35, 43, 51, 50, 50, 50, 49, 49, 49, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50,
+                50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 49, 50, 49, 49, 42, 32, 38};
+        int[] edge = {63, 75, 74, 74, 74, 74, 74, 74, 74, 75, 75, 75, 23, 5, 60, 78, 78, 76, 75, 75, 75, 75, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74,
+                74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 75, 75, 75, 75, 74, 22, 5, 57};
         for (int i = 0; i < greys.length; i++) {
             int row = HIGH - greys.length + i;
             paint(dots, row, row, 0, 3, greys[i]);
-            paint(dots, row, row, 56, 63, greys[i]);
+            paint(dots, row, row, 56, LONG - 4, greys[i]);
+            paint(dots, row, row, LONG - 3, LONG - 1, edge[i]);
         }
         checkDado(Trims.bands(dots, LONG, HIGH, 1f), "01_42 west", 0, 3, 56, LONG - 1);
     }

@@ -23,9 +23,15 @@ import zombie.core.textures.Texture;
 final class Trims {
     /** The tallest band built as a moulding, in levels: past it a band is a panel. */
     static final float TALLEST = 0.14f;
-    /** A panel is painted evenly where the spread of its dots' brightness is under this share of their mean: brick and tiles have courses and joints. */
-    private static final float EVEN = 0.12f;
     /**
+     * A panel is painted evenly where the spread of its dots' brightness is under this share of
+     * their mean: brick and tiles have courses and joints. Not counting a column of the END at
+     * each end of the wall that is more than EVEN brighter or darker than the panel: the read
+     * takes the sprite's edge on past its side there (Flats.stood), and the game reads
+     * walls_interior_detailing_01_42's edge half as bright again as its board, all the way up.
+     */
+    private static final float EVEN = 0.12f;
+    private static final int END = 3;    /**
      * Cast blocks are as even as paint, and their joints are a thin dark line between two faces
      * each painted evenly: a row this much darker than the rows FACE_NEAR to FACE_FAR above it
      * and below it, each run within FLAT of its mean, is a joint, and a panel with one is blocks.
@@ -331,13 +337,25 @@ final class Trims {
 
     /** Whether the rows first to last are painted in one colour, as a panel of painted boards is, and not in courses or tiles. */
     private static boolean even(byte[] dots, int long_, int first, int last) {
+        boolean[] edge = new boolean[long_];
+        double mean = spread(dots, long_, first, last, edge)[0];
+        for (int column = 0; column < END; column++) {
+            edge[column] = off(dots, long_, first, last, column, mean);
+            edge[long_ - 1 - column] = off(dots, long_, first, last, long_ - 1 - column, mean);
+        }
+        double[] spread = spread(dots, long_, first, last, edge);
+        return spread[1] < EVEN * spread[0]
+                && !jointed(dots, long_, first + OUTLINE_ROWS, last - OUTLINE_ROWS) && !uprightJoint(dots, long_, first + OUTLINE_ROWS, last - OUTLINE_ROWS);
+    }
+
+    /** The mean brightness of the dots painted in the rows first to last, and their standard deviation, leaving out the columns left. */
+    private static double[] spread(byte[] dots, int long_, int first, int last, boolean[] left) {
         double sum = 0.0, squares = 0.0;
         int count = 0;
         for (int row = first; row <= last; row++) {
             for (int column = 0; column < long_; column++) {
-                int at = (row * long_ + column) * 4;
-                if (dots[at + 3] != 0) {
-                    double light = 0.299 * (dots[at] & 0xff) + 0.587 * (dots[at + 1] & 0xff) + 0.114 * (dots[at + 2] & 0xff);
+                if (!left[column] && dots[(row * long_ + column) * 4 + 3] != 0) {
+                    double light = light(dots, long_, row, column);
                     sum += light;
                     squares += light * light;
                     count++;
@@ -345,8 +363,20 @@ final class Trims {
             }
         }
         double mean = sum / count;
-        return Math.sqrt(Math.max(squares / count - mean * mean, 0.0)) < EVEN * mean
-                && !jointed(dots, long_, first + OUTLINE_ROWS, last - OUTLINE_ROWS) && !uprightJoint(dots, long_, first + OUTLINE_ROWS, last - OUTLINE_ROWS);
+        return new double[] {mean, Math.sqrt(Math.max(squares / count - mean * mean, 0.0))};
+    }
+
+    /** Whether a column's dots in the rows first to last are more than EVEN brighter or darker than the panel's mean: not where it has none painted there. */
+    private static boolean off(byte[] dots, int long_, int first, int last, int column, double mean) {
+        double sum = 0.0;
+        int count = 0;
+        for (int row = first; row <= last; row++) {
+            if (dots[(row * long_ + column) * 4 + 3] != 0) {
+                sum += light(dots, long_, row, column);
+                count++;
+            }
+        }
+        return count > 0 && Math.abs(sum / count - mean) > EVEN * mean;
     }
 
     private static boolean jointed(byte[] dots, int long_, int first, int last) {
