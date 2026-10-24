@@ -327,6 +327,8 @@ public final class FirstPerson {
     private boolean held;
     /** A PC on which the making and the rehearsal take longer than this goes on to first person without the rest of them. */
     private static final long READY_WITHIN_NANOS = 4_000_000_000L;
+    /** How long from being asked for first person waits for the far land round the eye, in all: without it the picture ends at the loaded map in fog. */
+    private static final long FAR_WITHIN_NANOS = FarLand.waitNanos(20_000L);
 
     void toggle() {
         IsoPlayer player = view.player();
@@ -404,9 +406,15 @@ public final class FirstPerson {
         if (!late && !view.worldScene.farLand.ready()) {
             return;
         }
+        int round = view.worldScene.farLand.roundTheEye();
+        if (round < FarLand.ROUND && now - readySince <= FAR_WITHIN_NANOS) {
+            return;
+        }
         if (late) {
             Log.info(String.format(Locale.ROOT, "%sfirst person switched on after %.0f ms of getting ready, with the far land %s",
-                    who(), (now - readySince) / 1e6, view.worldScene.farLand.ready() ? "round the eye" : "not yet all round the eye"));
+                    who(), (now - readySince) / 1e6, view.worldScene.farLand.ready() ? "all round the eye"
+                            : round == FarLand.ROUND ? "round the eye and the rest of it still coming"
+                            : "not yet round the eye, so the picture ends at the loaded map until it is"));
         }
         gettingReady = false;
         switchView(player);
