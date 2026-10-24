@@ -2637,6 +2637,15 @@ final class WorldScene {
             return kind;
         }
         private boolean wallNorth, wallWest;
+        /**
+         * The trim sprites on the square being built that are built as mouldings, each with the
+         * edges it is laid on (TRIM_NORTH, TRIM_WEST): the moulding on the other wall of a corner
+         * meets them there.
+         */
+        private Texture[] trimTexture = new Texture[4];
+        private int[] trimEdges = new int[4];
+        private int trimCount;
+        private static final int TRIM_NORTH = 1, TRIM_WEST = 2;
         /** Whether the square being built holds a square of a tent's canopy: see Tents.isCanvas. */
         private boolean canvas;
         /** Whether anything of a wall's kind, a fence or a low wall too, stands on the north and the west edge of the square being added. */
@@ -5695,6 +5704,58 @@ final class WorldScene {
             }
         }
 
+        private void noteTrim(IsoObject object, IsoSprite sprite) {
+            if (sprite == null || !kindOf(sprite).moulded) {
+                return;
+            }
+            PropertyContainer flags = sprite.getProperties();
+            boolean corner = flags.has("attachedNW");
+            int edges = (corner || flags.has(IsoFlagType.attachedN) ? TRIM_NORTH : 0) | (corner || flags.has(IsoFlagType.attachedW) ? TRIM_WEST : 0);
+            Texture texture = sprite.getTextureForCurrentFrame(object.getDir());
+            if (edges == 0 || !usable(texture)) {
+                return;
+            }
+            if (trimCount == trimTexture.length) {
+                trimTexture = Arrays.copyOf(trimTexture, trimCount * 2);
+                trimEdges = Arrays.copyOf(trimEdges, trimCount * 2);
+            }
+            trimTexture[trimCount] = texture;
+            trimEdges[trimCount++] = edges;
+        }
+
+        /**
+         * The bands the square's trim at entry builds as mouldings along the north or the west
+         * wall, as addTrim decides: none where its sprite is drawn instead, or not read yet.
+         */
+        private Trims.Band[] trimBuilt(int entry, boolean north) {
+            int edges = trimEdges[entry];
+            if (!Own.buildings() || (edges & (north ? TRIM_NORTH : TRIM_WEST)) == 0) {
+                return null;
+            }
+            Trims.Band[] onNorth = (edges & TRIM_NORTH) != 0 ? Trims.known(trimTexture[entry], true) : null;
+            Trims.Band[] onWest = (edges & TRIM_WEST) != 0 ? Trims.known(trimTexture[entry], false) : null;
+            if ((edges & TRIM_NORTH) != 0 && (onNorth == null || onNorth.length == 0) || (edges & TRIM_WEST) != 0 && (onWest == null || onWest.length == 0)) {
+                return null;
+            }
+            return north ? onNorth : onWest;
+        }
+
+        /** Whether a band on the north or the west wall of the square meets the same moulding on the other wall in the corner: see Trims.turnsTheCorner. */
+        private boolean mitred(boolean north, Trims.Band band) {
+            for (int entry = 0; entry < trimCount; entry++) {
+                Trims.Band[] bands = trimBuilt(entry, !north);
+                if (bands == null) {
+                    continue;
+                }
+                for (Trims.Band other : bands) {
+                    if (Trims.turnsTheCorner(band, other)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
         /**
          * Builds the trim sprite over a wall as mouldings on the edges it is laid on. False
          * where it is drawn as its sprite: on no north or west edge, panelling, or not read yet,
@@ -5731,7 +5792,7 @@ final class WorldScene {
                     SpriteGeometry.Mesh plain = solid.get(PLAIN, Trims.paint(band));
                     plain.open = frame.open;
                     plain.sway = 0f;
-                    Trims.add(plain, band, x, y, da, db, db, da, base + geometry.liftAt(0f, 0f) + rise, base + geometry.liftAt(da, db) + rise, light);
+                    Trims.add(plain, band, x, y, da, db, db, da, base + geometry.liftAt(0f, 0f) + rise, base + geometry.liftAt(da, db) + rise, mitred(edge == 0, band), light);
                 }
             }
             return true;
@@ -6360,10 +6421,20 @@ final class WorldScene {
             hangsInAir = floor == null;
             geometry.floored = !hangsInAir;
             wallNorth = wallWest = edgeNorth = edgeWest = canvas = false;
+            trimCount = 0;
             boolean openAbove = false;
             PZArrayList<IsoObject> objects = square.getObjects();
             for (int i = 0; i < objects.size(); i++) {
-                IsoSprite sprite = objects.get(i).getSprite();
+                IsoObject object = objects.get(i);
+                IsoSprite sprite = object.getSprite();
+                noteTrim(object, sprite);
+                noteTrim(object, object.getOverlaySprite());
+                ArrayList<IsoSpriteInstance> attached = object.getAttachedAnimSprite();
+                if (attached != null) {
+                    for (int k = 0; k < attached.size(); k++) {
+                        noteTrim(object, attached.get(k).parentSprite);
+                    }
+                }
                 if (sprite != null) {
                     PropertyContainer flags = sprite.getProperties();
                     IsoObjectType type = sprite.getType();

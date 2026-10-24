@@ -103,6 +103,28 @@ final class Trims {
         return null;
     }
 
+    /** The bands of a sprite along an edge as far as they have been read, without asking for them: null if not read yet. */
+    static Band[] known(Texture texture, boolean north) {
+        return known.get(new Asked(texture, north));
+    }
+
+    /** Whether a band is a cornice: one under the ceiling, which falls CORNICE_FALL down the wall whatever its band. */
+    static boolean cornice(Band band) {
+        return band.top >= 1f && band.foot > 0f;
+    }
+
+    /**
+     * Whether two bands, one on each wall of a corner, are one moulding turning the corner and
+     * meet there in a mitre: both reach the corner, and they are the same moulding, which for a
+     * board is the same foot and top give or take a reading's rounding.
+     */
+    static boolean turnsTheCorner(Band one, Band other) {
+        if (one.from > 0f || other.from > 0f || cornice(one) != cornice(other)) {
+            return false;
+        }
+        return cornice(one) || Math.abs(one.foot - other.foot) <= 1.01f / HEIGHTS && Math.abs(one.top - other.top) <= 1.01f / HEIGHTS;
+    }
+
     /** Reads the sprite for each edge it was asked for on: see Windows.read. On the thread that draws. */
     static void read(Texture texture, ByteBuffer sheet, int width, int left, int top, int right, int bottom) {
         for (int edge = 0; edge < 2; edge++) {
@@ -291,7 +313,7 @@ final class Trims {
      */
     static float[] section(Band band) {
         float level = ViewCamera.LEVEL_HEIGHT, foot = band.foot * level, top = band.top * level, tall = top - foot;
-        if (band.top >= 1f && band.foot > 0f) {
+        if (cornice(band)) {
             tall = CORNICE_FALL;
             foot = top - tall;
             float fillet = foot + 0.25f * tall, middle = foot + 0.6f * tall;
@@ -309,12 +331,16 @@ final class Trims {
      * Adds a band's moulding along a wall from (x0, y0) by (da, db), a tile long, on the side
      * (inX, inY) of it, its skin WorldScene.WALL_HALF out from the line, at heights over base0
      * at its start and base1 at its end, into a mesh keyed by paint(band). Each vertex is the light
-     * light(x, y) gives where it is. Closed at both ends.
+     * light(x, y) gives where it is. Closed at both ends, but for a start that is mitred: there
+     * the same moulding on the other wall of the corner meets it on the corner's diagonal, each
+     * point of its section starting as far along as it stands out of the other wall's skin, and
+     * the two close each other.
      */
-    static void add(SpriteGeometry.Mesh mesh, Band band, float x0, float y0, float da, float db, float inX, float inY, float base0, float base1, Light light) {
+    static void add(SpriteGeometry.Mesh mesh, Band band, float x0, float y0, float da, float db, float inX, float inY, float base0, float base1,
+            boolean mitred, Light light) {
         float[] section = section(band);
         float skinX = inX * WorldScene.WALL_HALF, skinY = inY * WorldScene.WALL_HALF;
-        float from = band.from, to = band.to;
+        float to = band.to;
         float[] lit = new float[5];
         for (int i = 0; i + 3 < section.length; i += 2) {
             float out0 = section[i], up0 = section[i + 1], out1 = section[i + 2], up1 = section[i + 3];
@@ -324,16 +350,19 @@ final class Trims {
             }
             // The segment faces away from the wall on its left: (-dUp, dOut) in (out, up).
             mesh.face(inX * -dUp, inY * -dUp, dOut);
-            float ax = x0 + da * from + skinX, ay = y0 + db * from + skinY, bx = x0 + da * to + skinX, by = y0 + db * to + skinY;
-            float baseA = base0 + (base1 - base0) * from, baseB = base0 + (base1 - base0) * to;
-            corner(mesh, light, lit, ax + inX * out0, ay + inY * out0, baseA + up0);
+            float from0 = startOf(band, mitred, out0), from1 = startOf(band, mitred, out1);
+            float bx = x0 + da * to + skinX, by = y0 + db * to + skinY, baseB = base0 + (base1 - base0) * to;
+            float a0x = x0 + da * from0 + skinX, a0y = y0 + db * from0 + skinY, a1x = x0 + da * from1 + skinX, a1y = y0 + db * from1 + skinY;
+            float baseA0 = base0 + (base1 - base0) * from0, baseA1 = base0 + (base1 - base0) * from1;
+            corner(mesh, light, lit, a0x + inX * out0, a0y + inY * out0, baseA0 + up0);
             corner(mesh, light, lit, bx + inX * out0, by + inY * out0, baseB + up0);
             corner(mesh, light, lit, bx + inX * out1, by + inY * out1, baseB + up1);
-            corner(mesh, light, lit, ax + inX * out0, ay + inY * out0, baseA + up0);
+            corner(mesh, light, lit, a0x + inX * out0, a0y + inY * out0, baseA0 + up0);
             corner(mesh, light, lit, bx + inX * out1, by + inY * out1, baseB + up1);
-            corner(mesh, light, lit, ax + inX * out1, ay + inY * out1, baseA + up1);
+            corner(mesh, light, lit, a1x + inX * out1, a1y + inY * out1, baseA1 + up1);
         }
-        for (int end = 0; end < 2; end++) {
+        float from = band.from;
+        for (int end = mitred ? 1 : 0; end < 2; end++) {
             float along = end == 0 ? from : to, way = end == 0 ? -1f : 1f;
             float ex = x0 + da * along + skinX, ey = y0 + db * along + skinY, base = base0 + (base1 - base0) * along;
             // Turned a little more towards the room than along the wall: the overhead view's cut
@@ -353,6 +382,11 @@ final class Trims {
                 corner(mesh, light, lit, ex, ey, base + up1);
             }
         }
+    }
+
+    /** How far along its wall a point of a band's section standing out of the skin starts: at the band's start, or on the corner's diagonal. */
+    private static float startOf(Band band, boolean mitred, float out) {
+        return mitred ? WorldScene.WALL_HALF + out : band.from;
     }
 
     /** The mesh key of a band's paint. */

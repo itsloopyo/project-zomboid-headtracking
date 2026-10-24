@@ -25,6 +25,8 @@ final class TrimTests {
         Checks.run("everyFaceOfAMouldingLooksAwayFromItsWall", TrimTests::everyFaceOfAMouldingLooksAwayFromItsWall);
         Checks.run("aMouldingIsLitByTheRoomAndPaintedByItsMesh", TrimTests::aMouldingIsLitByTheRoomAndPaintedByItsMesh);
         Checks.run("aTiledWainscotIsLaidAsTilesAndNotAsMouldings", TrimTests::aTiledWainscotIsLaidAsTilesAndNotAsMouldings);
+        Checks.run("twoMouldingsMeetInAMitreInTheCornerAndNeitherCrossesTheOther", TrimTests::twoMouldingsMeetInAMitreInTheCornerAndNeitherCrossesTheOther);
+        Checks.run("onlyTheSameMouldingTurnsACorner", TrimTests::onlyTheSameMouldingTurnsACorner);
     }
 
     /** A wall stood square with rows first to last painted from column from to column to, in grey. */
@@ -118,7 +120,7 @@ final class TrimTests {
         for (int edge = 0; edge < 2; edge++) {
             SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
             float da = edge == 0 ? 1f : 0f, db = 1f - da;
-            Trims.add(mesh, SKIRTING, 4f, 9f, da, db, db, da, 0f, 0f, WHITE);
+            Trims.add(mesh, SKIRTING, 4f, 9f, da, db, db, da, 0f, 0f, false, WHITE);
             check(mesh.triangles() > 0, "a skirting is built");
             for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
                 float x = mesh.vertices[at], y = mesh.vertices[at + 1], up = mesh.vertices[at + 2];
@@ -135,7 +137,7 @@ final class TrimTests {
     private static void aMouldingIsLitByTheRoomAndPaintedByItsMesh() {
         Trims.Band wood = new Trims.Band(0f, 0.06f, 0f, 1f, 0.5f, 0.3f, 0.15f);
         SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
-        Trims.add(mesh, wood, 4f, 9f, 1f, 0f, 0f, 1f, 0f, 0f, (x, y, into) -> {
+        Trims.add(mesh, wood, 4f, 9f, 1f, 0f, 0f, 1f, 0f, 0f, false, (x, y, into) -> {
             into[0] = 0.8f;
             into[1] = 0.6f;
             into[2] = 0.4f;
@@ -154,7 +156,8 @@ final class TrimTests {
         for (Trims.Band band : new Trims.Band[] {SKIRTING, CORNICE, new Trims.Band(0.4f, 0.43f, 0f, 1f, 0.5f, 0.3f, 0.2f),
                 new Trims.Band(0f, 0.12f, 0.3f, 0.7f, 0.9f, 0.9f, 0.9f)}) {
             SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
-            Trims.add(mesh, band, 4f, 9f, 1f, 0f, 0f, 1f, 0f, 0f, WHITE);
+            Trims.add(mesh, band, 4f, 9f, 1f, 0f, 0f, 1f, 0f, 0f, false, WHITE);
+            Trims.add(mesh, band, 4f, 9f, 1f, 0f, 0f, 1f, 0f, 0f, band.from() == 0f, WHITE);
             for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
                 float x = mesh.vertices[at], y = mesh.vertices[at + 1];
                 float nx = mesh.vertices[at + 9], ny = mesh.vertices[at + 10], nz = mesh.vertices[at + 11];
@@ -170,7 +173,7 @@ final class TrimTests {
     private static void everyFaceOfAMouldingLooksAwayFromItsWall() {
         for (Trims.Band band : new Trims.Band[] {SKIRTING, CORNICE, new Trims.Band(0.4f, 0.43f, 0f, 1f, 0.5f, 0.3f, 0.2f)}) {
             SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
-            Trims.add(mesh, band, 4f, 9f, 1f, 0f, 0f, 1f, 0f, 0f, WHITE);
+            Trims.add(mesh, band, 4f, 9f, 1f, 0f, 0f, 1f, 0f, 0f, false, WHITE);
             for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
                 float nx = mesh.vertices[at + 9], ny = mesh.vertices[at + 10];
                 check(ny >= -1e-5f || Math.abs(nx) > 0.5f, "a face of " + band + " faces the room, an end or up or down, never the wall: " + ny);
@@ -182,5 +185,39 @@ final class TrimTests {
         check(Trims.moulded("walls_interior_detailing_01_17"), "a skirting and cornice sheet is built as mouldings");
         check(Trims.is("walls_interior_detailing_bathroom_01_39") && !Trims.moulded("walls_interior_detailing_bathroom_01_39")
                 && WallTiles.tiledSheet("walls_interior_detailing_bathroom_01_39"), "a bathroom's tiled wainscot is trim, laid as tiles");
+    }
+
+    private static void twoMouldingsMeetInAMitreInTheCornerAndNeitherCrossesTheOther() {
+        // The north and the west wall of square (4, 9), each with its moulding to the corner.
+        for (Trims.Band band : new Trims.Band[] {SKIRTING, CORNICE, new Trims.Band(0f, 0.28f, 0f, 1f, 0.9f, 0.9f, 0.9f)}) {
+            SpriteGeometry.Mesh north = new SpriteGeometry.Mesh(), west = new SpriteGeometry.Mesh();
+            Trims.add(north, band, 4f, 9f, 1f, 0f, 0f, 1f, 0f, 0f, true, WHITE);
+            Trims.add(west, band, 4f, 9f, 0f, 1f, 1f, 0f, 0f, 0f, true, WHITE);
+            java.util.Set<String> northDiagonal = new java.util.HashSet<>(), westDiagonal = new java.util.HashSet<>();
+            for (int at = 0; at < north.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+                float along = north.vertices[at] - 4f, across = north.vertices[at + 1] - 9f;
+                check(along >= across - 1e-5f, band + ": no point of the north moulding is in the west one's half of the corner: " + along + " " + across);
+                if (Math.abs(along - across) < 1e-5f) {
+                    northDiagonal.add(String.format("%.4f %.4f %.4f", along, across, north.vertices[at + 2]));
+                }
+            }
+            for (int at = 0; at < west.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+                float along = west.vertices[at + 1] - 9f, across = west.vertices[at] - 4f;
+                check(along >= across - 1e-5f, band + ": no point of the west moulding is in the north one's half of the corner: " + along + " " + across);
+                if (Math.abs(along - across) < 1e-5f) {
+                    westDiagonal.add(String.format("%.4f %.4f %.4f", across, along, west.vertices[at + 2]));
+                }
+            }
+            check(!northDiagonal.isEmpty() && northDiagonal.equals(westDiagonal), band + ": the two ends are one section on the diagonal: " + northDiagonal + " and " + westDiagonal);
+        }
+    }
+
+    private static void onlyTheSameMouldingTurnsACorner() {
+        check(Trims.turnsTheCorner(SKIRTING, SKIRTING) && Trims.turnsTheCorner(CORNICE, new Trims.Band(0.9f, 1f, 0f, 1f, 0.5f, 0.5f, 0.5f)),
+                "a skirting meets a skirting, a cornice a cornice of any band");
+        check(Trims.turnsTheCorner(SKIRTING, new Trims.Band(0f, 0.06f + 1f / 32f, 0f, 1f, 0.9f, 0.9f, 0.9f)), "two readings a rounding apart are one moulding");
+        check(!Trims.turnsTheCorner(SKIRTING, new Trims.Band(0f, 0.06f + 2f / 32f, 0f, 1f, 0.9f, 0.9f, 0.9f)), "a taller board is another");
+        check(!Trims.turnsTheCorner(SKIRTING, CORNICE), "a skirting is no cornice");
+        check(!Trims.turnsTheCorner(SKIRTING, new Trims.Band(0f, 0.06f, 0.3f, 1f, 0.9f, 0.9f, 0.9f)), "one that stops short of the corner, at a doorway, meets nothing there");
     }
 }
