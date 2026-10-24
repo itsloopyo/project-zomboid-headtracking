@@ -982,6 +982,8 @@ final class PipelineShaders {
             // joint in brick and in stone, in tiles. Each divides sixty tiles a whole number
             // of times: see vPlace.
             const float BRICK_LONG = 0.2, BRICK_HIGH = 0.0625, BRICK_JOINT = 0.0045, LAP_HIGH = 0.125, STONE_JOINT = 0.008;
+            // The outsides of two walls meet half a wall's thickness past the line between the squares.
+            """ + "const float WALL_HALF = " + WorldScene.WALL_HALF + ";\n" + """
             // How high a band of stone courses is, and how far a stone joint wanders off the straight.
             const float STONE_BAND = 0.48, STONE_WANDER = 0.012;
             // How far the foot of a lapped board stands out of the board under it, in tiles: about 12 mm.
@@ -1880,6 +1882,12 @@ final class PipelineShaders {
                     // From 12 up the sprite is another wall's, the paper of the room behind: it
                     // gives the wall its outline and none of its colour.
                     float how = uTint.a > 11.5 ? uTint.a - 8.0 : uTint.a;
+                    // Bricks are counted from WALL_HALF along the run, where one end of every wall's face meets the next
+                    // wall's: there a course ends in a whole brick or a half, and the face round the corner, whose other
+                    // end is there, in the piece left over, so the bond turns the corner instead of mirroring across it.
+                    if (how < 4.5) {
+                        run -= WALL_HALF;
+                    }
                     // Brick, blocks and stone have depth: the line of sight is followed in past the
                     // faces into the mortar, and the sun's shade falls into the joints (relieve).
                     // A lapped board has its own shadow under each lap: see facLapped.
