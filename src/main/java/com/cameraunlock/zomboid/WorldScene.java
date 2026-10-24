@@ -2034,6 +2034,8 @@ final class WorldScene {
     static final float PRINT = 90f;
     /** The coloured glass of a stained glass window, lit by the day behind it: see StainedGlass. */
     static final float STAINED = 95f;
+    /** The same, drawn from the mod's own picture of the window, whose glass is already the colour and light of glass: see StainedGlass. */
+    static final float OWN_STAINED = 96f;
     /** What the game calls the sheets and boards it hangs flat on a wall. */
     private static final Set<String> PRINTS = Set.of("Poster", "Torn Poster", "Notices", "Picture", "Painting", "Paintings", "Certificate",
             "Child's Drawing", "Childrens Drawing", "Board", "Whiteboard", "Noteboard", "Pegboard", "USA");
@@ -6452,6 +6454,7 @@ final class WorldScene {
                 ownGlass = glass != 0;
                 if (ownGlass) {
                     StainedGlass.texels(sprite.getName(), frame);
+                    frame.material = OWN_STAINED;
                 }
                 addSprite(solid.get(ownGlass ? glass : texture.getID()), object, sprite, texture, object == floor, x, y, z);
                 ownGlass = false;
