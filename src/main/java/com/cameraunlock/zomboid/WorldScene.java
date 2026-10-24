@@ -923,7 +923,7 @@ final class WorldScene {
             rope = Tents.ropeOf(sprite);
             tower = Towers.of(sprite);
             sign = EdgeRuns.sign(name, properties.get("CustomName"));
-            freeSign = EdgeRuns.freeSign(name, properties.get("CustomName")) && PostBuilder.hangsOnNothing(properties);
+            freeSign = EdgeRuns.freeSign(name, properties.get("CustomName"), properties.has("streetlight")) && PostBuilder.hangsOnNothing(properties);
             stained = StainedGlass.of(name);
             tiledSheet = tiledWall ? name.substring(0, name.lastIndexOf('_') + 1) : null;
             ofTheBuilding = ofTheBuilding(sprite);
@@ -7352,6 +7352,12 @@ final class WorldScene {
             // the floor, so its outline says nothing of where a box of it would stand: read as
             // one, a computer on a desk against a wall was a box a pace away outside the wall.
             boolean onTop = kind.onTop;
+            // A piece of a sign or a billboard standing in the air, one of a run that meets in the
+            // game's picture. Read each on its own, as a post or a panel, every piece took a depth
+            // of its own and the board came out in steps.
+            if (overLayer == 0 && kind.freeSign && postBuilder.addFreeSign(mesh, solid.get(texture.getID(), PostBuilder.SIGN_BACK), x, y, z)) {
+                return;
+            }
             // What stands upright on one spot and is no furniture: a column, a porch post, a lamp
             // post, a pole, a timber post with its braces.
             if (!grows && !onTop && overLayer == 0 && !properties.has(IsoFlagType.solid) && !properties.has(IsoFlagType.solidtrans)
@@ -7362,9 +7368,6 @@ final class WorldScene {
             // What the game says nothing about at all, and whose outline is a sheet on the grid's
             // line or a beam along it: the slab over a shop front, a sill, a pipe, a billboard.
             if (!grows && !onTop && overLayer == 0 && postBuilder.addShaped(mesh, object, sprite, texture, x, y, z)) {
-                return;
-            }
-            if (overLayer == 0 && kind.freeSign && postBuilder.addFreeSign(mesh, x, y, z)) {
                 return;
             }
             // What the game counts as filling its square, or as something to sit or lie on, is

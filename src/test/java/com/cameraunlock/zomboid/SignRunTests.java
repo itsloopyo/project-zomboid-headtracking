@@ -206,11 +206,11 @@ final class SignRunTests {
     private static final float[][] SUNSET = {{0f, 16f, 66f, 210f}, {2f, 31f, 64f, 202f}, {2f, 0f, 64f, 238f}, {2f, 2f, 98f, 204f}};
 
     private static void onlySignsAndBillboardsHangOnNothing() {
-        check(EdgeRuns.freeSign("signs_one-off_08_340", null), "the bar's sign");
-        check(EdgeRuns.freeSign("advertising_01_72", null), "a billboard's sheet");
-        check(!EdgeRuns.freeSign("location_trailer_01_12", null), "not a trailer's fittings, on a sheet of lettering");
-        check(!EdgeRuns.freeSign("signs_one-off_02_1", "Bench"), "nor a thing with a name of its own");
-        check(!EdgeRuns.freeSign(null, null), "nor a sprite with no name");
+        check(EdgeRuns.freeSign("signs_one-off_08_340", null, false), "the bar's sign");
+        check(EdgeRuns.freeSign("advertising_01_72", null, false), "a billboard's sheet");
+        check(!EdgeRuns.freeSign("location_trailer_01_12", null, false), "not a trailer's fittings, on a sheet of lettering");
+        check(!EdgeRuns.freeSign("signs_one-off_02_1", "Bench", false), "nor a thing with a name of its own");
+        check(!EdgeRuns.freeSign(null, null, false), "nor a sprite with no name");
     }
 
     private static void piecesOfASignOnNothingStandInOnePlane() {
@@ -270,14 +270,21 @@ final class SignRunTests {
         boolean onePlane = true;
         for (int piece = 0; piece < SUNSET.length; piece++) {
             WorldScene.frameOf(map.build.frame, map.cell.getGridSquare(piece, 0, 1).getObjects().get(0), textures[piece]);
-            SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
-            check(map.build.postBuilder.addFreeSign(mesh, piece, 0, 1), "piece " + piece + " is laid as a piece of the run");
+            SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh(), back = new SpriteGeometry.Mesh();
+            check(map.build.postBuilder.addFreeSign(mesh, back, piece, 0, 1), "piece " + piece + " is laid as a piece of the run");
             float least = Float.MAX_VALUE, most = -Float.MAX_VALUE;
             for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
                 least = Math.min(least, mesh.vertices[at]);
                 most = Math.max(most, mesh.vertices[at]);
                 onePlane &= Math.abs(mesh.vertices[at + 1] - 1f) < 0.02f;
             }
+            check(back.floats == mesh.floats, "piece " + piece + " has a back as large as its face");
+            boolean behind = true;
+            for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+                behind &= back.vertices[at] == mesh.vertices[at] && back.vertices[at + 2] == mesh.vertices[at + 2]
+                        && Math.abs(back.vertices[at + 1] - (mesh.vertices[at + 1] - PostBuilder.SIGN_BACK_GAP)) < 1e-5f;
+            }
+            check(behind, "piece " + piece + "'s back is its face moved north, away from the side the game paints");
             if (!Float.isNaN(before)) {
                 gaps = Math.max(gaps, least - before);
             }
@@ -289,6 +296,6 @@ final class SignRunTests {
         check(gaps < 0.08f, "with no sky between one piece and the next: " + gaps);
         check(west < 0.05f && east > 4.4f, "the board runs from the first square's edge to past the last square: " + west + " to " + east);
         WorldScene.frameOf(map.build.frame, map.cell.getGridSquare(0, 2, 1).getObjects().get(0), textures[1]);
-        check(!map.build.postBuilder.addFreeSign(new SpriteGeometry.Mesh(), 0, 2, 1), "a piece that meets no other is no run");
+        check(!map.build.postBuilder.addFreeSign(new SpriteGeometry.Mesh(), new SpriteGeometry.Mesh(), 0, 2, 1), "a piece that meets no other is no run");
     }
 }

@@ -153,11 +153,20 @@ final class PostBuilder {
     private final SpriteGeometry.Frame runFrame = new SpriteGeometry.Frame();
 
     /**
-     * Stands a piece of a sign the game hangs on nothing, one of a run of pieces that meet in
-     * the game's picture, in the plane of the whole run: see EdgeRuns.board. False, adding
-     * nothing, for a piece that meets no other.
+     * The paint on the back of a board standing in the air, over the sprite's outline, and how
+     * far behind its face the back is, in tiles. The game paints only the side a board shows to
+     * its view; drawn from behind, that side read as its lettering mirrored.
      */
-    boolean addFreeSign(SpriteGeometry.Mesh mesh, int x, int y, int z) {
+    static final int SIGN_BACK = WallSides.key(0.36f, 0.37f, 0.38f, WallSides.FLAT);
+    static final float SIGN_BACK_GAP = 0.04f;
+
+    /**
+     * Stands a piece of a sign the game hangs on nothing, one of a run of pieces that meet in
+     * the game's picture, in the plane of the whole run (see EdgeRuns.board), and its back into
+     * back, SIGN_BACK_GAP behind it, away from the side the game paints. False, adding nothing,
+     * for a piece that meets no other.
+     */
+    boolean addFreeSign(SpriteGeometry.Mesh mesh, SpriteGeometry.Mesh back, int x, int y, int z) {
         for (int way = 0; way < 2; way++) {
             boolean alongX = way == 0;
             int dx = alongX ? 1 : 0, dy = alongX ? 0 : 1;
@@ -165,16 +174,41 @@ final class PostBuilder {
             if (!freePieceOn(x + dx, y + dy, z, alongX, 1, run) && !freePieceOn(x - dx, y - dy, z, alongX, -1, run)) {
                 continue;
             }
-            float first = run[0];
+            int behind = 0;
             System.arraycopy(run, 0, walked, 0, 2);
-            for (int step = 1; freePieceOn(x - step * dx, y - step * dy, z, alongX, -1, walked); step++) {
-                first = next[0];
+            while (freePieceOn(x - (behind + 1) * dx, y - (behind + 1) * dy, z, alongX, -1, walked)) {
+                behind++;
                 System.arraycopy(next, 0, walked, 0, 2);
             }
-            build.geometry.addPanel(mesh, build.frame, x, y, z, EdgeRuns.board(build.frame, alongX, run, -first));
+            SpriteShape board = EdgeRuns.board(build.frame, alongX, run, -startOfWhole(x - behind * dx, y - behind * dy, z, alongX));
+            build.geometry.addPanel(mesh, build.frame, x, y, z, board);
+            // The same face, so the same outline, moved back: the game paints a board for a view
+            // from the south and the east, so its back is to the north or the west.
+            int from = back.floats;
+            build.geometry.addPanel(back, build.frame, x, y, z, board);
+            for (int at = from + (alongX ? 1 : 0); at < back.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+                back.vertices[at] -= SIGN_BACK_GAP;
+            }
             return true;
         }
         return false;
+    }
+
+    /**
+     * Where along its square the first piece of a run that is a whole square long starts, the
+     * run's first piece starting at (x, y) with walked holding where it paints; the first
+     * piece's start where none is. A whole piece starts at its square's edge, as SpriteShape
+     * stands a whole panel; the end piece of a billboard is cut short at its picture's edge,
+     * so the run is not stood by it: stood by that, a billboard's face stood 0.23 of a square
+     * nearer the street than its catwalk.
+     */
+    private float startOfWhole(int x, int y, int z, boolean alongX) {
+        int dx = alongX ? 1 : 0, dy = alongX ? 0 : 1;
+        float first = walked[0];
+        for (int step = 1; !EdgeRuns.whole(walked[0], walked[1]) && freePieceOn(x + step * dx, y + step * dy, z, alongX, 1, walked); step++) {
+            System.arraycopy(next, 0, walked, 0, 2);
+        }
+        return EdgeRuns.whole(walked[0], walked[1]) ? walked[0] : first;
     }
 
     /**
@@ -191,7 +225,8 @@ final class PostBuilder {
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
             IsoSprite sprite = object.getSprite();
-            if (sprite == null || !hangsOnNothing(sprite.getProperties()) || !EdgeRuns.freeSign(sprite.getName(), sprite.getProperties().get("CustomName"))) {
+            if (sprite == null || !hangsOnNothing(sprite.getProperties()) || !EdgeRuns.freeSign(sprite.getName(), sprite.getProperties().get("CustomName"),
+                    sprite.getProperties().has("streetlight"))) {
                 continue;
             }
             Texture texture = sprite.getTextureForCurrentFrame(object.getDir());
@@ -201,18 +236,23 @@ final class PostBuilder {
             runFrame.scale = build.frame.scale;
             WorldScene.frameOf(runFrame, object, texture);
             EdgeRuns.along(runFrame, alongX ? 1f : 0f, alongX ? 0f : 1f, next);
-            if (way > 0 ? EdgeRuns.meets(from[0], from[1], next[0], next[1]) : EdgeRuns.meets(next[0], next[1], from[0], from[1])) {
+            if (way > 0 ? EdgeRuns.carriesOn(from[0], from[1], next[0], next[1]) : EdgeRuns.carriesOn(next[0], next[1], from[0], from[1])) {
                 return true;
             }
         }
         return false;
     }
 
-    /** Whether the game hangs a sprite on no wall at all. */
+    /**
+     * Whether the game hangs a sprite on no wall at all, and stands it on no floor: a
+     * billboard's catwalk is on the squares of its face and on its sheet, but stands on its
+     * floor and fills its square.
+     */
     static boolean hangsOnNothing(PropertyContainer properties) {
         return !properties.has(IsoFlagType.attachedN) && !properties.has(IsoFlagType.attachedW) && !properties.has(IsoFlagType.attachedE)
                 && !properties.has(IsoFlagType.attachedS) && !properties.has(IsoFlagType.attachedNW) && !properties.has(IsoFlagType.attachedSE)
-                && !properties.has(IsoFlagType.WallOverlay);
+                && !properties.has(IsoFlagType.WallOverlay) && !properties.has(IsoFlagType.attachedFloor)
+                && !properties.has(IsoFlagType.solid) && !properties.has(IsoFlagType.solidtrans);
     }
 
     /** The shape of an object's sprite, read the first time the sprite is met. */

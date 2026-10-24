@@ -82,10 +82,16 @@ final class EdgeRuns {
      * Whether a sprite the game hangs on nothing may be a piece of a sign that runs on over the
      * next squares: on a sheet of signs or billboards, and named a sign or nothing. The other
      * sheets of lettering are mostly the fittings of a place, a motel's or a trailer's, and
-     * what of them has no flag is no sign.
+     * what of them has no flag is no sign: of those only what the game names a sign, the
+     * Sunstar Motel's board on its posts, or lights as a street lamp, the board on a Fossoil
+     * or Spiffo's pole.
      */
-    static boolean freeSign(String name, String customName) {
-        return name != null && (customName == null || customName.equals("Sign")) && (name.startsWith("signs_") || name.startsWith("advertising_"));
+    static boolean freeSign(String name, String customName, boolean lit) {
+        if (name == null || customName != null && !customName.equals("Sign")) {
+            return false;
+        }
+        return name.startsWith("signs_") || name.startsWith("advertising_")
+                || name.startsWith("location_") && (customName != null || lit);
     }
 
     /**
@@ -123,4 +129,24 @@ final class EdgeRuns {
     static boolean meets(float from, float to, float nextFrom, float nextTo) {
         return Math.abs(nextFrom + 1f - to) <= MEET && (overhangs(from, to) || overhangs(nextFrom, nextTo));
     }
+
+    /**
+     * Whether a piece of a sign that hangs on nothing, painted from to to along its run, and a
+     * piece on the next square along painted nextFrom to nextTo, are one board: the second
+     * starts further along than the first and no further than where the first stops. A board
+     * on a pole is cut where its picture is, not where its squares are, so its pieces' trimmed
+     * pictures may overlap: Spiffo's head over a Muldraugh car park paints 0.84 before its
+     * square to 0.72 into it, and the rest of the head carries on from 0.38 into it.
+     */
+    static boolean carriesOn(float from, float to, float nextFrom, float nextTo) {
+        return nextFrom + 1f <= to + MEET && nextFrom + 1f > from && nextTo + 1f > to;
+    }
+
+    /** Whether a piece painted from to to along its run is a square long, so starts at its square's edge. */
+    static boolean whole(float from, float to) {
+        return Math.abs(to - from - 1f) <= WHOLE;
+    }
+
+    /** How far from a square's length, in tiles, a piece may paint and still be a whole square of its run. */
+    static final float WHOLE = 0.08f;
 }
