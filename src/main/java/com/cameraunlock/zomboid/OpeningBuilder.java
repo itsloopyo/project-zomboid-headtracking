@@ -418,6 +418,7 @@ final class OpeningBuilder {
         float[] up = panelled < leaf.head ? PANELS_UP_BELOW : PANELS_UP;
         int filled = inDoorway ? jambs(leaf.start, leaf.end, doorwayStart, doorwayEnd, doorwayRevealed, jambs) : 0;
         float knob = door.handleAtEnd ? leaf.end - KNOB_IN * wide : leaf.start + KNOB_IN * wide;
+        float[] bars = barsToRails(leaf);
         for (int side = 0; side < 2; side++) {
             float face = (side == 0 ? 1f : -1f) * DOOR_HALF;
             float r = sideRed[side], g = sideGreen[side], b = sideBlue[side];
@@ -450,8 +451,8 @@ final class OpeningBuilder {
                 if (leaf.footHigh > 0f) {
                     addJoinery(wood, inStart, inEnd, leaf.foot, leaf.foot + leaf.footHigh, face, r, g, b);
                 }
-                for (int bar = 0; bar < leaf.bars.length; bar += 4) {
-                    addJoinery(wood, leaf.bars[bar], leaf.bars[bar + 1], leaf.bars[bar + 2], leaf.bars[bar + 3], face, r, g, b);
+                for (int bar = 0; bar < bars.length; bar += 4) {
+                    addJoinery(wood, bars[bar], bars[bar + 1], bars[bar + 2], bars[bar + 3], face, r, g, b);
                 }
             }
             // The jamb is the doorway's, not the leaf's: the line round a door E would open goes round the leaf.
@@ -1139,6 +1140,34 @@ final class OpeningBuilder {
         }
         mesh.open = open;
         mesh.day = day;
+    }
+
+    /**
+     * A door's bars, those that run between lights to the highest lights' head or the lowest
+     * lights' foot carried on to the rail there. The lights are read from the first whole dot
+     * under the head rail and over the foot rail, so a rail a part dot high leaves its lights
+     * and bars short of it, and a bar left short opens a slot between the beads over it.
+     */
+    static float[] barsToRails(Windows.Shape leaf) {
+        float[] bars = leaf.bars.clone();
+        if (leaf.panes.length == 0) {
+            return bars;
+        }
+        float lightsHead = -Float.MAX_VALUE, lightsFoot = Float.MAX_VALUE;
+        for (int pane = 0; pane < leaf.panes.length; pane += 5) {
+            lightsFoot = Math.min(lightsFoot, leaf.panes[pane + 2]);
+            lightsHead = Math.max(lightsHead, leaf.panes[pane + 3]);
+        }
+        float headRail = leaf.head - leaf.headHigh, footRail = leaf.foot + leaf.footHigh;
+        for (int bar = 0; bar < bars.length; bar += 4) {
+            if (bars[bar + 3] == lightsHead && headRail > lightsHead) {
+                bars[bar + 3] = headRail;
+            }
+            if (bars[bar + 2] == lightsFoot && footRail < lightsFoot) {
+                bars[bar + 2] = footRail;
+            }
+        }
+        return bars;
     }
 
     /**

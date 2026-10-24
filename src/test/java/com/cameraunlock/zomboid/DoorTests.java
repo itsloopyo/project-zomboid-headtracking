@@ -32,6 +32,7 @@ final class DoorTests {
         Checks.run("aLongHandleIsALeverAndARoundOneAKnob", DoorTests::aLongHandleIsALeverAndARoundOneAKnob);
         Checks.run("aLeversArmRunsFromItsNeckTowardsTheHinges", DoorTests::aLeversArmRunsFromItsNeckTowardsTheHinges);
         Checks.run("aBeadRunsRoundALightHalfOverItsGlass", DoorTests::aBeadRunsRoundALightHalfOverItsGlass);
+        Checks.run("aBarBetweenLightsRunsOnToTheRails", DoorTests::aBarBetweenLightsRunsOnToTheRails);
     }
 
     private static void capUnderAWallsFootLeavesTheDoorwayFloorBare() {
@@ -493,6 +494,21 @@ final class DoorTests {
             check(Math.abs((handleAtEnd ? arm[0] : arm[1]) - knob) > Math.abs((handleAtEnd ? arm[1] : arm[0]) - knob), "and runs towards the hinges at " + hinge);
             check(arm[2] < OpeningBuilder.KNOB_HIGH && OpeningBuilder.KNOB_HIGH < arm[3], "at the knob's height");
         }
+    }
+
+    private static void aBarBetweenLightsRunsOnToTheRails() {
+        // Two lights side by side read from the first whole dot under a head rail 0.05 high and
+        // over a foot rail 0.4 high, with an upright bar between them and a rail across under.
+        Doors.Shape door = door(0.1f, 0.9f, 0f, 0.8f, Doors.PANELLED, true, 0.5f, new float[] {0.2f, 0.48f, 0.405f, 0.746f, 1f, 0.52f, 0.8f, 0.405f, 0.746f, 1f});
+        Windows.Shape leaf = door.leaf;
+        leaf.headHigh = 0.05f;
+        leaf.footHigh = 0.4f;
+        leaf.bars = new float[] {0.48f, 0.52f, 0.405f, 0.746f, 0.2f, 0.8f, 0.6f, 0.62f};
+        float[] bars = OpeningBuilder.barsToRails(leaf);
+        check(Math.abs(bars[3] - 0.75f) < 1e-6f, "the bar between the lights meets the head rail: " + bars[3]);
+        check(Math.abs(bars[2] - 0.4f) < 1e-6f, "and the foot rail: " + bars[2]);
+        check(bars[4] == 0.2f && bars[5] == 0.8f && bars[6] == 0.6f && bars[7] == 0.62f, "a bar across the lights stays where it is");
+        check(leaf.bars[3] == 0.746f, "and the leaf's own bars are left as read");
     }
 
     private static void aBeadRunsRoundALightHalfOverItsGlass() {
