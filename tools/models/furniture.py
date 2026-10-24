@@ -12788,7 +12788,7 @@ def every():
             + upholstered() + barrels_and_pots() + street() + display_cases() + awnings() + hoods() + industrial()
             + street_clutter() + home_fittings() + overhead() + office_medical() + wall_objects() + camp()
             + towers() + aerials() + farm_and_garden() + leisure() + shop_fittings() + dumpsters()
-            + bar_panelling() + sports() + shops() + gallery() + cameras() + sports() + shops() + gallery() + netarcade() + pulpit() + church_fittings())
+            + bar_panelling() + sports() + shops() + gallery() + cameras() + netarcade() + pulpit() + church_fittings())
 
 
 def main():
