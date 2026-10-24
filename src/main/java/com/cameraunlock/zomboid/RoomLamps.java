@@ -100,8 +100,12 @@ final class RoomLamps {
     private final ColorInfo scratch = new ColorInfo();
     private final float[] glowing = new float[3];
     private int gathering;
-    /** Which lights the log last said light the picture, as a hash of where they are: dev only. */
-    private int said;
+    /**
+     * Which lights the log last said light each player's picture, as a hash of where they are and
+     * a set's colour, whatever order they were gathered in: dev only. Shared by the four frames
+     * a player's scene turns through, so a change is said once and not once by each.
+     */
+    private static final int[] said = new int[4];
 
     /**
      * Gathers the lamps burning in rooms and the sets showing a picture near the eye into sky,
@@ -173,7 +177,7 @@ final class RoomLamps {
         float[] to = sky.roomLamps;
         float[] rows = sky.roomLampRows;
         boolean refreshed = false;
-        int hash = count;
+        int hash = Flora.mix(count, 0, 0);
         for (int slot = 0; slot < count; slot++) {
             IsoLightSource light = chosen[slot];
             Reached reached = known.computeIfAbsent(light, unknown -> new Reached());
@@ -192,11 +196,12 @@ final class RoomLamps {
             for (int row = 0; row < ROW_VECTORS * 4; row++) {
                 rows[slot * ROW_VECTORS * 4 + row] = row < SIDE ? reached.rows[row] : 0f;
             }
-            hash = 31 * (31 * (31 * hash + light.x) + light.y) + light.z;
+            int lit = Flora.mix(light.x, light.y, light.z);
             if (sets[slot] != null) {
                 // A set's colour, to a twentieth, so the log says when what its glass shows changes.
-                hash = 31 * hash + Math.round(to[slot * FLOATS + HUE] * 20f) * 441 + Math.round(to[slot * FLOATS + HUE + 1] * 20f) * 21 + Math.round(to[slot * FLOATS + HUE + 2] * 20f);
+                lit = Flora.mix(lit, Math.round(to[slot * FLOATS + HUE] * 20f) * 441 + Math.round(to[slot * FLOATS + HUE + 1] * 20f) * 21 + Math.round(to[slot * FLOATS + HUE + 2] * 20f), 1);
             }
+            hash += lit;
         }
         for (Iterator<Reached> it = known.values().iterator(); it.hasNext(); ) {
             if (!it.next().wanted) {
@@ -207,8 +212,8 @@ final class RoomLamps {
             chosen[slot] = null;
             sets[slot] = null;
         }
-        if (DevBuild.ON && hash != said) {
-            said = hash;
+        if (DevBuild.ON && hash != said[playerIndex]) {
+            said[playerIndex] = hash;
             StringBuilder line = new StringBuilder("lamps and sets in rooms lighting the picture: ").append(count);
             for (int i = 0; i < count; i++) {
                 int at = i * FLOATS;

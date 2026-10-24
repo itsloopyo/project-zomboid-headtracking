@@ -113,7 +113,7 @@ final class Lamps {
             }
             """;
 
-    /** Which lamps the log last said light the picture, as a hash of where they are: dev only. */
+    /** Which lamps the log last said light the picture, as a hash of where they are, whatever order they were gathered in: dev only. */
     private static int said = -1;
     /** Where the lamp being gathered hangs: logic thread only. */
     private static final float[] place = new float[3];
@@ -185,9 +185,9 @@ final class Lamps {
             to[at + 7] = reach;
             to[at + 8] = reach < 0f ? comesIn : 0f;
         }
-        int lit = count;
+        int lit = Flora.mix(count, 0, 0);
         for (int i = 0; DevBuild.ON && i < count * RECORD; i += RECORD) {
-            lit = 31 * (31 * lit + Float.floatToIntBits(to[i])) + Float.floatToIntBits(to[i + 1]);
+            lit += Flora.mix(Float.floatToIntBits(to[i]), Float.floatToIntBits(to[i + 1]), 0);
         }
         if (DevBuild.ON && lit != said) {
             said = lit;
