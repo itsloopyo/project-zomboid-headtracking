@@ -1242,6 +1242,27 @@ public final class Characters {
                 -(x * aim.forwardX + y * aim.forwardY + up * aim.forwardUp)};
     }
 
+    /** The way the carrying left hand points what it holds, in the aim's axes, or null while it carries nothing. */
+    private float[] carryPointing;
+
+    /**
+     * The way the carrying left hand points what it holds this frame: along the beam while a light
+     * is lit, else resting under the aim, swung from the one to the other over ArmHolds.CARRY_SWING.
+     */
+    private float[] carryWay(float seconds) {
+        float[] want = view.carriedLight.light[CarriedLight.REACH] > 0f ? beamFromAim() : ArmHolds.CARRY_RESTING;
+        if (carryPointing == null) {
+            carryPointing = want.clone();
+            return carryPointing;
+        }
+        float by = 1f - (float) Math.exp(-seconds / ArmHolds.CARRY_SWING);
+        for (int axis = 0; axis < 3; axis++) {
+            carryPointing[axis] += (want[axis] - carryPointing[axis]) * by;
+        }
+        ArmPose.unit(carryPointing[0], carryPointing[1], carryPointing[2], carryPointing);
+        return carryPointing;
+    }
+
     /** Places the mod's own arms on the weapon held up. False if either cannot be placed, and the game's own arms are then drawn. */
     private boolean reachOwn(ModelSlotRenderData data, ViewModel.Held hands) {
         float[] grip = view.viewModel.gripSeen;
@@ -1272,7 +1293,7 @@ public final class Characters {
         // way of the game's animation of the attack, which lifted it across the eye.
         ModelInstanceRenderData carried = arms > 0 && !heldBoth ? leftOf(data) : null;
         if (carried != null) {
-            if (ArmHolds.carry(OwnArms.model(), scale, fromAim, beamFromAim(), armSkins, armSaid, seenHands[1]) && inTheHand(data, 1, carried, seenHands[1], scale, leftView)) {
+            if (ArmHolds.carry(OwnArms.model(), scale, fromAim, carryWay(armSettled.seconds), armSkins, armSaid, seenHands[1]) && inTheHand(data, 1, carried, seenHands[1], scale, leftView)) {
                 inTheFist(carried, seenHands[1]);
                 arms = 2;
                 leftCarried = true;
@@ -1285,6 +1306,9 @@ public final class Characters {
                 leftCarryRefused = true;
                 Log.info("what is in the viewer's left hand beside " + hands.item() + " could not be put in the mod's own hand (the game's hand, or the item's mesh or place, is not read yet): the game's own left arm is drawn for it, as often as that happens");
             }
+        }
+        if (carried == null) {
+            carryPointing = null;
         }
         if (DevBuild.ON) {
             String state = (carried == null ? (arms == 0 ? "no arms" : heldBoth ? "in both hands" : "nothing in the left hand") : leftCarried ? "carried" : "not carried") + " " + Math.round(hands.aim() * 4f);

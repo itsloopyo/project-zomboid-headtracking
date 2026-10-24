@@ -1111,6 +1111,13 @@ final class ArmHolds {
      * where the game's animation has it, the game's attack lifted the hand flat across the eye.
      */
     static final float[] CARRY_AT = {-0.12f, -0.26f, -0.46f}, CARRY_PALM = {0.92f, -0.32f, 0.23f}, CARRY_FINGERS = {0.10f, -0.38f, -0.92f};
+    /**
+     * The way a carrying hand points what it holds while no light it carries is lit, in the aim's
+     * axes: 40 degrees under the aim, which swings the hand down out of the foot of the picture.
+     */
+    static final float[] CARRY_RESTING = {0f, -0.6428f, -0.7660f};
+    /** How long the carrying arm takes to swing between the beam and resting, as a time constant in seconds. */
+    static final float CARRY_SWING = 0.15f;
     /** Where the carrying forearm seems to come from, in metres from the eye. */
     static final float[] CARRY_FROM = {-0.30f, -0.65f, -0.10f};
     /**

@@ -504,6 +504,12 @@ final class OwnArmTests {
             check(ArmPose.dot(along, toward) > 0.99f, "and points it where it shines, " + Arrays.toString(along) + " for " + Arrays.toString(toward));
             check(Math.abs(said[1][ArmPose.ASKED]) <= ArmPose.TWIST_MOST && said[1][ArmPose.BENT] < Math.toRadians(36), "with the forearm and wrist as a carrying arm has them");
         }
+        // With no light lit the arm rests, the hand down under the foot of the picture.
+        check(ArmHolds.carry(model, SCALE, SAME, ArmHolds.CARRY_RESTING, skins, said, seen), "a carrying arm at rest is placed");
+        ArmHolds.carried(seen, along, across);
+        check(ArmPose.dot(along, ArmHolds.CARRY_RESTING) > 0.99f, "and points what it carries down, " + Arrays.toString(along));
+        check(-seen.at[1] / -seen.at[2] > Math.tan(Math.toRadians(45)), "its fist more than 45 degrees under the aim, " + Arrays.toString(seen.at));
+        check(Math.abs(said[1][ArmPose.ASKED]) <= ArmPose.TWIST_MOST && said[1][ArmPose.BENT] < Math.toRadians(36), "with the forearm and wrist as a carrying arm has them");
     }
 
     private static void leftHandLeavesTheForeEndToFeedShellsAndIsBackOnItAfter(ArmModel model) {
