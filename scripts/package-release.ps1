@@ -103,14 +103,23 @@ Write-Host "  plugins/$modName.jar" -ForegroundColor Green
 $assetsDir = Join-Path $releaseDir 'assets'
 if (Test-Path $assetsDir) { Remove-Item -Recurse -Force $assetsDir }
 New-Item -ItemType Directory -Path $assetsDir -Force | Out-Null
+# Not Get-FileHash: CI starts this powershell.exe from pwsh, it inherits pwsh's PSModulePath,
+# resolves the Core-only Microsoft.PowerShell.Utility and reports the cmdlet as not recognized.
+$sha = [System.Security.Cryptography.SHA256]::Create()
 $assetRows = foreach ($jar in $artJars) {
-    $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $jar.FullName).Hash.ToLowerInvariant()
+    $stream = [System.IO.File]::OpenRead($jar.FullName)
+    try {
+        $hash = [BitConverter]::ToString($sha.ComputeHash($stream)).Replace('-', '').ToLowerInvariant()
+    } finally {
+        $stream.Dispose()
+    }
     $assetName = $jar.BaseName + '-' + $hash.Substring(0, 12) + '.jar'
     Copy-Item -LiteralPath $jar.FullName -Destination (Join-Path $assetsDir $assetName)
     Copy-Item -LiteralPath $jar.FullName -Destination $pluginsDir
     Write-Host ("  plugins/$($jar.Name), assets/$assetName ({0:N1} MB)" -f ($jar.Length / 1MB)) -ForegroundColor Green
     '    { "release_asset": { "name": "' + $assetName + '", "sha256": "' + $hash + '", "size": ' + $jar.Length + ' }, "target": "' + $jar.Name + '" }'
 }
+$sha.Dispose()
 
 Copy-LicenceNotices -StagingDir $staging -ProjectRoot $projectDir -Additional @('CHANGELOG.md')
 
