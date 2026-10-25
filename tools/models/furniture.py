@@ -12327,10 +12327,31 @@ def picket_length():
     return model
 
 
+def fence_kerb():
+    """A square's length of the concrete footing the security fence's mesh stands in, as WallBuilder lays it on the
+    square's edge: two cast blocks end to end along x, 0.2 m thick and 0.28 m high, with a hairline joint between them.
+    Measured off fencing_01_49."""
+    model = Model("fence_kerb", centred=False)
+    blocks = bmesh.new()
+    for x0, x1 in ((-0.5, -0.003), (0.003, 0.5)):
+        cuboid(blocks, x0, x1, -0.1, 0.1, 0.0, 0.28)
+    model.hard(blocks, "paint", bevel=0.01, segments=1)
+    return model
+
+
+def fence_pier():
+    """The pier the security fence's post stands on, over the footing: wider and a little higher. Measured off fencing_01_48."""
+    model = Model("fence_pier", centred=False)
+    pier = bmesh.new()
+    cuboid(pier, -0.13, 0.13, -0.13, 0.13, 0.0, 0.31)
+    model.hard(pier, "paint", bevel=0.012, segments=1)
+    return model
+
+
 def shops():
     """What a grocer, a florist or a shop stands out that ShopFittings.java gives a model for, the produce crate and the
-    produce the game paints in it, and the length of white picket fence Pickets.java stands."""
-    return [produce_crate(), produce_pile("produce_pile", 61), produce_pile("produce_pile_b", 62), picket_length()]
+    produce the game paints in it, the length of white picket fence Pickets.java stands, and the security fence's footing."""
+    return [produce_crate(), produce_pile("produce_pile", 61), produce_pile("produce_pile_b", 62), picket_length(), fence_kerb(), fence_pier()]
 
 
 # A gallery's sculpture: busts on their plinths and statues on their bases, carved from metaballs. Gallery stands them.

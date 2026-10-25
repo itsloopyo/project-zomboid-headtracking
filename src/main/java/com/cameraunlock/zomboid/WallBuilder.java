@@ -393,6 +393,7 @@ final class WallBuilder {
                 float from = build.sheetFrom;
                 if (from != 0f) {
                     WorldScene.layers.lie(way, layer + build.sheetLayers);
+                    addKerb(texture, x, y, z, da, db, build.sheetLayers == Fences.POSTED_LAYERS);
                 }
                 build.geometry.addFace(mesh, build.frame, x, y, z, from * da, from * db, 0f, (1f - from) * da, (1f - from) * db, 0f, 0f, 0f, 1f);
             }
@@ -727,6 +728,26 @@ final class WallBuilder {
                     paint, u, v, 0, 0f, 0f);
         }
         build.picketPostDue = false;
+    }
+
+    /**
+     * Lays the security fence's concrete footing along the square's edge from (0, 0) along (da, db), and for a length with a
+     * post the pier the post stands on, before the corner where its sprite paints it. The sprite paints the footing on the
+     * mesh's sheet, which overhead reads as a pale line the grass covers; its paint is the sprite's, from the footing's face.
+     */
+    private void addKerb(Texture texture, int x, int y, int z, float da, float db, boolean posted) {
+        boolean north = da != 0f;
+        float base = (z + build.geometry.raised) * ViewCamera.LEVEL_HEIGHT;
+        float foot = base + Math.min(build.geometry.liftAt(0f, 0f), build.geometry.liftAt(da, db));
+        float a = north ? 0.5f : 0f, b = north ? 0f : 0.5f;
+        float u = SpriteGeometry.textureU(build.frame, a, b), v = SpriteGeometry.textureV(build.frame, a, b, Fences.KERB_DYE_HIGH);
+        int paint = 1 << Models.PAINT, turns = north ? 2 : 3;
+        build.placed.add(Models.get("fence_kerb"), build.frame, x, y, x + da * 0.5f, y + db * 0.5f, foot, turns, 1f, 1f, texture.getID(),
+                paint, u, v, 0, 0f, 0f);
+        if (posted) {
+            build.placed.add(Models.get("fence_pier"), build.frame, x, y, x - da * Fences.POST_BEFORE, y - db * Fences.POST_BEFORE, foot, turns, 1f, 1f,
+                    texture.getID(), paint, u, v, 0, 0f, 0f);
+        }
     }
 
     /** Whether square (sx, sy) holds the picket fence's lone post, which stands at its north-west corner. */

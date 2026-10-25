@@ -25,6 +25,15 @@ final class Fences {
     /** How far before its square's corner the security fence's sprites paint, in tiles along the edge: a length with a post and one without. */
     private static final float POSTED_OVERHANG = 0.55f, KERB_OVERHANG = 0.35f;
 
+    /** How many layers off the edge a length of the security fence with a post lies: see overhangLayers. */
+    static final float POSTED_LAYERS = 2f;
+
+    /** How far before its square's corner the security fence's post stands, in tiles: 12 to 16 dots of 64 on fencing_01_48. */
+    static final float POST_BEFORE = 0.22f;
+
+    /** How high up the security fence's sprite paints the face of its footing, in levels: the middle of the 0.28 m block. */
+    static final float KERB_DYE_HIGH = 0.06f;
+
     /**
      * How far before its square's north-west corner a length of the security fence (welded mesh
      * over a kerb, barbed wire on arms) paints itself, in tiles along its edge, or 0 for any other
@@ -41,6 +50,6 @@ final class Fences {
 
     /** How many layers off the edge a length of the security fence lies, so that one with a post is drawn over the end of the one before. */
     static float overhangLayers(String name) {
-        return overhang(name) == POSTED_OVERHANG ? 2f : 1f;
+        return overhang(name) == POSTED_OVERHANG ? POSTED_LAYERS : 1f;
     }
 }

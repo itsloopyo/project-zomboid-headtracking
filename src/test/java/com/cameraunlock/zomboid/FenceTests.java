@@ -25,6 +25,10 @@ final class FenceTests {
                 "a length with a post starts where its arm reaches");
         Checks.check(Fences.overhang("fencing_01_49") > 0f && Fences.overhang("fencing_01_49") < Fences.overhang("fencing_01_48")
                 && Fences.overhangLayers("fencing_01_49") < Fences.overhangLayers("fencing_01_48"), "one without starts nearer, and under the one with");
+        Checks.check(Fences.overhangLayers("fencing_01_48") == Fences.POSTED_LAYERS && Fences.overhangLayers("fencing_01_49") != Fences.POSTED_LAYERS,
+                "a length with a post stands a pier under it, one without does not");
+        Checks.check(Fences.POST_BEFORE > 12f / 64f && Fences.POST_BEFORE < 16f / 64f + 0.01f && Fences.POST_BEFORE < Fences.overhang("fencing_01_48"),
+                "the pier stands under the post, inside what the sheet paints");
         for (String other : new String[] {"fencing_01_52", "fencing_01_53", "fencing_01_56", "fencing_01_4", "fencing_02_48", "walls_exterior_house_01_48"}) {
             Checks.check(Fences.overhang(other) == 0f, other + " starts at its corner");
         }
