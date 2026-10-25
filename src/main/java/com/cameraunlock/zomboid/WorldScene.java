@@ -5738,7 +5738,15 @@ final class WorldScene {
          */
         private void addOver(IsoObject object, IsoSprite under, IsoSprite over, boolean isFloor, int x, int y, int z) {
             float material = frame.material;
-            addOverOf(object, under, over, isFloor, x, y, z);
+            overObject = object;
+            Texture underTexture = under.getTextureForCurrentFrame(object.getDir());
+            overUnder = usable(underTexture) ? underTexture : null;
+            try {
+                addOverOf(object, under, over, isFloor, x, y, z);
+            } finally {
+                overObject = null;
+                overUnder = null;
+            }
             frame.material = material;
         }
 
@@ -7966,6 +7974,9 @@ final class WorldScene {
         String tiledSheet;
         /** The same of the sprite hung over the one being added, while it is: tiles laid over a wall. */
         String overSheet;
+        /** The object whose overlay is being added, and the sprite of the object under it, while it is: see WallBuilder's grime. */
+        IsoObject overObject;
+        Texture overUnder;
         /** How much further than HUNG_CLEAR out of its wall's skin the poster being added stands, clear of the mouldings behind it, in tiles: see trimClear. */
         float posterClear;
         /** The colour the papered wall's mesh is painted over in, as the picture is told it, and the light of the piece being added while its stripes are. */

@@ -467,7 +467,15 @@ final class WallBuilder {
                 return;
             }
             if (stain) {
-                stain(inRoom(WorldScene.laid.get(texture.getID(), Stains.grime(texture) ? WallSides.STAIN : 0), mesh.room), x, y, z, 1f + layer, da, db);
+                boolean grime = Stains.grime(texture);
+                Texture shown = texture;
+                if (grime && build.overUnder != null) {
+                    // The grime is a haze of the picture's own (WallSides.STAIN), laid with the wall's sprite under it, whose
+                    // clear dots are the wall's openings: the game's grime runs on over a window, and the haze there hid the sky.
+                    shown = build.overUnder;
+                    WorldScene.frameOf(build.frame, build.overObject, shown);
+                }
+                stain(inRoom(WorldScene.laid.get(shown.getID(), grime ? WallSides.STAIN : 0), mesh.room), x, y, z, 1f + layer, da, db);
                 return;
             }
         }

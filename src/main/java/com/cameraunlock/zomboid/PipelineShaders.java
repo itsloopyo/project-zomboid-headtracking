@@ -1691,8 +1691,10 @@ final class PipelineShaders {
                 // moved, and any mean of it wide enough to hide the clots reached into the next
                 // pictures on the sheet. So the game's grime only says the wall is grimy, and the
                 // grime is our own: a haze in slow clouds laid along the face, which no turn of
-                // the eye reshapes.
+                // the eye reshapes. It is laid with the sprite of the wall under it, and where
+                // that is clear, a window or a doorway, there is no wall to be grimy.
                 bool stainTint = abs(uTint.a - 16.0) < 0.5;
+                bool stainOnWall = texel.a >= 0.5;
                 if (stainTint) {
                     vec2 alongFace = vec2(vWorld.x + vWorld.y, vWorld.z * 2.5);
                     float clouds = smoothstep(0.3, 0.8, 0.65 * patches(alongFace * 1.7 + 7.0) + 0.35 * patches(alongFace * 5.3));
@@ -3006,7 +3008,7 @@ final class PipelineShaders {
                         }
                     }
                     texel = vec4(own, 1.0);
-                } else if (!model && !stainTint && cover < (upright ? min(uCut, 0.1) : uCut)) {
+                } else if (!model && (stainTint ? !stainOnWall : cover < (upright ? min(uCut, 0.1) : uCut))) {
                     discard;
                 }
                 // A tree is drawn as the game draws it in its own view: inside the game's window
