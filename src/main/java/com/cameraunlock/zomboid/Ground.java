@@ -12,10 +12,11 @@ final class Ground {
      * Gravel, for how two grounds sound underfoot: the loose stone of a drive, and the pale
      * floor it lays along every street as the pavement and across squares and car parks,
      * which it calls Road_04 and paints smooth. Only the first is loose stone, and only a
-     * floor is: an edging laid over a floor is not.
+     * floor is: an edging laid over a floor is not. Road_02, the sandier floor of old lots,
+     * yards and warehouses, is poured concrete too, older and dirtier.
      */
     static float of(String floorMaterial, String footstep, boolean isFloor) {
-        if ("Road_04".equals(floorMaterial)) {
+        if ("Road_04".equals(floorMaterial) || "Road_02".equals(floorMaterial)) {
             return PAVING;
         }
         return isFloor && "Gravel".equals(footstep) ? GRAVEL : 0f;

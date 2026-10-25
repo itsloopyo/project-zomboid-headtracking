@@ -3257,6 +3257,12 @@ final class PipelineShaders {
                     float least = min(texel.r, min(texel.g, texel.b));
                     // Stone, gravel and tarmac are grey; earth and grass are not.
                     float stony = 1.0 - smoothstep(0.12, 0.3, (most - least) / max(most, 0.001));
+                    // Paving is stone where the game says it is, however sandy it is painted: an old
+                    // lot's warm concrete read as two thirds stone, and had two thirds of the grain.
+                    // 0.78 is what the grey of a pavement reads as.
+                    if (vMaterial > 54.5 && vMaterial < 55.5) {
+                        stony = 0.78;
+                    }
                     // What the ground is made of is read off its colour, and a picture of that
                     // stuff is laid over it by its place on the map: twice, at two sizes and
                     // turned against each other, so that neither copy's repeat shows. The

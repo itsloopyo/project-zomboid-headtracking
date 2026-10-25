@@ -360,6 +360,7 @@ final class BuildingTests {
     private static void pavementIsNotLooseStone() {
         check(Ground.of("Road_04", "Gravel", true) == Ground.PAVING, "the pale floor of a pavement or a square is paving, whatever it sounds like underfoot");
         check(Ground.of("Road_04", null, false) == Ground.PAVING, "and so is its edging laid over the floor beside it");
+        check(Ground.of("Road_02", null, true) == Ground.PAVING, "the sandy floor of an old lot is poured concrete too");
         check(Ground.of(null, "Gravel", true) == Ground.GRAVEL, "a floor of gravel that is no street's is loose stone");
         check(Ground.of(null, "Gravel", false) == 0f, "what lies on a floor is not the ground");
         check(Ground.of("Road_07", null, true) == 0f && Ground.of(null, "Concrete", true) == 0f, "any other ground is what its sheet says");
