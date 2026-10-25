@@ -23,7 +23,7 @@
 
 - Left mouse attacks, right mouse aims, `Left Shift` sprints, `Left Alt` jogs, `Left Ctrl` crouches. Your own key bindings are not changed.
 - The pointer comes out with the inventory open, with any game window or menu open, or with a click of the middle mouse button until you click it again or press `Esc`. Head tracking carries on.
-- `E` uses the door, window, curtain, light switch, container, item, radio, TV or crafting station under the reticle, leaning and head turns included. What it will use is outlined. On a fridge it opens the freezer or the fridge, whichever half the reticle is on. On anything else within reach, such as a sink or a chair, it opens the game's menu for it.
+- `E` uses the door, window, curtain, light switch, container, item, radio, TV or crafting station under the reticle, leaning and head turns included. What it will use is outlined. On an open window it climbs through, where there is a floor on the other side to land on. On a fridge it opens the freezer or the fridge, whichever half the reticle is on. On anything else within reach, such as a sink or a chair, it opens the game's menu for it.
 - Right click with the pointer out opens the game's own menu for what the pointer is on, the same as in the isometric view.
 - Left click with the pointer out uses what the pointer is on, as `E` does with the reticle, the same as in the isometric view.
 - A single quick click is enough for a melee attack.

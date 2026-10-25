@@ -13,5 +13,7 @@ public class IsoWindow extends IsoObject {
     public IsoBarricade getBarricadeOnOppositeSquare() { throw new UnsupportedOperationException("reference stub"); }
     public IsoBarricade getBarricadeForCharacter(IsoGameCharacter character) { throw new UnsupportedOperationException("reference stub"); }
     public IsoBarricade getBarricadeOppositeCharacter(IsoGameCharacter character) { throw new UnsupportedOperationException("reference stub"); }
+    public boolean canClimbThrough(IsoGameCharacter character) { throw new UnsupportedOperationException("reference stub"); }
+    public zombie.iso.IsoGridSquare getOppositeSquare() { throw new UnsupportedOperationException("reference stub"); }
     public void smashWindow() { throw new UnsupportedOperationException("reference stub"); }
 }

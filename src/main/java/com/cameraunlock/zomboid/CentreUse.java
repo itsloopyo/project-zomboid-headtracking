@@ -75,7 +75,8 @@ final class CentreUse {
     private static final float LOW_THING = ViewCamera.LEVEL_HEIGHT / 2f;
 
     private static final String CLICK_HANDLER = "ISObjectClickHandler", WORLD_MENU = "ISWorldObjectContextMenu", INVENTORY_PAGE = "ISInventoryPage";
-    private static final String PRESS = "doClickSpecificObject", RELEASE = "doClick", GRAB = "onGrabWItem", DOOR = "onOpenCloseDoor";
+    private static final String PRESS = "doClickSpecificObject", RELEASE = "doClick", GRAB = "onGrabWItem", DOOR = "onOpenCloseDoor",
+            CLIMB = "onClimbThroughWindow", GET_UP = "getUpAndThen";
 
     /**
      * The key (Outlines.key) of what the key would act on this frame, for the picture to
@@ -98,7 +99,13 @@ final class CentreUse {
         if (gap == null) {
             gap = gap(WORLD_MENU, GRAB);
         }
-        return gap != null ? gap : gap(WORLD_MENU, DOOR);
+        if (gap == null) {
+            gap = gap(WORLD_MENU, DOOR);
+        }
+        if (gap == null) {
+            gap = gap(WORLD_MENU, CLIMB);
+        }
+        return gap != null ? gap : gap(WORLD_MENU, GET_UP);
     }
 
     private static String gap(String table, String function) {
@@ -120,6 +127,12 @@ final class CentreUse {
         }
         if (found instanceof IsoWorldInventoryObject item) {
             return call(WORLD_MENU, GRAB, null, item, Double.valueOf(player.getIndex())) == null ? Outcome.NOTHING : Outcome.USED;
+        }
+        if (found instanceof IsoWindow pane && pane.IsOpen() && !player.isAiming() && pane.canClimbThrough(player) && landsOnAFloor(pane, player)) {
+            // The game's click shuts an open window and climbs through only a smashed one. The key climbs through an open
+            // one too, where there is a floor beyond it to land on, the way the game's click climbs: up first, then over.
+            Object climb = ((KahluaTable) LuaManager.env.rawget(WORLD_MENU)).rawget(CLIMB);
+            return call(WORLD_MENU, GET_UP, player, climb, null, pane, Double.valueOf(player.getIndex())) == null ? Outcome.NOTHING : Outcome.USED;
         }
         if (keyActsOn(found)) {
             // False when the game will not have it: too far off, the wrong side of a wall, aiming.
@@ -208,6 +221,14 @@ final class CentreUse {
         }
         float toX = square.getX() + 0.5f - line.eyeX, toY = square.getY() + 0.5f - line.eyeY;
         return toX * toX + toY * toY <= (REACH + 0.71f) * (REACH + 0.71f) ? found : null;
+    }
+
+    /** Whether the square on the other side of a window from the player has a floor, so climbing out is no fall. */
+    private static boolean landsOnAFloor(IsoWindow window, IsoPlayer player) {
+        IsoGridSquare square = window.getSquare();
+        boolean playerBefore = window.getNorth() ? player.getY() < square.getY() : player.getX() < square.getX();
+        IsoGridSquare far = playerBefore ? square : window.getOppositeSquare();
+        return far != null && far.getFloor() != null;
     }
 
     /** Whether the key hands a thing to the game's click handler: a door, a window, a curtain, a light switch. */
