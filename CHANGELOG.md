@@ -153,13 +153,6 @@
 
 - Optional, off by default: your character's mouth moves with what you say into your microphone, in first person and in the isometric view, opening, spreading and rounding with the sounds you make, with teeth and a tongue behind the lips. Each player at the screen picks their own microphone. Online, other players' mouths move with the game's voice chat, and with their own microphone where they have this mod with talking mouths on. Nothing is recorded; online, only how open your mouth is and the shape of your lips are sent.
 
-#### Rewind 30s
-
-- Optional, off by default (`Rewind30s`): offline, when your character dies the game pauses and asks whether to accept the death or go back to where you were 30 seconds before, with what you carried and the wounds you had then.
-- Only you go back. The world carries on, the zombie that killed you included, and every zombie stands still for 2 seconds after the rewind.
-- Items you had then and dropped come back to you. Items you picked up since are left where you died. A second death goes back no further than the last rewind.
-- Quitting with the question up takes the rewind before the game saves.
-
 #### Multiplayer and split screen
 
 - Works on servers. Only you need the mod.
