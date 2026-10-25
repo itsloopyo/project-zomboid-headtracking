@@ -3123,6 +3123,15 @@ final class Pipeline {
         GL11.glLoadMatrixf(viewed);
     }
 
+    /** The sun's near and far shadow maps on units 1 and 2, leaving the first unit active. */
+    private void bindSunMaps() {
+        GL13.glActiveTexture(GL_TEXTURE0 + 1);
+        GL11.glBindTexture(GL_TEXTURE_2D, nearMap);
+        GL13.glActiveTexture(GL_TEXTURE0 + 2);
+        GL11.glBindTexture(GL_TEXTURE_2D, farMap);
+        GL13.glActiveTexture(GL_TEXTURE0);
+    }
+
     /** What flies from where shots struck, into a picture after its world, its people and its sky. */
     private void drawDebris(int target, int wide, int high, ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far,
             float asideX, float asideY, float fogStart, float fogEnd) {
@@ -3203,11 +3212,7 @@ final class Pipeline {
         GL14.glBlendFuncSeparate(GL_ONE, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
         GL33.glBindSampler(1, 0);
         GL33.glBindSampler(2, 0);
-        GL13.glActiveTexture(GL_TEXTURE0 + 1);
-        GL11.glBindTexture(GL_TEXTURE_2D, nearMap);
-        GL13.glActiveTexture(GL_TEXTURE0 + 2);
-        GL11.glBindTexture(GL_TEXTURE_2D, farMap);
-        GL13.glActiveTexture(GL_TEXTURE0);
+        bindSunMaps();
         leaf.use();
         leaf.set("uShadowNear", 1);
         leaf.set("uShadowFar", 2);
@@ -3242,15 +3247,8 @@ final class Pipeline {
     private void drawRain(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
         GL11.glViewport(0, 0, width, height);
-        GL11.glMatrixMode(GL_PROJECTION);
-        ViewCamera.projection(tanHalfFieldOfView, aspect, near, far, projection);
         // Aside as the world was drawn: the panes drawn after this load the same matrix and are tested against the world's depth.
-        projection[8] += asideX;
-        projection[9] += asideY;
-        GL11.glLoadMatrixf(projection);
-        GL11.glMatrixMode(GL_MODELVIEW);
-        ViewCamera.view(camera, viewed);
-        GL11.glLoadMatrixf(viewed);
+        lookFrom(camera, tanHalfFieldOfView, aspect, near, far, asideX, asideY);
         arrays();
         cardArrayOff();
         GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
@@ -3371,14 +3369,7 @@ final class Pipeline {
     private void drawDust(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
         GL11.glViewport(0, 0, width, height);
-        GL11.glMatrixMode(GL_PROJECTION);
-        ViewCamera.projection(tanHalfFieldOfView, aspect, near, far, projection);
-        projection[8] += asideX;
-        projection[9] += asideY;
-        GL11.glLoadMatrixf(projection);
-        GL11.glMatrixMode(GL_MODELVIEW);
-        ViewCamera.view(camera, viewed);
-        GL11.glLoadMatrixf(viewed);
+        lookFrom(camera, tanHalfFieldOfView, aspect, near, far, asideX, asideY);
         arrays();
         cardArrayOff();
         GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
@@ -3397,11 +3388,7 @@ final class Pipeline {
         // The maps compare depths themselves: a skin's smoothing sampler on these units would not.
         GL33.glBindSampler(1, 0);
         GL33.glBindSampler(2, 0);
-        GL13.glActiveTexture(GL_TEXTURE0 + 1);
-        GL11.glBindTexture(GL_TEXTURE_2D, nearMap);
-        GL13.glActiveTexture(GL_TEXTURE0 + 2);
-        GL11.glBindTexture(GL_TEXTURE_2D, farMap);
-        GL13.glActiveTexture(GL_TEXTURE0);
+        bindSunMaps();
         dust.use();
         dust.set("uShadowNear", 1);
         dust.set("uShadowFar", 2);
@@ -3462,14 +3449,7 @@ final class Pipeline {
     private void drawLightning(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, steadying ? movesTarget : sceneTarget);
         GL11.glViewport(0, 0, width, height);
-        GL11.glMatrixMode(GL_PROJECTION);
-        ViewCamera.projection(tanHalfFieldOfView, aspect, near, far, projection);
-        projection[8] += asideX;
-        projection[9] += asideY;
-        GL11.glLoadMatrixf(projection);
-        GL11.glMatrixMode(GL_MODELVIEW);
-        ViewCamera.view(camera, viewed);
-        GL11.glLoadMatrixf(viewed);
+        lookFrom(camera, tanHalfFieldOfView, aspect, near, far, asideX, asideY);
         arrays();
         GL11.glDisableClientState(GL_COLOR_ARRAY);
         GL11.glDisableClientState(GL_NORMAL_ARRAY);
@@ -4111,11 +4091,7 @@ final class Pipeline {
         to.set("uShadowNear", 1);
         to.set("uShadowFar", 2);
         bindMaterials(to);
-        GL13.glActiveTexture(GL_TEXTURE0 + 1);
-        GL11.glBindTexture(GL_TEXTURE_2D, nearMap);
-        GL13.glActiveTexture(GL_TEXTURE0 + 2);
-        GL11.glBindTexture(GL_TEXTURE_2D, farMap);
-        GL13.glActiveTexture(GL_TEXTURE0);
+        bindSunMaps();
         to.set("uNearMatrix", nearMatrix);
         to.set("uFarMatrix", farMatrix);
         to.set("uShadowTexel", 1f / shadowSize);
@@ -4633,11 +4609,7 @@ final class Pipeline {
         volume.set("uDepth", 0);
         volume.set("uShadowNear", 1);
         volume.set("uShadowFar", 2);
-        GL13.glActiveTexture(GL_TEXTURE0 + 1);
-        GL11.glBindTexture(GL_TEXTURE_2D, nearMap);
-        GL13.glActiveTexture(GL_TEXTURE0 + 2);
-        GL11.glBindTexture(GL_TEXTURE_2D, farMap);
-        GL13.glActiveTexture(GL_TEXTURE0);
+        bindSunMaps();
         GL11.glBindTexture(GL_TEXTURE_2D, sceneDepth);
         volume.set("uNearMatrix", nearMatrix);
         volume.set("uFarMatrix", farMatrix);
