@@ -2,8 +2,10 @@ package com.cameraunlock.zomboid;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Predicate;
 import se.krka.kahlua.vm.KahluaTable;
 import zombie.core.properties.PropertyContainer;
@@ -263,7 +265,7 @@ final class HiddenWalls {
                 if (!clock) {
                     hang(spots, placed, hung, spot -> spot.bare() || spot.low(), "Clock", preferred(kinds, "Clock", "Wall"));
                 }
-                if (!mirror && shown >= 2) {
+                if (!mirror && shown >= 2 && home(room)) {
                     hang(spots, placed, hung, Spot::bare, "Mirror", preferred(kinds, "Mirror", "Wooden Framed"));
                 }
             }
@@ -271,7 +273,7 @@ final class HiddenWalls {
                 if (!rack && room.level == 0 && doorOut(cell, room, squares)) {
                     hang(spots, placed, hung, Spot::bare, "Rack", "Coat");
                 }
-                if (!mirror && shown >= 1) {
+                if (!mirror && shown >= 1 && home(room)) {
                     hang(spots, placed, hung, Spot::bare, "Mirror", preferred(kinds, "Mirror", "Wooden Framed"));
                 }
             }
@@ -467,6 +469,43 @@ final class HiddenWalls {
             }
         }
         return false;
+    }
+
+    /** Beside bedrooms, bathrooms and living rooms. A block of flats with a janitor's or bin room stays out: its corridors are not a home's. */
+    private static final Set<String> HOUSE_ROOMS = Set.of("kitchen", "ww_kitchen", "bandkitchen", "emptykitchen", "pantry", "closet",
+            "emptyoutside", "empty", "hall", "hallway", "laundry", "office", "garage", "garagestorage", "storage", "miscstorage", "lobby",
+            "attic", "shed", "basement", "basementaccess", "balcony", "porch", "corridor", "diningroom", "sunroom", "sewingroom", "workshop",
+            "gym", "recreational", "musicroom");
+
+    /**
+     * Whether the room is in a house: every named room of the building one a house has, and one
+     * of them a bedroom or a living room. A school corridor, a hospital's waiting room or a
+     * restaurant with a flat over it is no home's hall with a mirror. A room the map left
+     * nameless says nothing either way.
+     */
+    private static boolean home(RoomDef room) {
+        ArrayList<RoomDef> rooms = room.getBuilding().rooms;
+        ArrayList<String> names = new ArrayList<>();
+        for (int i = 0; i < rooms.size(); i++) {
+            names.add(rooms.get(i).getName());
+        }
+        return homeOf(names);
+    }
+
+    static boolean homeOf(List<String> rooms) {
+        boolean lived = false;
+        for (int i = 0; i < rooms.size(); i++) {
+            String n = rooms.get(i) == null ? "" : rooms.get(i).toLowerCase(Locale.ROOT);
+            if (n.isEmpty()) {
+                continue;
+            }
+            boolean bed = n.contains("bedroom"), living = n.contains("livingroom") || n.equals("liviingroom");
+            if (!bed && !living && !n.contains("bathroom") && !HOUSE_ROOMS.contains(n)) {
+                return false;
+            }
+            lived |= bed || living;
+        }
+        return lived;
     }
 
     /** How many of each mirror and clock the rooms of the room's building that are loaded have, by "Mirror|Large" and the like. */

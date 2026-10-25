@@ -21,6 +21,19 @@ final class HiddenWallsTests {
         Checks.check(HiddenWalls.kindOf("kitchen") == HiddenWalls.Kind.KITCHEN && HiddenWalls.kindOf("pizzakitchen") == HiddenWalls.Kind.KITCHEN,
                 "a house's kitchen and a restaurant's are kitchens");
         Checks.check(HiddenWalls.kindOf("breakroom") == HiddenWalls.Kind.KITCHEN, "and so is a works breakroom, which gets a clock and no mirror");
+        Checks.check(HiddenWalls.homeOf(java.util.List.of("hall", "kitchen", "kidsbedroom", "bathroom", "garage"))
+                && HiddenWalls.homeOf(java.util.List.of("livingroom", "kitchen", "bathroom"))
+                && HiddenWalls.homeOf(java.util.List.of("ww_bedroom", "ww_kitchen", "ww_livingroom", "porch"))
+                && HiddenWalls.homeOf(java.util.List.of("bedroom", "", "kitchen", "pantry")),
+                "a hall's mirror is a house's, with a bedroom or only a living room, and a nameless room does not unmake it");
+        Checks.check(!HiddenWalls.homeOf(java.util.List.of("bedroom", "kitchen", "hall", "stairwell", "elevator", "janitor"))
+                && !HiddenWalls.homeOf(java.util.List.of("", "office")),
+                "a block of flats' corridor is no home's hall, and nor is a building with only nameless rooms and an office");
+        Checks.check(!HiddenWalls.homeOf(java.util.List.of("secondaryhall", "secondaryclassroom", "bedroom", "office"))
+                && !HiddenWalls.homeOf(java.util.List.of("hospitalhallway", "nursery", "hospitalroom", "waitingroom"))
+                && !HiddenWalls.homeOf(java.util.List.of("restaurantdining", "restaurantkitchen", "hall", "bedroom", "kitchen"))
+                && !HiddenWalls.homeOf(java.util.List.of("hall", "office", "kitchen", "bathroom")),
+                "and not a school's, a hospital's, a restaurant's with a flat over it or an office suite's");
         Checks.check(HiddenWalls.kindOf("livingroom") == HiddenWalls.Kind.LIVING && HiddenWalls.kindOf("diningroom") == HiddenWalls.Kind.LIVING
                 && HiddenWalls.kindOf("spiffo_dining") == HiddenWalls.Kind.LIVING, "living and dining rooms are rooms to sit in");
         Checks.check(HiddenWalls.kindOf("hall") == HiddenWalls.Kind.HALL && HiddenWalls.kindOf("foyer") == HiddenWalls.Kind.HALL, "a hall and a foyer are halls");
