@@ -61,8 +61,10 @@ final class CanopyTests {
         check(shader.contains("bool tree = vRoot.x >= 0.0 && !(vMaterial > 84.5 && vMaterial < 85.5);"), "a tree is what carries a tree's square, and blood, which carries its colour there, is none");
         check(shader.contains("if (all(lessThan(abs(uFaded[i].xy - vRoot), vec2(0.25)))) {"), "a tree is looked up by its own square");
         check(shader.contains("if (grain(gl_FragCoord.xy + vec2(613.0, 211.0)) >= shown) {"), "and that share of its pixels is drawn");
-        check(PipelineShaders.WORLD_VERTEX.contains("vRoot = uModel > 0.5 ? vec2(-1.0, piece) : gl_MultiTexCoord2.xy;"),
+        check(PipelineShaders.WORLD_VERTEX.contains("vRoot = uModel > 0.5 ? vec2(-1.0 - uSurfaces.w, piece) : gl_MultiTexCoord2.xy;"),
                 "the square comes from the vertex, and a model has none: it carries the piece of its surface in the place of one");
+        check(PipelineShaders.WORLD_FRAGMENT_MAIN.contains("if (!tree && vRoot.x > -1.5 && (ofModel || standing) && uHole.z > 0.0"),
+                "a model laid as a wall's own face is left in the round window about the viewer, as the wall is");
         check(CanopyWindow.shown(CanopyWindow.FADED) == 0f && CanopyWindow.shown(1f) == 1f && CanopyWindow.shown(0.5f) > 0.45f && CanopyWindow.shown(0.5f) < 0.5f,
                 "a tree the game holds faded keeps none of its pixels, a whole one all of them, and one between about as much as the game draws");
         // The pattern lets through the share asked for: GLSL's grain, here in Java, over a stretch of the screen.

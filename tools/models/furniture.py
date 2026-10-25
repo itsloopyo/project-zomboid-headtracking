@@ -12348,6 +12348,52 @@ def fence_pier():
     return model
 
 
+# A log wall is ten courses to a level. LogWalls.java lays a wall along y a log's radius lower than one along x, so at a
+# corner where the two cross, each log's end passes between two of the other wall's.
+LOG_RADIUS = 2.44949 / 20
+# How far a log runs on past the corner it crosses another wall at: past that wall's logs, and a hand's width more.
+LOG_OVER = 0.24
+
+
+def logs_along_x(bark, ends, z, x0, x1, cap0, cap1):
+    """One log from x0 to x1 with its axis at height z, the cut end grain at x0 and x1 where asked."""
+    lathe(bark, [(LOG_RADIUS, x0), (LOG_RADIUS, x1)], segments=12, caps=False, to=along_x(0.0, 0.0, z))
+    for cap in (cap0, cap1):
+        if cap is not None:
+            # A disc each way: which side of it is seen depends on the end it closes.
+            lathe(ends, [(0.0, cap), (LOG_RADIUS, cap)], segments=12, caps=False, to=along_x(0.0, 0.0, z))
+            lathe(ends, [(LOG_RADIUS, cap), (0.0, cap)], segments=12, caps=False, to=along_x(0.0, 0.0, z))
+
+
+def log_wall(name, x0, x1, cap1):
+    """Ten courses of a log wall along x from x0 to x1, the lowest on the foot, the end grain at x1 where cap1."""
+    model = Model(name, centred=False)
+    bark, ends = bmesh.new(), bmesh.new()
+    for course in range(10):
+        z = LOG_RADIUS * (2 * course + 1)
+        logs_along_x(bark, ends, z, x0, x1, None, x1 if cap1 else None)
+    model.turned(bark, "wood", sharp=50.0)
+    model.plain(ends, "worktop")
+    return model
+
+
+def log_single(name, half):
+    """One log along x from -half to half, its axis a log's radius over the foot, the end grain at both ends: a course of
+    a log wall, or a piece of what is left of one beside a door or a window."""
+    model = Model(name, centred=False)
+    bark, ends = bmesh.new(), bmesh.new()
+    logs_along_x(bark, ends, LOG_RADIUS, -half, half, -half, half)
+    model.turned(bark, "wood", sharp=50.0)
+    model.plain(ends, "worktop")
+    return model
+
+
+def log_walls():
+    """The log walls of a cabin: the ends that run on past a corner, and a course a square long and in a sixteenth of a
+    square for the courses a door or a window cuts."""
+    return [log_wall("log_end", 0.0, LOG_OVER, True), log_single("log_course", 0.5), log_single("log_piece", 1.0 / 32)]
+
+
 def shops():
     """What a grocer, a florist or a shop stands out that ShopFittings.java gives a model for, the produce crate and the
     produce the game paints in it, the length of white picket fence Pickets.java stands, and the security fence's footing."""
@@ -12910,7 +12956,7 @@ def every():
             + upholstered() + barrels_and_pots() + street() + display_cases() + awnings() + hoods() + industrial()
             + street_clutter() + home_fittings() + overhead() + office_medical() + wall_objects() + camp()
             + towers() + aerials() + farm_and_garden() + leisure() + shop_fittings() + dumpsters()
-            + bar_panelling() + sports() + shops() + gallery() + cameras() + netarcade() + pulpit() + church_fittings())
+            + bar_panelling() + sports() + shops() + log_walls() + gallery() + cameras() + netarcade() + pulpit() + church_fittings())
 
 
 def main():

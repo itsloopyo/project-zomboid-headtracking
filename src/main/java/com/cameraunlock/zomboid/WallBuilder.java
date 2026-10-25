@@ -66,6 +66,10 @@ final class WallBuilder {
     private static final int TILES_REACH = 4;
     /** The walls with an opening the log has said keep their sprite, by texture name, on the north edge and on the west. */
     private static final Set<String> KEPT_NORTH = ConcurrentHashMap.newKeySet(), KEPT_WEST = ConcurrentHashMap.newKeySet();
+    /** How many log pieces at an end of a log wall's edge its sprite may leave unpainted, stopping short of the corner. */
+    private static final int SHORT_END = 2;
+    /** How far over and under a log's axis, in radii, the sprite is read for whether it paints the log. */
+    private static final float LOG_ACROSS = 0.6f;
     /** For each of the two edges a wall can stand on: the frame origin the sprite was read with, then the opening. */
     private static final int OPENING_FLOATS = 9, OPENING_ORIGIN = 0, OPENING_START = 2, OPENING_END = 3, OPENING_FOOT = 4, OPENING_HEAD = 5, OPENING_TOP = 6,
             DOORWAY_START = 7, DOORWAY_END = 8;
@@ -226,6 +230,9 @@ final class WallBuilder {
             WorldScene.layers.lie(way, layer);
             standEdge(mesh, texture, wall, door, x, y, z, way, layer, da, db);
             WorldScene.layers.none();
+            if (wall && build.logs) {
+                addLogs(texture, x, y, z, da, db);
+            }
         } finally {
             build.contentsOf(given);
             if (onKerbTop) {
@@ -329,13 +336,13 @@ final class WallBuilder {
     /**
      * Adds a stain the game paints over the wall along the square's edge from (0, 0) along
      * (da, db), a level high, on the wall's skin inside the square, which is the side the
-     * game's view shows it on, the given number of layers clear of the skin.
+     * game's view shows it on, the given number of layers clear of the skin, or of a log wall's logs.
      */
     void addStain(SpriteGeometry.Mesh mesh, int x, int y, int z, float layer, float da, float db) {
         mesh = inRoom(mesh, mesh.room != RoomSight.OUTSIDE && mesh.room != RoomSight.ANYWHERE ? mesh.room : roomAt(x, y, z));
         boolean onKerbTop = build.standOnKerbTop(z, da != 0f);
         try {
-            stain(mesh, x, y, z, layer, da, db);
+            stain(mesh, x, y, z, layer, da, db, Own.buildings() && logsOn(x, y, z, da != 0f));
         } finally {
             if (onKerbTop) {
                 build.leaveKerbTop();
@@ -343,12 +350,13 @@ final class WallBuilder {
         }
     }
 
-    /** As addStain, on an edge already stood where its wall stands. */
-    private void stain(SpriteGeometry.Mesh mesh, int x, int y, int z, float layer, float da, float db) {
+    /** As addStain, on an edge already stood where its wall stands: on the faces of a log wall's logs where onLogs. */
+    private void stain(SpriteGeometry.Mesh mesh, int x, int y, int z, float layer, float da, float db, boolean onLogs) {
         float way = db != 0f ? SpriteGeometry.LAYERS_X : SpriteGeometry.LAYERS_Y;
         WorldScene.layers.lie(way, layer);
-        build.geometry.shownA = db * WorldScene.WALL_HALF;
-        build.geometry.shownB = da * WorldScene.WALL_HALF;
+        float face = onLogs ? LogWalls.RADIUS + WorldScene.HUNG_CLEAR : WorldScene.WALL_HALF;
+        build.geometry.shownA = db * face;
+        build.geometry.shownB = da * face;
         build.geometry.addFace(mesh, build.frame, x, y, z, 0f, 0f, 0f, da, db, 0f, 0f, 0f, 1f);
         build.geometry.shownA = build.geometry.shownB = 0f;
         WorldScene.layers.none();
@@ -401,9 +409,11 @@ final class WallBuilder {
         }
         if (!wall) {
             // A finger's width clear of the skin: lying in the skin's own plane, the two are
-            // drawn through each other. A poster stands clear of a moulding behind it too.
-            build.geometry.shownA = inX + db * (WorldScene.HUNG_CLEAR + build.posterClear);
-            build.geometry.shownB = inY + da * (WorldScene.HUNG_CLEAR + build.posterClear);
+            // drawn through each other. A poster stands clear of a moulding behind it too, and
+            // of a log wall's logs.
+            float clear = WorldScene.HUNG_CLEAR + build.posterClear + (Own.buildings() && logsOn(x, y, z, da != 0f) ? LogWalls.RADIUS - WorldScene.WALL_HALF : 0f);
+            build.geometry.shownA = inX + db * clear;
+            build.geometry.shownB = inY + da * clear;
             float material = build.frame.material;
             if (material == WorldScene.GLASS) {
                 faceIntoRoom(x, y, z, da != 0f);
@@ -489,7 +499,9 @@ final class WallBuilder {
                     build.geometry.sealHigh = startIsLow ? fromEnd : fromStart;
                     build.geometry.sealTop = unpaintedTop(shown, 0f, 0f, da, db);
                 }
-                stain(inRoom(WorldScene.laid.get(shown.getID(), grime ? WallSides.STAIN : 0), mesh.room), x, y, z, 1f + layer, da, db);
+                // Grime is a haze over the wall's own picture, which on a log wall is under the logs with it.
+                stain(inRoom(WorldScene.laid.get(shown.getID(), grime ? WallSides.STAIN : 0), mesh.room), x, y, z, 1f + layer, da, db,
+                        !grime && Own.buildings() && logsOn(x, y, z, da != 0f));
                 build.geometry.sealLow = build.geometry.sealHigh = build.geometry.sealTop = 0f;
                 return;
             }
@@ -748,6 +760,129 @@ final class WallBuilder {
             build.placed.add(Models.get("fence_pier"), build.frame, x, y, x - da * Fences.POST_BEFORE, y - db * Fences.POST_BEFORE, foot, turns, 1f, 1f,
                     texture.getID(), paint, u, v, 0, 0f, 0f);
         }
+    }
+
+    /**
+     * Lays a log wall's logs over the skins of the square's edge from (0, 0) along (da, db): each course a log_course, or
+     * where its sprite cuts a door or a window through it, log_pieces where the sprite paints the course. Each course
+     * stands on its own, so that those over the height a wall is cut down to are cut with the wall, as what hangs on it
+     * is: a model is cut only where its foot is over that height. At an end where the wall does not run straight on into
+     * another length of log wall and turns a corner, its logs run on past the corner as a log_end, which stands whole
+     * as the game's corner of log ends does. A wall on a west edge lies a log's radius lower, so its courses pass
+     * between those of a wall on a north edge. The wood is the sprite's, from a log it paints.
+     */
+    private void addLogs(Texture texture, int x, int y, int z, float da, float db) {
+        boolean north = da != 0f;
+        float base = (z + build.geometry.raised) * ViewCamera.LEVEL_HEIGHT;
+        float foot = base + Math.min(build.geometry.liftAt(0f, 0f), build.geometry.liftAt(da, db)) - (north ? 0f : LogWalls.RADIUS);
+        int pieces = Math.round(1f / LogWalls.PIECE);
+        // Halfway along and up is the middle of a log, but of the doorway on a door's sprite: there the first log painted.
+        float dyeAlong = LogWalls.DYE_ALONG, dyeUp = LogWalls.DYE_HIGH;
+        for (int course = 0; course < 10 && !paintedOnWall(texture, 0f, 0f, da, db, dyeAlong, dyeUp, 0f); course++) {
+            for (int piece = 0; piece < pieces; piece++) {
+                if (logPainted(texture, da, db, piece, course, north)) {
+                    dyeAlong = logAlong(piece);
+                    dyeUp = logUp(2f * course + (north ? 1f : 0f));
+                    break;
+                }
+            }
+        }
+        float u = SpriteGeometry.textureU(build.frame, da * dyeAlong, db * dyeAlong), v = SpriteGeometry.textureV(build.frame, da * dyeAlong, db * dyeAlong, dyeUp);
+        int wood = 1 << Models.WOOD, id = texture.getID(), along = north ? 0 : 1;
+        int reveal = Math.round(2f * LogWalls.RADIUS / LogWalls.PIECE);
+        boolean[] painted = new boolean[pieces], laid = new boolean[pieces];
+        for (int course = 0; course < 10; course++) {
+            float under = foot + 2f * course * LogWalls.RADIUS;
+            int count = 0;
+            for (int piece = 0; piece < pieces; piece++) {
+                painted[piece] = logPainted(texture, da, db, piece, course, north);
+            }
+            // A sprite stops a few dots short of an end of its edge: the logs run on to the corner.
+            for (int piece = 0; piece < SHORT_END && !painted[piece]; piece++) {
+                painted[piece] = true;
+            }
+            for (int piece = pieces - 1; piece >= pieces - SHORT_END && !painted[piece]; piece--) {
+                painted[piece] = true;
+            }
+            for (int piece = 0; piece < pieces; piece++) {
+                laid[piece] = painted[piece];
+                count += laid[piece] ? 1 : 0;
+            }
+            if (count == pieces) {
+                build.placed.add(Models.get("log_course"), build.frame, x, y, x + da * 0.5f, y + db * 0.5f, under, along, 1f, 1f, id, wood, u, v, 0, 0f, 0f);
+                build.placed.wall();
+                continue;
+            }
+            // Through a door or a window the sprite paints the cut ends of the logs on the opening's far side, the side
+            // nearer the square's north-west corner on either edge, a wall's thickness across: that is the opening too.
+            for (int piece = 1; piece < pieces; piece++) {
+                if (!painted[piece] && painted[piece - 1]) {
+                    for (int open = Math.max(0, piece - reveal); open < piece; open++) {
+                        laid[open] = false;
+                    }
+                }
+            }
+            for (int piece = 0; piece < pieces; piece++) {
+                if (laid[piece]) {
+                    float mid = (piece + 0.5f) * LogWalls.PIECE;
+                    build.placed.add(Models.get("log_piece"), build.frame, x, y, x + da * mid, y + db * mid, under, along, 1f, 1f, id, wood, u, v, 0, 0f, 0f);
+                    build.placed.wall();
+                }
+            }
+        }
+        // log_end runs along its +x: turned by Models.turn, 0 takes it towards -x, 2 towards +x, 1 towards -y and 3 towards +y.
+        if (logsCross(x, y, z, north) && !logsOn(x - (int) da, y - (int) db, z, north)) {
+            build.placed.add(Models.get("log_end"), build.frame, x, y, x, y, foot, north ? 0 : 1, 1f, 1f, id, wood, u, v, 0, 0f, 0f);
+            build.placed.wall();
+        }
+        if (logsCross(x + (int) da, y + (int) db, z, north) && !logsOn(x + (int) da, y + (int) db, z, north)) {
+            build.placed.add(Models.get("log_end"), build.frame, x, y, x + da, y + db, foot, north ? 2 : 3, 1f, 1f, id, wood, u, v, 0, 0f, 0f);
+            build.placed.wall();
+        }
+    }
+
+    /**
+     * Whether the log wall's sprite paints a piece of a course across it: its share along the edge, kept a few dots in
+     * from the ends, where a sprite stops short of its square's edge, at the height of the course's axis and LOG_ACROSS
+     * of a radius over and under it, kept off the foot, where the lowest course of a wall on a west edge has its axis.
+     * A course the sprite's opening cuts only part of the way through stands in front of the window's frame.
+     */
+    private boolean logPainted(Texture texture, float da, float db, int piece, int course, boolean north) {
+        float axis = 2f * course + (north ? 1f : 0f);
+        return paintedOnWall(texture, 0f, 0f, da, db, logAlong(piece), logUp(axis), 0f)
+                && paintedOnWall(texture, 0f, 0f, da, db, logAlong(piece), logUp(axis - LOG_ACROSS), 0f)
+                && paintedOnWall(texture, 0f, 0f, da, db, logAlong(piece), logUp(axis + LOG_ACROSS), 0f);
+    }
+
+    private static float logAlong(int piece) {
+        return Math.max(LogWalls.END_IN, Math.min(1f - LogWalls.END_IN, (piece + 0.5f) * LogWalls.PIECE));
+    }
+
+    /** The height up the wall, in levels, of radii of a log up from its foot. */
+    private static float logUp(float radii) {
+        return Math.max(0.5f, radii) * LogWalls.RADIUS / ViewCamera.LEVEL_HEIGHT;
+    }
+
+    /**
+     * Whether the corner (px, py) of the map is one a wall on a north edge, or on a west one, turns at: a log wall on the
+     * other kind of edge comes to it from one side only. Where one runs on through it, the wall meets it in its side,
+     * and its logs stop there as the game's do: run on, they stood out of the far side of the wall.
+     */
+    private boolean logsCross(int px, int py, int z, boolean north) {
+        return north ? logsOn(px, py, z, false) != logsOn(px, py - 1, z, false) : logsOn(px, py, z, true) != logsOn(px - 1, py, z, true);
+    }
+
+    /** Whether square (sx, sy) has a length of log wall on its north edge, or its west. */
+    private boolean logsOn(int sx, int sy, int z, boolean onNorth) {
+        PZArrayList<IsoObject> objects = objectsOn(sx, sy, z);
+        for (int i = 0; objects != null && i < objects.size(); i++) {
+            IsoSprite sprite = objects.get(i).getSprite();
+            if (sprite != null && LogWalls.is(sprite.getName())
+                    && (onNorth ? Edges.north(sprite.getProperties(), sprite.getType()) : Edges.west(sprite.getProperties(), sprite.getType()))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Whether square (sx, sy) holds the picket fence's lone post, which stands at its north-west corner. */

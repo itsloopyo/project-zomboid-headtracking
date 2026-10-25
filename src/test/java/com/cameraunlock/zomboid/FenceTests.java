@@ -16,6 +16,7 @@ final class FenceTests {
         Checks.run("theGamesFloorMarkByNameStaysOffEdgesAndWalls", FenceTests::theGamesFloorMarkByNameStaysOffEdgesAndWalls);
         Checks.run("noTwoWorldMaterialsShareANumber", FenceTests::noTwoWorldMaterialsShareANumber);
         Checks.run("theWhitePicketFenceIsItsModelOnEachEdge", FenceTests::theWhitePicketFenceIsItsModelOnEachEdge);
+        Checks.run("aLogWallIsItsLogs", FenceTests::aLogWallIsItsLogs);
         Checks.run("theSecurityFenceStartsWhereItsPostIsBeforeTheCorner", FenceTests::theSecurityFenceStartsWhereItsPostIsBeforeTheCorner);
     }
 
@@ -32,6 +33,22 @@ final class FenceTests {
         for (String other : new String[] {"fencing_01_52", "fencing_01_53", "fencing_01_56", "fencing_01_4", "fencing_02_48", "walls_exterior_house_01_48"}) {
             Checks.check(Fences.overhang(other) == 0f, other + " starts at its corner");
         }
+    }
+
+    private static void aLogWallIsItsLogs() {
+        for (String length : new String[] {"walls_logs_0", "walls_logs_1", "walls_logs_2", "walls_logs_4", "walls_logs_5", "walls_logs_8", "walls_logs_11"}) {
+            Checks.check(LogWalls.is(length), length + " is a length of log wall");
+        }
+        for (String other : new String[] {"walls_logs_3", "walls_logs_12", "walls_logs_16", "walls_logs_48", "walls_logs_52", "walls_logs_96", "walls_exterior_wooden_01_0"}) {
+            Checks.check(!LogWalls.is(other), other + " is none: a corner post, a gable, a palisade or stone");
+        }
+        Models.Model end = Models.get("log_end"), course = Models.get("log_course"), piece = Models.get("log_piece");
+        Checks.check(Math.abs(end.height() - ViewCamera.LEVEL_HEIGHT) < 0.002f && Math.abs(course.height() - 2f * LogWalls.RADIUS) < 0.002f,
+                "ten logs stack to a level: " + end.height() + ", one is " + course.height());
+        Checks.check(Math.abs(course.maxY - LogWalls.RADIUS) < 0.002f && course.maxY > WorldScene.WALL_HALF, "the logs stand proud of the wall's skins");
+        Checks.check(Math.abs(course.minX + 0.5f) < 0.002f && Math.abs(course.maxX - 0.5f) < 0.002f, "a course runs the square's edge");
+        Checks.check(Math.abs(end.minX) < 0.002f && end.maxX > LogWalls.RADIUS + 0.1f, "an end runs on from the corner a hand past the other wall's logs: " + end.maxX);
+        Checks.check(Math.abs(piece.maxX - piece.minX - LogWalls.PIECE) < 0.002f, "a piece is its share of the edge: " + (piece.maxX - piece.minX));
     }
 
     private static void theWhitePicketFenceIsItsModelOnEachEdge() {

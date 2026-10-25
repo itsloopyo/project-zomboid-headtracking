@@ -2149,7 +2149,7 @@ final class Pipeline {
      * it found them. The shadow maps cast it with castModels.
      *
      * @param shaded  whether a piece's light, surfaces and picture are told to the program: its depth alone is drawn without them,
-     *                since they only ever colour it
+     *                since they only ever colour it, and with whether it is laid as a wall's face, which leaves pixels of it out
      * @param within  the eye of the picture: pieces wholly behind it or beyond far are left out
      * @param pixel   how far apart two things a tile from that eye are when they are a pixel apart in its picture: see
      *                Models.Instances.plain
@@ -2283,9 +2283,8 @@ final class Pipeline {
             GL20.glEnableVertexAttribArray(attribute);
             GL33.glVertexAttribDivisor(attribute, 1);
         }
-        int surfacesAt = 0, dyeAt = 0, pictureAt = 0, texelAt = 0, tubeAt = 0;
+        int surfacesAt = program.at("uSurfaces"), dyeAt = 0, pictureAt = 0, texelAt = 0, tubeAt = 0;
         if (shaded) {
-            surfacesAt = program.at("uSurfaces");
             dyeAt = program.at("uDye");
             pictureAt = program.at("uPicture");
             texelAt = program.at("uTexel");
@@ -2316,9 +2315,12 @@ final class Pipeline {
                     to++;
                 }
             }
-            if (shaded) {
+            if (!shaded) {
+                // Its depth is drawn with the pixels the picture keeps of it: one laid as a wall's face is not opened about the viewer.
+                GL20.glUniform4f(surfacesAt, 0f, 0f, 0f, f[at + Models.Instances.WALL]);
+            } else {
                 int surfaces = at + Models.Instances.SURFACES, dye = at + Models.Instances.DYE, picture = at + Models.Instances.PICTURE;
-                GL20.glUniform3f(surfacesAt, f[surfaces], f[surfaces + 1], f[surfaces + 2]);
+                GL20.glUniform4f(surfacesAt, f[surfaces], f[surfaces + 1], f[surfaces + 2], f[at + Models.Instances.WALL]);
                 if (live) {
                     // The glass of a set showing a programme: which shot it shows and what part of the shot is
                     // worked out now, and the picture is laid so that the part fills the glass.
@@ -2361,7 +2363,7 @@ final class Pipeline {
 
     /**
      * Whether the piece listed at other is drawn in the run of the piece whose floats start at at
-     * in f: the same picture, and with shaded the same surfaces, dye and picture laid on it.
+     * in f: the same picture, laid as a wall's face or not as it is, and with shaded the same surfaces, dye and picture laid on it.
      * Their model is the same, which the order the run is in has said.
      */
     private boolean sameRun(float[] f, int at, int named, int other, boolean shaded) {
@@ -2370,11 +2372,14 @@ final class Pipeline {
         if (placed.ints[piece * Models.Instances.INTS + Models.Instances.TEXTURE] != named) {
             return false;
         }
+        float[] g = placed.floats;
+        int to = piece * Models.Instances.FLOATS;
+        if (g[to + Models.Instances.WALL] != f[at + Models.Instances.WALL]) {
+            return false;
+        }
         if (!shaded) {
             return true;
         }
-        float[] g = placed.floats;
-        int to = piece * Models.Instances.FLOATS;
         return !differ(g, to + Models.Instances.SURFACES, f, at + Models.Instances.SURFACES, 3)
                 && !differ(g, to + Models.Instances.DYE, f, at + Models.Instances.DYE, 4)
                 && !differ(g, to + Models.Instances.PICTURE, f, at + Models.Instances.PICTURE, 4);

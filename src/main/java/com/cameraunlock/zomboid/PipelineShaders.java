@@ -534,7 +534,9 @@ final class PipelineShaders {
             // What a model has of a light the game has not given, as aLit and its fellows hold its light; that light's
             // kind plus 1, or 0, is aFoot's w: see Models.Instances.UNLIT.
             attribute vec4 aUnlit;
-            uniform vec3 uSurfaces;
+            // The model's openness to the sky, the surfaces dyed from each of the two places on the sprite, and 1 for one
+            // laid as a wall's own face: see Models.Instances.wall.
+            uniform vec4 uSurfaces;
             uniform vec4 uDye;
             uniform vec4 uPicture;
 
@@ -640,11 +642,14 @@ final class PipelineShaders {
                 }
                 vNormal = looks;
                 // A model hung on a wall has its back to the wall, at its own +y, and is cut with that wall
-                // and no other: 1 for a north wall, 2 for a west one, 0 for what is not hung. See cutAway.
+                // and no other: 1 for a north wall, 2 for a west one, 0 for what is not hung. One laid as a
+                // wall's own face lies along it the same way, at any height, and is cut as the wall is: 3
+                // and 4. See cutAway.
                 vec2 back = turned(vec2(0.0, 1.0));
-                vHung = uModel > 0.5 && aFoot.z > uCutAbove - 0.45 ? (abs(back.y) > abs(back.x) ? 1.0 : 2.0) : 0.0;
-                // A model has no tree, and carries the piece of its surface in the place of the square of one.
-                vRoot = uModel > 0.5 ? vec2(-1.0, piece) : gl_MultiTexCoord2.xy;
+                vHung = uModel > 0.5 && (uSurfaces.w > 0.5 || aFoot.z > uCutAbove - 0.45) ? (abs(back.y) > abs(back.x) ? 1.0 : 2.0) + 2.0 * uSurfaces.w : 0.0;
+                // A model has no tree, and carries the piece of its surface in the place of the square of one,
+                // and in the place of its x -2 where the model is laid as a wall's own face and -1 where not.
+                vRoot = uModel > 0.5 ? vec2(-1.0 - uSurfaces.w, piece) : gl_MultiTexCoord2.xy;
                 // What is laid on the ground does not blow about: there the normal's length says
                 // how much of the layer shows at the vertex.
                 // Nor does water: there the length says how far the vertex is from the bank.
@@ -3054,8 +3059,9 @@ final class PipelineShaders {
                 // What else stands between the overhead eye and the viewer and is no part of a
                 // building is opened in a round window about them, where the game lets its own
                 // picture of such a thing be seen through: a cupboard, a fridge, a hedge. A
-                // building in the way is the game's to open: it leaves out the floors over the
-                // viewer's and cuts walls away, and the picture does as it does below.
+                // building in the way, the logs laid as its walls among it, is the game's to open:
+                // it leaves out the floors over the viewer's and cuts walls away, and the picture
+                // does as it does below.
                 bool ofModel = vMaterial > 15.5 && vMaterial < 51.5;
                 bool standing = vKind > 1.5 && vKind < 3.5;
                 // A card the eye stands in, or all but touches, is seen along itself, and its texels
@@ -3069,7 +3075,7 @@ final class PipelineShaders {
                         && (eyeAway < 0.25 || abs(dot(fromEye / eyeAway, normalize(vNormal.xy + vec2(1e-6)))) < 0.12)) {
                     discard;
                 }
-                if (!tree && (ofModel || standing) && uHole.z > 0.0 && vWorld.z > uHoleUp && dot(vWorld, uHoleFrom.xyz) < uHoleFrom.w
+                if (!tree && vRoot.x > -1.5 && (ofModel || standing) && uHole.z > 0.0 && vWorld.z > uHoleUp && dot(vWorld, uHoleFrom.xyz) < uHoleFrom.w
                         && distance(gl_FragCoord.xy, uHole.xy) < uHole.z * (0.9 + 0.1 * grain(floor(gl_FragCoord.xy / 3.0)))) {
                     discard;
                 }

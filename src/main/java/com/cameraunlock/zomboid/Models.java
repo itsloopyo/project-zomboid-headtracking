@@ -494,7 +494,9 @@ final class Models {
         static final int UNLIT = 39;
         /** What the piece has of the day its room lets in, held as UNLIT holds the rest: see Frame.cornerDay. */
         static final int DAY = 44;
-        static final int FLOATS = 48;
+        /** 1 for a piece laid as a wall's own face, which is opened and cut as the wall is (see wall), or 0. */
+        static final int WALL = 48;
+        static final int FLOATS = 49;
         /**
          * The model's first corner in the list of every model's and how many it has, the same of
          * its plain one, the texture that dyes the piece or 0, and 1 for a piece that is part of
@@ -631,6 +633,7 @@ final class Models {
             to[at + DYE + 3] = alsoV;
             to[at + PICTURE] = to[at + PICTURE + 1] = to[at + PICTURE + 2] = to[at + PICTURE + 3] = 0f;
             to[at + APART] = model.apart * Math.max(scale, scaleUp);
+            to[at + WALL] = 0f;
             ints[whole + FIRST] = model.from;
             ints[whole + COUNT] = model.corners.length;
             ints[whole + PLAIN_FIRST] = model.plain.from;
@@ -649,6 +652,16 @@ final class Models {
          */
         void built() {
             ints[(count - 1) * INTS + BUILT] = 1;
+        }
+
+        /**
+         * Has the piece last added be part of the wall it is laid over, as the wall's skins are: the round
+         * window the picture opens about the viewer leaves it in, where the game cuts a wall away instead,
+         * and it is cut with the wall, where what hangs on a cut wall may stay.
+         */
+        void wall() {
+            built();
+            floats[(count - 1) * FLOATS + WALL] = 1f;
         }
 
         /** Has the pane of the piece last added, of this model, be a mirror's glass: see LookingGlass. */
