@@ -108,7 +108,7 @@ final class Rewind {
     /** Called as the game starts a tick of the world: writes out each player whose second has come, and keeps a held death paused. */
     static void tick() {
         if (!Rules.rewind()) {
-            // What was kept would be from before the row was off or the server, should either change back.
+            // What was kept would be from before the server, should the player be alone again.
             for (int i = 0; i < View.COUNT; i++) {
                 if (held[i] == null && count[i] > 0) {
                     forget(i);
@@ -441,6 +441,12 @@ final class Rewind {
         player.setBumpType("");
         player.setPlayingDeathSound(false);
         player.setDefaultState();
+        // A killing blow leaves the animation in hitreaction-endDeath, which has no way out but to the ground, and while it
+        // holds the player cannot move. The game's own reset of a character's animation, NetworkCharacterAI.resetState.
+        String animation = player.getActionContext().getCurrentStateName();
+        player.clearVariables();
+        player.getActionContext().clearActionContextEvents();
+        player.getActionContext().setCurrentState(player.getActionContext().getGroup().getInitialState());
         player.ensureOnTile();
         player.resetModelNextFrame();
         String seated = "";
@@ -464,9 +470,9 @@ final class Rewind {
         sinceLast[index] = 0f;
         stillFor = RewindRing.ZOMBIES_STILL;
         Log.info(String.format(Locale.ROOT, "player %d rewound: loaded as they were %.1f s of play before (%.1f s on the clock), %d bytes, at (%.2f, %.2f, %.2f), health %.1f%s; "
-                        + "wounded body parts %d before the load, %d after it, %d now; %s; the zombies stand still for %.0f s",
+                        + "wounded body parts %d before the load, %d after it, %d now; %s; animation %s put back to %s; the zombies stand still for %.0f s",
                 index, age, (System.nanoTime() - snapshot.takenNanos()) / 1e9, snapshot.bytes().length, player.getX(), player.getY(), player.getZ(), player.getHealth(), seated,
-                woundsBefore, woundsLoaded, wounds(player), items, RewindRing.ZOMBIES_STILL));
+                woundsBefore, woundsLoaded, wounds(player), items, animation, player.getActionContext().getCurrentStateName(), RewindRing.ZOMBIES_STILL));
     }
 
     /**
