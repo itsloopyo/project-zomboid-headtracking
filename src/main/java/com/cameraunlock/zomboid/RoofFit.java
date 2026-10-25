@@ -316,6 +316,7 @@ final class RoofFit {
             }
             groups++;
         }
+        levelPastTheCrown(tiles, at);
         for (Tile tile : tiles) {
             if (tile.cutCorner >= 0) {
                 foldCut(tile, at);
@@ -326,6 +327,43 @@ final class RoofFit {
             } else if (tile.axis == LEVEL && !tile.fitting && tile.half == 0) {
                 goOnDown(tile, at);
             }
+        }
+    }
+
+    /**
+     * A row of a slope that climbs from a crown's height on into the crown is laid level there: the map put the crown a row
+     * lower than the slope's top. Left climbing, the row stood a third of a level over the crown along its whole edge, and
+     * the far side made from it climbed past the crown the same, so both ends of the roof kicked up (12798..12807, 3240..3247).
+     * The rest of the row along its level line goes level with it, past squares where no crown is beside it.
+     */
+    private static void levelPastTheCrown(List<Tile> tiles, HashMap<Long, Tile> at) {
+        ArrayList<Tile> level = new ArrayList<>();
+        for (Tile tile : tiles) {
+            if (!tile.slopes() || Math.abs(Math.abs(tile.fitHigh - tile.fitLow) - PITCH) > PITCH_SLACK) {
+                continue;
+            }
+            boolean isAlongX = tile.fitAxis == ALONG_X;
+            int up = tile.up();
+            Tile crown = at.get(key(tile.x + (isAlongX ? up : 0), tile.y + (isAlongX ? 0 : up), tile.z));
+            if (crown != null && crown.sheet && Math.abs(crown.fitLow - Math.min(tile.fitLow, tile.fitHigh)) < SAME) {
+                level.add(tile);
+            }
+        }
+        for (int next = 0; next < level.size(); next++) {
+            Tile tile = level.get(next);
+            for (int side = -1; side <= 1; side += 2) {
+                Tile beside = at.get(key(tile.x + (tile.fitAxis == ALONG_Y ? side : 0), tile.y + (tile.fitAxis == ALONG_X ? side : 0), tile.z));
+                if (beside != null && beside.slopes() && beside.fitAxis == tile.fitAxis && Math.abs(beside.fitLow - tile.fitLow) < SAME
+                        && Math.abs(beside.fitHigh - tile.fitHigh) < SAME && !level.contains(beside)) {
+                    level.add(beside);
+                }
+            }
+        }
+        for (Tile tile : level) {
+            float foot = Math.min(tile.fitLow, tile.fitHigh);
+            tile.fitAxis = LEVEL;
+            tile.fitLow = foot;
+            tile.fitHigh = foot;
         }
     }
 
