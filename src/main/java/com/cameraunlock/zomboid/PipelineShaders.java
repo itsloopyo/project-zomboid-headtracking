@@ -2839,9 +2839,11 @@ final class PipelineShaders {
                 bool sheet = vMaterial > 66.5 && vMaterial < 68.5 || innerPane;
                 bool lamplit = vMaterial > 64.5 && vMaterial < 65.5 || vMaterial > 67.5 && vMaterial < 68.5;
                 bool window = lamplit || sheet || inner || vMaterial > 12.5 && vMaterial < 13.5;
+                // A roof of glass (WorldScene.materialOf) is a pane laid on the slant, its street side up.
+                bool roofPane = vMaterial > 12.5 && vMaterial < 13.5 && abs(vNormal.z) >= 0.5 * length(vNormal);
                 float glazed = 0.0, thrown = 0.0, veil = 1.0, glow = 0.0, street = 0.0, roomLaid = 0.0;
                 bool film = uLaid < 0.5 && vKind < 1.5 && uTexel.x > 0.0 && cover > 0.22 && cover < 0.8 && texel.b > texel.r + 0.05 && texel.g > texel.r
-                        && abs(vNormal.z) < 0.5 * length(vNormal);
+                        && (abs(vNormal.z) < 0.5 * length(vNormal) || roofPane);
                 if (film && small) {
                     // Far off, where a pixel is a mean of many dots, only a window is taken for glass.
                     film = window;
@@ -2858,7 +2860,7 @@ final class PipelineShaders {
                 float soiled = 0.0;
                 if (film) {
                     vec3 face = normalize(vNormal), sight = normalize(uEye - vWorld);
-                    float outside = inner ? 0.0 : window ? step(dot(face, sight), 0.0) : 0.5;
+                    float outside = inner ? 0.0 : roofPane ? step(0.0, dot(face, sight)) : window ? step(dot(face, sight), 0.0) : 0.5;
                     // What a pane throws back is what is on the eye's side of it: the street on its
                     // street side and the room on its room side. Glass in a wall's sprite is on
                     // one of the wall's two skins, each lit as its own side is, and is seen from

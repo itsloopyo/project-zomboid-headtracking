@@ -2129,10 +2129,25 @@ final class WorldScene {
     /** The sheet of floors for inside a house: its tiles and lino first, then from FIRST_WOOD its boards and parquet. */
     private static final String TILES_AND_WOOD = "floors_interior_tilesandwood_01_";
     private static final int FIRST_WOOD = 40;
+    /** The one roof sheet of boards. */
+    private static final String BOARDED_ROOFS = "roofs_30_10_";
+    /** The one roof sheet of glass, a greenhouse's or a porch's. */
+    private static final String GLASS_ROOFS = "roofs_30_04_";
 
     /** What a sprite's surface is made of, by the sheet it comes from. */
     static float materialOf(String name, boolean isFloor) {
         if (name == null) {
+            return 0f;
+        }
+        if (name.startsWith(BOARDED_ROOFS)) {
+            return PLANKS;
+        }
+        // The sheets of roofs_30 are barrel tiles, standing seam sheet metal and glass, each
+        // painted whole on its sprite: under the grain of shingle they glittered like foil.
+        if (name.startsWith(GLASS_ROOFS)) {
+            return GLASS;
+        }
+        if (name.startsWith("roofs_30_")) {
             return 0f;
         }
         if (name.startsWith("roofs_")) {
