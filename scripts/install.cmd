@@ -31,7 +31,7 @@ set "MOD_DISPLAY_NAME=Project Zomboid Head Tracking"
 set "MOD_DLLS=ProjectZomboidHeadTracking.jar ProjectZomboidHeadTracking-cabins.jar ProjectZomboidHeadTracking-fabric.jar ProjectZomboidHeadTracking-materials.jar ProjectZomboidHeadTracking-models.jar ProjectZomboidHeadTracking-pictures.jar ProjectZomboidHeadTracking-rugs.jar ProjectZomboidHeadTracking-skins.jar"
 :: Files an older version of the mod put next to the exe under names this one
 :: no longer uses. An install removes them once the new files are in place.
-set "LEGACY_DLLS=ProjectZomboidHeadTracking.dll CameraUnlockCore.dll"
+set "LEGACY_DLLS=ProjectZomboidHeadTracking.dll CameraUnlockCore.dll ProjectZomboidHeadTracking-fire.jar"
 set "MOD_INTERNAL_NAME=ProjectZomboidHeadTracking"
 set "MOD_VERSION=0.0.0"
 set "STATE_FILE=.headtracking-state.json"

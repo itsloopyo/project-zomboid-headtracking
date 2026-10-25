@@ -27,7 +27,7 @@ set "STATE_FILE=.headtracking-state.json"
 set "FRAMEWORK_TYPE=JavaAgent"
 :: DLL names shipped by older versions of this mod, removed too so an upgrade
 :: does not leave a second copy for the loader to bind.
-set "LEGACY_DLLS=ProjectZomboidHeadTracking.dll CameraUnlockCore.dll"
+set "LEGACY_DLLS=ProjectZomboidHeadTracking.dll CameraUnlockCore.dll ProjectZomboidHeadTracking-fire.jar"
 :: BepInEx: subfolder under BepInEx\plugins\ the DLLs were deployed into.
 set "PLUGIN_SUBFOLDER="
 :: Files install.cmd seeded write-if-absent. MUST list the same names as
