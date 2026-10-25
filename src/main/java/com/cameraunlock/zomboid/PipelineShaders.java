@@ -150,6 +150,8 @@ final class PipelineShaders {
             const float TORCH_GIVES = 3.0;
             // A lantern lights all round it, and what it gives does not change with the torch's.
             const float LANTERN_GIVES = 1.6;
+            // How fast what the torch gives a surface thins with the square of the distance.
+            const float TORCH_SPREAD = 0.035;
 
             // How much of the beam goes a way whose cosine off the torch's axis is within:
             // most on the axis and less all the way out, a fifth of that 20 degrees off, then a
@@ -176,7 +178,7 @@ final class PipelineShaders {
                 // a weapon, the other hand, is not in the beam, whichever way it points, but
                 // in a little that comes back off the room: the beam itself begins past them.
                 float cone = mix(0.12, torchBeam(within), smoothstep(0.3, 0.7, far));
-                float given = cone / (1.0 + 0.035 * far2) * (1.0 - smoothstep(uTorchAt.w, uTorchAt.w + 3.0, far));
+                float given = cone / (1.0 + TORCH_SPREAD * far2) * (1.0 - smoothstep(uTorchAt.w, uTorchAt.w + 3.0, far));
                 if (given <= 0.0) {
                     return 0.0;
                 }
@@ -231,6 +233,17 @@ final class PipelineShaders {
                 vec3 dir;
                 float given = beamAt(i, p, dir);
                 return given * (1.0 - smoothstep(-0.03, 0.04, dir.z - uBeamWay[i].z));
+            }
+
+            // What the torch gives the air at p. Air thins with the whole square of the distance:
+            // thinned as a surface is, the air ten tiles out shone nearly as bright as the air at
+            // arm's length, and anyone standing in the beam cut two thirds of the lit air out of the
+            // sight lines just over their head, a shadow standing up out of them into the sky.
+            float torchInAir(vec3 p) {
+                vec3 dir;
+                vec3 to = p - uTorchAt.xyz;
+                float far2 = dot(to, to);
+                return torchAt(p, dir) * (1.0 + TORCH_SPREAD * far2) / (0.25 + far2);
             }
 
             // And what they give a surface there that faces n. Leaves and grass take light
@@ -5287,10 +5300,18 @@ final class PipelineShaders {
                             beamed += beamInAir(b, p.xyz) * through;
                         }
                     }
-                    if (uTorchAt.w > 0.0) {
-                        vec3 dir;
-                        beamed += TORCH_GIVES * torchAt(p.xyz, dir) * through;
+                }
+                // The torch's air is nearly all near the hand, so its own steps are packed in there
+                // and spread out to where it reaches.
+                float torched = 0.0;
+                if (uTorchAt.w > 0.0) {
+                    float span = min(ahead, (uTorchAt.w + 3.0 + length(uEye - uTorchAt.xyz)) / along);
+                    for (int i = 0; i < STEPS; i++) {
+                        float share = (float(i) + start) / float(STEPS);
+                        float at = span * share * share;
+                        torched += torchInAir(uEye + ray * at) * exp(-uThick * at * along) * 2.0 * share;
                     }
+                    torched *= TORCH_GIVES * span / float(STEPS);
                 }
                 float mu = max(dot(ray / along, uLight), 0.0);
                 // Mist sends most of what it catches on the way the light was going, with a hot heart.
@@ -5305,7 +5326,7 @@ final class PipelineShaders {
                 glow = mix(glow, vec3(dot(glow, vec3(0.3, 0.5, 0.2))) * vec3(1.0, 0.82, 0.62), 0.65);
                 vec3 caught = glow * (lit / float(STEPS) * ahead * along * towards);
                 // A beam barely shows in clear night air, on the dust in it, and more in mist.
-                caught += vec3(1.0, 0.92, 0.76) * (beamed / float(STEPS) * ahead * along * (0.0004 + 0.2 * uMist));
+                caught += vec3(1.0, 0.92, 0.76) * ((beamed / float(STEPS) * ahead + torched) * along * (0.0004 + 0.2 * uMist));
                 // Where this pixel's line of sight ends, as the last frame saw it: kept only where
                 // that frame saw as far there, so what has come out from behind something is not
                 // given the air in front of what hid it.
