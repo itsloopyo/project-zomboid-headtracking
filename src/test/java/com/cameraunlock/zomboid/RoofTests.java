@@ -59,6 +59,7 @@ final class RoofTests {
         Checks.run("wingsFarSideStopsAtAMainRoofDeeperThanItsNearSide", RoofTests::wingsFarSideStopsAtAMainRoofDeeperThanItsNearSide);
         Checks.run("slopeThatClimbsPastItsCrownLiesLevel", RoofTests::slopeThatClimbsPastItsCrownLiesLevel);
         Checks.run("farSideOfARowOverADormerStandsOnTheWall", RoofTests::farSideOfARowOverADormerStandsOnTheWall);
+        Checks.run("roomWithNoFloorUnderTheRoofIsNoStorey", RoofTests::roomWithNoFloorUnderTheRoofIsNoStorey);
         Checks.run("eaveOverALeanToThatStopsShortOfItIsMade", RoofTests::eaveOverALeanToThatStopsShortOfItIsMade);
         Checks.run("trimPastAGableIsNoRoofGoingOn", RoofTests::trimPastAGableIsNoRoofGoingOn);
         Checks.run("trimPastAHipsCornerLeavesTheCornersEave", RoofTests::trimPastAHipsCornerLeavesTheCornersEave);
@@ -1301,6 +1302,35 @@ final class RoofTests {
         check(site.taken(0, 0, 1, 1f + THIRD), "the same sheet under a slope that would stand a third of a level over it is a flat roof, which the slope does not cover");
         check(site.taken(1, 0, 1, 1f), "a terrace of the floors' own sheets stays one");
         check(site.taken(2, 0, 1, 1f), "nor is a sheet with a tile of the roof on its square left out of the roofing");
+    }
+
+    /**
+     * The tool shed at 7948..7956 x 11741..11752: its loft on level 1, over x 0..1 and rows 0..2 here, is a room with no
+     * floor, and only the squares at its two gable ends, where its walls stand, are on the map. The far slope made over the
+     * loft lies on them too. A room with floors is a storey, and the one square of it without a floor, a stairwell, is
+     * still taken.
+     */
+    private static void roomWithNoFloorUnderTheRoofIsNoStorey() throws Exception {
+        TestMap map = new TestMap();
+        zombie.iso.RoomDef loftDef = new zombie.iso.RoomDef(1);
+        loftDef.rects.add(new zombie.iso.RoomDef.RoomRect(0, 0, 2, 3));
+        zombie.iso.areas.IsoRoom loft = new zombie.iso.areas.IsoRoom(loftDef);
+        for (int y = 0; y <= 2; y += 2) {
+            map.cell.square(0, y, 1).room(loft, 7L);
+            map.wall(0, y, 1, true);
+        }
+        zombie.iso.RoomDef storeyDef = new zombie.iso.RoomDef(1);
+        storeyDef.rects.add(new zombie.iso.RoomDef.RoomRect(4, 0, 2, 1));
+        zombie.iso.areas.IsoRoom storey = new zombie.iso.areas.IsoRoom(storeyDef);
+        map.cell.square(4, 0, 1).room(storey, 8L);
+        map.cell.square(4, 0, 1).floor(map.sprite("floors_interior_tilesandwood_01_0", IsoObjectType.normal, "solidfloor"));
+        map.cell.square(5, 0, 1).room(storey, 8L);
+        java.lang.reflect.Method made = Roofs.class.getDeclaredMethod("site", zombie.iso.IsoCell.class, int.class, java.util.HashSet.class);
+        made.setAccessible(true);
+        RoofFit.Site site = (RoofFit.Site) made.invoke(null, map.cell, 1, new java.util.HashSet<Long>());
+        check(!site.taken(0, 0, 1, 1f + 2 * THIRD) && !site.taken(0, 2, 1, 1f + 2 * THIRD), "the loft's gable end squares are under the made slope, no storey");
+        check(site.taken(4, 0, 1, 1f + 2 * THIRD), "a room with a floor is a storey the slope stops at");
+        check(site.taken(5, 0, 1, 1f + 2 * THIRD), "and so is its stairwell, the one square of it with no floor");
     }
 
     private static void levelSheetPaintedOverItsFloorIsAFlatTop() {

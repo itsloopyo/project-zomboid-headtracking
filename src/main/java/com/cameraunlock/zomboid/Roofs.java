@@ -747,6 +747,27 @@ final class Roofs {
                         && underSheets(under, z) && !underSheets(before, z);
             }
 
+            private final HashMap<Long, Boolean> voids = new HashMap<>();
+
+            // A room on the roof's level with no floor on any of its squares is the space under the roof, its squares only
+            // those its gable walls stand on: no storey the made slope stops at. Taken, the shed's far slope left out the
+            // squares of both gable ends and the walls showed through (7950..7951, 11741 and 11751).
+            private boolean roofVoid(IsoGridSquare square, int z) {
+                return voids.computeIfAbsent(square.getRoomID(), id -> {
+                    for (RoomDef.RoomRect rect : square.getRoom().getRoomDef().rects) {
+                        for (int x = rect.x; x < rect.x + rect.w; x++) {
+                            for (int y = rect.y; y < rect.y + rect.h; y++) {
+                                IsoGridSquare in = cell.getGridSquare(x, y, z);
+                                if (in != null && in.getFloor() != null) {
+                                    return false;
+                                }
+                            }
+                        }
+                    }
+                    return true;
+                });
+            }
+
             private boolean underSheets(IsoGridSquare under, int z) {
                 return sheeted.computeIfAbsent(under.getRoomID(), id -> {
                     for (RoomDef.RoomRect rect : under.getRoom().getRoomDef().rects) {
@@ -773,7 +794,7 @@ final class Roofs {
                     IsoObject floor = square.getFloor();
                     boolean foot = floor != null && roof <= z + RoofFit.SAME && hiddenSheet(floor);
                     boolean terrace = floor != null && !(floor.getSprite() != null && ceiling(floor.getSprite().getName())) && !foot;
-                    if (square.getRoomID() != -1L || terrace || (foot ? roofing(cell, square, false, floor) : roofed(square, x, y, z))) {
+                    if (square.getRoomID() != -1L && !roofVoid(square, z) || terrace || (foot ? roofing(cell, square, false, floor) : roofed(square, x, y, z))) {
                         return true;
                     }
                 }

@@ -11,6 +11,7 @@ public final class IsoGridSquare {
     private IsoObject floor;
     private boolean filling;
     private zombie.iso.areas.IsoBuilding building;
+    private zombie.iso.areas.IsoRoom room;
     private final IsoCell cell;
 
     IsoGridSquare(IsoCell cell, int x, int y, int z) {
@@ -64,9 +65,14 @@ public final class IsoGridSquare {
         return building;
     }
 
-    /** No square of a test is in a room the game has made. */
+    /** Puts the square in that room, under that room id. */
+    public void room(zombie.iso.areas.IsoRoom of, long id) {
+        room = of;
+        roomID = id;
+    }
+
     public zombie.iso.areas.IsoRoom getRoom() {
-        return null;
+        return room;
     }
 
     public IsoObject getFloor() {
