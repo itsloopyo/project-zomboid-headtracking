@@ -1,5 +1,7 @@
 package org.lwjglx.input;
 
 public class Keyboard {
-    public static final int KEYBOARD_SIZE = 256;
+    public static final int KEYBOARD_SIZE = stub();
+
+    private static int stub() { throw new UnsupportedOperationException("reference stub"); }
 }
