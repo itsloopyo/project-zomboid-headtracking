@@ -5547,26 +5547,30 @@ def girder():
     return model
 
 
-def felt_rolls(name, length, rows):
-    """Rolls of roofing felt lying along y, so many in each row: long ones side by side, or short ones stacked and held by a band."""
+def felt_rolls(name, end):
+    """A square's length of a bundle of roofing felt lying along y, two rolls and one on them. The game lays the bundle
+    over three squares in a row: at an end, the rolls stop a quarter in from -y, where their cores show and a band ties
+    them, and run on to the square's edge at +y; in the middle they cross the whole square."""
     model = Model(name)
     radius = 0.085
+    start = -0.25 if end else -0.5
     rolls, cores = bmesh.new(), bmesh.new()
     top = 0.0
-    for row, count in enumerate(rows):
+    for row, count in enumerate((2, 1)):
         for n in range(count):
             x = (n - (count - 1) / 2) * 2 * radius
             z = radius + row * radius * math.sqrt(3)
             top = z + radius
-            lathe(rolls, [(0.03, -length / 2), (radius, -length / 2), (radius, length / 2), (0.03, length / 2)], segments=12, caps=False, to=along_y(x, 0.0, z))
-            for y in (-length / 2, length / 2 - 0.004):
-                lathe(cores, [(0.0, y), (0.03, y), (0.03, y + 0.004), (0.0, y + 0.004)], segments=8, to=along_y(x, 0.0, z))
-    model.turned(rolls, "plastic", sharp=40.0)
-    model.plain(cores, "rubber")
-    if len(rows) > 1:
+            profile = [(radius, start), (radius, 0.5)]
+            lathe(rolls, [(0.03, start)] + profile if end else profile, segments=12, caps=False, to=along_y(x, 0.0, z))
+            if end:
+                lathe(cores, [(0.0, start), (0.03, start), (0.03, start + 0.004), (0.0, start + 0.004)], segments=8, to=along_y(x, 0.0, z))
+    model.turned(rolls, "rubber", sharp=40.0)
+    model.plain(cores, "dark_wood")
+    if end:
         band = bmesh.new()
-        wide = rows[0] * radius + 0.004
-        outline_along_y(band, [(-wide, 0.0), (wide, 0.0), (wide, radius), (radius * 0.6, top + 0.004), (-radius * 0.6, top + 0.004), (-wide, radius)], -0.05, 0.05)
+        wide = 2 * radius + 0.004
+        outline_along_y(band, [(-wide, 0.0), (wide, 0.0), (wide, radius), (radius * 0.6, top + 0.004), (-radius * 0.6, top + 0.004), (-wide, radius)], -0.02, 0.08)
         model.plain(band, "steel")
     return model
 
@@ -7488,7 +7492,7 @@ def outdoors():
             deck_chair(), slab_bench(), dustbin(), road_cone(), traffic_drum(), hydrant(), pallet(), brick_pallet(),
             gravestone("gravestone_round", "round"), gravestone("gravestone_square", "square"), gravestone("gravestone_gabled", "gabled"),
             sack_barrier(), log_stack("log_stack_6", (3, 3), (0, 1)), log_stack("log_stack_5", (3, 2)),
-            twin_head(), girder(), felt_rolls("felt_roll", 1.0, (2,)), felt_rolls("felt_bundle", 0.55, (2, 1)), stop_sign(), crossing_signal(), flag_pole(), flag_top(), parking_barrier(), theatre_seats(), parking_meter(), security_monitors(), chimney_pots(), hand_truck(),
+            twin_head(), girder(), felt_rolls("felt_middle", False), felt_rolls("felt_end", True), stop_sign(), crossing_signal(), flag_pole(), flag_top(), parking_barrier(), theatre_seats(), parking_meter(), security_monitors(), chimney_pots(), hand_truck(),
             roof_case("roof_case_low", 92 / 192 * 2.45), roof_case("roof_case_tall", 190 / 192 * 2.45)]         + tyres()
 
 def rod(bm, start, end, radius, segments=10):

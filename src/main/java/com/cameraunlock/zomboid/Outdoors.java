@@ -494,12 +494,15 @@ final class Outdoors {
             if (Sheets.place(name, MASTS) == 81) {
                 return new Piece("lattice_post_white", 0);
             }
-            // Roofing felt in rolls: two long rolls side by side and a banded bundle of short ones, each along y and then along x.
+            // A bundle of roofing felt over three squares in a row, along y (42, 41, 40) or along x (43, 44, 45): its ends
+            // and its middle, each square's share running to the next square's.
             return switch (Sheets.place(name, PLANT)) {
-                case 40, 42 -> new Piece("felt_bundle", 0);
-                case 41 -> new Piece("felt_roll", 0);
-                case 43, 45 -> new Piece("felt_bundle", 1);
-                case 44 -> new Piece("felt_roll", 1);
+                case 42 -> new Piece("felt_end", 2);
+                case 41 -> new Piece("felt_middle", 0);
+                case 40 -> new Piece("felt_end", 0);
+                case 43 -> new Piece("felt_end", 1);
+                case 44 -> new Piece("felt_middle", 1);
+                case 45 -> new Piece("felt_end", 3);
                 default -> switch (Sheets.place(name, BUILDING_SITE)) {
                     // A girder on the ground, painted along x from either end.
                     case 42, 43 -> new Piece("girder", 1).dye(PAINT, GIRDER_DYE);

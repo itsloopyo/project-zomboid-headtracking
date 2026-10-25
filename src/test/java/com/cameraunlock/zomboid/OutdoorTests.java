@@ -118,6 +118,9 @@ final class OutdoorTests {
             Outdoors.Piece piece = unnamed(sprite);
             holds(piece, sprite + " has a model");
         }
+        Checks.check(unnamed("industry_01_41").model.equals("felt_middle") && unnamed("industry_01_44").model.equals("felt_middle")
+                && (unnamed("industry_01_42").turns + 2 & 3) == unnamed("industry_01_40").turns && (unnamed("industry_01_43").turns + 2 & 3) == unnamed("industry_01_45").turns,
+                "a bundle of felt's two ends face away from each other across its middle");
         Checks.check(Outdoors.washingLine("appliances_laundry_01_30") == Outdoors.LINE_EAST && Outdoors.washingLine("appliances_laundry_01_31") == Outdoors.LINE_SOUTH,
                 "a washing line runs to the east on one sprite and to the south on the next");
         Checks.check(Outdoors.washingLine("appliances_laundry_01_26") == Outdoors.NO_LINE && Outdoors.washingLine("appliances_com_01_30") == Outdoors.NO_LINE
