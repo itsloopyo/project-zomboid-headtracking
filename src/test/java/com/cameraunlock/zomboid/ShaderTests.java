@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -166,9 +167,10 @@ final class ShaderTests {
     }
 
     private static void everyProgramPassesTheReferenceCompiler(List<Linked> programs) throws IOException, InterruptedException {
+        // The folder holds theFloorAsksForWhatTheFragmentStagesRead's reflected programs as well, in one of its own.
         if (Files.exists(OUT)) {
-            try (Stream<Path> old = Files.list(OUT)) {
-                for (Path file : old.toList()) {
+            try (Stream<Path> old = Files.walk(OUT)) {
+                for (Path file : old.sorted(Comparator.reverseOrder()).toList()) {
                     Files.delete(file);
                 }
             }
