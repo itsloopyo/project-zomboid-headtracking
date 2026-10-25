@@ -6,8 +6,13 @@ MAP is the folder of the game's map, ...\\ProjectZomboid\\media\\maps\\Muldraugh
 put in a kind by own(), and written with it, lower case, to src/main/resources/pictures/rooms.txt as name, a tab and the
 kind. A name that does not say what its building is (office, hall, kitchen) is written with UNSAID, or OFFICE_LIKE for the
 rooms an office has, and takes its kind from its building's other rooms at runtime by kind(), which Decor ports line for
-line. src/test/data/rooms.txt is the test of that port: a room of each name on the map in each sort of building it is in,
-as the kind this file gives it, a tab, its name, a tab and its building's room names.
+line. src/test/data/rooms.txt is the test of that port: each name of the table alone, and each name that says nothing of
+its building in buildings made up of the table's names, one of each sort kind() tells apart, as the kind this file gives
+it, a tab, its name, a tab and its building's room names. No building of the map is in it.
+
+    python tools/pictures/rooms.py --checks
+
+writes src/test/data/rooms.txt again from the table alone.
 """
 import os
 import pathlib
@@ -145,9 +150,44 @@ def read_map(folder):
     return buildings, alone
 
 
+def checks(names):
+    """Rooms to test Decor's port of kind() on, as (name, building), made up from the table's names alone. A name that says
+    its kind is that kind whatever its building, so it is tested alone. A name that says nothing of its building is also
+    tested in a building of each kind, in a home over each, beside an office's rooms and with two kinds tied."""
+    first = {}
+    for name in names:
+        first.setdefault(own(name), name)
+    offices = [n for n in names if own(n) == OFFICE_LIKE]
+    businesses = [k for k in KINDS if k != 'home' and k in first]
+    # The room with no name is tested beside others only: alone, its line would end in two empty fields.
+    rooms = [(name, [name]) for name in names if name]
+    for name in names:
+        if own(name) not in (UNSAID, OFFICE_LIKE):
+            continue
+        for k in KINDS:
+            if k in first:
+                rooms.append((name, [name, first[k]]))
+        for k in businesses:
+            rooms.append((name, [name, first['home'], first[k]]))
+            rooms.append((name, [name] + [o for o in offices if o != name][:2] + [first[k]]))
+        for k, other in zip(businesses, businesses[1:]):
+            rooms.append((name, [name, first[other], first[k]]))
+    return sorted({(name, tuple(sorted(set(building)))) for name, building in rooms})
+
+
+def write_checks(names):
+    with open(CHECKS, 'w', encoding='utf-8', newline='\n') as out:
+        for name, building in checks(names):
+            out.write(f"{kind(own(name), [own(n) for n in building])}\t{name}\t{' '.join(building)}\n")
+
+
 def main():
     if len(sys.argv) != 2:
         raise SystemExit(__doc__)
+    if sys.argv[1] == '--checks':
+        names = [line.split('\t')[0] for line in TABLE.read_text(encoding='utf-8').splitlines()]
+        write_checks(names)
+        return
     buildings, alone = read_map(sys.argv[1])
     names = sorted({n.lower() for b in buildings for n in b} | {n.lower() for n in alone})
     unknown = [n for n in names if own(n) is None]
@@ -156,21 +196,8 @@ def main():
     with open(TABLE, 'w', encoding='utf-8', newline='\n') as table:
         for name in names:
             table.write(f'{name}\t{own(name)}\n')
-    # Each name once, and a room of each sort of building that kind() tells apart: what its name says, the counts of its
-    # building's businesses, whether the building is also a home, and how many of its names are rooms an office has.
-    seen = {}
-    for building in buildings:
-        distinct = sorted({n.lower() for n in building})
-        says = [own(n) for n in distinct]
-        business = tuple(sorted((k, says.count(k)) for k in set(says) if k not in (UNSAID, OFFICE_LIKE, 'home')))
-        for name in distinct:
-            seen.setdefault(name, (name, distinct))
-            if own(name) in (UNSAID, OFFICE_LIKE):
-                seen.setdefault((own(name), business, 'home' in says, says.count(OFFICE_LIKE)), (name, distinct))
-    with open(CHECKS, 'w', encoding='utf-8', newline='\n') as checks:
-        for name, distinct in sorted(set((n, tuple(d)) for n, d in seen.values())):
-            checks.write(f"{kind(own(name), [own(n) for n in distinct])}\t{name}\t{' '.join(distinct)}\n")
-    print(f'{len(names)} room names, {len(buildings)} buildings, {len(seen)} rooms to check')
+    write_checks(names)
+    print(f'{len(names)} room names, {len(buildings)} buildings')
 
 
 if __name__ == '__main__':

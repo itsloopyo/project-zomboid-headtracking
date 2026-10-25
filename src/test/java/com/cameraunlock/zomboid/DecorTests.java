@@ -31,7 +31,7 @@ final class DecorTests {
         Checks.run("aBroadcastNobodyListedIsItsChannelsShow", DecorTests::aBroadcastNobodyListedIsItsChannelsShow);
         Checks.run("aSpriteTheJarHasNoPictureForShowsNone", DecorTests::aSpriteTheJarHasNoPictureForShowsNone);
         Checks.run("everyPictureInTheJarReadsAsItsColoursDotForDot", DecorTests::everyPictureInTheJarReadsAsItsColoursDotForDot);
-        Checks.run("everyRoomOnTheMapIsTheKindToolsPicturesGivesIt", DecorTests::everyRoomOnTheMapIsTheKindToolsPicturesGivesIt);
+        Checks.run("everyRoomIsTheKindToolsPicturesGivesIt", DecorTests::everyRoomIsTheKindToolsPicturesGivesIt);
         Checks.run("aRoomThatSaysNothingTakesItsKindFromItsBuilding", DecorTests::aRoomThatSaysNothingTakesItsKindFromItsBuilding);
         Checks.run("aPoolGivesEachPictureOfABuildingItsOwn", DecorTests::aPoolGivesEachPictureOfABuildingItsOwn);
         Checks.run("theIndexListsSubjectsAndPools", DecorTests::theIndexListsSubjectsAndPools);
@@ -248,10 +248,10 @@ final class DecorTests {
         check(shows.shots(Shows.SNOW) == 0, "interference has no shots");
     }
 
-    private static void everyRoomOnTheMapIsTheKindToolsPicturesGivesIt() throws IOException {
-        // A room of each name on the shipped map in each sort of building it is in, with the kind tools/pictures/rooms.py gives it.
+    private static void everyRoomIsTheKindToolsPicturesGivesIt() throws IOException {
+        // Each room name of the table alone and in buildings of each kind, with the kind tools/pictures/rooms.py gives it (its --checks mode writes the file).
         List<String> rooms = Files.readAllLines(Path.of("src", "test", "data", "rooms.txt"), StandardCharsets.UTF_8);
-        check(rooms.size() > 1000, "the test has the map's rooms: " + rooms.size());
+        check(rooms.size() > 1000, "the test has the table's rooms: " + rooms.size());
         int wrong = 0;
         for (String line : rooms) {
             String[] parts = line.split("\t");
