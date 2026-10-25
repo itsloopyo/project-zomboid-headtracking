@@ -10,6 +10,7 @@ public class IsoObject {
     public java.util.ArrayList<zombie.iso.sprite.IsoSpriteInstance> getAttachedAnimSprite() { throw new UnsupportedOperationException("reference stub"); }
     public IsoSprite getOverlaySprite() { throw new UnsupportedOperationException("reference stub"); }
     public IsoSprite getSprite() { throw new UnsupportedOperationException("reference stub"); }
+    public static IsoObject getNew(IsoGridSquare square, String spriteName, String name, boolean shareTextureInstance) { throw new UnsupportedOperationException("reference stub"); }
     public IsoDirections getDir() { throw new UnsupportedOperationException("reference stub"); }
     public float getRenderYOffset() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.inventory.ItemContainer getContainer() { throw new UnsupportedOperationException("reference stub"); }

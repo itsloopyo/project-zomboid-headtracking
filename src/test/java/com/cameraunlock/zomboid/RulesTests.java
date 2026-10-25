@@ -21,6 +21,7 @@ final class RulesTests {
                         && Rules.facesTheView() && Rules.pastTrees() && Rules.seenAtOnce(),
                 "alone with every row on, every rule is the mod's"));
         Servers.in(Servers.Where.ALONE, () -> check(Rules.rewind(), "and a death can be rewound"));
+        Servers.in(Servers.Where.ALONE, () -> check(Rules.dressesHiddenWalls(), "and rooms' hidden walls are hung"));
     }
 
     private static void eachRowOffGivesBackThatRuleAndNoOther() {
@@ -54,7 +55,10 @@ final class RulesTests {
                     && !Rules.seenAtOnce() && Rules.rewind(), "ZombiesSeenAtOnce off leaves zombies to the game's sight and changes nothing else");
             Rules.set(Rules.ALL & ~Rules.REWIND);
             check(Rules.throughWalls() && Rules.breaksLamps() && Rules.breaksGlass() && Rules.wounds() && !Rules.vehiclesStock() && Rules.facesTheView() && Rules.pastTrees()
-                    && Rules.seenAtOnce() && !Rules.rewind(), "Rewind30s off leaves a death final and changes nothing else");
+                    && Rules.seenAtOnce() && !Rules.rewind() && Rules.dressesHiddenWalls(), "Rewind30s off leaves a death final and changes nothing else");
+            Rules.set(Rules.ALL & ~Rules.HIDDEN_WALLS);
+            check(Rules.throughWalls() && Rules.breaksLamps() && Rules.breaksGlass() && Rules.wounds() && !Rules.vehiclesStock() && Rules.facesTheView() && Rules.pastTrees()
+                    && Rules.seenAtOnce() && Rules.rewind() && !Rules.dressesHiddenWalls(), "HiddenWallDecor off hangs nothing and changes nothing else");
         });
     }
 
@@ -62,8 +66,14 @@ final class RulesTests {
         Rules.set(Rules.ALL);
         for (Servers.Where where : new Servers.Where[] {Servers.Where.FRIENDLY, Servers.Where.CONTESTED}) {
             Servers.in(where, () -> check(!Rules.throughWalls() && !Rules.breaksLamps() && !Rules.breaksGlass() && !Rules.wounds() && Rules.vehiclesStock()
-                    && !Rules.facesTheView() && !Rules.pastTrees() && !Rules.seenAtOnce() && !Rules.rewind(),
+                    && !Rules.facesTheView() && !Rules.pastTrees() && !Rules.seenAtOnce() && !Rules.rewind() && !Rules.dressesHiddenWalls(),
                     "on a server (" + where + ") every rule is the game's with every row on"));
+        }
+        zombie.network.GameServer.server = true;
+        try {
+            Servers.in(Servers.Where.ALONE, () -> check(!Rules.dressesHiddenWalls(), "and a server's own process hangs nothing on hidden walls"));
+        } finally {
+            zombie.network.GameServer.server = false;
         }
     }
 

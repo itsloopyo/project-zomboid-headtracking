@@ -565,6 +565,11 @@ public final class Hooks {
         Bleeding.saved(chunk);
     }
 
+    /** Called as the game has loaded a chunk's squares and put its things in the world, on its logic thread: see HiddenWalls.loaded. */
+    public static void chunkLoaded(IsoChunk chunk) {
+        HiddenWalls.loaded(chunk);
+    }
+
     /**
      * Called as the game has every zone of the map it is loading, on the thread that loads it,
      * before the chunk streamer that adds zones of its own is made: see Country.read.

@@ -367,6 +367,12 @@ final class Config {
                             + "included, but every zombie within 4 tiles of you is moved out to 4 tiles and every zombie stands still for 2\n"
                             + "seconds after. false: death is final, as the game has it. On a server the game's rule holds.",
                     writable | live, false),
+            core.configLocalBool("Rules", "HiddenWallDecor",
+                    "true: offline, the south and east walls of a room, which the isometric view never shows from inside, get the\n"
+                            + "game's own mirrors, clocks and coat racks where the room's other walls say they belong, the first time the\n"
+                            + "room is loaded. They are the game's own objects and stay in your save. false: nothing is added. On a server\n"
+                            + "nothing is added.",
+                    writable | live, true),
         };
 
         talkingMouths = core.configLocalBool("Voice", TALKING_MOUTHS,
@@ -414,7 +420,7 @@ final class Config {
                 Log.info("the mod's own in first person: " + Own.described(Own.rows()));
             });
         }
-        String[] ruleKeys = {"ShotsThroughWalls", "ShotsBreakLamps", "ShotsBreakGlass", "ShotsWoundLimbs", "VehiclesSmashThrough", "FacesTheView", "ShotsPastTrees", "ZombiesSeenAtOnce", "Rewind30s"};
+        String[] ruleKeys = {"ShotsThroughWalls", "ShotsBreakLamps", "ShotsBreakGlass", "ShotsWoundLimbs", "VehiclesSmashThrough", "FacesTheView", "ShotsPastTrees", "ZombiesSeenAtOnce", "Rewind30s", "HiddenWallDecor"};
         for (int i = 0; i < ruleKeys.length; i++) {
             int bit = 1 << i;
             puts.put(ruleKeys[i], value -> {

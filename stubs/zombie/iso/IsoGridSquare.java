@@ -32,6 +32,9 @@ public final class IsoGridSquare {
     public int lightLevel;
 
     public PZArrayList<IsoObject> getObjects() { throw new UnsupportedOperationException("reference stub"); }
+    public void AddTileObject(IsoObject object) { throw new UnsupportedOperationException("reference stub"); }
+    public se.krka.kahlua.vm.KahluaTable getModData() { throw new UnsupportedOperationException("reference stub"); }
+    public boolean hasModData() { throw new UnsupportedOperationException("reference stub"); }
     public int RemoveTileObject(IsoObject object) { throw new UnsupportedOperationException("reference stub"); }
     public int RemoveTileObject(IsoObject object, boolean safely) { throw new UnsupportedOperationException("reference stub"); }
     public int transmitRemoveItemFromSquare(IsoObject object) { throw new UnsupportedOperationException("reference stub"); }

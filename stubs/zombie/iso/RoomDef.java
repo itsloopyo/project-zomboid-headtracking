@@ -4,6 +4,7 @@ import java.util.ArrayList;
 
 public final class RoomDef {
     public int level;
+    public boolean userDefined;
     public final ArrayList<RoomRect> rects = null;
 
     public BuildingDef getBuilding() { throw new UnsupportedOperationException("reference stub"); }

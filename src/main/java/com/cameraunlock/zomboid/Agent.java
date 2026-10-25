@@ -607,6 +607,11 @@ public final class Agent {
                             code.aload(0);
                             CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "chunkSaved", "(Lzombie/iso/IsoChunk;)V"));
                         })),
+                new Patch("zombie/iso/IsoChunk", "doLoadGridsquare on its way out", classBytes -> CallSite.insertOnEveryWayOut(classBytes,
+                        new CallSite.Method("zombie/iso/IsoChunk", "doLoadGridsquare", "()V"), code -> {
+                            code.aload(0);
+                            CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "chunkLoaded", "(Lzombie/iso/IsoChunk;)V"));
+                        })),
                 new Patch("zombie/iso/IsoWorld", "update at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
                         new CallSite.Method("zombie/iso/IsoWorld", "update", "()V"),
                         code -> CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "worldUpdate", "()V")))),

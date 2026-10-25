@@ -1,5 +1,7 @@
 package com.cameraunlock.zomboid;
 
+import zombie.network.GameServer;
+
 /**
  * The game's rules the mod changes when played alone, each a row of [Rules] in CameraUnlock.ini,
  * on unless the player says otherwise, bar Rewind30s, which is off unless they say so. With a row
@@ -11,8 +13,9 @@ package com.cameraunlock.zomboid;
 final class Rules {
     /** The bits of the rows that are on, in the order Config describes the rows of [Rules]. */
     static final int THROUGH_WALLS = 1, BREAKS_LAMPS = 2, BREAKS_GLASS = 4, WOUNDS = 8, SMASHES_THROUGH = 16, FACES_THE_VIEW = 32, PAST_TREES = 64,
-            SEEN_AT_ONCE = 128, REWIND = 256;
-    static final int ALL = THROUGH_WALLS | BREAKS_LAMPS | BREAKS_GLASS | WOUNDS | SMASHES_THROUGH | FACES_THE_VIEW | PAST_TREES | SEEN_AT_ONCE | REWIND;
+            SEEN_AT_ONCE = 128, REWIND = 256, HIDDEN_WALLS = 512;
+    static final int ALL = THROUGH_WALLS | BREAKS_LAMPS | BREAKS_GLASS | WOUNDS | SMASHES_THROUGH | FACES_THE_VIEW | PAST_TREES | SEEN_AT_ONCE | REWIND
+            | HIDDEN_WALLS;
 
     private static volatile int on = ALL & ~REWIND;
 
@@ -74,11 +77,21 @@ final class Rules {
         return !Online.joined() && (on & REWIND) != 0;
     }
 
+    /**
+     * Whether a room's walls the overhead view never shows are hung with the game's own things the
+     * first time it is loaded: see HiddenWalls. A server's world is the server's to furnish, so a
+     * server's own process hangs nothing either.
+     */
+    static boolean dressesHiddenWalls() {
+        return !Online.joined() && !GameServer.server && (on & HIDDEN_WALLS) != 0;
+    }
+
     /** The rows in words, for the log. */
     static String described(int bits) {
         return "shots through walls " + ((bits & THROUGH_WALLS) != 0) + ", shots break lamps " + ((bits & BREAKS_LAMPS) != 0)
                 + ", shots break glass " + ((bits & BREAKS_GLASS) != 0) + ", shots wound limbs " + ((bits & WOUNDS) != 0) + ", vehicles smash through " + ((bits & SMASHES_THROUGH) != 0)
                 + ", faces the view walking aside " + ((bits & FACES_THE_VIEW) != 0) + ", shots past trees " + ((bits & PAST_TREES) != 0)
-                + ", zombies seen at once " + ((bits & SEEN_AT_ONCE) != 0) + ", rewind 30s " + ((bits & REWIND) != 0);
+                + ", zombies seen at once " + ((bits & SEEN_AT_ONCE) != 0) + ", rewind 30s " + ((bits & REWIND) != 0)
+                + ", hidden wall decor " + ((bits & HIDDEN_WALLS) != 0);
     }
 }
