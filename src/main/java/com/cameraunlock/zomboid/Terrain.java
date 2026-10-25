@@ -1841,6 +1841,19 @@ final class Terrain {
         return rise(x, y) + (stand(x, y) + heave + upland(x, y)) * smooth(toWater / VALLEY);
     }
 
+    /**
+     * The height the far land is drawn at: far, with the hollows of open ground (knolls and
+     * roll) and without the swells where they stand up, which a town levels. The built world
+     * thins out into the far land pixel by pixel, each as far off as the eye's line meets it,
+     * and seen from a man's height a tile of land over the built land 40 tiles off is met 15
+     * tiles off. Lying over a hollow of the built land, the far land was met where it had not
+     * come in, and the sky showed between the two in a band round the eye. Lying under it, it
+     * has come in, and is behind the built world while that is there.
+     */
+    float farUnder(float x, float y, float toWater) {
+        return far(x, y, toWater) - gain * Math.max(heave(x, y), 0f) * smooth(toWater / VALLEY) + Math.min(knolls(x, y) + roll(x, y), 0f);
+    }
+
     /** The rise and fall of the country over the better part of a mile. Never steeper than a rise of one in forty. */
     private static float rise(float x, float y) {
         return 2.2f * (float) (Math.sin(x * 0.0061 + 0.7) * Math.sin(y * 0.0053 + 2.2))

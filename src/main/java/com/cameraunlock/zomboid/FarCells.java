@@ -138,7 +138,7 @@ final class FarCells {
         for (int j = 0; j < ring; j++) {
             for (int i = 0; i < ring; i++) {
                 float x = (i - 1) * STEP, y = (j - 1) * STEP;
-                heights[j * ring + i] = Terrain.HILLS.far(cellX * CELL + x, cellY * CELL + y, toWater(around, x, y));
+                heights[j * ring + i] = Terrain.HILLS.farUnder(cellX * CELL + x, cellY * CELL + y, toWater(around, x, y));
                 // A corner of a chunk with water in it lies under the country as the built
                 // world's water does, and a little more: the built world thins out into the far
                 // land pixel by pixel, each as far off as the eye's line meets it, and the far
@@ -205,11 +205,11 @@ final class FarCells {
             // One square more all round, so every square of the building has a neighbour to be asked about.
             int wide = maxX - minX + 2, deep = maxY - minY + 2;
             float midX = (minX + maxX) / 2f, midY = (minY + maxY) / 2f;
-            float pad = Terrain.HILLS.far(midX, midY, toWater(around, midX - cellX * CELL, midY - cellY * CELL));
+            float pad = Terrain.HILLS.farUnder(midX, midY, toWater(around, midX - cellX * CELL, midY - cellY * CELL));
             float foot = 0f;
             for (int corner = 0; corner < 4; corner++) {
                 float x = corner % 2 == 0 ? minX : maxX, y = corner < 2 ? minY : maxY;
-                foot = Math.min(foot, Terrain.HILLS.far(x, y, toWater(around, x - cellX * CELL, y - cellY * CELL)) - pad);
+                foot = Math.min(foot, Terrain.HILLS.farUnder(x, y, toWater(around, x - cellX * CELL, y - cellY * CELL)) - pad);
             }
             foot -= FOOTING;
             int mixed = number * 0x9e3779b1;

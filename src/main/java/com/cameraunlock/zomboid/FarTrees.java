@@ -215,6 +215,6 @@ final class FarTrees {
 
     private static float corner(int cellX, int cellY, int[][] around, int i, int j) {
         int x = i * FarCells.STEP, y = j * FarCells.STEP;
-        return Terrain.HILLS.far(cellX * FarCells.CELL + x, cellY * FarCells.CELL + y, FarCells.toWater(around, x, y));
+        return Terrain.HILLS.farUnder(cellX * FarCells.CELL + x, cellY * FarCells.CELL + y, FarCells.toWater(around, x, y));
     }
 }

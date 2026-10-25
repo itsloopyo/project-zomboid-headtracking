@@ -26,6 +26,7 @@ final class FarLandTests {
         Checks.run("aPictureIsHalvedDownToOnePixel", FarLandTests::aPictureIsHalvedDownToOnePixel);
         Checks.run("waterIsFoundByTheChunk", FarLandTests::waterIsFoundByTheChunk);
         Checks.run("theLandLiesAsTheBuiltWorldsDoes", FarLandTests::theLandLiesAsTheBuiltWorldsDoes);
+        Checks.run("theLandLiesUnderTheHollowsOfOpenGround", FarLandTests::theLandLiesUnderTheHollowsOfOpenGround);
         Checks.run("waterLiesUnderTheBuiltWorldsWater", FarLandTests::waterLiesUnderTheBuiltWorldsWater);
         Checks.run("aBuildingIsABlockOfItsFloors", FarLandTests::aBuildingIsABlockOfItsFloors);
         Checks.run("aFloorSmallerThanTheOneUnderItLeavesARoofBeside", FarLandTests::aFloorSmallerThanTheOneUnderItLeavesARoofBeside);
@@ -140,13 +141,13 @@ final class FarLandTests {
         FarCells.land(DRY, 49, 5, to);
         check(to.position() == to.capacity(), "the land of a cell is as many vertices as it is drawn as");
         check(to.getFloat(0) == 49 * 256f && to.getFloat(4) == 5 * 256f, "the first is the cell's own corner on the map");
-        check(to.getFloat(8) == Terrain.HILLS.far(49 * 256f, 5 * 256f, Terrain.VALLEY), "at the height the land has there");
+        check(to.getFloat(8) == Terrain.HILLS.farUnder(49 * 256f, 5 * 256f, Terrain.VALLEY), "at the height the land has there");
         float atOne = to.getFloat(8);
         try {
             Terrain.HILLS.heighten(1.5f);
             ByteBuffer higher = buffer(FarCells.LAND_VERTICES * FarCells.VERTEX_BYTES);
             FarCells.land(DRY, 49, 5, higher);
-            check(higher.getFloat(8) == Terrain.HILLS.far(49 * 256f, 5 * 256f, Terrain.VALLEY) && Math.abs(higher.getFloat(8) - 1.5f * atOne) < 1e-5f,
+            check(higher.getFloat(8) == Terrain.HILLS.farUnder(49 * 256f, 5 * 256f, Terrain.VALLEY) && Math.abs(higher.getFloat(8) - 1.5f * atOne) < 1e-5f,
                     "and with the hills half as high again, at the height the built land then has there: " + higher.getFloat(8) + " from " + atOne);
         } finally {
             Terrain.HILLS.heighten(1f);
@@ -157,6 +158,27 @@ final class FarLandTests {
             float x = to.getFloat(at + 12), y = to.getFloat(at + 16), z = to.getFloat(at + 20);
             check(Math.abs(x * x + y * y + z * z - 1f) < 1e-4f && z > 0.9f, "the land faces up, a little off it on a slope");
             check(to.get(at + 27) == 0, "and is marked as land");
+        }
+    }
+
+    private static void theLandLiesUnderTheHollowsOfOpenGround() {
+        try {
+            Terrain.HILLS.heighten(1.5f);
+            ByteBuffer to = buffer(FarCells.LAND_VERTICES * FarCells.VERTEX_BYTES);
+            FarCells.land(DRY, 42, 38, to);
+            boolean found = false;
+            for (int at = 0; at < to.capacity(); at += FarCells.VERTEX_BYTES) {
+                float x = to.getFloat(at), y = to.getFloat(at + 4), up = to.getFloat(at + 8);
+                check(up <= Terrain.HILLS.far(x, y, Terrain.VALLEY), "the far land lies no higher than the country at " + x + ", " + y);
+                if (x == 10808f && y == 9736f) {
+                    found = true;
+                    // The built land there is a hollow of open ground 2.8 tiles under the country (knolls -2.48, roll -0.34).
+                    check(up < Terrain.HILLS.far(x, y, Terrain.VALLEY) - 2.8f, "and in Muldraugh's gardens north east of 10766, 9752 lies down in the hollow the built land has: " + up);
+                }
+            }
+            check(found, "the cell has the corner at 10808, 9736");
+        } finally {
+            Terrain.HILLS.heighten(1f);
         }
     }
 
@@ -175,7 +197,7 @@ final class FarLandTests {
                 corners++;
                 check(up < Terrain.HILLS.waterLevel(x, y) - 0.04f, "a corner of the river's chunks lies under the built world's water at " + x + ", " + y + ": " + up);
             } else if (chunkY < FarCells.SIDE / 2f - 1f || chunkY > FarCells.SIDE / 2f + 2f) {
-                check(up == Terrain.HILLS.far(x, y, FarCells.toWater(river, x - 49 * 256f, y - 5 * 256f)), "and the land well off it is the country at " + x + ", " + y);
+                check(up == Terrain.HILLS.farUnder(x, y, FarCells.toWater(river, x - 49 * 256f, y - 5 * 256f)), "and the land well off it is the country at " + x + ", " + y);
             }
         }
         check(corners > 0, "the river has corners");
@@ -205,7 +227,7 @@ final class FarLandTests {
         ByteBuffer blocks = FarCells.blocks(buildings, DRY, 49, 5);
         check(blocks.limit() == 5 * 6 * FarCells.VERTEX_BYTES, "one room on one floor is four walls and a roof, and was " + blocks.limit() / FarCells.VERTEX_BYTES + " vertices");
         float[] roofs = roofs(blocks);
-        float pad = Terrain.HILLS.far(12602f, 1301.5f, Terrain.VALLEY);
+        float pad = Terrain.HILLS.farUnder(12602f, 1301.5f, Terrain.VALLEY);
         check(roofs[0] == 12f, "the roof covers the room's 12 squares, and covered " + roofs[0]);
         check(Math.abs(roofs[1] - pad - ViewCamera.LEVEL_HEIGHT) < 1e-4f, "one floor above the land in the middle of it");
     }
@@ -223,7 +245,7 @@ final class FarLandTests {
         int[] buildings = {5, 1, 12600, 1300, 4, 3, 1};
         ByteBuffer blocks = FarCells.blocks(buildings, DRY, 49, 5);
         check(blocks.limit() == 5 * 6 * FarCells.VERTEX_BYTES, "a room with none under it is four walls and a roof");
-        float pad = Terrain.HILLS.far(12602f, 1301.5f, Terrain.VALLEY), lowest = Float.MAX_VALUE;
+        float pad = Terrain.HILLS.farUnder(12602f, 1301.5f, Terrain.VALLEY), lowest = Float.MAX_VALUE;
         for (int at = 0; at < blocks.limit(); at += FarCells.VERTEX_BYTES) {
             lowest = Math.min(lowest, blocks.getFloat(at + 8));
         }
