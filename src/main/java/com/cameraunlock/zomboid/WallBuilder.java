@@ -524,7 +524,11 @@ final class WallBuilder {
         // A tiled wall is its tiles, its joints and the strips between its bands, each a face of its own: see WallTiles.
         tiles = paper == null && build.overLayer == 0 && build.tiledSheet != null && Own.textures(build.playerIndex)
                 ? tilesOf(texture, x, y, z, da, db, opening[at + OPENING_START] >= 0f || build.wallOpens) : null;
-        SpriteGeometry.Mesh near = build.ownGlass ? mesh : laid(mesh, texture, build.laidWall || outsideWall(x, y, z, da != 0f), x, y, z, da != 0f);
+        boolean outside = !build.laidWall && outsideWall(x, y, z, da != 0f);
+        // Of a wall between a room and out of doors, the side in the room is laid only as its own
+        // sprite paints it: taken for the building's finish, a motel room's paper was its siding.
+        boolean ownOnly = outside && OpeningBuilder.indoors(build.here);
+        SpriteGeometry.Mesh near = build.ownGlass ? mesh : laid(mesh, texture, build.laidWall || outside, ownOnly, x, y, z, da != 0f);
         if (paper != null) {
             int key = WallSides.key(paper.red, paper.green, paper.blue, WallSides.FLAT);
             WallSides.tint(key, build.paperTint);
@@ -611,7 +615,7 @@ final class WallBuilder {
             far = tileStood;
             build.frame.flat = tileFlat;
         } else if (faced != null) {
-            far = stoodSquare(laid(WorldScene.solid.get(faced.texture.getID()), faced.texture, Masonry.suits(faced.sprite.getName()), x, y, z, da != 0f), faced.texture, da != 0f);
+            far = stoodSquare(laid(WorldScene.solid.get(faced.texture.getID()), faced.texture, Masonry.suits(faced.sprite.getName()), false, x, y, z, da != 0f), faced.texture, da != 0f);
         } else if (tint != 0) {
             far = WorldScene.solid.get(build.ownGlass ? mesh.texture : texture.getID(), tint);
         } else {
@@ -885,9 +889,9 @@ final class WallBuilder {
      * or stone the one the picture lays as that over the sprite. See Masonry. What is drawn
      * over a wall, ivy or a stain, stays as painted. suits is whether the sprite is of a
      * sheet of outside walls, x, y, z the square the wall is on, and north whether it is on the
-     * square's north edge.
+     * square's north edge. ownOnly lays it as its own sprite reads, never as the building's finish.
      */
-    SpriteGeometry.Mesh laid(SpriteGeometry.Mesh mesh, Texture texture, boolean suits, int x, int y, int z, boolean north) {
+    SpriteGeometry.Mesh laid(SpriteGeometry.Mesh mesh, Texture texture, boolean suits, boolean ownOnly, int x, int y, int z, boolean north) {
         if (build.overLayer != 0 || !Own.textures(build.playerIndex)) {
             return mesh;
         }
@@ -930,7 +934,7 @@ final class WallBuilder {
         // A roof's end is of the wall it stands on: the nearest room under it, on either side of
         // its edge, not the ground floor, which may be a wing of another finish (a stone garage
         // under a sided gable).
-        for (int level = z - 1; level >= 0 && build.gableSheet && finish == null; level--) {
+        for (int level = z - 1; level >= 0 && build.gableSheet && !ownOnly && finish == null; level--) {
             for (int side = 0; side < 2 && finish == null; side++) {
                 IsoGridSquare under = build.cell.getGridSquare(x - (side == 1 && !north ? 1 : 0), y - (side == 1 && north ? 1 : 0), level);
                 IsoBuilding standing = under == null ? null : under.getBuilding();
@@ -939,7 +943,7 @@ final class WallBuilder {
                 }
             }
         }
-        for (int side = 0; side < 3 && finish == null; side++) {
+        for (int side = 0; side < 3 && !ownOnly && finish == null; side++) {
             int underX = x - (side == 2 ? 1 : 0), underY = y - (side == 1 ? 1 : 0);
             for (int level = 0; level <= z && finish == null; level++) {
                 IsoGridSquare under = build.cell.getGridSquare(underX, underY, level);
