@@ -128,9 +128,11 @@ final class CentreUse {
         if (found instanceof IsoWorldInventoryObject item) {
             return call(WORLD_MENU, GRAB, null, item, Double.valueOf(player.getIndex())) == null ? Outcome.NOTHING : Outcome.USED;
         }
-        if (found instanceof IsoWindow pane && pane.IsOpen() && !player.isAiming() && pane.canClimbThrough(player) && landsOnAFloor(pane, player)) {
-            // The game's click shuts an open window and climbs through only a smashed one. The key climbs through an open
-            // one too, where there is a floor beyond it to land on, the way the game's click climbs: up first, then over.
+        if (found instanceof IsoWindow pane && (pane.IsOpen() || pane.isSmashed()) && !player.isAiming() && pane.canClimbThrough(player)
+                && landsOnAFloor(pane, player)) {
+            // The game's click shuts an open window, and climbs through a smashed one only from a square beside it, answering
+            // that it took the click from further off. The key climbs through either from within its reach, where there is a
+            // floor beyond to land on, the way the game's click climbs: up first, then over, walking to the window first.
             Object climb = ((KahluaTable) LuaManager.env.rawget(WORLD_MENU)).rawget(CLIMB);
             return call(WORLD_MENU, GET_UP, player, climb, null, pane, Double.valueOf(player.getIndex())) == null ? Outcome.NOTHING : Outcome.USED;
         }
