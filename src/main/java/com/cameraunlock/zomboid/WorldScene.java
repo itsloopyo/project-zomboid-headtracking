@@ -2142,6 +2142,9 @@ final class WorldScene {
     /** The sheet of low pitched roofs, corrugated and seamed metal, and from FIRST_SHALLOW_GLASS glass. */
     private static final String SHALLOW_ROOFS = "roofs_shallow_01_";
     private static final int FIRST_SHALLOW_GLASS = 96;
+    /** The sheet of pantiles whose places FIRST_TILED_GLASS to LAST_TILED_GLASS, and the two of TILED_GLASS_EAVES, are the same roof in glass. */
+    private static final String TILED_ROOFS = "roofs_02_";
+    private static final int FIRST_TILED_GLASS = 32, LAST_TILED_GLASS = 63, TILED_GLASS_EAVES = 78;
 
     /** What a sprite's surface is made of, by the sheet it comes from. */
     static float materialOf(String name, boolean isFloor) {
@@ -2153,6 +2156,12 @@ final class WorldScene {
         }
         if (name.startsWith(GLASS_ROOFS) || name.startsWith(SHALLOW_ROOFS) && Sheets.place(name) >= FIRST_SHALLOW_GLASS) {
             return GLASS;
+        }
+        if (name.startsWith(TILED_ROOFS)) {
+            int place = Sheets.place(name);
+            if (place >= FIRST_TILED_GLASS && place <= LAST_TILED_GLASS || place == TILED_GLASS_EAVES || place == TILED_GLASS_EAVES + 1) {
+                return GLASS;
+            }
         }
         // Barrel tiles, standing seam and corrugated sheet metal are painted whole on their
         // sprites: under the grain of shingle they glittered like foil, or ribbed metal came

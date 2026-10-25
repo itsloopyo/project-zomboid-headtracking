@@ -14,6 +14,7 @@ final class BuildingTests {
     private BuildingTests() {}
 
     static void run() {
+        Checks.run("glassPantileRoofIsGlass", BuildingTests::glassPantileRoofIsGlass);
         Checks.run("plainWallHasAPlinthAndACourseAndThePlinthStopsAtADoor", BuildingTests::plainWallHasAPlinthAndACourseAndThePlinthStopsAtADoor);
         Checks.run("coursesStandOnTheirWallNotASquareOut", BuildingTests::coursesStandOnTheirWallNotASquareOut);
         Checks.run("canopyIsLinedWithPanelsAndALightEveryThirdSquare", BuildingTests::canopyIsLinedWithPanelsAndALightEveryThirdSquare);
@@ -599,6 +600,16 @@ final class BuildingTests {
         check(outsides.of(garage) == boards, "a boarded garage on a brick house is boarded behind too, whatever is seen from it");
         check(outsides.of(corner) == brick, "a room with no outside wall to read shows what the nearest one seen through the building shows");
         check(outsides.of(cellar) == -1, "a room that has none and sees none has no finish of its own");
+    }
+
+    /** The pantile sheet's glass greenhouse roof (roofs_02_32 to 63, 78 and 79) is glass, not tiles under shingle grain. */
+    private static void glassPantileRoofIsGlass() {
+        for (int place : new int[] {32, 45, 63, 78, 79}) {
+            check(WorldScene.materialOf("roofs_02_" + place, false) == WorldScene.GLASS, "roofs_02_" + place + " is glass");
+        }
+        for (int place : new int[] {0, 31, 64, 77, 80}) {
+            check(WorldScene.materialOf("roofs_02_" + place, false) == WorldScene.SHINGLES, "roofs_02_" + place + " is tiles");
+        }
     }
 
     private static void sheetmateIsNamedByItsPlaceOnTheSheet() {
