@@ -1464,10 +1464,10 @@ def crate():
     wide = (2 * half - 0.044) / 4
     for n in range(4):
         low = -half + 0.022 + n * wide
-        cuboid(box, low + 0.003, low + wide - 0.003, -half + 0.02, half - 0.02, top - 0.03, top - 0.008)
+        cuboid(box, low + 0.007, low + wide - 0.007, -half + 0.02, half - 0.02, top - 0.03, top - 0.008)
         for side in (-1, 1):
-            cuboid(box, low + 0.003, low + wide - 0.003, side * (half - 0.03), side * (half - 0.008), 0.01, top - 0.03)
-            cuboid(box, side * (half - 0.03), side * (half - 0.008), low + 0.003, low + wide - 0.003, 0.01, top - 0.03)
+            cuboid(box, low + 0.007, low + wide - 0.007, side * (half - 0.03), side * (half - 0.008), 0.01, top - 0.03)
+            cuboid(box, side * (half - 0.03), side * (half - 0.008), low + 0.007, low + wide - 0.007, 0.01, top - 0.03)
     model.hard(box, "wood", bevel=0.003, segments=1)
 
     battens = bmesh.new()
@@ -1480,13 +1480,16 @@ def crate():
             cuboid(battens, other * (half - 0.0375) - 0.0375, other * (half - 0.0375) + 0.0375, side * half - 0.011, side * half + 0.011, 0.075, top - 0.075)
     model.hard(battens, "wood", bevel=0.004, segments=1)
 
-    # A steel plate over each corner of the lid.
+    # A steel bracket over each corner of the lid and of the foot, folded round both sides.
     caps = bmesh.new()
     for x in (-1, 1):
         for y in (-1, 1):
-            x0, x1 = sorted((x * (half - 0.06), x * (half + 0.012)))
-            y0, y1 = sorted((y * (half - 0.06), y * (half + 0.012)))
-            cuboid(caps, x0, x1, y0, y1, top - 0.012, top + 0.003)
+            x0, x1 = sorted((x * (half - 0.07), x * (half + 0.014)))
+            y0, y1 = sorted((y * (half - 0.07), y * (half + 0.014)))
+            cuboid(caps, x0, x1, y0, y1, top - 0.012, top + 0.004)
+            for z0, z1 in ((top - 0.09, top), (0.0, 0.09)):
+                cuboid(caps, x0, x1, y * (half + 0.004) - 0.01, y * (half + 0.004) + 0.01, z0, z1)
+                cuboid(caps, x * (half + 0.004) - 0.01, x * (half + 0.004) + 0.01, y0, y1, z0, z1)
     model.hard(caps, "metal", bevel=0.002, segments=1)
     return model
 
