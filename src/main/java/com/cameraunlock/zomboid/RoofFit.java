@@ -798,6 +798,7 @@ final class RoofFit {
                 strips.merge(key(side.x, side.y, 0), side, (was, now) -> was.near + was.far <= now.near + now.far ? was : now);
             }
         }
+        gambrels(tiles, at, roofed, built, site, alongX, alongY);
         // A crown's edge that no slope climbs to, map's or made, stands on the wall there: the hip
         // climbs from the wall to it, as the map's own slopes do on the sides it draws. Left out, the
         // crown of a hip cut short ended in a ledge over the wall on its north and west sides.
@@ -862,6 +863,78 @@ final class RoofFit {
             }
         }
         return made;
+    }
+
+    /**
+     * The far lower slopes of a gambrel roof. Its near side climbs from the eave at the standard
+     * pitch to a crease and on at a shallower one to the ridge, and the map holds the far upper
+     * slope as well, coming down from the ridge to the crease, but nothing under it: the near
+     * lower slope's top row runs on into the upper slope and the upper slope is at no pitch a far
+     * side is made for, so no row was carried over, and the barn stood open from the crease down
+     * to the ceiling under it (7621..7642 x 14348..14359, 2384..2396 x 6779..6803). From the foot of
+     * each such tile the far lower slope comes down at the near one's pitch, as many rows as it.
+     */
+    private static void gambrels(List<Tile> tiles, HashMap<Long, Tile> at, HashMap<Long, Tile> roofed, HashMap<Long, Boolean> built, Site site,
+            HashMap<Long, Side> alongX, HashMap<Long, Side> alongY) {
+        for (Tile upper : tiles) {
+            float rise = Math.abs(upper.fitHigh - upper.fitLow);
+            if (!upper.slopes() || rise < LEAST_RISE) {
+                continue;
+            }
+            boolean isAlongX = upper.fitAxis == ALONG_X;
+            int up = upper.up();
+            int dx = isAlongX ? up : 0, dy = isAlongX ? 0 : up;
+            if (below(at, upper, dx, dy, up) != null) {
+                continue;
+            }
+            float crease = Math.min(upper.fitLow, upper.fitHigh);
+            // Across the ridge, the near upper slope, its foot at the same height, and the lower slope it stands on.
+            Tile foot = null;
+            for (int across = 1; across <= WIDEST_TOP && foot == null; across++) {
+                Tile on = roofed.get(key(upper.x + across * dx, upper.y + across * dy, 0));
+                if (on == null || !on.slopes() || on.fitAxis != upper.fitAxis) {
+                    break;
+                }
+                if (on.up() == -up) {
+                    foot = on;
+                }
+            }
+            if (foot == null) {
+                continue;
+            }
+            Tile lower;
+            while ((lower = below(at, foot, -dx, -dy, -up)) != null && Math.abs(Math.abs(lower.fitHigh - lower.fitLow) - rise) <= PITCH_SLACK) {
+                foot = lower;
+            }
+            if (lower == null || Math.abs(Math.min(foot.fitLow, foot.fitHigh) - crease) > JOIN) {
+                continue;
+            }
+            float pitch = Math.abs(lower.fitHigh - lower.fitLow);
+            if (Math.abs(pitch - PITCH) > PITCH_SLACK || Math.abs(pitch - rise) <= PITCH_SLACK) {
+                continue;
+            }
+            int climbed = 1;
+            for (Tile next = lower; (next = below(at, next, -dx, -dy, -up)) != null; ) {
+                climbed++;
+            }
+            float eave = crease - climbed * pitch;
+            int floor = (int) Math.floor(eave + LEAST_RISE);
+            HashMap<Long, Side> strips = isAlongX ? alongX : alongY;
+            int laid = 0;
+            while (laid < climbed) {
+                int x = upper.x - (laid + 1) * dx, y = upper.y - (laid + 1) * dy;
+                if (roofed.containsKey(key(x, y, 0)) || !stands(built, site, x, y, floor) || site.taken(x, y, floor, crease - (laid + 1) * pitch)) {
+                    break;
+                }
+                laid++;
+            }
+            boolean fromEave = laid == climbed && !stands(built, site, upper.x - (climbed + 1) * dx, upper.y - (climbed + 1) * dy, floor);
+            for (int step = 1; step <= laid; step++) {
+                float inner = crease - (step - 1) * pitch, outer = inner - pitch;
+                strips.putIfAbsent(key(upper.x - step * dx, upper.y - step * dy, 0),
+                        new Side(upper.x - step * dx, upper.y - step * dy, up > 0 ? outer : inner, up > 0 ? inner : outer, fromEave, false, eave, pitch, crease));
+            }
+        }
     }
 
     /** The square a far side starts on, and which way it runs. */

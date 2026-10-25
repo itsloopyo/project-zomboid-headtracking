@@ -52,6 +52,7 @@ final class RoofTests {
         Checks.run("levelSheetPaintedOverItsFloorIsAFlatTop", RoofTests::levelSheetPaintedOverItsFloorIsAFlatTop);
         Checks.run("sheetsBehindARidgeAreNoPartOfTheRoof", RoofTests::sheetsBehindARidgeAreNoPartOfTheRoof);
         Checks.run("canopyIsNotCarriedToTheFarWall", RoofTests::canopyIsNotCarriedToTheFarWall);
+        Checks.run("gambrelsFarLowerSlopeComesDownFromItsUpperSlope", RoofTests::gambrelsFarLowerSlopeComesDownFromItsUpperSlope);
         Checks.run("eaveOverALeanToThatStopsShortOfItIsMade", RoofTests::eaveOverALeanToThatStopsShortOfItIsMade);
         Checks.run("trimPastAGableIsNoRoofGoingOn", RoofTests::trimPastAGableIsNoRoofGoingOn);
         Checks.run("trimPastAHipsCornerLeavesTheCornersEave", RoofTests::trimPastAHipsCornerLeavesTheCornersEave);
@@ -1306,6 +1307,38 @@ final class RoofTests {
         check(!Roofs.flatTop(trim), "nor is a trim narrower than a tile");
         check(Roofs.ceiling("ceilings_01_0") && !Roofs.ceiling("floors_exterior_tilesandstone_01_0") && !Roofs.ceiling(null),
                 "the map's ceilings are told from a terrace's floor by their sheet");
+    }
+
+    /**
+     * A gambrel barn over x 0..3, rows 0..11, as 7621..7642 x 14348..14359 is laid: the south lower slope climbs a third of
+     * a level a row over rows 11..9 to the crease at level 2, the upper slopes climb a sixth a row to the ridge between rows
+     * 6 and 5, and the map gives the north upper slope (rows 5..3) but nothing under it. The north lower slope is made from
+     * the foot of the north upper slope down to the north wall, at the south lower slope's pitch.
+     */
+    private static void gambrelsFarLowerSlopeComesDownFromItsUpperSlope() {
+        RoofFit.Site site = standing((x, y) -> x >= 0 && x <= 3 && y >= 0 && y <= 11);
+        float sixth = THIRD / 2f;
+        List<RoofFit.Tile> roof = new ArrayList<>();
+        for (int x = 0; x <= 3; x++) {
+            for (int row = 0; row < 3; row++) {
+                roof.add(new RoofFit.Tile(x, 11 - row, 1, RoofFit.ALONG_Y, true, 1f + (row + 1) * THIRD, 1f + row * THIRD));
+                roof.add(new RoofFit.Tile(x, 8 - row, 2, RoofFit.ALONG_Y, true, 2f + (row + 1) * sixth, 2f + row * sixth));
+                roof.add(new RoofFit.Tile(x, 3 + row, 2, RoofFit.ALONG_Y, true, 2f + row * sixth, 2f + (row + 1) * sixth));
+            }
+        }
+        RoofFit.fit(roof);
+        List<RoofFit.Tile> made = RoofFit.backs(roof, site);
+        for (int x = 0; x <= 3; x++) {
+            for (int row = 0; row < 3; row++) {
+                RoofFit.Tile tile = madeAt(made, x, row);
+                check(tile != null && !tile.shaped && tile.fitAxis == RoofFit.ALONG_Y && near(tile.fitLow, 1f + row * THIRD) && near(tile.fitHigh, 1f + (row + 1) * THIRD),
+                        "the north lower slope climbs from the north wall to the upper slope's foot at " + x + ", " + row + ": "
+                                + said(tile));
+            }
+            for (int y = 3; y <= 11; y++) {
+                check(madeAt(made, x, y) == null, "nothing is made over the map's own slopes at " + x + ", " + y);
+            }
+        }
     }
 
     private static void canopyIsNotCarriedToTheFarWall() {
