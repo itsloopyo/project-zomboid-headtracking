@@ -2,6 +2,7 @@ package com.cameraunlock.zomboid;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -53,6 +54,7 @@ final class RoofTests {
         Checks.run("sheetsBehindARidgeAreNoPartOfTheRoof", RoofTests::sheetsBehindARidgeAreNoPartOfTheRoof);
         Checks.run("canopyIsNotCarriedToTheFarWall", RoofTests::canopyIsNotCarriedToTheFarWall);
         Checks.run("gambrelsFarLowerSlopeComesDownFromItsUpperSlope", RoofTests::gambrelsFarLowerSlopeComesDownFromItsUpperSlope);
+        Checks.run("farSlopeMeetsAStepInItsWallInAValley", RoofTests::farSlopeMeetsAStepInItsWallInAValley);
         Checks.run("eaveOverALeanToThatStopsShortOfItIsMade", RoofTests::eaveOverALeanToThatStopsShortOfItIsMade);
         Checks.run("trimPastAGableIsNoRoofGoingOn", RoofTests::trimPastAGableIsNoRoofGoingOn);
         Checks.run("trimPastAHipsCornerLeavesTheCornersEave", RoofTests::trimPastAHipsCornerLeavesTheCornersEave);
@@ -1096,7 +1098,7 @@ final class RoofTests {
         for (int x = 0; x <= 3; x++) {
             RoofFit.Tile wall = madeAt(made, x, 0);
             check(wall != null && near(wall.corners[0], 1f) && near(wall.corners[1], 1f) && near(wall.corners[2], EAVE) && near(wall.corners[3], EAVE),
-                    "the far side comes down to the lower part's wall at x " + x + ": " + (wall == null ? "none" : java.util.Arrays.toString(wall.corners)));
+                    "the far side comes down to the lower part's wall at x " + x + ": " + (wall == null ? "none" : Arrays.toString(wall.corners)));
             for (int y = -3; y <= -1; y++) {
                 check(madeAt(made, x, y) == null, "nothing is made over the lower part's roof at " + x + ", " + y);
             }
@@ -1339,6 +1341,34 @@ final class RoofTests {
                 check(madeAt(made, x, y) == null, "nothing is made over the map's own slopes at " + x + ", " + y);
             }
         }
+    }
+
+    /**
+     * A house over x 0..7 and y 0..7 whose west wall steps in a tile for rows 4..7, as at 8673..8674 x 8415..8424: the map
+     * has its east slope only, two rows from the eave at 1 on x 8 to a flat top at 1 + 2/3. The made west slope climbs from
+     * the wall on both sides of the step, and where the wall steps in the two meet in a valley: no row stands a third of a
+     * level over the row beside it.
+     */
+    private static void farSlopeMeetsAStepInItsWallInAValley() {
+        RoofFit.Site site = standing((x, y) -> y >= 0 && y <= 7 && x <= 7 && x >= (y >= 4 ? 1 : 0));
+        List<RoofFit.Tile> roof = new ArrayList<>();
+        for (int y = 0; y <= 7; y++) {
+            roof.add(new RoofFit.Tile(6, y, 1, RoofFit.ALONG_X, true, 1f + 2 * THIRD, 1f + THIRD));
+            roof.add(new RoofFit.Tile(7, y, 1, RoofFit.ALONG_X, true, 1f + THIRD, 1f));
+        }
+        RoofFit.fit(roof);
+        List<RoofFit.Tile> made = RoofFit.backs(roof, site);
+        RoofFit.Tile corner = madeAt(made, 0, 3);
+        check(corner != null && near(corner.corners[2], 1f) && near(corner.corners[3], 1f),
+                "the corner of the wall that steps out is at the eave on its south edge: " + (corner == null ? "nothing" : Arrays.toString(corner.corners)));
+        for (int x = 1; x <= 5; x++) {
+            RoofFit.Tile north = madeAt(made, x, 3), south = madeAt(made, x, 4);
+            check(north != null && south != null && near(north.corners[3], south.corners[0]) && near(north.corners[2], south.corners[1]),
+                    "the roof each side of the step meets along y 4 at " + x + ": " + (north == null ? "nothing" : Arrays.toString(north.corners))
+                            + " over " + (south == null ? "nothing" : Arrays.toString(south.corners)));
+        }
+        RoofFit.Tile wall = madeAt(made, 0, 1);
+        check(wall != null && near(wall.corners[0], 1f) && near(wall.corners[1], 1f + THIRD), "the slope away from the step climbs from its wall: " + said(wall));
     }
 
     private static void canopyIsNotCarriedToTheFarWall() {

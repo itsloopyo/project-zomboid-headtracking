@@ -528,8 +528,10 @@ final class RoofFit {
         final boolean valley;
         /** The height of the eave, the climb over a tile and the height the slope stops at. */
         final float eave, pitch, top;
+        /** Which way along its axis the slope climbs, as Tile.up, the same over the level top it stops at. */
+        final int up;
 
-        Side(int x, int y, float near, float far, boolean fromEave, boolean valley, float eave, float pitch, float top) {
+        Side(int x, int y, float near, float far, boolean fromEave, boolean valley, float eave, float pitch, float top, int up) {
             this.x = x;
             this.y = y;
             this.near = near;
@@ -539,10 +541,11 @@ final class RoofFit {
             this.eave = eave;
             this.pitch = pitch;
             this.top = top;
+            this.up = up;
         }
 
         Side at(int x, int y) {
-            return new Side(x, y, near, far, fromEave, valley, eave, pitch, top);
+            return new Side(x, y, near, far, fromEave, valley, eave, pitch, top, up);
         }
 
         /** The level the slope's eave is on. */
@@ -794,7 +797,7 @@ final class RoofFit {
                     inner = ridge - step * rise;
                     outer = inner - rise;
                 }
-                Side side = new Side(x + step * dx, y + step * dy, up < 0 ? outer : inner, up < 0 ? inner : outer, fromEave, row.valley, eave, rise, ridge);
+                Side side = new Side(x + step * dx, y + step * dy, up < 0 ? outer : inner, up < 0 ? inner : outer, fromEave, row.valley, eave, rise, ridge, -up);
                 strips.merge(key(side.x, side.y, 0), side, (was, now) -> was.near + was.far <= now.near + now.far ? was : now);
             }
         }
@@ -822,7 +825,7 @@ final class RoofFit {
                         break;
                     }
                     boolean outward = dx + dy > 0;
-                    strips.put(key(x, y, 0), new Side(x, y, outward ? inner : outer, outward ? outer : inner, true, false, crown.z, PITCH, crown.fitLow));
+                    strips.put(key(x, y, 0), new Side(x, y, outward ? inner : outer, outward ? outer : inner, true, false, crown.z, PITCH, crown.fitLow, outward ? -1 : 1));
                 }
             }
         }
@@ -836,7 +839,7 @@ final class RoofFit {
             float middle;
             if (across == null) {
                 cornersOf(ALONG_X, side.near, side.far, corners);
-                middle = (side.near + side.far) / 2f;
+                middle = notched(side, true, built, site, corners, (side.near + side.far) / 2f);
             } else if (side.fromEave && across.fromEave) {
                 middle = fromEaves(side, across, built, site, corners);
             } else if (side.valley || across.valley) {
@@ -859,7 +862,7 @@ final class RoofFit {
         for (Side side : alongY.values()) {
             if (!alongX.containsKey(key(side.x, side.y, 0))) {
                 cornersOf(ALONG_Y, side.near, side.far, corners);
-                lay(made, side.x, side.y, corners, (side.near + side.far) / 2f, side.eaveLevel(), site, over);
+                lay(made, side.x, side.y, corners, notched(side, false, built, site, corners, (side.near + side.far) / 2f), side.eaveLevel(), site, over);
             }
         }
         return made;
@@ -932,7 +935,7 @@ final class RoofFit {
             for (int step = 1; step <= laid; step++) {
                 float inner = crease - (step - 1) * pitch, outer = inner - pitch;
                 strips.putIfAbsent(key(upper.x - step * dx, upper.y - step * dy, 0),
-                        new Side(upper.x - step * dx, upper.y - step * dy, up > 0 ? outer : inner, up > 0 ? inner : outer, fromEave, false, eave, pitch, crease));
+                        new Side(upper.x - step * dx, upper.y - step * dy, up > 0 ? outer : inner, up > 0 ? inner : outer, fromEave, false, eave, pitch, crease, up));
             }
         }
     }
@@ -1053,6 +1056,44 @@ final class RoofFit {
                     float py = alongX.y + (point == 4 ? 0.5f : point >= 2 ? 1f : 0f);
                     float awayX = Math.max(0f, Math.max(x - px, px - (x + 1))), awayY = Math.max(0f, Math.max(y - py, py - (y + 1)));
                     float height = Math.max(alongX.eave + alongX.pitch * awayX, alongY.eave + alongY.pitch * awayY);
+                    if (point == 4) {
+                        middle = Math.min(middle, height);
+                    } else {
+                        corners[point] = Math.min(corners[point], height);
+                    }
+                }
+            }
+        }
+        return middle;
+    }
+
+    /**
+     * Brings a made slope that climbs from the building's edge down into a notch in that edge,
+     * into corners, and returns its height over the square's middle. Where the wall under the
+     * eave steps in, the roof climbs from the step's wall as well, and the two meet in a valley.
+     * Laid row by row, each row from its own wall, the rows each side of the step stood a third
+     * of a level apart, a step in the roof with an upright face that showed as a black triangle
+     * and corners turned up like a pagoda's (8673..8674, 8418..8419). Only a square the building
+     * goes on from along the slope is a notch: one beyond a gable end is not, and the far wall
+     * past the ridge is never looked at.
+     */
+    private static float notched(Side side, boolean isAlongX, HashMap<Long, Boolean> built, Site site, float[] corners, float middle) {
+        if (!side.fromEave) {
+            return middle;
+        }
+        int level = side.eaveLevel(), ax = isAlongX ? 1 : 0, ay = 1 - ax;
+        int reach = Math.min(FURTHEST_EAVE, 1 + (int) Math.ceil((side.top - side.eave) / side.pitch));
+        for (int x = side.x - reach; x <= side.x + reach; x++) {
+            for (int y = side.y - reach; y <= side.y + reach; y++) {
+                int along = isAlongX ? x - side.x : y - side.y;
+                if (along * side.up > 0 || stands(built, site, x, y, level) || !stands(built, site, x + ax, y + ay, level) && !stands(built, site, x - ax, y - ay, level)) {
+                    continue;
+                }
+                for (int point = 0; point < 5; point++) {
+                    float px = side.x + (point == 4 ? 0.5f : point == 1 || point == 2 ? 1f : 0f);
+                    float py = side.y + (point == 4 ? 0.5f : point >= 2 ? 1f : 0f);
+                    float away = Math.max(Math.max(0f, Math.max(x - px, px - (x + 1))), Math.max(0f, Math.max(y - py, py - (y + 1))));
+                    float height = side.eave + side.pitch * away;
                     if (point == 4) {
                         middle = Math.min(middle, height);
                     } else {
