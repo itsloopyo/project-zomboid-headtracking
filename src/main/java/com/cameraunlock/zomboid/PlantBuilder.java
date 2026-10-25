@@ -4,10 +4,8 @@ import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import zombie.core.textures.Texture;
 import zombie.iso.IsoGridSquare;
-import zombie.iso.IsoObject;
 import zombie.iso.SpriteDetails.IsoObjectType;
 import zombie.iso.sprite.IsoSprite;
-import zombie.util.list.PZArrayList;
 
 /**
  * What grows in a chunk being built: the grass, the flowers and the litter strewn on its ground, and the boles and
@@ -58,20 +56,6 @@ final class PlantBuilder {
     private static final int PAINTED_FRONDS = 6;
     /** The least share of its leaves a deciduous tree too far off for a crown has on it and keeps the game's sprite of its leaves. */
     private static final float FAN_KEPT = 0.5f;
-    /** Whether the square, if there is one, has a wall or a fence on its north edge, or on its west edge. */
-    private static boolean edged(IsoGridSquare square, boolean north) {
-        if (square == null) {
-            return false;
-        }
-        PZArrayList<IsoObject> objects = square.getObjects();
-        for (int i = 0; i < objects.size(); i++) {
-            IsoSprite sprite = objects.get(i).getSprite();
-            if (sprite != null && (north ? WorldScene.onNorthEdge(sprite.getProperties()) : WorldScene.onWestEdge(sprite.getProperties()))) {
-                return true;
-            }
-        }
-        return false;
-    }
 
     private final WorldScene world;
     private final WorldScene.Frame build;
@@ -805,10 +789,10 @@ final class PlantBuilder {
      */
     private void roomFor(int x, int y, int z) {
         IsoGridSquare square = build.cell.getGridSquare(x, y, z);
-        build.room[0] = edged(square, false) ? x + ROOM_CLEAR : -Float.MAX_VALUE;
-        build.room[1] = edged(build.cell.getGridSquare(x + 1, y, z), false) ? x + 1f - ROOM_CLEAR : Float.MAX_VALUE;
-        build.room[2] = edged(square, true) ? y + ROOM_CLEAR : -Float.MAX_VALUE;
-        build.room[3] = edged(build.cell.getGridSquare(x, y + 1, z), true) ? y + 1f - ROOM_CLEAR : Float.MAX_VALUE;
+        build.room[0] = WorldScene.edged(square, false) ? x + ROOM_CLEAR : -Float.MAX_VALUE;
+        build.room[1] = WorldScene.edged(build.cell.getGridSquare(x + 1, y, z), false) ? x + 1f - ROOM_CLEAR : Float.MAX_VALUE;
+        build.room[2] = WorldScene.edged(square, true) ? y + ROOM_CLEAR : -Float.MAX_VALUE;
+        build.room[3] = WorldScene.edged(build.cell.getGridSquare(x, y + 1, z), true) ? y + 1f - ROOM_CLEAR : Float.MAX_VALUE;
     }
 
     /**

@@ -813,10 +813,10 @@ final class FurnishingBuilder {
     /** Whether a wall, a window, a door or a railing stands on the edge of the square a piece backs onto. */
     private boolean backedByWall(Furniture piece, int x, int y, int z) {
         return switch (piece.turns & 3) {
-            case 0 -> edged(build.cell.getGridSquare(x, y + 1, z), true);
-            case 1 -> edged(build.cell.getGridSquare(x, y, z), false);
-            case 2 -> edged(build.cell.getGridSquare(x, y, z), true);
-            default -> edged(build.cell.getGridSquare(x + 1, y, z), false);
+            case 0 -> WorldScene.edged(build.cell.getGridSquare(x, y + 1, z), true);
+            case 1 -> WorldScene.edged(build.cell.getGridSquare(x, y, z), false);
+            case 2 -> WorldScene.edged(build.cell.getGridSquare(x, y, z), true);
+            default -> WorldScene.edged(build.cell.getGridSquare(x + 1, y, z), false);
         };
     }
 
@@ -843,21 +843,6 @@ final class FurnishingBuilder {
         }
         // The model's front is its -y, so its back reaches maxY behind its origin.
         return logs == 0f ? 0f : Math.max(WorldScene.WALL_HALF + logs + LOGS_CLEAR - (gap - model.maxY * piece.scale), 0f);
-    }
-
-    /** Whether something stands on the north or the west edge of a square. */
-    private static boolean edged(IsoGridSquare square, boolean north) {
-        if (square == null) {
-            return false;
-        }
-        PZArrayList<IsoObject> objects = square.getObjects();
-        for (int i = 0; i < objects.size(); i++) {
-            IsoSprite sprite = objects.get(i).getSprite();
-            if (sprite != null && (north ? WorldScene.onNorthEdge(sprite.getProperties()) : WorldScene.onWestEdge(sprite.getProperties()))) {
-                return true;
-            }
-        }
-        return false;
     }
 
     /** The object on the square that is a counter a basin can stand in, or a basin, or null. */

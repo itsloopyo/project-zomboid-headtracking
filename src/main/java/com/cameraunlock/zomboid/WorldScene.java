@@ -2651,6 +2651,21 @@ final class WorldScene {
                 || flags.has(IsoFlagType.DoorWallN) || flags.has(IsoFlagType.WindowN) || flags.has(IsoFlagType.HoppableN);
     }
 
+    /** Whether the square, if there is one, has a wall, a fence, a door's frame or a window on its north edge, or on its west edge. */
+    static boolean edged(IsoGridSquare square, boolean north) {
+        if (square == null) {
+            return false;
+        }
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoSprite sprite = objects.get(i).getSprite();
+            if (sprite != null && (north ? onNorthEdge(sprite.getProperties()) : onWestEdge(sprite.getProperties()))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     static boolean onWestEdge(PropertyContainer flags) {
         return flags.has(IsoFlagType.WallW) || flags.has(IsoFlagType.WallNW) || flags.has(IsoFlagType.WallWTrans)
                 || flags.has(IsoFlagType.DoorWallW) || flags.has(IsoFlagType.WindowW) || flags.has(IsoFlagType.HoppableW);
