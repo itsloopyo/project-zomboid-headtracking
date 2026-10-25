@@ -327,6 +327,11 @@ final class Config {
                     "true: offline, a shot breaks the lamp it passes through and the vehicle lamp it lands on. false: lamps\n"
                             + "are left lit, as the game has it. On a server the game's rule holds.",
                     writable | live, true),
+            core.configLocalBool("Rules", "ShotsBreakGlass",
+                    "true: offline, a shot breaks the glass of every shut window it crosses, whether or not it hits anything behind\n"
+                            + "it. false: only a shot that hits someone through a window breaks it, as the game has it. On a server the game's\n"
+                            + "rule holds.",
+                    writable | live, true),
             core.configLocalBool("Rules", "ShotsWoundLimbs",
                     "true: offline, first person shots to a zombie's legs slow it and drop it to crawl, shots to its arms leave them\n"
                             + "hanging, enough take the limb off, and a head shot that kills can take the head off or burst it. false: hits\n"
@@ -404,7 +409,7 @@ final class Config {
                 Log.info("the mod's own in first person: " + Own.described(Own.rows()));
             });
         }
-        String[] ruleKeys = {"ShotsThroughWalls", "ShotsBreakLamps", "ShotsWoundLimbs", "VehiclesSmashThrough", "FacesTheView", "ShotsPastTrees", "ZombiesSeenAtOnce", "Rewind30s"};
+        String[] ruleKeys = {"ShotsThroughWalls", "ShotsBreakLamps", "ShotsBreakGlass", "ShotsWoundLimbs", "VehiclesSmashThrough", "FacesTheView", "ShotsPastTrees", "ZombiesSeenAtOnce", "Rewind30s"};
         for (int i = 0; i < ruleKeys.length; i++) {
             int bit = 1 << i;
             puts.put(ruleKeys[i], value -> {

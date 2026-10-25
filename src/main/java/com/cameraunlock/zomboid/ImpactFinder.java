@@ -125,6 +125,10 @@ final class ImpactFinder {
 
         IsoGameCharacter hit = characterAt(cell, shooter, endX, endY, endZ);
         if (hit != null) {
+            float flat = line.forwardX * line.forwardX + line.forwardY * line.forwardY;
+            if (flat > 1e-6f) {
+                ShotGlass.along(cell, terrain, shooter, line, Math.max(((hit.getX() - line.eyeX) * line.forwardX + (hit.getY() - line.eyeY) * line.forwardY) / flat, 0f));
+            }
             if (Penetration.shareOf(hit.getID()) < Penetration.WHOLE) {
                 throughWalls(cell, shooter, terrain, hit, size);
             }
@@ -143,6 +147,7 @@ final class ImpactFinder {
         BaseVehicle vehicle = under == null ? null : under.getVehicleContainer();
         float body = vehicle == null ? Float.POSITIVE_INFINITY : vehicleSide(vehicle, startX, startY, startZ, Math.max(length, (float) Math.hypot(endX - startX, endY - startY)));
         ShotLights.along(cell, terrain, line, Math.min(body, Math.min(distance, reach)));
+        ShotGlass.along(cell, terrain, shooter, line, Math.min(body, Math.min(distance, reach)));
         if (body < Math.min(distance, reach)) {
             ShotLights.vehicleHit(vehicle, line.eyeX + line.forwardX * (body + VEHICLE_OFF), line.eyeY + line.forwardY * (body + VEHICLE_OFF));
             float up = line.eyeUp + line.forwardUp * body;

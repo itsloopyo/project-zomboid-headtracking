@@ -719,7 +719,7 @@ public final class CoreTests {
                         + "FullSizeTextures SurfaceDepth SharpShadows WholeFigureShadows FrameBlending LightDistance VanillaWeapons VanillaFurniture "
                         + "VanillaPictures VanillaPlants VanillaTextures VanillaBuildings VanillaZombies VanillaPeople VanillaArms VanillaClothes VanillaAnimals VanillaFire "
                         + "VanillaCabins "
-                        + "ShotsThroughWalls ShotsBreakLamps ShotsWoundLimbs VehiclesSmashThrough FacesTheView ShotsPastTrees ZombiesSeenAtOnce Rewind30s TalkingMouths "),
+                        + "ShotsThroughWalls ShotsBreakLamps ShotsBreakGlass ShotsWoundLimbs VehiclesSmashThrough FacesTheView ShotsPastTrees ZombiesSeenAtOnce Rewind30s TalkingMouths "),
                 "the game's options screen is given the modes, the yaw mode and the mod's own rows, and no key list, port or microphone: " + ids);
         int[][] layout = OptionsLayout.of(OptionsLayout.PAGE, options);
         StringBuilder page = new StringBuilder();
@@ -734,7 +734,7 @@ public final class CoreTests {
                         + "FarTreeDistance RainOnGlass ShadingAndLight Reflections FullSizeTextures SurfaceDepth SharpShadows WholeFigureShadows FrameBlending "
                         + "LightDistance [Vanilla content] VanillaWeapons VanillaFurniture VanillaPictures VanillaPlants VanillaTextures VanillaBuildings "
                         + "VanillaZombies VanillaPeople VanillaArms VanillaClothes VanillaAnimals VanillaFire VanillaCabins [Offline rules] ShotsThroughWalls "
-                        + "ShotsBreakLamps ShotsWoundLimbs VehiclesSmashThrough FacesTheView ShotsPastTrees ZombiesSeenAtOnce Rewind30s [Split screen] SplitScreen "
+                        + "ShotsBreakLamps ShotsBreakGlass ShotsWoundLimbs VehiclesSmashThrough FacesTheView ShotsPastTrees ZombiesSeenAtOnce Rewind30s [Split screen] SplitScreen "
                         + "SecondPlayerQuality SecondPlayerIsometricQuality SecondPlayerStyle ThirdPlayerQuality ThirdPlayerIsometricQuality ThirdPlayerStyle "
                         + "FourthPlayerQuality FourthPlayerIsometricQuality FourthPlayerStyle [Voice] TalkingMouths "),
                 "the page puts each setting under one title, the tracking mode first: " + page);

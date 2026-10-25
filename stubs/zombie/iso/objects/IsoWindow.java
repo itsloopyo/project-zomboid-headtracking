@@ -1,5 +1,6 @@
 package zombie.iso.objects;
 
+import zombie.characters.IsoGameCharacter;
 import zombie.iso.IsoObject;
 
 public class IsoWindow extends IsoObject {
@@ -10,4 +11,7 @@ public class IsoWindow extends IsoObject {
     public boolean isBarricaded() { throw new UnsupportedOperationException("reference stub"); }
     public IsoBarricade getBarricadeOnSameSquare() { throw new UnsupportedOperationException("reference stub"); }
     public IsoBarricade getBarricadeOnOppositeSquare() { throw new UnsupportedOperationException("reference stub"); }
+    public IsoBarricade getBarricadeForCharacter(IsoGameCharacter character) { throw new UnsupportedOperationException("reference stub"); }
+    public IsoBarricade getBarricadeOppositeCharacter(IsoGameCharacter character) { throw new UnsupportedOperationException("reference stub"); }
+    public void smashWindow() { throw new UnsupportedOperationException("reference stub"); }
 }

@@ -10,9 +10,9 @@ package com.cameraunlock.zomboid;
  */
 final class Rules {
     /** The bits of the rows that are on, in the order Config describes the rows of [Rules]. */
-    static final int THROUGH_WALLS = 1, BREAKS_LAMPS = 2, WOUNDS = 4, SMASHES_THROUGH = 8, FACES_THE_VIEW = 16, PAST_TREES = 32, SEEN_AT_ONCE = 64,
-            REWIND = 128;
-    static final int ALL = THROUGH_WALLS | BREAKS_LAMPS | WOUNDS | SMASHES_THROUGH | FACES_THE_VIEW | PAST_TREES | SEEN_AT_ONCE | REWIND;
+    static final int THROUGH_WALLS = 1, BREAKS_LAMPS = 2, BREAKS_GLASS = 4, WOUNDS = 8, SMASHES_THROUGH = 16, FACES_THE_VIEW = 32, PAST_TREES = 64,
+            SEEN_AT_ONCE = 128, REWIND = 256;
+    static final int ALL = THROUGH_WALLS | BREAKS_LAMPS | BREAKS_GLASS | WOUNDS | SMASHES_THROUGH | FACES_THE_VIEW | PAST_TREES | SEEN_AT_ONCE | REWIND;
 
     private static volatile int on = ALL & ~REWIND;
 
@@ -34,6 +34,11 @@ final class Rules {
     /** Whether a first person shot breaks the lamps it passes and the lamps of the vehicles it lands on: see ShotLights. */
     static boolean breaksLamps() {
         return !Online.joined() && (on & BREAKS_LAMPS) != 0;
+    }
+
+    /** Whether a shot breaks the glass of every shut window it crosses: see ShotGlass. */
+    static boolean breaksGlass() {
+        return !Online.joined() && (on & BREAKS_GLASS) != 0;
     }
 
     /** Whether first person shots wound a zombie's limbs, can take them off and can take off or burst its head: see Online.woundsTell. */
@@ -72,7 +77,7 @@ final class Rules {
     /** The rows in words, for the log. */
     static String described(int bits) {
         return "shots through walls " + ((bits & THROUGH_WALLS) != 0) + ", shots break lamps " + ((bits & BREAKS_LAMPS) != 0)
-                + ", shots wound limbs " + ((bits & WOUNDS) != 0) + ", vehicles smash through " + ((bits & SMASHES_THROUGH) != 0)
+                + ", shots break glass " + ((bits & BREAKS_GLASS) != 0) + ", shots wound limbs " + ((bits & WOUNDS) != 0) + ", vehicles smash through " + ((bits & SMASHES_THROUGH) != 0)
                 + ", faces the view walking aside " + ((bits & FACES_THE_VIEW) != 0) + ", shots past trees " + ((bits & PAST_TREES) != 0)
                 + ", zombies seen at once " + ((bits & SEEN_AT_ONCE) != 0) + ", rewind 30s " + ((bits & REWIND) != 0);
     }

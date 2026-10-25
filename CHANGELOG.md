@@ -60,6 +60,7 @@
 - Single player: rounds go through plasterboard, wooden walls, doors, gates and glass, losing damage on each. Rifles go furthest, shotgun pellets least. Brick, concrete, stone, metal and barricades stop them.
 - Single player: in first person a tree stops a shot at its trunk, and a shot past the trunk goes on. Pines, hemlocks and hollies, whose needles come down to the ground, still stop it anywhere on their square (`ShotsPastTrees`).
 - Single player: shooting a vehicle's head or tail lamp, a lamp or a street lamp breaks it.
+- Single player: a shot breaks the glass of every shut window it goes through, whether or not it hits anything behind it.
 - `Medium` and `High`: blood on floors and walls has smooth edges, looks wet when fresh and dries brown.
 
 #### Vehicles
@@ -165,7 +166,7 @@
 - Names and speech appear over other players' heads in first person.
 - In split screen and on servers without PvP, other players are drawn as far off as zombies.
 - On PvP servers: leaning doesn't move your shot, hills are fixed at height 1, fog is as thick as in the game's own view, other players are shown only as the game shows them, a shot at a player hits the part the game rolls, and nothing is hidden by draw distance.
-- Wounds, limb loss, bullet penetration, shooting out lamps and vehicle physics are single player only. Each can be switched off in `[Rules]`: `ShotsWoundLimbs`, `ShotsThroughWalls`, `ShotsBreakLamps` and `VehiclesSmashThrough`.
+- Wounds, limb loss, bullet penetration, shooting out lamps and windows and vehicle physics are single player only. Each can be switched off in `[Rules]`: `ShotsWoundLimbs`, `ShotsThroughWalls`, `ShotsBreakLamps`, `ShotsBreakGlass` and `VehiclesSmashThrough`.
 - Up to four players at one screen, each with first person and their own head tracker on ports `4243`, `4244` and `4245`. Tap `Delete` twice for player 2, three times for player 3 and four times for player 4, or hold it for everyone.
 - Each player at the screen has their own graphics mode and picture style. Tap `F9` or `F8` once to four times for players 1 to 4, or hold it for everyone. Players 2, 3 and 4 keep theirs in `[Players]`. Starting split screen lowers `High` to `Medium`.
 - `F7` switches two-player split screen between side by side and top and bottom.

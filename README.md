@@ -11,7 +11,7 @@ It adds a first person view to the game, with a rebuilt world and new graphics. 
 - **No head tracker needed** - first person plays with a mouse and keyboard or a controller. Without a tracker, nothing follows your head.
 - **No microphone needed** - Talking mouths is off until you tick it, and no microphone is opened until then.
 
-Offline the mod also changes some of the game's rules: shots go through thin walls and doors, break lamps, cripple zombies' limbs and can take them off; vehicles knock down fences, street lamp posts and road barricades and drive through bushes; in the isometric view zombies show as soon as your character has a clear line to them. Each is on until you untick it in **Options > Mods > Head Tracking**. On a server these stay as the game has them.
+Offline the mod also changes some of the game's rules: shots go through thin walls and doors, break lamps and window glass, cripple zombies' limbs and can take them off; vehicles knock down fences, street lamp posts and road barricades and drive through bushes; in the isometric view zombies show as soon as your character has a clear line to them. Each is on until you untick it in **Options > Mods > Head Tracking**. On a server these stay as the game has them.
 
 **Rewind 30s** is off until you tick it on the same page. Offline, when your character dies the game pauses and asks whether to accept the death or go back to where you were 30 seconds before, with what you carried and the wounds you had then. Only you go back: the world carries on, the zombie that killed you included, and every zombie stands still for 2 seconds after. Anything you picked up since is left where you died. A second death goes back no further than the last rewind. Quitting with the question up takes the rewind before the game saves.
 
@@ -41,6 +41,7 @@ Press `Delete` to switch between the isometric and first person views, on foot o
 - **Impacts** - dust, splinters, sparks, blood and bullet holes in Medium and High.
 - **Shots through walls** - offline, rounds pass through plasterboard, wood, doors and glass, losing damage on each. Brick, concrete, metal and barricades stop them. A broad-leaved tree stops them at its trunk, not across its whole tile.
 - **Shoot out lights** - offline, a shot breaks vehicle lamps and table, wall and street lamps.
+- **Shoot out windows** - offline, a shot breaks the glass of every shut window it goes through.
 
 ### Vehicles
 
@@ -570,6 +571,10 @@ ShotsThroughWalls=true
 ; true: offline, a shot breaks the lamp it passes through and the vehicle lamp it lands on. false: lamps
 ; are left lit, as the game has it. On a server the game's rule holds.
 ShotsBreakLamps=true
+; true: offline, a shot breaks the glass of every shut window it crosses, whether or not it hits anything behind
+; it. false: only a shot that hits someone through a window breaks it, as the game has it. On a server the game's
+; rule holds.
+ShotsBreakGlass=true
 ; true: offline, first person shots to a zombie's legs slow it and drop it to crawl, shots to its arms leave them
 ; hanging, enough take the limb off, and a head shot that kills can take the head off or burst it. false: hits
 ; are the game's. On a server the game's rule holds.
