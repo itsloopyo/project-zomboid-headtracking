@@ -2495,7 +2495,7 @@ final class Pipeline {
     private static final float FAR_LIGHT_SAME = 0.9995f;
 
     private void drawShadows(SkyState state, boolean figures) {
-        lightMatrix(nearMatrix, state, NEAR_EXTENT, NEAR_RANGE);
+        lightMatrix(nearMatrix, state, NEAR_EXTENT, NEAR_RANGE, nearCast);
         // The far map and the map of what is overhead are each drawn every other frame, turn about. Both are
         // of things tens of tiles off or straight overhead, and each is read through the matrix it was last
         // drawn with, so a frame late is not seen.
@@ -2505,7 +2505,7 @@ final class Pipeline {
         castFar = !farDrawn || (frameNumber & 1) == 0 || lightMoved;
         boolean castRoof = !roofDrawn || (frameNumber & 1) == 1;
         if (castFar) {
-            lightMatrix(farMatrix, state, FAR_EXTENT, FAR_RANGE);
+            lightMatrix(farMatrix, state, FAR_EXTENT, FAR_RANGE, farCast);
             farDrawn = true;
             farLightX = state.lightX;
             farLightY = state.lightY;
@@ -2771,12 +2771,21 @@ final class Pipeline {
         }
     }
 
-    /** Has the program cast into a map along the matrix, every place counted from the eye: see uCastOrigin in SHADOW_VERTEX. */
+    /**
+     * Has the program cast into a map along the matrix, every place counted from near the eye: see
+     * uCastOrigin in SHADOW_VERTEX. A sun map counts from the pivot its texels are laid out from.
+     */
     private void castAlong(Program program, float[] matrix) {
-        castFrom[0] = focusX;
-        castFrom[1] = focusY;
-        castFrom[2] = focusUp;
-        originOf(matrix, castFrom, castOrigin);
+        float[] sun = matrix == nearMatrix ? nearCast : matrix == farMatrix ? farCast : null;
+        if (sun != null) {
+            System.arraycopy(sun, 0, castFrom, 0, 3);
+            System.arraycopy(sun, 3, castOrigin, 0, 4);
+        } else {
+            castFrom[0] = focusX;
+            castFrom[1] = focusY;
+            castFrom[2] = focusUp;
+            originOf(matrix, castFrom, castOrigin);
+        }
         program.set("uMatrix", matrix);
         program.set("uCastFrom", castFrom[0], castFrom[1], castFrom[2]);
         program.set("uCastOrigin", castOrigin[0], castOrigin[1], castOrigin[2], castOrigin[3]);
@@ -3475,11 +3484,25 @@ final class Pipeline {
     }
 
     /**
+     * By sun map: the corner of the PIVOT square the focus is in, then where that corner is in
+     * the map's clip space, which the map casts from: see castAlong.
+     */
+    private final float[] nearCast = new float[7], farCast = new float[7];
+    /** How far apart the places a sun map's texels are turned about, in tiles. */
+    private static final float PIVOT = 8f;
+
+    /**
      * The matrix that looks along the light at a square of ground centred on the focus. The
      * centre moves a whole texel of the map at a time, or the shadows' edges would crawl as
-     * the eye moves.
+     * the eye moves. The texels are laid out from a corner of the PIVOT square the eye is in,
+     * and turn about it as the sun moves. Laid out from the map's origin, thousands of tiles
+     * off, they turned about that: a sun that moved a millionth of a radian in a frame carried
+     * the texels round the eye a large part of a texel's width, and a blade of grass's shadow,
+     * a texel wide, was in the map one frame and out of it the next, all over the ground.
+     * Everything here is worked out from that corner, so that the map's centre is a whole
+     * number of texels from it in floats.
      */
-    private void lightMatrix(float[] m, SkyState state, float extent, float range) {
+    private void lightMatrix(float[] m, SkyState state, float extent, float range, float[] cast) {
         float lx = state.lightX, ly = state.lightY, lu = state.lightUp;
         float rx = -ly, ry = lx;
         float flat = (float) Math.sqrt(rx * rx + ry * ry);
@@ -3492,13 +3515,27 @@ final class Pipeline {
         }
         float ux = -lu * ry, uy = lu * rx, uu = lx * ry - ly * rx;
         float texel = 2f * extent / shadowSize;
-        float centreRight = (float) Math.floor((rx * focusX + ry * focusY) / texel) * texel;
-        float centreUp = (float) Math.floor((ux * focusX + uy * focusY + uu * focusUp) / texel) * texel;
-        float centreAlong = lx * focusX + ly * focusY + lu * focusUp;
-        m[0] = rx / extent; m[4] = ry / extent; m[8] = 0f; m[12] = -centreRight / extent;
-        m[1] = ux / extent; m[5] = uy / extent; m[9] = uu / extent; m[13] = -centreUp / extent;
-        m[2] = -lx / range; m[6] = -ly / range; m[10] = -lu / range; m[14] = centreAlong / range;
+        float pivotX = (float) Math.floor(focusX / PIVOT) * PIVOT, pivotY = (float) Math.floor(focusY / PIVOT) * PIVOT;
+        float awayX = focusX - pivotX, awayY = focusY - pivotY;
+        float rightOfPivot = (float) Math.floor((rx * awayX + ry * awayY) / texel) * texel;
+        float upOfPivot = (float) Math.floor((ux * awayX + uy * awayY + uu * focusUp) / texel) * texel;
+        float alongOfPivot = lx * awayX + ly * awayY + lu * focusUp;
+        m[0] = rx / extent; m[4] = ry / extent; m[8] = 0f;
+        m[1] = ux / extent; m[5] = uy / extent; m[9] = uu / extent;
+        m[2] = -lx / range; m[6] = -ly / range; m[10] = -lu / range;
         m[3] = 0f; m[7] = 0f; m[11] = 0f; m[15] = 1f;
+        // What reads the map with a place on the map whole, which a float holds no closer than a
+        // thousandth of a tile out there, takes the pivot's own place in doubles.
+        m[12] = (float) (-((double) rx * pivotX + (double) ry * pivotY + rightOfPivot) / extent);
+        m[13] = (float) (-((double) ux * pivotX + (double) uy * pivotY + upOfPivot) / extent);
+        m[14] = (float) (((double) lx * pivotX + (double) ly * pivotY + alongOfPivot) / range);
+        cast[0] = pivotX;
+        cast[1] = pivotY;
+        cast[2] = 0f;
+        cast[3] = -rightOfPivot / extent;
+        cast[4] = -upOfPivot / extent;
+        cast[5] = alongOfPivot / range;
+        cast[6] = 1f;
     }
 
     private void drawWorld(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect,
