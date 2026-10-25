@@ -804,9 +804,14 @@ public final class Hooks {
         LiveSight.afterLineOfSight(player);
     }
 
-    /** After the game's IsoGameCharacter.TestIfSeen, whether a player of this machine sees a character: see LiveSight. */
-    public static boolean testedIfSeen(boolean seen, IsoGameCharacter character, int index, IsoPlayer player) {
-        return seen || LiveSight.seenNow(character, index, player);
+    /** IsoGameCharacter.TestIfSeen's read of whether a player of this machine could see a character's square: see LiveSight. */
+    public static boolean couldSee(boolean marked, IsoGameCharacter character, int index, IsoPlayer player) {
+        return LiveSight.couldSee(marked, character, index, player);
+    }
+
+    /** The same test's read of whether the player sees the square: see LiveSight. */
+    public static boolean canSee(boolean marked, IsoGameCharacter character) {
+        return LiveSight.canSee(marked, character);
     }
 
     /** The cone of sight the game has worked out for a character, as LightingJNI.calculateVisionCone returns it: see LiveSight. */

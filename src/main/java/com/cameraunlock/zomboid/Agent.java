@@ -801,20 +801,26 @@ public final class Agent {
 
     /** The game's sight of zombies in its own view, with the line to each read as the map is: see LiveSight. Without them it is the game's grid alone. */
     private static List<Patch> liveSightPatches() {
-        String lighting = "zombie/iso/LightingJNI", character = "Lzombie/characters/IsoGameCharacter;";
+        String lighting = "zombie/iso/LightingJNI", square = "zombie/iso/IsoGridSquare", character = "Lzombie/characters/IsoGameCharacter;";
         return List.of(
                 new Patch(lighting, "calculateVisionCone before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
                         new CallSite.Method(lighting, "calculateVisionCone", "(" + character + ")F"), code -> {
                             code.aload(0);
                             CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "visionCone", "(F" + character + ")F"));
                         })),
-                new Patch("zombie/characters/IsoGameCharacter", "TestIfSeen before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
-                        new CallSite.Method("zombie/characters/IsoGameCharacter", "TestIfSeen", "(IL" + PLAYER + ";)Z"), code -> {
-                            code.aload(0);
-                            code.iload(1);
-                            code.aload(2);
-                            CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "testedIfSeen", "(Z" + character + "IL" + PLAYER + ";)Z"));
-                        })),
+                new Patch("zombie/characters/IsoGameCharacter", "TestIfSeen reads the line to a square beside the grid's marks", classBytes -> {
+                    CallSite.Method test = new CallSite.Method("zombie/characters/IsoGameCharacter", "TestIfSeen", "(IL" + PLAYER + ";)Z");
+                    classBytes = CallSite.insertAfterEach(classBytes, test, new CallSite.Method(square, "isCouldSee", "(I)Z"), code -> {
+                        code.aload(0);
+                        code.iload(1);
+                        code.aload(2);
+                        CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "couldSee", "(Z" + character + "IL" + PLAYER + ";)Z"));
+                    }, 1);
+                    return CallSite.insertAfterEach(classBytes, test, new CallSite.Method(square, "isCanSee", "(I)Z"), code -> {
+                        code.aload(0);
+                        CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "canSee", "(Z" + character + ")Z"));
+                    }, 1);
+                }),
                 new Patch(PLAYER, "updateLOS before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
                         new CallSite.Method(PLAYER, "updateLOS", "()V"), code -> {
                             code.aload(0);

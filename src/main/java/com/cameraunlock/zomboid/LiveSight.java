@@ -2,11 +2,9 @@ package com.cameraunlock.zomboid;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import zombie.GameTime;
 import zombie.characters.IsoGameCharacter;
 import zombie.characters.IsoPlayer;
 import zombie.characters.IsoZombie;
-import zombie.core.textures.ColorInfo;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoWorld;
@@ -21,12 +19,13 @@ import zombie.iso.LosUtil;
  * tiles off: zombies came out of nothing beside the character. Measured in town by day and
  * night, rig runs iso1, night1 and night2.
  *
- * With the ZombiesSeenAtOnce row on, offline, where the game's test finds a zombie unseen this
- * asks it again with the line from the character to the zombie's square read off the map as it
- * is now (LosUtil.lineClear, where a shut door hides as a wall does) in place of the grid's mark.
- * The rest is the game's: its sight for the weather and the hour, the cone the character takes
- * in as the game last worked it out, which tiredness, panic, drink and the dark narrow, the
- * detection range in which it notices what is beside and behind it, and the light the
+ * With the ZombiesSeenAtOnce row on, offline, the game's test reads the grid's marks for a
+ * zombie's square with the line from the character to it read off the map as it is now
+ * (LosUtil.lineClear, where a shut door hides as a wall does) beside them: a clear line marks
+ * the square one the character could see, and one in the cone the character takes in as the
+ * game last worked it out, which tiredness, panic, drink and the dark narrow, one it sees. The
+ * rest of the test runs as the game has it: its sight for the weather and the hour, the
+ * detection range in which the character notices what is beside and behind it, and the light the
  * zombie stands in. A zombie the test passes is given the game's target of being seen, and fades
  * in at the game's pace. Both of the game's askings go by it: the zombie's own update, which
  * hides a zombie the test fails, and updateLOS, which hides one off the grid before it asks and
@@ -60,30 +59,48 @@ final class LiveSight {
         return cone;
     }
 
+    /** The zombie couldSee last read the line to, and whether it is in the cone with the line clear. */
+    private static IsoGameCharacter asked;
+    private static boolean askedSees;
+
     /**
-     * In place of the game's IsoGameCharacter.TestIfSeen where it found a zombie unseen for a player
-     * of this machine. Logic thread.
+     * After IsoGameCharacter.TestIfSeen reads the grid's mark of whether a player of this machine
+     * could see a character's square: that mark, or the line to the square clear now. Logic thread.
      */
-    static boolean seenNow(IsoGameCharacter character, int index, IsoPlayer player) {
+    static boolean couldSee(boolean marked, IsoGameCharacter character, int index, IsoPlayer player) {
+        asked = null;
         if (!(character instanceof IsoZombie) || !Rules.seenAtOnce() || index < 0 || index >= coneDegrees.length || Float.isNaN(coneDegrees[index])) {
-            return false;
+            return marked;
         }
         View view = View.of(index);
         if (view != null && view.firstPerson.coversTheGamesView()) {
-            return false;
+            return marked;
         }
         IsoGridSquare from = player.getCurrentSquare(), at = character.getCurrentSquare();
         IsoCell cell = IsoWorld.instance.currentCell;
         if (from == null || at == null || cell == null) {
-            return false;
+            return marked;
         }
         float coneCos = (float) Math.cos(Math.toRadians(coneDegrees[index] / 2f));
-        float facing = player.getDotWithForwardDirection(character.getX(), character.getY());
-        if (!SightRule.seen(character.DistToProper(player), facing, coneCos, GameTime.getInstance().getViewDist(), player.getDetectionRange(), light(at, index), light(from, index))) {
-            return false;
+        boolean inCone = player.getDotWithForwardDirection(character.getX(), character.getY()) >= coneCos;
+        if (marked && !inCone) {
+            return true;
         }
         LosUtil.TestResults line = LosUtil.lineClear(cell, from.getX(), from.getY(), from.getZ(), at.getX(), at.getY(), at.getZ(), false);
-        return line != LosUtil.TestResults.Blocked && line != LosUtil.TestResults.ClearThroughClosedDoor;
+        boolean clear = line != LosUtil.TestResults.Blocked && line != LosUtil.TestResults.ClearThroughClosedDoor;
+        asked = character;
+        askedSees = clear && inCone;
+        return marked || clear;
+    }
+
+    /**
+     * After the same test reads the grid's mark of whether the player sees the square: that mark,
+     * or what couldSee found just before it for the same character. Logic thread.
+     */
+    static boolean canSee(boolean marked, IsoGameCharacter character) {
+        boolean sees = asked == character && askedSees;
+        asked = null;
+        return marked || sees;
     }
 
     /**
@@ -106,12 +123,5 @@ final class LiveSight {
                 zombie.setTargetAlpha(index, 1f);
             }
         }
-    }
-
-    /** The mean of a square's light for a player, as TestIfSeen reads it: -1 where the square has none worked out. */
-    private static float light(IsoGridSquare square, int index) {
-        IsoGridSquare.ILighting lighting = square.lighting[index];
-        ColorInfo info = lighting == null ? null : lighting.lightInfo();
-        return info == null ? -1f : (info.r + info.g + info.b) / 3f;
     }
 }
