@@ -35,8 +35,8 @@ import zombie.core.textures.Texture;
  * scale it draws them in its own view; a wall read at another scale has them in proportion.
  */
 final class WallTiles {
-    /** The sheets whose walls are tiled, and of tiles laid over a plain wall. */
     private static final boolean TRACE = Boolean.getBoolean("cameraunlock.zomboid.trace");
+    /** The sheets whose walls are tiled, and of tiles laid over a plain wall. */
     private static final String[] SHEETS = {"walls_interior_bathroom", "walls_interior_detailing_bathroom"};
     /** How many dots long the wall the measures in dots are for is. */
     private static final float DOTS_ALONG = 64f, DOTS_UP = 192f;
@@ -505,6 +505,7 @@ final class WallTiles {
                         Log.info("wall tiles " + texture.getName() + (north ? " north" : " west") + (overlay ? " over a wall" : "") + (wall == null ? " none" : said(wall)));
                     }
                     known.get(into).put(texture, wall == null ? NONE : wall);
+                    reading.get(into).remove(texture);
                     SpriteColours.answered();
                 } catch (Throwable failed) {
                     asked.get(into).remove(texture);

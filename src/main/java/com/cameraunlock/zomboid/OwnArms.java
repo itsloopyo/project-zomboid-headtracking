@@ -341,7 +341,10 @@ final class OwnArms {
                 GL20.glShaderSource(shader, sources[stage]);
                 GL20.glCompileShader(shader);
                 if (GL20.glGetShaderi(shader, GL_COMPILE_STATUS) == 0) {
-                    throw new IllegalStateException("stage " + (stage + 1) + " of the arms shader did not compile: " + GL20.glGetShaderInfoLog(shader));
+                    String log = GL20.glGetShaderInfoLog(shader);
+                    GL20.glDeleteShader(shader);
+                    GL20.glDeleteProgram(id);
+                    throw new IllegalStateException("stage " + (stage + 1) + " of the arms shader did not compile: " + log);
                 }
                 GL20.glAttachShader(id, shader);
                 // The program keeps what it was linked from: the shader goes when the program does.
@@ -352,7 +355,9 @@ final class OwnArms {
             }
             GL20.glLinkProgram(id);
             if (GL20.glGetProgrami(id, GL_LINK_STATUS) == 0) {
-                throw new IllegalStateException("the arms shader did not link: " + GL20.glGetProgramInfoLog(id));
+                String log = GL20.glGetProgramInfoLog(id);
+                GL20.glDeleteProgram(id);
+                throw new IllegalStateException("the arms shader did not link: " + log);
             }
             program = id;
             projectionAt = GL20.glGetUniformLocation(id, "uProjection");

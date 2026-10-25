@@ -64,6 +64,9 @@ final class SpriteColours {
     record Ask(Texture texture, int view, float x, float y) {
         /** How far the place it was asked from is from its view's eye, squared: none from no place, or while the eye is not known. */
         float away(float[] eyes) {
+            if (x == Float.POSITIVE_INFINITY) {
+                return x;
+            }
             if (Float.isNaN(x) || Float.isNaN(eyes[view * 2])) {
                 return 0f;
             }
