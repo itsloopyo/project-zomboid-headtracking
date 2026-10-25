@@ -18,8 +18,8 @@ import org.lwjgl.opengl.GLCapabilities;
  * when the driver has no room for something the mod makes (outOfMemory), and on nothing else.
  * Past the last step there is nothing more to give up.
  *
- * skinBytes, jarSkinBytes and tailoredSkinBytes are the caps the skins are to keep to at each
- * step. FineSkins does not read them yet: its own caps are step 0's.
+ * skinBytes, jarSkinBytes and tailoredSkinBytes are the caps FineSkins keeps the skins to at
+ * each step.
  *
  * Dev builds only: cameraunlock.zomboid.videoMemoryMb makes the card look that small, and
  * cameraunlock.zomboid.ballastMb fills that much of it before the mod makes anything (DevVideoMemory).
