@@ -1203,6 +1203,12 @@ final class WallBuilder {
         // as much more or less as its own colour is of that.
         float red = build.frame.red, green = build.frame.green, blue = build.frame.blue;
         build.frame.cornersInto(build.paperRed, build.paperGreen, build.paperBlue, build.paperUnlit);
+        build.geometry.wholeA = a + da * from;
+        build.geometry.wholeB = b + db * from;
+        build.geometry.wholeDa = da * (to - from);
+        build.geometry.wholeDb = db * (to - from);
+        build.geometry.sealLow = startIsLow ? sealFrom : sealTo;
+        build.geometry.sealHigh = startIsLow ? sealTo : sealFrom;
         float begin = 0f;
         for (int stripe = 0; stripe < paper.ends.length; stripe++) {
             float end = paper.ends[stripe];
@@ -1214,11 +1220,9 @@ final class WallBuilder {
             float r = paper.colours[stripe * 3] / Math.max(build.paperTint[0], 0.02f), g = paper.colours[stripe * 3 + 1] / Math.max(build.paperTint[1], 0.02f),
                     bl = paper.colours[stripe * 3 + 2] / Math.max(build.paperTint[2], 0.02f);
             build.floorBuilder.shade(red, green, blue, r, g, bl);
-            float sealStart = low == from ? sealFrom : 0f, sealEnd = high == to ? sealTo : 0f;
-            build.geometry.sealLow = startIsLow ? sealStart : sealEnd;
-            build.geometry.sealHigh = startIsLow ? sealEnd : sealStart;
             build.geometry.addFace(mesh, build.frame, x, y, z, a + da * low, b + db * low, foot, da * (high - low), db * (high - low), 0f, 0f, 0f, head - foot);
         }
+        build.geometry.wholeA = Float.NaN;
         build.frame.red = red;
         build.frame.green = green;
         build.frame.blue = blue;

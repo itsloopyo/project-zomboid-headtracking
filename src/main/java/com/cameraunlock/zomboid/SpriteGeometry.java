@@ -686,6 +686,14 @@ final class SpriteGeometry {
     /** The same down from the top edge of a face that stands straight up. */
     float sealTop;
     /**
+     * For a face that stands straight up and is a strip of a wider one, a stripe of paper, the
+     * wider face's first corner on the tile and its length along it: the strip takes its texels
+     * as that face would there. Drawn in about its own middle, a stripe at a wall's end was too
+     * narrow to reach past the dots its sprite stops short by, and the joint was a slit to the
+     * world outside. NaN for a face that is whole.
+     */
+    float wholeA = Float.NaN, wholeB, wholeDa, wholeDb;
+    /**
      * Whether the wall skin being added meets another wall in an inside corner at its low or its
      * high end, along a (creaseAlongA) or along b. The game lights a wall only at the corners of
      * its square, and two walls meeting at a corner were lit evenly right into it, two flat
@@ -861,6 +869,12 @@ final class SpriteGeometry {
         boolean straightUp = alongSlant != 0f && da2 == 0f && db2 == 0f;
         halfAcross = straightUp ? Math.abs(acrossU) / 2f : 0f;
         halfDown = straightUp ? Math.abs(corners[CORNER_FLOATS * 3 + CORNER_V] - corners[CORNER_V]) / 2f : 0f;
+        if (straightUp && !Float.isNaN(wholeA)) {
+            float fromU = frameU(frame, wholeA, wholeB), toU = frameU(frame, wholeA + wholeDa, wholeB + wholeDb);
+            centreU = (fromU + toU) / 2f;
+            centreV = (frameV(frame, wholeA, wholeB, h) + frameV(frame, wholeA + wholeDa, wholeB + wholeDb, h + dh2)) / 2f;
+            halfAcross = Math.abs(toU - fromU) / 2f;
+        }
         // A face that stands is drawn smaller onto itself before it is cut to its sprite, so the
         // cut falls where its texels meet the sprite's edge. Cut first and drawn smaller after,
         // a corner on the sprite's top row moved off it, and kept on the row it bent the face's
