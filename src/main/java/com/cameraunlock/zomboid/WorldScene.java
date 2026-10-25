@@ -800,7 +800,7 @@ final class WorldScene {
         /** What the sprite is made of as the floor of its square, and as anything else. */
         final float asFloor, asOther;
         final boolean laidWall, gableSheet, lies, wire, roofAccent, roofSheet, stripLamp, garageDoor, cornerTrim, papered, tiledWall, fenceGate,
-                boulder, bedding, longGrass, natural, carpet, tiled, grows, onTop, holds, flightPost, fireEscape, paint, wallTrim, trim, moulded;
+                boulder, bedding, longGrass, natural, carpet, straw, tiled, grows, onTop, holds, flightPost, fireEscape, paint, wallTrim, trim, moulded;
         /** What length of handrail the sprite is, or null: see Rails. */
         final Rails.Piece rail;
         /** Which cloth the map hangs out the sprite is, if any: see Banners. */
@@ -895,6 +895,7 @@ final class WorldScene {
             longGrass = name != null && name.startsWith("e_newgrass");
             natural = name != null && name.startsWith("blends_natural");
             carpet = name != null && name.startsWith("floors_interior_carpet");
+            straw = asFloor == STRAW;
             rug = Rugs.kindOf(name);
             pile = Flat.pile(name);
             falls = Litter.kindOf(name, false);
@@ -2099,6 +2100,10 @@ final class WorldScene {
     static final float STAINED = 95f;
     /** The same, drawn from the mod's own picture of the window, whose glass is already the colour and light of glass: see StainedGlass. */
     static final float OWN_STAINED = 96f;
+    /** The straw bedding a barn floor: see FloorBuilder.addStraw. */
+    static final float STRAW = 97f;
+    /** The game's two hay floors. */
+    private static final Set<String> HAY_FLOORS = Set.of("vegetation_farm_01_12", "vegetation_farm_01_13");
     /** What the game calls the sheets and boards it hangs flat on a wall. */
     private static final Set<String> PRINTS = Set.of("Poster", "Torn Poster", "Notices", "Picture", "Painting", "Paintings", "Certificate",
             "Child's Drawing", "Childrens Drawing", "Board", "Whiteboard", "Noteboard", "Pegboard", "USA");
@@ -2195,6 +2200,9 @@ final class WorldScene {
         }
         if (isFloor && name.startsWith("blends_natural")) {
             return EARTH;
+        }
+        if (isFloor && HAY_FLOORS.contains(name)) {
+            return STRAW;
         }
         // Furniture, by what it is mostly made of: timber, or cloth.
         if (name.startsWith("furniture_tables") || name.startsWith("furniture_storage") || name.startsWith("furniture_shelving")

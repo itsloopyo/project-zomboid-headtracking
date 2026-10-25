@@ -30,6 +30,7 @@ final class PictureTests {
     static void run() throws IOException {
         Checks.run("everyPackedPictureIsTheOneMadeFromItsSources", PictureTests::everyPackedPictureIsTheOneMadeFromItsSources);
         Checks.run("theBarksArePackedInTheOrderTheyAreCountedIn", PictureTests::theBarksArePackedInTheOrderTheyAreCountedIn);
+        Checks.run("theLitterIsTheLeavesThenTheStraw", PictureTests::theLitterIsTheLeavesThenTheStraw);
         Checks.run("aPictureIsReadWholeOrWithoutItsLargestLevel", PictureTests::aPictureIsReadWholeOrWithoutItsLargestLevel);
         Checks.run("aFileThatIsNotAWholePictureIsRefused", PictureTests::aFileThatIsNotAWholePictureIsRefused);
         Checks.run("blocksUnpackAsTheReferenceUnpacksThem", PictureTests::blocksUnpackAsTheReferenceUnpacksThem);
@@ -133,6 +134,21 @@ final class PictureTests {
             }
         }
         check(false, "made.txt lists the barks");
+    }
+
+    /** Pipeline.LITTER reads the fallen leaves from the litter's first layer and the straw of a barn floor (WorldScene.STRAW) from its second. */
+    private static void theLitterIsTheLeavesThenTheStraw() throws IOException {
+        for (Made each : made()) {
+            if (each.output.equals("materials/litter.bc")) {
+                check(each.sources.size() == 2 && each.sources.get(0)[0].equals("materials/litter.jpg") && each.sources.get(1)[0].equals("materials/straw.jpg"),
+                        "the litter is packed from the leaves and then the straw");
+                OffHeap.Block litter = Pictures.packed("/materials/litter.bc", true);
+                check(litter.bytes.getInt(16) == 2, "the two are one behind the other in one file");
+                litter.free();
+                return;
+            }
+        }
+        check(false, "made.txt lists the litter");
     }
 
     private static void aPictureIsReadWholeOrWithoutItsLargestLevel() throws IOException {

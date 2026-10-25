@@ -285,6 +285,14 @@ final class FloorBuilder {
             build.building.signed = false;
         }
         SpriteGeometry.Mesh on = paint != null ? WorldScene.laid.get(paint.picture) : build.floorLayer == 0 ? mesh : WorldScene.laid.get(texture.getID());
+        // Straw is the square's floor in a barn, and laid over the grass outside one.
+        if (sprite.straw && build.frame.kind == 0f && build.geometry.kerb == null && Own.textures(build.playerIndex)) {
+            build.frame.flat = 0;
+            if (addStraw(texture, isFloor, x, y, z)) {
+                return;
+            }
+            build.frame.flat = flat != 0 ? SpriteGeometry.FLAT_FLOOR : 0;
+        }
         // A rug the game lays over the floor is its square drawn again: see Rugs.
         int rug = !isFloor && build.floorLayer > 0 && Own.textures(build.playerIndex) ? build.rugOf(texture, sprite.rug, sprite.pile, x, y, z) : 0;
         float laidAs = build.frame.material;
@@ -419,6 +427,34 @@ final class FloorBuilder {
             geometry.jointStep = Float.NaN;
             geometry.acrossB = 0f;
         }
+        WorldScene.layers.none();
+        build.frame.material = made;
+        build.frame.red = red;
+        build.frame.green = green;
+        build.frame.blue = blue;
+        build.frame.cornersFrom(build.paperRed, build.paperGreen, build.paperBlue, build.paperUnlit);
+        return true;
+    }
+
+    /**
+     * A square of straw on a barn floor: one face on the sprite's own mesh in its mean colour, which the picture
+     * beds with stalks of straw (WorldScene.STRAW). The stalks the game paints are blots a few dots long, the same
+     * on every square. False, adding nothing, for a sprite not read yet.
+     */
+    private boolean addStraw(Texture texture, boolean isFloor, int x, int y, int z) {
+        float[] colour = SpriteColours.of(texture);
+        if (colour == null) {
+            if (SpriteColours.unread(texture)) {
+                build.building.signed = false;
+            }
+            return false;
+        }
+        float made = build.frame.material, red = build.frame.red, green = build.frame.green, blue = build.frame.blue;
+        build.frame.cornersInto(build.paperRed, build.paperGreen, build.paperBlue, build.paperUnlit);
+        build.frame.material = WorldScene.STRAW;
+        layFloor(isFloor);
+        build.geometry.addFace(painted(texture.getID(), red, green, blue, colour[WallSides.MEAN], colour[WallSides.MEAN + 1], colour[WallSides.MEAN + 2]),
+                build.frame, x, y, z, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
         WorldScene.layers.none();
         build.frame.material = made;
         build.frame.red = red;

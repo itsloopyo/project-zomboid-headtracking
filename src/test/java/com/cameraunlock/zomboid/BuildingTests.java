@@ -19,6 +19,7 @@ final class BuildingTests {
         Checks.run("coursesStandOnTheirWallNotASquareOut", BuildingTests::coursesStandOnTheirWallNotASquareOut);
         Checks.run("canopyIsLinedWithPanelsAndALightEveryThirdSquare", BuildingTests::canopyIsLinedWithPanelsAndALightEveryThirdSquare);
         Checks.run("finishIsWhatMostWallsShow", BuildingTests::finishIsWhatMostWallsShow);
+        Checks.run("hayFloorIsStraw", BuildingTests::hayFloorIsStraw);
         Checks.run("roomShowsOutsideWhatItsOwnWallsDoOrTheNearestSeen", BuildingTests::roomShowsOutsideWhatItsOwnWallsDoOrTheNearestSeen);
         Checks.run("sheetmateIsNamedByItsPlaceOnTheSheet", BuildingTests::sheetmateIsNamedByItsPlaceOnTheSheet);
         Checks.run("slopeOfUnevenTilesIsOnePlane", BuildingTests::slopeOfUnevenTilesIsOnePlane);
@@ -610,6 +611,13 @@ final class BuildingTests {
         for (int place : new int[] {0, 31, 64, 77, 80}) {
             check(WorldScene.materialOf("roofs_02_" + place, false) == WorldScene.SHINGLES, "roofs_02_" + place + " is tiles");
         }
+    }
+
+    private static void hayFloorIsStraw() {
+        check(WorldScene.materialOf("vegetation_farm_01_12", true) == WorldScene.STRAW && WorldScene.materialOf("vegetation_farm_01_13", true) == WorldScene.STRAW,
+                "the game's two hay floors are straw");
+        check(WorldScene.materialOf("vegetation_farm_01_12", false) == 0f, "only as a floor");
+        check(WorldScene.materialOf("vegetation_farm_01_8", true) == 0f && WorldScene.materialOf("vegetation_farm_01_0", true) == 0f, "a bale and standing wheat are not");
     }
 
     private static void sheetmateIsNamedByItsPlaceOnTheSheet() {

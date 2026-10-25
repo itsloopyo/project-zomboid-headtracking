@@ -81,6 +81,8 @@ SURFACES = {
               'worn, with no folds.' + SHOT,
     'litter': 'Looking straight down at a forest floor that fills the whole frame, covered edge to edge in a dense layer of dry brown and orange '
               'fallen oak and beech leaves with a few small twigs.' + SHOT,
+    'straw': 'Looking straight down at the floor of a barn stall that fills the whole frame, covered edge to edge in a thick even bed of loose dry '
+             'golden wheat straw: thousands of long hollow stalks lying every which way across each other, with nothing else in it.' + SHOT,
     'rock': 'A close photograph of a rough grey limestone outcrop filling the whole frame: natural fractured stone with cracks, small ledges and '
             'patches of pale lichen, gritty and weathered.' + SHOT,
     'canopy': 'Looking straight into the dense outer foliage of a broadleaf tree: hundreds of overlapping fresh green leaves fill the whole frame '

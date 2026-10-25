@@ -333,6 +333,8 @@ final class Pipeline {
     private static final float[] materialGain = ones(MATERIALS.length);
     /** What Flora's ground and plants are made of: fallen leaves, rock, a fern's frond and ivy, the last two cut out. */
     private static final String[] NATURE = {"litter", "rock", "frond", "ivy"};
+    /** The litter is two pictures in one texture: fallen leaves, and behind them the straw a barn floor is bedded with (WorldScene.STRAW). */
+    private static final int LITTER = 0;
     private static final int FIRST_NATURE_UNIT = 24;
     private static final int[] natureTexture = new int[NATURE.length];
     private static final float[] natureGain = ones(NATURE.length);
@@ -347,6 +349,7 @@ final class Pipeline {
         Arrays.fill(MATERIAL_KINDS, GL_TEXTURE_2D);
         MATERIAL_KINDS[BARK] = Pictures.GL_TEXTURE_2D_ARRAY;
         Arrays.fill(NATURE_KINDS, GL_TEXTURE_2D);
+        NATURE_KINDS[LITTER] = Pictures.GL_TEXTURE_2D_ARRAY;
     }
     private int width, height;
     private int sceneTarget, sceneColor, sceneDepth, shownTarget, shownColor, figureTarget, figureColor;
@@ -4146,7 +4149,7 @@ final class Pipeline {
         to.set("uCloth", FIRST_MATERIAL_UNIT + 12);
         to.set("uClothGain", materialGain[12]);
         for (int nature = 0; nature < NATURE.length; nature++) {
-            natureBound[nature] = natureTexture[nature] != 0 ? natureTexture[nature] : whiteTexture;
+            natureBound[nature] = nature == LITTER || natureTexture[nature] != 0 ? natureTexture[nature] : whiteTexture;
         }
         natureBound[SPRIG_UNIT - FIRST_NATURE_UNIT] = sprigs != 0 ? sprigs : whiteTexture;
         natureBound[SPRIG_FORM_UNIT - FIRST_NATURE_UNIT] = sprigForm != 0 ? sprigForm : whiteTexture;
@@ -5823,7 +5826,7 @@ final class Pipeline {
 
     private static Piece materialPiece(int material) {
         String picture = "/materials/" + MATERIALS[material] + ".bc";
-        return material == BARK ? Piece.ofPictures(() -> loadBarks(picture), picture)
+        return material == BARK ? Piece.ofPictures(() -> loadLayers(picture, materialTexture, materialGain, material), picture)
                 : Piece.ofPictures(() -> loadPicture(picture, materialTexture, materialGain, material), picture);
     }
 
@@ -5837,7 +5840,8 @@ final class Pipeline {
         for (int each = 0; each < NATURE.length; each++) {
             int nature = each;
             String picture = "/materials/" + NATURE[nature] + ".bc";
-            pieces.add(Piece.ofPictures(() -> loadPicture(picture, natureTexture, natureGain, nature), picture));
+            pieces.add(Piece.ofPictures(() -> nature == LITTER ? loadLayers(picture, natureTexture, natureGain, nature)
+                    : loadPicture(picture, natureTexture, natureGain, nature), picture));
         }
         // The weapon models are made as each is first held, once the content is made: see OwnModel.asked.
         pieces.add(Piece.ofPictures(() -> {
@@ -7008,15 +7012,16 @@ final class Pipeline {
         return null;
     }
 
-    private static String loadBarks(String path) {
+    /** loadPicture for a picture of several layers, the bark or the litter. */
+    private static String loadLayers(String picture, int[] textures, float[] gains, int index) {
         try {
-            int old = materialTexture[BARK];
-            materialTexture[BARK] = Pictures.loadLayers(path);
+            int old = textures[index];
+            textures[index] = Pictures.loadLayers(picture);
             GL11.glDeleteTextures(old);
         } catch (IOException e) {
             return e.getMessage();
         }
-        materialGain[BARK] = Pictures.gain;
+        gains[index] = Pictures.gain;
         return null;
     }
 

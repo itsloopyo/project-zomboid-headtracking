@@ -58,7 +58,11 @@ RAW, BC7 = 0, 7
 BARKS = ['bark-oak', 'bark-linden', 'bark-maple', 'bark-birch', 'bark-pine', 'bark-hemlock', 'bark-holly', 'bark-dogwood']
 # The materials with a picture of heights beside them (tools/materials/heights.py), which goes in as the fourth number of each texel.
 RAISED = ['asphalt', 'gravel', 'soil', 'shingles', 'wood', 'planks']
-PLAIN = ['grass', 'paint', 'carpet', 'vinyl', 'cloth', 'jersey', 'litter', 'rock']
+PLAIN = ['grass', 'paint', 'carpet', 'vinyl', 'cloth', 'jersey', 'rock']
+# Fallen leaves, and behind them the straw of a barn floor (WorldScene.STRAW): one texture, as Pipeline.LITTER reads it.
+LITTER = ['litter', 'straw']
+# The outputs whose layers are read with the one gain the file holds, the first's: each layer's must be the same, to within a hundredth.
+SAME_GAIN = {'litter'}
 CUT_OUT = ['leaves', 'frond', 'ivy', 'sprigs']
 MODELS = ['shotgun', 'sawnoff', 'rifle', 'revolver', 'magnum', 'snubnose', 'capgun', 'pistol', 'pistol2', 'pistol3', 'dbarrel', 'assault', 'battle', 'varmint', 'js14', 'leverrifle', 'levercarbine', 'trapper', 'js3t', 'tactical', 'toy', 'arms']
 # The models whose pictures are twice as wide as high (tools/models/gunsmith.py, WIDE): every other is square.
@@ -81,6 +85,7 @@ def outputs():
         made[name] = ('materials', [[f'materials/{name}.jpg', f'materials/{name}.high.jpg']])
     for name in PLAIN:
         made[name] = ('materials', [[f'materials/{name}.jpg']])
+    made['litter'] = ('materials', [[f'materials/{name}.jpg'] for name in LITTER])
     for name in CUT_OUT + ['sprigs-form']:
         made[name] = ('materials', [[f'materials/{name}.png']])
     for model in MODELS:
@@ -203,6 +208,10 @@ def make(name, folder, layers):
     read = [layer(sources) for sources in layers]
     chains = [levels_of(texels, srgb) for texels, _ in read]
     high, wide = read[0][0].shape[:2]
+    if name in SAME_GAIN:
+        for sources, (_, gain) in zip(layers, read):
+            if abs(gain / read[0][1] - 1.0) > 0.01:
+                raise SystemExit(f'{sources[0]} has a gain of {gain:.3f} and {layers[0][0]} {read[0][1]:.3f}, which {name}.bc holds for both')
     for sources, (texels, _) in zip(layers, read):
         if texels.shape[:2] != (high, wide):
             raise SystemExit(f'{sources[0]} is not the size of {layers[0][0]}')

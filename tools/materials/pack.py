@@ -30,6 +30,10 @@ SPREAD = {'carpet': 0.092, 'paint': 0.104}
 LEAST = {'asphalt': 0.152, 'bark-birch': 0.299, 'bark-dogwood': 0.476, 'bark-hemlock': 0.49, 'bark-holly': 0.133, 'bark-maple': 0.542,
          'bark-oak': 0.471, 'bark-pine': 0.596, 'carpet': 0.092, 'gravel': 0.498, 'jersey': 0.1, 'paint': 0.101, 'planks': 0.384,
          'rock': 0.393, 'soil': 0.449, 'vinyl': 0.163, 'wood': 0.151}
+# A surface that is a later layer of another's texture, which holds one gain, the first layer's (tools/textures/compress.py,
+# SAME_GAIN): it is brought to that one's mean light.
+SAME_LIGHT = {'straw': 'litter'}
+LIGHT = numpy.array([0.299, 0.587, 0.114], dtype=numpy.float32)
 
 # The most of a picture drawn out to its LEAST that may go past black or white.
 CLIPPED = 0.01
@@ -236,6 +240,12 @@ def main():
                     wanted = high
                 rgb = mean + (rgb - mean) * (wanted / has)
                 print(f'{name}: light varies {has:.3f} over its mean, laid at {wanted:.3f} (least {LEAST.get(name, 0.0):.3f}), {clipped(rgb):.2%} clipped')
+                picture = Image.fromarray(numpy.clip(rgb + 0.5, 0, 255).astype(numpy.uint8), 'RGB')
+            if name in SAME_LIGHT:
+                rgb = numpy.asarray(picture, dtype=numpy.float32)
+                to = numpy.asarray(Image.open(OUT / (SAME_LIGHT[name] + '.jpg')).convert('RGB'), dtype=numpy.float32) @ LIGHT
+                rgb = rgb * (to.mean() / (rgb @ LIGHT).mean())
+                print(f'{name}: brought to the mean light of {SAME_LIGHT[name]}, {clipped(rgb):.2%} clipped')
                 picture = Image.fromarray(numpy.clip(rgb + 0.5, 0, 255).astype(numpy.uint8), 'RGB')
             picture.save(OUT / (name + '.jpg'), quality=94, subsampling=0)
             print('wrote', OUT / (name + '.jpg'), (OUT / (name + '.jpg')).stat().st_size, 'bytes')

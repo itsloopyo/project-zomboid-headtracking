@@ -1021,6 +1021,8 @@ final class PipelineShaders {
             // reliefShare holds how deep each of tarmac, gravel and earth is drawn: these are the
             // depths the ground block gives each, which divided out leave what the ground is made of.
             const float TARMAC_DEPTH_SHARE = 0.14, EARTH_DEPTH_SHARE = 0.8;
+            // How many times the straw's picture is laid to a tile: its stalks are as long as the sprite's.
+            const float STRAW_SCALE = 1.25;
             // Over how many tiles what every surface mirrors of what is round it fades out, before
             // the built world itself begins to: see gone.
             const float MIRROR_FADE = 25.0;
@@ -1060,7 +1062,8 @@ final class PipelineShaders {
             const vec3 GAME_VIEW = vec3(0.61237, 0.61237, 0.5);
             uniform sampler2D uCloth;
             uniform float uClothGain;
-            uniform sampler2D uLitter;
+            // Fallen leaves, and behind them the straw a barn floor is bedded with (WorldScene.STRAW).
+            uniform sampler2DArray uLitter;
             uniform sampler2D uRock;
             uniform sampler2D uFrond;
             uniform sampler2D uIvy;
@@ -2481,8 +2484,8 @@ final class PipelineShaders {
                         float litterAway = length(litterToEye);
                         float foot = uPixel * litterAway * litterAway / max(abs(litterToEye.z), 0.1);
                         float which = smoothstep(0.35, 0.65, patches(p * 0.23 + 51.0));
-                        vec3 fallen = mix(texture2D(uLitter, p * 0.61).rgb,
-                                texture2D(uLitter, vec2(p.x * 0.8 - p.y * 0.6, p.x * 0.6 + p.y * 0.8) * 0.47 + 0.37).rgb, which) * uNatureGain.x;
+                        vec3 fallen = mix(texture2DArray(uLitter, vec3(p * 0.61, 0.0)).rgb,
+                                texture2DArray(uLitter, vec3(vec2(p.x * 0.8 - p.y * 0.6, p.x * 0.6 + p.y * 0.8) * 0.47 + 0.37, 0.0)).rgb, which) * uNatureGain.x;
                         // Damp and dark in some places, dry and pale in others, and less red
                         // than leaves fresh down; matted darker through the winter.
                         float tone = dot(fallen, vec3(0.299, 0.587, 0.114));
@@ -3422,6 +3425,15 @@ final class PipelineShaders {
                 // A curtain the picture has hung has folds of its own, and is its weave close to.
                 if (vMaterial > 68.5 && vMaterial < 69.5) {
                     texel.rgb *= mix(1.0, wrapped(uCloth, vWorld, n, 23.0) * uClothGain, 0.22);
+                }
+                // Straw bedding a barn floor (WorldScene.STRAW), painted in the sprite's mean colour: its stalks are
+                // the litter's second picture. Two of it, one turned a quarter, take turns in patches a few tiles
+                // across, so the picture is not seen to repeat. Both scales times sixty are whole, as vPlace's are.
+                if (uOwnTextures > 0.5 && vMaterial > 96.5 && vMaterial < 97.5) {
+                    float turn = smoothstep(0.45, 0.55, wrappedPatches(vPlace.xy * 0.25, vec2(15.0)));
+                    vec3 stalks = mix(texture2DArray(uLitter, vec3(vPlace.xy * STRAW_SCALE, 1.0)).rgb,
+                            texture2DArray(uLitter, vec3(vPlace.yx * STRAW_SCALE + 0.5, 1.0)).rgb, turn);
+                    texel.rgb *= mix(1.0, dot(stalks, vec3(0.299, 0.587, 0.114)) * uNatureGain.x, 0.9);
                 }
                 // It has had the weather longest, and is a shade darker than the slopes it joins.
                 if (capping) {
