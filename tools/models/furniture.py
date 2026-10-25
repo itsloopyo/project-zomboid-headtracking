@@ -2358,7 +2358,8 @@ def dishwasher():
 
 
 def chest_freezer():
-    """A shop's freezer chest, two squares long, under sliding glass."""
+    """A shop's freezer chest, two squares long. Its two sliding lids are clear glass, so they are only their frames,
+    over the white of the frost inside."""
     model = Model("chest_freezer")
     half, front, back, top = 0.9, -0.36, 0.36, 0.86
     body = bmesh.new()
@@ -2367,17 +2368,18 @@ def chest_freezer():
              (half - 0.06, half, front + 0.06, back - 0.06))
     for x0, x1, y0, y1 in walls:
         cuboid(body, x0, x1, y0, y1, 0.08, top)
-    cuboid(body, -half + 0.06, half - 0.06, front + 0.06, back - 0.06, 0.08, 0.3)
     model.hard(body, "enamel", bevel=0.012, segments=2)
+    frost = bmesh.new()
+    cuboid(frost, -half + 0.06, half - 0.06, front + 0.06, back - 0.06, 0.08, top - 0.05)
+    model.hard(frost, "ceramic", bevel=0.01, segments=1)
     rim = bmesh.new()
     for x0, x1, y0, y1 in walls:
         cuboid(rim, x0 - 0.008, x1 + 0.008, y0 - 0.008, y1 + 0.008, top, top + 0.025)
     cuboid(rim, -0.02, 0.02, front + 0.06, back - 0.06, top + 0.004, top + 0.025)
+    for x0, x1 in ((-half + 0.05, -0.01), (0.01, half - 0.05)):
+        cuboid(rim, x0, x1, front + 0.05, front + 0.07, top + 0.012, top + 0.03)
+        cuboid(rim, x0, x1, back - 0.07, back - 0.05, top + 0.012, top + 0.03)
     model.hard(rim, "metal", bevel=0.004, segments=1)
-    glass = bmesh.new()
-    cuboid(glass, -half + 0.05, -0.01, front + 0.05, back - 0.05, top + 0.006, top + 0.012)
-    cuboid(glass, 0.01, half - 0.05, front + 0.05, back - 0.05, top + 0.014, top + 0.02)
-    model.plain(glass, "screen")
     return model
 
 
@@ -2451,37 +2453,49 @@ def kettle_barbecue():
 
 
 def gas_barbecue():
-    """A gas grill on a cart: a firebox under a hood, a shelf each side and two wheels."""
+    """A gas grill on a cabinet: two doors under the firebox, a steel hood with a bar handle, a panel of knobs, a
+    slatted shelf each side and two wheels at one end."""
     model = Model("gas_barbecue")
-    half, front, back = 0.34, -0.26, 0.26
-    cart = bmesh.new()
-    for x in (-1, 1):
-        for y in (front + 0.02, back - 0.02):
-            cuboid(cart, x * (half - 0.02) - 0.018, x * (half - 0.02) + 0.018, y - 0.018, y + 0.018, 0.05, 0.78)
-    cuboid(cart, -half, half, front, back, 0.2, 0.225)
-    cuboid(cart, -half, half, front, back, 0.66, 0.86)
-    cuboid(cart, -half - 0.02, half + 0.02, front - 0.02, front, 0.7, 0.8)
-    model.hard(cart, "rubber", bevel=0.005, segments=1)
+    half, front, back = 0.3, -0.25, 0.25
+    body = bmesh.new()
+    cuboid(body, -half, half, front, back, 0.1, 0.72)
+    cuboid(body, -half - 0.01, half + 0.01, front + 0.01, back - 0.01, 0.72, 0.86)
+    for x in (-half + 0.03, half - 0.03):
+        for y in (front + 0.03, back - 0.03):
+            if x < 0:
+                cuboid(body, x - 0.02, x + 0.02, y - 0.02, y + 0.02, 0.0, 0.1)
+    model.hard(body, "rubber", bevel=0.008, segments=1)
     hood = bmesh.new()
-    arch = [(front, 0.86), (front, 0.95)] + [(0.26 * -math.cos(math.radians(a)), 0.95 + 0.17 * math.sin(math.radians(a))) for a in range(20, 180, 20)] + [(back, 0.95), (back, 0.86)]
-    outline_along_x(hood, arch, -half - 0.01, half + 0.01)
+    arch = [(front, 0.86), (front, 0.93)] + [(0.25 * -math.cos(math.radians(a)), 0.93 + 0.15 * math.sin(math.radians(a))) for a in range(20, 180, 20)] + [(back, 0.93), (back, 0.86)]
+    outline_along_x(hood, arch, -half, half)
+    panel = [(front - 0.012, 0.73), (front - 0.012, 0.84), (front + 0.01, 0.855), (front + 0.01, 0.73)]
+    outline_along_x(hood, panel, -half + 0.01, half - 0.01)
     model.turned(hood, "steel", sharp=40.0)
     trim = bmesh.new()
-    bar_handle(trim, -half + 0.08, half - 0.08, front - 0.005, 0.99, 1.008, proud=0.045, thick=0.016)
-    for x in (-0.2, 0.0, 0.2):
-        lathe(trim, [(0.0, 0.0), (0.022, 0.0), (0.019, 0.02), (0.0, 0.022)], segments=12, to=along_y(x, front - 0.02, 0.75))
+    bar_handle(trim, -half + 0.06, half - 0.06, front - 0.005, 0.96, 0.978, proud=0.045, thick=0.016)
+    for x in (-0.18, -0.06, 0.06, 0.18):
+        lathe(trim, [(0.0, 0.0), (0.02, 0.0), (0.017, 0.02), (0.0, 0.022)], segments=12, to=along_y(x, front - 0.012, 0.785))
+    for x in (-0.06, 0.06):
+        cuboid(trim, x - 0.008, x + 0.008, front - 0.03, front, 0.45, 0.62)
+    cuboid(trim, -0.002, 0.002, front - 0.004, front, 0.14, 0.7)
     model.turned(trim, "metal", sharp=35.0)
     shelves = bmesh.new()
     for side in (-1, 1):
-        for n in range(3):
-            y = front + 0.04 + n * 0.16
-            low, high = sorted((side * (half + 0.03), side * (half + 0.31)))
-            cuboid(shelves, low, high, y, y + 0.13, 0.82, 0.842)
+        low, high = sorted((side * half, side * (half + 0.27)))
+        for n in range(4):
+            y = front + 0.03 + n * 0.115
+            cuboid(shelves, low, high, y, y + 0.09, 0.82, 0.84)
     model.hard(shelves, "wood", bevel=0.004, segments=1)
+    brackets = bmesh.new()
+    for side in (-1, 1):
+        low, high = sorted((side * half, side * (half + 0.25)))
+        for y in (front + 0.04, back - 0.04):
+            cuboid(brackets, low, high, y - 0.008, y + 0.008, 0.8, 0.82)
+    model.hard(brackets, "rubber", bevel=0.002, segments=1)
     wheels = bmesh.new()
     for y in (front + 0.02, back - 0.02):
-        lathe(wheels, [(0.0, -0.018), (0.065, -0.018), (0.075, -0.008), (0.075, 0.008), (0.065, 0.018), (0.0, 0.018)], segments=14,
-              to=Matrix.Translation((-half + 0.02, y, 0.075)) @ Matrix.Rotation(math.radians(90), 4, "X"))
+        lathe(wheels, [(0.0, -0.022), (0.075, -0.022), (0.085, -0.01), (0.085, 0.01), (0.075, 0.022), (0.0, 0.022)], segments=14,
+              to=Matrix.Translation((half - 0.04, y, 0.085)) @ Matrix.Rotation(math.radians(90), 4, "X"))
     model.turned(wheels, "rubber")
     return model
 
