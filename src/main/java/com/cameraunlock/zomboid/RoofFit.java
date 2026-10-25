@@ -656,7 +656,7 @@ final class RoofFit {
             int up = top.up();
             int dx = isAlongX ? up : 0, dy = isAlongX ? 0 : up;
             float ridge = Math.max(top.fitLow, top.fitHigh);
-            if (slopesOn(at, top, dx, dy, up) || cutShort(at, top, dx, dy, ridge)) {
+            if (slopesOn(at, top, dx, dy, up) || cutShort(at, top, dx, dy, ridge) || endOfAHip(roofed, top, dx, dy, ridge)) {
                 continue;
             }
             int climbed = 1;
@@ -1210,6 +1210,26 @@ final class RoofFit {
                         && Math.abs(Math.min(next.fitLow, next.fitHigh) - ridge) <= JOIN) {
                     return true;
                 }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether the row that ends in this tile is the last before a hip at the end of a crown: across
+     * its top lies no crown, but the crown's corner lies a square to the side at the tile's top. The
+     * roof across it is the hip's face, which climbs from the end wall. Carried over that face, the
+     * row's far side met it in a valley two rows deep and stood across it as a black triangle over
+     * a gable of siding (8675, 8422..8424).
+     */
+    private static boolean endOfAHip(HashMap<Long, Tile> roofed, Tile top, int dx, int dy, float ridge) {
+        if (roofed.containsKey(key(top.x + dx, top.y + dy, 0))) {
+            return false;
+        }
+        for (int side = -1; side <= 1; side += 2) {
+            Tile crown = roofed.get(key(top.x + dx + (dx == 0 ? side : 0), top.y + dy + (dy == 0 ? side : 0), 0));
+            if (crown != null && crown.sheet && Math.abs(crown.fitLow - ridge) < SAME) {
+                return true;
             }
         }
         return false;

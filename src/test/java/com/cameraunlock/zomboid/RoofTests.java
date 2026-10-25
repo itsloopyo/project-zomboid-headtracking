@@ -55,6 +55,7 @@ final class RoofTests {
         Checks.run("canopyIsNotCarriedToTheFarWall", RoofTests::canopyIsNotCarriedToTheFarWall);
         Checks.run("gambrelsFarLowerSlopeComesDownFromItsUpperSlope", RoofTests::gambrelsFarLowerSlopeComesDownFromItsUpperSlope);
         Checks.run("farSlopeMeetsAStepInItsWallInAValley", RoofTests::farSlopeMeetsAStepInItsWallInAValley);
+        Checks.run("rowAtTheEndOfAHipHasNoFarSide", RoofTests::rowAtTheEndOfAHipHasNoFarSide);
         Checks.run("eaveOverALeanToThatStopsShortOfItIsMade", RoofTests::eaveOverALeanToThatStopsShortOfItIsMade);
         Checks.run("trimPastAGableIsNoRoofGoingOn", RoofTests::trimPastAGableIsNoRoofGoingOn);
         Checks.run("trimPastAHipsCornerLeavesTheCornersEave", RoofTests::trimPastAHipsCornerLeavesTheCornersEave);
@@ -1369,6 +1370,40 @@ final class RoofTests {
         }
         RoofFit.Tile wall = madeAt(made, 0, 1);
         check(wall != null && near(wall.corners[0], 1f) && near(wall.corners[1], 1f + THIRD), "the slope away from the step climbs from its wall: " + said(wall));
+    }
+
+    /**
+     * A hip cut short over x 0..7 and y 0..5, as at 8674..8683 x 8415..8425: its crown at 1 + 2/3 over x 2..5 and y 1..3,
+     * the map's east slope climbing to it from the eave at 1 on x 8 and its south slope from the eave on y 6, the south
+     * slope's end tile at x 1 on row 4 under the hip. The east slope is carried over the crown and down the west hip's face.
+     * Across the end tile's top lies no crown, only the crown's corner beside it: the roof there is that face, and no far
+     * side of the south slope is made over it to meet the face in a valley.
+     */
+    private static void rowAtTheEndOfAHipHasNoFarSide() {
+        RoofFit.Site site = standing((x, y) -> x >= 0 && x <= 7 && y >= 0 && y <= 5);
+        List<RoofFit.Tile> roof = new ArrayList<>();
+        for (int x = 0; x <= 7; x++) {
+            roof.add(new RoofFit.Tile(x, 5, 1, RoofFit.ALONG_Y, true, 1f + THIRD, 1f));
+            if (x >= 1 && x <= 5) {
+                roof.add(new RoofFit.Tile(x, 4, 1, RoofFit.ALONG_Y, true, 1f + 2 * THIRD, 1f + THIRD));
+            }
+        }
+        for (int y = 1; y <= 3; y++) {
+            roof.add(new RoofFit.Tile(6, y, 1, RoofFit.ALONG_X, true, 1f + 2 * THIRD, 1f + THIRD));
+            roof.add(new RoofFit.Tile(7, y, 1, RoofFit.ALONG_X, true, 1f + THIRD, 1f));
+            for (int x = 2; x <= 5; x++) {
+                RoofFit.Tile crown = new RoofFit.Tile(x, y, 1, RoofFit.LEVEL, true, 1f + 2 * THIRD, 1f + 2 * THIRD);
+                crown.sheet = true;
+                roof.add(crown);
+            }
+        }
+        RoofFit.fit(roof);
+        List<RoofFit.Tile> made = RoofFit.backs(roof, site);
+        for (int y = 2; y <= 3; y++) {
+            RoofFit.Tile face = madeAt(made, 1, y);
+            check(face != null && !face.shaped && face.fitAxis == RoofFit.ALONG_X && near(face.fitLow, 1f + THIRD) && near(face.fitHigh, 1f + 2 * THIRD),
+                    "the west hip's face climbs to the crown at 1, " + y + ": " + said(face));
+        }
     }
 
     private static void canopyIsNotCarriedToTheFarWall() {
