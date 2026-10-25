@@ -304,10 +304,15 @@ final class Trims {
         }
         panel /= last - OUTLINE_ROWS - tallest;
         int darkest = fewest;
-        for (int row = fewest; row <= tallest; row++) {
-            darkest = rowLight(dots, long_, row) < rowLight(dots, long_, darkest) ? row : darkest;
+        double darkestLight = rowLight(dots, long_, fewest);
+        for (int row = fewest + 1; row <= tallest; row++) {
+            double light = rowLight(dots, long_, row);
+            if (light < darkestLight) {
+                darkest = row;
+                darkestLight = light;
+            }
         }
-        if (rowLight(dots, long_, darkest) >= (1.0 - RAIL_SHADOW) * panel || darkest - fewest < RAIL_FACE_ROWS) {
+        if (darkestLight >= (1.0 - RAIL_SHADOW) * panel || darkest - fewest < RAIL_FACE_ROWS) {
             return -1;
         }
         int end = darkest;

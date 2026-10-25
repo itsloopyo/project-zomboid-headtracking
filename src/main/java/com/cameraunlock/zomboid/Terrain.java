@@ -1851,7 +1851,8 @@ final class Terrain {
      * has come in, and is behind the built world while that is there.
      */
     float farUnder(float x, float y, float toWater) {
-        return far(x, y, toWater) - gain * Math.max(heave(x, y), 0f) * smooth(toWater / VALLEY) + Math.min(knolls(x, y) + roll(x, y), 0f);
+        float heave = heave(x, y), far = gain == 0f ? 0f : gain * lie(x, y, toWater, heave);
+        return far - gain * Math.max(heave, 0f) * smooth(toWater / VALLEY) + Math.min(knolls(x, y) + roll(x, y), 0f);
     }
 
     /** The rise and fall of the country over the better part of a mile. Never steeper than a rise of one in forty. */

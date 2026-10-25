@@ -340,9 +340,11 @@ final class Pictures {
         ByteBuffer to = whole.bytes;
         byte[] clear = new byte[across * 4];
         for (int y = 0; y < down; y++) {
-            to.put(y * across * 4, clear);
             if (y < high) {
                 to.put(y * across * 4, picture.bytes, y * wide * 4, wide * 4);
+                to.put(y * across * 4 + wide * 4, clear, 0, (across - wide) * 4);
+            } else {
+                to.put(y * across * 4, clear);
             }
         }
         picture.free();

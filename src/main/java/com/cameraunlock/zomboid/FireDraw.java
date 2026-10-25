@@ -432,7 +432,8 @@ final class FireDraw {
         GL20.glUniform3f(program.at("uRight"), camera.rightX, camera.rightY, camera.rightUp);
         GL20.glUniform3f(program.at("uUp"), camera.upX, camera.upY, camera.upUp);
         GL20.glUniform3f(program.at("uForward"), camera.forwardX, camera.forwardY, camera.forwardUp);
-        GL20.glUniform1f(program.at("uTime"), seconds(nanos));
+        float seconds = seconds(nanos);
+        GL20.glUniform1f(program.at("uTime"), seconds);
         GL20.glUniform1f(program.at("uStopped"), FireCards.stoppedDown(exposure));
         // Smoke drifts with the air: in a breeze of a tile a second, a tile across for each four it rises.
         float air = (float) Math.hypot(state.airX, state.airY);
@@ -447,7 +448,6 @@ final class FireDraw {
         lightColour[0] = state.lightRed * kept;
         lightColour[1] = state.lightGreen * kept;
         lightColour[2] = state.lightBlue * kept;
-        float seconds = seconds(nanos);
         boolean own = Fires.own(view);
         boolean drawn = cards.begin(depth, camera, tanHalfFieldOfView, aspect, near, far, width, height, asideX, asideY,
                 ambientRed, ambientGreen, ambientBlue, exposure);

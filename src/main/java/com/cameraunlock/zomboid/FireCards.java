@@ -233,8 +233,8 @@ final class FireCards {
         // it, as the game's own frames face its view from above: stood straight it is a sheet seen edge on.
         float lean = LEAN * (float) Math.atan2(Math.max(-up, 0f), level);
         float awayX = level > 1e-3f ? x / level : camera.forwardX, awayY = level > 1e-3f ? y / level : camera.forwardY;
-        float awayLength = (float) Math.hypot(awayX, awayY);
-        float tipX = awayX / Math.max(awayLength, 1e-6f) * (float) Math.sin(lean), tipY = awayY / Math.max(awayLength, 1e-6f) * (float) Math.sin(lean);
+        float awayLength = Math.max((float) Math.hypot(awayX, awayY), 1e-6f), sinLean = (float) Math.sin(lean);
+        float tipX = awayX / awayLength * sinLean, tipY = awayY / awayLength * sinLean;
         float tipUp = (float) Math.cos(lean);
         float left = frame.getOffsetX(), top = frame.getOffsetY(), wide = frame.getWidth(), high = frame.getHeight();
         float scale = fires[f + Fires.LOOK];

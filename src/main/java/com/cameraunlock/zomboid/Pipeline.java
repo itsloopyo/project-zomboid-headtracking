@@ -2087,7 +2087,8 @@ final class Pipeline {
     /** Draws the ranges but the panes of windows, which are drawn last of all (see drawPanes), and the stains and blood, drawn after the rest of what is laid (see drawStains and drawBlood). */
     private void drawRanges(ChunkBuffers.Listing listed, int from, int to) {
         for (int i = from; i < to; i++) {
-            if (listed.tint(i) == WallSides.PANES || listed.tint(i) == WallSides.BLOOD || listed.tint(i) == WallSides.STAIN) {
+            int key = listed.tint(i);
+            if (key == WallSides.PANES || key == WallSides.BLOOD || key == WallSides.STAIN) {
                 continue;
             }
             GL11.glBindTexture(GL_TEXTURE_2D, listed.texture(i) == 0 ? whiteTexture : listed.texture(i));
