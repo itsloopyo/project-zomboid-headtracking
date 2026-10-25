@@ -28,6 +28,8 @@ final class WallBuilder {
     private static final boolean CREASES = Boolean.getBoolean("cameraunlock.zomboid.creases");
     /** How far in from a wall's end its sprite is looked over for its first painted pixel, in unscaled pixels. */
     private static final float MOST_UNPAINTED = 5f;
+    /** How far what is laid over a glazed wall stands clear of the window's frame, in tiles. */
+    private static final float OVER_FRAME = 0.003f;
     /** Frame pixels at tile scale 1 the game paints a wall's top line in, darker than the wall: the top seen from above, which a face standing under the ceiling takes its texels from below. */
     private static final float TOP_LINE = 2f;
     /** The height, in levels, a wall's sprite is looked over at: under the sill of a window. */
@@ -515,8 +517,11 @@ final class WallBuilder {
             startJoin = startPainted ? joins & 7 : 0;
             endJoin = endPainted ? joins >> 3 : 0;
         }
-        build.geometry.shownA = inX;
-        build.geometry.shownB = inY;
+        // What the map lays over a window that is a length of wall, the siding under a shop's glass, is on the window's
+        // frame and not behind it: on the wall's skin, the frame's foot stood over it and showed the sprite's bare panel.
+        float overFrame = build.glazedWall && build.overLayer != 0 ? OpeningBuilder.FRAME_PROUD + OVER_FRAME : 0f;
+        build.geometry.shownA = inX + db * overFrame;
+        build.geometry.shownB = inY + da * overFrame;
         // Each skin is seen from the place it faces, and is drawn only while the eye sees into that place.
         long nearRoom = edgeNear, farRoom = edgeFar;
         build.contentsOf(nearRoom);
@@ -567,8 +572,8 @@ final class WallBuilder {
         skinEnd = (endJoin & WallJoins.FAR) != 0 ? WorldScene.WALL_HALF : 0f;
         build.geometry.creaseLow = CREASES && (startJoin & WallJoins.NEAR) != 0;
         build.geometry.creaseHigh = CREASES && (endJoin & WallJoins.NEAR) != 0;
-        build.geometry.shownA = -inX;
-        build.geometry.shownB = -inY;
+        build.geometry.shownA = -inX - db * overFrame;
+        build.geometry.shownB = -inY - da * overFrame;
         // The sprite is painted for the side inside the square. Where the far side is another
         // place, the skin on it is that side's surface. Only the wall itself: ivy or a
         // stain over it is on the side it was painted on, and is no part of the wall's colour.

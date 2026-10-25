@@ -89,7 +89,8 @@ final class OpeningBuilder {
      */
     static final float HARDWARE = 87f;
     /** How far a window's frame stands out of the wall's skins and laps over the edge of its opening, in tiles. */
-    private static final float FRAME_PROUD = 0.006f, FRAME_LAP = 0.012f;
+    static final float FRAME_PROUD = 0.006f;
+    private static final float FRAME_LAP = 0.012f;
     /** A bar is this much as deep as it is wide, between the least and the most, in tiles. */
     private static final float BAR_DEPTH = 0.55f, BAR_THINNEST = 0.007f, BAR_DEEPEST = 0.022f;
     /** How far the sill stands out of the wall out of doors, how far it runs past the frame at each end and how thick it is, in tiles. */
