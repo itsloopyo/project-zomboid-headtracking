@@ -218,7 +218,7 @@ def main():
         Image.fromarray((sheet * 255.0 + 0.5).astype(numpy.uint8), 'RGBA').save(OUT / 'sprigs.png', optimize=True)
         print('wrote', OUT / 'sprigs.png', (OUT / 'sprigs.png').stat().st_size, 'bytes')
     elif kind == 'surface':
-        for name, pick in picks.items():
+        for name, pick in sorted(picks.items(), key=lambda item: item[0] in SAME_LIGHT):
             picture = Image.open(folder / (pick + '.png')).convert('RGB')
             if name in SPREAD or name in LEAST:
                 rgb = numpy.asarray(picture, dtype=numpy.float32)
