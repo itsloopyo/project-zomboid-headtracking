@@ -16,6 +16,18 @@ final class FenceTests {
         Checks.run("theGamesFloorMarkByNameStaysOffEdgesAndWalls", FenceTests::theGamesFloorMarkByNameStaysOffEdgesAndWalls);
         Checks.run("noTwoWorldMaterialsShareANumber", FenceTests::noTwoWorldMaterialsShareANumber);
         Checks.run("theWhitePicketFenceIsItsModelOnEachEdge", FenceTests::theWhitePicketFenceIsItsModelOnEachEdge);
+        Checks.run("theSecurityFenceStartsWhereItsPostIsBeforeTheCorner", FenceTests::theSecurityFenceStartsWhereItsPostIsBeforeTheCorner);
+    }
+
+    private static void theSecurityFenceStartsWhereItsPostIsBeforeTheCorner() {
+        // Read off the sprites: fencing_01_48's post stands 12 to 16 dots of 64 before the corner, its arm reaches 34.
+        Checks.check(Fences.overhang("fencing_01_48") >= 34f / 64f && Fences.overhang("fencing_01_51") == Fences.overhang("fencing_01_48"),
+                "a length with a post starts where its arm reaches");
+        Checks.check(Fences.overhang("fencing_01_49") > 0f && Fences.overhang("fencing_01_49") < Fences.overhang("fencing_01_48")
+                && Fences.overhangLayers("fencing_01_49") < Fences.overhangLayers("fencing_01_48"), "one without starts nearer, and under the one with");
+        for (String other : new String[] {"fencing_01_52", "fencing_01_53", "fencing_01_56", "fencing_01_4", "fencing_02_48", "walls_exterior_house_01_48"}) {
+            Checks.check(Fences.overhang(other) == 0f, other + " starts at its corner");
+        }
     }
 
     private static void theWhitePicketFenceIsItsModelOnEachEdge() {

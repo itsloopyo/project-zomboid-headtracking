@@ -390,7 +390,11 @@ final class WallBuilder {
             } else if (build.picket) {
                 addPickets(texture, x, y, z, da, db);
             } else {
-                build.geometry.addFace(mesh, build.frame, x, y, z, 0f, 0f, 0f, da, db, 0f, 0f, 0f, 1f);
+                float from = build.sheetFrom;
+                if (from != 0f) {
+                    WorldScene.layers.lie(way, layer + build.sheetLayers);
+                }
+                build.geometry.addFace(mesh, build.frame, x, y, z, from * da, from * db, 0f, (1f - from) * da, (1f - from) * db, 0f, 0f, 0f, 1f);
             }
             return;
         }

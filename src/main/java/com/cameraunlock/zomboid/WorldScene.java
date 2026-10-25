@@ -821,6 +821,8 @@ final class WorldScene {
         final boolean linkSheet;
         /** Whether it is a whole length of white picket fence: see Pickets. */
         final boolean pickets;
+        /** How far before its square's corner it paints along its edge, and how many layers off the edge it lies: see Fences.overhang. */
+        final float overhang, overhangLayers;
         /** As a tree, what it drops, for a tree that turns the first of its kind's colours and for one that turns the other: see Litter.kindOf. */
         private final byte falls, fallsOther;
         /** What it is a square of rug made of, Rugs.WOVEN, FUR or HIDE, or -1 for no rug, and how high its top lies over the floor, in levels: see Flat.pile. */
@@ -916,6 +918,8 @@ final class WorldScene {
             brokenLink = ChainLink.brokenMaterial(name, madeOf, onEdge);
             linkSheet = ChainLink.sheet(name, properties, type);
             pickets = Pickets.is(name);
+            overhang = Fences.overhang(name);
+            overhangLayers = Fences.overhangLayers(name);
             lights = Lights.slice(sprite);
             parasol = Parasols.quarter(sprite);
             eave = Hoods.eave(sprite);
@@ -7407,6 +7411,8 @@ final class WorldScene {
             linkPostDue = chainLink != null && chainLink.hasPost();
             picket = seeThrough && overLayer == 0 && Own.buildings() && kind.pickets;
             picketPostDue = picket;
+            sheetFrom = seeThrough ? -kind.overhang : 0f;
+            sheetLayers = kind.overhangLayers;
             if (seeThrough && overLayer == 0 && Own.buildings() && kind.brokenLink != 0f) {
                 frame.material = kind.brokenLink;
             }
@@ -8083,6 +8089,8 @@ final class WorldScene {
         boolean picket;
         /** Whether the post of the picket fence being added is still to be stood: as linkPostDue. */
         boolean picketPostDue;
+        /** Where along its edge the sheet being added starts, before its square's corner, and how many layers off the edge it then lies: see Fences.overhang. */
+        float sheetFrom, sheetLayers;
 
         /**
          * Whether the sprite is painted all over the box its outline describes: a fridge, a counter,

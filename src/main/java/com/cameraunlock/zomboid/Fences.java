@@ -21,4 +21,26 @@ final class Fences {
     static boolean ironBars(String name, String material) {
         return name != null && name.startsWith("fencing_") && "MetalBars".equals(material);
     }
+
+    /** How far before its square's corner the security fence's sprites paint, in tiles along the edge: a length with a post and one without. */
+    private static final float POSTED_OVERHANG = 0.55f, KERB_OVERHANG = 0.35f;
+
+    /**
+     * How far before its square's north-west corner a length of the security fence (welded mesh
+     * over a kerb, barbed wire on arms) paints itself, in tiles along its edge, or 0 for any other
+     * sprite. Its post, the arm on the post and the end of its kerb stand there, over the end of
+     * the length before: the sheet cut at the corner lost every post and left a gap in its place.
+     */
+    static float overhang(String name) {
+        return switch (name == null ? -1 : Sheets.place(name, "fencing_01_")) {
+            case 48, 51 -> POSTED_OVERHANG;
+            case 49, 50 -> KERB_OVERHANG;
+            default -> 0f;
+        };
+    }
+
+    /** How many layers off the edge a length of the security fence lies, so that one with a post is drawn over the end of the one before. */
+    static float overhangLayers(String name) {
+        return overhang(name) == POSTED_OVERHANG ? 2f : 1f;
+    }
 }
