@@ -48,8 +48,11 @@ final class RoofFit {
      * more than this, in levels, are of two pitches: a slope and the shallower kick it runs out
      * into at its eave. Laid on one plane the slope was flattened to the kick's pitch, and had no
      * far side made for it (a porch roof at 3661..3663, 5715..5725, roofs_05_4 over 97 and 96).
+     * A gambrel's upper slope climbs half the standard pitch, a difference of just this: taken as
+     * one plane with the lower slope, the barn's near side was laid straight from eave to ridge at
+     * a quarter of a level a tile (7621..7642 x 14354..14359).
      */
-    static final float KINK = PITCH / 2f;
+    static final float KINK = PITCH / 2f - SAME;
     static final int EAST_HALF = 1, SOUTH_HALF = 2;
     /** How many squares towards the map's origin, and thirds of a level down, a half tile is looked for its place: see peaks. */
     private static final int FURTHEST_SHIFT = 2;
