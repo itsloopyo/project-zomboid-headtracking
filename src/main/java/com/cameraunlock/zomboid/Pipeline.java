@@ -5067,30 +5067,7 @@ final class Pipeline {
         GL11.glBindTexture(GL_TEXTURE_2D, nearMap);
         GL13.glActiveTexture(GL_TEXTURE0);
         GL11.glBindTexture(GL_TEXTURE_2D, figureColor);
-        figureLight.set("uNearMatrix", nearMatrix);
-        figureLight.set("uFarMatrix", farMatrix);
-        figureLight.set("uSize", (float) width, (float) height);
-        figureLight.set("uTan", tanHalfFieldOfView * aspect, tanHalfFieldOfView);
-        figureLight.set("uNear", near);
-        figureLight.set("uFar", far);
-        figureLight.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
-        figureLight.set("uRangeFrom", rangeFrom);
-        figureLight.set("uEyeOutdoors", state.outdoors);
-        setBasis(figureLight, camera);
-        figureLight.set("uLight", state.lightX, state.lightY, state.lightUp);
-        setBeams(figureLight, TORCH_UNIT);
-        figureLight.set("uShines", shadedAndLit ? 1f : 0f);
-        setFlash(figureLight);
-        figureLight.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
-        figureGold(state, gold);
-        figureLight.set("uFigureGold", gold[0], gold[1], gold[2], gold[3]);
-        figureLight.set("uFogStart", fogStart);
-        figureLight.set("uFogEnd", fogEnd);
-        figureLight.set("uLoaded", loadedX - camera.eyeX, loadedY - camera.eyeY, loadedWithin);
-        figureLight.set("uBeyond", beyond);
-        figureLight.set("uWriteNear", 0f);
-        // Only the viewer's own vehicle is cut away from inside, not who stands beside it.
-        figureLight.set("uInside", 0f);
+        lightFiguresAs(camera, state, tanHalfFieldOfView, aspect, near, far, width, height, rangeFrom, shadedAndLit, beyond, fogStart, fogEnd);
         figureLight.set("uOwnAmbient", 1f, 1f, 1f);
         figureLight.set("uFigureAmbient", view.characters.ambient);
         GL13.glActiveTexture(GL_TEXTURE0 + NORMAL_UNIT);
@@ -5645,29 +5622,8 @@ final class Pipeline {
             GL11.glBindTexture(GL_TEXTURE_2D, figureNormal);
             GL13.glActiveTexture(GL_TEXTURE0);
             GL11.glBindTexture(GL_TEXTURE_2D, figureColor);
-            figureLight.set("uNearMatrix", nearMatrix);
-            figureLight.set("uFarMatrix", farMatrix);
-            figureLight.set("uSize", (float) wide, (float) high);
-            figureLight.set("uTan", tan * aspect, tan);
-            figureLight.set("uNear", near);
-            figureLight.set("uFar", far);
-            figureLight.set("uEye", pose.eyeX, pose.eyeY, pose.eyeUp);
-            figureLight.set("uRangeFrom", 0f);
-            figureLight.set("uEyeOutdoors", state.outdoors);
-            setBasis(figureLight, pose);
-            figureLight.set("uLight", state.lightX, state.lightY, state.lightUp);
-            setBeams(figureLight, TORCH_UNIT);
-            figureLight.set("uShines", shadedAndLit && !mirror ? 1f : 0f);
-            setFlash(figureLight);
-            figureLight.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
-            figureGold(state, gold);
-            figureLight.set("uFigureGold", gold[0], gold[1], gold[2], gold[3]);
-            figureLight.set("uFogStart", fogStart);
-            figureLight.set("uFogEnd", fogEnd);
-            figureLight.set("uLoaded", loadedX - pose.eyeX, loadedY - pose.eyeY, loadedWithin);
-            figureLight.set("uBeyond", aside == ASIDE_SCOPE ? Math.min(beyond, 1f) : 0f);
-            figureLight.set("uWriteNear", 0f);
-            figureLight.set("uInside", 0f);
+            lightFiguresAs(pose, state, tan, aspect, near, far, wide, high, 0f, shadedAndLit && !mirror, aside == ASIDE_SCOPE ? Math.min(beyond, 1f) : 0f,
+                    fogStart, fogEnd);
             figureLight.set("uGlassPass", 0f);
             figureLight.set("uOwnAmbient", 1f, 1f, 1f);
             figureLight.set("uFigureAmbient", view.characters.ambient);
@@ -5687,6 +5643,39 @@ final class Pipeline {
             figureLight.set("uMirrored", 0f);
         }
         GL11.glDepthMask(true);
+    }
+
+    /**
+     * Tells figureLight the picture the figures it lights were drawn into, wide by high from pose, and the light of the
+     * scene they stand in, up to what a figure the eye is not inside has: rangeFrom, beyond, the fog and whether
+     * surfaces shine as for the world's own drawing.
+     */
+    private void lightFiguresAs(ViewCamera.Pose pose, SkyState state, float tan, float aspect, float near, float far, int wide, int high,
+            float rangeFrom, boolean shines, float beyondShown, float fogStart, float fogEnd) {
+        figureLight.set("uNearMatrix", nearMatrix);
+        figureLight.set("uFarMatrix", farMatrix);
+        figureLight.set("uSize", (float) wide, (float) high);
+        figureLight.set("uTan", tan * aspect, tan);
+        figureLight.set("uNear", near);
+        figureLight.set("uFar", far);
+        figureLight.set("uEye", pose.eyeX, pose.eyeY, pose.eyeUp);
+        figureLight.set("uRangeFrom", rangeFrom);
+        figureLight.set("uEyeOutdoors", state.outdoors);
+        setBasis(figureLight, pose);
+        figureLight.set("uLight", state.lightX, state.lightY, state.lightUp);
+        setBeams(figureLight, TORCH_UNIT);
+        figureLight.set("uShines", shines ? 1f : 0f);
+        setFlash(figureLight);
+        figureLight.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
+        figureGold(state, gold);
+        figureLight.set("uFigureGold", gold[0], gold[1], gold[2], gold[3]);
+        figureLight.set("uFogStart", fogStart);
+        figureLight.set("uFogEnd", fogEnd);
+        figureLight.set("uLoaded", loadedX - pose.eyeX, loadedY - pose.eyeY, loadedWithin);
+        figureLight.set("uBeyond", beyondShown);
+        figureLight.set("uWriteNear", 0f);
+        // Only the viewer's own vehicle is cut away from inside, not who stands beside it.
+        figureLight.set("uInside", 0f);
     }
 
     /** The frame's arrays and depth test again, after the game's own draw of a character into a shadow map. */
