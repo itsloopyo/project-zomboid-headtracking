@@ -21,8 +21,12 @@ import zombie.core.textures.Texture;
  * the slats of each block running across those of the blocks beside it. And a grid of tiles
  * each shaded lighter or darker towards its edges, whose colours are read further in.
  *
- * A floor that is none of these is not read as one: boards, bricks laid in bond, a pattern
- * across the tiles.
+ * Last, pavers: a grid of cells, of which some joints are laid and some are not, so that the
+ * cells make bricks one by two, two by two and so on, laid in rows or herringbone, each paver
+ * in a colour of its own.
+ *
+ * A floor that is none of these is not read as one: hexagons, slabs laid out of line, a
+ * pattern across the tiles.
  */
 final class Tiles {
     /** The numbers of tiles to a side that are tried. */
@@ -81,6 +85,37 @@ final class Tiles {
      * slabs and a kitchen's big tiles. Plain lino and a carpet are as light to the edge.
      */
     private static final float RIM = 0.03f, RIM_DARK = 0.92f;
+    /**
+     * The numbers of pavers' cells to a side that are tried, and the fewest a floor of pavers
+     * has: slabs half a square across have too few joints to tell a pattern of them from the
+     * shading on the slabs, and the sprite draws them well enough.
+     */
+    private static final int[] PAVER_CELLS = {2, 3, 4, 6, 8};
+    private static final int FEWEST_CELLS = 4;
+    /** How many places between two dots the first joint of a grid of pavers' cells is looked for at. */
+    private static final int PAVER_PHASES = 4;
+    /**
+     * A count of cells is taken, the most of them, where the light of the lines it puts its
+     * joints on stands out from the light either side at least this share of the most any count's
+     * does: a count that divides the true one stands out as much, its joints being some of them.
+     */
+    private static final float PAVER_AS_GOOD = 0.75f;
+    /**
+     * Along each side of each cell, how far the joint's dots stand out from the dots beside it,
+     * against the median of the joints that run that way: a joint is laid there at JOINED of the
+     * median or more, and the two cells are one paver at APART or less. Between the two is no
+     * pattern of pavers, and nor is a floor whose joints stand out at the median by less than
+     * PAVER_JOINTS in light, a plain floor's dots differing that much among themselves.
+     */
+    private static final float JOINED = 0.5f, APART = 0.35f, PAVER_JOINTS = 0.03f;
+    /**
+     * The joints of pavers, at the median of all of them, stand out at least this many times as
+     * far as the dots inside a paver lie from its light: a lawn, a carpet's pile or boards' grain
+     * have lines in them as strong as the speckle round them, and are no pavers.
+     */
+    private static final float PAVER_CLEAR = 3.5f;
+    /** The fewest dots a side a sprite has to be read at to be read for pavers: a cell of the smaller sprites is a few dots across. */
+    private static final int PAVER_SIDE = 48;
 
     /** One sprite's floor. */
     static final class Shape {
@@ -116,6 +151,19 @@ final class Tiles {
          */
         int blocks, slats;
         boolean evenAlongY;
+        /**
+         * For pavers, how many cells there are along a and along b, and where along each the
+         * first joint is as a share of the square, each next joint a cell further on: see
+         * pavers. 0 cells for what is no floor of pavers.
+         */
+        int cellsA, cellsB;
+        float firstA, firstB;
+        /**
+         * Each paver as seven numbers: its first cell along a and along b, how many cells it
+         * runs along a and along b, and its red, green and blue. A paver may run over the edge
+         * of the square into the next, where the floor goes on the same.
+         */
+        float[] pavers;
     }
 
     private record Asked(float originU, float originV, float scale, float left, float top, float width, float height) {}
@@ -188,6 +236,7 @@ final class Tiles {
         if (FirstPerson.TRACE) {
             Log.info("floor " + texture.getName() + (shape == null ? " is not a square of floor"
                     : shape.blocks > 0 ? " is parquet, " + shape.blocks + " blocks a side of " + shape.slats + " slats"
+                    : shape.pavers != null ? " is " + shape.pavers.length / 7 + " pavers on " + shape.cellsA + " by " + shape.cellsB + " cells"
                     : shape.diagonal > 0 ? " is tiles on the diagonal, " + shape.diagonal + " joints a tile from " + shape.phase + " and " + shape.phaseAcross + (shape.checkered ? ", chequered" : "")
                     : shape.count == 0 ? " is no grid of plain tiles, uneven " + shape.uneven
                     : " is " + shape.count + " tiles a side"));
@@ -226,7 +275,392 @@ final class Tiles {
                 shape.uneven = uneven(dots, side, 1, EDGE, null);
             }
         }
+        if (shape == null && side >= PAVER_SIDE) {
+            shape = pavers(dots, side);
+        }
         return shape;
+    }
+
+    /**
+     * Pavers in a square of floor laid flat, or null. The grid of cells along each way is the
+     * one whose lines of dots stand out most from the dots either side, and then each side of
+     * each cell is a joint or is not, by how far its dots stand out: cells with no joint between
+     * are one paver, which has to be a rectangle of them. Every paver's colour is read inside
+     * its cells away from their lines, and the joints' on the lines where a joint is laid.
+     */
+    static Shape pavers(float[] dots, int side) {
+        float[] light = new float[side * side];
+        for (int dot = 0; dot < side * side; dot++) {
+            light[dot] = dots[dot * 3] < 0f ? Float.NaN : 0.299f * dots[dot * 3] + 0.587f * dots[dot * 3 + 1] + 0.114f * dots[dot * 3 + 2];
+        }
+        float[] alongA = new float[2], alongB = new float[2];
+        cellLines(light, side, true, alongA);
+        cellLines(light, side, false, alongB);
+        int cellsA = (int) alongA[0], cellsB = (int) alongB[0];
+        // Cells longer one way than the other are boards, laid end to end.
+        if (cellsA != cellsB || cellsA < FEWEST_CELLS) {
+            return null;
+        }
+        float cellA = side / (float) cellsA, cellB = side / (float) cellsB;
+        // The joints across a, before cell i along a in its row j along b; and those across b, before row j in its column i.
+        float[] acrossA = new float[cellsA * cellsB], acrossB = new float[cellsA * cellsB];
+        for (int i = 0; i < cellsA; i++) {
+            for (int j = 0; j < cellsB; j++) {
+                float fromA = alongA[1] + i * cellA, fromB = alongB[1] + j * cellB;
+                acrossA[i * cellsB + j] = jointStands(light, side, true, fromA, fromB + 1.5f, fromB + cellB - 1.5f);
+                acrossB[i * cellsB + j] = jointStands(light, side, false, fromB, fromA + 1.5f, fromA + cellA - 1.5f);
+            }
+        }
+        boolean[] laidA = laid(acrossA), laidB = laid(acrossB);
+        if (laidA == null || laidB == null) {
+            return null;
+        }
+        // Cells with no joint between are one paver: each cell is joined to its paver's lowest cell.
+        int[] paverOf = new int[cellsA * cellsB];
+        for (int cell = 0; cell < paverOf.length; cell++) {
+            paverOf[cell] = cell;
+        }
+        for (int i = 0; i < cellsA; i++) {
+            for (int j = 0; j < cellsB; j++) {
+                if (!laidA[i * cellsB + j]) {
+                    join(paverOf, i * cellsB + j, Math.floorMod(i - 1, cellsA) * cellsB + j);
+                }
+                if (!laidB[i * cellsB + j]) {
+                    join(paverOf, i * cellsB + j, i * cellsB + Math.floorMod(j - 1, cellsB));
+                }
+            }
+        }
+        float[] pavers = new float[paverOf.length * 7];
+        int count = 0;
+        int[] slot = new int[paverOf.length];
+        Arrays.fill(slot, -1);
+        for (int cell = 0; cell < paverOf.length; cell++) {
+            int root = root(paverOf, cell);
+            if (slot[root] >= 0) {
+                continue;
+            }
+            int[] box = rectangle(paverOf, root, cellsA, cellsB);
+            if (box == null) {
+                return null;
+            }
+            slot[root] = count;
+            for (int k = 0; k < 4; k++) {
+                pavers[count * 7 + k] = box[k];
+            }
+            count++;
+        }
+        Shape shape = new Shape();
+        shape.cellsA = cellsA;
+        shape.cellsB = cellsB;
+        shape.firstA = alongA[1] / side;
+        shape.firstB = alongB[1] / side;
+        shape.pavers = Arrays.copyOf(pavers, count * 7);
+        shape.uneven = uneven(dots, side, 1, EDGE, null);
+        float rough = paverColours(dots, light, side, shape, paverOf, slot, laidA, laidB);
+        float[] both = new float[acrossA.length + acrossB.length];
+        int held = 0;
+        for (float stands : acrossA) {
+            if (!Float.isNaN(stands)) {
+                both[held++] = stands;
+            }
+        }
+        for (float stands : acrossB) {
+            if (!Float.isNaN(stands)) {
+                both[held++] = stands;
+            }
+        }
+        return median(both, held) >= PAVER_CLEAR * rough ? shape : null;
+    }
+
+    /**
+     * Into found, how many cells there are along a for alongA, else along b, and where the
+     * first of their joints is, in dots: of the counts whose joints stand out at least
+     * PAVER_AS_GOOD of the most, the most cells.
+     */
+    private static void cellLines(float[] light, int side, boolean alongA, float[] found) {
+        float[] profile = new float[side];
+        for (int k = 0; k < side; k++) {
+            double sum = 0;
+            int held = 0;
+            for (int other = 0; other < side; other++) {
+                float dot = light[alongA ? k * side + other : other * side + k];
+                if (!Float.isNaN(dot)) {
+                    sum += dot;
+                    held++;
+                }
+            }
+            profile[k] = held == 0 ? Float.NaN : (float) (sum / held);
+        }
+        float[] stands = new float[PAVER_CELLS.length], first = new float[PAVER_CELLS.length];
+        float most = 0f;
+        for (int c = 0; c < PAVER_CELLS.length; c++) {
+            float cell = side / (float) PAVER_CELLS[c];
+            int half = Math.round(cell / 2f);
+            for (int place = 0; place < cell * PAVER_PHASES; place++) {
+                float phase = place / (float) PAVER_PHASES, sum = 0f;
+                int held = 0;
+                for (int m = 0; m < PAVER_CELLS[c]; m++) {
+                    float line = phase + m * cell;
+                    float low = standsOut(profile, (int) Math.floor(line - 0.5f), half), high = standsOut(profile, (int) Math.floor(line + 0.5f), half);
+                    float here = Float.isNaN(low) ? high : Float.isNaN(high) ? low : Math.max(low, high);
+                    if (!Float.isNaN(here)) {
+                        sum += here;
+                        held++;
+                    }
+                }
+                float mean = held == 0 ? 0f : sum / held;
+                if (mean > stands[c]) {
+                    stands[c] = mean;
+                    first[c] = phase;
+                }
+            }
+            most = Math.max(most, stands[c]);
+        }
+        int picked = 0;
+        for (int c = 0; c < PAVER_CELLS.length; c++) {
+            if (stands[c] >= PAVER_AS_GOOD * most) {
+                picked = c;
+            }
+        }
+        found[0] = PAVER_CELLS[picked];
+        found[1] = first[picked];
+    }
+
+    /**
+     * How far the light of line k of a profile stands from the median of the lines within half
+     * of it either side, leaving out the two beside it, which a joint's soft edge darkens too.
+     * NaN by the square's edges, whose outermost dots the game shades.
+     */
+    private static float standsOut(float[] profile, int k, int half) {
+        int side = profile.length;
+        if (k < 2 || k > side - 3 || Float.isNaN(profile[k])) {
+            return Float.NaN;
+        }
+        float[] round = new float[2 * half + 1];
+        int held = 0;
+        for (int o = -half; o <= half; o++) {
+            int at = k + o;
+            if (Math.abs(o) > 1 && at >= 2 && at <= side - 3 && !Float.isNaN(profile[at])) {
+                round[held++] = profile[at];
+            }
+        }
+        return held == 0 ? Float.NaN : Math.abs(profile[k] - median(round, held));
+    }
+
+    /**
+     * How far the dots of a joint across a for acrossA, else across b, on the line at line dots
+     * along the way it is across, stand from the dots either side, from from to to along it: the
+     * mean over the dots along it of the more of how much darker the darker of the two dots
+     * nearest the line is, and how much lighter the lighter, than the median of the dots two and
+     * three away. NaN where the joint lies by the square's edges.
+     */
+    private static float jointStands(float[] light, int side, boolean acrossA, float line, float from, float to) {
+        int low = Math.floorMod((int) Math.floor(line - 0.5f), side), high = Math.floorMod((int) Math.floor(line + 0.5f), side);
+        if (low < 1 || low > side - 2 || high < 1 || high > side - 2) {
+            return Float.NaN;
+        }
+        float sum = 0f;
+        int held = 0;
+        float[] beside = new float[4];
+        for (int t = (int) Math.ceil(from); t < to; t++) {
+            int along = Math.floorMod(t, side);
+            if (along < 1 || along > side - 2) {
+                continue;
+            }
+            float a = lightAt(light, side, acrossA, low, along), b = lightAt(light, side, acrossA, high, along);
+            beside[0] = lightAt(light, side, acrossA, Math.floorMod(low - 2, side), along);
+            beside[1] = lightAt(light, side, acrossA, Math.floorMod(low - 3, side), along);
+            beside[2] = lightAt(light, side, acrossA, Math.floorMod(high + 2, side), along);
+            beside[3] = lightAt(light, side, acrossA, Math.floorMod(high + 3, side), along);
+            if (Float.isNaN(a) || Float.isNaN(b) || Float.isNaN(beside[0]) || Float.isNaN(beside[1]) || Float.isNaN(beside[2]) || Float.isNaN(beside[3])) {
+                continue;
+            }
+            float middle = median(beside, 4);
+            sum += Math.max(middle - Math.min(a, b), Math.max(a, b) - middle);
+            held++;
+        }
+        return held == 0 ? Float.NaN : sum / held;
+    }
+
+    /** Whether dot k is one of the two either side of a line at line dots, as jointStands reads them. */
+    private static boolean besideLine(int k, float line, int side) {
+        return k == Math.floorMod((int) Math.floor(line - 0.5f), side) || k == Math.floorMod((int) Math.floor(line + 0.5f), side);
+    }
+
+    private static float lightAt(float[] light, int side, boolean acrossA, int across, int along) {
+        return light[acrossA ? across * side + along : along * side + across];
+    }
+
+    /**
+     * Which of the joints one way are laid, by how far each stands out against their median, or
+     * null where one is neither laid nor not, or the median is a plain floor's. A joint by the
+     * square's edge, which cannot be read, is laid.
+     */
+    private static boolean[] laid(float[] stands) {
+        float[] read = new float[stands.length];
+        int held = 0;
+        for (float s : stands) {
+            if (!Float.isNaN(s)) {
+                read[held++] = s;
+            }
+        }
+        if (held == 0) {
+            return null;
+        }
+        float middle = median(read, held);
+        if (middle < PAVER_JOINTS) {
+            return null;
+        }
+        boolean[] laid = new boolean[stands.length];
+        for (int k = 0; k < stands.length; k++) {
+            float s = stands[k];
+            if (Float.isNaN(s) || s >= JOINED * middle) {
+                laid[k] = true;
+            } else if (s > APART * middle) {
+                return null;
+            }
+        }
+        return laid;
+    }
+
+    private static float median(float[] values, int count) {
+        float[] sorted = Arrays.copyOf(values, count);
+        Arrays.sort(sorted);
+        return count % 2 == 1 ? sorted[count / 2] : (sorted[count / 2 - 1] + sorted[count / 2]) / 2f;
+    }
+
+    private static int root(int[] paverOf, int cell) {
+        while (paverOf[cell] != cell) {
+            cell = paverOf[cell];
+        }
+        return cell;
+    }
+
+    private static void join(int[] paverOf, int one, int other) {
+        int a = root(paverOf, one), b = root(paverOf, other);
+        paverOf[Math.max(a, b)] = Math.min(a, b);
+    }
+
+    /**
+     * The first cell along a and along b of the paver whose lowest cell is root, and how many
+     * cells it runs along each, if its cells are a rectangle of them, running on over the
+     * square's edge into the next where they do; else null.
+     */
+    private static int[] rectangle(int[] paverOf, int root, int cellsA, int cellsB) {
+        int size = 0;
+        for (int cell = 0; cell < paverOf.length; cell++) {
+            size += root(paverOf, cell) == root ? 1 : 0;
+        }
+        for (int cell = 0; cell < paverOf.length; cell++) {
+            if (root(paverOf, cell) != root) {
+                continue;
+            }
+            int i = cell / cellsB, j = cell % cellsB;
+            for (int wide = 1; wide <= cellsA; wide++) {
+                if (size % wide != 0 || size / wide > cellsB) {
+                    continue;
+                }
+                int deep = size / wide;
+                boolean all = true;
+                for (int di = 0; di < wide && all; di++) {
+                    for (int dj = 0; dj < deep && all; dj++) {
+                        all = root(paverOf, ((i + di) % cellsA) * cellsB + (j + dj) % cellsB) == root;
+                    }
+                }
+                if (all) {
+                    return new int[] {i, j, wide, deep};
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Each paver's colour, from its dots more than a dot and a half from any line of the grid
+     * of cells; the joints' colour, from the darker half of the two dots either side of each line
+     * where a joint is laid, the game painting a joint as a dark line a dot wide with the paver's
+     * lit edge beside it; and the floor's as a whole. Returns how far, in light, the dots read for
+     * a paver's colour lie from the paver's light, on average.
+     */
+    private static float paverColours(float[] dots, float[] light, int side, Shape shape, int[] paverOf, int[] slot, boolean[] laidA, boolean[] laidB) {
+        int cellsA = shape.cellsA, cellsB = shape.cellsB;
+        float cellA = side / (float) cellsA, cellB = side / (float) cellsB;
+        float firstA = shape.firstA * side, firstB = shape.firstB * side;
+        int pavers = shape.pavers.length / 7;
+        double[] sums = new double[pavers * 3], joint = new double[3], whole = new double[3];
+        int[] held = new int[pavers], paverAt = new int[side * side];
+        Arrays.fill(paverAt, -1);
+        boolean[] onJoints = new boolean[side * side];
+        int joints = 0, every = 0;
+        for (int i = 0; i < side; i++) {
+            for (int j = 0; j < side; j++) {
+                int at = (i * side + j) * 3;
+                if (dots[at] < 0f) {
+                    continue;
+                }
+                // Where the dot is in the grid of cells, in cells from the first joint, round the square.
+                double fromA = (i + 0.5 - firstA) / cellA, fromB = (j + 0.5 - firstB) / cellB;
+                float inA = (float) (fromA - Math.floor(fromA / cellsA) * cellsA), inB = (float) (fromB - Math.floor(fromB / cellsB) * cellsB);
+                int ci = Math.min((int) inA, cellsA - 1), cj = Math.min((int) inB, cellsB - 1);
+                float toA = Math.min(inA - ci, ci + 1 - inA) * cellA, toB = Math.min(inB - cj, cj + 1 - inB) * cellB;
+                // The line nearest each way, and whether a joint is laid on it beside this cell.
+                int lineA = inA - ci < 0.5f ? ci : (ci + 1) % cellsA, lineB = inB - cj < 0.5f ? cj : (cj + 1) % cellsB;
+                boolean onJoint = besideLine(i, firstA + lineA * cellA, side) && laidA[lineA * cellsB + cj]
+                        || besideLine(j, firstB + lineB * cellB, side) && laidB[ci * cellsB + lineB];
+                for (int part = 0; part < 3; part++) {
+                    whole[part] += dots[at + part];
+                }
+                every++;
+                if (onJoint) {
+                    onJoints[i * side + j] = true;
+                } else if (toA > 1.5f && toB > 1.5f) {
+                    int paver = slot[root(paverOf, ci * cellsB + cj)];
+                    paverAt[i * side + j] = paver;
+                    for (int part = 0; part < 3; part++) {
+                        sums[paver * 3 + part] += dots[at + part];
+                    }
+                    held[paver]++;
+                }
+            }
+        }
+        for (int paver = 0; paver < pavers; paver++) {
+            for (int part = 0; part < 3; part++) {
+                shape.pavers[paver * 7 + 4 + part] = (float) (held[paver] == 0 ? whole[part] / every : sums[paver * 3 + part] / held[paver]);
+            }
+        }
+        shape.red = (float) (whole[0] / every);
+        shape.green = (float) (whole[1] / every);
+        shape.blue = (float) (whole[2] / every);
+        float[] jointLight = new float[side * side];
+        int onLines = 0;
+        for (int dot = 0; dot < side * side; dot++) {
+            if (onJoints[dot]) {
+                jointLight[onLines++] = light[dot];
+            }
+        }
+        float darkHalf = onLines == 0 ? 0f : median(jointLight, onLines);
+        for (int dot = 0; dot < side * side; dot++) {
+            if (onJoints[dot] && light[dot] <= darkHalf) {
+                for (int part = 0; part < 3; part++) {
+                    joint[part] += dots[dot * 3 + part];
+                }
+                joints++;
+            }
+        }
+        shape.jointRed = (float) (joint[0] / Math.max(joints, 1));
+        shape.jointGreen = (float) (joint[1] / Math.max(joints, 1));
+        shape.jointBlue = (float) (joint[2] / Math.max(joints, 1));
+        double off = 0;
+        int read = 0;
+        for (int dot = 0; dot < side * side; dot++) {
+            int paver = paverAt[dot];
+            if (paver >= 0) {
+                float[] at = shape.pavers;
+                off += Math.abs(light[dot] - (0.299f * at[paver * 7 + 4] + 0.587f * at[paver * 7 + 5] + 0.114f * at[paver * 7 + 6]));
+                read++;
+            }
+        }
+        return read == 0 ? Float.MAX_VALUE : (float) (off / read);
     }
 
     /**

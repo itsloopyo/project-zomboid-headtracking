@@ -387,20 +387,22 @@ final class FloorBuilder {
         }
         // A fitted carpet is one colour, with a nap the picture has a picture of: the few dots of
         // lighter and darker the game scatters on it are blots when magnified.
-        if (carpet ? tiles.uneven > CARPET_UNEVEN : tiles.count == 0 && tiles.diagonal == 0 && tiles.blocks == 0) {
+        if (carpet ? tiles.uneven > CARPET_UNEVEN : tiles.count == 0 && tiles.diagonal == 0 && tiles.blocks == 0 && tiles.pavers == null) {
             return false;
         }
         int count = carpet ? 1 : tiles.count;
         float made = build.frame.material, red = build.frame.red, green = build.frame.green, blue = build.frame.blue;
         build.frame.cornersInto(build.paperRed, build.paperGreen, build.paperBlue, build.paperUnlit);
-        // Slabs laid outside, a drive or a path, are paving: as tiles they took the grain of tarmac.
-        build.frame.material = carpet ? WorldScene.CARPET : outside && tiles.rimmed ? Ground.PAVING : WorldScene.TILE;
+        // Slabs and pavers laid outside, a drive or a path, are paving: as tiles they took the grain of tarmac.
+        build.frame.material = carpet ? WorldScene.CARPET : outside && (tiles.rimmed || tiles.pavers != null) ? Ground.PAVING : WorldScene.TILE;
         float each = 1f / count;
         layFloor(true);
         if (!carpet && tiles.blocks > 0) {
             // Parquet is one face in the mean colour of the sprite, which the picture lays as blocks of slats in its own wood.
             build.frame.material = WorldScene.parquetOf(tiles.blocks, tiles.slats, tiles.evenAlongY);
             build.geometry.addFace(painted(texture.getID(), red, green, blue, tiles.red, tiles.green, tiles.blue), build.frame, x, y, z, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
+        } else if (!carpet && tiles.pavers != null) {
+            addPavers(tiles, red, green, blue, x, y, z);
         } else if (!carpet && tiles.diagonal > 0) {
             addDiagonal(tiles, red, green, blue, x, y, z);
         } else if (count == 1 && !tiles.rimmed) {
@@ -495,6 +497,46 @@ final class FloorBuilder {
         }
         geometry.jointStep = Float.NaN;
         geometry.alongA = geometry.alongB = geometry.acrossA = geometry.acrossB = geometry.jointPhase = geometry.footV = 0f;
+    }
+
+    /**
+     * A square of pavers (Tiles.Shape.pavers): each paver a face of its own in its own colour,
+     * its texture coordinates running from 0 to 1 across it each way, so that the picture lays
+     * joints round its edges and none across it. Of a paver that runs over the square's edge
+     * into the next, the part on this square: the next square lays the rest.
+     */
+    private void addPavers(Tiles.Shape tiles, float red, float green, float blue, int x, int y, int z) {
+        SpriteGeometry geometry = build.geometry;
+        geometry.alongB = geometry.acrossA = 0f;
+        geometry.jointStep = 1f;
+        geometry.footH = geometry.perLevel = 0f;
+        shade(red, green, blue, 1f, 1f, 1f);
+        float cellA = 1f / tiles.cellsA, cellB = 1f / tiles.cellsB;
+        float[] pavers = tiles.pavers;
+        for (int at = 0; at < pavers.length; at += 7) {
+            float wide = pavers[at + 2] * cellA, deep = pavers[at + 3] * cellB;
+            float startA = tiles.firstA + pavers[at] * cellA, startB = tiles.firstB + pavers[at + 1] * cellB;
+            startA -= (float) Math.floor(startA);
+            startB -= (float) Math.floor(startB);
+            SpriteGeometry.Mesh on = WorldScene.solid.get(WorldScene.PLAIN, WallSides.laid(pavers[at + 4], pavers[at + 5], pavers[at + 6],
+                    JOINT_DARK * tiles.jointRed, JOINT_DARK * tiles.jointGreen, JOINT_DARK * tiles.jointBlue, WallSides.TILED));
+            geometry.alongA = 1f / wide;
+            geometry.acrossB = 1f / deep;
+            for (int backA = 0; backA <= 1; backA++) {
+                for (int backB = 0; backB <= 1; backB++) {
+                    float fromA = startA - backA, fromB = startB - backB;
+                    float lowA = Math.max(fromA, 0f), highA = Math.min(fromA + wide, 1f), lowB = Math.max(fromB, 0f), highB = Math.min(fromB + deep, 1f);
+                    if (highA <= lowA || highB <= lowB) {
+                        continue;
+                    }
+                    geometry.jointPhase = fromA / wide;
+                    geometry.footV = -fromB / deep;
+                    geometry.addFace(on, build.frame, x, y, z, lowA, lowB, 0f, highA - lowA, 0f, 0f, 0f, highB - lowB, 0f);
+                }
+            }
+        }
+        geometry.jointStep = Float.NaN;
+        geometry.alongA = geometry.acrossB = geometry.jointPhase = geometry.footV = 0f;
     }
 
     /**

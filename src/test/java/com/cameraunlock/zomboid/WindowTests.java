@@ -30,6 +30,7 @@ final class WindowTests {
         Checks.run("wallpaperIsItsStripes", WindowTests::wallpaperIsItsStripes);
         Checks.run("plainWallWithADoorInItIsOneStripe", WindowTests::plainWallWithADoorInItIsOneStripe);
         Checks.run("chequeredFloorIsItsTiles", WindowTests::chequeredFloorIsItsTiles);
+        Checks.run("bricksInBasketweaveArePavers", WindowTests::bricksInBasketweaveArePavers);
         Checks.run("boardsAreNoTiles", WindowTests::boardsAreNoTiles);
         Checks.run("diagonalFloorIsItsDiamonds", WindowTests::diagonalFloorIsItsDiamonds);
         Checks.run("parquetIsItsBlocksOfSlats", WindowTests::parquetIsItsBlocksOfSlats);
@@ -456,6 +457,51 @@ final class WindowTests {
             }
         }
         return dots;
+    }
+
+    private static void bricksInBasketweaveArePavers() {
+        // Four cells a side, sixteen dots each, the first joint a dark dot five dots in. Each two
+        // by two of cells is a pair of bricks, laid along x and along y turn about, every brick
+        // its own shade of red, speckled a little, with a lighter dot beside each joint.
+        Tiles.Shape tiles = Tiles.laid(floor(64, (x, y) -> {
+            int i = (int) (x * 64f), j = (int) (y * 64f);
+            if (basketJoint(i, j)) {
+                return new float[] {0.2f, 0.15f, 0.12f};
+            }
+            int ci = Math.floorMod(i - 5, 64) / 16, cj = Math.floorMod(j - 5, 64) / 16;
+            int brick = (ci / 2 + cj / 2) % 2 == 0 ? (ci / 2) * 8 + cj : ci * 8 + cj / 2 + 4;
+            boolean lit = basketJoint(i - 1, j) || basketJoint(i, j - 1);
+            float speckle = ((i * 7 + j * 13) % 5 - 2) * 0.004f, shade = 0.45f + (brick % 5) * 0.03f + speckle + (lit ? 0.06f : 0f);
+            return new float[] {shade + 0.1f, shade * 0.6f, shade * 0.5f};
+        }), 64);
+        check(tiles != null && tiles.pavers != null && tiles.cellsA == 4 && tiles.cellsB == 4, "bricks in basketweave are pavers on four cells a side: "
+                + (tiles == null ? "none" : tiles.pavers == null ? "read as count " + tiles.count : tiles.cellsA + " by " + tiles.cellsB));
+        check(Math.abs(tiles.firstA * 64f - 5.5f) <= 1f && Math.abs(tiles.firstB * 64f - 5.5f) <= 1f, "the first joints within a dot of where they are laid: " + tiles.firstA * 64f + ", " + tiles.firstB * 64f);
+        int bricks = tiles.pavers.length / 7;
+        boolean allBricks = bricks == 8;
+        for (int at = 0; at < tiles.pavers.length; at += 7) {
+            allBricks &= tiles.pavers[at + 2] * tiles.pavers[at + 3] == 2f;
+        }
+        check(allBricks, "eight bricks, each two cells: " + bricks);
+        check(tiles.jointRed < 0.3f && tiles.pavers[4] > 0.5f, "the joints dark and the bricks red: " + tiles.jointRed + ", " + tiles.pavers[4]);
+        // The same speckle with no joints, and a lawn's blotches, are no pavers.
+        check(Tiles.pavers(floor(64, (x, y) -> {
+            int i = (int) (x * 64f), j = (int) (y * 64f);
+            float shade = 0.4f + ((i * 7 + j * 13) % 5 - 2) * 0.004f;
+            return new float[] {shade, shade, shade};
+        }), 64) == null, "a plain speckled floor is no pavers");
+        check(Tiles.pavers(floor(64, (x, y) -> {
+            int i = (int) (x * 64f), j = (int) (y * 64f);
+            float shade = 0.35f + ((i * 31 + j * 17) % 11) * 0.02f;
+            return new float[] {shade * 0.6f, shade, shade * 0.4f};
+        }), 64) == null, "and nor is a blotched lawn");
+    }
+
+    /** Whether dot i, j of the basketweave is a joint: a joint is a dot wide, every sixteenth dot from the fifth, where it is the side of a brick. */
+    private static boolean basketJoint(int i, int j) {
+        int ci = Math.floorMod(i - 5, 64) / 16, cj = Math.floorMod(j - 5, 64) / 16;
+        boolean alongX = (ci / 2 + cj / 2) % 2 == 0;
+        return Math.floorMod(i - 5, 16) == 0 && (!alongX || ci % 2 == 0) || Math.floorMod(j - 5, 16) == 0 && (alongX || cj % 2 == 0);
     }
 
     private static void chequeredFloorIsItsTiles() {
