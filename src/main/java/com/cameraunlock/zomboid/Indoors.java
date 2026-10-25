@@ -155,7 +155,8 @@ final class Indoors {
             return new Furniture(sprite, "filing_cabinet", turns).dye(1 << Models.PAINT, CAN_DYE).stand(0f, 0f, true);
         }
         if (called.equals("Box") && holds.equals("smallbox") && single) {
-            return new Furniture(sprite, "carton_small", turns).dye(1 << Models.PAINT, BOX_DYE).stand(0f, 0f, false);
+            String model = group.startsWith("Battered") ? "carton_battered" : "carton_small";
+            return new Furniture(sprite, model, turns).dye(1 << Models.PAINT, BOX_DYE).stand(0f, 0f, false);
         }
         if (called.equals("Computer") && onTable && single && surface > 0) {
             return new Furniture(sprite, "computer", turns).stand(0f, 0f, false).raise(surfaceUp);

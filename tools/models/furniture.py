@@ -3341,7 +3341,61 @@ def carton(name, width, depth, high):
     for side in (-1, 1):
         low, far = sorted((side * hx, side * (hx + 0.002)))
         cuboid(tape, low, far, -0.03, 0.03, high - 0.11, high + 0.002)
-    model.plain(tape, "paint")
+    model.plain(tape, "plastic")
+    return model
+
+
+def battered_carton(name, width, depth, high):
+    """A cardboard box knocked about: its sides bulge, its top has sunk at one corner, the flap at +Y has come loose and
+    stands open, and what is left of the tape runs over the other flap and down the -X end."""
+    model = Model(name)
+    hx, hy = width / 2, depth / 2
+
+    def plate(bm, quad, thick):
+        a, b, d = (Vector(p) for p in (quad[0], quad[1], quad[3]))
+        up = (b - a).cross(d - a).normalized() * thick
+        low = [bm.verts.new(p) for p in quad]
+        high = [bm.verts.new(Vector(p) + up) for p in quad]
+        for i in range(4):
+            j = (i + 1) % 4
+            bm.faces.new((low[i], low[j], high[j], high[i]))
+        bm.faces.new(low[::-1])
+        bm.faces.new(high)
+
+    corners = [(-1, -1), (1, -1), (1, 1), (-1, 1)]
+    sag = {(-1, -1): 0.012, (1, -1): 0.0, (1, 1): 0.045, (-1, 1): 0.02}
+    rings = [
+        [(sx * hx, sy * hy, 0.0) for sx, sy in corners],
+        [(sx * (hx + 0.018), sy * (hy + 0.014), high * 0.45) for sx, sy in corners],
+        [(sx * (hx - 0.01), sy * (hy - 0.006), high - 0.006 - sag[(sx, sy)]) for sx, sy in corners],
+    ]
+    box = bmesh.new()
+    verts = [[box.verts.new(p) for p in ring] for ring in rings]
+    box.faces.new(verts[0][::-1])
+    for low, up in zip(verts, verts[1:]):
+        for i in range(4):
+            j = (i + 1) % 4
+            box.faces.new((low[i], low[j], up[j], up[i]))
+    box.faces.new(verts[2])
+    model.hard(box, "paint", bevel=0.004, segments=1)
+    top = rings[2]
+    flaps = bmesh.new()
+    seam = [(x, 0.0, (z0 + z1) / 2) for (x, _, z0), (_, _, z1) in ((top[0], top[3]), (top[1], top[2]))]
+    plate(flaps, [top[0], top[1], seam[1], seam[0]], 0.006)
+    lift, reach = math.radians(125.0), hy * 0.95
+    out = Vector((0.0, -math.cos(lift) * reach, math.sin(lift) * reach))
+    plate(flaps, [top[3], top[2], tuple(Vector(top[2]) + out), tuple(Vector(top[3]) + out)][::-1], 0.005)
+    model.hard(flaps, "paint", bevel=0.002, segments=1)
+    tape = bmesh.new()
+    over = Vector((0.0, 0.0, 0.0065))
+    near = Vector(top[0]).lerp(Vector(seam[0]), 0.7)
+    plate(tape, [tuple(near + over), tuple(near + over + Vector((hx * 1.1, 0.0, 0.0))),
+                 tuple(near + over + Vector((hx * 1.1, 0.03, 0.0))), tuple(near + over + Vector((0.0, 0.03, 0.0)))], 0.002)
+    middle = Vector(rings[1][0]).lerp(Vector(rings[1][3]), 0.7)
+    down = Vector((-0.0025, 0.0, 0.0))
+    plate(tape, [tuple(near + down + Vector((0.0, 0.03, 0.006))), tuple(near + down + Vector((0.0, 0.0, 0.006))),
+                 tuple(middle + down), tuple(middle + down + Vector((0.0, 0.03, 0.0)))], 0.002)
+    model.plain(tape, "plastic")
     return model
 
 
@@ -4000,7 +4054,7 @@ def indoors():
     """What stands in rooms and hangs on their walls: the pieces Indoors.java places."""
     return [range_hood(), garbage_can(), waste_basket(), louvre("wall_vent", 0.56, 0.42, "plastic", 5), louvre("wall_grille", 0.64, 0.34, "enamel", 7, deep=0.03),
             round_vent(), exit_sign(), sconce(), pedestal_sink(), medicine_cabinet(), hand_dryer(), light_switch(), coat_rack(),
-            filing_cabinet(), carton("carton", 0.58, 0.58, 0.56), carton("carton_small", 0.44, 0.34, 0.3), computer(), water_cooler(),
+            filing_cabinet(), carton("carton", 0.58, 0.58, 0.56), carton("carton_small", 0.44, 0.34, 0.3), battered_carton("carton_battered", 0.44, 0.34, 0.3), computer(), water_cooler(),
             floor_lamp("torchiere", False), floor_lamp("standard_lamp", True), dresser_mirror(), side_table(), media_stand(), bar_stool(), clothes_dryer(),
             plank_bench(), pew(), bunk_bed("bunk_bed", "dark_wood"), bunk_bed("steel_bunk_bed", "metal"),
             cabinet("steel_counter", 0.62, 0.90, True, made="steel", top_of="steel"),
