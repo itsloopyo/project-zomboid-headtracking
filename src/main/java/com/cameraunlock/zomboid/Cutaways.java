@@ -73,13 +73,18 @@ final class Cutaways {
             // and leans along its wall where the wall's two ends stand at different heights: it is
             // cut with any cut wall whose thickness it lies in, so the top of a straight run is cut
             // across the joints of its squares, and a counter's top against the wall keeps all but
-            // the wall's own thickness.
+            // the wall's own thickness. A post on a corner (WorldScene.addPillar) is the end of the
+            // walls that meet it, and goes with any of them that is cut: taken by the way each face
+            // faces, the end face of a cut wall's post stood alone in the air.
             bool cutAway(vec3 at, vec3 facing, float hung) {
                 vec2 edge = floor(at.xy + 0.5), off = abs(at.xy - edge);
                 bool northCut = wallCut(cutMarks(vec2(floor(at.x - 0.06), edge.y)), 1.0, hung) || wallCut(cutMarks(vec2(floor(at.x + 0.06), edge.y)), 1.0, hung);
                 bool westCut = wallCut(cutMarks(vec2(edge.x, floor(at.y - 0.06))), 2.0, hung) || wallCut(cutMarks(vec2(edge.x, floor(at.y + 0.06))), 2.0, hung);
                 if (hung < 0.5 && abs(facing.z) > max(abs(facing.x), abs(facing.y))) {
                     return off.y < 0.06 && northCut || off.x < 0.06 && westCut;
+                }
+                if (hung < 0.5 && off.x < 0.06 && off.y < 0.06) {
+                    return northCut || westCut;
                 }
                 float reach = hung > 0.5 ? 0.45 : 0.3;
                 bool north = off.y < reach && (hung > 0.5 ? hung < 1.5 : abs(facing.y) > abs(facing.x));
