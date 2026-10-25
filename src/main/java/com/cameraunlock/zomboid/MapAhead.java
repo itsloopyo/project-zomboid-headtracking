@@ -2,7 +2,6 @@ package com.cameraunlock.zomboid;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
@@ -54,9 +53,6 @@ final class MapAhead {
     private static final int CHUNK = Terrain.CHUNK_TILES;
     private static final int SQUARES = CHUNK * CHUNK;
     private static final int CELL_CHUNKS = FarCells.CELL / CHUNK;
-    private static final byte[] MAGIC = {'L', 'O', 'T', 'P'};
-    /** The levels the game reads of a lotpack, whatever its header says. */
-    private static final int LOWEST = -32, HIGHEST = 31;
     /** The longest a frame spends taking in what the thread has read, in nanoseconds. */
     private static final long TAKEN_NANOS_A_FRAME = 1_000_000L;
 
@@ -163,41 +159,18 @@ final class MapAhead {
      * @param cy       the chunk within the cell, y
      */
     static Raw read(int generation, ByteBuffer pack, int[] traits, int minLevel, int maxLevel, int wx, int wy, int cx, int cy) {
-        ByteBuffer in = pack.duplicate().order(ByteOrder.LITTLE_ENDIAN);
-        byte[] magic = new byte[4];
-        in.get(0, magic);
-        int table = Arrays.equals(magic, MAGIC) ? 12 : 4;
+        Lotpack in = new Lotpack(pack);
         int[] floor = new int[SQUARES], ground = new int[SQUARES], above = new int[SQUARES], levels = new int[SQUARES];
         byte[] level = new byte[SQUARES];
-        int from = Math.max(minLevel, LOWEST), to = Math.min(maxLevel, HIGHEST);
-        in.position(in.getInt(table + (cx * CELL_CHUNKS + cy) * 8));
-        int empty = 0;
+        int from = Math.max(minLevel, Lotpack.LOWEST), to = Math.min(maxLevel, Lotpack.HIGHEST);
+        in.chunk(cx, cy);
         for (int z = from; z <= to; z++) {
             for (int x = 0; x < CHUNK; x++) {
                 for (int y = 0; y < CHUNK; y++) {
-                    if (empty > 0) {
-                        empty--;
-                        continue;
-                    }
-                    int held = in.getInt();
-                    if (held == -1) {
-                        empty = in.getInt();
-                        if (empty > 0) {
-                            empty--;
-                        }
-                        continue;
-                    }
-                    if (held <= 1) {
-                        continue;
-                    }
-                    in.getInt();
+                    int tiles = in.square();
                     int at = x * CHUNK + y;
-                    for (int i = 1; i < held; i++) {
-                        int tile = in.getInt();
-                        if (tile < 0 || tile >= traits.length) {
-                            throw new IllegalStateException("the lotpack names tile " + tile + " of its header's " + traits.length);
-                        }
-                        int of = traits[tile];
+                    for (int i = 0; i < tiles; i++) {
+                        int of = traits[in.tile(traits.length)];
                         if (z == 0 || z == 1) {
                             level[at] = (byte) Math.max(level[at], of >>> LEVEL_SHIFT & 15);
                         }
@@ -247,7 +220,7 @@ final class MapAhead {
                 guess.stands[at] = stands;
                 int over = raw.above[at];
                 boolean built = (over & (FLOOR | BUILT_UP)) != 0;
-                for (int z = 1; z <= HIGHEST && !built; z++) {
+                for (int z = 1; z <= Lotpack.HIGHEST && !built; z++) {
                     built = (raw.levels[at] & 1 << z) != 0 && rooms.house(x, y, z) != Footings.NONE;
                 }
                 guess.above[at] = built ? Footings.BUILT : (over & ANY) != 0 ? Footings.HUNG : Footings.OPEN;

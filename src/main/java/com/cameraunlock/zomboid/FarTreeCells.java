@@ -1,7 +1,6 @@
 package com.cameraunlock.zomboid;
 
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.List;
 
@@ -13,9 +12,6 @@ import java.util.List;
 final class FarTreeCells {
     private static final int CHUNK = Terrain.CHUNK_TILES;
     private static final int CHUNKS = FarCells.CELL / CHUNK;
-    private static final byte[] MAGIC = {'L', 'O', 'T', 'P'};
-    /** The levels the game reads of a lotpack, whatever its header says. */
-    private static final int LOWEST = -32, HIGHEST = 31;
 
     private FarTreeCells() {}
 
@@ -46,11 +42,8 @@ final class FarTreeCells {
      * @param maxLevel  the header's highest level
      */
     static int[] squares(ByteBuffer pack, boolean[] tree, int minLevel, int maxLevel) {
-        ByteBuffer in = pack.duplicate().order(ByteOrder.LITTLE_ENDIAN);
-        byte[] magic = new byte[4];
-        in.get(0, magic);
-        int table = Arrays.equals(magic, MAGIC) ? 12 : 4;
-        int from = Math.max(minLevel, LOWEST), to = Math.min(maxLevel, HIGHEST);
+        Lotpack in = new Lotpack(pack);
+        int from = Math.max(minLevel, Lotpack.LOWEST), to = Math.min(maxLevel, Lotpack.HIGHEST);
         if (from > 0 || to < 0) {
             return new int[0];
         }
@@ -58,34 +51,14 @@ final class FarTreeCells {
         int count = 0;
         for (int wx = 0; wx < CHUNKS; wx++) {
             for (int wy = 0; wy < CHUNKS; wy++) {
-                in.position(in.getInt(table + (wx * CHUNKS + wy) * 8));
-                int empty = 0;
+                in.chunk(wx, wy);
                 for (int z = from; z <= 0; z++) {
                     for (int x = 0; x < CHUNK; x++) {
                         for (int y = 0; y < CHUNK; y++) {
-                            if (empty > 0) {
-                                empty--;
-                                continue;
-                            }
-                            int held = in.getInt();
-                            if (held == -1) {
-                                empty = in.getInt();
-                                if (empty > 0) {
-                                    empty--;
-                                }
-                                continue;
-                            }
-                            if (held <= 1) {
-                                continue;
-                            }
-                            in.getInt();
+                            int tiles = in.square();
                             boolean treed = false;
-                            for (int i = 1; i < held; i++) {
-                                int tile = in.getInt();
-                                if (tile < 0 || tile >= tree.length) {
-                                    throw new IllegalStateException("the lotpack names tile " + tile + " of its header's " + tree.length);
-                                }
-                                treed |= tree[tile];
+                            for (int i = 0; i < tiles; i++) {
+                                treed |= tree[in.tile(tree.length)];
                             }
                             if (treed && z == 0) {
                                 if (count == found.length) {
