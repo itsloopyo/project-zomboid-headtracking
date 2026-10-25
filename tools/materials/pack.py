@@ -28,11 +28,11 @@ SPREAD = {'carpet': 0.092, 'paint': 0.104}
 # The least it varies: what the SDXL pictures the world shader's strengths were set for had. Z-Image draws these
 # flatter, and a room of them read as untextured. A picture with less is drawn out to it round its mean.
 LEAST = {'asphalt': 0.152, 'bark-birch': 0.299, 'bark-dogwood': 0.476, 'bark-hemlock': 0.49, 'bark-holly': 0.133, 'bark-maple': 0.542,
-         'bark-oak': 0.471, 'bark-pine': 0.596, 'carpet': 0.092, 'gravel': 0.498, 'jersey': 0.1, 'paint': 0.101, 'planks': 0.384,
+         'bark-oak': 0.471, 'concrete': 0.12, 'bark-pine': 0.596, 'carpet': 0.092, 'gravel': 0.498, 'jersey': 0.1, 'paint': 0.101, 'planks': 0.384,
          'rock': 0.393, 'soil': 0.449, 'vinyl': 0.163, 'wood': 0.151}
 # A surface that is a later layer of another's texture, which holds one gain, the first layer's (tools/textures/compress.py,
 # SAME_GAIN): it is brought to that one's mean light.
-SAME_LIGHT = {'straw': 'litter'}
+SAME_LIGHT = {'straw': 'litter', 'concrete': 'litter'}
 LIGHT = numpy.array([0.299, 0.587, 0.114], dtype=numpy.float32)
 
 # The most of a picture drawn out to its LEAST that may go past black or white.

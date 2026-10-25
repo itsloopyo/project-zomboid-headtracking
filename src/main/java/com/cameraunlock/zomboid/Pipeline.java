@@ -333,7 +333,7 @@ final class Pipeline {
     private static final float[] materialGain = ones(MATERIALS.length);
     /** What Flora's ground and plants are made of: fallen leaves, rock, a fern's frond and ivy, the last two cut out. */
     private static final String[] NATURE = {"litter", "rock", "frond", "ivy"};
-    /** The litter is two pictures in one texture: fallen leaves, and behind them the straw a barn floor is bedded with (WorldScene.STRAW). */
+    /** The litter is three pictures in one texture: fallen leaves, the straw a barn floor is bedded with (WorldScene.STRAW) and the poured concrete of a pavement (Ground.PAVING). */
     private static final int LITTER = 0;
     private static final int FIRST_NATURE_UNIT = 24;
     private static final int[] natureTexture = new int[NATURE.length];

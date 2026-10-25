@@ -3239,6 +3239,17 @@ final class PipelineShaders {
                 // How much of the ground's depth relieve has drawn: so much less is left to the lumps made up below.
                 float raisedGround = 0.0;
                 if (uOwnTextures > 0.5 && !model && !litter && vKind < 1.5 && vKind > 0.5 && n.z > 0.8) {
+                    // The game's pavement is a speckle a dot or two across, which from close is a
+                    // field of blots: the concrete's grain is the picture's, and the sprite gives only
+                    // its colour, the mean of a ring of dots round the pixel.
+                    if (vMaterial > 54.5 && vMaterial < 55.5 && uTexel.x > 0.0 && texel.a > 0.5) {
+                        vec4 ring = texture2D(uTexture, vUv);
+                        for (int i = 0; i < 8; i++) {
+                            float ringTurn = float(i) * 0.785398;
+                            ring += texture2D(uTexture, vUv + vec2(cos(ringTurn), sin(ringTurn)) * 2.5 * uTexel);
+                        }
+                        texel.rgb = mix(texel.rgb, min(ring.rgb / max(ring.a, 1.0 / 255.0), vec3(1.0)), 0.85);
+                    }
                     vec2 p = vWorld.xy;
                     float wide = patches(p * 0.11) * 0.55 + patches(p * 0.47 + 31.0) * 0.3 + patches(p * 1.9 + 7.0) * 0.15;
                     texel.rgb *= 0.78 + 0.44 * wide;
@@ -3256,6 +3267,7 @@ final class PipelineShaders {
                     float loose = vMaterial > 53.5 && vMaterial < 54.5 ? stony : 0.0;
                     // The pale floor of pavements, squares and car parks is poured concrete: it has
                     // neither the stones of a drive nor the grain and the colour of tarmac.
+                    // Its sand and fine aggregate are the litter's third picture.
                     float paved = vMaterial > 54.5 && vMaterial < 55.5 ? stony : 0.0;
                     float dark = stony - loose - paved;
                     // A picture is about a pace and a half of ground: its stones come out the size of gravel.
@@ -3285,7 +3297,8 @@ final class PipelineShaders {
                     }
                     vec3 grain3 = dark * uMaterialGain.x * mix(texture2DGradARB(uAsphalt, one, oneAcross, oneDown).rgb, texture2DGradARB(uAsphalt, two, twoAcross, twoDown).rgb, which)
                             + loose * uMaterialGain.y * mix(texture2DGradARB(uGravel, one, oneAcross, oneDown).rgb, texture2DGradARB(uGravel, two, twoAcross, twoDown).rgb, which)
-                            + paved * vec3(0.95 + 0.1 * patches(p * 7.3 + 13.0))
+                            + paved * uNatureGain.x * (0.95 + 0.1 * patches(p * 7.3 + 13.0))
+                                    * mix(texture2DArray(uLitter, vec3(one, 2.0)).rgb, texture2DArray(uLitter, vec3(two, 2.0)).rgb, which)
                             + vec3(1.0 - stony - green - earth) + earth * uMaterialGain.z * mix(texture2DGradARB(uSoil, one, oneAcross, oneDown).rgb, texture2DGradARB(uSoil, two, twoAcross, twoDown).rgb, which)
                             + green * uMaterialGain.w * mix(texture2DGradARB(uLawn, one, oneAcross, oneDown).rgb, texture2DGradARB(uLawn, two, twoAcross, twoDown).rgb, which);
                     // The picture's light and dark go over the game's colour everywhere. Where
