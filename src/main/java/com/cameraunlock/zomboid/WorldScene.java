@@ -952,6 +952,8 @@ final class WorldScene {
     static final float UNDER_ROOF = 0.03f;
     /** Half the thickness of a wall, in tiles. */
     static final float WALL_HALF = 0.04f;
+    /** How far a corner post stands proud of the skins round the outside of its corner: see addPillar. */
+    static final float CORNER_PROUD = 0.004f;
     /** How far from the line of a wall the middle of a handrail fixed to it runs, in tiles. */
     private static final float RAIL_OFF_WALL = WALL_HALF + 0.09f;
     static final float HUNG_CLEAR = 0.012f;
@@ -2413,6 +2415,11 @@ final class WorldScene {
 
     /** The wall standing on the square's north or west edge that has a sprite to show, or null. */
     static IsoObject wallOn(IsoGridSquare square, boolean north) {
+        return wallOn(square, north, true);
+    }
+
+    /** The same, with or without a wall's corner post (pillar), which the game marks as on both edges and stands on neither. */
+    static IsoObject wallOn(IsoGridSquare square, boolean north, boolean posts) {
         PZArrayList<IsoObject> objects = square.getObjects();
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
@@ -2423,7 +2430,7 @@ final class WorldScene {
             PropertyContainer properties = sprite.getProperties();
             IsoObjectType type = sprite.getType();
             if (!isWall(properties, type) || !(properties.has(IsoFlagType.WallNW)
-                    || (north ? Edges.north(properties, type) : Edges.west(properties, type)))) {
+                    || (north ? Edges.north(properties, type) : Edges.west(properties, type))) || !posts && pillar(sprite)) {
                 continue;
             }
             Texture texture = sprite.getTextureForCurrentFrame(object.getDir());
@@ -2432,6 +2439,12 @@ final class WorldScene {
             }
         }
         return null;
+    }
+
+    /** Whether the sprite is a wall's corner post: a sliver at its square's north-west corner, on neither edge (addPillar). */
+    static boolean pillar(IsoSprite sprite) {
+        PropertyContainer properties = sprite.getProperties();
+        return properties.has(IsoFlagType.WallSE) && !properties.has(IsoFlagType.WallNW) && sprite.getName() != null && sprite.getName().startsWith("walls_");
     }
 
     static void set(float[] c, int corner, float x, float y, float h) {
@@ -7412,6 +7425,10 @@ final class WorldScene {
             // An open garage door's sprite is the head of its opening and the jamb at an end: wall, cut to the sprite, with the
             // door raised under the ceiling behind it. Read as a door, the band was a leaf hanging out of the head.
             boolean raised = door && kind.garageDoor && !isWall(properties, type) && overLayer == 0 && Own.buildings();
+            if (overLayer == 0 && pillar(sprite) && !seeThrough) {
+                addPillar(mesh, x, y, z);
+                return;
+            }
             if (west) {
                 wallBuilder.addEdge(mesh, texture, isWall(properties, type) || raised, door, x, y, z, westLayer++, 0f, 1f);
                 if (raised) {
@@ -8001,12 +8018,57 @@ final class WorldScene {
         /** The colour the papered wall's mesh is painted over in, as the picture is told it, and the light of the piece being added while its stripes are. */
         final float[] paperTint = new float[4], paperRed = new float[4], paperGreen = new float[4], paperBlue = new float[4], paperUnlit = new float[SpriteGeometry.Frame.UNLIT_FLOATS];
 
+        /**
+         * Stands a wall's pillar (WallSE) as the post it is, a wall's thickness square, on the
+         * square's north-west corner. The game paints it as the end of a wall seen edge on, a
+         * sliver a few dots wide; stood on both edges of the square as a wall, it was a sheaf of
+         * thin fins off the end of every wall. Where walls meet at the corner, run through it or
+         * turn there, they and their joins (WallJoins) fill it and the post adds nothing. At the
+         * end of one wall it is the part past the wall's end, and with no wall it is whole.
+         */
+        private void addPillar(SpriteGeometry.Mesh mesh, int x, int y, int z) {
+            joinLevel = z;
+            boolean east = standing.stands(x, y, true), westward = standing.stands(x - 1, y, true);
+            boolean south = standing.stands(x, y, false), northward = standing.stands(x, y - 1, false);
+            boolean along = east || westward, across = south || northward;
+            if (east && westward || south && northward) {
+                return;
+            }
+            float h = WALL_HALF;
+            // Round the outside of a corner the two walls' skins are carried to meet, and meet edge
+            // to edge with a slit of the room beyond between them: the post stands that little
+            // proud of them there and covers it.
+            float out = along && across ? CORNER_PROUD : 0f, far = h + out;
+            float aFrom = westward ? 0f : -far, aTo = east ? 0f : far, bFrom = northward ? 0f : -far, bTo = south ? 0f : far;
+            // The sides the game's view never saw take the texels of the ones it did, as a box's do (SpriteGeometry.addBox).
+            if (!south) {
+                geometry.shownB = out;
+                geometry.addFace(mesh, frame, x, y, z, aFrom, h, 0f, aTo - aFrom, 0f, 0f, 0f, 0f, 1f);
+                geometry.shownB = 0f;
+            }
+            if (!northward) {
+                geometry.shownB = -h - far;
+                geometry.addFace(mesh, frame, x, y, z, aFrom, h, 0f, aTo - aFrom, 0f, 0f, 0f, 0f, 1f);
+                geometry.shownB = 0f;
+            }
+            if (!east) {
+                geometry.shownA = out;
+                geometry.addFace(mesh, frame, x, y, z, h, bFrom, 0f, 0f, bTo - bFrom, 0f, 0f, 0f, 1f);
+                geometry.shownA = 0f;
+            }
+            if (!westward) {
+                geometry.shownA = -h - far;
+                geometry.addFace(mesh, frame, x, y, z, h, bFrom, 0f, 0f, bTo - bFrom, 0f, 0f, 0f, 1f);
+                geometry.shownA = 0f;
+            }
+        }
+
         /** The level the walls that meet the wall being added are looked for on. */
         int joinLevel;
         /** Whether a wall with a thickness stands on the north or west edge of a square of joinLevel. */
         final WallJoins.Walls standing = (wallX, wallY, north) -> {
             IsoGridSquare square = cell.getGridSquare(wallX, wallY, joinLevel);
-            IsoObject wall = square == null ? null : wallOn(square, north);
+            IsoObject wall = square == null ? null : wallOn(square, north, false);
             return wall != null && !isSheet(wall.getSprite().getProperties());
         };
         /** Whether the wall being added is a sheet: see isSheet. */
