@@ -6712,23 +6712,43 @@ def silo_storey():
 
 
 def vent_tank():
-    """A small steel tank on four short legs with two vent pipes over its lid, 1.7 m across. The origin is its axis on the ground."""
+    """A small steel tank on four short legs with two lagged vent pipes over its lid, 1.7 m across: rust gathered in a band
+    round its foot, a seam round it at each of its plates, a lip round its lid and a hatch on it. The origin is its axis on
+    the ground."""
     model = Model("vent_tank", centred=False)
     r, foot, top = 0.86, 0.22, 1.85
     body = bmesh.new()
     lathe(body, [(0.0, foot), (r, foot), (r, top - 0.03), (r - 0.03, top), (0.0, top)], segments=32)
     model.turned(body, "paint", sharp=30.0)
+    rust = bmesh.new()
+    lathe(rust, [(r + 0.004, foot), (r + 0.006, foot + 0.1), (r + 0.003, foot + 0.16)], segments=32, caps=False)
+    model.turned(rust, "dark_wood")
+    seams = bmesh.new()
+    for z in (foot + 0.55, foot + 1.1):
+        lathe(seams, [(r + 0.003, z - 0.012), (r + 0.01, z), (r + 0.003, z + 0.012)], segments=32, caps=False)
+    lathe(seams, [(r - 0.04, top + 0.002), (r + 0.012, top - 0.01), (r + 0.012, top - 0.05), (r + 0.002, top - 0.06)], segments=32, caps=False)
+    model.turned(seams, "metal")
     legs = bmesh.new()
     for k in range(4):
         a = math.pi / 4 + k * math.pi / 2
         x, y = (r - 0.05) * math.cos(a), (r - 0.05) * math.sin(a)
         cuboid(legs, x - 0.06, x + 0.06, y - 0.06, y + 0.06, 0.0, foot + 0.3)
     model.hard(legs, "dark_wood", bevel=0.01, segments=1)
+    hatch = bmesh.new()
+    lathe(hatch, [(0.0, top), (0.24, top), (0.24, top + 0.05), (0.22, top + 0.07), (0.0, top + 0.07)], cx=-0.32, cy=0.32, segments=20)
+    strut(hatch, (-0.42, 0.32, top + 0.09), (-0.22, 0.32, top + 0.09), 0.015)
+    model.turned(hatch, "metal")
     pipes = bmesh.new()
+    collars = bmesh.new()
     for x, y in ((0.13, -0.37), (0.37, -0.13)):
-        lathe(pipes, [(0.0, top), (0.1, top), (0.1, top + 0.45), (0.0, top + 0.45)], cx=x, cy=y, segments=12)
-        lathe(pipes, [(0.0, top + 0.45), (0.13, top + 0.45), (0.13, top + 0.55), (0.0, top + 0.6)], cx=x, cy=y, segments=12)
-    model.turned(pipes, "metal")
+        lathe(collars, [(0.0, top), (0.14, top), (0.14, top + 0.08), (0.0, top + 0.08)], cx=x, cy=y, segments=12)
+        lathe(pipes, [(0.0, top + 0.08), (0.11, top + 0.08), (0.11, top + 0.45), (0.0, top + 0.45)], cx=x, cy=y, segments=12)
+        for k in range(4):
+            z = top + 0.14 + 0.08 * k
+            lathe(pipes, [(0.11, z - 0.012), (0.118, z), (0.11, z + 0.012)], cx=x, cy=y, segments=12, caps=False)
+        lathe(collars, [(0.0, top + 0.45), (0.13, top + 0.45), (0.13, top + 0.55), (0.0, top + 0.6)], cx=x, cy=y, segments=12)
+    model.turned(pipes, "steel")
+    model.turned(collars, "rubber")
     return model
 
 
