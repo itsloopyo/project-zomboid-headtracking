@@ -1288,9 +1288,17 @@ final class RoofFit {
     /**
      * Whether the walk down a row from its top stopped at a wing: past the low edge of its
      * lowest tile lies a tile the map folded where two slopes meet, the valley's, or a tile of
-     * a slope across this one.
+     * a slope across this one. A dormer's ridge trim at the row's foot, over the floor of its
+     * level, is a wing too: the gutter along an eave is a level down. Read as the eave, it set
+     * the far side made from the row a third of a level up its wall, a box on the north side of
+     * a house whose south slope has two dormers (3963 and 3968, 9853..9854).
      */
     private static boolean cutByAWing(HashMap<Long, Tile> at, Tile lowest, int dx, int dy) {
+        float foot = Math.min(lowest.fitLow, lowest.fitHigh);
+        Tile trim = at.get(key(lowest.x - dx, lowest.y - dy, lowest.z));
+        if (trim != null && trim.fitting && foot > lowest.z + Roofs.FLAT && Math.abs(Math.max(trim.fitLow, trim.fitHigh) - foot) < SAME) {
+            return true;
+        }
         for (int dz = 0; dz >= -1; dz--) {
             Tile next = at.get(key(lowest.x - dx, lowest.y - dy, lowest.z + dz));
             if (next != null && (next.shaped || next.slopes() && next.fitAxis != lowest.fitAxis)) {

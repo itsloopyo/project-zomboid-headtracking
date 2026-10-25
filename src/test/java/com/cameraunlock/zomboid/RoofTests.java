@@ -58,6 +58,7 @@ final class RoofTests {
         Checks.run("rowAtTheEndOfAHipHasNoFarSide", RoofTests::rowAtTheEndOfAHipHasNoFarSide);
         Checks.run("wingsFarSideStopsAtAMainRoofDeeperThanItsNearSide", RoofTests::wingsFarSideStopsAtAMainRoofDeeperThanItsNearSide);
         Checks.run("slopeThatClimbsPastItsCrownLiesLevel", RoofTests::slopeThatClimbsPastItsCrownLiesLevel);
+        Checks.run("farSideOfARowOverADormerStandsOnTheWall", RoofTests::farSideOfARowOverADormerStandsOnTheWall);
         Checks.run("eaveOverALeanToThatStopsShortOfItIsMade", RoofTests::eaveOverALeanToThatStopsShortOfItIsMade);
         Checks.run("trimPastAGableIsNoRoofGoingOn", RoofTests::trimPastAGableIsNoRoofGoingOn);
         Checks.run("trimPastAHipsCornerLeavesTheCornersEave", RoofTests::trimPastAHipsCornerLeavesTheCornersEave);
@@ -1405,6 +1406,39 @@ final class RoofTests {
             RoofFit.Tile face = madeAt(made, 1, y);
             check(face != null && !face.shaped && face.fitAxis == RoofFit.ALONG_X && near(face.fitLow, 1f + THIRD) && near(face.fitHigh, 1f + 2 * THIRD),
                     "the west hip's face climbs to the crown at 1, " + y + ": " + said(face));
+        }
+    }
+
+    /**
+     * A house over x 0..9 and y 0..9, as at 3961..3976 x 9853..9867: the map's south slope is two rows deep, from the eave
+     * at 1 on y 9 to a crown at 1 + 2/3, but over x 4 a dormer's ridge trim at 1 + 1/3 takes the lower row's place. The
+     * north side made from that row comes down to the wall at 1 with the rest: it read the trim as the eave and stood on the
+     * wall at 1 + 1/3, with a level step at the crown's height behind it.
+     */
+    private static void farSideOfARowOverADormerStandsOnTheWall() {
+        RoofFit.Site site = standing((x, y) -> x >= 0 && x <= 9 && y >= 0 && y <= 9);
+        List<RoofFit.Tile> roof = new ArrayList<>();
+        for (int x = 0; x <= 9; x++) {
+            roof.add(new RoofFit.Tile(x, 8, 1, RoofFit.ALONG_Y, true, 1f + 2 * THIRD, 1f + THIRD));
+            if (x == 4) {
+                RoofFit.Tile trim = new RoofFit.Tile(x, 9, 1, RoofFit.LEVEL, true, 1f + THIRD, 1f + THIRD);
+                trim.fitting = true;
+                roof.add(trim);
+            } else {
+                roof.add(new RoofFit.Tile(x, 9, 1, RoofFit.ALONG_Y, true, 1f + THIRD, 1f));
+            }
+            for (int y = 2; y <= 7; y++) {
+                RoofFit.Tile crown = new RoofFit.Tile(x, y, 1, RoofFit.LEVEL, true, 1f + 2 * THIRD, 1f + 2 * THIRD);
+                crown.sheet = true;
+                roof.add(crown);
+            }
+        }
+        RoofFit.fit(roof);
+        List<RoofFit.Tile> made = RoofFit.backs(roof, site);
+        for (int y = 0; y <= 1; y++) {
+            RoofFit.Tile face = madeAt(made, 4, y);
+            check(face != null && !face.shaped && face.fitAxis == RoofFit.ALONG_Y && near(face.fitLow, 1f + y * THIRD) && near(face.fitHigh, 1f + (y + 1) * THIRD),
+                    "the north side over the dormer's row climbs from the wall at 4, " + y + ": " + said(face));
         }
     }
 
