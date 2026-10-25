@@ -769,14 +769,26 @@ final class RoofFit {
         // and the main roof's from the wing's, each a level top over the other (the church at
         // 3532..3549, 11199..11211).
         HashSet<Long> spanX = new HashSet<>(), spanY = new HashSet<>();
+        // Past the depth of its near side, a far side that stands on its wall runs on level along its ridge: a wing lower than
+        // that ridge runs into it there too. Left out, the main roof's north side four rows deep left its last row to a low
+        // wing's far side, which was carried on over it as a flat at the wing's ridge (6277..6280, 5410..5413).
+        HashMap<Long, Float> ridgeX = new HashMap<>(), ridgeY = new HashMap<>();
         for (Row row : rows) {
-            for (int step = 0; step < Math.min(row.open, row.climbed); step++) {
-                (row.dx != 0 ? spanX : spanY).add(key(row.x + step * row.dx, row.y + step * row.dy, 0));
+            for (int step = 0; step < (row.fromEave ? row.open : Math.min(row.open, row.climbed)); step++) {
+                long square = key(row.x + step * row.dx, row.y + step * row.dy, 0);
+                if (step < row.climbed) {
+                    (row.dx != 0 ? spanX : spanY).add(square);
+                }
+                (row.dx != 0 ? ridgeX : ridgeY).merge(square, row.ridge, Math::max);
             }
         }
         for (Row row : rows) {
-            if (row.fromEave && row.open > row.climbed
-                    && (row.dx != 0 ? spanY : spanX).contains(key(row.x + row.climbed * row.dx, row.y + row.climbed * row.dy, 0))) {
+            if (!row.fromEave || row.open <= row.climbed) {
+                continue;
+            }
+            long past = key(row.x + row.climbed * row.dx, row.y + row.climbed * row.dy, 0);
+            Float across = (row.dx != 0 ? ridgeY : ridgeX).get(past);
+            if ((row.dx != 0 ? spanY : spanX).contains(past) || across != null && across > row.ridge + row.rise - SAME) {
                 row.open = row.climbed;
                 row.fromEave = false;
                 row.valley = true;
