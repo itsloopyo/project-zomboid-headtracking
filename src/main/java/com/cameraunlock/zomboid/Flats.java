@@ -110,7 +110,7 @@ final class Flats {
     private static final int GL_TEXTURE_2D = 0x0DE1, GL_TEXTURE_BINDING_2D = 0x8069, GL_RGBA = 0x1908, GL_RGBA8 = 0x8058, GL_UNSIGNED_BYTE = 0x1401;
     private static final int GL_TEXTURE_MIN_FILTER = 0x2801, GL_TEXTURE_MAG_FILTER = 0x2800, GL_TEXTURE_WRAP_S = 0x2802, GL_TEXTURE_WRAP_T = 0x2803;
     private static final int GL_LINEAR = 0x2601, GL_CLAMP_TO_EDGE = 0x812F;
-    private static final int GL_UNPACK_ALIGNMENT = 0x0CF5, GL_UNPACK_ROW_LENGTH = 0x0CF2, GL_UNPACK_SKIP_ROWS = 0x0CF3, GL_UNPACK_SKIP_PIXELS = 0x0CF4;
+    private static final int GL_UNPACK_ALIGNMENT = 0x0CF5;
     private static final int GL_PIXEL_UNPACK_BUFFER = 0x88EC, GL_PIXEL_UNPACK_BUFFER_BINDING = 0x88EF;
 
     /**
@@ -497,6 +497,7 @@ final class Flats {
         }
         byte[] dots = new byte[SIDE * SIDE * 4];
         boolean[] painted = new boolean[SIDE * SIDE];
+        float[] blended = new float[4];
         int count = 0;
         float perU = wide / frameWidth, perV = high / frameHeight;
         for (int j = 0; j < SIDE; j++) {
@@ -505,27 +506,15 @@ final class Flats {
                 float u = ((a - b) * SpriteGeometry.PIXELS_ACROSS_PER_TILE * scale + originU - frameLeft) * perU - 0.5f;
                 float up = lifted + a * climbA + b * climbB;
                 float v = (((a + b) * SpriteGeometry.PIXELS_DOWN_PER_TILE - up * SpriteGeometry.PIXELS_PER_LEVEL) * scale + originV - frameTop) * perV - 0.5f;
-                int u0 = (int) Math.floor(u), v0 = (int) Math.floor(v);
-                float partU = u - u0, partV = v - v0, red = 0f, green = 0f, blue = 0f, cover = 0f;
-                for (int corner = 0; corner < 4; corner++) {
-                    int x = u0 + (corner & 1), y = v0 + (corner >> 1);
-                    if (x < 0 || y < 0 || x >= wide || y >= high) {
-                        continue;
-                    }
-                    int place = ((top + y) * width + left + x) * 4;
-                    float weight = ((corner & 1) == 0 ? 1f - partU : partU) * ((corner >> 1) == 0 ? 1f - partV : partV) * (sheet.get(place + 3) & 0xff) / 255f;
-                    red += weight * (sheet.get(place) & 0xff);
-                    green += weight * (sheet.get(place + 1) & 0xff);
-                    blue += weight * (sheet.get(place + 2) & 0xff);
-                    cover += weight;
-                }
+                blend(sheet, width, left, top, wide, high, u, v, blended);
+                float cover = blended[3];
                 if (cover < COVERED) {
                     continue;
                 }
                 int at = j * SIDE + i;
-                dots[at * 4] = (byte) Math.round(red / cover);
-                dots[at * 4 + 1] = (byte) Math.round(green / cover);
-                dots[at * 4 + 2] = (byte) Math.round(blue / cover);
+                dots[at * 4] = (byte) Math.round(blended[0] / cover);
+                dots[at * 4 + 1] = (byte) Math.round(blended[1] / cover);
+                dots[at * 4 + 2] = (byte) Math.round(blended[2] / cover);
                 dots[at * 4 + 3] = (byte) 255;
                 painted[at] = true;
                 count++;
@@ -592,6 +581,32 @@ final class Flats {
         return whole;
     }
 
+    /**
+     * The four dots of the sprite's rectangle on the sheet round (u, v), wide by high from (left, top), each weighed by how
+     * near it is and how solid: into rgbCover their red, green and blue summed by weight, and the weights summed. A dot
+     * outside the rectangle counts for nothing.
+     */
+    static void blend(ByteBuffer sheet, int width, int left, int top, int wide, int high, float u, float v, float[] rgbCover) {
+        int u0 = (int) Math.floor(u), v0 = (int) Math.floor(v);
+        float partU = u - u0, partV = v - v0, red = 0f, green = 0f, blue = 0f, cover = 0f;
+        for (int corner = 0; corner < 4; corner++) {
+            int x = u0 + (corner & 1), y = v0 + (corner >> 1);
+            if (x < 0 || y < 0 || x >= wide || y >= high) {
+                continue;
+            }
+            int place = ((top + y) * width + left + x) * 4;
+            float weight = ((corner & 1) == 0 ? 1f - partU : partU) * ((corner >> 1) == 0 ? 1f - partV : partV) * (sheet.get(place + 3) & 0xff) / 255f;
+            red += weight * (sheet.get(place) & 0xff);
+            green += weight * (sheet.get(place + 1) & 0xff);
+            blue += weight * (sheet.get(place + 2) & 0xff);
+            cover += weight;
+        }
+        rgbCover[0] = red;
+        rgbCover[1] = green;
+        rgbCover[2] = blue;
+        rgbCover[3] = cover;
+    }
+
     /** Puts a picture with its rim on the graphics card, and gives its name. */
     static int picture(byte[] whole, int wide, int high) {
         ByteBuffer bytes = ByteBuffer.allocateDirect(whole.length).order(ByteOrder.nativeOrder());
@@ -600,10 +615,7 @@ final class Flats {
         // With a buffer bound to unpack from, OpenGL would read the picture out of that buffer.
         int unpackBuffer = GL11.glGetInteger(GL_PIXEL_UNPACK_BUFFER_BINDING);
         GL15.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
-        GL11.glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-        GL11.glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
-        GL11.glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
-        GL11.glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+        Pictures.unpackTight();
         int name = GL11.glGenTextures();
         GL11.glBindTexture(GL_TEXTURE_2D, name);
         GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, wide, high, 0, GL_RGBA, GL_UNSIGNED_BYTE, bytes);

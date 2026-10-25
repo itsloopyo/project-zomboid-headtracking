@@ -25,6 +25,7 @@ final class Pictures {
     private static final int GL_TEXTURE_MIN_FILTER = 0x2801, GL_TEXTURE_MAG_FILTER = 0x2800, GL_TEXTURE_WRAP_S = 0x2802, GL_TEXTURE_WRAP_T = 0x2803;
     private static final int GL_LINEAR = 0x2601, GL_LINEAR_MIPMAP_LINEAR = 0x2703, GL_REPEAT = 0x2901, GL_CLAMP_TO_EDGE = 0x812F;
     private static final int GL_TEXTURE_MAX_ANISOTROPY = 0x84FE;
+    private static final int GL_UNPACK_ROW_LENGTH = 0x0CF2, GL_UNPACK_SKIP_ROWS = 0x0CF3, GL_UNPACK_SKIP_PIXELS = 0x0CF4, GL_UNPACK_ALIGNMENT = 0x0CF5;
     /** Ground seen from standing height is seen at a slant: this many samples along the slant keep it sharp into the distance. */
     private static final int ANISOTROPY = 8;
     /** A file's head: "CUBC", then its format, width, height, layers, levels and whether its colour is a screen's, then its gain. */
@@ -349,6 +350,14 @@ final class Pictures {
         }
         picture.free();
         return whole;
+    }
+
+    /** Has OpenGL read a picture handed to it as whole rows of bytes packed tight, from its first byte, whatever the game left set. */
+    static void unpackTight() {
+        GL11.glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+        GL11.glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
+        GL11.glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
+        GL11.glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     }
 
     /** Has the texture bound now read along the slant it is seen at, where the card can. Render thread, once askCard has run. */

@@ -99,7 +99,7 @@ final class Rugs {
     private static final int GL_TEXTURE_2D = 0x0DE1, GL_TEXTURE_BINDING_2D = 0x8069, GL_RGBA = 0x1908, GL_RGBA8 = 0x8058, GL_UNSIGNED_BYTE = 0x1401;
     private static final int GL_TEXTURE_MIN_FILTER = 0x2801, GL_TEXTURE_MAG_FILTER = 0x2800, GL_TEXTURE_WRAP_S = 0x2802, GL_TEXTURE_WRAP_T = 0x2803;
     private static final int GL_LINEAR = 0x2601, GL_LINEAR_MIPMAP_LINEAR = 0x2703, GL_CLAMP_TO_EDGE = 0x812F;
-    private static final int GL_UNPACK_ALIGNMENT = 0x0CF5, GL_UNPACK_ROW_LENGTH = 0x0CF2, GL_UNPACK_SKIP_ROWS = 0x0CF3, GL_UNPACK_SKIP_PIXELS = 0x0CF4;
+    private static final int GL_UNPACK_ALIGNMENT = 0x0CF5;
     private static final int GL_PIXEL_UNPACK_BUFFER = 0x88EC, GL_PIXEL_UNPACK_BUFFER_BINDING = 0x88EF;
 
     /** One square of rug: the sprite, what the rug is made of, where it sits in its frame, and how high over the floor its top is, in levels. */
@@ -617,6 +617,7 @@ final class Rugs {
             return null;
         }
         byte[] read = new byte[READ * READ * 4];
+        float[] blended = new float[4];
         float perU = wide / want.width, perV = high / want.height;
         int painted = 0;
         for (int j = 0; j < READ; j++) {
@@ -624,25 +625,13 @@ final class Rugs {
                 float a = (i + 0.5f - MARGIN) / SIDE, b = (j + 0.5f - MARGIN) / SIDE;
                 float u = ((a - b) * SpriteGeometry.PIXELS_ACROSS_PER_TILE * want.scale + want.originU - want.left) * perU - 0.5f;
                 float v = (((a + b) * SpriteGeometry.PIXELS_DOWN_PER_TILE - want.lifted * SpriteGeometry.PIXELS_PER_LEVEL) * want.scale + want.originV - want.top) * perV - 0.5f;
-                int u0 = (int) Math.floor(u), v0 = (int) Math.floor(v);
-                float partU = u - u0, partV = v - v0, red = 0f, green = 0f, blue = 0f, covered = 0f;
-                for (int corner = 0; corner < 4; corner++) {
-                    int x = u0 + (corner & 1), y = v0 + (corner >> 1);
-                    if (x < 0 || y < 0 || x >= wide || y >= high) {
-                        continue;
-                    }
-                    int place = ((top + y) * width + left + x) * 4;
-                    float weight = ((corner & 1) == 0 ? 1f - partU : partU) * ((corner >> 1) == 0 ? 1f - partV : partV) * (sheet.get(place + 3) & 0xff) / 255f;
-                    red += weight * (sheet.get(place) & 0xff);
-                    green += weight * (sheet.get(place + 1) & 0xff);
-                    blue += weight * (sheet.get(place + 2) & 0xff);
-                    covered += weight;
-                }
+                Flats.blend(sheet, width, left, top, wide, high, u, v, blended);
+                float covered = blended[3];
                 int at = (j * READ + i) * 4;
                 if (covered > 0f) {
-                    read[at] = (byte) Math.round(red / covered);
-                    read[at + 1] = (byte) Math.round(green / covered);
-                    read[at + 2] = (byte) Math.round(blue / covered);
+                    read[at] = (byte) Math.round(blended[0] / covered);
+                    read[at + 1] = (byte) Math.round(blended[1] / covered);
+                    read[at + 2] = (byte) Math.round(blended[2] / covered);
                 }
                 read[at + 3] = (byte) Math.round(Math.min(covered, 1f) * 255f);
                 painted += covered >= COVERED && a >= 0f && a < 1f && b >= 0f && b < 1f ? 1 : 0;
@@ -1160,10 +1149,7 @@ final class Rugs {
         int was = GL11.glGetInteger(GL_TEXTURE_BINDING_2D);
         int unpackBuffer = GL11.glGetInteger(GL_PIXEL_UNPACK_BUFFER_BINDING);
         Uploads.bind();
-        GL11.glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-        GL11.glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
-        GL11.glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
-        GL11.glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+        Pictures.unpackTight();
         GL11.glBindTexture(GL_TEXTURE_2D, name);
         for (int level = first; level < levels.length; level++) {
             int side = sideOf(levels[level]);
@@ -1180,10 +1166,7 @@ final class Rugs {
         // With a buffer bound to unpack from, OpenGL would read the picture out of that buffer.
         int unpackBuffer = GL11.glGetInteger(GL_PIXEL_UNPACK_BUFFER_BINDING);
         GL15.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
-        GL11.glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-        GL11.glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
-        GL11.glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
-        GL11.glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+        Pictures.unpackTight();
         int name = GL11.glGenTextures();
         GL11.glBindTexture(GL_TEXTURE_2D, name);
         for (int level = first; level < levels.length; level++) {

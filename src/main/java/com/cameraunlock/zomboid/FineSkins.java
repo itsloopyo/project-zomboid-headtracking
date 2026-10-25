@@ -364,7 +364,7 @@ public final class FineSkins {
     private static final int GL_TEXTURE_MIN_FILTER = 0x2801, GL_TEXTURE_MAG_FILTER = 0x2800, GL_LINEAR = 0x2601;
     private static final int GL_TEXTURE_WRAP_S = 0x2802, GL_TEXTURE_WRAP_T = 0x2803, GL_REPEAT = 0x2901;
     private static final int GL_PIXEL_UNPACK_BUFFER = 0x88EC, GL_PIXEL_UNPACK_BUFFER_BINDING = 0x88EF;
-    private static final int GL_UNPACK_ROW_LENGTH = 0x0CF2, GL_UNPACK_SKIP_ROWS = 0x0CF3, GL_UNPACK_SKIP_PIXELS = 0x0CF4, GL_UNPACK_ALIGNMENT = 0x0CF5;
+    private static final int GL_UNPACK_ALIGNMENT = 0x0CF5;
     private static final int GL_OUT_OF_MEMORY = 0x0505;
     /** Whether the mod's own pictures now kept were read at half size: see Quality.smallerPictures. */
     private static boolean ownSmall;
@@ -1486,10 +1486,7 @@ public final class FineSkins {
         try {
             // With a buffer bound to unpack from, OpenGL would read the picture out of that buffer.
             GL15.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
-            GL11.glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-            GL11.glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
-            GL11.glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
-            GL11.glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+            Pictures.unpackTight();
             if (read.making == null) {
                 // The game's TextureID, for the game's Texture to wear, made with nothing in it and no copy of a picture.
                 read.making = new TextureID(read.wide, read.high, FBO, true);
