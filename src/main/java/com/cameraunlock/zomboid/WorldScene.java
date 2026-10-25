@@ -2131,8 +2131,11 @@ final class WorldScene {
     private static final int FIRST_WOOD = 40;
     /** The one roof sheet of boards. */
     private static final String BOARDED_ROOFS = "roofs_30_10_";
-    /** The one roof sheet of glass, a greenhouse's or a porch's. */
+    /** The roof sheet of glass, a greenhouse's or a porch's. */
     private static final String GLASS_ROOFS = "roofs_30_04_";
+    /** The sheet of low pitched roofs, corrugated and seamed metal, and from FIRST_SHALLOW_GLASS glass. */
+    private static final String SHALLOW_ROOFS = "roofs_shallow_01_";
+    private static final int FIRST_SHALLOW_GLASS = 96;
 
     /** What a sprite's surface is made of, by the sheet it comes from. */
     static float materialOf(String name, boolean isFloor) {
@@ -2142,12 +2145,13 @@ final class WorldScene {
         if (name.startsWith(BOARDED_ROOFS)) {
             return PLANKS;
         }
-        // The sheets of roofs_30 are barrel tiles, standing seam sheet metal and glass, each
-        // painted whole on its sprite: under the grain of shingle they glittered like foil.
-        if (name.startsWith(GLASS_ROOFS)) {
+        if (name.startsWith(GLASS_ROOFS) || name.startsWith(SHALLOW_ROOFS) && Sheets.place(name) >= FIRST_SHALLOW_GLASS) {
             return GLASS;
         }
-        if (name.startsWith("roofs_30_")) {
+        // Barrel tiles, standing seam and corrugated sheet metal are painted whole on their
+        // sprites: under the grain of shingle they glittered like foil, or ribbed metal came
+        // out as a roof of red tiles.
+        if (name.startsWith("roofs_30_") || name.startsWith("roofs_03_") || name.startsWith("roofs_04_") || name.startsWith(SHALLOW_ROOFS)) {
             return 0f;
         }
         if (name.startsWith("roofs_")) {
