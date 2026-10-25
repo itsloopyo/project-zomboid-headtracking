@@ -3247,8 +3247,9 @@ final class PipelineShaders {
                 if (uOwnTextures > 0.5 && !model && !litter && vKind < 1.5 && vKind > 0.5 && n.z > 0.8) {
                     // The game's pavement is a speckle a dot or two across, which from close is a
                     // field of blots: the concrete's grain is the picture's, and the sprite gives only
-                    // its colour, the mean of a ring of dots round the pixel.
-                    if (vMaterial > 54.5 && vMaterial < 55.5 && uTexel.x > 0.0 && texel.a > 0.5) {
+                    // its colour, the mean of a ring of dots round the pixel. Slabs laid as tiles
+                    // are already one colour each, and their texture coordinates count joints.
+                    if (vMaterial > 54.5 && vMaterial < 55.5 && uTint.a < 0.5 && uTexel.x > 0.0 && texel.a > 0.5) {
                         vec4 ring = texture2D(uTexture, vUv);
                         for (int i = 0; i < 8; i++) {
                             float ringTurn = float(i) * 0.785398;
