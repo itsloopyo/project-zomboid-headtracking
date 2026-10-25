@@ -462,8 +462,8 @@ public final class Characters {
     private final float[][] seers = new float[SEERS][16];
     private final float[] seersWide = new float[SEERS], seersHigh = new float[SEERS];
     private int seersFound;
-    /** The eye, a mirror and a scope. */
-    private static final int SEERS = 3;
+    /** The eye, the glass of each of LookingGlass's planes, a vehicle's mirror and a scope. */
+    private static final int SEERS = 1 + LookingGlass.PLANES + 2;
     private final float[] past = new float[5];
 
     /**
