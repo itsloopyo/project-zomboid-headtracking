@@ -286,7 +286,7 @@ final class Terrain {
             if (square == null) {
                 return guessedOver(x, y);
             }
-            if (defOf(square) != null) {
+            if (footingOf(siteCell, square, x, y) != null) {
                 return Footings.HOUSE;
             }
             if (stands(siteCell, square, x, y)) {
@@ -320,7 +320,7 @@ final class Terrain {
             if (square == null) {
                 return MapAhead.guessed(Math.floorDiv(x, CHUNK_TILES), Math.floorDiv(y, CHUNK_TILES)).house[inChunk(x, y)];
             }
-            BuildingDef def = defOf(square);
+            BuildingDef def = footingOf(siteCell, square, x, y);
             return Footings.key(def.getX() + def.getW() / 2f, def.getY() + def.getH() / 2f);
         }
 
@@ -1525,7 +1525,7 @@ final class Terrain {
                 byte kind = kind(square);
                 whole &= kind != UNKNOWN;
                 passing.kinds[i * CHUNK_TILES + j] = kind;
-                passing.hard[i * CHUNK_TILES + j] = square != null && (defOf(square) != null || stands(cell, square, x, y));
+                passing.hard[i * CHUNK_TILES + j] = square != null && (footingOf(cell, square, x, y) != null || stands(cell, square, x, y));
                 passing.footway[i * CHUNK_TILES + j] = kind == MADE || kind == STREET && footway(square);
                 water |= kind == WATER;
             }
@@ -1652,6 +1652,21 @@ final class Terrain {
     private static BuildingDef defOf(IsoGridSquare square) {
         IsoBuilding building = square.getBuilding();
         return building == null ? null : building.getDef();
+    }
+
+    /**
+     * The building whose pad a square of the ground is part of: the one with a room on it, or
+     * the one with a room under it. A basement runs out under the yard beside its house, and
+     * with the yard graded off the pad over it, the basement's ceiling and floor sank with the
+     * yard where its walls stood at the pad (2319..2321, 13997..14001).
+     */
+    private static BuildingDef footingOf(IsoCell cell, IsoGridSquare square, int x, int y) {
+        BuildingDef def = defOf(square);
+        if (def != null) {
+            return def;
+        }
+        IsoGridSquare under = cell.getGridSquare(x, y, -1);
+        return under == null ? null : defOf(under);
     }
 
     /**

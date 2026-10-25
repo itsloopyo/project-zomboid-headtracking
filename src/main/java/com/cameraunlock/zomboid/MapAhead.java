@@ -88,7 +88,7 @@ final class MapAhead {
         final int wx, wy;
         final byte[] kind = new byte[SQUARES];
         final boolean[] footway = new boolean[SQUARES];
-        /** The middle of the building the square is in, as Footings.key packs it, or Footings.NONE. */
+        /** The middle of the building whose pad the square is part of (Terrain.footingOf), as Footings.key packs it, or Footings.NONE. */
         final long[] house = new long[SQUARES];
         final byte[] stands = new byte[SQUARES];
         /** Footings.BUILT, HUNG or OPEN, as Terrain.above has it. */
@@ -221,7 +221,8 @@ final class MapAhead {
             for (int j = 0; j < CHUNK; j++) {
                 int at = i * CHUNK + j, x = raw.wx * CHUNK + i, y = raw.wy * CHUNK + j;
                 long house = rooms.house(x, y, 0);
-                guess.house[at] = house;
+                // A basement's pad reaches out under the yard over it, as Terrain.footingOf has it.
+                guess.house[at] = house != Footings.NONE ? house : rooms.house(x, y, -1);
                 // The game's own rule for outside (IsoGridSquare.RecalcProperties): no room, and nothing over it that keeps the rain off.
                 boolean outside = house == Footings.NONE && (raw.above[at] & BLOCKS_RAIN) == 0;
                 int floor = raw.floor[at];

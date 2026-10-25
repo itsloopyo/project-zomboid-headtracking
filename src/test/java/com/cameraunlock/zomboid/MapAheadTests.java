@@ -111,6 +111,9 @@ final class MapAheadTests {
         MapAhead.Guess inside = MapAhead.guess(raw(grass, 0, 0, 0), house);
         check(inside.kind[0] == Terrain.MADE && inside.house[0] == middle, "grass in a room is made ground in the building");
         check(open.house[0] == Footings.NONE, "a square in no room is in no building");
+        MapAhead.Rooms basement = (x, y, z) -> x == 80 && y == 160 && z == -1 ? middle : Footings.NONE;
+        MapAhead.Guess yard = MapAhead.guess(raw(grass, 0, 0, 0), basement);
+        check(yard.house[0] == middle && yard.kind[0] == Terrain.NATURAL, "grass over a basement is on its building's pad and is still grass");
     }
 
     private static void whatStandsOnASquareAndWhatIsOverItAreRead() {
