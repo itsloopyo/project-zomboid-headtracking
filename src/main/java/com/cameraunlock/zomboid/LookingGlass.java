@@ -1,5 +1,7 @@
 package com.cameraunlock.zomboid;
 
+import java.util.Arrays;
+
 /**
  * What a mirror in a room shows: the world drawn a second time, from the eye's image behind
  * the mirror's glass, as WaterMirror draws it from under water. A point Q before the glass,
@@ -13,9 +15,10 @@ package com.cameraunlock.zomboid;
  *
  * A window's panes, seen from the room, throw it back too, thinly: see WindowGlass.
  *
- * One plane a frame: the plane of whichever glass, mirrors or windows, takes up the most of
- * the picture, a window's share counted by WINDOW_WEIGHT, and every glass of that kind in it. A mirror in another plane is left to the
- * trace, a window to what its pane throws back by itself.
+ * Up to PLANES planes a frame, each with every glass of its kind in it: the planes whose glass,
+ * mirrors or windows, takes up the most of the picture, a window's share counted by
+ * WINDOW_WEIGHT. A mirror in any plane past those is left to the trace, a window to what its
+ * pane throws back by itself.
  */
 final class LookingGlass {
     /**
@@ -48,8 +51,14 @@ final class LookingGlass {
      * so in choosing the frame's plane its share of the picture counts for that much.
      */
     static final float WINDOW_WEIGHT = 0.2f;
-    /** The most mirrors in the plane whose glass is shown. */
+    /** The most mirrors in a plane whose glass is shown. */
     static final int MOST = 16;
+    /**
+     * The most planes a frame draws a picture for: the three walls of a room seen at once,
+     * before the eye and to either side. With one, the glass of only one wall showed the
+     * viewer, and which wall changed as the head turned.
+     */
+    static final int PLANES = 3;
     /** Floats a corner of the glass is drawn with: its place from the eye, how far across and up the glass it is, 0 to 1, and the glass's width and height in tiles. */
     static final int CORNER_FLOATS = 7;
 
@@ -124,52 +133,73 @@ final class LookingGlass {
             """;
 
     /**
-     * What a window's glass shows of the room, added to what is seen through it: as much as
-     * the pane throws back, the share the world's own drawing of the pane took from what is
-     * behind it and gave to the street it throws back instead (PipelineShaders, "thrown").
+     * What a window's glass shows of the side the eye is on, added to what is seen through it:
+     * as much as the pane throws back, the share the world's own drawing of the pane took from
+     * what is behind it and gave to what it works out the pane throws back instead
+     * (PipelineShaders, "thrown"). Over the end of the reach it fades out by how far each place
+     * on the glass is from the eye, as the world's drawing of the pane takes it back.
      */
-    static final String THROWN = """
-            #version 120
+    static final String THROWN = "#version 120\nconst float REACH = " + REACH + ", FADE = " + FADE + ";\n" + """
             uniform sampler2D uPicture;
             uniform vec2 uSize;
             uniform vec4 uDrawn;
             uniform vec3 uFacing;
-            uniform float uShown;
             varying vec3 vPlace;
             void main() {
                 vec2 uv = clamp(gl_FragCoord.xy / uSize, uDrawn.xy, uDrawn.zw);
                 float square = abs(dot(normalize(-vPlace), uFacing));
                 float thrown = min(1.0, 1.6 * (0.13 + 0.87 * pow(1.0 - square, 5.0)));
-                gl_FragColor = vec4(texture2D(uPicture, uv).rgb * (thrown * uShown), 0.0);
+                float shown = clamp((REACH - length(vPlace)) / FADE, 0.0, 1.0);
+                gl_FragColor = vec4(texture2D(uPicture, uv).rgb * (thrown * shown), 0.0);
             }
             """;
 
+    /** A plane the frame draws a picture for, and its glass. */
+    static final class Plane {
+        /**
+         * The way the plane faces and how far along that it is from the map's corner. Glass
+         * that counts as in the plane may stand a little before or behind it, and the plane is
+         * the foremost of them, so that no glass is left standing before it in the picture
+         * drawn from behind.
+         */
+        final float[] plane = new float[4];
+        /** The part of the picture their glass takes up, its least and greatest x and y from -1 to 1. */
+        final float[] rect = new float[4];
+        /** The glass of each of them, FLOATS each. */
+        final float[] glass = new float[MOST * FLOATS];
+        /** How much of what each of them shows is its own picture: see FADE. */
+        final float[] shown = new float[MOST];
+        /** How many glasses are in the plane: none when the frame has no plane for this place in planes. */
+        int count;
+        /** Whether the glass is a window's and not a mirror's: see WindowGlass. */
+        boolean window;
+        /** How far before the plane what the glass shows begins, and how far before it its picture is laid over the eye's, in tiles. */
+        float clear, laid;
+        /** Whether their glass reaches past the edge of the picture, where a turn of the head brings more of it in. */
+        boolean pastEdge;
+    }
+
     /**
-     * The plane the glass of this frame's mirrors lies in: the way it faces and how far along
-     * that it is from the map's corner. Glass that counts as in the plane may stand a little
-     * before or behind it, and the plane is the foremost of them, so that no glass is left
-     * standing before it in the picture drawn from behind.
+     * The frame's planes. A plane the frame before had keeps its place, so that whatever is
+     * kept for a place from frame to frame (its picture, whether it was seen) stays with it.
      */
-    final float[] plane = new float[4];
-    /** The part of the picture their glass takes up, its least and greatest x and y from -1 to 1. */
-    final float[] rect = new float[4];
-    /** The glass of each of them, FLOATS each. */
-    final float[] glass = new float[MOST * FLOATS];
-    /** How much of what each of them shows is its own picture: see FADE. */
-    final float[] shown = new float[MOST];
-    int count;
-    /** Whether the glass is a window's and not a mirror's: see WindowGlass. */
-    boolean window;
-    /** How far before the plane what the glass shows begins, and how far before it its picture is laid over the eye's, in tiles. */
-    float clear, laid;
-    /** Whether their glass reaches past the edge of the picture, where a turn of the head brings more of it in. */
-    boolean pastEdge;
+    final Plane[] planes = new Plane[PLANES];
+
+    {
+        for (int i = 0; i < PLANES; i++) {
+            planes[i] = new Plane();
+        }
+    }
 
     /** The most mirrors a frame looks at: more than any room holds. */
     private static final int SEEN_MOST = 64;
     private final float[][] seenGlass = new float[SEEN_MOST][FLOATS], seenRect = new float[SEEN_MOST][4];
     private final float[] seenArea = new float[SEEN_MOST], seenShown = new float[SEEN_MOST];
     private final boolean[] seenPast = new boolean[SEEN_MOST], seenWindow = new boolean[SEEN_MOST];
+    /** Which of the chosen planes each glass seen is in, or -1. */
+    private final int[] seenIn = new int[SEEN_MOST];
+    private final int[] chosen = new int[PLANES], placeOf = new int[PLANES];
+    private final boolean[] placeKept = new boolean[PLANES];
     private int seen;
     /** Whether the glass the last seen() was asked of reaches past the edge of the picture. */
     private boolean reachesPast;
@@ -319,7 +349,6 @@ final class LookingGlass {
     /** Begins the frame's search: no glass seen yet. */
     void begin() {
         seen = 0;
-        count = 0;
     }
 
     /**
@@ -346,45 +375,92 @@ final class LookingGlass {
     }
 
     /**
-     * Ends the search: chooses the plane whose mirrors take up the most of the picture, and
-     * keeps those mirrors and the part of the picture they take. False if the eye sees none.
+     * Ends the search: chooses up to PLANES planes, those whose glass takes up the most of the
+     * picture, and keeps each with its glass and the part of the picture they take. A plane
+     * the last end chose keeps its place in planes; a place no plane takes has a count of 0.
+     * Returns how many planes were chosen.
      */
-    boolean end() {
-        count = 0;
-        pastEdge = false;
-        float best = 0f;
-        int chosen = -1;
-        for (int i = 0; i < seen; i++) {
-            plane(seenGlass[i], 0, testPlane);
-            float area = 0f;
-            for (int j = 0; j < seen; j++) {
-                if (seenWindow[j] == seenWindow[i] && samePlane(testPlane, seenGlass[j])) {
-                    area += seenWindow[j] ? seenArea[j] * WINDOW_WEIGHT : seenArea[j];
+    int end() {
+        Arrays.fill(seenIn, 0, seen, -1);
+        int chosenCount = 0;
+        while (chosenCount < PLANES) {
+            float best = 0f;
+            int pick = -1;
+            for (int i = 0; i < seen; i++) {
+                if (seenIn[i] >= 0) {
+                    continue;
+                }
+                plane(seenGlass[i], 0, testPlane);
+                float area = 0f;
+                for (int j = 0; j < seen; j++) {
+                    if (seenIn[j] < 0 && seenWindow[j] == seenWindow[i] && samePlane(testPlane, seenGlass[j])) {
+                        area += seenWindow[j] ? seenArea[j] * WINDOW_WEIGHT : seenArea[j];
+                    }
+                }
+                if (area > best) {
+                    best = area;
+                    pick = i;
                 }
             }
-            if (area > best) {
-                best = area;
-                chosen = i;
+            if (pick < 0) {
+                break;
+            }
+            plane(seenGlass[pick], 0, testPlane);
+            for (int j = 0; j < seen; j++) {
+                if (seenIn[j] < 0 && seenWindow[j] == seenWindow[pick] && samePlane(testPlane, seenGlass[j])) {
+                    seenIn[j] = chosenCount;
+                }
+            }
+            chosen[chosenCount++] = pick;
+        }
+        Arrays.fill(placeKept, false);
+        for (int c = 0; c < chosenCount; c++) {
+            placeOf[c] = -1;
+            for (int place = 0; place < PLANES; place++) {
+                Plane was = planes[place];
+                if (!placeKept[place] && was.count > 0 && was.window == seenWindow[chosen[c]] && samePlane(was.plane, seenGlass[chosen[c]])) {
+                    placeOf[c] = place;
+                    placeKept[place] = true;
+                    break;
+                }
             }
         }
-        if (chosen < 0) {
-            return false;
+        for (int c = 0; c < chosenCount; c++) {
+            for (int place = 0; place < PLANES && placeOf[c] < 0; place++) {
+                if (!placeKept[place]) {
+                    placeOf[c] = place;
+                    placeKept[place] = true;
+                }
+            }
         }
-        plane(seenGlass[chosen], 0, plane);
-        window = seenWindow[chosen];
-        clear = window ? WindowGlass.CLEAR : CLEAR;
-        laid = window ? WindowGlass.LAID : CLEAR;
+        for (Plane plane : planes) {
+            plane.count = 0;
+        }
+        for (int c = 0; c < chosenCount; c++) {
+            keep(planes[placeOf[c]], c);
+        }
+        return chosenCount;
+    }
+
+    /** Keeps the c-th plane chosen in into, with the glass seen in it. */
+    private void keep(Plane into, int c) {
+        float[] plane = into.plane, rect = into.rect;
+        plane(seenGlass[chosen[c]], 0, plane);
+        into.window = seenWindow[chosen[c]];
+        into.clear = into.window ? WindowGlass.CLEAR : CLEAR;
+        into.laid = into.window ? WindowGlass.LAID : CLEAR;
+        into.pastEdge = false;
         float foremost = plane[3];
         rect[0] = rect[1] = Float.POSITIVE_INFINITY;
         rect[2] = rect[3] = Float.NEGATIVE_INFINITY;
-        for (int j = 0; j < seen && count < MOST; j++) {
-            if (seenWindow[j] != window || !samePlane(plane, seenGlass[j])) {
+        for (int j = 0; j < seen && into.count < MOST; j++) {
+            if (seenIn[j] != c) {
                 continue;
             }
-            System.arraycopy(seenGlass[j], 0, glass, count * FLOATS, FLOATS);
-            shown[count] = seenShown[j];
-            count++;
-            pastEdge |= seenPast[j];
+            System.arraycopy(seenGlass[j], 0, into.glass, into.count * FLOATS, FLOATS);
+            into.shown[into.count] = seenShown[j];
+            into.count++;
+            into.pastEdge |= seenPast[j];
             foremost = Math.max(foremost, plane[0] * seenGlass[j][CORNER] + plane[1] * seenGlass[j][CORNER + 1] + plane[2] * seenGlass[j][CORNER + 2]);
             float[] r = seenRect[j];
             rect[0] = Math.min(rect[0], r[0]);
@@ -393,7 +469,6 @@ final class LookingGlass {
             rect[3] = Math.max(rect[3], r[3]);
         }
         plane[3] = foremost;
-        return true;
     }
 
     private static boolean samePlane(float[] plane, float[] glass) {

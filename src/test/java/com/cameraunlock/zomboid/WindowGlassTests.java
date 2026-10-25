@@ -12,7 +12,7 @@ final class WindowGlassTests {
         Checks.run("theRoomBeginsPastTheWallAndIsLaidInTheOpening", WindowGlassTests::theRoomBeginsPastTheWallAndIsLaidInTheOpening);
         Checks.run("windowsAndMirrorsAreNeverOneGlass", WindowGlassTests::windowsAndMirrorsAreNeverOneGlass);
         Checks.run("aGlazedDoorsGlassIsItsLightsAndNoMore", WindowGlassTests::aGlazedDoorsGlassIsItsLightsAndNoMore);
-        Checks.run("noWindowThrowsBackToAnEyeInTheOpenAir", WindowGlassTests::noWindowThrowsBackToAnEyeInTheOpenAir);
+        Checks.run("aWindowThrowsBackTheSideTheEyeStandsOn", WindowGlassTests::aWindowThrowsBackTheSideTheEyeStandsOn);
     }
 
     private static float[] window(boolean north, int edge, int along, float side) {
@@ -60,10 +60,10 @@ final class WindowGlassTests {
         check(!looking.seen(glass, 0, eye(20.5f, 33f, toward(20.5f, 33f, 20.5f, 30f)), TAN, ASPECT, NEAR, rect), "and not from the street behind the side it was noted facing");
     }
 
-    private static void noWindowThrowsBackToAnEyeInTheOpenAir() {
+    private static void aWindowThrowsBackTheSideTheEyeStandsOn() {
         check(WindowGlass.throwsBack(false, false), "a window throws the room back to an eye in the room");
+        check(WindowGlass.throwsBack(true, true), "and the street to an eye in the street before it");
         check(!WindowGlass.throwsBack(false, true), "and nothing to an eye in the room whose side of the edge is the street");
-        check(!WindowGlass.throwsBack(true, true), "nor to an eye in the street before it");
         check(!WindowGlass.throwsBack(true, false), "nor to an eye in the street beyond the house, though the window's room is on its side of the edge");
     }
 
@@ -90,21 +90,25 @@ final class WindowGlassTests {
         looking.consider(mirror, 0, false, camera, TAN, ASPECT, NEAR);
         looking.consider(windows, 0, true, camera, TAN, ASPECT, NEAR);
         looking.consider(windows, 1, true, camera, TAN, ASPECT, NEAR);
-        check(looking.end(), "the eye sees glass");
-        check(looking.window && looking.count == 2, "the windows take more of the picture, and only they are kept: " + looking.count);
-        check(looking.clear == WindowGlass.CLEAR && looking.laid == WindowGlass.LAID, "with a window's clearances");
+        check(looking.end() == 2, "the eye sees glass in two planes, though they lie on one wall");
+        LookingGlass.Plane windowsKept = looking.planes[0], mirrorKept = looking.planes[1];
+        check(windowsKept.window && windowsKept.count == 2, "the windows take more of the picture and are the first, both of them: " + windowsKept.count);
+        check(windowsKept.clear == WindowGlass.CLEAR && windowsKept.laid == WindowGlass.LAID, "with a window's clearances");
+        check(!mirrorKept.window && mirrorKept.count == 1, "and the mirror beside them is a plane of its own: " + mirrorKept.count);
+        looking = new LookingGlass();
         looking.begin();
         looking.consider(mirror, 0, false, camera, TAN, ASPECT, NEAR);
-        check(looking.end() && !looking.window && looking.count == 1, "a mirror alone is a mirror");
+        check(looking.end() == 1 && !looking.planes[0].window && looking.planes[0].count == 1, "a mirror alone is a mirror");
         // A mirror a little smaller than one window, which throws back far more.
         mirror[LookingGlass.ACROSS] = 0.8f;
         mirror[LookingGlass.UP + 2] = 1f;
         mirror[LookingGlass.CORNER + 2] = 0.8f;
+        looking = new LookingGlass();
         looking.begin();
         looking.consider(windows, 0, true, camera, TAN, ASPECT, NEAR);
         looking.consider(mirror, 0, false, camera, TAN, ASPECT, NEAR);
-        check(looking.end() && !looking.window, "a mirror is chosen over a window of the same size, which shows far less");
-        check(looking.clear == LookingGlass.CLEAR && looking.laid == LookingGlass.CLEAR, "with a mirror's clearances");
+        check(looking.end() == 2 && !looking.planes[0].window, "a mirror comes before a window of the same size, which shows far less");
+        check(looking.planes[0].clear == LookingGlass.CLEAR && looking.planes[0].laid == LookingGlass.CLEAR, "with a mirror's clearances");
     }
 
     private static void aGlazedDoorsGlassIsItsLightsAndNoMore() {

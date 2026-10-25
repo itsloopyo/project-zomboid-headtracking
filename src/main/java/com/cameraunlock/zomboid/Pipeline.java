@@ -406,11 +406,28 @@ final class Pipeline {
     private final Lent mirrored = new Lent("mirror's pictures", this::makeMirror);
     /** What water shows, at a third of the picture's size: only in High, in first person, with water in sight. */
     private final Lent watered = new Lent("picture of what water shows", this::makeWatered);
-    /** What the mirrors in a room or the windows of one show, at the picture's size: only with such glass in sight. */
-    private final Lent looked = new Lent("picture of what a mirror shows", this::makeLooked);
-    private final Lent[] SIZED = {whole, steadied, cabin, shaded, watered, looked};
+    private final LookingGlass lookingGlass = new LookingGlass();
+    /** What the glass of each of the frame's planes shows, at the picture's size: only with such glass in sight. */
+    private final Looked[] looks = new Looked[LookingGlass.PLANES];
+
+    {
+        for (int place = 0; place < LookingGlass.PLANES; place++) {
+            looks[place] = new Looked(place);
+        }
+    }
+
+    private final Lent[] SIZED = sized(whole, steadied, cabin, shaded, watered);
     private final Lent[] UNSIZED = {beamed, torched, fired, mirrored};
     private static final long LENT_FOR_NANOS = 10_000_000_000L;
+
+    /** The sets at the picture's size: those given, and each plane's picture of what its glass shows. */
+    private Lent[] sized(Lent... sets) {
+        Lent[] all = Arrays.copyOf(sets, sets.length + looks.length);
+        for (int place = 0; place < looks.length; place++) {
+            all[sets.length + place] = looks[place].lent;
+        }
+        return all;
+    }
     /** The set whose pictures are being made, which texture and target note them in, or null. */
     private Lent making;
     /** When the frame being drawn began. */
@@ -732,27 +749,67 @@ final class Pipeline {
     private static final int WATER_RECT_TEXELS = 16;
     private static final int WATER_UNIT = 18;
     /**
-     * What the mirrors in a room show: the world drawn from the eye's image behind their
-     * glass, at the picture's own size and only where their glass is in it. In every mode
-     * with Reflections on, in first person on foot: see LookingGlass.
+     * What the glass of one of the frame's planes (LookingGlass.planes, the same place) shows:
+     * the world drawn from the eye's image behind the glass, at the picture's own size and only
+     * where the glass is in it. In every mode with Reflections on, in first person on foot.
      */
-    private int lookColor, lookDepth, lookTarget;
-    /** The people the mirrors show, drawn into the eye's own pictures of people but against the depth of what the mirrors show. */
-    private int lookFigureTarget;
-    private final LookingGlass lookingGlass = new LookingGlass();
-    /** The eye's image behind the mirrors' glass. */
-    private final ViewCamera.Pose glassEye = new ViewCamera.Pose();
-    /** While set, the world is drawn into that picture. */
+    private final class Looked {
+        final LookingGlass.Plane plane;
+        final Lent lent;
+        int color, depth, target;
+        /** The people the glass shows, drawn into the eye's own pictures of people but against the depth of what the glass shows. */
+        int figureTarget;
+        /** The eye's image behind the glass. */
+        final ViewCamera.Pose eye = new ViewCamera.Pose();
+        /** The scissor box of the picture's drawn part, in its pixels. */
+        final int[] scissor = new int[4];
+        /** Whether this frame draws it. */
+        boolean drawn;
+        /** Whether the glass may show past what stands before it: see SightQuery. */
+        final SightQuery sight = new SightQuery();
+
+        Looked(int place) {
+            plane = lookingGlass.planes[place];
+            lent = new Lent("picture of what glass shows (" + (place + 1) + ")", this::make);
+        }
+
+        private String make() {
+            color = texture(GL_RGBA16F, width, height, GL_RGBA, GL_FLOAT, GL_NEAREST);
+            depth = texture(GL_DEPTH_COMPONENT24, width, height, GL_DEPTH_COMPONENT, GL_FLOAT, GL_NEAREST);
+            target = target(color);
+            GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depth, 0);
+            String problem = complete("what glass shows");
+            // Who is in the glass is drawn into the eye's own pictures of people, before the eye's own people are, against the depth of the glass's world.
+            figureTarget = target(figureColor);
+            GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + 1, GL_TEXTURE_2D, figureNormal, 0);
+            GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + 2, GL_TEXTURE_2D, figureLamps, 0);
+            GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depth, 0);
+            if (problem == null) {
+                problem = complete("people in glass");
+            }
+            return problem;
+        }
+    }
+
+    /** While set, the world is drawn into the picture of what a glass shows. */
     private boolean inLookingGlass;
-    /** Whether this frame draws it. */
-    private boolean lookingGlassDrawn;
-    /** The same, for the logic thread: see lookingGlassShown. */
+    /** The glass whose picture is being drawn, world and people. */
+    private Looked lookingIn;
+    /** Whether this frame draws any glass's picture, for the logic thread: see lookingGlassShown. */
     private volatile boolean lookingGlassShown;
-    /** The scissor box of that picture's drawn part, in its pixels, and the same at the size the clouds are marched at. */
-    private final int[] lookScissor = new int[4], lookCloudScissor = new int[4];
+    /** The scissor box of a glass's picture's drawn part at the size the clouds are marched at. */
+    private final int[] lookCloudScissor = new int[4];
     /** How many pixels round the glass that picture is drawn: the glass's edge falls part way across a pixel. */
     private static final int LOOK_RECT_PIXELS = 4;
     private final FloatBuffer glassCorners = buffer(LookingGlass.MOST * 6 * LookingGlass.CORNER_FLOATS);
+    /** The planes of window glass whose picture is laid over its panes, by place, as the world shader's uRoomGlass takes them: one a component of a vec4. */
+    private final float[] roomGlass = new float[4];
+
+    static {
+        if (LookingGlass.PLANES > 4) {
+            throw new IllegalStateException("the world shader takes the planes of window glass in a vec4, and LookingGlass.PLANES is " + LookingGlass.PLANES);
+        }
+    }
     static final int MIRROR_WIDTH = 640, MIRROR_HEIGHT = 180;
     private static final int MIRROR_UNIT = 21;
     /** Half of how much of the world behind the mirror takes in, top to bottom, as a tangent. */
@@ -1192,12 +1249,17 @@ final class Pipeline {
             view.characters.seenBy(camera, tanHalfFieldOfView, aspect);
             // A mirror in a room looks where the eye does not, at people the sun's maps shade.
             boolean glassInView = reflections && !outside && !seated && lookingGlassSeen(camera, tanHalfFieldOfView, aspect, near);
-            lookingGlassDrawn = glassSight.mayShow(glassInView, glassInView && lookingGlass.pastEdge, gameFrame) && glassInView;
-            lookingGlassShown = lookingGlassDrawn;
-            if (lookingGlassDrawn) {
-                WaterMirror.mirror(camera, lookingGlass.plane, glassEye);
-                view.characters.alsoSeenBy(glassEye, tanHalfFieldOfView, aspect);
+            boolean anyGlassDrawn = false;
+            for (Looked look : looks) {
+                boolean inView = glassInView && look.plane.count > 0;
+                look.drawn = look.sight.mayShow(inView, inView && look.plane.pastEdge, gameFrame) && inView;
+                if (look.drawn) {
+                    WaterMirror.mirror(camera, look.plane.plane, look.eye);
+                    view.characters.alsoSeenBy(look.eye, tanHalfFieldOfView, aspect);
+                    anyGlassDrawn = true;
+                }
             }
+            lookingGlassShown = anyGlassDrawn;
             if (cabin != null && reflections) {
                 placeBehind(camera, cabin);
                 view.characters.alsoSeenBy(behind, MIRROR_TAN, (float) MIRROR_WIDTH / MIRROR_HEIGHT);
@@ -1222,25 +1284,31 @@ final class Pipeline {
                 drawOverWater(camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
                 stage(STAGE_WATER);
             }
-            if (lookingGlassDrawn) {
-                drawLookingGlass(state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd, figures);
-                stage(STAGE_GLASS);
+            for (Looked look : looks) {
+                if (look.drawn) {
+                    drawLookingGlass(look, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd, figures);
+                    stage(STAGE_GLASS);
+                }
             }
             stage(STAGE_WORLD);
             drawWorld(camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
             if (waterInView) {
                 askWhetherWaterShows(camera);
             }
-            if (glassInView) {
-                askWhetherGlassShows(camera);
+            for (Looked look : looks) {
+                if (glassInView && look.plane.count > 0) {
+                    askWhetherGlassShows(look, camera);
+                }
             }
             if (struck) {
                 impacts.read(sceneTarget, camera, tanHalfFieldOfView, aspect, width, height);
                 lookFrom(camera, tanHalfFieldOfView, aspect, near, far, asideX, asideY);
                 impacts.holes(decalTarget, sceneDepth, camera, tanHalfFieldOfView, aspect, near, far, width, height, asideX, asideY);
             }
-            if (lookingGlassDrawn && !lookingGlass.window) {
-                showLookingGlass(camera, tanHalfFieldOfView, aspect, near, far);
+            for (Looked look : looks) {
+                if (look.drawn && !look.plane.window) {
+                    showLookingGlass(look, camera, tanHalfFieldOfView, aspect, near, far);
+                }
             }
             stage(STAGE_WORLD);
             if (!overhead && state.outlined != null) {
@@ -1296,8 +1364,10 @@ final class Pipeline {
                 drawPanes(camera, state, tanHalfFieldOfView, aspect, fogStart, fogEnd);
             }
             // Over the panes, which take from what is behind them what they throw back.
-            if (lookingGlassDrawn && lookingGlass.window) {
-                showLookingGlass(camera, tanHalfFieldOfView, aspect, near, far);
+            for (Looked look : looks) {
+                if (look.drawn && look.plane.window) {
+                    showLookingGlass(look, camera, tanHalfFieldOfView, aspect, near, far);
+                }
             }
             if (flamesBeforeGlass) {
                 copyDepth(keptDepthTarget, sceneTarget);
@@ -1514,7 +1584,7 @@ final class Pipeline {
      * picture of what water shows cost 2.5 ms of the card walking by a pond that fences and
      * houses hid entirely.
      */
-    private final SightQuery waterSight = new SightQuery(), glassSight = new SightQuery();
+    private final SightQuery waterSight = new SightQuery();
 
     /** Draws the water's plane over the chunks of water in view, raised and a tile wider, under a query of whether any of it passes the eye's depth. */
     private void askWhetherWaterShows(ViewCamera.Pose eye) {
@@ -1542,17 +1612,17 @@ final class Pipeline {
     }
 
     /**
-     * Draws the mirrors the frame chose (LookingGlass), each a little wider and taller and stood a
-     * little out from its face, under a query of whether any of it passes the eye's depth.
+     * Draws the glass of one of the frame's planes (LookingGlass), each a little wider and taller
+     * and stood a little out from its face, under a query of whether any of it passes the eye's depth.
      */
-    private void askWhetherGlassShows(ViewCamera.Pose eye) {
+    private void askWhetherGlassShows(Looked look, ViewCamera.Pose eye) {
         lookFromEye();
-        if (!glassSight.begin()) {
+        if (!look.sight.begin()) {
             return;
         }
-        float[] g = lookingGlass.glass;
+        float[] g = look.plane.glass;
         GL11.glBegin(GL_QUADS);
-        for (int i = 0; i < lookingGlass.count; i++) {
+        for (int i = 0; i < look.plane.count; i++) {
             int at = i * LookingGlass.FLOATS;
             float acrossLength = length(g[at + LookingGlass.ACROSS], g[at + LookingGlass.ACROSS + 1], g[at + LookingGlass.ACROSS + 2]);
             float upLength = length(g[at + LookingGlass.UP], g[at + LookingGlass.UP + 1], g[at + LookingGlass.UP + 2]);
@@ -1571,7 +1641,7 @@ final class Pipeline {
             }
         }
         GL11.glEnd();
-        glassSight.end();
+        look.sight.end();
     }
 
     /** The eye's projection and view in the fixed-function matrices, and a program that writes no depth, for SightQuery's stand-ins. */
@@ -1658,10 +1728,9 @@ final class Pipeline {
     }
 
     /**
-     * Whether the eye sees a mirror in a room or a window from inside, near enough to be worth
-     * its own picture: the frame's mirrors in the rooms it sees into and the windows near it
-     * are looked at, and LookingGlass keeps the plane of those that take up the most of the
-     * picture.
+     * Whether the eye sees a mirror in a room or a window, near enough to be worth a picture of
+     * its own: the frame's mirrors in the rooms it sees into and the windows near it are looked
+     * at, and LookingGlass keeps the planes of those that take up the most of the picture.
      */
     private boolean lookingGlassSeen(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near) {
         lookingGlass.begin();
@@ -1679,16 +1748,19 @@ final class Pipeline {
                 lookingGlass.consider(panes.glass, i, true, camera, tanHalfFieldOfView, aspect, near);
             }
         }
-        return lookingGlass.end();
+        return lookingGlass.end() > 0;
     }
 
     /**
-     * What the frame's mirrors show, people and sky and all: see LookingGlass. Drawn before the
-     * eye's own picture of the world, over whose mirrors showLookingGlass lays it.
+     * What the glass of one of the frame's planes shows, people and sky and all: see
+     * LookingGlass. Drawn before the eye's own picture of the world, over whose glass
+     * showLookingGlass lays it.
      */
-    private void drawLookingGlass(SkyState state, float tanHalfFieldOfView, float aspect, float near, float far, float fogStart, float fogEnd, boolean figures) {
-        lend(looked);
-        float[] rect = lookingGlass.rect;
+    private void drawLookingGlass(Looked look, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far, float fogStart, float fogEnd,
+            boolean figures) {
+        lend(look.lent);
+        float[] rect = look.plane.rect;
+        int[] lookScissor = look.scissor;
         int fromX = Math.max(0, (int) Math.floor((rect[0] * 0.5f + 0.5f) * width) - LOOK_RECT_PIXELS);
         int fromY = Math.max(0, (int) Math.floor((rect[1] * 0.5f + 0.5f) * height) - LOOK_RECT_PIXELS);
         int toX = Math.min(width, (int) Math.ceil((rect[2] * 0.5f + 0.5f) * width) + LOOK_RECT_PIXELS);
@@ -1709,16 +1781,18 @@ final class Pipeline {
         GL11.glScissor(lookScissor[0], lookScissor[1], lookScissor[2], lookScissor[3]);
         GL11.glEnable(GL_SCISSOR_TEST);
         inLookingGlass = true;
-        drawWorld(glassEye, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
+        lookingIn = look;
+        drawWorld(look.eye, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
         inLookingGlass = false;
         if (figures) {
             GL11.glScissor(lookScissor[0], lookScissor[1], lookScissor[2], lookScissor[3]);
             GL11.glEnable(GL_SCISSOR_TEST);
-            drawFiguresAside(glassEye, tanHalfFieldOfView, aspect, near, width, height, lookFigureTarget, figureColor, figureNormal, figureLamps,
-                    lookTarget, lookDepth, ASIDE_GLASS, state, far, fogStart, fogEnd);
+            drawFiguresAside(look.eye, tanHalfFieldOfView, aspect, near, width, height, look.figureTarget, figureColor, figureNormal, figureLamps,
+                    look.target, look.depth, ASIDE_GLASS, state, far, fogStart, fogEnd);
         }
+        lookingIn = null;
         GL11.glDisable(GL_SCISSOR_TEST);
-        drawSkyInto(lookTarget, lookDepth, width, height, false, lookCloudScissor, glassEye, state, tanHalfFieldOfView, aspect, near, far);
+        drawSkyInto(look.target, look.depth, width, height, false, lookCloudScissor, look.eye, state, tanHalfFieldOfView, aspect, near, far);
     }
 
     /**
@@ -1730,7 +1804,9 @@ final class Pipeline {
      * of it the last pass has nothing to trace. A window's glass adds what it throws back to
      * what is seen through it and leaves the mark alone: the pane is no part of the trace.
      */
-    private void showLookingGlass(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far) {
+    private void showLookingGlass(Looked look, ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far) {
+        LookingGlass.Plane plane = look.plane;
+        int[] lookScissor = look.scissor;
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
         GL11.glViewport(0, 0, width, height);
         arrays();
@@ -1745,25 +1821,25 @@ final class Pipeline {
         GL11.glLoadMatrixf(selfProjection);
         GL11.glMatrixMode(GL_MODELVIEW);
         GL11.glLoadMatrixf(selfView);
-        Program shown = lookingGlass.window ? windowShown : glassShown;
+        Program shown = plane.window ? windowShown : glassShown;
         shown.use();
         GL13.glActiveTexture(GL_TEXTURE0);
-        GL11.glBindTexture(GL_TEXTURE_2D, lookColor);
+        GL11.glBindTexture(GL_TEXTURE_2D, look.color);
         shown.set("uPicture", 0);
         shown.set("uSize", (float) width, (float) height);
         shown.set("uDrawn", (lookScissor[0] + 0.5f) / width, (lookScissor[1] + 0.5f) / height,
                 (lookScissor[0] + lookScissor[2] - 0.5f) / width, (lookScissor[1] + lookScissor[3] - 0.5f) / height);
-        shown.set("uFacing", lookingGlass.plane[0], lookingGlass.plane[1], lookingGlass.plane[2]);
+        shown.set("uFacing", plane.plane[0], plane.plane[1], plane.plane[2]);
         glassCorners.clear();
-        float[] glass = lookingGlass.glass;
-        for (int i = 0; i < lookingGlass.count; i++) {
+        float[] glass = plane.glass;
+        for (int i = 0; i < plane.count; i++) {
             int at = i * LookingGlass.FLOATS;
-            glassCorner(glass, at, camera, 0f, 0f);
-            glassCorner(glass, at, camera, 1f, 0f);
-            glassCorner(glass, at, camera, 1f, 1f);
-            glassCorner(glass, at, camera, 0f, 0f);
-            glassCorner(glass, at, camera, 1f, 1f);
-            glassCorner(glass, at, camera, 0f, 1f);
+            glassCorner(glass, at, plane.laid, camera, 0f, 0f);
+            glassCorner(glass, at, plane.laid, camera, 1f, 0f);
+            glassCorner(glass, at, plane.laid, camera, 1f, 1f);
+            glassCorner(glass, at, plane.laid, camera, 0f, 0f);
+            glassCorner(glass, at, plane.laid, camera, 1f, 1f);
+            glassCorner(glass, at, plane.laid, camera, 0f, 1f);
         }
         glassCorners.flip();
         int stride = LookingGlass.CORNER_FLOATS * Float.BYTES;
@@ -1776,15 +1852,19 @@ final class Pipeline {
         GL11.glDepthMask(false);
         GL11.glDisable(GL_CULL_FACE);
         GL11.glEnable(GL_BLEND);
-        if (lookingGlass.window) {
+        if (plane.window) {
             GL11.glBlendFunc(GL_ONE, GL_ONE);
             GL11.glColorMask(true, true, true, false);
         } else {
             GL14.glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
         }
-        for (int i = 0; i < lookingGlass.count; i++) {
-            shown.set("uShown", lookingGlass.shown[i]);
-            GL11.glDrawArrays(GL_TRIANGLES, i * 6, 6);
+        if (plane.window) {
+            GL11.glDrawArrays(GL_TRIANGLES, 0, plane.count * 6);
+        } else {
+            for (int i = 0; i < plane.count; i++) {
+                shown.set("uShown", plane.shown[i]);
+                GL11.glDrawArrays(GL_TRIANGLES, i * 6, 6);
+            }
         }
         GL11.glColorMask(true, true, true, true);
         GL11.glDisable(GL_BLEND);
@@ -1801,14 +1881,15 @@ final class Pipeline {
 
     /**
      * A corner of a mirror's or a window's glass, s along its edge across and t up it, into
-     * glassCorners: from the eye, LookingGlass.laid before the glass, which the world drew in
-     * its plane by other sums, and behind its frame; then s, t and the glass's width and height.
+     * glassCorners: from the eye, laid before the glass (LookingGlass.Plane.laid), which the
+     * world drew in its plane by other sums, and behind its frame; then s, t and the glass's
+     * width and height.
      */
-    private void glassCorner(float[] glass, int at, ViewCamera.Pose camera, float s, float t) {
+    private void glassCorner(float[] glass, int at, float laid, ViewCamera.Pose camera, float s, float t) {
         for (int axis = 0; axis < 3; axis++) {
             float eye = axis == 0 ? camera.eyeX : axis == 1 ? camera.eyeY : camera.eyeUp;
             glassCorners.put(glass[at + LookingGlass.CORNER + axis] + s * glass[at + LookingGlass.ACROSS + axis] + t * glass[at + LookingGlass.UP + axis]
-                    + lookingGlass.laid * glass[at + LookingGlass.FACING + axis] - eye);
+                    + laid * glass[at + LookingGlass.FACING + axis] - eye);
         }
         glassCorners.put(s).put(t).put(length(glass[at + LookingGlass.ACROSS], glass[at + LookingGlass.ACROSS + 1], glass[at + LookingGlass.ACROSS + 2]))
                 .put(length(glass[at + LookingGlass.UP], glass[at + LookingGlass.UP + 1], glass[at + LookingGlass.UP + 2]));
@@ -2809,9 +2890,9 @@ final class Pipeline {
         return !inMirror && !inScope && !inWater && !inLookingGlass;
     }
 
-    /** Whether a ball, its middle and how far it reaches, lies wholly behind the glass of this frame's mirrors. */
+    /** Whether a ball, its middle and how far it reaches, lies wholly behind the glass whose picture is being drawn. */
     private boolean behindGlass(float x, float y, float up, float reach) {
-        float[] plane = lookingGlass.plane;
+        float[] plane = lookingIn.plane.plane;
         return plane[0] * x + plane[1] * y + plane[2] * up - plane[3] < -reach;
     }
 
@@ -3408,7 +3489,7 @@ final class Pipeline {
 
     private void drawWorld(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect,
             float near, float far, float fogStart, float fogEnd) {
-        GL30.glBindFramebuffer(GL_FRAMEBUFFER, inScope ? view.scope.pictureTarget : inMirror ? mirrorTarget : inWater ? waterTarget : inLookingGlass ? lookTarget : sceneTarget);
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, inScope ? view.scope.pictureTarget : inMirror ? mirrorTarget : inWater ? waterTarget : inLookingGlass ? lookingIn.target : sceneTarget);
         GL11.glViewport(0, 0, inScope ? Scope.PICTURE : inMirror ? MIRROR_WIDTH : inWater ? waterWidth : width, drawnHigh());
         // The pass leaves the arrays and the sprite sampler unbound when it ends, and it may
         // run three times in a frame: for the mirror, for a scope and for the eye.
@@ -3738,17 +3819,14 @@ final class Pipeline {
         tellWorld(world, camera, state, tanHalfFieldOfView, aspect, fogStart, fogEnd);
         world.set("uLaid", 0f);
         world.set("uTexel", 0f, 0f);
-        // The room the frame's window glass shows is laid over its panes after them, in the
-        // place of the street they would throw back from the room's side.
-        if (lookingGlassDrawn && lookingGlass.window) {
-            float[] plane = lookingGlass.plane;
-            float most = 0f;
-            for (int i = 0; i < lookingGlass.count; i++) {
-                most = Math.max(most, lookingGlass.shown[i]);
-            }
-            world.set("uRoomGlass", plane[0], plane[1], plane[2], plane[3]);
-            world.set("uRoomShown", most);
+        // What the frame's window glass shows of the side the eye is on is laid over its
+        // panes after them, in the place of what they would throw back worked out here.
+        for (int place = 0; place < looks.length; place++) {
+            float[] plane = looks[place].plane.plane;
+            // A window's plane faces along x or along y, and the map's places are all past 0.
+            roomGlass[place] = !looks[place].drawn || !looks[place].plane.window ? 0f : plane[0] != 0f ? plane[3] * plane[0] : -plane[3] * plane[1];
         }
+        world.set("uRoomGlass", roomGlass[0], roomGlass[1], roomGlass[2], roomGlass[3]);
         GL11.glBindTexture(GL_TEXTURE_2D, whiteTexture);
         for (int i = first; i < all.ranges(); i++) {
             if (all.tint(i) == WallSides.PANES) {
@@ -3925,8 +4003,8 @@ final class Pipeline {
         // Nor has the picture drawn from behind a mirror's or a window's glass anything in it
         // behind the glass, nor the glass, nor the face of the wall a window is set in.
         if (inLookingGlass) {
-            float[] plane = lookingGlass.plane;
-            to.set("uGlassPlane", plane[0], plane[1], plane[2], plane[3] + lookingGlass.clear);
+            float[] plane = lookingIn.plane.plane;
+            to.set("uGlassPlane", plane[0], plane[1], plane[2], plane[3] + lookingIn.plane.clear);
         } else {
             to.set("uGlassPlane", 0f, 0f, 0f, 0f);
         }
@@ -5242,7 +5320,7 @@ final class Pipeline {
             CharacterDraw.bare = true;
             view.characters.lamps = VehicleLamps.drawn() ? LAMP_BUFFERS : null;
             int drawn = mirror ? view.characters.drawBehind(pose, tan, aspect, near, far, pass == 1)
-                    : aside == ASIDE_GLASS ? view.characters.drawInGlass(pose, tan, aspect, near, far, pass == 1, lookingGlass.plane)
+                    : aside == ASIDE_GLASS ? view.characters.drawInGlass(pose, tan, aspect, near, far, pass == 1, lookingIn.plane.plane)
                     : view.characters.draw(pose, tan, aspect, near, far, pass == 1, true);
             view.characters.lamps = null;
             CharacterDraw.bare = false;
@@ -6723,24 +6801,6 @@ final class Pipeline {
         waterTarget = target(waterColor);
         GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, waterDepth, 0);
         return complete("what water shows");
-    }
-
-    /** What the mirrors in a room show: see drawLookingGlass. */
-    private String makeLooked() {
-        lookColor = texture(GL_RGBA16F, width, height, GL_RGBA, GL_FLOAT, GL_NEAREST);
-        lookDepth = texture(GL_DEPTH_COMPONENT24, width, height, GL_DEPTH_COMPONENT, GL_FLOAT, GL_NEAREST);
-        lookTarget = target(lookColor);
-        GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, lookDepth, 0);
-        String problem = complete("what a mirror shows");
-        // Who is in the mirror is drawn into the eye's own pictures of people, before the eye's own people are, against the depth of the mirror's world.
-        lookFigureTarget = target(figureColor);
-        GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + 1, GL_TEXTURE_2D, figureNormal, 0);
-        GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + 2, GL_TEXTURE_2D, figureLamps, 0);
-        GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, lookDepth, 0);
-        if (problem == null) {
-            problem = complete("people in a mirror");
-        }
-        return problem;
     }
 
     /** How many pixels high the picture being drawn into is. */

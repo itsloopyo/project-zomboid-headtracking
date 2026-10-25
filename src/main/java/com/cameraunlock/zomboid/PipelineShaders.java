@@ -819,9 +819,11 @@ final class PipelineShaders {
             // For the picture drawn from behind a mirror's glass (LookingGlass): the plane
             // nothing behind which is in it, as the way it faces and how far along that it is. All 0 in any other picture.
             uniform vec4 uGlassPlane;
-            // The plane of the window glass whose room LookingGlass lays over it, facing the room, and how much of it: see drawPanes.
+            // The planes of the window glass LookingGlass lays a picture over, of the side the eye
+            // is on, one a component: x where the plane is x = x, -y where it is y = y, 0 for none
+            // (see drawPanes). The picture fades out over the end of its reach.
             uniform vec4 uRoomGlass;
-            uniform float uRoomShown;
+            """ + "const int ROOM_GLASSES = " + LookingGlass.PLANES + ";\nconst float GLASS_REACH = " + LookingGlass.REACH + ", GLASS_FADE = " + LookingGlass.FADE + ";\n" + """
             // That picture, for the eye's own to show where it draws water, and the plane the
             // water lies in: the way it faces and how far over it the eye is. All 0 with no such picture.
             uniform sampler2D uWaterPicture;
@@ -2851,10 +2853,16 @@ final class PipelineShaders {
                     thrown = min(1.0, 1.6 * (0.13 + 0.87 * pow(max(1.0 - abs(dot(face, sight)), 0.0), 5.0)));
                     float through = mix(mix(0.9, 0.5, outside), 0.92, uDark);
                     glow = lamplit ? outside * uDark : 0.0;
-                    // From the room, a pane of the glass the room's picture is laid over (drawPanes)
-                    // throws back that picture in place of anything worked out here.
-                    if (sheet && outside < 0.5 && dot(uRoomGlass.xyz, uRoomGlass.xyz) > 0.5 && abs(dot(uRoomGlass.xyz, vWorld) - uRoomGlass.w) < 0.02) {
-                        roomLaid = uRoomShown;
+                    // A pane of the glass a picture of the eye's side is laid over (drawPanes) throws
+                    // back that picture in place of anything worked out here, as much as it is laid.
+                    if (sheet) {
+                        float laidHere = clamp((GLASS_REACH - length(uEye - vWorld)) / GLASS_FADE, 0.0, 1.0);
+                        for (int i = 0; i < ROOM_GLASSES; i++) {
+                            float glassAt = uRoomGlass[i];
+                            if (glassAt != 0.0 && abs((glassAt > 0.0 ? vWorld.x : vWorld.y) - abs(glassAt)) < 0.02) {
+                                roomLaid = laidHere;
+                            }
+                        }
                     }
                     veil = thrown + (1.0 - thrown) * (1.0 - through);
                     if (sheet) {

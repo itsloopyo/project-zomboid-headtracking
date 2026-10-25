@@ -18,7 +18,7 @@ final class GlFloor {
     /** The most samplers one fragment stage reads (the world's), checked against GL_MAX_TEXTURE_IMAGE_UNITS. ShaderTests holds every program to it. */
     static final int FRAGMENT_SAMPLERS = 27;
     /** The most uniform components one fragment stage holds (the world's, a vec4 to each uniform), checked against GL_MAX_FRAGMENT_UNIFORM_COMPONENTS. ShaderTests holds every program to it. */
-    static final int FRAGMENT_UNIFORM_COMPONENTS = 2900;
+    static final int FRAGMENT_UNIFORM_COMPONENTS = 2896;
 
     private static final int GL_MAX_TEXTURE_IMAGE_UNITS = 0x8872, GL_MAX_FRAGMENT_UNIFORM_COMPONENTS = 0x8B49, GL_VERSION = 0x1F02, GL_RENDERER = 0x1F01;
 

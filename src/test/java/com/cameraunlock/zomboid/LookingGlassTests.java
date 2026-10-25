@@ -18,6 +18,8 @@ final class LookingGlassTests {
         Checks.run("glassReachingPastThePictureIsAtItsEdge", LookingGlassTests::glassReachingPastThePictureIsAtItsEdge);
         Checks.run("aMirrorsPictureFadesInOverTheLastTileOfItsReach", LookingGlassTests::aMirrorsPictureFadesInOverTheLastTileOfItsReach);
         Checks.run("thePlaneTakingMostOfThePictureIsChosenWithAllItsGlass", LookingGlassTests::thePlaneTakingMostOfThePictureIsChosenWithAllItsGlass);
+        Checks.run("onlyThePlanesTakingMostOfThePictureAreChosen", LookingGlassTests::onlyThePlanesTakingMostOfThePictureAreChosen);
+        Checks.run("aPlaneKeepsItsPlaceFromFrameToFrame", LookingGlassTests::aPlaneKeepsItsPlaceFromFrameToFrame);
         Checks.run("thePlaneIsTheForemostOfItsGlass", LookingGlassTests::thePlaneIsTheForemostOfItsGlass);
         Checks.run("eyeBehindTheGlassSeesWhatTheGlassShows", LookingGlassTests::eyeBehindTheGlassSeesWhatTheGlassShows);
     }
@@ -106,8 +108,8 @@ final class LookingGlassTests {
         looking.begin();
         looking.consider(glasses, 0, false, camera, TAN, ASPECT, NEAR);
         looking.consider(glasses, 1, false, camera, TAN, ASPECT, NEAR);
-        check(looking.end() && looking.count == 2, "both glasses are in one plane");
-        check(Math.abs(looking.plane[3] + 29.997f) < 1e-5f, "which is the proud glass's, so it is not left before the plane: " + looking.plane[3]);
+        check(looking.end() == 1 && looking.planes[0].count == 2, "both glasses are in one plane");
+        check(Math.abs(looking.planes[0].plane[3] + 29.997f) < 1e-5f, "which is the proud glass's, so it is not left before the plane: " + looking.planes[0].plane[3]);
     }
 
     /** An eye at (x, y), at a height of 1.6, looking along the map by the given angle. */
@@ -169,13 +171,13 @@ final class LookingGlassTests {
         float[] glasses = wallGlass(20f);
         looking.begin();
         looking.consider(glasses, 0, false, eye(20.5f, 27f, toward(20.5f, 27f, 20.5f, 30f)), TAN, ASPECT, NEAR);
-        check(looking.end() && !looking.pastEdge, "a glass in the middle of the picture is not at its edge");
+        check(looking.end() == 1 && !looking.planes[0].pastEdge, "a glass in the middle of the picture is not at its edge");
         glasses[LookingGlass.ACROSS] = 20f;
         glasses[LookingGlass.CORNER] = 10f;
         looking.begin();
         looking.consider(glasses, 0, false, eye(15f, 29f, toward(15f, 29f, 25f, 30f)), TAN, ASPECT, NEAR);
-        check(looking.end() && looking.pastEdge, "a long glass running past the side of the picture is at its edge, though its part of the picture is kept to it: "
-                + looking.rect[0] + " to " + looking.rect[2]);
+        check(looking.end() == 1 && looking.planes[0].pastEdge, "a long glass running past the side of the picture is at its edge, though its part of the picture is kept to it: "
+                + looking.planes[0].rect[0] + " to " + looking.planes[0].rect[2]);
     }
 
     /** Walking up to a mirror, its own picture comes in over the trace a little at a time, with nothing to jump at the reach. */
@@ -188,8 +190,8 @@ final class LookingGlassTests {
             float off = step == 300 ? LookingGlass.REACH + 0.01f : 3f + step * 0.01f;
             looking.begin();
             looking.consider(glasses, 0, false, eye(20.5f, 30f - off, toward(20.5f, 30f - off, 20.5f, 30f)), TAN, ASPECT, NEAR);
-            boolean kept = looking.end();
-            float shown = kept ? looking.shown[0] : 0f;
+            boolean kept = looking.end() == 1;
+            float shown = kept ? looking.planes[0].shown[0] : 0f;
             float expected = off <= LookingGlass.REACH - LookingGlass.FADE ? 1f : off >= LookingGlass.REACH ? 0f : (LookingGlass.REACH - off) / LookingGlass.FADE;
             check(Math.abs(shown - expected) < 1e-3f, "a glass " + off + " tiles off shows " + shown + " of its own picture, not " + expected);
             check(kept == off < LookingGlass.REACH, "and its picture is drawn only within the reach, " + off + " tiles off: " + kept);
@@ -204,11 +206,12 @@ final class LookingGlassTests {
         looking.begin();
         looking.consider(two, 0, false, slant, TAN, ASPECT, NEAR);
         looking.consider(two, 1, false, slant, TAN, ASPECT, NEAR);
-        check(looking.end() && looking.count == 2, "both glasses are kept");
+        check(looking.end() == 1 && looking.planes[0].count == 2, "both glasses are kept");
         float near = LookingGlass.nearest(two, 0, slant), far = LookingGlass.nearest(two, LookingGlass.FLOATS, slant);
-        check(Math.abs(looking.shown[0] - LookingGlass.shown(near)) < 1e-6f && Math.abs(looking.shown[1] - LookingGlass.shown(far)) < 1e-6f
-                && looking.shown[0] == 1f && looking.shown[1] < 1f && looking.shown[1] > 0f,
-                "the nearer, " + near + " off, shows " + looking.shown[0] + " and the further, " + far + " off, " + looking.shown[1]);
+        float[] shown = looking.planes[0].shown;
+        check(Math.abs(shown[0] - LookingGlass.shown(near)) < 1e-6f && Math.abs(shown[1] - LookingGlass.shown(far)) < 1e-6f
+                && shown[0] == 1f && shown[1] < 1f && shown[1] > 0f,
+                "the nearer, " + near + " off, shows " + shown[0] + " and the further, " + far + " off, " + shown[1]);
     }
 
     private static void thePlaneTakingMostOfThePictureIsChosenWithAllItsGlass() {
@@ -230,16 +233,81 @@ final class LookingGlassTests {
         for (int i = 0; i < 3; i++) {
             looking.consider(glasses, i, false, camera, TAN, ASPECT, NEAR);
         }
-        check(looking.end(), "the eye sees a mirror");
-        check(looking.count == 2, "both glasses on the wall before the eye are kept, and the one on the side wall is not: " + looking.count);
-        check(Math.abs(looking.plane[1] + 1f) < 1e-6f && Math.abs(looking.plane[3] + 30f) < 1e-4f, "their plane is the wall's");
+        check(looking.end() == 2, "the eye sees mirrors in two planes");
+        LookingGlass.Plane front = looking.planes[0], right = looking.planes[1];
+        check(front.count == 2, "both glasses on the wall before the eye are kept in the first, which takes the most of the picture: " + front.count);
+        check(Math.abs(front.plane[1] + 1f) < 1e-6f && Math.abs(front.plane[3] + 30f) < 1e-4f, "their plane is the wall's");
         float[] one = new float[4], two = new float[4];
         looking.seen(wallGlass(19.6f), 0, camera, TAN, ASPECT, NEAR, one);
         looking.seen(wallGlass(20.8f), 0, camera, TAN, ASPECT, NEAR, two);
-        check(looking.rect[0] == Math.min(one[0], two[0]) && looking.rect[1] == Math.min(one[1], two[1])
-                && looking.rect[2] == Math.max(one[2], two[2]) && looking.rect[3] == Math.max(one[3], two[3]), "and the part of the picture kept is what both take up");
+        check(front.rect[0] == Math.min(one[0], two[0]) && front.rect[1] == Math.min(one[1], two[1])
+                && front.rect[2] == Math.max(one[2], two[2]) && front.rect[3] == Math.max(one[3], two[3]), "and the part of the picture kept is what both take up");
+        check(right.count == 1 && Math.abs(right.plane[0] + 1f) < 1e-6f && Math.abs(right.plane[3] + 23f) < 1e-4f,
+                "and the glass on the side wall is kept too, in a plane of its own: " + right.count);
+        check(looking.planes[2].count == 0, "the third place has no plane");
         looking.begin();
-        check(!looking.end(), "with nothing considered the eye sees no mirror");
+        check(looking.end() == 0, "with nothing considered the eye sees no mirror");
+        for (LookingGlass.Plane plane : looking.planes) {
+            check(plane.count == 0, "and no place keeps a plane");
+        }
+    }
+
+    /** A glass a tile wide on the plane x = wallX, from y = 29 to 30 and 1 to 2 up, looking towards -x. */
+    private static float[] sideGlass(float wallX) {
+        float[] glass = new float[LookingGlass.FLOATS];
+        glass[LookingGlass.CORNER] = wallX;
+        glass[LookingGlass.CORNER + 1] = 29f;
+        glass[LookingGlass.CORNER + 2] = 1f;
+        glass[LookingGlass.ACROSS + 1] = 1f;
+        glass[LookingGlass.UP + 2] = 1f;
+        glass[LookingGlass.FACING] = -1f;
+        return glass;
+    }
+
+    /** One more plane than are drawn, each smaller than the last: the smallest is the one left out. */
+    private static void onlyThePlanesTakingMostOfThePictureAreChosen() {
+        LookingGlass looking = new LookingGlass();
+        ViewCamera.Pose camera = eye(20.5f, 27f, toward(20.5f, 27f, 20.5f, 30f));
+        float[] glasses = new float[(LookingGlass.PLANES + 1) * LookingGlass.FLOATS];
+        for (int i = 0; i <= LookingGlass.PLANES; i++) {
+            // Each further off and narrower than the last, so smaller in the picture.
+            float[] glass = wallGlass(20f);
+            glass[LookingGlass.CORNER + 1] = 29f + i * 0.5f;
+            glass[LookingGlass.ACROSS] = 1.2f - i * 0.25f;
+            System.arraycopy(glass, 0, glasses, i * LookingGlass.FLOATS, LookingGlass.FLOATS);
+        }
+        looking.begin();
+        for (int i = LookingGlass.PLANES; i >= 0; i--) {
+            looking.consider(glasses, i, false, camera, TAN, ASPECT, NEAR);
+        }
+        check(looking.end() == LookingGlass.PLANES, "as many planes as are drawn are chosen");
+        for (int i = 0; i < LookingGlass.PLANES; i++) {
+            float[] plane = looking.planes[i].plane;
+            check(looking.planes[i].count == 1 && Math.abs(plane[3] + 29f + i * 0.5f) < 1e-4f,
+                    "the " + i + "th largest is in place " + i + ", at " + -plane[3]);
+        }
+    }
+
+    /** A plane keeps its place while another comes into the picture and takes up more of it. */
+    private static void aPlaneKeepsItsPlaceFromFrameToFrame() {
+        LookingGlass looking = new LookingGlass();
+        ViewCamera.Pose camera = eye(20.5f, 27f, toward(20.5f, 27f, 20.5f, 30f));
+        float[] small = sideGlass(22f), large = wallGlass(19.6f);
+        small[LookingGlass.ACROSS + 1] = 0.3f;
+        large[LookingGlass.ACROSS] = 1.8f;
+        looking.begin();
+        looking.consider(small, 0, false, camera, TAN, ASPECT, NEAR);
+        check(looking.end() == 1 && Math.abs(looking.planes[0].plane[0] + 1f) < 1e-6f, "the side wall's glass alone is in the first place");
+        looking.begin();
+        looking.consider(large, 0, false, camera, TAN, ASPECT, NEAR);
+        looking.consider(small, 0, false, camera, TAN, ASPECT, NEAR);
+        check(looking.end() == 2, "then both planes are chosen");
+        check(Math.abs(looking.planes[0].plane[0] + 1f) < 1e-6f && looking.planes[0].count == 1, "the side wall's keeps the first place, though it takes less of the picture");
+        check(Math.abs(looking.planes[1].plane[1] + 1f) < 1e-6f && looking.planes[1].count == 1, "and the wall before the eye takes the next");
+        looking.begin();
+        looking.consider(large, 0, false, camera, TAN, ASPECT, NEAR);
+        check(looking.end() == 1 && looking.planes[0].count == 0 && Math.abs(looking.planes[1].plane[1] + 1f) < 1e-6f,
+                "with the side wall's glass gone, the wall before the eye stays in its place and the first is empty");
     }
 
     private static void eyeBehindTheGlassSeesWhatTheGlassShows() {

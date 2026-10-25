@@ -58,7 +58,7 @@ Off by default. Tick **Talking mouths** in the game's options and your character
 - [Project Zomboid on Steam](https://store.steampowered.com/app/108600/Project_Zomboid/), tested on build **42.21.0**. The first line of `version.txt` in your `Zomboid` user folder (`C:\Users\<you>\Zomboid`) shows your build. Other stores have not been tested.
 - For head tracking only: [OpenTrack](https://github.com/opentrack/opentrack) with a tracking source, or an app that sends the OpenTrack UDP protocol
 - Windows 10 or 11, 64-bit
-- For first person: a graphics card and driver that give the game OpenGL 3.3 (compatibility profile) with EXT_texture_array and ARB_shader_texture_lod, reading 27 textures and 2900 uniform components in a fragment shader. Without them first person stays off, the game plays as it does without the mod, and `ProjectZomboidHeadTracking.log` says which is missing
+- For first person: a graphics card and driver that give the game OpenGL 3.3 (compatibility profile) with EXT_texture_array and ARB_shader_texture_lod, reading 27 textures and 2896 uniform components in a fragment shader. Without them first person stays off, the game plays as it does without the mod, and `ProjectZomboidHeadTracking.log` says which is missing
 - For the Steam Workshop copy: [ZombieBuddy](https://github.com/zed-0xff/ZombieBuddy) 2.x, set up once
 
 ## Installation

@@ -10,10 +10,11 @@ import zombie.iso.objects.IsoWindow;
 import zombie.util.list.PZArrayList;
 
 /**
- * The shut windows and glazed doors near the viewer, seen from inside. Glass throws back some of the room it
- * is in, and with the street dark behind it the room is plain in it, the viewer among the
- * rest. LookingGlass draws the room as a pane shows it, as it draws a mirror's picture, and
- * lays it over the panes by as much as glass throws back.
+ * The shut windows and glazed doors near the viewer. Glass throws back some of what is on the
+ * eye's side of it, the viewer among the rest: the room seen from the room, plain with the
+ * street dark behind the glass, and the street seen from the street, plain against a room
+ * darker than the day. LookingGlass draws that side as a pane shows it, as it draws a
+ * mirror's picture, and lays it over the panes by as much as glass throws back.
  *
  * Each window is noted as a glass a tile wide and a level high, in the plane of its panes.
  * The opening is smaller: the picture is laid a hair before the panes and behind the face
@@ -49,50 +50,58 @@ final class WindowGlass {
 
     /**
      * Logic thread: the shut, whole windows and the shut doors the mod built with glass in them
-     * (Doors) on the player's floor within REACH whose room side the eye is on, each facing the eye.
+     * (Doors) within REACH that the eye sees from a side it stands on (see throwsBack), each
+     * facing the eye. From a room only its own floor's, which is all a room shows; from the
+     * street the floors over and under it too, whose windows look onto the same street.
      */
     static void find(IsoCell cell, IsoPlayer player, Terrain terrain, ViewCamera.Pose view, Panes into) {
         into.count = 0;
         int level = (int) Math.floor(player.getZ());
-        float foot = level * ViewCamera.LEVEL_HEIGHT + terrain.lift(player.getX(), player.getY(), level);
         int fromX = (int) Math.floor(view.eyeX), fromY = (int) Math.floor(view.eyeY);
         IsoGridSquare eyes = cell.getGridSquare(fromX, fromY, level);
         boolean eyeOutside = eyes == null || eyes.isOutside();
-        for (int x = fromX - REACH; x <= fromX + REACH; x++) {
-            for (int y = fromY - REACH; y <= fromY + REACH && into.count < MOST; y++) {
-                IsoGridSquare square = cell.getGridSquare(x, y, level);
-                if (square == null) {
-                    continue;
-                }
-                PZArrayList<IsoObject> objects = square.getObjects();
-                for (int i = 0; i < objects.size() && into.count < MOST; i++) {
-                    IsoObject object = objects.get(i);
-                    Windows.Shape leaf = null;
-                    boolean north;
-                    if (object instanceof IsoWindow window && !window.isSmashed() && !window.isGlassRemoved() && !window.IsOpen()) {
-                        north = window.getNorth();
-                    } else if (object instanceof IsoDoor door && !door.IsOpen()) {
-                        north = door.north;
-                        leaf = glazedLeaf(object, north);
-                    } else if (object instanceof IsoThumpable thumpable && thumpable.isDoor() && !thumpable.IsOpen()) {
-                        north = thumpable.north;
-                        leaf = glazedLeaf(object, north);
-                    } else {
+        int lowest = eyeOutside ? level - 1 : level, highest = eyeOutside ? level + 1 : level;
+        for (int z = lowest; z <= highest; z++) {
+            for (int x = fromX - REACH; x <= fromX + REACH; x++) {
+                for (int y = fromY - REACH; y <= fromY + REACH && into.count < MOST; y++) {
+                    IsoGridSquare square = cell.getGridSquare(x, y, z);
+                    if (square == null) {
                         continue;
                     }
-                    if (!(object instanceof IsoWindow) && leaf == null) {
-                        continue;
-                    }
-                    int edge = north ? y : x;
-                    float off = (north ? view.eyeY : view.eyeX) - edge;
-                    IsoGridSquare eyesSide = off < 0f ? (north ? cell.getGridSquare(x, y - 1, level) : cell.getGridSquare(x - 1, y, level)) : square;
-                    if (eyesSide == null || !throwsBack(eyeOutside, eyesSide.isOutside())) {
-                        continue;
-                    }
-                    int at = into.count++ * LookingGlass.FLOATS;
-                    note(north, edge, north ? x : y, foot, Math.signum(off), into.glass, at);
-                    if (leaf != null) {
-                        lights(leaf, north, into.glass, at);
+                    PZArrayList<IsoObject> objects = square.getObjects();
+                    for (int i = 0; i < objects.size() && into.count < MOST; i++) {
+                        IsoObject object = objects.get(i);
+                        Windows.Shape leaf = null;
+                        boolean north;
+                        if (object instanceof IsoWindow window && !window.isSmashed() && !window.isGlassRemoved() && !window.IsOpen()) {
+                            north = window.getNorth();
+                        } else if (object instanceof IsoDoor door && !door.IsOpen()) {
+                            north = door.north;
+                            leaf = glazedLeaf(object, north);
+                        } else if (object instanceof IsoThumpable thumpable && thumpable.isDoor() && !thumpable.IsOpen()) {
+                            north = thumpable.north;
+                            leaf = glazedLeaf(object, north);
+                        } else {
+                            continue;
+                        }
+                        if (!(object instanceof IsoWindow) && leaf == null) {
+                            continue;
+                        }
+                        int edge = north ? y : x;
+                        float off = (north ? view.eyeY : view.eyeX) - edge;
+                        IsoGridSquare across = north ? cell.getGridSquare(x, y - 1, z) : cell.getGridSquare(x - 1, y, z);
+                        IsoGridSquare eyesSide = off < 0f ? across : square;
+                        if (eyesSide == null || !throwsBack(eyeOutside, eyesSide.isOutside())) {
+                            continue;
+                        }
+                        // The window stands on the floor of the room it is in, which on a hill is not the land under the eye.
+                        IsoGridSquare room = !square.isOutside() || across == null ? square : across;
+                        float foot = z * ViewCamera.LEVEL_HEIGHT + terrain.lift(room.getX() + 0.5f, room.getY() + 0.5f, z);
+                        int at = into.count++ * LookingGlass.FLOATS;
+                        note(north, edge, north ? x : y, foot, Math.signum(off), into.glass, at);
+                        if (leaf != null) {
+                            lights(leaf, north, into.glass, at);
+                        }
                     }
                 }
             }
@@ -100,15 +109,15 @@ final class WindowGlass {
     }
 
     /**
-     * Whether a window throws the room back to the eye, from whether the eye's own square and
-     * the square on the eye's side of the window's edge are in the open air. A window looked at
-     * from the street throws back the street, which the pane does itself. Its edge alone does
-     * not tell the street: from the street beyond a house, a window in the far wall has its
-     * room on the eye's side, and a mirror picture of the room laid over it from out there
-     * hid the room the pane shows.
+     * Whether a window throws back to the eye what is on the eye's side of it, from whether the
+     * eye's own square and the square on the eye's side of the window's edge are in the open
+     * air: both or neither, the room from the room and the street from the street. The edge
+     * alone does not tell which side the eye is on: from the street beyond a house, a window in
+     * the far wall has its room on the eye's side and is seen through the house's other glass,
+     * and a picture of the room laid over it from out there hid the room the pane shows.
      */
     static boolean throwsBack(boolean eyeOutside, boolean eyesSideOutside) {
-        return !eyeOutside && !eyesSideOutside;
+        return eyeOutside == eyesSideOutside;
     }
 
     /** The leaf of a door the mod builds from its sprite, where it has glass in it: see OpeningBuilder.addBuiltDoor. */

@@ -11,7 +11,7 @@
 - `Page Up` cycles rotation and position, rotation only, and position only.
 - `Page Down` switches head turns between the horizon and the view's own up. In a vehicle the view always turns about its own up.
 - Leaning stops at walls.
-- Your character's head turns with yours, up to 80 degrees each way, in both views. Mirrors show it, and in `High` windows do too.
+- Your character's head turns with yours, up to 80 degrees each way, in both views. Mirrors and window glass show it.
 - Walking and running don't bob the view. Crouching and sitting lower it smoothly.
 - Knocked down, lying, getting up or dying, the view follows your character's head.
 - `FieldOfView` sets the field of view: 65 by default, 40 to 110.
@@ -123,7 +123,7 @@
 - Sunbeams through windows, with dust floating in the air.
 - Water flows and reflects.
 - Mirrors on walls, dressers and bathroom cabinets show the room, the people in it and you, in Medium and High with `Reflections` on. Low has no reflections. The glass has a faint tint, smudges and a worn silver edge.
-- In `High`, a shut window seen from inside reflects the room, you and its lights faintly, plainest at night.
+- In `Medium` and `High` with `Reflections` on, shut windows and glazed doors within about 20 feet reflect your side of the glass, you included: the room from inside, plainest at night, and the street from outside. Glass on up to three walls shows it at once.
 - `Medium` and `High`: burning houses, Molotovs and campfires burn with the game's flames stood up in the world, warm coloured and leaning back when seen from above, with smoke, embers and flickering firelight. Fireplaces and stoves burn inside. `VanillaFire` puts the game's smoke back.
 - The picture adjusts to the brightness of what you're looking at, like an eye.
 - `Medium` and `High`: every surface reflects the sky, the room or the ground by how rough it is, so metal looks like metal. Skin and clothes take the light the same way.
