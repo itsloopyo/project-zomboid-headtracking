@@ -1429,6 +1429,10 @@ final class Pipeline {
             drawFiguresAside(behind, MIRROR_TAN, (float) MIRROR_WIDTH / MIRROR_HEIGHT, MIRROR_NEAR, MIRROR_WIDTH, MIRROR_HEIGHT, mirrorFigureTarget, mirrorFigureColor,
                     mirrorFigureNormal, mirrorFigureLamps, mirrorTarget, mirrorDepth, ASIDE_BEHIND, state, far, fogStart, fogEnd);
         }
+        // The eye's own sky, clouds and thick air and all. The bare colour of a clear sky is the night's soon
+        // after sunset, while the land and the fog the eye looks through still have the day's light.
+        drawSkyInto(mirrorTarget, mirrorDepth, MIRROR_WIDTH, MIRROR_HEIGHT, false, null, behind, state, MIRROR_TAN,
+                (float) MIRROR_WIDTH / MIRROR_HEIGHT, MIRROR_NEAR, far);
     }
 
     /**
@@ -3406,8 +3410,6 @@ final class Pipeline {
             float near, float far, float fogStart, float fogEnd) {
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, inScope ? view.scope.pictureTarget : inMirror ? mirrorTarget : inWater ? waterTarget : inLookingGlass ? lookTarget : sceneTarget);
         GL11.glViewport(0, 0, inScope ? Scope.PICTURE : inMirror ? MIRROR_WIDTH : inWater ? waterWidth : width, drawnHigh());
-        // In the mirror, where nothing is drawn is marked, and the sky is put there when the
-        // glass is drawn.
         // The pass leaves the arrays and the sprite sampler unbound when it ends, and it may
         // run three times in a frame: for the mirror, for a scope and for the eye.
         arrays();
@@ -3418,7 +3420,7 @@ final class Pipeline {
         // A clear only reaches what the masks let it write.
         GL11.glDepthMask(true);
         GL11.glColorMask(true, true, true, true);
-        GL11.glClearColor(inMirror ? -1f : 0f, 0f, 0f, 1f);
+        GL11.glClearColor(0f, 0f, 0f, 1f);
         GL11.glClearDepth(1.0);
         GL11.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         // Each frame the world is drawn a fraction of a pixel to one side of the last, a
@@ -5059,7 +5061,6 @@ final class Pipeline {
         program.set("uDoorView", Cabins.DOOR_VIEW_MIDDLE, Cabins.DOOR_VIEW_HALF, Cabins.DOOR_VIEW_FLANK);
         float[] axes = view.characters.cabin.axes;
         program.set("uBodyAhead", axes[0], axes[1], axes[2]);
-        program.set("uBodyAside", axes[3], axes[4], axes[5]);
         program.set("uBodyAbove", axes[6], axes[7], axes[8]);
         program.set("uGlowColor", 0.55f, 1.0f, 0.75f);
         float[] lamp = cabinFrame.fitted.lamps, m = cabinFrame.model;

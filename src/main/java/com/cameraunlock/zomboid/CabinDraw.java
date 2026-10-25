@@ -143,7 +143,6 @@ final class CabinDraw {
             // A door mirror's glass's height for its width, times the picture behind's width for its height.
             uniform float uDoorTall;
             uniform vec3 uBodyAhead;
-            uniform vec3 uBodyAside;
             uniform vec3 uBodyAbove;
             varying vec3 vRel;
             varying vec3 vLocal;
@@ -211,9 +210,6 @@ final class CabinDraw {
                     return atmosphere(normalize(-uBodyAhead + uBodyAbove * 0.25)) * 0.3;
                 }
                 vec3 seen = texture2D(uBehind, on).rgb;
-                if (seen.r < -0.5) {
-                    seen = atmosphere(normalize(-uBodyAhead + uBodyAside * ((0.5 - on.x) * 0.6) + uBodyAbove * ((on.y - 0.5) * 0.17 + 0.02)));
-                }
                 return min(max(seen, vec3(0.0)), vec3(6.0)) * 0.82;
             }
 

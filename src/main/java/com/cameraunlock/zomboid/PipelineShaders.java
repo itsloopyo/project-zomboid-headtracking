@@ -5943,9 +5943,6 @@ final class PipelineShaders {
                     return atmosphere(normalize(fromCabin(vec3(-1.0, 0.0, 0.25)))) * 0.3;
                 }
                 vec3 seen = texture2D(uBehind, on).rgb;
-                if (seen.r < -0.5) {
-                    seen = atmosphere(normalize(fromCabin(vec3(-1.0, (0.5 - on.x) * 0.6, (on.y - 0.5) * 0.17 + 0.02))));
-                }
                 // One pixel of the small picture gone wrong would be a spark in the glass.
                 return min(max(seen, vec3(0.0)), vec3(6.0)) * 0.82;
             }
