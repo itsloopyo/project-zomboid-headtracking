@@ -67,10 +67,10 @@ final class Config {
 
     /** The keys of [Graphics], the Custom graphics mode, in the order the options screen shows them. */
     static final String[] GRAPHICS = {"TreeQuality", "GrassDensity", "RenderScale", "ViewDistance", "ZombiesAndPropsDrawDistance",
-        "FarTreeDistance", "RainOnGlass", "ShadingAndLight", "Reflections", "FullSizeTextures", "SurfaceDepth", "SharpShadows",
+        "FarTreeDistance", "RainOnGlass", "ShadingAndLight", "Reflections", "ReflectionScale", "FullSizeTextures", "SurfaceDepth", "SharpShadows",
         "WholeFigureShadows", "FrameBlending", "LightDistance"};
-    private static final int RENDER_SCALE = 2;
-    static final float MIN_RENDER_SCALE = 0.5f;
+    private static final int RENDER_SCALE = 2, REFLECTION_SCALE = 9;
+    static final float MIN_RENDER_SCALE = 0.5f, MIN_REFLECTION_SCALE = 0.25f;
     static final int MIN_VIEW_DISTANCE = 32, MIN_DRAW_DISTANCE = 16;
 
     private final CameraUnlock core;
@@ -223,6 +223,11 @@ final class Config {
                     "true: mirrors in rooms show the room and you, your vehicle's mirrors show the road behind, and with\n"
                             + "ShadingAndLight, wet roads, floors, glass and water mirror the world.",
                     writable | live, high.reflections()),
+            core.configLocalFloat("Graphics", "ReflectionScale",
+                    "Share of the first person picture's resolution that wall mirrors and window glass draw their reflection at,\n"
+                            + "each way: " + MIN_REFLECTION_SCALE + " to 1. High draws " + high.reflectionScale() + ", Medium "
+                            + Quality.MEDIUM_PICTURE.reflectionScale() + ". Lower costs less and looks softer.",
+                    writable | live, high.reflectionScale(), MIN_REFLECTION_SCALE, 1f),
             core.configLocalBool("Graphics", "FullSizeTextures",
                     "true: the mod's surface, wall and skin pictures at full size. false: half size, a quarter of the memory.",
                     writable | live, high.fullSizeTextures()),
@@ -447,16 +452,17 @@ final class Config {
     /** A picture as the options of the rows of [Graphics] hold it, in the order of GRAPHICS. */
     static double[] values(Quality.Picture picture) {
         return new double[] {picture.treeQuality(), picture.grassDensity(), picture.renderScale(), picture.viewDistance(), picture.drawDistance(),
-            picture.farTreeDistance(), picture.rainOnGlass(), bit(picture.shadingAndLight()), bit(picture.reflections()), bit(picture.fullSizeTextures()),
+            picture.farTreeDistance(), picture.rainOnGlass(), bit(picture.shadingAndLight()), bit(picture.reflections()), picture.reflectionScale(),
+            bit(picture.fullSizeTextures()),
             bit(picture.surfaceDepth()), bit(picture.sharpShadows()), bit(picture.wholeFigureShadows()), bit(picture.frameBlending()),
             picture.lightDistance()};
     }
 
     /** The picture the options of the rows of [Graphics] hold, in the order of GRAPHICS: Custom always draws what the mod made. */
     static Quality.Picture picture(double[] values) {
-        return new Quality.Picture(false, (int) Math.rint(values[0]), (int) Math.rint(values[1]), (float) values[2], values[11] != 0,
+        return new Quality.Picture(false, (int) Math.rint(values[0]), (int) Math.rint(values[1]), (float) values[2], values[12] != 0,
                 (int) Math.rint(values[3]), (int) Math.rint(values[4]), (int) Math.rint(values[5]), (int) Math.rint(values[6]), values[7] != 0,
-                values[8] != 0, values[9] != 0, values[10] != 0, values[12] != 0, values[13] != 0, (int) Math.rint(values[14]));
+                values[8] != 0, values[10] != 0, values[11] != 0, values[13] != 0, values[14] != 0, (int) Math.rint(values[15]), (float) values[9]);
     }
 
     private static double bit(boolean on) {
@@ -496,7 +502,7 @@ final class Config {
         }
         double[] custom = new double[graphics.length];
         for (int part = 0; part < graphics.length; part++) {
-            custom[part] = part == RENDER_SCALE ? core.configGetFloat(graphics[part]) : core.configGetInt(graphics[part]);
+            custom[part] = part == RENDER_SCALE || part == REFLECTION_SCALE ? core.configGetFloat(graphics[part]) : core.configGetInt(graphics[part]);
         }
         int[] qualities = new int[View.COUNT], overheadQualities = new int[View.COUNT], styles = new int[View.COUNT];
         for (int player = 0; player < View.COUNT; player++) {

@@ -715,7 +715,7 @@ public final class CoreTests {
         check(ids.toString().equals("WorldSpaceYaw TrackingMode AimMode FieldOfView Quality IsometricQuality Style HillHeight MuzzleFlash Crosshair RegripTwoHandedWeapons SplitScreen "
                         + "SecondPlayerQuality SecondPlayerIsometricQuality SecondPlayerStyle ThirdPlayerQuality ThirdPlayerIsometricQuality ThirdPlayerStyle "
                         + "FourthPlayerQuality FourthPlayerIsometricQuality FourthPlayerStyle TreeQuality "
-                        + "GrassDensity RenderScale ViewDistance ZombiesAndPropsDrawDistance FarTreeDistance RainOnGlass ShadingAndLight Reflections "
+                        + "GrassDensity RenderScale ViewDistance ZombiesAndPropsDrawDistance FarTreeDistance RainOnGlass ShadingAndLight Reflections ReflectionScale "
                         + "FullSizeTextures SurfaceDepth SharpShadows WholeFigureShadows FrameBlending LightDistance VanillaWeapons VanillaFurniture "
                         + "VanillaPictures VanillaPlants VanillaTextures VanillaBuildings VanillaZombies VanillaPeople VanillaArms VanillaClothes VanillaAnimals VanillaFire "
                         + "VanillaCabins "
@@ -731,7 +731,7 @@ public final class CoreTests {
         }
         check(page.toString().equals("[Tracking] TrackingMode AimMode WorldSpaceYaw [First person] FieldOfView Crosshair HillHeight [Weapons] MuzzleFlash RegripTwoHandedWeapons "
                         + "[Graphics] Quality IsometricQuality Style [Custom graphics] TreeQuality GrassDensity RenderScale ViewDistance ZombiesAndPropsDrawDistance "
-                        + "FarTreeDistance RainOnGlass ShadingAndLight Reflections FullSizeTextures SurfaceDepth SharpShadows WholeFigureShadows FrameBlending "
+                        + "FarTreeDistance RainOnGlass ShadingAndLight Reflections ReflectionScale FullSizeTextures SurfaceDepth SharpShadows WholeFigureShadows FrameBlending "
                         + "LightDistance [Vanilla content] VanillaWeapons VanillaFurniture VanillaPictures VanillaPlants VanillaTextures VanillaBuildings "
                         + "VanillaZombies VanillaPeople VanillaArms VanillaClothes VanillaAnimals VanillaFire VanillaCabins [Offline rules] ShotsThroughWalls "
                         + "ShotsBreakLamps ShotsBreakGlass ShotsWoundLimbs VehiclesSmashThrough FacesTheView ShotsPastTrees ZombiesSeenAtOnce Rewind30s [Split screen] SplitScreen "

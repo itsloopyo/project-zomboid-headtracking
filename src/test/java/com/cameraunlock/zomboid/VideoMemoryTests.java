@@ -59,7 +59,7 @@ final class VideoMemoryTests {
             check(VideoMemory.fit(mode, 0).equals(mode), "step 0 draws " + Quality.described(mode) + " as it is");
         }
         Quality.Picture custom = new Quality.Picture(false, Quality.TREES_TO_SIGHT, Quality.ALL_GRASS, 1.5f, true, 120, 120, 400, 2, true, true, true, true,
-                true, true, 80);
+                true, true, 80, 1f);
         check(VideoMemory.fit(custom, 0).equals(custom), "step 0 draws a Custom picture dearer than High as it is");
     }
 
@@ -93,7 +93,7 @@ final class VideoMemoryTests {
             check(now.treeQuality() <= before.treeQuality() && now.grassDensity() <= before.grassDensity() && now.renderScale() <= before.renderScale()
                     && now.viewDistance() <= before.viewDistance() && now.drawDistance() <= before.drawDistance()
                     && now.farTreeDistance() <= before.farTreeDistance() && now.rainOnGlass() <= before.rainOnGlass()
-                    && now.lightDistance() <= before.lightDistance(), "step " + at + " draws no further, finer or more than step " + (at - 1));
+                    && now.lightDistance() <= before.lightDistance() && now.reflectionScale() <= before.reflectionScale(), "step " + at + " draws no further, finer or more than step " + (at - 1));
             check((!now.sharpShadows() || before.sharpShadows()) && (!now.shadingAndLight() || before.shadingAndLight())
                     && (!now.reflections() || before.reflections()) && (!now.fullSizeTextures() || before.fullSizeTextures())
                     && (!now.surfaceDepth() || before.surfaceDepth()) && (!now.wholeFigureShadows() || before.wholeFigureShadows())

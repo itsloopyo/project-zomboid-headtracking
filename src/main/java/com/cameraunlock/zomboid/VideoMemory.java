@@ -72,15 +72,16 @@ final class VideoMemory {
         Quality.Picture high = Quality.HIGH_PICTURE;
         Quality.Picture coarse = new Quality.Picture(high.stockLook(), high.treeQuality(), high.grassDensity(), high.renderScale(), false,
                 high.viewDistance(), high.drawDistance(), high.farTreeDistance(), high.rainOnGlass(), high.shadingAndLight(), high.reflections(),
-                high.fullSizeTextures(), high.surfaceDepth(), high.wholeFigureShadows(), false, high.lightDistance());
+                high.fullSizeTextures(), high.surfaceDepth(), high.wholeFigureShadows(), false, high.lightDistance(), high.reflectionScale());
         Quality.Picture small = new Quality.Picture(coarse.stockLook(), coarse.treeQuality(), coarse.grassDensity(), coarse.renderScale(), false,
                 coarse.viewDistance(), coarse.drawDistance(), coarse.farTreeDistance(), coarse.rainOnGlass(), coarse.shadingAndLight(), coarse.reflections(),
-                false, coarse.surfaceDepth(), coarse.wholeFigureShadows(), false, coarse.lightDistance());
+                false, coarse.surfaceDepth(), coarse.wholeFigureShadows(), false, coarse.lightDistance(), coarse.reflectionScale());
         Quality.Picture medium = Quality.MEDIUM_PICTURE;
         Quality.Picture mediumUnblended = new Quality.Picture(medium.stockLook(), medium.treeQuality(), medium.grassDensity(), medium.renderScale(),
                 medium.sharpShadows(), medium.viewDistance(), medium.drawDistance(),
                 Math.max(medium.farTreeDistance(), Quality.LOW_PICTURE.farTreeDistance()), medium.rainOnGlass(), medium.shadingAndLight(),
-                medium.reflections(), medium.fullSizeTextures(), medium.surfaceDepth(), medium.wholeFigureShadows(), false, medium.lightDistance());
+                medium.reflections(), medium.fullSizeTextures(), medium.surfaceDepth(), medium.wholeFigureShadows(), false, medium.lightDistance(),
+                medium.reflectionScale());
         CEILINGS = new Quality.Picture[] {high, coarse, small, mediumUnblended, Quality.LOW_PICTURE};
     }
 
@@ -88,7 +89,7 @@ final class VideoMemory {
         "nothing",
         "shadow maps 2048 across, no frame blending",
         "shadow maps 2048 across, no frame blending, the mod's pictures at half size",
-        "no more than Medium draws, and no frame blending: shadow maps 2048 across, the mod's pictures at half size, 0.8 of the pixels, the mod's trees near only, "
+        "no more than Medium draws, and no frame blending: shadow maps 2048 across, the mod's pictures at half size, 0.8 of the pixels, glass reflections at half that, the mod's trees near only, "
             + "less grass, sight 60 tiles, no surface depth",
         "no more than Low draws: the game's own look, none of the mod's own content, 0.62 of the pixels, sight 48 tiles",
     };
@@ -138,7 +139,8 @@ final class VideoMemory {
                 Math.min(picture.rainOnGlass(), most.rainOnGlass()), picture.shadingAndLight() && most.shadingAndLight(),
                 picture.reflections() && most.reflections(), picture.fullSizeTextures() && most.fullSizeTextures(),
                 picture.surfaceDepth() && most.surfaceDepth(), picture.wholeFigureShadows() && most.wholeFigureShadows(),
-                picture.frameBlending() && most.frameBlending(), Math.min(picture.lightDistance(), most.lightDistance()));
+                picture.frameBlending() && most.frameBlending(), Math.min(picture.lightDistance(), most.lightDistance()),
+                Math.min(picture.reflectionScale(), most.reflectionScale()));
     }
 
     static Quality.Picture fit(Quality.Picture picture) {

@@ -364,6 +364,8 @@ final class Pipeline {
      * logic thread may change the mode between two passes of a frame.
      */
     private boolean shadedAndLit, surfacesMirror, reflections;
+    /** See Quality.reflectionScale. */
+    private float reflectionScale;
     /** Quality.frameBlending as the frame began: the row is read again while the game runs, and what one pass of a frame draws into the next reads. */
     private boolean steadying;
 
@@ -407,7 +409,7 @@ final class Pipeline {
     /** What water shows, at a third of the picture's size: only in High, in first person, with water in sight. */
     private final Lent watered = new Lent("picture of what water shows", this::makeWatered);
     private final LookingGlass lookingGlass = new LookingGlass();
-    /** What the glass of each of the frame's planes shows, at the picture's size: only with such glass in sight. */
+    /** What the glass of each of the frame's planes shows, at a share of the picture's size (ReflectionScale): only with such glass in sight. */
     private final Looked[] looks = new Looked[LookingGlass.PLANES];
 
     {
@@ -756,9 +758,11 @@ final class Pipeline {
     private final class Looked {
         final LookingGlass.Plane plane;
         final Lent lent;
+        /** How many pixels the picture is across and up: the picture's own times ReflectionScale. */
+        int wide, high;
         int color, depth, target;
-        /** The people the glass shows, drawn into the eye's own pictures of people but against the depth of what the glass shows. */
-        int figureTarget;
+        /** The people the glass shows, against the depth of what the glass shows, and their pictures at the glass's picture's size. */
+        int figureTarget, figureColor, figureNormal, figureLamps;
         /** The eye's image behind the glass. */
         final ViewCamera.Pose eye = new ViewCamera.Pose();
         /** The scissor box of the picture's drawn part, in its pixels. */
@@ -774,12 +778,15 @@ final class Pipeline {
         }
 
         private String make() {
-            color = texture(GL_RGBA16F, width, height, GL_RGBA, GL_FLOAT, GL_NEAREST);
-            depth = texture(GL_DEPTH_COMPONENT24, width, height, GL_DEPTH_COMPONENT, GL_FLOAT, GL_NEAREST);
+            // Laid over the glass at the eye's picture's size, it is sampled between its pixels.
+            color = texture(GL_RGBA16F, wide, high, GL_RGBA, GL_FLOAT, GL_LINEAR);
+            depth = texture(GL_DEPTH_COMPONENT24, wide, high, GL_DEPTH_COMPONENT, GL_FLOAT, GL_NEAREST);
             target = target(color);
             GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depth, 0);
             String problem = complete("what glass shows");
-            // Who is in the glass is drawn into the eye's own pictures of people, before the eye's own people are, against the depth of the glass's world.
+            figureColor = texture(GL_RGBA8, wide, high, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST);
+            figureNormal = texture(GL_RGBA8, wide, high, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST);
+            figureLamps = texture(GL_RGBA8, wide, high, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST);
             figureTarget = target(figureColor);
             GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + 1, GL_TEXTURE_2D, figureNormal, 0);
             GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + 2, GL_TEXTURE_2D, figureLamps, 0);
@@ -1216,6 +1223,7 @@ final class Pipeline {
             shadedAndLit = Quality.shadedAndLit(view.index);
             surfacesMirror = Quality.surfacesMirror(view.index);
             reflections = Quality.reflections(view.index);
+            reflectionScale = Quality.reflectionScale(view.index);
             steadying = Quality.frameBlending(view.index);
             frameColor = sceneColor;
             SpriteColours.read(view.index, camera.eyeX, camera.eyeY);
@@ -1758,22 +1766,28 @@ final class Pipeline {
      */
     private void drawLookingGlass(Looked look, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far, float fogStart, float fogEnd,
             boolean figures) {
+        int wide = Math.max(1, Math.round(width * reflectionScale)), high = Math.max(1, Math.round(height * reflectionScale));
+        if (look.lent.made() && (look.wide != wide || look.high != high)) {
+            giveBack(look.lent);
+        }
+        look.wide = wide;
+        look.high = high;
         lend(look.lent);
         float[] rect = look.plane.rect;
         int[] lookScissor = look.scissor;
-        int fromX = Math.max(0, (int) Math.floor((rect[0] * 0.5f + 0.5f) * width) - LOOK_RECT_PIXELS);
-        int fromY = Math.max(0, (int) Math.floor((rect[1] * 0.5f + 0.5f) * height) - LOOK_RECT_PIXELS);
-        int toX = Math.min(width, (int) Math.ceil((rect[2] * 0.5f + 0.5f) * width) + LOOK_RECT_PIXELS);
-        int toY = Math.min(height, (int) Math.ceil((rect[3] * 0.5f + 0.5f) * height) + LOOK_RECT_PIXELS);
+        int fromX = Math.max(0, (int) Math.floor((rect[0] * 0.5f + 0.5f) * wide) - LOOK_RECT_PIXELS);
+        int fromY = Math.max(0, (int) Math.floor((rect[1] * 0.5f + 0.5f) * high) - LOOK_RECT_PIXELS);
+        int toX = Math.min(wide, (int) Math.ceil((rect[2] * 0.5f + 0.5f) * wide) + LOOK_RECT_PIXELS);
+        int toY = Math.min(high, (int) Math.ceil((rect[3] * 0.5f + 0.5f) * high) + LOOK_RECT_PIXELS);
         lookScissor[0] = fromX;
         lookScissor[1] = fromY;
         lookScissor[2] = toX - fromX;
         lookScissor[3] = toY - fromY;
-        cropRect[0] = fromX * 2f / width - 1f;
-        cropRect[1] = fromY * 2f / height - 1f;
-        cropRect[2] = toX * 2f / width - 1f;
-        cropRect[3] = toY * 2f / height - 1f;
-        float clouds = (float) Math.min(width, levelWidth[0]) / width;
+        cropRect[0] = fromX * 2f / wide - 1f;
+        cropRect[1] = fromY * 2f / high - 1f;
+        cropRect[2] = toX * 2f / wide - 1f;
+        cropRect[3] = toY * 2f / high - 1f;
+        float clouds = (float) Math.min(wide, levelWidth[0]) / wide;
         lookCloudScissor[0] = (int) Math.floor(fromX * clouds);
         lookCloudScissor[1] = (int) Math.floor(fromY * clouds);
         lookCloudScissor[2] = (int) Math.ceil(toX * clouds) - lookCloudScissor[0];
@@ -1787,12 +1801,12 @@ final class Pipeline {
         if (figures) {
             GL11.glScissor(lookScissor[0], lookScissor[1], lookScissor[2], lookScissor[3]);
             GL11.glEnable(GL_SCISSOR_TEST);
-            drawFiguresAside(look.eye, tanHalfFieldOfView, aspect, near, width, height, look.figureTarget, figureColor, figureNormal, figureLamps,
+            drawFiguresAside(look.eye, tanHalfFieldOfView, aspect, near, wide, high, look.figureTarget, look.figureColor, look.figureNormal, look.figureLamps,
                     look.target, look.depth, ASIDE_GLASS, state, far, fogStart, fogEnd);
         }
         lookingIn = null;
         GL11.glDisable(GL_SCISSOR_TEST);
-        drawSkyInto(look.target, look.depth, width, height, false, lookCloudScissor, look.eye, state, tanHalfFieldOfView, aspect, near, far);
+        drawSkyInto(look.target, look.depth, wide, high, false, lookCloudScissor, look.eye, state, tanHalfFieldOfView, aspect, near, far);
     }
 
     /**
@@ -1827,8 +1841,8 @@ final class Pipeline {
         GL11.glBindTexture(GL_TEXTURE_2D, look.color);
         shown.set("uPicture", 0);
         shown.set("uSize", (float) width, (float) height);
-        shown.set("uDrawn", (lookScissor[0] + 0.5f) / width, (lookScissor[1] + 0.5f) / height,
-                (lookScissor[0] + lookScissor[2] - 0.5f) / width, (lookScissor[1] + lookScissor[3] - 0.5f) / height);
+        shown.set("uDrawn", (lookScissor[0] + 0.5f) / look.wide, (lookScissor[1] + 0.5f) / look.high,
+                (lookScissor[0] + lookScissor[2] - 0.5f) / look.wide, (lookScissor[1] + lookScissor[3] - 0.5f) / look.high);
         shown.set("uFacing", plane.plane[0], plane.plane[1], plane.plane[2]);
         glassCorners.clear();
         float[] glass = plane.glass;
@@ -3490,7 +3504,7 @@ final class Pipeline {
     private void drawWorld(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect,
             float near, float far, float fogStart, float fogEnd) {
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, inScope ? view.scope.pictureTarget : inMirror ? mirrorTarget : inWater ? waterTarget : inLookingGlass ? lookingIn.target : sceneTarget);
-        GL11.glViewport(0, 0, inScope ? Scope.PICTURE : inMirror ? MIRROR_WIDTH : inWater ? waterWidth : width, drawnHigh());
+        GL11.glViewport(0, 0, inScope ? Scope.PICTURE : inMirror ? MIRROR_WIDTH : inWater ? waterWidth : inLookingGlass ? lookingIn.wide : width, drawnHigh());
         // The pass leaves the arrays and the sprite sampler unbound when it ends, and it may
         // run three times in a frame: for the mirror, for a scope and for the eye.
         arrays();
@@ -3509,7 +3523,7 @@ final class Pipeline {
         // and an edge that falls between pixels comes out as the mean of where it fell: smooth,
         // and with more detail than one frame's pixels hold.
         ViewCamera.projection(tanHalfFieldOfView, aspect, near, far, projection);
-        // What a mirror shows is drawn the same fraction of a pixel aside as the eye's picture, which shows it pixel for pixel.
+        // What a mirror shows is drawn the same fraction of the eye's pixel aside as the eye's picture, over which it is laid.
         if (eyesOwn() || inLookingGlass) {
             projection[8] += asideX;
             projection[9] += asideY;
@@ -6805,7 +6819,7 @@ final class Pipeline {
 
     /** How many pixels high the picture being drawn into is. */
     private int drawnHigh() {
-        return inScope ? Scope.PICTURE : inMirror ? MIRROR_HEIGHT : inWater ? waterHeight : height;
+        return inScope ? Scope.PICTURE : inMirror ? MIRROR_HEIGHT : inWater ? waterHeight : inLookingGlass ? lookingIn.high : height;
     }
 
     /** The shade of what stands near and the lit air, at half the picture's size: only in High. */

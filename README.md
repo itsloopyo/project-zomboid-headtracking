@@ -507,6 +507,9 @@ ShadingAndLight=true
 ; true: mirrors in rooms show the room and you, your vehicle's mirrors show the road behind, and with
 ; ShadingAndLight, wet roads, floors, glass and water mirror the world.
 Reflections=true
+; Share of the first person picture's resolution that wall mirrors and window glass draw their reflection at,
+; each way: 0.25 to 1. High draws 0.75, Medium 0.5. Lower costs less and looks softer.
+ReflectionScale=0.75
 ; true: the mod's surface, wall and skin pictures at full size. false: half size, a quarter of the memory.
 FullSizeTextures=true
 ; true: near surfaces are given the depth of what they show. false: they are drawn flat.

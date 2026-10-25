@@ -137,6 +137,7 @@
 - `F8` cycles the picture styles `Vivid`, `Natural` and `Bleak` (default).
 - Every shader the mod draws with is compiled while a save loads, with a count on the loading screen, and the save starts once they are done, so none is compiled in play.
 - `ZombiesAndPropsDrawDistance` (16 to 80 tiles) and `Reflections` settings.
+- `ReflectionScale` setting (0.25 to 1): the resolution wall mirrors and window glass draw their reflection at, as a share of the first person picture's. `High` draws 0.75, `Medium` 0.5.
 - `GrassDensity` setting (10 to 100 percent): fewer grass plants for a faster picture. `High` grows all of it, `Medium` and `Low` 40 percent.
 - A first person view larger than 2560x1440 is drawn in `Low`, `Medium`, `High` and `Automatic` with no more pixels than 2560x1440, and scaled up. `Custom` draws at its `RenderScale` at any size.
 - `Medium` draws first person at 0.8 of the window's size each way, with shaded corners, lit air and, with `Reflections`, mirroring wet roads, floors, glass and water.
