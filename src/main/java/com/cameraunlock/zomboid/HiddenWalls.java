@@ -119,11 +119,12 @@ final class HiddenWalls {
         if (n.contains("bedroom") || n.equals("agriworkerdorm") || n.equals("nursery")) {
             return Kind.BED;
         }
-        if (n.endsWith("kitchen") && !n.equals("emptykitchen") || n.equals("kitchen_crepe")) {
+        // A works breakroom is a kitchenette with a table: a clock, not a mirror.
+        if (n.endsWith("kitchen") && !n.equals("emptykitchen") || n.equals("kitchen_crepe") || n.equals("breakroom") || n.equals("breakoom")) {
             return Kind.KITCHEN;
         }
         if (n.contains("livingroom") || n.equals("liviingroom") || n.contains("dining") || n.equals("diningr") || n.equals("sunroom")
-                || n.equals("gameroom") || n.equals("homecinema") || n.equals("sewingroom") || n.equals("breakroom") || n.equals("breakoom")
+                || n.equals("gameroom") || n.equals("homecinema") || n.equals("sewingroom")
                 || n.equals("waitingroom") || n.equals("viplounge")) {
             return Kind.LIVING;
         }

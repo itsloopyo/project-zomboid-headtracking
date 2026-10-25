@@ -20,6 +20,7 @@ final class HiddenWallsTests {
                 && HiddenWalls.kindOf("guestbedroom") == HiddenWalls.Kind.BED, "so is a bedroom");
         Checks.check(HiddenWalls.kindOf("kitchen") == HiddenWalls.Kind.KITCHEN && HiddenWalls.kindOf("pizzakitchen") == HiddenWalls.Kind.KITCHEN,
                 "a house's kitchen and a restaurant's are kitchens");
+        Checks.check(HiddenWalls.kindOf("breakroom") == HiddenWalls.Kind.KITCHEN, "and so is a works breakroom, which gets a clock and no mirror");
         Checks.check(HiddenWalls.kindOf("livingroom") == HiddenWalls.Kind.LIVING && HiddenWalls.kindOf("diningroom") == HiddenWalls.Kind.LIVING
                 && HiddenWalls.kindOf("spiffo_dining") == HiddenWalls.Kind.LIVING, "living and dining rooms are rooms to sit in");
         Checks.check(HiddenWalls.kindOf("hall") == HiddenWalls.Kind.HALL && HiddenWalls.kindOf("foyer") == HiddenWalls.Kind.HALL, "a hall and a foyer are halls");
