@@ -120,6 +120,10 @@ final class FurnishingBuilder {
     /** What placeHung leaves: where along its wall a hung piece's middle is, how high its foot is over the floor in tiles, and its scales. */
     static final int ALONG = 0, FOOT = 1, SCALE = 2, SCALE_UP = 3;
     private final float[] hungPlace = new float[4];
+    /** The way a piece faces, as clearOfLogs leaves it. */
+    private final float[] front = new float[2];
+    /** How far the back of a piece is from a log wall's logs behind it, in tiles. */
+    private static final float LOGS_CLEAR = 0.02f;
 
     FurnishingBuilder(WorldScene.Frame build) {
         this.build = build;
@@ -364,7 +368,13 @@ final class FurnishingBuilder {
         float along = hungPlace[ALONG], foot = hungPlace[FOOT], scale = hungPlace[SCALE], scaleUp = hungPlace[SCALE_UP];
         // Its back clear of the wall's skin, which stands that far inside the square's edge.
         Models.turn(piece.turns, 0f, -1f, build.hungWay);
-        float out = WorldScene.WALL_HALF + WorldScene.HUNG_CLEAR + standOut + model.depth() * scale / 2f;
+        float logs = switch (piece.wall) {
+            case WallHung.NORTH -> build.wallBuilder.logsProud(x, y, z, true);
+            case WallHung.WEST -> build.wallBuilder.logsProud(x, y, z, false);
+            case WallHung.SOUTH -> build.wallBuilder.logsProud(x, y + 1, z, true);
+            default -> build.wallBuilder.logsProud(x + 1, y, z, false);
+        };
+        float out = WorldScene.WALL_HALF + logs + WorldScene.HUNG_CLEAR + standOut + model.depth() * scale / 2f;
         float a = WallHung.a(piece.wall, along), b = WallHung.b(piece.wall, along);
         float[] lift = build.geometry.lift;
         // On a wall on the square's north or west edge it hangs as high as the wall stands (Frame.standOnKerbTop).
@@ -689,6 +699,31 @@ final class FurnishingBuilder {
         };
     }
 
+    /**
+     * How much further out from the edge behind it a piece at (centreX, centreY) on its first square (x, y) stands, along
+     * its front, where a log wall stands on that edge: its back clear of the logs as of a wall's skin, in tiles. Left in
+     * front leaves the way it faces.
+     */
+    private float clearOfLogs(Furniture piece, Models.Model model, int x, int y, int z, float centreX, float centreY) {
+        Models.turn(piece.turns, 0f, -1f, front);
+        float logs, gap;
+        if (front[1] < -0.5f) {
+            logs = build.wallBuilder.logsProud(x, y + piece.height, z, true);
+            gap = piece.height - centreY;
+        } else if (front[1] > 0.5f) {
+            logs = build.wallBuilder.logsProud(x, y, z, true);
+            gap = centreY;
+        } else if (front[0] < -0.5f) {
+            logs = build.wallBuilder.logsProud(x + piece.width, y, z, false);
+            gap = piece.width - centreX;
+        } else {
+            logs = build.wallBuilder.logsProud(x, y, z, false);
+            gap = centreX;
+        }
+        // The model's front is its -y, so its back reaches maxY behind its origin.
+        return logs == 0f ? 0f : Math.max(WorldScene.WALL_HALF + logs + LOGS_CLEAR - (gap - model.maxY * piece.scale), 0f);
+    }
+
     /** Whether something stands on the north or the west edge of a square. */
     private static boolean edged(IsoGridSquare square, boolean north) {
         if (square == null) {
@@ -808,6 +843,11 @@ final class FurnishingBuilder {
         }
         if (piece.roofBelow > 0 && build.roofBuilder.cornersAt(x, y, z - piece.roofBelow, roofCorners)) {
             foot -= sunkOntoRoof(roofCorners, piece.centreX, piece.centreY, piece.footHalf) * ViewCamera.LEVEL_HEIGHT;
+        }
+        if (!piece.onRoof) {
+            float clear = clearOfLogs(piece, model, x, y, z, centreX, centreY);
+            centreX += front[0] * clear;
+            centreY += front[1] * clear;
         }
         build.placed.add(model, build.frame, x, y, x + centreX, y + centreY, foot, piece.turns, piece.scale, piece.scaleUp,
                 dyeTexture, piece.dyed, dyeU, dyeV, alsoDyed, alsoU, alsoV);

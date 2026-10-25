@@ -494,7 +494,7 @@ final class Models {
         static final int UNLIT = 39;
         /** What the piece has of the day its room lets in, held as UNLIT holds the rest: see Frame.cornerDay. */
         static final int DAY = 44;
-        /** 1 for a piece laid as a wall's own face, which is opened and cut as the wall is (see wall), or 0. */
+        /** 1 for a piece laid as a wall's own face, which is opened and cut as the wall is (see wall), 2 for one run on past its wall's end (wallEnd), or 0. */
         static final int WALL = 48;
         static final int FLOATS = 49;
         /**
@@ -662,6 +662,12 @@ final class Models {
         void wall() {
             built();
             floats[(count - 1) * FLOATS + WALL] = 1f;
+        }
+
+        /** As wall, for a piece run on past the end of its wall, which is cut with the square it runs on from. */
+        void wallEnd() {
+            built();
+            floats[(count - 1) * FLOATS + WALL] = 2f;
         }
 
         /** Has the pane of the piece last added, of this model, be a mirror's glass: see LookingGlass. */

@@ -62,12 +62,13 @@ final class CutawayTests {
      */
     private static boolean cut(float x, float y, float facingX, float facingY, float facingZ, float hung, BiFunction<Integer, Integer, Integer> marked) {
         float edgeX = (float) Math.floor(x + 0.5f), edgeY = (float) Math.floor(y + 0.5f), offX = Math.abs(x - edgeX), offY = Math.abs(y - edgeY);
-        boolean northCut = wallCut(marked.apply((int) Math.floor(x - 0.06f), (int) edgeY), Cutaways.NORTH, hung) || wallCut(marked.apply((int) Math.floor(x + 0.06f), (int) edgeY), Cutaways.NORTH, hung);
-        boolean westCut = wallCut(marked.apply((int) edgeX, (int) Math.floor(y - 0.06f)), Cutaways.WEST, hung) || wallCut(marked.apply((int) edgeX, (int) Math.floor(y + 0.06f)), Cutaways.WEST, hung);
+        float past = hung > 4.5f ? 0.25f : 0.06f;
+        boolean northCut = wallCut(marked.apply((int) Math.floor(x - past), (int) edgeY), Cutaways.NORTH, hung) || wallCut(marked.apply((int) Math.floor(x + past), (int) edgeY), Cutaways.NORTH, hung);
+        boolean westCut = wallCut(marked.apply((int) edgeX, (int) Math.floor(y - past)), Cutaways.WEST, hung) || wallCut(marked.apply((int) edgeX, (int) Math.floor(y + past)), Cutaways.WEST, hung);
         if (hung < 0.5f && Math.abs(facingZ) > Math.max(Math.abs(facingX), Math.abs(facingY))) {
             return offY < 0.06f && northCut || offX < 0.06f && westCut;
         }
-        float reach = hung > 0.5f ? 0.45f : 0.3f, side = hung > 2.5f ? hung - 2f : hung;
+        float reach = hung > 0.5f ? 0.45f : 0.3f, side = hung - 2f * (float) Math.floor((hung - 0.5f) / 2f);
         boolean north = offY < reach && (hung > 0.5f ? side < 1.5f : Math.abs(facingY) > Math.abs(facingX));
         boolean west = offX < reach && (hung > 0.5f ? side > 1.5f : Math.abs(facingX) >= Math.abs(facingY));
         return north ? northCut : west && westCut;
@@ -80,11 +81,12 @@ final class CutawayTests {
 
     private static final String[] CUT_LINES = {
         "return mod(floor(marks / wall), 2.0) > 0.5 && (hung < 0.5 || hung > 2.5 || marks < 3.5);",
-        "bool northCut = wallCut(cutMarks(vec2(floor(at.x - 0.06), edge.y)), 1.0, hung) || wallCut(cutMarks(vec2(floor(at.x + 0.06), edge.y)), 1.0, hung);",
-        "bool westCut = wallCut(cutMarks(vec2(edge.x, floor(at.y - 0.06))), 2.0, hung) || wallCut(cutMarks(vec2(edge.x, floor(at.y + 0.06))), 2.0, hung);",
+        "float past = hung > 4.5 ? 0.25 : 0.06;",
+        "bool northCut = wallCut(cutMarks(vec2(floor(at.x - past), edge.y)), 1.0, hung) || wallCut(cutMarks(vec2(floor(at.x + past), edge.y)), 1.0, hung);",
+        "bool westCut = wallCut(cutMarks(vec2(edge.x, floor(at.y - past))), 2.0, hung) || wallCut(cutMarks(vec2(edge.x, floor(at.y + past))), 2.0, hung);",
         "if (hung < 0.5 && abs(facing.z) > max(abs(facing.x), abs(facing.y))) {",
         "return off.y < 0.06 && northCut || off.x < 0.06 && westCut;",
-        "float reach = hung > 0.5 ? 0.45 : 0.3, side = hung > 2.5 ? hung - 2.0 : hung;",
+        "float reach = hung > 0.5 ? 0.45 : 0.3, side = hung - 2.0 * floor((hung - 0.5) / 2.0);",
         "bool north = off.y < reach && (hung > 0.5 ? side < 1.5 : abs(facing.y) > abs(facing.x));",
         "bool west = off.x < reach && (hung > 0.5 ? side > 1.5 : abs(facing.x) >= abs(facing.y));",
         "return north ? northCut : west && westCut;"};
@@ -150,5 +152,7 @@ final class CutawayTests {
         check(!cut(7004.08f, 6039.5f, 1f, 0f, 0f, 2f, marked), "the board hung on it stands");
         check(!cut(7004.3f, 6040.2f, 0f, 0f, 1f, 2f, marked), "and so does the hood over it");
         check(cut(7004.12f, 6039.5f, 0.3f, 0.2f, 0.9f, 4f, marked), "but a log laid as the wall's face goes with the wall, whichever way its face turns");
+        check(cut(7004.1f, 6041.2f, 0.3f, 0.2f, 0.9f, 6f, marked), "and a log end run on past the wall's end goes with the wall it runs on from");
+        check(!cut(7004.1f, 6041.2f, 0.3f, 0.2f, 0.9f, 4f, marked), "where a log of a wall's face that far over the next square goes by that square");
     }
 }

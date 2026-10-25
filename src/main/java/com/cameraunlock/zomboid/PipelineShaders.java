@@ -535,7 +535,7 @@ final class PipelineShaders {
             // kind plus 1, or 0, is aFoot's w: see Models.Instances.UNLIT.
             attribute vec4 aUnlit;
             // The model's openness to the sky, the surfaces dyed from each of the two places on the sprite, and 1 for one
-            // laid as a wall's own face: see Models.Instances.wall.
+            // laid as a wall's own face, 2 for one run on past its wall's end: see Models.Instances.wall and wallEnd.
             uniform vec4 uSurfaces;
             uniform vec4 uDye;
             uniform vec4 uPicture;
@@ -644,11 +644,11 @@ final class PipelineShaders {
                 // A model hung on a wall has its back to the wall, at its own +y, and is cut with that wall
                 // and no other: 1 for a north wall, 2 for a west one, 0 for what is not hung. One laid as a
                 // wall's own face lies along it the same way, at any height, and is cut as the wall is: 3
-                // and 4. See cutAway.
+                // and 4, and 5 and 6 where it runs on past the wall's end. See cutAway.
                 vec2 back = turned(vec2(0.0, 1.0));
                 vHung = uModel > 0.5 && (uSurfaces.w > 0.5 || aFoot.z > uCutAbove - 0.45) ? (abs(back.y) > abs(back.x) ? 1.0 : 2.0) + 2.0 * uSurfaces.w : 0.0;
                 // A model has no tree, and carries the piece of its surface in the place of the square of one,
-                // and in the place of its x -2 where the model is laid as a wall's own face and -1 where not.
+                // and in the place of its x -2 or -3 where the model is laid as a wall's own face and -1 where not.
                 vRoot = uModel > 0.5 ? vec2(-1.0 - uSurfaces.w, piece) : gl_MultiTexCoord2.xy;
                 // What is laid on the ground does not blow about: there the normal's length says
                 // how much of the layer shows at the vertex.

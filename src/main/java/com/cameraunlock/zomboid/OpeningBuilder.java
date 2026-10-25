@@ -182,7 +182,7 @@ final class OpeningBuilder {
             return false;
         }
         float top = build.wallBuilder.doorTop(texture, a, b, da, db);
-        float out = build.doorSwung ? SWUNG_OUT : 0f;
+        float out = build.doorSwung ? SWUNG_OUT + build.wallBuilder.logsProud(x, y, z, da != 0f) : 0f;
         for (int side = -1; side <= 1; side += 2) {
             build.geometry.shownA = db * (out + side * DOOR_HALF);
             build.geometry.shownB = da * (out + side * DOOR_HALF);
@@ -391,7 +391,7 @@ final class OpeningBuilder {
         boolean measured = doorwayX == x && doorwayY == y && doorwayZ == z && doorwayNorth == north;
         boolean inDoorway = !build.doorSwung && !build.garageDoor && measured;
         Windows.Shape leaf = inDoorway ? withinCut(door.leaf, doorwayStart, doorwayEnd) : door.leaf;
-        float out = build.doorSwung ? SWUNG_OUT : 0f;
+        float out = build.doorSwung ? SWUNG_OUT + build.wallBuilder.logsProud(x, y, z, da != 0f) : 0f;
         windowX = x + db * out;
         windowY = y + da * out;
         windowAlongX = da;
@@ -782,11 +782,11 @@ final class OpeningBuilder {
             if (shape.arch != null) {
                 addArch(joinery, shape, out * deep, r, g, b);
             }
-            // Rain is thrown clear of the wall by a sill, which a window has on the side that is out of doors.
+            // Rain is thrown clear of the wall by a sill, which a window has on the side that is out of doors, past a log wall's logs.
             if (shape.foot > SILL_LOWEST && (side == 0 ? !ownIsRoom : ownIsRoom && !beyondIsRoom)) {
                 float pastStart = shape.startWide > 0f ? SILL_PAST + FRAME_LAP : 0f, pastEnd = shape.endWide > 0f ? SILL_PAST + FRAME_LAP : 0f;
                 addJoinery(joinery, shape.start - pastStart, shape.end + pastEnd, shape.foot - lap - SILL_THICK / level, shape.foot - lap + 0.004f / level,
-                        out * (WorldScene.WALL_HALF + SILL_OUT), r, g, b);
+                        out * (WorldScene.WALL_HALF + build.wallBuilder.logsProud(x, y, z, north) + SILL_OUT), r, g, b);
             }
             for (int bar = 0; bar < shape.bars.length; bar += 4) {
                 float wide = Math.min(shape.bars[bar + 1] - shape.bars[bar], (shape.bars[bar + 3] - shape.bars[bar + 2]) * level);

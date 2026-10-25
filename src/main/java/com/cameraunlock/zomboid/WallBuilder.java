@@ -411,7 +411,7 @@ final class WallBuilder {
             // A finger's width clear of the skin: lying in the skin's own plane, the two are
             // drawn through each other. A poster stands clear of a moulding behind it too, and
             // of a log wall's logs.
-            float clear = WorldScene.HUNG_CLEAR + build.posterClear + (Own.buildings() && logsOn(x, y, z, da != 0f) ? LogWalls.RADIUS - WorldScene.WALL_HALF : 0f);
+            float clear = WorldScene.HUNG_CLEAR + build.posterClear + logsProud(x, y, z, da != 0f);
             build.geometry.shownA = inX + db * clear;
             build.geometry.shownB = inY + da * clear;
             float material = build.frame.material;
@@ -764,11 +764,10 @@ final class WallBuilder {
 
     /**
      * Lays a log wall's logs over the skins of the square's edge from (0, 0) along (da, db): each course a log_course, or
-     * where its sprite cuts a door or a window through it, log_pieces where the sprite paints the course. Each course
-     * stands on its own, so that those over the height a wall is cut down to are cut with the wall, as what hangs on it
-     * is: a model is cut only where its foot is over that height. At an end where the wall does not run straight on into
-     * another length of log wall and turns a corner, its logs run on past the corner as a log_end, which stands whole
-     * as the game's corner of log ends does. A wall on a west edge lies a log's radius lower, so its courses pass
+     * where its sprite cuts a door or a window through it, log_pieces where the sprite paints the course. They are cut
+     * with the wall as its skins are (Models.Instances.wall). At an end where the wall does not run straight on into
+     * another length of log wall and turns a corner, its logs run on past the corner as a log_end, cut with the wall it
+     * runs on from (Models.Instances.wallEnd). A wall on a west edge lies a log's radius lower, so its courses pass
      * between those of a wall on a north edge. The wood is the sprite's, from a log it paints.
      */
     private void addLogs(Texture texture, int x, int y, int z, float da, float db) {
@@ -833,11 +832,11 @@ final class WallBuilder {
         // log_end runs along its +x: turned by Models.turn, 0 takes it towards -x, 2 towards +x, 1 towards -y and 3 towards +y.
         if (logsCross(x, y, z, north) && !logsOn(x - (int) da, y - (int) db, z, north)) {
             build.placed.add(Models.get("log_end"), build.frame, x, y, x, y, foot, north ? 0 : 1, 1f, 1f, id, wood, u, v, 0, 0f, 0f);
-            build.placed.wall();
+            build.placed.wallEnd();
         }
         if (logsCross(x + (int) da, y + (int) db, z, north) && !logsOn(x + (int) da, y + (int) db, z, north)) {
             build.placed.add(Models.get("log_end"), build.frame, x, y, x + da, y + db, foot, north ? 2 : 3, 1f, 1f, id, wood, u, v, 0, 0f, 0f);
-            build.placed.wall();
+            build.placed.wallEnd();
         }
     }
 
@@ -870,6 +869,11 @@ final class WallBuilder {
      */
     private boolean logsCross(int px, int py, int z, boolean north) {
         return north ? logsOn(px, py, z, false) != logsOn(px, py - 1, z, false) : logsOn(px, py, z, true) != logsOn(px - 1, py, z, true);
+    }
+
+    /** How far the logs of a log wall on the north or the west edge of square (sx, sy) stand out of the wall's skins, or 0 with none there. */
+    float logsProud(int sx, int sy, int z, boolean onNorth) {
+        return Own.buildings() && logsOn(sx, sy, z, onNorth) ? LogWalls.RADIUS - WorldScene.WALL_HALF : 0f;
     }
 
     /** Whether square (sx, sy) has a length of log wall on its north edge, or its west. */
