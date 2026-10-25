@@ -1,9 +1,10 @@
 """Shop signs, notices and flags: what the game hangs on a wall as a lettered board some sixty dots a metre.
 
-A sign says exactly what the game's says. The model that makes the mod's pictures spells nothing right, so no letter
-here comes from it: the wording is set as type (pack.py's fonts, and Arial Black and Segoe Script from the same
-Windows folder) over a ground that is generated, plain paint on sheet metal, a slate, hanging cloth, with no writing on
-it. An emblem is generated alone, as a pale shape on a dark ground, and only its outline is taken.
+A sign says exactly what the game's says. The wording is set as type (pack.py's fonts, and Arial, Arial Black and
+Segoe Script from the same Windows folder) over a ground with no writing on it, plain paint on sheet metal, a slate,
+hanging cloth, and an emblem is a pale shape on a dark ground of which only the outline is taken. Ground and emblem are
+art picked in catalogue.SEEDS, shots taken in the game; the prompts in ART are those the mod's earlier generated art was
+made from, and nothing made from them ships.
 
 SIGNS is key -> (metres wide, metres high, ground art, ground colour, what is on it). The size is that of the place
 WorldScene.addHung hangs the picture in, which it works out from the game's sprite with WallHung.painted, and the

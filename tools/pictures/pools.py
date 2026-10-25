@@ -2,7 +2,9 @@
 
 The game hangs the same "Painting" sprites of family photographs in houses, restaurants, bars, offices and shops. A house
 shows the family pictures of catalogue.py; a room of another kind shows one of its own kind's pictures here instead, chosen
-by the room the sprite hangs in (Decor.inRoom). POOLS is room kind -> prompts; each becomes the picture pool-<kind>-NN.
+by the room the sprite hangs in (Decor.inRoom). POOLS is room kind -> prompts, one for each picture pool-<kind>-NN. The
+pictures are shots staged and taken in the game (catalogue.SEEDS); the prompts are those the mod's earlier generated
+pictures were made from, and nothing made from them ships.
 """
 
 # No place is named: Qwen-Image letters a named place onto a sign or a caption in the picture.

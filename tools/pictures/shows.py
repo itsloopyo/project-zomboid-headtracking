@@ -1,7 +1,8 @@
 """What is on television: the shows a set can be showing and the shots the mod has of each.
 
-A show is a handful of shots, each a still made from a text prompt alone (generate.py) and packed four wide for three
-high as screen-<show>-<n> (pack.py). A set cuts from one shot of its show to the next and moves across each as it is
+A show is a handful of shots, each a still staged and taken in the game (catalogue.SEEDS) and packed four wide for three
+high as screen-<show>-<n> (pack.py). The prompts below are those the mod's earlier generated stills were made from;
+nothing made from them ships. A set cuts from one shot of its show to the next and moves across each as it is
 drawn (Screens.java). The shows and their names are the mod's own.
 
 Which of the game's broadcasts and tapes is which show is told by schedule.py, from patterns kept outside the repository.

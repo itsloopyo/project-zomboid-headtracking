@@ -66,6 +66,7 @@ final class FireDraw {
             // The steadying's mark for what moves within itself and goes nowhere, between a crowd's and a figure's.
             const float MOVES = 0.375;
 
+            // The hash13 of David Hoskins's Hash without Sine, with its hash33's multipliers, under its MIT licence (THIRD-PARTY-NOTICES.md).
             float hash(vec3 p) {
                 p = fract(p * vec3(0.1031, 0.1030, 0.0973));
                 p += dot(p, p.yxz + 33.33);

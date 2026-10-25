@@ -1966,7 +1966,16 @@ DEALINGS IN THE SOFTWARE.
 - **License:** screenshots of Project Zomboid, The Indie Stone's game, used under the [Indie Stone Terms](https://projectzomboid.com/blog/support/terms-conditions/) (clause 2.2, non-commercial fan productions). They are not under this mod's MIT licence.
 - **Upstream:** https://projectzomboid.com
 - **Usage:** The first person view hangs them in place of the game's paintings, photographs, posters and boards, and a television shows them as its programmes. Each was staged and shot inside the game.
+- **Lettering:** the words on the film and music posters, the certificates and the signs are set over the shots by `tools/pictures/pack.py` and `tools/pictures/signs.py` in fonts installed with Windows (Impact, Georgia, Arial, Arial Black and Segoe Script). Only the letters' shapes as drawn are in the pictures; no font file is bundled.
 - **Bundled:** yes.
+
+## Project Zomboid footage
+
+- **Files:** `assets/readme-clip.gif`, and `workshop/poster.png`, `workshop/preview.png` and every picture in `workshop/gallery`
+- **License:** recordings and screenshots of Project Zomboid, The Indie Stone's game, running with this mod, used under the [Indie Stone Terms](https://projectzomboid.com/blog/support/terms-conditions/) (clause 2.2, non-commercial fan productions). They are not under this mod's MIT licence.
+- **Upstream:** https://projectzomboid.com
+- **Usage:** The README shows the clip, the Steam Workshop page shows the preview and the gallery, and the game's mod list shows the poster.
+- **Bundled:** `poster.png` and `preview.png` in the Steam Workshop item, which `scripts/package-workshop.ps1` builds; none of them in the release ZIP or the jar.
 
 ---
 
@@ -2077,6 +2086,30 @@ model's receiver is made to stand under.
 
 ---
 
+## Other firearm models
+
+- **Files:** `models/<name>.mesh.gz`, `models/<name>.colour.bc` and `models/<name>.surface.bc` inside the mod's jar for `pistol`, `pistol2`, `pistol3`, `revolver`, `magnum`, `snubnose`, `capgun`, `sawnoff`, `js3t`, `dbarrel`, `leverrifle`, `levercarbine`, `varmint`, `tactical`, `assault`, `battle`, `js14`, `trapper` and `toy`, and `models/dbarrelsawn.mesh.gz`
+- **License:** MIT, this project's own, for the models and for what the scripts paint on them. The walnut of the stocks and grips and the grain of the rubber are baked from the two pictures the shotgun's are, made with Stable Diffusion XL base 1.0 from text prompts alone, under the same terms as the generated material textures above. No image from Project Zomboid or anywhere else was given to the model.
+- **Usage:** The first person view draws each in the viewer's hands in place of the game's model of the weapon of the same kind.
+- **Bundled:** yes. The image model is not.
+
+Each is built from nothing by a Blender script in this repository, with the
+tools of `tools/models/gunsmith.py` and `tools/models/longgun.py`:
+`tools/models/pistol.py` (`pistol`, `pistol2`, `pistol3`),
+`tools/models/revolver.py` (`revolver`, `magnum`, `snubnose`, `capgun`),
+`tools/models/shotgun.py` (`sawnoff`, `js3t`), `tools/models/dbarrel.py`
+(`dbarrel`, `dbarrelsawn`), `tools/models/lever.py` (`leverrifle`,
+`levercarbine`), `tools/models/rifle.py` (`varmint`, `tactical`),
+`tools/models/selfloaders.py` (`assault`, `battle`, `js14`, `trapper`) and
+`tools/models/toy.py` (`toy`). Each is of no maker's pattern and carries no
+maker's name or mark. No mesh or texture is read from Project Zomboid or from
+anywhere else. As for the shotgun and the rifle, a few measures of the game's
+own model of the weapon decide how the model is held, and nothing of its
+shape: where its muzzle is from its grip, and where a scope or a sight is
+fixed to it, kept as numbers in the scripts.
+
+---
+
 ## Arm model
 
 - **Files:** `models/arms.mesh.gz`, `models/arms.colour.bc` and `models/arms.surface.bc` inside the mod's jar
@@ -2129,6 +2162,32 @@ Project Zomboid or from anywhere else.
 
 ---
 
+## Vehicle interiors
+
+- **Files:** every file under `cabins/` inside the mod's jar: `<family>.mesh.gz`, `<family>.colour.bc` and `<family>.surface.bc` for each family of the game's vehicles, and `cabins-detail.surface.bc`
+- **License:** MIT, this project's own
+- **Usage:** The first person view draws them as the inside of the vehicle the viewer sits in, in place of the game's model seen from within.
+- **Bundled:** yes.
+
+Every interior is built from nothing by `tools/models/cabins.py` and the
+scripts under `tools/models/cabin` in this repository, run in Blender: the
+dashboards, seats, doors and linings are shaped by the scripts, and what they
+are made of is procedural materials baked into the textures. Each is of no
+maker's design and carries no maker's name or mark. No mesh or texture is read
+from Project Zomboid. Where each of the game's bodies has its glass and its
+door mirrors was measured off the game's own models, and where it seats its
+passengers and has its rear wheels was read from the game's vehicle scripts;
+only those numbers are kept, in `tools/models/cabin/bodies.py`, so that an
+interior fits the body round it. The markings on the instruments' faces are drawn by
+`tools/models/cabin_pictures.py`, with the figures set in the Inter and
+DejaVu Sans Mono fonts that Blender installs: Inter under the SIL Open Font
+License 1.1 (https://github.com/rsms/inter), DejaVu Sans Mono under the
+Bitstream Vera licence and its own public domain changes
+(https://dejavu-fonts.github.io/License.html). Only the letters' shapes as
+drawn are in the textures; no font file is bundled.
+
+---
+
 ## BC7 texture compression
 
 - **Files:** every `*.bc` inside the mod's jar, and `Bc7.java`
@@ -2145,10 +2204,10 @@ the jar as shader source text.
 
 ### Hash without Sine
 
-- **Where:** `chance` and `chanceAt` in the grain shader of `CharacterDraw.java`, which are that work's `hash13` and `hash11`; `chance` and `chance3` in the arm shader of `OwnArms.java`, its `hash12` and `hash13`; `facHash` in the world shader of `PipelineShaders.java`, its `hash12`; and `snowHash` in `SnowShader.java`, the same `hash12`
+- **Where:** `chance` and `chanceAt` in the grain shader of `CharacterDraw.java`, which are that work's `hash13` and `hash11`; `chance` and `chance3` in the arm shader of `OwnArms.java`, its `hash12` and `hash13`; `facHash` in the world shader of `PipelineShaders.java`, its `hash12`; `snowHash` in `SnowShader.java`, the same `hash12`; and `hash` in the flame and smoke shader of `FireDraw.java`, its `hash13` with the three multipliers of its `hash33`
 - **License:** MIT
 - **Upstream:** https://www.shadertoy.com/view/4djSRW
-- **Usage:** The pseudo-random numbers behind the fine grain of skin, hair and cloth, the grain of leather and the shapes of blood and dirt on the arms in first person, the difference in shade from one brick or board of a wall to the next, and the lie of settled snow and the crystals that glint in it.
+- **Usage:** The pseudo-random numbers behind the fine grain of skin, hair and cloth, the grain of leather and the shapes of blood and dirt on the arms in first person, the difference in shade from one brick or board of a wall to the next, the lie of settled snow and the crystals that glint in it, and the billows of flames and smoke.
 - **Bundled:** yes.
 
 Copyright (c) 2014 David Hoskins.
@@ -2273,9 +2332,21 @@ itself, and each is written here in this project's own shaders.
   https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare/).
   It is a published formula of three constants.
 - What a surface throws back of its surroundings, in the shaders of
-  `Scope.java` and `OwnGun.java`, is worked out with the fitted approximation
-  Brian Karis published in "Physically Based Shading on Mobile" (Epic Games,
-  2014). It is a published formula of three lines.
+  `Scope.java`, `OwnGun.java`, `CabinDraw.java` and `Sky.java`, is worked out
+  with the fitted approximation Brian Karis published in "Physically Based
+  Shading on Mobile" (Epic Games, 2014). It is a published formula of three
+  lines. The way a rough surface mirrors most from, in `Sky.java`, is the
+  dominant direction Sébastien Lagarde and Charles de Rousiers give in "Moving
+  Frostbite to Physically Based Rendering" (SIGGRAPH 2014).
+- The light a rough surface throws at the eye in `Sky.java` is the microfacet
+  model of the textbooks: the GGX distribution (Walter, Marschner, Li and
+  Torrance, 2007), Schlick's approximation of Fresnel's equations (1994) and
+  Smith's shadowing in the form Karis gives in "Real Shading in Unreal Engine 4"
+  (SIGGRAPH 2013). The way smoke scatters light in `FireDraw.java` is the
+  Henyey-Greenstein phase function (1941).
+- The one-line random number of the sine of a dot product times 43758.5453,
+  used in several shaders, is a formula in common use in shader code with no
+  known author or licence. It is written here in this project's own shaders.
 - A facing is kept in two numbers in `CharacterDraw.java` by octahedral
   encoding, from "A Survey of Efficient Representations for Independent Unit
   Vectors" by Cigolle, Donow, Evangelakos, Mara, McGuire and Meyer (Journal of

@@ -1,7 +1,8 @@
 """What hangs on the walls of the first person view: every picture the mod makes, and which of the game's sprites shows it.
 
-A picture's art is cut to the shapes it hangs in and given its lettering by pack.py. Nothing of the game's own art goes
-into one.
+A picture's art is a shot staged and taken in the game (SEEDS), used under the Indie Stone Terms (THIRD-PARTY-NOTICES.md),
+cut to the shapes it hangs in and given its lettering by pack.py. Where a picture's entry in ART is a prompt, it is the
+prompt the mod's earlier generated picture was made from; nothing made from a prompt ships.
 
 ART is name -> (what the picture shows, width, height). HUNG is the list of (key, picture) that pack.py writes as the mod's
 index: a key is a sprite's name, or the name and group the game gives a piece, "Painting|Lighthouse". POOLS is
