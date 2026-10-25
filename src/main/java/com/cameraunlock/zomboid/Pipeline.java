@@ -3243,8 +3243,11 @@ final class Pipeline {
     /** The light of a drop of rain this frame: see SkyState.dropLight. */
     private final float[] dropLight = new float[3];
 
-    /** The rain or the snow, into the picture after the world and the sky and before anything is made of the picture. */
-    private void drawRain(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
+    /**
+     * Readies the picture for the drops drawn over it as rain, snow or dust: the eye's picture, its matrices,
+     * the drops' vertices, tested against the depth and not writing it, and blended.
+     */
+    private void beginDrops(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far) {
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
         GL11.glViewport(0, 0, width, height);
         // Aside as the world was drawn: the panes drawn after this load the same matrix and are tested against the world's depth.
@@ -3262,6 +3265,11 @@ final class Pipeline {
         GL11.glDepthMask(false);
         GL11.glDisable(GL_CULL_FACE);
         GL11.glEnable(GL_BLEND);
+    }
+
+    /** The rain or the snow, into the picture after the world and the sky and before anything is made of the picture. */
+    private void drawRain(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
+        beginDrops(camera, tanHalfFieldOfView, aspect, near, far);
         holdShelter(SHELTER_UNIT);
         GL13.glActiveTexture(GL_TEXTURE0);
         GL11.glBindTexture(GL_TEXTURE_2D, roofMap);
@@ -3367,22 +3375,7 @@ final class Pipeline {
 
     /** The dust in the air round the eye, into the picture after the steadying. */
     private void drawDust(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
-        GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
-        GL11.glViewport(0, 0, width, height);
-        lookFrom(camera, tanHalfFieldOfView, aspect, near, far, asideX, asideY);
-        arrays();
-        cardArrayOff();
-        GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-        GL11.glDisableClientState(GL_COLOR_ARRAY);
-        GL11.glDisableClientState(GL_NORMAL_ARRAY);
-        GL15.glBindBuffer(GL_ARRAY_BUFFER, rainDrops);
-        GL11.glVertexPointer(4, GL_FLOAT, 0, 0L);
-        GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
-        GL11.glEnable(GL_DEPTH_TEST);
-        GL11.glDepthFunc(GL_LEQUAL);
-        GL11.glDepthMask(false);
-        GL11.glDisable(GL_CULL_FACE);
-        GL11.glEnable(GL_BLEND);
+        beginDrops(camera, tanHalfFieldOfView, aspect, near, far);
         // Light added to what is there. The picture's alpha says what mirrors and is left alone.
         GL14.glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ZERO, GL_ONE);
         // The maps compare depths themselves: a skin's smoothing sampler on these units would not.
