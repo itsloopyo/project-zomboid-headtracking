@@ -480,8 +480,16 @@ final class WallBuilder {
                     // clear dots are the wall's openings: the game's grime runs on over a window, and the haze there hid the sky.
                     shown = build.overUnder;
                     WorldScene.frameOf(build.frame, build.overObject, shown);
+                    // Run on over the dots the wall's sprite stops short by, as the wall's skin is: cut where the
+                    // sprite stops, the haze left a clean strip of wall down every joint between two squares.
+                    boolean startIsLow = SpriteGeometry.frameU(build.frame, 0f, 0f) < SpriteGeometry.frameU(build.frame, da, db);
+                    float fromStart = unpainted(shown, 0f, 0f, da, db), fromEnd = unpainted(shown, da, db, -da, -db);
+                    build.geometry.sealLow = startIsLow ? fromStart : fromEnd;
+                    build.geometry.sealHigh = startIsLow ? fromEnd : fromStart;
+                    build.geometry.sealTop = unpaintedTop(shown, 0f, 0f, da, db);
                 }
                 stain(inRoom(WorldScene.laid.get(shown.getID(), grime ? WallSides.STAIN : 0), mesh.room), x, y, z, 1f + layer, da, db);
+                build.geometry.sealLow = build.geometry.sealHigh = build.geometry.sealTop = 0f;
                 return;
             }
         }
