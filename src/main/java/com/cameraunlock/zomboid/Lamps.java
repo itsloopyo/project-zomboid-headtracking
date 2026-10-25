@@ -144,17 +144,9 @@ final class Lamps {
             if (distance > within * within) {
                 continue;
             }
-            int slot = count;
-            if (count == LIGHTS) {
-                slot = 0;
-                for (int k = 1; k < LIGHTS; k++) {
-                    if (far[k] > far[slot]) {
-                        slot = k;
-                    }
-                }
-                if (far[slot] <= distance) {
-                    continue;
-                }
+            int slot = slotFor(far, count, LIGHTS, distance);
+            if (slot < 0) {
+                continue;
             }
             float up;
             float strength = STRENGTH;
@@ -198,6 +190,23 @@ final class Lamps {
             Log.info(line.toString());
         }
         sky.lampCount = count;
+    }
+
+    /**
+     * The slot of most lights a light at distance (squared) from the eye goes in: the next free one while
+     * fewer than most are held, else the farthest held one if this is nearer, else -1.
+     */
+    static int slotFor(float[] far, int count, int most, float distance) {
+        if (count < most) {
+            return count;
+        }
+        int slot = 0;
+        for (int k = 1; k < most; k++) {
+            if (far[k] > far[slot]) {
+                slot = k;
+            }
+        }
+        return far[slot] <= distance ? -1 : slot;
     }
 
     /** Whether a lamp hung where place says is already one of the first count, other than the one in slot: a fixture with two bulbs is two lights of the game's. */

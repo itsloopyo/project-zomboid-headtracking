@@ -129,17 +129,9 @@ final class RoomLamps {
             if (distance > within * within) {
                 continue;
             }
-            int slot = count;
-            if (count == LIGHTS) {
-                slot = 0;
-                for (int k = 1; k < LIGHTS; k++) {
-                    if (far[k] > far[slot]) {
-                        slot = k;
-                    }
-                }
-                if (far[slot] <= distance) {
-                    continue;
-                }
+            int slot = Lamps.slotFor(far, count, LIGHTS, distance);
+            if (slot < 0) {
+                continue;
             }
             IsoGridSquare square = cell.getGridSquare(light.x, light.y, light.z);
             // A room the game shows dark, one the viewer has not seen into, shows no lamp either.
