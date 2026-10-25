@@ -28,9 +28,9 @@ final class Masonry {
     private static final int PAINTED = 128;
     /** How many dots across the strip of a sprite that is read is. */
     private static final int STRIP = 24;
-    /** How much of the strip a row has to be painted across to be read, and the fewest rows one after the other a wall is read from. */
+    /** How much of the strip a row has to be painted across to be read, and the fewest rows one after the other a wall is read from: four courses of brick, and a garden wall paints 37. */
     private static final float FULL_ROW = 0.75f;
-    private static final int FEWEST_ROWS = 40;
+    private static final int FEWEST_ROWS = 32;
     /** The least a sprite's rows differ in brightness, and the least its joints stand out from the rest, for it to be laid in courses at all. */
     private static final float LEAST_SPREAD = 0.012f, LEAST_JOINT = 0.02f;
     /** A row at the top or the foot further from the usual than this many times the furthest a joint goes is no part of the wall. */

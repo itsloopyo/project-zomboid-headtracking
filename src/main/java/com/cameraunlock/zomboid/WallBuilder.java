@@ -5,11 +5,13 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import zombie.core.properties.PropertyContainer;
 import zombie.core.textures.Texture;
+import zombie.iso.IsoDirections;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.SpriteDetails.IsoFlagType;
 import zombie.iso.areas.IsoBuilding;
 import zombie.iso.sprite.IsoSprite;
+import zombie.iso.sprite.IsoSpriteManager;
 import zombie.util.list.PZArrayList;
 
 /**
@@ -969,6 +971,9 @@ final class WallBuilder {
         } else if (!build.gableSheet) {
             how = Masonry.of(texture);
             unread |= Masonry.unread(texture);
+            if (how == 0 && north) {
+                how = asWestTwin(texture);
+            }
         }
         // A sprite is read by the next frame drawn. A build that went without any it asked
         // for is made again when next due, though nothing it read of the map has changed:
@@ -979,6 +984,38 @@ final class WallBuilder {
         }
         return WorldScene.solid.get(texture.getID(), how);
     }
+
+    /**
+     * How a garden wall's north face is laid: as the face on the west edge, the sprite before
+     * it on the sheet, when that is laid and this one is its colour in the game's other light.
+     * The north faces of the low brick walls paint their joints a dot off from course to course
+     * and read as no courses at all, which left one face of a planter brick and the next the
+     * blurred sprite. 0 where it is not so.
+     */
+    private int asWestTwin(Texture texture) {
+        String name = texture.getName();
+        int last = name == null || !name.startsWith(LOW_WALLS) ? -1 : name.lastIndexOf('_');
+        int place = last < 0 ? 0 : Integer.parseInt(name.substring(last + 1));
+        if (place % 2 == 0) {
+            return 0;
+        }
+        IsoSprite twin = IsoSpriteManager.instance.namedMap.get(name.substring(0, last + 1) + (place - 1));
+        if (twin == null) {
+            throw new IllegalStateException(name + " has no sprite before it on its sheet");
+        }
+        Texture west = twin.getTextureForCurrentFrame(IsoDirections.N);
+        int read = Masonry.of(west);
+        float[] own = SpriteColours.of(texture);
+        build.building.signed &= !Masonry.unread(west) && !SpriteColours.unread(texture);
+        if (read == 0 || own == null) {
+            return 0;
+        }
+        WallSides.tint(read, laidTint);
+        return WallSides.oneColourInTwoLights(own, laidTint) ? read : 0;
+    }
+
+    /** The sheet of garden walls and parapets: see asWestTwin. */
+    private static final String LOW_WALLS = "walls_exterior_house_low_";
 
     /**
      * Turns the window on the north or west edge of the square being added to face into its

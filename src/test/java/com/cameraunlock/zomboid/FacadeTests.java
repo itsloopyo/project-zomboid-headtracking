@@ -16,6 +16,7 @@ final class FacadeTests {
         Checks.run("lappedBoardsHaveShadowsAndNoUprightJoints", FacadeTests::lappedBoardsHaveShadowsAndNoUprightJoints);
         Checks.run("lappedBoardsUnderAnOutlineAreLapped", FacadeTests::lappedBoardsUnderAnOutlineAreLapped);
         Checks.run("lowWallOfBrickIsBrick", FacadeTests::lowWallOfBrickIsBrick);
+        Checks.run("gardenWallOfBrickIsBrick", FacadeTests::gardenWallOfBrickIsBrick);
         Checks.run("blocksAreDeepCoursesOfOneGrey", FacadeTests::blocksAreDeepCoursesOfOneGrey);
         Checks.run("stoneHasDeepCoursesAndNoTwoStonesAlike", FacadeTests::stoneHasDeepCoursesAndNoTwoStonesAlike);
         Checks.run("boardedWallCarriesItsColour", FacadeTests::boardedWallCarriesItsColour);
@@ -126,6 +127,12 @@ final class FacadeTests {
         // A parapet: the same brick in a sprite half as high.
         int how = laid((along, row) -> row % 8 == 0 || (along + row / 8 % 2 * 10) % 20 == 0 ? MORTAR : BRICK, 106);
         check((how & 15) == WallSides.BRICK, "a low wall's bricks are the size a whole wall's are: " + Integer.toHexString(how));
+    }
+
+    private static void gardenWallOfBrickIsBrick() {
+        // A garden wall: the sprite paints 37 rows of wall, four and a half courses.
+        int how = laid((along, row) -> row % 8 == 0 || (along + row / 8 % 2 * 10) % 20 == 0 ? MORTAR : BRICK, 37 + WIDE / 2);
+        check((how & 15) == WallSides.BRICK, "a garden wall's few courses are brick: " + Integer.toHexString(how));
     }
 
     private static void blocksAreDeepCoursesOfOneGrey() {
