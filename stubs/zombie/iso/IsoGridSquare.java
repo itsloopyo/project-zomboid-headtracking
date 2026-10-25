@@ -41,6 +41,7 @@ public final class IsoGridSquare {
     public IsoObject getWall(boolean north) { throw new UnsupportedOperationException("reference stub"); }
     public IsoObject getFloor() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.iso.SpriteDetails.IsoObjectType getStairs() { throw new UnsupportedOperationException("reference stub"); }
+    public boolean isFree(boolean countOtherCharacters) { throw new UnsupportedOperationException("reference stub"); }
     public boolean isBlockedTo(IsoGridSquare other) { throw new UnsupportedOperationException("reference stub"); }
     public boolean isWindowTo(IsoGridSquare other) { throw new UnsupportedOperationException("reference stub"); }
     public LosUtil.TestResults testVisionAdjacent(int x, int y, int z, boolean specialDiag, boolean ignoreDoors) { throw new UnsupportedOperationException("reference stub"); }

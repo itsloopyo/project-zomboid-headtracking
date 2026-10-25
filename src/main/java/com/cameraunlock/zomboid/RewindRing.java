@@ -8,6 +8,8 @@ final class RewindRing {
     static final int KEPT = (int) (REWIND / EVERY) + 2;
     /** Seconds of play the zombies stand still for once a player has gone back. */
     static final float ZOMBIES_STILL = 2f;
+    /** Tiles from a player who has gone back that the zombies nearer than it are moved out to. */
+    static final float PUSHED_TO = 4f;
 
     private RewindRing() {}
 

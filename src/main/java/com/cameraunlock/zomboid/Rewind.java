@@ -23,10 +23,12 @@ import zombie.characters.BodyDamage.BodyPart;
 import zombie.characters.CharacterDiedListener;
 import zombie.characters.IsoGameCharacter;
 import zombie.characters.IsoPlayer;
+import zombie.characters.IsoZombie;
 import zombie.inventory.InventoryItem;
 import zombie.inventory.ItemContainer;
 import zombie.inventory.types.HandWeapon;
 import zombie.inventory.types.InventoryContainer;
+import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoWorld;
 import zombie.iso.objects.IsoWorldInventoryObject;
@@ -38,8 +40,9 @@ import zombie.vehicles.BaseVehicle;
  * Rewind 30s, on only with -Dcameraunlock.zomboid.rewind=true: offline, a player at this screen
  * who dies is asked whether to die or to go back to how they were REWIND seconds before. Only the
  * player goes back.
- * The world goes on as it was, the zombie that killed them included, and every zombie stands
- * still for ZOMBIES_STILL seconds of play after, so the player can see where they are.
+ * The world goes on as it was, the zombie that killed them included, every zombie nearer them
+ * than PUSHED_TO tiles is moved out to that far, and every zombie stands still for ZOMBIES_STILL
+ * seconds of play after, so the player can see where they are and get away.
  *
  * Every second of play each player is written out with the game's own IsoPlayer.save, which is
  * what the game keeps of them in a save: where they stand, their body, wounds and infection
@@ -60,6 +63,9 @@ final class Rewind {
     private static final float EVERY = RewindRing.EVERY;
     private static final int KEPT = RewindRing.KEPT;
     private static final int FIRST_BUFFER = 256 * 1024;
+    private static final float PUSHED_TO = RewindRing.PUSHED_TO;
+    /** How far apart the points are that a zombie's way out from the player is tested at, in tiles. */
+    private static final float PUSH_STEP = 0.25f;
 
     /** One player as they were, with the items they had then, every container's contents included. */
     private record Snapshot(byte[] bytes, InventoryItem[] items, float health, float takenAt, long takenNanos, BaseVehicle vehicle, int seat) {}
@@ -468,11 +474,67 @@ final class Rewind {
         count[index] = 0;
         keep(index, player);
         sinceLast[index] = 0f;
+        String pushed = pushZombies(player);
         stillFor = RewindRing.ZOMBIES_STILL;
         Log.info(String.format(Locale.ROOT, "player %d rewound: loaded as they were %.1f s of play before (%.1f s on the clock), %d bytes, at (%.2f, %.2f, %.2f), health %.1f%s; "
-                        + "wounded body parts %d before the load, %d after it, %d now; %s; animation %s put back to %s; the zombies stand still for %.0f s",
+                        + "wounded body parts %d before the load, %d after it, %d now; %s; animation %s put back to %s; %s; the zombies stand still for %.0f s",
                 index, age, (System.nanoTime() - snapshot.takenNanos()) / 1e9, snapshot.bytes().length, player.getX(), player.getY(), player.getZ(), player.getHealth(), seated,
-                woundsBefore, woundsLoaded, wounds(player), items, animation, player.getActionContext().getCurrentStateName(), RewindRing.ZOMBIES_STILL));
+                woundsBefore, woundsLoaded, wounds(player), items, animation, player.getActionContext().getCurrentStateName(), pushed, RewindRing.ZOMBIES_STILL));
+    }
+
+    /**
+     * Moves each zombie on the player's level nearer them than PUSHED_TO tiles out to PUSHED_TO, straight away
+     * from them. Its way out is tested from the player outwards and ends before a wall, a shut door or window, or
+     * a square nothing can stand on, so it stays on the player's side of them; a zombie whose way out ends no
+     * further than it is now stays where it is. Says what it did, for the log.
+     */
+    private static String pushZombies(IsoPlayer player) {
+        IsoCell cell = IsoWorld.instance.currentCell;
+        float x = player.getX(), y = player.getY();
+        int level = (int) Math.floor(player.getZ());
+        int moved = 0, stayed = 0;
+        for (IsoZombie zombie : cell.getZombieList()) {
+            float dx = zombie.getX() - x, dy = zombie.getY() - y;
+            float distance = (float) Math.hypot(dx, dy);
+            if ((int) Math.floor(zombie.getZ()) != level || distance >= PUSHED_TO) {
+                continue;
+            }
+            // One standing where the player stands has no way that is away from them: it goes along x.
+            float alongX = distance > 0f ? dx / distance : 1f, alongY = distance > 0f ? dy / distance : 0f;
+            float reach = wayOut(cell, x, y, level, alongX, alongY);
+            if (reach <= distance) {
+                stayed++;
+                continue;
+            }
+            float toX = x + alongX * reach, toY = y + alongY * reach;
+            zombie.setX(toX);
+            zombie.setNextX(toX);
+            zombie.setLastX(toX);
+            zombie.setY(toY);
+            zombie.setNextY(toY);
+            zombie.setLastY(toY);
+            zombie.setCurrentSquareFromPosition();
+            moved++;
+        }
+        return String.format(Locale.ROOT, "%d zombies nearer than %.0f tiles moved out from them, %d left where they were for a wall or a square nothing stands on",
+                moved, PUSHED_TO, stayed);
+    }
+
+    /** How far from (x, y) along a direction, up to PUSHED_TO, a walk goes before it would cross something that stops one. */
+    private static float wayOut(IsoCell cell, float x, float y, int level, float alongX, float alongY) {
+        IsoGridSquare from = cell.getGridSquare((int) Math.floor(x), (int) Math.floor(y), level);
+        float reach = 0f;
+        for (float step = PUSH_STEP; step <= PUSHED_TO; step += PUSH_STEP) {
+            IsoGridSquare to = cell.getGridSquare((int) Math.floor(x + alongX * step), (int) Math.floor(y + alongY * step), level);
+            if (to != from) {
+                if (to == null || !to.isFree(false) || from.isBlockedTo(to)) {
+                    return reach;
+                }
+                from = to;
+            }
+            reach = step;
+        }
+        return reach;
     }
 
     /**
