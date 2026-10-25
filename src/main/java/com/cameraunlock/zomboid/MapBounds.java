@@ -44,15 +44,7 @@ final class MapBounds {
      * @param turned what ViewCamera.turned made of the eye
      */
     void ofTurned(float[] projection, float[] turned) {
-        for (int column = 0; column < 4; column++) {
-            for (int row = 0; row < 4; row++) {
-                float sum = 0f;
-                for (int k = 0; k < 4; k++) {
-                    sum += projection[k * 4 + row] * turned[column * 4 + k];
-                }
-                fromEye[column * 4 + row] = sum;
-            }
-        }
+        ViewCamera.multiply(projection, turned, fromEye);
         of(fromEye);
     }
 

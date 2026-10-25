@@ -625,7 +625,7 @@ final class CabinDraw {
         view[10] = -camera.forwardUp;
         view[15] = 1f;
         ViewCamera.projection(tanHalf, aspect, near, far, projection);
-        multiply(projection, view, f.seen);
+        ViewCamera.multiply(projection, view, f.seen);
         // The sun's map: an orthographic view down the sun's way onto the cabin's middle, in the interior's own frame.
         float sx = sunWay[0] * axes[0] + sunWay[1] * axes[1] + sunWay[2] * axes[2];
         float sy = sunWay[0] * axes[3] + sunWay[1] * axes[4] + sunWay[2] * axes[5];
@@ -667,9 +667,9 @@ final class CabinDraw {
         toMap[15] = 1f;
         // To draw the map, it is reached through the model matrix: undo it first.
         float[] fromRel = rigidInverse(f.model, this.fromRel);
-        multiply(toMap, fromRel, f.shadowSeen);
-        multiply(BIAS, toMap, f.shadowMatrix);
-        multiply(f.shadowMatrix, fromRel, f.relShadow);
+        ViewCamera.multiply(toMap, fromRel, f.shadowSeen);
+        ViewCamera.multiply(BIAS, toMap, f.shadowMatrix);
+        ViewCamera.multiply(f.shadowMatrix, fromRel, f.relShadow);
     }
 
     private final float[] turnedAxes = new float[9], eyeView = new float[16], projection = new float[16], toMap = new float[16], fromRel = new float[16];
@@ -897,19 +897,6 @@ final class CabinDraw {
         out[6] = x * z * k + y * s;
         out[7] = y * z * k - x * s;
         out[8] = c + z * z * k;
-    }
-
-    /** out = a times b, by columns; out is neither of them. */
-    private static void multiply(float[] a, float[] b, float[] out) {
-        for (int column = 0; column < 4; column++) {
-            for (int row = 0; row < 4; row++) {
-                float sum = 0f;
-                for (int k = 0; k < 4; k++) {
-                    sum += a[k * 4 + row] * b[column * 4 + k];
-                }
-                out[column * 4 + row] = sum;
-            }
-        }
     }
 
     /** The inverse of a matrix that only turns and moves, by columns, into out, which is returned. */

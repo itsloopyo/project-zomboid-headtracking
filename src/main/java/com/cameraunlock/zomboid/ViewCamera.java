@@ -258,6 +258,19 @@ final class ViewCamera {
         return out;
     }
 
+    /** out = a times b, each sixteen floats by columns; out is neither of them. */
+    static void multiply(float[] a, float[] b, float[] out) {
+        for (int column = 0; column < 4; column++) {
+            for (int row = 0; row < 4; row++) {
+                float sum = 0f;
+                for (int k = 0; k < 4; k++) {
+                    sum += a[k * 4 + row] * b[column * 4 + k];
+                }
+                out[column * 4 + row] = sum;
+            }
+        }
+    }
+
     /** As projection, into a matrix the caller keeps. */
     static void projection(float tanHalfVerticalFov, float aspect, float near, float far, float[] out) {
         float f = 1f / tanHalfVerticalFov;

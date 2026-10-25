@@ -2742,7 +2742,7 @@ final class Pipeline {
             float[] seen = viewed, cast = projection;
             ViewCamera.view(lamp, seen);
             ViewCamera.projection(BEAM_TAN, 1f, BEAM_NEAR, BEAM_FAR, cast);
-            multiply(cast, seen, beamMatrix);
+            ViewCamera.multiply(cast, seen, beamMatrix);
             System.arraycopy(beams, 0, beamFrom, 0, 3);
             originOf(beamMatrix, beamFrom, beamOrigin);
             lend(beamed);
@@ -2780,7 +2780,7 @@ final class Pipeline {
         float[] seen = viewed, cast = projection;
         ViewCamera.view(lamp, seen);
         ViewCamera.projection(TORCH_TAN, 1f, TORCH_NEAR, torchAt[3] + TORCH_PAST_REACH, cast);
-        multiply(cast, seen, torchMatrix);
+        ViewCamera.multiply(cast, seen, torchMatrix);
         originOf(torchMatrix, torchAt, torchOrigin);
         lend(torched);
         GL11.glViewport(0, 0, torchSize, torchSize);
@@ -2835,7 +2835,7 @@ final class Pipeline {
             for (int side = 0; side < FireShadows.FACES; side++) {
                 FireShadows.face(side, x, y, up, fireFace6);
                 ViewCamera.view(fireFace6, viewed);
-                multiply(projection, viewed, fireMatrix);
+                ViewCamera.multiply(projection, viewed, fireMatrix);
                 GL11.glViewport((side % 3) * face + 1, (side / 3 + slot * 2) * face + 1, face - 2, face - 2);
                 castAlong(shadow, fireMatrix);
                 castHeld(fireMatrix, state, fireListed, FIRE_MAP);
@@ -5944,19 +5944,6 @@ final class Pipeline {
     private static void originOf(float[] matrix, float[] at, float[] out) {
         for (int row = 0; row < 4; row++) {
             out[row] = (float) ((double) matrix[row] * at[0] + (double) matrix[4 + row] * at[1] + (double) matrix[8 + row] * at[2] + matrix[12 + row]);
-        }
-    }
-
-    /** A projection times a view, each sixteen floats by columns. */
-    private static void multiply(float[] cast, float[] seen, float[] out) {
-        for (int column = 0; column < 4; column++) {
-            for (int row = 0; row < 4; row++) {
-                float sum = 0f;
-                for (int k = 0; k < 4; k++) {
-                    sum += cast[k * 4 + row] * seen[column * 4 + k];
-                }
-                out[column * 4 + row] = sum;
-            }
         }
     }
 
