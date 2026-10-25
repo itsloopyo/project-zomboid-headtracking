@@ -345,6 +345,8 @@ final class Outdoors {
 
     /** How high on its sprite the slats of a public litter bin give their colour, in levels. */
     private static final float BIN_DYE = 0.2f;
+    /** How high up the galvanised dustbin's sprite paints its can, in levels: where its weathered grey is read. */
+    private static final float DUSTBIN_DYE = 0.15f;
 
     private Outdoors() {}
 
@@ -570,7 +572,7 @@ final class Outdoors {
             return street;
         }
         if (called.equals("Recycle Bin")) {
-            return new Piece("dustbin", 0).fit();
+            return new Piece("dustbin", 0).dye(1 << Models.STEEL, DUSTBIN_DYE).fit();
         }
         if (called.equals("Road Cone")) {
             return name.endsWith("_26") ? new Piece("road_cone", 0).dye(PAINT, 0.1f).fit()
