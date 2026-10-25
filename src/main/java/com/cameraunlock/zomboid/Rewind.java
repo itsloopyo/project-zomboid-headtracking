@@ -37,9 +37,8 @@ import zombie.ui.UIManager;
 import zombie.vehicles.BaseVehicle;
 
 /**
- * Rewind 30s, on only with -Dcameraunlock.zomboid.rewind=true: offline, a player at this screen
- * who dies is asked whether to die or to go back to how they were REWIND seconds before. Only the
- * player goes back.
+ * Rewind 30s, the Rewind30s row of [Rules]: offline, a player at this screen who dies is asked
+ * whether to die or to go back to how they were REWIND seconds before. Only the player goes back.
  * The world goes on as it was, the zombie that killed them included, every zombie nearer them
  * than PUSHED_TO tiles is moved out to that far, and every zombie stands still for ZOMBIES_STILL
  * seconds of play after, so the player can see where they are and get away.
@@ -221,7 +220,7 @@ final class Rewind {
             return true;
         }
         if (whose[index] != player || count[index] == 0) {
-            Log.info("player " + index + " died with Rewind 30s on and no snapshot of them yet: the death goes on");
+            Log.info("player " + index + " died with Rewind30s on and no snapshot of them yet: the death goes on");
             return false;
         }
         show(index);

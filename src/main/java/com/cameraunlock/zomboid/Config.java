@@ -361,6 +361,12 @@ final class Config {
                             + "where your character's sight reaches by the game's rules. false: the game's own sight, which can show a\n"
                             + "zombie late or only once it is close. On a server the game's rule holds.",
                     writable | live, true),
+            core.configLocalBool("Rules", "Rewind30s",
+                    "true: offline, when you die the game pauses and asks whether to go back to where you were 30 seconds before,\n"
+                            + "with what you had then and the wounds you had then. The world goes on as it was, the zombie that killed you\n"
+                            + "included, but every zombie within 4 tiles of you is moved out to 4 tiles and every zombie stands still for 2\n"
+                            + "seconds after. false: death is final, as the game has it. On a server the game's rule holds.",
+                    writable | live, false),
         };
 
         talkingMouths = core.configLocalBool("Voice", TALKING_MOUTHS,
@@ -408,7 +414,7 @@ final class Config {
                 Log.info("the mod's own in first person: " + Own.described(Own.rows()));
             });
         }
-        String[] ruleKeys = {"ShotsThroughWalls", "ShotsBreakLamps", "ShotsBreakGlass", "ShotsWoundLimbs", "VehiclesSmashThrough", "FacesTheView", "ShotsPastTrees", "ZombiesSeenAtOnce"};
+        String[] ruleKeys = {"ShotsThroughWalls", "ShotsBreakLamps", "ShotsBreakGlass", "ShotsWoundLimbs", "VehiclesSmashThrough", "FacesTheView", "ShotsPastTrees", "ZombiesSeenAtOnce", "Rewind30s"};
         for (int i = 0; i < ruleKeys.length; i++) {
             int bit = 1 << i;
             puts.put(ruleKeys[i], value -> {

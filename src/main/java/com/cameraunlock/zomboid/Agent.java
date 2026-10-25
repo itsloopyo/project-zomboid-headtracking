@@ -378,9 +378,7 @@ public final class Agent {
         add(instrumentation, new PatchTransformer(loadingPatches()));
         add(instrumentation, new PatchTransformer(luaLoadedPatches()));
         add(instrumentation, new PatchTransformer(knockdownPatches()));
-        if (Rules.REWIND) {
-            add(instrumentation, new PatchTransformer(rewindPatches()));
-        }
+        add(instrumentation, new PatchTransformer(rewindPatches()));
         add(instrumentation, new PatchTransformer(carPhysicsPatches()));
         add(instrumentation, new PatchTransformer(controllerPatches()));
         chunkMarks = new PatchTransformer(chunkMarkPatches());

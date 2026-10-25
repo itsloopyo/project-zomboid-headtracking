@@ -2,8 +2,8 @@ package com.cameraunlock.zomboid;
 
 /**
  * The game's rules the mod changes when played alone, each a row of [Rules] in CameraUnlock.ini,
- * on unless the player says otherwise. With a row off, or on a server whatever the rows say, the
- * game's own rule holds. Rewind 30s has no row: it is on only with -Dcameraunlock.zomboid.rewind=true.
+ * on unless the player says otherwise, bar Rewind30s, which is off unless they say so. With a row
+ * off, or on a server whatever the rows say, the game's own rule holds.
  *
  * The rows are read again while the game runs: the thread that watches the file and the game's
  * options screen set them, and the logic thread asks them as shots land and vehicles move.
@@ -11,13 +11,10 @@ package com.cameraunlock.zomboid;
 final class Rules {
     /** The bits of the rows that are on, in the order Config describes the rows of [Rules]. */
     static final int THROUGH_WALLS = 1, BREAKS_LAMPS = 2, BREAKS_GLASS = 4, WOUNDS = 8, SMASHES_THROUGH = 16, FACES_THE_VIEW = 32, PAST_TREES = 64,
-            SEEN_AT_ONCE = 128;
-    static final int ALL = THROUGH_WALLS | BREAKS_LAMPS | BREAKS_GLASS | WOUNDS | SMASHES_THROUGH | FACES_THE_VIEW | PAST_TREES | SEEN_AT_ONCE;
+            SEEN_AT_ONCE = 128, REWIND = 256;
+    static final int ALL = THROUGH_WALLS | BREAKS_LAMPS | BREAKS_GLASS | WOUNDS | SMASHES_THROUGH | FACES_THE_VIEW | PAST_TREES | SEEN_AT_ONCE | REWIND;
 
-    /** Whether Rewind 30s is switched on, for the JVM's whole run: it is not ready for players, so it has no row. */
-    static final boolean REWIND = Boolean.getBoolean("cameraunlock.zomboid.rewind");
-
-    private static volatile int on = ALL;
+    private static volatile int on = ALL & ~REWIND;
 
     private Rules() {}
 
@@ -74,7 +71,7 @@ final class Rules {
 
     /** Whether a player at this screen who dies is asked whether to go back 30 seconds: see Rewind. */
     static boolean rewind() {
-        return REWIND && !Online.joined();
+        return !Online.joined() && (on & REWIND) != 0;
     }
 
     /** The rows in words, for the log. */
@@ -82,6 +79,6 @@ final class Rules {
         return "shots through walls " + ((bits & THROUGH_WALLS) != 0) + ", shots break lamps " + ((bits & BREAKS_LAMPS) != 0)
                 + ", shots break glass " + ((bits & BREAKS_GLASS) != 0) + ", shots wound limbs " + ((bits & WOUNDS) != 0) + ", vehicles smash through " + ((bits & SMASHES_THROUGH) != 0)
                 + ", faces the view walking aside " + ((bits & FACES_THE_VIEW) != 0) + ", shots past trees " + ((bits & PAST_TREES) != 0)
-                + ", zombies seen at once " + ((bits & SEEN_AT_ONCE) != 0);
+                + ", zombies seen at once " + ((bits & SEEN_AT_ONCE) != 0) + ", rewind 30s " + ((bits & REWIND) != 0);
     }
 }

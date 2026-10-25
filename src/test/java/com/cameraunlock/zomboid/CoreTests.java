@@ -719,7 +719,7 @@ public final class CoreTests {
                         + "FullSizeTextures SurfaceDepth SharpShadows WholeFigureShadows FrameBlending LightDistance VanillaWeapons VanillaFurniture "
                         + "VanillaPictures VanillaPlants VanillaTextures VanillaBuildings VanillaZombies VanillaPeople VanillaArms VanillaClothes VanillaAnimals VanillaFire "
                         + "VanillaCabins "
-                        + "ShotsThroughWalls ShotsBreakLamps ShotsBreakGlass ShotsWoundLimbs VehiclesSmashThrough FacesTheView ShotsPastTrees ZombiesSeenAtOnce TalkingMouths "),
+                        + "ShotsThroughWalls ShotsBreakLamps ShotsBreakGlass ShotsWoundLimbs VehiclesSmashThrough FacesTheView ShotsPastTrees ZombiesSeenAtOnce Rewind30s TalkingMouths "),
                 "the game's options screen is given the modes, the yaw mode and the mod's own rows, and no key list, port or microphone: " + ids);
         int[][] layout = OptionsLayout.of(OptionsLayout.PAGE, options);
         StringBuilder page = new StringBuilder();
@@ -734,7 +734,7 @@ public final class CoreTests {
                         + "FarTreeDistance RainOnGlass ShadingAndLight Reflections ReflectionScale FullSizeTextures SurfaceDepth SharpShadows WholeFigureShadows FrameBlending "
                         + "LightDistance [Vanilla content] VanillaWeapons VanillaFurniture VanillaPictures VanillaPlants VanillaTextures VanillaBuildings "
                         + "VanillaZombies VanillaPeople VanillaArms VanillaClothes VanillaAnimals VanillaFire VanillaCabins [Offline rules] ShotsThroughWalls "
-                        + "ShotsBreakLamps ShotsBreakGlass ShotsWoundLimbs VehiclesSmashThrough FacesTheView ShotsPastTrees ZombiesSeenAtOnce [Split screen] SplitScreen "
+                        + "ShotsBreakLamps ShotsBreakGlass ShotsWoundLimbs VehiclesSmashThrough FacesTheView ShotsPastTrees ZombiesSeenAtOnce Rewind30s [Split screen] SplitScreen "
                         + "SecondPlayerQuality SecondPlayerIsometricQuality SecondPlayerStyle ThirdPlayerQuality ThirdPlayerIsometricQuality ThirdPlayerStyle "
                         + "FourthPlayerQuality FourthPlayerIsometricQuality FourthPlayerStyle [Voice] TalkingMouths "),
                 "the page puts each setting under one title, the tracking mode first: " + page);
@@ -766,7 +766,9 @@ public final class CoreTests {
         check(options[arms].kind == CameraUnlock.OPTION_BOOL && options[arms].label.equals("Vanilla arms") && options[arms].comment.contains("held weapon")
                         && options[arms].comment.contains("mod that changes the arms or the weapons"),
                 "the arms are a tick box whose tooltip says what they are and what they are on for: " + options[arms].label);
-        check(!Rules.rewind(), "Rewind 30s is off without its JVM switch, and the page has no row for it");
+        int rewind = optionNamed(options, "Rewind30s");
+        check(options[rewind].kind == CameraUnlock.OPTION_BOOL && options[rewind].label.equals("Rewind 30s") && Tracking.optionValue(rewind) == 0
+                        && !Rules.rewind(), "Rewind 30s is a tick box by that name, off until it is ticked: " + options[rewind].label);
 
         int overhead = optionNamed(options, "IsometricQuality");
         check(Tracking.optionValue(overhead) == Quality.overheadRow(0) - Quality.LOW && options[overhead].label.equals("Isometric quality"),
