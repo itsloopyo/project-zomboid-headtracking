@@ -6246,10 +6246,11 @@ final class WorldScene {
             }
             float[] lift = geometry.lift;
             int corner = localX * Terrain.CORNERS + localY;
-            addEdge(groundKind[own - LIGHT_SPAN], mine, x, y + 0.5f, 0f, 1f, (lift[0] + lift[3]) / 2f, corner, corner + 1);
+            // Each face turns to the water: addPlainUpright faces (alongY, -alongX).
+            addEdge(groundKind[own - LIGHT_SPAN], mine, x, y + 0.5f, 0f, -1f, (lift[0] + lift[3]) / 2f, corner, corner + 1);
             addEdge(groundKind[own + LIGHT_SPAN], mine, x + 1f, y + 0.5f, 0f, 1f, (lift[1] + lift[2]) / 2f, corner + Terrain.CORNERS, corner + Terrain.CORNERS + 1);
             addEdge(groundKind[own - 1], mine, x + 0.5f, y, 1f, 0f, (lift[0] + lift[1]) / 2f, corner, corner + Terrain.CORNERS);
-            addEdge(groundKind[own + 1], mine, x + 0.5f, y + 1f, 1f, 0f, (lift[3] + lift[2]) / 2f, corner + 1, corner + Terrain.CORNERS + 1);
+            addEdge(groundKind[own + 1], mine, x + 0.5f, y + 1f, -1f, 0f, (lift[3] + lift[2]) / 2f, corner + 1, corner + Terrain.CORNERS + 1);
         }
 
         private void addEdge(byte beside, byte mine, float x, float y, float alongX, float alongY, float top, int cornerA, int cornerB) {
