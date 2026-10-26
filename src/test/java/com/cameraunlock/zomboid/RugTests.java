@@ -37,7 +37,7 @@ final class RugTests {
 
     /**
      * A face takes its texels at FROM + SPAN times where on the square it is (SpriteGeometry,
-     * FLAT_RUG): a hide that covers exactly its square has to be drawn over exactly those texels,
+     * FLAT_RUG): a hide that stops a few dots in from its square's edges has to stop there on the face,
      * and a face reaching REACH past the square ends at the picture's edge.
      */
     private static void theSquareIsDrawnWhereFaceTexelsSayItIs() {

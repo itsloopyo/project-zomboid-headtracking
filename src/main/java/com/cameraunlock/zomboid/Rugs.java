@@ -51,7 +51,7 @@ import zombie.core.textures.Texture;
 final class Rugs {
     /** Dots a tile is read at: as Flats lays a floor. */
     static final int SIDE = Flats.SIDE;
-    /** How many dots past its square a square of rug is read: a fur rug's tufts and a hide's edge go past it. */
+    /** How many dots past its square a square of rug is read: a fur rug's tufts go past it. */
     static final int MARGIN = 16;
     static final int READ = SIDE + 2 * MARGIN;
     /** How many dots of the picture a dot read stands for, each way. */
@@ -799,22 +799,29 @@ final class Rugs {
         return out;
     }
 
+    /** Whether the dot at in a square as read is on the square, not in the margin read past it. */
+    private static boolean onSquare(int at) {
+        int a = at % READ - MARGIN, b = at / READ - MARGIN;
+        return a >= 0 && b >= 0 && a < SIDE && b < SIDE;
+    }
+
     /**
      * The flat colours of a woven rug: the fewest, up to MOST_COLOURS, that leave the dots it
      * covers no further from them than the game's speckle (SPECKLE), or than NEAR_BEST times what
      * the most colours leave, three numbers a colour. Measured on the rugs' sprites, the error
      * does not always fall with each colour more: a rug's field and border can be one colour
-     * apart only once its spots have one of their own.
+     * apart only once its spots have one of their own. Only the square's own dots are counted:
+     * past it is its edge carried on (straightened), which would weigh the edge's colours again.
      */
     static float[] palette(float[] colour, float[] cover) {
         int count = 0;
-        for (float covered : cover) {
-            count += covered >= COVERED ? 1 : 0;
+        for (int at = 0; at < cover.length; at++) {
+            count += onSquare(at) && cover[at] >= COVERED ? 1 : 0;
         }
         float[] dots = new float[count * 3];
         int k = 0;
         for (int at = 0; at < cover.length; at++) {
-            if (cover[at] >= COVERED) {
+            if (onSquare(at) && cover[at] >= COVERED) {
                 System.arraycopy(colour, at * 3, dots, k++ * 3, 3);
             }
         }
