@@ -19,4 +19,18 @@ public class IsoObject {
     public IsoDirections getDir() {
         return IsoDirections.N;
     }
+
+    /** What the game draws over the object, as the map hangs grime on a wall. */
+    public IsoSprite overlaySprite;
+
+    public IsoSprite getOverlaySprite() {
+        return overlaySprite;
+    }
+
+    /** What the game draws with the object, as the map hangs pictures and grime on a wall. */
+    public final java.util.ArrayList<zombie.iso.sprite.IsoSpriteInstance> attached = new java.util.ArrayList<>();
+
+    public java.util.ArrayList<zombie.iso.sprite.IsoSpriteInstance> getAttachedAnimSprite() {
+        return attached;
+    }
 }

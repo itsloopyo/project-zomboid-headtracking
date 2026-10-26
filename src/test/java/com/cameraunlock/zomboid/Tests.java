@@ -232,6 +232,7 @@ public final class Tests {
         Checks.run("GroundItemTests", GroundItemTests::run);
         Checks.run("AwningTests", AwningTests::run);
         Checks.run("PorchGableTests", PorchGableTests::run);
+        Checks.run("WallFinishTests", WallFinishTests::run);
         Checks.run("SpreadGroundTests", SpreadGroundTests::run);
         Checks.run("TentTests", TentTests::run);
         Checks.run("TowerTests", TowerTests::run);

@@ -3,6 +3,7 @@ package com.cameraunlock.zomboid;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.WeakHashMap;
 import zombie.core.properties.PropertyContainer;
 import zombie.core.textures.Texture;
@@ -14,6 +15,7 @@ import zombie.iso.IsoObject;
 import zombie.iso.SpriteDetails.IsoFlagType;
 import zombie.iso.areas.IsoBuilding;
 import zombie.iso.sprite.IsoSprite;
+import zombie.iso.sprite.IsoSpriteInstance;
 import zombie.iso.sprite.IsoSpriteManager;
 
 /**
@@ -60,6 +62,8 @@ final class WallFinish {
         final HashMap<Long, Texture> rooms = new HashMap<>();
         /** The plain wall each room shows on its own squares' north edges and on their west edges. One of the two may be null, never both. */
         final HashMap<Long, Facing[]> roomWalls = new HashMap<>();
+        /** The rooms most of whose own walls the game has hung its grime on. */
+        final HashSet<Long> grimy = new HashSet<>();
         /** What the outside of each room's walls shows, on a north edge and on a west edge. One of the two may be null, never both. */
         final HashMap<Long, Facing[]> outsides = new HashMap<>();
         /** For tend: what ChunkMarks had counted for the building's chunks and which chunks the map had loaded when the level was read. */
@@ -78,6 +82,9 @@ final class WallFinish {
             }
             for (var room : roomWalls.entrySet()) {
                 each += mix(mix(mix(3, room.getKey()), of(room.getValue()[NORTH])), of(room.getValue()[WEST]));
+            }
+            for (long room : grimy) {
+                each += mix(4, room);
             }
             return mix(print, each);
         }
@@ -234,6 +241,14 @@ final class WallFinish {
         return walls == null ? null : walls[north ? NORTH : WEST];
     }
 
+    /**
+     * Whether the game hangs its grime on most of the room's own walls. Those are the walls its
+     * view shows, and the room's other walls, which it never shows, are as grimy.
+     */
+    static boolean grimy(IsoCell cell, IsoBuilding building, int z, long room, int frame) {
+        return of(cell, building, z, frame).grimy.contains(room);
+    }
+
     /** The sprite the room's walls show, or null. */
     static Texture room(IsoCell cell, IsoBuilding building, int z, long room, int frame) {
         return of(cell, building, z, frame).rooms.get(room);
@@ -288,6 +303,7 @@ final class WallFinish {
         Tally outside = new Tally(), southFace = new Tally(), eastFace = new Tally();
         HashMap<Long, Tally> rooms = new HashMap<>();
         HashMap<Long, Tally[]> roomEdges = new HashMap<>();
+        HashMap<Long, int[]> grime = new HashMap<>();
         for (int x = def.getX(); x < def.getX() + def.getW(); x++) {
             for (int y = def.getY(); y < def.getY() + def.getH(); y++) {
                 IsoGridSquare square = cell.getGridSquare(x, y, z);
@@ -312,6 +328,14 @@ final class WallFinish {
                 Tally[] edges = roomEdges.computeIfAbsent(square.getRoomID(), unused -> new Tally[] {new Tally(), new Tally()});
                 vote(edges[NORTH], square, true);
                 vote(edges[WEST], square, false);
+                int[] walls = grime.computeIfAbsent(square.getRoomID(), unused -> new int[2]);
+                for (int edge = NORTH; edge <= WEST; edge++) {
+                    IsoObject wall = WorldScene.wallOn(square, edge == NORTH);
+                    if (wall != null) {
+                        walls[0]++;
+                        walls[1] += grimed(wall) ? 1 : 0;
+                    }
+                }
                 IsoGridSquare south = filled(cell.getGridSquare(x, y + 1, z)), east = filled(cell.getGridSquare(x + 1, y, z));
                 // Above the ground a missing neighbour is air or map not loaded yet, which its ground square tells apart.
                 level.whole &= z == 0 ? south != null && east != null
@@ -368,6 +392,11 @@ final class WallFinish {
         level.outside = commonest(outside);
         level.south = plainest(southFace);
         level.east = plainest(eastFace);
+        for (var room : grime.entrySet()) {
+            if (room.getKey() != -1L && 2 * room.getValue()[1] >= room.getValue()[0] && room.getValue()[1] > 0) {
+                level.grimy.add(room.getKey());
+            }
+        }
         for (var room : roomEdges.entrySet()) {
             Facing north = plainest(room.getValue()[NORTH]), west = plainest(room.getValue()[WEST]);
             if (north != null || west != null) {
@@ -469,6 +498,22 @@ final class WallFinish {
         }
         Texture texture = sprite.getTextureForCurrentFrame(IsoDirections.N);
         return WorldScene.usable(texture) ? new Facing(sprite, texture) : null;
+    }
+
+    /** Whether the game has hung its grime on the wall, over it or among what it draws with it. */
+    private static boolean grimed(IsoObject wall) {
+        if (wall.getOverlaySprite() != null && Stains.grime(wall.getOverlaySprite().getName())) {
+            return true;
+        }
+        ArrayList<IsoSpriteInstance> attached = wall.getAttachedAnimSprite();
+        if (attached != null) {
+            for (int i = 0; i < attached.size(); i++) {
+                if (attached.get(i).parentSprite != null && Stains.grime(attached.get(i).parentSprite.getName())) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /** Whether a wall has a say in what finish its room or face has: not a garage door, which is no finish, and a garage's face can be mostly door. */

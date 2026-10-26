@@ -100,6 +100,8 @@ final class WallBuilder {
      * about is on, and on the other edge, either or both null: see farTint.
      */
     private WallFinish.Facing farWall, farWallAcross;
+    /** Whether that room is grimy: see WallFinish.grimy. */
+    private boolean farGrimy;
     /** Where in the chunk's lights the square beyond the wall last asked about is, or -1 when it is the same place as this side. */
     private int farLight;
     private final float[] laidTint = new float[4];
@@ -349,7 +351,7 @@ final class WallBuilder {
         mesh = inRoom(mesh, mesh.room != RoomSight.OUTSIDE && mesh.room != RoomSight.ANYWHERE ? mesh.room : roomAt(x, y, z));
         boolean onKerbTop = build.standOnKerbTop(z, da != 0f);
         try {
-            stain(mesh, x, y, z, layer, da, db, Own.buildings() && logsOn(x, y, z, da != 0f));
+            stain(mesh, x, y, z, layer, da, db, 1f, Own.buildings() && logsOn(x, y, z, da != 0f));
         } finally {
             if (onKerbTop) {
                 build.leaveKerbTop();
@@ -358,10 +360,10 @@ final class WallBuilder {
     }
 
     /** As addStain, on an edge already stood where its wall stands: on the faces of a log wall's logs where onLogs. */
-    private void stain(SpriteGeometry.Mesh mesh, int x, int y, int z, float layer, float da, float db, boolean onLogs) {
+    private void stain(SpriteGeometry.Mesh mesh, int x, int y, int z, float layer, float da, float db, float side, boolean onLogs) {
         float way = db != 0f ? SpriteGeometry.LAYERS_X : SpriteGeometry.LAYERS_Y;
-        WorldScene.layers.lie(way, layer);
-        float face = onLogs ? LogWalls.RADIUS + WorldScene.HUNG_CLEAR : WorldScene.WALL_HALF;
+        WorldScene.layers.lie(way, side * layer);
+        float face = side * (onLogs ? LogWalls.RADIUS + WorldScene.HUNG_CLEAR : WorldScene.WALL_HALF);
         build.geometry.shownA = db * face;
         build.geometry.shownB = da * face;
         build.geometry.addFace(mesh, build.frame, x, y, z, 0f, 0f, 0f, da, db, 0f, 0f, 0f, 1f);
@@ -507,7 +509,7 @@ final class WallBuilder {
                     build.geometry.sealTop = unpaintedTop(shown, 0f, 0f, da, db);
                 }
                 // Grime is a haze over the wall's own picture, which on a log wall is under the logs with it.
-                stain(inRoom(WorldScene.laid.get(shown.getID(), grime ? WallSides.STAIN : 0), mesh.room), x, y, z, 1f + layer, da, db,
+                stain(inRoom(WorldScene.laid.get(shown.getID(), grime ? WallSides.STAIN : 0), mesh.room), x, y, z, 1f + layer, da, db, 1f,
                         !grime && Own.buildings() && logsOn(x, y, z, da != 0f));
                 build.geometry.sealLow = build.geometry.sealHigh = build.geometry.sealTop = 0f;
                 return;
@@ -706,6 +708,10 @@ final class WallBuilder {
         }
         if (faced != null || farTiles != null || farStood != null) {
             build.frame.texelsOf(build.held);
+        }
+        // The game hangs its grime only on the walls its view shows, and the other walls of a grimy room are as grimy.
+        if (farGrimy && build.overLayer == 0 && !build.ownGlass && Own.textures(build.playerIndex)) {
+            stain(inRoom(WorldScene.laid.get(texture.getID(), WallSides.STAIN), farRoom), x, y, z, 1f, da, db, -1f, false);
         }
         if (build.overLayer == 0 && farLight >= 0) {
             build.frame.red = red;
@@ -2049,6 +2055,7 @@ final class WallBuilder {
         farFacing = null;
         farShows = null;
         farWall = farWallAcross = null;
+        farGrimy = false;
         // Above the ground a square of open air is often no square at all. On the ground it is map not loaded yet.
         if (beyond == null && build.cell.getGridSquare(beyondX, beyondY, 0) == null) {
             return 0;
@@ -2067,6 +2074,7 @@ final class WallBuilder {
         if (building == null) {
             return 0;
         }
+        farGrimy = far != -1L && WallFinish.grimy(build.cell, building, z, far, world.roundNow);
         Texture shows = far == -1L ? WallFinish.outside(build.cell, building, z, own, world.roundNow) : WallFinish.room(build.cell, building, z, far, world.roundNow);
         if (far == -1L) {
             farFacing = WallFinish.facing(build.cell, building, z, north, own, world.roundNow);
