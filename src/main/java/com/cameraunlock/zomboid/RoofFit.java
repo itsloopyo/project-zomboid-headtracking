@@ -1146,7 +1146,10 @@ final class RoofFit {
      * the far slope was brought down to it as a hip. Nor is the wall of a square under another
      * ridge, the made far side of a lower wing past the gable end: the main roof's north side
      * was hipped down to the wing's north wall, and the main gable stood bare over the hip
-     * (13616..13623, 3673..3678).
+     * (13616..13623, 3673..3678). Nor is the wall of a square whose rows stop on their wall short of an eave, placed
+     * from the ridge: they end higher up, and the slope brought down to the step from it left an open
+     * slot between the two under the main roof, where a cabin's west slope runs on down over a wing (11062..11066,
+     * 10637..10646). The slope goes on down over the wing, which has a gable under its end.
      */
     private static float notched(Side side, boolean isAlongX, HashMap<Long, Boolean> built, Site site, HashMap<Long, Side> strips, float[] corners, float middle) {
         if (!side.fromEave) {
@@ -1163,7 +1166,7 @@ final class RoofFit {
                 boolean underEave = false;
                 for (int toward = -1; toward <= 1 && !underEave; toward += 2) {
                     Side wing = strips.get(key(x + toward * ax, y + toward * ay, 0));
-                    if (stands(built, site, x + toward * ax, y + toward * ay, level) && (wing == null || Math.abs(wing.top - side.top) < SAME)) {
+                    if (stands(built, site, x + toward * ax, y + toward * ay, level) && (wing == null || Math.abs(wing.top - side.top) < SAME && wing.fromEave)) {
                         int wall = along + (toward > 0 ? 1 : 0);
                         // A level square is the slope's top carried across, and says nothing of where its ridge is.
                         underEave = Math.abs(side.far - side.near) < SAME || side.near + wall * (side.far - side.near) < side.top - SAME;

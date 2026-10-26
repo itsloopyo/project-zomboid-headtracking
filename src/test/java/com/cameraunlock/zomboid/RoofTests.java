@@ -57,6 +57,7 @@ final class RoofTests {
         Checks.run("canopyIsNotCarriedToTheFarWall", RoofTests::canopyIsNotCarriedToTheFarWall);
         Checks.run("gambrelsFarLowerSlopeComesDownFromItsUpperSlope", RoofTests::gambrelsFarLowerSlopeComesDownFromItsUpperSlope);
         Checks.run("farSlopeMeetsAStepInItsWallInAValley", RoofTests::farSlopeMeetsAStepInItsWallInAValley);
+        Checks.run("farSlopeRunsOnDownOverAWingPastAShallowerPart", RoofTests::farSlopeRunsOnDownOverAWingPastAShallowerPart);
         Checks.run("rowAtTheEndOfAHipHasNoFarSide", RoofTests::rowAtTheEndOfAHipHasNoFarSide);
         Checks.run("wingsFarSideStopsAtAMainRoofDeeperThanItsNearSide", RoofTests::wingsFarSideStopsAtAMainRoofDeeperThanItsNearSide);
         Checks.run("slopeThatClimbsPastItsCrownLiesLevel", RoofTests::slopeThatClimbsPastItsCrownLiesLevel);
@@ -1544,6 +1545,35 @@ final class RoofTests {
         }
         RoofFit.Tile wall = madeAt(made, 0, 1);
         check(wall != null && near(wall.corners[0], 1f) && near(wall.corners[1], 1f + THIRD), "the slope away from the step climbs from its wall: " + said(wall));
+    }
+
+    /**
+     * A cabin over x 2..7 and y 0..8 with a wing over x 0..1 and y 3..8, as at 11062..11069 x 10637..10646: the map has
+     * the east slope only, four rows from a ridge at 2 + 1/3 on x 4 to the eave at 1 on x 8. Rows 3..8 of the made west
+     * slope come down over the wing to the eave at 1 on x 0; rows 0..2 stop on the wall at x 2, two rows short. The wing's
+     * north wall is no eave for the rows over it: they go on down in one plane, and meet rows 0..2 along y 3.
+     */
+    private static void farSlopeRunsOnDownOverAWingPastAShallowerPart() {
+        RoofFit.Site site = standing((x, y) -> y >= 0 && y <= 8 && x <= 7 && x >= (y >= 3 ? 0 : 2));
+        List<RoofFit.Tile> roof = new ArrayList<>();
+        for (int y = 0; y <= 8; y++) {
+            roof.add(new RoofFit.Tile(4, y, 2, RoofFit.ALONG_X, true, 2f + THIRD, 2f));
+            roof.add(new RoofFit.Tile(5, y, 1, RoofFit.ALONG_X, true, 2f, 1f + 2 * THIRD));
+            roof.add(new RoofFit.Tile(6, y, 1, RoofFit.ALONG_X, true, 1f + 2 * THIRD, 1f + THIRD));
+            roof.add(new RoofFit.Tile(7, y, 1, RoofFit.ALONG_X, true, 1f + THIRD, 1f));
+        }
+        RoofFit.fit(roof);
+        List<RoofFit.Tile> made = RoofFit.backs(roof, site);
+        for (int x = 0; x <= 3; x++) {
+            RoofFit.Tile over = madeAt(made, x, 3);
+            check(over != null && !over.shaped && over.fitAxis == RoofFit.ALONG_X && near(over.fitLow, 1f + x * THIRD) && near(over.fitHigh, 1f + (x + 1) * THIRD),
+                    "the west slope runs on down over the wing's north end at " + x + ", 3: " + said(over));
+        }
+        for (int x = 2; x <= 3; x++) {
+            RoofFit.Tile north = madeAt(made, x, 2), south = madeAt(made, x, 3);
+            check(north != null && south != null && near(north.corners[3], south.corners[0]) && near(north.corners[2], south.corners[1]),
+                    "the roof each side of the wing's end meets along y 3 at " + x + ": " + said(north) + " over " + said(south));
+        }
     }
 
     /**
