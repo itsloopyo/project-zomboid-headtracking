@@ -219,8 +219,8 @@ final class DepthFights {
         for (Kind kind : found.values()) {
             total += kind.area;
         }
-        Log.info(String.format(Locale.ROOT, "depth fights: %d triangles within %.0f tiles of (%.1f, %.1f, %.2f), %d kinds of pair, %.3f square tiles in all, took %.0f ms, fullest bucket %s",
-                tris.size() + cards.size(), REACH, eyeX, eyeY, eyeUp, found.size(), total, (System.nanoTime() - now) / 1e6, largest));
+        Log.info(String.format(Locale.ROOT, "depth fights: %d triangles and %d cards within %.0f tiles of (%.1f, %.1f, %.2f), %d kinds of pair, %.3f square tiles in all, took %.0f ms, fullest bucket %s",
+                tris.size(), cards.size(), REACH, eyeX, eyeY, eyeUp, found.size(), total, (System.nanoTime() - now) / 1e6, largest));
         found.entrySet().stream().sorted((a, b) -> Double.compare(b.getValue().area, a.getValue().area)).forEach(e -> {
             Kind kind = e.getValue();
             StringBuilder where = new StringBuilder();
