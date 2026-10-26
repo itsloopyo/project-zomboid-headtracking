@@ -52,6 +52,15 @@ final class RoadPaint {
     private static final float AGREES = 0.7f;
     /** A sprite whose most solid dot covers less than this is no paint. */
     private static final int FAINTEST = 24;
+    /**
+     * Where two lengths of a slanted kerb meet, their faces taper and leave a notch under the
+     * top, which the game fills with a piece of face alone (street_curbs_01_59). Laid flat the
+     * strip has no face, and that piece in its own grey is a triangle of road across the pale
+     * strip at every joint. A piece of the strip whose paint is darker than FACE_ONLY is
+     * laid in the grey the strip's other pieces read as, 0.65 to 0.66 light where it is 0.48.
+     */
+    private static final float FACE_ONLY = 0.55f;
+    private static final float[] STRIP_CONCRETE = {0.672f, 0.657f, 0.621f};
 
     /** Dev only, for the rig: no sprite is read as paint while set, so every marking is drawn from its sprite as it was, for a comparison within one run. */
     static volatile boolean without;
@@ -151,6 +160,9 @@ final class RoadPaint {
         }
         float[] paint = new float[4];
         float[] cover = laidFlat(sheet, width, left, top, right, bottom, wanted.originU, wanted.originV, wanted.scale, wanted.left, wanted.top, wanted.width, wanted.height, paint);
+        if (cover != null && texture.getName().startsWith(KERB_STRIP) && 0.299f * paint[0] + 0.587f * paint[1] + 0.114f * paint[2] < FACE_ONLY) {
+            System.arraycopy(STRIP_CONCRETE, 0, paint, 0, STRIP_CONCRETE.length);
+        }
         float[] corners = cover == null ? null : PaintFit.triangles(cover, SIDE, MARGIN);
         float agrees = corners == null ? 0f : PaintFit.agreement(cover, SIDE, MARGIN, corners);
         if (FirstPerson.TRACE) {
