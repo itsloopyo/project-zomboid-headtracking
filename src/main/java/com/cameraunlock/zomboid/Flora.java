@@ -310,8 +310,9 @@ final class Flora {
      * column under the leaves that is no part of the crown. A great tree's sprite paints its whole
      * trunk, roots splayed and limbs forking, which is as wide as the crown's foot but holds
      * few of its places. Going down from where the sprite is widest, the crown ends where it
-     * is first narrower than TRUNK_SHADE of that, or holds fewer places than TRUNK_SPARSE of
-     * the height that holds most.
+     * is first narrower than TRUNK_SHADE of that. A tree's also ends over the lowest height of
+     * those from the foot up that each are that narrow or hold fewer places than TRUNK_SPARSE
+     * of the height that holds most: a sparse height with leaves below it is the crown's.
      */
     private static final float TRUNK_SHADE = 0.22f, TRUNK_SPARSE = 0.15f;
     /** The share of a sprite's places that are given a sprig at most: with more, the choosing of them towards the outside is lost. */
@@ -405,7 +406,7 @@ final class Flora {
      */
     static float[] woodShape(SpriteGeometry.Frame frame, float[] places, float footU, float footV) {
         float[] shape = new float[SIZES + 2 * CROWN_BANDS], left = new float[CROWN_BANDS], right = new float[CROWN_BANDS];
-        if (!measure(frame, places, footU, footV, left, right, new int[CROWN_BANDS], shape)) {
+        if (!measure(frame, places, footU, footV, false, left, right, new int[CROWN_BANDS], shape)) {
             return null;
         }
         System.arraycopy(left, 0, shape, SIZES, CROWN_BANDS);
@@ -420,9 +421,10 @@ final class Flora {
     /**
      * Measures the crown addCrown would make of the frame: its sizes, and how far out it
      * reaches at each of CROWN_BANDS heights, half of how wide the sprite paints it there.
-     * False when the sprite shows too little to make a crown of.
+     * False when the sprite shows too little to make a crown of. tree is false for a bush,
+     * whose sprite paints no trunk, and for a bare tree's wood.
      */
-    static boolean measure(SpriteGeometry.Frame frame, float[] places, float footU, float footV, float[] reachLeft, float[] reachRight, int[] counts, float[] sizes) {
+    static boolean measure(SpriteGeometry.Frame frame, float[] places, float footU, float footV, boolean tree, float[] reachLeft, float[] reachRight, int[] counts, float[] sizes) {
         int count = places.length / 2;
         if (count < CROWN_LEAST) {
             return false;
@@ -468,10 +470,14 @@ final class Flora {
                 }
                 most = Math.max(most, counts[band]);
             }
+            float broad = reachLeft[broadest] + reachRight[broadest];
             for (int band = broadest - 1; band >= 0 && from == 0; band--) {
-                if (reachLeft[band] + reachRight[band] < TRUNK_SHADE * (reachLeft[broadest] + reachRight[broadest]) || counts[band] < TRUNK_SPARSE * most) {
+                if (reachLeft[band] + reachRight[band] < TRUNK_SHADE * broad) {
                     from = band + 1;
                 }
+            }
+            for (int band = 0; tree && band < broadest && (reachLeft[band] + reachRight[band] < TRUNK_SHADE * broad || counts[band] < TRUNK_SPARSE * most); band++) {
+                from = Math.max(from, band + 1);
             }
             if (pass == 1 || from == 0) {
                 break;
@@ -559,7 +565,7 @@ final class Flora {
         int count = places.length / 2;
         Workings workings = frame.crownWorkings == null ? frame.crownWorkings = new Workings() : frame.crownWorkings;
         float[] reachLeft = workings.reachLeft, reachRight = workings.reachRight, sizes = workings.sizes;
-        if (!measure(frame, places, footU, footV, reachLeft, reachRight, workings.counts, sizes)) {
+        if (!measure(frame, places, footU, footV, sprig != SHRUB, reachLeft, reachRight, workings.counts, sizes)) {
             return false;
         }
         // A tree's crown is all of it its tree's, sprigs, twigs and limbs: a bush is no tree.
