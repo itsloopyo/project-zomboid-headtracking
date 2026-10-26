@@ -598,7 +598,10 @@ final class Roofs {
      * ridge, on its level or the one below: the church at 3532..3549, 11199..11211 was two roofs,
      * the hall's far side and the wing's each made with no knowledge of the other, and each ran on
      * through the other to its end wall and stood a level top over it. Only a sheet lower than the
-     * ridge or such a wing is taken, and only across squares with no roofing.
+     * ridge or such a wing is taken, and only across squares with no roofing. The squares are
+     * counted from past the ridge's cap where the slope ends in one: at 2447..2456, 6500..6508 a
+     * gable's cap (roofs_05_70) stood between its slope and the gap to the flat crown of a lower
+     * wing, and the two roofs each made a far side over the gap, the wing's an eave under the gable's.
      */
     private static void beyondRidge(IsoCell cell, RoofFit.Tile tile, Roof roof, HashSet<Long> seen) {
         if (!tile.sure || tile.fitting || tile.axis != RoofFit.ALONG_X && tile.axis != RoofFit.ALONG_Y || Math.abs(tile.high - tile.low) < RoofFit.SAME) {
@@ -611,7 +614,8 @@ final class Roofs {
         if (under == null || under.getBuilding() == null) {
             return;
         }
-        for (int step = 1; step <= RIDGE_GAP; step++) {
+        int capped = ridgeCap(tile.x + dx, tile.y + dy, tile.z, ridge) ? 1 : 0;
+        for (int step = 1 + capped; step <= RIDGE_GAP + capped; step++) {
             int x = tile.x + step * dx, y = tile.y + step * dy;
             IsoGridSquare ground = cell.getGridSquare(x, y, 0), square = cell.getGridSquare(x, y, tile.z);
             if (ground == null || ground.getBuilding() != under.getBuilding() || square == null) {
@@ -622,7 +626,7 @@ final class Roofs {
             if (!onLevel && (below == null || !roofing(cell, below))) {
                 continue;
             }
-            if (step == 1) {
+            if (step == 1 + capped) {
                 return;
             }
             int z = onLevel ? tile.z : tile.z - 1;
@@ -641,6 +645,17 @@ final class Roofs {
             }
             return;
         }
+    }
+
+    /** Whether the roof being read has a ridge's cap on the square: a level trim at the ridge's height. */
+    private static boolean ridgeCap(int x, int y, int z, float ridge) {
+        for (Laid one : reading) {
+            RoofFit.Tile tile = one.tile;
+            if (tile.x == x && tile.y == y && tile.z == z) {
+                return tile.fitting && tile.axis == RoofFit.LEVEL && Math.abs(tile.low - ridge) < RoofFit.SAME;
+            }
+        }
+        return false;
     }
 
     /**
@@ -676,17 +691,25 @@ final class Roofs {
                     break;
                 }
                 int z = onLevel ? tile.z : tile.z + 1;
-                long key = RoofFit.key(x, y, z);
                 int before = reading.size();
                 take(cell, x, y, z, roof, seen);
                 if (reading.size() > before) {
                     RoofFit.Tile found = reading.get(before).tile;
+                    // A ridge's cap is met on the far side of the slope it caps.
+                    if (found.fitting && found.axis == RoofFit.LEVEL && found.low >= top - RoofFit.SAME) {
+                        take(cell, x + dx, y + dy, z, roof, seen);
+                        if (reading.size() > before + 1) {
+                            found = reading.get(before + 1).tile;
+                        }
+                    }
                     int up = found.low > found.high ? -1 : 1;
                     boolean meets = found.sure && found.axis != tile.axis && (found.axis == RoofFit.ALONG_X ? dx : dy) == -way * up
                             && top <= Math.max(found.low, found.high) + RoofFit.SAME;
                     if (!meets) {
-                        reading.remove(before);
-                        seen.remove(key);
+                        while (reading.size() > before) {
+                            RoofFit.Tile dropped = reading.remove(reading.size() - 1).tile;
+                            seen.remove(RoofFit.key(dropped.x, dropped.y, dropped.z));
+                        }
                     }
                 }
                 break;

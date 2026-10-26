@@ -20,6 +20,7 @@ final class RoofTests {
         Checks.run("slopeKeepsItsPitchAboveTheKickAtItsEave", RoofTests::slopeKeepsItsPitchAboveTheKickAtItsEave);
         Checks.run("farSideOfAWingMeetsTheMainRoofInAValley", RoofTests::farSideOfAWingMeetsTheMainRoofInAValley);
         Checks.run("madeFarSidesOfAWingAndItsMainRoofMeetInAValley", RoofTests::madeFarSidesOfAWingAndItsMainRoofMeetInAValley);
+        Checks.run("gablesFarSideComesDownToTheCrownOfALowerWingBesideIt", RoofTests::gablesFarSideComesDownToTheCrownOfALowerWingBesideIt);
         Checks.run("longestRunLeavesOutAStrayRow", RoofTests::longestRunLeavesOutAStrayRow);
         Checks.run("roofOverAnLShapedBuildingIsClosedAllRound", RoofTests::roofOverAnLShapedBuildingIsClosedAllRound);
         Checks.run("hipsAndValleyOfTheLShapeAreFoldedTheRightWay", RoofTests::hipsAndValleyOfTheLShapeAreFoldedTheRightWay);
@@ -263,6 +264,41 @@ final class RoofTests {
             for (int y = 0; y <= 7; y++) {
                 check(covered[x][y] == (y >= 4 || x >= 4), "the far sides cover the building and nothing else at " + x + ", " + y);
             }
+        }
+    }
+
+    private static void gablesFarSideComesDownToTheCrownOfALowerWingBesideIt() {
+        // As the map has the house at 2447..2456, 6500..6508, read as one roof across the gap: a
+        // gable on 4..8 whose east slope, on 7..8, climbs to a cap at 1 2/3 on 6, and a lower wing on
+        // 0..5 whose flat crown at 1 1/3 on 1..4 has its south eave on row 7. Column 5 has no tile.
+        List<RoofFit.Tile> tiles = new ArrayList<>();
+        for (int x = 1; x <= 4; x++) {
+            for (int y = 3; y <= 6; y++) {
+                RoofFit.Tile crown = new RoofFit.Tile(x, y, 1, RoofFit.LEVEL, true, EAVE, EAVE);
+                crown.sheet = true;
+                tiles.add(crown);
+            }
+            tiles.add(new RoofFit.Tile(x, 7, 1, RoofFit.ALONG_Y, true, EAVE, 1f));
+        }
+        for (int y = 2; y <= 7; y++) {
+            RoofFit.Tile cap = new RoofFit.Tile(6, y, 1, RoofFit.LEVEL, true, EAVE + THIRD, EAVE + THIRD);
+            cap.fitting = true;
+            tiles.add(cap);
+            tiles.add(new RoofFit.Tile(7, y, 1, RoofFit.ALONG_X, true, EAVE + THIRD, EAVE));
+            tiles.add(new RoofFit.Tile(8, y, 1, RoofFit.ALONG_X, true, EAVE, 1f));
+        }
+        RoofFit.fit(tiles);
+        List<RoofFit.Tile> made = RoofFit.backs(tiles, standing((x, y) -> x >= 0 && x <= 8 && y >= 2 && y <= 7));
+        RoofFit.peaks(tiles, made);
+        made.addAll(RoofFit.valleys(tiles, made));
+        for (int y = 3; y <= 7; y++) {
+            RoofFit.Tile gap = madeAt(made, 5, y);
+            check(gap != null && gap.fitAxis == RoofFit.ALONG_X && near(gap.fitLow, EAVE) && near(gap.fitHigh, EAVE + THIRD),
+                    "the gable's far side climbs from the wing's crown to the cap over the gap on row " + y + ", where the wing made an eave under it");
+        }
+        for (RoofFit.Tile tile : made) {
+            check(tile.x <= 5, "nothing is made on the gable's own slopes or past its east wall: " + tile.x + ", " + tile.y);
+            check(tile.x != 0 || tile.fitAxis == RoofFit.ALONG_X || tile.shaped, "the wing's west side is an eave: " + tile.x + ", " + tile.y);
         }
     }
 
