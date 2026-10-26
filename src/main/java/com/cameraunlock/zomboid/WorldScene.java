@@ -2098,8 +2098,8 @@ final class WorldScene {
     }
 
     static final float SHINGLES = 1f, PAINT = 2f, WOOD = 3f, EARTH = 4f, LEAVES = 5f, BARK = 6f, PLANKS = 7f, CARPET = 8f, CONCRETE = 9f, QUAY = 10f, TILE = 11f, WIRE = 12f, GLASS = 13f, LAMP = 14f, MESH = 15f;
-    /** A pane the picture has built, one with a lamp burning in the room behind it, and one with a room on both sides (OpeningBuilder.paneMaterial), which is also the glass of every glass case (Furniture.Glass). */
-    static final float PANE = 67f, LIT_PANE = 68f, INNER_PANE = 71f;
+    /** A pane the picture has built, one with a lamp burning in the room behind it, one with the street on both sides, and one with a room on both sides (OpeningBuilder.paneMaterial), which is also the glass of every glass case (Furniture.Glass). */
+    static final float PANE = 67f, LIT_PANE = 68f, OUTER_PANE = 70f, INNER_PANE = 71f;
     /** A wall of upright boards. */
     static final float BOARDS = 52f;
     /** The game's blood on a floor or a wall: its texels take the colour its vertices carry where a tree's carry its square, and it covers as much as they say. See BloodBuilder. */

@@ -2869,14 +2869,16 @@ final class PipelineShaders {
                 // every frame. Out of doors by day what is behind is a dim room, and the
                 // glass takes more of the pixels. Seen from the street by day a pane throws
                 // back more of it (LookingGlass.paneThrown). A window's sheet faces into its
-                // room.
+                // room; one with the street on both faces is street from both
+                // (OpeningBuilder.paneMaterial).
                 // A window the picture has built has a sheet of glass of its own in each light: all
                 // of it is pane, with no sprite to tell the glass from.
                 // Glass with a room on both sides, built or a window's sprite, has no street side
                 // (OpeningBuilder.paneMaterial, WallBuilder.INNER_GLASS).
                 bool innerPane = vMaterial > 70.5 && vMaterial < 71.5;
+                bool outerPane = vMaterial > 69.5 && vMaterial < 70.5;
                 bool inner = innerPane || vMaterial > 93.5 && vMaterial < 94.5;
-                bool sheet = vMaterial > 66.5 && vMaterial < 68.5 || innerPane;
+                bool sheet = vMaterial > 66.5 && vMaterial < 68.5 || innerPane || outerPane;
                 bool lamplit = vMaterial > 64.5 && vMaterial < 65.5 || vMaterial > 67.5 && vMaterial < 68.5;
                 bool window = lamplit || sheet || inner || vMaterial > 12.5 && vMaterial < 13.5;
                 // A roof of glass (WorldScene.materialOf) is a pane laid on the slant, its street side up.
@@ -2900,7 +2902,7 @@ final class PipelineShaders {
                 float soiled = 0.0;
                 if (film) {
                     vec3 face = normalize(vNormal), sight = normalize(uEye - vWorld);
-                    float outside = inner ? 0.0 : roofPane ? step(0.0, dot(face, sight)) : window ? step(dot(face, sight), 0.0) : 0.5;
+                    float outside = inner ? 0.0 : outerPane ? 1.0 : roofPane ? step(0.0, dot(face, sight)) : window ? step(dot(face, sight), 0.0) : 0.5;
                     // What a pane throws back is what is on the eye's side of it: the street on its
                     // street side and the room on its room side. Glass in a wall's sprite is on
                     // one of the wall's two skins, each lit as its own side is, and is seen from

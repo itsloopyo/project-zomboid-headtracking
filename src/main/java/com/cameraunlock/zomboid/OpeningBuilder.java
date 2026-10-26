@@ -1094,7 +1094,7 @@ final class OpeningBuilder {
      */
     private void facePane(SpriteGeometry.Mesh glass, boolean ownIsRoom, boolean beyondIsRoom, boolean lit, float da, float db) {
         paneSide = paneSide(ownIsRoom);
-        glass.open = sideOpen[paneSide] + 32f * paneMaterial(ownIsRoom, beyondIsRoom, lit);
+        glass.open = sideOpen[paneSide] + 32f * paneMaterial(indoors(build.here), beyondIsRoom, lit);
         glass.day = sideDay[paneSide];
         float faces = paneSide == 0 ? 1f : -1f;
         glass.face(db * faces, da * faces, 0f);
@@ -1106,14 +1106,16 @@ final class OpeningBuilder {
     }
 
     /**
-     * What a pane in an edge is made of. It faces into a room where it has one (or into the
-     * square, with the street both sides), and mirrors the street only to an eye on its other
-     * face: with a room on both sides, a window between two rooms or a door, it has no street
-     * side and mirrors only the room the eye is in. A lamp behind a pane lights it for the
-     * street, so a pane with no street side is never lit.
+     * What a pane in an edge is made of, from whether the square the edge is read from and the
+     * one beyond are rooms. It faces into a room where it has one (or into the square, with the
+     * street both sides), and mirrors the street only to an eye on its other face: with a room
+     * on both sides, a window between two rooms or a door, it has no street side and mirrors
+     * only the room the eye is in; with the street on both, a bus shelter's or a door swung
+     * open out of doors, it mirrors the street to either face. A lamp behind a pane lights it
+     * for the street, so a pane with no street side, or no room, is never lit.
      */
     static float paneMaterial(boolean ownIsRoom, boolean beyondIsRoom, boolean lit) {
-        return ownIsRoom && beyondIsRoom ? WorldScene.INNER_PANE : lit ? WorldScene.LIT_PANE : WorldScene.PANE;
+        return ownIsRoom && beyondIsRoom ? WorldScene.INNER_PANE : !ownIsRoom && !beyondIsRoom ? WorldScene.OUTER_PANE : lit ? WorldScene.LIT_PANE : WorldScene.PANE;
     }
 
     /** Where the point a share along the window's edge, up levels high and across tiles into its square is, into c at i. */

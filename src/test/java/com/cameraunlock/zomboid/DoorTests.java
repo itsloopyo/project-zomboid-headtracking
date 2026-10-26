@@ -166,19 +166,23 @@ final class DoorTests {
         check(OpeningBuilder.paneMaterial(true, true, true) == WorldScene.INNER_PANE, "and is never lit for the street");
         check(OpeningBuilder.paneMaterial(true, false, false) == WorldScene.PANE, "a pane with the street beyond it mirrors the street on that side");
         check(OpeningBuilder.paneMaterial(true, false, true) == WorldScene.LIT_PANE, "and is lit for the street by a lamp in its room");
+        check(OpeningBuilder.paneMaterial(false, true, true) == WorldScene.LIT_PANE, "whichever side of the edge the room is");
+        check(OpeningBuilder.paneMaterial(false, false, false) == WorldScene.OUTER_PANE && OpeningBuilder.paneMaterial(false, false, true) == WorldScene.OUTER_PANE,
+                "a pane with the street on both sides mirrors the street to both, and has no room to be lit from");
         check(OpeningBuilder.paneSide(true) == 0 && OpeningBuilder.paneSide(false) == 1,
                 "a pane faces into the square its edge is read from when that is the room, and into the one beyond when the room is there");
-        // Swung open, a leaf stands in one square, which is on both its faces: addBuiltDoor asks with that square
-        // both sides, so its own side always counts as the room side.
+        // Swung open, a leaf stands in one square, which is on both its faces: addBuiltDoor asks with that square both sides.
         for (boolean inRoom : new boolean[] {true, false}) {
-            check(OpeningBuilder.paneMaterial(true, inRoom, false) == (inRoom ? WorldScene.INNER_PANE : WorldScene.PANE),
-                    inRoom ? "the glass of a door swung open into its room has the room on both faces" : "and of one swung open out of doors has a street side");
+            check(OpeningBuilder.paneMaterial(inRoom, inRoom, false) == (inRoom ? WorldScene.INNER_PANE : WorldScene.OUTER_PANE),
+                    inRoom ? "the glass of a door swung open into its room has the room on both faces" : "and of one swung open out of doors the street on both");
         }
         Pattern range = Pattern.compile("vMaterial > ([0-9.]+) && vMaterial < ([0-9.]+)");
         check(ranges(range, PipelineShaders.WORLD_FRAGMENT_MAIN, WorldScene.INNER_PANE) == 1,
                 "the world's fragment program reads such a pane in one place, as glass with no street side, and in no other range");
         check(ranges(range, PipelineShaders.WORLD_FRAGMENT_MAIN, WallBuilder.INNER_GLASS) == 1, "and the glass of a window's sprite between two rooms in one place too");
-        check(ranges(range, PipelineShaders.WORLD_VERTEX, WorldScene.INNER_PANE) == 0 && ranges(range, PipelineShaders.WORLD_VERTEX, WallBuilder.INNER_GLASS) == 0,
+        check(ranges(range, PipelineShaders.WORLD_FRAGMENT_MAIN, WorldScene.OUTER_PANE) == 1, "and a pane with the street on both sides in one place");
+        check(ranges(range, PipelineShaders.WORLD_VERTEX, WorldScene.INNER_PANE) == 0 && ranges(range, PipelineShaders.WORLD_VERTEX, WallBuilder.INNER_GLASS) == 0
+                && ranges(range, PipelineShaders.WORLD_VERTEX, WorldScene.OUTER_PANE) == 0,
                 "the world's vertex program reads neither as anything of its own");
     }
 
