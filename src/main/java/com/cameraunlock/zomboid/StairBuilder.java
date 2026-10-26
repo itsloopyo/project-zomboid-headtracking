@@ -36,6 +36,12 @@ final class StairBuilder {
         boolean closed = build.painted(texture, sideA, sideB, band);
         // Without the mod's buildings an open flight is its sprite's four steps, each riser showing what the sprite has there.
         float riser = closed || !Own.buildings() ? Stairs.RISE : Flights.TREAD;
+        // A closed timber flight's treads are laid in the picture's own boards, one to a tread,
+        // in the colour of the wood: the sprite's few texels of a tread drawn a whole step deep
+        // were a streaky blur. The boards are counted from the world's place, so the treads of
+        // flights side by side run on into each other with no seam where they meet.
+        SpriteGeometry.Mesh treads = closed && Own.textures(build.playerIndex) && Stairs.timber(texture.getName()) ? treads(texture) : null;
+        float made = build.frame.material;
         int added = 0;
         for (int step = 0; step < Stairs.STEPS; step++) {
             // The tread runs from its riser at near back to far, the way the flight climbs.
@@ -48,8 +54,13 @@ final class StairBuilder {
             build.geometry.shownA = west ? back : 0f;
             build.geometry.shownB = west ? 0f : back;
             build.geometry.shownUp = (step - shown) * Stairs.RISE;
-            added += west ? build.geometry.addFace(mesh, build.frame, x, y, z, far, 0f, high, Stairs.GOING, 0f, 0f, 0f, 1f, 0f)
-                    : build.geometry.addFace(mesh, build.frame, x, y, z, 0f, far, high, 0f, Stairs.GOING, 0f, 1f, 0f, 0f);
+            if (treads != null) {
+                build.frame.material = WorldScene.boardsOf(Stairs.STEPS, west);
+            }
+            SpriteGeometry.Mesh tread = treads != null ? treads : mesh;
+            added += west ? build.geometry.addFace(tread, build.frame, x, y, z, far, 0f, high, Stairs.GOING, 0f, 0f, 0f, 1f, 0f)
+                    : build.geometry.addFace(tread, build.frame, x, y, z, 0f, far, high, 0f, Stairs.GOING, 0f, 1f, 0f, 0f);
+            build.frame.material = made;
             added += west ? build.geometry.addFace(mesh, build.frame, x, y, z, near, 0f, high - riser, 0f, 1f, 0f, 0f, 0f, riser)
                     : build.geometry.addFace(mesh, build.frame, x, y, z, 0f, near, high - riser, 1f, 0f, 0f, 0f, 0f, riser);
         }
@@ -110,6 +121,22 @@ final class StairBuilder {
             SpriteGeometry.addQuad(mesh, c, u, v, build.frame.red, build.frame.green, build.frame.blue);
         }
         return true;
+    }
+
+    /**
+     * The mesh a timber flight's treads are laid on, plain in the mean colour of what the sprite
+     * paints, or null for a sprite with no colour: the treads are then the sprite's own. One
+     * still to be read leaves the build unsigned, and it is made again once the colour is in.
+     */
+    private SpriteGeometry.Mesh treads(Texture texture) {
+        float[] colour = SpriteColours.of(texture);
+        if (colour == null) {
+            build.building.signed &= !SpriteColours.unread(texture);
+            return null;
+        }
+        SpriteGeometry.Mesh treads = WorldScene.solid.get(WorldScene.PLAIN, WallSides.laid(colour[WallSides.MEAN], colour[WallSides.MEAN + 1], colour[WallSides.MEAN + 2], 0f, 0f, 0f, WallSides.FINE));
+        treads.sway = 0f;
+        return treads;
     }
 
     /** A corner of a flight's own faces: along is how far down the square from its high edge, across how far over it, high in levels above its floor. */

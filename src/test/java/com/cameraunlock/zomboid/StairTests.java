@@ -7,6 +7,7 @@ final class StairTests {
         Checks.run("aFlightIsTwelveStepsThatEndLevelWithTheFloorAbove", StairTests::aFlightIsTwelveStepsThatEndLevelWithTheFloorAbove);
         Checks.run("theUndersideStaysUnderEveryTreadAndMeetsTheFloor", StairTests::theUndersideStaysUnderEveryTreadAndMeetsTheFloor);
         Checks.run("whatIsLaidOverAFlightIsOnItsTreadsAndNeverUnderOne", StairTests::whatIsLaidOverAFlightIsOnItsTreadsAndNeverUnderOne);
+        Checks.run("onlyBareTimberFlightsAreLaidInBoards", StairTests::onlyBareTimberFlightsAreLaidInBoards);
     }
 
     private static void check(boolean condition, String what) {
@@ -59,6 +60,23 @@ final class StairTests {
         for (float along = 0f; along <= 3f; along += 0.01f) {
             check(Stairs.over(along) >= Math.min(along, 3f) / 3f - 1e-5f && Stairs.over(along) <= 1f + 1e-5f,
                     "at " + along + " it is no lower than the ramp the game walks a character up, nor above the floor at the top");
+        }
+    }
+
+    private static void onlyBareTimberFlightsAreLaidInBoards() {
+        for (String timber : new String[] {"fixtures_stairs_01_16", "fixtures_stairs_01_21", "fixtures_stairs_01_29", "fixtures_stairs_01_34", "fixtures_stairs_01_42", "fixtures_stairs_01_66", "fixtures_stairs_01_74"}) {
+            check(Stairs.timber(timber), timber + " is a timber flight");
+        }
+        for (String other : new String[] {"fixtures_stairs_01_0", "fixtures_stairs_01_3", "fixtures_stairs_01_22", "fixtures_stairs_01_48", "fixtures_stairs_01_58",
+                "fixtures_stairs_01_80", "fixtures_stairs_02_16", "fixtures_stairs_01_", "fixtures_stairs_01_x", "walls_garage_01_16", null}) {
+            check(!Stairs.timber(other), other + " is no timber flight");
+        }
+        // A tread is laid as one board, so a square holds as many boards as steps: a count the
+        // picture lays as boards, west flights' boards running along y and north flights' along x.
+        for (boolean west : new boolean[] {true, false}) {
+            float made = WorldScene.boardsOf(Stairs.STEPS, west);
+            check(made >= WorldScene.FIRST_BOARDS && made <= WorldScene.LAST_BOARDS, "a flight's treads are boards, made " + made);
+            check(made == WorldScene.FIRST_BOARDS + 2 * (Stairs.STEPS - Flats.FEWEST_BOARDS) + (west ? 1 : 0), "a flight climbing " + (west ? "west" : "north") + " runs its boards across the climb");
         }
     }
 }

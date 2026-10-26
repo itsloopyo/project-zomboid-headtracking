@@ -47,6 +47,32 @@ final class Stairs {
         return along <= 0f ? 0f : over(along);
     }
 
+    private static final String SHEET = "fixtures_stairs_01_";
+    private static final int[] TIMBER = {16, 17, 18, 19, 20, 21, 24, 25, 26, 27, 28, 29, 32, 33, 34, 40, 41, 42, 64, 65, 66, 72, 73, 74};
+
+    /**
+     * Whether a stair sprite paints a closed flight of bare timber treads. Read off the
+     * sprites, not their MaterialType: the game gives Wood_Solid to the pale stone flights
+     * with dark nosings (48 to 50 and 56 to 58) as well.
+     */
+    static boolean timber(String sprite) {
+        if (sprite == null || !sprite.startsWith(SHEET)) {
+            return false;
+        }
+        int index;
+        try {
+            index = Integer.parseInt(sprite.substring(SHEET.length()));
+        } catch (NumberFormatException notIndexed) {
+            return false;
+        }
+        for (int timber : TIMBER) {
+            if (timber == index) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** The height of the underside of the flight. It meets the floor under the first riser but one. */
     static float underside(float along) {
         return Math.max(0f, along / 3f - STRING);
