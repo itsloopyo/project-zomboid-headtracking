@@ -1204,15 +1204,17 @@ final class RoofBuilder {
      * gable, along a wall under the storey above or under a flat roof. It is an eave of its own,
      * a roof's pitch carried out from the top of the wall, run on along the wall as far as the
      * row goes and closed at its ends. Hung on the wall as the map paints it, each square's
-     * length of the row was a slab slanting across the wall. False, and nothing made, for a
-     * square with no such row on a wall.
+     * length of the row was a slab slanting across the wall. Along an open side, a stage's
+     * front under its flat roof, there is no wall and the row hangs from the roof's edge: laid
+     * as the map's tiles it was a row of thin sheets with a pale triangle between each two
+     * (4947..4952, 7947). False, and nothing made, for a square with no such row.
      */
     boolean addEaveRow(Texture texture, int x, int y, int z) {
-        Hoods.Squares level = hoods(z);
-        int wall = level.eave(x, y);
-        if (wall == Hoods.NONE || !level.walled(x, y, wall)) {
+        int wall = ownEaveRow(x, y, z);
+        if (wall == Hoods.NONE) {
             return false;
         }
+        Hoods.Squares level = hoods(z);
         boolean west = wall == Outdoors.WEST;
         // The square inside the wall a level up, as the roof it would fall from lies over the wall.
         int insideX = west ? x - 1 : x, insideY = west ? y : y - 1;
@@ -1221,18 +1223,33 @@ final class RoofBuilder {
         SpriteGeometry.Mesh sheet = roofSheet();
         int stepX = west ? 0 : 1, stepY = west ? 1 : 0;
         int startEnd = level.eave(x - stepX, y - stepY) == wall ? Eaves.RUNS_ON : Eaves.GABLE;
-        int endEnd = level.eave(x + stepX, y + stepY) == wall ? Eaves.RUNS_ON : Eaves.GABLE;
+        // The row along the roof's other edge from the same tile, round the corner past the end: the two are mitred to each other.
+        int cornerX = x + stepX - stepY, cornerY = y + stepY - stepX;
+        boolean meets = level.eave(cornerX, cornerY) == (west ? Outdoors.NORTH : Outdoors.WEST) && ownEaveRow(cornerX, cornerY, z) != Hoods.NONE;
+        int endEnd = level.eave(x + stepX, y + stepY) == wall ? Eaves.RUNS_ON : meets ? Eaves.MEETS : Eaves.GABLE;
         hangEave(sheet, insideX, insideY, z + 1, RoofFit.PITCH, west ? -RoofFit.PITCH : 0f, west ? 0f : -RoofFit.PITCH, true, startEnd, endEnd);
         return true;
     }
 
     /** Whether the square holds the piece the map ends a row of eave with, past the end of a row addEaveRow makes. */
     boolean eaveRowOfItsOwnEnd(int x, int y, int z) {
+        return Hoods.endOf(hoods(z), x, y, (nx, ny) -> ownEaveRow(nx, ny, z) != Hoods.NONE && !eaveRow(nx, ny, z));
+    }
+
+    /**
+     * The wall a row of eave the map hangs on the square hangs from, where addEaveRow makes it,
+     * or Hoods.NONE: a wall stands there, or roofing the row edges lies a level up inside it.
+     */
+    private int ownEaveRow(int x, int y, int z) {
         Hoods.Squares level = hoods(z);
-        return Hoods.endOf(level, x, y, (nx, ny) -> {
-            int wall = level.eave(nx, ny);
-            return wall != Hoods.NONE && level.walled(nx, ny, wall) && !eaveRow(nx, ny, z);
-        });
+        int wall = level.eave(x, y);
+        if (wall == Hoods.NONE || level.walled(x, y, wall)) {
+            return wall;
+        }
+        boolean west = wall == Outdoors.WEST;
+        // A flat roof is a floor of the roofs' sheets (roofs_01_54), no tile of a roof: what tells is the game's roofing on the square.
+        IsoGridSquare inside = build.cell.getGridSquare(west ? x - 1 : x, west ? y : y - 1, z + 1);
+        return inside != null && Roofs.covered(build.cell, inside) ? wall : Hoods.NONE;
     }
 
     /** A roof of no tiles that is covered in what a sprite shows, one to a sprite. */

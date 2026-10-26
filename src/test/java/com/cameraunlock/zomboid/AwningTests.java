@@ -248,6 +248,33 @@ final class AwningTests {
         loose.roofSprite(1, 0, 0, "roofs_02_6", "attachedN", "isEave");
         check(!loose.build.roofBuilder.addEaveRow(loose.painted, 1, 0, 0) && TestMap.plain().triangles() == 0,
                 "a row with no wall under it to hang from is made nothing");
+        // A stage's open front, as at 4947..4952, 7947: the row on the squares in front of a flat roof a level up, no wall under it.
+        TestMap open = new TestMap();
+        for (int x = 1; x <= 2; x++) {
+            open.roofSprite(x, 0, 0, "roofs_01_38", "attachedN", "isEave");
+            open.cell.square(x, -1, 1).floor(open.sprite("roofs_01_54", IsoObjectType.normal));
+        }
+        open.roofSprite(3, 0, 0, "roofs_01_53", "attachedE", "isEave");
+        check(open.build.roofBuilder.addEaveRow(open.painted, 1, 0, 0) && TestMap.plain().triangles() > 0,
+                "a row along an open side hangs from the roof's edge a level up");
+        check(open.build.roofBuilder.eaveRowOfItsOwnEnd(3, 0, 0), "and the corner past it goes with that eave");
+        // Round the stage's front corner the row down its side, from the same tile of roof: the two are mitred, not each closed across its end.
+        TestMap corner = new TestMap();
+        for (int x = 1; x <= 2; x++) {
+            corner.roofSprite(x, 0, 0, "roofs_01_38", "attachedN", "isEave");
+            corner.cell.square(x, -1, 1).floor(corner.sprite("roofs_01_54", IsoObjectType.normal));
+        }
+        corner.roofSprite(3, -1, 0, "roofs_01_39", "attachedW", "isEave");
+        corner.roofSprite(3, 0, 0, "roofs_01_53", "attachedE", "isEave");
+        check(corner.build.roofBuilder.addEaveRow(corner.painted, 2, 0, 0), "the front row's last square is made");
+        boolean mitred = false, closed = false;
+        SpriteGeometry.Mesh soffit = TestMap.plain();
+        for (int at = 0; at < soffit.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+            float x = soffit.vertices[at], y = soffit.vertices[at + 1];
+            mitred |= Math.abs(x - 3.22f) < 1e-3f && Math.abs(y - 0.22f) < 1e-3f;
+            closed |= Math.abs(x - 3.14f) < 1e-3f && Math.abs(y) < 1e-3f;
+        }
+        check(mitred && !closed, "the row runs out to the corner's diagonal, as far as the side row stands out, with no end at the wall's line past the corner");
         TestMap glazed = new TestMap();
         glazed.roofSprite(1, 0, 0, "roofs_02_6", "attachedN", "isEave");
         glazed.cell.square(1, 0, 0).add(glazed.sprite("walls_exterior_house_02_41", IsoObjectType.wall, "WindowN"));
