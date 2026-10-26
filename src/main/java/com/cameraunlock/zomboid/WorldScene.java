@@ -938,7 +938,7 @@ final class WorldScene {
             eave = Hoods.eave(sprite);
             endPiece = Hoods.endPiece(sprite);
             innerCorner = endPiece && Hoods.innerCornerOf(name);
-            litTwin = properties.has("HasLightOnSprite") ? Lamps.litTwin(name) : null;
+            litTwin = properties.has(IsoFlagType.HasLightOnSprite) ? Lamps.litTwin(name) : null;
             awning = Awnings.of(sprite);
             tent = Tents.of(sprite);
             rope = Tents.ropeOf(sprite);
@@ -2138,7 +2138,7 @@ final class WorldScene {
      * lamp, whose glow goes by its own stuff.
      */
     static boolean printed(PropertyContainer properties, String name) {
-        if (!"WallObject".equals(properties.get("MoveType")) || properties.has("HasLightOnSprite") || properties.get("LightRadius") != null) {
+        if (!"WallObject".equals(properties.get("MoveType")) || properties.has(IsoFlagType.HasLightOnSprite) || properties.get("LightRadius") != null) {
             return false;
         }
         String called = properties.get("CustomName");
