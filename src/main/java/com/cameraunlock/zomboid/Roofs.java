@@ -1018,10 +1018,12 @@ final class Roofs {
 
     /**
      * Whether a tile is a ridge's cap the map puts a level above the ridge it caps: level, a third of a level over its
-     * floor, over a slope a level down that tops at that floor, on its square or the square back along the line of sight.
-     * The game paints a third of a level up as a square back along that line, so there it is drawn on the ridge; laid
-     * where it reads, it was a slab hanging a storey over the barn's ridge at 421, 9383..9390 (roofs_30_07_107 over
-     * roofs_03_3, which runs 9382..9389). The ridge is the slopes' own.
+     * floor, over a slope a level down that tops at that floor. The game paints a third of a level up as a square back
+     * along the line of sight, so the cap is drawn on that square, on the ridge; laid where it reads, it was a slab
+     * hanging a storey over the barn's ridge at 421, 9383..9390 (roofs_30_07_107 over roofs_03_3, which runs
+     * 9382..9389). The slope that tops there is on the square back along the line or on one of the two that share an
+     * edge with it and with the cap's own square, the ridge running along that edge: the barn's is a square north, on
+     * the cap's own x, and the square back has no tile. The cap's own square is looked at too. The ridge is the slopes'.
      */
     static boolean capOfARidgeBelow(IsoCell cell, RoofFit.Tile tile, float scale) {
         if (tile.z == 0 || tile.axis != RoofFit.LEVEL || tile.half != 0 || Math.abs(tile.low - tile.z - RoofFit.PITCH) > RoofFit.SAME) {
