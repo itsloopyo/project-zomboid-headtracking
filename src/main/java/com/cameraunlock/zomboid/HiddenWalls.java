@@ -390,7 +390,8 @@ final class HiddenWalls {
             if (home) {
                 if (sources == null) {
                     taken = new HashSet<>();
-                    sources = homeSources(picturesInBuilding(cell, room, taken), taken);
+                    Set<Integer> drawnElsewhere = new HashSet<>();
+                    sources = homeSources(picturesInBuilding(cell, room, taken, drawnElsewhere), taken, drawnElsewhere);
                     if (bath) {
                         sources = List.of(sources.get(sources.size() - 1));
                     }
@@ -399,7 +400,7 @@ final class HiddenWalls {
                 picture = next(sources, used, taken, mixed + drawn.size());
             } else {
                 if (taken == null) {
-                    taken = picturesInBuilding(cell, room, new HashSet<>());
+                    taken = picturesInBuilding(cell, room, new HashSet<>(), new HashSet<>());
                 }
                 picture = unshown(pool, taken, mixed + drawn.size());
             }
@@ -461,8 +462,9 @@ final class HiddenWalls {
      * shows that the building does not; the family photographs the building shows and the room
      * does not, so a bedroom has the same people as the hall; the landscapes and flowers the
      * building does not show. room is what the room shows, building what the building does.
+     * A family photograph already drawn in another room is passed over while one is left that is not.
      */
-    private static List<int[]> homeSources(Set<Integer> building, Set<Integer> room) {
+    private static List<int[]> homeSources(Set<Integer> building, Set<Integer> room, Set<Integer> drawnElsewhere) {
         Set<String> tastes = new HashSet<>();
         for (int picture : room) {
             String subject = subjectOf(Decor.nameOf(picture));
@@ -484,6 +486,9 @@ final class HiddenWalls {
             if (!building.contains(picture)) {
                 landscapes.add(picture);
             }
+        }
+        if (!drawnElsewhere.containsAll(family)) {
+            family.removeAll(drawnElsewhere);
         }
         return List.of(ints(taste), ints(family), ints(landscapes));
     }
@@ -530,9 +535,10 @@ final class HiddenWalls {
 
     /**
      * The pictures the first person view shows on the walls of the room's building where it is
-     * loaded, and those drawn on its hidden walls; those of the room itself go in inRoom as well.
+     * loaded, and those drawn on its hidden walls; those of the room itself go in inRoom as well,
+     * and those drawn on the hidden walls of its other rooms in drawnElsewhere.
      */
-    private static Set<Integer> picturesInBuilding(IsoCell cell, RoomDef room, Set<Integer> inRoom) {
+    private static Set<Integer> picturesInBuilding(IsoCell cell, RoomDef room, Set<Integer> inRoom, Set<Integer> drawnElsewhere) {
         Set<Integer> pictures = new HashSet<>();
         ArrayList<RoomDef> rooms = room.getBuilding().rooms;
         for (int i = 0; i < rooms.size(); i++) {
@@ -547,6 +553,8 @@ final class HiddenWalls {
                                 pictures.add(drawn.picture());
                                 if (each == room) {
                                     inRoom.add(drawn.picture());
+                                } else {
+                                    drawnElsewhere.add(drawn.picture());
                                 }
                             }
                         }
