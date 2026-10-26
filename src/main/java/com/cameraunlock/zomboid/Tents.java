@@ -58,8 +58,12 @@ final class Tents {
      * line, a pale or dark seam along the canvas from inside.
      */
     static final float LINING_DRAWN_IN = 8f;
-    /** How far past its square's edge the strip beyond the eaves goes, in squares: the painted strip is narrower, and the rest of the face is clear. */
-    static final float FLAP_OUT = 0.25f;
+    /**
+     * How far past its square's edge the strip beyond the eaves goes, in squares: as far as its
+     * sprites paint it, 16 frame pixels down from the edge where a quarter of a square is 24.
+     * Laid a quarter wide, the face was cut to the slant of the paint's edge, a stair of pixels.
+     */
+    static final float FLAP_OUT = 1f / 6f;
 
     /**
      * One piece of a tent on its square. alongX is the way the canopy's slope runs (west to

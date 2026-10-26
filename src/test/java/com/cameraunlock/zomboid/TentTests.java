@@ -66,7 +66,8 @@ final class TentTests {
         check(Tents.of(SHEET + 40).kind() == Tents.GABLE && !Tents.of(SHEET + 40).alongX(), "40 is a gable on a west edge");
         check(Tents.of(SHEET + 32).kind() == Tents.FLAP && !Tents.of(SHEET + 32).alongX(), "32 is a strip on a west edge");
         check(Tents.of(SHEET + 39).kind() == Tents.FLAP && Tents.of(SHEET + 39).alongX(), "39 is a strip on a north edge");
-        check(Tents.FLAP_OUT > 0f && Tents.FLAP_OUT < 0.5f, "the strip goes a little past the eaves");
+        // Read off 32..34 and 37..39: the strip's paint runs 15 frame pixels down from a pixel under the edge, and a quarter of a square there is 24.
+        check(Math.abs(Tents.FLAP_OUT - 0.25f * 16f / 24f) < 1e-6f, "the strip goes past the eaves as far as it is painted: " + Tents.FLAP_OUT);
     }
 
     private static void aRopeRunsFromUnderTheEavesToTheGroundOutside() {
