@@ -3,7 +3,6 @@ package com.cameraunlock.zomboid;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -133,7 +132,8 @@ final class DepthFights {
         double layers, cards;
         String label;
         int source;
-        int index;
+        /** The cell its bounds start in, along its plane's two axes: see pairs. */
+        long cellU, cellV;
     }
 
     /** What the pairs of one kind add up to. */
@@ -148,6 +148,8 @@ final class DepthFights {
 
     private static long lastNanos;
     private static long lastShape;
+    /** The fullest bucket of the last audit, for the log: what makes an audit slow. */
+    private static String largest = "none";
     private static final HashMap<Integer, Models.Model> MODELS = new HashMap<>();
 
     /** Run by the logic thread after a frame's builds: audits the builds it shows, at most every few seconds and only once they have changed. */
@@ -182,8 +184,8 @@ final class DepthFights {
         for (Kind kind : found.values()) {
             total += kind.area;
         }
-        Log.info(String.format(Locale.ROOT, "depth fights: %d triangles within %.0f tiles of (%.1f, %.1f, %.2f), %d kinds of pair, %.3f square tiles in all, took %.0f ms",
-                tris.size(), REACH, eyeX, eyeY, eyeUp, found.size(), total, (System.nanoTime() - now) / 1e6));
+        Log.info(String.format(Locale.ROOT, "depth fights: %d triangles within %.0f tiles of (%.1f, %.1f, %.2f), %d kinds of pair, %.3f square tiles in all, took %.0f ms, fullest bucket %s",
+                tris.size(), REACH, eyeX, eyeY, eyeUp, found.size(), total, (System.nanoTime() - now) / 1e6, largest));
         found.entrySet().stream().sorted((a, b) -> Double.compare(b.getValue().area, a.getValue().area)).forEach(e -> {
             Kind kind = e.getValue();
             StringBuilder where = new StringBuilder();
@@ -343,20 +345,27 @@ final class DepthFights {
                 lowV = Math.min(lowV, v);
                 highV = Math.max(highV, v);
             }
-            for (long cu = (long) Math.floor(lowU / CELL); cu <= (long) Math.floor(highU / CELL); cu++) {
+            tri.cellU = (long) Math.floor(lowU / CELL);
+            tri.cellV = (long) Math.floor(lowV / CELL);
+            for (long cu = tri.cellU; cu <= (long) Math.floor(highU / CELL); cu++) {
                 for (long cv = (long) Math.floor(lowV / CELL); cv <= (long) Math.floor(highV / CELL); cv++) {
                     buckets.computeIfAbsent(key(normal, slice, cu, cv), k -> new ArrayList<>()).add(tri);
                 }
             }
         }
-        HashMap<String, Kind> found = new HashMap<>();
-        HashSet<Long> done = new HashSet<>();
-        for (int i = 0; i < tris.size(); i++) {
-            tris.get(i).index = i;
+        ArrayList<Tri> fullest = new ArrayList<>();
+        for (ArrayList<Tri> bucket : buckets.values()) {
+            if (bucket.size() > fullest.size()) {
+                fullest = bucket;
+            }
         }
+        largest = fullest.isEmpty() ? "none" : fullest.size() + " of " + fullest.get(0).label + " at " + String.format(Locale.ROOT, "%.1f, %.1f, %.2f",
+                fullest.get(0).p[0] + eyeX, fullest.get(0).p[1] + eyeY, fullest.get(0).p[2] + eyeUp) + " in " + buckets.size() + " buckets";
+        HashMap<String, Kind> found = new HashMap<>();
         for (Map.Entry<Long, ArrayList<Tri>> entry : buckets.entrySet()) {
             ArrayList<Tri> same = entry.getValue();
             long k = entry.getKey();
+            long cu = (k >>> 12) & 0xfffL, cv = k & 0xfffL;
             ArrayList<Tri> next = buckets.get(nextSlice(k));
             for (int i = 0; i < same.size(); i++) {
                 Tri a = same.get(i);
@@ -370,8 +379,8 @@ final class DepthFights {
                         if (a == b || a.source == b.source && a.source < 0) {
                             continue;
                         }
-                        int ia = a.index, ib = b.index;
-                        if (!done.add(Math.min(ia, ib) * (long) tris.size() + Math.max(ia, ib))) {
+                        // Two triangles share every cell from where both their bounds have started on, so a pair is tried in that one only.
+                        if ((Math.max(a.cellU, b.cellU) & 0xfffL) != cu || (Math.max(a.cellV, b.cellV) & 0xfffL) != cv) {
                             continue;
                         }
                         test(a, b, found);
