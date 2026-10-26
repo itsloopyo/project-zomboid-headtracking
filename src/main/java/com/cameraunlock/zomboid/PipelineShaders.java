@@ -3182,11 +3182,18 @@ final class PipelineShaders {
                 }
                 // Ground spreading over its neighbour thins out towards its edge, and the edge
                 // is ragged: tufts and patches, not a ruled fade. Not a stain, which is a haze
-                // of our own with no edge.
+                // of our own with no edge. It ends where it stops standing proud of the ground
+                // under it, in crumbs a few fingers across, and is either there or not: faded
+                // over a band, grass over bare ground read as paint. The crumbs are left out
+                // where a pixel covers more than one.
                 float shown = 1.0;
                 if (uLaid > 0.5 && !grass && !stainTint && vMaterial < 56.5 && laidCover < 0.999) {
                     float ragged = patches(vWorld.xy * 1.9) * 0.6 + patches(vWorld.xy * 6.1 + 17.0) * 0.4 - 0.5;
-                    shown = smoothstep(0.38, 0.62, laidCover + ragged * 3.0 * laidCover * (1.0 - laidCover));
+                    float crumbs = (patches(vWorld.xy * 17.0 + 5.0) * 0.6 + patches(vWorld.xy * 43.0 + 29.0) * 0.4 - 0.5)
+                            * (1.0 - smoothstep(0.012, 0.04, length(fwidth(vWorld.xy))));
+                    float proud = laidCover + (ragged * 3.0 + crumbs * 2.0) * laidCover * (1.0 - laidCover);
+                    float blur = max(fwidth(proud), 0.012);
+                    shown = smoothstep(0.5 - blur, 0.5 + blur, proud);
                     // Where it does not show it is left out: what is laid writes depth, so left in it
                     // would still hide whatever is laid on the same ground after it. And where the
                     // ground under the pixel is not its own square's (see under), which past the
