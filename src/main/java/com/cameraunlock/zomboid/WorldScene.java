@@ -6881,8 +6881,8 @@ final class WorldScene {
             if (room != RoomSight.OUTSIDE) {
                 contentsOf(room);
                 // The game's own view sees a room's hidden walls from outside, and cuts them down as it opens the room.
-                Texture floorTexture = textureOf(floor);
-                if (!gamesView && !empty && !unsought && floorTexture != null && HiddenWalls.drawnOn(x, y, z)) {
+                Texture floorTexture = !gamesView && !empty && !unsought && HiddenWalls.drawnOn(x, y, z) ? textureOf(floor) : null;
+                if (floorTexture != null) {
                     frameOf(floor, floorTexture);
                     cornerLights(localX, localY);
                     furnishingBuilder.addDrawn(x, y, z);

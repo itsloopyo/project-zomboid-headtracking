@@ -158,7 +158,7 @@ final class HiddenWalls {
 
     /** Whether a picture is drawn on either hidden wall of a square. Any thread. */
     static boolean drawnOn(int x, int y, int z) {
-        return DRAWN.containsKey(key(x, y, z, SOUTH)) || DRAWN.containsKey(key(x, y, z, EAST));
+        return !DRAWN.isEmpty() && (DRAWN.containsKey(key(x, y, z, SOUTH)) || DRAWN.containsKey(key(x, y, z, EAST)));
     }
 
     /**
@@ -333,8 +333,7 @@ final class HiddenWalls {
                         shown++;
                     }
                     // Only what is hung to be looked at, as hungOnAShownWall counts it: a curtain or a lamp leaves the wall bare.
-                    boolean looked = "WallObject".equals(properties.get("MoveType")) && object.getType() != IsoObjectType.lightswitch
-                            && !properties.has("HasLightOnSprite") && !properties.has("LightRadius") && !properties.has("BlocksPlacement");
+                    boolean looked = lookedAt(object, properties);
                     south |= looked && hungOn(properties, SOUTH);
                     east |= looked && hungOn(properties, EAST);
                 }
@@ -400,11 +399,9 @@ final class HiddenWalls {
             drawn.add(String.format(Locale.ROOT, "%s on the %s wall at %d,%d", Decor.nameOf(picture), best.wall() == SOUTH ? "south" : "east",
                     square.getX(), square.getY()));
             placed.add(best);
-            Spot hung = best;
-            spots.removeIf(spot -> spot.wall() == hung.wall() && Math.abs(spot.square().getX() - hung.square().getX())
-                    + Math.abs(spot.square().getY() - hung.square().getY()) <= 1);
+            takeBeside(spots, best);
         }
-        if (!drawn.isEmpty()) {
+        if (DevBuild.ON && !drawn.isEmpty()) {
             Log.info(String.format(Locale.ROOT, "drew on the hidden walls of the %s at %d,%d,%d (%d hung on its other walls): %s", room.getName(),
                     room.rects.get(0).x, room.rects.get(0).y, room.level, shown, String.join(", ", drawn)));
         }
@@ -550,8 +547,7 @@ final class HiddenWalls {
 
     /** Whether a thing on a square of a room hangs on one of the walls the game shows, its north or west, and is something hung to be looked at. */
     private static boolean hungOnAShownWall(IsoObject object, PropertyContainer properties) {
-        if (!"WallObject".equals(properties.get("MoveType")) || object.getType() == IsoObjectType.lightswitch || properties.has("HasLightOnSprite")
-                || properties.has("LightRadius") || properties.has("BlocksPlacement")) {
+        if (!lookedAt(object, properties)) {
             return false;
         }
         if (properties.has(IsoFlagType.attachedN) || properties.has(IsoFlagType.attachedW)) {
@@ -559,6 +555,12 @@ final class HiddenWalls {
         }
         String facing = properties.get("Facing");
         return !properties.has(IsoFlagType.attachedS) && !properties.has(IsoFlagType.attachedE) && ("S".equals(facing) || "E".equals(facing));
+    }
+
+    /** Whether a thing is hung on a wall to be looked at: not a light, a switch or a curtain. */
+    private static boolean lookedAt(IsoObject object, PropertyContainer properties) {
+        return "WallObject".equals(properties.get("MoveType")) && object.getType() != IsoObjectType.lightswitch && !properties.has("HasLightOnSprite")
+                && !properties.has("LightRadius") && !properties.has("BlocksPlacement");
     }
 
     /**
@@ -852,7 +854,11 @@ final class HiddenWalls {
         hung.add(String.format(Locale.ROOT, "%s %s on the %s wall at %d,%d (%s)", group, called.toLowerCase(Locale.ROOT), best.wall() == SOUTH ? "south" : "east",
                 square.getX(), square.getY(), name));
         placed.add(best);
-        Spot taken = best;
+        takeBeside(spots, best);
+    }
+
+    /** Takes from the spots the one something has just been hung on and those beside it on the same wall. */
+    private static void takeBeside(ArrayList<Spot> spots, Spot taken) {
         spots.removeIf(spot -> spot.wall() == taken.wall() && Math.abs(spot.square().getX() - taken.square().getX()) + Math.abs(spot.square().getY() - taken.square().getY()) <= 1);
     }
 

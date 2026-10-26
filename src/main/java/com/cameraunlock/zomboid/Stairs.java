@@ -56,15 +56,10 @@ final class Stairs {
      * with dark nosings (48 to 50 and 56 to 58) as well.
      */
     static boolean timber(String sprite) {
-        if (sprite == null || !sprite.startsWith(SHEET)) {
+        if (sprite == null) {
             return false;
         }
-        int index;
-        try {
-            index = Integer.parseInt(sprite.substring(SHEET.length()));
-        } catch (NumberFormatException notIndexed) {
-            return false;
-        }
+        int index = Sheets.place(sprite, SHEET);
         for (int timber : TIMBER) {
             if (timber == index) {
                 return true;

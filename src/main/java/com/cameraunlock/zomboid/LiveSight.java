@@ -40,6 +40,8 @@ final class LiveSight {
 
     /** The cone each local player takes in as the game last worked it out, in degrees across. NaN until it has. */
     private static final float[] coneDegrees = new float[View.COUNT];
+    /** The cosine of half of each cone. */
+    private static final float[] coneCos = new float[View.COUNT];
 
     static {
         Arrays.fill(coneDegrees, Float.NaN);
@@ -54,6 +56,7 @@ final class LiveSight {
             int index = player.getPlayerNum();
             if (index >= 0 && index < coneDegrees.length) {
                 coneDegrees[index] = SightRule.coneToDegrees(cone);
+                coneCos[index] = (float) Math.cos(Math.toRadians(coneDegrees[index] / 2f));
             }
         }
         return cone;
@@ -81,8 +84,7 @@ final class LiveSight {
         if (from == null || at == null || cell == null) {
             return marked;
         }
-        float coneCos = (float) Math.cos(Math.toRadians(coneDegrees[index] / 2f));
-        boolean inCone = player.getDotWithForwardDirection(character.getX(), character.getY()) >= coneCos;
+        boolean inCone = player.getDotWithForwardDirection(character.getX(), character.getY()) >= coneCos[index];
         if (marked && !inCone) {
             return true;
         }

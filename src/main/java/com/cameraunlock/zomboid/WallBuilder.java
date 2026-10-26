@@ -105,6 +105,8 @@ final class WallBuilder {
     /** Where in the chunk's lights the square beyond the wall last asked about is, or -1 when it is the same place as this side. */
     private int farLight;
     private final float[] laidTint = new float[4];
+    /** Of each piece of a log wall's course, whether its sprite paints it and whether a log is laid there: see addLogs. */
+    private final boolean[] coursePainted = new boolean[Math.round(1f / LogWalls.PIECE)], courseLaid = new boolean[coursePainted.length];
     /** The paper of the wall being added, or null for a wall that shows its sprite, and whether the sprite being added is an inside wall of a house. */
     private Papers.Paper paper;
     /**
@@ -638,7 +640,8 @@ final class WallBuilder {
         Papers.Paper farPaper = null;
         WallFinish.Facing farStood = null, farPaperBy = null;
         if (tint != 0 && faced == null && farTiles == null && farShows != null && build.overLayer == 0 && Own.textures(build.playerIndex)) {
-            for (WallFinish.Facing room : new WallFinish.Facing[] {farWall, farWallAcross}) {
+            for (int across = 0; across < 2; across++) {
+                WallFinish.Facing room = across == 0 ? farWall : farWallAcross;
                 if (farPaper != null || room == null || room.sprite.getName() == null || !room.sprite.getName().startsWith("walls_interior_house")) {
                     continue;
                 }
@@ -826,7 +829,7 @@ final class WallBuilder {
         boolean north = da != 0f;
         float base = (z + build.geometry.raised) * ViewCamera.LEVEL_HEIGHT;
         float foot = base + Math.min(build.geometry.liftAt(0f, 0f), build.geometry.liftAt(da, db)) - (north ? 0f : LogWalls.RADIUS);
-        int pieces = Math.round(1f / LogWalls.PIECE);
+        int pieces = coursePainted.length;
         // Halfway along and up is the middle of a log, but of the doorway on a door's sprite: there the first log painted.
         float dyeAlong = LogWalls.DYE_ALONG, dyeUp = LogWalls.DYE_HIGH;
         for (int course = 0; course < 10 && !paintedOnWall(texture, 0f, 0f, da, db, dyeAlong, dyeUp, 0f); course++) {
@@ -841,7 +844,7 @@ final class WallBuilder {
         float u = SpriteGeometry.textureU(build.frame, da * dyeAlong, db * dyeAlong), v = SpriteGeometry.textureV(build.frame, da * dyeAlong, db * dyeAlong, dyeUp);
         int wood = 1 << Models.WOOD, id = texture.getID(), along = north ? 0 : 1;
         int reveal = Math.round(2f * LogWalls.RADIUS / LogWalls.PIECE);
-        boolean[] painted = new boolean[pieces], laid = new boolean[pieces];
+        boolean[] painted = coursePainted, laid = courseLaid;
         for (int course = 0; course < 10; course++) {
             float under = foot + 2f * course * LogWalls.RADIUS;
             int count = 0;
