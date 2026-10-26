@@ -1350,7 +1350,9 @@ final class RoofFit {
      * short at, the building goes on under it, and the slope goes on down beside it along the level line. Read as the
      * eave, it set the far side made from the row a level top at the height of the crown it came over, and the walls
      * under that stood as a box at the back of the house (10402 and 10406, 12720..12729), or a strip of the far slope
-     * a row higher than the rest, a dark flap over the rake (3125, 5758).
+     * a row higher than the rest, a dark flap over the rake (3125, 5758). Over a crown longer than a square the slope
+     * goes on beside the crown's end: looked for only beside the row, the rows over the middle of a lower wing's crown
+     * made their far side a row short, a flat at the ridge's height standing out over the wall (13516..13520, 2265..2269).
      */
     private static boolean overABay(HashMap<Long, Tile> at, HashMap<Long, Boolean> built, Site site, Tile lowest, int dx, int dy) {
         int x = lowest.x - dx, y = lowest.y - dy;
@@ -1365,12 +1367,21 @@ final class RoofFit {
             return false;
         }
         for (int side = -1; side <= 1; side += 2) {
-            // A tile whose top is on a whole level is held a level down.
-            for (int dz = 0; dz >= -1; dz--) {
-                Tile beside = at.get(key(x + (dx == 0 ? side : 0), y + (dy == 0 ? side : 0), lowest.z + dz));
-                if (beside != null && beside.slopes() && beside.fitAxis == lowest.fitAxis && beside.up() == lowest.up()
-                        && Math.abs(Math.max(beside.fitLow, beside.fitHigh) - foot) <= JOIN) {
-                    return true;
+            // Along a crown the slope comes down onto, as far as the crown goes: the slope goes on beside its end.
+            for (int along = 1; along <= WIDEST_TOP; along++) {
+                int bx = x + (dx == 0 ? side * along : 0), by = y + (dy == 0 ? side * along : 0);
+                boolean crown = false;
+                // A tile whose top is on a whole level is held a level down.
+                for (int dz = 0; dz >= -1; dz--) {
+                    Tile beside = at.get(key(bx, by, lowest.z + dz));
+                    if (beside != null && beside.slopes() && beside.fitAxis == lowest.fitAxis && beside.up() == lowest.up()
+                            && Math.abs(Math.max(beside.fitLow, beside.fitHigh) - foot) <= JOIN) {
+                        return true;
+                    }
+                    crown |= beside != null && beside.sheet && Math.abs(beside.fitLow - foot) <= JOIN;
+                }
+                if (!crown) {
+                    break;
                 }
             }
         }
