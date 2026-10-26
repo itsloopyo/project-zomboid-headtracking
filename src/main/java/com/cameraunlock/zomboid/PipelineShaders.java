@@ -2122,6 +2122,12 @@ final class PipelineShaders {
                 // it takes its colour, as a sprig's is, and the part over it says which kind of
                 // sprig its leaves are.
                 bool core = vMaterial > 80.5 && vMaterial < 81.5;
+                // A crown looked up into: between which steepnesses of the look (the up of the way from
+                // the eye to the leaf) its underside opens, and the most of its downturned sprigs left out.
+                // A sprig turning edge on fades over this much more of the turn within SPRIG_FADES_NEAR
+                // tiles of the eye, and not at all past SPRIG_FADES_FAR, where it goes whole as it did.
+                const float CROWN_UNDER_FROM = 0.35, CROWN_UNDER_FULL = 0.8, CROWN_UNDER_THINS = 0.45;
+                const float SPRIG_FADES = 0.3, SPRIG_FADES_NEAR = 4.0, SPRIG_FADES_FAR = 12.0;
                 if (core) {
                     // Standing in a tree, the inside of its crown is not a wall round the eye.
                     if ((length(uEye - vWorld) - uRangeFrom) < 0.7) {
@@ -2162,6 +2168,17 @@ final class PipelineShaders {
                     // edges would rule the crown in squares: a second lot lies over the gaps of the first.
                     vec2 over = lies.yx * 1.37 + 0.41;
                     vec4 behind = texture2DGradARB(uSprigs, (kindAt + 0.03 + 0.94 * fract(over)) * one, dFdx(over) * one, dFdy(over) * one);
+                    // Looked up into from under the tree it is the undersides of leaves with the light
+                    // between them, not a lid: where neither lot has a leaf it is open, and the steeper
+                    // the look up the more of the second lot goes too. Its far side, seen from within,
+                    // goes but for the thickest of its leaves, so what shows through the gaps is the
+                    // crown's own sprigs and wood and the sky. The gaps are the leaves' own, so a head
+                    // turned on the spot moves none of them.
+                    float under = smoothstep(CROWN_UNDER_FROM, CROWN_UNDER_FULL, normalize(vWorld - uEye).z);
+                    float within = dot(vNormal, uEye - vWorld) < 0.0 ? 1.0 : 0.5;
+                    if (max(sprig.a, behind.a * (1.0 - under)) < within * under) {
+                        discard;
+                    }
                     if (sprig.a < 0.5) {
                         sprig = vec4(behind.rgb * 0.8, behind.a);
                     }
@@ -2196,10 +2213,22 @@ final class PipelineShaders {
                     if ((length(uEye - vWorld) - uRangeFrom) < 0.22 + 0.3 * each) {
                         discard;
                     }
+                    // From under a tree the lower face of its crown is leaves with the light between
+                    // them: of the sprigs turned down, the more steeply they are looked up at, the
+                    // more are left out, each whole.
+                    vec3 toLeaf = normalize(vWorld - uEye);
+                    if (each < CROWN_UNDER_THINS * smoothstep(CROWN_UNDER_FROM, CROWN_UNDER_FULL, toLeaf.z) * smoothstep(0.2, -0.3, normalize(vNormal).z)) {
+                        discard;
+                    }
                     // A card seen along its own flat is a smear of leaves a pixel deep. It is left
                     // out before it gets there: the sprigs turned other ways are the crown from here.
+                    // Near the eye, where a card is large, it goes by degrees as it turns: its leaves
+                    // thin away in patches fixed to the card. What decides it is where the eye is and
+                    // not where it looks, so a head turned on the spot leaves every sprig as it was.
                     vec3 lies = cross(dFdx(vPlace), dFdy(vPlace));
-                    if (abs(dot(normalize(lies + vec3(1e-12)), normalize(uEye - vWorld))) < 0.22 + 0.16 * each) {
+                    float edgeOn = 0.22 + 0.16 * each;
+                    float fades = SPRIG_FADES * (1.0 - smoothstep(SPRIG_FADES_NEAR, SPRIG_FADES_FAR, length(uEye - vWorld) - uRangeFrom));
+                    if (patches(on * 4.0 + cell * 0.37) > smoothstep(edgeOn, edgeOn + fades + 1e-4, abs(dot(normalize(lies + vec3(1e-12)), -toLeaf)))) {
                         discard;
                     }
                     float which = floor(vMaterial - 71.5);
