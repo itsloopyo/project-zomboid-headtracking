@@ -34,7 +34,7 @@ final class Farm {
     /** How high on its sprite a stack of logs gives its bark's colour, in levels, over the layers under it; and a load of long logs. */
     private static final float LOG_DYE = 0.18f, BUNDLE_DYE = 0.75f;
     /** Where on its sprite each thing gives its colour, in levels over its foot. */
-    private static final float TROUGH_DYE = 0.12f, ROOF_DYE = 0.32f, BENCH_DYE = 0.15f, COMPOST_DYE = 0.12f, CART_DYE = 0.25f, BATH_DYE = 0.15f,
+    private static final float TROUGH_DYE = 0.12f, ROOF_DYE = 0.32f, BENCH_DYE = 0.15f, BENCH_BARK_DYE = 0.1f, COMPOST_DYE = 0.12f, CART_DYE = 0.25f, BATH_DYE = 0.15f,
             BATH_WATER = 0.322f, LICK_DYE = 0.05f, COAT_DYE = 0.06f, HAT_DYE = 0.34f, BED_DYE = 0.12f, FRONDS_DYE = 0.32f, FLAMINGO_DYE = 0.27f;
     /**
      * Where a mall's planter gives the colour of its stone, low on the face its sprite paints over the square's middle, and
@@ -121,7 +121,7 @@ final class Farm {
             return new Outdoors.Piece("salt_lick", 0).dye(PAINT, LICK_DYE).fit();
         }
         if (called.equals("Bench") && kind.equals("Log") && along == 1 && across == 2 && faces != Outdoors.NONE) {
-            return new Outdoors.Piece("log_bench", faces).dye(WOOD, BENCH_DYE).fit();
+            return new Outdoors.Piece("log_bench", faces).dye(WOOD, BENCH_DYE).also(DARK_WOOD, BENCH_BARK_DYE).fit();
         }
         if (called.equals("Stump") && single && name.startsWith(CRAFTED)) {
             return new Outdoors.Piece("stump", 0).fit();

@@ -5185,19 +5185,23 @@ def salt_lick():
 
 
 def log_bench(name):
-    """A bench of a log split down its middle, its flat face up for the seat, on two pairs of splayed legs. It is long along x."""
+    """A bench of a log split down its middle: the half-log under a seat as wide as the log, its sawn ends pale end grain,
+    on two pairs of legs splayed out to its sides. It is long along x."""
     model = Model(name)
-    long, seat, radius = 1.7, 0.41, 0.17
-    half_round = [(radius * math.cos(math.radians(a)), seat - 0.012 + radius * 0.55 * math.sin(math.radians(a))) for a in range(180, 361, 15)]
+    long, seat, radius, end = 1.7, 0.42, 0.2, 0.012
+    half_round = [(radius * math.cos(math.radians(a)), seat - 0.015 + radius * math.sin(math.radians(a))) for a in range(180, 361, 15)]
+    outline = [(y, z) for y, z in reversed(half_round)]
     bark = bmesh.new()
-    outline_along_x(bark, [(y, z) for y, z in reversed(half_round)], -long / 2, long / 2)
-    for x in (-long / 2 + 0.2, long / 2 - 0.2):
+    outline_along_x(bark, outline, -long / 2 + end, long / 2 - end)
+    for x in (-long / 2 + 0.22, long / 2 - 0.22):
         for side in (-1, 1):
-            beam(bark, (x, side * 0.26, 0.0), (x, side * 0.05, seat - 0.12), 0.07, 0.07)
+            beam(bark, (x, side * 0.3, 0.0), (x, side * 0.06, seat - 0.18), 0.06, 0.06)
     model.hard(bark, "dark_wood", bevel=0.012, segments=1)
-    top = bmesh.new()
-    cuboid(top, -long / 2 + 0.01, long / 2 - 0.01, -radius + 0.01, radius - 0.01, seat - 0.014, seat)
-    model.hard(top, "wood", bevel=0.004, segments=1)
+    grain = bmesh.new()
+    for x0 in (-long / 2, long / 2 - end):
+        outline_along_x(grain, outline, x0, x0 + end)
+    cuboid(grain, -long / 2, long / 2, -radius + 0.004, radius - 0.004, seat - 0.015, seat)
+    model.hard(grain, "wood", bevel=0.004, segments=1)
     return model
 
 
