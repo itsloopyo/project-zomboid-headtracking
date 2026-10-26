@@ -2246,7 +2246,7 @@ final class SpriteGeometry {
         }
         float a = Math.clamp(polygon[at], 0f, 1f), b = Math.clamp(polygon[at + 1], 0f, 1f);
         float w0 = (1f - a) * (1f - b), w1 = a * (1f - b), w2 = a * b, w3 = (1f - a) * b;
-        mesh.sway = cover == null ? 0f : 1f - (cover.length == GRID_COVER ? gridCover(a, b) : cover[0] * w0 + cover[1] * w1 + cover[2] * w2 + cover[3] * w3);
+        mesh.sway = cover == null ? 0f : 1f - (cover.length == GRID_COVER ? gridCover(cover, a, b) : cover[0] * w0 + cover[1] * w1 + cover[2] * w2 + cover[3] * w3);
         mesh.litAt(frame, w0, w1, w2, w3);
         float shade = creaseLow || creaseHigh ? creased(polygon[at], polygon[at + 1]) : 1f;
         mesh.add(tileX + polygon[at] + shownA, tileY + polygon[at + 1] + shownB,
@@ -2265,7 +2265,7 @@ final class SpriteGeometry {
     }
 
     /** How much of the face shows at (a, b) of the square, from a cover of GRID_COVER: within the quarter of the square the point is in. */
-    private float gridCover(float a, float b) {
+    static float gridCover(float[] cover, float a, float b) {
         int i = a < 0.5f ? 0 : 1, j = b < 0.5f ? 0 : 1;
         float u = a * 2f - i, v = b * 2f - j;
         int at = j * 3 + i;

@@ -36,6 +36,7 @@ final class FloorBuilder {
      */
     private static final float MADE_EDGE = 0.6f;
     private final int[] around = new int[25];
+    private final float[] uppermostCorners = new float[4];
     /**
      * Of a grid of three by three, the middles of the north, west, east and south edges and the step from
      * each to its two corners.
@@ -141,6 +142,41 @@ final class FloorBuilder {
             }
         }
         return spread;
+    }
+
+    /**
+     * The ground spreadGround lays last, so uppermost, over a square of open ground, as the place of
+     * the square it is from in the frame's grids, and how much of the square it covers into grid (a
+     * SpriteGeometry.GRID_COVER). -1 where none spreads over it.
+     */
+    int uppermostSpread(int x, int y, int localX, int localY, float[] grid) {
+        int own = (localX + 1) * WorldScene.LIGHT_SPAN + localY + 1;
+        if (build.groundKind[own] != Terrain.NATURAL || !spreadsOver(localX, localY)) {
+            return -1;
+        }
+        int mine = build.groundRank[own];
+        int spread = 0, top = -1;
+        for (int di = -1; di <= 1; di++) {
+            for (int dj = -1; dj <= 1; dj++) {
+                int at = own + di * WorldScene.LIGHT_SPAN + dj;
+                if (!spreads(at, own, mine)) {
+                    continue;
+                }
+                boolean done = false;
+                for (int k = 0; k < spread; k++) {
+                    done |= spreading[k] == build.groundRank[at];
+                }
+                if (!done) {
+                    spreading[spread++] = build.groundRank[at];
+                    top = at;
+                }
+            }
+        }
+        if (top >= 0) {
+            around(x, y, x - localX, y - localY, own, mine, build.groundRank[top]);
+            coverFrom(around, uppermostCorners, grid);
+        }
+        return top;
     }
 
     /** What the squares round one are to ground spreading over it, in coverFrom's around: */

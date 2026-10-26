@@ -40,6 +40,12 @@ final class PlantBuilder {
     private static final float GRASS_SPILL = 0.35f;
     /** How far in from a side where the lawn ends its plants keep, in tiles. */
     private static final float LAWN_KEEPS_IN = 0.05f;
+    /**
+     * Grass spread over bare ground stands up where it covers more of it than the first of these, and
+     * grows as well as on its own square where it covers the second: the picture's crumbled edge of it
+     * lies round half.
+     */
+    private static final float SPREAD_GROWS = 0.45f, SPREAD_THRIVES = 0.9f;
     private static final int CROWN_LEAST_PLACES = 12;
     /**
      * A fern the game paints: its size for half the width its sprite paints, at least and at most,
@@ -124,6 +130,22 @@ final class PlantBuilder {
         this.build = build;
     }
 
+    /** How much of the square being grown the lawn grass spreading over it covers: see FloorBuilder.uppermostSpread. */
+    private final float[] spreadCover = new float[SpriteGeometry.GRID_COVER];
+    /** The ground of a square that grass spreads over: it grows only where the grass covers it, and thinner towards its edge. */
+    private final Grass.Ground spreadGround = new Grass.Ground() {
+        @Override
+        public float vigour(float a, float b) {
+            float t = Math.clamp((SpriteGeometry.gridCover(spreadCover, a, b) - SPREAD_GROWS) / (SPREAD_THRIVES - SPREAD_GROWS), 0f, 1f);
+            return build.vigour(a, b) * t * t * (3f - 2f * t);
+        }
+
+        @Override
+        public boolean grows(float a, float b) {
+            return build.grows(a, b) && SpriteGeometry.gridCover(spreadCover, a, b) > SPREAD_GROWS;
+        }
+    };
+
     /** Says that what is being added is made by the band's own distance: the build is then another in every other band. */
     private void alikeOnly() {
         build.alike &= 1 << build.building.band;
@@ -147,6 +169,7 @@ final class PlantBuilder {
     void growGrass(int x, int y, int localX, int localY) {
         int own = (localX + 1) * WorldScene.LIGHT_SPAN + localY + 1;
         if (!isLawn(own)) {
+            growSpread(x, y, localX, localY);
             return;
         }
         // Over more grass a blade may hang past its square. Over a path it is untidy, and
@@ -163,6 +186,25 @@ final class PlantBuilder {
         // Looking no way, as long grass is grown: a lawn left out behind the view was bare when the head turned to it.
         Grass.lawn(build.geometry, WorldScene.laid.get(build.groundTexture[own].getID()), build.frame, x, y, build.camera.eyeX, build.camera.eyeY, 0f, 0f,
                 build.lawnWest ? 0f : LAWN_KEEPS_IN, build.lawnEast ? 1f : 1f - LAWN_KEEPS_IN, build.lawnNorth ? 0f : LAWN_KEEPS_IN, build.lawnSouth ? 1f : 1f - LAWN_KEEPS_IN, build, build.grassDensity());
+    }
+
+    /**
+     * Lawn grass the picture spreads over the bare ground of the next square stands up there too,
+     * as far as it covers the ground, thinning towards its edge, where a blade or two leans out
+     * over the bare ground. Laid flat, it read as paint on it.
+     */
+    private void growSpread(int x, int y, int localX, int localY) {
+        int at = build.floorBuilder.uppermostSpread(x, y, localX, localY, spreadCover);
+        if (at < 0 || !isLawn(at)) {
+            return;
+        }
+        build.lawnWest = build.lawnEast = build.lawnNorth = build.lawnSouth = true;
+        build.grownLocalX = localX;
+        build.grownLocalY = localY;
+        build.grownUnder = 0.85f;
+        build.frameOf(build.groundObject[at], build.groundTexture[at]);
+        Grass.lawn(build.geometry, WorldScene.laid.get(build.groundTexture[at].getID()), build.frame, x, y, build.camera.eyeX, build.camera.eyeY, 0f, 0f,
+                0f, 1f, 0f, 1f, spreadGround, build.grassDensity());
     }
 
     /**
