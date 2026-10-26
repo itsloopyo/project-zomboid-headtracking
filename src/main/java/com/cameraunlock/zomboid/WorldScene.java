@@ -7893,6 +7893,9 @@ final class WorldScene {
             if (piece != null) {
                 boolean alongX = piece.alongX();
                 geometry.drawnIn = piece.kind() == Tents.CANOPY || piece.kind() == Tents.GABLE ? Tents.DRAWN_IN : 0f;
+                // Canvas is cloth: of no other material, its canopy under the sky took the ground's grain, and a green one was a lawn.
+                float made = frame.material;
+                frame.material = OpeningBuilder.DRAPE;
                 switch (piece.kind()) {
                     case Tents.CANOPY -> {
                         float rise = piece.to() - piece.from();
@@ -7914,6 +7917,7 @@ final class WorldScene {
                             alongX ? 0f : Tents.FLAP_OUT, alongX ? Tents.FLAP_OUT : 0f, -Tents.STEP * Tents.FLAP_OUT);
                     default -> throw new IllegalStateException("a tent's piece of kind " + piece.kind());
                 }
+                frame.material = made;
                 geometry.drawnIn = 0f;
             }
             if (rope != null && overLayer == 0) {

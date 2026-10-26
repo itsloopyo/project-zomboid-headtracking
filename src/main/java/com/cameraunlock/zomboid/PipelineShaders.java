@@ -3246,7 +3246,8 @@ final class PipelineShaders {
                 float grit = 0.0;
                 // How much of the ground's depth relieve has drawn: so much less is left to the lumps made up below.
                 float raisedGround = 0.0;
-                if (uOwnTextures > 0.5 && !model && !litter && vKind < 1.5 && vKind > 0.5 && n.z > 0.8) {
+                bool cloth = vMaterial > 68.5 && vMaterial < 69.5;
+                if (uOwnTextures > 0.5 && !model && !litter && !cloth && vKind < 1.5 && vKind > 0.5 && n.z > 0.8) {
                     // The game's pavement is a speckle a dot or two across, which from close is a
                     // field of blots: the concrete's grain is the picture's, and the sprite gives only
                     // its colour, the mean of a ring of dots round the pixel. Slabs laid as tiles
