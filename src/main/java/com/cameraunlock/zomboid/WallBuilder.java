@@ -703,7 +703,7 @@ final class WallBuilder {
         if (build.overLayer == 0 || farRoom == nearRoom) {
             addSkin(inRoom(far, farRoom), opening, at, x, y, z, 0f, 0f, da, db, fromStart, fromEnd, fromTop, startIsLow);
         }
-        if (faced != null && build.overLayer == 0 && !build.logs && LogWalls.is(faced.sprite.getName()) && Own.buildings()) {
+        if (faced != null && build.overLayer == 0 && !build.logs && Own.buildings() && LogWalls.is(faced.sprite.getName())) {
             addFarLogs(faced.texture, texture, x, y, z, da, db);
         }
         build.frame.flat = 0;

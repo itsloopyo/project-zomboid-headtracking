@@ -11,6 +11,7 @@ import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
+import java.util.regex.Pattern;
 import se.krka.kahlua.vm.KahluaTable;
 import zombie.core.properties.PropertyContainer;
 import zombie.iso.IsoCell;
@@ -451,10 +452,11 @@ final class HiddenWalls {
     /** Pictures of those subjects that carry a name or a sign: hung where the house does not show them, they bring in someone it has not got. */
     static final Set<String> NAMED = Set.of("boxing-4", "hockey-1", "bowling-3");
     static final String FAMILY = "family";
+    private static final Pattern NUMBERED = Pattern.compile("-[0-9]+$");
 
     /** What a picture is of: its name before the number, "tennis" for "tennis-3". */
     static String subjectOf(String picture) {
-        return picture.replaceFirst("-[0-9]+$", "");
+        return NUMBERED.matcher(picture).replaceFirst("");
     }
 
     /**
@@ -490,15 +492,8 @@ final class HiddenWalls {
         if (!drawnElsewhere.containsAll(family)) {
             family.removeAll(drawnElsewhere);
         }
-        return List.of(ints(taste), ints(family), ints(landscapes));
-    }
-
-    private static int[] ints(List<Integer> list) {
-        int[] out = new int[list.size()];
-        for (int i = 0; i < out.length; i++) {
-            out[i] = list.get(i);
-        }
-        return out;
+        return List.of(taste.stream().mapToInt(Integer::intValue).toArray(), family.stream().mapToInt(Integer::intValue).toArray(),
+                landscapes.stream().mapToInt(Integer::intValue).toArray());
     }
 
     /**
