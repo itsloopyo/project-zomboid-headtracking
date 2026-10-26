@@ -3396,7 +3396,7 @@ final class PipelineShaders {
                     stone *= 1.0 - 0.14 * smoothstep(1.9, 2.0, vUv.y) * smoothstep(0.4, 0.8, patches(vWorld.xy * 6.0 + 17.0));
                     texel.rgb = stone * (1.0 - 0.35 * joint) * (1.0 - 0.3 * chip * smoothstep(0.8, 1.2, vUv.y));
                 }
-                if (uOwnTextures > 0.5 && (roofing || vMaterial > 1.5 && vMaterial < 3.5 || vMaterial > 5.5 && vMaterial < 8.5)) {
+                if (uOwnTextures > 0.5 && (roofing || vMaterial > 1.5 && vMaterial < 3.5 || vMaterial > 5.5 && vMaterial < 8.5 || vMaterial > 117.5 && vMaterial < 118.5)) {
                     // The place is taken within sixty tiles, not on the whole map: ten thousand
                     // tiles out a number holds a thousandth of a tile and no finer, and a grain
                     // read at such places is ruled with stripes a pixel or two wide. Every

@@ -409,7 +409,7 @@ final class FloorBuilder {
         float made = build.frame.material, red = build.frame.red, green = build.frame.green, blue = build.frame.blue;
         build.frame.cornersInto(build.paperRed, build.paperGreen, build.paperBlue, build.paperUnlit);
         // Slabs and pavers laid outside, a drive or a path, are paving: as tiles they took the grain of tarmac.
-        build.frame.material = carpet ? WorldScene.CARPET : outside && (tiles.rimmed || tiles.pavers != null || tiles.hexes != null) ? Ground.PAVING : WorldScene.TILE;
+        build.frame.material = carpet ? WorldScene.FLOOR_CARPET : outside && (tiles.rimmed || tiles.pavers != null || tiles.hexes != null) ? Ground.PAVING : WorldScene.TILE;
         float each = 1f / count;
         layFloor(true);
         if (terrazzo) {

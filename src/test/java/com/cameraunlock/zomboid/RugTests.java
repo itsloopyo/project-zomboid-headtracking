@@ -29,9 +29,9 @@ final class RugTests {
         Checks.check(Rugs.kindOf("floors_rugs_02_3") == Rugs.FUR, "a shag rug is fur");
         Checks.check(Rugs.kindOf("rugs_animals_33") == Rugs.HIDE, "a cowhide is a hide");
         Checks.check(Rugs.kindOf("floors_interior_carpet_01_5") < 0 && Rugs.kindOf(null) < 0, "a carpet and no name are no rug");
-        Checks.check(Rugs.material(Rugs.WOVEN, WorldScene.CARPET) == WorldScene.CARPET && Rugs.material(Rugs.FUR, WorldScene.CARPET) == WorldScene.CARPET,
+        Checks.check(Rugs.material(Rugs.WOVEN, WorldScene.FLOOR_CARPET) == WorldScene.FLOOR_CARPET && Rugs.material(Rugs.FUR, WorldScene.FLOOR_CARPET) == WorldScene.FLOOR_CARPET,
                 "woven and fur rugs keep the carpet's pile");
-        Checks.check(Rugs.material(Rugs.HIDE, WorldScene.CARPET) == 0f, "a hide carries its hair in its picture alone");
+        Checks.check(Rugs.material(Rugs.HIDE, WorldScene.FLOOR_CARPET) == 0f, "a hide carries its hair in its picture alone");
     }
 
     /**

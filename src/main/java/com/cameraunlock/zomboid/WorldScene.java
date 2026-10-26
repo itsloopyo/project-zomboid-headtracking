@@ -2109,6 +2109,8 @@ final class WorldScene {
     static final float TERRAZZO = 98f;
     /** The canvas of a tent or a stall: cloth, whose weave is the mod's own picture. */
     static final float CANVAS = 99f;
+    /** A carpet or rug laid on a floor: its nap as CARPET's, but a pattern and not furniture drawn with a dark line round it. */
+    static final float FLOOR_CARPET = 118f;
     /** The game's two hay floors. */
     private static final Set<String> HAY_FLOORS = Set.of("vegetation_farm_01_12", "vegetation_farm_01_13");
     /** What the game calls the sheets and boards it hangs flat on a wall. */
@@ -2194,7 +2196,7 @@ final class WorldScene {
             return BOARDS;
         }
         if (name.startsWith("floors_interior_carpet") || name.startsWith("floors_rugs") || name.startsWith("floor_carpet_motif")) {
-            return CARPET;
+            return FLOOR_CARPET;
         }
         if (name.startsWith("walls_")) {
             return PAINT;

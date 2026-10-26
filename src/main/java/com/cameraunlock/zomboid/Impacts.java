@@ -164,7 +164,7 @@ final class Impacts {
         if (material == WorldScene.WOOD || material == WorldScene.PLANKS || material == WorldScene.BOARDS || material == WorldScene.BARK) {
             return WOOD;
         }
-        if (material == WorldScene.CARPET) {
+        if (material == WorldScene.CARPET || material == WorldScene.FLOOR_CARPET) {
             return SOFT;
         }
         if (material == WorldScene.EARTH) {
