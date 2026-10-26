@@ -62,6 +62,7 @@ final class RoofTests {
         Checks.run("slopeThatClimbsPastItsCrownLiesLevel", RoofTests::slopeThatClimbsPastItsCrownLiesLevel);
         Checks.run("farSideOfARowOverADormerStandsOnTheWall", RoofTests::farSideOfARowOverADormerStandsOnTheWall);
         Checks.run("roomWithNoFloorUnderTheRoofIsNoStorey", RoofTests::roomWithNoFloorUnderTheRoofIsNoStorey);
+        Checks.run("roomTheSlopePassesWhollyOverIsNoStoreyItStopsAt", RoofTests::roomTheSlopePassesWhollyOverIsNoStoreyItStopsAt);
         Checks.run("eaveOverALeanToThatStopsShortOfItIsMade", RoofTests::eaveOverALeanToThatStopsShortOfItIsMade);
         Checks.run("trimPastAGableIsNoRoofGoingOn", RoofTests::trimPastAGableIsNoRoofGoingOn);
         Checks.run("trimPastAHipsCornerLeavesTheCornersEave", RoofTests::trimPastAHipsCornerLeavesTheCornersEave);
@@ -1395,6 +1396,28 @@ final class RoofTests {
         check(!site.taken(0, 0, 1, 1f + 2 * THIRD) && !site.taken(0, 2, 1, 1f + 2 * THIRD), "the loft's gable end squares are under the made slope, no storey");
         check(site.taken(4, 0, 1, 1f + 2 * THIRD), "a room with a floor is a storey the slope stops at");
         check(site.taken(5, 0, 1, 1f + 2 * THIRD), "and so is its stairwell, the one square of it with no floor");
+    }
+
+    /**
+     * The farmhouse at 2863..2870 x 10395..10403: its attic, a room with floors on level 1 here, lies under the ridge, and
+     * the far slope made from the eave on level 1 passes a level over it there. The attic is no storey that slope stops at.
+     */
+    private static void roomTheSlopePassesWhollyOverIsNoStoreyItStopsAt() throws Exception {
+        TestMap map = new TestMap();
+        zombie.iso.RoomDef atticDef = new zombie.iso.RoomDef(1);
+        atticDef.rects.add(new zombie.iso.RoomDef.RoomRect(0, 0, 2, 1));
+        zombie.iso.areas.IsoRoom attic = new zombie.iso.areas.IsoRoom(atticDef);
+        for (int x = 0; x <= 1; x++) {
+            map.cell.square(x, 0, 1).room(attic, 9L);
+            map.cell.square(x, 0, 1).floor(map.sprite("floors_interior_tilesandwood_01_0", IsoObjectType.normal, "solidfloor"));
+        }
+        map.cell.square(1, 0, 2).floor(map.sprite("floors_interior_tilesandwood_01_0", IsoObjectType.normal, "solidfloor"));
+        java.lang.reflect.Method made = Roofs.class.getDeclaredMethod("site", zombie.iso.IsoCell.class, int.class, java.util.HashSet.class);
+        made.setAccessible(true);
+        RoofFit.Site site = (RoofFit.Site) made.invoke(null, map.cell, 1, new java.util.HashSet<Long>());
+        check(!site.taken(0, 0, 1, 2f + THIRD), "a slope a level over the attic passes over it");
+        check(site.taken(0, 0, 1, 1f + 2 * THIRD), "a slope that comes down into the attic stops at it");
+        check(site.taken(1, 0, 1, 2f + THIRD), "a slope over the attic still stops at a floor on the level above");
     }
 
     private static void levelSheetPaintedOverItsFloorIsAFlatTop() {
