@@ -405,8 +405,10 @@ final class OpeningBuilder {
         edgeSide = paneSide(ownIsRoom);
 
         boolean wooden = door.kind == Doors.PLANKED || leaf.red - leaf.blue > WOODEN;
-        SpriteGeometry.Mesh wood = WorldScene.solid.get(WorldScene.PLAIN, WallSides.key(leaf.red, leaf.green, leaf.blue, WallSides.FLAT));
-        SpriteGeometry.Mesh joint = WorldScene.solid.get(WorldScene.PLAIN, WallSides.key(leaf.red * JOINT_SHADE, leaf.green * JOINT_SHADE, leaf.blue * JOINT_SHADE, WallSides.FLAT));
+        // Kept as finely as a tile's colour (WallSides.FINE): at a fifteenth a channel a dark maroon door rounds to a grey one.
+        SpriteGeometry.Mesh wood = WorldScene.solid.get(WorldScene.PLAIN, WallSides.laid(leaf.red, leaf.green, leaf.blue, 0f, 0f, 0f, WallSides.FINE));
+        SpriteGeometry.Mesh joint = WorldScene.solid.get(WorldScene.PLAIN,
+                WallSides.laid(leaf.red * JOINT_SHADE, leaf.green * JOINT_SHADE, leaf.blue * JOINT_SHADE, 0f, 0f, 0f, WallSides.FINE));
         SpriteGeometry.Mesh metal = WorldScene.solid.get(WorldScene.PLAIN);
         wood.sway = joint.sway = metal.sway = 0f;
         float level = ViewCamera.LEVEL_HEIGHT, wide = leaf.end - leaf.start;
