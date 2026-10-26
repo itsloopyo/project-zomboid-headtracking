@@ -312,7 +312,7 @@ final class HiddenWalls {
      * clear of doors and windows and over nothing taller than a counter, in the middle of a
      * stretch of that wall at least two squares long, as a person hangs one, until its hidden walls
      * carry as many things as its shown walls do, at least one and at most MOST_ON_HIDDEN_WALLS.
-     * A house's bathroom that has something on its shown walls gets one small landscape or flowers
+     * A house's bathroom or kitchen that has something on its shown walls gets one small landscape or flowers
      * where its hidden walls have nothing.
      * A home's pictures are of the house (homeSources): another of the subject the room shows,
      * one of the family's photographs, a landscape or flowers. A business's is one of the pictures
@@ -320,8 +320,8 @@ final class HiddenWalls {
      */
     private static void plan(IsoCell cell, RoomDef room) {
         Kind kind = kindOf(room.getName());
-        boolean bath = kind == Kind.BATH && Decor.HOME.equals(Decor.kindOf(room)) && home(room);
-        if (kind != Kind.BED && kind != Kind.LIVING && kind != Kind.HALL && kind != Kind.OFFICE && !bath) {
+        boolean small = (kind == Kind.BATH || kind == Kind.KITCHEN) && Decor.HOME.equals(Decor.kindOf(room)) && home(room);
+        if (kind != Kind.BED && kind != Kind.LIVING && kind != Kind.HALL && kind != Kind.OFFICE && !small) {
             return;
         }
         ArrayList<IsoGridSquare> squares = squaresOf(cell, room);
@@ -369,7 +369,7 @@ final class HiddenWalls {
         Set<Integer> taken = null;
         List<int[]> sources = null;
         boolean[] used = null;
-        int want = (bath ? Math.min(1, shown) : Math.min(MOST_ON_HIDDEN_WALLS, Math.max(1, shown))) - placed.size();
+        int want = (small ? Math.min(1, shown) : Math.min(MOST_ON_HIDDEN_WALLS, Math.max(1, shown))) - placed.size();
         int mixed = room.getBuilding().getX() * 31 + room.getBuilding().getY() * 17 + room.rects.get(0).x * 7 + room.rects.get(0).y;
         ArrayList<String> drawn = new ArrayList<>();
         while (want-- > 0) {
@@ -395,7 +395,7 @@ final class HiddenWalls {
                     taken = new HashSet<>();
                     Set<Integer> drawnElsewhere = new HashSet<>();
                     sources = homeSources(picturesInBuilding(cell, room, taken, drawnElsewhere), taken, drawnElsewhere);
-                    if (bath) {
+                    if (small) {
                         sources = List.of(sources.get(sources.size() - 1));
                     }
                     used = new boolean[sources.size()];
@@ -413,7 +413,7 @@ final class HiddenWalls {
             taken.add(picture);
             float wideForHigh = Decor.wideForHigh(picture);
             float longSide = certificate ? DRAWN_CERTIFICATE
-                    : bath || home && FAMILY.equals(subjectOf(Decor.nameOf(picture))) ? DRAWN_PHOTOGRAPH : DRAWN_LONG_SIDE;
+                    : small || home && FAMILY.equals(subjectOf(Decor.nameOf(picture))) ? DRAWN_PHOTOGRAPH : DRAWN_LONG_SIDE;
             float wide = wideForHigh >= 1f ? longSide : longSide * wideForHigh;
             float high = wide / wideForHigh / ViewCamera.LEVEL_HEIGHT;
             IsoGridSquare square = best.square();
