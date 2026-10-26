@@ -1294,6 +1294,15 @@ final class Flora {
         return place >= 16 && place <= 23 || place >= 32 && place <= 39 || place >= 48 && place <= 55 || place == 64;
     }
 
+    /**
+     * Whether a sprite, by its name, is of a garden or a field the game grows from seed: roses,
+     * poppies and lavender in a bed, and the vegetables, at each stage from the dug furrows to the
+     * plant trampled. Each paints its furrows on the ground with whatever grows out of them.
+     */
+    static boolean gardenPlant(String name) {
+        return name != null && (name.startsWith("vegetation_gardening_") || name.startsWith("vegetation_farming_"));
+    }
+
     /** Whether a sprite, by its name, is one of the ferns the game paints among its wild plants. */
     static boolean fernSprite(String name) {
         int place = name == null ? -1 : Sheets.place(name, "d_generic_1_");

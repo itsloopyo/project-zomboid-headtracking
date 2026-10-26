@@ -801,7 +801,7 @@ final class WorldScene {
         /** What the sprite is made of as the floor of its square, and as anything else. */
         final float asFloor, asOther;
         final boolean laidWall, gableSheet, lies, wire, roofAccent, roofSheet, stripLamp, garageDoor, cornerTrim, papered, tiledWall, fenceGate,
-                boulder, bedding, longGrass, natural, carpet, straw, tiled, grows, onTop, holds, flightPost, fireEscape, paint, wallTrim, trim, moulded;
+                boulder, bedding, longGrass, natural, carpet, straw, tiled, grows, gardenPlant, onTop, holds, flightPost, fireEscape, paint, wallTrim, trim, moulded;
         /** What length of handrail the sprite is, or null: see Rails. */
         final Rails.Piece rail;
         /** Which cloth the map hangs out the sprite is, if any: see Banners. */
@@ -911,6 +911,7 @@ final class WorldScene {
             tiled = name != null && name.startsWith("floors_") && name.contains("tile");
             grows = properties.has(IsoFlagType.vegitation) || properties.has(IsoFlagType.canBeRemoved) || properties.has("MoveWithWind")
                     || Farm.wheat(name);
+            gardenPlant = Flora.gardenPlant(name);
             onTop = properties.has("IsTableTop");
             holds = properties.get("container") != null;
             rail = Rails.of(name);
@@ -7297,6 +7298,10 @@ final class WorldScene {
                     }
                     // A roof's crown the map lays as a floor a level up closes a loft, whose west and north ends it leaves open.
                     roofBuilder.addCrownGable(x, y, z);
+                }
+                // A garden's plant is laid on its bed, its furrows and all, and stands up out of it as well.
+                if (kind.gardenPlant && Own.plants(view.index)) {
+                    plantBuilder.addOutOfItsBed(mesh, sprite, type, texture, x, y, z);
                 }
                 floorBuilder.addFloor(mesh, kind, properties, texture, isFloor, x, y, z);
                 return;

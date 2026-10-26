@@ -20,6 +20,7 @@ final class PlantKindTests {
         Checks.run("aBareCrownFarOffHasNoTwigs", PlantKindTests::aBareCrownFarOffHasNoTwigs);
         Checks.run("aBareCrownHasLimbsWhateverItsDistance", PlantKindTests::aBareCrownHasLimbsWhateverItsDistance);
         Checks.run("leafyWeedsAndFernsAreToldByName", PlantKindTests::leafyWeedsAndFernsAreToldByName);
+        Checks.run("gardenPlantsAreToldByName", PlantKindTests::gardenPlantsAreToldByName);
         Checks.run("fallenSticksAreToldByName", PlantKindTests::fallenSticksAreToldByName);
         Checks.run("fallenSticksLieOnTheirSquaresGround", PlantKindTests::fallenSticksLieOnTheirSquaresGround);
         Checks.run("ivyOnTheGroundLiesRoundTheBoleAndKeepsToItsBounds", PlantKindTests::ivyOnTheGroundLiesRoundTheBoleAndKeepsToItsBounds);
@@ -136,6 +137,15 @@ final class PlantKindTests {
     private static void aBareCrownHasLimbsWhateverItsDistance() {
         check(Crowns.limbed(Crowns.REACH * 4f, Flora.BARE, 1f), "a bare crown is its limbs: it has them at any distance");
         check(!Crowns.limbed(Crowns.REACH * 4f, Flora.MAPLE, 1f) && Crowns.limbed(4f, Flora.MAPLE, 1f) && Crowns.limbed(Crowns.REACH * 4f, Flora.MAPLE, 0.5f), "a crown in leaf has them only near, and one losing its leaves at any distance");
+    }
+
+    private static void gardenPlantsAreToldByName() {
+        for (String name : new String[] {"vegetation_gardening_01_19", "vegetation_gardening_trampled_01_0", "vegetation_farming_01_20", "vegetation_farming_dead_01b_3"}) {
+            check(Flora.gardenPlant(name), name + " grows in a bed");
+        }
+        for (String name : new String[] {"vegetation_farm_01_33", "vegetation_ornamental_01_16", "vegetation_foliage_01_0", null}) {
+            check(!Flora.gardenPlant(name), name + " is no garden's plant");
+        }
     }
 
     private static void leafyWeedsAndFernsAreToldByName() {

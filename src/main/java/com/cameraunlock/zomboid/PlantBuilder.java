@@ -464,6 +464,29 @@ final class PlantBuilder {
     }
 
     /**
+     * Stands what a garden's sprite (Flora.gardenPlant) paints higher than its square's far corner:
+     * the plant grown up out of its bed, which laid on the bed with its furrows was a bed of sprouts.
+     * What is painted lower is the bed, and lies on it (FloorBuilder). The game paints dug furrows and
+     * a seedling no higher, and they stand nothing. The bed is laid after, in the frame's own material.
+     */
+    void addOutOfItsBed(SpriteGeometry.Mesh mesh, IsoSprite sprite, IsoObjectType type, Texture texture, int x, int y, int z) {
+        SpriteGeometry.Frame frame = build.frame;
+        float bed = (frame.top + frame.height - SpriteGeometry.frameV(frame, 0f, 0f, 0f)) / frame.height;
+        if (bed >= 1f) {
+            return;
+        }
+        float material = frame.material, red = frame.red;
+        build.geometry.skipped = Math.max(bed, 0f);
+        try {
+            addGrown(mesh, sprite, type, texture, x, y, z);
+        } finally {
+            build.geometry.skipped = 0f;
+            frame.material = material;
+            frame.red = red;
+        }
+    }
+
+    /**
      * A tree or a bush is not a picture of one that turns to face whoever looks at it.
      * It stands in the world: the sprite is set up several times through the plant's
      * middle, fanned round it, every other one mirrored, so that from any side there
