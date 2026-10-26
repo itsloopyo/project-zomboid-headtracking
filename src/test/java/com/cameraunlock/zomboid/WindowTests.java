@@ -528,6 +528,11 @@ final class WindowTests {
             return new float[] {shade, shade * 0.8f, shade * 0.6f};
         });
         check(!Tiles.speckled(boards, 64), "boards are not speckled");
+        // Stripes four dots wide running on the diagonal, as bands of a herringbone do, light and dark turn about.
+        check(!Tiles.speckled(floor(64, (x, y) -> {
+            float shade = ((int) (x * 64f) + (int) (y * 64f)) / 4 % 2 == 0 ? 0.4f : 0.6f;
+            return new float[] {shade, shade, shade};
+        }), 64), "nor are stripes on the diagonal");
         check(!Tiles.speckled(floor(64, (x, y) -> new float[] {0.5f, 0.5f, 0.5f}), 64), "nor is a floor of one colour");
     }
 

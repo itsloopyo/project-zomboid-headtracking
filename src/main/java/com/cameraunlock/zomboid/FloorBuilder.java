@@ -389,7 +389,7 @@ final class FloorBuilder {
      * the colour of the joints with the tiles a joint apart on it, a joint was narrower than a
      * pixel a few paces off, and joints flickered in and out as the eye moved. How many tiles
      * and which colours is measured off the sprite: see Tiles. False, adding nothing, for a
-     * sprite not measured yet or a floor that is no grid of plain tiles.
+     * sprite not measured yet or a floor that is no grid of plain tiles and not speckled.
      */
     private boolean addTiles(Texture texture, boolean carpet, boolean outside, int x, int y, int z) {
         Tiles.Shape tiles = Tiles.of(texture, build.frame);
@@ -400,7 +400,7 @@ final class FloorBuilder {
             return false;
         }
         // A fitted carpet is one colour, with a nap the picture has a picture of: the few dots of
-        // lighter and darker the game scatters on it are blots when magnified.
+        // lighter and darker the game scatters on it are blots when magnified. So is terrazzo, with its chips.
         boolean terrazzo = !carpet && tiles.speckled;
         if (carpet ? tiles.uneven > CARPET_UNEVEN : !terrazzo && tiles.count == 0 && tiles.diagonal == 0 && tiles.blocks == 0 && tiles.pavers == null && tiles.hexes == null) {
             return false;

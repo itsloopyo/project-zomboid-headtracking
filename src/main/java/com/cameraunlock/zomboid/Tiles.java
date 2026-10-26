@@ -120,7 +120,8 @@ final class Tiles {
     /**
      * A floor that is no grid is chips of stone in a ground (terrazzo) where its light strays from
      * its mean by SPECKLED_LEAST or more, and no more than SPECKLED_RUNS of that is in the means of
-     * its rows or of its columns: boards and planks laid end to end have half or more there.
+     * its rows, its columns or either way of its diagonals: boards and planks laid end to end have
+     * half or more there.
      */
     private static final float SPECKLED_LEAST = 0.03f, SPECKLED_RUNS = 0.15f;
     /**
@@ -1616,7 +1617,8 @@ final class Tiles {
 
     /**
      * Whether a square of floor laid flat is speckled: its light strays from its mean as chips do,
-     * and runs no way, as the joints of boards laid end to end do (SPECKLED_LEAST, SPECKLED_RUNS).
+     * and runs no way, as the joints of boards laid end to end do, nor a stripe on the diagonal (SPECKLED_LEAST,
+     * SPECKLED_RUNS). The square repeats, so a diagonal runs round it.
      */
     static boolean speckled(float[] dots, int side) {
         float[] light = new float[side * side];
@@ -1641,17 +1643,20 @@ final class Tiles {
         if (strays < SPECKLED_LEAST * SPECKLED_LEAST) {
             return false;
         }
-        double rows = 0, columns = 0;
+        double[] runs = new double[4];
         for (int k = 0; k < side; k++) {
-            double row = 0, column = 0;
+            double[] run = new double[4];
             for (int other = 0; other < side; other++) {
-                row += light[k * side + other] - mean;
-                column += light[other * side + k] - mean;
+                run[0] += light[k * side + other] - mean;
+                run[1] += light[other * side + k] - mean;
+                run[2] += light[other * side + Math.floorMod(k - other, side)] - mean;
+                run[3] += light[other * side + (k + other) % side] - mean;
             }
-            rows += (row / side) * (row / side);
-            columns += (column / side) * (column / side);
+            for (int way = 0; way < 4; way++) {
+                runs[way] += (run[way] / side) * (run[way] / side);
+            }
         }
-        return Math.max(rows, columns) / side <= SPECKLED_RUNS * strays;
+        return Math.max(Math.max(runs[0], runs[1]), Math.max(runs[2], runs[3])) / side <= SPECKLED_RUNS * strays;
     }
 
 }
