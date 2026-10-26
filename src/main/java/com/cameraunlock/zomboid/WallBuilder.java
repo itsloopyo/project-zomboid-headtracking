@@ -562,7 +562,7 @@ final class WallBuilder {
         // Of a wall between a room and out of doors, the side in the room is laid only as its own
         // sprite paints it: taken for the building's finish, a motel room's paper was its siding.
         boolean ownOnly = outside && OpeningBuilder.indoors(build.here);
-        SpriteGeometry.Mesh near = build.ownGlass ? mesh : laid(mesh, texture, build.laidWall || outside, ownOnly, x, y, z, da != 0f);
+        SpriteGeometry.Mesh near = build.ownGlass ? mesh : laid(mesh, texture, build.laidWall || outside, ownOnly, build.masonry, x, y, z, da != 0f);
         if (paper != null) {
             int key = WallSides.key(paper.red, paper.green, paper.blue, WallSides.FLAT);
             WallSides.tint(key, build.paperTint);
@@ -686,9 +686,9 @@ final class WallBuilder {
             far = tileStood;
             build.frame.flat = tileFlat;
         } else if (farStood != null) {
-            far = stoodSquare(laid(WorldScene.solid.get(farStood.texture.getID()), farStood.texture, false, true, x, y, z, da != 0f), farStood.texture, da != 0f);
+            far = stoodSquare(laid(WorldScene.solid.get(farStood.texture.getID()), farStood.texture, false, true, WallSides.madeOf(farStood.sprite), x, y, z, da != 0f), farStood.texture, da != 0f);
         } else if (faced != null) {
-            far = stoodSquare(laid(WorldScene.solid.get(faced.texture.getID()), faced.texture, Masonry.suits(faced.sprite.getName()), false, x, y, z, da != 0f), faced.texture, da != 0f);
+            far = stoodSquare(laid(WorldScene.solid.get(faced.texture.getID()), faced.texture, Masonry.suits(faced.sprite.getName()), false, WallSides.madeOf(faced.sprite), x, y, z, da != 0f), faced.texture, da != 0f);
         } else if (tint != 0) {
             far = WorldScene.solid.get(build.ownGlass ? mesh.texture : texture.getID(), tint);
         } else {
@@ -1114,8 +1114,11 @@ final class WallBuilder {
      * over a wall, ivy or a stain, stays as painted. suits is whether the sprite is of a
      * sheet of outside walls, x, y, z the square the wall is on, and north whether it is on the
      * square's north edge. ownOnly lays it as its own sprite reads, never as the building's finish.
+     * masonry is how the game's word for what the wall is made of lays it (WallSides.madeOf), or 0:
+     * a wall read as lapped boards, of itself or as the finish it is the colour of, is laid as that
+     * masonry in the colours read. A roof's end takes its finish whatever its colour, and is left as read.
      */
-    SpriteGeometry.Mesh laid(SpriteGeometry.Mesh mesh, Texture texture, boolean suits, boolean ownOnly, int x, int y, int z, boolean north) {
+    SpriteGeometry.Mesh laid(SpriteGeometry.Mesh mesh, Texture texture, boolean suits, boolean ownOnly, int masonry, int x, int y, int z, boolean north) {
         if (build.overLayer != 0 || !Own.textures(build.playerIndex)) {
             return mesh;
         }
@@ -1210,7 +1213,7 @@ final class WallBuilder {
         if (how == 0) {
             return mesh;
         }
-        return WorldScene.solid.get(texture.getID(), how);
+        return WorldScene.solid.get(texture.getID(), build.gableSheet ? how : WallSides.asMade(how, masonry));
     }
 
     /**

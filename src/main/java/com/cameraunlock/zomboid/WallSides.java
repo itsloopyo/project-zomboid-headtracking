@@ -3,6 +3,7 @@ package com.cameraunlock.zomboid;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.HashMap;
+import zombie.iso.sprite.IsoSprite;
 
 /**
  * What the two sides of a wall show.
@@ -22,8 +23,33 @@ final class WallSides {
     static final int FLAT = 1, SIDING = 2;
     /** How a wall that shows its own sprite is laid over it: bricks, boards lapped along it, cut stone, or cast blocks. See Masonry and laid. */
     static final int BRICK = 4, LAPPED = 5, STONE = 6, BLOCK = 7;
+
     /** A wall of upright boards, which the picture makes board by board in the colour given. It has no colour of joints, and is never laid over another wall's sprite. */
     static final int BOARDED = 8;
+
+    /**
+     * How a wall the game says is of brick, cinder block or stone (its MaterialType) is laid, or 0
+     * for any other. Its sprite is still read for its colours: a cinder block shed's sprite read
+     * as boards lapped along it (location_community_school_01_0..2, 5427..5430,6759).
+     */
+    static int madeOf(IsoSprite sprite) {
+        return madeOf(sprite.getProperties().get("MaterialType"));
+    }
+
+    static int madeOf(String materialType) {
+        return materialType == null ? 0 : switch (materialType) {
+            case "Brick" -> BRICK;
+            case "Cinderblock" -> BLOCK;
+            case "Stone" -> STONE;
+            default -> 0;
+        };
+    }
+
+    /** how, a wall's laying (laid), with lapped boards made the masonry the game says it is, its colours kept. */
+    static int asMade(int how, int masonry) {
+        return masonry != 0 && (how & 15) == LAPPED ? how & ~15 | masonry : how;
+    }
+
     private static final int BODY_LEVELS = 31, JOINT_LEVELS = 15;
     private static final int OVER = 8;
     /** In place of a colour: the triangles are the panes of windows, which the picture draws after everything else. No colour packs to this, a painted one being FLAT or SIDING with a colour above it. */

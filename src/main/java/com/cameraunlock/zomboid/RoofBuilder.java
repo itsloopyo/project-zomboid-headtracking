@@ -432,7 +432,7 @@ final class RoofBuilder {
         float material = build.frame.material;
         build.frame.takeTexels(facing.texture);
         build.frame.material = WorldScene.materialOf(facing.sprite);
-        SpriteGeometry.Mesh mesh = build.wallBuilder.laid(WorldScene.solid.get(facing.texture.getID()), facing.texture, Masonry.suits(facing.sprite.getName()), false, x, y, z, north);
+        SpriteGeometry.Mesh mesh = build.wallBuilder.laid(WorldScene.solid.get(facing.texture.getID()), facing.texture, Masonry.suits(facing.sprite.getName()), false, WallSides.madeOf(facing.sprite), x, y, z, north);
         if (second >= GABLE_LEAST) {
             WorldScene.set(folded, 0, 0f, 0f, 0f);
             WorldScene.set(folded, 1, alongA, alongB, 0f);

@@ -14,6 +14,7 @@ final class FacadeTests {
     static void run() {
         Checks.run("brickIsToldByItsUprightJoints", FacadeTests::brickIsToldByItsUprightJoints);
         Checks.run("lappedBoardsHaveShadowsAndNoUprightJoints", FacadeTests::lappedBoardsHaveShadowsAndNoUprightJoints);
+        Checks.run("aWallTheGameCallsMasonryIsLaidAsIt", FacadeTests::aWallTheGameCallsMasonryIsLaidAsIt);
         Checks.run("lappedBoardsUnderAnOutlineAreLapped", FacadeTests::lappedBoardsUnderAnOutlineAreLapped);
         Checks.run("lowWallOfBrickIsBrick", FacadeTests::lowWallOfBrickIsBrick);
         Checks.run("gardenWallOfBrickIsBrick", FacadeTests::gardenWallOfBrickIsBrick);
@@ -94,6 +95,17 @@ final class FacadeTests {
 
     private static final int BRICK = 0xa04030, MORTAR = 0xd8c8b8, BOARD = 0xe0dcc8, SHADOW = 0x6a6658, STONE = 0xc0a870, PAINT = 0x8090a0;
     private static final int BLOCK = 0xd0d0c4, BLOCK_JOINT = 0xb4b4a8;
+
+    private static void aWallTheGameCallsMasonryIsLaidAsIt() {
+        Checks.check(WallSides.madeOf("Cinderblock") == WallSides.BLOCK && WallSides.madeOf("Brick") == WallSides.BRICK && WallSides.madeOf("Stone") == WallSides.STONE,
+                "cinder block, brick and stone walls are laid as blocks, bricks and stones");
+        Checks.check(WallSides.madeOf("Wood") == 0 && WallSides.madeOf("Plaster") == 0 && WallSides.madeOf((String) null) == 0, "and any other wall as its sprite reads");
+        int lapped = WallSides.laid(0.6f, 0.6f, 0.58f, 0.3f, 0.3f, 0.3f, WallSides.LAPPED);
+        int block = WallSides.asMade(lapped, WallSides.BLOCK);
+        Checks.check((block & 15) == WallSides.BLOCK && (block & ~15) == (lapped & ~15), "a block wall read as lapped boards is laid as blocks in the colours read: " + Integer.toHexString(block));
+        int brick = WallSides.laid(0.6f, 0.3f, 0.2f, 0.8f, 0.8f, 0.8f, WallSides.BRICK);
+        Checks.check(WallSides.asMade(brick, WallSides.BLOCK) == brick && WallSides.asMade(lapped, 0) == lapped, "a wall read as anything else, or of no masonry, is laid as read");
+    }
 
     private static void brickIsToldByItsUprightJoints() {
         // Courses eight rows deep, bricks twenty dots long, each course half a brick along from the last.

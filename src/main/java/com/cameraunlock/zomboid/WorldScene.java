@@ -808,6 +808,8 @@ final class WorldScene {
         final int banner;
         /** Which way a length of washing line runs from its square, or Outdoors.NO_LINE. */
         final int line;
+        /** How a wall of masonry is laid by what the game says it is made of: see WallSides.madeOf. */
+        final int masonry;
         /** Which edges a sprite on a wall is laid on where its picture overrules its marks, or Overhead.ANY_EDGE. */
         final int edge;
         /** The wall of its square the sprite lies flat on when nothing else is made of it: see WallObjects. */
@@ -879,6 +881,7 @@ final class WorldScene {
                     : Fences.boards(name, madeOf, properties.get("MaterialType"), properties.get("Material2"), onEdge, picket) ? BOARDS : materialOf(sprite);
             garageDoor = properties.has("GarageDoor");
             laidWall = laidWall(name, properties);
+            masonry = WallSides.madeOf(properties.get("MaterialType"));
             gableSheet = laidWall && name.startsWith("walls_exterior_roofs");
             lies = Flat.lies(properties.get("RenderLayer"), properties.get("MoveType"));
             wire = name != null && name.startsWith("appliances_com");
@@ -6799,6 +6802,7 @@ final class WorldScene {
                 standOn(object);
                 frame.material = object == floor ? kind.asFloor : kind.stained && Own.buildings() ? STAINED : kind.asOther;
                 laidWall = kind.laidWall;
+                masonry = kind.masonry;
                 garageDoor = kind.garageDoor;
                 gableSheet = kind.gableSheet;
                 if (frame.material == PLANKS && isMesh(sprite, texture)) {
@@ -8117,6 +8121,8 @@ final class WorldScene {
 
         /** Whether the sprite being added is of a sheet of outside walls, and of one of the walls under a roof's end: see laid. */
         boolean laidWall, gableSheet;
+        /** How the sprite being added is laid if it is a wall of masonry: see Kind.masonry. */
+        int masonry;
 
         /** Whether the door being added stands open across its doorway, and whether it is a leaf with a thickness. */
         boolean doorSwung, doorLeaf;
