@@ -61,6 +61,7 @@ final class RoofTests {
         Checks.run("wingsFarSideStopsAtAMainRoofDeeperThanItsNearSide", RoofTests::wingsFarSideStopsAtAMainRoofDeeperThanItsNearSide);
         Checks.run("slopeThatClimbsPastItsCrownLiesLevel", RoofTests::slopeThatClimbsPastItsCrownLiesLevel);
         Checks.run("farSideOfARowOverADormerStandsOnTheWall", RoofTests::farSideOfARowOverADormerStandsOnTheWall);
+        Checks.run("farSideOfARowOverABayStandsOnTheWall", RoofTests::farSideOfARowOverABayStandsOnTheWall);
         Checks.run("roomWithNoFloorUnderTheRoofIsNoStorey", RoofTests::roomWithNoFloorUnderTheRoofIsNoStorey);
         Checks.run("roomTheSlopePassesWhollyOverIsNoStoreyItStopsAt", RoofTests::roomTheSlopePassesWhollyOverIsNoStoreyItStopsAt);
         Checks.run("farSideStandsOnTheStoreyItCoversThoughItsNearSideRunsOnDownOverAPorch", RoofTests::farSideStandsOnTheStoreyItCoversThoughItsNearSideRunsOnDownOverAPorch);
@@ -1609,6 +1610,46 @@ final class RoofTests {
             RoofFit.Tile face = madeAt(made, 4, y);
             check(face != null && !face.shaped && face.fitAxis == RoofFit.ALONG_Y && near(face.fitLow, 1f + y * THIRD) && near(face.fitHigh, 1f + (y + 1) * THIRD),
                     "the north side over the dormer's row climbs from the wall at 4, " + y + ": " + said(face));
+        }
+    }
+
+    /**
+     * The same house with a small gable or bay standing out of the south slope over x 3..5, as at 10400..10408 x
+     * 12720..12731 and 3125..3130 x 5754..5760: the map leaves the lower row at x 4 with no tile at a gable's peak, or with
+     * only the level sheet a bay's hip is cut short at, at the row's foot. The north side made from that row comes down
+     * to the wall at 1 with the rest: it read the upper row's foot as the eave, ran level at the crown's height and stood
+     * on the wall at 1 + 1/3.
+     */
+    private static void farSideOfARowOverABayStandsOnTheWall() {
+        for (boolean bay : new boolean[] {false, true}) {
+            farSideOfARowOverABayStandsOnTheWall(bay);
+        }
+    }
+
+    private static void farSideOfARowOverABayStandsOnTheWall(boolean bay) {
+        RoofFit.Site site = standing((x, y) -> x >= 0 && x <= 9 && y >= 0 && y <= 9);
+        List<RoofFit.Tile> roof = new ArrayList<>();
+        for (int x = 0; x <= 9; x++) {
+            roof.add(new RoofFit.Tile(x, 8, 1, RoofFit.ALONG_Y, true, 1f + 2 * THIRD, 1f + THIRD));
+            if (x != 4) {
+                roof.add(new RoofFit.Tile(x, 9, 1, RoofFit.ALONG_Y, true, 1f + THIRD, 1f));
+            } else if (bay) {
+                RoofFit.Tile sheet = new RoofFit.Tile(x, 9, 1, RoofFit.LEVEL, true, 1f + THIRD, 1f + THIRD);
+                sheet.sheet = true;
+                roof.add(sheet);
+            }
+            for (int y = 2; y <= 7; y++) {
+                RoofFit.Tile crown = new RoofFit.Tile(x, y, 1, RoofFit.LEVEL, true, 1f + 2 * THIRD, 1f + 2 * THIRD);
+                crown.sheet = true;
+                roof.add(crown);
+            }
+        }
+        RoofFit.fit(roof);
+        List<RoofFit.Tile> made = RoofFit.backs(roof, site);
+        for (int y = 0; y <= 1; y++) {
+            RoofFit.Tile face = madeAt(made, 4, y);
+            check(face != null && !face.shaped && face.fitAxis == RoofFit.ALONG_Y && near(face.fitLow, 1f + y * THIRD) && near(face.fitHigh, 1f + (y + 1) * THIRD),
+                    (bay ? "the north side over the bay" : "the north side over the gable's peak") + " climbs from the wall at 4, " + y + ": " + said(face));
         }
     }
 

@@ -718,7 +718,8 @@ final class RoofFit {
             // The plane is looked for among every tile of the map, fitted or not: the hip end of a wing
             // whose lower row is the valley's tile is no plane of the fit's, and its row read its eave a
             // row up, so the far slope stood a third of a level over the wall (3919, 13816..13820).
-            float planeEave = cutByAWing(at, lowest, dx, dy) ? eaveOfPlane(tiles, top) : eave;
+            // So does a row that stops over a small gable or bay standing out of its slope.
+            float planeEave = cutByAWing(at, lowest, dx, dy) || overABay(at, built, site, lowest, dx, dy) ? eaveOfPlane(tiles, top) : eave;
             if (planeEave < eave - SAME) {
                 eave = planeEave;
                 climbed = Math.round((ridge - eave) / rise);
@@ -1334,6 +1335,36 @@ final class RoofFit {
         for (int dz = 0; dz >= -1; dz--) {
             Tile next = at.get(key(lowest.x - dx, lowest.y - dy, lowest.z + dz));
             if (next != null && (next.shaped || next.slopes() && next.fitAxis != lowest.fitAxis)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether the walk down a row from its top stopped over a small gable or bay that stands out of the slope: past the
+     * low edge of its lowest tile the square has no tile, at a gable's peak, or only the level sheet a bay's hip is cut
+     * short at, the building goes on under it, and the slope goes on down beside it along the level line. Read as the
+     * eave, it set the far side made from the row a level top at the height of the crown it came over, and the walls
+     * under that stood as a box at the back of the house (10402 and 10406, 12720..12729), or a strip of the far slope
+     * a row higher than the rest, a dark flap over the rake (3125, 5758).
+     */
+    private static boolean overABay(HashMap<Long, Tile> at, HashMap<Long, Boolean> built, Site site, Tile lowest, int dx, int dy) {
+        int x = lowest.x - dx, y = lowest.y - dy;
+        float foot = Math.min(lowest.fitLow, lowest.fitHigh);
+        for (int dz = 0; dz >= -1; dz--) {
+            Tile past = at.get(key(x, y, lowest.z + dz));
+            if (past != null && !(past.sheet && Math.abs(past.fitLow - foot) <= JOIN)) {
+                return false;
+            }
+        }
+        if (!stands(built, site, x, y, (int) Math.floor(foot + LEAST_RISE))) {
+            return false;
+        }
+        for (int side = -1; side <= 1; side += 2) {
+            Tile beside = at.get(key(x + (dx == 0 ? side : 0), y + (dy == 0 ? side : 0), lowest.z));
+            if (beside != null && beside.slopes() && beside.fitAxis == lowest.fitAxis && beside.up() == lowest.up()
+                    && Math.abs(Math.max(beside.fitLow, beside.fitHigh) - foot) <= JOIN) {
                 return true;
             }
         }
