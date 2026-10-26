@@ -848,7 +848,7 @@ final class RoofBuilder {
         float[] c = build.eave;
         for (int side = 0; side < 2; side++) {
             int besideX = x + (alongX != 0f ? 0 : side == 0 ? -1 : 1), besideY = y + (alongX != 0f ? side == 0 ? -1 : 1 : 0);
-            if (roofGoesOn(besideX, besideY, z)) {
+            if (roofGoesOn(besideX, besideY, z) || roomUnder(besideX, besideY, z)) {
                 continue;
             }
             float edge = side, out = side == 0 ? -RAKE : RAKE;
@@ -1022,9 +1022,10 @@ final class RoofBuilder {
     }
 
     /**
-     * Whether the square is in a room on the level under z. An eave hangs over the open air: a
-     * row the map leaves out of a roof over a room is still roof, and an eave hung there hung
-     * its fascia and gutter across the room's ceiling.
+     * Whether the square is in a room on the level under z. An eave or a rake hangs over the
+     * open air: a row the map leaves out of a roof over a room, or fills with a fitting, is
+     * still roof, and an eave hung there hung its fascia and gutter across the room's ceiling,
+     * a rake its barge board down through it.
      */
     private boolean roomUnder(int x, int y, int z) {
         IsoGridSquare under = build.cell.getGridSquare(x, y, z - 1);
