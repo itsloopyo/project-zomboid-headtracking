@@ -59,6 +59,37 @@ final class LookingGlass {
      * viewer, and which wall changed as the head turned.
      */
     static final int PLANES = 3;
+    /**
+     * How much of what is on the eye's side a window's pane throws back: SQUARE_ROOM of it seen
+     * squarely from its room, SQUARE_STREET from the street by day, rising by GLANCING towards
+     * the edge as the GLANCE_POWER of how far off square it is seen, all times GAIN. The street
+     * by day is far brighter than the room behind the glass, so at the room's share a window
+     * read from the street as a black hole in a sunny wall.
+     */
+    static final float GAIN = 1.6f, SQUARE_ROOM = 0.13f, SQUARE_STREET = 0.26f, GLANCING = 0.87f, GLANCE_POWER = 5f;
+    /**
+     * paneThrown(square, street): that share in GLSL, for the world shader's panes and the
+     * picture laid over them, square being the cosine the pane is seen at and street how far
+     * the eye's side is the street by day, 0 to 1 (streetSide).
+     */
+    static final String PANE_THROWN = "float paneThrown(float square, float street) {\n    return min(1.0, " + GAIN + " * (mix(" + SQUARE_ROOM + ", " + SQUARE_STREET
+            + ", street) + " + GLANCING + " * pow(max(1.0 - square, 0.0), " + GLANCE_POWER + ")));\n}\n";
+
+    /** The share PANE_THROWN gives. */
+    static float paneThrown(float square, float street) {
+        float squarely = SQUARE_ROOM + (SQUARE_STREET - SQUARE_ROOM) * street;
+        return Math.min(1f, GAIN * (squarely + GLANCING * (float) Math.pow(Math.max(1f - square, 0f), GLANCE_POWER)));
+    }
+
+    /**
+     * How far the side of a window an eye sees it from is the street by day, as both the world
+     * shader's pane and the picture laid over it take it: none from a room, all of it from the
+     * street at noon, none at night. Low draws the glass at the room's share from either side.
+     */
+    static float streetSide(boolean eyeOnStreet, float night, boolean plain) {
+        return eyeOnStreet && !plain ? 1f - night : 0f;
+    }
+
     /** Floats a corner of the glass is drawn with: its place from the eye, how far across and up the glass it is, 0 to 1, and the glass's width and height in tiles. */
     static final int CORNER_FLOATS = 7;
 
@@ -134,21 +165,23 @@ final class LookingGlass {
 
     /**
      * What a window's glass shows of the side the eye is on, added to what is seen through it:
-     * as much as the pane throws back, the share the world's own drawing of the pane took from
-     * what is behind it and gave to what it works out the pane throws back instead
-     * (PipelineShaders, "thrown"). Over the end of the reach it fades out by how far each place
-     * on the glass is from the eye, as the world's drawing of the pane takes it back.
+     * as much as the pane throws back (paneThrown, uStreet being streetSide), which the world's
+     * own drawing of the pane gives up where this picture is laid (PipelineShaders, "roomLaid").
+     * Over the end of the reach it fades out by how far each place on the glass is from the
+     * eye, as the world's drawing of the pane takes it back.
      */
-    static final String THROWN = "#version 120\nconst float REACH = " + REACH + ", FADE = " + FADE + ";\n" + """
+    static final String THROWN = "#version 120\nconst float REACH = " + REACH + ", FADE = " + FADE + ";\n" + PANE_THROWN + """
             uniform sampler2D uPicture;
             uniform vec2 uSize;
             uniform vec4 uDrawn;
             uniform vec3 uFacing;
+            // How far the eye's side of the glass is the street by day: see streetSide.
+            uniform float uStreet;
             varying vec3 vPlace;
             void main() {
                 vec2 uv = clamp(gl_FragCoord.xy / uSize, uDrawn.xy, uDrawn.zw);
                 float square = abs(dot(normalize(-vPlace), uFacing));
-                float thrown = min(1.0, 1.6 * (0.13 + 0.87 * pow(1.0 - square, 5.0)));
+                float thrown = paneThrown(square, uStreet);
                 float shown = clamp((REACH - length(vPlace)) / FADE, 0.0, 1.0);
                 gl_FragColor = vec4(texture2D(uPicture, uv).rgb * (thrown * shown), 0.0);
             }

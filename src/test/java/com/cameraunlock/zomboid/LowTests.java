@@ -91,10 +91,10 @@ final class LowTests {
     private static void lowsWaterIsAsRoughInAnyWindAndItsRipplesFadeWithDistance() {
         String pipeline = source("Pipeline.java");
         check(count(pipeline, "to.set(\"uRuffle\", WaterMirror.ruffleDrawn(") == 1 && count(pipeline, "\"uRuffle\"") == 1
-                && count(pipeline, "to.set(\"uPlainWater\", Quality.plain(view.index) ? 1f : 0f);") == 1,
+                && count(pipeline, "to.set(\"uPlain\", Quality.plain(view.index) ? 1f : 0f);") == 1,
                 "the world's program is told the water is plain, and as rough as WaterMirror draws it, in Low");
         String shaders = source("PipelineShaders.java");
-        check(count(shaders, "bool sized = water && uPlainWater < 0.5;") == 1
+        check(count(shaders, "bool sized = water && uPlain < 0.5;") == 1
                 && count(shaders, "vec3 kept = sized ? ") == 1 && count(shaders, "float near = sized ? 1.0 : 1.0 - smoothstep(14.0, 55.0, range);") == 1,
                 "and plain water keeps every size of ripple and lets them go from 14 to 55 tiles off, as a wet road does");
     }

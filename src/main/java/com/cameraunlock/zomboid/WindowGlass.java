@@ -46,6 +46,8 @@ final class WindowGlass {
         /** Their glass, LookingGlass.FLOATS each, as LookingGlass.consider takes it. */
         final float[] glass = new float[MOST * LookingGlass.FLOATS];
         int count;
+        /** Whether the eye is out of doors, so that the side of them it sees is the street's: see throwsBack. */
+        boolean street;
     }
 
     /**
@@ -60,6 +62,7 @@ final class WindowGlass {
         int fromX = (int) Math.floor(view.eyeX), fromY = (int) Math.floor(view.eyeY);
         IsoGridSquare eyes = cell.getGridSquare(fromX, fromY, level);
         boolean eyeOutside = eyes == null || eyes.isOutside();
+        into.street = eyeOutside;
         int lowest = eyeOutside ? level - 1 : level, highest = eyeOutside ? level + 1 : level;
         for (int z = lowest; z <= highest; z++) {
             for (int x = fromX - REACH; x <= fromX + REACH; x++) {

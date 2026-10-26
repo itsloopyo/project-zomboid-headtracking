@@ -775,7 +775,7 @@ final class PipelineShaders {
      * facHash is hash12 of David Hoskins's Hash without Sine, used under its MIT licence: the
      * notice is in THIRD-PARTY-NOTICES.md.
      */
-    static final String WORLD_FRAGMENT_PARTS = "#version 120\n#extension GL_EXT_texture_array : require\n#extension GL_ARB_shader_texture_lod : require\n"
+    static final String WORLD_FRAGMENT_PARTS = ("#version 120\n#extension GL_EXT_texture_array : require\n#extension GL_ARB_shader_texture_lod : require\n"
             + CanopyWindow.GLSL
             + Sky.ATMOSPHERE + ENDS + AUTUMN + """
             uniform sampler2D uTexture;
@@ -841,7 +841,7 @@ final class PipelineShaders {
             // is on, one a component: x where the plane is x = x, -y where it is y = y, 0 for none
             // (see drawPanes). The picture fades out over the end of its reach.
             uniform vec4 uRoomGlass;
-            """ + "const int ROOM_GLASSES = " + LookingGlass.PLANES + ";\nconst float GLASS_REACH = " + LookingGlass.REACH + ", GLASS_FADE = " + LookingGlass.FADE + ";\n" + """
+            """ + "const int ROOM_GLASSES = " + LookingGlass.PLANES + ";\nconst float GLASS_REACH = " + LookingGlass.REACH + ", GLASS_FADE = " + LookingGlass.FADE + ";\n").concat(LookingGlass.PANE_THROWN).concat("""
             // That picture, for the eye's own to show where it draws water, and the plane the
             // water lies in: the way it faces and how far over it the eye is. All 0 with no such picture.
             uniform sampler2D uWaterPicture;
@@ -856,9 +856,10 @@ final class PipelineShaders {
             uniform float uWaterThrow;
             // How rough the wind has the water: 1 in a light breeze.
             uniform float uRuffle;
-            // 1 where water's ripples are all drawn whatever a pixel takes in and fade from 14 to 55
-            // tiles off, as a wet road's do, and are as high in any wind: in Low.
-            uniform float uPlainWater;
+            // 1 in Low. There water's ripples are all drawn whatever a pixel takes in and fade from
+            // 14 to 55 tiles off, as a wet road's do, and are as high in any wind; and glass is as
+            // it always was: the room's share thrown back from either side, the roofs in it darker.
+            uniform float uPlain;
             // How much of its distance from the eye a pixel of this picture takes in, up and down.
             uniform float uPixel;
             varying vec2 vUv;
@@ -1191,15 +1192,15 @@ final class PipelineShaders {
             }
 
             // What a pane of glass throws back along a line: the sky, and below a ragged line
-            // a little over the horizon the roofs and trees across the street, darker than
-            // it but lit by the same day. Which roofs depends on where the pane is, so the line moves over the glass
-            // as the eye walks past.
+            // a little over the horizon the roofs and trees across the street, darker than it
+            // but lit by the same day. Which roofs depends on where the pane is, so the line
+            // moves over the glass as the eye walks past.
             vec3 surroundings(vec3 line, vec3 at) {
                 vec3 above = normalize(vec3(line.xy, abs(line.z) + 0.02));
                 vec3 sky = ridges(above, atmosphere(above));
                 float round = atan(line.y, line.x) * 2.5 + dot(at.xy, vec2(0.23, 0.17));
-                float roofs = 0.18 * patches(vec2(round * 1.9, 3.0)) * patches(vec2(round * 0.7 + 9.0, 1.0));
-                vec3 land = atmosphere(normalize(vec3(line.xy + 1e-4, 0.03))) * vec3(0.42, 0.45, 0.38);
+                float roofs = mix(0.18, 0.26, uPlain) * patches(vec2(round * 1.9, 3.0)) * patches(vec2(round * 0.7 + 9.0, 1.0));
+                vec3 land = atmosphere(normalize(vec3(line.xy + 1e-4, 0.03))) * mix(vec3(0.42, 0.45, 0.38), vec3(0.2, 0.23, 0.17), uPlain);
                 return mix(sky, land, 1.0 - smoothstep(roofs - 0.02, roofs + 0.02, line.z));
             }
 
@@ -1514,7 +1515,7 @@ final class PipelineShaders {
                 return vec2(ring, splash);
             }
 
-            """;
+            """);
 
     /** Depth for the surfaces that have it. Joined on after WORLD_FRAGMENT_PARTS when the shader is put together. */
     static final String WORLD_FRAGMENT_RELIEF = """
@@ -2867,9 +2868,8 @@ final class PipelineShaders {
                 // the street, and the rest are let through to what is behind, a different set
                 // every frame. Out of doors by day what is behind is a dim room, and the
                 // glass takes more of the pixels. Seen from the street by day a pane throws
-                // back twice as much square on: the street is far brighter than the room, so
-                // at the share a room's side throws back a window was a black hole in a sunny
-                // wall. A window's sheet faces into its room.
+                // back more of it (LookingGlass.paneThrown). A window's sheet faces into its
+                // room.
                 // A window the picture has built has a sheet of glass of its own in each light: all
                 // of it is pane, with no sprite to tell the glass from.
                 // Glass with a room on both sides, built or a window's sprite, has no street side
@@ -2907,7 +2907,7 @@ final class PipelineShaders {
                     // its own side: that side is the street where it has the open air, or where
                     // the eye is out of doors, as under a shop's canopy, whose light is a room's.
                     street = window ? outside : step(0.0, dot(face, sight)) * max(clamp(vKind, 0.0, 1.0), uEyeOutdoors);
-                    thrown = min(1.0, 1.6 * (mix(0.13, 0.26, street * (1.0 - uDark)) + 0.87 * pow(max(1.0 - abs(dot(face, sight)), 0.0), 5.0)));
+                    thrown = paneThrown(abs(dot(face, sight)), street * (1.0 - uDark) * (1.0 - uPlain));
                     float through = mix(mix(0.9, 0.5, outside), 0.92, uDark);
                     glow = lamplit ? outside * uDark : 0.0;
                     // A pane of the glass a picture of the eye's side is laid over (drawPanes) throws
@@ -4217,7 +4217,7 @@ final class PipelineShaders {
                     // water a size of ripple goes as the stretch of water a pixel takes in,
                     // which seen at a glance is long, comes up to the size of one of them.
                     float spot = away * uPixel / max(dot(view, n), 0.02);
-                    bool sized = water && uPlainWater < 0.5;
+                    bool sized = water && uPlain < 0.5;
                     vec3 kept = sized ? 1.0 - smoothstep(0.25, 0.6, spot * RIPPLES) : vec3(1.0);
                     float level = swellOf(vWorld.xy, kept);
                     vec2 wave = vec2(swellOf(vWorld.xy + vec2(e, 0.0), kept) - level, swellOf(vWorld.xy + vec2(0.0, e), kept) - level) * (9.0 / e) * 0.1;

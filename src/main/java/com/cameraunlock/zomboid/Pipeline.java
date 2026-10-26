@@ -1318,7 +1318,7 @@ final class Pipeline {
             }
             for (Looked look : looks) {
                 if (look.drawn && !look.plane.window) {
-                    showLookingGlass(look, camera, tanHalfFieldOfView, aspect, near, far);
+                    showLookingGlass(look, camera, state, tanHalfFieldOfView, aspect, near, far);
                 }
             }
             stage(STAGE_WORLD);
@@ -1377,7 +1377,7 @@ final class Pipeline {
             // Over the panes, which take from what is behind them what they throw back.
             for (Looked look : looks) {
                 if (look.drawn && look.plane.window) {
-                    showLookingGlass(look, camera, tanHalfFieldOfView, aspect, near, far);
+                    showLookingGlass(look, camera, state, tanHalfFieldOfView, aspect, near, far);
                 }
             }
             if (flamesBeforeGlass) {
@@ -1821,7 +1821,7 @@ final class Pipeline {
      * of it the last pass has nothing to trace. A window's glass adds what it throws back to
      * what is seen through it and leaves the mark alone: the pane is no part of the trace.
      */
-    private void showLookingGlass(Looked look, ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far) {
+    private void showLookingGlass(Looked look, ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far) {
         LookingGlass.Plane plane = look.plane;
         int[] lookScissor = look.scissor;
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
@@ -1847,6 +1847,9 @@ final class Pipeline {
         shown.set("uDrawn", (lookScissor[0] + 0.5f) / look.wide, (lookScissor[1] + 0.5f) / look.high,
                 (lookScissor[0] + lookScissor[2] - 0.5f) / look.wide, (lookScissor[1] + lookScissor[3] - 0.5f) / look.high);
         shown.set("uFacing", plane.plane[0], plane.plane[1], plane.plane[2]);
+        if (plane.window) {
+            shown.set("uStreet", LookingGlass.streetSide(panes.street, state.night, Quality.plain(view.index)));
+        }
         glassCorners.clear();
         float[] glass = plane.glass;
         for (int i = 0; i < plane.count; i++) {
@@ -4091,7 +4094,7 @@ final class Pipeline {
         to.set("uWaterDensity", (float) waterHeight / height);
         to.set("uWaterThrow", WaterMirror.THROW);
         to.set("uRuffle", WaterMirror.ruffleDrawn(view.index, (float) Math.hypot(state.windX, state.windY)));
-        to.set("uPlainWater", Quality.plain(view.index) ? 1f : 0f);
+        to.set("uPlain", Quality.plain(view.index) ? 1f : 0f);
         to.set("uWind", state.windX, state.windY, state.seconds);
         to.set("uGust", state.gustX, state.gustY, state.flutter);
         to.set("uFaced", state.facedX, state.facedY);

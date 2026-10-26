@@ -2,9 +2,6 @@ package com.cameraunlock.zomboid;
 
 import static com.cameraunlock.zomboid.Checks.check;
 
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
 /** Tests of where a mirror's glass is, which mirrors the eye sees, and the eye behind the glass that draws what they show. */
 final class LookingGlassTests {
     private static final float TAN = (float) Math.tan(Math.toRadians(32.5)), ASPECT = 16f / 9f, NEAR = 0.05f;
@@ -336,17 +333,23 @@ final class LookingGlassTests {
     }
 
     /**
-     * Square on, the world shader's pane throws back its room's side at the share the room's picture is laid at
-     * (THROWN), and the street by day at a share that keeps a window from reading as a hole in a sunny wall.
+     * A pane throws back the room's share to an eye in its room, and more to an eye in the street by
+     * day, both in the world's drawing of it and in the picture laid over it, which take the share
+     * from the one function.
      */
     private static void aPaneThrowsBackMoreOfTheStreetByDayThanOfItsRoom() {
-        Matcher world = Pattern.compile(Pattern.quote("thrown = min(1.0, 1.6 * (mix(") + "([0-9.]+), ([0-9.]+)"
-                + Pattern.quote(", street * (1.0 - uDark)) + 0.87 *")).matcher(PipelineShaders.WORLD_FRAGMENT_MAIN);
-        Matcher laid = Pattern.compile(Pattern.quote("1.6 * (") + "([0-9.]+)" + Pattern.quote(" + 0.87 *"))
-                .matcher(LookingGlass.THROWN);
-        check(world.find() && laid.find(), "the pane's share is read from both shaders");
-        float room = Float.parseFloat(world.group(1)), street = Float.parseFloat(world.group(2));
-        check(room == Float.parseFloat(laid.group(1)), "a pane's room side throws back what the room's picture is laid at: " + room + " and " + laid.group(1));
-        check(1.6f * street >= 0.35f && 1.6f * street <= 0.45f, "square on, a pane throws back between 0.35 and 0.45 of the street by day: " + 1.6f * street);
+        float room = LookingGlass.paneThrown(1f, LookingGlass.streetSide(false, 0f, false));
+        float street = LookingGlass.paneThrown(1f, LookingGlass.streetSide(true, 0f, false));
+        check(room == LookingGlass.GAIN * LookingGlass.SQUARE_ROOM, "square on, a pane throws back the room's share to its room: " + room);
+        check(street >= 0.35f && street <= 0.45f, "and between 0.35 and 0.45 of the street by day: " + street);
+        check(LookingGlass.paneThrown(1f, LookingGlass.streetSide(true, 1f, false)) == room, "and the room's share of it at night");
+        check(LookingGlass.paneThrown(1f, LookingGlass.streetSide(true, 0f, true)) == room, "and in Low, which keeps the glass as it was");
+        check(LookingGlass.paneThrown(0f, 0f) == 1f && LookingGlass.paneThrown(0f, 1f) == 1f, "seen edge on it throws back all of it");
+        check(PipelineShaders.WORLD_FRAGMENT_PARTS.contains(LookingGlass.PANE_THROWN) && LookingGlass.THROWN.contains(LookingGlass.PANE_THROWN),
+                "the world's pane and the picture laid over it work the share out with the one function");
+        check(PipelineShaders.WORLD_FRAGMENT_MAIN.contains("thrown = paneThrown(abs(dot(face, sight)), street * (1.0 - uDark) * (1.0 - uPlain));"),
+                "the world's pane takes the street's share on its street side by day, as streetSide gives it");
+        check(LookingGlass.THROWN.contains("float thrown = paneThrown(square, uStreet);") && !LookingGlass.THROWN.contains("thrown = min("),
+                "and the picture laid over it the share of the side the eye is on, not the room's whatever the side");
     }
 }
