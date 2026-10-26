@@ -794,15 +794,16 @@ final class RoofFit {
             boolean fromEave = open >= climbed && (annex || !stands(built, site, x + open * dx, y + open * dy, floor));
             // A far side that comes down onto a shallower slope of the map climbing the same way, under a wall that stands
             // along the ridge, is that side's steep upper part: it climbs from the slope's top to the wall, which stands over
-            // the near side's ridge. Mirrored from the near side, it started a third of a level under the slope's top and the
-            // wall stood bare over it (8000..8011, 11010..11014).
+            // the near side's ridge, and runs level at the wall's top where the gap is deeper than the climb. Mirrored from the
+            // near side, it started at the near side's eave, a third of a level under the slope's top, and the wall stood bare
+            // over it (8000..8011, 11010..11014).
             float farRidge = ridge;
             Tile shallow = at.get(key(x + open * dx, y + open * dy, top.z));
             if (open > 0 && shallow != null && shallow.slopes() && shallow.fitAxis == top.fitAxis && shallow.up() == -up
-                    && Math.abs(shallow.fitHigh - shallow.fitLow) < rise - PITCH_SLACK
+                    && Math.abs(shallow.fitHigh - shallow.fitLow) < PITCH - PITCH_SLACK
                     && site.walled(top.x + Math.max(dx, 0), top.y + Math.max(dy, 0), top.z, !isAlongX)) {
-                float foot = Math.max(shallow.fitLow, shallow.fitHigh), reached = foot + open * rise;
-                if (reached > ridge + SAME && reached <= top.z + 1 + SAME) {
+                float foot = Math.max(shallow.fitLow, shallow.fitHigh), reached = Math.min(foot + open * rise, top.z + 1);
+                if (reached > ridge + SAME) {
                     eave = foot;
                     climbed = open;
                     farRidge = reached;

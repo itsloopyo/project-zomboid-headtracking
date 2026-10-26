@@ -643,8 +643,9 @@ final class Roofs {
                 boolean crown = onLevel && found.sheet && found.low < ridge - RoofFit.SAME;
                 boolean wing = found.sure && (found.axis == RoofFit.ALONG_X || found.axis == RoofFit.ALONG_Y) && found.axis != tile.axis
                         && Math.max(found.low, found.high) <= ridge + RoofFit.SAME;
-                boolean shallower = found.sure && found.axis == tile.axis && (found.low > found.high ? -1 : 1) == -up
-                        && Math.abs(found.high - found.low) < Math.abs(tile.high - tile.low) - RoofFit.SAME && Math.max(found.low, found.high) <= ridge + RoofFit.SAME
+                // As RoofFit.backs asks of it, on the ridge's level and below the standard pitch, or it is a slope of its own.
+                boolean shallower = onLevel && found.sure && found.axis == tile.axis && (found.low > found.high ? -1 : 1) == -up
+                        && Math.abs(found.high - found.low) < RoofFit.PITCH - RoofFit.PITCH_SLACK && Math.max(found.low, found.high) <= ridge + RoofFit.SAME
                         && walled(cell, tile.x + Math.max(dx, 0), tile.y + Math.max(dy, 0), tile.z, tile.axis == RoofFit.ALONG_Y);
                 if (!crown && !wing && !shallower) {
                     reading.remove(before);
