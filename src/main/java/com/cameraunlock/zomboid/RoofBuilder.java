@@ -1353,6 +1353,19 @@ final class RoofBuilder {
         WorldScene.set(c, 2, x2 + ox, y2 + oy, far - GUTTER);
         WorldScene.set(c, 3, x1 + ox, y1 + oy, far - GUTTER);
         SpriteGeometry.addPlainQuad(plain, c, build.frame.red, build.frame.green, build.frame.blue);
+        // Where the roof stops at a gable the gutter's end is capped: left open, its face and floor stood past the
+        // corner as a black L seen from below (13744, 3318).
+        for (int end = 0; end < 2; end++) {
+            if ((end == 0 ? startEnd : endEnd) != Eaves.GABLE) {
+                continue;
+            }
+            float ex = end == 0 ? x1 : x2, ey = end == 0 ? y1 : y2;
+            WorldScene.set(c, 0, ex, ey, far + 0.01f);
+            WorldScene.set(c, 1, ex + ox, ey + oy, far + 0.01f);
+            WorldScene.set(c, 2, ex + ox, ey + oy, far - GUTTER);
+            WorldScene.set(c, 3, ex, ey, far - GUTTER);
+            SpriteGeometry.addPlainQuad(plain, c, build.frame.red, build.frame.green, build.frame.blue);
+        }
         // Where the eave ends, at the corner of the building, the gutter empties into a pipe
         // down the wall to the ground.
         // Of the gutter's dark metal: pale, it reads as a post standing at the foot of the gable.

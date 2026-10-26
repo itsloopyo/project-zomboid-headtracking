@@ -244,6 +244,38 @@ final class AwningTests {
         check(bare.build.roofBuilder.addEaveRow(bare.painted, 1, 0, 0) && TestMap.plain().triangles() > 0,
                 "a row with no slope over it is made an eave of its own: its soffit, board and gutter");
         check(bare.build.roofBuilder.eaveRowOfItsOwnEnd(0, 0, 0), "and the corner past it goes with that eave");
+        // Alone on its wall the row stops at a gable at both ends, and its gutter's ends are capped up to the gutter's lip.
+        TestMap single = new TestMap();
+        single.roofSprite(1, 0, 0, "roofs_02_6", "attachedN", "isEave");
+        single.wall(1, 0, 0, true);
+        check(single.build.roofBuilder.addEaveRow(single.painted, 1, 0, 0), "a row alone on its wall is made");
+        SpriteGeometry.Mesh gutter = TestMap.plain();
+        for (int end = 0; end < 2; end++) {
+            float endX = end == 0 ? Float.MAX_VALUE : -Float.MAX_VALUE;
+            for (int at = 0; at < gutter.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+                endX = end == 0 ? Math.min(endX, gutter.vertices[at]) : Math.max(endX, gutter.vertices[at]);
+            }
+            // The gutter's outer face is the furthest out from the wall, on y 0.
+            float outerY = 0f;
+            for (int at = 0; at < gutter.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+                if (Math.abs(gutter.vertices[at] - endX) < 1e-3f && Math.abs(gutter.vertices[at + 1]) > Math.abs(outerY)) {
+                    outerY = gutter.vertices[at + 1];
+                }
+            }
+            float lip = -Float.MAX_VALUE, back = -Float.MAX_VALUE;
+            for (int at = 0; at < gutter.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+                if (Math.abs(gutter.vertices[at] - endX) >= 1e-3f) {
+                    continue;
+                }
+                float y = gutter.vertices[at + 1], z = gutter.vertices[at + 2];
+                if (Math.abs(y - outerY) < 1e-3f) {
+                    lip = Math.max(lip, z);
+                } else if (Math.abs(y - outerY) < 0.1f) {
+                    back = Math.max(back, z);
+                }
+            }
+            check(back > lip - 1e-3f, "the gutter's " + (end == 0 ? "west" : "east") + " end is closed up to its lip: " + back + " under " + lip);
+        }
         TestMap loose = new TestMap();
         loose.roofSprite(1, 0, 0, "roofs_02_6", "attachedN", "isEave");
         check(!loose.build.roofBuilder.addEaveRow(loose.painted, 1, 0, 0) && TestMap.plain().triangles() == 0,
