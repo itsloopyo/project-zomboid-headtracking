@@ -183,6 +183,12 @@ final class FacadeTests {
         check(laid((along, row) -> PAINT) == 0, "a wall of one colour is shown as painted");
         // Wallpaper striped upright: lines that are no courses.
         check(laid((along, row) -> along % 6 == 0 ? SHADOW : BOARD) == 0, "and so is one with upright stripes");
+        // A filling station's wall: white, with two bands of red and yellow checks across it.
+        int checks = laid((along, row) -> {
+            int band = row >= 16 && row < 32 ? row - 16 : row >= 120 && row < 136 ? row - 120 : -1;
+            return band < 0 ? 0xe8e4d8 : (along / 8 + band / 8) % 2 == 0 ? 0xc03028 : 0xe0b830;
+        });
+        check(checks == 0, "and so is one of one colour with a painted band or two across it: " + Integer.toHexString(checks));
     }
 
     private static void onlyOutsideWallsAreLaid() {

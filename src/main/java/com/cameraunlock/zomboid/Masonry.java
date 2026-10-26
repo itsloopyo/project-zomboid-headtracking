@@ -40,6 +40,8 @@ final class Masonry {
     /** Upright joints to a course along the strip: a boarded wall has fewer than the first, a brick one at least the second, a stone one at least the third. */
     private static final float NO_UPRIGHTS = 0.1f, BRICK_UPRIGHTS = 0.3f, STONE_UPRIGHTS = 0.5f;
     private static final int LONGEST_COURSE = 48, SHORTEST_COURSE = 3;
+    /** The most courses deep the face between two joints is: a gable's brick, cut to the slope, goes three and a half. */
+    private static final int FACE_COURSES = 4;
     private static final float NEARLY = 0.7f, HALFWAY = 0.4f;
     /**
      * The deepest a course of brick is and the shallowest a course of blocks, in dots. Not a share of the sprite's height: a
@@ -236,6 +238,17 @@ final class Masonry {
         // wall is like itself there too.
         if (course % 2 == 0 && course / 2 >= SHORTEST_COURSE && course / 2 <= DEEPEST_BRICK && alike[course / 2] >= HALFWAY * even) {
             course /= 2;
+        }
+        // Courses run the height of a wall. A painted band, or two, across a wall of one colour
+        // is no course: a filling station's checkered stripes read as boards three rows deep
+        // with one board a hundred rows high between them.
+        int face = 0, longestFace = 0;
+        for (float row : out) {
+            face = row > 0.5f * stands ? 0 : face + 1;
+            longestFace = Math.max(longestFace, face);
+        }
+        if (longestFace > FACE_COURSES * course) {
+            return 0;
         }
         // Between two joints is a course. Along it, an upright joint is a dot as far from
         // the usual as a joint is, with such dots above and below it for the course's height.
