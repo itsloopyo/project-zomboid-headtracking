@@ -1002,8 +1002,10 @@ final class Rugs {
      * the sprite paints a square as a diamond whose edges are staircases of dots, so read flat the
      * rug stops in teeth a few dots short of its square's edge and sends teeth past it. A dot in
      * the STAIR dots along an edge whose dot STAIR dots further in is rug is rug, of that dot's
-     * colour, and past the square there is nothing of a woven rug or a hide: what is there is the
-     * next square's. A fur rug's tufts stand past it.
+     * colour. Past the square a woven rug or a hide is its own edge carried on, dot for dot: the
+     * face stops at the square's edge, and a picture that was empty there let the filtering of
+     * every sample along the seam take in empty dots, which showed the floor between two squares
+     * of one rug. A fur rug's tufts stand past it.
      */
     static Read straightened(Read read, int kind) {
         float[] colour = read.colour.clone(), cover = read.cover.clone();
@@ -1012,25 +1014,33 @@ final class Rugs {
                 int at = j * READ + i;
                 int a = i - MARGIN, b = j - MARGIN;
                 boolean past = a < 0 || b < 0 || a >= SIDE || b >= SIDE;
-                if (past) {
-                    if (kind != FUR) {
-                        cover[at] = 0f;
-                    }
+                if (past || cover[at] >= COVERED) {
                     continue;
                 }
-                if (cover[at] >= COVERED) {
-                    continue;
-                }
+                // In a corner the dot STAIR in along one edge is still on the other edge's staircase: it steps in along both.
                 int toWest = a, toEast = SIDE - 1 - a, toNorth = b, toSouth = SIDE - 1 - b;
-                int nearest = Math.min(Math.min(toWest, toEast), Math.min(toNorth, toSouth));
-                if (nearest >= STAIR) {
+                int stepI = toWest < STAIR ? STAIR + 1 - toWest : toEast < STAIR ? -(STAIR + 1 - toEast) : 0;
+                int stepJ = toNorth < STAIR ? STAIR + 1 - toNorth : toSouth < STAIR ? -(STAIR + 1 - toSouth) : 0;
+                if (stepI == 0 && stepJ == 0) {
                     continue;
                 }
-                int stepI = nearest == toWest ? 1 : nearest == toEast ? -1 : 0, stepJ = stepI != 0 ? 0 : nearest == toNorth ? 1 : -1;
-                int inward = (j + stepJ * (STAIR + 1 - nearest)) * READ + i + stepI * (STAIR + 1 - nearest);
+                int inward = (j + stepJ) * READ + i + stepI;
                 if (read.cover[inward] >= COVERED) {
                     cover[at] = 1f;
                     System.arraycopy(read.colour, inward * 3, colour, at * 3, 3);
+                }
+            }
+        }
+        if (kind != FUR) {
+            for (int j = 0; j < READ; j++) {
+                for (int i = 0; i < READ; i++) {
+                    int a = i - MARGIN, b = j - MARGIN;
+                    if (a >= 0 && b >= 0 && a < SIDE && b < SIDE) {
+                        continue;
+                    }
+                    int at = j * READ + i, edge = (Math.clamp(b, 0, SIDE - 1) + MARGIN) * READ + Math.clamp(a, 0, SIDE - 1) + MARGIN;
+                    cover[at] = cover[edge];
+                    System.arraycopy(colour, edge * 3, colour, at * 3, 3);
                 }
             }
         }

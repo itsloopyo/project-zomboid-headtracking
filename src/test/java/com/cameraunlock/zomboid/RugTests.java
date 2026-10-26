@@ -19,7 +19,8 @@ final class RugTests {
         Checks.run("aWovenRugIsItsFlatColoursWithoutTheSpeckle", RugTests::aWovenRugIsItsFlatColoursWithoutTheSpeckle);
         Checks.run("aBorderIsDrawnAsAStraightSharpLine", RugTests::aBorderIsDrawnAsAStraightSharpLine);
         Checks.run("theOutlineIsCutWhereHalfADotIsCovered", RugTests::theOutlineIsCutWhereHalfADotIsCovered);
-        Checks.run("theStaircaseAtASquaresEdgeIsFilledAndWhatIsPastItCut", RugTests::theStaircaseAtASquaresEdgeIsFilledAndWhatIsPastItCut);
+        Checks.run("theStaircaseAtASquaresEdgeIsFilledAndItsEdgeCarriedPastIt", RugTests::theStaircaseAtASquaresEdgeIsFilledAndItsEdgeCarriedPastIt);
+        Checks.run("aSquaresCornerIsFilledWhereBothItsEdgesStepShort", RugTests::aSquaresCornerIsFilledWhereBothItsEdgesStepShort);
         Checks.run("furTakesItsStrandsFromTheGrainAndKeepsItsShade", RugTests::furTakesItsStrandsFromTheGrainAndKeepsItsShade);
         Checks.run("levelsHalveDownToOneDot", RugTests::levelsHalveDownToOneDot);
     }
@@ -40,11 +41,13 @@ final class RugTests {
      * and a face reaching REACH past the square ends at the picture's edge.
      */
     private static void theSquareIsDrawnWhereFaceTexelsSayItIs() {
-        int n = Rugs.READ;
+        // A rug INSET dots in from every edge of its square: past the square a woven rug or a hide
+        // is its edge carried on, so where the face puts the square is read off where the rug stops.
+        int n = Rugs.READ, inset = 8, from = Rugs.MARGIN + inset, to = Rugs.MARGIN + Rugs.SIDE - inset;
         float[] colour = new float[n * n * 3], cover = new float[n * n];
         for (int j = 0; j < n; j++) {
             for (int i = 0; i < n; i++) {
-                boolean in = i >= Rugs.MARGIN && i < Rugs.MARGIN + Rugs.SIDE && j >= Rugs.MARGIN && j < Rugs.MARGIN + Rugs.SIDE;
+                boolean in = i >= from && i < to && j >= from && j < to;
                 cover[j * n + i] = in ? 1f : 0f;
                 colour[(j * n + i) * 3] = 120f;
             }
@@ -54,9 +57,9 @@ final class RugTests {
         for (int y = 0; y < side; y++) {
             for (int x = 0; x < side; x++) {
                 float u = (x + 0.5f) / side, v = (y + 0.5f) / side;
-                float a = (u - Rugs.FROM) / Rugs.SPAN, b = (v - Rugs.FROM) / Rugs.SPAN;
-                boolean onSquare = a > 0f && a < 1f && b > 0f && b < 1f;
-                float edge = Math.min(Math.min(Math.abs(a), Math.abs(1f - a)), Math.min(Math.abs(b), Math.abs(1f - b))) * Rugs.SIDE;
+                float a = (u - Rugs.FROM) / Rugs.SPAN * Rugs.SIDE - inset, b = (v - Rugs.FROM) / Rugs.SPAN * Rugs.SIDE - inset, side2 = Rugs.SIDE - 2 * inset;
+                boolean onSquare = a > 0f && a < side2 && b > 0f && b < side2;
+                float edge = Math.min(Math.min(Math.abs(a), Math.abs(side2 - a)), Math.min(Math.abs(b), Math.abs(side2 - b)));
                 boolean drawn = (dots[(y * side + x) * 4 + 3] & 0xff) == 255;
                 wrong += drawn != onSquare && edge > 0.6f ? 1 : 0;
             }
@@ -250,7 +253,7 @@ final class RugTests {
         Checks.check(dark == 0, "and its edge is not darkened by the empty dots beside it: " + dark);
     }
 
-    private static void theStaircaseAtASquaresEdgeIsFilledAndWhatIsPastItCut() {
+    private static void theStaircaseAtASquaresEdgeIsFilledAndItsEdgeCarriedPastIt() {
         int n = Rugs.READ, m = Rugs.MARGIN;
         float[] colour = new float[n * n * 3], cover = new float[n * n];
         for (int j = 0; j < n; j++) {
@@ -266,16 +269,46 @@ final class RugTests {
         int short1 = 0, past = 0;
         for (int b = 0; b < Rugs.SIDE; b++) {
             short1 += woven.cover()[(b + m) * n + m] < 0.5f ? 1 : 0;
-            past += woven.cover()[(b + m) * n + m + Rugs.SIDE] > 0f ? 1 : 0;
+            for (int k = 0; k < m; k++) {
+                int edge = (b + m) * n + m + Rugs.SIDE - 1, beyond = edge + 1 + k;
+                past += woven.cover()[beyond] != woven.cover()[edge] || woven.colour()[beyond * 3] != woven.colour()[edge * 3] ? 1 : 0;
+            }
         }
         Checks.check(short1 == 0, "every row of a woven rug runs to the square's west edge: " + short1 + " stop short");
-        Checks.check(past == 0, "and none past its east edge: " + past);
+        Checks.check(past == 0, "and past its east edge is its edge carried on, not the sprite's teeth: " + past + " dots differ");
         Rugs.Read fur = Rugs.straightened(new Rugs.Read(colour, cover), Rugs.FUR);
         int tufts = 0;
         for (int b = 0; b < Rugs.SIDE; b++) {
             tufts += fur.cover()[(b + m) * n + m + Rugs.SIDE] > 0f ? 1 : 0;
         }
         Checks.check(tufts == Rugs.SIDE / 2, "a fur rug keeps what stands past it: " + tufts);
+    }
+
+    private static void aSquaresCornerIsFilledWhereBothItsEdgesStepShort() {
+        int n = Rugs.READ, m = Rugs.MARGIN;
+        float[] colour = new float[n * n * 3], cover = new float[n * n];
+        for (int j = 0; j < n; j++) {
+            for (int i = 0; i < n; i++) {
+                int a = i - m, b = j - m;
+                cover[j * n + i] = a >= 2 && b >= 2 && a < Rugs.SIDE && b < Rugs.SIDE ? 1f : 0f;
+            }
+        }
+        Rugs.Read woven = Rugs.straightened(new Rugs.Read(colour, cover), Rugs.WOVEN);
+        int holes = 0;
+        for (int b = 0; b < 2; b++) {
+            for (int a = 0; a < 2; a++) {
+                holes += woven.cover()[(b + m) * n + a + m] < 0.5f ? 1 : 0;
+            }
+        }
+        Checks.check(holes == 0, "a square's corner is rug where both its edges stop short of it: " + holes + " dots of floor");
+        byte[] dots = Rugs.drawn(woven, Rugs.WOVEN, null, 0);
+        int open = 0, from = m * Rugs.UP, to = (m + Rugs.SIDE) * Rugs.UP;
+        for (int y = from; y < to; y++) {
+            for (int x = from; x < to; x++) {
+                open += (dots[(y * Rugs.DRAWN + x) * 4 + 3] & 0xff) == 0 ? 1 : 0;
+            }
+        }
+        Checks.check(open == 0, "and drawn, no dot of the square is left open: " + open);
     }
 
     private static void furTakesItsStrandsFromTheGrainAndKeepsItsShade() {

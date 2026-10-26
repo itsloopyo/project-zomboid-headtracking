@@ -7303,15 +7303,16 @@ final class WorldScene {
             // eye a sheet of newspaper is a hoarding and a length of track a fence. It reaches
             // past its square only where the next square has nothing lying on it: a rug of many
             // squares meets itself edge to edge, where each piece reaching into the next was two
-            // pieces over one another along every seam. A square of rug is its picture drawn
-            // again, which reaches as far past its square as it was read.
+            // pieces over one another along every seam. A square of fur rug is its picture drawn
+            // again, which reaches as far past its square as it was read; a woven rug or a hide
+            // stops at its square, past which its picture is only its edge carried on.
             if (!hangsInAir && kind.lies) {
                 int layer = Flat.layer(floorLayer, x, y);
                 layers.lie(SpriteGeometry.LAYERS_UP, layer);
                 floorLayer = layer + 1;
                 float pile = kind.pile;
                 int rug = Own.textures(view.index) ? rugOf(texture, kind.rug, pile, x, y, z) : 0;
-                float most = rug != 0 ? Rugs.REACH : Flat.REACH;
+                float most = rug == 0 ? Flat.REACH : kind.rug == Rugs.FUR ? Rugs.REACH : 0f;
                 float west = Math.min(most, reachInto(x, y, x - 1, y, z)), north = Math.min(most, reachInto(x, y, x, y - 1, z));
                 float east = Math.min(most, reachInto(x, y, x + 1, y, z)), south = Math.min(most, reachInto(x, y, x, y + 1, z));
                 int flat = frame.flat;
