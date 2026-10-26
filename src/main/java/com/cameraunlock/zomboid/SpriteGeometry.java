@@ -686,6 +686,13 @@ final class SpriteGeometry {
     /** The same down from the top edge of a face that stands straight up. */
     float sealTop;
     /**
+     * How many frame pixels the wall skin being added runs on past its wall's end, to the outside
+     * of a corner: a face is cut that much further past its sprite's side. Cut at the usual slack,
+     * the skin stopped short of the corner by as much as its sprite stops short of its square,
+     * and the sky showed up the corner between it and the other wall's skin.
+     */
+    float runOn;
+    /**
      * For a face that stands straight up and is a strip of a wider one, a stripe of paper, the
      * wider face's first corner on the tile and its length along it: the strip takes its texels
      * as that face would there. Drawn in about its own middle, a stripe at a wall's end was too
@@ -1324,7 +1331,8 @@ final class SpriteGeometry {
                 case 2 -> frame.top + kept;
                 default -> frame.top + frame.height - kept;
             };
-            float limit = axis == CORNER_U ? side + (keepAbove ? -slack : slack) : Math.abs(furthest - side) <= slack ? furthest : side;
+            float across = slack > 0f ? slack + runOn : 0f;
+            float limit = axis == CORNER_U ? side + (keepAbove ? -across : across) : Math.abs(furthest - side) <= slack ? furthest : side;
             limits[edge] = limit;
             inside &= keepAbove ? furthest >= limit : furthest <= limit;
         }
@@ -2192,6 +2200,7 @@ final class SpriteGeometry {
         // A face that stands was drawn in before it was cut: see addFace. One too narrow for that,
         // the piece of wall beside a door, is moved in across with its seals: drawn in along its own
         // edges, its far end took the dots the sprite stops short by, and the sky showed up the wall.
+        float keptIn = HALF_PIXEL;
         if (!drawnInFirst && Math.abs(sheet) > 1e-3f && halfAcross == 0f) {
             // A face that lies or leans is drawn smaller onto itself along its own two edges, so
             // its edges keep the slant the sprite paints them at. Moved towards its middle by
@@ -2206,8 +2215,12 @@ final class SpriteGeometry {
             pixelU += movedAcross;
             pixelV += movedAcross * alongSlant;
             pixelV += Math.clamp(centreV - pixelV, -inset, inset);
+            // Its texels are kept the inset inside the sprite's side as well: the piece of wall
+            // between a door and a corner lies mostly past its sprite, took the side's half
+            // empty column all across, and was cut through to the sky where it met the corner.
+            keptIn = exactAcross ? HALF_PIXEL : Math.min(inset, frame.width / 2f);
         }
-        float keptU = Math.clamp(pixelU, frame.left + HALF_PIXEL, frame.left + frame.width - HALF_PIXEL);
+        float keptU = Math.clamp(pixelU, frame.left + keptIn, frame.left + frame.width - keptIn);
         // On a face that stands straight up, a texel kept inside the sprite's side stays on
         // its own course: left on its row, the courses of the face would tilt towards that side.
         if (halfAcross > 0f) {

@@ -1322,12 +1322,17 @@ final class WallBuilder {
         fromStart += skinStart * perTile;
         fromEnd += skinEnd * perTile;
         if (start < 0f) {
+            build.geometry.runOn = Math.max(skinStart, skinEnd) * perTile;
             addPiece(mesh, x, y, z, a, b, da, db, first, last, 0f, 1f, fromStart, fromEnd, fromTop, startIsLow);
+            build.geometry.runOn = 0f;
             return;
         }
         float foot = opening[at + OPENING_FOOT], head = opening[at + OPENING_HEAD];
+        build.geometry.runOn = skinStart * perTile;
         addPiece(mesh, x, y, z, a, b, da, db, first, start, 0f, 1f, fromStart, 0f, fromTop, startIsLow);
+        build.geometry.runOn = skinEnd * perTile;
         addPiece(mesh, x, y, z, a, b, da, db, end, last, 0f, 1f, 0f, fromEnd, fromTop, startIsLow);
+        build.geometry.runOn = 0f;
         if (head < 1f) {
             addPiece(mesh, x, y, z, a, b, da, db, start, end, head, 1f, 0f, 0f, fromTop, startIsLow);
         }
