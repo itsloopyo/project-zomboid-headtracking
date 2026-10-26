@@ -160,6 +160,8 @@ final class DepthFights {
     static final class Tri {
         final double[] p = new double[9];
         double nx, ny, nz, d;
+        /** Whether the normal was turned round to its one way: two whose windings face apart cannot both face the eye. */
+        boolean turned;
         /** Layers it lies off along the normal (SpriteGeometry.LAYERS_X and the rest), and layers of cards it stands towards the camera along it. */
         double layers, cards;
         String label;
@@ -450,6 +452,7 @@ final class DepthFights {
             nx = -nx;
             ny = -ny;
             nz = -nz;
+            tri.turned = true;
         }
         tri.nx = nx;
         tri.ny = ny;
@@ -547,7 +550,7 @@ final class DepthFights {
         boolean twice = sameCorners(a, b);
         String facing = Math.abs(a.nz) > 0.9 ? "level" : Math.abs(a.nz) < 0.1 ? "upright" : "sloped";
         String one = a.label, two = b.label;
-        String what = facing + ": " + (one.compareTo(two) <= 0 ? one + " WITH " + two : two + " WITH " + one) + (twice ? " (the same triangle twice)" : "")
+        String what = facing + ": " + (one.compareTo(two) <= 0 ? one + " WITH " + two : two + " WITH " + one) + (twice ? " (the same triangle twice)" : "") + (a.turned == b.turned ? "" : " (wound apart)")
                 + (a.source == b.source ? "" : " (two builds)");
         Kind kind = found.computeIfAbsent(what, x -> new Kind());
         kind.area += area;
