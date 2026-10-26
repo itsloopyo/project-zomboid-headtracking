@@ -2,6 +2,7 @@ package com.cameraunlock.zomboid;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import zombie.core.textures.Texture;
 
@@ -40,7 +41,7 @@ final class Masonry {
     /** Upright joints to a course along the strip: a boarded wall has fewer than the first, a brick one at least the second, a stone one at least the third. */
     private static final float NO_UPRIGHTS = 0.1f, BRICK_UPRIGHTS = 0.3f, STONE_UPRIGHTS = 0.5f;
     private static final int LONGEST_COURSE = 48, SHORTEST_COURSE = 3;
-    /** The most courses deep the face between two joints is: a gable's brick, cut to the slope, goes three and a half. */
+    /** The most courses deep a face is, between two joints or past the last: a gable's brick, cut to the slope, goes three and a half. */
     private static final int FACE_COURSES = 4;
     private static final float NEARLY = 0.7f, HALFWAY = 0.4f;
     /**
@@ -54,6 +55,8 @@ final class Masonry {
 
     /** For each sprite read: how the picture lays it, as WallSides.laid gives it, or 0 for a wall that is shown as painted. */
     private static final ConcurrentHashMap<Texture, Integer> known = new ConcurrentHashMap<>();
+    /** The sprites read as a wall of one colour with bands painted across it. */
+    private static final Set<Texture> banded = ConcurrentHashMap.newKeySet();
 
     private Masonry() {}
 
@@ -85,13 +88,33 @@ final class Masonry {
         return !known.containsKey(texture);
     }
 
+    /**
+     * Whether the sprite has been read as a wall of one colour with bands painted across it: a
+     * filling station's or a diner's. of() gives 0 for it, and it is shown as the game painted
+     * it even where its sheet's walls are boards.
+     */
+    static boolean banded(Texture texture) {
+        return banded.contains(texture);
+    }
+
     /** Reads the sprite: the rectangle from (left, top) to before (right, bottom) of a sheet width dots wide, held as bytes of red, green, blue and cover. */
     static void read(Texture texture, ByteBuffer sheet, int width, int left, int top, int right, int bottom) {
-        known.put(texture, measure(sheet, width, left, top, right, bottom));
+        boolean[] bands = new boolean[1];
+        int laid = measure(sheet, width, left, top, right, bottom, bands);
+        // Marked banded before it is known: a build that finds it read finds it banded too.
+        if (bands[0]) {
+            banded.add(texture);
+        }
+        known.put(texture, laid);
     }
 
     /** As of(), for the rectangle of a sheet a sprite is. */
     static int measure(ByteBuffer sheet, int width, int left, int top, int right, int bottom) {
+        return measure(sheet, width, left, top, right, bottom, new boolean[1]);
+    }
+
+    /** As measure, setting bands[0] for a wall of one colour with bands painted across it. */
+    static int measure(ByteBuffer sheet, int width, int left, int top, int right, int bottom, boolean[] bands) {
         int across = right - left, high = bottom - top;
         int strip = Math.min(STRIP, across);
         if (strip < STRIP / 3 || high < FEWEST_ROWS) {
@@ -248,6 +271,7 @@ final class Masonry {
             longestFace = Math.max(longestFace, face);
         }
         if (longestFace > FACE_COURSES * course) {
+            bands[0] = true;
             return 0;
         }
         // Between two joints is a course. Along it, an upright joint is a dot as far from

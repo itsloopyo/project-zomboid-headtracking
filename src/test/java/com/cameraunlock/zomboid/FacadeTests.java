@@ -184,11 +184,17 @@ final class FacadeTests {
         // Wallpaper striped upright: lines that are no courses.
         check(laid((along, row) -> along % 6 == 0 ? SHADOW : BOARD) == 0, "and so is one with upright stripes");
         // A filling station's wall: white, with two bands of red and yellow checks across it.
-        int checks = laid((along, row) -> {
+        boolean[] bands = new boolean[1];
+        int checks = Masonry.measure(sprite((along, row) -> {
             int band = row >= 16 && row < 32 ? row - 16 : row >= 120 && row < 136 ? row - 120 : -1;
             return band < 0 ? 0xe8e4d8 : (along / 8 + band / 8) % 2 == 0 ? 0xc03028 : 0xe0b830;
-        });
-        check(checks == 0, "and so is one of one colour with a painted band or two across it: " + Integer.toHexString(checks));
+        }, HIGH), WIDE, 0, 0, WIDE, HIGH, bands);
+        check(checks == 0 && bands[0], "and so is one of one colour with a painted band or two across it, which is told banded: " + Integer.toHexString(checks));
+        bands[0] = false;
+        Masonry.measure(sprite((along, row) -> row % 10 == 0 ? SHADOW : BOARD, HIGH), WIDE, 0, 0, WIDE, HIGH, bands);
+        check(!bands[0], "lapped boards are not banded");
+        Masonry.measure(sprite((along, row) -> along % 6 == 0 ? SHADOW : BOARD, HIGH), WIDE, 0, 0, WIDE, HIGH, bands);
+        check(!bands[0], "nor are upright boards, which a board sheet lays board by board");
     }
 
     private static void onlyOutsideWallsAreLaid() {
