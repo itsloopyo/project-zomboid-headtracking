@@ -58,6 +58,8 @@ final class WallFinish {
         Texture outside;
         Facing south, east;
         final HashMap<Long, Texture> rooms = new HashMap<>();
+        /** The plain wall each room shows on its own squares' north edges and on their west edges. One of the two may be null, never both. */
+        final HashMap<Long, Facing[]> roomWalls = new HashMap<>();
         /** What the outside of each room's walls shows, on a north edge and on a west edge. One of the two may be null, never both. */
         final HashMap<Long, Facing[]> outsides = new HashMap<>();
         /** For tend: what ChunkMarks had counted for the building's chunks and which chunks the map had loaded when the level was read. */
@@ -73,6 +75,9 @@ final class WallFinish {
             }
             for (var room : outsides.entrySet()) {
                 each += mix(mix(mix(2, room.getKey()), of(room.getValue()[NORTH])), of(room.getValue()[WEST]));
+            }
+            for (var room : roomWalls.entrySet()) {
+                each += mix(mix(mix(3, room.getKey()), of(room.getValue()[NORTH])), of(room.getValue()[WEST]));
             }
             return mix(print, each);
         }
@@ -220,6 +225,15 @@ final class WallFinish {
         return north ? level.south : level.east;
     }
 
+    /**
+     * The plain wall the room shows on its own squares' north edges (north) or west edges, or
+     * null where it has none on that edge.
+     */
+    static Facing roomWall(IsoCell cell, IsoBuilding building, int z, long room, boolean north, int frame) {
+        Facing[] walls = of(cell, building, z, frame).roomWalls.get(room);
+        return walls == null ? null : walls[north ? NORTH : WEST];
+    }
+
     /** The sprite the room's walls show, or null. */
     static Texture room(IsoCell cell, IsoBuilding building, int z, long room, int frame) {
         return of(cell, building, z, frame).rooms.get(room);
@@ -273,6 +287,7 @@ final class WallFinish {
         WallSides.Outsides outsides = new WallSides.Outsides();
         Tally outside = new Tally(), southFace = new Tally(), eastFace = new Tally();
         HashMap<Long, Tally> rooms = new HashMap<>();
+        HashMap<Long, Tally[]> roomEdges = new HashMap<>();
         for (int x = def.getX(); x < def.getX() + def.getW(); x++) {
             for (int y = def.getY(); y < def.getY() + def.getH(); y++) {
                 IsoGridSquare square = cell.getGridSquare(x, y, z);
@@ -294,6 +309,9 @@ final class WallFinish {
                 Tally room = rooms.computeIfAbsent(square.getRoomID(), unused -> new Tally());
                 vote(room, square, true);
                 vote(room, square, false);
+                Tally[] edges = roomEdges.computeIfAbsent(square.getRoomID(), unused -> new Tally[] {new Tally(), new Tally()});
+                vote(edges[NORTH], square, true);
+                vote(edges[WEST], square, false);
                 IsoGridSquare south = filled(cell.getGridSquare(x, y + 1, z)), east = filled(cell.getGridSquare(x + 1, y, z));
                 // Above the ground a missing neighbour is air or map not loaded yet, which its ground square tells apart.
                 level.whole &= z == 0 ? south != null && east != null
@@ -350,6 +368,12 @@ final class WallFinish {
         level.outside = commonest(outside);
         level.south = plainest(southFace);
         level.east = plainest(eastFace);
+        for (var room : roomEdges.entrySet()) {
+            Facing north = plainest(room.getValue()[NORTH]), west = plainest(room.getValue()[WEST]);
+            if (north != null || west != null) {
+                level.roomWalls.put(room.getKey(), new Facing[] {north, west});
+            }
+        }
         for (var room : rooms.entrySet()) {
             Texture finish = commonest(room.getValue());
             if (finish != null) {

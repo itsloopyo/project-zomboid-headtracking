@@ -95,6 +95,11 @@ final class WallBuilder {
     private WallFinish.Facing farFacing;
     /** The sprite the room beyond the wall last asked about shows on its walls, or null where it is no room: see farTint. */
     private Texture farShows;
+    /**
+     * The plain wall that room shows on the same edge of its own squares as the wall last asked
+     * about is on, and on the other edge, either or both null: see farTint.
+     */
+    private WallFinish.Facing farWall, farWallAcross;
     /** Where in the chunk's lights the square beyond the wall last asked about is, or -1 when it is the same place as this side. */
     private int farLight;
     private final float[] laidTint = new float[4];
@@ -625,6 +630,40 @@ final class WallBuilder {
         if (tint != 0) {
             build.frame.material = WorldScene.PAINT;
         }
+        // Any other room beyond is papered on this side as its own walls are: in the stripes of
+        // its paper, over this wall's outline, or else its wall stood square, where this wall's
+        // opening is cut by its pieces and not out of its sprite alone.
+        Papers.Paper farPaper = null;
+        WallFinish.Facing farStood = null, farPaperBy = null;
+        if (tint != 0 && faced == null && farTiles == null && farShows != null && build.overLayer == 0 && Own.textures(build.playerIndex)) {
+            for (WallFinish.Facing room : new WallFinish.Facing[] {farWall, farWallAcross}) {
+                if (farPaper != null || room == null || room.sprite.getName() == null || !room.sprite.getName().startsWith("walls_interior_house")) {
+                    continue;
+                }
+                build.held.texelsOf(build.frame);
+                build.frame.takeTexels(room.texture);
+                farPaper = Papers.of(room.texture, build.frame, room == farWall ? da != 0f : da == 0f);
+                farPaperBy = room;
+                build.frame.texelsOf(build.held);
+                if (farPaper == null && Papers.unread(room.texture)) {
+                    build.building.signed = false;
+                }
+            }
+            if (farPaper == null && farWall != null && (!build.wallOpens || opening[at + OPENING_START] >= 0f)
+                    && paintedOnWall(texture, 0f, 0f, da, db, 0.5f, WHOLE_WALL, 0f)) {
+                farStood = farWall;
+                build.held.texelsOf(build.frame);
+                build.frame.takeTexels(farStood.texture);
+                build.frame.material = WorldScene.materialOf(farStood.sprite);
+                fromStart = unpainted(farStood.texture, 0f, 0f, da, db);
+                fromEnd = unpainted(farStood.texture, da, db, -da, -db);
+                fromTop = unpaintedTop(farStood.texture, 0f, 0f, da, db);
+            } else if (farPaper != null) {
+                tint = WallSides.key(farPaper.red, farPaper.green, farPaper.blue, WallSides.FLAT);
+                WallSides.tint(tint, build.paperTint);
+                build.frame.material = WorldScene.materialOf(farPaperBy.sprite);
+            }
+        }
         // The far skin is in the place beyond the wall, and is lit as that place is: the
         // outside of a house by the day, whatever the room behind it is lit by.
         float red = build.frame.red, green = build.frame.green, blue = build.frame.blue, open = build.frame.open;
@@ -637,13 +676,15 @@ final class WallBuilder {
                 lightAlong(farLight, da != 0f);
             }
         }
-        // The far skin is papered as the near one only where it shows the same sprite.
-        paper = faced == null && tint == 0 ? paper : null;
+        // The far skin is papered as the near one where it shows the same sprite, and as the room beyond where it is papered.
+        paper = farPaper != null ? farPaper : faced == null && tint == 0 ? paper : null;
         tiles = faced == null && tint == 0 ? tiles : farTiles;
         SpriteGeometry.Mesh far = near;
         if (farTiles != null) {
             far = tileStood;
             build.frame.flat = tileFlat;
+        } else if (farStood != null) {
+            far = stoodSquare(laid(WorldScene.solid.get(farStood.texture.getID()), farStood.texture, false, true, x, y, z, da != 0f), farStood.texture, da != 0f);
         } else if (faced != null) {
             far = stoodSquare(laid(WorldScene.solid.get(faced.texture.getID()), faced.texture, Masonry.suits(faced.sprite.getName()), false, x, y, z, da != 0f), faced.texture, da != 0f);
         } else if (tint != 0) {
@@ -663,7 +704,7 @@ final class WallBuilder {
         if (tint != 0 && farColour != null && WorldScene.outdoors(build.frame.open) && opening[at + OPENING_TOP] >= WHOLE_WALL) {
             addCourses(opening, at, x, y, z, 0f, 0f, da, db, -Math.signum(inX), -Math.signum(inY));
         }
-        if (faced != null || farTiles != null) {
+        if (faced != null || farTiles != null || farStood != null) {
             build.frame.texelsOf(build.held);
         }
         if (build.overLayer == 0 && farLight >= 0) {
@@ -2007,6 +2048,7 @@ final class WallBuilder {
         farLight = -1;
         farFacing = null;
         farShows = null;
+        farWall = farWallAcross = null;
         // Above the ground a square of open air is often no square at all. On the ground it is map not loaded yet.
         if (beyond == null && build.cell.getGridSquare(beyondX, beyondY, 0) == null) {
             return 0;
@@ -2033,6 +2075,10 @@ final class WallBuilder {
             return 0;
         }
         farShows = far == -1L ? null : shows;
+        if (far != -1L) {
+            farWall = WallFinish.roomWall(build.cell, building, z, far, north, world.roundNow);
+            farWallAcross = WallFinish.roomWall(build.cell, building, z, far, !north, world.roundNow);
+        }
         float[] colour = SpriteColours.of(shows);
         // The picture reads a sprite's colour and how it is laid on the next frame drawn, and tells nobody when it has:
         // a build that went without either is made again when next due.
