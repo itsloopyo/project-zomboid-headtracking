@@ -7636,6 +7636,9 @@ final class WorldScene {
                         return;
                     }
                 }
+                if (Roofs.capOfARidgeBelow(cell, Roofs.measure(frame, texture, x, y, z), frame.scale)) {
+                    return;
+                }
                 roofName = sprite.getName();
                 roofBuilder.addRoof(mesh, texture, x, y, z);
                 return;

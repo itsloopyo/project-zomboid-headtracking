@@ -147,6 +147,7 @@ final class Roofs {
     private static int tended, loadedNow;
     private static final int TENDED_A_FRAME = 4;
     private static final SpriteGeometry.Frame frame = new SpriteGeometry.Frame();
+    private static final SpriteGeometry.Frame capFrame = new SpriteGeometry.Frame();
     private static final ArrayList<Laid> reading = new ArrayList<>();
     private static final ArrayList<RoofFit.Tile> tiles = new ArrayList<>();
     private static final ArrayList<Texture> shown = new ArrayList<>();
@@ -975,7 +976,11 @@ final class Roofs {
                 continue;
             }
             WorldScene.frameOf(frame, object, texture);
-            reading.add(new Laid(measure(frame, texture, x, y, z), texture, roof));
+            RoofFit.Tile tile = measure(frame, texture, x, y, z);
+            if (capOfARidgeBelow(cell, tile, frame.scale)) {
+                continue;
+            }
+            reading.add(new Laid(tile, texture, roof));
             return;
         }
         for (int i = 0; i < objects.size(); i++) {
@@ -1009,6 +1014,52 @@ final class Roofs {
      */
     static boolean flatTop(RoofFit.Tile tile) {
         return tile.axis == RoofFit.LEVEL && tile.sure && !tile.fitting && tile.half == 0 && tile.low - tile.z >= FLAT_TOP_LEAST;
+    }
+
+    /**
+     * Whether a tile is a ridge's cap the map puts a level above the ridge it caps: level, a third of a level over its
+     * floor, over a slope a level down that tops at that floor, on its square or the square back along the line of sight.
+     * The game paints a third of a level up as a square back along that line, so there it is drawn on the ridge; laid
+     * where it reads, it was a slab hanging a storey over the barn's ridge at 421, 9383..9390 (roofs_30_07_107 over
+     * roofs_03_3, which runs 9382..9389). The ridge is the slopes' own.
+     */
+    static boolean capOfARidgeBelow(IsoCell cell, RoofFit.Tile tile, float scale) {
+        if (tile.z == 0 || tile.axis != RoofFit.LEVEL || tile.half != 0 || Math.abs(tile.low - tile.z - RoofFit.PITCH) > RoofFit.SAME) {
+            return false;
+        }
+        for (int dx = -1; dx <= 0; dx++) {
+            for (int dy = -1; dy <= 0; dy++) {
+                if (slopeToppingAt(cell, tile.x + dx, tile.y + dy, tile.z - 1, tile.z, scale)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /** Whether the square holds a roof's slope whose top is at that height. */
+    private static boolean slopeToppingAt(IsoCell cell, int x, int y, int z, float top, float scale) {
+        IsoGridSquare square = cell.getGridSquare(x, y, z);
+        if (square == null) {
+            return false;
+        }
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoObject object = objects.get(i);
+            IsoSprite sprite = object.getSprite();
+            if (sprite == null || !isTile(sprite.getType()) || accent(sprite.getName()) || noRoof(cell, sprite, x, y, z)) {
+                continue;
+            }
+            Texture texture = sprite.getTextureForCurrentFrame(object.getDir());
+            if (!WorldScene.usable(texture)) {
+                continue;
+            }
+            capFrame.scale = scale;
+            WorldScene.frameOf(capFrame, object, texture);
+            RoofFit.Tile slope = measure(capFrame, texture, x, y, z);
+            return slope.axis != RoofFit.LEVEL && Math.abs(Math.max(slope.low, slope.high) - top) <= RoofFit.SAME;
+        }
+        return false;
     }
 
     static boolean isTile(IsoObjectType type) {
