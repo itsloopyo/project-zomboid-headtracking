@@ -50,7 +50,10 @@ final class HiddenWallsTests {
         Checks.check(HiddenWalls.kindOf("bathroom") == HiddenWalls.Kind.BATH && HiddenWalls.kindOf("revpeterwattsbathroom") == HiddenWalls.Kind.BATH,
                 "a bathroom is a bathroom by any name the map gives it");
         Checks.check(HiddenWalls.kindOf("bedroom") == HiddenWalls.Kind.BED && HiddenWalls.kindOf("kidsbedroom4") == HiddenWalls.Kind.BED
-                && HiddenWalls.kindOf("guestbedroom") == HiddenWalls.Kind.BED, "so is a bedroom");
+                && HiddenWalls.kindOf("guestbedroom") == HiddenWalls.Kind.BED && HiddenWalls.kindOf("motelroomoccupied") == HiddenWalls.Kind.BED,
+                "so is a bedroom, a motel's room among them");
+        Checks.check(HiddenWalls.kindOf("hospitalroom") == HiddenWalls.Kind.LIVING && HiddenWalls.kindOf("bar") == HiddenWalls.Kind.LIVING
+                && HiddenWalls.kindOf("cafe") == HiddenWalls.Kind.LIVING, "a hospital's room, a bar and a cafe are rooms to sit in, with a clock and their kind's pictures");
         Checks.check(HiddenWalls.kindOf("kitchen") == HiddenWalls.Kind.KITCHEN && HiddenWalls.kindOf("pizzakitchen") == HiddenWalls.Kind.KITCHEN,
                 "a house's kitchen and a restaurant's are kitchens");
         Checks.check(HiddenWalls.kindOf("breakroom") == HiddenWalls.Kind.KITCHEN, "and so is a works breakroom, which gets a clock and no mirror");

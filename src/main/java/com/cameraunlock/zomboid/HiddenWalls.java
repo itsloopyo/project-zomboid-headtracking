@@ -200,7 +200,7 @@ final class HiddenWalls {
         if (n.contains("bathroom") || n.equals("showers")) {
             return Kind.BATH;
         }
-        if (n.contains("bedroom") || n.equals("agriworkerdorm") || n.equals("nursery")) {
+        if (n.contains("bedroom") || n.equals("agriworkerdorm") || n.equals("nursery") || n.startsWith("motelroom")) {
             return Kind.BED;
         }
         // A works breakroom is a kitchenette with a table: a clock, not a mirror.
@@ -209,7 +209,7 @@ final class HiddenWalls {
         }
         if (n.contains("livingroom") || n.equals("liviingroom") || n.contains("dining") || n.equals("diningr") || n.equals("sunroom")
                 || n.equals("gameroom") || n.equals("homecinema") || n.equals("sewingroom")
-                || n.equals("waitingroom") || n.equals("viplounge")) {
+                || n.equals("waitingroom") || n.equals("viplounge") || n.equals("hospitalroom") || n.equals("bar") || n.equals("cafe")) {
             return Kind.LIVING;
         }
         if (n.equals("hall") || n.equals("hallway") || n.equals("hallway2") || n.equals("ww_hall") || n.equals("foyer") || n.equals("lobby")
