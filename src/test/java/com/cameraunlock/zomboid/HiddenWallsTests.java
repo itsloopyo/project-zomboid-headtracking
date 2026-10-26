@@ -25,8 +25,33 @@ final class HiddenWallsTests {
             Checks.check(pictures.getOrDefault(subject, 0) >= 3, "the jar has several pictures of " + subject);
         }
         for (String name : HiddenWalls.NAMED) {
-            Checks.check(HiddenWalls.TASTES.contains(HiddenWalls.subjectOf(name)) && Decor.named(name) >= 0, "the named picture " + name + " is one of a taste's");
+            Checks.check(HiddenWalls.TASTES.contains(HiddenWalls.subjectOf(name)) && pictures.containsKey(HiddenWalls.subjectOf(name)),
+                    "the named picture " + name + " is one of a taste's");
         }
+        int tennis = Decor.named("tennis-1"), shownTennis = Decor.named("tennis-2"), family = Decor.named("family-05"), other = Decor.named("family-08");
+        int lakeside = Decor.named("painting-lakeside"), hockey = Decor.named("hockey-0");
+        java.util.List<int[]> house = HiddenWalls.homeSources(java.util.Set.of(shownTennis, family, other, lakeside, hockey), java.util.Set.of(shownTennis, other),
+                java.util.Set.of());
+        java.util.Set<Integer> taste = new java.util.HashSet<>(), photos = new java.util.HashSet<>(), landscapes = new java.util.HashSet<>();
+        for (int picture : house.get(0)) {
+            taste.add(picture);
+        }
+        for (int picture : house.get(1)) {
+            photos.add(picture);
+        }
+        for (int picture : house.get(2)) {
+            landscapes.add(picture);
+        }
+        Checks.check(taste.contains(tennis) && !taste.contains(shownTennis) && !taste.contains(Decor.named("hockey-1")), "a room with a tennis picture takes another tennis picture, not one the building shows");
+        for (int picture : taste) {
+            Checks.check(HiddenWalls.subjectOf(Decor.nameOf(picture)).equals("tennis"), "and nothing of a subject the room does not show: " + Decor.nameOf(picture));
+        }
+        Checks.check(photos.equals(java.util.Set.of(family)), "the family photographs are those the building shows and the room does not: " + photos);
+        Checks.check(!landscapes.isEmpty() && !landscapes.contains(lakeside), "the landscapes are those the building does not show");
+        java.util.List<int[]> spread = HiddenWalls.homeSources(java.util.Set.of(family, other), java.util.Set.of(), java.util.Set.of(family));
+        Checks.check(spread.get(1).length == 1 && spread.get(1)[0] == other, "a family photograph drawn in another room is passed over while another is left");
+        java.util.List<int[]> all = HiddenWalls.homeSources(java.util.Set.of(family), java.util.Set.of(), java.util.Set.of(family));
+        Checks.check(all.get(1).length == 1, "and drawn again when it is the only one");
         java.util.List<int[]> sources = java.util.List.of(new int[] {1, 2}, new int[] {5}, new int[] {7, 8, 9});
         boolean[] used = new boolean[3];
         java.util.Set<Integer> taken = new java.util.HashSet<>();

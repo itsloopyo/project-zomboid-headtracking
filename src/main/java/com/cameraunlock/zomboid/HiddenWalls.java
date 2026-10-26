@@ -464,7 +464,7 @@ final class HiddenWalls {
      * building does not show. room is what the room shows, building what the building does.
      * A family photograph already drawn in another room is passed over while one is left that is not.
      */
-    private static List<int[]> homeSources(Set<Integer> building, Set<Integer> room, Set<Integer> drawnElsewhere) {
+    static List<int[]> homeSources(Set<Integer> building, Set<Integer> room, Set<Integer> drawnElsewhere) {
         Set<String> tastes = new HashSet<>();
         for (int picture : room) {
             String subject = subjectOf(Decor.nameOf(picture));
