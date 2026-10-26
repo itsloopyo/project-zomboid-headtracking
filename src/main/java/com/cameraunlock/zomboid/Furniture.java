@@ -83,6 +83,8 @@ final class Furniture {
     boolean mirror;
     /** See ownSize. */
     boolean ownSize;
+    /** See stretched. */
+    boolean stretched;
     /** See overEnds. */
     boolean overEnds;
     /** The picture of the mod's own that its frame holds in place of the sprite's painting, or Decor.NONE. */
@@ -170,6 +172,12 @@ final class Furniture {
     Furniture dye(int surfaces, float high) {
         dyed = surfaces;
         dyeHigh = high;
+        return this;
+    }
+
+    /** For what hangs on a wall: the surfaces that take the colour the sprite has in the middle of what it paints. */
+    Furniture dyedWhereHung(int surfaces) {
+        dyed = surfaces;
         return this;
     }
 
@@ -297,6 +305,12 @@ final class Furniture {
         return this;
     }
 
+    /** For what hangs on a wall and is as wide and as high as its sprite paints it, each its own way: a shutter. */
+    Furniture stretched() {
+        stretched = true;
+        return this;
+    }
+
     /** For what hangs on a wall and may be painted across its square's end, half on the next square's length of the wall: a cross. */
     Furniture overEnds() {
         overEnds = true;
@@ -400,6 +414,10 @@ final class Furniture {
             Furniture cross = Leisure.wallCross(sprite, name);
             if (cross != null) {
                 return cross;
+            }
+            Furniture shutter = Shutters.of(sprite, name);
+            if (shutter != null) {
+                return shutter;
             }
         }
         if (name != null && called == null) {

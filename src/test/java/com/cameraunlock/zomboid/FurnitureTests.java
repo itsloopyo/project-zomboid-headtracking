@@ -23,6 +23,7 @@ final class FurnitureTests {
         Checks.run("aLightSwitchHangsOnTheWallItIsAttachedToAtASwitchsHeight", FurnitureTests::aLightSwitchHangsOnTheWallItIsAttachedToAtASwitchsHeight);
         Checks.run("aBenchIsAsHighAsItsSeatAndAsLongAsItsSquares", FurnitureTests::aBenchIsAsHighAsItsSeatAndAsLongAsItsSquares);
         Checks.run("ventsAreToldByTheirPlaceOnTheSheet", FurnitureTests::ventsAreToldByTheirPlaceOnTheSheet);
+        Checks.run("shuttersHangOnTheirWallPanelledOrLouvredInTheirColour", FurnitureTests::shuttersHangOnTheirWallPanelledOrLouvredInTheirColour);
         Checks.run("binsGoByWhatTheyHoldWhereverTheyStand", FurnitureTests::binsGoByWhatTheyHoldWhereverTheyStand);
         Checks.run("aSteelCounterIsSteelAndAWoodenOneIsNot", FurnitureTests::aSteelCounterIsSteelAndAWoodenOneIsNot);
         Checks.run("floorLampsAreToldByTheirPlace", FurnitureTests::floorLampsAreToldByTheirPlace);
@@ -338,6 +339,18 @@ final class FurnitureTests {
         Furniture unit = Furniture.known(sprite("industry_01_4|CanScrap||CustomName|Conditioner|Facing|S|GroupName|Air|IsHigh||IsMoveAble||Material|MetalScrap|"
                 + "Material2|Electric|MoveType|WallObject|PickUpTool|Hammer|PickUpWeight|25|PlaceTool|Hammer|ScrapSize|Small|attachedN|"));
         check(model(unit).equals("air_conditioner"), "a works' air conditioner of the same name is the case let through its wall: " + model(unit));
+    }
+
+    private static void shuttersHangOnTheirWallPanelledOrLouvredInTheirColour() {
+        String[][] places = {{"16", "W", "shutter_panelled"}, {"19", "N", "shutter_panelled"}, {"24", "W", "shutter_louvred"}, {"31", "N", "shutter_louvred"},
+                {"33", "W", "shutter_panelled"}, {"34", "N", "shutter_panelled"}};
+        for (String[] place : places) {
+            Furniture shutter = Furniture.known(sprite("fixtures_windows_detailing_01_" + place[0] + "|WallOverlay||attached" + place[1] + "|"));
+            int wall = place[1].equals("W") ? WallHung.WEST : WallHung.NORTH;
+            check(model(shutter).equals(place[2]) && shutter.wall == wall && shutter.dyed == 1 << Models.PAINT,
+                    "fixtures_windows_detailing_01_" + place[0] + " is a " + place[2] + " on its wall, painted the sprite's colour: " + model(shutter));
+        }
+        check(Furniture.known(sprite("fixtures_windows_detailing_01_8|WallOverlay||attachedW|")) == null, "and the sheet's sills are none of them");
     }
 
     private static void binsGoByWhatTheyHoldWhereverTheyStand() {

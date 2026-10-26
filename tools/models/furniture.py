@@ -3146,6 +3146,57 @@ def louvre(name, width, height, made, slats, deep=0.045):
     return model
 
 
+# A window shutter, in metres: how wide and high it is, how thick its frame is, and how wide its stiles and rails are.
+SHUTTER_WIDE, SHUTTER_HIGH, SHUTTER_DEEP, SHUTTER_STILE, SHUTTER_RAIL = 0.4, 1.2, 0.03, 0.06, 0.08
+
+
+def shutter_frame(bm, middle):
+    """A shutter's stiles and its rails top, bottom and at height middle, its back at +Y."""
+    half, front = SHUTTER_WIDE / 2, -SHUTTER_DEEP
+    cuboid(bm, -half, -half + SHUTTER_STILE, front, 0.0, 0.0, SHUTTER_HIGH)
+    cuboid(bm, half - SHUTTER_STILE, half, front, 0.0, 0.0, SHUTTER_HIGH)
+    for low in (0.0, middle - SHUTTER_RAIL / 2, SHUTTER_HIGH - SHUTTER_RAIL):
+        cuboid(bm, -half + SHUTTER_STILE, half - SHUTTER_STILE, front, 0.0, low, low + SHUTTER_RAIL)
+
+
+def shutter_panelled():
+    """A shutter beside a window, its back on the wall at +Y: a frame round two fielded panels, the upper one the
+    taller, each sunk behind the frame with a raised field in its middle."""
+    model = Model("shutter_panelled")
+    middle = SHUTTER_HIGH * 0.42
+    wood = bmesh.new()
+    shutter_frame(wood, middle)
+    half, inner = SHUTTER_WIDE / 2 - SHUTTER_STILE, SHUTTER_RAIL
+    for low, high in ((SHUTTER_RAIL, middle - SHUTTER_RAIL / 2), (middle + SHUTTER_RAIL / 2, SHUTTER_HIGH - SHUTTER_RAIL)):
+        cuboid(wood, -half, half, -0.012, 0.0, low, high)
+        cuboid(wood, -half + 0.03, half - 0.03, -0.022, -0.012, low + 0.03, high - 0.03)
+    model.hard(wood, "paint", bevel=0.003, segments=1)
+    return model
+
+
+def shutter_louvred():
+    """A louvred shutter beside a window, its back on the wall at +Y: a frame with a rail across its middle, and slats
+    leaning with their lower edge out between the rails, apart enough that the dark behind them shows between each two."""
+    model = Model("shutter_louvred")
+    middle = SHUTTER_HIGH * 0.5
+    wood = bmesh.new()
+    shutter_frame(wood, middle)
+    half = SHUTTER_WIDE / 2 - SHUTTER_STILE
+    slats = bmesh.new()
+    for low, high in ((SHUTTER_RAIL, middle - SHUTTER_RAIL / 2), (middle + SHUTTER_RAIL / 2, SHUTTER_HIGH - SHUTTER_RAIL)):
+        count = 8
+        step = (high - low) / count
+        for n in range(count):
+            z = low + n * step
+            prism_y(slats, (0.0, z + 0.2 * step, 2 * half, 0.006, -SHUTTER_DEEP + 0.004), (0.0, z + 0.75 * step, 2 * half, 0.006, -0.008))
+    model.hard(wood, "paint", bevel=0.003, segments=1)
+    model.hard(slats, "paint", bevel=0.001, segments=1)
+    dark = bmesh.new()
+    cuboid(dark, -half, half, -0.004, 0.0, SHUTTER_RAIL, SHUTTER_HIGH - SHUTTER_RAIL)
+    model.plain(dark, "rubber")
+    return model
+
+
 def round_vent():
     """A round vent on a wall, its back at +Y: a domed face with slots across it."""
     model = Model("round_vent")
@@ -4070,7 +4121,7 @@ def display_cases():
 def indoors():
     """What stands in rooms and hangs on their walls: the pieces Indoors.java places."""
     return [range_hood(), garbage_can(), waste_basket(), louvre("wall_vent", 0.56, 0.42, "plastic", 5), louvre("wall_grille", 0.64, 0.34, "enamel", 7, deep=0.03),
-            round_vent(), exit_sign(), sconce(), pedestal_sink(), medicine_cabinet(), hand_dryer(), light_switch(), coat_rack(),
+            round_vent(), shutter_panelled(), shutter_louvred(), exit_sign(), sconce(), pedestal_sink(), medicine_cabinet(), hand_dryer(), light_switch(), coat_rack(),
             filing_cabinet(), carton("carton", 0.58, 0.58, 0.56), carton("carton_small", 0.44, 0.34, 0.3), battered_carton("carton_battered", 0.44, 0.34, 0.3), computer(), water_cooler(),
             floor_lamp("torchiere", False), floor_lamp("standard_lamp", True), dresser_mirror(), side_table(), media_stand(), bar_stool(), clothes_dryer(),
             plank_bench("plank_bench", "steel"), plank_bench("wood_plank_bench", "wood"), box_bench(), pew(), bunk_bed("bunk_bed", "dark_wood"), bunk_bed("steel_bunk_bed", "metal"),

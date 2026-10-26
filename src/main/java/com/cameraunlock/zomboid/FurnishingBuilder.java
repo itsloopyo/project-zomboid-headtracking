@@ -320,8 +320,19 @@ final class FurnishingBuilder {
         float foot = hungPlace[FOOT];
         float clear = behind(piece, build.hungAt[WallHung.FROM], build.hungAt[WallHung.TO], foot / ViewCamera.LEVEL_HEIGHT,
                 (foot + model.height() * scaleUp) / ViewCamera.LEVEL_HEIGHT);
-        standHung(piece, model, x, y, z, clear, !piece.pictured ? WorldScene.PLAIN : picture != Decor.NONE ? Decor.held(picture) : texture.getID(),
-                piece.pictured ? 1 << Models.PANE : 0);
+        if (piece.dyed != 0) {
+            // Its colour is the sprite's in the middle of what it paints: a shutter comes in five.
+            float middle = (build.hungAt[WallHung.FROM] + build.hungAt[WallHung.TO]) / 2f, high = (build.hungAt[WallHung.BOTTOM] + build.hungAt[WallHung.TOP]) / 2f;
+            float dyeA = WallHung.a(piece.wall, middle), dyeB = WallHung.b(piece.wall, middle);
+            if (!texture.isMaskSet(Math.round(SpriteGeometry.frameU(build.frame, dyeA, dyeB)), Math.round(SpriteGeometry.frameV(build.frame, dyeA, dyeB, high)))) {
+                return false;
+            }
+            standHung(piece, model, x, y, z, clear, texture.getID(), piece.dyed, SpriteGeometry.textureU(build.frame, dyeA, dyeB),
+                    SpriteGeometry.textureV(build.frame, dyeA, dyeB, high));
+        } else {
+            standHung(piece, model, x, y, z, clear, !piece.pictured ? WorldScene.PLAIN : picture != Decor.NONE ? Decor.held(picture) : texture.getID(),
+                    piece.pictured ? 1 << Models.PANE : 0, 0f, 0f);
+        }
         if (piece.mirror) {
             build.placed.glass(model);
         }
@@ -384,7 +395,7 @@ final class FurnishingBuilder {
             build.hungAt[WallHung.TOP] = drawn.top();
             Models.Model model = placeHung(piece, build.hungAt, 0f, hungPlace);
             float scale = hungPlace[SCALE], scaleUp = hungPlace[SCALE_UP];
-            standHung(piece, model, x, y, z, 0f, Decor.held(picture), 1 << Models.PANE);
+            standHung(piece, model, x, y, z, 0f, Decor.held(picture), 1 << Models.PANE, 0f, 0f);
             float[] pane = Decor.pane(model);
             Decor.lay(pane[0], pane[1], pane[2], pane[3], (pane[1] - pane[0]) * scale, (pane[3] - pane[2]) * scaleUp, 0f,
                     Decor.wideForHigh(picture), build.hungShows);
@@ -403,9 +414,9 @@ final class FurnishingBuilder {
 
     /**
      * Stands a model placeHung has just placed, with hungPlace as it left it, on its wall: its back clear of the wall's
-     * skin by standOut, and its dye and dyed surfaces as Models.Instances.add takes them.
+     * skin by standOut, and its dye, dyed surfaces and the place on the dye they take their colour as Models.Instances.add takes them.
      */
-    private void standHung(Furniture piece, Models.Model model, int x, int y, int z, float standOut, int dye, int dyedSurfaces) {
+    private void standHung(Furniture piece, Models.Model model, int x, int y, int z, float standOut, int dye, int dyedSurfaces, float dyeAtU, float dyeAtV) {
         float along = hungPlace[ALONG], foot = hungPlace[FOOT], scale = hungPlace[SCALE], scaleUp = hungPlace[SCALE_UP];
         // Its back clear of the wall's skin, which stands that far inside the square's edge.
         Models.turn(piece.turns, 0f, -1f, build.hungWay);
@@ -423,7 +434,7 @@ final class FurnishingBuilder {
         build.building.plain = false;
         build.placed.add(model, build.frame, x, y, x + a + build.hungWay[0] * out, y + b + build.hungWay[1] * out,
                 z * ViewCamera.LEVEL_HEIGHT + (lift[0] + lift[1] + lift[2] + lift[3]) / 4f + rise + foot, piece.turns, scale, scaleUp,
-                dye, dyedSurfaces, 0f, 0f, 0, 0f, 0f);
+                dye, dyedSurfaces, dyeAtU, dyeAtV, 0, 0f, 0f);
     }
 
     /**
@@ -464,7 +475,7 @@ final class FurnishingBuilder {
             build.hungAt[WallHung.BOTTOM] = top - down * (top - bottom);
             int picture = collage.pictures()[k];
             Models.Model model = placeHung(piece, build.hungAt, build.geometry.raised, hungPlace);
-            standHung(piece, model, x, y, z, clear + k * SHEET_PROUD, Decor.held(picture), 1 << Models.PANE);
+            standHung(piece, model, x, y, z, clear + k * SHEET_PROUD, Decor.held(picture), 1 << Models.PANE, 0f, 0f);
             float[] pane = Decor.pane(model);
             Decor.lay(pane[0], pane[1], pane[2], pane[3], (pane[1] - pane[0]) * hungPlace[SCALE], (pane[3] - pane[2]) * hungPlace[SCALE_UP], 0f,
                     Decor.wideForHigh(picture), build.hungShows);
@@ -487,7 +498,7 @@ final class FurnishingBuilder {
         float along = (hungAt[WallHung.FROM] + hungAt[WallHung.TO]) / 2f;
         Models.Model model = piece.model != null ? piece.model : Models.get(FRAMES[WallHung.frameFor(wide / high)]);
         float scale = wide / model.width(), scaleUp = high / model.height(), foot = hungAt[WallHung.BOTTOM] * ViewCamera.LEVEL_HEIGHT;
-        if (piece.model != null && !piece.model.name.equals("canvas") && !piece.model.name.equals("sheet")) {
+        if (piece.model != null && !piece.stretched && !piece.model.name.equals("canvas") && !piece.model.name.equals("sheet")) {
             // A clock is round whatever its sprite's outline comes to, and hangs about the middle of it.
             scale = scaleUp = piece.ownSize ? Furniture.TILES_PER_METRE : Math.clamp(Math.min(scale, scaleUp), CLOCK_SMALLEST, CLOCK_LARGEST);
             foot += (high - model.height() * scale) / 2f;
