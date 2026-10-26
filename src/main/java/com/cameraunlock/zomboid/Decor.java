@@ -345,7 +345,7 @@ final class Decor {
     }
 
     /** The kind of a room of the game's map. Logic thread. */
-    private static String kindOf(RoomDef room) {
+    static String kindOf(RoomDef room) {
         String kind = roomKinds.get(room);
         if (kind == null) {
             Set<String> names = new TreeSet<>();
@@ -424,6 +424,16 @@ final class Decor {
         Index read = index();
         Collage collage = read.collages.get(sprite);
         return collage != null ? collage : read.collages.get(called + "|" + group);
+    }
+
+    /** A subject's pool for a kind of room, or null. */
+    static int[] pool(String subject, String kind) {
+        return index().pools.get(subject + "\t" + kind);
+    }
+
+    /** The name of a picture in the index. */
+    static String nameOf(int picture) {
+        return index().names.get(picture);
     }
 
     /** The picture of a name in the index. Thrown when the jar has none of that name. */

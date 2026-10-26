@@ -29,6 +29,19 @@ final class HiddenWallsTests {
         Checks.check(!HiddenWalls.homeOf(java.util.List.of("bedroom", "kitchen", "hall", "stairwell", "elevator", "janitor"))
                 && !HiddenWalls.homeOf(java.util.List.of("", "office")),
                 "a block of flats' corridor is no home's hall, and nor is a building with only nameless rooms and an office");
+        int[] pool = {4, 7, 9};
+        Checks.check(HiddenWalls.unshown(pool, java.util.Set.of(4, 9), 5) == 7 && HiddenWalls.unshown(pool, java.util.Set.of(4, 7, 9), 0) == Decor.NONE,
+                "a hidden wall's picture is one its building shows nowhere, and none where it shows them all");
+        Checks.check(HiddenWalls.unshown(pool, java.util.Set.of(), 0) != HiddenWalls.unshown(pool, java.util.Set.of(), 1),
+                "two pictures drawn in one room differ");
+        Checks.check(HiddenWalls.key(10, 20, 0, HiddenWalls.SOUTH) != HiddenWalls.key(10, 20, 0, HiddenWalls.EAST)
+                && HiddenWalls.key(10, 20, 0, HiddenWalls.SOUTH) != HiddenWalls.key(10, 20, 1, HiddenWalls.SOUTH)
+                && HiddenWalls.key(10, 20, 0, HiddenWalls.SOUTH) != HiddenWalls.key(20, 10, 0, HiddenWalls.SOUTH)
+                && HiddenWalls.key(10, 20, -1, HiddenWalls.SOUTH) != HiddenWalls.key(10, 20, 0, HiddenWalls.SOUTH),
+                "each square's two hidden walls on each level have their own picture");
+        for (String name : HiddenWalls.GENERIC) {
+            Checks.check(Decor.named(name) >= 0, "the jar has the generic painting " + name);
+        }
         Checks.check(!HiddenWalls.homeOf(java.util.List.of("secondaryhall", "secondaryclassroom", "bedroom", "office"))
                 && !HiddenWalls.homeOf(java.util.List.of("hospitalhallway", "nursery", "hospitalroom", "waitingroom"))
                 && !HiddenWalls.homeOf(java.util.List.of("restaurantdining", "restaurantkitchen", "hall", "bedroom", "kitchen"))

@@ -86,6 +86,15 @@ final class Rules {
         return !Online.joined() && !GameServer.server && (on & HIDDEN_WALLS) != 0;
     }
 
+    /**
+     * Whether the first person view draws pictures on the walls of rooms the overhead view never
+     * shows: see HiddenWalls.plan. Offline, as the dressing is: a client joined to a server has
+     * not been run with them yet.
+     */
+    static boolean drawsHiddenWallPictures() {
+        return !Online.joined() && !GameServer.server && (on & HIDDEN_WALLS) != 0;
+    }
+
     /** The rows in words, for the log. */
     static String described(int bits) {
         return "shots through walls " + ((bits & THROUGH_WALLS) != 0) + ", shots break lamps " + ((bits & BREAKS_LAMPS) != 0)

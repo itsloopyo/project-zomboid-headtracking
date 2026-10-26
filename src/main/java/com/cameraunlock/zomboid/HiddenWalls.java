@@ -1,11 +1,15 @@
 package com.cameraunlock.zomboid;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.WeakHashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 import se.krka.kahlua.vm.KahluaTable;
 import zombie.core.properties.PropertyContainer;
@@ -90,10 +94,12 @@ final class HiddenWalls {
 
     /**
      * Called as the game has loaded a chunk's squares, on its logic thread: every room the chunk
-     * or the squares round it touch that is now loaded whole, and not yet dressed, is dressed.
+     * or the squares round it touch that is now loaded whole, and not yet dressed, is dressed, and
+     * the pictures drawn on its hidden walls are chosen once a session (plan).
      */
     static void loaded(IsoChunk chunk) {
-        if (!Rules.dressesHiddenWalls()) {
+        boolean dresses = Rules.dressesHiddenWalls(), draws = Rules.drawsHiddenWallPictures();
+        if (!dresses && !draws) {
             return;
         }
         IsoCell cell = IsoWorld.instance.currentCell;
@@ -101,15 +107,83 @@ final class HiddenWalls {
         IsoWorld.instance.getMetaGrid().getRoomsIntersecting(chunk.wx * CHUNK - 1, chunk.wy * CHUNK - 1, CHUNK + 2, CHUNK + 2, ROOMS);
         for (int i = 0; i < ROOMS.size(); i++) {
             RoomDef room = ROOMS.get(i);
-            if (room.userDefined || kindOf(room.getName()) == Kind.NONE || !whole(cell, room)) {
+            boolean plans = draws && !PLANNED.contains(room);
+            if (room.userDefined || kindOf(room.getName()) == Kind.NONE || !dresses && !plans || !whole(cell, room)) {
                 continue;
             }
             IsoGridSquare first = firstSquare(cell, room);
-            if (!dressed(first)) {
+            if (dresses && !dressed(first)) {
                 dress(cell, room, first);
+            }
+            if (plans) {
+                PLANNED.add(room);
+                plan(cell, room);
             }
         }
         ROOMS.clear();
+    }
+
+    /**
+     * A picture the mod draws on a hidden wall in first person and nowhere else: nothing of it is
+     * in the world or the save, and it cannot be taken down (owner ruling of 2026-10-26: "purely
+     * decorative, we just don't want first person users to see blank walls in literally every
+     * house/room/floor"). The picture's number in Decor's index, where along the square's wall
+     * it hangs from and to as the map's x or y grows, and its foot and head in levels.
+     */
+    record Drawn(int picture, float from, float to, float bottom, float top) {}
+
+    /** The pictures drawn on hidden walls, by square and wall (key). Written on the logic thread, read by the first person builds. */
+    private static final ConcurrentHashMap<Long, Drawn> DRAWN = new ConcurrentHashMap<>();
+    /** The rooms whose pictures have been chosen since the save was loaded. Logic thread. */
+    private static final Set<RoomDef> PLANNED = Collections.newSetFromMap(new WeakHashMap<>());
+
+    /**
+     * How long the longer side of a painting or photograph drawn on a hidden wall is, and of a
+     * certificate, in tiles, as big as the game's own; and how high up the wall its middle is, in levels.
+     */
+    private static final float DRAWN_LONG_SIDE = 0.85f, DRAWN_CERTIFICATE = 0.45f, DRAWN_MIDDLE = 0.62f;
+    /** The most a room's hidden walls carry, the game's things hung there by dress and the pictures drawn there together. */
+    private static final int MOST_ON_HIDDEN_WALLS = 3;
+    /**
+     * The game's paintings of a landscape or of flowers: pictures of nobody and of no taste in
+     * particular, which hang in any home.
+     */
+    static final List<String> GENERIC = List.of("painting-desert-landscape", "painting-flowers-on-table", "painting-helianthus", "painting-island-beach",
+            "painting-lakeside", "painting-lighthouse", "painting-lillys-waterpond", "painting-mount-never-rest", "painting-night-with-stars",
+            "painting-riverside", "painting-waterfall");
+
+    static long key(int x, int y, int z, int wall) {
+        return (((long) z & 0xff) << 56 | ((long) y & 0xffffffL) << 32 | ((long) x & 0xffffffL) << 8) | wall;
+    }
+
+    /** Whether a picture is drawn on either hidden wall of a square. Any thread. */
+    static boolean drawnOn(int x, int y, int z) {
+        return DRAWN.containsKey(key(x, y, z, SOUTH)) || DRAWN.containsKey(key(x, y, z, EAST));
+    }
+
+    /**
+     * The picture drawn on a square's south (or east) wall, or null: none where the rule has
+     * been turned off since, or where the wall is no longer a place for one, the player having
+     * cut a door in it, hung something on it or stood something tall against it. A build's thread.
+     */
+    static Drawn drawnAt(IsoCell cell, int x, int y, int z, int wall, ArrayList<IsoSprite> sprites) {
+        Drawn drawn = DRAWN.get(key(x, y, z, wall));
+        if (drawn == null || !Rules.drawsHiddenWallPictures()) {
+            return null;
+        }
+        IsoGridSquare square = cell.getGridSquare(x, y, z);
+        RoomDef room = IsoWorld.instance.getMetaGrid().getRoomAt(x, y, z);
+        if (square == null || room == null) {
+            return null;
+        }
+        Spot spot = spot(cell, room, square, wall, sprites);
+        return spot != null && (spot.bare() || spot.low()) && !nearAnOpening(cell, spot) ? drawn : null;
+    }
+
+    /** Called as the game leaves a save: the next save's rooms choose their pictures again. */
+    static void forget() {
+        DRAWN.clear();
+        PLANNED.clear();
     }
 
     /** What a room is, by its name on the map. */
@@ -174,17 +248,21 @@ final class HiddenWalls {
      * thing of its own.
      */
     private static ArrayList<IsoSprite> spritesOf(IsoObject object) {
-        SPRITES.clear();
+        return spritesOf(object, SPRITES);
+    }
+
+    private static ArrayList<IsoSprite> spritesOf(IsoObject object, ArrayList<IsoSprite> sprites) {
+        sprites.clear();
         if (object.getSprite() != null) {
-            SPRITES.add(object.getSprite());
+            sprites.add(object.getSprite());
         }
         ArrayList<IsoSpriteInstance> over = object.getAttachedAnimSprite();
         if (over != null) {
             for (int i = 0; i < over.size(); i++) {
-                SPRITES.add(over.get(i).parentSprite);
+                sprites.add(over.get(i).parentSprite);
             }
         }
-        return SPRITES;
+        return sprites;
     }
 
     static boolean dressed(IsoGridSquare first) {
@@ -201,8 +279,7 @@ final class HiddenWalls {
         return false;
     }
 
-    private static void dress(IsoCell cell, RoomDef room, IsoGridSquare first) {
-        Kind kind = kindOf(room.getName());
+    private static ArrayList<IsoGridSquare> squaresOf(IsoCell cell, RoomDef room) {
         ArrayList<IsoGridSquare> squares = new ArrayList<>();
         for (int i = 0; i < room.rects.size(); i++) {
             RoomDef.RoomRect rect = room.rects.get(i);
@@ -215,6 +292,180 @@ final class HiddenWalls {
                 }
             }
         }
+        return squares;
+    }
+
+    /**
+     * Chooses the pictures drawn on a room's hidden walls (Drawn). A bedroom, a living room, a
+     * hall or an office gets a picture on each of its hidden walls that nothing hangs on yet,
+     * clear of doors and windows and over nothing taller than a counter, until its hidden walls
+     * carry as many things as its shown walls do, at least one and at most MOST_ON_HIDDEN_WALLS.
+     * A home's picture is a landscape or flowers; a business's is one of the pictures its kind
+     * shows (Decor's pools), a certificate in its office. Neither is one the building shows already.
+     */
+    private static void plan(IsoCell cell, RoomDef room) {
+        Kind kind = kindOf(room.getName());
+        if (kind != Kind.BED && kind != Kind.LIVING && kind != Kind.HALL && kind != Kind.OFFICE) {
+            return;
+        }
+        ArrayList<IsoGridSquare> squares = squaresOf(cell, room);
+        int shown = 0;
+        ArrayList<Spot> placed = new ArrayList<>();
+        ArrayList<Spot> spots = new ArrayList<>();
+        for (int i = 0; i < squares.size(); i++) {
+            IsoGridSquare square = squares.get(i);
+            for (int j = 0; j < square.getObjects().size(); j++) {
+                IsoObject object = square.getObjects().get(j);
+                ArrayList<IsoSprite> sprites = spritesOf(object);
+                boolean south = false, east = false;
+                for (int k = 0; k < sprites.size(); k++) {
+                    PropertyContainer properties = sprites.get(k).getProperties();
+                    if (hungOnAShownWall(object, properties)) {
+                        shown++;
+                    }
+                    // Only what is hung to be looked at, as hungOnAShownWall counts it: a curtain or a lamp leaves the wall bare.
+                    boolean looked = "WallObject".equals(properties.get("MoveType")) && object.getType() != IsoObjectType.lightswitch
+                            && !properties.has("HasLightOnSprite") && !properties.has("LightRadius") && !properties.has("BlocksPlacement");
+                    south |= looked && hungOn(properties, SOUTH);
+                    east |= looked && hungOn(properties, EAST);
+                }
+                if (south) {
+                    placed.add(new Spot(square, SOUTH, false, false, false));
+                }
+                if (east) {
+                    placed.add(new Spot(square, EAST, false, false, false));
+                }
+            }
+            for (int wall = SOUTH; wall <= EAST; wall++) {
+                Spot spot = spot(cell, room, square, wall);
+                if (spot != null && (spot.bare() || spot.low())) {
+                    spots.add(spot);
+                }
+            }
+        }
+        spots.removeIf(spot -> nearAnOpening(cell, spot));
+        String decorKind = Decor.kindOf(room);
+        boolean certificate = !Decor.HOME.equals(decorKind) && kind == Kind.OFFICE && Decor.pool("certificate", decorKind) != null;
+        int[] pool = Decor.HOME.equals(decorKind) ? generic() : Decor.pool(certificate ? "certificate" : "family", decorKind);
+        if (pool == null) {
+            return;
+        }
+        Set<Integer> taken = null;
+        int want = Math.min(MOST_ON_HIDDEN_WALLS, Math.max(1, shown)) - placed.size();
+        int mixed = room.getBuilding().getX() * 31 + room.getBuilding().getY() * 17 + room.rects.get(0).x * 7 + room.rects.get(0).y;
+        ArrayList<String> drawn = new ArrayList<>();
+        while (want-- > 0) {
+            Spot best = null;
+            int bestScore = Integer.MIN_VALUE;
+            for (int i = 0; i < spots.size(); i++) {
+                Spot spot = spots.get(i);
+                if (onAWallHungOn(placed, spot)) {
+                    continue;
+                }
+                int score = stretch(spots, spot);
+                if (score > bestScore || score == bestScore && before(spot, best)) {
+                    best = spot;
+                    bestScore = score;
+                }
+            }
+            if (best == null) {
+                break;
+            }
+            if (taken == null) {
+                taken = picturesInBuilding(cell, room);
+            }
+            int picture = unshown(pool, taken, mixed + drawn.size());
+            if (picture == Decor.NONE) {
+                break;
+            }
+            taken.add(picture);
+            float wideForHigh = Decor.wideForHigh(picture);
+            float longSide = certificate ? DRAWN_CERTIFICATE : DRAWN_LONG_SIDE;
+            float wide = wideForHigh >= 1f ? longSide : longSide * wideForHigh;
+            float high = wide / wideForHigh / ViewCamera.LEVEL_HEIGHT;
+            IsoGridSquare square = best.square();
+            DRAWN.put(key(square.getX(), square.getY(), room.level, best.wall()),
+                    new Drawn(picture, 0.5f - wide / 2f, 0.5f + wide / 2f, DRAWN_MIDDLE - high / 2f, DRAWN_MIDDLE + high / 2f));
+            ChunkMarks.tell(Math.floorDiv(square.getX(), CHUNK), Math.floorDiv(square.getY(), CHUNK));
+            drawn.add(String.format(Locale.ROOT, "%s on the %s wall at %d,%d", Decor.nameOf(picture), best.wall() == SOUTH ? "south" : "east",
+                    square.getX(), square.getY()));
+            placed.add(best);
+            Spot hung = best;
+            spots.removeIf(spot -> spot.wall() == hung.wall() && Math.abs(spot.square().getX() - hung.square().getX())
+                    + Math.abs(spot.square().getY() - hung.square().getY()) <= 1);
+        }
+        if (!drawn.isEmpty()) {
+            Log.info(String.format(Locale.ROOT, "drew on the hidden walls of the %s at %d,%d,%d (%d hung on its other walls): %s", room.getName(),
+                    room.rects.get(0).x, room.rects.get(0).y, room.level, shown, String.join(", ", drawn)));
+        }
+    }
+
+    private static int[] generic;
+
+    private static int[] generic() {
+        if (generic == null) {
+            int[] made = new int[GENERIC.size()];
+            for (int i = 0; i < made.length; i++) {
+                made[i] = Decor.named(GENERIC.get(i));
+            }
+            generic = made;
+        }
+        return generic;
+    }
+
+    /** One of a pool's pictures not in taken, picked by a number the room gives, or Decor.NONE where taken has every one. */
+    static int unshown(int[] pool, Set<Integer> taken, int pick) {
+        ArrayList<Integer> left = new ArrayList<>();
+        for (int picture : pool) {
+            if (!taken.contains(picture)) {
+                left.add(picture);
+            }
+        }
+        return left.isEmpty() ? Decor.NONE : left.get(Math.floorMod(pick, left.size()));
+    }
+
+    /** The pictures the first person view shows on the walls of the room's building where it is loaded, and those drawn on its hidden walls. */
+    private static Set<Integer> picturesInBuilding(IsoCell cell, RoomDef room) {
+        Set<Integer> pictures = new HashSet<>();
+        ArrayList<RoomDef> rooms = room.getBuilding().rooms;
+        for (int i = 0; i < rooms.size(); i++) {
+            RoomDef each = rooms.get(i);
+            for (int r = 0; r < each.rects.size(); r++) {
+                RoomDef.RoomRect rect = each.rects.get(r);
+                for (int y = rect.y; y < rect.y + rect.h; y++) {
+                    for (int x = rect.x; x < rect.x + rect.w; x++) {
+                        for (int wall = SOUTH; wall <= EAST; wall++) {
+                            Drawn drawn = DRAWN.get(key(x, y, each.level, wall));
+                            if (drawn != null) {
+                                pictures.add(drawn.picture());
+                            }
+                        }
+                        IsoGridSquare square = cell.getGridSquare(x, y, each.level);
+                        if (square == null) {
+                            continue;
+                        }
+                        for (int j = 0; j < square.getObjects().size(); j++) {
+                            ArrayList<IsoSprite> sprites = spritesOf(square.getObjects().get(j));
+                            for (int k = 0; k < sprites.size(); k++) {
+                                IsoSprite sprite = sprites.get(k);
+                                PropertyContainer properties = sprite.getProperties();
+                                int picture = Decor.of(sprite.getName(), properties.get("CustomName"), properties.get("GroupName") == null ? "" : properties.get("GroupName"),
+                                        sprite.getSpriteGrid() != null);
+                                if (picture != Decor.NONE) {
+                                    pictures.add(Decor.inRoom(picture, x, y, each.level));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return pictures;
+    }
+
+    private static void dress(IsoCell cell, RoomDef room, IsoGridSquare first) {
+        Kind kind = kindOf(room.getName());
+        ArrayList<IsoGridSquare> squares = squaresOf(cell, room);
         int shown = 0;
         boolean mirror = false, clock = false, rack = false;
         ArrayList<Spot> spots = new ArrayList<>();
@@ -306,6 +557,10 @@ final class HiddenWalls {
      * nothing stands on the square that a thing hung there would go through.
      */
     private static Spot spot(IsoCell cell, RoomDef room, IsoGridSquare square, int wall) {
+        return spot(cell, room, square, wall, SPRITES);
+    }
+
+    private static Spot spot(IsoCell cell, RoomDef room, IsoGridSquare square, int wall, ArrayList<IsoSprite> spriteList) {
         int x = square.getX(), y = square.getY();
         int bx = wall == EAST ? x + 1 : x, by = wall == SOUTH ? y + 1 : y;
         if (inRoom(room, bx, by)) {
@@ -318,7 +573,7 @@ final class HiddenWalls {
         boolean stands = false, low = true, sink = true;
         for (int i = 0; i < square.getObjects().size(); i++) {
             IsoObject object = square.getObjects().get(i);
-            ArrayList<IsoSprite> sprites = spritesOf(object);
+            ArrayList<IsoSprite> sprites = spritesOf(object, spriteList);
             for (int k = object.getSprite() == null ? 0 : 1; k < sprites.size(); k++) {
                 if (hungOn(sprites.get(k).getProperties(), wall)) {
                     return null;

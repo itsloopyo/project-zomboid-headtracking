@@ -1,8 +1,10 @@
 package com.cameraunlock.zomboid;
 
+import java.util.ArrayList;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import zombie.core.textures.Texture;
+import zombie.iso.IsoDirections;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.objects.IsoBarbecue;
@@ -350,6 +352,45 @@ final class FurnishingBuilder {
         }
         build.furnished++;
         return true;
+    }
+
+    /** A frame hung on a square's south wall facing north, and on its east wall facing west, for HiddenWalls.Drawn. */
+    private static final Furniture DRAWN_SOUTH = Furniture.single(null, null, Furniture.turnsOf(IsoDirections.N)).hang(WallHung.SOUTH, true),
+            DRAWN_EAST = Furniture.single(null, null, Furniture.turnsOf(IsoDirections.W)).hang(WallHung.EAST, true);
+
+    private final ArrayList<IsoSprite> drawnSprites = new ArrayList<>();
+
+    /** Hangs the pictures HiddenWalls draws on the square's south and east walls, where the player's pictures are on. */
+    void addDrawn(int x, int y, int z) {
+        if (!Own.pictures(build.playerIndex)) {
+            return;
+        }
+        for (int wall = HiddenWalls.SOUTH; wall <= HiddenWalls.EAST; wall++) {
+            HiddenWalls.Drawn drawn = HiddenWalls.drawnAt(build.cell, x, y, z, wall, drawnSprites);
+            if (drawn == null) {
+                continue;
+            }
+            int picture = drawn.picture();
+            if (!Decor.ready(picture)) {
+                // Drawn before it is read it would be an empty frame: the build is made again once it is.
+                Decor.held(picture);
+                build.building.signed = false;
+                continue;
+            }
+            Furniture piece = wall == HiddenWalls.SOUTH ? DRAWN_SOUTH : DRAWN_EAST;
+            build.hungAt[WallHung.FROM] = drawn.from();
+            build.hungAt[WallHung.TO] = drawn.to();
+            build.hungAt[WallHung.BOTTOM] = drawn.bottom();
+            build.hungAt[WallHung.TOP] = drawn.top();
+            Models.Model model = placeHung(piece, build.hungAt, 0f, hungPlace);
+            float scale = hungPlace[SCALE], scaleUp = hungPlace[SCALE_UP];
+            standHung(piece, model, x, y, z, 0f, Decor.held(picture), 1 << Models.PANE);
+            float[] pane = Decor.pane(model);
+            Decor.lay(pane[0], pane[1], pane[2], pane[3], (pane[1] - pane[0]) * scale, (pane[3] - pane[2]) * scaleUp, 0f,
+                    Decor.wideForHigh(picture), build.hungShows);
+            build.placed.picture(build.hungShows);
+            build.furnished++;
+        }
     }
 
     /**

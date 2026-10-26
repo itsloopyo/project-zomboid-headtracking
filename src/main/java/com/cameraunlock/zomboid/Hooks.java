@@ -239,6 +239,7 @@ public final class Hooks {
         LimbDecals.forget();
         SharedHeads.forget();
         Rewind.forget();
+        HiddenWalls.forget();
         for (int i = 0; i < View.COUNT; i++) {
             View view = View.of(i);
             if (view != null) {
