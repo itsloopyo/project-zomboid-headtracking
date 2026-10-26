@@ -2783,6 +2783,11 @@ final class WorldScene {
         private boolean treesRound;
         /** How many of its neighbours' grounds spreadGround last laid over a square. */
         int spreadLayers;
+        /** The paint the map lays on the square's ground out of doors, laid once the ground the next squares spread over it is: see addOverOrLater. */
+        private final ArrayList<IsoSprite> paintLater = new ArrayList<>();
+        /** Whether the square being added waits its paint in paintLater, and the stuff of its floor the paint is of. */
+        private boolean paintsLater;
+        private float paintMaterial;
         /** Whether the square being added has no floor. */
         boolean hangsInAir;
         /** The room of the square being added, or RoomSight.OUTSIDE between squares: see contentsOf. */
@@ -5814,6 +5819,19 @@ final class WorldScene {
             frame.material = material;
         }
 
+        /**
+         * As addOver, but paint on open ground out of doors, a kerb's strip or a line (RoadPaint.marks), waits in paintLater to be
+         * laid over the ground the next squares spread over this one. Laid first, the fringe of grass round a sandpit hid its kerb.
+         */
+        private void addOverOrLater(IsoObject object, IsoSprite under, IsoSprite over, boolean isFloor, int x, int y, int z) {
+            if (isFloor && paintsLater && over != null && kindOf(over).paint) {
+                paintMaterial = frame.material;
+                paintLater.add(over);
+                return;
+            }
+            addOver(object, under, over, isFloor, x, y, z);
+        }
+
         private void addOverOf(IsoObject object, IsoSprite under, IsoSprite over, boolean isFloor, int x, int y, int z) {
             // The game's flames and smoke are drawn by the picture as fire, never as a card: see Fires.
             if (over == null || FireLooks.isLook(over)) {
@@ -6649,6 +6667,7 @@ final class WorldScene {
             geometry.floored = !hangsInAir;
             wallNorth = wallWest = edgeNorth = edgeWest = canvas = false;
             trimCount = 0;
+            paintLater.clear();
             boolean openAbove = false;
             PZArrayList<IsoObject> objects = square.getObjects();
             for (int i = 0; i < objects.size(); i++) {
@@ -6684,6 +6703,7 @@ final class WorldScene {
             IsoGridSquare keyed = hall != null ? hall : square;
             long room = keyed.getRoomID();
             squareRoom = room;
+            paintsLater = z == 0 && room == RoomSight.OUTSIDE && floorBuilder.spreadsOver(localX, localY);
             int emptied = Sightline.emptied(asTheGameShows, gamesView, room != RoomSight.OUTSIDE, keyed.isSeen(playerIndex));
             boolean unexplored = emptied == Sightline.LEFT_OUT;
             // The band is asked only where its answer changes the build: asked of every square, a chunk would be another build in every band.
@@ -6772,11 +6792,11 @@ final class WorldScene {
                 // ivy and the stains on a wall. Each lies or stands as the object under it does.
                 if (leaves != null && !bare) {
                     for (int k = 0; k < leaves.size(); k++) {
-                        addOver(object, sprite, leaves.get(k).parentSprite, object == floor, x, y, z);
+                        addOverOrLater(object, sprite, leaves.get(k).parentSprite, object == floor, x, y, z);
                     }
                 }
                 if (!bare) {
-                    addOver(object, sprite, object.getOverlaySprite(), object == floor, x, y, z);
+                    addOverOrLater(object, sprite, object.getOverlaySprite(), object == floor, x, y, z);
                 }
                 geometry.nudgeX = geometry.nudgeY = geometry.nearer = 0f;
                 if (object.wallBloodSplats != null && !object.wallBloodSplats.isEmpty()) {
@@ -6805,6 +6825,14 @@ final class WorldScene {
                 }
                 addEdges(x, y, localX, localY);
                 floorBuilder.spreadGround(x, y, localX, localY);
+                if (!paintLater.isEmpty()) {
+                    floorLayer += spreadLayers;
+                    spreadLayers = 0;
+                    frame.material = paintMaterial;
+                    for (int i = 0; i < paintLater.size(); i++) {
+                        addOver(floor, floor.getSprite(), paintLater.get(i), true, x, y, z);
+                    }
+                }
                 contentsOf(room);
                 // Blood is spilt on a floor, and runs over onto the next square's: not onto water.
                 boolean wet = groundKind[(localX + 1) * LIGHT_SPAN + localY + 1] == Terrain.WATER;

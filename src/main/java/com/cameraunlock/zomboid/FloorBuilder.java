@@ -48,6 +48,23 @@ final class FloorBuilder {
         this.build = build;
     }
 
+    /** Whether spreadGround may lay the next squares' ground over this one. */
+    boolean spreadsOver(int localX, int localY) {
+        int own = (localX + 1) * WorldScene.LIGHT_SPAN + localY + 1;
+        // A street ends at its kerb, and the verge stands behind it: nothing grows out over the tarmac.
+        if (build.groundKind[own] == Terrain.UNKNOWN || build.groundKind[own] == Terrain.STREET || build.lightOpen[own] != 1) {
+            return false;
+        }
+        // Nor over paving, which ends at a straight edge as the game paints it: frayed a quarter of a square in from
+        // either side, a pavement one square wide read as eaten away.
+        IsoObject floor = build.groundObject[own];
+        if (build.groundKind[own] == Terrain.MADE && floor != null && floor.getSprite() != null) {
+            PropertyContainer properties = floor.getSprite().getProperties();
+            return Ground.loose(properties.get("FloorMaterial"), properties.get("FootstepMaterial"));
+        }
+        return true;
+    }
+
     /**
      * The game lays its ground a square at a time, so where grass meets earth the line between
      * them is a staircase of square corners. Ground does not end like that. Here grass, earth
@@ -65,18 +82,8 @@ final class FloorBuilder {
     void spreadGround(int x, int y, int localX, int localY) {
         int own = (localX + 1) * WorldScene.LIGHT_SPAN + localY + 1;
         build.spreadLayers = 0;
-        // A street ends at its kerb, and the verge stands behind it: nothing grows out over the tarmac.
-        if (build.groundKind[own] == Terrain.UNKNOWN || build.groundKind[own] == Terrain.STREET || build.lightOpen[own] != 1) {
+        if (!spreadsOver(localX, localY)) {
             return;
-        }
-        // Nor over paving, which ends at a straight edge as the game paints it: frayed a quarter of a square in from
-        // either side, a pavement one square wide read as eaten away.
-        IsoObject floor = build.groundObject[own];
-        if (build.groundKind[own] == Terrain.MADE && floor != null && floor.getSprite() != null) {
-            PropertyContainer properties = floor.getSprite().getProperties();
-            if (!Ground.loose(properties.get("FloorMaterial"), properties.get("FootstepMaterial"))) {
-                return;
-            }
         }
         int mine = build.groundRank[own];
         int spread = 0;
