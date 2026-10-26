@@ -453,6 +453,10 @@ final class RoofBuilder {
             WorldScene.set(folded, 2, alongA / 2f, alongB / 2f, (northWest + second) / 2f + peak);
             build.geometry.addTriangle(mesh, build.frame, x, y, z, folded);
         }
+        if (LogWalls.is(facing.sprite.getName()) && Own.buildings()) {
+            build.wallBuilder.addGableLogs(facing.texture, x, y, z * ViewCamera.LEVEL_HEIGHT + meanLift(), north, northWest, second,
+                    (peakAxis == RoofFit.ALONG_X) == north ? peak : 0f);
+        }
         build.frame.texelsOf(build.held);
         build.frame.material = material;
     }

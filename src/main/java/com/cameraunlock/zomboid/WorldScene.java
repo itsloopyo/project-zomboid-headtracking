@@ -824,8 +824,8 @@ final class WorldScene {
         final boolean linkSheet;
         /** Whether it is a whole length of white picket fence: see Pickets. */
         final boolean pickets;
-        /** Whether it is a length of log wall: see LogWalls. */
-        final boolean logs;
+        /** Whether it is a length of log wall, or a piece of the gable over one: see LogWalls. */
+        final boolean logs, logGable;
         /** How far before its square's corner it paints along its edge, and how many layers off the edge it lies: see Fences.overhang. */
         final float overhang, overhangLayers;
         /** As a tree, what it drops, for a tree that turns the first of its kind's colours and for one that turns the other: see Litter.kindOf. */
@@ -928,7 +928,8 @@ final class WorldScene {
             brokenLink = ChainLink.brokenMaterial(name, madeOf, onEdge);
             linkSheet = ChainLink.sheet(name, properties, type);
             pickets = Pickets.is(name);
-            logs = LogWalls.is(name);
+            logGable = LogWalls.gable(name);
+            logs = LogWalls.is(name) || logGable;
             overhang = Fences.overhang(name);
             overhangLayers = Fences.overhangLayers(name);
             lights = Lights.slice(sprite);
@@ -7545,6 +7546,7 @@ final class WorldScene {
             picket = seeThrough && overLayer == 0 && Own.buildings() && kind.pickets;
             picketPostDue = picket;
             logs = !seeThrough && overLayer == 0 && Own.buildings() && kind.logs;
+            logGable = kind.logGable;
             sheetFrom = seeThrough ? -kind.overhang : 0f;
             sheetLayers = kind.overhangLayers;
             if (seeThrough && overLayer == 0 && Own.buildings() && kind.brokenLink != 0f) {
@@ -8231,8 +8233,8 @@ final class WorldScene {
         boolean picket;
         /** Whether the post of the picket fence being added is still to be stood: as linkPostDue. */
         boolean picketPostDue;
-        /** Whether the wall being added is a length of log wall, its logs laid over its skins: see LogWalls. */
-        boolean logs;
+        /** Whether the wall being added is a length of log wall, its logs laid over its skins, or a piece of the gable over one: see LogWalls. */
+        boolean logs, logGable;
         /** Where along its edge the sheet being added starts, before its square's corner, and how many layers off the edge it then lies: see Fences.overhang. */
         float sheetFrom, sheetLayers;
 

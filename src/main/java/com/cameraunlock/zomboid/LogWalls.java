@@ -6,7 +6,8 @@ package com.cameraunlock.zomboid;
  * were lapped boards with a plain corner. WallBuilder lays the logs over the skins a course at a time as the model
  * log_course, or log_piece where a door or a window cuts the course, and where two walls cross at a corner each runs on
  * past it as a log_end. A wall along y lies a log's radius lower than one along x, so the ends pass between
- * each other's logs.
+ * each other's logs. walls_logs_16 to 33 are the gables over them, laid in logs as far up as the sprite paints, and a
+ * gable the map leaves out over a log wall is laid in logs up to the roof's slope.
  */
 final class LogWalls {
     private LogWalls() {}
@@ -27,5 +28,14 @@ final class LogWalls {
             case 0, 1, 2, 4, 5, 8, 9, 10, 11 -> true;
             default -> false;
         };
+    }
+
+    /** Whether a sprite is a piece of a log cabin's gable. */
+    static boolean gable(String name) {
+        if (name == null) {
+            return false;
+        }
+        int place = Sheets.place(name, SHEET);
+        return place >= 16 && place <= 33;
     }
 }

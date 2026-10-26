@@ -72,6 +72,8 @@ final class WallBuilder {
     private static final int SHORT_END = 2;
     /** How far over and under a log's axis, in radii, the sprite is read for whether it paints the log. */
     private static final float LOG_ACROSS = 0.6f;
+    /** How far apart along the edge, as a share of it, a gable's sprite is read for the slope of its rake. */
+    private static final float RAKE_SPAN = 0.2f;
     /** For each of the two edges a wall can stand on: the frame origin the sprite was read with, then the opening. */
     private static final int OPENING_FLOATS = 9, OPENING_ORIGIN = 0, OPENING_START = 2, OPENING_END = 3, OPENING_FOOT = 4, OPENING_HEAD = 5, OPENING_TOP = 6,
             DOORWAY_START = 7, DOORWAY_END = 8;
@@ -823,9 +825,11 @@ final class WallBuilder {
      * with the wall as its skins are (Models.Instances.wall). At an end where the wall does not run straight on into
      * another length of log wall and turns a corner, its logs run on past the corner as a log_end, cut with the wall it
      * runs on from (Models.Instances.wallEnd). A wall on a west edge lies a log's radius lower, so its courses pass
-     * between those of a wall on a north edge. The wood is the sprite's, from a log it paints.
+     * between those of a wall on a north edge. The wood is the sprite's, from a log it paints. A gable's sprite paints its
+     * logs as far up as its roof, and has no opening and no corner.
      */
     private void addLogs(Texture texture, int x, int y, int z, float da, float db) {
+        boolean gable = build.logGable;
         boolean north = da != 0f;
         float base = (z + build.geometry.raised) * ViewCamera.LEVEL_HEIGHT;
         float foot = base + Math.min(build.geometry.liftAt(0f, 0f), build.geometry.liftAt(da, db)) - (north ? 0f : LogWalls.RADIUS);
@@ -845,18 +849,25 @@ final class WallBuilder {
         int wood = 1 << Models.WOOD, id = texture.getID(), along = north ? 0 : 1;
         int reveal = Math.round(2f * LogWalls.RADIUS / LogWalls.PIECE);
         boolean[] painted = coursePainted, laid = courseLaid;
+        float rakeAtStart = gable ? rakeAtEnd(texture, da, db, false) : 0f, rakeAtFinish = gable ? rakeAtEnd(texture, da, db, true) : 0f;
         for (int course = 0; course < 10; course++) {
             float under = foot + 2f * course * LogWalls.RADIUS;
             int count = 0;
             for (int piece = 0; piece < pieces; piece++) {
                 painted[piece] = logPainted(texture, da, db, piece, course, north);
             }
-            // A sprite stops a few dots short of an end of its edge: the logs run on to the corner.
-            for (int piece = 0; piece < SHORT_END && !painted[piece]; piece++) {
+            // A sprite stops a few dots short of an end of its edge: the logs run on to the corner. On a gable only under
+            // its rake: run on past it, a course stood out of the roof.
+            float courseTop = logUp(2f * course + (north ? 1f : 0f) + 1f);
+            boolean fromStart = !gable || rakeAtStart >= courseTop, toEnd = !gable || rakeAtFinish >= courseTop;
+            for (int piece = 0; piece < SHORT_END && !painted[piece] && fromStart; piece++) {
                 painted[piece] = true;
             }
-            for (int piece = pieces - 1; piece >= pieces - SHORT_END && !painted[piece]; piece--) {
+            for (int piece = pieces - 1; piece >= pieces - SHORT_END && !painted[piece] && toEnd; piece--) {
                 painted[piece] = true;
+            }
+            if (gable) {
+                longestRun(painted);
             }
             for (int piece = 0; piece < pieces; piece++) {
                 laid[piece] = painted[piece];
@@ -869,7 +880,7 @@ final class WallBuilder {
             }
             // Through a door or a window the sprite paints the cut ends of the logs on the opening's far side, the side
             // nearer the square's north-west corner on either edge, a wall's thickness across: that is the opening too.
-            for (int piece = 1; piece < pieces; piece++) {
+            for (int piece = 1; piece < pieces && !gable; piece++) {
                 if (!painted[piece] && painted[piece - 1]) {
                     for (int open = Math.max(0, piece - reveal); open < piece; open++) {
                         laid[open] = false;
@@ -896,6 +907,42 @@ final class WallBuilder {
     }
 
     /**
+     * Lays the logs of a gable the map leaves out over a log wall, along the north edge of the square or its west: each
+     * course's pieces that are wholly under the roof, which is northWest levels over the floor, at height floor, at the
+     * edge's start and second at its end, and peak more halfway along. The wood is the log wall's sprite, which the frame's
+     * texels are. Those on a west edge lie a log's radius lower, as the wall's under them do.
+     */
+    void addGableLogs(Texture texture, int x, int y, float floor, boolean north, float northWest, float second, float peak) {
+        float da = north ? 1f : 0f, db = north ? 0f : 1f;
+        float foot = floor - (north ? 0f : LogWalls.RADIUS);
+        float dyeAlong = LogWalls.DYE_ALONG;
+        float u = SpriteGeometry.textureU(build.frame, da * dyeAlong, db * dyeAlong), v = SpriteGeometry.textureV(build.frame, da * dyeAlong, db * dyeAlong, LogWalls.DYE_HIGH);
+        int wood = 1 << Models.WOOD, id = texture.getID(), along = north ? 0 : 1;
+        int pieces = Math.round(1f / LogWalls.PIECE);
+        float top = Math.max(northWest, second) + peak;
+        for (int course = 0; ; course++) {
+            float over = (2f * (course + 1) * LogWalls.RADIUS - (north ? 0f : LogWalls.RADIUS)) / ViewCamera.LEVEL_HEIGHT;
+            if (over > top) {
+                break;
+            }
+            for (int piece = 0; piece < pieces; piece++) {
+                float from = piece * LogWalls.PIECE, to = from + LogWalls.PIECE;
+                if (over > roofOver(northWest, second, peak, from) || over > roofOver(northWest, second, peak, to)) {
+                    continue;
+                }
+                float mid = (piece + 0.5f) * LogWalls.PIECE;
+                build.placed.add(Models.get("log_piece"), build.frame, x, y, x + da * mid, y + db * mid, foot + 2f * course * LogWalls.RADIUS, along, 1f, 1f, id, wood, u, v, 0, 0f, 0f);
+                build.placed.wall();
+            }
+        }
+    }
+
+    /** How high a gable's roof is over its floor that far along its edge, in levels: see addGableLogs. */
+    static float roofOver(float northWest, float second, float peak, float along) {
+        return northWest + (second - northWest) * along + peak * (1f - Math.abs(2f * along - 1f));
+    }
+
+    /**
      * Whether the log wall's sprite paints a piece of a course across it: its share along the edge, kept a few dots in
      * from the ends, where a sprite stops short of its square's edge, at the height of the course's axis and LOG_ACROSS
      * of a radius over and under it, kept off the foot, where the lowest course of a wall on a west edge has its axis.
@@ -906,6 +953,49 @@ final class WallBuilder {
         return paintedOnWall(texture, 0f, 0f, da, db, logAlong(piece), logUp(axis), 0f)
                 && paintedOnWall(texture, 0f, 0f, da, db, logAlong(piece), logUp(axis - LOG_ACROSS), 0f)
                 && paintedOnWall(texture, 0f, 0f, da, db, logAlong(piece), logUp(axis + LOG_ACROSS), 0f);
+    }
+
+    /**
+     * Keeps only the longest unbroken run of a gable's course. Along its rake the sprite paints a log's round end here and
+     * there, the mark of a purlin, and the course read there was a log standing out past the roof.
+     */
+    static void longestRun(boolean[] painted) {
+        int bestFrom = 0, bestLength = 0;
+        for (int from = 0; from < painted.length; ) {
+            int to = from;
+            while (to < painted.length && painted[to]) {
+                to++;
+            }
+            if (to - from > bestLength) {
+                bestFrom = from;
+                bestLength = to - from;
+            }
+            from = to + 1;
+        }
+        for (int piece = 0; piece < painted.length; piece++) {
+            painted[piece] = piece >= bestFrom && piece < bestFrom + bestLength;
+        }
+    }
+
+    /**
+     * How high a gable's rake is at an end of its edge, in levels: the line through how high the sprite paints a few
+     * pieces in from that end and a few more in, carried out to the end, where the sprite itself stops short.
+     */
+    private float rakeAtEnd(Texture texture, float da, float db, boolean far) {
+        float near = logAlong(far ? Math.round(1f / LogWalls.PIECE) - 1 - SHORT_END : SHORT_END);
+        float further = near + (far ? -RAKE_SPAN : RAKE_SPAN);
+        float nearHigh = paintedUpTo(texture, da, db, near), furtherHigh = paintedUpTo(texture, da, db, further);
+        return nearHigh + (nearHigh - furtherHigh) * Math.abs((far ? 1f : 0f) - near) / RAKE_SPAN;
+    }
+
+    /** How high up a wall's sprite paints that far along its edge, in levels, read down from a level up. */
+    private float paintedUpTo(Texture texture, float da, float db, float along) {
+        float perPixel = 1f / (SpriteGeometry.PIXELS_PER_LEVEL * build.frame.scale);
+        float up = 1f;
+        while (up > 0f && !paintedOnWall(texture, 0f, 0f, da, db, along, up, 0f)) {
+            up -= perPixel;
+        }
+        return up;
     }
 
     private static float logAlong(int piece) {

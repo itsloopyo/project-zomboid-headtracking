@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -42,6 +43,18 @@ final class FenceTests {
         for (String other : new String[] {"walls_logs_3", "walls_logs_12", "walls_logs_16", "walls_logs_48", "walls_logs_52", "walls_logs_96", "walls_exterior_wooden_01_0"}) {
             Checks.check(!LogWalls.is(other), other + " is none: a corner post, a gable, a palisade or stone");
         }
+        for (String gable : new String[] {"walls_logs_16", "walls_logs_19", "walls_logs_27", "walls_logs_33"}) {
+            Checks.check(LogWalls.gable(gable) && !LogWalls.is(gable), gable + " is a piece of a log gable");
+        }
+        for (String other : new String[] {"walls_logs_1", "walls_logs_13", "walls_logs_34", "walls_logs_48", "walls_exterior_roofs_02_16"}) {
+            Checks.check(!LogWalls.gable(other), other + " is no log gable");
+        }
+        Checks.check(Math.abs(WallBuilder.roofOver(0.2f, 0.6f, 0f, 0.5f) - 0.4f) < 1e-6f && Math.abs(WallBuilder.roofOver(0f, 0f, 0.5f, 0.5f) - 0.5f) < 1e-6f
+                && Math.abs(WallBuilder.roofOver(0f, 0f, 0.5f, 0f)) < 1e-6f, "a made gable's roof runs straight from end to end, and up to its peak halfway");
+        boolean[] run = {true, false, true, true, true, false, true, true};
+        WallBuilder.longestRun(run);
+        Checks.check(Arrays.equals(run, new boolean[] {false, false, true, true, true, false, false, false}),
+                "a gable's course keeps its longest run, not a log's end painted apart from it");
         Models.Model end = Models.get("log_end"), course = Models.get("log_course"), piece = Models.get("log_piece");
         Checks.check(Math.abs(end.height() - ViewCamera.LEVEL_HEIGHT) < 0.002f && Math.abs(course.height() - 2f * LogWalls.RADIUS) < 0.002f,
                 "ten logs stack to a level: " + end.height() + ", one is " + course.height());
