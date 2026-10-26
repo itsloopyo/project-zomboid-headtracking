@@ -11,6 +11,39 @@ final class HiddenWallsTests {
         aRoomWithNothingToSayWhatItIsIsLeftAlone();
         theMirrorIsOfTheKindTheBuildingHasMostOf();
         aKindTheGameDrawsFacingOutOnlyIsPassedOver();
+        aHomesPicturesAreOfTheHouse();
+    }
+
+    private static void aHomesPicturesAreOfTheHouse() {
+        Checks.check(HiddenWalls.subjectOf("tennis-3").equals("tennis") && HiddenWalls.subjectOf("family-08").equals(HiddenWalls.FAMILY)
+                && HiddenWalls.subjectOf("painting-lakeside").equals("painting-lakeside"), "a picture's subject is its name before the number");
+        java.util.Map<String, Integer> pictures = new java.util.HashMap<>();
+        for (int picture = 0; picture < Decor.count(); picture++) {
+            pictures.merge(HiddenWalls.subjectOf(Decor.nameOf(picture)), 1, Integer::sum);
+        }
+        for (String subject : HiddenWalls.TASTES) {
+            Checks.check(pictures.getOrDefault(subject, 0) >= 3, "the jar has several pictures of " + subject);
+        }
+        for (String name : HiddenWalls.NAMED) {
+            Checks.check(HiddenWalls.TASTES.contains(HiddenWalls.subjectOf(name)) && Decor.named(name) >= 0, "the named picture " + name + " is one of a taste's");
+        }
+        java.util.List<int[]> sources = java.util.List.of(new int[] {1, 2}, new int[] {5}, new int[] {7, 8, 9});
+        boolean[] used = new boolean[3];
+        java.util.Set<Integer> taken = new java.util.HashSet<>();
+        int first = HiddenWalls.next(sources, used, taken, 0);
+        taken.add(first);
+        int second = HiddenWalls.next(sources, used, taken, 1);
+        taken.add(second);
+        int third = HiddenWalls.next(sources, used, taken, 2);
+        taken.add(third);
+        int fourth = HiddenWalls.next(sources, used, taken, 3);
+        Checks.check((first == 1 || first == 2) && second == 5 && third >= 7, "a room gets one of the subject it shows, then the family, then a landscape");
+        Checks.check(fourth == 1 || fourth == 2, "and a second of the first before a second landscape: " + fourth);
+        boolean[] none = new boolean[3];
+        Checks.check(HiddenWalls.next(java.util.List.of(new int[0], new int[] {5}, new int[] {7}), none, java.util.Set.of(5), 0) == 7,
+                "a house with no other subject and its family shown in the room gets a landscape");
+        Checks.check(HiddenWalls.next(java.util.List.of(new int[0], new int[0], new int[] {7}), new boolean[3], java.util.Set.of(7), 0) == Decor.NONE,
+                "and nothing once every one is taken");
     }
 
     private static void aRoomIsKnownByItsNameOnTheMap() {

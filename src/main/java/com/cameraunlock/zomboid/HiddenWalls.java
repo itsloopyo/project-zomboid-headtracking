@@ -138,10 +138,10 @@ final class HiddenWalls {
     private static final Set<RoomDef> PLANNED = Collections.newSetFromMap(new WeakHashMap<>());
 
     /**
-     * How long the longer side of a painting or photograph drawn on a hidden wall is, and of a
-     * certificate, in tiles, as big as the game's own; and how high up the wall its middle is, in levels.
+     * How long the longer side of a painting or poster drawn on a hidden wall is, of a
+     * certificate and of a family's photograph, in tiles, as big as the game's own; and how high up the wall its middle is, in levels.
      */
-    private static final float DRAWN_LONG_SIDE = 0.85f, DRAWN_CERTIFICATE = 0.45f, DRAWN_MIDDLE = 0.62f;
+    private static final float DRAWN_LONG_SIDE = 0.85f, DRAWN_CERTIFICATE = 0.45f, DRAWN_PHOTOGRAPH = 0.5f, DRAWN_MIDDLE = 0.62f;
     /** The most a room's hidden walls carry, the game's things hung there by dress and the pictures drawn there together. */
     private static final int MOST_ON_HIDDEN_WALLS = 3;
     /**
@@ -309,8 +309,9 @@ final class HiddenWalls {
      * clear of doors and windows and over nothing taller than a counter, in the middle of a
      * stretch of that wall at least two squares long, as a person hangs one, until its hidden walls
      * carry as many things as its shown walls do, at least one and at most MOST_ON_HIDDEN_WALLS.
-     * A home's picture is a landscape or flowers; a business's is one of the pictures its kind
-     * shows (Decor's pools), a certificate in its office. Neither is one the building shows already.
+     * A home's pictures are of the house (homeSources): another of the subject the room shows,
+     * one of the family's photographs, a landscape or flowers. A business's is one of the pictures
+     * its kind shows (Decor's pools), a certificate in its office, never one the building shows already.
      */
     private static void plan(IsoCell cell, RoomDef room) {
         Kind kind = kindOf(room.getName());
@@ -353,12 +354,15 @@ final class HiddenWalls {
         }
         spots.removeIf(spot -> nearAnOpening(cell, spot));
         String decorKind = Decor.kindOf(room);
-        boolean certificate = !Decor.HOME.equals(decorKind) && kind == Kind.OFFICE && Decor.pool("certificate", decorKind) != null;
-        int[] pool = Decor.HOME.equals(decorKind) ? generic() : Decor.pool(certificate ? "certificate" : "family", decorKind);
+        boolean home = Decor.HOME.equals(decorKind);
+        boolean certificate = !home && kind == Kind.OFFICE && Decor.pool("certificate", decorKind) != null;
+        int[] pool = home ? generic() : Decor.pool(certificate ? "certificate" : "family", decorKind);
         if (pool == null) {
             return;
         }
         Set<Integer> taken = null;
+        List<int[]> sources = null;
+        boolean[] used = null;
         int want = Math.min(MOST_ON_HIDDEN_WALLS, Math.max(1, shown)) - placed.size();
         int mixed = room.getBuilding().getX() * 31 + room.getBuilding().getY() * 17 + room.rects.get(0).x * 7 + room.rects.get(0).y;
         ArrayList<String> drawn = new ArrayList<>();
@@ -379,16 +383,26 @@ final class HiddenWalls {
             if (best == null) {
                 break;
             }
-            if (taken == null) {
-                taken = picturesInBuilding(cell, room);
+            int picture;
+            if (home) {
+                if (sources == null) {
+                    taken = new HashSet<>();
+                    sources = homeSources(picturesInBuilding(cell, room, taken), taken);
+                    used = new boolean[sources.size()];
+                }
+                picture = next(sources, used, taken, mixed + drawn.size());
+            } else {
+                if (taken == null) {
+                    taken = picturesInBuilding(cell, room, new HashSet<>());
+                }
+                picture = unshown(pool, taken, mixed + drawn.size());
             }
-            int picture = unshown(pool, taken, mixed + drawn.size());
             if (picture == Decor.NONE) {
                 break;
             }
             taken.add(picture);
             float wideForHigh = Decor.wideForHigh(picture);
-            float longSide = certificate ? DRAWN_CERTIFICATE : DRAWN_LONG_SIDE;
+            float longSide = certificate ? DRAWN_CERTIFICATE : home && FAMILY.equals(subjectOf(Decor.nameOf(picture))) ? DRAWN_PHOTOGRAPH : DRAWN_LONG_SIDE;
             float wide = wideForHigh >= 1f ? longSide : longSide * wideForHigh;
             float high = wide / wideForHigh / ViewCamera.LEVEL_HEIGHT;
             IsoGridSquare square = best.square();
@@ -420,6 +434,82 @@ final class HiddenWalls {
         return generic;
     }
 
+    /**
+     * The subjects of the game's sports and hunting pictures, by the name their pictures share
+     * before the number: a room in a home that shows one takes another of its subject.
+     */
+    static final Set<String> TASTES = Set.of("athletics", "baseball", "basketball", "bowling", "boxing", "fieldhockey", "football", "golf", "hockey",
+            "hunting", "racing", "soccer", "tennis", "weights");
+    /** Pictures of those subjects that carry a name or a sign: hung where the house does not show them, they bring in someone it has not got. */
+    static final Set<String> NAMED = Set.of("boxing-4", "hockey-1", "bowling-3");
+    static final String FAMILY = "family";
+
+    /** What a picture is of: its name before the number, "tennis" for "tennis-3". */
+    static String subjectOf(String picture) {
+        return picture.replaceFirst("-[0-9]+$", "");
+    }
+
+    /**
+     * Where a home's hidden-wall pictures come from, in order: pictures of a subject the room
+     * shows that the building does not; the family photographs the building shows and the room
+     * does not, so a bedroom has the same people as the hall; the landscapes and flowers the
+     * building does not show. room is what the room shows, building what the building does.
+     */
+    private static List<int[]> homeSources(Set<Integer> building, Set<Integer> room) {
+        Set<String> tastes = new HashSet<>();
+        for (int picture : room) {
+            String subject = subjectOf(Decor.nameOf(picture));
+            if (TASTES.contains(subject)) {
+                tastes.add(subject);
+            }
+        }
+        ArrayList<Integer> taste = new ArrayList<>(), family = new ArrayList<>(), landscapes = new ArrayList<>();
+        for (int picture = 0; picture < Decor.count(); picture++) {
+            String name = Decor.nameOf(picture), subject = subjectOf(name);
+            if (tastes.contains(subject) && !building.contains(picture) && !NAMED.contains(name)) {
+                taste.add(picture);
+            }
+            if (FAMILY.equals(subject) && building.contains(picture) && !room.contains(picture)) {
+                family.add(picture);
+            }
+        }
+        for (int picture : generic()) {
+            if (!building.contains(picture)) {
+                landscapes.add(picture);
+            }
+        }
+        return List.of(ints(taste), ints(family), ints(landscapes));
+    }
+
+    private static int[] ints(List<Integer> list) {
+        int[] out = new int[list.size()];
+        for (int i = 0; i < out.length; i++) {
+            out[i] = list.get(i);
+        }
+        return out;
+    }
+
+    /**
+     * The next picture for a room, from the first source with one left that has given the room
+     * none yet, failing that from the first with one left: a room with a hunting print, a family
+     * and landscapes to draw on gets one of each before a second of any. Decor.NONE where none is left.
+     */
+    static int next(List<int[]> sources, boolean[] used, Set<Integer> taken, int pick) {
+        for (int pass = 0; pass < 2; pass++) {
+            for (int i = 0; i < sources.size(); i++) {
+                if (pass == 0 && used[i]) {
+                    continue;
+                }
+                int picture = unshown(sources.get(i), taken, pick);
+                if (picture != Decor.NONE) {
+                    used[i] = true;
+                    return picture;
+                }
+            }
+        }
+        return Decor.NONE;
+    }
+
     /** One of a pool's pictures not in taken, picked by a number the room gives, or Decor.NONE where taken has every one. */
     static int unshown(int[] pool, Set<Integer> taken, int pick) {
         ArrayList<Integer> left = new ArrayList<>();
@@ -431,8 +521,11 @@ final class HiddenWalls {
         return left.isEmpty() ? Decor.NONE : left.get(Math.floorMod(pick, left.size()));
     }
 
-    /** The pictures the first person view shows on the walls of the room's building where it is loaded, and those drawn on its hidden walls. */
-    private static Set<Integer> picturesInBuilding(IsoCell cell, RoomDef room) {
+    /**
+     * The pictures the first person view shows on the walls of the room's building where it is
+     * loaded, and those drawn on its hidden walls; those of the room itself go in inRoom as well.
+     */
+    private static Set<Integer> picturesInBuilding(IsoCell cell, RoomDef room, Set<Integer> inRoom) {
         Set<Integer> pictures = new HashSet<>();
         ArrayList<RoomDef> rooms = room.getBuilding().rooms;
         for (int i = 0; i < rooms.size(); i++) {
@@ -445,6 +538,9 @@ final class HiddenWalls {
                             Drawn drawn = DRAWN.get(key(x, y, each.level, wall));
                             if (drawn != null) {
                                 pictures.add(drawn.picture());
+                                if (each == room) {
+                                    inRoom.add(drawn.picture());
+                                }
                             }
                         }
                         IsoGridSquare square = cell.getGridSquare(x, y, each.level);
@@ -459,7 +555,11 @@ final class HiddenWalls {
                                 int picture = Decor.of(sprite.getName(), properties.get("CustomName"), properties.get("GroupName") == null ? "" : properties.get("GroupName"),
                                         sprite.getSpriteGrid() != null);
                                 if (picture != Decor.NONE) {
-                                    pictures.add(Decor.inRoom(picture, x, y, each.level));
+                                    int shown = Decor.inRoom(picture, x, y, each.level);
+                                    pictures.add(shown);
+                                    if (each == room) {
+                                        inRoom.add(shown);
+                                    }
                                 }
                             }
                         }

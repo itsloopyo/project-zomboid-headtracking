@@ -436,6 +436,11 @@ final class Decor {
         return index().names.get(picture);
     }
 
+    /** How many pictures the index lists. */
+    static int count() {
+        return index().names.size();
+    }
+
     /** The picture of a name in the index. Thrown when the jar has none of that name. */
     static int named(String name) {
         int picture = index().names.indexOf(name);
