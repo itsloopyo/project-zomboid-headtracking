@@ -34,6 +34,8 @@ final class HiddenWallsTests {
                 "a hidden wall's picture is one its building shows nowhere, and none where it shows them all");
         Checks.check(HiddenWalls.unshown(pool, java.util.Set.of(), 0) != HiddenWalls.unshown(pool, java.util.Set.of(), 1),
                 "two pictures drawn in one room differ");
+        Checks.check(HiddenWalls.middleOf(1, 1) == 0.5f && HiddenWalls.middleOf(0, 1) == 1f && HiddenWalls.middleOf(1, 2) == 1f,
+                "a hidden wall's picture hangs in the middle of its stretch of wall, on a square's middle or the edge two share");
         Checks.check(HiddenWalls.key(10, 20, 0, HiddenWalls.SOUTH) != HiddenWalls.key(10, 20, 0, HiddenWalls.EAST)
                 && HiddenWalls.key(10, 20, 0, HiddenWalls.SOUTH) != HiddenWalls.key(10, 20, 1, HiddenWalls.SOUTH)
                 && HiddenWalls.key(10, 20, 0, HiddenWalls.SOUTH) != HiddenWalls.key(20, 10, 0, HiddenWalls.SOUTH)

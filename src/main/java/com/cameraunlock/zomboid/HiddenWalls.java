@@ -164,20 +164,28 @@ final class HiddenWalls {
     /**
      * The picture drawn on a square's south (or east) wall, or null: none where the rule has
      * been turned off since, or where the wall is no longer a place for one, the player having
-     * cut a door in it, hung something on it or stood something tall against it. A build's thread.
+     * cut a door in it, hung something on it or stood something tall against it, on any square
+     * it covers. A build's thread.
      */
     static Drawn drawnAt(IsoCell cell, int x, int y, int z, int wall, ArrayList<IsoSprite> sprites) {
         Drawn drawn = DRAWN.get(key(x, y, z, wall));
         if (drawn == null || !Rules.drawsHiddenWallPictures()) {
             return null;
         }
-        IsoGridSquare square = cell.getGridSquare(x, y, z);
         RoomDef room = IsoWorld.instance.getMetaGrid().getRoomAt(x, y, z);
-        if (square == null || room == null) {
+        if (room == null) {
             return null;
         }
-        Spot spot = spot(cell, room, square, wall, sprites);
-        return spot != null && (spot.bare() || spot.low()) && !nearAnOpening(cell, spot) ? drawn : null;
+        int dx = wall == SOUTH ? 1 : 0, dy = wall == EAST ? 1 : 0;
+        int first = (int) Math.floor(drawn.from());
+        for (int along = first; along < drawn.to(); along++) {
+            IsoGridSquare square = cell.getGridSquare(x + along * dx, y + along * dy, z);
+            Spot spot = square == null ? null : spot(cell, room, square, wall, sprites);
+            if (spot == null || !spot.bare() && !spot.low() || nearAnOpening(cell, spot) || along > first && parted(square, wall)) {
+                return null;
+            }
+        }
+        return drawn;
     }
 
     /** Called as the game leaves a save: the next save's rooms choose their pictures again. */
@@ -298,7 +306,8 @@ final class HiddenWalls {
     /**
      * Chooses the pictures drawn on a room's hidden walls (Drawn). A bedroom, a living room, a
      * hall or an office gets a picture on each of its hidden walls that nothing hangs on yet,
-     * clear of doors and windows and over nothing taller than a counter, until its hidden walls
+     * clear of doors and windows and over nothing taller than a counter, in the middle of a
+     * stretch of that wall at least two squares long, as a person hangs one, until its hidden walls
      * carry as many things as its shown walls do, at least one and at most MOST_ON_HIDDEN_WALLS.
      * A home's picture is a landscape or flowers; a business's is one of the pictures its kind
      * shows (Decor's pools), a certificate in its office. Neither is one the building shows already.
@@ -359,7 +368,7 @@ final class HiddenWalls {
             int bestScore = Integer.MIN_VALUE;
             for (int i = 0; i < spots.size(); i++) {
                 Spot spot = spots.get(i);
-                if (onAWallHungOn(placed, spot)) {
+                if (onAWallHungOn(placed, spot) || run(spots, spot, -1) + run(spots, spot, 1) < 1) {
                     continue;
                 }
                 int score = stretch(spots, spot);
@@ -384,8 +393,9 @@ final class HiddenWalls {
             float wide = wideForHigh >= 1f ? longSide : longSide * wideForHigh;
             float high = wide / wideForHigh / ViewCamera.LEVEL_HEIGHT;
             IsoGridSquare square = best.square();
+            float middle = middleOf(run(spots, best, -1), run(spots, best, 1));
             DRAWN.put(key(square.getX(), square.getY(), room.level, best.wall()),
-                    new Drawn(picture, 0.5f - wide / 2f, 0.5f + wide / 2f, DRAWN_MIDDLE - high / 2f, DRAWN_MIDDLE + high / 2f));
+                    new Drawn(picture, middle - wide / 2f, middle + wide / 2f, DRAWN_MIDDLE - high / 2f, DRAWN_MIDDLE + high / 2f));
             ChunkMarks.tell(Math.floorDiv(square.getX(), CHUNK), Math.floorDiv(square.getY(), CHUNK));
             drawn.add(String.format(Locale.ROOT, "%s on the %s wall at %d,%d", Decor.nameOf(picture), best.wall() == SOUTH ? "south" : "east",
                     square.getX(), square.getY()));
@@ -848,26 +858,54 @@ final class HiddenWalls {
 
     /** How many spots of the same wall run on unbroken either side of a spot, the fewer of the two: the middle of a long wall scores most. */
     private static int stretch(ArrayList<Spot> spots, Spot spot) {
-        int dx = spot.wall() == SOUTH ? 1 : 0, dy = spot.wall() == EAST ? 1 : 0;
-        int least = Integer.MAX_VALUE;
-        for (int way = -1; way <= 1; way += 2) {
-            int run = 0;
-            while (has(spots, spot.wall(), spot.square().getX() + way * dx * (run + 1), spot.square().getY() + way * dy * (run + 1))) {
-                run++;
-            }
-            least = Math.min(least, run);
-        }
-        return least;
+        return Math.min(run(spots, spot, -1), run(spots, spot, 1));
     }
 
-    private static boolean has(ArrayList<Spot> spots, int wall, int x, int y) {
+    /** Where along a spot's square the middle of its stretch of wall is, from how many squares of it run on either side. */
+    static float middleOf(int before, int after) {
+        return 0.5f + (after - before) / 2f;
+    }
+
+    /** How many spots of the same wall run on unbroken from a spot, the way the map's x (or y) grows or the other way. */
+    private static int run(ArrayList<Spot> spots, Spot spot, int way) {
+        int dx = spot.wall() == SOUTH ? 1 : 0, dy = spot.wall() == EAST ? 1 : 0;
+        int run = 0;
+        IsoGridSquare from = spot.square();
+        while (true) {
+            Spot next = at(spots, spot.wall(), spot.square().getX() + way * dx * (run + 1), spot.square().getY() + way * dy * (run + 1));
+            if (next == null || parted(way > 0 ? next.square() : from, spot.wall())) {
+                return run;
+            }
+            from = next.square();
+            run++;
+        }
+    }
+
+    private static Spot at(ArrayList<Spot> spots, int wall, int x, int y) {
         for (int i = 0; i < spots.size(); i++) {
             Spot spot = spots.get(i);
             if (spot.wall() == wall && spot.square().getX() == x && spot.square().getY() == y) {
+                return spot;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Whether a wall, a door or a window stands on the edge a square shares with the one before it
+     * along a south (or east) wall, its west (or north) edge: a picture never reaches across one.
+     */
+    private static boolean parted(IsoGridSquare square, int wall) {
+        boolean north = wall == EAST;
+        for (int i = 0; i < square.getObjects().size(); i++) {
+            IsoSprite sprite = square.getObjects().get(i).getSprite();
+            if (sprite != null && (sprite.getProperties().has(IsoFlagType.WallNW)
+                    || sprite.getProperties().has(north ? IsoFlagType.WallN : IsoFlagType.WallW)
+                    || sprite.getProperties().has(north ? IsoFlagType.WallNTrans : IsoFlagType.WallWTrans))) {
                 return true;
             }
         }
-        return false;
+        return opening(square, north);
     }
 
     /** Whether something has been hung on the same wall as the spot, the same line of squares. */
