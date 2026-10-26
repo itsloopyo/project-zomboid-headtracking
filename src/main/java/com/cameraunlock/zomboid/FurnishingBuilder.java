@@ -926,15 +926,20 @@ final class FurnishingBuilder {
                 // The game lifts a dish on a trailer's low roof by its render offset to draw it on that roof, which
                 // the roof's own height already is: kept, the post stopped two feet over it (12481, 3921).
                 foot -= build.geometry.raised * ViewCamera.LEVEL_HEIGHT;
-                float back = backOverTheBuilding(x, y, z, centreX, centreY);
+                // Only a piece so lifted is painted past the eave: a house's dish over a porch roof stands where it is painted.
+                float back = build.geometry.raised > 0f ? backOverTheBuilding(x, y, z, piece.centreX, piece.centreY) : 0f;
                 if (back > 0f) {
-                    int overX = (int) Math.floor(x + centreX - back), overY = (int) Math.floor(y + centreY - back);
+                    // Back along the line of sight the game paints it on, which is that much under the floor there.
+                    int overX = (int) Math.floor(x + piece.centreX - back), overY = (int) Math.floor(y + piece.centreY - back);
                     build.roofBuilder.cornersAt(overX, overY, z, roofCorners);
+                    for (int corner = 0; corner < 4; corner++) {
+                        roofCorners[corner] += back * RoofFit.PITCH;
+                    }
                     float stood = foot - onRoof[2];
-                    onRoof(piece, model, roofCorners, x + centreX - back - overX, y + centreY - back - overY, false, onRoof);
+                    onRoof(piece, model, roofCorners, x + piece.centreX - back - overX, y + piece.centreY - back - overY, false, onRoof);
                     centreX = overX - x + onRoof[0];
                     centreY = overY - y + onRoof[1];
-                    foot = stood + onRoof[2];
+                    foot = stood + onRoof[2] - back * RoofFit.PITCH * ViewCamera.LEVEL_HEIGHT;
                 }
             }
         }
