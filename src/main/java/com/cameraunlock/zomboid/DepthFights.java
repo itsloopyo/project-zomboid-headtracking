@@ -166,6 +166,11 @@ final class DepthFights {
         double layers, cards;
         String label;
         int source;
+
+        /** The build it came in: a placed piece's source is the build's and its place in the build's pieces together. */
+        int build() {
+            return source < 0 ? -source / 100000 : source;
+        }
         /** The cell its bounds start in, along its plane's two axes: see pairs. */
         long cellU, cellV;
     }
@@ -551,7 +556,7 @@ final class DepthFights {
         String facing = Math.abs(a.nz) > 0.9 ? "level" : Math.abs(a.nz) < 0.1 ? "upright" : "sloped";
         String one = a.label, two = b.label;
         String what = facing + ": " + (one.compareTo(two) <= 0 ? one + " WITH " + two : two + " WITH " + one) + (twice ? " (the same triangle twice)" : "") + (a.turned == b.turned ? "" : " (wound apart)")
-                + (a.source == b.source ? "" : " (two builds)");
+                + (a.build() != b.build() ? " (two builds)" : a.source != b.source ? " (two placings)" : "");
         Kind kind = found.computeIfAbsent(what, x -> new Kind());
         kind.area += area;
         kind.pairs++;
