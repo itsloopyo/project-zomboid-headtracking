@@ -834,7 +834,7 @@ final class WorldScene {
         final int lights, parasol, eave;
         final Awnings.Hung awning;
         final Tents.Piece tent, rope;
-        final boolean endPiece;
+        final boolean endPiece, innerCorner;
         final Towers.Part[] tower;
         /** Whether it is the letters of a sign: see EdgeRuns.sign. */
         final boolean sign;
@@ -928,6 +928,7 @@ final class WorldScene {
             parasol = Parasols.quarter(sprite);
             eave = Hoods.eave(sprite);
             endPiece = Hoods.endPiece(sprite);
+            innerCorner = endPiece && Hoods.innerCornerOf(name);
             awning = Awnings.of(sprite);
             tent = Tents.of(sprite);
             rope = Tents.ropeOf(sprite);
@@ -7363,7 +7364,8 @@ final class WorldScene {
             }
             // The eave the map hangs on the wall under a slope's foot, the trims painted on it and
             // the corner piece past each end of it: the slope's lowest tile makes that eave.
-            if ((kind.roofAccent || kind.eave != Hoods.NONE) && roofBuilder.eaveRow(x, y, z) || kind.endPiece && roofBuilder.eaveRowEnd(x, y, z)) {
+            if ((kind.roofAccent || kind.eave != Hoods.NONE) && roofBuilder.eaveRow(x, y, z) || kind.endPiece && roofBuilder.eaveRowEnd(x, y, z)
+                    || kind.innerCorner && roofBuilder.eavesMeetInTheCorner(x, y, z)) {
                 return;
             }
             // A trim with nothing on its square but trims, nothing under it and no roof beside it hangs

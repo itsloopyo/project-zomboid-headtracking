@@ -987,8 +987,8 @@ final class RoofBuilder {
         boolean lowAtFar = along < 0f;
         int beyondX = x + (alongX != 0f ? (lowAtFar ? 1 : -1) : 0), beyondY = y + (alongY != 0f ? (lowAtFar ? 1 : -1) : 0);
         float low = lowAtFar ? atOrigin + along : atOrigin;
-        return !roofGoesOn(beyondX, beyondY, z) && !(low < Roofs.FLAT && reachesUpTo(beyondX, beyondY, z) && !eaveRow(beyondX, beyondY, z - 1))
-                && !roomUnder(beyondX, beyondY, z);
+        return !roofGoesOn(beyondX, beyondY, z) && !(low < Roofs.FLAT && reachesUpTo(beyondX, beyondY, z) && !eaveRow(beyondX, beyondY, z - 1)
+                && !eavesMeetInTheCorner(beyondX, beyondY, z - 1)) && !roomUnder(beyondX, beyondY, z);
     }
 
     /** Whether the roof on the square is turf, the map's tile there or a slope made where the map leaves one out: see turf(Texture). */
@@ -1159,6 +1159,30 @@ final class RoofBuilder {
     /** Whether the square holds the piece the map ends a row of eave with, a corner past the row's end, where eaveRow holds that row. */
     boolean eaveRowEnd(int x, int y, int z) {
         return Hoods.endOf(hoods(z), x, y, (nx, ny) -> eaveRow(nx, ny, z));
+    }
+
+    /**
+     * Whether the square holds the map's piece for the corner where two eaves meet
+     * (Hoods.innerCornerOf), walled on its north and its west, with a slope a level up beyond
+     * each wall that comes down to it: those slopes make the eaves, which meet over the square,
+     * and the piece is left out. Laid as a roof's tile from the level below, it was a dark slope
+     * from the eaves to the ground across the corner, and as a roof reaching the slopes' feet it
+     * kept them from making their eaves (isEave).
+     */
+    boolean eavesMeetInTheCorner(int x, int y, int z) {
+        Hoods.Squares level = hoods(z);
+        if (!Hoods.holdsInnerCorner(build.cell.getGridSquare(x, y, z)) || !level.walled(x, y, Outdoors.NORTH) || !level.walled(x, y, Outdoors.WEST)) {
+            return false;
+        }
+        for (int wall = 0; wall < 2; wall++) {
+            boolean west = wall == 0;
+            RoofFit.Tile over = over(x, y, z, west);
+            int axis = west ? RoofFit.ALONG_X : RoofFit.ALONG_Y;
+            if (over == null || !RoofFit.fallsToItsFloor(over, axis) && !RoofFit.foldFallsToItsFloor(over, axis)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**

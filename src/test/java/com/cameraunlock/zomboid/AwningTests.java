@@ -16,6 +16,7 @@ final class AwningTests {
         Checks.run("anAwningsLengthsMeetAtTheEdgesOfTheirSquares", AwningTests::anAwningsLengthsMeetAtTheEdgesOfTheirSquares);
         Checks.run("anAwningsColoursAreReadWhereItsModelHasCloth", AwningTests::anAwningsColoursAreReadWhereItsModelHasCloth);
         Checks.run("anEaveIsTheEaveRowOfARoofSheet", AwningTests::anEaveIsTheEaveRowOfARoofSheet);
+        Checks.run("theCornerWhereTwoEavesMeetIsPlaceTwentyOfAFinish", AwningTests::theCornerWhereTwoEavesMeetIsPlaceTwentyOfAFinish);
         Checks.run("aKioskHasAHoodHippedAtBothEndsAndItsEndPiecesGo", AwningTests::aKioskHasAHoodHippedAtBothEndsAndItsEndPiecesGo);
         Checks.run("theCornerPastARoofsEaveRowGoesWithTheRow", AwningTests::theCornerPastARoofsEaveRowGoesWithTheRow);
         Checks.run("anEaveWithARoofBehindItIsNoHood", AwningTests::anEaveWithARoofBehindItIsNoHood);
@@ -154,6 +155,17 @@ final class AwningTests {
         check(Hoods.eaveOf("roofs_04_6", false, true, true) == Hoods.NONE, "an eave fixed to an edge it is not drawn on");
         check(Hoods.eaveOf("walls_decoration_01_7", false, true, true) == Hoods.NONE, "another sheet");
         check(Hoods.eaveOf("roofs_accents_01_7", false, true, true) == Hoods.NONE, "the accents of a roof");
+    }
+
+    private static void theCornerWhereTwoEavesMeetIsPlaceTwentyOfAFinish() {
+        check(Hoods.innerCornerOf("roofs_01_20"), "the corner between a house's wings (1936,14277)");
+        check(Hoods.innerCornerOf("roofs_01_52"), "the same place in the sheet's second finish");
+        check(Hoods.innerCornerOf("roofs_burnt_01_20"), "the same place on the burnt sheet");
+        check(!Hoods.innerCornerOf("roofs_01_21"), "the place after it");
+        check(!Hoods.innerCornerOf("roofs_01_6"), "the eave row");
+        check(!Hoods.innerCornerOf("roofs_accents_01_20"), "the accents of a roof");
+        check(!Hoods.innerCornerOf("walls_decoration_01_20"), "another sheet");
+        check(!Hoods.innerCornerOf(null), "no name");
     }
 
     /** A level of a made-up map. */

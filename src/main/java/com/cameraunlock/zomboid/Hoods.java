@@ -53,16 +53,10 @@ final class Hoods {
      * edge and the one fixed to the west: 6 and 7, and 38 and 39, which burn to 6 and 7.
      */
     static int eaveOf(String name, boolean north, boolean west, boolean eave) {
-        if (name == null || !eave || !name.startsWith("roofs_") || north == west) {
+        if (!eave || north == west) {
             return NONE;
         }
-        int under = name.lastIndexOf('_');
-        String sheet = name.substring(0, under), place = name.substring(under + 1);
-        boolean roofSheet = sheet.equals("roofs_burnt_01") || sheet.length() == "roofs_00".length() && Character.isDigit(sheet.charAt(6)) && Character.isDigit(sheet.charAt(7));
-        if (!roofSheet || place.isEmpty() || !place.chars().allMatch(Character::isDigit)) {
-            return NONE;
-        }
-        int inFinish = Integer.parseInt(place) % FINISH_PLACES;
+        int inFinish = placeInFinish(name);
         if (inFinish == 6 && north) {
             return Outdoors.NORTH;
         }
@@ -70,6 +64,44 @@ final class Hoods {
             return Outdoors.WEST;
         }
         return NONE;
+    }
+
+    /**
+     * Whether a sprite of that name is the piece of eave a roof sheet hangs in the corner
+     * between a square's north and west walls, where the eaves along the two walls meet: place
+     * 20 of each finish, a V of tiles fixed to no edge.
+     */
+    static boolean innerCornerOf(String name) {
+        return placeInFinish(name) == 20;
+    }
+
+    /** Whether a square holds that piece of eave: a piece the game calls an eave, as innerCornerOf names it. */
+    static boolean holdsInnerCorner(IsoGridSquare square) {
+        if (square == null) {
+            return false;
+        }
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoSprite sprite = objects.get(i).getSprite();
+            if (sprite != null && sprite.getProperties().has(IsoFlagType.isEave) && innerCornerOf(sprite.getName())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Where in its finish a sprite of a roof sheet is, or -1 for a sprite of no roof sheet. */
+    private static int placeInFinish(String name) {
+        if (name == null || !name.startsWith("roofs_")) {
+            return -1;
+        }
+        int under = name.lastIndexOf('_');
+        String sheet = name.substring(0, under), place = name.substring(under + 1);
+        boolean roofSheet = sheet.equals("roofs_burnt_01") || sheet.length() == "roofs_00".length() && Character.isDigit(sheet.charAt(6)) && Character.isDigit(sheet.charAt(7));
+        if (!roofSheet || place.isEmpty() || !place.chars().allMatch(Character::isDigit)) {
+            return -1;
+        }
+        return Integer.parseInt(place) % FINISH_PLACES;
     }
 
     static int eave(IsoSprite sprite) {
