@@ -3246,7 +3246,7 @@ final class PipelineShaders {
                 float grit = 0.0;
                 // How much of the ground's depth relieve has drawn: so much less is left to the lumps made up below.
                 float raisedGround = 0.0;
-                bool cloth = vMaterial > 68.5 && vMaterial < 69.5;
+                bool cloth = vMaterial > 68.5 && vMaterial < 69.5 || vMaterial > 98.5 && vMaterial < 99.5;
                 if (uOwnTextures > 0.5 && !model && !litter && !cloth && vKind < 1.5 && vKind > 0.5 && n.z > 0.8) {
                     // The game's pavement is a speckle a dot or two across, which from close is a
                     // field of blots: the concrete's grain is the picture's, and the sprite gives only
@@ -3452,8 +3452,9 @@ final class PipelineShaders {
                             + 0.35 * (fine - 0.5) * (1.0 - smoothstep(0.0015, 0.003, across));
                     texel.rgb *= mix(1.0, 0.78 + 0.44 * streak, 0.45) * (0.94 + 0.12 * wave);
                 }
-                // A curtain the picture has hung has folds of its own, and is its weave close to.
-                if (vMaterial > 68.5 && vMaterial < 69.5) {
+                // A curtain the picture has hung has folds of its own, and is its weave close to. So is
+                // a tent's canvas (WorldScene.CANVAS), which is the game's own art where the mod's pictures are off.
+                if (vMaterial > 68.5 && vMaterial < 69.5 || uOwnTextures > 0.5 && vMaterial > 98.5 && vMaterial < 99.5) {
                     texel.rgb *= mix(1.0, wrapped(uCloth, vWorld, n, 23.0) * uClothGain, 0.22);
                 }
                 // Straw bedding a barn floor (WorldScene.STRAW), painted in the sprite's mean colour: its stalks are

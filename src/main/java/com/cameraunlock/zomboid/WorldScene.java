@@ -2107,6 +2107,8 @@ final class WorldScene {
     static final float STRAW = 97f;
     /** Terrazzo, chips of stone in a ground: see FloorBuilder.addTiles. */
     static final float TERRAZZO = 98f;
+    /** The canvas of a tent or a stall: cloth, whose weave is the mod's own picture. */
+    static final float CANVAS = 99f;
     /** The game's two hay floors. */
     private static final Set<String> HAY_FLOORS = Set.of("vegetation_farm_01_12", "vegetation_farm_01_13");
     /** What the game calls the sheets and boards it hangs flat on a wall. */
@@ -7895,7 +7897,7 @@ final class WorldScene {
                 geometry.drawnIn = piece.kind() == Tents.CANOPY || piece.kind() == Tents.GABLE ? Tents.DRAWN_IN : 0f;
                 // Canvas is cloth: of no other material, its canopy under the sky took the ground's grain, and a green one was a lawn.
                 float made = frame.material;
-                frame.material = OpeningBuilder.DRAPE;
+                frame.material = CANVAS;
                 switch (piece.kind()) {
                     case Tents.CANOPY -> {
                         float rise = piece.to() - piece.from();
