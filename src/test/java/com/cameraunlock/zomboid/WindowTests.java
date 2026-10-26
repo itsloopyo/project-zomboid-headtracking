@@ -47,6 +47,7 @@ final class WindowTests {
         Checks.run("doorwayToTheEndOfItsSquareHasNoWallInItsRim", WindowTests::doorwayToTheEndOfItsSquareHasNoWallInItsRim);
         Checks.run("cornerPostPictureCoversItsFacesSlack", WindowTests::cornerPostPictureCoversItsFacesSlack);
         Checks.run("doorWithOneSmallLightIsALeafWithItsLight", WindowTests::doorWithOneSmallLightIsALeafWithItsLight);
+        Checks.run("closerOnADoorsHeadIsNoPartOfItsLeaf", WindowTests::closerOnADoorsHeadIsNoPartOfItsLeaf);
     }
 
     /** A flush door with a small light high in it, as the commercial doors are: a leaf with stiles as wide as the light's sides, and the light glass. */
@@ -56,14 +57,7 @@ final class WindowTests {
             rows[row] = row == 0 || row == 39 ? "              " : row >= 4 && row < 11 ? "  ###....###  " : "  ##########  ";
         }
         int across = rows[0].length();
-        byte[] dots = new byte[across * rows.length];
-        for (int row = 0; row < rows.length; row++) {
-            for (int column = 0; column < across; column++) {
-                char dot = rows[row].charAt(column);
-                dots[row * across + column] = dot == '#' ? Windows.FRAME : dot == '.' ? Windows.GLASS : Windows.EMPTY;
-            }
-        }
-        Windows.Shape leaf = Windows.measure(dots, across, rows.length, true);
+        Windows.Shape leaf = measuredLeaf(rows);
         check(leaf != null, "a door with a light a sixth of its height is a leaf");
         if (leaf == null) {
             return;
@@ -71,6 +65,44 @@ final class WindowTests {
         check(leaf.panes.length == 5, "it has its one light");
         check(Math.abs(leaf.startWide - 3f / across) < 1e-4f && Math.abs(leaf.endWide - 3f / across) < 1e-4f,
                 "its stiles are as wide as the light's sides: " + leaf.startWide * across + " and " + leaf.endWide * across);
+    }
+
+    /**
+     * A glass door with a closer standing on its head at one end, as fixtures_doors_02_41 paints
+     * it: the leaf is measured under the closer, with its two lights, and not refused as no
+     * leaf with four straight sides.
+     */
+    private static void closerOnADoorsHeadIsNoPartOfItsLeaf() {
+        String[] rows = new String[44];
+        for (int row = 0; row < rows.length; row++) {
+            rows[row] = row == 0 ? "                              "
+                    : row == 1 ? "                        #.    "
+                    : row < 4 ? "                       ###    "
+                    : row == 4 ? "   # # # # # # # # # # ####.  "
+                    : row < 9 || row >= 21 && row < 25 || row >= 39 && row < 43 ? "  #########################   "
+                    : row < 43 ? "  #####...............#####   "
+                    : "                              ";
+        }
+        Windows.Shape leaf = measuredLeaf(rows);
+        check(leaf != null, "a door with a closer on its head is a leaf");
+        if (leaf == null) {
+            return;
+        }
+        check(leaf.panes.length == 10, "with its two lights: " + leaf.panes.length / 5);
+        check(Math.abs(leaf.head - (1f - 4f / rows.length)) < 1e-4f, "its head is the frame's, under the closer: " + leaf.head * rows.length);
+    }
+
+    /** As measured, with a frame that is frame all over a shape too: see Windows.measure. */
+    private static Windows.Shape measuredLeaf(String... rows) {
+        int across = rows[0].length();
+        byte[] dots = new byte[across * rows.length];
+        for (int row = 0; row < rows.length; row++) {
+            for (int column = 0; column < across; column++) {
+                char dot = rows[row].charAt(column);
+                dots[row * across + column] = dot == '#' ? Windows.FRAME : dot == '.' ? Windows.GLASS : Windows.EMPTY;
+            }
+        }
+        return Windows.measure(dots, across, rows.length, true);
     }
 
     /** # frame, . glass, a space nothing. Every row as long as the first. */

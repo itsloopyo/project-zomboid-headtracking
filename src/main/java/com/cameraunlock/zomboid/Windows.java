@@ -284,10 +284,11 @@ final class Windows {
                 }
             }
         }
-        // A few stray dots past the frame's edge, the soft end of a line, are no part of it.
+        // A few stray dots past the frame's edge, the soft end of a line, are no part of it, nor
+        // is a lump standing on the frame at one end of its head, a commercial door's closer.
         for (boolean trimmed = true; trimmed && c1 - c0 >= SMALLEST && r1 - r0 >= SMALLEST; ) {
             trimmed = false;
-            if (framed(dots, across, r0, c0, c1, false) < BAR_EDGE && !joined(dots, across, r0, c0, c1)) {
+            if (framed(dots, across, r0, c0, c1, false) < BAR_EDGE && (!joined(dots, across, r0, c0, c1) || atAnEnd(dots, across, r0, c0, c1))) {
                 r0++;
                 trimmed = true;
             } else if (framed(dots, across, r1 - 1, c0, c1, false) < BAR_EDGE && !joined(dots, across, r1 - 1, c0, c1)) {
@@ -561,6 +562,18 @@ final class Windows {
             }
         }
         return false;
+    }
+
+    /** Whether all the frame in a row of dots from column c0 to before c1 is within CORNER dots of one end of it. */
+    private static boolean atAnEnd(byte[] dots, int across, int row, int c0, int c1) {
+        int first = -1, last = -1;
+        for (int column = c0; column < c1; column++) {
+            if (dots[row * across + column] == FRAME) {
+                first = first < 0 ? column : first;
+                last = column;
+            }
+        }
+        return first >= 0 && (last < c0 + CORNER || first >= c1 - CORNER);
     }
 
     /** How much of a line of dots is frame: a column from row r0 to before r1, or a row from column c0 to before c1. */
