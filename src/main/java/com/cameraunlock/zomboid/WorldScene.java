@@ -890,7 +890,6 @@ final class WorldScene {
             stripLamp = sprite.getSpriteGrid() != null && properties.has("IsHigh") && "Lamp".equals(properties.get("CustomName"))
                     && !properties.has(IsoFlagType.attachedN) && !properties.has(IsoFlagType.attachedW) && !properties.has(IsoFlagType.attachedE)
                     && !properties.has(IsoFlagType.attachedS);
-            cornerTrim = (properties.has("attachedNW") || properties.has("attachedSE")) && !Roofs.isTile(type) && !roofSheet;
             papered = name != null && name.startsWith("walls_interior_house");
             tiledWall = WallTiles.tiledSheet(name);
             wallTrim = name != null && name.startsWith("walls_detailing_") && !Edges.west(properties, type) && !onNorthEdge(properties)
@@ -898,6 +897,7 @@ final class WorldScene {
             fenceGate = name != null && name.startsWith("fixtures_doors_fences");
             trim = Trims.is(name);
             moulded = Trims.moulded(name);
+            cornerTrim = trim && (properties.has(IsoFlagType.attachedNW) || properties.has(IsoFlagType.attachedSE));
             boulder = name != null && name.startsWith("boulders_");
             bedding = name != null && name.startsWith("furniture_bedding");
             longGrass = name != null && name.startsWith("e_newgrass");
@@ -2293,7 +2293,7 @@ final class WorldScene {
         }
         PropertyContainer flags = sprite.getProperties();
         return !flags.has(IsoFlagType.attachedN) && !flags.has(IsoFlagType.attachedW) && !flags.has(IsoFlagType.attachedE) && !flags.has(IsoFlagType.attachedS)
-                && !flags.has(IsoFlagType.WallOverlay) && !flags.has("attachedNW") && !flags.has("attachedSE");
+                && !flags.has(IsoFlagType.WallOverlay) && !flags.has(IsoFlagType.attachedNW) && !flags.has(IsoFlagType.attachedSE);
     }
 
     /** Whether an object is the house itself and not something in it: a wall, a door, a window, stairs, a roof. */
@@ -5970,7 +5970,7 @@ final class WorldScene {
                 return;
             }
             PropertyContainer flags = sprite.getProperties();
-            boolean corner = flags.has("attachedNW");
+            boolean corner = flags.has(IsoFlagType.attachedNW);
             int edges = (corner || flags.has(IsoFlagType.attachedN) ? TRIM_NORTH : 0) | (corner || flags.has(IsoFlagType.attachedW) ? TRIM_WEST : 0);
             Texture texture = sprite.getTextureForCurrentFrame(object.getDir());
             if (edges == 0 || !usable(texture)) {
@@ -6040,7 +6040,7 @@ final class WorldScene {
          */
         private boolean addTrim(IsoSprite over, Texture texture, int x, int y, int z) {
             PropertyContainer flags = over.getProperties();
-            boolean corner = flags.has("attachedNW");
+            boolean corner = flags.has(IsoFlagType.attachedNW);
             boolean north = corner || flags.has(IsoFlagType.attachedN), west = corner || flags.has(IsoFlagType.attachedW);
             Trims.Band[] onNorth = north ? Trims.of(texture, frame, true) : null, onWest = west ? Trims.of(texture, frame, false) : null;
             if (north && onNorth == null || west && onWest == null) {
