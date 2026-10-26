@@ -3778,7 +3778,7 @@ final class PipelineShaders {
                 // the same on every face of them and they are flat cloth and flat board: a face
                 // turned from the eye is shaded as a fold turned from the light, and the room's
                 // light is a little more from one side than the other, as on a model.
-                if (uCornersShaded < 0.5 && open < 0.5 && (vMaterial > 68.5 && vMaterial < 69.5 || vMaterial > 85.5 && vMaterial < 86.5
+                if (uCornersShaded < 0.5 && open < 0.5 && (vMaterial > 68.5 && vMaterial < 69.5 || vMaterial > 98.5 && vMaterial < 99.5 || vMaterial > 85.5 && vMaterial < 86.5
                         || vMaterial > 87.5 && vMaterial < 88.5)) {
                     fromSky *= mix(0.7, 1.0, abs(dot(face, view))) * (1.0 + 0.1 * dot(face.xy, vec2(0.6, -0.8)));
                 }
