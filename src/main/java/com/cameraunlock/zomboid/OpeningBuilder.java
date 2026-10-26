@@ -100,8 +100,12 @@ final class OpeningBuilder {
     private static final float SHARD_NARROWEST = 0.012f, SHARD_WIDEST = 0.085f;
     /** How far to either side of the middle of its foot a shard's point may stand, in widths of the foot. */
     private static final float SHARD_LEAN = 1.3f;
-    /** A frame redder than it is blue by this much is bare wood, and anything else is painted. */
-    private static final float WOODEN = 0.12f;
+    /**
+     * A frame redder than it is blue by this share of its brightest channel is bare wood, and anything else is painted. A share,
+     * not an amount: the game paints a west face darker than a north one, and the two sprites of one brown door are to read alike.
+     * Never less than WOODEN_LEAST, or a black frame a hair warm is wood and the next one a hair cooler paint.
+     */
+    private static final float WOODEN = 0.2f, WOODEN_LEAST = 0.04f;
     /** A member of a frame wider than this each way, in tiles, is a piece of the wall the window is in and keeps the wall's own picture on its faces. */
     private static final float WALL_MEMBER = 0.14f;
     /**
@@ -404,7 +408,7 @@ final class OpeningBuilder {
         boolean ownIsRoom = indoors(build.here) || !indoors(beyond);
         edgeSide = paneSide(ownIsRoom);
 
-        boolean wooden = door.kind == Doors.PLANKED || leaf.red - leaf.blue > WOODEN;
+        boolean wooden = door.kind == Doors.PLANKED || wooden(leaf.red, leaf.green, leaf.blue);
         // Kept as finely as a tile's colour (WallSides.FINE): at a fifteenth a channel a dark maroon door rounds to a grey one.
         SpriteGeometry.Mesh wood = WorldScene.solid.get(WorldScene.PLAIN, WallSides.laid(leaf.red, leaf.green, leaf.blue, 0f, 0f, 0f, WallSides.FINE));
         SpriteGeometry.Mesh joint = WorldScene.solid.get(WorldScene.PLAIN,
@@ -566,7 +570,7 @@ final class OpeningBuilder {
         windowAlongY = db;
         windowFoot = footOf(z);
         lightSides(north, false);
-        boolean wooden = casing.red - casing.blue > WOODEN;
+        boolean wooden = wooden(casing.red, casing.green, casing.blue);
         SpriteGeometry.Mesh wood = WorldScene.solid.get(WorldScene.PLAIN, WallSides.key(casing.red, casing.green, casing.blue, WallSides.FLAT));
         wood.sway = 0f;
         long thing = WorldScene.solid.owner();
@@ -762,7 +766,7 @@ final class OpeningBuilder {
 
         SpriteGeometry.Mesh joinery = WorldScene.solid.get(WorldScene.PLAIN, WallSides.key(shape.red, shape.green, shape.blue, WallSides.FLAT));
         joinery.sway = 0f;
-        float made = shape.red - shape.blue > WOODEN ? JOINERY : WorldScene.PAINT;
+        float made = wooden(shape.red, shape.green, shape.blue) ? JOINERY : WorldScene.PAINT;
         float level = ViewCamera.LEVEL_HEIGHT, lap = FRAME_LAP / level;
         float deep = WorldScene.WALL_HALF + FRAME_PROUD;
         float inStart = shape.start + shape.startWide, inEnd = shape.end - shape.endWide;
@@ -1066,6 +1070,10 @@ final class OpeningBuilder {
         sideOpen[1] = same ? build.frame.open : unseen ? WorldScene.OPEN_UNLIT : build.openOf(beyondLight);
         sideDay[0] = build.lightDay[ownLight];
         sideDay[1] = same ? sideDay[0] : unseen ? 0f : build.lightDay[beyondLight];
+    }
+
+    static boolean wooden(float red, float green, float blue) {
+        return red - blue > Math.max(WOODEN_LEAST, WOODEN * Math.max(red, Math.max(green, blue)));
     }
 
     /** The square across the north or west edge of square x, y on level z, null where the map has none. */

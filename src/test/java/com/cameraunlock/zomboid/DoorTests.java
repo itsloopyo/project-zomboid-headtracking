@@ -22,6 +22,7 @@ final class DoorTests {
         Checks.run("leafIsCutBackToTheDoorwaysCut", DoorTests::leafIsCutBackToTheDoorwaysCut);
         Checks.run("casingTakesItsTexelsWhereTheWallsCutIsMeasured", DoorTests::casingTakesItsTexelsWhereTheWallsCutIsMeasured);
         Checks.run("casingIsReadAsPostsUnderAHead", DoorTests::casingIsReadAsPostsUnderAHead);
+        Checks.run("woodIsToldFromPaintByColourNotDarkness", DoorTests::woodIsToldFromPaintByColourNotDarkness);
         Checks.run("casingsPostsMeetTheDoorwaysCutUnderTheHead", DoorTests::casingsPostsMeetTheDoorwaysCutUnderTheHead);
         Checks.run("casingSharesNoPlaneWithTheRevealOrTheSkirting", DoorTests::casingSharesNoPlaneWithTheRevealOrTheSkirting);
         Checks.run("whatIsDrawnBetweenOwningNoThingIsNoPartOfTheThing", DoorTests::whatIsDrawnBetweenOwningNoThingIsNoPartOfTheThing);
@@ -75,6 +76,15 @@ final class DoorTests {
             }
         }
         return false;
+    }
+
+    private static void woodIsToldFromPaintByColourNotDarkness() {
+        // fixtures_doors_01_13 and _12, one mahogany door, as its north and its darker west sprite read.
+        check(OpeningBuilder.wooden(0.312f, 0.175f, 0.149f) && OpeningBuilder.wooden(0.227f, 0.132f, 0.116f), "a brown door is wood from either face");
+        // fixtures_windows_01_64 and _48: black frames, one a hair warmer.
+        check(!OpeningBuilder.wooden(0.15f, 0.13f, 0.12f) && !OpeningBuilder.wooden(0.16f, 0.14f, 0.13f), "a black frame is paint, warm or not");
+        check(!OpeningBuilder.wooden(0f, 0f, 0f) && !OpeningBuilder.wooden(0.95f, 0.9f, 0.78f) && !OpeningBuilder.wooden(0.5f, 0.5f, 0.5f), "and so are black, cream and grey");
+        check(OpeningBuilder.wooden(0.85f, 0.72f, 0.55f) && OpeningBuilder.wooden(0.55f, 0.4f, 0.28f), "pale and mid oak are wood");
     }
 
     private static void raisedPanelHasNoGapsBetweenItsPieces() {
