@@ -674,7 +674,7 @@ final class HiddenWalls {
 
     /** Whether a thing is hung on a wall to be looked at: not a light, a switch or a curtain. */
     private static boolean lookedAt(IsoObject object, PropertyContainer properties) {
-        return "WallObject".equals(properties.get("MoveType")) && object.getType() != IsoObjectType.lightswitch && !properties.has("HasLightOnSprite")
+        return "WallObject".equals(properties.get("MoveType")) && object.getType() != IsoObjectType.lightswitch && !properties.has(IsoFlagType.HasLightOnSprite)
                 && !properties.has("LightRadius") && !properties.has("BlocksPlacement");
     }
 
