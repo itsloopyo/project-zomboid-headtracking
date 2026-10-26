@@ -231,6 +231,7 @@ public final class Hooks {
     /** Called as the game leaves a save for its menu. */
     public static void leftSave(Object state) {
         Tracking.leftSave();
+        mapReadAt = 0;
         FarLand.loadingAfresh();
         FineSkins.leftSave();
         Impacts.forget();
