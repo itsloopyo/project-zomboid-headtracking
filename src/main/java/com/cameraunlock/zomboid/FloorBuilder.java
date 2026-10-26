@@ -684,12 +684,13 @@ final class FloorBuilder {
     /**
      * The mesh of the texture with the given id painted in a colour, the frame lit as it was (red, green
      * and blue, and the corners held in paperRed and its fellows) times as much lighter or darker as the
-     * colour is than the paint. The paint is the colour rounded to a few steps a part, and only a grey
-     * is left in the light: out of doors a light with more of one part than the open ground's has is
-     * read as a lamp's, and kept lit at night when the daylight is held back.
+     * colour is than the paint. The paint is the colour kept as finely as a tile's (WallSides.FINE),
+     * and only a grey is left in the light: out of doors a light with more of one part than the open
+     * ground's has is read as a lamp's, and kept lit at night when the daylight is held back. Kept to
+     * sixteen steps a part, as a wall's paint is, a dark brown deck came out yellow.
      */
     private SpriteGeometry.Mesh painted(int texture, float red, float green, float blue, float r, float g, float b) {
-        int key = WallSides.key(r, g, b, WallSides.FLAT);
+        int key = WallSides.laid(r, g, b, 0f, 0f, 0f, WallSides.FINE);
         WallSides.tint(key, tileTint);
         float lighter = (r + g + b) / Math.max(tileTint[0] + tileTint[1] + tileTint[2], 0.06f);
         shade(red, green, blue, lighter, lighter, lighter);
