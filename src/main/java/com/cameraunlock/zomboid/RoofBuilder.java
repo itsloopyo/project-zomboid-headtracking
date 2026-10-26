@@ -149,7 +149,7 @@ final class RoofBuilder {
         }
         for (int i = 0; caps != null && i < caps.size(); i++) {
             RoofFit.Cap cap = caps.get(i).cap;
-            if (world.cutAway((int) Math.floor((cap.x0 + cap.x1) / 2f), (int) Math.floor((cap.y0 + cap.y1) / 2f))) {
+            if (turf(caps.get(i).roof.finish) || world.cutAway((int) Math.floor((cap.x0 + cap.x1) / 2f), (int) Math.floor((cap.y0 + cap.y1) / 2f))) {
                 continue;
             }
             liftOf(ground, Math.clamp((int) Math.floor((cap.x0 + cap.x1) / 2f) - chunkX, 0, WorldScene.CHUNK_TILES - 1),
@@ -838,7 +838,7 @@ final class RoofBuilder {
      * beside it across its slope, a strip of roof carries its slope out over the wall.
      */
     private void addRake(SpriteGeometry.Mesh sheet, int x, int y, int z, float atOrigin, float alongX, float alongY) {
-        if (Math.abs(alongX + alongY) < Roofs.FLAT) {
+        if (Math.abs(alongX + alongY) < Roofs.FLAT || turf(x, y, z)) {
             return;
         }
         float lift = meanLift();
@@ -981,7 +981,7 @@ final class RoofBuilder {
      */
     private boolean isEave(int x, int y, int z, float atOrigin, float alongX, float alongY) {
         float along = alongX != 0f ? alongX : alongY;
-        if (Math.abs(along) < Roofs.FLAT) {
+        if (Math.abs(along) < Roofs.FLAT || turf(x, y, z)) {
             return false;
         }
         boolean lowAtFar = along < 0f;
@@ -989,6 +989,24 @@ final class RoofBuilder {
         float low = lowAtFar ? atOrigin + along : atOrigin;
         return !roofGoesOn(beyondX, beyondY, z) && !(low < Roofs.FLAT && reachesUpTo(beyondX, beyondY, z) && !eaveRow(beyondX, beyondY, z - 1))
                 && !roomUnder(beyondX, beyondY, z);
+    }
+
+    /** Whether the roof on the square is turf, the map's tile there or a slope made where the map leaves one out: see turf(Texture). */
+    private boolean turf(int x, int y, int z) {
+        Roofs.Laid map = Roofs.at(build.cell, x, y, z, world.roundNow, build.frame.scale);
+        if (map != null) {
+            return turf(map.texture);
+        }
+        Roofs.Laid made = Roofs.madeAt(x, y, z, world.roundNow);
+        return made != null && turf(made.roof.finish);
+    }
+
+    /**
+     * Whether the roof sprite is the turf over a bunker (industry_bunker_01): a grassed bank down to the ground, with no
+     * cap on its hips, and no board, gutter or pipe along its edges.
+     */
+    private static boolean turf(Texture texture) {
+        return texture != null && texture.getName() != null && texture.getName().startsWith("industry_bunker_01_");
     }
 
     /**
