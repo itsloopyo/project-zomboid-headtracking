@@ -16,7 +16,8 @@ final class Farm {
     private static final String HAY = "vegetation_farm_01_", CARPENTRY = "carpentry_02_", POTS = "vegetation_indoor_01_", ORNAMENTS = "vegetation_ornamental_01_",
             CRAFTED = "crafted_02_", FARMYARD = "location_farm_accesories_01_", DEBRIS = "d_generic_1_", MALL = "location_shop_mall_01_";
     private static final int CLOTH = 1 << Models.CLOTH, WOOD = 1 << Models.WOOD, DARK_WOOD = 1 << Models.DARK_WOOD, PAINT = 1 << Models.PAINT,
-            PLASTIC = 1 << Models.PLASTIC, VINYL = 1 << Models.VINYL, CERAMIC = 1 << Models.CERAMIC, ENAMEL = 1 << Models.ENAMEL;
+            PLASTIC = 1 << Models.PLASTIC, VINYL = 1 << Models.VINYL, CERAMIC = 1 << Models.CERAMIC, ENAMEL = 1 << Models.ENAMEL,
+            STEEL = 1 << Models.STEEL;
     /**
      * Whether a sprite is a square of standing wheat the game gives no property at all, which it
      * paints as it paints the wheat it marks as growth (0 to 2 of the sheet) and lays out as fields.
@@ -54,6 +55,8 @@ final class Farm {
     private static final float FEEDER_DYE = 0.51f;
     /** How far along the side a feed trough shows from the game's view its colour is taken, from its middle across. */
     private static final float TROUGH_SIDE = 0.23f;
+    /** How high a stock tank's floor and a wooden trough's are inside them (tools/models/furniture.py), in metres: Troughs stands what they hold there. */
+    static final float TANK_FLOOR = 0.025f, TROUGH_FLOOR = 0.23f;
 
     static Outdoors.Piece of(String name, String called, String group, int faces, int width, int height, int surface) {
         if (called == null) {
@@ -169,10 +172,10 @@ final class Farm {
         float sideA = 0.5f + (faces == Outdoors.EAST || faces == Outdoors.WEST ? TROUGH_SIDE : 0f);
         float sideB = 0.5f + (faces == Outdoors.EAST || faces == Outdoors.WEST ? 0f : TROUGH_SIDE);
         return switch (kind) {
-            case "Animal" -> across == 2 ? new Outdoors.Piece("feed_trough", faces).dye(WOOD, sideA, sideB, TROUGH_DYE).fit() : null;
-            case "Small Animal" -> across == 1 ? new Outdoors.Piece("feed_trough_small", faces).dye(WOOD, sideA, sideB, TROUGH_DYE).fit() : null;
-            case "Small Metal" -> across == 2 ? new Outdoors.Piece("stock_tank", faces).fit() : null;
-            case "Large Metal" -> across == 3 ? new Outdoors.Piece("stock_tank_long", faces).fit() : null;
+            case "Animal" -> across == 2 ? new Outdoors.Piece("feed_trough", faces).dye(WOOD, sideA, sideB, TROUGH_DYE).fit().trough() : null;
+            case "Small Animal" -> across == 1 ? new Outdoors.Piece("feed_trough_small", faces).dye(WOOD, sideA, sideB, TROUGH_DYE).fit().trough() : null;
+            case "Small Metal" -> across == 2 ? new Outdoors.Piece("stock_tank", faces).dye(STEEL, sideA, sideB, TROUGH_DYE).fit().trough() : null;
+            case "Large Metal" -> across == 3 ? new Outdoors.Piece("stock_tank_long", faces).dye(STEEL, sideA, sideB, TROUGH_DYE).fit().trough() : null;
             default -> null;
         };
     }

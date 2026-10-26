@@ -925,6 +925,9 @@ final class FurnishingBuilder {
         if (piece.goal != null) {
             addNet(piece.goal, x, y, z, foot - piece.raised);
         }
+        if (piece.trough) {
+            Troughs.addFill(build, piece, model, x, y, z, centreX, centreY, foot);
+        }
         if (piece.television && object instanceof IsoTelevision set) {
             // The game's sprite of a lit screen is painted for its own view and has no place on
             // the model: it is never drawn over one. With the mod's pictures switched off a set

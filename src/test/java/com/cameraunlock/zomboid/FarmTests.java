@@ -4,6 +4,22 @@ package com.cameraunlock.zomboid;
 final class FarmTests {
     private FarmTests() {}
 
+    private static void whatATroughHoldsLiesInsideIt() {
+        String[][] fills = {{"stock_tank", "_feed_low", "_feed_full", "_water_low", "_water_full"}, {"stock_tank_long", "_feed_low", "_feed_full", "_water_low", "_water_full"},
+                {"feed_trough", "_feed", "_water"}, {"feed_trough_small", "_feed", "_water"}};
+        for (String[] trough : fills) {
+            Models.Model shape = Models.get(trough[0]);
+            float floor = trough[0].startsWith("stock_tank") ? Farm.TANK_FLOOR : Farm.TROUGH_FLOOR;
+            for (int i = 1; i < trough.length; i++) {
+                Models.Model fill = Models.get(trough[0] + trough[i]);
+                Checks.check(fill.width() < shape.width() - 0.03f && fill.depth() < shape.depth() - 0.03f, trough[0] + trough[i] + " lies inside its trough's walls");
+                Checks.check(floor + fill.height() < shape.height(), trough[0] + trough[i] + " stands on its floor under its rim, its top " + (floor + fill.height()));
+            }
+            Checks.check(trough.length == 3 || Models.get(trough[0] + "_feed_low").height() < Models.get(trough[0] + "_feed_full").height(),
+                    trough[0] + " holds less under half full than over");
+        }
+    }
+
     static void run() {
         Checks.run("aBaleOfHayLiesTheWayItsTwineRuns", FarmTests::aBaleOfHayLiesTheWayItsTwineRuns);
         Checks.run("wheatTheGameMarksForNothingIsWheat", FarmTests::wheatTheGameMarksForNothingIsWheat);
@@ -11,6 +27,7 @@ final class FarmTests {
         Checks.run("aLayerOfLogsLiesOnTheLayerUnderIt", FarmTests::aLayerOfLogsLiesOnTheLayerUnderIt);
         Checks.run("aLoadOfLogsFillsItsSixSquares", FarmTests::aLoadOfLogsFillsItsSixSquares);
         Checks.run("aTroughLiesAcrossTheWayItFaces", FarmTests::aTroughLiesAcrossTheWayItFaces);
+        Checks.run("whatATroughHoldsLiesInsideIt", FarmTests::whatATroughHoldsLiesInsideIt);
         Checks.run("whatStandsInAYardHasItsModel", FarmTests::whatStandsInAYardHasItsModel);
         Checks.run("aMallPlanterIsStoneWithLeavesGrowingOverItsRim", FarmTests::aMallPlanterIsStoneWithLeavesGrowingOverItsRim);
         Checks.run("aPlantOnATableStandsOnItWhereItsSpritePaintsIt", FarmTests::aPlantOnATableStandsOnItWhereItsSpritePaintsIt);

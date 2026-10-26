@@ -29,6 +29,8 @@ final class Outdoors {
         float alsoHigh;
         /** Whether it is made no bigger than fits inside its squares, and not a metre to the tile so as to meet the next. */
         boolean fits;
+        /** Whether it is a trough the game paints feed or water in (Troughs.addFill). */
+        boolean trough;
         /** Whether each square of a piece the game lays on several is a piece of its own. */
         boolean each;
         /**
@@ -168,6 +170,11 @@ final class Outdoors {
 
         Piece fit() {
             fits = true;
+            return this;
+        }
+
+        Piece trough() {
+            trough = true;
             return this;
         }
 

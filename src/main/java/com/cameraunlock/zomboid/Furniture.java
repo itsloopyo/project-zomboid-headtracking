@@ -120,6 +120,8 @@ final class Furniture {
     String paintedBy;
     /** Whether this is a shop's fitting that ShopFittings stands goods or clothes on while the game paints what it holds. */
     boolean stocked;
+    /** Whether this is a trough that Troughs.addFill fills with what the game paints in it. */
+    boolean trough;
     /** Whether this is a shop's glass counter, round whose case ShopFittings lays the glass. */
     boolean glazed;
     /** Whether it stands on the roof of its square where there is one: see Outdoors.Piece. */
@@ -847,6 +849,7 @@ final class Furniture {
         piece.footHalf = outside.footHalf;
         piece.glassLegs = outside.glassLegs;
         piece.goal = outside.goal;
+        piece.trough = outside.trough;
         if (outside.fits) {
             piece.stand(outside.top, piece.model.height(), false);
         }

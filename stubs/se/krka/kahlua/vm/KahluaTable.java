@@ -7,4 +7,5 @@ public interface KahluaTable {
     int len();
     void rawset(Object key, Object value);
     void rawset(int key, Object value);
+    KahluaTableIterator iterator();
 }

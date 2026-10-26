@@ -4853,6 +4853,66 @@ def stock_tank(name, long, wide=0.92, high=0.6):
     return model
 
 
+def heap(bm, long, wide, top, rng, inside):
+    """Feed heaped in a trough, long along x: a cage over the trough's floor, its top pushed up and down at random by up to
+    a tenth of a metre about top, every point of it pulled inside(x, y, z) to lie within the trough's walls."""
+    xs, ys = spread(-long / 2, long / 2, max(4, round(long / 0.12))), spread(-wide / 2, wide / 2, max(3, round(wide / 0.12)))
+    cage = grid_box(bm, xs, ys, (0.0, top))
+    for (i, j, k), vert in cage.items():
+        if k == 1:
+            edge = min(i, j, len(xs) - 1 - i, len(ys) - 1 - j)
+            vert.co.z += rng.uniform(-0.05, 0.05) - (0.04 if edge == 0 else 0.0)
+        vert.co.x, vert.co.y = inside(vert.co.x, vert.co.y, vert.co.z)
+    return cage
+
+
+def tank_fill(name, long, feed, full, wide=0.92, high=0.6):
+    """What the game paints in a stock tank, built up from its floor (0.025, Farm.TANK_FLOOR): feed heaped roughly, or water,
+    a third deep under half full and near the rim from half full on, as the game's two paintings of each."""
+    model = Model(name)
+    top = (high - 0.055) * (0.82 if full else 0.3)
+    radius, straight = wide / 2 - 0.024, (long - wide) / 2
+    body = bmesh.new()
+    if not feed:
+        outline_up(body, stadium(long, wide, -0.024), 0.0, top)
+        model.plain(body, "enamel")
+        return model
+
+    def inside(x, y, z):
+        along = abs(x) - straight
+        if along <= 0.0:
+            return x, max(-radius, min(radius, y))
+        out = math.hypot(along, y)
+        if out <= radius:
+            return x, y
+        return math.copysign(straight + along * radius / out, x), y * radius / out
+
+    heap(body, long, wide, top, random.Random(name), inside)
+    model.soft(body, "cloth", levels=1)
+    return model
+
+
+def trough_fill(name, long, feed):
+    """What the game paints in a wooden feed trough, built up from its floor (0.23, Farm.TROUGH_FLOOR) to under its rim: a
+    layer of feed heaped roughly, or water. Its sides lean out with the trough's."""
+    model = Model(name)
+    floor, top, wide = 0.23, 0.35, 0.46
+    inner = long / 2 - 0.028
+    body = bmesh.new()
+    if not feed:
+        prism(body, (0.0, 0.0, 2 * inner, wide - 0.135, 0.0), (0.0, 0.0, 2 * inner, wide - 0.075, top - floor))
+        model.plain(body, "enamel")
+        return model
+
+    def inside(x, y, z):
+        half = (wide - 0.135) / 2 + 0.03 * max(0.0, min(1.0, z / (top - floor)))
+        return max(-inner, min(inner, x)), max(-half, min(half, y))
+
+    heap(body, 2 * inner, wide - 0.075, top - floor - 0.03, random.Random(name), inside)
+    model.soft(body, "cloth", levels=1)
+    return model
+
+
 def dog_house():
     """A kennel of dark boards with a door at the front under its gable and a roof of three courses of shingle each side."""
     model = Model("dog_house")
@@ -5551,7 +5611,11 @@ def farm_and_garden():
     """What stands in a farmyard or a garden: hay, troughs, a kennel, compost and rain, a mall's planter, a raised bed, a laundry cart, a bird bath,
     a salt lick, a log bench, stumps, a gnome, lawn flamingos, and the plants that stand on a table."""
     return [hay_bales("hay_bale", 1), hay_bales("hay_bales_2", 2), log_bundle(), feed_trough("feed_trough", 1.88), feed_trough("feed_trough_small", 0.92),
-            stock_tank("stock_tank", 1.86), stock_tank("stock_tank_long", 2.8), dog_house(), composter("composter", False), composter("composter_full", True),
+            stock_tank("stock_tank", 1.86), stock_tank("stock_tank_long", 2.8),
+            *[tank_fill(f"{tank}_{kind}_{level}", long, kind == "feed", level == "full") for tank, long in (("stock_tank", 1.86), ("stock_tank_long", 2.8))
+              for kind in ("feed", "water") for level in ("low", "full")],
+            *[trough_fill(f"{trough}_{kind}", long, kind == "feed") for trough, long in (("feed_trough", 1.88), ("feed_trough_small", 0.92)) for kind in ("feed", "water")],
+            dog_house(), composter("composter", False), composter("composter_full", True),
             rain_crate("rain_crate", False), rain_crate("rain_crate_water", True), mall_planter(), raised_bed("raised_bed", True), raised_bed("raised_bed_dry", True, 0.6),
             raised_bed("raised_bed_bare", False), washing_bin(), bird_bath("bird_bath", True), bird_bath("bird_bath_round", False), salt_lick(),
             log_bench("log_bench"), stump("stump", 0.33, 0.28, 5), stump("chopping_block", 0.33, 0.23, 0), gnome(), flamingo("flamingo", False), flamingo("flamingo_pecking", True),
