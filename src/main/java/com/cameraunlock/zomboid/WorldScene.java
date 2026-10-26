@@ -7626,18 +7626,18 @@ final class WorldScene {
                 // itself, as it does over the boards from the sheet of a roof's accents. The boards
                 // under a rake are the gable's siding too, the lowest a tile wide and of no clear
                 // slope, and the gable is made in their place.
-                if (!kind.roofSheet && z > 0) {
+                if (z > 0) {
                     RoofFit.Tile board = Roofs.measure(frame, texture, x, y, z);
-                    if ((board.fitting || !board.sure) && board.half == 0 && roofBuilder.underARake(x, y, z)) {
+                    if (!kind.roofSheet && (board.fitting || !board.sure) && board.half == 0 && roofBuilder.underARake(x, y, z)) {
                         roofBuilder.addGableBeyond(x, y, z);
                         return;
                     }
-                    if (board.fitting && board.half == 0 && roofBuilder.trimUnderAMadeEave(x, y, z, true, true, true)) {
+                    if (!kind.roofSheet && board.fitting && board.half == 0 && roofBuilder.trimUnderAMadeEave(x, y, z, true, true, true)) {
                         return;
                     }
-                }
-                if (Roofs.capOfARidgeBelow(cell, Roofs.measure(frame, texture, x, y, z), frame.scale)) {
-                    return;
+                    if (Roofs.capOfARidgeBelow(cell, board, frame.scale)) {
+                        return;
+                    }
                 }
                 roofName = sprite.getName();
                 roofBuilder.addRoof(mesh, texture, x, y, z);
