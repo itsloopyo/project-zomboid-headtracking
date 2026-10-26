@@ -811,6 +811,12 @@ final class Roofs {
             @Override
             public boolean taken(int x, int y, int z, float roof) {
                 IsoGridSquare square = cell.getGridSquare(x, y, z);
+                // A room the slope passes wholly over is a storey under the roof, as the farmhouse's attic on level 2
+                // under the ridge (2866..2867, 10395..10403): the slope there lies on the level above, where the map
+                // has its near side's top row. Asked on the eave's level, the attic stopped the far side at its wall.
+                if (square != null && square.getRoomID() != -1L && !roofVoid(square, z) && roof >= z + 1 - RoofFit.SAME) {
+                    return taken(x, y, z + 1, roof);
+                }
                 if (square != null) {
                     // The map's ceiling over the rooms below lies on the level the roof's eaves stand on, under every
                     // slope: it is no floor the made roof would stand over. A floor of any other sheet is a terrace.

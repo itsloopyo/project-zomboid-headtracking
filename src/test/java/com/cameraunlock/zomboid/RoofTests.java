@@ -21,6 +21,7 @@ final class RoofTests {
         Checks.run("farSideOfAWingMeetsTheMainRoofInAValley", RoofTests::farSideOfAWingMeetsTheMainRoofInAValley);
         Checks.run("madeFarSidesOfAWingAndItsMainRoofMeetInAValley", RoofTests::madeFarSidesOfAWingAndItsMainRoofMeetInAValley);
         Checks.run("gablesFarSideComesDownToTheCrownOfALowerWingBesideIt", RoofTests::gablesFarSideComesDownToTheCrownOfALowerWingBesideIt);
+        Checks.run("wingPastAGableFromTheRidgesSquareIsNoNotch", RoofTests::wingPastAGableFromTheRidgesSquareIsNoNotch);
         Checks.run("longestRunLeavesOutAStrayRow", RoofTests::longestRunLeavesOutAStrayRow);
         Checks.run("roofOverAnLShapedBuildingIsClosedAllRound", RoofTests::roofOverAnLShapedBuildingIsClosedAllRound);
         Checks.run("hipsAndValleyOfTheLShapeAreFoldedTheRightWay", RoofTests::hipsAndValleyOfTheLShapeAreFoldedTheRightWay);
@@ -299,6 +300,32 @@ final class RoofTests {
         for (RoofFit.Tile tile : made) {
             check(tile.x <= 5, "nothing is made on the gable's own slopes or past its east wall: " + tile.x + ", " + tile.y);
             check(tile.x != 0 || tile.fitAxis == RoofFit.ALONG_X || tile.shaped, "the wing's west side is an eave: " + tile.x + ", " + tile.y);
+        }
+    }
+
+    private static void wingPastAGableFromTheRidgesSquareIsNoNotch() {
+        // As the map has the farmhouse at 2863..2870, 10395..10404: the east slope on 4..7 from a ridge
+        // at 3 1/3 down to the eave at 2, rows 0..8, and past the south gable a wing on 4..5 of row 9
+        // with a low roof of its own. The far side is 0..3; row 9 west of the wing stands on no storey.
+        List<RoofFit.Tile> tiles = new ArrayList<>();
+        for (int y = 0; y <= 8; y++) {
+            tiles.add(new RoofFit.Tile(4, y, 3, RoofFit.ALONG_X, true, 3f + THIRD, 3f));
+            for (int x = 5; x <= 7; x++) {
+                tiles.add(new RoofFit.Tile(x, y, 2, RoofFit.ALONG_X, true, 3f - (x - 5) * THIRD, 3f - (x - 4) * THIRD));
+            }
+        }
+        tiles.add(new RoofFit.Tile(5, 9, 2, RoofFit.ALONG_X, true, 2f + THIRD, 2f));
+        RoofFit.fit(tiles);
+        List<RoofFit.Tile> made = RoofFit.backs(tiles, standing((x, y) -> x >= 0 && x <= 7 && y >= 0 && y <= 8 || x >= 4 && x <= 5 && y == 9));
+        RoofFit.peaks(tiles, made);
+        for (int y = 0; y <= 8; y++) {
+            for (int x = 0; x <= 3; x++) {
+                RoofFit.Tile tile = madeAt(made, x, y);
+                float low = 2f + x * THIRD, high = low + THIRD;
+                check(tile != null && near(tile.corners[0], low) && near(tile.corners[1], high) && near(tile.corners[2], high) && near(tile.corners[3], low),
+                        "the far side climbs straight to the ridge at " + x + ", " + y + ", where the wing past the gable brought it down to the gable as a hip: "
+                                + (tile == null ? "none" : tile.corners[0] + " " + tile.corners[1] + " " + tile.corners[2] + " " + tile.corners[3]));
+            }
         }
     }
 

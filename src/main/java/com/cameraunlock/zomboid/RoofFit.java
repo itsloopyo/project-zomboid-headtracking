@@ -1125,7 +1125,10 @@ final class RoofFit {
      * of a level apart, a step in the roof with an upright face that showed as a black triangle
      * and corners turned up like a pagoda's (8673..8674, 8418..8419). Only a square the building
      * goes on from along the slope is a notch: one beyond a gable end is not, and the far wall
-     * past the ridge is never looked at.
+     * past the ridge is never looked at. Nor is a square whose wall to the building meets the
+     * slope at its top: that wall stands under the ridge, and nothing climbs from it. Beyond a
+     * farmhouse's south gable a wing went on from the ridge's square (2866..2867, 10404), and
+     * the far slope was brought down to it as a hip.
      */
     private static float notched(Side side, boolean isAlongX, HashMap<Long, Boolean> built, Site site, float[] corners, float middle) {
         if (!side.fromEave) {
@@ -1136,7 +1139,18 @@ final class RoofFit {
         for (int x = side.x - reach; x <= side.x + reach; x++) {
             for (int y = side.y - reach; y <= side.y + reach; y++) {
                 int along = isAlongX ? x - side.x : y - side.y;
-                if (along * side.up > 0 || stands(built, site, x, y, level) || !stands(built, site, x + ax, y + ay, level) && !stands(built, site, x - ax, y - ay, level)) {
+                if (along * side.up > 0 || stands(built, site, x, y, level)) {
+                    continue;
+                }
+                boolean underEave = false;
+                for (int toward = -1; toward <= 1 && !underEave; toward += 2) {
+                    if (stands(built, site, x + toward * ax, y + toward * ay, level)) {
+                        int wall = along + (toward > 0 ? 1 : 0);
+                        // A level square is the slope's top carried across, and says nothing of where its ridge is.
+                        underEave = Math.abs(side.far - side.near) < SAME || side.near + wall * (side.far - side.near) < side.top - SAME;
+                    }
+                }
+                if (!underEave) {
                     continue;
                 }
                 for (int point = 0; point < 5; point++) {
