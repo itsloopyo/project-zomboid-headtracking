@@ -20,7 +20,9 @@ import zombie.iso.IsoObject;
  * the graphics card and are given back. Every few seconds of a frame whose builds have
  * changed, the triangles of the builds the frame shows within the reach of the eye, and the
  * furniture stood on them, are put in buckets by their plane and set against each other, with
- * each moved off its plane as PipelineShaders.FACED moves it as it draws. The log has a line
+ * each moved off its plane as PipelineShaders.FACED moves it as it draws. The cards that turn
+ * to the eye are set against the cards standing on the same spot, which turn in one plane with
+ * them wherever they are seen from. The log has a line
  * for each kind of pair, by what the two are made of and how they lie, with the area they
  * share, the nearest the eye can be for them to fight, and a few places with what the map has
  * on the square.
@@ -48,6 +50,9 @@ final class DepthFights {
     private static final double SAME_WAY = Math.cos(Math.toRadians(1.0));
     /** Less than a square centimetre in common is an edge, not an area. */
     static final float LEAST_AREA = 1e-4f;
+    static final int CARD_FLOATS = 10;
+    /** Cards that stand nearer each other than this, in tiles, turn to the eye in one plane from wherever they are seen. */
+    static final double SAME_SPOT = 0.002;
 
     private DepthFights() {}
 
@@ -61,6 +66,10 @@ final class DepthFights {
         /** Six a triangle: what the picture moves it by (SpriteGeometry.WAY_AT, ALONG_AT and the layers of cards it stands nearer), what it is made of, and the face's way along the ground. */
         float[] moves = new float[0];
         int[] run = new int[0];
+        int cards;
+        /** CARD_FLOATS a card that turns to the camera: where it stands, then each corner's place along the card and height, how many layers of cards it stands towards the camera, and what it is made of. */
+        float[] cardCorners = new float[0];
+        int[] cardRun = new int[0];
         /** For each run, its texture as a number to tell runs apart by in the log: never bound. */
         int[] textures;
         boolean[] runLaid;
@@ -71,22 +80,29 @@ final class DepthFights {
         copy.wx = wx;
         copy.wy = wy;
         copy.grown = grown;
-        int triangles = 0, runs = 0;
+        int triangles = 0, runs = 0, cards = 0;
         for (SpriteGeometry.MeshSet set : new SpriteGeometry.MeshSet[] {solid, laid}) {
             for (int i = 0; i < set.used.size(); i++) {
                 SpriteGeometry.Mesh mesh = set.used.get(i);
                 if (mesh.floats > 0) {
                     triangles += mesh.floats / (3 * SpriteGeometry.VERTEX_FLOATS);
                     runs++;
+                    for (int at = 0; at < mesh.floats; at += 3 * SpriteGeometry.VERTEX_FLOATS) {
+                        if (mesh.vertices[at + SpriteGeometry.WAY_AT] == SpriteGeometry.FACES) {
+                            cards++;
+                        }
+                    }
                 }
             }
         }
         copy.corners = new float[triangles * 9];
         copy.moves = new float[triangles * 6];
         copy.run = new int[triangles];
+        copy.cardCorners = new float[cards * CARD_FLOATS];
+        copy.cardRun = new int[cards];
         copy.textures = new int[runs];
         copy.runLaid = new boolean[runs];
-        int t = 0, run = 0;
+        int t = 0, run = 0, card = 0;
         final int v = SpriteGeometry.VERTEX_FLOATS;
         for (SpriteGeometry.MeshSet set : new SpriteGeometry.MeshSet[] {solid, laid}) {
             for (int i = 0; i < set.used.size(); i++) {
@@ -99,8 +115,23 @@ final class DepthFights {
                 float[] from = mesh.vertices;
                 for (int at = 0; at < mesh.floats; at += 3 * v) {
                     float way = from[at + SpriteGeometry.WAY_AT];
-                    // A card turned to the camera has no plane of its own, and wood is a ring standing where it is.
-                    if (way == SpriteGeometry.FACES || way == SpriteGeometry.WOOD) {
+                    // A card turned to the camera has no plane until it is seen from somewhere: it is set against the cards on
+                    // the same spot (cardPairs). Wood is a ring standing where it is.
+                    if (way == SpriteGeometry.FACES) {
+                        int to = card * CARD_FLOATS;
+                        copy.cardCorners[to] = from[at];
+                        copy.cardCorners[to + 1] = from[at + 1];
+                        for (int c = 0; c < 3; c++) {
+                            copy.cardCorners[to + 2 + c * 2] = from[at + c * v + SpriteGeometry.ALONG_AT];
+                            copy.cardCorners[to + 3 + c * 2] = from[at + c * v + 2];
+                        }
+                        copy.cardCorners[to + 8] = from[at + SpriteGeometry.ALONG_AT + 1];
+                        copy.cardCorners[to + 9] = from[at + 8];
+                        copy.cardRun[card] = run;
+                        card++;
+                        continue;
+                    }
+                    if (way == SpriteGeometry.WOOD) {
                         continue;
                     }
                     for (int c = 0; c < 3; c++) {
@@ -121,6 +152,7 @@ final class DepthFights {
             }
         }
         copy.triangles = t;
+        copy.cards = card;
         return copy;
     }
 
@@ -169,6 +201,7 @@ final class DepthFights {
         lastNanos = now;
         lastShape = shape;
         ArrayList<Tri> tris = new ArrayList<>();
+        ArrayList<Card> cards = new ArrayList<>();
         int source = 0;
         for (WorldScene.ChunkMeshes build : shown) {
             source++;
@@ -177,15 +210,17 @@ final class DepthFights {
                 continue;
             }
             gather(copy, source, eyeX, eyeY, eyeUp, REACH, tris);
+            gatherCards(copy, source, eyeX, eyeY, REACH, cards);
             placed(build.placed, source, eyeX, eyeY, eyeUp, REACH, tris);
         }
         Map<String, Kind> found = pairs(tris, eyeX, eyeY, eyeUp);
+        cardPairs(cards, found);
         double total = 0;
         for (Kind kind : found.values()) {
             total += kind.area;
         }
         Log.info(String.format(Locale.ROOT, "depth fights: %d triangles within %.0f tiles of (%.1f, %.1f, %.2f), %d kinds of pair, %.3f square tiles in all, took %.0f ms, fullest bucket %s",
-                tris.size(), REACH, eyeX, eyeY, eyeUp, found.size(), total, (System.nanoTime() - now) / 1e6, largest));
+                tris.size() + cards.size(), REACH, eyeX, eyeY, eyeUp, found.size(), total, (System.nanoTime() - now) / 1e6, largest));
         found.entrySet().stream().sorted((a, b) -> Double.compare(b.getValue().area, a.getValue().area)).forEach(e -> {
             Kind kind = e.getValue();
             StringBuilder where = new StringBuilder();
@@ -298,6 +333,104 @@ final class DepthFights {
                 tri.source = -(source * 100000 + i);
                 into.add(tri);
             }
+        }
+    }
+
+    /** A triangle of a card that turns to the camera: the spot it stands on, and the triangle laid flat as along the card and up. */
+    static final class Card {
+        double x, y, up;
+        final Tri flat = new Tri();
+        double cards;
+        String label;
+        int source;
+    }
+
+    /** The copy's cards that stand within reach of the eye. */
+    static void gatherCards(Copy copy, int source, float eyeX, float eyeY, float reach, List<Card> into) {
+        for (int t = 0; t < copy.cards; t++) {
+            float[] c = copy.cardCorners;
+            int at = t * CARD_FLOATS;
+            if (Math.abs(c[at] - eyeX) > reach || Math.abs(c[at + 1] - eyeY) > reach) {
+                continue;
+            }
+            Card card = new Card();
+            card.x = c[at];
+            card.y = c[at + 1];
+            for (int k = 0; k < 3; k++) {
+                card.flat.p[k * 3] = c[at + 2 + k * 2];
+                card.flat.p[k * 3 + 2] = c[at + 3 + k * 2];
+                card.up += c[at + 3 + k * 2] / 3.0;
+            }
+            if (!plane(card.flat)) {
+                continue;
+            }
+            card.cards = c[at + 8];
+            float open = c[at + 9];
+            int material = (int) Math.floor((open + 0.5f) / 32f);
+            int kind = Math.round(open - 32f * material);
+            card.label = "card " + (copy.grown ? "grown " : "") + materialName(material) + "/" + kind + " tex " + copy.textures[copy.cardRun[t]]
+                    + (card.cards == 0 ? "" : " nearer " + trim((float) card.cards));
+            card.source = source;
+            into.add(card);
+        }
+    }
+
+    /**
+     * Every pair of cards on one spot that fights, by kind. A card turns to the eye through the
+     * spot it stands on, so two cards on one spot are in one plane from wherever they are seen,
+     * apart only by the layers of cards each stands towards the camera.
+     */
+    static void cardPairs(List<Card> cards, Map<String, Kind> found) {
+        HashMap<Long, ArrayList<Card>> spots = new HashMap<>();
+        for (Card card : cards) {
+            spots.computeIfAbsent(spot(Math.round(card.x / SAME_SPOT), Math.round(card.y / SAME_SPOT)), k -> new ArrayList<>()).add(card);
+        }
+        // Each spot against itself and the four of its neighbours that come after it, so a pair across a spot's edge is tried once.
+        final long[][] after = {{0, 0}, {1, 0}, {-1, 1}, {0, 1}, {1, 1}};
+        for (ArrayList<Card> here : spots.values()) {
+            long sx = Math.round(here.get(0).x / SAME_SPOT), sy = Math.round(here.get(0).y / SAME_SPOT);
+            for (int i = 0; i < here.size(); i++) {
+                Card a = here.get(i);
+                for (long[] step : after) {
+                    ArrayList<Card> others = step[0] == 0 && step[1] == 0 ? here : spots.get(spot(sx + step[0], sy + step[1]));
+                    if (others == null) {
+                        continue;
+                    }
+                    for (int j = others == here ? i + 1 : 0; j < others.size(); j++) {
+                        testCards(a, others.get(j), found);
+                    }
+                }
+            }
+        }
+    }
+
+    private static long spot(long sx, long sy) {
+        return sx << 32 ^ (sy & 0xffffffffL);
+    }
+
+    private static void testCards(Card a, Card b, Map<String, Kind> found) {
+        double apart = Math.hypot(a.x - b.x, a.y - b.y);
+        if (apart >= SAME_SPOT) {
+            return;
+        }
+        float nearest = nearestFight(apart, 0, a.cards - b.cards);
+        if (nearest == Float.MAX_VALUE) {
+            return;
+        }
+        double area = overlap(a.flat, b.flat);
+        if (area < LEAST_AREA) {
+            return;
+        }
+        boolean twice = sameCorners(a.flat, b.flat);
+        String what = "card: " + (a.label.compareTo(b.label) <= 0 ? a.label + " WITH " + b.label : b.label + " WITH " + a.label)
+                + (twice ? " (the same triangle twice)" : "") + (a.source == b.source ? "" : " (two builds)");
+        Kind kind = found.computeIfAbsent(what, x -> new Kind());
+        kind.area += area;
+        kind.pairs++;
+        kind.nearest = Math.min(kind.nearest, nearest);
+        kind.areaNow += area;
+        if (kind.at.size() < 4) {
+            kind.at.add(new double[] {a.x, a.y, a.up, apart});
         }
     }
 

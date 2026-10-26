@@ -16,6 +16,7 @@ final class DepthFightTests {
         Checks.run("overlappingSquaresInOnePlaneAreFoundAndTouchingOnesAreNot", DepthFightTests::overlappingSquaresInOnePlaneAreFoundAndTouchingOnesAreNot);
         Checks.run("aPairOverManyCellsIsCountedOnce", DepthFightTests::aPairOverManyCellsIsCountedOnce);
         Checks.run("whatStandsOnSomethingIsClearOfItsCard", DepthFightTests::whatStandsOnSomethingIsClearOfItsCard);
+        Checks.run("cardsOnOneSpotFightUnlessALayerApart", DepthFightTests::cardsOnOneSpotFightUnlessALayerApart);
     }
 
     private static void planesInOneLayerFightFromAnywhere() {
@@ -64,6 +65,39 @@ final class DepthFightTests {
         check(second - first >= 1f, "a second thing on the table is clear of the first: " + first + ", " + second);
         check(DepthFights.nearestFight(0, 0, first - 1f) == Float.MAX_VALUE, "the vase never fights the table's stain");
         check(DepthFights.nearestFight(0, 0, second - first) == Float.MAX_VALUE, "the second thing never fights the first");
+    }
+
+    private static void cardsOnOneSpotFightUnlessALayerApart() {
+        ArrayList<DepthFights.Card> cards = new ArrayList<>();
+        // Two cards a tile wide on one spot, one a hair off it and overlapping the first by half its width, a fourth a layer of cards nearer,
+        // and a fifth a centimetre away.
+        card(cards, 10f, 20f, 0f, 0f, "a", 1);
+        card(cards, 10.0005f, 20f, 0.5f, 0f, "b", 2);
+        card(cards, 10f, 20f, 0f, 1f, "c", 3);
+        card(cards, 10.01f, 20f, 0f, 0f, "d", 4);
+        Map<String, DepthFights.Kind> found = new java.util.HashMap<>();
+        DepthFights.cardPairs(cards, found);
+        check(found.size() == 1, "only the two cards on one spot in one layer fight: " + found.keySet());
+        check(found.keySet().iterator().next().contains("a WITH b"), "the pair is the first two: " + found.keySet());
+        check(Math.abs(found.values().iterator().next().area - 0.5 * 1.5) < 1e-6, "they share half a card's width by its height: " + found.values().iterator().next().area);
+    }
+
+    private static void card(ArrayList<DepthFights.Card> into, float x, float y, float shift, float nearer, String label, int source) {
+        float[][] corners = {{shift - 0.5f, 0}, {shift + 0.5f, 0}, {shift + 0.5f, 1.5f}, {shift - 0.5f, 1.5f}};
+        for (int[] t : new int[][] {{0, 1, 2}, {0, 2, 3}}) {
+            DepthFights.Card card = new DepthFights.Card();
+            card.x = x;
+            card.y = y;
+            for (int c = 0; c < 3; c++) {
+                card.flat.p[c * 3] = corners[t[c]][0];
+                card.flat.p[c * 3 + 2] = corners[t[c]][1];
+            }
+            check(DepthFights.plane(card.flat), "a card's half has a plane");
+            card.cards = nearer;
+            card.label = label;
+            card.source = source;
+            into.add(card);
+        }
     }
 
     private static void square(ArrayList<DepthFights.Tri> into, float y, float along, String label, int source) {
