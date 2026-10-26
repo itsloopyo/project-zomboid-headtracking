@@ -51,15 +51,16 @@ final class FloorBuilder {
     /**
      * The game lays its ground a square at a time, so where grass meets earth the line between
      * them is a staircase of square corners. Ground does not end like that. Here grass, earth
-     * and sand spread over the edge of whatever lies next to them: the neighbour's ground is
-     * laid over this square too, all of it at the corners the neighbour touches and none at the
-     * others, and the picture breaks the fade between into an uneven edge.
+     * and sand spread over the edge of the ground and the paths of loose ground next to them:
+     * the neighbour's ground is laid over this square too, all of it at the corners the
+     * neighbour touches and none at the others, and the picture breaks the fade between into an
+     * uneven edge.
      *
      * Of two kinds of open ground the one whose texture has the higher name spreads over the
      * other, which is as good a rule as any and is the same from both sides. Ground spreads
      * a fringe over a path of loose ground and out over the edge of water, never the other way.
-     * It stops at paving and at a street, and nothing spreads indoors. A lone square of ground, a tree's pit in a pavement, spreads over nothing
-     * but other open ground.
+     * It stops at paving and at a street, and nothing spreads indoors. A lone square of ground,
+     * a tree's pit in a pavement, spreads over nothing but other open ground.
      */
     void spreadGround(int x, int y, int localX, int localY) {
         int own = (localX + 1) * WorldScene.LIGHT_SPAN + localY + 1;
@@ -71,7 +72,7 @@ final class FloorBuilder {
         // Nor over paving, which ends at a straight edge as the game paints it: frayed a quarter of a square in from
         // either side, a pavement one square wide read as eaten away.
         IsoObject floor = build.groundObject[own];
-        if (build.groundKind[own] == Terrain.MADE && floor != null) {
+        if (build.groundKind[own] == Terrain.MADE && floor != null && floor.getSprite() != null) {
             PropertyContainer properties = floor.getSprite().getProperties();
             if (!Ground.loose(properties.get("FloorMaterial"), properties.get("FootstepMaterial"))) {
                 return;

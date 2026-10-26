@@ -27,6 +27,7 @@ final class Ground {
      * ground beside it runs a ragged fringe over. Paving of any kind is not: it ends at a straight edge.
      */
     static boolean loose(String floorMaterial, String footstep) {
-        return of(floorMaterial, footstep, true) == GRAVEL || "Dirt".equals(footstep) || "Sand".equals(footstep) || "Grass".equals(footstep);
+        float of = of(floorMaterial, footstep, true);
+        return of == GRAVEL || of != PAVING && ("Dirt".equals(footstep) || "Sand".equals(footstep) || "Grass".equals(footstep));
     }
 }

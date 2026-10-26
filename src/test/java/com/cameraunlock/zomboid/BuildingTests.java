@@ -368,6 +368,7 @@ final class BuildingTests {
         check(!Ground.loose(null, "Concrete") && !Ground.loose(null, "Ceramic") && !Ground.loose(null, null),
                 "a pavement of slabs, of tiles or of anything else made ends at a straight edge");
         check(!Ground.loose("Road_04", "Gravel"), "and so does the pale floor of a pavement, whatever it sounds like underfoot");
+        check(!Ground.loose("Road_02", "Sand") && !Ground.loose("Road_02", "Dirt"), "and the sandy concrete of an old lot");
         check(Ground.of("Road_07", null, true) == 0f && Ground.of(null, "Concrete", true) == 0f, "any other ground is what its sheet says");
     }
 
