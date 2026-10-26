@@ -6,6 +6,7 @@ import zombie.characters.CharacterStat;
 import zombie.characters.IsoPlayer;
 import zombie.characters.Stats;
 import zombie.iso.weather.ClimateManager;
+import zombie.iso.weather.ClimateMoon;
 import zombie.scripting.objects.MoodleType;
 
 /**
@@ -29,6 +30,14 @@ final class SkyState {
     private static final float COVER_CLOSED = 0.2f;
     /** How much of the sun's or the moon's light the heaviest rain or snow takes out. */
     private static final float FALLING_DIMS = 0.75f;
+    /** The moon's light with no moon to see or no clear sky to see it in, as the sky pass's colours are given. */
+    private static final float MOON_RED = 0.10f, MOON_GREEN = 0.13f, MOON_BLUE = 0.20f;
+    /**
+     * How much more of that a full moon in a clear sky gives: enough that the side of things turned
+     * up to it reads, with what is in shadow still black. A wood's floor under a full moon comes out
+     * as light as the ground the stock view shows in its cone there, and at twice this as light as dusk.
+     */
+    static final float FULL_MOON_LIFT = 0.5f;
     /** How much of the light crossing a tile of air is caught and sent to the eye: on a clear day, and added by full fog and by full rain. */
     private static final float MIST_CLEAR = 0.0045f, MIST_FOG = 0.022f, MIST_RAIN = 0.008f, MIST_SNOW = 0.025f;
     /**
@@ -285,7 +294,8 @@ final class SkyState {
             lightRed = strength; lightGreen = strength * mix(0.55f, 0.97f, white); lightBlue = strength * mix(0.30f, 0.92f, white);
         } else {
             lightX = moonX; lightY = moonY; lightUp = moonUp;
-            lightRed = 0.10f * night; lightGreen = 0.13f * night; lightBlue = 0.20f * night;
+            float moon = night * moonLift(ClimateMoon.getInstance().getMoonFloat(), Math.max(cloudy, falling));
+            lightRed = MOON_RED * moon; lightGreen = MOON_GREEN * moon; lightBlue = MOON_BLUE * moon;
         }
         // Under the cloud a heavy fall comes from, little of the sun or the moon gets through to throw a shadow.
         float beneath = 1f - FALLING_DIMS * falling;
@@ -356,6 +366,14 @@ final class SkyState {
             windY = 0f;
             seconds = 0f;
         }
+    }
+
+    /**
+     * How many times the moon's least light it gives, by how much of it is lit, the game's 0 at a new
+     * moon to 1 at a full one, and how much of the sky cloud covers, 0 to 1, a sky that rain or snow falls from counted as covered.
+     */
+    static float moonLift(float phase, float covered) {
+        return 1f + FULL_MOON_LIFT * Math.clamp(phase, 0f, 1f) * (1f - Math.clamp(covered, 0f, 1f));
     }
 
     /** What the character's eyes make of the air and of what they look at, from the climate this captured and the viewer. */
