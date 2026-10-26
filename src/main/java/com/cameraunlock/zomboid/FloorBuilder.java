@@ -108,10 +108,7 @@ final class FloorBuilder {
                 // Of the neighbour's ground's stuff, as its own floor is: not of whatever was added last on this square.
                 IsoSprite ground = build.groundObject[at].getSprite();
                 PropertyContainer properties = ground.getProperties();
-                build.frame.material = Ground.of(properties.get("FloorMaterial"), properties.get("FootstepMaterial"), true);
-                if (build.frame.material == 0f) {
-                    build.frame.material = WorldScene.materialOf(ground.getName(), true);
-                }
+                build.frame.material = Ground.floor(properties.get("FloorMaterial"), properties.get("FootstepMaterial"), ground.getName());
                 // Laid from the same flat picture as the neighbour's own floor, or the two meet in a seam
                 // where the one picture of the ground runs into the other.
                 int flat = build.flatOf(build.groundTexture[at], Flats.FLOOR, 0f, 0f, 0f);

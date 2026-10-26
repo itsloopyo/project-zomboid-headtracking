@@ -288,10 +288,7 @@ final class KerbBuilder {
         Texture texture = build.groundTexture[build.beyondKerb];
         PropertyContainer properties = floor.getSprite().getProperties();
         build.frameOf(floor, texture);
-        build.frame.material = Ground.of(properties.get("FloorMaterial"), properties.get("FootstepMaterial"), true);
-        if (build.frame.material == 0f) {
-            build.frame.material = WorldScene.materialOf(floor.getSprite().getName(), true);
-        }
+        build.frame.material = Ground.floor(properties.get("FloorMaterial"), properties.get("FootstepMaterial"), floor.getSprite().getName());
         build.geometry.kerbKeep = build.geometry.kerbStreet ? SpriteGeometry.LAND : SpriteGeometry.STREET;
         int flat = build.flatOf(texture, Flats.FLOOR, 0f, 0f, 0f);
         build.frame.flat = flat != 0 ? SpriteGeometry.FLAT_FLOOR : 0;

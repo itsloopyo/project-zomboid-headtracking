@@ -867,8 +867,8 @@ final class WorldScene {
             String name = sprite.getName();
             IsoObjectType type = sprite.getType();
             String floorMaterial = properties.get("FloorMaterial"), footstep = properties.get("FootstepMaterial");
-            float floor = Ground.of(floorMaterial, footstep, true), other = Ground.of(floorMaterial, footstep, false);
-            asFloor = floor != 0f ? floor : materialOf(name, true);
+            float other = Ground.of(floorMaterial, footstep, false);
+            asFloor = Ground.floor(floorMaterial, footstep, name);
             String madeOf = properties.get("Material");
             boolean onEdge = Edges.west(properties, type) || Edges.north(properties, type);
             boolean picket = properties.has("StopCar") || properties.has("TieSheetRope");
