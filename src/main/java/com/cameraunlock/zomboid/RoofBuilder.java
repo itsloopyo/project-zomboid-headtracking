@@ -127,6 +127,11 @@ final class RoofBuilder {
                 continue;
             }
             addGable(tile.x, tile.y, tile.z, tile.corners[0] - tile.z, tile.corners[1] - tile.z, tile.corners[3] - tile.z, tile.peak, tile.peakAxis);
+            // A made crown on the floor of its level has its gable a level down, as the map's own has (addRoof): left out, the
+            // north end of a gable seven squares wide stood open from the loft's floor to the ridge under it (7408, 6533).
+            if (RoofFit.levelOnItsFloor(tile) && tile.z > 0) {
+                addCrownGable(tile.x, tile.y, tile.z);
+            }
             if (tile.shaped) {
                 addFolded(sheet, tile, 3, false);
                 addFoldEaves(sheet, tile);

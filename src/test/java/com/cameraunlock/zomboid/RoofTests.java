@@ -926,6 +926,7 @@ final class RoofTests {
         RoofFit.Tile foot = over.get(RoofFit.key(0, 0, 0)), top = over.get(RoofFit.key(2, 1, 0)), middle = over.get(RoofFit.key(3, 0, 0));
         check(foot.fitAxis == RoofFit.ALONG_X && near(foot.fitLow, 1f) && near(top.fitHigh, 2f), "the far slope stands on the far wall and climbs to the ridge's height");
         check(middle.fitAxis == RoofFit.LEVEL && near(middle.fitLow, 2f), "and the square between the two slopes is level at it");
+        check(middle.z == 2 && RoofFit.levelOnItsFloor(middle), "on the floor of the level over the slopes, where its gable is a level down: z " + middle.z);
         List<RoofFit.Cap> caps = RoofFit.caps(tiles, made);
         check(caps.size() == 2 && caps.get(0).x0 == 3.5f && caps.get(0).fall == 0f, "with the cap along its middle: " + caps.size());
     }
