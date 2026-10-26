@@ -7416,8 +7416,7 @@ final class WorldScene {
             }
 
             if (kind.roofAccent && (z > 0 && roofBuilder.underARake(x, y, z) || roofBuilder.trimUnderAMadeEave(x, y, z, properties.has(IsoFlagType.attachedW),
-                    properties.has(IsoFlagType.attachedN), !properties.has(IsoFlagType.attachedW) && !properties.has(IsoFlagType.attachedN)
-                    && !properties.has(IsoFlagType.attachedE) && !properties.has(IsoFlagType.attachedS) && !properties.has(IsoFlagType.attachedNW)))) {
+                    properties.has(IsoFlagType.attachedN), RoofBuilder.cornerPiece(properties)))) {
                 return;
             }
             // The eave the map hangs on the wall under a slope's foot, the trims painted on it and

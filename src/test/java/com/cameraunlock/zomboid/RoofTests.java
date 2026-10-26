@@ -67,6 +67,7 @@ final class RoofTests {
         Checks.run("trimPastAGableIsNoRoofGoingOn", RoofTests::trimPastAGableIsNoRoofGoingOn);
         Checks.run("trimPastAHipsCornerLeavesTheCornersEave", RoofTests::trimPastAHipsCornerLeavesTheCornersEave);
         Checks.run("gutterTrimGoesOnlyUnderAnEaveMadeOnItsOwnEdge", RoofTests::gutterTrimGoesOnlyUnderAnEaveMadeOnItsOwnEdge);
+        Checks.run("anEavesEndCapIsACornerPiece", RoofTests::anEavesEndCapIsACornerPiece);
         Checks.run("roofSheetLaidAsAFloorAtTheFootOfAFarSlopeIsNoTerrace", RoofTests::roofSheetLaidAsAFloorAtTheFootOfAFarSlopeIsNoTerrace);
     }
 
@@ -1702,6 +1703,18 @@ final class RoofTests {
         map.build.roofBuilder.addRoof(new SpriteGeometry.Mesh(), map.painted, 0, 0, 1);
         float[] box = boundsOf(TestMap.plain());
         check(TestMap.plain().triangles() > 0 && box[0] < 0f, "a hip's corner with a trim on the square past its west end still has its eave, run on past that end: x from " + box[0]);
+    }
+
+    private static void anEavesEndCapIsACornerPiece() {
+        TestMap map = new TestMap();
+        check(RoofBuilder.cornerPiece(map.sprite("roofs_accents_01_16", IsoObjectType.WestRoofB).getProperties()), "a trim hung on no edge is a corner piece");
+        for (String cap : new String[] {"roofs_accents_01_43", "roofs_accents_01_47", "roofs_accents_01_53"}) {
+            check(RoofBuilder.cornerPiece(map.sprite(cap, IsoObjectType.WestRoofB, "attachedSE").getProperties()),
+                    "the eave's end cap " + cap + ", marked attachedSE and painted at its square's north-west corner, is a corner piece");
+        }
+        check(!RoofBuilder.cornerPiece(map.sprite("roofs_accents_01_8", IsoObjectType.WestRoofB, "attachedW").getProperties()), "a trim on the west edge is not");
+        check(!RoofBuilder.cornerPiece(map.sprite("roofs_accents_01_0", IsoObjectType.WestRoofB, "attachedN").getProperties()), "nor one on the north edge");
+        check(!RoofBuilder.cornerPiece(map.sprite("roofs_accents_01_15", IsoObjectType.WestRoofB, "attachedNW").getProperties()), "nor one on both");
     }
 
     private static void gutterTrimGoesOnlyUnderAnEaveMadeOnItsOwnEdge() {

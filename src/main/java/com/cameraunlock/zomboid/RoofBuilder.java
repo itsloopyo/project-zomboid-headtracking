@@ -4,11 +4,13 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Locale;
+import zombie.core.properties.PropertyContainer;
 import zombie.core.textures.Texture;
 import zombie.iso.IsoChunk;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.areas.IsoBuilding;
+import zombie.iso.SpriteDetails.IsoFlagType;
 
 /**
  * The roofs of a chunk being built: the slopes, the backs under them, the caps, the eaves and their gutters, the rakes
@@ -939,6 +941,16 @@ final class RoofBuilder {
             }
         }
         return false;
+    }
+
+    /**
+     * Whether a trim from the sheet of a roof's accents is a corner piece, hung on no edge. The
+     * eave's end caps the game marks attachedSE (roofs_accents_01_43, 47 and 53) are painted at
+     * the square's north-west corner all the same, so that flag does not keep one out.
+     */
+    static boolean cornerPiece(PropertyContainer properties) {
+        return !properties.has(IsoFlagType.attachedW) && !properties.has(IsoFlagType.attachedN) && !properties.has(IsoFlagType.attachedE)
+                && !properties.has(IsoFlagType.attachedS) && !properties.has(IsoFlagType.attachedNW);
     }
 
     /**
