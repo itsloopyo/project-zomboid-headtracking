@@ -177,10 +177,17 @@ final class Indoors {
         if (holds.equals("clothingdryer") && single && counterHigh) {
             return new Furniture(sprite, "clothes_dryer", turns).dye(1 << Models.ENAMEL, surfaceHigh * 0.5f).stand(surfaceUp, DRYER_TOP, true);
         }
-        // The benches of the seating sheets are planks on two legs. A mall's brick bench and one of logs are not.
+        // The benches of the seating sheets are planks on two legs, steel or wooden, but for the Sturdy, a box with a cushion on
+        // it. A mall's brick bench and one of logs are none of them.
         if (called.equals("Bench") && pair && rests && surface > 0 && name.startsWith("furniture_seating") && !group.equals("Park")
                 && !group.equals("Fancy Outdoors")) {
-            return new Furniture(sprite, "plank_bench", turns).dye(1 << Models.WOOD, surfaceHigh).stand(0f, 0f, false).seat(surfaceUp, BENCH_SEAT);
+            if (group.equals("Sturdy")) {
+                // The box's colour is taken near the floor: higher up, the middle of the square is seen through the cushion.
+                return new Furniture(sprite, "box_bench", turns).dye(1 << Models.WOOD, surfaceHigh * 0.1f).also(1 << Models.VINYL, surfaceHigh)
+                        .stand(0f, 0f, false).seat(surfaceUp, BENCH_SEAT);
+            }
+            String model = group.equals("Oakwood") || group.equals("Long Wooden") ? "wood_plank_bench" : "plank_bench";
+            return new Furniture(sprite, model, turns).dye(1 << Models.WOOD, surfaceHigh).stand(0f, 0f, false).seat(surfaceUp, BENCH_SEAT);
         }
         if (called.equals("Pew") && along == 1 && across == 3 && surface > 0) {
             return new Furniture(sprite, "pew", turns).dye(1 << Models.WOOD, surfaceHigh).stand(0f, 0f, false).seat(surfaceUp, PEW_SEAT);

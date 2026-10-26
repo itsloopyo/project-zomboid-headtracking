@@ -3556,22 +3556,42 @@ def clothes_dryer():
     return model
 
 
-def plank_bench():
-    """A bench with no back, two squares long: three planks on two steel legs. Its seat is 0.45 high."""
-    model = Model("plank_bench")
+def plank_bench(name, legs):
+    """A bench with no back, two squares long: three planks on two legs, of steel or, as legs of "wood", a board under each
+    end of the seat. Its seat is 0.45 high."""
+    model = Model(name)
     half, top = 0.9, 0.45
     planks = bmesh.new()
     for n in range(3):
         y = (n - 1) * 0.125
         cuboid(planks, -half, half, y - 0.057, y + 0.057, top - 0.04, top)
     model.hard(planks, "wood", bevel=0.006, segments=2)
-    legs = bmesh.new()
+    frame = bmesh.new()
     for side in (-1, 1):
-        x = side * (half - 0.3)
-        cuboid(legs, x - 0.03, x + 0.03, -0.17, 0.17, top - 0.055, top - 0.04)
-        cuboid(legs, x - 0.025, x + 0.025, -0.03, 0.03, 0.02, top - 0.055)
-        cuboid(legs, x - 0.04, x + 0.04, -0.17, 0.17, 0.0, 0.02)
-    model.hard(legs, "steel", bevel=0.004, segments=1)
+        if legs == "wood":
+            x = side * (half - 0.12)
+            cuboid(frame, x - 0.025, x + 0.025, -0.15, 0.15, 0.0, top - 0.04)
+        else:
+            x = side * (half - 0.3)
+            cuboid(frame, x - 0.03, x + 0.03, -0.17, 0.17, top - 0.055, top - 0.04)
+            cuboid(frame, x - 0.025, x + 0.025, -0.03, 0.03, 0.02, top - 0.055)
+            cuboid(frame, x - 0.04, x + 0.04, -0.17, 0.17, 0.0, 0.02)
+    model.hard(frame, legs, bevel=0.004, segments=1)
+    return model
+
+
+def box_bench():
+    """A bench two squares long of a wooden box with a vinyl cushion on it and a board standing along its back, at +Y.
+    Its seat is 0.45 high."""
+    model = Model("box_bench")
+    half, box, seat, back = 0.95, 0.38, 0.45, 0.72
+    wood = bmesh.new()
+    cuboid(wood, -half, half, -0.28, 0.24, 0.0, box)
+    cuboid(wood, -half, half, 0.24, 0.28, 0.0, back)
+    model.hard(wood, "wood", bevel=0.006, segments=2)
+    pad = bmesh.new()
+    cuboid(pad, -half + 0.02, half - 0.02, -0.27, 0.235, box, seat)
+    model.hard(pad, "vinyl", bevel=0.02, segments=3)
     return model
 
 
@@ -4053,7 +4073,7 @@ def indoors():
             round_vent(), exit_sign(), sconce(), pedestal_sink(), medicine_cabinet(), hand_dryer(), light_switch(), coat_rack(),
             filing_cabinet(), carton("carton", 0.58, 0.58, 0.56), carton("carton_small", 0.44, 0.34, 0.3), battered_carton("carton_battered", 0.44, 0.34, 0.3), computer(), water_cooler(),
             floor_lamp("torchiere", False), floor_lamp("standard_lamp", True), dresser_mirror(), side_table(), media_stand(), bar_stool(), clothes_dryer(),
-            plank_bench(), pew(), bunk_bed("bunk_bed", "dark_wood"), bunk_bed("steel_bunk_bed", "metal"),
+            plank_bench("plank_bench", "steel"), plank_bench("wood_plank_bench", "wood"), box_bench(), pew(), bunk_bed("bunk_bed", "dark_wood"), bunk_bed("steel_bunk_bed", "metal"),
             cabinet("steel_counter", 0.62, 0.90, True, made="steel", top_of="steel"),
             cabinet("steel_counter_sink", 0.62, 0.90, True, sink=True, made="steel", top_of="steel"),
             cabinet("steel_counter_corner", 0.62, 0.90, True, corner=True, made="steel", top_of="steel"),

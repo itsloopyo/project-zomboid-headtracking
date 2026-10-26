@@ -235,7 +235,7 @@ final class FurnitureTests {
         IsoSprite first = sprite("furniture_seating_indoor_02_17" + row + "0,0"), second = sprite("furniture_seating_indoor_02_16" + row + "0,1");
         piece(1, 2, first, second);
         Furniture bench = Furniture.known(first);
-        check(model(bench).equals("plank_bench"), "a bench of planks two squares long is the bench: " + model(bench));
+        check(model(bench).equals("box_bench"), "a Sturdy bench two squares long is the box bench: " + model(bench));
         if (bench == null || bench.model == null) {
             return;
         }
@@ -244,7 +244,13 @@ final class FurnitureTests {
         check(Math.abs(0.45f * bench.scaleUp - 17 * SURFACE_TILES) < 1e-4f, "only its height is made what the game says the seat is: " + 0.45f * bench.scaleUp);
         IsoSprite stone = sprite("furniture_seating_indoor_02_17" + row.replace("Sturdy", "Park") + "0,0"), other = sprite("furniture_seating_indoor_02_16" + row + "0,1");
         piece(1, 2, stone, other);
-        check(!model(Furniture.known(stone)).equals("plank_bench"), "the same bench grouped as a park's is not planks on two legs");
+        String park = model(Furniture.known(stone));
+        check(!park.equals("box_bench") && !park.equals("plank_bench") && !park.equals("wood_plank_bench"), "the same bench grouped as a park's is not planks on two legs or a box: " + park);
+        for (String[] grouped : new String[][] {{"Oakwood", "wood_plank_bench"}, {"Long Wooden", "wood_plank_bench"}, {"Sports", "plank_bench"}}) {
+            IsoSprite end = sprite("furniture_seating_indoor_02_17" + row.replace("Sturdy", grouped[0]) + "0,0"), rest = sprite("furniture_seating_indoor_02_16" + row.replace("Sturdy", grouped[0]) + "0,1");
+            piece(1, 2, end, rest);
+            check(model(Furniture.known(end)).equals(grouped[1]), "a " + grouped[0] + " bench is " + grouped[1] + ": " + model(Furniture.known(end)));
+        }
     }
 
     private static void eachDumpsterSpriteIsItsDumpsterOneModelOverBothSquaresFacingItsWay() {
