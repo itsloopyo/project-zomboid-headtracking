@@ -69,6 +69,7 @@ final class RoofTests {
         Checks.run("gutterTrimGoesOnlyUnderAnEaveMadeOnItsOwnEdge", RoofTests::gutterTrimGoesOnlyUnderAnEaveMadeOnItsOwnEdge);
         Checks.run("anEavesEndCapIsACornerPiece", RoofTests::anEavesEndCapIsACornerPiece);
         Checks.run("roofSheetLaidAsAFloorAtTheFootOfAFarSlopeIsNoTerrace", RoofTests::roofSheetLaidAsAFloorAtTheFootOfAFarSlopeIsNoTerrace);
+        Checks.run("lowerWingPastAGableIsNoNotchInTheMainEave", RoofTests::lowerWingPastAGableIsNoNotchInTheMainEave);
     }
 
     private static void hippedCornerAtTheEaveCarriesTheEaveRowOn() {
@@ -1733,6 +1734,32 @@ final class RoofTests {
         flat.roofTile(fitted(new RoofFit.Tile(1, 0, 1, RoofFit.LEVEL, true, 1f, 1f)), flat.painted);
         check(!flat.build.roofBuilder.trimUnderAMadeEave(1, 0, 1, true, false, false), "with a flat roof past the slope's foot there is no eave, and the trim stays");
         check(!flat.build.roofBuilder.trimUnderAMadeEave(2, 0, 1, true, false, false), "nor is a trim past the flat roof the slope's");
+    }
+
+    /**
+     * A house over x 0..4 and y 0..5, as at 13616..13620 x 3673..3678, its ridge along x at 2 on the line y 3 and the map's
+     * south slope three rows down to the eave at 1. Past its east gable a lower wing over x 5..6 and y 1..4 has its ridge at
+     * 1 + 2/3 on the same line. The square north of the wing, beside the main roof's north wall, is no notch in that wall:
+     * the main roof's north side was hipped down to it, and the main gable stood bare over the hip.
+     */
+    private static void lowerWingPastAGableIsNoNotchInTheMainEave() {
+        RoofFit.Site site = standing((x, y) -> x >= 0 && x <= 4 && y >= 0 && y <= 5 || x >= 5 && x <= 6 && y >= 1 && y <= 4);
+        List<RoofFit.Tile> roof = new ArrayList<>();
+        for (int x = 0; x <= 6; x++) {
+            float ridge = x <= 4 ? 2f : 1f + 2 * THIRD;
+            for (int row = 0; row < (x <= 4 ? 3 : 2); row++) {
+                roof.add(new RoofFit.Tile(x, 3 + row, 1, RoofFit.ALONG_Y, true, ridge - row * THIRD, ridge - (row + 1) * THIRD));
+            }
+        }
+        RoofFit.fit(roof);
+        List<RoofFit.Tile> made = RoofFit.backs(roof, site);
+        for (int y = 0; y <= 2; y++) {
+            RoofFit.Tile face = madeAt(made, 4, y);
+            check(face != null && !face.shaped && face.fitAxis == RoofFit.ALONG_Y && near(face.fitLow, 1f + y * THIRD) && near(face.fitHigh, 1f + (y + 1) * THIRD),
+                    "the main roof's north side climbs from its wall up to the gable at 4, " + y + ": " + said(face));
+        }
+        RoofFit.Tile wing = madeAt(made, 5, 2);
+        check(wing != null && !wing.shaped && near(wing.fitHigh, 1f + 2 * THIRD), "the wing's north side keeps to its own ridge at 5, 2: " + said(wing));
     }
 
     private static void check(boolean condition, String what) {

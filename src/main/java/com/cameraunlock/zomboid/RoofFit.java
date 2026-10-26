@@ -889,7 +889,7 @@ final class RoofFit {
             float middle;
             if (across == null) {
                 cornersOf(ALONG_X, side.near, side.far, corners);
-                middle = notched(side, true, built, site, corners, (side.near + side.far) / 2f);
+                middle = notched(side, true, built, site, alongX, corners, (side.near + side.far) / 2f);
             } else if (side.fromEave && across.fromEave) {
                 middle = fromEaves(side, across, built, site, corners);
             } else if (side.valley || across.valley) {
@@ -912,7 +912,7 @@ final class RoofFit {
         for (Side side : alongY.values()) {
             if (!alongX.containsKey(key(side.x, side.y, 0))) {
                 cornersOf(ALONG_Y, side.near, side.far, corners);
-                lay(made, side.x, side.y, corners, notched(side, false, built, site, corners, (side.near + side.far) / 2f), side.eaveLevel(), site, over);
+                lay(made, side.x, side.y, corners, notched(side, false, built, site, alongY, corners, (side.near + side.far) / 2f), side.eaveLevel(), site, over);
             }
         }
         return made;
@@ -1128,9 +1128,12 @@ final class RoofFit {
      * past the ridge is never looked at. Nor is a square whose wall to the building meets the
      * slope at its top: that wall stands under the ridge, and nothing climbs from it. Beyond a
      * farmhouse's south gable a wing went on from the ridge's square (2866..2867, 10404), and
-     * the far slope was brought down to it as a hip.
+     * the far slope was brought down to it as a hip. Nor is the wall of a square under another
+     * ridge, the made far side of a lower wing past the gable end: the main roof's north side
+     * was hipped down to the wing's north wall, and the main gable stood bare over the hip
+     * (13616..13623, 3673..3678).
      */
-    private static float notched(Side side, boolean isAlongX, HashMap<Long, Boolean> built, Site site, float[] corners, float middle) {
+    private static float notched(Side side, boolean isAlongX, HashMap<Long, Boolean> built, Site site, HashMap<Long, Side> strips, float[] corners, float middle) {
         if (!side.fromEave) {
             return middle;
         }
@@ -1144,7 +1147,8 @@ final class RoofFit {
                 }
                 boolean underEave = false;
                 for (int toward = -1; toward <= 1 && !underEave; toward += 2) {
-                    if (stands(built, site, x + toward * ax, y + toward * ay, level)) {
+                    Side wing = strips.get(key(x + toward * ax, y + toward * ay, 0));
+                    if (stands(built, site, x + toward * ax, y + toward * ay, level) && (wing == null || Math.abs(wing.top - side.top) < SAME)) {
                         int wall = along + (toward > 0 ? 1 : 0);
                         // A level square is the slope's top carried across, and says nothing of where its ridge is.
                         underEave = Math.abs(side.far - side.near) < SAME || side.near + wall * (side.far - side.near) < side.top - SAME;
