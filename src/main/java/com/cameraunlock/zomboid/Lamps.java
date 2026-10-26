@@ -256,6 +256,19 @@ final class Lamps {
         return outdoorSprite(light.getSprite() == null ? null : light.getSprite().getName());
     }
 
+    /**
+     * The name of the sprite the game lays over a lamp's sprite while the lamp burns: its tileset's
+     * name, _on_ and its place on the sheet (IsoObject.getOnOverlay), lighting_outdoor_01_on_42 for
+     * lighting_outdoor_01_42. Null for a name with no place on a sheet.
+     */
+    static String litTwin(String sprite) {
+        int under = sprite == null ? -1 : sprite.lastIndexOf('_');
+        if (under <= 0 || under == sprite.length() - 1 || !sprite.substring(under + 1).chars().allMatch(Character::isDigit)) {
+            return null;
+        }
+        return sprite.substring(0, under) + "_on_" + sprite.substring(under + 1);
+    }
+
     /** Whether a lamp's sprite is of the game's sheets of lamps for the outside of a building. */
     static boolean outdoorSprite(String sprite) {
         return sprite != null && sprite.startsWith("lighting_outdoor");

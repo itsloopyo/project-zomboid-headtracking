@@ -12,6 +12,7 @@ final class RoomLampsTests {
 
     static void run() {
         Checks.run("aLampHungOnAHouseIsNoRoomsLamp", RoomLampsTests::aLampHungOnAHouseIsNoRoomsLamp);
+        Checks.run("aLampsLitTwinIsItsSheetsOnSprite", RoomLampsTests::aLampsLitTwinIsItsSheetsOnSprite);
         Checks.run("aWhiteLampGivesAWarmWhite", RoomLampsTests::aWhiteLampGivesAWarmWhite);
         Checks.run("aColouredShadeColoursPartOfTheLight", RoomLampsTests::aColouredShadeColoursPartOfTheLight);
         Checks.run("aSetIsAsBrightAsItsPicture", RoomLampsTests::aSetIsAsBrightAsItsPicture);
@@ -19,6 +20,14 @@ final class RoomLampsTests {
         Checks.run("aSetsGlassFacesTheWayItsSpriteSays", RoomLampsTests::aSetsGlassFacesTheWayItsSpriteSays);
         Checks.run("theShaderReadsBackTheSquaresALightReaches", RoomLampsTests::theShaderReadsBackTheSquaresALightReaches);
         Checks.run("theShaderIsWrittenWithPoints", RoomLampsTests::theShaderIsWrittenWithPoints);
+    }
+
+    private static void aLampsLitTwinIsItsSheetsOnSprite() {
+        check("lighting_outdoor_01_on_42".equals(Lamps.litTwin("lighting_outdoor_01_42")), "the neon Open sign at 13385,2287");
+        check("lighting_indoor_01_on_3".equals(Lamps.litTwin("lighting_indoor_01_3")), "a lamp of another sheet");
+        check(Lamps.litTwin("lighting_outdoor_01_") == null, "no place on the sheet");
+        check(Lamps.litTwin("lamp") == null, "no sheet");
+        check(Lamps.litTwin(null) == null, "no name");
     }
 
     private static void aLampHungOnAHouseIsNoRoomsLamp() {

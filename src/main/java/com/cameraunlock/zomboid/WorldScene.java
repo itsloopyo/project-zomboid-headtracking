@@ -62,6 +62,7 @@ import zombie.iso.objects.IsoWindow;
 import zombie.iso.objects.IsoWorldInventoryObject;
 import zombie.iso.sprite.IsoSprite;
 import zombie.iso.sprite.IsoSpriteInstance;
+import zombie.iso.sprite.IsoSpriteManager;
 import zombie.iso.weather.ClimateManager;
 import zombie.util.list.PZArrayList;
 
@@ -835,6 +836,8 @@ final class WorldScene {
         final Awnings.Hung awning;
         final Tents.Piece tent, rope;
         final boolean endPiece, innerCorner;
+        /** The name of the sprite the game lays over this one while the light it is burns (Lamps.litTwin), or null. */
+        final String litTwin;
         final Towers.Part[] tower;
         /** Whether it is the letters of a sign: see EdgeRuns.sign. */
         final boolean sign;
@@ -929,6 +932,7 @@ final class WorldScene {
             eave = Hoods.eave(sprite);
             endPiece = Hoods.endPiece(sprite);
             innerCorner = endPiece && Hoods.innerCornerOf(name);
+            litTwin = properties.has("HasLightOnSprite") ? Lamps.litTwin(name) : null;
             awning = Awnings.of(sprite);
             tent = Tents.of(sprite);
             rope = Tents.ropeOf(sprite);
@@ -5165,8 +5169,9 @@ final class WorldScene {
                                 int showing = Screens.showing(set);
                                 level = sum(level, showing == Screens.PROGRAMME ? Screens.PROGRAMME + Screens.from(set) : showing);
                             }
-                            if (object instanceof IsoLightSwitch string && object.getSprite() != null && Lights.slice(object.getSprite()) != Lights.NONE) {
-                                // A string of lights that goes on or off: its bulbs are built burning or out.
+                            if (object instanceof IsoLightSwitch string && object.getSprite() != null
+                                    && (Lights.slice(object.getSprite()) != Lights.NONE || kindOf(object.getSprite()).litTwin != null)) {
+                                // A string of lights that goes on or off: its bulbs are built burning or out. A lit sprite is laid or not.
                                 thing = sum(thing, burns(string) ? 6 : 5);
                             }
                             thing = BloodBuilder.onWall(thing, object);
@@ -6736,6 +6741,17 @@ final class WorldScene {
                 Texture texture = sprite.getTextureForCurrentFrame(object.getDir());
                 if (!usable(texture)) {
                     continue;
+                }
+                // A light the mod has no model of is its sprite, and the game paints it lit by laying its lit twin over it:
+                // the neon of an Open sign, red over the grey of the tubes when it is out.
+                if (kind.litTwin != null && object instanceof IsoLightSwitch light && burns(light) && Furniture.known(sprite) == null) {
+                    IsoSprite twin = IsoSpriteManager.instance.namedMap.get(kind.litTwin);
+                    Texture lit = twin == null ? null : twin.getTextureForCurrentFrame(object.getDir());
+                    if (usable(lit)) {
+                        texture = lit;
+                    } else if (twin != null) {
+                        building.signed = false;
+                    }
                 }
                 if (SightTrace.ON && building.traced != null) {
                     building.traced.add(object);
