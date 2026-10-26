@@ -2465,10 +2465,16 @@ final class WorldScene {
         return null;
     }
 
-    /** Whether the sprite is a wall's corner post: a sliver at its square's north-west corner, on neither edge (addPillar). */
+    /**
+     * Whether the sprite is a wall's corner post: a sliver at its square's north-west corner, on neither edge (addPillar).
+     * A building's walls may be on a sheet of its own: a shop's, a barn's, a works'. A fence's, a railing's and what a
+     * player builds are not walls of a building.
+     */
     static boolean pillar(IsoSprite sprite) {
         PropertyContainer properties = sprite.getProperties();
-        return properties.has(IsoFlagType.WallSE) && !properties.has(IsoFlagType.WallNW) && sprite.getName() != null && sprite.getName().startsWith("walls_");
+        String name = sprite.getName();
+        return properties.has(IsoFlagType.WallSE) && !properties.has(IsoFlagType.WallNW) && name != null
+                && (name.startsWith("walls_") || name.startsWith("location_") || name.startsWith("industry_"));
     }
 
     static void set(float[] c, int corner, float x, float y, float h) {
@@ -7452,8 +7458,9 @@ final class WorldScene {
             // An open garage door's sprite is the head of its opening and the jamb at an end: wall, cut to the sprite, with the
             // door raised under the ceiling behind it. Read as a door, the band was a leaf hanging out of the head.
             boolean raised = door && kind.garageDoor && !isWall(properties, type) && overLayer == 0 && Own.buildings();
-            if (overLayer == 0 && pillar(sprite) && !seeThrough) {
-                addPillar(mesh, x, y, z);
+            // What the map lays over a corner post, a plinth's length of brick, is the post's too, standing clear of it.
+            if (pillar(sprite) && !seeThrough && (overLayer == 0 || Trims.is(texture.getName()))) {
+                addPillar(mesh, x, y, z, overLayer == 0 ? 0f : HUNG_CLEAR);
                 return;
             }
             if (west) {
@@ -7731,7 +7738,7 @@ final class WorldScene {
          */
         private boolean addParasol(int quarter, IsoObject object, IsoSprite sprite, PropertyContainer properties, int x, int y, int z) {
             // The pole is a post of a building's wall. A fence's corner post on the south-east square is the fence's.
-            boolean pole = properties.has(IsoFlagType.WallSE) && sprite.getName() != null && sprite.getName().startsWith("walls_");
+            boolean pole = pillar(sprite);
             if (quarter == Parasols.NONE && !pole) {
                 return false;
             }
@@ -8051,9 +8058,10 @@ final class WorldScene {
          * sliver a few dots wide; stood on both edges of the square as a wall, it was a sheaf of
          * thin fins off the end of every wall. Where walls meet at the corner, run through it or
          * turn there, they and their joins (WallJoins) fill it and the post adds nothing. At the
-         * end of one wall it is the part past the wall's end, and with no wall it is whole.
+         * end of one wall it is the part past the wall's end, and with no wall it is whole. What is
+         * laid over the post stands clear further out.
          */
-        private void addPillar(SpriteGeometry.Mesh mesh, int x, int y, int z) {
+        private void addPillar(SpriteGeometry.Mesh mesh, int x, int y, int z, float clear) {
             joinLevel = z;
             boolean east = standing.stands(x, y, true), westward = standing.stands(x - 1, y, true);
             boolean south = standing.stands(x, y, false), northward = standing.stands(x, y - 1, false);
@@ -8065,7 +8073,7 @@ final class WorldScene {
             // Round the outside of a corner the two walls' skins are carried to meet, and meet edge
             // to edge with a slit of the room beyond between them: the post stands that little
             // proud of them there and covers it.
-            float out = along && across ? CORNER_PROUD : 0f, far = h + out;
+            float out = (along && across ? CORNER_PROUD : 0f) + clear, far = h + out;
             float aFrom = westward ? 0f : -far, aTo = east ? 0f : far, bFrom = northward ? 0f : -far, bTo = south ? 0f : far;
             // The sides the game's view never saw take the texels of the ones it did, as a box's do (SpriteGeometry.addBox).
             if (!south) {
