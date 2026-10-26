@@ -76,6 +76,7 @@ final class PlantBuilder {
     private final WorldScene.Frame build;
 
     private final float[] crownLeft = new float[Flora.CROWN_BANDS], crownRight = new float[Flora.CROWN_BANDS], crownSizes = new float[Flora.SIZES];
+    private final int[] crownCounts = new int[Flora.CROWN_BANDS];
     private final Flora flora = new Flora();
     private final float[] littered = new float[4];
     /** The square being strewn: how deep in leaf and in needles each corner is as a build lays them, see Litter. */
@@ -845,7 +846,7 @@ final class PlantBuilder {
                     limbed ? boleThick : 0f, limbed ? boleTall : 0f, limbed ? boleBark : bark, sprig, seed, build.room, leaf, hue, turned,
                     boled ? boleKind : TreeForm.NONE, boled ? boleShape : null, world.twiggedFrom, painted, world.terrain.level, bloom);
         }
-        if (!Flora.measure(build.frame, places, footU, footV, crownLeft, crownRight, crownSizes)) {
+        if (!Flora.measure(build.frame, places, footU, footV, crownLeft, crownRight, crownCounts, crownSizes)) {
             return false;
         }
         (build.afresh ? WorldScene.crownsChecked : world.crownsRead).add(texture.getID(), build.frame, places, x + 0.5f, y + 0.5f, base, footU, footV, away, boled ? boleThick : 0f, boled ? boleTall : 0f,
@@ -867,7 +868,7 @@ final class PlantBuilder {
     private void seenForFar(Texture leaves, float[] places, int x, int y, float footU, float footV, float bole) {
         String tile = treeX == x && treeY == y ? treeTile : null;
         long now = System.nanoTime();
-        if (tile != null && FarTreeLooks.wants(tile, now) && Flora.measure(build.frame, places, footU, footV, crownLeft, crownRight, crownSizes)) {
+        if (tile != null && FarTreeLooks.wants(tile, now) && Flora.measure(build.frame, places, footU, footV, crownLeft, crownRight, crownCounts, crownSizes)) {
             FarTreeLooks.saw(tile, crownSizes, crownLeft, crownRight, bole, leaves, now);
         }
     }
@@ -875,7 +876,7 @@ final class PlantBuilder {
     /** Notes the crown of a broad-leaved tree's tile the first time one is built, which is where its falling leaves let go from. */
     private void seenForLeafFall(float[] places, int x, int y, float footU, float footV) {
         String tile = treeX == x && treeY == y ? treeTile : null;
-        if (tile != null && LeafFall.sheds(tile) && LeafTrees.crownWanted(tile) && Flora.measure(build.frame, places, footU, footV, crownLeft, crownRight, crownSizes)) {
+        if (tile != null && LeafFall.sheds(tile) && LeafTrees.crownWanted(tile) && Flora.measure(build.frame, places, footU, footV, crownLeft, crownRight, crownCounts, crownSizes)) {
             LeafTrees.crownSeen(tile, crownSizes);
         }
     }

@@ -21,6 +21,7 @@ final class CrownTests {
         Checks.run("crownsOfAChunkInAnotherBandAreMadeFromWhatWasWrittenDown", CrownTests::crownsOfAChunkInAnotherBandAreMadeFromWhatWasWrittenDown);
         Checks.run("crownsMadeOnTheirThreadAreTheSameCrowns", CrownTests::crownsMadeOnTheirThreadAreTheSameCrowns);
         Checks.run("spriteMeasuredAsNoCrownMakesNone", CrownTests::spriteMeasuredAsNoCrownMakesNone);
+        Checks.run("aGreatTreesPaintedTrunkAndLimbsAreNoPartOfItsCrown", CrownTests::aGreatTreesPaintedTrunkAndLimbsAreNoPartOfItsCrown);
         Checks.run("crownBesideAFenceKeepsToItsOwnSideInAnyWind", CrownTests::crownBesideAFenceKeepsToItsOwnSideInAnyWind);
         Checks.run("aRootIsHeldInFromAFenceByAsFarAsItReaches", CrownTests::aRootIsHeldInFromAFenceByAsFarAsItReaches);
         Checks.run("everyPartOfATreesCrownIsItsTreesAndABushIsNoTree", CrownTests::everyPartOfATreesCrownIsItsTreesAndABushIsNoTree);
@@ -619,14 +620,52 @@ final class CrownTests {
     private static void spriteMeasuredAsNoCrownMakesNone() {
         SpriteGeometry.Frame frame = frame();
         float[] reachLeft = new float[Flora.CROWN_BANDS], reachRight = new float[Flora.CROWN_BANDS], sizes = new float[Flora.SIZES];
-        check(!Flora.measure(frame, Flora.leafPlaces((u, v) -> u == 3 && v == 3, frame), FOOT_U, FOOT_V, reachLeft, reachRight, sizes), "one dot of paint measures as no crown");
+        check(!Flora.measure(frame, Flora.leafPlaces((u, v) -> u == 3 && v == 3, frame), FOOT_U, FOOT_V, reachLeft, reachRight, new int[Flora.CROWN_BANDS], sizes), "one dot of paint measures as no crown");
         // A stroke one pixel wide up the middle: places enough, and no width.
         float[] stick = Flora.leafPlaces((u, v) -> u == (int) FOOT_U, frame);
-        check(Flora.measure(frame, stick, FOOT_U, FOOT_V, reachLeft, reachRight, sizes)
+        check(Flora.measure(frame, stick, FOOT_U, FOOT_V, reachLeft, reachRight, new int[Flora.CROWN_BANDS], sizes)
                 == Flora.addCrown(new SpriteGeometry.Mesh(), new SpriteGeometry.Mesh(), frame, stick, 0.5f, 0.5f, 0f, FOOT_U, FOOT_V, 1f, 0f, 0f, 0f, Flora.BARK_OAK, Flora.LINDEN, 7, Flora.OPEN, 1f, 0, 0f),
                 "what measures as a crown is made, and what does not is not");
-        check(Flora.measure(frame, Flora.leafPlaces(CrownTests::leaf, frame), FOOT_U, FOOT_V, reachLeft, reachRight, sizes) && sizes[Flora.WIDEST] > 1f && sizes[Flora.TALL] > 1f,
+        check(Flora.measure(frame, Flora.leafPlaces(CrownTests::leaf, frame), FOOT_U, FOOT_V, reachLeft, reachRight, new int[Flora.CROWN_BANDS], sizes) && sizes[Flora.WIDEST] > 1f && sizes[Flora.TALL] > 1f,
                 "a painted crown measures as one, tiles wide and tall");
+    }
+
+    /**
+     * A great tree's leaf sprite paints its whole trunk under the crown: limbs forking out as far
+     * as the crown's foot is wide, and roots splayed at the ground. Each height of that is wide
+     * and holds few places, and the crown, which ends where its leaves do, has none of it. Made
+     * of it, the crown stood brown sprigs round the trunk at the eye's height.
+     */
+    private static void aGreatTreesPaintedTrunkAndLimbsAreNoPartOfItsCrown() {
+        SpriteGeometry.Frame frame = frame();
+        float[] left = new float[Flora.CROWN_BANDS], right = new float[Flora.CROWN_BANDS], sizes = new float[Flora.SIZES];
+        int[] counts = new int[Flora.CROWN_BANDS];
+        check(Flora.measure(frame, Flora.leafPlaces(CrownTests::leaf, frame), FOOT_U, FOOT_V, left, right, counts, sizes), "the leaves alone measure as a crown");
+        float leavesLowest = sizes[Flora.LOWEST];
+        float[] places = Flora.leafPlaces((u, v) -> leaf(u, v) || greatTrunk(u, v), frame);
+        check(Flora.measure(frame, places, FOOT_U, FOOT_V, left, right, counts, sizes), "with the trunk painted under them as well");
+        float band = sizes[Flora.TALL] / Flora.CROWN_BANDS;
+        check(sizes[Flora.LOWEST] > leavesLowest - band, "the crown ends where its leaves do, " + leavesLowest + " over the foot, give or take a height of it: "
+                + sizes[Flora.LOWEST]);
+        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+        check(Flora.addCrown(mesh, new SpriteGeometry.Mesh(), frame, places, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 1f, 0f, 0f, Flora.BARK_OAK, Flora.MAPLE, 7, Flora.OPEN, 1f, 0, 0f),
+                "and is made");
+        float lowestSprig = Float.MAX_VALUE;
+        for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+            if ((float) Math.floor((mesh.vertices[at + 8] + 0.5f) / 32f) == Flora.CROWN + Flora.MAPLE) {
+                lowestSprig = Math.min(lowestSprig, mesh.vertices[at + 2]);
+            }
+        }
+        check(lowestSprig > leavesLowest - band - 0.5f, "with no sprig down the trunk: the lowest is at " + lowestSprig + ", the leaves at " + leavesLowest);
+    }
+
+    /** A trunk 8 pixels thick from the crown's foot to the ground, two limbs 2 pixels thick forking out from it under the crown, and two roots splayed at its foot. */
+    private static boolean greatTrunk(int u, int v) {
+        float du = u - FOOT_U;
+        boolean trunk = Math.abs(du) < 4f && v >= 125 && v <= FOOT_V;
+        boolean limb = v >= 125 && v <= 200 && Math.abs(Math.abs(du) - (200 - v) * 0.6f) < 1f;
+        boolean root = v >= 225 && v <= FOOT_V && Math.abs(Math.abs(du) - (v - 225) * 2.5f) < 1f;
+        return trunk || limb || root;
     }
 
     /** A bush painted from its foot to two tiles up and nearly a tile out each side of it, as the game's are. */

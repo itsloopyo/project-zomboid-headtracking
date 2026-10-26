@@ -108,7 +108,7 @@ final class PlantKindTests {
         check(leaves.floats == 0, "of no leaves at all, not " + leaves.floats / F + " vertices of them");
         check(wood.floats > 0, "but wood");
         float[] reachLeft = new float[Flora.CROWN_BANDS], reachRight = new float[Flora.CROWN_BANDS], sizes = new float[Flora.SIZES];
-        check(Flora.measure(frame(), places, FOOT_U, FOOT_V, reachLeft, reachRight, sizes), "its outline measures");
+        check(Flora.measure(frame(), places, FOOT_U, FOOT_V, reachLeft, reachRight, new int[Flora.CROWN_BANDS], sizes), "its outline measures");
         float widest = 0f, highest = 0f;
         for (int at = 0; at < wood.floats; at += F) {
             float dx = wood.vertices[at] - 10.5f, dy = wood.vertices[at + 1] - 20.5f;

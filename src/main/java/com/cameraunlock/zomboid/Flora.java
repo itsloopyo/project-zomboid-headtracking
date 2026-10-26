@@ -307,10 +307,13 @@ final class Flora {
     private static final float WOOD_UP = 3f;
     /**
      * A leaf sprite also paints, faintly, the shade the crown throws on the trunk: a thin
-     * column under the leaves that is no part of the crown. Going down from where the sprite
-     * is widest, the crown ends where it is first narrower than this share of that.
+     * column under the leaves that is no part of the crown. A great tree's sprite paints its whole
+     * trunk, roots splayed and limbs forking, which is as wide as the crown's foot but holds
+     * few of its places. Going down from where the sprite is widest, the crown ends where it
+     * is first narrower than TRUNK_SHADE of that, or holds fewer places than TRUNK_SPARSE of
+     * the height that holds most.
      */
-    private static final float TRUNK_SHADE = 0.22f;
+    private static final float TRUNK_SHADE = 0.22f, TRUNK_SPARSE = 0.15f;
     /** The share of a sprite's places that are given a sprig at most: with more, the choosing of them towards the outside is lost. */
     private static final float CROWN_MOST_OF_PLACES = 0.6f;
     /** How far a sprig's tip moves in the wind beyond what its height gives it. */
@@ -402,7 +405,7 @@ final class Flora {
      */
     static float[] woodShape(SpriteGeometry.Frame frame, float[] places, float footU, float footV) {
         float[] shape = new float[SIZES + 2 * CROWN_BANDS], left = new float[CROWN_BANDS], right = new float[CROWN_BANDS];
-        if (!measure(frame, places, footU, footV, left, right, shape)) {
+        if (!measure(frame, places, footU, footV, left, right, new int[CROWN_BANDS], shape)) {
             return null;
         }
         System.arraycopy(left, 0, shape, SIZES, CROWN_BANDS);
@@ -419,7 +422,7 @@ final class Flora {
      * reaches at each of CROWN_BANDS heights, half of how wide the sprite paints it there.
      * False when the sprite shows too little to make a crown of.
      */
-    static boolean measure(SpriteGeometry.Frame frame, float[] places, float footU, float footV, float[] reachLeft, float[] reachRight, float[] sizes) {
+    static boolean measure(SpriteGeometry.Frame frame, float[] places, float footU, float footV, float[] reachLeft, float[] reachRight, int[] counts, float[] sizes) {
         int count = places.length / 2;
         if (count < CROWN_LEAST) {
             return false;
@@ -446,6 +449,7 @@ final class Flora {
             tall = Math.max(highest - lowest, 1e-3f);
             Arrays.fill(reachLeft, 0f);
             Arrays.fill(reachRight, 0f);
+            Arrays.fill(counts, 0);
             for (int i = 0; i < count; i++) {
                 float high = (footV - places[i * 2 + 1]) * up;
                 if (high < under) {
@@ -455,15 +459,17 @@ final class Flora {
                 float side = (places[i * 2] - footU) * across;
                 reachLeft[band] = Math.max(reachLeft[band], -side);
                 reachRight[band] = Math.max(reachRight[band], side);
+                counts[band]++;
             }
-            int broadest = 0, from = 0;
+            int broadest = 0, from = 0, most = counts[0];
             for (int band = 1; band < CROWN_BANDS; band++) {
                 if (reachLeft[band] + reachRight[band] > reachLeft[broadest] + reachRight[broadest]) {
                     broadest = band;
                 }
+                most = Math.max(most, counts[band]);
             }
             for (int band = broadest - 1; band >= 0 && from == 0; band--) {
-                if (reachLeft[band] + reachRight[band] < TRUNK_SHADE * (reachLeft[broadest] + reachRight[broadest])) {
+                if (reachLeft[band] + reachRight[band] < TRUNK_SHADE * (reachLeft[broadest] + reachRight[broadest]) || counts[band] < TRUNK_SPARSE * most) {
                     from = band + 1;
                 }
             }
@@ -553,7 +559,7 @@ final class Flora {
         int count = places.length / 2;
         Workings workings = frame.crownWorkings == null ? frame.crownWorkings = new Workings() : frame.crownWorkings;
         float[] reachLeft = workings.reachLeft, reachRight = workings.reachRight, sizes = workings.sizes;
-        if (!measure(frame, places, footU, footV, reachLeft, reachRight, sizes)) {
+        if (!measure(frame, places, footU, footV, reachLeft, reachRight, workings.counts, sizes)) {
             return false;
         }
         // A tree's crown is all of it its tree's, sprigs, twigs and limbs: a bush is no tree.
@@ -972,6 +978,7 @@ final class Flora {
      */
     static final class Workings {
         final float[] reachLeft = new float[CROWN_BANDS], reachRight = new float[CROWN_BANDS], sizes = new float[SIZES];
+        final int[] counts = new int[CROWN_BANDS];
         final float[] woodLeft = new float[CROWN_BANDS], woodRight = new float[CROWN_BANDS];
         float[] stemTop = new float[0], stemX = new float[0], stemY = new float[0];
         /** The points along a leader, a limb and a branch, which are made one inside another, and the rings of the one being made. */
