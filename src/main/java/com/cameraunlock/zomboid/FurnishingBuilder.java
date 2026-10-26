@@ -325,6 +325,11 @@ final class FurnishingBuilder {
         if (piece.dyed != 0) {
             // Its colour is the sprite's in the middle of what it paints: a shutter comes in five.
             float middle = (build.hungAt[WallHung.FROM] + build.hungAt[WallHung.TO]) / 2f, high = (build.hungAt[WallHung.BOTTOM] + build.hungAt[WallHung.TOP]) / 2f;
+            // What is hung by its place has its colour from that place, at the height it says: its outline runs off the wall.
+            if (piece.alongWall >= 0f) {
+                middle = piece.alongWall;
+                high = piece.dyeHigh;
+            }
             float dyeA = WallHung.a(piece.wall, middle), dyeB = WallHung.b(piece.wall, middle);
             if (!texture.isMaskSet(Math.round(SpriteGeometry.frameU(build.frame, dyeA, dyeB)), Math.round(SpriteGeometry.frameV(build.frame, dyeA, dyeB, high)))) {
                 return false;

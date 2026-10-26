@@ -2789,6 +2789,29 @@ def meter_bank(name, side):
     return model
 
 
+def window_boards(name, count):
+    """The boards nailed across a window to barricade it, one to four, each a little askew and held by two nails at each
+    end: the first over the middle of the window, the second over it, the third under and the fourth at the top, as the
+    game paints them. Its back is on the wall at +Y and its foot on the floor."""
+    model = Model(name, hung=True)
+    back, thick, high, long = 0.06, 0.022, 0.2, 0.96
+    middles, tilts = (1.17, 1.41, 0.89, 1.68), (1.5, -2.5, 3.0, -1.5)
+    boards, nails = bmesh.new(), bmesh.new()
+    for board in range(count):
+        turn = Matrix.Translation((0.0, 0.0, middles[board])) @ Matrix.Rotation(math.radians(tilts[board]), 4, "Y")
+        before = set(boards.verts)
+        cuboid(boards, -long / 2, long / 2, back - thick * (board % 2 + 1), back - thick * (board % 2), -high / 2, high / 2)
+        bmesh.ops.transform(boards, matrix=turn, verts=[vert for vert in boards.verts if vert not in before])
+        for x in (-long / 2 + 0.05, long / 2 - 0.05):
+            for z in (-high / 4, high / 4):
+                head = (turn @ Vector((x, 0.0, z)))
+                lathe(nails, [(0.0, 0.0), (0.008, 0.0), (0.008, 0.003), (0.0, 0.003)], segments=6,
+                      to=Matrix.Translation((head.x, back - thick * (board % 2 + 1), head.z)) @ Matrix.Rotation(math.pi / 2, 4, "X"))
+    model.hard(boards, "wood", bevel=0.003, segments=1)
+    model.plain(nails, "steel")
+    return model
+
+
 def serving_counter():
     """A length of a canteen's serving counter: a steel body with a pan let into its top, and over it a sheet of
     glass sloping down to the side the food is served to, the front, from a rail on two posts at the back. A metre
@@ -13182,7 +13205,7 @@ def every():
               radio(), microwave(), dishwasher(), ice_chest(), register(), shower("shower", True), shower("shower_head", False),
               kettle_barbecue(), gas_barbecue(), cooler("mini_fridge", 0.5, 0.82, 1), cooler("large_fridge", 1.7, 1.95, 2),
               street_lamp("cone_lamp", "cone"), street_lamp("globe_lamp", "globe"), street_lamp("lantern_lamp", "lantern"),
-              cobra_head(), traffic_light(), traffic_light("traffic_light_r", 1), wall_bowl(), wall_lantern(), bulkhead_light(), wall_sink(), drinking_fountain(), serving_counter(), air_conditioner(), meter_bank("meter_bank", 1), meter_bank("meter_bank_r", -1),
+              cobra_head(), traffic_light(), traffic_light("traffic_light_r", 1), wall_bowl(), wall_lantern(), bulkhead_light(), wall_sink(), drinking_fountain(), serving_counter(), air_conditioner(), meter_bank("meter_bank", 1), meter_bank("meter_bank_r", -1), *[window_boards("window_boards_%d" % count, count) for count in range(1, 5)],
               parasol("parasol", [(0.045, 2.40), (0.35, 2.25), (0.68, 2.08), (1.0, 1.91)], 0.10, 0.06),
               parasol("parasol_dome", [(0.045, 2.43), (0.24, 2.39), (0.46, 2.28), (0.66, 2.11), (0.82, 1.88), (0.92, 1.62)], 0.08, 0.06)] + (indoors() + outdoors()
             + upholstered() + barrels_and_pots() + street() + display_cases() + awnings() + hoods() + industrial()

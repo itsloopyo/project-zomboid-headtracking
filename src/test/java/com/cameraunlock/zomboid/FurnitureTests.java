@@ -347,6 +347,14 @@ final class FurnitureTests {
                     "industry_02_" + (176 + k) + " is a bank of meters on its " + ways[k] + " wall: " + model(meters));
         }
         check(!model(Furniture.known(sprite("industry_02_180|attachedN|"))).equals("meter_bank"), "and the lone box on its cables after them is not");
+        int[] boardWalls = {WallHung.EAST, WallHung.SOUTH, WallHung.WEST, WallHung.NORTH};
+        for (int place = 0; place < 16; place++) {
+            Furniture boards = Furniture.known(sprite("carpentry_01_" + place + "|Material|Wood|Material2|Nails|MaterialType|Wood|"));
+            String wanted = "window_boards_" + (place % 8 / 2 + 1);
+            int wall = boardWalls[place / 8 * 2 + place % 2];
+            check(model(boards).equals(wanted) && boards.wall == wall && boards.raised > 0.7f && boards.dyed == 1 << Models.WOOD,
+                    "carpentry_01_" + place + " is " + wanted + " on its wall: " + model(boards));
+        }
     }
 
     private static void shuttersHangOnTheirWallPanelledOrLouvredInTheirColour() {

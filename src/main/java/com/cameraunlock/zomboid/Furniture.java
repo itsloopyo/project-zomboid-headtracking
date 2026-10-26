@@ -408,6 +408,15 @@ final class Furniture {
         if (name != null && called == null && grid == null && name.startsWith(STREET_LAMPS)) {
             return streetLamp(sprite, name);
         }
+        // The boards nailed across a window have no name, no facing and no wall of their own: which wall and how many go by
+        // their place on the sheet. They lie on the wall, at the heights the game paints them.
+        int boards = name == null || called != null || grid != null ? -1 : Sheets.place(name, BOARDS);
+        if (boards >= 0 && boards < 16) {
+            int side = boards % 2, count = boards % 8 / 2;
+            IsoDirections away = boards >= 8 ? side == 0 ? IsoDirections.E : IsoDirections.S : side == 0 ? IsoDirections.W : IsoDirections.N;
+            return new Furniture(sprite, "window_boards_" + (count + 1), turnsOf(away)).hang(WallHung.behind(away), false).ownSize()
+                    .alongWall(BOARDS_ALONG[boards >= 8 ? side : 2 + side]).raise(BOARDS_FOOT[count]).dye(1 << Models.WOOD, BOARDS_DYE);
+        }
         // A bank of electric meters on a works' sheet has no name and no facing, only the wall it is on, and stands out of it.
         int meters = name == null || called != null || grid != null ? -1 : Sheets.place(name, METERS);
         if (meters >= METER_BANKS && meters < METER_BANKS + 4) {
@@ -939,6 +948,14 @@ final class Furniture {
      * wall is the others' drawing turned to face the other way, with its cables at the far end: meter_bank_r.
      */
     private static final float[] METER_ALONG = {0.41f, 0.45f, 0.5f, 0.52f};
+    /** The sheet of the boards nailed across a window: one to four on a west and a north wall from 8, on an east and a south one from 0. */
+    private static final String BOARDS = "carpentry_01_";
+    /** How far along its wall the middle of what each sheet paints is, from the corner its wall starts at: west, north, east, south. */
+    private static final float[] BOARDS_ALONG = {0.44f, 0.41f, 0.53f, 0.52f};
+    /** How high the lowest board is, in metres, of one to four as furniture.py's window_boards lays them: the second goes over the first, the third under. */
+    private static final float[] BOARDS_FOOT = {1.057f, 1.057f, 0.765f, 0.765f};
+    /** How high the middle of the first board is painted, in levels: it gives the wood its colour. */
+    private static final float BOARDS_DYE = 1.17f / ViewCamera.LEVEL_HEIGHT;
     /** The sheet has a copy of itself with the lamps lit, the same lamps in the same places. */
     private static final String LIT_STREET_LAMPS = STREET_LAMPS + "on_";
     /**
