@@ -2360,29 +2360,26 @@ def dishwasher():
     return model
 
 
-def chest_freezer():
-    """A shop's freezer chest, two squares long. Its two sliding lids are clear glass, so they are only their frames,
-    over the white of the frost inside."""
-    model = Model("chest_freezer")
-    half, front, back, top = 0.9, -0.36, 0.36, 0.86
+def ice_chest():
+    """One square of a shop's ice chest, two squares long: an enamel box whose front shows the sprite's own painting of it,
+    lettering and all (Furniture.ICE_FRONT_Y is that face), under a glass lid in a frame, over the white of the frost
+    inside. Each square is a model, half of a chest 1.3 long and 0.62 deep, stood against the other half (Furniture.ICE_SHIFT)."""
+    model = Model("ice_chest")
+    half, front, back, top = 0.325, -0.31, 0.31, 0.76
     body = bmesh.new()
-    cuboid(body, -half + 0.02, half - 0.02, front + 0.03, back - 0.03, 0.0, 0.08)
-    walls = ((-half, half, front, front + 0.06), (-half, half, back - 0.06, back), (-half, -half + 0.06, front + 0.06, back - 0.06),
-             (half - 0.06, half, front + 0.06, back - 0.06))
-    for x0, x1, y0, y1 in walls:
-        cuboid(body, x0, x1, y0, y1, 0.08, top)
-    model.hard(body, "enamel", bevel=0.012, segments=2)
+    cuboid(body, -half, half, front, back, 0.0, top)
+    model.hard(body, "enamel", bevel=0.006, segments=1)
+    face = bmesh.new()
+    cuboid(face, -half, half, front - 0.004, front, 0.02, top - 0.02)
+    model.hard(face, "pane", bevel=0.002, segments=1)
     frost = bmesh.new()
-    cuboid(frost, -half + 0.06, half - 0.06, front + 0.06, back - 0.06, 0.08, top - 0.05)
-    model.hard(frost, "ceramic", bevel=0.01, segments=1)
-    rim = bmesh.new()
-    for x0, x1, y0, y1 in walls:
-        cuboid(rim, x0 - 0.008, x1 + 0.008, y0 - 0.008, y1 + 0.008, top, top + 0.025)
-    cuboid(rim, -0.02, 0.02, front + 0.06, back - 0.06, top + 0.004, top + 0.025)
-    for x0, x1 in ((-half + 0.05, -0.01), (0.01, half - 0.05)):
-        cuboid(rim, x0, x1, front + 0.05, front + 0.07, top + 0.012, top + 0.03)
-        cuboid(rim, x0, x1, back - 0.07, back - 0.05, top + 0.012, top + 0.03)
-    model.hard(rim, "metal", bevel=0.004, segments=1)
+    cuboid(frost, -half + 0.09, half - 0.09, front + 0.09, back - 0.09, top - 0.04, top - 0.03)
+    model.hard(frost, "ceramic", bevel=0.004, segments=1)
+    frame = bmesh.new()
+    for x0, x1, y0, y1 in ((-half + 0.05, half - 0.05, front + 0.05, front + 0.09), (-half + 0.05, half - 0.05, back - 0.09, back - 0.05),
+                           (-half + 0.05, -half + 0.09, front + 0.09, back - 0.09), (half - 0.09, half - 0.05, front + 0.09, back - 0.09)):
+        cuboid(frame, x0, x1, y0, y1, top, top + 0.02)
+    model.hard(frame, "metal", bevel=0.004, segments=1)
     return model
 
 
@@ -12947,7 +12944,7 @@ def every():
               table("low_table", 0.9, 0.5, top=0.42, leg=0.05), table("low_table_2", 1.5, 0.6, top=0.42, leg=0.05), round_table(), office_desk(),
               cabinet("shop_counter", 0.62, 0.90, True, panelled=True), low_shelves(), wall_shelf("wall_shelf", 1), wall_shelf("wall_shelves", 2), shop_wall_shelves("shop_wall_shelves", "wood"), shop_wall_shelves("zippee_wall_shelves", "vinyl"), hood_dryer(), car_wash_brush(), car_wash_curtain(), bar_back(), bar_bottles("bar_bottles_many", 51, 0.9), bar_bottles("bar_bottles_few", 52, 0.35), sewer_pipes("sewer_pipes_bend", 0.46, True), sewer_pipes("sewer_pipes", 0.25, False), clothes_wall_rails(), generator(), marker_ball(), hospital_curtain("curtain_rail", 0.0, 0.0, 0), hospital_curtain("curtain_drawn", -0.49, 0.49, 10), hospital_curtain("curtain_gathered", 0.12, 0.49, 6), mantel_pillar(), mantel_lintel(), pipe_upright("pipe_upright", None), pipe_upright("pipe_upright_run", "long"), pipe_upright("pipe_upright_stub", "stub"), atm(), coop(), street_name_sign(), street_blade(),
               metal_rack(), store_shelves(), plastic_chair(), garden_chair(), patio_table(), folding_chair(), booth(), stool(), vending_machine(),
-              radio(), microwave(), dishwasher(), chest_freezer(), register(), shower("shower", True), shower("shower_head", False),
+              radio(), microwave(), dishwasher(), ice_chest(), register(), shower("shower", True), shower("shower_head", False),
               kettle_barbecue(), gas_barbecue(), cooler("mini_fridge", 0.5, 0.82, 1), cooler("large_fridge", 1.7, 1.95, 2),
               street_lamp("cone_lamp", "cone"), street_lamp("globe_lamp", "globe"), street_lamp("lantern_lamp", "lantern"),
               cobra_head(), traffic_light(), traffic_light("traffic_light_r", 1), wall_bowl(), wall_lantern(), bulkhead_light(), wall_sink(), drinking_fountain(), serving_counter(), air_conditioner(),

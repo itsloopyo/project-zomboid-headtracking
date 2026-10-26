@@ -29,6 +29,13 @@ final class Furniture {
     private static final float LOW_DYE = 0.2f, LOCKER_DYE = 0.35f, VENDING_CABINET = 0.04f;
     /** Where the face of a vending machine's window and sign is along its model's y: vending_machine's window in furniture.py. */
     private static final float VENDING_GLASS_Y = -0.388f;
+    /**
+     * Where an ice chest's front is, along the model's y (see furniture.py ice_chest). How high on its sprite the place is
+     * that says the piece stands, in levels, on its front, and how high its enamel's colour is taken, under its lid.
+     */
+    private static final float ICE_FRONT_Y = -0.312f, ICE_FRONT = 0.1f;
+    /** How far each half of an ice chest stands from the middle of its square towards the other half, in tiles: the chest is 1.3 long, over the edge between its squares. */
+    private static final float ICE_SHIFT = 0.175f;
     /** How far across its square a dumpster's south side is, where its colour is taken. */
     static final float DUMPSTER_SIDE = 0.95f;
     /** How high a picnic table's top is, in levels, and where on its first square the top's colour is taken. */
@@ -677,10 +684,18 @@ final class Furniture {
                     .dye(1 << Models.ENAMEL, surfaceHigh * 0.8f);
             return fridge.stand(surfaceUp, fridge.model.height(), true);
         }
-        // A shop's freezer chest under glass, two squares long.
-        if (called.equals("Freezer") && pair && low && surface >= 25 && surface <= 40) {
-            Furniture freezer = new Furniture(sprite, "chest_freezer", turns).dye(1 << Models.ENAMEL, surfaceHigh * 0.5f);
-            return freezer.stand(surfaceUp, freezer.model.height(), false);
+        // An ice chest is lettered across its front, a letter or two on each square's sprite: each square is a piece of its own whose front shows its sprite.
+        if (called.equals("Freezer") && group.equals("Popsicle") && low) {
+            Furniture chest = Furniture.single(sprite, "ice_chest", turns).dye(1 << Models.PANE | 1 << Models.ENAMEL, ICE_FRONT)
+                    .pictured(ICE_FRONT_Y);
+            chest.meet(surfaceUp, chest.model.height(), false);
+            IsoSpriteGrid halves = sprite.getSpriteGrid();
+            if (halves != null) {
+                int x = halves.getSpriteGridPosX(sprite), y = halves.getSpriteGridPosY(sprite);
+                chest.centreX += halves.getWidth() < 2 ? 0f : x == 0 ? ICE_SHIFT : -ICE_SHIFT;
+                chest.centreY += halves.getHeight() < 2 ? 0f : y == 0 ? ICE_SHIFT : -ICE_SHIFT;
+            }
+            return chest;
         }
         if (holds.equals("dishwasher") && single && counterHigh) {
             Furniture washer = new Furniture(sprite, "dishwasher", turns).dye(1 << Models.ENAMEL, surfaceHigh * 0.5f);
