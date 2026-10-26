@@ -193,18 +193,18 @@ final class AerialTests {
         float[] roof = {0.1f, 0.1f, 0.1f, 0.1f}, out = new float[3], stood = new float[3];
         for (String[] row : new String[][] {{"20", "S"}, {"21", "E"}}) {
             Furniture dish = Furniture.known(TileRows.sprite(SHEET + row[0] + DISH + row[1]));
-            Models.Model model = FurnishingBuilder.onRoof(dish, dish.model, roof, false, out);
+            Models.Model model = FurnishingBuilder.onRoof(dish, dish.model, roof, dish.centreX, dish.centreY, false, out);
             RoofFit.standOn(roof, dish.centreX, dish.centreY, stood);
             check(model == dish.posted, "facing " + row[1] + " on a roof with no wall behind it the dish is on its post: " + model.name);
             check(near(out[0], stood[0]) && near(out[1], stood[1]), "stood on the roof where the view draws it: " + out[0] + ", " + out[1]);
             check(near(out[2], stood[2] * level - dish.raised), "its foot on the roof and not as high as the sprite hangs it: " + out[2] + " against "
                     + (stood[2] * level - dish.raised));
-            model = FurnishingBuilder.onRoof(dish, dish.model, roof, true, out);
+            model = FurnishingBuilder.onRoof(dish, dish.model, roof, dish.centreX, dish.centreY, true, out);
             check(model == dish.model, "with the wall it backs onto there it is the dish alone: " + model.name);
             check(out[0] == dish.centreX && out[1] == dish.centreY && out[2] == 0f, "hung where its sprite paints it on that wall: " + out[0] + ", " + out[1] + ", " + out[2]);
         }
         Furniture aerial = Furniture.known(TileRows.sprite(SHEET + 81 + AERIAL + "Facing|S|SpriteGridPos|0,0"));
-        Models.Model model = FurnishingBuilder.onRoof(aerial, aerial.model, roof, true, out);
+        Models.Model model = FurnishingBuilder.onRoof(aerial, aerial.model, roof, aerial.centreX, aerial.centreY, true, out);
         RoofFit.standOn(roof, aerial.centreX, aerial.centreY, stood);
         check(model == aerial.model && near(out[2], stood[2] * level), "an aerial stands on the roof whatever is behind it: " + out[2]);
     }

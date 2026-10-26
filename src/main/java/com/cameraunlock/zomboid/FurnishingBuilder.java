@@ -126,6 +126,8 @@ final class FurnishingBuilder {
     private final float[] front = new float[2];
     /** How far the back of a piece is from a log wall's logs behind it, in tiles. */
     private static final float LOGS_CLEAR = 0.02f;
+    /** How far, in tiles, and in what steps a piece on a roof is looked for back along the line of sight over its building. */
+    private static final float BACK_FURTHEST = 1.5f, BACK_STEP = 0.25f;
 
     FurnishingBuilder(WorldScene.Frame build) {
         this.build = build;
@@ -702,19 +704,19 @@ final class FurnishingBuilder {
     }
 
     /**
-     * Where a piece that stands on the roof of its square stands on a roof whose heights over the floor at the square's
-     * corners are corners, into out: a and b on its square and what is added to its foot, in tiles. Says which model
+     * Where a piece that stands on the roof of its square at (a, b) on it stands on a roof whose heights over the floor at
+     * the square's corners are corners, into out: a and b on its square and what is added to its foot, in tiles. Says which model
      * it stands as. A piece made with a post stands on its post, its foot on the roof, but where walled, the wall it
      * backs onto stands on its square: there it hangs on that wall as its sprite paints it, over a roof below the wall.
      */
-    static Models.Model onRoof(Furniture piece, Models.Model model, float[] corners, boolean walled, float[] out) {
+    static Models.Model onRoof(Furniture piece, Models.Model model, float[] corners, float a, float b, boolean walled, float[] out) {
         if (piece.posted != null && walled) {
-            out[0] = piece.centreX;
-            out[1] = piece.centreY;
+            out[0] = a;
+            out[1] = b;
             out[2] = 0f;
             return model;
         }
-        RoofFit.standOn(corners, piece.centreX, piece.centreY, out);
+        RoofFit.standOn(corners, a, b, out);
         out[2] *= ViewCamera.LEVEL_HEIGHT;
         if (piece.posted == null) {
             return model;
@@ -739,6 +741,33 @@ final class FurnishingBuilder {
             lowest = Math.min(lowest, (1f - u) * (1f - v) * corners[0] + u * (1f - v) * corners[1] + u * v * corners[2] + (1f - u) * v * corners[3]);
         }
         return Math.max(0f, 1f - lowest);
+    }
+
+    /**
+     * How far a piece stood on the roof at (centreX, centreY) on its square (x, y) is slid back along the game's line of
+     * sight, towards the map's origin, to stand over its building: the game paints a trailer's dish on the square past
+     * the trailer's wall and lifts it onto the low roof, and stood where it was painted its post stood in the air past
+     * the eave (12484, 3909). 0 where it is over the building already, or no roof over the building is in reach.
+     */
+    private float backOverTheBuilding(int x, int y, int z, float centreX, float centreY) {
+        for (float back = 0f; back <= BACK_FURTHEST; back += BACK_STEP) {
+            int overX = (int) Math.floor(x + centreX - back), overY = (int) Math.floor(y + centreY - back);
+            if (builtUnder(overX, overY, z) && (back == 0f || build.roofBuilder.cornersAt(overX, overY, z, roofCorners))) {
+                return back;
+            }
+        }
+        return 0f;
+    }
+
+    /** Whether a building stands under the square on a level below z. */
+    private boolean builtUnder(int x, int y, int z) {
+        for (int level = 0; level < z; level++) {
+            IsoGridSquare square = build.cell.getGridSquare(x, y, level);
+            if (square != null && square.getBuilding() != null) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Whether a wall, a window, a door or a railing stands on the edge of the square a piece backs onto. */
@@ -888,10 +917,26 @@ final class FurnishingBuilder {
             centreY -= 1f;
         }
         if (piece.onRoof && build.roofBuilder.cornersAt(x, y, z, roofCorners)) {
-            model = onRoof(piece, model, roofCorners, piece.posted != null && backedByWall(piece, x, y, z), onRoof);
+            boolean walled = piece.posted != null && backedByWall(piece, x, y, z);
+            model = onRoof(piece, model, roofCorners, piece.centreX, piece.centreY, walled, onRoof);
             centreX = onRoof[0];
             centreY = onRoof[1];
             foot += onRoof[2];
+            if (!walled) {
+                // The game lifts a dish on a trailer's low roof by its render offset to draw it on that roof, which
+                // the roof's own height already is: kept, the post stopped two feet over it (12481, 3921).
+                foot -= build.geometry.raised * ViewCamera.LEVEL_HEIGHT;
+                float back = backOverTheBuilding(x, y, z, centreX, centreY);
+                if (back > 0f) {
+                    int overX = (int) Math.floor(x + centreX - back), overY = (int) Math.floor(y + centreY - back);
+                    build.roofBuilder.cornersAt(overX, overY, z, roofCorners);
+                    float stood = foot - onRoof[2];
+                    onRoof(piece, model, roofCorners, x + centreX - back - overX, y + centreY - back - overY, false, onRoof);
+                    centreX = overX - x + onRoof[0];
+                    centreY = overY - y + onRoof[1];
+                    foot = stood + onRoof[2];
+                }
+            }
         }
         if (piece.roofBelow > 0 && build.roofBuilder.cornersAt(x, y, z - piece.roofBelow, roofCorners)) {
             foot -= sunkOntoRoof(roofCorners, piece.centreX, piece.centreY, piece.footHalf) * ViewCamera.LEVEL_HEIGHT;
