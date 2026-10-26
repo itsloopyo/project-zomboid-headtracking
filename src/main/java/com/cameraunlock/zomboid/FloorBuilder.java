@@ -125,7 +125,7 @@ final class FloorBuilder {
                 // Grass does not spread down a kerb onto the street.
                 build.geometry.kerbKeep = SpriteGeometry.LAND;
                 build.spreadFaces++;
-                WorldScene.layers.lie(SpriteGeometry.LAYERS_UP, build.floorLayer + spread);
+                WorldScene.layers.lie(SpriteGeometry.LAYERS_UP, build.floorLayer + spread - 1);
                 SpriteGeometry.Mesh laidOn = WorldScene.laid.get(flat != 0 ? flat : build.groundTexture[at].getID());
                 if (grid) {
                     for (int quarter = 0; quarter < 4; quarter++) {
