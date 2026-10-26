@@ -87,6 +87,8 @@ final class Furniture {
     boolean stretched;
     /** See overEnds. */
     boolean overEnds;
+    /** See alongWall: how far along its wall its middle is painted, or -1 where its sprite's outline says. */
+    float alongWall = -1f;
     /** The picture of the mod's own that its frame holds in place of the sprite's painting, or Decor.NONE. */
     int picture = Decor.NONE;
     /** Whether this is a sheet pinned to a wall, a poster, which the mod hangs only to show its own picture of it. */
@@ -317,6 +319,15 @@ final class Furniture {
         return this;
     }
 
+    /**
+     * For what hangs on a wall with its foot on the floor, and whose sprite also paints the cables it is wired to off the
+     * wall's end: hung with the middle of its painting that far along the wall, whatever its sprite's outline comes to.
+     */
+    Furniture alongWall(float along) {
+        alongWall = along;
+        return this;
+    }
+
     /** The glass round a piece, laid by places on its model in metres: a shop's glass counter's case, a cake shop's glass case. */
     static final class Glass {
         private final SpriteGeometry.Mesh mesh;
@@ -396,6 +407,17 @@ final class Furniture {
         }
         if (name != null && called == null && grid == null && name.startsWith(STREET_LAMPS)) {
             return streetLamp(sprite, name);
+        }
+        // A bank of electric meters on a works' sheet has no name and no facing, only the wall it is on, and stands out of it.
+        int meters = name == null || called != null || grid != null ? -1 : Sheets.place(name, METERS);
+        if (meters >= METER_BANKS && meters < METER_BANKS + 4) {
+            IsoDirections away = properties.has(IsoFlagType.attachedN) ? IsoDirections.S : properties.has(IsoFlagType.attachedW) ? IsoDirections.E
+                    : properties.has(IsoFlagType.attachedS) ? IsoDirections.N : properties.has(IsoFlagType.attachedE) ? IsoDirections.W : null;
+            if (away != null) {
+                int bank = meters - METER_BANKS;
+                return new Furniture(sprite, bank == 2 ? "meter_bank_r" : "meter_bank", turnsOf(away)).hang(WallHung.behind(away), false).ownSize()
+                        .alongWall(METER_ALONG[bank]);
+            }
         }
         Furniture home = HomeFittings.of(sprite, name, called, properties);
         if (home != null) {
@@ -909,6 +931,14 @@ final class Furniture {
 
     /** The sheet the game's street lamps are on. They carry no name: which lamp a sprite is, is its place on the sheet. */
     private static final String STREET_LAMPS = "lighting_outdoor_01_";
+    /** The four banks of electric meters on a works' sheet, one a wall of the square, attachedN, W, S and E in that order. */
+    private static final String METERS = "industry_02_";
+    private static final int METER_BANKS = 176;
+    /**
+     * How far along its wall the middle of each bank's painting is, from the corner its wall starts at. The one on a south
+     * wall is the others' drawing turned to face the other way, with its cables at the far end: meter_bank_r.
+     */
+    private static final float[] METER_ALONG = {0.41f, 0.45f, 0.5f, 0.52f};
     /** The sheet has a copy of itself with the lamps lit, the same lamps in the same places. */
     private static final String LIT_STREET_LAMPS = STREET_LAMPS + "on_";
     /**

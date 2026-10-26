@@ -293,7 +293,7 @@ final class FurnishingBuilder {
             picture = Decor.NONE;
         }
         if (piece == null || piece.wall == WallHung.NONE || picture == Decor.NONE && (piece.pinned || !Own.furniture())
-                || !WallHung.painted(build.frame, piece.wall, build.hungAt) && !(piece.ownSize && WallHung.paintedProud(build.hungAt, piece.model.depth()))
+                || !WallHung.painted(build.frame, piece.wall, build.hungAt) && piece.alongWall < 0f && !(piece.ownSize && WallHung.paintedProud(build.hungAt, piece.model.depth()))
                 && !(piece.overEnds && WallHung.paintedAlong(build.hungAt))) {
             return false;
         }
@@ -505,11 +505,17 @@ final class FurnishingBuilder {
             scale = scaleUp = piece.ownSize ? Furniture.TILES_PER_METRE : Math.clamp(Math.min(scale, scaleUp), CLOCK_SMALLEST, CLOCK_LARGEST);
             foot += (high - model.height() * scale) / 2f;
         }
+        if (piece.alongWall >= 0f) {
+            along = piece.alongWall;
+        }
         if (piece.ownSize) {
             // A lamp stands out into its square, and is painted to one side of its fixing for it.
             float proud = model.depth() * scale / 2f;
             along = Math.clamp(along + WallHung.alongProud(piece.wall, proud), 0f, 1f);
             foot += WallHung.upProud(piece.wall, proud) * ViewCamera.LEVEL_HEIGHT;
+        }
+        if (piece.alongWall >= 0f) {
+            foot = raisedLevels * ViewCamera.LEVEL_HEIGHT;
         }
         if (piece.raised > 0f) {
             // What the game paints bigger and higher than it is hangs at its own height, over whatever the game raises it by.

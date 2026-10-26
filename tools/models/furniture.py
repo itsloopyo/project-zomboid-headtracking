@@ -2731,6 +2731,64 @@ def air_conditioner():
     return model
 
 
+def meter_bank(name, side):
+    """The electric meters on the outside wall of a block: three round meters one over another, a small box over
+    them that a conduit bends over to, two breaker boxes under them with cables down to the ground, and two cables
+    up the wall from the ground to the eaves at one side, all clipped to the wall: that side is -x for side 1 and +x
+    for -1. Its back is at +Y."""
+    model = Model(name, hung=True)
+    back, top = 0.06, 2.3
+
+    def run(start, end, radius):
+        tube(cables, (side * start[0], start[1], start[2]), (side * end[0], end[1], end[2]), radius, segments=8)
+
+    def box(bm, x0, x1, y0, y1, z0, z1):
+        cuboid(bm, *mirrored(x0, x1, side), y0, y1, z0, z1)
+
+    cables = bmesh.new()
+    for x in (-0.41, -0.35):
+        run((x, back - 0.022, 0.0), (x, back - 0.022, top), 0.016)
+    for x in (-0.08, 0.0, 0.13):
+        run((x, back - 0.022, 0.0), (x, back - 0.022, 1.0), 0.013)
+    model.hard(cables, "rubber", bevel=0.002, segments=1)
+
+    conduit = bmesh.new()
+    column, small = -0.2 * side, 0.2 * side
+    tube(conduit, (column, back - 0.03, 1.79), (column, back - 0.03, 2.02), 0.014, segments=8)
+    tube(conduit, (column, back - 0.03, 2.02), (small, back - 0.03, 2.02), 0.014, segments=8)
+    tube(conduit, (small, back - 0.03, 2.02), (small, back - 0.03, 1.88), 0.014, segments=8)
+    tube(conduit, (small, back - 0.03, 1.62), (small, back - 0.03, 1.25), 0.014, segments=8)
+    for x, z in ((column, 2.02), (small, 2.02)):
+        lathe(conduit, [(0.0, -0.022), (0.022, -0.022), (0.022, 0.022), (0.0, 0.022)], segments=10,
+              to=Matrix.Translation((x, back - 0.03, z)) @ Matrix.Rotation(math.pi / 2, 4, "X"))
+    model.hard(conduit, "steel", bevel=0.002, segments=1)
+
+    boxes = bmesh.new()
+    box(boxes, 0.13, 0.27, back - 0.08, back, 1.62, 1.88)
+    box(boxes, -0.27, -0.05, back - 0.13, back, 0.98, 1.25)
+    box(boxes, -0.03, 0.27, back - 0.13, back, 0.98, 1.25)
+    model.hard(boxes, "metal", bevel=0.006, segments=2)
+
+    clips = bmesh.new()
+    for x in (-0.41, -0.35):
+        for z in (0.45, 1.15, 1.85):
+            box(clips, x - 0.024, x + 0.024, back - 0.042, back, z, z + 0.025)
+    for x in (-0.08, 0.0, 0.13):
+        box(clips, x - 0.02, x + 0.02, back - 0.038, back, 0.5, 0.522)
+    model.hard(clips, "steel", bevel=0.002, segments=1)
+
+    # Each meter: a black body standing out of the wall, and the white dial behind its glass.
+    bodies, dials = bmesh.new(), bmesh.new()
+    for z in (1.33, 1.52, 1.71):
+        lathe(bodies, [(0.0, 0.0), (0.085, 0.0), (0.085, 0.05), (0.075, 0.075), (0.0, 0.085)], segments=20,
+              to=Matrix.Translation((column, back, z)) @ Matrix.Rotation(math.pi / 2, 4, "X"))
+        lathe(dials, [(0.0, 0.0), (0.06, 0.0), (0.06, 0.002), (0.0, 0.002)], segments=20,
+              to=Matrix.Translation((column, back - 0.0855, z)) @ Matrix.Rotation(math.pi / 2, 4, "X"))
+    model.hard(bodies, "rubber", bevel=0.004, segments=2)
+    model.plain(dials, "enamel")
+    return model
+
+
 def serving_counter():
     """A length of a canteen's serving counter: a steel body with a pan let into its top, and over it a sheet of
     glass sloping down to the side the food is served to, the front, from a rail on two posts at the back. A metre
@@ -13110,7 +13168,7 @@ def every():
               radio(), microwave(), dishwasher(), ice_chest(), register(), shower("shower", True), shower("shower_head", False),
               kettle_barbecue(), gas_barbecue(), cooler("mini_fridge", 0.5, 0.82, 1), cooler("large_fridge", 1.7, 1.95, 2),
               street_lamp("cone_lamp", "cone"), street_lamp("globe_lamp", "globe"), street_lamp("lantern_lamp", "lantern"),
-              cobra_head(), traffic_light(), traffic_light("traffic_light_r", 1), wall_bowl(), wall_lantern(), bulkhead_light(), wall_sink(), drinking_fountain(), serving_counter(), air_conditioner(),
+              cobra_head(), traffic_light(), traffic_light("traffic_light_r", 1), wall_bowl(), wall_lantern(), bulkhead_light(), wall_sink(), drinking_fountain(), serving_counter(), air_conditioner(), meter_bank("meter_bank", 1), meter_bank("meter_bank_r", -1),
               parasol("parasol", [(0.045, 2.40), (0.35, 2.25), (0.68, 2.08), (1.0, 1.91)], 0.10, 0.06),
               parasol("parasol_dome", [(0.045, 2.43), (0.24, 2.39), (0.46, 2.28), (0.66, 2.11), (0.82, 1.88), (0.92, 1.62)], 0.08, 0.06)] + (indoors() + outdoors()
             + upholstered() + barrels_and_pots() + street() + display_cases() + awnings() + hoods() + industrial()

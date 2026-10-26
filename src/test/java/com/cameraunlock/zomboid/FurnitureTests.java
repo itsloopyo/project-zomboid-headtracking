@@ -339,6 +339,14 @@ final class FurnitureTests {
         Furniture unit = Furniture.known(sprite("industry_01_4|CanScrap||CustomName|Conditioner|Facing|S|GroupName|Air|IsHigh||IsMoveAble||Material|MetalScrap|"
                 + "Material2|Electric|MoveType|WallObject|PickUpTool|Hammer|PickUpWeight|25|PlaceTool|Hammer|ScrapSize|Small|attachedN|"));
         check(model(unit).equals("air_conditioner"), "a works' air conditioner of the same name is the case let through its wall: " + model(unit));
+        String[] ways = {"N", "W", "S", "E"};
+        int[] walls = {WallHung.NORTH, WallHung.WEST, WallHung.SOUTH, WallHung.EAST};
+        for (int k = 0; k < 4; k++) {
+            Furniture meters = Furniture.known(sprite("industry_02_" + (176 + k) + "|attached" + ways[k] + "|"));
+            check(model(meters).equals(k == 2 ? "meter_bank_r" : "meter_bank") && meters.wall == walls[k] && meters.ownSize && meters.alongWall > 0f,
+                    "industry_02_" + (176 + k) + " is a bank of meters on its " + ways[k] + " wall: " + model(meters));
+        }
+        check(!model(Furniture.known(sprite("industry_02_180|attachedN|"))).equals("meter_bank"), "and the lone box on its cables after them is not");
     }
 
     private static void shuttersHangOnTheirWallPanelledOrLouvredInTheirColour() {
