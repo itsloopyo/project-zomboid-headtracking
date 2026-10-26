@@ -1318,7 +1318,7 @@ final class PipelineShaders {
             // worn round. The mortar lies back between them. lean says how far the surface
             // turns at a brick's edge, along the wall and up it, so the sun picks the courses
             // out. Whatever is finer than a pixel is left as its mean.
-            vec3 facBrick(vec3 body, vec3 mortar, float run, float up, vec2 soft, vec2 size, float gapHalf, float vary, out vec2 lean) {
+            vec3 facBrick(vec3 body, vec3 mortar, float run, float up, vec2 soft, vec2 size, vec2 gapHalf, float vary, out vec2 lean) {
                 float course = up / size.y;
                 float row = floor(course);
                 float along = run / size.x + 0.5 * mod(row, 2.0);
@@ -1328,7 +1328,7 @@ final class PipelineShaders {
                 // A joint under a pixel wide would be drawn in some pixels and missed in the
                 // next: it thins out as it gets there, and the wall takes its share of it.
                 vec2 seen = 1.0 - smoothstep(0.2, 0.55, soft / size);
-                vec2 gap = 1.0 - smoothstep(vec2(gapHalf) - 0.5 * soft, vec2(gapHalf) + 0.5 * soft + 0.001, edge);
+                vec2 gap = 1.0 - smoothstep(gapHalf - 0.5 * soft, gapHalf + 0.5 * soft + 0.001, edge);
                 float joint = max(gap.x * seen.x, gap.y * seen.y);
                 float r1 = facHash(vec2(which, tier)), r2 = facHash(vec2(which + 17.0, tier + 5.0)), r3 = facHash(vec2(which + 41.0, tier + 29.0));
                 float own = min(seen.x, seen.y) * vary;
@@ -1338,7 +1338,7 @@ final class PipelineShaders {
                 float mottle = patches(vec2(run * 27.0 + r1 * 9.0, up * 41.0 + r2 * 9.0)) * 0.6 + patches(vec2(run * 113.0, up * 131.0) + 7.0) * 0.4;
                 float pit = smoothstep(0.74, 0.9, patches(vec2(run * 230.0 + r2 * 50.0, up * 250.0)));
                 made *= 1.0 + near * (0.2 * (mottle - 0.5) - 0.2 * pit);
-                vec2 eased = (1.0 - smoothstep(vec2(gapHalf), vec2(gapHalf + 0.007), edge)) * seen;
+                vec2 eased = (1.0 - smoothstep(gapHalf, gapHalf + 0.007, edge)) * seen;
                 lean = vec2(part.x < 0.5 ? -eased.x : eased.x, part.y < 0.5 ? -eased.y : eased.y) * (1.0 - joint);
                 vec3 bed = mortar * (0.8 + 0.16 * patches(vec2(run * 61.0, up * 67.0) + 3.0));
                 // What the joints that are too fine to draw take from the wall's colour.
@@ -1522,6 +1522,8 @@ final class PipelineShaders {
             uniform float uGameView;
             // How many pixels wide a joint of brick or blocks is drawn at least from far overhead.
             const float JOINT_SEEN_OVERHEAD = 1.6;
+            // The most of a brick's length or height the half of a joint so widened takes.
+            const float JOINT_MOST_OF_BRICK = 0.15;
             // How much lighter the mortar of brick and blocks is drawn from far overhead.
             const float MORTAR_LIFT_OVERHEAD = 0.2;
             // How much more a ripple tilts water seen from far overhead. Looked down on, level
@@ -1951,15 +1953,17 @@ final class PipelineShaders {
                     }
                     // From far overhead a joint of mortar is under a pixel and the wall reads as render: there
                     // it is drawn at least JOINT_SEEN_OVERHEAD pixels wide, as the game's own picture draws it.
-                    float jointLeast = uGameView * JOINT_SEEN_OVERHEAD * 0.5 * max(soft.x, soft.y);
+                    // Each way by its own pixel, so a wall seen aslant keeps its courses, and never more than
+                    // JOINT_MOST_OF_BRICK of a brick, so a brick a few pixels high is not all mortar.
+                    vec2 jointLeast = uGameView * JOINT_SEEN_OVERHEAD * 0.5 * soft;
                     // facBrick shades its mortar as lying back in the shadow of the bricks; seen from
                     // overhead a joint is a pixel or two and that shade took it to the bricks' own tone.
                     vec3 mortarSeen = uJoint * (1.0 + MORTAR_LIFT_OVERHEAD * uGameView);
                     // A block is a brick three times the size, and every one the same grey.
-                    vec3 laid = how < 4.5 ? facBrick(uTint.rgb, mortarSeen, run, up, soft, vec2(BRICK_LONG, BRICK_HIGH), max(BRICK_JOINT, jointLeast), 1.0, turned)
+                    vec3 laid = how < 4.5 ? facBrick(uTint.rgb, mortarSeen, run, up, soft, vec2(BRICK_LONG, BRICK_HIGH), max(vec2(BRICK_JOINT), min(jointLeast, JOINT_MOST_OF_BRICK * vec2(BRICK_LONG, BRICK_HIGH))), 1.0, turned)
                             : how < 5.5 ? facLapped(uTint.rgb, run, up, soft, turned)
                             : how < 6.5 ? facStone(uTint.rgb, uJoint, run, up, soft, turned)
-                            : facBrick(uTint.rgb, mortarSeen, run, up, soft, vec2(BLOCK_LONG, BLOCK_HIGH), max(BLOCK_JOINT, jointLeast), 0.3, turned);
+                            : facBrick(uTint.rgb, mortarSeen, run, up, soft, vec2(BLOCK_LONG, BLOCK_HIGH), max(vec2(BLOCK_JOINT), min(jointLeast, JOINT_MOST_OF_BRICK * vec2(BLOCK_LONG, BLOCK_HIGH))), 0.3, turned);
                     texel.rgb = mix(texel.rgb, laid, own) * (1.0 - 0.12 * reliefLow);
                     // Where the depth is drawn, its own lean is the edges' turn: the drawn one gives way to it.
                     lean = turned.x * own * (1.0 - walledNear);
