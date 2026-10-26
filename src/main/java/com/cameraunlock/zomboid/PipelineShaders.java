@@ -805,6 +805,14 @@ final class PipelineShaders {
             """;
 
     /**
+     * How many times over a hedge's or a holly's sprig card holds its sprig's picture, across and
+     * down. Laid once, a shrub's leaf is 0.14 of a card about 0.42 tiles long, 6 cm, and a holly's
+     * 0.25 to 0.4 of one 0.3 to 0.8 long: about twice a privet's or a holly's leaf. The inside of
+     * their crown (Flora.CORE) is laid with its picture as much smaller.
+     */
+    static final float SMALL_LEAVES = 2f;
+
+    /**
      * The world's fragment shader up to its main. Pipeline joins WORLD_FRAGMENT_RELIEF, SnowShader.GLSL and
      * WORLD_FRAGMENT_MAIN on after it: as one constant the shader is longer than a class file can hold.
      *
@@ -1127,7 +1135,8 @@ final class PipelineShaders {
                         + dot(texture2D(picture, at.xy * size).rgb, tone) * share.z;
             }
 
-            """ + GROUND_NOISE + "const float TILE_JOINT = " + WallBuilder.TILE_JOINT_HALF + ", FLOOR_JOINT = " + FloorBuilder.JOINT_HALF + ";\n" + """
+            """ + GROUND_NOISE + "const float TILE_JOINT = " + WallBuilder.TILE_JOINT_HALF + ", FLOOR_JOINT = " + FloorBuilder.JOINT_HALF + ";\n"
+            + "const float SMALL_LEAVES = " + SMALL_LEAVES + ", SHRUB_SPRIG = " + Flora.SHRUB + ".0, HOLLY_SPRIG = " + Flora.HOLLY + ".0;\n" + """
 
             // Whether a pixel is in a window of that middle and those half widths, whose dither
             // runs from edgeFrom to edgeTo of them.
@@ -2196,7 +2205,8 @@ final class PipelineShaders {
                     // The sprigs' picture laid over it by where it is, whichever way it faces:
                     // leaves where the picture has them and the dark between leaves where it has none.
                     vec3 faces = normalize(vNormal);
-                    vec2 lies = (abs(faces.z) > 0.75 ? vPlace.xy : abs(faces.x) > abs(faces.y) ? vPlace.yz : vPlace.xz) * 2.1;
+                    vec2 lies = (abs(faces.z) > 0.75 ? vPlace.xy : abs(faces.x) > abs(faces.y) ? vPlace.yz : vPlace.xz) * 2.1
+                            * (which == SHRUB_SPRIG || which == HOLLY_SPRIG ? SMALL_LEAVES : 1.0);
                     vec2 one = vec2(0.25, 0.5);
                     vec2 kindAt = vec2(mod(which, 4.0), floor(which / 4.0));
                     vec4 sprig = texture2DGradARB(uSprigs, (kindAt + 0.03 + 0.94 * fract(lies)) * one, dFdx(lies) * one, dFdy(lies) * one);
@@ -2227,7 +2237,7 @@ final class PipelineShaders {
                     texel = vec4(clamp(leafy, 0.0, 1.0), 1.0);
                     small = false;
                 }
-                vec2 sprigAt = vec2(0.0);
+                vec2 sprigAt = vec2(0.0), sprigAtX = vec2(0.0), sprigAtY = vec2(0.0);
                 // How solid the sprig's picture is at the pixel: least at a leaf's edge.
                 float sprigSolid = 1.0;
                 if (crown) {
@@ -2270,8 +2280,18 @@ final class PipelineShaders {
                         discard;
                     }
                     float which = floor(vMaterial - 71.5);
-                    sprigAt = (vec2(mod(which, 4.0), floor(which / 4.0)) + on) * vec2(0.25, 0.5);
-                    vec4 sprig = texture2D(uSprigs, sprigAt);
+                    // A hedge's or a holly's card holds its picture SMALL_LEAVES times across and down, each
+                    // copy a quarter turn from the one before, so that they do not read as one picture repeated.
+                    vec2 spread = on * (which == SHRUB_SPRIG || which == HOLLY_SPRIG ? SMALL_LEAVES : 1.0);
+                    vec2 copy = min(floor(spread), SMALL_LEAVES - 1.0);
+                    float turns = mod(copy.x + 2.0 * copy.y, 4.0);
+                    vec2 turned = turns < 0.5 ? vec2(1.0, 0.0) : turns < 1.5 ? vec2(0.0, 1.0) : turns < 2.5 ? vec2(-1.0, 0.0) : vec2(0.0, -1.0);
+                    mat2 turn = mat2(turned, vec2(-turned.y, turned.x));
+                    sprigAt = (vec2(mod(which, 4.0), floor(which / 4.0)) + 0.5 + turn * (spread - copy - 0.5)) * vec2(0.25, 0.5);
+                    // Where one copy meets the next the place on the picture jumps: how fast it runs is taken from where it does not.
+                    sprigAtX = turn * dFdx(spread) * vec2(0.25, 0.5);
+                    sprigAtY = turn * dFdy(spread) * vec2(0.25, 0.5);
+                    vec4 sprig = texture2DGradARB(uSprigs, sprigAt, sprigAtX, sprigAtY);
                     // A bush, or a young tree, seen along the game's own view, from overhead: it is a few
                     // leaves across and the game paints each of them, so the sprig is painted with what
                     // the sprite paints where the pixel is seen along that view, its middle at the sprite's
@@ -2300,7 +2320,7 @@ final class PipelineShaders {
                     } else {
                     // Far off, the smaller copies of the picture have every leaf part solid,
                     // and cut at half the crown would thin to twigs.
-                    float fine = max(fwidth(on.x), fwidth(on.y));
+                    float fine = max(fwidth(spread.x), fwidth(spread.y));
                     if (sprig.a < mix(0.5, 0.4, smoothstep(0.004, 0.02, fine))) {
                         discard;
                     }
@@ -3382,7 +3402,7 @@ final class PipelineShaders {
                 vec3 leafFace = n;
                 float leafThrough = 1.0;
                 if (crown) {
-                    vec3 shape = texture2D(uSprigForm, sprigAt).rgb;
+                    vec3 shape = texture2DGradARB(uSprigForm, sprigAt, sprigAtX, sprigAtY).rgb;
                     vec3 acrossX = dFdx(vPlace), acrossY = dFdy(vPlace);
                     vec3 flatOf = normalize(cross(acrossX, acrossY) + vec3(1e-12));
                     if (dot(flatOf, view) < 0.0) {
@@ -3390,7 +3410,7 @@ final class PipelineShaders {
                     }
                     // Which ways in the world the picture's across and down run on this card.
                     vec3 r1 = cross(acrossY, flatOf), r2 = cross(flatOf, acrossX);
-                    vec2 atX = dFdx(sprigAt), atY = dFdy(sprigAt);
+                    vec2 atX = sprigAtX, atY = sprigAtY;
                     vec3 right = r1 * atX.x + r2 * atY.x, down = r1 * atX.y + r2 * atY.y;
                     vec2 tip = shape.rg * 2.0 - 1.0;
                     leafFace = normalize(flatOf * sqrt(max(1.0 - dot(tip, tip), 0.05))
