@@ -63,6 +63,7 @@ final class RoofTests {
         Checks.run("farSideOfARowOverADormerStandsOnTheWall", RoofTests::farSideOfARowOverADormerStandsOnTheWall);
         Checks.run("roomWithNoFloorUnderTheRoofIsNoStorey", RoofTests::roomWithNoFloorUnderTheRoofIsNoStorey);
         Checks.run("roomTheSlopePassesWhollyOverIsNoStoreyItStopsAt", RoofTests::roomTheSlopePassesWhollyOverIsNoStoreyItStopsAt);
+        Checks.run("farSideStandsOnTheStoreyItCoversThoughItsNearSideRunsOnDownOverAPorch", RoofTests::farSideStandsOnTheStoreyItCoversThoughItsNearSideRunsOnDownOverAPorch);
         Checks.run("eaveOverALeanToThatStopsShortOfItIsMade", RoofTests::eaveOverALeanToThatStopsShortOfItIsMade);
         Checks.run("trimPastAGableIsNoRoofGoingOn", RoofTests::trimPastAGableIsNoRoofGoingOn);
         Checks.run("trimPastAHipsCornerLeavesTheCornersEave", RoofTests::trimPastAHipsCornerLeavesTheCornersEave);
@@ -626,6 +627,56 @@ final class RoofTests {
                         "where the slope stops at the house's own eave the far slope is made from the far eave at 3 up to the ridge, though the slope runs on down to 2 beside it, at "
                                 + x + ", " + y + ": " + said(tile));
             }
+        }
+    }
+
+    /**
+     * The house at 869..883 x 12514..12526: its south slope, ridged at 3 on the north edge of row 4 here, runs on down in one plane
+     * over a porch on level 1 to an eave at 1, while the rooms of level 1 go on north of the ridge to y 0. The map has the south slope only.
+     */
+    private static void farSideStandsOnTheStoreyItCoversThoughItsNearSideRunsOnDownOverAPorch() {
+        List<RoofFit.Tile> roof = new ArrayList<>();
+        for (int x = 0; x <= 3; x++) {
+            for (int y = 4; y <= 9; y++) {
+                float north = 3f - (y - 4) * THIRD;
+                roof.add(new RoofFit.Tile(x, y, (int) Math.floor(north - THIRD + 0.05f), RoofFit.ALONG_Y, true, north, north - THIRD));
+            }
+        }
+        roof.sort(Comparator.comparingLong(tile -> RoofFit.key(tile.x, tile.y, tile.z)));
+        RoofFit.fit(roof);
+        RoofFit.Site house = new RoofFit.Site() {
+            @Override
+            public boolean stands(int x, int y, int z) {
+                return x >= 0 && x <= 3 && y >= 0 && y <= (z <= 1 ? 9 : 6);
+            }
+
+            @Override
+            public boolean floored(int x, int y, int z) {
+                return false;
+            }
+
+            @Override
+            public boolean storey(int x, int y, int z) {
+                return x >= 0 && x <= 3 && y >= 0 && y <= 6 && z == 1;
+            }
+
+            @Override
+            public boolean taken(int x, int y, int z, float over) {
+                return storey(x, y, z) && over < z + 1 - 0.01f;
+            }
+        };
+        HashMap<Long, RoofFit.Tile> over = new HashMap<>();
+        for (RoofFit.Tile tile : RoofFit.backs(roof, house)) {
+            over.put(RoofFit.key(tile.x, tile.y, 0), tile);
+        }
+        for (int x = 0; x <= 3; x++) {
+            for (int y = 0; y <= 2; y++) {
+                RoofFit.Tile tile = over.get(RoofFit.key(x, y, 0));
+                check(tile != null && !tile.shaped && tile.fitAxis == RoofFit.ALONG_Y && near(tile.fitLow, 2f + y * THIRD) && near(tile.fitHigh, 2f + (y + 1) * THIRD),
+                        "the far side climbs from the north wall at the top of the storey, 2, to the ridge, at " + x + ", " + y + ": " + said(tile));
+            }
+            RoofFit.Tile top = over.get(RoofFit.key(x, 3, 0));
+            check(top != null && near(top.fitLow, 3f) && near(top.fitHigh, 3f), "and lies level at the ridge's height beside it, at " + x + ", 3: " + said(top));
         }
     }
 

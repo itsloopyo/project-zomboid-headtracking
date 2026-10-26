@@ -811,6 +811,12 @@ final class Roofs {
             }
 
             @Override
+            public boolean storey(int x, int y, int z) {
+                IsoGridSquare square = cell.getGridSquare(x, y, z);
+                return square != null && square.getRoomID() != -1L && !roofVoid(square, z);
+            }
+
+            @Override
             public boolean taken(int x, int y, int z, float roof) {
                 IsoGridSquare square = cell.getGridSquare(x, y, z);
                 // A room the slope passes wholly over is a storey under the roof, as the farmhouse's attic on level 2

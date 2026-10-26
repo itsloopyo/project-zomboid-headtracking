@@ -521,6 +521,11 @@ final class RoofFit {
         default boolean annex(int fromX, int fromY, int x, int y, int z) {
             return false;
         }
+
+        /** Whether the square at that level is a room of a storey: one with floors, not the space under a roof. */
+        default boolean storey(int x, int y, int z) {
+            return false;
+        }
     }
 
     /** The furthest a roof's level top is crossed to reach the place of its far slope, in tiles. */
@@ -741,6 +746,15 @@ final class RoofFit {
                 continue;
             }
             int floor = (int) Math.floor(eave + LEAST_RISE);
+            // The far side stands on the top of the storey it covers, never in it. A near side that runs on down in one plane over a
+            // lower part of the building has its eave a storey under the far side's rooms: a house's south slope comes down over its
+            // porch on level 1 (871..874, 12521..12526), and its far side fell from the ridge to the floor of level 2 there, a sunken
+            // flat beside the rows to the east, which stand on the north wall (869..878, 12515..12520).
+            while (floor + 1 < ridge - SAME && site.storey(x, y, floor)) {
+                floor++;
+                eave = floor;
+                climbed = Math.round((ridge - eave) / rise);
+            }
             int open = 0;
             // The far slope over a square stands no lower than the ridge less a tile's climb for every square from the ridge to the square's far edge.
             // It comes down over a lower crown behind the ridge until it meets the crown's height: the map has no tile
