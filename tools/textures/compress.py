@@ -59,8 +59,9 @@ BARKS = ['bark-oak', 'bark-linden', 'bark-maple', 'bark-birch', 'bark-pine', 'ba
 # The materials with a picture of heights beside them (tools/materials/heights.py), which goes in as the fourth number of each texel.
 RAISED = ['asphalt', 'gravel', 'soil', 'shingles', 'wood', 'planks']
 PLAIN = ['grass', 'paint', 'carpet', 'vinyl', 'cloth', 'jersey', 'rock']
-# Fallen leaves, behind them the straw of a barn floor (WorldScene.STRAW) and the poured concrete of a pavement (Ground.PAVING): one texture, as Pipeline.LITTER reads it.
-LITTER = ['litter', 'straw', 'concrete']
+# Fallen leaves, behind them the straw of a barn floor (WorldScene.STRAW), the poured concrete of a pavement (Ground.PAVING)
+# and terrazzo (WorldScene.TERRAZZO): one texture, as Pipeline.LITTER reads it.
+LITTER = ['litter', 'straw', 'concrete', 'terrazzo']
 # The outputs whose layers are read with the one gain the file holds, the first's: each layer's must be the same, to within a hundredth.
 SAME_GAIN = {'litter'}
 CUT_OUT = ['leaves', 'frond', 'ivy', 'sprigs']

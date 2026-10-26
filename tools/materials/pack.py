@@ -32,7 +32,10 @@ LEAST = {'asphalt': 0.152, 'bark-birch': 0.299, 'bark-dogwood': 0.476, 'bark-hem
          'rock': 0.393, 'soil': 0.449, 'vinyl': 0.163, 'wood': 0.151}
 # A surface that is a later layer of another's texture, which holds one gain, the first layer's (tools/textures/compress.py,
 # SAME_GAIN): it is brought to that one's mean light.
-SAME_LIGHT = {'straw': 'litter', 'concrete': 'litter'}
+SAME_LIGHT = {'straw': 'litter', 'concrete': 'litter', 'terrazzo': 'litter'}
+# A surface laid over a sprite's own colour, whole (WorldScene.TERRAZZO): its broad light and dark, which would be seen to repeat from
+# tile to tile, are taken out, those broader than EVEN of the picture, and its mean is made grey, so the sprite keeps its colour.
+EVEN = {'terrazzo': 1 / 16}
 LIGHT = numpy.array([0.299, 0.587, 0.114], dtype=numpy.float32)
 
 # The most of a picture drawn out to its LEAST that may go past black or white.
@@ -240,6 +243,18 @@ def main():
                     wanted = high
                 rgb = mean + (rgb - mean) * (wanted / has)
                 print(f'{name}: light varies {has:.3f} over its mean, laid at {wanted:.3f} (least {LEAST.get(name, 0.0):.3f}), {clipped(rgb):.2%} clipped')
+                picture = Image.fromarray(numpy.clip(rgb + 0.5, 0, 255).astype(numpy.uint8), 'RGB')
+            if name in EVEN:
+                rgb = numpy.asarray(picture, dtype=numpy.float32)
+                broad = rgb @ LIGHT
+                # A box blur three times over is near enough a Gaussian, and wraps round as the picture does.
+                for _ in range(3):
+                    for axis in (0, 1):
+                        reach = round(EVEN[name] * broad.shape[axis] / 2)
+                        broad = sum(numpy.roll(broad, step, axis=axis) for step in range(-reach, reach + 1)) / (2 * reach + 1)
+                rgb = rgb * (broad.mean() / broad)[..., None]
+                rgb = rgb * ((rgb @ LIGHT).mean() / rgb.reshape(-1, 3).mean(axis=0))
+                print(f'{name}: light broader than {EVEN[name]:.3f} of it taken out, mean made grey, {clipped(rgb):.2%} clipped')
                 picture = Image.fromarray(numpy.clip(rgb + 0.5, 0, 255).astype(numpy.uint8), 'RGB')
             if name in SAME_LIGHT:
                 rgb = numpy.asarray(picture, dtype=numpy.float32)

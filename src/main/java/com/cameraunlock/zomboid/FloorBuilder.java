@@ -394,7 +394,8 @@ final class FloorBuilder {
         }
         // A fitted carpet is one colour, with a nap the picture has a picture of: the few dots of
         // lighter and darker the game scatters on it are blots when magnified.
-        if (carpet ? tiles.uneven > CARPET_UNEVEN : tiles.count == 0 && tiles.diagonal == 0 && tiles.blocks == 0 && tiles.pavers == null && tiles.hexes == null) {
+        boolean terrazzo = !carpet && tiles.speckled;
+        if (carpet ? tiles.uneven > CARPET_UNEVEN : !terrazzo && tiles.count == 0 && tiles.diagonal == 0 && tiles.blocks == 0 && tiles.pavers == null && tiles.hexes == null) {
             return false;
         }
         int count = carpet ? 1 : tiles.count;
@@ -404,7 +405,11 @@ final class FloorBuilder {
         build.frame.material = carpet ? WorldScene.CARPET : outside && (tiles.rimmed || tiles.pavers != null || tiles.hexes != null) ? Ground.PAVING : WorldScene.TILE;
         float each = 1f / count;
         layFloor(true);
-        if (!carpet && tiles.blocks > 0) {
+        if (terrazzo) {
+            // Terrazzo is one face in the mean colour of the sprite, whose chips, blots when magnified, the picture lays.
+            build.frame.material = WorldScene.TERRAZZO;
+            build.geometry.addFace(painted(texture.getID(), red, green, blue, tiles.red, tiles.green, tiles.blue), build.frame, x, y, z, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
+        } else if (!carpet && tiles.blocks > 0) {
             // Parquet is one face in the mean colour of the sprite, which the picture lays as blocks of slats in its own wood.
             build.frame.material = WorldScene.parquetOf(tiles.blocks, tiles.slats, tiles.evenAlongY);
             build.geometry.addFace(painted(texture.getID(), red, green, blue, tiles.red, tiles.green, tiles.blue), build.frame, x, y, z, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);

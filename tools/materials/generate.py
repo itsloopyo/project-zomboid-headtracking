@@ -40,6 +40,9 @@ SURFACES = {
     'concrete': 'Looking straight down at an old poured concrete pavement slab that fills the whole frame: a fine sandy surface with small '
                 'exposed pale and dark grains of aggregate, faint brushed marks and a few tiny pits, worn evenly all over, with no joints, '
                 'cracks, stains or markings and nothing lying on it.' + SHOT,
+    'terrazzo': 'Looking straight down at the worn terrazzo floor of an old school corridor that fills the whole frame: a dense crowded '
+                'mosaic of thousands of tiny crushed marble chips in beige, cream, dusty pink, tan, brown and grey, packed so tightly that '
+                'they cover almost all of the surface, the same all over, with no divider strips, joints, cracks or stains.' + SHOT,
     'gravel': 'Looking straight down at a bed of compacted gravel that fills the whole frame: small pale grey angular crushed stones packed in grit '
               'and dust, spread evenly all over, with no larger rocks and nothing else on it.' + SHOT,
     'soil': 'Looking straight down at bare garden topsoil that fills the whole frame: fine dark brown crumbly earth with a few tiny stones, thin pale '

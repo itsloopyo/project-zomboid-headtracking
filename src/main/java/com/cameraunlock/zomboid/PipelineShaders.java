@@ -1028,6 +1028,8 @@ final class PipelineShaders {
             const float TARMAC_DEPTH_SHARE = 0.14, EARTH_DEPTH_SHARE = 0.8;
             // How many times the straw's picture is laid to a tile: its stalks are as long as the sprite's.
             const float STRAW_SCALE = 1.25;
+            // How many times terrazzo's picture is laid to a tile: its chips come out a centimetre or two across.
+            const float TERRAZZO_SCALE = 1.0;
             // Over how many tiles what every surface mirrors of what is round it fades out, before
             // the built world itself begins to: see gone.
             const float MIRROR_FADE = 25.0;
@@ -1067,7 +1069,7 @@ final class PipelineShaders {
             const vec3 GAME_VIEW = vec3(0.61237, 0.61237, 0.5);
             uniform sampler2D uCloth;
             uniform float uClothGain;
-            // Fallen leaves, and behind them the straw a barn floor is bedded with (WorldScene.STRAW).
+            // Fallen leaves, and behind them the straw a barn floor is bedded with (WorldScene.STRAW), a pavement's concrete and terrazzo.
             uniform sampler2DArray uLitter;
             uniform sampler2D uRock;
             uniform sampler2D uFrond;
@@ -3462,6 +3464,13 @@ final class PipelineShaders {
                             texture2DArray(uLitter, vec3(vPlace.yx * STRAW_SCALE + 0.5, 1.0)).rgb, turn);
                     texel.rgb *= mix(1.0, dot(stalks, vec3(0.299, 0.587, 0.114)) * uNatureGain.x, 0.9);
                 }
+                // Terrazzo (WorldScene.TERRAZZO), painted in the sprite's mean colour: its chips are the litter's
+                // fourth picture, whose mean is grey, so they keep their own colours round the sprite's.
+                if (uOwnTextures > 0.5 && vMaterial > 97.5 && vMaterial < 98.5) {
+                    float turn = smoothstep(0.45, 0.55, wrappedPatches(vPlace.xy * 0.25, vec2(15.0)));
+                    texel.rgb *= mix(texture2DArray(uLitter, vec3(vPlace.xy * TERRAZZO_SCALE, 3.0)).rgb,
+                            texture2DArray(uLitter, vec3(vPlace.yx * TERRAZZO_SCALE + 0.5, 3.0)).rgb, turn) * uNatureGain.x;
+                }
                 // It has had the weather longest, and is a shade darker than the slopes it joins.
                 if (capping) {
                     texel.rgb *= 0.72;
@@ -4012,7 +4021,8 @@ final class PipelineShaders {
                 // a chair. Under the sky boards and tiles are a deck and paving slabs
                 // (floors_exterior_tilesandstone), weathered dull: glazed, they were sheets of ice under snow.
                 bool indoors = open <= 0.5;
-                float polish = !indoors ? 0.0 : vMaterial > 2.5 && vMaterial < 3.5 ? 0.22 : vMaterial > 10.5 && vMaterial < 11.5 ? 0.3 * (1.0 - grout) : 0.0;
+                bool terrazzo = vMaterial > 97.5 && vMaterial < 98.5;
+                float polish = !indoors ? 0.0 : vMaterial > 2.5 && vMaterial < 3.5 ? 0.22 : vMaterial > 10.5 && vMaterial < 11.5 ? 0.3 * (1.0 - grout) : terrazzo ? 0.22 : 0.0;
                 // A window pane mirrors whichever way it faces, and so does the glass of a screen.
                 // So does a mirror in its frame, and more than either.
                 float pane = glazed > 0.5 ? 0.6 : showing ? 0.0 : surface > 9.5 && surface < 10.5 ? 0.4
@@ -4032,9 +4042,12 @@ final class PipelineShaders {
                     if (vMaterial > 86.5 && vMaterial < 87.5) {
                         rough = 0.28;
                     }
-                    // Glazed tile is glossier than a varnished board.
+                    // Glazed tile is glossier than a varnished board, and polished terrazzo as glossy as the board.
                     if (indoors && vMaterial > 10.5 && vMaterial < 11.5) {
                         rough = 0.22;
+                    }
+                    if (indoors && terrazzo) {
+                        rough = 0.32;
                     }
                     // Bark, rock and dry leaves are as dull as anything is, however pale.
                     if (grown) {

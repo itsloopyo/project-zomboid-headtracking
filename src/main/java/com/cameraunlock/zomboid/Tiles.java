@@ -118,6 +118,12 @@ final class Tiles {
     /** The fewest dots a side a sprite has to be read at to be read for pavers: a cell of the smaller sprites is a few dots across. */
     private static final int PAVER_SIDE = 48;
     /**
+     * A floor that is no grid is chips of stone in a ground (terrazzo) where its light strays from
+     * its mean by SPECKLED_LEAST or more, and no more than SPECKLED_RUNS of that is in the means of
+     * its rows or of its columns: boards and planks laid end to end have half or more there.
+     */
+    private static final float SPECKLED_LEAST = 0.03f, SPECKLED_RUNS = 0.15f;
+    /**
      * Hexagons: the most times the light is looked for to repeat across the square each way,
      * and how many of the strongest repeats are tried as the two of a lattice. A honeycomb's
      * light repeats along three ways at once, k1, k2 and k1 - k2 or k1 + k2: the three have to
@@ -144,6 +150,8 @@ final class Tiles {
         int count;
         /** How far the square's dots lie from its one colour, squared: a carpet's is small, a pattern's is not. */
         float uneven;
+        /** For a floor that is no grid, whether it is chips of stone in a ground, scattered the same every way: see speckled. */
+        boolean speckled;
         /** Each tile's red, green and blue, the tile at x and y at (x * count + y) * 3. */
         float[] colours;
         /** The colour of the joints, and of the floor as a whole. */
@@ -260,6 +268,7 @@ final class Tiles {
             shape.colours = new float[3];
             shape.uneven = uneven(dots, side, 1, EDGE, shape);
             shape.count = 0;
+            shape.speckled = speckled(dots, side);
         }
         if (FirstPerson.TRACE) {
             Log.info("floor " + texture.getName() + (shape == null ? " is not a square of floor"
@@ -267,7 +276,7 @@ final class Tiles {
                     : shape.pavers != null ? " is " + shape.pavers.length / 7 + " pavers on " + shape.cellsA + " by " + shape.cellsB + " cells"
                     : shape.hexes != null ? " is " + shape.hexes.length / 5 + " hexagonal pavers"
                     : shape.diagonal > 0 ? " is tiles on the diagonal, " + shape.diagonal + " joints a tile from " + shape.phase + " and " + shape.phaseAcross + (shape.checkered ? ", chequered" : "")
-                    : shape.count == 0 ? " is no grid of plain tiles, uneven " + shape.uneven
+                    : shape.count == 0 ? " is no grid of plain tiles, uneven " + shape.uneven + (shape.speckled ? ", speckled" : "")
                     : " is " + shape.count + " tiles a side"));
         }
         if (shape == null) {
@@ -1604,4 +1613,45 @@ final class Tiles {
         }
         return tiles == 0 ? Float.MAX_VALUE : all / tiles;
     }
+
+    /**
+     * Whether a square of floor laid flat is speckled: its light strays from its mean as chips do,
+     * and runs no way, as the joints of boards laid end to end do (SPECKLED_LEAST, SPECKLED_RUNS).
+     */
+    static boolean speckled(float[] dots, int side) {
+        float[] light = new float[side * side];
+        double sum = 0;
+        int painted = 0;
+        for (int dot = 0; dot < side * side; dot++) {
+            if (dots[dot * 3] >= 0f) {
+                light[dot] = 0.299f * dots[dot * 3] + 0.587f * dots[dot * 3 + 1] + 0.114f * dots[dot * 3 + 2];
+                sum += light[dot];
+                painted++;
+            }
+        }
+        float mean = (float) (sum / painted);
+        double strays = 0;
+        for (int dot = 0; dot < side * side; dot++) {
+            if (dots[dot * 3] < 0f) {
+                light[dot] = mean;
+            }
+            strays += (light[dot] - mean) * (light[dot] - mean);
+        }
+        strays /= side * side;
+        if (strays < SPECKLED_LEAST * SPECKLED_LEAST) {
+            return false;
+        }
+        double rows = 0, columns = 0;
+        for (int k = 0; k < side; k++) {
+            double row = 0, column = 0;
+            for (int other = 0; other < side; other++) {
+                row += light[k * side + other] - mean;
+                column += light[other * side + k] - mean;
+            }
+            rows += (row / side) * (row / side);
+            columns += (column / side) * (column / side);
+        }
+        return Math.max(rows, columns) / side <= SPECKLED_RUNS * strays;
+    }
+
 }

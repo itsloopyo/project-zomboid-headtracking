@@ -30,7 +30,7 @@ final class PictureTests {
     static void run() throws IOException {
         Checks.run("everyPackedPictureIsTheOneMadeFromItsSources", PictureTests::everyPackedPictureIsTheOneMadeFromItsSources);
         Checks.run("theBarksArePackedInTheOrderTheyAreCountedIn", PictureTests::theBarksArePackedInTheOrderTheyAreCountedIn);
-        Checks.run("theLitterIsTheLeavesTheStrawThenTheConcrete", PictureTests::theLitterIsTheLeavesTheStrawThenTheConcrete);
+        Checks.run("theLitterIsTheLeavesTheStrawTheConcreteThenTheTerrazzo", PictureTests::theLitterIsTheLeavesTheStrawTheConcreteThenTheTerrazzo);
         Checks.run("aPictureIsReadWholeOrWithoutItsLargestLevel", PictureTests::aPictureIsReadWholeOrWithoutItsLargestLevel);
         Checks.run("aFileThatIsNotAWholePictureIsRefused", PictureTests::aFileThatIsNotAWholePictureIsRefused);
         Checks.run("blocksUnpackAsTheReferenceUnpacksThem", PictureTests::blocksUnpackAsTheReferenceUnpacksThem);
@@ -136,14 +136,18 @@ final class PictureTests {
         check(false, "made.txt lists the barks");
     }
 
-    /** Pipeline.LITTER reads the fallen leaves from the litter's first layer, the straw of a barn floor (WorldScene.STRAW) from its second and a pavement's concrete (Ground.PAVING) from its third. */
-    private static void theLitterIsTheLeavesTheStrawThenTheConcrete() throws IOException {
+    /**
+     * Pipeline.LITTER reads the fallen leaves from the litter's first layer, the straw of a barn floor (WorldScene.STRAW) from its second,
+     * a pavement's concrete (Ground.PAVING) from its third and terrazzo (WorldScene.TERRAZZO) from its fourth.
+     */
+    private static void theLitterIsTheLeavesTheStrawTheConcreteThenTheTerrazzo() throws IOException {
         for (Made each : made()) {
             if (each.output.equals("materials/litter.bc")) {
-                check(each.sources.size() == 3 && each.sources.get(0)[0].equals("materials/litter.jpg") && each.sources.get(1)[0].equals("materials/straw.jpg")
-                        && each.sources.get(2)[0].equals("materials/concrete.jpg"), "the litter is packed from the leaves, the straw and then the concrete");
+                check(each.sources.size() == 4 && each.sources.get(0)[0].equals("materials/litter.jpg") && each.sources.get(1)[0].equals("materials/straw.jpg")
+                        && each.sources.get(2)[0].equals("materials/concrete.jpg") && each.sources.get(3)[0].equals("materials/terrazzo.jpg"),
+                        "the litter is packed from the leaves, the straw, the concrete and then the terrazzo");
                 OffHeap.Block litter = Pictures.packed("/materials/litter.bc", true);
-                check(litter.bytes.getInt(16) == 3, "the three are one behind the other in one file");
+                check(litter.bytes.getInt(16) == 4, "the four are one behind the other in one file");
                 litter.free();
                 return;
             }

@@ -33,6 +33,7 @@ final class WindowTests {
         Checks.run("bricksInBasketweaveArePavers", WindowTests::bricksInBasketweaveArePavers);
         Checks.run("honeycombIsHexagonalPavers", WindowTests::honeycombIsHexagonalPavers);
         Checks.run("boardsAreNoTiles", WindowTests::boardsAreNoTiles);
+        Checks.run("chipsInAGroundAreSpeckled", WindowTests::chipsInAGroundAreSpeckled);
         Checks.run("diagonalFloorIsItsDiamonds", WindowTests::diagonalFloorIsItsDiamonds);
         Checks.run("parquetIsItsBlocksOfSlats", WindowTests::parquetIsItsBlocksOfSlats);
         Checks.run("shadedTilesAreAGrid", WindowTests::shadedTilesAreAGrid);
@@ -503,6 +504,31 @@ final class WindowTests {
         int ci = Math.floorMod(i - 5, 64) / 16, cj = Math.floorMod(j - 5, 64) / 16;
         boolean alongX = (ci / 2 + cj / 2) % 2 == 0;
         return Math.floorMod(i - 5, 16) == 0 && (!alongX || ci % 2 == 0) || Math.floorMod(j - 5, 16) == 0 && (alongX || cj % 2 == 0);
+    }
+
+    private static void chipsInAGroundAreSpeckled() {
+        // Chips two to four dots across in pink, brown and white, scattered over a beige ground, cover about a third of it.
+        float[][] chips = {{0.8f, 0.62f, 0.6f}, {0.5f, 0.38f, 0.3f}, {0.9f, 0.88f, 0.84f}};
+        float[] terrazzo = floor(64, (x, y) -> new float[] {0.7f, 0.66f, 0.58f});
+        Random random = new Random(80);
+        for (int chip = 0; chip < 160; chip++) {
+            int i0 = random.nextInt(64), j0 = random.nextInt(64), across = 2 + random.nextInt(3);
+            float[] colour = chips[random.nextInt(chips.length)];
+            for (int i = i0; i < i0 + across; i++) {
+                for (int j = j0; j < j0 + across; j++) {
+                    System.arraycopy(colour, 0, terrazzo, ((i % 64) * 64 + j % 64) * 3, 3);
+                }
+            }
+        }
+        check(Tiles.laid(terrazzo, 64) == null && Tiles.speckled(terrazzo, 64), "chips in a ground are no tiles, and speckled");
+        // Boards eight dots wide along y, each its own shade, with a dark joint between, and the joints across them out of line from board to board.
+        float[] boards = floor(64, (x, y) -> {
+            int i = (int) (x * 64f), j = (int) (y * 64f), board = i / 8;
+            float shade = i % 8 == 0 || (j + board * 23) % 40 == 0 ? 0.2f : 0.45f + (board * 37 % 7) * 0.03f + ((i * 7 + j * 13) % 5 - 2) * 0.01f;
+            return new float[] {shade, shade * 0.8f, shade * 0.6f};
+        });
+        check(!Tiles.speckled(boards, 64), "boards are not speckled");
+        check(!Tiles.speckled(floor(64, (x, y) -> new float[] {0.5f, 0.5f, 0.5f}), 64), "nor is a floor of one colour");
     }
 
     private static void honeycombIsHexagonalPavers() {

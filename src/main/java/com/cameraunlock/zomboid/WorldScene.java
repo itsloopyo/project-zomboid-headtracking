@@ -2105,6 +2105,8 @@ final class WorldScene {
     static final float OWN_STAINED = 96f;
     /** The straw bedding a barn floor: see FloorBuilder.addStraw. */
     static final float STRAW = 97f;
+    /** Terrazzo, chips of stone in a ground: see FloorBuilder.addTiles. */
+    static final float TERRAZZO = 98f;
     /** The game's two hay floors. */
     private static final Set<String> HAY_FLOORS = Set.of("vegetation_farm_01_12", "vegetation_farm_01_13");
     /** What the game calls the sheets and boards it hangs flat on a wall. */
