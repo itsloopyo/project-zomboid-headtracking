@@ -77,6 +77,7 @@ final class ShaderTests {
         Checks.run("figuresAndTerrainShareSunsetHaze", ShaderTests::figuresAndTerrainShareSunsetHaze);
         Checks.run("aThinSpriteSampleTakesItsColourFromTheSamplesItsCutReads", ShaderTests::aThinSpriteSampleTakesItsColourFromTheSamplesItsCutReads);
         Checks.run("spreadGroundThatDoesNotShowHidesNothing", () -> spreadGroundThatDoesNotShowHidesNothing(programs));
+        Checks.run("grimeIsSeenOnlyFromItsSide", () -> grimeIsSeenOnlyFromItsSide(programs));
         Checks.run("everyProgramPassesTheReferenceCompiler", () -> everyProgramPassesTheReferenceCompiler(programs));
         Checks.run("theFloorAsksForWhatTheFragmentStagesRead", () -> theFloorAsksForWhatTheFragmentStagesRead(programs));
     }
@@ -429,6 +430,18 @@ final class ShaderTests {
         Checks.check(developed.contains("develop.set(\"uFogStart\", fogStart);") && developed.contains("develop.set(\"uFogEnd\", fogEnd);")
                 && developed.contains("develop.set(\"uLoaded\", loadedX - camera.eyeX, loadedY - camera.eyeY, loadedWithin);") && developed.contains("develop.set(\"uBeyond\", beyond);"),
                 "the develop pass is not told where the world ends, as the world's is");
+    }
+
+    /**
+     * A wall's grime lies a layer out from the wall's skin. An eye in the wall's thickness, at its end, has the skin cut by
+     * the near plane and the grime a layer further out just past it: a sheet 5 cm from the eye over half the picture that wrote
+     * its depth and kept the sky out of it, so half the sky came out black (13770,1874, looking east). Read, not run.
+     */
+    private static void grimeIsSeenOnlyFromItsSide(List<Linked> programs) {
+        String world = fragment(programs, "world").replaceAll("//[^\n]*", "").replaceAll("\\s+", " ");
+        Checks.check(world.contains("pictureScreen = vec2(dFdx(vUv.y), dFdy(vUv.y)); }"
+                + " if (stainTint && dot(uEye - vWorld, vLies) <= 0.0) { discard; }"),
+                "a wall's grime is drawn for an eye behind the layer it lies out to");
     }
 
     /**

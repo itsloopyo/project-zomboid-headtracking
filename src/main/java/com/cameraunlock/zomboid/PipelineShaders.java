@@ -1765,6 +1765,12 @@ final class PipelineShaders {
                     coverScreen = vec2(dFdx(vCover), dFdy(vCover));
                     pictureScreen = vec2(dFdx(vUv.y), dFdy(vUv.y));
                 }
+                // Grime is seen only from the side it lies out to. An eye in the wall's thickness has the
+                // wall's skin cut by the near plane, and the grime a layer further out was a sheet that hid
+                // the sky over half the picture.
+                if (stainTint && dot(uEye - vWorld, vLies) <= 0.0) {
+                    discard;
+                }
                 // A wall's sprite is drawn on the slant, each column of its dots a step below the
                 // last, and sharpening across those columns rules the wall with stripes: walls
                 // and doors are read plainly.
