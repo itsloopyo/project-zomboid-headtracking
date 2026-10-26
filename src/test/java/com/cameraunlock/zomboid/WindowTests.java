@@ -29,6 +29,7 @@ final class WindowTests {
         Checks.run("sheetRolledUpHangsNowhere", WindowTests::sheetRolledUpHangsNowhere);
         Checks.run("wallpaperIsItsStripes", WindowTests::wallpaperIsItsStripes);
         Checks.run("plainWallWithADoorInItIsOneStripe", WindowTests::plainWallWithADoorInItIsOneStripe);
+        Checks.run("paperIsReadWhereTheWallRunsAllAlong", WindowTests::paperIsReadWhereTheWallRunsAllAlong);
         Checks.run("chequeredFloorIsItsTiles", WindowTests::chequeredFloorIsItsTiles);
         Checks.run("bricksInBasketweaveArePavers", WindowTests::bricksInBasketweaveArePavers);
         Checks.run("honeycombIsHexagonalPavers", WindowTests::honeycombIsHexagonalPavers);
@@ -448,6 +449,23 @@ final class WindowTests {
         Arrays.fill(told, 8, 32, false);
         Arrays.fill(told, 0, 2, false);
         check(Papers.striped(columns, told) == null, "and a sliver of wall says too little");
+    }
+
+    private static void paperIsReadWhereTheWallRunsAllAlong() {
+        // A doorway from column 3 to 28 below row 30, its reveal painted down columns 1 and 2, the sprite's last column empty.
+        int across = 32, high = 96;
+        byte[] dots = new byte[across * high];
+        for (int row = 0; row < high; row++) {
+            for (int column = 0; column < across - 1; column++) {
+                dots[row * across + column] = row >= 30 && column >= 3 && column <= 28 ? Windows.EMPTY : Windows.FRAME;
+            }
+        }
+        boolean[] rows = Papers.wallRows(dots, across, high, 6);
+        check(!rows[5] && rows[6] && rows[29], "the rows above the doorway's head are read");
+        check(!rows[30] && !rows[95], "and none beside the doorway, down which the reveal is painted");
+        Arrays.fill(dots, 0, 26 * across, Windows.EMPTY);
+        rows = Papers.wallRows(dots, across, high, 6);
+        check(rows[6] && rows[30] && rows[95], "a sprite with too little wall all along is read from every row");
     }
 
     /** A square of floor side dots a side: the colour at each dot from its place, x then y, each 0 to 1. */

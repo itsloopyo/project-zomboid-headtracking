@@ -26,6 +26,8 @@ final class Papers {
     private static final int MOST = 16;
     /** A paper with more than this share of its dots off the colour of their column has a figure on it. */
     private static final float FIGURED = 0.22f;
+    /** How many dots fewer than the fullest row a row may hold and still be wall all along, where the sprite's ends step on the slant. */
+    private static final int RAGGED = 2;
 
     /** One sprite's wall: n stripes, the first starting at 0 and the last ending at 1. */
     static final class Paper {
@@ -84,13 +86,13 @@ final class Papers {
         boolean[] told = new boolean[across];
         int odd = 0, all = 0;
         int[] bands = new int[Windows.BANDS];
+        boolean[] rows = wallRows(dots, across, high, Math.round(high * BELOW_TOP));
         for (int column = 0; column < across; column++) {
-            // The colour most of the column has. The shadow in the reveal of a window and the
-            // flowers of a figured paper are in it too, and are no part of the stripe.
+            // The colour most of the column has. The flowers of a figured paper are in it too, and are no part of the stripe.
             Arrays.fill(bands, 0);
             int painted = 0;
             for (int row = Math.round(high * BELOW_TOP); row < high; row++) {
-                if (dots[row * across + column] == Windows.FRAME) {
+                if (rows[row] && dots[row * across + column] == Windows.FRAME) {
                     bands[Windows.band(sheet, at[row * across + column])]++;
                     painted++;
                 }
@@ -102,7 +104,7 @@ final class Papers {
             long red = 0, green = 0, blue = 0;
             int count = 0;
             for (int row = Math.round(high * BELOW_TOP); row < high; row++) {
-                if (dots[row * across + column] == Windows.FRAME && Math.abs(Windows.band(sheet, at[row * across + column]) - fullest) <= 1) {
+                if (rows[row] && dots[row * across + column] == Windows.FRAME && Math.abs(Windows.band(sheet, at[row * across + column]) - fullest) <= 1) {
                     int place = at[row * across + column];
                     red += sheet.get(place) & 0xff;
                     green += sheet.get(place + 1) & 0xff;
@@ -134,6 +136,34 @@ final class Papers {
         paper.originV = wanted.originV;
         paper.scale = wanted.scale;
         known.put(texture, paper);
+    }
+
+    /**
+     * The rows of a sprite laid flat, across dots each, that a paper is read from: those from
+     * first down that are wall all along, as full of it as the fullest row, above a doorway's head
+     * and above and below a window. Beside an opening the sprite paints the shadow in its reveal
+     * down most of a column, and the column read as a dark stripe up the wall to the ceiling. A
+     * sprite with fewer than FEWEST such rows is read from all of them.
+     */
+    static boolean[] wallRows(byte[] dots, int across, int high, int first) {
+        int[] wall = new int[high];
+        int fullest = 0;
+        for (int row = first; row < high; row++) {
+            for (int column = 0; column < across; column++) {
+                wall[row] += dots[row * across + column] == Windows.FRAME ? 1 : 0;
+            }
+            fullest = Math.max(fullest, wall[row]);
+        }
+        boolean[] rows = new boolean[high];
+        int whole = 0;
+        for (int row = first; row < high; row++) {
+            rows[row] = wall[row] >= fullest - RAGGED;
+            whole += rows[row] ? 1 : 0;
+        }
+        if (whole < FEWEST) {
+            Arrays.fill(rows, first, high, true);
+        }
+        return rows;
     }
 
     /**
