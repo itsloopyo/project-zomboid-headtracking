@@ -30,9 +30,9 @@ final class FloorBuilder {
     /** How much of a square's own ground the ground spreading over it covers where the square's own goes on through. */
     private static final float OWN_KEPT = 0f;
     /**
-     * How much of a made floor, paving or a path, the ground beside it covers at their shared
-     * edge: enough for a ragged fringe a little way in and no more. As much as over other
-     * ground, it ran half the square in, and a slab of paving a few squares across went under.
+     * How much of a path of loose ground the ground beside it covers at their shared edge:
+     * enough for a ragged fringe a little way in and no more. As much as over other ground, it
+     * ran half the square in.
      */
     private static final float MADE_EDGE = 0.6f;
     private final int[] around = new int[25];
@@ -57,8 +57,8 @@ final class FloorBuilder {
      *
      * Of two kinds of open ground the one whose texture has the higher name spreads over the
      * other, which is as good a rule as any and is the same from both sides. Ground spreads
-     * over a road or a path and out over the edge of water, never the other way, and nothing
-     * spreads indoors. A lone square of ground, a tree's pit in a pavement, spreads over nothing
+     * a fringe over a path of loose ground and out over the edge of water, never the other way.
+     * It stops at paving and at a street, and nothing spreads indoors. A lone square of ground, a tree's pit in a pavement, spreads over nothing
      * but other open ground.
      */
     void spreadGround(int x, int y, int localX, int localY) {
@@ -67,6 +67,15 @@ final class FloorBuilder {
         // A street ends at its kerb, and the verge stands behind it: nothing grows out over the tarmac.
         if (build.groundKind[own] == Terrain.UNKNOWN || build.groundKind[own] == Terrain.STREET || build.lightOpen[own] != 1) {
             return;
+        }
+        // Nor over paving, which ends at a straight edge as the game paints it: frayed a quarter of a square in from
+        // either side, a pavement one square wide read as eaten away.
+        IsoObject floor = build.groundObject[own];
+        if (build.groundKind[own] == Terrain.MADE && floor != null) {
+            PropertyContainer properties = floor.getSprite().getProperties();
+            if (!Ground.loose(properties.get("FloorMaterial"), properties.get("FootstepMaterial"))) {
+                return;
+            }
         }
         int mine = build.groundRank[own];
         int spread = 0;

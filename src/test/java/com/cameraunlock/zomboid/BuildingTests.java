@@ -363,6 +363,11 @@ final class BuildingTests {
         check(Ground.of("Road_02", null, true) == Ground.PAVING, "the sandy floor of an old lot is poured concrete too");
         check(Ground.of(null, "Gravel", true) == Ground.GRAVEL, "a floor of gravel that is no street's is loose stone");
         check(Ground.of(null, "Gravel", false) == 0f, "what lies on a floor is not the ground");
+        check(Ground.loose(null, "Gravel") && Ground.loose(null, "Dirt") && Ground.loose(null, "Sand") && Ground.loose(null, "Grass"),
+                "a drive of gravel and a path of earth, sand or grass are loose ground, which the ground beside them frays into");
+        check(!Ground.loose(null, "Concrete") && !Ground.loose(null, "Ceramic") && !Ground.loose(null, null),
+                "a pavement of slabs, of tiles or of anything else made ends at a straight edge");
+        check(!Ground.loose("Road_04", "Gravel"), "and so does the pale floor of a pavement, whatever it sounds like underfoot");
         check(Ground.of("Road_07", null, true) == 0f && Ground.of(null, "Concrete", true) == 0f, "any other ground is what its sheet says");
     }
 

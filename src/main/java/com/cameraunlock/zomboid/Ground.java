@@ -21,4 +21,12 @@ final class Ground {
         }
         return isFloor && "Gravel".equals(footstep) ? GRAVEL : 0f;
     }
+
+    /**
+     * Whether a made floor outdoors is loose ground, a gravel drive or a path of earth, sand or grass, which the
+     * ground beside it runs a ragged fringe over. Paving of any kind is not: it ends at a straight edge.
+     */
+    static boolean loose(String floorMaterial, String footstep) {
+        return of(floorMaterial, footstep, true) == GRAVEL || "Dirt".equals(footstep) || "Sand".equals(footstep) || "Grass".equals(footstep);
+    }
 }
