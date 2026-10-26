@@ -2191,7 +2191,7 @@ final class WorldScene {
         if (name.startsWith("walls_exterior_wooden")) {
             return BOARDS;
         }
-        if (name.startsWith("floors_interior_carpet") || name.startsWith("floors_rugs")) {
+        if (name.startsWith("floors_interior_carpet") || name.startsWith("floors_rugs") || name.startsWith("floor_carpet_motif")) {
             return CARPET;
         }
         if (name.startsWith("walls_")) {
