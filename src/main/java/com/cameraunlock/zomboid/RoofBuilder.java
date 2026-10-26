@@ -221,13 +221,15 @@ final class RoofBuilder {
 
     /**
      * The building a roof over open ground on (x, y, z) comes off: the first one under it to the
-     * south or the east, the roof going on over every square between. Gables are made at the
-     * west and north ends, so the house is that way from them. Null for a roof standing on its own.
+     * south or the east, the roof going on over every square between, or failing that to the
+     * north or the west, for a porch roof run on down from the house's own slope past its wall
+     * (13837..13843, 4677..4678). Null for a roof standing on its own.
      */
     private IsoBuilding buildingAlongTheRoof(int x, int y, int z) {
-        for (int way = 0; way < 2; way++) {
+        for (int way = 0; way < 4; way++) {
             for (int step = 1; step <= PORCH_DEEP; step++) {
-                int alongX = way == 0 ? x : x + step, alongY = way == 0 ? y + step : y;
+                int across = way < 2 ? step : -step;
+                int alongX = way % 2 == 0 ? x : x + across, alongY = way % 2 == 0 ? y + across : y;
                 if (!roofGoesOn(alongX, alongY, z)) {
                     break;
                 }
@@ -312,6 +314,21 @@ final class RoofBuilder {
         return TallHalls.roomOf(build.cell, beyondX, beyondY, z - 1) != RoomSight.OUTSIDE;
     }
 
+    /**
+     * Whether the edge of a roof tile on (x, y, z) stands over the building's outer wall on the
+     * storey below, the tile out over the open and the building beyond. A porch roof the house's
+     * slope runs on down to is higher over that wall than the wall's top, and the gap between
+     * them opened into the roof (13837..13843, 4677..4678): the wall goes on up to the roof.
+     */
+    private boolean overOuterWall(int x, int y, int beyondX, int beyondY, int z, boolean north) {
+        if (z == 0) {
+            return false;
+        }
+        IsoGridSquare below = build.cell.getGridSquare(x, y, z - 1);
+        return below != null && WorldScene.wallOn(below, north) != null && TallHalls.roomOf(build.cell, x, y, z - 1) == RoomSight.OUTSIDE
+                && TallHalls.roomOf(build.cell, beyondX, beyondY, z - 1) != RoomSight.OUTSIDE;
+    }
+
     /** How far a roof's sheet laid as a floor is followed past the building's end to the slope made over it, in squares. */
     private static final int SHEET_RUN = 6;
 
@@ -366,7 +383,8 @@ final class RoofBuilder {
             float second = north ? northEast : southWest;
             int beyondX = north ? x : x - 1, beyondY = north ? y - 1 : y;
             // Over a porch no building goes on to say where the roof's end is, so its own end does.
-            if (Math.max(northWest, second) < GABLE_LEAST || buildingGoesOn(x, y, beyondX, beyondY, z) || porch && roofGoesOn(beyondX, beyondY, z)
+            if (Math.max(northWest, second) < GABLE_LEAST
+                    || !overOuterWall(x, y, beyondX, beyondY, z, north) && (buildingGoesOn(x, y, beyondX, beyondY, z) || porch && roofGoesOn(beyondX, beyondY, z))
                     || square != null && WorldScene.wallOn(square, north) != null) {
                 continue;
             }
