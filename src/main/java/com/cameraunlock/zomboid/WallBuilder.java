@@ -703,6 +703,9 @@ final class WallBuilder {
         if (build.overLayer == 0 || farRoom == nearRoom) {
             addSkin(inRoom(far, farRoom), opening, at, x, y, z, 0f, 0f, da, db, fromStart, fromEnd, fromTop, startIsLow);
         }
+        if (faced != null && build.overLayer == 0 && !build.logs && LogWalls.is(faced.sprite.getName()) && Own.buildings()) {
+            addFarLogs(faced.texture, texture, x, y, z, da, db);
+        }
         build.frame.flat = 0;
         paper = null;
         tiles = null;
@@ -903,6 +906,52 @@ final class WallBuilder {
         if (logsCross(x + (int) da, y + (int) db, z, north) && !logsOn(x + (int) da, y + (int) db, z, north)) {
             build.placed.add(Models.get("log_end"), build.frame, x, y, x + da, y + db, foot, north ? 2 : 3, 1f, 1f, id, wood, u, v, 0, 0f, 0f);
             build.placed.wallEnd();
+        }
+    }
+
+    /**
+     * Lays the outer halves of the logs a log cabin shows outside a wall of another kind, a chimney breast of stone,
+     * along the north edge of the square or its west: on the far side, each piece where the outside wall's sprite logs,
+     * whose texels the frame holds, paints a log and this wall's own sprite paints the wall. Whole logs would stand
+     * through this wall's face inside. log_course_back's half is at its +y: turned 2 on a north edge and 1 on a west one,
+     * that is the side away from the square.
+     */
+    private void addFarLogs(Texture logs, Texture texture, int x, int y, int z, float da, float db) {
+        boolean north = da != 0f;
+        float base = (z + build.geometry.raised) * ViewCamera.LEVEL_HEIGHT;
+        float foot = base + Math.min(build.geometry.liftAt(0f, 0f), build.geometry.liftAt(da, db)) - (north ? 0f : LogWalls.RADIUS);
+        float u = SpriteGeometry.textureU(build.frame, da * LogWalls.DYE_ALONG, db * LogWalls.DYE_ALONG);
+        float v = SpriteGeometry.textureV(build.frame, da * LogWalls.DYE_ALONG, db * LogWalls.DYE_ALONG, LogWalls.DYE_HIGH);
+        int wood = 1 << Models.WOOD, id = logs.getID(), turn = north ? 2 : 1;
+        int pieces = coursePainted.length;
+        boolean[] painted = coursePainted;
+        for (int course = 0; course < 10; course++) {
+            float under = foot + 2f * course * LogWalls.RADIUS, axis = logUp(2f * course + (north ? 1f : 0f));
+            int count = 0;
+            for (int piece = 0; piece < pieces; piece++) {
+                painted[piece] = logPainted(logs, da, db, piece, course, north) && paintedOnWall(texture, 0f, 0f, da, db, logAlong(piece), axis, 0f);
+            }
+            for (int piece = 0; piece < SHORT_END && !painted[piece]; piece++) {
+                painted[piece] = true;
+            }
+            for (int piece = pieces - 1; piece >= pieces - SHORT_END && !painted[piece]; piece--) {
+                painted[piece] = true;
+            }
+            for (int piece = 0; piece < pieces; piece++) {
+                count += painted[piece] ? 1 : 0;
+            }
+            if (count == pieces) {
+                build.placed.add(Models.get("log_course_back"), build.frame, x, y, x + da * 0.5f, y + db * 0.5f, under, turn, 1f, 1f, id, wood, u, v, 0, 0f, 0f);
+                build.placed.wall();
+                continue;
+            }
+            for (int piece = 0; piece < pieces; piece++) {
+                if (painted[piece]) {
+                    float mid = (piece + 0.5f) * LogWalls.PIECE;
+                    build.placed.add(Models.get("log_piece_back"), build.frame, x, y, x + da * mid, y + db * mid, under, turn, 1f, 1f, id, wood, u, v, 0, 0f, 0f);
+                    build.placed.wall();
+                }
+            }
         }
     }
 

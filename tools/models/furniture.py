@@ -12606,10 +12606,24 @@ def log_single(name, half):
     return model
 
 
+def log_single_back(name, half):
+    """The half of log_single at +Y: the logs a cabin shows outside a wall of another kind, a chimney breast of stone,
+    which would stand through that wall's own face inside were they whole."""
+    model = Model(name, centred=False)
+    bark, ends = bmesh.new(), bmesh.new()
+    logs_along_x(bark, ends, LOG_RADIUS, -half, half, -half, half)
+    for bm in (bark, ends):
+        bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=(0.0, 0.0, 0.0), plane_no=(0.0, -1.0, 0.0), clear_outer=True)
+    model.turned(bark, "wood", sharp=50.0)
+    model.plain(ends, "worktop")
+    return model
+
+
 def log_walls():
     """The log walls of a cabin: the ends that run on past a corner, and a course a square long and in a sixteenth of a
-    square for the courses a door or a window cuts."""
-    return [log_wall("log_end", 0.0, LOG_OVER, True), log_single("log_course", 0.5), log_single("log_piece", 1.0 / 32)]
+    square for the courses a door or a window cuts, whole and as the outer half alone."""
+    return [log_wall("log_end", 0.0, LOG_OVER, True), log_single("log_course", 0.5), log_single("log_piece", 1.0 / 32),
+            log_single_back("log_course_back", 0.5), log_single_back("log_piece_back", 1.0 / 32)]
 
 
 def shops():
