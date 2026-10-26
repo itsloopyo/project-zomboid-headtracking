@@ -15,6 +15,7 @@ final class BuildingTests {
 
     static void run() {
         Checks.run("glassPantileRoofIsGlass", BuildingTests::glassPantileRoofIsGlass);
+        Checks.run("boardedGablesAreBoards", BuildingTests::boardedGablesAreBoards);
         Checks.run("plainWallHasAPlinthAndACourseAndThePlinthStopsAtADoor", BuildingTests::plainWallHasAPlinthAndACourseAndThePlinthStopsAtADoor);
         Checks.run("coursesStandOnTheirWallNotASquareOut", BuildingTests::coursesStandOnTheirWallNotASquareOut);
         Checks.run("canopyIsLinedWithPanelsAndALightEveryThirdSquare", BuildingTests::canopyIsLinedWithPanelsAndALightEveryThirdSquare);
@@ -617,6 +618,16 @@ final class BuildingTests {
         }
         for (int place : new int[] {0, 31, 64, 77, 80}) {
             check(WorldScene.materialOf("roofs_02_" + place, false) == WorldScene.SHINGLES, "roofs_02_" + place + " is tiles");
+        }
+    }
+
+    /** A gable sheet of upright boards is boarded as the walls of boards it caps; one of siding or brick is not. */
+    private static void boardedGablesAreBoards() {
+        for (String sheet : new String[] {"walls_exterior_roofs_02_", "walls_exterior_roofs_06_", "walls_exterior_roofs_30_17_", "walls_exterior_roofs_30_18_"}) {
+            check(WorldScene.materialOf(sheet + "27", false) == WorldScene.BOARDS, sheet + " is boards");
+        }
+        for (String sheet : new String[] {"walls_exterior_roofs_03_", "walls_exterior_roofs_04_", "walls_exterior_roofs_30_15_", "walls_exterior_roofs_30_02_"}) {
+            check(WorldScene.materialOf(sheet + "27", false) == WorldScene.PAINT, sheet + " is not");
         }
     }
 

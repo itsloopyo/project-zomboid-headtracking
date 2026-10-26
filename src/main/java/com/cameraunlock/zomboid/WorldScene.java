@@ -2197,7 +2197,10 @@ final class WorldScene {
         if (name.startsWith("lighting_")) {
             return LAMP;
         }
-        if (name.startsWith("walls_exterior_wooden")) {
+        // The gable sheets of upright boards cap walls of boards: as paint, a farmhouse's gables
+        // were one smooth sheet of grain over walls laid board by board (2863..2875, 10395..10404).
+        if (name.startsWith("walls_exterior_wooden") || name.startsWith("walls_exterior_roofs_02_") || name.startsWith("walls_exterior_roofs_06_")
+                || name.startsWith("walls_exterior_roofs_30_17_") || name.startsWith("walls_exterior_roofs_30_18_")) {
             return BOARDS;
         }
         if (name.startsWith("floors_interior_carpet") || name.startsWith("floors_rugs") || name.startsWith("floor_carpet_motif")) {
