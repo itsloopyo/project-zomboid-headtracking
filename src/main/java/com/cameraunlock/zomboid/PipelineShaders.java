@@ -3322,12 +3322,13 @@ final class PipelineShaders {
                     float fine = dot(grain3, vec3(0.299, 0.587, 0.114));
                     float bright = dot(texel.rgb, vec3(0.299, 0.587, 0.114));
                     texel.rgb = mix(texel.rgb * mix(1.0, fine, 0.9), grain3 * bright, 0.8 * (stony - paved)) * (1.0 - 0.35 * reliefLow);
-                    if (paved > 0.0) {
+                    if (paved > 0.0 && uTint.a < 0.5) {
                         // Poured concrete, not laid slabs: a square panel to a tile, cut by a
                         // joint along every tile's edge and never broken bond, no two panels
                         // quite the same grey. Joints finer than a pixel are left out: they
                         // would only crawl. In the game's own view from overhead the game paints
-                        // its concrete plain, and so is this.
+                        // its concrete plain, and so is this. Slabs and pavers laid as tiles
+                        // have joints of their own, and a paver may run over a tile's edge.
                         vec2 slab = p;
                         vec2 toJoint = min(fract(slab), 1.0 - fract(slab));
                         vec2 soft = fwidth(p);
