@@ -6451,11 +6451,14 @@ final class PipelineShaders {
                 // say nothing of which way it faces: there it is taken to face the eye.
                 // From the seat a panel is at arm's length and the depth it was drawn with
                 // comes in steps finer than a pixel is wide: read close by, the steps show as
-                // rings. Read from further off they do not.
+                // rings. Read from further off they do not. Lacquer mirrors the sky and the sun
+                // so sharply that a vehicle's panels show the same steps as stripes and rings from
+                // outside too, while a vehicle is still wide enough on the screen to read across.
                 float close = uInside * step(ahead * length(ray), 2.2);
+                bool readWide = close > 0.5 || uPainted > 0.5 && ahead * length(ray) < 12.0;
                 // What the picture builds says which way it faces itself.
                 vec3 found = wheel || dial ? vec3(0.0) : builtCabin && !framed ? partNormalAt(uv, at, 5.0) + partNormalAt(uv, at, 11.0)
-                        : close > 0.5 ? normalAt(uv, at, 5.0) + normalAt(uv, at, 11.0) : normalAt(uv, at, 1.5) + normalAt(uv, at, 4.0);
+                        : readWide ? normalAt(uv, at, 5.0) + normalAt(uv, at, 11.0) : normalAt(uv, at, 1.5) + normalAt(uv, at, 4.0);
                 vec3 n = length(found) > 0.1 ? normalize(found) : view;
                 if (bonnetSeen) {
                     // The depth the game drew here is the glass's. The bonnet's own is read,
