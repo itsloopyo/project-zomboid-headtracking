@@ -1618,28 +1618,29 @@ final class RoofTests {
      * 12720..12731 and 3125..3130 x 5754..5760: the map leaves the lower row at x 4 with no tile at a gable's peak, or with
      * only the level sheet a bay's hip is cut short at, at the row's foot. The north side made from that row comes down
      * to the wall at 1 with the rest: it read the upper row's foot as the eave, ran level at the crown's height and stood
-     * on the wall at 1 + 1/3.
+     * on the wall at 1 + 1/3. A third of a level lower, the lower row tops on the floor of level 1 and is held on level 0.
      */
     private static void farSideOfARowOverABayStandsOnTheWall() {
         for (boolean bay : new boolean[] {false, true}) {
-            farSideOfARowOverABayStandsOnTheWall(bay);
+            farSideOfARowOverABayStandsOnTheWall(bay, 0f);
+            farSideOfARowOverABayStandsOnTheWall(bay, THIRD);
         }
     }
 
-    private static void farSideOfARowOverABayStandsOnTheWall(boolean bay) {
+    private static void farSideOfARowOverABayStandsOnTheWall(boolean bay, float lower) {
         RoofFit.Site site = standing((x, y) -> x >= 0 && x <= 9 && y >= 0 && y <= 9);
         List<RoofFit.Tile> roof = new ArrayList<>();
         for (int x = 0; x <= 9; x++) {
-            roof.add(new RoofFit.Tile(x, 8, 1, RoofFit.ALONG_Y, true, 1f + 2 * THIRD, 1f + THIRD));
+            roof.add(new RoofFit.Tile(x, 8, 1, RoofFit.ALONG_Y, true, 1f + 2 * THIRD - lower, 1f + THIRD - lower));
             if (x != 4) {
-                roof.add(new RoofFit.Tile(x, 9, 1, RoofFit.ALONG_Y, true, 1f + THIRD, 1f));
+                roof.add(new RoofFit.Tile(x, 9, lower > 0f ? 0 : 1, RoofFit.ALONG_Y, true, 1f + THIRD - lower, 1f - lower));
             } else if (bay) {
-                RoofFit.Tile sheet = new RoofFit.Tile(x, 9, 1, RoofFit.LEVEL, true, 1f + THIRD, 1f + THIRD);
+                RoofFit.Tile sheet = new RoofFit.Tile(x, 9, 1, RoofFit.LEVEL, true, 1f + THIRD - lower, 1f + THIRD - lower);
                 sheet.sheet = true;
                 roof.add(sheet);
             }
             for (int y = 2; y <= 7; y++) {
-                RoofFit.Tile crown = new RoofFit.Tile(x, y, 1, RoofFit.LEVEL, true, 1f + 2 * THIRD, 1f + 2 * THIRD);
+                RoofFit.Tile crown = new RoofFit.Tile(x, y, 1, RoofFit.LEVEL, true, 1f + 2 * THIRD - lower, 1f + 2 * THIRD - lower);
                 crown.sheet = true;
                 roof.add(crown);
             }
@@ -1648,8 +1649,9 @@ final class RoofTests {
         List<RoofFit.Tile> made = RoofFit.backs(roof, site);
         for (int y = 0; y <= 1; y++) {
             RoofFit.Tile face = madeAt(made, 4, y);
-            check(face != null && !face.shaped && face.fitAxis == RoofFit.ALONG_Y && near(face.fitLow, 1f + y * THIRD) && near(face.fitHigh, 1f + (y + 1) * THIRD),
-                    (bay ? "the north side over the bay" : "the north side over the gable's peak") + " climbs from the wall at 4, " + y + ": " + said(face));
+            check(face != null && !face.shaped && face.fitAxis == RoofFit.ALONG_Y && near(face.fitLow, 1f - lower + y * THIRD)
+                    && near(face.fitHigh, 1f - lower + (y + 1) * THIRD), (bay ? "the north side over the bay" : "the north side over the gable's peak")
+                    + " climbs from the wall at 4, " + y + ", " + lower + " lower: " + said(face));
         }
     }
 

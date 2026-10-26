@@ -718,7 +718,7 @@ final class RoofFit {
             // The plane is looked for among every tile of the map, fitted or not: the hip end of a wing
             // whose lower row is the valley's tile is no plane of the fit's, and its row read its eave a
             // row up, so the far slope stood a third of a level over the wall (3919, 13816..13820).
-            // So does a row that stops over a small gable or bay standing out of its slope.
+            // A row that stops over a small gable or bay standing out of its slope takes the plane's eave too.
             float planeEave = cutByAWing(at, lowest, dx, dy) || overABay(at, built, site, lowest, dx, dy) ? eaveOfPlane(tiles, top) : eave;
             if (planeEave < eave - SAME) {
                 eave = planeEave;
@@ -1362,10 +1362,13 @@ final class RoofFit {
             return false;
         }
         for (int side = -1; side <= 1; side += 2) {
-            Tile beside = at.get(key(x + (dx == 0 ? side : 0), y + (dy == 0 ? side : 0), lowest.z));
-            if (beside != null && beside.slopes() && beside.fitAxis == lowest.fitAxis && beside.up() == lowest.up()
-                    && Math.abs(Math.max(beside.fitLow, beside.fitHigh) - foot) <= JOIN) {
-                return true;
+            // A tile whose top is on a whole level is held a level down.
+            for (int dz = 0; dz >= -1; dz--) {
+                Tile beside = at.get(key(x + (dx == 0 ? side : 0), y + (dy == 0 ? side : 0), lowest.z + dz));
+                if (beside != null && beside.slopes() && beside.fitAxis == lowest.fitAxis && beside.up() == lowest.up()
+                        && Math.abs(Math.max(beside.fitLow, beside.fitHigh) - foot) <= JOIN) {
+                    return true;
+                }
             }
         }
         return false;
