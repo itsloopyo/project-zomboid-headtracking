@@ -1520,6 +1520,10 @@ final class PipelineShaders {
     static final String WORLD_FRAGMENT_RELIEF = """
             // How much the picture is the game's own view from far overhead (Pipeline.gameView): 0 at the eye.
             uniform float uGameView;
+            // How many pixels wide a joint of brick or blocks is drawn at least from far overhead.
+            const float JOINT_SEEN_OVERHEAD = 1.6;
+            // How much lighter the mortar of brick and blocks is drawn from far overhead.
+            const float MORTAR_LIFT_OVERHEAD = 0.2;
             // A wall of boards, a shingled roof, a gravel drive are drawn as flat sheets, and
             // a flat sheet gives itself away the moment the head moves: the gap between two
             // boards does not slide behind the board in front of it, and no stone hides the
@@ -1940,11 +1944,17 @@ final class PipelineShaders {
                         reliefNear *= own;
                         walledNear = reliefNear;
                     }
+                    // From far overhead a joint of mortar is under a pixel and the wall reads as render: there
+                    // it is drawn at least JOINT_SEEN_OVERHEAD pixels wide, as the game's own picture draws it.
+                    float jointLeast = uGameView * JOINT_SEEN_OVERHEAD * 0.5 * max(soft.x, soft.y);
+                    // facBrick shades its mortar as lying back in the shadow of the bricks; seen from
+                    // overhead a joint is a pixel or two and that shade took it to the bricks' own tone.
+                    vec3 mortarSeen = uJoint * (1.0 + MORTAR_LIFT_OVERHEAD * uGameView);
                     // A block is a brick three times the size, and every one the same grey.
-                    vec3 laid = how < 4.5 ? facBrick(uTint.rgb, uJoint, run, up, soft, vec2(BRICK_LONG, BRICK_HIGH), BRICK_JOINT, 1.0, turned)
+                    vec3 laid = how < 4.5 ? facBrick(uTint.rgb, mortarSeen, run, up, soft, vec2(BRICK_LONG, BRICK_HIGH), max(BRICK_JOINT, jointLeast), 1.0, turned)
                             : how < 5.5 ? facLapped(uTint.rgb, run, up, soft, turned)
                             : how < 6.5 ? facStone(uTint.rgb, uJoint, run, up, soft, turned)
-                            : facBrick(uTint.rgb, uJoint, run, up, soft, vec2(BLOCK_LONG, BLOCK_HIGH), BLOCK_JOINT, 0.3, turned);
+                            : facBrick(uTint.rgb, mortarSeen, run, up, soft, vec2(BLOCK_LONG, BLOCK_HIGH), max(BLOCK_JOINT, jointLeast), 0.3, turned);
                     texel.rgb = mix(texel.rgb, laid, own) * (1.0 - 0.12 * reliefLow);
                     // Where the depth is drawn, its own lean is the edges' turn: the drawn one gives way to it.
                     lean = turned.x * own * (1.0 - walledNear);
