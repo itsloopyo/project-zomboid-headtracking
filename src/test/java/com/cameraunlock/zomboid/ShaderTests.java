@@ -471,9 +471,10 @@ final class ShaderTests {
         String vertex = vertex(programs, "world").replaceAll("//[^\n]*", "").replaceAll("\\s+", " ");
         Checks.check(vertex.contains("vWorld = at.xyz + lies; vLies = lies;"), "the fragment stage is not told how far a vertex lies over its surface");
         // Lifted straight up, a layer seen from above slid up the picture off its square and bared a line of the
-        // ground under it along each near edge: the overhead view showed pale lines between squares of spread ground.
+        // ground under it along each near edge: the overhead view showed pale lines between squares of spread ground,
+        // and at a slant, bare ground showed in lines where grass spread over it met the grass's own square.
         Checks.check(vertex.contains("if (uModel < 0.5 && !strip && gl_MultiTexCoord1.z > 4.5) { vec3 toEye = normalize(uEye - at.xyz);"
-                + " lies = mix(lies, toEye * (lies.z / max(toEye.z, 0.2)), smoothstep(0.2, 0.35, toEye.z)); } vWorld = at.xyz + lies;"),
+                + " lies = toEye.z > 0.0 && lies.z > 0.0 ? toEye * (lies.z / max(toEye.z, 0.2)) : lies; } vWorld = at.xyz + lies;"),
                 "what is laid and looked down on is not lifted along the line it is seen on, and slides off its square");
     }
 

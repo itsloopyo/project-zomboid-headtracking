@@ -739,13 +739,15 @@ final class PipelineShaders {
                 }
                 // What is laid lies a layer over its ground, and lifted straight up it slides up the
                 // picture off its own square, baring a line of the ground under it along each near
-                // edge. Looked down on, it is lifted towards the eye instead, along the line it is
-                // seen on: as far clear of its ground in depth, and drawn where the ground is. Seen
-                // at a slant that line runs on for tiles, and would bring it out in front of what
-                // stands before its square: there it is lifted straight up.
+                // edge: looked down on, and at a slant wherever the next square's layer is lower,
+                // as grass spread over bare ground is next to the grass's own square. So it is lifted
+                // towards the eye instead, along the line it is seen on, and drawn where the ground
+                // is, at least as far clear of it in depth as it lies over it. Seen at a slant that
+                // line runs on for tiles, and would bring it out in front of what stands before its
+                // square, so it goes no further than it does seen from a fifth of the way up.
                 if (uModel < 0.5 && !strip && gl_MultiTexCoord1.z > 4.5) {
                     vec3 toEye = normalize(uEye - at.xyz);
-                    lies = mix(lies, toEye * (lies.z / max(toEye.z, 0.2)), smoothstep(0.2, 0.35, toEye.z));
+                    lies = toEye.z > 0.0 && lies.z > 0.0 ? toEye * (lies.z / max(toEye.z, 0.2)) : lies;
                 }
                 vWorld = at.xyz + lies;
                 vLies = lies;
