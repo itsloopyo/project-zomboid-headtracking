@@ -23,10 +23,11 @@ import zombie.core.textures.Texture;
  *
  * Last, pavers: a grid of cells, of which some joints are laid and some are not, so that the
  * cells make bricks one by two, two by two and so on, laid in rows or herringbone, each paver
- * in a colour of its own.
+ * in a colour of its own. And hexagonal pavers, whose middles lie on a lattice that the light
+ * of the square repeats along three ways at once.
  *
- * A floor that is none of these is not read as one: hexagons, slabs laid out of line, a
- * pattern across the tiles.
+ * A floor that is none of these is not read as one: slabs laid out of line, a pattern across
+ * the tiles.
  */
 final class Tiles {
     /** The numbers of tiles to a side that are tried. */
@@ -116,6 +117,25 @@ final class Tiles {
     private static final float PAVER_CLEAR = 3.5f;
     /** The fewest dots a side a sprite has to be read at to be read for pavers: a cell of the smaller sprites is a few dots across. */
     private static final int PAVER_SIDE = 48;
+    /**
+     * Hexagons: the most times the light is looked for to repeat across the square each way,
+     * and how many of the strongest repeats are tried as the two of a lattice. A honeycomb's
+     * light repeats along three ways at once, k1, k2 and k1 - k2 or k1 + k2: the three have to
+     * stand at least HEX_PEAK times as strong as the light's median repeat, the strongest no
+     * more than HEX_EVEN times the weakest, and the longest no more than HEX_ROUND times the
+     * shortest, which a grid of squares, its third way along the diagonal, is not.
+     */
+    private static final int HEX_MOST = 16, HEX_TRIED = 8;
+    private static final float HEX_PEAK = 3f, HEX_EVEN = 2.5f, HEX_ROUND = 1.25f;
+    /** The fewest hexagons to a square: fewer are slabs, not pavers. */
+    private static final int FEWEST_HEXES = 9;
+    /**
+     * How many places along each step of the lattice a hexagon's middle is looked for at, and
+     * how many of them either way of the first guess it is then looked for at again by its joints.
+     */
+    private static final int HEX_PHASES = 16, HEX_NEAR = 2;
+    /** A dot is inside its hexagon this far from its edge, in dots, and on the joint this near to it. */
+    private static final float HEX_INSIDE = 1.5f, HEX_JOINT = 0.75f;
 
     /** One sprite's floor. */
     static final class Shape {
@@ -164,6 +184,14 @@ final class Tiles {
          * of the square into the next, where the floor goes on the same.
          */
         float[] pavers;
+        /**
+         * Each hexagonal paver as five numbers: its middle along a and along b as a share of the
+         * square, and its red, green and blue; null for what is no floor of hexagons. A paver is
+         * every point nearer its middle than any other paver's, and may run over the edge of the
+         * square into the next. hexCorners holds the six corners of every one of them, along a
+         * and along b from its middle, in turn round it the way from a towards b.
+         */
+        float[] hexes, hexCorners;
     }
 
     private record Asked(float originU, float originV, float scale, float left, float top, float width, float height) {}
@@ -237,6 +265,7 @@ final class Tiles {
             Log.info("floor " + texture.getName() + (shape == null ? " is not a square of floor"
                     : shape.blocks > 0 ? " is parquet, " + shape.blocks + " blocks a side of " + shape.slats + " slats"
                     : shape.pavers != null ? " is " + shape.pavers.length / 7 + " pavers on " + shape.cellsA + " by " + shape.cellsB + " cells"
+                    : shape.hexes != null ? " is " + shape.hexes.length / 5 + " hexagonal pavers"
                     : shape.diagonal > 0 ? " is tiles on the diagonal, " + shape.diagonal + " joints a tile from " + shape.phase + " and " + shape.phaseAcross + (shape.checkered ? ", chequered" : "")
                     : shape.count == 0 ? " is no grid of plain tiles, uneven " + shape.uneven
                     : " is " + shape.count + " tiles a side"));
@@ -274,6 +303,10 @@ final class Tiles {
             if (shape != null) {
                 shape.uneven = uneven(dots, side, 1, EDGE, null);
             }
+        }
+        // A honeycomb before pavers: its rows of hexagons, half a hexagon out from row to row, can pass for bricks in bond.
+        if (shape == null && side >= PAVER_SIDE) {
+            shape = hexes(dots, side);
         }
         if (shape == null && side >= PAVER_SIDE) {
             shape = pavers(dots, side);
@@ -573,6 +606,353 @@ final class Tiles {
             }
         }
         return null;
+    }
+
+    /**
+     * Hexagonal pavers in a square of floor laid flat, or null. The light of a honeycomb repeats
+     * across the square along three ways at once, and of the strongest repeats the two that
+     * make such a three with the fewest pavers to the square give the steps between the pavers'
+     * middles. The middles are put where the pavers' edges, half way between neighbouring
+     * middles, run over the darkest dots: the joints. Every paver's colour is read inside it,
+     * away from its edges, and the joints' on its edges.
+     */
+    static Shape hexes(float[] dots, int side) {
+        float[] light = new float[side * side];
+        double sum = 0;
+        int painted = 0;
+        for (int dot = 0; dot < side * side; dot++) {
+            if (dots[dot * 3] >= 0f) {
+                light[dot] = 0.299f * dots[dot * 3] + 0.587f * dots[dot * 3 + 1] + 0.114f * dots[dot * 3 + 2];
+                sum += light[dot];
+                painted++;
+            }
+        }
+        float mean = (float) (sum / painted);
+        float[] cos = new float[side], sin = new float[side];
+        for (int n = 0; n < side; n++) {
+            cos[n] = (float) Math.cos(2.0 * Math.PI * n / side);
+            sin[n] = (float) Math.sin(2.0 * Math.PI * n / side);
+        }
+        // How strongly the light repeats kA times across the square along a and kB times along b,
+        // kB from 0 up: a repeat and its opposite are one.
+        // Summed along b for each row first, then along a: the read is on the thread that draws.
+        int rows = HEX_MOST + 1;
+        double[] rowRe = new double[side * rows], rowIm = new double[side * rows];
+        for (int i = 0; i < side; i++) {
+            for (int j = 0; j < side; j++) {
+                int dot = i * side + j;
+                if (dots[dot * 3] < 0f) {
+                    continue;
+                }
+                float off = light[dot] - mean;
+                for (int kB = 0; kB <= HEX_MOST; kB++) {
+                    int turn = kB * j % side;
+                    rowRe[i * rows + kB] += off * cos[turn];
+                    rowIm[i * rows + kB] -= off * sin[turn];
+                }
+            }
+        }
+        float[] strength = new float[(2 * HEX_MOST + 1) * rows], re = new float[strength.length], im = new float[strength.length];
+        Integer[] ranked = new Integer[(2 * HEX_MOST + 1) * rows - rows];
+        int candidates = 0;
+        for (int kA = -HEX_MOST; kA <= HEX_MOST; kA++) {
+            for (int kB = 0; kB <= HEX_MOST; kB++) {
+                if (kB == 0 && kA <= 0) {
+                    continue;
+                }
+                double sumRe = 0, sumIm = 0;
+                for (int i = 0; i < side; i++) {
+                    int turn = Math.floorMod(kA * i, side);
+                    double r = rowRe[i * rows + kB], m = rowIm[i * rows + kB];
+                    sumRe += r * cos[turn] + m * sin[turn];
+                    sumIm += m * cos[turn] - r * sin[turn];
+                }
+                int at = (kA + HEX_MOST) * rows + kB;
+                re[at] = (float) sumRe;
+                im[at] = (float) sumIm;
+                strength[at] = (float) Math.hypot(sumRe, sumIm);
+                ranked[candidates++] = at;
+            }
+        }
+        Arrays.sort(ranked, 0, candidates, (p, q) -> Float.compare(strength[q], strength[p]));
+        float[] rest = new float[candidates - HEX_TRIED];
+        for (int n = HEX_TRIED; n < candidates; n++) {
+            rest[n - HEX_TRIED] = strength[ranked[n]];
+        }
+        float usual = median(rest, rest.length);
+        int pickedA1 = 0, pickedB1 = 0, pickedA2 = 0, pickedB2 = 0, pickedThird = 0, fewest = Integer.MAX_VALUE;
+        float pickedWeakest = 0f;
+        for (int p = 0; p < HEX_TRIED; p++) {
+            for (int q = p + 1; q < HEX_TRIED; q++) {
+                int a1 = ranked[p] / rows - HEX_MOST, b1 = ranked[p] % rows, a2 = ranked[q] / rows - HEX_MOST, b2 = ranked[q] % rows;
+                for (int sign = -1; sign <= 1; sign += 2) {
+                    int a3 = a1 + sign * a2, b3 = b1 + sign * b2;
+                    if (b3 < 0 || b3 == 0 && a3 < 0) {
+                        a3 = -a3;
+                        b3 = -b3;
+                    }
+                    int count = Math.abs(a1 * b2 - b1 * a2);
+                    if (Math.abs(a3) > HEX_MOST || b3 > HEX_MOST || count < FEWEST_HEXES) {
+                        continue;
+                    }
+                    int third = (a3 + HEX_MOST) * rows + b3;
+                    float s1 = strength[ranked[p]], s2 = strength[ranked[q]], s3 = strength[third];
+                    float weakest = Math.min(s1, Math.min(s2, s3)), strongest = Math.max(s1, Math.max(s2, s3));
+                    double l1 = Math.hypot(a1, b1), l2 = Math.hypot(a2, b2), l3 = Math.hypot(a3, b3);
+                    if (weakest < HEX_PEAK * usual || strongest > HEX_EVEN * weakest
+                            || Math.max(l1, Math.max(l2, l3)) > HEX_ROUND * Math.min(l1, Math.min(l2, l3))) {
+                        continue;
+                    }
+                    if (count < fewest || count == fewest && weakest > pickedWeakest) {
+                        fewest = count;
+                        pickedWeakest = weakest;
+                        pickedA1 = a1;
+                        pickedB1 = b1;
+                        pickedA2 = a2;
+                        pickedB2 = b2;
+                        pickedThird = third;
+                    }
+                }
+            }
+        }
+        if (fewest == Integer.MAX_VALUE) {
+            return null;
+        }
+        // The steps between middles, in dots: each a whole repeat of one of the two and none of the other.
+        double turned = pickedA1 * pickedB2 - pickedB1 * pickedA2;
+        double[] steps = {pickedB2 * side / turned, -pickedA2 * side / turned, -pickedB1 * side / turned, pickedA1 * side / turned};
+        // Made as short and as square to each other as they go: each paver's neighbours are then a step either way along each and along the shorter of their sum and difference.
+        while (true) {
+            if (steps[2] * steps[2] + steps[3] * steps[3] < steps[0] * steps[0] + steps[1] * steps[1]) {
+                double a = steps[0], b = steps[1];
+                steps[0] = steps[2];
+                steps[1] = steps[3];
+                steps[2] = a;
+                steps[3] = b;
+            }
+            double m = Math.rint((steps[0] * steps[2] + steps[1] * steps[3]) / (steps[0] * steps[0] + steps[1] * steps[1]));
+            if (m == 0) {
+                break;
+            }
+            steps[2] -= m * steps[0];
+            steps[3] -= m * steps[1];
+        }
+        double[] corners = hexCorners(steps);
+        // A first guess at a middle: where the three repeats are all at their lightest, the
+        // pavers being lighter than their joints. Then the place near it, to a sixteenth of a
+        // step each way, where the edges as the lattice puts them run over the darkest dots.
+        int[] three = {(pickedA1 + HEX_MOST) * rows + pickedB1, (pickedA2 + HEX_MOST) * rows + pickedB2, pickedThird};
+        double guessA = 0, guessB = 0, lightest = -Double.MAX_VALUE;
+        for (int s1 = 0; s1 < HEX_PHASES; s1++) {
+            for (int s2 = 0; s2 < HEX_PHASES; s2++) {
+                double atA = (s1 * steps[0] + s2 * steps[2]) / HEX_PHASES, atB = (s1 * steps[1] + s2 * steps[3]) / HEX_PHASES, lit = 0;
+                for (int at : three) {
+                    double turn = 2.0 * Math.PI * ((at / rows - HEX_MOST) * (atA - 0.5) + at % rows * (atB - 0.5)) / side;
+                    lit += re[at] * Math.cos(turn) - im[at] * Math.sin(turn);
+                }
+                if (lit > lightest) {
+                    lightest = lit;
+                    guessA = atA;
+                    guessB = atB;
+                }
+            }
+        }
+        double[] nearest = new double[3];
+        double bestA = 0, bestB = 0, clearest = -Double.MAX_VALUE;
+        for (int s1 = -HEX_NEAR; s1 <= HEX_NEAR; s1++) {
+            for (int s2 = -HEX_NEAR; s2 <= HEX_NEAR; s2++) {
+                double fromA = guessA + (s1 * steps[0] + s2 * steps[2]) / HEX_PHASES, fromB = guessB + (s1 * steps[1] + s2 * steps[3]) / HEX_PHASES;
+                double inside = 0, onJoint = 0;
+                int insides = 0, onJoints = 0;
+                for (int i = 0; i < side; i++) {
+                    for (int j = 0; j < side; j++) {
+                        if (dots[(i * side + j) * 3] < 0f) {
+                            continue;
+                        }
+                        hexEdge(i + 0.5 - fromA, j + 0.5 - fromB, steps, nearest);
+                        if (nearest[0] > HEX_INSIDE) {
+                            inside += light[i * side + j];
+                            insides++;
+                        } else if (nearest[0] < HEX_JOINT) {
+                            onJoint += light[i * side + j];
+                            onJoints++;
+                        }
+                    }
+                }
+                double clear = insides == 0 || onJoints == 0 ? -Double.MAX_VALUE : inside / insides - onJoint / onJoints;
+                if (clear > clearest) {
+                    clearest = clear;
+                    bestA = fromA;
+                    bestB = fromB;
+                }
+            }
+        }
+        // Each dot's paver, by where its middle falls on the square, a quarter dot either way.
+        java.util.HashMap<Integer, Integer> slots = new java.util.HashMap<>();
+        int[] paverAt = new int[side * side];
+        float[] edgeAt = new float[side * side];
+        float[] middles = new float[fewest * 2];
+        for (int i = 0; i < side; i++) {
+            for (int j = 0; j < side; j++) {
+                int dot = i * side + j;
+                paverAt[dot] = -1;
+                if (dots[dot * 3] < 0f) {
+                    continue;
+                }
+                hexEdge(i + 0.5 - bestA, j + 0.5 - bestB, steps, nearest);
+                double midA = bestA + nearest[1] * steps[0] + nearest[2] * steps[2], midB = bestB + nearest[1] * steps[1] + nearest[2] * steps[3];
+                int key = Math.floorMod((int) Math.round(midA * 4), side * 4) * side * 4 + Math.floorMod((int) Math.round(midB * 4), side * 4);
+                Integer slot = slots.get(key);
+                if (slot == null) {
+                    if (slots.size() == fewest) {
+                        return null;
+                    }
+                    slot = slots.size();
+                    slots.put(key, slot);
+                    middles[slot * 2] = (float) (Math.floorMod((int) Math.round(midA * 4), side * 4) / 4.0 / side);
+                    middles[slot * 2 + 1] = (float) (Math.floorMod((int) Math.round(midB * 4), side * 4) / 4.0 / side);
+                }
+                paverAt[dot] = slot;
+                edgeAt[dot] = (float) nearest[0];
+            }
+        }
+        if (slots.size() != fewest) {
+            return null;
+        }
+        Shape shape = new Shape();
+        shape.hexes = new float[fewest * 5];
+        double[] sums = new double[fewest * 3], whole = new double[3];
+        int[] held = new int[fewest];
+        for (int dot = 0; dot < side * side; dot++) {
+            int paver = paverAt[dot];
+            if (paver < 0) {
+                continue;
+            }
+            for (int part = 0; part < 3; part++) {
+                whole[part] += dots[dot * 3 + part];
+                if (edgeAt[dot] > HEX_INSIDE) {
+                    sums[paver * 3 + part] += dots[dot * 3 + part];
+                }
+            }
+            if (edgeAt[dot] > HEX_INSIDE) {
+                held[paver]++;
+            }
+        }
+        float[] paverLight = new float[fewest];
+        for (int paver = 0; paver < fewest; paver++) {
+            if (held[paver] == 0) {
+                return null;
+            }
+            shape.hexes[paver * 5] = middles[paver * 2];
+            shape.hexes[paver * 5 + 1] = middles[paver * 2 + 1];
+            for (int part = 0; part < 3; part++) {
+                shape.hexes[paver * 5 + 2 + part] = (float) (sums[paver * 3 + part] / held[paver]);
+            }
+            paverLight[paver] = 0.299f * shape.hexes[paver * 5 + 2] + 0.587f * shape.hexes[paver * 5 + 3] + 0.114f * shape.hexes[paver * 5 + 4];
+        }
+        shape.red = (float) (whole[0] / painted);
+        shape.green = (float) (whole[1] / painted);
+        shape.blue = (float) (whole[2] / painted);
+        // How far the dots inside a paver lie from its light, on average, and how far below it those on its edges lie.
+        double off = 0;
+        int read = 0, onJoints = 0;
+        float[] dips = new float[side * side], jointLight = new float[side * side];
+        for (int dot = 0; dot < side * side; dot++) {
+            int paver = paverAt[dot];
+            if (paver < 0) {
+                continue;
+            }
+            if (edgeAt[dot] > HEX_INSIDE) {
+                off += Math.abs(light[dot] - paverLight[paver]);
+                read++;
+            } else if (edgeAt[dot] < HEX_JOINT) {
+                dips[onJoints] = paverLight[paver] - light[dot];
+                jointLight[onJoints++] = light[dot];
+            }
+        }
+        if (onJoints == 0 || median(dips, onJoints) < PAVER_CLEAR * (float) (off / read)) {
+            return null;
+        }
+        float darkHalf = median(jointLight, onJoints);
+        double[] joint = new double[3];
+        int joints = 0;
+        for (int dot = 0; dot < side * side; dot++) {
+            if (paverAt[dot] >= 0 && edgeAt[dot] < HEX_JOINT && light[dot] <= darkHalf) {
+                for (int part = 0; part < 3; part++) {
+                    joint[part] += dots[dot * 3 + part];
+                }
+                joints++;
+            }
+        }
+        shape.jointRed = (float) (joint[0] / joints);
+        shape.jointGreen = (float) (joint[1] / joints);
+        shape.jointBlue = (float) (joint[2] / joints);
+        shape.hexCorners = new float[12];
+        for (int k = 0; k < 12; k++) {
+            shape.hexCorners[k] = (float) (corners[k] / side);
+        }
+        shape.uneven = uneven(dots, side, 1, EDGE, null);
+        return shape;
+    }
+
+    /**
+     * The six corners of a paver of the lattice whose steps, the shortest it has and as square
+     * to each other as they go, are (steps[0], steps[1]) and (steps[2], steps[3]): each where
+     * the paver's middle and two neighbours next to each other round it are as far from it.
+     * Along a and along b from the middle, in turn the way from a towards b.
+     */
+    private static double[] hexCorners(double[] steps) {
+        double sumA = steps[0] + steps[2], sumB = steps[1] + steps[3], diffA = steps[0] - steps[2], diffB = steps[1] - steps[3];
+        boolean sum = sumA * sumA + sumB * sumB <= diffA * diffA + diffB * diffB;
+        double[] near = {steps[0], steps[1], steps[2], steps[3], sum ? sumA : diffA, sum ? sumB : diffB};
+        double[][] around = new double[6][];
+        for (int n = 0; n < 3; n++) {
+            around[n * 2] = new double[] {near[n * 2], near[n * 2 + 1]};
+            around[n * 2 + 1] = new double[] {-near[n * 2], -near[n * 2 + 1]};
+        }
+        Arrays.sort(around, (p, q) -> Double.compare(Math.atan2(p[1], p[0]), Math.atan2(q[1], q[0])));
+        double[] corners = new double[12];
+        for (int k = 0; k < 6; k++) {
+            double[] p = around[k], q = around[(k + 1) % 6];
+            double pp = (p[0] * p[0] + p[1] * p[1]) / 2, qq = (q[0] * q[0] + q[1] * q[1]) / 2, turn = p[0] * q[1] - p[1] * q[0];
+            corners[k * 2] = (pp * q[1] - qq * p[1]) / turn;
+            corners[k * 2 + 1] = (p[0] * qq - q[0] * pp) / turn;
+        }
+        return corners;
+    }
+
+    /**
+     * For the point (a, b) from a middle of the lattice whose steps are as hexCorners has them:
+     * into found, how far it is from the edge of the paver whose middle is nearest it, and how
+     * many of each step lie between that middle and the one it was measured from.
+     */
+    private static void hexEdge(double a, double b, double[] steps, double[] found) {
+        double turned = steps[0] * steps[3] - steps[1] * steps[2];
+        double along1 = (a * steps[3] - b * steps[2]) / turned, along2 = (steps[0] * b - steps[1] * a) / turned;
+        int base1 = (int) Math.floor(along1), base2 = (int) Math.floor(along2);
+        double first = Double.MAX_VALUE, second = Double.MAX_VALUE;
+        int at1 = 0, at2 = 0, next1 = 0, next2 = 0;
+        for (int n1 = base1 - 1; n1 <= base1 + 2; n1++) {
+            for (int n2 = base2 - 1; n2 <= base2 + 2; n2++) {
+                double dA = a - n1 * steps[0] - n2 * steps[2], dB = b - n1 * steps[1] - n2 * steps[3], far = dA * dA + dB * dB;
+                if (far < first) {
+                    second = first;
+                    next1 = at1;
+                    next2 = at2;
+                    first = far;
+                    at1 = n1;
+                    at2 = n2;
+                } else if (far < second) {
+                    second = far;
+                    next1 = n1;
+                    next2 = n2;
+                }
+            }
+        }
+        double apartA = (next1 - at1) * steps[0] + (next2 - at2) * steps[2], apartB = (next1 - at1) * steps[1] + (next2 - at2) * steps[3];
+        found[0] = (second - first) / (2 * Math.hypot(apartA, apartB));
+        found[1] = at1;
+        found[2] = at2;
     }
 
     /**

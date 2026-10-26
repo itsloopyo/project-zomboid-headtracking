@@ -31,6 +31,7 @@ final class WindowTests {
         Checks.run("plainWallWithADoorInItIsOneStripe", WindowTests::plainWallWithADoorInItIsOneStripe);
         Checks.run("chequeredFloorIsItsTiles", WindowTests::chequeredFloorIsItsTiles);
         Checks.run("bricksInBasketweaveArePavers", WindowTests::bricksInBasketweaveArePavers);
+        Checks.run("honeycombIsHexagonalPavers", WindowTests::honeycombIsHexagonalPavers);
         Checks.run("boardsAreNoTiles", WindowTests::boardsAreNoTiles);
         Checks.run("diagonalFloorIsItsDiamonds", WindowTests::diagonalFloorIsItsDiamonds);
         Checks.run("parquetIsItsBlocksOfSlats", WindowTests::parquetIsItsBlocksOfSlats);
@@ -502,6 +503,78 @@ final class WindowTests {
         int ci = Math.floorMod(i - 5, 64) / 16, cj = Math.floorMod(j - 5, 64) / 16;
         boolean alongX = (ci / 2 + cj / 2) % 2 == 0;
         return Math.floorMod(i - 5, 16) == 0 && (!alongX || ci % 2 == 0) || Math.floorMod(j - 5, 16) == 0 && (alongX || cj % 2 == 0);
+    }
+
+    private static void honeycombIsHexagonalPavers() {
+        // Six rows of six hexagons to the square, their middles a lattice from five dots in each
+        // way, steps of 10 2/3 dots along y and of 10 2/3 along x and 5 1/3 back along y: each
+        // paver its own shade of red, speckled a little, with a dark joint a dot wide round it.
+        Tiles.Shape tiles = Tiles.laid(floor(64, (x, y) -> {
+            float a = x * 64f, b = y * 64f;
+            float[] hex = honeycomb(a, b);
+            if (hex[0] < 0.5f) {
+                return new float[] {0.25f, 0.18f, 0.15f};
+            }
+            float speckle = (((int) a * 7 + (int) b * 13) % 5 - 2) * 0.004f, shade = 0.42f + Math.floorMod(Math.round(hex[1]) * 3 + Math.round(hex[2]), 5) * 0.03f + speckle;
+            return new float[] {shade + 0.1f, shade * 0.7f, shade * 0.6f};
+        }), 64);
+        check(tiles != null && tiles.hexes != null && tiles.hexes.length == 36 * 5, "a honeycomb is thirty-six hexagonal pavers: "
+                + (tiles == null ? "none" : tiles.hexes == null ? "read as count " + tiles.count + ", pavers " + (tiles.pavers != null) : tiles.hexes.length / 5 + ""));
+        float closest = Float.MAX_VALUE;
+        for (int at = 0; at < tiles.hexes.length; at += 5) {
+            float offA = Math.abs(tiles.hexes[at] * 64f - 5f), offB = Math.abs(tiles.hexes[at + 1] * 64f - 5f);
+            closest = Math.min(closest, (float) Math.hypot(Math.min(offA, 64f - offA), Math.min(offB, 64f - offB)));
+        }
+        check(closest <= 1f, "a middle within a dot of where it is laid: " + closest);
+        float widest = 0f;
+        for (int k = 0; k < 12; k += 2) {
+            widest = Math.max(widest, (float) Math.hypot(tiles.hexCorners[k], tiles.hexCorners[k + 1]) * 64f);
+        }
+        check(widest > 6f && widest < 8f, "corners as far from the middle as the lattice puts them: " + widest);
+        check(tiles.jointRed < 0.35f && tiles.hexes[2] > 0.5f, "the joints dark and the pavers red: " + tiles.jointRed + ", " + tiles.hexes[2]);
+        // Bricks in basketweave, the same speckle with no joints, and a lawn's blotches are no hexagons.
+        check(Tiles.hexes(floor(64, (x, y) -> {
+            int i = (int) (x * 64f), j = (int) (y * 64f);
+            float shade = basketJoint(i, j) ? 0.2f : 0.5f + ((i * 7 + j * 13) % 5 - 2) * 0.004f;
+            return new float[] {shade, shade * 0.6f, shade * 0.5f};
+        }), 64) == null, "bricks in basketweave are no hexagons");
+        check(Tiles.hexes(floor(64, (x, y) -> {
+            int i = (int) (x * 64f), j = (int) (y * 64f);
+            float shade = 0.4f + ((i * 7 + j * 13) % 5 - 2) * 0.004f;
+            return new float[] {shade, shade, shade};
+        }), 64) == null, "a plain speckled floor is no hexagons");
+        check(Tiles.hexes(floor(64, (x, y) -> {
+            int i = (int) (x * 64f), j = (int) (y * 64f);
+            float shade = 0.35f + ((i * 31 + j * 17) % 11) * 0.02f;
+            return new float[] {shade * 0.6f, shade, shade * 0.4f};
+        }), 64) == null, "and nor is a blotched lawn");
+    }
+
+    /**
+     * Of the dot at (a, b) of the honeycomb: how far it is from the edge of its hexagon, in dots,
+     * and where its hexagon's middle lies on the square.
+     */
+    private static float[] honeycomb(float a, float b) {
+        float first = Float.MAX_VALUE, second = Float.MAX_VALUE, middleA = 0f, middleB = 0f;
+        for (int n1 = -2; n1 <= 8; n1++) {
+            for (int n2 = -2; n2 <= 10; n2++) {
+                float midA = 5f + n1 * 32f / 3f, midB = 5f - n1 * 16f / 3f + n2 * 32f / 3f;
+                for (float wrapA = -64f; wrapA <= 64f; wrapA += 64f) {
+                    for (float wrapB = -64f; wrapB <= 64f; wrapB += 64f) {
+                        float far = (float) Math.hypot(a - midA - wrapA, b - midB - wrapB);
+                        if (far < first - 1e-3f) {
+                            second = first;
+                            first = far;
+                            middleA = Math.floorMod(Math.round(midA + wrapA), 64);
+                            middleB = Math.floorMod(Math.round(midB + wrapB), 64);
+                        } else if (far < second && far > first + 1e-3f) {
+                            second = far;
+                        }
+                    }
+                }
+            }
+        }
+        return new float[] {(second * second - first * first) / (2f * 32f / 3f), middleA, middleB};
     }
 
     private static void chequeredFloorIsItsTiles() {

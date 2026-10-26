@@ -397,14 +397,14 @@ final class FloorBuilder {
         }
         // A fitted carpet is one colour, with a nap the picture has a picture of: the few dots of
         // lighter and darker the game scatters on it are blots when magnified.
-        if (carpet ? tiles.uneven > CARPET_UNEVEN : tiles.count == 0 && tiles.diagonal == 0 && tiles.blocks == 0 && tiles.pavers == null) {
+        if (carpet ? tiles.uneven > CARPET_UNEVEN : tiles.count == 0 && tiles.diagonal == 0 && tiles.blocks == 0 && tiles.pavers == null && tiles.hexes == null) {
             return false;
         }
         int count = carpet ? 1 : tiles.count;
         float made = build.frame.material, red = build.frame.red, green = build.frame.green, blue = build.frame.blue;
         build.frame.cornersInto(build.paperRed, build.paperGreen, build.paperBlue, build.paperUnlit);
         // Slabs and pavers laid outside, a drive or a path, are paving: as tiles they took the grain of tarmac.
-        build.frame.material = carpet ? WorldScene.CARPET : outside && (tiles.rimmed || tiles.pavers != null) ? Ground.PAVING : WorldScene.TILE;
+        build.frame.material = carpet ? WorldScene.CARPET : outside && (tiles.rimmed || tiles.pavers != null || tiles.hexes != null) ? Ground.PAVING : WorldScene.TILE;
         float each = 1f / count;
         layFloor(true);
         if (!carpet && tiles.blocks > 0) {
@@ -413,6 +413,8 @@ final class FloorBuilder {
             build.geometry.addFace(painted(texture.getID(), red, green, blue, tiles.red, tiles.green, tiles.blue), build.frame, x, y, z, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
         } else if (!carpet && tiles.pavers != null) {
             addPavers(tiles, red, green, blue, x, y, z);
+        } else if (!carpet && tiles.hexes != null) {
+            addHexes(tiles, red, green, blue, x, y, z);
         } else if (!carpet && tiles.diagonal > 0) {
             addDiagonal(tiles, red, green, blue, x, y, z);
         } else if (count == 1 && !tiles.rimmed) {
@@ -547,6 +549,100 @@ final class FloorBuilder {
         }
         geometry.jointStep = Float.NaN;
         geometry.alongA = geometry.acrossB = geometry.jointPhase = geometry.footV = 0f;
+    }
+
+    /**
+     * A square of hexagonal pavers (Tiles.Shape.hexes): each paver in its own colour, laid as a
+     * triangle from its middle to each of its six edges. A triangle's texture coordinates run
+     * from 0 on its edge to a half at the middle, so that the picture lays a joint along the
+     * edge and none inside. Of a paver that runs over the square's edge into the next, the part
+     * on this square: the next square lays the rest.
+     */
+    private void addHexes(Tiles.Shape tiles, float red, float green, float blue, int x, int y, int z) {
+        SpriteGeometry geometry = build.geometry;
+        geometry.alongA = geometry.alongB = 0f;
+        geometry.jointPhase = -0.5f;
+        geometry.jointStep = 1f;
+        geometry.footH = geometry.perLevel = 0f;
+        shade(red, green, blue, 1f, 1f, 1f);
+        float[] corners = tiles.hexCorners, hexes = tiles.hexes;
+        float reach = 0f;
+        for (float corner : corners) {
+            reach = Math.max(reach, Math.abs(corner));
+        }
+        for (int at = 0; at < hexes.length; at += 5) {
+            SpriteGeometry.Mesh on = WorldScene.solid.get(WorldScene.PLAIN, WallSides.laid(hexes[at + 2], hexes[at + 3], hexes[at + 4],
+                    JOINT_DARK * tiles.jointRed, JOINT_DARK * tiles.jointGreen, JOINT_DARK * tiles.jointBlue, WallSides.TILED));
+            for (int backA = -1; backA <= 1; backA++) {
+                for (int backB = -1; backB <= 1; backB++) {
+                    float midA = hexes[at] + backA, midB = hexes[at + 1] + backB;
+                    if (midA + reach <= 0f || midA - reach >= 1f || midB + reach <= 0f || midB - reach >= 1f) {
+                        continue;
+                    }
+                    for (int k = 0; k < 6; k++) {
+                        float fromA = midA + corners[k * 2], fromB = midB + corners[k * 2 + 1];
+                        float toA = midA + corners[(k * 2 + 2) % 12], toB = midB + corners[(k * 2 + 3) % 12];
+                        // Square to the edge, towards the middle, as far as takes the coordinate from 0 on the edge to a half there.
+                        float squareA = fromB - toB, squareB = toA - fromA;
+                        float scale = 0.5f / (squareA * (midA - fromA) + squareB * (midB - fromB));
+                        geometry.acrossA = squareA * scale;
+                        geometry.acrossB = squareB * scale;
+                        geometry.footV = -(squareA * fromA + squareB * fromB) * scale;
+                        hexPiece[0] = midA;
+                        hexPiece[1] = midB;
+                        hexPiece[2] = fromA;
+                        hexPiece[3] = fromB;
+                        hexPiece[4] = toA;
+                        hexPiece[5] = toB;
+                        int count = clipToSquare(3);
+                        for (int corner = 1; corner < count - 1; corner++) {
+                            given[0] = hexPiece[0];
+                            given[1] = hexPiece[1];
+                            given[4] = hexPiece[corner * 2];
+                            given[5] = hexPiece[corner * 2 + 1];
+                            given[8] = hexPiece[corner * 2 + 2];
+                            given[9] = hexPiece[corner * 2 + 3];
+                            geometry.addGiven(on, build.frame, x, y, z, given, 0);
+                        }
+                    }
+                }
+            }
+        }
+        geometry.jointStep = Float.NaN;
+        geometry.acrossA = geometry.acrossB = geometry.jointPhase = geometry.footV = 0f;
+    }
+
+    /** A triangle of a hexagonal paver as (a, b) corner after corner, and as much of it as lies on the square, which has at most seven. */
+    private final float[] hexPiece = new float[14], hexCut = new float[14];
+
+    /**
+     * Cuts the polygon of count corners in hexPiece to the square, from a and b of 0 to 1, in
+     * place, and returns how many corners are left: none where it lies off the square.
+     */
+    private int clipToSquare(int count) {
+        for (int edge = 0; edge < 4 && count > 0; edge++) {
+            int axis = edge % 2;
+            float sign = edge < 2 ? 1f : -1f, offset = edge < 2 ? 0f : 1f;
+            int kept = 0;
+            for (int corner = 0; corner < count; corner++) {
+                int next = (corner + 1) % count;
+                float here = sign * (hexPiece[corner * 2 + axis] - offset), there = sign * (hexPiece[next * 2 + axis] - offset);
+                if (here >= 0f) {
+                    hexCut[kept * 2] = hexPiece[corner * 2];
+                    hexCut[kept * 2 + 1] = hexPiece[corner * 2 + 1];
+                    kept++;
+                }
+                if (here >= 0f != there >= 0f) {
+                    float t = here / (here - there);
+                    hexCut[kept * 2] = hexPiece[corner * 2] + t * (hexPiece[next * 2] - hexPiece[corner * 2]);
+                    hexCut[kept * 2 + 1] = hexPiece[corner * 2 + 1] + t * (hexPiece[next * 2 + 1] - hexPiece[corner * 2 + 1]);
+                    kept++;
+                }
+            }
+            System.arraycopy(hexCut, 0, hexPiece, 0, kept * 2);
+            count = kept;
+        }
+        return count;
     }
 
     /**
