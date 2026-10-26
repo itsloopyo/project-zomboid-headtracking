@@ -696,7 +696,9 @@ final class Roofs {
                 if (reading.size() > before) {
                     RoofFit.Tile found = reading.get(before).tile;
                     // A ridge's cap is met on the far side of the slope it caps.
-                    if (found.fitting && found.axis == RoofFit.LEVEL && found.low >= top - RoofFit.SAME) {
+                    IsoGridSquare beyond = cell.getGridSquare(x + dx, y + dy, 0);
+                    if (found.fitting && found.axis == RoofFit.LEVEL && found.low >= top - RoofFit.SAME
+                            && beyond != null && beyond.getBuilding() == under.getBuilding()) {
                         take(cell, x + dx, y + dy, z, roof, seen);
                         if (reading.size() > before + 1) {
                             found = reading.get(before + 1).tile;
