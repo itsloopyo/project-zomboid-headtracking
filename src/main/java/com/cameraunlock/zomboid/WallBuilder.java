@@ -1768,6 +1768,11 @@ final class WallBuilder {
                 // Its picture stood square is laid along this wall, whichever edge it was read on.
                 tileFlat = stood == 0 ? 0 : north ? SpriteGeometry.FLAT_NORTH : SpriteGeometry.FLAT_WEST;
                 tileStood = WorldScene.solid.get(tileBase);
+                // A face is cut to its frame's rectangle, and that of a sprite painted for the other edge
+                // meets this one only at the corner: the tiles are cut to this wall's own sprite instead.
+                if (on != north) {
+                    build.frame.texelsOf(build.held);
+                }
                 return read;
             }
         }
