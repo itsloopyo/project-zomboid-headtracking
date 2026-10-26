@@ -2797,12 +2797,12 @@ final class WorldScene {
         final byte[] leafKinds = new byte[CHUNK_TILES * CHUNK_TILES], needleKinds = new byte[CHUNK_TILES * CHUNK_TILES];
         /** Whether any tree stands on the chunk being built or near enough to drop litter on it. */
         private boolean treesRound;
-        /** How many of its neighbours' grounds spreadGround last laid over a square. */
-        int spreadLayers;
         /** The paint the map lays on the square's ground out of doors, laid once the ground the next squares spread over it is: see addOverOrLater. */
         private final ArrayList<IsoSprite> paintLater = new ArrayList<>();
         /** Whether the square being added waits its paint in paintLater, and the stuff of its floor the paint is of. */
         private boolean paintsLater;
+        /** Whether the ground the next squares spread over the square being added is laid yet: see layGround. */
+        private boolean groundLaid;
         private float paintMaterial;
         /** Whether the square being added has no floor. */
         boolean hangsInAir;
@@ -4977,7 +4977,6 @@ final class WorldScene {
         private void grow(IsoGridSquare square, int x, int y, int localX, int localY) {
             float toX = x + 0.5f - camera.eyeX, toY = y + 0.5f - camera.eyeY;
             floorLayer = building.groundLayers[localX * CHUNK_TILES + localY];
-            spreadLayers = 0;
             waterLocalX = localX;
             waterLocalY = localY;
             geometry.floored = true;
@@ -5850,6 +5849,18 @@ final class WorldScene {
             addOver(object, under, over, isFloor, x, y, z);
         }
 
+        /** Lays the ground the next squares spread over this one, then the paint that waits for it in paintLater. */
+        private void layGround(IsoObject floor, int x, int y, int z, int localX, int localY) {
+            groundLaid = true;
+            floorLayer += floorBuilder.spreadGround(x, y, localX, localY);
+            if (!paintLater.isEmpty()) {
+                frame.material = paintMaterial;
+                for (int i = 0; i < paintLater.size(); i++) {
+                    addOver(floor, floor.getSprite(), paintLater.get(i), true, x, y, z);
+                }
+            }
+        }
+
         private void addOverOf(IsoObject object, IsoSprite under, IsoSprite over, boolean isFloor, int x, int y, int z) {
             // The game's flames and smoke are drawn by the picture as fire, never as a card: see Fires.
             if (over == null || FireLooks.isLook(over)) {
@@ -6698,6 +6709,7 @@ final class WorldScene {
             wallNorth = wallWest = edgeNorth = edgeWest = canvas = false;
             trimCount = 0;
             paintLater.clear();
+            groundLaid = false;
             boolean openAbove = false;
             PZArrayList<IsoObject> objects = square.getObjects();
             for (int i = 0; i < objects.size(); i++) {
@@ -6845,6 +6857,17 @@ final class WorldScene {
                     bloodBuilder.layOnWall(object, onNorthEdge(flags), onWestEdge(flags), x, y, z);
                 }
                 owning(Outlines.NONE);
+                // What lies on open ground, a railway's track and sleepers, lies on the fringe of the ground beside it too.
+                if (object == floor && paintsLater) {
+                    contentsOf(RoomSight.OUTSIDE);
+                    geometry.raised = 0f;
+                    layGround(floor, x, y, z, localX, localY);
+                    // What is built after the loop from the frame of the last object (addEdges) sees the floor's, as before.
+                    frameOf(floor, texture);
+                    if (unexplored) {
+                        frame.light(0f, 0f, 0f);
+                    }
+                }
             }
             contentsOf(RoomSight.OUTSIDE);
             geometry.raised = 0f;
@@ -6872,23 +6895,17 @@ final class WorldScene {
                     kerbBuilder.addKerb(x, y, localX, localY);
                 }
                 addEdges(x, y, localX, localY);
-                floorBuilder.spreadGround(x, y, localX, localY);
-                if (!paintLater.isEmpty()) {
-                    floorLayer += spreadLayers;
-                    spreadLayers = 0;
-                    frame.material = paintMaterial;
-                    for (int i = 0; i < paintLater.size(); i++) {
-                        addOver(floor, floor.getSprite(), paintLater.get(i), true, x, y, z);
-                    }
+                if (!groundLaid) {
+                    layGround(floor, x, y, z, localX, localY);
                 }
                 contentsOf(room);
                 // Blood is spilt on a floor, and runs over onto the next square's: not onto water.
                 boolean wet = groundKind[(localX + 1) * LIGHT_SPAN + localY + 1] == Terrain.WATER;
-                int blood = empty || unsought || hangsInAir || wet ? 0 : bloodBuilder.layFloor(x, y, z, localX, localY, floorLayer + spreadLayers);
-                int laidItems = layItems(z, floorLayer + spreadLayers + blood);
+                int blood = empty || unsought || hangsInAir || wet ? 0 : bloodBuilder.layFloor(x, y, z, localX, localY, floorLayer);
+                int laidItems = layItems(z, floorLayer + blood);
                 contentsOf(RoomSight.OUTSIDE);
                 // What grows here is a build of its own: see grow. It lies over these layers.
-                building.groundLayers[localX * CHUNK_TILES + localY] = (byte) (floorLayer + spreadLayers + blood + laidItems);
+                building.groundLayers[localX * CHUNK_TILES + localY] = (byte) (floorLayer + blood + laidItems);
                 int own = (localX + 1) * LIGHT_SPAN + localY + 1;
                 building.grows |= lightOpen[own] == 1 && (groundKind[own] == Terrain.NATURAL || treesRound && Litter.keeps(groundKind[own], true) > 0f);
             }

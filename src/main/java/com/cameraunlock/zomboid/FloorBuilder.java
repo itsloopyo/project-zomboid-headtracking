@@ -78,12 +78,13 @@ final class FloorBuilder {
      * a fringe over a path of loose ground and out over the edge of water, never the other way.
      * It stops at paving and at a street, and nothing spreads indoors. A lone square of ground,
      * a tree's pit in a pavement, spreads over nothing but other open ground.
+     *
+     * Returns how many of its neighbours' grounds it laid over the square.
      */
-    void spreadGround(int x, int y, int localX, int localY) {
+    int spreadGround(int x, int y, int localX, int localY) {
         int own = (localX + 1) * WorldScene.LIGHT_SPAN + localY + 1;
-        build.spreadLayers = 0;
         if (!spreadsOver(localX, localY)) {
-            return;
+            return 0;
         }
         int mine = build.groundRank[own];
         int spread = 0;
@@ -139,7 +140,7 @@ final class FloorBuilder {
                 build.geometry.cover = null;
             }
         }
-        build.spreadLayers = spread;
+        return spread;
     }
 
     /** What the squares round one are to ground spreading over it, in coverFrom's around: */

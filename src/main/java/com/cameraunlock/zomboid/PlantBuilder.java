@@ -200,7 +200,7 @@ final class PlantBuilder {
         SpriteGeometry.Mesh cards = WorldScene.laid.get(WorldScene.PLAIN);
         float[] kerbs = build.kerbs;
         if (deepest > 0.02f) {
-            WorldScene.layers.lie(SpriteGeometry.LAYERS_UP, build.floorLayer + build.spreadLayers + 1);
+            WorldScene.layers.lie(SpriteGeometry.LAYERS_UP, build.floorLayer + 1);
             byte kind = build.leafKinds[localX * Terrain.CHUNK_TILES + localY];
             // Where a kerb crosses the square or the gutter runs over it, the litter is laid in pieces, each on its own side of the kerb.
             boolean pieces = kerbs != null && (build.geometry.kerb != null || nearKerb(kerbs, localX, localY));
