@@ -2,6 +2,9 @@ package com.cameraunlock.zomboid;
 
 import static com.cameraunlock.zomboid.Checks.check;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 /** Tests of where a mirror's glass is, which mirrors the eye sees, and the eye behind the glass that draws what they show. */
 final class LookingGlassTests {
     private static final float TAN = (float) Math.tan(Math.toRadians(32.5)), ASPECT = 16f / 9f, NEAR = 0.05f;
@@ -22,6 +25,7 @@ final class LookingGlassTests {
         Checks.run("aPlaneKeepsItsPlaceFromFrameToFrame", LookingGlassTests::aPlaneKeepsItsPlaceFromFrameToFrame);
         Checks.run("thePlaneIsTheForemostOfItsGlass", LookingGlassTests::thePlaneIsTheForemostOfItsGlass);
         Checks.run("eyeBehindTheGlassSeesWhatTheGlassShows", LookingGlassTests::eyeBehindTheGlassSeesWhatTheGlassShows);
+        Checks.run("aPaneThrowsBackMoreOfTheStreetByDayThanOfItsRoom", LookingGlassTests::aPaneThrowsBackMoreOfTheStreetByDayThanOfItsRoom);
     }
 
     /** A piece of the model stood at the middle of square (10, 20), turned, and its glass. */
@@ -329,5 +333,20 @@ final class LookingGlassTests {
 
     private static float dot(float[] a, int at, float[] b, int bt) {
         return a[at] * b[bt] + a[at + 1] * b[bt + 1] + a[at + 2] * b[bt + 2];
+    }
+
+    /**
+     * Square on, the world shader's pane throws back its room's side at the share the room's picture is laid at
+     * (THROWN), and the street by day at a share that keeps a window from reading as a hole in a sunny wall.
+     */
+    private static void aPaneThrowsBackMoreOfTheStreetByDayThanOfItsRoom() {
+        Matcher world = Pattern.compile(Pattern.quote("thrown = min(1.0, 1.6 * (mix(") + "([0-9.]+), ([0-9.]+)"
+                + Pattern.quote(", street * (1.0 - uDark)) + 0.87 *")).matcher(PipelineShaders.WORLD_FRAGMENT_MAIN);
+        Matcher laid = Pattern.compile(Pattern.quote("1.6 * (") + "([0-9.]+)" + Pattern.quote(" + 0.87 *"))
+                .matcher(LookingGlass.THROWN);
+        check(world.find() && laid.find(), "the pane's share is read from both shaders");
+        float room = Float.parseFloat(world.group(1)), street = Float.parseFloat(world.group(2));
+        check(room == Float.parseFloat(laid.group(1)), "a pane's room side throws back what the room's picture is laid at: " + room + " and " + laid.group(1));
+        check(1.6f * street >= 0.35f && 1.6f * street <= 0.45f, "square on, a pane throws back between 0.35 and 0.45 of the street by day: " + 1.6f * street);
     }
 }

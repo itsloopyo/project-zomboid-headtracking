@@ -1191,15 +1191,15 @@ final class PipelineShaders {
             }
 
             // What a pane of glass throws back along a line: the sky, and below a ragged line
-            // a little over the horizon the roofs and trees across the street, dark against
-            // it. Which roofs depends on where the pane is, so the line moves over the glass
+            // a little over the horizon the roofs and trees across the street, darker than
+            // it but lit by the same day. Which roofs depends on where the pane is, so the line moves over the glass
             // as the eye walks past.
             vec3 surroundings(vec3 line, vec3 at) {
                 vec3 above = normalize(vec3(line.xy, abs(line.z) + 0.02));
                 vec3 sky = ridges(above, atmosphere(above));
                 float round = atan(line.y, line.x) * 2.5 + dot(at.xy, vec2(0.23, 0.17));
-                float roofs = 0.26 * patches(vec2(round * 1.9, 3.0)) * patches(vec2(round * 0.7 + 9.0, 1.0));
-                vec3 land = atmosphere(normalize(vec3(line.xy + 1e-4, 0.03))) * vec3(0.2, 0.23, 0.17);
+                float roofs = 0.18 * patches(vec2(round * 1.9, 3.0)) * patches(vec2(round * 0.7 + 9.0, 1.0));
+                vec3 land = atmosphere(normalize(vec3(line.xy + 1e-4, 0.03))) * vec3(0.42, 0.45, 0.38);
                 return mix(sky, land, 1.0 - smoothstep(roofs - 0.02, roofs + 0.02, line.z));
             }
 
@@ -2866,8 +2866,10 @@ final class PipelineShaders {
                 // pixels on a pane some are the glass, showing the sky and the roofs across
                 // the street, and the rest are let through to what is behind, a different set
                 // every frame. Out of doors by day what is behind is a dim room, and the
-                // glass takes more of the pixels, which is how a window looks dark from the
-                // street. A window's sheet faces into its room.
+                // glass takes more of the pixels. Seen from the street by day a pane throws
+                // back twice as much square on: the street is far brighter than the room, so
+                // at the share a room's side throws back a window was a black hole in a sunny
+                // wall. A window's sheet faces into its room.
                 // A window the picture has built has a sheet of glass of its own in each light: all
                 // of it is pane, with no sprite to tell the glass from.
                 // Glass with a room on both sides, built or a window's sprite, has no street side
@@ -2905,7 +2907,7 @@ final class PipelineShaders {
                     // its own side: that side is the street where it has the open air, or where
                     // the eye is out of doors, as under a shop's canopy, whose light is a room's.
                     street = window ? outside : step(0.0, dot(face, sight)) * max(clamp(vKind, 0.0, 1.0), uEyeOutdoors);
-                    thrown = min(1.0, 1.6 * (0.13 + 0.87 * pow(max(1.0 - abs(dot(face, sight)), 0.0), 5.0)));
+                    thrown = min(1.0, 1.6 * (mix(0.13, 0.26, street * (1.0 - uDark)) + 0.87 * pow(max(1.0 - abs(dot(face, sight)), 0.0), 5.0)));
                     float through = mix(mix(0.9, 0.5, outside), 0.92, uDark);
                     glow = lamplit ? outside * uDark : 0.0;
                     // A pane of the glass a picture of the eye's side is laid over (drawPanes) throws
