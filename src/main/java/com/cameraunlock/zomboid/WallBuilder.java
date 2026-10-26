@@ -64,6 +64,8 @@ final class WallBuilder {
     private static final float ROUND_CROSS = 0.58f;
     /** How many squares along its line a wall with an opening looks for a whole wall of its sheet to read its tiles from. */
     private static final int TILES_REACH = 4;
+    /** How far a batten's face stands out from the middle of its wall, in tiles, and how much lighter it is than the boards under it. */
+    private static final float BATTEN_PROUD = WorldScene.WALL_HALF + 0.022f, BATTEN_SHADE = 1.06f;
     /** The walls with an opening the log has said keep their sprite, by texture name, on the north edge and on the west. */
     private static final Set<String> KEPT_NORTH = ConcurrentHashMap.newKeySet(), KEPT_WEST = ConcurrentHashMap.newKeySet();
     /** How many log pieces at an end of a log wall's edge its sprite may leave unpainted, stopping short of the corner. */
@@ -575,6 +577,9 @@ final class WallBuilder {
             addSkin(near, opening, at, x, y, z, 0f, 0f, da, db, fromStart, fromEnd, fromTop, startIsLow);
         }
         build.frame.flat = 0;
+        if (build.overLayer == 0 && build.frame.material == WorldScene.BOARDS && Own.textures(build.playerIndex)) {
+            addBattens(texture, opening, at, x, y, z, da, db, Math.signum(inX), Math.signum(inY), nearRoom);
+        }
         build.contentsOf(farRoom);
         skinStart = (startJoin & WallJoins.FAR) != 0 ? WorldScene.WALL_HALF : 0f;
         skinEnd = (endJoin & WallJoins.FAR) != 0 ? WorldScene.WALL_HALF : 0f;
@@ -2062,6 +2067,42 @@ final class WallBuilder {
         float lift0 = build.geometry.liftAt(a, b), lift1 = build.geometry.liftAt(a + da, b + db);
         Courses.onEdge(plinth, course, x, y, a, b, da, db, base + lift0, base + lift1, outX, outY, doorFrom, doorTo,
                 build.frame.red, build.frame.green, build.frame.blue);
+    }
+
+    /**
+     * The battens the sprite paints across a wall of upright boards (see Battens), each a board
+     * along the wall standing proud of the side the sprite is painted for, in the boards' own
+     * colour a shade lighter, and broken where a window or a doorway crosses it. The wall is
+     * laid again once the sprite has been read.
+     */
+    private void addBattens(Texture texture, float[] opening, int at, int x, int y, int z, float da, float db, float outX, float outY, long room) {
+        float[] battens = Battens.of(texture);
+        float[] colour = SpriteColours.of(texture);
+        if (battens == null || colour == null) {
+            build.building.signed = false;
+            return;
+        }
+        if (battens.length == 0) {
+            return;
+        }
+        SpriteGeometry.Mesh batten = inRoom(WorldScene.solid.get(WorldScene.PLAIN, Courses.paint(colour, BATTEN_SHADE)), room);
+        batten.open = build.frame.open;
+        batten.sway = 0f;
+        float base = z * ViewCamera.LEVEL_HEIGHT;
+        float base0 = base + build.geometry.liftAt(0f, 0f), base1 = base + build.geometry.liftAt(da, db);
+        float openFrom = opening[at + OPENING_START], openTo = opening[at + OPENING_END];
+        for (int i = 0; i < battens.length; i += 2) {
+            float low = battens[i] * ViewCamera.LEVEL_HEIGHT, high = battens[i + 1] * ViewCamera.LEVEL_HEIGHT;
+            boolean crossed = openFrom >= 0f && opening[at + OPENING_FOOT] * ViewCamera.LEVEL_HEIGHT < high && opening[at + OPENING_HEAD] * ViewCamera.LEVEL_HEIGHT > low;
+            float[] spans = crossed ? new float[] {0f, openFrom, openTo, 1f} : new float[] {0f, 1f};
+            for (int s = 0; s < spans.length; s += 2) {
+                if (spans[s + 1] - spans[s] > 0.02f) {
+                    Courses.board(batten, x + spans[s] * da, y + spans[s] * db, base0 + (base1 - base0) * spans[s],
+                            x + spans[s + 1] * da, y + spans[s + 1] * db, base0 + (base1 - base0) * spans[s + 1],
+                            outX * BATTEN_PROUD, outY * BATTEN_PROUD, low, high, build.frame.red, build.frame.green, build.frame.blue);
+                }
+            }
+        }
     }
 
     /**

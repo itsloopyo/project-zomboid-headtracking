@@ -51,6 +51,34 @@ final class Courses {
         band(course, x0, y0, base0, x1, y1, base1, ox, oy, under, ViewCamera.LEVEL_HEIGHT, red, green, blue);
     }
 
+    /**
+     * A board along the wall from (x0, y0) at height base0 to (x1, y1) at base1, from low to high
+     * above the foot, its face (ox, oy) out from the wall's line: the face, its top and its
+     * underside back to the wall, and its two ends.
+     */
+    static void board(SpriteGeometry.Mesh mesh, float x0, float y0, float base0, float x1, float y1, float base1, float ox, float oy,
+            float low, float high, float r, float g, float b) {
+        band(mesh, x0, y0, base0, x1, y1, base1, ox, oy, low, high, r, g, b);
+        mesh.face(0f, 0f, -1f);
+        mesh.add(x0, y0, base0 + low, 0f, 0f, r, g, b);
+        mesh.add(x1, y1, base1 + low, 0f, 0f, r, g, b);
+        mesh.add(x1 + ox, y1 + oy, base1 + low, 0f, 0f, r, g, b);
+        mesh.add(x0, y0, base0 + low, 0f, 0f, r, g, b);
+        mesh.add(x1 + ox, y1 + oy, base1 + low, 0f, 0f, r, g, b);
+        mesh.add(x0 + ox, y0 + oy, base0 + low, 0f, 0f, r, g, b);
+        float ax = x1 - x0, ay = y1 - y0, length = (float) Math.sqrt(ax * ax + ay * ay);
+        for (int end = 0; end < 2; end++) {
+            float ex = end == 0 ? x0 : x1, ey = end == 0 ? y0 : y1, eb = end == 0 ? base0 : base1, way = end == 0 ? -1f : 1f;
+            mesh.face(way * ax / length, way * ay / length, 0f);
+            mesh.add(ex, ey, eb + low, 0f, 0f, r, g, b);
+            mesh.add(ex + ox, ey + oy, eb + low, 0f, 0f, r, g, b);
+            mesh.add(ex + ox, ey + oy, eb + high, 0f, 0f, r, g, b);
+            mesh.add(ex, ey, eb + low, 0f, 0f, r, g, b);
+            mesh.add(ex + ox, ey + oy, eb + high, 0f, 0f, r, g, b);
+            mesh.add(ex, ey, eb + high, 0f, 0f, r, g, b);
+        }
+    }
+
     /** A face standing proud of the wall from low to high above its foot, with a ledge from its top back to the wall. */
     private static void band(SpriteGeometry.Mesh mesh, float x0, float y0, float base0, float x1, float y1, float base1, float ox, float oy,
             float low, float high, float r, float g, float b) {
