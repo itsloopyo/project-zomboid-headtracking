@@ -2297,6 +2297,8 @@ final class Pipeline {
         int bound = 0;
         // Whether the program was last told of a tube showing part of its picture, which the next run is not.
         boolean tubed = false;
+        // The wall flag the depth-only program was last told, which most runs there share.
+        float wallTold = Float.NaN;
         for (int from = 0, to; from < modelsListed; from = to) {
             int listed = (int) (placedOrder[from] & LISTED_BITS);
             Models.Instances placed = drawn.get(modelChunk[listed]).placed;
@@ -2317,7 +2319,11 @@ final class Pipeline {
             }
             if (!shaded) {
                 // Its depth is drawn with the pixels the picture keeps of it: one laid as a wall's face is not opened about the viewer.
-                GL20.glUniform4f(surfacesAt, 0f, 0f, 0f, f[at + Models.Instances.WALL]);
+                float wall = f[at + Models.Instances.WALL];
+                if (wall != wallTold) {
+                    GL20.glUniform4f(surfacesAt, 0f, 0f, 0f, wall);
+                    wallTold = wall;
+                }
             } else {
                 int surfaces = at + Models.Instances.SURFACES, dye = at + Models.Instances.DYE, picture = at + Models.Instances.PICTURE;
                 GL20.glUniform4f(surfacesAt, f[surfaces], f[surfaces + 1], f[surfaces + 2], f[at + Models.Instances.WALL]);
