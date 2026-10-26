@@ -7420,8 +7420,10 @@ final class WorldScene {
                 return;
             }
 
-            if (kind.roofAccent && (z > 0 && roofBuilder.underARake(x, y, z) || roofBuilder.trimUnderAMadeEave(x, y, z, properties.has(IsoFlagType.attachedW),
-                    properties.has(IsoFlagType.attachedN), RoofBuilder.cornerPiece(properties)))) {
+            // A corner piece marked attachedNW is the gutter along both the west and the north edge, where two eaves meet.
+            boolean wraps = properties.has(IsoFlagType.attachedNW);
+            if (kind.roofAccent && (z > 0 && roofBuilder.underARake(x, y, z) || roofBuilder.trimUnderAMadeEave(x, y, z, wraps || properties.has(IsoFlagType.attachedW),
+                    wraps || properties.has(IsoFlagType.attachedN), RoofBuilder.cornerPiece(properties)))) {
                 return;
             }
             // The eave the map hangs on the wall under a slope's foot, the trims painted on it and
