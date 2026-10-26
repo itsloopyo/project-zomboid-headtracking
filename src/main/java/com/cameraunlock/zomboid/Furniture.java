@@ -875,8 +875,12 @@ final class Furniture {
     private static final String STREET_LAMPS = "lighting_outdoor_01_";
     /** The sheet has a copy of itself with the lamps lit, the same lamps in the same places. */
     private static final String LIT_STREET_LAMPS = STREET_LAMPS + "on_";
-    /** Where on its sprite a lamp's post gives its colour, in levels. */
-    private static final float POST_DYE = 0.5f, UPPER_POST_DYE = 0.25f;
+    /**
+     * Where on its sprite a lamp's post gives its colour, in levels. A cone lamp's post is a thin round one with the sun's
+     * gleam down its side, which a dye takes as the paint (the paler half of what is round the place, see PipelineShaders): it is
+     * dyed from the collar at its foot, painted as the post is and broad enough to have no gleam.
+     */
+    private static final float POST_DYE = 0.5f, UPPER_POST_DYE = 0.25f, COLLAR_DYE = 0.1f;
 
     /**
      * The model of a street lamp, by which sprite of the game's sheet of them it is. The first
@@ -891,7 +895,7 @@ final class Furniture {
     private static Furniture streetLamp(IsoSprite sprite, String name) {
         int which = Sheets.place(name, name.startsWith(LIT_STREET_LAMPS) ? LIT_STREET_LAMPS : STREET_LAMPS);
         return switch (which) {
-            case 0, 2 -> new Furniture(sprite, "cone_lamp", 0).dye(1 << Models.PAINT, POST_DYE);
+            case 0, 2 -> new Furniture(sprite, "cone_lamp", 0).dye(1 << Models.PAINT, COLLAR_DYE);
             case 1 -> new Furniture(sprite, "globe_lamp", 0).dye(1 << Models.PAINT, POST_DYE);
             case 3 -> new Furniture(sprite, "lantern_lamp", 0).dye(1 << Models.PAINT, POST_DYE);
             case 5, 6, 7 -> onPost(new Furniture(sprite, which == 5 ? "acorn_head" : "twin_acorn_head", which == 7 ? 1 : 0).dye(1 << Models.PAINT, UPPER_POST_DYE));
