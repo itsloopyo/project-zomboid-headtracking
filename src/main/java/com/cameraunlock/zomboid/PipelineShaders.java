@@ -3385,6 +3385,10 @@ final class PipelineShaders {
                 if (vMaterial > 8.5 && vMaterial < 10.5) {
                     texel.rgb = vMaterial < 9.5 ? vec3(0.86, 0.86, 0.83) : vec3(0.2, 0.17, 0.14);
                 }
+                // The earth face of a bank above water (WorldScene.BANK) is wet mud.
+                if (vMaterial > 120.5 && vMaterial < 121.5) {
+                    texel.rgb = vec3(0.28, 0.22, 0.15);
+                }
                 // A door's hinges and knob (OpeningBuilder.HARDWARE): satin nickel, as a model's bare metal.
                 if (vMaterial > 86.5 && vMaterial < 87.5) {
                     texel.rgb = vec3(0.62, 0.6, 0.56);

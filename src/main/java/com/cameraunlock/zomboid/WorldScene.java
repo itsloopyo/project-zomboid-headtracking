@@ -988,6 +988,8 @@ final class WorldScene {
     static final IdentityHashMap<IsoSprite, float[]> woodShapes = new IdentityHashMap<>();
     /** How far down the wall of a quay goes from its top: past the water's surface. */
     private static final float QUAY_DEPTH = 0.6f;
+    /** How far open ground has to stand over the water beside it for the earth between them to be drawn, in tiles. */
+    private static final float BANK_STANDS = 0.01f;
     /** How far a layer of cards stands from the one under it besides what any layer does, in tiles: leaves on the card of their trunk. */
     static final float CARD_LAYER = 0.035f;
     /**
@@ -2114,6 +2116,8 @@ final class WorldScene {
     static final float TERRAZZO = 98f;
     /** The canvas of a tent or a stall: cloth, whose weave is the mod's own picture. */
     static final float CANVAS = 99f;
+    /** The earth face of a bank where level ground stands above water: see addEdge. */
+    static final float BANK = 121f;
     /** A carpet or rug laid on a floor: its nap as CARPET's, but a pattern and not furniture drawn with a dark line round it. */
     static final float FLOOR_CARPET = 118f;
     /** The game's two hay floors. */
@@ -4830,6 +4834,7 @@ final class WorldScene {
             }
             float[] water = terrain.water(chunk.wx, chunk.wy);
             kerbs = terrain.kerb(chunk.wx, chunk.wy);
+            waterCorners = water;
             boolean kept = !afresh && keptFrame == frames && keptWx == chunk.wx && keptWy == chunk.wy;
             if (!kept && !growing) {
                 canopied = false;
@@ -6153,6 +6158,8 @@ final class WorldScene {
 
         /** Where the kerbs of the chunk being built run, as Kerbs keeps it. Null where it has no street. */
         float[] kerbs;
+        /** The height of water at the corners of the chunk being built, as Terrain.water gives it. */
+        float[] waterCorners;
         /** Whether the square being added has a kerb on it or along its edge. */
         boolean kerbed;
         /** Whether the square being added has street on it and a kerb along some stretch of its north edge, or of its west edge. */
@@ -6217,7 +6224,8 @@ final class WorldScene {
 
         /**
          * Where a square stands above water beside it there is a face between them: the wall of
-         * a quay or a boardwalk.
+         * a quay or a boardwalk, or of earth where open ground is held level by something built
+         * near it (Terrain.corner) and does not fall to the water as a bank.
          */
         private void addEdges(int x, int y, int localX, int localY) {
             int own = (localX + 1) * LIGHT_SPAN + localY + 1;
@@ -6226,18 +6234,27 @@ final class WorldScene {
                 return;
             }
             float[] lift = geometry.lift;
-            addEdge(groundKind[own - LIGHT_SPAN], mine, x, y + 0.5f, 0f, 1f, (lift[0] + lift[3]) / 2f);
-            addEdge(groundKind[own + LIGHT_SPAN], mine, x + 1f, y + 0.5f, 0f, 1f, (lift[1] + lift[2]) / 2f);
-            addEdge(groundKind[own - 1], mine, x + 0.5f, y, 1f, 0f, (lift[0] + lift[1]) / 2f);
-            addEdge(groundKind[own + 1], mine, x + 0.5f, y + 1f, 1f, 0f, (lift[3] + lift[2]) / 2f);
+            int corner = localX * Terrain.CORNERS + localY;
+            addEdge(groundKind[own - LIGHT_SPAN], mine, x, y + 0.5f, 0f, 1f, (lift[0] + lift[3]) / 2f, corner, corner + 1);
+            addEdge(groundKind[own + LIGHT_SPAN], mine, x + 1f, y + 0.5f, 0f, 1f, (lift[1] + lift[2]) / 2f, corner + Terrain.CORNERS, corner + Terrain.CORNERS + 1);
+            addEdge(groundKind[own - 1], mine, x + 0.5f, y, 1f, 0f, (lift[0] + lift[1]) / 2f, corner, corner + Terrain.CORNERS);
+            addEdge(groundKind[own + 1], mine, x + 0.5f, y + 1f, 1f, 0f, (lift[3] + lift[2]) / 2f, corner + 1, corner + Terrain.CORNERS + 1);
         }
 
-        private void addEdge(byte beside, byte mine, float x, float y, float alongX, float alongY, float top) {
+        private void addEdge(byte beside, byte mine, float x, float y, float alongX, float alongY, float top, int cornerA, int cornerB) {
+            if (beside != Terrain.WATER) {
+                return;
+            }
             SpriteGeometry.Mesh mesh = solid.get(PLAIN);
             // The colour given is the light on it. What colour the thing is, the picture knows by
             // what it is made of.
-            if (beside == Terrain.WATER && mine != Terrain.NATURAL) {
+            if (mine != Terrain.NATURAL) {
                 mesh.open = frame.open + 32f * QUAY;
+                SpriteGeometry.addPlainUpright(mesh, x, y, top, alongX, alongY, 0.5f, -QUAY_DEPTH, 0f, frame.red, frame.green, frame.blue);
+            } else if (waterCorners[cornerA] == 0f && waterCorners[cornerB] == 0f
+                    || top > (waterCorners[cornerA] + waterCorners[cornerB]) / 2f + BANK_STANDS) {
+                // A chunk with no water of its own keeps no height for it (Terrain.water): the water beside it is in the next chunk.
+                mesh.open = frame.open + 32f * BANK;
                 SpriteGeometry.addPlainUpright(mesh, x, y, top, alongX, alongY, 0.5f, -QUAY_DEPTH, 0f, frame.red, frame.green, frame.blue);
             }
         }
