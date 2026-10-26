@@ -1524,6 +1524,11 @@ final class PipelineShaders {
             const float JOINT_SEEN_OVERHEAD = 1.6;
             // How much lighter the mortar of brick and blocks is drawn from far overhead.
             const float MORTAR_LIFT_OVERHEAD = 0.2;
+            // How much more a ripple tilts water seen from far overhead. Looked down on, level
+            // water throws back one patch of sky and reads as a flat sheet; the ripples a
+            // pace-high eye sees by the far bank they break up are seen there by how each
+            // throws back a higher or a lower piece of the sky.
+            const float RIPPLE_OVERHEAD = 5.0;
             // A wall of boards, a shingled roof, a gravel drive are drawn as flat sheets, and
             // a flat sheet gives itself away the moment the head moves: the gap between two
             // boards does not slide behind the board in front of it, and no stone hides the
@@ -4004,7 +4009,7 @@ final class PipelineShaders {
                 float ripple = 0.0;
                 if (water) {
                     shine = 1.0 - foam;
-                    ripple = 0.05 * uRuffle;
+                    ripple = 0.05 * uRuffle * (1.0 + RIPPLE_OVERHEAD * uGameView);
                     color *= 0.55;
                 } else if (!card && uWet > 0.0 && open > 0.5 && n.z > 0.85) {
                     float bare = uWet * (1.0 - snowed);
