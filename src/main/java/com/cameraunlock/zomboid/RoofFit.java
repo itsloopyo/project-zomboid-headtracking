@@ -526,6 +526,11 @@ final class RoofFit {
         default boolean storey(int x, int y, int z) {
             return false;
         }
+
+        /** Whether a wall stands on the square's north edge at that level, or with north false its west edge. */
+        default boolean walled(int x, int y, int z, boolean north) {
+            return false;
+        }
     }
 
     /** The furthest a roof's level top is crossed to reach the place of its far slope, in tiles. */
@@ -787,8 +792,25 @@ final class RoofFit {
             // one does on its own. A shallower one, or one that ends against a higher part of
             // the building, has only the ridge to be placed by.
             boolean fromEave = open >= climbed && (annex || !stands(built, site, x + open * dx, y + open * dy, floor));
+            // A far side that comes down onto a shallower slope of the map climbing the same way, under a wall that stands
+            // along the ridge, is that side's steep upper part: it climbs from the slope's top to the wall, which stands over
+            // the near side's ridge. Mirrored from the near side, it started a third of a level under the slope's top and the
+            // wall stood bare over it (8000..8011, 11010..11014).
+            float farRidge = ridge;
+            Tile shallow = at.get(key(x + open * dx, y + open * dy, top.z));
+            if (open > 0 && shallow != null && shallow.slopes() && shallow.fitAxis == top.fitAxis && shallow.up() == -up
+                    && Math.abs(shallow.fitHigh - shallow.fitLow) < rise - PITCH_SLACK
+                    && site.walled(top.x + Math.max(dx, 0), top.y + Math.max(dy, 0), top.z, !isAlongX)) {
+                float foot = Math.max(shallow.fitLow, shallow.fitHigh), reached = foot + open * rise;
+                if (reached > ridge + SAME && reached <= top.z + 1 + SAME) {
+                    eave = foot;
+                    climbed = open;
+                    farRidge = reached;
+                    fromEave = true;
+                }
+            }
             over.addAll(overCrown);
-            Row row = new Row(x, y, dx, dy, open, climbed, fromEave, metCrown, eave, rise, ridge);
+            Row row = new Row(x, y, dx, dy, open, climbed, fromEave, metCrown, eave, rise, farRidge);
             rows.add(row);
             rowAt.putIfAbsent(rowKey(x, y, dx, dy), row);
         }

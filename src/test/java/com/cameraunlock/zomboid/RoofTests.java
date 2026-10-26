@@ -64,6 +64,7 @@ final class RoofTests {
         Checks.run("slopeThatClimbsPastItsCrownLiesLevel", RoofTests::slopeThatClimbsPastItsCrownLiesLevel);
         Checks.run("farSideOfARowOverADormerStandsOnTheWall", RoofTests::farSideOfARowOverADormerStandsOnTheWall);
         Checks.run("farSideOfARowOverABayStandsOnTheWall", RoofTests::farSideOfARowOverABayStandsOnTheWall);
+        Checks.run("farSideClimbsFromAShallowerSlopeToTheWallOnItsRidge", RoofTests::farSideClimbsFromAShallowerSlopeToTheWallOnItsRidge);
         Checks.run("roomWithNoFloorUnderTheRoofIsNoStorey", RoofTests::roomWithNoFloorUnderTheRoofIsNoStorey);
         Checks.run("roomTheSlopePassesWhollyOverIsNoStoreyItStopsAt", RoofTests::roomTheSlopePassesWhollyOverIsNoStoreyItStopsAt);
         Checks.run("farSideStandsOnTheStoreyItCoversThoughItsNearSideRunsOnDownOverAPorch", RoofTests::farSideStandsOnTheStoreyItCoversThoughItsNearSideRunsOnDownOverAPorch);
@@ -1712,6 +1713,61 @@ final class RoofTests {
             check(face != null && !face.shaped && face.fitAxis == RoofFit.ALONG_Y && near(face.fitLow, 1f - lower + y * THIRD)
                     && near(face.fitHigh, 1f - lower + (y + 1) * THIRD), (bay ? "the north side over the bay" : "the north side over the gable's peak")
                     + " climbs from the wall at 4, " + y + ", " + lower + " lower: " + said(face));
+        }
+    }
+
+    /**
+     * A barn over x 0..9 and y 0..5, as at 8000..8011 x 11010..11015 and 4166..4178 x 11056..11061: the map's south slope
+     * is two rows deep up to 1 + 2/3 on y 4, where a wall a whole level high stands along the ridge, and its north side is
+     * two shallow rows climbing south from the wall at 0, with nothing on y 2..3. The far side over y 2..3 climbs on from
+     * the shallow rows' top at the standard pitch to the wall: mirrored from the south slope, it started at 1 under their
+     * top and the wall stood bare over it. With no wall there, the far side is the south slope's mirror as before.
+     */
+    private static void farSideClimbsFromAShallowerSlopeToTheWallOnItsRidge() {
+        for (boolean wall : new boolean[] {true, false}) {
+            RoofFit.Site stands = standing((x, y) -> x >= 0 && x <= 9 && y >= 0 && y <= 5);
+            RoofFit.Site site = new RoofFit.Site() {
+                @Override
+                public boolean stands(int x, int y, int z) {
+                    return stands.stands(x, y, z);
+                }
+
+                @Override
+                public boolean floored(int x, int y, int z) {
+                    return false;
+                }
+
+                @Override
+                public boolean taken(int x, int y, int z, float roof) {
+                    return false;
+                }
+
+                @Override
+                public boolean walled(int x, int y, int z, boolean north) {
+                    return wall && north && y == 4 && z == 1;
+                }
+            };
+            List<RoofFit.Tile> roof = new ArrayList<>();
+            for (int x = 0; x <= 9; x++) {
+                roof.add(new RoofFit.Tile(x, 0, 1, RoofFit.ALONG_Y, true, 1.094f, 1.203f));
+                roof.add(new RoofFit.Tile(x, 1, 1, RoofFit.ALONG_Y, true, 1.203f, 1.313f));
+                roof.add(new RoofFit.Tile(x, 4, 1, RoofFit.ALONG_Y, true, 1f + 2 * THIRD, 1f + THIRD));
+                roof.add(new RoofFit.Tile(x, 5, 1, RoofFit.ALONG_Y, true, 1f + THIRD, 1f));
+            }
+            RoofFit.fit(roof);
+            float foot = 0f;
+            for (RoofFit.Tile tile : roof) {
+                if (tile.y == 1) {
+                    foot = Math.max(tile.fitLow, tile.fitHigh);
+                }
+            }
+            List<RoofFit.Tile> made = RoofFit.backs(roof, site);
+            for (int y = 2; y <= 3; y++) {
+                RoofFit.Tile face = madeAt(made, 4, y);
+                float low = wall ? foot + (y - 2) * THIRD : 1f + (y - 2) * THIRD;
+                check(face != null && face.fitAxis == RoofFit.ALONG_Y && near(face.fitLow, low) && near(face.fitHigh, low + THIRD),
+                        "the north side at 4, " + y + (wall ? " climbs from the shallow rows to the wall" : " mirrors the south slope with no wall") + ": " + said(face));
+            }
         }
     }
 

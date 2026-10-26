@@ -10,6 +10,7 @@ import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.RoomDef;
+import zombie.iso.SpriteDetails.IsoFlagType;
 import zombie.iso.SpriteDetails.IsoObjectType;
 import zombie.iso.sprite.IsoSprite;
 import zombie.util.list.PZArrayList;
@@ -603,6 +604,9 @@ final class Roofs {
      * counted from past the ridge's cap where the slope ends in one: at 2447..2456, 6500..6508 a
      * gable's cap (roofs_05_70) stood between its slope and the gap to the flat crown of a lower
      * wing, and the two roofs each made a far side over the gap, the wing's an eave under the gable's.
+     * So is a shallower slope on the same axis that climbs back towards a ridge a wall a level high
+     * stands along: the far side's lower part, whose steep upper part the map leaves out (the barn at
+     * 8000..8011, 11010..11014).
      */
     private static void beyondRidge(IsoCell cell, RoofFit.Tile tile, Roof roof, HashSet<Long> seen) {
         if (!tile.sure || tile.fitting || tile.axis != RoofFit.ALONG_X && tile.axis != RoofFit.ALONG_Y || Math.abs(tile.high - tile.low) < RoofFit.SAME) {
@@ -639,13 +643,33 @@ final class Roofs {
                 boolean crown = onLevel && found.sheet && found.low < ridge - RoofFit.SAME;
                 boolean wing = found.sure && (found.axis == RoofFit.ALONG_X || found.axis == RoofFit.ALONG_Y) && found.axis != tile.axis
                         && Math.max(found.low, found.high) <= ridge + RoofFit.SAME;
-                if (!crown && !wing) {
+                boolean shallower = found.sure && found.axis == tile.axis && (found.low > found.high ? -1 : 1) == -up
+                        && Math.abs(found.high - found.low) < Math.abs(tile.high - tile.low) - RoofFit.SAME && Math.max(found.low, found.high) <= ridge + RoofFit.SAME
+                        && walled(cell, tile.x + Math.max(dx, 0), tile.y + Math.max(dy, 0), tile.z, tile.axis == RoofFit.ALONG_Y);
+                if (!crown && !wing && !shallower) {
                     reading.remove(before);
                     seen.remove(key);
                 }
             }
             return;
         }
+    }
+
+    /** Whether a wall a whole level high stands on the square's north edge at that level, or with north false its west edge. A gable's triangle is none. */
+    private static boolean walled(IsoCell cell, int x, int y, int z, boolean north) {
+        IsoGridSquare square = cell.getGridSquare(x, y, z);
+        if (square == null) {
+            return false;
+        }
+        for (int i = 0; i < square.getObjects().size(); i++) {
+            IsoSprite sprite = square.getObjects().get(i).getSprite();
+            if (sprite != null && (sprite.getName() == null || !sprite.getName().startsWith("walls_exterior_roofs"))
+                    && (sprite.getProperties().has(IsoFlagType.WallNW) || sprite.getProperties().has(north ? IsoFlagType.WallN : IsoFlagType.WallW)
+                            || sprite.getProperties().has(north ? IsoFlagType.WallNTrans : IsoFlagType.WallWTrans))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Whether the roof being read has a ridge's cap on the square: a level trim at the ridge's height. */
@@ -815,6 +839,11 @@ final class Roofs {
             public boolean storey(int x, int y, int z) {
                 IsoGridSquare square = cell.getGridSquare(x, y, z);
                 return square != null && square.getRoomID() != -1L && !roofVoid(square, z);
+            }
+
+            @Override
+            public boolean walled(int x, int y, int z, boolean north) {
+                return Roofs.walled(cell, x, y, z, north);
             }
 
             @Override
