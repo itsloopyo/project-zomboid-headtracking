@@ -288,8 +288,19 @@ final class OutdoorTests {
             Checks.check(east != null && east.dyed == 1 << Models.PAINT && east.alsoDyed == 1 << Models.VINYL && east.alsoHigh > east.dyeHigh,
                     "its low panel and its head each take their colour from the sprite");
         }
-        Models.Model pump = Models.get("fuel_pump");
-        Checks.check(pump.width() > pump.depth() && pump.height() > 2.2f && pump.height() < 2.4f, "the pump is long across its front and as high as its sprite: " + pump.height());
+        Outdoors.Piece checked = unnamed("location_shop_gas2go_01_12"), plain = unnamed("location_shop_fossoil_01_12");
+        Checks.check(checked != null && "fuel_pump_checked".equals(checked.model) && plain != null && "fuel_pump".equals(plain.model),
+                "Gas 2 Go's pump has its head in checks, Fossoil's in one colour");
+        Checks.check(checked != null && !Float.isNaN(checked.alsoA) && plain != null && Float.isNaN(plain.alsoA),
+                "the checked head takes its second colour at a check of its own, the plain one over the low panel");
+        Outdoors.Piece checkedSouth = unnamed("location_shop_gas2go_01_14");
+        Checks.check(checkedSouth != null && "fuel_pump_checked".equals(checkedSouth.model) && checked != null
+                && Math.abs(checkedSouth.alsoA - 0.054f) < 1e-4f && Math.abs(checked.alsoA - 0.25f) < 1e-4f,
+                "each facing of the checked pump takes its check from its own sprite");
+        for (String name : new String[] {"fuel_pump", "fuel_pump_checked"}) {
+            Models.Model pump = Models.get(name);
+            Checks.check(pump.width() > pump.depth() && pump.height() > 2.2f && pump.height() < 2.4f, name + " is long across its front and as high as its sprite: " + pump.height());
+        }
         Checks.check(unnamed("location_shop_gas2go_01_16") == null && unnamed("location_shop_fossoil_01_11") == null, "the rest of the stations' sheets are no pump");
     }
 

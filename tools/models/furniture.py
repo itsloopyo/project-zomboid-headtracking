@@ -9505,11 +9505,12 @@ def flood_light():
     return model
 
 
-def fuel_pump():
+def fuel_pump(checked=False):
     """A petrol pump, a dispenser on each of its two faces: a white pillar at each end, between them a dark cabinet with its
     meter windows, its nozzles in their holsters and a coloured panel low down, and over the whole a coloured head. A hose
-    hangs from the head at each end. The pump's long way is across its front."""
-    model = Model("fuel_pump")
+    hangs from the head at each end. The pump's long way is across its front. A checked one has its head's sides in two
+    rows of checks, every other one of the low panel's paint."""
+    model = Model("fuel_pump_checked" if checked else "fuel_pump")
     half, deep, head = 0.36, 0.25, 1.98
     plinth = bmesh.new()
     cuboid(plinth, -half, half, -deep, deep, 0.0, 0.08)
@@ -9535,8 +9536,31 @@ def fuel_pump():
     cap = bmesh.new()
     cuboid(cap, -half - 0.01, half + 0.01, -deep - 0.01, deep + 0.01, head, head + 0.3)
     model.hard(cap, "vinyl", bevel=0.006, segments=1)
+    out = 0.012 if checked else 0.0
+    if checked:
+        checks = bmesh.new()
+        rows = 2
+        high = 0.3 / rows
+        for row in range(rows):
+            low = head + row * high
+            # Odd counts, the sides a check out of step with the front, so the checks alternate round every corner.
+            for front, long, side in ((True, half + 0.01, deep + 0.01), (False, deep + 0.01, half + 0.01)):
+                count = max(1, round(2 * long / high))
+                assert count % 2 == 1, (front, count)
+                wide = 2 * long / count
+                for k in range((row + (0 if front else 1)) % 2, count, 2):
+                    a, b = -long + k * wide, -long + (k + 1) * wide
+                    a -= out if k == 0 else 0.0
+                    b += out if k == count - 1 else 0.0
+                    for face in (-side - out, side):
+                        if front:
+                            cuboid(checks, a, b, face, face + out, low, low + high)
+                        else:
+                            cuboid(checks, face, face + out, a, b, low, low + high)
+        model.plain(checks, "paint")
     lid = bmesh.new()
-    cuboid(lid, -half - 0.015, half + 0.015, -deep - 0.015, deep + 0.015, head + 0.3, head + 0.33)
+    lip = 0.015 + out
+    cuboid(lid, -half - lip, half + lip, -deep - lip, deep + lip, head + 0.3, head + 0.33)
     model.hard(lid, "plastic", bevel=0.004, segments=1)
     hoses = bmesh.new()
     for side in (-1, 1):
@@ -9662,7 +9686,7 @@ def pole(name, radius, high, cap):
 def street_clutter():
     """What stands along streets and lots: road barriers and barricades, work lights, petrol pumps, a cement mixer, sand
     tipped on the ground, and an old headstone."""
-    return [jersey_barrier(), gravestone_battered(), road_barricade(), flood_light(), fuel_pump(), cement_mixer(),
+    return [jersey_barrier(), gravestone_battered(), road_barricade(), flood_light(), fuel_pump(), fuel_pump(checked=True), cement_mixer(),
             sand_pile("sand_pile", 1.0, 0.59, 3), sand_pile("sand_pile_large", 1.05, 0.68, 5), warning_sign(),
             burnt_post("burnt_picket_post", 0.04, 0.96, False, 1), burnt_post("burnt_rail_post", 0.055, 1.35, True, 2),
             burnt_post("burnt_tall_post", 0.08, 2.33, False, 3), pole("fence_pole", 0.022, 2.17, False), pole("fence_pole_capped", 0.022, 1.25, True),

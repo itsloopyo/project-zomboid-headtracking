@@ -848,7 +848,7 @@ final class Furniture {
             piece.dyeY = outside.dyeY;
         }
         if (outside.alsoDyed != 0) {
-            piece.also(outside.alsoDyed, outside.alsoHigh);
+            piece.alsoAt(outside.alsoDyed, outside.alsoA, outside.alsoB, outside.alsoHigh);
         }
         piece.partner = outside.partner;
         piece.partnerX = outside.partnerX;

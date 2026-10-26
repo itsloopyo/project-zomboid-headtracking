@@ -24,9 +24,9 @@ final class Outdoors {
         /** The surfaces the sprite gives their colour, and where on the square and how high, in levels, it gives it. */
         int dyed;
         float dyeA = 0.5f, dyeB = 0.5f, dyeHigh;
-        /** The surfaces that take their colour from another height over the same place, and that height, in levels. */
+        /** The surfaces that take their colour from another height over the same place, or over (alsoA, alsoB), and that height, in levels. */
         int alsoDyed;
-        float alsoHigh;
+        float alsoHigh, alsoA = Float.NaN, alsoB = Float.NaN;
         /** Whether it is made no bigger than fits inside its squares, and not a metre to the tile so as to meet the next. */
         boolean fits;
         /** Whether it is a trough the game paints feed or water in (Troughs.addFill). */
@@ -106,6 +106,12 @@ final class Outdoors {
             alsoDyed = surfaces;
             alsoHigh = high;
             return this;
+        }
+
+        Piece alsoAt(int surfaces, float a, float b, float high) {
+            alsoA = a;
+            alsoB = b;
+            return also(surfaces, high);
         }
 
         Piece raise(float levels) {
@@ -819,23 +825,30 @@ final class Outdoors {
     private static final float PUMP_ALONG = 0.25f, PUMP_ACROSS = 0.39f, PUMP_FRONT = 0.64f;
     /** How high on its sprite a pump gives the colour of its low panel and of its head, in levels. */
     private static final float PUMP_PANEL_DYE = 0.12f, PUMP_HEAD_DYE = 0.88f;
+    /**
+     * Where on its square, and how high in levels, a Gas 2 Go pump facing east and one facing south paint a yellow check of
+     * the band round the head, all yellow for two dots every way: its red checks are the low panel's red.
+     */
+    private static final float[] PUMP_CHECK_EAST = {0.25f, 0.64f, 0.857f}, PUMP_CHECK_SOUTH = {0.054f, 0.836f, 0.893f};
 
     /**
      * A petrol pump, which the game paints in two sprites on two squares side by side, the pump straddling the edge between
      * them though most of it is on the square of the first: facing east the first and the second to its north, facing south
      * the first and the second to its west. The first stands the whole pump and the second nothing, each only while the other
-     * is there. Two brands of station have the same pump in their own colours.
+     * is there. Two brands of station have the same pump in their own colours, Gas 2 Go's head in red and yellow checks.
      */
     private static Piece fuelPump(String name) {
         String sheet = name.startsWith(GAS2GO) ? GAS2GO : name.startsWith(FOSSOIL) ? FOSSOIL : null;
         if (sheet == null) {
             return null;
         }
+        boolean checked = sheet.equals(GAS2GO);
+        String model = checked ? "fuel_pump_checked" : "fuel_pump";
         Piece pump = switch (Sheets.place(name, sheet)) {
-            case 12 -> new Piece("fuel_pump", EAST).at(PUMP_ACROSS, PUMP_ALONG).pairedWith(sheet + "13", 0, -1)
+            case 12 -> new Piece(model, EAST).at(PUMP_ACROSS, PUMP_ALONG).pairedWith(sheet + "13", 0, -1)
                     .dye(PAINT, PUMP_FRONT, PUMP_ALONG, PUMP_PANEL_DYE);
             case 13 -> new Piece(null, EAST).pairedWith(sheet + "12", 0, 1);
-            case 14 -> new Piece("fuel_pump", SOUTH).at(PUMP_ALONG, PUMP_ACROSS).pairedWith(sheet + "15", -1, 0)
+            case 14 -> new Piece(model, SOUTH).at(PUMP_ALONG, PUMP_ACROSS).pairedWith(sheet + "15", -1, 0)
                     .dye(PAINT, PUMP_ALONG, PUMP_FRONT, PUMP_PANEL_DYE);
             case 15 -> new Piece(null, SOUTH).pairedWith(sheet + "14", 1, 0);
             default -> null;
@@ -847,7 +860,11 @@ final class Outdoors {
             pump.follows = true;
             return pump;
         }
-        return pump.also(1 << Models.VINYL, PUMP_HEAD_DYE);
+        if (!checked) {
+            return pump.also(1 << Models.VINYL, PUMP_HEAD_DYE);
+        }
+        float[] check = pump.turns == EAST ? PUMP_CHECK_EAST : PUMP_CHECK_SOUTH;
+        return pump.alsoAt(1 << Models.VINYL, check[0], check[1], check[2]);
     }
 
     /** The sheet the game's television aerials are on, with its poles and wires. */
