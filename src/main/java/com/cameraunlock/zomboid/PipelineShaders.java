@@ -2105,6 +2105,9 @@ final class PipelineShaders {
                     vec2 on = clamp((vUv - cell - 0.25) * 2.0, 0.0, 1.0);
                     bool painted = cell.x > 2047.5;
                     cell.x -= painted ? 2048.0 : 0.0;
+                    // A bush's bloom (Flora.BLOOMS): its flowers or berries.
+                    bool bloom = cell.y > 2047.5;
+                    cell.y -= bloom ? 2048.0 : 0.0;
                     vec2 autumn = autumnOf(vRoot);
                     float each = grain(cell);
                     // Standing in a tree, the sprigs within reach are gone, a whole sprig at
@@ -2177,9 +2180,9 @@ final class PipelineShaders {
                     vec3 season = autumnal(sum.rgb / sum.a, autumn.x, turned);
                     // The game paints a crown in a few flat tones, darker at each mass's rim
                     // and foot. Here the light does that, so the tone is evened out and only
-                    // the hue is taken.
+                    // the hue is taken. A flower keeps its own: evened out, a white one was tan.
                     float painted = dot(season, vec3(0.299, 0.587, 0.114));
-                    season *= mix(1.0, 0.4 / max(painted, 0.05), 0.6);
+                    season *= bloom ? 1.0 : mix(1.0, 0.4 / max(painted, 0.05), 0.6);
                     // The sprig's own light and dark, its veins and its twig, over that colour:
                     // every sprig's picture is the same green on average, which is divided out.
                     vec3 own = sprig.rgb / vec3(0.26, 0.42, 0.12);

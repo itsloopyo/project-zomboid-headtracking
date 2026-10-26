@@ -523,6 +523,9 @@ final class PlantBuilder {
         Plant plant = plantOf(sprite);
         String grown = plant.name();
         boolean dead = plant.dead();
+        if (build.overLayer == 0) {
+            bushPlaces = null;
+        }
         if ((type == IsoObjectType.tree || dead) && build.overLayer == 0 && Own.plants(build.playerIndex) && addBole(sprite, texture, x, y, z) && build.geometry.keep < 1f) {
             return;
         }
@@ -719,10 +722,28 @@ final class PlantBuilder {
                 places = Flora.above(places, build.frame, SpriteGeometry.frameV(build.frame, 0.5f, 0.5f, 0f), EVERGREEN_FOOT);
             }
             // A texture that shows nothing yet may only not have its outline read yet.
-            if (places.length < CROWN_LEAST_PLACES * 2) {
-                return false;
+            if (places.length >= CROWN_LEAST_PLACES * 2) {
+                WorldScene.leafPlaces.put(texture, places);
             }
-            WorldScene.leafPlaces.put(texture, places);
+        }
+        boolean few = places.length < CROWN_LEAST_PLACES * 2;
+        // The game paints a bush in layers over each other: its stems, its leaves, then its flowers or
+        // berries. The layer that reaches furthest so far is its shape, and a smaller one over it, or
+        // one too sparse to be a crown, is a bloom on that crown. Made of its own places, a bloom was
+        // a crown inside the leaves, hidden by them.
+        float spread = bush ? Flora.spread(places) : 0f;
+        boolean bloom = bush && build.overLayer > 0 && bushPlaces != null && bushX == x && bushY == y && bushZ == z && (few || spread < bushSpread);
+        if (few && !bloom) {
+            return false;
+        }
+        if (bloom) {
+            places = bushPlaces;
+        } else if (bush) {
+            bushPlaces = places;
+            bushSpread = spread;
+            bushX = x;
+            bushY = y;
+            bushZ = z;
         }
         // The bole stood last may be another tree's, in another chunk: only its own tree's crown grows limbs from it.
         boolean boled = !bush && boleX == x && boleY == y;
@@ -742,16 +763,21 @@ final class PlantBuilder {
             boolean limbed = boled && Crowns.limbed(away, sprig, leaf);
             return Flora.addCrown(WorldScene.solid.get(texture.getID()), WorldScene.solid.get(WorldScene.PLAIN), build.frame, places, x + 0.5f, y + 0.5f, base, footU, footV, Crowns.detail(away), Crowns.close(away),
                     limbed ? boleThick : 0f, limbed ? boleTall : 0f, limbed ? boleBark : bark, sprig, seed, build.room, leaf, hue, turned,
-                    boled ? boleKind : TreeForm.NONE, boled ? boleShape : null, world.twiggedFrom, painted);
+                    boled ? boleKind : TreeForm.NONE, boled ? boleShape : null, world.twiggedFrom, painted, world.terrain.level, bloom);
         }
         if (!Flora.measure(build.frame, places, footU, footV, crownLeft, crownRight, crownSizes)) {
             return false;
         }
         (build.afresh ? WorldScene.crownsChecked : world.crownsRead).add(texture.getID(), build.frame, places, x + 0.5f, y + 0.5f, base, footU, footV, away, boled ? boleThick : 0f, boled ? boleTall : 0f,
                 boled ? boleBark : bark, bark, sprig, seed, build.room, leaf, hue, turned, boled ? boleKind : TreeForm.NONE, boled ? boleShape : null,
-                world.twiggedFrom, painted);
+                world.twiggedFrom, painted, world.terrain.level, bloom);
         return true;
     }
+
+    /** The places of the widest-reaching layer of the bush whose crown was stood last, how far they reach (Flora.spread), and its square: a smaller layer over it there blooms on that crown. */
+    private float[] bushPlaces;
+    private float bushSpread;
+    private int bushX, bushY, bushZ;
 
     /** The tile of the tree whose trunk was stood last, and its square: a crown is its tree's when it is on the same square. */
     private String treeTile;

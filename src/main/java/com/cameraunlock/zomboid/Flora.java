@@ -221,6 +221,23 @@ final class Flora {
      * view the world shader paints it with its sprite, as the game draws the plant (see addCrown).
      */
     static final float PAINTED = CROWN_STEPS;
+    /** Added to the texture coordinate down of a bloom's sprigs (see addCrown): the world shader keeps a flower as light as it is painted. */
+    static final float BLOOMS = CROWN_STEPS;
+    /**
+     * How far out past a bush's leaves its bloom stands (see addCrown), in its sprigs' size: the
+     * leaves' sprigs lie along the crown tilted any way, and stand out from it by up to about half
+     * one. Overhead a bloom is painted along the game's view, where how far out it stands moves
+     * nothing, and it stands a whole sprig out, clear of every leaf.
+     */
+    static final float BLOOM_PROUD = 0.5f, BLOOM_PROUD_OVERHEAD = 1f;
+    /**
+     * Overhead, a painted sprig is shrunk to what of its sprite's frame it covers, and left out
+     * when that is less than this share of it: past the frame it was painted with whatever sprite
+     * lies next to it in the texture, flecks in the air round a bush.
+     */
+    private static final float FITS_LEAST = 0.25f;
+    /** The way from what the game's own view shows to the eye it is drawn from: from the south-east, 30 degrees up (PipelineShaders' GAME_VIEW). */
+    private static final float GAME_VIEW_ACROSS = 0.61237f, GAME_VIEW_UP = 0.5f;
     /**
      * The colours a crown's leaves turn in autumn, one of the HUES, and in how many steps they
      * turn towards it, from green to brown. Its sprigs and its inside carry both in the square of
@@ -333,6 +350,18 @@ final class Flora {
             }
         }
         return Arrays.copyOf(found, count);
+    }
+
+    /** How far the places of leafPlaces reach: the area of the rectangle round them, in frame pixels. */
+    static float spread(float[] places) {
+        float left = Float.MAX_VALUE, right = -Float.MAX_VALUE, top = Float.MAX_VALUE, bottom = -Float.MAX_VALUE;
+        for (int i = 0; i < places.length; i += 2) {
+            left = Math.min(left, places[i]);
+            right = Math.max(right, places[i]);
+            top = Math.min(top, places[i + 1]);
+            bottom = Math.max(bottom, places[i + 1]);
+        }
+        return places.length == 0 ? 0f : (right - left) * (bottom - top);
     }
 
     /** The places of leafPlaces at least least tiles over the foot, which the sprite shows at the frame row footV. */
@@ -501,6 +530,23 @@ final class Flora {
     static boolean addCrown(Mesh mesh, Mesh wood, SpriteGeometry.Frame frame, float[] places, float x, float y, float base, float footU, float footV,
             float detail, float close, float boleRadius, float boleTall, int bark, int sprig, int seed, float[] room, float leaf, int hue, float turned,
             int kind, float[] woodShape, float twiggedFrom, boolean painted) {
+        return addCrown(mesh, wood, frame, places, x, y, base, footU, footV, detail, close, boleRadius, boleTall, bark, sprig, seed, room, leaf, hue, turned,
+                kind, woodShape, twiggedFrom, painted, false, false);
+    }
+
+    /**
+     * The same, built for the game's own view from overhead when overhead is set, and as the bloom
+     * of a bush when bloom is: the flowers or berries the game paints over a bush with a sprite of
+     * their own, which paints nothing else. Its places are the bush's, so the bloom is the shape of
+     * the bush, and it is only the outside, every sprig proud of the leaves (BLOOM_PROUD), with no
+     * inside and no twigs: a flower lies on the bush. The frame is the bloom's, so painted it shows
+     * only where the game paints a flower. Overhead every sprig of a bloom faces the game's view,
+     * as seen edge on a sprig is left out of the picture, and every sprig of a painted crown keeps
+     * to its sprite's frame (FITS_LEAST).
+     */
+    static boolean addCrown(Mesh mesh, Mesh wood, SpriteGeometry.Frame frame, float[] places, float x, float y, float base, float footU, float footV,
+            float detail, float close, float boleRadius, float boleTall, int bark, int sprig, int seed, float[] room, float leaf, int hue, float turned,
+            int kind, float[] woodShape, float twiggedFrom, boolean painted, boolean overhead, boolean bloom) {
         if (!(leaf > 0f && leaf <= 1f) || hue < 0 || hue >= HUES || !(turned >= 0f && turned <= 1f)) {
             throw new IllegalArgumentException("a crown with leaf " + leaf + ", hue " + hue + " and turned " + turned);
         }
@@ -563,6 +609,9 @@ final class Flora {
             // further in, and are what shows, in shade, through the gaps of the first.
             boolean filling = drawn > wanted / count;
             boolean inner = filling || (hash >>> 29 & 3) == 0;
+            if (bloom && inner) {
+                continue;
+            }
             int band = Math.min((int) ((high - lowest) / tall * CROWN_BANDS), CROWN_BANDS - 1);
             float round = unit(hash, 8) * 6.2832f, share = (high - lowest) / tall;
             // How far this place is up a bough's swell, 1 its top and 0 the hollow, and how that changes round the crown and up it.
@@ -572,7 +621,7 @@ final class Flora {
             float full = Math.max((reachLeft[band] + reachRight[band]) / 2f, size * 0.2f);
             float surface = 1f - BOUGH_HOLLOW * (1f - swell);
             float out = full * (filling ? surface * (0.12f + 0.73f * unit(hash, 20)) : inner ? 0.3f + 0.3f * unit(hash, 20)
-                    : surface * (0.86f + 0.14f * unit(hash, 20)));
+                    : bloom ? surface + (overhead ? BLOOM_PROUD_OVERHEAD : BLOOM_PROUD) * size / full : surface * (0.86f + 0.14f * unit(hash, 20)));
             float cosRound = (float) Math.cos(round), sinRound = (float) Math.sin(round);
             float px = out * cosRound, py = out * sinRound, pz = high - middle;
             float far = (float) Math.sqrt(px * px + py * py + pz * pz);
@@ -593,6 +642,11 @@ final class Flora {
             ax /= length;
             ay /= length;
             az /= length;
+            if (bloom && overhead) {
+                ax = GAME_VIEW_ACROSS;
+                ay = GAME_VIEW_ACROSS;
+                az = GAME_VIEW_UP;
+            }
             // Two directions in its flat, square to each other.
             float bx = -ay, by = ax;
             float flat = (float) Math.sqrt(bx * bx + by * by);
@@ -634,12 +688,32 @@ final class Flora {
                 stemY += shiftY;
                 tipY += shiftY;
             }
+            if (painted && overhead) {
+                float fits = fitsFrame(frame, footU, footV, px, py, high, up, lx, ly, lz, rx, ry, rz);
+                if (fits < FITS_LEAST) {
+                    continue;
+                }
+                if (fits < 1f) {
+                    lx *= fits;
+                    ly *= fits;
+                    lz *= fits;
+                    rx *= fits;
+                    ry *= fits;
+                    rz *= fits;
+                    stemX = x + px - lx / 2f;
+                    stemY = y + py - ly / 2f;
+                    stemUp = base + high - lz / 2f;
+                    tipX = stemX + lx;
+                    tipY = stemY + ly;
+                    tipUp = stemUp + lz;
+                }
+            }
             if (painted) {
                 // A painted crown's sprig takes its colour where the sprite paints its middle, seen along
                 // the game's view: from there the world shader paints it with the sprite's own leaves
                 // where it is seen along that view.
                 u = (float) Math.rint(paintedU(frame, footU, px, py) * CROWN_STEPS) + PAINTED;
-                v = (float) Math.rint(paintedV(frame, footV, px, py, high, up) * CROWN_STEPS);
+                v = (float) Math.rint(paintedV(frame, footV, px, py, high, up) * CROWN_STEPS) + (bloom ? BLOOMS : 0f);
             }
             for (int corner : QUAD) {
                 boolean right = corner == 1 || corner == 2, tip = corner >= 2;
@@ -648,7 +722,7 @@ final class Flora {
                 mesh.add((tip ? tipX : stemX) + rx * side, (tip ? tipY : stemY) + ry * side, (tip ? tipUp : stemUp) + rz * side,
                         u + (right != mirrored ? 1f - CROWN_INSET : CROWN_INSET), v + (tip ? CROWN_INSET : 1f - CROWN_INSET), red, green, blue);
             }
-            if ((hash >>> 12 & 0xff) < 255f * TWIG_SHARE * close) {
+            if (!bloom && (hash >>> 12 & 0xff) < 255f * TWIG_SHARE * close) {
                 // The twig the sprig is on: from the middle of its leaves back and down into the crown, towards the bough it grew from.
                 float back = Math.min(TWIG_LONG * each / Math.max(out, 1e-3f), 0.7f);
                 float sway = Math.clamp(high * SWAY_PER_TILE, 0f, SWAY_MOST);
@@ -659,7 +733,7 @@ final class Flora {
         }
         mesh.sway = 0f;
         float inside = Math.clamp((leaf - CORE_GOES) / (1f - CORE_GOES), 0f, 1f);
-        if (!bare && inside > 0f) {
+        if (!bare && !bloom && inside > 0f) {
             addCore(mesh, frame, places, x, y, base, footU, footV, across, up, lowest, tall, under, reachLeft, reachRight, lobes, rows, turnOne, turnTwo, turnThree, sprig, painted, room,
                     inside, detail < CORE_FAR_DETAIL, workings);
         }
@@ -1327,6 +1401,21 @@ final class Flora {
         float pixel = Math.clamp(footU + (dx - dy) * SpriteGeometry.PIXELS_ACROSS_PER_TILE * frame.scale, frame.left + SpriteGeometry.HALF_PIXEL,
                 frame.left + frame.width - SpriteGeometry.HALF_PIXEL);
         return frame.uStart + (pixel - frame.left) / frame.width * (frame.uEnd - frame.uStart);
+    }
+
+    /**
+     * How much of a painted sprig, its middle at (dx, dy, dz) from the plant's foot, along (lx, ly, lz)
+     * from stem to tip and (rx, ry, rz) half across, keeps it within the frame seen along the game's
+     * view: 1 for all of it, less for the share of its size that would, 0 for its middle outside.
+     */
+    static float fitsFrame(SpriteGeometry.Frame frame, float footU, float footV, float dx, float dy, float dz, float up,
+            float lx, float ly, float lz, float rx, float ry, float rz) {
+        float across = SpriteGeometry.PIXELS_ACROSS_PER_TILE * frame.scale, down = SpriteGeometry.PIXELS_DOWN_PER_TILE * frame.scale;
+        float u = footU + (dx - dy) * across, v = footV + (dx + dy) * down - dz / up;
+        float reachU = Math.abs(lx - ly) * across / 2f + Math.abs(rx - ry) * across;
+        float reachV = Math.abs((lx + ly) * down - lz / up) / 2f + Math.abs((rx + ry) * down - rz / up);
+        float roomU = Math.min(u - frame.left, frame.left + frame.width - u), roomV = Math.min(v - frame.top, frame.top + frame.height - v);
+        return Math.clamp(Math.min(roomU / Math.max(reachU, 1e-6f), roomV / Math.max(reachV, 1e-6f)), 0f, 1f);
     }
 
     /** paintedU's down. */
