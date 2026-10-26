@@ -29,14 +29,15 @@ import zombie.iso.sprite.IsoSpriteInstance;
  * The south and east walls of a room, which the game's camera, looking in from the south east,
  * never shows from inside: the map's makers hung what a room has on its north and west walls, and
  * in first person the player turns round to two bare walls. Here a room's hidden walls are hung
- * with the game's own things that are drawn facing north or west: a mirror, a clock, a coat rack.
+ * with the game's own things that are drawn facing north or west: a mirror, a clock, a coat rack,
+ * a deer's head.
  * The game has no picture, photograph, poster or calendar that faces that way.
  *
  * What a room gets goes by its name on the map and by what it already has: a bathroom with no
  * mirror gets one over a sink against a hidden wall, a bedroom one, a kitchen or an office with no
  * clock a clock, a ground floor hall with a door out a coat rack, a living room a clock and a
- * mirror where its other walls carry that much. The mirror and the clock are of a kind the
- * building already has where it has one. A room with nothing to say what it is, a garage, a store
+ * mirror where its other walls carry that much, and a deer's head in one of them where the house
+ * shows a hunting picture and has no trophy on a wall. The mirror and the clock are of a kind the building already has where it has one. A room with nothing to say what it is, a garage, a store
  * or a cellar, is left as the map has it.
  *
  * What is hung is the game's own object, put on its square as the map's loader puts one, so it is
@@ -65,6 +66,7 @@ final class HiddenWalls {
         FACING_IN.put("Clock|Wall", new String[] {"location_community_school_01_34", "location_community_school_01_35"});
         FACING_IN.put("Clock|Square Wall", new String[] {"walls_decoration_01_106", "walls_decoration_01_107"});
         FACING_IN.put("Rack|Coat", new String[] {"location_community_school_01_38", "location_community_school_01_39"});
+        FACING_IN.put("Deer Trophy|Mounted", new String[] {"camping_01_21", "camping_01_22"});
     }
 
     /** What a room is to its walls. */
@@ -633,6 +635,9 @@ final class HiddenWalls {
                 if (!clock) {
                     hang(spots, placed, hung, spot -> spot.bare() || spot.low(), "Clock", preferred(kinds, "Clock", "Wall"));
                 }
+                if (wantsATrophy(kinds) && home(room)) {
+                    hang(spots, placed, hung, Spot::bare, "Deer Trophy", "Mounted");
+                }
                 if (!mirror && shown >= 2 && home(room)) {
                     hang(spots, placed, hung, Spot::bare, "Mirror", preferred(kinds, "Mirror", "Wooden Framed"));
                 }
@@ -885,7 +890,36 @@ final class HiddenWalls {
         return lived;
     }
 
-    /** How many of each mirror and clock the rooms of the room's building that are loaded have, by "Mirror|Large" and the like. */
+    /** What the game calls a hunter's trophy hung on a wall, and the subject of its hunting pictures. */
+    private static final Set<String> TROPHIES = Set.of("Deer Trophy", "Antlers");
+    static final String HUNTING = "hunting";
+
+    /** Whether a thing the game calls so is a hunter's trophy; most things the game names nothing. */
+    static boolean trophy(String called) {
+        return called != null && TROPHIES.contains(called);
+    }
+
+    /**
+     * Whether a building's kinds (kindsInBuilding) are of a house that hunts and has no trophy on
+     * a wall yet: a hunting picture and no deer's head or antlers. A house takes one deer's head,
+     * in the first of its sitting rooms dressed, which the rooms dressed after it then count.
+     */
+    static boolean wantsATrophy(Map<String, Integer> kinds) {
+        boolean hunts = false;
+        for (String key : kinds.keySet()) {
+            String called = key.substring(0, key.indexOf('|'));
+            if (trophy(called)) {
+                return false;
+            }
+            hunts |= HUNTING.equals(called);
+        }
+        return hunts;
+    }
+
+    /**
+     * How many of each mirror, clock and trophy the rooms of the room's building that are loaded
+     * have, by "Mirror|Large" and the like, and of hunting pictures, as "hunting|".
+     */
     private static Map<String, Integer> kindsInBuilding(IsoCell cell, RoomDef room) {
         Map<String, Integer> kinds = new HashMap<>();
         ArrayList<RoomDef> rooms = room.getBuilding().rooms;
@@ -902,9 +936,15 @@ final class HiddenWalls {
                         for (int j = 0; j < square.getObjects().size(); j++) {
                             ArrayList<IsoSprite> sprites = spritesOf(square.getObjects().get(j));
                             for (int k = 0; k < sprites.size(); k++) {
-                                String called = sprites.get(k).getProperties().get("CustomName");
-                                if ("Mirror".equals(called) || "Clock".equals(called)) {
-                                    kinds.merge(called + "|" + sprites.get(k).getProperties().get("GroupName"), 1, Integer::sum);
+                                IsoSprite sprite = sprites.get(k);
+                                PropertyContainer properties = sprite.getProperties();
+                                String called = properties.get("CustomName"), group = properties.get("GroupName");
+                                if ("Mirror".equals(called) || "Clock".equals(called) || trophy(called)) {
+                                    kinds.merge(called + "|" + group, 1, Integer::sum);
+                                }
+                                int picture = Decor.of(sprite.getName(), called, group == null ? "" : group, sprite.getSpriteGrid() != null);
+                                if (picture != Decor.NONE && HUNTING.equals(subjectOf(Decor.nameOf(picture)))) {
+                                    kinds.merge(HUNTING + "|", 1, Integer::sum);
                                 }
                             }
                         }

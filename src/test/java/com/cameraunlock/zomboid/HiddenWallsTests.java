@@ -11,6 +11,7 @@ final class HiddenWallsTests {
         aRoomWithNothingToSayWhatItIsIsLeftAlone();
         theMirrorIsOfTheKindTheBuildingHasMostOf();
         aKindTheGameDrawsFacingOutOnlyIsPassedOver();
+        aHuntersHouseTakesATrophy();
         aHomesPicturesAreOfTheHouse();
     }
 
@@ -130,6 +131,16 @@ final class HiddenWallsTests {
         Checks.check(HiddenWalls.preferred(Map.of("Mirror|Tall", 2, "Mirror|Large", 2), "Mirror", "Small").equals("Large"),
                 "a tie goes the same way every time");
         Checks.check(HiddenWalls.preferred(Map.of(), "Clock", "Wall").equals("Wall"), "a building with none gets the room's own default");
+    }
+
+    private static void aHuntersHouseTakesATrophy() {
+        Checks.check(HiddenWalls.wantsATrophy(Map.of(HiddenWalls.HUNTING + "|", 1, "Clock|Wall", 2)) && HiddenWalls.TASTES.contains(HiddenWalls.HUNTING),
+                "a house with a hunting picture and no trophy takes a deer's head");
+        Checks.check(!HiddenWalls.wantsATrophy(Map.of(HiddenWalls.HUNTING + "|", 1, "Deer Trophy|Mounted", 1))
+                && !HiddenWalls.wantsATrophy(Map.of(HiddenWalls.HUNTING + "|", 2, "Antlers|Stag", 1)), "and one that has a trophy on a wall already takes no other");
+        Checks.check(!HiddenWalls.wantsATrophy(Map.of("Mirror|Tall", 3, "Clock|Wall", 1)) && !HiddenWalls.wantsATrophy(Map.of()), "and one with only mirrors and clocks takes none");
+        Checks.check(HiddenWalls.trophy("Deer Trophy") && !HiddenWalls.trophy("Mirror") && !HiddenWalls.trophy(null),
+                "a thing the game gives no name is no trophy, and asking does not throw");
     }
 
     private static void aKindTheGameDrawsFacingOutOnlyIsPassedOver() {
