@@ -2,6 +2,7 @@ package com.cameraunlock.zomboid;
 
 import java.util.Locale;
 import zombie.GameTime;
+import zombie.SandboxOptions;
 import zombie.characters.CharacterStat;
 import zombie.characters.IsoPlayer;
 import zombie.characters.Stats;
@@ -30,14 +31,24 @@ final class SkyState {
     private static final float COVER_CLOSED = 0.2f;
     /** How much of the sun's or the moon's light the heaviest rain or snow takes out. */
     private static final float FALLING_DIMS = 0.75f;
-    /** The moon's light with no moon to see or no clear sky to see it in, as the sky pass's colours are given. */
-    private static final float MOON_RED = 0.10f, MOON_GREEN = 0.13f, MOON_BLUE = 0.20f;
+    /** The moon's light at the game's Normal night darkness with no moon to see or no clear sky to see it in, as the sky pass's colours are given. */
+    static final float MOON_RED = 0.10f, MOON_GREEN = 0.13f, MOON_BLUE = 0.20f;
     /**
-     * How much more of that a full moon in a clear sky gives: enough that the side of things turned
-     * up to it reads, with what is in shadow still black. A wood's floor under a full moon comes out
-     * as light as the ground the stock view shows in its cone there, and at twice this as light as dusk.
+     * The stock view's night floor for each of the sandbox's Night Darkness settings, Pitch Black,
+     * Dark, Normal and Bright (RenderSettings.PlayerRenderSettings): the moon's light goes with it, so
+     * Pitch Black has none and Bright more than Normal.
      */
-    static final float FULL_MOON_LIFT = 0.5f;
+    static final float[] NIGHT_FLOOR = {0f, 0.07f, 0.15f, 0.25f};
+    /**
+     * What a full moon in a clear sky adds to that floor. The stock view adds 0.075 by the moon whatever
+     * the sky: so much here put a wood's floor under a full moon at twice what the stock view shows in
+     * its cone there. At this it is a little darker than that, at Normal.
+     */
+    static final float FULL_MOON_ADDS = 0.04f;
+    /** The game moves the moon's phase on a quarter at a time at midnight: the light eases to it with this time constant in seconds. */
+    static final float MOON_SETTLES = 3f;
+    private static float moonShown = -1f;
+    private final float[] light = new float[3];
     /** How much of the light crossing a tile of air is caught and sent to the eye: on a clear day, and added by full fog and by full rain. */
     private static final float MIST_CLEAR = 0.0045f, MIST_FOG = 0.022f, MIST_RAIN = 0.008f, MIST_SNOW = 0.025f;
     /**
@@ -288,15 +299,18 @@ final class SkyState {
         sunGreen = up * mix(0.50f, 0.96f, white);
         sunBlue = up * mix(0.20f, 0.88f, white);
 
+        fog = Math.clamp(climate.getFogIntensity(), 0f, 1f);
+        long now = System.nanoTime();
+        moonShown = eased(moonShown, ClimateMoon.getInstance().getMoonFloat(), (now - lastNanos) / 1e9f, GameTime.isGamePaused());
         if (sunUp > -0.06f) {
             lightX = sunX; lightY = sunY; lightUp = sunUp;
-            float strength = smooth(-0.06f, 0.1f, sunUp);
-            lightRed = strength; lightGreen = strength * mix(0.55f, 0.97f, white); lightBlue = strength * mix(0.30f, 0.92f, white);
         } else {
             lightX = moonX; lightY = moonY; lightUp = moonUp;
-            float moon = night * moonLift(ClimateMoon.getInstance().getMoonFloat(), Math.max(cloudy, falling));
-            lightRed = MOON_RED * moon; lightGreen = MOON_GREEN * moon; lightBlue = MOON_BLUE * moon;
         }
+        lightColour(sunUp, white, night, moonGives(SandboxOptions.instance.nightDarkness.getValue(), moonShown, covered(cloudy, falling, fog)), light);
+        lightRed = light[0];
+        lightGreen = light[1];
+        lightBlue = light[2];
         // Under the cloud a heavy fall comes from, little of the sun or the moon gets through to throw a shadow.
         float beneath = 1f - FALLING_DIMS * falling;
         lightRed *= beneath;
@@ -313,7 +327,6 @@ final class SkyState {
         // grass here rises and falls with them.
         float gusting = (float) ClimateManager.getWindTickFinal();
         float windStrength = Wind.push(gusting);
-        fog = Math.clamp(climate.getFogIntensity(), 0f, 1f);
         blowing = Math.clamp(climate.getWindIntensity(), 0f, 1f);
         // Falling snow catches a beam of light more than rain does: each flake is white and slow.
         mist = MIST_CLEAR + MIST_FOG * fog + MIST_RAIN * rain + MIST_SNOW * snowing;
@@ -323,7 +336,6 @@ final class SkyState {
         this.rain = climate.isSnowing() ? 0f : rain;
         snow = snowing;
         snowFalling = snowing;
-        long now = System.nanoTime();
         float lying = Math.clamp(climate.getSnowFracNow(), 0f, 1f);
         snowShown = shown(snowShown, lying, (now - lastNanos) / 1e9f, GameTime.isGamePaused());
         snowLying = snowShown;
@@ -369,11 +381,47 @@ final class SkyState {
     }
 
     /**
-     * How many times the moon's least light it gives, by how much of it is lit, the game's 0 at a new
-     * moon to 1 at a full one, and how much of the sky cloud covers, 0 to 1, a sky that rain or snow falls from counted as covered.
+     * The light the sun or the moon throws, red, green and blue as the sky pass's colours are given:
+     * the sun's above sunUp -0.06, below it the moon's, moonGives times its light at Normal (see moonGives).
      */
-    static float moonLift(float phase, float covered) {
-        return 1f + FULL_MOON_LIFT * Math.clamp(phase, 0f, 1f) * (1f - Math.clamp(covered, 0f, 1f));
+    static void lightColour(float sunUp, float white, float night, float moonGives, float[] into) {
+        if (sunUp > -0.06f) {
+            float strength = smooth(-0.06f, 0.1f, sunUp);
+            into[0] = strength;
+            into[1] = strength * mix(0.55f, 0.97f, white);
+            into[2] = strength * mix(0.30f, 0.92f, white);
+            return;
+        }
+        float moon = night * moonGives;
+        into[0] = MOON_RED * moon;
+        into[1] = MOON_GREEN * moon;
+        into[2] = MOON_BLUE * moon;
+    }
+
+    /**
+     * How many times the moon's light at Normal night darkness with no moon to see it gives, at the
+     * sandbox's Night Darkness setting (1 Pitch Black to 4 Bright), by how much of the moon is lit, the
+     * game's 0 at a new moon to 1 at a full one, and how much of the sky is covered (see covered).
+     */
+    static float moonGives(int nightDarkness, float phase, float covered) {
+        return (NIGHT_FLOOR[nightDarkness - 1] + FULL_MOON_ADDS * phase * (1f - covered)) / NIGHT_FLOOR[2];
+    }
+
+    /** How much of the sky is closed to the moon, 0 to 1: by cloud, by the deck rain or snow falls from, or by fog. */
+    static float covered(float cloudy, float falling, float fog) {
+        return Math.max(cloudy, Math.max(falling, fog));
+    }
+
+    /**
+     * The moon's phase as the light shows it, elapsed seconds after it showed shown, the game having
+     * phase: taken as it is on the first picture, held while the game is paused, and eased with
+     * MOON_SETTLES otherwise, so a quarter's step at midnight is never a step in the light.
+     */
+    static float eased(float shown, float phase, float elapsed, boolean paused) {
+        if (shown < 0f) {
+            return phase;
+        }
+        return paused ? shown : shown + (phase - shown) * (1f - (float) Math.exp(-Math.min(elapsed, 0.25f) / MOON_SETTLES));
     }
 
     /** What the character's eyes make of the air and of what they look at, from the climate this captured and the viewer. */
