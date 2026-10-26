@@ -809,8 +809,9 @@ final class Tiles {
                     }
                     slot = slots.size();
                     slots.put(key, slot);
-                    middles[slot * 2] = (float) (Math.floorMod((int) Math.round(midA * 4), side * 4) / 4.0 / side);
-                    middles[slot * 2 + 1] = (float) (Math.floorMod((int) Math.round(midB * 4), side * 4) / 4.0 / side);
+                    // The middle exactly where the lattice puts it, rounded only for the key: two pavers each a quarter dot off opened a crack along their edge.
+                    middles[slot * 2] = (float) (midA / side - Math.floor(midA / side));
+                    middles[slot * 2 + 1] = (float) (midB / side - Math.floor(midB / side));
                 }
                 paverAt[dot] = slot;
                 edgeAt[dot] = (float) nearest[0];

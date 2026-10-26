@@ -526,6 +526,14 @@ final class WindowTests {
             closest = Math.min(closest, (float) Math.hypot(Math.min(offA, 64f - offA), Math.min(offB, 64f - offB)));
         }
         check(closest <= 1f, "a middle within a dot of where it is laid: " + closest);
+        // Every middle a whole number of steps from the first, or neighbours' edges part in a crack.
+        float offLattice = 0f;
+        for (int at = 5; at < tiles.hexes.length; at += 5) {
+            float da = (tiles.hexes[at] - tiles.hexes[0]) * 64f, db = (tiles.hexes[at + 1] - tiles.hexes[1]) * 64f;
+            float n1 = da * 3f / 32f, n2 = (db + n1 * 16f / 3f) * 3f / 32f;
+            offLattice = Math.max(offLattice, Math.max(Math.abs(n1 - Math.round(n1)), Math.abs(n2 - Math.round(n2))));
+        }
+        check(offLattice < 1e-3f, "every middle on one lattice: " + offLattice + " of a step off");
         float widest = 0f;
         for (int k = 0; k < 12; k += 2) {
             widest = Math.max(widest, (float) Math.hypot(tiles.hexCorners[k], tiles.hexCorners[k + 1]) * 64f);
