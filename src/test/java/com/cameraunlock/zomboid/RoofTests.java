@@ -2717,7 +2717,9 @@ final class RoofTests {
         for (int i = 0; i < all.size(); i++) {
             for (int j = i + 1; j < all.size(); j++) {
                 RoofFit.Tile a = all.get(i), b = all.get(j);
-                check(!a.carried || !b.carried || a.x != b.x || a.y != b.y || !Arrays.equals(a.corners, b.corners),
+                boolean same = true;
+                for (int c = 0; c < 4; c++) same &= Math.abs(a.corners[c] - b.corners[c]) <= RoofFit.SAME;
+                check(!a.carried || !b.carried || a.x != b.x || a.y != b.y || !same,
                         "one carried tile with the same corners on " + a.x + ", " + a.y);
             }
         }
