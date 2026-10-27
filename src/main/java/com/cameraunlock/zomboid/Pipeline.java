@@ -6759,6 +6759,7 @@ final class Pipeline {
             width = 0;
             height = 0;
             giveBack(mirrored);
+            giveBack(fired);
             giveBackShadowMaps();
             view.scope.giveBackPicture();
             heldBytes = 0;
