@@ -2,6 +2,7 @@ package com.cameraunlock.zomboid;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.FloatBuffer;
 import java.util.Arrays;
 
 /**
@@ -23,6 +24,12 @@ import java.util.Arrays;
  * round its building, each square of it the mean of its neighbours', worked inwards from
  * the walls.
  *
+ * The roof over such a room the game lights in full whether its squares are seen or not: the
+ * dark multiplier of a roof's squares on level 1 reads 0 where the ground round it is in the
+ * dark (12848..12859, 3186..3194, measured), and the game's picture shows the roof lit. Each
+ * closed square keeps the height its room's level ends at, and nothing drawn above it is
+ * darkened: a storey over the room as well, which has not been set beside the game's.
+ *
  * A block of SIDE by SIDE squares from (x, y), a byte a square, made on the logic thread for
  * one frame and read whole by the render thread when that frame is drawn. A square with
  * nothing on it keeps none of its light, as the game draws none there.
@@ -35,6 +42,10 @@ final class Sight {
     /** The block's first square. */
     int x, y;
     final ByteBuffer shown = ByteBuffer.allocateDirect(SIDE * SIDE).order(ByteOrder.nativeOrder());
+    /** For each square, how high the viewer's level ends over a closed room, in world height; NEVER_LIT elsewhere. */
+    final FloatBuffer lit = ByteBuffer.allocateDirect(SIDE * SIDE * Float.BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
+    /** Higher than anything drawn, as a half float holds it. */
+    static final float NEVER_LIT = 60000f;
     private final int[] held = new int[SIDE * SIDE];
     private final int[] pending = new int[SIDE * SIDE], taken = new int[SIDE * SIDE];
 
@@ -47,11 +58,20 @@ final class Sight {
         x = middleX - SIDE / 2;
         y = middleY - SIDE / 2;
         Arrays.fill(held, UNREAD);
+        for (int i = 0; i < SIDE * SIDE; i++) {
+            lit.put(i, NEVER_LIT);
+        }
     }
 
     /** A square's figure, 0 to 255, or CLOSED. */
     void put(int squareX, int squareY, int kept) {
         held[(squareY - y) * SIDE + squareX - x] = kept;
+    }
+
+    /** A closed square's room, whose level ends at top: what is drawn higher keeps its light. */
+    void closed(int squareX, int squareY, float top) {
+        put(squareX, squareY, CLOSED);
+        lit.put((squareY - y) * SIDE + squareX - x, top);
     }
 
     /** Gives every closed square its figure and makes the block the shader reads. */

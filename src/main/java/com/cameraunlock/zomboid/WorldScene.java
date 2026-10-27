@@ -2951,7 +2951,8 @@ final class WorldScene {
                     }
                     BuildingDef building = square.getRoomID() == -1L || square.getBuilding() == null ? null : square.getBuilding().getDef();
                     if (building != null && !openBuildings.contains(building)) {
-                        sight.put(squareX, squareY, Sight.CLOSED);
+                        // The room's own level, which from a balcony is the floor below the viewer's the square was read from.
+                        sight.closed(squareX, squareY, terrain.lift(squareX + 0.5f, squareY + 0.5f, square.getZ()) + (square.getZ() + 1) * ViewCamera.LEVEL_HEIGHT);
                         continue;
                     }
                     // isCanSee brings the square's figures up to date from the lighting engine; the dark multiplier alone does not.

@@ -7024,6 +7024,9 @@ final class PipelineShaders {
             // of the darkening is laid on, 0 for none.
             uniform sampler2D uSight;
             uniform vec4 uSightAt;
+            // Over a room the game has not opened, the height its viewer's level ends at: what stands higher keeps its light (Sight.lit).
+            uniform sampler2D uSightLit;
+            uniform float uSightEyeUp;
             // The game's own view's colours (Pipeline.OVERHEAD_CONTRAST): x how far each colour is
             // set apart from y, z what blue is multiplied by, w how much of it is done.
             uniform vec4 uOverhead;
@@ -7458,6 +7461,10 @@ final class PipelineShaders {
                     float apart = 0.5 * uSightAt.z;
                     float kept = 0.25 * (texture2D(uSight, q + vec2(apart, apart)).r + texture2D(uSight, q + vec2(apart, -apart)).r
                             + texture2D(uSight, q - vec2(apart, apart)).r + texture2D(uSight, q + vec2(-apart, apart)).r);
+                    // The lowest of the four, so the eaves over the ground beside a room keep their light with the roof.
+                    float lit = min(min(texture2D(uSightLit, q + vec2(apart, apart)).r, texture2D(uSightLit, q + vec2(apart, -apart)).r),
+                            min(texture2D(uSightLit, q - vec2(apart, apart)).r, texture2D(uSightLit, q + vec2(-apart, apart)).r));
+                    kept = mix(kept, 1.0, smoothstep(lit, lit + 0.1, uSightEyeUp + fromEye.z));
                     c *= mix(1.0, kept, uSightAt.w);
                 }
                 if (uFog.x > 0.0) {

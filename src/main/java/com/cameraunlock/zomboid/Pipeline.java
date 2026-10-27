@@ -312,7 +312,7 @@ final class Pipeline {
      */
     static final float OVERHEAD_CONTRAST = 1.15f, OVERHEAD_PIVOT = 0.40f, OVERHEAD_BLUE = 0.98f;
     /** The unit the develop pass reads it on, and how bright fog is against the sky it hangs under. */
-    private static final int DEVELOP_SHELTER_UNIT = 5, DEVELOP_OUTLINES_UNIT = 6, DEVELOP_SIGHT_UNIT = 8, DEVELOP_OUTLINE_DEPTH_UNIT = 9;
+    private static final int DEVELOP_SHELTER_UNIT = 5, DEVELOP_OUTLINES_UNIT = 6, DEVELOP_SIGHT_UNIT = 8, DEVELOP_OUTLINE_DEPTH_UNIT = 9, DEVELOP_SIGHT_LIT_UNIT = 10;
     private static final float FOG_BRIGHT = 1.1f;
     /** The drops, on the graphics card: they are the same every frame. */
     private static int rainDrops;
@@ -584,7 +584,7 @@ final class Pipeline {
     private Shelter shelterHeld;
     /** How the game's own view would darken each square round the viewer, for a picture seen from outside them, or null: see Sight. */
     Sight sight;
-    private int sightTexture;
+    private int sightTexture, sightLitTexture;
     /** Which air round the eye is in a room, or null before the first build: see RoomAir. */
     RoomAir roomAir;
     private int roomAirTexture;
@@ -3470,13 +3470,30 @@ final class Pipeline {
     private void holdSight(ViewCamera.Pose camera) {
         float strength = sight == null ? 0f : cutBehind;
         develop.set("uSight", DEVELOP_SIGHT_UNIT);
-        GL13.glActiveTexture(GL_TEXTURE0 + DEVELOP_SIGHT_UNIT);
+        develop.set("uSightLit", DEVELOP_SIGHT_LIT_UNIT);
         if (strength <= 0f) {
-            GL11.glBindTexture(GL_TEXTURE_2D, noneTexture);
+            for (int unit : new int[] {DEVELOP_SIGHT_UNIT, DEVELOP_SIGHT_LIT_UNIT}) {
+                GL13.glActiveTexture(GL_TEXTURE0 + unit);
+                GL11.glBindTexture(GL_TEXTURE_2D, noneTexture);
+            }
             GL13.glActiveTexture(GL_TEXTURE0);
             develop.set("uSightAt", 0f, 0f, 0f, 0f);
             return;
         }
+        GL11.glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+        GL11.glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
+        GL11.glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
+        GL13.glActiveTexture(GL_TEXTURE0 + DEVELOP_SIGHT_LIT_UNIT);
+        if (sightLitTexture == 0) {
+            sightLitTexture = GL11.glGenTextures();
+            GL11.glBindTexture(GL_TEXTURE_2D, sightLitTexture);
+            GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_R16F, Sight.SIDE, Sight.SIDE, 0, GL_RED, GL_FLOAT, (ByteBuffer) null);
+            filter(GL_NEAREST);
+        }
+        GL11.glBindTexture(GL_TEXTURE_2D, sightLitTexture);
+        GL11.glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+        GL11.glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, Sight.SIDE, Sight.SIDE, GL_RED, GL_FLOAT, sight.lit);
+        GL13.glActiveTexture(GL_TEXTURE0 + DEVELOP_SIGHT_UNIT);
         if (sightTexture == 0) {
             sightTexture = GL11.glGenTextures();
             GL11.glBindTexture(GL_TEXTURE_2D, sightTexture);
@@ -3485,13 +3502,11 @@ final class Pipeline {
         }
         GL11.glBindTexture(GL_TEXTURE_2D, sightTexture);
         GL11.glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-        GL11.glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-        GL11.glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
-        GL11.glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
         GL11.glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, Sight.SIDE, Sight.SIDE, GL_RED, GL_UNSIGNED_BYTE, sight.shown);
         GL11.glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
         GL13.glActiveTexture(GL_TEXTURE0);
         develop.set("uSightAt", sight.x - camera.eyeX, sight.y - camera.eyeY, 1f / Sight.SIDE, strength);
+        develop.set("uSightEyeUp", camera.eyeUp);
     }
 
     private void setShelter(Program falling, int unit, boolean lidded) {
@@ -6436,6 +6451,8 @@ final class Pipeline {
         shelterTexture = 0;
         GL11.glDeleteTextures(sightTexture);
         sightTexture = 0;
+        GL11.glDeleteTextures(sightLitTexture);
+        sightLitTexture = 0;
         GL11.glDeleteTextures(roomAirTexture);
         roomAirTexture = 0;
         giveBack(beamed);

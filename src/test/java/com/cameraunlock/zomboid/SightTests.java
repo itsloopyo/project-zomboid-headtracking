@@ -10,6 +10,7 @@ final class SightTests {
         aSquareNotReadLendsNothing();
         aRoomWithNothingRoundItIsDark();
         theBlockPutsEachSquareWhereTheShaderReadsIt();
+        whatStandsOverAClosedRoomKeepsItsLight();
     }
 
     private static void check(boolean condition, String what) {
@@ -60,5 +61,20 @@ final class SightTests {
         }
         sight.settle();
         check(sight.at(sight.x + 60, sight.y + 60) == 255, "the middle of a large building lit all round is lit");
+    }
+
+    private static void whatStandsOverAClosedRoomKeepsItsLight() {
+        Sight sight = new Sight();
+        sight.begin(1000, 2000);
+        sight.closed(1001, 2003, 2.5f);
+        sight.put(1002, 2003, 0);
+        sight.settle();
+        int at = (2003 - sight.y) * Sight.SIDE;
+        check(sight.lit.get(at + 1001 - sight.x) == 2.5f, "a closed room's square keeps the height its viewer's level ends at");
+        check(sight.lit.get(at + 1002 - sight.x) == Sight.NEVER_LIT, "an open square keeps no height, so the shader darkens all of it");
+        check(sight.at(1001, 2003) == 0, "the room itself still takes the dark of the squares round it");
+        sight.begin(1000, 2000);
+        check(sight.lit.get(at + 1001 - sight.x) == Sight.NEVER_LIT, "a new frame forgets the last one's rooms");
+        check(Sight.NEVER_LIT < 65504f, "the height a half float holds");
     }
 }
