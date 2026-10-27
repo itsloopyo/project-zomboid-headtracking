@@ -46,6 +46,12 @@ final class Sight {
     final FloatBuffer lit = ByteBuffer.allocateDirect(SIDE * SIDE * Float.BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
     /** Higher than anything drawn, as a half float holds it. */
     static final float NEVER_LIT = 60000f;
+    private static final float[] NONE_LIT = new float[SIDE * SIDE];
+
+    static {
+        Arrays.fill(NONE_LIT, NEVER_LIT);
+    }
+
     private final int[] held = new int[SIDE * SIDE];
     private final int[] pending = new int[SIDE * SIDE], taken = new int[SIDE * SIDE];
 
@@ -58,9 +64,7 @@ final class Sight {
         x = middleX - SIDE / 2;
         y = middleY - SIDE / 2;
         Arrays.fill(held, UNREAD);
-        for (int i = 0; i < SIDE * SIDE; i++) {
-            lit.put(i, NEVER_LIT);
-        }
+        lit.put(0, NONE_LIT);
     }
 
     /** A square's figure, 0 to 255, or CLOSED. */

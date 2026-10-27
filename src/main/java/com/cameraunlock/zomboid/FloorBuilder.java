@@ -140,9 +140,10 @@ final class FloorBuilder {
                 if (!spreads(at, own, mine)) {
                     continue;
                 }
+                int rank = build.groundRank[at];
                 boolean done = false;
-                for (int k = 0; k < grounds; k++) {
-                    done |= build.groundRank[spreading[k]] == build.groundRank[at];
+                for (int k = 0; k < grounds && !done; k++) {
+                    done = build.groundRank[spreading[k]] == rank;
                 }
                 if (!done) {
                     spreading[grounds++] = at;

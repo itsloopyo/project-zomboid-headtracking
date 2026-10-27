@@ -390,10 +390,8 @@ final class Track {
         int read(int x, int y, Square square) {
             square.clear();
             int n = area.pieces(x, y, here);
-            for (int i = 0; i < n; i++) {
-                if (here[i] == WAGON_FLOOR) {
-                    return COVERED;
-                }
+            if (hasWagonFloor(here, n)) {
+                return COVERED;
             }
             if (n == 0) {
                 return hole(x, y, square);
@@ -499,6 +497,15 @@ final class Track {
             }
         }
 
+        private static boolean hasWagonFloor(Piece[] pieces, int n) {
+            for (int i = 0; i < n; i++) {
+                if (pieces[i] == WAGON_FLOOR) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         private static long key(int x, int y) {
             return (long) x << 32 | (y & 0xffffffffL);
         }
@@ -519,7 +526,7 @@ final class Track {
                 if (a < 0 || b < 0) {
                     return WAITING;
                 }
-                if (Arrays.asList(holeA).subList(0, a).contains(WAGON_FLOOR) || Arrays.asList(holeB).subList(0, b).contains(WAGON_FLOOR)) {
+                if (hasWagonFloor(holeA, a) || hasWagonFloor(holeB, b)) {
                     continue;
                 }
                 Turnout one = turnout(x - dx, y - dy), two = turnout(x + dx, y + dy);
@@ -1229,11 +1236,10 @@ final class Track {
             halfLine(b.wayOne, b.cOne + NX[b.wayOne] * ox + NY[b.wayOne] * oy, ox + b.oneX, oy + b.oneY, b.alongOneX, b.alongOneY, piece.ties);
             halfLine(b.wayTwo, b.cTwo + NX[b.wayTwo] * ox + NY[b.wayTwo] * oy, ox + b.twoX, oy + b.twoY, b.alongTwoX, b.alongTwoY, piece.ties);
             double cx = ox + b.centreX, cy = oy + b.centreY;
-            for (int i = 0; i < arcs; i++) {
-                if (arcX[i] == cx && arcY[i] == cy && arcR[i] == b.radius && arcStart[i] == b.startAngle) {
-                    arcTies[i] |= piece.ties;
-                    return;
-                }
+            int known = arc(cx, cy, b.radius, b.startAngle);
+            if (known >= 0) {
+                arcTies[known] |= piece.ties;
+                return;
             }
             arc(cx, cy, b.radius, b.startAngle, b.sweep, piece.ties);
         }
@@ -1297,7 +1303,7 @@ final class Track {
 
         /** The line from where a bend leaves it, outwards. */
         private void halfLine(int way, double c, double fromX, double fromY, double alongX, double alongY, boolean ties) {
-            double[] d = direction(way);
+            double[] d = DIRECTIONS[way];
             double at = fromX * d[0] + fromY * d[1];
             if (alongX * d[0] + alongY * d[1] > 0) {
                 line(way, c, at, Double.POSITIVE_INFINITY, ties);
@@ -1329,6 +1335,10 @@ final class Track {
         double length = Math.hypot(NX[way], NY[way]);
         return new double[] {-NY[way] / length, NX[way] / length};
     }
+
+    /** Each way's direction and the length of its normal, worked out once. */
+    private static final double[][] DIRECTIONS = {direction(NS), direction(EW), direction(NE), direction(NW)};
+    private static final double[] NORMAL_LENGTH = {Math.hypot(NX[NS], NY[NS]), Math.hypot(NX[EW], NY[EW]), Math.hypot(NX[NE], NY[NE]), Math.hypot(NX[NW], NY[NW])};
 
     /** Merges the first n intervals of from and to into as few as cover the same, in order, and says how many. */
     static int union(double[] from, double[] to, int n) {
@@ -1437,8 +1447,8 @@ final class Track {
         }
 
         private void buildLine(int way, double c, int rails) {
-            double[] d = direction(way);
-            double length = Math.hypot(NX[way], NY[way]);
+            double[] d = DIRECTIONS[way];
+            double length = NORMAL_LENGTH[way];
             double nx = NX[way] / length, ny = NY[way] / length;
             // Along is measured from the point of the line nearest the map's corner, the same on every square.
             double footX = nx * c / length, footY = ny * c / length;
@@ -1484,13 +1494,14 @@ final class Track {
         private void buildArc(int i) {
             double ox = square.arcX[i], oy = square.arcY[i], r = square.arcR[i], start = square.arcStart[i], sweep = square.arcSweep[i];
             int steps = (int) Math.ceil(Math.abs(sweep) * (r + RAIL_OFF) / ARC_STEP);
+            double turn = Math.signum(sweep);
             for (int k = 0; k < steps; k++) {
                 double a0 = start + sweep * k / steps, a1 = start + sweep * (k + 1) / steps, am = (a0 + a1) / 2;
-                double c0 = Math.cos(a0), s0 = Math.sin(a0), c1 = Math.cos(a1), s1 = Math.sin(a1), turn = Math.signum(sweep);
-                int mx = (int) Math.floor(ox + r * Math.cos(am)), my = (int) Math.floor(oy + r * Math.sin(am));
+                double c0 = Math.cos(a0), s0 = Math.sin(a0), c1 = Math.cos(a1), s1 = Math.sin(a1), cm = Math.cos(am), sm = Math.sin(am);
+                int mx = (int) Math.floor(ox + r * cm), my = (int) Math.floor(oy + r * sm);
                 for (int side = -1; side <= 1; side += 2) {
                     double rr = r + side * RAIL_OFF;
-                    int rx = (int) Math.floor(ox + rr * Math.cos(am)), ry = (int) Math.floor(oy + rr * Math.sin(am));
+                    int rx = (int) Math.floor(ox + rr * cm), ry = (int) Math.floor(oy + rr * sm);
                     if ((rx != x || ry != y) && (mx != x || my != y)) {
                         continue;
                     }
@@ -1514,9 +1525,9 @@ final class Track {
                     if (square.bands > 0) {
                         // In a turnout a sleeper is cut where it meets the sleepers of the routes before it, and round a tight route the one before it.
                         for (int j = 0; j <= i; j++) {
-                            int others = j < i ? arcTies(j) : k;
+                            int all = j < i ? arcTies(j) : ties, others = j < i ? all : k;
                             for (int m = 0; m < others; m++) {
-                                double b = arcTie(j, m, arcTies(j)), bx = square.arcX[j] + square.arcR[j] * Math.cos(b), by = square.arcY[j] + square.arcR[j] * Math.sin(b);
+                                double b = arcTie(j, m, all), bx = square.arcX[j] + square.arcR[j] * Math.cos(b), by = square.arcY[j] + square.arcR[j] * Math.sin(b);
                                 box(cx, cy, a, bx, by, b);
                             }
                         }
@@ -1564,18 +1575,19 @@ final class Track {
          */
         private void box(double cx, double cy, double a, double bx, double by, double b) {
             double hl = TIE_LONG / 2, hw = TIE_WIDE / 2;
-            double[][] axes = {{Math.cos(a), Math.sin(a)}, {-Math.sin(a), Math.cos(a)}, {Math.cos(b), Math.sin(b)}, {-Math.sin(b), Math.cos(b)}};
-            for (double[] axis : axes) {
-                double gap = Math.abs((bx - cx) * axis[0] + (by - cy) * axis[1]);
-                double reachA = hl * Math.abs(axis[0] * Math.cos(a) + axis[1] * Math.sin(a)) + hw * Math.abs(-axis[0] * Math.sin(a) + axis[1] * Math.cos(a));
-                double reachB = hl * Math.abs(axis[0] * Math.cos(b) + axis[1] * Math.sin(b)) + hw * Math.abs(-axis[0] * Math.sin(b) + axis[1] * Math.cos(b));
+            double ca = Math.cos(a), sa = Math.sin(a), cb = Math.cos(b), sb = Math.sin(b);
+            for (int axis = 0; axis < 4; axis++) {
+                double ux = axis == 0 ? ca : axis == 1 ? -sa : axis == 2 ? cb : -sb, uy = axis == 0 ? sa : axis == 1 ? ca : axis == 2 ? sb : cb;
+                double gap = Math.abs((bx - cx) * ux + (by - cy) * uy);
+                double reachA = hl * Math.abs(ux * ca + uy * sa) + hw * Math.abs(-ux * sa + uy * ca);
+                double reachB = hl * Math.abs(ux * cb + uy * sb) + hw * Math.abs(-ux * sb + uy * cb);
                 if (gap >= reachA + reachB) {
                     return;
                 }
             }
-            double across = -Math.sin(b) * bx + Math.cos(b) * by, along = Math.cos(b) * bx + Math.sin(b) * by;
-            strip(-Math.sin(b), Math.cos(b), across - hw, across + hw);
-            limit(Math.cos(b), Math.sin(b), along - hl, along + hl);
+            double across = -sb * bx + cb * by, along = cb * bx + sb * by;
+            strip(-sb, cb, across - hw, across + hw);
+            limit(cb, sb, along - hl, along + hl);
         }
 
         /**
@@ -1585,8 +1597,8 @@ final class Track {
         private double endGap(double px, double py, double tx, double ty) {
             for (int b = 0; b < square.bands; b++) {
                 int way = square.bandWay[b];
-                double length = Math.hypot(NX[way], NY[way]);
-                double[] d = direction(way);
+                double length = NORMAL_LENGTH[way];
+                double[] d = DIRECTIONS[way];
                 double along = px * d[0] + py * d[1], onward = tx * d[0] + ty * d[1];
                 if (Math.abs((NX[way] * px + NY[way] * py - square.bandC[b]) / length) > 1e-6 || Math.abs(Math.abs(onward) - 1) > 1e-6) {
                     continue;
@@ -1676,8 +1688,8 @@ final class Track {
             double half = TIE_LONG / 2;
             for (int b = 0; b < bands; b++) {
                 int way = square.bandWay[b];
-                double length = Math.hypot(NX[way], NY[way]);
-                double[] d = direction(way);
+                double length = NORMAL_LENGTH[way];
+                double[] d = DIRECTIONS[way];
                 double nx = NX[way] / length, ny = NY[way] / length, along = cx * d[0] + cy * d[1], middle = square.bandC[b] / length;
                 if (along > square.bandFrom[b] && along < square.bandTo[b]) {
                     strip(nx, ny, middle - half, middle + half);

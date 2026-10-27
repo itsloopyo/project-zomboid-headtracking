@@ -740,8 +740,9 @@ final class Flora {
                 mesh.add((tip ? tipX : stemX) + rx * side, (tip ? tipY : stemY) + ry * side, (tip ? tipUp : stemUp) + rz * side,
                         u + (right != mirrored ? 1f - CROWN_INSET : CROWN_INSET), v + (tip ? CROWN_INSET : 1f - CROWN_INSET), red, green, blue);
             }
-            float litUp = (oz + 0.2f) / (float) Math.sqrt(ox * ox + oy * oy + (oz + 0.2f) * (oz + 0.2f));
-            if (!bloom && (shrub || litUp >= TURNED_DOWN) && (hash >>> 12 & 0xff) < 255f * TWIG_SHARE * close) {
+            float litZ = oz + 0.2f;
+            if (!bloom && (hash >>> 12 & 0xff) < 255f * TWIG_SHARE * close
+                    && (shrub || litZ / (float) Math.sqrt(ox * ox + oy * oy + litZ * litZ) >= TURNED_DOWN)) {
                 // The twig the sprig is on: from the middle of its leaves back and down into the crown, towards the bough it grew from.
                 float back = Math.min(TWIG_LONG * each / Math.max(out, 1e-3f), 0.7f);
                 float sway = Math.clamp(high * SWAY_PER_TILE, 0f, SWAY_MOST);

@@ -90,11 +90,12 @@ final class Lanes {
         int tiles = Terrain.CHUNK_TILES, ring = tiles + 2;
         float[] around = new float[ring * ring * CORNER];
         double[] sides = new double[2 * SIDE_LINES];
+        float[] lane = new float[CORNER];
         boolean any = false;
         for (int i = 0; i < ring; i++) {
             for (int j = 0; j < ring; j++) {
                 int at = (i * ring + j) * CORNER;
-                describe(kinds, footway, marks, Kerbs.MARGIN - 1 + i, Kerbs.MARGIN - 1 + j, originX - Kerbs.MARGIN, originY - Kerbs.MARGIN, around, at, sides);
+                describe(kinds, footway, marks, Kerbs.MARGIN - 1 + i, Kerbs.MARGIN - 1 + j, originX - Kerbs.MARGIN, originY - Kerbs.MARGIN, around, at, sides, lane);
                 any |= around[at] != NONE && i > 0 && j > 0 && i <= tiles && j <= tiles;
             }
         }
@@ -143,13 +144,16 @@ final class Lanes {
     }
 
     /** Writes the way across and the lane of square (i, j) of the window, all 0 for none, into into from at. */
-    private static void describe(byte[] kinds, boolean[] footway, byte[] marks, int i, int j, int windowX, int windowY, float[] into, int at, double[] sides) {
+    private static void describe(byte[] kinds, boolean[] footway, byte[] marks, int i, int j, int windowX, int windowY, float[] into, int at, double[] sides,
+            float[] lane) {
         Arrays.fill(into, at, at + CORNER, 0f);
         if (!tarmac(kinds, footway, i, j)) {
             return;
         }
         boolean crossedX = across(kinds, footway, marks, i, j, true, windowX, windowY, into, at, sides);
-        float[] lane = crossedX ? Arrays.copyOfRange(into, at, at + CORNER) : null;
+        if (crossedX) {
+            System.arraycopy(into, at, lane, 0, CORNER);
+        }
         boolean crossedY = across(kinds, footway, marks, i, j, false, windowX, windowY, into, at, sides);
         // Lanes both ways are a junction, where traffic crosses every way.
         if (crossedX == crossedY) {

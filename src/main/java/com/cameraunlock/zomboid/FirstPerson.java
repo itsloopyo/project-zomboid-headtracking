@@ -1526,20 +1526,26 @@ public final class FirstPerson {
         float[] sides = outline.pieces;
         int pieces = 0;
         float tanHalf = scene.tanHalfFieldOfView();
+        int squareX = square.getX(), squareY = square.getY(), level = square.getZ();
         for (int side = 0; side < 4; side++) {
             // The corners in turn: north-west, north-east, south-east, south-west.
-            float fromX = square.getX() + (side == 1 || side == 2 ? 1f : 0f), fromY = square.getY() + (side >= 2 ? 1f : 0f);
-            float toX = square.getX() + (side == 0 || side == 1 ? 1f : 0f), toY = square.getY() + (side == 1 || side == 2 ? 1f : 0f);
+            float fromX = squareX + (side == 1 || side == 2 ? 1f : 0f), fromY = squareY + (side >= 2 ? 1f : 0f);
+            float toX = squareX + (side == 0 || side == 1 ? 1f : 0f), toY = squareY + (side == 1 || side == 2 ? 1f : 0f);
+            // Each piece's end is the next one's start, so each point is projected once.
+            boolean fromShown = onSquareFloor(fromX, fromY, level, tanHalf, aspect, squareFrom);
             for (int piece = 0; piece < SQUARE_PIECES; piece++) {
-                float a = (float) piece / SQUARE_PIECES, b = (float) (piece + 1) / SQUARE_PIECES;
-                if (onSquareFloor(fromX + (toX - fromX) * a, fromY + (toY - fromY) * a, square.getZ(), tanHalf, aspect, squareFrom)
-                        && onSquareFloor(fromX + (toX - fromX) * b, fromY + (toY - fromY) * b, square.getZ(), tanHalf, aspect, squareTo)) {
+                float b = (float) (piece + 1) / SQUARE_PIECES;
+                boolean toShown = onSquareFloor(fromX + (toX - fromX) * b, fromY + (toY - fromY) * b, level, tanHalf, aspect, squareTo);
+                if (fromShown && toShown) {
                     sides[pieces * 4] = squareFrom[0];
                     sides[pieces * 4 + 1] = squareFrom[1];
                     sides[pieces * 4 + 2] = squareTo[0];
                     sides[pieces * 4 + 3] = squareTo[1];
                     pieces++;
                 }
+                fromShown = toShown;
+                squareFrom[0] = squareTo[0];
+                squareFrom[1] = squareTo[1];
             }
         }
         outline.floats = pieces * 4;

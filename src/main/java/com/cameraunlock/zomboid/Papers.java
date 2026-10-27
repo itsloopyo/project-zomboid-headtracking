@@ -77,6 +77,10 @@ final class Papers {
         if (mate == texture) {
             return paper;
         }
+        Paper shaded = toned.get(texture);
+        if (shaded != null) {
+            return shaded;
+        }
         Paper lit = own(mate, frame.originU, frame.originV, frame.scale, mate.getOffsetX(), mate.getOffsetY(), mate.getWidth(), mate.getHeight(), true);
         if (lit == null) {
             return known.containsKey(mate) ? paper : null;

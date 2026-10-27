@@ -3487,10 +3487,10 @@ final class Pipeline {
         develop.set("uSight", DEVELOP_SIGHT_UNIT);
         develop.set("uSightLit", DEVELOP_SIGHT_LIT_UNIT);
         if (strength <= 0f) {
-            for (int unit : new int[] {DEVELOP_SIGHT_UNIT, DEVELOP_SIGHT_LIT_UNIT}) {
-                GL13.glActiveTexture(GL_TEXTURE0 + unit);
-                GL11.glBindTexture(GL_TEXTURE_2D, noneTexture);
-            }
+            GL13.glActiveTexture(GL_TEXTURE0 + DEVELOP_SIGHT_UNIT);
+            GL11.glBindTexture(GL_TEXTURE_2D, noneTexture);
+            GL13.glActiveTexture(GL_TEXTURE0 + DEVELOP_SIGHT_LIT_UNIT);
+            GL11.glBindTexture(GL_TEXTURE_2D, noneTexture);
             GL13.glActiveTexture(GL_TEXTURE0);
             develop.set("uSightAt", 0f, 0f, 0f, 0f);
             return;
