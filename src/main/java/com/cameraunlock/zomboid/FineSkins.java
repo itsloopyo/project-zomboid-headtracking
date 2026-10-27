@@ -667,6 +667,7 @@ public final class FineSkins {
                 letGoOf(read);
                 own.remove(path);
                 each.remove();
+                aheadThisSave--;
             }
         }
     }
@@ -848,6 +849,7 @@ public final class FineSkins {
                 continue;
             }
             if (jarBytes + most > cap) {
+                aheadThisSave -= aheadQueue.size() + 1;
                 aheadQueue.clear();
                 break;
             }
