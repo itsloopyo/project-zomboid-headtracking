@@ -594,7 +594,10 @@ final class RoofFit {
         final boolean blocked;
         /** Whether the row's top tile is one the map cuts to a triangle at its north-west corner (Tile.cutCorner 0): a hip crosses the top of the row. */
         final boolean cut;
-        /** Whether the map cuts a tile beside the far side's last squares, as deep as the near side: the roof is hipped at the far end too. */
+        /**
+         * Whether the map cuts a tile beside the far side's last squares, as deep as the near side, at its north-west corner: the
+         * roof is hipped at the far end too. A tile cut at its south-east corner is a valley's, where a wing meets the face.
+         */
         final boolean farHip;
         final float eave, rise, ridge;
 
@@ -620,8 +623,8 @@ final class RoofFit {
          * the face across it in a hip on the far side as well: its far side climbs from the far wall as deep as the near side and
          * no further, and the face across roofs the squares past it. Carried on level at the cut tile's height to the far wall, the
          * north row of a hip roof's east face laid a flat at its eave's height a third of a level up over the whole north eave
-         * (picnic shelter 12015..12020, 7364). Where the far end is a gable the faces across roof the whole row: climbing from the
-         * gable's wall, the row stood a hip's corner at the foot of the gable.
+         * (picnic shelter 12015..12020, 7364). Where the far end is not hipped nothing is laid and the faces across are carried
+         * over the row: climbing from a gable's wall, the row stood a hip's corner at the foot of the gable.
          */
         int first() {
             return !cut || !fromEave ? 0 : farHip ? Math.max(0, open - climbed) : open;
@@ -632,7 +635,7 @@ final class RoofFit {
         for (int step = Math.max(0, open - climbed); step < open; step++) {
             for (int side = -1; side <= 1; side += 2) {
                 Tile beside = roofed.get(key(x + step * dx + (dx == 0 ? side : 0), y + step * dy + (dy == 0 ? side : 0), 0));
-                if (beside != null && beside.cutCorner >= 0) {
+                if (beside != null && beside.cutCorner == 0) {
                     return true;
                 }
             }
