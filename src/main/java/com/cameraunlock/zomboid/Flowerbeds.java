@@ -181,7 +181,9 @@ final class Flowerbeds {
             }
         }
         earthAsked.clear();
-        Log.info(count + " pictures of rose beds laid as earth are given back to the graphics card");
+        if (count > 0) {
+            Log.info(count + " pictures of rose beds laid as earth are given back to the graphics card");
+        }
     }
 
     /** The bed of the rectangle from (left, top) to before (right, bottom) of a sheet width dots wide, held as bytes of red, green, blue and cover. */
