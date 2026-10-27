@@ -17,16 +17,48 @@ final class WoundsTests {
         Checks.run("aCutOnlyMovesUp", WoundsTests::aCutOnlyMovesUp);
         Checks.run("theCutsOfAZombieReadBackPartByPart", WoundsTests::theCutsOfAZombieReadBackPartByPart);
         Checks.run("theLurchFollowsTheWoundedFoot", WoundsTests::theLurchFollowsTheWoundedFoot);
+        Checks.run("aKillingShotTakesALimbOffOnlyPastAWholeZombiesShareAndARoll", WoundsTests::aKillingShotTakesALimbOffOnlyPastAWholeZombiesShareAndARoll);
+        Checks.run("aZombieKilledByABlastLosesOneLimbAtMost", WoundsTests::aZombieKilledByABlastLosesOneLimbAtMost);
     }
 
     /** A shot through a forearm or calf. */
     private static int shot(Wounds wounds, Object zombie, int limb, float damage, float health) {
-        return wounds.shot(zombie, limb, damage, health, Wounds.LOWER);
+        return wounds.shot(zombie, limb, damage, health, Wounds.LOWER, false);
     }
 
     /** A shot on the given part of the limb. */
     private static int shot(Wounds wounds, Object zombie, int limb, float damage, float health, int at) {
-        return wounds.shot(zombie, limb, damage, health, at);
+        return wounds.shot(zombie, limb, damage, health, at, false);
+    }
+
+    private static void aKillingShotTakesALimbOffOnlyPastAWholeZombiesShareAndARoll() {
+        Wounds wounds = new Wounds();
+        Object zombie = new Object();
+        check(wounds.shot(zombie, Wounds.LEFT_ARM, 1.4f, 0f, Wounds.END, true) != Wounds.SEVERED, "a pistol round that kills a zombie at its last hit point leaves its hand on, roll or no");
+        Object other = new Object();
+        float heavy = Wounds.WHOLE_HEALTH * Wounds.SEVERING_SHARE[Wounds.LOWER];
+        check(wounds.shot(other, Wounds.RIGHT_LEG, heavy, 0f, Wounds.LOWER, false) != Wounds.SEVERED, "a killing shot heavy enough to take a whole zombie's calf off leaves it on when the roll fails");
+        Object lucky = new Object();
+        check(wounds.shot(lucky, Wounds.RIGHT_LEG, heavy, 0f, Wounds.LOWER, true) == Wounds.SEVERED, "and takes it off when the roll passes");
+        Object living = new Object();
+        check(wounds.shot(living, Wounds.RIGHT_LEG, heavy, 0.5f, Wounds.LOWER, false) == Wounds.SEVERED, "a shot that leaves the zombie alive goes by its health left, with no roll");
+    }
+
+    private static void aZombieKilledByABlastLosesOneLimbAtMost() {
+        Wounds wounds = new Wounds();
+        Object zombie = new Object();
+        int cut = 0;
+        // A shotgun's pellets each strike a limb, the first killing it and the rest after: the death is rolled once.
+        for (int pellet = 0; pellet < 8; pellet++) {
+            cut += wounds.shot(zombie, pellet % Wounds.LIMBS, 80f, 0f, Wounds.LOWER, true) == Wounds.SEVERED ? 1 : 0;
+        }
+        check(cut == 1, "a blast that kills a zombie takes one limb off at most: " + cut);
+        Object spared = new Object();
+        int none = wounds.shot(spared, Wounds.LEFT_LEG, 80f, 0f, Wounds.LOWER, false) == Wounds.SEVERED ? 1 : 0;
+        for (int pellet = 1; pellet < 8; pellet++) {
+            none += wounds.shot(spared, pellet % Wounds.LIMBS, 80f, 0f, Wounds.LOWER, true) == Wounds.SEVERED ? 1 : 0;
+        }
+        check(none == 0, "and none when its death's roll failed, whatever the later pellets roll: " + none);
     }
 
     private static void check(boolean condition, String what) {

@@ -36,12 +36,19 @@ final class Wounds {
      * come off.
      */
     static final float[] SEVERING_SHARE = {0f, 3f, 4f, 6f};
+    /**
+     * The health a killing shot is measured against: a dead zombie has none left, which every shot passes. A
+     * killing shot takes a limb off only where it would off a zombie as whole as one starts, about 1.9.
+     */
+    static final float WHOLE_HEALTH = 1.9f;
 
     private static final class Limbs {
         final float[] taken = new float[LIMBS];
         final int[] stages = new int[LIMBS];
         final int[] cuts = new int[PARTS];
         boolean headShot;
+        /** Whether the zombie's death has been rolled for, and whether that roll is still to take a limb off. */
+        boolean deathRolled, deathCuts;
     }
 
     /** By the zombie's object, which the game neither compares nor hashes by value: kept no longer than the game keeps it. */
@@ -58,15 +65,26 @@ final class Wounds {
      * @param damage the shot's whole damage, before the game's cut for a limb
      * @param health the zombie's health once the shot has been taken off it
      * @param at     where on the limb the shot was: {@link #END}, {@link #LOWER} or {@link #UPPER}
+     * @param roll   the roll for a killing shot: the first killing shot on a zombie keeps it for the zombie, and
+     *               a death rolled true takes off at most one limb, where the shots add up as at WHOLE_HEALTH
      */
-    synchronized int shot(Object zombie, int limb, float damage, float health, int at) {
+    synchronized int shot(Object zombie, int limb, float damage, float health, int at, boolean roll) {
         Limbs limbs = zombies.computeIfAbsent(zombie, z -> new Limbs());
         any = true;
         limbs.taken[limb] += damage;
-        boolean severs = limbs.taken[limb] >= health * SEVERING_SHARE[at];
-        int stage = severs ? SEVERED : limbs.taken[limb] >= health ? RUINED : limbs.taken[limb] >= health * WOUNDED_SHARE ? WOUNDED : SOUND;
+        boolean killing = health <= 0f;
+        if (killing && !limbs.deathRolled) {
+            limbs.deathRolled = true;
+            limbs.deathCuts = roll;
+        }
+        float left = killing ? WHOLE_HEALTH : health;
+        boolean severs = limbs.taken[limb] >= left * SEVERING_SHARE[at] && (!killing || limbs.deathCuts);
+        int stage = severs ? SEVERED : limbs.taken[limb] >= left ? RUINED : limbs.taken[limb] >= left * WOUNDED_SHARE ? WOUNDED : SOUND;
         if (stage == SEVERED) {
             if (at > limbs.cuts[limb]) {
+                if (killing) {
+                    limbs.deathCuts = false;
+                }
                 limbs.cuts[limb] = at;
                 anyCut = true;
                 limbs.stages[limb] = SEVERED;

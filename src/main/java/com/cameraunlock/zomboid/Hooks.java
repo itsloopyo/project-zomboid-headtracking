@@ -502,7 +502,7 @@ public final class Hooks {
         boolean upper = aimedPart == RagdollBodyPart.BODYPART_LEFT_UPPER_ARM.ordinal() || aimedPart == RagdollBodyPart.BODYPART_RIGHT_UPPER_ARM.ordinal()
                 || aimedPart == RagdollBodyPart.BODYPART_LEFT_UPPER_LEG.ordinal() || aimedPart == RagdollBodyPart.BODYPART_RIGHT_UPPER_LEG.ordinal();
         int at = upper ? Wounds.UPPER : aimedEnd ? Wounds.END : Wounds.LOWER;
-        int stage = wounds.shot(zombie, limb, whole, zombie.getHealth(), at);
+        int stage = wounds.shot(zombie, limb, whole, zombie.getHealth(), at, chance.nextFloat() < DEATH_CUTS);
         if (stage == Wounds.SOUND) {
             return;
         }
@@ -657,6 +657,8 @@ public final class Hooks {
 
     /** How often a limb a shot takes off bursts in blood and shards rather than coming off whole. */
     static final float LIMB_BURSTS = 0.8f;
+    /** How often a zombie's death by a shot to a limb takes that limb off, once the shot's damage would take it off a whole zombie. */
+    static final float DEATH_CUTS = 0.3f;
     /** How often a zombie whose leg is ruined, and not cut off, gets up on it again rather than crawling. */
     static final float GETS_UP = 0.3f;
     /**
