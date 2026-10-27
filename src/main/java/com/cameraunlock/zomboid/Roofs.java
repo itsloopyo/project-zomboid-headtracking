@@ -459,7 +459,7 @@ final class Roofs {
             tiles.add(one.tile);
         }
         // A piece painted forward of where it stands is fitted where it stands, and made there.
-        Map<RoofFit.Tile, RoofFit.Tile> forward = RoofFit.paintedForward(tiles);
+        Map<RoofFit.Tile, RoofFit.Tile> forward = RoofFit.paintedForward(tiles, site(cell, 0, new HashSet<>()));
         if (!forward.isEmpty()) {
             reading.replaceAll(one -> forward.containsKey(one.tile) ? new Laid(one.tile, one.texture, roof, false, true) : one);
             tiles.removeAll(forward.keySet());
@@ -839,6 +839,12 @@ final class Roofs {
             public boolean floored(int x, int y, int z) {
                 IsoGridSquare square = cell.getGridSquare(x, y, z);
                 return square != null && (square.getFloor() != null || roofed(square, x, y, z));
+            }
+
+            @Override
+            public boolean openFloor(int x, int y, int z) {
+                IsoGridSquare square = cell.getGridSquare(x, y, z);
+                return square != null && square.getFloor() != null && square.getRoomID() == -1L;
             }
 
             private final HashMap<Long, Boolean> sheeted = new HashMap<>();

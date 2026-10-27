@@ -19,6 +19,7 @@ final class RoofTests {
     static void run() {
         Checks.run("planeAndFoldAreToldApartByTheMiddle", RoofTests::planeAndFoldAreToldApartByTheMiddle);
         Checks.run("gambrelsTopPaintedForwardStandsOverItsLoft", RoofTests::gambrelsTopPaintedForwardStandsOverItsLoft);
+        Checks.run("canopyPaintedForwardStandsOverABaysFlatRoof", RoofTests::canopyPaintedForwardStandsOverABaysFlatRoof);
         Checks.run("slopeKeepsItsPitchAboveTheKickAtItsEave", RoofTests::slopeKeepsItsPitchAboveTheKickAtItsEave);
         Checks.run("farSideOfAWingMeetsTheMainRoofInAValley", RoofTests::farSideOfAWingMeetsTheMainRoofInAValley);
         Checks.run("madeFarSidesOfAWingAndItsMainRoofMeetInAValley", RoofTests::madeFarSidesOfAWingAndItsMainRoofMeetInAValley);
@@ -1687,7 +1688,7 @@ final class RoofTests {
         List<RoofFit.Tile> roof = gambrelBelow();
         List<RoofFit.Tile> top = gambrelTop();
         roof.addAll(top);
-        Map<RoofFit.Tile, RoofFit.Tile> back = RoofFit.paintedForward(roof);
+        Map<RoofFit.Tile, RoofFit.Tile> back = RoofFit.paintedForward(roof, strip(1, 0));
         check(back.size() == top.size() && back.keySet().containsAll(top), "every tile of the top is taken back, and nothing else: " + back.size());
         for (Map.Entry<RoofFit.Tile, RoofFit.Tile> one : back.entrySet()) {
             RoofFit.Tile painted = one.getKey(), stands = one.getValue();
@@ -1698,19 +1699,19 @@ final class RoofTests {
         check(back.values().stream().filter(tile -> tile.y == 2).allMatch(tile -> Math.abs(tile.high - 2f) < 1e-4f),
                 "its south eave is the lower slope's top: 2 along y 3");
         // With nothing under it a level down, a piece up in the air is no top painted forward.
-        check(RoofFit.paintedForward(gambrelTop()).isEmpty(), "a piece with no slope topping under where it stands stays");
+        check(RoofFit.paintedForward(gambrelTop(), strip(1, 0)).isEmpty(), "a piece with no slope topping under where it stands stays");
         // Nor where a tile of its own level holds a square it would stand on.
         List<RoofFit.Tile> held = gambrelBelow();
         held.addAll(gambrelTop());
         held.add(new RoofFit.Tile(1, 1, 2, RoofFit.ALONG_Y, true, 2f, 2f + THIRD));
-        check(RoofFit.paintedForward(held).isEmpty(), "a piece whose squares back are another's stays");
+        check(RoofFit.paintedForward(held, strip(1, 0)).isEmpty(), "a piece whose squares back are another's stays");
         // Nor a piece with a trim in it: the trims on a wall under a porch read a level up.
         List<RoofFit.Tile> trimmed = gambrelBelow();
         trimmed.addAll(gambrelTop());
         RoofFit.Tile trim = new RoofFit.Tile(8, 3, 2, RoofFit.LEVEL, true, 2f + 2f * THIRD, 2f + 2f * THIRD);
         trim.fitting = true;
         trimmed.add(trim);
-        check(RoofFit.paintedForward(trimmed).isEmpty(), "a piece with a trim in it stays");
+        check(RoofFit.paintedForward(trimmed, strip(1, 0)).isEmpty(), "a piece with a trim in it stays");
         // A hip's crown cut flat two thirds up is climbed to by slopes of its own level, which start on its floor.
         List<RoofFit.Tile> hip = gambrelBelow();
         for (int x = 0; x <= 5; x++) {
@@ -1718,7 +1719,7 @@ final class RoofTests {
             hip.add(new RoofFit.Tile(x, 1, 2, RoofFit.ALONG_Y, true, 2f + THIRD, 2f + 2f * THIRD));
             hip.add(new RoofFit.Tile(x, 2, 2, RoofFit.LEVEL, true, 2f + 2f * THIRD, 2f + 2f * THIRD));
         }
-        check(RoofFit.paintedForward(hip).isEmpty(), "a crown its own level's slopes climb to stays");
+        check(RoofFit.paintedForward(hip, strip(1, 0)).isEmpty(), "a crown its own level's slopes climb to stays");
         // A shallow gable climbing a sixth of a level a square on level 1, from 1 + 1/6 to 2 either side, whose ridge
         // the map has on level 2 a third over that line, over the ridge's own squares.
         List<RoofFit.Tile> shallow = new ArrayList<>();
@@ -1732,7 +1733,66 @@ final class RoofTests {
             shallow.add(new RoofFit.Tile(6, y, 2, RoofFit.LEVEL, true, 2f + THIRD + sixth, 2f + THIRD + sixth));
             shallow.add(new RoofFit.Tile(7, y, 2, RoofFit.ALONG_X, true, 2f + THIRD + sixth, 2f + THIRD));
         }
-        check(RoofFit.paintedForward(shallow).isEmpty(), "a ridge whose eave one square back would lie on the slope under it stays");
+        check(RoofFit.paintedForward(shallow, strip(1, 0)).isEmpty(), "a ridge whose eave one square back would lie on the slope under it stays");
+    }
+
+    private static void canopyPaintedForwardStandsOverABaysFlatRoof() {
+        // A terrace's upper wall on x = 5 over a bay one storey high on x = 5 and 6, whose flat roof is level 1's floor there in the
+        // open air, and the upper storey's floors on x < 5. The map paints a canopy, the top third of a slope falling east, on level 1
+        // two squares out, at x = 7.
+        List<RoofFit.Tile> canopy = new ArrayList<>();
+        for (int y = 2; y <= 6; y++) {
+            canopy.add(new RoofFit.Tile(7, y, 1, RoofFit.ALONG_X, true, 2f, 2f - THIRD));
+        }
+        RoofFit.Site bay = new RoofFit.Site() {
+            @Override
+            public boolean stands(int x, int y, int z) {
+                return false;
+            }
+
+            @Override
+            public boolean floored(int x, int y, int z) {
+                return z == 1 && x <= 6 && y >= 0 && y <= 8;
+            }
+
+            @Override
+            public boolean openFloor(int x, int y, int z) {
+                return floored(x, y, z) && x >= 5;
+            }
+
+            @Override
+            public boolean taken(int x, int y, int z, float roof) {
+                return false;
+            }
+        };
+        Map<RoofFit.Tile, RoofFit.Tile> back = RoofFit.paintedForward(canopy, bay);
+        check(back.size() == canopy.size(), "every tile of the canopy is taken back: " + back.size());
+        for (RoofFit.Tile stands : back.values()) {
+            check(stands.x == 5 && stands.z == 1 && near(stands.low, 1f + THIRD) && near(stands.high, 1f),
+                    "the canopy runs from the wall down to the bay's roof: " + stands.x + "," + stands.y + " " + stands.low + " to " + stands.high);
+        }
+        check(RoofFit.paintedForward(canopy, strip(1, 0)).isEmpty(), "with no floor where it would stand it stays");
+        // Painted a square nearer and a third higher, three squares back it would stand on the upper storey's floors, in a room, and stays.
+        List<RoofFit.Tile> further = new ArrayList<>();
+        for (RoofFit.Tile tile : canopy) {
+            further.add(new RoofFit.Tile(tile.x - 1, tile.y, 1, RoofFit.ALONG_X, true, tile.low + THIRD, tile.high + THIRD));
+        }
+        check(RoofFit.paintedForward(further, bay).isEmpty(), "a piece over a storey's floors stays");
+        // The bay's eave trims, on its roof against the wall and under it a level down, are no roof where the canopy stands.
+        List<RoofFit.Tile> trimmed = new ArrayList<>(canopy);
+        for (int y = 0; y <= 8; y++) {
+            for (RoofFit.Tile trim : List.of(new RoofFit.Tile(5, y, 1, RoofFit.LEVEL, true, 1f, 1f), new RoofFit.Tile(5, y, 0, RoofFit.LEVEL, true, 1f, 1f))) {
+                trim.fitting = true;
+                trimmed.add(trim);
+            }
+        }
+        check(RoofFit.paintedForward(trimmed, bay).size() == canopy.size(), "a canopy over the bay's trims is taken back");
+        // Nor is a trim under it the slope it would meet: with no floor in the open air there it stays.
+        check(RoofFit.paintedForward(trimmed, strip(1, 0)).isEmpty(), "a trim under where a piece would stand does not take it back");
+        // A slope of the bay's own on a square the canopy would stand on keeps it out.
+        List<RoofFit.Tile> held = new ArrayList<>(canopy);
+        held.add(new RoofFit.Tile(5, 3, 1, RoofFit.ALONG_X, true, 1f + THIRD, 1f));
+        check(RoofFit.paintedForward(held, bay).isEmpty(), "a canopy whose squares back hold a slope stays");
     }
 
     private static void sheetsBehindARidgeAreNoPartOfTheRoof() {

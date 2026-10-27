@@ -561,6 +561,11 @@ final class RoofFit {
             return false;
         }
 
+        /** Whether the square at that level has a floor of its own in the open air, no room's: the flat roof of a lower part. */
+        default boolean openFloor(int x, int y, int z) {
+            return false;
+        }
+
         /** Whether a wall stands on the square's north edge at that level, or with north false its west edge. */
         default boolean walled(int x, int y, int z, boolean north) {
             return false;
@@ -735,8 +740,11 @@ final class RoofFit {
      * stands, it meets the top of a slope a level down, on no square another tile of its level or of the
      * level below holds. A shallow gable's ridge a third up on the next level is painted over its own
      * squares: one square back its eave would lie on the slope under it (7358..7360, 11785..11810).
+     * A canopy is painted so as well: the top of a slope standing alone two squares out from the
+     * upper wall of a terrace, which back where it stands runs down from that wall to the flat roof
+     * of the bay under it, every square of it over that roof (13405, 3283..3287 and 3295..3296).
      */
-    static Map<Tile, Tile> paintedForward(List<Tile> tiles) {
+    static Map<Tile, Tile> paintedForward(List<Tile> tiles, Site site) {
         HashMap<Long, Tile> at = new HashMap<>();
         for (Tile tile : tiles) {
             at.put(key(tile.x, tile.y, tile.z), tile);
@@ -776,9 +784,9 @@ final class RoofFit {
             boolean free = true;
             for (Tile tile : piece) {
                 int x = tile.x - squares, y = tile.y - squares;
-                free &= (own.contains(key(x, y, tile.z)) || !at.containsKey(key(x, y, tile.z))) && !at.containsKey(key(x, y, tile.z - 1));
+                free &= (own.contains(key(x, y, tile.z)) || !holdsRoof(at, x, y, tile.z)) && !holdsRoof(at, x, y, tile.z - 1);
             }
-            if (!free || !meetsBelow(piece, squares, at)) {
+            if (!free || !meetsBelow(piece, squares, at) && !overAFloor(piece, squares, lowest, site)) {
                 continue;
             }
             for (Tile tile : piece) {
@@ -790,8 +798,31 @@ final class RoofFit {
     }
 
     /**
+     * Whether a piece, taken back the given squares and thirds of a level, has its eave on its level's floor, and under
+     * every square of it a floor in the open air: the floors of a storey are under the roof's squares too.
+     */
+    private static boolean overAFloor(List<Tile> piece, int squares, float lowest, Site site) {
+        if (Math.abs(lowest - squares * PITCH) > SAME) {
+            return false;
+        }
+        for (Tile tile : piece) {
+            if (!site.openFloor(tile.x - squares, tile.y - squares, tile.z)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** Whether a tile of the roof that is no trim lies on the square: a wall's eave trim under a piece is no roof of the square's, a half at a ridge is. */
+    private static boolean holdsRoof(HashMap<Long, Tile> at, int x, int y, int z) {
+        Tile tile = at.get(key(x, y, z));
+        return tile != null && (!tile.fitting || tile.half != 0);
+    }
+
+    /**
      * Whether a piece, taken back the given squares and thirds of a level, has an edge as high as the
-     * top of a slope a level down on a square it covers or one beside it.
+     * top of a slope a level down on a square it covers or one beside it. A trim is no slope: the boards
+     * along a bay's flat roof stand as high as the eave of a canopy taken back over it, and are no reason to take one back.
      */
     private static boolean meetsBelow(List<Tile> piece, int squares, HashMap<Long, Tile> at) {
         for (Tile tile : piece) {
@@ -800,7 +831,7 @@ final class RoofFit {
             for (int side = 0; side < 5; side++) {
                 int dx = side == 0 ? -1 : side == 1 ? 1 : 0, dy = side == 2 ? -1 : side == 3 ? 1 : 0;
                 Tile under = at.get(key(x + dx, y + dy, tile.z - 1));
-                if (under != null && !under.sheet && Math.abs(Math.max(under.low, under.high) - edge) < SAME) {
+                if (under != null && !under.sheet && !under.fitting && Math.abs(Math.max(under.low, under.high) - edge) < SAME) {
                     return true;
                 }
             }
