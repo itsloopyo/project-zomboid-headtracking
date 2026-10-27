@@ -749,9 +749,12 @@ final class PipelineShaders {
                     vec2 from = at.xy - uEye.xy;
                     float off = length(from);
                     float under = uEye.z - at.z;
-                    float trodden = (1.0 - smoothstep(0.12, 0.6, off)) * step(0.8, under) * step(under, 2.3);
-                    at.xy += from / max(off, 0.02) * (trodden * high * 1.1);
-                    at.z -= trodden * high * 0.65;
+                    // Only the lowest 0.18 of a plant is pressed more the higher it is, and what stands
+                    // over that goes with it: pressed by its whole height, a rose bush's top folded
+                    // over itself where the push falls away, and the bed round the eye read as a lens.
+                    float trodden = (1.0 - smoothstep(0.12, 0.6, off)) * step(0.8, under) * step(under, 2.3) * min(high, 0.18);
+                    at.xy += from / max(off, 0.02) * (trodden * 1.1);
+                    at.z -= trodden * 0.65;
                 }
                 // Snow lies along the top of a limb, a branch and a twig as a ridge higher than the
                 // half-round of the bark and a little wider: from under the tree its edge shows
