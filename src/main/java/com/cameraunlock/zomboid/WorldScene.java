@@ -8096,7 +8096,7 @@ final class WorldScene {
          * Hangs the mod's model of a length of a hood of roofing over a wall that stands on its
          * own, and draws nothing for the pieces of eave at the ends of one, which its model's
          * hips stand in for: see Hoods. A hood over a window is one too (RoofBuilder.hoodOfItsOwn).
-         * Its roofing takes the sprite's colour. False for any other sprite, and for a hood's
+         * Its shingles take the sprite's colour. False for any other sprite, and for a hood's
          * sprite with nothing painted where the colour is taken.
          */
         private boolean addHood(Kind kind, Texture texture, int x, int y, int z) {

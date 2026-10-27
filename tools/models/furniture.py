@@ -3132,7 +3132,9 @@ def hood(name, plus, minus):
         body.faces.new([lower[key] for key in reversed(face)])
     for a, b in zip(ring, ring[1:] + ring[:1]):
         body.faces.new((upper[a], upper[b], lower[b], lower[a]))
-    model.plain(body, "paint")
+    # The deck and the board are near black, as the joints between the shingles of every roof sheet's sprite are, and
+    # show between the shingles, which are the colour of the sprite's.
+    model.plain(body, "rubber")
 
     board = bmesh.new()
     cuboid(board, near, far, wall_y - reach, wall_y - reach + 0.022, low - HOOD_FASCIA, low - HOOD_DECK * 0.5)
@@ -3140,30 +3142,41 @@ def hood(name, plus, minus):
         if end:
             side = 1.0 if at > 0 else -1.0
             cuboid(board, min(at, at - side * 0.022), max(at, at - side * 0.022), wall_y - reach + 0.022, wall_y, low - HOOD_FASCIA, low - HOOD_DECK * 0.5)
-    model.hard(board, "wood", bevel=0.004, segments=1)
+    model.hard(board, "rubber", bevel=0.004, segments=1)
 
-    # Courses of shingles on the deck, each a strip whose lower edge stands proud of the one below it, as long as the
-    # deck is at that height on the slope.
+    # Two courses of shingles on the deck, four to a metre as the game's sprite of the eave lays them, each shingle's
+    # lower edge standing proud of the course below it, with the deck showing in the joints between them. Past an end
+    # of the wall the hip cuts the last shingle of each course along its slope.
     courses = bmesh.new()
-    rows = 4
+    rows, across, joint, proud = 2, 4, 0.035, 0.01
+    x_plus = lambda share: 0.5 + (reach * share if plus else 0.0)
+    x_minus = lambda share: -0.5 - (reach * share if minus else 0.0)
+
+    def at(share):
+        return wall_y - reach * share, low + (top - low) * (1.0 - share)
+
+    def shingle(low_edge, high_edge, y0, z0, y1, z1):
+        """A shingle between the x of its lower edge and of its upper one, each a pair, the upper one None where it comes to a point."""
+        face = [(low_edge[0], y0, z0 + proud), (low_edge[1], y0, z0 + proud)]
+        face += [(high_edge[1], y1, z1 + 0.002), (high_edge[0], y1, z1 + 0.002)] if high_edge else [((low_edge[0] + low_edge[1]) / 2, y1, z1 + 0.002)]
+        upper_shingle = [courses.verts.new(p) for p in face]
+        lower_shingle = [courses.verts.new((x, y, z - 0.002 - (proud if i < 2 else 0.0))) for i, (x, y, z) in enumerate(face)]
+        courses.faces.new(upper_shingle)
+        courses.faces.new(lower_shingle[::-1])
+        for i in range(len(face)):
+            j = (i + 1) % len(face)
+            courses.faces.new((upper_shingle[i], upper_shingle[j], lower_shingle[j], lower_shingle[i]))
+
     for row in range(rows):
-        lo, hi = row / rows, (row + 1) / rows
-        def at(share):
-            return wall_y - reach * share, low + (top - low) * (1.0 - share)
-        (y0, z0), (y1, z1) = at(1.0 - lo), at(1.0 - hi)
-        # How far past the wall's length the deck reaches at each height: nothing at the top, the hood's reach at the front.
-        x_plus = lambda share: 0.5 + (reach * share if plus else 0.0)
-        x_minus = lambda share: -0.5 - (reach * share if minus else 0.0)
-        s0, s1 = 1.0 - lo, 1.0 - hi
-        proud = 0.01
-        quad = [(x_minus(s0), y0, z0 + proud), (x_plus(s0), y0, z0 + proud), (x_plus(s1), y1, z1 + 0.002), (x_minus(s1), y1, z1 + 0.002)]
-        upper_course = [courses.verts.new(p) for p in quad]
-        lower_course = [courses.verts.new((x, y, z - 0.002 - (proud if i < 2 else 0.0))) for i, (x, y, z) in enumerate(quad)]
-        courses.faces.new(upper_course)
-        courses.faces.new(lower_course[::-1])
-        for i in range(4):
-            j = (i + 1) % 4
-            courses.faces.new((upper_course[i], upper_course[j], lower_course[j], lower_course[i]))
+        s0, s1 = 1.0 - row / rows, 1.0 - (row + 1) / rows
+        (y0, z0), (y1, z1) = at(s0), at(s1)
+        cuts = [-0.5 + k / across for k in range(across + 1)]
+        for xa, xb in zip(cuts, cuts[1:]):
+            shingle((xa + joint / 2, xb - joint / 2), (xa + joint / 2, xb - joint / 2), y0, z0, y1, z1)
+        if plus:
+            shingle((0.5 + joint / 2, x_plus(s0)), (0.5 + joint / 2, x_plus(s1)) if x_plus(s1) > 0.5 + joint else None, y0, z0, y1, z1)
+        if minus:
+            shingle((x_minus(s0), -0.5 - joint / 2), (x_minus(s1), -0.5 - joint / 2) if x_minus(s1) < -0.5 - joint else None, y0, z0, y1, z1)
     model.plain(courses, "paint")
     return model
 
