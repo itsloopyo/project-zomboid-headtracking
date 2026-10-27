@@ -138,6 +138,7 @@ public final class Tests {
         Checks.run("pieceIsPackedAsThePictureIsToldIt", Tests::pieceIsPackedAsThePictureIsToldIt);
         Checks.run("pieceStandsWhereTheModelTurnedScaledAndMovedIs", Tests::pieceStandsWhereTheModelTurnedScaledAndMovedIs);
         Checks.run("pieceCarriesTheLightOfItsSquaresCorners", Tests::pieceCarriesTheLightOfItsSquaresCorners);
+        Checks.run("blockIsLitAtItsOuterCorners", Tests::blockIsLitAtItsOuterCorners);
         Checks.run("pieceIsHeldByItsBall", Tests::pieceIsHeldByItsBall);
         Checks.run("paintingOnAWallIsFoundWhereItHangs", Tests::paintingOnAWallIsFoundWhereItHangs);
         Checks.run("spriteDrawnForAnotherWallIsNoPainting", Tests::spriteDrawnForAnotherWallIsNoPainting);
@@ -1553,21 +1554,37 @@ public final class Tests {
         f = pieces.floats;
         int at = Models.Instances.FLOATS;
         check(f[at + Models.Instances.SPAN] == 2f && f[at + Models.Instances.SPAN + 1] == 1f, "a piece over a block of squares carries how many along each way");
-        float[][] blockPlaces = {{0f, 0f}, {2f, 0f}, {2f, 1f}, {0f, 1f}, {1.4f, 0.3f}, {0.6f, 0.9f}};
-        for (float[] place : blockPlaces) {
-            // The sum the picture does, with the share of the block the place is at.
-            float a = Math.clamp(place[0] / f[at + Models.Instances.SPAN], 0f, 1f), b = Math.clamp(place[1] / f[at + Models.Instances.SPAN + 1], 0f, 1f);
-            float[] weights = {(1f - a) * (1f - b), a * (1f - b), a * b, (1f - a) * b};
-            for (int colour = 0; colour < 3; colour++) {
-                float want = 0f;
-                for (int corner = 0; corner < 4; corner++) {
-                    want += weights[corner] * corners[colour][corner];
-                }
-                int lit = at + Models.Instances.LIGHT + colour;
-                float got = f[lit] + a * f[lit + 3] + b * f[lit + 6] + a * b * f[lit + 9];
-                check(near(got, want), "a place over the block takes of each outer corner's light by how near that corner it is, at " + place[0] + ", " + place[1]);
-            }
+    }
+
+    private static void blockIsLitAtItsOuterCorners() {
+        int span = WorldScene.LIGHT_SPAN, size = span * span;
+        float[] red = new float[size], green = new float[size], blue = new float[size], day = new float[size];
+        byte[] open = new byte[size], unseen = new byte[size];
+        // Red rises along x and green along y, a tenth a square of the grid, which has a square of the next chunk round the chunk.
+        for (int at = 0; at < size; at++) {
+            red[at] = at / span * 0.1f;
+            green[at] = at % span * 0.1f;
+            blue[at] = 0.5f;
         }
+        // A bed on the chunk's squares (2, 3) and (3, 3), built from the first.
+        int own = 3 * span + 4;
+        SpriteGeometry.Frame block = new SpriteGeometry.Frame();
+        check(WorldScene.Frame.blockLights(red, green, blue, open, unseen, day, 2, 3, 3, 3, own, WorldScene.OWN_LIGHT, block), "a block lit alike is lit as one");
+        // Each corner is the mean of the four squares round it: the first along x is between the grid's 2 and 3, the far one between 4 and 5.
+        check(near(block.cornerRed[0], 0.25f) && near(block.cornerRed[1], 0.45f) && near(block.cornerRed[2], 0.45f) && near(block.cornerRed[3], 0.25f),
+                "the block's near corners take the light of its first square's near edge, its far ones its last square's far edge");
+        check(near(block.cornerGreen[0], 0.35f) && near(block.cornerGreen[1], 0.35f) && near(block.cornerGreen[2], 0.45f) && near(block.cornerGreen[3], 0.45f),
+                "and across the bed its one square deep");
+        SpriteGeometry.Frame square = new SpriteGeometry.Frame();
+        WorldScene.Frame.cornerLight(red, green, blue, open, unseen, day, 3, 3, own, WorldScene.OWN_LIGHT, 1, square);
+        check(near(square.cornerRed[1], block.cornerRed[1]), "the far corner is the one the far square has there");
+        open[4 * span + 4] = 1;
+        check(!WorldScene.Frame.blockLights(red, green, blue, open, unseen, day, 2, 3, 3, 3, own, WorldScene.OWN_LIGHT, block),
+                "a block with a square out of doors where the first is roofed is not lit as one");
+        open[4 * span + 4] = 0;
+        unseen[4 * span + 4] = WorldScene.LAMP_LIT;
+        check(!WorldScene.Frame.blockLights(red, green, blue, open, unseen, day, 2, 3, 3, 3, own, WorldScene.ROOM_LIT, block),
+                "nor one with a square lit by another kind of light the game has not given");
     }
 
     private static void pieceIsHeldByItsBall() throws IOException {

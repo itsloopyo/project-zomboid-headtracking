@@ -999,21 +999,37 @@ final class FurnishingBuilder {
             centreX += front[0] * clear;
             centreY += front[1] * clear;
         }
-        // A piece over more than one square is lit across those of them in the chunk, whose light the chunk has read, and
-        // from the first of them. The block holds the square building it, so it is never empty.
+        // A piece over more than one square, by its grid or the sprites it is tied to, is lit across those of them in the
+        // chunk, whose light the chunk has read, from the first of them. The block holds the square building it.
         SpriteGeometry.Frame light = build.frame;
         int litX = x, litY = y, across = 1, down = 1;
-        if ((piece.width > 1 || piece.height > 1) && !piece.onRoof) {
-            int fromX = Math.max(x - chunkX, 0), fromY = Math.max(y - chunkY, 0);
-            int toX = Math.min(x + piece.width - 1 - chunkX, WorldScene.CHUNK_TILES - 1), toY = Math.min(y + piece.height - 1 - chunkY, WorldScene.CHUNK_TILES - 1);
+        int firstX = x, firstY = y, lastX = x + piece.width - 1, lastY = y + piece.height - 1;
+        if (piece.partner != null) {
+            firstX = Math.min(firstX, x + piece.partnerX);
+            firstY = Math.min(firstY, y + piece.partnerY);
+            lastX = Math.max(lastX, x + piece.partnerX);
+            lastY = Math.max(lastY, y + piece.partnerY);
+        }
+        if (piece.row != null) {
+            for (int i = 0; i < piece.row.length; i++) {
+                firstX = Math.min(firstX, x + piece.rowX[i]);
+                firstY = Math.min(firstY, y + piece.rowY[i]);
+                lastX = Math.max(lastX, x + piece.rowX[i]);
+                lastY = Math.max(lastY, y + piece.rowY[i]);
+            }
+        }
+        if ((lastX > firstX || lastY > firstY) && !piece.onRoof) {
+            int fromX = Math.max(firstX - chunkX, 0), fromY = Math.max(firstY - chunkY, 0);
+            int toX = Math.min(lastX - chunkX, WorldScene.CHUNK_TILES - 1), toY = Math.min(lastY - chunkY, WorldScene.CHUNK_TILES - 1);
             blockFrame.open = build.frame.open;
             blockFrame.unlitKind = build.frame.unlitKind;
-            build.blockLights(fromX, fromY, toX, toY, blockFrame);
-            light = blockFrame;
-            litX = chunkX + fromX;
-            litY = chunkY + fromY;
-            across = toX - fromX + 1;
-            down = toY - fromY + 1;
+            if (build.blockLights(fromX, fromY, toX, toY, build.waterLocalX, build.waterLocalY, blockFrame)) {
+                light = blockFrame;
+                litX = chunkX + fromX;
+                litY = chunkY + fromY;
+                across = toX - fromX + 1;
+                down = toY - fromY + 1;
+            }
         }
         build.placed.add(model, light, litX, litY, x + centreX, y + centreY, foot, piece.turns, piece.scale, piece.scaleUp,
                 dyeTexture, piece.dyed, dyeU, dyeV, alsoDyed, alsoU, alsoV);

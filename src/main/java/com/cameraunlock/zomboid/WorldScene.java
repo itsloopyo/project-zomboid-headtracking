@@ -5833,25 +5833,49 @@ final class WorldScene {
             byte kind = unlitKindRound(own);
             frame.unlitKind = kind;
             for (int corner = 0; corner < 4; corner++) {
-                cornerLight(localX, localY, own, kind, corner, frame);
+                cornerLight(lightRed, lightGreen, lightBlue, lightOpen, lightUnseen, lightDay, localX, localY, own, kind, corner, frame);
             }
         }
 
         /**
-         * As cornerLights, into into's corners alone, for the block of squares of the chunk from
-         * (fromX, fromY) to (toX, toY): each outer corner of the block as the square of the block
-         * at that corner has it, so a piece over the block is lit across all of it.
+         * As cornerLights, into into's corners alone, for a piece over the block of squares of the
+         * chunk from (fromX, fromY) to (toX, toY) built from the square at (localX, localY), which
+         * gives it its openness and kind of light (into's open and unlitKind): each outer corner of
+         * the block as the square of the block at that corner has it, so the piece is lit across
+         * all of it. False, and into left alone, where a square of the block is lit otherwise than
+         * that square, out of doors where it is roofed or by another kind of light the game has not
+         * given: its light is not one with the rest.
          */
-        void blockLights(int fromX, int fromY, int toX, int toY, SpriteGeometry.Frame into) {
-            for (int corner = 0; corner < 4; corner++) {
-                int localX = corner == 1 || corner == 2 ? toX : fromX, localY = corner >= 2 ? toY : fromY;
-                int own = (localX + 1) * LIGHT_SPAN + localY + 1;
-                cornerLight(localX, localY, own, unlitKindRound(own), corner, into);
-            }
+        boolean blockLights(int fromX, int fromY, int toX, int toY, int localX, int localY, SpriteGeometry.Frame into) {
+            int own = (localX + 1) * LIGHT_SPAN + localY + 1;
+            return blockLights(lightRed, lightGreen, lightBlue, lightOpen, lightUnseen, lightDay, fromX, fromY, toX, toY, own, unlitKindRound(own), into);
         }
 
-        /** One corner of the square at (localX, localY), whose place in the light grid is own and whose kind of unlit light is kind, into into: see cornerLights. */
-        private void cornerLight(int localX, int localY, int own, byte kind, int corner, SpriteGeometry.Frame into) {
+        /** blockLights, from a light grid of LIGHT_SPAN by LIGHT_SPAN as readLights fills it: see cornerLight. */
+        static boolean blockLights(float[] red, float[] green, float[] blue, byte[] open, byte[] unseen, float[] day,
+                int fromX, int fromY, int toX, int toY, int own, byte kind, SpriteGeometry.Frame into) {
+            for (int i = fromX; i <= toX; i++) {
+                for (int j = fromY; j <= toY; j++) {
+                    int at = (i + 1) * LIGHT_SPAN + j + 1;
+                    if (open[at] != open[own] || unseen[at] != OWN_LIGHT && unseen[at] != kind) {
+                        return false;
+                    }
+                }
+            }
+            for (int corner = 0; corner < 4; corner++) {
+                int localX = corner == 1 || corner == 2 ? toX : fromX, localY = corner >= 2 ? toY : fromY;
+                cornerLight(red, green, blue, open, unseen, day, localX, localY, own, kind, corner, into);
+            }
+            return true;
+        }
+
+        /**
+         * One corner of the square at (localX, localY) of the light grid, as a square whose place
+         * in the grid is own and whose kind of unlit light is kind takes it, into into: see
+         * cornerLights. own's square, or one lit as it is, meets at the corner, so the mean has one square at least.
+         */
+        static void cornerLight(float[] lightRed, float[] lightGreen, float[] lightBlue, byte[] lightOpen, byte[] lightUnseen, float[] lightDay,
+                int localX, int localY, int own, byte kind, int corner, SpriteGeometry.Frame into) {
             int i = localX + (corner == 1 || corner == 2 ? 1 : 0), j = localY + (corner >= 2 ? 1 : 0);
             float red = 0f, green = 0f, blue = 0f, given = 0f, day = 0f;
             int count = 0, unlit = 0;
