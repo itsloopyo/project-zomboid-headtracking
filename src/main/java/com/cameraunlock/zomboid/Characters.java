@@ -2458,6 +2458,9 @@ public final class Characters {
             if (toX * toX + toY * toY > reach * reach) {
                 continue;
             }
+            if (glassPlane != null && glassPlane[0] * piece.x + glassPlane[1] * piece.y + glassPlane[2] * piece.standsUp - glassPlane[3] < -BEHIND_GLASS) {
+                continue;
+            }
             place(piece.x, piece.y, piece.standsUp, piece.angle, CHARACTER_SCALE);
             multiply(viewMatrix, placed, combined);
             ModelSlotRenderData person = piece.person;
