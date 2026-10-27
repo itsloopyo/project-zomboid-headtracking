@@ -1395,9 +1395,7 @@ final class Pipeline {
                 fires.depth(sceneTarget, camera, tanHalfFieldOfView, aspect, near, far, width, height, asideX, asideY, frameNanos);
             }
             stage(STAGE_FIRE);
-            if (!overhead) {
-                drawPanes(camera, state, tanHalfFieldOfView, aspect, fogStart, fogEnd);
-            }
+            drawPanes(camera, state, tanHalfFieldOfView, aspect, fogStart, fogEnd);
             // Over the panes, which take from what is behind them what they throw back.
             for (Looked look : looks) {
                 if (look.drawn && look.plane.window) {
