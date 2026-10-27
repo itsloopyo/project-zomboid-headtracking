@@ -1478,13 +1478,14 @@ final class RoofTests {
     }
 
     private static void levelSheetPaintedOverItsFloorIsAFlatTop() {
-        check(Roofs.flatTop(new RoofFit.Tile(0, 0, 2, RoofFit.LEVEL, true, 2f + THIRD, 2f + THIRD)), "a level sheet a third of a level over its floor is a crown");
-        check(Roofs.flatTop(new RoofFit.Tile(0, 0, 2, RoofFit.LEVEL, true, 2f + 2f * THIRD, 2f + 2f * THIRD)), "and so is one two thirds over it");
-        check(!Roofs.flatTop(new RoofFit.Tile(0, 0, 2, RoofFit.LEVEL, true, 2f, 2f)), "a sheet on its floor lies under a slope");
-        check(!Roofs.flatTop(new RoofFit.Tile(0, 0, 2, RoofFit.ALONG_X, true, 2f, 2f + THIRD)), "a slope is no flat top");
+        check(Roofs.flatTop(new RoofFit.Tile(0, 0, 2, RoofFit.LEVEL, true, 2f + THIRD, 2f + THIRD), false), "a level sheet a third of a level over its floor is a crown");
+        check(Roofs.flatTop(new RoofFit.Tile(0, 0, 2, RoofFit.LEVEL, true, 2f + 2f * THIRD, 2f + 2f * THIRD), false), "and so is one two thirds over it");
+        check(!Roofs.flatTop(new RoofFit.Tile(0, 0, 2, RoofFit.LEVEL, true, 2f, 2f), false), "a sheet on its floor lies under a slope");
+        check(Roofs.flatTop(new RoofFit.Tile(0, 0, 2, RoofFit.LEVEL, true, 2f, 2f), true), "but over a room, with no slope on its square, it is the room's roof");
+        check(!Roofs.flatTop(new RoofFit.Tile(0, 0, 2, RoofFit.ALONG_X, true, 2f, 2f + THIRD), false), "a slope is no flat top");
         RoofFit.Tile trim = new RoofFit.Tile(0, 0, 2, RoofFit.LEVEL, true, 2f + THIRD, 2f + THIRD);
         trim.fitting = true;
-        check(!Roofs.flatTop(trim), "nor is a trim narrower than a tile");
+        check(!Roofs.flatTop(trim, false), "nor is a trim narrower than a tile");
         check(Roofs.ceiling("ceilings_01_0") && !Roofs.ceiling("floors_exterior_tilesandstone_01_0") && !Roofs.ceiling(null),
                 "the map's ceilings are told from a terrace's floor by their sheet");
     }

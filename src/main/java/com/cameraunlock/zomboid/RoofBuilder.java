@@ -734,7 +734,7 @@ final class RoofBuilder {
     void addFlatTop(SpriteGeometry.Mesh mesh, Texture texture, int x, int y, int z) {
         // Its own sprite says first whether it can be one: the sheet under every slope cannot, and asked for, a square
         // that holds no tile has its whole roof read again on every build of its chunk.
-        if (!Roofs.flatTop(Roofs.measure(build.frame, texture, x, y, z))) {
+        if (!Roofs.flatTop(Roofs.measure(build.frame, texture, x, y, z), Roofs.overARoom(build.cell, x, y, z))) {
             return;
         }
         Roofs.Laid laid = Roofs.at(build.cell, x, y, z, world.roundNow, build.frame.scale);

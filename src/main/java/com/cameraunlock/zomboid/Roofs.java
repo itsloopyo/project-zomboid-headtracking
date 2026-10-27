@@ -1026,7 +1026,8 @@ final class Roofs {
             }
             WorldScene.frameOf(frame, object, texture);
             RoofFit.Tile tile = measure(frame, texture, x, y, z);
-            if (flatTop(tile)) {
+            // A sheet laid as the square's floor is the foot of a slope the map leaves out (hiddenSheet), never a flat roof.
+            if (flatTop(tile, object != square.getFloor() && overARoom(cell, x, y, z))) {
                 tile.sheet = true;
                 reading.add(new Laid(tile, texture, roof));
                 return;
@@ -1040,10 +1041,18 @@ final class Roofs {
      * level up, roofs_01_92 two thirds), a flat roof of corrugated sheet. It is a tile of its roof
      * all the same: the fit carries the far slopes across it, and left out it showed the loft
      * ceiling a step down inside the slopes. A sheet painted on its floor is the one under a
-     * slope, and no tile.
+     * slope, and no tile, but over a room on the level under, where no slope is on its square,
+     * it is the room's roof: a wing roofed flat at its eaves with a short slope only along the
+     * sides the game shows (12849..12854, 3170..3175).
      */
-    static boolean flatTop(RoofFit.Tile tile) {
-        return tile.axis == RoofFit.LEVEL && tile.sure && !tile.fitting && tile.half == 0 && tile.low - tile.z >= FLAT_TOP_LEAST;
+    static boolean flatTop(RoofFit.Tile tile, boolean overARoom) {
+        return tile.axis == RoofFit.LEVEL && tile.sure && !tile.fitting && tile.half == 0 && (tile.low - tile.z >= FLAT_TOP_LEAST || overARoom);
+    }
+
+    /** Whether the square is in a room on the level under z. */
+    static boolean overARoom(IsoCell cell, int x, int y, int z) {
+        IsoGridSquare under = cell.getGridSquare(x, y, z - 1);
+        return under != null && under.getRoomID() != -1L;
     }
 
     /**
