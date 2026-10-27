@@ -811,6 +811,13 @@ final class PipelineShaders {
      * their crown (Flora.CORE) is laid with its picture as much smaller.
      */
     static final float SMALL_LEAVES = 2f;
+    /**
+     * Further off the copies read as round clumps with a dark cross between them, so the sprig
+     * goes back to its one picture: wholly the small copies where a pixel spans no more of the
+     * one picture than SMALL_LEAVES_FROM of its width (about 2 tiles off), wholly the one picture
+     * from SMALL_LEAVES_TO (about 4), the two laid over each other in between.
+     */
+    static final float SMALL_LEAVES_FROM = 0.006f, SMALL_LEAVES_TO = 0.011f;
 
     /**
      * The world's fragment shader up to its main. Pipeline joins WORLD_FRAGMENT_RELIEF, SnowShader.GLSL and
@@ -1136,7 +1143,20 @@ final class PipelineShaders {
             }
 
             """ + GROUND_NOISE + "const float TILE_JOINT = " + WallBuilder.TILE_JOINT_HALF + ", FLOOR_JOINT = " + FloorBuilder.JOINT_HALF + ";\n"
-            + "const float SMALL_LEAVES = " + SMALL_LEAVES + ", SHRUB_SPRIG = " + Flora.SHRUB + ".0, HOLLY_SPRIG = " + Flora.HOLLY + ".0;\n" + """
+            + "const float SMALL_LEAVES = " + SMALL_LEAVES + ", SMALL_LEAVES_FROM = " + SMALL_LEAVES_FROM + ", SMALL_LEAVES_TO = " + SMALL_LEAVES_TO
+            + ", SHRUB_SPRIG = " + Flora.SHRUB + ".0, HOLLY_SPRIG = " + Flora.HOLLY + ".0;\n" + """
+
+            // Which way a sprig's leaf faces at that place on the sprigs' picture (pack.py, form),
+            // whose card lies in flatOf, the picture running over it as atX and atY take r1 and
+            // r2 to the world; through is how much light the leaf lets pass there.
+            vec3 leafFaced(vec3 flatOf, vec3 r1, vec3 r2, vec2 at, vec2 atX, vec2 atY, out float through) {
+                vec3 shape = texture2DGradARB(uSprigForm, at, atX, atY).rgb;
+                vec3 right = r1 * atX.x + r2 * atY.x, down = r1 * atX.y + r2 * atY.y;
+                vec2 tip = shape.rg * 2.0 - 1.0;
+                through = shape.b;
+                return normalize(flatOf * sqrt(max(1.0 - dot(tip, tip), 0.05))
+                        + (right * tip.x + down * tip.y) * inversesqrt(max(dot(right, right), dot(down, down)) + 1e-20));
+            }
 
             // Whether a pixel is in a window of that middle and those half widths, whose dither
             // runs from edgeFrom to edgeTo of them.
@@ -2238,6 +2258,9 @@ final class PipelineShaders {
                     small = false;
                 }
                 vec2 sprigAt = vec2(0.0), sprigAtX = vec2(0.0), sprigAtY = vec2(0.0);
+                // The same for a hedge's or a holly's small copies, and how much of the sprig they are.
+                vec2 smallAt = vec2(0.0), smallAtX = vec2(0.0), smallAtY = vec2(0.0);
+                float sprigSmall = 0.0;
                 // How solid the sprig's picture is at the pixel: least at a leaf's edge.
                 float sprigSolid = 1.0;
                 if (crown) {
@@ -2280,18 +2303,27 @@ final class PipelineShaders {
                         discard;
                     }
                     float which = floor(vMaterial - 71.5);
-                    // A hedge's or a holly's card holds its picture SMALL_LEAVES times across and down, each
-                    // copy a quarter turn from the one before, so that they do not read as one picture repeated.
-                    vec2 spread = on * (which == SHRUB_SPRIG || which == HOLLY_SPRIG ? SMALL_LEAVES : 1.0);
+                    vec2 kindAt = vec2(mod(which, 4.0), floor(which / 4.0));
+                    sprigAt = (kindAt + on) * vec2(0.25, 0.5);
+                    sprigAtX = dFdx(on) * vec2(0.25, 0.5);
+                    sprigAtY = dFdy(on) * vec2(0.25, 0.5);
+                    float fine = max(fwidth(on.x), fwidth(on.y));
+                    // Near the eye a hedge's or a holly's card holds its picture SMALL_LEAVES times across and down,
+                    // each copy a quarter turn from the one before, so that they do not read as one picture repeated.
+                    vec2 spread = on * SMALL_LEAVES;
                     vec2 copy = min(floor(spread), SMALL_LEAVES - 1.0);
                     float turns = mod(copy.x + 2.0 * copy.y, 4.0);
-                    vec2 turned = turns < 0.5 ? vec2(1.0, 0.0) : turns < 1.5 ? vec2(0.0, 1.0) : turns < 2.5 ? vec2(-1.0, 0.0) : vec2(0.0, -1.0);
-                    mat2 turn = mat2(turned, vec2(-turned.y, turned.x));
-                    sprigAt = (vec2(mod(which, 4.0), floor(which / 4.0)) + 0.5 + turn * (spread - copy - 0.5)) * vec2(0.25, 0.5);
+                    vec2 quarter = turns < 0.5 ? vec2(1.0, 0.0) : turns < 1.5 ? vec2(0.0, 1.0) : turns < 2.5 ? vec2(-1.0, 0.0) : vec2(0.0, -1.0);
+                    mat2 turn = mat2(quarter, vec2(-quarter.y, quarter.x));
+                    smallAt = (kindAt + 0.5 + turn * (spread - copy - 0.5)) * vec2(0.25, 0.5);
                     // Where one copy meets the next the place on the picture jumps: how fast it runs is taken from where it does not.
-                    sprigAtX = turn * dFdx(spread) * vec2(0.25, 0.5);
-                    sprigAtY = turn * dFdy(spread) * vec2(0.25, 0.5);
+                    smallAtX = turn * dFdx(spread) * vec2(0.25, 0.5);
+                    smallAtY = turn * dFdy(spread) * vec2(0.25, 0.5);
+                    sprigSmall = which == SHRUB_SPRIG || which == HOLLY_SPRIG ? 1.0 - smoothstep(SMALL_LEAVES_FROM, SMALL_LEAVES_TO, fine) : 0.0;
                     vec4 sprig = texture2DGradARB(uSprigs, sprigAt, sprigAtX, sprigAtY);
+                    if (sprigSmall > 0.0) {
+                        sprig = mix(sprig, texture2DGradARB(uSprigs, smallAt, smallAtX, smallAtY), sprigSmall);
+                    }
                     // A bush, or a young tree, seen along the game's own view, from overhead: it is a few
                     // leaves across and the game paints each of them, so the sprig is painted with what
                     // the sprite paints where the pixel is seen along that view, its middle at the sprite's
@@ -2320,7 +2352,7 @@ final class PipelineShaders {
                     } else {
                     // Far off, the smaller copies of the picture have every leaf part solid,
                     // and cut at half the crown would thin to twigs.
-                    float fine = max(fwidth(spread.x), fwidth(spread.y));
+                    fine *= mix(1.0, SMALL_LEAVES, sprigSmall);
                     if (sprig.a < mix(0.5, 0.4, smoothstep(0.004, 0.02, fine))) {
                         discard;
                     }
@@ -3402,7 +3434,6 @@ final class PipelineShaders {
                 vec3 leafFace = n;
                 float leafThrough = 1.0;
                 if (crown) {
-                    vec3 shape = texture2DGradARB(uSprigForm, sprigAt, sprigAtX, sprigAtY).rgb;
                     vec3 acrossX = dFdx(vPlace), acrossY = dFdy(vPlace);
                     vec3 flatOf = normalize(cross(acrossX, acrossY) + vec3(1e-12));
                     if (dot(flatOf, view) < 0.0) {
@@ -3410,12 +3441,12 @@ final class PipelineShaders {
                     }
                     // Which ways in the world the picture's across and down run on this card.
                     vec3 r1 = cross(acrossY, flatOf), r2 = cross(flatOf, acrossX);
-                    vec2 atX = sprigAtX, atY = sprigAtY;
-                    vec3 right = r1 * atX.x + r2 * atY.x, down = r1 * atX.y + r2 * atY.y;
-                    vec2 tip = shape.rg * 2.0 - 1.0;
-                    leafFace = normalize(flatOf * sqrt(max(1.0 - dot(tip, tip), 0.05))
-                            + (right * tip.x + down * tip.y) * inversesqrt(max(dot(right, right), dot(down, down)) + 1e-20));
-                    leafThrough = shape.b;
+                    leafFace = leafFaced(flatOf, r1, r2, sprigAt, sprigAtX, sprigAtY, leafThrough);
+                    if (sprigSmall > 0.0) {
+                        float smallThrough;
+                        leafFace = normalize(mix(leafFace, leafFaced(flatOf, r1, r2, smallAt, smallAtX, smallAtY, smallThrough), sprigSmall));
+                        leafThrough = mix(leafThrough, smallThrough, sprigSmall);
+                    }
                 }
                 // A tuft of grass is lit as the ground it grows from is, from above. Lit as the
                 // card it is drawn on, each tuft is a flat pane brighter or darker than the
