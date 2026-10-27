@@ -7865,7 +7865,13 @@ final class WorldScene {
             float foot = Math.min(hungAt[WallHung.BOTTOM], 0f), up = Math.max(hungAt[WallHung.TOP], 1f) - foot;
             // On the near walls clear of the wall's skin as a poster is, layered as addEdge layers what is not a
             // wall; on the far ones clear of the next square's wall, as what the game marks attached to them is.
-            float clear = WALL_HALF + HUNG_CLEAR;
+            // A log wall's logs stand proud of its skin: laid at the skin, a map showed in slivers between the courses.
+            float clear = WALL_HALF + HUNG_CLEAR + switch (wall) {
+                case WallHung.NORTH -> wallBuilder.logsProud(x, y, z, true);
+                case WallHung.WEST -> wallBuilder.logsProud(x, y, z, false);
+                case WallHung.SOUTH -> wallBuilder.logsProud(x, y + 1, z, true);
+                default -> wallBuilder.logsProud(x + 1, y, z, false);
+            };
             if (wall == WallHung.NORTH || wall == WallHung.WEST) {
                 clear += trimClear(wall == WallHung.NORTH, hungAt[WallHung.FROM], hungAt[WallHung.TO], hungAt[WallHung.BOTTOM], hungAt[WallHung.TOP]);
             }
