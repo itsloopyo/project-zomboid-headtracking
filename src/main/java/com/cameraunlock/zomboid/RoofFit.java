@@ -530,6 +530,14 @@ final class RoofFit {
             return false;
         }
 
+        /**
+         * How many squares of the building in a row from the square on along (dx, dy) have for their floor at that level a sheet
+         * of a roof's laid as a floor (Roofs.hiddenSheet).
+         */
+        default int sheets(int x, int y, int dx, int dy, int z) {
+            return 0;
+        }
+
         /** Whether the square at that level is a room of a storey: one with floors, not the space under a roof. */
         default boolean storey(int x, int y, int z) {
             return false;
@@ -873,6 +881,14 @@ final class RoofFit {
                 // beside it, whose wall the slope comes down to. Carried on over it, the far slope's eave stood on the
                 // annex's far wall and its middle went into the annex's roof (3913..3914, 13821).
                 if (site.annex(x + (open - 1) * dx, y + (open - 1) * dy, x + open * dx, y + open * dy, floor)) {
+                    annex = true;
+                    break;
+                }
+                // So is a flat roof the slope has come down to, over the room under the slope as well, where its sheets run on
+                // further than the slope climbs. Read as the slope's foot, the flat at 6089..6098, 8050..8057 had the far side
+                // carried on over it to the far wall, a level slab at the ridge's height over 6099..6102. The sheets the map lays
+                // for a far side's own foot run no further: the porch house's three rows at 869..876, 12515..12517.
+                if (open >= climbed && site.sheets(x + open * dx, y + open * dy, dx, dy, floor) > climbed) {
                     annex = true;
                     break;
                 }

@@ -825,6 +825,21 @@ final class Roofs {
                         && underSheets(under, z) && !underSheets(before, z);
             }
 
+            @Override
+            public int sheets(int x, int y, int dx, int dy, int z) {
+                int run = 0;
+                while (run < RoofFit.WIDEST_TOP && stands(x + run * dx, y + run * dy, z) && sheet(x + run * dx, y + run * dy, z)) {
+                    run++;
+                }
+                return run;
+            }
+
+            private boolean sheet(int x, int y, int z) {
+                IsoGridSquare square = cell.getGridSquare(x, y, z);
+                IsoObject floor = square == null ? null : square.getFloor();
+                return floor != null && hiddenSheet(floor);
+            }
+
             private final HashMap<Long, Boolean> voids = new HashMap<>();
 
             // A room on the roof's level with no floor on any of its squares is the space under the roof, its squares only

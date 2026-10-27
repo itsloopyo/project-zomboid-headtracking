@@ -71,6 +71,7 @@ final class RoofTests {
         Checks.run("roomTheSlopePassesWhollyOverIsNoStoreyItStopsAt", RoofTests::roomTheSlopePassesWhollyOverIsNoStoreyItStopsAt);
         Checks.run("farSideStandsOnTheStoreyItCoversThoughItsNearSideRunsOnDownOverAPorch", RoofTests::farSideStandsOnTheStoreyItCoversThoughItsNearSideRunsOnDownOverAPorch);
         Checks.run("farSideComesOnDownOverAnOutshutPastTheStoreyItClears", RoofTests::farSideComesOnDownOverAnOutshutPastTheStoreyItClears);
+        Checks.run("farSideStopsAtAFlatRoofItComesDownTo", RoofTests::farSideStopsAtAFlatRoofItComesDownTo);
         Checks.run("eaveOverALeanToThatStopsShortOfItIsMade", RoofTests::eaveOverALeanToThatStopsShortOfItIsMade);
         Checks.run("trimPastAGableIsNoRoofGoingOn", RoofTests::trimPastAGableIsNoRoofGoingOn);
         Checks.run("trimPastAHipsCornerLeavesTheCornersEave", RoofTests::trimPastAHipsCornerLeavesTheCornersEave);
@@ -708,6 +709,76 @@ final class RoofTests {
         farSideStandsOnTheStorey(over, 3f, 5, "a storey a square deeper, under the plane at its wall");
         over = farSideOverStoreys(8, (y, z) -> z == 1 || z == 2 && y >= 3 || z == 3);
         farSideStandsOnTheStorey(over, 4f, 8, "a storey reaching further out over one cleared");
+    }
+
+    /**
+     * The house at 6088..6106 x 8050..8061: its slope climbs three rows from 1 to a ridge at 2 on the north edge of row 4 here,
+     * and past where its far side comes down to 1, at the north edge of row 1, the map lays a flat roof of sheets as floors over
+     * y -4..0, further than the slope climbs. Read as the slope's foot, the flat had the far side carried on over it to the far
+     * wall, level at the ridge. Sheets over y -2..0, no deeper than the climb, are the far side's own foot, as the porch house's
+     * at 869..876, 12515..12517, and the far side comes on down over them to the wall.
+     */
+    private static void farSideStopsAtAFlatRoofItComesDownTo() {
+        HashMap<Long, RoofFit.Tile> over = farSideBesideSheets(5);
+        for (int x = 0; x <= 3; x++) {
+            for (int y = 1; y <= 3; y++) {
+                RoofFit.Tile tile = over.get(RoofFit.key(x, y, 0));
+                check(tile != null && !tile.shaped && tile.fitAxis == RoofFit.ALONG_Y && near(tile.fitLow, 1f + (y - 1) * THIRD) && near(tile.fitHigh, 1f + y * THIRD),
+                        "the far side falls from the ridge to the flat roof at 1, at " + x + ", " + y + ": " + said(tile));
+            }
+            for (int y = -4; y <= 0; y++) {
+                RoofFit.Tile tile = over.get(RoofFit.key(x, y, 0));
+                check(tile == null, "and is not carried on over the flat, at " + x + ", " + y + ": " + said(tile));
+            }
+        }
+        over = farSideBesideSheets(3);
+        for (int x = 0; x <= 3; x++) {
+            RoofFit.Tile tile = over.get(RoofFit.key(x, -2, 0));
+            check(tile != null && near(tile.fitLow, 1f), "over sheets no deeper than the climb the far side comes on down to the wall, at " + x + ", -2: " + said(tile));
+        }
+    }
+
+    /** The far sides of that house standing over y (1 - deep)..6, with sheets laid as floors over y (1 - deep)..0. */
+    private static HashMap<Long, RoofFit.Tile> farSideBesideSheets(int deep) {
+        List<RoofFit.Tile> roof = new ArrayList<>();
+        for (int x = 0; x <= 3; x++) {
+            for (int y = 4; y <= 6; y++) {
+                float north = 2f - (y - 4) * THIRD;
+                roof.add(new RoofFit.Tile(x, y, (int) Math.floor(north - THIRD + 0.05f), RoofFit.ALONG_Y, true, north, north - THIRD));
+            }
+        }
+        roof.sort(Comparator.comparingLong(tile -> RoofFit.key(tile.x, tile.y, tile.z)));
+        RoofFit.fit(roof);
+        RoofFit.Site house = new RoofFit.Site() {
+            @Override
+            public boolean stands(int x, int y, int z) {
+                return x >= 0 && x <= 3 && y >= 1 - deep && y <= 6;
+            }
+
+            @Override
+            public boolean floored(int x, int y, int z) {
+                return false;
+            }
+
+            @Override
+            public int sheets(int x, int y, int dx, int dy, int z) {
+                int run = 0;
+                while (z == 1 && stands(x + run * dx, y + run * dy, z) && y + run * dy <= 0) {
+                    run++;
+                }
+                return run;
+            }
+
+            @Override
+            public boolean taken(int x, int y, int z, float over) {
+                return false;
+            }
+        };
+        HashMap<Long, RoofFit.Tile> over = new HashMap<>();
+        for (RoofFit.Tile tile : RoofFit.backs(roof, house)) {
+            over.put(RoofFit.key(tile.x, tile.y, 0), tile);
+        }
+        return over;
     }
 
     /**
