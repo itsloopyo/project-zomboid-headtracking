@@ -851,11 +851,13 @@ final class Track {
             private final HashSet<Long> squares;
             /** The squares with pieces no line of track with sleepers accounts for, of those the ones with rails alone, and those under a wagon's deck. */
             private final HashSet<Long> unread = new HashSet<>(), alone = new HashSet<>(), covered = new HashSet<>();
+            /** The squares with a bend's rails alone. */
+            private final HashSet<Long> bendsAlone = new HashSet<>();
             private final ArrayList<Line> lines = new ArrayList<>();
             private final ArrayList<Route> routes = new ArrayList<>();
             /** The lines the picture lays straights of rails alone along, and of those the lengths a route between two lines runs along. */
             private final ArrayList<Line> railsAlone = new ArrayList<>(), between = new ArrayList<>();
-            /** The squares read further out than TURNOUT_KEPT_ROUND, following a line's rails alone and telling their side. */
+            /** The squares read beyond the turnout's own, following a line's rails alone and telling their side. */
             final HashSet<Long> reached = new HashSet<>();
 
             TurnoutReader(HashSet<Long> squares) {
@@ -881,6 +883,9 @@ final class Track {
                             unread.add(at);
                             if (!p.ties) {
                                 alone.add(at);
+                                if (p.bend != null) {
+                                    bendsAlone.add(at);
+                                }
                             }
                             if (p.bend == null) {
                                 double c;
@@ -1074,6 +1079,11 @@ final class Track {
             /** What the square at (x, y) has of a line: 2 a straight of it with sleepers, 1 its rails alone, 0 neither, -1 for a square not loaded. */
             private int has(Line line, int x, int y) {
                 reached.add(key(x, y));
+                if (line.way == NS || line.way == EW) {
+                    // narrow, through straightC, reads the squares either side across.
+                    reached.add(line.way == NS ? key(x - 1, y) : key(x, y - 1));
+                    reached.add(line.way == NS ? key(x + 1, y) : key(x, y + 1));
+                }
                 int n = area.pieces(x, y, other);
                 if (n < 0) {
                     return -1;
@@ -1176,8 +1186,9 @@ final class Track {
              * between them, hold that takes half the way along middle at most. Where one ends too
              * near middle for the tightest arc, the first arc leaves it a little before its end, and
              * the second arc likewise meets an end of two a little inside it. The
-             * straight must be a sleeper's gap long at least, as a shorter one is one arc, and it and
-             * each arc must cross squares the picture paints rails alone on. Says whether the route is read, here or
+             * straight must be a sleeper's gap long at least, as a shorter one is one arc, and cross
+             * squares the picture paints rails alone on, and each arc squares it paints a bend's
+             * rails alone on. Says whether the route is read, here or
              * from the other end.
              */
             private boolean route(int i, int side, int j, int sense, Line middle) {
@@ -1229,7 +1240,7 @@ final class Track {
                         break;
                     }
                 }
-                if (Double.isNaN(r1) || !railsPaintAlone(c1x, c1y, r1, start1, turnOne * eighth)) {
+                if (Double.isNaN(r1) || !railsPaintBend(c1x, c1y, r1, start1, turnOne * eighth)) {
                     return false;
                 }
                 double r2 = Double.NaN, c2x = 0, c2y = 0, start2 = 0;
@@ -1249,12 +1260,12 @@ final class Track {
                         break;
                     }
                 }
-                if (Double.isNaN(r2) || !railsPaintAlone(c2x, c2y, r2, start2, turnTwo * eighth)) {
+                if (Double.isNaN(r2) || !railsPaintBend(c2x, c2y, r2, start2, turnTwo * eighth)) {
                     return false;
                 }
                 double reach1 = r1 * half, reach2 = r2 * half;
                 double from = along(middle, first[0] + hmx * reach1, first[1] + hmy * reach1), to = along(middle, second[0] - hmx * reach2, second[1] - hmy * reach2);
-                if (Math.abs(to - from) < TIE_APART || !holds(middle, from, to, true) || !paintsAlone(middle, from, to)) {
+                if ((to - from) * (hmx * middle.dx + hmy * middle.dy) < TIE_APART || !holds(middle, from, to, true) || !paintsAlone(middle, from, to)) {
                     return false;
                 }
                 routes.add(new Route(c1x, c1y, r1, start1, turnOne * eighth));
@@ -1351,13 +1362,13 @@ final class Track {
                 return false;
             }
 
-            /** Whether a rail of an arc crosses a square the picture paints rails alone on. */
-            private boolean railsPaintAlone(double cx, double cy, double r, double start, double sweep) {
+            /** Whether a rail of an arc crosses a square the picture paints a bend's rails alone on. */
+            private boolean railsPaintBend(double cx, double cy, double r, double start, double sweep) {
                 int steps = (int) Math.ceil(Math.abs(sweep) * r / 0.1);
                 for (int k = 0; k <= steps; k++) {
                     double a = start + sweep * k / steps;
                     for (int side = -1; side <= 1; side += 2) {
-                        if (alone.contains(key((int) Math.floor(cx + (r + side * RAIL_OFF) * Math.cos(a)), (int) Math.floor(cy + (r + side * RAIL_OFF) * Math.sin(a))))) {
+                        if (bendsAlone.contains(key((int) Math.floor(cx + (r + side * RAIL_OFF) * Math.cos(a)), (int) Math.floor(cy + (r + side * RAIL_OFF) * Math.sin(a))))) {
                             return true;
                         }
                     }
