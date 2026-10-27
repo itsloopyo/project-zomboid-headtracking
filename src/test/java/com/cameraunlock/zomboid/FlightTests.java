@@ -241,6 +241,12 @@ final class FlightTests {
                 "the fire escape's landing rail: 48 on a west edge, 49 on a north one, 52 on both, 50 the post between");
         check(Rails.of("fixtures_railings_01_112") == null && Rails.of("walls_exterior_house_01_4") == null && Rails.of(null) == null,
                 "a panelled rail, a wall and a sprite with no name are no rail Flights builds");
+        check(Rails.of("fixtures_railings_01_34").part == Rails.PORCH_CORNER && Rails.of("fixtures_railings_01_34").style == Rails.BALUSTRADE
+                && Rails.of("fixtures_railings_01_74").part == Rails.PORCH_CORNER && Rails.of("fixtures_railings_01_26").part == Rails.LEVEL_BOTH,
+                "a balustrade's corner with a porch's post on it is 34 in oak and 74 painted, and 26 is one without");
+        check(Rails.panelled("fixtures_railings_01_112") && Rails.panelled("fixtures_railings_01_117") && !Rails.panelled("fixtures_railings_01_114")
+                && !Rails.panelled("fixtures_railings_01_115") && !Rails.panelled("fixtures_railings_01_24") && !Rails.panelled(null),
+                "the panelled rail's lengths are 112, 113, 116 and 117; its corners and posts are walls of their own");
         check(Rails.flightPost("fixtures_stairs_01_14") && !Rails.flightPost("fixtures_stairs_01_22"), "the post under a fire escape is fixtures_stairs_01_14");
         check(Rails.fireEscape("fixtures_stairs_01_5") && Rails.fireEscape("fixtures_stairs_01_11") && !Rails.fireEscape("fixtures_stairs_01_1")
                 && !Rails.fireEscape("fixtures_stairs_01_14") && !Rails.fireEscape("fixtures_stairs_01_50") && !Rails.fireEscape(null),

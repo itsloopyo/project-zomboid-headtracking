@@ -833,7 +833,7 @@ final class WorldScene {
         final int flatWall;
         /** Whether it is a broken length of fence the game marks for no wall: see BrokenFences. */
         final boolean brokenFence;
-        /** Whether it is a length of low board fence built with a thickness, though the game marks it a sheet: see Fences.thick. */
+        /** Whether it is built with a wall's thickness though the game marks it a sheet: see Fences.thick and Rails.panelled. */
         final boolean thickFence;
         /** The length of chain link fencing it is, or null: see ChainLink. */
         final ChainLink.Run chainLink;
@@ -950,7 +950,7 @@ final class WorldScene {
             edge = name == null ? Overhead.ANY_EDGE : Overhead.edgeOf(name);
             flatWall = WallObjects.flatOn(name, properties, sprite.getFacing());
             brokenFence = BrokenFences.is(name);
-            thickFence = Fences.thick(name);
+            thickFence = Fences.thick(name) || Rails.panelled(name);
             chainLink = ChainLink.of(name);
             brokenLink = ChainLink.brokenMaterial(name, madeOf, onEdge);
             linkSheet = ChainLink.sheet(name, properties, type);
@@ -2567,7 +2567,7 @@ final class WorldScene {
     /**
      * Whether what the game calls a wall is one it can be seen through: a fence of wire, of
      * rails or of pickets, a partition of glass, a fence of boards low enough to see over.
-     * Of those, a Fences.thick fence is built as a wall all the same.
+     * Of those, a Fences.thick fence and a Rails.panelled rail are built as a wall all the same.
      */
     private static boolean isSheet(PropertyContainer properties) {
         return (properties.has(IsoFlagType.WallWTrans) || properties.has(IsoFlagType.WallNTrans))
@@ -8551,15 +8551,19 @@ final class WorldScene {
                 flights.slope(piece.third, piece.style, walled ? (own ? RAIL_OFF_WALL : -RAIL_OFF_WALL) : 0f);
                 return true;
             }
-            if (piece.part == Rails.LEVEL_WEST || piece.part == Rails.LEVEL_BOTH) {
+            boolean both = piece.part == Rails.LEVEL_BOTH || piece.part == Rails.PORCH_CORNER;
+            if (piece.part == Rails.LEVEL_WEST || both) {
                 frameOn(mesh, x, y, z, 0f, 0f, 0f, 1f, 1f, 0f);
                 flights.level(piece.style, 0f);
             }
-            if (piece.part == Rails.LEVEL_NORTH || piece.part == Rails.LEVEL_BOTH) {
+            if (piece.part == Rails.LEVEL_NORTH || both) {
                 frameOn(mesh, x, y, z, 0f, 0f, 1f, 0f, 0f, 1f);
                 flights.level(piece.style, 0f);
             }
-            if (piece.part == Rails.CORNER_POST || piece.part == Rails.LEVEL_BOTH && piece.style == Rails.BALUSTRADE) {
+            if (piece.part == Rails.PORCH_CORNER) {
+                frameOn(mesh, x, y, z, 0f, 0f, 1f, 0f, 0f, 1f);
+                flights.porchPost();
+            } else if (piece.part == Rails.CORNER_POST || piece.part == Rails.LEVEL_BOTH && piece.style == Rails.BALUSTRADE) {
                 frameOn(mesh, x, y, z, 0f, 0f, 1f, 0f, 0f, 1f);
                 flights.cornerPost(piece.style);
             }

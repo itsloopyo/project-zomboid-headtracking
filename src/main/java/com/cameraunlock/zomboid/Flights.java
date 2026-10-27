@@ -274,6 +274,14 @@ final class Flights {
         }
     }
 
+    /** Half the width of a porch's post, in tiles: fixtures_railings_01_34 and 74 paint it 12 dots across. */
+    private static final float PORCH_POST = 0.047f;
+
+    /** The post of a porch's roof on the corner of two level rails, from the floor to the level over it. */
+    void porchPost() {
+        box(-PORCH_POST, PORCH_POST, -PORCH_POST, PORCH_POST, 0f, 1f);
+    }
+
     /** The post at the corner of two level rails, on the corner itself. A post of pipe ends in the rails, and a timber one stands a little over them, as a newel does. */
     void cornerPost(int style) {
         float half = RAIL_POST[style] / 2f + 0.01f;

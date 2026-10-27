@@ -24,6 +24,8 @@ final class Rails {
     static final int SLOPE = 0, ABOVE = 1, LEVEL_WEST = 2, LEVEL_NORTH = 3, LEVEL_BOTH = 4, CORNER_POST = 5;
     /** The length over the top square of a flight with a level rail joined to it: that rail runs along the same edge, on the floor the flight arrives at. */
     static final int ABOVE_AND_LEVEL = 6;
+    /** LEVEL_BOTH with the post of a porch's roof on its corner, from the floor to the level over it. */
+    static final int PORCH_CORNER = 7;
 
     static final class Piece {
         final int style, part;
@@ -116,15 +118,27 @@ final class Rails {
         level(BALUSTRADE, OAK, LEVEL_NORTH, 25);
         level(BALUSTRADE, OAK, LEVEL_BOTH, 26);
         level(BALUSTRADE, OAK, CORNER_POST, 27);
+        level(BALUSTRADE, OAK, PORCH_CORNER, 34);
         level(BALUSTRADE, PAINTED, LEVEL_WEST, 64);
         level(BALUSTRADE, PAINTED, LEVEL_NORTH, 65);
         level(BALUSTRADE, PAINTED, LEVEL_BOTH, 66);
         level(BALUSTRADE, PAINTED, CORNER_POST, 67);
+        level(BALUSTRADE, PAINTED, PORCH_CORNER, 74);
     }
 
     /** What the sprite of this name is a length of, or null when it is no rail. */
     static Piece of(String name) {
         return name == null ? null : PIECES.get(name);
+    }
+
+    /**
+     * Whether a sprite is a length of panelled rail, a solid panel under a handrail on a west (112, 116) or north (113, 117)
+     * edge. The game marks it a sheet, as it can be seen over, and it is built with a wall's thickness: its handrail is
+     * whole along the edge, so the top laid at its highest paint is the rail's.
+     */
+    static boolean panelled(String name) {
+        int place = name == null ? -1 : Sheets.place(name, SHEET);
+        return place >= 112 && place <= 113 || place >= 116 && place <= 117;
     }
 
     /** Whether a sprite is a square of the fire escape, the open flight of iron the map stands that post under. */
