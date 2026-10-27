@@ -86,8 +86,9 @@ final class Config {
     private final int[] playerPorts = new int[PLAYER_PORT_ROWS.length];
     /** The rows of [Content], in the order of Own's bits. Each is on for the game's own, so its bit is set where the row is off. */
     private final int[] own;
-    /** The rows of [Rules], in the order of Rules' bits. */
+    /** The rows of [Rules], in the order of Rules' bits, NO_ROW for Rewind30s outside a development build: see Rewind. */
     private final int[] rules;
+    private static final int NO_ROW = -1;
     /** The rows of [Graphics], in the order of GRAPHICS. */
     private final int[] graphics;
     /** For each of the mod's own rows the game's options screen shows, by its key: what puts a value applied there on the running game. */
@@ -372,7 +373,7 @@ final class Config {
                             + "where your character's sight reaches by the game's rules. false: the game's own sight, which can show a\n"
                             + "zombie late or only once it is close. On a server the game's rule holds.",
                     writable | live, true),
-            core.configLocalBool("Rules", "Rewind30s",
+            !DevBuild.ON ? NO_ROW : core.configLocalBool("Rules", "Rewind30s",
                     "true: offline, when you die the game pauses and asks whether to go back to where you were 30 seconds before,\n"
                             + "with what you had then and the wounds you had then. The world goes on as it was, the zombie that killed you\n"
                             + "included, but every zombie within 4 tiles of you is moved out to 4 tiles and every zombie stands still for 2\n"
@@ -517,7 +518,9 @@ final class Config {
         }
         int changed = 0;
         for (int i = 0; i < rules.length; i++) {
-            changed |= core.configGetInt(rules[i]) << i;
+            if (rules[i] != NO_ROW) {
+                changed |= core.configGetInt(rules[i]) << i;
+            }
         }
         double[] custom = new double[graphics.length];
         for (int part = 0; part < graphics.length; part++) {

@@ -17,7 +17,6 @@ import zombie.CombatManager;
 import zombie.Lua.LuaEventManager;
 import zombie.EffectsManager;
 import zombie.GameTime;
-import zombie.characters.CharacterDiedListener;
 import zombie.characters.IsoGameCharacter;
 import zombie.characters.IsoPlayer;
 import zombie.characters.IsoZombie;
@@ -636,23 +635,6 @@ public final class Hooks {
         Bleeding.tick(wounds);
         Pieces.tick();
         Rewind.tick();
-    }
-
-    /** Called at the start of IsoGameCharacter.Kill with what it was called with. Says whether to leave the Kill out: see Rewind. */
-    public static boolean heldDeath(IsoGameCharacter dying, IsoGameCharacter killer, HandWeapon weapon, boolean gory, CharacterDiedListener listener) {
-        return Rewind.holds(dying, killer, weapon, gory, listener);
-    }
-
-    /** Called at the start of IngameState.updateInternal, which saves the game as it leaves for the menu once Core.exiting is set. */
-    public static void ingameUpdate() {
-        if (zombie.core.Core.exiting) {
-            Rewind.leaving();
-        }
-    }
-
-    /** Called at the start of IsoZombie's preupdate, update and postupdate. Says whether to pass them over: see Rewind. */
-    public static boolean zombiesStill() {
-        return Rewind.zombiesStill();
     }
 
     /** How often a limb a shot takes off bursts in blood and shards rather than coming off whole. */

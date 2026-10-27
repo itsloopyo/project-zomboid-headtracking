@@ -4,8 +4,9 @@ import zombie.network.GameServer;
 
 /**
  * The game's rules the mod changes when played alone, each a row of [Rules] in CameraUnlock.ini,
- * on unless the player says otherwise, bar Rewind30s, which is off unless they say so. With a row
- * off, or on a server whatever the rows say, the game's own rule holds.
+ * on unless the player says otherwise, bar Rewind30s, which is off unless they say so and is a row
+ * only in a development build (see Rewind). With a row off, or on a server whatever the rows say,
+ * the game's own rule holds.
  *
  * The rows are read again while the game runs: the thread that watches the file and the game's
  * options screen set them, and the logic thread asks them as shots land and vehicles move.
@@ -100,7 +101,7 @@ final class Rules {
         return "shots through walls " + ((bits & THROUGH_WALLS) != 0) + ", shots break lamps " + ((bits & BREAKS_LAMPS) != 0)
                 + ", shots break glass " + ((bits & BREAKS_GLASS) != 0) + ", shots wound limbs " + ((bits & WOUNDS) != 0) + ", vehicles smash through " + ((bits & SMASHES_THROUGH) != 0)
                 + ", faces the view walking aside " + ((bits & FACES_THE_VIEW) != 0) + ", shots past trees " + ((bits & PAST_TREES) != 0)
-                + ", zombies seen at once " + ((bits & SEEN_AT_ONCE) != 0) + ", rewind 30s " + ((bits & REWIND) != 0)
+                + ", zombies seen at once " + ((bits & SEEN_AT_ONCE) != 0) + (DevBuild.ON ? ", rewind 30s " + ((bits & REWIND) != 0) : "")
                 + ", hidden wall decor " + ((bits & HIDDEN_WALLS) != 0);
     }
 }

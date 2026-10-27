@@ -379,7 +379,6 @@ public final class Agent {
         add(instrumentation, new PatchTransformer(loadingPatches()));
         add(instrumentation, new PatchTransformer(luaLoadedPatches()));
         add(instrumentation, new PatchTransformer(knockdownPatches()));
-        add(instrumentation, new PatchTransformer(rewindPatches()));
         add(instrumentation, new PatchTransformer(carPhysicsPatches()));
         add(instrumentation, new PatchTransformer(controllerPatches()));
         chunkMarks = new PatchTransformer(chunkMarkPatches());
@@ -922,37 +921,6 @@ public final class Agent {
                 new Patch(vehicle, "applyImpulseFromHitPlant passed over where plants give way", classBytes -> CallSite.returnAtOnceIf(classBytes,
                         new CallSite.Method(vehicle, "applyImpulseFromHitPlant", "(L" + object + ";F)V"),
                         new CallSite.Method(HOOKS, "plantGivesWay", "()Z"))));
-    }
-
-    /**
-     * Every death of a character goes through this Kill, before the game makes a body or tells
-     * its Lua, and every zombie through its three updates, where its animation runs too. See Rewind.
-     */
-    private static List<Patch> rewindPatches() {
-        String character = "zombie/characters/IsoGameCharacter", zombie = "zombie/characters/IsoZombie";
-        CallSite.Method still = new CallSite.Method(HOOKS, "zombiesStill", "()Z");
-        List<Patch> patches = new ArrayList<>();
-        patches.add(new Patch(character, "Kill passed over while a rewind holds the death", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
-                new CallSite.Method(character, "Kill", "(L" + character + ";Lzombie/inventory/types/HandWeapon;ZLzombie/characters/CharacterDiedListener;)V"),
-                code -> {
-                    code.aload(0);
-                    code.aload(1);
-                    code.aload(2);
-                    code.iload(3);
-                    code.aload(4);
-                    CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "heldDeath",
-                            "(L" + character + ";L" + character + ";Lzombie/inventory/types/HandWeapon;ZLzombie/characters/CharacterDiedListener;)Z"));
-                    code.ifThen(Opcode.IFNE, CodeBuilder::return_);
-                })));
-        String state = "zombie/gameStates/IngameState";
-        patches.add(new Patch(state, "updateInternal at its start, before it saves to leave for the menu", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
-                new CallSite.Method(state, "updateInternal", "()Lzombie/gameStates/GameStateMachine$StateAction;"),
-                code -> CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "ingameUpdate", "()V")))));
-        for (String update : new String[] {"preupdate", "update", "postupdate"}) {
-            patches.add(new Patch(zombie, update + " passed over while the zombies stand still after a rewind", classBytes -> CallSite.returnAtOnceIf(classBytes,
-                    new CallSite.Method(zombie, update, "()V"), still)));
-        }
-        return patches;
     }
 
     /**

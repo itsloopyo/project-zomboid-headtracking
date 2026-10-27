@@ -57,8 +57,11 @@ import zombie.vehicles.BaseVehicle;
  * on the ground where they died, where the game would have left it with their body.
  *
  * All of it runs on the game's main thread: the world's tick, Kill and the panel's buttons.
+ *
+ * Only a development build has it, with its row and its patches (DevPatches): a death is not yet
+ * rewound reliably enough to ship. The shipped build's Rewind does nothing.
  */
-final class Rewind {
+public final class Rewind {
     private static final float EVERY = RewindRing.EVERY;
     private static final int KEPT = RewindRing.KEPT;
     private static final int FIRST_BUFFER = 256 * 1024;
@@ -157,7 +160,7 @@ final class Rewind {
     }
 
     /** Whether the zombies stand still: for ZOMBIES_STILL seconds of play after a rewind, while IsoZombie's updates are passed over. */
-    static boolean zombiesStill() {
+    public static boolean zombiesStill() {
         return stillFor > 0f;
     }
 
@@ -209,7 +212,7 @@ final class Rewind {
      * Called at the start of IsoGameCharacter.Kill with what it was called with. Says whether to
      * leave the Kill out: it is a death Rewind holds for the player's answer.
      */
-    static boolean holds(IsoGameCharacter dying, IsoGameCharacter killer, HandWeapon weapon, boolean gory, CharacterDiedListener listener) {
+    public static boolean holds(IsoGameCharacter dying, IsoGameCharacter killer, HandWeapon weapon, boolean gory, CharacterDiedListener listener) {
         // Kill sets the health to nought before it runs, and a death from a zombie's bite comes to it with the health nought already, so
         // the game's isDead is true of every death held here: a player already killed is told by onKillDone.
         if (passing || !(dying instanceof IsoPlayer player) || !Rules.rewind() || !player.isLocalPlayer() || player.isOnKillDone()) {
@@ -389,6 +392,13 @@ final class Rewind {
             }
         }
         return 0;
+    }
+
+    /** Called at the start of IngameState.updateInternal, which saves the game as it leaves for the menu once Core.exiting is set. */
+    public static void ingameUpdate() {
+        if (zombie.core.Core.exiting) {
+            leaving();
+        }
     }
 
     /** Called as the game begins to leave a save, before it saves: a player whose death is held rewinds, so no save holds a held death. */
