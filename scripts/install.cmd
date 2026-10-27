@@ -33,7 +33,7 @@ set "MOD_DLLS=ProjectZomboidHeadTracking.jar ProjectZomboidHeadTracking-cabins.j
 :: no longer uses. An install removes them once the new files are in place.
 set "LEGACY_DLLS=ProjectZomboidHeadTracking.dll CameraUnlockCore.dll ProjectZomboidHeadTracking-fire.jar"
 set "MOD_INTERNAL_NAME=ProjectZomboidHeadTracking"
-set "MOD_VERSION=0.0.0"
+set "MOD_VERSION=0.1.0"
 set "STATE_FILE=.headtracking-state.json"
 set "FRAMEWORK_TYPE=JavaAgent"
 :: Files copied only when they are not already there, so an upgrade keeps

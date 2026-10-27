@@ -2,7 +2,7 @@
   "schema_version": 4,
   "mod_info": {
     "name": "ProjectZomboidHeadTracking",
-    "version": "0.0.0",
+    "version": "0.1.0",
     "game_id": "project-zomboid"
   },
   "strategy": "JavaAgent",
