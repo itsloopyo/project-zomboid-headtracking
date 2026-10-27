@@ -413,10 +413,12 @@ final class Windows {
                 continue;
             }
             float[] uprights = runs(dots, across, left, right, first, last, true);
+            boolean carryStart = false;
             for (int cell = 0; cell <= uprights.length / 2; cell++) {
                 float begin = cell == 0 ? left : uprights[cell * 2 - 1], finish = cell == uprights.length / 2 ? right : uprights[cell * 2];
                 if (cell > 0) {
-                    bars = with(bars, uprights[cell * 2 - 2] / across, begin / across, 1f - to / high, 1f - from / high);
+                    bars = with(bars, (carryStart ? left : uprights[cell * 2 - 2]) / across, begin / across, 1f - to / high, 1f - from / high);
+                    carryStart = false;
                 }
                 if (Math.floor(finish) - Math.ceil(begin) < THINNEST_LIGHT) {
                     if (finish > begin) {
@@ -432,6 +434,14 @@ final class Windows {
                     }
                 }
                 if (all == 0 || glass < NO_GLASS * all) {
+                    // An empty light this narrow at an end with no stile is a slit the next square's sprite paints
+                    // over in the game; standing beside a wall that does not, it showed the street. The bar beside it is run out to the end.
+                    boolean narrow = Math.floor(finish) - Math.ceil(begin) <= THINNEST_LIGHT;
+                    if (narrow && cell == 0 && uprights.length > 0 && startWide == 0f) {
+                        carryStart = true;
+                    } else if (narrow && cell > 0 && cell == uprights.length / 2 && endWide == 0f) {
+                        bars[bars.length - 3] = finish / across;
+                    }
                     continue;
                 }
                 panes = with(panes, begin / across, finish / across, 1f - to / high, 1f - from / high);

@@ -20,6 +20,7 @@ final class WindowTests {
         Checks.run("windowPaintedOffItsSquareIsMovedBackOntoIt", WindowTests::windowPaintedOffItsSquareIsMovedBackOntoIt);
         Checks.run("halfAWindowThatRunsOnReachesItsSquaresEnd", WindowTests::halfAWindowThatRunsOnReachesItsSquaresEnd);
         Checks.run("halfAWindowBegunInTheSquareBeforeIsCutAtItsStart", WindowTests::halfAWindowBegunInTheSquareBeforeIsCutAtItsStart);
+        Checks.run("emptySlitAtAnEndThatRunsOnIsTheBarBesideIt", WindowTests::emptySlitAtAnEndThatRunsOnIsTheBarBesideIt);
         Checks.run("windowWithinItsSquareStaysWhereItIs", WindowTests::windowWithinItsSquareStaysWhereItIs);
         Checks.run("windowThatRunsOnIsCarriedToTheEndOfItsWallsOpening", WindowTests::windowThatRunsOnIsCarriedToTheEndOfItsWallsOpening);
         Checks.run("stileIsWidenedToTheEndOfItsWallsOpening", WindowTests::stileIsWidenedToTheEndOfItsWallsOpening);
@@ -319,6 +320,36 @@ final class WindowTests {
         check(near(shape.start, 2f / 16f) && near(shape.startWide, 2f / 16f), "its stile stays where it is painted: " + shape.start + ", " + shape.startWide);
         check(near(shape.end, 1f) && shape.endWide == 0f, "and the end with no stile is the square's end: " + shape.end);
         check(shape.panes.length == 5 && near(shape.panes[1], 1f), "with its pane running on to it: " + shape.panes[1]);
+    }
+
+    /**
+     * A shop window's last light, two dots of nothing between its last bar and the square's end, where the next square's
+     * sprite paints over it in the game (walls_commercial_01_41 at 2473,14070,1 beside stone): the bar runs out to the end.
+     */
+    private static void emptySlitAtAnEndThatRunsOnIsTheBarBesideIt() {
+        Windows.Shape shape = onSquare(
+                "  ################  ",
+                "  ################  ",
+                "  ##..........##    ",
+                "  ##..........##    ",
+                "  ##..........##    ",
+                "  ##..........##    ",
+                "  ################  ",
+                "  ################  ");
+        check(near(shape.end, 1f) && shape.endWide == 0f, "the end with no stile is the square's end: " + shape.end + ", " + shape.endWide);
+        check(shape.bars.length == 4 && near(shape.bars[0], 12f / 16f) && near(shape.bars[1], 1f), "its last bar runs to it: " + Arrays.toString(shape.bars));
+        check(shape.panes.length == 5 && near(shape.panes[1], 12f / 16f), "and its pane stops at the bar: " + Arrays.toString(shape.panes));
+        Windows.Shape mirrored = onSquare(
+                "  ################  ",
+                "  ################  ",
+                "    ##..........##  ",
+                "    ##..........##  ",
+                "    ##..........##  ",
+                "    ##..........##  ",
+                "  ################  ",
+                "  ################  ");
+        check(near(mirrored.start, 0f) && mirrored.startWide == 0f && mirrored.bars.length == 4 && near(mirrored.bars[0], 0f) && near(mirrored.bars[1], 4f / 16f),
+                "and at a start with no stile, the first bar runs back to it: " + mirrored.start + " " + Arrays.toString(mirrored.bars));
     }
 
     /** The second half is painted from a dot before its square: the part over the first half's square is the first half's. */
