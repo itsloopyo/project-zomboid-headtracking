@@ -1478,8 +1478,10 @@ public final class FirstPerson {
         // The game puts down what is dragged as the build button is let go, where canBeBuild says it fits.
         boolean buttonDown = player.getCharacterInputComponent().isBuildButtonDown();
         if (dragButtonDown && !buttonDown) {
-            Log.info(String.format(Locale.ROOT, "drag %s let go on square %s, fits %b", drag.rawget("Type"),
-                    square == null ? "none" : "(" + square.getX() + ", " + square.getY() + ", " + square.getZ() + ")", fits));
+            boolean nowhere = view.dragAim.aimed.put(view.dragsInFirstPerson()) == DragAim.Put.NOWHERE;
+            Log.info(String.format(Locale.ROOT, "drag %s let go on square %s, fits %b%s", drag.rawget("Type"),
+                    square == null ? "none" : "(" + square.getX() + ", " + square.getY() + ", " + square.getZ() + ")", fits,
+                    nowhere ? ", with no line for it: the game is handed no square" : ""));
         }
         dragButtonDown = buttonDown;
         ViewCamera.Pose line = pointer.on() ? lineThrough(Mouse.getXA(), Mouse.getYA()) : reticleOnScreen && reticleInPicture ? reticleLine : null;
