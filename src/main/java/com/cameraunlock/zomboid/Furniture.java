@@ -408,6 +408,19 @@ final class Furniture {
         if (name != null && called == null && grid == null && name.startsWith(STREET_LAMPS)) {
             return streetLamp(sprite, name);
         }
+        // A fireplace's plain surround and its wooden mantel shelf are laid on the wall as runs of three sprites, the end ones
+        // painting only the part of their square next to the middle: which wall and which piece go by their place on the sheet.
+        int hearth = name == null || called != null || grid != null ? -1 : Sheets.place(name, FIREPLACES);
+        if (hearth >= 0 && hearth < MANTELS.length && MANTELS[hearth] != null) {
+            boolean north = hearth < 23 || hearth >= 43;
+            IsoDirections away = north ? IsoDirections.S : IsoDirections.E;
+            String model = MANTELS[hearth];
+            boolean board = model.startsWith("mantel_board");
+            Furniture piece = new Furniture(sprite, model, turnsOf(away)).hang(WallHung.behind(away), false).ownSize()
+                    .alongWall(MANTEL_ALONG[hearth]);
+            return board ? piece.raise(MANTEL_BOARD_FOOT).dye(1 << Models.WOOD, MANTEL_BOARD_DYE)
+                    : piece.raise(model.equals("surround_header") ? SURROUND_HEADER_FOOT : 0f).dye(1 << Models.PAINT, model.equals("surround_header") ? SURROUND_HEADER_DYE : SURROUND_PILASTER_DYE);
+        }
         // The boards nailed across a window have no name, no facing and no wall of their own: which wall and how many go by
         // their place on the sheet. They lie on the wall, at the heights the game paints them.
         int boards = name == null || called != null || grid != null ? -1 : Sheets.place(name, BOARDS);
@@ -948,6 +961,46 @@ final class Furniture {
      * wall is the others' drawing turned to face the other way, with its cables at the far end: meter_bank_r.
      */
     private static final float[] METER_ALONG = {0.41f, 0.45f, 0.5f, 0.52f};
+    /** The sheet of the fireplaces, whose surrounds and mantel shelves are laid on the wall. */
+    private static final String FIREPLACES = "fixtures_fireplaces_01_";
+    /**
+     * The model of each place on the fireplaces' sheet that is a piece of a plain surround or a mantel shelf, or null: on a
+     * north wall 14, 15, 22 (shelf, west end first) and 19 to 21 (white surround) and 43 to 45 (black), on a west wall 31, 30,
+     * 23 (shelf, north end first) and 34, 33, 32 (white) and 42, 41, 40 (black).
+     */
+    private static final String[] MANTELS = new String[46];
+    /** How far along its wall the middle of each of those pieces stands, from the corner its wall starts at. */
+    private static final float[] MANTEL_ALONG = new float[46];
+    /** How high a mantel shelf's board and a surround's frieze stand off the floor, in metres, as furniture.py builds them. */
+    private static final float MANTEL_BOARD_FOOT = 1.30f, SURROUND_HEADER_FOOT = 0.72f;
+    /** How high each is painted where its colour is taken, in levels: the board's top, the frieze and the pilaster's shaft. */
+    private static final float MANTEL_BOARD_DYE = 1.33f / ViewCamera.LEVEL_HEIGHT, SURROUND_HEADER_DYE = 0.95f / ViewCamera.LEVEL_HEIGHT,
+            SURROUND_PILASTER_DYE = 0.6f / ViewCamera.LEVEL_HEIGHT;
+
+    static {
+        mantel(14, "mantel_board_end", 0.6f);
+        mantel(15, "mantel_board", 0.5f);
+        mantel(22, "mantel_board_end", 0.4f);
+        mantel(31, "mantel_board_end", 0.6f);
+        mantel(30, "mantel_board", 0.5f);
+        mantel(23, "mantel_board_end", 0.4f);
+        for (int set : new int[] {19, 43}) {
+            mantel(set, "surround_pilaster", 0.76f);
+            mantel(set + 1, "surround_header", 0.5f);
+            mantel(set + 2, "surround_pilaster", 0.24f);
+        }
+        for (int set : new int[] {32, 40}) {
+            mantel(set + 2, "surround_pilaster", 0.76f);
+            mantel(set + 1, "surround_header", 0.5f);
+            mantel(set, "surround_pilaster", 0.24f);
+        }
+    }
+
+    private static void mantel(int place, String model, float along) {
+        MANTELS[place] = model;
+        MANTEL_ALONG[place] = along;
+    }
+
     /** The sheet of the boards nailed across a window: one to four on a west and a north wall from 8, on an east and a south one from 0. */
     private static final String BOARDS = "carpentry_01_";
     /** How far along its wall the middle of what each sheet paints is, from the corner its wall starts at: west, north, east, south. */

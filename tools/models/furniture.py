@@ -2789,6 +2789,46 @@ def meter_bank(name, side):
     return model
 
 
+def surround_pilaster():
+    """A pilaster of a plain fireplace surround, its back on the wall at Y 0 and its front out to -Y: a plinth, a flat
+    shaft with a sunk panel framed near its top, a capital and a cap that stands out over it."""
+    model = Model("surround_pilaster", hung=True)
+    stone = bmesh.new()
+    cuboid(stone, -0.17, 0.17, -0.11, 0.0, 0.0, 0.1)
+    cuboid(stone, -0.15, 0.15, -0.08, 0.0, 0.1, 1.12)
+    face, strip = -0.08, 0.015
+    for x0, x1, z0, z1 in ((-0.09, 0.09, 0.86, 0.86 + strip), (-0.09, 0.09, 1.06 - strip, 1.06),
+                           (-0.09, -0.09 + strip, 0.86, 1.06), (0.09 - strip, 0.09, 0.86, 1.06)):
+        cuboid(stone, x0, x1, face - 0.006, face, z0, z1)
+    cuboid(stone, -0.165, 0.165, -0.1, 0.0, 1.12, 1.22)
+    cuboid(stone, -0.19, 0.19, -0.14, 0.0, 1.22, 1.3)
+    model.hard(stone, "paint", bevel=0.004, segments=2)
+    return model
+
+
+def surround_header():
+    """The middle of a plain fireplace surround, over the fire, its back on the wall at Y 0: a frieze, a moulding and a
+    shelf, a square long and a little over, so that its ends are let into the pilasters either side."""
+    model = Model("surround_header", hung=True)
+    half = 0.56
+    stone = bmesh.new()
+    cuboid(stone, -half, half, -0.07, 0.0, 0.72, 1.16)
+    # Short of the capitals' faces beside it, so the two are never drawn in one plane.
+    cuboid(stone, -half, half, -0.095, 0.0, 1.16, 1.26)
+    cuboid(stone, -half, half, -0.15, 0.0, 1.26, 1.36)
+    model.hard(stone, "paint", bevel=0.004, segments=2)
+    return model
+
+
+def mantel_board(name, long):
+    """A length of a wooden mantel shelf, a board on the wall at +Y with its front out to -Y."""
+    model = Model(name, hung=True)
+    board = bmesh.new()
+    cuboid(board, -long / 2, long / 2, -0.2, 0.0, 0.0, 0.06)
+    model.hard(board, "wood", bevel=0.004, segments=1)
+    return model
+
+
 def window_boards(name, count):
     """The boards nailed across a window to barricade it, one to four, each a little askew and held by two nails at each
     end: the first over the middle of the window, the second over it, the third under and the fourth at the top, as the
@@ -13207,7 +13247,7 @@ def every():
               radio(), microwave(), dishwasher(), ice_chest(), register(), shower("shower", True), shower("shower_head", False),
               kettle_barbecue(), gas_barbecue(), cooler("mini_fridge", 0.5, 0.82, 1), cooler("large_fridge", 1.7, 1.95, 2),
               street_lamp("cone_lamp", "cone"), street_lamp("globe_lamp", "globe"), street_lamp("lantern_lamp", "lantern"),
-              cobra_head(), traffic_light(), traffic_light("traffic_light_r", 1), wall_bowl(), wall_lantern(), bulkhead_light(), wall_sink(), drinking_fountain(), serving_counter(), air_conditioner(), meter_bank("meter_bank", 1), meter_bank("meter_bank_r", -1), *[window_boards("window_boards_%d" % count, count) for count in range(1, 5)],
+              cobra_head(), traffic_light(), traffic_light("traffic_light_r", 1), wall_bowl(), wall_lantern(), bulkhead_light(), wall_sink(), drinking_fountain(), serving_counter(), air_conditioner(), meter_bank("meter_bank", 1), meter_bank("meter_bank_r", -1), *[window_boards("window_boards_%d" % count, count) for count in range(1, 5)], surround_pilaster(), surround_header(), mantel_board("mantel_board", 1.0), mantel_board("mantel_board_end", 0.8),
               parasol("parasol", [(0.045, 2.40), (0.35, 2.25), (0.68, 2.08), (1.0, 1.91)], 0.10, 0.06),
               parasol("parasol_dome", [(0.045, 2.43), (0.24, 2.39), (0.46, 2.28), (0.66, 2.11), (0.82, 1.88), (0.92, 1.62)], 0.08, 0.06)] + (indoors() + outdoors()
             + upholstered() + barrels_and_pots() + street() + display_cases() + awnings() + hoods() + industrial()

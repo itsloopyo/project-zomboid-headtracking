@@ -355,6 +355,21 @@ final class FurnitureTests {
             check(model(boards).equals(wanted) && boards.wall == wall && boards.raised > 0.7f && boards.dyed == 1 << Models.WOOD,
                     "carpentry_01_" + place + " is " + wanted + " on its wall: " + model(boards));
         }
+        int[][] surrounds = {{14, 15, 22}, {19, 20, 21}, {43, 44, 45}, {31, 30, 23}, {34, 33, 32}, {42, 41, 40}};
+        for (int run = 0; run < surrounds.length; run++) {
+            boolean shelf = run % 3 == 0;
+            for (int end = 0; end < 3; end++) {
+                int place = surrounds[run][end];
+                Furniture piece = Furniture.known(sprite("fixtures_fireplaces_01_" + place + "|WallOverlay||alwaysDraw|"));
+                String wanted = shelf ? end == 1 ? "mantel_board" : "mantel_board_end" : end == 1 ? "surround_header" : "surround_pilaster";
+                float along = end == 1 ? 0.5f : shelf ? end == 0 ? 0.6f : 0.4f : end == 0 ? 0.76f : 0.24f;
+                check(model(piece).equals(wanted) && piece.wall == (run < 3 ? WallHung.NORTH : WallHung.WEST) && piece.ownSize
+                                && piece.alongWall == along && piece.dyed == 1 << (shelf ? Models.WOOD : Models.PAINT),
+                        "fixtures_fireplaces_01_" + place + " is " + wanted + " on its wall: " + model(piece));
+            }
+        }
+        check(!model(Furniture.known(sprite("fixtures_fireplaces_01_9|WallOverlay||alwaysDraw|attachedN|"))).startsWith("surround"),
+                "a stone facing is no surround");
     }
 
     private static void shuttersHangOnTheirWallPanelledOrLouvredInTheirColour() {
