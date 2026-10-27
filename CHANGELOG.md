@@ -4,7 +4,7 @@
 
 ### Changed
 
-- In first person, jogging and sprinting are straight ahead only. Held sideways, backwards or on a diagonal, your character walks.
+- In first person, jogging and sprinting go straight ahead or on a forward diagonal, at the game's own pace. Held sideways or backwards, your character walks. On a forward diagonal your character is drawn facing where you look.
 - In first person, your character faces where you look whichever way it walks, diagonals included, so a mirror shows it looking where you do.
 
 ## [0.1.0] - 2026-10-27

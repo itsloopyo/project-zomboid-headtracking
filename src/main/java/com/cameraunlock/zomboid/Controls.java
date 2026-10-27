@@ -131,14 +131,19 @@ public final class Controls {
     private boolean turnedToTheView(IsoPlayer player) {
         if (!Rules.facesTheView() || player == null || player.getVehicle() != null || player.isDraggingCorpse()) {
             stanceGait = Sidestep.WALKING;
+            runsAslant = false;
             return false;
         }
         // Off, a jog or sprint asked for sideways or back is the walk, and only straight ahead runs.
         int gait = SPRINT_ASIDE ? askedGait(player) : Sidestep.WALKING;
         // Moved ahead and to one side it faces the view too, so a mirror shows it looking where the
         // player looks: only straight ahead is the game's own walk or run.
+        // A jog or sprint on a forward diagonal is the game's own, at its own pace: the drawn figure
+        // alone is turned to the view (runsAslant).
+        runsAslant = view.firstPerson.walkingAhead() && view.firstPerson.keysAhead() < STRAIGHT_AHEAD
+                && !SPRINT_ASIDE && askedGait(player) >= Sidestep.JOGGING;
         boolean turned = view.firstPerson.movingAside()
-                || view.firstPerson.walkingAhead() && view.firstPerson.keysAhead() < STRAIGHT_AHEAD;
+                || view.firstPerson.walkingAhead() && view.firstPerson.keysAhead() < STRAIGHT_AHEAD && !runsAslant;
         stanceGait = turned ? gait : Sidestep.WALKING;
         return turned;
     }
@@ -191,6 +196,12 @@ public final class Controls {
     }
 
     private boolean turnedOnly;
+    private boolean runsAslant;
+
+    /** Whether the player jogs or sprints on a forward diagonal, turned there by the game while its drawn figure faces the view. */
+    boolean runsAslant() {
+        return runsAslant;
+    }
     /** Whether the aim button that put a drag cursor away is still held. */
     private boolean cancelHeld;
 

@@ -2393,7 +2393,9 @@ public final class Characters {
      * @param fromEye how far the person stands from the eye, in tiles: see fromViewer
      */
     private void character(ModelSlotRenderData data, float up, float[] viewMatrix, boolean own, boolean casting, boolean held, boolean bothHands, float fromEye) {
-        place(data.x, data.y, up, data.animPlayerAngle, CHARACTER_SCALE);
+        // Run on a forward diagonal, the game turns the player to the way they go; drawn, they face the view, as a mirror should show.
+        boolean aslant = data.character == viewer && view.controls.runsAslant();
+        place(data.x, data.y, up, aslant ? view.firstPerson.yaw() : data.animPlayerAngle, CHARACTER_SCALE);
         multiply(viewMatrix, placed, combined);
         EYE.Begin();
         CharacterDraw.begin(data, combined, projection, casting, fromEye,
