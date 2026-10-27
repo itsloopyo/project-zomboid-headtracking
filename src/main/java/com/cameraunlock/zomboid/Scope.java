@@ -509,7 +509,7 @@ final class Scope {
 
     /** What the picture's five textures take on the graphics card, the colour's smaller copies of itself among them. */
     long pictureBytes() {
-        return pictureTarget == 0 ? 0L : (long) PICTURE * PICTURE * (8 * 4 / 3 + 4 * 4);
+        return pictureTarget == 0 ? 0L : (long) PICTURE * PICTURE * 8 * 4 / 3 + (long) PICTURE * PICTURE * 4 * 4;
     }
 
     /** Gives the picture's targets back if no frame has drawn into them since before. */
