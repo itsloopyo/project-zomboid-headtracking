@@ -7294,6 +7294,22 @@ final class WorldScene {
             geometry.boxHalfB = 0f;
         }
 
+        /** Whether the square holds a trim from the sheets of a roof's accents hung on the edge the flag marks. */
+        private boolean edgeTrim(int x, int y, int z, IsoFlagType edge) {
+            IsoGridSquare square = cell.getGridSquare(x, y, z);
+            if (square == null) {
+                return false;
+            }
+            PZArrayList<IsoObject> objects = square.getObjects();
+            for (int i = 0; i < objects.size(); i++) {
+                IsoSprite sprite = objects.get(i).getSprite();
+                if (sprite != null && Roofs.accent(sprite.getName()) && sprite.getProperties().has(edge)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         private boolean floatsFree(int x, int y, int z) {
             IsoGridSquare square = cell.getGridSquare(x, y, z), under = cell.getGridSquare(x, y, z - 1);
             PZArrayList<IsoObject> objects = square.getObjects();
@@ -7479,6 +7495,13 @@ final class WorldScene {
             boolean wraps = properties.has(IsoFlagType.attachedNW);
             if (kind.roofAccent && (z > 0 && roofBuilder.underARake(x, y, z) || roofBuilder.trimUnderAMadeEave(x, y, z, wraps || properties.has(IsoFlagType.attachedW),
                     wraps || properties.has(IsoFlagType.attachedN), RoofBuilder.cornerPiece(properties)))) {
+                return;
+            }
+            // An end cap at a flat roof's outer corner covers the joint where the map's gutter on
+            // the north edge of the square to the west meets the one on the west edge of the
+            // square to the north. Those two meet without it; stood up whole it was a slab in the
+            // air over the corner post (roofs_accents_01_47 at 10701, 9614 and 1774, 14888).
+            if (kind.roofAccent && RoofBuilder.cornerPiece(properties) && edgeTrim(x - 1, y, z, IsoFlagType.attachedN) && edgeTrim(x, y - 1, z, IsoFlagType.attachedW)) {
                 return;
             }
             // The eave the map hangs on the wall under a slope's foot, the trims painted on it and
