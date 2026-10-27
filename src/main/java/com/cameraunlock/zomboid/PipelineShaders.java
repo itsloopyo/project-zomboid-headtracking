@@ -5721,6 +5721,10 @@ final class PipelineShaders {
                 vec2 low = cell - 2.0 * pair;
                 float order = 4.0 * mod(2.0 * low.y + 3.0 * low.x, 4.0) + mod(2.0 * pair.y + 3.0 * pair.x, 4.0);
                 float turn = 6.2831853 * (order + 0.5) / 16.0;
+                // How far out along its spiral each sample lies is spread over the block the
+                // same way. At the same distances in every pixel, the shade beside a corner
+                // came in a line for each of them, parallel to the corner.
+                float spread = (mod(order * 5.0, 16.0) + 0.5) / 16.0;
                 // Every length below is one of the world's: half a pace, the width of a room.
                 // What is held a hand's breadth from the eye, a weapon, a hand, a scope, is
                 // smaller than any of them, and searched over those lengths it is shaded by
@@ -5730,7 +5734,7 @@ final class PipelineShaders {
                 float reach = RADIUS * small / (p.z * uTan.y) * 0.5;
                 float blocked = 0.0;
                 for (int i = 0; i < SAMPLES; i++) {
-                    float along = (float(i) + 0.5) / float(SAMPLES);
+                    float along = (float(i) + spread) / float(SAMPLES);
                     float a = turn + along * 15.1;
                     vec2 off = vec2(cos(a) * uTan.y / uTan.x, sin(a)) * (along * reach);
                     vec3 v = (placeAt(uv + off) - p) / small;
@@ -5744,7 +5748,7 @@ final class PipelineShaders {
                 float broad = 0.0;
                 float roomy = ROOM_RADIUS * small / (p.z * uTan.y) * 0.5;
                 for (int i = 0; i < ROOM_SAMPLES; i++) {
-                    float along = (float(i) + 0.5) / float(ROOM_SAMPLES);
+                    float along = (float(i) + spread) / float(ROOM_SAMPLES);
                     float a = turn + 2.1 + along * 19.3;
                     vec2 off = vec2(cos(a) * uTan.y / uTan.x, sin(a)) * (sqrt(along) * roomy);
                     vec3 v = (placeAt(uv + off) - p) / small;
@@ -5759,7 +5763,7 @@ final class PipelineShaders {
                 vec3 lent = vec3(0.0);
                 float wide = BOUNCE_RADIUS * small / (p.z * uTan.y) * 0.5;
                 for (int i = 0; i < BOUNCE_SAMPLES; i++) {
-                    float along = (float(i) + 0.5) / float(BOUNCE_SAMPLES);
+                    float along = (float(i) + spread) / float(BOUNCE_SAMPLES);
                     float a = turn + 1.3 + along * 23.7;
                     vec2 at = uv + vec2(cos(a) * uTan.y / uTan.x, sin(a)) * (sqrt(along) * wide);
                     vec3 v = (placeAt(at) - p) / small;
