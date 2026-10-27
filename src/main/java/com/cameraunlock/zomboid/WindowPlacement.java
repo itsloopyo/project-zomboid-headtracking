@@ -24,7 +24,7 @@ public final class WindowPlacement {
     /** Called from Display.create, after the game has positioned the new window. */
     public static void centreNewWindow() {
         if (Boolean.getBoolean(UNDECORATED_PROPERTY)) {
-            Log.info("window left where the game put it: it is about to lose its frame");
+            Log.info("window left where the game put it: it is borderless");
             return;
         }
         centre();
