@@ -980,17 +980,17 @@ final class Furniture {
     private static final float FACING_PROUD = 0.0625f / 2f;
     /** How high a mantel shelf's board and a surround's frieze stand off the floor, in metres, as furniture.py builds them. */
     private static final float MANTEL_BOARD_FOOT = 1.30f, SURROUND_HEADER_FOOT = 0.72f;
-    /** How high each is painted where its colour is taken, in levels: the board's top, the frieze and the pilaster's shaft. */
-    private static final float MANTEL_BOARD_DYE = 1.33f / ViewCamera.LEVEL_HEIGHT, SURROUND_HEADER_DYE = 0.95f / ViewCamera.LEVEL_HEIGHT,
+    /** How high each is painted where its colour is taken, in levels: the board where it leaves the wall, the frieze and the pilaster's shaft. */
+    private static final float MANTEL_BOARD_DYE = 1.21f / ViewCamera.LEVEL_HEIGHT, SURROUND_HEADER_DYE = 0.95f / ViewCamera.LEVEL_HEIGHT,
             SURROUND_PILASTER_DYE = 0.6f / ViewCamera.LEVEL_HEIGHT;
 
     static {
-        mantel(14, "mantel_board_end", 0.6f);
+        mantel(14, "mantel_board_end", 0.75f);
         mantel(15, "mantel_board", 0.5f);
-        mantel(22, "mantel_board_end", 0.4f);
-        mantel(31, "mantel_board_end", 0.6f);
+        mantel(22, "mantel_board_end", 0.25f);
+        mantel(31, "mantel_board_end", 0.75f);
         mantel(30, "mantel_board", 0.5f);
-        mantel(23, "mantel_board_end", 0.4f);
+        mantel(23, "mantel_board_end", 0.25f);
         for (int set : new int[] {19, 43}) {
             mantel(set, "surround_pilaster", 0.76f);
             mantel(set + 1, "surround_header", 0.5f);

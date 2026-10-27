@@ -362,7 +362,7 @@ final class FurnitureTests {
                 int place = surrounds[run][end];
                 Furniture piece = Furniture.known(sprite("fixtures_fireplaces_01_" + place + "|WallOverlay||alwaysDraw|"));
                 String wanted = shelf ? end == 1 ? "mantel_board" : "mantel_board_end" : end == 1 ? "surround_header" : "surround_pilaster";
-                float along = end == 1 ? 0.5f : shelf ? end == 0 ? 0.6f : 0.4f : end == 0 ? 0.76f : 0.24f;
+                float along = end == 1 ? 0.5f : shelf ? end == 0 ? 0.75f : 0.25f : end == 0 ? 0.76f : 0.24f;
                 check(model(piece).equals(wanted) && piece.wall == (run < 3 ? WallHung.NORTH : WallHung.WEST) && piece.ownSize
                                 && piece.alongWall == along && piece.dyed == 1 << (shelf ? Models.WOOD : Models.PAINT),
                         "fixtures_fireplaces_01_" + place + " is " + wanted + " on its wall: " + model(piece));
