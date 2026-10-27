@@ -58,7 +58,8 @@ final class CanopyTests {
         String shader = PipelineShaders.WORLD_FRAGMENT_PARTS + PipelineShaders.WORLD_FRAGMENT_MAIN;
         check(shader.contains("uniform vec3 uFaded[CANOPY_TREES];") && CanopyWindow.GLSL.contains("#define CANOPY_TREES " + CanopyWindow.TREES + "\n"),
                 "the shader is told of as many trees as the picture gathers");
-        check(shader.contains("bool tree = vRoot.x >= 0.0 && !(vMaterial > 84.5 && vMaterial < 85.5);"), "a tree is what carries a tree's square, and blood, which carries its colour there, is none");
+        check(shader.contains("bool tree = vRoot.x >= 0.0 && !(vMaterial > 84.5 && vMaterial < 85.5) && !stainTint;"),
+                "a tree is what carries a tree's square, and blood and grime over a wall, which carry their own there, are none");
         check(shader.contains("if (all(lessThan(abs(uFaded[i].xy - vRoot), vec2(0.25)))) {"), "a tree is looked up by its own square");
         check(shader.contains("if (grain(gl_FragCoord.xy + vec2(613.0, 211.0)) >= shown) {"), "and that share of its pixels is drawn");
         check(PipelineShaders.WORLD_VERTEX.contains("vRoot = uModel > 0.5 ? vec2(-1.0 - uSurfaces.w, piece) : gl_MultiTexCoord2.xy;"),

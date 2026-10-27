@@ -1734,15 +1734,70 @@ final class PipelineShaders {
                 // Each dot a hand across, the mist was worms of dark spots that crawled as the eye
                 // moved, and any mean of it wide enough to hide the clots reached into the next
                 // pictures on the sheet. So the game's grime only says the wall is grimy, and the
-                // grime is our own: a haze in slow clouds laid along the face, which no turn of
-                // the eye reshapes. It is laid with the sprite of the wall under it, and where
-                // that is clear, a window or a doorway, there is no wall to be grimy.
+                // grime is our own, laid along the face, which no turn of the eye reshapes. It is
+                // laid with the sprite of the wall under it, and where that is clear, a window or a
+                // doorway, there is no wall to be grimy.
+                // Laid evenly over the face, a haze of clouds read as a pattern on the paint, a wall
+                // of watercolour blotches from floor to ceiling. Dirt is where a wall is touched and
+                // where damp and dust settle: in a band along the floor that wanders in height,
+                // darker into an inside corner, a little under the ceiling, and out of doors in
+                // short runs down from under a sill. Indoors the rest of the wall is a faint tone
+                // in clouds small enough that no wall is one blotch. The face carries how high
+                // above its foot it is, how far from an inside corner, and whether it is out of
+                // doors: see SpriteGeometry.grimed.
                 bool stainTint = abs(uTint.a - 16.0) < 0.5;
                 bool stainOnWall = texel.a >= 0.5;
                 if (stainTint) {
-                    vec2 alongFace = vec2(vWorld.x + vWorld.y, vWorld.z * 2.5);
+                    // A storey's height. Grime over a wall: how much finer its clouds are indoors, and how much of
+                    // them is left there; how high its band along the floor reaches, how far its dusting under
+                    // the ceiling and its darkening into a corner reach, how far it runs down under a sill out of
+                    // doors; and the most of it there is anywhere. In tiles.
+            """ + "const float STOREY = " + ViewCamera.LEVEL_HEIGHT + ", GRIME_OUTSIDE = " + SpriteGeometry.GRIME_OUTSIDE + ";\n" + """
+                    const float GRIME_FINER = 2.2, GRIME_INDOORS = 0.33, GRIME_FOOT = 0.35, GRIME_CEILING = 0.3, GRIME_CORNER = 0.45, GRIME_RUN = 0.5, GRIME_MOST = 0.55;
+                    float up = vRoot.y, run = vWorld.x + vWorld.y;
+                    bool indoors = vRoot.x < 0.5 * GRIME_OUTSIDE;
+                    float corner = vRoot.x - (indoors ? 0.0 : GRIME_OUTSIDE);
+                    vec2 alongFace = vec2(run, vWorld.z * 2.5) * (indoors ? GRIME_FINER : 1.0);
                     float clouds = smoothstep(0.3, 0.8, 0.65 * patches(alongFace * 1.7 + 7.0) + 0.35 * patches(alongFace * 5.3));
-                    float grime = 0.08 + 0.2 * clouds;
+                    float grime = (0.08 + 0.2 * clouds) * (indoors ? GRIME_INDOORS : 1.0);
+                    float foot = GRIME_FOOT * (0.7 + 0.6 * patches(vec2(run * 1.3, 5.0)));
+                    grime += (1.0 - smoothstep(0.25 * foot, foot, up)) * (0.36 + 0.16 * patches(vec2(run * 7.0, up * 11.0) + 3.0));
+                    grime += smoothstep(STOREY - GRIME_CEILING, STOREY, up) * (0.03 + 0.05 * clouds);
+                    grime += (1.0 - smoothstep(0.0, GRIME_CORNER, corner)) * (0.08 + 0.12 * clouds);
+                    // A step straight up the wall in the sprite, from how the face's run and height
+                    // cross the screen. The run is taken from the eye's place, which a float holds
+                    // finely enough to tell one pixel from the next.
+                    vec2 runScreen = vec2(dFdx(vPlace.x + vPlace.y), dFdy(vPlace.x + vPlace.y)), upScreen = vec2(dFdx(up), dFdy(up));
+                    float turn = runScreen.x * upScreen.y - runScreen.y * upScreen.x;
+                    if (!indoors && stainOnWall && abs(turn) > 1e-12) {
+                        vec2 uvUp = (dFdy(vUv) * runScreen.x - dFdx(vUv) * runScreen.y) / turn;
+                        // How far below the nearest opening above: found in four steps, then halved three times.
+                        float wall = 0.0, open = 0.0;
+                        for (int i = 1; i <= 4; i++) {
+                            float rise = GRIME_RUN * float(i) * 0.25;
+                            if (open == 0.0 && up + rise < STOREY - 0.1) {
+                                if (texture2D(uTexture, vUv + uvUp * rise).a < 0.5) {
+                                    open = rise;
+                                } else {
+                                    wall = rise;
+                                }
+                            }
+                        }
+                        if (open > 0.0) {
+                            for (int i = 0; i < 3; i++) {
+                                float rise = 0.5 * (wall + open);
+                                if (texture2D(uTexture, vUv + uvUp * rise).a < 0.5) {
+                                    open = rise;
+                                } else {
+                                    wall = rise;
+                                }
+                            }
+                            float streak = smoothstep(0.35, 0.75, patches(vec2(run * 23.0, 1.0)));
+                            float reach = GRIME_RUN * (0.4 + 0.6 * patches(vec2(run * 23.0, 9.0)));
+                            grime += streak * (1.0 - smoothstep(0.0, reach, 0.5 * (wall + open))) * 0.25;
+                        }
+                    }
+                    grime = min(grime, GRIME_MOST);
                     texel = vec4(vec3(0.16, 0.14, 0.11) * grime, grime);
                 }
                 // The game keeps its sheets with each colour already multiplied by how much of the
@@ -3082,7 +3137,7 @@ final class PipelineShaders {
                 // draws of it, the rest of its pixels left out, and the whole tree goes by its
                 // own square. The mod's trees are their crowns, boles and ivy, the game's are
                 // cards of its plant sheets, and a bush is none.
-                bool tree = vRoot.x >= 0.0 && !(vMaterial > 84.5 && vMaterial < 85.5);
+                bool tree = vRoot.x >= 0.0 && !(vMaterial > 84.5 && vMaterial < 85.5) && !stainTint;
                 if (tree && uCanopy.z > 0.0 && (inCanopy(uCanopy.xy, uCanopy.zw, CANOPY_EDGE_FROM, CANOPY_EDGE_TO)
                         || uCanopyAim.z > 0.0 && inCanopy(uCanopyAim.xy, uCanopyAim.zz, CANOPY_AIMED_FROM, CANOPY_AIMED_TO))) {
                     float shown = 1.0;

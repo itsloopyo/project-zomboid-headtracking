@@ -16,6 +16,8 @@ final class WallJoins {
     static final int NEAR = 1, FAR = 2;
     /** Nothing meets the wall at this end: the end is closed with a face of its own. */
     static final int OPEN = 4;
+    /** The ends insideCorners names. */
+    static final int START = 1, END = 2;
 
     private WallJoins() {}
 
@@ -52,5 +54,22 @@ final class WallJoins {
             finish = end(walls.stands(x, y + 1, false), walls.stands(x, y + 1, true), walls.stands(x - 1, y + 1, true));
         }
         return start | finish << 3;
+    }
+
+    /**
+     * Which ends of the wall on the north or west edge of a square a wall leaves on one side: there that
+     * side's skin is in the inside of a corner. START for the end nearer the square's north-west corner,
+     * END for the other. near is the side of the wall's own square.
+     */
+    static int insideCorners(Walls walls, int x, int y, boolean north, boolean near) {
+        boolean start, finish;
+        if (north) {
+            start = walls.stands(x, near ? y : y - 1, false);
+            finish = walls.stands(x + 1, near ? y : y - 1, false);
+        } else {
+            start = walls.stands(near ? x : x - 1, y, true);
+            finish = walls.stands(near ? x : x - 1, y + 1, true);
+        }
+        return (start ? START : 0) | (finish ? END : 0);
     }
 }

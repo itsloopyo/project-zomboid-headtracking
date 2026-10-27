@@ -38,7 +38,8 @@ final class SpriteGeometry {
      * addStrip carries other things in the vector's place. Last, the square of the tree the
      * vertex is part of, NO_ROOT for anything that is no tree's: the game opens or leaves a
      * tree whole in its own view (see CanopyWindow). Blood is no tree, and carries there the
-     * colour its texels are drawn in, red and then green and blue (see BloodBuilder). Last of
+     * colour its texels are drawn in, red and then green and blue (see BloodBuilder), and grime
+     * over a wall where on the wall it is (see grimed). Last of
      * all, what the vertex has of a light the game has not given, and of the day its room
      * lets in: see Mesh.unlit and Mesh.day.
      */
@@ -709,6 +710,18 @@ final class SpriteGeometry {
      */
     boolean creaseLow, creaseHigh, creaseAlongA;
     static final float CREASE_REACH = 0.2f, CREASE_SHADE = 0.7f;
+    /**
+     * Whether the face being added is grime over a wall (WallSides.STAIN), whose corners carry where on the
+     * wall they are in the place of a tree's square: first how far along it they are from the face of a
+     * wall that meets it in an inside corner at its low or its high end (grimeLow, grimeHigh; along a
+     * where grimeAlongA, else b), GRIME_NO_CORNER for a face with neither, GRIME_OUTSIDE more on a face
+     * out of doors (grimeOutside), and then how high above the wall's foot, in tiles. The picture lays
+     * the grime by them. A face with a corner at each end is added as two halves, one each (see
+     * WallBuilder.addGrime). How open to the sky its square is does not say whether a face is indoors:
+     * the inside of an outside wall is often as open as the outside.
+     */
+    boolean grimed, grimeLow, grimeHigh, grimeAlongA, grimeOutside;
+    static final float GRIME_NO_CORNER = 1f, GRIME_OUTSIDE = 4f;
     /** How many frame pixels further in than the usual inset a face's texels are taken from its edges: see Tents.DRAWN_IN. */
     float drawnIn;
     /**
@@ -2272,6 +2285,10 @@ final class SpriteGeometry {
         mesh.sway = cover == null ? 0f : 1f - (cover.length == GRID_COVER ? gridCover(cover, a, b) : cover[0] * w0 + cover[1] * w1 + cover[2] * w2 + cover[3] * w3);
         mesh.litAt(frame, w0, w1, w2, w3);
         float shade = creaseLow || creaseHigh ? creased(polygon[at], polygon[at + 1]) : 1f;
+        if (grimed) {
+            mesh.rootX = grimeCorner(polygon[at], polygon[at + 1]) + (grimeOutside ? GRIME_OUTSIDE : 0f);
+            mesh.rootY = polygon[at + 2] * ViewCamera.LEVEL_HEIGHT;
+        }
         float x = tileX + polygon[at] + shownA, y = tileY + polygon[at + 1] + shownB;
         // Only the ground's own layer is worn: the top of a crate or a wreck standing on the road is not.
         boolean laned = laneAt >= 0 && tileZ == 0 && polygon[at + 2] + shownUp + raised < LAID_BELOW && mesh.normalUp > 0.8f
@@ -2291,6 +2308,15 @@ final class SpriteGeometry {
         if (laned) {
             mesh.unrooted();
         }
+    }
+
+    /** How far the point (a, b) of grime over a wall is from the inside corner its face ends in: see grimed. */
+    float grimeCorner(float a, float b) {
+        if (!grimeLow && !grimeHigh) {
+            return GRIME_NO_CORNER;
+        }
+        float along = grimeAlongA ? a : b;
+        return (grimeLow ? along : 1f - along) - WorldScene.WALL_HALF;
     }
 
     /** How much of its light the point (a, b) of the square has, on a wall skin that ends in an inside corner. */

@@ -370,9 +370,40 @@ final class WallBuilder {
         float face = side * (onLogs ? LogWalls.RADIUS + WorldScene.HUNG_CLEAR : WorldScene.WALL_HALF);
         build.geometry.shownA = db * face;
         build.geometry.shownB = da * face;
-        build.geometry.addFace(mesh, build.frame, x, y, z, 0f, 0f, 0f, da, db, 0f, 0f, 0f, 1f);
+        if (mesh.tint == WallSides.STAIN) {
+            addGrime(mesh, x, y, z, da, db, side > 0f);
+        } else {
+            build.geometry.addFace(mesh, build.frame, x, y, z, 0f, 0f, 0f, da, db, 0f, 0f, 0f, 1f);
+        }
         build.geometry.shownA = build.geometry.shownB = 0f;
         WorldScene.layers.none();
+    }
+
+    /** Grime over the wall on the given side, its corners carrying where on the wall they are: see SpriteGeometry.grimed. */
+    private void addGrime(SpriteGeometry.Mesh mesh, int x, int y, int z, float da, float db, boolean near) {
+        build.joinLevel = z;
+        boolean north = da != 0f;
+        int corners = WallJoins.insideCorners(build.standing, x, y, north, near);
+        build.geometry.grimed = true;
+        build.geometry.grimeAlongA = north;
+        build.geometry.grimeOutside = roomAt(near || north ? x : x - 1, near || !north ? y : y - 1, z) == RoomSight.OUTSIDE;
+        if (corners == (WallJoins.START | WallJoins.END)) {
+            build.geometry.wholeA = build.geometry.wholeB = 0f;
+            build.geometry.wholeDa = da;
+            build.geometry.wholeDb = db;
+            build.geometry.grimeLow = true;
+            build.geometry.addFace(mesh, build.frame, x, y, z, 0f, 0f, 0f, da / 2f, db / 2f, 0f, 0f, 0f, 1f);
+            build.geometry.grimeLow = false;
+            build.geometry.grimeHigh = true;
+            build.geometry.addFace(mesh, build.frame, x, y, z, da / 2f, db / 2f, 0f, da / 2f, db / 2f, 0f, 0f, 0f, 1f);
+            build.geometry.wholeA = Float.NaN;
+        } else {
+            build.geometry.grimeLow = (corners & WallJoins.START) != 0;
+            build.geometry.grimeHigh = (corners & WallJoins.END) != 0;
+            build.geometry.addFace(mesh, build.frame, x, y, z, 0f, 0f, 0f, da, db, 0f, 0f, 0f, 1f);
+        }
+        build.geometry.grimed = build.geometry.grimeLow = build.geometry.grimeHigh = build.geometry.grimeOutside = false;
+        mesh.unrooted();
     }
 
     /**

@@ -41,6 +41,7 @@ final class BuildingTests {
         Checks.run("skinsOfTwoWallsMeetOnTheOutsideOfEveryCorner", BuildingTests::skinsOfTwoWallsMeetOnTheOutsideOfEveryCorner);
         Checks.run("wallThatEndsAloneIsClosedAcrossItsEnd", BuildingTests::wallThatEndsAloneIsClosedAcrossItsEnd);
         Checks.run("insideCornerIsShadedIntoTheCrease", BuildingTests::insideCornerIsShadedIntoTheCrease);
+        Checks.run("grimeKnowsTheInsideCornerItEndsIn", BuildingTests::grimeKnowsTheInsideCornerItEndsIn);
         Checks.run("eavesMeetAtAHipAndRunOutOverAGable", BuildingTests::eavesMeetAtAHipAndRunOutOverAGable);
         Checks.run("aDownpipeRunsDownAWallAndNeverStandsAlone", BuildingTests::aDownpipeRunsDownAWallAndNeverStandsAlone);
         Checks.run("openGroundHasTheLightMostOfItHas", BuildingTests::openGroundHasTheLightMostOfItHas);
@@ -283,6 +284,32 @@ final class BuildingTests {
         check(near(geometry.creased(1f - face, 0.3f), SpriteGeometry.CREASE_SHADE), "unless it ends in one too");
         geometry.creaseAlongA = false;
         check(near(geometry.creased(0.3f, face), SpriteGeometry.CREASE_SHADE), "a west wall's skin runs along b");
+    }
+
+    private static void grimeKnowsTheInsideCornerItEndsIn() {
+        // A wall along x on the north edges of y 0 from x 0 to 4, a wall down from its start on the west edges
+        // of x 0, one down from the middle on the west edges of x 2, and one up from there on the far side.
+        WallJoins.Walls walls = (x, y, north) -> north ? y == 0 && x >= 0 && x <= 4 : x == 0 && y >= 0 && y <= 2 || x == 2 && y >= -1 && y <= 1;
+        check(WallJoins.insideCorners(walls, 0, 0, true, true) == WallJoins.START, "a skin is in the corner where a wall leaves its start on its side");
+        check(WallJoins.insideCorners(walls, 0, 0, true, false) == 0, "and the skin on the other side of that corner is not");
+        check(WallJoins.insideCorners(walls, 1, 0, true, true) == WallJoins.END && WallJoins.insideCorners(walls, 1, 0, true, false) == WallJoins.END,
+                "a wall crossing the end makes a corner on both sides");
+        check(WallJoins.insideCorners(walls, 2, 0, true, true) == WallJoins.START, "as at the start of the next length");
+        check(WallJoins.insideCorners(walls, 3, 0, true, true) == 0, "a length with nothing leaving it is in no corner");
+        check(WallJoins.insideCorners(walls, 0, 0, false, true) == WallJoins.START && WallJoins.insideCorners(walls, 0, 1, false, true) == 0,
+                "a west wall is in the corner where a north wall leaves its start");
+        SpriteGeometry geometry = new SpriteGeometry();
+        geometry.grimeAlongA = true;
+        check(near(geometry.grimeCorner(0.3f, 0.6f), SpriteGeometry.GRIME_NO_CORNER), "grime in no corner says so everywhere");
+        geometry.grimeLow = true;
+        float face = WorldScene.WALL_HALF;
+        check(near(geometry.grimeCorner(face, 0.6f), 0f) && near(geometry.grimeCorner(0.5f, 0.6f), 0.5f - face),
+                "and in one is as far from the other wall's face as it is along");
+        geometry.grimeLow = false;
+        geometry.grimeHigh = true;
+        check(near(geometry.grimeCorner(1f - face, 0.6f), 0f) && near(geometry.grimeCorner(0.5f, 0.6f), 0.5f - face), "from its high end too");
+        geometry.grimeAlongA = false;
+        check(near(geometry.grimeCorner(0.6f, 1f - face), 0f), "a west wall's grime runs along b");
     }
 
     private static void wallThatEndsAloneIsClosedAcrossItsEnd() {
