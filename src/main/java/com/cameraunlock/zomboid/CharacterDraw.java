@@ -313,6 +313,22 @@ final class CharacterDraw {
             }
             """;
 
+    /** Into the mask of what the picture outlines: the line's colour wherever the part is there. See Pipeline.drawOutlined. */
+    private static final String OUTLINE_FRAGMENT = """
+            uniform sampler2D uTexture;
+            uniform float uAlpha;
+            uniform vec4 uOutline;
+            FROM_LAST vec2 vUv;
+
+            void main() {
+                float there = TEXEL(uTexture, vUv).a;
+                if (there < 0.01 || uAlpha * there <= 0.01) {
+                    discard;
+                }
+                gl_FragData[0] = uOutline;
+            }
+            """;
+
     private static final String DIVIDED_VERTEX = POSED + """
             TO_NEXT vec3 cPlace;
             TO_NEXT vec3 cSmooth;
@@ -1371,6 +1387,11 @@ final class CharacterDraw {
     /** Set once something of the game's is not as this build knows it: every person is then the game's to draw. */
     private static boolean off;
     private static Skin whole, divided, depth;
+    /** The program that draws a corpse into the mask of what is outlined, where its colour lives, and while set the colour drawn: see outlining. */
+    private static Skin outline;
+    private static int outlineColour;
+    private static final float[] outlineRgb = new float[3];
+    private static boolean outlining;
     /** The program that draws the viewer's body in its two pieces, or null if the driver refused it. */
     private static Skin cut;
     private static int cutArm, cutKeep;
@@ -1462,6 +1483,22 @@ final class CharacterDraw {
 
     static void setDown() {
         person = null;
+    }
+
+    /**
+     * From here on the people begun as cast (begin) are drawn into the mask of what is
+     * outlined, in this colour, over the depth the mask is drawn on, which they leave as it is.
+     * Until outlined.
+     */
+    static void outlining(float red, float green, float blue) {
+        outlineRgb[0] = red;
+        outlineRgb[1] = green;
+        outlineRgb[2] = blue;
+        outlining = true;
+    }
+
+    static void outlined() {
+        outlining = false;
     }
 
     /**
@@ -1964,7 +2001,7 @@ final class CharacterDraw {
         if (!drawing) {
             GL11.glEnable(GL_DEPTH_TEST);
             GL11.glDepthFunc(GL_LESS);
-            GL11.glDepthMask(true);
+            GL11.glDepthMask(!outlining);
             GL11.glDisable(GL_BLEND);
             drawing = true;
             culled = UNKNOWN;
@@ -1992,7 +2029,7 @@ final class CharacterDraw {
             culled = cull;
         }
 
-        Skin skin = cutBones != null ? cut : shadow ? depth : divided != null && !plainly && away < WHOLE_BEYOND + PERSON_REACHES ? divided : whole;
+        Skin skin = cutBones != null ? cut : shadow ? outlining ? outline : depth : divided != null && !plainly && away < WHOLE_BEYOND + PERSON_REACHES ? divided : whole;
         if (skin.id != programInUse) {
             Program.useOther(skin.id);
             programInUse = skin.id;
@@ -2002,7 +2039,7 @@ final class CharacterDraw {
         if (unlit) {
             wear = wearOf(copy, model, texture);
         }
-        if (skin != depth) {
+        if (skin != depth && skin != outline) {
             GL20.glUniform1f(skin.inside, inside);
             dress(skin.id, wear, copy.lay);
         }
@@ -2026,6 +2063,9 @@ final class CharacterDraw {
             GL20.glUniform1f(skin.alpha, person.alpha);
             GL20.glUniform1f(skin.mouth, mouth.open());
             GL20.glUniform1f(skin.lips, mouth.lips());
+            if (skin == outline) {
+                GL20.glUniform4f(outlineColour, outlineRgb[0], outlineRgb[1], outlineRgb[2], 1f);
+            }
             // The game's lights are read by a lit draw alone: a bare one is lit by the picture, and a shadow map keeps no colour.
             if (!bare && !shadow) {
                 for (int light = 0; light < LIGHTS; light++) {
@@ -2040,7 +2080,7 @@ final class CharacterDraw {
             GL20.glDrawBuffers(unlit ? BOTH : FIRST);
             bothBuffers = unlit;
         }
-        if (skin != depth) {
+        if (skin != depth && skin != outline) {
             GL20.glUniform1f(skin.hue, part.hue);
             GL20.glUniform3f(skin.tint, instance.tintR, instance.tintG, instance.tintB);
             // The lips part on the body alone: whatever else is worn over the mouth moves with the jaw and keeps its own colour.
@@ -2064,7 +2104,7 @@ final class CharacterDraw {
         worn.bind();
         worn.getUVScale(uvScale);
         GL20.glUniform2f(skin.uvScale, uvScale.x, uvScale.y);
-        if (skin != depth) {
+        if (skin != depth && skin != outline) {
             GL20.glUniform2f(skin.texSize, worn.getWidth() / uvScale.x, worn.getHeight() / uvScale.y);
         }
 
@@ -2080,7 +2120,7 @@ final class CharacterDraw {
         GL30.glBindVertexArray(copy.array);
         try {
             for (int layer = 0; layer <= layers; layer++) {
-                if (skin != depth) {
+                if (skin != depth && skin != outline) {
                     shell(skin.id, layer, layers, person.finalScale);
                 }
                 GL11.glDrawElements(skin == divided ? GL_PATCHES : GL_TRIANGLES, copy.count, GL_UNSIGNED_INT, 0L);
@@ -2185,13 +2225,14 @@ final class CharacterDraw {
         StringBuilder problem = new StringBuilder();
         int plain = program("character", problem, GL_VERTEX_SHADER, OLD + WHOLE_VERTEX, GL_FRAGMENT_SHADER, OLD + FRAGMENT);
         int cast = program("character's shadow", problem, GL_VERTEX_SHADER, OLD + DEPTH_VERTEX, GL_FRAGMENT_SHADER, OLD + DEPTH_FRAGMENT);
+        int lined = program("character's outline", problem, GL_VERTEX_SHADER, OLD + DEPTH_VERTEX, GL_FRAGMENT_SHADER, OLD + OUTLINE_FRAGMENT);
         // LWJGL's OpenGL40 holds only where every OpenGL 4.0 function, glPatchParameteri among them, was found.
         boolean divides = GL.getCapabilities().OpenGL40;
         StringBuilder roundProblem = new StringBuilder();
         int bowed = divides ? program("rounded character", roundProblem, GL_VERTEX_SHADER, NEW + DIVIDED_VERTEX, GL_TESS_CONTROL_SHADER, DIVIDE,
                 GL_TESS_EVALUATION_SHADER, BOW, GL_FRAGMENT_SHADER, NEW + FRAGMENT) : 0;
         if (problem.length() > 0) {
-            for (int made : new int[] {plain, cast, bowed}) {
+            for (int made : new int[] {plain, cast, lined, bowed}) {
                 GL20.glDeleteProgram(made);
             }
             refuse(problem.toString());
@@ -2204,6 +2245,8 @@ final class CharacterDraw {
         uvScale = new Vector2();
         whole = new Skin(plain);
         depth = new Skin(cast);
+        outline = new Skin(lined);
+        outlineColour = GL20.glGetUniformLocation(lined, "uOutline");
         // Apart from the others: without it people are drawn as before, and the viewer's own
         // body and weapon stay where the game holds them.
         StringBuilder cutProblem = new StringBuilder();

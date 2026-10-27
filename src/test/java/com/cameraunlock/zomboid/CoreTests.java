@@ -716,7 +716,7 @@ public final class CoreTests {
                         + "SecondPlayerQuality SecondPlayerIsometricQuality SecondPlayerStyle ThirdPlayerQuality ThirdPlayerIsometricQuality ThirdPlayerStyle "
                         + "FourthPlayerQuality FourthPlayerIsometricQuality FourthPlayerStyle TreeQuality "
                         + "GrassDensity RenderScale ViewDistance ZombiesAndPropsDrawDistance FarTreeDistance RainOnGlass ShadingAndLight Reflections ReflectionScale "
-                        + "FullSizeTextures SurfaceDepth SharpShadows WholeFigureShadows FrameBlending LightDistance VanillaWeapons VanillaFurniture "
+                        + "FullSizeTextures SurfaceDepth SharpShadows WholeFigureShadows FrameBlending LightDistance CorpseModels VanillaWeapons VanillaFurniture "
                         + "VanillaPictures VanillaPlants VanillaTextures VanillaBuildings VanillaZombies VanillaPeople VanillaArms VanillaClothes VanillaAnimals VanillaFire "
                         + "VanillaCabins "
                         + "ShotsThroughWalls ShotsBreakLamps ShotsBreakGlass ShotsWoundLimbs VehiclesSmashThrough FacesTheView ShotsPastTrees ZombiesSeenAtOnce Rewind30s HiddenWallDecor TalkingMouths "),
@@ -732,7 +732,7 @@ public final class CoreTests {
         check(page.toString().equals("[Tracking] TrackingMode AimMode WorldSpaceYaw [First person] FieldOfView Crosshair HillHeight [Weapons] MuzzleFlash RegripTwoHandedWeapons "
                         + "[Graphics] Quality IsometricQuality Style [Custom graphics] TreeQuality GrassDensity RenderScale ViewDistance ZombiesAndPropsDrawDistance "
                         + "FarTreeDistance RainOnGlass ShadingAndLight Reflections ReflectionScale FullSizeTextures SurfaceDepth SharpShadows WholeFigureShadows FrameBlending "
-                        + "LightDistance [Vanilla content] VanillaWeapons VanillaFurniture VanillaPictures VanillaPlants VanillaTextures VanillaBuildings "
+                        + "LightDistance CorpseModels [Vanilla content] VanillaWeapons VanillaFurniture VanillaPictures VanillaPlants VanillaTextures VanillaBuildings "
                         + "VanillaZombies VanillaPeople VanillaArms VanillaClothes VanillaAnimals VanillaFire VanillaCabins [Offline rules] ShotsThroughWalls "
                         + "ShotsBreakLamps ShotsBreakGlass ShotsWoundLimbs VehiclesSmashThrough FacesTheView ShotsPastTrees ZombiesSeenAtOnce Rewind30s HiddenWallDecor [Split screen] SplitScreen "
                         + "SecondPlayerQuality SecondPlayerIsometricQuality SecondPlayerStyle ThirdPlayerQuality ThirdPlayerIsometricQuality ThirdPlayerStyle "

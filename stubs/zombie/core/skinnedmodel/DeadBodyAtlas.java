@@ -8,12 +8,16 @@ public final class DeadBodyAtlas {
 
     public BodyTexture getBodyTexture(IsoDeadBody body) { throw new UnsupportedOperationException("reference stub"); }
     public void render() { throw new UnsupportedOperationException("reference stub"); }
+    public void invalidateBodyTexture(BodyTexture texture, IsoDeadBody body) { throw new UnsupportedOperationException("reference stub"); }
 
     public static final class BodyParams {
         public final java.util.HashMap<String, String> variables = null;
     }
 
+    public static final class AtlasEntry {}
+
     public static final class BodyTexture {
+        AtlasEntry entry;
         public Texture getTexture() { throw new UnsupportedOperationException("reference stub"); }
         public float getRenderX(float x) { throw new UnsupportedOperationException("reference stub"); }
         public float getRenderY(float y) { throw new UnsupportedOperationException("reference stub"); }

@@ -5,6 +5,7 @@ public class ModelInstance {
     public Model model;
     public zombie.core.textures.Texture tex;
     public float tintR, tintG, tintB;
+    public float hue;
     public zombie.scripting.objects.ModelScript modelScript;
     public ModelInstance parent;
     public String parentBoneName;

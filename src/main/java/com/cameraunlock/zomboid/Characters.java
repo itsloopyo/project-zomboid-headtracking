@@ -428,6 +428,66 @@ public final class Characters {
         return drawn;
     }
 
+    /**
+     * Draws the corpses that lie as models (Corpses) through the first-person camera, into
+     * whatever target is bound, whose depth has to be the world's. They are drawn before what
+     * is outlined is told from what is drawn over it, as the ground they lie on is: a corpse
+     * the viewer can loot is outlined (outlineBodies). Returns how many were drawn.
+     */
+    int drawBodies(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far) {
+        kind = BY_EYE;
+        byRoom = view.pipeline.figureRooms;
+        seenHigh = tanHalfFieldOfView;
+        seenWide = tanHalfFieldOfView * aspect;
+        seenFrom = eyeView;
+        ViewCamera.projection(tanHalfFieldOfView, aspect, near, far, projection);
+        projection[8] += asideX;
+        projection[9] += asideY;
+        ViewCamera.view(camera, eyeView);
+        CharacterDraw.looking(eyeView);
+        notingRoots = true;
+        rootsFound = 0;
+        try {
+            return drawBodies(eyeView, camera.eyeX, camera.eyeY, Float.MAX_VALUE);
+        } finally {
+            byRoom = null;
+            seenFrom = null;
+            notingRoots = false;
+        }
+    }
+
+    /**
+     * Draws the corpses lying as models that an outline is round into the outline's mask, in
+     * its colour, through the projection the mask is drawn with: see Pipeline.drawOutlined.
+     */
+    void outlineBodies(ViewCamera.Pose camera, float[] projected, long key, float red, float green, float blue) {
+        ViewCamera.view(camera, eyeView);
+        List<WorldScene.ChunkMeshes> builds = view.pipeline.drawnBuilds();
+        CharacterDraw.release();
+        CharacterDraw.outlining(red, green, blue);
+        try {
+            for (int chunk = 0; chunk < builds.size(); chunk++) {
+                List<Corpses.Lying> lying = builds.get(chunk).lying;
+                for (int i = 0; i < lying.size(); i++) {
+                    Corpses.Lying body = lying.get(i);
+                    Corpses.Kept kept = body.outline() == key ? Corpses.of(body.entry(), System.nanoTime()) : null;
+                    if (kept == null) {
+                        continue;
+                    }
+                    place(body.x(), body.y(), body.up(), kept.angle, CHARACTER_SCALE);
+                    multiply(eyeView, placed, combined);
+                    CharacterDraw.begin(kept.person, combined, projected, true, 0f, Float.POSITIVE_INFINITY);
+                    for (int part = 0; part < kept.parts.size(); part++) {
+                        CharacterDraw.part(kept.parts.get(part));
+                    }
+                }
+            }
+        } finally {
+            CharacterDraw.release();
+            CharacterDraw.outlined();
+        }
+    }
+
     /** While the eye's picture or a scope's is drawn, who it leaves out by the room they stand in, or null: see FigureRooms. */
     private FigureRooms byRoom;
     private static boolean outdoors(zombie.iso.IsoMovingObject character) {
@@ -2246,6 +2306,10 @@ public final class Characters {
         CharacterDraw.release();
         if (!casting && map == null && only != ONLY_VEHICLES) {
             drawPieces(viewMatrix, eyeX, eyeY, reach);
+            // The eye's own picture has drawn them already, before the people: see drawBodies.
+            if (kind != BY_EYE) {
+                drawBodies(viewMatrix, eyeX, eyeY, reach);
+            }
         }
         if (drawn > 0) {
             ambient = ambientSum / drawn;
@@ -2411,6 +2475,75 @@ public final class Characters {
             }
         }
         CharacterDraw.release();
+    }
+
+    /**
+     * The corpses lying as models within reach of the eye that the pass being drawn takes in:
+     * see Corpses. Each within the draw distance is noted as seen whether or not the pass takes
+     * it in, so one just behind the eye is kept to be turned to, and one with nothing kept is
+     * asked to be posed again before it is turned to. A build lays a corpse as a model or as a
+     * picture by the graphics mode it was made in, and is drawn as made until the next: switching
+     * leaves no frame with neither. Returns how many were drawn.
+     */
+    private int drawBodies(float[] viewMatrix, float eyeX, float eyeY, float reach) {
+        List<WorldScene.ChunkMeshes> builds = view.pipeline.drawnBuilds();
+        long now = System.nanoTime();
+        int drawn = 0;
+        for (int chunk = 0; chunk < builds.size(); chunk++) {
+            List<Corpses.Lying> lying = builds.get(chunk).lying;
+            for (int i = 0; i < lying.size(); i++) {
+                Corpses.Lying body = lying.get(i);
+                float x = body.x(), y = body.y(), up = body.up();
+                float toX = x - eyeX, toY = y - eyeY;
+                if (toX * toX + toY * toY > reach * reach || !view.pipeline.drawDistance.draws(x, y)) {
+                    continue;
+                }
+                Corpses.Kept kept = Corpses.of(body.entry(), now);
+                if (kept == null) {
+                    Corpses.missed(body);
+                    continue;
+                }
+                if (glassPlane != null && glassPlane[0] * x + glassPlane[1] * y + glassPlane[2] * up - glassPlane[3] < -BEHIND_GLASS) {
+                    continue;
+                }
+                if (mirrored) {
+                    float behind = toX * mirrorWayX + toY * mirrorWayY, aside = Math.abs(toX * mirrorWayY - toY * mirrorWayX);
+                    if (behind < 0f || aside > behind * mirrorWide + MIRROR_MARGIN) {
+                        continue;
+                    }
+                } else if (!WITHOUT_CULL && seenFrom != null) {
+                    PictureEdges.outsideOf(seenFrom, seenWide, seenHigh, x, y, up, past);
+                    if (past[0] > PERSON_ROUND || past[1] > PERSON_ROUND || past[2] > PERSON_ROUND || past[3] > PERSON_ROUND || past[4] > PERSON_ROUND) {
+                        continue;
+                    }
+                }
+                IsoGridSquare square = body.square();
+                if (!WITHOUT_CULL && (kind == BY_EYE || kind == BY_SCOPE) && byRoom != null && square != null
+                        && byRoom.leftOut(square.getRoomID(), square.getX(), square.getY(), square.getZ())) {
+                    continue;
+                }
+                place(x, y, up, kept.angle, CHARACTER_SCALE);
+                multiply(viewMatrix, placed, combined);
+                CharacterDraw.begin(kept.person, combined, projection, false, fromViewer(toX, toY, body.z() - viewer.getZ()), Float.POSITIVE_INFINITY);
+                if (square != null) {
+                    lightAt(square);
+                }
+                for (int part = 0; part < kept.parts.size(); part++) {
+                    CharacterDraw.part(kept.parts.get(part));
+                }
+                if (notingRoots && rootsFound < ROOTS) {
+                    int at = rootsFound++ * 4;
+                    roots[at] = x;
+                    roots[at + 1] = y;
+                    roots[at + 2] = up;
+                    roots[at + 3] = kept.angle;
+                }
+                drawn++;
+            }
+        }
+        CharacterDraw.release();
+        Corpses.sweep(now);
+        return drawn;
     }
 
     /** The eye and the projection a piece at rest is pictured from, looking straight down on it: see LimbDecals. */

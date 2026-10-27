@@ -627,6 +627,21 @@ final class Pipeline {
     private final float[] tint = new float[4];
     /** The chunk builds the frame draws, for the furniture standing on each. */
     private ArrayList<WorldScene.ChunkMeshes> drawn;
+
+    /** Whether a chunk build the frame draws has a corpse lying on it as a model. */
+    private boolean bodiesLie() {
+        for (int chunk = 0; chunk < drawn.size(); chunk++) {
+            if (!drawn.get(chunk).lying.isEmpty()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** The chunk builds the frame draws, for the corpses lying on each: see Characters.drawBodies. */
+    List<WorldScene.ChunkMeshes> drawnBuilds() {
+        return drawn;
+    }
     /** Every chunk of the frame as draws. */
     private final ChunkBuffers.Listing all = new ChunkBuffers.Listing();
     /** For each shadow map, the chunks it can hold as draws, when those are not all of them. */
@@ -1324,6 +1339,9 @@ final class Pipeline {
                 }
             }
             stage(STAGE_WORLD);
+            if (figures && bodiesLie()) {
+                drawBodies(camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
+            }
             if (!overhead && state.outlined != null) {
                 copyDepth(sceneTarget, outlineTarget);
                 GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
@@ -4703,9 +4721,17 @@ final class Pipeline {
             drawModels(worldDepth, false, camera, far, pixel, keys[k]);
         }
         GL20.glUniform4f(outline, 0f, 0f, 0f, 0f);
+        leaveWorld();
+        if (bodiesLie()) {
+            smoothSkins(true);
+            for (int k = 0; k < keys.length; k++) {
+                view.characters.outlineBodies(camera, projection, keys[k], colours[k * 3], colours[k * 3 + 1], colours[k * 3 + 2]);
+            }
+            smoothSkins(false);
+            resumeFlat();
+        }
         GL11.glDepthMask(true);
         GL11.glDisable(GL_DEPTH_TEST);
-        leaveWorld();
     }
 
     private void drawDeveloped(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float exposure,
@@ -4875,11 +4901,123 @@ final class Pipeline {
         into[3] = Evening.lowSunBlue(state.roomGold);
     }
 
+    /** The passes over what the picture lights as figures: people in flesh and cloth, vehicles in painted metal, and corpses lying as models. */
+    private static final int PEOPLE = 0, VEHICLES = 1, BODIES = 2;
+
+    /**
+     * The corpses lying as models (Corpses), drawn and lit as the people are, before what is
+     * outlined is told from what is drawn over it: they lie on the ground as the game's
+     * pictures of them did, and are outlined as those were.
+     */
+    private void drawBodies(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect,
+            float near, float far, float fogStart, float fogEnd) {
+        beginFigures();
+        int drawn = view.characters.drawBodies(camera, tanHalfFieldOfView, aspect, near, far);
+        endFigures();
+        lightFigures(BODIES, drawn, camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
+    }
+
+    /** Before a pass over the figures: they are drawn bare into figureTarget, over the world's depth. */
+    private void beginFigures() {
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, figureTarget);
+        GL11.glViewport(0, 0, width, height);
+        GL11.glClearColor(0f, 0f, 0f, 0f);
+        GL20.glDrawBuffers(FIGURE_BUFFERS);
+        GL11.glClear(GL_COLOR_BUFFER_BIT);
+        GL20.glDrawBuffers(FIRST_BUFFER);
+        GL11.glEnable(GL_DEPTH_TEST);
+        GL11.glDepthFunc(GL_LEQUAL);
+        GL11.glDepthMask(true);
+        GL11.glDisable(GL_BLEND);
+        smoothSkins(true);
+        CharacterDraw.bare = true;
+    }
+
+    private void endFigures() {
+        CharacterDraw.bare = false;
+        smoothSkins(false);
+        // The game's draw leaves its own program, buffers and arrays bound.
+        resumeFlat();
+    }
+
+    /** Lights a pass over the figures (PEOPLE, VEHICLES or BODIES), drawn bare into figureTarget, into the picture. */
+    private void lightFigures(int pass, int drawn, ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect,
+            float near, float far, float fogStart, float fogEnd) {
+        // A corpse moves no more than the ground it lies on.
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, steadying && pass != BODIES ? movesTarget : sceneTarget);
+        figureLight.use();
+        figureLight.set("uMoves", pass == PEOPLE ? 1f : pass == VEHICLES ? 0.5f : 0f);
+        // A shadow sampler may not share a unit with a plain one, used or not.
+        figureLight.set("uCabinSun", PASS_UNIT);
+        figureLight.set("uCabinArms", 0f);
+        figureLight.set("uFigure", 0);
+        figureLight.set("uDepth", 3);
+        figureLight.set("uShadowNear", 1);
+        figureLight.set("uShadowFar", 2);
+        GL13.glActiveTexture(GL_TEXTURE0 + 3);
+        GL11.glBindTexture(GL_TEXTURE_2D, sceneDepth);
+        GL13.glActiveTexture(GL_TEXTURE0 + 2);
+        GL11.glBindTexture(GL_TEXTURE_2D, farMap);
+        GL13.glActiveTexture(GL_TEXTURE0 + 1);
+        GL11.glBindTexture(GL_TEXTURE_2D, nearMap);
+        GL13.glActiveTexture(GL_TEXTURE0);
+        GL11.glBindTexture(GL_TEXTURE_2D, figureColor);
+        figureLight.set("uNearMatrix", nearMatrix);
+        figureLight.set("uFarMatrix", farMatrix);
+        figureLight.set("uSize", (float) width, (float) height);
+        figureLight.set("uTan", tanHalfFieldOfView * aspect, tanHalfFieldOfView);
+        figureLight.set("uNear", near);
+        figureLight.set("uFar", far);
+        figureLight.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
+        figureLight.set("uRangeFrom", rangeFrom);
+        figureLight.set("uEyeOutdoors", state.outdoors);
+        setBasis(figureLight, camera);
+        figureLight.set("uLight", state.lightX, state.lightY, state.lightUp);
+        setBeams(figureLight, TORCH_UNIT);
+        figureLight.set("uShines", shadedAndLit ? 1f : 0f);
+        setFlash(figureLight);
+        figureLight.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
+        figureGold(state, gold);
+        figureLight.set("uFigureGold", gold[0], gold[1], gold[2], gold[3]);
+        figureLight.set("uFogStart", fogStart);
+        figureLight.set("uFogEnd", fogEnd);
+        figureLight.set("uLoaded", loadedX - camera.eyeX, loadedY - camera.eyeY, loadedWithin);
+        figureLight.set("uBeyond", beyond);
+        figureLight.set("uWriteNear", 0f);
+        // Only the viewer's own vehicle is cut away from inside, not who stands beside it.
+        figureLight.set("uInside", 0f);
+        figureLight.set("uOwnAmbient", 1f, 1f, 1f);
+        figureLight.set("uFigureAmbient", view.characters.ambient);
+        GL13.glActiveTexture(GL_TEXTURE0 + NORMAL_UNIT);
+        GL11.glBindTexture(GL_TEXTURE_2D, figureNormal);
+        GL13.glActiveTexture(GL_TEXTURE0 + LAMP_UNIT);
+        GL11.glBindTexture(GL_TEXTURE_2D, figureLamps);
+        GL13.glActiveTexture(GL_TEXTURE0);
+        figureLight.set("uLampsLit", LAMP_UNIT);
+        figureLight.set("uFacing", NORMAL_UNIT);
+        figureLight.set("uHaveFacing", pass != VEHICLES ? 1f : 0f);
+        figureLight.set("uJersey", FIRST_MATERIAL_UNIT + 13);
+        figureLight.set("uVinyl", FIRST_MATERIAL_UNIT + 11);
+        figureLight.set("uWearGain", materialGain[13], materialGain[11]);
+        figureLight.set("uWornGrain", Own.textures(view.index) ? 1f : 0f);
+        figureLight.set("uRoots", pass != VEHICLES ? (float) view.characters.rootsFound : 0f);
+        for (int root = 0; root < view.characters.rootsFound && pass != VEHICLES; root++) {
+            figureLight.set(ROOT_AT[root], view.characters.roots[root * 4], view.characters.roots[root * 4 + 1], view.characters.roots[root * 4 + 2], view.characters.roots[root * 4 + 3]);
+        }
+        atmosphere(figureLight, state);
+        figureLight.set("uPainted", pass == VEHICLES ? 1f : 0f);
+        setCars(pass == VEHICLES, 0f);
+        // With nothing drawn there is nothing to light. What the program was told stays told: the viewer's own body is lit by it next.
+        if (drawn > 0) {
+            quad();
+        }
+    }
+
     private void drawFigures(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect,
             float near, float far, float fogStart, float fogEnd) {
         // Flesh and cloth first, then painted metal, which is lit as lacquer.
-        for (int pass = 0; pass < 2; pass++) {
-            if (pass == 1 && !view.characters.vehiclesNoted()) {
+        for (int pass = PEOPLE; pass <= VEHICLES; pass++) {
+            if (pass == VEHICLES && !view.characters.vehiclesNoted()) {
                 // Nothing to draw, and the program is left told what the vehicles' pass tells it: the viewer's own body is lit by it next.
                 figureLight.set("uMoves", 0.5f);
                 figureLight.set("uHaveFacing", 0f);
@@ -4887,98 +5025,17 @@ final class Pipeline {
                 figureLight.set("uPainted", 1f);
                 break;
             }
-            GL30.glBindFramebuffer(GL_FRAMEBUFFER, figureTarget);
-            GL11.glViewport(0, 0, width, height);
-            GL11.glClearColor(0f, 0f, 0f, 0f);
-            GL20.glDrawBuffers(FIGURE_BUFFERS);
-            GL11.glClear(GL_COLOR_BUFFER_BIT);
-            GL20.glDrawBuffers(FIRST_BUFFER);
-            GL11.glEnable(GL_DEPTH_TEST);
-            GL11.glDepthFunc(GL_LEQUAL);
-            GL11.glDepthMask(true);
-            GL11.glDisable(GL_BLEND);
-            smoothSkins(true);
-            CharacterDraw.bare = true;
+            beginFigures();
             boolean lamps = VehicleLamps.drawn();
             if (!lamps && !lampsSaid) {
                 lampsSaid = true;
                 Log.info("vehicle lamps are drawn as paint: " + (Agent.lampsGap() != null ? Agent.lampsGap() : "a vehicle shader of the game's was not as expected"));
             }
             view.characters.lamps = lamps ? LAMP_BUFFERS : null;
-            int drawn = view.characters.draw(camera, tanHalfFieldOfView, aspect, near, far, pass == 1, false);
+            int drawn = view.characters.draw(camera, tanHalfFieldOfView, aspect, near, far, pass == VEHICLES, false);
             view.characters.lamps = null;
-            CharacterDraw.bare = false;
-            smoothSkins(false);
-            // The game's draw leaves its own program, buffers and arrays bound.
-            resumeFlat();
-
-            GL30.glBindFramebuffer(GL_FRAMEBUFFER, steadying ? movesTarget : sceneTarget);
-            figureLight.use();
-            figureLight.set("uMoves", pass == 0 ? 1f : 0.5f);
-            // A shadow sampler may not share a unit with a plain one, used or not.
-            figureLight.set("uCabinSun", PASS_UNIT);
-            figureLight.set("uCabinArms", 0f);
-            figureLight.set("uFigure", 0);
-            figureLight.set("uDepth", 3);
-            figureLight.set("uShadowNear", 1);
-            figureLight.set("uShadowFar", 2);
-            GL13.glActiveTexture(GL_TEXTURE0 + 3);
-            GL11.glBindTexture(GL_TEXTURE_2D, sceneDepth);
-            GL13.glActiveTexture(GL_TEXTURE0 + 2);
-            GL11.glBindTexture(GL_TEXTURE_2D, farMap);
-            GL13.glActiveTexture(GL_TEXTURE0 + 1);
-            GL11.glBindTexture(GL_TEXTURE_2D, nearMap);
-            GL13.glActiveTexture(GL_TEXTURE0);
-            GL11.glBindTexture(GL_TEXTURE_2D, figureColor);
-            figureLight.set("uNearMatrix", nearMatrix);
-            figureLight.set("uFarMatrix", farMatrix);
-            figureLight.set("uSize", (float) width, (float) height);
-            figureLight.set("uTan", tanHalfFieldOfView * aspect, tanHalfFieldOfView);
-            figureLight.set("uNear", near);
-            figureLight.set("uFar", far);
-            figureLight.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
-            figureLight.set("uRangeFrom", rangeFrom);
-            figureLight.set("uEyeOutdoors", state.outdoors);
-            setBasis(figureLight, camera);
-            figureLight.set("uLight", state.lightX, state.lightY, state.lightUp);
-            setBeams(figureLight, TORCH_UNIT);
-            figureLight.set("uShines", shadedAndLit ? 1f : 0f);
-            setFlash(figureLight);
-            figureLight.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
-            figureGold(state, gold);
-            figureLight.set("uFigureGold", gold[0], gold[1], gold[2], gold[3]);
-            figureLight.set("uFogStart", fogStart);
-            figureLight.set("uFogEnd", fogEnd);
-            figureLight.set("uLoaded", loadedX - camera.eyeX, loadedY - camera.eyeY, loadedWithin);
-            figureLight.set("uBeyond", beyond);
-            figureLight.set("uWriteNear", 0f);
-            // Only the viewer's own vehicle is cut away from inside, not who stands beside it.
-            figureLight.set("uInside", 0f);
-            figureLight.set("uOwnAmbient", 1f, 1f, 1f);
-            figureLight.set("uFigureAmbient", view.characters.ambient);
-            GL13.glActiveTexture(GL_TEXTURE0 + NORMAL_UNIT);
-            GL11.glBindTexture(GL_TEXTURE_2D, figureNormal);
-            GL13.glActiveTexture(GL_TEXTURE0 + LAMP_UNIT);
-            GL11.glBindTexture(GL_TEXTURE_2D, figureLamps);
-            GL13.glActiveTexture(GL_TEXTURE0);
-            figureLight.set("uLampsLit", LAMP_UNIT);
-            figureLight.set("uFacing", NORMAL_UNIT);
-            figureLight.set("uHaveFacing", pass == 0 ? 1f : 0f);
-            figureLight.set("uJersey", FIRST_MATERIAL_UNIT + 13);
-            figureLight.set("uVinyl", FIRST_MATERIAL_UNIT + 11);
-            figureLight.set("uWearGain", materialGain[13], materialGain[11]);
-            figureLight.set("uWornGrain", Own.textures(view.index) ? 1f : 0f);
-            figureLight.set("uRoots", pass == 0 ? (float) view.characters.rootsFound : 0f);
-            for (int root = 0; root < view.characters.rootsFound && pass == 0; root++) {
-                figureLight.set(ROOT_AT[root], view.characters.roots[root * 4], view.characters.roots[root * 4 + 1], view.characters.roots[root * 4 + 2], view.characters.roots[root * 4 + 3]);
-            }
-            atmosphere(figureLight, state);
-            figureLight.set("uPainted", pass == 1 ? 1f : 0f);
-            setCars(pass == 1, 0f);
-            // With nothing drawn there is nothing to light. What the program was told stays told: the viewer's own body is lit by it next.
-            if (drawn > 0) {
-                quad();
-            }
+            endFigures();
+            lightFigures(pass, drawn, camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
         }
 
         if (seated) {

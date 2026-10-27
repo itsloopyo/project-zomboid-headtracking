@@ -72,16 +72,17 @@ final class VideoMemory {
         Quality.Picture high = Quality.HIGH_PICTURE;
         Quality.Picture coarse = new Quality.Picture(high.stockLook(), high.treeQuality(), high.grassDensity(), high.renderScale(), false,
                 high.viewDistance(), high.drawDistance(), high.farTreeDistance(), high.rainOnGlass(), high.shadingAndLight(), high.reflections(),
-                high.fullSizeTextures(), high.surfaceDepth(), high.wholeFigureShadows(), false, high.lightDistance(), high.reflectionScale());
+                high.fullSizeTextures(), high.surfaceDepth(), high.wholeFigureShadows(), false, high.lightDistance(), high.reflectionScale(),
+                high.corpseModels());
         Quality.Picture small = new Quality.Picture(coarse.stockLook(), coarse.treeQuality(), coarse.grassDensity(), coarse.renderScale(), false,
                 coarse.viewDistance(), coarse.drawDistance(), coarse.farTreeDistance(), coarse.rainOnGlass(), coarse.shadingAndLight(), coarse.reflections(),
-                false, coarse.surfaceDepth(), coarse.wholeFigureShadows(), false, coarse.lightDistance(), coarse.reflectionScale());
+                false, coarse.surfaceDepth(), coarse.wholeFigureShadows(), false, coarse.lightDistance(), coarse.reflectionScale(), coarse.corpseModels());
         Quality.Picture medium = Quality.MEDIUM_PICTURE;
         Quality.Picture mediumUnblended = new Quality.Picture(medium.stockLook(), medium.treeQuality(), medium.grassDensity(), medium.renderScale(),
                 medium.sharpShadows(), medium.viewDistance(), medium.drawDistance(),
                 Math.max(medium.farTreeDistance(), Quality.LOW_PICTURE.farTreeDistance()), medium.rainOnGlass(), medium.shadingAndLight(),
                 medium.reflections(), medium.fullSizeTextures(), medium.surfaceDepth(), medium.wholeFigureShadows(), false, medium.lightDistance(),
-                medium.reflectionScale());
+                medium.reflectionScale(), medium.corpseModels());
         CEILINGS = new Quality.Picture[] {high, coarse, small, mediumUnblended, Quality.LOW_PICTURE};
     }
 
@@ -126,7 +127,11 @@ final class VideoMemory {
         return LAST_STEP;
     }
 
-    /** What a mode that would draw picture draws at the step: nothing dearer than the step's ceiling. */
+    /**
+     * What a mode that would draw picture draws at the step: nothing dearer than the step's ceiling.
+     * Corpse models are left as the picture has them: no preset draws them, and a player who sets
+     * them in Custom asked for the cost.
+     */
     static Quality.Picture fit(Quality.Picture picture, int at) {
         if (at == 0) {
             return picture;
@@ -140,7 +145,7 @@ final class VideoMemory {
                 picture.reflections() && most.reflections(), picture.fullSizeTextures() && most.fullSizeTextures(),
                 picture.surfaceDepth() && most.surfaceDepth(), picture.wholeFigureShadows() && most.wholeFigureShadows(),
                 picture.frameBlending() && most.frameBlending(), Math.min(picture.lightDistance(), most.lightDistance()),
-                Math.min(picture.reflectionScale(), most.reflectionScale()));
+                Math.min(picture.reflectionScale(), most.reflectionScale()), picture.corpseModels());
     }
 
     static Quality.Picture fit(Quality.Picture picture) {

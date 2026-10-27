@@ -601,6 +601,17 @@ public final class Agent {
                             code.getfield(ClassDesc.ofInternalName(RENDER_JOB), "animatedModel", ClassDesc.ofInternalName(ANIMATED_MODEL));
                             CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "bodyBaking", "(L" + BODY_PARAMS + ";L" + ANIMATED_MODEL + ";)V"));
                         }, 1)),
+                new Patch(RENDER_JOB, "render after toBodyAtlas", classBytes -> CallSite.insertAfterEach(classBytes,
+                        new CallSite.Method(RENDER_JOB, "render", "()V"),
+                        new CallSite.Method(ATLAS, "toBodyAtlas", "(L" + RENDER_JOB + ";)V"), code -> {
+                            code.aload(0);
+                            code.getfield(ClassDesc.ofInternalName(RENDER_JOB), "animatedModel", ClassDesc.ofInternalName(ANIMATED_MODEL));
+                            code.aload(0);
+                            code.getfield(ClassDesc.ofInternalName(RENDER_JOB), "entry", ClassDesc.ofInternalName(ATLAS + "$AtlasEntry"));
+                            code.aload(0);
+                            code.getfield(ClassDesc.ofInternalName(RENDER_JOB), "animPlayerAngle", java.lang.constant.ConstantDescs.CD_float);
+                            CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "bodyBaked", "(L" + ANIMATED_MODEL + ";Ljava/lang/Object;F)V"));
+                        }, 1)),
                 new Patch("zombie/core/textures/SmartTexture", "destroy at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
                         new CallSite.Method("zombie/core/textures/SmartTexture", "destroy", "()V"), code -> {
                             code.aload(0);

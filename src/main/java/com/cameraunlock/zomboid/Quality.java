@@ -63,10 +63,11 @@ final class Quality {
      * @param frameBlending    see frameBlending
      * @param lightDistance    see lightDistance
      * @param reflectionScale  see reflectionScale
+     * @param corpseModels     see corpseModels
      */
     record Picture(boolean stockLook, int treeQuality, int grassDensity, float renderScale, boolean sharpShadows, int viewDistance, int drawDistance,
             int farTreeDistance, int rainOnGlass, boolean shadingAndLight, boolean reflections, boolean fullSizeTextures, boolean surfaceDepth,
-            boolean wholeFigureShadows, boolean frameBlending, int lightDistance, float reflectionScale) {}
+            boolean wholeFigureShadows, boolean frameBlending, int lightDistance, float reflectionScale, boolean corpseModels) {}
 
     /** The TreeQuality row's words by number: the game's sprites, the mod's crowns within Crowns.REACH, the mod's crowns as far as the view goes. */
     static final int TREES_SPRITES = 0, TREES_NEAR = 1, TREES_TO_SIGHT = 2;
@@ -80,9 +81,9 @@ final class Quality {
     /** How far from the eye lamps can light the picture themselves, in tiles. */
     static final int MOST_LIGHT_DISTANCE = 80;
 
-    static final Picture LOW_PICTURE = new Picture(true, TREES_SPRITES, SOME_GRASS, 0.62f, false, 48, 48, 300, 0, false, false, false, false, false, false, 20, 0.5f);
-    static final Picture MEDIUM_PICTURE = new Picture(false, TREES_NEAR, SOME_GRASS, 0.8f, false, 60, 60, 150, 1, true, true, false, false, false, true, 30, 0.5f);
-    static final Picture HIGH_PICTURE = new Picture(false, TREES_TO_SIGHT, ALL_GRASS, 1f, true, 80, 80, 400, 2, true, true, true, true, true, true, 60, 0.75f);
+    static final Picture LOW_PICTURE = new Picture(true, TREES_SPRITES, SOME_GRASS, 0.62f, false, 48, 48, 300, 0, false, false, false, false, false, false, 20, 0.5f, false);
+    static final Picture MEDIUM_PICTURE = new Picture(false, TREES_NEAR, SOME_GRASS, 0.8f, false, 60, 60, 150, 1, true, true, false, false, false, true, 30, 0.5f, false);
+    static final Picture HIGH_PICTURE = new Picture(false, TREES_TO_SIGHT, ALL_GRASS, 1f, true, 80, 80, 400, 2, true, true, true, true, true, true, 60, 0.75f, false);
     /**
      * Automatic's levels, cheapest first. STOCK is the Low mode's picture, the game's own look;
      * the three above it are Low's, Medium's and High's cost, still with everything the mod made.
@@ -137,6 +138,8 @@ final class Quality {
     private static volatile Shown shown = new Shown(pictures(HIGH_PICTURE), new boolean[View.COUNT]);
     /** See smallerPictures, plainEverywhere and gamesPlantsEverywhere: worked out by refresh from every view's picture. */
     private static volatile boolean smaller, plainEverywhere, gamesPlantsEverywhere;
+    /** See corpseModelsAnywhere: worked out by refresh from every view's picture. */
+    private static volatile boolean corpseModelsAnywhere;
     /**
      * A frame longer than STALL_NANOS is stalled, and one longer than HITCH_NANOS is a hitch. A run
      * of stalled frames one after another is cut out of a count when it is the count's only run,
@@ -324,7 +327,7 @@ final class Quality {
         int[] overheads = overheadRows;
         Picture[] next = new Picture[View.COUNT];
         boolean[] held = new boolean[View.COUNT];
-        boolean anyPresent = false, anyFullSize = false, allPlain = true, allGamesPlants = true;
+        boolean anyPresent = false, anyFullSize = false, allPlain = true, allGamesPlants = true, anyCorpseModels = false;
         for (int view = 0; view < next.length; view++) {
             int overhead = overheads[view];
             boolean firstPerson = inFirstPerson[view] || overhead == LOW;
@@ -337,6 +340,7 @@ final class Quality {
                 anyFullSize |= next[view].fullSizeTextures;
                 allPlain &= next[view].stockLook;
                 allGamesPlants &= next[view].treeQuality == TREES_SPRITES;
+                anyCorpseModels |= next[view].corpseModels;
             }
         }
         shown = new Shown(next, held);
@@ -346,6 +350,7 @@ final class Quality {
         }
         plainEverywhere = allPlain;
         gamesPlantsEverywhere = allGamesPlants;
+        corpseModelsAnywhere = anyCorpseModels;
     }
 
     /** The graphics card's memory has set what every mode may draw at most (VideoMemory.fit): what each draws is worked out again. */
@@ -407,16 +412,16 @@ final class Quality {
     private static Picture automatic(Picture at) {
         return new Picture(false, Math.max(at.treeQuality, TREES_NEAR), at.grassDensity, at.renderScale, at.sharpShadows, at.viewDistance, at.drawDistance,
                 at.farTreeDistance, at.rainOnGlass, at.shadingAndLight, at.reflections, at.fullSizeTextures, at.surfaceDepth, at.wholeFigureShadows,
-                at.frameBlending, at.lightDistance, at.reflectionScale);
+                at.frameBlending, at.lightDistance, at.reflectionScale, at.corpseModels);
     }
 
     static String described(Picture picture) {
         return String.format(Locale.ROOT, "stock look %b, tree quality %d, grass density %d, render scale %.2f, sharp shadows %b, view distance %d, "
                         + "zombies and props draw distance %d, far tree distance %d, rain on glass %d, shading and light %b, reflections %b, "
-                        + "full size textures %b, surface depth %b, whole figure shadows %b, frame blending %b, light distance %d, reflection scale %.2f",
+                        + "full size textures %b, surface depth %b, whole figure shadows %b, frame blending %b, light distance %d, reflection scale %.2f, corpse models %b",
                 picture.stockLook, picture.treeQuality, picture.grassDensity, picture.renderScale, picture.sharpShadows, picture.viewDistance, picture.drawDistance,
                 picture.farTreeDistance, picture.rainOnGlass, picture.shadingAndLight, picture.reflections, picture.fullSizeTextures,
-                picture.surfaceDepth, picture.wholeFigureShadows, picture.frameBlending, picture.lightDistance, picture.reflectionScale);
+                picture.surfaceDepth, picture.wholeFigureShadows, picture.frameBlending, picture.lightDistance, picture.reflectionScale, picture.corpseModels);
     }
 
     /** The mode the hotkey goes to from a player's first person mode: Automatic, Low, Medium, High, Custom and round again. */
@@ -807,6 +812,19 @@ final class Quality {
      */
     static boolean wholeFigureShadows(int view) {
         return shown.pictures[view].wholeFigureShadows;
+    }
+
+    /**
+     * Whether a view draws each corpse as a model lying where it fell, as the zombies are
+     * drawn, and not as the game's flat picture of it laid on the ground: see Corpses.
+     */
+    static boolean corpseModels(int view) {
+        return shown.pictures[view].corpseModels;
+    }
+
+    /** Whether any view at the screen draws corpses as models: the game's pictures of bodies are then kept as models too. */
+    static boolean corpseModelsAnywhere() {
+        return corpseModelsAnywhere;
     }
 
 }

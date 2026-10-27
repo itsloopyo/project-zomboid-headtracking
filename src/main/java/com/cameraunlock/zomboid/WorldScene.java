@@ -267,6 +267,8 @@ final class WorldScene {
         volatile FloatBuffer vertices;
         /** The furniture the mod has models of, each drawn from its model where it stands. */
         final Models.Instances placed = new Models.Instances();
+        /** The corpses drawn as models, each where it lies: see Corpses. None where the view lays the game's picture of each on the ground. */
+        final ArrayList<Corpses.Lying> lying = new ArrayList<>();
         /** Dev only: the triangles as they were filled, for DepthFights, set by whichever thread fills the build. Null unless it audits. */
         volatile DepthFights.Copy depthCopy;
         private int wx, wy;
@@ -1735,6 +1737,7 @@ final class WorldScene {
             return;
         }
         ChunkBuffers.forget(meshes);
+        meshes.lying.clear();
         if (meshes.crowns != null) {
             spareCrowns.push(meshes.crowns);
             meshes.crowns = null;
@@ -2597,6 +2600,7 @@ final class WorldScene {
         private boolean waterShown;
         private final float[] waterPlane = new float[4];
         Models.Instances placed;
+        ArrayList<Corpses.Lying> lying;
         final SpriteGeometry geometry = new SpriteGeometry();
         final SpriteGeometry.Frame frame = new SpriteGeometry.Frame();
 
@@ -3037,6 +3041,7 @@ final class WorldScene {
         /** Set round the second build of a check: nothing kept is taken. */
         boolean afresh;
         private final Models.Instances checkPlaced = new Models.Instances();
+        private final ArrayList<Corpses.Lying> checkLying = new ArrayList<>();
         private float buildMillis;
         private final int[] builtBecause = new int[7];
         /** Chunks in view that had no build yet when the frame had spent its time on building. */
@@ -3105,6 +3110,7 @@ final class WorldScene {
             roundNow = Rounds.BUILDS.now();
             if (roundBegins) {
                 Screens.tick();
+                Corpses.askAgain();
             }
             boolean fromOutside = from != null;
             boolean screenOnly = seenOnly;
@@ -3867,6 +3873,7 @@ final class WorldScene {
                         // its own view off, and the other's builds are not to inherit its count.
                         layers.none();
                         fresh.placed.clear();
+                        fresh.lying.clear();
                         if (SightTrace.ON) {
                             if (fresh.traced == null) {
                                 fresh.traced = Collections.newSetFromMap(new IdentityHashMap<>());
@@ -3920,6 +3927,7 @@ final class WorldScene {
                         wantsMap = false;
                         trackReader.forget();
                         placed = fresh.placed;
+                        lying = fresh.lying;
                         building = fresh;
                         chunksBuilt++;
                         growing = false;
@@ -4040,6 +4048,7 @@ final class WorldScene {
                         solid.clear();
                         laid.clear();
                         fresh.placed.clear();
+                        fresh.lying.clear();
                         fresh.wx = chunk.wx;
                         fresh.wy = chunk.wy;
                         fresh.builtFrame = frames;
@@ -4050,6 +4059,7 @@ final class WorldScene {
                         fresh.grown = true;
                         fresh.users = 1;
                         placed = fresh.placed;
+                        lying = fresh.lying;
                         building = current;
                         growing = true;
                         chunksGrown++;
@@ -4576,6 +4586,7 @@ final class WorldScene {
             }
             ChunkMeshes fresh = spare.isEmpty() ? new ChunkMeshes(view.index) : spare.pop();
             fresh.placed.clear();
+            fresh.lying.clear();
             fresh.wx = wx;
             fresh.wy = wy;
             fresh.builtFrame = frames;
@@ -4697,7 +4708,9 @@ final class WorldScene {
             solid.clear();
             laid.clear();
             checkPlaced.clear();
+            checkLying.clear();
             placed = checkPlaced;
+            lying = checkLying;
             building = standing;
             bandAway = BAND_AWAY[standing.band];
             afresh = true;
@@ -4797,7 +4810,9 @@ final class WorldScene {
             solid.clear();
             laid.clear();
             checkPlaced.clear();
+            checkLying.clear();
             placed = checkPlaced;
+            lying = checkLying;
             afresh = true;
             geometry.afresh = true;
             // First with the crowns made in the chunk's own sets, as they were before they were a build of their own:
@@ -4822,6 +4837,7 @@ final class WorldScene {
                 solid.clear();
                 laid.clear();
                 checkPlaced.clear();
+                checkLying.clear();
                 crownsChecked.clear();
                 fresh.band = other;
                 bandAway = BAND_AWAY[other];
@@ -4836,6 +4852,7 @@ final class WorldScene {
             solid.clear();
             laid.clear();
             checkPlaced.clear();
+            checkLying.clear();
             crownsChecked.clear();
             addSquares(chunk, chunkX, chunkY, lowest);
             kerbBuilder.noKerb();
@@ -4845,6 +4862,7 @@ final class WorldScene {
             afresh = false;
             geometry.afresh = false;
             placed = fresh.placed;
+            lying = fresh.lying;
             squaresSeen = seen;
             squaresLoaded = loaded;
             sprites = counted;
@@ -5236,7 +5254,7 @@ final class WorldScene {
                             thing = sum(sum(sum(thing, Float.floatToRawIntBits(body.getX())), Float.floatToRawIntBits(body.getY())), Float.floatToRawIntBits(body.getZ()));
                             if (body instanceof IsoDeadBody dead) {
                                 long picture = pictured(dead);
-                                thing = sum(thing, picture);
+                                thing = sum(sum(thing, picture), Quality.corpseModels(view.index) ? 1 : 0);
                                 // The game marks nothing when a picture it was asked for is made.
                                 restless |= picture == 0 && (askPicture(dead) || dead.getAtlasTexture() != null);
                             }
@@ -7117,7 +7135,8 @@ final class WorldScene {
          * lies. The same picture is laid on the ground here, every texel of it where the game's
          * view has it, so it is the body the game shows, lying as the game shows it. The picture
          * is asked for when the chunk is read (askPicture), and until the game has made it there
-         * is none to lay.
+         * is none to lay. Where the view draws corpses as models, the body is noted where it
+         * lies instead, for Characters to draw the model the game posed for that picture.
          */
         private void addBody(IsoDeadBody body) {
             DeadBodyAtlas.BodyTexture picture = body.getAtlasTexture();
@@ -7128,17 +7147,7 @@ final class WorldScene {
             if (SightTrace.ON && building.traced != null) {
                 building.traced.add(body);
             }
-            SpriteGeometry.Mesh mesh = solid.get(texture.getID());
-            mesh.open = frame.open + 32f * BODY;
-            mesh.face(0f, 0f, 1f);
             float x = body.getX(), y = body.getY(), z = body.getZ();
-            // Where the game draws the picture, in its own pixels from where it draws the body's place on the floor.
-            float left = picture.getRenderX(0f), top = picture.getRenderY(0f), wide = picture.getRenderWidth(), high = picture.getRenderHeight();
-            float across = SpriteGeometry.PIXELS_ACROSS_PER_TILE * frame.scale, down = SpriteGeometry.PIXELS_DOWN_PER_TILE * frame.scale;
-            // What is above the floor is drawn further up the screen, so the picture lies this much nearer the game's view than it would on the floor.
-            float nearer = BODY_UP / ViewCamera.LEVEL_HEIGHT * SpriteGeometry.PIXELS_PER_LEVEL / (2f * SpriteGeometry.PIXELS_DOWN_PER_TILE);
-            // Laid as a grid on the ground, each point at the highest of the ground round it, so it
-            // lies over a slope and is not cut into by the ground between its corners, nor by a kerb.
             // A body keeps the height the character died at, which on stairs is part way up a
             // level, and the game draws its picture that far up the screen. Laid flat at that
             // height it hung over the floor beside and under the flight. It lies on the floor of
@@ -7149,6 +7158,21 @@ final class WorldScene {
             IsoObjectType flight = square != null ? square.getStairs() : null;
             boolean west = climbsWest(flight);
             float foot = thirdOf(flight) < 0 ? Float.NaN : thirdOf(flight) + 1f + (west ? square.getX() : square.getY());
+            // An animal's model is not one CharacterDraw draws: it keeps its picture.
+            if (Quality.corpseModels(view.index) && !body.isAnimal()) {
+                lying.add(new Corpses.Lying(body, Corpses.entryOf(body), x, y, restUnder(x, y, level, 0f, west, foot), z, square, Outlines.key(body)));
+                return;
+            }
+            SpriteGeometry.Mesh mesh = solid.get(texture.getID());
+            mesh.open = frame.open + 32f * BODY;
+            mesh.face(0f, 0f, 1f);
+            // Where the game draws the picture, in its own pixels from where it draws the body's place on the floor.
+            float left = picture.getRenderX(0f), top = picture.getRenderY(0f), wide = picture.getRenderWidth(), high = picture.getRenderHeight();
+            float across = SpriteGeometry.PIXELS_ACROSS_PER_TILE * frame.scale, down = SpriteGeometry.PIXELS_DOWN_PER_TILE * frame.scale;
+            // What is above the floor is drawn further up the screen, so the picture lies this much nearer the game's view than it would on the floor.
+            float nearer = BODY_UP / ViewCamera.LEVEL_HEIGHT * SpriteGeometry.PIXELS_PER_LEVEL / (2f * SpriteGeometry.PIXELS_DOWN_PER_TILE);
+            // Laid as a grid on the ground, each point at the highest of the ground round it, so it
+            // lies over a slope and is not cut into by the ground between its corners, nor by a kerb.
             float reach = Math.max(wide / across, high / down) / (2f * BODY_CELLS);
             for (int i = 0; i <= BODY_CELLS; i++) {
                 for (int j = 0; j <= BODY_CELLS; j++) {

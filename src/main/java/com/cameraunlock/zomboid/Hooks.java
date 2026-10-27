@@ -239,6 +239,7 @@ public final class Hooks {
         Impacts.forget();
         Fires.forget();
         Pieces.forget();
+        Corpses.forget();
         LimbDecals.forget();
         SharedHeads.forget();
         Rewind.forget();
@@ -590,9 +591,22 @@ public final class Hooks {
         Stumps.baking(model.getAnimationPlayer(), cuts == null ? 0 : Integer.parseInt(cuts));
     }
 
-    /** Called as the game is about to destroy a texture it combined from others, a character's skin among them: true puts it off, see Pieces.keeps. */
+    /**
+     * Called as the game has made the picture of a body from the model it posed for it, with
+     * the game's entry for the picture and the way the model was turned: see Corpses.baked.
+     */
+    public static void bodyBaked(AnimatedModel model, Object entry, float angle) {
+        if (Quality.corpseModelsAnywhere()) {
+            Corpses.baked(model, entry, angle);
+        }
+    }
+
+    /**
+     * Called as the game is about to destroy a texture it combined from others, a character's
+     * skin among them: true puts it off, see Pieces.keeps and Corpses.keeps.
+     */
     public static boolean keepsTexture(Texture texture) {
-        return Pieces.keeps(texture);
+        return Pieces.keeps(texture) || Corpses.keeps(texture);
     }
 
     /** Called as the game starts writing a chunk to its save, and once it has: see Bleeding.saving. */

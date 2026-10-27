@@ -139,6 +139,7 @@
 - `ZombiesAndPropsDrawDistance` (16 to 80 tiles) and `Reflections` settings.
 - `ReflectionScale` setting (0.25 to 1): the resolution wall mirrors and window glass draw their reflection at, as a share of the first person picture's. `High` draws 0.75, `Medium` 0.5.
 - `GrassDensity` setting (10 to 100 percent): fewer grass plants for a faster picture. `High` grows all of it, `Medium` and `Low` 40 percent.
+- `CorpseModels` setting: corpses are drawn as models lying where they fell, posed once and never animated, in place of the game's flat picture of each. Off in `Low`, `Medium` and `High`; turn it on in `Custom`. Animal carcasses keep the picture.
 - A first person view larger than 2560x1440 is drawn in `Low`, `Medium`, `High` and `Automatic` with no more pixels than 2560x1440, and scaled up. `Custom` draws at its `RenderScale` at any size.
 - `Medium` draws first person at 0.8 of the window's size each way, with shaded corners, lit air and, with `Reflections`, mirroring wet roads, floors, glass and water.
 - Every mode can be drawn with less in four steps: no sharp shadows or frame blending; then also the mod's pictures at half size; then no more than `Medium`, without its frame blending; then no more than `Low`. On an NVIDIA graphics card the mod reads the card's memory when first person starts: 6 GB and more gives up nothing, 5 GB starts at no more than `Medium`, 4 GB or less at no more than `Low`. Other cards start with nothing given up.

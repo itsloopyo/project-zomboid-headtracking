@@ -59,7 +59,7 @@ final class VideoMemoryTests {
             check(VideoMemory.fit(mode, 0).equals(mode), "step 0 draws " + Quality.described(mode) + " as it is");
         }
         Quality.Picture custom = new Quality.Picture(false, Quality.TREES_TO_SIGHT, Quality.ALL_GRASS, 1.5f, true, 120, 120, 400, 2, true, true, true, true,
-                true, true, 80, 1f);
+                true, true, 80, 1f, true);
         check(VideoMemory.fit(custom, 0).equals(custom), "step 0 draws a Custom picture dearer than High as it is");
     }
 
