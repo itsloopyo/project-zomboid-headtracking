@@ -1323,7 +1323,8 @@ final class PipelineShaders {
                 float course = up / size.y;
                 float row = floor(course);
                 float along = run / size.x + 0.5 * mod(row, 2.0);
-                float which = mod(floor(along), 300.0), tier = mod(row, 960.0);
+                vec2 cycle = floor(60.0 / size + 0.5);
+                float which = mod(floor(along), cycle.x), tier = mod(row, cycle.y);
                 vec2 part = vec2(fract(along), fract(course));
                 vec2 edge = min(part, 1.0 - part) * size;
                 // A joint under a pixel wide would be drawn in some pixels and missed in the
@@ -1527,6 +1528,12 @@ final class PipelineShaders {
             const float JOINT_MOST_OF_BRICK = 0.15;
             // How much lighter the mortar of brick and blocks is drawn from far overhead.
             const float MORTAR_LIFT_OVERHEAD = 0.2;
+            // The game's own brick: from far overhead the one in WORLD_FRAGMENT_PARTS loses its bed joints. Switched,
+            // not blended, so the courses do not slide as the eye goes out.
+            const float GAME_BRICK_LONG = 0.25, GAME_BRICK_HIGH = 0.1;
+            vec2 brickSize() {
+                return uGameView > 0.5 ? vec2(GAME_BRICK_LONG, GAME_BRICK_HIGH) : vec2(BRICK_LONG, BRICK_HIGH);
+            }
             // How much more a ripple tilts water seen from far overhead. Looked down on, level
             // water throws back one patch of sky and reads as a flat sheet; the ripples a
             // pace-high eye sees by the far bank they break up are seen there by how each
@@ -1609,7 +1616,7 @@ final class PipelineShaders {
                     vec2 at = reliefBase + moved;
                     if (reliefKind < 7.5) {
                         bool block = reliefKind > 6.5;
-                        vec2 size = block ? vec2(BLOCK_LONG, BLOCK_HIGH) : vec2(BRICK_LONG, BRICK_HIGH);
+                        vec2 size = block ? vec2(BLOCK_LONG, BLOCK_HIGH) : brickSize();
                         float gapHalf = block ? BLOCK_JOINT : BRICK_JOINT;
                         float course = at.y / size.y;
                         vec2 part = fract(vec2(at.x / size.x + 0.5 * mod(floor(course), 2.0), course));
@@ -1967,7 +1974,7 @@ final class PipelineShaders {
                     // overhead a joint is a pixel or two and that shade took it to the bricks' own tone.
                     vec3 mortarSeen = uJoint * (1.0 + MORTAR_LIFT_OVERHEAD * uGameView);
                     // A block is a brick three times the size, and every one the same grey.
-                    vec3 laid = how < 4.5 ? facBrick(uTint.rgb, mortarSeen, run, up, soft, vec2(BRICK_LONG, BRICK_HIGH), max(vec2(BRICK_JOINT), min(jointLeast, JOINT_MOST_OF_BRICK * vec2(BRICK_LONG, BRICK_HIGH))), 1.0, turned)
+                    vec3 laid = how < 4.5 ? facBrick(uTint.rgb, mortarSeen, run, up, soft, brickSize(), max(vec2(BRICK_JOINT), min(jointLeast, JOINT_MOST_OF_BRICK * brickSize())), 1.0, turned)
                             : how < 5.5 ? facLapped(uTint.rgb, run, up, soft, turned)
                             : how < 6.5 ? facStone(uTint.rgb, uJoint, run, up, soft, turned)
                             : facBrick(uTint.rgb, mortarSeen, run, up, soft, vec2(BLOCK_LONG, BLOCK_HIGH), max(vec2(BLOCK_JOINT), min(jointLeast, JOINT_MOST_OF_BRICK * vec2(BLOCK_LONG, BLOCK_HIGH))), 0.3, turned);
