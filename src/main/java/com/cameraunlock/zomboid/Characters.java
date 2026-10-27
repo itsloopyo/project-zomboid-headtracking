@@ -321,6 +321,14 @@ public final class Characters {
         notedIn = null;
         holding = null;
         viewer = null;
+        synchronized (this) {
+            // The zombies last drawn are of a map the game may since have let go of.
+            Arrays.fill(seen, 0, seenCount, null);
+            Arrays.fill(seeing, 0, seeingCount, null);
+            seenCount = 0;
+            seeingCount = 0;
+            seenFrames++;
+        }
         CharacterDraw.setDown();
     }
 
@@ -663,6 +671,12 @@ public final class Characters {
     /** Logic thread: the zombies of the last two frames handed over, and the last frame taken. */
     private Set<IsoZombie> seenLast = Collections.newSetFromMap(new IdentityHashMap<>()), seenBefore = Collections.newSetFromMap(new IdentityHashMap<>());
     private int seenTaken = -1;
+
+    /** Logic thread, as the game leaves a save: the zombies of the last frames taken are the left map's. */
+    void leftSave() {
+        seenLast.clear();
+        seenBefore.clear();
+    }
 
     /** Logic thread: whether some pass of either of the last two frames drawn drew a zombie. */
     boolean seenLately(IsoZombie zombie) {

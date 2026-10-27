@@ -470,6 +470,7 @@ public final class FirstPerson {
         SnowPrints.forget();
         WallTiles.leftSave();
         view.heldLight.forget();
+        view.characters.leftSave();
         view.modeFade.giveBack("the save was left");
         giveBack("the save was left");
     }
