@@ -24,7 +24,8 @@ import zombie.core.textures.Texture;
  * Last, pavers: a grid of cells, of which some joints are laid and some are not, so that the
  * cells make bricks one by two, two by two and so on, laid in rows or herringbone, each paver
  * in a colour of its own. And hexagonal pavers, whose middles lie on a lattice that the light
- * of the square repeats along three ways at once.
+ * of the square repeats along three ways at once. And stones laid in courses, a course's
+ * joints across it each at a place of its own, out of line with the next course's.
  *
  * A floor that is none of these is not read as one: slabs laid out of line, a pattern across
  * the tiles.
@@ -134,6 +135,24 @@ final class Tiles {
      */
     private static final int HEX_MOST = 16, HEX_TRIED = 8;
     private static final float HEX_PEAK = 3f, HEX_EVEN = 2.5f, HEX_ROUND = 1.25f;
+    /**
+     * Stones in courses: how many courses to a side are tried, and how far the light of a line
+     * is measured from, as a share of the square: against the lines from COURSE_NEAR to
+     * COURSE_FAR either side of it, which leaves out a joint's own edge.
+     */
+    private static final int[] COURSES = {2, 3, 4};
+    private static final float COURSE_NEAR = 3f / 64f, COURSE_FAR = 8f / 64f;
+    /**
+     * The joints between courses run the whole square and stand at least COURSE_LINES from the
+     * light either side; a joint across a course stands at least COURSE_JOINT times the
+     * median line of the course does, and COURSE_TOP of the strongest such joint of the square.
+     */
+    private static final float COURSE_LINES = 0.06f, COURSE_JOINT = 8f, COURSE_TOP = 0.4f;
+    /** A stone runs along its course from COURSE_SHORTEST to COURSE_LONGEST times as far as the course is wide: boards are longer. */
+    private static final float COURSE_SHORTEST = 0.5f, COURSE_LONGEST = 2.5f;
+    /** The joints of the next course lie at least this share of the square from a course's own: in line, the stones are a grid. */
+    private static final float COURSE_STAGGER = 4f / 64f;
+
     /** The fewest hexagons to a square: fewer are slabs, not pavers. */
     private static final int FEWEST_HEXES = 9;
     /**
@@ -201,6 +220,8 @@ final class Tiles {
          * and along b from its middle, in turn round it the way from a towards b.
          */
         float[] hexes, hexCorners;
+        /** Whether the joints are mortar lighter than the pavers, drawn as they are: a joint sunk between pavers is in their shade. */
+        boolean paleJoints;
     }
 
     private record Asked(float originU, float originV, float scale, float left, float top, float width, float height) {}
@@ -274,6 +295,7 @@ final class Tiles {
         if (FirstPerson.TRACE) {
             Log.info("floor " + texture.getName() + (shape == null ? " is not a square of floor"
                     : shape.blocks > 0 ? " is parquet, " + shape.blocks + " blocks a side of " + shape.slats + " slats"
+                    : shape.pavers != null && shape.cellsA == side ? " is " + shape.pavers.length / 7 + " stones in courses" + (shape.paleJoints ? ", pale joints" : "")
                     : shape.pavers != null ? " is " + shape.pavers.length / 7 + " pavers on " + shape.cellsA + " by " + shape.cellsB + " cells"
                     : shape.hexes != null ? " is " + shape.hexes.length / 5 + " hexagonal pavers"
                     : shape.diagonal > 0 ? " is tiles on the diagonal, " + shape.diagonal + " joints a tile from " + shape.phase + " and " + shape.phaseAcross + (shape.checkered ? ", chequered" : "")
@@ -320,6 +342,9 @@ final class Tiles {
         }
         if (shape == null && side >= PAVER_SIDE) {
             shape = pavers(dots, side);
+        }
+        if (shape == null && side >= PAVER_SIDE) {
+            shape = courses(dots, side);
         }
         return shape;
     }
@@ -616,6 +641,273 @@ final class Tiles {
             }
         }
         return null;
+    }
+
+    /**
+     * Stones laid in courses in a square of floor laid flat, or null: courses of one width side
+     * by side, the joints between them running the whole square, and across each course joints
+     * of its own, out of line with those of the courses beside it. Each stone is a paver whose
+     * box is counted in dots, cellsA and cellsB being the side: its colour is read inside it,
+     * away from its joints, and the joints' colour on them.
+     */
+    static Shape courses(float[] dots, int side) {
+        float[] light = new float[side * side];
+        double[] whole = new double[3];
+        int painted = 0;
+        for (int dot = 0; dot < side * side; dot++) {
+            if (dots[dot * 3] >= 0f) {
+                light[dot] = 0.299f * dots[dot * 3] + 0.587f * dots[dot * 3 + 1] + 0.114f * dots[dot * 3 + 2];
+                for (int part = 0; part < 3; part++) {
+                    whole[part] += dots[dot * 3 + part];
+                }
+                painted++;
+            }
+        }
+        float mean = (float) ((0.299 * whole[0] + 0.587 * whole[1] + 0.114 * whole[2]) / painted);
+        for (int dot = 0; dot < side * side; dot++) {
+            if (dots[dot * 3] < 0f) {
+                light[dot] = mean;
+            }
+        }
+        int near = Math.max(1, Math.round(COURSE_NEAR * side)), far = Math.max(near + 1, Math.round(COURSE_FAR * side));
+        // Which way the courses run (along b, their joints at places along a, or the other way), how many, and the first joint between them, to half a dot.
+        float best = 0f, first = 0f;
+        boolean alongB = true;
+        int courses = 0;
+        float[] profile = new float[side], stands = new float[side];
+        for (int way = 0; way < 2; way++) {
+            boolean runB = way == 0;
+            for (int k = 0; k < side; k++) {
+                double line = 0;
+                for (int other = 0; other < side; other++) {
+                    line += light[courseDot(runB, k, other, side)];
+                }
+                profile[k] = (float) (line / side);
+            }
+            courseStands(profile, near, far, stands);
+            for (int count : COURSES) {
+                float wide = side / (float) count;
+                for (float phase = 0f; phase < wide; phase += 0.5f) {
+                    float at = 0f;
+                    for (int m = 0; m < count; m++) {
+                        int k = Math.floorMod((int) Math.floor(phase + m * wide), side);
+                        at += Math.max(stands[k], stands[(k + 1) % side]);
+                    }
+                    if (at / count > best) {
+                        best = at / count;
+                        alongB = runB;
+                        courses = count;
+                        first = phase;
+                    }
+                }
+            }
+        }
+        if (best < COURSE_LINES) {
+            return null;
+        }
+        float wide = side / (float) courses;
+        // Along each course, its light away from the joints at its sides, and the joints across it that stand out of that.
+        int[][] joints = new int[courses][];
+        float[][] standing = new float[courses][];
+        float top = 0f;
+        for (int m = 0; m < courses; m++) {
+            for (int k = 0; k < side; k++) {
+                double line = 0;
+                int held = 0;
+                for (float in = 2.5f; in < wide - 2f; in += 1f) {
+                    line += light[courseDot(alongB, Math.floorMod((int) Math.floor(first + m * wide + in), side), k, side)];
+                    held++;
+                }
+                profile[k] = (float) (line / held);
+            }
+            float[] st = new float[side];
+            courseStands(profile, near, far, st);
+            float usual = median(st, side);
+            boolean[] tried = new boolean[side];
+            int[] found = new int[side];
+            int count = 0;
+            while (true) {
+                int strongest = -1;
+                for (int k = 0; k < side; k++) {
+                    if (!tried[k] && (strongest < 0 || st[k] > st[strongest])) {
+                        strongest = k;
+                    }
+                }
+                if (strongest < 0 || st[strongest] < COURSE_JOINT * usual) {
+                    break;
+                }
+                tried[strongest] = true;
+                boolean apart = true;
+                for (int f = 0; f < count; f++) {
+                    int gap = Math.abs(strongest - found[f]);
+                    apart &= Math.min(gap, side - gap) >= wide / 2f;
+                }
+                if (apart) {
+                    found[count++] = strongest;
+                    top = Math.max(top, st[strongest]);
+                }
+            }
+            joints[m] = Arrays.copyOf(found, count);
+            standing[m] = st;
+        }
+        int stones = 0;
+        for (int m = 0; m < courses; m++) {
+            int kept = 0;
+            for (int joint : joints[m]) {
+                if (standing[m][joint] >= COURSE_TOP * top) {
+                    joints[m][kept++] = joint;
+                }
+            }
+            if (kept == 0) {
+                return null;
+            }
+            joints[m] = Arrays.copyOf(joints[m], kept);
+            Arrays.sort(joints[m]);
+            for (int i = 0; i < kept; i++) {
+                int run = stoneRun(joints[m], i, side);
+                if (run < COURSE_SHORTEST * wide || run > COURSE_LONGEST * wide) {
+                    return null;
+                }
+            }
+            stones += kept;
+        }
+        boolean staggered = false;
+        for (int m = 0; m < courses; m++) {
+            int closest = side;
+            for (int one : joints[m]) {
+                for (int other : joints[(m + 1) % courses]) {
+                    int gap = Math.abs(one - other);
+                    closest = Math.min(closest, Math.min(gap, side - gap));
+                }
+            }
+            staggered |= closest >= COURSE_STAGGER * side;
+        }
+        if (!staggered) {
+            return null;
+        }
+        // Each stone's colour inside it, how far its dots lie from its light, and how far the joint it starts at stands from it.
+        float[] pavers = new float[stones * 7], rough = new float[stones], dips = new float[stones];
+        float raised = 0f;
+        int stone = 0;
+        for (int m = 0; m < courses; m++) {
+            float from = (float) Math.floor(first + m * wide) + 1f;
+            for (int i = 0; i < joints[m].length; i++) {
+                int start = joints[m][i], run = stoneRun(joints[m], i, side);
+                double[] colour = new double[3];
+                double lit = 0, onJoint = 0;
+                int held = 0, across = 0;
+                for (float in = 2.5f; in < wide - 2f; in += 1f) {
+                    int c = Math.floorMod((int) Math.floor(first + m * wide + in), side);
+                    for (int along = 4; along < run - 3; along++) {
+                        int dot = courseDot(alongB, c, Math.floorMod(start + along, side), side);
+                        for (int part = 0; part < 3; part++) {
+                            colour[part] += dots[dot * 3 + part] < 0f ? mean : dots[dot * 3 + part];
+                        }
+                        lit += light[dot];
+                        held++;
+                    }
+                    onJoint += light[courseDot(alongB, c, start, side)];
+                    across++;
+                }
+                float stoneLight = (float) (lit / held);
+                double off = 0;
+                for (float in = 2.5f; in < wide - 2f; in += 1f) {
+                    int c = Math.floorMod((int) Math.floor(first + m * wide + in), side);
+                    for (int along = 4; along < run - 3; along++) {
+                        off += Math.abs(light[courseDot(alongB, c, Math.floorMod(start + along, side), side)] - stoneLight);
+                    }
+                }
+                rough[stone] = (float) (off / held);
+                float jointLight = (float) (onJoint / across);
+                dips[stone] = Math.abs(jointLight - stoneLight);
+                raised += jointLight - stoneLight;
+                pavers[stone * 7] = alongB ? from : start + 0.5f;
+                pavers[stone * 7 + 1] = alongB ? start + 0.5f : from;
+                pavers[stone * 7 + 2] = alongB ? wide : run;
+                pavers[stone * 7 + 3] = alongB ? run : wide;
+                for (int part = 0; part < 3; part++) {
+                    pavers[stone * 7 + 4 + part] = (float) (colour[part] / held);
+                }
+                stone++;
+            }
+        }
+        if (median(dips, stones) < PAVER_CLEAR * median(rough, stones)) {
+            return null;
+        }
+        // The joints' colour: of the dots on and beside them, the half that stands out from the stones the way the joints do.
+        boolean pale = raised > 0f;
+        boolean[] onJoints = new boolean[side * side];
+        for (int m = 0; m < courses; m++) {
+            int between = (int) Math.floor(first + m * wide);
+            for (int k = 0; k < side; k++) {
+                onJoints[courseDot(alongB, Math.floorMod(between, side), k, side)] = true;
+                onJoints[courseDot(alongB, Math.floorMod(between + 1, side), k, side)] = true;
+            }
+            for (int joint : joints[m]) {
+                for (float in = 0.5f; in < wide; in += 1f) {
+                    int c = Math.floorMod((int) Math.floor(first + m * wide + in), side);
+                    for (int beside = -1; beside <= 1; beside++) {
+                        onJoints[courseDot(alongB, c, Math.floorMod(joint + beside, side), side)] = true;
+                    }
+                }
+            }
+        }
+        float[] jointLights = new float[side * side];
+        int listed = 0;
+        for (int dot = 0; dot < side * side; dot++) {
+            if (onJoints[dot] && dots[dot * 3] >= 0f) {
+                jointLights[listed++] = light[dot];
+            }
+        }
+        float half = median(jointLights, listed);
+        double[] joint = new double[3];
+        int counted = 0;
+        for (int dot = 0; dot < side * side; dot++) {
+            if (onJoints[dot] && dots[dot * 3] >= 0f && (pale ? light[dot] >= half : light[dot] <= half)) {
+                for (int part = 0; part < 3; part++) {
+                    joint[part] += dots[dot * 3 + part];
+                }
+                counted++;
+            }
+        }
+        Shape shape = new Shape();
+        shape.cellsA = side;
+        shape.cellsB = side;
+        shape.pavers = pavers;
+        shape.paleJoints = pale;
+        shape.jointRed = (float) (joint[0] / counted);
+        shape.jointGreen = (float) (joint[1] / counted);
+        shape.jointBlue = (float) (joint[2] / counted);
+        shape.red = (float) (whole[0] / painted);
+        shape.green = (float) (whole[1] / painted);
+        shape.blue = (float) (whole[2] / painted);
+        shape.uneven = uneven(dots, side, 1, EDGE, null);
+        return shape;
+    }
+
+    /** How far each line's light stands from the median of the lines from near to far either side of it, the square repeating round. */
+    private static void courseStands(float[] profile, int near, int far, float[] out) {
+        int side = profile.length;
+        float[] round = new float[2 * (far - near + 1)];
+        for (int k = 0; k < side; k++) {
+            int held = 0;
+            for (int o = near; o <= far; o++) {
+                round[held++] = profile[Math.floorMod(k - o, side)];
+                round[held++] = profile[(k + o) % side];
+            }
+            out[k] = Math.abs(profile[k] - median(round, held));
+        }
+    }
+
+    /** How many dots the stone that starts at a course's joint i runs along it to the next joint, the course repeating round the square. */
+    private static int stoneRun(int[] joints, int i, int side) {
+        int run = Math.floorMod(joints[(i + 1) % joints.length] - joints[i], side);
+        return run == 0 ? side : run;
+    }
+
+    /** The dot c across the courses and k along them, the courses running along b or along a. */
+    private static int courseDot(boolean alongB, int c, int k, int side) {
+        return alongB ? c * side + k : k * side + c;
     }
 
     /**

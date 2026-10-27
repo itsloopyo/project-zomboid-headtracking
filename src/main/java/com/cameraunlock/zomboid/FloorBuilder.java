@@ -584,13 +584,14 @@ final class FloorBuilder {
         shade(red, green, blue, 1f, 1f, 1f);
         float cellA = 1f / tiles.cellsA, cellB = 1f / tiles.cellsB;
         float[] pavers = tiles.pavers;
+        float sunk = tiles.paleJoints ? 1f : JOINT_DARK;
         for (int at = 0; at < pavers.length; at += 7) {
             float wide = pavers[at + 2] * cellA, deep = pavers[at + 3] * cellB;
             float startA = tiles.firstA + pavers[at] * cellA, startB = tiles.firstB + pavers[at + 1] * cellB;
             startA -= (float) Math.floor(startA);
             startB -= (float) Math.floor(startB);
             SpriteGeometry.Mesh on = WorldScene.solid.get(WorldScene.PLAIN, WallSides.laid(pavers[at + 4], pavers[at + 5], pavers[at + 6],
-                    JOINT_DARK * tiles.jointRed, JOINT_DARK * tiles.jointGreen, JOINT_DARK * tiles.jointBlue, WallSides.TILED));
+                    sunk * tiles.jointRed, sunk * tiles.jointGreen, sunk * tiles.jointBlue, WallSides.TILED));
             geometry.alongA = 1f / wide;
             geometry.acrossB = 1f / deep;
             for (int backA = 0; backA <= 1; backA++) {

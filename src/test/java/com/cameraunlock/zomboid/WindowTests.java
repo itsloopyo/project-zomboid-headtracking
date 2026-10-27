@@ -34,6 +34,7 @@ final class WindowTests {
         Checks.run("chequeredFloorIsItsTiles", WindowTests::chequeredFloorIsItsTiles);
         Checks.run("bricksInBasketweaveArePavers", WindowTests::bricksInBasketweaveArePavers);
         Checks.run("honeycombIsHexagonalPavers", WindowTests::honeycombIsHexagonalPavers);
+        Checks.run("staggeredFlagstonesAreCourses", WindowTests::staggeredFlagstonesAreCourses);
         Checks.run("boardsAreNoTiles", WindowTests::boardsAreNoTiles);
         Checks.run("chipsInAGroundAreSpeckled", WindowTests::chipsInAGroundAreSpeckled);
         Checks.run("diagonalFloorIsItsDiamonds", WindowTests::diagonalFloorIsItsDiamonds);
@@ -656,6 +657,51 @@ final class WindowTests {
             return new float[] {shade, shade, shade};
         }), 64), "nor are stripes on the diagonal");
         check(!Tiles.speckled(floor(64, (x, y) -> new float[] {0.5f, 0.5f, 0.5f}), 64), "nor is a floor of one colour");
+    }
+
+    private static void staggeredFlagstonesAreCourses() {
+        // Two courses a side, running along y, the joints between them at x 20 and 52 dots. Across
+        // the first course, joints at y 10 and 42; across the second, at 26 and 58. Each joint is
+        // a dot of pale mortar with a dot of shadow before it, each stone its own grey, speckled.
+        Tiles.Shape tiles = Tiles.laid(floor(64, (x, y) -> flagstone((int) (x * 64f), (int) (y * 64f), 10, 26)), 64);
+        check(tiles != null && tiles.pavers != null && tiles.cellsA == 64 && tiles.pavers.length == 4 * 7, "staggered flagstones are four stones in courses: "
+                + (tiles == null ? "none" : tiles.pavers == null ? "no pavers" : tiles.pavers.length / 7 + " on " + tiles.cellsA));
+        check(tiles.paleJoints && tiles.jointRed > 0.6f, "their mortar pale: " + tiles.paleJoints + ", " + tiles.jointRed);
+        float[] laidAt = {20.5f, 10.5f, 20.5f, 42.5f, 52.5f, 26.5f, 52.5f, 58.5f};
+        for (int at = 0; at < laidAt.length; at += 2) {
+            boolean seen = false;
+            for (int stone = 0; stone < 4; stone++) {
+                seen |= Math.abs(tiles.pavers[stone * 7] - laidAt[at]) <= 1f && Math.abs(tiles.pavers[stone * 7 + 1] - laidAt[at + 1]) <= 1f
+                        && tiles.pavers[stone * 7 + 2] == 32f && tiles.pavers[stone * 7 + 3] == 32f;
+            }
+            check(seen, "a stone 32 dots square from " + laidAt[at] + ", " + laidAt[at + 1] + ": " + Arrays.toString(tiles.pavers));
+        }
+        // The same stones with the joints of both courses in line are a grid, and nor is a plain speckled floor stones in courses.
+        check(Tiles.courses(floor(64, (x, y) -> flagstone((int) (x * 64f), (int) (y * 64f), 10, 10)), 64) == null, "joints in line are no courses");
+        check(Tiles.courses(floor(64, (x, y) -> {
+            int i = (int) (x * 64f), j = (int) (y * 64f);
+            float shade = 0.4f + ((i * 7 + j * 13) % 5 - 2) * 0.004f;
+            return new float[] {shade, shade, shade};
+        }), 64) == null, "a plain speckled floor is no courses");
+    }
+
+    /**
+     * The colour of dot (i, j) of flagstones in two courses split at i 20 and 52, each stone 32
+     * dots long: the first course's joints across it at first and first + 32, the second's at
+     * second and second + 32.
+     */
+    private static float[] flagstone(int i, int j, int first, int second) {
+        boolean inFirst = i >= 20 && i < 52;
+        int along = Math.floorMod(j - (inFirst ? first : second), 32);
+        if (i == 20 || i == 52 || along == 0) {
+            return new float[] {0.66f, 0.65f, 0.63f};
+        }
+        if (i == 19 || i == 51 || along == 31) {
+            return new float[] {0.3f, 0.29f, 0.28f};
+        }
+        int stone = Math.floorMod(j - (inFirst ? first : second), 64) / 32 + (inFirst ? 0 : 2);
+        float shade = 0.44f + stone * 0.025f + ((i * 7 + j * 13) % 5 - 2) * 0.004f;
+        return new float[] {shade, shade * 0.95f, shade * 0.88f};
     }
 
     private static void honeycombIsHexagonalPavers() {
