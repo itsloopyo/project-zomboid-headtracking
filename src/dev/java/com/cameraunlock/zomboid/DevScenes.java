@@ -64,9 +64,12 @@ final class DevScenes {
                     return DS.faceWall(s, sq, 0.85, 1.3)
                     """),
             new Scene("Curtains", "Stood indoors: E opens and closes them", true, 13f, STREET_X, STREET_Y, """
-                    local c,sq=DS.near(function(o) return instanceof(o,"IsoCurtain") end, 30)
-                    if not c then error("no curtains within 30 tiles") end
-                    return DS.faceEdge(c, sq, 1.0, 1.3)
+                    local c,sq=DS.near(function(o,q)
+                      if not instanceof(o,"IsoCurtain") then return false end
+                      return pcall(DS.faceEdge, o, q, 0.6, 1.3)
+                    end, 30)
+                    if not c then error("no curtains with free floor on their room side within 30 tiles") end
+                    return DS.faceEdge(c, sq, 0.6, 1.3)
                     """),
             new Scene("Fridge", "E opens its loot, double-click the apple to take it", true, 13f, STREET_X, STREET_Y, """
                     local f,sq=DS.near(function(o) return o:getContainerByType("fridge")~=nil end, 30)
@@ -263,8 +266,11 @@ final class DevScenes {
               if instanceof(o,"IsoDoor") or instanceof(o,"IsoWindow") or instanceof(o,"IsoCurtain") then north=o:getNorth() else north=o:getProperties():has(IsoFlagType.HoppableN) end
               if north then ex,ey=sq:getX()+0.5,sq:getY(); a,b={ex,ey+back},{ex,ey-back}
               else ex,ey=sq:getX(),sq:getY()+0.5; a,b={ex+back,ey},{ex-back,ey} end
-              if instanceof(o,"IsoCurtain") and not DS.roomAt(a[1],a[2],z) then a,b=b,a end
-              local s=DS.free(a[1],a[2],z) and a or (DS.free(b[1],b[2],z) and b or nil)
+              local s
+              if instanceof(o,"IsoCurtain") then
+                s=DS.roomAt(a[1],a[2],z) and a or (DS.roomAt(b[1],b[2],z) and b or nil)
+                if s and not DS.free(s[1],s[2],z) then s=nil end
+              else s=DS.free(a[1],a[2],z) and a or (DS.free(b[1],b[2],z) and b or nil) end
               if not s then error("no free floor on either side of it at "..sq:getX()..","..sq:getY()) end
               DS.stand(s[1],s[2],z,ex,ey)
               return ex,ey,h
