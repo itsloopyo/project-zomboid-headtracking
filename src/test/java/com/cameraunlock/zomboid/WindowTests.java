@@ -350,6 +350,17 @@ final class WindowTests {
                 "  ################  ");
         check(near(mirrored.start, 0f) && mirrored.startWide == 0f && mirrored.bars.length == 4 && near(mirrored.bars[0], 0f) && near(mirrored.bars[1], 4f / 16f),
                 "and at a start with no stile, the first bar runs back to it: " + mirrored.start + " " + Arrays.toString(mirrored.bars));
+        Windows.Shape shortOfIt = onSquare(
+                "    #############   ",
+                "    #############   ",
+                "    ##.......##     ",
+                "    ##.......##     ",
+                "    ##.......##     ",
+                "    ##.......##     ",
+                "    #############   ",
+                "    #############   ");
+        check(near(shortOfIt.end, 1f) && shortOfIt.bars.length == 4 && near(shortOfIt.bars[0], 11f / 16f) && near(shortOfIt.bars[1], 1f),
+                "and painted a dot short of its square, the bar is carried to the square's end with it: " + shortOfIt.end + " " + Arrays.toString(shortOfIt.bars));
     }
 
     /** The second half is painted from a dot before its square: the part over the first half's square is the first half's. */
