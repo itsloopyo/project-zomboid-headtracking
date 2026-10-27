@@ -31,7 +31,9 @@ final class Flowerbeds {
     /** A bush looks this many dots either way round its foot for what it grows out of, and for leaves and blooms to take its colours from. */
     static final int LOOK = 5;
     /** A bush is never shorter or taller than these, in tiles. */
-    private static final float LOWEST = 0.28f, TALLEST = 0.42f;
+    private static final float LOWEST = 0.32f, TALLEST = 0.5f;
+    /** How far out from its foot a bush reaches, in tiles: it stands this far back from a wall, or its canes lean through it. */
+    static final float SPREAD = 0.2f;
     /** How far through spring the first and the last bush come into flower, by Seasons.stepped's spring, which goes no further than 0.7. */
     private static final float FLOWERS_EARLIEST = 0.4f, FLOWERS_LATEST = 0.7f;
     /** How far through autumn the first and the last bush have finished flowering. */
@@ -222,29 +224,29 @@ final class Flowerbeds {
         float leafU = dotU(bed, frame, leaf), leafV = dotV(bed, frame, leaf);
         float high = LOWEST + (TALLEST - LOWEST) * Flora.unit(more, 0);
         float turn = Flora.unit(more, 24) * 6.2831853f;
-        int stems = 2 + (more >>> 5 & 1);
+        int stems = 3 + (more >>> 5 & 1);
         for (int stem = 0; stem < stems; stem++) {
             int own = Flora.mix(more, stem, 43);
             float way = turn + stem * 6.2831853f / stems + 0.6f * Flora.unit(own, 0);
             float dirX = Grass.cos(way), dirY = Grass.sin(way);
             float tall = high * (0.75f + 0.25f * Flora.unit(own, 4));
             geometry.plant(frame, x, y, a, b, leafU, leafV);
-            geometry.addStrip(mesh, frame, dirX, dirY, 0f, 0f, 0.12f + 0.3f * Flora.unit(own, 8), 0.1f * Flora.unit(own, 12), tall, 0.012f * broadens, 0f,
+            geometry.addStrip(mesh, frame, dirX, dirY, 0f, 0f, 0.15f + 0.35f * Flora.unit(own, 8), 0.1f * Flora.unit(own, 12), tall, 0.014f * broadens, 0f,
                     Math.min(steps, 2), SpriteGeometry.EVEN, Grass.BLADE + Grass.CROP, Flora.unit(own, 20), 0.8f);
             float topAlong = geometry.endAlong, topUp = geometry.endUp, topLean = geometry.endLean;
-            int leaves = steps > 1 ? 5 : 2;
+            int leaves = steps > 1 ? 8 : 3;
             for (int each = 0; each < leaves; each++) {
                 int one = Flora.mix(own, each, 47);
                 if (Flora.unit(one, 24) >= leafOn) {
                     continue;
                 }
-                float share = 0.3f + 0.65f * (each + Flora.unit(one, 0)) / leaves;
-                float side = way + ((each & 1) == 0 ? 1.4f : -1.4f) + 0.7f * (Flora.unit(one, 4) - 0.5f);
+                float share = 0.2f + 0.75f * (each + Flora.unit(one, 0)) / leaves;
+                float side = way + each * 2.39996f + 0.5f * (Flora.unit(one, 4) - 0.5f);
                 // A leaf grows from the stem where the stem has got to by then: it leans little, so that is its share of the way out.
                 float out = topAlong * share;
                 geometry.plant(frame, x, y, a + dirX * out, b + dirY * out, leafU, leafV);
-                geometry.addStrip(mesh, frame, Grass.cos(side), Grass.sin(side), 0f, topUp * share, 1.0f + 0.4f * Flora.unit(one, 8), 0.5f,
-                        0.08f + 0.04f * Flora.unit(one, 12), 0.05f * Math.min(broadens, 2f), 0.5f * (Flora.unit(one, 16) - 0.5f), Math.min(steps, 2),
+                geometry.addStrip(mesh, frame, Grass.cos(side), Grass.sin(side), 0f, topUp * share, 0.9f + 0.5f * Flora.unit(one, 8), 0.5f,
+                        0.1f + 0.06f * Flora.unit(one, 12), 0.07f * Math.min(broadens, 2f), 0.5f * (Flora.unit(one, 16) - 0.5f), Math.min(steps, 2),
                         SpriteGeometry.POINTED, Grass.BROAD + Grass.CROP, Flora.unit(one, 20), 0.8f);
             }
             if (!flowering) {
@@ -253,7 +255,7 @@ final class Flowerbeds {
             // The flower: one of the blooms near the bush, on the stem's top, faced up and out the way the stem leans.
             int flower = Flora.unit(own, 28) < 0.5f ? bloom : nearOr(bed, bloom, own);
             geometry.plant(frame, x, y, a + dirX * topAlong, b + dirY * topAlong, dotU(bed, frame, flower), dotV(bed, frame, flower));
-            float size = (0.075f + 0.035f * Flora.unit(own, 16)) * Math.min(broadens, 1.6f);
+            float size = (0.1f + 0.05f * Flora.unit(own, 16)) * Math.min(broadens, 1.6f);
             geometry.addStrip(mesh, frame, dirX, dirY, -0.4f * size, topUp - 0.25f * size, Math.max(topLean, 0f) + 0.9f + 0.45f * Flora.unit(own, 24), 0f,
                     size, size, 0f, 1, SpriteGeometry.EVEN, Grass.BLOOM, Flora.unit(own, 14), 0.8f);
         }

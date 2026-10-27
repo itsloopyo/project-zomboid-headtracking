@@ -158,13 +158,21 @@ final class FlowerbedTests {
         SpriteGeometry.Mesh mesh = grown(halfStones(), 3f);
         check(mesh.floats > 0, "roses grow");
         float highest = 0f;
+        int canes = 0;
         for (int at = 0; at < mesh.floats; at += F) {
             float[] v = mesh.vertices;
             float rootX = v[at] + v[at + 12], rootY = v[at + 1] + v[at + 13];
-            check(rootX > 30.3f && rootX < 31.15f && rootY > 39.85f && rootY < 41.15f, "every bush stands on the roses of its square, not the stones: " + rootX + ", " + rootY);
+            check(rootX > 30f - Flowerbeds.SPREAD && rootX < 31f + Flowerbeds.SPREAD && rootY > 40f - Flowerbeds.SPREAD && rootY < 41f + Flowerbeds.SPREAD,
+                    "every leaf and flower is on a bush of its square: " + rootX + ", " + rootY);
+            // A cane's foot is its bush's.
+            if (v[at + 10] == 2f * (Grass.BLADE + Grass.CROP)) {
+                check(rootX > 30.4f, "every bush stands on the roses of its square, not the stones: " + rootX + ", " + rootY);
+                canes++;
+            }
             highest = Math.max(highest, v[at + 2]);
         }
-        check(highest > 0.25f && highest < 0.6f, "knee high, over the lawn: " + highest);
+        check(canes > 0, "the bushes have canes");
+        check(highest > 0.3f && highest < 0.7f, "knee high, over the lawn: " + highest);
     }
 
     private static void leavesAndFlowersTakeTheirColoursFromLeavesAndBlooms() {
