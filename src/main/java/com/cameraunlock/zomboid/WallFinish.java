@@ -45,8 +45,15 @@ import zombie.iso.sprite.IsoSpriteManager;
  * walls are built and knocked down.
  */
 final class WallFinish {
-    /** How many frames a level's finishes are kept for, and for how many when part of the building was not loaded. */
-    private static final int KEPT = 600, RETRIED = 30;
+    /** How many frames a level's finishes are kept for. */
+    private static final int KEPT = 600;
+    /**
+     * How long a level read while part of the building was not loaded is kept before it is read
+     * again, in nanoseconds. A time and not a count of frames: at three frames a second, as a rig
+     * copy ran beside four others, thirty frames was ten seconds, and a brick block's west face
+     * stood that long painted in the wallpaper of each room behind it.
+     */
+    private static final long RETRY_NANOS = 500_000_000L;
     /** A building wider than this, in squares, is not read: nothing that size has one finish. */
     private static final int WIDEST = 200;
     private static final int LEVELS = 64;
@@ -54,6 +61,8 @@ final class WallFinish {
 
     private static final class Level {
         int stamp;
+        /** System.nanoTime when the level was read. */
+        long readAt;
         boolean whole = true;
         /** Whether tend has the level in its list. */
         boolean listed;
@@ -113,16 +122,19 @@ final class WallFinish {
     /**
      * Logic thread, once a frame while the game tells which chunks it changes (ChunkMarks).
      * A level's finishes are otherwise read again every so many frames by whichever wall next
-     * asks, and a chunk nothing has been said of asks for nothing. So a few levels a frame
-     * are looked at here in turn: one whose building's chunks the game has marked for an
-     * object since it was read is read again, and so is one read while part of the building
-     * was not loaded, once the map has loaded more. Where it comes out otherwise the chunks
-     * the building stands on are told. One neither due nor waiting to be is kept as fresh as
-     * if it had been read.
+     * asks, and a chunk nothing has been said of asks for nothing. So every level is looked at
+     * here each frame, and a few a frame are read again, in turn: one whose building's chunks
+     * the game has marked for an object since it was read, and one read while part of the
+     * building was not loaded, once the map has loaded more. Where it comes out otherwise the
+     * chunks the building stands on are told. One neither due nor waiting to be is kept as
+     * fresh as if it had been read. Looking at only a few a frame, a level came round once in
+     * thirty frames or more in a town, which at a few frames a second was many seconds.
      */
     static void tend(IsoCell cell, int frame, int loaded) {
         loadedNow = loaded;
-        for (int n = 0; n < TENDED_A_FRAME && !tendedLevels.isEmpty(); n++) {
+        long now = System.nanoTime();
+        int reads = 0;
+        for (int looked = 0, lap = tendedLevels.size(); looked < lap && reads < TENDED_A_FRAME && !tendedLevels.isEmpty(); looked++) {
             if (tended >= tendedLevels.size()) {
                 tended = 0;
             }
@@ -136,15 +148,16 @@ final class WallFinish {
             }
             tended++;
             BuildingDef def = building.getDef();
-            // One read while part of the building was not loaded waits out its frames from when it was read, however often it comes round here.
+            // One read while part of the building was not loaded waits out RETRY_NANOS from when it was read.
             boolean waits = !level.whole && level.loaded != loaded;
-            boolean due = level.whole ? structuresOn(def, one.z) != level.structures : waits && frame - level.stamp >= RETRIED;
+            boolean due = level.whole ? structuresOn(def, one.z) != level.structures : waits && now - level.readAt >= RETRY_NANOS;
             if (!due) {
                 if (!waits) {
                     level.stamp = frame;
                 }
                 continue;
             }
+            reads++;
             Level fresh = read(cell, building, one.z);
             fresh.listed = true;
             fresh.stamp = frame;
@@ -265,7 +278,7 @@ final class WallFinish {
         Level level = levels[slot];
         // With the game telling, a level is read again by tend alone, which tells every chunk the building stands on
         // when it comes out otherwise: a reading made here is for the one wall that asked.
-        if (level == null || !ChunkMarks.live && frame - level.stamp >= (level.whole ? KEPT : RETRIED)) {
+        if (level == null || !ChunkMarks.live && (level.whole ? frame - level.stamp >= KEPT : System.nanoTime() - level.readAt >= RETRY_NANOS)) {
             boolean listed = level != null && level.listed;
             level = read(cell, building, z);
             level.stamp = frame;
@@ -290,6 +303,7 @@ final class WallFinish {
         BuildingDef def = building.getDef();
         level.structures = structuresOn(def, z);
         level.loaded = loadedNow;
+        level.readAt = System.nanoTime();
         if (def.getW() > WIDEST || def.getH() > WIDEST) {
             return level;
         }
