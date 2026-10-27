@@ -137,13 +137,18 @@ public final class CoreTests {
     private record Ran(int exit, String output) {}
 
     private static Ran run(Path directory, List<String> command) throws IOException, InterruptedException {
-        Process process = new ProcessBuilder(command).directory(directory.toFile()).redirectErrorStream(true).start();
-        String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-        if (!process.waitFor(60, TimeUnit.SECONDS)) {
-            process.destroyForcibly();
-            throw new IOException("did not finish: " + command);
+        // The output goes to a file: read from the pipe, it would hold the wait until the process ended, and one that never does would hang the suite.
+        Path out = Files.createTempFile("coretests", ".out");
+        try {
+            Process process = new ProcessBuilder(command).directory(directory.toFile()).redirectErrorStream(true).redirectOutput(out.toFile()).start();
+            if (!process.waitFor(60, TimeUnit.SECONDS)) {
+                process.destroyForcibly().waitFor();
+                throw new IOException("did not finish: " + command + ", having written: " + Files.readString(out));
+            }
+            return new Ran(process.exitValue(), Files.readString(out));
+        } finally {
+            Files.deleteIfExists(out);
         }
-        return new Ran(process.exitValue(), output);
     }
 
     /** The game started again on the scratch folder's file: another process, as a start is. */
