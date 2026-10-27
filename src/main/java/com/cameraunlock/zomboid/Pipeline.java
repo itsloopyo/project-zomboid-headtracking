@@ -1341,6 +1341,10 @@ final class Pipeline {
             stage(STAGE_WORLD);
             if (figures && bodiesLie()) {
                 drawBodies(camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
+            } else if (Corpses.any()) {
+                // Only a draw of the corpses lets go of those kept: with none drawn as models any more, the
+                // game's skins they hold would otherwise stay on the card until the save is left.
+                Corpses.sweep(System.nanoTime());
             }
             if (!overhead && state.outlined != null) {
                 copyDepth(sceneTarget, outlineTarget);
