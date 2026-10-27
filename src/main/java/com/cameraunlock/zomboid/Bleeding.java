@@ -132,6 +132,18 @@ final class Bleeding {
         }
     }
 
+    /**
+     * The save has been left: its trail and where its zombies last dropped blood are forgotten,
+     * and the next save's trail ages from its own world age, which may be younger than this one's.
+     */
+    static void forget() {
+        synchronized (trail) {
+            trail.clear();
+            aged = 0;
+        }
+        lastDrop.clear();
+    }
+
     /** Called as the game makes a new zombie of one that left the world: its trail starts again. */
     static void reused(IsoZombie zombie) {
         lastDrop.remove(zombie);

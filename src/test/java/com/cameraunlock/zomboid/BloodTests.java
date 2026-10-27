@@ -17,6 +17,19 @@ final class BloodTests {
         Checks.run("bloodCoversAsTheGamesDoesFreshAndDry", BloodTests::bloodCoversAsTheGamesDoesFreshAndDry);
         Checks.run("eachSplatIsAShadeOfItsOwnAndDarkensAsItDries", BloodTests::eachSplatIsAShadeOfItsOwnAndDarkensAsItDries);
         Checks.run("aShadeThatIsNoNumberIsNone", BloodTests::aShadeThatIsNoNumberIsNone);
+        Checks.run("aTrailAgesInTheNextSaveThoughItsWorldIsYounger", BloodTests::aTrailAgesInTheNextSaveThoughItsWorldIsYounger);
+    }
+
+    /**
+     * A save left at 500 game hours and one loaded at 100: the trail is aged once the world has
+     * moved on a minute from when it last was, so what the last save left has to go with it.
+     */
+    private static void aTrailAgesInTheNextSaveThoughItsWorldIsYounger() throws ReflectiveOperationException {
+        java.lang.reflect.Field aged = Bleeding.class.getDeclaredField("aged");
+        aged.setAccessible(true);
+        aged.setDouble(null, 500.0);
+        Bleeding.forget();
+        check(100.0 - aged.getDouble(null) >= 1.0 / 60.0, "the trail of a save loaded at 100 hours is aged after one left at 500: last aged at " + aged.getDouble(null));
     }
 
     private static void check(boolean condition, String what) {

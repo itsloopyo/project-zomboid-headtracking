@@ -239,6 +239,7 @@ public final class Hooks {
         Fires.forget();
         Pieces.forget();
         Corpses.forget();
+        Bleeding.forget();
         LimbDecals.forget();
         SharedHeads.forget();
         Rewind.forget();
