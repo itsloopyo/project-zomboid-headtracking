@@ -6504,10 +6504,10 @@ final class Pipeline {
         return pieces;
     }
 
-    /** "Preparing shaders 12 / 44" while the shader programs are being made, or null. */
+    /** "Compiling shaders 12 / 44" while the shader programs are being made, or null. */
     static String shaderProgress() {
         int made = shadersMade;
-        return made < 0 || made >= SHADERS.size() || broken != null ? null : "Preparing shaders " + made + " / " + SHADERS.size();
+        return made < 0 || made >= SHADERS.size() || broken != null ? null : "Compiling shaders " + made + " / " + SHADERS.size();
     }
 
     private static String makeNoise() {

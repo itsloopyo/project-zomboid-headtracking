@@ -208,18 +208,44 @@ public final class Hooks {
      */
     private static final List<Supplier<String>> LOADING_LINES = List.of(Pipeline::shaderProgress, FarLand::loadingProgress, FineSkins::progress);
 
-    /** Called from GameLoadingState.render after the game's quick tip: says how far what the save's start waits for has come, while it goes on. */
+    /** Which of LOADING_LINES is on the screen, -1 for none, with its last words and how far it has faded in, 0 to 1. */
+    private static int lineShown = -1;
+    private static String lineSaid;
+    private static float lineFaded;
+    private static long lineDrawnAt;
+    private static final float LINE_FADE_SECONDS = 0.4f;
+
+    /**
+     * Called from GameLoadingState.render after the game's quick tip: says how far what the save's start waits for has come, while it
+     * goes on. A line fades in, and fades out when it is done before the next one fades in.
+     */
     public static void loadingText() {
-        for (Supplier<String> line : LOADING_LINES) {
-            String progress = line.get();
-            if (progress != null) {
-                zombie.core.Core screen = zombie.core.Core.getInstance();
-                // Where and as the game writes "Click to Start", which clickToStartShown holds back meanwhile.
-                double y = screen.getScreenHeight() - 40 - TextManager.instance.getFontHeight(UIFont.NewSmall) - 5;
-                TextManager.instance.DrawStringCentre(UIFont.NewLarge, screen.getScreenWidth() / 2.0, y, progress, 1.0, 1.0, 1.0, 1.0);
-                return;
+        int going = -1;
+        String progress = null;
+        for (int i = 0; i < LOADING_LINES.size() && going < 0; i++) {
+            progress = LOADING_LINES.get(i).get();
+            going = progress != null ? i : -1;
+        }
+        long now = System.nanoTime();
+        float step = lineDrawnAt == 0 ? 0f : Math.min((now - lineDrawnAt) / 1e9f, 0.1f) / LINE_FADE_SECONDS;
+        lineDrawnAt = now;
+        if (going == lineShown && going >= 0) {
+            lineSaid = progress;
+            lineFaded = Math.min(1f, lineFaded + step);
+        } else {
+            lineFaded = Math.max(0f, lineFaded - step);
+            if (lineFaded == 0f) {
+                lineShown = going;
+                lineSaid = progress;
             }
         }
+        if (lineShown < 0 || lineFaded == 0f) {
+            return;
+        }
+        zombie.core.Core screen = zombie.core.Core.getInstance();
+        // Where and as the game writes "Click to Start", which clickToStartShown holds back meanwhile.
+        double y = screen.getScreenHeight() - 40 - TextManager.instance.getFontHeight(UIFont.NewSmall) - 5;
+        TextManager.instance.DrawStringCentre(UIFont.NewMedium, screen.getScreenWidth() / 2.0, y, lineSaid, 1.0, 1.0, 1.0, lineFaded);
     }
 
     /** Called as the game begins to leave a save for its menu, or to quit, before it saves. */
@@ -232,6 +258,9 @@ public final class Hooks {
     public static void leftSave(Object state) {
         Tracking.leftSave();
         mapReadAt = 0;
+        lineShown = -1;
+        lineFaded = 0f;
+        lineDrawnAt = 0;
         FarLand.loadingAfresh();
         FineSkins.leftSave();
         Impacts.forget();

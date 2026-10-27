@@ -528,7 +528,7 @@ final class FarLand {
                     Log.info("far land: the save is not begun until the land round the players is on the graphics card");
                 }
                 loadingSaid = least;
-                loadingLine = "Preparing the land around you " + least + " / " + ROUND;
+                loadingLine = "Preparing terrain " + least + " / " + ROUND;
             }
             return true;
         }
