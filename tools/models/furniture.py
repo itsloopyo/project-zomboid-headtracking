@@ -3132,8 +3132,8 @@ def hood(name, plus, minus):
         body.faces.new([lower[key] for key in reversed(face)])
     for a, b in zip(ring, ring[1:] + ring[:1]):
         body.faces.new((upper[a], upper[b], lower[b], lower[a]))
-    # The deck and the board are near black, as the joints between the shingles of every roof sheet's sprite are, and
-    # show between the shingles, which are the colour of the sprite's.
+    # The deck and the board are near black, as the joints between the shingles of a hood's sprite are, and show
+    # between the shingles, which are the colour of the sprite's.
     model.plain(body, "rubber")
 
     board = bmesh.new()
@@ -3146,7 +3146,7 @@ def hood(name, plus, minus):
 
     # Two courses of shingles on the deck, four to a metre as the game's sprite of the eave lays them, each shingle's
     # lower edge standing proud of the course below it, with the deck showing in the joints between them. Past an end
-    # of the wall the hip cuts the last shingle of each course along its slope.
+    # of the wall the hip cuts the last shingle of each course along the line where it meets the deck.
     courses = bmesh.new()
     rows, across, joint, proud = 2, 4, 0.035, 0.01
     x_plus = lambda share: 0.5 + (reach * share if plus else 0.0)
@@ -3155,28 +3155,39 @@ def hood(name, plus, minus):
     def at(share):
         return wall_y - reach * share, low + (top - low) * (1.0 - share)
 
-    def shingle(low_edge, high_edge, y0, z0, y1, z1):
-        """A shingle between the x of its lower edge and of its upper one, each a pair, the upper one None where it comes to a point."""
-        face = [(low_edge[0], y0, z0 + proud), (low_edge[1], y0, z0 + proud)]
-        face += [(high_edge[1], y1, z1 + 0.002), (high_edge[0], y1, z1 + 0.002)] if high_edge else [((low_edge[0] + low_edge[1]) / 2, y1, z1 + 0.002)]
-        upper_shingle = [courses.verts.new(p) for p in face]
-        lower_shingle = [courses.verts.new((x, y, z - 0.002 - (proud if i < 2 else 0.0))) for i, (x, y, z) in enumerate(face)]
+    def shingle(face):
+        """A shingle on these corners of the deck's face, the first two its lower edge, which stands proud."""
+        upper_shingle = [courses.verts.new((x, y, z + (proud if i < 2 else 0.002))) for i, (x, y, z) in enumerate(face)]
+        lower_shingle = [courses.verts.new((x, y, z - 0.002)) for x, y, z in face]
         courses.faces.new(upper_shingle)
         courses.faces.new(lower_shingle[::-1])
         for i in range(len(face)):
             j = (i + 1) % len(face)
             courses.faces.new((upper_shingle[i], upper_shingle[j], lower_shingle[j], lower_shingle[i]))
 
+    def across_course(low_edge, high_edge, y0, z0, y1, z1, point=None):
+        """A shingle between the x of its lower edge and of its upper one, each a pair lowest first, the upper one None
+        where the hip, which comes in to the wall's end at the top, leaves it a point at the x point."""
+        face = [(low_edge[0], y0, z0), (low_edge[1], y0, z0)]
+        face += [(high_edge[1], y1, z1), (high_edge[0], y1, z1)] if high_edge else [(point, y1, z1)]
+        shingle(face)
+
     for row in range(rows):
         s0, s1 = 1.0 - row / rows, 1.0 - (row + 1) / rows
         (y0, z0), (y1, z1) = at(s0), at(s1)
         cuts = [-0.5 + k / across for k in range(across + 1)]
         for xa, xb in zip(cuts, cuts[1:]):
-            shingle((xa + joint / 2, xb - joint / 2), (xa + joint / 2, xb - joint / 2), y0, z0, y1, z1)
+            across_course((xa + joint / 2, xb - joint / 2), (xa + joint / 2, xb - joint / 2), y0, z0, y1, z1)
         if plus:
-            shingle((0.5 + joint / 2, x_plus(s0)), (0.5 + joint / 2, x_plus(s1)) if x_plus(s1) > 0.5 + joint else None, y0, z0, y1, z1)
+            across_course((0.5 + joint / 2, x_plus(s0)), (0.5 + joint / 2, x_plus(s1)) if x_plus(s1) > 0.5 + joint else None, y0, z0, y1, z1, 0.5 + joint / 2)
         if minus:
-            shingle((x_minus(s0), -0.5 - joint / 2), (x_minus(s1), -0.5 - joint / 2) if x_minus(s1) < -0.5 - joint else None, y0, z0, y1, z1)
+            across_course((x_minus(s0), -0.5 - joint / 2), (x_minus(s1), -0.5 - joint / 2) if x_minus(s1) < -0.5 - joint else None, y0, z0, y1, z1, -0.5 - joint / 2)
+    # A hip's own slope is shingled in one sheet, from its foot at the end of the hood up to the top of the wall's end.
+    corners = deck(0.0)
+    if plus:
+        shingle([corners["foot_plus"], corners["front_plus"], corners["top_plus"]])
+    if minus:
+        shingle([corners["front_minus"], corners["foot_minus"], corners["top_minus"]])
     model.plain(courses, "paint")
     return model
 
