@@ -30,6 +30,7 @@ final class ShapeTests {
         Checks.run("postWithBracesHasAnArmEachWay", ShapeTests::postWithBracesHasAnArmEachWay);
         Checks.run("spireAndCrateAreNoPosts", ShapeTests::spireAndCrateAreNoPosts);
         Checks.run("postIsASolidRoundItsAxisAndItsFarSideMirrorsItsNear", ShapeTests::postIsASolidRoundItsAxisAndItsFarSideMirrorsItsNear);
+        Checks.run("aLowerLengthMeetsTheModelOnItAtALevelAndItsThickness", ShapeTests::aLowerLengthMeetsTheModelOnItAtALevelAndItsThickness);
         Checks.run("strutIsABoxAlongItsLine", ShapeTests::strutIsABoxAlongItsLine);
         Checks.run("headOfAPostIsTheCardAboveItsShaft", ShapeTests::headOfAPostIsTheCardAboveItsShaft);
         Checks.run("pipeWithABendAtItsFootIsAPostFromTheBendUp", ShapeTests::pipeWithABendAtItsFootIsAPostFromTheBendUp);
@@ -208,6 +209,21 @@ final class ShapeTests {
         }
         // The far rim of the base shows over its top, so its outline narrows to the shaft over a little more height than the base has.
         check(baseEnds >= 0.06f && baseEnds <= 0.2f, "the base is about as high as it is drawn: " + baseEnds);
+    }
+
+    private static void aLowerLengthMeetsTheModelOnItAtALevelAndItsThickness() {
+        SpriteGeometry.Frame frame = frame();
+        Posts post = Posts.read(turned(frame, 0.45f, 0.5f, 1.06f, h -> h < 0.08 ? 0.5 : 0.36), frame, false);
+        check(post != null && post.top() > 1.02f, "a column a little over a level high is read: " + (post == null ? 0f : post.top()));
+        if (post == null) {
+            return;
+        }
+        Posts lower = post.meeting(0.18f);
+        int last = lower.heights.length - 1;
+        check(lower.heights[last] == 1f && near(lower.halves[last], 0.18f, 1e-5f), "it ends a level up, as thick as the model's foot: " + lower.heights[last] + ", " + lower.halves[last]);
+        check(near(lower.halves[0] / lower.halves[last], post.halves[0] / 0.36f, 0.08f) && near(lower.half, post.half * lower.halves[last] / 0.36f, 0.02f),
+                "and its base is scaled with it: " + lower.halves[0] + ", " + lower.half);
+        check(near(lower.a, post.a, 0f) && lower.kind == post.kind, "on the same axis, the same shape");
     }
 
     private static void postWithBracesHasAnArmEachWay() {

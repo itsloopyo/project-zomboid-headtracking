@@ -510,6 +510,20 @@ final class OutdoorTests {
             Checks.check(head != null && head.centreX == Furniture.SIGNAL_POST_A && head.centreY == Furniture.SIGNAL_POST_B,
                     "lighting_outdoor_01_" + place + " stands on the axis of the post under it");
         }
+        String[] uppers = {"5 acorn_head", "6 twin_acorn_head", "7 twin_acorn_head", "8 cobra_head", "9 cobra_head", "10 cobra_head", "11 cobra_head",
+                "12 traffic_light", "15 traffic_light", "18 twin_head", "19 twin_head", "20 traffic_light_r", "23 traffic_light_r"};
+        float[] shafts = {Furniture.ACORN_SHAFT, Furniture.ACORN_SHAFT, Furniture.ACORN_SHAFT, Furniture.COBRA_SHAFT, Furniture.COBRA_SHAFT, Furniture.COBRA_SHAFT,
+                Furniture.COBRA_SHAFT, Furniture.SIGNAL_SHAFT, Furniture.SIGNAL_SHAFT, Furniture.TWIN_SHAFT, Furniture.TWIN_SHAFT, Furniture.SIGNAL_SHAFT, Furniture.SIGNAL_SHAFT};
+        for (int i = 0; i < uppers.length; i++) {
+            String[] upper = uppers[i].split(" ");
+            Furniture head = Furniture.known(TileRows.sprite("lighting_outdoor_01_" + upper[0]));
+            Checks.check(head != null && head.model.name.equals(upper[1]) && head.postFoot == shafts[i],
+                    "lighting_outdoor_01_" + upper[0] + " is an upper length the post under it is stood to meet");
+        }
+        for (int place : new int[] {0, 1, 2, 3}) {
+            Furniture whole = Furniture.known(TileRows.sprite("lighting_outdoor_01_" + place));
+            Checks.check(whole != null && whole.postFoot == 0f, "lighting_outdoor_01_" + place + " is a whole lamp, no upper length");
+        }
     }
 
         private static void aChimneysPotsStandOnItsCapInTheRowTheirSpriteShows() {

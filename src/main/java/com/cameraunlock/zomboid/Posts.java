@@ -86,6 +86,29 @@ final class Posts {
         return heights[heights.length - 1];
     }
 
+    /**
+     * This length as the lower one under an upper length that is a model: a level tall, so
+     * that it ends where the model's shaft starts, and every radius scaled in step so that
+     * its top is foot tiles in radius, as thick as that shaft's foot.
+     */
+    Posts meeting(float foot) {
+        int stations = 1;
+        while (stations < heights.length && heights[stations - 1] < 1f) {
+            stations++;
+        }
+        float[] cutHeights = Arrays.copyOf(heights, stations), cutHalves = Arrays.copyOf(halves, stations);
+        if (cutHeights[stations - 1] > 1f) {
+            float from = cutHeights[stations - 2], to = cutHeights[stations - 1];
+            cutHalves[stations - 1] = cutHalves[stations - 2] + (cutHalves[stations - 1] - cutHalves[stations - 2]) * (1f - from) / (to - from);
+        }
+        cutHeights[stations - 1] = 1f;
+        float by = foot / cutHalves[stations - 1];
+        for (int i = 0; i < stations; i++) {
+            cutHalves[i] *= by;
+        }
+        return new Posts(kind, a, b, cutHeights, cutHalves, half * by, arms, armsFrom, headed, shaftShare, footShare);
+    }
+
     /** Reads a sprite as a post, or null for one that is none. knownRound is for a thing the game says is a trunk: a pole's foot is drawn to a point. */
     static Posts read(SpriteShape.Painted painted, SpriteGeometry.Frame frame, boolean knownRound) {
         int left = Math.round(frame.left), top = Math.round(frame.top), width = Math.round(frame.width), height = Math.round(frame.height);

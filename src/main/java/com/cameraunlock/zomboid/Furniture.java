@@ -75,6 +75,12 @@ final class Furniture {
     float scale = TILES_PER_METRE, scaleUp = TILES_PER_METRE, raised;
     /** Where the model's origin is from the corner of the piece's first square. */
     float centreX, centreY;
+    /**
+     * For the upper length of a post the game draws in two sprites, one a level over the other,
+     * the radius of the model's shaft at its foot, in metres: the length under it, which Posts
+     * reads off its sprite, stands on this model's axis and as thick as this at its top. 0 for all else.
+     */
+    float postFoot;
     /** For what hangs on a wall, which wall of its square: it is stood by addHung, where its sprite paints it, or with its foot at raised where that is set. NONE for all else. */
     int wall = WallHung.NONE;
     /** Whether what its frame holds is the picture its sprite paints, and not a mirror's glass. */
@@ -1056,14 +1062,15 @@ final class Furniture {
             case 0, 2 -> new Furniture(sprite, "cone_lamp", 0).dye(1 << Models.PAINT, COLLAR_DYE);
             case 1 -> new Furniture(sprite, "globe_lamp", 0).dye(1 << Models.PAINT, POST_DYE);
             case 3 -> new Furniture(sprite, "lantern_lamp", 0).dye(1 << Models.PAINT, POST_DYE);
-            case 5, 6, 7 -> onPost(new Furniture(sprite, which == 5 ? "acorn_head" : "twin_acorn_head", which == 7 ? 1 : 0).dye(1 << Models.PAINT, UPPER_POST_DYE));
-            case 8, 9, 10, 11 -> new Furniture(sprite, "cobra_head", which - 8).dye(1 << Models.PAINT, UPPER_POST_DYE);
-            case 18, 19 -> new Furniture(sprite, "twin_head", which - 18).dye(1 << Models.PAINT, UPPER_POST_DYE);
+            case 5, 6, 7 -> upper(onPost(new Furniture(sprite, which == 5 ? "acorn_head" : "twin_acorn_head", which == 7 ? 1 : 0).dye(1 << Models.PAINT, UPPER_POST_DYE)),
+                    ACORN_SHAFT);
+            case 8, 9, 10, 11 -> upper(new Furniture(sprite, "cobra_head", which - 8).dye(1 << Models.PAINT, UPPER_POST_DYE), COBRA_SHAFT);
+            case 18, 19 -> upper(new Furniture(sprite, "twin_head", which - 18).dye(1 << Models.PAINT, UPPER_POST_DYE), TWIN_SHAFT);
             // A traffic signal's head on the upper length of its post, its arm out west, south, east and north in that order on
             // the sheet, its lights a quarter turn on from its arm.
-            case 12, 13, 14, 15 -> onSignalPost(new Furniture(sprite, "traffic_light", new int[] {2, 1, 0, 3}[which - 12]));
+            case 12, 13, 14, 15 -> upper(onSignalPost(new Furniture(sprite, "traffic_light", new int[] {2, 1, 0, 3}[which - 12])), SIGNAL_SHAFT);
             // The same heads with their lights a quarter turn the other way from their arm.
-            case 20, 21, 22, 23 -> onSignalPost(new Furniture(sprite, "traffic_light_r", new int[] {0, 3, 2, 1}[which - 20]));
+            case 20, 21, 22, 23 -> upper(onSignalPost(new Furniture(sprite, "traffic_light_r", new int[] {0, 3, 2, 1}[which - 20])), SIGNAL_SHAFT);
             default -> null;
         };
     }
@@ -1081,6 +1088,14 @@ final class Furniture {
     private static Furniture onSignalPost(Furniture head) {
         head.centreX = SIGNAL_POST_A;
         head.centreY = SIGNAL_POST_B;
+        return head;
+    }
+
+    /** The radius of each upper length's shaft at its foot, in metres, as furniture.py turns it. */
+    static final float ACORN_SHAFT = 0.066f, COBRA_SHAFT = 0.05f, TWIN_SHAFT = 0.045f, SIGNAL_SHAFT = 0.075f;
+
+    private static Furniture upper(Furniture head, float shaft) {
+        head.postFoot = shaft;
         return head;
     }
 

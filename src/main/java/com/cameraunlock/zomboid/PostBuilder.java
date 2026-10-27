@@ -91,6 +91,23 @@ final class PostBuilder {
         return post == NO_POST ? null : (Posts) post;
     }
 
+    /** The model of the upper length of a post on a square, which a lower length is stood to meet, or null. */
+    private Furniture upperLengthOn(int x, int y, int z) {
+        IsoGridSquare square = Own.furniture() ? build.cell.getGridSquare(x, y, z) : null;
+        if (square == null) {
+            return null;
+        }
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoSprite sprite = objects.get(i).getSprite();
+            Furniture piece = sprite == null ? null : Furniture.known(sprite);
+            if (piece != null && piece.postFoot > 0f) {
+                return piece;
+            }
+        }
+        return null;
+    }
+
     /** The length of post on a square whose axis is within SAME_POST of (a, b), or null. */
     private Posts postAt(int x, int y, int z, float a, float b) {
         IsoGridSquare square = build.cell.getGridSquare(x, y, z);
@@ -137,6 +154,14 @@ final class PostBuilder {
             }
             a = below.a;
             b = below.b;
+        }
+        // Read each off its own sprite, a lower length and the model of the upper one on it met
+        // a hand to one side and a step thinner or thicker: the lower length is stood to the model.
+        Furniture upper = upperLengthOn(x, y, z + 1);
+        if (upper != null) {
+            a = upper.centreX;
+            b = upper.centreY;
+            post = post.meeting(upper.postFoot * upper.scale);
         }
         PropertyContainer properties = sprite.getProperties();
         String made = properties.get("Material"), kind = properties.get("MaterialType");
