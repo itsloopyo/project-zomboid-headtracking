@@ -29,5 +29,5 @@ $null = Invoke-DevDeployJavaAgent `
     -GameDisplayName 'Project Zomboid' `
     -BuildOutputPath (Join-Path $projectRoot 'build\dev') `
     -AgentJars (@('ProjectZomboidHeadTracking.jar') + $artJars) `
-    -LegacyFiles @('ProjectZomboidHeadTracking.dll', 'CameraUnlockCore.dll') `
+    -LegacyFiles @('ProjectZomboidHeadTracking.dll', 'CameraUnlockCore.dll', 'ProjectZomboidHeadTracking-fire.jar') `
     -GivenPath $GamePath
