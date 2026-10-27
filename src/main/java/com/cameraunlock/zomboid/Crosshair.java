@@ -9,7 +9,10 @@ import org.lwjgl.opengl.GL20;
  * shot lands. Otherwise this marks the same point, which is also what the interact key acts
  * on: a crosshair with a weapon in hand, and a dot without one.
  *
- * The logic thread says where it is and the render thread draws it over the finished picture.
+ * It also draws the square a drag cursor of the game's is on (DragAim), whatever the Crosshair
+ * row says: the game draws its ghost into its own view, which is under the picture.
+ *
+ * The logic thread says where they are and the render thread draws them over the finished picture.
  */
 final class Crosshair {
 
@@ -46,6 +49,16 @@ final class Crosshair {
     /** Null when it is not shown. */
     private volatile Mark shown;
 
+    /** The sides of a drag cursor's square, as pieces from x, y to x, y in -1 to 1, and whether what is dragged can be put there. */
+    private record Square(float[] pieces, boolean fits) {
+    }
+
+    /** Null when no drag cursor is up. */
+    private volatile Square square;
+
+    /** In pixels on a screen 1080 high: the width of a drag cursor's square's line, and of the dark edge round it. */
+    private static final float SQUARE_LINE = 3f, SQUARE_EDGE = 1f;
+
     static void set(boolean asked) {
         if (asked == on) {
             return;
@@ -70,19 +83,76 @@ final class Crosshair {
         shown = null;
     }
 
+    void showSquare(float[] pieces, boolean fits) {
+        square = new Square(pieces, fits);
+    }
+
+    void hideSquare() {
+        square = null;
+    }
+
     /** Draws it into the picture bound, whose viewport is the whole of a picture this many pixels each way. */
     void draw(int width, int height) {
-        Mark where = shown;
-        if (where == null || !on || !flat.use()) {
+        Mark where = on ? shown : null;
+        Square outlined = square;
+        if (where == null && outlined == null || !flat.use()) {
             return;
         }
-        int unit = Math.max(1, Math.round((float) height / DESIGN_HEIGHT));
-        int middleX = Math.round((where.x * 0.5f + 0.5f) * width), middleY = Math.round((where.y * 0.5f + 0.5f) * height);
-        int from = Math.round((GAP + SPREAD * where.spread) * unit), to = from + LENGTH * unit, half = WIDTH * unit / 2;
         GL11.glDisable(GL_DEPTH_TEST);
         GL11.glDisable(GL_CULL_FACE);
         GL11.glEnable(GL_BLEND);
         GL11.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        if (outlined != null) {
+            drawSquare(outlined, width, height);
+        }
+        if (where != null) {
+            drawMark(where, width, height);
+        }
+        GL11.glDisable(GL_BLEND);
+    }
+
+    private static void drawSquare(Square outlined, int width, int height) {
+        int color = flat.at("uColor");
+        float unit = (float) height / DESIGN_HEIGHT;
+        GL20.glUniform4f(color, 0f, 0f, 0f, 0.5f);
+        pieces(outlined.pieces, (SQUARE_LINE / 2f + SQUARE_EDGE) * unit, width, height);
+        if (outlined.fits) {
+            GL20.glUniform4f(color, 0.35f, 0.95f, 0.4f, 0.9f);
+        } else {
+            GL20.glUniform4f(color, 1f, 0.3f, 0.25f, 0.9f);
+        }
+        pieces(outlined.pieces, SQUARE_LINE / 2f * unit, width, height);
+    }
+
+    /** Each piece as a band this many pixels each side of its line. */
+    private static void pieces(float[] pieces, float half, int width, int height) {
+        for (int i = 0; i + 3 < pieces.length; i += 4) {
+            float fromX = (pieces[i] * 0.5f + 0.5f) * width, fromY = (pieces[i + 1] * 0.5f + 0.5f) * height;
+            float toX = (pieces[i + 2] * 0.5f + 0.5f) * width, toY = (pieces[i + 3] * 0.5f + 0.5f) * height;
+            float length = (float) Math.hypot(toX - fromX, toY - fromY);
+            if (length == 0f) {
+                continue;
+            }
+            // Out a little at each end as well, so the pieces of a side and the sides at a corner meet.
+            float alongX = (toX - fromX) / length * half, alongY = (toY - fromY) / length * half;
+            float acrossX = -alongY, acrossY = alongX;
+            GL11.glBegin(GL_TRIANGLE_STRIP);
+            vertex(fromX - alongX + acrossX, fromY - alongY + acrossY, width, height);
+            vertex(fromX - alongX - acrossX, fromY - alongY - acrossY, width, height);
+            vertex(toX + alongX + acrossX, toY + alongY + acrossY, width, height);
+            vertex(toX + alongX - acrossX, toY + alongY - acrossY, width, height);
+            GL11.glEnd();
+        }
+    }
+
+    private static void vertex(float x, float y, int width, int height) {
+        GL11.glVertex2f(x * 2f / width - 1f, y * 2f / height - 1f);
+    }
+
+    private static void drawMark(Mark where, int width, int height) {
+        int unit = Math.max(1, Math.round((float) height / DESIGN_HEIGHT));
+        int middleX = Math.round((where.x * 0.5f + 0.5f) * width), middleY = Math.round((where.y * 0.5f + 0.5f) * height);
+        int from = Math.round((GAP + SPREAD * where.spread) * unit), to = from + LENGTH * unit, half = WIDTH * unit / 2;
         int color = flat.at("uColor");
         if (where.dot) {
             float radius = DOT_RADIUS * height / DESIGN_HEIGHT;
@@ -90,7 +160,6 @@ final class Crosshair {
             disc(middleX, middleY, radius + Math.max(1f, radius / 4f), width, height);
             GL20.glUniform4f(color, 1f, 1f, 1f, DOT_WHITE);
             disc(middleX, middleY, radius, width, height);
-            GL11.glDisable(GL_BLEND);
             return;
         }
         // Dark under light, a pixel wider all round: it reads against a pale wall and a dark one.
@@ -107,7 +176,6 @@ final class Crosshair {
             box(middleX - half - edge, middleY - to - edge, middleX - half + WIDTH * unit + edge, middleY - from + edge, width, height);
             box(middleX - half - edge, middleY - half - edge, middleX - half + WIDTH * unit + edge, middleY - half + WIDTH * unit + edge, width, height);
         }
-        GL11.glDisable(GL_BLEND);
     }
 
     /** A disc round a pixel's corner, its radius in pixels. */

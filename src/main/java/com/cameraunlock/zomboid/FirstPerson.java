@@ -1437,17 +1437,26 @@ public final class FirstPerson {
 
     /** Where a drag cursor's line meets the world: kept apart from the aim's, whose line of fire the game's hit list reads. */
     private final WorldQuery dragWorld = new WorldQuery();
+    /** How many pieces each side of a drag cursor's square is drawn in, so a side partly behind the eye is drawn where it is in front. */
+    private static final int SQUARE_PIECES = 8;
+    /** How far over its floor a drag cursor's square is drawn, in tiles, so the floor does not cover it. */
+    private static final float SQUARE_OVER_FLOOR = 0.02f;
+    private final float[] squareFrom = new float[2], squareTo = new float[2];
     private int dragSaidX = Integer.MIN_VALUE, dragSaidY;
+    private final float[] squareSides = new float[4 * 4 * SQUARE_PIECES];
 
     /**
      * Puts the drag cursor the game has up where the line through the reticle meets the world,
-     * or with the pointer out the line through the pointer.
+     * or with the pointer out the line through the pointer, and outlines in the picture the
+     * square the game has it on, green where what is dragged can be put there and red where it
+     * cannot: the game draws its ghost into its own view, which is under the picture.
      */
     private void aimDrag(IsoPlayer player, WorldScene.Frame scene) {
         KahluaTable drag = View.onController(player) ? null : DragAim.of(view.index);
         ViewCamera.Pose line = drag == null ? null : pointer.on() ? lineThrough(Mouse.getXA(), Mouse.getYA()) : reticleOnScreen ? reticleLine : null;
         if (line == null) {
             view.dragAim.lose();
+            view.crosshair.hideSquare();
             dragSaidX = Integer.MIN_VALUE;
             return;
         }
@@ -1464,6 +1473,36 @@ public final class FirstPerson {
             Log.info(String.format(Locale.ROOT, "drag %s on square (%d, %d, %d) fits %b, the %s's floor square (%d, %d)", drag.rawget("Type"),
                     square.getX(), square.getY(), square.getZ(), fits, pointer.on() ? "pointer" : "reticle", (int) Math.floor(x), (int) Math.floor(y)));
         }
+        float aspect = view.worldScene.drawnAspect();
+        if (square == null || aspect == 0f) {
+            view.crosshair.hideSquare();
+            return;
+        }
+        int pieces = 0;
+        float tanHalf = scene.tanHalfFieldOfView();
+        for (int side = 0; side < 4; side++) {
+            // The corners in turn: north-west, north-east, south-east, south-west.
+            float fromX = square.getX() + (side == 1 || side == 2 ? 1f : 0f), fromY = square.getY() + (side >= 2 ? 1f : 0f);
+            float toX = square.getX() + (side == 0 || side == 1 ? 1f : 0f), toY = square.getY() + (side == 1 || side == 2 ? 1f : 0f);
+            for (int piece = 0; piece < SQUARE_PIECES; piece++) {
+                float a = (float) piece / SQUARE_PIECES, b = (float) (piece + 1) / SQUARE_PIECES;
+                if (onSquareFloor(fromX + (toX - fromX) * a, fromY + (toY - fromY) * a, square.getZ(), tanHalf, aspect, squareFrom)
+                        && onSquareFloor(fromX + (toX - fromX) * b, fromY + (toY - fromY) * b, square.getZ(), tanHalf, aspect, squareTo)) {
+                    squareSides[pieces * 4] = squareFrom[0];
+                    squareSides[pieces * 4 + 1] = squareFrom[1];
+                    squareSides[pieces * 4 + 2] = squareTo[0];
+                    squareSides[pieces * 4 + 3] = squareTo[1];
+                    pieces++;
+                }
+            }
+        }
+        view.crosshair.showSquare(java.util.Arrays.copyOf(squareSides, pieces * 4), fits);
+    }
+
+    /** Where a place on a floor falls in the picture as this frame draws it, into ndc, or false where it is not in front of the eye. */
+    private boolean onSquareFloor(float x, float y, int level, float tanHalf, float aspect, float[] ndc) {
+        float up = level * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(x, y, level) + SQUARE_OVER_FLOOR;
+        return ViewCamera.project(trackedView, tanHalf, aspect, x, y, up, ndc);
     }
 
     /** Half the height of the picture's field of view, as a tangent, as it was last drawn. */
