@@ -92,6 +92,7 @@ final class RoofTests {
         Checks.run("roofSheetLaidAsAFloorAtTheFootOfAFarSlopeIsNoTerrace", RoofTests::roofSheetLaidAsAFloorAtTheFootOfAFarSlopeIsNoTerrace);
         Checks.run("lowerWingPastAGableIsNoNotchInTheMainEave", RoofTests::lowerWingPastAGableIsNoNotchInTheMainEave);
         Checks.run("dormerOnAMadeFaceMeetsItInValleys", RoofTests::dormerOnAMadeFaceMeetsItInValleys);
+        Checks.run("dormerAtTheEaveMeetsAMadeFaceInAValley", RoofTests::dormerAtTheEaveMeetsAMadeFaceInAValley);
         Checks.run("endRowMeetsAWingAtItsFootInAValley", RoofTests::endRowMeetsAWingAtItsFootInAValley);
     }
 
@@ -1696,6 +1697,40 @@ final class RoofTests {
         }
         check(asFolded, "the dormer's north face meets the main face in a valley at 3, 4: " + said(valley));
         check(overRidge, "the main face is carried over the dormer's ridge at 4, 5");
+    }
+
+    /**
+     * As the house at 12716..12724, 3674..3680 has it: the main roof's east face on x 6..8 falls from 2 to its eave, and a dormer
+     * at the south-west corner, its ridge running east along y 5 from the west wall, has its south face at 3, 6 coming down to the
+     * south eave. The made west face comes down to the dormer's tile a square short of its eave, and goes on over it in a valley.
+     */
+    private static void dormerAtTheEaveMeetsAMadeFaceInAValley() {
+        List<RoofFit.Tile> roof = new ArrayList<>();
+        for (int y = 0; y <= 6; y++) {
+            for (int i = 0; i < 3; i++) {
+                roof.add(new RoofFit.Tile(6 + i, y, 1, RoofFit.ALONG_X, true, 2f - i * THIRD, 2f - (i + 1) * THIRD));
+            }
+        }
+        for (int x = 3; x <= 4; x++) {
+            RoofFit.Tile ridge = new RoofFit.Tile(x, 5, 1, RoofFit.LEVEL, true, 1f + THIRD, 1f + THIRD);
+            ridge.fitting = true;
+            ridge.half = RoofFit.SOUTH_HALF;
+            ridge.halfEdge = 1f + THIRD;
+            roof.add(ridge);
+        }
+        roof.add(new RoofFit.Tile(3, 6, 1, RoofFit.ALONG_Y, true, 1f + THIRD, 1f));
+        RoofFit.fit(roof);
+        List<RoofFit.Tile> made = RoofFit.backs(roof, standing((x, y) -> x >= 3 && x <= 8 && y >= 0 && y <= 6));
+        RoofFit.Tile valley = null;
+        for (RoofFit.Tile tile : made) {
+            valley = tile.x == 3 && tile.y == 6 ? tile : valley;
+        }
+        float[] face = {1f, 1f + THIRD, 1f + THIRD, 1f};
+        boolean onFace = valley != null && valley.carried && valley.fitAxis == RoofFit.ALONG_X;
+        for (int corner = 0; onFace && corner < 4; corner++) {
+            onFace &= near(valley.corners[corner], face[corner]);
+        }
+        check(onFace, "the made west face goes on over the dormer's south face at 3, 6 down to its eave: " + said(valley));
     }
 
     /**

@@ -1015,7 +1015,8 @@ final class RoofFit {
             // for the far slope there, and stopped at the crown's edge it stood a third of a level over it, a ledge open
             // underneath (a cross gable before a hip cut short, 10402..10411 x 12658..12669).
             ArrayList<Long> overCrown = new ArrayList<>();
-            boolean metCrown = false, annex = false, blocked = false, roofBeyond = false;
+            boolean metCrown = false, annex = false, blocked = false;
+            Tile beyond = null;
             while (open < WIDEST_TOP && stands(built, site, x + open * dx, y + open * dy, floor)) {
                 // A sheet over another room is no foot of this slope but the flat roof of a lower part of the building
                 // beside it, whose wall the slope comes down to. Carried on over it, the far slope's eave stood on the
@@ -1038,7 +1039,7 @@ final class RoofFit {
                 metCrown |= on != null && on.sheet;
                 if (on != null ? !(on.sheet && on.fitLow <= foot + SAME) : site.taken(x + open * dx, y + open * dy, floor, foot)) {
                     blocked = true;
-                    roofBeyond = on != null;
+                    beyond = on;
                     break;
                 }
                 if (on != null) {
@@ -1078,7 +1079,10 @@ final class RoofFit {
             // Come down exactly as deep as the near side onto a roof of the map past its foot, it meets that roof in a valley there, and a
             // face across it over its last square is the higher of the two. Taken for a hip's, a dormer's north face dipped the main
             // roof's west face to its own eave, a step open between it and the face's next square (12719, 3678).
-            row.valley = roofBeyond && open == climbed && !row.cut;
+            row.valley = beyond != null && open == climbed && !row.cut;
+            if (beyond != null && open == climbed - 1 && !row.cut) {
+                pastAFace(row, beyond, made);
+            }
             rows.add(row);
             rowAt.putIfAbsent(rowKey(x, y, dx, dy), row);
         }
@@ -1337,6 +1341,41 @@ final class RoofFit {
                 float inner = crease - (step - 1) * pitch, outer = inner - pitch;
                 strips.putIfAbsent(key(upper.x - step * dx, upper.y - step * dy, 0),
                         new Side(upper.x - step * dx, upper.y - step * dy, up > 0 ? outer : inner, up > 0 ? inner : outer, fromEave, false, eave, pitch, crease, up));
+            }
+        }
+    }
+
+    /**
+     * A far side stopped a square short of its eave by a slope of the map across it, which comes down to the same eave and crosses
+     * the far side's plane on the square's diagonal: a dormer's face beside the main roof's face, which goes on under the dormer to
+     * its eave. The far side is carried over that square too, and the two meet in a valley along the diagonal. Stopped at the
+     * dormer's tile, the dormer's face fell away to the eave under the far side's edge, a triangle open there with the underside of
+     * the roof showing black through it (12719, 3680).
+     */
+    private static void pastAFace(Row row, Tile face, List<Tile> made) {
+        if (!face.slopes() || face.cutCorner >= 0 || face.fitAxis == (row.dx != 0 ? ALONG_X : ALONG_Y)) {
+            return;
+        }
+        int up = row.dx + row.dy, x = row.x + row.open * row.dx, y = row.y + row.open * row.dy;
+        float inner = row.ridge - row.open * row.rise, outer = inner - row.rise;
+        float[] plane = new float[4], across = new float[4];
+        cornersOf(row.dx != 0 ? ALONG_X : ALONG_Y, up < 0 ? outer : inner, up < 0 ? inner : outer, plane);
+        cornersOf(face.fitAxis, face.fitLow, face.fitHigh, across);
+        if (Math.abs(outer - row.eave) >= SAME || Math.abs(Math.min(face.fitLow, face.fitHigh) - row.eave) >= SAME) {
+            return;
+        }
+        // Equal at both ends of one diagonal, and at the other two corners each the higher at one.
+        for (int corner = 0; corner < 2; corner++) {
+            int opposite = corner + 2, first = 1 - corner, second = 3 - corner;
+            float one = plane[first] - across[first], other = plane[second] - across[second];
+            if (Math.abs(plane[corner] - across[corner]) < SAME && Math.abs(plane[opposite] - across[opposite]) < SAME
+                    && Math.abs(one) >= SAME && Math.abs(other) >= SAME && Math.signum(one) != Math.signum(other)) {
+                Tile over = new Tile(x, y, (int) Math.floor(row.eave + LEAST_RISE), row.dx != 0 ? ALONG_X : ALONG_Y, true, plane[0], row.dx != 0 ? plane[1] : plane[3]);
+                over.fitted = true;
+                over.carried = true;
+                System.arraycopy(plane, 0, over.corners, 0, 4);
+                made.add(over);
+                return;
             }
         }
     }
