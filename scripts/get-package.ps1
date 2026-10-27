@@ -21,13 +21,10 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $ProgressPreference    = 'SilentlyContinue'
 
-$projectDir = Split-Path -Parent $PSScriptRoot
-Import-Module (Join-Path $projectDir 'cameraunlock-core/powershell/GamePathDetection.psm1') -Force
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 $repo = 'itsloopyo/project-zomboid-headtracking'
 $modName = 'ProjectZomboidHeadTracking'
-$steamAppId = '108600'
 
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { throw 'gh (GitHub CLI) not found on PATH.' }
 
@@ -68,17 +65,7 @@ try {
         $archive.Dispose()
     }
 
-    $id = Get-Content (Join-Path $projectDir 'workshop/workshop.txt') | Where-Object { $_ -match '^id=(\d+)$' } | ForEach-Object { $Matches[1] } | Select-Object -First 1
-    if ($id) {
-        foreach ($library in Find-SteamLibraries) {
-            $subscribed = Join-Path $library "steamapps\workshop\content\$steamAppId\$id"
-            if (Test-Path -LiteralPath $subscribed) {
-                Remove-Item -LiteralPath $subscribed -Recurse -Force
-                Write-Host "  removed the subscribed copy at $subscribed"
-            }
-        }
-    }
-
+    & (Join-Path $PSScriptRoot 'remove-subscribed-workshop.ps1')
     & (Join-Path $PSScriptRoot 'stage-workshop.ps1') -Zip $zip
 } finally {
     Remove-Item -LiteralPath $download -Recurse -Force

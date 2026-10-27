@@ -5,6 +5,10 @@
 # the last development build. An explicit game path wins over detection and stays a
 # single target. No prompts.
 #
+# Without a game path it also removes the Workshop item: the copy stage-workshop
+# and get-package put in the Zomboid user folder, and the copy Steam keeps for a
+# subscription.
+#
 # Usage: undeploy.ps1 [GamePath]
 
 param(
@@ -35,6 +39,14 @@ foreach ($path in $paths) {
     } else {
         Write-Host "  removed from $path" -ForegroundColor Green
     }
+}
+if (-not $GamePath) {
+    $staged = Join-Path $env:USERPROFILE 'Zomboid\Workshop\ProjectZomboidHeadTracking'
+    if (Test-Path -LiteralPath $staged) {
+        Remove-Item -LiteralPath $staged -Recurse -Force
+        Write-Host "  removed the staged Workshop item at $staged" -ForegroundColor Green
+    }
+    & (Join-Path $PSScriptRoot 'remove-subscribed-workshop.ps1')
 }
 if ($failed.Count -gt 0) {
     throw "Uninstall failed for $($failed.Count) of $($paths.Count) installs: $($failed -join '; ')"
