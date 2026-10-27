@@ -121,8 +121,10 @@ final class SnowCoverTests {
         check(SpriteGeometry.ALOFT_AT == SpriteGeometry.VERTEX_FLOATS - 1, "whether a vertex is aloft is the last thing it carries");
         check(mesh.vertices[SpriteGeometry.ALOFT_AT] == 1f && mesh.vertices[SpriteGeometry.VERTEX_FLOATS + SpriteGeometry.ALOFT_AT] == 0f
                         && mesh.vertices[2 * SpriteGeometry.VERTEX_FLOATS + SpriteGeometry.ALOFT_AT] == 0f,
-                "a vertex of a square up a storey is aloft, and one on the ground or under it is not, of no building as of one");
-        check(new SpriteGeometry.Mesh().set == null, "a mesh of no set is of no level");
+                "a vertex of a square up a storey is aloft, and one on the ground or under it is not");
+        SpriteGeometry.Mesh alone = new SpriteGeometry.Mesh();
+        alone.add(0f, 0f, 0f, 0f, 0f, 1f, 1f, 1f);
+        check(alone.vertices[SpriteGeometry.ALOFT_AT] == 0f, "a mesh of no set is not aloft");
         String main = PipelineShaders.WORLD_FRAGMENT_MAIN.replaceAll("\\s+", "");
         check(main.contains("boolroofing=capping||vMaterial>0.5&&vMaterial<1.5;") && main.contains("booleven=roofing||vAloft>0.5;"),
                 "snow lies evenly on a roof's covering wherever it is, and on whatever is up a storey");
@@ -130,7 +132,13 @@ final class SnowCoverTests {
                 "in every quality that draws it");
         check(body(SnowShader.GLSL, "float snowLaid(vec2 q, vec2 seen, float lumpy, float foot, float floorUp, bool even)").startsWith("{vec3thick=even?vec3(snowEvenThick(),0.0,0.0):snowThick(q,foot);"),
                 "the ground's patches are left out of even snow, and the ground's snow is as it was");
-        check(body(SnowShader.COVER, "float snowEvenThick()").contains("-SNOW_SHELTERED*snowShelter"), "less lies on a roof where less of the sky is seen, as on the ground");
+        String even = body(SnowShader.COVER, "float snowEvenThick()");
+        check(even.contains("-SNOW_SHELTERED*snowShelter"), "less lies on a roof where less of the sky is seen, as on the ground");
+        check(body(SnowShader.COVER, "vec3 snowThick(vec2 q, float foot)").contains("returnvec3((uSnowLying*1.4-0.2-broad.x)/0.4+0.5-SNOW_SHELTERED*snowShelter,")
+                        && even.contains("floatmean=(uSnowLying*1.4-0.7)/0.4+0.5;"),
+                "past a light fall a roof holds as much as the ground does on the mean");
+        check(body(SnowShader.GLSL, "float snowLaid(vec2 q, vec2 seen, float lumpy, float foot, float floorUp, bool even)").contains("snowMelt=even?0.0:"),
+                "even snow wets nothing round it, for it has no lip");
         check(PipelineShaders.WORLD_VERTEX.replaceAll("\\s+", "").contains("vAloft=uModel<0.5?gl_MultiTexCoord3.z:0.0;"), "a model is never aloft: it carries no such thing");
     }
 }

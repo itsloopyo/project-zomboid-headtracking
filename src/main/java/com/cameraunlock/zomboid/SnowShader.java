@@ -120,14 +120,15 @@ final class SnowShader {
             const float SNOW_RAGGED_REACH = 0.135;
             // How much snow lies when the first of it shows on a roof, and when it covers one whole.
             const float SNOW_EVEN_FROM = 0.1, SNOW_EVEN_WHOLE = 0.5;
-            // How thick snow is on a roof, in snowThick's measure: the same all over, for a roof's
-            // slope is even and the wind takes nothing off one part of it more than another, and
-            // the ground's patches on it showed the dark shingle through as holes. With its ragged
-            // edge, a light fall lies on a roof as a grain that closes up as more lies, from
-            // SNOW_EVEN_FROM to SNOW_EVEN_WHOLE, and it is thinner where snowShelter says less fell.
+            // How thick snow is on a roof, in snowThick's measure: the same all over, with none of
+            // the ground's patches. With its ragged edge, a light fall lies on a roof as a grain
+            // that closes up as more lies, from SNOW_EVEN_FROM to SNOW_EVEN_WHOLE, and a deep one is
+            // as thick as the ground's is on the mean. It is thinner where snowShelter says less fell.
             float snowEvenThick() {
-                return mix(0.3 - SNOW_RAGGED_REACH, 0.44 + SNOW_RAGGED_REACH, (uSnowLying - SNOW_EVEN_FROM) / (SNOW_EVEN_WHOLE - SNOW_EVEN_FROM))
-                        - SNOW_SHELTERED * snowShelter;
+                float grain = mix(0.3 - SNOW_RAGGED_REACH, 0.44 + SNOW_RAGGED_REACH, (uSnowLying - SNOW_EVEN_FROM) / (SNOW_EVEN_WHOLE - SNOW_EVEN_FROM));
+                // snowThick's with its unevenness at its mean, 0.5.
+                float mean = (uSnowLying * 1.4 - 0.7) / 0.4 + 0.5;
+                return max(grain, mean) - SNOW_SHELTERED * snowShelter;
             }
 
             """;
@@ -491,7 +492,8 @@ final class SnowShader {
                 snowHollow = max(1.0 - clamp((lump.x * lumpy + ripple.x * 0.35 + crust.x * 0.2) / (lumpy + 0.35 * combed + 0.2), 0.0, 1.0), 0.6 * snowTrodden);
                 // Thin snow is trodden through to the ground.
                 float lies = smoothstep(0.3, 0.44, thick.x + ragged.x - 0.12 * snowTrodden);
-                snowMelt = smoothstep(0.02, 0.3, thick.x + ragged.x) * (1.0 - lies);
+                // Even snow has no lip to be wet clear of.
+                snowMelt = even ? 0.0 : smoothstep(0.02, 0.3, thick.x + ragged.x) * (1.0 - lies);
                 return lies;
             }
 

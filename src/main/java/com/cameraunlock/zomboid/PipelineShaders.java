@@ -4150,7 +4150,7 @@ final class PipelineShaders {
                             // What the ground under it is made of no longer shapes the surface: the snow's own shape does.
                             n = normalize(mix(n, level, snowed) - vec3(snowForm.yz, 0.0) * snowed);
                         } else {
-                            // The game's own snow, as Low draws it: patches of plain white with no shape, no marks and no glitter.
+                            // The game's own snow, as Low draws it: plain white with no shape, no marks and no glitter, in patches where it is not even.
                             snowed = (even ? snowCovers(snowEvenThick() + snowRagged(vPlace.xy, snowFoot).x) : snowCover(vPlace.xy, snowFoot)) * up;
                             texel.rgb = mix(texel.rgb, SNOW_WHITE, snowed);
                             n = normalize(mix(n, level, snowed));
