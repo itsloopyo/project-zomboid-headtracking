@@ -10635,6 +10635,24 @@ def timber_corner():
     return model
 
 
+def timber_post(name, braces):
+    """A squared timber post a storey high, standing just inside a corner of its square under the beams it holds up, with a
+    brace up to the beam along the corner's edge on its +x side, and with two, one on its +y side too. The origin is the
+    middle of the post."""
+    model = Model(name, centred=False)
+    top = 2.449
+    wood = bmesh.new()
+    cuboid(wood, -0.075, 0.075, -0.075, 0.075, 0.0, top)
+    model.hard(wood, "wood", bevel=0.01)
+    if braces:
+        brace = bmesh.new()
+        beam(brace, (0.03, 0.0, 1.86), (0.5, 0.0, top - 0.06), 0.095, 0.095)
+        if braces == 2:
+            beam(brace, (0.0, 0.03, 1.86), (0.0, 0.5, top - 0.06), 0.095, 0.095)
+        model.hard(brace, "wood", bevel=0.008)
+    return model
+
+
 def timber_block():
     """A short block of the same timber standing on end."""
     model = Model("timber_block")
@@ -10682,7 +10700,8 @@ def overhead():
             duct_up("duct_up", 2.45), duct_up("duct_up_short", 0.93 * 2.45),
             culvert_fitting("culvert_elbow", [front, side]), culvert_fitting("culvert_tee", [front, side, other]),
             culvert_fitting("culvert_cross", [front, side, back, other]), culvert_fitting("culvert_end", [front]),
-            timber_corner(), timber_block(), scaffold("scaffold_frame", (-1, 1), False), scaffold("scaffold_braced", (1,), True)]
+            timber_corner(), timber_block(), timber_post("timber_post", 0), timber_post("timber_post_brace", 1), timber_post("timber_post_braces", 2),
+            scaffold("scaffold_frame", (-1, 1), False), scaffold("scaffold_braced", (1,), True)]
 
 
 def castor(wheels, forks, x, y, radius=0.04, wide=0.025):

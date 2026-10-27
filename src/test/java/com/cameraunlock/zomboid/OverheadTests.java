@@ -151,7 +151,7 @@ final class OverheadTests {
             Models.get(unnamed("carpentry_03_" + place).model);
         }
         Checks.check(unnamed("carpentry_03_53").a > 0.8f && unnamed("carpentry_03_53").b > 0.8f, "53 stands in the south-east corner");
-        Checks.check(unnamed("carpentry_03_16") == null && unnamed("carpentry_03_0") == null, "a straight timber and a post stay as they are");
+        Checks.check(unnamed("carpentry_03_16") == null, "a straight timber stays as it is");
     }
 
     private static void aFrameOfScaffoldingStandsOnItsEdgeWithItsStandardWhereTheSpritePaintsIt() {

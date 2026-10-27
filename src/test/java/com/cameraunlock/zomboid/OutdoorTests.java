@@ -39,6 +39,7 @@ final class OutdoorTests {
         Checks.run("aCoopIsStoodOnceByItsSouthEastQuarter", OutdoorTests::aCoopIsStoodOnceByItsSouthEastQuarter);
         Checks.run("aStreetNameBladeReachesFromItsSignalsPostTheWayItsSpriteDoes", OutdoorTests::aStreetNameBladeReachesFromItsSignalsPostTheWayItsSpriteDoes);
         Checks.run("aForkedPorchPostIsBracedAlongTheEdgeItStandsOn", OutdoorTests::aForkedPorchPostIsBracedAlongTheEdgeItStandsOn);
+        Checks.run("aTimberPostStandsInItsCornerBracedAlongTheEdgesItsSpritePaints", OutdoorTests::aTimberPostStandsInItsCornerBracedAlongTheEdgesItsSpritePaints);
         Checks.run("aGlassBalustradesPanesRunAlongTheEdgesItsSpritesPaint", OutdoorTests::aGlassBalustradesPanesRunAlongTheEdgesItsSpritesPaint);
     }
 
@@ -89,6 +90,39 @@ final class OutdoorTests {
                 "braced along that edge, with the scale out over the square");
         Checks.check(west.dyeA == west.a && west.dyeB == west.b && north.dyeA == north.a && north.dyeB == north.b, "and coloured from the post");
         Checks.check(unnamed("location_shop_greenes_01_3") == null && unnamed("location_shop_greenes_01_8") == null, "the sheet's other places are not the post");
+    }
+
+    private static void aTimberPostStandsInItsCornerBracedAlongTheEdgesItsSpritePaints() {
+        // Each four: the corner, then where the braces of the second, third and fourth run, as (x, y) on the map. Read off
+        // the sprites: a brace up to the north-west from a post at the south-east corner runs west along the south edge.
+        float[][] corners = {{0f, 0f}, {1f, 1f}, {0f, 1f}, {1f, 0f}};
+        int[][][] braces = {{{1, 0}}, {{0, 1}}, {{1, 0}, {0, 1}}, {{0, -1}}, {{-1, 0}}, {{-1, 0}, {0, -1}},
+                {{1, 0}}, {{0, -1}}, {{1, 0}, {0, -1}}, {{0, 1}}, {{-1, 0}}, {{-1, 0}, {0, 1}}};
+        float[] turned = new float[2];
+        for (int place = 0; place < 16; place++) {
+            Outdoors.Piece post = unnamed("carpentry_03_" + place);
+            holds(post, "carpentry_03_" + place + " is a post");
+            float[] corner = corners[place / 4];
+            Checks.check(Math.abs(post.a - corner[0]) < 0.1f && Math.abs(post.b - corner[1]) < 0.1f && post.a > 0f && post.a < 1f && post.b > 0f && post.b < 1f,
+                    "carpentry_03_" + place + " stands just inside its corner");
+            Checks.check(post.dyeA == post.a && post.dyeB == post.b, "and is coloured from the post");
+            int kind = place % 4;
+            String model = kind == 0 ? "timber_post" : kind == 3 ? "timber_post_braces" : "timber_post_brace";
+            Checks.check(post.model.equals(model), "carpentry_03_" + place + " is " + model);
+            if (kind == 0) {
+                continue;
+            }
+            // The model's braces run along its x, and with two along its y too: which of the corner's edges each takes does not matter.
+            int[][] want = braces[place / 4 * 3 + kind - 1];
+            for (int along = 0; along < want.length; along++) {
+                Models.turn(post.turns, along == 0 ? 1f : 0f, along == 0 ? 0f : 1f, turned);
+                boolean wanted = false;
+                for (int[] edge : want) {
+                    wanted |= Math.round(turned[0]) == edge[0] && Math.round(turned[1]) == edge[1];
+                }
+                Checks.check(wanted, "carpentry_03_" + place + "'s brace " + along + " runs along an edge its sprite paints a brace on");
+            }
+        }
     }
 
     /** A piece, and its model one the jar has: Models.get throws for a name it has not. */

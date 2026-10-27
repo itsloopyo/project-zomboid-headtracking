@@ -32,6 +32,8 @@ final class Overhead {
     private static final float TIMBER_DEEP = 0.12f / ViewCamera.LEVEL_HEIGHT;
     /** How far in from its square's corner a block of that timber stands, in tiles. */
     private static final float BLOCK_IN = 0.1f;
+    /** How far in from each edge of its corner a timber post's middle is, half timber_post's 0.15 metres, and how high its wood gives its colour, in levels. */
+    private static final float POST_IN = 0.075f, POST_DYE = 0.4f;
 
     /** Which edges of its square a sprite on a wall is laid on, where its picture and not the game's mark says. */
     static final int ANY_EDGE = 0, WEST_EDGE = 1, NORTH_EDGE = 2, BOTH_EDGES = 3;
@@ -109,10 +111,32 @@ final class Overhead {
      * in from a corner on the floor, the north-west, south-east, north-east and south-west.
      * The straight timbers (16 to 19, 40 to 43) are drawn as the beams their outlines are,
      * which is what a sawn timber is; the posts as posts.
+     *
+     * A post a storey high (0 to 15) stands in a corner of its square, four to a corner: the
+     * north-west, south-east, south-west and north-east in that order. The first of each four
+     * is bare, the next two have a brace up to the beam along one of the corner's two edges,
+     * and the last has one along each. Stood up as a card, the two braces were a V of boards
+     * in one plane over a porch's corner (carpentry_03_7 at 10700, 9613).
      */
     private static Outdoors.Piece timberFrame(int place) {
-        float near = BLOCK_IN, far = 1f - BLOCK_IN;
+        float near = BLOCK_IN, far = 1f - BLOCK_IN, in = POST_IN, out = 1f - POST_IN;
         return switch (place) {
+            case 0 -> post("timber_post", Outdoors.NORTH, in, in);
+            case 1 -> post("timber_post_brace", Outdoors.SOUTH, in, in);
+            case 2 -> post("timber_post_brace", Outdoors.WEST, in, in);
+            case 3 -> post("timber_post_braces", Outdoors.WEST, in, in);
+            case 4 -> post("timber_post", Outdoors.NORTH, out, out);
+            case 5 -> post("timber_post_brace", Outdoors.EAST, out, out);
+            case 6 -> post("timber_post_brace", Outdoors.NORTH, out, out);
+            case 7 -> post("timber_post_braces", Outdoors.EAST, out, out);
+            case 8 -> post("timber_post", Outdoors.NORTH, in, out);
+            case 9 -> post("timber_post_brace", Outdoors.SOUTH, in, out);
+            case 10 -> post("timber_post_brace", Outdoors.EAST, in, out);
+            case 11 -> post("timber_post_braces", Outdoors.SOUTH, in, out);
+            case 12 -> post("timber_post", Outdoors.NORTH, out, in);
+            case 13 -> post("timber_post_brace", Outdoors.WEST, out, in);
+            case 14 -> post("timber_post_brace", Outdoors.NORTH, out, in);
+            case 15 -> post("timber_post_braces", Outdoors.NORTH, out, in);
             case 32, 56 -> corner(Outdoors.NORTH, place < 40);
             case 34, 58 -> corner(Outdoors.EAST, place < 40);
             case 33, 57 -> corner(Outdoors.SOUTH, place < 40);
@@ -132,6 +156,11 @@ final class Overhead {
     private static Outdoors.Piece corner(int turns, boolean hung) {
         Outdoors.Piece corner = new Outdoors.Piece("timber_corner", turns).dye(WOOD, CORNER_DYE[2 * turns], CORNER_DYE[2 * turns + 1], TIMBER_DEEP / 2f);
         return hung ? corner.raise(1f - TIMBER_DEEP) : corner;
+    }
+
+    /** A post with its model's braces along the model's x and y, turned to run along its corner's edges. */
+    private static Outdoors.Piece post(String model, int turns, float a, float b) {
+        return new Outdoors.Piece(model, turns).at(a, b).dye(WOOD, a, b, POST_DYE);
     }
 
     private static Outdoors.Piece block(float a, float b) {
