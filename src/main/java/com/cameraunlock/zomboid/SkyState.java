@@ -55,7 +55,7 @@ final class SkyState {
      * Cloud drift in noise widths per second, in still air and per unit of the game's wind
      * intensity. A cloud overhead crosses a hand's width of sky in several seconds, not in one.
      */
-    private static final float DRIFT_STILL = 0.0006f, DRIFT_PER_WIND = 0.004f;
+    static final float DRIFT_STILL = 0.0006f, DRIFT_PER_WIND = 0.004f;
 
     /** Unit vectors towards the sun, the moon and whichever of them lights the clouds, in world axes. */
     float sunX, sunY, sunUp;
@@ -103,6 +103,10 @@ final class SkyState {
     /** The eye the scene is built round, the player's own whichever camera draws the picture: how thick a layer is goes by how far off it is. See PipelineShaders.FACED. */
     float layersFromX, layersFromY, layersFromUp;
     float cover;
+    /** How much of the sun the clouds over it take, eased, 0 in a gap in the dome's clouds: see shine and sunVeiledNow. */
+    float sunVeiled;
+    /** What capture leaves for shine: how hard rain or snow falls, how grey the day's cloud makes the sky, and how white the sun is for its height. */
+    float falling, overcast, sunWhite;
     /** How closed the cloud deck is that rain or snow falls from, 0 to 1: the square of the heavier fall. */
     float deck;
     float driftX, driftY;
@@ -211,8 +215,8 @@ final class SkyState {
     private static final long START_NANOS = System.nanoTime();
 
     String describe() {
-        return String.format(Locale.ROOT, "sun up %.2f night %.2f cover %.2f mist %.4f wind (%.2f, %.2f) rain %.2f wet %.2f fog %.2f snow %.2f air %.4f narrowed %.2f lightning %.3f cloud %.2f bolts %d",
-                sunUp, night, cover, mist, windX, windY, rain, wet, fog, snow, thick, narrowed, flashBlue, burst, seenCount);
+        return String.format(Locale.ROOT, "sun up %.2f night %.2f cover %.2f sun veiled %.2f mist %.4f wind (%.2f, %.2f) rain %.2f wet %.2f fog %.2f snow %.2f air %.4f narrowed %.2f lightning %.3f cloud %.2f bolts %d",
+                sunUp, night, cover, sunVeiled, mist, windX, windY, rain, wet, fog, snow, thick, narrowed, flashBlue, burst, seenCount);
     }
 
     /** How much brighter a drop of rain is than the air it falls through: over the sky in rain it is a faint pale line. */
@@ -312,11 +316,10 @@ final class SkyState {
         glowGreen *= 1f - overcast;
         glowBlue *= 1f - overcast;
 
-        float up = smooth(-0.06f, 0.02f, sunUp) * (1f - 0.9f * overcast);
         float white = white(sunUp);
-        sunRed = up;
-        sunGreen = up * mix(0.50f, 0.96f, white);
-        sunBlue = up * mix(0.20f, 0.88f, white);
+        sunWhite = white;
+        this.falling = falling;
+        this.overcast = overcast;
 
         fog = Math.clamp(climate.getFogIntensity(), 0f, 1f);
         long now = System.nanoTime();
@@ -335,11 +338,6 @@ final class SkyState {
         lightRed *= beneath;
         lightGreen *= beneath;
         lightBlue *= beneath;
-        float through = through(sunUp, overcast);
-        rayRed = through * 0.55f;
-        rayGreen = through * 0.55f * mix(0.55f, 0.95f, white);
-        rayBlue = through * 0.55f * mix(0.25f, 0.80f, white);
-        lowSun = lowSun(sunUp, overcast, fog);
 
         float windAngle = climate.getWindAngleRadians();
         // The game's wind as it is this moment: its intensity with the game's own lulls and
@@ -501,6 +499,49 @@ final class SkyState {
     static float settled(float shown, float lying, float elapsed) {
         float next = shown + (lying - shown) * (1f - (float) Math.exp(-elapsed / SNOW_SETTLES));
         return Math.abs(lying - next) < 0.002f ? lying : next;
+    }
+
+    /**
+     * Sets the sun's light in the sky and its shafts, and how much a low sun gilds a room, by how
+     * much of the sun the clouds over it take (veiled, see sunVeiled), and by rain or snow, which
+     * dims the sun even through a gap. Call after capture.
+     */
+    void shine(float veiled) {
+        sunVeiled = veiled;
+        float dimmed = Math.max(veiled, falling);
+        float up = smooth(-0.06f, 0.02f, sunUp) * (1f - 0.9f * dimmed);
+        sunRed = up;
+        sunGreen = up * mix(0.50f, 0.96f, sunWhite);
+        sunBlue = up * mix(0.20f, 0.88f, sunWhite);
+        float shafts = through(sunUp, dimmed);
+        rayRed = shafts * 0.55f;
+        rayGreen = shafts * 0.55f * mix(0.55f, 0.95f, sunWhite);
+        rayBlue = shafts * 0.55f * mix(0.25f, 0.80f, sunWhite);
+        lowSun = lowSun(sunUp, dimmed, fog);
+    }
+
+    /**
+     * How much of the sun the clouds over it take now, 0 to 1: the cloud the dome draws over the
+     * sun (CloudDome) as far as the dome draws it, and the day's overcast where it draws none,
+     * so a sun too low for the dome's clouds is as grey as the day.
+     */
+    float sunVeiledNow() {
+        float shown = CloudDome.shown(sunUp);
+        float taken = shown == 0f ? 0f : CloudDome.taken(sunX, sunY, sunUp, cover, deck, driftX, driftY);
+        return shown * taken + (1f - shown) * overcast;
+    }
+
+    /**
+     * How long, in seconds, what is eased by the clouds (sunVeiled) takes to follow them, the
+     * longest step of the clock it eases by at once, so a hitch such as an autosave is no jump,
+     * and the gap after which it starts again from the clouds as they are: first person was off,
+     * or another save was loaded.
+     */
+    static final float CLOUDS_EASE = 4f, CLOUDS_STEP_MOST = 0.25f, CLOUDS_RESTART = 10f;
+
+    /** What is eased by the clouds, seconds after it was shown, the clouds giving now: see CLOUDS_EASE. */
+    static float cloudEased(float shown, float now, float seconds) {
+        return seconds > CLOUDS_RESTART ? now : shown + (now - shown) * (1f - (float) Math.exp(-Math.min(seconds, CLOUDS_STEP_MOST) / CLOUDS_EASE));
     }
 
     /** How the clouds' shadows lie, shared with the shader (PipelineShaders.CLOUD_SHADOWS): how many tiles a cell of their noise spans, how far along the sun the cloud casting one is, as tiles over the sun's height, how far the drift moves them, and the noise over which a place is shaded, at a cover of 0, and over how much of it the shadow's edge goes. */

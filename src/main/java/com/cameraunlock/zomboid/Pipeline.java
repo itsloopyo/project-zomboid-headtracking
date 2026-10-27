@@ -6378,6 +6378,7 @@ final class Pipeline {
         } catch (IOException unread) {
             return unread.getMessage();
         }
+        CloudDome.keep(cells, NOISE_SIZE);
         GL11.glDeleteTextures(noiseTexture);
         noiseTexture = GL11.glGenTextures();
         GL11.glBindTexture(GL_TEXTURE_3D, noiseTexture);

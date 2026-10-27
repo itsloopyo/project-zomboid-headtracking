@@ -163,6 +163,9 @@ final class WorldScene {
     private volatile float drawnAspect;
     private float loggedTanHalfSet, loggedAspect;
     private float eyeOpen = -1f;
+    /** How much of the sun the clouds over it take, eased (SkyState.sunVeiled), and when it was last eased. */
+    private float sunVeiled;
+    private long lastClouds;
     /** How far the eye is out from under any roof: see SkyState.openOver. */
     private float openOver = -1f;
     private float shaded;
@@ -3133,6 +3136,11 @@ final class WorldScene {
             float daylight = GameTime.getInstance().getAmbient();
             sky.capture();
             sky.sight(player);
+            long clouded = System.nanoTime();
+            float cloudsElapsed = lastClouds == 0L ? Float.POSITIVE_INFINITY : (clouded - lastClouds) / 1e9f;
+            lastClouds = clouded;
+            sunVeiled = SkyState.cloudEased(sunVeiled, sky.sunVeiledNow(), cloudsElapsed);
+            sky.shine(sunVeiled);
             if (unseenRed < 0f) {
                 unseenRed = unseenGreen = unseenBlue = daylight;
                 floorRed = floorGreen = floorBlue = daylight;
