@@ -93,8 +93,43 @@ final class PipelineShaders {
             }
             """, Flora.AUTUMN_SPACING, Flora.AUTUMN_CODES / 2, Flora.TURNS, Flora.TURNS - 1);
 
+    /**
+     * The clouds' shadows on the ground: cloudBody is the noise under a place, cloudShade how far a
+     * shadow lies over it. A cell's value is a permutation of whole numbers under 289, which the
+     * Java side works out too (SkyState.cloudGrain), where the sine of a large number the ground's
+     * other noise hashes by turns on how a card rounds it. A card's mod is not exact at a multiple
+     * of 289, so the two may still differ there.
+     */
+    static final String CLOUD_SHADOWS = String.format(Locale.ROOT, """
+            float cloudPermute(float x) {
+                return mod((x * 34.0 + 1.0) * x, 289.0);
+            }
+
+            float cloudGrain(vec2 cell) {
+                vec2 c = mod(cell, 289.0);
+                return cloudPermute(cloudPermute(c.x) + c.y) / 289.0;
+            }
+
+            float cloudPatches(vec2 p) {
+                vec2 cell = floor(p);
+                vec2 f = fract(p);
+                f = f * f * (3.0 - 2.0 * f);
+                return mix(mix(cloudGrain(cell), cloudGrain(cell + vec2(1.0, 0.0)), f.x),
+                        mix(cloudGrain(cell + vec2(0.0, 1.0)), cloudGrain(cell + vec2(1.0, 1.0)), f.x), f.y);
+            }
+
+            float cloudBody(vec2 place, vec3 light, vec2 drift) {
+                vec2 under = (place + light.xy * (%1$.1f / max(light.z, 0.25))) / %2$.1f + drift * %3$.1f;
+                return cloudPatches(under) * 0.6 + cloudPatches(under * 2.7 + 7.0) * 0.4;
+            }
+
+            float cloudShade(float body, float cover) {
+                return smoothstep(-%5$.2f, %5$.2f, body - (%4$.2f - cover));
+            }
+            """, SkyState.CLOUD_LEAD, SkyState.CLOUD_WIDTH, SkyState.CLOUD_DRIFTS, SkyState.CLOUD_CLEARS, SkyState.CLOUD_EDGE);
+
     /** Noise that lies on the ground, the same wherever it is asked for: the clouds' shadows cross the built world and the far land as one. */
-    static final String GROUND_NOISE = """
+    static final String GROUND_NOISE = CLOUD_SHADOWS + """
             float grain(vec2 p) {
                 // Map positions are in the thousands, and scaled up for fine detail they pass
                 // what a float can count singly. Wrapped, the pattern repeats only far away.
@@ -752,8 +787,7 @@ final class PipelineShaders {
                 vWorld = at.xyz + lies;
                 vLies = lies;
                 // A cloud's shadow changes over tens of tiles, so it is worked out at the vertices.
-                vec2 under = (vWorld.xy + uLight.xy / max(uLight.z, 0.25) * 30.0) / 22.0 + uDrift * 6.0;
-                vClouds = patches(under) * 0.6 + patches(under * 2.7 + 7.0) * 0.4;
+                vClouds = cloudBody(vWorld.xy, uLight, uDrift);
                 // The map is thousands of tiles across and a number here holds seven digits, so
                 // a place on it is known to a millimetre and no finer. Multiplied as it stands
                 // by a matrix that takes the eye's own place off again, a vertex's depth came out
@@ -3912,7 +3946,7 @@ final class PipelineShaders {
                     }
                     // The clouds overhead pass between the sun and the ground, and their
                     // shadows cross the land with the wind: fields go dull and bright by turns.
-                    reached *= 1.0 - 0.65 * smoothstep(-0.06, 0.06, vClouds - (1.12 - uCover));
+                    reached *= 1.0 - 0.65 * cloudShade(vClouds, uCover);
                     if (crown) {
                         // Inside a crown the sun still arrives, through the leaves above and
                         // between them: the shade a tree gives itself is green and never deep.
@@ -8048,9 +8082,7 @@ final class PipelineShaders {
                 float facing = max(dot(n, uLight), 0.0);
                 // The clouds' shadows, as the built world has them. Past where one can be told
                 // from the next, the land is as dull as they make all of it.
-                vec2 under = (world.xy + uLight.xy / max(uLight.z, 0.25) * 30.0) / 22.0 + uDrift * 6.0;
-                float body = patches(under) * 0.6 + patches(under * 2.7 + 7.0) * 0.4;
-                float shaded = smoothstep(-0.06, 0.06, body - (1.12 - uCover));
+                float shaded = cloudShade(cloudBody(world.xy, uLight, uDrift), uCover);
                 shaded = mix(shaded, clamp((uCover - 0.62) / 0.5, 0.0, 1.0), smoothstep(250.0, 500.0, away));
                 float reached = 1.0 - 0.65 * shaded;
                 vec3 sunLight = pow(uLightColor, vec3(2.2));

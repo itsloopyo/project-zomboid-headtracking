@@ -503,6 +503,9 @@ final class SkyState {
         return Math.abs(lying - next) < 0.002f ? lying : next;
     }
 
+    /** How the clouds' shadows lie, shared with the shader (PipelineShaders.CLOUD_SHADOWS): how many tiles a cell of their noise spans, how far along the sun the cloud casting one is, as tiles over the sun's height, how far the drift moves them, and the noise over which a place is shaded, at a cover of 0, and over how much of it the shadow's edge goes. */
+    static final float CLOUD_WIDTH = 22f, CLOUD_LEAD = 30f, CLOUD_DRIFTS = 6f, CLOUD_CLEARS = 1.12f, CLOUD_EDGE = 0.06f;
+
     private static float mix(float from, float to, float amount) {
         return from + (to - from) * amount;
     }
