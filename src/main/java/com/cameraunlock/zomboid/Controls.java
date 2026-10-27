@@ -5,7 +5,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import se.krka.kahlua.vm.KahluaTable;
 import zombie.GameTime;
 import zombie.characters.CharacterInputKeyBinding;
 import zombie.characters.CharacterJoypadButtonBinding;
@@ -88,16 +87,7 @@ public final class Controls {
             stock = sightsOnTheShove(player);
         }
         stockAim = stock;
-        KahluaTable drag = captured && !pad ? DragAim.of(player.getPlayerNum()) : null;
-        boolean dragging = drag != null;
-        if (dragging && stock && !cancelHeld) {
-            // In the game's own view a right click opens the world menu, which puts the drag away.
-            DragAim.putAway(drag, player.getPlayerNum());
-            cancelHeld = true;
-            if (FirstPerson.TRACE) {
-                Log.info("controls: the aim button put the drag cursor away");
-            }
-        }
+        boolean dragging = captured && !pad && DragAim.of(player.getPlayerNum()) != null;
         if (cancelHeld && !stock) {
             cancelHeld = false;
         }
@@ -172,6 +162,11 @@ public final class Controls {
     private boolean turnedOnly;
     /** Whether the aim button that put a drag cursor away is still held. */
     private boolean cancelHeld;
+
+    /** A right press has put the drag cursor away (WorldMenu): the button is no aim until it is let go. */
+    void dragPutAway() {
+        cancelHeld = true;
+    }
 
     /** Whether a controller's triggers are the character's: while it works one of the game's panels the game has it ignore the aim. */
     private static boolean padIsTheCharacters(IsoPlayer player) {

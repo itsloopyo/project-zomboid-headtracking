@@ -252,6 +252,11 @@ public final class FirstPerson {
      */
     private final ViewCamera.Pose reticleLine = new ViewCamera.Pose();
     private boolean reticleOnScreen;
+    /**
+     * Whether the reticle falls inside the picture. An aim near the eye with the head turned far
+     * from it projects in front of the eye but far off the edge, and is still reticleOnScreen.
+     */
+    private boolean reticleInPicture;
 
     private final Vector2 forward = new Vector2();
     private final Stride stride = new Stride();
@@ -1435,6 +1440,7 @@ public final class FirstPerson {
         int index = player.getIndex();
         reticleX = Math.round((ndc[0] * 0.5f + 0.5f) * IsoCamera.getScreenWidth(index));
         reticleY = Math.round((0.5f - ndc[1] * 0.5f) * IsoCamera.getScreenHeight(index));
+        reticleInPicture = Math.abs(ndc[0]) <= 1f && Math.abs(ndc[1]) <= 1f;
     }
 
     /** Where a drag cursor's line meets the world: kept apart from the aim's, whose line of fire the game's hit list reads. */
@@ -1476,7 +1482,7 @@ public final class FirstPerson {
                     square == null ? "none" : "(" + square.getX() + ", " + square.getY() + ", " + square.getZ() + ")", fits));
         }
         dragButtonDown = buttonDown;
-        ViewCamera.Pose line = pointer.on() ? lineThrough(Mouse.getXA(), Mouse.getYA()) : reticleOnScreen ? reticleLine : null;
+        ViewCamera.Pose line = pointer.on() ? lineThrough(Mouse.getXA(), Mouse.getYA()) : reticleOnScreen && reticleInPicture ? reticleLine : null;
         if (line == null) {
             view.dragAim.aimed.lose();
             view.crosshair.hideSquare();

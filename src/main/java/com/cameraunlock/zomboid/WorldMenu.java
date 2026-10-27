@@ -58,7 +58,13 @@ final class WorldMenu {
      * @param y the pointer's place down it
      */
     void mouse(String event, double x, double y) {
-        if (RIGHT_DOWN.equals(event)) {
+        if (RIGHT_DOWN.equals(event) && view.dragsInFirstPerson() && DragAim.of(view.index) instanceof KahluaTable drag) {
+            // In the game's own view a right click opens the world menu, which puts the drag away.
+            DragAim.putAway(drag, view.index);
+            view.controls.dragPutAway();
+            down = false;
+            Log.info("a right click put the drag cursor " + drag.rawget("Type") + " away");
+        } else if (RIGHT_DOWN.equals(event)) {
             down = view.firstPerson.pointerOut();
             downAt = System.nanoTime();
         } else if (RIGHT_UP.equals(event) && down) {
