@@ -116,6 +116,20 @@ final class SnowShader {
                 return snowCovers(snowThick(q, foot).x + snowRagged(q, foot).x);
             }
 
+            // How far the ragged edge moves the thickness either way at most: see snowRagged.
+            const float SNOW_RAGGED_REACH = 0.135;
+            // How much snow lies when the first of it shows on a roof, and when it covers one whole.
+            const float SNOW_EVEN_FROM = 0.1, SNOW_EVEN_WHOLE = 0.5;
+            // How thick snow is on a roof, in snowThick's measure: the same all over, for a roof's
+            // slope is even and the wind takes nothing off one part of it more than another, and
+            // the ground's patches on it showed the dark shingle through as holes. With its ragged
+            // edge, a light fall lies on a roof as a grain that closes up as more lies, from
+            // SNOW_EVEN_FROM to SNOW_EVEN_WHOLE, and it is thinner where snowShelter says less fell.
+            float snowEvenThick() {
+                return mix(0.3 - SNOW_RAGGED_REACH, 0.44 + SNOW_RAGGED_REACH, (uSnowLying - SNOW_EVEN_FROM) / (SNOW_EVEN_WHOLE - SNOW_EVEN_FROM))
+                        - SNOW_SHELTERED * snowShelter;
+            }
+
             """;
 
     /**
@@ -440,9 +454,10 @@ final class SnowShader {
             // rough ground, which snow lies on in lumps. foot is how much ground a pixel covers
             // there, and floorUp how high the ground stands, which tells whose footprints are on it.
             // seen is the place snowSunk found: the lumps are looked at there, and the snow's
-            // edge and the marks in it where they are, or the lumps' depth would tear them.
-            float snowLaid(vec2 q, vec2 seen, float lumpy, float foot, float floorUp) {
-                vec3 thick = snowThick(q, foot);
+            // edge and the marks in it where they are, or the lumps' depth would tear them. even
+            // is whether it lies evenly, as on a roof: see snowEvenThick.
+            float snowLaid(vec2 q, vec2 seen, float lumpy, float foot, float floorUp, bool even) {
+                vec3 thick = even ? vec3(snowEvenThick(), 0.0, 0.0) : snowThick(q, foot);
                 vec3 ragged = snowRagged(q, foot);
                 // Its depth rounds off to nothing at the lip, less ragged than the lip's outline is.
                 vec3 deep = thick + ragged * 0.4;

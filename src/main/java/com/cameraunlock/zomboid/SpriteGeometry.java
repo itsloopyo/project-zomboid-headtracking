@@ -41,11 +41,12 @@ final class SpriteGeometry {
      * colour its texels are drawn in, red and then green and blue (see BloodBuilder), and grime
      * over a wall where on the wall it is (see grimed). Last of
      * all, what the vertex has of a light the game has not given, and of the day its room
-     * lets in: see Mesh.unlit and Mesh.day.
+     * lets in: see Mesh.unlit and Mesh.day; then 1 where its square is above the ground's level
+     * and 0 where not: see MeshSet.aloft.
      */
-    static final int VERTEX_FLOATS = 19;
-    /** Where in a vertex what the picture places it by is: how far along or how many layers, and what that is; its tree's square; and what it has of a light the game has not given, then of the day. */
-    static final int ALONG_AT = 12, WAY_AT = 14, ROOT_AT = 15, UNLIT_AT = 17, DAY_AT = 18;
+    static final int VERTEX_FLOATS = 20;
+    /** Where in a vertex what the picture places it by is: how far along or how many layers, and what that is; its tree's square; what it has of a light the game has not given, then of the day; and whether it is aloft. */
+    static final int ALONG_AT = 12, WAY_AT = 14, ROOT_AT = 15, UNLIT_AT = 17, DAY_AT = 18, ALOFT_AT = 19;
     static final float NO_ROOT = -1f;
     /** What a mesh is of when it is of no building's storey: see MeshSet.storey. */
     static final long NO_BUILDING = Long.MIN_VALUE;
@@ -323,6 +324,7 @@ final class SpriteGeometry {
             vertices[floats++] = rootY;
             vertices[floats++] = unlit;
             vertices[floats++] = day;
+            vertices[floats++] = set != null ? set.aloft : 0f;
         }
 
         /** unlit and day for vertices with the frame's corners' light in the given shares. */
@@ -383,6 +385,13 @@ final class SpriteGeometry {
          */
         long building = NO_BUILDING;
         int level;
+        /**
+         * 1 while what is asked for is of a square above the ground's level, a roof or a floor
+         * up a storey, and 0 while it is of one on the ground or below it: every vertex added
+         * carries it, and the snow lying on what is aloft is even (SnowShader.snowEvenThick).
+         * A mesh's squares are of many levels where they are of no building's storey.
+         */
+        float aloft;
         /** The key of the thing being drawn into the set, or Outlines.NONE: see own. */
         private long owner = Outlines.NONE;
 
@@ -434,6 +443,7 @@ final class SpriteGeometry {
         void storey(long ofBuilding, int onLevel) {
             building = ofBuilding;
             level = ofBuilding == NO_BUILDING ? 0 : onLevel;
+            aloft = onLevel > 0 ? 1f : 0f;
         }
 
         /**
@@ -1678,6 +1688,7 @@ final class SpriteGeometry {
         float[] to = mesh.vertices;
         int at = mesh.floats;
         float open = frame.open + BLADES;
+        float aloft = mesh.set != null ? mesh.set.aloft : 0f;
         float red = frame.red, green = frame.green, blue = frame.blue;
         float leftEdge = -2f + seed, rightEdge = 2f + seed;
         float lastLeftX = 0f, lastLeftY = 0f, lastRightX = 0f, lastRightY = 0f, lastUp = 0f, lastCode = 0f, lastHigh = 0f;
@@ -1695,13 +1706,13 @@ final class SpriteGeometry {
             float code = form * 2f + t, high = level + Math.min(up, 0.999f);
             if (step > 0) {
                 boolean point = shape == POINTED && step == steps;
-                at = corner(to, at, lastLeftX, lastLeftY, plantUp + lastUp, red, green, blue, open, leftEdge, lastCode, lastHigh);
-                at = corner(to, at, lastRightX, lastRightY, plantUp + lastUp, red, green, blue, open, rightEdge, lastCode, lastHigh);
-                at = corner(to, at, rightX, rightY, plantUp + up, red, green, blue, open, point ? seed : rightEdge, code, high);
+                at = corner(to, at, lastLeftX, lastLeftY, plantUp + lastUp, red, green, blue, open, leftEdge, lastCode, lastHigh, aloft);
+                at = corner(to, at, lastRightX, lastRightY, plantUp + lastUp, red, green, blue, open, rightEdge, lastCode, lastHigh, aloft);
+                at = corner(to, at, rightX, rightY, plantUp + up, red, green, blue, open, point ? seed : rightEdge, code, high, aloft);
                 if (!point) {
-                    at = corner(to, at, lastLeftX, lastLeftY, plantUp + lastUp, red, green, blue, open, leftEdge, lastCode, lastHigh);
-                    at = corner(to, at, rightX, rightY, plantUp + up, red, green, blue, open, rightEdge, code, high);
-                    at = corner(to, at, leftX, leftY, plantUp + up, red, green, blue, open, leftEdge, code, high);
+                    at = corner(to, at, lastLeftX, lastLeftY, plantUp + lastUp, red, green, blue, open, leftEdge, lastCode, lastHigh, aloft);
+                    at = corner(to, at, rightX, rightY, plantUp + up, red, green, blue, open, rightEdge, code, high, aloft);
+                    at = corner(to, at, leftX, leftY, plantUp + up, red, green, blue, open, leftEdge, code, high, aloft);
                 }
             }
             lastLeftX = leftX;
@@ -1719,7 +1730,7 @@ final class SpriteGeometry {
     }
 
     private int corner(float[] to, int at, float x, float y, float up, float red, float green, float blue, float open, float edge, float code,
-            float high) {
+            float high, float aloft) {
         to[at] = x;
         to[at + 1] = y;
         to[at + 2] = up;
@@ -1739,6 +1750,7 @@ final class SpriteGeometry {
         to[at + ROOT_AT + 1] = NO_ROOT;
         to[at + UNLIT_AT] = AS_FACE;
         to[at + DAY_AT] = 0f;
+        to[at + ALOFT_AT] = aloft;
         return at + VERTEX_FLOATS;
     }
 

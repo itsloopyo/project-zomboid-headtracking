@@ -454,7 +454,7 @@ final class ChunkBuffers {
         throw new VideoMemory.Refused(what);
     }
 
-    /** Points OpenGL's vertex, texture coordinate, colour and normal arrays at the buffer, the second texture coordinate array at what a vertex carries for a card, the third at its tree's square, and the fourth at what it has of a light the game has not given. Leaves no buffer bound. */
+    /** Points OpenGL's vertex, texture coordinate, colour and normal arrays at the buffer, the second texture coordinate array at what a vertex carries for a card, the third at its tree's square, and the fourth at what it has of a light the game has not given and whether it is aloft. Leaves no buffer bound. */
     static void point() {
         GL15.glBindBuffer(GL_ARRAY_BUFFER, buffer);
         GL11.glVertexPointer(3, GL_FLOAT, STRIDE, 0L);
@@ -466,7 +466,7 @@ final class ChunkBuffers {
         GL13.glClientActiveTexture(GL_TEXTURE0 + 2);
         GL11.glTexCoordPointer(2, GL_FLOAT, STRIDE, (long) SpriteGeometry.ROOT_AT * Float.BYTES);
         GL13.glClientActiveTexture(GL_TEXTURE0 + 3);
-        GL11.glTexCoordPointer(2, GL_FLOAT, STRIDE, (long) SpriteGeometry.UNLIT_AT * Float.BYTES);
+        GL11.glTexCoordPointer(3, GL_FLOAT, STRIDE, (long) SpriteGeometry.UNLIT_AT * Float.BYTES);
         GL13.glClientActiveTexture(GL_TEXTURE0);
         GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
     }

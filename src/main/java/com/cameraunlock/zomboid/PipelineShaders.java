@@ -550,6 +550,8 @@ final class PipelineShaders {
             varying vec3 vLies;
             // 1 or -1 for a face seen only from where its normal looks or looks away from, 0 for one seen from both: see SpriteGeometry.SEEN_ALONG.
             varying float vSeen;
+            // 1 where the vertex's square is above the ground's level, a roof or a floor up a storey: see SpriteGeometry.MeshSet.aloft.
+            varying float vAloft;
             // The square of the tree the vertex is part of, below 0 for none: see SpriteGeometry.VERTEX_FLOATS. A model has
             // none, and carries in y the piece of its surface the vertex is on.
             varying vec2 vRoot;
@@ -801,6 +803,7 @@ final class PipelineShaders {
                 vWorld = at.xyz + lies;
                 vLies = lies;
                 vSeen = uModel < 0.5 && gl_MultiTexCoord1.z > 6.5 ? (gl_MultiTexCoord1.z < 7.5 ? 1.0 : -1.0) : 0.0;
+                vAloft = uModel < 0.5 ? gl_MultiTexCoord3.z : 0.0;
                 // A cloud's shadow changes over tens of tiles, so it is worked out at the vertices.
                 vClouds = cloudBody(vWorld.xy, uLight, uCloudsDrift);
                 // The map is thousands of tiles across and a number here holds seven digits, so
@@ -952,6 +955,8 @@ final class PipelineShaders {
             varying vec3 vLies;
             // 1 or -1 for a face seen only from where its normal looks or looks away from, 0 for one seen from both: see SpriteGeometry.SEEN_ALONG.
             varying float vSeen;
+            // 1 where the vertex's square is above the ground's level, a roof or a floor up a storey: see SpriteGeometry.MeshSet.aloft.
+            varying float vAloft;
             varying vec2 vRoot;
             uniform vec4 uCutBox;
             uniform vec3 uCutNear;
@@ -4131,20 +4136,22 @@ final class PipelineShaders {
                         // side. Upright bark out of the wind holds none. Not in Low: nothing that grows does.
                         bool bark = vMaterial > 56.5 && vMaterial < 58.5;
                         float up = bark ? 0.0 : smoothstep(0.35, 0.8, level.z);
+                        // A roof holds its snow evenly, and so does what is up a storey, a flat roof or a balcony: see snowEvenThick.
+                        bool even = roofing || vAloft > 0.5;
                         if (bark) {
                             // How far up the wood faces for its ridge of snow, and how thick it is: see the world's vertex shader.
                             snowed = uPlantSnow > 0.0 ? snowOnBark(level, vPlace.xy + vec2(0.61, -0.43) * vPlace.z, vBlade.x, vBlade.y) : 0.0;
                             texel.rgb = mix(texel.rgb, SNOW_WHITE, snowed);
                             n = normalize(mix(n, level, snowed));
                         } else if (uOwnTextures > 0.5) {
-                            snowed = up > 0.0 ? snowLaid(vPlace.xy, lain, lumpy, snowFoot, vWorld.z) * up : 0.0;
+                            snowed = up > 0.0 ? snowLaid(vPlace.xy, lain, lumpy, snowFoot, vWorld.z, even) * up : 0.0;
                             // The ground just clear of the lip is wet from it, and dark.
                             texel.rgb = mix(texel.rgb * (1.0 - 0.3 * snowMelt * up), snowWhite(), snowed);
                             // What the ground under it is made of no longer shapes the surface: the snow's own shape does.
                             n = normalize(mix(n, level, snowed) - vec3(snowForm.yz, 0.0) * snowed);
                         } else {
                             // The game's own snow, as Low draws it: patches of plain white with no shape, no marks and no glitter.
-                            snowed = snowCover(vPlace.xy, snowFoot) * up;
+                            snowed = (even ? snowCovers(snowEvenThick() + snowRagged(vPlace.xy, snowFoot).x) : snowCover(vPlace.xy, snowFoot)) * up;
                             texel.rgb = mix(texel.rgb, SNOW_WHITE, snowed);
                             n = normalize(mix(n, level, snowed));
                         }
