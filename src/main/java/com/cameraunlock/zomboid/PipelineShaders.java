@@ -3335,8 +3335,8 @@ final class PipelineShaders {
                                 + 0.4 * wrappedPatches(vec2(along * 53.0, vPlace.z * 47.0) + 7.0, vec2(3180.0, 2820.0));
                         soiled = 0.012 + 0.025 * bloom + 0.09 * corners * (0.4 + 0.6 * bloom) + outside * 0.04 * runs;
                         if (frostedPane) {
-                            // Frosted glass is milky, the thicker the nearer the ground, in clouds: vUv.y is how far up its frosting the place is.
-                            soiled += (1.0 - soiled) * clamp(mix(0.92, 0.45, vUv.y) * (0.8 + 0.4 * bloom), 0.0, 0.95);
+                            // Frosted glass is milky, the thicker the nearer the ground, in clouds, and thins out to clear glass at the top of its frosting: vUv.y is how far up that the place is.
+                            soiled += (1.0 - soiled) * clamp(mix(0.92, 0.0, vUv.y) * (0.8 + 0.4 * bloom), 0.0, 0.95);
                         }
                         veil = veil + (1.0 - veil) * soiled;
                     }

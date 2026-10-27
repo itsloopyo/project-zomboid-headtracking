@@ -254,6 +254,8 @@ final class WindowTests {
         Windows.frostedFoot(shape);
         check(shape.footHigh == 0f && near(shape.panes[2], 0f) && near(shape.panes[3], 9f / 10f), "and taken back, the pane runs from the rail to the ground");
         check(near(shape.frostedTo, 3f / 10f), "frosted as high as the foot was");
+        Windows.Shape cut = OpeningBuilder.withinCut(shape, 0.1f, 0.9f);
+        check(cut != shape && cut.frostedTo == shape.frostedTo, "and cut back to its opening, as frosted");
         Windows.Shape sill = measured(
                 "##########",
                 "##......##",
