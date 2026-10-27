@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- In first person, jogging and sprinting are straight ahead only. Held sideways, backwards or on a diagonal, your character walks, facing where you look.
+
 ## [0.1.0] - 2026-10-27
 
 ### Added

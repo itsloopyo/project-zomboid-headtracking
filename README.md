@@ -255,7 +255,7 @@ Every key saves its new setting to `CameraUnlock.ini` as you press it, and `Dele
 
 ### Mouse and keyboard
 
-The mouse turns the view. Movement keys follow the direction you face. Walking or sneaking sideways or backwards, and jogging or sprinting any way but straight ahead, your character keeps facing where you look, in the game's aiming stance at the pace of the same gait ahead, and a jog or sprint tires it as one ahead does. Offline only, and `FacesTheView=false` gives the game's own turn every time.
+The mouse turns the view. Movement keys follow the direction you face. Walking or sneaking sideways or backwards, your character keeps facing where you look, in the game's aiming stance at the pace of the walk ahead. Jogging and sprinting are straight ahead only: held any other way, your character walks. Offline only, and `FacesTheView=false` gives the game's own turn every time.
 
 | Input | Action |
 | --- | --- |
@@ -595,8 +595,8 @@ ShotsWoundLimbs=true
 ; unslowed and keeps its engine's full power off the road. false: the game's rules for all of it. On a server the
 ; game's rules hold.
 VehiclesSmashThrough=true
-; true: offline, walking, sneaking, jogging or sprinting sideways or backwards in first person, your character keeps
-; facing where you look, at the pace of the same gait ahead. false: it always turns,
+; true: offline, walking or sneaking sideways or backwards in first person, your character keeps facing where
+; you look, and jogging or sprinting is straight ahead only. false: it always turns,
 ; as the game has it. On a server the game's rule holds.
 FacesTheView=true
 ; true: offline, a tree stops your shots only where its trunk is drawn, and a shot past the trunk goes on.

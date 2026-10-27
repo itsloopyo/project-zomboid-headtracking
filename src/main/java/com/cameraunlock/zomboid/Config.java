@@ -360,8 +360,8 @@ final class Config {
                             + "game's rules hold.",
                     writable | live, true),
             core.configLocalBool("Rules", "FacesTheView",
-                    "true: offline, walking, sneaking, jogging or sprinting sideways or backwards in first person, your character keeps\n"
-                            + "facing where you look, at the pace of the same gait ahead. false: it always turns,\n"
+                    "true: offline, walking or sneaking sideways or backwards in first person, your character keeps facing where\n"
+                            + "you look, and jogging or sprinting is straight ahead only. false: it always turns,\n"
                             + "as the game has it. On a server the game's rule holds.",
                     writable | live, true),
             core.configLocalBool("Rules", "ShotsPastTrees",

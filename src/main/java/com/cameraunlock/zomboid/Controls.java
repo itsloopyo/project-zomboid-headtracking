@@ -134,13 +134,17 @@ public final class Controls {
             stanceGait = Sidestep.WALKING;
             return false;
         }
-        int gait = askedGait(player);
+        // Off, a jog or sprint asked for sideways or back is the walk, and only straight ahead runs.
+        int gait = SPRINT_ASIDE ? askedGait(player) : Sidestep.WALKING;
         // A jog or sprint ahead and to one side faces the view too: only straight ahead is the game's own run.
         boolean turned = view.firstPerson.movingAside()
-                || gait >= Sidestep.JOGGING && view.firstPerson.walkingAhead() && view.firstPerson.keysAhead() < STRAIGHT_AHEAD;
+                || SPRINT_ASIDE && gait >= Sidestep.JOGGING && view.firstPerson.walkingAhead() && view.firstPerson.keysAhead() < STRAIGHT_AHEAD;
         stanceGait = turned ? gait : Sidestep.WALKING;
         return turned;
     }
+
+    /** Jogging and sprinting sideways, back and on a forward diagonal facing the view: off unless the game is started with this flag. */
+    private static final boolean SPRINT_ASIDE = Boolean.getBoolean("cameraunlock.zomboid.sprintAside");
 
     /** The cosine of the angle off the view, 10 degrees, within which the keys or the stick ask for straight ahead. */
     private static final float STRAIGHT_AHEAD = 0.985f;
