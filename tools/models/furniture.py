@@ -2829,6 +2829,16 @@ def mantel_board(name, long):
     return model
 
 
+def hearth_facing(name, long):
+    """A length of the stone or brick faced over a chimney breast below its shelf, a slab on the wall at +Y as far out
+    to -Y as the sprite paints it: every face of it shows the sprite."""
+    model = Model(name, hung=True)
+    slab = bmesh.new()
+    cuboid(slab, -long / 2, long / 2, -0.0625, 0.0, 0.0, 1.24)
+    model.plain(slab, "pane")
+    return model
+
+
 def window_boards(name, count):
     """The boards nailed across a window to barricade it, one to four, each a little askew and held by two nails at each
     end: the first over the middle of the window, the second over it, the third under and the fourth at the top, as the
@@ -13275,7 +13285,7 @@ def every():
               radio(), microwave(), dishwasher(), ice_chest(), register(), shower("shower", True), shower("shower_head", False),
               kettle_barbecue(), gas_barbecue(), cooler("mini_fridge", 0.5, 0.82, 1), cooler("large_fridge", 1.7, 1.95, 2),
               street_lamp("cone_lamp", "cone"), street_lamp("globe_lamp", "globe"), street_lamp("lantern_lamp", "lantern"),
-              cobra_head(), traffic_light(), traffic_light("traffic_light_r", 1), wall_bowl(), wall_lantern(), bulkhead_light(), wall_sink(), drinking_fountain(), serving_counter(), air_conditioner(), meter_bank("meter_bank", 1), meter_bank("meter_bank_r", -1), *[window_boards("window_boards_%d" % count, count) for count in range(1, 5)], surround_pilaster(), surround_header(), mantel_board("mantel_board", 1.0), mantel_board("mantel_board_end", 0.8),
+              cobra_head(), traffic_light(), traffic_light("traffic_light_r", 1), wall_bowl(), wall_lantern(), bulkhead_light(), wall_sink(), drinking_fountain(), serving_counter(), air_conditioner(), meter_bank("meter_bank", 1), meter_bank("meter_bank_r", -1), *[window_boards("window_boards_%d" % count, count) for count in range(1, 5)], surround_pilaster(), surround_header(), mantel_board("mantel_board", 1.0), mantel_board("mantel_board_end", 0.8), *[hearth_facing("hearth_facing_%d" % round(long * 1000), long) for long in (1.0, 0.5, 0.438, 0.469, 0.407)],
               parasol("parasol", [(0.045, 2.40), (0.35, 2.25), (0.68, 2.08), (1.0, 1.91)], 0.10, 0.06),
               parasol("parasol_dome", [(0.045, 2.43), (0.24, 2.39), (0.46, 2.28), (0.66, 2.11), (0.82, 1.88), (0.92, 1.62)], 0.08, 0.06)] + (indoors() + outdoors()
             + upholstered() + barrels_and_pots() + street() + display_cases() + awnings() + hoods() + industrial()

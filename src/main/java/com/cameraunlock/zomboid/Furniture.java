@@ -408,17 +408,18 @@ final class Furniture {
         if (name != null && called == null && grid == null && name.startsWith(STREET_LAMPS)) {
             return streetLamp(sprite, name);
         }
-        // A fireplace's plain surround and its wooden mantel shelf are laid on the wall as runs of three sprites, the end ones
-        // painting only the part of their square next to the middle: which wall and which piece go by their place on the sheet.
+        // A fireplace's plain surround, its wooden mantel shelf and the stone or brick faced on its chimney breast are laid on
+        // the wall as runs of three sprites, the end ones painting only the part of their square next to the middle: which
+        // wall and which piece go by their place on the sheet. A facing shows its sprite.
         int hearth = name == null || called != null || grid != null ? -1 : Sheets.place(name, FIREPLACES);
         if (hearth >= 0 && hearth < MANTELS.length && MANTELS[hearth] != null) {
             boolean north = hearth < 23 || hearth >= 43;
             IsoDirections away = north ? IsoDirections.S : IsoDirections.E;
             String model = MANTELS[hearth];
-            boolean board = model.startsWith("mantel_board");
-            Furniture piece = new Furniture(sprite, model, turnsOf(away)).hang(WallHung.behind(away), false).ownSize()
+            boolean board = model.startsWith("mantel_board"), facing = model.startsWith("hearth_facing");
+            Furniture piece = new Furniture(sprite, model, turnsOf(away)).hang(WallHung.behind(away), facing).ownSize()
                     .alongWall(MANTEL_ALONG[hearth]);
-            return board ? piece.raise(MANTEL_BOARD_FOOT).dye(1 << Models.WOOD, MANTEL_BOARD_DYE)
+            return facing ? piece : board ? piece.raise(MANTEL_BOARD_FOOT).dye(1 << Models.WOOD, MANTEL_BOARD_DYE)
                     : piece.raise(model.equals("surround_header") ? SURROUND_HEADER_FOOT : 0f).dye(1 << Models.PAINT, model.equals("surround_header") ? SURROUND_HEADER_DYE : SURROUND_PILASTER_DYE);
         }
         // The boards nailed across a window have no name, no facing and no wall of their own: which wall and how many go by
@@ -964,13 +965,19 @@ final class Furniture {
     /** The sheet of the fireplaces, whose surrounds and mantel shelves are laid on the wall. */
     private static final String FIREPLACES = "fixtures_fireplaces_01_";
     /**
-     * The model of each place on the fireplaces' sheet that is a piece of a plain surround or a mantel shelf, or null: on a
-     * north wall 14, 15, 22 (shelf, west end first) and 19 to 21 (white surround) and 43 to 45 (black), on a west wall 31, 30,
-     * 23 (shelf, north end first) and 34, 33, 32 (white) and 42, 41, 40 (black).
+     * The model of each place on the fireplaces' sheet that is a piece of a plain surround, a mantel shelf or a facing, or
+     * null: on a north wall 14, 15, 22 (shelf, west end first) and 19 to 21 (white surround) and 43 to 45 (black), and the
+     * facings 8 to 10, 11 to 13 and 16 to 18; on a west wall 31, 30, 23 (shelf, north end first) and 34, 33, 32 (white) and
+     * 42, 41, 40 (black), and the facings 26 to 24, 29 to 27 and 37 to 35.
      */
     private static final String[] MANTELS = new String[46];
-    /** How far along its wall the middle of each of those pieces stands, from the corner its wall starts at. */
+    /**
+     * How far along its wall the middle of each of those pieces stands, from the corner its wall starts at. A facing is as
+     * long as its sprite paints it, its pieces meeting, and stands where it is painted: its model stands half its depth
+     * further along than it is told, as anything that stands out of a north or a west wall does.
+     */
     private static final float[] MANTEL_ALONG = new float[46];
+    private static final float FACING_PROUD = 0.0625f / 2f;
     /** How high a mantel shelf's board and a surround's frieze stand off the floor, in metres, as furniture.py builds them. */
     private static final float MANTEL_BOARD_FOOT = 1.30f, SURROUND_HEADER_FOOT = 0.72f;
     /** How high each is painted where its colour is taken, in levels: the board's top, the frieze and the pilaster's shaft. */
@@ -989,6 +996,16 @@ final class Furniture {
             mantel(set + 1, "surround_header", 0.5f);
             mantel(set + 2, "surround_pilaster", 0.24f);
         }
+        for (int set : new int[] {8, 11, 16}) {
+            facing(set, 0.5f, 0.938f);
+            facing(set + 1, -0.062f, 0.938f);
+            facing(set + 2, -0.062f, 0.438f);
+        }
+        for (int set : new int[] {24, 27, 35}) {
+            facing(set + 2, 0.562f, 0.969f);
+            facing(set + 1, -0.031f, 0.969f);
+            facing(set, -0.031f, 0.438f);
+        }
         for (int set : new int[] {32, 40}) {
             mantel(set + 2, "surround_pilaster", 0.76f);
             mantel(set + 1, "surround_header", 0.5f);
@@ -999,6 +1016,11 @@ final class Furniture {
     private static void mantel(int place, String model, float along) {
         MANTELS[place] = model;
         MANTEL_ALONG[place] = along;
+    }
+
+    /** A facing painted between from and to along its wall, on the model furniture.py names by that length. */
+    private static void facing(int place, float from, float to) {
+        mantel(place, "hearth_facing_" + Math.round((to - from) * 1000f), (from + to) / 2f - FACING_PROUD);
     }
 
     /** The sheet of the boards nailed across a window: one to four on a west and a north wall from 8, on an east and a south one from 0. */

@@ -368,8 +368,22 @@ final class FurnitureTests {
                         "fixtures_fireplaces_01_" + place + " is " + wanted + " on its wall: " + model(piece));
             }
         }
-        check(!model(Furniture.known(sprite("fixtures_fireplaces_01_9|WallOverlay||alwaysDraw|attachedN|"))).startsWith("surround"),
-                "a stone facing is no surround");
+        // Each run's pieces meet: the middle one is a square long, the ends as long as they are painted.
+        int[][] facings = {{8, 9, 10}, {11, 12, 13}, {16, 17, 18}, {26, 25, 24}, {29, 28, 27}, {37, 36, 35}};
+        for (int run = 0; run < facings.length; run++) {
+            boolean north = run < 3;
+            float[] from = north ? new float[] {0.5f, -0.062f, -0.062f} : new float[] {0.562f, -0.031f, -0.031f};
+            float[] to = north ? new float[] {0.938f, 0.938f, 0.438f} : new float[] {0.969f, 0.969f, 0.438f};
+            for (int end = 0; end < 3; end++) {
+                int place = facings[run][end];
+                Furniture piece = Furniture.known(sprite("fixtures_fireplaces_01_" + place + "|WallOverlay||alwaysDraw|"));
+                String wanted = "hearth_facing_" + Math.round((to[end] - from[end]) * 1000f);
+                check(model(piece).equals(wanted) && piece.wall == (north ? WallHung.NORTH : WallHung.WEST) && piece.ownSize && piece.pictured
+                                && piece.dyed == 0 && Math.abs(piece.alongWall + 0.03125f - (from[end] + to[end]) / 2f) < 1e-4f
+                                && (end == 0 || Math.abs(from[end] + 1f - to[end - 1]) < 1e-4f),
+                        "fixtures_fireplaces_01_" + place + " is " + wanted + " on its wall: " + model(piece));
+            }
+        }
     }
 
     private static void shuttersHangOnTheirWallPanelledOrLouvredInTheirColour() {
