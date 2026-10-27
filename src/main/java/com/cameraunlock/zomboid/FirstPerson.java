@@ -1451,6 +1451,9 @@ public final class FirstPerson {
 
     /** Where a drag cursor's line meets the world: kept apart from the aim's, whose line of fire the game's hit list reads. */
     private final WorldQuery dragWorld = new WorldQuery();
+    {
+        dragWorld.windows = true;
+    }
     /** How many pieces each side of a drag cursor's square is drawn in, so a side partly behind the eye is drawn where it is in front. */
     static final int SQUARE_PIECES = 8;
     /** How far over its floor a drag cursor's square is drawn, in tiles, so the floor does not cover it. */

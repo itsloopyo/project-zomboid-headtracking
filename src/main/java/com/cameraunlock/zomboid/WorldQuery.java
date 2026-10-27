@@ -29,6 +29,7 @@ final class WorldQuery {
     private final GridTrace.Edges solidToTheEye = this::solidToTheEye;
     private final GridTrace.Edges solidToAClimber = this::solidToAClimber;
     private final GridTrace.Edges solidToAShot = this::solidToAShot;
+    private final GridTrace.Edges solidToADrag = this::solidToADrag;
 
     void look(IsoCell cell, int level) {
         this.cell = cell;
@@ -110,6 +111,12 @@ final class WorldQuery {
 
     /** Whether a tree stops the shots traced only at its bole: see Trunks. Set for each shot by its shooter. */
     boolean boles;
+    /**
+     * Whether a window stops the line as a wall does. A drag cursor aimed at a window is put on the
+     * square beside it, where the game's own barricade is put (BuildRecipeCode.barricade), and not out
+     * through the glass.
+     */
+    boolean windows;
     /** The line being traced, from where its trace began, and the nearest it has met a bole along it. */
     private float lineX, lineY, lineWayX, lineWayY, lineFrom, boleMet;
 
@@ -137,6 +144,13 @@ final class WorldQuery {
             boleMetIn(to, toX, toY);
         }
         return lineOfFire.stopsAt(seen);
+    }
+
+    /** As solidToAShot, with a window stopping the line too: see windows. */
+    private boolean solidToADrag(int fromX, int fromY, int toX, int toY) {
+        IsoGridSquare from = cell.getGridSquare(fromX, fromY, level);
+        IsoGridSquare to = cell.getGridSquare(toX, toY, level);
+        return from != null && to != null && from.isWindowTo(to) || solidToAShot(fromX, fromY, toX, toY);
     }
 
     /** Keeps the nearest the line being traced meets the bole drawn on a square, if it meets one. */
@@ -313,7 +327,7 @@ final class WorldQuery {
                         boleMetIn(start, x, y);
                     }
                 }
-                float wall = from + trace.firstBlockedEdge(solidToAShot, startX, startY, aim.forwardX, aim.forwardY, Math.min(toFloor, reach) - from);
+                float wall = from + trace.firstBlockedEdge(windows ? solidToADrag : solidToAShot, startX, startY, aim.forwardX, aim.forwardY, Math.min(toFloor, reach) - from);
                 boolean facesX = trace.hitFacesX;
                 boolean bole = boleMet < wall;
                 if (bole) {
