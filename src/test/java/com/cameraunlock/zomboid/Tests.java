@@ -70,6 +70,7 @@ public final class Tests {
         Checks.run("fieldOfViewSetIsTheOneDrawnWith", Tests::fieldOfViewSetIsTheOneDrawnWith);
         Checks.run("lightTakesTheHeadingOfItsAngles", Tests::lightTakesTheHeadingOfItsAngles);
         Checks.run("gridTraceFindsTheFirstBlockedEdge", Tests::gridTraceFindsTheFirstBlockedEdge);
+        Checks.run("aFenceBetweenTwoSquaresIsTheSouthOrEastSquaresOwn", Tests::aFenceBetweenTwoSquaresIsTheSouthOrEastSquaresOwn);
         Checks.run("CabinTests", CabinTests::run);
         Checks.run("GlassPullTests", GlassPullTests::run);
         Checks.run("GlassPlaceTests", GlassPlaceTests::run);
@@ -2277,6 +2278,16 @@ public final class Tests {
         check(near(trace.firstBlockedEdge(wallAtXFive, 4.25f, 0.5f, diagonal, diagonal, 5f), 0.75f / diagonal),
                 "a ray at an angle meets it further along");
         check(near(trace.firstBlockedEdge(wallAtXFive, 5.5f, 0.5f, -1f, 0f, 2f), 0.5f), "and from the other side");
+    }
+
+    private static void aFenceBetweenTwoSquaresIsTheSouthOrEastSquaresOwn() {
+        check(WorldQuery.fenceBetween(5, 5, 5, 4, true, false, false, false), "north, on the square left");
+        check(!WorldQuery.fenceBetween(5, 5, 5, 4, false, false, true, false), "north, on the far square's north edge");
+        check(WorldQuery.fenceBetween(5, 4, 5, 5, false, false, true, false), "south, on the square reached");
+        check(!WorldQuery.fenceBetween(5, 4, 5, 5, true, false, false, false), "south, on the square left's north edge");
+        check(WorldQuery.fenceBetween(5, 5, 4, 5, false, true, false, false), "west, on the square left");
+        check(WorldQuery.fenceBetween(4, 5, 5, 5, false, false, false, true), "east, on the square reached");
+        check(!WorldQuery.fenceBetween(4, 5, 5, 5, false, true, true, false), "east, the fences on other edges");
     }
 
     private static void shotStopsOnACharacter() {

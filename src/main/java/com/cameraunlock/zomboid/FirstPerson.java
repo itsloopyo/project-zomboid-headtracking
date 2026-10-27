@@ -10,6 +10,7 @@ import zombie.GameTime;
 import zombie.ai.State;
 import zombie.ai.states.ClimbOverFenceState;
 import zombie.ai.states.ClimbOverWallState;
+import zombie.ai.states.ClimbThroughWindowState;
 import zombie.ai.states.PlayerFallDownState;
 import zombie.ai.states.PlayerGetUpState;
 import zombie.ai.states.PlayerHitReactionPVPState;
@@ -836,7 +837,8 @@ public final class FirstPerson {
         world.look(IsoWorld.instance.currentCell, (int) Math.floor(player.getZ()));
         float reach = (float) Math.hypot(headOffset[0], headOffset[1]);
         State state = player.getCurrentState();
-        boolean climbing = state == ClimbOverFenceState.instance() || state == ClimbOverWallState.instance();
+        boolean climbing = state == ClimbOverFenceState.instance() || state == ClimbOverWallState.instance()
+                || state == ClimbThroughWindowState.instance();
         float share = reach > 0f ? world.roomForTheEye(player.getX(), player.getY(), headOffset[0] / reach,
                 headOffset[1] / reach, reach, Tracking.settings().collisionMargin, climbing) / reach : 1f;
         eye[0] = player.getX() + headOffset[0] * share;

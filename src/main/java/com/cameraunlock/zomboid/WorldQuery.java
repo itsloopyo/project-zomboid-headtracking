@@ -68,22 +68,29 @@ final class WorldQuery {
     }
 
     /**
-     * As solidToTheEye, but for an eye the game is carrying over a fence: the head goes over the fence
-     * ahead of the feet, and stopping it at the fence leaves the eye behind the body it climbs with.
+     * As solidToTheEye, but for an eye the game is carrying over a fence or through a window: the head
+     * goes over or through ahead of the feet, and stopping it there leaves the eye behind the body it
+     * climbs with.
      */
     private boolean solidToAClimber(int fromX, int fromY, int toX, int toY) {
         IsoGridSquare from = cell.getGridSquare(fromX, fromY, level);
         IsoGridSquare to = cell.getGridSquare(toX, toY, level);
-        if (from != null && to != null && fenceBetween(fromX, fromY, toX, toY,
-                hops(from, IsoFlagType.HoppableN, IsoFlagType.TallHoppableN), hops(from, IsoFlagType.HoppableW, IsoFlagType.TallHoppableW),
-                hops(to, IsoFlagType.HoppableN, IsoFlagType.TallHoppableN), hops(to, IsoFlagType.HoppableW, IsoFlagType.TallHoppableW))) {
+        if (from != null && to != null && (from.isWindowTo(to) || fenceBetween(fromX, fromY, toX, toY,
+                fenceOnly(from, true), fenceOnly(from, false), fenceOnly(to, true), fenceOnly(to, false)))) {
             return to.isSolid();
         }
         return solidToTheEye(fromX, fromY, toX, toY);
     }
 
-    private static boolean hops(IsoGridSquare square, IsoFlagType low, IsoFlagType tall) {
-        return square.has(low) || square.has(tall);
+    /**
+     * Whether a square's north or west edge has a fence on it and no wall, window or door: a square's
+     * flags are those of everything on it, and a window or a wall beside the fence still stops the eye.
+     */
+    private static boolean fenceOnly(IsoGridSquare square, boolean north) {
+        return north ? (square.has(IsoFlagType.HoppableN) || square.has(IsoFlagType.TallHoppableN)) && !square.has(IsoFlagType.WallN)
+                        && !square.has(IsoFlagType.WindowN) && !square.has(IsoFlagType.windowN) && !square.has(IsoFlagType.DoorWallN) && !square.has(IsoFlagType.doorN)
+                : (square.has(IsoFlagType.HoppableW) || square.has(IsoFlagType.TallHoppableW)) && !square.has(IsoFlagType.WallW)
+                        && !square.has(IsoFlagType.WindowW) && !square.has(IsoFlagType.windowW) && !square.has(IsoFlagType.DoorWallW) && !square.has(IsoFlagType.doorW);
     }
 
     /**
@@ -198,7 +205,7 @@ final class WorldQuery {
         return roomForTheEye(x, y, directionX, directionY, reach, margin, false);
     }
 
-    /** As roomForTheEye, with the fences passed over while the game climbs the character over one. */
+    /** As roomForTheEye, with fences and windows passed while the game climbs the character over or through one. */
     float roomForTheEye(float x, float y, float directionX, float directionY, float reach, float margin, boolean climbing) {
         float ground = (float) Math.sqrt(directionX * directionX + directionY * directionY);
         if (ground < 1e-4f) {
