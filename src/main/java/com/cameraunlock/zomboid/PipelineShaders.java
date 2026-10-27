@@ -427,8 +427,20 @@ final class PipelineShaders {
             }
             """;
 
-    /** How much of the sky a place can see, for the world's fragment shader and for the vertex shaders that stand grass in lying snow. It uses uHeights and uRoofMatrix, which the shader it is joined into declares. */
-    static final String SKY_SEEN = """
+    /** How much of the sky a place can see, for the world's fragment shader and for the vertex shaders that stand grass in lying snow. It uses uHeights and uRoofMatrix, which the shader it is joined into declares, and declares ROOF_MAP_TEXELS and heightBetween. */
+    static final String SKY_SEEN = "const float ROOF_MAP_TEXELS = " + Pipeline.ROOF_MAP_TEXELS + ".0;\n" + """
+            // The height the map from above holds at a place, read between its four nearest
+            // texels. Elsewhere it is read texel by texel, where a roof's edge has to stay sharp,
+            // but under a fine-grained crown single texels made the snow lie in texel squares.
+            float heightBetween(vec2 c) {
+                vec2 t = c * ROOF_MAP_TEXELS - 0.5;
+                vec2 f = fract(t);
+                vec2 b = (floor(t) + 0.5) / ROOF_MAP_TEXELS;
+                float s = 1.0 / ROOF_MAP_TEXELS;
+                return mix(mix(texture2D(uHeights, b).r, texture2D(uHeights, b + vec2(s, 0.0)).r, f.x),
+                        mix(texture2D(uHeights, b + vec2(0.0, s)).r, texture2D(uHeights, b + vec2(s, s)).r, f.x), f.y);
+            }
+
             // How much of the sky a point can see. The land round the eye is kept as a map of
             // heights seen from straight above, and from the point rays are sent out along
             // the ground six ways, three lengths each: how high the land stands over the
@@ -448,7 +460,7 @@ final class PipelineShaders {
                         if (c.x < 0.0 || c.x > 1.0 || c.y < 0.0 || c.y > 1.0) {
                             continue;
                         }
-                        float above = (c.z - texture2D(uHeights, c.xy).r) * 80.0 - 0.2;
+                        float above = (c.z - heightBetween(c.xy)) * 80.0 - 0.2;
                         highest = max(highest, above / d);
                     }
                     hidden += clamp(highest * 0.6, 0.0, 1.0);
