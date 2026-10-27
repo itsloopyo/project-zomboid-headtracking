@@ -4882,12 +4882,33 @@ def gravestone(name, top):
 def sack_barrier():
     """A barrier of the kind an army fills with earth: a cube of sacking in a cage of wire mesh, heaped at the top."""
     model = Model("sack_barrier")
+    # The sacking swells out between the cage's wires, a cushion to each square of mesh, and the earth in it stands
+    # heaped in the middle of the top.
+    half, height, wires, rows, swell, heap = 0.47, 0.95, 0.24, (0.02, 0.33, 0.64, 0.95), 0.03, 0.1
     sack = bmesh.new()
-    prism(sack, (0.0, 0.0, 0.94, 0.94, 0.0), (0.0, 0.0, 0.98, 0.98, 0.95))
-    model.hard(sack, "paint", bevel=0.05, segments=3)
-    heap = bmesh.new()
-    lathe(heap, [(0.6, 0.93), (0.5, 1.0), (0.28, 1.06), (0.0, 1.08)], segments=4, to=Matrix.Rotation(math.radians(45), 4, "Z"))
-    model.turned(heap, "linen", sharp=80.0)
+    bmesh.ops.create_cube(sack, size=1.0)
+    bmesh.ops.subdivide_edges(sack, edges=sack.edges[:], cuts=11, use_grid_fill=True)
+    bmesh.ops.remove_doubles(sack, verts=sack.verts[:], dist=0.0001)
+
+    def between(at, lines):
+        """How far at is through the gap between the two lines either side of it, 0 to 1."""
+        for low, high in zip(lines, lines[1:]):
+            if low <= at <= high:
+                return (at - low) / (high - low)
+        return 0.0
+
+    columns = [-0.48 + n * wires for n in range(5)]
+    for vert in sack.verts:
+        x, y, z = vert.co.x * 2 * half, vert.co.y * 2 * half, (vert.co.z + 0.5) * height
+        up = math.sin(math.pi * between(z, rows))
+        if abs(x) > half - 0.001 and abs(y) < half - 0.001:
+            x += math.copysign(swell * math.sin(math.pi * between(y, columns)) * up, x)
+        elif abs(y) > half - 0.001 and abs(x) < half - 0.001:
+            y += math.copysign(swell * math.sin(math.pi * between(x, columns)) * up, y)
+        elif z > height - 0.001:
+            z += heap * (1 - (x / half) ** 2) * (1 - (y / half) ** 2)
+        vert.co = (x, y, z)
+    model.turned(sack, "paint", sharp=80.0)
     cage = bmesh.new()
     for side in (-1, 1):
         for n in range(5):
