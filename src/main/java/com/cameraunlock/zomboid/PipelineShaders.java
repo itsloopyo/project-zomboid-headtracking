@@ -2626,11 +2626,15 @@ final class PipelineShaders {
                     // thinning away first: the other cards of the fan are the tree from here.
                     // Nor is a leaf right against the eye drawn: standing in a tree, the leaves
                     // within reach thin away and the view is of the wood beyond them.
-                    if ((length(uEye - vWorld) - uRangeFrom) < 0.9 + 0.7 * grain(floor(vWorld.xy * 23.0) + floor(vWorld.z * 23.0) * 7.0)) {
+                    // Both thin by smooth noise over the card, in rounded holes: by a grid of cells
+                    // what was left of a card near the eye was squares, which a sunflower's yellow
+                    // head showed as flat yellow tiles.
+                    float thinning = patches(along * 23.0);
+                    if ((length(uEye - vWorld) - uRangeFrom) < 0.9 + 0.7 * thinning) {
                         discard;
                     }
                     vec2 spread = fwidth(along * 0.85);
-                    if (max(spread.x, spread.y) > 0.1 + 0.17 * grain(floor(vWorld.xy * 23.0) + floor(vWorld.z * 23.0) * 7.0)) {
+                    if (max(spread.x, spread.y) > 0.1 + 0.17 * thinning) {
                         discard;
                     }
                     // A leaf smaller than a pixel is there in one frame and gone in the next,
