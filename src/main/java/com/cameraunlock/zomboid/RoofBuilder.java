@@ -815,16 +815,16 @@ final class RoofBuilder {
         }
         // Along the eave, and from the tile to the square past its eave.
         int ax = alongY ? 1 : 0, ay = 1 - ax, ex = 1 - ax, ey = ax;
-        if (gableSheetOn(x + ex - ax, y + ey - ay, z, alongY)) {
+        if (Roofs.gableSheetOn(build.cell, x + ex - ax, y + ey - ay, z, alongY)) {
             return;
         }
         int wide = 0;
-        while (wide <= WIDEST_GABLET && gableSheetOn(x + ex + wide * ax, y + ey + wide * ay, z, alongY) && !roofOn(x + ex + wide * ax, y + ey + wide * ay, z)
+        while (wide <= WIDEST_GABLET && Roofs.gableSheetOn(build.cell, x + ex + wide * ax, y + ey + wide * ay, z, alongY) && !roofOn(x + ex + wide * ax, y + ey + wide * ay, z)
                 && sameSlope(tile, x + wide * ax, y + wide * ay, z)) {
             wide++;
         }
         // A row of sheets that runs on past the slope is the end of a gable of its own, and its roof is the map's: the four at 12279..12282, 3216.
-        if (wide < 2 || wide > WIDEST_GABLET || gableSheetOn(x + ex + wide * ax, y + ey + wide * ay, z, alongY)) {
+        if (wide < 2 || wide > WIDEST_GABLET || Roofs.gableSheetOn(build.cell, x + ex + wide * ax, y + ey + wide * ay, z, alongY)) {
             return;
         }
         // The slope runs back under the whole of its ridge, which goes half the row's width into it: a longer row before a shallower
@@ -856,19 +856,6 @@ final class RoofBuilder {
         WorldScene.set(c, 1, alongY ? a1 : b1, alongY ? b1 : a1, up1);
         WorldScene.set(c, 2, alongY ? a2 : b2, alongY ? b2 : a2, up2);
         SpriteGeometry.addTriangle(sheet, c, roofU, roofV, build.frame.red, build.frame.green, build.frame.blue);
-    }
-
-    /** Whether a gable's sheet stands on the north edge of the square, or with north false its west edge. */
-    private boolean gableSheetOn(int x, int y, int z, boolean north) {
-        IsoGridSquare square = build.cell.getGridSquare(x, y, z);
-        for (int i = 0; square != null && i < square.getObjects().size(); i++) {
-            IsoSprite sprite = square.getObjects().get(i).getSprite();
-            if (sprite != null && sprite.getName() != null && sprite.getName().startsWith("walls_exterior_roofs")
-                    && (north ? Edges.north(sprite.getProperties(), sprite.getType()) : Edges.west(sprite.getProperties(), sprite.getType()))) {
-                return true;
-            }
-        }
-        return false;
     }
 
     /** Whether a sprite of the roofs' sheets is on the square. */

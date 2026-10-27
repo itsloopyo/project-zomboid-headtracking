@@ -399,6 +399,28 @@ final class Roofs {
         });
     }
 
+    /**
+     * Whether the map stands a gable on the edge past the end of a slope's level line: the south end of one that climbs
+     * along x, the east end of one along y. The map has gables only where the game's view sees them, at those ends.
+     */
+    private static boolean gabled(IsoCell cell, RoofFit.Tile tile) {
+        return tile.axis == RoofFit.ALONG_X ? gableSheetOn(cell, tile.x, tile.y + 1, tile.z, true)
+                : tile.axis == RoofFit.ALONG_Y && gableSheetOn(cell, tile.x + 1, tile.y, tile.z, false);
+    }
+
+    /** Whether one of the roofs' gable sheets stands on the square's north edge, or on its west edge. */
+    static boolean gableSheetOn(IsoCell cell, int x, int y, int z, boolean north) {
+        IsoGridSquare square = cell.getGridSquare(x, y, z);
+        for (int i = 0; square != null && i < square.getObjects().size(); i++) {
+            IsoSprite sprite = square.getObjects().get(i).getSprite();
+            if (sprite != null && sprite.getName() != null && sprite.getName().startsWith("walls_exterior_roofs")
+                    && (north ? Edges.north(sprite.getProperties(), sprite.getType()) : Edges.west(sprite.getProperties(), sprite.getType()))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static void read(IsoCell cell, int x, int y, int z, int now, float scale) {
         Roof roof = new Roof();
         roof.stamp = now;
@@ -467,6 +489,9 @@ final class Roofs {
         }
         tiles.addAll(forward.values());
         tiles.sort(Comparator.comparingLong(tile -> RoofFit.key(tile.x, tile.y, tile.z)));
+        for (RoofFit.Tile tile : tiles) {
+            tile.gabled = gabled(cell, tile);
+        }
         RoofFit.fit(tiles);
         if (!votes.isEmpty()) {
             paintedPlace(shown.get(votes.commonest()), roof);

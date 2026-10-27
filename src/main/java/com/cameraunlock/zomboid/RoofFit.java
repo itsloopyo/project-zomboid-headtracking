@@ -117,6 +117,8 @@ final class RoofFit {
         int cutCorner = -1;
         /** Whether the tile is a level sheet the map marks as no tile of a roof: see Roofs.flatTop and behindRidges. */
         boolean sheet;
+        /** Whether the map stands a gable on the edge past the south or the east end of the slope's level line: see Roofs.gabled. */
+        boolean gabled;
         private int group = -1;
 
         Tile(int x, int y, int z, int axis, boolean sure, float low, float high) {
@@ -344,29 +346,35 @@ final class RoofFit {
      * A row of a slope that climbs from a crown's height on into the crown is laid level there: the map put the crown a row
      * lower than the slope's top. Left climbing, the row stood a third of a level over the crown along its whole edge, and
      * the far side made from it climbed past the crown the same, so both ends of the roof kicked up (12798..12807, 3240..3247).
-     * The rest of the row along its level line goes level with it, past squares where no crown is beside it.
+     * The rest of the row along its level line goes level with it, past squares where no crown is beside it. A row the map
+     * stands a gable at the end of is a gable's slope, and its top the gable's ridge: laid level, the gable a row wider than
+     * the crown's end stood bare over the roof to its peak (12853..12856, 3177).
      */
     private static void levelPastTheCrown(List<Tile> tiles, HashMap<Long, Tile> at) {
         ArrayList<Tile> level = new ArrayList<>();
-        for (Tile tile : tiles) {
-            if (!tile.slopes() || Math.abs(Math.abs(tile.fitHigh - tile.fitLow) - PITCH) > PITCH_SLACK) {
+        HashSet<Tile> seen = new HashSet<>();
+        for (Tile first : tiles) {
+            if (seen.contains(first) || !first.slopes() || Math.abs(Math.abs(first.fitHigh - first.fitLow) - PITCH) > PITCH_SLACK || !climbsIntoACrown(first, at)) {
                 continue;
             }
-            boolean isAlongX = tile.fitAxis == ALONG_X;
-            int up = tile.up();
-            Tile crown = at.get(key(tile.x + (isAlongX ? up : 0), tile.y + (isAlongX ? 0 : up), tile.z));
-            if (crown != null && crown.sheet && Math.abs(crown.fitLow - Math.min(tile.fitLow, tile.fitHigh)) < SAME) {
-                level.add(tile);
-            }
-        }
-        for (int next = 0; next < level.size(); next++) {
-            Tile tile = level.get(next);
-            for (int side = -1; side <= 1; side += 2) {
-                Tile beside = at.get(key(tile.x + (tile.fitAxis == ALONG_Y ? side : 0), tile.y + (tile.fitAxis == ALONG_X ? side : 0), tile.z));
-                if (beside != null && beside.slopes() && beside.fitAxis == tile.fitAxis && Math.abs(beside.fitLow - tile.fitLow) < SAME
-                        && Math.abs(beside.fitHigh - tile.fitHigh) < SAME && !level.contains(beside)) {
-                    level.add(beside);
+            ArrayList<Tile> row = new ArrayList<>();
+            row.add(first);
+            seen.add(first);
+            boolean gabled = false;
+            for (int next = 0; next < row.size(); next++) {
+                Tile tile = row.get(next);
+                gabled |= tile.gabled;
+                for (int side = -1; side <= 1; side += 2) {
+                    Tile beside = at.get(key(tile.x + (tile.fitAxis == ALONG_Y ? side : 0), tile.y + (tile.fitAxis == ALONG_X ? side : 0), tile.z));
+                    if (beside != null && beside.slopes() && beside.fitAxis == tile.fitAxis && Math.abs(beside.fitLow - tile.fitLow) < SAME
+                            && Math.abs(beside.fitHigh - tile.fitHigh) < SAME && !seen.contains(beside)) {
+                        seen.add(beside);
+                        row.add(beside);
+                    }
                 }
+            }
+            if (!gabled) {
+                level.addAll(row);
             }
         }
         for (Tile tile : level) {
@@ -375,6 +383,14 @@ final class RoofFit {
             tile.fitLow = foot;
             tile.fitHigh = foot;
         }
+    }
+
+    /** Whether a slope's tile climbs to a level sheet of a crown beside it at the height of its foot. */
+    private static boolean climbsIntoACrown(Tile tile, HashMap<Long, Tile> at) {
+        boolean isAlongX = tile.fitAxis == ALONG_X;
+        int up = tile.up();
+        Tile crown = at.get(key(tile.x + (isAlongX ? up : 0), tile.y + (isAlongX ? 0 : up), tile.z));
+        return crown != null && crown.sheet && Math.abs(crown.fitLow - Math.min(tile.fitLow, tile.fitHigh)) < SAME;
     }
 
     /**
@@ -870,7 +886,8 @@ final class RoofFit {
             boolean bothSides = false;
             for (int crossed = 0; crossed < WIDEST_TOP && !bothSides; crossed++) {
                 Tile on = roofed.get(key(x, y, 0));
-                if (on == null && !(level && site.floored(x, y, whole))) {
+                // A crown lower than the ridge is no level top of it: the far side comes down over it (see open below).
+                if (on == null && !(level && site.floored(x, y, whole)) || on != null && on.sheet && on.fitLow < ridge - SAME) {
                     break;
                 }
                 // The far slope is on the map: this roof has both its sides.
