@@ -1853,10 +1853,13 @@ final class RoofFit {
      * as backs made it or as made here, and peaks along its middle half a tile's climb higher.
      */
     static void peaks(List<Tile> tiles, List<Tile> made) {
-        HashMap<Long, Tile> slopes = new HashMap<>(), ridges = new HashMap<>(), halves = new HashMap<>();
+        HashMap<Long, Tile> slopes = new HashMap<>(), ridges = new HashMap<>(), halves = new HashMap<>(), folds = new HashMap<>();
         for (Tile tile : tiles) {
             if (tile.slopes()) {
                 slopes.put(key(tile.x, tile.y, 0), tile);
+            }
+            if (tile.shaped && !tile.fitting) {
+                folds.put(key(tile.x, tile.y, 0), tile);
             }
             if (tile.half != 0) {
                 halves.put(key(tile.x, tile.y, tile.z), tile);
@@ -1875,6 +1878,12 @@ final class RoofFit {
                 int x = half.x - shift, y = half.y - shift;
                 float edge = half.halfEdge - shift * PITCH;
                 Tile below = slopes.get(key(x + (east ? 1 : 0), y + (east ? 0 : 1), 0));
+                if (below == null && alone(halves, half) && dormer(folds.get(key(x + (east ? 1 : 0), y + (east ? 0 : 1), 0)), east, edge)) {
+                    shifts.put(half, shift);
+                    peak(x, y, edge, east, slopes, ridges, made);
+                    foldBehindADormer(x - (east ? 1 : 0), y - (east ? 0 : 1), east, edge, slopes);
+                    break;
+                }
                 if (below == null || below.fitAxis != (east ? ALONG_X : ALONG_Y) || below.up() != -1 || Math.abs(below.fitLow - edge) > SAME + PITCH_SLACK) {
                     continue;
                 }
@@ -1917,6 +1926,70 @@ final class RoofFit {
             ridge.peakBefore = meets(ridges, ridge, ridge.x - (alongY ? 0 : 1), ridge.y - (alongY ? 1 : 0)) ? 0.5f : 0f;
             ridge.peakAfter = meets(ridges, ridge, ridge.x + (alongY ? 0 : 1), ridge.y + (alongY ? 1 : 0)) ? 0.5f : 0f;
         }
+    }
+
+    /**
+     * Whether a folded tile below a half is a dormer's face where it comes down onto the main roof: a valley whose edge under
+     * the half is level at the half's edge and which falls a pitch from there to the corner of the dormer's eave (4092, 14531
+     * under the half at 4092, 14530, a house whose east slope has two dormers).
+     */
+    private static boolean dormer(Tile fold, boolean east, float edge) {
+        if (fold == null || !valley(fold)) {
+            return false;
+        }
+        int[] top = east ? EDGE[0] : EDGE[2], foot = east ? EDGE[1] : EDGE[3];
+        float lowest = Math.min(fold.corners[foot[0]], fold.corners[foot[1]]);
+        return Math.abs(fold.corners[top[0]] - edge) <= SAME && Math.abs(fold.corners[top[1]] - edge) <= SAME && Math.abs(edge - PITCH - lowest) <= SAME;
+    }
+
+    /**
+     * Whether a half is the only one of its ridge, as a dormer's is a square deep. The last half of a wing's ridge has a
+     * valley below it too, where the wing's slope comes down onto the main roof, and is placed with the run it ends.
+     */
+    private static boolean alone(HashMap<Long, Tile> halves, Tile half) {
+        boolean east = half.half == EAST_HALF;
+        for (int way = -1; way <= 1; way += 2) {
+            Tile next = halves.get(key(half.x + (east ? 0 : way), half.y + (east ? way : 0), half.z));
+            if (next != null && next.half == half.half) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * The dormer's far face, on the square past its ridge: the map draws only the face the game's view sees, and the main
+     * roof's slope there goes on under the dormer. That slope is folded to the higher of itself and the face, which climbs a
+     * pitch to the ridge's edge: its own sprite where it stays on top, the mod's sheet where the face does.
+     */
+    private static void foldBehindADormer(int x, int y, boolean east, float edge, HashMap<Long, Tile> slopes) {
+        Tile main = slopes.get(key(x, y, 0));
+        if (main == null || main.fitAxis == (east ? ALONG_X : ALONG_Y)) {
+            return;
+        }
+        float[] face = new float[4], own = new float[4], higher = new float[4];
+        cornersOf(east ? ALONG_X : ALONG_Y, edge - PITCH, edge, face);
+        cornersOf(main.fitAxis, main.fitLow, main.fitHigh, own);
+        for (int corner = 0; corner < 4; corner++) {
+            higher[corner] = Math.max(face[corner], own[corner]);
+        }
+        float northWestToSouthEast = (higher[0] + higher[2]) / 2f, northEastToSouthWest = (higher[1] + higher[3]) / 2f;
+        // Where the face lies under the slope all over the square, the slope is the roof there.
+        if (Math.abs(northWestToSouthEast - northEastToSouthWest) < SAME / 2f) {
+            return;
+        }
+        System.arraycopy(higher, 0, main.corners, 0, 4);
+        // The higher of two planes is folded where they meet, the diagonal whose ends are lower.
+        main.crease = northWestToSouthEast < northEastToSouthWest ? NW_SE : NE_SW;
+        main.shaped = true;
+        main.own = 0;
+        for (int triangle = 0; triangle < 2; triangle++) {
+            int off = TRIANGLES[main.crease][triangle * 3 + 2];
+            if (own[off] >= face[off]) {
+                main.own |= 1 << triangle;
+            }
+        }
+        slopes.remove(key(x, y, 0));
     }
 
     /** Whether the square holds a ridge across the given one's, as high. */

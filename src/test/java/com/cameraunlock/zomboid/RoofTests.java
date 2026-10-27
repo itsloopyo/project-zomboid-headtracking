@@ -68,6 +68,7 @@ final class RoofTests {
         Checks.run("hipRoofWithCutHipsGetsItsFarFacesAsAHip", RoofTests::hipRoofWithCutHipsGetsItsFarFacesAsAHip);
         Checks.run("roofHippedAtOneEndAndGabledAtTheOtherGetsItsFarFaces", RoofTests::roofHippedAtOneEndAndGabledAtTheOtherGetsItsFarFaces);
         Checks.run("wingsSideBySideUnderACrossRidgeLeaveNoPit", RoofTests::wingsSideBySideUnderACrossRidgeLeaveNoPit);
+        Checks.run("dormerOnASlopeGetsItsRidgeAndItsFarFace", RoofTests::dormerOnASlopeGetsItsRidgeAndItsFarFace);
         Checks.run("wingsFarSideStopsAtAMainRoofDeeperThanItsNearSide", RoofTests::wingsFarSideStopsAtAMainRoofDeeperThanItsNearSide);
         Checks.run("slopeThatClimbsPastItsCrownLiesLevel", RoofTests::slopeThatClimbsPastItsCrownLiesLevel);
         Checks.run("gablesSlopeThatClimbsPastACrownStaysASlope", RoofTests::gablesSlopeThatClimbsPastACrownStaysASlope);
@@ -2705,6 +2706,51 @@ final class RoofTests {
                         "one carried tile with the same corners on " + a.x + ", " + a.y);
             }
         }
+    }
+
+    /**
+     * A house's east slope over x 0..1 and y 0..4, as at 4091..4092 x 14529..14533, with a dormer standing out of its
+     * lower row over y 1..3: the map has the dormer's ridge as a half tile at 1, 2 and its south face as the valley where
+     * it comes down onto the slope at 1, 3, and leaves the slope going on under the dormer at 1, 1. The dormer's ridge is
+     * made, and the slope at 1, 1 is folded to the dormer's north face where that stands higher.
+     */
+    private static void dormerOnASlopeGetsItsRidgeAndItsFarFace() {
+        List<RoofFit.Tile> roof = new ArrayList<>();
+        for (int y = 0; y <= 4; y++) {
+            roof.add(new RoofFit.Tile(0, y, 1, RoofFit.ALONG_X, true, 1f + 2 * THIRD, 1f + THIRD));
+            if (y == 2) {
+                RoofFit.Tile ridge = new RoofFit.Tile(1, y, 1, RoofFit.LEVEL, true, 1f + THIRD, 1f + THIRD);
+                ridge.fitting = true;
+                ridge.half = RoofFit.SOUTH_HALF;
+                ridge.halfEdge = 1f + THIRD;
+                roof.add(ridge);
+            } else if (y == 3) {
+                RoofFit.Tile valley = new RoofFit.Tile(1, y, 1, RoofFit.SOUTH_EAST_ODD, true, 1f + THIRD, 1f);
+                valley.corners[0] = valley.corners[1] = valley.corners[3] = 1f + THIRD;
+                valley.corners[2] = 1f;
+                valley.crease = RoofFit.NW_SE;
+                valley.shaped = true;
+                valley.own = 3;
+                roof.add(valley);
+            } else {
+                roof.add(new RoofFit.Tile(1, y, 1, RoofFit.ALONG_X, true, 1f + THIRD, 1f));
+            }
+        }
+        List<RoofFit.Tile> made = new ArrayList<>();
+        RoofFit.peaks(roof, made);
+        RoofFit.Tile ridge = madeAt(made, 1, 2);
+        check(ridge != null && ridge.fitAxis == RoofFit.LEVEL && near(ridge.fitLow, 1f + THIRD) && near(ridge.peak, THIRD / 2f) && ridge.peakAxis == RoofFit.ALONG_Y,
+                "the dormer's ridge is made at 1, 2: " + said(ridge));
+        RoofFit.Tile behind = null;
+        for (RoofFit.Tile tile : roof) {
+            behind = tile.x == 1 && tile.y == 1 ? tile : behind;
+        }
+        float[] folded = {1f + THIRD, 1f, 1f + THIRD, 1f + THIRD};
+        boolean asFolded = behind.shaped && behind.crease == RoofFit.NE_SW && behind.own == 2;
+        for (int corner = 0; corner < 4; corner++) {
+            asFolded &= near(behind.corners[corner], folded[corner]);
+        }
+        check(asFolded, "the slope behind the dormer is folded up to its north face: " + Arrays.toString(behind.corners) + " crease " + behind.crease + " own " + behind.own);
     }
 
     private static boolean near(float a, float b) {
