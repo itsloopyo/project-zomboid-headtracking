@@ -1535,11 +1535,14 @@ final class RoofFit {
                 while (!strips.containsKey(key(x, y, 0))) {
                     Tile on = roofed.get(key(x, y, 0));
                     if (on == null) {
-                        // A far side falling from a ridge across the way is the roof there: the slope ends against it in a valley.
+                        // A far side falling from a ridge across the way is the roof there: the slope ends against it in a valley. So
+                        // does one climbing from its eave the way the slope is carried: a hip is a slope across falling that way, and
+                        // met as one, the lower of the two took the square. A dormer's north face carried along under the main roof's
+                        // west face cut a square out of that face at the ridge (12721, 3678).
                         Side other = across.get(key(x, y, 0));
                         // Nor is it carried on over the flat roof of a lower part beside it (see backs): it stood over the north
                         // block's flat roof as a gutter against the main roof's eave (3916..3917, 13816).
-                        if ((other == null || other.fromEave) && stands(built, site, x, y, from.eaveLevel()) && !site.taken(x, y, from.eaveLevel(), Math.min(from.near, from.far))
+                        if ((other == null || other.fromEave && other.up != step) && stands(built, site, x, y, from.eaveLevel()) && !site.taken(x, y, from.eaveLevel(), Math.min(from.near, from.far))
                                 && !site.annex(x - (alongX ? 0 : step), y - (alongX ? step : 0), x, y, from.eaveLevel())) {
                             Side next = from.at(x, y);
                             strips.put(key(x, y, 0), next);
