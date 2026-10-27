@@ -18,7 +18,7 @@ final class WoundsTests {
         Checks.run("theCutsOfAZombieReadBackPartByPart", WoundsTests::theCutsOfAZombieReadBackPartByPart);
         Checks.run("theLurchFollowsTheWoundedFoot", WoundsTests::theLurchFollowsTheWoundedFoot);
         Checks.run("aKillingShotTakesALimbOffOnlyPastAWholeZombiesShareAndARoll", WoundsTests::aKillingShotTakesALimbOffOnlyPastAWholeZombiesShareAndARoll);
-        Checks.run("aZombieKilledByABlastLosesOneLimbAtMost", WoundsTests::aZombieKilledByABlastLosesOneLimbAtMost);
+        Checks.run("aZombieKilledByABlastLosesEveryLimbItCutsOnOneRoll", WoundsTests::aZombieKilledByABlastLosesEveryLimbItCutsOnOneRoll);
     }
 
     /** A shot through a forearm or calf. */
@@ -44,7 +44,7 @@ final class WoundsTests {
         check(wounds.shot(living, Wounds.RIGHT_LEG, heavy, 0.5f, Wounds.LOWER, false) == Wounds.SEVERED, "a shot that leaves the zombie alive goes by its health left, with no roll");
     }
 
-    private static void aZombieKilledByABlastLosesOneLimbAtMost() {
+    private static void aZombieKilledByABlastLosesEveryLimbItCutsOnOneRoll() {
         Wounds wounds = new Wounds();
         Object zombie = new Object();
         int cut = 0;
@@ -52,7 +52,7 @@ final class WoundsTests {
         for (int pellet = 0; pellet < 8; pellet++) {
             cut += wounds.shot(zombie, pellet % Wounds.LIMBS, 80f, 0f, Wounds.LOWER, true) == Wounds.SEVERED ? 1 : 0;
         }
-        check(cut == 1, "a blast that kills a zombie takes one limb off at most: " + cut);
+        check(cut == Wounds.LIMBS, "a blast that kills a zombie takes off every limb its pellets would off a whole zombie: " + cut);
         Object spared = new Object();
         int none = wounds.shot(spared, Wounds.LEFT_LEG, 80f, 0f, Wounds.LOWER, false) == Wounds.SEVERED ? 1 : 0;
         for (int pellet = 1; pellet < 8; pellet++) {

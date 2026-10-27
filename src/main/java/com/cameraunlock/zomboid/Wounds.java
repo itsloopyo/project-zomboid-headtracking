@@ -47,7 +47,7 @@ final class Wounds {
         final int[] stages = new int[LIMBS];
         final int[] cuts = new int[PARTS];
         boolean headShot;
-        /** Whether the zombie's death has been rolled for, and whether that roll is still to take a limb off. */
+        /** Whether the zombie's death has been rolled for, and whether that roll lets its killing shots cut. */
         boolean deathRolled, deathCuts;
     }
 
@@ -66,7 +66,7 @@ final class Wounds {
      * @param health the zombie's health once the shot has been taken off it
      * @param at     where on the limb the shot was: {@link #END}, {@link #LOWER} or {@link #UPPER}
      * @param roll   the roll for a killing shot: the first killing shot on a zombie keeps it for the zombie, and
-     *               a death rolled true takes off at most one limb, where the shots add up as at WHOLE_HEALTH
+     *               a death rolled true takes off every limb whose shots add up as at WHOLE_HEALTH
      */
     synchronized int shot(Object zombie, int limb, float damage, float health, int at, boolean roll) {
         Limbs limbs = zombies.computeIfAbsent(zombie, z -> new Limbs());
@@ -82,9 +82,6 @@ final class Wounds {
         int stage = severs ? SEVERED : limbs.taken[limb] >= left ? RUINED : limbs.taken[limb] >= left * WOUNDED_SHARE ? WOUNDED : SOUND;
         if (stage == SEVERED) {
             if (at > limbs.cuts[limb]) {
-                if (killing) {
-                    limbs.deathCuts = false;
-                }
                 limbs.cuts[limb] = at;
                 anyCut = true;
                 limbs.stages[limb] = SEVERED;
