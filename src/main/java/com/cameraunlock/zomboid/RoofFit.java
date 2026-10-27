@@ -329,6 +329,13 @@ final class RoofFit {
                 goOnDown(tile, at);
             }
         }
+        // A slope's tile that takes its plane from beside it may come after the level tile at its foot: the eave
+        // under it stayed level at the end of a canopy by its hip (8276, 11287).
+        for (Tile tile : tiles) {
+            if (tile.axis == LEVEL && !tile.fitting && tile.half == 0 && !tile.fitted && tile.cutCorner < 0) {
+                goOnDown(tile, at);
+            }
+        }
     }
 
     /**

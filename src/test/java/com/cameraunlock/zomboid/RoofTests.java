@@ -887,6 +887,20 @@ final class RoofTests {
         roof.add(new RoofFit.Tile(0, 2, 1, RoofFit.ALONG_Y, true, 1f + 2f * sixth, 1f + 3f * sixth));
         RoofFit.fit(roof);
         check(foot.fitAxis == RoofFit.ALONG_Y && near(foot.fitLow, 1f) && near(foot.fitHigh, 1f + sixth), "a level tile a tile's climb under the low edge of a slope is the slope's lowest row");
+        // A canopy's eave row by its hip: the slope's tile over the first level tile reads unclearly and takes its plane from
+        // the next along, which comes after the level tile under it (8276, 11287).
+        List<RoofFit.Tile> canopy = new ArrayList<>();
+        List<RoofFit.Tile> eave = new ArrayList<>();
+        for (int x = 0; x <= 3; x++) {
+            RoofFit.Tile level = new RoofFit.Tile(x, 0, 1, RoofFit.LEVEL, true, 1f, 1f);
+            eave.add(level);
+            canopy.add(level);
+            canopy.add(new RoofFit.Tile(x, 1, 1, RoofFit.ALONG_Y, x > 0, 1f + sixth, 1f + 2f * sixth));
+        }
+        canopy.sort(Comparator.comparingLong(tile -> RoofFit.key(tile.x, tile.y, tile.z)));
+        RoofFit.fit(canopy);
+        check(eave.stream().allMatch(tile -> tile.fitAxis == RoofFit.ALONG_Y && near(tile.fitLow, 1f) && near(tile.fitHigh, 1f + sixth)),
+                "the eave under a slope's tile that takes its plane from beside it is the slope's lowest row too");
     }
 
     /**
