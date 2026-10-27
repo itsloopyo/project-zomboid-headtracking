@@ -987,6 +987,27 @@ final class RoofFit {
                 }
             }
         }
+        // A far side is one plane: where the row beside comes down to its eave at the building's edge, a row carried on past its
+        // depth over a flat roof's sheets has come down to the same eave, and the flat is a wing's beyond it. Carried on to the
+        // wing's wall, the far side lay at its ridge's height over the rows by the wing and the gable stood bare in front of it
+        // (2763..2771, 14538..14541). Rows carried on beside rows that go on as far are the map's own (869..876, 12515..12517).
+        for (boolean changed = true; changed; ) {
+            changed = false;
+            for (Row row : rows) {
+                if (!row.fromEave || row.open <= row.climbed
+                        || site.sheets(row.x + row.climbed * row.dx, row.y + row.climbed * row.dy, row.dx, row.dy, (int) Math.floor(row.eave + LEAST_RISE)) == 0) {
+                    continue;
+                }
+                for (int side = -1; side <= 1; side += 2) {
+                    Row beside = rowAt.get(rowKey(row.x + (row.dx == 0 ? side : 0), row.y + (row.dy == 0 ? side : 0), row.dx, row.dy));
+                    if (beside != null && beside.fromEave && beside.open == row.climbed && beside.climbed == row.climbed && Math.abs(beside.ridge - row.ridge) < SAME) {
+                        row.open = row.climbed;
+                        changed = true;
+                        break;
+                    }
+                }
+            }
+        }
         // A far side that runs on past the depth of its near one into the far side of a roof
         // across it has come to where a wing meets the main roof, and both far sides are made:
         // it falls from its ridge as deep as the near side and meets the other in a valley.
