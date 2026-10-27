@@ -5053,18 +5053,18 @@ def hay_bales(name, count):
             out = pulled + seam + 0.012 * middle
             rough = (rng.uniform(-0.006, 0.006), rng.uniform(-0.006, 0.006), rng.uniform(-0.006, 0.006))
             vert.co.x += shift + moved + rough[0] + (out if i == last[0] else -out if i == 0 else 0.0)
-            vert.co.y += rough[1]
+            vert.co.y += 0.0 if ends else rough[1]
             if k == last[2]:
-                vert.co.z += pulled + seam + 0.01 * (1.0 - abs(i / last[0] - 0.5) * 2.0) + rough[2]
+                vert.co.z += pulled + seam - 0.006 * abs(i / last[0] - 0.5) * 2.0 - abs(rough[2])
             elif k > 0:
                 vert.co.z += rough[2]
         crease(hay, cage, 0.9)
         model.soft(hay, "straw", levels=1)
         for x in (-0.12, 0.12):
-            top = low + HAY_HIGH + 0.007
+            top = low + HAY_HIGH + 0.001
             cuboid(twine, shift + x - 0.005, shift + x + 0.005, -HAY_LONG / 2 + 0.03, HAY_LONG / 2 - 0.03, top - 0.004, top)
             for side in (-1, 1):
-                y0, y1 = sorted((side * (HAY_LONG / 2 + 0.007), side * (HAY_LONG / 2 + 0.002)))
+                y0, y1 = sorted((side * (HAY_LONG / 2 + 0.001), side * (HAY_LONG / 2 - 0.004)))
                 cuboid(twine, shift + x - 0.005, shift + x + 0.005, y0, y1, low + 0.03, top - 0.03)
     model.plain(twine, "rubber")
     return model

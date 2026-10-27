@@ -172,7 +172,7 @@ final class FarmTests {
         }
         Outdoors.Piece post = Outdoors.of("location_farm_accesories_01_13", null, null, Outdoors.NONE, 1, 1, 0);
         Models.Model straw = model(post, "the post bound with straw");
-        Checks.check(straw != null && straw.height() > 1.5f && post.dyed == 1 << Models.CLOTH, "is a post as high as a shoulder, its straw coloured from the sprite");
+        Checks.check(straw != null && straw.height() > 1.5f && post.dyed == 1 << Models.STRAW, "is a post as high as a shoulder, its straw coloured from the sprite");
         Checks.check(Outdoors.of("location_farm_accesories_01_14", null, null, Outdoors.NONE, 1, 1, 0) == null, "and the sheet's other unnamed places are none of it");
         Outdoors.Piece fallen = Outdoors.of("d_generic_1_31", "Log", null, Outdoors.NONE, 1, 1, 0);
         Models.Model trunk = model(fallen, "a fallen trunk");
