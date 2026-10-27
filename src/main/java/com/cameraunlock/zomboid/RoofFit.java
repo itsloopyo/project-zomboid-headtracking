@@ -1015,7 +1015,7 @@ final class RoofFit {
             // for the far slope there, and stopped at the crown's edge it stood a third of a level over it, a ledge open
             // underneath (a cross gable before a hip cut short, 10402..10411 x 12658..12669).
             ArrayList<Long> overCrown = new ArrayList<>();
-            boolean metCrown = false, annex = false, blocked = false;
+            boolean metCrown = false, annex = false, blocked = false, roofBeyond = false;
             while (open < WIDEST_TOP && stands(built, site, x + open * dx, y + open * dy, floor)) {
                 // A sheet over another room is no foot of this slope but the flat roof of a lower part of the building
                 // beside it, whose wall the slope comes down to. Carried on over it, the far slope's eave stood on the
@@ -1038,6 +1038,7 @@ final class RoofFit {
                 metCrown |= on != null && on.sheet;
                 if (on != null ? !(on.sheet && on.fitLow <= foot + SAME) : site.taken(x + open * dx, y + open * dy, floor, foot)) {
                     blocked = true;
+                    roofBeyond = on != null;
                     break;
                 }
                 if (on != null) {
@@ -1074,6 +1075,10 @@ final class RoofFit {
             }
             over.addAll(overCrown);
             Row row = new Row(x, y, dx, dy, open, climbed, fromEave, metCrown, blocked, top.cutCorner == 0, hipAtTheFarEnd(roofed, x, y, dx, dy, open, climbed), eave, rise, farRidge);
+            // Come down exactly as deep as the near side onto a roof of the map past its foot, it meets that roof in a valley there, and a
+            // face across it over its last square is the higher of the two. Taken for a hip's, a dormer's north face dipped the main
+            // roof's west face to its own eave, a step open between it and the face's next square (12719, 3678).
+            row.valley = roofBeyond && open == climbed;
             rows.add(row);
             rowAt.putIfAbsent(rowKey(x, y, dx, dy), row);
         }
