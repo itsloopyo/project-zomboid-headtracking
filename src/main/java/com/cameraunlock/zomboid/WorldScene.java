@@ -841,8 +841,8 @@ final class WorldScene {
         final float brokenLink;
         /** Whether it is laid as one sheet of chain link, whole, torn or burnt: see ChainLink.sheet. */
         final boolean linkSheet;
-        /** Whether it is a whole length of white picket fence: see Pickets. */
-        final boolean pickets;
+        /** The picket fence it is a whole length of, or null: see Pickets. */
+        final Pickets.Fence pickets;
         /** Whether it is a length of log wall, or a piece of the gable over one: see LogWalls. */
         final boolean logs, logGable;
         /** How far before its square's corner it paints along its edge, and how many layers off the edge it lies: see Fences.overhang. */
@@ -954,7 +954,7 @@ final class WorldScene {
             chainLink = ChainLink.of(name);
             brokenLink = ChainLink.brokenMaterial(name, madeOf, onEdge);
             linkSheet = ChainLink.sheet(name, properties, type);
-            pickets = Pickets.is(name);
+            pickets = Pickets.of(name);
             logGable = LogWalls.gable(name);
             logs = LogWalls.is(name) || logGable;
             overhang = Fences.overhang(name);
@@ -7697,12 +7697,13 @@ final class WorldScene {
             wallOpens = properties.has(IsoFlagType.DoorWallN) || properties.has(IsoFlagType.DoorWallW)
                     || properties.has(IsoFlagType.WindowN) || properties.has(IsoFlagType.WindowW);
             doorWall = properties.has(IsoFlagType.DoorWallN) || properties.has(IsoFlagType.DoorWallW);
-            seeThrough = isSheet(properties) && !kind.thickFence || kind.linkSheet;
+            // A picket fence's corner length is marked for both edges and as neither one's sheet, as a chain link corner is.
+            seeThrough = isSheet(properties) && !kind.thickFence || kind.linkSheet || kind.pickets != null;
             linkSheet = kind.linkSheet;
             chainLink = seeThrough && overLayer == 0 && Own.buildings() ? kind.chainLink : null;
             linkPostDue = chainLink != null && chainLink.hasPost();
-            picket = seeThrough && overLayer == 0 && Own.buildings() && kind.pickets;
-            picketPostDue = picket;
+            picket = seeThrough && overLayer == 0 && Own.buildings() ? kind.pickets : null;
+            picketPostDue = picket != null && picket.posted();
             logs = !seeThrough && overLayer == 0 && Own.buildings() && kind.logs;
             logGable = kind.logGable;
             sheetFrom = seeThrough ? -kind.overhang : 0f;
@@ -8406,7 +8407,8 @@ final class WorldScene {
         final WallJoins.Walls standing = (wallX, wallY, north) -> {
             IsoGridSquare square = cell.getGridSquare(wallX, wallY, joinLevel);
             IsoObject wall = square == null ? null : wallOn(square, north, false);
-            return wall != null && (!isSheet(wall.getSprite().getProperties()) || kindOf(wall.getSprite()).thickFence);
+            Kind kind = wall == null ? null : kindOf(wall.getSprite());
+            return kind != null && (!isSheet(wall.getSprite().getProperties()) || kind.thickFence) && kind.pickets == null;
         };
         /** Whether a length of board fence, a sheet that cannot be seen through, stands on the north or west edge of a square of joinLevel. */
         final WallJoins.Walls boarded = (wallX, wallY, north) -> {
@@ -8422,8 +8424,8 @@ final class WorldScene {
         ChainLink.Run chainLink;
         /** Whether the post of the chain link being added is still to be built: a corner piece is on two edges and has one post. */
         boolean linkPostDue;
-        /** Whether the sheet being added is a length of white picket fence, built as its model: see Pickets. */
-        boolean picket;
+        /** The picket fence the sheet being added is a length of, built as its model, or null: see Pickets. */
+        Pickets.Fence picket;
         /** Whether the post of the picket fence being added is still to be stood: as linkPostDue. */
         boolean picketPostDue;
         /** Whether the wall being added is a length of log wall, its logs laid over its skins, or a piece of the gable over one: see LogWalls. */

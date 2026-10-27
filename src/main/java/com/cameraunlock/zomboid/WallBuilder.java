@@ -504,7 +504,7 @@ final class WallBuilder {
             // On an edge that a kerb runs along it stands on the kerb's top (Frame.standOnKerbTop).
             if (build.chainLink != null) {
                 addChainLink(x, y, z, da, db);
-            } else if (build.picket) {
+            } else if (build.picket != null) {
                 addPickets(texture, x, y, z, da, db);
             } else {
                 float from = build.sheetFrom;
@@ -887,19 +887,19 @@ final class WallBuilder {
     }
 
     /**
-     * Stands a length of white picket fence on the square's edge from (0, 0) along (da, db): the model picket_length with
-     * its pickets on the edge's line and their faces into the square, the side the game's view paints them from, and once
-     * for the sprite the picket_post it paints at the square's north-west corner, where no lone post stands. The paint is
+     * Stands a length of picket fence on the square's edge from (0, 0) along (da, db): the fence's model with its pickets on
+     * the edge's line and their faces into the square, the side the game's view paints them from, and once for the sprite
+     * the picket_post the white fence paints at the square's north-west corner, where no lone post stands. The paint is
      * the sprite's. A length stands on the lower of its ends, so on a slope its pickets go into the ground at the higher.
      */
     private void addPickets(Texture texture, int x, int y, int z, float da, float db) {
         boolean north = da != 0f;
         float base = (z + build.geometry.raised) * ViewCamera.LEVEL_HEIGHT;
         float foot = base + Math.min(build.geometry.liftAt(0f, 0f), build.geometry.liftAt(da, db));
-        float a = north ? Pickets.DYE_ALONG : 0f, b = north ? 0f : Pickets.DYE_ALONG;
+        float along = build.picket.dyeAlong(), a = north ? along : 0f, b = north ? 0f : along;
         float u = SpriteGeometry.textureU(build.frame, a, b), v = SpriteGeometry.textureV(build.frame, a, b, Pickets.DYE_HIGH);
         int paint = 1 << Models.PAINT;
-        build.placed.add(Models.get("picket_length"), build.frame, x, y, x + da * 0.5f, y + db * 0.5f, foot, north ? 2 : 1, 1f, 1f, texture.getID(),
+        build.placed.add(Models.get(build.picket.model()), build.frame, x, y, x + da * 0.5f, y + db * 0.5f, foot, north ? 2 : 1, 1f, 1f, texture.getID(),
                 paint, u, v, 0, 0f, 0f);
         if (build.picketPostDue && !picketPostOn(x, y, z)) {
             build.placed.add(Models.get("picket_post"), build.frame, x, y, x, y, base + build.geometry.liftAt(0f, 0f), 0, 1f, 1f, texture.getID(),

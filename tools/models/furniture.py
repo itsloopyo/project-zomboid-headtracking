@@ -12712,6 +12712,26 @@ def picket_length():
     return model
 
 
+def rounded_picket_length():
+    """A square's length of the dark low fence with rounded tops (fencing_01_120 and 121), as Pickets.java stands it on the
+    square's edge: nine pickets edge to edge with a hairline between them, on the edge's line, nailed to three rails behind
+    them. Measured off fencing_01_121: pickets 1.21 m high, a picket a ninth of the square wide, each top rounded off over
+    its last 40 mm, rails 70 mm high from 0.10, 0.55 and 0.94 m up."""
+    model = Model("rounded_picket_length", centred=False)
+    pickets, rails = bmesh.new(), bmesh.new()
+    count, high, round_off, gap = 9, 1.21, 0.04, 0.012
+    half = (1.0 / count - gap) / 2
+    for k in range(count):
+        x = -0.5 + (k + 0.5) / count
+        top = [(x + half * math.cos(math.pi * i / 8), high - round_off + round_off * math.sin(math.pi * i / 8)) for i in range(9)]
+        outline_along_y(pickets, [(x - half, 0.0), (x + half, 0.0)] + top, -0.01, 0.01)
+    for z in (0.10, 0.55, 0.94):
+        cuboid(rails, -0.5, 0.5, 0.01, 0.035, z, z + 0.07)
+    model.hard(pickets, "paint", bevel=0.003, segments=1)
+    model.hard(rails, "paint", bevel=0.003, segments=1)
+    return model
+
+
 def fence_kerb():
     """A square's length of the concrete footing the security fence's mesh stands in, as WallBuilder lays it on the
     square's edge: two cast blocks end to end along x, 0.2 m thick and 0.28 m high, with a hairline joint between them.
@@ -12806,7 +12826,7 @@ def log_walls():
 def shops():
     """What a grocer, a florist or a shop stands out that ShopFittings.java gives a model for, the produce crate and the
     produce the game paints in it, the length of white picket fence Pickets.java stands, and the security fence's footing."""
-    return [produce_crate(), produce_pile("produce_pile", 61), produce_pile("produce_pile_b", 62), picket_length(), fence_kerb(), fence_pier(), fence_foot()]
+    return [produce_crate(), produce_pile("produce_pile", 61), produce_pile("produce_pile_b", 62), picket_length(), rounded_picket_length(), fence_kerb(), fence_pier(), fence_foot()]
 
 
 # A gallery's sculpture: busts on their plinths and statues on their bases, carved from metaballs. Gallery stands them.

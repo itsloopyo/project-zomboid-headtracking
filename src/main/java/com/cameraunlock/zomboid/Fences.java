@@ -24,15 +24,11 @@ final class Fences {
      * its highest board would float over its gaps.
      */
     static boolean thick(String name) {
-        return name != null && (numbered(name, "fencing_01_", 32, 35) || numbered(name, "carpentry_02_", 44, 49));
-    }
-
-    private static boolean numbered(String name, String sheet, int first, int last) {
-        if (!name.startsWith(sheet)) {
+        if (name == null) {
             return false;
         }
-        int index = Integer.parseInt(name.substring(sheet.length()));
-        return index >= first && index <= last;
+        int low = Sheets.place(name, "fencing_01_"), built = Sheets.place(name, "carpentry_02_");
+        return low >= 32 && low <= 35 || built >= 44 && built <= 49;
     }
 
     /** Whether a sprite is a fence of iron bars: the iron the game paints, which its many bars would otherwise have taken for wire. */

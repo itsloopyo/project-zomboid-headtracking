@@ -17,7 +17,7 @@ final class FenceTests {
         Checks.run("ironBarFencesAreTheirOwnIron", FenceTests::ironBarFencesAreTheirOwnIron);
         Checks.run("theGamesFloorMarkByNameStaysOffEdgesAndWalls", FenceTests::theGamesFloorMarkByNameStaysOffEdgesAndWalls);
         Checks.run("noTwoWorldMaterialsShareANumber", FenceTests::noTwoWorldMaterialsShareANumber);
-        Checks.run("theWhitePicketFenceIsItsModelOnEachEdge", FenceTests::theWhitePicketFenceIsItsModelOnEachEdge);
+        Checks.run("thePicketFencesAreTheirModelsOnEachEdge", FenceTests::thePicketFencesAreTheirModelsOnEachEdge);
         Checks.run("aLogWallIsItsLogs", FenceTests::aLogWallIsItsLogs);
         Checks.run("theSecurityFenceStartsWhereItsPostIsBeforeTheCorner", FenceTests::theSecurityFenceStartsWhereItsPostIsBeforeTheCorner);
         Checks.run("aMeshPanelStandsItsPostInAConcreteFoot", FenceTests::aMeshPanelStandsItsPostInAConcreteFoot);
@@ -84,18 +84,26 @@ final class FenceTests {
         Checks.check(Math.abs(piece.maxX - piece.minX - LogWalls.PIECE) < 0.002f, "a piece is its share of the edge: " + (piece.maxX - piece.minX));
     }
 
-    private static void theWhitePicketFenceIsItsModelOnEachEdge() {
+    private static void thePicketFencesAreTheirModelsOnEachEdge() {
         for (String length : new String[] {"fencing_01_4", "fencing_01_5", "fencing_01_6"}) {
-            Checks.check(Pickets.is(length), length + " is a length of the white picket fence");
+            Checks.check(Pickets.of(length) == Pickets.WHITE, length + " is a length of the white picket fence");
         }
-        for (String other : new String[] {Pickets.POST, "fencing_01_32", "fencing_01_40", "fencing_01_46", "fencing_damaged_01_8", "fencing_burnt_01_0", "fencing_02_4"}) {
-            Checks.check(!Pickets.is(other), other + " is no whole length of it");
+        for (String length : new String[] {"fencing_01_120", "fencing_01_121", "fencing_01_122"}) {
+            Checks.check(Pickets.of(length) == Pickets.ROUNDED, length + " is a length of the rounded picket fence");
         }
-        Models.Model length = Models.get("picket_length"), post = Models.get("picket_post");
-        Checks.check(Math.abs(length.minX + 0.5f) < 0.002f && Math.abs(length.maxX - 0.5f) < 0.002f, "a length runs the square's edge, end to end: " + length.minX
-                + " to " + length.maxX);
-        Checks.check(Math.abs(length.minY + 0.01f) < 0.002f, "its pickets' faces are a picket's half thickness off the edge's line: " + length.minY);
-        Checks.check(length.height() < post.height(), "the post stands over the pickets");
+        for (String other : new String[] {Pickets.POST, "fencing_01_123", "fencing_01_32", "fencing_01_40", "fencing_01_46", "fencing_damaged_01_8",
+                "fencing_burnt_01_0", "fencing_02_4", "fencing_01_1200"}) {
+            Checks.check(Pickets.of(other) == null, other + " is no whole length of a picket fence");
+        }
+        Checks.check(Pickets.WHITE.posted() && !Pickets.ROUNDED.posted(), "only the white fence's sprites paint a post at the corner");
+        for (Pickets.Fence fence : new Pickets.Fence[] {Pickets.WHITE, Pickets.ROUNDED}) {
+            Models.Model length = Models.get(fence.model());
+            Checks.check(Math.abs(length.minX + 0.5f) < 0.002f && Math.abs(length.maxX - 0.5f) < 0.002f, fence.model() + " runs the square's edge, end to end: "
+                    + length.minX + " to " + length.maxX);
+            Checks.check(Math.abs(length.minY + 0.01f) < 0.002f, "its pickets' faces are a picket's half thickness off the edge's line: " + length.minY);
+        }
+        Checks.check(Models.get("picket_length").height() < Models.get("picket_post").height(), "the post stands over the white pickets");
+        Checks.check(Math.abs(Models.get("rounded_picket_length").height() - 1.21f) < 0.01f, "the rounded pickets stand as high as their sprite paints them");
     }
 
     private static void chainLinkLengthsAreKnownByTheirPlaceOnTheSheet() {
