@@ -2672,6 +2672,8 @@ final class PipelineShaders {
                     // stalks stood out of the crop near black, ears and all. Its shade is the
                     // light's to give, not the texel's.
                     float held = clamp(lit, crop ? 0.33 : 0.2, 0.5);
+                    // A flower keeps more of the light it is painted in: a pale rose is pale.
+                    vec3 painted = texel.rgb * clamp(lit, 0.25, 0.65) / max(lit, 1e-3);
                     texel.rgb *= held / max(lit, 1e-3);
                     lit = held;
                     vec3 lawn = ownA < 0.33 ? vec3(0.3, 0.47, 0.17) : ownA < 0.66 ? vec3(0.36, 0.5, 0.17) : vec3(0.43, 0.52, 0.19);
@@ -2737,6 +2739,22 @@ final class PipelineShaders {
                         vec3 head = mix(vec3(0.68, 0.6, 0.36), vec3(0.56, 0.5, 0.4), ownC) * (lit / 0.38);
                         texel.rgb = spikelet <= 1.0 ? head * (1.15 - 0.4 * spikelet) : head * 0.8;
                         stripGloss = 0.2;
+                    } else if (crop) {
+                        // A flower (Grass.BLOOM): a round head, scalloped by its outer petals, of
+                        // the bloom it is coloured from. Its petals curl in in rings to its
+                        // heart, each ring lit at its edge and shaded where it folds under the
+                        // next, and the heart is darkest.
+                        vec2 p = vec2(across, up * 2.0 - 1.0);
+                        float round = atan(p.y, p.x) + own * 6.2831853;
+                        float far = length(p);
+                        float rim = 0.84 + 0.1 * cos(round * 5.0);
+                        if (far > rim) {
+                            discard;
+                        }
+                        float ring = fract(far * 2.4 + 0.15 * sin(round * 3.0 + ownA * 6.2831853));
+                        texel.rgb = painted * (0.7 + 0.42 * smoothstep(0.1, 0.9, ring)) * (0.72 + 0.38 * far / rim);
+                        up = 0.8;
+                        stripGloss = 0.4;
                     } else {
                         // Clover: three round leaflets about the end of the stem, each with the
                         // pale chevron across it.

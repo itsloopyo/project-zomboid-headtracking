@@ -589,6 +589,7 @@ final class SpriteColours {
                 Battens.read(texture, page, across, left, top, right, bottom);
                 Stains.read(texture, page, across, left, top, right, bottom);
                 CrownWood.read(texture, page, across, left, top, right, bottom);
+                Flowerbeds.read(texture, page, across, left, top, right, bottom);
             }
         } finally {
             copied.clear();

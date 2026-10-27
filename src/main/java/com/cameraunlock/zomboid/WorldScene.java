@@ -807,7 +807,7 @@ final class WorldScene {
         /** What the sprite is made of as the floor of its square, and as anything else. */
         final float asFloor, asOther;
         final boolean laidWall, gableSheet, lies, wire, roofAccent, roofSheet, stripLamp, garageDoor, cornerTrim, papered, tiledWall, fenceGate,
-                boulder, bedding, longGrass, natural, carpet, straw, tiled, grows, gardenPlant, onTop, holds, flightPost, fireEscape, paint, wallTrim, trim, moulded;
+                boulder, bedding, longGrass, natural, carpet, straw, tiled, grows, gardenPlant, flowerbed, onTop, holds, flightPost, fireEscape, paint, wallTrim, trim, moulded;
         /** What length of handrail the sprite is, or null: see Rails. */
         final Rails.Piece rail;
         /** What piece of railway track the sprite is, or null: see Track. */
@@ -925,6 +925,7 @@ final class WorldScene {
             grows = properties.has(IsoFlagType.vegitation) || properties.has(IsoFlagType.canBeRemoved) || properties.has("MoveWithWind")
                     || Farm.wheat(name);
             gardenPlant = Flora.gardenPlant(name);
+            flowerbed = Flowerbeds.is(name);
             onTop = properties.has("IsTableTop");
             holds = properties.get("container") != null;
             rail = Rails.of(name);
@@ -7399,6 +7400,10 @@ final class WorldScene {
                 // A garden's plant is laid on its bed, its furrows and all, and stands up out of it as well.
                 if (kind.gardenPlant && Own.plants(view.index)) {
                     plantBuilder.addOutOfItsBed(mesh, sprite, type, texture, x, y, z);
+                }
+                // A bed of roses is laid as painted, and its roses grow out of it.
+                if (kind.flowerbed && z == 0 && Own.plants(view.index)) {
+                    plantBuilder.addRoses(texture, x, y, z);
                 }
                 floorBuilder.addFloor(mesh, kind, properties, texture, isFloor, x, y, z);
                 return;

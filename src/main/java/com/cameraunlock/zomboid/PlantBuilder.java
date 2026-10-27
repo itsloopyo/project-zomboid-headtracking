@@ -568,6 +568,28 @@ final class PlantBuilder {
     }
 
     /**
+     * Grows the roses of a bed the game paints on the ground (Flowerbeds) out of it, near enough
+     * the eye. Nothing until its sprite has been read: the build is then made again.
+     */
+    void addRoses(Texture texture, int x, int y, int z) {
+        if (build.within(Flowerbeds.REACH, false)) {
+            alikeOnly();
+        }
+        if (build.bandAway >= Flowerbeds.REACH) {
+            return;
+        }
+        Flowerbeds.Bed bed = Flowerbeds.of(texture);
+        if (bed == null) {
+            build.building.signed = false;
+            return;
+        }
+        roomFor(x, y, z);
+        float lowA = Math.max(0.04f, build.room[0] - x), highA = Math.min(0.96f, build.room[1] - x);
+        float lowB = Math.max(0.04f, build.room[2] - y), highB = Math.min(0.96f, build.room[3] - y);
+        Flowerbeds.grow(build.geometry, WorldScene.laid.get(texture.getID()), build.frame, bed, x, y, build.bandAway, lowA, highA, lowB, highB);
+    }
+
+    /**
      * A tree or a bush is not a picture of one that turns to face whoever looks at it.
      * It stands in the world: the sprite is set up several times through the plant's
      * middle, fanned round it, every other one mirrored, so that from any side there

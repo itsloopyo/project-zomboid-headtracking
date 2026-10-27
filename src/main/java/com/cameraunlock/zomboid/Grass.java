@@ -17,6 +17,8 @@ final class Grass {
     static final int BLADE = 0, BROAD = 1, STRAW = 2, STEM = 3, SPIKE = 4, PANICLE = 5, CLOVER = 6, TUFT = 7;
     /** Added to the form of a crop's strip, which takes its colour from a texel of the crop's sprite. The world shader has the same number. */
     static final int CROP = 8;
+    /** A flower head: a crop's clover is drawn as a round flower in its texel's colour (Flowerbeds). The world shader has the same number. */
+    static final int BLOOM = CLOVER + CROP;
 
     /** How well grass does at a point of the square being grown, 0 where it barely grows and 1 on open lawn. */
     interface Ground {
