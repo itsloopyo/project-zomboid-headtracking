@@ -1742,10 +1742,10 @@ final class PipelineShaders {
                 // where damp and dust settle: in a band along the floor that wanders in height,
                 // darker into an inside corner, a little under the ceiling, and out of doors in
                 // short runs down from under a sill. Indoors the rest of the wall is a faint tone
-                // in clouds small enough that no wall is one blotch. The face carries how high
-                // above its foot it is, whether there is a floor at its foot and a ceiling over it,
-                // how far from an inside corner, whether it is out of doors, and how high the wall's
-                // sprite is painted: see SpriteGeometry.grimed.
+                // in clouds small enough that no wall is one blotch, and a corner's dirt gathers low.
+                // The face carries how high above its foot it is, whether there is a floor at its
+                // foot and a ceiling over it, how far from an inside corner, whether it is out of
+                // doors, and how high the wall's sprite is painted: see SpriteGeometry.grimed.
                 bool stainTint = abs(uTint.a - 16.0) < 0.5;
                 bool stainOnWall = texel.a >= 0.5;
                 if (stainTint) {
@@ -1772,7 +1772,8 @@ final class PipelineShaders {
                     if (ceiled) {
                         grime += smoothstep(STOREY - GRIME_CEILING, STOREY, up) * (0.03 + 0.05 * clouds);
                     }
-                    grime += (1.0 - smoothstep(0.0, GRIME_CORNER, corner)) * (0.08 + 0.12 * clouds);
+                    float gathered = indoors ? GRIME_INDOORS * (1.0 + 1.5 * (1.0 - smoothstep(0.0, 1.2, up))) : 1.0;
+                    grime += (1.0 - smoothstep(0.0, GRIME_CORNER, corner)) * (0.08 + 0.12 * clouds) * gathered;
                     if (!indoors && stainOnWall) {
                         // A tile straight up the wall in its sprite, which rises PIXELS_PER_LEVEL of its pixels a level.
                         // Grime is told the size of the sprite's texel in its tint's colour: see Pipeline.drawStains.
