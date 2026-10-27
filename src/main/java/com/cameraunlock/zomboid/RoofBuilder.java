@@ -120,6 +120,7 @@ final class RoofBuilder {
             if (world.cutAway(tile.x, tile.y)) {
                 continue;
             }
+            WorldScene.solid.storey(SpriteGeometry.NO_BUILDING, tile.z);
             liftOf(ground, tile.x - chunkX, tile.y - chunkY);
             roof = backs.get(i).roof;
             SpriteGeometry.Mesh sheet = roofSheet();
@@ -155,6 +156,7 @@ final class RoofBuilder {
             addEave(sheet, tile.x, tile.y, tile.z, at[0] - tile.z, at[1] - at[0], at[3] - at[0], true);
             addRake(sheet, tile.x, tile.y, tile.z, at[0] - tile.z, at[1] - at[0], at[3] - at[0]);
         }
+        WorldScene.solid.storey(SpriteGeometry.NO_BUILDING, 0);
         for (int i = 0; caps != null && i < caps.size(); i++) {
             RoofFit.Cap cap = caps.get(i).cap;
             if (turf(caps.get(i).roof.finish) || world.cutAway((int) Math.floor((cap.x0 + cap.x1) / 2f), (int) Math.floor((cap.y0 + cap.y1) / 2f))) {
