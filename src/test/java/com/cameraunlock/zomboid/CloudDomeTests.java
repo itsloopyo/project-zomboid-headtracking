@@ -15,6 +15,7 @@ final class CloudDomeTests {
         Checks.run("theSunEasesAcrossACloudsEdgeAndStartsAgainAfterAGap", CloudDomeTests::theSunEasesAcrossACloudsEdgeAndStartsAgainAfterAGap);
         Checks.run("theDomeTakesTheSunAsItsCloudsLie", CloudDomeTests::theDomeTakesTheSunAsItsCloudsLie);
         Checks.run("theDomeIsWorkedOutAsTheSkyShaderHasIt", CloudDomeTests::theDomeIsWorkedOutAsTheSkyShaderHasIt);
+        Checks.run("theDomesCloudsLieAsTheyDidWhereTheSkysDriftWraps", CloudDomeTests::theDomesCloudsLieAsTheyDidWhereTheSkysDriftWraps);
     }
 
     private static SkyState sky(float sunUp, float cover, float deck, float overcast, float falling) {
@@ -180,6 +181,27 @@ final class CloudDomeTests {
             Checks.check(pipeline.contains(fed), "the clouds' pass is still fed as CloudDome is: " + fed);
         }
         Checks.check(sky.contains("CloudDome.taken(sunX, sunY, sunUp, cover, deck, driftX, driftY)"), "and the sun is worked out from the same cover, deck and drift");
+    }
+
+    /** Every rate the sky's shader reads the drift at comes round at SKY_REPEATS, so the clouds lie where they did as the drift wraps. */
+    private static void theDomesCloudsLieAsTheyDidWhereTheSkysDriftWraps() {
+        keepNoise();
+        java.util.regex.Matcher rate = java.util.regex.Pattern.compile("uDrift \\* ([0-9.]+)").matcher(Sky.CLOUDS);
+        int rates = 0;
+        while (rate.find()) {
+            double turns = Double.parseDouble(rate.group(1)) * SkyState.SKY_REPEATS;
+            Checks.check(Math.abs(turns - Math.rint(turns)) < 1e-9, "the sky reads the drift at " + rate.group(1) + ", which comes round at " + SkyState.SKY_REPEATS);
+            rates++;
+        }
+        Checks.check(rates >= 3, "the sky's shader reads the drift at its rates: " + rates + " found");
+        Checks.check(SkyState.skyDrifted(SkyState.SKY_REPEATS - 0.001, 0.002) < 0.0011, "the sky's drift comes round to the start");
+        float before = (float) (SkyState.SKY_REPEATS - 0.003), after = -0.003f, most = 0f;
+        for (int i = 0; i < 200; i++) {
+            float sunUp = 0.2f + 0.004f * i, across = (float) Math.sqrt(1f - sunUp * sunUp);
+            float x = across * (float) Math.cos(i * 0.7), y = across * (float) Math.sin(i * 0.7);
+            most = Math.max(most, Math.abs(CloudDome.taken(x, y, sunUp, 0.6f, 0f, before, 0.3f) - CloudDome.taken(x, y, sunUp, 0.6f, 0f, after, 0.3f)));
+        }
+        Checks.check(most < 0.02f, "the dome's clouds lie where they did as the sky's drift wraps: " + most);
     }
 
     private static String source(String file) {

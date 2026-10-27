@@ -114,6 +114,7 @@ final class SkyState {
     float falling, overcast, sunWhite;
     /** How closed the cloud deck is that rain or snow falls from, 0 to 1: the square of the heavier fall. */
     float deck;
+    /** How far the sky's clouds have drifted, under SKY_REPEATS: see skyDrifted. */
     float driftX, driftY;
     /** How far the clouds' shadows have drifted over the ground, in cells of their noise: see cloudShadow. */
     float cloudsX, cloudsY;
@@ -185,7 +186,7 @@ final class SkyState {
     final float[] leaves = new float[LeafFall.MOST * LeafFall.FLOATS];
     int leafCount;
 
-    private static float driftedX, driftedY;
+    private static double driftedX, driftedY;
     private static double cloudsDriftedX, cloudsDriftedY;
     private static final Wind wind = new Wind();
     private static float wetness;
@@ -370,11 +371,8 @@ final class SkyState {
             wetness = Math.clamp(wetness + (this.rain > 0.05f ? elapsed / SECONDS_TO_WET : -elapsed / SECONDS_TO_DRY), 0f, 1f);
             float speed = DRIFT_STILL + DRIFT_PER_WIND * Math.clamp(climate.getWindIntensity(), 0f, 1f);
             float windCos = (float) Math.cos(windAngle), windSin = (float) Math.sin(windAngle);
-            driftedX += windCos * speed * elapsed;
-            driftedY += windSin * speed * elapsed;
-            // The noise repeats every 1, and a float that only ever grew would lose the fraction.
-            driftedX -= (float) Math.floor(driftedX);
-            driftedY -= (float) Math.floor(driftedY);
+            driftedX = skyDrifted(driftedX, windCos * speed * elapsed);
+            driftedY = skyDrifted(driftedY, windSin * speed * elapsed);
             cloudsDriftedX = cloudsDrifted(cloudsDriftedX, windCos * speed * elapsed);
             cloudsDriftedY = cloudsDrifted(cloudsDriftedY, windSin * speed * elapsed);
             wind.blow(windCos * windStrength, windSin * windStrength, Wind.speed(gusting), elapsed);
@@ -398,8 +396,8 @@ final class SkyState {
         snowClock = wind.snowClock;
         lastNanos = now;
         wet = wetness;
-        driftX = driftedX;
-        driftY = driftedY;
+        driftX = (float) driftedX;
+        driftY = (float) driftedY;
         cloudsX = (float) cloudsDriftedX;
         cloudsY = (float) cloudsDriftedY;
         seconds = (now - START_NANOS) / 1e9f % 3600f;
@@ -633,6 +631,19 @@ final class SkyState {
      * twenty-seven of the other. Their drift is wrapped there, where no eye can see it.
      */
     static final double CLOUD_REPEATS = 2890.0;
+
+    /**
+     * After how much drift the sky's clouds (Sky.CLOUDS) come round again: their noise repeats
+     * every 1, and they read it at the drift times 0.3, 0.4, 0.6 and other tenths, all of which
+     * come round at 10.
+     */
+    static final double SKY_REPEATS = 10.0;
+
+    /** The sky's drift moved on by by: kept under SKY_REPEATS, in a double, which counts the smallest frame's drift. */
+    static double skyDrifted(double drifted, double by) {
+        double next = drifted + by;
+        return next - SKY_REPEATS * Math.floor(next / SKY_REPEATS);
+    }
 
     /**
      * The clouds' shadows' drift, in cells, moved on by the sky's drift by: kept under
