@@ -1389,7 +1389,7 @@ final class Pipeline {
                     exposure);
             stage(STAGE_FIRE);
             // A pane behind a fire is hidden by its flames: they are put in the depth for the panes alone.
-            boolean flamesBeforeGlass = !overhead && fires.flamesShown();
+            boolean flamesBeforeGlass = fires.flamesShown();
             if (flamesBeforeGlass) {
                 copyDepth(sceneTarget, keptDepthTarget);
                 fires.depth(sceneTarget, camera, tanHalfFieldOfView, aspect, near, far, width, height, asideX, asideY, frameNanos);
