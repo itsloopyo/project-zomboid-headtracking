@@ -24,6 +24,7 @@ final class CrownTests {
         Checks.run("aGreatTreesPaintedTrunkAndLimbsAreNoPartOfItsCrown", CrownTests::aGreatTreesPaintedTrunkAndLimbsAreNoPartOfItsCrown);
         Checks.run("onlyATreesSparseFootIsCut", CrownTests::onlyATreesSparseFootIsCut);
         Checks.run("aTreesCrownHasNoPlacesOnTheWoodItsSpritePaints", CrownTests::aTreesCrownHasNoPlacesOnTheWoodItsSpritePaints);
+        Checks.run("aSprigThatMayBeLeftOutFromUnderTheTreeHasNoTwig", CrownTests::aSprigThatMayBeLeftOutFromUnderTheTreeHasNoTwig);
         Checks.run("crownBesideAFenceKeepsToItsOwnSideInAnyWind", CrownTests::crownBesideAFenceKeepsToItsOwnSideInAnyWind);
         Checks.run("aRootIsHeldInFromAFenceByAsFarAsItReaches", CrownTests::aRootIsHeldInFromAFenceByAsFarAsItReaches);
         Checks.run("everyPartOfATreesCrownIsItsTreesAndABushIsNoTree", CrownTests::everyPartOfATreesCrownIsItsTreesAndABushIsNoTree);
@@ -659,6 +660,66 @@ final class CrownTests {
             }
         }
         check(lowestSprig > leavesLowest - band - 0.5f, "with no sprig down the trunk: the lowest is at " + lowestSprig + ", the leaves at " + leavesLowest);
+    }
+
+    /**
+     * A tree's sprig turned down may be left out while the eye is under the tree (the world
+     * shader decides it as it draws), and a twig it was on was left bare. Near the eye, where
+     * every crown has twigs, each twig ends in the middle of a sprig turned up enough to stay.
+     */
+    private static void aSprigThatMayBeLeftOutFromUnderTheTreeHasNoTwig() {
+        SpriteGeometry.Frame frame = frame();
+        float[] places = Flora.leafPlaces(CrownTests::leaf, frame);
+        SpriteGeometry.Mesh crown = new SpriteGeometry.Mesh(), wood = new SpriteGeometry.Mesh();
+        check(Flora.addCrown(crown, wood, frame, places, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 1f, 0f, 0f, Flora.BARK_OAK, Flora.MAPLE, 7,
+                Flora.OPEN, 1f, Flora.SCARLET_LEAF, 0f), "a crown near the eye is a crown");
+        java.util.List<float[]> sprigs = new java.util.ArrayList<>();
+        int turnedDown = 0;
+        for (int at = 0; at < crown.floats; at += 6 * SpriteGeometry.VERTEX_FLOATS) {
+            if ((float) Math.floor((crown.vertices[at + 8] + 0.5f) / 32f) == Flora.CORE) {
+                continue;
+            }
+            float x = 0f, y = 0f, up = 0f;
+            for (int corner : new int[] {0, 1, 2, 5}) {
+                x += crown.vertices[at + corner * SpriteGeometry.VERTEX_FLOATS] / 4f;
+                y += crown.vertices[at + corner * SpriteGeometry.VERTEX_FLOATS + 1] / 4f;
+                up += crown.vertices[at + corner * SpriteGeometry.VERTEX_FLOATS + 2] / 4f;
+            }
+            float nx = crown.vertices[at + 9], ny = crown.vertices[at + 10], nz = crown.vertices[at + 11];
+            float lit = nz / (float) Math.sqrt(nx * nx + ny * ny + nz * nz);
+            sprigs.add(new float[] {x, y, up, lit});
+            turnedDown += lit < Flora.TURNED_DOWN ? 1 : 0;
+        }
+        check(turnedDown > 0 && turnedDown < sprigs.size(), "some of the crown's " + sprigs.size() + " sprigs are turned down: " + turnedDown);
+        int block = 3 * 6 * SpriteGeometry.VERTEX_FLOATS, twigs = 0, bare = 0;
+        check(wood.floats > 0 && wood.floats % block == 0, "its wood is twigs of three sides: " + wood.floats + " floats");
+        for (int at = 0; at < wood.floats; at += block) {
+            float least = Float.MAX_VALUE;
+            for (int v = at; v < at + block; v += SpriteGeometry.VERTEX_FLOATS) {
+                least = Math.min(least, wood.vertices[v + 4]);
+            }
+            float x = 0f, y = 0f, up = 0f;
+            int far = 0;
+            for (int v = at; v < at + block; v += SpriteGeometry.VERTEX_FLOATS) {
+                if (wood.vertices[v + 4] > least + 1e-6f) {
+                    x += wood.vertices[v];
+                    y += wood.vertices[v + 1];
+                    up += wood.vertices[v + 2];
+                    far++;
+                }
+            }
+            float nearest = Float.MAX_VALUE, lit = 0f;
+            for (float[] sprig : sprigs) {
+                float away = Math.abs(sprig[0] - x / far) + Math.abs(sprig[1] - y / far) + Math.abs(sprig[2] - up / far);
+                if (away < nearest) {
+                    nearest = away;
+                    lit = sprig[3];
+                }
+            }
+            twigs++;
+            bare += nearest > 1e-3f || lit < Flora.TURNED_DOWN - 1e-4f ? 1 : 0;
+        }
+        check(twigs > 0 && bare == 0, "of its " + twigs + " twigs, " + bare + " end on no sprig, or on one turned down");
     }
 
     /**

@@ -162,6 +162,8 @@ final class ShaderTests {
                 "a sprig under a crown is not left out whole, or not only under the tree the eye stands under, or a bush's is too");
         Checks.check(main.contains("float under = which == SHRUB ? 0.0 : (1.0 - smoothstep(CROWN_UNDER_IN, CROWN_UNDER_OUT, length(uEye.xy - vRoot)))"),
                 "a crown's inside opens for a tree the eye is not under, or for a bush");
+        Checks.check(main.contains("* (1.0 - smoothstep(-0.3, " + Flora.TURNED_DOWN + ", normalize(vNormal).z))) {"),
+                "a sprig is left out from under its tree when turned down less than Flora.TURNED_DOWN, which says which sprigs have no twig");
         Checks.check(main.contains("if (max(sprig.a, farSide ? 0.0 : behind.a * (1.0 - under)) < 0.5 * under) {"), "a crown's far side is cut at more than half its leaves' alpha");
         // GLSL leaves smoothstep with its first edge past its second undefined.
         Checks.check(!main.contains("smoothstep(CROWN_UNDER_OUT, CROWN_UNDER_IN") && !main.contains("smoothstep(0.2, -0.3"), "a crown's underside opens by a smoothstep with its edges the wrong way round");

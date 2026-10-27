@@ -276,6 +276,12 @@ final class Flora {
     private static final float CLOSE_FILL = 1.3f, TWIG_SHARE = 0.45f, TWIG_LONG = 0.45f, TWIG_THICK = 0.01f, TWIG_TIP = 0.004f,
             TWIG_DROP = 0.45f;
     /**
+     * A tree's sprig lit as turned further down than this (the up of its normal) may be left out
+     * while the eye is under the tree, which the world shader decides as it draws (PipelineShaders,
+     * the crown's sprigs): it has no twig, which would be left there bare.
+     */
+    static final float TURNED_DOWN = 0.2f;
+    /**
      * The wood inside a crown: a leader up its middle, as thin at its top as LIMB_TIP, and
      * limbs off it out to the boughs, each as thick where it leaves as LIMB_OF_LEADER of the
      * leader there, with branches off each to the leaves either side.
@@ -734,7 +740,8 @@ final class Flora {
                 mesh.add((tip ? tipX : stemX) + rx * side, (tip ? tipY : stemY) + ry * side, (tip ? tipUp : stemUp) + rz * side,
                         u + (right != mirrored ? 1f - CROWN_INSET : CROWN_INSET), v + (tip ? CROWN_INSET : 1f - CROWN_INSET), red, green, blue);
             }
-            if (!bloom && (hash >>> 12 & 0xff) < 255f * TWIG_SHARE * close) {
+            float litUp = (oz + 0.2f) / (float) Math.sqrt(ox * ox + oy * oy + (oz + 0.2f) * (oz + 0.2f));
+            if (!bloom && (shrub || litUp >= TURNED_DOWN) && (hash >>> 12 & 0xff) < 255f * TWIG_SHARE * close) {
                 // The twig the sprig is on: from the middle of its leaves back and down into the crown, towards the bough it grew from.
                 float back = Math.min(TWIG_LONG * each / Math.max(out, 1e-3f), 0.7f);
                 float sway = Math.clamp(high * SWAY_PER_TILE, 0f, SWAY_MOST);
