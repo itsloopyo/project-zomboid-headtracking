@@ -33,6 +33,9 @@ final class DepthFights {
     static final boolean ON = DevBuild.ON && System.getProperty("cameraunlock.zomboid.depthFights") != null;
     private static final float REACH = ON ? Float.parseFloat(System.getProperty("cameraunlock.zomboid.depthFights")) : 0f;
     private static final long EVERY_NANOS = 5_000_000_000L;
+    /** With -Dcameraunlock.zomboid.depthDump=x,y,up,radius, every triangle with a corner that near that place is logged with its plane. */
+    private static final double[] DUMP = ON && System.getProperty("cameraunlock.zomboid.depthDump") != null
+            ? Arrays.stream(System.getProperty("cameraunlock.zomboid.depthDump").split(",")).mapToDouble(Double::parseDouble).toArray() : null;
 
     /**
      * How far the depth buffer tells apart two surfaces at a tile, which grows by the square of
@@ -220,6 +223,9 @@ final class DepthFights {
             gatherCards(copy, source, eyeX, eyeY, REACH, cards);
             placed(build.placed, source, eyeX, eyeY, eyeUp, REACH, tris);
         }
+        if (DUMP != null) {
+            dump(tris, eyeX, eyeY, eyeUp);
+        }
         Map<String, Kind> found = pairs(tris, eyeX, eyeY, eyeUp);
         cardPairs(cards, found);
         double total = 0;
@@ -237,6 +243,21 @@ final class DepthFights {
             Log.info(String.format(Locale.ROOT, "depth fights: %.4f sq tiles (%.4f from here) in %d pairs, from %.1f tiles: %s at%s", kind.area, kind.areaNow, kind.pairs,
                     kind.nearest, e.getKey(), where));
         });
+    }
+
+    private static void dump(List<Tri> tris, float eyeX, float eyeY, float eyeUp) {
+        for (Tri tri : tris) {
+            double[] p = tri.p;
+            boolean near = false;
+            for (int k = 0; k < 9 && !near; k += 3) {
+                near = Math.abs(p[k] + eyeX - DUMP[0]) <= DUMP[3] && Math.abs(p[k + 1] + eyeY - DUMP[1]) <= DUMP[3] && Math.abs(p[k + 2] + eyeUp - DUMP[2]) <= DUMP[3];
+            }
+            if (near) {
+                Log.info(String.format(Locale.ROOT, "depth dump: %s n %.4f %.4f %.4f d %.5f layers %.1f cards %.1f source %d corners (%.4f %.4f %.4f) (%.4f %.4f %.4f) (%.4f %.4f %.4f)",
+                        tri.label, tri.nx, tri.ny, tri.nz, tri.d, tri.layers, tri.cards, tri.source, p[0] + eyeX, p[1] + eyeY, p[2] + eyeUp,
+                        p[3] + eyeX, p[4] + eyeY, p[5] + eyeUp, p[6] + eyeX, p[7] + eyeY, p[8] + eyeUp));
+            }
+        }
     }
 
     private static String squareNames(IsoCell cell, double[] place) {
