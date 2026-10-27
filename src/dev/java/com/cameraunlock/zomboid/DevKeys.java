@@ -230,11 +230,12 @@ public final class DevKeys {
     private static int scope = -1;
 
     static boolean invincible;
+    /** Set by the test scenes, which give the player the game's unlimited carry. */
+    static boolean carryAnything;
     private static boolean wasInvincible;
     private static Field cannotDie;
     private static Method cheatsOf;
-    private static Field godModes;
-    private static Object godMode;
+    private static Field cheatSet;
     private static boolean said;
 
     private DevKeys() {}
@@ -246,7 +247,7 @@ public final class DevKeys {
      * rules already, so this never adds anything there.
      */
     public static boolean cheatsAllowed(boolean stock) {
-        return stock || invincible;
+        return stock || invincible || carryAnything;
     }
 
     /** Logic thread, once a frame. Says what a key did, for the screen, or null. */
@@ -583,29 +584,39 @@ public final class DevKeys {
                 cannotDie.setAccessible(true);
             }
             cannotDie.setBoolean(safe, invincible);
-            // The game's own god mode is one of a set of cheats, and every way the game
-            // has of setting one asks first whether cheats are allowed, which they are not
-            // outside its debug mode. The set itself is written to.
-            if (godModes == null) {
-                cheatsOf = IsoGameCharacter.class.getMethod("getCheats");
-                Field held = cheatsOf.invoke(safe).getClass().getDeclaredField("cheats");
-                held.setAccessible(true);
-                godModes = held;
-                godMode = Class.forName("zombie.characters.CheatType").getField("GOD_MODE").get(null);
-            }
-            @SuppressWarnings("unchecked")
-            Set<Object> set = (Set<Object>) godModes.get(cheatsOf.invoke(safe));
-            if (invincible) {
-                set.add(godMode);
-            } else {
-                set.remove(godMode);
-            }
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException("the game's character cannot be made invincible this way: " + e, e);
         }
+        setCheat(safe, "GOD_MODE", invincible);
         safe.setAvoidDamage(invincible);
         if (invincible && !safe.isDead()) {
             safe.getBodyDamage().RestoreToFullHealth();
+        }
+    }
+
+    /**
+     * Sets one of the game's cheats (a CheatType by name) on a player. Every way the game has of
+     * setting one asks first whether the player's role may, which outside its debug mode it may not,
+     * so the set itself is written to. It reads as set while cheatsAllowed allows it.
+     */
+    static void setCheat(IsoPlayer player, String type, boolean on) {
+        try {
+            if (cheatSet == null) {
+                cheatsOf = IsoGameCharacter.class.getMethod("getCheats");
+                Field held = cheatsOf.invoke(player).getClass().getDeclaredField("cheats");
+                held.setAccessible(true);
+                cheatSet = held;
+            }
+            Object cheat = Class.forName("zombie.characters.CheatType").getField(type).get(null);
+            @SuppressWarnings("unchecked")
+            Set<Object> set = (Set<Object>) cheatSet.get(cheatsOf.invoke(player));
+            if (on) {
+                set.add(cheat);
+            } else {
+                set.remove(cheat);
+            }
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("the game's cheat " + type + " cannot be set this way: " + e, e);
         }
     }
 

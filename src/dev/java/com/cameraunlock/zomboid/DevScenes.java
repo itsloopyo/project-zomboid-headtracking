@@ -13,8 +13,10 @@ import zombie.ui.UIManager;
  * The test scenes of a development build, for stepping through everything a player does before a
  * release: Numpad + goes to the next and Numpad - to the one before, round and round. Each takes
  * the first player to a place that has what it tests, waits for the map there to load, clears the
- * zombies round it, holds the hour and a clear sky, makes the player invincible, finds the thing
- * tested and puts it in a known state, hands over and wields what the test needs, stands the player
+ * zombies round it, holds the hour and a clear sky, makes the player invincible (bar the scenes
+ * that test hunger, thirst or tiredness) and able to carry any load (the game's unlimited carry, as
+ * a save's character may carry more than its limit and the game then takes nothing more), finds
+ * the thing tested and puts it in a known state, hands over and wields what the test needs, stands the player
  * where the thing is in the middle of the view, and puts the view in first person or the game's
  * own as the scene says. A scene that finds nothing to test says so on the screen. What to do in
  * each and what to look for is in .lab/GAMEPLAY_DEFECTS/RUNBOOK.md.
@@ -36,9 +38,15 @@ final class DevScenes {
     /**
      * A scene: what the screen calls it, the one thing to do, whether it is played in first person,
      * the hour it is held at, where the player is first taken, and the Lua that sets it up. The Lua
-     * stands the player and returns the point to look at (x, y and height above the floor).
+     * stands the player and returns the point to look at (x, y and height above the floor). A scene
+     * that tests hunger, thirst or tiredness leaves the player vulnerable, as keeping them invincible
+     * puts those back to nothing (thirst 0.6 to 0 in 5 s).
      */
-    private record Scene(String title, String doing, boolean firstPerson, float hour, float x, float y, String lua) {}
+    private record Scene(String title, String doing, boolean firstPerson, float hour, float x, float y, String lua, boolean invincible) {
+        Scene(String title, String doing, boolean firstPerson, float hour, float x, float y, String lua) {
+            this(title, doing, firstPerson, hour, x, y, lua, true);
+        }
+    }
 
     private static final String DOOR = """
             local d,sq=DS.near(function(o) return instanceof(o,"IsoDoor") and not o:isBarricaded() end, 30)
@@ -86,8 +94,9 @@ final class DevScenes {
             new Scene("Sink", "Pointer out, right-click the sink, Drink or Wash (E opens the cupboard under it)", true, 13f, STREET_X, STREET_Y, """
                     local s,sq=DS.near(function(o) return string.find(DS.cn(o),"Sink")~=nil end, 30)
                     if not s then error("no sink within 30 tiles") end
+                    getPlayer():getStats():set(CharacterStat.THIRST, 0.6)
                     return DS.faceThing(sq, 0.9)
-                    """),
+                    """, false),
             new Scene("Chair", "Pointer out, right-click the chair, Sit", true, 13f, STREET_X, STREET_Y, """
                     local c,sq=DS.near(function(o) return string.find(DS.cn(o),"Chair")~=nil end, 30)
                     if not c then error("no chair within 30 tiles") end
@@ -98,7 +107,7 @@ final class DevScenes {
                     if not b then error("no bed within 30 tiles") end
                     getPlayer():getStats():set(CharacterStat.FATIGUE, 0.8)
                     return DS.faceThing(sq, 0.3)
-                    """),
+                    """, false),
             new Scene("Things on the floor", "E on each to pick it up", true, 13f, STREET_X, STREET_Y, """
                     DS.bare()
                     local x,y=DS.p():getX(),DS.p():getY()
@@ -134,7 +143,7 @@ final class DevScenes {
                     DS.bare(); DS.give("Base.Crisps"); DS.give("Base.WaterBottle"); DS.give("Base.Magazine")
                     local s=getPlayer():getStats(); s:set(CharacterStat.HUNGER, 0.4); s:set(CharacterStat.THIRST, 0.4)
                     return DS.ahead(3, 1.2)
-                    """),
+                    """, false),
             new Scene("Stairs", "Walk up the stairs and back down", true, 13f, TOWER_X, TOWER_Y, """
                     local sq=DS.nearsq(function(q) return q:HasStairs() end, 60)
                     if not sq then error("no stairs within 60 tiles") end
@@ -217,7 +226,7 @@ final class DevScenes {
                     DS.street(); DS.bare(); DS.give("Base.Crisps")
                     getPlayer():getStats():set(CharacterStat.HUNGER, 0.4)
                     return DS.ahead(4, 1.2)
-                    """),
+                    """, false),
             new Scene("Save and quit", "Esc, Quit: back at the main menu, Continue loads you here again", true, 17.5f, STREET_X, STREET_Y, """
                     DS.street(); DS.bare()
                     return DS.ahead(6, 1.4)
@@ -430,7 +439,9 @@ final class DevScenes {
         }
         Scene now = waiting;
         waiting = null;
-        DevKeys.invincible = true;
+        DevKeys.invincible = now.invincible();
+        DevKeys.carryAnything = true;
+        DevKeys.setCheat(player, "UNLIMITED_CARRY", true);
         DevKeys.cleared = false;
         DevKeys.clearSky(true);
         GameTime.getInstance().setTimeOfDay(now.hour());
