@@ -307,13 +307,16 @@ final class RoomLamps {
         to[at + WAY + 3] = 1f;
     }
 
-    /** The colour of the light of a glass showing a picture of the mean linear colour glow, into to[at], its greatest part 1, and how bright it is. */
+    /**
+     * The colour of the light of a glass showing a picture of the mean linear colour glow, into to[at], its greatest part 1, and how
+     * bright it is: a black picture next to nothing, as a light of no strength ends the list the shader reads (GLSL).
+     */
     static float screenHue(float[] glow, float[] to, int at) {
         float most = Math.max(glow[0], Math.max(glow[1], glow[2]));
         for (int k = 0; k < 3; k++) {
             to[at + k] = most > 0f ? glow[k] / most : 1f;
         }
-        return most;
+        return Math.max(most, 1e-4f);
     }
 
     /**

@@ -64,7 +64,8 @@ final class RoomLampsTests {
         float bright = RoomLamps.screenHue(new float[] {0.1f, 0.2f, 0.4f}, hue, 0);
         check(bright == 0.4f, "a set gives as much as the brightest part of its picture's mean: " + bright);
         check(hue[2] == 1f && Math.abs(hue[0] - 0.25f) < 1e-6f && Math.abs(hue[1] - 0.5f) < 1e-6f, "in its picture's colour: " + hue[0] + " " + hue[1]);
-        check(RoomLamps.screenHue(new float[3], hue, 0) == 0f, "and a black picture gives none");
+        float black = RoomLamps.screenHue(new float[3], hue, 0);
+        check(black > 0f && black <= 1e-4f, "and a black picture next to none, which still holds its place in the shader's list: " + black);
     }
 
     private static void aPicturesGlowIsTheMeanOfWhatTheGlassShows() {
