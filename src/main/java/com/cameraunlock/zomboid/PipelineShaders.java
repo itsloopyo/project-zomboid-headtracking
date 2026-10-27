@@ -2183,17 +2183,24 @@ final class PipelineShaders {
                 // down the door is not. A streak of dirt goes on in the shade each slat is given. Far off,
                 // where a slat is a few pixels high, and in the game's own view, the door is the sprite as
                 // painted.
-                float slatSeen = slatTint ? (1.0 - smoothstep(0.2, 0.55, fwidth(vPlace.z) / SLAT_HIGH)) * (1.0 - uGameView) : 0.0;
+                // The place's slope over the screen is taken where the whole draw takes it: inside the branch
+                // below, which a neighbouring pixel may not take, dFdx is not defined.
+                vec3 slatPlaceX = vec3(0.0), slatPlaceY = vec3(0.0);
+                float slatSeen = 0.0;
+                if (slatTint) {
+                    slatPlaceX = dFdx(vPlace);
+                    slatPlaceY = dFdy(vPlace);
+                    slatSeen = (1.0 - smoothstep(0.2, 0.55, (abs(slatPlaceX.z) + abs(slatPlaceY.z)) / SLAT_HIGH)) * (1.0 - uGameView);
+                }
                 if (slatSeen > 0.0) {
                     float up = vPlace.z;
-                    float soft = fwidth(up);
+                    float soft = abs(slatPlaceX.z) + abs(slatPlaceY.z);
                     // How far the sprite's texture coordinates go for a step along the wall and straight up it.
                     // The way along the wall is taken from how its place moves over the screen.
-                    vec3 placeX = dFdx(vPlace), placeY = dFdy(vPlace);
-                    vec3 square = cross(placeX, placeY);
+                    vec3 square = cross(slatPlaceX, slatPlaceY);
                     vec2 along = normalize(vec2(-square.y, square.x) + vec2(1e-9, 0.0));
-                    vec2 uvX = dFdx(vUv), uvY = dFdy(vUv);
-                    vec2 wallX = vec2(dot(placeX.xy, along), placeX.z), wallY = vec2(dot(placeY.xy, along), placeY.z);
+                    vec2 uvX = stepX, uvY = stepY;
+                    vec2 wallX = vec2(dot(slatPlaceX.xy, along), slatPlaceX.z), wallY = vec2(dot(slatPlaceY.xy, along), slatPlaceY.z);
                     float spanned = wallX.x * wallY.y - wallX.y * wallY.x;
                     spanned = abs(spanned) < 1e-12 ? 1e-12 : spanned;
                     vec2 perRun = (uvX * wallY.y - uvY * wallX.y) / spanned;
