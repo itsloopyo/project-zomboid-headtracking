@@ -68,7 +68,7 @@ final class LookingGlass {
      * by day is far brighter than the room behind the glass, so at the room's share a window
      * read from the street as a black hole in a sunny wall.
      */
-    static final float GAIN = 1.6f, SQUARE_ROOM = 0.13f, SQUARE_STREET = 0.26f, GLANCING = 0.87f, GLANCE_POWER = 5f;
+    static final float GAIN = 1.1f, SQUARE_ROOM = 0.13f, SQUARE_STREET = 0.26f, GLANCING = 0.87f, GLANCE_POWER = 5f;
     /**
      * paneThrown(square, street): that share in GLSL, for the world shader's panes and the
      * picture laid over them, square being the cosine the pane is seen at and street how far

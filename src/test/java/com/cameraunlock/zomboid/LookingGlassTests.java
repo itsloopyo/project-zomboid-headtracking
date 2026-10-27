@@ -342,7 +342,7 @@ final class LookingGlassTests {
         float room = LookingGlass.paneThrown(1f, LookingGlass.streetSide(false, 0f, false));
         float street = LookingGlass.paneThrown(1f, LookingGlass.streetSide(true, 0f, false));
         check(room == LookingGlass.GAIN * LookingGlass.SQUARE_ROOM, "square on, a pane throws back the room's share to its room: " + room);
-        check(street >= 0.35f && street <= 0.45f, "and between 0.35 and 0.45 of the street by day: " + street);
+        check(street >= 0.25f && street <= 0.32f, "and between 0.25 and 0.32 of the street by day: " + street);
         check(LookingGlass.paneThrown(1f, LookingGlass.streetSide(true, 1f, false)) == room, "and the room's share of it at night");
         check(LookingGlass.paneThrown(1f, LookingGlass.streetSide(true, 0f, true)) == room, "and in Low, which keeps the glass as it was");
         check(LookingGlass.paneThrown(0f, 0f) == 1f && LookingGlass.paneThrown(0f, 1f) == 1f, "seen edge on it throws back all of it");
