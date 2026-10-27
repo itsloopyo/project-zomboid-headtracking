@@ -19,7 +19,9 @@ import zombie.util.list.PZArrayList;
  * The mod hangs a model of a metre of hood on each square of the wall instead, hipped at each
  * end of the run, and draws nothing for the end pieces, which the hips stand in for. An eave of
  * a real roof has the roof behind it on the level above, a floor of a flat roof, or the storey
- * above, and is left to Roofs.
+ * above, and is left to Roofs and RoofBuilder. Of those, a row no slope comes down to with an
+ * end piece past each end is a hood over a window, which RoofBuilder.hoodOfItsOwn finds and these
+ * models hang.
  */
 final class Hoods {
     static final int NONE = -1;
@@ -157,10 +159,15 @@ final class Hoods {
      * +x, and at its -x, is whether the square past it along the wall has no hood.
      */
     static String modelOf(Squares squares, int x, int y) {
+        return modelOf(squares, x, y, (nx, ny) -> hood(squares, nx, ny));
+    }
+
+    /** As modelOf, for a hood whose run holds the squares run says. */
+    static String modelOf(Squares squares, int x, int y, Run run) {
         float[] plus = new float[2];
         Models.turn(turns(squares.eave(x, y)), 1f, 0f, plus);
         int stepX = Math.round(plus[0]), stepY = Math.round(plus[1]);
-        boolean endsPlus = !hood(squares, x + stepX, y + stepY), endsMinus = !hood(squares, x - stepX, y - stepY);
+        boolean endsPlus = !run.holds(x + stepX, y + stepY), endsMinus = !run.holds(x - stepX, y - stepY);
         return endsPlus ? endsMinus ? "hood_alone" : "hood_end_plus" : endsMinus ? "hood_end_minus" : "hood";
     }
 

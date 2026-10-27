@@ -8095,16 +8095,22 @@ final class WorldScene {
         /**
          * Hangs the mod's model of a length of a hood of roofing over a wall that stands on its
          * own, and draws nothing for the pieces of eave at the ends of one, which its model's
-         * hips stand in for: see Hoods. Its roofing takes the sprite's colour. False for any
-         * other sprite, and for a hood's sprite with nothing painted where the colour is taken.
+         * hips stand in for: see Hoods. A hood over a window is one too (RoofBuilder.hoodOfItsOwn).
+         * Its roofing takes the sprite's colour. False for any other sprite, and for a hood's
+         * sprite with nothing painted where the colour is taken.
          */
         private boolean addHood(Kind kind, Texture texture, int x, int y, int z) {
             int wall = kind.eave;
             if (wall == Hoods.NONE) {
-                return kind.endPiece && Hoods.endOfAHood(Hoods.on(cell, z), x, y);
+                return kind.endPiece && (Hoods.endOfAHood(Hoods.on(cell, z), x, y) || roofBuilder.endOfAHoodOfItsOwn(x, y, z));
             }
             Hoods.Squares squares = Hoods.on(cell, z);
-            if (!Hoods.hood(squares, x, y)) {
+            String model;
+            if (Hoods.hood(squares, x, y)) {
+                model = Hoods.modelOf(squares, x, y);
+            } else if (roofBuilder.hoodOfItsOwn(x, y, z)) {
+                model = roofBuilder.hoodOfItsOwnModel(x, y, z);
+            } else {
                 return false;
             }
             float[] dye = Hoods.dyedAt(wall);
@@ -8118,7 +8124,7 @@ final class WorldScene {
             Hoods.origin(wall, awningAt);
             float foot = z * ViewCamera.LEVEL_HEIGHT + (geometry.lift[0] + geometry.lift[1] + geometry.lift[2] + geometry.lift[3]) / 4f
                     + kerbTopRise(z, wall == Outdoors.NORTH) + Hoods.FOOT * ViewCamera.LEVEL_HEIGHT;
-            placed.add(Models.get(Hoods.modelOf(squares, x, y)), frame, x, y, x + awningAt[0], y + awningAt[1], foot, Hoods.turns(wall),
+            placed.add(Models.get(model), frame, x, y, x + awningAt[0], y + awningAt[1], foot, Hoods.turns(wall),
                     Furniture.TILES_PER_METRE, Furniture.TILES_PER_METRE, texture.getID(), 1 << Models.PAINT,
                     SpriteGeometry.textureU(frame, dye[0], dye[1]), SpriteGeometry.textureV(frame, dye[0], dye[1], Hoods.DYE_HIGH), 0, 0f, 0f);
             placed.built();

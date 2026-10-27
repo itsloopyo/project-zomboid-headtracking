@@ -20,6 +20,7 @@ final class AwningTests {
         Checks.run("aKioskHasAHoodHippedAtBothEndsAndItsEndPiecesGo", AwningTests::aKioskHasAHoodHippedAtBothEndsAndItsEndPiecesGo);
         Checks.run("theCornerPastARoofsEaveRowGoesWithTheRow", AwningTests::theCornerPastARoofsEaveRowGoesWithTheRow);
         Checks.run("anEaveWithARoofBehindItIsNoHood", AwningTests::anEaveWithARoofBehindItIsNoHood);
+        Checks.run("aRowUnderAStoreyEndedByEndPiecesIsAHood", AwningTests::aRowUnderAStoreyEndedByEndPiecesIsAHood);
         Checks.run("aHoodHangsFromTheTopOfItsWallAndItsHipsReachPastIt", AwningTests::aHoodHangsFromTheTopOfItsWallAndItsHipsReachPastIt);
     }
 
@@ -208,6 +209,53 @@ final class AwningTests {
     }
 
     /**
+     * A window's hood as the map has them at (8253, 11689..11691): a row of eave on the wall of
+     * three squares of the ground level under a storey, and an end piece past each end.
+     */
+    private static void aRowUnderAStoreyEndedByEndPiecesIsAHood() {
+        TestMap map = new TestMap();
+        for (int x = 1; x <= 3; x++) {
+            map.roofSprite(x, 0, 0, "roofs_05_38", "attachedN", "isEave");
+            map.wall(x, 0, 0, true);
+            map.cell.square(x, -1, 1).add(map.sprite("floors_interior_carpet_01_36", IsoObjectType.normal));
+        }
+        map.roofSprite(0, 0, 0, "roofs_05_30", "isEave");
+        map.roofSprite(4, 0, 0, "roofs_05_53", "isEave");
+        RoofBuilder roofs = map.build.roofBuilder;
+        check(!Hoods.hood(Hoods.on(map.cell, 0), 2, 0), "with the storey behind it a level up it is no hood standing on its own");
+        check(roofs.hoodOfItsOwn(1, 0, 0) && roofs.hoodOfItsOwn(2, 0, 0) && roofs.hoodOfItsOwn(3, 0, 0), "every square of the row holds a length of hood");
+        check(roofs.hoodOfItsOwnModel(2, 0, 0).equals("hood") && !roofs.hoodOfItsOwnModel(1, 0, 0).equals("hood") && !roofs.hoodOfItsOwnModel(3, 0, 0).equals("hood")
+                && !roofs.hoodOfItsOwnModel(1, 0, 0).equals(roofs.hoodOfItsOwnModel(3, 0, 0)), "hipped at each end of the run and at no other place");
+        check(roofs.endOfAHoodOfItsOwn(0, 0, 0) && roofs.endOfAHoodOfItsOwn(4, 0, 0), "the end pieces are the hips'");
+        TestMap open = new TestMap();
+        for (int x = 1; x <= 2; x++) {
+            open.roofSprite(x, 0, 0, "roofs_05_38", "attachedN", "isEave");
+            open.wall(x, 0, 0, true);
+            open.cell.square(x, -1, 1).add(open.sprite("floors_interior_carpet_01_36", IsoObjectType.normal));
+        }
+        open.roofSprite(0, 0, 0, "roofs_05_30", "isEave");
+        check(!open.build.roofBuilder.hoodOfItsOwn(1, 0, 0), "a row with no end piece past one end stays an eave of its own along the storey's wall");
+        TestMap west = new TestMap();
+        for (int y = 1; y <= 3; y++) {
+            west.roofSprite(0, y, 0, "roofs_05_39", "attachedW", "isEave");
+            west.wall(0, y, 0, false);
+            west.cell.square(-1, y, 1).add(west.sprite("floors_interior_carpet_01_36", IsoObjectType.normal));
+        }
+        west.roofSprite(0, 0, 0, "roofs_05_30", "isEave");
+        west.roofSprite(0, 4, 0, "roofs_05_53", "isEave");
+        RoofBuilder westRoofs = west.build.roofBuilder;
+        check(westRoofs.hoodOfItsOwn(0, 1, 0) && westRoofs.hoodOfItsOwn(0, 2, 0) && westRoofs.hoodOfItsOwn(0, 3, 0), "a row along a west wall holds a hood too");
+        check(westRoofs.hoodOfItsOwnModel(0, 2, 0).equals("hood") && !westRoofs.hoodOfItsOwnModel(0, 1, 0).equals("hood")
+                && !westRoofs.hoodOfItsOwnModel(0, 3, 0).equals("hood"), "hipped at the ends of a run along y");
+        check(westRoofs.endOfAHoodOfItsOwn(0, 0, 0) && westRoofs.endOfAHoodOfItsOwn(0, 4, 0), "and its end pieces are the hips'");
+        // addEaveRow mitres the row's east end to a row along the west wall of the square inside the corner past it.
+        map.roofSprite(4, -1, 0, "roofs_05_39", "attachedW", "isEave");
+        map.wall(4, -1, 0, false);
+        roofs.newBuild();
+        check(!roofs.hoodOfItsOwn(2, 0, 0), "a row mitred round the corner to another is an eave of its own, end pieces or not");
+    }
+
+    /**
      * The one-storey house at (6409..6416, 5358): the eave row of its roof on the north wall of
      * six squares of the ground level, under the roof on the squares north of them, and the
      * corner piece past its west end. Under a roof it is no hood, and its corner is the row's.
@@ -234,6 +282,8 @@ final class AwningTests {
         check(roofs.eaveRowEnd(0, 0, 0), "the corner piece past the west end of the row goes with the row");
         check(!roofs.eaveRowEnd(3, 1, 0), "an end piece in front of the row, across its wall, is none of its");
         check(!roofs.eaveRowEnd(7, 0, 0), "nor is a square with no end piece");
+        map.roofSprite(7, 0, 0, "roofs_02_30", "attachedN", "isEave");
+        check(!roofs.hoodOfItsOwn(3, 0, 0), "a slope's eave row is no hood, end pieces past both its ends or not");
         TestMap bare = new TestMap();
         bare.roofSprite(1, 0, 0, "roofs_02_6", "attachedN", "isEave");
         bare.wall(1, 0, 0, true);

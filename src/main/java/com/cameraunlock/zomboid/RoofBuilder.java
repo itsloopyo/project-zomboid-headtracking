@@ -64,7 +64,7 @@ final class RoofBuilder {
      * corner past it asks for its own square and the four beside it, every eave asks for the
      * square past it, and a square with no roof on it is read from the map at every asking.
      */
-    private final HashMap<Long, Boolean> eaveRows = new HashMap<>();
+    private final HashMap<Long, Boolean> eaveRows = new HashMap<>(), ownHoods = new HashMap<>();
     private final HashMap<Integer, Hoods.Squares> hoodLevels = new HashMap<>();
     /** What coveredIn made of each sprite in this frame's build. */
     private final IdentityHashMap<Texture, Roofs.Roof> coverings = new IdentityHashMap<>();
@@ -77,6 +77,7 @@ final class RoofBuilder {
     /** For a frame's build of the map as it is now: what was found in the last is let go. */
     void newBuild() {
         eaveRows.clear();
+        ownHoods.clear();
         hoodLevels.clear();
         coverings.clear();
     }
@@ -1275,7 +1276,9 @@ final class RoofBuilder {
      * length of the row was a slab slanting across the wall. Along an open side, a stage's
      * front under its flat roof, there is no wall and the row hangs from the roof's edge: laid
      * as the map's tiles it was a row of thin sheets with a pale triangle between each two
-     * (4947..4952, 7947). False, and nothing made, for a square with no such row.
+     * (4947..4952, 7947). False, and nothing made, for a square with no such row. A row on a
+     * wall with an end piece past each end and no row mitred to it is a hood over a window, and
+     * is Hoods' model instead where the mod's own furniture is on (hoodOfItsOwn, WorldScene.addHood).
      */
     boolean addEaveRow(Texture texture, int x, int y, int z) {
         int wall = ownEaveRow(x, y, z);
@@ -1297,6 +1300,67 @@ final class RoofBuilder {
         int endEnd = level.eave(x + stepX, y + stepY) == wall ? Eaves.RUNS_ON : meets ? Eaves.MEETS : Eaves.GABLE;
         hangEave(sheet, insideX, insideY, z + 1, RoofFit.PITCH, west ? -RoofFit.PITCH : 0f, west ? 0f : -RoofFit.PITCH, true, startEnd, endEnd);
         return true;
+    }
+
+    /**
+     * Whether the square holds a length of a hood over a window: a row addEaveRow would make on
+     * a wall, the map's end piece past each end of its run, and no row round the corner mitred
+     * to it at either end. The map paints it as Hoods' kiosk hood, a short pent hipped at its ends, under
+     * the storey above (8253, 11689..11691) or across the foot of a gable (8246..8248, 11697),
+     * and made as an eave of its own it was a thin pale board.
+     */
+    boolean hoodOfItsOwn(int x, int y, int z) {
+        long key = RoofFit.key(x, y, z);
+        Boolean known = ownHoods.get(key);
+        if (known == null) {
+            known = findHoodOfItsOwn(x, y, z);
+            ownHoods.put(key, known);
+        }
+        return known;
+    }
+
+    private boolean findHoodOfItsOwn(int x, int y, int z) {
+        Hoods.Squares level = hoods(z);
+        int wall = level.eave(x, y);
+        if (!inOwnRow(level, x, y, z, wall)) {
+            return false;
+        }
+        boolean west = wall == Outdoors.WEST;
+        int stepX = west ? 0 : 1, stepY = west ? 1 : 0, other = west ? Outdoors.NORTH : Outdoors.WEST;
+        for (int way = -1; way <= 1; way += 2) {
+            int endX = x, endY = y;
+            while (inOwnRow(level, endX + way * stepX, endY + way * stepY, z, wall)) {
+                endX += way * stepX;
+                endY += way * stepY;
+            }
+            if (!level.endPiece(endX + way * stepX, endY + way * stepY)) {
+                return false;
+            }
+            // addEaveRow mitres the last square of a row to a row along the other wall on this
+            // square: past the + end it is this row's, and at the - end this row is that one's.
+            int cornerX = endX + stepX - stepY, cornerY = endY + stepY - stepX;
+            boolean mitred = level.eave(cornerX, cornerY) == other && ownEaveRow(cornerX, cornerY, z) != Hoods.NONE
+                    && (way == 1 || level.eave(cornerX + stepY, cornerY + stepX) != other);
+            if (mitred) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** Whether the square holds a row addEaveRow makes, hung from that wall, which stands there: no slope comes down to it. */
+    private boolean inOwnRow(Hoods.Squares level, int x, int y, int z, int wall) {
+        return wall != Hoods.NONE && level.eave(x, y) == wall && level.walled(x, y, wall) && !eaveRow(x, y, z);
+    }
+
+    /** Hoods' model for a length of a hood hoodOfItsOwn finds: hipped at an end of its run. */
+    String hoodOfItsOwnModel(int x, int y, int z) {
+        return Hoods.modelOf(hoods(z), x, y, (nx, ny) -> hoodOfItsOwn(nx, ny, z));
+    }
+
+    /** Whether the square holds the end piece past a hood hoodOfItsOwn finds, which the hood's hips stand in for. */
+    boolean endOfAHoodOfItsOwn(int x, int y, int z) {
+        return Hoods.endOf(hoods(z), x, y, (nx, ny) -> hoodOfItsOwn(nx, ny, z));
     }
 
     /** Whether the square holds the piece the map ends a row of eave with, past the end of a row addEaveRow makes. */
