@@ -905,6 +905,8 @@ final class Pipeline {
     private static final int DEVELOP_METER_UNIT = 7;
     /** What the meter last read: the log2 of the picture's light before its exposure, NaN before its first reading. Render thread writes it. */
     private volatile float meteredLight = Float.NaN, meteredUpper = Float.NaN;
+    /** When the meter last read, on System.nanoTime's clock, 0 before its first reading. */
+    private volatile long meteredAt;
 
     /** The exposure the picture being drawn is developed at. */
     private float pictureExposure = 1f;
@@ -1018,6 +1020,11 @@ final class Pipeline {
     /** What the eye's light meter last read of the picture: see meter. Logic thread. */
     float meteredLight() {
         return meteredLight;
+    }
+
+    /** When the meter last read: see meteredAt. Logic thread. */
+    long meteredAt() {
+        return meteredAt;
     }
 
     /** The light the brightest tenth of the picture the meter last read lies over: see Develop.upper. Logic thread. */
@@ -4674,6 +4681,7 @@ final class Pipeline {
                     meterBlues[i] = meterRead.getFloat((4 * i + 3) * Float.BYTES);
                 }
                 meteredLight = developed.read(meterLights, meterWeights, METER_CELLS);
+                meteredAt = System.nanoTime();
                 meteredUpper = developed.upper();
                 developed.readCast(meterLights, meterReds, meterBlues, METER_CELLS);
                 GL32.glDeleteSync(oldest);

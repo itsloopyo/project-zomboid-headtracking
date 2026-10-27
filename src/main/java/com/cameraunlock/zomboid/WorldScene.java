@@ -124,6 +124,7 @@ final class WorldScene {
     private static final float FAR = FarLand.REACH + 80f;
     static final float EXPOSURE_INDOORS = 1.25f;
     private static final float EYE_ADAPT_SECONDS = 0.25f;
+    private static final long EYE_TRACE_OFTEN_NANOS = 100_000_000L, EYE_TRACE_FOR_NANOS = 6_000_000_000L, EYE_TRACE_EVERY_NANOS = 2_000_000_000L;
     /** How long the eye takes to open up to a wood's shade: the trees round the player change by a column at every tile walked. */
     private static final float WOODS_SECONDS = 0.8f;
     /** How much further the eye closes at night over ground all under snow: 2.5 times as far at full snow and full night. */
@@ -2749,6 +2750,9 @@ final class WorldScene {
         float exposure;
         /** What the eye would let in by where the viewer stands alone, and what the light meter read: see adaptEye. */
         float located, metered;
+        /** eyeTrace: the decision it last wrote, the room, and when it writes next and stops writing often. */
+        private int tracedInside = -1;
+        private long tracedRoom, traceNext, traceOftenUntil;
         private IsoPlayer viewer;
         IsoCell cell;
         int playerIndex;
@@ -3229,6 +3233,9 @@ final class WorldScene {
             // The eye's light reads the room it is in off the room map, which the view set down let go of.
             roomMap.begin(cell, terrain);
             exposure = adaptEye(player, fromOutside);
+            if (DevKeys.PRESENT) {
+                eyeTrace(player, fromOutside);
+            }
             Lightning.see(view.index, sky, pose.eyeX, pose.eyeY, pose.eyeUp, System.nanoTime());
             Fires.gather(sky, terrain, player.getIndex(), pose.eyeX, pose.eyeY);
             Lamps.gather(sky, cell, terrain, pose.eyeX, pose.eyeY, Quality.lightDistance(view.index));
@@ -5560,6 +5567,41 @@ final class WorldScene {
             float seconds = seen < eyeSeen ? EYE_CLOSES_SECONDS : EYE_OPENS_SECONDS;
             eyeSeen *= (float) Math.pow(seen / eyeSeen, 1f - Math.exp(-elapsed / seconds));
             return eyeSeen;
+        }
+
+        /**
+         * Development builds: a line in the log for the eye, every EYE_TRACE_OFTEN_NANOS for
+         * EYE_TRACE_FOR_NANOS after the decision under the player goes from a room to the open
+         * air or back, and every EYE_TRACE_EVERY_NANOS otherwise.
+         */
+        private void eyeTrace(IsoPlayer player, boolean fromOutside) {
+            IsoGridSquare under = player.getCurrentSquare();
+            int inside = fromOutside || under == null || under.isOutside() || under.getRoom() == null ? 0 : 1;
+            long room = under == null ? -1L : under.getRoomID();
+            long now = System.nanoTime();
+            boolean flipped = inside != tracedInside || room != tracedRoom;
+            if (flipped) {
+                traceOftenUntil = now + EYE_TRACE_FOR_NANOS;
+            } else if (now < traceNext) {
+                return;
+            }
+            tracedInside = inside;
+            tracedRoom = room;
+            traceNext = now + (now < traceOftenUntil ? EYE_TRACE_OFTEN_NANOS : EYE_TRACE_EVERY_NANOS);
+            StringBuilder line = new StringBuilder(200);
+            line.append(String.format(Locale.ROOT, "eyetrace: t=%d%s p=%.2f,%.2f,%.2f in=%d room=%d", now / 1_000_000L, flipped ? " FLIP" : "",
+                    player.getX(), player.getY(), player.getZ(), inside, room));
+            if (under != null) {
+                int index = player.getIndex();
+                IsoGridSquare.ILighting lit = under.lighting[index];
+                ColorInfo info = lit.lightInfo();
+                line.append(String.format(Locale.ROOT, " dark=%.3f darkTo=%.3f light=%.3f,%.3f,%.3f level=%.3f seen=%d cansee=%d",
+                        lit.darkMulti(), lit.targetDarkMulti(), info.r, info.g, info.b, under.getLightLevel(index), under.isSeen(index) ? 1 : 0, under.isCouldSee(index) ? 1 : 0));
+            }
+            long meteredAt = view.pipeline.meteredAt();
+            line.append(String.format(Locale.ROOT, " eyeTo=%d eyeOpen=%.3f located=%.3f meter=%.3f meterAge=%d exposure=%.3f",
+                    inside == 0 ? 1 : 0, eyeOpen, located, metered, meteredAt == 0L ? -1L : (now - meteredAt) / 1_000_000L, exposure));
+            Log.info(line.toString());
         }
 
         /**
