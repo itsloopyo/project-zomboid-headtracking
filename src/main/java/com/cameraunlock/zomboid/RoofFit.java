@@ -592,9 +592,11 @@ final class RoofFit {
         final boolean crowned;
         /** Whether the far side stops against a square something else covers, before the building's edge. */
         final boolean blocked;
+        /** Whether the row's top tile is one the map cuts to a triangle (Tile.cutCorner): a hip crosses the top of the row. */
+        final boolean cut;
         final float eave, rise, ridge;
 
-        Row(int x, int y, int dx, int dy, int open, int climbed, boolean fromEave, boolean crowned, boolean blocked, float eave, float rise, float ridge) {
+        Row(int x, int y, int dx, int dy, int open, int climbed, boolean fromEave, boolean crowned, boolean blocked, boolean cut, float eave, float rise, float ridge) {
             this.x = x;
             this.y = y;
             this.dx = dx;
@@ -604,9 +606,20 @@ final class RoofFit {
             this.fromEave = fromEave;
             this.crowned = crowned;
             this.blocked = blocked;
+            this.cut = cut;
             this.eave = eave;
             this.rise = rise;
             this.ridge = ridge;
+        }
+
+        /**
+         * The first square of the far side that is laid. A row cut by a hip at its top meets the face across it in a hip on the far
+         * side as well: its far side climbs from the far wall as deep as the near side and no further, and the face across roofs
+         * the squares past it. Carried on level at the cut tile's height to the far wall, the north row of a hip roof's east face
+         * laid a flat at its eave's height a third of a level up over the whole north eave (picnic shelter 12015..12020, 7364).
+         */
+        int first() {
+            return cut && fromEave ? Math.max(0, open - climbed) : 0;
         }
     }
 
@@ -1038,7 +1051,7 @@ final class RoofFit {
                 continue;
             }
             over.addAll(overCrown);
-            Row row = new Row(x, y, dx, dy, open, climbed, fromEave, metCrown, blocked, eave, rise, farRidge);
+            Row row = new Row(x, y, dx, dy, open, climbed, fromEave, metCrown, blocked, top.cutCorner >= 0, eave, rise, farRidge);
             rows.add(row);
             rowAt.putIfAbsent(rowKey(x, y, dx, dy), row);
         }
@@ -1117,7 +1130,7 @@ final class RoofFit {
         // wing's far side, which was carried on over it as a flat at the wing's ridge (6277..6280, 5410..5413).
         HashMap<Long, Float> ridgeX = new HashMap<>(), ridgeY = new HashMap<>();
         for (Row row : rows) {
-            for (int step = 0; step < (row.fromEave ? row.open : Math.min(row.open, row.climbed)); step++) {
+            for (int step = row.first(); step < (row.fromEave ? row.open : Math.min(row.open, row.climbed)); step++) {
                 long square = key(row.x + step * row.dx, row.y + step * row.dy, 0);
                 if (step < row.climbed) {
                     (row.dx != 0 ? spanX : spanY).add(square);
@@ -1126,7 +1139,10 @@ final class RoofFit {
             }
         }
         for (Row row : rows) {
-            if (!row.fromEave || row.open <= row.climbed) {
+            // A row cut by a hip at its top meets the face across it in a hip, not a valley (see Row.first). Taken for a wing's, the
+            // north face of a hip roof fell from the ridge at the end of the south face's hip, a steep face standing over the roof
+            // with the sky between (picnic shelter 12017, 7367..7369).
+            if (!row.fromEave || row.open <= row.climbed || row.cut) {
                 continue;
             }
             long past = key(row.x + row.climbed * row.dx, row.y + row.climbed * row.dy, 0);
@@ -1142,7 +1158,7 @@ final class RoofFit {
             int open = row.open, climbed = row.climbed, dx = row.dx, dy = row.dy, x = row.x, y = row.y, up = dx + dy;
             float eave = row.eave, rise = row.rise, ridge = row.ridge;
             HashMap<Long, Side> strips = isAlongX ? alongX : alongY;
-            for (int step = 0; step < (fromEave ? open : Math.min(open, climbed)); step++) {
+            for (int step = row.first(); step < (fromEave ? open : Math.min(open, climbed)); step++) {
                 float outer, inner;
                 if (fromEave) {
                     int fromWall = open - 1 - step;
