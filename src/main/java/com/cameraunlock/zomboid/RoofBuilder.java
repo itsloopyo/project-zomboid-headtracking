@@ -48,6 +48,7 @@ final class RoofBuilder {
     private float steepest;
     private final float[] folded = new float[9];
     private final float[] heldLift = new float[4];
+    private final float[] plane = new float[4];
     /** The roof the tile being added is part of, or null. */
     private Roofs.Roof roof;
     private float roofU, roofV;
@@ -702,10 +703,19 @@ final class RoofBuilder {
             heldLift[corner] = lift[corner];
             lift[corner] += (fitted - read) * ViewCamera.LEVEL_HEIGHT;
         }
+        // A slope the map paints as a second sprite on another slope's square lies in the plane valleys carried it on in over
+        // the square, and the made sheet drawn through it showed in place of the shingles: the inn's valley at 3487..3489, 8210.
+        boolean overCarried = !itsOwn && onCarried(tile, alongX, x, y, z);
+        if (overCarried) {
+            WorldScene.layers.lie(SpriteGeometry.LAYERS_UP, 1f);
+        }
         SpriteGeometry.Mesh slope = roofLaidFlat(mesh, texture, northWest, readAlongX ? southEast - northWest : 0f, readAlongX ? 0f : southEast - northWest);
         int added = readAlongX ? build.geometry.addFace(slope, build.frame, x, y, z, 0f, 0f, northWest, 1f, 0f, southEast - northWest, 0f, 1f, 0f)
                 : build.geometry.addFace(slope, build.frame, x, y, z, 0f, 0f, northWest, 1f, 0f, 0f, 0f, 1f, southEast - northWest);
         build.frame.flat = 0;
+        if (overCarried) {
+            WorldScene.layers.none();
+        }
         System.arraycopy(heldLift, 0, lift, 0, 4);
         boolean placed = tile.fitted || tile.sure;
         if (alongX) {
@@ -736,6 +746,22 @@ final class RoofBuilder {
             // is under the tile whichever way it slopes, and still closes the roof.
             underRoof(x, y, z, Math.min(low, high), 0f, 0f, true);
         }
+    }
+
+    /** Whether the square holds a slope carried into a valley (RoofFit.valleys) in the plane a tile is laid in, along x or along y. */
+    private boolean onCarried(RoofFit.Tile tile, boolean alongX, int x, int y, int z) {
+        int axis = alongX ? RoofFit.ALONG_X : RoofFit.ALONG_Y;
+        Roofs.Laid made = Roofs.carriedAt(x, y, z, axis, world.roundNow);
+        if (made == null) {
+            return false;
+        }
+        RoofFit.cornersOf(axis, tile.fitLow, tile.fitHigh, plane);
+        for (int corner = 0; corner < 4; corner++) {
+            if (Math.abs(plane[corner] - made.tile.corners[corner]) > RoofFit.SAME) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /** A sprite of the roofs' sheets that is no tile of a roof: laid as one where its roof took it as a flat top (Roofs.flatTop). */

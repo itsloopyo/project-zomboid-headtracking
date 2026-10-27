@@ -596,7 +596,8 @@ final class Roofs {
 
     /**
      * What a made tile is kept under. A slope carried over the square of another is kept apart
-     * from the tile that is the roof of the square, by the way it runs: both may lie on one square.
+     * from the tile that is the roof of the square, by the way it runs: both may lie on one square
+     * (see carriedAt).
      */
     private static long keyOf(RoofFit.Tile tile) {
         int kind = !tile.carried ? 0 : tile.peak > 0f ? 3 : tile.fitAxis;
@@ -619,6 +620,12 @@ final class Roofs {
     static Laid madeAt(int x, int y, int z, int now) {
         Laid back = made.get(RoofFit.key(x, y, z));
         return back == null || now - back.roof.stamp > MADE_KEPT ? null : back;
+    }
+
+    /** The slope along the axis carried into a valley over the square (RoofFit.valleys), or null. */
+    static Laid carriedAt(int x, int y, int z, int axis, int now) {
+        Laid over = made.get(RoofFit.key(x, y, axis << 6 | z));
+        return over == null || now - over.roof.stamp > MADE_KEPT ? null : over;
     }
 
     /** The tiles of the slopes the map leaves out that lie in a chunk, or null for a chunk with none. */
