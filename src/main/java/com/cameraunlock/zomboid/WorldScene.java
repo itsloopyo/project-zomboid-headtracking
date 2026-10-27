@@ -805,6 +805,8 @@ final class WorldScene {
                 boulder, bedding, longGrass, natural, carpet, straw, tiled, grows, gardenPlant, onTop, holds, flightPost, fireEscape, paint, wallTrim, trim, moulded;
         /** What length of handrail the sprite is, or null: see Rails. */
         final Rails.Piece rail;
+        /** What piece of railway track the sprite is, or null: see Track. */
+        final Track.Piece track;
         /** Which cloth the map hangs out the sprite is, if any: see Banners. */
         final int banner;
         /** Which way a length of washing line runs from its square, or Outdoors.NO_LINE. */
@@ -919,6 +921,7 @@ final class WorldScene {
             onTop = properties.has("IsTableTop");
             holds = properties.get("container") != null;
             rail = Rails.of(name);
+            track = Track.of(name);
             flightPost = Rails.flightPost(name);
             fireEscape = Rails.fireEscape(name);
             paint = RoadPaint.marks(name);
@@ -7331,6 +7334,10 @@ final class WorldScene {
                 return;
             }
 
+            if (!hangsInAir && overLayer == 0 && z == 0 && kind.track != null && Own.buildings() && addTrack(object, x, y)) {
+                return;
+            }
+
             // What the game draws with the floor though it is no floor: railway track, and the
             // litter it calls a rug. Each is painted lying on the ground, and stood up to face the
             // eye a sheet of newspaper is a hoarding and a length of track a fence. It reaches
@@ -8400,6 +8407,100 @@ final class WorldScene {
                 flights.cornerPost(piece.style);
             }
             return true;
+        }
+
+        final SpriteGeometry.Frame tieFrame = new SpriteGeometry.Frame(), railFrame = new SpriteGeometry.Frame();
+        private SpriteGeometry.Mesh tieMesh, railMesh;
+        private float railU, railV;
+        private static final int[] TRACK_QUAD = {0, 1, 2, 0, 2, 3};
+        final Track.Builder trackBuilder = new Track.Builder(new Track.Sink() {
+            @Override
+            public float ground(float x, float y) {
+                heightsAt(x, y);
+                return terrain.lift(x, y, 0);
+            }
+
+            @Override
+            public void quad(float[] c, float[] along, int part) {
+                if (part == Track.RAIL) {
+                    SpriteGeometry.addQuad(railMesh, c, railU, railV, frame.red, frame.green, frame.blue);
+                    return;
+                }
+                float ux = c[3] - c[0], uy = c[4] - c[1], uz = c[5] - c[2];
+                float vx = c[9] - c[0], vy = c[10] - c[1], vz = c[11] - c[2];
+                tieMesh.face(uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx);
+                for (int corner : TRACK_QUAD) {
+                    float a = Track.TIE_A_FROM + along[corner * 2] * (Track.TIE_A_TO - Track.TIE_A_FROM);
+                    float b = Track.TIE_B_FROM + along[corner * 2 + 1] * (Track.TIE_B_TO - Track.TIE_B_FROM);
+                    tieMesh.add(c[corner * 3], c[corner * 3 + 1], c[corner * 3 + 2], SpriteGeometry.textureU(tieFrame, a, b),
+                            SpriteGeometry.textureV(tieFrame, a, b, 0f), frame.red, frame.green, frame.blue);
+                }
+            }
+        });
+
+        final Track.Reader trackReader = new Track.Reader((x, y, pieces) -> {
+            IsoGridSquare square = cell.getGridSquare(x, y, 0);
+            if (square == null) {
+                return -1;
+            }
+            PZArrayList<IsoObject> objects = square.getObjects();
+            int n = 0;
+            for (int i = 0; i < objects.size(); i++) {
+                IsoSprite sprite = objects.get(i).getSprite();
+                if (sprite != null && kindOf(sprite).track != null) {
+                    pieces[n++] = kindOf(sprite).track;
+                }
+            }
+            return n;
+        });
+
+        /**
+         * Railway track on the ground, built as rails on sleepers on the ground the map lays it
+         * on: see Track. The first piece of track on a square builds every piece on it and the
+         * others add nothing. Track under a wagon's deck is not drawn. A square whose track
+         * cannot be read, or not until more of the map is loaded, is left the pictures it is.
+         */
+        private boolean addTrack(IsoObject object, int x, int y) {
+            // What is built depends on squares that may be another chunk's.
+            building.plain = false;
+            int read = trackReader.readAround(x, y);
+            if (read == Track.WAITING) {
+                wantsMap = true;
+            }
+            if (read == Track.COVERED) {
+                return true;
+            }
+            Texture ties = trackTexture(Track.TIE_SPRITE, object), rails = trackTexture(Track.RAIL_SPRITE, object);
+            if (read != Track.LAID || ties == null || rails == null) {
+                return false;
+            }
+            PZArrayList<IsoObject> objects = cell.getGridSquare(x, y, 0).getObjects();
+            for (int i = 0; i < objects.size(); i++) {
+                IsoSprite sprite = objects.get(i).getSprite();
+                if (sprite != null && kindOf(sprite).track != null) {
+                    if (objects.get(i) != object) {
+                        return true;
+                    }
+                    break;
+                }
+            }
+            tieFrame.scale = railFrame.scale = frame.scale;
+            WorldScene.frameOf(tieFrame, object, ties);
+            WorldScene.frameOf(railFrame, object, rails);
+            railU = SpriteGeometry.textureU(railFrame, Track.RAIL_A, Track.RAIL_B);
+            railV = SpriteGeometry.textureV(railFrame, Track.RAIL_A, Track.RAIL_B, 0f);
+            tieMesh = solid.get(ties.getID());
+            railMesh = solid.get(rails.getID());
+            tieMesh.open = railMesh.open = frame.open;
+            tieMesh.sway = railMesh.sway = 0f;
+            trackBuilder.build(trackReader.square(), x, y, trackReader);
+            return true;
+        }
+
+        private static Texture trackTexture(String name, IsoObject object) {
+            IsoSprite sprite = IsoSpriteManager.instance.namedMap.get(name);
+            Texture texture = sprite == null ? null : sprite.getTextureForCurrentFrame(object.getDir());
+            return usable(texture) ? texture : null;
         }
 
         /**

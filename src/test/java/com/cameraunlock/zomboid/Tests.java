@@ -211,6 +211,7 @@ public final class Tests {
         Checks.run("HeldLightTests", HeldLightTests::run);
         Checks.run("StairTests", StairTests::run);
         Checks.run("FlightTests", FlightTests::run);
+        Checks.run("TrackTests", TrackTests::run);
         Checks.run("CutawayTests", CutawayTests::run);
         Checks.run("SkinCutsTests", SkinCutsTests::run);
         Checks.run("CanopyTests", CanopyTests::run);
