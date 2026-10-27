@@ -5712,7 +5712,8 @@ final class PipelineShaders {
                     n = -n;
                 }
                 // Each pixel of a block of four by four turns its samples a different sixteenth
-                // of the way round, which SOFTEN's four by four mean takes in exactly once each.
+                // of the way round. A pattern that repeats every four pixels comes out of
+                // SOFTEN's mean even, where its weights are even: on any one surface.
                 // Turned by a noise that does not repeat every four pixels, the mean was left
                 // with a weave of light and dark across the shade that stayed on the screen
                 // while the world turned under it.
