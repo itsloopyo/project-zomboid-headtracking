@@ -37,6 +37,13 @@ final class Leisure {
     private static final float SWING_BEAM_DYE = 0.91f, SWING_LEG_DYE = 0.45f;
     /** How high the fringe under a pool table's lamp hangs, in metres, and where its sprite paints a green shade, in levels. */
     static final float POOL_LAMP_FOOT = 1.545f, POOL_SHADE_DYE = 0.68f;
+    /**
+     * Where the sprite at the first square of a slide paints its red rails, for one that faces north, east, south and west: across
+     * the square, along it and how high, in levels. The dye's taps round each point all land on a rail's red.
+     */
+    static final float[] SLIDE_RAIL_AT = {0.648f, 0.352f, 0.203f, 0.297f, 0.703f, 0.516f, 0.477f, 0.523f, 0.604f, 0.156f, 0.844f, 0.12f};
+    /** Where the sprite at a play castle's first square paints its red back wall, the colour of that wall and the slide, in levels for the height. */
+    static final float CASTLE_RED_A = 0.742f, CASTLE_RED_B = 0.258f, CASTLE_RED_DYE = 0.453f;
     /** How far in front of its pole a basketball's board stands. */
     static final float BOARD_AHEAD = 0.12f;
     /** How high a studio camera's sprite paints the top of its body, in levels, and how far behind the square's middle. */
@@ -81,13 +88,14 @@ final class Leisure {
             return chandelier(Sheets.place(name, CHANDELIERS));
         }
         if (called.equals("Play Castle") && kind.equals("Childrens") && width == 2 && height == 2) {
-            return new Outdoors.Piece("play_castle", faces).dye(PAINT, 0.05f, 0.05f, 0.28f);
+            return new Outdoors.Piece("play_castle", faces).dye(PAINT, 0.05f, 0.05f, 0.28f)
+                    .alsoAt(1 << Models.VINYL, CASTLE_RED_A, CASTLE_RED_B, CASTLE_RED_DYE);
         }
         if (called.equals("Round") && kind.equals("Merry Go") && width == 2 && height == 2) {
             return new Outdoors.Piece("merry_go_round", faces).dye(PAINT, 0.85f, 0.85f, 0.14f);
         }
         if (called.equals("Slide") && kind.equals("Playground") && along == 2 && across == 1) {
-            return new Outdoors.Piece("slide", faces);
+            return new Outdoors.Piece("slide", faces).dye(1 << Models.VINYL, SLIDE_RAIL_AT[3 * faces], SLIDE_RAIL_AT[3 * faces + 1], SLIDE_RAIL_AT[3 * faces + 2]);
         }
         if (called.equals("Hamster Wheel") && kind.equals("Human") && along == 2 && across == 1) {
             return new Outdoors.Piece("treadmill", faces);

@@ -19,6 +19,7 @@ final class LeisureTests {
         Checks.run("aClimbingFrameMeetsItselfFromLevelToLevel", LeisureTests::aClimbingFrameMeetsItselfFromLevelToLevel);
         Checks.run("aShowJumpOrANetLiesAlongTheWayItsSpritesDo", LeisureTests::aShowJumpOrANetLiesAlongTheWayItsSpritesDo);
         Checks.run("aPieceLaidOutOtherwiseThanItsModelIsNone", LeisureTests::aPieceLaidOutOtherwiseThanItsModelIsNone);
+        Checks.run("aSlidesRedIsItsSpritesRed", LeisureTests::aSlidesRedIsItsSpritesRed);
         Checks.run("aSteeplesSpireStandsOnItsBelfry", LeisureTests::aSteeplesSpireStandsOnItsBelfry);
         Checks.run("aSteepleComesDownOntoARidgeShortOfItsFloor", LeisureTests::aSteepleComesDownOntoARidgeShortOfItsFloor);
         Checks.run("aTowersSpireStandsOnItsFrontSquareAndItsCrossOnItsPoint", LeisureTests::aTowersSpireStandsOnItsFrontSquareAndItsCrossOnItsPoint);
@@ -422,6 +423,17 @@ final class LeisureTests {
             Models.turn(unnamed("recreational_sports_01_" + place).turns, 1f, 0f, along);
             Checks.check(along[0] == 0f && along[1] == 1f, "recreational_sports_01_" + place + " runs along y");
         }
+    }
+
+    private static void aSlidesRedIsItsSpritesRed() {
+        String[] first = {"31", "18", "17", "38"};
+        for (int faces = Outdoors.NORTH; faces <= Outdoors.WEST; faces++) {
+            boolean alongY = faces == Outdoors.NORTH || faces == Outdoors.SOUTH;
+            Outdoors.Piece slide = Outdoors.of("location_community_park_01_" + first[faces], "Slide", "Playground", faces, alongY ? 1 : 2, alongY ? 2 : 1, 0);
+            Checks.check(slide != null && slide.dyed == 1 << Models.VINYL && slide.dyeHigh > 0f, "a slide facing " + faces + " takes its rails' red from its sprite");
+        }
+        Outdoors.Piece castle = Outdoors.of("location_community_park_01_51", "Play Castle", "Childrens", Outdoors.NORTH, 2, 2, 0);
+        Checks.check(castle != null && castle.alsoDyed == 1 << Models.VINYL, "a play castle's red wall and slide take the sprite's red");
     }
 
     private static void aPieceLaidOutOtherwiseThanItsModelIsNone() {
