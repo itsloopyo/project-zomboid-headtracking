@@ -4035,7 +4035,7 @@ final class WorldScene {
                         fresh.fill(solid, laid);
                         slowed(began);
                         long took = System.nanoTime() - began;
-                        if (DevBuild.ON && took + sumNanos > SLOW_BUILD_NANOS) {
+                        if (FirstPerson.TRACE && took + sumNanos > SLOW_BUILD_NANOS) {
                             Log.info(String.format(Locale.ROOT, "slow build: the chunk at %d, %d (levels %d to %d) %.1f tiles off, %s, in %.1f ms: sums %.1f, squares %.1f, roofs' backs %.1f, the rest %.1f"
                                     + " | eye still %b, in its band %b (band %d now %d, alike %s), signed %b, trusted %b, summed %b, restless %b, built %.0f ms ago",
                                     chunk.wx, chunk.wy, lowest, chunk.getMaxLevel(), distance, CAUSES[cause], (took + sumNanos) / 1e6, sumNanos / 1e6, squaresNanos / 1e6, backsNanos / 1e6,

@@ -1200,7 +1200,7 @@ public final class FirstPerson {
         } else {
             Quality.rest(view.index);
         }
-        if (DevBuild.ON && frameNanos > LONG_FRAME_NANOS && paceScene != null) {
+        if (TRACE && frameNanos > LONG_FRAME_NANOS && paceScene != null) {
             if (now - longFrameLoggedNanos < LONG_FRAME_LOG_INTERVAL_NANOS) {
                 longFramesUnsaid++;
             } else {
