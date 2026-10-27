@@ -141,7 +141,7 @@ final class DevScenes {
                     """ + WINDOW),
             new Scene("Eat, drink, read", "In your inventory, right-click the crisps (Eat), the water (Drink), the magazine (Read)", true, 13f, STREET_X, STREET_Y, """
                     DS.bare(); DS.give("Base.Crisps"); DS.give("Base.WaterBottle"); DS.give("Base.Magazine")
-                    local s=getPlayer():getStats(); s:set(CharacterStat.HUNGER, 0.4); s:set(CharacterStat.THIRST, 0.4)
+                    getPlayer():getStats():set(CharacterStat.HUNGER, 0.4)
                     return DS.ahead(3, 1.2)
                     """, false),
             new Scene("Stairs", "Walk up the stairs and back down", true, 13f, TOWER_X, TOWER_Y, """
