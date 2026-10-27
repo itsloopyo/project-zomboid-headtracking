@@ -24,7 +24,7 @@ Offline the mod also changes some of the game's rules: shots go through thin wal
 
 ## First person
 
-Press `Delete` to switch between the isometric and first person views, on foot or in a vehicle.
+Press `Delete` to switch between the isometric and first person views, on foot or in a vehicle. A save loads in the view you last switched to.
 
 ### World and graphics
 
@@ -253,7 +253,7 @@ Centring belongs to your tracker, recenter there.
 - `F8` goes through the picture styles Vivid, Natural and Bleak.
 - In split screen each player has their own graphics mode and picture style. Tap `F9` or `F8` once for player 1, twice for player 2, three times for player 3 and four times for player 4, or hold it for every player. Players 2, 3 and 4 keep theirs in `[Players]` in `CameraUnlock.ini` and in the game's options.
 
-Every key except `Delete` saves its new setting to `CameraUnlock.ini` as you press it. No key turns head tracking on or off: `EnableOnStartup` in `CameraUnlock.ini` decides that. There is no recenter key: centre the view in your tracker app.
+Every key saves its new setting to `CameraUnlock.ini` as you press it, and `Delete` saves the view your next load starts in (`FirstPerson`). No key turns head tracking on or off: `EnableOnStartup` in `CameraUnlock.ini` decides that. There is no recenter key: centre the view in your tracker app.
 
 ### Mouse and keyboard
 
@@ -379,6 +379,8 @@ IsometricQuality=Low
 ; Picture style: Vivid (strong contrast and colour), Natural (colours as lit, less contrast) or Bleak (washed out, near
 ; the game's own look).
 Style=Bleak
+; true: a save loads in first person. The first person key sets it as it switches the view.
+FirstPerson=false
 ; How high the first person hills stand: 0 is as flat as the game's map, 1 as the mod makes them, up to 2.0.
 ; Held at 1 where players can fight.
 HillHeight=1.5
@@ -467,18 +469,24 @@ SecondPlayerQuality=Automatic
 SecondPlayerIsometricQuality=Low
 ; Player 2's picture style, as Style.
 SecondPlayerStyle=Bleak
+; Player 2's view at load, as FirstPerson.
+SecondPlayerFirstPerson=false
 ; Player 3's first person graphics mode, as Quality.
 ThirdPlayerQuality=Automatic
 ; Player 3's isometric graphics mode, as IsometricQuality.
 ThirdPlayerIsometricQuality=Low
 ; Player 3's picture style, as Style.
 ThirdPlayerStyle=Bleak
+; Player 3's view at load, as FirstPerson.
+ThirdPlayerFirstPerson=false
 ; Player 4's first person graphics mode, as Quality.
 FourthPlayerQuality=Automatic
 ; Player 4's isometric graphics mode, as IsometricQuality.
 FourthPlayerIsometricQuality=Low
 ; Player 4's picture style, as Style.
 FourthPlayerStyle=Bleak
+; Player 4's view at load, as FirstPerson.
+FourthPlayerFirstPerson=false
 
 [Graphics]
 ; Low: the game's plant sprites. Medium: the mod's trees, the game's sprites past 40 tiles.

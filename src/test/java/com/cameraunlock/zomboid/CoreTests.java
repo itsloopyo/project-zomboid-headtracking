@@ -564,6 +564,16 @@ public final class CoreTests {
         Tracking.cycleStyle(1);
         check(Style.of(1) == Style.VIVID && Style.of(0) == Style.VIVID && saved("SecondPlayerStyle=Vivid", "ThirdPlayerStyle=Bleak"),
                 "and player 2's style action steps theirs alone");
+        check(!Tracking.firstPersonRemembered(0) && !Tracking.firstPersonRemembered(1) && holds("FirstPerson=false"),
+                "a save loads in the isometric view until the first person key has switched it");
+        Tracking.rememberFirstPerson(0, true);
+        check(Tracking.firstPersonRemembered(0) && !Tracking.firstPersonRemembered(1) && saved("FirstPerson=true", "SecondPlayerFirstPerson=false"),
+                "the view player 1 switches to is saved for their next load, and nobody else's");
+        Tracking.rememberFirstPerson(1, true);
+        Tracking.rememberFirstPerson(0, false);
+        check(!Tracking.firstPersonRemembered(0) && Tracking.firstPersonRemembered(1) && saved("FirstPerson=false", "SecondPlayerFirstPerson=true"),
+                "and player 2's to their own row");
+        Tracking.rememberFirstPerson(1, false);
         Tracking.cycleStyle(1);
         Tracking.cycleStyle(1);
         Tracking.cycleGraphicsMode(2);
@@ -712,9 +722,9 @@ public final class CoreTests {
         for (CameraUnlock.Option option : options) {
             ids.append(option.id).append(' ');
         }
-        check(ids.toString().equals("WorldSpaceYaw TrackingMode AimMode FieldOfView Quality IsometricQuality Style HillHeight MuzzleFlash Crosshair RegripTwoHandedWeapons SplitScreen "
-                        + "SecondPlayerQuality SecondPlayerIsometricQuality SecondPlayerStyle ThirdPlayerQuality ThirdPlayerIsometricQuality ThirdPlayerStyle "
-                        + "FourthPlayerQuality FourthPlayerIsometricQuality FourthPlayerStyle TreeQuality "
+        check(ids.toString().equals("WorldSpaceYaw TrackingMode AimMode FieldOfView Quality IsometricQuality Style FirstPerson HillHeight MuzzleFlash Crosshair RegripTwoHandedWeapons SplitScreen "
+                        + "SecondPlayerQuality SecondPlayerIsometricQuality SecondPlayerStyle SecondPlayerFirstPerson ThirdPlayerQuality ThirdPlayerIsometricQuality ThirdPlayerStyle "
+                        + "ThirdPlayerFirstPerson FourthPlayerQuality FourthPlayerIsometricQuality FourthPlayerStyle FourthPlayerFirstPerson TreeQuality "
                         + "GrassDensity RenderScale ViewDistance ZombiesAndPropsDrawDistance FarTreeDistance RainOnGlass ShadingAndLight Reflections ReflectionScale "
                         + "FullSizeTextures SurfaceDepth SharpShadows WholeFigureShadows FrameBlending LightDistance CorpseModels VanillaWeapons VanillaFurniture "
                         + "VanillaPictures VanillaPlants VanillaTextures VanillaBuildings VanillaZombies VanillaPeople VanillaArms VanillaClothes VanillaAnimals VanillaFire "
@@ -729,14 +739,14 @@ public final class CoreTests {
                 page.append(options[option].id).append(' ');
             }
         }
-        check(page.toString().equals("[Tracking] TrackingMode AimMode WorldSpaceYaw [First person] FieldOfView Crosshair HillHeight [Weapons] MuzzleFlash RegripTwoHandedWeapons "
+        check(page.toString().equals("[Tracking] TrackingMode AimMode WorldSpaceYaw [First person] FirstPerson FieldOfView Crosshair HillHeight [Weapons] MuzzleFlash RegripTwoHandedWeapons "
                         + "[Graphics] Quality IsometricQuality Style [Custom graphics] TreeQuality GrassDensity RenderScale ViewDistance ZombiesAndPropsDrawDistance "
                         + "FarTreeDistance RainOnGlass ShadingAndLight Reflections ReflectionScale FullSizeTextures SurfaceDepth SharpShadows WholeFigureShadows FrameBlending "
                         + "LightDistance CorpseModels [Vanilla content] VanillaWeapons VanillaFurniture VanillaPictures VanillaPlants VanillaTextures VanillaBuildings "
                         + "VanillaZombies VanillaPeople VanillaArms VanillaClothes VanillaAnimals VanillaFire VanillaCabins [Offline rules] ShotsThroughWalls "
                         + "ShotsBreakLamps ShotsBreakGlass ShotsWoundLimbs VehiclesSmashThrough FacesTheView ShotsPastTrees ZombiesSeenAtOnce Rewind30s HiddenWallDecor [Split screen] SplitScreen "
-                        + "SecondPlayerQuality SecondPlayerIsometricQuality SecondPlayerStyle ThirdPlayerQuality ThirdPlayerIsometricQuality ThirdPlayerStyle "
-                        + "FourthPlayerQuality FourthPlayerIsometricQuality FourthPlayerStyle [Voice] TalkingMouths "),
+                        + "SecondPlayerQuality SecondPlayerIsometricQuality SecondPlayerStyle SecondPlayerFirstPerson ThirdPlayerQuality ThirdPlayerIsometricQuality ThirdPlayerStyle "
+                        + "ThirdPlayerFirstPerson FourthPlayerQuality FourthPlayerIsometricQuality FourthPlayerStyle FourthPlayerFirstPerson [Voice] TalkingMouths "),
                 "the page puts each setting under one title, the tracking mode first: " + page);
         CameraUnlock.Option[] unplaced = Arrays.copyOf(options, options.length + 1);
         unplaced[options.length] = new CameraUnlock.Option();

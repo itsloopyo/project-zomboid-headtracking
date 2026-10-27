@@ -344,6 +344,13 @@ public final class FirstPerson {
     /** How long from being asked for first person waits for the far land round the eye, in all: without it the picture ends at the loaded map in fog. */
     private static final long FAR_WITHIN_NANOS = FarLand.waitNanos(20_000L);
 
+    /**
+     * Whether this player's view at load (Tracking.firstPersonRemembered) is still to be put back:
+     * from a save's start, or a player's joining, to the first frame first person is allowed or the
+     * key is pressed.
+     */
+    private boolean viewAtLoadOwed = true;
+
     void toggle() {
         IsoPlayer player = view.player();
         if (!on && !allowed(player)) {
@@ -455,6 +462,7 @@ public final class FirstPerson {
      * the look still holding it, by a server that stops or drops the player.
      */
     void leftSave() {
+        viewAtLoadOwed = true;
         SnowPrints.forget();
         WallTiles.leftSave();
         view.heldLight.forget();
@@ -475,6 +483,7 @@ public final class FirstPerson {
         } else if (on || held || pictureUp || !view.flight.home()) {
             giveBack("player " + (view.index + 1) + " is gone");
         }
+        viewAtLoadOwed = true;
         view.modeFade.giveBack("player " + (view.index + 1) + " is gone");
         // After giveBack, whose rest of the head tracking marks the view as one played in.
         Tracking.gone(view.index);
@@ -664,7 +673,12 @@ public final class FirstPerson {
     /** @param pressed the actions of Config's bits pressed this frame that are this view's to act on or to say */
     private void frame(int pressed) {
         if ((pressed & Config.FIRST_PERSON) != 0) {
+            viewAtLoadOwed = false;
+            boolean asked = on || gettingReady;
             toggle();
+            if ((on || gettingReady) != asked) {
+                Tracking.rememberFirstPerson(view.index, !asked);
+            }
         }
         int memoryStep = VideoMemory.step();
         if (memoryStep > memoryStepSaid) {
@@ -699,6 +713,13 @@ public final class FirstPerson {
         IsoPlayer player = view.player();
         // Asked once: the answer is several looks into the game's Lua, and the frame goes by one answer throughout.
         boolean allowed = allowed(player);
+        if (viewAtLoadOwed && allowed) {
+            viewAtLoadOwed = false;
+            if (!on && !gettingReady && Tracking.firstPersonRemembered(view.index)) {
+                Log.info(who() + "first person was on when the view was last switched: asked for again");
+                toggle();
+            }
+        }
         boolean overheadAsked = !Quality.overheadPlain(view.index) && allowed;
         overhead = overheadAsked && !view.pipeline.unprepared() && !view.pipeline.contentWaited();
         overheadWaited = overheadAsked && !overhead;

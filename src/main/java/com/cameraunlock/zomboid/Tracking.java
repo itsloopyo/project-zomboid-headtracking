@@ -167,6 +167,7 @@ final class Tracking {
             Quality.setOverhead(player, live.overheadQuality()[player]);
             Style.set(player, live.style()[player]);
         }
+        firstPersonAtLoad = live.firstPerson();
         HillHeight.set(live.hillHeight());
         MuzzleFlash.set(live.muzzleFlash());
         Crosshair.set(live.crosshair());
@@ -265,6 +266,7 @@ final class Tracking {
             Quality.setOverhead(player, live.overheadQuality()[player]);
             Style.set(player, live.style()[player]);
         }
+        firstPersonAtLoad = live.firstPerson();
         if (live.hillHeight() != HillHeight.asked()) {
             HillHeight.set(live.hillHeight());
             Log.info(Config.FILE_NAME + " changed: hill height set to " + live.hillHeight());
@@ -748,6 +750,23 @@ final class Tracking {
         Style next = Style.of(player).next();
         Style.set(player, next.ordinal());
         save(() -> config.saveStyle(player, next));
+    }
+
+    /** For each player, by their number's bit, whether their save is to load in first person: the file's FirstPerson rows. */
+    private static volatile int firstPersonAtLoad;
+
+    static boolean firstPersonRemembered(int player) {
+        return (firstPersonAtLoad & 1 << player) != 0;
+    }
+
+    static void firstPersonAtLoad(int player, boolean on) {
+        firstPersonAtLoad = on ? firstPersonAtLoad | 1 << player : firstPersonAtLoad & ~(1 << player);
+    }
+
+    /** The view a player switched to, kept for the next load. */
+    static void rememberFirstPerson(int player, boolean on) {
+        firstPersonAtLoad(player, on);
+        save(() -> config.saveFirstPerson(player, on));
     }
 
     /** The other way for two players to share the screen, kept for the next start. */
