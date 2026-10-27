@@ -174,18 +174,36 @@ final class PlantBuilder {
         }
         // Over more grass a blade may hang past its square. Over a path it is untidy, and
         // through the wall of a house it is wrong, so on a side where the lawn ends the
-        // plants keep in from the edge.
-        build.lawnWest = isLawn(own - WorldScene.LIGHT_SPAN);
-        build.lawnEast = isLawn(own + WorldScene.LIGHT_SPAN);
-        build.lawnNorth = isLawn(own - 1);
-        build.lawnSouth = isLawn(own + 1);
+        // plants keep in from the edge. Where its grass spreads over the next square the lawn
+        // goes on, as thick to the line as the grass growing over there, and stops short of
+        // a wall or a fence on that line only.
+        boolean spreadWest = spreadsTo(own, own - WorldScene.LIGHT_SPAN, localX - 1, localY), spreadEast = spreadsTo(own, own + WorldScene.LIGHT_SPAN, localX + 1, localY);
+        boolean spreadNorth = spreadsTo(own, own - 1, localX, localY - 1), spreadSouth = spreadsTo(own, own + 1, localX, localY + 1);
+        build.lawnWest = spreadWest || isLawn(own - WorldScene.LIGHT_SPAN);
+        build.lawnEast = spreadEast || isLawn(own + WorldScene.LIGHT_SPAN);
+        build.lawnNorth = spreadNorth || isLawn(own - 1);
+        build.lawnSouth = spreadSouth || isLawn(own + 1);
+        float lowA = build.lawnWest ? 0f : LAWN_KEEPS_IN, highA = build.lawnEast ? 1f : 1f - LAWN_KEEPS_IN;
+        float lowB = build.lawnNorth ? 0f : LAWN_KEEPS_IN, highB = build.lawnSouth ? 1f : 1f - LAWN_KEEPS_IN;
+        if (spreadWest || spreadEast || spreadNorth || spreadSouth) {
+            roomFor(x, y, 0);
+            lowA = spreadWest ? Math.max(lowA, build.room[0] - x) : lowA;
+            highA = spreadEast ? Math.min(highA, build.room[1] - x) : highA;
+            lowB = spreadNorth ? Math.max(lowB, build.room[2] - y) : lowB;
+            highB = spreadSouth ? Math.min(highB, build.room[3] - y) : highB;
+        }
         build.grownLocalX = localX;
         build.grownLocalY = localY;
         build.grownUnder = 0.85f;
         build.frameOf(build.groundObject[own], build.groundTexture[own]);
         // Looking no way, as long grass is grown: a lawn left out behind the view was bare when the head turned to it.
         Grass.lawn(build.geometry, WorldScene.laid.get(build.groundTexture[own].getID()), build.frame, x, y, build.camera.eyeX, build.camera.eyeY, 0f, 0f,
-                build.lawnWest ? 0f : LAWN_KEEPS_IN, build.lawnEast ? 1f : 1f - LAWN_KEEPS_IN, build.lawnNorth ? 0f : LAWN_KEEPS_IN, build.lawnSouth ? 1f : 1f - LAWN_KEEPS_IN, build, build.grassDensity());
+                lowA, highA, lowB, highB, build, build.grassDensity());
+    }
+
+    /** Whether the ground of the square at own spreads over the square next to it at, which is not lawn of its own. */
+    private boolean spreadsTo(int own, int at, int localX, int localY) {
+        return !isLawn(at) && build.floorBuilder.spreadsOnto(own, at, localX, localY);
     }
 
     /**

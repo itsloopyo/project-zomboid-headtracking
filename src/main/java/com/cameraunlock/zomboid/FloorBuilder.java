@@ -173,6 +173,14 @@ final class FloorBuilder {
         return top;
     }
 
+    /**
+     * Whether the ground of the square at from, open ground, spreads over the square next to it at
+     * localX, localY of the chunk being built, the place at.
+     */
+    boolean spreadsOnto(int from, int at, int localX, int localY) {
+        return build.groundKind[at] == Terrain.NATURAL && spreadsOver(localX, localY) && spreads(from, at, build.groundRank[at]);
+    }
+
     /** What the squares round one are to ground spreading over it, in coverFrom's around: */
     static final int OTHER = 0, OWN = 1, SPREADING = 2;
 
