@@ -14,6 +14,7 @@ final class SidestepTests {
         Checks.run("theRaiseNeverOverreachesTheStance", SidestepTests::theRaiseNeverOverreachesTheStance);
         Checks.run("theRaiseChangesSmoothlyRoundFromBackToSideways", SidestepTests::theRaiseChangesSmoothlyRoundFromBackToSideways);
         Checks.run("aJogOrSprintAsideKeepsThePaceOfTheGaitAhead", SidestepTests::aJogOrSprintAsideKeepsThePaceOfTheGaitAhead);
+        Checks.run("aSprintTheGameDropsForAFrameIsStillMeasured", SidestepTests::aSprintTheGameDropsForAFrameIsStillMeasured);
         Checks.run("aSwingingTimeMultiplierDoesNotCarryThePacePastTheGround", SidestepTests::aSwingingTimeMultiplierDoesNotCarryThePacePastTheGround);
     }
 
@@ -84,12 +85,13 @@ final class SidestepTests {
     private static void aJogOrSprintAsideKeepsThePaceOfTheGaitAhead() {
         Sidestep sidestep = new Sidestep();
         float stance = 0.08f * Sidestep.ASIDE;
-        check(Math.abs(stance * raise(sidestep, stance, 0f, Sidestep.SPRINTING) - 0.08f) < 1e-4f,
-                "with nothing measured a sprint aside goes at the walk's pace from the shares");
+        check(Math.abs(stance * raise(sidestep, stance, 0f, Sidestep.SPRINTING) - 0.08f * Sidestep.SPRINT_OF_WALK) < 1e-4f
+                        && Math.abs(stance * raise(sidestep, stance, -1f, Sidestep.JOGGING) - 0.08f * Sidestep.ASIDE / Sidestep.BACK * Sidestep.JOG_OF_WALK) < 1e-4f,
+                "with nothing measured a sprint or jog aside goes faster than the walk the shares make, by the game's share for the gait");
         long now = walk(sidestep, 0.08f, Sidestep.WALKING, 0L, 2_000_000_000L);
         now = walk(sidestep, 0.16f, Sidestep.JOGGING, now + FRAME, 2_000_000_000L);
-        check(Math.abs(stance * raise(sidestep, stance, 0f, Sidestep.SPRINTING) - 0.08f) < 1e-4f,
-                "a sprint not yet measured still goes at the walk's pace");
+        check(Math.abs(stance * raise(sidestep, stance, 0f, Sidestep.SPRINTING) - 0.08f * Sidestep.SPRINT_OF_WALK) < 1e-4f,
+                "a sprint not yet measured goes at the measured walk times the game's share for a sprint");
         walk(sidestep, 0.24f, Sidestep.SPRINTING, now + FRAME, 2_000_000_000L);
         check(Math.abs(stance * raise(sidestep, stance, 0f, Sidestep.JOGGING) - 0.16f) < 1e-4f
                         && Math.abs(stance * raise(sidestep, stance, 0f, Sidestep.SPRINTING) - 0.24f) < 1e-4f
@@ -99,6 +101,16 @@ final class SidestepTests {
         check(Math.abs(raise(sidestep, starting, 0f, Sidestep.SPRINTING) - Sidestep.OVERREACH / Sidestep.ASIDE * 3f) < 1e-3f,
                 "a sprint aside from a standstill eases in by the same share as the walk does");
         check(Math.abs(sidestep.measured(Sidestep.WALKING) - 0.08f) < 1e-4f, "jogging and sprinting leave the walk's pace as it was");
+    }
+
+    private static void aSprintTheGameDropsForAFrameIsStillMeasured() {
+        Sidestep sidestep = new Sidestep();
+        long now = 0L;
+        for (int frame = 0; frame < 180; frame++, now += FRAME) {
+            sidestep.walkedAhead(frame % 10 == 9 ? 0.16f : 0.24f, 1f, frame % 10 == 9 ? Sidestep.JOGGING : Sidestep.SPRINTING, now);
+        }
+        check(Math.abs(sidestep.measured(Sidestep.SPRINTING) - 0.24f) < 1e-3f,
+                "a sprint ahead the game reads as a jog one frame in ten is still measured: " + sidestep.measured(Sidestep.SPRINTING));
     }
 
     private static void aSwingingTimeMultiplierDoesNotCarryThePacePastTheGround() {

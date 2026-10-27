@@ -7,7 +7,7 @@ package com.cameraunlock.zomboid;
  * them for what slows its walk: a load, wounds, tiredness, bare feet or trees. So the pace is
  * taken from the game's own walk ahead, measured as the character walks, creeps, jogs or sprints
  * ahead, and the ground the stance moves it is raised to that pace. The legs keep the stance's step.
- * A jog or sprint not yet measured goes at the walk's pace.
+ * A jog or sprint not yet measured goes at the walk's pace times the game's share for it.
  *
  * Until the character has walked ahead long enough to measure, the pace is the stance's raised by
  * the shares below. The raise is never more than OVERREACH times those, so the stance's own start
@@ -35,6 +35,12 @@ final class Sidestep {
     static final long GAP_NANOS = 200_000_000L;
     /** The time constant the measured pace follows the walk's with. */
     static final float FOLLOW_SECONDS = 0.5f;
+    /**
+     * The game's jog and sprint ahead as shares of its walk ahead, for a gait not yet measured
+     * (rig, 2026-10-27: sprint ahead 0.104 a unit of game time against a walk of 0.063, a jog 0.81
+     * of the sprint).
+     */
+    static final float JOG_OF_WALK = 1.33f, SPRINT_OF_WALK = 1.65f;
     /** The time constant the stance's own pace is followed with, for its start to ease in. */
     static final float STANCE_SECONDS = 0.15f;
 
@@ -45,22 +51,22 @@ final class Sidestep {
      * frame's ground over its own multiplier, which a few short frames carry far past the pace.
      */
     private final float[] ground = new float[4], time = new float[4];
-    private long walkingSince = -1L, lastWalked = -1L;
-    private int walkedGait;
+    /** Each gait's own start and last frame, so that a gait the game drops for a frame or two does not start the others again. */
+    private final long[] walkingSince = {-1L, -1L, -1L, -1L}, lastWalked = {-1L, -1L, -1L, -1L};
     private float stanceGround, stanceTime;
     private long lastStance = -1L;
 
     /** A frame of the game's own move ahead: the ground it moved and the game's time multiplier. */
     void walkedAhead(float moved, float multiplier, int gait, long now) {
-        if (lastWalked < 0L || now - lastWalked > GAP_NANOS || gait != walkedGait) {
-            walkingSince = now;
-        } else if (now - walkingSince >= UNDER_WAY_NANOS) {
-            float fade = (float) Math.exp(-(now - lastWalked) / 1e9 / FOLLOW_SECONDS);
+        long last = lastWalked[gait];
+        if (last < 0L || now - last > GAP_NANOS) {
+            walkingSince[gait] = now;
+        } else if (now - walkingSince[gait] >= UNDER_WAY_NANOS) {
+            float fade = (float) Math.exp(-(now - last) / 1e9 / FOLLOW_SECONDS);
             ground[gait] = ground[gait] * fade + moved;
             time[gait] = time[gait] * fade + multiplier;
         }
-        lastWalked = now;
-        walkedGait = gait;
+        lastWalked[gait] = now;
     }
 
     /** The game's pace ahead measured for one of the gaits, the ground over the game's time, NaN until one has been. */
@@ -87,14 +93,19 @@ final class Sidestep {
         boolean creeping = gait == CREEPING;
         float shares = (creeping ? SNEAK : 1f) / stance(ahead);
         float walk = measured(creeping ? CREEPING : WALKING);
-        float most = pace * shares * OVERREACH;
-        float wanted = walk;
-        if (gait >= JOGGING && !Float.isNaN(measured(gait))) {
-            wanted = measured(gait);
-            // The start still eases in, by the same share of the faster gait.
-            most = Float.isNaN(walk) ? wanted : most * wanted / walk;
+        if (Float.isNaN(walk)) {
+            walk = pace * shares;
         }
-        return Math.min(Float.isNaN(wanted) ? pace * shares : wanted, most) * multiplier / moved;
+        float wanted = walk;
+        if (gait >= JOGGING) {
+            wanted = measured(gait);
+            if (Float.isNaN(wanted)) {
+                wanted = walk * (gait == SPRINTING ? SPRINT_OF_WALK : JOG_OF_WALK);
+            }
+        }
+        // The start eases in with the stance's own, by the same share for a faster gait.
+        float most = pace * shares * OVERREACH * wanted / walk;
+        return Math.min(wanted, most) * multiplier / moved;
     }
 
     /**
