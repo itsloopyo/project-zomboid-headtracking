@@ -7,12 +7,12 @@ final class HiddenWallsTests {
     private HiddenWallsTests() {}
 
     static void run() {
-        aRoomIsKnownByItsNameOnTheMap();
-        aRoomWithNothingToSayWhatItIsIsLeftAlone();
-        theMirrorIsOfTheKindTheBuildingHasMostOf();
-        aKindTheGameDrawsFacingOutOnlyIsPassedOver();
-        aHuntersHouseTakesATrophy();
-        aHomesPicturesAreOfTheHouse();
+        Checks.run("aRoomIsKnownByItsNameOnTheMap", HiddenWallsTests::aRoomIsKnownByItsNameOnTheMap);
+        Checks.run("aRoomWithNothingToSayWhatItIsIsLeftAlone", HiddenWallsTests::aRoomWithNothingToSayWhatItIsIsLeftAlone);
+        Checks.run("theMirrorIsOfTheKindTheBuildingHasMostOf", HiddenWallsTests::theMirrorIsOfTheKindTheBuildingHasMostOf);
+        Checks.run("aKindTheGameDrawsFacingOutOnlyIsPassedOver", HiddenWallsTests::aKindTheGameDrawsFacingOutOnlyIsPassedOver);
+        Checks.run("aHuntersHouseTakesATrophy", HiddenWallsTests::aHuntersHouseTakesATrophy);
+        Checks.run("aHomesPicturesAreOfTheHouse", HiddenWallsTests::aHomesPicturesAreOfTheHouse);
     }
 
     private static void aHomesPicturesAreOfTheHouse() {

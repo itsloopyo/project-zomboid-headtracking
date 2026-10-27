@@ -20,20 +20,20 @@ final class MouthTests {
     private static final float[] AH = {730, 1090, 2440}, EE = {270, 2290, 3010}, OO = {300, 870, 2240}, OH = {500, 900, 2400};
 
     static void run() {
-        loudnessIsTheRootMeanSquareOfTheSamples();
-        silenceKeepsTheMouthShut();
-        aSyllableOpensTheMouthAndItClosesAfter();
-        aSteadyHumIsTheRoomsNoiseAndKeepsTheMouthShut();
-        speechOverAHumStillOpensTheMouth();
-        ahDropsTheJawWithTheLipsAsTheyAre();
-        eeSpreadsTheLipsOverAJawNearlyShut();
-        ooAndOhRoundTheLips();
-        aHissKeepsTheTeethNearlyTogether();
-        theLipsKeepTheirShapeBetweenSyllables();
-        aVoiceOverChatOpensAndClosesTheMouthAndShapesItsLips();
-        eeShowsBothRowsOfTeethWithADarkLineBetween();
-        aWideMouthShowsTheTongueInTheMiddleOnly();
-        aMouthNearlyShutShowsNoTongue();
+        Checks.run("loudnessIsTheRootMeanSquareOfTheSamples", MouthTests::loudnessIsTheRootMeanSquareOfTheSamples);
+        Checks.run("silenceKeepsTheMouthShut", MouthTests::silenceKeepsTheMouthShut);
+        Checks.run("aSyllableOpensTheMouthAndItClosesAfter", MouthTests::aSyllableOpensTheMouthAndItClosesAfter);
+        Checks.run("aSteadyHumIsTheRoomsNoiseAndKeepsTheMouthShut", MouthTests::aSteadyHumIsTheRoomsNoiseAndKeepsTheMouthShut);
+        Checks.run("speechOverAHumStillOpensTheMouth", MouthTests::speechOverAHumStillOpensTheMouth);
+        Checks.run("ahDropsTheJawWithTheLipsAsTheyAre", MouthTests::ahDropsTheJawWithTheLipsAsTheyAre);
+        Checks.run("eeSpreadsTheLipsOverAJawNearlyShut", MouthTests::eeSpreadsTheLipsOverAJawNearlyShut);
+        Checks.run("ooAndOhRoundTheLips", MouthTests::ooAndOhRoundTheLips);
+        Checks.run("aHissKeepsTheTeethNearlyTogether", MouthTests::aHissKeepsTheTeethNearlyTogether);
+        Checks.run("theLipsKeepTheirShapeBetweenSyllables", MouthTests::theLipsKeepTheirShapeBetweenSyllables);
+        Checks.run("aVoiceOverChatOpensAndClosesTheMouthAndShapesItsLips", MouthTests::aVoiceOverChatOpensAndClosesTheMouthAndShapesItsLips);
+        Checks.run("eeShowsBothRowsOfTeethWithADarkLineBetween", MouthTests::eeShowsBothRowsOfTeethWithADarkLineBetween);
+        Checks.run("aWideMouthShowsTheTongueInTheMiddleOnly", MouthTests::aWideMouthShowsTheTongueInTheMiddleOnly);
+        Checks.run("aMouthNearlyShutShowsNoTongue", MouthTests::aMouthNearlyShutShowsNoTongue);
     }
 
     private static void loudnessIsTheRootMeanSquareOfTheSamples() {

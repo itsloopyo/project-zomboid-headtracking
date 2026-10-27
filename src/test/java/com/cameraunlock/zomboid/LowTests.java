@@ -23,13 +23,13 @@ final class LowTests {
     private LowTests() {}
 
     static void run() {
-        bannersHangAsClothOnlyWithTheModsFurniture();
-        aWoodenFloorIsWoodWhereNoPictureOfTheModsIsLaid();
-        lowsWaterIsAsRoughInAnyWindAndItsRipplesFadeWithDistance();
-        aRoomIsShownAsTheGameShowsItAndNothingIsBuiltAheadInLow();
-        anOpenFlightIsItsSpritesStepsWithoutTheModsBuildings();
-        theArmsAreMadeWithTheCoreAndAskedOfTheirRowAlone();
-        everyPieceOfFurnitureIsItsPlainModelInLow();
+        Checks.run("bannersHangAsClothOnlyWithTheModsFurniture", LowTests::bannersHangAsClothOnlyWithTheModsFurniture);
+        Checks.run("aWoodenFloorIsWoodWhereNoPictureOfTheModsIsLaid", LowTests::aWoodenFloorIsWoodWhereNoPictureOfTheModsIsLaid);
+        Checks.run("lowsWaterIsAsRoughInAnyWindAndItsRipplesFadeWithDistance", LowTests::lowsWaterIsAsRoughInAnyWindAndItsRipplesFadeWithDistance);
+        Checks.run("aRoomIsShownAsTheGameShowsItAndNothingIsBuiltAheadInLow", LowTests::aRoomIsShownAsTheGameShowsItAndNothingIsBuiltAheadInLow);
+        Checks.run("anOpenFlightIsItsSpritesStepsWithoutTheModsBuildings", LowTests::anOpenFlightIsItsSpritesStepsWithoutTheModsBuildings);
+        Checks.run("theArmsAreMadeWithTheCoreAndAskedOfTheirRowAlone", LowTests::theArmsAreMadeWithTheCoreAndAskedOfTheirRowAlone);
+        Checks.run("everyPieceOfFurnitureIsItsPlainModelInLow", LowTests::everyPieceOfFurnitureIsItsPlainModelInLow);
     }
 
     /** Which of a piece's two models is drawn is chosen on the render thread with a graphics card: read. */

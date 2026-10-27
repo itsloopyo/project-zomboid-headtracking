@@ -5,12 +5,12 @@ final class SightTests {
     private SightTests() {}
 
     static void run() {
-        theDarkMultiplierIsKeptAsAByte();
-        aRoomTakesTheLightOfEachSideItStandsBy();
-        aSquareNotReadLendsNothing();
-        aRoomWithNothingRoundItIsDark();
-        theBlockPutsEachSquareWhereTheShaderReadsIt();
-        whatStandsOverAClosedRoomKeepsItsLight();
+        Checks.run("theDarkMultiplierIsKeptAsAByte", SightTests::theDarkMultiplierIsKeptAsAByte);
+        Checks.run("aRoomTakesTheLightOfEachSideItStandsBy", SightTests::aRoomTakesTheLightOfEachSideItStandsBy);
+        Checks.run("aSquareNotReadLendsNothing", SightTests::aSquareNotReadLendsNothing);
+        Checks.run("aRoomWithNothingRoundItIsDark", SightTests::aRoomWithNothingRoundItIsDark);
+        Checks.run("theBlockPutsEachSquareWhereTheShaderReadsIt", SightTests::theBlockPutsEachSquareWhereTheShaderReadsIt);
+        Checks.run("whatStandsOverAClosedRoomKeepsItsLight", SightTests::whatStandsOverAClosedRoomKeepsItsLight);
     }
 
     private static void check(boolean condition, String what) {

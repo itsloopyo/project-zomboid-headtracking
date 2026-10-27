@@ -7,12 +7,12 @@ final class SidestepTests {
     private SidestepTests() {}
 
     static void run() {
-        beforeAWalkAheadTheSharesMeasuredRaiseTheStance();
-        aWalkAheadIsMeasuredOnceUnderWayAndTheStanceKeepsItsPace();
-        theStartOfAWalkAndAGapAreNotItsPace();
-        walkingAndCreepingAreMeasuredApart();
-        theRaiseNeverOverreachesTheStance();
-        theRaiseChangesSmoothlyRoundFromBackToSideways();
+        Checks.run("beforeAWalkAheadTheSharesMeasuredRaiseTheStance", SidestepTests::beforeAWalkAheadTheSharesMeasuredRaiseTheStance);
+        Checks.run("aWalkAheadIsMeasuredOnceUnderWayAndTheStanceKeepsItsPace", SidestepTests::aWalkAheadIsMeasuredOnceUnderWayAndTheStanceKeepsItsPace);
+        Checks.run("theStartOfAWalkAndAGapAreNotItsPace", SidestepTests::theStartOfAWalkAndAGapAreNotItsPace);
+        Checks.run("walkingAndCreepingAreMeasuredApart", SidestepTests::walkingAndCreepingAreMeasuredApart);
+        Checks.run("theRaiseNeverOverreachesTheStance", SidestepTests::theRaiseNeverOverreachesTheStance);
+        Checks.run("theRaiseChangesSmoothlyRoundFromBackToSideways", SidestepTests::theRaiseChangesSmoothlyRoundFromBackToSideways);
     }
 
     private static void beforeAWalkAheadTheSharesMeasuredRaiseTheStance() {

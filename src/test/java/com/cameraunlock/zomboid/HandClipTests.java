@@ -109,9 +109,9 @@ final class HandClipTests {
         }
         for (OwnModel own : OwnModel.ALL) {
             if (own.handgun) {
-                handgun(arms, own);
+                Checks.run("handgun", () -> handgun(arms, own));
             } else {
-                gun(arms, own);
+                Checks.run("gun", () -> gun(arms, own));
             }
         }
     }

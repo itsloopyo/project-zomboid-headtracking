@@ -12,32 +12,32 @@ final class OwnArmTests {
         try (InputStream packed = OwnArmTests.class.getResourceAsStream("/models/arms.mesh.gz")) {
             model = new ArmModel(packed);
         }
-        fileHasAnArmWithAHand(model);
-        armLaidWhereItRestsIsLeftWhereItRests(model);
-        handIsLaidOnWhatItHoldsAndTheBonesKeepTheirLengths(model);
-        leftArmIsTheRightOneInAMirror(model);
-        fingersBendAsThePoseHasThem(model);
-        forearmTurnsWithTheHandAlongItsLength(model);
+        Checks.run("fileHasAnArmWithAHand", () -> fileHasAnArmWithAHand(model));
+        Checks.run("armLaidWhereItRestsIsLeftWhereItRests", () -> armLaidWhereItRestsIsLeftWhereItRests(model));
+        Checks.run("handIsLaidOnWhatItHoldsAndTheBonesKeepTheirLengths", () -> handIsLaidOnWhatItHoldsAndTheBonesKeepTheirLengths(model));
+        Checks.run("leftArmIsTheRightOneInAMirror", () -> leftArmIsTheRightOneInAMirror(model));
+        Checks.run("fingersBendAsThePoseHasThem", () -> fingersBendAsThePoseHasThem(model));
+        Checks.run("forearmTurnsWithTheHandAlongItsLength", () -> forearmTurnsWithTheHandAlongItsLength(model));
         Checks.run("actionIsKnownByTheGamesNameForIt", OwnArmTests::actionIsKnownByTheGamesNameForIt);
         Checks.run("handKeepsTimeWithTheRoundsGoingIn", OwnArmTests::handKeepsTimeWithTheRoundsGoingIn);
-        rightHandWorksTheBoltAndComesBackToTheGrip(model);
-        leftHandComesToAPistolOnlyToLoadItAndBringsTheMagazine(model);
-        leftHandCarriesATorchLowBesideAOneHandedWeapon(model);
-        leftHandRacksALongGunHeldInTheRightAloneAndCrossesFromTheTorch(model);
-        leftHandLeavesTheForeEndToFeedShellsAndIsBackOnItAfter(model);
-        somethingSwungInBothHandsHasAFistUnderTheOther(model);
-        handCrossesToAHoldThatIsNotBesideItAndDoesNotJump(model);
-        armsOnALongGunAreArmsFromShouldersOutOfThePicture(model);
-        handUnderAForeEndComesBackToWhereItsArmReaches(model);
-        handOnAPumpIsOnItAndGoesWithIt(model);
-        upperArmIsAsLongAsTheHoldNeedsWithinWhatUpperArmsAre(model);
+        Checks.run("rightHandWorksTheBoltAndComesBackToTheGrip", () -> rightHandWorksTheBoltAndComesBackToTheGrip(model));
+        Checks.run("leftHandComesToAPistolOnlyToLoadItAndBringsTheMagazine", () -> leftHandComesToAPistolOnlyToLoadItAndBringsTheMagazine(model));
+        Checks.run("leftHandCarriesATorchLowBesideAOneHandedWeapon", () -> leftHandCarriesATorchLowBesideAOneHandedWeapon(model));
+        Checks.run("leftHandRacksALongGunHeldInTheRightAloneAndCrossesFromTheTorch", () -> leftHandRacksALongGunHeldInTheRightAloneAndCrossesFromTheTorch(model));
+        Checks.run("leftHandLeavesTheForeEndToFeedShellsAndIsBackOnItAfter", () -> leftHandLeavesTheForeEndToFeedShellsAndIsBackOnItAfter(model));
+        Checks.run("somethingSwungInBothHandsHasAFistUnderTheOther", () -> somethingSwungInBothHandsHasAFistUnderTheOther(model));
+        Checks.run("handCrossesToAHoldThatIsNotBesideItAndDoesNotJump", () -> handCrossesToAHoldThatIsNotBesideItAndDoesNotJump(model));
+        Checks.run("armsOnALongGunAreArmsFromShouldersOutOfThePicture", () -> armsOnALongGunAreArmsFromShouldersOutOfThePicture(model));
+        Checks.run("handUnderAForeEndComesBackToWhereItsArmReaches", () -> handUnderAForeEndComesBackToWhereItsArmReaches(model));
+        Checks.run("handOnAPumpIsOnItAndGoesWithIt", () -> handOnAPumpIsOnItAndGoesWithIt(model));
+        Checks.run("upperArmIsAsLongAsTheHoldNeedsWithinWhatUpperArmsAre", () -> upperArmIsAsLongAsTheHoldNeedsWithinWhatUpperArmsAre(model));
         Checks.run("elbowIsWhereTheTwoBonesMeet", OwnArmTests::elbowIsWhereTheTwoBonesMeet);
-        wristIsWhereTheArmPutsIt(model);
+        Checks.run("wristIsWhereTheArmPutsIt", () -> wristIsWhereTheArmPutsIt(model));
         Checks.run("longGunIsHeldNearerAtTheHipThanItsSightsAsk", OwnArmTests::longGunIsHeldNearerAtTheHipThanItsSightsAsk);
-        armsAreTheSizeArmsAreAndStartWhereShouldersAre(model);
-        everyMeleeClassKeepsItsWristsThroughEveryBlow(model);
-        aSpearsLeftArmStaysUnderThePictureThroughAThrust(model);
-        aTwoHandedSwingGoesThroughWithTheLeftWristEasy(model);
+        Checks.run("armsAreTheSizeArmsAreAndStartWhereShouldersAre", () -> armsAreTheSizeArmsAreAndStartWhereShouldersAre(model));
+        Checks.run("everyMeleeClassKeepsItsWristsThroughEveryBlow", () -> everyMeleeClassKeepsItsWristsThroughEveryBlow(model));
+        Checks.run("aSpearsLeftArmStaysUnderThePictureThroughAThrust", () -> aSpearsLeftArmStaysUnderThePictureThroughAThrust(model));
+        Checks.run("aTwoHandedSwingGoesThroughWithTheLeftWristEasy", () -> aTwoHandedSwingGoesThroughWithTheLeftWristEasy(model));
     }
 
     private static final float SCALE = 0.74f;

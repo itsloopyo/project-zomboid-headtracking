@@ -7,10 +7,10 @@ final class StyleTests {
     static void run() {
         Style before = Style.of(0);
         try {
-            f10GoesRoundTheThree();
-            vividKeepsTheGradeItHadBeforeThereWereStyles();
-            eachStyleAfterVividIsQuieter();
-            everyStyleSetsItsOwnRange();
+            Checks.run("f10GoesRoundTheThree", StyleTests::f10GoesRoundTheThree);
+            Checks.run("vividKeepsTheGradeItHadBeforeThereWereStyles", StyleTests::vividKeepsTheGradeItHadBeforeThereWereStyles);
+            Checks.run("eachStyleAfterVividIsQuieter", StyleTests::eachStyleAfterVividIsQuieter);
+            Checks.run("everyStyleSetsItsOwnRange", StyleTests::everyStyleSetsItsOwnRange);
         } finally {
             Style.set(0, before.ordinal());
         }

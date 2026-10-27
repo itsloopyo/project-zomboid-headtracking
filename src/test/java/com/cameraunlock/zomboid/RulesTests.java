@@ -7,9 +7,9 @@ final class RulesTests {
     static void run() {
         int before = Rules.rows();
         try {
-            aloneEveryRuleIsTheModsUntilARowSaysOtherwise();
-            eachRowOffGivesBackThatRuleAndNoOther();
-            onAServerEveryRuleIsTheGamesWhateverTheRows();
+            Checks.run("aloneEveryRuleIsTheModsUntilARowSaysOtherwise", RulesTests::aloneEveryRuleIsTheModsUntilARowSaysOtherwise);
+            Checks.run("eachRowOffGivesBackThatRuleAndNoOther", RulesTests::eachRowOffGivesBackThatRuleAndNoOther);
+            Checks.run("onAServerEveryRuleIsTheGamesWhateverTheRows", RulesTests::onAServerEveryRuleIsTheGamesWhateverTheRows);
         } finally {
             Rules.set(before);
         }

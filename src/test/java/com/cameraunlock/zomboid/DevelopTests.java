@@ -8,19 +8,19 @@ final class DevelopTests {
     private static final long SECOND = 1_000_000_000L;
 
     static void run() {
-        theEyesReadingIsTheWeightedMeanOfTheLog();
-        theDarkAndTheBrightAreTheFramesOwn();
-        theFilmIsUndone();
-        aFlatFrameIsTakenDownToBlackAndStretched();
-        aFrameThatFillsTheRangeAlreadyIsLeftNearlyAsItIs();
-        nightAndFogAreLetBeMore();
-        noStrengthLeavesThePictureAsItWas();
-        itMovesTowardsWhatTheFrameAsksOverTime();
-        theLightTintsByDaySunAndNight();
-        aGreenCastIndoorsIsTakenOutAndAWarmOneMostlyKept();
-        aDarkRoomAfterTheStreetIsNotFlattened();
-        aDarkThingComingIntoTheFrameDoesNotFlickerItsBlacks();
-        aPlainWallHoldsItsBalanceStill();
+        Checks.run("theEyesReadingIsTheWeightedMeanOfTheLog", DevelopTests::theEyesReadingIsTheWeightedMeanOfTheLog);
+        Checks.run("theDarkAndTheBrightAreTheFramesOwn", DevelopTests::theDarkAndTheBrightAreTheFramesOwn);
+        Checks.run("theFilmIsUndone", DevelopTests::theFilmIsUndone);
+        Checks.run("aFlatFrameIsTakenDownToBlackAndStretched", DevelopTests::aFlatFrameIsTakenDownToBlackAndStretched);
+        Checks.run("aFrameThatFillsTheRangeAlreadyIsLeftNearlyAsItIs", DevelopTests::aFrameThatFillsTheRangeAlreadyIsLeftNearlyAsItIs);
+        Checks.run("nightAndFogAreLetBeMore", DevelopTests::nightAndFogAreLetBeMore);
+        Checks.run("noStrengthLeavesThePictureAsItWas", DevelopTests::noStrengthLeavesThePictureAsItWas);
+        Checks.run("itMovesTowardsWhatTheFrameAsksOverTime", DevelopTests::itMovesTowardsWhatTheFrameAsksOverTime);
+        Checks.run("theLightTintsByDaySunAndNight", DevelopTests::theLightTintsByDaySunAndNight);
+        Checks.run("aGreenCastIndoorsIsTakenOutAndAWarmOneMostlyKept", DevelopTests::aGreenCastIndoorsIsTakenOutAndAWarmOneMostlyKept);
+        Checks.run("aDarkRoomAfterTheStreetIsNotFlattened", DevelopTests::aDarkRoomAfterTheStreetIsNotFlattened);
+        Checks.run("aDarkThingComingIntoTheFrameDoesNotFlickerItsBlacks", DevelopTests::aDarkThingComingIntoTheFrameDoesNotFlickerItsBlacks);
+        Checks.run("aPlainWallHoldsItsBalanceStill", DevelopTests::aPlainWallHoldsItsBalanceStill);
     }
 
     private static void check(boolean condition, String what) {

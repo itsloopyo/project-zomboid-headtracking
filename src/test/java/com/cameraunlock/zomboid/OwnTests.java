@@ -8,14 +8,14 @@ final class OwnTests {
         Quality.set(0, Quality.HIGH);
         int before = Own.rows();
         try {
-            everythingIsOnUntilARowSaysOtherwise();
-            aSwitchedRowHasTheWorldBuiltAgainOnce();
-            aSwitchedRowHasEachViewsWorldBuiltAgain();
-            theLowGraphicsModeShowsOnlyTheFurnitureAndBuildingsOfTheModsOwn();
-            theArmsOnAHeldWeaponGoByTheirRowInEveryMode();
-            customsLowTreeQualityHasTheGamesPlants();
-            paintedLinesGoByTheFilesRowOutsideLow();
-            onlyTheFurnitureAndBuildingsAreShownBeforeThePicturesAreMade();
+            Checks.run("everythingIsOnUntilARowSaysOtherwise", OwnTests::everythingIsOnUntilARowSaysOtherwise);
+            Checks.run("aSwitchedRowHasTheWorldBuiltAgainOnce", OwnTests::aSwitchedRowHasTheWorldBuiltAgainOnce);
+            Checks.run("aSwitchedRowHasEachViewsWorldBuiltAgain", OwnTests::aSwitchedRowHasEachViewsWorldBuiltAgain);
+            Checks.run("theLowGraphicsModeShowsOnlyTheFurnitureAndBuildingsOfTheModsOwn", OwnTests::theLowGraphicsModeShowsOnlyTheFurnitureAndBuildingsOfTheModsOwn);
+            Checks.run("theArmsOnAHeldWeaponGoByTheirRowInEveryMode", OwnTests::theArmsOnAHeldWeaponGoByTheirRowInEveryMode);
+            Checks.run("customsLowTreeQualityHasTheGamesPlants", OwnTests::customsLowTreeQualityHasTheGamesPlants);
+            Checks.run("paintedLinesGoByTheFilesRowOutsideLow", OwnTests::paintedLinesGoByTheFilesRowOutsideLow);
+            Checks.run("onlyTheFurnitureAndBuildingsAreShownBeforeThePicturesAreMade", OwnTests::onlyTheFurnitureAndBuildingsAreShownBeforeThePicturesAreMade);
         } finally {
             Own.picturesMade(true);
             Quality.set(0, Quality.HIGH);
