@@ -28,6 +28,7 @@ final class CabinTests {
         Checks.run("everyInteriorAVehicleIsGivenIsInTheJarWithItsPictures", CabinTests::everyInteriorAVehicleIsGivenIsInTheJarWithItsPictures);
         Checks.run("everyInteriorsMirrorIsInSightAndItsWipersClearTheScreen", CabinTests::everyInteriorsMirrorIsInSightAndItsWipersClearTheScreen);
         Checks.run("anInteriorsPicturesAreReadAheadAgainAfterTheyAreLetGo", CabinTests::anInteriorsPicturesAreReadAheadAgainAfterTheyAreLetGo);
+        Checks.run("bodyBesideTheSeatIsLitFromItsDepthReadWide", CabinTests::bodyBesideTheSeatIsLitFromItsDepthReadWide);
     }
 
     private static void anInteriorsPicturesAreReadAheadAgainAfterTheyAreLetGo() throws Exception {
@@ -321,6 +322,17 @@ final class CabinTests {
         check(VehicleMeshes.lacks(32, 96, new int[] {0, 1, 3}) != null, "nor a corner past the last vertex");
         check(VehicleMeshes.lacks(32, 96, new int[] {0, -1, 2}) != null, "nor one before the first");
         check(VehicleMeshes.lacks(32, 96, new int[] {0, 1}) != null, "nor corners that are not triangles");
+    }
+
+    /**
+     * The body seen past the interior is lit by the way its own triangles face, read off their depth. At arm's length
+     * that depth steps finer than a pixel, so read one pixel apart the panel shows rings that move with the far plane.
+     */
+    private static void bodyBesideTheSeatIsLitFromItsDepthReadWide() {
+        String main = PipelineShaders.FIGURE_LIGHT_MAIN.replaceAll("\\s+", "");
+        check(main.contains("vec3square=close>0.5?partNormalAt(uv,bodyAt,5.0)+partNormalAt(uv,bodyAt,11.0):partNormalAt(uv,bodyAt,1.0);"),
+                "close by, the body's facing is read five and eleven pixels apart");
+        check(main.contains("square=dot(square,square)>0.5?normalize(square):vec3(0.0,0.0,1.0);"), "and the two reads together made a direction");
     }
 
     private static void check(boolean condition, String what) {

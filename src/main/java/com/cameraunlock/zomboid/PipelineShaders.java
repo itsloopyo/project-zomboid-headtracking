@@ -6867,8 +6867,11 @@ final class PipelineShaders {
                     // and evened towards level: it is a broad panel that faces up.
                     // Taken from the pixels beside it by reading them: the slope across the
                     // screen that dFdx gives is not defined in a branch its neighbours may not take.
-                    vec3 square = partNormalAt(uv, partAt(uv), 1.0);
-                    square = dot(square, square) > 0.5 ? square : vec3(0.0, 0.0, 1.0);
+                    // Close by it is read wide, as the figure's is: the body beside the seat
+                    // is at arm's length, and read one pixel apart its depth's steps show as rings.
+                    vec3 bodyAt = partAt(uv);
+                    vec3 square = close > 0.5 ? partNormalAt(uv, bodyAt, 5.0) + partNormalAt(uv, bodyAt, 11.0) : partNormalAt(uv, bodyAt, 1.0);
+                    square = dot(square, square) > 0.5 ? normalize(square) : vec3(0.0, 0.0, 1.0);
                     n = normalize(square * (dot(square, view) < 0.0 ? -0.5 : 0.5) + vec3(0.0, 0.0, 0.5));
                 }
                 // A person the picture drew itself comes with the way each point of them
