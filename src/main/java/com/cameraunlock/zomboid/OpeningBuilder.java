@@ -148,6 +148,12 @@ final class OpeningBuilder {
      * room as a bright line round the leaf and its panes.
      */
     private int joinerySide, edgeSide = -1;
+    /**
+     * Where along the wall a shut leaf ends at a doorway's revealed cut, or NaN: no joinery closes its end there. The
+     * wall's reveal is in that plane across the whole thickness, and the leaf's end laid in it too took turns with it
+     * down the jamb as a flickering line.
+     */
+    private float revealedFrom = Float.NaN, revealedTo = Float.NaN;
 
     OpeningBuilder(WorldScene.Frame build) {
         this.build = build;
@@ -424,6 +430,9 @@ final class OpeningBuilder {
         }
         float[] up = panelled < leaf.head ? PANELS_UP_BELOW : PANELS_UP;
         int filled = inDoorway ? jambs(leaf.start, leaf.end, doorwayStart, doorwayEnd, doorwayRevealed, jambs) : 0;
+        boolean revealed = inDoorway && doorwayRevealed && doorwayStart >= 0f;
+        revealedFrom = revealed && leaf.start <= doorwayStart ? leaf.start : Float.NaN;
+        revealedTo = revealed && leaf.end >= doorwayEnd ? leaf.end : Float.NaN;
         float knob = door.handleAtEnd ? leaf.end - KNOB_IN * wide : leaf.start + KNOB_IN * wide;
         float[] bars = barsToRails(leaf);
         for (int side = 0; side < 2; side++) {
@@ -541,6 +550,7 @@ final class OpeningBuilder {
         }
         // Shared with other builders, which leave day as they find it.
         wood.day = joint.day = metal.day = glass.day = 0f;
+        revealedFrom = revealedTo = Float.NaN;
         return true;
     }
 
@@ -1171,6 +1181,9 @@ final class OpeningBuilder {
             blue = sideBlue[edgeSide];
         }
         for (int edge = 0; edge < 4; edge++) {
+            if (edge == 0 && from == revealedFrom || edge == 1 && to == revealedTo) {
+                continue;
+            }
             float along0 = edge == 1 ? to : from, along1 = edge == 0 ? from : to;
             float up0 = edge == 3 ? head : foot, up1 = edge == 2 ? foot : head;
             windowPoint(c, 0, along0, up0, 0f);
