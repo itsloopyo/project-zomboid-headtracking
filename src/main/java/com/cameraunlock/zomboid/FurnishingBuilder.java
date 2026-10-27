@@ -129,7 +129,7 @@ final class FurnishingBuilder {
     /** How far, in tiles, and in what steps a piece on a roof is looked for back along the line of sight over its building. */
     private static final float BACK_FURTHEST = 1.5f, BACK_STEP = 0.25f;
     /** How many squares back along x and y the game's view draws a square a storey down at the same place: RoofFit.PITCH. */
-    private static final int LINE_OF_SIGHT = 3;
+    static final int LINE_OF_SIGHT = 3;
 
     FurnishingBuilder(WorldScene.Frame build) {
         this.build = build;

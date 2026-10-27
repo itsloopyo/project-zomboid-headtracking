@@ -6728,6 +6728,19 @@ final class WorldScene {
             return false;
         }
 
+        /** Whether the square being built holds nothing but trim and the grime laid over it. */
+        private boolean onlyTrim() {
+            PZArrayList<IsoObject> objects = here.getObjects();
+            for (int i = 0; i < objects.size(); i++) {
+                IsoSprite sprite = objects.get(i).getSprite();
+                String name = sprite == null ? null : sprite.getName();
+                if (name == null || !name.startsWith("walls_detailing_") && !name.startsWith("overlay_")) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
         private void addSquare(IsoGridSquare square, int x, int y, int z, int localX, int localY) {
             floorLayer = westLayer = northLayer = eastLayer = southLayer = 0;
             items.clear();
@@ -7548,9 +7561,21 @@ final class WorldScene {
             // away. It is on the wall its square has, and where the square has both or neither,
             // on the edge its picture runs along. A pillar of the belfry, far taller than it is
             // wide, stands on its corner as before where there is no wall to hang it on.
+            int edgeX = x, edgeY = y, edgeZ = z;
             if (!west && !north && kind.wallTrim && (wallNorth || wallWest || texture.getHeight() < 2 * texture.getWidth())) {
                 north = wallNorth != wallWest ? wallNorth : Banners.alongX(frame);
                 west = !north;
+                // A band the map paints whole levels up and three squares forward a level of the wall it runs along, the
+                // same picture, hangs in the air off the front of the house, alone on its square (442..444, 10036 over the
+                // wall at 439..441, 10033). It is laid on that wall.
+                for (int down = 1; down <= z && !wallNorth && !wallWest && onlyTrim(); down++) {
+                    if (Hoods.walled(cell.getGridSquare(x - FurnishingBuilder.LINE_OF_SIGHT * down, y - FurnishingBuilder.LINE_OF_SIGHT * down, z - down), north)) {
+                        edgeX = x - FurnishingBuilder.LINE_OF_SIGHT * down;
+                        edgeY = y - FurnishingBuilder.LINE_OF_SIGHT * down;
+                        edgeZ = z - down;
+                        break;
+                    }
+                }
             }
             // A light switch marked for no wall (the game's own, lighting_indoor_01_0 to 7, are each
             // marked attachedN, W, E or S and do not come here) is on a wall of its square, and is
@@ -7604,13 +7629,13 @@ final class WorldScene {
                 return;
             }
             if (west) {
-                wallBuilder.addEdge(mesh, texture, isWall(properties, type) || raised, door, x, y, z, westLayer++, 0f, 1f);
+                wallBuilder.addEdge(mesh, texture, isWall(properties, type) || raised, door, edgeX, edgeY, edgeZ, westLayer++, 0f, 1f);
                 if (raised) {
                     wallBuilder.addRaisedGarageDoor(texture, x, y, z, 0f, 1f);
                 }
             }
             if (north) {
-                wallBuilder.addEdge(mesh, texture, isWall(properties, type) || raised, door, x, y, z, northLayer++, 1f, 0f);
+                wallBuilder.addEdge(mesh, texture, isWall(properties, type) || raised, door, edgeX, edgeY, edgeZ, northLayer++, 1f, 0f);
                 if (raised) {
                     wallBuilder.addRaisedGarageDoor(texture, x, y, z, 1f, 0f);
                 }
