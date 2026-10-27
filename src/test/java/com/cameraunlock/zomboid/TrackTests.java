@@ -32,6 +32,7 @@ final class TrackTests {
         Checks.run("aTurnoutWhoseRoutesCannotBeReadIsLeftThePicture", TrackTests::aTurnoutWhoseRoutesCannotBeReadIsLeftThePicture);
         Checks.run("aRouteByADiagonalIsTwoArcsAndTheStraightBetween", TrackTests::aRouteByADiagonalIsTwoArcsAndTheStraightBetween);
         Checks.run("aStraightRunsOnAcrossOtherTrackAsItsRailsAlone", TrackTests::aStraightRunsOnAcrossOtherTrackAsItsRailsAlone);
+        Checks.run("railsAloneThatLeadNowhereDoNotRunALineOn", TrackTests::railsAloneThatLeadNowhereDoNotRunALineOn);
         Checks.run("aTurnoutIsReadTheSameFromEachOfItsSquares", TrackTests::aTurnoutIsReadTheSameFromEachOfItsSquares);
         Checks.run("everyRailOfABuiltTurnoutHasASleeperUnderIt", TrackTests::everyRailOfABuiltTurnoutHasASleeperUnderIt);
         Checks.run("everyRailOfATurnoutEndsOnAnotherOrAtABuffer", TrackTests::everyRailOfATurnoutEndsOnAnotherOrAtABuffer);
@@ -211,6 +212,25 @@ final class TrackTests {
             }
         }
         check(ends == 2, "each end of the straight is where an arc leaves it: " + ends + " arc ends on it");
+    }
+
+    /** A straight that ends a few squares below a switch, its rails laid alone for two squares more and then nothing. */
+    private static void railsAloneThatLeadNowhereDoNotRunALineOn() {
+        HashMap<Long, String[]> squares = new HashMap<>();
+        Track.Bend a = Track.A;
+        line(squares, Track.WITH_TIES, Track.NS, 11.5, 10, 0, 12, 8, null);
+        for (int y = 9; y <= 10; y++) {
+            lay(squares, 10, y, Track.WITH_TIES + 6);
+            lay(squares, 12, y, Track.WITH_TIES + 6);
+        }
+        bend(squares, Track.RAILS, a, 11, 3);
+        line(squares, Track.WITH_TIES, Track.NE, 11 + 3 + a.cOne, 0, 0, 24, 24, (x, y) -> ahead(x, y, 11 + a.oneX, 3 + a.oneY, a.alongOneX, a.alongOneY));
+        Track.Turnout turnout = new Track.Reader(area(squares, null)).turnout(11, 3);
+        boolean ends = false;
+        for (Track.Line line : turnout.lines) {
+            ends |= line.way == Track.NS && line.c == 11.5 && line.to != Double.POSITIVE_INFINITY;
+        }
+        check(ends, "a straight whose rails run on alone to nothing ends where its sleepers do: " + described(turnout));
     }
 
     private static void aStraightRunsOnAcrossOtherTrackAsItsRailsAlone() {
