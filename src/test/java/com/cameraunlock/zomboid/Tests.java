@@ -207,6 +207,7 @@ public final class Tests {
         Checks.run("TreeFormTests", TreeFormTests::run);
         Checks.run("PlasterTests", PlasterTests::run);
         Checks.run("CloudDomeTests", CloudDomeTests::run);
+        Checks.run("CloudShadowTests", CloudShadowTests::run);
         Checks.run("MoonlightTests", MoonlightTests::run);
         Checks.run("FigureSnowTests", FigureSnowTests::run);
         Checks.run("HeldLightTests", HeldLightTests::run);

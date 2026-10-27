@@ -105,6 +105,11 @@ final class SkyState {
     float cover;
     /** How much of the sun the clouds over it take, eased, 0 in a gap in the dome's clouds: see shine and sunVeiledNow. */
     float sunVeiled;
+    /**
+     * How much of what the eye looks at lies in the clouds' shadows on the ground, 0 to 1, eased:
+     * the scene sets it (see shadeLooked and cloudEased). The develop pass's grade goes by it (coverSeen).
+     */
+    float shadeSeen = 1f;
     /** What capture leaves for shine: how hard rain or snow falls, how grey the day's cloud makes the sky, and how white the sun is for its height. */
     float falling, overcast, sunWhite;
     /** How closed the cloud deck is that rain or snow falls from, 0 to 1: the square of the heavier fall. */
@@ -215,8 +220,8 @@ final class SkyState {
     private static final long START_NANOS = System.nanoTime();
 
     String describe() {
-        return String.format(Locale.ROOT, "sun up %.2f night %.2f cover %.2f sun veiled %.2f mist %.4f wind (%.2f, %.2f) rain %.2f wet %.2f fog %.2f snow %.2f air %.4f narrowed %.2f lightning %.3f cloud %.2f bolts %d",
-                sunUp, night, cover, sunVeiled, mist, windX, windY, rain, wet, fog, snow, thick, narrowed, flashBlue, burst, seenCount);
+        return String.format(Locale.ROOT, "sun up %.2f night %.2f cover %.2f sun veiled %.2f shade seen %.2f mist %.4f wind (%.2f, %.2f) rain %.2f wet %.2f fog %.2f snow %.2f air %.4f narrowed %.2f lightning %.3f cloud %.2f bolts %d",
+                sunUp, night, cover, sunVeiled, shadeSeen, mist, windX, windY, rain, wet, fog, snow, thick, narrowed, flashBlue, burst, seenCount);
     }
 
     /** How much brighter a drop of rain is than the air it falls through: over the sky in rain it is a faint pale line. */
@@ -532,7 +537,7 @@ final class SkyState {
     }
 
     /**
-     * How long, in seconds, what is eased by the clouds (sunVeiled) takes to follow them, the
+     * How long, in seconds, what is eased by the clouds (sunVeiled, shadeSeen) takes to follow them, the
      * longest step of the clock it eases by at once, so a hitch such as an autosave is no jump,
      * and the gap after which it starts again from the clouds as they are: first person was off,
      * or another save was loaded.
@@ -542,6 +547,73 @@ final class SkyState {
     /** What is eased by the clouds, seconds after it was shown, the clouds giving now: see CLOUDS_EASE. */
     static float cloudEased(float shown, float now, float seconds) {
         return seconds > CLOUDS_RESTART ? now : shown + (now - shown) * (1f - (float) Math.exp(-Math.min(seconds, CLOUDS_STEP_MOST) / CLOUDS_EASE));
+    }
+
+    /**
+     * How much cloud the develop pass grades the picture by: a clear sky's where all the eye looks
+     * at is in the sun, the day's cover where all of it is in the clouds' shadows, and so the day's
+     * cover on a day the clouds close over.
+     */
+    float coverSeen() {
+        return COVER_CLEAR + (cover - COVER_CLEAR) * shadeSeen;
+    }
+
+    /** How far the clouds' shadow lies over the ground under a place of the map, 0 in a gap to 1 under a cloud, as the world's shader has it (PipelineShaders.CLOUD_SHADOWS). */
+    float cloudShadow(float x, float y) {
+        float lean = CLOUD_LEAD / Math.max(lightUp, 0.25f);
+        float underX = (x + lightX * lean) / CLOUD_WIDTH + driftX * CLOUD_DRIFTS, underY = (y + lightY * lean) / CLOUD_WIDTH + driftY * CLOUD_DRIFTS;
+        float body = cloudPatches(underX, underY) * 0.6f + cloudPatches(underX * 2.7f + 7f, underY * 2.7f + 7f) * 0.4f;
+        return smooth(-CLOUD_EDGE, CLOUD_EDGE, body - (CLOUD_CLEARS - cover));
+    }
+
+    /**
+     * How much of the ground the eye at (x, y) looks at, the flat way (forwardX, forwardY), lies in
+     * the clouds' shadows: the shadow over a round set ahead of the eye, a cell of their noise from
+     * its middle to its edge, weighed at its middle twice and at rings of places round it. One
+     * shadow's edge crossing the eye does not regrade the whole picture, and a shaded field seen
+     * from a gap is graded as more shade than the gap.
+     */
+    float shadeLooked(float x, float y, float forwardX, float forwardY) {
+        float middleX = x + forwardX * SHADE_AHEAD, middleY = y + forwardY * SHADE_AHEAD;
+        float sum = 2f * cloudShadow(middleX, middleY);
+        for (int ring = 1; ring <= SHADE_RINGS; ring++) {
+            float out = SHADE_REACH * ring / SHADE_RINGS;
+            for (int i = 0; i < SHADE_ROUND; i++) {
+                double angle = 2.0 * Math.PI * (i + 0.5 * ring) / SHADE_ROUND;
+                sum += cloudShadow(middleX + out * (float) Math.cos(angle), middleY + out * (float) Math.sin(angle));
+            }
+        }
+        return sum / (SHADE_RINGS * SHADE_ROUND + 2);
+    }
+
+    /** How far ahead of the eye, in tiles, the round shadeLooked weighs is centred, how far it reaches from its middle, and in how many rings of how many places. */
+    static final float SHADE_AHEAD = 10f, SHADE_REACH = SkyState.CLOUD_WIDTH;
+    static final int SHADE_RINGS = 2, SHADE_ROUND = 8;
+    /** Smooth noise over cells, as the shader's cloudPatches. */
+    static float cloudPatches(float x, float y) {
+        float cellX = (float) Math.floor(x), cellY = (float) Math.floor(y);
+        float fx = x - cellX, fy = y - cellY;
+        fx = fx * fx * (3f - 2f * fx);
+        fy = fy * fy * (3f - 2f * fy);
+        return mix(mix(cloudGrain(cellX, cellY), cloudGrain(cellX + 1f, cellY), fx),
+                mix(cloudGrain(cellX, cellY + 1f), cloudGrain(cellX + 1f, cellY + 1f), fx), fy);
+    }
+
+    /**
+     * A cell's value, 0 to 1, as the shader's cloudGrain: a permutation of whole numbers under 289,
+     * each step of which a float holds exactly. The shader's mod is not tested against this on a
+     * graphics card; it may differ where a step lands on a multiple of 289 itself.
+     */
+    static float cloudGrain(float cellX, float cellY) {
+        return cloudPermute(cloudPermute(mod289(cellX)) + mod289(cellY)) / 289f;
+    }
+
+    private static float cloudPermute(float x) {
+        return mod289((x * 34f + 1f) * x);
+    }
+
+    private static float mod289(float x) {
+        return x - 289f * (float) Math.floor(x / 289f);
     }
 
     /** How the clouds' shadows lie, shared with the shader (PipelineShaders.CLOUD_SHADOWS): how many tiles a cell of their noise spans, how far along the sun the cloud casting one is, as tiles over the sun's height, how far the drift moves them, and the noise over which a place is shaded, at a cover of 0, and over how much of it the shadow's edge goes. */

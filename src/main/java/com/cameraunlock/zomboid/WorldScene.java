@@ -163,8 +163,8 @@ final class WorldScene {
     private volatile float drawnAspect;
     private float loggedTanHalfSet, loggedAspect;
     private float eyeOpen = -1f;
-    /** How much of the sun the clouds over it take, eased (SkyState.sunVeiled), and when it was last eased. */
-    private float sunVeiled;
+    /** How much of the sun the clouds over it take, and how much of what the eye looks at is in their shadows, eased (SkyState.sunVeiled, SkyState.shadeSeen), and when they were last eased. */
+    private float sunVeiled, shadeSeen;
     private long lastClouds;
     /** How far the eye is out from under any roof: see SkyState.openOver. */
     private float openOver = -1f;
@@ -3170,6 +3170,8 @@ final class WorldScene {
             sky.layersFromX = pose.eyeX;
             sky.layersFromY = pose.eyeY;
             sky.layersFromUp = pose.eyeUp;
+            shadeSeen = SkyState.cloudEased(shadeSeen, sky.shadeLooked(pose.eyeX, pose.eyeY, rightY, -rightX), cloudsElapsed);
+            sky.shadeSeen = shadeSeen;
             sky.acrossX = rightX;
             sky.acrossY = rightY;
             playerIndex = player.getIndex();

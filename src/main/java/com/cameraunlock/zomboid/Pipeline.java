@@ -4729,7 +4729,7 @@ final class Pipeline {
         Style style = Style.of(view.index);
         // The game's own view drawn from overhead, and Low, which is the game's look, are developed as they always were.
         boolean ownTone = !overhead && !Quality.plain(view.index) && !WITHOUT.contains("tone");
-        float cover = Math.max(state.cover, state.rain);
+        float cover = Math.max(state.coverSeen(), state.rain);
         developed.settle(exposure, ownTone ? style.levels : 0f, state.night, state.fog, ownTone && !WITHOUT.contains("balance") ? 1f - state.outdoors : 0f, System.nanoTime());
         develop.set("uBalance", ownTone ? developed.balanceRed() : 1f, ownTone ? developed.balanceBlue() : 1f);
         float middle = developed.middle();
