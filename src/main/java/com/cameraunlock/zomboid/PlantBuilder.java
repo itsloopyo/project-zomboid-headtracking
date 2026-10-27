@@ -832,6 +832,18 @@ final class PlantBuilder {
         // leaf by leaf as it does a bush's: overhead its crown is painted as a bush's is. Laid with sprigs it was a ball of leaves to the ground.
         String tile = treeX == x && treeY == y ? treeTile : null;
         boolean painted = bush || tile != null && FarTreeKinds.speciesOf(tile) != null && FarTreeKinds.sizeOf(tile) == FarTreeKinds.SMALL;
+        // A grown tree's crown has no places on the wood its sprite paints. Until the sprite is read it
+        // has them, and the chunk is built again once it has been.
+        if (!painted) {
+            float[] leaves = CrownWood.leaves(texture, build.frame, places);
+            if (leaves == null) {
+                build.building.signed = false;
+            } else if (leaves.length < CROWN_LEAST_PLACES * 2) {
+                return false;
+            } else {
+                places = leaves;
+            }
+        }
         int seed = Flora.mix(x, y, 83);
         float base = z * ViewCamera.LEVEL_HEIGHT + build.geometry.liftAt(0.5f, 0.5f) + build.geometry.raised * ViewCamera.LEVEL_HEIGHT;
         float footU = SpriteGeometry.frameU(build.frame, 0.5f, 0.5f), footV = SpriteGeometry.frameV(build.frame, 0.5f, 0.5f, 0f);

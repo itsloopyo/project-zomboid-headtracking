@@ -23,6 +23,7 @@ final class CrownTests {
         Checks.run("spriteMeasuredAsNoCrownMakesNone", CrownTests::spriteMeasuredAsNoCrownMakesNone);
         Checks.run("aGreatTreesPaintedTrunkAndLimbsAreNoPartOfItsCrown", CrownTests::aGreatTreesPaintedTrunkAndLimbsAreNoPartOfItsCrown);
         Checks.run("onlyATreesSparseFootIsCut", CrownTests::onlyATreesSparseFootIsCut);
+        Checks.run("aTreesCrownHasNoPlacesOnTheWoodItsSpritePaints", CrownTests::aTreesCrownHasNoPlacesOnTheWoodItsSpritePaints);
         Checks.run("crownBesideAFenceKeepsToItsOwnSideInAnyWind", CrownTests::crownBesideAFenceKeepsToItsOwnSideInAnyWind);
         Checks.run("aRootIsHeldInFromAFenceByAsFarAsItReaches", CrownTests::aRootIsHeldInFromAFenceByAsFarAsItReaches);
         Checks.run("everyPartOfATreesCrownIsItsTreesAndABushIsNoTree", CrownTests::everyPartOfATreesCrownIsItsTreesAndABushIsNoTree);
@@ -658,6 +659,41 @@ final class CrownTests {
             }
         }
         check(lowestSprig > leavesLowest - band - 0.5f, "with no sprig down the trunk: the lowest is at " + lowestSprig + ", the leaves at " + leavesLowest);
+    }
+
+    /**
+     * A sprite with green leaves over a bark-brown trunk, a bunch of red berries, a mass of
+     * autumn orange and one of dark holly green in it, each painted in colours read off the
+     * game's own tree sprites, four dots of the sheet to a frame pixel each way.
+     */
+    private static void aTreesCrownHasNoPlacesOnTheWoodItsSpritePaints() {
+        check(CrownWood.wood(0.28f, 0.22f, 0.20f) && CrownWood.wood(0.15f, 0.104f, 0.082f), "a trunk's bark and a limb's shade are wood");
+        check(!CrownWood.wood(0.38f, 0.20f, 0.15f) && !CrownWood.wood(0.6f, 0.15f, 0.12f), "a hawthorn's berries are not");
+        check(!CrownWood.wood(0.8f, 0.5f, 0.2f) && !CrownWood.wood(0.55f, 0.35f, 0.12f), "nor is an autumn leaf, orange or brown");
+        check(!CrownWood.wood(0.35f, 0.5f, 0.2f) && !CrownWood.wood(0.1f, 0.2f, 0.1f), "nor a green one");
+        int wide = 64, high = 96;
+        java.nio.ByteBuffer sheet = java.nio.ByteBuffer.allocate(wide * high * 4);
+        for (int y = 0; y < high; y++) {
+            for (int x = 0; x < wide; x++) {
+                float[] colour = y >= 60 ? (x >= 26 && x < 38 ? new float[] {0.28f, 0.22f, 0.20f} : null)
+                        : x >= 8 && x < 20 && y >= 8 && y < 20 ? new float[] {0.6f, 0.15f, 0.12f}
+                        : x >= 40 && x < 56 && y >= 8 && y < 24 ? new float[] {0.8f, 0.5f, 0.2f}
+                        : x >= 8 && x < 24 && y >= 36 && y < 52 ? new float[] {0.1f, 0.2f, 0.1f}
+                        : x >= 26 && x < 38 && y >= 36 ? new float[] {0.15f, 0.104f, 0.082f}
+                        : x >= 44 && x < 48 && y >= 30 && y < 56 ? new float[] {0.28f, 0.22f, 0.20f}
+                        : new float[] {0.35f, 0.5f, 0.2f};
+                int at = (y * wide + x) * 4;
+                if (colour != null) {
+                    sheet.put(at, (byte) Math.round(colour[0] * 255f)).put(at + 1, (byte) Math.round(colour[1] * 255f)).put(at + 2, (byte) Math.round(colour[2] * 255f)).put(at + 3, (byte) 255);
+                }
+            }
+        }
+        CrownWood.Grid grid = CrownWood.measure(sheet, wide, 0, 0, wide, high);
+        check(grid.width() == wide && grid.height() == high, "the sprite is measured dot by dot: " + grid.width() + " by " + grid.height());
+        float[] places = {8f, 75f / 4f, 32f / 4f, 44f / 4f, 45f / 4f, 10f, 14f / 4f, 14f / 4f, 48f / 4f, 16f / 4f, 16f / 4f, 44f / 4f, 32f / 4f, 4f / 4f, 1f, 1f};
+        float[] kept = CrownWood.leaves(grid, 0f, 0f, wide / 4f, high / 4f, places);
+        check(Arrays.equals(kept, new float[] {14f / 4f, 14f / 4f, 48f / 4f, 16f / 4f, 16f / 4f, 44f / 4f, 32f / 4f, 4f / 4f, 1f, 1f}),
+                "the places on the trunk, on a limb among the leaves and on a twig too thin to colour a sprig of its own go, and those on the berries, the autumn leaves, the holly and the green stay: " + Arrays.toString(kept));
     }
 
     /**
