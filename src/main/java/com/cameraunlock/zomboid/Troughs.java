@@ -89,7 +89,12 @@ final class Troughs {
         return null;
     }
 
-    /** Every sprite the game paints in a trough of any kind, to what it is (OVERLAYS), read once from the game's FeedingTroughDef. */
+    /** As the game leaves a save: the next one's Lua may be another mod list's, with another FeedingTroughDef. */
+    static synchronized void forget() {
+        held = null;
+    }
+
+    /** Every sprite the game paints in a trough of any kind, to what it is (OVERLAYS), read once a save from the game's FeedingTroughDef. */
     private static synchronized Map<String, String[]> held() {
         if (held == null) {
             Map<String, String[]> read = new HashMap<>();

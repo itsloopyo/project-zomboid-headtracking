@@ -244,6 +244,7 @@ public final class Hooks {
         SharedHeads.forget();
         Rewind.forget();
         HiddenWalls.forget();
+        Troughs.forget();
         for (int i = 0; i < View.COUNT; i++) {
             View view = View.of(i);
             if (view != null) {
