@@ -416,7 +416,6 @@ final class Tracking {
         }
         try {
             double[] values = Config.values(Quality.customFrom());
-            int[] rows = new int[Config.GRAPHICS.length];
             int found = 0;
             for (int i = 0; i < options.length; i++) {
                 int part = Config.graphicsPart(described[i].id);
@@ -424,7 +423,6 @@ final class Tracking {
                     if (held[i] != shown[i]) {
                         values[part] = held[i];
                     }
-                    rows[part] = options[i];
                     found++;
                 }
             }
@@ -435,16 +433,9 @@ final class Tracking {
             Quality.custom(picture);
             Quality.set(0, Quality.CUSTOM);
             sayGraphics(1);
-            for (int part = 0; part < rows.length; part++) {
-                int option = rows[part];
-                double value = values[part];
-                if (config.optionValue(option) != value) {
-                    save(() -> config.saveOption(option, value));
-                }
-            }
             save(() -> {
                 customInFile = picture;
-                config.saveQuality(0, Quality.CUSTOM);
+                config.saveCustom(values);
             });
             for (int i = 0; i < options.length; i++) {
                 if (Config.graphicsPart(described[i].id) >= 0) {

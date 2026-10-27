@@ -166,6 +166,12 @@ public final class CoreTests {
         made.await();
     }
 
+    /** How many saves of the file the log has a line for, once every save asked for so far is made. */
+    private static long fileWritesLogged() throws IOException, InterruptedException {
+        savesMade();
+        return Files.readAllLines(game.resolve(Log.FILE_NAME)).stream().filter(line -> line.contains(" " + Config.FILE_NAME + ": ")).count();
+    }
+
     private static byte[] bytes() throws IOException, InterruptedException {
         savesMade();
         return Files.readAllBytes(file);
@@ -962,7 +968,9 @@ public final class CoreTests {
         check(fromLow.shows("ViewDistance") == 48 && saved("Quality=Low", "ViewDistance=56"),
                 "in Low the screen shows Low's picture, and the file still holds Custom's rows");
         fromLow.set("RenderScale", 0.7);
+        long writesBefore = fileWritesLogged();
         fromLow.apply();
+        check(fileWritesLogged() - writesBefore == 1, "the mode and every row of [Graphics] it changes are saved in one write: " + (fileWritesLogged() - writesBefore));
         check(Quality.name(0).equals("Custom") && !Quality.plain(0) && Quality.sight(0) == 48 && Quality.scale(0) == 0.7f,
                 "a row changed in Low is Low's picture with that row, drawn with what the mod made: " + Quality.described(Quality.drawn(0)));
         check(saved("Quality=Custom", "RenderScale=0.7", "ViewDistance=48", "SharpShadows=false", "RainOnGlass=Low"),

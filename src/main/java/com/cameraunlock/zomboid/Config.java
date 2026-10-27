@@ -2,6 +2,7 @@ package com.cameraunlock.zomboid;
 
 import com.cameraunlock.core.CameraUnlock;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -587,6 +588,15 @@ final class Config {
 
     boolean saveOption(int option, double value) {
         return saved(core.configOption(option).id + " " + value + " from the game's options screen", core.configOptionSave(option, value));
+    }
+
+    /** Player 1's graphics mode as Custom, with the rows of [Graphics] holding values (in GRAPHICS order), in one write. */
+    boolean saveCustom(double[] values) {
+        int[] rows = Arrays.copyOf(graphics, graphics.length + 1);
+        double[] all = Arrays.copyOf(values, values.length + 1);
+        rows[graphics.length] = quality[0];
+        all[values.length] = Quality.CUSTOM;
+        return saved("player 1's first person graphics mode Custom with the rows of [Graphics] from the game's options screen", core.configSaveRows(rows, all));
     }
 
     /** Each save answers whether the file holds the new value. The session keeps it either way. */
