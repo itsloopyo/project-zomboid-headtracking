@@ -67,6 +67,7 @@ final class RoofTests {
         Checks.run("rowAtTheEndOfAHipHasNoFarSide", RoofTests::rowAtTheEndOfAHipHasNoFarSide);
         Checks.run("hipRoofWithCutHipsGetsItsFarFacesAsAHip", RoofTests::hipRoofWithCutHipsGetsItsFarFacesAsAHip);
         Checks.run("roofHippedAtOneEndAndGabledAtTheOtherGetsItsFarFaces", RoofTests::roofHippedAtOneEndAndGabledAtTheOtherGetsItsFarFaces);
+        Checks.run("wingsSideBySideUnderACrossRidgeLeaveNoPit", RoofTests::wingsSideBySideUnderACrossRidgeLeaveNoPit);
         Checks.run("wingsFarSideStopsAtAMainRoofDeeperThanItsNearSide", RoofTests::wingsFarSideStopsAtAMainRoofDeeperThanItsNearSide);
         Checks.run("slopeThatClimbsPastItsCrownLiesLevel", RoofTests::slopeThatClimbsPastItsCrownLiesLevel);
         Checks.run("gablesSlopeThatClimbsPastACrownStaysASlope", RoofTests::gablesSlopeThatClimbsPastACrownStaysASlope);
@@ -2645,6 +2646,65 @@ final class RoofTests {
 
     private static void check(boolean condition, String what) {
         Checks.check(condition, what);
+    }
+
+    /**
+     * The shop at 7716..7722, 14708..14714: a west wing ridged along x 2, an east wing ridged along x 5 and hipped at its north
+     * end, and a cross ridge along y 3 between them, all falling a third of a level a square to an eave at 1. Where they meet
+     * the roof is whole, the highest of the three at each corner, with no pit between the wings.
+     */
+    private static void wingsSideBySideUnderACrossRidgeLeaveNoPit() {
+        String[] map = {
+            "2 0 1 1.667 1.333 -1", "2 1 1 1.667 1.333 -1", "2 2 1 1.667 1.333 -1", "2 3 -2 1.823 1.333 -1", "2 4 1 1.667 1.333 -1",
+            "2 5 1 1.667 1.333 -1", "2 6 1 1.667 1.333 -1", "3 0 1 1.333 1 -1", "3 1 1 1.333 1 -1", "3 2 1 1.333 1 -1", "3 3 2 1.667 1.333 -1",
+            "3 4 4 1.333 1 -1", "3 5 1 1.333 1 -1", "3 6 1 1.333 1 -1", "4 3 2 1.667 1.333 -1", "4 4 2 1.333 1 -1", "5 1 1 1.667 1.333 0",
+            "5 2 1 1.667 1.333 -1", "5 3 3 1.667 1.333 -1", "5 4 2 1.333 1 -1", "6 0 1 1.333 1 0", "6 1 1 1.333 1 -1", "6 2 1 1.333 1 -1",
+            "6 3 1 1.333 1 -1", "6 4 3 1.333 1 -1"};
+        List<RoofFit.Tile> roof = new ArrayList<>();
+        for (String one : map) {
+            String[] f = one.split(" ");
+            int axis = Integer.parseInt(f[2]);
+            RoofFit.Tile tile = new RoofFit.Tile(Integer.parseInt(f[0]), Integer.parseInt(f[1]), 1, Math.abs(axis), axis > 0, Float.parseFloat(f[3]), Float.parseFloat(f[4]));
+            tile.cutCorner = Integer.parseInt(f[5]);
+            tile.gabled = tile.y == 6;
+            roof.add(tile);
+        }
+        RoofFit.fit(roof);
+        List<RoofFit.Tile> all = new ArrayList<>(roof);
+        List<RoofFit.Tile> made = RoofFit.backs(roof, standing((x, y) -> x >= 0 && y >= 0 && (x <= 6 && y <= 4 || x <= 3 && y <= 6)));
+        RoofFit.peaks(roof, made);
+        all.addAll(made);
+        all.addAll(RoofFit.valleys(roof, made));
+        // The roof over the middle, where the wings and the cross ridge meet: the highest of the three roofs at each corner.
+        float[][] expected = {{3, 1, 4, 4, 4, 4}, {3, 2, 4, 4, 5, 5}, {4, 2, 4, 5, 5, 5}, {4, 3, 5, 5, 4, 4}};
+        float[] corners = new float[4];
+        for (float[] square : expected) {
+            float[] top = {Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY};
+            for (RoofFit.Tile tile : all) {
+                if (tile.x != (int) square[0] || tile.y != (int) square[1] || tile.fitting) {
+                    continue;
+                }
+                if (tile.shaped || tile.carried) {
+                    System.arraycopy(tile.corners, 0, corners, 0, 4);
+                } else {
+                    RoofFit.cornersOf(tile.fitAxis, tile.fitLow, tile.fitHigh, corners);
+                }
+                for (int corner = 0; corner < 4; corner++) {
+                    top[corner] = Math.max(top[corner], corners[corner]);
+                }
+            }
+            for (int corner = 0; corner < 4; corner++) {
+                check(near(top[corner], square[2 + corner] * THIRD), "the roof over " + (int) square[0] + ", " + (int) square[1] + " corner " + corner + " is at " + top[corner]);
+            }
+        }
+        // Nothing is carried onto a square twice.
+        for (int i = 0; i < all.size(); i++) {
+            for (int j = i + 1; j < all.size(); j++) {
+                RoofFit.Tile a = all.get(i), b = all.get(j);
+                check(!a.carried || !b.carried || a.x != b.x || a.y != b.y || !Arrays.equals(a.corners, b.corners),
+                        "one carried tile with the same corners on " + a.x + ", " + a.y);
+            }
+        }
     }
 
     private static boolean near(float a, float b) {

@@ -2,8 +2,10 @@ package com.cameraunlock.zomboid;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -1554,7 +1556,7 @@ final class RoofFit {
                         queue.add(next);
                         break;
                     }
-                    if (!hip(on, from, alongX, step)) {
+                    if (!hip(on, from, alongX, step, roofed)) {
                         break;
                     }
                     x += alongX ? 0 : step;
@@ -1564,9 +1566,18 @@ final class RoofFit {
         }
     }
 
-    /** Folds a tile of the map where a made slope, carried onto its square, is the lower of the two over part of it. False if it is not. */
-    private static boolean hip(Tile on, Side side, boolean alongX, int step) {
+    /**
+     * Folds a tile of the map where a made slope, carried onto its square, is the lower of the two over part of it. False if it is not.
+     * A tile whose slope goes on past it on the side the made slope falls to is no hip's: the made slope's own roof ends at the tile's
+     * ridge, where a cross wing's ridge comes to it (the shop at 7720, 14711).
+     */
+    private static boolean hip(Tile on, Side side, boolean alongX, int step, HashMap<Long, Tile> roofed) {
         if (!on.slopes() || on.fitAxis != (alongX ? ALONG_Y : ALONG_X) || -on.up() != step) {
+            return false;
+        }
+        Tile past = roofed.get(key(on.x - (alongX ? side.up : 0), on.y - (alongX ? 0 : side.up), 0));
+        // A tile of the slope past it that another strip folded already is still that slope.
+        if (past != null && !past.fitting && past.fitAxis == on.fitAxis && Math.abs(past.fitLow - on.fitLow) <= SAME && Math.abs(past.fitHigh - on.fitHigh) <= SAME) {
             return false;
         }
         float[] made = new float[4], own = new float[4], lower = new float[4];
@@ -2029,7 +2040,174 @@ final class RoofFit {
                 }
             }
         }
+        meet(tiles, made, at, carried);
         return carried;
+    }
+
+    /**
+     * Roofs that meet side by side, where neither runs across the other. A slope of the map that falls to a made tile standing
+     * higher along the edge between them meets it in a valley on the slope's square: two wings side by side, the near one's
+     * eave a third of a level under the far one's (the shop at 7719..7720, 14708..14710). And a slope that falls from a ridge
+     * with something lower than the ridge on the square past it has no far side of its own there, where a cross wing's ridge
+     * comes between two wings and its far side lies over the near wing's slope. The made tile's plane, or the ridge's far side,
+     * is carried over the square as far as it comes down onto what is there.
+     */
+    private static void meet(List<Tile> tiles, List<Tile> madeList, HashMap<Long, ArrayList<Tile>> at, List<Tile> carried) {
+        Set<Tile> made = Collections.newSetFromMap(new IdentityHashMap<>());
+        made.addAll(madeList);
+        float[] plane = new float[4];
+        for (Tile slope : tiles) {
+            if (!slope.slopes() || slope.cutCorner >= 0) {
+                continue;
+            }
+            boolean isAlongX = slope.fitAxis == ALONG_X;
+            int up = slope.up(), dx = isAlongX ? 1 : 0, dy = isAlongX ? 0 : 1;
+            float rise = Math.abs(slope.fitHigh - slope.fitLow);
+            // Its far side, past its ridge.
+            int x = slope.x + up * dx, y = slope.y + up * dy;
+            float ridge = Math.max(slope.fitLow, slope.fitHigh);
+            cornersOf(slope.fitAxis, up < 0 ? ridge - rise : ridge, up < 0 ? ridge : ridge - rise, plane);
+            if (Math.abs(rise - PITCH) <= PITCH_SLACK && underAll(at.get(key(x, y, 0)), made, slope.fitAxis, plane)) {
+                carry(x, y, -up * dx, -up * dy, plane, slope.fitAxis, at, carried);
+            }
+            // The made tiles it falls to.
+            ArrayList<Tile> below = at.get(key(slope.x - up * dx, slope.y - up * dy, 0));
+            for (int i = 0; below != null && i < below.size(); i++) {
+                Tile tile = below.get(i);
+                int axis = made.contains(tile) ? planeTowards(tile, up * dx, up * dy, plane) : LEVEL;
+                if (axis != LEVEL) {
+                    carry(slope.x, slope.y, -up * dx, -up * dy, plane, axis, at, carried);
+                }
+            }
+        }
+    }
+
+    /**
+     * Whether every tile of the map on a square is a slope across a plane's axis lying under it all over the square. A slope of
+     * the map there that stands above it anywhere is the roof going on past a hip at the end of the ridge, which the plane
+     * would stand out of. One along its axis is the far side itself, which the map draws on some roofs: the plane laid
+     * over it within a hair of its height fought it for the depth. A level tile is a hip's corner the map paints flat, where
+     * the slope under the plane climbs on round the corner and is no ridge (11928, 6859).
+     */
+    private static boolean underAll(ArrayList<Tile> here, Set<Tile> made, int axis, float[] plane) {
+        float[] corners = new float[4];
+        for (int i = 0; here != null && i < here.size(); i++) {
+            Tile tile = here.get(i);
+            if (made.contains(tile)) {
+                continue;
+            }
+            if (tile.fitAxis == axis || !tile.slopes()) {
+                return false;
+            }
+            if (tile.shaped) {
+                System.arraycopy(tile.corners, 0, corners, 0, 4);
+            } else {
+                cornersOf(tile.fitAxis, tile.fitLow, tile.fitHigh, corners);
+            }
+            for (int corner = 0; corner < 4; corner++) {
+                if (corners[corner] > plane[corner] + SAME) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    /** The corners of a square's edges towards each side, west, east, north and south, paired across the square. */
+    private static final int[][] EDGE = {{0, 3}, {1, 2}, {0, 1}, {3, 2}};
+
+    private static int side(int dx, int dy) {
+        return dx < 0 ? 0 : dx > 0 ? 1 : dy < 0 ? 2 : 3;
+    }
+
+    /**
+     * Carries a plane over a square from the side given, if the square holds something and the plane stands over it along that
+     * edge, comes down onto it at the far edge and falls or runs level from the near edge to the far one.
+     */
+    private static void carry(int x, int y, int dx, int dy, float[] plane, int axis, HashMap<Long, ArrayList<Tile>> at, List<Tile> carried) {
+        ArrayList<Tile> here = at.get(key(x, y, 0));
+        if (here == null) {
+            return;
+        }
+        float[] surface = {Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY}, corners = new float[4];
+        for (Tile tile : here) {
+            if (tile.shaped) {
+                System.arraycopy(tile.corners, 0, corners, 0, 4);
+            } else {
+                cornersOf(tile.fitAxis, tile.fitLow, tile.fitHigh, corners);
+            }
+            for (int corner = 0; corner < 4; corner++) {
+                surface[corner] = Math.max(surface[corner], corners[corner]);
+            }
+        }
+        int[] near = EDGE[side(dx, dy)], far = EDGE[side(-dx, -dy)];
+        boolean over = false, onto = false;
+        for (int i = 0; i < 2; i++) {
+            if (surface[near[i]] > plane[near[i]] + SAME || plane[far[i]] > plane[near[i]] + SAME) {
+                return;
+            }
+            over |= surface[near[i]] < plane[near[i]] - SAME;
+            onto |= plane[far[i]] <= surface[far[i]] + SAME;
+        }
+        if (!over || !onto) {
+            return;
+        }
+        for (Tile was : carried) {
+            if (was.x == x && was.y == y && Math.abs(was.corners[0] - plane[0]) < SAME && Math.abs(was.corners[2] - plane[2]) < SAME
+                    && Math.abs(was.corners[1] - plane[1]) < SAME && Math.abs(was.corners[3] - plane[3]) < SAME) {
+                return;
+            }
+        }
+        float lowest = Math.min(Math.min(plane[0], plane[1]), Math.min(plane[2], plane[3]));
+        Tile tile = new Tile(x, y, (int) Math.floor(lowest + LEAST_RISE), axis, true, plane[0], axis == ALONG_X ? plane[1] : plane[3]);
+        tile.fitted = true;
+        tile.carried = true;
+        System.arraycopy(plane, 0, tile.corners, 0, 4);
+        carried.add(tile);
+    }
+
+    /**
+     * The plane of a tile along its edge towards the given side, as it goes on over the square on that side, and the axis it
+     * slopes along. LEVEL where the tile has no one plane along that edge that slopes square to the map.
+     */
+    private static int planeTowards(Tile tile, int dx, int dy, float[] plane) {
+        float[] corners = new float[4];
+        int[] edge = EDGE[side(dx, dy)];
+        int[] three;
+        if (tile.slopes()) {
+            cornersOf(tile.fitAxis, tile.fitLow, tile.fitHigh, corners);
+            three = new int[] {0, 1, 3};
+        } else if (tile.shaped) {
+            System.arraycopy(tile.corners, 0, corners, 0, 4);
+            // Every edge of a square lies in one of its two triangles.
+            int[] order = TRIANGLES[tile.crease];
+            int found = 0;
+            for (int k = 0; k < 3; k++) {
+                found += order[k] == edge[0] || order[k] == edge[1] ? 1 : 0;
+            }
+            int first = found == 2 ? 0 : 3;
+            three = new int[] {order[first], order[first + 1], order[first + 2]};
+        } else {
+            return LEVEL;
+        }
+        // z = a + b * u + c * v over the square, u east and v south, through the three corners.
+        float[] u = new float[3], v = new float[3], z = new float[3];
+        for (int k = 0; k < 3; k++) {
+            u[k] = cornerX(three[k]);
+            v[k] = cornerY(three[k]);
+            z[k] = corners[three[k]];
+        }
+        float det = (u[1] - u[0]) * (v[2] - v[0]) - (u[2] - u[0]) * (v[1] - v[0]);
+        float b = ((z[1] - z[0]) * (v[2] - v[0]) - (z[2] - z[0]) * (v[1] - v[0])) / det;
+        float c = ((u[1] - u[0]) * (z[2] - z[0]) - (u[2] - u[0]) * (z[1] - z[0])) / det;
+        float a = z[0] - b * u[0] - c * v[0];
+        if (Math.abs(b) > SAME && Math.abs(c) > SAME || Math.abs(b) <= SAME && Math.abs(c) <= SAME) {
+            return LEVEL;
+        }
+        for (int corner = 0; corner < 4; corner++) {
+            plane[corner] = a + b * (cornerX(corner) + dx) + c * (cornerY(corner) + dy);
+        }
+        return Math.abs(b) > SAME ? ALONG_X : ALONG_Y;
     }
 
     /**
