@@ -1461,6 +1461,8 @@ public final class FirstPerson {
             return;
         }
         dragWorld.look(IsoWorld.instance.currentCell, (int) Math.floor(player.getZ()));
+        // A tree is met at the bole the picture draws, so a line on it puts Cut down Tree on its square.
+        dragWorld.boles = true;
         float met = dragWorld.toSurface(line, view.worldScene.terrain::height, player.getZ() * ViewCamera.LEVEL_HEIGHT, DragAim.REACH);
         float along = DragAim.along(met, met <= DragAim.REACH && dragWorld.met == WorldQuery.WALL);
         float x = line.eyeX + line.forwardX * along, y = line.eyeY + line.forwardY * along;
