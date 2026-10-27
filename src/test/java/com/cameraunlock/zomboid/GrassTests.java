@@ -18,6 +18,8 @@ final class GrassTests {
         Checks.run("lawnBehindTheEyeIsNotGrown", GrassTests::lawnBehindTheEyeIsNotGrown);
         Checks.run("lawnKeepsInsideItsBounds", GrassTests::lawnKeepsInsideItsBounds);
         Checks.run("poorGroundGrowsLess", GrassTests::poorGroundGrowsLess);
+        Checks.run("spreadGrassIsAsThickAtItsLawnAsTheLawn", GrassTests::spreadGrassIsAsThickAtItsLawnAsTheLawn);
+        Checks.run("spreadGrassHardlyStandsWhereItHardlyCovers", GrassTests::spreadGrassHardlyStandsWhereItHardlyCovers);
     }
 
     private static void check(boolean condition, String what) {
@@ -206,5 +208,80 @@ final class GrassTests {
         int rich = lawn(10.5f, 20.5f, 1f, 0f, 0f, 1f, (a, b) -> 1f, new SpriteGeometry.Mesh());
         int poor = lawn(10.5f, 20.5f, 1f, 0f, 0f, 1f, (a, b) -> 0f, new SpriteGeometry.Mesh());
         check(poor > 0 && poor < rich / 2, "ground where grass barely grows has under half the lawn of good ground: " + poor + " against " + rich);
+    }
+
+    /** How much of a square grass spreading from the lawn along its west side covers, as a SpriteGeometry.GRID_COVER. */
+    private static float[] spreadFromTheWest() {
+        int[] around = new int[25];
+        for (int i = 0; i < 25; i++) {
+            around[i] = i % 5 < 2 ? FloorBuilder.SPREADING : FloorBuilder.OWN;
+        }
+        float[] grid = new float[SpriteGeometry.GRID_COVER];
+        FloorBuilder.coverFrom(around, new float[4], grid);
+        return grid;
+    }
+
+    /** The places Grass.lawn grows a plant on the square under the eye, a, b and how well it does there, three to a place. */
+    private static java.util.List<float[]> sites(Grass.Ground ground) {
+        java.util.List<float[]> sites = new java.util.ArrayList<>();
+        lawn(10.5f, 20.5f, 1f, 0f, 0f, 1f, new Grass.Ground() {
+            @Override
+            public float vigour(float a, float b) {
+                float vigour = ground.vigour(a, b);
+                sites.add(new float[] {a, b, vigour});
+                return vigour;
+            }
+
+            @Override
+            public boolean grows(float a, float b) {
+                return ground.grows(a, b);
+            }
+        }, new SpriteGeometry.Mesh());
+        return sites;
+    }
+
+    private static Grass.Ground spreadOver(float[] grid) {
+        return new Grass.Ground() {
+            @Override
+            public float vigour(float a, float b) {
+                return PlantBuilder.spreadThrives(grid, a, b);
+            }
+
+            @Override
+            public boolean grows(float a, float b) {
+                return PlantBuilder.spreadGrows(grid, a, b);
+            }
+        };
+    }
+
+    private static void spreadGrassIsAsThickAtItsLawnAsTheLawn() {
+        float[] grid = spreadFromTheWest();
+        int spread = 0, lawn = 0;
+        float least = 1f;
+        for (float[] site : sites(spreadOver(grid))) {
+            if (site[0] < 0.1f) {
+                spread++;
+                least = Math.min(least, site[2]);
+            }
+        }
+        for (float[] site : sites((a, b) -> 1f)) {
+            lawn += site[0] < 0.1f ? 1 : 0;
+        }
+        check(lawn > 0 && spread == lawn, "along the lawn it spreads from, spread grass grows every plant the lawn would: " + spread + " of " + lawn);
+        check(least > 0.9f, "and grows them as well as the lawn does, the least " + least);
+    }
+
+    private static void spreadGrassHardlyStandsWhereItHardlyCovers() {
+        float[] grid = spreadFromTheWest();
+        int spread = 0, lawn = 0;
+        for (float[] site : sites(spreadOver(grid))) {
+            float cover = SpriteGeometry.gridCover(grid, site[0], site[1]);
+            check(cover > 0.45f, "spread grass grows nothing where it covers under 0.45 of the ground, grew at " + site[0] + ", " + site[1] + " covering " + cover);
+            spread += cover < 0.6f ? 1 : 0;
+        }
+        for (float[] site : sites((a, b) -> 1f)) {
+            lawn += SpriteGeometry.gridCover(grid, site[0], site[1]) < 0.6f ? 1 : 0;
+        }
+        check(lawn > 0 && spread < 0.2f * lawn, "where the picture crumbles its edge it grows few of the lawn's plants: " + spread + " of " + lawn);
     }
 }

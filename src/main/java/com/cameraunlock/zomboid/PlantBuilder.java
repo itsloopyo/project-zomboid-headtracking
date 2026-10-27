@@ -42,8 +42,9 @@ final class PlantBuilder {
     private static final float LAWN_KEEPS_IN = 0.05f;
     /**
      * Grass spread over bare ground stands up where it covers more of it than the first of these, and
-     * grows as well as on its own square where it covers the second: the picture's crumbled edge of it
-     * lies round half.
+     * grows as thick and as well as on its own square where it covers the second. The picture
+     * crumbles its edge round half, with noise the plants cannot follow, so it starts thin enough
+     * that hardly a blade stands on the ground the crumbs bare.
      */
     private static final float SPREAD_GROWS = 0.45f, SPREAD_THRIVES = 0.9f;
     private static final int CROWN_LEAST_PLACES = 12;
@@ -132,19 +133,29 @@ final class PlantBuilder {
 
     /** How much of the square being grown the lawn grass spreading over it covers: see FloorBuilder.uppermostSpread. */
     private final float[] spreadCover = new float[SpriteGeometry.GRID_COVER];
-    /** The ground of a square that grass spreads over: it grows only where the grass covers it, and thinner towards its edge. */
+    /** The ground of a square that grass spreads over: it grows only where the grass covers it, and fewer and thinner towards its edge. */
     private final Grass.Ground spreadGround = new Grass.Ground() {
         @Override
         public float vigour(float a, float b) {
-            float t = Math.clamp((SpriteGeometry.gridCover(spreadCover, a, b) - SPREAD_GROWS) / (SPREAD_THRIVES - SPREAD_GROWS), 0f, 1f);
-            return build.vigour(a, b) * t * t * (3f - 2f * t);
+            return build.vigour(a, b) * spreadThrives(spreadCover, a, b);
         }
 
         @Override
         public boolean grows(float a, float b) {
-            return build.grows(a, b) && SpriteGeometry.gridCover(spreadCover, a, b) > SPREAD_GROWS;
+            return build.grows(a, b) && spreadGrows(spreadCover, a, b);
         }
     };
+
+    /** Whether grass spread over a square grows a plant at (a, b), a place Grass.lawn picked: the more of it the better it thrives there. */
+    static boolean spreadGrows(float[] cover, float a, float b) {
+        return (Flora.mix(Float.floatToRawIntBits(a), Float.floatToRawIntBits(b), 37) & 0xff) < spreadThrives(cover, a, b) * 256f;
+    }
+
+    /** How thick and how well grass spread over a square grows at (a, b), from how much of the square it covers (a SpriteGeometry.GRID_COVER): 0 to 1. */
+    static float spreadThrives(float[] cover, float a, float b) {
+        float t = Math.clamp((SpriteGeometry.gridCover(cover, a, b) - SPREAD_GROWS) / (SPREAD_THRIVES - SPREAD_GROWS), 0f, 1f);
+        return t * t * (3f - 2f * t);
+    }
 
     /** Says that what is being added is made by the band's own distance: the build is then another in every other band. */
     private void alikeOnly() {
@@ -209,20 +220,29 @@ final class PlantBuilder {
     /**
      * Lawn grass the picture spreads over the bare ground of the next square stands up there too,
      * as far as it covers the ground, thinning towards its edge, where a blade or two leans out
-     * over the bare ground. Laid flat, it read as paint on it.
+     * over the bare ground. Laid flat, it read as paint on it. Its open ground goes on into the
+     * squares round as the lawn's does, and it ends as a lawn ends: in from paving or a house,
+     * and short of a wall or a fence.
      */
     private void growSpread(int x, int y, int localX, int localY) {
         int at = build.floorBuilder.uppermostSpread(x, y, localX, localY, spreadCover);
         if (at < 0 || !isLawn(at)) {
             return;
         }
-        build.lawnWest = build.lawnEast = build.lawnNorth = build.lawnSouth = true;
+        int own = (localX + 1) * WorldScene.LIGHT_SPAN + localY + 1;
+        build.lawnWest = spillsTo(own - WorldScene.LIGHT_SPAN);
+        build.lawnEast = spillsTo(own + WorldScene.LIGHT_SPAN);
+        build.lawnNorth = spillsTo(own - 1);
+        build.lawnSouth = spillsTo(own + 1);
+        roomFor(x, y, 0);
+        float lowA = Math.max(build.lawnWest ? 0f : LAWN_KEEPS_IN, build.room[0] - x), highA = Math.min(build.lawnEast ? 1f : 1f - LAWN_KEEPS_IN, build.room[1] - x);
+        float lowB = Math.max(build.lawnNorth ? 0f : LAWN_KEEPS_IN, build.room[2] - y), highB = Math.min(build.lawnSouth ? 1f : 1f - LAWN_KEEPS_IN, build.room[3] - y);
         build.grownLocalX = localX;
         build.grownLocalY = localY;
         build.grownUnder = 0.85f;
         build.frameOf(build.groundObject[at], build.groundTexture[at]);
         Grass.lawn(build.geometry, WorldScene.laid.get(build.groundTexture[at].getID()), build.frame, x, y, build.camera.eyeX, build.camera.eyeY, 0f, 0f,
-                0f, 1f, 0f, 1f, spreadGround, build.grassDensity());
+                lowA, highA, lowB, highB, spreadGround, build.grassDensity());
     }
 
     /**
