@@ -1908,10 +1908,11 @@ final class Flora {
      * way than the other and each corner pushed in or out its own amount, halfWide across at
      * the ground and tall high. Its middle is near the ground, so it is broadest where it
      * meets it and what is under the ground is not seen. Each face is lit partly as the flat it
-     * is and partly as the round the whole is: all flat, a boulder is a cut gem. Returns the
-     * triangles added: eighty near the eye and twenty further off.
+     * is and partly as the round the whole is: all flat, a boulder is a cut gem. A pebble is a
+     * small one, pale grey as pale, of 1 (above 0): it is laid in that grey and not in rock and
+     * moss. Returns the triangles added: eighty near the eye and twenty further off.
      */
-    int addRock(Mesh mesh, float x, float y, float base, float halfWide, float tall, boolean near, int seed, SpriteGeometry.Frame frame) {
+    int addRock(Mesh mesh, float x, float y, float base, float halfWide, float tall, boolean near, int seed, float pale, SpriteGeometry.Frame frame) {
         double turn = unit(seed, 0) * 2.0 * Math.PI;
         float cos = (float) Math.cos(turn), sin = (float) Math.sin(turn);
         float midUp = base + tall * ROCK_MIDDLE;
@@ -1946,7 +1947,7 @@ final class Flora {
                 float rx = rock[at] - x, ry = rock[at + 1] - y, rz = rock[at + 2] - midUp;
                 float round = (float) Math.sqrt(rx * rx + ry * ry + rz * rz);
                 mesh.face(nx / flat + ROCK_ROUNDED * rx / round, ny / flat + ROCK_ROUNDED * ry / round, nz / flat + ROCK_ROUNDED * rz / round);
-                mesh.add(rock[at], rock[at + 1], rock[at + 2], 0f, 0f, frame.red, frame.green, frame.blue);
+                mesh.add(rock[at], rock[at + 1], rock[at + 2], pale > 0f ? 1f : 0f, pale, frame.red, frame.green, frame.blue);
             }
         }
         return faces.length / 3;

@@ -2998,6 +2998,12 @@ final class PipelineShaders {
                                 * smoothstep(-0.2, 0.3, facing.z);
                         vec3 green = vec3(0.26, 0.33, 0.12) * (0.6 + 0.8 * patches(vWorld.xy * 37.0));
                         texel = vec4(clamp(mix(stone * 0.5, green, moss * 0.85), 0.0, 1.0), 1.0);
+                        if (vUv.x > 0.5) {
+                            // A pebble (Flora.addRock): a garden stone as pale as the bed paints it,
+                            // the rock's grain in it faintly and no moss.
+                            float grain = dot(stone, vec3(0.3, 0.55, 0.15));
+                            texel = vec4(clamp(vec3(vUv.y) * vec3(1.02, 1.0, 0.96) * (0.75 + 0.25 * grain), 0.0, 1.0), 1.0);
+                        }
                     } else if (vMaterial < 60.5) {
                         // A fern's frond, cut out of its card.
                         vec4 frond = texture2D(uFrond, vUv);

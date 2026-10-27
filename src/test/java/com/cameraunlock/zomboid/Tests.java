@@ -1139,7 +1139,7 @@ public final class Tests {
     private static void boulderIsClosed() {
         for (int seed : new int[] {1, 99991, -5}) {
             SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
-            int triangles = new Flora().addRock(mesh, 3.5f, 4.5f, 0.2f, 0.4f, 0.6f, true, seed, wholeFrame());
+            int triangles = new Flora().addRock(mesh, 3.5f, 4.5f, 0.2f, 0.4f, 0.6f, true, seed, 0f, wholeFrame());
             check(triangles == 80 && mesh.triangles() == 80, "a boulder near the eye has eighty faces");
             for (int shared : edges(mesh).values()) {
                 check(shared == 2, "every edge of a boulder has a face on each side");
@@ -1154,7 +1154,7 @@ public final class Tests {
             check(above, "and stands most of that height");
         }
         SpriteGeometry.Mesh far = new SpriteGeometry.Mesh();
-        check(new Flora().addRock(far, 3.5f, 4.5f, 0.2f, 0.4f, 0.6f, false, 1, wholeFrame()) == 20, "a boulder far off has twenty faces");
+        check(new Flora().addRock(far, 3.5f, 4.5f, 0.2f, 0.4f, 0.6f, false, 1, 0f, wholeFrame()) == 20, "a boulder far off has twenty faces");
         for (int shared : edges(far).values()) {
             check(shared == 2, "and is closed too");
         }

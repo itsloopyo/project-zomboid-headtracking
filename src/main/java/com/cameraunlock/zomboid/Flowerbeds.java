@@ -13,14 +13,16 @@ import zombie.core.textures.Texture;
  * pink picture on the lawn. Within REACH of the eye each square grows rose bushes out of the
  * painting: a few stems, leaves held out round them and flower heads at their tops, each leaf
  * coloured from a leaf the sprite paints near its bush and each flower from a bloom. Where the
- * sprite paints stones nothing grows, and the stones stay painted on the ground with the soil.
+ * sprite paints stones nothing grows, and each stone it paints is laid there as a pebble, as
+ * broad as the stone and as pale.
  *
  * Roses go by the season (Seasons): a bush comes into leaf in spring and drops its leaves in
  * autumn as the trees do, each on a day of its own, and is bare canes through the winter. It
  * flowers from late spring until early autumn.
  *
- * Where its roses grow, a bed is laid as earth: its painting with the blooms painted out, the
- * leaves and stones left, so the flowers are on the bushes and not a pink carpet under them.
+ * Where its roses grow, a bed is laid as earth: its painting with the blooms and stones painted
+ * out and the leaves left, so the flowers are on the bushes and not a pink carpet under them, and
+ * the stones are the pebbles and not a picture under them.
  *
  * The colours come from the sprite's own dots, which are read on the thread that draws (see
  * SpriteColours): a bed is laid as painted until its sprite has been read, and grows once it has.
@@ -55,8 +57,15 @@ final class Flowerbeds {
     /** The sprites a bed has asked for: no other sprite is measured. */
     private static final Set<Texture> wanted = ConcurrentHashMap.newKeySet();
 
-    /** What each of a sprite's dots is, width across and height down. */
-    record Bed(int width, int height, byte[] dots) {}
+    /** What each of a sprite's dots is, width across and height down, and how light its stones are on average, of 1. */
+    record Bed(int width, int height, byte[] dots, float stone) {}
+
+    /** How many pebbles a square has room for along each side, and how many places along each side of one are looked at for stone. */
+    private static final int PEBBLE_ROOMS = 6, PEBBLE_PLACES = 5;
+    /** A pebble is from PEBBLE_LEAST to PEBBLE_LEAST + PEBBLE_MORE across its middle, in tiles, and stands this high for each of that. */
+    private static final float PEBBLE_LEAST = 0.15f, PEBBLE_MORE = 0.05f, PEBBLE_TALL = 0.45f;
+    /** Within this many tiles of the eye a pebble has its eighty faces, and past it twenty. */
+    private static final float PEBBLE_NEAR = 6f;
 
     /** What earth says of a bed whose picture no frame has been drawn since it was first asked for. */
     static final int PENDING = -1;
@@ -137,8 +146,8 @@ final class Flowerbeds {
 
     /**
      * The rectangle from (left, top) to before (right, bottom) of a sheet width dots wide, held as
-     * bytes of red, green, blue and cover, copied with each bloom painted out as earth: EARTH's
-     * colour at the bloom's own light against a bloom's usual, so the painting keeps its grain.
+     * bytes of red, green, blue and cover, copied with each bloom and stone painted out as earth:
+     * EARTH's colour at the dot's own light against a bloom's usual, so the painting keeps its grain.
      */
     static ByteBuffer earthen(ByteBuffer sheet, int width, int left, int top, int right, int bottom) {
         int across = Math.max(right - left, 0), down = Math.max(bottom - top, 0);
@@ -148,7 +157,7 @@ final class Flowerbeds {
                 int from = ((top + y) * width + left + x) * 4, to = (y * across + x) * 4;
                 int red = sheet.get(from) & 255, green = sheet.get(from + 1) & 255, blue = sheet.get(from + 2) & 255;
                 byte dot = dot(red, green, blue, sheet.get(from + 3) & 255);
-                if (dot == BLOOM || dot == SHADED_BLOOM) {
+                if (dot == BLOOM || dot == SHADED_BLOOM || dot == STONE) {
                     float light = Math.clamp((0.3f * red + 0.55f * green + 0.15f * blue) / 120f, 0.6f, 1.15f);
                     red = Math.min(Math.round(EARTH_RED * light), 255);
                     green = Math.min(Math.round(EARTH_GREEN * light), 255);
@@ -179,13 +188,21 @@ final class Flowerbeds {
     static Bed measure(ByteBuffer sheet, int width, int left, int top, int right, int bottom) {
         int across = Math.max(right - left, 0), down = Math.max(bottom - top, 0);
         byte[] dots = new byte[across * down];
+        float stoneLight = 0f;
+        int stones = 0;
         for (int y = 0; y < down; y++) {
             for (int x = 0; x < across; x++) {
                 int at = ((top + y) * width + left + x) * 4;
-                dots[y * across + x] = dot(sheet.get(at) & 255, sheet.get(at + 1) & 255, sheet.get(at + 2) & 255, sheet.get(at + 3) & 255);
+                int red = sheet.get(at) & 255, green = sheet.get(at + 1) & 255, blue = sheet.get(at + 2) & 255;
+                byte dot = dot(red, green, blue, sheet.get(at + 3) & 255);
+                dots[y * across + x] = dot;
+                if (dot == STONE) {
+                    stoneLight += (0.3f * red + 0.55f * green + 0.15f * blue) / 255f;
+                    stones++;
+                }
             }
         }
-        return new Bed(across, down, dots);
+        return new Bed(across, down, dots, stones == 0 ? 0f : stoneLight / stones);
     }
 
     /**
@@ -258,6 +275,46 @@ final class Flowerbeds {
             }
         }
         mesh.face(0f, 0f, 1f);
+    }
+
+    /**
+     * Lays the stones the bed of the square (x, y) paints as pebbles, as from away tiles off, each
+     * foot on the ground at floor plus the square's lift there. The painted stones touch, so they
+     * are not told apart: the square has room for PEBBLE_ROOMS pebbles along each side, and each
+     * room the sprite paints as stone over half of has one, in the middle of its stone and in the
+     * bed's grey. Returns the pebbles laid.
+     */
+    static int pebbles(Flora flora, SpriteGeometry geometry, SpriteGeometry.Mesh mesh, SpriteGeometry.Frame frame, Bed bed, int x, int y, float floor,
+            float away) {
+        boolean near = away < PEBBLE_NEAR;
+        int across = PEBBLE_ROOMS * PEBBLE_PLACES, laid = 0;
+        for (int roomB = 0; roomB < PEBBLE_ROOMS; roomB++) {
+            for (int roomA = 0; roomA < PEBBLE_ROOMS; roomA++) {
+                int stones = 0;
+                float sumA = 0f, sumB = 0f;
+                for (int j = roomB * PEBBLE_PLACES; j < (roomB + 1) * PEBBLE_PLACES; j++) {
+                    for (int i = roomA * PEBBLE_PLACES; i < (roomA + 1) * PEBBLE_PLACES; i++) {
+                        float a = (i + 0.5f) / across, b = (j + 0.5f) / across;
+                        int dotX = dotX(bed, frame, SpriteGeometry.frameU(frame, a, b)), dotY = dotY(bed, frame, SpriteGeometry.frameV(frame, a, b, 0f));
+                        if (bed.dots[dotY * bed.width + dotX] == STONE) {
+                            stones++;
+                            sumA += a;
+                            sumB += b;
+                        }
+                    }
+                }
+                if (stones * 2 <= PEBBLE_PLACES * PEBBLE_PLACES) {
+                    continue;
+                }
+                int seed = Flora.mix(x * PEBBLE_ROOMS + roomA, y * PEBBLE_ROOMS + roomB, 83);
+                float a = sumA / stones + 0.2f / across * (Flora.unit(seed, 4) - 0.5f), b = sumB / stones + 0.2f / across * (Flora.unit(seed, 12) - 0.5f);
+                float halfWide = 0.5f * (PEBBLE_LEAST + PEBBLE_MORE * Flora.unit(seed, 20));
+                float pale = Math.clamp(bed.stone * (0.9f + 0.2f * Flora.unit(seed, 24)), 0.05f, 1f);
+                flora.addRock(mesh, x + a, y + b, floor + geometry.liftAt(a, b), halfWide, 2f * halfWide * PEBBLE_TALL, near, seed, pale, frame);
+                laid++;
+            }
+        }
+        return laid;
     }
 
     /** The column of the bed's dot at frame pixel u. */

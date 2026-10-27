@@ -15,11 +15,12 @@ final class FlowerbedTests {
         Checks.run("bedsAreToldByName", FlowerbedTests::bedsAreToldByName);
         Checks.run("aBedsDotsAreToldByColour", FlowerbedTests::aBedsDotsAreToldByColour);
         Checks.run("aBedIsMeasuredFromItsRectangleOfTheSheet", FlowerbedTests::aBedIsMeasuredFromItsRectangleOfTheSheet);
-        Checks.run("underItsRosesABedIsEarthWithItsLeavesAndStones", FlowerbedTests::underItsRosesABedIsEarthWithItsLeavesAndStones);
+        Checks.run("underItsRosesABedIsEarthWithItsLeaves", FlowerbedTests::underItsRosesABedIsEarthWithItsLeaves);
         Checks.run("rosesGrowOnlyWhereTheBedIsPaintedWithPlants", FlowerbedTests::rosesGrowOnlyWhereTheBedIsPaintedWithPlants);
         Checks.run("leavesAndFlowersTakeTheirColoursFromLeavesAndBlooms", FlowerbedTests::leavesAndFlowersTakeTheirColoursFromLeavesAndBlooms);
         Checks.run("aBedOfStonesGrowsNothing", FlowerbedTests::aBedOfStonesGrowsNothing);
         Checks.run("rosesThinWithDistance", FlowerbedTests::rosesThinWithDistance);
+        Checks.run("aBedsStonesArePebbles", FlowerbedTests::aBedsStonesArePebbles);
         Checks.run("nothingOfARoseBedReachesIntoAWall", FlowerbedTests::nothingOfARoseBedReachesIntoAWall);
         Checks.run("rosesFlowerFromLateSpringToEarlyAutumn", FlowerbedTests::rosesFlowerFromLateSpringToEarlyAutumn);
         Checks.run("rosesAreBareCanesInWinter", FlowerbedTests::rosesAreBareCanesInWinter);
@@ -78,7 +79,7 @@ final class FlowerbedTests {
         check(bed.dots()[1] == Flowerbeds.BLOOM && bed.dots()[4 + 2] == Flowerbeds.LEAF && bed.dots()[0] == Flowerbeds.STONE, "each dot where it lies in the rectangle");
     }
 
-    private static void underItsRosesABedIsEarthWithItsLeavesAndStones() {
+    private static void underItsRosesABedIsEarthWithItsLeaves() {
         int width = 6;
         int[][] dots = {{214, 52, 120, 255}, {236, 120, 160, 255}, {104, 136, 206, 255}, {120, 40, 76, 255}, {60, 100, 50, 255}, {170, 170, 168, 255}, {214, 52, 120, 0}};
         ByteBuffer sheet = ByteBuffer.allocate((width + dots.length) * 4);
@@ -91,11 +92,11 @@ final class FlowerbedTests {
         for (int i = 0; i < dots.length; i++) {
             int red = earth.get(i * 4) & 255, green = earth.get(i * 4 + 1) & 255, blue = earth.get(i * 4 + 2) & 255;
             check((earth.get(i * 4 + 3) & 255) == dots[i][3], "dot " + i + " keeps its cover");
-            if (i < 4) {
-                check(red > green && green > blue && red < 130 && Flowerbeds.dot(red, green, blue, 255) != Flowerbeds.BLOOM,
-                        "a bloom is painted out as brown earth: " + red + "," + green + "," + blue);
+            if (i < 4 || i == 5) {
+                check(red > green && green > blue && red < 130 && Flowerbeds.dot(red, green, blue, 255) == Flowerbeds.NOTHING,
+                        "a bloom or a stone is painted out as brown earth: " + red + "," + green + "," + blue);
             } else {
-                check(red == dots[i][0] && green == dots[i][1] && blue == dots[i][2], "a leaf, a stone and an empty dot are left as painted: dot " + i);
+                check(red == dots[i][0] && green == dots[i][1] && blue == dots[i][2], "a leaf and an empty dot are left as painted: dot " + i);
             }
         }
         check((earth.get(0) & 255) < (earth.get(4) & 255), "the earth keeps the painting's light and shade: a darker bloom is darker earth");
@@ -139,7 +140,7 @@ final class FlowerbedTests {
                 dots[v * WIDE + u] = a < 0.5f ? Flowerbeds.STONE : (u + v) % 3 == 0 ? Flowerbeds.LEAF : Flowerbeds.BLOOM;
             }
         }
-        return new Flowerbeds.Bed(WIDE, HIGH, dots);
+        return new Flowerbeds.Bed(WIDE, HIGH, dots, 0.7f);
     }
 
     private static SpriteGeometry.Mesh grown(Flowerbeds.Bed bed, float away) {
@@ -266,13 +267,37 @@ final class FlowerbedTests {
                 dots[at] = Flowerbeds.STONE;
             }
         }
-        check(grown(new Flowerbeds.Bed(WIDE, HIGH, dots), 3f).floats == 0, "stones all over: nothing grows");
+        check(grown(new Flowerbeds.Bed(WIDE, HIGH, dots, 0.7f), 3f).floats == 0, "stones all over: nothing grows");
         for (int at = 0; at < dots.length; at++) {
             if (dots[at] != Flowerbeds.NOTHING) {
                 dots[at] = Flowerbeds.LEAF;
             }
         }
-        check(grown(new Flowerbeds.Bed(WIDE, HIGH, dots), 3f).floats == 0, "leaves and no bloom to colour a flower from: nothing grows");
+        check(grown(new Flowerbeds.Bed(WIDE, HIGH, dots, 0.7f), 3f).floats == 0, "leaves and no bloom to colour a flower from: nothing grows");
+    }
+
+    private static void aBedsStonesArePebbles() {
+        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+        int laid = Flowerbeds.pebbles(new Flora(), new SpriteGeometry(), mesh, frame(), halfStones(), 30, 40, 0f, 3f);
+        check(laid >= 12 && laid <= 18, "a half of a square painted with stones is a few rows of pebbles: " + laid);
+        float east = -Float.MAX_VALUE, lowest = Float.MAX_VALUE, highest = -Float.MAX_VALUE;
+        for (int at = 0; at < mesh.floats; at += F) {
+            east = Math.max(east, mesh.vertices[at]);
+            lowest = Math.min(lowest, mesh.vertices[at + 2]);
+            highest = Math.max(highest, mesh.vertices[at + 2]);
+            check(mesh.vertices[at + 3] == 1f && Math.abs(mesh.vertices[at + 4] - 0.7f) < 0.08f, "a pebble is in the bed's grey");
+        }
+        check(east < 30.62f, "the pebbles lie where the stones are painted, the west half: the furthest east is " + east);
+        check(lowest < 0f && highest > 0.04f && highest < 0.12f, "a pebble stands a little out of the ground: " + lowest + " to " + highest);
+        Flowerbeds.Bed roses = halfStones();
+        byte[] dots = roses.dots().clone();
+        for (int at = 0; at < dots.length; at++) {
+            if (dots[at] == Flowerbeds.STONE) {
+                dots[at] = Flowerbeds.LEAF;
+            }
+        }
+        check(Flowerbeds.pebbles(new Flora(), new SpriteGeometry(), new SpriteGeometry.Mesh(), frame(), new Flowerbeds.Bed(WIDE, HIGH, dots, 0f), 30, 40, 0f, 3f) == 0,
+                "a bed painted with no stones has no pebbles");
     }
 
     private static void rosesThinWithDistance() {

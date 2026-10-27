@@ -590,6 +590,7 @@ final class PlantBuilder {
         int season = Seasons.seasonOf(now);
         Flowerbeds.grow(build.geometry, WorldScene.laid.get(texture.getID()), build.frame, bed, x, y, build.bandAway, build.room, season,
                 Seasons.stepped(season, Seasons.progressionOf(now)));
+        Flowerbeds.pebbles(flora, build.geometry, WorldScene.solid.get(WorldScene.PLAIN), build.frame, bed, x, y, z * ViewCamera.LEVEL_HEIGHT, build.bandAway);
     }
 
     /**
@@ -928,7 +929,7 @@ final class PlantBuilder {
         }
         float a = Math.clamp(build.box[0], 0.2f, 0.8f), b = Math.clamp(build.box[1], 0.2f, 0.8f);
         flora.addRock(WorldScene.solid.get(WorldScene.PLAIN), x + a, y + b, z * ViewCamera.LEVEL_HEIGHT + build.geometry.liftAt(a, b), Math.clamp(build.box[2] * 1.15f, 0.15f, 0.6f),
-                Math.clamp(build.box[3] * ViewCamera.LEVEL_HEIGHT, 0.12f, 1.4f), build.within(WorldScene.ROCK_NEAR, false), Flora.mix(x, y, 80), build.frame);
+                Math.clamp(build.box[3] * ViewCamera.LEVEL_HEIGHT, 0.12f, 1.4f), build.within(WorldScene.ROCK_NEAR, false), Flora.mix(x, y, 80), 0f, build.frame);
         return true;
     }
 
