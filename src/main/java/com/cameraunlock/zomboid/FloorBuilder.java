@@ -845,8 +845,9 @@ final class FloorBuilder {
      */
     private void addCeiling(SpriteGeometry.Mesh mesh, int x, int y, int z) {
         IsoGridSquare below = build.cell.getGridSquare(x, y, z - 1);
-        // A room's ceiling is its own, and so is a tall hall's over a row left out of its upper room: CeilingBuilder.addRoomCeiling.
-        if (below != null && (below.getRoomID() != -1L || TallHalls.under(build.cell, x, y, z - 1) != null)) {
+        // A room's ceiling is its own, and so is a tall hall's over a row left out of its upper room, and a room's over
+        // the part of its stairwell the map left in no room: CeilingBuilder.addRoomCeiling.
+        if (below != null && (below.getRoomID() != -1L || TallHalls.floorOf(build.cell, x, y, z - 1) != null)) {
             return;
         }
         // Under water with nothing below it there is nothing to see the ceiling from, and

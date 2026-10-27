@@ -23,7 +23,9 @@ final class TallHallsTests {
         Checks.run("aSquareOfTheUpperRoomIsNot", TallHallsTests::aSquareOfTheUpperRoomIsNot);
         Checks.run("aFlooredSquareIsNot", TallHallsTests::aFlooredSquareIsNot);
         Checks.run("theSquaresBesideAStairwellAreNoHall", TallHallsTests::theSquaresBesideAStairwellAreNoHall);
-        Checks.run("theRoomMapPutsARowLeftOutInTheHall", TallHallsTests::theRoomMapPutsARowLeftOutInTheHall);
+        Checks.run("aStairwellIsTheRoomUpstairs", TallHallsTests::aStairwellIsTheRoomUpstairs);
+        Checks.run("stairsInATallHallAreTheHalls", TallHallsTests::stairsInATallHallAreTheHalls);
+        Checks.run("theRoomMapPutsARowLeftOutInTheHall",TallHallsTests::theRoomMapPutsARowLeftOutInTheHall);
         Checks.run("theRoomMapPutsTheUpperPartOfAHallInTheHall", TallHallsTests::theRoomMapPutsTheUpperPartOfAHallInTheHall);
         Checks.run("eachSquareIsDrawnAsTheRoomSightWalksItAs", TallHallsTests::eachSquareIsDrawnAsTheRoomSightWalksItAs);
         Checks.run("theUpperRoomIsLitAsTheHallsFloor", TallHallsTests::theUpperRoomIsLitAsTheHallsFloor);
@@ -155,6 +157,59 @@ final class TallHallsTests {
         check(roomUnder(cell, 2, 3, 1) == RoomSight.OUTSIDE, "and is no hall's: " + roomUnder(cell, 2, 3, 1));
         cell.getGridSquare(3, 2, 1).unfloor();
         check(TallHalls.besideHallOver(cell, 3, 3, 1), "beside a floorless square of the room with no stairs under it, it is the hall's still");
+    }
+
+    /**
+     * The house of theSquaresBesideAStairwellAreNoHall, with the top of its stairwell (1, 2) left
+     * in no room, as the map leaves it at a ranger station (4671,8600, level 1).
+     */
+    private static IsoCell stairwell() {
+        IsoCell cell = new IsoCell();
+        IsoBuilding building = new IsoBuilding(new BuildingDef(BUILDING, 0, 0, 5, 4));
+        IsoSprite stairs = new IsoSprite("fixtures_stairs_01_56", new PropertyContainer(Map.of()), IsoObjectType.stairsBN, null);
+        for (int x = 0; x < 5; x++) {
+            for (int y = 0; y < 4; y++) {
+                IsoGridSquare ground = cell.square(x, y, 0);
+                ground.floor(FLOOR);
+                ground.setRoomID(HALL);
+                ground.building(building);
+                if (x == 1 && y < 3) {
+                    ground.add(stairs);
+                }
+                IsoGridSquare upper = cell.square(x, y, 1);
+                if (y < 3 && !(x == 1 && y == 2)) {
+                    upper.setRoomID(UPPER);
+                    upper.building(building);
+                }
+                if (y < 3 && (x != 1 || y == 0)) {
+                    upper.floor(FLOOR);
+                }
+            }
+        }
+        return cell;
+    }
+
+    private static void aStairwellIsTheRoomUpstairs() {
+        IsoCell cell = stairwell();
+        check(TallHalls.roomOf(cell, 1, 1, 1) == UPPER, "the stairwell in the room upstairs is that room's, not the hall's under it: " + TallHalls.roomOf(cell, 1, 1, 1));
+        IsoGridSquare floor = TallHalls.floorOf(cell, 1, 2, 1);
+        check(floor != null && floor.getRoomID() == UPPER && floor.getZ() == 1,
+                "the top of the stairwell the map left in no room is drawn and lit as the room beside it upstairs: " + floor);
+        RoomMap map = new RoomMap();
+        map.begin(cell, null);
+        for (int x = -1; x <= 5; x++) {
+            for (int y = -1; y <= 4; y++) {
+                check(TallHalls.roomOf(cell, x, y, 1) == map.region(x, y, 1),
+                        "square " + x + "," + y + ",1 is drawn as " + TallHalls.roomOf(cell, x, y, 1) + " and walked as " + map.region(x, y, 1));
+            }
+        }
+    }
+
+    private static void stairsInATallHallAreTheHalls() {
+        IsoCell cell = hall();
+        cell.getGridSquare(1, 4, 0).add(new IsoSprite("fixtures_stairs_01_56", new PropertyContainer(Map.of()), IsoObjectType.stairsBN, null));
+        IsoGridSquare floor = TallHalls.floorOf(cell, 1, 4, 1);
+        check(floor == cell.getGridSquare(1, 4, 0), "the upper part of a tall hall over stairs in it is the hall's still: " + floor);
     }
 
     private static void theRoomMapPutsARowLeftOutInTheHall() {
