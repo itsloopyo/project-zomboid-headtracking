@@ -30,6 +30,7 @@ final class TrimTests {
         Checks.run("aBandsHeightsAreRoundedSoTwoEdgesMeet", TrimTests::aBandsHeightsAreRoundedSoTwoEdgesMeet);
         Checks.run("aSkirtingStopsWhereADoorwayIs", TrimTests::aSkirtingStopsWhereADoorwayIs);
         Checks.run("aBandsColourIsItsPaintNotItsOutline", TrimTests::aBandsColourIsItsPaintNotItsOutline);
+        Checks.run("aLengthWhosePaintedColumnsAreAllOffIsColouredFromThem", TrimTests::aLengthWhosePaintedColumnsAreAllOffIsColouredFromThem);
         Checks.run("aSkirtingStandsOnTheRoomsSideOfItsWallWithNoUndersideOnTheFloor", TrimTests::aSkirtingStandsOnTheRoomsSideOfItsWallWithNoUndersideOnTheFloor);
         Checks.run("everyFaceOfAMouldingIsCutWithItsWallInTheOverheadView", TrimTests::everyFaceOfAMouldingIsCutWithItsWallInTheOverheadView);
         Checks.run("everyFaceOfAMouldingLooksAwayFromItsWall", TrimTests::everyFaceOfAMouldingLooksAwayFromItsWall);
@@ -96,6 +97,17 @@ final class TrimTests {
             paint(dots, row, row, 0, LONG - 1, greys[i]);
         }
         return dots;
+    }
+
+    /** A length at the panel's end whose painted columns are all off, with an unpainted column between them, is coloured from them. */
+    private static void aLengthWhosePaintedColumnsAreAllOffIsColouredFromThem() {
+        byte[] dots = new byte[LONG * HIGH * 4];
+        paint(dots, HIGH - 56, HIGH - 1, 8, LONG - 1, 220);
+        paint(dots, HIGH - 56, HIGH - 1, 0, 0, 160);
+        paint(dots, HIGH - 56, HIGH - 1, 2, 2, 160);
+        Trims.Band[] bands = Trims.bands(dots, LONG, HIGH, 1f);
+        check(bands.length == 2, "the end length and the rest of the panel: " + Arrays.toString(bands));
+        check(Math.abs(bands[0].red() * 255f - 160f) < 2f, "the end length is the colour of its own paint: " + bands[0]);
     }
 
     /** The bands of a dado panel read top down: its cornice, its rail and the board under the rail, each along the lengths of the wall given as from, to pairs of columns. */

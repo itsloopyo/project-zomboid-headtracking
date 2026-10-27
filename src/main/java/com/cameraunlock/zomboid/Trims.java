@@ -284,7 +284,7 @@ final class Trims {
             to = to > 1f - SNAP ? 1f : to;
             boolean allOff = true;
             for (int at = start; at <= end; at++) {
-                allOff &= off[at];
+                allOff &= off[at] || !columnInBand(dots, long_, at, first, last);
             }
             float[] colour = colour(dots, long_, first, last, start, end, allOff ? new boolean[long_] : off);
             found.add(new Band(foot, top, from, to, Math.min(colour[0] * lighter, 1f), Math.min(colour[1] * lighter, 1f), Math.min(colour[2] * lighter, 1f)));
