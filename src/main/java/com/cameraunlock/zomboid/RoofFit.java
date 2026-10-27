@@ -2237,6 +2237,14 @@ final class RoofFit {
         tile.carried = true;
         System.arraycopy(plane, 0, tile.corners, 0, 4);
         carried.add(tile);
+        // On over the next square, as far as it stands over what is there: a valley between two wings side by side dips under
+        // the far side of a cross wing's ridge, which comes down into the valley a square further (7719, 14709).
+        float[] next = new float[4];
+        float rise = -dx * (plane[1] - plane[0]) - dy * (plane[3] - plane[0]);
+        for (int corner = 0; corner < 4; corner++) {
+            next[corner] = plane[corner] + rise;
+        }
+        carry(x - dx, y - dy, dx, dy, next, axis, at, carried);
     }
 
     /**

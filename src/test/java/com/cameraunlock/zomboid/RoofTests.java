@@ -2699,6 +2699,20 @@ final class RoofTests {
                 check(near(top[corner], square[2 + corner] * THIRD), "the roof over " + (int) square[0] + ", " + (int) square[1] + " corner " + corner + " is at " + top[corner]);
             }
         }
+        // The valley between the wings dips to 1 + 1/6 along x 3.5 and the cross ridge's far side comes down into it, so
+        // the roof at the middle of 3, 1's south edge is as high as the far side there.
+        float middle = Float.NEGATIVE_INFINITY;
+        for (RoofFit.Tile tile : all) {
+            if (tile.x == 3 && tile.y == 1 && !tile.fitting && !tile.shaped) {
+                if (!tile.carried) {
+                    RoofFit.cornersOf(tile.fitAxis, tile.fitLow, tile.fitHigh, corners);
+                } else {
+                    System.arraycopy(tile.corners, 0, corners, 0, 4);
+                }
+                middle = Math.max(middle, corners[0] + (corners[1] - corners[0]) * 0.5f + (corners[3] - corners[0]));
+            }
+        }
+        check(near(middle, 1f + THIRD), "the roof at the middle of 3, 1's south edge is at " + middle);
         // Nothing is carried onto a square twice.
         for (int i = 0; i < all.size(); i++) {
             for (int j = i + 1; j < all.size(); j++) {
