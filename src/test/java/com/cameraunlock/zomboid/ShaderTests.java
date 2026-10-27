@@ -76,6 +76,7 @@ final class ShaderTests {
         Checks.run("whatTheAirHidesOfASurfaceItHidesOfItsShade", () -> whatTheAirHidesOfASurfaceItHidesOfItsShade(programs));
         Checks.run("figuresAndTerrainShareSunsetHaze", ShaderTests::figuresAndTerrainShareSunsetHaze);
         Checks.run("aThinSpriteSampleTakesItsColourFromTheSamplesItsCutReads", ShaderTests::aThinSpriteSampleTakesItsColourFromTheSamplesItsCutReads);
+        Checks.run("aCrownOpensOverTheEyeASprigAtATime", ShaderTests::aCrownOpensOverTheEyeASprigAtATime);
         Checks.run("spreadGroundThatDoesNotShowHidesNothing", () -> spreadGroundThatDoesNotShowHidesNothing(programs));
         Checks.run("grimeIsSeenOnlyFromItsSide", () -> grimeIsSeenOnlyFromItsSide(programs));
         Checks.run("everyProgramPassesTheReferenceCompiler", () -> everyProgramPassesTheReferenceCompiler(programs));
@@ -148,6 +149,19 @@ final class ShaderTests {
                 "distant terrain must use the shared directional haze");
         Checks.check(PipelineShaders.FIGURE_LIGHT_MAIN.contains("distanceHaze(normalize(ray), range)"),
                 "characters must receive the same sunset haze as terrain");
+    }
+
+    /**
+     * Under a tree its crown's lower face opens: a downturned sprig is left out or kept whole,
+     * by what is the same over all of it, and only for the tree the eye stands under. Keyed on
+     * the way to each pixel it was cut along a line, and a tree on a rise ten tiles off thinned.
+     */
+    private static void aCrownOpensOverTheEyeASprigAtATime() {
+        String main = PipelineShaders.WORLD_FRAGMENT_MAIN;
+        Checks.check(main.contains("if (each < CROWN_UNDER_THINS * smoothstep(CROWN_UNDER_OUT, CROWN_UNDER_IN, length(uEye.xy - vRoot)) * smoothstep(0.2, -0.3, normalize(vNormal).z)) {"),
+                "a sprig under a crown is not left out whole, or not only under the tree the eye stands under");
+        Checks.check(main.contains("float under = smoothstep(CROWN_UNDER_OUT, CROWN_UNDER_IN, length(uEye.xy - vRoot))"), "a crown's inside opens for a tree the eye is not under");
+        Checks.check(main.contains("if (max(sprig.a, farSide ? 0.0 : behind.a * (1.0 - under)) < 0.5 * under) {"), "a crown's far side is cut at more than half its leaves' alpha");
     }
 
     /**
