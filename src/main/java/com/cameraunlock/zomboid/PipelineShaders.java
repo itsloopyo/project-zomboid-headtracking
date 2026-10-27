@@ -5711,7 +5711,16 @@ final class PipelineShaders {
                 if (dot(n, p) > 0.0) {
                     n = -n;
                 }
-                float turn = 6.2831853 * fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+                // Each pixel of a block of four by four turns its samples a different sixteenth
+                // of the way round, which SOFTEN's four by four mean takes in exactly once each.
+                // Turned by a noise that does not repeat every four pixels, the mean was left
+                // with a weave of light and dark across the shade that stayed on the screen
+                // while the world turned under it.
+                vec2 cell = mod(floor(gl_FragCoord.xy), 4.0);
+                vec2 pair = floor(cell * 0.5);
+                vec2 low = cell - 2.0 * pair;
+                float order = 4.0 * mod(2.0 * low.y + 3.0 * low.x, 4.0) + mod(2.0 * pair.y + 3.0 * pair.x, 4.0);
+                float turn = 6.2831853 * (order + 0.5) / 16.0;
                 // Every length below is one of the world's: half a pace, the width of a room.
                 // What is held a hand's breadth from the eye, a weapon, a hand, a scope, is
                 // smaller than any of them, and searched over those lengths it is shaded by
