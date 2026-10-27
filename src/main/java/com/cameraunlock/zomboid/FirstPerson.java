@@ -76,6 +76,10 @@ public final class FirstPerson {
 
     /** How long the name of a graphics mode, picture style or aim mode just gone to stays on the screen. */
     private static final long SAID_FOR_NANOS = 2_500_000_000L;
+    /** How long a save that loads in the game's own view says which key turns first person on. */
+    private static final long HINT_FOR_NANOS = 10_000_000_000L;
+    private String hint;
+    private long hintAt;
     private long saidAt;
     private String said;
     /** The step of VideoMemory's the screen has said. */
@@ -636,7 +640,9 @@ public final class FirstPerson {
             if (player != null) {
                 view.hearing.listen(player, view.worldScene, System.nanoTime());
             }
-            shown = gettingReady ? "First person: getting ready" : said != null && System.nanoTime() - saidAt < SAID_FOR_NANOS ? said : null;
+            long now = System.nanoTime();
+            shown = gettingReady ? "First person: getting ready" : said != null && now - saidAt < SAID_FOR_NANOS ? said
+                    : hint != null && now - hintAt < HINT_FOR_NANOS ? hint : null;
         } catch (RuntimeException | LinkageError thrown) {
             // Thrown on into the game's frame it comes again every frame, and the game's own
             // picture and panels pay for it. The view goes off for the session instead, the
@@ -674,6 +680,7 @@ public final class FirstPerson {
     private void frame(int pressed) {
         if ((pressed & Config.FIRST_PERSON) != 0) {
             viewAtLoadOwed = false;
+            hint = null;
             boolean asked = on || gettingReady;
             toggle();
             if ((on || gettingReady) != asked) {
@@ -718,6 +725,10 @@ public final class FirstPerson {
             if (!on && !gettingReady && Tracking.firstPersonRemembered(view.index)) {
                 Log.info(who() + "first person was on when the view was last switched: asked for again");
                 toggle();
+            } else if (!on && !gettingReady) {
+                hint = View.onController(player) ? "Double-tap Back for first person" : "Press " + Tracking.firstPersonKeys() + " for first person";
+                hintAt = System.nanoTime();
+                Log.info(who() + "the save loads in the isometric view, and the screen says: " + hint);
             }
         }
         boolean overheadAsked = !Quality.overheadPlain(view.index) && allowed;

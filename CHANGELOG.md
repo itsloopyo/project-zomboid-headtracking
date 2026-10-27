@@ -6,7 +6,7 @@
 
 #### First person and head tracking
 
-- First person view. `Delete` switches between the isometric view and first person, with the camera flying between them. A save loads in the view you last switched to (`FirstPerson`), each local player in their own.
+- First person view. `Delete` switches between the isometric view and first person, with the camera flying between them. A save loads in the view you last switched to (`FirstPerson`), each local player in their own, and one that loads in the isometric view says which key turns first person on.
 - Head tracking from any OpenTrack compatible tracker on UDP port `4242`: turning your head turns the view and leaning moves it. The mouse or controller keeps the aim.
 - `Page Up` cycles rotation and position, rotation only, and position only.
 - `Page Down` switches head turns between the horizon and the view's own up. In a vehicle the view always turns about its own up.

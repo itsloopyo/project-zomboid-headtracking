@@ -763,6 +763,11 @@ final class Tracking {
         firstPersonAtLoad = on ? firstPersonAtLoad | 1 << player : firstPersonAtLoad & ~(1 << player);
     }
 
+    /** The keys that switch first person, as CameraUnlock.ini names them. */
+    static String firstPersonKeys() {
+        return config.firstPersonKeys();
+    }
+
     /** The view a player switched to, kept for the next load. */
     static void rememberFirstPerson(int player, boolean on) {
         firstPersonAtLoad(player, on);

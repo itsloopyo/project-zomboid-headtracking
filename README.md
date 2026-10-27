@@ -24,7 +24,7 @@ Offline the mod also changes some of the game's rules: shots go through thin wal
 
 ## First person
 
-Press `Delete` to switch between the isometric and first person views, on foot or in a vehicle. A save loads in the view you last switched to.
+Press `Delete` to switch between the isometric and first person views, on foot or in a vehicle. A save loads in the view you last switched to, and one that loads in the isometric view says on screen which key turns first person on.
 
 ### World and graphics
 

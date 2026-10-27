@@ -78,6 +78,7 @@ final class Config {
     /** By player, the rows of their first person graphics mode, their isometric view's and their picture style. */
     private final int[] quality = new int[View.COUNT], overheadQuality = new int[View.COUNT], style = new int[View.COUNT];
     private final int[] firstPerson = new int[View.COUNT];
+    private final int firstPersonKey;
     /** The rows of each player's microphone, in the order of MICROPHONE_ROWS. */
     private final int[] microphones = new int[MICROPHONE_ROWS.length];
     /** The rows of the ports of players 2, 3 and 4. */
@@ -259,7 +260,7 @@ final class Config {
                     writable | live, high.corpseModels()),
         };
 
-        core.configLocalHotkeyTaps("FirstPersonKey",
+        firstPersonKey = core.configLocalHotkeyTaps("FirstPersonKey",
                 "Switches between first person and the game's own view. Tap once for player 1, twice for player 2, three times for\n"
                         + "player 3, four times for player 4, hold for every player.",
                 0, "Delete", FIRST_PERSON_TAPS, FIRST_PERSON_ALL);
@@ -612,6 +613,11 @@ final class Config {
 
     boolean saveStyle(int player, Style row) {
         return saved("player " + (player + 1) + "'s picture style", core.configSaveInt(style[player], row.ordinal()));
+    }
+
+    /** The keys that switch first person, as the file names them. */
+    String firstPersonKeys() {
+        return core.configGetText(firstPersonKey);
     }
 
     boolean saveFirstPerson(int player, boolean on) {
