@@ -49,10 +49,19 @@ final class Crosshair {
     /** Null when it is not shown. */
     private volatile Mark shown;
 
-    /** The sides of a drag cursor's square, as pieces from x, y to x, y in -1 to 1, and whether what is dragged can be put there. */
-    private record Square(float[] pieces, boolean fits) {
+    /**
+     * The sides of a drag cursor's square, as pieces from x, y to x, y in -1 to 1, and whether
+     * what is dragged can be put there.
+     */
+    static final class Square {
+        final float[] pieces = new float[4 * 4 * FirstPerson.SQUARE_PIECES];
+        int floats;
+        boolean fits;
     }
 
+    /** Three, so the logic thread fills one while the render thread may still be drawing either of the last two it was handed. */
+    private final Square[] squares = {new Square(), new Square(), new Square()};
+    private int filling;
     /** Null when no drag cursor is up. */
     private volatile Square square;
 
@@ -83,8 +92,14 @@ final class Crosshair {
         shown = null;
     }
 
-    void showSquare(float[] pieces, boolean fits) {
-        square = new Square(pieces, fits);
+    /** The square to fill next, and then hand to showSquare. Logic thread. */
+    Square squareToFill() {
+        return squares[filling];
+    }
+
+    void showSquare(Square filled) {
+        square = filled;
+        filling = (filling + 1) % squares.length;
     }
 
     void hideSquare() {
@@ -115,18 +130,18 @@ final class Crosshair {
         int color = flat.at("uColor");
         float unit = (float) height / DESIGN_HEIGHT;
         GL20.glUniform4f(color, 0f, 0f, 0f, 0.5f);
-        pieces(outlined.pieces, (SQUARE_LINE / 2f + SQUARE_EDGE) * unit, width, height);
+        pieces(outlined.pieces, outlined.floats, (SQUARE_LINE / 2f + SQUARE_EDGE) * unit, width, height);
         if (outlined.fits) {
             GL20.glUniform4f(color, 0.35f, 0.95f, 0.4f, 0.9f);
         } else {
             GL20.glUniform4f(color, 1f, 0.3f, 0.25f, 0.9f);
         }
-        pieces(outlined.pieces, SQUARE_LINE / 2f * unit, width, height);
+        pieces(outlined.pieces, outlined.floats, SQUARE_LINE / 2f * unit, width, height);
     }
 
     /** Each piece as a band this many pixels each side of its line. */
-    private static void pieces(float[] pieces, float half, int width, int height) {
-        for (int i = 0; i + 3 < pieces.length; i += 4) {
+    private static void pieces(float[] pieces, int floats, float half, int width, int height) {
+        for (int i = 0; i + 3 < floats; i += 4) {
             float fromX = (pieces[i] * 0.5f + 0.5f) * width, fromY = (pieces[i + 1] * 0.5f + 0.5f) * height;
             float toX = (pieces[i + 2] * 0.5f + 0.5f) * width, toY = (pieces[i + 3] * 0.5f + 0.5f) * height;
             float length = (float) Math.hypot(toX - fromX, toY - fromY);

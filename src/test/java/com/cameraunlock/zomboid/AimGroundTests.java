@@ -15,6 +15,9 @@ final class AimGroundTests {
         Checks.run("aDragCursorIsPutOnTheSquareInFrontOfAWall", AimGroundTests::aDragCursorIsPutOnTheSquareInFrontOfAWall);
         Checks.run("aDragCursorIsPutWhereTheLineMeetsTheFloor", AimGroundTests::aDragCursorIsPutWhereTheLineMeetsTheFloor);
         Checks.run("aDragCursorOnALineThatMeetsNothingIsPutAtItsReach", AimGroundTests::aDragCursorOnALineThatMeetsNothingIsPutAtItsReach);
+        Checks.run("aDragCursorIsTheGamesOwnOutOfFirstPerson", AimGroundTests::aDragCursorIsTheGamesOwnOutOfFirstPerson);
+        Checks.run("aDragCursorInFirstPersonIsPutWhereItIsAimed", AimGroundTests::aDragCursorInFirstPersonIsPutWhereItIsAimed);
+        Checks.run("aDragCursorWithNoLineIsPutNowhere", AimGroundTests::aDragCursorWithNoLineIsPutNowhere);
     }
 
     private static ViewCamera.Pose aim(float up, float toX, float toUp) {
@@ -89,16 +92,51 @@ final class AimGroundTests {
 
     /** A level line along x meets a wall on the west edge of square 5, 4.5 tiles from an eye at 0.5. */
     private static void aDragCursorIsPutOnTheSquareInFrontOfAWall() {
-        float along = DragAim.along(4.5f, true);
-        Checks.check((int) Math.floor(0.5f + along) == 4, "a drag on a line that meets a wall at the west edge of square 5 is on square 4: " + along);
+        // Far out on the map a float is good to about a thousandth of a tile, and a shallow line
+        // that meets a wall on the west edge of square 10005 can come out either side of it.
+        for (float at : new float[] {10004.9995f, 10005f, 10005.001f}) {
+            float x = DragAim.offWall(at, 0.2f);
+            Checks.check((int) Math.floor(x) == 10004, "a drag on a line going east that meets the wall at " + at + " is on square 10004: " + x);
+            x = DragAim.offWall(at, -0.2f);
+            Checks.check((int) Math.floor(x) == 10005, "and one going west that meets it is on square 10005: " + x);
+        }
     }
 
     private static void aDragCursorIsPutWhereTheLineMeetsTheFloor() {
-        Checks.check(DragAim.along(3.2f, false) == 3.2f, "a drag on a line that meets the floor 3.2 tiles off is put there: " + DragAim.along(3.2f, false));
+        Checks.check(DragAim.along(3.2f) == 3.2f, "a drag on a line that meets the floor 3.2 tiles off is put there: " + DragAim.along(3.2f));
     }
 
     private static void aDragCursorOnALineThatMeetsNothingIsPutAtItsReach() {
-        Checks.check(DragAim.along(Float.POSITIVE_INFINITY, false) == DragAim.REACH, "a drag on a line that meets nothing is put at its reach");
-        Checks.check(DragAim.along(DragAim.REACH + 5f, true) == DragAim.REACH, "and so is one that meets a wall past its reach");
+        Checks.check(DragAim.along(Float.POSITIVE_INFINITY) == DragAim.REACH, "a drag on a line that meets nothing is put at its reach");
+        Checks.check(DragAim.along(DragAim.REACH + 5f) == DragAim.REACH, "and so is one that meets a wall past its reach");
+    }
+
+    private static void aDragCursorIsTheGamesOwnOutOfFirstPerson() {
+        DragAim.Aimed aimed = new DragAim.Aimed();
+        Checks.check(aimed.put(false) == DragAim.Put.STOCK && !aimed.onTheFloor(false), "with no drag aimed and first person off the game's own place is kept");
+        aimed.aim(3.25f, 4.75f);
+        Checks.check(aimed.put(false) == DragAim.Put.STOCK && !aimed.onTheFloor(false), "and with first person off it is kept though a place was aimed at");
+        aimed.forget();
+        Checks.check(!aimed.onTheFloor(true), "with no drag up the game's own place on the floor is kept in first person");
+    }
+
+    private static void aDragCursorInFirstPersonIsPutWhereItIsAimed() {
+        DragAim.Aimed aimed = new DragAim.Aimed();
+        aimed.aim(3.25f, 4.75f);
+        Checks.check(aimed.put(true) == DragAim.Put.AIMED, "a drag aimed in first person is on the square aimed at: " + aimed.put(true));
+        Checks.check(aimed.onTheFloor(true) && aimed.x() == 3.25f && aimed.y() == 4.75f, "and its place on the floor is where it was aimed");
+    }
+
+    private static void aDragCursorWithNoLineIsPutNowhere() {
+        DragAim.Aimed aimed = new DragAim.Aimed();
+        Checks.check(aimed.put(true) == DragAim.Put.NOWHERE, "a drag in first person not yet aimed is on no square, not the one under the hidden mouse");
+        aimed.aim(3.25f, 4.75f);
+        aimed.lose();
+        Checks.check(aimed.put(true) == DragAim.Put.NOWHERE, "a drag whose line is lost is on no square");
+        Checks.check(aimed.onTheFloor(true) && aimed.x() == 3.25f && aimed.y() == 4.75f, "and its place on the floor stays where it was last aimed");
+        aimed.aim(5.5f, 6.5f);
+        Checks.check(aimed.put(true) == DragAim.Put.AIMED, "aimed again it is on a square again");
+        aimed.forget();
+        Checks.check(aimed.put(false) == DragAim.Put.STOCK, "and once first person is given back the game's own is kept");
     }
 }

@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import se.krka.kahlua.vm.KahluaTable;
 import zombie.GameTime;
 import zombie.characters.CharacterInputKeyBinding;
 import zombie.characters.CharacterJoypadButtonBinding;
@@ -18,7 +19,6 @@ import zombie.core.physics.RagdollBodyPart;
 import zombie.core.physics.WorldSimulation;
 import zombie.inventory.types.HandWeapon;
 import zombie.iso.IsoUtils;
-import zombie.iso.IsoWorld;
 import zombie.iso.Vector2;
 import zombie.iso.Vector3;
 import zombie.scripting.objects.PhysicsHitReactionScript;
@@ -88,10 +88,11 @@ public final class Controls {
             stock = sightsOnTheShove(player);
         }
         stockAim = stock;
-        boolean dragging = captured && !pad && DragAim.of(player.getPlayerNum()) != null;
+        KahluaTable drag = captured && !pad ? DragAim.of(player.getPlayerNum()) : null;
+        boolean dragging = drag != null;
         if (dragging && stock && !cancelHeld) {
             // In the game's own view a right click opens the world menu, which puts the drag away.
-            IsoWorld.instance.currentCell.setDrag(null, player.getPlayerNum());
+            DragAim.putAway(drag, player.getPlayerNum());
             cancelHeld = true;
             if (FirstPerson.TRACE) {
                 Log.info("controls: the aim button put the drag cursor away");

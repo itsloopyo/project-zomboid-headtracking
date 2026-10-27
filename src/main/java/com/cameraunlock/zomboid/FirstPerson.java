@@ -512,6 +512,8 @@ public final class FirstPerson {
             view.headTracking.rest();
             view.viewModel.rest();
             view.crosshair.hide();
+            view.crosshair.hideSquare();
+            view.dragAim.aimed.forget();
             reticleOnScreen = false;
             view.nameTags.lookAway();
             view.hearing.rest();
@@ -1438,12 +1440,17 @@ public final class FirstPerson {
     /** Where a drag cursor's line meets the world: kept apart from the aim's, whose line of fire the game's hit list reads. */
     private final WorldQuery dragWorld = new WorldQuery();
     /** How many pieces each side of a drag cursor's square is drawn in, so a side partly behind the eye is drawn where it is in front. */
-    private static final int SQUARE_PIECES = 8;
+    static final int SQUARE_PIECES = 8;
     /** How far over its floor a drag cursor's square is drawn, in tiles, so the floor does not cover it. */
     private static final float SQUARE_OVER_FLOOR = 0.02f;
     private final float[] squareFrom = new float[2], squareTo = new float[2];
     private int dragSaidX = Integer.MIN_VALUE, dragSaidY;
-    private final float[] squareSides = new float[4 * 4 * SQUARE_PIECES];
+    private boolean dragButtonDown;
+    private final WorldQuery.Ground dragGround = this::groundHeight;
+
+    private float groundHeight(float x, float y) {
+        return view.worldScene.terrain.height(x, y);
+    }
 
     /**
      * Puts the drag cursor the game has up where the line through the reticle meets the world,
@@ -1453,22 +1460,42 @@ public final class FirstPerson {
      */
     private void aimDrag(IsoPlayer player, WorldScene.Frame scene) {
         KahluaTable drag = View.onController(player) ? null : DragAim.of(view.index);
-        ViewCamera.Pose line = drag == null ? null : pointer.on() ? lineThrough(Mouse.getXA(), Mouse.getYA()) : reticleOnScreen ? reticleLine : null;
+        if (drag == null) {
+            view.dragAim.aimed.forget();
+            view.crosshair.hideSquare();
+            dragSaidX = Integer.MIN_VALUE;
+            dragButtonDown = false;
+            return;
+        }
+        IsoGridSquare square = DragAim.squareOf(drag);
+        boolean fits = DragAim.fitsOf(drag);
+        // The game puts down what is dragged as the build button is let go, where canBeBuild says it fits.
+        boolean buttonDown = player.getCharacterInputComponent().isBuildButtonDown();
+        if (dragButtonDown && !buttonDown) {
+            Log.info(String.format(Locale.ROOT, "drag %s let go on square %s, fits %b", drag.rawget("Type"),
+                    square == null ? "none" : "(" + square.getX() + ", " + square.getY() + ", " + square.getZ() + ")", fits));
+        }
+        dragButtonDown = buttonDown;
+        ViewCamera.Pose line = pointer.on() ? lineThrough(Mouse.getXA(), Mouse.getYA()) : reticleOnScreen ? reticleLine : null;
         if (line == null) {
-            view.dragAim.lose();
+            view.dragAim.aimed.lose();
             view.crosshair.hideSquare();
             dragSaidX = Integer.MIN_VALUE;
             return;
         }
         dragWorld.look(IsoWorld.instance.currentCell, (int) Math.floor(player.getZ()));
-        // A tree is met at the bole the picture draws, so a line on it puts Cut down Tree on its square.
-        dragWorld.boles = true;
-        float met = dragWorld.toSurface(line, view.worldScene.terrain::height, player.getZ() * ViewCamera.LEVEL_HEIGHT, DragAim.REACH);
-        float along = DragAim.along(met, met <= DragAim.REACH && dragWorld.met == WorldQuery.WALL);
+        dragWorld.boles = DragAim.onBoles(drag);
+        float met = dragWorld.toSurface(line, dragGround, player.getZ() * ViewCamera.LEVEL_HEIGHT, DragAim.REACH);
+        float along = DragAim.along(met);
         float x = line.eyeX + line.forwardX * along, y = line.eyeY + line.forwardY * along;
+        if (met <= DragAim.REACH && dragWorld.met == WorldQuery.WALL && !dragWorld.metBole) {
+            if (dragWorld.metFacesX) {
+                x = DragAim.offWall(x, line.forwardX);
+            } else {
+                y = DragAim.offWall(y, line.forwardY);
+            }
+        }
         view.dragAim.aim(x, y);
-        IsoGridSquare square = DragAim.squareOf(drag);
-        boolean fits = DragAim.fitsOf(drag);
         if (TRACE && square != null && (square.getX() != dragSaidX || square.getY() != dragSaidY)) {
             dragSaidX = square.getX();
             dragSaidY = square.getY();
@@ -1480,6 +1507,8 @@ public final class FirstPerson {
             view.crosshair.hideSquare();
             return;
         }
+        Crosshair.Square outline = view.crosshair.squareToFill();
+        float[] sides = outline.pieces;
         int pieces = 0;
         float tanHalf = scene.tanHalfFieldOfView();
         for (int side = 0; side < 4; side++) {
@@ -1490,15 +1519,17 @@ public final class FirstPerson {
                 float a = (float) piece / SQUARE_PIECES, b = (float) (piece + 1) / SQUARE_PIECES;
                 if (onSquareFloor(fromX + (toX - fromX) * a, fromY + (toY - fromY) * a, square.getZ(), tanHalf, aspect, squareFrom)
                         && onSquareFloor(fromX + (toX - fromX) * b, fromY + (toY - fromY) * b, square.getZ(), tanHalf, aspect, squareTo)) {
-                    squareSides[pieces * 4] = squareFrom[0];
-                    squareSides[pieces * 4 + 1] = squareFrom[1];
-                    squareSides[pieces * 4 + 2] = squareTo[0];
-                    squareSides[pieces * 4 + 3] = squareTo[1];
+                    sides[pieces * 4] = squareFrom[0];
+                    sides[pieces * 4 + 1] = squareFrom[1];
+                    sides[pieces * 4 + 2] = squareTo[0];
+                    sides[pieces * 4 + 3] = squareTo[1];
                     pieces++;
                 }
             }
         }
-        view.crosshair.showSquare(java.util.Arrays.copyOf(squareSides, pieces * 4), fits);
+        outline.floats = pieces * 4;
+        outline.fits = fits;
+        view.crosshair.showSquare(outline);
     }
 
     /** Where a place on a floor falls in the picture as this frame draws it, into ndc, or false where it is not in front of the eye. */

@@ -211,6 +211,8 @@ final class WorldQuery {
     int met;
     /** Of a wall met: whether its face is across x, a wall on a square's west edge, and not across y. */
     boolean metFacesX;
+    /** Of a wall met: whether it is a tree's bole (boles), and not a wall on a square's edge. */
+    boolean metBole;
     /** The floor level the wall or the floor met is on. */
     int metLevel;
 
@@ -269,7 +271,8 @@ final class WorldQuery {
                 }
                 float wall = from + trace.firstBlockedEdge(solidToAShot, startX, startY, aim.forwardX, aim.forwardY, Math.min(toFloor, reach) - from);
                 boolean facesX = trace.hitFacesX;
-                if (boleMet < wall) {
+                boolean bole = boleMet < wall;
+                if (bole) {
                     wall = boleMet;
                     facesX = Math.abs(aim.eyeX + aim.forwardX * wall - (Math.floor(aim.eyeX + aim.forwardX * wall) + 0.5))
                             >= Math.abs(aim.eyeY + aim.forwardY * wall - (Math.floor(aim.eyeY + aim.forwardY * wall) + 0.5));
@@ -277,6 +280,7 @@ final class WorldQuery {
                 if (wall <= toFloor) {
                     met = WALL;
                     metFacesX = facesX;
+                    metBole = bole;
                     metLevel = level;
                     return wall;
                 }

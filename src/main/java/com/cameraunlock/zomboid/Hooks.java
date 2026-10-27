@@ -345,19 +345,19 @@ public final class Hooks {
     /** Called with the tile the game's own view has under the mouse, where the game puts a player's drag cursor: see DragAim. */
     public static Vector2 dragTile(Vector2 stock, int playerIndex) {
         View view = View.of(playerIndex);
-        return view == null ? stock : view.dragAim.tile(stock);
+        return view == null ? stock : view.dragAim.tile(stock, view.dragsInFirstPerson());
     }
 
     /** Called with the place across the map that the game's own view has at a point on a player's screen. */
     public static float screenToIsoX(float stock, int playerIndex) {
         View view = View.of(playerIndex);
-        return view == null ? stock : view.dragAim.isoX(stock);
+        return view == null ? stock : view.dragAim.isoX(stock, view.dragsInFirstPerson());
     }
 
     /** The same, down the map. */
     public static float screenToIsoY(float stock, int playerIndex) {
         View view = View.of(playerIndex);
-        return view == null ? stock : view.dragAim.isoY(stock);
+        return view == null ? stock : view.dragAim.isoY(stock, view.dragsInFirstPerson());
     }
 
     /**

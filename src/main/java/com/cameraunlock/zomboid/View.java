@@ -50,7 +50,7 @@ final class View {
     final CentreUse centreUse = new CentreUse(this);
     final Regrip regrip = new Regrip();
     final WorldMenu worldMenu = new WorldMenu(this);
-    final DragAim dragAim = new DragAim(this);
+    final DragAim dragAim = new DragAim();
     final NameTags nameTags = new NameTags(this);
     final ModelHead modelHead = new ModelHead(this);
     final FarModels farModels = new FarModels(this);
@@ -112,6 +112,12 @@ final class View {
     /** The player this view is for, or null while there is none at its number. */
     IsoPlayer player() {
         return IsoPlayer.players[index];
+    }
+
+    /** Whether the game's drag cursors are put by the picture: first person on for a mouse player (DragAim). */
+    boolean dragsInFirstPerson() {
+        IsoPlayer player = player();
+        return firstPerson.isOn() && player != null && !onController(player);
     }
 
     /**
