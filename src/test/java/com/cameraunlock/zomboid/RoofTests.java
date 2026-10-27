@@ -91,6 +91,7 @@ final class RoofTests {
         Checks.run("anEavesEndCapIsACornerPiece", RoofTests::anEavesEndCapIsACornerPiece);
         Checks.run("roofSheetLaidAsAFloorAtTheFootOfAFarSlopeIsNoTerrace", RoofTests::roofSheetLaidAsAFloorAtTheFootOfAFarSlopeIsNoTerrace);
         Checks.run("lowerWingPastAGableIsNoNotchInTheMainEave", RoofTests::lowerWingPastAGableIsNoNotchInTheMainEave);
+        Checks.run("dormerOnAMadeFaceMeetsItInValleys", RoofTests::dormerOnAMadeFaceMeetsItInValleys);
     }
 
     private static void hippedCornerAtTheEaveCarriesTheEaveRowOn() {
@@ -1636,6 +1637,64 @@ final class RoofTests {
                 roof.add(crown);
             }
         }
+    }
+
+    /**
+     * A gable whose ridge runs north and south between x 5 and 6, as at 12716..12725 x 3669..3681: the map draws the east face
+     * over x 6..8 and the mod makes the west face over x 3..5. A dormer stands out of the west face, its ridge trim over x 3..4
+     * on row 5 and its south face at 3, 6, under a roof falling south to 1 over row 3 west of the gable. The dormer's north
+     * face is made over row 4. Each made face, and the main face carried on past them, meets the other in a valley: the
+     * dormer's north face was carried east under the main face to its ridge, a pit was cut at 3, 4, and the main face stopped
+     * at the dormer's ridge at 4, 5, and each left a square open to the face's underside, black against the sky.
+     */
+    private static void dormerOnAMadeFaceMeetsItInValleys() {
+        List<RoofFit.Tile> roof = new ArrayList<>();
+        for (int y = 0; y <= 9; y++) {
+            for (int i = 0; i < 3; i++) {
+                roof.add(new RoofFit.Tile(6 + i, y, 1, RoofFit.ALONG_X, true, 2f - i * THIRD, 2f - (i + 1) * THIRD));
+            }
+        }
+        for (int x = 3; x <= 4; x++) {
+            RoofFit.Tile ridge = new RoofFit.Tile(x, 5, 1, RoofFit.LEVEL, true, 1f + THIRD, 1f + THIRD);
+            ridge.fitting = true;
+            ridge.half = RoofFit.SOUTH_HALF;
+            ridge.halfEdge = 1f + THIRD;
+            roof.add(ridge);
+        }
+        roof.add(new RoofFit.Tile(3, 6, 1, RoofFit.ALONG_Y, true, 1f + THIRD, 1f));
+        for (int x = 0; x <= 3; x++) {
+            roof.add(new RoofFit.Tile(x, 3, 1, RoofFit.ALONG_Y, true, 1f + THIRD, 1f));
+        }
+        for (int y = 1; y <= 2; y++) {
+            for (int x = 1; x <= 4; x++) {
+                roof.add(new RoofFit.Tile(x, y, 1, RoofFit.LEVEL, true, 1f + THIRD, 1f + THIRD));
+            }
+        }
+        RoofFit.fit(roof);
+        List<RoofFit.Tile> made = RoofFit.backs(roof, standing((x, y) -> x >= 3 && x <= 8 && y >= 0 && y <= 9 || x >= 0 && x <= 2 && y >= 0 && y <= 3));
+        RoofFit.peaks(roof, made);
+        made.addAll(RoofFit.valleys(roof, made));
+        for (int x = 4; x <= 5; x++) {
+            boolean main = false, dormer = false;
+            for (RoofFit.Tile tile : made) {
+                main |= tile.x == x && tile.y == 4 && tile.fitAxis == RoofFit.ALONG_X && near(tile.fitLow, 1f + (x - 3) * THIRD);
+                dormer |= tile.x == x && tile.y == 4 && tile.fitAxis == RoofFit.ALONG_Y;
+            }
+            check(main && !dormer, "the main face goes on over the dormer's north face at " + x + ", 4");
+        }
+        RoofFit.Tile valley = null;
+        boolean overRidge = false;
+        for (RoofFit.Tile tile : made) {
+            valley = tile.x == 3 && tile.y == 4 ? tile : valley;
+            overRidge |= tile.x == 4 && tile.y == 5 && tile.carried && tile.fitAxis == RoofFit.ALONG_X && near(tile.fitLow, 1f + THIRD) && near(tile.fitHigh, 1f + 2 * THIRD);
+        }
+        float[] folded = {1f, 1f + THIRD, 1f + THIRD, 1f + THIRD};
+        boolean asFolded = valley != null && valley.shaped;
+        for (int corner = 0; asFolded && corner < 4; corner++) {
+            asFolded &= near(valley.corners[corner], folded[corner]);
+        }
+        check(asFolded, "the dormer's north face meets the main face in a valley at 3, 4: " + said(valley));
+        check(overRidge, "the main face is carried over the dormer's ridge at 4, 5");
     }
 
     private static RoofFit.Site standing(java.util.function.BiPredicate<Integer, Integer> stands) {
