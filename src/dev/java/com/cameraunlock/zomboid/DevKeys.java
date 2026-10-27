@@ -77,6 +77,8 @@ import zombie.vehicles.VehiclePart;
  * weakest of the game's three on the first press, the next on each press after, and round
  * again. For looking through each scope without finding one and a screwdriver.
  *
+ * Numpad + and Numpad - go to the next and the last of the test scenes: see DevScenes.
+ *
  * The slash puts a flashlight in the player's left hand, charged and lit: for
  * the beam that follows the head, and for night, without finding one and a battery. A weapon
  * in the right hand stays there.
@@ -93,7 +95,7 @@ public final class DevKeys {
 
     /** 0 on the number row. */
     private static final int CLEAR_KEY = 11;
-    private static boolean cleared;
+    static boolean cleared;
     /** Zombies put back when the clearing is switched off: how many places are tried, the nearest in tiles, and how much further each next ring is. */
     private static final int BACK_TRIED = 18;
     private static final float BACK_NEAREST = 9f, BACK_STEP = 4f;
@@ -227,7 +229,8 @@ public final class DevKeys {
     private static final String RIFLE = "Base.HuntingRifle";
     private static int scope = -1;
 
-    private static boolean invincible, wasInvincible;
+    static boolean invincible;
+    private static boolean wasInvincible;
     private static Field cannotDie;
     private static Method cheatsOf;
     private static Field godModes;
@@ -251,7 +254,7 @@ public final class DevKeys {
         String told = null;
         if (!said) {
             said = true;
-            Log.info("development build: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 puts the clock on three hours, Backspace holds the next season of spring, summer, autumn and winter, End holds the next weather of clear, rainy, snowy and stormy, Home starts a fire where the reticle is, ; gives the next of the game's firearms, any gun held never runs dry, [ gives a hunting rifle with the next of the three scopes on it, / gives a lit flashlight, ' makes you invincible, F7 takes the nearest vehicle, Pause dumps the frame and the shadow maps");
+            Log.info("development build: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 puts the clock on three hours, Backspace holds the next season of spring, summer, autumn and winter, End holds the next weather of clear, rainy, snowy and stormy, Home starts a fire where the reticle is, ; gives the next of the game's firearms, any gun held never runs dry, [ gives a hunting rifle with the next of the three scopes on it, / gives a lit flashlight, ' makes you invincible, F7 takes the nearest vehicle, Numpad + and Numpad - go to the next and the last test scene, Pause dumps the frame and the shadow maps");
         }
         if (GameKeyboard.isKeyPressed(FRAME_DUMP_KEY)) {
             FrameDump.ask();
@@ -398,6 +401,12 @@ public final class DevKeys {
                 takeNearestVehicle(each);
             }
         }
+        if (!players.isEmpty()) {
+            String scene = DevScenes.poll(players.get(0));
+            if (scene != null) {
+                told = scene;
+            }
+        }
         return told;
     }
 
@@ -516,7 +525,7 @@ public final class DevKeys {
     }
 
     /** Holds the sky clear, with nothing falling and little wind, or gives the weather back to the game. */
-    private static void clearSky(boolean clear) {
+    static void clearSky(boolean clear) {
         ClimateManager climate = ClimateManager.getInstance();
         if (!clear) {
             climate.resetAdmin();
