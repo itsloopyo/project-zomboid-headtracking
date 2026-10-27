@@ -44,7 +44,6 @@ import zombie.iso.IsoObjectPicker;
 import zombie.iso.IsoWorld;
 import zombie.iso.Vector2;
 import zombie.iso.Vector3;
-import zombie.iso.weather.ClimateManager;
 import zombie.iso.weather.ThunderStorm;
 import zombie.ui.TextDrawObject;
 import zombie.ui.TextManager;
@@ -273,9 +272,7 @@ public final class Hooks {
                 if (view == null) {
                     return stock;
                 }
-                ClimateManager climate = ClimateManager.getInstance();
-                return ScreenGrey.under(stock, climate.getSeason().getCurDayPercent(), climate.getDayLightStrength(), Quality.plain(i),
-                        view.flight.shown(), view.pipeline.styledShown());
+                return ScreenGrey.under(stock, Quality.plain(i), view.flight.shown(), view.pipeline.styledShown());
             }
         }
         throw new IllegalStateException("render settings of no player");
