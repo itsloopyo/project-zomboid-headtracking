@@ -755,8 +755,11 @@ final class RoofFit {
             // The far side stands on the top of the storey it covers, never in it. A near side that runs on down in one plane over a
             // lower part of the building has its eave a storey under the far side's rooms: a house's south slope comes down over its
             // porch on level 1 (871..874, 12521..12526), and its far side fell from the ridge to the floor of level 2 there, a sunken
-            // flat beside the rows to the east, which stand on the north wall (869..878, 12515..12520).
-            while (floor + 1 < ridge - SAME && site.storey(x, y, floor)) {
+            // flat beside the rows to the east, which stand on the north wall (869..878, 12515..12520). A storey that ends under the
+            // plane before the far wall, its top no higher than the plane over its wall, is cleared, and the far side comes on down
+            // over the lower part beyond it: the stone house's north outshut at 1657..1678, 9052..9054, which stood under a level
+            // slab at the upper storey's height instead.
+            while (floor + 1 < ridge - SAME && site.storey(x, y, floor) && !clears(site, x, y, dx, dy, floor, ridge, rise)) {
                 floor++;
                 eave = floor;
                 climbed = Math.round((ridge - eave) / rise);
@@ -1409,6 +1412,26 @@ final class RoofFit {
             }
         }
         return false;
+    }
+
+    /**
+     * Whether a plane falling from the ridge over x, y and on away from it is at the top of every storey under the ridge, from
+     * level floor up, or over it, where the storey's furthest room on that run ends. An upper storey reaching further out than
+     * the one under it is cut into otherwise.
+     */
+    private static boolean clears(Site site, int x, int y, int dx, int dy, int floor, float ridge, float rise) {
+        for (int level = floor; level + 1 < ridge - SAME; level++) {
+            int far = 0;
+            for (int out = 0; out < WIDEST_TOP && site.stands(x + out * dx, y + out * dy, level); out++) {
+                if (site.storey(x + out * dx, y + out * dy, level)) {
+                    far = out + 1;
+                }
+            }
+            if (ridge - far * rise < level + 1 - SAME) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /** The tile of the same slope at the tile's low edge, or null: one that meets it, and no porch roof under its eave. */

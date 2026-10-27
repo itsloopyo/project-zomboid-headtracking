@@ -68,6 +68,7 @@ final class RoofTests {
         Checks.run("roomWithNoFloorUnderTheRoofIsNoStorey", RoofTests::roomWithNoFloorUnderTheRoofIsNoStorey);
         Checks.run("roomTheSlopePassesWhollyOverIsNoStoreyItStopsAt", RoofTests::roomTheSlopePassesWhollyOverIsNoStoreyItStopsAt);
         Checks.run("farSideStandsOnTheStoreyItCoversThoughItsNearSideRunsOnDownOverAPorch", RoofTests::farSideStandsOnTheStoreyItCoversThoughItsNearSideRunsOnDownOverAPorch);
+        Checks.run("farSideComesOnDownOverAnOutshutPastTheStoreyItClears", RoofTests::farSideComesOnDownOverAnOutshutPastTheStoreyItClears);
         Checks.run("eaveOverALeanToThatStopsShortOfItIsMade", RoofTests::eaveOverALeanToThatStopsShortOfItIsMade);
         Checks.run("trimPastAGableIsNoRoofGoingOn", RoofTests::trimPastAGableIsNoRoofGoingOn);
         Checks.run("trimPastAHipsCornerLeavesTheCornersEave", RoofTests::trimPastAHipsCornerLeavesTheCornersEave);
@@ -681,6 +682,85 @@ final class RoofTests {
             }
             RoofFit.Tile top = over.get(RoofFit.key(x, 3, 0));
             check(top != null && near(top.fitLow, 3f) && near(top.fitHigh, 3f), "and lies level at the ridge's height beside it, at " + x + ", 3: " + said(top));
+        }
+    }
+
+    /**
+     * The stone house at 1657..1678 x 9052..9062: its south slope climbs from 2 to a ridge at 3 + 2/3 on the north edge of row 5
+     * here, over an upper storey on level 2 that ends at a wall on the north edge of row 3, past which a single storey outshut
+     * goes on to y 0. The far side clears the upper storey, a level over it where its wall stands, and comes on down over the
+     * outshut to its wall at 2. Stood on the upper storey, it lay level at 3 over the outshut. An upper storey a square deeper
+     * is under the plane there, and the far side stands on it as before; so it does where a storey over one it clears reaches
+     * further out.
+     */
+    private static void farSideComesOnDownOverAnOutshutPastTheStoreyItClears() {
+        HashMap<Long, RoofFit.Tile> over = farSideOverStoreys(5, (y, z) -> z == 1 || z == 2 && y >= 3);
+        for (int x = 0; x <= 3; x++) {
+            for (int y = 0; y <= 4; y++) {
+                RoofFit.Tile tile = over.get(RoofFit.key(x, y, 0));
+                check(tile != null && !tile.shaped && tile.fitAxis == RoofFit.ALONG_Y && near(tile.fitLow, 2f + y * THIRD) && near(tile.fitHigh, 2f + (y + 1) * THIRD),
+                        "the far side climbs from the outshut's wall at 2 over the upper storey's wall to the ridge, at " + x + ", " + y + ": " + said(tile));
+            }
+        }
+        over = farSideOverStoreys(5, (y, z) -> z == 1 || z == 2 && y >= 2);
+        farSideStandsOnTheStorey(over, 3f, 5, "a storey a square deeper, under the plane at its wall");
+        over = farSideOverStoreys(8, (y, z) -> z == 1 || z == 2 && y >= 3 || z == 3);
+        farSideStandsOnTheStorey(over, 4f, 8, "a storey reaching further out over one cleared");
+    }
+
+    /**
+     * A house of x 0..3 and y 0..(rows + 4) whose south slope climbs rows deep from 2 to its ridge on the north edge of row 5, with
+     * storeys where rooms holds of a row and level, and the far sides made over y 0..4.
+     */
+    private static HashMap<Long, RoofFit.Tile> farSideOverStoreys(int rows, java.util.function.BiPredicate<Integer, Integer> rooms) {
+        int south = rows + 4;
+        List<RoofFit.Tile> roof = new ArrayList<>();
+        for (int x = 0; x <= 3; x++) {
+            for (int y = 5; y <= south; y++) {
+                float north = 2f + rows * THIRD - (y - 5) * THIRD;
+                roof.add(new RoofFit.Tile(x, y, (int) Math.floor(north - THIRD + 0.05f), RoofFit.ALONG_Y, true, north, north - THIRD));
+            }
+        }
+        roof.sort(Comparator.comparingLong(tile -> RoofFit.key(tile.x, tile.y, tile.z)));
+        RoofFit.fit(roof);
+        RoofFit.Site house = new RoofFit.Site() {
+            @Override
+            public boolean stands(int x, int y, int z) {
+                return x >= 0 && x <= 3 && y >= 0 && y <= south;
+            }
+
+            @Override
+            public boolean floored(int x, int y, int z) {
+                return false;
+            }
+
+            @Override
+            public boolean storey(int x, int y, int z) {
+                return stands(x, y, z) && rooms.test(y, z);
+            }
+
+            @Override
+            public boolean taken(int x, int y, int z, float over) {
+                return storey(x, y, z) && over < z + 1 - 0.01f;
+            }
+        };
+        HashMap<Long, RoofFit.Tile> over = new HashMap<>();
+        for (RoofFit.Tile tile : RoofFit.backs(roof, house)) {
+            over.put(RoofFit.key(tile.x, tile.y, 0), tile);
+        }
+        return over;
+    }
+
+    /** That the far side over y 0..4 climbs from the north wall at top, the top of the storey it stands on, to the ridge and lies level there. */
+    private static void farSideStandsOnTheStorey(HashMap<Long, RoofFit.Tile> over, float top, int rows, String what) {
+        float ridge = 2f + rows * THIRD;
+        for (int x = 0; x <= 3; x++) {
+            for (int y = 0; y <= 4; y++) {
+                RoofFit.Tile tile = over.get(RoofFit.key(x, y, 0));
+                float low = Math.min(top + y * THIRD, ridge), high = Math.min(top + (y + 1) * THIRD, ridge);
+                check(tile != null && !tile.shaped && near(tile.fitLow, low) && near(tile.fitHigh, high),
+                        "with " + what + " the far side stands on its top at " + top + ", at " + x + ", " + y + ": " + said(tile));
+            }
         }
     }
 
