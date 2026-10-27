@@ -94,6 +94,7 @@ final class RoofTests {
         Checks.run("dormerOnAMadeFaceMeetsItInValleys", RoofTests::dormerOnAMadeFaceMeetsItInValleys);
         Checks.run("dormerAtTheEaveMeetsAMadeFaceInAValley", RoofTests::dormerAtTheEaveMeetsAMadeFaceInAValley);
         Checks.run("oneRowWingIsNotCarriedOverItsRidgeSquare", RoofTests::oneRowWingIsNotCarriedOverItsRidgeSquare);
+        Checks.run("gabledCanopyHasItsFarSideOverOpenGround", RoofTests::gabledCanopyHasItsFarSideOverOpenGround);
         Checks.run("endRowMeetsAWingAtItsFootInAValley", RoofTests::endRowMeetsAWingAtItsFootInAValley);
     }
 
@@ -1790,6 +1791,37 @@ final class RoofTests {
         List<RoofFit.Tile> made = RoofFit.backs(roof, standing((x, y) -> x >= 4 && x <= 6 && y >= 0 && y <= 6));
         for (RoofFit.Tile tile : made) {
             check(!(tile.x == 5 && tile.y == 6 && tile.carried), "no made west face is carried over the main roof's face at 5, 6: " + said(tile));
+        }
+    }
+
+    /**
+     * As the pancake house at 13601..13606, 5767..5768 has its porch: a gable canopy on posts out front of the building, its east
+     * face on x 3..5 falling from 2 to its eave, over open ground, with the map's gable past its south end. Its west face is made over
+     * open ground as deep as the east one. Without the gable it is a lean-to canopy and has no far side.
+     */
+    private static void gabledCanopyHasItsFarSideOverOpenGround() {
+        for (boolean gabled : new boolean[] {true, false}) {
+            List<RoofFit.Tile> roof = new ArrayList<>();
+            for (int y = 5; y <= 6; y++) {
+                for (int i = 0; i < 3; i++) {
+                    RoofFit.Tile tile = new RoofFit.Tile(3 + i, y, 1, RoofFit.ALONG_X, true, 2f - i * THIRD, 2f - (i + 1) * THIRD);
+                    tile.gabled = gabled && y == 6;
+                    roof.add(tile);
+                }
+            }
+            RoofFit.fit(roof);
+            List<RoofFit.Tile> made = RoofFit.backs(roof, standing((x, y) -> false));
+            for (int y = 5; y <= 6; y++) {
+                for (int x = 0; x <= 2; x++) {
+                    RoofFit.Tile tile = madeAt(made, x, y);
+                    if (gabled) {
+                        check(tile != null && tile.fitAxis == RoofFit.ALONG_X && near(tile.fitLow, 1f + x * THIRD) && near(tile.fitHigh, 1f + (x + 1) * THIRD),
+                                "the gabled canopy's west face is made at " + x + ", " + y + ": " + said(tile));
+                    } else {
+                        check(tile == null, "a canopy with no gable has no far side at " + x + ", " + y + ": " + said(tile));
+                    }
+                }
+            }
         }
     }
 
