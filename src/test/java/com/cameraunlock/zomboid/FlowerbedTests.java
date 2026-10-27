@@ -148,8 +148,17 @@ final class FlowerbedTests {
     private static void rosesAreBareCanesInWinter() {
         Flowerbeds.Bed bed = halfStones();
         SpriteGeometry.Mesh winter = grown(bed, 3f, Seasons.WINTER, 0.5f), summer = grown(bed, 3f);
-        int canes = strips(winter, Grass.BLADE + Grass.CROP);
-        check(canes > 0 && canes == strips(summer, Grass.BLADE + Grass.CROP), "the bushes stand through the winter, every cane of them: " + canes);
+        int canes = strips(winter, Grass.STRAW + Grass.CROP);
+        check(canes > 0 && canes == strips(summer, Grass.BLADE + Grass.CROP), "the bushes stand through the winter, every cane of them, brown: " + canes);
+        check(strips(winter, Grass.BLADE + Grass.CROP) == 0, "and none green");
+        float winterHigh = 0f, summerHigh = 0f;
+        for (int at = 0; at < winter.floats; at += F) {
+            winterHigh = Math.max(winterHigh, winter.vertices[at + 2]);
+        }
+        for (int at = 0; at < summer.floats; at += F) {
+            summerHigh = Math.max(summerHigh, summer.vertices[at + 2]);
+        }
+        check(winterHigh < 0.75f * summerHigh, "cut back lower than they grow in summer: " + winterHigh + " against " + summerHigh);
         check(strips(winter, Grass.BROAD + Grass.CROP) == 0 && strips(winter, Grass.BLOOM) == 0, "with no leaf and no flower on them");
         check(strips(summer, Grass.BROAD + Grass.CROP) > 0, "which they have in summer");
     }

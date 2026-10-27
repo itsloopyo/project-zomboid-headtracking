@@ -222,7 +222,9 @@ final class Flowerbeds {
     private static void bush(SpriteGeometry geometry, SpriteGeometry.Mesh mesh, SpriteGeometry.Frame frame, Bed bed, int x, int y, float a, float b,
             int leaf, int bloom, int more, float broadens, int steps, float leafOn, boolean flowering) {
         float leafU = dotU(bed, frame, leaf), leafV = dotV(bed, frame, leaf);
-        float high = LOWEST + (TALLEST - LOWEST) * Flora.unit(more, 0);
+        // Cut back for the winter, a bush is short brown canes until it is half in leaf again.
+        float high = (LOWEST + (TALLEST - LOWEST) * Flora.unit(more, 0)) * (0.6f + 0.4f * leafOn);
+        int cane = leafOn < 0.5f ? Grass.STRAW + Grass.CROP : Grass.BLADE + Grass.CROP;
         float turn = Flora.unit(more, 24) * 6.2831853f;
         int stems = 3 + (more >>> 5 & 1);
         for (int stem = 0; stem < stems; stem++) {
@@ -232,7 +234,7 @@ final class Flowerbeds {
             float tall = high * (0.75f + 0.25f * Flora.unit(own, 4));
             geometry.plant(frame, x, y, a, b, leafU, leafV);
             geometry.addStrip(mesh, frame, dirX, dirY, 0f, 0f, 0.15f + 0.35f * Flora.unit(own, 8), 0.1f * Flora.unit(own, 12), tall, 0.014f * broadens, 0f,
-                    Math.min(steps, 2), SpriteGeometry.EVEN, Grass.BLADE + Grass.CROP, Flora.unit(own, 20), 0.8f);
+                    Math.min(steps, 2), SpriteGeometry.EVEN, cane, Flora.unit(own, 20), 0.8f);
             float topAlong = geometry.endAlong, topUp = geometry.endUp, topLean = geometry.endLean;
             int leaves = steps > 1 ? 8 : 3;
             for (int each = 0; each < leaves; each++) {
