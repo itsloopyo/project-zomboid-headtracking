@@ -596,7 +596,11 @@ final class Config {
         double[] all = Arrays.copyOf(values, values.length + 1);
         rows[graphics.length] = quality[0];
         all[values.length] = Quality.CUSTOM;
-        return saved("player 1's first person graphics mode Custom with the rows of [Graphics] from the game's options screen", core.configSaveRows(rows, all));
+        StringBuilder what = new StringBuilder("player 1's first person graphics mode Custom from the game's options screen, with");
+        for (int part = 0; part < values.length; part++) {
+            what.append(' ').append(GRAPHICS[part]).append(' ').append(values[part]);
+        }
+        return saved(what.toString(), core.configSaveRows(rows, all));
     }
 
     /** Each save answers whether the file holds the new value. The session keeps it either way. */
