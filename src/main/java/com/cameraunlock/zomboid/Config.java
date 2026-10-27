@@ -292,8 +292,8 @@ final class Config {
                             + "roofing, paint, carpet, cloth, wallpaper and stained glass, and clean road lines.",
                     writable | live, false),
             core.configLocalBool("Content", "VanillaBuildings",
-                    "true: the game's sprites. false: windows, doors, curtains, handrails, chain link fences, open stairs and wall\n"
-                            + "finishes built by the mod.",
+                    "true: the game's sprites. false: windows, doors, curtains, handrails, chain link fences, open stairs, railway\n"
+                            + "track and wall finishes built by the mod.",
                     writable | live, false),
             core.configLocalBool("Content", "VanillaZombies",
                     "true: the game's own skins for zombies. false: the mod's skins, with lifelike faces, for zombies near you.",
