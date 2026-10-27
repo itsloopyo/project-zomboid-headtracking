@@ -26,6 +26,7 @@
 - `E` uses the door, window, curtain, light switch, container, item, radio, TV or crafting station under the reticle, leaning and head turns included. What it will use is outlined. On an open or broken window it climbs through, where there is a floor on the other side to land on. On a fridge it opens the freezer or the fridge, whichever half the reticle is on. On anything else within reach, such as a sink or a chair, it opens the game's menu for it.
 - Right click with the pointer out opens the game's own menu for what the pointer is on, the same as in the isometric view.
 - Left click with the pointer out uses what the pointer is on, as `E` does with the reticle, the same as in the isometric view.
+- The game's placing cursors (building, Walk To, Place Item, moving furniture, Cut down Tree, Dig Furrow) go where the reticle points, or the pointer when it is out. Their square is outlined, and a piece to build shows which way it will face.
 - A single quick click is enough for a melee attack.
 - Walking or sneaking sideways or backwards in first person, your character keeps facing where you look, in the game's aiming stance at the pace of its walk ahead. Jogging or sprinting, it turns to the way it goes. Offline only; `FacesTheView` switches it off.
 - Controller: the aim stick turns the view, right trigger attacks, left trigger raises the sights, double-tap Back switches view.
@@ -79,8 +80,9 @@
 
 #### World
 
-- `Medium` and `High` rebuild the world in 3D: buildings with thick walls, roofs, eaves, gutters, downpipes and chimneys; doors, windows and curtains; furniture, appliances, shop fittings, signs, street lamps, traffic lights, power lines, pylons, playgrounds, sports equipment, instruments and more.
+- `Medium` and `High` rebuild the world in 3D: buildings with thick walls, roofs, eaves, gutters, downpipes and chimneys; doors, windows and curtains; furniture, appliances, shop fittings, fireplace surrounds and mantels, signs, street lamps, traffic lights, power lines, pylons, playgrounds, sports equipment, instruments and more.
 - Rooms have skirting, cornices and dado rails mitred at the corners, and doors have bevelled casings, beading round each pane and lever handles where the game's picture shows one. Chain link fences are built from real wire, posts and rail.
+- Railway track is built as rails on sleepers, with points where lines divide.
 - Churches have their altar, crosses, chandeliers, lectern, long desk and pipe organ. Galleries have busts and statues. Sports grounds have goals with nets, boxing rings, tennis nets, show jumps, baseball bases and golf flags, and lie level over the hills. Pool tables, arcade cabinets, grocers' produce crates, picket fences and lawn flamingos are modelled too.
 - Items lying loose in first person are drawn as the game's own 3D models when the game's 3D ground items option is on.
 - New textures for floors, tiles, carpets, wallpaper, brick, wood, roofs and roads. Diagonal, chequered and parquet floors, mosaic splashbacks and cut stone walls keep their patterns. Road markings are drawn as clean paint.
@@ -89,7 +91,9 @@
 - A TV that is on shows a moving picture: test bars with no signal, otherwise the show on its channel or tape.
 - Pictures on walls and the shows on TV are stills staged and shot in the game. Family photos and certificates suit the room they hang in.
 - Pictures, banners and bunting on walls.
-- Sharper skins for zombies, survivors and clothing. Animals get new detailed skins (`VanillaAnimals`).
+- In first person the south and east walls of a room, which the isometric view never shows from inside, carry pictures that suit the house. They are drawn by the mod and never added to the save. Offline, `HiddenWallDecor` also hangs the game's own mirrors, clocks, coat racks and deer's heads there, as objects that stay in your save.
+- Walls gather grime along floors and ceilings, in inside corners and under sills. Tarmac is worn in long stretches and patches, and along the lanes its road lines mark.
+- Lifelike faces and sharper skins for people and zombies near you, and clothes and hair that show their weave, knit, grain or strands. Animals get new detailed skins (`VanillaAnimals`).
 - Hills in the countryside, flat in towns. `HillHeight` sets their height from 0 to 2 (default 1.5).
 - Land and buildings are drawn up to 768 tiles away, past the area the game has loaded.
 - Distant trees are drawn where the game's map places them (`FarTreeDistance`, up to 768 tiles).
@@ -104,6 +108,7 @@
 - Bushes, ferns and grass are 3D. Grass moves in the wind and parts around your feet.
 - Field crops are drawn stalk by stalk within 30 tiles.
 - Ivy grows up tree trunks and across the ground around them.
+- Rose bushes grow out of the game's flower beds. They flower in season and are cut back bare in winter.
 - Fallen sticks lie on the ground.
 - Broad-leaved trees change colour in autumn, thin out and go bare in winter. Distant trees follow the season too.
 - In autumn, leaves fall from the trees and blow in the wind. Fallen leaves pile up on the ground, fresh in autumn and matted in winter.
@@ -117,6 +122,8 @@
 - Settled snow has drifts, banks against kerbs and sparkles in the sun. It keeps your footprints and vehicle tyre tracks.
 - Snow settles on trees, bushes, grass and ivy, and dusts people and zombies out in it.
 - Clouds, cloud shadows, the moon, low evening sun and dark nights.
+- A low sun warms what it lights outdoors and turns rooms, people and what they hold gold.
+- Moonlight brightens with the moon's phase and a clear sky, and follows the game's Night Darkness setting.
 - Shadows from the sun, flashlights, headlights and fires. Lit lamps glow.
 - Street lamps and lamps on buildings throw pools of light round them out to `LightDistance`: 30 tiles in `Medium`, 60 in `High`.
 - A lamp or a TV that is on lights its room brightest close to it, falling away towards the walls. A TV's light is the colour of what it shows.
@@ -137,6 +144,7 @@
 - `F8` cycles the picture styles `Vivid`, `Natural` and `Bleak` (default).
 - Every shader the mod draws with is compiled while a save loads, with a count on the loading screen, and the save starts once they are done, so none is compiled in play.
 - `ZombiesAndPropsDrawDistance` (16 to 80 tiles) and `Reflections` settings.
+- `Custom` draws as the rows of `[Graphics]` say, which also include `TreeQuality`, `ViewDistance`, `RainOnGlass`, `ShadingAndLight`, `FullSizeTextures`, `SurfaceDepth`, `SharpShadows`, `WholeFigureShadows` and `FrameBlending`.
 - `ReflectionScale` setting (0.25 to 1): the resolution wall mirrors and window glass draw their reflection at, as a share of the first person picture's. `High` draws 0.75, `Medium` 0.5.
 - `GrassDensity` setting (10 to 100 percent): fewer grass plants for a faster picture. `High` grows all of it, `Medium` and `Low` 40 percent.
 - `CorpseModels` setting: corpses are drawn as models lying where they fell, posed once and never animated, in place of the game's flat picture of each. Off in `Low`, `Medium` and `High`; turn it on in `Custom`. Animal carcasses keep the picture.
@@ -176,6 +184,7 @@
 #### Setup
 
 - `install.cmd` installs the mod with no mod loader. Lopari can install it too.
+- Lopari downloads the mod's art apart from its code, and on an update fetches only the art it does not already have.
 - A Steam Workshop package, loaded by ZombieBuddy 2.x (tested with 2.3.4).
 - The mod is one jar, cameraunlock-core included, with no native file.
 - Settings are in `CameraUnlock.ini` in the game folder. Most changes apply without a restart.
