@@ -925,8 +925,12 @@ final class RoofFit {
     static List<Tile> backs(List<Tile> tiles, Site site) {
         HashMap<Long, Tile> at = new HashMap<>();
         HashMap<Long, Tile> roofed = new HashMap<>();
+        HashSet<Long> halved = new HashSet<>();
         for (Tile tile : tiles) {
             at.put(key(tile.x, tile.y, tile.z), tile);
+            if (tile.half != 0) {
+                halved.add(key(tile.x, tile.y, 0));
+            }
             roofed.merge(key(tile.x, tile.y, 0), tile, (was, now) -> was.slopes() ? was : now);
         }
         HashMap<Long, Boolean> built = new HashMap<>();
@@ -1091,7 +1095,7 @@ final class RoofFit {
             // face across it over its last square is the higher of the two. Taken for a hip's, a dormer's north face dipped the main
             // roof's west face to its own eave, a step open between it and the face's next square (12719, 3678).
             row.valley = beyond != null && open == climbed && !row.cut;
-            if (beyond != null && open >= 1 && open == climbed - 1 && !row.cut) {
+            if (beyond != null && open == climbed - 1 && !row.cut && !(open == 0 && halved.contains(key(x, y, 0)))) {
                 pastAFace(row, beyond, made);
             }
             rows.add(row);
@@ -1362,8 +1366,8 @@ final class RoofFit {
      * its eave. The far side is carried over that square too, and the two meet in a valley along the diagonal. Stopped at the
      * dormer's tile, the dormer's face fell away to the eave under the far side's edge, a triangle open there with the underside of
      * the roof showing black through it (12719, 3680). Two planes that meet on a diagonal cross there, so the check cannot tell a
-     * valley from a hip: a whole uncut tile says its plane covers the square, and a hip corner comes cut. A row that stops on its
-     * first square is a one-row wing face whose ridge square the map holds, and is not carried.
+     * valley from a hip, and the slope being whole and uncut is what is taken for a valley. A row stopped on its first square by a
+     * slope under a ridge half is a one-row wing on the main roof's face, and is not carried there.
      */
     private static void pastAFace(Row row, Tile face, List<Tile> made) {
         if (!face.slopes() || face.cutCorner >= 0 || face.fitAxis == (row.dx != 0 ? ALONG_X : ALONG_Y)) {

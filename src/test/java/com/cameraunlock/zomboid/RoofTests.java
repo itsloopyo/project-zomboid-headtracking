@@ -1774,25 +1774,40 @@ final class RoofTests {
      * A porch gable one row deep each side: its ridge on x 5 and its east face on x 6, falling to the eave at 1, with the main roof's
      * south face under the ridge's last square at 5, 6, falling to the same eave. The made west face stops on the ridge square the
      * map holds, and is not carried over the main roof's face there: a whole plane falling west laid over that square stood up out
-     * of the main face on its south-east half.
+     * of the main face on its south-east half. With the main roof's face a square further west, past the ridge, the made west face
+     * meets it in a valley there as a dormer's face.
      */
     private static void oneRowWingIsNotCarriedOverItsRidgeSquare() {
-        List<RoofFit.Tile> roof = new ArrayList<>();
-        for (int y = 0; y <= 6; y++) {
-            roof.add(new RoofFit.Tile(6, y, 1, RoofFit.ALONG_X, true, 1f + THIRD, 1f));
-            RoofFit.Tile ridge = new RoofFit.Tile(5, y, 1, RoofFit.LEVEL, true, 1f + THIRD, 1f + THIRD);
-            ridge.fitting = true;
-            ridge.half = RoofFit.EAST_HALF;
-            ridge.halfEdge = 1f + THIRD;
-            roof.add(ridge);
-        }
-        roof.add(new RoofFit.Tile(5, 6, 1, RoofFit.ALONG_Y, true, 1f + THIRD, 1f));
-        RoofFit.fit(roof);
-        List<RoofFit.Tile> made = RoofFit.backs(roof, standing((x, y) -> x >= 4 && x <= 6 && y >= 0 && y <= 6));
-        for (RoofFit.Tile tile : made) {
-            check(!(tile.x == 5 && tile.y == 6 && tile.carried), "no made west face is carried over the main roof's face at 5, 6: " + said(tile));
+        for (int faceX = 5; faceX >= 4; faceX--) {
+            List<RoofFit.Tile> roof = new ArrayList<>();
+            for (int y = 0; y <= 6; y++) {
+                roof.add(new RoofFit.Tile(6, y, 1, RoofFit.ALONG_X, true, 1f + THIRD, 1f));
+                RoofFit.Tile ridge = new RoofFit.Tile(5, y, 1, RoofFit.LEVEL, true, 1f + THIRD, 1f + THIRD);
+                ridge.fitting = true;
+                ridge.half = RoofFit.EAST_HALF;
+                ridge.halfEdge = 1f + THIRD;
+                roof.add(ridge);
+            }
+            roof.add(new RoofFit.Tile(faceX, 6, 1, RoofFit.ALONG_Y, true, 1f + THIRD, 1f));
+            RoofFit.fit(roof);
+            List<RoofFit.Tile> made = RoofFit.backs(roof, standing((x, y) -> x >= 4 && x <= 6 && y >= 0 && y <= 6));
+            RoofFit.Tile carried = null;
+            for (RoofFit.Tile tile : made) {
+                carried = tile.x == faceX && tile.y == 6 && tile.carried ? tile : carried;
+            }
+            if (faceX == 5) {
+                check(carried == null, "no made west face is carried over the main roof's face at 5, 6: " + said(carried));
+            } else {
+                float[] face = {1f, 1f + THIRD, 1f + THIRD, 1f};
+                boolean onFace = carried != null && carried.fitAxis == RoofFit.ALONG_X;
+                for (int corner = 0; onFace && corner < 4; corner++) {
+                    onFace &= near(carried.corners[corner], face[corner]);
+                }
+                check(onFace, "past the ridge the made west face goes on over the main roof's face at 4, 6: " + said(carried));
+            }
         }
     }
+
 
     /**
      * As the pancake house at 13601..13606, 5767..5768 has its porch: a gable canopy on posts out front of the building, its east
