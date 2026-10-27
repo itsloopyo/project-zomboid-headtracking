@@ -10,7 +10,9 @@ import zombie.iso.IsoChunk;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.areas.IsoBuilding;
+import zombie.iso.sprite.IsoSprite;
 import zombie.iso.SpriteDetails.IsoFlagType;
+import zombie.util.list.PZArrayList;
 
 /**
  * The roofs of a chunk being built: the slopes, the backs under them, the caps, the eaves and their gutters, the rakes
@@ -676,7 +678,7 @@ final class RoofBuilder {
             build.frame.flat = 0;
             WorldScene.layers.none();
             if (made > 0 && level > 2f * WorldScene.UNDER_ROOF) {
-                underRoof(x, y, z, level, 0f, 0f);
+                underRoof(x, y, z, level, 0f, 0f, true);
             }
             if (RoofFit.levelOnItsFloor(tile)) {
                 addCornerEaves(tile);
@@ -721,12 +723,12 @@ final class RoofBuilder {
             return;
         }
         if (placed) {
-            underRoof(x, y, z, low, alongX ? high - low : 0f, alongX ? 0f : high - low);
+            underRoof(x, y, z, low, alongX ? high - low : 0f, alongX ? 0f : high - low, !underAnother(tile, texture));
         } else if (build.frame.width > Roofs.WHOLE_TILE_WIDE * build.frame.scale) {
             // Which way this tile slopes is a guess, and a sheet laid to a wrong guess
             // stands out of the roof. A level one at the tile's lowest height cannot: it
             // is under the tile whichever way it slopes, and still closes the roof.
-            underRoof(x, y, z, Math.min(low, high), 0f, 0f);
+            underRoof(x, y, z, Math.min(low, high), 0f, 0f, true);
         }
     }
 
@@ -777,16 +779,60 @@ final class RoofBuilder {
      * The game drew each roof tile from one side, and a slope that faces away from that side
      * is a sliver of sprite, or none: seen from the other side the roof has holes with the
      * rooms showing through. Under every tile of roof goes a plain sheet of the same slope, in
-     * the grey of shingle, which is what shows wherever the sprite has nothing.
+     * the grey of shingle, which is what shows wherever the sprite has nothing. No strip past a
+     * gable for a tile another on its square lies over (underAnother).
      */
-    private void underRoof(int x, int y, int z, float atOrigin, float alongX, float alongY) {
+    private void underRoof(int x, int y, int z, float atOrigin, float alongX, float alongY, boolean rake) {
         SpriteGeometry.Mesh sheet = roofSheet();
         float[] lift = build.geometry.lift;
         SpriteGeometry.addOver(sheet, x, y, WorldScene.under(z, atOrigin) + lift[0], WorldScene.under(z, atOrigin + alongX) + lift[1],
                 WorldScene.under(z, atOrigin + alongX + alongY) + lift[2], WorldScene.under(z, atOrigin + alongY) + lift[3],
                 roofU, roofV, build.frame.red, build.frame.green, build.frame.blue);
         addEave(sheet, x, y, z, atOrigin, alongX, alongY, true);
-        addRake(sheet, x, y, z, atOrigin, alongX, alongY);
+        if (rake) {
+            addRake(sheet, x, y, z, atOrigin, alongX, alongY);
+        }
+    }
+
+    private final SpriteGeometry.Frame otherFrame = new SpriteGeometry.Frame();
+    private final float[] mine = new float[4], over = new float[4];
+
+    /**
+     * Whether another tile of roof on the tile's square lies over it at every corner, and clear
+     * of it somewhere: the house's slope run on under a porch's row, whose strip past the gable
+     * hung under the porch's eave (1180..1189, 10831).
+     */
+    private boolean underAnother(RoofFit.Tile tile, Texture own) {
+        IsoGridSquare square = build.cell.getGridSquare(tile.x, tile.y, tile.z);
+        RoofFit.cornersOf(tile.fitAxis, tile.fitLow, tile.fitHigh, mine);
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoObject object = objects.get(i);
+            IsoSprite sprite = object.getSprite();
+            if (sprite == null || !Roofs.isTile(sprite.getType()) || Roofs.accent(sprite.getName())) {
+                continue;
+            }
+            Texture texture = sprite.getTextureForCurrentFrame(object.getDir());
+            if (texture == own || !WorldScene.usable(texture)) {
+                continue;
+            }
+            otherFrame.scale = build.frame.scale;
+            WorldScene.frameOf(otherFrame, object, texture);
+            RoofFit.Tile other = Roofs.measure(otherFrame, texture, tile.x, tile.y, tile.z);
+            if (other.half != 0 || other.fitting) {
+                continue;
+            }
+            RoofFit.cornersOf(other.axis, other.low, other.high, over);
+            boolean below = false, clear = false;
+            for (int corner = 0; corner < 4; corner++) {
+                below |= over[corner] < mine[corner] - RoofFit.SAME;
+                clear |= over[corner] > mine[corner] + Roofs.FLAT;
+            }
+            if (!below && clear) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
