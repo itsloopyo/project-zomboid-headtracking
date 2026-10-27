@@ -12694,7 +12694,7 @@ def produce_pile(name, seed):
 
 
 def picket_length():
-    """A square's length of white picket fence, as Pickets.java stands it on the square's edge: six pickets with pointed
+    """A square's length of white picket fence, as ModelFences.java stands it on the square's edge: six pickets with pointed
     tops on the edge's line, nailed to two rails behind them, from a picket_post at the start of the edge to a gap the
     width of the gaps between pickets short of the next one. Measured off fencing_01_5: pickets 0.87 m high and 85 mm
     wide, rails from 0.10 and 0.60 m up."""
@@ -12713,7 +12713,7 @@ def picket_length():
 
 
 def rounded_picket_length():
-    """A square's length of the dark low fence with rounded tops (fencing_01_120 and 121), as Pickets.java stands it on the
+    """A square's length of the dark low fence with rounded tops (fencing_01_120 and 121), as ModelFences.java stands it on the
     square's edge: nine pickets edge to edge with a hairline between them, on the edge's line, nailed to three rails behind
     them. Measured off fencing_01_121: pickets 1.21 m high, a picket a ninth of the square wide, each top rounded off over
     its last 40 mm, rails 70 mm high from 0.10, 0.55 and 0.94 m up."""
@@ -12729,6 +12729,23 @@ def rounded_picket_length():
         cuboid(rails, -0.5, 0.5, 0.01, 0.035, z, z + 0.07)
     model.hard(pickets, "paint", bevel=0.003, segments=1)
     model.hard(rails, "paint", bevel=0.003, segments=1)
+    return model
+
+
+def barbed_wire_length():
+    """A square's length of barbed wire fence (fencing_01_16, 17, 20 and 21), as ModelFences.java stands it along the
+    square's edge: three strands of wire with a barb every eighth of the way. Measured off fencing_01_20: strands 0.18,
+    0.45 and 0.72 m up, which the model stands on its lowest barb below. The sprite paints the wire near black, so it is
+    rubber's dark matt and not steel, which mirrored the sky as a bright line."""
+    model = Model("barbed_wire_length", centred=False)
+    wire = bmesh.new()
+    for z in (0.18, 0.45, 0.72):
+        tube(wire, (-0.5, 0.0, z), (0.5, 0.0, z), 0.004, segments=5)
+        for k in range(8):
+            x = -0.5 + (k + 0.5) / 8
+            tube(wire, (x - 0.008, -0.014, z - 0.014), (x + 0.008, 0.014, z + 0.014), 0.0025, segments=4)
+            tube(wire, (x + 0.008, -0.014, z + 0.014), (x - 0.008, 0.014, z - 0.014), 0.0025, segments=4)
+    model.turned(wire, "rubber", sharp=60.0)
     return model
 
 
@@ -12825,8 +12842,8 @@ def log_walls():
 
 def shops():
     """What a grocer, a florist or a shop stands out that ShopFittings.java gives a model for, the produce crate and the
-    produce the game paints in it, the length of white picket fence Pickets.java stands, and the security fence's footing."""
-    return [produce_crate(), produce_pile("produce_pile", 61), produce_pile("produce_pile_b", 62), picket_length(), rounded_picket_length(), fence_kerb(), fence_pier(), fence_foot()]
+    produce the game paints in it, the length of white picket fence ModelFences.java stands, and the security fence's footing."""
+    return [produce_crate(), produce_pile("produce_pile", 61), produce_pile("produce_pile_b", 62), picket_length(), rounded_picket_length(), barbed_wire_length(), fence_kerb(), fence_pier(), fence_foot()]
 
 
 # A gallery's sculpture: busts on their plinths and statues on their bases, carved from metaballs. Gallery stands them.

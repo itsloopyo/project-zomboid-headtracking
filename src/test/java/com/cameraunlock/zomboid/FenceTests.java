@@ -17,7 +17,7 @@ final class FenceTests {
         Checks.run("ironBarFencesAreTheirOwnIron", FenceTests::ironBarFencesAreTheirOwnIron);
         Checks.run("theGamesFloorMarkByNameStaysOffEdgesAndWalls", FenceTests::theGamesFloorMarkByNameStaysOffEdgesAndWalls);
         Checks.run("noTwoWorldMaterialsShareANumber", FenceTests::noTwoWorldMaterialsShareANumber);
-        Checks.run("thePicketFencesAreTheirModelsOnEachEdge", FenceTests::thePicketFencesAreTheirModelsOnEachEdge);
+        Checks.run("theModelFencesAreTheirModelsOnEachEdge", FenceTests::theModelFencesAreTheirModelsOnEachEdge);
         Checks.run("aLogWallIsItsLogs", FenceTests::aLogWallIsItsLogs);
         Checks.run("theSecurityFenceStartsWhereItsPostIsBeforeTheCorner", FenceTests::theSecurityFenceStartsWhereItsPostIsBeforeTheCorner);
         Checks.run("aMeshPanelStandsItsPostInAConcreteFoot", FenceTests::aMeshPanelStandsItsPostInAConcreteFoot);
@@ -84,19 +84,28 @@ final class FenceTests {
         Checks.check(Math.abs(piece.maxX - piece.minX - LogWalls.PIECE) < 0.002f, "a piece is its share of the edge: " + (piece.maxX - piece.minX));
     }
 
-    private static void thePicketFencesAreTheirModelsOnEachEdge() {
+    private static void theModelFencesAreTheirModelsOnEachEdge() {
         for (String length : new String[] {"fencing_01_4", "fencing_01_5", "fencing_01_6"}) {
-            Checks.check(Pickets.of(length) == Pickets.WHITE, length + " is a length of the white picket fence");
+            Checks.check(ModelFences.of(length) == ModelFences.WHITE, length + " is a length of the white picket fence");
         }
         for (String length : new String[] {"fencing_01_120", "fencing_01_121", "fencing_01_122"}) {
-            Checks.check(Pickets.of(length) == Pickets.ROUNDED, length + " is a length of the rounded picket fence");
+            Checks.check(ModelFences.of(length) == ModelFences.ROUNDED, length + " is a length of the rounded picket fence");
         }
-        for (String other : new String[] {Pickets.POST, "fencing_01_123", "fencing_01_32", "fencing_01_40", "fencing_01_46", "fencing_damaged_01_8",
+        for (String length : new String[] {"fencing_01_16", "fencing_01_17", "fencing_01_18"}) {
+            Checks.check(ModelFences.of(length) == ModelFences.BARBED_POSTED, length + " is a length of barbed wire with a post");
+        }
+        for (String length : new String[] {"fencing_01_20", "fencing_01_21"}) {
+            Checks.check(ModelFences.of(length) == ModelFences.BARBED, length + " is a length of barbed wire with no post");
+        }
+        for (String other : new String[] {"fencing_01_7", "fencing_01_19", "fencing_01_22", "fencing_01_24", "fencing_01_123", "fencing_01_32", "fencing_01_40", "fencing_01_46", "fencing_damaged_01_8",
                 "fencing_burnt_01_0", "fencing_02_4", "fencing_01_1200"}) {
-            Checks.check(Pickets.of(other) == null, other + " is no whole length of a picket fence");
+            Checks.check(ModelFences.of(other) == null, other + " is no whole length of a fence built as models");
         }
-        Checks.check(Pickets.WHITE.posted() && !Pickets.ROUNDED.posted(), "only the white fence's sprites paint a post at the corner");
-        for (Pickets.Fence fence : new Pickets.Fence[] {Pickets.WHITE, Pickets.ROUNDED}) {
+        Checks.check(ModelFences.WHITE.posted() && !ModelFences.ROUNDED.posted() && ModelFences.BARBED_POSTED.posted() && !ModelFences.BARBED.posted(),
+                "the white fence's sprites and the barbed wire's 16 to 18 paint a post");
+        Checks.check(ModelFences.WHITE.lonePost().equals("fencing_01_7") && ModelFences.BARBED_POSTED.lonePost().equals("fencing_01_19"),
+                "a fence's own post gives way to its lone post sprite");
+        for (ModelFences.Fence fence : new ModelFences.Fence[] {ModelFences.WHITE, ModelFences.ROUNDED}) {
             Models.Model length = Models.get(fence.model());
             Checks.check(Math.abs(length.minX + 0.5f) < 0.002f && Math.abs(length.maxX - 0.5f) < 0.002f, fence.model() + " runs the square's edge, end to end: "
                     + length.minX + " to " + length.maxX);
@@ -104,6 +113,13 @@ final class FenceTests {
         }
         Checks.check(Models.get("picket_length").height() < Models.get("picket_post").height(), "the post stands over the white pickets");
         Checks.check(Math.abs(Models.get("rounded_picket_length").height() - 1.21f) < 0.01f, "the rounded pickets stand as high as their sprite paints them");
+        Models.Model wire = Models.get("barbed_wire_length");
+        Checks.check(Math.abs(wire.minX + 0.5f) < 0.002f && Math.abs(wire.maxX - 0.5f) < 0.002f, "the barbed wire runs the square's edge, end to end");
+        Checks.check(Math.abs(ModelFences.BARBED.lift() + wire.height() - 0.7365f) < 0.003f,
+                "the wire's top barb is where the sprite paints the top strand: " + (ModelFences.BARBED.lift() + wire.height()));
+        Checks.check(ModelFences.BARBED.in() < ModelFences.BARBED_POSTED.postIn() && ModelFences.BARBED.in() > 0f,
+                "the strands run inside the edge, on the post's face toward it");
+        Checks.check(Models.get("rail_post").height() > ModelFences.BARBED.lift() + wire.height(), "the post stands over the top strand");
     }
 
     private static void chainLinkLengthsAreKnownByTheirPlaceOnTheSheet() {

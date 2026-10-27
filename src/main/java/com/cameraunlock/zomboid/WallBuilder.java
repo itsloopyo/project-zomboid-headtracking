@@ -504,8 +504,8 @@ final class WallBuilder {
             // On an edge that a kerb runs along it stands on the kerb's top (Frame.standOnKerbTop).
             if (build.chainLink != null) {
                 addChainLink(x, y, z, da, db);
-            } else if (build.picket != null) {
-                addPickets(texture, x, y, z, da, db);
+            } else if (build.modelFence != null) {
+                addModelFence(texture, x, y, z, da, db);
             } else {
                 float from = build.sheetFrom;
                 if (from != 0f) {
@@ -887,25 +887,27 @@ final class WallBuilder {
     }
 
     /**
-     * Stands a length of picket fence on the square's edge from (0, 0) along (da, db): the fence's model with its pickets on
-     * the edge's line and their faces into the square, the side the game's view paints them from, and once for the sprite
-     * the picket_post the white fence paints at the square's north-west corner, where no lone post stands. The paint is
-     * the sprite's. A length stands on the lower of its ends, so on a slope its pickets go into the ground at the higher.
+     * Stands a length of a ModelFences fence on the square's edge from (0, 0) along (da, db): the fence's model on or in
+     * from the edge's line, a picket fence's pickets with their faces into the square, the side the game's view paints
+     * them from, and once for the sprite the post it paints near the square's north-west corner, where no lone post
+     * stands. The paint is the sprite's. A length stands on the lower of its ends, so on a slope its foot goes into the
+     * ground at the higher.
      */
-    private void addPickets(Texture texture, int x, int y, int z, float da, float db) {
+    private void addModelFence(Texture texture, int x, int y, int z, float da, float db) {
+        ModelFences.Fence fence = build.modelFence;
         boolean north = da != 0f;
         float base = (z + build.geometry.raised) * ViewCamera.LEVEL_HEIGHT;
         float foot = base + Math.min(build.geometry.liftAt(0f, 0f), build.geometry.liftAt(da, db));
-        float along = build.picket.dyeAlong(), a = north ? along : 0f, b = north ? 0f : along;
-        float u = SpriteGeometry.textureU(build.frame, a, b), v = SpriteGeometry.textureV(build.frame, a, b, Pickets.DYE_HIGH);
-        int paint = 1 << Models.PAINT;
-        build.placed.add(Models.get(build.picket.model()), build.frame, x, y, x + da * 0.5f, y + db * 0.5f, foot, north ? 2 : 1, 1f, 1f, texture.getID(),
-                paint, u, v, 0, 0f, 0f);
-        if (build.picketPostDue && !picketPostOn(x, y, z)) {
-            build.placed.add(Models.get("picket_post"), build.frame, x, y, x, y, base + build.geometry.liftAt(0f, 0f), 0, 1f, 1f, texture.getID(),
-                    paint, u, v, 0, 0f, 0f);
+        float a = north ? fence.dyeAlong() : fence.dyeIn(), b = north ? fence.dyeIn() : fence.dyeAlong();
+        float u = SpriteGeometry.textureU(build.frame, a, b), v = SpriteGeometry.textureV(build.frame, a, b, ModelFences.DYE_HIGH);
+        build.placed.add(Models.get(fence.model()), build.frame, x, y, x + da * 0.5f + db * fence.in(), y + db * 0.5f + da * fence.in(),
+                foot + fence.lift(), north ? 2 : 1, 1f, 1f, texture.getID(), fence.dyes(), u, v, 0, 0f, 0f);
+        if (build.fencePostDue && !lonePostOn(x, y, z, fence.lonePost())) {
+            float postA = north ? fence.postAlong() : fence.postIn(), postB = north ? fence.postIn() : fence.postAlong();
+            build.placed.add(Models.get(fence.post()), build.frame, x, y, x + postA, y + postB, base + build.geometry.liftAt(postA, postB), 0, 1f, 1f,
+                    texture.getID(), fence.dyes(), u, v, 0, 0f, 0f);
         }
-        build.picketPostDue = false;
+        build.fencePostDue = false;
     }
 
     /**
@@ -1206,12 +1208,12 @@ final class WallBuilder {
         return false;
     }
 
-    /** Whether square (sx, sy) holds the picket fence's lone post, which stands at its north-west corner. */
-    private boolean picketPostOn(int sx, int sy, int z) {
+    /** Whether square (sx, sy) holds the lone post sprite post, which stands where a fence's own post would. */
+    private boolean lonePostOn(int sx, int sy, int z, String post) {
         PZArrayList<IsoObject> objects = objectsOn(sx, sy, z);
         for (int i = 0; objects != null && i < objects.size(); i++) {
             IsoSprite sprite = objects.get(i).getSprite();
-            if (sprite != null && Pickets.POST.equals(sprite.getName())) {
+            if (sprite != null && post.equals(sprite.getName())) {
                 return true;
             }
         }
