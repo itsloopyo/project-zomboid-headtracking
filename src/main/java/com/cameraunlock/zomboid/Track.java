@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 
 /**
  * Railway track, built as rails on sleepers where the map lays it.
@@ -846,6 +847,8 @@ final class Track {
             private final HashSet<Long> unread = new HashSet<>(), alone = new HashSet<>(), covered = new HashSet<>();
             private final ArrayList<Line> lines = new ArrayList<>();
             private final ArrayList<Route> routes = new ArrayList<>();
+            /** The lines the picture lays straights of rails alone along, and of those the lengths a route between two lines runs along. */
+            private final ArrayList<Line> railsAlone = new ArrayList<>(), between = new ArrayList<>();
 
             TurnoutReader(HashSet<Long> squares) {
                 this.squares = squares;
@@ -854,6 +857,7 @@ final class Track {
             Turnout read() {
                 TreeMap<double[], ArrayList<Long>> found = new TreeMap<>(
                         Comparator.comparingDouble((double[] line) -> line[0]).thenComparingDouble(line -> line[1]));
+                TreeSet<double[]> aloneLines = new TreeSet<>(found.comparator());
                 for (long at : squares) {
                     int x = (int) (at >> 32), y = (int) at;
                     Piece[] pieces = Arrays.copyOf(here, area.pieces(x, y, here));
@@ -869,6 +873,13 @@ final class Track {
                             if (!p.ties) {
                                 alone.add(at);
                             }
+                            if (p.bend == null && !p.sided) {
+                                double c = straightC(p, x, y);
+                                if (Double.isNaN(c)) {
+                                    return Turnout.AWAITED;
+                                }
+                                aloneLines.add(new double[] {p.way, c});
+                            }
                             continue;
                         }
                         double c = straightC(p, x, y);
@@ -881,11 +892,7 @@ final class Track {
                 for (Map.Entry<double[], ArrayList<Long>> entry : found.entrySet()) {
                     Line line = new Line((int) entry.getKey()[0], entry.getKey()[1]);
                     for (long at : entry.getValue()) {
-                        int x = (int) (at >> 32), y = (int) at;
-                        // A straight down or across lies along the whole of each of its squares; a diagonal along those its middle crosses.
-                        double[] part = line.way == NS || line.way == EW ? new double[] {Math.min(along(line, x, y), along(line, x + 1, y + 1)),
-                            Math.max(along(line, x, y), along(line, x + 1, y + 1))}
-                                : Builder.clip(line.footX, line.footY, line.dx, line.dy, x, y, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY);
+                        double[] part = part(line, at);
                         if (part != null) {
                             line.lo = Math.min(line.lo, part[0]);
                             line.hi = Math.max(line.hi, part[1]);
@@ -906,19 +913,33 @@ final class Track {
                 }
                 // A line running on through the turnout lies under those that end in it, so its sleepers are laid whole and theirs cut where they meet it.
                 lines.sort(Comparator.comparingInt(line -> line.loOpen && line.hiOpen ? 0 : 1));
+                for (double[] key : aloneLines) {
+                    railsAlone.add(new Line((int) key[0], key[1]));
+                }
                 for (int i = 0; i < lines.size(); i++) {
                     for (int side = -1; side <= 1; side += 2) {
                         if (!(side < 0 ? lines.get(i).loOpen : lines.get(i).hiOpen)) {
                             for (int j = 0; j < lines.size(); j++) {
                                 if (j != i && lines.get(j).way != lines.get(i).way) {
                                     for (int sense = -1; sense <= 1; sense += 2) {
-                                        route(i, side, j, sense);
+                                        boolean read = false;
+                                        for (Line middle : railsAlone) {
+                                            if (route(i, side, j, sense, middle)) {
+                                                read = true;
+                                                break;
+                                            }
+                                        }
+                                        if (!read) {
+                                            route(i, side, j, sense);
+                                        }
                                     }
                                 }
                             }
                         }
                     }
                 }
+                // The straights between two arcs of a route are laid after the lines, their sleepers cut where they meet the lines'.
+                lines.addAll(between);
                 if (lines.size() > Square.MOST || routes.size() > Square.MOST) {
                     String why = lines.size() + " lines and " + routes.size() + " routes, more than a square can be built of";
                     full("the turnout with its piece at " + (int) (squares.iterator().next() >> 32) + "," + (int) (long) squares.iterator().next() + " has " + why);
@@ -937,6 +958,13 @@ final class Track {
 
             private double along(Line line, double x, double y) {
                 return (x - line.footX) * line.dx + (y - line.footY) * line.dy;
+            }
+
+            /** Where along a line a square of it lies: the whole of the square for a straight down or across, where its middle crosses it for a diagonal. */
+            private double[] part(Line line, long at) {
+                int x = (int) (at >> 32), y = (int) at;
+                return line.way == NS || line.way == EW ? new double[] {Math.min(along(line, x, y), along(line, x + 1, y + 1)), Math.max(along(line, x, y), along(line, x + 1, y + 1))}
+                        : Builder.clip(line.footX, line.footY, line.dx, line.dy, x, y, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY);
             }
 
             /**
@@ -1031,6 +1059,127 @@ final class Track {
                 }
             }
 
+            /**
+             * The route, if the turnout's squares hold one, that leaves the line one at its end on
+             * side and turns onto the line two towards sense by way of a straight of rails alone the
+             * picture lays along middle: an arc onto middle, middle straight on, and an arc off it
+             * onto two, each turning through 45 degrees and the widest the squares, and the holes
+             * between them, hold that takes half the way along middle at most. Where one ends too
+             * near middle for the tightest arc, the first arc leaves it a little before its end. The
+             * straight must be a sleeper's gap long at least, as a shorter one is one arc, and cross
+             * squares the picture paints rails alone on. Says whether the route is read, here or
+             * from the other end.
+             */
+            private boolean route(int i, int side, int j, int sense, Line middle) {
+                Line one = lines.get(i), two = lines.get(j);
+                if (middle.way == one.way || middle.way == two.way) {
+                    return false;
+                }
+                double[] first = meet(one, middle), second = meet(middle, two);
+                double apart = Math.hypot(second[0] - first[0], second[1] - first[1]);
+                if (apart < 1e-9) {
+                    return false;
+                }
+                double h1x = side * one.dx, h1y = side * one.dy, h2x = sense * two.dx, h2y = sense * two.dy;
+                double hmx = (second[0] - first[0]) / apart, hmy = (second[1] - first[1]) / apart;
+                double eighth = Math.PI / 4;
+                if (Math.abs(Math.acos(Math.max(-1, Math.min(1, h1x * hmx + h1y * hmy))) - eighth) > 1e-6
+                        || Math.abs(Math.acos(Math.max(-1, Math.min(1, hmx * h2x + hmy * h2y))) - eighth) > 1e-6) {
+                    return false;
+                }
+                double atOne = along(one, first[0], first[1]), atTwo = along(two, second[0], second[1]);
+                double end = side < 0 ? one.lo : one.hi;
+                double ahead = (atOne - end) * side;
+                if (ahead <= 0) {
+                    return false;
+                }
+                double near = sense > 0 ? two.lo : two.hi, far = sense > 0 ? (two.hiOpen ? Double.POSITIVE_INFINITY : two.hi) : (two.loOpen ? Double.NEGATIVE_INFINITY : two.lo);
+                boolean nearOpen = sense > 0 ? two.loOpen : two.hiOpen;
+                boolean joinsEnd = !nearOpen && (near - atTwo) * sense > 0;
+                double mostTwo = Double.POSITIVE_INFINITY;
+                if (joinsEnd) {
+                    if (j < i) {
+                        return true;
+                    }
+                    mostTwo = (near - atTwo) * sense;
+                }
+                double half = Math.tan(eighth / 2);
+                double turnOne = Math.signum(h1x * hmy - h1y * hmx), turnTwo = Math.signum(hmx * h2y - hmy * h2x);
+                double r1 = Double.NaN, c1x = 0, c1y = 0, start1 = 0;
+                for (double r = Math.max(Math.min(ahead, apart / 2) / half, ROUTE_TIGHTEST); r >= ROUTE_TIGHTEST; r -= ROUTE_STEP) {
+                    double reach = r * half;
+                    double tx = first[0] - h1x * reach, ty = first[1] - h1y * reach;
+                    double cx = tx - turnOne * h1y * r, cy = ty + turnOne * h1x * r;
+                    double start = Math.atan2(ty - cy, tx - cx);
+                    if (holds(one, end, atOne - side * reach, true) && holdsArc(cx, cy, r, start, turnOne * eighth, true)) {
+                        r1 = r;
+                        c1x = cx;
+                        c1y = cy;
+                        start1 = start;
+                        break;
+                    }
+                }
+                if (Double.isNaN(r1)) {
+                    return false;
+                }
+                double r2 = Double.NaN, c2x = 0, c2y = 0, start2 = 0;
+                for (double r = Math.min(mostTwo, apart / 2) / half; r >= ROUTE_TIGHTEST; r -= ROUTE_STEP) {
+                    double reach = r * half;
+                    if ((far - atTwo) * sense <= reach + 1) {
+                        continue;
+                    }
+                    double tx = second[0] - hmx * reach, ty = second[1] - hmy * reach;
+                    double cx = tx - turnTwo * hmy * r, cy = ty + turnTwo * hmx * r;
+                    double start = Math.atan2(ty - cy, tx - cx);
+                    if (holds(two, joinsEnd ? near : atTwo + sense * reach, atTwo + sense * reach, true) && holdsArc(cx, cy, r, start, turnTwo * eighth, true)) {
+                        r2 = r;
+                        c2x = cx;
+                        c2y = cy;
+                        start2 = start;
+                        break;
+                    }
+                }
+                if (Double.isNaN(r2)) {
+                    return false;
+                }
+                double reach1 = r1 * half, reach2 = r2 * half;
+                double from = along(middle, first[0] + hmx * reach1, first[1] + hmy * reach1), to = along(middle, second[0] - hmx * reach2, second[1] - hmy * reach2);
+                if (Math.abs(to - from) < TIE_APART || !holds(middle, from, to, true) || !paintsAlone(middle, from, to)) {
+                    return false;
+                }
+                routes.add(new Route(c1x, c1y, r1, start1, turnOne * eighth));
+                routes.add(new Route(c2x, c2y, r2, start2, turnTwo * eighth));
+                Line straight = new Line(middle.way, middle.c);
+                straight.lo = straight.from = Math.min(from, to);
+                straight.hi = straight.to = Math.max(from, to);
+                between.add(straight);
+                stretch(one, side, atOne - side * reach1);
+                if (joinsEnd) {
+                    stretch(two, -sense, atTwo + sense * reach2);
+                }
+                return true;
+            }
+
+            /** Where two lines that are not parallel cross. */
+            private static double[] meet(Line one, Line two) {
+                double det = NX[one.way] * NY[two.way] - NY[one.way] * NX[two.way];
+                return new double[] {(one.c * NY[two.way] - NY[one.way] * two.c) / det, (NX[one.way] * two.c - one.c * NX[two.way]) / det};
+            }
+
+            /** Whether a rail of a line between two places along it crosses a square the picture paints rails alone on. */
+            private boolean paintsAlone(Line line, double a, double b) {
+                double from = Math.min(a, b), to = Math.max(a, b);
+                for (double at = from; at <= to; at += 0.1) {
+                    for (int side = -1; side <= 1; side += 2) {
+                        double x = line.footX + line.dx * at - line.dy * side * RAIL_OFF, y = line.footY + line.dy * at + line.dx * side * RAIL_OFF;
+                        if (alone.contains(key((int) Math.floor(x), (int) Math.floor(y)))) {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }
+
             /** Runs a line's track on, on side, to along. */
             private void stretch(Line line, int side, double along) {
                 if (side < 0) {
@@ -1043,14 +1192,18 @@ final class Track {
             /** Each edge and the middle of each rail's head, out from the middle of its track. */
             private static final double[] HEADS = {-RAIL_OFF - HEAD / 2, -RAIL_OFF, -RAIL_OFF + HEAD / 2, RAIL_OFF - HEAD / 2, RAIL_OFF, RAIL_OFF + HEAD / 2};
 
-            /** Whether both rails of a line between two places along it lie on the turnout's squares. */
             private boolean holds(Line line, double a, double b) {
+                return holds(line, a, b, false);
+            }
+
+            /** Whether both rails of a line between two places along it lie on the turnout's squares, and with holes on the holes built as it is. */
+            private boolean holds(Line line, double a, double b, boolean holes) {
                 double from = Math.min(a, b), to = Math.max(a, b);
                 double nx = -line.dy, ny = line.dx;
                 for (double at = from; at <= to + 1e-9; at += 0.02) {
                     double mx = line.footX + line.dx * at, my = line.footY + line.dy * at;
                     for (double out : HEADS) {
-                        if (!on(mx + nx * out, my + ny * out)) {
+                        if (!on(mx + nx * out, my + ny * out, holes)) {
                             return false;
                         }
                     }
@@ -1058,13 +1211,17 @@ final class Track {
                 return true;
             }
 
-            /** Whether both rails of an arc lie on the turnout's squares. */
             private boolean holdsArc(double cx, double cy, double r, double start, double sweep) {
+                return holdsArc(cx, cy, r, start, sweep, false);
+            }
+
+            /** Whether both rails of an arc lie on the turnout's squares, and with holes on the holes built as it is. */
+            private boolean holdsArc(double cx, double cy, double r, double start, double sweep, boolean holes) {
                 int steps = (int) Math.ceil(Math.abs(sweep) * (r + RAIL_OFF) / 0.02);
                 for (int k = 0; k <= steps; k++) {
                     double a = start + sweep * k / steps, cos = Math.cos(a), sin = Math.sin(a);
                     for (double out : HEADS) {
-                        if (!on(cx + (r + out) * cos, cy + (r + out) * sin)) {
+                        if (!on(cx + (r + out) * cos, cy + (r + out) * sin, holes)) {
                             return false;
                         }
                     }
@@ -1084,9 +1241,24 @@ final class Track {
                 return false;
             }
 
-            /** Whether a point is on a square of the turnout that is built. */
-            private boolean on(double x, double y) {
-                long at = key((int) Math.floor(x), (int) Math.floor(y));
+            /**
+             * Whether a point is on a square of the turnout that is built, or with holes on a square
+             * with no track between two of them across or down the map, which is built as the
+             * turnout is (see hole).
+             */
+            private boolean on(double x, double y, boolean holes) {
+                int sx = (int) Math.floor(x), sy = (int) Math.floor(y);
+                if (built(sx, sy)) {
+                    return true;
+                }
+                if (!holes || squares.contains(key(sx, sy)) || area.pieces(sx, sy, other) != 0) {
+                    return false;
+                }
+                return built(sx - 1, sy) && built(sx + 1, sy) || built(sx, sy - 1) && built(sx, sy + 1);
+            }
+
+            private boolean built(int x, int y) {
+                long at = key(x, y);
                 return squares.contains(at) && !covered.contains(at);
             }
 

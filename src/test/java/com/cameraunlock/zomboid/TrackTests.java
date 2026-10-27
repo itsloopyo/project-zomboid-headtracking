@@ -30,6 +30,7 @@ final class TrackTests {
         Checks.run("aSleepersTopFacesUpAndIsTexturedEdgeToEdge", TrackTests::aSleepersTopFacesUpAndIsTexturedEdgeToEdge);
         Checks.run("aTurnoutsRoutesEachMeetItsLinesAlongThem", TrackTests::aTurnoutsRoutesEachMeetItsLinesAlongThem);
         Checks.run("aTurnoutWhoseRoutesCannotBeReadIsLeftThePicture", TrackTests::aTurnoutWhoseRoutesCannotBeReadIsLeftThePicture);
+        Checks.run("aRouteByADiagonalIsTwoArcsAndTheStraightBetween", TrackTests::aRouteByADiagonalIsTwoArcsAndTheStraightBetween);
         Checks.run("aTurnoutIsReadTheSameFromEachOfItsSquares", TrackTests::aTurnoutIsReadTheSameFromEachOfItsSquares);
         Checks.run("everyRailOfABuiltTurnoutHasASleeperUnderIt", TrackTests::everyRailOfABuiltTurnoutHasASleeperUnderIt);
         Checks.run("everyRailOfATurnoutEndsOnAnotherOrAtABuffer", TrackTests::everyRailOfATurnoutEndsOnAnotherOrAtABuffer);
@@ -120,17 +121,19 @@ final class TrackTests {
     /**
      * A junction the map has as at 12663,4444: a line across that ends short of a straight down
      * the map, joined to it by bend F's rails alone, a diagonal of rails alone and bend G's
-     * rails alone, which no one arc between the two lines follows.
+     * rails alone, which no one arc between the two lines follows. As on the map, the diagonal's
+     * middle row, which the picture paints nothing of, is left with nothing on it.
      */
-    private static HashMap<Long, String[]> sCurve() {
+    private static HashMap<Long, String[]> bendDiagonalBend() {
         HashMap<Long, String[]> squares = new HashMap<>();
         Track.Bend g = Track.WIDE_G, f = Track.WIDE_F;
         line(squares, Track.WITH_TIES, Track.NS, 11.5, 10, 0, 12, 23, null);
         bend(squares, Track.WIDE_RAILS, g, 11, 10);
-        bend(squares, Track.WIDE_RAILS, f, 17, 16);
-        line(squares, Track.RAILS, Track.NW, 11 - 10 + g.cOne, 0, 0, 40, 40, (x, y) -> ahead(x, y, 11 + g.oneX, 10 + g.oneY, g.alongOneX, g.alongOneY)
-                && ahead(x, y, 17 + f.oneX, 16 + f.oneY, f.alongOneX, f.alongOneY) && !squares.containsKey(key((int) Math.floor(x), (int) Math.floor(y))));
-        line(squares, Track.WITH_TIES, Track.EW, 16 + f.cTwo, 21, 0, 30, 40, null);
+        bend(squares, Track.WIDE_RAILS, f, 12, 11);
+        double diagonal = 11 - 10 + g.cOne;
+        line(squares, Track.RAILS, Track.NW, diagonal, 0, 0, 40, 40, (x, y) -> ahead(x, y, 11 + g.oneX, 10 + g.oneY, g.alongOneX, g.alongOneY)
+                && ahead(x, y, 12 + f.oneX, 11 + f.oneY, f.alongOneX, f.alongOneY) && !squares.containsKey(key((int) Math.floor(x), (int) Math.floor(y))) && x - y != diagonal);
+        line(squares, Track.WITH_TIES, Track.EW, 11 + f.cTwo, 16, 0, 30, 40, null);
         return squares;
     }
 
@@ -150,13 +153,43 @@ final class TrackTests {
     private record Named(String name, Fixture fixture, int x, int y, int routes) {}
 
     /** The fixtures whose turnouts must be built. */
-    private static final Named[] BUILT = {new Named("the yard's turnout", TrackTests::yardTurnout, 11, 11, 1), new Named("the wye", TrackTests::wye, 19, 13, 2)};
+    private static final Named[] BUILT = {new Named("the yard's turnout", TrackTests::yardTurnout, 11, 11, 1), new Named("the wye", TrackTests::wye, 19, 13, 2),
+        new Named("the junction by a diagonal", TrackTests::bendDiagonalBend, 11, 10, 2)};
 
     /** The fixtures whose turnouts are left the pictures they are. */
-    private static final Named[] LEFT = {new Named("the S-bend junction", TrackTests::sCurve, 11, 10, 0),
-        new Named("the incomplete switch", TrackTests::incompleteSwitch, 14, 6, 0)};
+    private static final Named[] LEFT = {new Named("the incomplete switch", TrackTests::incompleteSwitch, 14, 6, 0)};
 
-    private static final Fixture[] FIXTURES = {TrackTests::yardTurnout, TrackTests::wye, TrackTests::sCurve, TrackTests::incompleteSwitch};
+    private static final Fixture[] FIXTURES = {TrackTests::yardTurnout, TrackTests::wye, TrackTests::bendDiagonalBend, TrackTests::incompleteSwitch};
+
+    private static void aRouteByADiagonalIsTwoArcsAndTheStraightBetween() {
+        Track.Turnout turnout = new Track.Reader(area(bendDiagonalBend(), null)).turnout(11, 10);
+        check(turnout.unread == null, "the junction by a diagonal is built: " + turnout.unread);
+        double diagonal = 11 - 10 + Track.WIDE_G.cOne;
+        Track.Line straight = null;
+        for (Track.Line line : turnout.lines) {
+            if (line.way == Track.NW && line.c == diagonal) {
+                straight = line;
+            }
+        }
+        check(straight != null && straight.from < straight.to && !Double.isInfinite(straight.from) && !Double.isInfinite(straight.to),
+                "the route runs straight along the diagonal between its arcs: " + (straight == null ? "no straight" : straight.from + " to " + straight.to));
+        double[] d = Track.direction(Track.NW);
+        int ends = 0;
+        for (Track.Route route : turnout.routes) {
+            check(Math.abs(Math.abs(route.sweep) - Math.PI / 4) < 1e-9, "each arc of the route turns through 45 degrees: " + Math.toDegrees(route.sweep));
+            for (double angle : new double[] {route.start, route.start + route.sweep}) {
+                double px = route.x + route.r * Math.cos(angle), py = route.y + route.r * Math.sin(angle), along = px * d[0] + py * d[1];
+                boolean onStraight = Math.abs(px - py - diagonal) < 1e-6;
+                if (onStraight) {
+                    ends++;
+                    check(Math.abs(along - straight.from) < 1e-6 || Math.abs(along - straight.to) < 1e-6,
+                            "an arc meets the straight where it ends, at " + px + "," + py + ": " + along + " not " + straight.from + " or " + straight.to);
+                }
+            }
+        }
+        check(ends == 2, "each end of the straight is where an arc leaves it: " + ends + " arc ends on it");
+    }
+
 
     private static void aTurnoutsRoutesEachMeetItsLinesAlongThem() {
         for (Named named : BUILT) {
