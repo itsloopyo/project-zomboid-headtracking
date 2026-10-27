@@ -506,6 +506,9 @@ final class WallBuilder {
                     addKerb(texture, x, y, z, da, db, build.sheetLayers == Fences.POSTED_LAYERS);
                 }
                 build.geometry.addFace(mesh, build.frame, x, y, z, from * da, from * db, 0f, (1f - from) * da, (1f - from) * db, 0f, 0f, 0f, 1f);
+                if (build.meshPanel != null) {
+                    addMeshFoot(texture, x, y, z, da, db, build.meshPanel);
+                }
             }
             return;
         }
@@ -912,6 +915,18 @@ final class WallBuilder {
             build.placed.add(Models.get("fence_pier"), build.frame, x, y, x - da * Fences.POST_BEFORE, y - db * Fences.POST_BEFORE, foot, turns, 1f, 1f,
                     texture.getID(), paint, u, v, 0, 0f, 0f);
         }
+    }
+
+    /**
+     * Lays the concrete foot a panel of the temporary mesh fence stands its post in, on the square's edge from (0, 0) along
+     * (da, db) under the post its sheet shows. Its paint is the sprite's, from the foot it paints off the edge's line.
+     */
+    private void addMeshFoot(Texture texture, int x, int y, int z, float da, float db, String panel) {
+        float along = Fences.footAlong(panel);
+        float foot = (z + build.geometry.raised) * ViewCamera.LEVEL_HEIGHT + build.geometry.liftAt(along * da, along * db);
+        float a = Fences.footPainted(panel, 0), b = Fences.footPainted(panel, 1);
+        build.placed.add(Models.get("fence_foot"), build.frame, x, y, x + da * along, y + db * along, foot, da != 0f ? 2 : 3, 1f, 1f, texture.getID(),
+                1 << Models.PAINT, SpriteGeometry.textureU(build.frame, a, b), SpriteGeometry.textureV(build.frame, a, b, Fences.FOOT_DYE_HIGH), 0, 0f, 0f);
     }
 
     /**

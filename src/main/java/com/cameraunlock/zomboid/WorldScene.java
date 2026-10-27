@@ -836,6 +836,8 @@ final class WorldScene {
         final boolean logs, logGable;
         /** How far before its square's corner it paints along its edge, and how many layers off the edge it lies: see Fences.overhang. */
         final float overhang, overhangLayers;
+        /** Whether it is a panel of the temporary mesh fence, which stands its post in a concrete foot: see Fences.footAlong. */
+        final boolean meshFoot;
         /** As a tree, what it drops, for a tree that turns the first of its kind's colours and for one that turns the other: see Litter.kindOf. */
         private final byte falls, fallsOther;
         /** What it is a square of rug made of, Rugs.WOVEN, FUR or HIDE, or -1 for no rug, and how high its top lies over the floor, in levels: see Flat.pile. */
@@ -944,6 +946,7 @@ final class WorldScene {
             logs = LogWalls.is(name) || logGable;
             overhang = Fences.overhang(name);
             overhangLayers = Fences.overhangLayers(name);
+            meshFoot = !Float.isNaN(Fences.footAlong(name));
             lights = Lights.slice(sprite);
             parasol = Parasols.quarter(sprite);
             eave = Hoods.eave(sprite);
@@ -7665,6 +7668,7 @@ final class WorldScene {
             logGable = kind.logGable;
             sheetFrom = seeThrough ? -kind.overhang : 0f;
             sheetLayers = kind.overhangLayers;
+            meshPanel = seeThrough && overLayer == 0 && Own.buildings() && kind.meshFoot ? sprite.getName() : null;
             if (seeThrough && overLayer == 0 && Own.buildings() && kind.brokenLink != 0f) {
                 frame.material = kind.brokenLink;
             }
@@ -8385,6 +8389,8 @@ final class WorldScene {
         boolean logs, logGable;
         /** Where along its edge the sheet being added starts, before its square's corner, and how many layers off the edge it then lies: see Fences.overhang. */
         float sheetFrom, sheetLayers;
+        /** The sprite of the mesh fence panel being added, whose post's foot is laid beside its sheet, or null: see Fences.footAlong. */
+        String meshPanel;
 
         /**
          * Whether the sprite is painted all over the box its outline describes: a fridge, a counter,

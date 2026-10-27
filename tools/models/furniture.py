@@ -12731,6 +12731,16 @@ def fence_pier():
     return model
 
 
+def fence_foot():
+    """The concrete foot a panel of the temporary mesh fence stands its post in, as WallBuilder lays it under the post on its
+    square's edge: a block 0.13 m along the edge, 0.21 m across it and 0.11 m high. Measured off fencing_01_88 and 89."""
+    model = Model("fence_foot", centred=False)
+    foot = bmesh.new()
+    cuboid(foot, -0.065, 0.065, -0.105, 0.105, 0.0, 0.11)
+    model.hard(foot, "paint", bevel=0.01, segments=1)
+    return model
+
+
 # A log wall is ten courses to a level. LogWalls.java lays a wall along y a log's radius lower than one along x, so at a
 # corner where the two cross, each log's end passes between two of the other wall's.
 LOG_RADIUS = 2.44949 / 20
@@ -12794,7 +12804,7 @@ def log_walls():
 def shops():
     """What a grocer, a florist or a shop stands out that ShopFittings.java gives a model for, the produce crate and the
     produce the game paints in it, the length of white picket fence Pickets.java stands, and the security fence's footing."""
-    return [produce_crate(), produce_pile("produce_pile", 61), produce_pile("produce_pile_b", 62), picket_length(), fence_kerb(), fence_pier()]
+    return [produce_crate(), produce_pile("produce_pile", 61), produce_pile("produce_pile_b", 62), picket_length(), fence_kerb(), fence_pier(), fence_foot()]
 
 
 # A gallery's sculpture: busts on their plinths and statues on their bases, carved from metaballs. Gallery stands them.

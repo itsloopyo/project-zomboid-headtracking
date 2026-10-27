@@ -19,6 +19,25 @@ final class FenceTests {
         Checks.run("theWhitePicketFenceIsItsModelOnEachEdge", FenceTests::theWhitePicketFenceIsItsModelOnEachEdge);
         Checks.run("aLogWallIsItsLogs", FenceTests::aLogWallIsItsLogs);
         Checks.run("theSecurityFenceStartsWhereItsPostIsBeforeTheCorner", FenceTests::theSecurityFenceStartsWhereItsPostIsBeforeTheCorner);
+        Checks.run("aMeshPanelStandsItsPostInAConcreteFoot", FenceTests::aMeshPanelStandsItsPostInAConcreteFoot);
+    }
+
+    private static void aMeshPanelStandsItsPostInAConcreteFoot() {
+        // Each panel's post is at one end of its run, and the foot under it is a little way in from the corner the next panel's post stands by.
+        Checks.check(Fences.footAlong("fencing_01_88") < 0f && Fences.footAlong("fencing_01_89") > 0.7f && Fences.footAlong("fencing_01_89") < 1f,
+                "a north panel's post stands just before its corner or before the far one");
+        Checks.check(Fences.footAlong("fencing_01_91") > 0f && Fences.footAlong("fencing_01_91") < 0.1f && Fences.footAlong("fencing_01_90") > 0.7f
+                && Fences.footAlong("fencing_01_90") < 1f, "and a west panel's by its corner or by the far one");
+        for (String other : new String[] {"fencing_01_48", "fencing_01_87", "fencing_01_92", "fencing_02_88", "walls_exterior_house_01_88"}) {
+            Checks.check(Float.isNaN(Fences.footAlong(other)), other + " stands in no foot");
+        }
+        for (String panel : new String[] {"fencing_01_88", "fencing_01_89", "fencing_01_90", "fencing_01_91"}) {
+            float a = Fences.footPainted(panel, 0), b = Fences.footPainted(panel, 1);
+            Checks.check(a > 0f && a < 1f && b > 0f && b < 1f, panel + " paints its foot on its tile: " + a + ", " + b);
+        }
+        Models.Model foot = Models.get("fence_foot");
+        Checks.check(Math.abs(foot.minY + 0.105f) < 0.002f && Math.abs(foot.maxY - 0.105f) < 0.002f && Math.abs(foot.height() - 0.11f) < 0.002f,
+                "the foot is a block astride the edge's line: " + foot.minY + " to " + foot.maxY + ", " + foot.height() + " high");
     }
 
     private static void theSecurityFenceStartsWhereItsPostIsBeforeTheCorner() {

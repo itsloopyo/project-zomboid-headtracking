@@ -48,6 +48,32 @@ final class Fences {
         };
     }
 
+    /**
+     * Where along its edge, in tiles, a panel of the temporary mesh fence stands the concrete foot under its post, or NaN for
+     * any other sprite: fencing_01_88 and 89 on a north edge, 90 and 91 on a west one. It is where the panel's sheet, laid on
+     * the edge's line, shows the post: the sprite paints the foot off that line, where the sheet has nothing to show it on.
+     */
+    static float footAlong(String name) {
+        return switch (name == null ? -1 : Sheets.place(name, "fencing_01_")) {
+            case 88 -> -0.062f;
+            case 89 -> 0.766f;
+            case 90 -> 0.82f;
+            case 91 -> 0.031f;
+            default -> Float.NaN;
+        };
+    }
+
+    /** Where on its tile a mesh panel's sprite paints the middle of the foot under its post, (a, b) for fencing_01_88 to 91: its colour is taken there. */
+    private static final float[][] FOOT_PAINTED = {{0.055f, 0.117f}, {0.892f, 0.126f}, {0.13f, 0.95f}, {0.1f, 0.13f}};
+
+    /** How high up the mesh panel's sprite paints the middle of its foot, in levels: the middle of the 0.11 m block. */
+    static final float FOOT_DYE_HIGH = 0.055f / ViewCamera.LEVEL_HEIGHT;
+
+    /** Where across (0) or down (1) its tile a mesh panel's sprite paints the middle of its foot: see FOOT_PAINTED. */
+    static float footPainted(String name, int axis) {
+        return FOOT_PAINTED[Sheets.place(name, "fencing_01_") - 88][axis];
+    }
+
     /** How many layers off the edge a length of the security fence lies, so that one with a post is drawn over the end of the one before. */
     static float overhangLayers(String name) {
         return overhang(name) == POSTED_OVERHANG ? POSTED_LAYERS : 1f;
