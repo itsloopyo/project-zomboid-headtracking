@@ -1750,7 +1750,7 @@ final class PipelineShaders {
                 bool stainOnWall = texel.a >= 0.5;
                 if (stainTint) {
                     // A storey's height, and how the face carries what it does. Grime over a wall: how much finer
-                    // its clouds are indoors, and how much of them is left there; how high its band along the floor
+                    // its clouds are indoors, and how much of its corners is left there; how high its band along the floor
                     // reaches, how far its dusting under the ceiling and its darkening into a corner reach, how far
                     // it runs down under a sill out of doors; and the most of it there is anywhere. In tiles.
             """ + "const float STOREY = " + ViewCamera.LEVEL_HEIGHT + ", PIXELS_PER_LEVEL = " + SpriteGeometry.PIXELS_PER_LEVEL
@@ -1764,7 +1764,8 @@ final class PipelineShaders {
                     float corner = rest - (indoors ? 0.0 : GRIME_OUTSIDE), top = tops / GRIME_TOP_STEPS * STOREY;
                     vec2 alongFace = vec2(run, vWorld.z * 2.5) * (indoors ? GRIME_FINER : 1.0);
                     float clouds = smoothstep(0.3, 0.8, 0.65 * patches(alongFace * 1.7 + 7.0) + 0.35 * patches(alongFace * 5.3));
-                    float grime = (0.08 + 0.2 * clouds) * (indoors ? GRIME_INDOORS : 1.0);
+                    // Indoors the open wall carries no clouds, only a tone that changes over several tiles along it.
+                    float grime = indoors ? 0.06 * GRIME_INDOORS * (0.6 + 0.8 * patches(vec2(run * 0.25, 3.0))) : 0.08 + 0.2 * clouds;
                     if (floored) {
                         float foot = GRIME_FOOT * (0.7 + 0.6 * patches(vec2(run * 1.3, 5.0)));
                         grime += (1.0 - smoothstep(0.25 * foot, foot, up)) * (0.36 + 0.16 * patches(vec2(run * 7.0, up * 11.0) + 3.0));
