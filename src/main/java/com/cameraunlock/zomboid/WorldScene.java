@@ -8127,7 +8127,8 @@ final class WorldScene {
             placed.add(Models.get(model), frame, x, y, x + awningAt[0], y + awningAt[1], foot, Hoods.turns(wall),
                     Furniture.TILES_PER_METRE, Furniture.TILES_PER_METRE, texture.getID(), 1 << Models.PAINT,
                     SpriteGeometry.textureU(frame, dye[0], dye[1]), SpriteGeometry.textureV(frame, dye[0], dye[1], Hoods.DYE_HIGH), 0, 0f, 0f);
-            placed.built();
+            // The game hides a roof's eave with the wall it hangs from, where it may keep what hangs on a cut wall.
+            placed.wall();
             furnished++;
             return true;
         }
