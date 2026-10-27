@@ -2085,6 +2085,9 @@ final class RoofFit {
                     if (!ends && across == null && flat != null && !peaked) {
                         foldValley(flat, own, tile, at.get(key(x + dx, y + dy, 0)), axis, step);
                     }
+                    if (!ends && across == null && !peaked) {
+                        overRidge(tile, own, here, at.get(key(x + dx, y + dy, 0)), axis, carried);
+                    }
                     if (ends || across == null) {
                         break;
                     }
@@ -2123,6 +2126,41 @@ final class RoofFit {
         }
         meet(tiles, made, at, carried);
         return carried;
+    }
+
+    /**
+     * Carries a slope over the square of a ridge that runs into it from the side, where the slope goes on past the ridge: a
+     * dormer's ridge comes in to the main roof's face and dies into it. Stopped at the ridge's square, the face had a square
+     * open there, the dormer's ridge under the sky and the far face's underside showing through (12720, 3679). The ridge
+     * stays laid, and stands out of the face only where the face is lower.
+     */
+    private static void overRidge(Tile tile, float[] own, ArrayList<Tile> here, ArrayList<Tile> past, int axis, List<Tile> carried) {
+        Tile ridge = null;
+        for (Tile on : here) {
+            ridge = on.peak > 0f && !on.shaped && on.fitAxis == LEVEL && on.peakAxis != axis ? on : ridge;
+        }
+        boolean goesOn = false;
+        for (int i = 0; past != null && i < past.size(); i++) {
+            goesOn |= sameRoof(tile, false, axis, past.get(i));
+        }
+        if (ridge == null || !goesOn) {
+            return;
+        }
+        boolean above = false;
+        for (int corner = 0; corner < 4; corner++) {
+            above |= own[corner] > ridge.fitLow + ridge.peak + SAME;
+        }
+        for (Tile was : carried) {
+            above &= was.x != ridge.x || was.y != ridge.y || was.fitAxis != tile.fitAxis;
+        }
+        if (!above) {
+            return;
+        }
+        Tile over = new Tile(ridge.x, ridge.y, (int) Math.floor(Math.min(tile.fitLow, tile.fitHigh) + LEAST_RISE), tile.fitAxis, true, tile.fitLow, tile.fitHigh);
+        over.fitted = true;
+        over.carried = true;
+        System.arraycopy(own, 0, over.corners, 0, 4);
+        carried.add(over);
     }
 
     /**
