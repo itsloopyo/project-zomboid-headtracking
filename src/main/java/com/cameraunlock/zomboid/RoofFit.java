@@ -55,6 +55,8 @@ final class RoofFit {
      */
     static final float KINK = PITCH / 2f - SAME;
     static final int EAST_HALF = 1, SOUTH_HALF = 2;
+    /** The fewest squares of a side of a piece of sheets that slopes climb to at its height for the piece to be a crown: see lined. */
+    private static final int LINED = 3;
     /** How many squares towards the map's origin, and thirds of a level down, a half tile is looked for its place: see peaks. */
     private static final int FURTHEST_SHIFT = 2;
     /** A plane of that pitch nearer than this to meeting the tile edges at whole thirds of a level is taken to meet them there. */
@@ -635,7 +637,12 @@ final class RoofFit {
      * meet it higher up than along slopes that meet it at its height lies behind their ridge (a
      * long gable's ridge along one side, the ends of the house meeting it at its height). Left
      * in, the far slope made over it stopped at the sheets' height, a step below the ridge. A
-     * piece with no slope beside it is a flat roof.
+     * piece with no slope beside it is a flat roof. A piece whose south or east side is mostly
+     * lined by a slope that climbs to it at its height is a crown however high a ridge beside it
+     * climbs: the far side of a ridge falls away across the piece, and no slope could meet that at
+     * one height along a whole side. Counted out, the crown of a hip whose east part is a row
+     * deeper was taken for sheets behind the east ridge, and both far sides were carried on over it
+     * at their own heights (12849..12854, 3170..3175).
      */
     static List<Tile> behindRidges(List<Tile> tiles) {
         HashMap<Long, Tile> at = new HashMap<>();
@@ -653,6 +660,8 @@ final class RoofFit {
             queue.add(first);
             seen.put(first, true);
             int climbedTo = 0, under = 0;
+            // Of each side, west, east, north and south: how many squares' edges the piece has there, and how many a slope climbs to at its height.
+            int[] edges = new int[4], climbing = new int[4];
             while (!queue.isEmpty()) {
                 Tile sheet = queue.poll();
                 piece.add(sheet);
@@ -666,6 +675,8 @@ final class RoofFit {
                         }
                         continue;
                     }
+                    edges[side]++;
+                    boolean climbs = false;
                     for (int dz = -1; dz <= 1; dz++) {
                         Tile beside = at.get(key(sheet.x + dx, sheet.y + dy, sheet.z + dz));
                         if (beside == null || beside.sheet || beside.shaped) {
@@ -675,15 +686,26 @@ final class RoofFit {
                         float edge = beside.axis == ALONG_X && dx != 0 ? (dx > 0 ? beside.low : beside.high)
                                 : beside.axis == ALONG_Y && dy != 0 ? (dy > 0 ? beside.low : beside.high) : Float.NaN;
                         climbedTo += Math.abs(edge - first.low) <= PITCH / 2f ? 1 : 0;
+                        climbs |= Math.abs(edge - first.low) <= PITCH / 2f;
                         under += edge > first.low + PITCH / 2f ? 1 : 0;
                     }
+                    climbing[side] += climbs ? 1 : 0;
                 }
             }
-            if (under > climbedTo) {
+            if (under > climbedTo && !lined(climbing[1], edges[1]) && !lined(climbing[3], edges[3])) {
                 behind.addAll(piece);
             }
         }
         return behind;
+    }
+
+    /**
+     * Whether a side of a piece of sheets is mostly lined by slopes that climb to it, with at least LINED of them: the
+     * slopes at the ends of a gable meet the sheets behind its ridge at their height, and on a side one or two squares
+     * long they are the most of it.
+     */
+    private static boolean lined(int climbing, int edges) {
+        return climbing >= LINED && 2 * climbing > edges;
     }
 
     /**

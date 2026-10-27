@@ -1776,6 +1776,34 @@ final class RoofTests {
         gable.add(new RoofFit.Tile(0, 1, 1, RoofFit.ALONG_X, true, 1f, EAVE));
         gable.add(new RoofFit.Tile(9, 1, 1, RoofFit.ALONG_X, true, EAVE, 1f));
         check(RoofFit.behindRidges(gable).size() == 16, "sheets a long ridge climbs above are behind it though the ends meet them");
+        // One row deep, the slope at each end meets the whole of its side.
+        List<RoofFit.Tile> shallow = new ArrayList<>();
+        for (RoofFit.Tile tile : gable) {
+            if (!tile.sheet || tile.y == 2) {
+                shallow.add(tile);
+            }
+        }
+        shallow.removeIf(tile -> tile.x == 0 || tile.x == 9);
+        shallow.add(new RoofFit.Tile(0, 2, 1, RoofFit.ALONG_X, true, 1f, EAVE));
+        shallow.add(new RoofFit.Tile(9, 2, 1, RoofFit.ALONG_X, true, EAVE, 1f));
+        check(RoofFit.behindRidges(shallow).size() == 8, "a row of sheets a long ridge climbs above is behind it though an end slope lines its east side: " + RoofFit.behindRidges(shallow).size());
+        // The crown of the house at 12848..12857 x 3169..3176: six by six, its east part's slope a row deeper climbing above it
+        // along the whole east side, and the south slope climbing to it along five squares of the south side.
+        List<RoofFit.Tile> deeper = new ArrayList<>();
+        for (int x = 1; x <= 6; x++) {
+            if (x <= 5) {
+                deeper.add(new RoofFit.Tile(x, 7, 1, RoofFit.ALONG_Y, true, EAVE, 1f));
+            }
+            for (int y = 1; y <= 6; y++) {
+                RoofFit.Tile sheet = new RoofFit.Tile(x, y, 1, RoofFit.LEVEL, true, EAVE, EAVE);
+                sheet.sheet = true;
+                deeper.add(sheet);
+            }
+        }
+        for (int y = 1; y <= 6; y++) {
+            deeper.add(new RoofFit.Tile(7, y, 1, RoofFit.ALONG_X, true, EAVE + THIRD, EAVE));
+        }
+        check(RoofFit.behindRidges(deeper).isEmpty(), "a crown its south slope climbs to along most of that side stays, though a ridge on the east climbs higher along all of its");
     }
 
     /**
