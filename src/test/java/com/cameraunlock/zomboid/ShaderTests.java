@@ -356,7 +356,8 @@ final class ShaderTests {
     /**
      * A sun map holds a level sheet behind itself by Pipeline.SLOPE_OFFSET texels of its slope, so the top of a wall
      * under a roof of one sheet reads as in front of the sheet. Reads the sources: both lookups of the world's fragment
-     * stage into a sun map are made, for what is roofed, from where sunAsked puts the point; sunAsked lowers a point
+     * stage into a sun map are made, for what is roofed, from where sunAsked puts the point, and a point in a room lit
+     * there is asked SUN_BAND lower too, a ceiling's sheet being held behind itself as a roof's is; sunAsked lowers a point
      * only where something is over it, by the offset, a texel and the lookup's own spread; a point lowered out of the
      * near map is asked of the far one; the program is told the offset the maps are drawn with; and the shadow maps
      * keep a sheet's clear pixels and no other face's.
@@ -366,10 +367,13 @@ final class ShaderTests {
         Checks.check(world.contains("bool roofed = (open < 0.5 || abs(normalize(vNormal).z) < 0.5 && !card) && !water && uCutMarked.z <= 0.0;"), "the world's fragment stage does not say what is roofed before it asks the sun maps");
         Checks.check(world.contains("float beneath = open < 0.5 ? 0.16 * uRoofPitch : 0.0;"), "a point in a room is not asked from under the ceiling of a pitched roof, or one out of doors is");
         Checks.check(!(!world.contains("if (roofed) { c = (uNearMatrix * vec4(sunAsked(from.xyz, soft, uSunTexelUp.x, beneath), 1.0)).xyz * 0.5 + 0.5; inNear = inside(c); }"
-                + " if (inNear) { reached = shadowAt(uShadowNear, c, soft); } }")
+                + " if (inNear) { reached = shadowAt(uShadowNear, c, soft); if (open < 0.5 && reached > 0.0) {"
+                + " vec3 lower = (uNearMatrix * vec4(sunAsked(from.xyz, soft, uSunTexelUp.x, beneath) - vec3(0.0, 0.0, SUN_BAND), 1.0)).xyz * 0.5 + 0.5;"
+                + " reached = min(reached, shadowAt(uShadowNear, lower, soft)); } } }")
                 || !world.contains("if (!inNear) { if (roofed) { from.xyz = sunAsked(from.xyz, 1.6, uSunTexelUp.y, beneath); }"
                         + " c = (uFarMatrix * from).xyz * 0.5 + 0.5; reached = inside(c) ? shadowAt(uShadowFar, c, 1.6) : 1.0; }")
-                || count(world, "shadowAt(uShadow") != 2), "the world's fragment stage asks a sun map about what is roofed from where the map cannot tell it from its roof");
+                || count(world, "shadowAt(uShadow") != 3), "the world's fragment stage asks a sun map about what is roofed from where the map cannot tell it from its roof,"
+                    + " or a point in a room only at itself and not SUN_BAND lower too");
         Checks.check(world.contains("float top = from.z + (c.z - over) * uRoofDeep; if (top <= vWorld.z + 0.001) { return from; } "
                 + "return vec3(from.xy, min(from.z, top - (uSlopeOffset + 1.0 + texels) * texelUp - under));"), "sunAsked does not lower a point under what is over it by the map's offset and the lookup's spread,"
                     + " or lowers one with nothing over it");

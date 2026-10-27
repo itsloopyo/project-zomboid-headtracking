@@ -820,6 +820,14 @@ final class PipelineShaders {
     static final float SMALL_LEAVES_FROM = 0.006f, SMALL_LEAVES_TO = 0.011f;
 
     /**
+     * A sun map holds a ceiling sheet behind itself by the slope offset, so a point close under a
+     * ceiling, air or the top of a wall, reads as in the sun. A point in a room is asked at itself
+     * and this much lower, in tiles: a shaft through a window, and the patch it lands on, is lit at
+     * both, the grain along the top of a wall is not.
+     */
+    static final float SUN_BAND = 0.06f;
+
+    /**
      * The world's fragment shader up to its main. Pipeline joins WORLD_FRAGMENT_RELIEF, SnowShader.GLSL and
      * WORLD_FRAGMENT_MAIN on after it: as one constant the shader is longer than a class file can hold.
      *
@@ -1003,6 +1011,7 @@ final class PipelineShaders {
                 return sunOnAir(over >= 1.0 || top > p.z ? p : vec3(p.xy, top + 0.1));
             }
 
+            """ + "const float SUN_BAND = " + SUN_BAND + ";\n" + """
             // Where a point under something asks a sun map about itself. A map holds every surface behind
             // where it is, by uSlopeOffset texels of the surface's slope in the map, and the lookup is
             // answered by the texels round it, a texel more, and those its soft edge spreads over. A sheet
@@ -4164,6 +4173,13 @@ final class PipelineShaders {
                         }
                         if (inNear) {
                             reached = shadowAt(uShadowNear, c, soft);
+                            if (open < 0.5 && reached > 0.0) {
+                                // The top of a wall a few centimetres under a ceiling held behind itself reads as in the
+                                // sun, a bar of it along the wall in a dark room (1041, 12982, the fire station's stair
+                                // housing): see SUN_BAND.
+                                vec3 lower = (uNearMatrix * vec4(sunAsked(from.xyz, soft, uSunTexelUp.x, beneath) - vec3(0.0, 0.0, SUN_BAND), 1.0)).xyz * 0.5 + 0.5;
+                                reached = min(reached, shadowAt(uShadowNear, lower, soft));
+                            }
                         }
                     }
                     if (!inNear) {
@@ -5207,17 +5223,13 @@ final class PipelineShaders {
 
     /**
      * For air: whether a point has something over it, from the map from above, and the sun on
-     * it. A sun map holds a ceiling sheet behind itself by the slope offset, so air close under a
-     * ceiling, and in the thin gap over the top of a wall, reads as in the sun. Air in a room is
-     * asked at itself and AIR_BAND lower: a shaft through a window is lit at both, the grain along
-     * the top of a wall is not.
+     * it, asked at itself and SUN_BAND lower when it has.
      */
     static final String ROOFED_AIR = """
             uniform sampler2D uHeights;
             uniform mat4 uRoofMatrix;
             uniform float uRoofDeep;
-
-            const float AIR_BAND = 0.06;
+            """ + "const float SUN_BAND = " + SUN_BAND + ";\n" + """
 
             bool underRoof(vec3 p) {
                 vec3 c = (uRoofMatrix * vec4(p, 1.0)).xyz * 0.5 + 0.5;
@@ -5231,7 +5243,7 @@ final class PipelineShaders {
 
             float sunInAir(vec3 p, bool roofed, float beyond) {
                 float sun = sunInAir(p, beyond);
-                return roofed && sun > 0.0 ? min(sun, sunInAir(p - vec3(0.0, 0.0, AIR_BAND), beyond)) : sun;
+                return roofed && sun > 0.0 ? min(sun, sunInAir(p - vec3(0.0, 0.0, SUN_BAND), beyond)) : sun;
             }
             """;
 
