@@ -200,6 +200,7 @@ public final class Tests {
         Checks.run("RainTests", RainTests::run);
         Checks.run("ImpactTests", ImpactTests::run);
         Checks.run("KerbTests", KerbTests::run);
+        Checks.run("LanesTests", LanesTests::run);
         Checks.run("SeasonsTests", SeasonsTests::run);
         Checks.run("LitterTests", LitterTests::run);
         Checks.run("LeafFallTests", LeafFallTests::run);

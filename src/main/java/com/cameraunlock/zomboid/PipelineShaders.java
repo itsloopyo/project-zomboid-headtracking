@@ -3145,8 +3145,13 @@ final class PipelineShaders {
                 }
             """;
 
+    /** What the picture reads lane wear by: see SpriteGeometry.LANE. */
+    static final String LANE_WEAR = "const float LANE = " + SpriteGeometry.LANE + ", LANE_ALONG_X = " + SpriteGeometry.LANE_ALONG_X
+            + ", LANE_STEP = " + SpriteGeometry.LANE_STEP + ", LANE_QUARTERS = " + SpriteGeometry.LANE_QUARTERS + ", LANE_BIAS = " + SpriteGeometry.LANE_BIAS
+            + ", LANE_NARROWEST = " + Lanes.NARROWEST + ";\n";
+
     /** The rest of main: the whole of it in one constant is longer than a class file can hold. */
-    static final String WORLD_FRAGMENT_MAIN_REST = """
+    static final String WORLD_FRAGMENT_MAIN_REST = LANE_WEAR + """
                 vec3 toEye = uEye - vWorld;
                 // What stands as a card and is not water: see card below. Nor an overhead wire,
                 // whose upright strip is all there is of it from the side.
@@ -3366,6 +3371,45 @@ final class PipelineShaders {
                     float fine = dot(grain3, vec3(0.299, 0.587, 0.114));
                     float bright = dot(texel.rgb, vec3(0.299, 0.587, 0.114));
                     texel.rgb = mix(texel.rgb * mix(1.0, fine, 0.9), grain3 * bright, 0.8 * (stony - paved)) * (1.0 - 0.35 * reliefLow);
+                    // Tarmac is laid and mended a stretch at a time: over tens of paces one stretch is darker than
+                    // the next, a trench filled again is a patch of other tarmac, and on a road with a centre line a
+                    // crack the crew sealed is a thin black line across it. Those run with the road
+                    // (SpriteGeometry.LANE), and each lane is worn: oil darkens its middle and the wheels wear two
+                    // paler tracks either side. Elsewhere the patches lie along x. The run's derivatives are taken
+                    // here, where every pixel of the face still runs.
+                    bool laned = vRoot.x < LANE + 0.5;
+                    bool alongX = vRoot.x < LANE - LANE_ALONG_X + 0.5;
+                    vec2 run = laned && !alongX ? p.yx : p;
+                    vec2 runWidth = fwidth(run);
+                    if (dark > 0.01) {
+                        float broad = patches(p * 0.021 + 17.0) * 0.6 + patches(p * 0.053 + 5.0) * 0.4;
+                        float shade = 1.0 + (broad - 0.5) * 0.36;
+                        vec2 cell = floor(run / vec2(6.0, 4.0));
+                        vec2 extent = vec2(0.6 + 1.9 * grain(cell + 9.1), 0.5 + 1.2 * grain(cell + 4.3));
+                        vec2 middle = (cell + 0.5) * vec2(6.0, 4.0) + (vec2(grain(cell + 1.3), grain(cell + 2.9)) - 0.5) * (vec2(6.0, 4.0) - 2.0 * extent);
+                        vec2 beyond = abs(run - middle) - extent;
+                        float rim = max(beyond.x, beyond.y);
+                        float rimSoft = (beyond.x > beyond.y ? runWidth.x : runWidth.y) + 1e-5;
+                        shade *= mix(1.0, 0.9 + 0.16 * grain(cell + 6.1), step(0.7, grain(cell + 3.7)) * (1.0 - smoothstep(-rimSoft, rimSoft, rim)));
+                        float stretch = floor(run.x / 9.0);
+                        float toCrack = run.x - (stretch + 0.2 + 0.6 * grain(vec2(stretch, 5.5))) * 9.0
+                                - (patches(vec2(run.y * 0.3, stretch * 3.0)) - 0.5) * 0.6 - (patches(vec2(run.y * 2.1, stretch * 5.0 + 1.0)) - 0.5) * 0.12;
+                        float crackSoft = runWidth.x + 0.2 * runWidth.y + 1e-5;
+                        float crack = laned ? step(0.5, grain(vec2(stretch, 8.25))) * step(0.3, patches(vec2(run.y * 0.9, stretch * 7.0)))
+                                * (1.0 - smoothstep(0.012, 0.012 + crackSoft, abs(toCrack))) * (1.0 - smoothstep(0.015, 0.04, crackSoft)) : 0.0;
+                        shade *= 1.0 - 0.3 * crack * (1.0 - uGameView);
+                        if (laned) {
+                            float quarters = floor(vRoot.y / LANE_STEP);
+                            float laneWidth = quarters / LANE_QUARTERS;
+                            float fromMiddle = vRoot.y - quarters * LANE_STEP - LANE_BIAS - laneWidth * 0.5;
+                            float worn = clamp(LANE - (alongX ? LANE_ALONG_X : 0.0) - vRoot.x, 0.0, 1.0) * step(LANE_NARROWEST, laneWidth)
+                                    * (0.55 + 0.45 * patches(run * vec2(0.08, 0.5) + 41.0));
+                            float wheels = (abs(fromMiddle) - 0.8) / 0.24;
+                            shade *= 1.0 - 0.24 * worn * exp(-fromMiddle * fromMiddle / 0.1) * (0.55 + 0.45 * patches(p * 1.3 + 23.0));
+                            shade *= 1.0 + 0.1 * worn * exp(-wheels * wheels) * smoothstep(1.8, 2.6, laneWidth);
+                        }
+                        texel.rgb *= mix(1.0, shade, dark);
+                    }
                     if (paved > 0.0 && uTint.a < 0.5) {
                         // Poured concrete, not laid slabs: a square panel to a tile, cut by a
                         // joint along every tile's edge and never broken bond, no two panels

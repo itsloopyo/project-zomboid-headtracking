@@ -55,6 +55,7 @@ final class KerbBuilder {
     /** For a square with no kerb to do with it. */
     float noKerb() {
         build.geometry.kerb = null;
+        build.geometry.laneAt = -1;
         build.kerbed = build.kerbNorth = build.kerbWest = false;
         return 0f;
     }
@@ -67,6 +68,9 @@ final class KerbBuilder {
      * or higher.
      */
     float kerbOver(byte kind, int localX, int localY) {
+        float[] lanes = build.geometry.lanes;
+        int lane = (localX * Terrain.CHUNK_TILES + localY) * Lanes.FLOATS;
+        build.geometry.laneAt = lanes != null && lanes[lane + Lanes.AXIS] != Lanes.NONE ? lane : -1;
         boolean street = false, land = false, onLine = false;
         float beyondX = 0f, beyondY = 0f;
         int beyond = 0;

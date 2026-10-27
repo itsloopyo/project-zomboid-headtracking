@@ -791,6 +791,29 @@ final class SpriteGeometry {
     private int kerbSide;
     static final int BOTH = 0, LAND = 1, STREET = 2;
 
+    /** The lanes of the chunk being built, as Lanes keeps them, and where in them the square's are; laneAt is below 0 for a square in no lane. */
+    float[] lanes;
+    int laneAt = -1;
+    /**
+     * What a vertex of a face laid on the ground of a square in a lane carries in the place of
+     * the square of a tree (see VERTEX_FLOATS), which such a face has none of: in x, LANE less
+     * how much of the lane is drawn there, less LANE_ALONG_X more for a road that runs along x;
+     * in y LANE_STEP times the lane's width in LANE_QUARTERS of a tile, plus LANE_BIAS and how far
+     * the vertex is past the lane's inner edge. The picture draws the lane's wear from them: see
+     * PipelineShaders.LANE_WEAR, and lane below.
+     */
+    static final float LANE = -2f, LANE_ALONG_X = 2f, LANE_STEP = 64f, LANE_QUARTERS = 4f, LANE_BIAS = 1f;
+
+    /** The x a vertex of a face in a lane carries: see LANE. */
+    static float laneX(boolean acrossX, float drawn) {
+        return LANE - (acrossX ? 0f : LANE_ALONG_X) - drawn;
+    }
+
+    /** The y a vertex of a face in a lane carries, that far past the inner edge of a lane that wide: see LANE. */
+    static float laneY(float width, float pastInner) {
+        return LANE_STEP * Math.round(width * LANE_QUARTERS) + Math.clamp(pastInner + LANE_BIAS, 0f, LANE_STEP - 0.01f);
+    }
+
     /** Whether the point (a, b) of the square is on the street's side of a kerb that crosses it. */
     boolean onStreet(float a, float b) {
         return Kerbs.at(kerb, kerbX + a, kerbY + b) > 0f;
@@ -2249,12 +2272,25 @@ final class SpriteGeometry {
         mesh.sway = cover == null ? 0f : 1f - (cover.length == GRID_COVER ? gridCover(cover, a, b) : cover[0] * w0 + cover[1] * w1 + cover[2] * w2 + cover[3] * w3);
         mesh.litAt(frame, w0, w1, w2, w3);
         float shade = creaseLow || creaseHigh ? creased(polygon[at], polygon[at + 1]) : 1f;
-        mesh.add(tileX + polygon[at] + shownA, tileY + polygon[at + 1] + shownB,
+        float x = tileX + polygon[at] + shownA, y = tileY + polygon[at + 1] + shownB;
+        // Only the ground's own layer is worn: the top of a crate or a wreck standing on the road is not.
+        boolean laned = laneAt >= 0 && tileZ == 0 && polygon[at + 2] + shownUp + raised < LAID_BELOW && mesh.normalUp > 0.8f
+                && mesh.rootX == NO_ROOT && mesh.rootY == NO_ROOT;
+        if (laned) {
+            boolean acrossX = lanes[laneAt + Lanes.AXIS] == Lanes.ACROSS_X;
+            float fromCentre = Math.abs((acrossX ? x : y) - lanes[laneAt + Lanes.CENTRE]);
+            mesh.rootX = laneX(acrossX, Lanes.drawn(lanes, laneAt, a, b));
+            mesh.rootY = laneY(lanes[laneAt + Lanes.WIDTH], fromCentre - lanes[laneAt + Lanes.INNER]);
+        }
+        mesh.add(x, y,
                 (tileZ + polygon[at + 2] + shownUp + raised) * ViewCamera.LEVEL_HEIGHT + liftAt(polygon[at], polygon[at + 1]), u, v,
                 (frame.cornerRed[0] * w0 + frame.cornerRed[1] * w1 + frame.cornerRed[2] * w2 + frame.cornerRed[3] * w3) * shade,
                 (frame.cornerGreen[0] * w0 + frame.cornerGreen[1] * w1 + frame.cornerGreen[2] * w2 + frame.cornerGreen[3] * w3) * shade,
                 (frame.cornerBlue[0] * w0 + frame.cornerBlue[1] * w1 + frame.cornerBlue[2] * w2 + frame.cornerBlue[3] * w3) * shade);
         mesh.litAsFace();
+        if (laned) {
+            mesh.unrooted();
+        }
     }
 
     /** How much of its light the point (a, b) of the square has, on a wall skin that ends in an inside corner. */

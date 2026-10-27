@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import zombie.core.properties.PropertyContainer;
@@ -12,6 +13,7 @@ import zombie.iso.SpriteDetails.IsoFlagType;
 import zombie.iso.SpriteDetails.IsoObjectType;
 import zombie.iso.areas.IsoBuilding;
 import zombie.iso.sprite.IsoSprite;
+import zombie.iso.sprite.IsoSpriteInstance;
 import zombie.util.list.PZArrayList;
 
 /**
@@ -123,7 +125,9 @@ final class Terrain {
         final float[] water = new float[CORNERS * CORNERS];
         /** Where the kerbs of the chunk's streets run, as Kerbs keeps it. Null where it has no street. */
         float[] kerb;
-        /** What the squares the kerbs were worked out from are, and the kerbs, each as one number. */
+        /** The lanes of the chunk's roads, as Lanes keeps them. Null where none of its squares is in one. */
+        float[] lanes;
+        /** What the squares the kerbs and the lanes were worked out from are, and the kerbs with the lanes, each as one number. */
         long kerbFrom, kerbSum;
         /** What the heights were worked out from, as one number: see gathered. */
         long from;
@@ -146,6 +150,7 @@ final class Terrain {
             System.arraycopy(source.heights, 0, heights, 0, heights.length);
             System.arraycopy(source.water, 0, water, 0, water.length);
             kerb = source.kerb;
+            lanes = source.lanes;
             kerbFrom = source.kerbFrom;
             kerbSum = source.kerbSum;
             from = source.from;
@@ -171,6 +176,8 @@ final class Terrain {
         final boolean[] hard = new boolean[CHUNK_TILES * CHUNK_TILES];
         /** Whether the square is made ground that is no road: a yard, a path, or the pale paving the game lays along a street as its footway. */
         final boolean[] footway = new boolean[CHUNK_TILES * CHUNK_TILES];
+        /** The straight lines the game paints on the square, as Lanes.mark gives them. */
+        final byte[] marks = new byte[CHUNK_TILES * CHUNK_TILES];
         /** Whether every square of the chunk was loaded: then it is kept, and is the same whenever it is asked for. */
         boolean whole;
         /** Whether it is what the map's files have of a chunk not loaded (MapAhead), which the save may have otherwise. */
@@ -188,7 +195,7 @@ final class Terrain {
         boolean water;
         /** How many of the squares have a building or something built standing on them: see hard. */
         int builtOn;
-        /** What the squares are, kinds, hard and footway, as one number. They never change once the chunk is looked over. */
+        /** What the squares are, kinds, hard, footway and marks, as one number. They never change once the chunk is looked over. */
         long sum;
         /** What footed last found, midX, midY and free, as one number; whether some square has a made thing over it, and whether one stands free. */
         long footSum;
@@ -207,6 +214,7 @@ final class Terrain {
             Arrays.fill(box, Float.NaN);
             Arrays.fill(hard, false);
             Arrays.fill(footway, false);
+            Arrays.fill(marks, (byte) 0);
             whole = false;
             guessed = false;
             footed = false;
@@ -381,6 +389,8 @@ final class Terrain {
     private final LongTable<Float> pads = new LongTable<>();
     private static final byte[] kerbKinds = new byte[Kerbs.SPAN * Kerbs.SPAN];
     private static final boolean[] kerbHard = new boolean[Kerbs.SPAN * Kerbs.SPAN];
+    private static final boolean[] kerbFootway = new boolean[Kerbs.SPAN * Kerbs.SPAN];
+    private static final byte[] kerbMarks = new byte[Kerbs.SPAN * Kerbs.SPAN];
     /** How far from water the hills take to rise to their height, in chunks and in tiles: the width of a valley's side. */
     private static final int VALLEY_CHUNKS = 4;
     static final float VALLEY = VALLEY_CHUNKS * CHUNK_TILES;
@@ -664,7 +674,12 @@ final class Terrain {
         return grid(wx, wy).kerb;
     }
 
-    /** The kerbs of a chunk as one number, which is another when they run otherwise. After corners. */
+    /** The lanes of a chunk's roads, as Lanes keeps them, and null where none of its squares is in one. After corners. */
+    float[] lanes(int wx, int wy) {
+        return grid(wx, wy).lanes;
+    }
+
+    /** The kerbs and the lanes of a chunk as one number, which is another when they run otherwise. After corners. */
     long kerbSum(int wx, int wy) {
         return grid(wx, wy).kerbSum;
     }
@@ -853,7 +868,6 @@ final class Terrain {
             return;
         }
         int reach = Kerbs.MARGIN / CHUNK_TILES;
-        long from = 0x9E3779B97F4A7C15L;
         for (int cx = -reach; cx <= reach; cx++) {
             for (int cy = -reach; cy <= reach; cy++) {
                 Kinds kinds = known(fresh.wx + cx, fresh.wy + cy);
@@ -865,25 +879,49 @@ final class Terrain {
                         int at = ((cx + reach) * CHUNK_TILES + i) * Kerbs.SPAN + (cy + reach) * CHUNK_TILES + j;
                         kerbKinds[at] = kinds == null ? UNKNOWN : kinds.kinds[i * CHUNK_TILES + j];
                         kerbHard[at] = kinds != null && kinds.hard[i * CHUNK_TILES + j];
-                        from = (from ^ kerbKinds[at] + (kerbHard[at] ? 8 : 0)) * 0x100000001B3L;
+                        kerbFootway[at] = kinds != null && kinds.footway[i * CHUNK_TILES + j];
+                        kerbMarks[at] = kinds == null ? 0 : kinds.marks[i * CHUNK_TILES + j];
                     }
                 }
             }
         }
+        long from = kerbFrom(kerbKinds, kerbHard, kerbFootway, kerbMarks);
         fresh.kerbFrom = from;
         if (last != null && last.kerbFrom == from) {
             fresh.kerb = last.kerb;
+            fresh.lanes = last.lanes;
             fresh.kerbSum = last.kerbSum;
             return;
         }
         fresh.kerb = Kerbs.field(kerbKinds, kerbHard, fresh.wx * CHUNK_TILES, fresh.wy * CHUNK_TILES);
-        if (fresh.kerb != null) {
-            long sum = 0x9E3779B97F4A7C15L;
-            for (float value : fresh.kerb) {
-                sum = (sum ^ Float.floatToRawIntBits(value)) * 0x100000001B3L;
-            }
-            fresh.kerbSum = sum;
+        fresh.lanes = Lanes.of(kerbKinds, kerbFootway, kerbMarks, fresh.wx * CHUNK_TILES, fresh.wy * CHUNK_TILES);
+        fresh.kerbSum = kerbSum(fresh.kerb, fresh.lanes);
+    }
+
+    /** What kerbs and Lanes work a chunk's kerbs and lanes out from, as one number. */
+    static long kerbFrom(byte[] kinds, boolean[] hard, boolean[] footway, byte[] marks) {
+        long from = 0x9E3779B97F4A7C15L;
+        for (int at = 0; at < kinds.length; at++) {
+            from = (from ^ kinds[at] + (hard[at] ? 8 : 0) + (footway[at] ? 16 : 0) + ((marks[at] & 0xFF) << 5)) * 0x100000001B3L;
         }
+        return from;
+    }
+
+    /** A chunk's kerbs and lanes, either of them null for none, as one number: 0 for neither. */
+    static long kerbSum(float[] kerb, float[] lanes) {
+        if (kerb == null && lanes == null) {
+            return 0L;
+        }
+        long sum = 0x9E3779B97F4A7C15L;
+        for (float[] values : new float[][] {kerb, lanes}) {
+            sum = (sum ^ (values == null ? 1 : values.length)) * 0x100000001B3L;
+            if (values != null) {
+                for (float value : values) {
+                    sum = (sum ^ Float.floatToRawIntBits(value)) * 0x100000001B3L;
+                }
+            }
+        }
+        return sum;
     }
 
     /** Fills streetAround, for an around whose first square is (x, y) of the map, and has Paving look around over, for any corner of it to be asked for. After findWater. */
@@ -1527,6 +1565,7 @@ final class Terrain {
                 passing.kinds[i * CHUNK_TILES + j] = kind;
                 passing.hard[i * CHUNK_TILES + j] = square != null && (footingOf(cell, square, x, y) != null || stands(cell, square, x, y));
                 passing.footway[i * CHUNK_TILES + j] = kind == MADE || kind == STREET && footway(square);
+                passing.marks[i * CHUNK_TILES + j] = kind == STREET ? marks(square) : 0;
                 water |= kind == WATER;
             }
         }
@@ -1541,6 +1580,7 @@ final class Terrain {
         System.arraycopy(passing.kinds, 0, fresh.kinds, 0, fresh.kinds.length);
         System.arraycopy(passing.hard, 0, fresh.hard, 0, fresh.hard.length);
         System.arraycopy(passing.footway, 0, fresh.footway, 0, fresh.footway.length);
+        System.arraycopy(passing.marks, 0, fresh.marks, 0, fresh.marks.length);
         fresh.sum = sum(fresh);
         if (!whole) {
             unsure.put(chunk, fresh);
@@ -1637,7 +1677,7 @@ final class Terrain {
     private static long sum(Kinds kinds) {
         long sum = 0L;
         for (int at = 0; at < CHUNK_TILES * CHUNK_TILES; at++) {
-            sum = mix(sum, kinds.kinds[at] << 2 | (kinds.hard[at] ? 2 : 0) | (kinds.footway[at] ? 1 : 0));
+            sum = mix(sum, (kinds.marks[at] & 0xFF) << 8 | kinds.kinds[at] << 2 | (kinds.hard[at] ? 2 : 0) | (kinds.footway[at] ? 1 : 0));
         }
         return sum;
     }
@@ -1766,6 +1806,25 @@ final class Terrain {
 
     static byte kind(IsoGridSquare square) {
         return square == null ? UNKNOWN : kind(square, square.getFloor());
+    }
+
+    /** The straight lines painted on a square, as Lanes.mark gives them: the map hangs them on the square's floor. */
+    private static byte marks(IsoGridSquare square) {
+        int marks = 0;
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int k = 0; k < objects.size(); k++) {
+            IsoObject object = objects.get(k);
+            IsoSprite sprite = object.getSprite();
+            marks |= Lanes.mark(sprite == null ? null : sprite.getName());
+            ArrayList<IsoSpriteInstance> attached = object.getAttachedAnimSprite();
+            if (attached != null) {
+                for (int over = 0; over < attached.size(); over++) {
+                    IsoSprite on = attached.get(over).parentSprite;
+                    marks |= Lanes.mark(on == null ? null : on.getName());
+                }
+            }
+        }
+        return (byte) marks;
     }
 
     /** Whether a square of street is footway: the game calls the floor of its pavements Road_04, as Ground tells. */

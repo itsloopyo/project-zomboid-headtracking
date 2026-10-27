@@ -4856,6 +4856,7 @@ final class WorldScene {
             }
             float[] water = terrain.water(chunk.wx, chunk.wy);
             kerbs = terrain.kerb(chunk.wx, chunk.wy);
+            geometry.lanes = terrain.lanes(chunk.wx, chunk.wy);
             waterCorners = water;
             boolean kept = !afresh && keptFrame == frames && keptWx == chunk.wx && keptWy == chunk.wy;
             if (!kept && !growing) {
