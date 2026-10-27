@@ -399,6 +399,13 @@ final class WallFinish {
         }
         for (var room : roomEdges.entrySet()) {
             Facing north = plainest(room.getValue()[NORTH]), west = plainest(room.getValue()[WEST]);
+            // A room plain on one edge only, such as a hall whose north walls all have doors in them, has the other edge's
+            // wall from the sheet: its far skins on that edge were otherwise a flat colour of its paper.
+            if (north == null && west != null && west.sprite.getName() != null) {
+                north = fromSheet(styleOf(west.sprite), true);
+            } else if (west == null && north != null && north.sprite.getName() != null) {
+                west = fromSheet(styleOf(north.sprite), false);
+            }
             if (north != null || west != null) {
                 level.roomWalls.put(room.getKey(), new Facing[] {north, west});
             }
@@ -452,7 +459,7 @@ final class WallFinish {
         IsoSprite sprite = wall.getSprite();
         PropertyContainer properties = sprite.getProperties();
         boolean corner = properties.has(IsoFlagType.WallNW), onNorth = properties.has(IsoFlagType.WallN), onWest = properties.has(IsoFlagType.WallW);
-        String name = WallSides.sheetmate(sprite.getName(), corner ? -2 : onNorth ? -1 : 0);
+        String name = styleOf(sprite);
         int style = styles.indexOf(name);
         if (style < 0) {
             style = styles.size();
@@ -484,6 +491,12 @@ final class WallFinish {
                 return;
             }
         }
+    }
+
+    /** The finish a named wall sprite is of, as the name of its sheet's west wall: see fromSheet. */
+    private static String styleOf(IsoSprite sprite) {
+        PropertyContainer properties = sprite.getProperties();
+        return WallSides.sheetmate(sprite.getName(), properties.has(IsoFlagType.WallNW) ? -2 : properties.has(IsoFlagType.WallN) ? -1 : 0);
     }
 
     /** The plain wall of a finish on a north or a west edge as the game's sheet has it, or null where the sheet has no such wall there. */
