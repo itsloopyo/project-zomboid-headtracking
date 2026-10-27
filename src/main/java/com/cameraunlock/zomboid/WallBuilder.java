@@ -1659,6 +1659,13 @@ final class WallBuilder {
      */
     private void addSkin(SpriteGeometry.Mesh mesh, float[] opening, int at, int x, int y, int z, float a, float b, float da, float db,
             float fromStart, float fromEnd, float fromTop, boolean startIsLow) {
+        build.geometry.oneSided = true;
+        addSkinPieces(mesh, opening, at, x, y, z, a, b, da, db, fromStart, fromEnd, fromTop, startIsLow);
+        build.geometry.oneSided = false;
+    }
+
+    private void addSkinPieces(SpriteGeometry.Mesh mesh, float[] opening, int at, int x, int y, int z, float a, float b, float da, float db,
+            float fromStart, float fromEnd, float fromTop, boolean startIsLow) {
         float start = opening[at + OPENING_START], end = opening[at + OPENING_END];
         // A skin carried on past its wall's end to the outside of a corner takes its texels
         // from as far inside the sprite as it would have, the sprite having nothing out there.

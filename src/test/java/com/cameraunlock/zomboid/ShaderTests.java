@@ -80,6 +80,7 @@ final class ShaderTests {
         Checks.run("aRollerDoorIsLaidAsSlatsAndNotAsMasonry", () -> aRollerDoorIsLaidAsSlatsAndNotAsMasonry(programs));
         Checks.run("spreadGroundThatDoesNotShowHidesNothing", () -> spreadGroundThatDoesNotShowHidesNothing(programs));
         Checks.run("grimeIsSeenOnlyFromItsSide", () -> grimeIsSeenOnlyFromItsSide(programs));
+        Checks.run("aWallSkinHasNoBack", () -> aWallSkinHasNoBack(programs));
         Checks.run("everyProgramPassesTheReferenceCompiler", () -> everyProgramPassesTheReferenceCompiler(programs));
         Checks.run("theFloorAsksForWhatTheFragmentStagesRead", () -> theFloorAsksForWhatTheFragmentStagesRead(programs));
     }
@@ -386,7 +387,7 @@ final class ShaderTests {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-        Checks.check(!(!casterVertex.contains("vSolid = gl_MultiTexCoord1.z > 5.5 ? 1.0 : 0.0;") || SpriteGeometry.SHEET != 6f
+        Checks.check(!(!casterVertex.contains("vSolid = gl_MultiTexCoord1.z > 5.5 && gl_MultiTexCoord1.z < 6.5 ? 1.0 : 0.0;") || SpriteGeometry.SHEET != 6f
                 || SpriteGeometry.LAYERS_UP >= 5.5f), "the shadow maps keep the clear pixels of something that is not a sheet, or of no sheet");
         Checks.check(casterVertex.contains("(kind < 3.5 ? vec3(1.0, 0.0, 0.0) : kind < 4.5 ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0))"), "a sheet does not lie up as what lies in layers up does");
         String scene = LowTests.scene();
@@ -470,6 +471,19 @@ final class ShaderTests {
      * the near plane and the grime a layer further out just past it: a sheet 5 cm from the eye over half the picture that wrote
      * its depth and kept the sky out of it, so half the sky came out black (13770,1874, looking east). Read, not run.
      */
+    private static void aWallSkinHasNoBack(List<Linked> programs) {
+        Checks.check(SpriteGeometry.SHEET == 6f && SpriteGeometry.SEEN_ALONG == 7f && SpriteGeometry.SEEN_AGAINST == 8f,
+                "the one-sided codes are the two above every code that lies a face off its plane");
+        String vertex = PipelineShaders.WORLD_VERTEX.replaceAll("//[^\n]*", "").replaceAll("\\s+", " ");
+        Checks.check(vertex.contains("vSeen = uModel < 0.5 && gl_MultiTexCoord1.z > 6.5 ? (gl_MultiTexCoord1.z < 7.5 ? 1.0 : -1.0) : 0.0;"),
+                "the world's vertices read which side of a skin is seen");
+        Checks.check(vertex.contains("if (kind > 2.5 && kind < 6.5) {") && vertex.contains("gl_MultiTexCoord1.z > 4.5 && gl_MultiTexCoord1.z < 6.5"),
+                "and lie a one-sided skin on its own plane");
+        String world = fragment(programs, "world").replaceAll("//[^\n]*", "").replaceAll("\\s+", " ");
+        int discarded = world.indexOf("if (vSeen * dot(uEye - vWorld, vNormal) < 0.0) { discard; }");
+        Checks.check(discarded >= 0 && discarded < world.indexOf("if (depthOnly)"), "a skin seen from behind is left out, depth and all");
+    }
+
     private static void grimeIsSeenOnlyFromItsSide(List<Linked> programs) {
         String world = fragment(programs, "world").replaceAll("//[^\n]*", "").replaceAll("\\s+", " ");
         Checks.check(world.contains("pictureScreen = vec2(dFdx(vUv.y), dFdy(vUv.y)); }"
@@ -509,7 +523,7 @@ final class ShaderTests {
         // Lifted straight up, a layer seen from above slid up the picture off its square and bared a line of the
         // ground under it along each near edge: the overhead view showed pale lines between squares of spread ground,
         // and at a slant, bare ground showed in lines where grass spread over it met the grass's own square.
-        Checks.check(vertex.contains("if (uModel < 0.5 && !strip && gl_MultiTexCoord1.z > 4.5) { vec3 toEye = normalize(uEye - at.xyz);"
+        Checks.check(vertex.contains("if (uModel < 0.5 && !strip && gl_MultiTexCoord1.z > 4.5 && gl_MultiTexCoord1.z < 6.5) { vec3 toEye = normalize(uEye - at.xyz);"
                 + " lies = toEye.z > 0.0 && lies.z > 0.0 ? toEye * (lies.z / max(toEye.z, 0.2)) : lies; } vWorld = at.xyz + lies;"),
                 "what is laid and looked down on is not lifted along the line it is seen on, and slides off its square");
     }

@@ -41,6 +41,7 @@ final class BuildingTests {
         Checks.run("pavementIsNotLooseStone", BuildingTests::pavementIsNotLooseStone);
         Checks.run("skinsOfTwoWallsMeetOnTheOutsideOfEveryCorner", BuildingTests::skinsOfTwoWallsMeetOnTheOutsideOfEveryCorner);
         Checks.run("wallThatEndsAloneIsClosedAcrossItsEnd", BuildingTests::wallThatEndsAloneIsClosedAcrossItsEnd);
+        Checks.run("aSkinIsSeenOnlyFromItsOwnSide", BuildingTests::aSkinIsSeenOnlyFromItsOwnSide);
         Checks.run("insideCornerIsShadedIntoTheCrease", BuildingTests::insideCornerIsShadedIntoTheCrease);
         Checks.run("grimeKnowsTheInsideCornerItEndsIn", BuildingTests::grimeKnowsTheInsideCornerItEndsIn);
         Checks.run("grimeFacesTheSquareItsSkinIsIn", BuildingTests::grimeFacesTheSquareItsSkinIsIn);
@@ -277,6 +278,64 @@ final class BuildingTests {
             }
         }
         check(corners == 6, "an L has six corners: " + corners);
+    }
+
+    /**
+     * A wall's skin stands out to its own side by shownA and shownB, as WallBuilder stands each, and is drawn only for
+     * an eye on that side: for both skins of a north and a west wall, laid in either direction along the wall.
+     */
+    private static void aSkinIsSeenOnlyFromItsOwnSide() {
+        SpriteGeometry.Frame frame = trimmed(0f, 384f);
+        int skins = 0;
+        for (boolean north : new boolean[] {true, false}) {
+            for (float from : new float[] {0f, 1f}) {
+                float along = from == 0f ? 1f : -1f;
+                float da = north ? along : 0f, db = north ? 0f : along;
+                for (float side : new float[] {1f, -1f}) {
+                    SpriteGeometry geometry = new SpriteGeometry();
+                    SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+                    // WallBuilder's inX and inY, and the far skin the other way.
+                    float outA = side * Math.abs(db) * WorldScene.WALL_HALF, outB = side * Math.abs(da) * WorldScene.WALL_HALF;
+                    geometry.shownA = outA;
+                    geometry.shownB = outB;
+                    geometry.oneSided = true;
+                    check(geometry.addFace(mesh, frame, 0, 0, 0, north ? from : 0f, north ? 0f : from, 0f, da, db, 0f, 0f, 0f, 1f) > 0,
+                            "the sprite covers the skin");
+                    geometry.oneSided = false;
+                    float[] f = mesh.vertices;
+                    for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+                        float way = f[at + SpriteGeometry.WAY_AT];
+                        check(way == SpriteGeometry.SEEN_ALONG || way == SpriteGeometry.SEEN_AGAINST, "a skin's vertex says it is seen from one side: " + way);
+                        float seen = way == SpriteGeometry.SEEN_ALONG ? 1f : -1f;
+                        check(seen * (f[at + 9] * outA + f[at + 10] * outB) > 0f, "and the side is the one it stands out to: north " + north + " from " + from + " side " + side);
+                    }
+                    skins++;
+                    int before = mesh.floats;
+                    geometry.addFace(mesh, frame, 0, 0, 0, north ? from : 0f, north ? 0f : from, 0f, da, db, 0f, 0f, 0f, 1f);
+                    check(mesh.floats > before, "a face added after the skin is added");
+                    for (int at = before; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+                        check(mesh.vertices[at + SpriteGeometry.WAY_AT] == 0f, "and is seen from both sides");
+                    }
+                }
+            }
+        }
+        check(skins == 8, "both skins of two walls laid both ways: " + skins);
+        SpriteGeometry geometry = new SpriteGeometry();
+        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+        mesh.layers.lie(SpriteGeometry.LAYERS_Y, 2f);
+        geometry.shownB = WorldScene.WALL_HALF;
+        geometry.oneSided = true;
+        geometry.addFace(mesh, frame, 0, 0, 0, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f);
+        check(mesh.floats > 0 && mesh.vertices[SpriteGeometry.WAY_AT] == SpriteGeometry.LAYERS_Y, "what lies layers off a skin keeps its layers and both its sides");
+        SpriteGeometry flat = new SpriteGeometry();
+        flat.oneSided = true;
+        boolean refused = false;
+        try {
+            flat.addFace(new SpriteGeometry.Mesh(), frame, 0, 0, 0, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f);
+        } catch (IllegalStateException standsOutToNoSide) {
+            refused = true;
+        }
+        check(refused, "a one-sided face that stands out to no side is refused");
     }
 
     private static void insideCornerIsShadedIntoTheCrease() {

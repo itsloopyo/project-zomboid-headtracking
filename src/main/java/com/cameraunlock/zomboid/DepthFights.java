@@ -300,7 +300,14 @@ final class DepthFights {
             }
             float way = copy.moves[t * 6], along = copy.moves[t * 6 + 1], nearer = copy.moves[t * 6 + 2], open = copy.moves[t * 6 + 3];
             float faceX = copy.moves[t * 6 + 4], faceY = copy.moves[t * 6 + 5];
-            if (way >= SpriteGeometry.LAYERS_X) {
+            // A skin seen from behind is left out by the picture (SpriteGeometry.SEEN_ALONG) and fights nothing.
+            if (way == SpriteGeometry.SEEN_ALONG || way == SpriteGeometry.SEEN_AGAINST) {
+                double seen = -(tri.p[0] * faceX + tri.p[1] * faceY);
+                if ((way == SpriteGeometry.SEEN_ALONG ? seen : -seen) < 0) {
+                    continue;
+                }
+            }
+            if (way >= SpriteGeometry.LAYERS_X && way <= SpriteGeometry.SHEET) {
                 double axis = way == SpriteGeometry.LAYERS_X ? tri.nx : way == SpriteGeometry.LAYERS_Y ? tri.ny : tri.nz;
                 tri.layers = axis * along;
             }
@@ -724,7 +731,8 @@ final class DepthFights {
 
     private static String wayName(float way) {
         return way == SpriteGeometry.CLEARS ? "clears" : way == SpriteGeometry.LAYERS_X ? "layers-x" : way == SpriteGeometry.LAYERS_Y ? "layers-y"
-                : way == SpriteGeometry.LAYERS_UP ? "layers-up" : way == SpriteGeometry.SHEET ? "sheet" : "way " + way;
+                : way == SpriteGeometry.LAYERS_UP ? "layers-up" : way == SpriteGeometry.SHEET ? "sheet"
+                : way == SpriteGeometry.SEEN_ALONG ? "seen-along" : way == SpriteGeometry.SEEN_AGAINST ? "seen-against" : "way " + way;
     }
 
     private static String materialName(int material) {

@@ -56,6 +56,11 @@ final class SpriteGeometry {
      */
     static final float AS_FACE = -1f, UNLIT_KIND_STEP = 16f;
     static final float FACES = 1f, CLEARS = 2f, LAYERS_X = 3f, LAYERS_Y = 4f, LAYERS_UP = 5f, SHEET = 6f, WOOD = -1f;
+    /**
+     * A face of one side only, which the picture leaves out where the eye is behind it: seen from
+     * where its normal looks, or from where it looks away from. A wall's skins (see oneSided).
+     */
+    static final float SEEN_ALONG = 7f, SEEN_AGAINST = 8f;
 
     /**
      * How many layers off its plane everything added next lies, in every mesh that shares
@@ -186,6 +191,8 @@ final class SpriteGeometry {
         float wood;
         /** How many layers off its plane anything added next that is no card lies: the set's own, for a mesh of a set. */
         Layers layers = new Layers();
+        /** For the vertices added next, 1 or -1 where their face is seen only from where its normal looks or looks away from, 0 for both sides. */
+        private float seen;
         /** The square of the tree the vertices added next are part of, or NO_ROOT. */
         float rootX = NO_ROOT, rootY = NO_ROOT;
         /**
@@ -311,7 +318,7 @@ final class SpriteGeometry {
             vertices[floats++] = normalUp * (1f + sway);
             vertices[floats++] = wood != 0f ? wood : faces || clears ? along : layers.count;
             vertices[floats++] = nearer;
-            vertices[floats++] = wood != 0f ? WOOD : faces ? FACES : clears ? CLEARS : layers.way;
+            vertices[floats++] = wood != 0f ? WOOD : faces ? FACES : clears ? CLEARS : layers.way != 0f ? layers.way : seen > 0f ? SEEN_ALONG : seen < 0f ? SEEN_AGAINST : 0f;
             vertices[floats++] = rootX;
             vertices[floats++] = rootY;
             vertices[floats++] = unlit;
@@ -672,6 +679,12 @@ final class SpriteGeometry {
     /** The same up, in levels: the underside of a beam shows what its top does. */
     float shownUp;
     /**
+     * Whether an upright face being added is seen only from the side shownA and shownB stand it
+     * out to: a wall's skin, whose back, looked at from inside the wall through a ragged cut,
+     * was the siding of the other side. What lies layers off it is seen from both.
+     */
+    boolean oneSided;
+    /**
      * For a face of a band of tiles (WallSides.TILED), what its texture coordinates are in place
      * of texels: across, how many joints along the wall from the first a point is, the wall
      * running along (alongA, alongB) on the square; up, footV at height footH in levels and
@@ -955,7 +968,15 @@ final class SpriteGeometry {
             mesh.face(-turn * (lift[1] - lift[0] + lift[2] - lift[3]) / 2f, -turn * (lift[3] - lift[0] + lift[2] - lift[1]) / 2f, turn);
         } else {
             float way = turned ? -1f : 1f;
-            mesh.face(way * (db1 * up2 - up1 * db2), way * (up1 * da2 - da1 * up2), way * (da1 * db2 - db1 * da2));
+            float nx = way * (db1 * up2 - up1 * db2), ny = way * (up1 * da2 - da1 * up2);
+            mesh.face(nx, ny, way * (da1 * db2 - db1 * da2));
+            if (oneSided) {
+                float side = Math.signum(nx * shownA + ny * shownB);
+                if (side == 0f) {
+                    throw new IllegalStateException("a one-sided face stands out to no side: shown " + shownA + ", " + shownB + ", normal " + nx + ", " + ny);
+                }
+                mesh.seen = side;
+            }
         }
         float[] from = result;
         if (kerb != null && tileZ == 0 && up1 == 0f && up2 == 0f && h < LAID_BELOW) {
@@ -970,6 +991,7 @@ final class SpriteGeometry {
             return mesh.triangles() - before;
         }
         fan(mesh, frame, tileX, tileY, tileZ, from, count);
+        mesh.seen = 0f;
         return count - 2;
     }
 

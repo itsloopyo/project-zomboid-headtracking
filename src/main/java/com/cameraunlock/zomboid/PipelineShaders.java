@@ -500,7 +500,8 @@ final class PipelineShaders {
                 float kind = gl_MultiTexCoord1.z;
                 vec2 stands = at.xy - from / max(off, 0.5) * (gl_MultiTexCoord1.y * card);
                 lies = vec3(0.0);
-                if (kind > 2.5) {
+                // SpriteGeometry.SEEN_ALONG and SEEN_AGAINST lie on their plane.
+                if (kind > 2.5 && kind < 6.5) {
                     lies = (kind < 3.5 ? vec3(1.0, 0.0, 0.0) : kind < 4.5 ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0)) * (gl_MultiTexCoord1.x * layer);
                 } else if (kind > 1.5) {
                     // A card that does not turn, standing clear of its own plane on the camera's side.
@@ -536,6 +537,8 @@ final class PipelineShaders {
             varying float vHung;
             // How far, and which way, a vertex lies off the surface it is laid on: see faced.
             varying vec3 vLies;
+            // 1 or -1 for a face seen only from where its normal looks or looks away from, 0 for one seen from both: see SpriteGeometry.SEEN_ALONG.
+            varying float vSeen;
             // The square of the tree the vertex is part of, below 0 for none: see SpriteGeometry.VERTEX_FLOATS. A model has
             // none, and carries in y the piece of its surface the vertex is on.
             varying vec2 vRoot;
@@ -780,12 +783,13 @@ final class PipelineShaders {
                 // is, at least as far clear of it in depth as it lies over it. Seen at a slant that
                 // line runs on for tiles, and would bring it out in front of what stands before its
                 // square, so it goes no further than it does seen from a fifth of the way up.
-                if (uModel < 0.5 && !strip && gl_MultiTexCoord1.z > 4.5) {
+                if (uModel < 0.5 && !strip && gl_MultiTexCoord1.z > 4.5 && gl_MultiTexCoord1.z < 6.5) {
                     vec3 toEye = normalize(uEye - at.xyz);
                     lies = toEye.z > 0.0 && lies.z > 0.0 ? toEye * (lies.z / max(toEye.z, 0.2)) : lies;
                 }
                 vWorld = at.xyz + lies;
                 vLies = lies;
+                vSeen = uModel < 0.5 && gl_MultiTexCoord1.z > 6.5 ? (gl_MultiTexCoord1.z < 7.5 ? 1.0 : -1.0) : 0.0;
                 // A cloud's shadow changes over tens of tiles, so it is worked out at the vertices.
                 vClouds = cloudBody(vWorld.xy, uLight, uCloudsDrift);
                 // The map is thousands of tiles across and a number here holds seven digits, so
@@ -935,6 +939,8 @@ final class PipelineShaders {
             varying float vHung;
             // How far, and which way, a vertex lies off the surface it is laid on: see faced.
             varying vec3 vLies;
+            // 1 or -1 for a face seen only from where its normal looks or looks away from, 0 for one seen from both: see SpriteGeometry.SEEN_ALONG.
+            varying float vSeen;
             varying vec2 vRoot;
             uniform vec4 uCutBox;
             uniform vec3 uCutNear;
@@ -1976,6 +1982,10 @@ final class PipelineShaders {
                 // wall's skin cut by the near plane, and the grime a layer further out was a sheet that hid
                 // the sky over half the picture.
                 if (stainTint && dot(uEye - vWorld, vLies) <= 0.0) {
+                    discard;
+                }
+                // A wall's skin has no back: looked at from inside the wall, it was the other side's siding.
+                if (vSeen * dot(uEye - vWorld, vNormal) < 0.0) {
                     discard;
                 }
                 // A wall's sprite is drawn on the slant, each column of its dots a step below the
@@ -4850,7 +4860,7 @@ final class PipelineShaders {
                 // How much of a mass of leaves is there to throw a shadow: a crown's shadow fan says, in its colour, how much of its crown is on the tree.
                 vLeaves = material > 79.5 && material < 80.5 ? clamp(gl_Color.r, 0.0, 1.0) : material > 4.5 && material < 5.5 || material > 62.5 && material < 63.5 ? 1.0 : 0.0;
                 // A floor or a ceiling is whole however many clear pixels its sprite has: see SpriteGeometry.SHEET.
-                vSolid = gl_MultiTexCoord1.z > 5.5 ? 1.0 : 0.0;
+                vSolid = gl_MultiTexCoord1.z > 5.5 && gl_MultiTexCoord1.z < 6.5 ? 1.0 : 0.0;
                 // A crown's sprigs take their colour from the sprite and are no part of its outline: the fan that stands with them throws the shadow.
                 // Nor does a twig, finer than a texel of any of the maps: see Flora.FINE_MARK.
                 // Nor the wire of chain link (ChainLink.FABRIC), which is woven only where it is seen. Of a torn or
