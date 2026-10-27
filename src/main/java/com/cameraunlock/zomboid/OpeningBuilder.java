@@ -873,6 +873,8 @@ final class OpeningBuilder {
         fit.head = shape.head;
         fit.footHigh = shape.footHigh;
         fit.headHigh = shape.headHigh;
+        fit.footSolid = shape.footSolid;
+        fit.headSolid = shape.headSolid;
         fit.red = shape.red;
         fit.green = shape.green;
         fit.blue = shape.blue;
@@ -907,6 +909,8 @@ final class OpeningBuilder {
         cut.head = shape.head;
         cut.footHigh = shape.footHigh;
         cut.headHigh = shape.headHigh;
+        cut.footSolid = shape.footSolid;
+        cut.headSolid = shape.headSolid;
         cut.red = shape.red;
         cut.green = shape.green;
         cut.blue = shape.blue;
