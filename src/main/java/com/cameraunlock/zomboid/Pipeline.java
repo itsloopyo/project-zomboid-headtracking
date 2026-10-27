@@ -6790,6 +6790,7 @@ final class Pipeline {
             Decor.letGo();
             LimbDecals.letGo();
             Flats.letGo();
+            Flowerbeds.letGo();
             Rugs.letGo();
             Trims.letGo();
             forgetTexels();

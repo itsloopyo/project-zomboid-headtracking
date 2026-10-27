@@ -355,6 +355,16 @@ final class FloorBuilder {
             build.frame.flat = SpriteGeometry.FLAT_RUG;
             build.frame.material = Rugs.material(sprite.rug, build.frame.material);
         }
+        // A bed whose roses are grown out of it is earth under them: see Flowerbeds.
+        if (sprite.flowerbed && rug == 0 && z == 0 && Own.plants(build.playerIndex) && build.within(Flowerbeds.REACH, false)) {
+            int earth = Flowerbeds.earth(texture, build.frame);
+            if (earth == Flowerbeds.PENDING) {
+                build.building.signed = false;
+            } else if (earth != 0) {
+                on = WorldScene.laid.get(earth);
+                build.frame.flat = SpriteGeometry.FLAT_FLOOR;
+            }
+        }
         if (build.frame.kind != 0f && z == 0 && build.floorLayer == 0) {
             // Water knows where its bank is: each corner says whether land touches it.
             for (int corner = 0; corner < 4; corner++) {

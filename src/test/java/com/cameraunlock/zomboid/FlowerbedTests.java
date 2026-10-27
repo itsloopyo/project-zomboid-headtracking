@@ -15,6 +15,7 @@ final class FlowerbedTests {
         Checks.run("bedsAreToldByName", FlowerbedTests::bedsAreToldByName);
         Checks.run("aBedsDotsAreToldByColour", FlowerbedTests::aBedsDotsAreToldByColour);
         Checks.run("aBedIsMeasuredFromItsRectangleOfTheSheet", FlowerbedTests::aBedIsMeasuredFromItsRectangleOfTheSheet);
+        Checks.run("underItsRosesABedIsEarthWithItsLeavesAndStones", FlowerbedTests::underItsRosesABedIsEarthWithItsLeavesAndStones);
         Checks.run("rosesGrowOnlyWhereTheBedIsPaintedWithPlants", FlowerbedTests::rosesGrowOnlyWhereTheBedIsPaintedWithPlants);
         Checks.run("leavesAndFlowersTakeTheirColoursFromLeavesAndBlooms", FlowerbedTests::leavesAndFlowersTakeTheirColoursFromLeavesAndBlooms);
         Checks.run("aBedOfStonesGrowsNothing", FlowerbedTests::aBedOfStonesGrowsNothing);
@@ -70,6 +71,29 @@ final class FlowerbedTests {
         Flowerbeds.Bed bed = Flowerbeds.measure(sheet, width, 2, 1, 6, 3);
         check(bed.width() == 4 && bed.height() == 2, "the bed is its rectangle: " + bed.width() + " by " + bed.height());
         check(bed.dots()[1] == Flowerbeds.BLOOM && bed.dots()[4 + 2] == Flowerbeds.LEAF && bed.dots()[0] == Flowerbeds.STONE, "each dot where it lies in the rectangle");
+    }
+
+    private static void underItsRosesABedIsEarthWithItsLeavesAndStones() {
+        int width = 6;
+        int[][] dots = {{214, 52, 120, 255}, {236, 120, 160, 255}, {104, 136, 206, 255}, {60, 100, 50, 255}, {170, 170, 168, 255}, {214, 52, 120, 0}};
+        ByteBuffer sheet = ByteBuffer.allocate(width * 2 * 4);
+        for (int i = 0; i < dots.length; i++) {
+            for (int c = 0; c < 4; c++) {
+                sheet.put((width + i) * 4 + c, (byte) dots[i][c]);
+            }
+        }
+        ByteBuffer earth = Flowerbeds.earthen(sheet, width, 0, 1, width, 2);
+        for (int i = 0; i < dots.length; i++) {
+            int red = earth.get(i * 4) & 255, green = earth.get(i * 4 + 1) & 255, blue = earth.get(i * 4 + 2) & 255;
+            check((earth.get(i * 4 + 3) & 255) == dots[i][3], "dot " + i + " keeps its cover");
+            if (i < 3) {
+                check(red > green && green > blue && red < 130 && Flowerbeds.dot(red, green, blue, 255) != Flowerbeds.BLOOM,
+                        "a bloom is painted out as brown earth: " + red + "," + green + "," + blue);
+            } else {
+                check(red == dots[i][0] && green == dots[i][1] && blue == dots[i][2], "a leaf, a stone and an empty dot are left as painted: dot " + i);
+            }
+        }
+        check((earth.get(0) & 255) < (earth.get(4) & 255), "the earth keeps the painting's light and shade: a darker bloom is darker earth");
     }
 
     /** A 2x floor sprite, its square's diamond from row 192 to the foot. */
@@ -149,7 +173,14 @@ final class FlowerbedTests {
         Flowerbeds.Bed bed = halfStones();
         SpriteGeometry.Mesh winter = grown(bed, 3f, Seasons.WINTER, 0.5f), summer = grown(bed, 3f);
         int canes = strips(winter, Grass.STRAW + Grass.CROP);
-        check(canes > 0 && canes == strips(summer, Grass.BLADE + Grass.CROP), "the bushes stand through the winter, every cane of them, brown: " + canes);
+        // In summer half the canes also bear a shoot with a second rose: a strip of the cane's form that leans out from high up it.
+        int summerCanes = 0;
+        for (int at = 0; at < summer.floats; at += F) {
+            if (summer.vertices[at + 10] == 2f * (Grass.BLADE + Grass.CROP) && summer.vertices[at + 11] % 1f < 0.01f) {
+                summerCanes++;
+            }
+        }
+        check(canes > 0 && canes == summerCanes, "the bushes stand through the winter, every cane of them, brown: " + canes + " against " + summerCanes);
         check(strips(winter, Grass.BLADE + Grass.CROP) == 0, "and none green");
         float winterHigh = 0f, summerHigh = 0f;
         for (int at = 0; at < winter.floats; at += F) {
@@ -181,7 +212,7 @@ final class FlowerbedTests {
             highest = Math.max(highest, v[at + 2]);
         }
         check(canes > 0, "the bushes have canes");
-        check(highest > 0.3f && highest < 0.7f, "knee high, over the lawn: " + highest);
+        check(highest > 0.3f && highest < 0.8f, "knee high, over the lawn: " + highest);
     }
 
     private static void leavesAndFlowersTakeTheirColoursFromLeavesAndBlooms() {

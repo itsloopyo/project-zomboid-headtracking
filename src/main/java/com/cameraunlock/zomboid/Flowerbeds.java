@@ -1,8 +1,10 @@
 package com.cameraunlock.zomboid;
 
 import java.nio.ByteBuffer;
+import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import org.lwjgl.opengl.GL11;
 import zombie.core.textures.Texture;
 
 /**
@@ -17,8 +19,11 @@ import zombie.core.textures.Texture;
  * autumn as the trees do, each on a day of its own, and is bare canes through the winter. It
  * flowers from late spring until early autumn.
  *
+ * Where its roses grow, a bed is laid as earth: its painting with the blooms painted out, the
+ * leaves and stones left, so the flowers are on the bushes and not a pink carpet under them.
+ *
  * The colours come from the sprite's own dots, which are read on the thread that draws (see
- * SpriteColours): a bed is laid flat until its sprite has been read, and grows once it has.
+ * SpriteColours): a bed is laid as painted until its sprite has been read, and grows once it has.
  */
 final class Flowerbeds {
     private static final String SHEET = "vegetation_ornamental_01_";
@@ -49,6 +54,18 @@ final class Flowerbeds {
     /** What each of a sprite's dots is, width across and height down. */
     record Bed(int width, int height, byte[] dots) {}
 
+    /** What earth says of a bed whose picture no frame has been drawn since it was first asked for. */
+    static final int PENDING = -1;
+    /** The colour of the earth the blooms are painted out with, each channel 0 to 255, at a bloom's usual light. */
+    static final int EARTH_RED = 78, EARTH_GREEN = 58, EARTH_BLUE = 40;
+
+    /** One picture of a bed laid as earth: the sprite, and where it sits in its frame. */
+    private record Earth(Texture texture, float originU, float originV, float scale, float left, float top, float width, float height) {}
+
+    /** What has been asked for of each sprite, and each picture made: its OpenGL name, or 0 for a sprite that paints too little of its square for one. */
+    private static final ConcurrentHashMap<Texture, Set<Earth>> earthAsked = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<Earth, Integer> earthKnown = new ConcurrentHashMap<>();
+
     private Flowerbeds() {}
 
     /** Whether a sprite, by its name, is a bed of roses. The same sheet's flamingos (24..27, 40..43) are none. */
@@ -70,11 +87,87 @@ final class Flowerbeds {
         return bed;
     }
 
-    /** Reads the sprite, if a bed asked for it: see Masonry.read. */
+    /**
+     * The OpenGL name of the bed's picture laid as earth (see Flats.FLOOR), as the frame holds the
+     * sprite: PENDING until a frame has been drawn since it was first asked for, and 0 for a sprite
+     * that paints too little of its square for one.
+     */
+    static int earth(Texture texture, SpriteGeometry.Frame frame) {
+        Earth want = new Earth(texture, frame.originU, frame.originV, frame.scale, frame.left, frame.top, frame.width, frame.height);
+        Integer name = earthKnown.get(want);
+        if (name != null) {
+            return name;
+        }
+        if (earthAsked.computeIfAbsent(texture, sprite -> ConcurrentHashMap.newKeySet()).add(want)) {
+            SpriteColours.of(texture);
+            if (!SpriteColours.unread(texture)) {
+                SpriteColours.readAgain(texture);
+            }
+        }
+        return PENDING;
+    }
+
+    /** Reads the sprite, if a bed asked for it, and makes its pictures laid as earth: see Masonry.read. On the thread that draws. */
     static void read(Texture texture, ByteBuffer sheet, int width, int left, int top, int right, int bottom) {
         if (wanted.remove(texture)) {
             known.put(texture, measure(sheet, width, left, top, right, bottom));
         }
+        Set<Earth> wants = earthAsked.get(texture);
+        if (wants == null) {
+            return;
+        }
+        int across = Math.max(right - left, 0), down = Math.max(bottom - top, 0);
+        ByteBuffer earthen = null;
+        for (Earth want : wants) {
+            if (earthKnown.containsKey(want)) {
+                continue;
+            }
+            if (earthen == null) {
+                earthen = earthen(sheet, width, left, top, right, bottom);
+            }
+            byte[] dots = Flats.laid(earthen, across, 0, 0, across, down, want.originU, want.originV, want.scale, want.left, want.top, want.width, want.height,
+                    0f, 0f, 0f, false);
+            earthKnown.put(want, dots == null ? 0 : Flats.picture(Flats.rimmed(dots, false), Flats.WHOLE, Flats.WHOLE));
+        }
+    }
+
+    /**
+     * The rectangle from (left, top) to before (right, bottom) of a sheet width dots wide, held as
+     * bytes of red, green, blue and cover, copied with each bloom painted out as earth: EARTH's
+     * colour at the bloom's own light against a bloom's usual, so the painting keeps its grain.
+     */
+    static ByteBuffer earthen(ByteBuffer sheet, int width, int left, int top, int right, int bottom) {
+        int across = Math.max(right - left, 0), down = Math.max(bottom - top, 0);
+        ByteBuffer copy = ByteBuffer.allocate(across * down * 4);
+        for (int y = 0; y < down; y++) {
+            for (int x = 0; x < across; x++) {
+                int from = ((top + y) * width + left + x) * 4, to = (y * across + x) * 4;
+                int red = sheet.get(from) & 255, green = sheet.get(from + 1) & 255, blue = sheet.get(from + 2) & 255;
+                if (dot(red, green, blue, sheet.get(from + 3) & 255) == BLOOM) {
+                    float light = Math.clamp((0.3f * red + 0.55f * green + 0.15f * blue) / 120f, 0.6f, 1.15f);
+                    red = Math.min(Math.round(EARTH_RED * light), 255);
+                    green = Math.min(Math.round(EARTH_GREEN * light), 255);
+                    blue = Math.min(Math.round(EARTH_BLUE * light), 255);
+                }
+                copy.put(to, (byte) red).put(to + 1, (byte) green).put(to + 2, (byte) blue).put(to + 3, sheet.get(from + 3));
+            }
+        }
+        return copy;
+    }
+
+    /** Render thread, as Flats.letGo: gives every picture laid as earth back to the graphics card. A build made after this asks for its pictures again. */
+    static void letGo() {
+        int count = 0;
+        for (Iterator<Integer> names = earthKnown.values().iterator(); names.hasNext();) {
+            int name = names.next();
+            names.remove();
+            if (name != 0) {
+                GL11.glDeleteTextures(name);
+                count++;
+            }
+        }
+        earthAsked.clear();
+        Log.info(count + " pictures of rose beds laid as earth are given back to the graphics card");
     }
 
     /** The bed of the rectangle from (left, top) to before (right, bottom) of a sheet width dots wide, held as bytes of red, green, blue and cover. */
