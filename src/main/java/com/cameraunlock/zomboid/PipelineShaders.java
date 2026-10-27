@@ -1620,7 +1620,7 @@ final class PipelineShaders {
             // How much lighter the mortar of brick and blocks is drawn from far overhead.
             const float MORTAR_LIFT_OVERHEAD = 0.2;
             // From far overhead the game paints every window's glass, and a roof of glass, as a pale film in clouds over what is behind it.
-            // A shelter's two walls are seen one through the other, so each takes a little under the sprite's two thirds.
+            // The sprite's film covers about two thirds; a shelter's two walls, seen one through the other, come to that together.
             const float MILK_OVERHEAD = 0.38;
             const vec3 MILK_SEEN = vec3(0.88, 0.95, 0.98);
             // The game's own brick: from far overhead the one in WORLD_FRAGMENT_PARTS loses its bed joints. Switched,
