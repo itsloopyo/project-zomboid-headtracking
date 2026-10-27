@@ -31,6 +31,7 @@ final class TrackTests {
         Checks.run("aTurnoutsRoutesEachMeetItsLinesAlongThem", TrackTests::aTurnoutsRoutesEachMeetItsLinesAlongThem);
         Checks.run("aTurnoutWhoseRoutesCannotBeReadIsLeftThePicture", TrackTests::aTurnoutWhoseRoutesCannotBeReadIsLeftThePicture);
         Checks.run("aRouteByADiagonalIsTwoArcsAndTheStraightBetween", TrackTests::aRouteByADiagonalIsTwoArcsAndTheStraightBetween);
+        Checks.run("aStraightRunsOnAcrossOtherTrackAsItsRailsAlone", TrackTests::aStraightRunsOnAcrossOtherTrackAsItsRailsAlone);
         Checks.run("aTurnoutIsReadTheSameFromEachOfItsSquares", TrackTests::aTurnoutIsReadTheSameFromEachOfItsSquares);
         Checks.run("everyRailOfABuiltTurnoutHasASleeperUnderIt", TrackTests::everyRailOfABuiltTurnoutHasASleeperUnderIt);
         Checks.run("everyRailOfATurnoutEndsOnAnotherOrAtABuffer", TrackTests::everyRailOfATurnoutEndsOnAnotherOrAtABuffer);
@@ -137,6 +138,28 @@ final class TrackTests {
         return squares;
     }
 
+    /**
+     * As the map has it at 11639,9625: a straight down the map with a switch on it, bend A's
+     * rails alone turning off onto a diagonal, and below the switch a second diagonal crossing
+     * it, where the straight is laid as its rails alone on either side of its track.
+     */
+    private static HashMap<Long, String[]> crossing() {
+        HashMap<Long, String[]> squares = new HashMap<>();
+        Track.Bend a = Track.A;
+        line(squares, Track.WITH_TIES, Track.NS, 11.5, 10, 0, 12, 30, (x, y) -> y < 13 || y > 21);
+        for (int y = 13; y <= 20; y++) {
+            lay(squares, 10, y, Track.WITH_TIES + 6);
+            lay(squares, 12, y, Track.WITH_TIES + 6);
+        }
+        bend(squares, Track.RAILS, a, 11, 11);
+        line(squares, Track.WITH_TIES, Track.NE, 11 + 11 + a.cOne, 0, 0, 24, 24, (x, y) -> ahead(x, y, 11 + a.oneX, 11 + a.oneY, a.alongOneX, a.alongOneY));
+        line(squares, Track.WITH_TIES, Track.NE, CROSSING, 0, 0, 40, 40, null);
+        return squares;
+    }
+
+    /** The middle of the crossing's second diagonal, which crosses the straight at y 17. */
+    private static final double CROSSING = 28.5;
+
     /** As the map has it at 11729 to 11738, 10075 to 10088: a straight down the map with two pieces of bend E's rails alone beside it, the rest of the bend not laid. */
     private static HashMap<Long, String[]> incompleteSwitch() {
         HashMap<Long, String[]> squares = new HashMap<>();
@@ -154,12 +177,12 @@ final class TrackTests {
 
     /** The fixtures whose turnouts must be built. */
     private static final Named[] BUILT = {new Named("the yard's turnout", TrackTests::yardTurnout, 11, 11, 1), new Named("the wye", TrackTests::wye, 19, 13, 2),
-        new Named("the junction by a diagonal", TrackTests::bendDiagonalBend, 11, 10, 2)};
+        new Named("the junction by a diagonal", TrackTests::bendDiagonalBend, 11, 10, 2), new Named("the switch above a crossing", TrackTests::crossing, 11, 12, 1)};
 
     /** The fixtures whose turnouts are left the pictures they are. */
     private static final Named[] LEFT = {new Named("the incomplete switch", TrackTests::incompleteSwitch, 14, 6, 0)};
 
-    private static final Fixture[] FIXTURES = {TrackTests::yardTurnout, TrackTests::wye, TrackTests::bendDiagonalBend, TrackTests::incompleteSwitch};
+    private static final Fixture[] FIXTURES = {TrackTests::yardTurnout, TrackTests::wye, TrackTests::bendDiagonalBend, TrackTests::crossing, TrackTests::incompleteSwitch};
 
     private static void aRouteByADiagonalIsTwoArcsAndTheStraightBetween() {
         Track.Turnout turnout = new Track.Reader(area(bendDiagonalBend(), null)).turnout(11, 10);
@@ -190,6 +213,17 @@ final class TrackTests {
         check(ends == 2, "each end of the straight is where an arc leaves it: " + ends + " arc ends on it");
     }
 
+    private static void aStraightRunsOnAcrossOtherTrackAsItsRailsAlone() {
+        Track.Turnout turnout = new Track.Reader(area(crossing(), null)).turnout(11, 12);
+        check(turnout.unread == null, "the switch above a crossing is built: " + turnout.unread);
+        boolean through = false, crossed = false;
+        for (Track.Line line : turnout.lines) {
+            through |= line.way == Track.NS && line.c == 11.5 && line.from == Double.NEGATIVE_INFINITY && line.to == Double.POSITIVE_INFINITY;
+            crossed |= line.way == Track.NE && line.c == CROSSING;
+        }
+        check(through, "the straight runs on through the crossing as one line");
+        check(crossed, "the crossing diagonal is a line of the turnout");
+    }
 
     private static void aTurnoutsRoutesEachMeetItsLinesAlongThem() {
         for (Named named : BUILT) {
