@@ -43,7 +43,7 @@ import java.util.zip.GZIPInputStream;
  *       per vertex, in the order of their surfaces:
  *         float32 x 3   position
  *         float32 x 3   unit normal
- *         uint8         surface: WOOD to VINYL below
+ *         uint8         surface: WOOD to STRAW below
  *         uint8         how much of the room's light reaches the vertex past the rest of the
  *                       model and the floor, 255 for all of it
  *       per triangle, in the order of their surfaces:
@@ -51,8 +51,8 @@ import java.util.zip.GZIPInputStream;
  */
 final class Models {
     static final int WOOD = 0, DARK_WOOD = 1, CLOTH = 2, LINEN = 3, PILLOW = 4, METAL = 5, PAINT = 6, ENAMEL = 7, STEEL = 8, PLASTIC = 9,
-            SCREEN = 10, CERAMIC = 11, BOOKS = 12, SHADE = 13, RUBBER = 14, WORKTOP = 15, PANE = 16, VINYL = 17;
-    static final int SURFACES = 18;
+            SCREEN = 10, CERAMIC = 11, BOOKS = 12, SHADE = 13, RUBBER = 14, WORKTOP = 15, PANE = 16, VINYL = 17, STRAW = 18;
+    static final int SURFACES = 19;
 
     /**
      * What a model's surface is made of, as the picture is told it: this plus the surface. The

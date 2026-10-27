@@ -15,7 +15,7 @@ final class Farm {
 
     private static final String HAY = "vegetation_farm_01_", CARPENTRY = "carpentry_02_", POTS = "vegetation_indoor_01_", ORNAMENTS = "vegetation_ornamental_01_",
             CRAFTED = "crafted_02_", FARMYARD = "location_farm_accesories_01_", DEBRIS = "d_generic_1_", MALL = "location_shop_mall_01_";
-    private static final int CLOTH = 1 << Models.CLOTH, WOOD = 1 << Models.WOOD, DARK_WOOD = 1 << Models.DARK_WOOD, PAINT = 1 << Models.PAINT,
+    private static final int CLOTH = 1 << Models.CLOTH, STRAW = 1 << Models.STRAW, WOOD = 1 << Models.WOOD, DARK_WOOD = 1 << Models.DARK_WOOD, PAINT = 1 << Models.PAINT,
             PLASTIC = 1 << Models.PLASTIC, VINYL = 1 << Models.VINYL, CERAMIC = 1 << Models.CERAMIC, ENAMEL = 1 << Models.ENAMEL,
             STEEL = 1 << Models.STEEL;
     /**
@@ -61,7 +61,7 @@ final class Farm {
     static Outdoors.Piece of(String name, String called, String group, int faces, int width, int height, int surface) {
         if (called == null) {
             // A post with straw bound round it, which the game names nothing.
-            return name.equals(FARMYARD + "13") && width == 1 && height == 1 ? new Outdoors.Piece("straw_post", 0).at(STRAW_POST_A, STRAW_POST_B).dye(CLOTH, STRAW_DYE) : null;
+            return name.equals(FARMYARD + "13") && width == 1 && height == 1 ? new Outdoors.Piece("straw_post", 0).at(STRAW_POST_A, STRAW_POST_B).dye(STRAW, STRAW_DYE) : null;
         }
         String kind = group == null ? "" : group;
         boolean single = width == 1 && height == 1;
@@ -150,11 +150,11 @@ final class Farm {
         String model = two ? "hay_bales_2" : "hay_bale";
         float dye = two ? HAY_DYE_TWO : HAY_DYE;
         return switch (at) {
-            case 8, 10 -> new Outdoors.Piece(model, 0).dye(CLOTH, dye).fit();
-            case 16, 18 -> new Outdoors.Piece(model, 1).dye(CLOTH, dye).fit();
-            case 9, 11 -> new Outdoors.Piece(model, 0).dye(CLOTH, dye).fit().raise(2f * BALE);
-            case 17 -> new Outdoors.Piece(model, 1).dye(CLOTH, dye).fit().raise(BALE);
-            case 19 -> new Outdoors.Piece(model, 1).dye(CLOTH, dye).fit().raise(2f * BALE);
+            case 8, 10 -> new Outdoors.Piece(model, 0).dye(STRAW, dye).fit();
+            case 16, 18 -> new Outdoors.Piece(model, 1).dye(STRAW, dye).fit();
+            case 9, 11 -> new Outdoors.Piece(model, 0).dye(STRAW, dye).fit().raise(2f * BALE);
+            case 17 -> new Outdoors.Piece(model, 1).dye(STRAW, dye).fit().raise(BALE);
+            case 19 -> new Outdoors.Piece(model, 1).dye(STRAW, dye).fit().raise(2f * BALE);
             default -> null;
         };
     }

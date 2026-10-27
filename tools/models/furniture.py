@@ -55,7 +55,7 @@ from mathutils import Matrix, Vector, noise
 from mathutils.bvhtree import BVHTree
 
 SURFACES = ["wood", "dark_wood", "cloth", "linen", "pillow", "metal", "paint", "enamel", "steel", "plastic", "screen", "ceramic",
-            "books", "shade", "rubber", "worktop", "pane", "vinyl"]
+            "books", "shade", "rubber", "worktop", "pane", "vinyl", "straw"]
 
 OUTPUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "src", "main", "resources", "models", "furniture.bin.gz")
 
@@ -5030,8 +5030,9 @@ HAY_LONG, HAY_WIDE, HAY_HIGH, HAY_FLAKES = 0.95, 0.48, 0.41, 8
 
 
 def hay_bales(name, count):
-    """Bales of hay one on another, each lying along y: a block of pressed hay with soft edges, its sides rippled where one flake
-    meets the next and no two flakes quite alike, and two strings of twine round each bale along its length."""
+    """Bales of hay one on another, each lying along y: a block of pressed straw with square shoulders, its sides rippled where
+    one flake meets the next and no two flakes quite alike, ragged where loose stalks stand proud of it, and two strings of
+    twine round each bale along its length."""
     model = Model(name)
     rng = random.Random(count)
     twine = bmesh.new()
@@ -5039,23 +5040,31 @@ def hay_bales(name, count):
         low = bale * HAY_HIGH
         shift = rng.uniform(-0.015, 0.015) if bale else 0.0
         hay = bmesh.new()
-        xs, ys, zs = spread(-HAY_WIDE / 2, HAY_WIDE / 2, 2), spread(-HAY_LONG / 2, HAY_LONG / 2, HAY_FLAKES), spread(low, low + HAY_HIGH, 2)
+        xs, ys, zs = spread(-HAY_WIDE / 2, HAY_WIDE / 2, 4), spread(-HAY_LONG / 2, HAY_LONG / 2, HAY_FLAKES * 2), spread(low, low + HAY_HIGH, 4)
         cage = grid_box(hay, xs, ys, zs)
-        flake = [(rng.uniform(-0.024, -0.004), rng.uniform(-0.008, 0.008)) for _ in ys]
+        flake = [(rng.uniform(-0.02, 0.0), rng.uniform(-0.008, 0.008)) for _ in range(HAY_FLAKES)]
+        last = (len(xs) - 1, len(ys) - 1, len(zs) - 1)
         for (i, j, k), vert in cage.items():
-            pulled, moved = flake[j] if 0 < j < len(ys) - 1 else (0.0, 0.0)
-            # A bale bulges at the middle of its sides, where the twine does not hold it.
-            out = pulled + (0.014 if k == 1 else 0.0)
-            vert.co.x += shift + moved + (out if i == len(xs) - 1 else -out if i == 0 else 0.0)
-            if k == len(zs) - 1:
-                vert.co.z += pulled + (0.012 if i == 1 else 0.0)
-        crease(hay, cage, 0.5)
-        model.soft(hay, "cloth", levels=1)
+            ends = j in (0, last[1])
+            pulled, moved = (0.0, 0.0) if ends else flake[min((j - 1) // 2, HAY_FLAKES - 1)]
+            # A bale bulges at the middle of its sides, where the twine does not hold it, and sits in where a flake ends.
+            seam = -0.008 if not ends and j % 2 == 0 else 0.0
+            middle = 1.0 - abs(k / last[2] - 0.5) * 2.0
+            out = pulled + seam + 0.012 * middle
+            rough = (rng.uniform(-0.006, 0.006), rng.uniform(-0.006, 0.006), rng.uniform(-0.006, 0.006))
+            vert.co.x += shift + moved + rough[0] + (out if i == last[0] else -out if i == 0 else 0.0)
+            vert.co.y += rough[1]
+            if k == last[2]:
+                vert.co.z += pulled + seam + 0.01 * (1.0 - abs(i / last[0] - 0.5) * 2.0) + rough[2]
+            elif k > 0:
+                vert.co.z += rough[2]
+        crease(hay, cage, 0.9)
+        model.soft(hay, "straw", levels=1)
         for x in (-0.12, 0.12):
-            top = low + HAY_HIGH + 0.001
+            top = low + HAY_HIGH + 0.007
             cuboid(twine, shift + x - 0.005, shift + x + 0.005, -HAY_LONG / 2 + 0.03, HAY_LONG / 2 - 0.03, top - 0.004, top)
             for side in (-1, 1):
-                y0, y1 = sorted((side * (HAY_LONG / 2 + 0.001), side * (HAY_LONG / 2 - 0.004)))
+                y0, y1 = sorted((side * (HAY_LONG / 2 + 0.007), side * (HAY_LONG / 2 + 0.002)))
                 cuboid(twine, shift + x - 0.005, shift + x + 0.005, y0, y1, low + 0.03, top - 0.03)
     model.plain(twine, "rubber")
     return model
@@ -5733,7 +5742,7 @@ def straw_post():
                 vert.co.x *= 0.7
                 vert.co.y *= 0.7
         crease(straw, cage, 0.2)
-    model.soft(straw, "cloth", levels=2)
+    model.soft(straw, "straw", levels=2)
     return model
 
 

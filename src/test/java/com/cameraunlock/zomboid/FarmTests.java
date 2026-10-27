@@ -72,7 +72,7 @@ final class FarmTests {
         for (int[] bale : bales) {
             Outdoors.Piece piece = hay(bale[0], "Single Stacked Hay");
             Models.Model one = model(piece, "vegetation_farm_01_" + bale[0]);
-            Checks.check(piece != null && piece.model.equals("hay_bale") && lengthAlong(piece) == bale[1] && piece.dyed == 1 << Models.CLOTH,
+            Checks.check(piece != null && piece.model.equals("hay_bale") && lengthAlong(piece) == bale[1] && piece.dyed == 1 << Models.STRAW,
                     "vegetation_farm_01_" + bale[0] + " is one bale of hay lying along the map's " + (bale[1] == 0 ? "y" : "x"));
             Checks.check(one != null && one.depth() > 0.9f && one.depth() < 0.96f && one.width() < 0.52f
                     && Math.abs(one.height() - Farm.BALE * ViewCamera.LEVEL_HEIGHT) < 0.01f, "a bale is a small square bale: " + (one == null ? 0f : one.height()));

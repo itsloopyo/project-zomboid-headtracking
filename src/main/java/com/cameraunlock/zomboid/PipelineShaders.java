@@ -638,7 +638,7 @@ final class PipelineShaders {
                     // how much light gets to it past the rest of the model where a sprite's
                     // carries a texel. It is made here into what a vertex of the frame's own
                     // arrays is: stood on the map, lit by where over its square it is, and
-                    // marked with its surface, which a dyed one adds 18 more to.
+                    // marked with its surface, which a dyed one adds 19 more to.
                     vec3 on = over(gl_Vertex.xyz);
                     stands = vec4(aPlace.xy + on.xy, on.z, 1.0);
                     fromEye = vec3((aPlace.xy - uEye.xy) + on.xy, on.z - uEye.z);
@@ -657,7 +657,7 @@ final class PipelineShaders {
                         vUv += gl_Vertex.x * uPicture.xy + gl_Vertex.z * uPicture.zw;
                     }
                     vColor = vec4(gl_MultiTexCoord0.y * (aLit.rgb + share.x * aLitAlong.rgb + share.y * aLitDown.rgb + share.x * share.y * aLitAcross.rgb),
-                            uSurfaces.x + 32.0 * ((dyed || also ? 34.0 : 16.0) + surface));
+                            uSurfaces.x + 32.0 * ((dyed || also ? 35.0 : 16.0) + surface));
                     unlit = aFoot.w < 0.5 ? -1.0 : (aFoot.w - 1.0) * 16.0 + aUnlit.x + share.x * aUnlit.y + share.y * aUnlit.z + share.x * share.y * aUnlit.w;
                     day = aLit.w + share.x * aLitAlong.w + share.y * aLitDown.w + share.x * share.y * aLitAcross.w;
                 }
@@ -1116,6 +1116,8 @@ final class PipelineShaders {
             const float TARMAC_DEPTH_SHARE = 0.14, EARTH_DEPTH_SHARE = 0.8;
             // How many times the straw's picture is laid to a tile: its stalks are as long as the sprite's.
             const float STRAW_SCALE = 1.25;
+            // The same on a bale of hay, seen from nearer. Times sixty it is whole, as vPlace needs.
+            const float STRAW_BALE_SCALE = 2.0;
             // How many times terrazzo's picture is laid to a tile: its chips come out a centimetre or two across.
             const float TERRAZZO_SCALE = 1.0;
             // Over how many tiles what every surface mirrors of what is round it fades out, before
@@ -2326,7 +2328,7 @@ final class PipelineShaders {
                     climb = turned * laidHere;
                 }
                 arcWhole = vMaterial > 65.5 && vMaterial < 66.5 ? 1.0 : 0.0;
-                if (uOwnTextures > 0.5 && (vMaterial > 51.5 && vMaterial < 52.5 || arcWhole > 0.5) && (uTint.a < 0.5 || boarded) && uTexel.x > 0.0) {
+                if (uOwnTextures > 0.5 && (vMaterial > 121.5 && vMaterial < 122.5 || arcWhole > 0.5) && (uTint.a < 0.5 || boarded) && uTexel.x > 0.0) {
                     vec3 tone = vec3(0.299, 0.587, 0.114);
                     // The strokes run up the boards, so the colour is taken from far to either
                     // side of the place and a little above and below it. A wall is told the
@@ -3408,7 +3410,7 @@ final class PipelineShaders {
                 // a texel to either side of it or two texels off cornerwise is such a shadow:
                 // the soft edge of a black line has the line beside it. Far off, where the pixel is the mean of nine samples,
                 // a black line among them is one sample that is solid, and a shadow has none.
-                if (uLaid < 0.5 && uTexel.x > 0.0 && glazed < 0.5 && !(vMaterial > 15.5 && vMaterial < 51.5) && texel.a < 0.27
+                if (uLaid < 0.5 && uTexel.x > 0.0 && glazed < 0.5 && !(vMaterial > 15.5 && vMaterial < 53.5) && texel.a < 0.27
                         && max(texel.r, max(texel.g, texel.b)) < 0.04) {
                     float thickest = max(mostSolid, 0.0);
                     for (int i = 0; i < 8 && mostSolid < 0.0; i++) {
@@ -3424,8 +3426,8 @@ final class PipelineShaders {
                 // is made of, and that is its colour: oak, walnut, cloth, linen, a pillow's
                 // cotton, bare metal, paint, the enamel of a fridge, steel, plastic, the glass
                 // of a screen, china, the spines of books, a lamp's shade, rubber, a worktop,
-                // what a frame holds, vinyl.
-                bool model = vMaterial > 15.5 && vMaterial < 51.5;
+                // what a frame holds, vinyl, pressed straw.
+                bool model = vMaterial > 15.5 && vMaterial < 53.5;
                 float surface = -1.0;
                 // How far a model's wood is painted over, and whether what its frame holds is a picture.
                 float painted = 0.0;
@@ -3435,8 +3437,8 @@ final class PipelineShaders {
                 // A model is solid all over: what follows gives it its colour and leaves no pixel
                 // of it out, so the pass that keeps only depth goes round it.
                 if (model && !depthOnly) {
-                    bool dyed = vMaterial > 33.5;
-                    surface = vMaterial - (dyed ? 34.0 : 16.0);
+                    bool dyed = vMaterial > 34.5;
+                    surface = vMaterial - (dyed ? 35.0 : 16.0);
                     vec3 own = vec3(0.66, 0.5, 0.32);
                     if (surface > 0.5) { own = vec3(0.33, 0.22, 0.15); }
                     if (surface > 1.5) { own = vec3(0.46, 0.48, 0.52); }
@@ -3454,6 +3456,7 @@ final class PipelineShaders {
                     if (surface > 14.5) { own = vec3(0.8, 0.76, 0.68); }
                     if (surface > 15.5) { own = vec3(0.74, 0.79, 0.82); }
                     if (surface > 16.5) { own = vec3(0.42, 0.13, 0.11); }
+                    if (surface > 17.5) { own = vec3(0.76, 0.66, 0.4); }
                     if (surface > 11.5 && surface < 12.5) {
                         // A shelf of books is a row of spines, each its own colour all over. Which book
                         // a place is on is the piece of the surface it is: see Models.Model.piece. Every
@@ -3548,7 +3551,7 @@ final class PipelineShaders {
                 // building in the way, the logs laid as its walls among it, is the game's to open:
                 // it leaves out the floors over the viewer's and cuts walls away, and the picture
                 // does as it does below.
-                bool ofModel = vMaterial > 15.5 && vMaterial < 51.5;
+                bool ofModel = vMaterial > 15.5 && vMaterial < 53.5;
                 bool standing = vKind > 1.5 && vKind < 3.5;
                 // A card the eye stands in, or all but touches, is seen along itself, and its texels
                 // nearest the eye are drawn from the ground to the top of the picture: a streak up
@@ -3886,7 +3889,7 @@ final class PipelineShaders {
                 // A sheet with no sprite that is marked as shingle is the mod's own roofing: it
                 // is the grey of shingle, in sun as in shade.
                 // The cap along a ridge or a hip is the roof's own covering.
-                bool capping = vMaterial > 52.5 && vMaterial < 53.5;
+                bool capping = vMaterial > 122.5 && vMaterial < 123.5;
                 bool roofing = capping || vMaterial > 0.5 && vMaterial < 1.5;
                 if (roofing && min(texel.r, min(texel.g, texel.b)) > 0.99) {
                     texel.rgb = vec3(0.3, 0.3, 0.32);
@@ -4022,6 +4025,23 @@ final class PipelineShaders {
                     // Paint fills the grain: under it the wood shows as a trace and no more.
                     much *= 1.0 - 0.8 * painted;
                     texel.rgb *= mix(1.0, fine, much);
+                }
+                // A bale of hay is pressed straw: the stalks are the litter's second picture, laid on from each axis
+                // as a cushion's weave is, a little finer than on a barn floor since a bale is seen from nearer.
+                // Where the mod's pictures are off it has a cloth's weave, as it had before it had straw of its own.
+                if (model && surface > 17.5) {
+                    if (uOwnTextures > 0.5) {
+                        vec3 share = n * n;
+                        share *= share;
+                        share /= share.x + share.y + share.z;
+                        vec3 tone = vec3(0.299, 0.587, 0.114);
+                        float stalks = dot(texture2DArray(uLitter, vec3(vPlace.yz * STRAW_BALE_SCALE, 1.0)).rgb, tone) * share.x
+                                + dot(texture2DArray(uLitter, vec3(vPlace.xz * STRAW_BALE_SCALE, 1.0)).rgb, tone) * share.y
+                                + dot(texture2DArray(uLitter, vec3(vPlace.xy * STRAW_BALE_SCALE, 1.0)).rgb, tone) * share.z;
+                        texel.rgb *= mix(1.0, stalks * uNatureGain.x, 0.9);
+                    } else {
+                        texel.rgb *= mix(1.0, wrapped(uCloth, vWorld, n, 6.0) * uClothGain, 0.4);
+                    }
                 }
 
                 bool water = vKind > 3.5 && !grass;
@@ -4610,7 +4630,7 @@ final class PipelineShaders {
                     if (model) {
                         rough = surface < 1.5 ? 0.38 : surface < 4.5 ? 0.9 : surface < 5.5 ? 0.3 : surface < 6.5 ? 0.5 : surface < 7.5 ? 0.22
                                 : surface < 8.5 ? 0.28 : surface < 9.5 ? 0.45 : surface < 10.5 ? 0.08 : surface < 11.5 ? 0.15 : surface < 12.5 ? 0.6
-                                : surface < 13.5 ? 0.85 : surface < 14.5 ? 0.75 : surface < 15.5 ? 0.3 : surface < 16.5 ? (pictured ? 0.6 : 0.05) : 0.36;
+                                : surface < 13.5 ? 0.85 : surface < 14.5 ? 0.75 : surface < 15.5 ? 0.3 : surface < 16.5 ? (pictured ? 0.6 : 0.05) : surface < 17.5 ? 0.36 : 0.95;
                         // Gloss paint is smoother than waxed wood.
                         rough = mix(rough, 0.3, painted);
                         mirrors = surface > 4.5 && surface < 5.5 || surface > 7.5 && surface < 8.5 ? 0.55 : surface > 9.5 && surface < 10.5 ? 0.06

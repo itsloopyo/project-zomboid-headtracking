@@ -2133,7 +2133,7 @@ final class WorldScene {
     /** The frosted glass low down in a bus shelter's or a tower's window (Windows.frostedFoot), which mirrors the street to either face, as OUTER_PANE does, and is never lit by a lamp. */
     static final float FROSTED_PANE = 119f;
     /** A wall of upright boards. */
-    static final float BOARDS = 52f;
+    static final float BOARDS = 122f;
     /** The game's blood on a floor or a wall: its texels take the colour its vertices carry where a tree's carry its square, and it covers as much as they say. See BloodBuilder. */
     static final float BLOOD = 85f;
     /** The picture of a body lying on the ground: it fell on the snow, and settled snow does not cover it. */
