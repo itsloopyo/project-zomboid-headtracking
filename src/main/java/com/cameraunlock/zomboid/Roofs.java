@@ -1173,6 +1173,16 @@ final class Roofs {
         return false;
     }
 
+    /**
+     * Whether a roof's floor on level z is a ridge's cap the map lays as a floor: over a slope a level down, on its own
+     * square, that tops a third under it. The game paints the floor a square back along the line of sight, on the
+     * ridge; laid where it reads, it was three squares of slab hanging over the shop's hip at 7719..7721, 14711
+     * (roofs_02_22 on level 2 over roofs_02_1 and roofs_02_9, which top at 1.667).
+     */
+    static boolean capFloorOfARidgeBelow(IsoCell cell, int x, int y, int z, float scale) {
+        return slopeToppingAt(cell, x, y, z - 1, z - RoofFit.PITCH, scale);
+    }
+
     /** Whether the square holds a roof's slope whose top is at that height. */
     private static boolean slopeToppingAt(IsoCell cell, int x, int y, int z, float top, float scale) {
         IsoGridSquare square = cell.getGridSquare(x, y, z);

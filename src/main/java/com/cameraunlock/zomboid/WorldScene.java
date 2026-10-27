@@ -7387,6 +7387,9 @@ final class WorldScene {
                     if (roofBuilder.underAMadeSlope(x, y, z)) {
                         return;
                     }
+                    if (Roofs.capFloorOfARidgeBelow(cell, x, y, z, frame.scale)) {
+                        return;
+                    }
                     // A roof's crown the map lays as a floor a level up closes a loft, whose west and north ends it leaves open.
                     roofBuilder.addCrownGable(x, y, z);
                 }
