@@ -1078,7 +1078,7 @@ final class RoofFit {
             // Come down exactly as deep as the near side onto a roof of the map past its foot, it meets that roof in a valley there, and a
             // face across it over its last square is the higher of the two. Taken for a hip's, a dormer's north face dipped the main
             // roof's west face to its own eave, a step open between it and the face's next square (12719, 3678).
-            row.valley = roofBeyond && open == climbed;
+            row.valley = roofBeyond && open == climbed && !row.cut;
             rows.add(row);
             rowAt.putIfAbsent(rowKey(x, y, dx, dy), row);
         }
