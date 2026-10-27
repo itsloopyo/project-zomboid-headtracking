@@ -3160,16 +3160,12 @@ final class PipelineShaders {
                     }
                 }
                 // What is laid lies a layer over its ground, and a layer is thicker the further off
-                // (see faced): far off, a line of sight crosses it a good way before it meets the
-                // ground under it. It is left out by what leaves that ground out: kept where its
+                // (see faced). It is left out by what leaves that ground out: kept where its
                 // ground had thinned out into the far land, or was cut off under the water, a pixel
                 // of it was mixed over nothing, and the depth it writes kept the sky and the far
-                // land out of the pixel, a black speck.
-                vec3 under = vWorld;
-                if (uLaid > 0.5 && vLies.z > 0.0) {
-                    vec3 sight = normalize(vWorld - uEye), up = normalize(vNormal);
-                    under += sight * (vLies.z * up.z / max(-dot(up, sight), 1e-3));
-                }
+                // land out of the pixel, a black speck. Its ground is where it was laid, back along
+                // the line it was lifted on (vLies).
+                vec3 under = uLaid > 0.5 && vLies.z > 0.0 ? vWorld - vLies : vWorld;
                 // Where the far land lies behind it, the built world thins out into it.
                 if (thinnedOut(under.xy - uEye.xy)) {
                     discard;
@@ -3195,11 +3191,8 @@ final class PipelineShaders {
                     float blur = max(fwidth(proud), 0.012);
                     shown = smoothstep(0.5 - blur, 0.5 + blur, proud);
                     // Where it does not show it is left out: what is laid writes depth, so left in it
-                    // would still hide whatever is laid on the same ground after it. And where the
-                    // ground under the pixel is not its own square's (see under), which past the
-                    // loaded map is none: the ground there is the next square's own. Its own square is
-                    // where it was laid, not where it was lifted to.
-                    if (shown < 0.03 || any(notEqual(floor(under.xy), floor(vWorld.xy - vLies.xy)))) {
+                    // would still hide whatever is laid on the same ground after it.
+                    if (shown < 0.03) {
                         discard;
                     }
                 }

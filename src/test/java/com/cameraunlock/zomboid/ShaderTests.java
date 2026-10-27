@@ -448,12 +448,13 @@ final class ShaderTests {
      * What is laid over the ground writes depth. Ground spreading over its neighbour fades out by `shown`, and a pixel
      * of it that shows nothing, left in, still wrote its depth: where nothing of the built world was drawn beneath it,
      * the sky and the far land were then kept out of that pixel, which stayed black (offline, at the end of the loaded
-     * map and along a far kerb, in every mode). And it lies a layer over its square's ground, which far off is thick
-     * enough that the line of sight meets the ground under it on the next square, or on ground thinned out into the far
-     * land, or past the loaded map, where a pixel of it that showed in part was mixed over nothing. So is all that is
-     * laid (some other layer left the last specks in knob-fog High). Read, not run: what is laid is thinned out and cut off
-     * under the water where the ground under its pixel is, and spread ground is left out where it shows next to nothing
-     * and where that ground is not its own square's.
+     * map and along a far kerb, in every mode). And it lies a layer over its square's ground, lifted along the line it
+     * is seen on, so its ground is back along that line by what it was lifted (vLies): where that ground had thinned out
+     * into the far land, or past the loaded map, a pixel of it that showed in part was mixed over nothing. So is all that
+     * is laid (some other layer left the last specks in knob-fog High). Walked back as if lifted straight up, the ground
+     * was found past the true one, and the cut on its square took a band off the far edge of spread ground. Read, not
+     * run: what is laid is thinned out and cut off under the water where its ground is, and spread ground is left out
+     * where it shows next to nothing.
      */
     private static void spreadGroundThatDoesNotShowHidesNothing(List<Linked> programs) {
         String world = fragment(programs, "world").replaceAll("//[^\n]*", "").replaceAll("\\s+", " ");
@@ -465,12 +466,11 @@ final class ShaderTests {
                 + " float blur = max(fwidth(proud), 0.012); shown = smoothstep(0.5 - blur, 0.5 + blur, proud);";
         int at = world.indexOf(spread);
         Checks.check(at >= 0 && world.indexOf(spread, at + 1) < 0, "the world's fragment stage does not work out once how much spread ground shows");
-        Checks.check(world.startsWith(" if (shown < 0.03 || any(notEqual(floor(under.xy), floor(vWorld.xy - vLies.xy)))) { discard; } }", at + spread.length()),
-                "spread ground is drawn where it shows next to nothing, or where the ground its pixel lies over is another square's or none");
-        Checks.check(world.contains("vec3 under = vWorld; if (uLaid > 0.5 && vLies.z > 0.0) { vec3 sight = normalize(vWorld - uEye), up = normalize(vNormal);"
-                + " under += sight * (vLies.z * up.z / max(-dot(up, sight), 1e-3)); } if (thinnedOut(under.xy - uEye.xy)) { discard; }"
+        Checks.check(world.startsWith(" if (shown < 0.03) { discard; } }", at + spread.length()),
+                "spread ground is drawn where it shows next to nothing");
+        Checks.check(world.contains("vec3 under = uLaid > 0.5 && vLies.z > 0.0 ? vWorld - vLies : vWorld; if (thinnedOut(under.xy - uEye.xy)) { discard; }"
                 + " if (uUnder.z > 0.0 && (vKind > 3.5 && !grass || dot(uUnder.xyz, under) < uUnder.w)) { discard; }"),
-                "what is laid is thinned out into the far land, or cut off under the water, where it lies, not where its ground under the pixel is");
+                "what is laid is thinned out into the far land, or cut off under the water, where it was lifted to, not where its ground is");
         String vertex = vertex(programs, "world").replaceAll("//[^\n]*", "").replaceAll("\\s+", " ");
         Checks.check(vertex.contains("vWorld = at.xyz + lies; vLies = lies;"), "the fragment stage is not told how far a vertex lies over its surface");
         // Lifted straight up, a layer seen from above slid up the picture off its square and bared a line of the
