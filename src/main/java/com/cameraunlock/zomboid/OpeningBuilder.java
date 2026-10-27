@@ -529,7 +529,7 @@ final class OpeningBuilder {
         SpriteGeometry.Mesh glass = WorldScene.laid.get(WorldScene.PLAIN, WallSides.PANES);
         glass.sway = 0f;
         edgeSide = -1;
-        facePane(glass, ownIsRoom, indoors(beyond), false, da, db);
+        facePane(glass, beyond, false, da, db);
         for (int pane = 0; pane < leaf.panes.length; pane += 5) {
             float t0 = leaf.panes[pane], t1 = leaf.panes[pane + 1], h0 = leaf.panes[pane + 2], h1 = leaf.panes[pane + 3];
             if (leaf.panes[pane + 4] >= 1f) {
@@ -803,7 +803,7 @@ final class OpeningBuilder {
 
         SpriteGeometry.Mesh glass = WorldScene.laid.get(WorldScene.PLAIN, WallSides.PANES);
         glass.sway = 0f;
-        facePane(glass, ownIsRoom, beyondIsRoom, lit, da, db);
+        facePane(glass, beyond, lit, da, db);
         for (int pane = 0; pane < shape.panes.length; pane += 5) {
             float t0 = shape.panes[pane], t1 = shape.panes[pane + 1], h0 = shape.panes[pane + 2], h1 = shape.panes[pane + 3];
             if (shape.panes[pane + 4] >= 1f) {
@@ -1090,14 +1090,31 @@ final class OpeningBuilder {
      * Makes the panes laid next on the edge face into the room, lit as the room is (see
      * lightSides), and of the material paneMaterial gives: the room side's light is what a
      * pane mirrors to an eye in the room, and on a south or east wall the square the edge is
-     * read from is the street.
+     * read from is the street. Which side is the room's is roomSide's.
      */
-    private void facePane(SpriteGeometry.Mesh glass, boolean ownIsRoom, boolean beyondIsRoom, boolean lit, float da, float db) {
-        paneSide = paneSide(ownIsRoom);
-        glass.open = sideOpen[paneSide] + 32f * paneMaterial(indoors(build.here), beyondIsRoom, lit);
+    private void facePane(SpriteGeometry.Mesh glass, IsoGridSquare beyond, boolean lit, float da, float db) {
+        boolean hereIndoors = indoors(build.here), beyondIndoors = indoors(beyond);
+        boolean ownIsRoom = roomSide(hereIndoors, roofed(build.here), beyondIndoors), beyondIsRoom = roomSide(beyondIndoors, roofed(beyond), hereIndoors);
+        paneSide = paneSide(ownIsRoom || !beyondIsRoom);
+        glass.open = sideOpen[paneSide] + 32f * paneMaterial(ownIsRoom, beyondIsRoom, lit);
         glass.day = sideDay[paneSide];
         float faces = paneSide == 0 ? 1f : -1f;
         glass.face(db * faces, da * faces, 0f);
+    }
+
+    /**
+     * Whether one side of a pane is a room's to paneMaterial: a room's square, or, with no room
+     * on either side, a square under a roof. A building the player has put up has no rooms, and
+     * its roofed squares are not out of doors (IsoGridSquare.isOutside), which is how WindowGlass
+     * takes an eye in it for indoors and lays it the room's picture.
+     */
+    static boolean roomSide(boolean indoors, boolean roofed, boolean otherIndoors) {
+        return indoors || !otherIndoors && roofed;
+    }
+
+    /** Whether a square is under a roof: none past the loaded map is. */
+    static boolean roofed(IsoGridSquare square) {
+        return square != null && !square.isOutside();
     }
 
     /** Which of lightSides' two sides a pane faces into: 0 the square the edge is read from, 1 the one beyond. */
@@ -1107,11 +1124,11 @@ final class OpeningBuilder {
 
     /**
      * What a pane in an edge is made of, from whether the square the edge is read from and the
-     * one beyond are rooms. It faces into a room where it has one (or into the square, with the
-     * street both sides), and mirrors the street only to an eye on its other face: with a room
-     * on both sides, a window between two rooms or a door, it has no street side and mirrors
-     * only the room the eye is in; with the street on both, a bus shelter's or a door swung
-     * open out of doors, it mirrors the street to either face. A lamp behind a pane lights it
+     * one beyond are rooms (roomSide). It faces into a room where it has one (or into the
+     * square, with the street both sides), and mirrors the street only to an eye on its other
+     * face: with a room on both sides, a window between two rooms or a door, it has no street
+     * side and mirrors only the room the eye is in; with the street on both, a door swung open
+     * in the open air, it mirrors the street to either face. A lamp behind a pane lights it
      * for the street, so a pane with no street side, or no room, is never lit.
      */
     static float paneMaterial(boolean ownIsRoom, boolean beyondIsRoom, boolean lit) {

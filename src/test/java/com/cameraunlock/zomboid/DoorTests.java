@@ -169,6 +169,15 @@ final class DoorTests {
         check(OpeningBuilder.paneMaterial(false, true, true) == WorldScene.LIT_PANE, "whichever side of the edge the room is");
         check(OpeningBuilder.paneMaterial(false, false, false) == WorldScene.OUTER_PANE && OpeningBuilder.paneMaterial(false, false, true) == WorldScene.OUTER_PANE,
                 "a pane with the street on both sides mirrors the street to both, and has no room to be lit from");
+        check(OpeningBuilder.roomSide(true, true, false) && !OpeningBuilder.roomSide(false, false, true) && !OpeningBuilder.roomSide(false, true, true),
+                "a room's square is the room side of its pane, and beside a room nothing else is");
+        check(OpeningBuilder.roomSide(false, true, false) && !OpeningBuilder.roomSide(false, false, false),
+                "with no room either side, the roofed square is the room side, as WindowGlass takes an eye under a roof for indoors");
+        boolean shed = OpeningBuilder.roomSide(false, true, false), yard = OpeningBuilder.roomSide(false, false, false);
+        check(OpeningBuilder.paneMaterial(shed, yard, false) == WorldScene.PANE && OpeningBuilder.paneMaterial(yard, shed, false) == WorldScene.PANE,
+                "so a window in a building the player has put up has the street on one face only, whichever side it is read from");
+        check(OpeningBuilder.paneMaterial(shed, shed, false) == WorldScene.INNER_PANE, "and one between two of its roofed squares none");
+        check(!OpeningBuilder.roofed(null), "past the loaded map is under no roof");
         check(OpeningBuilder.paneSide(true) == 0 && OpeningBuilder.paneSide(false) == 1,
                 "a pane faces into the square its edge is read from when that is the room, and into the one beyond when the room is there");
         // Swung open, a leaf stands in one square, which is on both its faces: addBuiltDoor asks with that square both sides.
