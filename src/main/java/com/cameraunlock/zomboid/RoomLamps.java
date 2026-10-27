@@ -212,7 +212,7 @@ final class RoomLamps {
             chosen[slot] = null;
             sets[slot] = null;
         }
-        if (DevBuild.ON && hash != said[playerIndex]) {
+        if (FirstPerson.TRACE && hash != said[playerIndex]) {
             said[playerIndex] = hash;
             StringBuilder line = new StringBuilder("lamps and sets in rooms lighting the picture: ").append(count);
             for (int i = 0; i < count; i++) {

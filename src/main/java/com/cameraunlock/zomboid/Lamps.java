@@ -189,7 +189,7 @@ final class Lamps {
         for (int i = 0; DevBuild.ON && i < count * RECORD; i += RECORD) {
             lit += Flora.mix(Float.floatToIntBits(to[i]), Float.floatToIntBits(to[i + 1]), 0);
         }
-        if (DevBuild.ON && lit != said) {
+        if (FirstPerson.TRACE && lit != said) {
             said = lit;
             StringBuilder line = new StringBuilder("first person lamps on walls and posts lighting the picture: ").append(count);
             for (int i = 0; i < count; i++) {

@@ -426,7 +426,7 @@ final class HiddenWalls {
             placed.add(best);
             takeBeside(spots, best);
         }
-        if (DevBuild.ON && !drawn.isEmpty()) {
+        if (FirstPerson.TRACE && !drawn.isEmpty()) {
             Log.info(String.format(Locale.ROOT, "drew on the hidden walls of the %s at %d,%d,%d (%d hung on its other walls): %s", room.getName(),
                     room.rects.get(0).x, room.rects.get(0).y, room.level, shown, String.join(", ", drawn)));
         }

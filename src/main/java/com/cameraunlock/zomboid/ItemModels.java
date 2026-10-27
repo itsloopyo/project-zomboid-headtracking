@@ -319,7 +319,9 @@ public final class ItemModels {
             uvs[vertex * 2] = raw.getFloat(vertex * stride + uv);
             uvs[vertex * 2 + 1] = raw.getFloat(vertex * stride + uv + 4);
         }
-        Log.info("an item's model is read: " + mesh.fullPath + ", " + vertices + " vertices, " + count / 3 + " triangles");
+        if (FirstPerson.TRACE) {
+            Log.info("an item's model is read: " + mesh.fullPath + ", " + vertices + " vertices, " + count / 3 + " triangles");
+        }
         return new Shape(places, normals, uvs, corners);
     }
 }
