@@ -39,6 +39,8 @@ final class RoofBuilder {
     private static final int[][] EDGES = {{0, 3}, {1, 2}, {0, 1}, {3, 2}};
     /** How deep the board under a gable's edge is, in tiles: deep enough to cover where the wall's own pieces stop short of the roof. */
     private static final float BARGE = 0.2f;
+    /** The most squares a gablet's row of sheets runs along its eave: see addGablet. */
+    private static final int WIDEST_GABLET = 8;
 
     private final WorldScene world;
     private final WorldScene.Frame build;
@@ -725,6 +727,9 @@ final class RoofBuilder {
         }
         if (placed) {
             underRoof(x, y, z, low, alongX ? high - low : 0f, alongX ? 0f : high - low, !underAnother(tile, texture));
+            if (itsOwn) {
+                addGablet(tile, x, y, z);
+            }
         } else if (build.frame.width > Roofs.WHOLE_TILE_WIDE * build.frame.scale) {
             // Which way this tile slopes is a guess, and a sheet laid to a wrong guess
             // stands out of the roof. A level one at the tile's lowest height cannot: it
@@ -793,6 +798,104 @@ final class RoofBuilder {
         if (rake) {
             addRake(sheet, x, y, z, atOrigin, alongX, alongY);
         }
+    }
+
+    /**
+     * A gablet: a small gable the map stands on an eave, a row of a roof's gable sheets on the eave's line with no tile
+     * of roof on their squares, whose own roof the game paints on the slope's tiles behind it as a valley's pieces
+     * (roofs_02_14, _11 and _68 behind walls_exterior_roofs_03_13, _6 and _5 at the inn, 3476..3478, 8212..8213). The
+     * sheets rise at the slope's pitch to a peak over the middle of the row. Its roof is made from the row's first
+     * square: either side a plane level back from the rake, from just past the gable to the valley where it meets the
+     * slope, the two meeting in a ridge over the peak. Left to the pieces laid on the slope, the triangle stood bare.
+     */
+    private void addGablet(RoofFit.Tile tile, int x, int y, int z) {
+        boolean alongY = RoofFit.fallsToItsFloor(tile, RoofFit.ALONG_Y);
+        if (!alongY && !RoofFit.fallsToItsFloor(tile, RoofFit.ALONG_X)) {
+            return;
+        }
+        // Along the eave, and from the tile to the square past its eave.
+        int ax = alongY ? 1 : 0, ay = 1 - ax, ex = 1 - ax, ey = ax;
+        if (gableSheetOn(x + ex - ax, y + ey - ay, z, alongY)) {
+            return;
+        }
+        int wide = 0;
+        while (wide <= WIDEST_GABLET && gableSheetOn(x + ex + wide * ax, y + ey + wide * ay, z, alongY) && !roofOn(x + ex + wide * ax, y + ey + wide * ay, z)
+                && sameSlope(tile, x + wide * ax, y + wide * ay, z)) {
+            wide++;
+        }
+        // A row of sheets that runs on past the slope is the end of a gable of its own, and its roof is the map's: the four at 12279..12282, 3216.
+        if (wide < 2 || wide > WIDEST_GABLET || gableSheetOn(x + ex + wide * ax, y + ey + wide * ay, z, alongY)) {
+            return;
+        }
+        // The slope runs back under the whole of its ridge, which goes half the row's width into it: a longer row before a shallower
+        // slope is no gablet, and its ridge stood out of the slope's far side.
+        for (int deep = 1; deep < (wide + 1) / 2; deep++) {
+            for (int along = 0; along < wide; along++) {
+                if (!slopeAbove(tile, x + along * ax - deep * ex, y + along * ay - deep * ey, z, deep)) {
+                    return;
+                }
+            }
+        }
+        SpriteGeometry.Mesh sheet = roofSheet();
+        float pitch = tile.fitLow - tile.fitHigh, lift = meanLift();
+        float eave = tile.fitHigh * ViewCamera.LEVEL_HEIGHT + lift, peak = (tile.fitHigh + wide * pitch / 2f) * ViewCamera.LEVEL_HEIGHT + lift;
+        float from = alongY ? x : y, middle = from + wide / 2f, to = from + wide;
+        float line = alongY ? y + 1f : x + 1f, out = line + RAKE, back = line - wide / 2f;
+        for (int side = 0; side < 2; side++) {
+            float end = side == 0 ? from : to;
+            gabletTriangle(sheet, alongY, end, out, eave, end, line, eave, middle, back, peak);
+            gabletTriangle(sheet, alongY, end, out, eave, middle, back, peak, middle, out, peak);
+            addBarge(sheet, alongY ? end : out, alongY ? out : end, eave, alongY ? middle : out, alongY ? out : middle, peak);
+        }
+    }
+
+    /** One of a gablet's triangles, each corner given along its eave, across it and up: see addGablet. */
+    private void gabletTriangle(SpriteGeometry.Mesh sheet, boolean alongY, float a0, float b0, float up0, float a1, float b1, float up1, float a2, float b2, float up2) {
+        float[] c = folded;
+        WorldScene.set(c, 0, alongY ? a0 : b0, alongY ? b0 : a0, up0);
+        WorldScene.set(c, 1, alongY ? a1 : b1, alongY ? b1 : a1, up1);
+        WorldScene.set(c, 2, alongY ? a2 : b2, alongY ? b2 : a2, up2);
+        SpriteGeometry.addTriangle(sheet, c, roofU, roofV, build.frame.red, build.frame.green, build.frame.blue);
+    }
+
+    /** Whether a gable's sheet stands on the north edge of the square, or with north false its west edge. */
+    private boolean gableSheetOn(int x, int y, int z, boolean north) {
+        IsoGridSquare square = build.cell.getGridSquare(x, y, z);
+        for (int i = 0; square != null && i < square.getObjects().size(); i++) {
+            IsoSprite sprite = square.getObjects().get(i).getSprite();
+            if (sprite != null && sprite.getName() != null && sprite.getName().startsWith("walls_exterior_roofs")
+                    && (north ? Edges.north(sprite.getProperties(), sprite.getType()) : Edges.west(sprite.getProperties(), sprite.getType()))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Whether a sprite of the roofs' sheets is on the square. */
+    private boolean roofOn(int x, int y, int z) {
+        IsoGridSquare square = build.cell.getGridSquare(x, y, z);
+        for (int i = 0; square != null && i < square.getObjects().size(); i++) {
+            IsoSprite sprite = square.getObjects().get(i).getSprite();
+            if (sprite != null && sprite.getName() != null && sprite.getName().startsWith("roofs_")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Whether the roof's tile on the square is the slope the tile is the foot of, that many rows up it. */
+    private boolean slopeAbove(RoofFit.Tile tile, int x, int y, int z, int rows) {
+        Roofs.Laid laid = Roofs.at(build.cell, x, y, z, world.roundNow, build.frame.scale);
+        float rise = tile.fitLow - tile.fitHigh;
+        return laid != null && laid.tile.fitAxis == tile.fitAxis && Math.abs(laid.tile.fitHigh - tile.fitHigh - rows * rise) < RoofFit.SAME
+                && Math.abs(laid.tile.fitLow - tile.fitLow - rows * rise) < RoofFit.SAME;
+    }
+
+    /** Whether the roof's tile on the square is the same slope as the tile, falling to its floor the same way. */
+    private boolean sameSlope(RoofFit.Tile tile, int x, int y, int z) {
+        Roofs.Laid laid = Roofs.at(build.cell, x, y, z, world.roundNow, build.frame.scale);
+        return laid != null && laid.tile.fitAxis == tile.fitAxis && Math.abs(laid.tile.fitLow - tile.fitLow) < RoofFit.SAME
+                && Math.abs(laid.tile.fitHigh - tile.fitHigh) < RoofFit.SAME;
     }
 
     private final SpriteGeometry.Frame otherFrame = new SpriteGeometry.Frame();
