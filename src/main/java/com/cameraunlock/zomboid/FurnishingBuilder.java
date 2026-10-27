@@ -957,6 +957,9 @@ final class FurnishingBuilder {
         if (piece.roofBelow > 0 && build.roofBuilder.cornersAt(x, y, z - piece.roofBelow, roofCorners)) {
             foot -= sunkOntoRoof(roofCorners, piece.centreX, piece.centreY, piece.footHalf) * ViewCamera.LEVEL_HEIGHT;
         }
+        if (piece.trough && model.name.startsWith("stock_tank")) {
+            foot += overItsGround(piece, x, y, lift);
+        }
         if (!piece.onRoof) {
             float clear = clearOfLogs(piece, model, x, y, z, centreX, centreY);
             centreX += front[0] * clear;
@@ -1010,6 +1013,22 @@ final class FurnishingBuilder {
             }
         }
         return true;
+    }
+
+    /**
+     * How far a piece stands over the mean height of its first square's ground to stand on the
+     * highest corner of the ground under all its squares. A stock tank's floor is a few
+     * centimetres up: stood on the mean of a slope, the ground came up through it.
+     */
+    private float overItsGround(Furniture piece, int x, int y, float[] lift) {
+        int wide = piece.grid == null ? 1 : piece.grid.getWidth(), deep = piece.grid == null ? 1 : piece.grid.getHeight();
+        float highest = -Float.MAX_VALUE;
+        for (int i = 0; i <= wide; i++) {
+            for (int j = 0; j <= deep; j++) {
+                highest = Math.max(highest, build.landAt(x + i, y + j));
+            }
+        }
+        return Math.max(0f, highest - (lift[0] + lift[1] + lift[2] + lift[3]) / 4f);
     }
 
     /**
