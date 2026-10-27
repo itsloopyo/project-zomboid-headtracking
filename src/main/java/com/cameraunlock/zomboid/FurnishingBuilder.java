@@ -128,6 +128,8 @@ final class FurnishingBuilder {
     private static final float LOGS_CLEAR = 0.02f;
     /** How far, in tiles, and in what steps a piece on a roof is looked for back along the line of sight over its building. */
     private static final float BACK_FURTHEST = 1.5f, BACK_STEP = 0.25f;
+    /** How many squares back along x and y the game's view draws a square a storey down at the same place: RoofFit.PITCH. */
+    private static final int LINE_OF_SIGHT = 3;
 
     FurnishingBuilder(WorldScene.Frame build) {
         this.build = build;
@@ -770,6 +772,28 @@ final class FurnishingBuilder {
         return 0f;
     }
 
+    /**
+     * How many storeys down the game's line of sight a piece the map leaves on a square with
+     * nothing on it stands: the game draws a square where it draws the one LINE_OF_SIGHT
+     * squares further back along x and y and a storey down. A dish on level 3 at 443,10036,
+     * with no floor, roof or wall there, is painted hung on the gable at 440,10033 on level 2.
+     * None where its own square has a floor, a roof tile or a wall to back onto, or where no
+     * storey under it has a roof tile or such a wall on that line.
+     */
+    private int storeysDown(Furniture piece, int x, int y, int z) {
+        IsoGridSquare own = build.cell.getGridSquare(x, y, z);
+        if (own != null && own.getFloor() != null) {
+            return 0;
+        }
+        for (int down = 0; down <= z; down++) {
+            int atX = x - LINE_OF_SIGHT * down, atY = y - LINE_OF_SIGHT * down, atZ = z - down;
+            if (build.roofBuilder.cornersAt(atX, atY, atZ, roofCorners) || backedByWall(piece, atX, atY, atZ)) {
+                return down;
+            }
+        }
+        return 0;
+    }
+
     /** Whether a building stands under the square on a level below z. */
     private boolean builtUnder(int x, int y, int z) {
         for (int level = 0; level < z; level++) {
@@ -913,6 +937,13 @@ final class FurnishingBuilder {
         }
         x += readyOrigin[0];
         y += readyOrigin[1];
+        if (piece.onRoof) {
+            int down = storeysDown(piece, x, y, z);
+            x -= LINE_OF_SIGHT * down;
+            y -= LINE_OF_SIGHT * down;
+            z -= down;
+            foot -= down * ViewCamera.LEVEL_HEIGHT;
+        }
         Models.Model model = piece.withBasin != null && onSquare(x, y, z, true) != null ? piece.withBasin : piece.model;
         boolean burning = object instanceof IsoFireplace hearth && hearth.isLit();
         if (burning && model.name.equals("barrel")) {
