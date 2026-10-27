@@ -124,6 +124,8 @@ final class WorldScene {
     private static final float FAR = FarLand.REACH + 80f;
     static final float EXPOSURE_INDOORS = 1.25f;
     private static final float EYE_ADAPT_SECONDS = 0.25f;
+    /** How long the eye takes to open up to a wood's shade: the trees round the player change by a column at every tile walked. */
+    private static final float WOODS_SECONDS = 0.8f;
     /** How much further the eye closes at night over ground all under snow: 2.5 times as far at full snow and full night. */
     private static final float SNOW_STOPS_DOWN = 1.5f;
     private static final float EXPOSURE_MOST = 3.5f;
@@ -5528,7 +5530,7 @@ final class WorldScene {
                 }
             }
             float wooded = Math.min(trees / 9f, 1f);
-            shaded += (wooded - shaded) * (1f - (float) Math.exp(-elapsed / EYE_ADAPT_SECONDS));
+            shaded += (wooded - shaded) * (1f - (float) Math.exp(-elapsed / WOODS_SECONDS));
             outdoors *= 1f + WOODS_OPEN * shaded;
             // Opened up as it was to the game's light, and further by as much as the room's daylight is taken down.
             float indoors = Math.min(EXPOSURE_INDOORS / Math.max(here, 1e-3f), most) * Math.max(here, 1e-3f) / Math.max(roomHere, 1e-3f);

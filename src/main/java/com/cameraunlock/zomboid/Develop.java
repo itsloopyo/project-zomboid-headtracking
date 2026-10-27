@@ -27,7 +27,7 @@ final class Develop {
     static final float MOST_GAIN = 1.3f, LEAST_GAIN = 0.8f;
     /** At night the range is stretched by no more than this, so night stays dark, and never held in: a lit window is the brightest thing in a night. */
     static final float MOST_GAIN_AT_NIGHT = 1.12f;
-    static final float SETTLE_SECONDS = 0.6f;
+    static final float SETTLE_SECONDS = 0.3f;
     /**
      * How fast less light is taken away. A frame's dark falls by stops at a doorway, and light
      * taken for the street outside, easing down over SETTLE_SECONDS, flattened a dark room for a
