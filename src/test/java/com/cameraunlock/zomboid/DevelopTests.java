@@ -152,13 +152,21 @@ final class DevelopTests {
 
     private static void theLightTintsByDaySunAndNight() {
         float[] shade = new float[3], lit = new float[3];
-        Develop.tints(0.8f, 0f, 0f, shade, lit);
+        Develop.tints(0.8f, 0f, 0f, 0f, 1f, shade, lit);
         check(shade[2] > shade[0] && lit[0] > lit[2], "a clear noon: cool shade, warm sun");
-        Develop.tints(0.8f, 1f, 0f, shade, lit);
+        float noonWarm = lit[0];
+        Develop.tints(0.8f, 1f, 0f, 0f, 1f, shade, lit);
         check(shade[0] == 1f && shade[2] == 1f && lit[0] == 1f && lit[2] == 1f, "under a full cloud cover neither is tinted");
-        Develop.tints(0.05f, 0f, 0f, shade, lit);
-        check(Math.abs(shade[2] - 1f) < 0.005f && Math.abs(lit[0] - 1f) < 0.005f, "a low sun colours the picture itself and is let be");
-        Develop.tints(-0.5f, 0f, 1f, shade, lit);
+        float low = SkyState.lowSun(0.05f, 0f, 0f);
+        Develop.tints(0.05f, 0.29f, 0f, low, 1f, shade, lit);
+        check(Math.abs(shade[2] - 1f) < 0.005f && lit[0] > noonWarm && lit[2] < 1f, "outdoors a low sun leaves the shade alone and warms what it lights more than noon's: " + lit[0] + " against " + noonWarm);
+        Develop.tints(0.05f, 0.29f, 0f, low, 0f, shade, lit);
+        check(Math.abs(lit[0] - 1f) < 0.005f && Math.abs(lit[2] - 1f) < 0.005f, "indoors, where the room is gilded already, it warms nothing");
+        Develop.tints(0.05f, 0.29f, 0f, SkyState.lowSun(0.05f, 1f, 0f), 1f, shade, lit);
+        check(lit[0] - 1f < (noonWarm - 1f) * 0.5f, "nor behind a cloud: " + lit[0]);
+        Develop.tints(-0.1f, 0f, 0f, SkyState.lowSun(-0.1f, 0f, 0f), 1f, shade, lit);
+        check(Math.abs(lit[0] - 1f) < 0.005f, "once the sun has set it warms nothing");
+        Develop.tints(-0.5f, 0f, 1f, 0f, 0f, shade, lit);
         check(shade[2] > 1.05f && shade[0] < 0.95f && lit[0] > lit[2], "at night the dark is moonlight blue and what a lamp lights warm");
         check(Develop.overcastCurve(1f, 0f) > 0f && Develop.overcastCurve(0f, 0f) == 0f && Develop.overcastCurve(1f, 1f) == 0f,
                 "an overcast day takes more of an S; a clear one and a night do not");

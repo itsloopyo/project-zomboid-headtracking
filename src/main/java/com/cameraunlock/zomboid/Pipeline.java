@@ -4751,7 +4751,7 @@ final class Pipeline {
         GL11.glBindTexture(GL_TEXTURE_2D, meterColor);
         GL13.glActiveTexture(GL_TEXTURE0);
         if (ownTone && !WITHOUT.contains("tints")) {
-            Develop.tints(state.sunUp, cover, state.night, lightShade, lightLit);
+            Develop.tints(state.sunUp, cover, state.night, state.roomGold, state.outdoors, lightShade, lightLit);
         } else {
             java.util.Arrays.fill(lightShade, 1f);
             java.util.Arrays.fill(lightLit, 1f);

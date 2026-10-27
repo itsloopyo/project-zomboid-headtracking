@@ -227,21 +227,24 @@ final class Develop {
     /**
      * The tints the shade and the lit parts take from the light: a clear day's sun warm and its
      * shade cool, by as much as the sun is high and the sky clear; under cloud neither; at night the
-     * dark the blue of moonlight and what a lamp lights warm. A low sun colours the picture itself
-     * and is let be. Into shade and lit, red, green and blue, each 1 where nothing is tinted.
+     * dark the blue of moonlight and what a lamp lights warm. A low sun leaves the shade alone and
+     * warms what it lights by gold (SkyState.roomGold), as far as the eye is outdoors: indoors the
+     * room is gilded by it already. Into shade and lit, red, green and blue, each 1 where nothing
+     * is tinted.
      */
-    static void tints(float sunUp, float cover, float night, float[] shade, float[] lit) {
+    static void tints(float sunUp, float cover, float night, float gold, float outdoors, float[] shade, float[] lit) {
         float day = 1f - Math.clamp(night, 0f, 1f);
         float high = smoothstep(0.12f, 0.45f, sunUp);
         float clear = 1f - Math.clamp(cover, 0f, 1f);
         float sunny = day * high * clear;
         float dark = 1f - day;
+        float warm = 0.035f * sunny + 0.06f * day * Math.clamp(gold, 0f, 1f) * Math.clamp(outdoors, 0f, 1f);
         shade[0] = 1f - 0.03f * sunny - 0.08f * dark;
         shade[1] = 1f - 0.01f * sunny - 0.02f * dark;
         shade[2] = 1f + 0.04f * sunny + 0.1f * dark;
-        lit[0] = 1f + 0.035f * sunny + 0.05f * dark;
+        lit[0] = 1f + warm + 0.05f * dark;
         lit[1] = 1f;
-        lit[2] = 1f - 0.045f * sunny - 0.09f * dark;
+        lit[2] = 1f - warm * (0.045f / 0.035f) - 0.09f * dark;
     }
 
     /** How much more of an S an overcast day's picture takes, by day only: a grey sky lights everything alike. */
