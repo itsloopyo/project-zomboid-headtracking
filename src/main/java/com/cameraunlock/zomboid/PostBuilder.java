@@ -317,7 +317,7 @@ final class PostBuilder {
     }
 
     /** The shape of an object's sprite, read the first time the sprite is met. */
-    private SpriteShape shapeOf(IsoObject object, IsoSprite sprite, Texture texture) {
+    SpriteShape shapeOf(IsoObject object, IsoSprite sprite, Texture texture) {
         SpriteShape shape = WorldScene.shapes.get(sprite);
         if (shape == null) {
             shapeFrame.scale = build.frame.scale;

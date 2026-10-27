@@ -100,8 +100,12 @@ final class Flats {
     private static final int GLASS_FROM = 26, GLASS_TO = 230;
     private static final float GLAZED = 0.01f;
 
-    /** What a sprite is read as: the floor of its square, the wall along its square's north edge or its west, or a tile of roof over it. */
-    static final int FLOOR = 0, NORTH = 1, WEST = 2, ROOF = 3;
+    /**
+     * What a sprite is read as: the floor of its square, the wall along its square's north edge
+     * or its west, a tile of roof over it, or what is laid over or hung on the wall along either edge,
+     * an arch's band or a cornice, whose top line is its own and is kept.
+     */
+    static final int FLOOR = 0, NORTH = 1, WEST = 2, ROOF = 3, OVER_NORTH = 4, OVER_WEST = 5;
 
     private static final int GL_TEXTURE_2D = 0x0DE1, GL_TEXTURE_BINDING_2D = 0x8069, GL_RGBA = 0x1908, GL_RGBA8 = 0x8058, GL_UNSIGNED_BYTE = 0x1401;
     private static final int GL_TEXTURE_MIN_FILTER = 0x2801, GL_TEXTURE_MAG_FILTER = 0x2800, GL_TEXTURE_WRAP_S = 0x2802, GL_TEXTURE_WRAP_T = 0x2803;
@@ -179,9 +183,10 @@ final class Flats {
             boolean lies = as == FLOOR || as == ROOF;
             byte[] dots = lies ? laid(sheet, width, left, top, right, bottom, want.originU, want.originV, want.scale, want.left, want.top, want.width, want.height,
                     want.high, want.climbA, want.climbB, as == ROOF)
-                    : stood(sheet, width, left, top, right, bottom, as == NORTH, want.originU, want.originV, want.scale, want.left, want.top, want.width, want.height);
+                    : stood(sheet, width, left, top, right, bottom, as == NORTH || as == OVER_NORTH, as == NORTH || as == WEST,
+                            want.originU, want.originV, want.scale, want.left, want.top, want.width, want.height);
             if (FirstPerson.TRACE) {
-                Log.info((as == FLOOR ? "floor " : as == ROOF ? "roof " : as == NORTH ? "north wall " : "west wall ") + texture.getName()
+                Log.info((as == FLOOR ? "floor " : as == ROOF ? "roof " : as == NORTH ? "north wall " : as == WEST ? "west wall " : as == OVER_NORTH ? "over a north wall " : "over a west wall ") + texture.getName()
                         + (dots == null ? " has no picture as one and is drawn from its sprite" : lies ? " is laid flat" : " is stood square"));
             }
             int name = dots == null ? 0 : lies ? picture(rimmed(dots, as == FLOOR), WHOLE, WHOLE) : picture(wallRimmed(dots), WALL_WHOLE, WALL_HIGH);
@@ -220,9 +225,10 @@ final class Flats {
      * a cover of 255 or of 0. Where most rows are empty for the same few dots at an end, or
      * most columns at the top, those dots are filled with the first dot painted: the sprite
      * stops short there and the wall does not. Null for a sprite with nothing painted along
-     * the edge, and for a glazed wall.
+     * the edge, and for a glazed wall. With topLine, the darker line the game paints along a
+     * wall's top is taken off; what is laid over a wall keeps it, a cornice's edge being its own.
      */
-    static byte[] stood(ByteBuffer sheet, int width, int left, int top, int right, int bottom, boolean north, float originU, float originV, float scale,
+    static byte[] stood(ByteBuffer sheet, int width, int left, int top, int right, int bottom, boolean north, boolean topLine, float originU, float originV, float scale,
             float frameLeft, float frameTop, float frameWidth, float frameHeight) {
         int wide = right - left, high = bottom - top;
         if (wide <= 0 || high <= 0) {
@@ -305,7 +311,7 @@ final class Flats {
         // trailer's panels. Stood square it was a dark band along the ceiling of every room the
         // wall stands in. Its dots, and the one blended with the wall under them, take the
         // wall's first dot below.
-        for (int i = 0; i < WALL_LONG; i++) {
+        for (int i = 0; i < WALL_LONG && topLine; i++) {
             int from = 0;
             while (from < WALL_HIGH && dots[(from * WALL_LONG + i) * 4 + 3] == 0) {
                 from++;

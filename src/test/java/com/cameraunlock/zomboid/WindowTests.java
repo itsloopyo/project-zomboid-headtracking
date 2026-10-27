@@ -1150,7 +1150,7 @@ final class WindowTests {
                     sheet.put(at, (byte) shade).put(at + 1, (byte) shade).put(at + 2, (byte) shade).put(at + 3, (byte) 255);
                 }
             }
-            byte[] dots = Flats.stood(sheet, 128, 0, 0, 128, 256, true, 64f, 192f, 2f, 0f, 0f, 128f, 256f);
+            byte[] dots = Flats.stood(sheet, 128, 0, 0, 128, 256, true, true, 64f, 192f, 2f, 0f, 0f, 128f, 256f);
             int wide = Flats.WALL_LONG, darkest = 255, first = Math.round(Flats.WALL_HIGH * (1f - tops));
             for (int i = 4; i < wide - 4; i++) {
                 for (int j = first; j < first + 8; j++) {
@@ -1161,6 +1161,16 @@ final class WindowTests {
                 check(darkest < 115, "a top a little darker than the wall is the wall's and stays: darkest " + darkest);
             } else {
                 check(darkest == body, (kind == 2 ? "a low wall" : "a wall") + " stood square has no dark line along its top: darkest " + darkest + " under " + line);
+            }
+            if (kind == 0) {
+                byte[] over = Flats.stood(sheet, 128, 0, 0, 128, 256, true, false, 64f, 192f, 2f, 0f, 0f, 128f, 256f);
+                int overDarkest = 255;
+                for (int i = 4; i < wide - 4; i++) {
+                    for (int j = first; j < first + 8; j++) {
+                        overDarkest = Math.min(overDarkest, over[(j * wide + i) * 4] & 0xff);
+                    }
+                }
+                check(overDarkest == line, "a cornice laid over a wall and stood square keeps the dark line along its top: darkest " + overDarkest);
             }
         }
     }
@@ -1181,7 +1191,7 @@ final class WindowTests {
                 sheet.put(at, shade).put(at + 1, shade).put(at + 2, shade).put(at + 3, (byte) 255);
             }
         }
-        byte[] dots = Flats.stood(sheet, 128, 0, 0, 128, 256, true, 64f, 192f, 2f, 0f, 0f, 128f, 256f);
+        byte[] dots = Flats.stood(sheet, 128, 0, 0, 128, 256, true, true, 64f, 192f, 2f, 0f, 0f, 128f, 256f);
         check(dots != null, "a wall painted along the north edge is a wall");
         int wide = Flats.WALL_LONG, high = Flats.WALL_HIGH;
         float worst = 0f;
@@ -1209,7 +1219,7 @@ final class WindowTests {
         int rim = Flats.WALL_RIM, all = Flats.WALL_WHOLE;
         check(whole[(20 * all + rim) * 4] == dots[20 * wide * 4] && whole[(20 * all + rim - 1) * 4] == dots[(20 * wide + wide - 1) * 4]
                 && whole[(20 * all + all - 1) * 4] == dots[(20 * wide + rim - 1) * 4], "and the rim at each end is the wall's other end, which is the next length's");
-        check(Flats.stood(sheet, 128, 0, 0, 128, 256, false, 64f, 192f, 2f, 0f, 0f, 128f, 256f) == null, "a sprite with nothing along the west edge is no wall there");
+        check(Flats.stood(sheet, 128, 0, 0, 128, 256, false, true, 64f, 192f, 2f, 0f, 0f, 128f, 256f) == null, "a sprite with nothing along the west edge is no wall there");
         // A wall along the west edge runs the other way across its sprite. This one stops three dots short of its far end and
         // eight short of its top, and its last tenth is a paler band, so what fills the gaps can be told from the rest.
         ByteBuffer west = ByteBuffer.allocate(128 * 256 * 4);
@@ -1224,7 +1234,7 @@ final class WindowTests {
                 west.put(at, shade).put(at + 1, shade).put(at + 2, shade).put(at + 3, (byte) 255);
             }
         }
-        byte[] stood = Flats.stood(west, 128, 0, 0, 128, 256, false, 64f, 192f, 2f, 0f, 0f, 128f, 256f);
+        byte[] stood = Flats.stood(west, 128, 0, 0, 128, 256, false, true, 64f, 192f, 2f, 0f, 0f, 128f, 256f);
         check(stood != null, "a wall painted along the west edge is a wall");
         float westOff = 0f;
         for (int j = 12; j < high - 4; j++) {
@@ -1252,7 +1262,7 @@ final class WindowTests {
                 }
             }
         }
-        check(Flats.stood(glazed, 128, 0, 0, 128, 256, true, 64f, 192f, 2f, 0f, 0f, 128f, 256f) == null, "a wall with a pane of glass in it has no picture");
+        check(Flats.stood(glazed, 128, 0, 0, 128, 256, true, true, 64f, 192f, 2f, 0f, 0f, 128f, 256f) == null, "a wall with a pane of glass in it has no picture");
         // A fence of pickets with gaps of all sorts at its ends, row by row, is left as painted.
         ByteBuffer pickets = ByteBuffer.allocate(128 * 256 * 4);
         for (int y = 0; y < 256; y++) {
@@ -1265,7 +1275,7 @@ final class WindowTests {
                 pickets.put((y * 128 + x) * 4 + 3, (byte) 255);
             }
         }
-        byte[] fence = Flats.stood(pickets, 128, 0, 0, 128, 256, true, 64f, 192f, 2f, 0f, 0f, 128f, 256f);
+        byte[] fence = Flats.stood(pickets, 128, 0, 0, 128, 256, true, true, 64f, 192f, 2f, 0f, 0f, 128f, 256f);
         int open = 0;
         for (int j = high / 2 + 4; j < high - 4; j++) {
             open += (fence[(j * wide) * 4 + 3] & 0xff) < 128 ? 1 : 0;
@@ -1288,8 +1298,8 @@ final class WindowTests {
                 post.put(at, (byte) (40 + 30 * x)).put(at + 1, (byte) 90).put(at + 2, (byte) 90).put(at + 3, (byte) 255);
             }
         }
-        byte[] west = Flats.stood(post, spriteWide, 0, 0, spriteWide, spriteHigh, false, 64f, 192f, 2f, 60f, 0f, spriteWide, spriteHigh);
-        byte[] north = Flats.stood(post, spriteWide, 0, 0, spriteWide, spriteHigh, true, 64f, 192f, 2f, 60f, 0f, spriteWide, spriteHigh);
+        byte[] west = Flats.stood(post, spriteWide, 0, 0, spriteWide, spriteHigh, false, true, 64f, 192f, 2f, 60f, 0f, spriteWide, spriteHigh);
+        byte[] north = Flats.stood(post, spriteWide, 0, 0, spriteWide, spriteHigh, true, true, 64f, 192f, 2f, 60f, 0f, spriteWide, spriteHigh);
         check(west != null && north != null, "a corner post is a wall both ways");
         // A tile is 64 dots along and 64 pixels across at tile scale 2: the west face is 4 dots of sprite, then 8 painted past it.
         int row = 100 * wide;

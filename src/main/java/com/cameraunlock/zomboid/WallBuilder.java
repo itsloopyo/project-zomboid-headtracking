@@ -130,6 +130,13 @@ final class WallBuilder {
 
     /** Whether the sprite being added to an edge is a sign, which may run on over the next squares: see EdgeRuns. */
     boolean sign;
+    /**
+     * Whether the sprite being added to an edge is trim the map marks for no wall and hangs on
+     * the wall of its own square, an arch's band or a window's head (Kind.wallTrim): it is
+     * stood square, as what is laid over a wall is (see stoodSquare). Not a beam, a coping or a
+     * ledge (SpriteShape.BEAM): stood square, the top of its box came down onto its face.
+     */
+    boolean trim;
     private final float[] run = new float[2], next = new float[2], upright = new float[4], walked = new float[2], walkedUpright = new float[4];
     private final SpriteGeometry.Frame runFrame = new SpriteGeometry.Frame();
 
@@ -566,7 +573,8 @@ final class WallBuilder {
             // A door's top is a straight line, and its sprite has it as a staircase of pixels
             // on the slant. The face stops at the door's top, so the line is the face's own edge.
             build.geometry.exactAcross = build.casing;
-            build.geometry.addFace(mesh, build.frame, x, y, z, from * da, from * db, foot, length * da, length * db, 0f, 0f, 0f, up);
+            build.geometry.addFace(trim && !door ? inRoom(stoodSquare(mesh, texture, da != 0f), mesh.room) : mesh, build.frame, x, y, z, from * da, from * db, foot, length * da, length * db, 0f, 0f, 0f, up);
+            build.frame.flat = 0;
             if (build.casing && build.overLayer == 0) {
                 // A door's frame goes round the doorway on both sides of the wall. The game
                 // has it on the side its view saw, and from the other the doorway was bare.
@@ -1341,13 +1349,20 @@ final class WallBuilder {
      * to go in the sprite's own mesh and is the wall itself, or in the mesh a shut roller
      * door's slats are laid over its sprite in. Any other mesh, one painted over, laid as
      * masonry or papered, is given back as it is.
+     *
+     * What is laid over a wall, a cornice or a panel of brick, and trim hung on one (trim) is stood square
+     * too, keeping its own top line. On the slant its sprite stopped a few dots short of the
+     * square's end, which the game's view hides under the next piece: first person saw a pale
+     * slit through a cornice or an arch's band at every joint, and the pieces of a band over a
+     * wall stood square stepped up and down from one square to the next.
      */
     private SpriteGeometry.Mesh stoodSquare(SpriteGeometry.Mesh mesh, Texture texture, boolean north) {
         build.frame.flat = 0;
-        if (build.overLayer != 0 || mesh.texture != texture.getID()) {
+        if (mesh.texture != texture.getID()) {
             return mesh;
         }
-        int stood = build.flatOf(texture, north ? Flats.NORTH : Flats.WEST, 0f, 0f, 0f);
+        boolean over = build.overLayer != 0 || trim;
+        int stood = build.flatOf(texture, over ? north ? Flats.OVER_NORTH : Flats.OVER_WEST : north ? Flats.NORTH : Flats.WEST, 0f, 0f, 0f);
         SpriteGeometry.Mesh square = standSquare(WorldScene.solid, mesh, stood);
         if (square != mesh) {
             build.frame.flat = north ? SpriteGeometry.FLAT_NORTH : SpriteGeometry.FLAT_WEST;

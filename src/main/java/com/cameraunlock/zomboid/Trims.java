@@ -201,7 +201,7 @@ final class Trims {
             if (wanted == null || known.containsKey(key)) {
                 continue;
             }
-            byte[] dots = Flats.stood(sheet, width, left, top, right, bottom, key.north, wanted.originU, wanted.originV, wanted.scale,
+            byte[] dots = Flats.stood(sheet, width, left, top, right, bottom, key.north, true, wanted.originU, wanted.originV, wanted.scale,
                     wanted.left, wanted.top, wanted.width, wanted.height);
             Band[] bands = dots == null ? NONE : bands(dots, Flats.WALL_LONG, Flats.WALL_HIGH, key.north ? 1f : 1f / WEST_SHADE);
             if (FirstPerson.TRACE) {

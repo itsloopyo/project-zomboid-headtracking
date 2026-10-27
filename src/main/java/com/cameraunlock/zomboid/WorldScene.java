@@ -7719,6 +7719,8 @@ final class WorldScene {
             }
             casing = type == IsoObjectType.doorFrW || type == IsoObjectType.doorFrN;
             wallBuilder.sign = overLayer == 0 && !door && west != north && kind.sign;
+            wallBuilder.trim = overLayer == 0 && kind.wallTrim && edgeX == x && edgeY == y && edgeZ == z
+                    && postBuilder.shapeOf(object, sprite, texture).kind != SpriteShape.BEAM;
             // An open garage door's sprite is the head of its opening and the jamb at an end: wall, cut to the sprite, with the
             // door raised under the ceiling behind it. Read as a door, the band was a leaf hanging out of the head.
             boolean raised = door && kind.garageDoor && !isWall(properties, type) && overLayer == 0 && Own.buildings();
@@ -7739,7 +7741,7 @@ final class WorldScene {
                     wallBuilder.addRaisedGarageDoor(texture, x, y, z, 1f, 0f);
                 }
             }
-            wallBuilder.sign = false;
+            wallBuilder.sign = wallBuilder.trim = false;
             if (west || north) {
                 return;
             }
