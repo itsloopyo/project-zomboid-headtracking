@@ -217,8 +217,13 @@ final class OwnDouble extends OwnGun {
                 chamber[chamber[0] == LOADED ? 1 : 0] = LOADED;
             }
             boolean nowLoading = doing == ArmActs.LOADING && open;
-            if (nowLoading && loading && stroke < round) {
-                strokes++;
+            if (nowLoading && loading) {
+                // A stroke puts its shell in as the hand pushes it home, where it lets go of it: a frame may pass home on both sides of the wrap.
+                if (stroke < round) {
+                    strokes += (round < HOME ? 1 : 0) + (stroke >= HOME ? 1 : 0);
+                } else if (round < HOME && stroke >= HOME) {
+                    strokes++;
+                }
             }
             if (!nowLoading) {
                 strokes = 0;

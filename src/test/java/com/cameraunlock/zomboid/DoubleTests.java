@@ -87,6 +87,7 @@ final class DoubleTests {
         barrels.step(GUN, 0, ArmActs.LOADING, 0.5f, true);
         check(barrels.going() == 0 && barrels.pushed() > 0f && barrels.pushed() < 1f, "part way through the stroke a shell is going into the lower: " + barrels.pushed());
         barrels.step(GUN, 0, ArmActs.LOADING, 0.9f, true);
+        check(chambers(barrels).equals("L-"), "pushed home it is in the chamber, where the hand let go of it: " + chambers(barrels));
         barrels.step(GUN, 0, ArmActs.LOADING, 0.05f, true);
         check(chambers(barrels).equals("L-"), "with the stroke over it is home before the game counts it: " + chambers(barrels));
         check(barrels.next() == 1, "and the upper is next");
