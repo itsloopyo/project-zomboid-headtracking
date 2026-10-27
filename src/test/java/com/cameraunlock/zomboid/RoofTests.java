@@ -92,6 +92,7 @@ final class RoofTests {
         Checks.run("roofSheetLaidAsAFloorAtTheFootOfAFarSlopeIsNoTerrace", RoofTests::roofSheetLaidAsAFloorAtTheFootOfAFarSlopeIsNoTerrace);
         Checks.run("lowerWingPastAGableIsNoNotchInTheMainEave", RoofTests::lowerWingPastAGableIsNoNotchInTheMainEave);
         Checks.run("dormerOnAMadeFaceMeetsItInValleys", RoofTests::dormerOnAMadeFaceMeetsItInValleys);
+        Checks.run("endRowMeetsAWingAtItsFootInAValley", RoofTests::endRowMeetsAWingAtItsFootInAValley);
     }
 
     private static void hippedCornerAtTheEaveCarriesTheEaveRowOn() {
@@ -1695,6 +1696,41 @@ final class RoofTests {
         }
         check(asFolded, "the dormer's north face meets the main face in a valley at 3, 4: " + said(valley));
         check(overRidge, "the main face is carried over the dormer's ridge at 4, 5");
+    }
+
+    /**
+     * As the house at 12699..12705, 3708..3714 has it: the main roof falls south from its ridge on y 12 to its eave, and a wing at
+     * its west end runs north past the main roof's north eave, its ridge along x 1 and its east face on x 2 on the map. The made north
+     * face of the main roof's west row falls from the ridge as deep as the south face, and meets the wing's made west face in a
+     * valley at 0, 9: a hip's fold there left a step under the wing's ridge.
+     */
+    private static void endRowMeetsAWingAtItsFootInAValley() {
+        List<RoofFit.Tile> roof = new ArrayList<>();
+        for (int x = 0; x <= 6; x++) {
+            for (int i = 0; i < 3; i++) {
+                roof.add(new RoofFit.Tile(x, 12 + i, 1, RoofFit.ALONG_Y, true, 2f - i * THIRD, 2f - (i + 1) * THIRD));
+            }
+        }
+        for (int y = 8; y <= 10; y++) {
+            RoofFit.Tile ridge = new RoofFit.Tile(1, y, 1, RoofFit.LEVEL, true, 1f + THIRD, 1f + THIRD);
+            ridge.fitting = true;
+            ridge.half = RoofFit.EAST_HALF;
+            ridge.halfEdge = 1f + THIRD;
+            roof.add(ridge);
+        }
+        for (int y = 8; y <= 9; y++) {
+            roof.add(new RoofFit.Tile(2, y, 1, RoofFit.ALONG_X, true, 1f + THIRD, 1f));
+        }
+        RoofFit.fit(roof);
+        List<RoofFit.Tile> made = RoofFit.backs(roof, standing((x, y) -> x >= 0 && x <= 6 && y >= 9 && y <= 14 || x >= 0 && x <= 2 && y == 8));
+        RoofFit.Tile foot = madeAt(made, 0, 9);
+        float[] valley = {1f, 1f + THIRD, 1f + THIRD, 1f + THIRD};
+        boolean asValley = foot != null && foot.shaped;
+        for (int corner = 0; asValley && corner < 4; corner++) {
+            asValley &= near(foot.corners[corner], valley[corner]);
+        }
+        check(asValley, "the north face's foot meets the wing's west face in a valley at 0, 9: " + said(foot)
+                + (foot == null ? "" : " corners " + java.util.Arrays.toString(foot.corners)));
     }
 
     private static RoofFit.Site standing(java.util.function.BiPredicate<Integer, Integer> stands) {

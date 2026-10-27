@@ -1108,7 +1108,9 @@ final class RoofFit {
         // The end row of a ridge, where the building ends beside it, falls from the ridge as deep as its near side where the
         // row beside it stops against what covers the building there before it comes down to its eave: that part's own roof
         // comes out over the rest of the row. Carried on to the far wall, a wing's far side lay at its ridge's height along the
-        // whole north edge of the house beyond it (12352..12359, 3201).
+        // whole north edge of the house beyond it (12352..12359, 3201). Its foot then meets that part's roof in a valley, as a row
+        // come down onto a roof of the map does (see valley above): taken for a hip's, the main roof's north face at the west end of a
+        // house dipped a dormer's west face to its own eave there, and the dormer's far face showed black through the step (12699, 3709).
         for (Row row : rows) {
             if (!row.fromEave || row.open <= row.climbed) {
                 continue;
@@ -1120,6 +1122,7 @@ final class RoofFit {
                         && !stands(built, site, row.x - sx, row.y - sy, (int) Math.floor(row.eave + LEAST_RISE))) {
                     row.fromEave = false;
                     row.open = row.climbed;
+                    row.valley = !row.cut;
                     break;
                 }
             }
