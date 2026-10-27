@@ -356,7 +356,7 @@ final class WallBuilder {
         mesh = inRoom(mesh, mesh.room != RoomSight.OUTSIDE && mesh.room != RoomSight.ANYWHERE ? mesh.room : roomAt(x, y, z));
         boolean onKerbTop = build.standOnKerbTop(z, da != 0f);
         try {
-            stain(mesh, x, y, z, layer, da, db, 1f, Own.buildings() && logsOn(x, y, z, da != 0f));
+            stain(mesh, x, y, z, layer, da, db, 1f, Own.buildings() && logsOn(x, y, z, da != 0f), null);
         } finally {
             if (onKerbTop) {
                 build.leaveKerbTop();
@@ -367,15 +367,16 @@ final class WallBuilder {
     /**
      * As addStain, on an edge already stood where its wall stands, on the given side: the skin on the wall's own
      * square's side for side 1, the other for -1 (see skinA). On the faces of a log wall's logs where onLogs.
+     * Grime is laid with the sprite of the wall under it, wall, whose clear dots are the wall's openings; null for none.
      */
-    private void stain(SpriteGeometry.Mesh mesh, int x, int y, int z, float layer, float da, float db, float side, boolean onLogs) {
+    private void stain(SpriteGeometry.Mesh mesh, int x, int y, int z, float layer, float da, float db, float side, boolean onLogs, Texture wall) {
         float way = db != 0f ? SpriteGeometry.LAYERS_X : SpriteGeometry.LAYERS_Y;
         WorldScene.layers.lie(way, side * layer);
         float face = side * (onLogs ? LogWalls.RADIUS + WorldScene.HUNG_CLEAR : WorldScene.WALL_HALF);
         build.geometry.shownA = skinA(db, face);
         build.geometry.shownB = skinB(da, face);
         if (mesh.tint == WallSides.STAIN) {
-            addGrime(mesh, x, y, z, da, db, nearSkin(side));
+            addGrime(mesh, x, y, z, da, db, nearSkin(side), wall);
         } else {
             build.geometry.addFace(mesh, build.frame, x, y, z, 0f, 0f, 0f, da, db, 0f, 0f, 0f, 1f);
         }
@@ -413,8 +414,24 @@ final class WallBuilder {
         return !outside && TallHalls.floorOf(cell, x, y, z + 1) == null;
     }
 
-    /** Grime over the wall on the given side, its corners carrying where on the wall they are: see SpriteGeometry.grimed. */
-    private void addGrime(SpriteGeometry.Mesh mesh, int x, int y, int z, float da, float db, boolean near) {
+    /**
+     * How high the sprite is painted along the wall from (0, 0) along (da, db), in levels: the highest it is a
+     * quarter, a half and three quarters of the way along. Above it the texture is another sprite's or nothing.
+     */
+    private float paintedTop(Texture texture, float da, float db) {
+        float perPixel = 1f / (SpriteGeometry.PIXELS_PER_LEVEL * build.frame.scale);
+        for (float h = 1f - perPixel / 2f; h > 0f; h -= perPixel) {
+            for (int place = 1; place <= 3; place++) {
+                if (paintedOnWall(texture, 0f, 0f, da, db, place / 4f, h, 0f)) {
+                    return Math.min(h + perPixel / 2f, 1f);
+                }
+            }
+        }
+        return 0f;
+    }
+
+    /** Grime over the wall on the given side, laid with the wall's sprite wall (see stain), its corners carrying where on the wall they are: see SpriteGeometry.grimed. */
+    private void addGrime(SpriteGeometry.Mesh mesh, int x, int y, int z, float da, float db, boolean near, Texture wall) {
         build.joinLevel = z;
         boolean north = da != 0f;
         int corners = WallJoins.insideCorners(build.standing, x, y, north, near);
@@ -425,6 +442,7 @@ final class WallBuilder {
         build.geometry.grimeOutside = outside;
         build.geometry.grimeFloored = grimeFloored(build.cell, fx, fy, z);
         build.geometry.grimeCeiled = grimeCeiled(build.cell, fx, fy, z, outside);
+        build.geometry.grimeTop = wall == null ? 0f : paintedTop(wall, da, db);
         if (corners == (WallJoins.START | WallJoins.END)) {
             build.geometry.wholeA = build.geometry.wholeB = 0f;
             build.geometry.wholeDa = da;
@@ -442,6 +460,7 @@ final class WallBuilder {
         }
         build.geometry.grimed = build.geometry.grimeLow = build.geometry.grimeHigh = build.geometry.grimeOutside = false;
         build.geometry.grimeFloored = build.geometry.grimeCeiled = false;
+        build.geometry.grimeTop = 0f;
         mesh.unrooted();
     }
 
@@ -584,7 +603,7 @@ final class WallBuilder {
                 }
                 // Grime is a haze over the wall's own picture, which on a log wall is under the logs with it.
                 stain(inRoom(WorldScene.laid.get(shown.getID(), grime ? WallSides.STAIN : 0), mesh.room), x, y, z, 1f + layer, da, db, 1f,
-                        !grime && Own.buildings() && logsOn(x, y, z, da != 0f));
+                        !grime && Own.buildings() && logsOn(x, y, z, da != 0f), grime ? build.overUnder : null);
                 build.geometry.sealLow = build.geometry.sealHigh = build.geometry.sealTop = 0f;
                 return;
             }
@@ -789,7 +808,7 @@ final class WallBuilder {
         }
         // The game hangs its grime only on the walls its view shows, and the other walls of a grimy room are as grimy.
         if (farGrimy && build.overLayer == 0 && !build.ownGlass && Own.textures(build.playerIndex)) {
-            stain(inRoom(WorldScene.laid.get(texture.getID(), WallSides.STAIN), farRoom), x, y, z, 1f, da, db, -1f, false);
+            stain(inRoom(WorldScene.laid.get(texture.getID(), WallSides.STAIN), farRoom), x, y, z, 1f, da, db, -1f, false, texture);
         }
         if (build.overLayer == 0 && farLight >= 0) {
             build.frame.red = red;

@@ -1744,7 +1744,8 @@ final class PipelineShaders {
                 // short runs down from under a sill. Indoors the rest of the wall is a faint tone
                 // in clouds small enough that no wall is one blotch. The face carries how high
                 // above its foot it is, whether there is a floor at its foot and a ceiling over it,
-                // how far from an inside corner, and whether it is out of doors: see SpriteGeometry.grimed.
+                // how far from an inside corner, whether it is out of doors, and how high the wall's
+                // sprite is painted: see SpriteGeometry.grimed.
                 bool stainTint = abs(uTint.a - 16.0) < 0.5;
                 bool stainOnWall = texel.a >= 0.5;
                 if (stainTint) {
@@ -1752,14 +1753,15 @@ final class PipelineShaders {
                     // its clouds are indoors, and how much of them is left there; how high its band along the floor
                     // reaches, how far its dusting under the ceiling and its darkening into a corner reach, how far
                     // it runs down under a sill out of doors; and the most of it there is anywhere. In tiles.
-            """ + "const float STOREY = " + ViewCamera.LEVEL_HEIGHT + ", GRIME_OUTSIDE = " + SpriteGeometry.GRIME_OUTSIDE
-                    + ", GRIME_FLOORED = " + SpriteGeometry.GRIME_FLOORED + ";\n" + """
+            """ + "const float STOREY = " + ViewCamera.LEVEL_HEIGHT + ", PIXELS_PER_LEVEL = " + SpriteGeometry.PIXELS_PER_LEVEL
+                    + ", GRIME_OUTSIDE = " + SpriteGeometry.GRIME_OUTSIDE + ", GRIME_TOPS = " + SpriteGeometry.GRIME_TOPS
+                    + ", GRIME_TOP_STEPS = " + SpriteGeometry.GRIME_TOP_STEPS + ", GRIME_FLOORED = " + SpriteGeometry.GRIME_FLOORED + ";\n" + """
                     const float GRIME_FINER = 2.2, GRIME_INDOORS = 0.33, GRIME_FOOT = 0.35, GRIME_CEILING = 0.3, GRIME_CORNER = 0.45, GRIME_RUN = 0.5, GRIME_MOST = 0.55;
-                    // The marks the height carries are read first, from a value kept clear of a mark's edge.
-                    float marks = floor((vRoot.y + 0.5) / GRIME_FLOORED);
-                    float up = vRoot.y - GRIME_FLOORED * marks, run = vWorld.x + vWorld.y;
-                    bool indoors = vRoot.x < 0.5 * GRIME_OUTSIDE, floored = mod(marks, 2.0) > 0.5, ceiled = marks > 1.5;
-                    float corner = vRoot.x - (indoors ? 0.0 : GRIME_OUTSIDE);
+                    // The whole steps of what the face carries are read first, each from a value kept clear of a step's edge.
+                    float tops = floor((vRoot.x + 2.0) / GRIME_TOPS), marks = floor((vRoot.y + 0.5) / GRIME_FLOORED);
+                    float rest = vRoot.x - GRIME_TOPS * tops, up = vRoot.y - GRIME_FLOORED * marks, run = vWorld.x + vWorld.y;
+                    bool indoors = rest < 0.5 * GRIME_OUTSIDE, floored = mod(marks, 2.0) > 0.5, ceiled = marks > 1.5;
+                    float corner = rest - (indoors ? 0.0 : GRIME_OUTSIDE), top = tops / GRIME_TOP_STEPS * STOREY;
                     vec2 alongFace = vec2(run, vWorld.z * 2.5) * (indoors ? GRIME_FINER : 1.0);
                     float clouds = smoothstep(0.3, 0.8, 0.65 * patches(alongFace * 1.7 + 7.0) + 0.35 * patches(alongFace * 5.3));
                     float grime = (0.08 + 0.2 * clouds) * (indoors ? GRIME_INDOORS : 1.0);
@@ -1771,19 +1773,18 @@ final class PipelineShaders {
                         grime += smoothstep(STOREY - GRIME_CEILING, STOREY, up) * (0.03 + 0.05 * clouds);
                     }
                     grime += (1.0 - smoothstep(0.0, GRIME_CORNER, corner)) * (0.08 + 0.12 * clouds);
-                    // A step straight up the wall in the sprite, from how the face's run and height
-                    // cross the screen. The run is taken from the eye's place, which a float holds
-                    // finely enough to tell one pixel from the next.
-                    vec2 runScreen = vec2(dFdx(vPlace.x + vPlace.y), dFdy(vPlace.x + vPlace.y)), upScreen = vec2(dFdx(up), dFdy(up));
-                    float turn = runScreen.x * upScreen.y - runScreen.y * upScreen.x;
-                    if (!indoors && stainOnWall && abs(turn) > 1e-12) {
-                        vec2 uvUp = (dFdy(vUv) * runScreen.x - dFdx(vUv) * runScreen.y) / turn;
-                        // How far below the nearest opening above: found in four steps, then halved three times.
+                    if (!indoors && stainOnWall) {
+                        // A tile straight up the wall in its sprite, which rises PIXELS_PER_LEVEL of its pixels a level.
+                        // Grime is told the size of the sprite's texel in its tint's colour: see Pipeline.drawStains.
+                        vec2 uvUp = vec2(0.0, -uTint.y * PIXELS_PER_LEVEL * uTileScale / STOREY);
+                        // How far below the nearest opening above, no higher than the sprite is painted: found in
+                        // four steps, then halved three times. Each is read from the sprite's own texels: the pixels
+                        // beside this one may take no step, so there is no slope to choose a coarser picture by.
                         float wall = 0.0, open = 0.0;
                         for (int i = 1; i <= 4; i++) {
                             float rise = GRIME_RUN * float(i) * 0.25;
-                            if (open == 0.0 && up + rise < STOREY - 0.1) {
-                                if (texture2D(uTexture, vUv + uvUp * rise).a < 0.5) {
+                            if (open == 0.0 && up + rise < top - 0.1) {
+                                if (texture2DLod(uTexture, vUv + uvUp * rise, 0.0).a < 0.5) {
                                     open = rise;
                                 } else {
                                     wall = rise;
@@ -1793,7 +1794,7 @@ final class PipelineShaders {
                         if (open > 0.0) {
                             for (int i = 0; i < 3; i++) {
                                 float rise = 0.5 * (wall + open);
-                                if (texture2D(uTexture, vUv + uvUp * rise).a < 0.5) {
+                                if (texture2DLod(uTexture, vUv + uvUp * rise, 0.0).a < 0.5) {
                                     open = rise;
                                 } else {
                                     wall = rise;

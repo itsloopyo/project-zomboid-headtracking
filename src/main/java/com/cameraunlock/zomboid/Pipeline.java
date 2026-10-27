@@ -2054,6 +2054,12 @@ final class Pipeline {
      * Asked again because the game may delete a texture and give its name to another.
      */
     private static void tellTexel(int at, int texture) {
+        int slot = texelSlot(texture);
+        GL20.glUniform2f(at, 1f / texelWide[slot], 1f / texelHigh[slot]);
+    }
+
+    /** Where texelWide and texelHigh hold the size of the texture bound, whose name is given: see tellTexel. */
+    private static int texelSlot(int texture) {
         int mask = texelOf.length - 1;
         int slot = texture * 0x9E3779B1 >>> 16 & mask;
         while (texelOf[slot] != 0 && texelOf[slot] != texture) {
@@ -2089,7 +2095,7 @@ final class Pipeline {
             texelHigh[slot] = GL11.glGetTexLevelParameteri(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT);
             texelRead[slot] = gameFrame;
         }
-        GL20.glUniform2f(at, 1f / texelWide[slot], 1f / texelHigh[slot]);
+        return slot;
     }
 
     /** Draws the ranges but the panes of windows, which are drawn last of all (see drawPanes), and the stains and blood, drawn after the rest of what is laid (see drawStains and drawBlood). */
@@ -3733,10 +3739,12 @@ final class Pipeline {
     private void drawStains(ChunkBuffers.Listing listed) {
         int painted = world.at("uTint");
         WallSides.tint(WallSides.STAIN, tint);
-        GL20.glUniform4f(painted, tint[0], tint[1], tint[2], tint[3]);
         for (int i = listed.solidRanges(); i < listed.ranges(); i++) {
             if (listed.tint(i) == WallSides.STAIN) {
                 GL11.glBindTexture(GL_TEXTURE_2D, listed.texture(i));
+                // Grime has no colour of its own, and is told in its place the size of a texel of its wall's sprite.
+                int slot = texelSlot(listed.texture(i));
+                GL20.glUniform4f(painted, 1f / texelWide[slot], 1f / texelHigh[slot], 0f, tint[3]);
                 listed.draw(i);
             }
         }

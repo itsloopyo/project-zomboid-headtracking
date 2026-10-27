@@ -712,17 +712,20 @@ final class SpriteGeometry {
     static final float CREASE_REACH = 0.2f, CREASE_SHADE = 0.7f;
     /**
      * Whether the face being added is grime over a wall (WallSides.STAIN), whose corners carry where on the
-     * wall they are in the place of a tree's square: first how far along it they are from the face of a
-     * wall that meets it in an inside corner at its low or its high end (grimeLow, grimeHigh; along a
-     * where grimeAlongA, else b), GRIME_NO_CORNER for a face with neither, GRIME_OUTSIDE more on a face
-     * out of doors (grimeOutside). Then how high above the wall's foot, in tiles, GRIME_FLOORED more where
-     * there is a floor at the foot (grimeFloored) and GRIME_CEILED more where there is a ceiling over the
-     * top (grimeCeiled): see grimeRootY. The picture lays the grime by them. A face with a corner at each
-     * end is added as two halves, one each (see WallBuilder.addGrime). How open to the sky its square is
-     * does not say whether a face is indoors: the inside of an outside wall is often as open as the outside.
+     * wall they are in the place of a tree's square (grimeRootX, grimeRootY). First how far along it they
+     * are from the face of a wall that meets it in an inside corner at its low or its high end (grimeLow,
+     * grimeHigh; along a where grimeAlongA, else b), GRIME_NO_CORNER for a face with neither; GRIME_OUTSIDE
+     * more on a face out of doors (grimeOutside); and GRIME_TOPS more for each GRIME_TOP_STEPS'th of a
+     * level the sprite of the wall under it is painted up to (grimeTop), none where there is no such sprite.
+     * Then how high above the wall's foot, in tiles, GRIME_FLOORED more where there is a floor at the foot
+     * (grimeFloored) and GRIME_CEILED more where there is a ceiling over the top (grimeCeiled). The picture
+     * lays the grime by them. A face with a corner at each end is added as two halves, one each (see
+     * WallBuilder.addGrime). How open to the sky its square is does not say whether a face is indoors:
+     * the inside of an outside wall is often as open as the outside.
      */
     boolean grimed, grimeLow, grimeHigh, grimeAlongA, grimeOutside, grimeFloored, grimeCeiled;
-    static final float GRIME_NO_CORNER = 1f, GRIME_OUTSIDE = 4f, GRIME_FLOORED = 4f, GRIME_CEILED = 8f;
+    float grimeTop;
+    static final float GRIME_NO_CORNER = 1f, GRIME_OUTSIDE = 4f, GRIME_TOPS = 8f, GRIME_TOP_STEPS = 32f, GRIME_FLOORED = 4f, GRIME_CEILED = 8f;
     /** How many frame pixels further in than the usual inset a face's texels are taken from its edges: see Tents.DRAWN_IN. */
     float drawnIn;
     /**
@@ -2287,7 +2290,7 @@ final class SpriteGeometry {
         mesh.litAt(frame, w0, w1, w2, w3);
         float shade = creaseLow || creaseHigh ? creased(polygon[at], polygon[at + 1]) : 1f;
         if (grimed) {
-            mesh.rootX = grimeCorner(polygon[at], polygon[at + 1]) + (grimeOutside ? GRIME_OUTSIDE : 0f);
+            mesh.rootX = grimeRootX(polygon[at], polygon[at + 1]);
             mesh.rootY = grimeRootY(polygon[at + 2]);
         }
         float x = tileX + polygon[at] + shownA, y = tileY + polygon[at + 1] + shownB;
@@ -2309,6 +2312,11 @@ final class SpriteGeometry {
         if (laned) {
             mesh.unrooted();
         }
+    }
+
+    /** What the point (a, b) of grime over a wall carries in the place of a tree's square, across: see grimed. */
+    float grimeRootX(float a, float b) {
+        return grimeCorner(a, b) + (grimeOutside ? GRIME_OUTSIDE : 0f) + GRIME_TOPS * (float) Math.floor(grimeTop * GRIME_TOP_STEPS);
     }
 
     /** What a point h levels up grime over a wall carries in the place of a tree's square, down: see grimed. */

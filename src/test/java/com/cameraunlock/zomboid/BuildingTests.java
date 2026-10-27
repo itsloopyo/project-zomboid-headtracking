@@ -43,6 +43,7 @@ final class BuildingTests {
         Checks.run("insideCornerIsShadedIntoTheCrease", BuildingTests::insideCornerIsShadedIntoTheCrease);
         Checks.run("grimeKnowsTheInsideCornerItEndsIn", BuildingTests::grimeKnowsTheInsideCornerItEndsIn);
         Checks.run("grimeFacesTheSquareItsSkinIsIn", BuildingTests::grimeFacesTheSquareItsSkinIsIn);
+        Checks.run("grimeCarriesWhatThePictureReadsBack", BuildingTests::grimeCarriesWhatThePictureReadsBack);
         Checks.run("eavesMeetAtAHipAndRunOutOverAGable", BuildingTests::eavesMeetAtAHipAndRunOutOverAGable);
         Checks.run("aDownpipeRunsDownAWallAndNeverStandsAlone", BuildingTests::aDownpipeRunsDownAWallAndNeverStandsAlone);
         Checks.run("openGroundHasTheLightMostOfItHas", BuildingTests::openGroundHasTheLightMostOfItHas);
@@ -330,6 +331,42 @@ final class BuildingTests {
         check(WallJoins.facedX(x, true, false) == x && WallJoins.facedY(y, true, false) == y - 1
                 && WallJoins.facedX(x, false, false) == x - 1 && WallJoins.facedY(y, false, false) == y,
                 "the far skin of a north wall faces the square north of it, of a west wall the square west of it");
+    }
+
+    private static void grimeCarriesWhatThePictureReadsBack() {
+        check(SpriteGeometry.GRIME_CEILED == 2f * SpriteGeometry.GRIME_FLOORED, "a ceiling is the second mark the picture reads from the height");
+        String start = PipelineShaders.WORLD_FRAGMENT_MAIN_START;
+        check(start.contains("float tops = floor((vRoot.x + 2.0) / GRIME_TOPS), marks = floor((vRoot.y + 0.5) / GRIME_FLOORED);"),
+                "the picture reads the steps as this test does");
+        float face = WorldScene.WALL_HALF;
+        for (boolean outside : new boolean[] {false, true}) {
+            for (boolean floored : new boolean[] {false, true}) {
+                for (boolean ceiled : new boolean[] {false, true}) {
+                    for (float top : new float[] {0f, 0.4f, 1f}) {
+                        SpriteGeometry geometry = new SpriteGeometry();
+                        geometry.grimeAlongA = true;
+                        geometry.grimeLow = true;
+                        geometry.grimeOutside = outside;
+                        geometry.grimeFloored = floored;
+                        geometry.grimeCeiled = ceiled;
+                        geometry.grimeTop = top;
+                        for (float a : new float[] {0f, face, 1f}) {
+                            for (float h : new float[] {0f, 0.5f, 1f}) {
+                                float rootX = geometry.grimeRootX(a, 0.5f), rootY = geometry.grimeRootY(h);
+                                float tops = (float) Math.floor((rootX + 2f) / SpriteGeometry.GRIME_TOPS), marks = (float) Math.floor((rootY + 0.5f) / SpriteGeometry.GRIME_FLOORED);
+                                float rest = rootX - SpriteGeometry.GRIME_TOPS * tops, up = rootY - SpriteGeometry.GRIME_FLOORED * marks;
+                                boolean indoors = rest < 0.5f * SpriteGeometry.GRIME_OUTSIDE;
+                                float corner = rest - (indoors ? 0f : SpriteGeometry.GRIME_OUTSIDE);
+                                check(indoors != outside && near(corner, a - face) && near(up, h * ViewCamera.LEVEL_HEIGHT)
+                                        && (marks % 2f > 0.5f) == floored && (marks > 1.5f) == ceiled
+                                        && tops == (float) Math.floor(top * SpriteGeometry.GRIME_TOP_STEPS),
+                                        "grime carries its corner, height, floor, ceiling, whether it is out of doors and its sprite's top, and reads them back whole");
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private static void wallThatEndsAloneIsClosedAcrossItsEnd() {
