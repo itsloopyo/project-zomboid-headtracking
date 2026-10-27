@@ -3,7 +3,12 @@ package com.cameraunlock.zomboid;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.concurrent.ConcurrentHashMap;
+import zombie.core.properties.PropertyContainer;
 import zombie.core.textures.Texture;
+import zombie.iso.IsoDirections;
+import zombie.iso.SpriteDetails.IsoFlagType;
+import zombie.iso.sprite.IsoSprite;
+import zombie.iso.sprite.IsoSpriteManager;
 
 /**
  * What an inside wall is papered or painted in, read off its sprite.
@@ -48,6 +53,10 @@ final class Papers {
     private static final Paper NONE = new Paper();
     private static final ConcurrentHashMap<Texture, Asked> asked = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<Texture, Paper> known = new ConcurrentHashMap<>();
+    /** Each west wall sprite's north sheetmate, or the sprite itself where it has none: see mateOf. */
+    private static final ConcurrentHashMap<Texture, Texture> mates = new ConcurrentHashMap<>();
+    /** Each west wall's paper in its north sheetmate's paint: see of. */
+    private static final ConcurrentHashMap<Texture, Paper> toned = new ConcurrentHashMap<>();
 
     private Papers() {}
 
@@ -55,21 +64,90 @@ final class Papers {
      * What the wall sprite on the north or west edge of its square is papered in. Null until a
      * frame has been drawn since it was first asked for, for a sprite with too little wall
      * on that edge to tell, and for one with a figure on it. A sprite is read for the first edge it is asked for on.
+     *
+     * The game paints a west wall's sprite darker than the north wall's of the same paper, to
+     * light it, by 0.70 to 0.90 as the sheet goes (walls_interior_house_03_16 is 154 to its
+     * north mate's 198). The picture lights the wall itself, so a west paper keeps its stripes
+     * in its north sheetmate's paint: read raw, a room's west walls, and the far skins taken
+     * from them, were a shade darker than its north walls, one paper pale green beside white.
      */
     static Paper of(Texture texture, SpriteGeometry.Frame frame, boolean north) {
+        Paper paper = own(texture, frame.originU, frame.originV, frame.scale, frame.left, frame.top, frame.width, frame.height, north);
+        Texture mate = paper == null || north ? texture : mateOf(texture);
+        if (mate == texture) {
+            return paper;
+        }
+        Paper lit = own(mate, frame.originU, frame.originV, frame.scale, mate.getOffsetX(), mate.getOffsetY(), mate.getWidth(), mate.getHeight(), true);
+        if (lit == null) {
+            return known.containsKey(mate) ? paper : null;
+        }
+        return toned.computeIfAbsent(texture, unused -> toned(paper, lit));
+    }
+
+    private static Paper own(Texture texture, float originU, float originV, float scale, float left, float top, float width, float height, boolean north) {
         Paper paper = known.get(texture);
         if (paper != null) {
             return paper == NONE || paper.north != north || paper.figured ? null : paper;
         }
-        if (asked.putIfAbsent(texture, new Asked(north, frame.originU, frame.originV, frame.scale, frame.left, frame.top, frame.width, frame.height)) == null) {
+        if (asked.putIfAbsent(texture, new Asked(north, originU, originV, scale, left, top, width, height)) == null) {
             SpriteColours.readAgain(texture);
         }
         return null;
     }
 
-    /** Whether the sprite has still to be read. */
+    /** Whether the sprite has still to be read, or a west paper's north sheetmate has. */
     static boolean unread(Texture texture) {
-        return !known.containsKey(texture);
+        Paper paper = known.get(texture);
+        if (paper == null) {
+            return true;
+        }
+        Texture mate = paper == NONE || paper.north || paper.figured ? texture : mateOf(texture);
+        return mate != texture && !known.containsKey(mate);
+    }
+
+    /** The plain north wall that follows a west wall on its sheet (walls_interior_house_03_16, 03_17), or the texture itself for any other sprite. */
+    private static Texture mateOf(Texture texture) {
+        return mates.computeIfAbsent(texture, Papers::findMate);
+    }
+
+    private static Texture findMate(Texture texture) {
+        IsoSprite sprite = texture.getName() == null ? null : IsoSpriteManager.instance.namedMap.get(texture.getName());
+        if (sprite == null || !west(sprite.getProperties())) {
+            return texture;
+        }
+        IsoSprite mate = IsoSpriteManager.instance.namedMap.get(WallSides.sheetmate(sprite.getName(), 1));
+        Texture painted = mate == null || !north(mate.getProperties()) ? null : mate.getTextureForCurrentFrame(IsoDirections.N);
+        return painted != null && WorldScene.usable(painted) ? painted : texture;
+    }
+
+    private static boolean west(PropertyContainer properties) {
+        return !properties.has(IsoFlagType.WallNW) && (properties.has(IsoFlagType.WallW) || properties.has(IsoFlagType.DoorWallW)
+                || properties.has(IsoFlagType.WindowW) || properties.has(IsoFlagType.windowW));
+    }
+
+    private static boolean north(PropertyContainer properties) {
+        return !properties.has(IsoFlagType.WallNW) && (properties.has(IsoFlagType.WallN) || properties.has(IsoFlagType.DoorWallN)
+                || properties.has(IsoFlagType.WindowN) || properties.has(IsoFlagType.windowN));
+    }
+
+    /** A west paper's stripes, each shaded as far from its north sheetmate's paint as the west sprite's whole is. */
+    static Paper toned(Paper west, Paper north) {
+        Paper paper = new Paper();
+        paper.originU = west.originU;
+        paper.originV = west.originV;
+        paper.scale = west.scale;
+        paper.north = west.north;
+        paper.figured = west.figured;
+        paper.ends = west.ends;
+        float[] by = {north.red / Math.max(west.red, 0.01f), north.green / Math.max(west.green, 0.01f), north.blue / Math.max(west.blue, 0.01f)};
+        paper.colours = new float[west.colours.length];
+        for (int i = 0; i < west.colours.length; i++) {
+            paper.colours[i] = Math.min(1f, west.colours[i] * by[i % 3]);
+        }
+        paper.red = north.red;
+        paper.green = north.green;
+        paper.blue = north.blue;
+        return paper;
     }
 
     /** Reads the sprite if it was asked for: see Windows.read. */

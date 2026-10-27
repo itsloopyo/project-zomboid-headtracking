@@ -158,6 +158,7 @@ public final class Tests {
         Checks.run("ClinicTests", ClinicTests::run);
         Checks.run("LidsTests", LidsTests::run);
         Checks.run("TallHallsTests", TallHallsTests::run);
+        Checks.run("PapersTests", PapersTests::run);
         Checks.run("SeeThroughTests", SeeThroughTests::run);
         Checks.run("RoomsSeenTests", RoomsSeenTests::run);
         Checks.run("ShopFittingTests", ShopFittingTests::run);
