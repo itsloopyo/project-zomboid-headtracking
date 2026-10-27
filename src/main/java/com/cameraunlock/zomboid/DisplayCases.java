@@ -91,10 +91,10 @@ final class DisplayCases {
     /**
      * Lays the case's glass: its curved front, the shelf, and the two sliding doors at its back. The front and the back
      * face out of the case, so each is the side of a window that lets the most through to whoever looks into the case.
-     * x and y are the case's first square, foot the floor under it.
+     * x and y are the case's first square, (centreX, centreY) where on it the case stands, foot the floor under it.
      */
-    static void addGlass(WorldScene.Frame build, Furniture piece, int x, int y, float foot) {
-        Furniture.Glass glass = new Furniture.Glass(build, piece, x, y, foot);
+    static void addGlass(WorldScene.Frame build, Furniture piece, int x, int y, float centreX, float centreY, float foot) {
+        Furniture.Glass glass = new Furniture.Glass(build, piece, x, y, centreX, centreY, foot);
         float side = HALF - END;
         for (int strip = 0; strip <= ARC_STEPS; strip++) {
             float dy = ARC_Y[strip + 1] - ARC_Y[strip], dz = ARC_Z[strip + 1] - ARC_Z[strip];
@@ -132,16 +132,16 @@ final class DisplayCases {
     /**
      * Stands cakes on the deck and the shelf of one square of a case while the game paints its cakes over the square,
      * many or few as the game paints them, and none while it paints none. The two squares of a case hold different
-     * cakes. x and y are the square, foot the floor under it.
+     * cakes. x and y are the square, foot the floor under it, (awayX, awayY) how far the case stands from where it is painted.
      */
-    static void addStock(WorldScene.Frame build, IsoObject object, Furniture piece, int x, int y, float foot) {
+    static void addStock(WorldScene.Frame build, IsoObject object, Furniture piece, int x, int y, float foot, float awayX, float awayY) {
         if (object.getOverlaySprite() == null) {
             return;
         }
         Models.Model cakes = Models.get(STOCK[(ShopFittings.many(object) ? 2 : 0) + (piece.gridX + piece.gridY & 1)]);
         float[] middle = new float[2];
         middleOf(piece, x, y, middle);
-        build.placed.add(cakes, build.frame, x, y, middle[0], middle[1], foot + DECK * piece.scaleUp, piece.turns, piece.scale, piece.scaleUp,
+        build.placed.add(cakes, build.frame, x, y, middle[0] + awayX, middle[1] + awayY, foot + DECK * piece.scaleUp, piece.turns, piece.scale, piece.scaleUp,
                 WorldScene.PLAIN, 0, 0f, 0f, 0, 0f, 0f);
     }
 

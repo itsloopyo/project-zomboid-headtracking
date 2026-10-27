@@ -2,6 +2,13 @@ package com.cameraunlock.zomboid;
 
 import static com.cameraunlock.zomboid.Checks.check;
 
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+import zombie.core.properties.PropertyContainer;
+import zombie.core.textures.Texture;
+import zombie.iso.IsoObject;
+import zombie.iso.SpriteDetails.IsoObjectType;
 import zombie.iso.sprite.IsoSprite;
 
 /**
@@ -17,6 +24,7 @@ final class DisplayCaseTests {
         Checks.run("theCasesBesideItAreNotIt", DisplayCaseTests::theCasesBesideItAreNotIt);
         Checks.run("theGlassAndTheCakesAreWhereTheModelHasRoomForThem", DisplayCaseTests::theGlassAndTheCakesAreWhereTheModelHasRoomForThem);
         Checks.run("eachSquaresCakesStandOnThatSquare", DisplayCaseTests::eachSquaresCakesStandOnThatSquare);
+        Checks.run("aCaseStoodClearOfLogsTakesItsGlassAndCakesWithIt", () -> TestMap.withEverything(DisplayCaseTests::aCaseStoodClearOfLogsTakesItsGlassAndCakesWithIt));
     }
 
     private static final String ROUNDED = "|BlocksPlacement||CanBreak||CanScrap||ContainerCapacity|20|CustomName|Counter|GroupName|Rounded Glass Display|IsMoveAble||"
@@ -129,5 +137,70 @@ final class DisplayCaseTests {
             check(middle[1] > 20 + i + 0.4f && middle[1] < 20 + i + 0.6f, "a square of a case along y has its cakes over itself: " + middle[1]);
             check(Math.abs(middle[0] - (10 + down[i].centreX)) < 1e-5f, "and as far back as the case is: " + middle[0]);
         }
+    }
+
+    /**
+     * A cake case facing south on (10, 20) and (11, 20), stood by FurnishingBuilder.addFurniture with and without a log
+     * wall on the north edge behind it: the logs push the case out, and its glass and its cakes go as far.
+     */
+    private static void aCaseStoodClearOfLogsTakesItsGlassAndCakesWithIt() {
+        float[] alone = caseGlassAndCakes(false), logged = caseGlassAndCakes(true);
+        float pushed = logged[0] - alone[0];
+        check(pushed > 0.01f, "the logs behind the case push it out from the wall: " + pushed);
+        check(Math.abs(logged[1] - alone[1] - pushed) < 1e-4f, "its glass goes out as far: " + (logged[1] - alone[1]) + " against " + pushed);
+        check(Math.abs(logged[2] - alone[2] - pushed) < 1e-4f, "and its cakes: " + (logged[2] - alone[2]) + " against " + pushed);
+    }
+
+    /** How far south the case stands, the middle of its glass, and its cakes, with a log wall behind it or none. */
+    private static float[] caseGlassAndCakes(boolean logs) {
+        TestMap map = new TestMap();
+        WorldScene.Frame build = map.build;
+        Texture whole = new Texture(41, 128, 256);
+        whole.paint(0, 0, 128, 256);
+        IsoSprite one = withTexture("location_shop_generic_01_34" + ROUNDED + "S|SpriteGridPos|0,0", whole);
+        IsoSprite other = withTexture("location_shop_generic_01_35" + ROUNDED + "S|SpriteGridPos|1,0", whole);
+        TileRows.piece(2, 1, one, other);
+        IsoObject first = map.cell.square(10, 20, 0).add(one);
+        IsoObject second = map.cell.square(11, 20, 0).add(other);
+        for (IsoObject square : new IsoObject[] {first, second}) {
+            square.offsetX = 64f;
+            square.offsetY = 192f;
+            square.overlaySprite = square.getSprite();
+        }
+        if (logs) {
+            for (int x = 10; x <= 11; x++) {
+                map.cell.square(x, 20, 0).add(map.spriteWith("walls_logs_1", IsoObjectType.wall, map.painted, "WallN", ""));
+            }
+        }
+        Arrays.fill(build.geometry.lift, 0f);
+        build.geometry.raised = 0f;
+        WorldScene.laid.clear();
+        FurnishingBuilder furnishing = new FurnishingBuilder(build);
+        check(furnishing.addFurniture(first, one, 10, 20, 0), "the case stands on its first square" + (logs ? " with logs behind it" : ""));
+        Models.Instances placed = build.placed;
+        check(placed.count == 2, "its cakes and the case are placed: " + placed.count);
+        float cakes = placed.floats[Models.Instances.PLACE + 1] + placed.floats[Models.Instances.FOOT + 1];
+        int at = Models.Instances.FLOATS;
+        float stands = placed.floats[at + Models.Instances.PLACE + 1] + placed.floats[at + Models.Instances.FOOT + 1];
+        float sum = 0f;
+        int corners = 0;
+        for (SpriteGeometry.Mesh mesh : WorldScene.laid.used) {
+            for (int v = 0; v < mesh.floats; v += SpriteGeometry.VERTEX_FLOATS) {
+                sum += mesh.vertices[v + 1];
+                corners++;
+            }
+        }
+        check(corners > 0, "the case's glass is laid");
+        return new float[] {stands, sum / Math.max(corners, 1), cakes};
+    }
+
+    /** A tile's sprite from its row, as TileRows.sprite reads one, painted with texture. */
+    private static IsoSprite withTexture(String row, Texture texture) {
+        String[] cells = row.split("\\|", -1);
+        Map<String, String> all = new HashMap<>();
+        for (int i = 1; i + 1 < cells.length; i += 2) {
+            all.put(cells[i], cells[i + 1]);
+        }
+        return new IsoSprite(cells[0], new PropertyContainer(all), IsoObjectType.normal, texture);
     }
 }

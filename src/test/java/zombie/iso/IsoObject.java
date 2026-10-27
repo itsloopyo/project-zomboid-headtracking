@@ -33,4 +33,11 @@ public class IsoObject {
     public java.util.ArrayList<zombie.iso.sprite.IsoSpriteInstance> getAttachedAnimSprite() {
         return attached;
     }
+
+    /** What the object holds, as a shop's case holds its cakes, or null for none. */
+    public zombie.inventory.ItemContainer container;
+
+    public zombie.inventory.ItemContainer getContainer() {
+        return container;
+    }
 }

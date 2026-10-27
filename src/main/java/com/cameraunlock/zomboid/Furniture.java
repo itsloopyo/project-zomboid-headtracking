@@ -338,17 +338,22 @@ final class Furniture {
     static final class Glass {
         private final SpriteGeometry.Mesh mesh;
         private final Furniture piece;
-        private final float x, y, foot, red, green, blue;
+        private final float x, y, centreX, centreY, foot, red, green, blue;
         private final float[] turned = new float[2];
 
-        /** Laid in a window's panes, still in the wind. x and y are the piece's first square, foot the floor under it. */
-        Glass(WorldScene.Frame build, Furniture piece, int x, int y, float foot) {
+        /**
+         * Laid in a window's panes, still in the wind. x and y are the piece's first square, (centreX, centreY) where on it
+         * the model stands, foot the floor under it.
+         */
+        Glass(WorldScene.Frame build, Furniture piece, int x, int y, float centreX, float centreY, float foot) {
             mesh = WorldScene.laid.get(WorldScene.PLAIN, WallSides.PANES);
             mesh.sway = 0f;
             mesh.open = build.frame.open + 32f * WorldScene.INNER_PANE;
             this.piece = piece;
             this.x = x;
             this.y = y;
+            this.centreX = centreX;
+            this.centreY = centreY;
             this.foot = foot;
             red = build.frame.red;
             green = build.frame.green;
@@ -364,7 +369,7 @@ final class Furniture {
         /** A corner of a sheet at (modelX, modelY, modelZ) in the model, (u, v) of its pane. */
         void corner(float modelX, float modelY, float modelZ, float u, float v) {
             Models.turn(piece.turns, modelX, modelY, turned);
-            mesh.add(x + piece.centreX + turned[0] * piece.scale, y + piece.centreY + turned[1] * piece.scale, foot + modelZ * piece.scaleUp, u, v, red, green, blue);
+            mesh.add(x + centreX + turned[0] * piece.scale, y + centreY + turned[1] * piece.scale, foot + modelZ * piece.scaleUp, u, v, red, green, blue);
         }
     }
 

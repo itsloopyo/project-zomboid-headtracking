@@ -924,15 +924,22 @@ final class FurnishingBuilder {
         // The game draws a thing that stands on a table higher than its sprite has it where the
         // table is higher than the one the sprite was painted on: a set on a chest of drawers.
         float foot = z * ViewCamera.LEVEL_HEIGHT + (lift[0] + lift[1] + lift[2] + lift[3]) / 4f + piece.raised + build.geometry.raised * ViewCamera.LEVEL_HEIGHT;
+        // What a case or a fitting holds stands where it does: out from a log wall's logs as far as the piece is.
+        float awayX = 0f, awayY = 0f;
+        if ((piece.displayCase || piece.stocked) && build.overLayer == 0 && !piece.onRoof) {
+            float clear = clearOfLogs(piece, piece.model, x + readyOrigin[0], y + readyOrigin[1], z, piece.centreX, piece.centreY);
+            awayX = front[0] * clear;
+            awayY = front[1] * clear;
+        }
         // A case's cakes are the game's painting of them over each of its squares, made.
         if (piece.displayCase && build.overLayer == 0) {
             build.building.plain = false;
-            DisplayCases.addStock(build, object, piece, x, y, foot);
+            DisplayCases.addStock(build, object, piece, x, y, foot, awayX, awayY);
         }
         // What the game paints a shop's fitting holding, over each square of it, made.
         if (piece.stocked && build.overLayer == 0) {
             build.building.plain = false;
-            ShopFittings.addStock(build, object, piece, x, y, foot);
+            ShopFittings.addStock(build, object, piece, x, y, foot, awayX, awayY);
         }
         IsoSprite first = piece.grid == null ? null : piece.grid.getSprite(0, 0);
         boolean firstPaints = first == null || WorldScene.usable(first.getTextureForCurrentFrame(object.getDir()));
@@ -1057,13 +1064,13 @@ final class FurnishingBuilder {
         }
         build.furnished++;
         if (piece.displayCase) {
-            DisplayCases.addGlass(build, piece, x, y, foot);
+            DisplayCases.addGlass(build, piece, x, y, centreX, centreY, foot);
         }
         if (piece.glazed) {
-            ShopFittings.addGlass(build, piece, x, y, foot);
+            ShopFittings.addGlass(build, piece, x, y, centreX, centreY, foot);
         }
         if (piece.glassLegs != null) {
-            Outdoors.addGlass(build, piece, x, y, foot);
+            Outdoors.addGlass(build, piece, x, y, centreX, centreY, foot);
         }
         if (piece.goal != null) {
             addNet(piece.goal, x, y, z, foot - piece.raised);

@@ -226,14 +226,15 @@ final class ShopFittings {
 
     /**
      * Stands goods or clothes on one square of a fitting while the game paints what the square holds over it, many or
-     * few as the game paints them. x and y are the square, foot the floor under it.
+     * few as the game paints them. x and y are the square, foot the floor under it, (awayX, awayY) how far the fitting
+     * stands from where it is painted.
      */
-    static void addStock(WorldScene.Frame build, IsoObject object, Furniture piece, int x, int y, float foot) {
+    static void addStock(WorldScene.Frame build, IsoObject object, Furniture piece, int x, int y, float foot, float awayX, float awayY) {
         if (object.getOverlaySprite() == null) {
             return;
         }
         if (piece.model.name.equals("produce_crate")) {
-            addProduce(build, object, piece, x, y, foot);
+            addProduce(build, object, piece, x, y, foot, awayX, awayY);
             return;
         }
         Stock stock = stockOf(piece);
@@ -241,7 +242,7 @@ final class ShopFittings {
         float up = (stock.hung ? stock.at - goods.height() : stock.at) * piece.scaleUp;
         float[] middle = new float[2];
         middleOf(piece, x, y, middle);
-        build.placed.add(goods, build.frame, x, y, middle[0], middle[1], foot + up, piece.turns, piece.scale, piece.scaleUp, WorldScene.PLAIN, 0, 0f, 0f,
+        build.placed.add(goods, build.frame, x, y, middle[0] + awayX, middle[1] + awayY, foot + up, piece.turns, piece.scale, piece.scaleUp, WorldScene.PLAIN, 0, 0f, 0f,
                 0, 0f, 0f);
     }
 
@@ -249,9 +250,9 @@ final class ShopFittings {
      * Heaps fruit and vegetables on a produce crate's deck, three by three, where the game paints its produce over the
      * crate: a heap stands where the painting has something over the heap's middle, and takes the colour painted there,
      * so it is apples where the game paints apples and the crate is half full where it paints it half full. x and y are
-     * the crate's square, foot the floor under it.
+     * the crate's square, foot the floor under it, (awayX, awayY) how far the crate stands from where it is painted.
      */
-    static void addProduce(WorldScene.Frame build, IsoObject object, Furniture piece, int x, int y, float foot) {
+    static void addProduce(WorldScene.Frame build, IsoObject object, Furniture piece, int x, int y, float foot, float awayX, float awayY) {
         Texture painted = object.getOverlaySprite().getTextureForCurrentFrame(object.getDir());
         if (!WorldScene.usable(painted)) {
             return;
@@ -270,7 +271,7 @@ final class ShopFittings {
                     continue;
                 }
                 Models.Model heap = Models.get((i + j & 1) == 0 ? "produce_pile" : "produce_pile_b");
-                build.placed.add(heap, build.frame, x, y, x + a, y + b, foot + deck, piece.turns, piece.scale, piece.scaleUp, painted.getID(),
+                build.placed.add(heap, build.frame, x, y, x + a + awayX, y + b + awayY, foot + deck, piece.turns, piece.scale, piece.scaleUp, painted.getID(),
                         1 << Models.PLASTIC | 1 << Models.ENAMEL, SpriteGeometry.textureU(frame, a, b), SpriteGeometry.textureV(frame, a, b, high), 0, 0f, 0f);
             }
         }
@@ -278,11 +279,11 @@ final class ShopFittings {
 
     /**
      * Lays the glass of a glass counter's case: its top, its front and its two ends, each a sheet inside the steel
-     * frame round it. The back is the board whoever serves stands at. x and y are the counter's square, foot the floor
-     * under it.
+     * frame round it. The back is the board whoever serves stands at. x and y are the counter's square, (centreX, centreY)
+     * where on it the counter stands, foot the floor under it.
      */
-    static void addGlass(WorldScene.Frame build, Furniture piece, int x, int y, float foot) {
-        Furniture.Glass glass = new Furniture.Glass(build, piece, x, y, foot);
+    static void addGlass(WorldScene.Frame build, Furniture piece, int x, int y, float centreX, float centreY, float foot) {
+        Furniture.Glass glass = new Furniture.Glass(build, piece, x, y, centreX, centreY, foot);
         float in = COUNTER_HALF - COUNTER_POST / 2f, low = COUNTER_GLASS_FOOT, high = COUNTER_GLASS_TOP, top = high + 0.01f;
         float side = COUNTER_HALF - COUNTER_POST, back = COUNTER_BACK;
         glass.face(0f, 0f, 1f);

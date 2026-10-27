@@ -968,10 +968,10 @@ final class Outdoors {
 
     /**
      * Lays the panes of a glass balustrade as glass, a sheet up the middle of each of its lengths. x and y are its square,
-     * foot the floor under it.
+     * (centreX, centreY) where on it the balustrade stands, foot the floor under it.
      */
-    static void addGlass(WorldScene.Frame build, Furniture piece, int x, int y, float foot) {
-        Furniture.Glass glass = new Furniture.Glass(build, piece, x, y, foot);
+    static void addGlass(WorldScene.Frame build, Furniture piece, int x, int y, float centreX, float centreY, float foot) {
+        Furniture.Glass glass = new Furniture.Glass(build, piece, x, y, centreX, centreY, foot);
         float[] legs = piece.glassLegs;
         for (int at = 0; at < legs.length; at += 4) {
             float x0 = legs[at], y0 = legs[at + 1], x1 = legs[at + 2], y1 = legs[at + 3];
