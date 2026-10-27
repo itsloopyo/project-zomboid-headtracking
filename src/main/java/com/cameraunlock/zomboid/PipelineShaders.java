@@ -1787,23 +1787,64 @@ final class PipelineShaders {
             }
 
             // How high a slat of a shut roller door is, as the game paints it (thirteen or fourteen dots
-            // in a level's 194), half the width of the dark line where two slats lock together, and how far
-            // along a slat a handle is matched against the slat beside it, in tiles.
-            // Sixty tiles are a whole number of slats: see vPlace.
-            const float SLAT_HIGH = 60.0 / 352.0, SLAT_LOCK = 0.0035, SLAT_ALONG = 0.25;
+            // in a level's 194), half the width of the dark line where two slats lock together, how far
+            // along a slat a handle is matched against the slat beside it, and how far to either side
+            // of a place the sprite is read to tell whether it paints a slat there, and to take its shade,
+            // in tiles. Sixty tiles are a whole number of slats: see vPlace.
+            const float SLAT_HIGH = 60.0 / 352.0, SLAT_LOCK = 0.0035, SLAT_ALONG = 0.25, SLAT_ACROSS = 0.1, SLAT_SHADED = 0.04;
             // A shut roller door, made of slats laid one over the next, each rolled outward: its top
             // faces the sky, a bright line runs along its crown, and where it locks into the slat above
-            // there is a fine dark line. Counted by height in the world, so the slats of one sprite of
-            // the door go on in line into the next. up is height on the wall and soft how far the place
-            // moves up the wall over a pixel, in tiles; climb is how far the surface turns up.
-            vec3 facSlats(vec3 body, float up, float soft, out float climb) {
+            // there is a fine dark line, which a handle on the slat covers (handled). Counted by height
+            // in the world, so the slats of one sprite of the door go on in line into the next. up is
+            // height on the wall and soft how far the place moves up the wall over a pixel, in tiles;
+            // climb is how far the surface turns up.
+            vec3 facSlats(vec3 body, float up, float soft, float handled, out float climb) {
                 float part = fract(up / SLAT_HIGH);
                 float toLock = min(part, 1.0 - part) * SLAT_HIGH;
-                float locked = 1.0 - smoothstep(SLAT_LOCK, SLAT_LOCK + soft + 1e-6, toLock);
+                float locked = (1.0 - smoothstep(SLAT_LOCK, SLAT_LOCK + soft + 1e-6, toLock)) * (1.0 - handled);
                 float ridge = (part - 0.47) / (0.06 + soft / SLAT_HIGH);
                 float shade = 0.98 + 0.16 * exp(-ridge * ridge);
                 climb = 0.7 * (part - 0.5) * (1.0 - locked);
                 return body * shade * (1.0 - 0.55 * locked);
+            }
+            // How far a roller door's sprite goes light and dark at uv, read from foot (the foot of the
+            // slat there, in steps of perUp) from a slat down to two slats up: the least of how far it goes
+            // through the slat under it, the slat's lower half and the half under it, its upper half and
+            // the half over it, and the slat over it, each leaving out its darkest reading, and how light
+            // the slat itself is. The box over the door and the foot, one shade up and down, are not
+            // slats, nor is one line of dark where the box ends, nor the slat just under the box, in the
+            // box's shadow, nor the slat that runs into the foot, so each is told whole and not a dot
+            // across at a time.
+            vec2 slatSwing(vec2 uv, vec2 perUp, float foot, vec2 uvX, vec2 uvY) {
+                vec4 light = vec4(0.0), dark = vec4(1.0), darker = vec4(1.0);
+                float summed = 0.0, counted = 0.0;
+                for (int i = 0; i < 17; i++) {
+                    vec4 read = texture2DGradARB(uTexture, uv + perUp * (foot + SLAT_HIGH * (-1.1 + 0.2 * float(i))), uvX, uvY);
+                    float shade = dot(read.rgb / max(read.a, 1.0 / 255.0), vec3(0.299, 0.587, 0.114));
+                    vec4 window = vec4(i <= 4 ? 1.0 : 0.0, i >= 4 && i <= 8 ? 1.0 : 0.0, i >= 8 && i <= 12 ? 1.0 : 0.0, i >= 12 ? 1.0 : 0.0) * step(0.5, read.a);
+                    light = mix(light, max(light, vec4(shade)), window);
+                    dark = mix(dark, max(darker, min(dark, vec4(shade))), window);
+                    darker = mix(darker, min(darker, vec4(shade)), window);
+                    float own = i >= 6 && i <= 10 ? step(0.5, read.a) : 0.0;
+                    summed += shade * own;
+                    counted += own;
+                }
+                vec4 swing = max(light - dark, vec4(0.0));
+                return vec2(min(min(swing.x, swing.y), min(swing.z, swing.w)), summed / max(counted, 1.0));
+            }
+            // How light a roller door's sprite is at uv against the slat beside it, at most 1: of the
+            // places SLAT_ALONG to either side, the one nearer its shade, so a handle reads dark and the
+            // edge of a stain does not.
+            float slatStands(vec2 uv, vec2 perRun, vec2 uvX, vec2 uvY) {
+                vec3 tone = vec3(0.299, 0.587, 0.114);
+                vec4 at = texture2DGradARB(uTexture, uv, uvX, uvY);
+                vec4 left = texture2DGradARB(uTexture, uv - perRun * SLAT_ALONG, uvX, uvY);
+                vec4 right = texture2DGradARB(uTexture, uv + perRun * SLAT_ALONG, uvX, uvY);
+                float here = dot(at.rgb, tone);
+                float leftOff = left.a > 0.5 ? abs(here - dot(left.rgb, tone)) : 1.0;
+                float rightOff = right.a > 0.5 ? abs(here - dot(right.rgb, tone)) : 1.0;
+                float alongside = leftOff < rightOff ? dot(left.rgb, tone) : dot(right.rgb, tone);
+                return min(leftOff, rightOff) < 0.5 ? min(1.0, here / max(alongside, 1e-3)) : 1.0;
             }
 
             """;
@@ -2134,13 +2175,16 @@ final class PipelineShaders {
                     climb = turned.y * own * (1.0 - walledNear);
                     lapSun = mix(1.0, lapSun, own);
                 }
-                // A shut roller door (uTint.a 17, WallSides.slats): its slats are laid where its sprite paints
+                // A shut roller door (uTint.a 17, WallSides.SLATS): its slats are laid where its sprite paints
                 // slats, in the shade the sprite has there, and the box over the door, its foot and the guides
-                // at its sides stay as painted. A slat is taken for a slat of the sprite where the sprite goes
-                // light and dark both through the slat's lower half and through its upper half, which the
-                // box and the foot, one shade up and down, do not. A streak of dirt goes on in the shade each
-                // slat is given. Far off, where a slat is a few pixels high, the door is the sprite as painted.
-                if (slatTint) {
+                // at its sides stay as painted. Whether the sprite paints a slat is read at the place and to
+                // either side of it along the slat and, where the three are about as light, taken where two
+                // of them agree, so a dirty or dim stretch of a slat is laid with the rest of it and a rail
+                // down the door is not. A streak of dirt goes on in the shade each slat is given. Far off,
+                // where a slat is a few pixels high, and in the game's own view, the door is the sprite as
+                // painted.
+                float slatSeen = slatTint ? (1.0 - smoothstep(0.2, 0.55, fwidth(vPlace.z) / SLAT_HIGH)) * (1.0 - uGameView) : 0.0;
+                if (slatSeen > 0.0) {
                     float up = vPlace.z;
                     float soft = fwidth(up);
                     // How far the sprite's texture coordinates go for a step along the wall and straight up it.
@@ -2157,50 +2201,62 @@ final class PipelineShaders {
                     // what is upright in the world upright in it, so a step up the wall is a step up its dots.
                     vec2 perUp = vec2(0.0, ((uvY * wallX.x - uvX * wallY.x) / spanned).y);
                     float slatFoot = floor(up / SLAT_HIGH) * SLAT_HIGH - up;
+                    vec2 swingHere = slatSwing(vUv, perUp, slatFoot, uvX, uvY);
+                    vec2 swingBefore = slatSwing(vUv - perRun * SLAT_ACROSS, perUp, slatFoot, uvX, uvY);
+                    vec2 swingAfter = slatSwing(vUv + perRun * SLAT_ACROSS, perUp, slatFoot, uvX, uvY);
+                    // Where the three are about as light, each one's swing is taken as a share of its shade, so
+                    // a slat in the grime at the door's foot counts as much as a clean one.
+                    vec3 share = vec3(swingHere.x, swingBefore.x, swingAfter.x) / max(vec3(swingHere.y, swingBefore.y, swingAfter.y), vec3(0.1));
+                    float agreed = max(min(share.x, share.y), min(max(share.x, share.y), share.z));
+                    float alike = 1.0 - smoothstep(0.03, 0.07, max(abs(swingHere.y - swingBefore.y), abs(swingHere.y - swingAfter.y)));
+                    float slatted = mix(smoothstep(0.02, 0.035, swingHere.x), smoothstep(0.03, 0.05, agreed), alike);
+                    // The slat's shade, from ten readings up it in each of five places across a little of
+                    // it: their mean, then twice over the mean of the readings near that, so the dark line
+                    // where it locks, a handle, the bright crown and a fleck of dirt count for little.
                     vec3 tone = vec3(0.299, 0.587, 0.114);
-                    // Each half's darkest reading is left out of how light and dark it goes: one line of dark,
-                    // where the box over the door ends, is not a slat.
-                    float lowLight = 0.0, lowDark = 1.0, lowDarker = 1.0, highLight = 0.0, highDark = 1.0, highDarker = 1.0;
-                    float dimmest = 1.0;
-                    vec3 summed = vec3(0.0), dimmestRead = vec3(0.0);
+                    vec3 reads[50];
+                    float shades[50];
+                    vec3 summed = vec3(0.0);
                     float counted = 0.0;
-                    for (int i = 0; i < 9; i++) {
-                        float at = -0.3 + 0.2 * float(i);
-                        vec4 read = texture2DGradARB(uTexture, vUv + perUp * (slatFoot + SLAT_HIGH * at), uvX, uvY);
-                        float shade = dot(read.rgb / max(read.a, 1.0 / 255.0), tone);
-                        bool painted = read.a > 0.5;
-                        if (painted && i <= 4) {
-                            lowLight = max(lowLight, shade);
-                            lowDark = max(lowDarker, min(lowDark, shade));
-                            lowDarker = min(lowDarker, shade);
-                        }
-                        if (painted && i >= 4) {
-                            highLight = max(highLight, shade);
-                            highDark = max(highDarker, min(highDark, shade));
-                            highDarker = min(highDarker, shade);
-                        }
-                        if (painted && i >= 2 && i <= 6) {
-                            summed += read.rgb;
-                            counted += 1.0;
-                            if (shade < dimmest) { dimmest = shade; dimmestRead = read.rgb; }
-                        }
+                    for (int i = 0; i < 50; i++) {
+                        vec2 at = perUp * (slatFoot + SLAT_HIGH * (0.05 + 0.1 * float(i / 5))) + perRun * (SLAT_SHADED * float(i - i / 5 * 5 - 2));
+                        vec4 read = texture2DGradARB(uTexture, vUv + at, uvX, uvY);
+                        reads[i] = read.rgb;
+                        shades[i] = dot(read.rgb / max(read.a, 1.0 / 255.0), tone);
+                        float painted = step(0.5, read.a);
+                        reads[i] *= painted;
+                        shades[i] = mix(-1.0, shades[i], painted);
+                        summed += reads[i];
+                        counted += painted;
                     }
-                    float slatted = smoothstep(0.025, 0.045, min(lowLight - lowDark, highLight - highDark));
-                    // The slat's shade, leaving out its darkest reading, which is where it locks or a handle.
-                    vec3 body = counted > 1.5 ? (summed - dimmestRead) / (counted - 1.0) : texel.rgb;
-                    vec4 left = texture2DGradARB(uTexture, vUv - perRun * SLAT_ALONG, uvX, uvY);
-                    vec4 right = texture2DGradARB(uTexture, vUv + perRun * SLAT_ALONG, uvX, uvY);
-                    float here = dot(texel.rgb, tone);
-                    float leftOff = left.a > 0.5 ? abs(here - dot(left.rgb, tone)) : 1.0;
-                    float rightOff = right.a > 0.5 ? abs(here - dot(right.rgb, tone)) : 1.0;
-                    float alongside = leftOff < rightOff ? dot(left.rgb, tone) : dot(right.rgb, tone);
-                    // What the sprite paints darker than the slat beside it, the handle, goes onto the laid
-                    // slats; a little darker is the sprite's own dirt and slant, which the slat's shade has.
-                    float stands = min(leftOff, rightOff) < 0.5 ? min(1.0, here / max(0.88 * alongside, 1e-3)) : 1.0;
-                    float seen = 1.0 - smoothstep(0.2, 0.55, soft / SLAT_HIGH);
+                    vec3 body = counted > 0.5 ? summed / counted : texel.rgb;
+                    for (int pass = 0; pass < 2; pass++) {
+                        float middle = dot(body, tone);
+                        vec3 near = vec3(0.0);
+                        float weighed = 0.0;
+                        for (int i = 0; i < 50; i++) {
+                            float off = (shades[i] - middle) / 0.04;
+                            float weight = shades[i] < 0.0 ? 0.0 : exp(-off * off);
+                            near += reads[i] * weight;
+                            weighed += weight;
+                        }
+                        body = weighed > 1e-3 ? near / weighed : body;
+                    }
+                    // What the sprite paints darker than the slat beside it goes onto the laid slats as dark as it
+                    // is painted. On the line where two slats lock, which the sprite paints a little off it, it is
+                    // read just over and under the line too, and a handle there, much darker, covers the line.
+                    float stands = slatStands(vUv, perRun, uvX, uvY);
+                    float part = fract(up / SLAT_HIGH);
+                    float onLock = 1.0 - smoothstep(SLAT_LOCK, SLAT_LOCK + soft + 1e-6, min(part, 1.0 - part) * SLAT_HIGH);
+                    if (onLock > 0.0) {
+                        float over = slatStands(vUv + perUp * (0.12 * SLAT_HIGH), perRun, uvX, uvY);
+                        float under = slatStands(vUv - perUp * (0.12 * SLAT_HIGH), perRun, uvX, uvY);
+                        stands = mix(stands, min(stands, min(over, under)), onLock);
+                    }
+                    float handled = 1.0 - smoothstep(0.65, 0.85, stands);
                     float turned;
-                    vec3 slats = facSlats(body, up, soft, turned) * stands;
-                    float laidHere = slatted * seen;
+                    vec3 slats = facSlats(body, up, soft, handled, turned) * stands;
+                    float laidHere = slatted * slatSeen;
                     texel.rgb = mix(texel.rgb, slats, laidHere);
                     climb = turned * laidHere;
                 }

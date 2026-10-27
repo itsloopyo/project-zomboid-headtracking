@@ -1326,15 +1326,33 @@ final class WallBuilder {
      */
     private SpriteGeometry.Mesh stoodSquare(SpriteGeometry.Mesh mesh, Texture texture, boolean north) {
         build.frame.flat = 0;
-        if (build.overLayer != 0 || mesh.tint != 0 && !WallSides.slatted(mesh.tint) || mesh.texture != texture.getID()) {
+        if (build.overLayer != 0 || mesh.texture != texture.getID()) {
             return mesh;
         }
         int stood = build.flatOf(texture, north ? Flats.NORTH : Flats.WEST, 0f, 0f, 0f);
-        if (stood == 0) {
-            return mesh;
+        SpriteGeometry.Mesh square = standSquare(WorldScene.solid, mesh, stood);
+        if (square != mesh) {
+            build.frame.flat = north ? SpriteGeometry.FLAT_NORTH : SpriteGeometry.FLAT_WEST;
         }
-        build.frame.flat = north ? SpriteGeometry.FLAT_NORTH : SpriteGeometry.FLAT_WEST;
-        return WorldScene.solid.get(stood, mesh.tint);
+        return square;
+    }
+
+    /**
+     * The mesh of set the sprite stood square (stood, a texture, or 0 for none) goes in, in
+     * place of mesh, the sprite's own, with mesh's tint: a shut roller door's slats are laid on
+     * it as on the sprite. A mesh painted over, laid as masonry or papered is given back.
+     */
+    static SpriteGeometry.Mesh standSquare(SpriteGeometry.MeshSet set, SpriteGeometry.Mesh mesh, int stood) {
+        return stood == 0 || mesh.tint != 0 && mesh.tint != WallSides.SLATS ? mesh : set.get(stood, mesh.tint);
+    }
+
+    /**
+     * Whether a wall's skin is a shut roller door whose slats the picture lays (WallSides.SLATS):
+     * a garage door's sprite of slats, itself and not laid over another, with the mod's own
+     * textures on (Own.textures). Without them it is the sprite as the game paints it.
+     */
+    static boolean laysSlats(boolean ownTextures, int overLayer, boolean garageDoor, String sprite) {
+        return ownTextures && overLayer == 0 && garageDoor && WallSides.rollerDoor(sprite);
     }
 
     /**
@@ -1359,6 +1377,9 @@ final class WallBuilder {
      * masonry in the colours read. A roof's end takes its finish whatever its colour, and is left as read.
      */
     SpriteGeometry.Mesh laid(SpriteGeometry.Mesh mesh, Texture texture, boolean suits, boolean ownOnly, int masonry, int x, int y, int z, boolean north) {
+        if (laysSlats(Own.textures(build.playerIndex), build.overLayer, build.garageDoor, texture.getName())) {
+            return WorldScene.solid.get(texture.getID(), WallSides.SLATS);
+        }
         if (build.overLayer != 0 || !Own.textures(build.playerIndex)) {
             return mesh;
         }
@@ -1389,15 +1410,6 @@ final class WallBuilder {
                 return mesh;
             }
             return WorldScene.solid.get(texture.getID(), WallSides.laid(colour[0], colour[1], colour[2], 0f, 0f, 0f, WallSides.BOARDED));
-        }
-        // A shut roller door is its own sprite, with its slats laid over it: see WallSides.slats.
-        if (build.garageDoor && WallSides.rollerDoor(texture.getName())) {
-            float[] colour = SpriteColours.of(texture);
-            if (colour == null) {
-                build.building.signed &= !SpriteColours.unread(texture);
-                return mesh;
-            }
-            return WorldScene.solid.get(texture.getID(), WallSides.slats(colour[0], colour[1], colour[2]));
         }
         if (!suits) {
             return mesh;

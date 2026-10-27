@@ -184,7 +184,7 @@ final class ShaderTests {
 
     private static void aRollerDoorIsLaidAsSlatsAndNotAsMasonry(List<Linked> programs) {
         float[] tint = new float[4];
-        WallSides.tint(WallSides.slats(0.6f, 0.6f, 0.6f), tint);
+        WallSides.tint(WallSides.SLATS, tint);
         String main = PipelineShaders.WORLD_FRAGMENT_MAIN;
         Checks.check(main.contains("bool slatTint = abs(uTint.a - " + (int) tint[3] + ".0) < 0.5;"), "the world is not told a roller door's slats as WallSides tells them");
         Checks.check(main.contains("if (uTint.a > 3.5 && !boarded && !fineTint && !tiledTint && !stainTint && !slatTint) {"), "a roller door would be laid as masonry too");

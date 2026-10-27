@@ -88,8 +88,13 @@ final class WallSides {
      * of its own there: see Stains.grime. No key packs to this, a multiplied one keeping its low four bits clear.
      */
     static final int STAIN = MULTIPLIED | 1;
-    /** The low four bits of a key slats gives. */
-    private static final int SLATS = 2;
+    /**
+     * In place of a colour: the triangles are a shut roller door, and the picture lays its slats
+     * itself where its sprite paints them, so they are sharp up close and run on in one line
+     * from one sprite of the door to the next. It takes their shade from the sprite, and is
+     * told 17 for how it is painted. No key packs to this, as to STAIN.
+     */
+    static final int SLATS = MULTIPLIED | 2;
 
     private static final int LEVELS = 15;
     private static final int BANDS = 32;
@@ -222,27 +227,17 @@ final class WallSides {
     }
 
     /**
-     * The key of a shut roller door, the colour most of its sprite is, each channel from 0 to 1:
-     * the picture lays the door's slats itself where the sprite paints them, so they are sharp
-     * up close and run on in one line from one sprite of the door to the next. The picture is
-     * told 17 for how it is painted.
+     * Whether a garage door's sprite is a shut roller door, of slats one over the next: the green
+     * and the grey of the first garage sheet, the dark grey of the second, and the trucks' grey.
+     * Open, each is the sprite eight on (the game's IsoDoor), the band of the rolled door across
+     * the head of the opening, which is not one.
      */
-    static int slats(float red, float green, float blue) {
-        return MULTIPLIED | part(red, 255) << 20 | part(green, 255) << 12 | part(blue, 255) << 4 | SLATS;
-    }
-
-    /** Whether a key is one slats gives. */
-    static boolean slatted(int key) {
-        return (key & MULTIPLIED) != 0 && (key & 15) == SLATS;
-    }
-
-    /** Whether a garage door's sprite is a shut roller door, of slats one over the next: the green and the grey of the garage sheet, and the trucks' grey. */
     static boolean rollerDoor(String name) {
         if (name == null) {
             return false;
         }
-        int garage = Sheets.place(name, "walls_garage_01_"), trucks = Sheets.place(name, "industry_trucks_01_");
-        return garage >= 16 && garage <= 21 || garage >= 48 && garage <= 53 || trucks >= 32 && trucks <= 37;
+        int garage = Sheets.place(name, "walls_garage_01_"), dark = Sheets.place(name, "walls_garage_02_"), trucks = Sheets.place(name, "industry_trucks_01_");
+        return garage >= 16 && garage <= 21 || garage >= 48 && garage <= 53 || dark >= 0 && dark <= 5 || trucks >= 32 && trucks <= 37;
     }
 
     /**
@@ -304,23 +299,23 @@ final class WallSides {
     /**
      * What the picture is told for a range of triangles: into out the colour, then FLAT or
      * SIDING. All 0 for a key of 0, which is no colour, -1 after the colour for one that
-     * multiplies its sprite, and 17 for a shut roller door's (slats).
+     * multiplies its sprite, and 17 after no colour for a shut roller door's (SLATS).
      */
     static void tint(int key, float[] out) {
         if (key == 0) {
             out[0] = out[1] = out[2] = out[3] = 0f;
             return;
         }
-        if (key == STAIN) {
+        if (key == STAIN || key == SLATS) {
             out[0] = out[1] = out[2] = 0f;
-            out[3] = 16f;
+            out[3] = key == STAIN ? 16f : 17f;
             return;
         }
         if ((key & MULTIPLIED) != 0) {
             out[0] = (key >> 20 & 255) / 255f;
             out[1] = (key >> 12 & 255) / 255f;
             out[2] = (key >> 4 & 255) / 255f;
-            out[3] = slatted(key) ? 17f : -1f;
+            out[3] = -1f;
             return;
         }
         if (isLaid(key)) {

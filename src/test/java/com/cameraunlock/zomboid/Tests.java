@@ -1740,21 +1740,36 @@ public final class Tests {
         check(tint[0] == 0f && tint[1] == 0f && tint[2] == 0f, "and it has no joints");
         check(WallSides.multiplied(0f, 0f, 0f) != WallSides.STAIN && WallSides.multiplied(0f, 0f, 1f / 255f) != WallSides.STAIN,
                 "no tint packs to a stain");
-        int slats = WallSides.slats(0.62f, 0.6f, 0.58f);
-        WallSides.tint(slats, tint);
-        check(Math.abs(tint[0] - 0.62f) <= 0.5f / 255f && Math.abs(tint[1] - 0.6f) <= 0.5f / 255f && Math.abs(tint[2] - 0.58f) <= 0.5f / 255f && tint[3] == 17f,
-                "a roller door's slats come back in its colour to a 255th, told as 17, which no other way of painting is");
-        WallSides.joint(slats, tint);
+        WallSides.tint(WallSides.SLATS, tint);
+        check(tint[0] == 0f && tint[1] == 0f && tint[2] == 0f && tint[3] == 17f, "a roller door's slats are told as 17, which no other way of painting is");
+        WallSides.joint(WallSides.SLATS, tint);
         check(tint[0] == 0f && tint[1] == 0f && tint[2] == 0f, "and they have no joints");
-        check(WallSides.slats(0f, 0f, 0f) != WallSides.STAIN && WallSides.slats(1f, 1f, 1f) != WallSides.multiplied(1f, 1f, 0.996f)
-                && WallSides.slats(0.5f, 0.5f, 0.5f) != WallSides.multiplied(0.5f, 0.5f, 0.5f), "no tint or stain packs to slats");
+        check(WallSides.SLATS != WallSides.STAIN && WallSides.multiplied(0f, 0f, 0f) != WallSides.SLATS && WallSides.multiplied(0f, 0f, 1f / 255f) != WallSides.SLATS
+                && WallSides.multiplied(0f, 0f, 2f / 255f) != WallSides.SLATS, "no tint or stain packs to slats");
         check(WallSides.rollerDoor("walls_garage_01_48") && WallSides.rollerDoor("walls_garage_01_53") && WallSides.rollerDoor("walls_garage_01_16")
-                && WallSides.rollerDoor("walls_garage_01_21") && WallSides.rollerDoor("industry_trucks_01_32") && WallSides.rollerDoor("industry_trucks_01_37"),
-                "the grey and the green garage doors and the trucks' are roller doors");
+                && WallSides.rollerDoor("walls_garage_01_21") && WallSides.rollerDoor("walls_garage_02_0") && WallSides.rollerDoor("walls_garage_02_5")
+                && WallSides.rollerDoor("industry_trucks_01_32") && WallSides.rollerDoor("industry_trucks_01_37"),
+                "the grey and the green garage doors, the dark grey ones and the trucks' are roller doors");
+        check(!WallSides.rollerDoor("walls_garage_01_24") && !WallSides.rollerDoor("walls_garage_01_29") && !WallSides.rollerDoor("walls_garage_01_56")
+                && !WallSides.rollerDoor("walls_garage_01_61") && !WallSides.rollerDoor("walls_garage_02_8") && !WallSides.rollerDoor("walls_garage_02_13")
+                && !WallSides.rollerDoor("industry_trucks_01_40") && !WallSides.rollerDoor("industry_trucks_01_45"),
+                "open, each is the sprite eight on, the band of the rolled door over the opening, which has no slats to lay");
         check(!WallSides.rollerDoor("walls_garage_01_0") && !WallSides.rollerDoor("walls_garage_01_5") && !WallSides.rollerDoor("walls_garage_02_32")
-                && !WallSides.rollerDoor("walls_garage_02_48") && !WallSides.rollerDoor("walls_garage_01_8") && !WallSides.rollerDoor("industry_trucks_01_40")
-                && !WallSides.rollerDoor("walls_garage_01_160") && !WallSides.rollerDoor(null),
-                "the panelled doors, the doors with windows and an open door are not, nor is a name that only starts like one");
+                && !WallSides.rollerDoor("walls_garage_02_48") && !WallSides.rollerDoor("walls_garage_01_160")
+                && !WallSides.rollerDoor(null), "the panelled doors and the doors with windows are not, nor is a name that only starts like one");
+        check(WallBuilder.laysSlats(true, 0, true, "walls_garage_02_3"), "a shut dark grey roller door has its slats laid");
+        check(!WallBuilder.laysSlats(false, 0, true, "walls_garage_02_3"), "without the mod's own textures a roller door is its sprite");
+        check(!WallBuilder.laysSlats(true, 0, false, "walls_garage_01_48"), "a sprite of slats that is no garage door is its sprite");
+        check(!WallBuilder.laysSlats(true, 1, true, "walls_garage_01_48"), "nor is one laid over another wall");
+        check(!WallBuilder.laysSlats(true, 0, true, "walls_garage_02_11"), "an open door's band is its sprite");
+        SpriteGeometry.MeshSet set = new SpriteGeometry.MeshSet();
+        SpriteGeometry.Mesh slatted = set.get(7, WallSides.SLATS), squared = WallBuilder.standSquare(set, slatted, 9);
+        check(squared.texture == 9 && squared.tint == WallSides.SLATS, "a roller door stands square with its slats");
+        SpriteGeometry.Mesh plain = set.get(7);
+        check(WallBuilder.standSquare(set, plain, 9) == set.get(9) && WallBuilder.standSquare(set, plain, 0) == plain, "a wall of its own sprite stands square where it can");
+        SpriteGeometry.Mesh papered = set.get(7, WallSides.key(0.4f, 0.4f, 0.4f, WallSides.FLAT));
+        check(WallBuilder.standSquare(set, papered, 9) == papered && WallBuilder.standSquare(set, set.get(7, WallSides.STAIN), 9).texture == 7,
+                "one painted over, or a stain, does not");
         check(WallSides.key(0.4f, 0.4f, 0.4f, WallSides.FLAT) == WallSides.key(0.41f, 0.39f, 0.4f, WallSides.FLAT), "colours a hair apart share a key, and so a draw");
         check(WallSides.key(0.4f, 0.4f, 0.4f, WallSides.FLAT) != WallSides.key(0.4f, 0.4f, 0.4f, WallSides.SIDING), "paint and boards of one colour are two draws");
     }
