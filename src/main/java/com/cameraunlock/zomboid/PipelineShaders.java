@@ -2129,6 +2129,8 @@ final class PipelineShaders {
                 // tiles of the eye, and not at all past SPRIG_FADES_FAR, where it goes whole as it did.
                 const float CROWN_UNDER_FROM = 0.35, CROWN_UNDER_FULL = 0.8, CROWN_UNDER_THINS = 0.45, CROWN_UNDER_IN = 2.0, CROWN_UNDER_OUT = 3.5;
                 const float SPRIG_FADES = 0.3, SPRIG_FADES_NEAR = 4.0, SPRIG_FADES_FAR = 12.0;
+                // A bush's sprigs (Flora.SHRUB): a bush is not looked up into.
+                const float SHRUB = 6.0;
                 if (core) {
                     // Standing in a tree, the inside of its crown is not a wall round the eye.
                     if ((length(uEye - vWorld) - uRangeFrom) < 0.7) {
@@ -2175,7 +2177,7 @@ final class PipelineShaders {
                     // has only the first lot, so what shows through the gaps is the crown's own sprigs
                     // and wood and the sky. The gaps are the leaves' own, so a head turned on the spot
                     // moves none of them, and a tree the eye is not under keeps its inside whole.
-                    float under = smoothstep(CROWN_UNDER_OUT, CROWN_UNDER_IN, length(uEye.xy - vRoot))
+                    float under = which == SHRUB ? 0.0 : (1.0 - smoothstep(CROWN_UNDER_IN, CROWN_UNDER_OUT, length(uEye.xy - vRoot)))
                             * smoothstep(CROWN_UNDER_FROM, CROWN_UNDER_FULL, normalize(vWorld - uEye).z);
                     bool farSide = dot(vNormal, uEye - vWorld) < 0.0;
                     if (max(sprig.a, farSide ? 0.0 : behind.a * (1.0 - under)) < 0.5 * under) {
@@ -2218,7 +2220,8 @@ final class PipelineShaders {
                     // From under a tree the lower face of its crown is leaves with the light between
                     // them: of the sprigs turned down, some are left out, each whole, as all that
                     // decides it is the sprig's own and how far the eye is from the trunk.
-                    if (each < CROWN_UNDER_THINS * smoothstep(CROWN_UNDER_OUT, CROWN_UNDER_IN, length(uEye.xy - vRoot)) * smoothstep(0.2, -0.3, normalize(vNormal).z)) {
+                    if (floor(vMaterial - 71.5) != SHRUB && each < CROWN_UNDER_THINS * (1.0 - smoothstep(CROWN_UNDER_IN, CROWN_UNDER_OUT, length(uEye.xy - vRoot)))
+                            * (1.0 - smoothstep(-0.3, 0.2, normalize(vNormal).z))) {
                         discard;
                     }
                     // A card seen along its own flat is a smear of leaves a pixel deep. It is left
