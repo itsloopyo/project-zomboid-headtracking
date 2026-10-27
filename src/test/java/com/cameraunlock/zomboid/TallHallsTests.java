@@ -29,6 +29,7 @@ final class TallHallsTests {
         Checks.run("noOtherSquareIsLitAsAHall", TallHallsTests::noOtherSquareIsLitAsAHall);
         Checks.run("aRowLeftOutIsClosedWithPlasterToTheOpenAir", TallHallsTests::aRowLeftOutIsClosedWithPlasterToTheOpenAir);
         Checks.run("aRowLeftOutUnderARoofIsLeftToItsGables", TallHallsTests::aRowLeftOutUnderARoofIsLeftToItsGables);
+        Checks.run("wallGrimeGathersOnlyAtAFloorAndUnderACeiling", TallHallsTests::wallGrimeGathersOnlyAtAFloorAndUnderACeiling);
     }
 
     private static final IsoSprite FLOOR = new IsoSprite("floors_interior_tilesandwood_01_47", new PropertyContainer(Map.of()));
@@ -69,6 +70,19 @@ final class TallHallsTests {
             }
         }
         return cell;
+    }
+
+    private static void wallGrimeGathersOnlyAtAFloorAndUnderACeiling() {
+        IsoCell cell = hall();
+        check(WallBuilder.grimeFloored(cell, 1, 1, 0) && !WallBuilder.grimeCeiled(cell, 1, 1, 0, false),
+                "grime in a tall hall gathers along its floor, and dusts nothing under the floor of its upper part, where there is none");
+        check(!WallBuilder.grimeFloored(cell, 1, 1, 1) && WallBuilder.grimeCeiled(cell, 1, 1, 1, false),
+                "in the hall's upper part it gathers along no floor, and dusts under the ceiling over it");
+        check(!WallBuilder.grimeFloored(cell, 1, 2, 2), "nor in a floorless room on the floor over that");
+        check(WallBuilder.grimeFloored(cell, -1, -1, 0) && !WallBuilder.grimeCeiled(cell, -1, -1, 0, true),
+                "out of doors it gathers along the ground, under no ceiling");
+        check(!WallBuilder.grimeFloored(cell, -1, -1, 1) && !WallBuilder.grimeFloored(cell, 9, 9, 0),
+                "and along no floor over a lower storey, or where there is no square: there it was a stripe at every floor");
     }
 
     private static long roomUnder(IsoCell cell, int x, int y, int z) {

@@ -5,6 +5,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import zombie.core.properties.PropertyContainer;
 import zombie.core.textures.Texture;
+import zombie.iso.IsoCell;
 import zombie.iso.IsoDirections;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
@@ -397,15 +398,33 @@ final class WallBuilder {
         return side > 0f;
     }
 
+    /**
+     * Whether grime over a wall facing square (x, y, z) gathers along its foot: only where that square has a floor,
+     * the ground, a balcony or a room's. Elsewhere, out of doors over a lower storey, in the upper part of a tall hall
+     * or behind a porch roof in a room the map left floorless, a band there read as a stripe across the house at a floor.
+     */
+    static boolean grimeFloored(IsoCell cell, int x, int y, int z) {
+        IsoGridSquare square = cell.getGridSquare(x, y, z);
+        return square != null && square.getFloor() != null;
+    }
+
+    /** Whether grime over a wall facing square (x, y, z) has a ceiling over it to dust under: indoors, but under a tall hall's upper part. */
+    static boolean grimeCeiled(IsoCell cell, int x, int y, int z, boolean outside) {
+        return !outside && TallHalls.floorOf(cell, x, y, z + 1) == null;
+    }
+
     /** Grime over the wall on the given side, its corners carrying where on the wall they are: see SpriteGeometry.grimed. */
     private void addGrime(SpriteGeometry.Mesh mesh, int x, int y, int z, float da, float db, boolean near) {
         build.joinLevel = z;
         boolean north = da != 0f;
         int corners = WallJoins.insideCorners(build.standing, x, y, north, near);
         int fx = WallJoins.facedX(x, north, near), fy = WallJoins.facedY(y, north, near);
+        boolean outside = roomAt(fx, fy, z) == RoomSight.OUTSIDE;
         build.geometry.grimed = true;
         build.geometry.grimeAlongA = north;
-        build.geometry.grimeOutside = roomAt(fx, fy, z) == RoomSight.OUTSIDE;
+        build.geometry.grimeOutside = outside;
+        build.geometry.grimeFloored = grimeFloored(build.cell, fx, fy, z);
+        build.geometry.grimeCeiled = grimeCeiled(build.cell, fx, fy, z, outside);
         if (corners == (WallJoins.START | WallJoins.END)) {
             build.geometry.wholeA = build.geometry.wholeB = 0f;
             build.geometry.wholeDa = da;
@@ -422,6 +441,7 @@ final class WallBuilder {
             build.geometry.addFace(mesh, build.frame, x, y, z, 0f, 0f, 0f, da, db, 0f, 0f, 0f, 1f);
         }
         build.geometry.grimed = build.geometry.grimeLow = build.geometry.grimeHigh = build.geometry.grimeOutside = false;
+        build.geometry.grimeFloored = build.geometry.grimeCeiled = false;
         mesh.unrooted();
     }
 

@@ -1743,26 +1743,33 @@ final class PipelineShaders {
                 // darker into an inside corner, a little under the ceiling, and out of doors in
                 // short runs down from under a sill. Indoors the rest of the wall is a faint tone
                 // in clouds small enough that no wall is one blotch. The face carries how high
-                // above its foot it is, how far from an inside corner, and whether it is out of
-                // doors: see SpriteGeometry.grimed.
+                // above its foot it is, whether there is a floor at its foot and a ceiling over it,
+                // how far from an inside corner, and whether it is out of doors: see SpriteGeometry.grimed.
                 bool stainTint = abs(uTint.a - 16.0) < 0.5;
                 bool stainOnWall = texel.a >= 0.5;
                 if (stainTint) {
-                    // A storey's height. Grime over a wall: how much finer its clouds are indoors, and how much of
-                    // them is left there; how high its band along the floor reaches, how far its dusting under
-                    // the ceiling and its darkening into a corner reach, how far it runs down under a sill out of
-                    // doors; and the most of it there is anywhere. In tiles.
-            """ + "const float STOREY = " + ViewCamera.LEVEL_HEIGHT + ", GRIME_OUTSIDE = " + SpriteGeometry.GRIME_OUTSIDE + ";\n" + """
+                    // A storey's height, and how the face carries what it does. Grime over a wall: how much finer
+                    // its clouds are indoors, and how much of them is left there; how high its band along the floor
+                    // reaches, how far its dusting under the ceiling and its darkening into a corner reach, how far
+                    // it runs down under a sill out of doors; and the most of it there is anywhere. In tiles.
+            """ + "const float STOREY = " + ViewCamera.LEVEL_HEIGHT + ", GRIME_OUTSIDE = " + SpriteGeometry.GRIME_OUTSIDE
+                    + ", GRIME_FLOORED = " + SpriteGeometry.GRIME_FLOORED + ";\n" + """
                     const float GRIME_FINER = 2.2, GRIME_INDOORS = 0.33, GRIME_FOOT = 0.35, GRIME_CEILING = 0.3, GRIME_CORNER = 0.45, GRIME_RUN = 0.5, GRIME_MOST = 0.55;
-                    float up = vRoot.y, run = vWorld.x + vWorld.y;
-                    bool indoors = vRoot.x < 0.5 * GRIME_OUTSIDE;
+                    // The marks the height carries are read first, from a value kept clear of a mark's edge.
+                    float marks = floor((vRoot.y + 0.5) / GRIME_FLOORED);
+                    float up = vRoot.y - GRIME_FLOORED * marks, run = vWorld.x + vWorld.y;
+                    bool indoors = vRoot.x < 0.5 * GRIME_OUTSIDE, floored = mod(marks, 2.0) > 0.5, ceiled = marks > 1.5;
                     float corner = vRoot.x - (indoors ? 0.0 : GRIME_OUTSIDE);
                     vec2 alongFace = vec2(run, vWorld.z * 2.5) * (indoors ? GRIME_FINER : 1.0);
                     float clouds = smoothstep(0.3, 0.8, 0.65 * patches(alongFace * 1.7 + 7.0) + 0.35 * patches(alongFace * 5.3));
                     float grime = (0.08 + 0.2 * clouds) * (indoors ? GRIME_INDOORS : 1.0);
-                    float foot = GRIME_FOOT * (0.7 + 0.6 * patches(vec2(run * 1.3, 5.0)));
-                    grime += (1.0 - smoothstep(0.25 * foot, foot, up)) * (0.36 + 0.16 * patches(vec2(run * 7.0, up * 11.0) + 3.0));
-                    grime += smoothstep(STOREY - GRIME_CEILING, STOREY, up) * (0.03 + 0.05 * clouds);
+                    if (floored) {
+                        float foot = GRIME_FOOT * (0.7 + 0.6 * patches(vec2(run * 1.3, 5.0)));
+                        grime += (1.0 - smoothstep(0.25 * foot, foot, up)) * (0.36 + 0.16 * patches(vec2(run * 7.0, up * 11.0) + 3.0));
+                    }
+                    if (ceiled) {
+                        grime += smoothstep(STOREY - GRIME_CEILING, STOREY, up) * (0.03 + 0.05 * clouds);
+                    }
                     grime += (1.0 - smoothstep(0.0, GRIME_CORNER, corner)) * (0.08 + 0.12 * clouds);
                     // A step straight up the wall in the sprite, from how the face's run and height
                     // cross the screen. The run is taken from the eye's place, which a float holds
