@@ -586,7 +586,12 @@ final class PlantBuilder {
         roomFor(x, y, z);
         float lowA = Math.max(0.04f, build.room[0] - x), highA = Math.min(0.96f, build.room[1] - x);
         float lowB = Math.max(0.04f, build.room[2] - y), highB = Math.min(0.96f, build.room[3] - y);
-        Flowerbeds.grow(build.geometry, WorldScene.laid.get(texture.getID()), build.frame, bed, x, y, build.bandAway, lowA, highA, lowB, highB);
+        // Roses go by the season: the build is made again as the season moves on.
+        build.building.seasonal = true;
+        long now = Seasons.now();
+        int season = Seasons.seasonOf(now);
+        Flowerbeds.grow(build.geometry, WorldScene.laid.get(texture.getID()), build.frame, bed, x, y, build.bandAway, lowA, highA, lowB, highB, season,
+                Seasons.stepped(season, Seasons.progressionOf(now)));
     }
 
     /**

@@ -19,6 +19,8 @@ final class FlowerbedTests {
         Checks.run("leavesAndFlowersTakeTheirColoursFromLeavesAndBlooms", FlowerbedTests::leavesAndFlowersTakeTheirColoursFromLeavesAndBlooms);
         Checks.run("aBedOfStonesGrowsNothing", FlowerbedTests::aBedOfStonesGrowsNothing);
         Checks.run("rosesThinWithDistance", FlowerbedTests::rosesThinWithDistance);
+        Checks.run("rosesFlowerFromLateSpringToEarlyAutumn", FlowerbedTests::rosesFlowerFromLateSpringToEarlyAutumn);
+        Checks.run("rosesAreBareCanesInWinter", FlowerbedTests::rosesAreBareCanesInWinter);
     }
 
     private static void bedsAreToldByName() {
@@ -112,9 +114,44 @@ final class FlowerbedTests {
     }
 
     private static SpriteGeometry.Mesh grown(Flowerbeds.Bed bed, float away) {
+        return grown(bed, away, Seasons.SUMMER, 0.5f);
+    }
+
+    private static SpriteGeometry.Mesh grown(Flowerbeds.Bed bed, float away, int season, float progression) {
         SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
-        Flowerbeds.grow(new SpriteGeometry(), mesh, frame(), bed, 30, 40, away, 0.04f, 0.96f, 0.04f, 0.96f);
+        Flowerbeds.grow(new SpriteGeometry(), mesh, frame(), bed, 30, 40, away, 0.04f, 0.96f, 0.04f, 0.96f, season, progression);
         return mesh;
+    }
+
+    /** How many strips of a form the mesh holds, counted by their feet. */
+    private static int strips(SpriteGeometry.Mesh mesh, int form) {
+        int feet = 0;
+        for (int at = 0; at < mesh.floats; at += F) {
+            if (mesh.vertices[at + 10] == 2f * form) {
+                feet++;
+            }
+        }
+        return feet;
+    }
+
+    private static void rosesFlowerFromLateSpringToEarlyAutumn() {
+        check(!Flowerbeds.flowering(Seasons.SPRING, 0.2f, 0f) && Flowerbeds.flowering(Seasons.SPRING, 0.7f, 1f), "no bush flowers early in spring, and every one by its end");
+        check(Flowerbeds.flowering(Seasons.SUMMER, 0f, 1f) && Flowerbeds.flowering(Seasons.SUMMER2, 1f, 0f), "every bush flowers all summer");
+        check(Flowerbeds.flowering(Seasons.AUTUMN, 0.05f, 0f) && !Flowerbeds.flowering(Seasons.AUTUMN, 0.5f, 1f), "every bush flowers into autumn, and none past its middle");
+        check(!Flowerbeds.flowering(Seasons.WINTER, 0.5f, 0.5f), "none in winter");
+        Flowerbeds.Bed bed = halfStones();
+        int summer = strips(grown(bed, 3f), Grass.BLOOM), spring = strips(grown(bed, 3f, Seasons.SPRING, 0.55f), Grass.BLOOM);
+        check(summer > 0 && spring > 0 && spring < summer, "a bed comes into flower a bush at a time: " + spring + " flowers late in spring, " + summer + " in summer");
+        check(strips(grown(bed, 3f, Seasons.AUTUMN, 0.9f), Grass.BLOOM) == 0, "late in autumn it has none");
+    }
+
+    private static void rosesAreBareCanesInWinter() {
+        Flowerbeds.Bed bed = halfStones();
+        SpriteGeometry.Mesh winter = grown(bed, 3f, Seasons.WINTER, 0.5f), summer = grown(bed, 3f);
+        int canes = strips(winter, Grass.BLADE + Grass.CROP);
+        check(canes > 0 && canes == strips(summer, Grass.BLADE + Grass.CROP), "the bushes stand through the winter, every cane of them: " + canes);
+        check(strips(winter, Grass.BROAD + Grass.CROP) == 0 && strips(winter, Grass.BLOOM) == 0, "with no leaf and no flower on them");
+        check(strips(summer, Grass.BROAD + Grass.CROP) > 0, "which they have in summer");
     }
 
     private static void rosesGrowOnlyWhereTheBedIsPaintedWithPlants() {

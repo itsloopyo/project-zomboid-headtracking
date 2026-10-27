@@ -13,6 +13,10 @@ import zombie.core.textures.Texture;
  * coloured from a leaf the sprite paints near its bush and each flower from a bloom. Where the
  * sprite paints stones nothing grows, and the stones stay painted on the ground with the soil.
  *
+ * Roses go by the season (Seasons): a bush comes into leaf in spring and drops its leaves in
+ * autumn as the trees do, each on a day of its own, and is bare canes through the winter. It
+ * flowers from late spring until early autumn.
+ *
  * The colours come from the sprite's own dots, which are read on the thread that draws (see
  * SpriteColours): a bed is laid flat until its sprite has been read, and grows once it has.
  */
@@ -28,6 +32,10 @@ final class Flowerbeds {
     static final int LOOK = 5;
     /** A bush is never shorter or taller than these, in tiles. */
     private static final float LOWEST = 0.28f, TALLEST = 0.42f;
+    /** How far through spring the first and the last bush come into flower, by Seasons.stepped's spring, which goes no further than 0.7. */
+    private static final float FLOWERS_EARLIEST = 0.4f, FLOWERS_LATEST = 0.7f;
+    /** How far through autumn the first and the last bush have finished flowering. */
+    private static final float FLOWERS_GONE_EARLIEST = 0.1f, FLOWERS_GONE_LATEST = 0.5f;
     /** A dot covered less than this is the sprite's empty corner. */
     private static final int COVERED = 153;
 
@@ -102,13 +110,26 @@ final class Flowerbeds {
     }
 
     /**
+     * Whether a bush whose own number is own (0 to 1) is in flower at the time of year: from a
+     * day of its own in late spring to one in early autumn, and all summer.
+     */
+    static boolean flowering(int season, float progression, float own) {
+        return switch (season) {
+            case Seasons.SPRING -> progression >= FLOWERS_EARLIEST + (FLOWERS_LATEST - FLOWERS_EARLIEST) * own;
+            case Seasons.AUTUMN -> progression < FLOWERS_GONE_EARLIEST + (FLOWERS_GONE_LATEST - FLOWERS_GONE_EARLIEST) * own;
+            case Seasons.WINTER -> false;
+            default -> true;
+        };
+    }
+
+    /**
      * Grows the bed of the square (x, y) as from away tiles off, from what its sprite's dots are,
-     * between lowA..highA and lowB..highB of the square. A bush stands where more of the dots round
-     * its foot are leaves and blooms than stones, and needs a leaf and a bloom among them to take
-     * its colours from.
+     * between lowA..highA and lowB..highB of the square, at the time of year season and progression
+     * (Seasons.stepped). A bush stands where more of the dots round its foot are leaves and blooms
+     * than stones, and needs a leaf and a bloom among them to take its colours from.
      */
     static void grow(SpriteGeometry geometry, SpriteGeometry.Mesh mesh, SpriteGeometry.Frame frame, Bed bed, int x, int y, float away, float lowA,
-            float highA, float lowB, float highB) {
+            float highA, float lowB, float highB, int season, float progression) {
         float kept = Grass.kept(away * away * 0.8f);
         float broadens = Math.min(1f / (float) Math.sqrt(kept), 2.8f);
         int steps = away < 6f ? 3 : away < 12f ? 2 : 1;
@@ -128,7 +149,9 @@ final class Flowerbeds {
                 if (leaf < 0 || bloom < 0) {
                     continue;
                 }
-                bush(geometry, mesh, frame, bed, x, y, a, b, leaf, bloom, Flora.mix(hash, i, 11), broadens, steps);
+                int more = Flora.mix(hash, i, 11);
+                float leafOn = Seasons.leafOn(season, progression, more);
+                bush(geometry, mesh, frame, bed, x, y, a, b, leaf, bloom, more, broadens, steps, leafOn, flowering(season, progression, Flora.unit(more, 4)));
             }
         }
         mesh.face(0f, 0f, 1f);
@@ -190,11 +213,12 @@ final class Flowerbeds {
 
     /**
      * A rose bush at (a, b) of the square: two or three stems leaning out from its foot, each with
-     * leaves held out on alternate sides up it and a flower at its top. Its leaves and stems take
-     * the colour of the dot leaf, its flowers that of bloom and of other blooms near it.
+     * leaves held out on alternate sides up it, leafOn of them (Seasons.leafOn), and a flower at
+     * its top while it is flowering. Its leaves and stems take the colour of the dot leaf, its
+     * flowers that of bloom and of other blooms near it.
      */
     private static void bush(SpriteGeometry geometry, SpriteGeometry.Mesh mesh, SpriteGeometry.Frame frame, Bed bed, int x, int y, float a, float b,
-            int leaf, int bloom, int more, float broadens, int steps) {
+            int leaf, int bloom, int more, float broadens, int steps, float leafOn, boolean flowering) {
         float leafU = dotU(bed, frame, leaf), leafV = dotV(bed, frame, leaf);
         float high = LOWEST + (TALLEST - LOWEST) * Flora.unit(more, 0);
         float turn = Flora.unit(more, 24) * 6.2831853f;
@@ -211,6 +235,9 @@ final class Flowerbeds {
             int leaves = steps > 1 ? 5 : 2;
             for (int each = 0; each < leaves; each++) {
                 int one = Flora.mix(own, each, 47);
+                if (Flora.unit(one, 24) >= leafOn) {
+                    continue;
+                }
                 float share = 0.3f + 0.65f * (each + Flora.unit(one, 0)) / leaves;
                 float side = way + ((each & 1) == 0 ? 1.4f : -1.4f) + 0.7f * (Flora.unit(one, 4) - 0.5f);
                 // A leaf grows from the stem where the stem has got to by then: it leans little, so that is its share of the way out.
@@ -219,6 +246,9 @@ final class Flowerbeds {
                 geometry.addStrip(mesh, frame, Grass.cos(side), Grass.sin(side), 0f, topUp * share, 1.0f + 0.4f * Flora.unit(one, 8), 0.5f,
                         0.08f + 0.04f * Flora.unit(one, 12), 0.05f * Math.min(broadens, 2f), 0.5f * (Flora.unit(one, 16) - 0.5f), Math.min(steps, 2),
                         SpriteGeometry.POINTED, Grass.BROAD + Grass.CROP, Flora.unit(one, 20), 0.8f);
+            }
+            if (!flowering) {
+                continue;
             }
             // The flower: one of the blooms near the bush, on the stem's top, faced up and out the way the stem leans.
             int flower = Flora.unit(own, 28) < 0.5f ? bloom : nearOr(bed, bloom, own);
