@@ -80,6 +80,10 @@ public final class FirstPerson {
     private static final long HINT_FOR_NANOS = 10_000_000_000L;
     private String hint;
     private long hintAt;
+    /** The hint said after the first, and when: HINT_GAP_NANOS after the first goes. */
+    private String laterHint;
+    private long laterHintAt;
+    private static final long HINT_GAP_NANOS = 3_000_000_000L;
     private long saidAt;
     private String said;
     /** The step of VideoMemory's the screen has said. */
@@ -643,6 +647,12 @@ public final class FirstPerson {
                 view.hearing.listen(player, view.worldScene, System.nanoTime());
             }
             long now = System.nanoTime();
+            if (laterHint != null && now >= laterHintAt) {
+                hint = laterHint;
+                hintAt = now;
+                laterHint = null;
+                Log.info(who() + "the screen says: " + hint);
+            }
             shown = gettingReady ? "First person: getting ready" : said != null && now - saidAt < SAID_FOR_NANOS ? said
                     : hint != null && now - hintAt < HINT_FOR_NANOS ? hint : null;
         } catch (RuntimeException | LinkageError thrown) {
@@ -682,6 +692,9 @@ public final class FirstPerson {
     private void frame(int pressed) {
         if ((pressed & Config.FIRST_PERSON) != 0) {
             viewAtLoadOwed = false;
+            if (hint != null && laterHint != null) {
+                laterHintAt = Math.min(laterHintAt, System.nanoTime() + HINT_GAP_NANOS);
+            }
             hint = null;
             boolean asked = on || gettingReady;
             toggle();
@@ -731,6 +744,10 @@ public final class FirstPerson {
                 hint = View.onController(player) ? "Double-tap Back for first person" : "Press " + Tracking.firstPersonKeys() + " for first person";
                 hintAt = System.nanoTime();
                 Log.info(who() + "the save loads in the isometric view, and the screen says: " + hint);
+                if (!View.onController(player)) {
+                    laterHint = "Press " + Tracking.cycleQualityKeys() + " to change graphics quality. First person and isometric each have their own settings";
+                    laterHintAt = hintAt + HINT_FOR_NANOS + HINT_GAP_NANOS;
+                }
             }
         }
         boolean overheadAsked = !Quality.overheadPlain(view.index) && allowed;

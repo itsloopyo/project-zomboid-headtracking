@@ -763,6 +763,11 @@ final class Tracking {
         return config.firstPersonKeys();
     }
 
+    /** The keys that go to the next graphics mode, as CameraUnlock.ini names them. */
+    static String cycleQualityKeys() {
+        return config.cycleQualityKeys();
+    }
+
     /** The view a player switched to, kept for the next load. */
     static void rememberFirstPerson(int player, boolean on) {
         firstPersonAtLoad(player, on);
