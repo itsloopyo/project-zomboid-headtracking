@@ -4,7 +4,6 @@ import zombie.iso.IsoWorld;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -2628,7 +2627,7 @@ public final class Characters {
      */
     private final ColorInfo stoodIn = new ColorInfo();
     /** Whether each room asked after in the frame roomsSeenFrame names has been seen as a whole. */
-    private final HashMap<Long, Boolean> roomsSeen = new HashMap<>();
+    private final LongTable<Boolean> roomsSeen = new LongTable<>();
     private long roomsSeenFrame = -1L;
 
     private void lightWhere(ModelSlotRenderData data) {
