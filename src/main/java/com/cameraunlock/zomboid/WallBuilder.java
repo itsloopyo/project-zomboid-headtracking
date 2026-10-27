@@ -2377,7 +2377,9 @@ final class WallBuilder {
         if (far == -1L) {
             farFacing = WallFinish.facing(build.cell, building, z, north, own, world.roundNow);
         }
-        if (shows == null || shows == texture) {
+        // shows is one sprite of the finish, mostly its wall on a north edge: a wall that is the finish's own wall for its edge
+        // is told by the facing, or a barn of upright boards was boards on its north face and lapped siding on its west.
+        if (shows == null || shows == texture || farFacing != null && farFacing.texture == texture) {
             return 0;
         }
         farShows = far == -1L ? null : shows;
