@@ -720,7 +720,8 @@ final class HiddenWalls {
             stands = true;
             sink &= "Sink".equals(properties.get("CustomName")) && (wall == SOUTH ? "N" : "W").equals(properties.get("Facing"));
             int surface = Math.max(properties.getSurface(), properties.getItemHeight());
-            low &= surface > 0 && surface <= UNDER_A_CLOCK && !properties.has("IsHigh");
+            // A cooker is low, and nobody hangs a picture or a clock over one.
+            low &= surface > 0 && surface <= UNDER_A_CLOCK && !properties.has("IsHigh") && !"stove".equals(properties.get("container"));
         }
         return new Spot(square, wall, stands, stands && low, stands && sink);
     }
