@@ -79,6 +79,9 @@ import zombie.vehicles.VehiclePart;
  *
  * Numpad + and Numpad - go to the next and the last of the test scenes: see DevScenes.
  *
+ * The backslash puts the graphics mode of the view the player is in at Low, and at High on the
+ * next press, and says on the screen which: for comparing the two without stepping F9 round.
+ *
  * The slash puts a flashlight in the player's left hand, charged and lit: for
  * the beam that follows the head, and for night, without finding one and a battery. A weapon
  * in the right hand stays there.
@@ -110,7 +113,9 @@ public final class DevKeys {
     }
 
     /**
-     * The first is off the north-west corner of the Louisville church, nave over tiles 12752 to 12782
+     * The first three stand by a bus shelter of full-height glass (15332..15334, 3271..3273), by the
+     * glass greenhouse at the school (13811..13821, 4706..4711), and in front of the barn at 9926, 6639.
+     * The next is off the north-west corner of the Louisville church, nave over tiles 12752 to 12782
      * by 1664 to 1687, to look at how its brick turns the corner. The next is the street south of the map's tallest building, 28 floors over tiles
      * 12751 to 12793 by 1512 to 1544, and the one after is on its roof. The next is at the gate between two of the
      * cattle pastures of the farm by the corn maze, which has five of the game's cow ranch zones and chicken and sheep
@@ -119,6 +124,9 @@ public final class DevKeys {
      * for each town, so there is a floor to stand on at every one.
      */
     private static final Place[] PLACES = {
+            new Place("a bus shelter", 15337.5f, 3275.5f),
+            new Place("the school's greenhouse", 13824.5f, 4714.5f),
+            new Place("a barn", 9926.5f, 6639.5f),
             new Place("Louisville, the church's north-west corner", 12749.5f, 1661.5f),
             new Place("Louisville, the skyscraper", 12772.5f, 1565.5f),
             new Place("Louisville, the skyscraper's roof", 12785.415f, 1523.9503f, 26),
@@ -225,6 +233,8 @@ public final class DevKeys {
     private static final int SCOPED_KEY = 26;
     /** The slash, beside the full stop. The right square bracket is the game's own, for its furniture panel. */
     private static final int TORCH_KEY = 53;
+    /** The backslash, which the game's default bindings leave alone. */
+    private static final int LOW_HIGH_KEY = 43;
     private static final String TORCH = "Base.HandTorch";
     private static final String RIFLE = "Base.HuntingRifle";
     private static int scope = -1;
@@ -255,7 +265,7 @@ public final class DevKeys {
         String told = null;
         if (!said) {
             said = true;
-            Log.info("development build: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 puts the clock on three hours, Backspace holds the next season of spring, summer, autumn and winter, End holds the next weather of clear, rainy, snowy and stormy, Home starts a fire where the reticle is, ; gives the next of the game's firearms, any gun held never runs dry, [ gives a hunting rifle with the next of the three scopes on it, / gives a lit flashlight, ' makes you invincible, F7 takes the nearest vehicle, Numpad + and Numpad - go to the next and the last test scene, Pause dumps the frame and the shadow maps");
+            Log.info("development build: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 puts the clock on three hours, Backspace holds the next season of spring, summer, autumn and winter, End holds the next weather of clear, rainy, snowy and stormy, Home starts a fire where the reticle is, ; gives the next of the game's firearms, any gun held never runs dry, [ gives a hunting rifle with the next of the three scopes on it, / gives a lit flashlight, \\ puts the graphics at Low and High in turn, ' makes you invincible, F7 takes the nearest vehicle, Numpad + and Numpad - go to the next and the last test scene, Pause dumps the frame and the shadow maps");
         }
         if (GameKeyboard.isKeyPressed(FRAME_DUMP_KEY)) {
             FrameDump.ask();
@@ -396,6 +406,16 @@ public final class DevKeys {
                 held.setJammed(false);
                 held.setCondition(held.getConditionMax());
             }
+        }
+        if (GameKeyboard.isKeyPressed(LOW_HIGH_KEY)) {
+            for (IsoPlayer each : players) {
+                int player = each.getPlayerNum();
+                boolean firstPerson = Quality.firstPersonInEffect(player);
+                int mode = (firstPerson ? Quality.row(player) : Quality.overheadRow(player)) == Quality.LOW ? Quality.HIGH : Quality.LOW;
+                Tracking.setGraphicsMode(player, firstPerson, mode);
+                told = "Graphics: " + (mode == Quality.LOW ? "Low" : "High");
+            }
+            Log.info("\\: " + told + " for " + players.size() + " players");
         }
         if (GameKeyboard.isKeyPressed(TAKE_VEHICLE_KEY)) {
             for (IsoPlayer each : players) {

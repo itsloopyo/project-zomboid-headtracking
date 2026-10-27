@@ -725,14 +725,18 @@ final class Tracking {
      * view's, kept for the next start. The other view keeps its own.
      */
     static void cycleGraphicsMode(int player) {
-        if (Quality.firstPersonInEffect(player)) {
-            int next = Quality.next(player);
-            Quality.set(player, next);
-            save(() -> config.saveQuality(player, next));
+        boolean firstPerson = Quality.firstPersonInEffect(player);
+        setGraphicsMode(player, firstPerson, firstPerson ? Quality.next(player) : Quality.nextOverhead(player));
+    }
+
+    /** A player's graphics mode of their first person or their isometric view, kept for the next start. */
+    static void setGraphicsMode(int player, boolean firstPerson, int mode) {
+        if (firstPerson) {
+            Quality.set(player, mode);
+            save(() -> config.saveQuality(player, mode));
         } else {
-            int next = Quality.nextOverhead(player);
-            Quality.setOverhead(player, next);
-            save(() -> config.saveIsometricQuality(player, next));
+            Quality.setOverhead(player, mode);
+            save(() -> config.saveIsometricQuality(player, mode));
         }
     }
 
