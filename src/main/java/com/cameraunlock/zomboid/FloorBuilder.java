@@ -25,6 +25,7 @@ final class FloorBuilder {
 
     private final WorldScene.Frame build;
 
+    /** The places of the squares whose grounds spread over the one being laid, a square of each ground, in the order they are laid. */
     private final int[] spreading = new int[8];
     private final float[] coverGrid = new float[SpriteGeometry.GRID_COVER];
     /** How much of a square's own ground the ground spreading over it covers where the square's own goes on through. */
@@ -88,60 +89,67 @@ final class FloorBuilder {
             return 0;
         }
         int mine = build.groundRank[own];
-        int spread = 0;
+        int grounds = spreading(own, mine);
+        for (int spread = 1; spread <= grounds; spread++) {
+            int at = spreading[spread - 1];
+            around(x, y, x - localX, y - localY, own, mine, build.groundRank[at]);
+            boolean grid = coverFrom(around, build.cover, coverGrid);
+            if (build.groundKind[own] == Terrain.MADE) {
+                for (int i = 0; i < coverGrid.length; i++) {
+                    coverGrid[i] *= MADE_EDGE;
+                }
+                coverGrid[4] = 0f;
+                grid = true;
+            }
+            build.frameOf(build.groundObject[at], build.groundTexture[at]);
+            // Of the neighbour's ground's stuff, as its own floor is: not of whatever was added last on this square.
+            IsoSprite ground = build.groundObject[at].getSprite();
+            PropertyContainer properties = ground.getProperties();
+            build.frame.material = Ground.floor(properties.get("FloorMaterial"), properties.get("FootstepMaterial"), ground.getName());
+            // Laid from the same flat picture as the neighbour's own floor, or the two meet in a seam
+            // where the one picture of the ground runs into the other.
+            int flat = build.flatOf(build.groundTexture[at], Flats.FLOOR, 0f, 0f, 0f);
+            build.frame.flat = flat != 0 ? SpriteGeometry.FLAT_FLOOR : 0;
+            build.geometry.cover = grid ? coverGrid : build.cover;
+            // Grass does not spread down a kerb onto the street.
+            build.geometry.kerbKeep = SpriteGeometry.LAND;
+            build.spreadFaces++;
+            WorldScene.layers.lie(SpriteGeometry.LAYERS_UP, build.floorLayer + spread - 1);
+            SpriteGeometry.Mesh laidOn = WorldScene.laid.get(flat != 0 ? flat : build.groundTexture[at].getID());
+            if (grid) {
+                for (int quarter = 0; quarter < 4; quarter++) {
+                    build.geometry.addFace(laidOn, build.frame, x, y, 0, (quarter & 1) * 0.5f, (quarter >> 1) * 0.5f, 0f, 0.5f, 0f, 0f, 0f, 0.5f, 0f);
+                }
+            } else {
+                build.geometry.addFace(laidOn, build.frame, x, y, 0, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
+            }
+            build.frame.flat = 0;
+            WorldScene.layers.none();
+            build.geometry.kerbKeep = SpriteGeometry.BOTH;
+            build.geometry.cover = null;
+        }
+        return grounds;
+    }
+
+    /** Fills spreading with the grounds that spread over the square at own, whose ground is mine, and returns how many. */
+    private int spreading(int own, int mine) {
+        int grounds = 0;
         for (int di = -1; di <= 1; di++) {
             for (int dj = -1; dj <= 1; dj++) {
                 int at = own + di * WorldScene.LIGHT_SPAN + dj;
                 if (!spreads(at, own, mine)) {
                     continue;
                 }
-                int name = build.groundRank[at];
                 boolean done = false;
-                for (int k = 0; k < spread; k++) {
-                    done |= spreading[k] == name;
+                for (int k = 0; k < grounds; k++) {
+                    done |= build.groundRank[spreading[k]] == build.groundRank[at];
                 }
-                if (done) {
-                    continue;
+                if (!done) {
+                    spreading[grounds++] = at;
                 }
-                spreading[spread++] = name;
-                around(x, y, x - localX, y - localY, own, mine, name);
-                boolean grid = coverFrom(around, build.cover, coverGrid);
-                if (build.groundKind[own] == Terrain.MADE) {
-                    for (int i = 0; i < coverGrid.length; i++) {
-                        coverGrid[i] *= MADE_EDGE;
-                    }
-                    coverGrid[4] = 0f;
-                    grid = true;
-                }
-                build.frameOf(build.groundObject[at], build.groundTexture[at]);
-                // Of the neighbour's ground's stuff, as its own floor is: not of whatever was added last on this square.
-                IsoSprite ground = build.groundObject[at].getSprite();
-                PropertyContainer properties = ground.getProperties();
-                build.frame.material = Ground.floor(properties.get("FloorMaterial"), properties.get("FootstepMaterial"), ground.getName());
-                // Laid from the same flat picture as the neighbour's own floor, or the two meet in a seam
-                // where the one picture of the ground runs into the other.
-                int flat = build.flatOf(build.groundTexture[at], Flats.FLOOR, 0f, 0f, 0f);
-                build.frame.flat = flat != 0 ? SpriteGeometry.FLAT_FLOOR : 0;
-                build.geometry.cover = grid ? coverGrid : build.cover;
-                // Grass does not spread down a kerb onto the street.
-                build.geometry.kerbKeep = SpriteGeometry.LAND;
-                build.spreadFaces++;
-                WorldScene.layers.lie(SpriteGeometry.LAYERS_UP, build.floorLayer + spread - 1);
-                SpriteGeometry.Mesh laidOn = WorldScene.laid.get(flat != 0 ? flat : build.groundTexture[at].getID());
-                if (grid) {
-                    for (int quarter = 0; quarter < 4; quarter++) {
-                        build.geometry.addFace(laidOn, build.frame, x, y, 0, (quarter & 1) * 0.5f, (quarter >> 1) * 0.5f, 0f, 0.5f, 0f, 0f, 0f, 0.5f, 0f);
-                    }
-                } else {
-                    build.geometry.addFace(laidOn, build.frame, x, y, 0, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
-                }
-                build.frame.flat = 0;
-                WorldScene.layers.none();
-                build.geometry.kerbKeep = SpriteGeometry.BOTH;
-                build.geometry.cover = null;
             }
         }
-        return spread;
+        return grounds;
     }
 
     /**
@@ -155,27 +163,13 @@ final class FloorBuilder {
             return -1;
         }
         int mine = build.groundRank[own];
-        int spread = 0, top = -1;
-        for (int di = -1; di <= 1; di++) {
-            for (int dj = -1; dj <= 1; dj++) {
-                int at = own + di * WorldScene.LIGHT_SPAN + dj;
-                if (!spreads(at, own, mine)) {
-                    continue;
-                }
-                boolean done = false;
-                for (int k = 0; k < spread; k++) {
-                    done |= spreading[k] == build.groundRank[at];
-                }
-                if (!done) {
-                    spreading[spread++] = build.groundRank[at];
-                    top = at;
-                }
-            }
+        int grounds = spreading(own, mine);
+        if (grounds == 0) {
+            return -1;
         }
-        if (top >= 0) {
-            around(x, y, x - localX, y - localY, own, mine, build.groundRank[top]);
-            coverFrom(around, uppermostCorners, grid);
-        }
+        int top = spreading[grounds - 1];
+        around(x, y, x - localX, y - localY, own, mine, build.groundRank[top]);
+        coverFrom(around, uppermostCorners, grid);
         return top;
     }
 
