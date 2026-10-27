@@ -197,7 +197,7 @@ final class FenceTests {
                 "OpeningBuilder.HARDWARE", OpeningBuilder.HARDWARE, "OpeningBuilder.JOINERY_LEVEL", OpeningBuilder.JOINERY_LEVEL,
                 "WorldScene.BODY", WorldScene.BODY, "WorldScene.PRINT", WorldScene.PRINT, "ChainLink.FABRIC", ChainLink.FABRIC,
                 "ChainLink.BROKEN", ChainLink.BROKEN, "ChainLink.BURNT", ChainLink.BURNT, "WorldScene.INNER_PANE", WorldScene.INNER_PANE,
-                "WallBuilder.INNER_GLASS", WallBuilder.INNER_GLASS, "WorldScene.STAINED", WorldScene.STAINED,
+                "WorldScene.OUTER_PANE", WorldScene.OUTER_PANE, "WallBuilder.INNER_GLASS", WallBuilder.INNER_GLASS, "WorldScene.STAINED", WorldScene.STAINED,
                 "WorldScene.OWN_STAINED", WorldScene.OWN_STAINED, "WorldScene.STRAW", WorldScene.STRAW, "WorldScene.TERRAZZO", WorldScene.TERRAZZO,
                 "WorldScene.CANVAS", WorldScene.CANVAS, "WorldScene.FLOOR_CARPET", WorldScene.FLOOR_CARPET};
         Map<Float, String> taken = new HashMap<>();
