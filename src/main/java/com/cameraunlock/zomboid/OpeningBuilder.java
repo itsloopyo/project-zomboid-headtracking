@@ -751,7 +751,7 @@ final class OpeningBuilder {
         if (shape == null) {
             // The sprite is measured by the next frame drawn. A build that went without is
             // made again when next due, though nothing it read of the map has changed.
-            if (Windows.unread(texture)) {
+            if (Windows.unread(texture, north)) {
                 build.building.signed = false;
             }
             return false;

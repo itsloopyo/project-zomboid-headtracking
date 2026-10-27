@@ -2190,6 +2190,8 @@ final class WorldScene {
     /** The sheet of pantiles whose places FIRST_TILED_GLASS to LAST_TILED_GLASS, and the two of TILED_GLASS_EAVES, are the same roof in glass. */
     private static final String TILED_ROOFS = "roofs_02_";
     private static final int FIRST_TILED_GLASS = 32, LAST_TILED_GLASS = 63, TILED_GLASS_EAVES = 78;
+    /** A bus shelter's corner, a sheet of glass on each edge round its post, which the game makes no window of as it does the sheets along its sides. */
+    private static final String SHELTER_CORNER = "walls_commercial_01_98";
 
     /** What a sprite's surface is made of, by the sheet it comes from. */
     static float materialOf(String name, boolean isFloor) {
@@ -2217,7 +2219,7 @@ final class WorldScene {
         if (name.startsWith("roofs_")) {
             return SHINGLES;
         }
-        if (name.startsWith("fixtures_windows") && !name.startsWith("fixtures_windows_curtains")) {
+        if (name.startsWith("fixtures_windows") && !name.startsWith("fixtures_windows_curtains") || name.equals(SHELTER_CORNER)) {
             return GLASS;
         }
         if (name.startsWith("lighting_")) {

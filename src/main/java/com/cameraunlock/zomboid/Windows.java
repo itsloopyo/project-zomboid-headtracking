@@ -45,6 +45,8 @@ final class Windows {
     private static final int SOLID_COVER = 250;
     /** How much of the foot or head of a window has to be painted solid for it to be wall and not darkened glass. */
     private static final float PAINTED_SOLID = 0.5f;
+    /** The highest a window's foot is, in levels: the foot of a sill is a few dots, and a band a fifth of the wall high painted short of solid is frosted glass. */
+    static final float FROSTED_FOOT = 0.2f;
     static final int BANDS = 16;
 
     /** One window: all places are shares of the wall's length, then heights in levels. */
@@ -80,10 +82,11 @@ final class Windows {
     private record Asked(boolean north, float originU, float originV, float scale, float left, float top, float width, float height) {}
 
     private static final Shape NONE = new Shape();
-    private static final ConcurrentHashMap<Texture, Asked> asked = new ConcurrentHashMap<>();
-    private static final ConcurrentHashMap<Texture, Shape> known = new ConcurrentHashMap<>();
-    /** The sprites asked for on the other edge than the one they are kept for: a sprite stands on one edge, and is read for the first that asks. */
-    private static final ConcurrentHashMap<Texture, Boolean> otherEdge = new ConcurrentHashMap<>();
+    /** A sprite on the north edge or the west: a corner of glass stands on both, and is a window on each. */
+    private record Edge(Texture texture, boolean north) {}
+
+    private static final ConcurrentHashMap<Edge, Asked> asked = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<Edge, Shape> known = new ConcurrentHashMap<>();
 
     private Windows() {}
 
@@ -94,26 +97,22 @@ final class Windows {
      * sheet of stained glass.
      */
     static Shape of(Texture texture, SpriteGeometry.Frame frame, boolean north) {
-        Shape shape = known.get(texture);
-        if (shape != null && (shape == NONE || shape.north == north && shape.originU == frame.originU && shape.originV == frame.originV && shape.scale == frame.scale)) {
+        Edge edge = new Edge(texture, north);
+        Shape shape = known.get(edge);
+        if (shape != null && (shape == NONE || shape.originU == frame.originU && shape.originV == frame.originV && shape.scale == frame.scale)) {
             return shape == NONE ? null : shape;
         }
-        Asked before = asked.get(texture);
-        if (before != null && before.north != north) {
-            otherEdge.put(texture, Boolean.TRUE);
-            return null;
-        }
         Asked wanted = new Asked(north, frame.originU, frame.originV, frame.scale, frame.left, frame.top, frame.width, frame.height);
-        if (!wanted.equals(asked.put(texture, wanted))) {
-            known.remove(texture);
+        if (!wanted.equals(asked.put(edge, wanted))) {
+            known.remove(edge);
             SpriteColours.readAgain(texture);
         }
         return null;
     }
 
     /** Whether the sprite has still to be read: of() gives null for it, and will not once a frame has been drawn. */
-    static boolean unread(Texture texture) {
-        return !known.containsKey(texture) && !otherEdge.containsKey(texture);
+    static boolean unread(Texture texture, boolean north) {
+        return !known.containsKey(new Edge(texture, north));
     }
 
     /**
@@ -121,8 +120,13 @@ final class Windows {
      * (right, bottom) of a sheet width dots wide, held as bytes of red, green, blue and cover.
      */
     static void read(Texture texture, ByteBuffer sheet, int width, int left, int top, int right, int bottom) {
-        Asked wanted = asked.get(texture);
-        if (wanted == null || known.containsKey(texture)) {
+        read(new Edge(texture, true), sheet, width, left, top, right, bottom);
+        read(new Edge(texture, false), sheet, width, left, top, right, bottom);
+    }
+
+    private static void read(Edge edge, ByteBuffer sheet, int width, int left, int top, int right, int bottom) {
+        Asked wanted = asked.get(edge);
+        if (wanted == null || known.containsKey(edge)) {
             return;
         }
         int across = across(wanted.scale), high = high(wanted.scale), margin = Math.round(SPILL * wanted.scale);
@@ -148,18 +152,51 @@ final class Windows {
             shape = onSquare(shape, across, margin);
         }
         if (shape == null) {
-            known.put(texture, NONE);
+            known.put(edge, NONE);
             return;
         }
         colour(sheet, dots, at, shape);
         int wide = across + 2 * offset;
         shape.footSolid = paintedSolid(sheet, dots, at, wide, high, offset, across, shape, shape.foot, shape.foot + shape.footHigh);
         shape.headSolid = paintedSolid(sheet, dots, at, wide, high, offset, across, shape, shape.head - shape.headHigh, shape.head);
+        if (!shape.footSolid) {
+            frostedFoot(shape);
+        }
         shape.north = wanted.north;
         shape.originU = wanted.originU;
         shape.originV = wanted.originV;
         shape.scale = wanted.scale;
-        known.put(texture, shape);
+        known.put(edge, shape);
+    }
+
+    /**
+     * Takes a foot taller than FROSTED_FOOT, on a length of glass with no stile at one end at
+     * least, for the glass over it: a bus shelter's sheet of glass is frosted thicker towards
+     * the ground, past FRAME_COVER in its lowest third, and has no frame there. Taken for a
+     * foot, it was a dark board knee high under clear glass. A tower's windows are frosted the
+     * same way inside a frame with a stile at each end and a foot of its own, and keep their
+     * frosting as foot (Shape.footSolid). The lowest panes, and the bars between them, are run
+     * down to the ground.
+     */
+    static void frostedFoot(Shape shape) {
+        if (shape.footHigh <= FROSTED_FOOT || shape.startWide > 0f && shape.endWide > 0f || shape.panes.length == 0) {
+            return;
+        }
+        float lowest = Float.MAX_VALUE;
+        for (int pane = 0; pane < shape.panes.length; pane += 5) {
+            lowest = Math.min(lowest, shape.panes[pane + 2]);
+        }
+        for (int pane = 0; pane < shape.panes.length; pane += 5) {
+            if (shape.panes[pane + 2] - lowest < 1e-4f) {
+                shape.panes[pane + 2] = shape.foot;
+            }
+        }
+        for (int bar = 0; bar < shape.bars.length; bar += 4) {
+            if (Math.abs(shape.bars[bar + 2] - lowest) < 1e-4f) {
+                shape.bars[bar + 2] = shape.foot;
+            }
+        }
+        shape.footHigh = 0f;
     }
 
     /** How many dots a sprite laid flat on a wall is across, and how many high. */

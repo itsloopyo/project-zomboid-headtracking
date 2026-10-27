@@ -16,6 +16,7 @@ final class WindowTests {
         Checks.run("openWindowHasNoGlassWhereTheSashWas", WindowTests::openWindowHasNoGlassWhereTheSashWas);
         Checks.run("brokenPaneKeepsTheShareOfGlassItsSpriteShows", WindowTests::brokenPaneKeepsTheShareOfGlassItsSpriteShows);
         Checks.run("frameWithNoStileAtOneEndRunsOn", WindowTests::frameWithNoStileAtOneEndRunsOn);
+        Checks.run("frostedGlassLowDownIsNoFoot", WindowTests::frostedGlassLowDownIsNoFoot);
         Checks.run("windowPaintedOffItsSquareIsMovedBackOntoIt", WindowTests::windowPaintedOffItsSquareIsMovedBackOntoIt);
         Checks.run("halfAWindowThatRunsOnReachesItsSquaresEnd", WindowTests::halfAWindowThatRunsOnReachesItsSquaresEnd);
         Checks.run("halfAWindowBegunInTheSquareBeforeIsCutAtItsStart", WindowTests::halfAWindowBegunInTheSquareBeforeIsCutAtItsStart);
@@ -234,6 +235,50 @@ final class WindowTests {
                 "########");
         check(shape != null && near(shape.startWide, 2f / 8f) && shape.endWide == 0f, "a frame with no stile at its end is still a window");
         check(shape.panes.length == 5 && near(shape.panes[1], 1f), "whose pane runs to the end of its square");
+    }
+
+    /** A bus shelter's side: a rail along the top and frosted glass to the ground, painted past FRAME_COVER in its lowest third. */
+    private static void frostedGlassLowDownIsNoFoot() {
+        Windows.Shape shape = measured(
+                "##########",
+                "..........",
+                "..........",
+                "..........",
+                "..........",
+                "..........",
+                "..........",
+                "##########",
+                "##########",
+                "##########");
+        check(shape != null && near(shape.footHigh, 3f / 10f) && shape.panes.length == 5 && near(shape.panes[2], 3f / 10f), "read as a frame, the frosting is a foot");
+        Windows.frostedFoot(shape);
+        check(shape.footHigh == 0f && near(shape.panes[2], 0f) && near(shape.panes[3], 9f / 10f), "and taken back, the pane runs from the rail to the ground");
+        Windows.Shape sill = measured(
+                "##########",
+                "##......##",
+                "##......##",
+                "##......##",
+                "##......##",
+                "##......##",
+                "##......##",
+                "##......##",
+                "##......##",
+                "##########");
+        Windows.frostedFoot(sill);
+        check(near(sill.footHigh, 1f / 10f) && near(sill.panes[2], 1f / 10f), "a window's foot of a dot or two stays its foot");
+        Windows.Shape tower = measured(
+                "##########",
+                "##......##",
+                "##......##",
+                "##......##",
+                "##......##",
+                "##......##",
+                "##########",
+                "##########",
+                "##########",
+                "##########");
+        Windows.frostedFoot(tower);
+        check(near(tower.footHigh, 4f / 10f) && near(tower.panes[2], 4f / 10f), "and frosting in a frame with a stile at each end stays its foot");
     }
 
     /** Rows read two dots past each end of a square sixteen dots long, as Windows.read reads them, then put on the square. */
