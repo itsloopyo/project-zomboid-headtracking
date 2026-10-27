@@ -26,7 +26,47 @@ final class Evening {
     /** The sun's height, as the sine of its elevation, below which the ground begins to lose its light. */
     private static final float SUN_LOW = 0.30f;
 
+    /**
+     * What a room's daylight keeps of its blue and its green with the sun low and clear
+     * (SkyState.lowSun 1), as light. The game lights a room the same white from noon to dusk; a
+     * room the low sun comes into is gold. The green is halfway between red's and blue's in
+     * stops: the indoor balance (Develop.settle) takes most of a green cast out and little of a
+     * warm one, and this it reads as warm alone.
+     */
+    static final float LOW_SUN_BLUE = 0.4f, LOW_SUN_GREEN = (float) Math.sqrt(LOW_SUN_BLUE);
+
     private Evening() {}
+
+    /** What the green of a room's daylight is multiplied by with the sun this low: see LOW_SUN_BLUE. */
+    static float lowSunGreen(float lowSun) {
+        return 1f - (1f - LOW_SUN_GREEN) * lowSun;
+    }
+
+    /** What the blue of a room's daylight is multiplied by with the sun this low: see LOW_SUN_BLUE. */
+    static float lowSunBlue(float lowSun) {
+        return 1f - (1f - LOW_SUN_BLUE) * lowSun;
+    }
+
+    /**
+     * How much of a light given indoors, with that much of the daylight kept (dimmed), is the
+     * day's, as light: as the world shader reads a room's, up to the open ground's light it is
+     * the day's and over that a lamp's.
+     */
+    static float dayShare(float dimmedLight, float gameOpen, float kept) {
+        float given = dimmedLight + gameOpen * (1f - kept);
+        return given <= 0f ? 0f : (float) Math.pow(Math.min(gameOpen / given, 1f), 2.2);
+    }
+
+    /**
+     * What a light given indoors, dimmed and in the game's count, is as red, green and blue with a
+     * low sun that gold (SkyState.roomGold) on the share of it that is the day's, into stood from at.
+     */
+    static void stood(float dimmedLight, float gameOpen, float kept, float gold, float[] stood, int at) {
+        float share = dayShare(dimmedLight, gameOpen, kept);
+        stood[at] = dimmedLight;
+        stood[at + 1] = dimmedLight * (float) Math.pow(1f - share * (1f - lowSunGreen(gold)), 1.0 / 2.2);
+        stood[at + 2] = dimmedLight * (float) Math.pow(1f - share * (1f - lowSunBlue(gold)), 1.0 / 2.2);
+    }
 
     /** The light open ground has with the sun that high. */
     static float open(float sunUp, float nightOpen) {

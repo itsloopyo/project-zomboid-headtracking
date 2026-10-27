@@ -103,8 +103,8 @@ abstract class OwnGun {
             uniform vec3 uForward;
             uniform vec3 uLight;
             uniform vec3 uLightColor;
-            // The light what the viewer holds is in (HeldLight), and whether that is out of doors.
-            uniform float uStood;
+            // The light what the viewer holds is in, red, green and blue (HeldLight.STOOD), and whether that is out of doors.
+            uniform vec3 uStood;
             uniform float uOutdoors;
             // The depth is written in the measure of the target drawn into, whose near plane this is.
             uniform float uWriteNear;
@@ -151,7 +151,7 @@ abstract class OwnGun {
                 vec3 ground = vec3(0.24, 0.26, 0.16) * (skyGives * (0.35 + 0.9 * max(uLight.z, 0.0)));
                 vec3 out3 = mix(ground, open, smoothstep(-0.05, 0.30, d.z));
                 vec3 room = vec3(1.0, 0.97, 0.92) * (0.16 + 0.84 * smoothstep(-0.5, 0.9, d.z));
-                return mix(room, out3 * 2.0, uOutdoors) * pow(uStood, 2.2);
+                return mix(room, out3 * 2.0, uOutdoors) * pow(uStood, vec3(2.2));
             }
 
             // How much of the light from the way d the viewer's own head keeps off a point of
@@ -184,7 +184,7 @@ abstract class OwnGun {
                 // Where the cut goes through a part its inside shows, which is drawn as the cut end
                 // of what the part is made of, in shade, and not as a lit surface seen from behind.
                 if (gl_FrontFacing != (uHanded < 0.0)) {
-                    gl_FragColor = vec4(texture2D(uColour, vUv).rgb * (0.45 * pow(uStood, 2.2)), 1.0);
+                    gl_FragColor = vec4(texture2D(uColour, vUv).rgb * (0.45 * pow(uStood, vec3(2.2))), 1.0);
                     gl_FragDepth = depthWritten(ahead);
                     return;
                 }
@@ -235,7 +235,7 @@ abstract class OwnGun {
                 // What a dull surface scatters is the light the picture gives the hands that hold it:
                 // the light what the viewer holds is in, from the sky and the sunlit ground out
                 // of doors and mostly from above within.
-                vec3 soft = pow(uStood, 2.2) * mix(vec3(0.66 + 0.34 * n.z + 0.1 * dot(n.xy, vec2(0.6, -0.8))), vec3(0.72, 0.80, 0.95) * (0.72 + 0.28 * n.z), uOutdoors);
+                vec3 soft = pow(uStood, vec3(2.2)) * mix(vec3(0.66 + 0.34 * n.z + 0.1 * dot(n.xy, vec2(0.6, -0.8))), vec3(0.72, 0.80, 0.95) * (0.72 + 0.28 * n.z), uOutdoors);
                 soft += pow(uLightColor, vec3(2.2)) * vec3(0.9, 0.86, 0.74) * (0.3 * max(uLight.z, 0.0) * (1.0 - max(n.z, 0.0)) * uOutdoors);
                 soft *= 1.0 - 0.6 * headHides(n, view);
                 vec3 back = reflect(-view, n);
@@ -274,7 +274,8 @@ abstract class OwnGun {
     final float[] model = new float[16];
     private final float[] projection = new float[16];
     private boolean placed;
-    private float handed, stood, outdoors;
+    private float handed, outdoors;
+    private final float[] stood = new float[3];
     private long workedAsOf;
 
     OwnGun(View view, float varnish, float grain, float headShade) {
@@ -325,18 +326,18 @@ abstract class OwnGun {
      * @param weapon      where the game has the weapon in its character's axes, read by rows
      * @param finalScale  the scale the game draws the character's parts at
      * @param gameMuzzle  how far the muzzle of the game's model is from its grip, in that model's units
-     * @param light       the light what the viewer holds is in (HeldLight)
+     * @param light       the light what the viewer holds is in, red, green and blue (HeldLight.STOOD)
      * @param outside     whether the viewer stands out of doors
      * @param aim         0 at the hip, 1 with the sights up
      * @param paused      whether the game is paused in that frame
      */
-    final void place(OwnModel what, String drawnAs, float[] heldView, float[] weapon, float finalScale, float gameMuzzle, float light, boolean outside, float aim,
+    final void place(OwnModel what, String drawnAs, float[] heldView, float[] weapon, float finalScale, float gameMuzzle, float[] light, boolean outside, float aim,
             boolean paused) {
         drawn = what;
         gameModel = drawnAs;
         stillFrame = paused;
         handed = what.hold(model, heldView, weapon, finalScale, gameMuzzle);
-        stood = light;
+        System.arraycopy(light, 0, stood, 0, 3);
         outdoors = outside ? 1f : 0f;
         placed(aim);
         placed = true;
@@ -449,7 +450,7 @@ abstract class OwnGun {
         projection[9] += asideY;
         program.set("uProjection", projection);
         program.set("uHanded", handed);
-        program.set("uStood", stood);
+        program.set("uStood", stood[0], stood[1], stood[2]);
         program.set("uOutdoors", outdoors);
         program.set("uFar", far);
         program.set("uMetre", metre());

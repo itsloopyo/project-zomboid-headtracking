@@ -69,6 +69,10 @@ final class SkyState {
     float glowRed, glowGreen, glowBlue;
     /** The light shafts' colour, already scaled by how much sun gets through the clouds. */
     float rayRed, rayGreen, rayBlue;
+    /** How low and gold the sun is and how much of it gets through cloud and fog, 0 to 1, at dusk and at dawn alike: none at noon or at night. See Evening.LOW_SUN_BLUE. */
+    float lowSun;
+    /** As much of lowSun as the picture gives rooms and who is in them: none in Low, which lights a room as the game does. */
+    float roomGold;
     /**
      * Set by a test that measures how much a picture of a still world changes from frame to
      * frame: with it the wind does not blow and nothing moves by the clock, so whatever still
@@ -91,7 +95,7 @@ final class SkyState {
     /** The light the character carries, as CarriedLight gathered it for this picture. The scene sets it. */
     float[] carried = new float[8];
     /** The light what the viewer holds is in, as HeldLight.light has it for this picture. The scene sets it. */
-    final float[] held = new float[5];
+    final float[] held = new float[HeldLight.LIGHTS];
     /** What this picture draws a line round, or null for nothing: see Outlines. */
     Outlines.Frame outlined;
     /** Where on the map the camera the picture is drawn from stands, which a card turns to face, and the way a card on that very square lies. */
@@ -228,6 +232,21 @@ final class SkyState {
         into[2] = RAIN_OVER_AIR * (float) Math.pow(openBlue * daylightKept, 2.2) + RAIN_FLASHED * flashBlue;
     }
 
+    /** How white the sun's light is with the sun that high, 0 at the horizon to 1 from a sine of 0.4 up. */
+    static float white(float sunUp) {
+        return smooth(0f, 0.4f, sunUp);
+    }
+
+    /** How much of the sun gets through the cloud: none once it is down. */
+    static float through(float sunUp, float overcast) {
+        return (1f - 0.85f * overcast) * smooth(-0.02f, 0.08f, sunUp);
+    }
+
+    /** See lowSun: fog takes it as cloud does, so a room in a grey fog at sunset stays as grey as the street. */
+    static float lowSun(float sunUp, float overcast, float fog) {
+        return (1f - white(sunUp)) * through(sunUp, overcast) * (1f - fog);
+    }
+
     void capture() {
         GameTime time = GameTime.getInstance();
         ClimateManager climate = ClimateManager.getInstance();
@@ -294,7 +313,7 @@ final class SkyState {
         glowBlue *= 1f - overcast;
 
         float up = smooth(-0.06f, 0.02f, sunUp) * (1f - 0.9f * overcast);
-        float white = smooth(0f, 0.4f, sunUp);
+        float white = white(sunUp);
         sunRed = up;
         sunGreen = up * mix(0.50f, 0.96f, white);
         sunBlue = up * mix(0.20f, 0.88f, white);
@@ -316,10 +335,11 @@ final class SkyState {
         lightRed *= beneath;
         lightGreen *= beneath;
         lightBlue *= beneath;
-        float through = (1f - 0.85f * overcast) * smooth(-0.02f, 0.08f, sunUp);
+        float through = through(sunUp, overcast);
         rayRed = through * 0.55f;
         rayGreen = through * 0.55f * mix(0.55f, 0.95f, white);
         rayBlue = through * 0.55f * mix(0.25f, 0.80f, white);
+        lowSun = lowSun(sunUp, overcast, fog);
 
         float windAngle = climate.getWindAngleRadians();
         // The game's wind as it is this moment: its intensity with the game's own lulls and

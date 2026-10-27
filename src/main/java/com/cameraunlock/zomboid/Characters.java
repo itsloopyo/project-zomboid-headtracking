@@ -654,6 +654,7 @@ public final class Characters {
         ownLight = held[HeldLight.LIGHT];
         ownOutside = held[HeldLight.OUTSIDE] > 0.5f;
         System.arraycopy(held, HeldLight.CABIN, ownAmbient, 0, 3);
+        System.arraycopy(held, HeldLight.STOOD, ownStood, 0, 3);
         if (view.pipeline.seated) {
             // The body is not drawn from a seat, so a weapon raised out of a window is held by
             // the hands drawHeld draws on it and by nothing else.
@@ -1074,6 +1075,8 @@ public final class Characters {
     /** The light what the viewer holds is in (HeldLight), and whether that is out of doors. */
     float ownLight = 1f;
     private boolean ownOutside = true;
+    /** The same light as red, green and blue, with a low sun's gold on its daylight (HeldLight.STOOD), for what the picture lights itself by it. */
+    private final float[] ownStood = {1f, 1f, 1f};
 
     /**
      * Works out one of the picture's arms for the weapon held up, and the turn of the hand it
@@ -1738,12 +1741,12 @@ public final class Characters {
         OwnModel own = held != null && view.viewModel.hasMuzzle ? hands.ownDrawn() : null;
         if (own != null) {
             view.ownGun(own).place(own, held.modelInstance.modelScript == null ? null : held.modelInstance.modelScript.name, heldView, weaponPlace, data.finalScale,
-                    muzzleOut(), ownLight, outside, hands.aim(), hands.paused());
+                    muzzleOut(), ownStood, outside, hands.aim(), hands.paused());
         }
         // A scope is drawn by the picture too, after the hands, in place of the game's model of it.
         ModelInstanceRenderData glass = held == null || view.scope.fitted() == null ? null : scopeOf(data);
         if (glass != null) {
-            view.scope.place(heldView, glass.xfrm.get(scopePlace), weaponPlace, data.finalScale, ownLight, outside);
+            view.scope.place(heldView, glass.xfrm.get(scopePlace), weaponPlace, data.finalScale, ownStood, outside);
         }
         // The weapon first. What the picture draws itself says, beside its colour, which way
         // it faces, and the game's draw of the weapon does not: drawn after the hands, the

@@ -94,8 +94,8 @@ final class HeldLightTests {
         check(HeldLight.choose(road, 10.5f, 10.5f, 10.9f, 10.9f, 1f, 1f, true, square) && square[0] == 10 && square[1] == 10,
                 "seated, the square sat on, whichever way the aim and the lean go");
         float[] gathered = {1f, 0.9f, 0.8f, 0.7f, 1f};
-        float[] dusk = new float[5];
-        HeldLight.light(gathered, 0.9f, 0.9f, 0.9f, 0.3f, 1f, dusk);
+        float[] dusk = new float[HeldLight.LIGHTS];
+        HeldLight.light(gathered, 0.9f, 0.9f, 0.9f, 0.3f, 1f, 0f, dusk);
         check(dusk[HeldLight.CABIN] == 0.9f && dusk[HeldLight.CABIN + 1] == 0.8f && dusk[HeldLight.CABIN + 2] == 0.7f,
                 "the cabin takes the square's own light: its lighting takes the evening from the sky");
         check(Math.abs(dusk[HeldLight.LIGHT] - 0.8f * 0.3f) < 1e-5f, "what is held takes the square's light with the daylight the hour keeps");
@@ -104,18 +104,18 @@ final class HeldLightTests {
 
     private static void whatIsHeldIsAsDarkAsTheWorldAtNight() {
         float[] none = new float[5];
-        float[] noon = new float[5];
-        HeldLight.light(none, 1f, 1f, 1f, 1f, 1f, noon);
-        float[] night = new float[5];
-        HeldLight.light(none, 0.18f, 0.18f, 0.18f, 0.2f, 1f, night);
+        float[] noon = new float[HeldLight.LIGHTS];
+        HeldLight.light(none, 1f, 1f, 1f, 1f, 1f, 0f, noon);
+        float[] night = new float[HeldLight.LIGHTS];
+        HeldLight.light(none, 0.18f, 0.18f, 0.18f, 0.2f, 1f, 0f, night);
         check(noon[HeldLight.LIGHT] == 1f && noon[HeldLight.OUTSIDE] == 1f, "with no square found, what is held at noon is lit as the open ground round it");
         check(night[HeldLight.LIGHT] < 0.05f, "and at night it is as dark as the open ground, never lit up");
         check(night[HeldLight.CABIN] == 0.18f, "and a cabin with no square found takes the open ground's light, not a full one");
-        float[] room = new float[5];
-        HeldLight.light(new float[] {1f, 0.5f, 0.5f, 0.5f, 0f}, 0.9f, 0.9f, 0.9f, 0.3f, 0.5f, room);
+        float[] room = new float[HeldLight.LIGHTS];
+        HeldLight.light(new float[] {1f, 0.5f, 0.5f, 0.5f, 0f}, 0.9f, 0.9f, 0.9f, 0.3f, 0.5f, 0f, room);
         check(Math.abs(room[HeldLight.LIGHT] - 0.5f * 0.15f) < 1e-5f && room[HeldLight.OUTSIDE] == 0f, "a room at dusk keeps less of the daylight than the open ground does");
-        float[] lamp = new float[5];
-        HeldLight.light(new float[] {1f, 0.8f, 0.8f, 0.8f, 0f}, 0.18f, 0.18f, 0.18f, 0.2f, 1f, lamp);
+        float[] lamp = new float[HeldLight.LIGHTS];
+        HeldLight.light(new float[] {1f, 0.8f, 0.8f, 0.8f, 0f}, 0.18f, 0.18f, 0.18f, 0.2f, 1f, 0f, lamp);
         check(lamp[HeldLight.LIGHT] == Evening.dimmed(0.8f, 0.18f, 0.2f) && lamp[HeldLight.LIGHT] > 0.8f - 0.18f, "what a lamplit room has over the open ground is the lamp's, and stays at night");
     }
 }

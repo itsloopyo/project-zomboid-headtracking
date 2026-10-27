@@ -785,8 +785,8 @@ final class WorldScene {
     private float floorRed, floorGreen, floorBlue;
     /** The open ground's light the last time the game had it full night. */
     private float nightOpen = Evening.NIGHT_OPEN;
-    /** The open ground's light as the game has it and how much of its daylight the picture keeps, for whoever lights a thing by its square. */
-    volatile float openNow, daylightKeptNow = 1f, roomKeptNow = 1f;
+    /** The open ground's light as the game has it, how much of its daylight the picture keeps and how gold a low sun turns a room's (SkyState.roomGold), for whoever lights a thing by its square. */
+    volatile float openNow, daylightKeptNow = 1f, roomKeptNow = 1f, roomGoldNow;
     /** Whether the frame last built lit rooms by the day they let in, how much of the day there was, and the open ground's light by as much of it, in its steps: see Frame.daylit. */
     volatile boolean roomsDaylitNow;
     volatile float dayNow, dayRedNow, dayGreenNow, dayBlueNow;
@@ -3148,9 +3148,11 @@ final class WorldScene {
             openNow = gameOpen;
             daylightKeptNow = sky.daylightKept;
             roomKeptNow = sky.roomKept;
+            sky.roomGold = Quality.plain(view.index) ? 0f : sky.lowSun;
+            roomGoldNow = sky.roomGold;
             // The beam of this picture's own view: the one being gathered now may be a turn of the head later.
             sky.carried = view.carriedLight.light;
-            HeldLight.light(view.heldLight.now, floorRed, floorGreen, floorBlue, sky.daylightKept, sky.roomKept, sky.held);
+            HeldLight.light(view.heldLight.now, floorRed, floorGreen, floorBlue, sky.daylightKept, sky.roomKept, sky.roomGold, sky.held);
             sky.outlined = Outlines.gather(player.getIndex(), view.centreUse.marked);
             sky.facedX = facedX;
             sky.facedY = facedY;

@@ -273,6 +273,8 @@ final class Pipeline {
     private boolean keptAny;
     private final ViewCamera.Pose before = new ViewCamera.Pose(), aimBefore = new ViewCamera.Pose();
     private final float[] eyeFromAimBefore = new float[3];
+    /** What roomKept and figureGold say, for the uniform it goes into. */
+    private final float[] gold = new float[4];
     /** How much of the last frame's picture goes into this one at the most: see STEADY for where it is less. */
     private static final float KEPT = 0.93f;
     /** Where in its pixel each frame of the cycle is drawn, from the middle, in pixels times two: the Halton points of bases 2 and 3. */
@@ -4069,7 +4071,8 @@ final class Pipeline {
         to.set("uOpenLinear", (float) Math.pow(state.openRed, 2.2), (float) Math.pow(state.openGreen, 2.2), (float) Math.pow(state.openBlue, 2.2));
         to.set("uDaylightKept", (float) Math.pow(state.daylightKept, 2.2));
         to.set("uExposed", pictureExposure);
-        to.set("uRoomKept", (float) Math.pow(state.daylightKept * state.roomKept, 2.2));
+        roomKept(state, gold);
+        to.set("uRoomKept", gold[0], gold[1], gold[2], gold[3]);
         to.set("uEyeOutdoors", state.outdoors);
         setFlash(to);
         to.set("uLightLinear", (float) Math.pow(state.lightRed, 2.2), (float) Math.pow(state.lightGreen, 2.2), (float) Math.pow(state.lightBlue, 2.2));
@@ -4831,6 +4834,31 @@ final class Pipeline {
         figureLight.set("uSatSnow", satBonnet);
     }
 
+    /**
+     * The world shader's uRoomKept, into into: x what a room keeps of the daylight, as light, and yz
+     * what of its daylight's green and blue a low sun leaves it (SkyState.roomGold). One uniform, as
+     * the world shader holds all it may.
+     */
+    static void roomKept(SkyState state, float[] into) {
+        into[0] = (float) Math.pow(state.daylightKept * state.roomKept, 2.2);
+        into[1] = Evening.lowSunGreen(state.roomGold);
+        into[2] = Evening.lowSunBlue(state.roomGold);
+        into[3] = 0f;
+    }
+
+    /**
+     * The people's light's uFigureGold, into into: x the open ground's light as the game has it, y
+     * what of its daylight a room keeps, which the light a person indoors is said with has been
+     * dimmed by, and zw what of the green and blue of the day's share of that light a low sun leaves
+     * it, as Evening.stood works it out for what the viewer holds.
+     */
+    static void figureGold(SkyState state, float[] into) {
+        into[0] = (state.openRed + state.openGreen + state.openBlue) / 3f;
+        into[1] = state.daylightKept * state.roomKept;
+        into[2] = Evening.lowSunGreen(state.roomGold);
+        into[3] = Evening.lowSunBlue(state.roomGold);
+    }
+
     private void drawFigures(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect,
             float near, float far, float fogStart, float fogEnd) {
         // Flesh and cloth first, then painted metal, which is lit as lacquer.
@@ -4901,6 +4929,8 @@ final class Pipeline {
             figureLight.set("uShines", shadedAndLit ? 1f : 0f);
             setFlash(figureLight);
             figureLight.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
+            figureGold(state, gold);
+            figureLight.set("uFigureGold", gold[0], gold[1], gold[2], gold[3]);
             figureLight.set("uFogStart", fogStart);
             figureLight.set("uFogEnd", fogEnd);
             figureLight.set("uLoaded", loadedX - camera.eyeX, loadedY - camera.eyeY, loadedWithin);
@@ -5452,6 +5482,8 @@ final class Pipeline {
             figureLight.set("uShines", shadedAndLit && !mirror ? 1f : 0f);
             setFlash(figureLight);
             figureLight.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
+            figureGold(state, gold);
+            figureLight.set("uFigureGold", gold[0], gold[1], gold[2], gold[3]);
             figureLight.set("uFogStart", fogStart);
             figureLight.set("uFogEnd", fogEnd);
             figureLight.set("uLoaded", loadedX - pose.eyeX, loadedY - pose.eyeY, loadedWithin);

@@ -30,8 +30,11 @@ final class HeldLight {
     static final float AHEAD = 0.3f;
     /** In a gathering: 1 if a square was found, its light as the game has it less the torch, red, green and blue, and 1 if it is out of doors. */
     static final int FOUND = 0, RED = 1, OUTDOORS = 4;
-    /** In the light: the light, 0 to 1, 1 if it is out of doors, and the cabin's light, red, green and blue. */
-    static final int LIGHT = 0, OUTSIDE = 1, CABIN = 2;
+    /**
+     * In the light: the light, 0 to 1, 1 if it is out of doors, the cabin's light, red, green and
+     * blue, and the light as red, green and blue with a low sun's gold on its daylight (Evening.stood).
+     */
+    static final int LIGHT = 0, OUTSIDE = 1, CABIN = 2, STOOD = 5, LIGHTS = 8;
 
     volatile float[] now = new float[5];
     private final ColorInfo answer = new ColorInfo();
@@ -134,10 +137,11 @@ final class HeldLight {
     /**
      * The light from a gathering, with the hour the scene has for the picture: the open ground's light as
      * the game has it, red, green and blue, and how much of the daylight is kept out of doors and in a room
-     * (Evening). With no square found, what is held is lit as the open ground round it is. The cabin's own
-     * lighting takes the evening from the sky, so its light is the game's whole daylight. Into light.
+     * (Evening), and how gold a low sun turns a room's daylight (SkyState.roomGold). With no square found,
+     * what is held is lit as the open ground round it is. The cabin's own lighting takes the evening from
+     * the sky, so its light is the game's whole daylight. Into light.
      */
-    static void light(float[] gathered, float openRed, float openGreen, float openBlue, float daylightKept, float roomKept, float[] light) {
+    static void light(float[] gathered, float openRed, float openGreen, float openBlue, float daylightKept, float roomKept, float gold, float[] light) {
         float open = (openRed + openGreen + openBlue) / 3f;
         boolean found = gathered[FOUND] > 0.5f;
         boolean outside = !found || gathered[OUTDOORS] > 0.5f;
@@ -148,5 +152,6 @@ final class HeldLight {
         light[CABIN] = red;
         light[CABIN + 1] = green;
         light[CABIN + 2] = blue;
+        Evening.stood(light[LIGHT], open, kept, outside ? 0f : gold, light, STOOD);
     }
 }

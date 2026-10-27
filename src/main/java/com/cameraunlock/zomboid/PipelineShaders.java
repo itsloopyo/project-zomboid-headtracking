@@ -1045,7 +1045,7 @@ final class PipelineShaders {
             uniform float uDaylightKept;
             // The exposure the picture is developed at (Pipeline.pictureExposure).
             uniform float uExposed;
-            uniform float uRoomKept;
+            uniform vec4 uRoomKept;
             // How far the eye is out of doors, 0 to 1. The sky's haze is the open air's: none of it
             // lies between an eye in a room and that room's walls. Sun through a window into the
             // room's own air is the volume pass's.
@@ -3904,7 +3904,7 @@ final class PipelineShaders {
                 // already down: see Evening. A square's light up to the open ground's is that
                 // daylight, and what it has over it came from a lamp.
                 // A room has less of it: see Evening.ROOM_DAYLIGHT.
-                float heldBack = 1.0 - mix(uRoomKept, uDaylightKept, clamp(open, 0.0, 1.0));
+                float heldBack = 1.0 - mix(uRoomKept.x, uDaylightKept, clamp(open, 0.0, 1.0));
                 // The game joins a lamp to the daylight part by part, keeping the greater, so a square's
                 // daylight is the open ground's colour scaled by no more than its smallest part's share
                 // of it (a square's daylight is not the open ground's to the hundredth: read as that,
@@ -3941,7 +3941,10 @@ final class PipelineShaders {
                 // warm with a pink edge where the window's light met it.
                 float openHere = clamp(open, 0.0, 1.0);
                 float givenMost = max(given.r, max(given.g, given.b));
-                vec3 inRoom = given * (1.0 - heldBack * min(dayMost / max(givenMost, 0.0001), 1.0));
+                float dayShare = min(dayMost / max(givenMost, 0.0001), 1.0);
+                // A low sun's gold is the hour's and not a window's: the game says no more of where a room's
+                // daylight came in, so it reaches whatever of the light reads as daylight, and not the lamp's.
+                vec3 inRoom = (given - daylight * (1.0 - vec3(1.0, uRoomKept.yz))) * (1.0 - heldBack * dayShare);
                 given = mix(inRoom, given - (max(lamp, daylight) - max(lamp, daylight * (1.0 - heldBack))), openHere);
                 // A lamp lights the ground as the game has it, warm and at its full strength: only
                 // the rest is the sky's, bluer and less where little sky is open over the square.
@@ -5616,6 +5619,8 @@ final class PipelineShaders {
             uniform vec3 uOwnAmbient;
             uniform float uShines;
             uniform float uFigureAmbient;
+            // A low sun's gold on the day's share of a person's light indoors, as on a room's: see Pipeline.figureGold.
+            uniform vec4 uFigureGold;
             uniform sampler2D uFacing;
             uniform float uHaveFacing;
             // 1 while the picture is one a mirror shows, drawn from an eye whose right is the
@@ -6958,7 +6963,8 @@ final class PipelineShaders {
                     // the sun where it reaches, and the sunlit ground's light thrown back up.
                     vec3 around = fromSky * (0.8 * skyGives);
                     if (stoodIn >= 0.0) {
-                        around = pow(stoodIn, 2.2) * mix(vec3(0.66 + 0.34 * n.z + 0.1 * dot(n.xy, vec2(0.6, -0.8))),
+                        float dayShare = pow(min(uFigureGold.x / max(stoodIn + uFigureGold.x * (1.0 - uFigureGold.y), 0.0001), 1.0), 2.2) * (1.0 - outdoors);
+                        around = pow(stoodIn, 2.2) * (1.0 - dayShare * (1.0 - vec3(1.0, uFigureGold.zw))) * mix(vec3(0.66 + 0.34 * n.z + 0.1 * dot(n.xy, vec2(0.6, -0.8))),
                                 vec3(0.72, 0.80, 0.95) * (0.72 + 0.28 * n.z), outdoors);
                         around += sunLight * vec3(0.9, 0.86, 0.74) * (0.3 * max(uLight.z, 0.0) * (1.0 - max(n.z, 0.0)) * outdoors);
                         around += uFlashSky * ((0.6 + 0.4 * max(n.z, 0.0)) * outdoors);

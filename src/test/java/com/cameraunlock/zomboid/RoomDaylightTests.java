@@ -17,6 +17,15 @@ final class RoomDaylightTests {
         Checks.run("aBoardedWindowLetsInLessThanABareOne", RoomDaylightTests::aBoardedWindowLetsInLessThanABareOne);
         Checks.run("thereIsNoDaylightAtNight", RoomDaylightTests::thereIsNoDaylightAtNight);
         Checks.run("sharesWorkedOutAgainFromTheSameOpeningsAreKept", RoomDaylightTests::sharesWorkedOutAgainFromTheSameOpeningsAreKept);
+        Checks.run("aLowSunTurnsARoomsDaylightGold", RoomDaylightTests::aLowSunTurnsARoomsDaylightGold);
+    }
+
+    private static String source(String file) {
+        try {
+            return java.nio.file.Files.readString(java.nio.file.Path.of("src/main/java/com/cameraunlock/zomboid", file)).replaceAll("\\s+", "");
+        } catch (java.io.IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
     }
 
     private static void check(boolean condition, String what) {
@@ -178,5 +187,67 @@ final class RoomDaylightTests {
         // The map is loaded from x 3 on: the room's squares west of that are not there, and read as in no room.
         RoomDaylight.Shares cut = shares(house(), 4, 3, new RoomDaylight.Loaded(3, -FAR, FAR, FAR));
         check(cut.at(3, 3) == 0f && cut.at(5, 3) == 0f, "a room cut by the edge of the loaded map has no daylight from it");
+    }
+
+    private static void aLowSunTurnsARoomsDaylightGold() {
+        float noon = SkyState.lowSun(0.8f, 0f, 0f), low = SkyState.lowSun(0.08f, 0f, 0f), night = SkyState.lowSun(-0.3f, 0f, 0f);
+        check(noon < 0.01f && night == 0f && low > 0.8f, "the sun's gold is the low sun's, neither noon's nor the night's: " + noon + " " + low + " " + night);
+        check(SkyState.lowSun(0.5f, 0f, 0f) < 0.15f * low,
+                "it is gone once the sun is half way up: " + SkyState.lowSun(0.5f, 0f, 0f));
+        float clouded = SkyState.lowSun(0.08f, 0.7f, 0f);
+        check(clouded < 0.45f * low && clouded > 0f, "the heaviest cloud with no rain lets little of it through: " + clouded);
+        check(SkyState.lowSun(0.08f, 0f, 1f) == 0f && SkyState.lowSun(0.08f, 0f, 0.5f) < 0.55f * low, "nor does fog, which greys the street: " + SkyState.lowSun(0.08f, 0f, 0.5f));
+        check(Evening.lowSunGreen(0f) == 1f && Evening.lowSunBlue(0f) == 1f, "with no low sun a room's daylight is as the game has it");
+        float green = Evening.lowSunGreen(low), blue = Evening.lowSunBlue(low);
+        check(green < 0.8f && blue < 0.6f && blue < green, "a low sun takes blue out of a room's daylight, and less green: " + green + " " + blue);
+        check(Math.abs(Math.log(Evening.lowSunGreen(1f)) - 0.5 * Math.log(Evening.lowSunBlue(1f))) < 1e-6,
+                "and its green is halfway between red's and blue's in stops, which the indoor balance reads as warm and leaves: " + Evening.LOW_SUN_GREEN);
+        float hazy = Evening.lowSunBlue(0.5f * low);
+        check(hazy > blue && hazy < 1f, "a sun half as gold takes half as much: " + hazy);
+
+        SkyState sky = new SkyState();
+        sky.daylightKept = 0.5f;
+        sky.roomKept = 0.45f;
+        sky.roomGold = 1f;
+        float[] kept = new float[4];
+        Pipeline.roomKept(sky, kept);
+        check(kept[1] == Evening.lowSunGreen(1f) && kept[2] == Evening.lowSunBlue(1f) && Math.abs(kept[0] - Math.pow(0.5 * 0.45, 2.2)) < 1e-6,
+                "the world shader is told the gold in uRoomKept.yz beside what a room keeps of the daylight: " + kept[0] + " " + kept[1] + " " + kept[2]);
+        sky.roomGold = 0f;
+        Pipeline.roomKept(sky, kept);
+        check(kept[1] == 1f && kept[2] == 1f, "and none with no gold");
+        String scene = source("WorldScene.java");
+        check(scene.contains("sky.roomGold=Quality.plain(view.index)?0f:sky.lowSun;"), "Low has no gold: it lights a room as the game does");
+        for (String reader : new String[] {"Pipeline.java", "Characters.java", "HeldLight.java"}) {
+            check(!java.util.regex.Pattern.compile("\\.lowSun(?![A-Za-z])").matcher(source(reader)).find(), reader + " takes the gold from roomGold, which is none in Low, not from lowSun");
+        }
+
+        String world = PipelineShaders.WORLD_FRAGMENT_MAIN.replaceAll("\\s+", "");
+        int at = world.indexOf("vec3inRoom=");
+        String inRoom = at < 0 ? "" : world.substring(at, world.indexOf(';', at));
+        check(world.indexOf("uRoomKept.yz") == world.lastIndexOf("uRoomKept.yz") && inRoom.contains("daylight*(1.0-vec3(1.0,uRoomKept.yz))"),
+                "the low sun colours only a room's light, not the open ground's, and of it only what is daylight, not a lamp's: " + inRoom);
+
+        float[] stood = new float[3];
+        Evening.stood(0.2f, 0.8f, 0.25f, 1f, stood, 0);
+        check(stood[0] == 0.2f && Math.abs(stood[1] - 0.2f * Math.pow(Evening.LOW_SUN_GREEN, 1 / 2.2)) < 1e-5f && Math.abs(stood[2] - 0.2f * Math.pow(Evening.LOW_SUN_BLUE, 1 / 2.2)) < 1e-5f,
+                "a person in a room lit by the day alone is as gold as the room: " + stood[0] + " " + stood[1] + " " + stood[2]);
+        Evening.stood(0.95f, 0.18f, 0.45f, 1f, stood, 0);
+        check(stood[1] > 0.99f * 0.95f && stood[2] > 0.99f * 0.95f, "in a room lit by its lamp at dusk they keep the lamp's light: " + stood[1] + " " + stood[2]);
+        Evening.stood(0.5f, 0.5f, 0.45f, 1f, stood, 0);
+        float lampAndDay = 1f - stood[2] / 0.5f;
+        check(lampAndDay > 0.05f && lampAndDay < 1f - (float) Math.pow(Evening.LOW_SUN_BLUE, 1 / 2.2) - 0.05f,
+                "and where both light them, the day's share of it alone goes gold: " + stood[2]);
+        Evening.stood(0.2f, 0.8f, 0.25f, 0f, stood, 0);
+        check(stood[1] == 0.2f && stood[2] == 0.2f, "with no gold the light is as it was said");
+        float[] held = new float[HeldLight.LIGHTS];
+        HeldLight.light(new float[] {1f, 0.6f, 0.6f, 0.6f, 0f}, 0.8f, 0.8f, 0.8f, 1f, 0.45f, 1f, held);
+        check(held[HeldLight.STOOD + 2] < 0.8f * held[HeldLight.STOOD] && held[HeldLight.STOOD] == held[HeldLight.LIGHT],
+                "what the viewer holds in a sunlit room is gold as the room is: " + held[HeldLight.STOOD] + " " + held[HeldLight.STOOD + 2]);
+        HeldLight.light(new float[] {1f, 0.6f, 0.6f, 0.6f, 1f}, 0.8f, 0.8f, 0.8f, 1f, 0.45f, 1f, held);
+        check(held[HeldLight.STOOD + 2] == held[HeldLight.STOOD], "and out of doors as the sun lights it, with no gold of the room's");
+        String figures = PipelineShaders.FIGURE_LIGHT_MAIN.replaceAll("\\s+", "");
+        check(figures.contains("around=pow(stoodIn,2.2)*(1.0-dayShare*(1.0-vec3(1.0,uFigureGold.zw)))"),
+                "the people's light gives a person indoors the gold on the day's share of their light");
     }
 }

@@ -117,8 +117,8 @@ final class Scope {
             uniform vec3 uForward;
             uniform vec3 uLight;
             uniform vec3 uLightColor;
-            // The light what the viewer holds is in (HeldLight), and whether that is out of doors.
-            uniform float uStood;
+            // The light what the viewer holds is in, red, green and blue (HeldLight.STOOD), and whether that is out of doors.
+            uniform vec3 uStood;
             uniform float uOutdoors;
             // The depth is written in the measure of the target drawn into, whose near plane this is.
             uniform float uWriteNear;
@@ -172,7 +172,7 @@ final class Scope {
                 vec3 ground = vec3(0.24, 0.26, 0.16) * (skyGives * (0.35 + 0.9 * max(uLight.z, 0.0)));
                 vec3 out3 = mix(ground, open, smoothstep(-0.05, 0.30, d.z));
                 vec3 room = vec3(1.0, 0.97, 0.92) * (0.16 + 0.84 * smoothstep(-0.5, 0.9, d.z));
-                return mix(room, out3 * 2.0, uOutdoors) * pow(uStood, 2.2);
+                return mix(room, out3 * 2.0, uOutdoors) * pow(uStood, vec3(2.2));
             }
 
             float sunReaches(vec3 at) {
@@ -249,7 +249,7 @@ final class Scope {
                 vec3 color = (dull * max(dot(n, uLight), 0.0) + thrown * shine) * sunLight;
 
                 float skyGives = clamp(dot(atmosphere(vec3(0.0, 0.0, 1.0)), vec3(1.4)) + 0.05, 0.0, 1.0);
-                vec3 soft = pow(uStood, 2.2) * mix(vec3(0.66 + 0.34 * n.z + 0.1 * dot(n.xy, vec2(0.6, -0.8))), vec3(0.72, 0.80, 0.95) * (0.72 + 0.28 * n.z), uOutdoors);
+                vec3 soft = pow(uStood, vec3(2.2)) * mix(vec3(0.66 + 0.34 * n.z + 0.1 * dot(n.xy, vec2(0.6, -0.8))), vec3(0.72, 0.80, 0.95) * (0.72 + 0.28 * n.z), uOutdoors);
                 soft += pow(uLightColor, vec3(2.2)) * vec3(0.9, 0.86, 0.74) * (0.3 * max(uLight.z, 0.0) * (1.0 - max(n.z, 0.0)) * uOutdoors);
                 soft *= 1.0 - 0.8 * headHides(n, view);
                 vec3 back = reflect(-view, n);
@@ -396,7 +396,8 @@ final class Scope {
     /** From the scope's axes, in metres, to those of the weapon's model: as the game fixed the one to the other in the frame last drawn. */
     private final float[] mount = new float[16];
     private ScopeOptics.Glass placed, mounted;
-    private float stood, outdoors;
+    private float outdoors;
+    private final float[] stood = new float[3];
     /**
      * Where the last frame drawn left the scope, against the aim it was held in: the
      * objective's place and the scope's side, top and axis, each as its parts to the right of
@@ -589,10 +590,10 @@ final class Scope {
      * @param part       where the game has its own scope in its character's axes, read by rows
      * @param weapon     the same for the rifle the scope is on
      * @param finalScale the scale the game draws the character's parts at
-     * @param light      the light what the viewer holds is in (HeldLight)
+     * @param light      the light what the viewer holds is in, red, green and blue (HeldLight.STOOD)
      * @param outside    whether the viewer stands out of doors
      */
-    void place(float[] heldView, float[] part, float[] weapon, float finalScale, float light, boolean outside) {
+    void place(float[] heldView, float[] part, float[] weapon, float finalScale, float[] light, boolean outside) {
         ScopeOptics.Glass glass = fitted;
         if (glass == null || program == null) {
             return;
@@ -616,7 +617,7 @@ final class Scope {
         ViewModelMath.onto(heldView, model);
         ScopeOptics.mount(part, weapon, UNITS_PER_METRE, mount);
         mounted = glass;
-        stood = light;
+        System.arraycopy(light, 0, stood, 0, 3);
         outdoors = outside ? 1f : 0f;
         placed = glass;
     }
@@ -755,7 +756,7 @@ final class Scope {
         projection[8] += asideX;
         projection[9] += asideY;
         program.set("uProjection", projection);
-        program.set("uStood", stood);
+        program.set("uStood", stood[0], stood[1], stood[2]);
         program.set("uOutdoors", outdoors);
         program.set("uFar", far);
         program.set("uShadowNear", OwnGun.SHADOW_NEAR_UNIT);
