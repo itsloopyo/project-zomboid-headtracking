@@ -693,8 +693,10 @@ final class WallBuilder {
         // stain over it is on the side it was painted on, and is no part of the wall's colour.
         float material = build.frame.material;
         int tint = build.overLayer == 0 ? farTint(texture, x, y, z, da != 0f) : 0;
-        // A garage door is the same door on its far side, lit as that side is, not the building's outside wall.
-        if (build.garageDoor) {
+        // A garage door is the same door on its far side, lit as that side is, not the building's outside wall. A burnt
+        // wall is charred through: on its far side the building's own wall closed the holes burnt in it, white siding
+        // where the game shows the room and the ground beyond.
+        if (build.garageDoor || burnt(texture.getName())) {
             tint = 0;
         }
         // Out of doors the far skin is the building's own outside wall, the sprite its other
@@ -1158,6 +1160,11 @@ final class WallBuilder {
     /** How far the logs of a log wall on the north or the west edge of square (sx, sy) stand out of the wall's skins, or 0 with none there. */
     float logsProud(int sx, int sy, int z, boolean onNorth) {
         return Own.buildings() && logsOn(sx, sy, z, onNorth) ? LogWalls.RADIUS - WorldScene.WALL_HALF : 0f;
+    }
+
+    /** Whether a wall's sprite is one of the game's burnt walls or gables, holed through. */
+    static boolean burnt(String name) {
+        return name != null && (name.startsWith("walls_burnt_") || name.startsWith("walls_exterior_roofs_30_burnt_"));
     }
 
     /** Whether square (sx, sy) has a length of log wall on its north edge, or its west. */

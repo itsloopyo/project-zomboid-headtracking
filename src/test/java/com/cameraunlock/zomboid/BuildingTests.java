@@ -15,6 +15,7 @@ final class BuildingTests {
 
     static void run() {
         Checks.run("glassPantileRoofIsGlass", BuildingTests::glassPantileRoofIsGlass);
+        Checks.run("aBurntWallIsHoledThrough", BuildingTests::aBurntWallIsHoledThrough);
         Checks.run("boardedGablesAreBoards", BuildingTests::boardedGablesAreBoards);
         Checks.run("plainWallHasAPlinthAndACourseAndThePlinthStopsAtADoor", BuildingTests::plainWallHasAPlinthAndACourseAndThePlinthStopsAtADoor);
         Checks.run("coursesStandOnTheirWallNotASquareOut", BuildingTests::coursesStandOnTheirWallNotASquareOut);
@@ -48,6 +49,13 @@ final class BuildingTests {
         Checks.run("aDownpipeRunsDownAWallAndNeverStandsAlone", BuildingTests::aDownpipeRunsDownAWallAndNeverStandsAlone);
         Checks.run("openGroundHasTheLightMostOfItHas", BuildingTests::openGroundHasTheLightMostOfItHas);
         Checks.run("whatIsOnAKerbedEdgeStandsOnTheKerbsTop", () -> TestMap.withEverything(BuildingTests::whatIsOnAKerbedEdgeStandsOnTheKerbsTop));
+    }
+
+    private static void aBurntWallIsHoledThrough() {
+        Checks.check(WallBuilder.burnt("walls_burnt_01_2") && WallBuilder.burnt("walls_burnt_roofs_01_5") && WallBuilder.burnt("walls_exterior_roofs_30_burnt_01_3"),
+                "the game's burnt walls and gables show their own sprite on their far side");
+        Checks.check(!WallBuilder.burnt("walls_exterior_house_01_0") && !WallBuilder.burnt("location_trailer_01_18") && !WallBuilder.burnt(null),
+                "a wall that is not burnt takes its far side from the place beyond");
     }
 
     private static void plainWallHasAPlinthAndACourseAndThePlinthStopsAtADoor() {
