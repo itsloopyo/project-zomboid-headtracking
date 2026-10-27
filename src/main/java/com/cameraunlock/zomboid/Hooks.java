@@ -25,6 +25,7 @@ import zombie.characters.component.CharacterInputComponent;
 import zombie.chat.ChatElement;
 import zombie.combat.CombatConfigKey;
 import zombie.core.SpriteRenderer;
+import zombie.core.opengl.RenderSettings;
 import zombie.core.opengl.RenderThread;
 import zombie.core.physics.BallisticsController;
 import zombie.core.physics.RagdollBodyPart;
@@ -43,6 +44,7 @@ import zombie.iso.IsoObjectPicker;
 import zombie.iso.IsoWorld;
 import zombie.iso.Vector2;
 import zombie.iso.Vector3;
+import zombie.iso.weather.ClimateManager;
 import zombie.iso.weather.ThunderStorm;
 import zombie.ui.TextDrawObject;
 import zombie.ui.TextManager;
@@ -259,6 +261,23 @@ public final class Hooks {
     public static Vector2 sightVector(Vector2 look, int playerIndex) {
         View view = View.of(playerIndex);
         return view == null ? look : view.firstPerson.sightVector(look);
+    }
+
+    /** In place of the game's reading, for its screen shader, of how much to grey a player's view by: see ScreenGrey. */
+    public static float screenDesaturation(RenderSettings.PlayerRenderSettings settings) {
+        float stock = settings.getDesaturation();
+        for (int i = 0; i < View.COUNT; i++) {
+            if (RenderSettings.getInstance().getPlayerSettings(i) == settings) {
+                View view = View.of(i);
+                if (view == null) {
+                    return stock;
+                }
+                ClimateManager climate = ClimateManager.getInstance();
+                return ScreenGrey.under(stock, climate.getSeason().getCurDayPercent(), climate.getDayLightStrength(), Quality.plain(i),
+                        view.flight.shown(), view.pipeline.styledShown());
+            }
+        }
+        throw new IllegalStateException("render settings of no player");
     }
 
     /** Whether the first person picture is drawn over the whole of the game's own view of the player it is drawing. */

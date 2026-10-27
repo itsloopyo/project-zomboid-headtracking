@@ -6,4 +6,5 @@ public final class ErosionSeason {
     public int getSeason() { throw new UnsupportedOperationException("reference stub"); }
     public float getSeasonProgression() { throw new UnsupportedOperationException("reference stub"); }
     public float getSeasonDays() { throw new UnsupportedOperationException("reference stub"); }
+    public float getCurDayPercent() { throw new UnsupportedOperationException("reference stub"); }
 }

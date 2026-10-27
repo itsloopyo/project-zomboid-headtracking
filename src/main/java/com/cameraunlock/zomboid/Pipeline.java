@@ -3465,6 +3465,13 @@ final class Pipeline {
         }
     }
 
+    /** How much of the last picture developed was its own style rather than the game's view from overhead (gameView): read by ScreenGrey's hook off the render thread. */
+    private volatile float styledShown;
+
+    float styledShown() {
+        return styledShown;
+    }
+
     /** How much the picture is the game's own view from far overhead: 1 there, 0 by the time the camera is near enough to stop being overhead. */
     private float gameView() {
         return overhead ? Math.clamp((away - WorldScene.OVERHEAD_RANGE) / (2f * WorldScene.OVERHEAD_RANGE), 0f, 1f) : 0f;
@@ -4752,6 +4759,7 @@ final class Pipeline {
         // The game's own view has no style: the picture is brought to the game's colours after the film.
         // On the flight down to the eye the style comes back as the game's colours go.
         float game = gameView(), styled = 1f - game;
+        styledShown = styled;
         develop.set("uOverhead", OVERHEAD_CONTRAST, OVERHEAD_PIVOT, OVERHEAD_BLUE, game);
         develop.set("uGrade", styled * (style.curve + (ownTone ? Develop.overcastCurve(cover, state.night) : 0f)), game + styled * style.saturation, styled * style.vignette);
         develop.set("uLens", styled * style.bloom, styled * style.flare);

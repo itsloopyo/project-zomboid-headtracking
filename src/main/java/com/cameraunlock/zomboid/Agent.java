@@ -372,6 +372,7 @@ public final class Agent {
         }
         add(instrumentation, new PatchTransformer(hangFixPatches()));
         add(instrumentation, new PatchTransformer(coveredPatches()));
+        add(instrumentation, new PatchTransformer(screenGreyPatches()));
         add(instrumentation, new PatchTransformer(farVehiclePatches()));
         add(instrumentation, new PatchTransformer(liveSightPatches()));
         add(instrumentation, new PatchTransformer(leftSavePatches()));
@@ -651,6 +652,15 @@ public final class Agent {
                         CallSite.filterStaticInt(code, GAME_MOUSE, "y", new CallSite.Method(HOOKS, "cursorY", "(I)I"));
                     });
                 }));
+    }
+
+    /** How much the game's screen shader greys a player's view, through ScreenGrey. */
+    private static List<Patch> screenGreyPatches() {
+        String screen = "zombie/iso/weather/WeatherShader", settings = "zombie/core/opengl/RenderSettings$PlayerRenderSettings";
+        return List.of(new Patch(screen, "startMainThread reading the screen's desaturation", classBytes -> CallSite.replaceEach(classBytes,
+                new CallSite.Method(screen, "startMainThread", "(Lzombie/core/textures/TextureDraw;I)V"),
+                new CallSite.Method(settings, "getDesaturation", "()F"),
+                new CallSite.Method(HOOKS, "screenDesaturation", "(L" + settings + ";)F"), 1)));
     }
 
     /**
