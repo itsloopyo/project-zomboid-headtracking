@@ -38,7 +38,7 @@ final class RainTests {
                 check(channel <= SkyState.RAIN_OVER_AIR * air + 1e-6f, "a drop is no brighter than the air it falls through: " + channel + " against " + air);
             }
             float[] glowing = drop(sky(hour[0], hour[1], 3f, 3f));
-            check(glowing[0] == light[0] && glowing[2] == light[2], "and a brighter horizon does not make it brighter");
+            check(glowing[0] == light[0] && glowing[1] == light[1] && glowing[2] == light[2], "and a brighter horizon does not make it brighter");
         }
     }
 
