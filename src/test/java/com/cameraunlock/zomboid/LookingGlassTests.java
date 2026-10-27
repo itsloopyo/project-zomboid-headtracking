@@ -91,7 +91,8 @@ final class LookingGlassTests {
                 int v = vertex * Models.VERTEX_FLOATS;
                 placed.stand(0, model.vertices[v], model.vertices[v + 1], model.vertices[v + 2], at, 0);
                 float before = plane[0] * at[0] + plane[1] * at[1] + plane[2] * at[2] - plane[3];
-                check(before < 1e-4f || before >= LookingGlass.CLEAR, name + ": a vertex " + before + " before the glass is cut from what the glass shows");
+                // A millimetre clear of the cut either way: the shader's test of a place is good to far less, but not to nothing.
+                check(before < 1e-4f || before >= LookingGlass.CLEAR + 0.001f, name + ": a vertex " + before + " before the glass is a millimetre clear of the cut of what the glass shows");
             }
         }
     }

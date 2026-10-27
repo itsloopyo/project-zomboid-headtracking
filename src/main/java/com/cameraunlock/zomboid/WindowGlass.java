@@ -37,7 +37,7 @@ final class WindowGlass {
      * How far before the panes' plane the picture of what they show begins, in tiles: past the
      * face of the wall they are set in, which seen from behind is a sheet over all of it.
      */
-    static final float CLEAR = WorldScene.WALL_HALF + LookingGlass.CLEAR;
+    static final float CLEAR = WorldScene.WALL_HALF + 0.003f;
 
     private WindowGlass() {}
 

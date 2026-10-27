@@ -41,11 +41,13 @@ final class LookingGlass {
     /**
      * How far before its plane what the second picture draws begins, in tiles: the glass
      * itself lies in the plane, and from behind it is a sheet that would hide all the rest.
-     * The world shader tests a place on the map against it, and a float holds such a place to
-     * a millimetre past 8192 tiles and two past 16384, so the glass is cleared by more than
-     * that. The nearest any frame comes before its glass is the medicine cabinet's bevel, 3 mm.
+     * The nearest any frame comes before its glass is the medicine cabinet's bevel, 3 mm, and
+     * the tall and square frames' lip at 4 mm: the cut lies a millimetre short of the bevel, so
+     * nothing of a mirror is within a millimetre of it. At 3 mm, tested on places on the map,
+     * which a float holds to a millimetre past 8192 tiles, the bevel and the lip came and went
+     * in specks as the head moved. The world shader tests the place from the eye instead.
      */
-    static final float CLEAR = 0.003f;
+    static final float CLEAR = 0.002f;
     /**
      * A window's glass throws back about a fifth of what a mirror's silver does, seen squarely,
      * so in choosing the frame's plane its share of the picture counts for that much.

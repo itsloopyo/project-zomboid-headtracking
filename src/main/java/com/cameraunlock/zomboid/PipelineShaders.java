@@ -3624,7 +3624,7 @@ final class PipelineShaders {
                 if (uUnder.z > 0.0 && (vKind > 3.5 && !grass || dot(uUnder.xyz, under) < uUnder.w)) {
                     discard;
                 }
-                if (dot(uGlassPlane.xyz, uGlassPlane.xyz) > 0.5 && dot(uGlassPlane.xyz, vWorld) < uGlassPlane.w) {
+                if (dot(uGlassPlane.xyz, uGlassPlane.xyz) > 0.5 && dot(uGlassPlane.xyz, vPlace - mod(uEye, 60.0)) < uGlassPlane.w) {
                     discard;
                 }
                 // Ground spreading over its neighbour thins out towards its edge, and the edge

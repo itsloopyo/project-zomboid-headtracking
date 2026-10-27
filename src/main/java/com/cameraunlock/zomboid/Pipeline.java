@@ -4187,9 +4187,12 @@ final class Pipeline {
         }
         // Nor has the picture drawn from behind a mirror's or a window's glass anything in it
         // behind the glass, nor the glass, nor the face of the wall a window is set in.
+        // The plane is told from the eye, as the shader tests vPlace, so the cut stays put to
+        // well under a tenth of a millimetre wherever on the map the glass is.
         if (inLookingGlass) {
             float[] plane = lookingIn.plane.plane;
-            to.set("uGlassPlane", plane[0], plane[1], plane[2], plane[3] + lookingIn.plane.clear);
+            double eyeAlong = plane[0] * (double) camera.eyeX + plane[1] * (double) camera.eyeY + plane[2] * (double) camera.eyeUp;
+            to.set("uGlassPlane", plane[0], plane[1], plane[2], (float) (plane[3] + (double) lookingIn.plane.clear - eyeAlong));
         } else {
             to.set("uGlassPlane", 0f, 0f, 0f, 0f);
         }
