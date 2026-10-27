@@ -584,14 +584,11 @@ final class PlantBuilder {
             return;
         }
         roomFor(x, y, z);
-        // A bush stands back from a wall by its reach, or its canes lean through it into the dark of the room.
-        float lowA = Math.max(0.04f, build.room[0] + Flowerbeds.SPREAD - x), highA = Math.min(0.96f, build.room[1] - Flowerbeds.SPREAD - x);
-        float lowB = Math.max(0.04f, build.room[2] + Flowerbeds.SPREAD - y), highB = Math.min(0.96f, build.room[3] - Flowerbeds.SPREAD - y);
         // Roses go by the season: the build is made again as the season moves on.
         build.building.seasonal = true;
         long now = Seasons.now();
         int season = Seasons.seasonOf(now);
-        Flowerbeds.grow(build.geometry, WorldScene.laid.get(texture.getID()), build.frame, bed, x, y, build.bandAway, lowA, highA, lowB, highB, season,
+        Flowerbeds.grow(build.geometry, WorldScene.laid.get(texture.getID()), build.frame, bed, x, y, build.bandAway, build.room, season,
                 Seasons.stepped(season, Seasons.progressionOf(now)));
     }
 

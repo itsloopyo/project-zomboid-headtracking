@@ -20,6 +20,7 @@ final class FlowerbedTests {
         Checks.run("leavesAndFlowersTakeTheirColoursFromLeavesAndBlooms", FlowerbedTests::leavesAndFlowersTakeTheirColoursFromLeavesAndBlooms);
         Checks.run("aBedOfStonesGrowsNothing", FlowerbedTests::aBedOfStonesGrowsNothing);
         Checks.run("rosesThinWithDistance", FlowerbedTests::rosesThinWithDistance);
+        Checks.run("nothingOfARoseBedReachesIntoAWall", FlowerbedTests::nothingOfARoseBedReachesIntoAWall);
         Checks.run("rosesFlowerFromLateSpringToEarlyAutumn", FlowerbedTests::rosesFlowerFromLateSpringToEarlyAutumn);
         Checks.run("rosesAreBareCanesInWinter", FlowerbedTests::rosesAreBareCanesInWinter);
     }
@@ -146,9 +147,30 @@ final class FlowerbedTests {
     }
 
     private static SpriteGeometry.Mesh grown(Flowerbeds.Bed bed, float away, int season, float progression) {
+        return grown(bed, away, season, progression, OPEN);
+    }
+
+    /** A square with no wall round it, as PlantBuilder.roomFor gives one. */
+    private static final float[] OPEN = {-Float.MAX_VALUE, Float.MAX_VALUE, -Float.MAX_VALUE, Float.MAX_VALUE};
+
+    private static SpriteGeometry.Mesh grown(Flowerbeds.Bed bed, float away, int season, float progression, float[] room) {
         SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
-        Flowerbeds.grow(new SpriteGeometry(), mesh, frame(), bed, 30, 40, away, 0.04f, 0.96f, 0.04f, 0.96f, season, progression);
+        Flowerbeds.grow(new SpriteGeometry(), mesh, frame(), bed, 30, 40, away, room, season, progression);
         return mesh;
+    }
+
+    private static void nothingOfARoseBedReachesIntoAWall() {
+        // A wall along the square's north edge, as the house's at the foot of which beds are laid.
+        float[] room = {-Float.MAX_VALUE, Float.MAX_VALUE, 40f + 0.02f, Float.MAX_VALUE};
+        SpriteGeometry.Mesh mesh = grown(halfStones(), 3f, Seasons.SUMMER, 0.5f, room);
+        check(mesh.floats > 0, "roses grow against the wall");
+        float nearest = Float.MAX_VALUE;
+        for (int at = 0; at < mesh.floats; at += F) {
+            nearest = Math.min(nearest, mesh.vertices[at + 1]);
+        }
+        check(nearest > 40.02f, "no cane, leaf or rose reaches into the wall: the nearest is at " + nearest);
+        check(Flowerbeds.away(40.3f, -1f, 0.3f, 40f, 41f) == 1f && Flowerbeds.away(40.5f, -1f, 0.3f, 40f, 41f) == -1f,
+                "a cane whose rose would reach the wall leans the other way, and one clear of it as it was going to");
     }
 
     /** How many strips of a form the mesh holds, counted by their feet. */

@@ -39,8 +39,10 @@ final class Flowerbeds {
     static final int LOOK = 5;
     /** A bush is never shorter or taller than these, in tiles. */
     private static final float LOWEST = 0.32f, TALLEST = 0.5f;
-    /** How far out from its foot a bush reaches, in tiles: it stands this far back from a wall, or its canes lean through it. */
+    /** How far out from its foot a bush reaches, in tiles, its canes leaning away from the wall: it stands this far back from one. */
     static final float SPREAD = 0.2f;
+    /** How far out past a cane's top or a shoot's end its rose and leaves reach, in tiles, and how far from a wall they stay. */
+    private static final float HEAD_REACH = 0.15f, WALL_CLEAR = 0.05f;
     /** How far through spring the first and the last bush come into flower, by Seasons.stepped's spring, which goes no further than 0.7. */
     private static final float FLOWERS_EARLIEST = 0.4f, FLOWERS_LATEST = 0.7f;
     /** How far through autumn the first and the last bush have finished flowering. */
@@ -222,12 +224,15 @@ final class Flowerbeds {
 
     /**
      * Grows the bed of the square (x, y) as from away tiles off, from what its sprite's dots are,
-     * between lowA..highA and lowB..highB of the square, at the time of year season and progression
-     * (Seasons.stepped). A bush stands where more of the dots round its foot are leaves and blooms
+     * within the walls of its room (each, on the map, as PlantBuilder.roomFor gives them: x low and
+     * high, then y), at the time of year season and progression (Seasons.stepped). A bush stands
+     * SPREAD back from a wall, and where more of the dots round its foot are leaves and blooms
      * than stones, and needs a leaf and a bloom among them to take its colours from.
      */
-    static void grow(SpriteGeometry geometry, SpriteGeometry.Mesh mesh, SpriteGeometry.Frame frame, Bed bed, int x, int y, float away, float lowA,
-            float highA, float lowB, float highB, int season, float progression) {
+    static void grow(SpriteGeometry geometry, SpriteGeometry.Mesh mesh, SpriteGeometry.Frame frame, Bed bed, int x, int y, float away, float[] room,
+            int season, float progression) {
+        float lowA = Math.max(0.04f, room[0] + SPREAD - x), highA = Math.min(0.96f, room[1] - SPREAD - x);
+        float lowB = Math.max(0.04f, room[2] + SPREAD - y), highB = Math.min(0.96f, room[3] - SPREAD - y);
         float kept = Grass.kept(away * away * 0.8f);
         float broadens = Math.min(1f / (float) Math.sqrt(kept), 2.8f);
         int steps = away < 6f ? 3 : away < 12f ? 2 : 1;
@@ -249,7 +254,7 @@ final class Flowerbeds {
                 }
                 int more = Flora.mix(hash, i, 11);
                 float leafOn = Seasons.leafOn(season, progression, more);
-                bush(geometry, mesh, frame, bed, x, y, a, b, leaf, bloom, more, broadens, steps, leafOn, flowering(season, progression, Flora.unit(more, 4)));
+                bush(geometry, mesh, frame, bed, x, y, a, b, room, leaf, bloom, more, broadens, steps, leafOn, flowering(season, progression, Flora.unit(more, 4)));
             }
         }
         mesh.face(0f, 0f, 1f);
@@ -316,7 +321,7 @@ final class Flowerbeds {
      * flowers that of bloom and of other blooms near it.
      */
     private static void bush(SpriteGeometry geometry, SpriteGeometry.Mesh mesh, SpriteGeometry.Frame frame, Bed bed, int x, int y, float a, float b,
-            int leaf, int bloom, int more, float broadens, int steps, float leafOn, boolean flowering) {
+            float[] room, int leaf, int bloom, int more, float broadens, int steps, float leafOn, boolean flowering) {
         float leafU = dotU(bed, frame, leaf), leafV = dotV(bed, frame, leaf);
         // Cut back for the winter, a bush is short brown canes until it is half in leaf again.
         float high = (LOWEST + (TALLEST - LOWEST) * Flora.unit(more, 0)) * (0.6f + 0.4f * leafOn);
@@ -326,10 +331,12 @@ final class Flowerbeds {
         for (int stem = 0; stem < stems; stem++) {
             int own = Flora.mix(more, stem, 43);
             float way = turn + stem * 6.2831853f / stems + 0.6f * Flora.unit(own, 0);
-            float dirX = Grass.cos(way), dirY = Grass.sin(way);
             float tall = high * (0.75f + 0.25f * Flora.unit(own, 4));
+            float lean = 0.15f + 0.35f * Flora.unit(own, 8), curl = 0.1f * Flora.unit(own, 12);
+            float reach = tall * Grass.sin(lean + curl) + HEAD_REACH;
+            float dirX = away(x + a, Grass.cos(way), reach, room[0], room[1]), dirY = away(y + b, Grass.sin(way), reach, room[2], room[3]);
             geometry.plant(frame, x, y, a, b, leafU, leafV);
-            geometry.addStrip(mesh, frame, dirX, dirY, 0f, 0f, 0.15f + 0.35f * Flora.unit(own, 8), 0.1f * Flora.unit(own, 12), tall, 0.014f * broadens, 0f,
+            geometry.addStrip(mesh, frame, dirX, dirY, 0f, 0f, lean, curl, tall, 0.014f * broadens, 0f,
                     Math.min(steps, 2), SpriteGeometry.EVEN, cane, Flora.unit(own, 20), 0.8f);
             float topAlong = geometry.endAlong, topUp = geometry.endUp, topLean = geometry.endLean;
             int leaves = steps > 1 ? 8 : 3;
@@ -359,7 +366,8 @@ final class Flowerbeds {
             // Half the canes bear a second, smaller rose on a shoot from high up the cane.
             if (steps > 1 && Flora.unit(own, 2) < 0.5f) {
                 float from = topAlong * 0.7f, side = way + (Flora.unit(own, 6) < 0.5f ? 1.2f : -1.2f);
-                float sideX = Grass.cos(side), sideY = Grass.sin(side);
+                float sideX = away(x + a + dirX * from, Grass.cos(side), 0.12f + HEAD_REACH, room[0], room[1]);
+                float sideY = away(y + b + dirY * from, Grass.sin(side), 0.12f + HEAD_REACH, room[2], room[3]);
                 geometry.plant(frame, x, y, a + dirX * from, b + dirY * from, leafU, leafV);
                 geometry.addStrip(mesh, frame, sideX, sideY, 0f, topUp * 0.7f, 0.6f, -0.3f, 0.12f, 0.012f * broadens, 0f, 1, SpriteGeometry.EVEN, cane,
                         Flora.unit(own, 10), 0.8f);
@@ -387,6 +395,16 @@ final class Flowerbeds {
                 Flora.unit(own, 18), 0.8f);
         geometry.addStrip(mesh, frame, -dirY, dirX, 0f, up - 0.5f * upright, 0f, 0f, upright, upright, 0f, 1, SpriteGeometry.EVEN, Grass.BLOOM,
                 Flora.unit(own, 22), 0.8f);
+    }
+
+    /**
+     * Which way along one axis a cane or a shoot from at on the map leans, given the way it was
+     * to lean: turned back where what it bears, reach out, would come within WALL_CLEAR of a wall
+     * at low or high, whose inside is dark.
+     */
+    static float away(float at, float way, float reach, float low, float high) {
+        float to = at + way * reach;
+        return to < low + WALL_CLEAR || to > high - WALL_CLEAR ? -way : way;
     }
 
     /** Another bloom within LOOK of the dot bloom, picked by the hash, or bloom itself where there is none. */
