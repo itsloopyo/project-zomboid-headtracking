@@ -49,9 +49,8 @@ final class WallFinish {
     private static final int KEPT = 600;
     /**
      * How long a level read while part of the building was not loaded is kept before it is read
-     * again, in nanoseconds. A time and not a count of frames: at three frames a second, as a rig
-     * copy ran beside four others, thirty frames was ten seconds, and a brick block's west face
-     * stood that long painted in the wallpaper of each room behind it.
+     * again, in nanoseconds. A time and not a count of frames: frames run as slow as three a
+     * second, and a building's far walls show its rooms' paper until it is read whole.
      */
     private static final long RETRY_NANOS = 500_000_000L;
     /** A building wider than this, in squares, is not read: nothing that size has one finish. */
@@ -127,8 +126,7 @@ final class WallFinish {
      * the game has marked for an object since it was read, and one read while part of the
      * building was not loaded, once the map has loaded more. Where it comes out otherwise the
      * chunks the building stands on are told. One neither due nor waiting to be is kept as
-     * fresh as if it had been read. Looking at only a few a frame, a level came round once in
-     * thirty frames or more in a town, which at a few frames a second was many seconds.
+     * fresh as if it had been read.
      */
     static void tend(IsoCell cell, int frame, int loaded) {
         loadedNow = loaded;
@@ -163,10 +161,33 @@ final class WallFinish {
             fresh.stamp = frame;
             levels[one.z & (LEVELS - 1)] = fresh;
             if (fresh.print() != level.print()) {
-                ChunkMarks.tell(Math.floorDiv(def.getX() - 1, WorldScene.CHUNK_TILES), Math.floorDiv(def.getY() - 1, WorldScene.CHUNK_TILES),
-                        Math.floorDiv(def.getX() + def.getW(), WorldScene.CHUNK_TILES), Math.floorDiv(def.getY() + def.getH(), WorldScene.CHUNK_TILES));
+                tell(def);
             }
         }
+    }
+
+    /** Tells the chunks a building's walls stand on that their builds are to be made again. */
+    private static void tell(BuildingDef def) {
+        ChunkMarks.tell(Math.floorDiv(def.getX() - 1, WorldScene.CHUNK_TILES), Math.floorDiv(def.getY() - 1, WorldScene.CHUNK_TILES),
+                Math.floorDiv(def.getX() + def.getW(), WorldScene.CHUNK_TILES), Math.floorDiv(def.getY() + def.getH(), WorldScene.CHUNK_TILES));
+    }
+
+    /** Whether tend has a level of the building still to read again. */
+    private static boolean awaited(IsoBuilding building, Level[] levels) {
+        for (int slot = 0; slot < LEVELS; slot++) {
+            Level level = levels[slot];
+            // A level below the ground is kept in the slot its number's low bits give: see of.
+            int z = slot < LEVELS / 2 ? slot : slot - LEVELS;
+            if (level != null && level.listed && (!level.whole || structuresOn(building.getDef(), z) != level.structures)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Whether a building is too wide to be read: nothing that size has one finish. */
+    private static boolean tooWide(BuildingDef def) {
+        return def.getW() > WIDEST || def.getH() > WIDEST;
     }
 
     /** The marks on a level of the chunks a building's walls stand on: its own squares and the row of squares outside each face. */
@@ -269,9 +290,14 @@ final class WallFinish {
 
     private static Level of(IsoCell cell, IsoBuilding building, int z, int frame) {
         if (known.size() > MOST_BUILDINGS) {
-            known.clear();
-            // Every level is read anew from here and lists itself again: one left listed would be tended twice.
-            tendedLevels.clear();
+            // A building with a level tend has still to read again is kept, or nothing would: one read short of its
+            // chunks, or one whose chunks the game has marked since. The rest are read anew as walls ask.
+            known.entrySet().removeIf(read -> !awaited(read.getKey(), read.getValue()));
+            if (known.size() > MOST_BUILDINGS) {
+                known.clear();
+            }
+            // A level read anew lists itself again: one left listed would be tended twice.
+            tendedLevels.removeIf(read -> read.building.get() == null || !known.containsKey(read.building.get()));
         }
         Level[] levels = known.computeIfAbsent(building, unused -> new Level[LEVELS]);
         int slot = z & (LEVELS - 1);
@@ -286,7 +312,8 @@ final class WallFinish {
             levels[slot] = level;
         }
         // Whenever the game is telling, not only at a first reading: it may begin to tell after the level was read.
-        if (ChunkMarks.live && !level.listed) {
+        // One too wide to read is read as nothing, whatever is marked on its chunks.
+        if (ChunkMarks.live && !level.listed && !tooWide(building.getDef())) {
             tendedLevels.add(new Read(new WeakReference<>(building), z));
             level.listed = true;
         }
@@ -304,7 +331,7 @@ final class WallFinish {
         level.structures = structuresOn(def, z);
         level.loaded = loadedNow;
         level.readAt = System.nanoTime();
-        if (def.getW() > WIDEST || def.getH() > WIDEST) {
+        if (tooWide(def)) {
             return level;
         }
         shown.clear();
