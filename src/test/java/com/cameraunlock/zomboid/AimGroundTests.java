@@ -19,6 +19,61 @@ final class AimGroundTests {
         Checks.run("aDragCursorInFirstPersonIsPutWhereItIsAimed", AimGroundTests::aDragCursorInFirstPersonIsPutWhereItIsAimed);
         Checks.run("aDragCursorWithNoLineIsPutNowhere", AimGroundTests::aDragCursorWithNoLineIsPutNowhere);
         Checks.run("onlyABarricadeIsPutByAWindow", AimGroundTests::onlyABarricadeIsPutByAWindow);
+        Checks.run("aDragShowsTheEdgeAPieceStandsOnBeforeTheWayItFaces", AimGroundTests::aDragShowsTheEdgeAPieceStandsOnBeforeTheWayItFaces);
+        Checks.run("aDragsArrowPointsTheWayThePieceFaces", AimGroundTests::aDragsArrowPointsTheWayThePieceFaces);
+        Checks.run("aDragsFrameStandsOnTheEdgeThePieceIsPutOn", AimGroundTests::aDragsFrameStandsOnTheEdgeThePieceIsPutOn);
+    }
+
+    private static void aDragShowsTheEdgeAPieceStandsOnBeforeTheWayItFaces() {
+        Checks.check(DragAim.facing(true, false, "S") == DragAim.Facing.NORTH_EDGE, "a piece on the north edge shows that edge, whatever its Facing");
+        Checks.check(DragAim.facing(false, true, null) == DragAim.Facing.WEST_EDGE, "and one on the west edge that one");
+        Checks.check(DragAim.facing(false, false, "N") == DragAim.Facing.NORTH, "a chair facing N shows north");
+        Checks.check(DragAim.facing(false, false, "E") == DragAim.Facing.EAST, "E east");
+        Checks.check(DragAim.facing(false, false, "S") == DragAim.Facing.SOUTH, "S south");
+        Checks.check(DragAim.facing(false, false, "W") == DragAim.Facing.WEST, "W west");
+        Checks.check(DragAim.facing(false, false, null) == DragAim.Facing.NONE, "a piece with no Facing shows none");
+        Checks.check(DragAim.facing(false, false, "NW") == DragAim.Facing.NONE, "nor does one turned between two ways");
+    }
+
+    private static void aDragsArrowPointsTheWayThePieceFaces() {
+        float[] lines = new float[6 * DragAim.MOST_FACING_LINES];
+        Checks.check(DragAim.facingLines(DragAim.Facing.NONE, 10, 20, lines) == 0, "a piece that faces no way has no arrow");
+        float[][] ways = {{0f, -1f}, {1f, 0f}, {0f, 1f}, {-1f, 0f}};
+        DragAim.Facing[] facings = {DragAim.Facing.NORTH, DragAim.Facing.EAST, DragAim.Facing.SOUTH, DragAim.Facing.WEST};
+        for (int f = 0; f < facings.length; f++) {
+            int count = DragAim.facingLines(facings[f], 10, 20, lines);
+            Checks.check(count == 2, facings[f] + " is an arrow of two lines: " + count);
+            for (int line = 0; line < count; line++) {
+                int at = line * 6;
+                float footAlong = (lines[at] - 10.5f) * ways[f][0] + (lines[at + 1] - 20.5f) * ways[f][1];
+                float tipAlong = (lines[at + 3] - 10.5f) * ways[f][0] + (lines[at + 4] - 20.5f) * ways[f][1];
+                Checks.check(tipAlong > footAlong + 0.2f, facings[f] + "'s arrow runs from the middle out the way it faces: " + footAlong + " to " + tipAlong);
+                Checks.check(lines[at + 2] == 0f && lines[at + 5] == 0f, "on the floor");
+                for (int end = 0; end < 2; end++) {
+                    float x = lines[at + end * 3], y = lines[at + end * 3 + 1];
+                    Checks.check(x > 10f && x < 11f && y > 20f && y < 21f, facings[f] + "'s arrow is inside its square: " + x + ", " + y);
+                }
+            }
+            float across0 = (lines[0] - 10.5f) * -ways[f][1] + (lines[1] - 20.5f) * ways[f][0];
+            float across1 = (lines[6] - 10.5f) * -ways[f][1] + (lines[7] - 20.5f) * ways[f][0];
+            Checks.check(Math.abs(across0 + across1) < 1e-5f && Math.abs(across0) > 0.2f, facings[f] + "'s wings are either side of it: " + across0 + ", " + across1);
+        }
+    }
+
+    private static void aDragsFrameStandsOnTheEdgeThePieceIsPutOn() {
+        float[] lines = new float[6 * DragAim.MOST_FACING_LINES];
+        int count = DragAim.facingLines(DragAim.Facing.NORTH_EDGE, 10, 20, lines);
+        Checks.check(count == 3, "an edge's frame is two posts and a top: " + count);
+        float top = 0f;
+        for (int i = 0; i < count * 6; i += 3) {
+            Checks.check(lines[i + 1] == 20f && lines[i] >= 10f && lines[i] <= 11f, "a piece on the north edge stands on y 20 from x 10 to 11: " + lines[i] + ", " + lines[i + 1]);
+            top = Math.max(top, lines[i + 2]);
+        }
+        Checks.check(top == DragAim.EDGE_FRAME_HIGH, "its frame stands up off the floor: " + top);
+        count = DragAim.facingLines(DragAim.Facing.WEST_EDGE, 10, 20, lines);
+        for (int i = 0; i < count * 6; i += 3) {
+            Checks.check(lines[i] == 10f && lines[i + 1] >= 20f && lines[i + 1] <= 21f, "a piece on the west edge stands on x 10 from y 20 to 21: " + lines[i] + ", " + lines[i + 1]);
+        }
     }
 
     private static void onlyABarricadeIsPutByAWindow() {

@@ -50,11 +50,11 @@ final class Crosshair {
     private volatile Mark shown;
 
     /**
-     * The sides of a drag cursor's square, as pieces from x, y to x, y in -1 to 1, and whether
-     * what is dragged can be put there.
+     * The sides of a drag cursor's square and the lines of which way what is dragged is put, as
+     * pieces from x, y to x, y in -1 to 1, and whether what is dragged can be put there.
      */
     static final class Square {
-        final float[] pieces = new float[4 * 4 * FirstPerson.SQUARE_PIECES];
+        final float[] pieces = new float[4 * (4 + DragAim.MOST_FACING_LINES) * FirstPerson.SQUARE_PIECES];
         int floats;
         boolean fits;
     }

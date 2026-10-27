@@ -1456,7 +1456,9 @@ public final class FirstPerson {
     /** How far over its floor a drag cursor's square is drawn, in tiles, so the floor does not cover it. */
     private static final float SQUARE_OVER_FLOOR = 0.02f;
     private final float[] squareFrom = new float[2], squareTo = new float[2];
+    private final float[] facingLines = new float[6 * DragAim.MOST_FACING_LINES];
     private int dragSaidX = Integer.MIN_VALUE, dragSaidY;
+    private DragAim.Facing dragSaidFacing;
     private boolean dragButtonDown;
     private final WorldQuery.Ground dragGround = this::groundHeight;
 
@@ -1468,7 +1470,9 @@ public final class FirstPerson {
      * Puts the drag cursor the game has up where the line through the reticle meets the world,
      * or with the pointer out the line through the pointer, and outlines in the picture the
      * square the game has it on, green where what is dragged can be put there and red where it
-     * cannot: the game draws its ghost into its own view, which is under the picture.
+     * cannot, with the frame of what stands on an edge of it or an arrow the way what is put on
+     * it faces (DragAim.facingLines): the game draws its ghost into its own view, which is under
+     * the picture.
      */
     private void aimDrag(IsoPlayer player, WorldScene.Frame scene) {
         KahluaTable drag = View.onController(player) ? null : DragAim.of(view.index);
@@ -1476,6 +1480,7 @@ public final class FirstPerson {
             view.dragAim.aimed.forget();
             view.crosshair.hideSquare();
             dragSaidX = Integer.MIN_VALUE;
+            dragSaidFacing = null;
             dragButtonDown = false;
             return;
         }
@@ -1523,7 +1528,6 @@ public final class FirstPerson {
             return;
         }
         Crosshair.Square outline = view.crosshair.squareToFill();
-        float[] sides = outline.pieces;
         int pieces = 0;
         float tanHalf = scene.tanHalfFieldOfView();
         int squareX = square.getX(), squareY = square.getY(), level = square.getZ();
@@ -1531,31 +1535,53 @@ public final class FirstPerson {
             // The corners in turn: north-west, north-east, south-east, south-west.
             float fromX = squareX + (side == 1 || side == 2 ? 1f : 0f), fromY = squareY + (side >= 2 ? 1f : 0f);
             float toX = squareX + (side == 0 || side == 1 ? 1f : 0f), toY = squareY + (side == 1 || side == 2 ? 1f : 0f);
-            // Each piece's end is the next one's start, so each point is projected once.
-            boolean fromShown = onSquareFloor(fromX, fromY, level, tanHalf, aspect, squareFrom);
-            for (int piece = 0; piece < SQUARE_PIECES; piece++) {
-                float b = (float) (piece + 1) / SQUARE_PIECES;
-                boolean toShown = onSquareFloor(fromX + (toX - fromX) * b, fromY + (toY - fromY) * b, level, tanHalf, aspect, squareTo);
-                if (fromShown && toShown) {
-                    sides[pieces * 4] = squareFrom[0];
-                    sides[pieces * 4 + 1] = squareFrom[1];
-                    sides[pieces * 4 + 2] = squareTo[0];
-                    sides[pieces * 4 + 3] = squareTo[1];
-                    pieces++;
-                }
-                fromShown = toShown;
-                squareFrom[0] = squareTo[0];
-                squareFrom[1] = squareTo[1];
-            }
+            pieces = outlineLine(outline.pieces, pieces, fromX, fromY, 0f, toX, toY, 0f, level, tanHalf, aspect);
+        }
+        DragAim.Facing facing = DragAim.facingOf(drag);
+        if (TRACE && facing != dragSaidFacing) {
+            dragSaidFacing = facing;
+            Log.info(String.format(Locale.ROOT, "drag %s on square (%d, %d, %d) is put %s", drag.rawget("Type"), squareX, squareY, level, facing));
+        }
+        int lines = DragAim.facingLines(facing, squareX, squareY, facingLines);
+        for (int i = 0; i < lines * 6; i += 6) {
+            pieces = outlineLine(outline.pieces, pieces, facingLines[i], facingLines[i + 1], facingLines[i + 2],
+                    facingLines[i + 3], facingLines[i + 4], facingLines[i + 5], level, tanHalf, aspect);
         }
         outline.floats = pieces * 4;
         outline.fits = fits;
         view.crosshair.showSquare(outline);
     }
 
-    /** Where a place on a floor falls in the picture as this frame draws it, into ndc, or false where it is not in front of the eye. */
-    private boolean onSquareFloor(float x, float y, int level, float tanHalf, float aspect, float[] ndc) {
-        float up = level * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(x, y, level) + SQUARE_OVER_FLOOR;
+    /**
+     * Adds a line over a drag cursor's floor to its outline, as pieces from where it is in the
+     * picture to where it is, each one where both its ends are in front of the eye, and gives how
+     * many pieces the outline has.
+     */
+    private int outlineLine(float[] outline, int pieces, float fromX, float fromY, float fromHigh, float toX, float toY, float toHigh,
+            int level, float tanHalf, float aspect) {
+        // Each piece's end is the next one's start, so each point is projected once.
+        boolean fromShown = onSquareFloor(fromX, fromY, fromHigh, level, tanHalf, aspect, squareFrom);
+        for (int piece = 0; piece < SQUARE_PIECES; piece++) {
+            float b = (float) (piece + 1) / SQUARE_PIECES;
+            boolean toShown = onSquareFloor(fromX + (toX - fromX) * b, fromY + (toY - fromY) * b, fromHigh + (toHigh - fromHigh) * b,
+                    level, tanHalf, aspect, squareTo);
+            if (fromShown && toShown) {
+                outline[pieces * 4] = squareFrom[0];
+                outline[pieces * 4 + 1] = squareFrom[1];
+                outline[pieces * 4 + 2] = squareTo[0];
+                outline[pieces * 4 + 3] = squareTo[1];
+                pieces++;
+            }
+            fromShown = toShown;
+            squareFrom[0] = squareTo[0];
+            squareFrom[1] = squareTo[1];
+        }
+        return pieces;
+    }
+
+    /** Where a place this high over a floor falls in the picture as this frame draws it, into ndc, or false where it is not in front of the eye. */
+    private boolean onSquareFloor(float x, float y, float high, int level, float tanHalf, float aspect, float[] ndc) {
+        float up = level * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(x, y, level) + SQUARE_OVER_FLOOR + high;
         return ViewCamera.project(trackedView, tanHalf, aspect, x, y, up, ndc);
     }
 

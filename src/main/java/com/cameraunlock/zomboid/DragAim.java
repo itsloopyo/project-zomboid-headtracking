@@ -4,9 +4,12 @@ import se.krka.kahlua.vm.KahluaTable;
 import zombie.Lua.LuaManager;
 import zombie.entity.components.spriteconfig.SpriteConfigManager;
 import zombie.iso.IsoCell;
+import zombie.iso.IsoDirections;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoWorld;
 import zombie.iso.Vector2;
+import zombie.iso.sprite.IsoSprite;
+import zombie.iso.sprite.IsoSpriteManager;
 import zombie.ui.UIManager;
 
 /**
@@ -59,6 +62,117 @@ final class DragAim {
     /** Whether a build's test of where it can go is one of the game's barricades', by the test's name. */
     static boolean barricades(String onIsValid) {
         return onIsValid != null && onIsValid.startsWith("BuildRecipeCode.barricade.");
+    }
+
+    /** Which way what is dragged is put, as far as the picture shows it: the edge of its square it stands on, or the way its front faces. */
+    enum Facing { NONE, NORTH_EDGE, WEST_EDGE, NORTH, EAST, SOUTH, WEST }
+
+    /** The most lines facingLines gives. */
+    static final int MOST_FACING_LINES = 3;
+    /** How high the frame on the edge a wall, a fence, a door or a window is put on stands over its floor: low, so it is in the picture while the eye looks down at the square. */
+    static final float EDGE_FRAME_HIGH = 0.25f * ViewCamera.LEVEL_HEIGHT;
+    /** The arrow of the way a piece faces, in tiles from its square's middle: its tip out along the way, and its wings' feet along and across it. */
+    private static final float ARROW_TIP = 0.4f, ARROW_FOOT = 0.05f, ARROW_WING = 0.3f;
+
+    /**
+     * Which way what a drag shows is put: the build window's piece by the first tile of the face
+     * it is turned to (ISBuildIsoEntity.getFace, which R steps through), the furniture cursor's by
+     * the sprite it shows, and an older build cursor's by the sprite its getSprite chose.
+     */
+    static Facing facingOf(KahluaTable drag) {
+        IsoSprite sprite = shownOf(drag);
+        if (sprite == null) {
+            return Facing.NONE;
+        }
+        IsoDirections way = sprite.getFacing();
+        return facing(Edges.north(sprite.getProperties(), sprite.getType()), Edges.west(sprite.getProperties(), sprite.getType()),
+                way == null ? null : way.name());
+    }
+
+    private static IsoSprite shownOf(KahluaTable drag) {
+        if (drag.rawget("face") instanceof SpriteConfigManager.FaceInfo face) {
+            String name = firstSpriteOf(face);
+            return name == null ? null : IsoSpriteManager.instance.namedMap.get(name);
+        }
+        if (drag.rawget("objectSprite") instanceof IsoSprite sprite) {
+            return sprite;
+        }
+        return drag.rawget("chosenSprite") instanceof String name ? IsoSpriteManager.instance.namedMap.get(name) : null;
+    }
+
+    /** The tile of a face on the drag's own square first, as the game lays a face from that square on. */
+    private static String firstSpriteOf(SpriteConfigManager.FaceInfo face) {
+        for (int z = 0; z < face.getzLayers(); z++) {
+            for (int x = 0; x < face.getWidth(); x++) {
+                for (int y = 0; y < face.getHeight(); y++) {
+                    SpriteConfigManager.TileInfo tile = face.getTileInfo(x, y, z);
+                    if (tile != null && tile.getSpriteName() != null) {
+                        return tile.getSpriteName();
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Which way a sprite is put: on the edge its flags put it on (Edges), and otherwise the way
+     * its Facing says its front is turned, one of N, E, S and W.
+     */
+    static Facing facing(boolean onNorthEdge, boolean onWestEdge, String way) {
+        if (onNorthEdge) {
+            return Facing.NORTH_EDGE;
+        }
+        if (onWestEdge) {
+            return Facing.WEST_EDGE;
+        }
+        if (way == null) {
+            return Facing.NONE;
+        }
+        return switch (way) {
+            case "N" -> Facing.NORTH;
+            case "E" -> Facing.EAST;
+            case "S" -> Facing.SOUTH;
+            case "W" -> Facing.WEST;
+            default -> Facing.NONE;
+        };
+    }
+
+    /**
+     * The lines that show a facing on a square, into lines as from x, y, height over the floor to
+     * x, y, height, in tiles, and how many: for an edge the two posts and the top of a frame
+     * standing on it, and for a way an arrow on the floor from the square's middle, north up the
+     * map (y less) and east across it (x more).
+     */
+    static int facingLines(Facing facing, int squareX, int squareY, float[] lines) {
+        if (facing == Facing.NONE) {
+            return 0;
+        }
+        if (facing == Facing.NORTH_EDGE || facing == Facing.WEST_EDGE) {
+            float toX = facing == Facing.NORTH_EDGE ? squareX + 1f : squareX, toY = facing == Facing.NORTH_EDGE ? squareY : squareY + 1f;
+            line(lines, 0, squareX, squareY, 0f, squareX, squareY, EDGE_FRAME_HIGH);
+            line(lines, 1, toX, toY, 0f, toX, toY, EDGE_FRAME_HIGH);
+            line(lines, 2, squareX, squareY, EDGE_FRAME_HIGH, toX, toY, EDGE_FRAME_HIGH);
+            return 3;
+        }
+        float wayX = facing == Facing.EAST ? 1f : facing == Facing.WEST ? -1f : 0f;
+        float wayY = facing == Facing.SOUTH ? 1f : facing == Facing.NORTH ? -1f : 0f;
+        float middleX = squareX + 0.5f, middleY = squareY + 0.5f;
+        float tipX = middleX + wayX * ARROW_TIP, tipY = middleY + wayY * ARROW_TIP;
+        float footX = middleX + wayX * ARROW_FOOT, footY = middleY + wayY * ARROW_FOOT;
+        line(lines, 0, footX - wayY * ARROW_WING, footY + wayX * ARROW_WING, 0f, tipX, tipY, 0f);
+        line(lines, 1, footX + wayY * ARROW_WING, footY - wayX * ARROW_WING, 0f, tipX, tipY, 0f);
+        return 2;
+    }
+
+    private static void line(float[] lines, int index, float fromX, float fromY, float fromHigh, float toX, float toY, float toHigh) {
+        int at = index * 6;
+        lines[at] = fromX;
+        lines[at + 1] = fromY;
+        lines[at + 2] = fromHigh;
+        lines[at + 3] = toX;
+        lines[at + 4] = toY;
+        lines[at + 5] = toHigh;
     }
 
     /**
