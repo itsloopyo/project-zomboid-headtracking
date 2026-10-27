@@ -466,11 +466,7 @@ final class ShaderTests {
                 "the develop pass is not told where the world ends, as the world's is");
     }
 
-    /**
-     * A wall's grime lies a layer out from the wall's skin. An eye in the wall's thickness, at its end, has the skin cut by
-     * the near plane and the grime a layer further out just past it: a sheet 5 cm from the eye over half the picture that wrote
-     * its depth and kept the sky out of it, so half the sky came out black (13770,1874, looking east). Read, not run.
-     */
+    /** A wall's skin is seen from the side it stands out to, as a wall's two faces are, and left out from behind. Read, not run. */
     private static void aWallSkinHasNoBack(List<Linked> programs) {
         Checks.check(SpriteGeometry.SHEET == 6f && SpriteGeometry.SEEN_ALONG == 7f && SpriteGeometry.SEEN_AGAINST == 8f,
                 "the one-sided codes are the two above every code that lies a face off its plane");
@@ -484,6 +480,11 @@ final class ShaderTests {
         Checks.check(discarded >= 0 && discarded < world.indexOf("if (depthOnly)"), "a skin seen from behind is left out, depth and all");
     }
 
+    /**
+     * A wall's grime lies a layer out from the wall's skin. An eye in the wall's thickness, at its end, has the skin cut by
+     * the near plane and the grime a layer further out just past it: a sheet 5 cm from the eye over half the picture that wrote
+     * its depth and kept the sky out of it, so half the sky came out black (13770,1874, looking east). Read, not run.
+     */
     private static void grimeIsSeenOnlyFromItsSide(List<Linked> programs) {
         String world = fragment(programs, "world").replaceAll("//[^\n]*", "").replaceAll("\\s+", " ");
         Checks.check(world.contains("pictureScreen = vec2(dFdx(vUv.y), dFdy(vUv.y)); }"

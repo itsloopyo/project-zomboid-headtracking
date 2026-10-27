@@ -500,10 +500,9 @@ final class PipelineShaders {
                 float kind = gl_MultiTexCoord1.z;
                 vec2 stands = at.xy - from / max(off, 0.5) * (gl_MultiTexCoord1.y * card);
                 lies = vec3(0.0);
-                // SpriteGeometry.SEEN_ALONG and SEEN_AGAINST lie on their plane.
                 if (kind > 2.5 && kind < 6.5) {
                     lies = (kind < 3.5 ? vec3(1.0, 0.0, 0.0) : kind < 4.5 ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0)) * (gl_MultiTexCoord1.x * layer);
-                } else if (kind > 1.5) {
+                } else if (kind > 1.5 && kind < 2.5) {
                     // A card that does not turn, standing clear of its own plane on the camera's side.
                     vec2 square = normalize(gl_Normal.xy);
                     stands -= square * (dot(square, from) > 0.0 ? 1.0 : -1.0) * (gl_MultiTexCoord1.x * card);
