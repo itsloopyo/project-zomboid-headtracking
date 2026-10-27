@@ -5,6 +5,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import zombie.core.textures.Texture;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
@@ -101,16 +102,19 @@ final class Roofs {
         final Roof roof;
         /** Whether it is a sheet behind a ridge (RoofFit.behindRidges): kept so its square is not read again, and no tile. */
         final boolean behind;
+        /** Whether its sprite is painted forward of where it stands (RoofFit.paintedForward): its square draws nothing, and the tile it stands for is made. */
+        final boolean forward;
 
         Laid(RoofFit.Tile tile, Texture texture, Roof roof) {
-            this(tile, texture, roof, false);
+            this(tile, texture, roof, false, false);
         }
 
-        Laid(RoofFit.Tile tile, Texture texture, Roof roof, boolean behind) {
+        Laid(RoofFit.Tile tile, Texture texture, Roof roof, boolean behind, boolean forward) {
             this.tile = tile;
             this.texture = texture;
             this.roof = roof;
             this.behind = behind;
+            this.forward = forward;
         }
     }
 
@@ -345,7 +349,14 @@ final class Roofs {
             read(cell, x, y, z, now, scale);
             known = laid.get(key);
         }
-        return known == null || known.behind ? null : known;
+        return known == null || known.behind || known.forward ? null : known;
+    }
+
+    /** Whether the roof sprite on the square is painted forward of where its tile stands, and draws nothing there: see RoofFit.paintedForward. */
+    static boolean paintedForward(IsoCell cell, int x, int y, int z, int now, float scale) {
+        at(cell, x, y, z, now, scale);
+        Laid known = laid.get(RoofFit.key(x, y, z));
+        return known != null && known.forward;
     }
 
     private static boolean due(Roof roof, int now) {
@@ -425,16 +436,23 @@ final class Roofs {
         for (Laid one : reading) {
             tiles.add(one.tile);
         }
+        // A piece painted forward of where it stands is fitted where it stands, and made there.
+        Map<RoofFit.Tile, RoofFit.Tile> forward = RoofFit.paintedForward(tiles);
+        if (!forward.isEmpty()) {
+            reading.replaceAll(one -> forward.containsKey(one.tile) ? new Laid(one.tile, one.texture, roof, false, true) : one);
+            tiles.removeAll(forward.keySet());
+            tiles.addAll(forward.values());
+        }
         // A sheet behind a ridge is no tile of what shows: the far slope is made over it, as over a square with none.
         List<RoofFit.Tile> behind = RoofFit.behindRidges(tiles);
         if (!behind.isEmpty()) {
-            reading.replaceAll(one -> behind.contains(one.tile) ? new Laid(one.tile, one.texture, roof, true) : one);
+            reading.replaceAll(one -> behind.contains(one.tile) ? new Laid(one.tile, one.texture, roof, true, false) : one);
         }
         tiles.clear();
         shown.clear();
         WallSides.Votes votes = new WallSides.Votes();
         for (Laid one : reading) {
-            if (one.behind) {
+            if (one.behind || one.forward) {
                 continue;
             }
             tiles.add(one.tile);
@@ -447,6 +465,8 @@ final class Roofs {
                 votes.add(index);
             }
         }
+        tiles.addAll(forward.values());
+        tiles.sort(Comparator.comparingLong(tile -> RoofFit.key(tile.x, tile.y, tile.z)));
         RoofFit.fit(tiles);
         if (!votes.isEmpty()) {
             paintedPlace(shown.get(votes.commonest()), roof);
@@ -459,6 +479,13 @@ final class Roofs {
             }
         }
         roof.tiles.addAll(reading);
+        // A piece painted forward is made where it stands, on the planes the fit gave it.
+        for (RoofFit.Tile stands : forward.values()) {
+            if (!stands.shaped) {
+                RoofFit.cornersOf(stands.fitAxis, stands.fitLow, stands.fitHigh, stands.corners);
+            }
+            keep(new Laid(stands, null, roof));
+        }
         // A roof read before all of it was loaded is short of rows, and what would be carried
         // over its ridge then is not the roof's far side.
         if (roof.whole) {

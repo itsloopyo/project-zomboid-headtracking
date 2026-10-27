@@ -7669,6 +7669,9 @@ final class WorldScene {
                     if (Roofs.capOfARidgeBelow(cell, board, frame.scale)) {
                         return;
                     }
+                    if (Roofs.paintedForward(cell, x, y, z, roundNow, frame.scale)) {
+                        return;
+                    }
                 }
                 roofName = sprite.getName();
                 roofBuilder.addRoof(mesh, texture, x, y, z);

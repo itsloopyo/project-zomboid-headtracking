@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.IntPredicate;
 
@@ -660,6 +661,95 @@ final class RoofFit {
             }
         }
         return behind;
+    }
+
+    /**
+     * The tiles of a roof the map paints whole thirds of a level up from where they stand, each with
+     * the tile it stands for. The game paints a square back along the line of sight a third of a level
+     * lower the same, and a gambrel's top is painted so: its shallow slopes and crown two squares
+     * south-east of the loft they cap and two thirds of a level up, where they read as a lid hanging
+     * over the steep slopes (436..449, 10028..10030, over the loft at 436..447, 10026..10028). A piece
+     * is the tiles of one level joined at their edges, every one a whole tile that reads clearly, and
+     * it is taken back when all of it is at least a third of a level over its floor and, back where it
+     * stands, it meets the top of a slope a level down, on no square another tile of its level or of the
+     * level below holds. A shallow gable's ridge a third up on the next level is painted over its own
+     * squares: one square back its eave would lie on the slope under it (7358..7360, 11785..11810).
+     */
+    static Map<Tile, Tile> paintedForward(List<Tile> tiles) {
+        HashMap<Long, Tile> at = new HashMap<>();
+        for (Tile tile : tiles) {
+            at.put(key(tile.x, tile.y, tile.z), tile);
+        }
+        LinkedHashMap<Tile, Tile> back = new LinkedHashMap<>();
+        HashSet<Tile> seen = new HashSet<>();
+        for (Tile first : tiles) {
+            if (first.z == 0 || !whole(first) || !seen.add(first)) {
+                continue;
+            }
+            ArrayList<Tile> piece = new ArrayList<>();
+            ArrayDeque<Tile> queue = new ArrayDeque<>();
+            queue.add(first);
+            boolean allWhole = true;
+            float lowest = Float.MAX_VALUE;
+            while (!queue.isEmpty()) {
+                Tile tile = queue.poll();
+                piece.add(tile);
+                lowest = Math.min(lowest, Math.min(tile.low, tile.high) - tile.z);
+                for (int side = 0; side < 4; side++) {
+                    int dx = side == 0 ? -1 : side == 1 ? 1 : 0, dy = side == 2 ? -1 : side == 3 ? 1 : 0;
+                    Tile next = at.get(key(tile.x + dx, tile.y + dy, tile.z));
+                    if (next != null && seen.add(next)) {
+                        allWhole &= whole(next);
+                        queue.add(next);
+                    }
+                }
+            }
+            int squares = (int) Math.floor((lowest + SAME) / PITCH);
+            if (!allWhole || squares < 1) {
+                continue;
+            }
+            HashSet<Long> own = new HashSet<>();
+            for (Tile tile : piece) {
+                own.add(key(tile.x, tile.y, tile.z));
+            }
+            boolean free = true;
+            for (Tile tile : piece) {
+                int x = tile.x - squares, y = tile.y - squares;
+                free &= (own.contains(key(x, y, tile.z)) || !at.containsKey(key(x, y, tile.z))) && !at.containsKey(key(x, y, tile.z - 1));
+            }
+            if (!free || !meetsBelow(piece, squares, at)) {
+                continue;
+            }
+            for (Tile tile : piece) {
+                Tile moved = new Tile(tile.x - squares, tile.y - squares, tile.z, tile.axis, tile.sure, tile.low - squares * PITCH, tile.high - squares * PITCH);
+                back.put(tile, moved);
+            }
+        }
+        return back;
+    }
+
+    /**
+     * Whether a piece, taken back the given squares and thirds of a level, has an edge as high as the
+     * top of a slope a level down on a square it covers or one beside it.
+     */
+    private static boolean meetsBelow(List<Tile> piece, int squares, HashMap<Long, Tile> at) {
+        for (Tile tile : piece) {
+            int x = tile.x - squares, y = tile.y - squares;
+            float edge = Math.min(tile.low, tile.high) - squares * PITCH;
+            for (int side = 0; side < 5; side++) {
+                int dx = side == 0 ? -1 : side == 1 ? 1 : 0, dy = side == 2 ? -1 : side == 3 ? 1 : 0;
+                Tile under = at.get(key(x + dx, y + dy, tile.z - 1));
+                if (under != null && !under.sheet && Math.abs(Math.max(under.low, under.high) - edge) < SAME) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /** Whether a tile is a whole tile of a slope or a crown that reads clearly: no trim, half, cut or sheet. */
+    private static boolean whole(Tile tile) {
+        return tile.sure && !tile.fitting && tile.half == 0 && tile.cutCorner < 0 && !tile.sheet;
     }
 
     /**

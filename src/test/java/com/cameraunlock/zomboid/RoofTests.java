@@ -6,6 +6,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import zombie.core.textures.Texture;
 import zombie.iso.SpriteDetails.IsoObjectType;
 
@@ -17,6 +18,7 @@ final class RoofTests {
 
     static void run() {
         Checks.run("planeAndFoldAreToldApartByTheMiddle", RoofTests::planeAndFoldAreToldApartByTheMiddle);
+        Checks.run("gambrelsTopPaintedForwardStandsOverItsLoft", RoofTests::gambrelsTopPaintedForwardStandsOverItsLoft);
         Checks.run("slopeKeepsItsPitchAboveTheKickAtItsEave", RoofTests::slopeKeepsItsPitchAboveTheKickAtItsEave);
         Checks.run("farSideOfAWingMeetsTheMainRoofInAValley", RoofTests::farSideOfAWingMeetsTheMainRoofInAValley);
         Checks.run("madeFarSidesOfAWingAndItsMainRoofMeetInAValley", RoofTests::madeFarSidesOfAWingAndItsMainRoofMeetInAValley);
@@ -1436,6 +1438,81 @@ final class RoofTests {
             }
         }
         return found;
+    }
+
+    /** A gambrel's lower slope on level 1, rows 3..5 of x 0..5, falling south from 2 at its north edge to 1. */
+    private static List<RoofFit.Tile> gambrelBelow() {
+        List<RoofFit.Tile> roof = new ArrayList<>();
+        for (int x = 0; x <= 5; x++) {
+            for (int row = 0; row < 3; row++) {
+                roof.add(new RoofFit.Tile(x, 3 + row, 1, RoofFit.ALONG_Y, true, 2f - row * THIRD, 2f - (row + 1) * THIRD));
+            }
+        }
+        return roof;
+    }
+
+    /** The gambrel's top on level 2, painted where the map has it: rows 2..4 of x 2..7, two thirds of a level up. */
+    private static List<RoofFit.Tile> gambrelTop() {
+        List<RoofFit.Tile> top = new ArrayList<>();
+        float eave = 2f + 2f * THIRD, crown = eave + THIRD / 2f;
+        for (int x = 2; x <= 7; x++) {
+            top.add(new RoofFit.Tile(x, 2, 2, RoofFit.ALONG_Y, true, eave, crown));
+            top.add(new RoofFit.Tile(x, 3, 2, RoofFit.LEVEL, true, crown, crown));
+            top.add(new RoofFit.Tile(x, 4, 2, RoofFit.ALONG_Y, true, crown, eave));
+        }
+        return top;
+    }
+
+    private static void gambrelsTopPaintedForwardStandsOverItsLoft() {
+        List<RoofFit.Tile> roof = gambrelBelow();
+        List<RoofFit.Tile> top = gambrelTop();
+        roof.addAll(top);
+        Map<RoofFit.Tile, RoofFit.Tile> back = RoofFit.paintedForward(roof);
+        check(back.size() == top.size() && back.keySet().containsAll(top), "every tile of the top is taken back, and nothing else: " + back.size());
+        for (Map.Entry<RoofFit.Tile, RoofFit.Tile> one : back.entrySet()) {
+            RoofFit.Tile painted = one.getKey(), stands = one.getValue();
+            check(stands.x == painted.x - 2 && stands.y == painted.y - 2 && stands.z == painted.z && stands.axis == painted.axis
+                    && Math.abs(stands.low - (painted.low - 2f * THIRD)) < 1e-4f && Math.abs(stands.high - (painted.high - 2f * THIRD)) < 1e-4f,
+                    "the top stands two squares back and two thirds of a level down: " + painted.x + "," + painted.y + " to " + stands.x + "," + stands.y + " " + stands.low);
+        }
+        check(back.values().stream().filter(tile -> tile.y == 2).allMatch(tile -> Math.abs(tile.high - 2f) < 1e-4f),
+                "its south eave is the lower slope's top: 2 along y 3");
+        // With nothing under it a level down, a piece up in the air is no top painted forward.
+        check(RoofFit.paintedForward(gambrelTop()).isEmpty(), "a piece with no slope topping under where it stands stays");
+        // Nor where a tile of its own level holds a square it would stand on.
+        List<RoofFit.Tile> held = gambrelBelow();
+        held.addAll(gambrelTop());
+        held.add(new RoofFit.Tile(1, 1, 2, RoofFit.ALONG_Y, true, 2f, 2f + THIRD));
+        check(RoofFit.paintedForward(held).isEmpty(), "a piece whose squares back are another's stays");
+        // Nor a piece with a trim in it: the trims on a wall under a porch read a level up.
+        List<RoofFit.Tile> trimmed = gambrelBelow();
+        trimmed.addAll(gambrelTop());
+        RoofFit.Tile trim = new RoofFit.Tile(8, 3, 2, RoofFit.LEVEL, true, 2f + 2f * THIRD, 2f + 2f * THIRD);
+        trim.fitting = true;
+        trimmed.add(trim);
+        check(RoofFit.paintedForward(trimmed).isEmpty(), "a piece with a trim in it stays");
+        // A hip's crown cut flat two thirds up is climbed to by slopes of its own level, which start on its floor.
+        List<RoofFit.Tile> hip = gambrelBelow();
+        for (int x = 0; x <= 5; x++) {
+            hip.add(new RoofFit.Tile(x, 0, 2, RoofFit.ALONG_Y, true, 2f, 2f + THIRD));
+            hip.add(new RoofFit.Tile(x, 1, 2, RoofFit.ALONG_Y, true, 2f + THIRD, 2f + 2f * THIRD));
+            hip.add(new RoofFit.Tile(x, 2, 2, RoofFit.LEVEL, true, 2f + 2f * THIRD, 2f + 2f * THIRD));
+        }
+        check(RoofFit.paintedForward(hip).isEmpty(), "a crown its own level's slopes climb to stays");
+        // A shallow gable climbing a sixth of a level a square on level 1, from 1 + 1/6 to 2 either side, whose ridge
+        // the map has on level 2 a third over that line, over the ridge's own squares.
+        List<RoofFit.Tile> shallow = new ArrayList<>();
+        float sixth = THIRD / 2f;
+        for (int y = 0; y <= 9; y++) {
+            for (int x = 0; x <= 4; x++) {
+                shallow.add(new RoofFit.Tile(x, y, 1, RoofFit.ALONG_X, true, 1f + (x + 1) * sixth, 1f + (x + 2) * sixth));
+                shallow.add(new RoofFit.Tile(8 + x, y, 1, RoofFit.ALONG_X, true, 2f - x * sixth, 2f - (x + 1) * sixth));
+            }
+            shallow.add(new RoofFit.Tile(5, y, 2, RoofFit.ALONG_X, true, 2f + THIRD, 2f + THIRD + sixth));
+            shallow.add(new RoofFit.Tile(6, y, 2, RoofFit.LEVEL, true, 2f + THIRD + sixth, 2f + THIRD + sixth));
+            shallow.add(new RoofFit.Tile(7, y, 2, RoofFit.ALONG_X, true, 2f + THIRD + sixth, 2f + THIRD));
+        }
+        check(RoofFit.paintedForward(shallow).isEmpty(), "a ridge whose eave one square back would lie on the slope under it stays");
     }
 
     private static void sheetsBehindARidgeAreNoPartOfTheRoof() {
