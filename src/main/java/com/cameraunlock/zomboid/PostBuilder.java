@@ -157,7 +157,7 @@ final class PostBuilder {
         }
         // Read each off its own sprite, a lower length and the model of the upper one on it met
         // a hand to one side and a step thinner or thicker: the lower length is stood to the model.
-        Furniture upper = upperLengthOn(x, y, z + 1);
+        Furniture upper = sprite.getName() != null && sprite.getName().startsWith(Furniture.STREET_LAMPS) ? upperLengthOn(x, y, z + 1) : null;
         if (upper != null) {
             a = upper.centreX;
             b = upper.centreY;

@@ -959,7 +959,7 @@ final class Furniture {
     }
 
     /** The sheet the game's street lamps are on. They carry no name: which lamp a sprite is, is its place on the sheet. */
-    private static final String STREET_LAMPS = "lighting_outdoor_01_";
+    static final String STREET_LAMPS = "lighting_outdoor_01_";
     /** The four banks of electric meters on a works' sheet, one a wall of the square, attachedN, W, S and E in that order. */
     private static final String METERS = "industry_02_";
     private static final int METER_BANKS = 176;
