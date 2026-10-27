@@ -753,8 +753,9 @@ final class WallBuilder {
                     build.building.signed = false;
                 }
             }
+            // A low wall in the room, the edge of a rail dock's platform, is no wall to stand whole on this side.
             if (farPaper == null && farWall != null && (!build.wallOpens || opening[at + OPENING_START] >= 0f)
-                    && paintedOnWall(texture, 0f, 0f, da, db, 0.5f, WHOLE_WALL, 0f)) {
+                    && paintedOnWall(texture, 0f, 0f, da, db, 0.5f, WHOLE_WALL, 0f) && paintedOnWall(farWall.texture, 0f, 0f, da, db, 0.5f, WHOLE_WALL, 0f)) {
                 farStood = farWall;
                 build.held.texelsOf(build.frame);
                 build.frame.takeTexels(farStood.texture);
