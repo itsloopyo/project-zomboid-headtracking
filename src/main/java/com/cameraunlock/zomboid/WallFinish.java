@@ -172,14 +172,34 @@ final class WallFinish {
                 Math.floorDiv(def.getX() + def.getW(), WorldScene.CHUNK_TILES), Math.floorDiv(def.getY() + def.getH(), WorldScene.CHUNK_TILES));
     }
 
-    /** Whether tend has a level of the building still to read again. */
-    private static boolean awaited(IsoBuilding building, Level[] levels) {
+    /**
+     * Whether tend has a level of the building still to read again. Not for a building no chunk
+     * of which is on the loaded map: none of it is being built, and the marks of its chunks'
+     * places are another chunk's once the map has moved on.
+     */
+    private static boolean awaited(IsoCell cell, IsoBuilding building, Level[] levels) {
+        BuildingDef def = building.getDef();
+        if (!loadedAnywhere(cell, def)) {
+            return false;
+        }
         for (int slot = 0; slot < LEVELS; slot++) {
             Level level = levels[slot];
             // A level below the ground is kept in the slot its number's low bits give: see of.
             int z = slot < LEVELS / 2 ? slot : slot - LEVELS;
-            if (level != null && level.listed && (!level.whole || structuresOn(building.getDef(), z) != level.structures)) {
+            if (level != null && level.listed && (!level.whole || structuresOn(def, z) != level.structures)) {
                 return true;
+            }
+        }
+        return false;
+    }
+
+    /** Whether any chunk under the building is on the loaded map, by the first ground square of each, as read takes a ground square. */
+    private static boolean loadedAnywhere(IsoCell cell, BuildingDef def) {
+        for (int x = Math.floorDiv(def.getX(), WorldScene.CHUNK_TILES); x <= Math.floorDiv(def.getX() + def.getW() - 1, WorldScene.CHUNK_TILES); x++) {
+            for (int y = Math.floorDiv(def.getY(), WorldScene.CHUNK_TILES); y <= Math.floorDiv(def.getY() + def.getH() - 1, WorldScene.CHUNK_TILES); y++) {
+                if (cell.getGridSquare(x * WorldScene.CHUNK_TILES, y * WorldScene.CHUNK_TILES, 0) != null) {
+                    return true;
+                }
             }
         }
         return false;
@@ -290,10 +310,14 @@ final class WallFinish {
 
     private static Level of(IsoCell cell, IsoBuilding building, int z, int frame) {
         if (known.size() > MOST_BUILDINGS) {
-            // A building with a level tend has still to read again is kept, or nothing would: one read short of its
-            // chunks, or one whose chunks the game has marked since. The rest are read anew as walls ask.
-            known.entrySet().removeIf(read -> !awaited(read.getKey(), read.getValue()));
+            // A building with a level tend has still to read again is kept, or nothing would read it again: one read
+            // short of its chunks, or one whose chunks the game has marked since. The rest are read anew as walls ask.
+            known.entrySet().removeIf(read -> !awaited(cell, read.getKey(), read.getValue()));
             if (known.size() > MOST_BUILDINGS) {
+                // Too many to keep: their chunks are told, and their builds read them anew.
+                for (IsoBuilding kept : known.keySet()) {
+                    tell(kept.getDef());
+                }
                 known.clear();
             }
             // A level read anew lists itself again: one left listed would be tended twice.
