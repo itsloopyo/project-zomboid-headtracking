@@ -119,17 +119,20 @@ public final class Controls {
     }
 
     /**
-     * A character that is not aiming turns to the way it walks, so walked backwards it would
+     * A character that is not aiming turns to the way it moves, so walked backwards it would
      * show its back to what the view looks at: in a mirror, to other players, and to the game's
-     * own vision cone. Walked sideways or backwards it is held in the game's aiming stance, the
+     * own vision cone, and sprinted sideways it would turn its body where a first person player
+     * keeps looking ahead. Moved sideways or backwards it is held in the game's aiming stance, the
      * one way the game has of facing one way and moving another, raised to the pace the game
-     * gives its walk (Sidestep). Jogging or sprinting, dragging a body, with the FacesTheView row
+     * gives the walk, jog or sprint ahead (Sidestep). Dragging a body, with the FacesTheView row
      * off or on a server, the game turns the character to the way it goes, as it would anyway.
      * The sights stay down. They follow the player's own aim input alone.
      */
     private boolean turnedToTheView(IsoPlayer player) {
-        return Rules.facesTheView() && player != null && player.getVehicle() == null && view.firstPerson.movingAside()
-                && !asksToRun(player) && !player.isDraggingCorpse();
+        boolean turned = Rules.facesTheView() && player != null && player.getVehicle() == null && view.firstPerson.movingAside()
+                && !player.isDraggingCorpse();
+        stanceGait = turned ? askedGait(player) : Sidestep.WALKING;
+        return turned;
     }
 
     private static final Field INPUT_STATE = inputState();
@@ -145,18 +148,32 @@ public final class Controls {
     }
 
     /**
-     * Whether the game read a jog or a sprint from the player's input on its last reading of it,
-     * the keys or its toggles to run and sprint. In the aiming stance the game keeps the character
-     * at a walk, so it is the input that says so and not the character. The aim is asked for
-     * before the game reads the run again, so a jog begun this frame holds the stance one more.
+     * The gait the game read from the player's input on its last reading of it, the keys or its
+     * toggles to run and sprint, as the game would let the character take it. In the aiming
+     * stance the game keeps the character at a walk, so it is the input that says so and not the
+     * character. The aim is asked for before the game reads the run again, so a jog begun this
+     * frame is a walk for one more.
      */
-    private static boolean asksToRun(IsoPlayer player) {
+    private static int askedGait(IsoPlayer player) {
         try {
             IsoPlayer.InputState input = (IsoPlayer.InputState) INPUT_STATE.get(player);
-            return input.isRunning() || input.sprinting;
+            if (input.sprinting) {
+                return Sidestep.SPRINTING;
+            }
+            if (input.isRunning() && player.isAllowRun()) {
+                return Sidestep.JOGGING;
+            }
+            return player.isSneaking() ? Sidestep.CREEPING : Sidestep.WALKING;
         } catch (IllegalAccessException e) {
             throw new IllegalStateException("the game's player input has changed: " + e, e);
         }
+    }
+
+    /** The gait the aiming stance held for facing alone stands in for: one of Sidestep's. */
+    private int stanceGait = Sidestep.WALKING;
+
+    int stanceGait() {
+        return stanceGait;
     }
 
     private boolean turnedOnly;

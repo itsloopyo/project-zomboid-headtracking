@@ -58,7 +58,7 @@ final class Rules {
         return Online.joined() || (on & SMASHES_THROUGH) == 0;
     }
 
-    /** Whether a character walked sideways or backwards in first person keeps facing the view, at the game's pace for the walk: see Controls and Sidestep. */
+    /** Whether a character moved sideways or backwards in first person keeps facing the view, at the game's pace for the gait: see Controls and Sidestep. */
     static boolean facesTheView() {
         return !Online.joined() && (on & FACES_THE_VIEW) != 0;
     }

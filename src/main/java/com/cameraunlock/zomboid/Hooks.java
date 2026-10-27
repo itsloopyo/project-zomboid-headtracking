@@ -804,9 +804,9 @@ public final class Hooks {
 
     /**
      * Called with the ground a character's animation has moved it this frame, before the game
-     * moves it. For a player of this machine walking ahead in first person it is the game's pace,
-     * and held in the aiming stance while walked sideways or backwards (Controls.turnedOnly) it is
-     * raised to that pace: see Sidestep.
+     * moves it. For a player of this machine walking, jogging or sprinting ahead in first person it
+     * is the game's pace for that gait, and held in the aiming stance while moved sideways or
+     * backwards (Controls.turnedOnly) it is raised to that pace: see Sidestep.
      */
     public static Vector2 moved(Vector2 ground, IsoGameCharacter character) {
         if (!(character instanceof IsoPlayer player)) {
@@ -819,14 +819,34 @@ public final class Hooks {
         }
         float pace = (float) Math.hypot(ground.x, ground.y) / multiplier;
         if (view.controls.turnedOnly() && player.isAiming()) {
-            float raised = view.sidestep.raised(pace, view.firstPerson.keysAhead(), player.isSneaking());
+            float raised = view.sidestep.raised(pace, view.firstPerson.keysAhead(), view.controls.stanceGait());
             return ground.set(ground.x * raised, ground.y * raised);
         }
-        if (pace > 0f && view.firstPerson.walkingAhead() && !player.isAiming() && !player.isRunning() && !player.isSprinting()
-                && player.getVehicle() == null && !player.isDraggingCorpse()) {
-            view.sidestep.walkedAhead(pace, player.isSneaking(), System.nanoTime());
+        if (pace > 0f && view.firstPerson.walkingAhead() && !player.isAiming() && player.getVehicle() == null && !player.isDraggingCorpse()) {
+            int gait = player.isSprinting() ? Sidestep.SPRINTING : player.isRunning() ? Sidestep.JOGGING
+                    : player.isSneaking() ? Sidestep.CREEPING : Sidestep.WALKING;
+            view.sidestep.walkedAhead(pace, gait, System.nanoTime());
         }
         return ground;
+    }
+
+    /**
+     * Called with whether a player is jogging, where the game takes endurance for it. A jog held
+     * in the aiming stance to face the view (Controls.turnedOnly) is a walk to the game, and
+     * costs what the jog it stands in for does.
+     */
+    public static boolean tiresJogging(boolean running, IsoPlayer player) {
+        return running || inStanceAt(player, Sidestep.JOGGING);
+    }
+
+    /** Called with whether a player is sprinting, where the game takes endurance for it: as tiresJogging, for a sprint. */
+    public static boolean tiresSprinting(boolean sprinting, IsoPlayer player) {
+        return sprinting || inStanceAt(player, Sidestep.SPRINTING);
+    }
+
+    private static boolean inStanceAt(IsoPlayer player, int gait) {
+        View view = View.of(player);
+        return view != null && view.controls.turnedOnly() && player.isAiming() && view.controls.stanceGait() == gait;
     }
 
     /** Called as the game has drawn a person or a vehicle into a player's part of the screen. */
