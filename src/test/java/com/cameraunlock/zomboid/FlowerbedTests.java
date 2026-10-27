@@ -36,9 +36,13 @@ final class FlowerbedTests {
 
     /** Colours read off the game's beds: vivid, pale and coral roses, blue flowers, their leaves, the edging stones and the soil. */
     private static void aBedsDotsAreToldByColour() {
-        int[][] blooms = {{214, 52, 120}, {236, 120, 160}, {214, 170, 176}, {200, 110, 100}, {104, 136, 206}, {150, 170, 214}, {120, 40, 76}};
+        int[][] blooms = {{214, 52, 120}, {236, 120, 160}, {214, 170, 176}, {200, 110, 100}, {104, 136, 206}, {150, 170, 214}};
         for (int[] c : blooms) {
             check(Flowerbeds.dot(c[0], c[1], c[2], 255) == Flowerbeds.BLOOM, rgb(c) + " is a bloom");
+        }
+        int[][] shaded = {{120, 40, 76}, {90, 30, 50}, {60, 70, 120}};
+        for (int[] c : shaded) {
+            check(Flowerbeds.dot(c[0], c[1], c[2], 255) == Flowerbeds.SHADED_BLOOM, rgb(c) + " is a bloom in shade, no rose's colour");
         }
         int[][] leaves = {{60, 100, 50}, {40, 72, 40}, {88, 120, 70}};
         for (int[] c : leaves) {
@@ -75,18 +79,18 @@ final class FlowerbedTests {
 
     private static void underItsRosesABedIsEarthWithItsLeavesAndStones() {
         int width = 6;
-        int[][] dots = {{214, 52, 120, 255}, {236, 120, 160, 255}, {104, 136, 206, 255}, {60, 100, 50, 255}, {170, 170, 168, 255}, {214, 52, 120, 0}};
-        ByteBuffer sheet = ByteBuffer.allocate(width * 2 * 4);
+        int[][] dots = {{214, 52, 120, 255}, {236, 120, 160, 255}, {104, 136, 206, 255}, {120, 40, 76, 255}, {60, 100, 50, 255}, {170, 170, 168, 255}, {214, 52, 120, 0}};
+        ByteBuffer sheet = ByteBuffer.allocate((width + dots.length) * 4);
         for (int i = 0; i < dots.length; i++) {
             for (int c = 0; c < 4; c++) {
                 sheet.put((width + i) * 4 + c, (byte) dots[i][c]);
             }
         }
-        ByteBuffer earth = Flowerbeds.earthen(sheet, width, 0, 1, width, 2);
+        ByteBuffer earth = Flowerbeds.earthen(sheet, width + dots.length, width, 0, width + dots.length, 1);
         for (int i = 0; i < dots.length; i++) {
             int red = earth.get(i * 4) & 255, green = earth.get(i * 4 + 1) & 255, blue = earth.get(i * 4 + 2) & 255;
             check((earth.get(i * 4 + 3) & 255) == dots[i][3], "dot " + i + " keeps its cover");
-            if (i < 3) {
+            if (i < 4) {
                 check(red > green && green > blue && red < 130 && Flowerbeds.dot(red, green, blue, 255) != Flowerbeds.BLOOM,
                         "a bloom is painted out as brown earth: " + red + "," + green + "," + blue);
             } else {

@@ -29,8 +29,10 @@ final class Flowerbeds {
     private static final String SHEET = "vegetation_ornamental_01_";
     /** Within this many tiles of the eye a bed grows its roses, and past it the painting is the bed. */
     static final float REACH = 20f;
-    /** What each dot of a bed's sprite is. */
-    static final byte NOTHING = 0, LEAF = 1, BLOOM = 2, STONE = 3;
+    /** What each dot of a bed's sprite is. A shaded bloom is a bloom in the shadow of the petal over it: a rose is never coloured from one. */
+    static final byte NOTHING = 0, LEAF = 1, BLOOM = 2, STONE = 3, SHADED_BLOOM = 4;
+    /** A bloom darker than this, of 1, is a shaded one. */
+    static final float SHADED = 0.3f;
     /** How many bushes a square grows near the eye, along each side of it. */
     private static final int SITES = 4;
     /** A bush looks this many dots either way round its foot for what it grows out of, and for leaves and blooms to take its colours from. */
@@ -143,7 +145,8 @@ final class Flowerbeds {
             for (int x = 0; x < across; x++) {
                 int from = ((top + y) * width + left + x) * 4, to = (y * across + x) * 4;
                 int red = sheet.get(from) & 255, green = sheet.get(from + 1) & 255, blue = sheet.get(from + 2) & 255;
-                if (dot(red, green, blue, sheet.get(from + 3) & 255) == BLOOM) {
+                byte dot = dot(red, green, blue, sheet.get(from + 3) & 255);
+                if (dot == BLOOM || dot == SHADED_BLOOM) {
                     float light = Math.clamp((0.3f * red + 0.55f * green + 0.15f * blue) / 120f, 0.6f, 1.15f);
                     red = Math.min(Math.round(EARTH_RED * light), 255);
                     green = Math.min(Math.round(EARTH_GREEN * light), 255);
@@ -186,7 +189,7 @@ final class Flowerbeds {
     /**
      * What a dot of a bed is by its colour, each channel 0 to 255. A bloom is pink, red or blue:
      * redder than green and no greener than blue, or bright, which the reddish brown of the soil
-     * round the bed is not; or bluer than either. A leaf is greener than red. A stone is grey and
+     * round the bed is not; or bluer than either, and shaded under SHADED. A leaf is greener than red. A stone is grey and
      * not dark. Anything else, the soil and the shadows between leaves, is nothing.
      */
     static byte dot(int red, int green, int blue, int cover) {
@@ -196,7 +199,7 @@ final class Flowerbeds {
         float r = red / 255f, g = green / 255f, b = blue / 255f;
         float light = 0.3f * r + 0.55f * g + 0.15f * b;
         if (r > g + 0.06f && r >= b && (b >= g || light > 0.3f) || b > g + 0.06f && b > r) {
-            return BLOOM;
+            return light < SHADED ? SHADED_BLOOM : BLOOM;
         }
         if (g > r + 0.01f && g >= b) {
             return LEAF;
