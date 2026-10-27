@@ -4,6 +4,7 @@ import zombie.iso.IsoWorld;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -29,6 +30,7 @@ import zombie.core.textures.ColorInfo;
 import zombie.core.textures.Texture;
 import zombie.scripting.objects.ModelAttachment;
 import zombie.scripting.objects.ModelScript;
+import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
 import zombie.vehicles.BaseVehicle;
 
@@ -2616,25 +2618,66 @@ public final class Characters {
     }
 
     /**
-     * Says to the picture's draw of a person what the game's light is on the square they stand
-     * on, read as the world's own squares are, so that a person in a dark room is as dark as
-     * the room. Nothing is said of a square the viewer has not seen: the game holds no light for it.
-     * The viewer's torch is not in it: its beam lights a person as it lights the wall behind them.
+     * Says to the picture's draw of a person the light on the square they stand on, as the
+     * world's own squares take it (WorldScene.Frame.readLights), so that a person in a dark room
+     * is as dark as the room and one in a lit room as lit as its floor. In a room the world goes
+     * by whether the room has been seen as a whole: in one that has not, the game's light is
+     * none, or what the square had when it was last in sight, and the world lights the room as a
+     * room not yet seen. Out of a room nothing is said of a square the viewer has not seen. The
+     * viewer's torch is not in it: its beam lights a person as it lights the wall behind them.
      */
     private final ColorInfo stoodIn = new ColorInfo();
+    /** Whether each room asked after in the frame roomsSeenFrame names has been seen as a whole. */
+    private final HashMap<Long, Boolean> roomsSeen = new HashMap<>();
+    private long roomsSeenFrame = -1L;
 
     private void lightWhere(ModelSlotRenderData data) {
         lightAt(data.character.getCurrentSquare());
     }
 
     private void lightAt(IsoGridSquare square) {
-        if (square == null || !square.isSeen(view.index)) {
+        if (square == null) {
             return;
         }
-        // As the room round them is lit: with the day it lets in.
-        ColorInfo light = view.worldScene.daylitNow(square, view.torchLess.light(square, view.index, stoodIn), stoodIn);
-        float kept = view.worldScene.daylightKeptNow * (square.isOutside() ? 1f : view.worldScene.roomKeptNow);
-        CharacterDraw.stands(Evening.dimmed((light.r + light.g + light.b) / 3f, view.worldScene.openNow, kept), square.isOutside());
+        WorldScene scene = view.worldScene;
+        IsoCell cell = IsoWorld.instance.currentCell;
+        long room = square.getRoomID();
+        boolean inRoom = room != RoomSight.OUTSIDE;
+        boolean asShown = scene.asTheGameShowsNow, gamesView = scene.gamesViewNow;
+        boolean seen = inRoom && !asShown && !gamesView ? roomSeen(cell, room) : square.isSeen(view.index);
+        // A square not seen out of a room, or in one shown only as the game shows it, is lit as the
+        // open ground is: nothing is said. The game's own view keeps the engine's light in a room
+        // it has not shown, which is none.
+        if (!seen && (!inRoom || asShown) && !(gamesView && inRoom)) {
+            return;
+        }
+        float light;
+        if (seen || gamesView) {
+            // As the room round them is lit: with the day it lets in.
+            ColorInfo given = scene.daylitNow(square, view.torchLess.light(square, view.index, stoodIn), stoodIn);
+            light = (given.r + given.g + given.b) / 3f;
+        } else {
+            // As the world lights a room not yet seen (WorldScene.ROOM_LIT and LAMP_LIT), at least
+            // by the day the room lets in. A lamp counts here only as the room's own lights: the
+            // lamps standing loose are the frame's, read on the logic thread.
+            float unseen = WorldScene.lampBurns(cell, square, List.of()) ? scene.lampLitNow : scene.roomLitNow;
+            light = Math.max(unseen, scene.roomsDaylitNow ? scene.roomDaylight.sharedAt(square) * scene.daylightLitNow : 0f);
+        }
+        float kept = scene.daylightKeptNow * (square.isOutside() ? 1f : scene.roomKeptNow);
+        CharacterDraw.stands(Evening.dimmed(light, scene.openNow, kept), square.isOutside());
+    }
+
+    private boolean roomSeen(IsoCell cell, long room) {
+        if (roomsSeenFrame != notedFrames) {
+            roomsSeen.clear();
+            roomsSeenFrame = notedFrames;
+        }
+        Boolean known = roomsSeen.get(room);
+        if (known == null) {
+            known = WorldScene.roomSeen(cell, room, view.index);
+            roomsSeen.put(room, known);
+        }
+        return known;
     }
 
     /**

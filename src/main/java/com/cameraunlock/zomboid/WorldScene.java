@@ -795,6 +795,13 @@ final class WorldScene {
     /** Whether the frame last built lit rooms by the day they let in, how much of the day there was, and the open ground's light by as much of it, in its steps: see Frame.daylit. */
     volatile boolean roomsDaylitNow;
     volatile float dayNow, dayRedNow, dayGreenNow, dayBlueNow;
+    /**
+     * Whether the frame last built was shown only as the game shows it and was the game's own view,
+     * and the light it gave a room the player has not seen, one with a lamp burning and the open
+     * ground's daylight, each as the mean of its colours: see Frame.readLights.
+     */
+    volatile boolean asTheGameShowsNow, gamesViewNow;
+    volatile float roomLitNow, lampLitNow, daylightLitNow;
     private static final int REMAKES_A_FRAME = 12;
     private static final IdentityHashMap<IsoSprite, Boolean> meshes = new IdentityHashMap<>();
 
@@ -2382,6 +2389,24 @@ final class WorldScene {
     /** For each door sprite on each edge: the frame origin it was read with, then the shares of the edge its leaf starts and ends at. */
     static final IdentityHashMap<Texture, float[]> doorSpans = new IdentityHashMap<>();
 
+    /** Whether a player has seen a room, as RoomsSeen takes it from the room's squares on its own level. For either thread. */
+    static boolean roomSeen(IsoCell cell, long room, int playerIndex) {
+        RoomDef def = IsoWorld.instance.getMetaGrid().getRoomDefByID(room);
+        int[] rects = new int[def.rects.size() * 4];
+        for (int i = 0; i < def.rects.size(); i++) {
+            RoomDef.RoomRect rect = def.rects.get(i);
+            rects[i * 4] = rect.x;
+            rects[i * 4 + 1] = rect.y;
+            rects[i * 4 + 2] = rect.w;
+            rects[i * 4 + 3] = rect.h;
+        }
+        int level = def.level;
+        return RoomsSeen.most(rects, (x, y) -> {
+            IsoGridSquare square = cell.getGridSquare(x, y, level);
+            return square == null ? RoomsSeen.NONE : square.isSeen(playerIndex) ? RoomsSeen.SEEN : RoomsSeen.UNSEEN;
+        });
+    }
+
     /**
      * Whether a lamp burns in the room a square is in: the room's own light, which the game's
      * lighting sets from the switch and the power, or a lamp stood in the room. A chunk's sum
@@ -3448,6 +3473,8 @@ final class WorldScene {
             roomsDaylit = !gamesView && !Quality.plain(view.index);
             day = Math.round(Evening.day(sky.sunUp) * DAY_STEPS) / (float) DAY_STEPS;
             roomsDaylitNow = roomsDaylit;
+            asTheGameShowsNow = asTheGameShows;
+            gamesViewNow = gamesView;
             dayNow = day;
             for (int i = 0; i < 3; i++) {
                 float open = i == 0 ? unseenRed : i == 1 ? unseenGreen : unseenBlue;
@@ -3479,6 +3506,9 @@ final class WorldScene {
             System.arraycopy(daylightEased, 0, sky.daylight, 0, 3);
             System.arraycopy(roomLightEased, 0, sky.roomLight, 0, 3);
             System.arraycopy(lampLightEased, 0, sky.lampLight, 0, 3);
+            roomLitNow = (roomLightEased[0] + roomLightEased[1] + roomLightEased[2]) / 3f;
+            lampLitNow = (lampLightEased[0] + lampLightEased[1] + lampLightEased[2]) / 3f;
+            daylightLitNow = (daylightEased[0] + daylightEased[1] + daylightEased[2]) / 3f;
 
             // The loaded map is a square of chunks, and it ends in nothing. The picture fades into the
             // sky by the round that just fits inside it, so the edge is never seen. The square is not
@@ -5594,20 +5624,7 @@ final class WorldScene {
         private boolean roomSeen(long room) {
             Boolean known = roomsSeenInReading.get(room);
             if (known == null) {
-                RoomDef def = IsoWorld.instance.getMetaGrid().getRoomDefByID(room);
-                int[] rects = new int[def.rects.size() * 4];
-                for (int i = 0; i < def.rects.size(); i++) {
-                    RoomDef.RoomRect rect = def.rects.get(i);
-                    rects[i * 4] = rect.x;
-                    rects[i * 4 + 1] = rect.y;
-                    rects[i * 4 + 2] = rect.w;
-                    rects[i * 4 + 3] = rect.h;
-                }
-                int level = def.level;
-                known = RoomsSeen.most(rects, (x, y) -> {
-                    IsoGridSquare square = cell.getGridSquare(x, y, level);
-                    return square == null ? RoomsSeen.NONE : square.isSeen(playerIndex) ? RoomsSeen.SEEN : RoomsSeen.UNSEEN;
-                });
+                known = WorldScene.roomSeen(cell, room, playerIndex);
                 roomsSeenInReading.put(room, known);
             }
             return known;
