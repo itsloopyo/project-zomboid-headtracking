@@ -387,6 +387,7 @@ final class DoorTests {
         check(far[atCut] == OpeningBuilder.NO_EDGE && far[each + atCut] == OpeningBuilder.NO_EDGE, "posts left where they are painted have no side at the cut");
         check(DepthFights.nearestFight(OpeningBuilder.CASING_PROUD - Trims.BOARD, 0, 0) > 48f,
                 "a skirting run on behind a post's foot is told from the post's front from within 48 tiles");
+        check(DepthFights.nearestFight(OpeningBuilder.JAMB_PROUD, 0, 0) > 48f, "the lining at a post is told from the wall's reveal behind it from within 48 tiles");
     }
 
     private static void leafIsCutBackToTheDoorwaysCut() {

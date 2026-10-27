@@ -593,6 +593,18 @@ final class OpeningBuilder {
                 addBoard(wood, members[at], members[at + 1], members[at + 2], members[at + 3], out * (WorldScene.WALL_HALF - CASING_INTO),
                         out * (WorldScene.WALL_HALF + CASING_PROUD), (int) members[at + 4], doorwayRevealed ? (int) members[at + 5] : NO_EDGE,
                         sideRed[side], sideGreen[side], sideBlue[side]);
+                // A post at the cut is lined back to the middle of the wall in its own wood, over the wall's reveal,
+                // JAMB_PROUD into the doorway off the reveal's plane.
+                int atCut = (int) members[at + 5];
+                if (doorwayRevealed && atCut != NO_EDGE) {
+                    float edge = atCut == AT_TO ? members[at + 1] + JAMB_PROUD : members[at] - JAMB_PROUD;
+                    float[] c = build.reveal;
+                    edgePoint(c, 0, true, edge, members[at + 2], 0f);
+                    edgePoint(c, 1, true, edge, members[at + 2], out * WorldScene.WALL_HALF);
+                    edgePoint(c, 2, true, edge, members[at + 3], out * WorldScene.WALL_HALF);
+                    edgePoint(c, 3, true, edge, members[at + 3], 0f);
+                    SpriteGeometry.addPlainQuad(wood, c, sideRed[side], sideGreen[side], sideBlue[side]);
+                }
             }
         }
         WorldScene.solid.own(thing);
@@ -613,6 +625,8 @@ final class OpeningBuilder {
     static final float CASING_PROUD = 0.022f, CASING_BEVEL = 0.009f;
     /** How far a casing's boards run back into the wall behind its skin, so no gap shows between the two at a slant. */
     private static final float CASING_INTO = 0.004f;
+    /** How far the lining at a casing's post stands into the doorway from the wall's reveal, as a share of the wall's length: clear of it in depth past 48 tiles. */
+    static final float JAMB_PROUD = 0.005f;
     /** How near the doorway's cut a post's inner edge has to be read to be put at it, as a share of the wall's length. */
     static final float CASING_SNAP = 0.05f;
     /**
