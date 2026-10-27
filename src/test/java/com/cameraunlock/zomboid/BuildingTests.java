@@ -379,6 +379,14 @@ final class BuildingTests {
         WallJoins.Walls gapped = (x, y, north) -> north && y == 0 && x >= 0 && x <= 4 && x != 2;
         check(WallJoins.of(gapped, 1, 0, true) >> 3 == WallJoins.OPEN && (WallJoins.of(gapped, 3, 0, true) & 7) == WallJoins.OPEN, "the jambs of a gap in a wall are closed");
         check((WallJoins.of(gapped, 1, 0, true) & 7) == 0 && WallJoins.of(gapped, 3, 0, true) >> 3 == 0, "and the wall runs on at its other ends");
+        // A stall partition on the west edges of (5, 0) ends at y 1, where a board fence stands on the north edge of (5, 1).
+        WallJoins.Walls fence = (x, y, north) -> north && y == 1 && x == 5;
+        check(WallJoins.covered(fence, 5, 0, false) >> 3 == WallJoins.NEAR, "a board fence leaving a wall's end covers the half of it on its own side");
+        check((WallJoins.covered(fence, 5, 0, false) & 7) == 0, "and nothing of the end that meets no fence");
+        WallJoins.Walls both = (x, y, north) -> north && y == 1 && (x == 4 || x == 5);
+        check(WallJoins.covered(both, 5, 0, false) >> 3 == (WallJoins.NEAR | WallJoins.FAR), "fences on both sides cover the whole end");
+        check(WallJoins.covered((x, y, north) -> !north && x == 4 && y == 2, 3, 3, true) >> 3 == WallJoins.FAR,
+                "a fence leaving a north wall's east end northwards is on the far side");
     }
 
     private static void eavesMeetAtAHipAndRunOutOverAGable() {

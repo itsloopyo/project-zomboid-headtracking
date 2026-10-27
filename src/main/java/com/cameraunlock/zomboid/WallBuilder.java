@@ -623,12 +623,13 @@ final class WallBuilder {
         float pixels = Math.abs(SpriteGeometry.frameU(build.frame, da, db) - SpriteGeometry.frameU(build.frame, 0f, 0f));
         boolean startPainted = paintedOnWall(texture, 0f, 0f, da, db, (fromStart + 1.5f) / pixels, SEAL_HEIGHT, 0f);
         boolean endPainted = paintedOnWall(texture, 0f, 0f, da, db, 1f - (fromEnd + 1.5f) / pixels, SEAL_HEIGHT, 0f);
-        int startJoin = 0, endJoin = 0;
+        int startJoin = 0, endJoin = 0, covered = 0;
         if (build.overLayer == 0) {
             build.joinLevel = z;
             int joins = WallJoins.of(build.standing, x, y, da != 0f);
             startJoin = startPainted ? joins & 7 : 0;
             endJoin = endPainted ? joins >> 3 : 0;
+            covered = WallJoins.covered(build.boarded, x, y, da != 0f);
         }
         build.geometry.shownA = inX;
         build.geometry.shownB = inY;
@@ -827,7 +828,7 @@ final class WallBuilder {
             addReveals(opening, at, x, y, z, 0f, 0f, da, db, inX, inY);
         }
         if (build.overLayer == 0) {
-            addCaps(mesh, texture, opening[at + OPENING_TOP], (startJoin & WallJoins.OPEN) != 0, (endJoin & WallJoins.OPEN) != 0,
+            addCaps(mesh, texture, opening[at + OPENING_TOP], (startJoin & WallJoins.OPEN) != 0, (endJoin & WallJoins.OPEN) != 0, covered,
                     startPainted && endPainted, underFoot(opening[at + OPENING_START], opening[at + OPENING_END], opening[at + OPENING_FOOT]),
                     x, y, z, 0f, 0f, da, db, inX, inY);
         }
@@ -1526,9 +1527,10 @@ final class WallBuilder {
      * nothing meets, a doorway with no frame or the last panel of a fence; over the top of one
      * that stops short of its level, a fence, a garden wall, a parapet; and under the foot of
      * one that stands on an upper floor, which is seen from below where the floor juts out.
-     * Each is the colour the wall's sprite has low down on it.
+     * Each is the colour the wall's sprite has low down on it. An end closes only the half of
+     * the wall's thickness no board fence leaving it covers (WallJoins.covered).
      */
-    private void addCaps(SpriteGeometry.Mesh mesh, Texture texture, float top, boolean openStart, boolean openEnd, boolean whole, float[] footSpans,
+    private void addCaps(SpriteGeometry.Mesh mesh, Texture texture, float top, boolean openStart, boolean openEnd, int covered, boolean whole, float[] footSpans,
             int x, int y, int z, float a, float b, float da, float db, float inX, float inY) {
         boolean overTop = whole && top > 0f && top < CAPPED_BELOW, underFoot = whole && z > 0;
         if (top <= 0f || !openStart && !openEnd && !overTop && !underFoot) {
@@ -1557,11 +1559,16 @@ final class WallBuilder {
             if (end == 0 ? !openStart : !openEnd) {
                 continue;
             }
+            int halves = end == 0 ? covered & 7 : covered >> 3;
+            float from = (halves & WallJoins.FAR) != 0 ? 0f : -1f, to = (halves & WallJoins.NEAR) != 0 ? 0f : 1f;
+            if (from >= to) {
+                continue;
+            }
             float ex = end == 0 ? x0 : x1, ey = end == 0 ? y0 : y1, foot = end == 0 ? foot0 : foot1;
-            WorldScene.set(c, 0, ex - inX, ey - inY, foot);
-            WorldScene.set(c, 1, ex + inX, ey + inY, foot);
-            WorldScene.set(c, 2, ex + inX, ey + inY, foot + high);
-            WorldScene.set(c, 3, ex - inX, ey - inY, foot + high);
+            WorldScene.set(c, 0, ex + inX * from, ey + inY * from, foot);
+            WorldScene.set(c, 1, ex + inX * to, ey + inY * to, foot);
+            WorldScene.set(c, 2, ex + inX * to, ey + inY * to, foot + high);
+            WorldScene.set(c, 3, ex + inX * from, ey + inY * from, foot + high);
             SpriteGeometry.addQuad(mesh, c, u, v, build.frame.red, build.frame.green, build.frame.blue);
         }
         if (overTop) {

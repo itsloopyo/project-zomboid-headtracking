@@ -80,4 +80,27 @@ final class WallJoins {
     static int facedY(int y, boolean north, boolean near) {
         return near || !north ? y : y - 1;
     }
+
+    /**
+     * Which halves of the closed ends of the wall on the north or west edge of a square a sheet
+     * leaving the end covers: NEAR for one on the side of the wall's own square, FAR for one on
+     * the other, the end nearer the north-west corner in the low three bits and the other in the
+     * next three, as of. A sheet has no thickness and stands in the plane the end is closed in,
+     * so the half of the face it covers would be drawn twice in one place.
+     */
+    static int covered(Walls sheets, int x, int y, boolean north) {
+        int start, finish;
+        if (north) {
+            start = halves(sheets.stands(x, y, false), sheets.stands(x, y - 1, false));
+            finish = halves(sheets.stands(x + 1, y, false), sheets.stands(x + 1, y - 1, false));
+        } else {
+            start = halves(sheets.stands(x, y, true), sheets.stands(x - 1, y, true));
+            finish = halves(sheets.stands(x, y + 1, true), sheets.stands(x - 1, y + 1, true));
+        }
+        return start | finish << 3;
+    }
+
+    private static int halves(boolean near, boolean far) {
+        return (near ? NEAR : 0) | (far ? FAR : 0);
+    }
 }

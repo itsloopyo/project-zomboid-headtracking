@@ -8262,6 +8262,12 @@ final class WorldScene {
             IsoObject wall = square == null ? null : wallOn(square, north, false);
             return wall != null && !isSheet(wall.getSprite().getProperties());
         };
+        /** Whether a length of board fence, a sheet that cannot be seen through, stands on the north or west edge of a square of joinLevel. */
+        final WallJoins.Walls boarded = (wallX, wallY, north) -> {
+            IsoGridSquare square = cell.getGridSquare(wallX, wallY, joinLevel);
+            IsoObject wall = square == null ? null : wallOn(square, north, false);
+            return wall != null && isSheet(wall.getSprite().getProperties()) && kindOf(wall.getSprite()).asOther == BOARDS;
+        };
         /** Whether the wall being added is a sheet: see isSheet. */
         boolean seeThrough;
         /** Whether the sprite being added is a sheet of chain link, which stands on its edge whether or not the game calls it a wall: see ChainLink.sheet. */
