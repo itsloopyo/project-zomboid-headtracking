@@ -256,7 +256,7 @@ def main():
         total += (made_into / f'{name}.jpg').stat().st_size
         sizes[name] = image.size
     shown = screens(folder)
-    missing += [name for name in catalogue.SHOTS if name not in shown]
+    missing += [name for name, source in catalogue.SHOTS.items() if made(folder, source) is None]
     for name, image in shown.items():
         image.save(made_into / f'{name}.jpg', quality=SCREEN_QUALITY)
         total += (made_into / f'{name}.jpg').stat().st_size
