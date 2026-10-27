@@ -562,9 +562,11 @@ final class RoofFit {
         int open;
         boolean fromEave, valley;
         final boolean crowned;
+        /** Whether the far side stops against a square something else covers, before the building's edge. */
+        final boolean blocked;
         final float eave, rise, ridge;
 
-        Row(int x, int y, int dx, int dy, int open, int climbed, boolean fromEave, boolean crowned, float eave, float rise, float ridge) {
+        Row(int x, int y, int dx, int dy, int open, int climbed, boolean fromEave, boolean crowned, boolean blocked, float eave, float rise, float ridge) {
             this.x = x;
             this.y = y;
             this.dx = dx;
@@ -573,6 +575,7 @@ final class RoofFit {
             this.climbed = climbed;
             this.fromEave = fromEave;
             this.crowned = crowned;
+            this.blocked = blocked;
             this.eave = eave;
             this.rise = rise;
             this.ridge = ridge;
@@ -875,7 +878,7 @@ final class RoofFit {
             // for the far slope there, and stopped at the crown's edge it stood a third of a level over it, a ledge open
             // underneath (a cross gable before a hip cut short, 10402..10411 x 12658..12669).
             ArrayList<Long> overCrown = new ArrayList<>();
-            boolean metCrown = false, annex = false;
+            boolean metCrown = false, annex = false, blocked = false;
             while (open < WIDEST_TOP && stands(built, site, x + open * dx, y + open * dy, floor)) {
                 // A sheet over another room is no foot of this slope but the flat roof of a lower part of the building
                 // beside it, whose wall the slope comes down to. Carried on over it, the far slope's eave stood on the
@@ -897,6 +900,7 @@ final class RoofFit {
                 Tile on = roofed.get(square);
                 metCrown |= on != null && on.sheet;
                 if (on != null ? !(on.sheet && on.fitLow <= foot + SAME) : site.taken(x + open * dx, y + open * dy, floor, foot)) {
+                    blocked = true;
                     break;
                 }
                 if (on != null) {
@@ -927,7 +931,7 @@ final class RoofFit {
                 }
             }
             over.addAll(overCrown);
-            Row row = new Row(x, y, dx, dy, open, climbed, fromEave, metCrown, eave, rise, farRidge);
+            Row row = new Row(x, y, dx, dy, open, climbed, fromEave, metCrown, blocked, eave, rise, farRidge);
             rows.add(row);
             rowAt.putIfAbsent(rowKey(x, y, dx, dy), row);
         }
@@ -953,6 +957,25 @@ final class RoofFit {
         for (int i = 0; i < cut.size(); i++) {
             cut.get(i).fromEave = false;
             cut.get(i).open = cutTo.get(i);
+        }
+        // The end row of a ridge, where the building ends beside it, falls from the ridge as deep as its near side where the
+        // row beside it stops against what covers the building there before it comes down to its eave: that part's own roof
+        // comes out over the rest of the row. Carried on to the far wall, a wing's far side lay at its ridge's height along the
+        // whole north edge of the house beyond it (12352..12359, 3201).
+        for (Row row : rows) {
+            if (!row.fromEave || row.open <= row.climbed) {
+                continue;
+            }
+            for (int side = -1; side <= 1; side += 2) {
+                int sx = row.dx == 0 ? side : 0, sy = row.dy == 0 ? side : 0;
+                Row beside = rowAt.get(rowKey(row.x + sx, row.y + sy, row.dx, row.dy));
+                if (beside != null && beside.blocked && beside.open < row.climbed && Math.abs(beside.ridge - row.ridge) < SAME
+                        && !stands(built, site, row.x - sx, row.y - sy, (int) Math.floor(row.eave + LEAST_RISE))) {
+                    row.fromEave = false;
+                    row.open = row.climbed;
+                    break;
+                }
+            }
         }
         // A far side that runs on past the depth of its near one into the far side of a roof
         // across it has come to where a wing meets the main roof, and both far sides are made:
