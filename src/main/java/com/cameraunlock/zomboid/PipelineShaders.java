@@ -1789,9 +1789,9 @@ final class PipelineShaders {
             // How high a slat of a shut roller door is, as the game paints it (thirteen or fourteen dots
             // in a level's 194), half the width of the dark line where two slats lock together, how far
             // along a slat a handle is matched against the slat beside it, and how far to either side
-            // of a place the sprite is read to tell whether it paints a slat there, and to take its shade,
-            // in tiles. Sixty tiles are a whole number of slats: see vPlace.
-            const float SLAT_HIGH = 60.0 / 352.0, SLAT_LOCK = 0.0035, SLAT_ALONG = 0.25, SLAT_ACROSS = 0.1, SLAT_SHADED = 0.04;
+            // of a place the sprite is read to tell whether it paints a slat there, in tiles.
+            // Sixty tiles are a whole number of slats: see vPlace.
+            const float SLAT_HIGH = 60.0 / 352.0, SLAT_LOCK = 0.0035, SLAT_ALONG = 0.25, SLAT_ACROSS = 0.1;
             // A shut roller door, made of slats laid one over the next, each rolled outward: its top
             // faces the sky, a bright line runs along its crown, and where it locks into the slat above
             // there is a fine dark line, which a handle on the slat covers (handled). Counted by height
@@ -2210,17 +2210,17 @@ final class PipelineShaders {
                     float agreed = max(min(share.x, share.y), min(max(share.x, share.y), share.z));
                     float alike = 1.0 - smoothstep(0.03, 0.07, max(abs(swingHere.y - swingBefore.y), abs(swingHere.y - swingAfter.y)));
                     float slatted = mix(smoothstep(0.02, 0.035, swingHere.x), smoothstep(0.03, 0.05, agreed), alike);
-                    // The slat's shade, from ten readings up it in each of five places across a little of
-                    // it: their mean, then twice over the mean of the readings near that, so the dark line
-                    // where it locks, a handle, the bright crown and a fleck of dirt count for little.
+                    // The slat's shade, from ten readings up it at the place: their mean, then twice over the
+                    // mean of the readings near that, so the dark line where it locks, a handle, the bright
+                    // crown and a fleck of dirt count for little. Readings beside the place would draw each
+                    // rail and seam of the door again, as far over as they were taken.
                     vec3 tone = vec3(0.299, 0.587, 0.114);
-                    vec3 reads[50];
-                    float shades[50];
+                    vec3 reads[10];
+                    float shades[10];
                     vec3 summed = vec3(0.0);
                     float counted = 0.0;
-                    for (int i = 0; i < 50; i++) {
-                        vec2 at = perUp * (slatFoot + SLAT_HIGH * (0.05 + 0.1 * float(i / 5))) + perRun * (SLAT_SHADED * float(i - i / 5 * 5 - 2));
-                        vec4 read = texture2DGradARB(uTexture, vUv + at, uvX, uvY);
+                    for (int i = 0; i < 10; i++) {
+                        vec4 read = texture2DGradARB(uTexture, vUv + perUp * (slatFoot + SLAT_HIGH * (0.05 + 0.1 * float(i))), uvX, uvY);
                         reads[i] = read.rgb;
                         shades[i] = dot(read.rgb / max(read.a, 1.0 / 255.0), tone);
                         float painted = step(0.5, read.a);
@@ -2234,7 +2234,7 @@ final class PipelineShaders {
                         float middle = dot(body, tone);
                         vec3 near = vec3(0.0);
                         float weighed = 0.0;
-                        for (int i = 0; i < 50; i++) {
+                        for (int i = 0; i < 10; i++) {
                             float off = (shades[i] - middle) / 0.04;
                             float weight = shades[i] < 0.0 ? 0.0 : exp(-off * off);
                             near += reads[i] * weight;
