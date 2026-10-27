@@ -1,6 +1,15 @@
 package com.cameraunlock.zomboid;
 
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
 
 /**
  * Railway track, built as rails on sleepers where the map lays it.
@@ -43,6 +52,8 @@ final class Track {
      * the ground and how far into it the foot goes.
      */
     static final float TIE_LONG = 2.59f, TIE_WIDE = 0.23f, TIE_APART = 0.495f, TIE_TOP = 0.09f, TIE_SUNK = 0.05f;
+    /** How far apart a turnout's sleepers are at most along the outer rail of a route, so that none of the rail is more than 0.19 from one. */
+    static final float TIE_APART_MOST = TIE_WIDE + 2 * 0.19f;
     /** How long a length of rail is at most along a straight, and round a bend. */
     static final float LINE_STEP = 0.5f, ARC_STEP = 0.2f;
     /**
@@ -132,6 +143,8 @@ final class Track {
         /** The ways towards each straight, as unit vectors. */
         final double alongOneX, alongOneY, alongTwoX, alongTwoY;
         final double radius, startAngle, sweep;
+        /** Where each of its squares is from its first's, x then y. */
+        int[] places = {};
 
         Bend(String name, int wayOne, double cOne, int compassOne, int wayTwo, double cTwo, int compassTwo, double radius) {
             this.name = name;
@@ -209,9 +222,12 @@ final class Track {
 
     /** A bend's sprites, each its place on the sheet then where its square is from the first's. */
     private static void bend(Bend bend, String sheet, String railsAlone, int... placeDxDy) {
+        bend.places = new int[placeDxDy.length / 3 * 2];
         for (int i = 0; i < placeDxDy.length; i += 3) {
             PIECES.put(sheet + placeDxDy[i], new Piece(-1, 0f, bend, placeDxDy[i + 1], placeDxDy[i + 2], true));
             PIECES.put(railsAlone + placeDxDy[i], new Piece(-1, 0f, bend, placeDxDy[i + 1], placeDxDy[i + 2], false));
+            bend.places[i / 3 * 2] = placeDxDy[i + 1];
+            bend.places[i / 3 * 2 + 1] = placeDxDy[i + 2];
         }
     }
 
@@ -282,7 +298,7 @@ final class Track {
 
     /** The map's track. */
     interface Area {
-        /** Puts the pieces of track on the ground square at (x, y) into pieces and says how many, or -1 for a square not loaded. */
+        /** Puts the pieces of track on the ground square at (x, y) into pieces, as many as it holds, and says how many, or -1 for a square not loaded. */
         int pieces(int x, int y, Piece[] pieces);
     }
 
@@ -292,8 +308,22 @@ final class Track {
         Square at(int x, int y);
     }
 
+    /** The squares next to a square: north, west, east, south. */
+    static final int[] NEXT_X = {0, -1, 1, 0}, NEXT_Y = {-1, 0, 0, 1};
+
     /** How many squares either way round a square a sleeper of its can have its middle on. */
     static final int AROUND = 2;
+
+    /**
+     * How far round a square where the pieces of a switch meet the squares of its turnout reach,
+     * how many squares a turnout can have before it is left the picture it is, the narrowest a
+     * turnout's route may turn on and how finely its radius is tried, and how near to a route's
+     * middle a rail alone of the picture must be for the route to be the one it paints.
+     */
+    static final int TURNOUT_REACH = 5, TURNOUT_MOST = 600;
+    static final double ROUTE_TIGHTEST = 1.5, ROUTE_STEP = 0.05, PAINTED_NEAR = 2.0;
+    /** How far round a turnout's squares a change to the map has its turnout read again. */
+    static final int TURNOUT_KEPT_ROUND = 2;
 
     /** Works out what each square of the map's track builds. */
     static final class Reader implements Around {
@@ -365,6 +395,21 @@ final class Track {
                     return COVERED;
                 }
             }
+            if (n == 0) {
+                return hole(x, y, square);
+            }
+            if (n > Square.MOST / 2) {
+                full("the square at " + x + "," + y + " has " + n + " pieces of track");
+                return FLAT;
+            }
+            Turnout turnout = turnout(x, y);
+            if (turnout == Turnout.AWAITED) {
+                return WAITING;
+            }
+            if (turnout != Turnout.NONE) {
+                return turnout.fill(square);
+            }
+            n = area.pieces(x, y, here);
             for (int i = 0; i < n; i++) {
                 Piece piece = here[i];
                 shift = 0f;
@@ -428,6 +473,718 @@ final class Track {
             }
             return LAID;
         }
+
+        /**
+         * The turnout of each square read since the map was last read afresh, and those read
+         * before that, which stand while their squares and those round them are as they were.
+         */
+        private final HashMap<Long, Turnout> turnouts = new HashMap<>(), kept = new HashMap<>();
+        private final HashMap<Long, Boolean> switches = new HashMap<>(), nears = new HashMap<>();
+        private final Piece[] other = new Piece[Square.MOST], holeA = new Piece[Square.MOST], holeB = new Piece[Square.MOST],
+                bends = new Piece[Square.MOST];
+        private final Square scratch = new Square();
+        /** The first time a square or a turnout has more than a square can be built of, which it was; null till then. */
+        String full;
+
+        /** Reads the map afresh from now on, as it may have changed since: see turnouts. */
+        void forget() {
+            turnouts.clear();
+            switches.clear();
+            nears.clear();
+        }
+
+        private void full(String what) {
+            if (full == null) {
+                full = what;
+            }
+        }
+
+        private static long key(int x, int y) {
+            return (long) x << 32 | (y & 0xffffffffL);
+        }
+
+        /**
+         * What a square with no track of its own builds: the turnout of the squares either side of
+         * it, across the map or down it, where both are squares of that one turnout and it is
+         * built; or a straight across or down the map the squares either side of it along it both
+         * have. Anything else builds nothing there.
+         */
+        private int hole(int x, int y, Square square) {
+            for (int step = 0; step < 2; step++) {
+                int dx = 1 - step, dy = step;
+                int a = area.pieces(x - dx, y - dy, holeA), b = a == 0 ? 0 : area.pieces(x + dx, y + dy, holeB);
+                if (a == 0 || b == 0) {
+                    continue;
+                }
+                if (a < 0 || b < 0) {
+                    return WAITING;
+                }
+                if (Arrays.asList(holeA).subList(0, a).contains(WAGON_FLOOR) || Arrays.asList(holeB).subList(0, b).contains(WAGON_FLOOR)) {
+                    continue;
+                }
+                Turnout one = turnout(x - dx, y - dy), two = turnout(x + dx, y + dy);
+                if (one == Turnout.AWAITED || two == Turnout.AWAITED) {
+                    return WAITING;
+                }
+                if (one != Turnout.NONE && one == two) {
+                    return one.unread == null ? one.fill(square) : LAID;
+                }
+                if (one != Turnout.NONE || two != Turnout.NONE) {
+                    continue;
+                }
+                int way = step == 0 ? EW : NS;
+                for (int i = 0; i < a; i++) {
+                    if (holeA[i].bend != null || !holeA[i].ties || holeA[i].way != way) {
+                        continue;
+                    }
+                    double c = straightC(holeA[i], x - dx, y - dy);
+                    if (Double.isNaN(c)) {
+                        return WAITING;
+                    }
+                    for (int j = 0; j < b; j++) {
+                        if (holeB[j].bend == null && holeB[j].ties && holeB[j].way == way) {
+                            double there = straightC(holeB[j], x + dx, y + dy);
+                            if (Double.isNaN(there)) {
+                                return WAITING;
+                            }
+                            if (there == c) {
+                                square.line(way, c, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, true);
+                            }
+                        }
+                    }
+                }
+                if (square.lines > 0) {
+                    return LAID;
+                }
+            }
+            return LAID;
+        }
+
+        /** The constant on the map of the line a straight with sleepers on (x, y) is of, or NaN while a square it needs is not loaded. */
+        private double straightC(Piece p, int x, int y) {
+            shift = 0f;
+            if ((p.way == NS || p.way == EW) && narrow(p, x, y) == WAITING) {
+                return Double.NaN;
+            }
+            return p.c + shift + NX[p.way] * x + NY[p.way] * y;
+        }
+
+        /**
+         * Whether the square at (x, y), which has track, builds the square at (hx, hy) next to it
+         * as well as its own: 1 where that square has no track of its own but builds some, and
+         * this is the first of the squares next to it, north, west, east then south, that builds
+         * any; 0 where it does not; WAITING while a square that says is not loaded.
+         */
+        int builds(int x, int y, int hx, int hy) {
+            int n = area.pieces(hx, hy, other);
+            if (n != 0) {
+                return n < 0 ? WAITING : 0;
+            }
+            int hole = read(hx, hy, scratch);
+            if (hole == WAITING) {
+                return WAITING;
+            }
+            if (scratch.lines == 0 && scratch.arcs == 0) {
+                return 0;
+            }
+            for (int i = 0; i < NEXT_X.length; i++) {
+                int nx = hx + NEXT_X[i], ny = hy + NEXT_Y[i];
+                int m = area.pieces(nx, ny, other);
+                if (m < 0) {
+                    return WAITING;
+                }
+                if (m == 0) {
+                    continue;
+                }
+                int read = read(nx, ny, scratch);
+                if (read == WAITING) {
+                    return WAITING;
+                }
+                if (read == LAID && (scratch.lines > 0 || scratch.arcs > 0)) {
+                    return nx == x && ny == y ? 1 : 0;
+                }
+            }
+            return 0;
+        }
+
+        /**
+         * Whether the square at (x, y) is where the pieces of a switch meet: a bend's rails alone
+         * on it, with track with sleepers, another bend's pieces or a straight that is not one of
+         * that bend's own, or with squares of that bend's that do not have it; or null for a
+         * square not loaded. A bend laid whole, alone or with sleepers, is not.
+         */
+        private Boolean isSwitch(int x, int y) {
+            long k = key(x, y);
+            Boolean known = switches.get(k);
+            if (known != null) {
+                return known;
+            }
+            int n = area.pieces(x, y, other);
+            if (n < 0) {
+                return null;
+            }
+            Piece[] pieces = Arrays.copyOf(other, n);
+            Piece first = null;
+            for (Piece p : pieces) {
+                if (p.bend != null && !p.ties) {
+                    first = p;
+                }
+            }
+            if (first == null) {
+                switches.put(k, false);
+                return false;
+            }
+            Bend bend = first.bend;
+            int ox = x - first.dx, oy = y - first.dy;
+            boolean is = false;
+            for (Piece p : pieces) {
+                if (p.bend != null) {
+                    is |= p.bend != bend || x - p.dx != ox || y - p.dy != oy;
+                } else if (p.ties) {
+                    is = true;
+                } else if (p.way >= 0 && !p.sided) {
+                    double c = p.c + NX[p.way] * x + NY[p.way] * y;
+                    is |= !(p.way == bend.wayOne && c == bend.cOne + NX[p.way] * ox + NY[p.way] * oy)
+                            && !(p.way == bend.wayTwo && c == bend.cTwo + NX[p.way] * ox + NY[p.way] * oy);
+                }
+            }
+            for (int i = 0; i < bend.places.length && !is; i += 2) {
+                int m = area.pieces(ox + bend.places[i], oy + bend.places[i + 1], other);
+                if (m < 0) {
+                    return null;
+                }
+                boolean has = false;
+                for (int q = 0; q < m; q++) {
+                    has |= other[q].bend == bend && other[q].dx == bend.places[i] && other[q].dy == bend.places[i + 1];
+                }
+                is = !has;
+            }
+            switches.put(k, is);
+            return is;
+        }
+
+        /**
+         * Whether a switch is within TURNOUT_REACH of the square at (x, y), or null if none of the
+         * loaded squares is one and a square that may be one is not loaded.
+         */
+        private Boolean nearSwitch(int x, int y) {
+            long k = key(x, y);
+            Boolean known = nears.get(k);
+            if (known != null) {
+                return known;
+            }
+            boolean waiting = false;
+            for (int dy = -TURNOUT_REACH; dy <= TURNOUT_REACH; dy++) {
+                for (int dx = -TURNOUT_REACH; dx <= TURNOUT_REACH; dx++) {
+                    Boolean is = isSwitch(x + dx, y + dy);
+                    if (is == null) {
+                        waiting = true;
+                    } else if (is) {
+                        nears.put(k, true);
+                        return true;
+                    }
+                }
+            }
+            if (waiting) {
+                return null;
+            }
+            nears.put(k, false);
+            return false;
+        }
+
+        /** Whether the square at (x, y), which is loaded, has a piece of a bend. */
+        private boolean hasBend(int x, int y) {
+            int n = area.pieces(x, y, bends);
+            for (int i = 0; i < n; i++) {
+                if (bends[i].bend != null) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /**
+         * The turnout the square at (x, y), which has track, is a square of: NONE for a square of
+         * no turnout, AWAITED while a square it needs is not loaded. Two squares with track next
+         * to each other are joined where both are near a switch, or both have pieces of bends; a
+         * turnout is the squares so joined to each other, all one connected whole, among which
+         * one at least is near a switch. Every square of it reads the same turnout, whichever is
+         * read first.
+         */
+        Turnout turnout(int x, int y) {
+            long k = key(x, y);
+            Turnout known = turnouts.get(k);
+            if (known != null) {
+                return known;
+            }
+            Turnout before = kept.get(k);
+            if (before != null) {
+                long now = signature(before.round);
+                if (now == WAITING_SIGNATURE) {
+                    return Turnout.AWAITED;
+                }
+                if (now == before.signature) {
+                    for (long at : before.squares) {
+                        turnouts.put(at, before);
+                    }
+                    return before;
+                }
+                for (long at : before.squares) {
+                    kept.remove(at);
+                }
+            }
+            Boolean near = nearSwitch(x, y);
+            if (near == null) {
+                return Turnout.AWAITED;
+            }
+            if (!near && !hasBend(x, y)) {
+                turnouts.put(k, Turnout.NONE);
+                return Turnout.NONE;
+            }
+            HashSet<Long> squares = new HashSet<>();
+            ArrayDeque<Long> next = new ArrayDeque<>();
+            squares.add(k);
+            next.add(k);
+            boolean anyNear = false;
+            while (!next.isEmpty() && squares.size() <= TURNOUT_MOST) {
+                long at = next.poll();
+                int ax = (int) (at >> 32), ay = (int) at;
+                Boolean nearHere = nearSwitch(ax, ay);
+                if (nearHere == null) {
+                    return Turnout.AWAITED;
+                }
+                anyNear |= nearHere;
+                boolean bendHere = hasBend(ax, ay);
+                for (int dy = -1; dy <= 1; dy++) {
+                    for (int dx = -1; dx <= 1; dx++) {
+                        long nk = key(ax + dx, ay + dy);
+                        if (squares.contains(nk)) {
+                            continue;
+                        }
+                        int m = area.pieces(ax + dx, ay + dy, other);
+                        if (m < 0) {
+                            return Turnout.AWAITED;
+                        }
+                        if (m == 0) {
+                            continue;
+                        }
+                        boolean joins = bendHere && hasBend(ax + dx, ay + dy);
+                        if (!joins && nearHere) {
+                            Boolean nearThere = nearSwitch(ax + dx, ay + dy);
+                            if (nearThere == null) {
+                                return Turnout.AWAITED;
+                            }
+                            joins = nearThere;
+                        }
+                        if (joins) {
+                            squares.add(nk);
+                            next.add(nk);
+                        }
+                    }
+                }
+            }
+            if (!anyNear && next.isEmpty()) {
+                for (long at : squares) {
+                    turnouts.put(at, Turnout.NONE);
+                }
+                return Turnout.NONE;
+            }
+            Turnout turnout = squares.size() > TURNOUT_MOST ? new Turnout(null, null, "more than " + TURNOUT_MOST + " squares") : new TurnoutReader(squares).read();
+            if (turnout == Turnout.AWAITED) {
+                return turnout;
+            }
+            turnout.squares = squares;
+            HashSet<Long> round = new HashSet<>();
+            for (long at : squares) {
+                int ax = (int) (at >> 32), ay = (int) at;
+                for (int dy = -TURNOUT_KEPT_ROUND; dy <= TURNOUT_KEPT_ROUND; dy++) {
+                    for (int dx = -TURNOUT_KEPT_ROUND; dx <= TURNOUT_KEPT_ROUND; dx++) {
+                        round.add(key(ax + dx, ay + dy));
+                    }
+                }
+            }
+            turnout.round = round.stream().mapToLong(Long::longValue).sorted().toArray();
+            turnout.signature = signature(turnout.round);
+            for (long at : squares) {
+                turnouts.put(at, turnout);
+                if (turnout.signature != WAITING_SIGNATURE) {
+                    kept.put(at, turnout);
+                }
+            }
+            return turnout;
+        }
+
+        private static final long WAITING_SIGNATURE = Long.MIN_VALUE;
+
+        /** What the squares hold, summed, or WAITING_SIGNATURE while any of them is not loaded. */
+        private long signature(long[] squares) {
+            long sum = 17;
+            for (long at : squares) {
+                int n = area.pieces((int) (at >> 32), (int) at, other);
+                if (n < 0) {
+                    return WAITING_SIGNATURE;
+                }
+                sum = sum * 31 + n;
+                for (int i = 0; i < n; i++) {
+                    sum = sum * 31 + System.identityHashCode(other[i]);
+                }
+            }
+            return sum == WAITING_SIGNATURE ? sum + 1 : sum;
+        }
+
+        /** Reads a turnout's squares: see Turnout. */
+        private final class TurnoutReader {
+            private final HashSet<Long> squares;
+            /** The squares with pieces no line of track with sleepers accounts for, of those the ones with rails alone, and those under a wagon's deck. */
+            private final HashSet<Long> unread = new HashSet<>(), alone = new HashSet<>(), covered = new HashSet<>();
+            private final ArrayList<Line> lines = new ArrayList<>();
+            private final ArrayList<Route> routes = new ArrayList<>();
+
+            TurnoutReader(HashSet<Long> squares) {
+                this.squares = squares;
+            }
+
+            Turnout read() {
+                TreeMap<double[], ArrayList<Long>> found = new TreeMap<>(
+                        Comparator.comparingDouble((double[] line) -> line[0]).thenComparingDouble(line -> line[1]));
+                for (long at : squares) {
+                    int x = (int) (at >> 32), y = (int) at;
+                    Piece[] pieces = Arrays.copyOf(here, area.pieces(x, y, here));
+                    for (Piece p : pieces) {
+                        if (p == WAGON_FLOOR) {
+                            covered.add(at);
+                        }
+                        if (p == NOTHING || p == WAGON_FLOOR) {
+                            continue;
+                        }
+                        if (p.bend != null || !p.ties) {
+                            unread.add(at);
+                            if (!p.ties) {
+                                alone.add(at);
+                            }
+                            continue;
+                        }
+                        double c = straightC(p, x, y);
+                        if (Double.isNaN(c)) {
+                            return Turnout.AWAITED;
+                        }
+                        found.computeIfAbsent(new double[] {p.way, c}, line -> new ArrayList<>()).add(at);
+                    }
+                }
+                for (Map.Entry<double[], ArrayList<Long>> entry : found.entrySet()) {
+                    Line line = new Line((int) entry.getKey()[0], entry.getKey()[1]);
+                    for (long at : entry.getValue()) {
+                        int x = (int) (at >> 32), y = (int) at;
+                        // A straight down or across lies along the whole of each of its squares; a diagonal along those its middle crosses.
+                        double[] part = line.way == NS || line.way == EW ? new double[] {Math.min(along(line, x, y), along(line, x + 1, y + 1)),
+                            Math.max(along(line, x, y), along(line, x + 1, y + 1))}
+                                : Builder.clip(line.footX, line.footY, line.dx, line.dy, x, y, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY);
+                        if (part != null) {
+                            line.lo = Math.min(line.lo, part[0]);
+                            line.hi = Math.max(line.hi, part[1]);
+                        }
+                    }
+                    if (line.lo >= line.hi) {
+                        continue;
+                    }
+                    int loOn = runsOn(line, line.lo - 0.25), hiOn = runsOn(line, line.hi + 0.25);
+                    if (loOn < 0 || hiOn < 0) {
+                        return Turnout.AWAITED;
+                    }
+                    line.loOpen = loOn == 1;
+                    line.hiOpen = hiOn == 1;
+                    line.from = line.loOpen ? Double.NEGATIVE_INFINITY : line.lo;
+                    line.to = line.hiOpen ? Double.POSITIVE_INFINITY : line.hi;
+                    lines.add(line);
+                }
+                // A line running on through the turnout lies under those that end in it, so its sleepers are laid whole and theirs cut where they meet it.
+                lines.sort(Comparator.comparingInt(line -> line.loOpen && line.hiOpen ? 0 : 1));
+                for (int i = 0; i < lines.size(); i++) {
+                    for (int side = -1; side <= 1; side += 2) {
+                        if (!(side < 0 ? lines.get(i).loOpen : lines.get(i).hiOpen)) {
+                            for (int j = 0; j < lines.size(); j++) {
+                                if (j != i && lines.get(j).way != lines.get(i).way) {
+                                    for (int sense = -1; sense <= 1; sense += 2) {
+                                        route(i, side, j, sense);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                if (lines.size() > Square.MOST || routes.size() > Square.MOST) {
+                    String why = lines.size() + " lines and " + routes.size() + " routes, more than a square can be built of";
+                    full("the turnout with its piece at " + (int) (squares.iterator().next() >> 32) + "," + (int) (long) squares.iterator().next() + " has " + why);
+                    return new Turnout(lines, routes, why);
+                }
+                if (routes.isEmpty()) {
+                    return new Turnout(lines, routes, "no route turns off its lines");
+                }
+                for (long at : unread) {
+                    if (!painted(at)) {
+                        return new Turnout(lines, routes, "the piece at " + (int) (at >> 32) + "," + (int) at + " is of no line or route");
+                    }
+                }
+                return new Turnout(lines, routes, null);
+            }
+
+            private double along(Line line, double x, double y) {
+                return (x - line.footX) * line.dx + (y - line.footY) * line.dy;
+            }
+
+            /**
+             * Whether a line runs on out of the turnout at along on it: 1 where a square there, by
+             * its middle or either side of it, is not the turnout's and has the line, 0 where none
+             * does, -1 for a square not loaded.
+             */
+            private int runsOn(Line line, double along) {
+                int mx = (int) Math.floor(line.footX + line.dx * along), my = (int) Math.floor(line.footY + line.dy * along);
+                for (int y = my - 1; y <= my + 1; y++) {
+                    for (int x = mx - 1; x <= mx + 1; x++) {
+                        if (squares.contains(key(x, y))) {
+                            continue;
+                        }
+                        int n = area.pieces(x, y, other);
+                        if (n < 0) {
+                            return -1;
+                        }
+                        for (Piece p : Arrays.copyOf(other, n)) {
+                            if (p.bend != null || !p.ties || p.way != line.way) {
+                                continue;
+                            }
+                            double c = straightC(p, x, y);
+                            if (Double.isNaN(c)) {
+                                return -1;
+                            }
+                            if (c == line.c) {
+                                return 1;
+                            }
+                        }
+                    }
+                }
+                return 0;
+            }
+
+            /**
+             * The route, if the turnout's squares hold one, that leaves the line one at its end on
+             * side (towards lower along or higher) and turns onto the line two, along it towards
+             * sense: one arc, the widest the squares hold, meeting both lines along them, each line
+             * running on straight from where its track ends to where the arc leaves it. The arc must
+             * cross squares the picture paints rails alone on. A route between two ends is read
+             * from the end of the line read first.
+             */
+            private void route(int i, int side, int j, int sense) {
+                Line one = lines.get(i), two = lines.get(j);
+                double det = NX[one.way] * NY[two.way] - NY[one.way] * NX[two.way];
+                double px = (one.c * NY[two.way] - NY[one.way] * two.c) / det, py = (NX[one.way] * two.c - one.c * NX[two.way]) / det;
+                double h1x = side * one.dx, h1y = side * one.dy, h2x = sense * two.dx, h2y = sense * two.dy;
+                double turned = Math.acos(Math.max(-1, Math.min(1, h1x * h2x + h1y * h2y)));
+                if (Math.abs(turned - Math.PI / 4) > 1e-6 && Math.abs(turned - Math.PI / 2) > 1e-6) {
+                    return;
+                }
+                double atOne = (px - one.footX) * one.dx + (py - one.footY) * one.dy, atTwo = (px - two.footX) * two.dx + (py - two.footY) * two.dy;
+                double end = side < 0 ? one.lo : one.hi;
+                double ahead = (atOne - end) * side;
+                if (ahead <= 0) {
+                    return;
+                }
+                // Two's track from where the route meets it on, towards sense: it must run on past there, and where it ends short of it the route joins that end.
+                double near = sense > 0 ? two.lo : two.hi, far = sense > 0 ? (two.hiOpen ? Double.POSITIVE_INFINITY : two.hi) : (two.loOpen ? Double.NEGATIVE_INFINITY : two.lo);
+                boolean nearOpen = sense > 0 ? two.loOpen : two.hiOpen;
+                double most = ahead;
+                boolean joinsEnd = !nearOpen && (near - atTwo) * sense > 0;
+                if (joinsEnd) {
+                    if (j < i) {
+                        return;
+                    }
+                    most = Math.min(most, (near - atTwo) * sense);
+                }
+                double half = Math.tan(turned / 2);
+                double turn = Math.signum(h1x * h2y - h1y * h2x);
+                for (double r = most / half; r >= ROUTE_TIGHTEST; r -= ROUTE_STEP) {
+                    double reach = r * half;
+                    if ((far - atTwo) * sense <= reach + 1) {
+                        return;
+                    }
+                    double t1x = px - h1x * reach, t1y = py - h1y * reach;
+                    double cx = t1x - turn * h1y * r, cy = t1y + turn * h1x * r;
+                    double start = Math.atan2(t1y - cy, t1x - cx), sweep = turn * turned;
+                    if (holds(one, end, atOne - side * reach) && holds(two, joinsEnd ? near : atTwo + sense * reach, atTwo + sense * reach)
+                            && holdsArc(cx, cy, r, start, sweep)) {
+                        if (!paintsAlone(cx, cy, r, start, sweep)) {
+                            return;
+                        }
+                        routes.add(new Route(cx, cy, r, start, sweep));
+                        stretch(one, side, atOne - side * reach);
+                        if (joinsEnd) {
+                            stretch(two, -sense, atTwo + sense * reach);
+                        }
+                        return;
+                    }
+                }
+            }
+
+            /** Runs a line's track on, on side, to along. */
+            private void stretch(Line line, int side, double along) {
+                if (side < 0) {
+                    line.from = Math.min(line.from, along);
+                } else {
+                    line.to = Math.max(line.to, along);
+                }
+            }
+
+            /** Each edge and the middle of each rail's head, out from the middle of its track. */
+            private static final double[] HEADS = {-RAIL_OFF - HEAD / 2, -RAIL_OFF, -RAIL_OFF + HEAD / 2, RAIL_OFF - HEAD / 2, RAIL_OFF, RAIL_OFF + HEAD / 2};
+
+            /** Whether both rails of a line between two places along it lie on the turnout's squares. */
+            private boolean holds(Line line, double a, double b) {
+                double from = Math.min(a, b), to = Math.max(a, b);
+                double nx = -line.dy, ny = line.dx;
+                for (double at = from; at <= to + 1e-9; at += 0.02) {
+                    double mx = line.footX + line.dx * at, my = line.footY + line.dy * at;
+                    for (double out : HEADS) {
+                        if (!on(mx + nx * out, my + ny * out)) {
+                            return false;
+                        }
+                    }
+                }
+                return true;
+            }
+
+            /** Whether both rails of an arc lie on the turnout's squares. */
+            private boolean holdsArc(double cx, double cy, double r, double start, double sweep) {
+                int steps = (int) Math.ceil(Math.abs(sweep) * (r + RAIL_OFF) / 0.02);
+                for (int k = 0; k <= steps; k++) {
+                    double a = start + sweep * k / steps, cos = Math.cos(a), sin = Math.sin(a);
+                    for (double out : HEADS) {
+                        if (!on(cx + (r + out) * cos, cy + (r + out) * sin)) {
+                            return false;
+                        }
+                    }
+                }
+                return true;
+            }
+
+            /** Whether the arc's middle crosses a square the picture paints rails alone on. */
+            private boolean paintsAlone(double cx, double cy, double r, double start, double sweep) {
+                int steps = (int) Math.ceil(Math.abs(sweep) * r / 0.1);
+                for (int k = 1; k < steps; k++) {
+                    double a = start + sweep * k / steps;
+                    if (alone.contains(key((int) Math.floor(cx + r * Math.cos(a)), (int) Math.floor(cy + r * Math.sin(a))))) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            /** Whether a point is on a square of the turnout that is built. */
+            private boolean on(double x, double y) {
+                long at = key((int) Math.floor(x), (int) Math.floor(y));
+                return squares.contains(at) && !covered.contains(at);
+            }
+
+            /** Whether the square at is near enough the middle of a route or a line of the turnout to be painting its rails. */
+            private boolean painted(long at) {
+                double x = (int) (at >> 32) + 0.5, y = (int) at + 0.5;
+                for (Line line : lines) {
+                    double along = Math.max(line.from, Math.min(line.to, (x - line.footX) * line.dx + (y - line.footY) * line.dy));
+                    if (Math.hypot(line.footX + line.dx * along - x, line.footY + line.dy * along - y) <= PAINTED_NEAR) {
+                        return true;
+                    }
+                }
+                for (Route route : routes) {
+                    double turned = Math.IEEEremainder(Math.atan2(y - route.y, x - route.x) - route.start, 2 * Math.PI) * Math.signum(route.sweep);
+                    double off;
+                    if (turned >= 0 && turned <= Math.abs(route.sweep)) {
+                        off = Math.abs(Math.hypot(x - route.x, y - route.y) - route.r);
+                    } else {
+                        off = Double.MAX_VALUE;
+                        for (double a : new double[] {route.start, route.start + route.sweep}) {
+                            off = Math.min(off, Math.hypot(route.x + route.r * Math.cos(a) - x, route.y + route.r * Math.sin(a) - y));
+                        }
+                    }
+                    if (off <= PAINTED_NEAR) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        }
+    }
+
+    /** A line of track with sleepers on a turnout's squares. */
+    static final class Line {
+        final int way;
+        final double c, footX, footY, dx, dy;
+        /** How far along it its pieces are laid, whether it runs on out of the turnout either way, and how far along it is built. */
+        double lo = Double.POSITIVE_INFINITY, hi = Double.NEGATIVE_INFINITY, from, to;
+        boolean loOpen, hiOpen;
+
+        Line(int way, double c) {
+            this.way = way;
+            this.c = c;
+            double length = Math.hypot(NX[way], NY[way]);
+            footX = NX[way] * c / (length * length);
+            footY = NY[way] * c / (length * length);
+            double[] d = direction(way);
+            dx = d[0];
+            dy = d[1];
+        }
+    }
+
+    /** One way a turnout turns: an arc on the map. */
+    static final class Route {
+        final double x, y, r, start, sweep;
+
+        Route(double x, double y, double r, double start, double sweep) {
+            this.x = x;
+            this.y = y;
+            this.r = r;
+            this.start = start;
+            this.sweep = sweep;
+        }
+    }
+
+    /**
+     * A turnout: where the map lays the pieces of a switch over other track, painting each rail
+     * of the way it turns as its own piece of a bend. It is read as the lines of track with
+     * sleepers on its squares, each running on through it or ending in it, and the routes from
+     * where each ends onto the others, and built as they are: each route one arc meeting both its
+     * lines along them, with its rails crossing the other track's where they meet. A turnout the
+     * squares do not hold so, with a piece of the picture no line or route accounts for, is left
+     * the picture it is, all of it.
+     */
+    static final class Turnout {
+        static final Turnout NONE = new Turnout(null, null, null), AWAITED = new Turnout(null, null, null);
+        final List<Line> lines;
+        final List<Route> routes;
+        /** Why it is left the picture it is, or null for one built. */
+        final String unread;
+        /** Its squares, the squares round them a change to which has it read again, in order, and what those hold, summed. */
+        Set<Long> squares;
+        long[] round;
+        long signature;
+
+        Turnout(List<Line> lines, List<Route> routes, String unread) {
+            this.lines = lines;
+            this.routes = routes;
+            this.unread = unread;
+        }
+
+        /** Fills a square of it with all of it, and says LAID; or FLAT for one left the picture it is. */
+        int fill(Square square) {
+            if (unread != null) {
+                return FLAT;
+            }
+            for (Line line : lines) {
+                square.line(line.way, line.c, line.from, line.to, true);
+                square.band(line.way, line.c, line.from, line.to);
+            }
+            for (Route route : routes) {
+                square.arc(route.x, route.y, route.r, route.start, route.sweep, true);
+            }
+            return LAID;
+        }
     }
 
     /**
@@ -445,9 +1202,17 @@ final class Track {
         final double[] arcX = new double[MOST], arcY = new double[MOST], arcR = new double[MOST], arcStart = new double[MOST], arcSweep = new double[MOST];
         final boolean[] arcTies = new boolean[MOST];
         int arcs;
+        /**
+         * The lines of a turnout, each from and to along it, first those running on through it:
+         * the sleepers of each line and arc after them are cut where they meet the sleepers of
+         * those before it.
+         */
+        final int[] bandWay = new int[MOST];
+        final double[] bandC = new double[MOST], bandFrom = new double[MOST], bandTo = new double[MOST];
+        int bands;
 
         void clear() {
-            lines = arcs = 0;
+            lines = arcs = bands = 0;
         }
 
         /** Adds a piece on the square at (x, y), a straight with its middle moved across by shift. */
@@ -470,15 +1235,29 @@ final class Track {
                     return;
                 }
             }
+            arc(cx, cy, b.radius, b.startAngle, b.sweep, piece.ties);
+        }
+
+        void arc(double x, double y, double r, double start, double sweep, boolean ties) {
             if (arcs == MOST) {
                 throw new IllegalStateException("more than " + MOST + " bends on one square");
             }
-            arcX[arcs] = cx;
-            arcY[arcs] = cy;
-            arcR[arcs] = b.radius;
-            arcStart[arcs] = b.startAngle;
-            arcSweep[arcs] = b.sweep;
-            arcTies[arcs++] = piece.ties;
+            arcX[arcs] = x;
+            arcY[arcs] = y;
+            arcR[arcs] = r;
+            arcStart[arcs] = start;
+            arcSweep[arcs] = sweep;
+            arcTies[arcs++] = ties;
+        }
+
+        void band(int way, double c, double from, double to) {
+            if (bands == MOST) {
+                throw new IllegalStateException("more than " + MOST + " lines in one turnout");
+            }
+            bandWay[bands] = way;
+            bandC[bands] = c;
+            bandFrom[bands] = from;
+            bandTo[bands++] = to;
         }
 
         /** Whether the square has any part of the line (way, c). */
@@ -491,10 +1270,15 @@ final class Track {
             return false;
         }
 
-        /** Whether a sleeper of the line (way, c) at along on it is laid by the parts of the line the square has: half a gap in from their ends. */
+        /**
+         * Whether a sleeper of the line (way, c) at along on it is laid by the parts of the line
+         * the square has: half a gap in from their ends, or in a turnout up to them, where the
+         * arcs going on from them take up the gap.
+         */
         boolean tieAt(int way, double c, double along) {
+            double in = bands > 0 ? 0 : TIE_APART / 2;
             for (int i = 0; i < lines; i++) {
-                if (lineWay[i] == way && lineC[i] == c && lineTies[i] && along >= lineFrom[i] + TIE_APART / 2 && along <= lineTo[i] - TIE_APART / 2) {
+                if (lineWay[i] == way && lineC[i] == c && lineTies[i] && along >= lineFrom[i] + in && along <= lineTo[i] - in) {
                     return true;
                 }
             }
@@ -522,7 +1306,7 @@ final class Track {
             }
         }
 
-        private void line(int way, double c, double from, double to, boolean ties) {
+        void line(int way, double c, double from, double to, boolean ties) {
             for (int i = 0; i < lines; i++) {
                 if (lineWay[i] == way && lineC[i] == c && lineFrom[i] == from && lineTo[i] == to) {
                     lineTies[i] |= ties;
@@ -596,7 +1380,7 @@ final class Track {
             this.around = around;
             this.x = x;
             this.y = y;
-            java.util.Arrays.fill(done, false);
+            Arrays.fill(done, false);
             for (int i = 0; i < square.lines; i++) {
                 if (done[i]) {
                     continue;
@@ -615,6 +1399,27 @@ final class Track {
             for (int i = 0; i < square.arcs; i++) {
                 buildArc(i);
             }
+        }
+
+        /**
+         * Builds the square at (x, y), which reader has just read round, and each square next to
+         * it with no track of its own that it builds (see Reader.builds), and says WAITING while
+         * one of those waits on the map, else LAID.
+         */
+        int build(Reader reader, int x, int y) {
+            build(reader.square(), x, y, reader);
+            int status = LAID;
+            for (int i = 0; i < NEXT_X.length; i++) {
+                int hx = x + NEXT_X[i], hy = y + NEXT_Y[i];
+                int builds = reader.builds(x, y, hx, hy);
+                int read = builds == 1 ? reader.readAround(hx, hy) : builds;
+                if (read == WAITING) {
+                    status = WAITING;
+                } else if (builds == 1 && read == LAID) {
+                    build(reader.square(), hx, hy, reader);
+                }
+            }
+            return status;
         }
 
         /** How far from its middle a sleeper reaches. */
@@ -659,6 +1464,10 @@ final class Track {
                 low = Math.min(low, at);
                 high = Math.max(high, at);
             }
+            int band = 0;
+            while (band < square.bands && (square.bandWay[band] != way || square.bandC[band] != c)) {
+                band++;
+            }
             for (long k = (long) Math.ceil((low - TIE_WIDE / 2) / TIE_APART); k * TIE_APART <= high + TIE_WIDE / 2; k++) {
                 double cx = footX + d[0] * k * TIE_APART, cy = footY + d[1] * k * TIE_APART;
                 if (!reaches(cx, cy)) {
@@ -666,6 +1475,7 @@ final class Track {
                 }
                 Square owner = owner(cx, cy);
                 if ((owner != null && owner.has(way, c) ? owner : square).tieAt(way, c, k * TIE_APART)) {
+                    strips(cx, cy, Math.atan2(ny, nx), band == square.bands ? 0 : band);
                     tie(cx, cy, nx, ny, d[0], d[1]);
                 }
             }
@@ -676,32 +1486,119 @@ final class Track {
             int steps = (int) Math.ceil(Math.abs(sweep) * (r + RAIL_OFF) / ARC_STEP);
             for (int k = 0; k < steps; k++) {
                 double a0 = start + sweep * k / steps, a1 = start + sweep * (k + 1) / steps, am = (a0 + a1) / 2;
-                if (!owns(ox + r * Math.cos(am), oy + r * Math.sin(am), x, y)) {
-                    continue;
-                }
                 double c0 = Math.cos(a0), s0 = Math.sin(a0), c1 = Math.cos(a1), s1 = Math.sin(a1), turn = Math.signum(sweep);
+                int mx = (int) Math.floor(ox + r * Math.cos(am)), my = (int) Math.floor(oy + r * Math.sin(am));
                 for (int side = -1; side <= 1; side += 2) {
                     double rr = r + side * RAIL_OFF;
-                    rail(ox + rr * c0, oy + rr * s0, ox + rr * c1, oy + rr * s1, c0 * turn, s0 * turn, c1 * turn, s1 * turn);
+                    int rx = (int) Math.floor(ox + rr * Math.cos(am)), ry = (int) Math.floor(oy + rr * Math.sin(am));
+                    if ((rx != x || ry != y) && (mx != x || my != y)) {
+                        continue;
+                    }
+                    Square there = rx == x && ry == y ? square : around.at(rx, ry);
+                    boolean railsOwn = there != null && there.arc(ox, oy, r, start) >= 0;
+                    if (railsOwn ? rx == x && ry == y : mx == x && my == y) {
+                        rail(ox + rr * c0, oy + rr * s0, ox + rr * c1, oy + rr * s1, c0 * turn, s0 * turn, c1 * turn, s1 * turn);
+                    }
                 }
             }
-            int ties = Math.max(1, (int) Math.round(Math.abs(sweep) * r / TIE_APART));
+            int ties = arcTies(i);
             for (int k = 0; k < ties; k++) {
-                double a = start + sweep * (k + 0.5) / ties, cx = ox + r * Math.cos(a), cy = oy + r * Math.sin(a);
+                double a = arcTie(i, k, ties), cx = ox + r * Math.cos(a), cy = oy + r * Math.sin(a);
                 if (!reaches(cx, cy)) {
                     continue;
                 }
                 Square owner = owner(cx, cy);
                 int there = owner == null ? -1 : owner.arc(ox, oy, r, start);
                 if (there >= 0 ? owner.arcTies[there] : square.arcTies[i]) {
+                    strips(cx, cy, a, square.bands);
+                    if (square.bands > 0) {
+                        // In a turnout a sleeper is cut where it meets the sleepers of the routes before it, and round a tight route the one before it.
+                        for (int j = 0; j <= i; j++) {
+                            int others = j < i ? arcTies(j) : k;
+                            for (int m = 0; m < others; m++) {
+                                double b = arcTie(j, m, arcTies(j)), bx = square.arcX[j] + square.arcR[j] * Math.cos(b), by = square.arcY[j] + square.arcR[j] * Math.sin(b);
+                                box(cx, cy, a, bx, by, b);
+                            }
+                        }
+                    }
                     tie(cx, cy, Math.cos(a), Math.sin(a), -Math.sin(a), Math.cos(a));
                 }
             }
         }
 
-        /** Whether a point is on the square: its west and north edges are, its east and south ones the next square's. */
-        private static boolean owns(double px, double py, int x, int y) {
-            return px >= x && px < x + 1 && py >= y && py < y + 1;
+        /**
+         * How many sleepers the square's arc i has: in a turnout from a sleeper apart from the last
+         * of a line ending where it starts to the same where it ends, close enough together that
+         * none of its outer rail is far from one; otherwise from half a gap in from each end.
+         */
+        private int arcTies(int i) {
+            double first = arcFirst(i), last = arcLast(i);
+            int ties = last <= first ? 1 : (int) Math.round((last - first) / TIE_APART) + 1;
+            if (square.bands > 0 && last > first) {
+                ties = Math.max(ties, (int) Math.ceil((last - first) * (square.arcR[i] + RAIL_OFF) / square.arcR[i] / TIE_APART_MOST) + 1);
+            }
+            return ties;
+        }
+
+        /** The angle at which the square's arc i, of ties sleepers, has its sleeper k. */
+        private double arcTie(int i, int k, int ties) {
+            double first = arcFirst(i), last = arcLast(i);
+            double at = ties == 1 ? (first + last) / 2 : first + (last - first) * k / (ties - 1);
+            return square.arcStart[i] + Math.signum(square.arcSweep[i]) * at / square.arcR[i];
+        }
+
+        private double arcFirst(int i) {
+            double ox = square.arcX[i], oy = square.arcY[i], r = square.arcR[i], start = square.arcStart[i], turn = Math.signum(square.arcSweep[i]);
+            return square.bands > 0 ? endGap(ox + r * Math.cos(start), oy + r * Math.sin(start), -turn * Math.sin(start), turn * Math.cos(start)) : TIE_APART / 2;
+        }
+
+        private double arcLast(int i) {
+            double ox = square.arcX[i], oy = square.arcY[i], r = square.arcR[i], end = square.arcStart[i] + square.arcSweep[i], turn = Math.signum(square.arcSweep[i]);
+            return Math.abs(square.arcSweep[i]) * r - (square.bands > 0 ? endGap(ox + r * Math.cos(end), oy + r * Math.sin(end), turn * Math.sin(end), -turn * Math.cos(end)) : TIE_APART / 2);
+        }
+
+        /**
+         * Adds the sleeper with its middle at (bx, by), its length along the angle b, to what the
+         * next sleeper, with its middle at (cx, cy) and its length along the angle a, is cut away
+         * in, where the two meet.
+         */
+        private void box(double cx, double cy, double a, double bx, double by, double b) {
+            double hl = TIE_LONG / 2, hw = TIE_WIDE / 2;
+            double[][] axes = {{Math.cos(a), Math.sin(a)}, {-Math.sin(a), Math.cos(a)}, {Math.cos(b), Math.sin(b)}, {-Math.sin(b), Math.cos(b)}};
+            for (double[] axis : axes) {
+                double gap = Math.abs((bx - cx) * axis[0] + (by - cy) * axis[1]);
+                double reachA = hl * Math.abs(axis[0] * Math.cos(a) + axis[1] * Math.sin(a)) + hw * Math.abs(-axis[0] * Math.sin(a) + axis[1] * Math.cos(a));
+                double reachB = hl * Math.abs(axis[0] * Math.cos(b) + axis[1] * Math.sin(b)) + hw * Math.abs(-axis[0] * Math.sin(b) + axis[1] * Math.cos(b));
+                if (gap >= reachA + reachB) {
+                    return;
+                }
+            }
+            double across = -Math.sin(b) * bx + Math.cos(b) * by, along = Math.cos(b) * bx + Math.sin(b) * by;
+            strip(-Math.sin(b), Math.cos(b), across - hw, across + hw);
+            limit(Math.cos(b), Math.sin(b), along - hl, along + hl);
+        }
+
+        /**
+         * How far into an arc that leaves (px, py) along (tx, ty) its first sleeper is: where one
+         * of the turnout's lines ends there, its sleepers' gap on from its last; otherwise half a gap.
+         */
+        private double endGap(double px, double py, double tx, double ty) {
+            for (int b = 0; b < square.bands; b++) {
+                int way = square.bandWay[b];
+                double length = Math.hypot(NX[way], NY[way]);
+                double[] d = direction(way);
+                double along = px * d[0] + py * d[1], onward = tx * d[0] + ty * d[1];
+                if (Math.abs((NX[way] * px + NY[way] * py - square.bandC[b]) / length) > 1e-6 || Math.abs(Math.abs(onward) - 1) > 1e-6) {
+                    continue;
+                }
+                if (onward > 0 && Math.abs(along - square.bandTo[b]) < 1e-6) {
+                    return Math.floor(along / TIE_APART + 1e-9) * TIE_APART + TIE_APART - along;
+                }
+                if (onward < 0 && Math.abs(along - square.bandFrom[b]) < 1e-6) {
+                    return along - Math.ceil(along / TIE_APART - 1e-9) * TIE_APART + TIE_APART;
+                }
+            }
+            return TIE_APART / 2;
         }
 
         /** The part of the line through (px, py) along (dx, dy), between from and to along it, that is on the square, or null. */
@@ -750,27 +1647,146 @@ final class Track {
             sink.quad(corners, null, RAIL);
         }
 
-        private final double[] polyX = new double[12], polyY = new double[12], cutX = new double[12], cutY = new double[12];
-        private final float[] polyS = new float[12], polyT = new float[12], polyTop = new float[12], polyFoot = new float[12];
+        /** How many corners a part of a sleeper can have, and how many parts cutting it can leave. */
+        private static final int CORNERS = 64, PARTS = 64;
+        private final double[] polyX = new double[CORNERS], polyY = new double[CORNERS], cutX = new double[CORNERS], cutY = new double[CORNERS];
+        private final float[] polyS = new float[CORNERS], polyT = new float[CORNERS], polyTop = new float[CORNERS], polyFoot = new float[CORNERS];
+        private double[][] partX = new double[PARTS][CORNERS], partY = new double[PARTS][CORNERS], nextX = new double[PARTS][CORNERS],
+                nextY = new double[PARTS][CORNERS];
+        private int[] partN = new int[PARTS], nextN = new int[PARTS];
+
+        /**
+         * The strips the next sleeper is cut away in: where NX * x + NY * y is between lo and hi,
+         * for each, and where a strip is limited, only where MX * x + MY * y is between its
+         * limit's lo and hi as well.
+         */
+        private int strips;
+        private static final int STRIPS = 256;
+        private final double[] stripNX = new double[STRIPS], stripNY = new double[STRIPS], stripLo = new double[STRIPS], stripHi = new double[STRIPS],
+                stripMX = new double[STRIPS], stripMY = new double[STRIPS], stripMLo = new double[STRIPS], stripMHi = new double[STRIPS];
+        private final boolean[] limited = new boolean[STRIPS];
+
+        /**
+         * Where a sleeper with its middle at (cx, cy) and its length along the angle a meets the
+         * sleepers of the square's first bands lines: the whole of a line's band where its middle
+         * is along it, otherwise the sleepers at its ends that it meets.
+         */
+        private void strips(double cx, double cy, double a, int bands) {
+            strips = 0;
+            double half = TIE_LONG / 2;
+            for (int b = 0; b < bands; b++) {
+                int way = square.bandWay[b];
+                double length = Math.hypot(NX[way], NY[way]);
+                double[] d = direction(way);
+                double nx = NX[way] / length, ny = NY[way] / length, along = cx * d[0] + cy * d[1], middle = square.bandC[b] / length;
+                if (along > square.bandFrom[b] && along < square.bandTo[b]) {
+                    strip(nx, ny, middle - half, middle + half);
+                    continue;
+                }
+                double from = Math.max(square.bandFrom[b], along - TIE_LONG), to = Math.min(square.bandTo[b], along + TIE_LONG);
+                for (long k = (long) Math.ceil(from / TIE_APART - 1e-9); k * TIE_APART <= to + 1e-9; k++) {
+                    box(cx, cy, a, nx * middle + d[0] * k * TIE_APART, ny * middle + d[1] * k * TIE_APART, Math.atan2(ny, nx));
+                }
+            }
+        }
+
+        private void strip(double nx, double ny, double lo, double hi) {
+            if (strips == STRIPS) {
+                throw new IllegalStateException("a sleeper meets more than " + STRIPS + " others");
+            }
+            stripNX[strips] = nx;
+            stripNY[strips] = ny;
+            stripLo[strips] = lo;
+            stripHi[strips] = hi;
+            limited[strips++] = false;
+        }
+
+        /** Limits the last strip added to where MX * x + MY * y is between lo and hi. */
+        private void limit(double mx, double my, double lo, double hi) {
+            stripMX[strips - 1] = mx;
+            stripMY[strips - 1] = my;
+            stripMLo[strips - 1] = lo;
+            stripMHi[strips - 1] = hi;
+            limited[strips - 1] = true;
+        }
 
         /**
          * The part on the square being built of a sleeper with its middle at (cx, cy), its length
-         * along (lx, ly) and the track along (wx, wy): its top, and a side on each edge, the
-         * edges of the square it is cut at among them.
+         * along (lx, ly) and the track along (wx, wy), less where it meets the strips: its top, and
+         * a side on each edge, the edges of the square and of the strips it is cut at among them.
          */
         private void tie(double cx, double cy, double lx, double ly, double wx, double wy) {
             double hl = TIE_LONG / 2, hw = TIE_WIDE / 2;
             for (int corner = 0; corner < 4; corner++) {
                 double l = ((corner == 1 || corner == 2) ? 1 : -1) * hl, w = (corner >= 2 ? 1 : -1) * hw;
-                polyX[corner] = cx + lx * l + wx * w;
-                polyY[corner] = cy + ly * l + wy * w;
+                partX[0][corner] = cx + lx * l + wx * w;
+                partY[0][corner] = cy + ly * l + wy * w;
             }
-            int n = cut(polyX, polyY, 4, cutX, cutY, true, x, 1);
-            n = cut(cutX, cutY, n, polyX, polyY, true, x + 1, -1);
-            n = cut(polyX, polyY, n, cutX, cutY, false, y, 1);
-            n = cut(cutX, cutY, n, polyX, polyY, false, y + 1, -1);
+            partN[0] = 4;
+            int parts = 1;
+            for (int k = 0; k < strips; k++) {
+                int made = 0;
+                for (int p = 0; p < parts; p++) {
+                    for (int side = -1; side <= 1; side += 2) {
+                        made = keep(made, cut(partX[p], partY[p], partN[p], nextX[made], nextY[made], stripNX[k], stripNY[k], side < 0 ? stripLo[k] : stripHi[k], side),
+                                cx, cy);
+                    }
+                    if (limited[k]) {
+                        int n = cut(partX[p], partY[p], partN[p], cutX, cutY, stripNX[k], stripNY[k], stripLo[k], 1);
+                        n = cut(cutX, cutY, n, polyX, polyY, stripNX[k], stripNY[k], stripHi[k], -1);
+                        for (int side = -1; side <= 1; side += 2) {
+                            made = keep(made, cut(polyX, polyY, n, nextX[made], nextY[made], stripMX[k], stripMY[k], side < 0 ? stripMLo[k] : stripMHi[k], side), cx, cy);
+                        }
+                    }
+                }
+                double[][] swapX = partX, swapY = partY;
+                partX = nextX;
+                partY = nextY;
+                nextX = swapX;
+                nextY = swapY;
+                int[] swapN = partN;
+                partN = nextN;
+                nextN = swapN;
+                parts = made;
+            }
+            for (int p = 0; p < parts; p++) {
+                tiePart(partX[p], partY[p], partN[p], cx, cy, lx, ly, wx, wy);
+            }
+        }
+
+        /** Keeps the part of a sleeper just cut into nextX and nextY, of n corners, where it is not meagre, and says how many parts are kept. */
+        private int keep(int made, int n, double cx, double cy) {
+            if (area(nextX[made], nextY[made], n) <= MEAGRE) {
+                return made;
+            }
+            if (made == PARTS - 1) {
+                throw new IllegalStateException("a sleeper at " + cx + "," + cy + " cut into more than " + PARTS + " parts");
+            }
+            nextN[made] = n;
+            return made + 1;
+        }
+
+        /** The least area of a part of a sleeper that is built, in square metres: a square centimetre. */
+        private static final double MEAGRE = 1e-4;
+
+        /** The area of a polygon. */
+        private static double area(double[] px, double[] py, int n) {
+            double twice = 0;
+            for (int v = 0; v < n; v++) {
+                int w = (v + 1) % n;
+                twice += px[v] * py[w] - px[w] * py[v];
+            }
+            return Math.abs(twice) / 2;
+        }
+
+        /** Builds the part on the square being built of one part of a sleeper: see tie. */
+        private void tiePart(double[] px, double[] py, int count, double cx, double cy, double lx, double ly, double wx, double wy) {
+            int n = cut(px, py, count, cutX, cutY, 1, 0, x, 1);
+            n = cut(cutX, cutY, n, polyX, polyY, 1, 0, x + 1, -1);
+            n = cut(polyX, polyY, n, cutX, cutY, 0, 1, y, 1);
+            n = cut(cutX, cutY, n, polyX, polyY, 0, 1, y + 1, -1);
             n = corners(n);
-            if (n < 3) {
+            if (area(polyX, polyY, n) <= MEAGRE) {
                 return;
             }
             for (int v = 0; v < n; v++) {
@@ -805,12 +1821,12 @@ final class Track {
             along[corner * 2 + 1] = polyT[v];
         }
 
-        /** Keeps of the polygon (ax, ay) what is on the side of the line x or y = edge that sign points to, into (bx, by), and says how many corners. */
-        private static int cut(double[] ax, double[] ay, int n, double[] bx, double[] by, boolean onX, double edge, int sign) {
+        /** Keeps of the polygon (ax, ay) what is where sign * (nx * x + ny * y - edge) is not below 0, into (bx, by), and says how many corners. */
+        private static int cut(double[] ax, double[] ay, int n, double[] bx, double[] by, double nx, double ny, double edge, int sign) {
             int kept = 0;
             for (int i = 0; i < n; i++) {
                 int j = (i + 1) % n;
-                double di = sign * ((onX ? ax[i] : ay[i]) - edge), dj = sign * ((onX ? ax[j] : ay[j]) - edge);
+                double di = sign * (nx * ax[i] + ny * ay[i] - edge), dj = sign * (nx * ax[j] + ny * ay[j] - edge);
                 if (di >= 0) {
                     bx[kept] = ax[i];
                     by[kept++] = ay[i];

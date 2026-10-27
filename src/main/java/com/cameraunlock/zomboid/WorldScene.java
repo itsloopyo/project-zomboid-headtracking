@@ -3908,6 +3908,7 @@ final class WorldScene {
                         heightsRound = 0;
                         heightsFarCount = 0;
                         wantsMap = false;
+                        trackReader.forget();
                         placed = fresh.placed;
                         building = fresh;
                         chunksBuilt++;
@@ -8438,6 +8439,8 @@ final class WorldScene {
             }
         });
 
+        private boolean trackFullTold;
+
         final Track.Reader trackReader = new Track.Reader((x, y, pieces) -> {
             IsoGridSquare square = cell.getGridSquare(x, y, 0);
             if (square == null) {
@@ -8447,7 +8450,7 @@ final class WorldScene {
             int n = 0;
             for (int i = 0; i < objects.size(); i++) {
                 IsoSprite sprite = objects.get(i).getSprite();
-                if (sprite != null && kindOf(sprite).track != null) {
+                if (sprite != null && kindOf(sprite).track != null && n < pieces.length) {
                     pieces[n++] = kindOf(sprite).track;
                 }
             }
@@ -8466,6 +8469,10 @@ final class WorldScene {
             int read = trackReader.readAround(x, y);
             if (read == Track.WAITING) {
                 wantsMap = true;
+            }
+            if (trackReader.full != null && !trackFullTold) {
+                trackFullTold = true;
+                Log.info("railway track: " + trackReader.full + ", so it is left the game's pictures");
             }
             if (read == Track.COVERED) {
                 return true;
@@ -8493,7 +8500,9 @@ final class WorldScene {
             railMesh = solid.get(rails.getID());
             tieMesh.open = railMesh.open = frame.open;
             tieMesh.sway = railMesh.sway = 0f;
-            trackBuilder.build(trackReader.square(), x, y, trackReader);
+            if (trackBuilder.build(trackReader, x, y) == Track.WAITING) {
+                wantsMap = true;
+            }
             return true;
         }
 

@@ -1,8 +1,10 @@
 package com.cameraunlock.zomboid;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.TreeSet;
 
 /** Tests of which piece of track each sprite is, and of the rails and sleepers Track builds of them. */
 final class TrackTests {
@@ -26,6 +28,390 @@ final class TrackTests {
         Checks.run("aBendJoinedToItsStraightsKeepsItsSleepersEvenlyApart", TrackTests::aBendJoinedToItsStraightsKeepsItsSleepersEvenlyApart);
         Checks.run("everyFaceOfARailFacesOutOfIt", TrackTests::everyFaceOfARailFacesOutOfIt);
         Checks.run("aSleepersTopFacesUpAndIsTexturedEdgeToEdge", TrackTests::aSleepersTopFacesUpAndIsTexturedEdgeToEdge);
+        Checks.run("aTurnoutsRoutesEachMeetItsLinesAlongThem", TrackTests::aTurnoutsRoutesEachMeetItsLinesAlongThem);
+        Checks.run("aTurnoutWhoseRoutesCannotBeReadIsLeftThePicture", TrackTests::aTurnoutWhoseRoutesCannotBeReadIsLeftThePicture);
+        Checks.run("aTurnoutIsReadTheSameFromEachOfItsSquares", TrackTests::aTurnoutIsReadTheSameFromEachOfItsSquares);
+        Checks.run("everyRailOfABuiltTurnoutHasASleeperUnderIt", TrackTests::everyRailOfABuiltTurnoutHasASleeperUnderIt);
+        Checks.run("everyRailOfATurnoutEndsOnAnotherOrAtABuffer", TrackTests::everyRailOfATurnoutEndsOnAnotherOrAtABuffer);
+        Checks.run("aGapInAStraightIsBridged", TrackTests::aGapInAStraightIsBridged);
+        Checks.run("aSquareWithMoreTrackThanCanBeBuiltIsLeftThePicture", TrackTests::aSquareWithMoreTrackThanCanBeBuiltIsLeftThePicture);
+    }
+
+    /** Lays the pieces of sheet of the straight of way with its middle at c on every square from (x0, y0) to (x1, y1) it crosses that where takes in, by its middle. */
+    private static void line(HashMap<Long, String[]> squares, String sheet, int way, double c, int x0, int y0, int x1, int y1, Inside where) {
+        double[] n = normal(way);
+        long nx = Math.round(n[0]), ny = Math.round(n[1]);
+        HashSet<Float> laid = new HashSet<>();
+        for (String name : Track.names()) {
+            Track.Piece p = Track.of(name);
+            if (!name.startsWith(sheet) || p == Track.NOTHING || p == Track.WAGON_FLOOR || p.bend != null || p.sided || p.way != way || !laid.add(p.c)) {
+                continue;
+            }
+            for (int y = y0; y <= y1; y++) {
+                for (int x = x0; x <= x1; x++) {
+                    if (p.c + nx * x + ny * y == c && (where == null || where.at(x + 0.5f, y + 0.5f))) {
+                        lay(squares, x, y, name);
+                    }
+                }
+            }
+        }
+    }
+
+    /** Lays the pieces of sheet of a bend with its first square at (x, y): all of them, or those at the places given, x then y from the first. */
+    private static void bend(HashMap<Long, String[]> squares, String sheet, Track.Bend bend, int x, int y, int... places) {
+        for (String name : Track.names()) {
+            Track.Piece p = Track.of(name);
+            if (!name.startsWith(sheet) || p.bend != bend) {
+                continue;
+            }
+            boolean given = places.length == 0;
+            for (int i = 0; i < places.length; i += 2) {
+                given |= places[i] == p.dx && places[i + 1] == p.dy;
+            }
+            if (given) {
+                lay(squares, x + p.dx, y + p.dy, name);
+            }
+        }
+    }
+
+    private static void lay(HashMap<Long, String[]> squares, int x, int y, String name) {
+        String[] had = squares.getOrDefault(key(x, y), new String[0]);
+        String[] now = Arrays.copyOf(had, had.length + 1);
+        now[had.length] = name;
+        squares.put(key(x, y), now);
+    }
+
+    /** Whether (x, y) is ahead of (fromX, fromY) along (alongX, alongY). */
+    private static boolean ahead(float x, float y, double fromX, double fromY, double alongX, double alongY) {
+        return (x - fromX) * alongX + (y - fromY) * alongY > 0;
+    }
+
+    /**
+     * A yard's turnout: a straight down the map with its middle at x 11.5, off which bend A's
+     * rails alone turn south west onto a diagonal, with one square of the straight under the
+     * points left with nothing on it, as the map has one at 12809,2621.
+     */
+    private static HashMap<Long, String[]> yardTurnout() {
+        HashMap<Long, String[]> squares = new HashMap<>();
+        line(squares, Track.WITH_TIES, Track.NS, 11.5, 10, 0, 12, 23, null);
+        bend(squares, Track.RAILS, Track.A, 11, 12);
+        Track.Bend a = Track.A;
+        line(squares, Track.WITH_TIES, Track.NE, 11 + 12 + a.cOne, 0, 0, 24, 24, (x, y) -> ahead(x, y, 11 + a.oneX, 12 + a.oneY, a.alongOneX, a.alongOneY));
+        squares.remove(key(11, 9));
+        return squares;
+    }
+
+    /**
+     * A wye, as the map lays them: a straight down the map that ends where bend B with its
+     * sleepers turns off it north east and bend E's rails alone north west, each onto a
+     * diagonal.
+     */
+    private static HashMap<Long, String[]> wye() {
+        HashMap<Long, String[]> squares = new HashMap<>();
+        Track.Bend b = Track.B, e = Track.WIDE_E;
+        line(squares, Track.WITH_TIES, Track.NS, 19.5, 18, 13, 20, 22, null);
+        bend(squares, Track.WITH_TIES, b, 20, 11);
+        bend(squares, Track.WIDE_RAILS, e, 16, 10);
+        line(squares, Track.WITH_TIES, Track.NE, 20 + 11 + b.cOne, 0, 0, 40, 40, (x, y) -> ahead(x, y, 20 + b.oneX, 11 + b.oneY, b.alongOneX, b.alongOneY));
+        line(squares, Track.WITH_TIES, Track.NW, 16 - 10 + e.cOne, 0, 0, 40, 40, (x, y) -> ahead(x, y, 16 + e.oneX, 10 + e.oneY, e.alongOneX, e.alongOneY));
+        return squares;
+    }
+
+    /**
+     * A junction the map has as at 12663,4444: a line across that ends short of a straight down
+     * the map, joined to it by bend F's rails alone, a diagonal of rails alone and bend G's
+     * rails alone, which no one arc between the two lines follows.
+     */
+    private static HashMap<Long, String[]> sCurve() {
+        HashMap<Long, String[]> squares = new HashMap<>();
+        Track.Bend g = Track.WIDE_G, f = Track.WIDE_F;
+        line(squares, Track.WITH_TIES, Track.NS, 11.5, 10, 0, 12, 23, null);
+        bend(squares, Track.WIDE_RAILS, g, 11, 10);
+        bend(squares, Track.WIDE_RAILS, f, 17, 16);
+        line(squares, Track.RAILS, Track.NW, 11 - 10 + g.cOne, 0, 0, 40, 40, (x, y) -> ahead(x, y, 11 + g.oneX, 10 + g.oneY, g.alongOneX, g.alongOneY)
+                && ahead(x, y, 17 + f.oneX, 16 + f.oneY, f.alongOneX, f.alongOneY) && !squares.containsKey(key((int) Math.floor(x), (int) Math.floor(y))));
+        line(squares, Track.WITH_TIES, Track.EW, 16 + f.cTwo, 21, 0, 30, 40, null);
+        return squares;
+    }
+
+    /** As the map has it at 11729 to 11738, 10075 to 10088: a straight down the map with two pieces of bend E's rails alone beside it, the rest of the bend not laid. */
+    private static HashMap<Long, String[]> incompleteSwitch() {
+        HashMap<Long, String[]> squares = new HashMap<>();
+        line(squares, Track.WITH_TIES, Track.NS, 13.5, 12, 0, 14, 12, null);
+        bend(squares, Track.WIDE_RAILS, Track.WIDE_E, 10, 5, 0, 0, 4, 1);
+        return squares;
+    }
+
+    private interface Fixture {
+        HashMap<Long, String[]> squares();
+    }
+
+    /** A fixture with a turnout, a square of the turnout, and how many ways it turns where it is built. */
+    private record Named(String name, Fixture fixture, int x, int y, int routes) {}
+
+    /** The fixtures whose turnouts must be built. */
+    private static final Named[] BUILT = {new Named("the yard's turnout", TrackTests::yardTurnout, 11, 11, 1), new Named("the wye", TrackTests::wye, 19, 13, 2)};
+
+    /** The fixtures whose turnouts are left the pictures they are. */
+    private static final Named[] LEFT = {new Named("the S-bend junction", TrackTests::sCurve, 11, 10, 0),
+        new Named("the incomplete switch", TrackTests::incompleteSwitch, 14, 6, 0)};
+
+    private static final Fixture[] FIXTURES = {TrackTests::yardTurnout, TrackTests::wye, TrackTests::sCurve, TrackTests::incompleteSwitch};
+
+    private static void aTurnoutsRoutesEachMeetItsLinesAlongThem() {
+        for (Named named : BUILT) {
+            Track.Turnout turnout = new Track.Reader(area(named.fixture().squares(), null)).turnout(named.x(), named.y());
+            String where = named.name();
+            check(turnout != Track.Turnout.NONE && turnout.unread == null, where + " is built: " + turnout.unread);
+            check(turnout.routes.size() == named.routes(), where + " turns " + named.routes() + " ways: " + turnout.routes.size());
+            for (Track.Route route : turnout.routes) {
+                check(route.r >= Track.ROUTE_TIGHTEST, where + " turns no tighter than it may: " + route.r);
+                for (double angle : new double[] {route.start, route.start + route.sweep}) {
+                    double px = route.x + route.r * Math.cos(angle), py = route.y + route.r * Math.sin(angle);
+                    boolean meets = false;
+                    for (Track.Line line : turnout.lines) {
+                        double[] n = normal(line.way), d = Track.direction(line.way);
+                        meets |= Math.abs(n[0] * px + n[1] * py - line.c) < 1e-6 && Math.abs(Math.cos(angle) * d[0] + Math.sin(angle) * d[1]) < 1e-6;
+                    }
+                    check(meets, where + ": a route meets a line along it where it leaves it, at " + px + "," + py);
+                }
+            }
+        }
+    }
+
+    private static void aTurnoutWhoseRoutesCannotBeReadIsLeftThePicture() {
+        for (Named named : LEFT) {
+            HashMap<Long, String[]> squares = named.fixture().squares();
+            Track.Turnout turnout = new Track.Reader(area(squares, null)).turnout(named.x(), named.y());
+            check(turnout != Track.Turnout.NONE && turnout.unread != null, named.name() + " is a turnout left the picture it is");
+            for (long at : turnout.squares) {
+                int x = (int) (at >> 32), y = (int) at;
+                check(new Track.Reader(area(squares, null)).read(x, y, new Track.Square()) == Track.FLAT, named.name() + ": the square at " + x + "," + y + " is left as it is");
+            }
+        }
+    }
+
+    /** What a reader made of a turnout, in full. */
+    private static String described(Track.Turnout turnout) {
+        StringBuilder what = new StringBuilder(String.valueOf(turnout.unread));
+        for (Track.Line line : turnout.lines) {
+            what.append(" line ").append(line.way).append(' ').append(line.c).append(' ').append(line.from).append(' ').append(line.to);
+        }
+        for (Track.Route route : turnout.routes) {
+            what.append(" route ").append(route.x).append(' ').append(route.y).append(' ').append(route.r).append(' ').append(route.start).append(' ').append(route.sweep);
+        }
+        return what.append(" on ").append(new TreeSet<>(turnout.squares)).toString();
+    }
+
+    private static void aTurnoutIsReadTheSameFromEachOfItsSquares() {
+        for (Fixture fixture : FIXTURES) {
+            HashMap<Long, String[]> squares = fixture.squares();
+            Track.Reader all = new Track.Reader(area(squares, null));
+            int read = 0;
+            for (long at : squares.keySet()) {
+                int x = (int) (at >> 32), y = (int) at;
+                Track.Turnout turnout = all.turnout(x, y);
+                if (turnout == Track.Turnout.NONE) {
+                    continue;
+                }
+                read++;
+                // Read first, with nothing read before it.
+                Track.Turnout first = new Track.Reader(area(squares, null)).turnout(x, y);
+                check(described(first).equals(described(turnout)), "the square at " + x + "," + y + " read first reads its turnout as " + described(turnout) + ": " + described(first));
+                int built = new Track.Reader(area(squares, null)).read(x, y, new Track.Square());
+                check(built == (turnout.unread == null ? Track.LAID : Track.FLAT), "the square at " + x + "," + y + " is built as its turnout is: " + built);
+            }
+            check(read > 30, "a fixture's turnout has its squares: " + read);
+        }
+        // The square of the yard's straight left with nothing on it under the points is built as part of the turnout.
+        Track.Square hole = new Track.Square();
+        check(new Track.Reader(area(yardTurnout(), null)).read(11, 9, hole) == Track.LAID && hole.lines + hole.arcs > 1,
+                "the empty square under the yard's points is built as its turnout is: " + hole.lines + " lines and " + hole.arcs + " arcs");
+    }
+
+    private static void everyRailOfABuiltTurnoutHasASleeperUnderIt() {
+        for (Named named : BUILT) {
+            HashMap<Long, String[]> squares = named.fixture().squares();
+            Track.Turnout turnout = new Track.Reader(area(squares, null)).turnout(named.x(), named.y());
+            Built built = build(squares);
+            check(built.low == 0, named.name() + ": every sleeper's top is as high as the rest: " + built.low + " are not");
+            double looked = 0;
+            for (float[] q : built.heads) {
+                double x0 = (q[0] + q[9]) / 2, y0 = (q[1] + q[10]) / 2, x1 = (q[3] + q[6]) / 2, y1 = (q[4] + q[7]) / 2;
+                double length = Math.hypot(x1 - x0, y1 - y0);
+                int steps = (int) Math.ceil(length / 0.05);
+                for (int k = 0; k < steps; k++) {
+                    double px = x0 + (x1 - x0) * (k + 0.5) / steps, py = y0 + (y1 - y0) * (k + 0.5) / steps;
+                    long at = key((int) Math.floor(px), (int) Math.floor(py));
+                    if (!turnout.squares.contains(at) && squares.containsKey(at)) {
+                        continue;
+                    }
+                    looked += length / steps;
+                    double nearest = Double.MAX_VALUE;
+                    for (float[] top : built.tieTops) {
+                        nearest = Math.min(nearest, distance(top, px, py));
+                    }
+                    check(nearest <= 0.2, named.name() + ": the rail at " + px + "," + py + " is " + nearest + " from the nearest sleeper");
+                }
+            }
+            check(looked > 30, named.name() + " has its rails looked at: " + looked + " m");
+            for (int i = 0; i < built.tieTops.size(); i++) {
+                for (int j = i + 1; j < built.tieTops.size(); j++) {
+                    if (built.topOf.get(i) != built.topOf.get(j)) {
+                        double over = overlap(built.tieTops.get(i), built.tieTops.get(j));
+                        Tie one = built.topOf.get(i), two = built.topOf.get(j);
+                        check(over < 1e-4, named.name() + ": the sleeper at " + one.x + "," + one.y + " lies over the one at " + two.x + "," + two.y + ", " + over + " m2");
+                    }
+                }
+            }
+        }
+    }
+
+    /** How far a point is from a quad in the map's plane: 0 inside it. */
+    private static double distance(float[] q, double px, double py) {
+        boolean inside = true;
+        double sign = 0, nearest = Double.MAX_VALUE;
+        for (int i = 0; i < 4; i++) {
+            int j = (i + 1) % 4;
+            double ex = q[j * 3] - q[i * 3], ey = q[j * 3 + 1] - q[i * 3 + 1], side = ex * (py - q[i * 3 + 1]) - ey * (px - q[i * 3]);
+            if (Math.abs(side) > 1e-12) {
+                if (sign == 0) {
+                    sign = Math.signum(side);
+                } else if (Math.signum(side) != sign) {
+                    inside = false;
+                }
+            }
+            double l2 = ex * ex + ey * ey, u = l2 == 0 ? 0 : Math.max(0, Math.min(1, ((px - q[i * 3]) * ex + (py - q[i * 3 + 1]) * ey) / l2));
+            nearest = Math.min(nearest, Math.hypot(q[i * 3] + u * ex - px, q[i * 3 + 1] + u * ey - py));
+        }
+        return inside ? 0 : nearest;
+    }
+
+    /** The area, in the map's plane, where two convex quads lie over each other. */
+    private static double overlap(float[] a, float[] b) {
+        ArrayList<double[]> polygon = new ArrayList<>();
+        for (int i = 0; i < 4; i++) {
+            polygon.add(new double[] {a[i * 3], a[i * 3 + 1]});
+        }
+        double turning = 0;
+        for (int i = 0; i < 4; i++) {
+            int j = (i + 1) % 4;
+            turning += b[i * 3] * b[j * 3 + 1] - b[j * 3] * b[i * 3 + 1];
+        }
+        for (int i = 0; i < 4 && !polygon.isEmpty(); i++) {
+            int j = (i + 1) % 4;
+            double ex = b[j * 3] - b[i * 3], ey = b[j * 3 + 1] - b[i * 3 + 1];
+            ArrayList<double[]> kept = new ArrayList<>();
+            for (int k = 0; k < polygon.size(); k++) {
+                double[] p = polygon.get(k), n = polygon.get((k + 1) % polygon.size());
+                double dp = Math.signum(turning) * (ex * (p[1] - b[i * 3 + 1]) - ey * (p[0] - b[i * 3]));
+                double dn = Math.signum(turning) * (ex * (n[1] - b[i * 3 + 1]) - ey * (n[0] - b[i * 3]));
+                if (dp >= 0) {
+                    kept.add(p);
+                }
+                if ((dp >= 0) != (dn >= 0)) {
+                    double f = dp / (dp - dn);
+                    kept.add(new double[] {p[0] + (n[0] - p[0]) * f, p[1] + (n[1] - p[1]) * f});
+                }
+            }
+            polygon = kept;
+        }
+        double area = 0;
+        for (int k = 0; k < polygon.size(); k++) {
+            double[] p = polygon.get(k), n = polygon.get((k + 1) % polygon.size());
+            area += p[0] * n[1] - n[0] * p[1];
+        }
+        return Math.abs(area) / 2;
+    }
+
+    private static void everyRailOfATurnoutEndsOnAnotherOrAtABuffer() {
+        for (Fixture fixture : FIXTURES) {
+            HashMap<Long, String[]> squares = fixture.squares();
+            Track.Reader reader = new Track.Reader(area(squares, null));
+            ArrayList<float[]> lengths = new ArrayList<>();
+            float top = Track.TIE_TOP + Track.RAIL_HIGH;
+            Track.Builder builder = new Track.Builder(new Track.Sink() {
+                @Override
+                public float ground(float x, float y) {
+                    return 0f;
+                }
+
+                @Override
+                public void quad(float[] q, float[] along, int part) {
+                    if (part == Track.RAIL && q[2] == top && q[5] == top && q[8] == top && q[11] == top) {
+                        lengths.add(new float[] {(q[0] + q[9]) / 2f, (q[1] + q[10]) / 2f, (q[3] + q[6]) / 2f, (q[4] + q[7]) / 2f});
+                    }
+                }
+            });
+            for (long at : squares.keySet()) {
+                int x = (int) (at >> 32), y = (int) at;
+                if (reader.readAround(x, y) == Track.LAID) {
+                    builder.build(reader, x, y);
+                }
+            }
+            int looked = 0;
+            for (int i = 0; i < lengths.size(); i++) {
+                float[] length = lengths.get(i);
+                for (int end = 0; end < 2; end++) {
+                    float ex = length[end * 2], ey = length[end * 2 + 1];
+                    looked++;
+                    boolean met = false;
+                    for (int j = 0; j < lengths.size() && !met; j++) {
+                        float[] other = lengths.get(j);
+                        double dx = other[2] - other[0], dy = other[3] - other[1];
+                        double u = Math.max(0, Math.min(1, ((ex - other[0]) * dx + (ey - other[1]) * dy) / (dx * dx + dy * dy)));
+                        met = j != i && Math.hypot(other[0] + u * dx - ex, other[1] + u * dy - ey) < 0.03;
+                    }
+                    if (met) {
+                        continue;
+                    }
+                    boolean onPicture = false;
+                    for (int cx = -1; cx <= 1; cx += 2) {
+                        for (int cy = -1; cy <= 1; cy += 2) {
+                            int qx = (int) Math.floor(ex + cx * 0.02), qy = (int) Math.floor(ey + cy * 0.02);
+                            onPicture |= squares.containsKey(key(qx, qy)) && reader.read(qx, qy, new Track.Square()) == Track.FLAT;
+                        }
+                    }
+                    if (onPicture) {
+                        continue;
+                    }
+                    // A buffer: a straight rail that ends where the square on along it has no track.
+                    double ax = length[2] - length[0], ay = length[3] - length[1], run = Math.hypot(ax, ay);
+                    ax /= end == 0 ? -run : run;
+                    ay /= end == 0 ? -run : run;
+                    double eighths = Math.toDegrees(Math.atan2(ay, ax)) / 45;
+                    boolean straight = Math.abs(eighths - Math.round(eighths)) < 1e-3;
+                    long on = key((int) Math.floor(ex + ax * 0.05), (int) Math.floor(ey + ay * 0.05));
+                    check(straight && !squares.containsKey(on), "a rail ends at " + ex + "," + ey + " on nothing" + (straight ? ", short of the rest of its line" : ""));
+                }
+            }
+            check(looked > 0, "a fixture's rail ends are looked at");
+        }
+    }
+
+    private static void aGapInAStraightIsBridged() {
+        // As the map has it at 12651,4258: a square of a straight laid with nothing.
+        HashMap<Long, String[]> squares = new HashMap<>();
+        line(squares, Track.WITH_TIES, Track.NS, 11.5, 10, 0, 12, 12, null);
+        squares.remove(key(11, 6));
+        Built built = build(squares);
+        checkUnbroken(built, (x, y) -> y > 0.001f && y < 12.999f, "a straight with a square left out");
+        boolean tied = false;
+        for (Tie tie : built.ties) {
+            tied |= tie.y > 6 && tie.y < 7 && Math.abs(tie.area - WHOLE) < 1e-4f;
+        }
+        check(tied, "the square left out has whole sleepers");
+    }
+
+    private static void aSquareWithMoreTrackThanCanBeBuiltIsLeftThePicture() {
+        HashMap<Long, String[]> squares = new HashMap<>();
+        line(squares, Track.WITH_TIES, Track.NS, 11.5, 10, 0, 12, 12, null);
+        for (int i = 0; i < Track.Square.MOST / 2; i++) {
+            lay(squares, 11, 6, "industry_railroad_01_1");
+        }
+        Track.Reader reader = new Track.Reader(area(squares, null));
+        check(reader.read(11, 6, new Track.Square()) == Track.FLAT && reader.full != null && reader.full.contains("11,6"),
+                "a square with more pieces than it can be built of is left the picture it is, and says so: " + reader.full);
     }
 
     private static void check(boolean condition, String what) {
@@ -489,7 +875,7 @@ final class TrackTests {
             String[] names = squares.get(key(x, y));
             int n = 0;
             for (String name : names == null ? new String[0] : names) {
-                if (Track.of(name) != null) {
+                if (Track.of(name) != null && n < pieces.length) {
                     pieces[n++] = Track.of(name);
                 }
             }
@@ -507,6 +893,9 @@ final class TrackTests {
     private static final class Built {
         final ArrayList<float[]> heads = new ArrayList<>(), railFaces = new ArrayList<>(), tieTops = new ArrayList<>(), tieAlong = new ArrayList<>();
         final ArrayList<Tie> ties = new ArrayList<>();
+        /** The sleeper each part of a top in tieTops is of, and how many flat parts of sleepers are not at the height of a top. */
+        final ArrayList<Tie> topOf = new ArrayList<>();
+        int low;
     }
 
     /** Rows of squares from (x, y), each row's squares stepping by (dx, dy) and each row the next one down or across. */
@@ -540,7 +929,9 @@ final class TrackTests {
                 } else if (q[2] == Track.TIE_TOP && q[5] == Track.TIE_TOP && q[8] == Track.TIE_TOP && q[11] == Track.TIE_TOP) {
                     built.tieTops.add(q);
                     built.tieAlong.add(along.clone());
-                    gather(built, q, along);
+                    built.topOf.add(gather(built, q, along));
+                } else if (q[2] == q[5] && q[5] == q[8] && q[8] == q[11]) {
+                    built.low++;
                 }
             }
         });
@@ -548,13 +939,13 @@ final class TrackTests {
         for (Long at : squares.keySet()) {
             int x = (int) (at >> 32), y = (int) (long) at;
             check(reader.readAround(x, y) == Track.LAID, "the track at " + x + "," + y + " is built");
-            builder.build(reader.square(), x, y, reader);
+            builder.build(reader, x, y);
         }
         return built;
     }
 
-    /** Adds a part of a sleeper's top to its sleeper, whose middle is where along and across its picture are both a half. */
-    private static void gather(Built built, float[] q, float[] along) {
+    /** Adds a part of a sleeper's top to its sleeper, whose middle is where along and across its picture are both a half, and says which that is. */
+    private static Tie gather(Built built, float[] q, float[] along) {
         double s1 = along[2] - along[0], t1 = along[3] - along[1], s2 = along[4] - along[0], t2 = along[5] - along[1];
         double det = s1 * t2 - s2 * t1;
         double ax = 0.5 - along[0], at = 0.5 - along[1];
@@ -579,6 +970,7 @@ final class TrackTests {
             tie.fromT = Math.min(tie.fromT, along[corner * 2 + 1]);
             tie.toT = Math.max(tie.toT, along[corner * 2 + 1]);
         }
+        return tie;
     }
 
     /** The cross product, in the map's plane, of corners a and b of a quad less its first. */
