@@ -23,6 +23,7 @@ final class FootingTests {
         Checks.run("theGroundUnderAnEaveOverALawnIsLevelAtTheBuildingsFooting", FootingTests::theGroundUnderAnEaveOverALawnIsLevelAtTheBuildingsFooting);
         Checks.run("aPitchsTwoGoalsAreOneThingBoxedAsWideAsAPitch", FootingTests::aPitchsTwoGoalsAreOneThingBoxedAsWideAsAPitch);
         Checks.run("aCourtIsAThingOfItsOwnApartFromTheBuildingBesideIt", FootingTests::aCourtIsAThingOfItsOwnApartFromTheBuildingBesideIt);
+        Checks.run("groundsWhoseBoxesOverlapInAChainAreLaidAtTheLargestOnesFooting", FootingTests::groundsWhoseBoxesOverlapInAChainAreLaidAtTheLargestOnesFooting);
         Checks.run("goalsReachOnlyAcrossTheirCrossbarAndNotThroughAWall", FootingTests::goalsReachOnlyAcrossTheirCrossbarAndNotThroughAWall);
         Checks.run("basesOfADiamondTurnedOnTheMapAreOneThing", FootingTests::basesOfADiamondTurnedOnTheMapAreOneThing);
         Checks.run("goalsAsFarApartAsAGoalReachesAreLaidLevel", FootingTests::goalsAsFarApartAsAGoalReachesAreLaidLevel);
@@ -488,6 +489,52 @@ final class FootingTests {
                 "a court's box is the court and its apron, no wider: " + footings.boxLowX + ", " + footings.boxLowY + " to " + footings.boxHighX + ", " + footings.boxHighY);
         check(surface == found(court, 9, 3), "every square of the surface is the one thing");
         check(found(court, 3, 2) == building && !footings.boxed, "the building is not joined to it");
+    }
+
+    private static void groundsWhoseBoxesOverlapInAChainAreLaidAtTheLargestOnesFooting() {
+        // A small court, a larger one whose box overlaps it, the largest overlapping only the second, and one well apart.
+        String[] rows = new String[12];
+        for (int y = 0; y < rows.length; y++) {
+            rows[y] = (y < 2 ? "cc." : "...") + (y < 6 ? "cccccc." : ".......") + "cccccccccccc" + ".".repeat(20) + (y < 3 ? "ccc" : "...");
+        }
+        Plan chain = new Plan(rows);
+        long largest = found(chain, 10, 0);
+        int lowX = footings.boxLowX, lowY = footings.boxLowY, highX = footings.boxHighX, highY = footings.boxHighY;
+        check(footings.ruler == largest, "the largest of a chain is its own ruler");
+        found(chain, 0, 0);
+        check(footings.boxHighX < lowX, "the small court's box is apart from the largest's: " + footings.boxHighX + " and " + lowX);
+        check(footings.ruler == largest && footings.rulerLowX == lowX && footings.rulerLowY == lowY && footings.rulerHighX == highX && footings.rulerHighY == highY,
+                "and it is laid at the largest's footing all the same, through the court between them");
+        check(footings.count == 4, "the courts looked over for the ruler are not counted with the thing's own squares, got " + footings.count);
+        found(chain, 8, 5);
+        check(footings.ruler == largest, "as is the court between");
+        long apart = found(chain, 42, 0);
+        check(footings.ruler == apart, "a court apart from them keeps its own");
+        Plan twins = new Plan(
+                "cccc.cccc",
+                "cccc.cccc");
+        long left = found(twins, 0, 0);
+        found(twins, 8, 1);
+        check(footings.ruler == left, "of two as large, the one whose middle comes first, from either");
+        found(twins, 0, 1);
+        check(footings.ruler == left, "and from the other");
+        // Looking round the court on the right, the largest is met before the court between that joins them.
+        String[] bridged = new String[14];
+        for (int y = 0; y < bridged.length; y++) {
+            bridged[y] = "c".repeat(14) + "." + (y < 4 ? "cccc" : "....") + "." + (y < 6 ? "cccccc" : "......");
+        }
+        Plan bridge = new Plan(bridged);
+        long big = found(bridge, 0, 0);
+        int bigLowX = footings.boxLowX, bigHighY = footings.boxHighY;
+        found(bridge, 25, 5);
+        check(footings.ruler == big, "a court met before the court that joins it to the chain is of the chain");
+        footings.find(bridge, 13, 13);
+        check(footings.count == 0 && footings.found == big && footings.boxLowX == bigLowX && footings.boxHighY == bigHighY && footings.ruler == big,
+                "and is answered from the same search, with its own middle and box");
+        footings.find(bridge, 16, 2);
+        long between = footings.found;
+        check(footings.ruler == big && footings.count == 0, "as is the court between");
+        check(found(bridge, 16, 2) == between && footings.ruler == big, "as a search of its own finds it");
     }
 
     private static void goalsReachOnlyAcrossTheirCrossbarAndNotThroughAWall() {

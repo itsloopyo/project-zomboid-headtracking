@@ -87,16 +87,15 @@ final class Grounds {
         return kind == GOAL_ALONG_X || kind == GOAL_ALONG_Y || kind == HOOP;
     }
 
-    /** What a ground is in the list weight and settle take: its box's first corner and last, and its footing. */
+    /** What a ground is in the list weight and order take: its box's first corner and last, and its footing. */
     static final int STRIDE = 5;
 
     /**
      * Puts grounds, count of them, in one order whatever order they were met in, so that what
-     * weight sums comes out the same to the last bit from every chunk, and gives grounds whose
-     * boxes overlap one footing, the larger box's (of two as large, the lower footing): a pitch
-     * inside a track is one level piece of ground with it.
+     * weight sums comes out the same to the last bit from every chunk. Grounds whose boxes
+     * overlap have one footing already, their ruler's (Footings.ruler).
      */
-    static void settle(float[] grounds, int count) {
+    static void order(float[] grounds, int count) {
         float[][] each = new float[count][];
         for (int at = 0; at < count; at++) {
             each[at] = java.util.Arrays.copyOfRange(grounds, at * STRIDE, at * STRIDE + STRIDE);
@@ -110,23 +109,6 @@ final class Grounds {
             }
             return 0;
         });
-        for (boolean changed = true; changed;) {
-            changed = false;
-            for (float[] a : each) {
-                for (float[] b : each) {
-                    if (a == b || a[0] >= b[2] || b[0] >= a[2] || a[1] >= b[3] || b[1] >= a[3]) {
-                        continue;
-                    }
-                    float areaA = (a[2] - a[0]) * (a[3] - a[1]), areaB = (b[2] - b[0]) * (b[3] - b[1]);
-                    boolean aRules = areaA > areaB || areaA == areaB && a[4] <= b[4];
-                    float[] ruled = aRules ? b : a, ruling = aRules ? a : b;
-                    if (ruled[4] != ruling[4]) {
-                        ruled[4] = ruling[4];
-                        changed = true;
-                    }
-                }
-            }
-        }
         for (int at = 0; at < count; at++) {
             System.arraycopy(each[at], 0, grounds, at * STRIDE, STRIDE);
         }

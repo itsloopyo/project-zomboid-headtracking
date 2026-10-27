@@ -164,6 +164,8 @@ final class Terrain {
         final byte[] kinds = new byte[CHUNK_TILES * CHUNK_TILES];
         /** The middle of the made thing that stands over each square, as Footings finds it. NaN where there is none. */
         final float[] midX = new float[CHUNK_TILES * CHUNK_TILES], midY = new float[CHUNK_TILES * CHUNK_TILES];
+        /** Of a thing of level ground, the box of its ruler (Footings.ruler), whose middle midX and midY are and whose footing it is laid at, as box has them. */
+        final float[] rulerBox = new float[4 * CHUNK_TILES * CHUNK_TILES];
         /** Whether that thing stands at the height the ground has at midX, midY with nothing of its kind standing, as Footings tells: see lookOver. */
         final boolean[] free = new boolean[CHUNK_TILES * CHUNK_TILES];
         /** Of a thing of level ground, the box Terrain lays level (Footings.boxed): its first corner and its last, four to a square. NaN where there is none. */
@@ -171,6 +173,7 @@ final class Terrain {
 
         {
             Arrays.fill(box, Float.NaN);
+            Arrays.fill(rulerBox, Float.NaN);
         }
         /** Whether a building or something built stands on the square's own ground, which a kerb's line keeps out of. */
         final boolean[] hard = new boolean[CHUNK_TILES * CHUNK_TILES];
@@ -212,6 +215,7 @@ final class Terrain {
             Arrays.fill(midY, 0f);
             Arrays.fill(free, false);
             Arrays.fill(box, Float.NaN);
+            Arrays.fill(rulerBox, Float.NaN);
             Arrays.fill(hard, false);
             Arrays.fill(footway, false);
             Arrays.fill(marks, (byte) 0);
@@ -1085,7 +1089,7 @@ final class Terrain {
                             freeKeys = Arrays.copyOf(freeKeys, freeAsked * 2);
                             freeBoxes = Arrays.copyOf(freeBoxes, freeAsked * 2 * 4);
                         }
-                        System.arraycopy(kinds.box, at * 4, freeBoxes, freeAsked * 4, 4);
+                        System.arraycopy(kinds.rulerBox, at * 4, freeBoxes, freeAsked * 4, 4);
                         freeKeys[freeAsked++] = key;
                     }
                 }
@@ -1232,6 +1236,7 @@ final class Terrain {
         groundCount = 0;
         int run = 0;
         float lastX = Float.NaN, lastY = Float.NaN, lastPad = Float.NaN;
+        float lastLowX = Float.NaN, lastLowY = Float.NaN, lastHighX = Float.NaN, lastHighY = Float.NaN;
         for (int row = 0; row < SPAN; row++) {
             for (int across = 0; across < REGION; across++) {
                 Kinds kinds = region[row / CHUNK_TILES * REGION + across];
@@ -1249,15 +1254,21 @@ final class Terrain {
                         lastX = x;
                         lastY = y;
                         lastPad = runPads[run++];
-                        if (!Float.isNaN(kinds.box[at * 4])) {
-                            addGround(kinds.box, at * 4, lastPad);
-                        }
+                    }
+                    // The things of a chain share a middle, their ruler's, and one run of squares may go over two of them.
+                    float lowX = kinds.box[at * 4];
+                    if (!Float.isNaN(lowX) && (lowX != lastLowX || kinds.box[at * 4 + 1] != lastLowY || kinds.box[at * 4 + 2] != lastHighX || kinds.box[at * 4 + 3] != lastHighY)) {
+                        lastLowX = lowX;
+                        lastLowY = kinds.box[at * 4 + 1];
+                        lastHighX = kinds.box[at * 4 + 2];
+                        lastHighY = kinds.box[at * 4 + 3];
+                        addGround(kinds.box, at * 4, lastPad);
                     }
                     padsAround[square] = lastPad;
                 }
             }
         }
-        Grounds.settle(grounds, groundCount);
+        Grounds.order(grounds, groundCount);
     }
 
     /**
@@ -1645,13 +1656,18 @@ final class Terrain {
                 }
                 settled &= footings.settled;
                 kinds.open[at] = footings.open;
-                kinds.midX[at] = Footings.keyX(footings.found);
-                kinds.midY[at] = Footings.keyY(footings.found);
+                long middle = footings.boxed ? footings.ruler : footings.found;
+                kinds.midX[at] = Footings.keyX(middle);
+                kinds.midY[at] = Footings.keyY(middle);
                 kinds.free[at] = footings.free;
                 kinds.box[at * 4] = footings.boxed ? footings.boxLowX : Float.NaN;
                 kinds.box[at * 4 + 1] = footings.boxed ? footings.boxLowY : Float.NaN;
                 kinds.box[at * 4 + 2] = footings.boxed ? footings.boxHighX : Float.NaN;
                 kinds.box[at * 4 + 3] = footings.boxed ? footings.boxHighY : Float.NaN;
+                kinds.rulerBox[at * 4] = footings.boxed ? footings.rulerLowX : Float.NaN;
+                kinds.rulerBox[at * 4 + 1] = footings.boxed ? footings.rulerLowY : Float.NaN;
+                kinds.rulerBox[at * 4 + 2] = footings.boxed ? footings.rulerHighX : Float.NaN;
+                kinds.rulerBox[at * 4 + 3] = footings.boxed ? footings.rulerHighY : Float.NaN;
             }
         }
         siteCell = null;
@@ -1660,6 +1676,7 @@ final class Terrain {
         for (int at = 0; at < CHUNK_TILES * CHUNK_TILES; at++) {
             sum = mix(mix(sum, Footings.key(kinds.midX[at], kinds.midY[at])), kinds.free[at] ? 1 : 0);
             sum = mix(mix(sum, Footings.key(kinds.box[at * 4], kinds.box[at * 4 + 1])), Footings.key(kinds.box[at * 4 + 2], kinds.box[at * 4 + 3]));
+            sum = mix(mix(sum, Footings.key(kinds.rulerBox[at * 4], kinds.rulerBox[at * 4 + 1])), Footings.key(kinds.rulerBox[at * 4 + 2], kinds.rulerBox[at * 4 + 3]));
             anyThing |= !Float.isNaN(kinds.midX[at]);
             anyFree |= kinds.free[at];
         }

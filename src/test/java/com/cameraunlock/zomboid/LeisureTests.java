@@ -39,7 +39,7 @@ final class LeisureTests {
         Checks.run("whatAPitchACourtAndADiamondStandOnIsLevelGround", LeisureTests::whatAPitchACourtAndADiamondStandOnIsLevelGround);
         Checks.run("levelGroundIsFlatInItsBoxAndEasesBackOutToTheLand", LeisureTests::levelGroundIsFlatInItsBoxAndEasesBackOutToTheLand);
         Checks.run("betweenTwoLevelGroundsTheFootingRunsFromOneToTheOtherWithNoStep", LeisureTests::betweenTwoLevelGroundsTheFootingRunsFromOneToTheOtherWithNoStep);
-        Checks.run("levelGroundsThatOverlapShareTheLargerOnesFootingInWhateverOrderMet", LeisureTests::levelGroundsThatOverlapShareTheLargerOnesFootingInWhateverOrderMet);
+        Checks.run("levelGroundsComeOutInOneOrderWhateverOrderMet", LeisureTests::levelGroundsComeOutInOneOrderWhateverOrderMet);
     }
 
     private static void holds(Outdoors.Piece piece, String what) {
@@ -638,17 +638,12 @@ final class LeisureTests {
         Checks.check(pad[0] == 4f, "at the court's its own");
     }
 
-    private static void levelGroundsThatOverlapShareTheLargerOnesFootingInWhateverOrderMet() {
-        float[] track = {0, 0, 40, 80, 2f}, pitch = {5, 10, 35, 70, 3f}, court = {100, 0, 110, 10, 7f};
+    private static void levelGroundsComeOutInOneOrderWhateverOrderMet() {
+        float[] track = {0, 0, 40, 80, 2f}, pitch = {5, 10, 35, 70, 2f}, court = {100, 0, 110, 10, 7f};
         float[] one = concat(track, pitch, court), other = concat(court, pitch, track);
-        Grounds.settle(one, 3);
-        Grounds.settle(other, 3);
+        Grounds.order(one, 3);
+        Grounds.order(other, 3);
         Checks.check(java.util.Arrays.equals(one, other), "the same grounds come out the same whatever order they were met in");
-        float[] pad = new float[1];
-        Grounds.weight(one, 3, 20, 40, EASE, pad);
-        Checks.check(pad[0] == 2f, "a pitch inside a track lies at the track's footing, got " + pad[0]);
-        Grounds.weight(one, 3, 105, 5, EASE, pad);
-        Checks.check(pad[0] == 7f, "a court apart from both keeps its own");
     }
 
     private static float[] concat(float[]... each) {
