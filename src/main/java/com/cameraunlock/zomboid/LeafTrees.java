@@ -40,6 +40,12 @@ final class LeafTrees implements LeafFall.Ground {
         this.scene = scene;
     }
 
+    /** Logic thread, as the picture stops being built: the map read last is let go of, as WorldScene.setDown lets go of its own. */
+    void setDown() {
+        cell = null;
+        terrain = null;
+    }
+
     /** Whether the game hangs leaves on a tree: one its erosion has bare has none, and its crown is drawn bare. */
     static boolean inLeaf(IsoObject tree) {
         ArrayList<IsoSpriteInstance> leaves = tree.getAttachedAnimSprite();

@@ -1545,6 +1545,7 @@ final class WorldScene {
         }
         squareLights.forget();
         roomDaylight.forget();
+        leafTrees.setDown();
         chunkMap = null;
         builtAt[view.index] = 0L;
         roomMap.forget();
