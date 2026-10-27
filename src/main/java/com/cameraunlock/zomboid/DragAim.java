@@ -2,6 +2,7 @@ package com.cameraunlock.zomboid;
 
 import se.krka.kahlua.vm.KahluaTable;
 import zombie.Lua.LuaManager;
+import zombie.entity.components.spriteconfig.SpriteConfigManager;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoWorld;
@@ -48,6 +49,16 @@ final class DragAim {
     /** Whether a drag is put on a tree's bole where a line meets it: only Cut down Tree is, which is put on a tree. */
     static boolean onBoles(KahluaTable drag) {
         return "ISChopTreeCursor".equals(drag.rawget("Type"));
+    }
+
+    /** Whether a drag is put by a window a line meets: only a barricade is, which the game puts on a window. */
+    static boolean onWindows(KahluaTable drag) {
+        return drag.rawget("objectInfo") instanceof SpriteConfigManager.ObjectInfo info && barricades(info.getScript().getOnIsValid());
+    }
+
+    /** Whether a build's test of where it can go is one of the game's barricades', by the test's name. */
+    static boolean barricades(String onIsValid) {
+        return onIsValid != null && onIsValid.startsWith("BuildRecipeCode.barricade.");
     }
 
     /**

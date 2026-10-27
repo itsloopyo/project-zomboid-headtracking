@@ -76,7 +76,7 @@ final class WorldQuery {
     private boolean solidToAClimber(int fromX, int fromY, int toX, int toY) {
         IsoGridSquare from = cell.getGridSquare(fromX, fromY, level);
         IsoGridSquare to = cell.getGridSquare(toX, toY, level);
-        if (from != null && to != null && (from.isWindowTo(to) || fenceBetween(fromX, fromY, toX, toY,
+        if (from != null && to != null && (windowBetween(from, to) || fenceBetween(fromX, fromY, toX, toY,
                 fenceOnly(from, true), fenceOnly(from, false), fenceOnly(to, true), fenceOnly(to, false)))) {
             return to.isSolid();
         }
@@ -112,9 +112,9 @@ final class WorldQuery {
     /** Whether a tree stops the shots traced only at its bole: see Trunks. Set for each shot by its shooter. */
     boolean boles;
     /**
-     * Whether a window stops the line as a wall does. A drag cursor aimed at a window is put on the
-     * square beside it, where the game's own barricade is put (BuildRecipeCode.barricade), and not out
-     * through the glass.
+     * Whether a window stops the line as a wall does. A barricade aimed at a window is put on the
+     * square beside it, where the game puts one (BuildRecipeCode.barricade), and not out through the
+     * glass. Set for each line by its drag cursor: see DragAim.onWindows.
      */
     boolean windows;
     /** The line being traced, from where its trace began, and the nearest it has met a bole along it. */
@@ -150,7 +150,12 @@ final class WorldQuery {
     private boolean solidToADrag(int fromX, int fromY, int toX, int toY) {
         IsoGridSquare from = cell.getGridSquare(fromX, fromY, level);
         IsoGridSquare to = cell.getGridSquare(toX, toY, level);
-        return from != null && to != null && from.isWindowTo(to) || solidToAShot(fromX, fromY, toX, toY);
+        return from != null && to != null && windowBetween(from, to) || solidToAShot(fromX, fromY, toX, toY);
+    }
+
+    /** A window on the edge between two squares, or an empty frame, which the game keeps as an object of its own. */
+    private static boolean windowBetween(IsoGridSquare from, IsoGridSquare to) {
+        return from.isWindowTo(to) || from.getWindowFrameTo(to) != null;
     }
 
     /** Keeps the nearest the line being traced meets the bole drawn on a square, if it meets one. */

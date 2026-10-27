@@ -1451,9 +1451,6 @@ public final class FirstPerson {
 
     /** Where a drag cursor's line meets the world: kept apart from the aim's, whose line of fire the game's hit list reads. */
     private final WorldQuery dragWorld = new WorldQuery();
-    {
-        dragWorld.windows = true;
-    }
     /** How many pieces each side of a drag cursor's square is drawn in, so a side partly behind the eye is drawn where it is in front. */
     static final int SQUARE_PIECES = 8;
     /** How far over its floor a drag cursor's square is drawn, in tiles, so the floor does not cover it. */
@@ -1502,6 +1499,7 @@ public final class FirstPerson {
         }
         dragWorld.look(IsoWorld.instance.currentCell, (int) Math.floor(player.getZ()));
         dragWorld.boles = DragAim.onBoles(drag);
+        dragWorld.windows = DragAim.onWindows(drag);
         float met = dragWorld.toSurface(line, dragGround, player.getZ() * ViewCamera.LEVEL_HEIGHT, DragAim.REACH);
         float along = DragAim.along(met);
         float x = line.eyeX + line.forwardX * along, y = line.eyeY + line.forwardY * along;

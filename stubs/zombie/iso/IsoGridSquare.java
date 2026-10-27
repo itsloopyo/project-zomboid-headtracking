@@ -47,6 +47,7 @@ public final class IsoGridSquare {
     public boolean isFree(boolean countOtherCharacters) { throw new UnsupportedOperationException("reference stub"); }
     public boolean isBlockedTo(IsoGridSquare other) { throw new UnsupportedOperationException("reference stub"); }
     public boolean isWindowTo(IsoGridSquare other) { throw new UnsupportedOperationException("reference stub"); }
+    public zombie.iso.objects.IsoWindowFrame getWindowFrameTo(IsoGridSquare other) { throw new UnsupportedOperationException("reference stub"); }
     public LosUtil.TestResults testVisionAdjacent(int x, int y, int z, boolean specialDiag, boolean ignoreDoors) { throw new UnsupportedOperationException("reference stub"); }
     public boolean isSolid() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isSolidTrans() { throw new UnsupportedOperationException("reference stub"); }

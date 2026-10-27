@@ -18,6 +18,14 @@ final class AimGroundTests {
         Checks.run("aDragCursorIsTheGamesOwnOutOfFirstPerson", AimGroundTests::aDragCursorIsTheGamesOwnOutOfFirstPerson);
         Checks.run("aDragCursorInFirstPersonIsPutWhereItIsAimed", AimGroundTests::aDragCursorInFirstPersonIsPutWhereItIsAimed);
         Checks.run("aDragCursorWithNoLineIsPutNowhere", AimGroundTests::aDragCursorWithNoLineIsPutNowhere);
+        Checks.run("onlyABarricadeIsPutByAWindow", AimGroundTests::onlyABarricadeIsPutByAWindow);
+    }
+
+    private static void onlyABarricadeIsPutByAWindow() {
+        Checks.check(DragAim.barricades("BuildRecipeCode.barricade.OnIsValidPlanks"), "planks");
+        Checks.check(DragAim.barricades("BuildRecipeCode.barricade.OnIsValid"), "metal sheets and bars");
+        Checks.check(!DragAim.barricades("BuildRecipeCode.windowGlass.OnIsValid"), "not glass put in a frame");
+        Checks.check(!DragAim.barricades(null), "not a build with no test of its own");
     }
 
     private static ViewCamera.Pose aim(float up, float toX, float toUp) {
