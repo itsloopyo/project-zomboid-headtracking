@@ -588,7 +588,7 @@ def main():
     head = G.head_v6(placed(Vector((0.0, K.muzzle_y, 0.0))), placed(GRIP), placed(PORT), K.travel, K.sight_top, EYE_BEHIND_GRIP, [], None, placed(laser),
                      placed(light))
     if "--stats" in args:
-        G.stats(gun, os.path.join(args[args.index("--stats") + 1], NAME + "-layout.png"))
+        G.stats(gun, os.path.join(args[args.index("--stats") + 1], NAME + "-layout.png") if len(args) > args.index("--stats") + 1 else NAME + "-layout.png")
         return
     if "--mesh" in args:
         G.pack(gun, NAME, GRIP, None, None, (FIXED, 1, SLIDE, CASE, MAGAZINE), head, moved=((CASE, CASE_AT),), mirror=mirror)
