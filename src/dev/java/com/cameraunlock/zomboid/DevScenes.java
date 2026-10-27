@@ -440,6 +440,9 @@ final class DevScenes {
         Scene now = waiting;
         waiting = null;
         DevKeys.invincible = now.invincible();
+        // At once, not on DevKeys' next frame: a god mode left on from the scene before puts the needs
+        // this scene sets back to nothing within the frame.
+        DevKeys.keepWhole(player);
         DevKeys.carryAnything = true;
         DevKeys.setCheat(player, "UNLIMITED_CARRY", true);
         DevKeys.cleared = false;

@@ -574,7 +574,7 @@ public final class DevKeys {
         return field;
     }
 
-    private static void keepWhole(IsoPlayer safe) {
+    static void keepWhole(IsoPlayer safe) {
         // Health put back each frame is not enough: a crowd pulls a player down and kills
         // outright. The game's own switch for a character that cannot die is behind a
         // role check, so the field is set directly.
