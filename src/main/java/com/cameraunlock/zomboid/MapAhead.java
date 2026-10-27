@@ -67,6 +67,8 @@ final class MapAhead {
     static final int ANY = 1 << 13;
     /** Where in a tile's traits what it is to level ground is (Grounds.of), four bits from here. */
     static final int LEVEL_SHIFT = 14;
+    /** Where in a tile's traits the line it paints on a road is (Lanes.mark), eight bits from here. */
+    static final int MARK_SHIFT = 18;
 
     /** Of Guess.stands: a stair or a roof tile, a parasol's canopy, a building's own wall along its south or east side. */
     static final byte STAIR_OR_ROOF = 1, CANOPY = 2, WALLED = 4;
@@ -88,6 +90,8 @@ final class MapAhead {
         final int wx, wy;
         final byte[] kind = new byte[SQUARES];
         final boolean[] footway = new boolean[SQUARES];
+        /** The lines painted on a road's square, as Lanes.mark gives them, as Terrain.Kinds keeps them. */
+        final byte[] marks = new byte[SQUARES];
         /** The middle of the building whose pad the square is part of (Terrain.footingOf), as Footings.key packs it, or Footings.NONE. */
         final long[] house = new long[SQUARES];
         final byte[] stands = new byte[SQUARES];
@@ -127,6 +131,7 @@ final class MapAhead {
             traits |= name.startsWith("blends_natural") ? NATURAL_NAME : name.startsWith("blends_street") ? STREET_NAME : 0;
             traits |= name.startsWith(Footings.OVERHEAD_LINES) ? OVERHEAD : 0;
             traits |= Grounds.of(name) << LEVEL_SHIFT;
+            traits |= Lanes.mark(name) << MARK_SHIFT;
         }
         if ("Road_04".equals(flags.get("FloorMaterial"))) {
             traits |= ROAD_04;
@@ -233,6 +238,7 @@ final class MapAhead {
                 guess.kind[at] = kind;
                 guess.footway[at] = kind == Terrain.MADE || kind == Terrain.STREET && (floor & ROAD_04) != 0;
                 int ground = raw.ground[at];
+                guess.marks[at] = kind == Terrain.STREET ? (byte) (ground >>> MARK_SHIFT) : 0;
                 byte stands = (ground & (STAIR | ROOF)) != 0 ? STAIR_OR_ROOF : 0;
                 stands |= (ground & PARASOL) != 0 ? CANOPY : 0;
                 if ((ground & WALL_N) != 0 && rooms.house(x, y - 1, 0) != Footings.NONE || (ground & WALL_W) != 0 && rooms.house(x - 1, y, 0) != Footings.NONE) {

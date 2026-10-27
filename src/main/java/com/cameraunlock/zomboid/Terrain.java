@@ -1516,6 +1516,7 @@ final class Terrain {
             fresh.kinds[at] = guess.kind[at];
             fresh.hard[at] = guess.house[at] != Footings.NONE || standsNow(guess.stands[at]);
             fresh.footway[at] = guess.footway[at];
+            fresh.marks[at] = guess.marks[at];
             fresh.water |= guess.kind[at] == WATER;
             fresh.builtOn += fresh.hard[at] ? 1 : 0;
         }

@@ -49,6 +49,8 @@ final class MapAheadTests {
         check(lines == MapAhead.OVERHEAD, "the overhead wires are overhead lines and nothing else: " + lines);
         int goal = MapAhead.traits(sprite("recreational_sports_01_20", IsoObjectType.normal));
         check(goal == Grounds.GOAL_ALONG_X << MapAhead.LEVEL_SHIFT, "a goal's crossbar marks level ground and is nothing else: " + goal);
+        int centre = MapAhead.traits(sprite("street_trafficlines_01_20", IsoObjectType.normal));
+        check(centre == Lanes.mark("street_trafficlines_01_20") << MapAhead.MARK_SHIFT, "a road's line is the line it paints and nothing else: " + centre);
     }
 
     private static void theGroundsFirstFloorAndWhatIsAboveAreRead() {
@@ -103,6 +105,10 @@ final class MapAheadTests {
         check(pavement.kind[0] == Terrain.STREET && pavement.footway[0], "a pavement is street and footway");
         MapAhead.Guess road = MapAhead.guess(raw(street, 0, 0, 0), NO_ROOMS);
         check(road.kind[0] == Terrain.STREET && !road.footway[0], "a road is street and no footway");
+        int yellow = Lanes.mark("street_trafficlines_01_20"), white = Lanes.mark("street_trafficlines_01_8");
+        MapAhead.Guess lined = MapAhead.guess(raw(street, (yellow | white) << MapAhead.MARK_SHIFT, 0, 0), NO_ROOMS);
+        check(lined.marks[0] == (byte) (yellow | white), "a road keeps every line painted on it, as Terrain.Kinds does: " + lined.marks[0]);
+        check(MapAhead.guess(raw(grass, yellow << MapAhead.MARK_SHIFT, 0, 0), NO_ROOMS).marks[0] == 0, "and what is not a street keeps none");
         MapAhead.Guess roofed = MapAhead.guess(raw(street, 0, MapAhead.BLOCKS_RAIN | MapAhead.ANY, 1 << 1), NO_ROOMS);
         check(roofed.kind[0] == Terrain.MADE && roofed.footway[0], "a street under a roof is not out of doors, and is made ground");
         check(MapAhead.guess(raw(0, 0, 0, 0), NO_ROOMS).kind[0] == Terrain.MADE, "a square with no floor is made ground, as Terrain.kind has it");
