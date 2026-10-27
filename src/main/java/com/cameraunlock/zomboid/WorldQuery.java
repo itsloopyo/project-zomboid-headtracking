@@ -262,7 +262,7 @@ final class WorldQuery {
         for (int i = 0; i < characters; i++) {
             float distance = cylinderDistance(aim, characterX[i], characterY[i], characterBase[i]);
             if (distance < nearest && (distance <= surface || wall && through != null
-                    && Penetration.share(cell, level, through, boles, shooterX, shooterY, characterX[i], characterY[i]) > 0f)) {
+                    && Penetration.share(cell, level, through, boles, shooterX, shooterY, characterX[i], characterY[i], aim, terrain) > 0f)) {
                 nearest = distance;
             }
         }

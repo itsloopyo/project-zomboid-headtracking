@@ -1667,7 +1667,7 @@ public final class FirstPerson {
             float x = zombie.getX(), y = zombie.getY();
             float distance = WorldQuery.cylinderDistance(aimView, x, y, view.kerbSteps.up(view.worldScene.terrain, zombie, x, y, zombie.getZ()));
             if (distance <= shotDistance || distance >= best
-                    || Penetration.share(cell, floor, cartridge, world.boles, player.getX(), player.getY(), x, y) <= 0f) {
+                    || Penetration.share(cell, floor, cartridge, world.boles, player.getX(), player.getY(), x, y, aimView, view.worldScene.terrain) <= 0f) {
                 continue;
             }
             best = distance;

@@ -15,6 +15,7 @@ final class PenetrationTests {
         Checks.run("whatIsLeftOfTheBudgetIsTheShareOfTheDamage", PenetrationTests::whatIsLeftOfTheBudgetIsTheShareOfTheDamage);
         Checks.run("whereTheRoundsGoAsTheOwnerAsked", PenetrationTests::whereTheRoundsGoAsTheOwnerAsked);
         Checks.run("aDoorWithNoMaterialIsToldByItsSound", PenetrationTests::aDoorWithNoMaterialIsToldByItsSound);
+        Checks.run("aShotThroughADoorsLightIsTold", PenetrationTests::aShotThroughADoorsLightIsTold);
     }
 
     private static void check(boolean condition, String what) {
@@ -91,5 +92,14 @@ final class PenetrationTests {
         check(!through(Penetration.Cartridge.SHOT, "Wood"), "a shotgun's pellets stop in a wooden door");
         check(through(Penetration.Cartridge.RIFLE_308, "Wood", "Plaster", "Plaster", "Wood_Solid"),
                 "a hunting rifle's round goes through a house's outer wall, two inner walls and a solid door");
+    }
+
+    /** A door with one light high in it: the glass lets a shot by, the wood round it and under it does not. */
+    private static void aShotThroughADoorsLightIsTold() {
+        float[] panes = {0.3f, 0.7f, 0.55f, 0.8f, 1f};
+        check(Penetration.inALight(panes, 0.5f, 0.65f), "a shot through the light's middle is in it");
+        check(!Penetration.inALight(panes, 0.5f, 0.4f), "one through the leaf under it is not");
+        check(!Penetration.inALight(panes, 0.2f, 0.65f), "nor one through the stile beside it");
+        check(!Penetration.inALight(new float[0], 0.5f, 0.65f), "and a leaf with no light has no glass to go through");
     }
 }

@@ -22,7 +22,8 @@ import zombie.util.list.PZArrayList;
  * the wall is made of (the sprite's MaterialType, the word the game picks the sound of a hit by).
  * Brick, block, concrete, stone, tile, metal plate, sandbags and anything the game names no
  * material for stop every round, as the game stops them all. A door the game names no material for
- * is told by its sound. What is left of the budget when the
+ * is told by its sound. A shut door's light of glass is gone through as a window's glass is, where
+ * the shot crosses the leaf in it. What is left of the budget when the
  * round reaches a target is the share of the game's damage it does.
  *
  * The game decides everything else about the hit: its chance, its damage, the blood, the fall.
@@ -119,6 +120,9 @@ final class Penetration {
     /** Whether the line being spent along meets trees at their boles, and the line: from where, its way, and how long. */
     private static boolean boles;
     private static float lineX, lineY, lineWayX, lineWayY, lineLength;
+    /** The shot's line in the picture and its land, which give how high it crosses a door: null where the shooter's look is not the first person view. */
+    private static ViewCamera.Pose aimLine;
+    private static Terrain aimTerrain;
     private static final GridTrace.Edges spend = Penetration::spendAt;
 
     /**
@@ -127,8 +131,12 @@ final class Penetration {
      * and 0 where one stops it or the budget runs out. Each edge between squares is the game's own test
      * of what stops a shot (IsoGridSquare.testVisionAdjacent, as LosUtil.lineClear asks it). With no
      * cartridge nothing is gone through; with pastTrees a tree stops it only at its bole (see Trunks).
+     * The aim is the shot's line in the picture, over the terrain, which says how high it crosses
+     * each door; null where the shooter does not look through the first person view, and then a
+     * door's glass is not told from its wood.
      */
-    static float share(IsoCell on, int floor, Cartridge cartridge, boolean pastTrees, float fromX, float fromY, float toX, float toY) {
+    static float share(IsoCell on, int floor, Cartridge cartridge, boolean pastTrees, float fromX, float fromY, float toX, float toY,
+            ViewCamera.Pose aim, Terrain terrain) {
         float wayX = toX - fromX, wayY = toY - fromY;
         float length = (float) Math.hypot(wayX, wayY);
         if (length < 1e-4f) {
@@ -144,14 +152,21 @@ final class Penetration {
         lineWayX = wayX / length;
         lineWayY = wayY / length;
         lineLength = length;
+        aimLine = aim;
+        aimTerrain = terrain;
         float stopped = trace.firstBlockedEdge(spend, fromX, fromY, lineWayX, lineWayY, length);
         cell = null;
+        aimLine = null;
+        aimTerrain = null;
         return stopped == Float.POSITIVE_INFINITY ? left(budget, spent) : 0f;
     }
 
     /** Takes what the edge costs out of the round's budget, and answers whether that stops it. */
     private static boolean spendAt(int fromX, int fromY, int toX, int toY) {
-        spent += edgeCost(cell, level, boles, fromX, fromY, toX, toY);
+        boolean north = fromX == toX;
+        float crossed = north ? (Math.max(fromY, toY) - lineY) / lineWayY : (Math.max(fromX, toX) - lineX) / lineWayX;
+        float x = lineX + lineWayX * crossed, y = lineY + lineWayY * crossed;
+        spent += edgeCost(cell, level, boles, fromX, fromY, toX, toY, north ? x - fromX : y - fromY, heightAt(x, y));
         if (boles) {
             IsoGridSquare to = cell.getGridSquare(toX, toY, level);
             float bole = to == null ? Float.NaN : Trunks.on(to);
@@ -162,8 +177,26 @@ final class Penetration {
         return spent > 0f && spent >= budget;
     }
 
-    /** What going through the edge between two neighbouring squares costs a round: 0 where the game lets a shot through. */
-    static float edgeCost(IsoCell cell, int level, boolean pastTrees, int fromX, int fromY, int toX, int toY) {
+    /** How high the shot's line is over the floor at (x, y), in levels: NaN where there is no line to tell. */
+    private static float heightAt(float x, float y) {
+        if (aimLine == null) {
+            return Float.NaN;
+        }
+        float flat = aimLine.forwardX * aimLine.forwardX + aimLine.forwardY * aimLine.forwardY;
+        if (flat < 1e-6f) {
+            return Float.NaN;
+        }
+        float ahead = ((x - aimLine.eyeX) * aimLine.forwardX + (y - aimLine.eyeY) * aimLine.forwardY) / flat;
+        float up = aimLine.eyeUp + aimLine.forwardUp * ahead;
+        return (up - aimTerrain.lift(x, y, level)) / ViewCamera.LEVEL_HEIGHT - level;
+    }
+
+    /**
+     * What going through the edge between two neighbouring squares costs a round: 0 where the game lets a shot through.
+     * The shot crosses the edge this far along it and this high over the floor (NaN where not known), as a door's leaf is
+     * measured (see Doors).
+     */
+    static float edgeCost(IsoCell cell, int level, boolean pastTrees, int fromX, int fromY, int toX, int toY, float along, float up) {
         IsoGridSquare from = cell.getGridSquare(fromX, fromY, level);
         IsoGridSquare to = cell.getGridSquare(toX, toY, level);
         if (from == null || to == null) {
@@ -179,11 +212,11 @@ final class Penetration {
         // An edge is the north or west edge of the square south or east of it, and what stands on it is that square's.
         boolean north = fromX == toX;
         IsoGridSquare owner = north ? (toY < fromY ? from : to) : (toX < fromX ? from : to);
-        return costOn(owner, north);
+        return costOn(owner, north, along, up);
     }
 
     /** What stands on a square's north or west edge costs a round going through it: a shut door, a window, or a wall. */
-    private static float costOn(IsoGridSquare square, boolean north) {
+    private static float costOn(IsoGridSquare square, boolean north, float along, float up) {
         PZArrayList<IsoObject> objects = square.getObjects();
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
@@ -191,6 +224,10 @@ final class Penetration {
                     || object instanceof IsoThumpable thumpable && thumpable.isDoor() && thumpable.getNorth() == north && !thumpable.IsOpen()) {
                 if (object instanceof IsoDoor door ? door.isBarricaded() : ((IsoThumpable) object).isBarricaded()) {
                     return STOPS;
+                }
+                if (throughALight(object, north, along, up)) {
+                    // The game lets a shot through a shut window's glass for nothing, and breaks it; it has no glass in a door to break.
+                    return 0f;
                 }
                 String made = materialOf(object);
                 return cost(made != null ? made : doorMaterial(object));
@@ -203,6 +240,25 @@ final class Penetration {
         }
         IsoObject wall = WorldScene.wallOn(square, north);
         return wall == null ? STOPS : cost(materialOf(wall));
+    }
+
+    /** Whether a shot crosses a shut door's leaf in one of its lights of glass, as the picture measured the leaf (Doors). */
+    private static boolean throughALight(IsoObject door, boolean north, float along, float up) {
+        if (Float.isNaN(up) || door.getSprite() == null || !door.getSprite().getProperties().has("doorTrans")) {
+            return false;
+        }
+        Doors.Shape shape = Doors.known(door.getSprite().getTextureForCurrentFrame(door.getDir()));
+        return shape != null && shape.leaf.north == north && inALight(shape.leaf.panes, along, up);
+    }
+
+    /** Whether (along, up) on a leaf is inside one of its lights: five numbers a light, as Windows.Shape.panes has them. */
+    static boolean inALight(float[] panes, float along, float up) {
+        for (int pane = 0; pane < panes.length; pane += 5) {
+            if (along >= panes[pane] && along <= panes[pane + 1] && up >= panes[pane + 2] && up <= panes[pane + 3]) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -251,7 +307,9 @@ final class Penetration {
         if (cartridge == null && !pastTrees || floor != (int) Math.floor(target.getZ()) || on == null) {
             return seen;
         }
-        float share = share(on, floor, cartridge, pastTrees, shooter.getX(), shooter.getY(), target.getX(), target.getY());
+        View view = View.of((IsoPlayer) shooter);
+        float share = share(on, floor, cartridge, pastTrees, shooter.getX(), shooter.getY(), target.getX(), target.getY(),
+                view.firstPerson.lookCaptured() ? view.firstPerson.aimView() : null, view.worldScene.terrain);
         if (share <= 0f) {
             return seen;
         }
