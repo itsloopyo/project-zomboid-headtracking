@@ -9,7 +9,6 @@ public final class IsoGridSquare {
         ColorInfo lightInfo();
         boolean bCanSee();
         float darkMulti();
-        float targetDarkMulti();
         int resultLightCount();
         ResultLight getResultLight(int index);
     }
@@ -56,7 +55,6 @@ public final class IsoGridSquare {
     public boolean haveElectricity() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isOutside() { throw new UnsupportedOperationException("reference stub"); }
     public boolean has(zombie.iso.SpriteDetails.IsoFlagType flag) { throw new UnsupportedOperationException("reference stub"); }
-    public float getLightLevel(int playerIndex) { throw new UnsupportedOperationException("reference stub"); }
     public boolean isSeen(int playerIndex) { throw new UnsupportedOperationException("reference stub"); }
     public int getPlayerCutawayFlag(int playerIndex, long time) { throw new UnsupportedOperationException("reference stub"); }
     public boolean isCouldSee(int playerIndex) { throw new UnsupportedOperationException("reference stub"); }
