@@ -61,6 +61,7 @@ import zombie.iso.objects.IsoThumpable;
 import zombie.iso.objects.IsoWindow;
 import zombie.iso.objects.IsoWorldInventoryObject;
 import zombie.iso.sprite.IsoSprite;
+import zombie.iso.sprite.IsoSpriteGrid;
 import zombie.iso.sprite.IsoSpriteInstance;
 import zombie.iso.sprite.IsoSpriteManager;
 import zombie.iso.weather.ClimateManager;
@@ -7651,7 +7652,7 @@ final class WorldScene {
             }
             // A chalkboard, a notice or a map the game hangs on a wall by the way it faces and marks for no wall. Stood
             // up to face the eye it hung in the middle of its square. With the mod's furniture off it is as it was.
-            if (kind.flatWall != WallHung.NONE && Own.furniture() && layFlat(mesh, kind.flatWall, x, y, z)) {
+            if (kind.flatWall != WallHung.NONE && Own.furniture() && layFlat(mesh, sprite, kind.flatWall, x, y, z)) {
                 return;
             }
             // A boulder. The game's picture of one stood up as a card is a cut-out of a boulder,
@@ -7788,14 +7789,21 @@ final class WorldScene {
          * Lays the sprite flat on a wall of its square, as a picture the game has hung there is
          * laid, over as much of the wall's plane as it paints, which may run onto the next
          * square's length of the wall, and says whether it did. False for a sprite not painted in
-         * that wall's plane, which is left as it was.
+         * that wall's plane, which is left as it was. A piece of a picture the game paints over
+         * several squares stops at its square's end where the next piece goes on: the two paint
+         * a little of each other's length, and laid there both, on one layer, they fight.
          */
-        private boolean layFlat(SpriteGeometry.Mesh mesh, int wall, int x, int y, int z) {
+        private boolean layFlat(SpriteGeometry.Mesh mesh, IsoSprite sprite, int wall, int x, int y, int z) {
             WallHung.extent(frame, wall, hungAt);
             if (!WallHung.paintedAlong(hungAt)) {
                 return false;
             }
-            float from = Math.min(hungAt[WallHung.FROM], 0f), along = Math.max(hungAt[WallHung.TO], 1f) - from;
+            IsoSpriteGrid grid = sprite.getSpriteGrid();
+            boolean alongX = wall == WallHung.NORTH || wall == WallHung.SOUTH;
+            int piece = grid == null ? 0 : alongX ? grid.getSpriteGridPosX(sprite) : grid.getSpriteGridPosY(sprite);
+            int pieces = grid == null ? 1 : alongX ? grid.getWidth() : grid.getHeight();
+            float from = piece > 0 ? 0f : Math.min(hungAt[WallHung.FROM], 0f);
+            float along = (piece < pieces - 1 ? 1f : Math.max(hungAt[WallHung.TO], 1f)) - from;
             float foot = Math.min(hungAt[WallHung.BOTTOM], 0f), up = Math.max(hungAt[WallHung.TOP], 1f) - foot;
             // On the near walls clear of the wall's skin as a poster is, layered as addEdge layers what is not a
             // wall; on the far ones clear of the next square's wall, as what the game marks attached to them is.
