@@ -345,11 +345,11 @@ final class Outdoors {
     static final float[] PARKING_METER_AT = {0.53f, 0.84f, 0.25f, 0.53f, 0.54f, 0.3f, 0.83f, 0.52f};
     /** How high on a car park barrier's booth its paint is taken, in levels. */
     private static final float BARRIER_DYE = 0.25f;
-    /** How far a flag pole's top length reaches down into the storey under it, how high the sprites paint the pole and the blue
-     * by the top of the flag, in levels, and how far along x that blue is. The game lays the pole as a piece over two storeys, so
-     * it stands in the middle of its square. */
+    /** How far a flag pole's top length reaches down into the storey under it, how high the sprites paint the pole and the flag,
+     * in levels, and how far along x that flag is. The game lays the pole as a piece over two storeys, so it stands in the middle
+     * of its square. */
     static final float FLAG_TOP_SUNK = 0.1f;
-    private static final float FLAG_POLE_DYE = 0.5f, FLAG_BLUE_DYE = 0.3f, FLAG_BLUE_A = 0.54f;
+    private static final float FLAG_POLE_DYE = 0.5f, FLAG_CLOTH_DYE = 0.14f, FLAG_CLOTH_A = 0.58f;
     /** Where on its square a crossing signal's post is painted, and how high its sprite paints the post white and a band yellow, in levels. */
     static final float CROSSING_SIGNAL_EW_A = 0.44f, CROSSING_SIGNAL_EW_B = 0.5f, CROSSING_SIGNAL_NS = 0.47f;
     private static final float CROSSING_SIGNAL_WHITE = 0.45f, CROSSING_SIGNAL_YELLOW = 0.23f;
@@ -629,11 +629,12 @@ final class Outdoors {
             return new Piece("parking_meter", faces).at(PARKING_METER_AT[2 * faces], PARKING_METER_AT[2 * faces + 1]);
         }
         // A flag pole is painted a storey at a time: its lower length on the ground, and its top with the flag hung limp from it on
-        // the storey over, where the top length reaches down a little into the lower one.
+        // the storey over, where the top length reaches down a little into the lower one. The flag shows the sprite's own painting of it.
         if (called.equals("Pole") && kind.equals("American Flag")) {
             return switch (Sheets.place(name, STREET)) {
                 case 24 -> new Piece("flag_pole", 0).dye(1 << Models.METAL, FLAG_POLE_DYE);
-                case 16 -> new Piece("flag_top", 0).dye(1 << Models.CLOTH, FLAG_BLUE_A, 0.5f, FLAG_BLUE_DYE + FLAG_TOP_SUNK).raise(-FLAG_TOP_SUNK);
+                case 16 -> new Piece("flag_top", 0).dye(1 << Models.PANE, FLAG_CLOTH_A, 0.5f, FLAG_CLOTH_DYE + FLAG_TOP_SUNK).raise(-FLAG_TOP_SUNK)
+                        .pictured(0f);
                 default -> null;
             };
         }

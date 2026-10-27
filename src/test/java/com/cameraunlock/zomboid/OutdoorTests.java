@@ -537,6 +537,11 @@ final class OutdoorTests {
         float poleTop = pole.raised + Models.get(pole.model).height(), topFoot = ViewCamera.LEVEL_HEIGHT + top.raised;
         Checks.check(topFoot < poleTop && poleTop - topFoot < 0.3f, "the top length reaches down a little into the lower one: " + topFoot + " under " + poleTop);
         Checks.check(top.a == pole.a && top.b == pole.b, "the top stands over the lower length");
+        Checks.check(top.dyed == 1 << Models.PANE && top.pictured && top.paneY == 0f, "the flag shows its own sprite's painting of it");
+        Models.Model flag = Models.get(top.model);
+        Checks.check(flag.first[Models.PANE + 1] > flag.first[Models.PANE] && flag.first[Models.VINYL + 1] == flag.first[Models.VINYL]
+                && flag.first[Models.CLOTH + 1] == flag.first[Models.CLOTH] && flag.first[Models.LINEN + 1] == flag.first[Models.LINEN],
+                "its model's cloth is a pane, with no colours of its own");
     }
 
         private static void aCrossingSignalFacesTheWayItsSpriteSaysAndStandsOnItsPost() {

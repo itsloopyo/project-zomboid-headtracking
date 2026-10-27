@@ -6007,32 +6007,36 @@ def flag_pole():
 
 
 def flag_top():
-    """A flag pole's top length with its ball, and the flag hung limp from it along -X in folds that run down it: red and white
-    stripes across it and the blue of its corner at the top by the pole. The origin is the pole's axis at the foot of this length."""
+    """A flag pole's top length with its ball, and the flag hung limp from it along -X as the sprite paints it, which shows the
+    sprite's own painting of the flag. The origin is the pole's axis at the foot of this length."""
     model = Model("flag_top", centred=False)
     pole = bmesh.new()
     lathe(pole, [(0.0, 0.0), (0.04, 0.0), (0.04, 1.12), (0.0, 1.12)], segments=14)
     lathe(pole, [(0.0, 1.1)] + [(0.065 * math.sin(math.radians(a)), 1.165 - 0.065 * math.cos(math.radians(a))) for a in range(30, 180, 30)]
           + [(0.0, 1.23)], segments=14)
     model.turned(pole, "metal", sharp=50.0)
-    red, white, blue = bmesh.new(), bmesh.new(), bmesh.new()
-    # Hoisted along the pole and hanging limp in folds that run down it: seven red stripes and six white across it, and the
-    # blue corner over the top six by the pole.
-    folds = [(-0.04, 0.0), (-0.075, 0.03), (-0.11, -0.025), (-0.145, 0.025), (-0.18, -0.02), (-0.21, 0.01)]
-    top, bottom, stripes, canton_x = 1.08, 0.18, 13, -0.11
-    stripe = (top - bottom) / stripes
-    for n, ((x0, y0), (x1, y1)) in enumerate(zip(folds, folds[1:])):
-        for k in range(stripes):
-            z0, z1 = bottom + k * stripe, bottom + (k + 1) * stripe
-            into = blue if k >= stripes - 7 and x0 > canton_x - 0.001 else red if k % 2 == 0 else white
-            # A piece of one stripe on one fold of the cloth, a closed sheet 6 mm thick.
-            vs = [into.verts.new(v) for v in ((x0, y0 - 0.003, z0), (x1, y1 - 0.003, z0), (x1, y1 + 0.003, z0), (x0, y0 + 0.003, z0),
-                                              (x0, y0 - 0.003, z1), (x1, y1 - 0.003, z1), (x1, y1 + 0.003, z1), (x0, y0 + 0.003, z1))]
-            for face in ((0, 3, 2, 1), (4, 5, 6, 7), (0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)):
-                into.faces.new([vs[i] for i in face])
-    model.plain(red, "vinyl")
-    model.plain(white, "linen")
-    model.plain(blue, "cloth")
+    # The sprite (street_decoration_01_16) paints the flag a column of pixels at a time out from the pole, each from a top row
+    # to a bottom row of its texture. The cloth is the same columns from the pole's skin out, its edges on the middles of those
+    # rows, so every point of it looks at a pixel the sprite paints. Model -x is the sprite's +u, 64 pixels to the metre,
+    # and moves the sprite's v down 32 to the metre; the length's foot is at v 243.2, 78.4 pixels to the metre up.
+    def v_to_z(x, v):
+        return (243.2 - 32.0 * x - v) / (192.0 / 2.449489)
+    rows = [(160, 239), (161, 237), (163, 237), (165, 235), (167, 235), (169, 233), (173, 233), (207, 234), (211, 235)]
+    edges = [66.56] + list(range(67, 75)) + [74.5]
+    cloth = bmesh.new()
+    for n, (top, bottom) in enumerate(rows):
+        u0, u1 = edges[n], edges[n + 1]
+        x0, x1 = -(u0 - 64.0) / 64.0, -(u1 - 64.0) / 64.0
+        # Hanging in folds that run down it, a fold every two columns.
+        y0, y1 = 0.018 * math.sin((u0 - 66.56) * math.pi / 2.0), 0.018 * math.sin((u1 - 66.56) * math.pi / 2.0)
+        z00, z01 = v_to_z(x0, bottom + 0.5), v_to_z(x0, top + 0.5)
+        z10, z11 = v_to_z(x1, bottom + 0.5), v_to_z(x1, top + 0.5)
+        # A closed sheet 6 mm thick.
+        vs = [cloth.verts.new(v) for v in ((x0, y0 - 0.003, z00), (x1, y1 - 0.003, z10), (x1, y1 + 0.003, z10), (x0, y0 + 0.003, z00),
+                                          (x0, y0 - 0.003, z01), (x1, y1 - 0.003, z11), (x1, y1 + 0.003, z11), (x0, y0 + 0.003, z01))]
+        for face in ((0, 3, 2, 1), (4, 5, 6, 7), (0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)):
+            cloth.faces.new([vs[i] for i in face])
+    model.plain(cloth, "pane")
     return model
 
 
