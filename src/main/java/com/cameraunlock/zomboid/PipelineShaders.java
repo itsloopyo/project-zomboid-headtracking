@@ -1619,6 +1619,10 @@ final class PipelineShaders {
             const float JOINT_MOST_OF_BRICK = 0.15;
             // How much lighter the mortar of brick and blocks is drawn from far overhead.
             const float MORTAR_LIFT_OVERHEAD = 0.2;
+            // From far overhead the game paints every window's glass, and a roof of glass, as a pale film in clouds over what is behind it.
+            // A shelter's two walls are seen one through the other, so each takes a little under the sprite's two thirds.
+            const float MILK_OVERHEAD = 0.38;
+            const vec3 MILK_SEEN = vec3(0.88, 0.95, 0.98);
             // The game's own brick: from far overhead the one in WORLD_FRAGMENT_PARTS loses its bed joints. Switched,
             // not blended, so the courses do not slide as the eye goes out.
             const float GAME_BRICK_LONG = 0.25, GAME_BRICK_HIGH = 0.1;
@@ -3305,7 +3309,7 @@ final class PipelineShaders {
                 bool window = lamplit || sheet || inner || vMaterial > 12.5 && vMaterial < 13.5;
                 // A roof of glass (WorldScene.materialOf) is a pane laid on the slant, its street side up.
                 bool roofPane = vMaterial > 12.5 && vMaterial < 13.5 && abs(vNormal.z) >= 0.5 * length(vNormal);
-                float glazed = 0.0, thrown = 0.0, veil = 1.0, glow = 0.0, street = 0.0, roomLaid = 0.0;
+                float glazed = 0.0, thrown = 0.0, veil = 1.0, glow = 0.0, street = 0.0, roomLaid = 0.0, milk = 0.0;
                 bool film = uLaid < 0.5 && vKind < 1.5 && uTexel.x > 0.0 && cover > 0.22 && cover < 0.8 && texel.b > texel.r + 0.05 && texel.g > texel.r
                         && (abs(vNormal.z) < 0.5 * length(vNormal) || roofPane);
                 if (film && small) {
@@ -3363,7 +3367,14 @@ final class PipelineShaders {
                             // Frosted glass is milky, the thicker the nearer the ground, in clouds, and thins out to clear glass at the top of its frosting: vUv.y is how far up that the place is.
                             soiled += (1.0 - soiled) * clamp(mix(0.92, 0.0, vUv.y) * (0.8 + 0.4 * bloom), 0.0, 0.95);
                         }
+                        float clouds = wrappedPatches(vec2(along * 4.0, vPlace.z * 4.0) + 17.0, vec2(240.0));
+                        milk = (1.0 - soiled) * MILK_OVERHEAD * (0.7 + 0.6 * clouds) * uGameView;
+                        soiled += milk;
                         veil = veil + (1.0 - veil) * soiled;
+                    } else if (roofPane) {
+                        milk = MILK_OVERHEAD * (0.7 + 0.6 * wrappedPatches(vPlace.xy * 4.0 + 17.0, vec2(240.0))) * uGameView;
+                        soiled = milk;
+                        veil = veil + (1.0 - veil) * milk;
                     }
                     // A built pane is mixed in over what is behind it by how much of a veil it is,
                     // and needs no pixels left out.
@@ -3373,7 +3384,7 @@ final class PipelineShaders {
                     glazed = 1.0;
                     cover = 1.0;
                     // Of the pixels that are the pane, the share that is the dust on it is lit as dust is.
-                    texel = vec4(mix(vec3(0.02, 0.025, 0.03), frostedPane ? vec3(0.92) : vec3(0.62, 0.6, 0.55), soiled / veil), 1.0);
+                    texel = vec4(mix(vec3(0.02, 0.025, 0.03), mix(frostedPane ? vec3(0.92) : vec3(0.62, 0.6, 0.55), MILK_SEEN, milk / max(soiled, 1e-4)), soiled / veil), 1.0);
                 }
                 // The game paints the shadow a thing throws on the ground into the thing's
                 // sprite: black, a fifth covered. Stood up with the thing as a card, or wrapped
@@ -4757,8 +4768,8 @@ final class PipelineShaders {
                     vec3 thrownBack = street > 0.0 ? mix(room, surroundings(reflect(-view, pane), vPlace), street) : room;
                     // Only the pixels that are glass carry what the whole pane throws back, so
                     // each carries the more for being one of few.
-                    // Dust is grey whatever lights it: under an open sky its share of the pane came out blue.
-                    color = vec3(dot(color, vec3(0.299, 0.587, 0.114))) * step(0.0001, soiled) + (thrownBack * (thrown * (1.0 - roomLaid))
+                    // Dust is grey whatever lights it: under an open sky its share of the pane came out blue. The milk keeps its tint.
+                    color = mix(vec3(dot(color, vec3(0.299, 0.587, 0.114))), color, milk / max(soiled, 1e-4)) * step(0.0001, soiled) + (thrownBack * (thrown * (1.0 - roomLaid))
                             + uLightLinear * (2.1 * reached * glossed(pane, view, uLight, 0.07, 0.08))) / veil;
                     // A lamp burning behind a window lights the dust on the glass, warm and
                     // faint. The room is what shows lit, through the pane: laid over all of
