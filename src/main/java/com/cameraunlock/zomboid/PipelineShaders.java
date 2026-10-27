@@ -119,14 +119,14 @@ final class PipelineShaders {
             }
 
             float cloudBody(vec2 place, vec3 light, vec2 drift) {
-                vec2 under = (place + light.xy * (%1$.1f / max(light.z, 0.25))) / %2$.1f + drift * %3$.1f;
+                vec2 under = (place + light.xy * (%1$.1f / max(light.z, 0.25))) / %2$.1f + drift;
                 return cloudPatches(under) * 0.6 + cloudPatches(under * 2.7 + 7.0) * 0.4;
             }
 
             float cloudShade(float body, float cover) {
-                return smoothstep(-%5$.2f, %5$.2f, body - (%4$.2f - cover));
+                return smoothstep(-%4$.2f, %4$.2f, body - (%3$.2f - cover));
             }
-            """, SkyState.CLOUD_LEAD, SkyState.CLOUD_WIDTH, SkyState.CLOUD_DRIFTS, SkyState.CLOUD_CLEARS, SkyState.CLOUD_EDGE);
+            """, SkyState.CLOUD_LEAD, SkyState.CLOUD_WIDTH, SkyState.CLOUD_CLEARS, SkyState.CLOUD_EDGE);
 
     /** Noise that lies on the ground, the same wherever it is asked for: the clouds' shadows cross the built world and the far land as one. */
     static final String GROUND_NOISE = CLOUD_SHADOWS + """
@@ -546,7 +546,7 @@ final class PipelineShaders {
             varying float vClouds;
             uniform vec3 uWind;
             uniform vec3 uLight;
-            uniform vec2 uDrift;
+            uniform vec2 uCloudsDrift;
             uniform float uLaid;
             uniform vec3 uRoomLight;
             uniform vec3 uLampLight;
@@ -787,7 +787,7 @@ final class PipelineShaders {
                 vWorld = at.xyz + lies;
                 vLies = lies;
                 // A cloud's shadow changes over tens of tiles, so it is worked out at the vertices.
-                vClouds = cloudBody(vWorld.xy, uLight, uDrift);
+                vClouds = cloudBody(vWorld.xy, uLight, uCloudsDrift);
                 // The map is thousands of tiles across and a number here holds seven digits, so
                 // a place on it is known to a millimetre and no finer. Multiplied as it stands
                 // by a matrix that takes the eye's own place off again, a vertex's depth came out
@@ -824,7 +824,6 @@ final class PipelineShaders {
             uniform sampler2D uHeights;
             uniform mat4 uRoofMatrix;
             uniform float uCover;
-            uniform vec2 uDrift;
             uniform float uSoftPerDepth;
             // x 1 where the shadow maps are not drawn sharp: a soft edge is asked of half the samples, and
             // grass and crowns, whose shade is mostly their own, of none for its width. y is the frame's
@@ -8071,7 +8070,7 @@ final class PipelineShaders {
             uniform vec3 uOpenLight;
             uniform float uDaylightKept;
             uniform float uCover;
-            uniform vec2 uDrift;
+            uniform vec2 uCloudsDrift;
             // How far from the eye, along the ground, the far land itself ends.
             uniform float uReach;
 
@@ -8082,7 +8081,7 @@ final class PipelineShaders {
                 float facing = max(dot(n, uLight), 0.0);
                 // The clouds' shadows, as the built world has them. Past where one can be told
                 // from the next, the land is as dull as they make all of it.
-                float shaded = cloudShade(cloudBody(world.xy, uLight, uDrift), uCover);
+                float shaded = cloudShade(cloudBody(world.xy, uLight, uCloudsDrift), uCover);
                 shaded = mix(shaded, clamp((uCover - 0.62) / 0.5, 0.0, 1.0), smoothstep(250.0, 500.0, away));
                 float reached = 1.0 - 0.65 * shaded;
                 vec3 sunLight = pow(uLightColor, vec3(2.2));

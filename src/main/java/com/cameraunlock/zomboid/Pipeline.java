@@ -3807,7 +3807,7 @@ final class Pipeline {
         program.set("uOpenLight", state.openRed, state.openGreen, state.openBlue);
         program.set("uDaylightKept", (float) Math.pow(state.daylightKept, 2.2));
         program.set("uCover", state.cover);
-        program.set("uDrift", state.driftX, state.driftY);
+        program.set("uCloudsDrift", state.cloudsX, state.cloudsY);
         program.set("uSnowLying", state.snowLying);
         program.set("uReach", FarLand.REACH);
         program.set("uFogStart", fogStart);
@@ -3983,7 +3983,7 @@ final class Pipeline {
         to.set("uHeights", UNITS - 1);
         to.set("uRoofMatrix", roofMatrix);
         to.set("uCover", state.cover);
-        to.set("uDrift", state.driftX, state.driftY);
+        to.set("uCloudsDrift", state.cloudsX, state.cloudsY);
         boolean fewerTaps = !Quality.sharpShadows(view.index);
         to.set("uSunTaps", fewerTaps ? 1f : 0f, fewerTaps && steadying && eyesOwn() ? frameNumber % 64 : 0f);
         // Texels of soft edge for each unit of the map's depth between caster and ground.

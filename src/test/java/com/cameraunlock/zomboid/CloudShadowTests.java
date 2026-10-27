@@ -10,6 +10,9 @@ final class CloudShadowTests {
         Checks.run("sunlitGroundIsGradedAsAClearDayAndShadeAsTheDaysCover", CloudShadowTests::sunlitGroundIsGradedAsAClearDayAndShadeAsTheDaysCover);
         Checks.run("walkingUnderBrokenCloudTheGradeDoesNotPulse", CloudShadowTests::walkingUnderBrokenCloudTheGradeDoesNotPulse);
         Checks.run("theShadeLookedAtGoesByWhereTheEyeLooks", CloudShadowTests::theShadeLookedAtGoesByWhereTheEyeLooks);
+        Checks.run("theShadowsLieAsTheyDidWhereTheirDriftWraps", CloudShadowTests::theShadowsLieAsTheyDidWhereTheirDriftWraps);
+        Checks.run("theShadowsDriftAtTheirRateInStillAirAtAnyFrameRate", CloudShadowTests::theShadowsDriftAtTheirRateInStillAirAtAnyFrameRate);
+        Checks.run("aDriftBackwardsGoesOnPastTheWrap", CloudShadowTests::aDriftBackwardsGoesOnPastTheWrap);
     }
 
     /** The shader works the permutation out in floats as well: every step of it must be exact here. */
@@ -33,8 +36,8 @@ final class CloudShadowTests {
         sky.lightX = 0.3f;
         sky.lightY = 0.2f;
         sky.lightUp = 0.93f;
-        sky.driftX = 0.4f;
-        sky.driftY = 0.7f;
+        sky.cloudsX = 2.4f;
+        sky.cloudsY = 4.2f;
         sky.cover = cover;
         return sky;
     }
@@ -113,5 +116,47 @@ final class CloudShadowTests {
             widest = Math.max(widest, Math.abs(sky.shadeLooked(x, 8000f, 1f, 0f) - sky.shadeLooked(x, 8000f, -1f, 0f)));
         }
         Checks.check(widest > 0.3f, "standing in the sun, shade ahead and sun behind grade differently: " + widest);
+    }
+
+    private static void theShadowsLieAsTheyDidWhereTheirDriftWraps() {
+        double wrapped = SkyState.cloudsDrifted(SkyState.CLOUD_REPEATS - 0.01, 0.01 / SkyState.CLOUD_DRIFTS);
+        Checks.check(wrapped >= 0.0 && wrapped < 1e-9, "the drift comes round to the start: " + wrapped);
+        SkyState before = broken(0.49f), after = broken(0.49f);
+        before.cloudsX = (float) (SkyState.CLOUD_REPEATS - 0.2);
+        after.cloudsX = -0.2f;
+        float most = 0f;
+        for (int x = 10000; x < 10400; x += 3) {
+            for (int y = 7000; y < 7400; y += 3) {
+                most = Math.max(most, Math.abs(before.cloudShadow(x, y) - after.cloudShadow(x, y)));
+            }
+        }
+        Checks.check(most < 0.02f, "the shadows lie where they did as their drift wraps: " + most);
+    }
+
+    /** In still air the drift is slowest, and at a high frame rate each frame's share of it smallest: it must still add up. */
+    private static void theShadowsDriftAtTheirRateInStillAirAtAnyFrameRate() {
+        for (int hertz : new int[] {60, 144, 240}) {
+            for (double start : new double[] {0.0, 1500.0, SkyState.CLOUD_REPEATS - 0.05}) {
+                double drifted = start, moved = 0.0;
+                for (int frame = 0; frame < hertz * 60; frame++) {
+                    double next = SkyState.cloudsDrifted(drifted, SkyState.DRIFT_STILL / (double) hertz);
+                    double step = next - drifted;
+                    moved += step < -SkyState.CLOUD_REPEATS / 2 ? step + SkyState.CLOUD_REPEATS : step;
+                    drifted = next;
+                }
+                double expected = SkyState.DRIFT_STILL * 60.0 * SkyState.CLOUD_DRIFTS;
+                Checks.check(Math.abs(moved - expected) < expected * 1e-3, "a minute of still air at " + hertz + " Hz from " + start + " drifts " + moved + " cells, " + expected + " expected");
+            }
+        }
+    }
+
+    private static void aDriftBackwardsGoesOnPastTheWrap() {
+        double by = -SkyState.DRIFT_STILL / 144.0;
+        double first = SkyState.cloudsDrifted(0.0, by);
+        Checks.check(first < SkyState.CLOUD_REPEATS && first > SkyState.CLOUD_REPEATS - 1e-3, "a small step back from 0 comes in under the wrap: " + first);
+        double second = SkyState.cloudsDrifted(first, by);
+        Checks.check(second < first, "and the next step goes on back from there: " + second + " after " + first);
+        double up = SkyState.cloudsDrifted(SkyState.CLOUD_REPEATS - 1e-6, -by);
+        Checks.check(up >= 0.0 && up < 1e-4, "a small step on past the top comes round to the start: " + up);
     }
 }

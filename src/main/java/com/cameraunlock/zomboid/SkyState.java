@@ -115,6 +115,8 @@ final class SkyState {
     /** How closed the cloud deck is that rain or snow falls from, 0 to 1: the square of the heavier fall. */
     float deck;
     float driftX, driftY;
+    /** How far the clouds' shadows have drifted over the ground, in cells of their noise: see cloudShadow. */
+    float cloudsX, cloudsY;
     float seconds;
     /** The way the wind pushes what grows, scaled by how hard, eased after the game's wind: see Wind. */
     float windX, windY;
@@ -184,6 +186,7 @@ final class SkyState {
     int leafCount;
 
     private static float driftedX, driftedY;
+    private static double cloudsDriftedX, cloudsDriftedY;
     private static final Wind wind = new Wind();
     private static float wetness;
     private static final float SECONDS_TO_WET = 12f, SECONDS_TO_DRY = 180f;
@@ -372,6 +375,8 @@ final class SkyState {
             // The noise repeats every 1, and a float that only ever grew would lose the fraction.
             driftedX -= (float) Math.floor(driftedX);
             driftedY -= (float) Math.floor(driftedY);
+            cloudsDriftedX = cloudsDrifted(cloudsDriftedX, windCos * speed * elapsed);
+            cloudsDriftedY = cloudsDrifted(cloudsDriftedY, windSin * speed * elapsed);
             wind.blow(windCos * windStrength, windSin * windStrength, Wind.speed(gusting), elapsed);
             float driving = snowing * Math.clamp((blowing - PLASTER_FROM) / (PLASTER_FULL - PLASTER_FROM), 0f, 1f);
             float[] plaster = plastered(plasteredX, plasteredY, -windCos, -windSin, driving, snowShown, elapsed);
@@ -395,6 +400,8 @@ final class SkyState {
         wet = wetness;
         driftX = driftedX;
         driftY = driftedY;
+        cloudsX = (float) cloudsDriftedX;
+        cloudsY = (float) cloudsDriftedY;
         seconds = (now - START_NANOS) / 1e9f % 3600f;
         if (STILL) {
             windX = 0f;
@@ -561,7 +568,7 @@ final class SkyState {
     /** How far the clouds' shadow lies over the ground under a place of the map, 0 in a gap to 1 under a cloud, as the world's shader has it (PipelineShaders.CLOUD_SHADOWS). */
     float cloudShadow(float x, float y) {
         float lean = CLOUD_LEAD / Math.max(lightUp, 0.25f);
-        float underX = (x + lightX * lean) / CLOUD_WIDTH + driftX * CLOUD_DRIFTS, underY = (y + lightY * lean) / CLOUD_WIDTH + driftY * CLOUD_DRIFTS;
+        float underX = (x + lightX * lean) / CLOUD_WIDTH + cloudsX, underY = (y + lightY * lean) / CLOUD_WIDTH + cloudsY;
         float body = cloudPatches(underX, underY) * 0.6f + cloudPatches(underX * 2.7f + 7f, underY * 2.7f + 7f) * 0.4f;
         return smooth(-CLOUD_EDGE, CLOUD_EDGE, body - (CLOUD_CLEARS - cover));
     }
@@ -616,8 +623,25 @@ final class SkyState {
         return x - 289f * (float) Math.floor(x / 289f);
     }
 
-    /** How the clouds' shadows lie, shared with the shader (PipelineShaders.CLOUD_SHADOWS): how many tiles a cell of their noise spans, how far along the sun the cloud casting one is, as tiles over the sun's height, how far the drift moves them, and the noise over which a place is shaded, at a cover of 0, and over how much of it the shadow's edge goes. */
-    static final float CLOUD_WIDTH = 22f, CLOUD_LEAD = 30f, CLOUD_DRIFTS = 6f, CLOUD_CLEARS = 1.12f, CLOUD_EDGE = 0.06f;
+    /** How the clouds' shadows lie, shared with the shader (PipelineShaders.CLOUD_SHADOWS): how many tiles a cell of their noise spans, how far along the sun the cloud casting one is, as tiles over the sun's height, the noise over which a place is shaded, at a cover of 0, and over how much of it the shadow's edge goes. */
+    static final float CLOUD_WIDTH = 22f, CLOUD_LEAD = 30f, CLOUD_CLEARS = 1.12f, CLOUD_EDGE = 0.06f;
+    /** How many cells of their noise the clouds' shadows cross for one of the sky's drift: they move with the clouds overhead. */
+    static final float CLOUD_DRIFTS = 6f;
+    /**
+     * After how many cells the shadows' noise comes round again, both of its layers: the first
+     * every 289 cells, the second, 2.7 times as fine, every 289 / 2.7, and ten of the one are
+     * twenty-seven of the other. Their drift is wrapped there, where no eye can see it.
+     */
+    static final double CLOUD_REPEATS = 2890.0;
+
+    /**
+     * The clouds' shadows' drift, in cells, moved on by the sky's drift by: kept under
+     * CLOUD_REPEATS, in a double, which over that span still counts the smallest frame's drift.
+     */
+    static double cloudsDrifted(double drifted, double by) {
+        double next = drifted + by * CLOUD_DRIFTS;
+        return next - CLOUD_REPEATS * Math.floor(next / CLOUD_REPEATS);
+    }
 
     private static float mix(float from, float to, float amount) {
         return from + (to - from) * amount;
