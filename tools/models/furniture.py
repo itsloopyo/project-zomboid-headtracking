@@ -2017,12 +2017,14 @@ def street_name_sign():
     model.turned(post, "metal", sharp=50.0)
     plates, frames = bmesh.new(), bmesh.new()
     name_blade(plates, frames, -0.38, 0.38, 0.0, 2.02)
-    turned = bmesh.new()
-    name_blade(turned, frames, -0.38, 0.38, 0.0, 1.85)
-    bmesh.ops.rotate(turned, verts=turned.verts, cent=(0.0, 0.0, 0.0), matrix=Matrix.Rotation(math.radians(90), 3, "Z"))
+    turned, turned_frame = bmesh.new(), bmesh.new()
+    name_blade(turned, turned_frame, -0.38, 0.38, 0.0, 1.85)
+    for bm in (turned, turned_frame):
+        bmesh.ops.rotate(bm, verts=bm.verts, cent=(0.0, 0.0, 0.0), matrix=Matrix.Rotation(math.radians(90), 3, "Z"))
     model.hard(plates, "paint", bevel=0.003, segments=1)
     model.hard(turned, "paint", bevel=0.003, segments=1)
     model.hard(frames, "enamel", bevel=0.002, segments=1)
+    model.hard(turned_frame, "enamel", bevel=0.002, segments=1)
     return model
 
 
