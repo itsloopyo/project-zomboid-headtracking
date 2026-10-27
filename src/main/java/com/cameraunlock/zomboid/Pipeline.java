@@ -315,6 +315,7 @@ final class Pipeline {
     static final float OVERHEAD_CONTRAST = 1.15f, OVERHEAD_PIVOT = 0.40f, OVERHEAD_BLUE = 0.98f;
     /** The unit the develop pass reads it on, and how bright fog is against the sky it hangs under. */
     private static final int DEVELOP_SHELTER_UNIT = 5, DEVELOP_OUTLINES_UNIT = 6, DEVELOP_SIGHT_UNIT = 8, DEVELOP_OUTLINE_DEPTH_UNIT = 9, DEVELOP_SIGHT_LIT_UNIT = 10;
+    private static final int DEVELOP_DARK_UNIT = 11, DEVELOP_DARK_LIFT_UNIT = 12, DEVELOP_TORCH_UNIT = 13;
     private static final float FOG_BRIGHT = 1.1f;
     /** The drops, on the graphics card: they are the same every frame. */
     private static int rainDrops;
@@ -587,6 +588,9 @@ final class Pipeline {
     /** How the game's own view would darken each square round the viewer, for a picture seen from outside them, or null: see Sight. */
     Sight sight;
     private int sightTexture, sightLitTexture;
+    /** Where the game counts a square too dark round the viewer, or null before the first build: see TooDark. */
+    TooDark tooDark;
+    private int darkTexture, darkLiftTexture;
     /** Which air round the eye is in a room, or null before the first build: see RoomAir. */
     RoomAir roomAir;
     private int roomAirTexture;
@@ -3557,6 +3561,52 @@ final class Pipeline {
         develop.set("uSightEyeUp", camera.eyeUp);
     }
 
+    /**
+     * Puts where the game counts a square too dark (TooDark) on the develop pass's units, or tells
+     * the pass there is none: in the game's own view from overhead the game's own light is shown.
+     */
+    private void holdDark(ViewCamera.Pose camera) {
+        develop.set("uDark", DEVELOP_DARK_UNIT);
+        develop.set("uDarkLift", DEVELOP_DARK_LIFT_UNIT);
+        // Always: the torch's map is a shadow sampler, and left on unit 0 beside the scene the draw fails.
+        setTorch(develop, DEVELOP_TORCH_UNIT, camera.eyeX, camera.eyeY, camera.eyeUp);
+        if (overhead || tooDark == null || !tooDark.read) {
+            GL13.glActiveTexture(GL_TEXTURE0 + DEVELOP_DARK_UNIT);
+            GL11.glBindTexture(GL_TEXTURE_2D, noneTexture);
+            GL13.glActiveTexture(GL_TEXTURE0 + DEVELOP_DARK_LIFT_UNIT);
+            GL11.glBindTexture(GL_TEXTURE_2D, noneTexture);
+            GL13.glActiveTexture(GL_TEXTURE0);
+            develop.set("uDarkAt", 0f, 0f, 0f, 0f);
+            return;
+        }
+        GL11.glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+        GL11.glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
+        GL11.glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
+        GL11.glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+        GL13.glActiveTexture(GL_TEXTURE0 + DEVELOP_DARK_UNIT);
+        if (darkTexture == 0) {
+            darkTexture = GL11.glGenTextures();
+            GL11.glBindTexture(GL_TEXTURE_2D, darkTexture);
+            GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, TooDark.SIDE, TooDark.SIDE * TooDark.LEVELS, 0, GL_RG, GL_FLOAT, (ByteBuffer) null);
+            filter(GL_LINEAR);
+        }
+        GL11.glBindTexture(GL_TEXTURE_2D, darkTexture);
+        GL11.glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, TooDark.SIDE, TooDark.SIDE * TooDark.LEVELS, GL_RG, GL_FLOAT, tooDark.map);
+        GL13.glActiveTexture(GL_TEXTURE0 + DEVELOP_DARK_LIFT_UNIT);
+        if (darkLiftTexture == 0) {
+            darkLiftTexture = GL11.glGenTextures();
+            GL11.glBindTexture(GL_TEXTURE_2D, darkLiftTexture);
+            GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_R16F, TooDark.SIDE, TooDark.SIDE, 0, GL_RED, GL_FLOAT, (ByteBuffer) null);
+            filter(GL_NEAREST);
+        }
+        GL11.glBindTexture(GL_TEXTURE_2D, darkLiftTexture);
+        GL11.glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, TooDark.SIDE, TooDark.SIDE, GL_RED, GL_FLOAT, tooDark.lift);
+        GL13.glActiveTexture(GL_TEXTURE0);
+        develop.set("uDarkAt", tooDark.x - camera.eyeX, tooDark.y - camera.eyeY, 1f / TooDark.SIDE, 1f);
+        develop.set("uDarkLevel", camera.eyeUp, tooDark.level, 1f / ViewCamera.LEVEL_HEIGHT);
+        develop.set("uDarkLit", WorldScene.EXPOSURE_INDOORS);
+    }
+
     private void setShelter(Program falling, int unit, boolean lidded) {
         falling.set("uShelter", unit);
         falling.set("uShelterAt", sheltered == null ? 0f : sheltered.x, sheltered == null ? 0f : sheltered.y, sheltered == null ? 0f : 1f / Shelter.SIDE,
@@ -4847,6 +4897,7 @@ final class Pipeline {
             develop.set("uNarrowed", state.narrowed);
         }
         holdSight(camera);
+        holdDark(camera);
         if (fog > 0f) {
             holdShelter(DEVELOP_SHELTER_UNIT);
             GL13.glActiveTexture(GL_TEXTURE0);
@@ -5707,7 +5758,12 @@ final class Pipeline {
         program.set("uBeamMatrix", beamMatrix);
         program.set("uBeamFrom", beamFrom[0], beamFrom[1], beamFrom[2]);
         program.set("uBeamOrigin", beamOrigin[0], beamOrigin[1], beamOrigin[2], beamOrigin[3]);
-        program.set("uTorchAt", torchAt[0], torchAt[1], torchAt[2], torchAt[3]);
+        setTorch(program, torchUnit, 0f, 0f, 0f);
+    }
+
+    /** The torch's uniforms (PipelineShaders.TORCH), its place counted from (fromX, fromY, fromUp). */
+    private void setTorch(Program program, int torchUnit, float fromX, float fromY, float fromUp) {
+        program.set("uTorchAt", torchAt[0] - fromX, torchAt[1] - fromY, torchAt[2] - fromUp, torchAt[3]);
         program.set("uTorchWay", torchWay[0], torchWay[1], torchWay[2]);
         // Bound here and not once a frame: no unit is free in every program the torch lights.
         GL13.glActiveTexture(GL_TEXTURE0 + torchUnit);
@@ -6574,6 +6630,10 @@ final class Pipeline {
         sightTexture = 0;
         GL11.glDeleteTextures(sightLitTexture);
         sightLitTexture = 0;
+        GL11.glDeleteTextures(darkTexture);
+        darkTexture = 0;
+        GL11.glDeleteTextures(darkLiftTexture);
+        darkLiftTexture = 0;
         GL11.glDeleteTextures(roomAirTexture);
         roomAirTexture = 0;
         giveBack(beamed);

@@ -158,15 +158,8 @@ final class PipelineShaders {
             }
             """;
 
-    /** The headlights that are on and the torch the viewer carries, for every shader they light: the world, the figures, the air and the rain. */
-    static final String BEAMS = """
-            uniform vec4 uBeamAt[2];
-            uniform vec3 uBeamWay[2];
-            uniform sampler2DShadow uBeamShadow;
-            uniform mat4 uBeamMatrix;
-            // Where the lamps' map is drawn from, and that place in the map's clip space: see uTorchOrigin.
-            uniform vec3 uBeamFrom;
-            uniform vec4 uBeamOrigin;
+    /** The torch the viewer carries, for the shaders it lights and for the develop pass, which keeps what it lights out of the dark (TooDark). */
+    static final String TORCH = """
             // Where the viewer's torch is held and how far it reaches, 0 when none throws a
             // beam, the way it points, and the scene as the torch sees it.
             uniform vec4 uTorchAt;
@@ -229,6 +222,17 @@ final class PipelineShaders {
                 return given * 0.25 * (shadow2D(uTorchShadow, s + vec3(e, e, 0.0)).r + shadow2D(uTorchShadow, s + vec3(-e, e, 0.0)).r
                         + shadow2D(uTorchShadow, s + vec3(e, -e, 0.0)).r + shadow2D(uTorchShadow, s + vec3(-e, -e, 0.0)).r);
             }
+            """;
+
+    /** The headlights that are on and the torch the viewer carries, for every shader they light: the world, the figures, the air and the rain. */
+    static final String BEAMS = TORCH + """
+            uniform vec4 uBeamAt[2];
+            uniform vec3 uBeamWay[2];
+            uniform sampler2DShadow uBeamShadow;
+            uniform mat4 uBeamMatrix;
+            // Where the lamps' map is drawn from, and that place in the map's clip space: see uTorchOrigin.
+            uniform vec3 uBeamFrom;
+            uniform vec4 uBeamOrigin;
 
             // How much of the nearest vehicle's headlights reaches p past what stands in the
             // beam, from a picture of the scene drawn from the lamps.
@@ -7447,7 +7451,7 @@ final class PipelineShaders {
             }
             """;
 
-    static final String DEVELOP = "#version 120\n#extension GL_ARB_shader_texture_lod : require\n" + Sky.ATMOSPHERE + ENDS + """
+    static final String DEVELOP = "#version 120\n#extension GL_ARB_shader_texture_lod : require\n" + Sky.ATMOSPHERE + ENDS + TORCH + """
             uniform sampler2D uScene;
             uniform sampler2D uBloom;
             uniform sampler2D uDepth;
@@ -7523,10 +7527,44 @@ final class PipelineShaders {
             // Over a room the game has not opened, the height its viewer's level ends at: what stands higher keeps its light (Sight.lit).
             uniform sampler2D uSightLit;
             uniform float uSightEyeUp;
+            // Where the game counts a square too dark to see by (TooDark): uDark holds three levels
+            // of a block of squares, the viewer's in the middle, each square's darkness in r and in g
+            // what its light is multiplied by to be the game's. uDarkAt.xy is where the block starts,
+            // counted from the eye, z one over its side, w 1 when it is read. uDarkLift is how far the
+            // ground of each square is lifted, and uDarkLevel the eye's height, the viewer's level
+            // and one over a level's height. uDarkLit is the exposure a room in the game's whole
+            // light is shown at.
+            uniform sampler2D uDark;
+            uniform sampler2D uDarkLift;
+            uniform vec4 uDarkAt;
+            uniform vec3 uDarkLevel;
+            uniform float uDarkLit;
+            // How much of a room's light the picture keeps at the least where the game counts it too
+            // dark, and the light on the screen it is never taken under: what is darker than that
+            // already is left as it was.
+            const float DARK_KEPT = 0.5;
+            const float DARK_FLOOR = 0.25;
             // The game's own view's colours (Pipeline.OVERHEAD_CONTRAST): x how far each colour is
             // set apart from y, z what blue is multiplied by, w how much of it is done.
             uniform vec4 uOverhead;
             """ + SHELTERED + """
+
+            // How far a place is into the dark the game counts too dark to see by, and what its light is multiplied by to be the game's.
+            vec2 tooDark(vec3 fromEye) {
+                vec2 q = (fromEye.xy - uDarkAt.xy) * uDarkAt.z;
+                if (uDarkAt.w < 0.5 || q.x < 0.0 || q.y < 0.0 || q.x > 1.0 || q.y > 1.0) {
+                    return vec2(0.0, 1.0);
+                }
+                float up = uDarkLevel.x + fromEye.z - texture2D(uDarkLift, q).r;
+                // A floor stands at its level's height and a ceiling just under the next one's:
+                // what lies under the eye is taken a little up, what stands over it a little down.
+                float level = floor(up * uDarkLevel.z + (fromEye.z < 0.0 ? 0.05 : -0.05)) - uDarkLevel.y + 1.0;
+                if (level < 0.0 || level > 2.0) {
+                    return vec2(0.0, 1.0);
+                }
+                float inside = 0.5 * uDarkAt.z;
+                return texture2D(uDark, vec2(q.x, (clamp(q.y, inside, 1.0 - inside) + level) / 3.0)).rg;
+            }
 
             const int RAY_SAMPLES = 48;
             const float WHITE = 3.2;
@@ -7975,6 +8013,14 @@ final class PipelineShaders {
                     float aside = length((uv - 0.5) * vec2(uAspect, 1.0) * 2.0);
                     c *= 1.0 - 0.8 * uNarrowed * smoothstep(mix(1.3, 0.35, uNarrowed), mix(1.9, 1.0, uNarrowed), aside);
                 }
+                vec2 dark = tooDark(fromEye);
+                if (dark.x > 0.0 && uTorchAt.w > 0.0) {
+                    // Nor where the torch lights what it reaches, which the game's light of a
+                    // square the torch is not on knows nothing of: the floor of the landing above
+                    // went black down the line of the beam. uTorchAt is counted from the eye here.
+                    vec3 dir;
+                    dark.x *= 1.0 - smoothstep(0.0, 0.4, TORCH_GIVES * torchAt(fromEye, dir));
+                }
                 c *= uExposure;
                 float light = dot(c, vec3(0.2126, 0.7152, 0.0722));
                 if (uBalance.x != 1.0 || uBalance.y != 1.0) {
@@ -8013,6 +8059,18 @@ final class PipelineShaders {
                 }
                 c = film(c * uLevels.y);
                 c = pow(c, vec3(1.0 / 2.2));
+                // Where the game counts a room's square too dark to see by, the eye opens no further
+                // than to show it as a room in the game's whole light is shown, dimmed by the game's
+                // own light, though never under DARK_KEPT of what it was nor under DARK_FLOOR on the
+                // screen: the game's own view has such a room black, which in first person, with
+                // nothing lit round it in view, reads as a picture that has failed. Laid on the colour
+                // as it goes to the screen, as the game lays its light on a sprite: laid on before
+                // the film, its toe took the room to black.
+                if (dark.x > 0.0) {
+                    float shown = dot(c, vec3(0.2126, 0.7152, 0.0722));
+                    float dimmed = max(shown * max(pow(min(uDarkLit * dark.y / uExposure, 1.0), 1.0 / 2.2), DARK_KEPT), min(shown, DARK_FLOOR));
+                    c *= mix(1.0, dimmed / max(shown, 1e-6), dark.x);
+                }
                 c = mix(c, c * c * (3.0 - 2.0 * c), uGrade.x);
                 // In the Vivid style a clear day photographs warm where the sun falls and cool
                 // in the shade, with its greens and blues full.

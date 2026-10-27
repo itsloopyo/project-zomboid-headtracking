@@ -122,7 +122,7 @@ final class WorldScene {
     static final float NEAR_CORNER_DISTANCE = 0.08f;
     /** Past where the far land ends, for an eye as high over it as the map's tallest roof. */
     private static final float FAR = FarLand.REACH + 80f;
-    private static final float EXPOSURE_INDOORS = 1.25f;
+    static final float EXPOSURE_INDOORS = 1.25f;
     private static final float EYE_ADAPT_SECONDS = 0.8f;
     /** How much further the eye closes at night over ground all under snow: 2.5 times as far at full snow and full night. */
     private static final float SNOW_STOPS_DOWN = 1.5f;
@@ -2767,6 +2767,8 @@ final class WorldScene {
         /** For a frame seen from outside the viewer, how the game's own view would darken each square: see Sight. */
         private final Sight sight = new Sight();
         private boolean sightRead;
+        /** Where the game counts a square too dark round the viewer: see TooDark. */
+        private final TooDark tooDark = new TooDark();
         /**
          * The height at which the viewer's storey ends, for a viewer indoors whose building is
          * whole in the scene: what is above it is left out of the picture while the camera is too.
@@ -3518,6 +3520,7 @@ final class WorldScene {
             roomLitNow = (roomLightEased[0] + roomLightEased[1] + roomLightEased[2]) / 3f;
             lampLitNow = (lampLightEased[0] + lampLightEased[1] + lampLightEased[2]) / 3f;
             daylightLitNow = (daylightEased[0] + daylightEased[1] + daylightEased[2]) / 3f;
+            tooDark.take(view);
 
             // The loaded map is a square of chunks, and it ends in nothing. The picture fades into the
             // sky by the round that just fits inside it, so the edge is never seen. The square is not
@@ -8802,6 +8805,7 @@ final class WorldScene {
             view.pipeline.lid = outside && outsideCamera.eyeUp > lidFrom ? lidFrom : Float.MAX_VALUE;
             view.pipeline.cutRows = cutRows;
             view.pipeline.sight = sightRead ? sight : null;
+            view.pipeline.tooDark = tooDark;
             view.pipeline.cutRowsX = cutRowsX;
             view.pipeline.cutRowsY = cutRowsY;
             view.pipeline.cutBelow = outside ? cutBelow : 0f;

@@ -14,6 +14,7 @@ public abstract class IsoGameCharacter extends IsoMovingObject {
     public Vector2 getForwardDirection() { throw new UnsupportedOperationException("reference stub"); }
     public float getDotWithForwardDirection(float x, float y) { throw new UnsupportedOperationException("reference stub"); }
     public float getDetectionRange() { throw new UnsupportedOperationException("reference stub"); }
+    public float getWornItemsVisionModifier() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.iso.Vector2 getAnimForwardDirection(zombie.iso.Vector2 out) { throw new UnsupportedOperationException("reference stub"); }
     public void setForwardDirection(Vector2 direction) { throw new UnsupportedOperationException("reference stub"); }
     public boolean isAiming() { throw new UnsupportedOperationException("reference stub"); }

@@ -101,6 +101,11 @@ final class Sight {
      * run with nothing round it at all keeps none.
      */
     static void fill(int[] figures, int[] scratch, int[] taken, int columns, int rows) {
+        fill(figures, scratch, taken, columns, rows, 0);
+    }
+
+    /** The same, a closed run with nothing round it taking unreached. */
+    static void fill(int[] figures, int[] scratch, int[] taken, int columns, int rows, int unreached) {
         // scratch holds the closed squares still to be reached, taken what each takes this ring.
         int pending = 0;
         for (int at = 0; at < columns * rows; at++) {
@@ -148,7 +153,7 @@ final class Sight {
             pending = left;
         }
         for (int i = 0; i < pending; i++) {
-            figures[scratch[i]] = 0;
+            figures[scratch[i]] = unreached;
         }
     }
 }

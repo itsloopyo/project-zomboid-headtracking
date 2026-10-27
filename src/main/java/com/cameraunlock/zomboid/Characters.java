@@ -2655,6 +2655,17 @@ public final class Characters {
         if (square == null) {
             return;
         }
+        float light = drawnLight(square);
+        if (!Float.isNaN(light)) {
+            CharacterDraw.stands(light, square.isOutside());
+        }
+    }
+
+    /**
+     * How bright the world draws a square this frame, the mean of its colours, with the daylight
+     * the picture keeps (see lightAt), or NaN where a square not seen is lit as the open ground is.
+     */
+    float drawnLight(IsoGridSquare square) {
         WorldScene scene = view.worldScene;
         IsoCell cell = IsoWorld.instance.currentCell;
         long room = square.getRoomID();
@@ -2665,7 +2676,7 @@ public final class Characters {
         // open ground is: nothing is said. The game's own view keeps the engine's light in a room
         // it has not shown, which is none.
         if (!seen && (!inRoom || asShown) && !(gamesView && inRoom)) {
-            return;
+            return Float.NaN;
         }
         float light;
         if (seen || gamesView) {
@@ -2680,7 +2691,7 @@ public final class Characters {
             light = Math.max(unseen, scene.roomsDaylitNow ? scene.roomDaylight.sharedAt(square) * scene.daylightLitNow : 0f);
         }
         float kept = scene.daylightKeptNow * (square.isOutside() ? 1f : scene.roomKeptNow);
-        CharacterDraw.stands(Evening.dimmed(light, scene.openNow, kept), square.isOutside());
+        return Evening.dimmed(light, scene.openNow, kept);
     }
 
     private boolean roomSeen(IsoCell cell, long room) {
