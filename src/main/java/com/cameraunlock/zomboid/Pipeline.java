@@ -2303,7 +2303,7 @@ final class Pipeline {
             int light = at + Models.Instances.LIGHT, day = at + Models.Instances.DAY, unlit = at + Models.Instances.UNLIT;
             placedRows.put(f, at + Models.Instances.PLACE, 4).put(f, at + Models.Instances.FOOT, 3).put(f[unlit + 4]).put(f, at + Models.Instances.TURN, 4)
                     .put(f, light, 3).put(f[day]).put(f, light + 3, 3).put(f[day + 1]).put(f, light + 6, 3).put(f[day + 2]).put(f, light + 9, 3).put(f[day + 3])
-                    .put(f, unlit, 4);
+                    .put(f, unlit, 4).put(f, at + Models.Instances.SPAN, 2);
         }
         placedRows.flip();
         if (placedBuffer == 0) {
@@ -2386,8 +2386,8 @@ final class Pipeline {
                 }
             }
             long row = (long) from * PLACED_STRIDE;
-            for (int r = 0; r < PLACED_ATTRIBUTES.length; r++) {
-                GL20.glVertexAttribPointer(PLACED_ATTRIBUTES[r], 4, GL_FLOAT, false, PLACED_STRIDE, row + r * 4L * Float.BYTES);
+            for (int r = 0, along = 0; r < PLACED_ATTRIBUTES.length; along += PLACED_SIZES[r++]) {
+                GL20.glVertexAttribPointer(PLACED_ATTRIBUTES[r], PLACED_SIZES[r], GL_FLOAT, false, PLACED_STRIDE, row + (long) along * Float.BYTES);
             }
             GL31.glDrawElementsInstanced(GL_TRIANGLES, whole[ints + (plain ? Models.Instances.PLAIN_COUNT : Models.Instances.COUNT)], GL_UNSIGNED_INT,
                     (long) whole[ints + (plain ? Models.Instances.PLAIN_FIRST : Models.Instances.FIRST)] * Integer.BYTES, to - from);
@@ -2430,16 +2430,18 @@ final class Pipeline {
     private static final long LISTED_BITS = (1L << 20) - 1;
     private FloatBuffer placedRows;
     private int placedBuffer;
-    private static final int PLACED_FLOATS = 32, PLACED_STRIDE = PLACED_FLOATS * Float.BYTES;
+    private static final int PLACED_FLOATS = 34, PLACED_STRIDE = PLACED_FLOATS * Float.BYTES;
     /**
-     * Where the world programs' aPlace, aFoot, aTurn, aLit, aLitAlong, aLitDown, aLitAcross and
-     * aUnlit are bound, in the order of a row of placedRows: the first three where the shadow
-     * programs have theirs, and the rest at places no built-in attribute the programs read
+     * Where the world programs' aPlace, aFoot, aTurn, aLit, aLitAlong, aLitDown, aLitAcross,
+     * aUnlit and aSpan are bound, in the order of a row of placedRows: the first three where the
+     * shadow programs have theirs, and the rest at places no built-in attribute the programs read
      * shares on NVIDIA (see SHADOW_PLACES_FROM): 4 is the secondary colour's, 12 to 15 the
-     * texture coordinates of units 4 to 7.
+     * texture coordinates of units 4 to 7, and 1 the vertex weight's, which GLSL has no name for.
+     * PLACED_SIZES holds how many floats of the row each takes.
      */
-    private static final int[] PLACED_ATTRIBUTES = {5, 6, 7, 4, 12, 13, 14, 15};
-    private static final String[] PLACED_NAMES = {"aPlace", "aFoot", "aTurn", "aLit", "aLitAlong", "aLitDown", "aLitAcross", "aUnlit"};
+    private static final int[] PLACED_ATTRIBUTES = {5, 6, 7, 4, 12, 13, 14, 15, 1};
+    private static final int[] PLACED_SIZES = {4, 4, 4, 4, 4, 4, 4, 4, 2};
+    private static final String[] PLACED_NAMES = {"aPlace", "aFoot", "aTurn", "aLit", "aLitAlong", "aLitDown", "aLitAcross", "aUnlit", "aSpan"};
 
     /** The order castModels casts the pieces listed in, model by model: each as its model's first corner, then its place in the list. */
     private long[] castOrder = new long[256];

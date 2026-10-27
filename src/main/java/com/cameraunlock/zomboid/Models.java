@@ -496,7 +496,9 @@ final class Models {
         static final int DAY = 44;
         /** 1 for a piece laid as a wall's own face, which is opened and cut as the wall is (see wall), 2 for one run on past its wall's end (wallEnd), or 0. */
         static final int WALL = 48;
-        static final int FLOATS = 49;
+        /** How many squares along x and along y the light at LIGHT is spread over from the square at PLACE: see span. */
+        static final int SPAN = 49;
+        static final int FLOATS = 51;
         /**
          * The model's first corner in the list of every model's and how many it has, the same of
          * its plain one, the texture that dyes the piece or 0, and 1 for a piece that is part of
@@ -634,6 +636,7 @@ final class Models {
             to[at + PICTURE] = to[at + PICTURE + 1] = to[at + PICTURE + 2] = to[at + PICTURE + 3] = 0f;
             to[at + APART] = model.apart * Math.max(scale, scaleUp);
             to[at + WALL] = 0f;
+            to[at + SPAN] = to[at + SPAN + 1] = 1f;
             ints[whole + FIRST] = model.from;
             ints[whole + COUNT] = model.corners.length;
             ints[whole + PLAIN_FIRST] = model.plain.from;
@@ -668,6 +671,18 @@ final class Models {
         void wallEnd() {
             built();
             floats[(count - 1) * FLOATS + WALL] = 2f;
+        }
+
+        /**
+         * Has the piece last added lit across a block of squares, across along x and down along y
+         * from the square it was told it is lit by, where the light it was given is that block's
+         * at its four outer corners (WorldScene.Frame.blockLights): a bed over two squares
+         * takes a lamp's light on the far one.
+         */
+        void span(int across, int down) {
+            int at = (count - 1) * FLOATS;
+            floats[at + SPAN] = across;
+            floats[at + SPAN + 1] = down;
         }
 
         /** Has the pane of the piece last added, of this model, be a mirror's glass: see LookingGlass. */

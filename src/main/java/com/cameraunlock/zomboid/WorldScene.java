@@ -5833,32 +5833,50 @@ final class WorldScene {
             byte kind = unlitKindRound(own);
             frame.unlitKind = kind;
             for (int corner = 0; corner < 4; corner++) {
-                int i = localX + (corner == 1 || corner == 2 ? 1 : 0), j = localY + (corner >= 2 ? 1 : 0);
-                float red = 0f, green = 0f, blue = 0f, given = 0f, day = 0f;
-                int count = 0, unlit = 0;
-                for (int di = 0; di <= 1; di++) {
-                    for (int dj = 0; dj <= 1; dj++) {
-                        int at = (i + di) * LIGHT_SPAN + j + dj;
-                        if (lightOpen[at] == lightOpen[own] && (lightUnseen[at] == OWN_LIGHT || lightUnseen[at] == kind)) {
-                            red += lightRed[at];
-                            green += lightGreen[at];
-                            blue += lightBlue[at];
-                            count++;
-                            if (lightUnseen[at] == OWN_LIGHT) {
-                                given += (lightRed[at] + lightGreen[at] + lightBlue[at]) / 3f;
-                            } else {
-                                unlit++;
-                                day += lightDay[at];
-                            }
+                cornerLight(localX, localY, own, kind, corner, frame);
+            }
+        }
+
+        /**
+         * As cornerLights, into into's corners alone, for the block of squares of the chunk from
+         * (fromX, fromY) to (toX, toY): each outer corner of the block as the square of the block
+         * at that corner has it, so a piece over the block is lit across all of it.
+         */
+        void blockLights(int fromX, int fromY, int toX, int toY, SpriteGeometry.Frame into) {
+            for (int corner = 0; corner < 4; corner++) {
+                int localX = corner == 1 || corner == 2 ? toX : fromX, localY = corner >= 2 ? toY : fromY;
+                int own = (localX + 1) * LIGHT_SPAN + localY + 1;
+                cornerLight(localX, localY, own, unlitKindRound(own), corner, into);
+            }
+        }
+
+        /** One corner of the square at (localX, localY), whose place in the light grid is own and whose kind of unlit light is kind, into into: see cornerLights. */
+        private void cornerLight(int localX, int localY, int own, byte kind, int corner, SpriteGeometry.Frame into) {
+            int i = localX + (corner == 1 || corner == 2 ? 1 : 0), j = localY + (corner >= 2 ? 1 : 0);
+            float red = 0f, green = 0f, blue = 0f, given = 0f, day = 0f;
+            int count = 0, unlit = 0;
+            for (int di = 0; di <= 1; di++) {
+                for (int dj = 0; dj <= 1; dj++) {
+                    int at = (i + di) * LIGHT_SPAN + j + dj;
+                    if (lightOpen[at] == lightOpen[own] && (lightUnseen[at] == OWN_LIGHT || lightUnseen[at] == kind)) {
+                        red += lightRed[at];
+                        green += lightGreen[at];
+                        blue += lightBlue[at];
+                        count++;
+                        if (lightUnseen[at] == OWN_LIGHT) {
+                            given += (lightRed[at] + lightGreen[at] + lightBlue[at]) / 3f;
+                        } else {
+                            unlit++;
+                            day += lightDay[at];
                         }
                     }
                 }
-                frame.cornerRed[corner] = red / count;
-                frame.cornerGreen[corner] = green / count;
-                frame.cornerBlue[corner] = blue / count;
-                frame.cornerUnlit[corner] = unlitShare(given, unlit);
-                frame.cornerDay[corner] = unlit == 0 ? 0f : day / unlit;
             }
+            into.cornerRed[corner] = red / count;
+            into.cornerGreen[corner] = green / count;
+            into.cornerBlue[corner] = blue / count;
+            into.cornerUnlit[corner] = unlitShare(given, unlit);
+            into.cornerDay[corner] = unlit == 0 ? 0f : day / unlit;
         }
 
         /** How much of a mean of squares the ones the game has not lit are, each counted as 1, beside the light of the ones it has lit, summed as their grey. */

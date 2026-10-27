@@ -116,6 +116,8 @@ final class FurnishingBuilder {
     /** The sprites drawn as they are because nothing was found painted where their colour is taken, each written to the log once. */
     private static final Set<String> UNPAINTED = ConcurrentHashMap.newKeySet();
     private final SpriteGeometry.Frame partFrame = new SpriteGeometry.Frame();
+    /** The light of the squares a piece over more than one stands on, at the block's outer corners: see Models.Instances.span. */
+    private final SpriteGeometry.Frame blockFrame = new SpriteGeometry.Frame();
     private final float[] partAt = new float[4], wholeAt = new float[4];
     private final float[] screenAt = new float[2];
     private final float[] roofCorners = new float[4], onRoof = new float[3];
@@ -935,6 +937,7 @@ final class FurnishingBuilder {
         if (!stands(piece, firstPaints, readyOrigin) || build.overLayer > 0) {
             return true;
         }
+        int chunkX = x - build.waterLocalX, chunkY = y - build.waterLocalY;
         x += readyOrigin[0];
         y += readyOrigin[1];
         if (piece.onRoof) {
@@ -996,8 +999,27 @@ final class FurnishingBuilder {
             centreX += front[0] * clear;
             centreY += front[1] * clear;
         }
-        build.placed.add(model, build.frame, x, y, x + centreX, y + centreY, foot, piece.turns, piece.scale, piece.scaleUp,
+        // A piece over more than one square is lit across those of them in the chunk, whose light the chunk has read, and
+        // from the first of them. The block holds the square building it, so it is never empty.
+        SpriteGeometry.Frame light = build.frame;
+        int litX = x, litY = y, across = 1, down = 1;
+        if ((piece.width > 1 || piece.height > 1) && !piece.onRoof) {
+            int fromX = Math.max(x - chunkX, 0), fromY = Math.max(y - chunkY, 0);
+            int toX = Math.min(x + piece.width - 1 - chunkX, WorldScene.CHUNK_TILES - 1), toY = Math.min(y + piece.height - 1 - chunkY, WorldScene.CHUNK_TILES - 1);
+            blockFrame.open = build.frame.open;
+            blockFrame.unlitKind = build.frame.unlitKind;
+            build.blockLights(fromX, fromY, toX, toY, blockFrame);
+            light = blockFrame;
+            litX = chunkX + fromX;
+            litY = chunkY + fromY;
+            across = toX - fromX + 1;
+            down = toY - fromY + 1;
+        }
+        build.placed.add(model, light, litX, litY, x + centreX, y + centreY, foot, piece.turns, piece.scale, piece.scaleUp,
                 dyeTexture, piece.dyed, dyeU, dyeV, alsoDyed, alsoU, alsoV);
+        if (across > 1 || down > 1) {
+            build.placed.span(across, down);
+        }
         if (piece.mirror) {
             build.placed.glass(model);
         }

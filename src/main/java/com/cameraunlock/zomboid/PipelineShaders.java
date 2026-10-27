@@ -585,6 +585,8 @@ final class PipelineShaders {
             // What a model has of a light the game has not given, as aLit and its fellows hold its light; that light's
             // kind plus 1, or 0, is aFoot's w: see Models.Instances.UNLIT.
             attribute vec4 aUnlit;
+            // How many squares along x and y the light above is spread over from the square aPlace names: see Models.Instances.span.
+            attribute vec2 aSpan;
             // The model's openness to the sky, the surfaces dyed from each of the two places on the sprite, and 1 for one
             // laid as a wall's own face, 2 for one run on past its wall's end: see Models.Instances.wall and wallEnd.
             uniform vec4 uSurfaces;
@@ -637,7 +639,7 @@ final class PipelineShaders {
                     stands = vec4(aPlace.xy + on.xy, on.z, 1.0);
                     fromEye = vec3((aPlace.xy - uEye.xy) + on.xy, on.z - uEye.z);
                     looks = vec3(turned(gl_Normal.xy), gl_Normal.z);
-                    vec2 share = clamp(on.xy, 0.0, 1.0);
+                    vec2 share = clamp(on.xy / aSpan, 0.0, 1.0);
                     // The surface comes with the piece of it the vertex is on, 32 to a piece: see Models.PIECE_STEP.
                     float coded = floor(gl_MultiTexCoord0.x + 0.5);
                     float surface = mod(coded, 32.0);

@@ -1546,6 +1546,28 @@ public final class Tests {
                 check(near(got, want), "a place over the square takes of each corner's light by how near that corner it is, at " + a + ", " + b);
             }
         }
+        check(f[Models.Instances.SPAN] == 1f && f[Models.Instances.SPAN + 1] == 1f, "a piece is lit across its one square unless told otherwise");
+        // A bed over two squares along x, whose light is the block's at its outer corners.
+        pieces.add(wedge(), light, 0, 0, 1f, 0.5f, 0f, 0, 0.2f, 0.2f, 0, 0, 0f, 0f, 0, 0f, 0f);
+        pieces.span(2, 1);
+        f = pieces.floats;
+        int at = Models.Instances.FLOATS;
+        check(f[at + Models.Instances.SPAN] == 2f && f[at + Models.Instances.SPAN + 1] == 1f, "a piece over a block of squares carries how many along each way");
+        float[][] blockPlaces = {{0f, 0f}, {2f, 0f}, {2f, 1f}, {0f, 1f}, {1.4f, 0.3f}, {0.6f, 0.9f}};
+        for (float[] place : blockPlaces) {
+            // The sum the picture does, with the share of the block the place is at.
+            float a = Math.clamp(place[0] / f[at + Models.Instances.SPAN], 0f, 1f), b = Math.clamp(place[1] / f[at + Models.Instances.SPAN + 1], 0f, 1f);
+            float[] weights = {(1f - a) * (1f - b), a * (1f - b), a * b, (1f - a) * b};
+            for (int colour = 0; colour < 3; colour++) {
+                float want = 0f;
+                for (int corner = 0; corner < 4; corner++) {
+                    want += weights[corner] * corners[colour][corner];
+                }
+                int lit = at + Models.Instances.LIGHT + colour;
+                float got = f[lit] + a * f[lit + 3] + b * f[lit + 6] + a * b * f[lit + 9];
+                check(near(got, want), "a place over the block takes of each outer corner's light by how near that corner it is, at " + place[0] + ", " + place[1]);
+            }
+        }
     }
 
     private static void pieceIsHeldByItsBall() throws IOException {
