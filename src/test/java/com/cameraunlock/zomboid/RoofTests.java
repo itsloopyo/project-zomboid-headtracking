@@ -69,6 +69,7 @@ final class RoofTests {
         Checks.run("roofHippedAtOneEndAndGabledAtTheOtherGetsItsFarFaces", RoofTests::roofHippedAtOneEndAndGabledAtTheOtherGetsItsFarFaces);
         Checks.run("wingsSideBySideUnderACrossRidgeLeaveNoPit", RoofTests::wingsSideBySideUnderACrossRidgeLeaveNoPit);
         Checks.run("dormerOnASlopeGetsItsRidgeAndItsFarFace", RoofTests::dormerOnASlopeGetsItsRidgeAndItsFarFace);
+        Checks.run("roomSquareFlooredWithARoofSheetHasNoCeiling", RoofTests::roomSquareFlooredWithARoofSheetHasNoCeiling);
         Checks.run("wingsFarSideStopsAtAMainRoofDeeperThanItsNearSide", RoofTests::wingsFarSideStopsAtAMainRoofDeeperThanItsNearSide);
         Checks.run("slopeThatClimbsPastItsCrownLiesLevel", RoofTests::slopeThatClimbsPastItsCrownLiesLevel);
         Checks.run("gablesSlopeThatClimbsPastACrownStaysASlope", RoofTests::gablesSlopeThatClimbsPastACrownStaysASlope);
@@ -2751,6 +2752,22 @@ final class RoofTests {
             asFolded &= near(behind.corners[corner], folded[corner]);
         }
         check(asFolded, "the slope behind the dormer is folded up to its north face: " + Arrays.toString(behind.corners) + " crease " + behind.crease + " own " + behind.own);
+    }
+
+    /**
+     * A room on level 1 whose floor on a square is a roof's sheet laid as a floor, as at 2062..2070 x 7741: the foot of the
+     * house's roof, which the map puts in the room upstairs. It is out under the sky and gets no plaster ceiling. A square of
+     * the room with a room's floor gets its ceiling.
+     */
+    private static void roomSquareFlooredWithARoofSheetHasNoCeiling() {
+        for (String floor : new String[] {"roofs_02_22", "floors_interior_tilesandwood_01_47"}) {
+            TestMap map = new TestMap();
+            map.cell.square(0, 0, 1).floor(map.sprite(floor, IsoObjectType.normal));
+            map.cell.square(0, 0, 1).setRoomID(1000L);
+            map.build.ceilingBuilder.addRoomCeiling(0, 0, 1, 0, 0, false);
+            int triangles = TestMap.plain().triangles();
+            check(floor.startsWith("roofs_") ? triangles == 0 : triangles == 4, "a room's square floored with " + floor + " has " + triangles + " triangles of ceiling");
+        }
     }
 
     private static boolean near(float a, float b) {

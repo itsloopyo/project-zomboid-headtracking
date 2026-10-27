@@ -41,7 +41,10 @@ final class CeilingBuilder {
      * where nothing is laid over the square: one the stairs go up through or a roof comes down
      * through (openAbove), one with a room over it, which is how the map marks a hall two
      * floors high, one under a tent's canopy, whose canvas is its ceiling, and one under a glass
-     * roof or a skylight, which lets the sky in where a slope of tiles is rafters. A square beside
+     * roof or a skylight, which lets the sky in where a slope of tiles is rafters. Left open too
+     * where the square's own floor is a roof's sheet (Roofs.hiddenSheet): the foot of a roof the
+     * map puts in a room upstairs, out under the sky, where plaster at the top of the level hung
+     * in the air over the roof (2062..2070, 7741, level 1). A square beside
      * one of that room's with no floor is the hall too (TallHalls), or each row left out of it
      * hangs a strip of plaster across the hall at the upper floor. Such a row is given the
      * hall's ceiling at the top of its own level, by the same rules.
@@ -49,7 +52,8 @@ final class CeilingBuilder {
     void addRoomCeiling(int x, int y, int z, int localX, int localY, boolean openAbove) {
         IsoGridSquare above = build.cell.getGridSquare(x, y, z + 1);
         boolean floored = above != null && above.getFloor() != null;
-        if (!floored && (openAbove || above != null && (above.getRoomID() != -1L || Tents.canvasOn(above) || glazed(above)) || build.madeAt(x, y, z) || TallHalls.besideHallOver(build.cell, x, y, z + 1))
+        IsoObject floor = build.cell.getGridSquare(x, y, z).getFloor();
+        if (!floored && (openAbove || z > 0 && floor != null && Roofs.hiddenSheet(floor) || above != null && (above.getRoomID() != -1L || Tents.canvasOn(above) || glazed(above)) || build.madeAt(x, y, z) || TallHalls.besideHallOver(build.cell, x, y, z + 1))
                 || world.cutAway(x, y)) {
             return;
         }
