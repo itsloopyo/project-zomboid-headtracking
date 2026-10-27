@@ -27,6 +27,7 @@ final class WorldQuery {
     private IsoCell cell;
     private int level;
     private final GridTrace.Edges solidToTheEye = this::solidToTheEye;
+    private final GridTrace.Edges solidToAClimber = this::solidToAClimber;
     private final GridTrace.Edges solidToAShot = this::solidToAShot;
 
     void look(IsoCell cell, int level) {
@@ -64,6 +65,37 @@ final class WorldQuery {
             return wallBesideAir(from, to, fromX, fromY, toX, toY);
         }
         return from.isBlockedTo(to) || to.isSolid() || from.isWindowTo(to);
+    }
+
+    /**
+     * As solidToTheEye, but for an eye the game is carrying over a fence: the head goes over the fence
+     * ahead of the feet, and stopping it at the fence leaves the eye behind the body it climbs with.
+     */
+    private boolean solidToAClimber(int fromX, int fromY, int toX, int toY) {
+        IsoGridSquare from = cell.getGridSquare(fromX, fromY, level);
+        IsoGridSquare to = cell.getGridSquare(toX, toY, level);
+        if (from != null && to != null && fenceBetween(fromX, fromY, toX, toY,
+                hops(from, IsoFlagType.HoppableN, IsoFlagType.TallHoppableN), hops(from, IsoFlagType.HoppableW, IsoFlagType.TallHoppableW),
+                hops(to, IsoFlagType.HoppableN, IsoFlagType.TallHoppableN), hops(to, IsoFlagType.HoppableW, IsoFlagType.TallHoppableW))) {
+            return to.isSolid();
+        }
+        return solidToTheEye(fromX, fromY, toX, toY);
+    }
+
+    private static boolean hops(IsoGridSquare square, IsoFlagType low, IsoFlagType tall) {
+        return square.has(low) || square.has(tall);
+    }
+
+    /**
+     * Whether the edge between two squares side by side has a fence on it. A square carries the fences on
+     * its own north and west edges, so the one between it and the square south or east of it is that
+     * square's.
+     */
+    static boolean fenceBetween(int fromX, int fromY, int toX, int toY, boolean fromNorth, boolean fromWest, boolean toNorth, boolean toWest) {
+        if (toY != fromY) {
+            return toY < fromY ? fromNorth : toNorth;
+        }
+        return toX < fromX ? fromWest : toX > fromX && toWest;
     }
 
     /** What the game's line of fire has met so far along the shot being traced: see LineOfFire. */
@@ -163,6 +195,11 @@ final class WorldQuery {
      * path counts as well as a wall across it.
      */
     float roomForTheEye(float x, float y, float directionX, float directionY, float reach, float margin) {
+        return roomForTheEye(x, y, directionX, directionY, reach, margin, false);
+    }
+
+    /** As roomForTheEye, with the fences passed over while the game climbs the character over one. */
+    float roomForTheEye(float x, float y, float directionX, float directionY, float reach, float margin, boolean climbing) {
         float ground = (float) Math.sqrt(directionX * directionX + directionY * directionY);
         if (ground < 1e-4f) {
             return reach;
@@ -171,7 +208,7 @@ final class WorldQuery {
         float sideY = directionX / ground * margin;
         float room = reach;
         for (int ray = -1; ray <= 1; ray++) {
-            float hit = trace.firstBlockedEdge(solidToTheEye, x + sideX * ray, y + sideY * ray,
+            float hit = trace.firstBlockedEdge(climbing ? solidToAClimber : solidToTheEye, x + sideX * ray, y + sideY * ray,
                     directionX, directionY, reach + margin / MIN_COSINE);
             if (hit == Float.POSITIVE_INFINITY) {
                 continue;

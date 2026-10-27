@@ -8,6 +8,8 @@ import se.krka.kahlua.vm.KahluaTable;
 import zombie.inventory.types.HandWeapon;
 import zombie.GameTime;
 import zombie.ai.State;
+import zombie.ai.states.ClimbOverFenceState;
+import zombie.ai.states.ClimbOverWallState;
 import zombie.ai.states.PlayerFallDownState;
 import zombie.ai.states.PlayerGetUpState;
 import zombie.ai.states.PlayerHitReactionPVPState;
@@ -833,8 +835,10 @@ public final class FirstPerson {
         float height = eyeHeight(player, sinceLastFrame);
         world.look(IsoWorld.instance.currentCell, (int) Math.floor(player.getZ()));
         float reach = (float) Math.hypot(headOffset[0], headOffset[1]);
+        State state = player.getCurrentState();
+        boolean climbing = state == ClimbOverFenceState.instance() || state == ClimbOverWallState.instance();
         float share = reach > 0f ? world.roomForTheEye(player.getX(), player.getY(), headOffset[0] / reach,
-                headOffset[1] / reach, reach, Tracking.settings().collisionMargin) / reach : 1f;
+                headOffset[1] / reach, reach, Tracking.settings().collisionMargin, climbing) / reach : 1f;
         eye[0] = player.getX() + headOffset[0] * share;
         eye[1] = player.getY() + headOffset[1] * share;
         // Eased from where the last frame at the eye had it. The first of them has none before it.

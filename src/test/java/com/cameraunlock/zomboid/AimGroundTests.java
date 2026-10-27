@@ -18,6 +18,17 @@ final class AimGroundTests {
         Checks.run("aDragCursorIsTheGamesOwnOutOfFirstPerson", AimGroundTests::aDragCursorIsTheGamesOwnOutOfFirstPerson);
         Checks.run("aDragCursorInFirstPersonIsPutWhereItIsAimed", AimGroundTests::aDragCursorInFirstPersonIsPutWhereItIsAimed);
         Checks.run("aDragCursorWithNoLineIsPutNowhere", AimGroundTests::aDragCursorWithNoLineIsPutNowhere);
+        Checks.run("aFenceBetweenTwoSquaresIsTheSouthOrEastSquaresOwn", AimGroundTests::aFenceBetweenTwoSquaresIsTheSouthOrEastSquaresOwn);
+    }
+
+    private static void aFenceBetweenTwoSquaresIsTheSouthOrEastSquaresOwn() {
+        Checks.check(WorldQuery.fenceBetween(5, 5, 5, 4, true, false, false, false), "north, on the square left");
+        Checks.check(!WorldQuery.fenceBetween(5, 5, 5, 4, false, false, true, false), "north, on the far square's north edge");
+        Checks.check(WorldQuery.fenceBetween(5, 4, 5, 5, false, false, true, false), "south, on the square reached");
+        Checks.check(!WorldQuery.fenceBetween(5, 4, 5, 5, true, false, false, false), "south, on the square left's north edge");
+        Checks.check(WorldQuery.fenceBetween(5, 5, 4, 5, false, true, false, false), "west, on the square left");
+        Checks.check(WorldQuery.fenceBetween(4, 5, 5, 5, false, false, false, true), "east, on the square reached");
+        Checks.check(!WorldQuery.fenceBetween(4, 5, 5, 5, false, true, true, false), "east, the fences on other edges");
     }
 
     private static ViewCamera.Pose aim(float up, float toX, float toUp) {
