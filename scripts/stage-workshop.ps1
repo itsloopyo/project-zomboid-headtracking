@@ -9,6 +9,12 @@
 # upload, and an upload without it makes a new item. An id in the staged copy
 # is carried into the new one; once there is one, it belongs in
 # workshop/workshop.txt too, so every machine updates the same item.
+#
+# Usage: stage-workshop.ps1 [-Zip <path>], the ZIP package-workshop made by default.
+
+param(
+    [string]$Zip
+)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -18,9 +24,13 @@ $projectDir = Split-Path -Parent $PSScriptRoot
 Import-Module (Join-Path $projectDir 'cameraunlock-core/powershell/ReleaseWorkflow.psm1') -Force
 
 $modName = 'ProjectZomboidHeadTracking'
-$version = Get-ProjectVersion -Source pixi -Path (Join-Path $projectDir 'pixi.toml')
-$zip = Join-Path $projectDir "release/$modName-v$version-workshop.zip"
-if (-not (Test-Path $zip)) { throw "$zip not found. Run 'pixi run package-workshop' first." }
+if ($Zip) {
+    if (-not (Test-Path $Zip)) { throw "$Zip not found." }
+} else {
+    $version = Get-ProjectVersion -Source pixi -Path (Join-Path $projectDir 'pixi.toml')
+    $Zip = Join-Path $projectDir "release/$modName-v$version-workshop.zip"
+    if (-not (Test-Path $Zip)) { throw "$Zip not found. Run 'pixi run package-workshop' first." }
+}
 
 $workshop = Join-Path $env:USERPROFILE 'Zomboid\Workshop'
 if (-not (Test-Path $workshop)) { throw "$workshop not found: the game makes it at its first start." }
@@ -37,7 +47,7 @@ if (-not $id -and -not $committedId) {
     Write-Host '  no Workshop id here or in workshop/workshop.txt: an upload makes a NEW item. After the first upload, put its id= line in workshop/workshop.txt.' -ForegroundColor Yellow
 }
 
-Expand-Archive -Path $zip -DestinationPath $workshop
+Expand-Archive -Path $Zip -DestinationPath $workshop
 if ($id) {
     $text = Get-Content (Join-Path $item 'workshop.txt')
     if (-not ($text -match '^id=')) {
@@ -45,4 +55,4 @@ if ($id) {
         Write-Host "  carried $id over from the copy that was staged; put it in workshop/workshop.txt" -ForegroundColor Yellow
     }
 }
-Write-Host "  staged v$version at $item" -ForegroundColor Green
+Write-Host "  staged $(Split-Path -Leaf $Zip) at $item" -ForegroundColor Green

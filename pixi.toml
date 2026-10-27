@@ -48,6 +48,9 @@ package = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/p
 package-workshop = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-workshop.ps1", depends-on = ["build", "test"] }
 # Puts that item in %USERPROFILE%\Zomboid\Workshop, where the game uploads it from and loads it as a local mod.
 stage-workshop = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/stage-workshop.ps1", depends-on = ["package-workshop"] }
+# The same from GitHub Releases: the newest Workshop ZIP on any release, nightly included, or the
+# release a version after the task name names. Also removes the copy Steam keeps for a subscription.
+get-package = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/get-package.ps1"
 
 # Both read what is already there, so neither depends on package.
 validate-manifest = "node cameraunlock-core/scripts/validate-manifest.mjs"
