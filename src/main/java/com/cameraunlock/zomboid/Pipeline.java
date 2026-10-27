@@ -2751,8 +2751,16 @@ final class Pipeline {
         }
         fireFace = face;
         fireSlots = slots;
+        boolean fresh = !fired.made();
         lend(fired);
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, fireTarget);
+        if (fresh) {
+            // A slot this frame does not draw reads as no shadow until it is drawn, not as what the new texture holds.
+            GL11.glDisable(GL_SCISSOR_TEST);
+            GL11.glClearDepth(1.0);
+            GL11.glClear(GL_DEPTH_BUFFER_BIT);
+            shadows.atlasMade();
+        }
         shadow.use();
         shadow.set("uSunWay", 0f, 0f, 1f);
         GL13.glActiveTexture(GL_TEXTURE0);

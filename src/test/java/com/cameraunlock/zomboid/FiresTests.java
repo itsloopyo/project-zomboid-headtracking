@@ -356,6 +356,14 @@ final class FiresTests {
         check(shadows.slotOf[0] == second && shadows.slotOf[1] == first && shadows.toDraw == 0, "each keeps its slot and nothing is drawn again: " + shadows.toDraw);
         shadows.assign(swapped, swappedReach, swappedWeight, FLAMING, NONE_BUILT, 3, 2 * FRAME + FireShadows.STALE_NANOS, 2, 256);
         check(shadows.toDraw >= 1, "a slot left long enough is drawn again");
+        // A frame that draws neither slot makes their texture again: both are drawn the next frame, though neither is stale.
+        FireShadows again = new FireShadows();
+        again.assign(lights, reach, weight, FLAMING, NONE_BUILT, 1, FRAME, 2, 256);
+        again.assign(lights, reach, weight, FLAMING, NONE_BUILT, 2, 2 * FRAME, 2, 256);
+        check(again.toDraw == 0, "nothing is due the frame after both slots were drawn: " + again.toDraw);
+        again.atlasMade();
+        again.assign(lights, reach, weight, FLAMING, NONE_BUILT, 3, 3 * FRAME, 2, 256);
+        check(again.toDraw == 2, "both slots of a texture made again are drawn into it: " + again.toDraw);
         // With one slot, only the stronger fire has a shadow.
         FireShadows one = new FireShadows();
         one.assign(lights, reach, weight, FLAMING, NONE_BUILT, 1, FRAME, 1, 256);

@@ -169,6 +169,18 @@ final class FireShadows {
         return z ^ z >>> 31;
     }
 
+    /**
+     * The depth texture the slots are drawn into has been made again, holding none of them: each
+     * slot this frame does not draw is drawn again as one not drawn yet.
+     */
+    void atlasMade() {
+        for (int slot = 0; slot < MOST; slot++) {
+            if (!listed(slot)) {
+                drawnIn[slot] = 0;
+            }
+        }
+    }
+
     private boolean listed(int slot) {
         for (int k = 0; k < toDraw; k++) {
             if (draw[k] == slot) {
