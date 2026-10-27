@@ -7,6 +7,7 @@ import zombie.core.properties.PropertyContainer;
 import zombie.iso.BuildingDef;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
+import zombie.iso.SpriteDetails.IsoObjectType;
 import zombie.iso.areas.IsoBuilding;
 import zombie.iso.sprite.IsoSprite;
 
@@ -21,6 +22,7 @@ final class TallHallsTests {
         Checks.run("theAirBesideTheHallIsNot", TallHallsTests::theAirBesideTheHallIsNot);
         Checks.run("aSquareOfTheUpperRoomIsNot", TallHallsTests::aSquareOfTheUpperRoomIsNot);
         Checks.run("aFlooredSquareIsNot", TallHallsTests::aFlooredSquareIsNot);
+        Checks.run("theSquaresBesideAStairwellAreNoHall", TallHallsTests::theSquaresBesideAStairwellAreNoHall);
         Checks.run("theRoomMapPutsARowLeftOutInTheHall", TallHallsTests::theRoomMapPutsARowLeftOutInTheHall);
         Checks.run("theRoomMapPutsTheUpperPartOfAHallInTheHall", TallHallsTests::theRoomMapPutsTheUpperPartOfAHallInTheHall);
         Checks.run("eachSquareIsDrawnAsTheRoomSightWalksItAs", TallHallsTests::eachSquareIsDrawnAsTheRoomSightWalksItAs);
@@ -118,6 +120,41 @@ final class TallHallsTests {
     private static void aFlooredSquareIsNot() {
         long room = roomUnder(hall(), 3, 0, 2);
         check(room == RoomSight.OUTSIDE, "a square the map floors over the upper room is no row left out: " + room);
+    }
+
+    /**
+     * A house 5 by 4, stairs going up along x = 1 from y = 2 to y = 0, and over it a room on rows 0 to 2,
+     * floored but where the stairs come up through it. Row 3 over the house has no floor and is in no room, as
+     * over a hall under a lean-to roof. It is beside the stairwell, which is in a room and floorless, and no hall.
+     */
+    private static void theSquaresBesideAStairwellAreNoHall() {
+        IsoCell cell = new IsoCell();
+        IsoBuilding building = new IsoBuilding(new BuildingDef(BUILDING, 0, 0, 5, 4));
+        IsoSprite stairs = new IsoSprite("fixtures_stairs_01_56", new PropertyContainer(Map.of()), IsoObjectType.stairsBN, null);
+        for (int x = 0; x < 5; x++) {
+            for (int y = 0; y < 4; y++) {
+                IsoGridSquare ground = cell.square(x, y, 0);
+                ground.floor(FLOOR);
+                ground.setRoomID(HALL);
+                ground.building(building);
+                if (x == 1 && y < 3) {
+                    ground.add(stairs);
+                }
+                IsoGridSquare upper = cell.square(x, y, 1);
+                if (y < 3) {
+                    upper.setRoomID(UPPER);
+                    upper.building(building);
+                    if (x != 1 || y == 0) {
+                        upper.floor(FLOOR);
+                    }
+                }
+            }
+        }
+        check(!TallHalls.besideHallOver(cell, 1, 3, 1) && !TallHalls.besideHallOver(cell, 2, 3, 1),
+                "the row beside the stairwell is no row left out of a hall, so the room under it has its ceiling");
+        check(roomUnder(cell, 2, 3, 1) == RoomSight.OUTSIDE, "and is no hall's: " + roomUnder(cell, 2, 3, 1));
+        cell.getGridSquare(3, 2, 1).unfloor();
+        check(TallHalls.besideHallOver(cell, 3, 3, 1), "beside a floorless square of the room with no stairs under it, it is the hall's still");
     }
 
     private static void theRoomMapPutsARowLeftOutInTheHall() {

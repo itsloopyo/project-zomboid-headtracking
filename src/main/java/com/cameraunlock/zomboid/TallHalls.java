@@ -2,6 +2,9 @@ package com.cameraunlock.zomboid;
 
 import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
+import zombie.iso.IsoObject;
+import zombie.iso.sprite.IsoSprite;
+import zombie.util.list.PZArrayList;
 
 /**
  * The rows the map leaves out of a tall hall's upper room. A hall two floors high is marked by
@@ -14,14 +17,32 @@ import zombie.iso.IsoGridSquare;
 final class TallHalls {
     private TallHalls() {}
 
-    /** Whether a square beside this one on level z, the eight round it, is in a room and has no floor. */
+    /**
+     * Whether a square beside this one on level z, the eight round it, is in a room and has no floor. Not one the stairs
+     * come up through: an upper room has no floor there either, and the squares beside its stairwell are no hall.
+     */
     static boolean besideHallOver(IsoCell cell, int x, int y, int z) {
         for (int dx = -1; dx <= 1; dx++) {
             for (int dy = -1; dy <= 1; dy++) {
                 IsoGridSquare beside = cell.getGridSquare(x + dx, y + dy, z);
-                if ((dx != 0 || dy != 0) && beside != null && beside.getRoomID() != -1L && beside.getFloor() == null) {
+                if ((dx != 0 || dy != 0) && beside != null && beside.getRoomID() != -1L && beside.getFloor() == null
+                        && !holdsStairs(cell.getGridSquare(x + dx, y + dy, z - 1))) {
                     return true;
                 }
+            }
+        }
+        return false;
+    }
+
+    private static boolean holdsStairs(IsoGridSquare square) {
+        if (square == null) {
+            return false;
+        }
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoSprite sprite = objects.get(i).getSprite();
+            if (sprite != null && Terrain.isStair(sprite.getType())) {
+                return true;
             }
         }
         return false;
