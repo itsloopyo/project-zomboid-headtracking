@@ -26,6 +26,7 @@ final class SpanTests {
         Checks.run("poleTopDrawnALevelUpStandsOnItsPole", SpanTests::poleTopDrawnALevelUpStandsOnItsPole);
         Checks.run("runWithASquareLeftOutIsFollowedOverIt", SpanTests::runWithASquareLeftOutIsFollowedOverIt);
         Checks.run("aPoleAtTheEdgeOfTheLoadedMapIsReadFromItsOwnSquare", SpanTests::aPoleAtTheEdgeOfTheLoadedMapIsReadFromItsOwnSquare);
+        Checks.run("poleLengthsDrawnOffTheirFootStandOnIt", SpanTests::poleLengthsDrawnOffTheirFootStandOnIt);
         Checks.run("aRunHangsFromAPoleTheMapMayYetShowMoreOf", SpanTests::aRunHangsFromAPoleTheMapMayYetShowMoreOf);
         Checks.run("aTallPoleWhoseTopMayBeDrawnUpOntoMapNotLoadedWantsTheMap", SpanTests::aTallPoleWhoseTopMayBeDrawnUpOntoMapNotLoadedWantsTheMap);
         Checks.run("spansFoundTogetherInAFrameAreThoseFoundOneByOne", SpanTests::spansFoundTogetherInAFrameAreThoseFoundOneByOne);
@@ -609,6 +610,54 @@ final class SpanTests {
         drawn.put(Map.key(50, 5, 2), "appliances_com_01_93");
         drawn.put(Map.key(50 + on, 5 + on, 3), "appliances_com_01_88");
         check(!Poles.drawnUp(map, 50 + on, 5 + on, 3, 0) && Poles.standsOn(map, 50, 5, 3, 0) == null, "the foot of a pole over the top of a whole one is no part of it");
+    }
+
+    /**
+     * Poles in Muldraugh and Ekron whose upper lengths the map draws off their foot, which were built as tops in the
+     * air: (10675, 9692) with its second length and its top both a level up and three squares on, (468, 9812) with its
+     * upper two lengths a level up and one square on, (4504, 6069) with its top so, and (10640, 9623), all three lengths a level up over the street.
+     */
+    private static void poleLengthsDrawnOffTheirFootStandOnIt() {
+        HashMap<Long, String> drawn = new HashMap<>();
+        Poles.Drawn map = (x, y, z) -> drawn.get(Map.key(x, y, z));
+        int on = Spans.LEVEL_SQUARES;
+        drawn.put(Map.key(10, 5, 0), "appliances_com_01_88");
+        drawn.put(Map.key(10 + on, 5 + on, 2), "appliances_com_01_89");
+        drawn.put(Map.key(10 + on, 5 + on, 3), "appliances_com_01_93");
+        check(Poles.drawnUp(map, 10 + on, 5 + on, 3, 0), "a top over a length drawn up is drawn up with it");
+        check("appliances_com_01_89".equals(Poles.standsOn(map, 10, 5, 1, 0)) && "appliances_com_01_93".equals(Poles.standsOn(map, 10, 5, 2, 0)),
+                "and the pole stands whole on its foot: " + Poles.standsOn(map, 10, 5, 2, 0));
+        check(Poles.standsOn(map, 10 + on, 5 + on, 2, 0) == null && Poles.standsOn(map, 10 + on, 5 + on, 3, 0) == null, "and nothing stands where they are drawn");
+
+        drawn.put(Map.key(30, 5, 0), "appliances_com_01_88");
+        drawn.put(Map.key(31, 6, 1), "appliances_com_01_89");
+        drawn.put(Map.key(31, 6, 2), "appliances_com_01_93");
+        check(Poles.setBack(map, 30, 5, 0) && Poles.drawnFrom(map, 31, 6, 0, 0) == Poles.BACK, "a foot one square back from the rest of its pole is set back under it");
+        check("appliances_com_01_88".equals(Poles.standsOn(map, 31, 6, 0, 0)) && Poles.standsOn(map, 30, 5, 0, 0) == null, "and stands there, not where it is drawn");
+        check("appliances_com_01_93".equals(Poles.standsOn(map, 31, 6, 2, 0)), "and the top over it is its own square's");
+        check(!Poles.setBack(map, 31, 6, 2) && !Poles.setBack(map, 31, 6, 1), "the upper lengths are not set back");
+        Poles.Loaded toThirty = (x, y) -> x <= 30, all = (x, y) -> true;
+        check(Poles.unsettled(map, toThirty, 30, 5, 0, 0), "a bare length with nothing over it may be set back under map not loaded");
+        check(!Poles.unsettled(map, all, 30, 5, 0, 0), "and is known once it is loaded");
+        check(Poles.unsettled(map, (x, y) -> x >= 31, 31, 6, 1, 0), "the length it holds up may stand on it from map not loaded");
+
+        // (4504, 6069): two lengths on their square, the top a level up and one square on.
+        drawn.put(Map.key(70, 5, 0), "appliances_com_01_94");
+        drawn.put(Map.key(70, 5, 1), "appliances_com_01_95");
+        drawn.put(Map.key(71, 6, 2), "appliances_com_01_92");
+        check(Poles.setBack(map, 70, 5, 0) && Poles.setBack(map, 70, 5, 1), "the lengths under a length set back are set back with it");
+        check("appliances_com_01_94".equals(Poles.standsOn(map, 71, 6, 0, 0)) && "appliances_com_01_95".equals(Poles.standsOn(map, 71, 6, 1, 0))
+                && "appliances_com_01_92".equals(Poles.standsOn(map, 71, 6, 2, 0)), "and the pole stands whole under its top");
+
+        drawn.put(Map.key(50, 5, 1), "appliances_com_01_88");
+        drawn.put(Map.key(50, 5, 2), "appliances_com_01_89");
+        drawn.put(Map.key(50, 5, 3), "appliances_com_01_93");
+        check(!Poles.drawnUp(map, 50, 5, 1, 0) && Poles.standsOn(map, 50, 5, 0, 0) == null, "a pole drawn whole a level up has no foot under it");
+        Poles.Floored street = (x, y, z) -> z == 0;
+        check(Poles.footLevel(street, 50, 5, 1) == 0, "and stands on the street under it: " + Poles.footLevel(street, 50, 5, 1));
+        Poles.Floored roof = (x, y, z) -> z <= 1;
+        check(Poles.footLevel(roof, 50, 5, 1) == 1, "a pole with a floor under its foot stands on it");
+        check(Poles.footLevel((x, y, z) -> false, 50, 5, 2) == 0, "and none stands lower than the ground");
     }
 
     /**

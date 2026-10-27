@@ -78,13 +78,65 @@ final class Poles {
     /**
      * Whether the length of pole drawn on a square stands a level lower and Spans.LEVEL_SQUARES
      * back along x and y, where the game's view draws it on the same place: on the top of a
-     * pole there, with nothing of its own under it. The map's artists put some poles' tops so.
-     * No level is lower than lowest.
+     * pole there, with nothing of its own under it, or on a length of its own square that is
+     * itself drawn so. The map's artists put some poles' tops so. No level is lower than lowest.
      */
     static boolean drawnUp(Drawn map, int x, int y, int z, int lowest) {
         int back = Spans.LEVEL_SQUARES;
-        return z - 2 >= lowest && map.on(x, y, z) != null && map.on(x, y, z - 1) == null && map.on(x - back, y - back, z - 2) != null
-                && map.on(x - back, y - back, z - 1) == null;
+        if (z - 2 < lowest || map.on(x, y, z) == null || map.on(x - back, y - back, z - 1) != null) {
+            return false;
+        }
+        return map.on(x, y, z - 1) == null ? map.on(x - back, y - back, z - 2) != null : drawnUp(map, x, y, z - 1, lowest);
+    }
+
+    /**
+     * Whether the bare length of pole drawn on a square stands one square on along x and y, under
+     * the rest of its pole: the length over it is drawn there, a level up, and nothing over it
+     * or beside it, or the length over it on its own square is set back so. The game's view
+     * draws the two overlapping, as one pole, and the wires run from the upper, so the pole
+     * stands where the upper is.
+     */
+    static boolean setBack(Drawn map, int x, int y, int z) {
+        String here = map.on(x, y, z);
+        if (here == null || arm(here) != null || map.on(x + 1, y + 1, z) != null) {
+            return false;
+        }
+        return map.on(x, y, z + 1) == null ? map.on(x + 1, y + 1, z + 1) != null : setBack(map, x, y, z + 1);
+    }
+
+    /**
+     * Where the length of pole that stands on a square of a level is drawn: SAME on the square
+     * itself, UP for a level up and Spans.LEVEL_SQUARES on along x and y, BACK for one square
+     * back along x and y, or NONE.
+     */
+    static int drawnFrom(Drawn map, int x, int y, int z, int lowest) {
+        int on = Spans.LEVEL_SQUARES;
+        if (drawnUp(map, x + on, y + on, z + 1, lowest)) {
+            return UP;
+        }
+        if (setBack(map, x - 1, y - 1, z)) {
+            return BACK;
+        }
+        return map.on(x, y, z) == null || drawnUp(map, x, y, z, lowest) || setBack(map, x, y, z) ? NONE : SAME;
+    }
+
+    static final int NONE = -1, SAME = 0, UP = 1, BACK = 2;
+
+    /** Which squares of the map have a floor. */
+    interface Floored {
+        boolean at(int x, int y, int z);
+    }
+
+    /**
+     * The level a pole whose lowest length is on a square of a level stands on: the length's
+     * own, or where the length stands in the air, as some of the map's poles are drawn whole a
+     * level up, the first level under it with a floor, and the ground's at the lowest.
+     */
+    static int footLevel(Floored floored, int x, int y, int z) {
+        while (z > 0 && !floored.at(x, y, z)) {
+            z--;
+        }
+        return z;
     }
 
     /** The map as far as it is loaded: whether the chunk a square is in is. */
@@ -93,16 +145,38 @@ final class Poles {
     }
 
     /**
-     * Whether what drawnUp and standsOn say of a square of a level may change once more of the
-     * map is loaded, the square's own chunk being loaded: a length on it with none under it
-     * may be drawn up from a pole Spans.LEVEL_SQUARES back, and an empty square over a length
-     * may have that length's top drawn up Spans.LEVEL_SQUARES on, each on map not loaded.
+     * Whether what drawnUp, setBack and standsOn say of a square of a level may change once
+     * more of the map is loaded, the square's own chunk being loaded: the lowest of the lengths
+     * on the square may be drawn up from a pole Spans.LEVEL_SQUARES back, or stand on a length
+     * set back from one square back; a bare length under no arm on its square may be set
+     * back under a length one square on; and an empty square may have a length over it set
+     * back from one square back, or the top of a length under it drawn up Spans.LEVEL_SQUARES on,
+     * each on map not loaded.
      */
     static boolean unsettled(Drawn map, Loaded loaded, int x, int y, int z, int lowest) {
         int other = Spans.LEVEL_SQUARES;
-        boolean here = map.on(x, y, z) != null, under = z - 1 >= lowest && map.on(x, y, z - 1) != null;
-        return here && !under && z - 2 >= lowest && !loaded.at(x - other, y - other) || !here && under && !loaded.at(x + other, y + other);
+        String here = map.on(x, y, z);
+        boolean under = z - 1 >= lowest && map.on(x, y, z - 1) != null;
+        if (here == null) {
+            boolean over = false;
+            for (int up = 1; up <= POLE_LEVELS; up++) {
+                over |= map.on(x, y, z + up) != null;
+            }
+            return under && !loaded.at(x + other, y + other) || over && !loaded.at(x - 1, y - 1);
+        }
+        int bottom = z, top = z;
+        while (bottom - 1 >= lowest && map.on(x, y, bottom - 1) != null) {
+            bottom--;
+        }
+        while (map.on(x, y, top + 1) != null) {
+            top++;
+        }
+        return bottom - 2 >= lowest && !loaded.at(x - other, y - other) || !under && z - 1 >= lowest && !loaded.at(x - 1, y - 1)
+                || arm(map.on(x, y, top)) == null && !loaded.at(x + 1, y + 1);
     }
+
+    /** The most levels a pole of the map stands through. */
+    private static final int POLE_LEVELS = 3;
 
     /**
      * Whether what a pole's build reads from a length of it on a square of a level may change once more of the map is
@@ -120,10 +194,12 @@ final class Poles {
     /** The sprite of the length of pole that stands on a square of a level, wherever it is drawn, or null. */
     static String standsOn(Drawn map, int x, int y, int z, int lowest) {
         int on = Spans.LEVEL_SQUARES;
-        if (drawnUp(map, x + on, y + on, z + 1, lowest)) {
-            return map.on(x + on, y + on, z + 1);
-        }
-        return drawnUp(map, x, y, z, lowest) ? null : map.on(x, y, z);
+        return switch (drawnFrom(map, x, y, z, lowest)) {
+            case UP -> map.on(x + on, y + on, z + 1);
+            case BACK -> map.on(x - 1, y - 1, z);
+            case SAME -> map.on(x, y, z);
+            default -> null;
+        };
     }
 
     /** Which sprite of the sheet a name is, or -1 for one of another sheet. */

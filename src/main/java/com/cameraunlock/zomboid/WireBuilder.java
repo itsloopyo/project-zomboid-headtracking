@@ -86,6 +86,7 @@ final class WireBuilder {
     private final Poles.Drawn drawn = this::poleOn;
     // Made once: a method reference made where it is passed is a new object at every call, and settled is asked for every square a span is checked on.
     private final Poles.Loaded loadedHere = this::loaded;
+    private final Poles.Floored floored = this::floored;
     /** The frame the spans last found anything in. */
     private int spansFrame = -1;
 
@@ -182,10 +183,14 @@ final class WireBuilder {
         return Poles.standsOn(drawn, x, y, z, build.lowestLevel);
     }
 
-    /** The shaft of the pole that has a length on a square, as Posts reads the lowest of its lengths, or null. */
+    /** The shaft of the pole that has a length standing on a square, as Posts reads the lowest of its lengths, or null. */
     private Posts shaftOf(int x, int y, int z) {
         while (z > build.lowestLevel && standsOn(x, y, z - 1) != null) {
             z--;
+        }
+        if (Poles.drawnFrom(drawn, x, y, z, build.lowestLevel) == Poles.BACK) {
+            x--;
+            y--;
         }
         PZArrayList<IsoObject> objects = build.cell.getGridSquare(x, y, z).getObjects();
         for (int i = 0; i < objects.size(); i++) {
@@ -197,6 +202,12 @@ final class WireBuilder {
             }
         }
         return null;
+    }
+
+    /** Whether a square has a floor. */
+    private boolean floored(int x, int y, int z) {
+        IsoGridSquare square = build.cell.getGridSquare(x, y, z);
+        return square != null && square.getFloor() != null;
     }
 
     /** The sprite of the length of pole that stands on a square, by its name, or null. */
@@ -227,6 +238,11 @@ final class WireBuilder {
         if (drawnUp(x, y, z)) {
             return shaftOf(x - Spans.LEVEL_SQUARES, y - Spans.LEVEL_SQUARES, z - 1) != null;
         }
+        if (Poles.setBack(drawn, x, y, z)) {
+            x++;
+            y++;
+            build.wantsMap |= Poles.unsettledPole(drawn, loadedHere, x, y, z, build.lowestLevel);
+        }
         if (z > build.lowestLevel && standsOn(x, y, z - 1) != null) {
             // Its foot has built it, unless its foot is a sprite Posts cannot read: then each length is left to stand as it did.
             return shaftOf(x, y, z) != null;
@@ -243,7 +259,7 @@ final class WireBuilder {
         }
         Poles.Arm arm = Poles.arm(highest);
         float axisX = x + post.a, axisY = y + post.b, level = ViewCamera.LEVEL_HEIGHT;
-        float foot = z * level + build.geometry.liftAt(post.a, post.b), floor = top * level + build.landAt(axisX, axisY);
+        float foot = Poles.footLevel(floored, x, y, z) * level + build.geometry.liftAt(post.a, post.b), floor = top * level + build.landAt(axisX, axisY);
         float head = floor + (arm == null ? Poles.LENGTH : Poles.TOP) * level, thin = post.half * Poles.TAPER;
         float u = SpriteGeometry.textureU(build.frame, post.a, post.b), v = SpriteGeometry.textureV(build.frame, post.a, post.b, 0.5f);
         mesh.open = build.frame.open + 32f * SpriteGeometry.TIMBER;
