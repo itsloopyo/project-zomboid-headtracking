@@ -4654,19 +4654,22 @@ final class Pipeline {
         quad();
         GL11.glBindTexture(GL_TEXTURE_2D, meterColor);
         GL30.glGenerateMipmap(GL_TEXTURE_2D);
-        GL15.glBindBuffer(GL_PIXEL_PACK_BUFFER, meterBuffers[meterAt]);
-        // Whatever the game left in the pack state would lay the rows out otherwise, past the end
-        // of the buffer. The frame's glPushClientAttrib gives the game its own back.
-        GL11.glPixelStorei(GL_PACK_ROW_LENGTH, 0);
-        GL11.glPixelStorei(GL_PACK_SKIP_ROWS, 0);
-        GL11.glPixelStorei(GL_PACK_SKIP_PIXELS, 0);
-        GL11.glPixelStorei(GL_PACK_ALIGNMENT, 4);
-        GL11.glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, 0L);
-        if (meterFences[meterAt] != 0L) {
-            GL32.glDeleteSync(meterFences[meterAt]);
+        // A buffer is asked for again only once it has been read. Asking over one the card has not
+        // filled yet threw that reading away, and with the card more than METER_READS - 1 frames
+        // behind (a still view) every reading went that way, so the eye held its last exposure
+        // until the view moved.
+        if (meterFences[meterAt] == 0L) {
+            GL15.glBindBuffer(GL_PIXEL_PACK_BUFFER, meterBuffers[meterAt]);
+            // Whatever the game left in the pack state would lay the rows out otherwise, past the end
+            // of the buffer. The frame's glPushClientAttrib gives the game its own back.
+            GL11.glPixelStorei(GL_PACK_ROW_LENGTH, 0);
+            GL11.glPixelStorei(GL_PACK_SKIP_ROWS, 0);
+            GL11.glPixelStorei(GL_PACK_SKIP_PIXELS, 0);
+            GL11.glPixelStorei(GL_PACK_ALIGNMENT, 4);
+            GL11.glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, 0L);
+            meterFences[meterAt] = GL32.glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+            meterAt = (meterAt + 1) % METER_READS;
         }
-        meterFences[meterAt] = GL32.glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
-        meterAt = (meterAt + 1) % METER_READS;
         long oldest = meterFences[meterAt];
         if (oldest != 0L) {
             int waited = GL32.glClientWaitSync(oldest, 0, 0L);
