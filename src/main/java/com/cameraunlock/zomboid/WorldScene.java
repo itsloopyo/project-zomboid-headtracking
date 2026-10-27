@@ -123,7 +123,7 @@ final class WorldScene {
     /** Past where the far land ends, for an eye as high over it as the map's tallest roof. */
     private static final float FAR = FarLand.REACH + 80f;
     static final float EXPOSURE_INDOORS = 1.25f;
-    private static final float EYE_ADAPT_SECONDS = 0.8f;
+    private static final float EYE_ADAPT_SECONDS = 0.25f;
     /** How much further the eye closes at night over ground all under snow: 2.5 times as far at full snow and full night. */
     private static final float SNOW_STOPS_DOWN = 1.5f;
     private static final float EXPOSURE_MOST = 3.5f;
@@ -196,7 +196,7 @@ final class WorldScene {
      */
     private static final float UPPER_OVER_MEAN = 1.5f;
     /** How long the eye takes to stop down to a brighter view, and to open up to a darker one, in seconds: an eye is slower to open. */
-    private static final float EYE_CLOSES_SECONDS = 0.5f, EYE_OPENS_SECONDS = 2.5f;
+    private static final float EYE_CLOSES_SECONDS = 0.2f, EYE_OPENS_SECONDS = 0.35f;
     /** How much further the eye opens deep in a wood than on open ground. */
     private static final float WOODS_OPEN = 1.1f;
     private long lastAdapt;
