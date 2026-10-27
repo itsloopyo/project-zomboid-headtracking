@@ -118,6 +118,9 @@ final class FurnishingBuilder {
     private final SpriteGeometry.Frame partFrame = new SpriteGeometry.Frame();
     /** The light of the squares a piece over more than one stands on, at the block's outer corners: see Models.Instances.span. */
     private final SpriteGeometry.Frame blockFrame = new SpriteGeometry.Frame();
+    private final float[] footCorner = new float[2];
+    /** How far, in tiles, a model may reach over the next square and still be lit as one standing on its own: a hair over its edge is not standing there. */
+    private static final float OVERHANG = 0.1f;
     private final float[] partAt = new float[4], wholeAt = new float[4];
     private final float[] screenAt = new float[2];
     private final float[] roofCorners = new float[4], onRoof = new float[3];
@@ -999,25 +1002,20 @@ final class FurnishingBuilder {
             centreX += front[0] * clear;
             centreY += front[1] * clear;
         }
-        // A piece over more than one square, by its grid or the sprites it is tied to, is lit across those of them in the
-        // chunk, whose light the chunk has read, from the first of them. The block holds the square building it.
+        // A piece whose model stands over more than one square is lit across those of them in the chunk, whose light the
+        // chunk has read, from the first of them. The block holds the square building it.
         SpriteGeometry.Frame light = build.frame;
         int litX = x, litY = y, across = 1, down = 1;
-        int firstX = x, firstY = y, lastX = x + piece.width - 1, lastY = y + piece.height - 1;
-        if (piece.partner != null) {
-            firstX = Math.min(firstX, x + piece.partnerX);
-            firstY = Math.min(firstY, y + piece.partnerY);
-            lastX = Math.max(lastX, x + piece.partnerX);
-            lastY = Math.max(lastY, y + piece.partnerY);
+        float leastA = Float.MAX_VALUE, leastB = Float.MAX_VALUE, mostA = -Float.MAX_VALUE, mostB = -Float.MAX_VALUE;
+        for (int corner = 0; corner < 4; corner++) {
+            Models.turn(piece.turns, (corner & 1) == 0 ? model.minX : model.maxX, (corner & 2) == 0 ? model.minY : model.maxY, footCorner);
+            leastA = Math.min(leastA, centreX + footCorner[0] * piece.scale);
+            mostA = Math.max(mostA, centreX + footCorner[0] * piece.scale);
+            leastB = Math.min(leastB, centreY + footCorner[1] * piece.scale);
+            mostB = Math.max(mostB, centreY + footCorner[1] * piece.scale);
         }
-        if (piece.row != null) {
-            for (int i = 0; i < piece.row.length; i++) {
-                firstX = Math.min(firstX, x + piece.rowX[i]);
-                firstY = Math.min(firstY, y + piece.rowY[i]);
-                lastX = Math.max(lastX, x + piece.rowX[i]);
-                lastY = Math.max(lastY, y + piece.rowY[i]);
-            }
-        }
+        int firstX = x + (int) Math.floor(leastA + OVERHANG), lastX = x + (int) Math.floor(mostA - OVERHANG);
+        int firstY = y + (int) Math.floor(leastB + OVERHANG), lastY = y + (int) Math.floor(mostB - OVERHANG);
         if ((lastX > firstX || lastY > firstY) && !piece.onRoof) {
             int fromX = Math.max(firstX - chunkX, 0), fromY = Math.max(firstY - chunkY, 0);
             int toX = Math.min(lastX - chunkX, WorldScene.CHUNK_TILES - 1), toY = Math.min(lastY - chunkY, WorldScene.CHUNK_TILES - 1);
