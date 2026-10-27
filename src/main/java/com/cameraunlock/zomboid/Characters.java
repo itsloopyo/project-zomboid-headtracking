@@ -321,6 +321,10 @@ public final class Characters {
         notedIn = null;
         holding = null;
         viewer = null;
+        for (int i = 0; i < dying.size(); i++) {
+            Dying.release(dying.get(i));
+        }
+        dying.clear();
         synchronized (this) {
             // The zombies last drawn are of a map the game may since have let go of.
             Arrays.fill(seen, 0, seenCount, null);
@@ -2216,6 +2220,9 @@ public final class Characters {
             }
             // Stepped before anything is left out, so a step is not lost while its walker is out of the picture.
             float standsUp = data.character != null && !data.inVehicle ? standsUp(data, now) : 0f;
+            if (kind == BY_EYE && data.character != null && !data.inVehicle && data.character != viewer) {
+                heldWhileDying(data, standsUp);
+            }
             if (map != null && outside(map, data)) {
                 continue;
             }
@@ -2317,6 +2324,9 @@ public final class Characters {
             data.ambientG = green;
             data.ambientB = blue;
             drawn++;
+        }
+        if (only != ONLY_VEHICLES && !dying.isEmpty()) {
+            drawDying(viewMatrix, casting, map, eyeX, eyeY, reach, now);
         }
         CharacterDraw.release();
         if (!casting && map == null && only != ONLY_VEHICLES) {
@@ -2557,11 +2567,151 @@ public final class Characters {
                     roots[at + 3] = kept.angle;
                 }
                 drawn++;
+                if (!dying.isEmpty()) {
+                    corpseDrawn(body);
+                }
             }
         }
         CharacterDraw.release();
         Corpses.sweep(now);
         return drawn;
+    }
+
+    /** The characters this view drew dying, held to be drawn on until their corpses are: see Dying. */
+    private final ArrayList<Dying.Held> dying = new ArrayList<>();
+
+    /**
+     * A character the eye's pass is drawn with: one that has died is kept as drawn, to be drawn
+     * on from the frame the game stops drawing it, where the view draws corpses as models.
+     */
+    private void heldWhileDying(ModelSlotRenderData data, float up) {
+        Dying.Held held = null;
+        for (int i = 0; i < dying.size(); i++) {
+            if (dying.get(i).character == data.character) {
+                held = dying.get(i);
+                break;
+            }
+        }
+        if (!data.character.isDead() || !Quality.corpseModels(view.index)) {
+            if (held != null) {
+                dying.remove(held);
+                Dying.release(held);
+            }
+            return;
+        }
+        if (held == null) {
+            held = Dying.hold(data.character);
+            dying.add(held);
+            // The figure may still move a little before it lies still, so corpses a little
+            // further off than its own could be are taken as lying there before it.
+            float within = 2f * Dying.CORPSE_WITHIN;
+            List<WorldScene.ChunkMeshes> builds = view.pipeline.drawnBuilds();
+            for (int chunk = 0; chunk < builds.size(); chunk++) {
+                List<Corpses.Lying> lying = builds.get(chunk).lying;
+                for (int i = 0; i < lying.size(); i++) {
+                    Corpses.Lying body = lying.get(i);
+                    float toX = body.x() - data.x, toY = body.y() - data.y;
+                    if (toX * toX + toY * toY <= within * within) {
+                        held.lyingBefore.add(body.body());
+                    }
+                }
+            }
+        }
+        held.goneAt = 0L;
+        Dying.keep(held, data, parts(data), up);
+    }
+
+    /** Whether the game draws a character in this view's frame. */
+    private boolean noted(Object character) {
+        for (int i = 0; i < noted.size(); i++) {
+            if (noted.get(i).character == character) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * A corpse was drawn as a model: a figure held for it is let go, once the game no longer
+     * draws the character. The eye draws corpses before people, so the frame that draws the
+     * corpse first is the first without the figure.
+     */
+    private void corpseDrawn(Corpses.Lying body) {
+        for (int i = dying.size() - 1; i >= 0; i--) {
+            Dying.Held held = dying.get(i);
+            if (held.owns(body.body(), body.x(), body.y(), body.z()) && !noted(held.character)) {
+                dying.remove(i);
+                Dying.release(held);
+            }
+        }
+    }
+
+    /**
+     * The figures held of characters that died, that the game no longer draws and whose corpses
+     * are not drawn yet, each as it was last drawn: see Dying.
+     */
+    private void drawDying(float[] viewMatrix, boolean casting, float[] map, float eyeX, float eyeY, float reach, long now) {
+        for (int i = dying.size() - 1; i >= 0; i--) {
+            Dying.Held held = dying.get(i);
+            if (held.forgotten) {
+                dying.remove(i);
+                continue;
+            }
+            if (noted(held.character)) {
+                continue;
+            }
+            if (held.goneAt == 0L) {
+                held.goneAt = now;
+            } else if (now - held.goneAt > Dying.HELD_NANOS) {
+                dying.remove(i);
+                Dying.release(held);
+                continue;
+            }
+            float x = held.x, y = held.y, middle = held.up + PERSON_MIDDLE;
+            float toX = x - eyeX, toY = y - eyeY;
+            if (toX * toX + toY * toY > reach * reach || !view.pipeline.drawDistance.draws(x, y)) {
+                continue;
+            }
+            if (map != null) {
+                float up = held.z * ViewCamera.LEVEL_HEIGHT;
+                float across = map[0] * x + map[4] * y + map[8] * up + map[12];
+                float along = map[1] * x + map[5] * y + map[9] * up + map[13];
+                float acrossReach = MODEL_REACH * (float) Math.sqrt(map[0] * map[0] + map[4] * map[4] + map[8] * map[8]);
+                float alongReach = MODEL_REACH * (float) Math.sqrt(map[1] * map[1] + map[5] * map[5] + map[9] * map[9]);
+                if (Math.abs(across) > 1f + acrossReach || Math.abs(along) > 1f + alongReach) {
+                    continue;
+                }
+            }
+            if (glassPlane != null && glassPlane[0] * x + glassPlane[1] * y + glassPlane[2] * middle - glassPlane[3] < -BEHIND_GLASS) {
+                continue;
+            }
+            if (mirrored) {
+                float behind = toX * mirrorWayX + toY * mirrorWayY, aside = Math.abs(toX * mirrorWayY - toY * mirrorWayX);
+                if (behind < 0f || aside > behind * mirrorWide + MIRROR_MARGIN) {
+                    continue;
+                }
+            } else if (!WITHOUT_CULL && seenFrom != null) {
+                PictureEdges.outsideOf(seenFrom, seenWide, seenHigh, x, y, middle, past);
+                if (past[0] > PERSON_ROUND || past[1] > PERSON_ROUND || past[2] > PERSON_ROUND || past[3] > PERSON_ROUND || past[4] > PERSON_ROUND) {
+                    continue;
+                }
+            }
+            IsoGridSquare square = held.square;
+            if (!WITHOUT_CULL && (kind == BY_EYE || kind == BY_SCOPE) && byRoom != null && square != null
+                    && byRoom.leftOut(square.getRoomID(), square.getX(), square.getY(), square.getZ())) {
+                continue;
+            }
+            place(x, y, held.up, held.angle, CHARACTER_SCALE);
+            multiply(viewMatrix, placed, combined);
+            CharacterDraw.begin(held.person, combined, projection, casting, fromViewer(toX, toY, held.z - viewer.getZ()),
+                    Quality.wholeFigureShadows(view.index) ? Float.POSITIVE_INFINITY : CharacterDraw.SHADOW_WHOLE_WITHIN);
+            if (!casting) {
+                lightAt(square);
+            }
+            for (int part = 0; part < held.parts.size(); part++) {
+                CharacterDraw.part(held.parts.get(part));
+            }
+        }
     }
 
     /** The eye and the projection a piece at rest is pictured from, looking straight down on it: see LimbDecals. */

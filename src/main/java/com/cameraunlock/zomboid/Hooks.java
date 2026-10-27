@@ -267,6 +267,7 @@ public final class Hooks {
         Fires.forget();
         Pieces.forget();
         Corpses.forget();
+        Dying.forget();
         Bleeding.forget();
         LimbDecals.forget();
         SharedHeads.forget();
@@ -631,10 +632,10 @@ public final class Hooks {
 
     /**
      * Called as the game is about to destroy a texture it combined from others, a character's
-     * skin among them: true puts it off, see Pieces.keeps and Corpses.keeps.
+     * skin among them: true puts it off, see Pieces.keeps, Corpses.keeps and Dying.keeps.
      */
     public static boolean keepsTexture(Texture texture) {
-        return Pieces.keeps(texture) || Corpses.keeps(texture);
+        return Pieces.keeps(texture) || Corpses.keeps(texture) || Dying.keeps(texture);
     }
 
     /** Called as the game starts writing a chunk to its save, and once it has: see Bleeding.saving. */
