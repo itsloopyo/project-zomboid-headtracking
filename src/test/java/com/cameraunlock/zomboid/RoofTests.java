@@ -66,6 +66,7 @@ final class RoofTests {
         Checks.run("farSideOfRowsOverALongCrownStandsOnTheWall", RoofTests::farSideOfRowsOverALongCrownStandsOnTheWall);
         Checks.run("rowAtTheEndOfAHipHasNoFarSide", RoofTests::rowAtTheEndOfAHipHasNoFarSide);
         Checks.run("hipRoofWithCutHipsGetsItsFarFacesAsAHip", RoofTests::hipRoofWithCutHipsGetsItsFarFacesAsAHip);
+        Checks.run("roofHippedAtOneEndAndGabledAtTheOtherGetsItsFarFaces", RoofTests::roofHippedAtOneEndAndGabledAtTheOtherGetsItsFarFaces);
         Checks.run("wingsFarSideStopsAtAMainRoofDeeperThanItsNearSide", RoofTests::wingsFarSideStopsAtAMainRoofDeeperThanItsNearSide);
         Checks.run("slopeThatClimbsPastItsCrownLiesLevel", RoofTests::slopeThatClimbsPastItsCrownLiesLevel);
         Checks.run("gablesSlopeThatClimbsPastACrownStaysASlope", RoofTests::gablesSlopeThatClimbsPastACrownStaysASlope);
@@ -2605,6 +2606,39 @@ final class RoofTests {
         for (int x = 0; x <= 5; x++) {
             for (int y = 0; y <= 8; y++) {
                 check(over.containsKey(RoofFit.key(x, y, 0)), "the hip roof is closed over " + x + ", " + y);
+            }
+        }
+    }
+
+    private static void roofHippedAtOneEndAndGabledAtTheOtherGetsItsFarFaces() {
+        String[] map = {
+            "0 8 2 1.333 1 0", "1 7 2 1.667 1.333 0", "1 8 2 1.333 1 -1", "2 6 2 2 1.667 0", "2 7 2 1.667 1.333 -1", "2 8 2 1.333 1 -1",
+            "3 0 1 2 1.667 -1", "3 1 1 2 1.667 -1", "3 2 1 2 1.667 -1", "3 3 1 2 1.667 -1", "3 4 1 2 1.667 -1", "3 5 1 2 1.667 -1", "3 6 -2 2 1.5 -1",
+            "3 7 2 1.667 1.333 -1", "3 8 2 1.333 1 -1",
+            "4 0 1 1.667 1.333 -1", "4 1 1 1.667 1.333 -1", "4 2 1 1.667 1.333 -1", "4 3 1 1.667 1.333 -1", "4 4 1 1.667 1.333 -1", "4 5 1 1.667 1.333 -1",
+            "4 6 1 1.667 1.333 -1", "4 7 3 1.667 1.333 -1", "4 8 2 1.333 1 -1", "5 0 1 1.333 1 -1", "5 1 1 1.333 1 -1", "5 2 1 1.333 1 -1", "5 3 1 1.333 1 -1",
+            "5 4 1 1.333 1 -1", "5 5 1 1.333 1 -1", "5 6 1 1.333 1 -1", "5 7 1 1.333 1 -1", "5 8 3 1.333 1 -1"};
+        List<RoofFit.Tile> roof = new ArrayList<>();
+        for (String one : map) {
+            String[] f = one.split(" ");
+            int axis = Integer.parseInt(f[2]);
+            RoofFit.Tile tile = new RoofFit.Tile(Integer.parseInt(f[0]), Integer.parseInt(f[1]), 1, Math.abs(axis), axis > 0, Float.parseFloat(f[3]), Float.parseFloat(f[4]));
+            tile.cutCorner = Integer.parseInt(f[5]);
+            roof.add(tile);
+        }
+        RoofFit.fit(roof);
+        List<RoofFit.Tile> made = RoofFit.backs(roof, standing((x, y) -> x >= 0 && x <= 5 && y >= 0 && y <= 8));
+        for (RoofFit.Tile tile : made) {
+            for (int corner = 0; corner < 4; corner++) {
+                int x = tile.x + (int) RoofFit.cornerX(corner), y = tile.y + (int) RoofFit.cornerY(corner);
+                float hip = Math.min(2f, 1f + Math.min(Math.min(x, 6 - x), 9 - y) * THIRD);
+                check(near(tile.corners[corner], hip), "the made far side lies on the roof at " + x + ", " + y + ": " + said(tile));
+            }
+        }
+        HashMap<Long, RoofFit.Tile> over = bySquare(roof, made);
+        for (int x = 0; x <= 5; x++) {
+            for (int y = 0; y <= 8; y++) {
+                check(over.containsKey(RoofFit.key(x, y, 0)), "the roof is closed over " + x + ", " + y);
             }
         }
     }

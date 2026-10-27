@@ -592,11 +592,13 @@ final class RoofFit {
         final boolean crowned;
         /** Whether the far side stops against a square something else covers, before the building's edge. */
         final boolean blocked;
-        /** Whether the row's top tile is one the map cuts to a triangle (Tile.cutCorner): a hip crosses the top of the row. */
+        /** Whether the row's top tile is one the map cuts to a triangle at its north-west corner (Tile.cutCorner 0): a hip crosses the top of the row. */
         final boolean cut;
+        /** Whether the map cuts a tile beside the far side's last squares, as deep as the near side: the roof is hipped at the far end too. */
+        final boolean farHip;
         final float eave, rise, ridge;
 
-        Row(int x, int y, int dx, int dy, int open, int climbed, boolean fromEave, boolean crowned, boolean blocked, boolean cut, float eave, float rise, float ridge) {
+        Row(int x, int y, int dx, int dy, int open, int climbed, boolean fromEave, boolean crowned, boolean blocked, boolean cut, boolean farHip, float eave, float rise, float ridge) {
             this.x = x;
             this.y = y;
             this.dx = dx;
@@ -607,20 +609,35 @@ final class RoofFit {
             this.crowned = crowned;
             this.blocked = blocked;
             this.cut = cut;
+            this.farHip = farHip;
             this.eave = eave;
             this.rise = rise;
             this.ridge = ridge;
         }
 
         /**
-         * The first square of the far side that is laid. A row cut by a hip at its top meets the face across it in a hip on the far
-         * side as well: its far side climbs from the far wall as deep as the near side and no further, and the face across roofs
-         * the squares past it. Carried on level at the cut tile's height to the far wall, the north row of a hip roof's east face
-         * laid a flat at its eave's height a third of a level up over the whole north eave (picnic shelter 12015..12020, 7364).
+         * The first square of the far side that is laid. A row cut by a hip at its top, on a roof hipped at the far end too, meets
+         * the face across it in a hip on the far side as well: its far side climbs from the far wall as deep as the near side and
+         * no further, and the face across roofs the squares past it. Carried on level at the cut tile's height to the far wall, the
+         * north row of a hip roof's east face laid a flat at its eave's height a third of a level up over the whole north eave
+         * (picnic shelter 12015..12020, 7364). Where the far end is a gable the faces across roof the whole row: climbing from the
+         * gable's wall, the row stood a hip's corner at the foot of the gable.
          */
         int first() {
-            return cut && fromEave ? Math.max(0, open - climbed) : 0;
+            return !cut || !fromEave ? 0 : farHip ? Math.max(0, open - climbed) : open;
         }
+    }
+
+    private static boolean hipAtTheFarEnd(HashMap<Long, Tile> roofed, int x, int y, int dx, int dy, int open, int climbed) {
+        for (int step = Math.max(0, open - climbed); step < open; step++) {
+            for (int side = -1; side <= 1; side += 2) {
+                Tile beside = roofed.get(key(x + step * dx + (dx == 0 ? side : 0), y + step * dy + (dy == 0 ? side : 0), 0));
+                if (beside != null && beside.cutCorner >= 0) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /**
@@ -1051,7 +1068,7 @@ final class RoofFit {
                 continue;
             }
             over.addAll(overCrown);
-            Row row = new Row(x, y, dx, dy, open, climbed, fromEave, metCrown, blocked, top.cutCorner >= 0, eave, rise, farRidge);
+            Row row = new Row(x, y, dx, dy, open, climbed, fromEave, metCrown, blocked, top.cutCorner == 0, hipAtTheFarEnd(roofed, x, y, dx, dy, open, climbed), eave, rise, farRidge);
             rows.add(row);
             rowAt.putIfAbsent(rowKey(x, y, dx, dy), row);
         }
