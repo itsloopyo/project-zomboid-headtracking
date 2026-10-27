@@ -122,8 +122,7 @@ public final class Controls {
      * A character that is not aiming turns to the way it moves, so walked backwards it would
      * show its back to what the view looks at: in a mirror, to other players, and to the game's
      * own vision cone, and sprinted sideways it would turn its body where a first person player
-     * keeps looking ahead. Moved sideways or backwards, or jogged or sprinted anywhere but
-     * straight ahead, it is held in the game's aiming stance, the
+     * keeps looking ahead. Moved any way but straight ahead, it is held in the game's aiming stance, the
      * one way the game has of facing one way and moving another, raised to the pace the game
      * gives the walk, jog or sprint ahead (Sidestep). Dragging a body, with the FacesTheView row
      * off or on a server, the game turns the character to the way it goes, as it would anyway.
@@ -136,9 +135,10 @@ public final class Controls {
         }
         // Off, a jog or sprint asked for sideways or back is the walk, and only straight ahead runs.
         int gait = SPRINT_ASIDE ? askedGait(player) : Sidestep.WALKING;
-        // A jog or sprint ahead and to one side faces the view too: only straight ahead is the game's own run.
+        // Moved ahead and to one side it faces the view too, so a mirror shows it looking where the
+        // player looks: only straight ahead is the game's own walk or run.
         boolean turned = view.firstPerson.movingAside()
-                || SPRINT_ASIDE && gait >= Sidestep.JOGGING && view.firstPerson.walkingAhead() && view.firstPerson.keysAhead() < STRAIGHT_AHEAD;
+                || view.firstPerson.walkingAhead() && view.firstPerson.keysAhead() < STRAIGHT_AHEAD;
         stanceGait = turned ? gait : Sidestep.WALKING;
         return turned;
     }

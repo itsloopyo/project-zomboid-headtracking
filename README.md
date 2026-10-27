@@ -255,7 +255,7 @@ Every key saves its new setting to `CameraUnlock.ini` as you press it, and `Dele
 
 ### Mouse and keyboard
 
-The mouse turns the view. Movement keys follow the direction you face. Walking or sneaking sideways or backwards, your character keeps facing where you look, in the game's aiming stance at the pace of the walk ahead. Jogging and sprinting are straight ahead only: held any other way, your character walks. Offline only, and `FacesTheView=false` gives the game's own turn every time.
+The mouse turns the view. Movement keys follow the direction you face. Walking or sneaking any way but straight ahead, diagonals included, your character keeps facing where you look, in the game's aiming stance at the pace of the walk ahead. Jogging and sprinting are straight ahead only: held any other way, your character walks. Offline only, and `FacesTheView=false` gives the game's own turn every time.
 
 | Input | Action |
 | --- | --- |
