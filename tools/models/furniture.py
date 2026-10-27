@@ -4882,13 +4882,19 @@ def gravestone(name, top):
 def sack_barrier():
     """A barrier of the kind an army fills with earth: a cube of sacking in a cage of wire mesh, heaped at the top."""
     model = Model("sack_barrier")
-    # The sacking swells out between the cage's wires, a cushion to each square of mesh, and the earth in it stands
-    # heaped in the middle of the top.
-    half, height, wires, rows, swell, heap = 0.47, 0.95, 0.24, (0.02, 0.33, 0.64, 0.95), 0.03, 0.1
-    sack = bmesh.new()
-    bmesh.ops.create_cube(sack, size=1.0)
-    bmesh.ops.subdivide_edges(sack, edges=sack.edges[:], cuts=11, use_grid_fill=True)
-    bmesh.ops.remove_doubles(sack, verts=sack.verts[:], dist=0.0001)
+    # The sacking swells out between the cage's wires, a cushion to each gap in the mesh, and the earth in it stands
+    # heaped in the middle of the top. Its faces are cut along the wires, where the sacking is held in, and three
+    # times across each gap between them.
+    half, height, swell, heap = 0.47, 0.95, 0.03, 0.1
+    columns, rows = [-0.48 + n * 0.24 for n in range(5)], [0.02, 0.33, 0.64, 0.95]
+
+    def cuts(lines, low, high):
+        """The wires between low and high, three cuts across each gap between them, and low and high."""
+        at = set([low, high]) | {line for line in lines if low < line < high}
+        at |= {a + (b - a) * share for a, b in zip(lines, lines[1:]) for share in (0.25, 0.5, 0.75)}
+        return sorted(round(v, 5) for v in at if low <= v <= high)
+
+    across, up = cuts(columns, -half, half), cuts([0.0] + rows, 0.0, height)
 
     def between(at, lines):
         """How far at is through the gap between the two lines either side of it, 0 to 1."""
@@ -4897,17 +4903,33 @@ def sack_barrier():
                 return (at - low) / (high - low)
         return 0.0
 
-    columns = [-0.48 + n * wires for n in range(5)]
-    for vert in sack.verts:
-        x, y, z = vert.co.x * 2 * half, vert.co.y * 2 * half, (vert.co.z + 0.5) * height
-        up = math.sin(math.pi * between(z, rows))
-        if abs(x) > half - 0.001 and abs(y) < half - 0.001:
-            x += math.copysign(swell * math.sin(math.pi * between(y, columns)) * up, x)
-        elif abs(y) > half - 0.001 and abs(x) < half - 0.001:
-            y += math.copysign(swell * math.sin(math.pi * between(x, columns)) * up, y)
-        elif z > height - 0.001:
+    def place(x, y, z):
+        swelled = swell * math.sin(math.pi * between(z, rows))
+        if abs(x) == half and abs(y) < half:
+            x += math.copysign(swelled * math.sin(math.pi * between(y, columns)), x)
+        elif abs(y) == half and abs(x) < half:
+            y += math.copysign(swelled * math.sin(math.pi * between(x, columns)), y)
+        elif z == height:
             z += heap * (1 - (x / half) ** 2) * (1 - (y / half) ** 2)
-        vert.co = (x, y, z)
+        return x, y, z
+
+    sack, verts = bmesh.new(), {}
+
+    def vert(x, y, z):
+        if (x, y, z) not in verts:
+            verts[(x, y, z)] = sack.verts.new(place(x, y, z))
+        return verts[(x, y, z)]
+
+    def sheet(point, us, vs):
+        for u0, u1 in zip(us, us[1:]):
+            for v0, v1 in zip(vs, vs[1:]):
+                sack.faces.new([vert(*point(u, v)) for u, v in ((u0, v0), (u1, v0), (u1, v1), (u0, v1))])
+
+    for side in (-half, half):
+        sheet(lambda u, v: (side, u, v), across, up)
+        sheet(lambda u, v: (u, side, v), across, up)
+    for level in (0.0, height):
+        sheet(lambda u, v: (u, v, level), across, across)
     model.turned(sack, "paint", sharp=80.0)
     cage = bmesh.new()
     for side in (-1, 1):
