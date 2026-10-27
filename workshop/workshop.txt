@@ -1,27 +1,27 @@
 version=1
 id=3823224669
 title=PZHT - First Person + Graphics & Gameplay Overhaul + Head Tracking
-description=[b]I'm working hard on this mod, but I haven't been able to test everything yet. If anything doesn't work right, let me know in a comment.[/b]
+description=[b]I'm working hard on this mod, but haven't been able to test everything yet. If anything doesn't work right, let me know in a comment or on [url=https://discord.com/invite/dxyZdyFNT9]Discord[/url].[/b]
 description=
-description=A graphics and gameplay overhaul for Project Zomboid that adds a first person mode and OpenTrack compatible head tracking with microphone lip syncing. Every component is optional.
+description=A graphics and gameplay overhaul for Project Zomboid that adds a first person mode and OpenTrack compatible head tracking with microphone lip syncing. All components are optional.
 description=
 description=[b]This Workshop copy needs ZombieBuddy[/b], a separate mod by zed-0xff that loads Java mods into the game. It is not mine and I can't take responsibility for it: read its Workshop page before you install it. To play PZHT without ZombieBuddy, follow the installation instructions in the [url=https://github.com/itsloopyo/project-zomboid-headtracking]source repository[/url].
 description=
-description=Say hi on [url=https://discord.com/invite/dxyZdyFNT9]Discord[/url]. Free and open source (MIT) on [url=https://github.com/itsloopyo/project-zomboid-headtracking]GitHub[/url].
+description=Free and open source (MIT) on [url=https://github.com/itsloopyo/project-zomboid-headtracking]GitHub[/url].
 description=
 description=[img]https://raw.githubusercontent.com/itsloopyo/project-zomboid-headtracking/main/workshop/gallery/snow-sunset.jpg[/img]
 description=
 description=[h1]What it adds[/h1]
 description=[list]
-description=[*] Optional head tracking with any OpenTrack compatible tracker: the view turns and leans with your head, your mouse or controller keeps the aim.
+description=[*] Optional head tracking with any OpenTrack compatible tracker: the view turns and leans with your head, while your mouse or controller aims.
 description=[*] 3D buildings, furniture, trees, hills and distant scenery, with new textures, shadows and reflections (Medium and High).
-description=[*] Rain and snow that settle, with footprints and tyre tracks in the snow, lightning in storms, and trees that turn and drop their leaves in autumn (Medium and High).
-description=[*] Modelled guns that kick and reload by hand (Medium and High).
+description=[*] Enhanced rain and snow, with footprints and tyre tracks in the snow, lightning in storms, and trees that turn and drop their leaves in autumn (Medium and High).
+description=[*] Modelled guns that kick and reload (Medium and High).
 description=[*] Shots hit the body part you aim at. In single player, limbs can be shot off and close shotgun blasts can burst a head.
 description=[*] In single player, rounds go through plasterboard, wood, doors and glass, and break lamps, headlights and window glass.
 description=[*] Pools of lamp light, and mirrors and window glass that reflect you (Medium and High).
-description=[*] Bullet holes, and impacts that throw dust, splinters, sparks or blood (Medium and High).
-description=[*] The game's flames stood up in the world, with smoke, embers and firelight (Medium and High).
+description=[*] Bullet holes and impacts that throw dust, splinters, sparks or blood (Medium and High).
+description=[*] The game's original flames, with smoke, embers and firelight (Medium and High).
 description=[*] Modelled vehicle interiors with working gauges, mirrors and wipers. Shoot from any seat.
 description=[*] With head tracking, your character's head and flashlight turn with yours.
 description=[*] Sound follows where you look, and is muffled by walls.
