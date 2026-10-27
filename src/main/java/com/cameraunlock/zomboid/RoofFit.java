@@ -547,6 +547,11 @@ final class RoofFit {
         default boolean walled(int x, int y, int z, boolean north) {
             return false;
         }
+
+        /** As walled, with a gable's triangle counted as well. */
+        default boolean anyWall(int x, int y, int z, boolean north) {
+            return false;
+        }
     }
 
     /** The furthest a roof's level top is crossed to reach the place of its far slope, in tiles. */
@@ -929,6 +934,11 @@ final class RoofFit {
                     farRidge = reached;
                     fromEave = true;
                 }
+            }
+            // A slope whose top runs up to a wall of the building standing over its ridge is a lean-to against that wall. A
+            // porch's far side was carried through a gambrel's end wall and creased the made slope inside it (2083..2085, 14275..14276).
+            if (farRidge == ridge && site.anyWall(dx + dy > 0 ? x : x - dx, dx + dy > 0 ? y : y - dy, (int) Math.floor(ridge + SAME), !isAlongX)) {
+                continue;
             }
             over.addAll(overCrown);
             Row row = new Row(x, y, dx, dy, open, climbed, fromEave, metCrown, blocked, eave, rise, farRidge);

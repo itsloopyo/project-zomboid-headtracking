@@ -673,7 +673,7 @@ final class Roofs {
                 // As RoofFit.backs asks of it, on the ridge's level and below the standard pitch, or it is a slope of its own.
                 boolean shallower = onLevel && found.sure && found.axis == tile.axis && (found.low > found.high ? -1 : 1) == -up
                         && Math.abs(found.high - found.low) < RoofFit.PITCH - RoofFit.PITCH_SLACK && Math.max(found.low, found.high) <= ridge + RoofFit.SAME
-                        && walled(cell, tile.x + Math.max(dx, 0), tile.y + Math.max(dy, 0), tile.z, tile.axis == RoofFit.ALONG_Y);
+                        && walled(cell, tile.x + Math.max(dx, 0), tile.y + Math.max(dy, 0), tile.z, tile.axis == RoofFit.ALONG_Y, false);
                 if (!crown && !wing && !shallower) {
                     reading.remove(before);
                     seen.remove(key);
@@ -683,15 +683,18 @@ final class Roofs {
         }
     }
 
-    /** Whether a wall a whole level high stands on the square's north edge at that level, or with north false its west edge. A gable's triangle is none. */
-    private static boolean walled(IsoCell cell, int x, int y, int z, boolean north) {
+    /**
+     * Whether a wall stands on the square's north edge at that level, or with north false its west edge: one a whole level
+     * high, or with gables true a gable's triangle as well.
+     */
+    private static boolean walled(IsoCell cell, int x, int y, int z, boolean north, boolean gables) {
         IsoGridSquare square = cell.getGridSquare(x, y, z);
         if (square == null) {
             return false;
         }
         for (int i = 0; i < square.getObjects().size(); i++) {
             IsoSprite sprite = square.getObjects().get(i).getSprite();
-            if (sprite != null && (sprite.getName() == null || !sprite.getName().startsWith("walls_exterior_roofs"))
+            if (sprite != null && (gables || sprite.getName() == null || !sprite.getName().startsWith("walls_exterior_roofs"))
                     && (sprite.getProperties().has(IsoFlagType.WallNW) || sprite.getProperties().has(north ? IsoFlagType.WallN : IsoFlagType.WallW)
                             || sprite.getProperties().has(north ? IsoFlagType.WallNTrans : IsoFlagType.WallWTrans))) {
                 return true;
@@ -886,7 +889,12 @@ final class Roofs {
 
             @Override
             public boolean walled(int x, int y, int z, boolean north) {
-                return Roofs.walled(cell, x, y, z, north);
+                return Roofs.walled(cell, x, y, z, north, false);
+            }
+
+            @Override
+            public boolean anyWall(int x, int y, int z, boolean north) {
+                return Roofs.walled(cell, x, y, z, north, true);
             }
 
             @Override

@@ -67,6 +67,7 @@ final class RoofTests {
         Checks.run("farSideOfARowOverADormerStandsOnTheWall", RoofTests::farSideOfARowOverADormerStandsOnTheWall);
         Checks.run("farSideOfARowOverABayStandsOnTheWall", RoofTests::farSideOfARowOverABayStandsOnTheWall);
         Checks.run("farSideClimbsFromAShallowerSlopeToTheWallOnItsRidge", RoofTests::farSideClimbsFromAShallowerSlopeToTheWallOnItsRidge);
+        Checks.run("leanToAgainstAWallHasNoFarSide", RoofTests::leanToAgainstAWallHasNoFarSide);
         Checks.run("roomWithNoFloorUnderTheRoofIsNoStorey", RoofTests::roomWithNoFloorUnderTheRoofIsNoStorey);
         Checks.run("roomTheSlopePassesWhollyOverIsNoStoreyItStopsAt", RoofTests::roomTheSlopePassesWhollyOverIsNoStoreyItStopsAt);
         Checks.run("farSideStandsOnTheStoreyItCoversThoughItsNearSideRunsOnDownOverAPorch", RoofTests::farSideStandsOnTheStoreyItCoversThoughItsNearSideRunsOnDownOverAPorch);
@@ -2090,6 +2091,52 @@ final class RoofTests {
             check(right,
                     "the far side " + (alongX ? "along x" : "along y") + " over a gap of " + gap + " at " + a
                     + (wall ? " climbs from the shallow rows to the wall" : " mirrors the near slope with no wall") + ": " + said(face));
+        }
+    }
+
+    /**
+     * A porch as at 2084..2089, 14277..14279 against the south end of a gambrel house: a lean-to on level 1 over y 8, climbing
+     * north at the standard pitch from 1 to 1 + 1/3, and a level strip at its top over y 7, against the house's end wall on the
+     * north edge of y 7. The house stands over y 0..6. A far side carried north from the porch's top went through the wall and
+     * came down inside the house, where it creased the house's own slope. With no wall there it is still made.
+     */
+    private static void leanToAgainstAWallHasNoFarSide() {
+        for (boolean wall : new boolean[] {true, false}) {
+            RoofFit.Site stands = standing((x, y) -> x >= 0 && x <= 5 && y >= 0 && y <= 8);
+            RoofFit.Site site = new RoofFit.Site() {
+                @Override
+                public boolean stands(int x, int y, int z) {
+                    return stands.stands(x, y, z);
+                }
+
+                @Override
+                public boolean floored(int x, int y, int z) {
+                    return false;
+                }
+
+                @Override
+                public boolean taken(int x, int y, int z, float roof) {
+                    return false;
+                }
+
+                @Override
+                public boolean anyWall(int x, int y, int z, boolean north) {
+                    return wall && north && y == 7 && z == 1;
+                }
+            };
+            List<RoofFit.Tile> roof = new ArrayList<>();
+            for (int x = 1; x <= 4; x++) {
+                roof.add(new RoofFit.Tile(x, 7, 1, RoofFit.LEVEL, true, EAVE, EAVE));
+                roof.add(new RoofFit.Tile(x, 8, 1, RoofFit.ALONG_Y, true, EAVE, 1f));
+            }
+            RoofFit.fit(roof);
+            List<RoofFit.Tile> made = RoofFit.backs(roof, site);
+            boolean inside = false;
+            for (RoofFit.Tile tile : made) {
+                inside |= tile.y <= 6;
+            }
+            check(inside != wall, wall ? "a lean-to against a wall has no far side through it: " + made.size() + " made"
+                    : "a lean-to with no wall at its top has its far side made");
         }
     }
 
