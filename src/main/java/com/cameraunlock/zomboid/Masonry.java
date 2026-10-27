@@ -83,6 +83,14 @@ final class Masonry {
                 || name.startsWith("walls_commercial") || name.startsWith("walls_garage"));
     }
 
+    /**
+     * Whether a sprite is of a sheet of inside walls: right as the game painted it on whatever wall
+     * it is, the room side of an outside wall too. Read, a floral paper laid as cut stone.
+     */
+    static boolean insideSheet(String name) {
+        return name != null && name.startsWith("walls_interior");
+    }
+
     /** Whether the sprite has still to be read: of() gives 0 for it, and may not once a frame has been drawn. */
     static boolean unread(Texture texture) {
         return !known.containsKey(texture);

@@ -658,8 +658,10 @@ final class WallBuilder {
         boolean outside = !build.laidWall && outsideWall(x, y, z, da != 0f);
         // Of a wall between a room and out of doors, the side in the room is laid only as its own
         // sprite paints it: taken for the building's finish, a motel room's paper was its siding.
+        // A paper of the inside walls' sheets is not laid at all.
         boolean ownOnly = outside && OpeningBuilder.indoors(build.here);
-        SpriteGeometry.Mesh near = build.ownGlass ? mesh : laid(mesh, texture, build.laidWall || outside, ownOnly, build.masonry, x, y, z, da != 0f);
+        boolean suits = build.laidWall || outside && !(ownOnly && Masonry.insideSheet(texture.getName()));
+        SpriteGeometry.Mesh near = build.ownGlass ? mesh : laid(mesh, texture, suits, ownOnly, build.masonry, x, y, z, da != 0f);
         if (paper != null) {
             int key = WallSides.key(paper.red, paper.green, paper.blue, WallSides.FLAT);
             WallSides.tint(key, build.paperTint);
