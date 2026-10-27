@@ -1080,7 +1080,7 @@ final class RoofFit {
             // face across it over its last square is the higher of the two. Taken for a hip's, a dormer's north face dipped the main
             // roof's west face to its own eave, a step open between it and the face's next square (12719, 3678).
             row.valley = beyond != null && open == climbed && !row.cut;
-            if (beyond != null && open == climbed - 1 && !row.cut) {
+            if (beyond != null && open >= 1 && open == climbed - 1 && !row.cut) {
                 pastAFace(row, beyond, made);
             }
             rows.add(row);
@@ -1350,7 +1350,9 @@ final class RoofFit {
      * the far side's plane on the square's diagonal: a dormer's face beside the main roof's face, which goes on under the dormer to
      * its eave. The far side is carried over that square too, and the two meet in a valley along the diagonal. Stopped at the
      * dormer's tile, the dormer's face fell away to the eave under the far side's edge, a triangle open there with the underside of
-     * the roof showing black through it (12719, 3680).
+     * the roof showing black through it (12719, 3680). Two planes that meet on a diagonal cross there, so the check cannot tell a
+     * valley from a hip: a whole uncut tile says its plane covers the square, and a hip corner comes cut. A row that stops on its
+     * first square is a one-row wing face whose ridge square the map holds, and is not carried.
      */
     private static void pastAFace(Row row, Tile face, List<Tile> made) {
         if (!face.slopes() || face.cutCorner >= 0 || face.fitAxis == (row.dx != 0 ? ALONG_X : ALONG_Y)) {
@@ -1364,12 +1366,10 @@ final class RoofFit {
         if (Math.abs(outer - row.eave) >= SAME || Math.abs(Math.min(face.fitLow, face.fitHigh) - row.eave) >= SAME) {
             return;
         }
-        // Equal at both ends of one diagonal, and at the other two corners each the higher at one.
         for (int corner = 0; corner < 2; corner++) {
-            int opposite = corner + 2, first = 1 - corner, second = 3 - corner;
-            float one = plane[first] - across[first], other = plane[second] - across[second];
+            int opposite = corner + 2, beside = 1 - corner;
             if (Math.abs(plane[corner] - across[corner]) < SAME && Math.abs(plane[opposite] - across[opposite]) < SAME
-                    && Math.abs(one) >= SAME && Math.abs(other) >= SAME && Math.signum(one) != Math.signum(other)) {
+                    && Math.abs(plane[beside] - across[beside]) >= SAME) {
                 Tile over = new Tile(x, y, (int) Math.floor(row.eave + LEAST_RISE), row.dx != 0 ? ALONG_X : ALONG_Y, true, plane[0], row.dx != 0 ? plane[1] : plane[3]);
                 over.fitted = true;
                 over.carried = true;
