@@ -1003,7 +1003,8 @@ final class FurnishingBuilder {
             centreY += front[1] * clear;
         }
         // A piece whose model stands over more than one square is lit across those of them in the chunk, whose light the
-        // chunk has read, from the first of them. The block holds the square building it.
+        // chunk has read, from the first of them. A model off its own square, hung on the one beside it, can stand wholly
+        // outside the chunk, and is lit by its square alone.
         SpriteGeometry.Frame light = build.frame;
         int litX = x, litY = y, across = 1, down = 1;
         float leastA = Float.MAX_VALUE, leastB = Float.MAX_VALUE, mostA = -Float.MAX_VALUE, mostB = -Float.MAX_VALUE;
@@ -1014,14 +1015,14 @@ final class FurnishingBuilder {
             leastB = Math.min(leastB, centreY + footCorner[1] * piece.scale);
             mostB = Math.max(mostB, centreY + footCorner[1] * piece.scale);
         }
-        int firstX = x + (int) Math.floor(leastA + OVERHANG), lastX = x + (int) Math.floor(mostA - OVERHANG);
-        int firstY = y + (int) Math.floor(leastB + OVERHANG), lastY = y + (int) Math.floor(mostB - OVERHANG);
+        int firstX = x + (int) Math.floor(leastA + OVERHANG), lastX = Math.max(firstX, x + (int) Math.floor(mostA - OVERHANG));
+        int firstY = y + (int) Math.floor(leastB + OVERHANG), lastY = Math.max(firstY, y + (int) Math.floor(mostB - OVERHANG));
         if ((lastX > firstX || lastY > firstY) && !piece.onRoof) {
             int fromX = Math.max(firstX - chunkX, 0), fromY = Math.max(firstY - chunkY, 0);
             int toX = Math.min(lastX - chunkX, WorldScene.CHUNK_TILES - 1), toY = Math.min(lastY - chunkY, WorldScene.CHUNK_TILES - 1);
             blockFrame.open = build.frame.open;
             blockFrame.unlitKind = build.frame.unlitKind;
-            if (build.blockLights(fromX, fromY, toX, toY, build.waterLocalX, build.waterLocalY, blockFrame)) {
+            if (fromX <= toX && fromY <= toY && build.blockLights(fromX, fromY, toX, toY, build.waterLocalX, build.waterLocalY, blockFrame)) {
                 light = blockFrame;
                 litX = chunkX + fromX;
                 litY = chunkY + fromY;
