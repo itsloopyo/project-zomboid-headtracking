@@ -98,6 +98,11 @@ final class CarPhysics {
         return kept;
     }
 
+    /** Logic thread, as the game leaves a save: its vehicles are let go of with its map. */
+    static void forget() {
+        java.util.Arrays.fill(KEPT, null);
+    }
+
     /** Lets go of every vehicle gone from the world, which the game never updates again. */
     private static void sweep(long now) {
         if (now - sweptAt < SWEPT_EVERY_NANOS) {
