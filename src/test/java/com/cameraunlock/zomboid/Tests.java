@@ -1747,6 +1747,16 @@ public final class Tests {
         check(tint[0] == 0f && tint[1] == 0f && tint[2] == 0f, "and they have no joints");
         check(WallSides.SLATS != WallSides.STAIN && WallSides.multiplied(0f, 0f, 0f) != WallSides.SLATS && WallSides.multiplied(0f, 0f, 1f / 255f) != WallSides.SLATS
                 && WallSides.multiplied(0f, 0f, 2f / 255f) != WallSides.SLATS, "no tint or stain packs to slats");
+        int stones = WallSides.laid(0.4f, 0.5f, 0.6f, 0.8f, 0.7f, 0.6f, WallSides.TILED), mortared = WallSides.mortared(stones);
+        float[] tiles = new float[4], plainJoint = new float[3];
+        WallSides.tint(stones, tiles);
+        WallSides.joint(stones, plainJoint);
+        WallSides.tint(mortared, tint);
+        check(tint[0] == tiles[0] && tint[1] == tiles[1] && tint[2] == tiles[2] && tint[3] == WallSides.MORTARED && tiles[3] == WallSides.TILED,
+                "stones on a bed of mortar are told in their colour as MORTARED, tiles as TILED");
+        WallSides.joint(mortared, tint);
+        check(tint[0] == plainJoint[0] && tint[1] == plainJoint[1] && tint[2] == plainJoint[2] && plainJoint[0] > 0.7f, "and with their mortar's colour");
+        check(mortared != stones && mortared != WallSides.STAIN && mortared != WallSides.SLATS, "stones on mortar are a key of their own");
         check(WallSides.rollerDoor("walls_garage_01_48") && WallSides.rollerDoor("walls_garage_01_53") && WallSides.rollerDoor("walls_garage_01_16")
                 && WallSides.rollerDoor("walls_garage_01_21") && WallSides.rollerDoor("walls_garage_02_0") && WallSides.rollerDoor("walls_garage_02_5")
                 && WallSides.rollerDoor("industry_trucks_01_32") && WallSides.rollerDoor("industry_trucks_01_37"),

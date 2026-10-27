@@ -16,6 +16,14 @@ import zombie.iso.sprite.IsoSprite;
 final class FloorBuilder {
     /** Half the width of the joint between two tiles of a floor, in tiles of the map: the world program lays them so (FLOOR_JOINT). */
     static final float JOINT_HALF = 0.006f;
+    /**
+     * Of stones laid in courses on a bed of mortar (Tiles.courses): half the width of the mortar
+     * between two, and how wide the line of shade along the end of each stone, where it meets the
+     * mortar, in tiles of the map. The world program lays them so (FLOOR_MORTAR, MORTAR_SHADE).
+     */
+    static final float MORTAR_HALF = 0.02f, MORTAR_SHADE = 0.016f;
+    /** How much darker the line of shade is than the stone. */
+    static final float MORTAR_DARK = 0.2f;
     /** How much darker than the sprite paints it the joint is drawn. */
     private static final float JOINT_DARK = 0.8f;
     /** A carpet no more uneven than this is one colour all over. A carpet with a figure woven in it is more, and keeps its sprite. */
@@ -590,8 +598,8 @@ final class FloorBuilder {
             float startA = tiles.firstA + pavers[at] * cellA, startB = tiles.firstB + pavers[at + 1] * cellB;
             startA -= (float) Math.floor(startA);
             startB -= (float) Math.floor(startB);
-            SpriteGeometry.Mesh on = WorldScene.solid.get(WorldScene.PLAIN, WallSides.laid(pavers[at + 4], pavers[at + 5], pavers[at + 6],
-                    sunk * tiles.jointRed, sunk * tiles.jointGreen, sunk * tiles.jointBlue, WallSides.TILED));
+            int key = WallSides.laid(pavers[at + 4], pavers[at + 5], pavers[at + 6], sunk * tiles.jointRed, sunk * tiles.jointGreen, sunk * tiles.jointBlue, WallSides.TILED);
+            SpriteGeometry.Mesh on = WorldScene.solid.get(WorldScene.PLAIN, tiles.courses ? WallSides.mortared(key) : key);
             geometry.alongA = 1f / wide;
             geometry.acrossB = 1f / deep;
             for (int backA = 0; backA <= 1; backA++) {

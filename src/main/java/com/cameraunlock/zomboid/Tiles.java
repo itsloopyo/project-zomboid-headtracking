@@ -222,6 +222,8 @@ final class Tiles {
         float[] hexes, hexCorners;
         /** Whether the joints are mortar lighter than the pavers, drawn as they are: a joint sunk between pavers is in their shade. */
         boolean paleJoints;
+        /** Whether the pavers are stones in courses on a bed of mortar, whose joints are laid wider: see FloorBuilder.MORTAR_HALF. */
+        boolean courses;
     }
 
     private record Asked(float originU, float originV, float scale, float left, float top, float width, float height) {}
@@ -295,7 +297,7 @@ final class Tiles {
         if (FirstPerson.TRACE) {
             Log.info("floor " + texture.getName() + (shape == null ? " is not a square of floor"
                     : shape.blocks > 0 ? " is parquet, " + shape.blocks + " blocks a side of " + shape.slats + " slats"
-                    : shape.pavers != null && shape.cellsA == side ? " is " + shape.pavers.length / 7 + " stones in courses" + (shape.paleJoints ? ", pale joints" : "")
+                    : shape.courses ? " is " + shape.pavers.length / 7 + " stones in courses" + (shape.paleJoints ? ", pale joints" : "")
                     : shape.pavers != null ? " is " + shape.pavers.length / 7 + " pavers on " + shape.cellsA + " by " + shape.cellsB + " cells"
                     : shape.hexes != null ? " is " + shape.hexes.length / 5 + " hexagonal pavers"
                     : shape.diagonal > 0 ? " is tiles on the diagonal, " + shape.diagonal + " joints a tile from " + shape.phase + " and " + shape.phaseAcross + (shape.checkered ? ", chequered" : "")
@@ -875,6 +877,7 @@ final class Tiles {
         shape.cellsB = side;
         shape.pavers = pavers;
         shape.paleJoints = pale;
+        shape.courses = true;
         shape.jointRed = (float) (joint[0] / counted);
         shape.jointGreen = (float) (joint[1] / counted);
         shape.jointBlue = (float) (joint[2] / counted);

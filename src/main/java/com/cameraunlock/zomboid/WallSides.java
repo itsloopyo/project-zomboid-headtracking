@@ -74,12 +74,18 @@ final class WallSides {
      * along the wall and one a course line up it. See WallTiles.stretches.
      */
     static final int TILED = 11;
+    /**
+     * What the picture is told for how a key from mortared is painted: tiled, as 11 is, with the
+     * joints a bed of mortar between stones.
+     */
+    static final float MORTARED = 11.25f;
 
     /**
      * The top bit of a key that multiplies its sprite by a colour, kept to a 255th of each
      * channel (see multiplied): the game's tint of a sprite, which is the colour of the thing
      * and not of the light on it. The picture is told -1 for how it is painted, below every
-     * other way, so that nothing else a key can mean is done to it.
+     * other way, so that nothing else a key can mean is done to it. STAIN, SLATS and mortared
+     * keys carry it too and are told otherwise: a key is multiplied only after those are ruled out (see tint).
      */
     private static final int MULTIPLIED = 1 << 31;
     /**
@@ -220,6 +226,15 @@ final class WallSides {
                 | part(red, BODY_LEVELS) << 14 | part(green, BODY_LEVELS) << 9 | part(blue, BODY_LEVELS) << 4 | how;
     }
 
+    /**
+     * As laid with TILED, for stones on a bed of mortar (see Tiles.courses): the picture lays their
+     * joints FloorBuilder.MORTAR_HALF either side, and the end of each stone in the shade of the
+     * mortar it meets. No other key is TILED with the top bit, a multiplied one keeping its low four bits clear.
+     */
+    static int mortared(int tiled) {
+        return tiled | MULTIPLIED;
+    }
+
     /** The key of a sprite drawn multiplied by a colour, each channel from 0 to 1: 0, no key, for white, which leaves the sprite as it is. */
     static int multiplied(float red, float green, float blue) {
         int packed = part(red, 255) << 20 | part(green, 255) << 12 | part(blue, 255) << 4;
@@ -299,7 +314,8 @@ final class WallSides {
     /**
      * What the picture is told for a range of triangles: into out the colour, then FLAT or
      * SIDING. All 0 for a key of 0, which is no colour, -1 after the colour for one that
-     * multiplies its sprite, and 17 after no colour for a shut roller door's (SLATS).
+     * multiplies its sprite, 16 after no colour for grime (STAIN), 17 for a shut roller door's
+     * (SLATS), and MORTARED after the colour of stones on mortar.
      */
     static void tint(int key, float[] out) {
         if (key == 0) {
@@ -309,6 +325,13 @@ final class WallSides {
         if (key == STAIN || key == SLATS) {
             out[0] = out[1] = out[2] = 0f;
             out[3] = key == STAIN ? 16f : 17f;
+            return;
+        }
+        if ((key & MULTIPLIED) != 0 && (key & 15) == TILED) {
+            out[0] = (key >> 14 & BODY_LEVELS) / (float) BODY_LEVELS;
+            out[1] = (key >> 9 & BODY_LEVELS) / (float) BODY_LEVELS;
+            out[2] = (key >> 4 & BODY_LEVELS) / (float) BODY_LEVELS;
+            out[3] = MORTARED;
             return;
         }
         if ((key & MULTIPLIED) != 0) {

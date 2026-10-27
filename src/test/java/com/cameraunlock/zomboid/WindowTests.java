@@ -666,7 +666,7 @@ final class WindowTests {
         Tiles.Shape tiles = Tiles.laid(floor(64, (x, y) -> flagstone((int) (x * 64f), (int) (y * 64f), 10, 26)), 64);
         check(tiles != null && tiles.pavers != null && tiles.cellsA == 64 && tiles.pavers.length == 4 * 7, "staggered flagstones are four stones in courses: "
                 + (tiles == null ? "none" : tiles.pavers == null ? "no pavers" : tiles.pavers.length / 7 + " on " + tiles.cellsA));
-        check(tiles.paleJoints && tiles.jointRed > 0.6f, "their mortar pale: " + tiles.paleJoints + ", " + tiles.jointRed);
+        check(tiles.courses && tiles.paleJoints && tiles.jointRed > 0.6f, "stones in courses, their mortar pale: " + tiles.courses + ", " + tiles.paleJoints + ", " + tiles.jointRed);
         float[] laidAt = {20.5f, 10.5f, 20.5f, 42.5f, 52.5f, 26.5f, 52.5f, 58.5f};
         for (int at = 0; at < laidAt.length; at += 2) {
             boolean seen = false;

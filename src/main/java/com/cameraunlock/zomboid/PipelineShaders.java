@@ -1168,7 +1168,8 @@ final class PipelineShaders {
                         + dot(texture2D(picture, at.xy * size).rgb, tone) * share.z;
             }
 
-            """ + GROUND_NOISE + "const float TILE_JOINT = " + WallBuilder.TILE_JOINT_HALF + ", FLOOR_JOINT = " + FloorBuilder.JOINT_HALF + ";\n"
+            """ + GROUND_NOISE + "const float TILE_JOINT = " + WallBuilder.TILE_JOINT_HALF + ", FLOOR_JOINT = " + FloorBuilder.JOINT_HALF
+                    + ", FLOOR_MORTAR = " + FloorBuilder.MORTAR_HALF + ", MORTAR_SHADE = " + FloorBuilder.MORTAR_SHADE + ", MORTAR_DARK = " + FloorBuilder.MORTAR_DARK + ", MORTARED = " + WallSides.MORTARED + ";\n"
             + "const float SMALL_LEAVES = " + SMALL_LEAVES + ", SMALL_LEAVES_FROM = " + SMALL_LEAVES_FROM + ", SMALL_LEAVES_TO = " + SMALL_LEAVES_TO
             + ", SHRUB_SPRIG = " + Flora.SHRUB + ".0, HOLLY_SPRIG = " + Flora.HOLLY + ".0;\n" + """
 
@@ -2076,14 +2077,16 @@ final class PipelineShaders {
                 // whatever size the tiles are. Where a joint is narrower than a pixel the wall is
                 // the mean of tiles and joints, and nothing crawls as the eye moves. A tile of a
                 // floor is laid the same way, its coordinates running along x and y of the map,
-                // with joints FLOOR_JOINT either side.
+                // with joints FLOOR_JOINT either side, or for stones on a bed of mortar (MORTARED,
+                // WallSides.mortared) FLOOR_MORTAR, with the end of each stone in the mortar's shade.
                 bool tiledTint = abs(uTint.a - 11.0) < 0.5;
+                bool mortared = abs(uTint.a - MORTARED) < 0.125;
                 // How much of the pixel is the joints between tiles: a joint is not glazed.
                 float grout = 0.0;
                 if (tiledTint) {
                     vec3 along = normalize(vNormal);
                     bool floored = along.z > 0.7;
-                    float jointHalf = floored ? FLOOR_JOINT : TILE_JOINT;
+                    float jointHalf = floored ? (mortared ? FLOOR_MORTAR : FLOOR_JOINT) : TILE_JOINT;
                     // Measured from the eye: the map position is a float step of 0.001 tile away from the
                     // origin, coarser than a pixel close to a wall, and its width would jump block to block.
                     vec2 world = floored ? vPlace.xy : vec2(dot(vPlace.xy, vec2(along.y, -along.x)), vPlace.z);
@@ -2109,6 +2112,16 @@ final class PipelineShaders {
                     inJoint = mix(min(inJoint, 1.0), share, smoothstep(0.25 * tileSize, tileSize, worldPixel));
                     grout = max(inJoint.x, inJoint.y);
                     texel.rgb = mix(uTint.rgb, uJoint, grout);
+                    if (mortared) {
+                        // The game's flagstones are shaded on the side of each joint towards less a and b,
+                        // where the texture coordinates come up to a whole number: a line MORTAR_SHADE wide
+                        // on the stone up to the mortar. How much of the pixel it and the next one cover.
+                        vec2 before = (vUv - floor(vUv + 0.5)) * tileSize, beforeNext = before - tileSize;
+                        vec2 shaded = (max(min(before + reach, vec2(-jointHalf)) - max(before - reach, vec2(-jointHalf - MORTAR_SHADE)), 0.0)
+                                + max(min(beforeNext + reach, vec2(-jointHalf)) - max(beforeNext - reach, vec2(-jointHalf - MORTAR_SHADE)), 0.0)) / worldPixel;
+                        shaded = mix(min(shaded, 1.0), clamp(MORTAR_SHADE / max(tileSize, vec2(1e-4)), 0.0, 1.0), smoothstep(0.25 * tileSize, tileSize, worldPixel));
+                        texel.rgb *= 1.0 - MORTAR_DARK * max(shaded.x, shaded.y);
+                    }
                 }
                 if (uTint.a > 0.5 && uTint.a < 3.5 || fineTint) {
                     texel.rgb = fineTint ? uTint.rgb : arcTone(uTint.rgb, vWorld);

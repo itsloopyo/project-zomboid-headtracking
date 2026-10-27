@@ -78,6 +78,7 @@ final class ShaderTests {
         Checks.run("aThinSpriteSampleTakesItsColourFromTheSamplesItsCutReads", ShaderTests::aThinSpriteSampleTakesItsColourFromTheSamplesItsCutReads);
         Checks.run("aCrownOpensOverTheEyeASprigAtATime", ShaderTests::aCrownOpensOverTheEyeASprigAtATime);
         Checks.run("aRollerDoorIsLaidAsSlatsAndNotAsMasonry", () -> aRollerDoorIsLaidAsSlatsAndNotAsMasonry(programs));
+        Checks.run("stonesOnMortarAreToldApartFromTilesAndTakeItsWidth", ShaderTests::stonesOnMortarAreToldApartFromTilesAndTakeItsWidth);
         Checks.run("spreadGroundThatDoesNotShowHidesNothing", () -> spreadGroundThatDoesNotShowHidesNothing(programs));
         Checks.run("grimeIsSeenOnlyFromItsSide", () -> grimeIsSeenOnlyFromItsSide(programs));
         Checks.run("aWallSkinHasNoBack", () -> aWallSkinHasNoBack(programs));
@@ -190,6 +191,13 @@ final class ShaderTests {
         Checks.check(main.contains("bool slatTint = abs(uTint.a - " + (int) tint[3] + ".0) < 0.5;"), "the world is not told a roller door's slats as WallSides tells them");
         Checks.check(main.contains("if (uTint.a > 3.5 && !boarded && !fineTint && !tiledTint && !stainTint && !slatTint) {"), "a roller door would be laid as masonry too");
         Checks.check(fragment(programs, "world").contains("vec3 facSlats("), "the world's program has no slats to lay");
+    }
+
+    private static void stonesOnMortarAreToldApartFromTilesAndTakeItsWidth() {
+        String main = PipelineShaders.WORLD_FRAGMENT_MAIN;
+        Checks.check(main.contains("bool mortared = abs(uTint.a - MORTARED) < 0.125;") && Math.abs(WallSides.MORTARED - WallSides.TILED) < 0.5f,
+                "stones on mortar are not told apart from tiles, or are not laid as tiles");
+        Checks.check(main.contains("float jointHalf = floored ? (mortared ? FLOOR_MORTAR : FLOOR_JOINT) : TILE_JOINT;"), "stones on mortar do not take its width");
     }
 
     private static void depthProgramIsTheWorldsToldToDrawDepthAlone(List<Linked> programs) {
