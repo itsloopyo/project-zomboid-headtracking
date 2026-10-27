@@ -18,6 +18,7 @@ import zombie.core.physics.RagdollBodyPart;
 import zombie.core.physics.WorldSimulation;
 import zombie.inventory.types.HandWeapon;
 import zombie.iso.IsoUtils;
+import zombie.iso.IsoWorld;
 import zombie.iso.Vector2;
 import zombie.iso.Vector3;
 import zombie.scripting.objects.PhysicsHitReactionScript;
@@ -87,6 +88,29 @@ public final class Controls {
             stock = sightsOnTheShove(player);
         }
         stockAim = stock;
+        boolean dragging = captured && !pad && DragAim.of(player.getPlayerNum()) != null;
+        if (dragging && stock && !cancelHeld) {
+            // In the game's own view a right click opens the world menu, which puts the drag away.
+            IsoWorld.instance.currentCell.setDrag(null, player.getPlayerNum());
+            cancelHeld = true;
+            if (FirstPerson.TRACE) {
+                Log.info("controls: the aim button put the drag cursor away");
+            }
+        }
+        if (cancelHeld && !stock) {
+            cancelHeld = false;
+        }
+        if (dragging || cancelHeld) {
+            // The left button is the drag's, as in the game's own view, and the right one that put it away is no aim either.
+            aim.reset();
+            attackDown = false;
+            filteredAim = false;
+            turnedOnly = false;
+            if (FirstPerson.TRACE && wasFiltered) {
+                Log.info("controls " + describe());
+            }
+            return false;
+        }
         if (captured && player.getVehicle() == null && !togglesAim(player)) {
             attackDown = pad ? padIsTheCharacters(player) && CharacterJoypadButtonBinding.Attack.isDown(player.getJoypadBind())
                     : CharacterInputKeyBinding.Attack.isKeyDownInWorld();
@@ -145,6 +169,8 @@ public final class Controls {
     }
 
     private boolean turnedOnly;
+    /** Whether the aim button that put a drag cursor away is still held. */
+    private boolean cancelHeld;
 
     /** Whether a controller's triggers are the character's: while it works one of the game's panels the game has it ignore the aim. */
     private static boolean padIsTheCharacters(IsoPlayer player) {
@@ -188,6 +214,10 @@ public final class Controls {
         IsoPlayer player = view.player();
         if (!view.firstPerson.lookCaptured() || player == null || player.getVehicle() != null || togglesAim(player)) {
             return stock;
+        }
+        if (!View.onController(player) && DragAim.of(player.getPlayerNum()) != null) {
+            // The click is the drag's: the game reads it as its build button, which is its attack binding.
+            return false;
         }
         return aim.attack(stock, player.isAimingFirearmEquipped());
     }

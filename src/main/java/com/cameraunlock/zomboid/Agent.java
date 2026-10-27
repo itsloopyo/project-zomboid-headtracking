@@ -493,6 +493,15 @@ public final class Agent {
                 returningWithThis(input, "isInteractButtonDownInternal", "()Z", "interactKey", inputFilter),
                 returningWithThis(input, "isMeleeButtonDownInternal", "()Z", "meleeKey", inputFilter),
                 returning(UI, "checkPicked", "()Z", "picked", BOOLEAN_FILTER),
+                // Where a drag cursor is put: see DragAim.
+                new Patch("zombie/iso/IsoCell", "doBuildingInternal after getPickedTile", classBytes -> CallSite.insertAfterEach(classBytes,
+                        new CallSite.Method("zombie/iso/IsoCell", "doBuildingInternal", "(IZ)Z"),
+                        new CallSite.Method(UI, "getPickedTile", "()Lzombie/iso/Vector2;"), code -> {
+                            code.iload(1);
+                            CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "dragTile", "(Lzombie/iso/Vector2;I)Lzombie/iso/Vector2;"));
+                        }, 3)),
+                screenToIso("screenToIsoX"),
+                screenToIso("screenToIsoY"),
                 // OnMouseDown, OnMouseUp, OnRightMouseDown and OnRightMouseUp.
                 new Patch(UI, "updateMouseButtons telling the Lua of buttons", classBytes -> CallSite.replaceEach(classBytes,
                         new CallSite.Method(UI, "updateMouseButtons", "(II)I"),
@@ -1377,6 +1386,14 @@ public final class Agent {
         return new Patch(RETICLE, read + " before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
                 new CallSite.Method(RETICLE, read, INT_FILTER),
                 code -> CallSite.passFirstStaticInt(code, new CallSite.Method(HOOKS, hook, "(II)I"))));
+    }
+
+    /** The place on the map the game's Lua is given for a point on a player's screen is passed through a hook with the player's number. */
+    private static Patch screenToIso(String method) {
+        String globals = "zombie/Lua/LuaManager$GlobalObject";
+        return new Patch(globals, method + " before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                new CallSite.Method(globals, method, "(IFFF)F"),
+                code -> CallSite.passFirstStaticInt(code, new CallSite.Method(HOOKS, method, "(FI)F"))));
     }
 
     /** The one call to a static method of the game's inside another goes to a hook that takes what it took. */

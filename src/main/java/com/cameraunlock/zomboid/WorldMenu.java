@@ -71,7 +71,8 @@ final class WorldMenu {
             leftDownAt = System.nanoTime();
         } else if (LEFT_UP.equals(event) && leftDown) {
             leftDown = false;
-            if (System.nanoTime() - leftDownAt < CLICK_NANOS && view.firstPerson.pointerOut()) {
+            // With a drag cursor up the click puts it down, through the game's build button, and is for nothing else.
+            if (System.nanoTime() - leftDownAt < CLICK_NANOS && view.firstPerson.pointerOut() && DragAim.of(view.index) == null) {
                 view.firstPerson.useAtPointer((float) x, (float) y);
             }
         }

@@ -50,6 +50,7 @@ final class View {
     final CentreUse centreUse = new CentreUse(this);
     final Regrip regrip = new Regrip();
     final WorldMenu worldMenu = new WorldMenu(this);
+    final DragAim dragAim = new DragAim(this);
     final NameTags nameTags = new NameTags(this);
     final ModelHead modelHead = new ModelHead(this);
     final FarModels farModels = new FarModels(this);

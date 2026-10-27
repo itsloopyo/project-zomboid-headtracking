@@ -12,6 +12,9 @@ final class AimGroundTests {
         Checks.run("aFloorOverTheFlatMapIsRaisedByTheGroundUnderIt", AimGroundTests::aFloorOverTheFlatMapIsRaisedByTheGroundUnderIt);
         Checks.run("anEyeUnderTheGroundMeetsTheGroundItComesDownOnto", AimGroundTests::anEyeUnderTheGroundMeetsTheGroundItComesDownOnto);
         Checks.run("aStripOfPavementOverTheAimStopsIt", AimGroundTests::aStripOfPavementOverTheAimStopsIt);
+        Checks.run("aDragCursorIsPutOnTheSquareInFrontOfAWall", AimGroundTests::aDragCursorIsPutOnTheSquareInFrontOfAWall);
+        Checks.run("aDragCursorIsPutWhereTheLineMeetsTheFloor", AimGroundTests::aDragCursorIsPutWhereTheLineMeetsTheFloor);
+        Checks.run("aDragCursorOnALineThatMeetsNothingIsPutAtItsReach", AimGroundTests::aDragCursorOnALineThatMeetsNothingIsPutAtItsReach);
     }
 
     private static ViewCamera.Pose aim(float up, float toX, float toUp) {
@@ -82,5 +85,20 @@ final class AimGroundTests {
         ViewCamera.Pose aim = aim(0.2f, 10f, 0f);
         float met = WorldQuery.toFloor(aim, kerb, 0f, 0f, 30f);
         Checks.check(met < along(aim, 5.2f), "the aim stops on the strip of pavement: " + met);
+    }
+
+    /** A level line along x meets a wall on the west edge of square 5, 4.5 tiles from an eye at 0.5. */
+    private static void aDragCursorIsPutOnTheSquareInFrontOfAWall() {
+        float along = DragAim.along(4.5f, true);
+        Checks.check((int) Math.floor(0.5f + along) == 4, "a drag on a line that meets a wall at the west edge of square 5 is on square 4: " + along);
+    }
+
+    private static void aDragCursorIsPutWhereTheLineMeetsTheFloor() {
+        Checks.check(DragAim.along(3.2f, false) == 3.2f, "a drag on a line that meets the floor 3.2 tiles off is put there: " + DragAim.along(3.2f, false));
+    }
+
+    private static void aDragCursorOnALineThatMeetsNothingIsPutAtItsReach() {
+        Checks.check(DragAim.along(Float.POSITIVE_INFINITY, false) == DragAim.REACH, "a drag on a line that meets nothing is put at its reach");
+        Checks.check(DragAim.along(DragAim.REACH + 5f, true) == DragAim.REACH, "and so is one that meets a wall past its reach");
     }
 }

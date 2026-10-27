@@ -4,6 +4,7 @@ import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
 import org.joml.Vector3f;
+import se.krka.kahlua.vm.KahluaTable;
 import zombie.inventory.types.HandWeapon;
 import zombie.GameTime;
 import zombie.ai.State;
@@ -903,6 +904,7 @@ public final class FirstPerson {
         SpriteRenderer.instance.drawGeneric(scene);
         pictureUp = true;
         placeReticle(scene);
+        aimDrag(player, scene);
         // Outlined in the next picture: this one was gathered before the reticle was placed.
         if (lookCaptured && vehicle == null && !bodyLeads && reticleOnScreen) {
             view.centreUse.mark(reticleLine, floorUp, player, IsoWorld.instance.currentCell);
@@ -1433,6 +1435,37 @@ public final class FirstPerson {
         reticleY = Math.round((0.5f - ndc[1] * 0.5f) * IsoCamera.getScreenHeight(index));
     }
 
+    /** Where a drag cursor's line meets the world: kept apart from the aim's, whose line of fire the game's hit list reads. */
+    private final WorldQuery dragWorld = new WorldQuery();
+    private int dragSaidX = Integer.MIN_VALUE, dragSaidY;
+
+    /**
+     * Puts the drag cursor the game has up where the line through the reticle meets the world,
+     * or with the pointer out the line through the pointer.
+     */
+    private void aimDrag(IsoPlayer player, WorldScene.Frame scene) {
+        KahluaTable drag = View.onController(player) ? null : DragAim.of(view.index);
+        ViewCamera.Pose line = drag == null ? null : pointer.on() ? lineThrough(Mouse.getXA(), Mouse.getYA()) : reticleOnScreen ? reticleLine : null;
+        if (line == null) {
+            view.dragAim.lose();
+            dragSaidX = Integer.MIN_VALUE;
+            return;
+        }
+        dragWorld.look(IsoWorld.instance.currentCell, (int) Math.floor(player.getZ()));
+        float met = dragWorld.toSurface(line, view.worldScene.terrain::height, player.getZ() * ViewCamera.LEVEL_HEIGHT, DragAim.REACH);
+        float along = DragAim.along(met, met <= DragAim.REACH && dragWorld.met == WorldQuery.WALL);
+        float x = line.eyeX + line.forwardX * along, y = line.eyeY + line.forwardY * along;
+        view.dragAim.aim(x, y);
+        IsoGridSquare square = DragAim.squareOf(drag);
+        boolean fits = DragAim.fitsOf(drag);
+        if (TRACE && square != null && (square.getX() != dragSaidX || square.getY() != dragSaidY)) {
+            dragSaidX = square.getX();
+            dragSaidY = square.getY();
+            Log.info(String.format(Locale.ROOT, "drag %s on square (%d, %d, %d) fits %b, the %s's floor square (%d, %d)", drag.rawget("Type"),
+                    square.getX(), square.getY(), square.getZ(), fits, pointer.on() ? "pointer" : "reticle", (int) Math.floor(x), (int) Math.floor(y)));
+        }
+    }
+
     /** Half the height of the picture's field of view, as a tangent, as it was last drawn. */
     private float pictureTanHalf;
 
@@ -1500,7 +1533,8 @@ public final class FirstPerson {
     private void point() {
         Core.KeyBinding inventory = Core.getInstance().getKeyBinding(INVENTORY_BINDING);
         boolean inventoryKey = pressed(inventory.keyValue()) | pressed(inventory.altKey());
-        boolean escape = GameKeyboard.isKeyPressed(ESCAPE_KEY);
+        // With a drag cursor up the game's own Esc puts it away, and the pointer stays as it is.
+        boolean escape = GameKeyboard.isKeyPressed(ESCAPE_KEY) && DragAim.of(view.index) == null;
         if (escape && pointer.escapeTakes()) {
             // Or the same press would go on to open the game's menu.
             GameKeyboard.eatKeyPress(ESCAPE_KEY);

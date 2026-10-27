@@ -342,6 +342,24 @@ public final class Hooks {
         return View.first().controls.picked(stock);
     }
 
+    /** Called with the tile the game's own view has under the mouse, where the game puts a player's drag cursor: see DragAim. */
+    public static Vector2 dragTile(Vector2 stock, int playerIndex) {
+        View view = View.of(playerIndex);
+        return view == null ? stock : view.dragAim.tile(stock);
+    }
+
+    /** Called with the place across the map that the game's own view has at a point on a player's screen. */
+    public static float screenToIsoX(float stock, int playerIndex) {
+        View view = View.of(playerIndex);
+        return view == null ? stock : view.dragAim.isoX(stock);
+    }
+
+    /** The same, down the map. */
+    public static float screenToIsoY(float stock, int playerIndex) {
+        View view = View.of(playerIndex);
+        return view == null ? stock : view.dragAim.isoY(stock);
+    }
+
     /**
      * Called in place of the game's telling its Lua that a mouse button went down or up where none
      * of its panels took it. The Lua is told first.
