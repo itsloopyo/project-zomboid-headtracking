@@ -48,6 +48,7 @@ final class WindowTests {
         Checks.run("cornerPostPictureCoversItsFacesSlack", WindowTests::cornerPostPictureCoversItsFacesSlack);
         Checks.run("doorWithOneSmallLightIsALeafWithItsLight", WindowTests::doorWithOneSmallLightIsALeafWithItsLight);
         Checks.run("closerOnADoorsHeadIsNoPartOfItsLeaf", WindowTests::closerOnADoorsHeadIsNoPartOfItsLeaf);
+        Checks.run("narrowArchKeepsItsCrown", WindowTests::narrowArchKeepsItsCrown);
     }
 
     /** A flush door with a small light high in it, as the commercial doors are: a leaf with stiles as wide as the light's sides, and the light glass. */
@@ -90,6 +91,29 @@ final class WindowTests {
         }
         check(leaf.panes.length == 10, "with its two lights: " + leaf.panes.length / 5);
         check(Math.abs(leaf.head - (1f - 4f / rows.length)) < 1e-4f, "its head is the frame's, under the closer: " + leaf.head * rows.length);
+    }
+
+    /**
+     * The narrowest arch measure takes keeps its crown. An arch is told by its head's corners,
+     * bare for CORNER dots, so its crown stands CORNER dots or more from either end and is never
+     * the lump at one end of a head that a door's closer is.
+     */
+    private static void narrowArchKeepsItsCrown() {
+        Windows.Shape shape = measured(
+                "    ###    ",
+                "    #.#    ",
+                "    #.#    ",
+                "    #.#    ",
+                "##.......##",
+                "##.......##",
+                "##.......##",
+                "##.......##",
+                "##.......##",
+                "##.......##",
+                "###########",
+                "###########");
+        check(shape != null && shape.arch != null, "an arched window eleven dots across is measured with its arch");
+        check(shape != null && shape.arch != null && near(shape.arch[5 * 3], 1f), "up to its crown: " + (shape == null || shape.arch == null ? "none" : shape.arch[15]));
     }
 
     /** As measured, with a frame that is frame all over a shape too: see Windows.measure. */
