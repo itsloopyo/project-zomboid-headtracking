@@ -43,7 +43,7 @@ final class SnowCoverTests {
     }
 
     private static void withNoSnowLyingNoGrassIsMoved() {
-        String stood = body(SnowShader.STOOD, "float snowStood(vec3 root, bool open)");
+        String stood = body(SnowShader.STOOD, "float snowThickAt(vec3 root, bool open, float finest)");
         check(stood.startsWith("{if(uSnowLying<=0.0||!open){return0.0;}"), "with no snow lying a plant stands no deep in it, before anything is worked out");
         check(body(SnowShader.STOOD, "vec3 snowedIn(vec3 at, float deep)").equals("{at.z-=deep;returnat;}"), "a plant no deep in snow is let down by nothing");
         String laden = body(SnowShader.STOOD, "vec3 snowLaden(vec3 at, float high, float deep, float seed)");
@@ -53,7 +53,7 @@ final class SnowCoverTests {
     }
 
     private static void grassIsLetDownOnlyUnderTheSkyAndLessWhereTheSkyIsHidden() {
-        String stood = body(SnowShader.STOOD, "float snowStood(vec3 root, bool open)");
+        String stood = body(SnowShader.STOOD, "float snowThickAt(vec3 root, bool open, float finest)");
         check(stood.contains("floatskyOver=skyOverAt(root+vec3(0.0,0.0,0.1),max(away-uRangeFrom,0.0));"),
                 "how much of the sky a plant's root sees is asked as the ground's pixel asks it, within the distance it counts there");
         check(stood.contains("SNOW_SHELTERED*(1.0-skyOver)/0.62"), "less snow lies at a root under a crown or the eaves, by the share less of it lies on the ground there");
@@ -71,12 +71,13 @@ final class SnowCoverTests {
     }
 
     private static void theSnowGrassStandsInEndsWhereTheSnowDrawnEnds() {
-        String stood = body(SnowShader.STOOD, "float snowStood(vec3 root, bool open)");
+        String stood = body(SnowShader.STOOD, "float snowThickAt(vec3 root, bool open, float finest)");
         check(body(SnowShader.COVER, "float snowCover(vec2 q, float foot)").equals("{returnsnowCovers(snowThick(q,foot).x+snowRagged(q,foot).x);}"),
                 "the snow drawn ends where its thickness with its ragged edge says");
-        check(stood.contains("floatthick=snowThick(q,foot).x+snowRagged(q,foot).x;") && stood.contains("snowCovers(thick-"),
+        check(stood.contains("floatthick=snowThick(q,foot).x+snowRagged(q,foot).x;") && stood.contains("returnthick-SNOW_SHELTERED*(1.0-skyOver)/0.62;")
+                        && body(SnowShader.STOOD, "float snowStood(vec3 root, bool open)").equals("{returnSNOW_DEPTH*uSnowLying*snowCovers(snowThickAt(root,open,0.0));}"),
                 "the snow a plant stands in ends by the same thickness and the same ragged edge");
-        check(stood.contains("floatfoot=uPixel*away*away/max(abs(toEye.z),0.1);"),
+        check(stood.contains("floatfoot=max(uPixel*away*away/max(abs(toEye.z),0.1),finest);"),
                 "what is too fine to draw at the root's distance counts as its mean there too: by the ground a pixel of the view covers");
         check(stood.contains("vec2q=mod(root.xy,60.0);"), "the snow is asked for at the plant's root, the one place for every vertex of the plant");
         check(count(SnowShader.STOOD, "snowThick(") == 1, "nothing else there works out where snow lies");
@@ -86,9 +87,11 @@ final class SnowCoverTests {
         String world = PipelineShaders.WORLD_VERTEX.replaceAll("\\s+", "");
         check(world.contains("deep=uLaid>2.5||uPlantSnow<=0.0?0.0:snowStood(vec3(gl_Vertex.xy+gl_MultiTexCoord1.xy,gl_Vertex.z-(gl_Normal.z-level)),"),
                 "a strip's depth in the snow is asked at its root, and not in the draw its vertices are left out of");
-        check(world.contains("if(uModel<0.5&&vMaterial>63.5&&vMaterial<64.5&&gl_MultiTexCoord0.y<0.5){floatbanked=snowStood(at.xyz,vKind>0.5);"),
+        check(world.contains("if(uModel<0.5&&vMaterial>63.5&&vMaterial<64.5&&gl_MultiTexCoord0.y<0.5){floatbanked=snowBanked(at.xyz,vKind>0.5);"),
                 "a kerb asks how deep the snow banked against it is at the foot of its face only");
-        check(count(world, "snowStood(") == 3, "and nowhere else in the vertex program");
+        check(Kerbs.FINE == 8 && body(SnowShader.STOOD, "float snowBanked(vec3 root, bool open)").equals("{returnSNOW_DEPTH*uSnowLying*snowCovers(snowThickAt(root,open,0.125));}"),
+                "by the snow's thickness no finer than the kerbs' field has points, an eighth of a tile apart, where the drawn snow's ragged edge is finer");
+        check(count(world, "snowStood(") == 2 && count(world, "snowBanked(") == 2 && count(world, "snowThickAt(") == 3, "and nowhere else in the vertex program");
         check(!PipelineShaders.SHADOW_VERTEX.contains("snowStood"), "grass is in no shadow map, and the shadow program asks nothing of how deep a plant stands");
     }
 

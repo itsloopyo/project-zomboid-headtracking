@@ -125,21 +125,22 @@ final class SnowShader {
      * is joined into declares.
      */
     static final String STOOD = """
-            // How deep a plant rooted at a place stands in the snow, in tiles: none with no snow
-            // lying, and none where the world's fragment shader draws none on the ground at the
-            // root, which it decides by the same things. open is whether the plant's square is
-            // under the sky. Less snow lies where the sky is hidden, as the fragment shader has
-            // it: see skyOverAt. What of the snow's unevenness is too fine to
-            // draw at the root's distance counts as its mean, by the ground a pixel of the view
-            // covers there: uPixel of its distance across, and more along the view as the view
-            // lies flatter to the ground. The sky is only asked about where snow would lie in the open.
-            float snowStood(vec3 root, bool open) {
+            // How thick the snow is at a place, in snowCovers' measure: 0 with no snow lying,
+            // and 0 where the world's fragment shader draws none on the ground there, which it
+            // decides by the same things. open is whether the place's square is under the sky.
+            // Less snow lies where the sky is hidden, as the fragment shader has it: see
+            // skyOverAt. What of the snow's unevenness is too fine to draw at the place's
+            // distance counts as its mean, by the ground a pixel of the view covers there:
+            // uPixel of its distance across, and more along the view as the view lies flatter
+            // to the ground; so does what is finer than finest, in tiles. The sky is only asked
+            // about where snow would lie in the open.
+            float snowThickAt(vec3 root, bool open, float finest) {
                 if (uSnowLying <= 0.0 || !open) {
                     return 0.0;
                 }
                 vec3 toEye = uEye - root;
                 float away = length(toEye);
-                float foot = uPixel * away * away / max(abs(toEye.z), 0.1);
+                float foot = max(uPixel * away * away / max(abs(toEye.z), 0.1), finest);
                 vec2 q = mod(root.xy, 60.0);
                 snowShelter = 0.0;
                 float thick = snowThick(q, foot).x + snowRagged(q, foot).x;
@@ -147,7 +148,23 @@ final class SnowShader {
                     return 0.0;
                 }
                 float skyOver = skyOverAt(root + vec3(0.0, 0.0, 0.1), max(away - uRangeFrom, 0.0));
-                return SNOW_DEPTH * uSnowLying * snowCovers(thick - SNOW_SHELTERED * (1.0 - skyOver) / 0.62);
+                return thick - SNOW_SHELTERED * (1.0 - skyOver) / 0.62;
+            }
+
+            // How deep a plant rooted at a place stands in the snow, in tiles: as deep as the
+            // snow drawn on the ground at its root.
+            float snowStood(vec3 root, bool open) {
+                return SNOW_DEPTH * uSnowLying * snowCovers(snowThickAt(root, open, 0.0));
+            }
+
+            // How far a bank of snow runs out from the foot of a kerb's face, in tiles, before
+            // its unevenness along the kerb. The foot's vertices are where the kerbs' field
+            // crosses the sides of its eighth-of-a-tile cells (Kerbs.FINE), and the ragged edge
+            // of a patch is finer than that: a bank asked of it would stand out across the street
+            // at one vertex and not at the next, and the face between them would be a sharp dark
+            // shard. The shadow program lets a kerb down by the snow at the same fineness.
+            float snowBanked(vec3 root, bool open) {
+                return SNOW_DEPTH * uSnowLying * snowCovers(snowThickAt(root, open, 0.125));
             }
 
             // A plant that stands that deep in snow, at one of its vertices: the whole of it is

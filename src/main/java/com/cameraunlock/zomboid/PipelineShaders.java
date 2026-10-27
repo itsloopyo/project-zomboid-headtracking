@@ -747,7 +747,7 @@ final class PipelineShaders {
                 // runs, and the face becomes the bank's slope. The top stays on the edge of
                 // the pavement. Its shadow is the one its top edge throws either way.
                 if (uModel < 0.5 && vMaterial > 63.5 && vMaterial < 64.5 && gl_MultiTexCoord0.y < 0.5) {
-                    float banked = snowStood(at.xyz, vKind > 0.5);
+                    float banked = snowBanked(at.xyz, vKind > 0.5);
                     if (banked > 0.0) {
                         at.xy += normalize(gl_Normal.xy) * (banked * (0.8 + 1.2 * snowLayer(mod(at.xy, 60.0), 1.5, 21.0).x));
                     }
