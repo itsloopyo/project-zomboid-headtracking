@@ -47,7 +47,7 @@ import zombie.vehicles.VehiclePart;
  * The full stop moves the player to the next of the places worth looking at, round and round,
  * and the comma to the one before.
  *
- * 9 puts the clock on by three hours, into the next day if that is where they end: for
+ * 9 puts the clock on by an hour, into the next day if that is where it ends: for
  * seeing the picture at any hour without waiting for it.
  *
  * Backspace holds the year at the next of the four seasons, spring, summer, autumn and winter,
@@ -153,7 +153,7 @@ public final class DevKeys {
     /** 9 on the number row. */
     private static final int LATER_KEY = 10;
     /** How far a press puts the clock on, in hours. */
-    private static final float LATER = 3f;
+    private static final float LATER = 1f;
     /** Backspace: of the keys the game leaves alone, the nearest to 9 on its row. */
     private static final int SEASON_KEY = 14;
 
@@ -265,7 +265,7 @@ public final class DevKeys {
         String told = null;
         if (!said) {
             said = true;
-            Log.info("development build: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 puts the clock on three hours, Backspace holds the next season of spring, summer, autumn and winter, End holds the next weather of clear, rainy, snowy and stormy, Home starts a fire where the reticle is, ; gives the next of the game's firearms, any gun held never runs dry, [ gives a hunting rifle with the next of the three scopes on it, / gives a lit flashlight, K puts the graphics at Low and High in turn, ' makes you invincible, F7 takes the nearest vehicle, Numpad + and Numpad - go to the next and the last test scene, Pause dumps the frame and the shadow maps");
+            Log.info("development build: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 puts the clock on an hour, Backspace holds the next season of spring, summer, autumn and winter, End holds the next weather of clear, rainy, snowy and stormy, Home starts a fire where the reticle is, ; gives the next of the game's firearms, any gun held never runs dry, [ gives a hunting rifle with the next of the three scopes on it, / gives a lit flashlight, K puts the graphics at Low and High in turn, ' makes you invincible, F7 takes the nearest vehicle, Numpad + and Numpad - go to the next and the last test scene, Pause dumps the frame and the shadow maps");
         }
         if (GameKeyboard.isKeyPressed(FRAME_DUMP_KEY)) {
             FrameDump.ask();
