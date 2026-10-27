@@ -1054,10 +1054,13 @@ final class RoofFit {
             // A gabled canopy over open ground, a porch roof out front of the building on posts, has its far side over open ground
             // too, as deep as the near side: no building stands under either side. The map stands the gable at the canopy's end,
             // across both sides. Left out, the canopy was its near side alone, the gable standing bare over the far half and the
-            // underside of the near side showing past its ridge (a pancake house's porch, 13601..13606, 5767..5768).
-            if (open == 0 && !blocked && !annex && gabledCanopy(at, built, site, top, floor)) {
+            // underside of the near side showing past its ridge (a pancake house's porch, 13601..13606, 5767..5768). The gable
+            // has to stand past the far side as well: a lean-to on posts has a triangle at its end under its own slope alone.
+            Tile gable = open == 0 && !blocked && !annex ? gabledCanopy(at, built, site, top, floor) : null;
+            if (gable != null) {
                 while (open < climbed && !roofed.containsKey(key(x + open * dx, y + open * dy, 0)) && !stands(built, site, x + open * dx, y + open * dy, floor)
-                        && !site.taken(x + open * dx, y + open * dy, floor, ridge - (open + 1) * rise)) {
+                        && !site.taken(x + open * dx, y + open * dy, floor, ridge - (open + 1) * rise)
+                        && (dx != 0 ? site.anyWall(x + open * dx, gable.y + 1, gable.z, true) : site.anyWall(gable.x + 1, y + open * dy, gable.z, false))) {
                     open++;
                 }
                 open = open == climbed ? open : 0;
@@ -1396,10 +1399,10 @@ final class RoofFit {
     }
 
     /**
-     * Whether the tile is of a canopy over open ground that the map gables: no building stands under it on its level, and along its
-     * level line, over open ground as well, the slope runs on in one plane to a tile the map stands a gable past.
+     * The tile the map stands a gable past, where the top is of a canopy over open ground: no building stands under it on its level,
+     * and along its level line, over open ground as well, the slope runs on in one plane to that tile. Null for any other roof.
      */
-    private static boolean gabledCanopy(HashMap<Long, Tile> at, HashMap<Long, Boolean> built, Site site, Tile top, int floor) {
+    private static Tile gabledCanopy(HashMap<Long, Tile> at, HashMap<Long, Boolean> built, Site site, Tile top, int floor) {
         boolean isAlongX = top.fitAxis == ALONG_X;
         for (int side = -1; side <= 1; side += 2) {
             for (int along = 0; ; along++) {
@@ -1410,11 +1413,11 @@ final class RoofFit {
                     break;
                 }
                 if (tile.gabled) {
-                    return true;
+                    return tile;
                 }
             }
         }
-        return false;
+        return null;
     }
 
     /** The square a far side starts on, and which way it runs. */

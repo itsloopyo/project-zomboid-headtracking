@@ -1811,34 +1811,56 @@ final class RoofTests {
 
     /**
      * As the pancake house at 13601..13606, 5767..5768 has its porch: a gable canopy on posts out front of the building, its east
-     * face on x 3..5 falling from 2 to its eave, over open ground, with the map's gable past its south end. Its west face is made over
-     * open ground as deep as the east one. Without the gable it is a lean-to canopy and has no far side.
+     * face on x 3..5 falling from 2 to its eave, over open ground, with the map's gable past its south end on x 0..5. Its west face
+     * is made over open ground as deep as the east one. A lean-to canopy has no far side: one with no gable, and one whose
+     * triangle at its end stands under its own slope alone, on x 3..5.
      */
     private static void gabledCanopyHasItsFarSideOverOpenGround() {
-        for (boolean gabled : new boolean[] {true, false}) {
+        for (int lowestSheet : new int[] {0, 3, -1}) {
             List<RoofFit.Tile> roof = new ArrayList<>();
             for (int y = 5; y <= 6; y++) {
                 for (int i = 0; i < 3; i++) {
                     RoofFit.Tile tile = new RoofFit.Tile(3 + i, y, 1, RoofFit.ALONG_X, true, 2f - i * THIRD, 2f - (i + 1) * THIRD);
-                    tile.gabled = gabled && y == 6;
+                    tile.gabled = lowestSheet >= 0 && y == 6;
                     roof.add(tile);
                 }
             }
             RoofFit.fit(roof);
-            List<RoofFit.Tile> made = RoofFit.backs(roof, standing((x, y) -> false));
+            List<RoofFit.Tile> made = RoofFit.backs(roof, new RoofFit.Site() {
+                @Override
+                public boolean stands(int x, int y, int z) {
+                    return false;
+                }
+
+                @Override
+                public boolean floored(int x, int y, int z) {
+                    return false;
+                }
+
+                @Override
+                public boolean taken(int x, int y, int z, float roof) {
+                    return false;
+                }
+
+                @Override
+                public boolean anyWall(int x, int y, int z, boolean north) {
+                    return lowestSheet >= 0 && north && y == 7 && z == 1 && x >= lowestSheet && x <= 5;
+                }
+            });
             for (int y = 5; y <= 6; y++) {
                 for (int x = 0; x <= 2; x++) {
                     RoofFit.Tile tile = madeAt(made, x, y);
-                    if (gabled) {
+                    if (lowestSheet == 0) {
                         check(tile != null && tile.fitAxis == RoofFit.ALONG_X && near(tile.fitLow, 1f + x * THIRD) && near(tile.fitHigh, 1f + (x + 1) * THIRD),
                                 "the gabled canopy's west face is made at " + x + ", " + y + ": " + said(tile));
                     } else {
-                        check(tile == null, "a canopy with no gable has no far side at " + x + ", " + y + ": " + said(tile));
+                        check(tile == null, "a lean-to canopy has no far side at " + x + ", " + y + " (sheets from x " + lowestSheet + "): " + said(tile));
                     }
                 }
             }
         }
     }
+
 
     private static RoofFit.Site standing(java.util.function.BiPredicate<Integer, Integer> stands) {
         return new RoofFit.Site() {
