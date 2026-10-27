@@ -17,6 +17,24 @@ final class Fences {
                         || name.startsWith("fencing_burnt_01_"));
     }
 
+    /**
+     * Whether a sprite is a whole length of low board fence with a level top, which the game
+     * marks as a sheet because it can be seen over and which is built with a board fence's
+     * thickness and a top. A broken, burnt, notched or pointed one stays a sheet: a top laid at
+     * its highest board would float over its gaps.
+     */
+    static boolean thick(String name) {
+        return name != null && (numbered(name, "fencing_01_", 32, 35) || numbered(name, "carpentry_02_", 44, 49));
+    }
+
+    private static boolean numbered(String name, String sheet, int first, int last) {
+        if (!name.startsWith(sheet)) {
+            return false;
+        }
+        int index = Integer.parseInt(name.substring(sheet.length()));
+        return index >= first && index <= last;
+    }
+
     /** Whether a sprite is a fence of iron bars: the iron the game paints, which its many bars would otherwise have taken for wire. */
     static boolean ironBars(String name, String material) {
         return name != null && name.startsWith("fencing_") && "MetalBars".equals(material);

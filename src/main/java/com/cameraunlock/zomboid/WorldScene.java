@@ -833,6 +833,8 @@ final class WorldScene {
         final int flatWall;
         /** Whether it is a broken length of fence the game marks for no wall: see BrokenFences. */
         final boolean brokenFence;
+        /** Whether it is a length of low board fence built with a thickness, though the game marks it a sheet: see Fences.thick. */
+        final boolean thickFence;
         /** The length of chain link fencing it is, or null: see ChainLink. */
         final ChainLink.Run chainLink;
         /** As a torn or burnt length of chain link, the material its sprite is drawn with, or 0: see ChainLink.brokenMaterial. */
@@ -948,6 +950,7 @@ final class WorldScene {
             edge = name == null ? Overhead.ANY_EDGE : Overhead.edgeOf(name);
             flatWall = WallObjects.flatOn(name, properties, sprite.getFacing());
             brokenFence = BrokenFences.is(name);
+            thickFence = Fences.thick(name);
             chainLink = ChainLink.of(name);
             brokenLink = ChainLink.brokenMaterial(name, madeOf, onEdge);
             linkSheet = ChainLink.sheet(name, properties, type);
@@ -2563,7 +2566,8 @@ final class WorldScene {
 
     /**
      * Whether what the game calls a wall is one it can be seen through: a fence of wire, of
-     * rails or of pickets, a partition of glass. It is a sheet and no thickness of masonry.
+     * rails or of pickets, a partition of glass, a fence of boards low enough to see over.
+     * Of those, a Fences.thick fence is built as a wall all the same.
      */
     private static boolean isSheet(PropertyContainer properties) {
         return (properties.has(IsoFlagType.WallWTrans) || properties.has(IsoFlagType.WallNTrans))
@@ -7693,7 +7697,7 @@ final class WorldScene {
             wallOpens = properties.has(IsoFlagType.DoorWallN) || properties.has(IsoFlagType.DoorWallW)
                     || properties.has(IsoFlagType.WindowN) || properties.has(IsoFlagType.WindowW);
             doorWall = properties.has(IsoFlagType.DoorWallN) || properties.has(IsoFlagType.DoorWallW);
-            seeThrough = isSheet(properties) || kind.linkSheet;
+            seeThrough = isSheet(properties) && !kind.thickFence || kind.linkSheet;
             linkSheet = kind.linkSheet;
             chainLink = seeThrough && overLayer == 0 && Own.buildings() ? kind.chainLink : null;
             linkPostDue = chainLink != null && chainLink.hasPost();
@@ -8402,13 +8406,13 @@ final class WorldScene {
         final WallJoins.Walls standing = (wallX, wallY, north) -> {
             IsoGridSquare square = cell.getGridSquare(wallX, wallY, joinLevel);
             IsoObject wall = square == null ? null : wallOn(square, north, false);
-            return wall != null && !isSheet(wall.getSprite().getProperties());
+            return wall != null && (!isSheet(wall.getSprite().getProperties()) || kindOf(wall.getSprite()).thickFence);
         };
         /** Whether a length of board fence, a sheet that cannot be seen through, stands on the north or west edge of a square of joinLevel. */
         final WallJoins.Walls boarded = (wallX, wallY, north) -> {
             IsoGridSquare square = cell.getGridSquare(wallX, wallY, joinLevel);
             IsoObject wall = square == null ? null : wallOn(square, north, false);
-            return wall != null && isSheet(wall.getSprite().getProperties()) && kindOf(wall.getSprite()).asOther == BOARDS;
+            return wall != null && isSheet(wall.getSprite().getProperties()) && kindOf(wall.getSprite()).asOther == BOARDS && !kindOf(wall.getSprite()).thickFence;
         };
         /** Whether the wall being added is a sheet: see isSheet. */
         boolean seeThrough;

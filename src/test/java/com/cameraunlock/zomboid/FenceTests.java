@@ -13,6 +13,7 @@ final class FenceTests {
         Checks.run("tornAndBurntChainLinkIsWireOnAnEdgeOfTheirSheets", FenceTests::tornAndBurntChainLinkIsWireOnAnEdgeOfTheirSheets);
         Checks.run("chainLinkIsLaidAsASheetWhereverItStandsOnAnEdge", FenceTests::chainLinkIsLaidAsASheetWhereverItStandsOnAnEdge);
         Checks.run("boardFencesAreWoodOnAnEdgeAndNoPickets", FenceTests::boardFencesAreWoodOnAnEdgeAndNoPickets);
+        Checks.run("lowBoardFencesWithALevelTopAreThick", FenceTests::lowBoardFencesWithALevelTopAreThick);
         Checks.run("ironBarFencesAreTheirOwnIron", FenceTests::ironBarFencesAreTheirOwnIron);
         Checks.run("theGamesFloorMarkByNameStaysOffEdgesAndWalls", FenceTests::theGamesFloorMarkByNameStaysOffEdgesAndWalls);
         Checks.run("noTwoWorldMaterialsShareANumber", FenceTests::noTwoWorldMaterialsShareANumber);
@@ -171,6 +172,14 @@ final class FenceTests {
                 "the burnt tall board fence is boards by its MaterialType");
         Checks.check(!Fences.boards("fencing_burnt_01_0", null, null, null, true, false), "a burnt picket, of no material the game names, is not");
         Checks.check(!Fences.boards("fencing_01_56", null, "Metal", null, true, false), "a MaterialType of another stuff is not");
+    }
+
+    private static void lowBoardFencesWithALevelTopAreThick() {
+        Checks.check(Fences.thick("fencing_01_32") && Fences.thick("fencing_01_35"), "the low board fence");
+        Checks.check(Fences.thick("carpentry_02_44") && Fences.thick("carpentry_02_49"), "the level board fences a player builds");
+        Checks.check(!Fences.thick("carpentry_02_40") && !Fences.thick("fencing_01_120") && !Fences.thick("fencing_damaged_01_48")
+                && !Fences.thick("fencing_burnt_01_40"), "a notched, pointed, broken or burnt one is not");
+        Checks.check(!Fences.thick("fencing_01_8") && !Fences.thick("carpentry_02_100") && !Fences.thick("fencing_01_320"), "nor anything else");
     }
 
     private static void ironBarFencesAreTheirOwnIron() {
