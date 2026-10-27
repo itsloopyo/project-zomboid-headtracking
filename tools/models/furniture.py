@@ -5997,25 +5997,27 @@ def flag_top():
 
 
 def stop_sign():
-    """A stop sign on its post: an eight sided plate, red inside a white edge on the side it is read from and bare metal behind.
-    The origin is the post's axis."""
+    """A stop sign on its post: an eight sided plate as the sprite paints it, which shows the sprite's own painting of its face
+    on the side it is read from, and bare metal behind. The origin is the post's axis."""
     model = Model("stop_sign", centred=False)
     post = bmesh.new()
     cuboid(post, -0.02, 0.02, -0.012, 0.012, 0.0, 1.9)
     model.hard(post, "metal", bevel=0.003, segments=1)
-    middle = 1.6
+    middle, across = 1.61, 0.26
 
-    def plate(bm, radius, front, back):
-        outline_along_y(bm, [(x, z + middle) for x, z in arc(0.0, 0.0, radius / math.cos(math.radians(22.5)), 22.5, 337.5, 7)], front, back)
+    def plate(bm, front, back):
+        outline_along_y(bm, [(x, z + middle) for x, z in arc(0.0, 0.0, across / math.cos(math.radians(22.5)), 22.5, 337.5, 7)], front, back)
 
-    back, edge, face = bmesh.new(), bmesh.new(), bmesh.new()
-    plate(back, 0.27, -0.018, -0.012)
+    back, face = bmesh.new(), bmesh.new()
+    plate(back, STOP_PLATE_Y + 0.003, STOP_PLATE_Y + 0.009)
     model.plain(back, "metal")
-    plate(edge, 0.27, -0.021, -0.018)
-    model.plain(edge, "enamel")
-    plate(face, 0.245, -0.023, -0.021)
-    model.plain(face, "vinyl")
+    plate(face, STOP_PLATE_Y, STOP_PLATE_Y + 0.003)
+    model.plain(face, "pane")
     return model
+
+
+# Where the face of a stop sign's plate is, along the model's y: in front of its post. Outdoors.STOP_PLATE_Y is the same.
+STOP_PLATE_Y = -0.021
 
 
 def crossing_signal():

@@ -128,6 +128,15 @@ final class OutdoorTests {
         Outdoors.Piece sign = Outdoors.of("street_decoration_01_1", "Sign", "Stop", Outdoors.EAST, 1, 1, 0);
         Models.get(sign.model);
         Checks.check(sign.turns == 1 && sign.a < 0.5f && sign.b > 0.5f, "a stop sign that faces east has a model, by the corner its sprite paints it at");
+        Outdoors.Piece north = Outdoors.of("street_decoration_01_2", "Sign", "Stop", Outdoors.NORTH, 1, 1, 0);
+        Outdoors.Piece west = Outdoors.of("street_decoration_01_3", "Sign", "Stop", Outdoors.WEST, 1, 1, 0);
+        Checks.check(sign.dyed == 1 << Models.PANE && sign.pictured && sign.paneY == Outdoors.STOP_PLATE_Y && sign.paintedBy == null,
+                "a stop sign's plate shows its own sprite's painting of its face");
+        Checks.check("street_decoration_01_0".equals(north.paintedBy) && north.pictured && "street_decoration_01_1".equals(west.paintedBy) && west.pictured,
+                "one painted from its back shows the face of the one facing the other way");
+        Models.Model stop = Models.get("stop_sign");
+        Checks.check(stop.first[Models.PANE + 1] > stop.first[Models.PANE] && stop.first[Models.VINYL + 1] == stop.first[Models.VINYL]
+                && stop.first[Models.ENAMEL + 1] == stop.first[Models.ENAMEL], "its model's plate is a pane, with no colours of its own");
         Outdoors.Piece truck = Outdoors.of("industry_03_72", "Hand Truck", "Empty", Outdoors.EAST, 1, 1, 0);
         Models.get(truck.model);
         Checks.check(truck.turns == 1 && truck.a == 0.25f && truck.b == 0.5f, "a stock trolley that faces east stands in the west half of its square");

@@ -355,6 +355,10 @@ final class Outdoors {
     private static final float CROSSING_SIGNAL_WHITE = 0.45f, CROSSING_SIGNAL_YELLOW = 0.23f;
     /** Where on its square a stop sign's post is painted, for one that faces north, east, south and west. */
     private static final float[] STOP_SIGN_AT = {0.64f, 0.61f, 0.35f, 0.78f, 0.35f, 0.37f, 0.41f, 0.37f};
+    /** Where the face of a stop sign's plate is along its model's y: STOP_PLATE_Y in furniture.py. */
+    static final float STOP_PLATE_Y = -0.021f;
+    /** How high over its foot a stop sign's sprite paints its plate, in levels: where its colour is looked up, to be sure the sprite is there. */
+    private static final float STOP_PLATE_HIGH = 0.653f;
 
     /** How high on its sprite the slats of a public litter bin give their colour, in levels. */
     private static final float BIN_DYE = 0.2f;
@@ -633,9 +637,13 @@ final class Outdoors {
                 default -> null;
             };
         }
-        // A stop sign's post stands near a corner of its square, a different one for each way the sign faces.
+        // A stop sign's post stands near a corner of its square, a different one for each way the sign faces. Its plate shows the
+        // sprite's own painting of its face: one facing north or west is painted from its back, and shows the face of the one
+        // facing south or east.
         if (called.equals("Sign") && kind.equals("Stop") && faces != NONE) {
-            return new Piece("stop_sign", faces).at(STOP_SIGN_AT[2 * faces], STOP_SIGN_AT[2 * faces + 1]);
+            float a = STOP_SIGN_AT[2 * faces], b = STOP_SIGN_AT[2 * faces + 1];
+            Piece sign = new Piece("stop_sign", faces).at(a, b).dye(1 << Models.PANE, a, b, STOP_PLATE_HIGH).pictured(STOP_PLATE_Y);
+            return faces == NORTH ? sign.paintedBy(STREET + "0") : faces == WEST ? sign.paintedBy(STREET + "1") : sign;
         }
         // A stock trolley stands in the back half of its square, its frame at the edge behind it.
         if (called.equals("Hand Truck") && kind.equals("Empty") && faces != NONE) {
