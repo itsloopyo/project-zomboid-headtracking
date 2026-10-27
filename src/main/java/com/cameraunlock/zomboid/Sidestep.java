@@ -35,43 +35,55 @@ final class Sidestep {
     static final long GAP_NANOS = 200_000_000L;
     /** The time constant the measured pace follows the walk's with. */
     static final float FOLLOW_SECONDS = 0.5f;
-
-    private final float[] measured = {Float.NaN, Float.NaN, Float.NaN, Float.NaN};
-    private long walkingSince = -1L, lastWalked = -1L;
-    private int walkedGait;
+    /** The time constant the stance's own pace is followed with, for its start to ease in. */
+    static final float STANCE_SECONDS = 0.15f;
 
     /**
-     * A frame of the game's own walk ahead, its pace the ground moved over the game's time
-     * multiplier, so that the game's speed does not count.
+     * Each gait's ground and the game's time it took, summed with the older frames fading.
+     * A frame's ground does not follow that frame's time multiplier, which swings from frame to
+     * frame, so a pace is the ground over the time of many frames and never the mean of each
+     * frame's ground over its own multiplier, which a few short frames carry far past the pace.
      */
-    void walkedAhead(float pace, int gait, long now) {
+    private final float[] ground = new float[4], time = new float[4];
+    private long walkingSince = -1L, lastWalked = -1L;
+    private int walkedGait;
+    private float stanceGround, stanceTime;
+    private long lastStance = -1L;
+
+    /** A frame of the game's own move ahead: the ground it moved and the game's time multiplier. */
+    void walkedAhead(float moved, float multiplier, int gait, long now) {
         if (lastWalked < 0L || now - lastWalked > GAP_NANOS || gait != walkedGait) {
             walkingSince = now;
         } else if (now - walkingSince >= UNDER_WAY_NANOS) {
-            int slot = gait;
-            float seconds = (now - lastWalked) / 1e9f;
-            measured[slot] = Float.isNaN(measured[slot]) ? pace
-                    : measured[slot] + (pace - measured[slot]) * (float) (1.0 - Math.exp(-seconds / FOLLOW_SECONDS));
+            float fade = (float) Math.exp(-(now - lastWalked) / 1e9 / FOLLOW_SECONDS);
+            ground[gait] = ground[gait] * fade + moved;
+            time[gait] = time[gait] * fade + multiplier;
         }
         lastWalked = now;
         walkedGait = gait;
     }
 
-    /** The game's pace ahead measured for one of the gaits, NaN until one has been. */
+    /** The game's pace ahead measured for one of the gaits, the ground over the game's time, NaN until one has been. */
     float measured(int gait) {
-        return measured[gait];
+        return time[gait] > 0f ? ground[gait] / time[gait] : Float.NaN;
     }
 
     /**
      * What the ground the stance moves the character this frame is multiplied by.
      *
-     * @param pace  the stance's pace this frame, the ground over the game's time multiplier
-     * @param ahead the cosine of the angle between the way walked and the view, -1 straight back
+     * @param moved      the ground the stance moved the character this frame
+     * @param multiplier the game's time multiplier this frame
+     * @param ahead      the cosine of the angle between the way walked and the view, -1 straight back
      */
-    float raised(float pace, float ahead, int gait) {
-        if (pace <= 0f) {
+    float raised(float moved, float multiplier, float ahead, int gait, long now) {
+        if (moved <= 0f || multiplier <= 0f) {
             return 1f;
         }
+        float fade = lastStance < 0L || now - lastStance > GAP_NANOS ? 0f : (float) Math.exp(-(now - lastStance) / 1e9 / STANCE_SECONDS);
+        stanceGround = stanceGround * fade + moved;
+        stanceTime = stanceTime * fade + multiplier;
+        lastStance = now;
+        float pace = stanceGround / stanceTime;
         boolean creeping = gait == CREEPING;
         float shares = (creeping ? SNEAK : 1f) / stance(ahead);
         float walk = measured(creeping ? CREEPING : WALKING);
@@ -82,7 +94,7 @@ final class Sidestep {
             // The start still eases in, by the same share of the faster gait.
             most = Float.isNaN(walk) ? wanted : most * wanted / walk;
         }
-        return Math.min(Float.isNaN(wanted) ? pace * shares : wanted, most) / pace;
+        return Math.min(Float.isNaN(wanted) ? pace * shares : wanted, most) * multiplier / moved;
     }
 
     /**

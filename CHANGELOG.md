@@ -28,7 +28,7 @@
 - Left click with the pointer out uses what the pointer is on, as `E` does with the reticle, the same as in the isometric view.
 - The game's placing cursors (building, Walk To, Place Item, moving furniture, Cut down Tree, Dig Furrow) go where the reticle points, or the pointer when it is out. Their square is outlined, and a piece to build shows which way it will face.
 - A single quick click is enough for a melee attack.
-- Walking, sneaking, jogging or sprinting sideways or backwards in first person, your character keeps facing where you look, in the game's aiming stance at the pace of the same gait ahead, and a jog or sprint tires it as one ahead does. Offline only; `FacesTheView` switches it off.
+- Walking or sneaking sideways or backwards, and jogging or sprinting any way but straight ahead, in first person, your character keeps facing where you look, in the game's aiming stance at the pace of the same gait ahead, and a jog or sprint tires it as one ahead does. Offline only; `FacesTheView` switches it off.
 - Controller: the aim stick turns the view, right trigger attacks, left trigger raises the sights, double-tap Back switches view.
 - If no plugged-in gamepad is ticked in the game's Controller options, every gamepad the game recognises plays. A 3Dconnexion SpaceMouse is never taken as a controller.
 - Every mod key can be rebound in `[Hotkeys]`. Mod keys do nothing in the main menu or while typing.

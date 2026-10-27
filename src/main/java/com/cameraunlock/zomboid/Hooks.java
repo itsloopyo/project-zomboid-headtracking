@@ -817,15 +817,15 @@ public final class Hooks {
         if (view == null || multiplier <= 0f) {
             return ground;
         }
-        float pace = (float) Math.hypot(ground.x, ground.y) / multiplier;
+        float moved = (float) Math.hypot(ground.x, ground.y);
         if (view.controls.turnedOnly() && player.isAiming()) {
-            float raised = view.sidestep.raised(pace, view.firstPerson.keysAhead(), view.controls.stanceGait());
+            float raised = view.sidestep.raised(moved, multiplier, view.firstPerson.keysAhead(), view.controls.stanceGait(), System.nanoTime());
             return ground.set(ground.x * raised, ground.y * raised);
         }
-        if (pace > 0f && view.firstPerson.walkingAhead() && !player.isAiming() && player.getVehicle() == null && !player.isDraggingCorpse()) {
+        if (moved > 0f && view.firstPerson.walkingAhead() && !player.isAiming() && player.getVehicle() == null && !player.isDraggingCorpse()) {
             int gait = player.isSprinting() ? Sidestep.SPRINTING : player.isRunning() ? Sidestep.JOGGING
                     : player.isSneaking() ? Sidestep.CREEPING : Sidestep.WALKING;
-            view.sidestep.walkedAhead(pace, gait, System.nanoTime());
+            view.sidestep.walkedAhead(moved, multiplier, gait, System.nanoTime());
         }
         return ground;
     }

@@ -122,18 +122,28 @@ public final class Controls {
      * A character that is not aiming turns to the way it moves, so walked backwards it would
      * show its back to what the view looks at: in a mirror, to other players, and to the game's
      * own vision cone, and sprinted sideways it would turn its body where a first person player
-     * keeps looking ahead. Moved sideways or backwards it is held in the game's aiming stance, the
+     * keeps looking ahead. Moved sideways or backwards, or jogged or sprinted anywhere but
+     * straight ahead, it is held in the game's aiming stance, the
      * one way the game has of facing one way and moving another, raised to the pace the game
      * gives the walk, jog or sprint ahead (Sidestep). Dragging a body, with the FacesTheView row
      * off or on a server, the game turns the character to the way it goes, as it would anyway.
      * The sights stay down. They follow the player's own aim input alone.
      */
     private boolean turnedToTheView(IsoPlayer player) {
-        boolean turned = Rules.facesTheView() && player != null && player.getVehicle() == null && view.firstPerson.movingAside()
-                && !player.isDraggingCorpse();
-        stanceGait = turned ? askedGait(player) : Sidestep.WALKING;
+        if (!Rules.facesTheView() || player == null || player.getVehicle() != null || player.isDraggingCorpse()) {
+            stanceGait = Sidestep.WALKING;
+            return false;
+        }
+        int gait = askedGait(player);
+        // A jog or sprint ahead and to one side faces the view too: only straight ahead is the game's own run.
+        boolean turned = view.firstPerson.movingAside()
+                || gait >= Sidestep.JOGGING && view.firstPerson.walkingAhead() && view.firstPerson.keysAhead() < STRAIGHT_AHEAD;
+        stanceGait = turned ? gait : Sidestep.WALKING;
         return turned;
     }
+
+    /** The cosine of the angle off the view, 10 degrees, within which the keys or the stick ask for straight ahead. */
+    private static final float STRAIGHT_AHEAD = 0.985f;
 
     private static final Field INPUT_STATE = inputState();
 
