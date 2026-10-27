@@ -820,6 +820,33 @@ final class RoofFit {
     }
 
     /**
+     * The slopes a map paints a second time, whole thirds of a level up from a tile of their own level that already
+     * paints them: taken back as many squares, they lie on that tile, the same way and as high. The game draws the two
+     * as one, and laid where it stands the copy is a strip of roof a square out past its eave, in the air: the garage's
+     * slope at 12025..12028, 2493 (roofs_01_113), over roofs_01_0 on 12024..12027, 2492. A slope the map holds falls
+     * south or east, so the square back along the line of sight is higher, never the same.
+     */
+    static Set<Tile> paintedTwice(List<Tile> tiles) {
+        HashMap<Long, Tile> at = new HashMap<>();
+        for (Tile tile : tiles) {
+            at.put(key(tile.x, tile.y, tile.z), tile);
+        }
+        HashSet<Tile> twice = new HashSet<>();
+        for (Tile tile : tiles) {
+            int squares = (int) Math.floor((Math.min(tile.low, tile.high) - tile.z + SAME) / PITCH);
+            if (tile.z == 0 || tile.axis == LEVEL || !whole(tile) || squares < 1) {
+                continue;
+            }
+            Tile under = at.get(key(tile.x - squares, tile.y - squares, tile.z));
+            if (under != null && under.axis == tile.axis && whole(under) && Math.abs(under.low - (tile.low - squares * PITCH)) < SAME
+                    && Math.abs(under.high - (tile.high - squares * PITCH)) < SAME) {
+                twice.add(tile);
+            }
+        }
+        return twice;
+    }
+
+    /**
      * Whether a piece, taken back the given squares and thirds of a level, has an edge as high as the
      * top of a slope a level down on a square it covers or one beside it. A trim is no slope: the boards
      * along a bay's flat roof stand as high as the eave of a canopy taken back over it, and are no reason to take one back.

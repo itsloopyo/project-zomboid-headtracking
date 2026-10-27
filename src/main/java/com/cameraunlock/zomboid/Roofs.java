@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import zombie.core.textures.Texture;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
@@ -102,7 +103,7 @@ final class Roofs {
         final Roof roof;
         /** Whether it is a sheet behind a ridge (RoofFit.behindRidges): kept so its square is not read again, and no tile. */
         final boolean behind;
-        /** Whether its sprite is painted forward of where it stands (RoofFit.paintedForward): its square draws nothing, and the tile it stands for is made. */
+        /** Whether its sprite is painted forward of where it stands (RoofFit.paintedForward, RoofFit.paintedTwice): its square draws nothing, and the tile it stands for is made unless the map has it. */
         final boolean forward;
 
         Laid(RoofFit.Tile tile, Texture texture, Roof roof) {
@@ -457,6 +458,12 @@ final class Roofs {
         tiles.clear();
         for (Laid one : reading) {
             tiles.add(one.tile);
+        }
+        // A slope painted a second time over one the map already has draws nothing.
+        Set<RoofFit.Tile> twice = RoofFit.paintedTwice(tiles);
+        if (!twice.isEmpty()) {
+            reading.replaceAll(one -> twice.contains(one.tile) ? new Laid(one.tile, one.texture, roof, false, true) : one);
+            tiles.removeAll(twice);
         }
         // A piece painted forward of where it stands is fitted where it stands, and made there.
         Map<RoofFit.Tile, RoofFit.Tile> forward = RoofFit.paintedForward(tiles, site(cell, 0, new HashSet<>()));

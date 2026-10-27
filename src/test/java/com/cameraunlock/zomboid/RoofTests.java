@@ -7,6 +7,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import zombie.core.textures.Texture;
 import zombie.iso.SpriteDetails.IsoObjectType;
 
@@ -20,6 +21,7 @@ final class RoofTests {
         Checks.run("planeAndFoldAreToldApartByTheMiddle", RoofTests::planeAndFoldAreToldApartByTheMiddle);
         Checks.run("gambrelsTopPaintedForwardStandsOverItsLoft", RoofTests::gambrelsTopPaintedForwardStandsOverItsLoft);
         Checks.run("canopyPaintedForwardStandsOverABaysFlatRoof", RoofTests::canopyPaintedForwardStandsOverABaysFlatRoof);
+        Checks.run("slopePaintedTwiceIsDroppedNotLaidOut", RoofTests::slopePaintedTwiceIsDroppedNotLaidOut);
         Checks.run("slopeKeepsItsPitchAboveTheKickAtItsEave", RoofTests::slopeKeepsItsPitchAboveTheKickAtItsEave);
         Checks.run("farSideOfAWingMeetsTheMainRoofInAValley", RoofTests::farSideOfAWingMeetsTheMainRoofInAValley);
         Checks.run("madeFarSidesOfAWingAndItsMainRoofMeetInAValley", RoofTests::madeFarSidesOfAWingAndItsMainRoofMeetInAValley);
@@ -1793,6 +1795,33 @@ final class RoofTests {
         List<RoofFit.Tile> held = new ArrayList<>(canopy);
         held.add(new RoofFit.Tile(5, 3, 1, RoofFit.ALONG_X, true, 1f + THIRD, 1f));
         check(RoofFit.paintedForward(held, bay).isEmpty(), "a canopy whose squares back hold a slope stays");
+    }
+
+    private static void slopePaintedTwiceIsDroppedNotLaidOut() {
+        // A garage's slope on level 1, row 2 of x 0..4, falling south from 1 + 1/3 to 1; the map paints it again on row 3
+        // of x 1..5 a third up, a square out past its eave.
+        List<RoofFit.Tile> roof = new ArrayList<>();
+        List<RoofFit.Tile> copy = new ArrayList<>();
+        for (int x = 0; x <= 4; x++) {
+            roof.add(new RoofFit.Tile(x, 2, 1, RoofFit.ALONG_Y, true, 1f + THIRD, 1f));
+            copy.add(new RoofFit.Tile(x + 1, 3, 1, RoofFit.ALONG_Y, true, 1f + 2f * THIRD, 1f + THIRD));
+        }
+        roof.addAll(copy);
+        Set<RoofFit.Tile> twice = RoofFit.paintedTwice(roof);
+        check(twice.size() == copy.size() && twice.containsAll(copy), "every tile of the copy is found, and nothing else: " + twice.size());
+        // A slope falling south over two rows is no copy: the row back along the line of sight is higher.
+        List<RoofFit.Tile> slope = new ArrayList<>();
+        for (int x = 0; x <= 4; x++) {
+            slope.add(new RoofFit.Tile(x, 2, 1, RoofFit.ALONG_Y, true, 1f + 2f * THIRD, 1f + THIRD));
+            slope.add(new RoofFit.Tile(x, 3, 1, RoofFit.ALONG_Y, true, 1f + THIRD, 1f));
+        }
+        check(RoofFit.paintedTwice(slope).isEmpty(), "a slope's lower row stays");
+        // Nor where the tile back along the line falls the other way.
+        List<RoofFit.Tile> crossed = new ArrayList<>(copy);
+        for (int x = 0; x <= 4; x++) {
+            crossed.add(new RoofFit.Tile(x, 2, 1, RoofFit.ALONG_X, true, 1f + THIRD, 1f));
+        }
+        check(RoofFit.paintedTwice(crossed).isEmpty(), "a tile over a slope of another axis stays");
     }
 
     private static void sheetsBehindARidgeAreNoPartOfTheRoof() {
