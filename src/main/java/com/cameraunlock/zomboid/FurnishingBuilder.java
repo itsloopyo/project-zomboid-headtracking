@@ -1040,7 +1040,7 @@ final class FurnishingBuilder {
             // that is on shows the bars, which is what the game's sprite is a picture of.
             int showing = Screens.showing(set);
             if (showing != Screens.DARK) {
-                addLitScreen(piece, model, Screens.held(set, Own.pictures(build.playerIndex) ? showing : Screens.BARS, piece.blackAndWhite), piece.blackAndWhite, x, y, foot);
+                addLitScreen(piece, model, Screens.held(set, Own.pictures(build.playerIndex) ? showing : Screens.BARS, piece.blackAndWhite), piece.blackAndWhite, x, y, centreX, centreY, foot);
             }
         }
         return true;
@@ -1178,11 +1178,11 @@ final class FurnishingBuilder {
      * Screens.held gives for it. Whether the tube has colour goes where a piece's second dye is looked up, which a
      * sheet has none of: a programme's picture is in colour in the jar, and the picture's program takes it out.
      */
-    private void addLitScreen(Furniture piece, Models.Model set, int held, boolean inGrey, int x, int y, float foot) {
+    private void addLitScreen(Furniture piece, Models.Model set, int held, boolean inGrey, int x, int y, float centreX, float centreY, float foot) {
         float[] glass = Screens.glass(set);
         float wide = (glass[1] - glass[0]) * piece.scale, high = (glass[3] - glass[2]) * piece.scaleUp;
         Models.turn(piece.turns, (glass[0] + glass[1]) / 2f * piece.scale, (glass[4] - Screens.PROUD) * piece.scale, screenAt);
-        build.placed.add(Models.get("lit_screen"), build.frame, x, y, x + piece.centreX + screenAt[0], y + piece.centreY + screenAt[1], foot + glass[2] * piece.scaleUp,
+        build.placed.add(Models.get("lit_screen"), build.frame, x, y, x + centreX + screenAt[0], y + centreY + screenAt[1], foot + glass[2] * piece.scaleUp,
                 piece.turns, wide, high, held, 1 << Models.SCREEN, 0f, 0f, 0, inGrey ? Screens.IN_GREY : Screens.IN_COLOUR, 0f);
         Decor.lay(-0.5f, 0.5f, 0f, 1f, wide, high, 0f, Screens.WIDE_FOR_HIGH, build.hungShows);
         build.placed.picture(build.hungShows);
