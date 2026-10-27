@@ -159,6 +159,11 @@ final class Farm {
         };
     }
 
+    /** Whether the game's name and group for a sprite make it a galvanised stock tank, which has a floor and stands on the ground. */
+    static boolean tank(String called, String group) {
+        return "Trough".equals(called) && ("Small Metal".equals(group) || "Large Metal".equals(group));
+    }
+
     /** A trough lies across the way it faces: a wooden one on legs, the galvanised tanks with round ends, and a feeder with a rack for hay. */
     private static Outdoors.Piece trough(String kind, int faces, int along, int across) {
         if (kind.equals("Huge Metal") && along == 2 && across == 2 && (faces == Outdoors.SOUTH || faces == Outdoors.EAST)) {

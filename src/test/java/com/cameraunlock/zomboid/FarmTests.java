@@ -4,6 +4,13 @@ package com.cameraunlock.zomboid;
 final class FarmTests {
     private FarmTests() {}
 
+    private static void onlyAStockTankKeepsItsLawnOut() {
+        Checks.check(Farm.tank("Trough", "Small Metal") && Farm.tank("Trough", "Large Metal"), "a galvanised stock tank keeps the lawn out of its floor");
+        Checks.check(!Farm.tank("Trough", "Animal") && !Farm.tank("Trough", "Small Animal") && !Farm.tank("Trough", "Huge Metal"),
+                "a trough on legs and a hay feeder stand over the grass");
+        Checks.check(!Farm.tank(null, null) && !Farm.tank("Counter", "Small Metal"), "a sprite with no such name is no stock tank");
+    }
+
     private static void whatATroughHoldsLiesInsideIt() {
         String[][] fills = {{"stock_tank", "_feed_low", "_feed_full", "_water_low", "_water_full"}, {"stock_tank_long", "_feed_low", "_feed_full", "_water_low", "_water_full"},
                 {"feed_trough", "_feed", "_water"}, {"feed_trough_small", "_feed", "_water"}};
@@ -28,6 +35,7 @@ final class FarmTests {
         Checks.run("aLoadOfLogsFillsItsSixSquares", FarmTests::aLoadOfLogsFillsItsSixSquares);
         Checks.run("aTroughLiesAcrossTheWayItFaces", FarmTests::aTroughLiesAcrossTheWayItFaces);
         Checks.run("whatATroughHoldsLiesInsideIt", FarmTests::whatATroughHoldsLiesInsideIt);
+        Checks.run("onlyAStockTankKeepsItsLawnOut", FarmTests::onlyAStockTankKeepsItsLawnOut);
         Checks.run("whatStandsInAYardHasItsModel", FarmTests::whatStandsInAYardHasItsModel);
         Checks.run("aMallPlanterIsStoneWithLeavesGrowingOverItsRim", FarmTests::aMallPlanterIsStoneWithLeavesGrowingOverItsRim);
         Checks.run("aPlantOnATableStandsOnItWhereItsSpritePaintsIt", FarmTests::aPlantOnATableStandsOnItWhereItsSpritePaintsIt);

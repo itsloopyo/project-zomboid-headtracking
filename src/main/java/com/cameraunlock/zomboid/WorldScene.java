@@ -854,6 +854,8 @@ final class WorldScene {
         final boolean ofTheBuilding, keptInItsRoom;
         /** Whether it is seen only from within the room of its square, or from where the eye sees into it: a floor, what is laid as one, a stair. */
         final boolean seenInItsRoom;
+        /** Whether it is a galvanised stock tank, whose floor no lawn grows up through: see Farm.tank. */
+        final boolean tank;
 
         /** What a tree of the sprite drops, given which of its kind's two colours it turns: see Flora.otherHue. */
         byte drops(boolean otherHue) {
@@ -885,6 +887,7 @@ final class WorldScene {
             masonry = WallSides.madeOf(properties.get("MaterialType"));
             gableSheet = laidWall && name.startsWith("walls_exterior_roofs");
             lies = Flat.lies(properties.get("RenderLayer"), properties.get("MoveType"));
+            tank = Farm.tank(properties.get("CustomName"), properties.get("GroupName"));
             wire = name != null && name.startsWith("appliances_com");
             roofAccent = name != null && name.startsWith("roofs_accents");
             roofSheet = name != null && name.startsWith("roofs_");
@@ -4619,6 +4622,18 @@ final class WorldScene {
             return false;
         }
 
+        /** Whether a stock tank stands on the square, whose floor nothing grows up through: see Farm.tank. */
+        private boolean tanked(IsoGridSquare square) {
+            PZArrayList<IsoObject> objects = square.getObjects();
+            for (int i = 0; i < objects.size(); i++) {
+                IsoSprite sprite = objects.get(i).getSprite();
+                if (sprite != null && kindOf(sprite).tank) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         /** How far something lying on the square (x, y) reaches into the square (toX, toY) beside it: none where something lies there too. */
         private float reachInto(int x, int y, int toX, int toY, int z) {
             IsoGridSquare next = squareAt(Math.floorDiv(x, CHUNK_TILES) * CHUNK_TILES, Math.floorDiv(y, CHUNK_TILES) * CHUNK_TILES, toX, toY, z);
@@ -4992,6 +5007,9 @@ final class WorldScene {
                 frameOf(groundObject[own], groundTexture[own]);
             }
             frame.material = 0f;
+            if (tanked(square)) {
+                return;
+            }
             if (toX * toX + toY * toY < GRASS_REACH * GRASS_REACH && !flattened(square)) {
                 plantBuilder.growGrass(x, y, localX, localY);
             }
