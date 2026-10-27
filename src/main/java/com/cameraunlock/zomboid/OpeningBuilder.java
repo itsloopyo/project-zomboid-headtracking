@@ -814,11 +814,24 @@ final class OpeningBuilder {
         SpriteGeometry.Mesh glass = WorldScene.laid.get(WorldScene.PLAIN, WallSides.PANES);
         glass.sway = 0f;
         facePane(glass, beyond, lit, da, db);
+        float clear = glass.open;
         for (int pane = 0; pane < shape.panes.length; pane += 5) {
             float t0 = shape.panes[pane], t1 = shape.panes[pane + 1], h0 = shape.panes[pane + 2], h1 = shape.panes[pane + 3];
             if (shape.panes[pane + 4] >= 1f) {
-                addGlass(glass, t0, h0, 0f, 0f, t1, h0, 1f, 0f, t1, h1, 1f, 1f);
-                addGlass(glass, t0, h0, 0f, 0f, t1, h1, 1f, 1f, t0, h1, 0f, 1f);
+                // Frosted glass is a pane of its own, how far up its frosting the place is in v.
+                float frosted = Math.min(h1, shape.frostedTo);
+                if (frosted > h0) {
+                    float v0 = (h0 - shape.foot) / (shape.frostedTo - shape.foot), v1 = (frosted - shape.foot) / (shape.frostedTo - shape.foot);
+                    glass.open = sideOpen[paneSide] + 32f * WorldScene.FROSTED_PANE;
+                    addGlass(glass, t0, h0, 0f, v0, t1, h0, 1f, v0, t1, frosted, 1f, v1);
+                    addGlass(glass, t0, h0, 0f, v0, t1, frosted, 1f, v1, t0, frosted, 0f, v1);
+                    glass.open = clear;
+                    h0 = frosted;
+                }
+                if (h1 > h0) {
+                    addGlass(glass, t0, h0, 0f, 0f, t1, h0, 1f, 0f, t1, h1, 1f, 1f);
+                    addGlass(glass, t0, h0, 0f, 0f, t1, h1, 1f, 1f, t0, h1, 0f, 1f);
+                }
             } else {
                 addShards(glass, t0, t1, h0, h1, shape.panes[pane + 4], x * 73856093 ^ y * 19349663 ^ z * 83492791 ^ pane * 2654435);
             }
@@ -875,6 +888,7 @@ final class OpeningBuilder {
         fit.headHigh = shape.headHigh;
         fit.footSolid = shape.footSolid;
         fit.headSolid = shape.headSolid;
+        fit.frostedTo = shape.frostedTo;
         fit.red = shape.red;
         fit.green = shape.green;
         fit.blue = shape.blue;
@@ -911,6 +925,7 @@ final class OpeningBuilder {
         cut.headHigh = shape.headHigh;
         cut.footSolid = shape.footSolid;
         cut.headSolid = shape.headSolid;
+        cut.frostedTo = shape.frostedTo;
         cut.red = shape.red;
         cut.green = shape.green;
         cut.blue = shape.blue;

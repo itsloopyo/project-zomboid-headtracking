@@ -253,6 +253,7 @@ final class WindowTests {
         check(shape != null && near(shape.footHigh, 3f / 10f) && shape.panes.length == 5 && near(shape.panes[2], 3f / 10f), "read as a frame, the frosting is a foot");
         Windows.frostedFoot(shape);
         check(shape.footHigh == 0f && near(shape.panes[2], 0f) && near(shape.panes[3], 9f / 10f), "and taken back, the pane runs from the rail to the ground");
+        check(near(shape.frostedTo, 3f / 10f), "frosted as high as the foot was");
         Windows.Shape sill = measured(
                 "##########",
                 "##......##",
@@ -265,7 +266,7 @@ final class WindowTests {
                 "##......##",
                 "##########");
         Windows.frostedFoot(sill);
-        check(near(sill.footHigh, 1f / 10f) && near(sill.panes[2], 1f / 10f), "a window's foot of a dot or two stays its foot");
+        check(near(sill.footHigh, 1f / 10f) && near(sill.panes[2], 1f / 10f) && sill.frostedTo == 0f, "a window's foot of a dot or two stays its foot, and its glass clear");
         Windows.Shape tower = measured(
                 "##########",
                 "##......##",

@@ -3272,7 +3272,8 @@ final class PipelineShaders {
                 // Glass with a room on both sides, built or a window's sprite, has no street side
                 // (OpeningBuilder.paneMaterial, WallBuilder.INNER_GLASS).
                 bool innerPane = vMaterial > 70.5 && vMaterial < 71.5;
-                bool outerPane = vMaterial > 69.5 && vMaterial < 70.5;
+                bool frostedPane = vMaterial > 118.5 && vMaterial < 119.5;
+                bool outerPane = vMaterial > 69.5 && vMaterial < 70.5 || frostedPane;
                 bool inner = innerPane || vMaterial > 93.5 && vMaterial < 94.5;
                 bool sheet = vMaterial > 66.5 && vMaterial < 68.5 || innerPane || outerPane;
                 bool lamplit = vMaterial > 64.5 && vMaterial < 65.5 || vMaterial > 67.5 && vMaterial < 68.5;
@@ -3333,6 +3334,10 @@ final class PipelineShaders {
                         float bloom = 0.6 * wrappedPatches(vec2(along * 19.0, vPlace.z * 19.0) + 31.0, vec2(1140.0))
                                 + 0.4 * wrappedPatches(vec2(along * 53.0, vPlace.z * 47.0) + 7.0, vec2(3180.0, 2820.0));
                         soiled = 0.012 + 0.025 * bloom + 0.09 * corners * (0.4 + 0.6 * bloom) + outside * 0.04 * runs;
+                        if (frostedPane) {
+                            // Frosted glass is milky, the thicker the nearer the ground, in clouds: vUv.y is how far up its frosting the place is.
+                            soiled += (1.0 - soiled) * clamp(mix(0.92, 0.45, vUv.y) * (0.8 + 0.4 * bloom), 0.0, 0.95);
+                        }
                         veil = veil + (1.0 - veil) * soiled;
                     }
                     // A built pane is mixed in over what is behind it by how much of a veil it is,
@@ -3343,7 +3348,7 @@ final class PipelineShaders {
                     glazed = 1.0;
                     cover = 1.0;
                     // Of the pixels that are the pane, the share that is the dust on it is lit as dust is.
-                    texel = vec4(mix(vec3(0.02, 0.025, 0.03), vec3(0.62, 0.6, 0.55), soiled / veil), 1.0);
+                    texel = vec4(mix(vec3(0.02, 0.025, 0.03), frostedPane ? vec3(0.92) : vec3(0.62, 0.6, 0.55), soiled / veil), 1.0);
                 }
                 // The game paints the shadow a thing throws on the ground into the thing's
                 // sprite: black, a fifth covered. Stood up with the thing as a card, or wrapped

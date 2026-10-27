@@ -65,6 +65,8 @@ final class Windows {
          * it was taken for a pane's film and sifted, a different set of pixels every frame.
          */
         boolean footSolid, headSolid;
+        /** How high, in levels, the glass is frosted from the foot up: 0 for clear glass. See frostedFoot. */
+        float frostedTo;
         /** Four numbers a bar: where along it starts and ends, how high its foot and its head. */
         float[] bars = new float[0];
         /** Five numbers a pane: as a bar, then how much of it is glass. */
@@ -176,7 +178,7 @@ final class Windows {
      * foot, it was a dark board knee high under clear glass. A tower's windows are frosted the
      * same way inside a frame with a stile at each end and a foot of its own, and keep their
      * frosting as foot (Shape.footSolid). The lowest panes, and the bars between them, are run
-     * down to the ground.
+     * down to the ground, and their glass is frosted as high as the foot was (Shape.frostedTo).
      */
     static void frostedFoot(Shape shape) {
         if (shape.footHigh <= FROSTED_FOOT || shape.startWide > 0f && shape.endWide > 0f || shape.panes.length == 0) {
@@ -196,6 +198,7 @@ final class Windows {
                 shape.bars[bar + 2] = shape.foot;
             }
         }
+        shape.frostedTo = lowest;
         shape.footHigh = 0f;
     }
 
