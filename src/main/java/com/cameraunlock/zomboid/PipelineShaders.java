@@ -2680,7 +2680,7 @@ final class PipelineShaders {
                     // light's to give, not the texel's.
                     float held = clamp(lit, crop ? 0.33 : 0.2, 0.5);
                     // A flower keeps more of the light it is painted in: a pale rose is pale.
-                    vec3 painted = texel.rgb * clamp(lit, 0.25, 0.65) / max(lit, 1e-3);
+                    vec3 painted = texel.rgb * clamp(lit, 0.32, 0.7) / max(lit, 1e-3);
                     texel.rgb *= held / max(lit, 1e-3);
                     lit = held;
                     vec3 lawn = ownA < 0.33 ? vec3(0.3, 0.47, 0.17) : ownA < 0.66 ? vec3(0.36, 0.5, 0.17) : vec3(0.43, 0.52, 0.19);
@@ -2747,19 +2747,25 @@ final class PipelineShaders {
                         texel.rgb = spikelet <= 1.0 ? head * (1.15 - 0.4 * spikelet) : head * 0.8;
                         stripGloss = 0.2;
                     } else if (crop) {
-                        // A flower (Grass.BLOOM): a round head, scalloped by its outer petals, of
-                        // the bloom it is coloured from. Its petals curl in in rings to its
-                        // heart, each ring lit at its edge and shaded where it folds under the
-                        // next, and the heart is darkest.
+                        // A rose (Grass.BLOOM): a round head, scalloped by its outer petals, in
+                        // the bloom it is coloured from, a little richer than painted. Its
+                        // petals lie in four rings curling in to the heart, each ring five
+                        // petals turned from the ring outside it, each petal's curled lip lit
+                        // and its foot shaded under the petal over it, and the heart darkest.
                         vec2 p = vec2(across, up * 2.0 - 1.0);
                         float round = atan(p.y, p.x) + own * 6.2831853;
                         float far = length(p);
-                        float rim = 0.84 + 0.1 * cos(round * 5.0);
+                        float rim = 0.86 + 0.1 * cos(round * 5.0);
                         if (far > rim) {
                             discard;
                         }
-                        float ring = fract(far * 2.4 + 0.15 * sin(round * 3.0 + ownA * 6.2831853));
-                        texel.rgb = painted * (0.7 + 0.42 * smoothstep(0.1, 0.9, ring)) * (0.72 + 0.38 * far / rim);
+                        float t = far / rim;
+                        float layer = t * 4.0;
+                        float petal = 0.5 + 0.5 * cos(round * 5.0 + floor(layer) * 1.3 + ownA * 6.2831853);
+                        float edge = fract(layer - 0.3 * petal);
+                        float lip = smoothstep(0.6, 0.95, edge), foot = 1.0 - smoothstep(0.0, 0.2, edge);
+                        vec3 rich = max(mix(vec3(dot(painted, vec3(0.3, 0.55, 0.15))), painted, 1.3), 0.0);
+                        texel.rgb = rich * (0.78 + 0.4 * lip - 0.25 * foot) * (0.55 + 0.45 * smoothstep(0.0, 0.4, t));
                         up = 0.8;
                         stripGloss = 0.4;
                     } else {

@@ -347,13 +347,43 @@ final class Flowerbeds {
             if (!flowering) {
                 continue;
             }
-            // The flower: one of the blooms near the bush, on the stem's top, faced up and out the way the stem leans.
+            // The flower: one of the blooms near the bush, on the stem's top.
             int flower = Flora.unit(own, 28) < 0.5f ? bloom : nearOr(bed, bloom, own);
-            geometry.plant(frame, x, y, a + dirX * topAlong, b + dirY * topAlong, dotU(bed, frame, flower), dotV(bed, frame, flower));
-            float size = (0.1f + 0.05f * Flora.unit(own, 16)) * Math.min(broadens, 1.6f);
-            geometry.addStrip(mesh, frame, dirX, dirY, -0.4f * size, topUp - 0.25f * size, Math.max(topLean, 0f) + 0.9f + 0.45f * Flora.unit(own, 24), 0f,
-                    size, size, 0f, 1, SpriteGeometry.EVEN, Grass.BLOOM, Flora.unit(own, 14), 0.8f);
+            float flowerU = dotU(bed, frame, flower), flowerV = dotV(bed, frame, flower);
+            float size = (0.13f + 0.06f * Flora.unit(own, 16)) * Math.min(broadens, 1.6f);
+            geometry.plant(frame, x, y, a + dirX * topAlong, b + dirY * topAlong, flowerU, flowerV);
+            rose(geometry, mesh, frame, dirX, dirY, topUp, size, Math.max(topLean, 0f) + 0.9f + 0.45f * Flora.unit(own, 24), own, steps);
+            // Half the canes bear a second, smaller rose on a shoot from high up the cane.
+            if (steps > 1 && Flora.unit(own, 2) < 0.5f) {
+                float from = topAlong * 0.7f, side = way + (Flora.unit(own, 6) < 0.5f ? 1.2f : -1.2f);
+                float sideX = Grass.cos(side), sideY = Grass.sin(side);
+                geometry.plant(frame, x, y, a + dirX * from, b + dirY * from, leafU, leafV);
+                geometry.addStrip(mesh, frame, sideX, sideY, 0f, topUp * 0.7f, 0.6f, -0.3f, 0.12f, 0.012f * broadens, 0f, 1, SpriteGeometry.EVEN, cane,
+                        Flora.unit(own, 10), 0.8f);
+                float budAlong = geometry.endAlong, budUp = topUp * 0.7f + geometry.endUp;
+                geometry.plant(frame, x, y, a + dirX * from + sideX * budAlong, b + dirY * from + sideY * budAlong, flowerU, flowerV);
+                rose(geometry, mesh, frame, sideX, sideY, budUp, size * 0.65f, 1.0f, Flora.mix(own, 3, 53), steps);
+            }
         }
+    }
+
+    /**
+     * A rose of size across, its middle up over the plant last stood: a head of petals faced lean
+     * from upright the way (dirX, dirY), and near the eye two more stood upright across each other
+     * through its middle, so it is round from every side and from above.
+     */
+    private static void rose(SpriteGeometry geometry, SpriteGeometry.Mesh mesh, SpriteGeometry.Frame frame, float dirX, float dirY, float up, float size,
+            float lean, int own, int steps) {
+        geometry.addStrip(mesh, frame, dirX, dirY, -0.45f * size * Grass.sin(lean), up - 0.45f * size * Grass.cos(lean), lean, 0f, size, size, 0f, 1,
+                SpriteGeometry.EVEN, Grass.BLOOM, Flora.unit(own, 14), 0.8f);
+        if (steps < 2) {
+            return;
+        }
+        float upright = 0.85f * size;
+        geometry.addStrip(mesh, frame, dirX, dirY, 0f, up - 0.5f * upright, 0f, 0f, upright, upright, 0f, 1, SpriteGeometry.EVEN, Grass.BLOOM,
+                Flora.unit(own, 18), 0.8f);
+        geometry.addStrip(mesh, frame, -dirY, dirX, 0f, up - 0.5f * upright, 0f, 0f, upright, upright, 0f, 1, SpriteGeometry.EVEN, Grass.BLOOM,
+                Flora.unit(own, 22), 0.8f);
     }
 
     /** Another bloom within LOOK of the dot bloom, picked by the hash, or bloom itself where there is none. */
