@@ -2319,7 +2319,8 @@ final class PipelineShaders {
                     // Where one copy meets the next the place on the picture jumps: how fast it runs is taken from where it does not.
                     smallAtX = turn * dFdx(spread) * vec2(0.25, 0.5);
                     smallAtY = turn * dFdy(spread) * vec2(0.25, 0.5);
-                    sprigSmall = which == SHRUB_SPRIG || which == HOLLY_SPRIG ? 1.0 - smoothstep(SMALL_LEAVES_FROM, SMALL_LEAVES_TO, fine) : 0.0;
+                    // A bush's flowers keep the picture whole: halved, their colour ran into the leaves'.
+                    sprigSmall = (which == SHRUB_SPRIG || which == HOLLY_SPRIG) && !bloom ? 1.0 - smoothstep(SMALL_LEAVES_FROM, SMALL_LEAVES_TO, fine) : 0.0;
                     vec4 sprig = texture2DGradARB(uSprigs, sprigAt, sprigAtX, sprigAtY);
                     if (sprigSmall > 0.0) {
                         sprig = mix(sprig, texture2DGradARB(uSprigs, smallAt, smallAtX, smallAtY), sprigSmall);
