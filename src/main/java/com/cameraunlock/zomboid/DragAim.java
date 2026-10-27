@@ -6,6 +6,7 @@ import zombie.entity.components.spriteconfig.SpriteConfigManager;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoDirections;
 import zombie.iso.IsoGridSquare;
+import zombie.iso.IsoObject;
 import zombie.iso.IsoWorld;
 import zombie.iso.Vector2;
 import zombie.iso.sprite.IsoSprite;
@@ -32,6 +33,7 @@ final class DragAim {
 
     private final Vector2 tile = new Vector2();
     final Aimed aimed = new Aimed();
+    final Ghost ghost = new Ghost();
 
     /** The drag cursor a player has up, or null. */
     static KahluaTable of(int playerIndex) {
@@ -98,6 +100,157 @@ final class DragAim {
             return sprite;
         }
         return drag.rawget("chosenSprite") instanceof String name ? IsoSpriteManager.instance.namedMap.get(name) : null;
+    }
+
+    /**
+     * The piece a drag would put down, stood in the world where the game has the drag: the
+     * game draws its ghost into its own view, under the picture, so the build of each chunk it
+     * stands on (WorldScene) builds it as if it were there, and the picture outlines it green
+     * where it fits and red where it does not. Each square of a piece of several is the tile the
+     * game's ghost draws there (ISBuildIsoEntity.render): the face's tile at (x, y, z) on the
+     * square that far from the drag's. A drag that puts down no piece (Walk To, Place Item, the
+     * chop, the dig) has none.
+     *
+     * Logic thread: set as the picture aims the drag, and read by the builds that run after it.
+     */
+    static final class Ghost {
+        /** The most squares a piece's ghost covers. */
+        static final int MOST = 64;
+        private final int[] squareX = new int[MOST], squareY = new int[MOST], squareZ = new int[MOST];
+        private final IsoSprite[] sprites = new IsoSprite[MOST];
+        private final IsoObject[] objects = new IsoObject[MOST];
+        private int count;
+        private boolean fits;
+
+        /** Shows the piece the drag would put down on the square, or none. */
+        void show(KahluaTable drag, IsoGridSquare square, boolean fits) {
+            this.fits = fits;
+            int at = 0;
+            if (square != null && drag.rawget("face") instanceof SpriteConfigManager.FaceInfo face) {
+                for (int z = 0; z < face.getzLayers(); z++) {
+                    for (int x = 0; x < face.getWidth(); x++) {
+                        for (int y = 0; y < face.getHeight(); y++) {
+                            SpriteConfigManager.TileInfo tile = face.getTileInfo(x, y, z);
+                            IsoSprite sprite = tile == null || tile.getSpriteName() == null ? null : IsoSpriteManager.instance.namedMap.get(tile.getSpriteName());
+                            if (sprite != null && at < MOST) {
+                                put(at++, square.getX() + x, square.getY() + y, square.getZ() + z, sprite);
+                            }
+                        }
+                    }
+                }
+            } else if (square != null) {
+                IsoSprite sprite = drag.rawget("objectSprite") instanceof IsoSprite shown ? shown
+                        : drag.rawget("chosenSprite") instanceof String name ? IsoSpriteManager.instance.namedMap.get(name) : null;
+                if (sprite != null) {
+                    put(at++, square.getX(), square.getY(), square.getZ(), sprite);
+                }
+            }
+            boolean same = at == count;
+            for (int i = 0; same && i < at; i++) {
+                same = nextX[i] == squareX[i] && nextY[i] == squareY[i] && nextZ[i] == squareZ[i] && nextSprites[i] == sprites[i];
+            }
+            if (same) {
+                return;
+            }
+            tellAround();
+            for (int i = 0; i < Math.max(at, count); i++) {
+                squareX[i] = nextX[i];
+                squareY[i] = nextY[i];
+                squareZ[i] = nextZ[i];
+                sprites[i] = i < at ? nextSprites[i] : null;
+                IsoGridSquare on = i < at ? IsoWorld.instance.currentCell.getGridSquare(squareX[i], squareY[i], squareZ[i]) : null;
+                objects[i] = on == null ? null : new IsoObject(IsoWorld.instance.currentCell, on, sprites[i]);
+            }
+            count = at;
+            tellAround();
+        }
+
+        private final int[] nextX = new int[MOST], nextY = new int[MOST], nextZ = new int[MOST];
+        private final IsoSprite[] nextSprites = new IsoSprite[MOST];
+
+        private void put(int at, int x, int y, int z, IsoSprite sprite) {
+            nextX[at] = x;
+            nextY[at] = y;
+            nextZ[at] = z;
+            nextSprites[at] = sprite;
+        }
+
+        /** Shows no piece. */
+        void clear() {
+            if (count == 0) {
+                return;
+            }
+            tellAround();
+            for (int i = 0; i < count; i++) {
+                objects[i] = null;
+                sprites[i] = null;
+            }
+            count = 0;
+        }
+
+        /** Tells the chunks the piece stands on that what stands on them changed, so they are built again at once (ChunkMarks.tell). */
+        private void tellAround() {
+            for (int i = 0; i < count; i++) {
+                ChunkMarks.tell(Math.floorDiv(squareX[i], WorldScene.CHUNK_TILES), Math.floorDiv(squareY[i], WorldScene.CHUNK_TILES));
+            }
+        }
+
+        /** How many squares the piece covers, and the object stood on each in turn: null where its square is not loaded. */
+        int count() {
+            return count;
+        }
+
+        IsoObject object(int i) {
+            return objects[i];
+        }
+
+        /** Whether the piece fits where it is. */
+        boolean fits() {
+            return fits;
+        }
+
+        /** Where its part i stands. */
+        int x(int i) {
+            return squareX[i];
+        }
+
+        int y(int i) {
+            return squareY[i];
+        }
+
+        int z(int i) {
+            return squareZ[i];
+        }
+
+        /** Whether a part of the piece stands on the square (x, y, z). */
+        boolean covers(int x, int y, int z) {
+            for (int i = 0; i < count; i++) {
+                if (squareX[i] == x && squareY[i] == y && squareZ[i] == z) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /** The ghost on the square (x, y, z), or null. */
+        IsoObject on(int x, int y, int z) {
+            for (int i = 0; i < count; i++) {
+                if (squareX[i] == x && squareY[i] == y && squareZ[i] == z) {
+                    return objects[i];
+                }
+            }
+            return null;
+        }
+
+        /** The square of the piece's first part standing on a loaded square, which its outline is known by (Outlines.ghost), or null for none. */
+        IsoGridSquare square() {
+            for (int i = 0; i < count; i++) {
+                if (objects[i] != null) {
+                    return objects[i].getSquare();
+                }
+            }
+            return null;
+        }
     }
 
     /** The tile of a face on the drag's own square first, as the game lays a face from that square on. */

@@ -29,11 +29,13 @@ import zombie.iso.objects.IsoWorldInventoryObject;
 final class Outlines {
     /** No thing: what is drawn while no thing that may be outlined is being built. */
     static final long NONE = -1L;
-    private static final int OBJECT = 0, ITEM = 1, BODY = 2;
+    private static final int OBJECT = 0, ITEM = 1, BODY = 2, GHOST = 3;
     /** The most things on one square's list a key can tell apart. */
     private static final int INDICES = 1 << 12;
     /** The colour of the line round what the Interact key would act on. */
     static final float INTERACT_RED = 1f, INTERACT_GREEN = 0.93f, INTERACT_BLUE = 0.62f;
+    /** The colours of the line round the piece a drag would put down (DragAim.Ghost), where it fits and where it does not, as the outline of its square. */
+    static final float FITS_RED = 0.2f, FITS_GREEN = 1f, FITS_BLUE = 0.3f, CLASHES_RED = 1f, CLASHES_GREEN = 0.25f, CLASHES_BLUE = 0.2f;
 
     /** What one picture outlines: each thing's key, and its colour as red, green and blue by turns. */
     record Frame(long[] keys, float[] colours) {}
@@ -65,6 +67,11 @@ final class Outlines {
         }
         IsoGridSquare square = object.getSquare();
         return square == null ? NONE : key(square, OBJECT, square.getObjects().indexOf(object));
+    }
+
+    /** The key of the piece a drag would put down whose first part stands on the square: see DragAim.Ghost. */
+    static long ghost(IsoGridSquare square) {
+        return key(square, GHOST, 0);
     }
 
     private static long key(IsoGridSquare square, int kind, int index) {
@@ -114,6 +121,29 @@ final class Outlines {
             colours[at * 3] = INTERACT_RED;
             colours[at * 3 + 1] = INTERACT_GREEN;
             colours[at * 3 + 2] = INTERACT_BLUE;
+        }
+        return new Frame(keys, colours);
+    }
+
+    /**
+     * What a picture outlines, gathered, with the piece a drag would put down (DragAim.Ghost) first,
+     * green where it fits and red where it does not; outlined as it is where the drag shows none.
+     */
+    static Frame withGhost(Frame gathered, DragAim.Ghost ghost) {
+        IsoGridSquare square = ghost.square();
+        if (square == null) {
+            return gathered;
+        }
+        int others = gathered == null ? 0 : gathered.keys.length;
+        long[] keys = new long[others + 1];
+        float[] colours = new float[keys.length * 3];
+        keys[0] = ghost(square);
+        colours[0] = ghost.fits() ? FITS_RED : CLASHES_RED;
+        colours[1] = ghost.fits() ? FITS_GREEN : CLASHES_GREEN;
+        colours[2] = ghost.fits() ? FITS_BLUE : CLASHES_BLUE;
+        if (gathered != null) {
+            System.arraycopy(gathered.keys, 0, keys, 1, others);
+            System.arraycopy(gathered.colours, 0, colours, 3, others * 3);
         }
         return new Frame(keys, colours);
     }

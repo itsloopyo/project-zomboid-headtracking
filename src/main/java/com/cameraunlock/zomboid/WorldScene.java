@@ -96,6 +96,8 @@ final class WorldScene {
     /** How far the aim is traced with no firearm in hand. */
     static final float REACH = 30f;
     static final int CHUNK_TILES = 8;
+    /** What a square's sum takes in for the piece a drag shows standing on it, beside its sprite. */
+    private static final int GHOSTED = 11;
     /**
      * The hills' heights round an eye worked out again from the map: made once, where one made
      * at each build would be made every frame. In a class of its own, made at its first use: the
@@ -3203,7 +3205,7 @@ final class WorldScene {
             // The beam of this picture's own view: the one being gathered now may be a turn of the head later.
             sky.carried = view.carriedLight.light;
             HeldLight.light(view.heldLight.now, floorRed, floorGreen, floorBlue, sky.daylightKept, sky.roomKept, sky.roomGold, sky.held);
-            sky.outlined = Outlines.gather(player.getIndex(), view.centreUse.marked);
+            sky.outlined = Outlines.withGhost(Outlines.gather(player.getIndex(), view.centreUse.marked), view.dragAim.ghost);
             sky.facedX = facedX;
             sky.facedY = facedY;
             sky.layersFromX = pose.eyeX;
@@ -5298,6 +5300,10 @@ final class WorldScene {
                             }
                         }
                         thing = sum(thing, LimbDecals.sumAt(square.getX(), square.getY(), z));
+                        IsoObject ghost = view.dragAim.ghost.on(square.getX(), square.getY(), z);
+                        if (ghost != null) {
+                            thing = sum(sum(thing, shown(ghost.getSprite(), ghost.getDir())), GHOSTED);
+                        }
                         level = sum(sum(level, lit), thing);
                         if (AUDIT_MARKS) {
                             auditLights[(z - from) * span + at] = lit;
@@ -6857,8 +6863,11 @@ final class WorldScene {
             boolean shellSeenInside = room != RoomSight.OUTSIDE && (z == lowestLevel || under != null && under.getRoomID() != -1L);
             stoodOn = 0;
             plantsHere = cropsGrownHere = 0;
-            for (int i = 0; i < objects.size(); i++) {
-                IsoObject object = objects.get(i);
+            // The piece a drag would put down here is built after what stands here, as if it were put down: see DragAim.Ghost.
+            IsoObject ghost = view.dragAim.ghost.on(x, y, z);
+            int standing = objects.size() + (ghost == null ? 0 : 1);
+            for (int i = 0; i < standing; i++) {
+                IsoObject object = i < objects.size() ? objects.get(i) : ghost;
                 IsoSprite sprite = object.getSprite();
                 if (sprite == null) {
                     continue;
@@ -6892,7 +6901,7 @@ final class WorldScene {
                     items.add(item);
                     continue;
                 }
-                owning(Outlines.key(object));
+                owning(object == ghost ? Outlines.ghost(view.dragAim.ghost.square()) : Outlines.key(object));
                 frameOf(object, texture);
                 standOn(object);
                 frame.material = object == floor ? kind.asFloor : kind.stained && Own.buildings() ? STAINED : kind.asOther;

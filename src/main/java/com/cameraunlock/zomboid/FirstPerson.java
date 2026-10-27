@@ -535,6 +535,7 @@ public final class FirstPerson {
             view.crosshair.hide();
             view.crosshair.hideSquare();
             view.dragAim.aimed.forget();
+            view.dragAim.ghost.clear();
             reticleOnScreen = false;
             view.nameTags.lookAway();
             view.hearing.rest();
@@ -1503,13 +1504,15 @@ public final class FirstPerson {
      * or with the pointer out the line through the pointer, and outlines in the picture the
      * square the game has it on, green where what is dragged can be put there and red where it
      * cannot, with the frame of what stands on an edge of it or an arrow the way what is put on
-     * it faces (DragAim.facingLines): the game draws its ghost into its own view, which is under
-     * the picture.
+     * it faces (DragAim.facingLines), and stands the piece it would put down there, outlined
+     * the same (DragAim.Ghost): the game draws its ghost into its own view, which is under the
+     * picture.
      */
     private void aimDrag(IsoPlayer player, WorldScene.Frame scene) {
         KahluaTable drag = View.onController(player) ? null : DragAim.of(view.index);
         if (drag == null) {
             view.dragAim.aimed.forget();
+            view.dragAim.ghost.clear();
             view.crosshair.hideSquare();
             dragSaidX = Integer.MIN_VALUE;
             dragSaidFacing = null;
@@ -1530,6 +1533,7 @@ public final class FirstPerson {
         ViewCamera.Pose line = pointer.on() ? lineThrough(Mouse.getXA(), Mouse.getYA()) : reticleOnScreen && reticleInPicture ? reticleLine : null;
         if (line == null) {
             view.dragAim.aimed.lose();
+            view.dragAim.ghost.clear();
             view.crosshair.hideSquare();
             dragSaidX = Integer.MIN_VALUE;
             return;
@@ -1548,6 +1552,7 @@ public final class FirstPerson {
             }
         }
         view.dragAim.aim(x, y);
+        view.dragAim.ghost.show(drag, square, fits);
         if (TRACE && square != null && (square.getX() != dragSaidX || square.getY() != dragSaidY)) {
             dragSaidX = square.getX();
             dragSaidY = square.getY();
@@ -1563,11 +1568,24 @@ public final class FirstPerson {
         int pieces = 0;
         float tanHalf = scene.tanHalfFieldOfView();
         int squareX = square.getX(), squareY = square.getY(), level = square.getZ();
-        for (int side = 0; side < 4; side++) {
-            // The corners in turn: north-west, north-east, south-east, south-west.
-            float fromX = squareX + (side == 1 || side == 2 ? 1f : 0f), fromY = squareY + (side >= 2 ? 1f : 0f);
-            float toX = squareX + (side == 0 || side == 1 ? 1f : 0f), toY = squareY + (side == 1 || side == 2 ? 1f : 0f);
-            pieces = outlineLine(outline.pieces, pieces, fromX, fromY, 0f, toX, toY, 0f, level, tanHalf, aspect);
+        // A piece over several squares is outlined round all of them on the drag's level: each side of each that has none of them beyond it.
+        DragAim.Ghost ghost = view.dragAim.ghost;
+        int parts = Math.max(ghost.count(), 1);
+        for (int part = 0; part < parts; part++) {
+            int partX = ghost.count() == 0 ? squareX : ghost.x(part), partY = ghost.count() == 0 ? squareY : ghost.y(part);
+            if (ghost.count() > 0 && ghost.z(part) != level) {
+                continue;
+            }
+            for (int side = 0; side < 4; side++) {
+                // The sides in turn: north, east, south and west.
+                if (ghost.count() > 0 && ghost.covers(partX + (side == 1 ? 1 : side == 3 ? -1 : 0), partY + (side == 2 ? 1 : side == 0 ? -1 : 0), level)) {
+                    continue;
+                }
+                // The corners in turn: north-west, north-east, south-east, south-west.
+                float fromX = partX + (side == 1 || side == 2 ? 1f : 0f), fromY = partY + (side >= 2 ? 1f : 0f);
+                float toX = partX + (side == 0 || side == 1 ? 1f : 0f), toY = partY + (side == 1 || side == 2 ? 1f : 0f);
+                pieces = outlineLine(outline.pieces, pieces, fromX, fromY, 0f, toX, toY, 0f, level, tanHalf, aspect);
+            }
         }
         DragAim.Facing facing = DragAim.facingOf(drag);
         if (TRACE && facing != dragSaidFacing) {

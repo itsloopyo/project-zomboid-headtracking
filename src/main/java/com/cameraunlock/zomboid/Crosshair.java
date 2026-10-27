@@ -54,7 +54,7 @@ final class Crosshair {
      * pieces from x, y to x, y in -1 to 1, and whether what is dragged can be put there.
      */
     static final class Square {
-        final float[] pieces = new float[4 * (4 + DragAim.MOST_FACING_LINES) * FirstPerson.SQUARE_PIECES];
+        final float[] pieces = new float[4 * (4 * DragAim.Ghost.MOST + DragAim.MOST_FACING_LINES) * FirstPerson.SQUARE_PIECES];
         int floats;
         boolean fits;
     }
