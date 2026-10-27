@@ -321,10 +321,12 @@ public final class Characters {
         notedIn = null;
         holding = null;
         viewer = null;
+        long now = System.nanoTime();
         for (int i = 0; i < dying.size(); i++) {
-            Dying.release(dying.get(i));
+            Dying.release(dying.get(i), "first person stopped", now);
         }
         dying.clear();
+        drawnAlive.clear();
         synchronized (this) {
             // The zombies last drawn are of a map the game may since have let go of.
             Arrays.fill(seen, 0, seenCount, null);
@@ -425,6 +427,9 @@ public final class Characters {
         CharacterDraw.looking(eyeView);
         int drawn = draw(eyeView, view.pipeline.outside, false, null, camera.eyeX, camera.eyeY, Float.MAX_VALUE);
         CharacterDraw.nearCut = 0f;
+        if (Dying.ON && !vehicles && !scope) {
+            watchDeaths();
+        }
         drawnLast = vehicles ? drawnLast + drawn : drawn;
         if (figureRoomsLine != null) {
             figureRoomsSaid = now;
@@ -2220,7 +2225,7 @@ public final class Characters {
             }
             // Stepped before anything is left out, so a step is not lost while its walker is out of the picture.
             float standsUp = data.character != null && !data.inVehicle ? standsUp(data, now) : 0f;
-            if (kind == BY_EYE && data.character != null && !data.inVehicle && data.character != viewer) {
+            if (Dying.ON && kind == BY_EYE && data.character != null && !data.inVehicle && data.character != viewer) {
                 heldWhileDying(data, standsUp);
             }
             if (map != null && outside(map, data)) {
@@ -2531,6 +2536,10 @@ public final class Characters {
                     Corpses.missed(body);
                     continue;
                 }
+                // Let go here, before the culls: a held figure stands where its corpse lies, and is left out of the picture with it.
+                if (!dying.isEmpty()) {
+                    corpseDrawn(body, now);
+                }
                 if (glassPlane != null && glassPlane[0] * x + glassPlane[1] * y + glassPlane[2] * up - glassPlane[3] < -BEHIND_GLASS) {
                     continue;
                 }
@@ -2567,9 +2576,6 @@ public final class Characters {
                     roots[at + 3] = kept.angle;
                 }
                 drawn++;
-                if (!dying.isEmpty()) {
-                    corpseDrawn(body);
-                }
             }
         }
         CharacterDraw.release();
@@ -2592,15 +2598,17 @@ public final class Characters {
                 break;
             }
         }
-        if (!data.character.isDead() || !Quality.corpseModels(view.index)) {
+        // An animal's corpse keeps the game's picture (WorldScene.addBody), so it has no model to wait for.
+        boolean models = Quality.corpseModels(view.index) && !(data.character instanceof IsoAnimal);
+        if (!data.character.isDead() || !models) {
             if (held != null) {
                 dying.remove(held);
-                Dying.release(held);
+                Dying.release(held, models ? "the character is alive" : "corpses are not drawn as models", System.nanoTime());
             }
             return;
         }
         if (held == null) {
-            held = Dying.hold(data.character);
+            held = Dying.hold(data.character, data.x, data.y, data.z);
             dying.add(held);
             // The figure may still move a little before it lies still, so corpses a little
             // further off than its own could be are taken as lying there before it.
@@ -2621,6 +2629,45 @@ public final class Characters {
         Dying.keep(held, data, parts(data), up);
     }
 
+    /** The characters the eye's last picture drew alive, and the ones its picture drew this frame: see watchDeaths. */
+    private final ArrayList<zombie.characters.IsoGameCharacter> drawnAlive = new ArrayList<>(), drawnAliveNext = new ArrayList<>();
+    private final IdentityHashMap<Object, Boolean> drawnNow = new IdentityHashMap<>();
+
+    /**
+     * Says in the log each character the eye's last picture drew alive that the game has
+     * stopped drawing dead, with no figure held of it: it died between two frames, or was not
+     * dead by the game's word on any frame it was drawn, so the place it stood is empty until
+     * its corpse draws. Only where corpses are drawn as models.
+     */
+    private void watchDeaths() {
+        if (!Quality.corpseModels(view.index)) {
+            drawnAlive.clear();
+            return;
+        }
+        drawnNow.clear();
+        drawnAliveNext.clear();
+        for (int i = 0; i < noted.size(); i++) {
+            zombie.characters.IsoGameCharacter character = noted.get(i).character;
+            if (character != null && character != viewer && !noted.get(i).inVehicle) {
+                drawnNow.put(character, Boolean.TRUE);
+                if (!character.isDead() && !(character instanceof IsoAnimal)) {
+                    drawnAliveNext.add(character);
+                }
+            }
+        }
+        for (int i = 0; i < drawnAlive.size(); i++) {
+            zombie.characters.IsoGameCharacter character = drawnAlive.get(i);
+            if (drawnNow.containsKey(character) || !character.isDead() && !character.isOnDeathDone()) {
+                continue;
+            }
+            Dying.say(Dying.MISSED, String.format(Locale.ROOT, "dying figure missed: character %d at %.2f, %.2f, %.2f was drawn alive last frame and the game stopped drawing it dead (health %.2f, death done %b), with no figure held",
+                    character.getID(), character.getX(), character.getY(), character.getZ(), character.getHealth(), character.isOnDeathDone()));
+        }
+        drawnAlive.clear();
+        drawnAlive.addAll(drawnAliveNext);
+        drawnNow.clear();
+    }
+
     /** Whether the game draws a character in this view's frame. */
     private boolean noted(Object character) {
         for (int i = 0; i < noted.size(); i++) {
@@ -2636,12 +2683,12 @@ public final class Characters {
      * draws the character. The eye draws corpses before people, so the frame that draws the
      * corpse first is the first without the figure.
      */
-    private void corpseDrawn(Corpses.Lying body) {
+    private void corpseDrawn(Corpses.Lying body, long now) {
         for (int i = dying.size() - 1; i >= 0; i--) {
             Dying.Held held = dying.get(i);
             if (held.owns(body.body(), body.x(), body.y(), body.z()) && !noted(held.character)) {
                 dying.remove(i);
-                Dying.release(held);
+                Dying.release(held, String.format(Locale.ROOT, "corpse drawn %.2f tiles off", Math.hypot(body.x() - held.x, body.y() - held.y)), now);
             }
         }
     }
@@ -2664,7 +2711,7 @@ public final class Characters {
                 held.goneAt = now;
             } else if (now - held.goneAt > Dying.HELD_NANOS) {
                 dying.remove(i);
-                Dying.release(held);
+                Dying.release(held, "cap, no corpse drawn", now);
                 continue;
             }
             float x = held.x, y = held.y, middle = held.up + PERSON_MIDDLE;

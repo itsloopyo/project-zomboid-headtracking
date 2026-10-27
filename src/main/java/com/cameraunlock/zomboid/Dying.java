@@ -6,6 +6,7 @@ import java.nio.FloatBuffer;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import zombie.characters.IsoGameCharacter;
 import zombie.core.opengl.RenderThread;
@@ -30,13 +31,19 @@ import zombie.iso.objects.IsoDeadBody;
 final class Dying {
     private Dying() {}
 
+    /** Off unless the game is started with -Dcameraunlock.zomboid.dyingFigures=true: nothing is held or logged. */
+    static final boolean ON = Boolean.getBoolean("cameraunlock.zomboid.dyingFigures");
+
     /** How long a figure the game no longer draws is drawn on at most, waiting for its corpse. */
-    static final long HELD_NANOS = 3_000_000_000L;
+    static final long HELD_NANOS = 6_000_000_000L;
     /** How near the place a figure was last drawn a corpse is taken for its own, in tiles. */
     static final float CORPSE_WITHIN = 1f;
 
     static final class Held {
         final IsoGameCharacter character;
+        /** The character's id and when it was first held, for the log. */
+        final int id;
+        final long heldAt = System.nanoTime();
         final List<ModelInstanceRenderData> parts = new ArrayList<>();
         final ModelSlotRenderData person = new ModelSlotRenderData();
         /** The corpses lying as models near it as it was first held: none of them is its own. */
@@ -50,6 +57,7 @@ final class Dying {
 
         Held(IsoGameCharacter character) {
             this.character = character;
+            this.id = character.getID();
         }
 
         /** Whether a corpse drawn at (x, y) on level z may be this figure's own. */
@@ -65,12 +73,30 @@ final class Dying {
     /** The skins the game asked to destroy while a held figure was drawn with them. */
     private static final Map<Texture, Boolean> letGo = new IdentityHashMap<>();
 
-    /** A new figure held for a character. */
-    static Held hold(IsoGameCharacter character) {
+    /** What the log says of holds, each kind said at most once in SAID_EVERY_NANOS, with how many went unsaid since. */
+    static final int STARTED = 0, RELEASED = 1, MISSED = 2;
+    private static final long SAID_EVERY_NANOS = 250_000_000L;
+    private static final long[] saidAt = new long[3];
+    private static final int[] unsaid = new int[3];
+
+    static void say(int kind, String line) {
+        long now = System.nanoTime();
+        if (now - saidAt[kind] < SAID_EVERY_NANOS) {
+            unsaid[kind]++;
+            return;
+        }
+        saidAt[kind] = now;
+        Log.info(unsaid[kind] == 0 ? line : line + " (" + unsaid[kind] + " more like it not said)");
+        unsaid[kind] = 0;
+    }
+
+    /** A new figure held for a character that died, drawn where it stands at (x, y, z). */
+    static Held hold(IsoGameCharacter character, float x, float y, float z) {
         Held held = new Held(character);
         synchronized (all) {
             all.add(held);
         }
+        say(STARTED, String.format(Locale.ROOT, "dying figure held: character %d at %.2f, %.2f, %.2f", held.id, x, y, z));
         return held;
     }
 
@@ -156,12 +182,17 @@ final class Dying {
         settle();
     }
 
-    /** A held figure is drawn no more: each skin the game asked to destroy that no other is drawn with is destroyed. */
-    static void release(Held held) {
+    /**
+     * A held figure is drawn no more, for the reason given: each skin the game asked to destroy
+     * that no other is drawn with is destroyed.
+     */
+    static void release(Held held, String reason, long now) {
         synchronized (all) {
             all.remove(held);
         }
         settle();
+        say(RELEASED, String.format(Locale.ROOT, "dying figure released (%s): character %d, held %d ms, %s", reason, held.id, (now - held.heldAt) / 1_000_000L,
+                held.goneAt == 0L ? "the game still drew it" : "drawn by the mod for " + (now - held.goneAt) / 1_000_000L + " ms after the game stopped drawing it"));
     }
 
     /** Whether the game's destroying of a texture is put off: a held figure is drawn with it. */
@@ -215,13 +246,18 @@ final class Dying {
     /** Called as the game leaves a save: every figure goes, and each skin the game asked to destroy meanwhile is destroyed. */
     static void forget() {
         List<Texture> destroying;
+        int figures;
         synchronized (all) {
             destroying = new ArrayList<>(letGo.keySet());
+            figures = all.size();
             for (int i = 0; i < all.size(); i++) {
                 all.get(i).forgotten = true;
             }
             all.clear();
             letGo.clear();
+        }
+        if (figures > 0) {
+            say(RELEASED, "dying figure released (save left): " + figures + " figures");
         }
         for (Texture texture : destroying) {
             RenderThread.queueInvokeOnRenderContext(texture::destroy);
