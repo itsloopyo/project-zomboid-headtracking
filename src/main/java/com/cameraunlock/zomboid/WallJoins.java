@@ -62,14 +62,22 @@ final class WallJoins {
      * END for the other. near is the side of the wall's own square.
      */
     static int insideCorners(Walls walls, int x, int y, boolean north, boolean near) {
-        boolean start, finish;
-        if (north) {
-            start = walls.stands(x, near ? y : y - 1, false);
-            finish = walls.stands(x + 1, near ? y : y - 1, false);
-        } else {
-            start = walls.stands(near ? x : x - 1, y, true);
-            finish = walls.stands(near ? x : x - 1, y + 1, true);
-        }
+        int fx = facedX(x, north, near), fy = facedY(y, north, near);
+        boolean start = north ? walls.stands(fx, fy, false) : walls.stands(fx, fy, true);
+        boolean finish = north ? walls.stands(fx + 1, fy, false) : walls.stands(fx, fy + 1, true);
         return (start ? START : 0) | (finish ? END : 0);
+    }
+
+    /**
+     * The square one skin of the wall on the north or west edge of square (x, y) faces, across and down:
+     * the wall's own square for the skin on its side (near), else the square over the edge.
+     */
+    static int facedX(int x, boolean north, boolean near) {
+        return near || north ? x : x - 1;
+    }
+
+    /** See facedX. */
+    static int facedY(int y, boolean north, boolean near) {
+        return near || !north ? y : y - 1;
     }
 }

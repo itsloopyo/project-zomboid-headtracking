@@ -363,15 +363,18 @@ final class WallBuilder {
         }
     }
 
-    /** As addStain, on an edge already stood where its wall stands: on the faces of a log wall's logs where onLogs. */
+    /**
+     * As addStain, on an edge already stood where its wall stands, on the given side: the skin on the wall's own
+     * square's side for side 1, the other for -1 (see skinA). On the faces of a log wall's logs where onLogs.
+     */
     private void stain(SpriteGeometry.Mesh mesh, int x, int y, int z, float layer, float da, float db, float side, boolean onLogs) {
         float way = db != 0f ? SpriteGeometry.LAYERS_X : SpriteGeometry.LAYERS_Y;
         WorldScene.layers.lie(way, side * layer);
         float face = side * (onLogs ? LogWalls.RADIUS + WorldScene.HUNG_CLEAR : WorldScene.WALL_HALF);
-        build.geometry.shownA = db * face;
-        build.geometry.shownB = da * face;
+        build.geometry.shownA = skinA(db, face);
+        build.geometry.shownB = skinB(da, face);
         if (mesh.tint == WallSides.STAIN) {
-            addGrime(mesh, x, y, z, da, db, side > 0f);
+            addGrime(mesh, x, y, z, da, db, nearSkin(side));
         } else {
             build.geometry.addFace(mesh, build.frame, x, y, z, 0f, 0f, 0f, da, db, 0f, 0f, 0f, 1f);
         }
@@ -379,14 +382,30 @@ final class WallBuilder {
         WorldScene.layers.none();
     }
 
+    /** How far across a skin of the wall along (da, db) lies from the edge's line, face out on the wall's own square's side. */
+    static float skinA(float db, float face) {
+        return db * face;
+    }
+
+    /** How far down a skin of the wall along (da, db) lies from the edge's line: see skinA. */
+    static float skinB(float da, float face) {
+        return da * face;
+    }
+
+    /** Whether stain's side is the skin on the wall's own square's side, which WallJoins names near. */
+    static boolean nearSkin(float side) {
+        return side > 0f;
+    }
+
     /** Grime over the wall on the given side, its corners carrying where on the wall they are: see SpriteGeometry.grimed. */
     private void addGrime(SpriteGeometry.Mesh mesh, int x, int y, int z, float da, float db, boolean near) {
         build.joinLevel = z;
         boolean north = da != 0f;
         int corners = WallJoins.insideCorners(build.standing, x, y, north, near);
+        int fx = WallJoins.facedX(x, north, near), fy = WallJoins.facedY(y, north, near);
         build.geometry.grimed = true;
         build.geometry.grimeAlongA = north;
-        build.geometry.grimeOutside = roomAt(near || north ? x : x - 1, near || !north ? y : y - 1, z) == RoomSight.OUTSIDE;
+        build.geometry.grimeOutside = roomAt(fx, fy, z) == RoomSight.OUTSIDE;
         if (corners == (WallJoins.START | WallJoins.END)) {
             build.geometry.wholeA = build.geometry.wholeB = 0f;
             build.geometry.wholeDa = da;

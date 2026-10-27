@@ -42,6 +42,7 @@ final class BuildingTests {
         Checks.run("wallThatEndsAloneIsClosedAcrossItsEnd", BuildingTests::wallThatEndsAloneIsClosedAcrossItsEnd);
         Checks.run("insideCornerIsShadedIntoTheCrease", BuildingTests::insideCornerIsShadedIntoTheCrease);
         Checks.run("grimeKnowsTheInsideCornerItEndsIn", BuildingTests::grimeKnowsTheInsideCornerItEndsIn);
+        Checks.run("grimeFacesTheSquareItsSkinIsIn", BuildingTests::grimeFacesTheSquareItsSkinIsIn);
         Checks.run("eavesMeetAtAHipAndRunOutOverAGable", BuildingTests::eavesMeetAtAHipAndRunOutOverAGable);
         Checks.run("aDownpipeRunsDownAWallAndNeverStandsAlone", BuildingTests::aDownpipeRunsDownAWallAndNeverStandsAlone);
         Checks.run("openGroundHasTheLightMostOfItHas", BuildingTests::openGroundHasTheLightMostOfItHas);
@@ -310,6 +311,25 @@ final class BuildingTests {
         check(near(geometry.grimeCorner(1f - face, 0.6f), 0f) && near(geometry.grimeCorner(0.5f, 0.6f), 0.5f - face), "from its high end too");
         geometry.grimeAlongA = false;
         check(near(geometry.grimeCorner(0.6f, 1f - face), 0f), "a west wall's grime runs along b");
+    }
+
+    private static void grimeFacesTheSquareItsSkinIsIn() {
+        check(WallBuilder.nearSkin(1f) && !WallBuilder.nearSkin(-1f), "stain's side 1 is the skin WallJoins names near, -1 the other");
+        int x = 5, y = 7;
+        for (float side : new float[] {1f, -1f}) {
+            boolean near = WallBuilder.nearSkin(side);
+            float face = side * WorldScene.WALL_HALF;
+            // Half way along the wall, on the skin: a north wall runs along a, a west wall along b.
+            float northA = x + 0.5f + WallBuilder.skinA(0f, face), northB = y + WallBuilder.skinB(1f, face);
+            check((int) Math.floor(northA) == WallJoins.facedX(x, true, near) && (int) Math.floor(northB) == WallJoins.facedY(y, true, near),
+                    "a north wall's skin on side " + side + " is in the square its grime is told it faces");
+            float westA = x + WallBuilder.skinA(1f, face), westB = y + 0.5f + WallBuilder.skinB(0f, face);
+            check((int) Math.floor(westA) == WallJoins.facedX(x, false, near) && (int) Math.floor(westB) == WallJoins.facedY(y, false, near),
+                    "and a west wall's");
+        }
+        check(WallJoins.facedX(x, true, false) == x && WallJoins.facedY(y, true, false) == y - 1
+                && WallJoins.facedX(x, false, false) == x - 1 && WallJoins.facedY(y, false, false) == y,
+                "the far skin of a north wall faces the square north of it, of a west wall the square west of it");
     }
 
     private static void wallThatEndsAloneIsClosedAcrossItsEnd() {
