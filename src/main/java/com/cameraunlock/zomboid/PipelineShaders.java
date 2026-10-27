@@ -1786,6 +1786,26 @@ final class PipelineShaders {
                 return moved;
             }
 
+            // How high a slat of a shut roller door is, as the game paints it (thirteen or fourteen dots
+            // in a level's 194), half the width of the dark line where two slats lock together, and how far
+            // along a slat a handle is matched against the slat beside it, in tiles.
+            // Sixty tiles are a whole number of slats: see vPlace.
+            const float SLAT_HIGH = 60.0 / 352.0, SLAT_LOCK = 0.0035, SLAT_ALONG = 0.25;
+            // A shut roller door, made of slats laid one over the next, each rolled outward: its top
+            // faces the sky, a bright line runs along its crown, and where it locks into the slat above
+            // there is a fine dark line. Counted by height in the world, so the slats of one sprite of
+            // the door go on in line into the next. up is height on the wall and soft how far the place
+            // moves up the wall over a pixel, in tiles; climb is how far the surface turns up.
+            vec3 facSlats(vec3 body, float up, float soft, out float climb) {
+                float part = fract(up / SLAT_HIGH);
+                float toLock = min(part, 1.0 - part) * SLAT_HIGH;
+                float locked = 1.0 - smoothstep(SLAT_LOCK, SLAT_LOCK + soft + 1e-6, toLock);
+                float ridge = (part - 0.47) / (0.06 + soft / SLAT_HIGH);
+                float shade = 0.98 + 0.16 * exp(-ridge * ridge);
+                climb = 0.7 * (part - 0.5) * (1.0 - locked);
+                return body * shade * (1.0 - 0.55 * locked);
+            }
+
             """;
 
     static final String WORLD_FRAGMENT_MAIN_START = """
@@ -2056,7 +2076,8 @@ final class PipelineShaders {
                 // How much of the pixel is a wall laid with depth: see the sprite's own relief below.
                 float walledNear = 0.0;
                 bool boarded = uTint.a > 7.5 && uTint.a < 8.5;
-                if (uTint.a > 3.5 && !boarded && !fineTint && !tiledTint && !stainTint) {
+                bool slatTint = abs(uTint.a - 17.0) < 0.5;
+                if (uTint.a > 3.5 && !boarded && !fineTint && !tiledTint && !stainTint && !slatTint) {
                     vec3 facing = normalize(vNormal);
                     float run = dot(vPlace.xy, vec2(facing.y, -facing.x));
                     vec2 turned;
@@ -2112,6 +2133,76 @@ final class PipelineShaders {
                     lean = turned.x * own * (1.0 - walledNear);
                     climb = turned.y * own * (1.0 - walledNear);
                     lapSun = mix(1.0, lapSun, own);
+                }
+                // A shut roller door (uTint.a 17, WallSides.slats): its slats are laid where its sprite paints
+                // slats, in the shade the sprite has there, and the box over the door, its foot and the guides
+                // at its sides stay as painted. A slat is taken for a slat of the sprite where the sprite goes
+                // light and dark both through the slat's lower half and through its upper half, which the
+                // box and the foot, one shade up and down, do not. A streak of dirt goes on in the shade each
+                // slat is given. Far off, where a slat is a few pixels high, the door is the sprite as painted.
+                if (slatTint) {
+                    float up = vPlace.z;
+                    float soft = fwidth(up);
+                    // How far the sprite's texture coordinates go for a step along the wall and straight up it.
+                    // The way along the wall is taken from how its place moves over the screen.
+                    vec3 placeX = dFdx(vPlace), placeY = dFdy(vPlace);
+                    vec3 square = cross(placeX, placeY);
+                    vec2 along = normalize(vec2(-square.y, square.x) + vec2(1e-9, 0.0));
+                    vec2 uvX = dFdx(vUv), uvY = dFdy(vUv);
+                    vec2 wallX = vec2(dot(placeX.xy, along), placeX.z), wallY = vec2(dot(placeY.xy, along), placeY.z);
+                    float spanned = wallX.x * wallY.y - wallX.y * wallY.x;
+                    spanned = abs(spanned) < 1e-12 ? 1e-12 : spanned;
+                    vec2 perRun = (uvX * wallY.y - uvY * wallX.y) / spanned;
+                    // The door's sprite, stood square (WallBuilder.stoodSquare) or as the game paints it, has
+                    // what is upright in the world upright in it, so a step up the wall is a step up its dots.
+                    vec2 perUp = vec2(0.0, ((uvY * wallX.x - uvX * wallY.x) / spanned).y);
+                    float slatFoot = floor(up / SLAT_HIGH) * SLAT_HIGH - up;
+                    vec3 tone = vec3(0.299, 0.587, 0.114);
+                    // Each half's darkest reading is left out of how light and dark it goes: one line of dark,
+                    // where the box over the door ends, is not a slat.
+                    float lowLight = 0.0, lowDark = 1.0, lowDarker = 1.0, highLight = 0.0, highDark = 1.0, highDarker = 1.0;
+                    float dimmest = 1.0;
+                    vec3 summed = vec3(0.0), dimmestRead = vec3(0.0);
+                    float counted = 0.0;
+                    for (int i = 0; i < 9; i++) {
+                        float at = -0.3 + 0.2 * float(i);
+                        vec4 read = texture2DGradARB(uTexture, vUv + perUp * (slatFoot + SLAT_HIGH * at), uvX, uvY);
+                        float shade = dot(read.rgb / max(read.a, 1.0 / 255.0), tone);
+                        bool painted = read.a > 0.5;
+                        if (painted && i <= 4) {
+                            lowLight = max(lowLight, shade);
+                            lowDark = max(lowDarker, min(lowDark, shade));
+                            lowDarker = min(lowDarker, shade);
+                        }
+                        if (painted && i >= 4) {
+                            highLight = max(highLight, shade);
+                            highDark = max(highDarker, min(highDark, shade));
+                            highDarker = min(highDarker, shade);
+                        }
+                        if (painted && i >= 2 && i <= 6) {
+                            summed += read.rgb;
+                            counted += 1.0;
+                            if (shade < dimmest) { dimmest = shade; dimmestRead = read.rgb; }
+                        }
+                    }
+                    float slatted = smoothstep(0.025, 0.045, min(lowLight - lowDark, highLight - highDark));
+                    // The slat's shade, leaving out its darkest reading, which is where it locks or a handle.
+                    vec3 body = counted > 1.5 ? (summed - dimmestRead) / (counted - 1.0) : texel.rgb;
+                    vec4 left = texture2DGradARB(uTexture, vUv - perRun * SLAT_ALONG, uvX, uvY);
+                    vec4 right = texture2DGradARB(uTexture, vUv + perRun * SLAT_ALONG, uvX, uvY);
+                    float here = dot(texel.rgb, tone);
+                    float leftOff = left.a > 0.5 ? abs(here - dot(left.rgb, tone)) : 1.0;
+                    float rightOff = right.a > 0.5 ? abs(here - dot(right.rgb, tone)) : 1.0;
+                    float alongside = leftOff < rightOff ? dot(left.rgb, tone) : dot(right.rgb, tone);
+                    // What the sprite paints darker than the slat beside it, the handle, goes onto the laid
+                    // slats; a little darker is the sprite's own dirt and slant, which the slat's shade has.
+                    float stands = min(leftOff, rightOff) < 0.5 ? min(1.0, here / max(0.88 * alongside, 1e-3)) : 1.0;
+                    float seen = 1.0 - smoothstep(0.2, 0.55, soft / SLAT_HIGH);
+                    float turned;
+                    vec3 slats = facSlats(body, up, soft, turned) * stands;
+                    float laidHere = slatted * seen;
+                    texel.rgb = mix(texel.rgb, slats, laidHere);
+                    climb = turned * laidHere;
                 }
                 arcWhole = vMaterial > 65.5 && vMaterial < 66.5 ? 1.0 : 0.0;
                 if (uOwnTextures > 0.5 && (vMaterial > 51.5 && vMaterial < 52.5 || arcWhole > 0.5) && (uTint.a < 0.5 || boarded) && uTexel.x > 0.0) {

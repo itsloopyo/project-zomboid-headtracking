@@ -77,6 +77,7 @@ final class ShaderTests {
         Checks.run("figuresAndTerrainShareSunsetHaze", ShaderTests::figuresAndTerrainShareSunsetHaze);
         Checks.run("aThinSpriteSampleTakesItsColourFromTheSamplesItsCutReads", ShaderTests::aThinSpriteSampleTakesItsColourFromTheSamplesItsCutReads);
         Checks.run("aCrownOpensOverTheEyeASprigAtATime", ShaderTests::aCrownOpensOverTheEyeASprigAtATime);
+        Checks.run("aRollerDoorIsLaidAsSlatsAndNotAsMasonry", () -> aRollerDoorIsLaidAsSlatsAndNotAsMasonry(programs));
         Checks.run("spreadGroundThatDoesNotShowHidesNothing", () -> spreadGroundThatDoesNotShowHidesNothing(programs));
         Checks.run("grimeIsSeenOnlyFromItsSide", () -> grimeIsSeenOnlyFromItsSide(programs));
         Checks.run("everyProgramPassesTheReferenceCompiler", () -> everyProgramPassesTheReferenceCompiler(programs));
@@ -179,6 +180,15 @@ final class ShaderTests {
         Checks.check(main.contains("vec2 halfTexel = vec2(0.5 * uTexel.x, 0.0);"), "the cut no longer reads samples half a texel either side across");
         Checks.check(main.contains("vec2 across = vec2(0.5 * uTexel.x, 0.0);"), "a thin sample's colour is not read from the cut's samples");
         Checks.check(main.contains("texel.rgb = min(texel.rgb, vec3(1.0));"), "a sprite's colour can come out lighter than white");
+    }
+
+    private static void aRollerDoorIsLaidAsSlatsAndNotAsMasonry(List<Linked> programs) {
+        float[] tint = new float[4];
+        WallSides.tint(WallSides.slats(0.6f, 0.6f, 0.6f), tint);
+        String main = PipelineShaders.WORLD_FRAGMENT_MAIN;
+        Checks.check(main.contains("bool slatTint = abs(uTint.a - " + (int) tint[3] + ".0) < 0.5;"), "the world is not told a roller door's slats as WallSides tells them");
+        Checks.check(main.contains("if (uTint.a > 3.5 && !boarded && !fineTint && !tiledTint && !stainTint && !slatTint) {"), "a roller door would be laid as masonry too");
+        Checks.check(fragment(programs, "world").contains("vec3 facSlats("), "the world's program has no slats to lay");
     }
 
     private static void depthProgramIsTheWorldsToldToDrawDepthAlone(List<Linked> programs) {

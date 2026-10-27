@@ -1320,12 +1320,13 @@ final class WallBuilder {
     /**
      * The mesh a wall's skin goes in when it is to show the given sprite as the frame has
      * it: the mesh of the sprite stood square, with the frame told so, where the skin was
-     * to go in the sprite's own mesh and is the wall itself. Any other mesh, one painted
-     * over, laid as masonry or papered, is given back as it is.
+     * to go in the sprite's own mesh and is the wall itself, or in the mesh a shut roller
+     * door's slats are laid over its sprite in. Any other mesh, one painted over, laid as
+     * masonry or papered, is given back as it is.
      */
     private SpriteGeometry.Mesh stoodSquare(SpriteGeometry.Mesh mesh, Texture texture, boolean north) {
         build.frame.flat = 0;
-        if (build.overLayer != 0 || mesh.tint != 0 || mesh.texture != texture.getID()) {
+        if (build.overLayer != 0 || mesh.tint != 0 && !WallSides.slatted(mesh.tint) || mesh.texture != texture.getID()) {
             return mesh;
         }
         int stood = build.flatOf(texture, north ? Flats.NORTH : Flats.WEST, 0f, 0f, 0f);
@@ -1333,7 +1334,7 @@ final class WallBuilder {
             return mesh;
         }
         build.frame.flat = north ? SpriteGeometry.FLAT_NORTH : SpriteGeometry.FLAT_WEST;
-        return WorldScene.solid.get(stood);
+        return WorldScene.solid.get(stood, mesh.tint);
     }
 
     /**
@@ -1388,6 +1389,15 @@ final class WallBuilder {
                 return mesh;
             }
             return WorldScene.solid.get(texture.getID(), WallSides.laid(colour[0], colour[1], colour[2], 0f, 0f, 0f, WallSides.BOARDED));
+        }
+        // A shut roller door is its own sprite, with its slats laid over it: see WallSides.slats.
+        if (build.garageDoor && WallSides.rollerDoor(texture.getName())) {
+            float[] colour = SpriteColours.of(texture);
+            if (colour == null) {
+                build.building.signed &= !SpriteColours.unread(texture);
+                return mesh;
+            }
+            return WorldScene.solid.get(texture.getID(), WallSides.slats(colour[0], colour[1], colour[2]));
         }
         if (!suits) {
             return mesh;

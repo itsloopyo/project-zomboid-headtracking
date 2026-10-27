@@ -88,6 +88,8 @@ final class WallSides {
      * of its own there: see Stains.grime. No key packs to this, a multiplied one keeping its low four bits clear.
      */
     static final int STAIN = MULTIPLIED | 1;
+    /** The low four bits of a key slats gives. */
+    private static final int SLATS = 2;
 
     private static final int LEVELS = 15;
     private static final int BANDS = 32;
@@ -220,6 +222,30 @@ final class WallSides {
     }
 
     /**
+     * The key of a shut roller door, the colour most of its sprite is, each channel from 0 to 1:
+     * the picture lays the door's slats itself where the sprite paints them, so they are sharp
+     * up close and run on in one line from one sprite of the door to the next. The picture is
+     * told 17 for how it is painted.
+     */
+    static int slats(float red, float green, float blue) {
+        return MULTIPLIED | part(red, 255) << 20 | part(green, 255) << 12 | part(blue, 255) << 4 | SLATS;
+    }
+
+    /** Whether a key is one slats gives. */
+    static boolean slatted(int key) {
+        return (key & MULTIPLIED) != 0 && (key & 15) == SLATS;
+    }
+
+    /** Whether a garage door's sprite is a shut roller door, of slats one over the next: the green and the grey of the garage sheet, and the trucks' grey. */
+    static boolean rollerDoor(String name) {
+        if (name == null) {
+            return false;
+        }
+        int garage = Sheets.place(name, "walls_garage_01_"), trucks = Sheets.place(name, "industry_trucks_01_");
+        return garage >= 16 && garage <= 21 || garage >= 48 && garage <= 53 || trucks >= 32 && trucks <= 37;
+    }
+
+    /**
      * As a number laid gives, for a skin on the far side of a wall from the one its sprite was
      * painted for: the sprite is the room's wallpaper, and gives the skin its outline alone.
      */
@@ -277,8 +303,8 @@ final class WallSides {
 
     /**
      * What the picture is told for a range of triangles: into out the colour, then FLAT or
-     * SIDING. All 0 for a key of 0, which is no colour, and -1 after the colour for one that
-     * multiplies its sprite.
+     * SIDING. All 0 for a key of 0, which is no colour, -1 after the colour for one that
+     * multiplies its sprite, and 17 for a shut roller door's (slats).
      */
     static void tint(int key, float[] out) {
         if (key == 0) {
@@ -294,7 +320,7 @@ final class WallSides {
             out[0] = (key >> 20 & 255) / 255f;
             out[1] = (key >> 12 & 255) / 255f;
             out[2] = (key >> 4 & 255) / 255f;
-            out[3] = -1f;
+            out[3] = slatted(key) ? 17f : -1f;
             return;
         }
         if (isLaid(key)) {

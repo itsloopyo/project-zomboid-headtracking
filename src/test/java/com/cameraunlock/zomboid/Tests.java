@@ -1740,6 +1740,21 @@ public final class Tests {
         check(tint[0] == 0f && tint[1] == 0f && tint[2] == 0f, "and it has no joints");
         check(WallSides.multiplied(0f, 0f, 0f) != WallSides.STAIN && WallSides.multiplied(0f, 0f, 1f / 255f) != WallSides.STAIN,
                 "no tint packs to a stain");
+        int slats = WallSides.slats(0.62f, 0.6f, 0.58f);
+        WallSides.tint(slats, tint);
+        check(Math.abs(tint[0] - 0.62f) <= 0.5f / 255f && Math.abs(tint[1] - 0.6f) <= 0.5f / 255f && Math.abs(tint[2] - 0.58f) <= 0.5f / 255f && tint[3] == 17f,
+                "a roller door's slats come back in its colour to a 255th, told as 17, which no other way of painting is");
+        WallSides.joint(slats, tint);
+        check(tint[0] == 0f && tint[1] == 0f && tint[2] == 0f, "and they have no joints");
+        check(WallSides.slats(0f, 0f, 0f) != WallSides.STAIN && WallSides.slats(1f, 1f, 1f) != WallSides.multiplied(1f, 1f, 0.996f)
+                && WallSides.slats(0.5f, 0.5f, 0.5f) != WallSides.multiplied(0.5f, 0.5f, 0.5f), "no tint or stain packs to slats");
+        check(WallSides.rollerDoor("walls_garage_01_48") && WallSides.rollerDoor("walls_garage_01_53") && WallSides.rollerDoor("walls_garage_01_16")
+                && WallSides.rollerDoor("walls_garage_01_21") && WallSides.rollerDoor("industry_trucks_01_32") && WallSides.rollerDoor("industry_trucks_01_37"),
+                "the grey and the green garage doors and the trucks' are roller doors");
+        check(!WallSides.rollerDoor("walls_garage_01_0") && !WallSides.rollerDoor("walls_garage_01_5") && !WallSides.rollerDoor("walls_garage_02_32")
+                && !WallSides.rollerDoor("walls_garage_02_48") && !WallSides.rollerDoor("walls_garage_01_8") && !WallSides.rollerDoor("industry_trucks_01_40")
+                && !WallSides.rollerDoor("walls_garage_01_160") && !WallSides.rollerDoor(null),
+                "the panelled doors, the doors with windows and an open door are not, nor is a name that only starts like one");
         check(WallSides.key(0.4f, 0.4f, 0.4f, WallSides.FLAT) == WallSides.key(0.41f, 0.39f, 0.4f, WallSides.FLAT), "colours a hair apart share a key, and so a draw");
         check(WallSides.key(0.4f, 0.4f, 0.4f, WallSides.FLAT) != WallSides.key(0.4f, 0.4f, 0.4f, WallSides.SIDING), "paint and boards of one colour are two draws");
     }
