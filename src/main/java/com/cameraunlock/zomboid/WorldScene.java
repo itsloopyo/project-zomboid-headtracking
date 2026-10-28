@@ -5785,7 +5785,7 @@ final class WorldScene {
          * mark is taken from the lighting engine only when its pass moves on, and squares load only
          * between frames, so the answer holds for the frame and the pass it was found in.
          */
-        private final HashMap<Long, Boolean> roomsSeenInReading = new HashMap<>();
+        private final LongTable<Boolean> roomsSeenInReading = new LongTable<>();
         private int roomsSeenFrame = -1, roomsSeenPass = -1;
 
         /** Whether the player has seen a room, as RoomsSeen takes it from its squares on its own level. */
