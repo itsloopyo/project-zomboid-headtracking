@@ -3,6 +3,7 @@ package com.cameraunlock.zomboid;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
+import java.util.function.LongPredicate;
 
 import zombie.characters.IsoPlayer;
 import zombie.core.textures.ColorInfo;
@@ -57,6 +58,9 @@ final class TooDark {
     private final int[] scratch = new int[SIDE * SIDE], taken = new int[SIDE * SIDE];
     private final float[] drawn = new float[SIDE * SIDE];
     private final boolean[] outside = new boolean[SIDE * SIDE];
+    /** The light WorldScene.drawnLight works a square out in, and whether each room asked after in this reading has been seen as a whole. */
+    private final ColorInfo given = new ColorInfo();
+    private final LongTable<Boolean> roomsSeen = new LongTable<>();
 
     /**
      * How far into the dark a square is, 0 at the game's line or over it to 1 a RAMP under it, by
@@ -98,6 +102,15 @@ final class TooDark {
         float visionModifier = player.getWornItemsVisionModifier();
         WorldScene scene = view.worldScene;
         float open = scene.openNow * scene.daylightKeptNow;
+        roomsSeen.clear();
+        LongPredicate roomSeen = room -> {
+            Boolean known = roomsSeen.get(room);
+            if (known == null) {
+                known = WorldScene.roomSeen(cell, room, view.index);
+                roomsSeen.put(room, known);
+            }
+            return known;
+        };
         for (int row = 0; row < SIDE; row++) {
             for (int column = 0; column < SIDE; column++) {
                 lift.put(row * SIDE + column, scene.terrain.lift(x + column + 0.5f, y + row + 0.5f, level));
@@ -116,7 +129,7 @@ final class TooDark {
                         continue;
                     }
                     // Only a square under a roof is darkened by its drawn light (known, below).
-                    float picture = outside[at] ? Float.NaN : view.characters.drawnLight(square);
+                    float picture = outside[at] ? Float.NaN : scene.drawnLight(square, given, roomSeen);
                     drawn[at] = Float.isNaN(picture) ? open : picture;
                     // isCanSee brings the square's light up to date from the lighting engine.
                     if (!square.isCanSee(playerIndex)) {

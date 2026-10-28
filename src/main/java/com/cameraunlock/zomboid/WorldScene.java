@@ -17,6 +17,7 @@ import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.LongPredicate;
 import org.lwjgl.opengl.GL11;
 import zombie.GameTime;
 import zombie.characters.IsoGameCharacter;
@@ -1149,6 +1150,40 @@ final class WorldScene {
         into.b = Math.max(light.b, share * dayBlueNow);
         into.a = light.a;
         return into;
+    }
+
+    /**
+     * Any thread: how bright the world draws a square this frame, the mean of its colours, with
+     * the daylight the picture keeps, or NaN where a square not seen is lit as the open ground is.
+     * Into and roomSeen are the calling thread's own: the square's light is written into into,
+     * and roomSeen says whether the viewer has seen a room as a whole (WorldScene.roomSeen).
+     */
+    float drawnLight(IsoGridSquare square, ColorInfo into, LongPredicate roomSeen) {
+        IsoCell cell = IsoWorld.instance.currentCell;
+        long room = square.getRoomID();
+        boolean inRoom = room != RoomSight.OUTSIDE;
+        boolean asShown = asTheGameShowsNow, gamesView = gamesViewNow;
+        boolean seen = inRoom && !asShown && !gamesView ? roomSeen.test(room) : square.isSeen(view.index);
+        // A square not seen out of a room, or in one shown only as the game shows it, is lit as the
+        // open ground is: nothing is said. The game's own view keeps the engine's light in a room
+        // it has not shown, which is none.
+        if (!seen && (!inRoom || asShown) && !(gamesView && inRoom)) {
+            return Float.NaN;
+        }
+        float light;
+        if (seen || gamesView) {
+            // As the room round them is lit: with the day it lets in.
+            ColorInfo given = daylitNow(square, view.torchLess.light(square, view.index, into), into);
+            light = (given.r + given.g + given.b) / 3f;
+        } else {
+            // As the world lights a room not yet seen (ROOM_LIT and LAMP_LIT), at least by the day
+            // the room lets in. A lamp counts here only as the room's own lights: the lamps
+            // standing loose are the frame's, read on the logic thread.
+            float unseen = lampBurns(cell, square, List.of()) ? lampLitNow : roomLitNow;
+            light = Math.max(unseen, roomsDaylitNow ? roomDaylight.sharedAt(square) * daylightLitNow : 0f);
+        }
+        float kept = daylightKeptNow * (square.isOutside() ? 1f : roomKeptNow);
+        return Evening.dimmed(light, openNow, kept);
     }
 
     /**
