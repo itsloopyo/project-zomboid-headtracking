@@ -477,7 +477,8 @@ final class Flora {
                 most = Math.max(most, counts[band]);
             }
             float broad = reachLeft[broadest] + reachRight[broadest];
-            for (int band = broadest - 1; band >= 0 && from == 0; band--) {
+            // A bush is leaves to the ground: cut at its narrow foot, it stood on a stalk too thin to see, floating.
+            for (int band = broadest - 1; tree && band >= 0 && from == 0; band--) {
                 if (reachLeft[band] + reachRight[band] < TRUNK_SHADE * broad) {
                     from = band + 1;
                 }
