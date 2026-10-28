@@ -202,12 +202,17 @@ public final class Controls {
     boolean runsAslant() {
         return runsAslant;
     }
-    /** Whether the aim button that put a drag cursor away is still held. */
+    /** Whether the aim button that put a drag cursor away or took a menu down is still held. */
     private boolean cancelHeld;
 
-    /** A right press has put the drag cursor away (WorldMenu): the button is no aim until it is let go. */
-    void dragPutAway() {
+    /** A right press has put the drag cursor away or taken a menu down: the button is no aim, and opens no menu, until it is let go. */
+    void spendRightPress() {
         cancelHeld = true;
+    }
+
+    /** Whether the right button held now has been spent on putting something away. */
+    boolean rightPressSpent() {
+        return cancelHeld;
     }
 
     /** Whether a controller's triggers are the character's: while it works one of the game's panels the game has it ignore the aim. */

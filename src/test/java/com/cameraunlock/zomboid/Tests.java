@@ -3039,6 +3039,18 @@ public final class Tests {
         check(pointer.update(false, false, false, 3) == leave && !pointer.on(), "panels already open when the view comes on do not take the look");
         pointer.update(false, false, false, 4);
         check(pointer.on(), "one more does");
+
+        pointer.reset();
+        pointer.update(false, false, true, 0);
+        pointer.forNewest(1);
+        pointer.update(false, false, false, 1);
+        check(pointer.on(), "a menu opened with the button's pointer out holds it");
+        pointer.menuShut();
+        check(pointer.update(false, false, false, 0) == leave && !pointer.on(), "taking the menu down goes back to the look, past the click");
+        pointer.update(true, false, false, 0);
+        pointer.forNewest(1);
+        pointer.menuShut();
+        check(pointer.update(false, false, false, 0) == leave && pointer.on() && pointer.byKey(), "but leaves the inventory open");
     }
 
     private static byte[] subjectWithField(String name, ClassDesc type, int flags) {

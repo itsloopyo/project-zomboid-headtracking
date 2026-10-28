@@ -79,6 +79,11 @@ final class PointerMode {
         ignoredPanels = panels - 1;
     }
 
+    /** Takes back a click's hold on the pointer, for a menu taken down to go back to the look. */
+    void menuShut() {
+        clicked = false;
+    }
+
     /** Brings the pointer out as the inventory key does, for a container opened from the look. */
     void open() {
         byKey = true;

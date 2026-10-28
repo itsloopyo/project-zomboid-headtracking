@@ -61,11 +61,11 @@ final class WorldMenu {
         if (RIGHT_DOWN.equals(event) && view.dragsInFirstPerson() && DragAim.of(view.index) instanceof KahluaTable drag) {
             // In the game's own view a right click opens the world menu, which puts the drag away.
             DragAim.putAway(drag, view.index);
-            view.controls.dragPutAway();
+            view.controls.spendRightPress();
             down = false;
             Log.info("a right click put the drag cursor " + drag.rawget("Type") + " away");
         } else if (RIGHT_DOWN.equals(event)) {
-            down = view.firstPerson.pointerOut();
+            down = view.firstPerson.pointerOut() && !view.controls.rightPressSpent();
             downAt = System.nanoTime();
         } else if (RIGHT_UP.equals(event) && down) {
             down = false;
@@ -126,11 +126,32 @@ final class WorldMenu {
         return true;
     }
 
+    /**
+     * Takes down the player's context menu where one is up, the world menu and any other, the
+     * way the game's own closeAll does. Whether one was up.
+     */
+    boolean shut() {
+        Object[] found = call(LuaManager.env.rawget("getPlayerContextMenu"), Double.valueOf(view.index));
+        if (found == null || found.length < 2 || !(found[1] instanceof KahluaTable menu)
+                || !(menu.rawget("javaObject") instanceof UIElementInterface shown) || !shown.isVisible()) {
+            return false;
+        }
+        // The game leaves a menu with nothing in it shown, off the screen.
+        Object[] empty = call(UIManager.tableget(menu, "isEmpty"), menu);
+        if (empty == null || empty.length < 2 || Boolean.TRUE.equals(empty[1])) {
+            return false;
+        }
+        call(UIManager.tableget(menu, "closeAll"), menu);
+        down = false;
+        Log.info("the context menu of player " + (view.index + 1) + " was taken down");
+        return true;
+    }
+
     /** What a Lua function of the game's answered, its own success first, or null where it raised an error, which is logged. */
     private static Object[] call(Object function, Object... arguments) {
         Object[] result = LuaManager.caller.pcall(UIManager.getDefaultThread(), function, arguments);
         if (result.length == 0 || !Boolean.TRUE.equals(result[0])) {
-            Log.info("the game's world menu was not opened: a call failed: " + Arrays.toString(result));
+            Log.info("a call to the game's context menu failed: " + Arrays.toString(result));
             return null;
         }
         return result;

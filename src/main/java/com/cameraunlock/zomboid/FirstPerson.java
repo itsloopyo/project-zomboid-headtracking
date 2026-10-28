@@ -126,7 +126,7 @@ public final class FirstPerson {
      * back. Nothing in the game's default bindings uses it, and every letter key is taken.
      */
     private static final int POINT_BUTTON = 2;
-    private boolean pointButtonWasDown;
+    private boolean pointButtonWasDown, aimButtonWasDown;
     private static final int AIM_BUTTON = 1;
     /** How long after the aim button is let go the game may still be opening what it opens on a right click. */
     private static final long AFTER_AIM_NANOS = 400_000_000L;
@@ -1727,8 +1727,26 @@ public final class FirstPerson {
     private void point() {
         Core.KeyBinding inventory = Core.getInstance().getKeyBinding(INVENTORY_BINDING);
         boolean inventoryKey = pressed(inventory.keyValue()) | pressed(inventory.altKey());
+        boolean escapeKey = GameKeyboard.isKeyPressed(ESCAPE_KEY);
+        boolean aimButton = Mouse.isButtonDown(AIM_BUTTON), aimClick = aimButton && !aimButtonWasDown;
+        aimButtonWasDown = aimButton;
+        boolean pointButton = Mouse.isButtonDown(POINT_BUTTON);
+        boolean pointClick = pointButton && !pointButtonWasDown;
+        pointButtonWasDown = pointButton;
+        // Escape, a right click or a middle click takes a context menu down and is for nothing else: not the game's menu, the aim or the pointer.
+        boolean menuShut = (escapeKey || aimClick || pointClick) && view.worldMenu.shut();
+        if (menuShut) {
+            if (escapeKey) {
+                GameKeyboard.eatKeyPress(ESCAPE_KEY);
+            }
+            if (aimClick) {
+                view.controls.spendRightPress();
+            }
+            pointer.menuShut();
+            pointClick = false;
+        }
         // With a drag cursor up the game's own Esc puts it away, and the pointer stays as it is.
-        boolean escape = GameKeyboard.isKeyPressed(ESCAPE_KEY) && DragAim.of(view.index) == null;
+        boolean escape = escapeKey && !menuShut && DragAim.of(view.index) == null;
         if (escape && pointer.escapeTakes()) {
             // Or the same press would go on to open the game's menu.
             GameKeyboard.eatKeyPress(ESCAPE_KEY);
@@ -1736,15 +1754,12 @@ public final class FirstPerson {
         String was = TRACE ? pointer.describe() : null;
         int panels = Panels.open(view.index);
         long now = System.nanoTime();
-        if (Mouse.isButtonDown(AIM_BUTTON)) {
+        if (aimButton) {
             aimedAt = now;
         }
         if (now - aimedAt < AFTER_AIM_NANOS && !pointer.byKey()) {
             pointer.passOver(panels);
         }
-        boolean pointButton = Mouse.isButtonDown(POINT_BUTTON);
-        boolean pointClick = pointButton && !pointButtonWasDown;
-        pointButtonWasDown = pointButton;
         PointerMode.Inventory inventoryPanels = pointer.update(inventoryKey, escape, pointClick, panels);
         if (inventoryPanels != PointerMode.Inventory.LEAVE) {
             Panels.showInventory(view.index, inventoryPanels == PointerMode.Inventory.OPEN);
