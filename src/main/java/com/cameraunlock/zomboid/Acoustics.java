@@ -278,10 +278,11 @@ final class Acoustics {
                 int arrived = heap[0];
                 float cost = heapKey[0];
                 size = pop(size);
-                if (cost > best[arrived] || cost > SEARCHED) {
+                long in = sideRegion[arrived];
+                // Back in the listener's own region, no way on is shorter than the straight one from the listener, which is taken already.
+                if (cost > best[arrived] || cost > SEARCHED || in == region) {
                     continue;
                 }
-                long in = sideRegion[arrived];
                 int opening = arrived >> 1;
                 for (int k = firstSide(in, sideCount); k < sideCount && sideRegion[sides[k]] == in; k++) {
                     int from = sides[k], next = from >> 1;
