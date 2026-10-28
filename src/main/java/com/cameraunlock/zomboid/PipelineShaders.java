@@ -3578,8 +3578,8 @@ final class PipelineShaders {
             + ", LANE_STEP = " + SpriteGeometry.LANE_STEP + ", LANE_QUARTERS = " + SpriteGeometry.LANE_QUARTERS + ", LANE_BIAS = " + SpriteGeometry.LANE_BIAS
             + ", LANE_NARROWEST = " + Lanes.NARROWEST + ";\n";
 
-    /** The rest of main: the whole of it in one constant is longer than a class file can hold. */
-    static final String WORLD_FRAGMENT_MAIN_REST = LANE_WEAR + """
+    /** Main from the eye's line to the open ground's grain: the whole of it in one constant is longer than a class file can hold. */
+    static final String WORLD_FRAGMENT_MAIN_GROUND = LANE_WEAR + """
                 vec3 toEye = uEye - vWorld;
                 // What stands as a card and is not water: see card below. Nor an overhead wire,
                 // whose upright strip is all there is of it from the side.
@@ -3760,8 +3760,14 @@ final class PipelineShaders {
                     float paved = vMaterial > 54.5 && vMaterial < 55.5 ? stony : 0.0;
                     float dark = stony - loose - paved;
                     // A picture is about a pace and a half of ground: its stones come out the size of gravel.
-                    vec2 one = p * 0.83;
-                    vec2 two = vec2(p.x * 0.8 - p.y * 0.6, p.x * 0.6 + p.y * 0.8) * 0.37 + 0.37;
+                    // Laid by the place counted from the corner near the eye (vPlace): a place on the map is known to a
+                    // millimetre, a texel of these pictures, and read from it the grain stepped under a pixel as the eye
+                    // moved. The corner's own share is the fraction a whole number of corners leaves, 60 * 0.83 being 49.8
+                    // and 60 * 0.37 * (0.8, 0.6) being (17.76, 13.32): the same picture to the last texel.
+                    vec2 corners = floor((uEye.xy - mod(uEye.xy, 60.0)) / 60.0 + 0.5);
+                    vec2 one = vPlace.xy * 0.83 + fract(corners * 0.8);
+                    vec2 two = vec2(vPlace.x * 0.8 - vPlace.y * 0.6, vPlace.x * 0.6 + vPlace.y * 0.8) * 0.37 + 0.37
+                            + fract(vec2(0.76 * corners.x - 0.32 * corners.y, 0.32 * corners.x + 0.76 * corners.y));
                     float which = smoothstep(0.35, 0.65, patches(p * 0.23 + 51.0));
                     // Earth only where the game says the ground is earth: what is brown may as well be
                     // planks, or a path of red brick.
@@ -3786,7 +3792,7 @@ final class PipelineShaders {
                     // Stones stand up out of a drive and clods out of earth, a finger deep, and tarmac is pitted a seventh as
                     // deep: the pictures' alpha is how high each place stands, and the ground leans as that changes from pixel to pixel.
                     float high = -GROUND_DEPTH * raisedGround * (dark * TARMAC_DEPTH_SHARE * (1.0 - asphalt.a) + loose * (1.0 - gravel.a) + earth * EARTH_DEPTH_SHARE * (1.0 - soil.a));
-                    vec2 placeAcross = dFdx(vWorld.xy), placeDown = dFdy(vWorld.xy);
+                    vec2 placeAcross = dFdx(vPlace.xy), placeDown = dFdy(vPlace.xy);
                     float highAcross = dFdx(high), highDown = dFdy(high);
                     float det = placeAcross.x * placeDown.y - placeAcross.y * placeDown.x;
                     if (raisedGround > 0.0 && abs(det) > 1e-12) {
@@ -3877,6 +3883,10 @@ final class PipelineShaders {
                         grit = (stony - paved) * near * here;
                     }
                 }
+            """;
+
+    /** The rest of main, after the open ground's grain. */
+    static final String WORLD_FRAGMENT_MAIN_REST = """
 
                 // What a building is made of. The game's sprite says what colour a roof or a
                 // wall is and where its boards and windows are; a picture of the stuff itself,
@@ -4888,7 +4898,7 @@ final class PipelineShaders {
                     texel.a = there * clamp(vCover / 0.27, 0.0, 1.0) * (0.6 + 0.3 * thick);
                 }
             """;
-    static final String WORLD_FRAGMENT_MAIN = WORLD_FRAGMENT_MAIN_START.concat(RoadPaint.GLSL_MAIN).concat(BLOOD_MAIN).concat(WORLD_FRAGMENT_MAIN_GROWN).concat(WORLD_FRAGMENT_MAIN_REST).concat(WORLD_FRAGMENT_MAIN_WET);
+    static final String WORLD_FRAGMENT_MAIN = WORLD_FRAGMENT_MAIN_START.concat(RoadPaint.GLSL_MAIN).concat(BLOOD_MAIN).concat(WORLD_FRAGMENT_MAIN_GROWN).concat(WORLD_FRAGMENT_MAIN_GROUND).concat(WORLD_FRAGMENT_MAIN_REST).concat(WORLD_FRAGMENT_MAIN_WET);
 
     static final String SHADOW_VERTEX = """
             #version 120

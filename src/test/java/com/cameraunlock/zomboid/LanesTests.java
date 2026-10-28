@@ -231,7 +231,7 @@ final class LanesTests {
         check(ground.floats > 0 && top.floats > 0, "both faces are built");
         for (int at = 0; at < ground.floats; at += SpriteGeometry.VERTEX_FLOATS) {
             float x = ground.vertices[at], rootX = ground.vertices[at + SpriteGeometry.ROOT_AT], rootY = ground.vertices[at + SpriteGeometry.ROOT_AT + 1];
-            // As the picture reads it back: see PipelineShaders.WORLD_FRAGMENT_MAIN_REST.
+            // As the picture reads it back: see PipelineShaders.WORLD_FRAGMENT_MAIN_GROUND.
             float quarters = (float) Math.floor(rootY / SpriteGeometry.LANE_STEP);
             float width = quarters / SpriteGeometry.LANE_QUARTERS;
             float past = rootY - quarters * SpriteGeometry.LANE_STEP - SpriteGeometry.LANE_BIAS;

@@ -138,15 +138,15 @@ final class SnowOnPlantsTests {
     }
 
     private static void aCardPlantIsBuriedInBothDrawingsFromSlopesAskedBeforeAnythingIsLeftOut() {
-        String rest = PipelineShaders.WORLD_FRAGMENT_MAIN_REST;
-        int buried = rest.indexOf("if (rise < snowAround("), stops = rest.indexOf("if (depthOnly)");
+        String ground = PipelineShaders.WORLD_FRAGMENT_MAIN_GROUND;
+        int buried = ground.indexOf("if (rise < snowAround("), stops = ground.indexOf("if (depthOnly)");
         check(buried >= 0 && stops >= 0 && buried < stops, "what of a card is under the snow is left out before the drawing of depth stops, so both drawings leave it out");
         String start = PipelineShaders.WORLD_FRAGMENT_MAIN_START.replaceAll("\\s+", "");
         int asked = start.indexOf("if(uPlantSnow>0.0){riseScreen=vec2(dFdx(vWorld.z),dFdy(vWorld.z));coverScreen=vec2(dFdx(vCover),dFdy(vCover));");
         int left = start.indexOf("discard;");
         check(asked >= 0 && asked < left, "the slopes that decide what of a card is buried are asked before any pixel is left out, and only with snow on what grows");
         check(count(start, "dFdx(vWorld.z)") == 1 && count(start, "dFdx(vCover)") == 1 && count(start, "dFdx(vUv.y)") == 1, "and not again outside that test, so Low asks none of them");
-        check(rest.replaceAll("\\s+", "").contains("if(uPlantSnow>0.0&&vKind>2.5&&vKind<3.5&&vCover<0.9995&&(vMaterial<55.5||vMaterial>62.5&&vMaterial<63.5)){"),
+        check(ground.replaceAll("\\s+", "").contains("if(uPlantSnow>0.0&&vKind>2.5&&vKind<3.5&&vCover<0.9995&&(vMaterial<55.5||vMaterial>62.5&&vMaterial<63.5)){"),
                 "only the game's own sprites and the bushes in their place are buried, under the sky, with snow lying, and none of Flora's fronds, leaves and flowers, whose sway is not their height");
     }
 
