@@ -5644,11 +5644,21 @@ final class WorldScene {
             return view.torchLess.light(square, squareLights.of(square, playerIndex, lightPass), torchless);
         }
 
-        /** Whether each room met in a reading of lights is seen: see roomSeen. */
+        /**
+         * Whether each room met in the frame's readings of lights is seen: see roomSeen. A square's seen
+         * mark is taken from the lighting engine only when its pass moves on, and squares load only
+         * between frames, so the answer holds for the frame and the pass it was found in.
+         */
         private final HashMap<Long, Boolean> roomsSeenInReading = new HashMap<>();
+        private int roomsSeenFrame = -1, roomsSeenPass = -1;
 
         /** Whether the player has seen a room, as RoomsSeen takes it from its squares on its own level. */
         private boolean roomSeen(long room) {
+            if (roomsSeenFrame != frames || roomsSeenPass != lightPass) {
+                roomsSeenInReading.clear();
+                roomsSeenFrame = frames;
+                roomsSeenPass = lightPass;
+            }
             Boolean known = roomsSeenInReading.get(room);
             if (known == null) {
                 known = WorldScene.roomSeen(cell, room, playerIndex);
@@ -5745,7 +5755,6 @@ final class WorldScene {
             lightPass = LightingJNI.getUpdateCounter(playerIndex);
             Arrays.fill(lampAt, LAMP_UNASKED);
             roomAsked = null;
-            roomsSeenInReading.clear();
             for (int i = 0; i < LIGHT_SPAN; i++) {
                 for (int j = 0; j < LIGHT_SPAN; j++) {
                     boolean inChunk = i >= 1 && i <= CHUNK_TILES && j >= 1 && j <= CHUNK_TILES;
