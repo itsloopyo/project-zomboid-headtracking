@@ -5,6 +5,8 @@
 ### Changed
 
 - Frame blending is off in every graphics mode: each frame is drawn on its own, without the one before mixed in, and edges are a little harder. `Custom` with `[Graphics] FrameBlending=true` turns it back on.
+- On a server where players cannot hurt each other, your character keeps facing where you look when walking sideways or backwards (`FacesTheView`), and zombies show at once in the isometric view (`ZombiesSeenAtOnce`), as they do offline.
+- On any server, the south and east walls of rooms carry the mod's pictures in first person, as they do offline.
 
 ## [0.1.1] - 2026-10-28
 

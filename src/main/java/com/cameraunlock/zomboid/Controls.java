@@ -127,7 +127,7 @@ public final class Controls {
      * keeps looking ahead. Moved any way but straight ahead, it is held in the game's aiming stance, the
      * one way the game has of facing one way and moving another, raised to the pace the game
      * gives the walk, jog or sprint ahead (Sidestep). Dragging a body, with the FacesTheView row
-     * off or on a server, the game turns the character to the way it goes, as it would anyway.
+     * off or on a server where players can fight, the game turns the character to the way it goes, as it would anyway.
      * The sights stay down. They follow the player's own aim input alone.
      */
     private boolean turnedToTheView(IsoPlayer player) {

@@ -5,8 +5,10 @@ import zombie.network.GameServer;
 /**
  * The game's rules the mod changes when played alone, each a row of [Rules] in CameraUnlock.ini,
  * on unless the player says otherwise, bar Rewind30s, which is off unless they say so and is a row
- * only in a development build (see Rewind). With a row off, or on a server whatever the rows say,
- * the game's own rule holds.
+ * only in a development build (see Rewind). With a row off the game's own rule holds. On a server
+ * a rule that changes what the server keeps (a shot, a zombie, a vehicle, the world) is the game's
+ * whatever the rows say; one that changes only this player's own screen or stance holds where
+ * players cannot fight (Online.contested), or on every server where it shows nothing of another player.
  *
  * The rows are read again while the game runs: the thread that watches the file and the game's
  * options screen set them, and the logic thread asks them as shots land and vehicles move.
@@ -60,7 +62,7 @@ final class Rules {
 
     /** Whether a character moved sideways or backwards in first person keeps facing the view, at the game's pace for the gait: see Controls and Sidestep. */
     static boolean facesTheView() {
-        return !Online.joined() && (on & FACES_THE_VIEW) != 0;
+        return !Online.contested() && (on & FACES_THE_VIEW) != 0;
     }
 
     /** Whether a first person shot goes on past a tree it does not meet the bole of: see Trunks. */
@@ -70,7 +72,7 @@ final class Rules {
 
     /** Whether in the isometric view a zombie shows once the game's test for seeing it passes on the map as it is now: see LiveSight. */
     static boolean seenAtOnce() {
-        return !Online.joined() && (on & SEEN_AT_ONCE) != 0;
+        return !Online.contested() && (on & SEEN_AT_ONCE) != 0;
     }
 
     /** Whether a player at this screen who dies is asked whether to go back 30 seconds: see Rewind. */
@@ -89,11 +91,11 @@ final class Rules {
 
     /**
      * Whether the first person view draws pictures on the walls of rooms the overhead view never
-     * shows: see HiddenWalls.plan. Offline, as the dressing is: a client joined to a server has
-     * not been run with them yet.
+     * shows: see HiddenWalls.plan. On a server too: nothing is saved or sent, and a picture lies
+     * flat on a wall that already hides what is behind it.
      */
     static boolean drawsHiddenWallPictures() {
-        return !Online.joined() && !GameServer.server && (on & HIDDEN_WALLS) != 0;
+        return !GameServer.server && (on & HIDDEN_WALLS) != 0;
     }
 
     /** The rows in words, for the log. */

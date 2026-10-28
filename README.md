@@ -255,7 +255,7 @@ Every key saves its new setting to `CameraUnlock.ini` as you press it, and `Dele
 
 ### Mouse and keyboard
 
-The mouse turns the view. Movement keys follow the direction you face. Walking or sneaking any way but straight ahead, diagonals included, your character keeps facing where you look, in the game's aiming stance at the pace of the walk ahead. Jogging and sprinting are straight ahead only: held any other way, your character walks. Offline only, and `FacesTheView=false` gives the game's own turn every time.
+The mouse turns the view. Movement keys follow the direction you face. Walking or sneaking any way but straight ahead, diagonals included, your character keeps facing where you look, in the game's aiming stance at the pace of the walk ahead. Jogging and sprinting are straight ahead only: held any other way, your character walks. Offline and on servers where players cannot hurt each other; `FacesTheView=false` gives the game's own turn every time.
 
 | Input | Action |
 | --- | --- |
@@ -595,21 +595,21 @@ ShotsWoundLimbs=true
 ; unslowed and keeps its engine's full power off the road. false: the game's rules for all of it. On a server the
 ; game's rules hold.
 VehiclesSmashThrough=true
-; true: offline, walking or sneaking sideways or backwards in first person, your character keeps facing where
-; you look, and jogging or sprinting is straight ahead only. false: it always turns,
-; as the game has it. On a server the game's rule holds.
+; true: walking or sneaking sideways or backwards in first person, your character keeps facing where you look,
+; and jogging or sprinting is straight ahead only. false: it always turns, as the game has it. On a server
+; where players can hurt each other the game's rule holds.
 FacesTheView=true
 ; true: offline, a tree stops your shots only where its trunk is drawn, and a shot past the trunk goes on.
 ; false: a tree stops every shot across its square, as the game has it. On a server the game's rule holds.
 ShotsPastTrees=true
-; true: offline, in the isometric view a zombie shows as soon as nothing stands between your character and it,
-; where your character's sight reaches by the game's rules. false: the game's own sight, which can show a
-; zombie late or only once it is close. On a server the game's rule holds.
+; true: in the isometric view a zombie shows as soon as nothing stands between your character and it, where
+; your character's sight reaches by the game's rules. false: the game's own sight, which can show a zombie
+; late or only once it is close. On a server where players can hurt each other the game's rule holds.
 ZombiesSeenAtOnce=true
-; true: offline, the south and east walls of a room, which the isometric view never shows from inside, get the
-; game's own mirrors, clocks and coat racks where the room's other walls say they belong, the first time the
-; room is loaded. They are the game's own objects and stay in your save. false: nothing is added. On a server
-; nothing is added.
+; true: in first person the south and east walls of a room, which the isometric view never shows from inside,
+; carry pictures that are drawn by the mod and never saved. Offline they also get the game's own mirrors, clocks
+; and coat racks where the room's other walls say they belong, the first time the room is loaded, and those
+; stay in your save. false: nothing is drawn or added. On a server the pictures are drawn and nothing is added.
 HiddenWallDecor=true
 
 [Voice]

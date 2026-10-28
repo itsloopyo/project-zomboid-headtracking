@@ -1,6 +1,6 @@
 package com.cameraunlock.zomboid;
 
-/** Tests of the rows of [Rules]: which of the game's rules the mod changes alone, and that a server keeps them all the game's. */
+/** Tests of the rows of [Rules]: which of the game's rules the mod changes alone, and which a server keeps the game's. */
 final class RulesTests {
     private RulesTests() {}
 
@@ -9,7 +9,7 @@ final class RulesTests {
         try {
             Checks.run("aloneEveryRuleIsTheModsUntilARowSaysOtherwise", RulesTests::aloneEveryRuleIsTheModsUntilARowSaysOtherwise);
             Checks.run("eachRowOffGivesBackThatRuleAndNoOther", RulesTests::eachRowOffGivesBackThatRuleAndNoOther);
-            Checks.run("onAServerEveryRuleIsTheGamesWhateverTheRows", RulesTests::onAServerEveryRuleIsTheGamesWhateverTheRows);
+            Checks.run("onAServerTheRulesItKeepsAreTheGames", RulesTests::onAServerTheRulesItKeepsAreTheGames);
         } finally {
             Rules.set(before);
         }
@@ -62,16 +62,25 @@ final class RulesTests {
         });
     }
 
-    private static void onAServerEveryRuleIsTheGamesWhateverTheRows() {
+    private static void onAServerTheRulesItKeepsAreTheGames() {
         Rules.set(Rules.ALL);
         for (Servers.Where where : new Servers.Where[] {Servers.Where.FRIENDLY, Servers.Where.CONTESTED}) {
             Servers.in(where, () -> check(!Rules.throughWalls() && !Rules.breaksLamps() && !Rules.breaksGlass() && !Rules.wounds() && Rules.vehiclesStock()
-                    && !Rules.facesTheView() && !Rules.pastTrees() && !Rules.seenAtOnce() && !Rules.rewind() && !Rules.dressesHiddenWalls(),
-                    "on a server (" + where + ") every rule is the game's with every row on"));
+                    && !Rules.pastTrees() && !Rules.rewind() && !Rules.dressesHiddenWalls(),
+                    "on a server (" + where + ") every rule the server keeps is the game's with every row on"));
+            Servers.in(where, () -> check(Rules.drawsHiddenWallPictures(), "and on a server (" + where + ") hidden walls still carry drawn pictures"));
         }
+        Servers.in(Servers.Where.FRIENDLY, () -> check(Rules.facesTheView() && Rules.seenAtOnce(),
+                "where players cannot fight, the character faces the view and zombies are seen at once"));
+        Servers.in(Servers.Where.CONTESTED, () -> check(!Rules.facesTheView() && !Rules.seenAtOnce(),
+                "where players can fight, the character turns as the game has it and zombies keep the game's sight"));
+        Rules.set(Rules.ALL & ~Rules.FACES_THE_VIEW & ~Rules.SEEN_AT_ONCE & ~Rules.HIDDEN_WALLS);
+        Servers.in(Servers.Where.FRIENDLY, () -> check(!Rules.facesTheView() && !Rules.seenAtOnce() && !Rules.drawsHiddenWallPictures(),
+                "and a row turned off is off on a server too"));
+        Rules.set(Rules.ALL);
         zombie.network.GameServer.server = true;
         try {
-            Servers.in(Servers.Where.ALONE, () -> check(!Rules.dressesHiddenWalls(), "and a server's own process hangs nothing on hidden walls"));
+            Servers.in(Servers.Where.ALONE, () -> check(!Rules.dressesHiddenWalls() && !Rules.drawsHiddenWallPictures(), "and a server's own process hangs and draws nothing on hidden walls"));
         } finally {
             zombie.network.GameServer.server = false;
         }

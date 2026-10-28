@@ -19,7 +19,7 @@ import zombie.iso.LosUtil;
  * tiles off: zombies came out of nothing beside the character. Measured in town by day and
  * night, rig runs iso1, night1 and night2.
  *
- * With the ZombiesSeenAtOnce row on, offline, the game's test reads the grid's marks for a
+ * With the ZombiesSeenAtOnce row on, unless players can fight here, the game's test reads the grid's marks for a
  * zombie's square with the line from the character to it read off the map as it is now
  * (LosUtil.lineClear, where a shut door hides as a wall does) beside them: a clear line marks
  * the square one the character could see, and one in the cone the character takes in as the

@@ -360,18 +360,18 @@ final class Config {
                             + "game's rules hold.",
                     writable | live, true),
             core.configLocalBool("Rules", "FacesTheView",
-                    "true: offline, walking or sneaking sideways or backwards in first person, your character keeps facing where\n"
-                            + "you look, and jogging or sprinting is straight ahead only. false: it always turns,\n"
-                            + "as the game has it. On a server the game's rule holds.",
+                    "true: walking or sneaking sideways or backwards in first person, your character keeps facing where you look,\n"
+                            + "and jogging or sprinting is straight ahead only. false: it always turns, as the game has it. On a server\n"
+                            + "where players can hurt each other the game's rule holds.",
                     writable | live, true),
             core.configLocalBool("Rules", "ShotsPastTrees",
                     "true: offline, a tree stops your shots only where its trunk is drawn, and a shot past the trunk goes on.\n"
                             + "false: a tree stops every shot across its square, as the game has it. On a server the game's rule holds.",
                     writable | live, true),
             core.configLocalBool("Rules", "ZombiesSeenAtOnce",
-                    "true: offline, in the isometric view a zombie shows as soon as nothing stands between your character and it,\n"
-                            + "where your character's sight reaches by the game's rules. false: the game's own sight, which can show a\n"
-                            + "zombie late or only once it is close. On a server the game's rule holds.",
+                    "true: in the isometric view a zombie shows as soon as nothing stands between your character and it, where\n"
+                            + "your character's sight reaches by the game's rules. false: the game's own sight, which can show a zombie\n"
+                            + "late or only once it is close. On a server where players can hurt each other the game's rule holds.",
                     writable | live, true),
             !DevBuild.ON ? NO_ROW : core.configLocalBool("Rules", "Rewind30s",
                     "true: offline, when you die the game pauses and asks whether to go back to where you were 30 seconds before,\n"
@@ -380,10 +380,10 @@ final class Config {
                             + "seconds after. false: death is final, as the game has it. On a server the game's rule holds.",
                     writable | live, false),
             core.configLocalBool("Rules", "HiddenWallDecor",
-                    "true: offline, the south and east walls of a room, which the isometric view never shows from inside, get the\n"
-                            + "game's own mirrors, clocks and coat racks where the room's other walls say they belong, the first time the\n"
-                            + "room is loaded. They are the game's own objects and stay in your save. false: nothing is added. On a server\n"
-                            + "nothing is added.",
+                    "true: in first person the south and east walls of a room, which the isometric view never shows from inside,\n"
+                            + "carry pictures that are drawn by the mod and never saved. Offline they also get the game's own mirrors, clocks\n"
+                            + "and coat racks where the room's other walls say they belong, the first time the room is loaded, and those\n"
+                            + "stay in your save. false: nothing is drawn or added. On a server the pictures are drawn and nothing is added.",
                     writable | live, true),
         };
 
