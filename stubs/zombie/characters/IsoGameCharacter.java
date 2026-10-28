@@ -28,6 +28,7 @@ public abstract class IsoGameCharacter extends IsoMovingObject {
     public boolean isAsleep() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isDead() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isOnDeathDone() { throw new UnsupportedOperationException("reference stub"); }
+    public IsoGameCharacter getReanimatedCorpse() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.characters.WornItems.WornItems getWornItems() { throw new UnsupportedOperationException("reference stub"); }
     public BaseVehicle getVehicle() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isAimingFirearmEquipped() { throw new UnsupportedOperationException("reference stub"); }

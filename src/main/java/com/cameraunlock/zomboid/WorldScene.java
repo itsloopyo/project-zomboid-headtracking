@@ -1652,6 +1652,7 @@ final class WorldScene {
     void letGoOfViewers() {
         for (Frame scene : scenes) {
             scene.viewer = null;
+            scene.own = null;
         }
     }
 
@@ -2814,6 +2815,8 @@ final class WorldScene {
         /** What the eye would let in by where the viewer stands alone, and what the light meter read: see adaptEye. */
         float located, metered;
         private IsoPlayer viewer;
+        /** The character whose model the eye is inside: see Characters.own. */
+        private IsoGameCharacter own;
         IsoCell cell;
         int playerIndex;
         int lowestLevel;
@@ -3247,6 +3250,7 @@ final class WorldScene {
             int agedBuilt = 0;
 
             viewer = player;
+            own = view.firstPerson.own(player);
             float daylight = GameTime.getInstance().getAmbient();
             sky.capture();
             sky.sight(player);
@@ -8887,6 +8891,7 @@ final class WorldScene {
         private void draw() {
             MouseGrab.sync();
             view.characters.viewer = viewer;
+            view.characters.own = viewer == null ? null : own;
 
             GL11.glGetIntegerv(GL_VIEWPORT, viewport);
             if (viewport[2] <= 0 || viewport[3] <= 0) {

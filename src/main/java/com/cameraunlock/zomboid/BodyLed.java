@@ -8,7 +8,8 @@ package com.cameraunlock.zomboid;
  * view stays the mouse's: the game's animation has the body, and none of the view. It is
  * handed over and back on a short ease, so neither way is a cut. Once the game has made the
  * dead character a body on the ground the head's last view is held: the game poses that body
- * no more.
+ * no more. If the body rises as a zombie, the view is that zombie's head (FirstPerson.risenOf)
+ * for as long as it is in the world.
  *
  * Logic thread.
  */
@@ -40,7 +41,7 @@ final class BodyLed {
      *
      * @param leads   whether the game's animation has the body
      * @param whole   whether it has the view as well: not for a hit or a bite the character stays on its feet through
-     * @param holding whether the game has made the body it poses no more
+     * @param holding whether the game has made the body it poses no more, and it has not risen
      */
     void frame(boolean leads, boolean whole, boolean holding, float seconds) {
         this.leads = leads;

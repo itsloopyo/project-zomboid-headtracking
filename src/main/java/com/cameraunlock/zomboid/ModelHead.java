@@ -4,6 +4,7 @@ import java.util.Locale;
 import org.lwjgl.util.vector.Matrix4f;
 import org.lwjgl.util.vector.Quaternion;
 import org.lwjgl.util.vector.Vector3f;
+import zombie.characters.IsoGameCharacter;
 import zombie.characters.IsoPlayer;
 import zombie.core.skinnedmodel.HelperFunctions;
 import zombie.core.skinnedmodel.animation.AnimationPlayer;
@@ -131,15 +132,16 @@ public final class ModelHead {
     /**
      * The head as the game's animation has it, the player's own head turn not in it: its turn in
      * the model, column after column, into turn, and where its joint is from the feet in the
-     * world, in tiles, into joint.
+     * world, in tiles, into joint. The character is the view's player, or the zombie their
+     * corpse rose as (FirstPerson.risenOf).
      *
-     * @return the angle the body is drawn at, or not a number before this player's skeleton is first posed
+     * @return the angle the body is drawn at, or not a number before this character's skeleton is first posed
      */
-    float head(IsoPlayer player, float[] turn, float[] joint) {
+    float head(IsoGameCharacter character, float[] turn, float[] joint) {
         float bodyAngle;
         float x, y, z;
         synchronized (posedLock) {
-            if (posedFor == null || posedFor != player.getAnimationPlayer()) {
+            if (posedFor == null || posedFor != character.getAnimationPlayer()) {
                 return Float.NaN;
             }
             System.arraycopy(posedHead, 0, turn, 0, 9);
@@ -154,6 +156,13 @@ public final class ModelHead {
         joint[1] = s * x - c * z;
         joint[2] = y * Characters.CHARACTER_SCALE;
         return bodyAngle;
+    }
+
+    /** Whether head has the character's head as posed: false until its skeleton is first posed. */
+    boolean posed(IsoGameCharacter character) {
+        synchronized (posedLock) {
+            return posedFor != null && posedFor == character.getAnimationPlayer();
+        }
     }
 
     /** Keeps the head as posed, for head: see posedHead. */
@@ -181,7 +190,19 @@ public final class ModelHead {
     /** Called from AnimationPlayer.updateAnimation_StandardAnimation once the bones are posed and the spine is twisted. */
     public void pose(AnimationPlayer animation) {
         IsoPlayer player = view.player();
-        if (player == null || player.getAnimationPlayer() != animation) {
+        if (player == null) {
+            return;
+        }
+        // Once the dead player's corpse has risen the eye is the zombie's head, which is kept as posed and turned by nothing.
+        IsoGameCharacter risen = player.isDead() ? player.getReanimatedCorpse() : null;
+        if (risen != null) {
+            SkinningBone top = risen.getAnimationPlayer() == animation ? animation.getSkinningData().getBone(HEAD) : null;
+            if (top != null) {
+                keepPosed(animation, top);
+            }
+            return;
+        }
+        if (player.getAnimationPlayer() != animation) {
             return;
         }
         SkinningData skeleton = animation.getSkinningData();

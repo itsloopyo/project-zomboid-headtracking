@@ -14,6 +14,7 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL20;
+import zombie.characters.IsoGameCharacter;
 import zombie.characters.IsoPlayer;
 import zombie.characters.IsoZombie;
 import zombie.characters.animals.IsoAnimal;
@@ -322,6 +323,7 @@ public final class Characters {
         notedIn = null;
         holding = null;
         viewer = null;
+        own = null;
         long now = System.nanoTime();
         for (int i = 0; i < dying.size(); i++) {
             Dying.release(dying.get(i), "first person stopped", now);
@@ -367,6 +369,11 @@ public final class Characters {
      * of a player who has died while frames built before that are still to be drawn.
      */
     IsoPlayer viewer;
+    /**
+     * Render thread: the character whose model the eye is inside, its head hidden: the viewer, or
+     * the zombie their corpse rose as (FirstPerson.own), for the frame being drawn.
+     */
+    IsoGameCharacter own;
 
     /** Whether there is anything to draw this frame, asked as each picture begins. The noted models of an earlier frame are dropped. */
     boolean ready() {
@@ -754,9 +761,12 @@ public final class Characters {
         }
         for (int i = 0; i < noted.size(); i++) {
             ModelSlotRenderData data = noted.get(i);
-            if (data.character != null && data.character == viewer && !data.inVehicle) {
-                settleTheWeapon(data, camera);
-                settleTheTask(data, camera);
+            if (data.character != null && data.character == own && !data.inVehicle) {
+                // A risen zombie holds nothing and does nothing the mod's hands would carry.
+                if (own == viewer) {
+                    settleTheWeapon(data, camera);
+                    settleTheTask(data, camera);
+                }
                 drawOwnBody(data, camera, tanHalfFieldOfView, aspect, nearFrom, far);
                 return true;
             }
@@ -2214,7 +2224,7 @@ public final class Characters {
         for (int i = 0; i < noted.size(); i++) {
             ModelSlotRenderData data = noted.get(i);
             // Seated, the viewer's model is drawn by the game only for the weapon in its hand.
-            if (data.character != null && data.character == viewer && (!withViewer || data.inVehicle)) {
+            if (data.character != null && data.character == own && (!withViewer || data.inVehicle)) {
                 continue;
             }
             if (only != ALL && (data.character == null) != (only == ONLY_VEHICLES)) {
@@ -2226,7 +2236,7 @@ public final class Characters {
             }
             // Stepped before anything is left out, so a step is not lost while its walker is out of the picture.
             float standsUp = data.character != null && !data.inVehicle ? standsUp(data, now) : 0f;
-            if (Dying.ON && kind == BY_EYE && data.character != null && !data.inVehicle && data.character != viewer) {
+            if (Dying.ON && kind == BY_EYE && data.character != null && !data.inVehicle && data.character != own) {
                 heldWhileDying(data, standsUp);
             }
             if (map != null && outside(map, data)) {
@@ -2323,8 +2333,8 @@ public final class Characters {
             } else {
                 // Seen from outside, the viewer is one of the people in the picture, lit by the square
                 // they stand on: ownLight is the eye's, and is only worked out while first person is drawn.
-                character(data, standsUp, viewMatrix, data.character == viewer && !viewerWhole && !view.pipeline.outside, casting, false, false,
-                        data.character == viewer ? 0f : fromViewer(toX, toY, data.z - viewer.getZ()));
+                character(data, standsUp, viewMatrix, data.character == own && !viewerWhole && !view.pipeline.outside, casting, false, false,
+                        data.character == own ? 0f : fromViewer(toX, toY, data.z - own.getZ()));
             }
             data.ambientR = red;
             data.ambientG = green;

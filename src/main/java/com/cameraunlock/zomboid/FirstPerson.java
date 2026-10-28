@@ -185,6 +185,10 @@ public final class FirstPerson {
     private boolean bodyWhole;
     /** The character the body led last frame was, so a new one after a death starts with the mouse's view. */
     private IsoPlayer ledPlayer;
+    /** The zombie the dead player's corpse rose as, found again each frame in lead: see risenOf. */
+    private IsoZombie risen;
+    /** That zombie's id on the last frame, or -1 while there was none, for the log. */
+    private int risenId = -1;
     static final boolean TRACE = Boolean.getBoolean("cameraunlock.zomboid.trace");
     private static final long TRACE_INTERVAL_NANOS = 1_000_000_000L;
 
@@ -887,7 +891,7 @@ public final class FirstPerson {
         holdTheCursorAhead(player, zoom);
         float floorUp = player.getZ() * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(player.getX(), player.getY(), player.getZ());
         float height = eyeHeight(player, sinceLastFrame);
-        world.look(IsoWorld.instance.currentCell, (int) Math.floor(player.getZ()));
+        world.look(IsoWorld.instance.currentCell, (int) Math.floor((risen != null ? risen : player).getZ()));
         float reach = (float) Math.hypot(headOffset[0], headOffset[1]);
         State state = player.getCurrentState();
         boolean climbing = state == ClimbOverFenceState.instance() || state == ClimbOverWallState.instance()
@@ -1985,13 +1989,25 @@ public final class FirstPerson {
             view.bodyLed.reset();
             bodyLeads = false;
             bodyWhole = false;
+            risenId = -1;
         }
         boolean wasLed = bodyLeads, wasWhole = bodyWhole, wasHolding = view.bodyLed.holding();
+        risen = risenOf(player);
         if (landed) {
-            // The game makes a dead character a body on the ground and takes it off the map: it is posed no more.
-            view.bodyLed.frame(bodyLeads(player), bodyWhole(player), player.isDead() && player.getCurrentSquare() == null, seconds);
+            // The game makes a dead character a body on the ground and takes it off the map: it is posed no more, until it rises.
+            // Once the zombie it rose as has been posed the player's head is not kept (ModelHead.pose), so the eye stays put
+            // while that zombie is not yet on the map, and where its head last was once the game makes it a body in turn.
+            boolean posedNoMore = player.isDead() && (player.getCurrentSquare() == null || !view.modelHead.posed(player));
+            view.bodyLed.frame(bodyLeads(player), bodyWhole(player), posedNoMore && risen == null, seconds);
         } else {
             view.bodyLed.reset();
+        }
+        int risenNow = risen == null ? -1 : risen.getID();
+        if (risenNow != risenId) {
+            Log.info(risen != null
+                    ? String.format(Locale.ROOT, "%sthe corpse has risen: the eye is the head of zombie %d, at (%.2f, %.2f, %.2f)", who(), risenNow, risen.getX(), risen.getY(), risen.getZ())
+                    : String.format(Locale.ROOT, "%sthe zombie the corpse rose as, %d, is gone from the world or dead again: the eye is no longer its head", who(), risenId));
+            risenId = risenNow;
         }
         bodyLeads = view.bodyLed.leads();
         bodyWhole = view.bodyLed.whole();
@@ -2016,6 +2032,23 @@ public final class FirstPerson {
     }
 
     /**
+     * The zombie a dead player's corpse rose as, once the game has posed its head and while it is
+     * in the world: the eye is that head's, as it was the dying body's, through standing up and
+     * walking off, and through dying again until the game makes it a body. The game takes the
+     * zombie off the map as it does, or as its chunk is let go, so it is found again every frame
+     * and never kept.
+     */
+    private IsoZombie risenOf(IsoPlayer player) {
+        return player.isDead() && player.getReanimatedCorpse() instanceof IsoZombie zombie && zombie.getCurrentSquare() != null && view.modelHead.posed(zombie)
+                ? zombie : null;
+    }
+
+    /** The character whose head the eye is in this frame: the player, or the zombie their corpse rose as (risenOf). Logic thread. */
+    IsoGameCharacter own(IsoPlayer player) {
+        return risen != null ? risen : player;
+    }
+
+    /**
      * Makes the clean view the head's, or the share of the way to it the hand-over has reached,
      * while the game's animation has the body.
      *
@@ -2033,13 +2066,16 @@ public final class FirstPerson {
         if (share <= 0f) {
             return view.ride.tilt;
         }
-        float bodyAngle = view.modelHead.head(player, headTurn, headJoint);
+        IsoGameCharacter body = risen != null ? risen : player;
+        float bodyAngle = view.modelHead.head(body, headTurn, headJoint);
         if (Float.isNaN(bodyAngle)) {
             throw new IllegalStateException("the head leads the eye but the character's skeleton is not posed");
         }
         ViewCamera.Pose head = view.bodyLed.head;
-        float x = player.getX(), y = player.getY();
-        BodyLed.look(headTurn, bodyAngle, x, y, standsUp, headJoint[0], headJoint[1], headJoint[2], head);
+        float x = body.getX(), y = body.getY();
+        // The risen zombie's feet are where the picture stands its model: it is stepped as it is drawn (KerbSteps).
+        float footUp = risen != null ? view.kerbSteps.up(view.worldScene.terrain, risen, x, y, risen.getZ()) : standsUp;
+        BodyLed.look(headTurn, bodyAngle, x, y, footUp, headJoint[0], headJoint[1], headJoint[2], head);
         view.bodyLed.upright(head);
         // Held off walls along the map as the standing eye is, a head thrown back against one stopping short of it, and
         // off the floor as far: face down, the eye ahead of the head's joint is under it.
@@ -2050,7 +2086,7 @@ public final class FirstPerson {
             head.eyeX = x + awayX * room;
             head.eyeY = y + awayY * room;
         }
-        head.eyeUp = Math.max(head.eyeUp, standsUp + margin);
+        head.eyeUp = Math.max(head.eyeUp, footUp + margin);
         if (share < 1f) {
             view.bodyLed.between(mouseView, head, share, cleanView);
         } else {
@@ -2218,11 +2254,13 @@ public final class FirstPerson {
         Log.info(String.format(Locale.ROOT,
                 "trace yaw %.1f pitch %.1f at (%.2f, %.2f, %.2f) facing (%.2f, %.2f) aim (%.2f, %.2f) aiming %b keys (%.2f, %.2f)"
                         + " cursor (%d, %d) zoom %.2f offset (%.0f, %.0f) captured %b pointer %s | %s | reticle (%d, %d) ndc (%.4f, %.4f)"
-                        + " shot distance %.3f render eye (%.3f, %.3f, %.3f) | %s | %s | %s",
+                        + " shot distance %.3f render eye (%.3f, %.3f, %.3f) looking (%.2f, %.2f, %.2f)%s | %s | %s | %s",
                 Math.toDegrees(yaw), Math.toDegrees(pitch), player.getX(), player.getY(), player.getZ(),
                 facing.x, facing.y, traceAim.x, traceAim.y, player.isAiming(), traceMoveX, traceMoveY,
                 cursorX, cursorY, zoom, IsoCamera.getOffX(), IsoCamera.getOffY(), lookCaptured, pointer.describe(), view.headTracking.describe(),
                 reticleX, reticleY, ndc[0], ndc[1], shotDistance, trackedView.eyeX, trackedView.eyeY, trackedView.eyeUp,
+                trackedView.forwardX, trackedView.forwardY, trackedView.forwardUp,
+                risen == null ? "" : String.format(Locale.ROOT, " the head of risen zombie %d at (%.2f, %.2f, %.2f)", risen.getID(), risen.getX(), risen.getY(), risen.getZ()),
                 scene.describe(), view.controls.describe(), view.viewModel.describe()));
     }
 }
