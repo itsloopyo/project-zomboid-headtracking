@@ -49,6 +49,7 @@ final class Dying {
         /** The corpses lying as models near it as it was first held: none of them is its own. */
         final List<IsoDeadBody> lyingBefore = new ArrayList<>();
         float x, y, z, up, angle;
+        /** Set under the lock of all, for the logic thread to read there. */
         IsoGridSquare square;
         /** When a draw first found the game no longer drawing it, or 0 while it does. */
         long goneAt;
@@ -102,10 +103,12 @@ final class Dying {
 
     /**
      * Keeps the figure as the game draws it this frame: its parts, each with a copy of its bones,
-     * where it stands and the way it faces.
+     * where it stands and the way it faces, and the square it stands on as the frame gathered its
+     * character's light (FigureLights), whose light it is drawn by from then on.
      */
-    static void keep(Held held, ModelSlotRenderData data, List<ModelInstanceRenderData> parts, float up) {
+    static void keep(Held held, ModelSlotRenderData data, List<ModelInstanceRenderData> parts, float up, IsoGridSquare square) {
         synchronized (all) {
+            held.square = square;
             int at = 0;
             for (int i = 0; i < parts.size(); i++) {
                 ModelInstanceRenderData part = parts.get(i);
@@ -178,7 +181,6 @@ final class Dying {
         held.z = data.z;
         held.up = up;
         held.angle = data.animPlayerAngle;
-        held.square = data.character.getCurrentSquare();
         settle();
     }
 
@@ -193,6 +195,15 @@ final class Dying {
         settle();
         say(RELEASED, String.format(Locale.ROOT, "dying figure released (%s): character %d, held %d ms, %s", reason, held.id, (now - held.heldAt) / 1_000_000L,
                 held.goneAt == 0L ? "the game still drew it" : "drawn by the mod for " + (now - held.goneAt) / 1_000_000L + " ms after the game stopped drawing it"));
+    }
+
+    /** Logic thread: the square each figure held by any view stands on, into into, or null for one on none: see FigureLights. */
+    static void squares(List<IsoGridSquare> into) {
+        synchronized (all) {
+            for (int i = 0; i < all.size(); i++) {
+                into.add(all.get(i).square);
+            }
+        }
     }
 
     /** Whether the game's destroying of a texture is put off: a held figure is drawn with it. */

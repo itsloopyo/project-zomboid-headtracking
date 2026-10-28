@@ -155,6 +155,8 @@ final class WorldScene {
     final FarLand farLand = new FarLand();
     /** The game's light of each square the builds read, by its lighting engine's pass. Logic thread. */
     private final SquareLights squareLights = new SquareLights();
+    /** The squares the characters of the last frames stood on, whose light each frame gathers: see FigureLights. Logic thread. */
+    private final FigureLights.Stood figuresStood = new FigureLights.Stood();
     /**
      * The frames handed to the render thread in turn. One is filled again only after the
      * other three were handed on, and by then the render thread has drawn it.
@@ -1170,10 +1172,10 @@ final class WorldScene {
     }
 
     /**
-     * Any thread: how bright the world draws a square this frame, the mean of its colours, with
-     * the daylight the picture keeps, or NaN where a square not seen is lit as the open ground is.
-     * Into and roomSeen are the calling thread's own: the square's light is written into into,
-     * and roomSeen says whether the viewer has seen a room as a whole (WorldScene.roomSeen).
+     * Logic thread, where the game's light is read (FigureLights): how bright the world draws a
+     * square this frame, the mean of its colours, with the daylight the picture keeps, or NaN where
+     * a square not seen is lit as the open ground is. The square's light is written into into, and
+     * roomSeen says whether the viewer has seen a room as a whole (WorldScene.roomSeen).
      */
     float drawnLight(IsoGridSquare square, ColorInfo into, LongPredicate roomSeen) {
         IsoCell cell = IsoWorld.instance.currentCell;
@@ -1611,6 +1613,7 @@ final class WorldScene {
         }
         squareLights.forget();
         roomDaylight.forget();
+        figuresStood.forget();
         leafTrees.setDown();
         chunkMap = null;
         builtAt[view.index] = 0L;
@@ -1908,6 +1911,7 @@ final class WorldScene {
                 release(scene.builtAheadOf.get(i));
             }
             scene.builtAheadOf.clear();
+            scene.figureLights.forget();
         }
         forgetAll();
         forgetTheOpened();
@@ -2464,7 +2468,7 @@ final class WorldScene {
     /** For each door sprite on each edge: the frame origin it was read with, then the shares of the edge its leaf starts and ends at. */
     static final IdentityHashMap<Texture, float[]> doorSpans = new IdentityHashMap<>();
 
-    /** Whether a player has seen a room, as RoomsSeen takes it from the room's squares on its own level. For either thread. */
+    /** Whether a player has seen a room, as RoomsSeen takes it from the room's squares on its own level. Logic thread, where the game's light is read (FigureLights). */
     static boolean roomSeen(IsoCell cell, long room, int playerIndex) {
         RoomDef def = IsoWorld.instance.getMetaGrid().getRoomDefByID(room);
         int[] rects = new int[def.rects.size() * 4];
@@ -2723,6 +2727,8 @@ final class WorldScene {
         private final float[] waterPlane = new float[4];
         Models.Instances placed;
         ArrayList<Corpses.Lying> lying;
+        /** The light each figure the frame may draw stands in: see FigureLights. */
+        final FigureLights figureLights = new FigureLights();
         final SpriteGeometry geometry = new SpriteGeometry();
         final SpriteGeometry.Frame frame = new SpriteGeometry.Frame();
 
@@ -4254,6 +4260,7 @@ final class WorldScene {
             SpriteColours.askingFrom(view.index, Float.NaN, Float.NaN);
             addCharacters(player, pose);
             takeLight(start);
+            figureLights.gather(WorldScene.this, cell, view.index, shown, figuresStood);
             if (DepthFights.ON && !fromOutside) {
                 DepthFights.audit(shown, pose.eyeX, pose.eyeY, pose.eyeUp, cell);
             }
@@ -8947,6 +8954,7 @@ final class WorldScene {
                         Math.toDegrees(2 * Math.atan(tanHalfSet)),
                         view.headTracking.zoomFactor(), near));
             }
+            view.characters.lights = figureLights;
             view.characters.aim.set(aim);
             System.arraycopy(eyeFromAim, 0, view.characters.eyeFromAim, 0, 3);
             // What the picture does without for an eye thousands of tiles off, it has again once

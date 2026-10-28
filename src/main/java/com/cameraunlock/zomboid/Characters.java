@@ -1,6 +1,5 @@
 package com.cameraunlock.zomboid;
 
-import zombie.iso.IsoWorld;
 import zombie.iso.Vector2;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -9,7 +8,6 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import java.util.function.LongPredicate;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.lwjgl.opengl.GL11;
@@ -28,7 +26,6 @@ import zombie.core.skinnedmodel.model.ModelInstanceRenderDataList;
 import zombie.core.skinnedmodel.model.ModelSlotRenderData;
 import zombie.core.skinnedmodel.model.VehicleModelInstance;
 import zombie.core.skinnedmodel.model.VertexBufferObject;
-import zombie.core.textures.ColorInfo;
 import zombie.core.textures.Texture;
 import zombie.scripting.objects.ModelAttachment;
 import zombie.scripting.objects.ModelScript;
@@ -2516,10 +2513,7 @@ public final class Characters {
             person.ambientG = 1f;
             person.ambientB = 1f;
             CharacterDraw.begin(person, combined, projection, false, fromViewer(toX, toY, piece.z - viewer.getZ()), Float.POSITIVE_INFINITY);
-            IsoGridSquare square = IsoWorld.instance.currentCell.getGridSquare((int) Math.floor(piece.x), (int) Math.floor(piece.y), (int) Math.floor(piece.z));
-            if (square != null) {
-                lightAt(square);
-            }
+            lightAt(lights.at((int) Math.floor(piece.x), (int) Math.floor(piece.y), (int) Math.floor(piece.z), "a piece cut off"));
             for (int part = 0; part < piece.parts.size(); part++) {
                 ModelInstanceRenderData model = piece.parts.get(part);
                 model.matrixPalette = Pieces.bones(piece, part);
@@ -2581,9 +2575,7 @@ public final class Characters {
                 place(x, y, up, kept.angle, CHARACTER_SCALE);
                 multiply(viewMatrix, placed, combined);
                 CharacterDraw.begin(kept.person, combined, projection, false, fromViewer(toX, toY, body.z() - viewer.getZ()), Float.POSITIVE_INFINITY);
-                if (square != null) {
-                    lightAt(square);
-                }
+                lightAt(lights.at(square, "a corpse"));
                 for (int part = 0; part < kept.parts.size(); part++) {
                     CharacterDraw.part(kept.parts.get(part));
                 }
@@ -2645,7 +2637,7 @@ public final class Characters {
             }
         }
         held.goneAt = 0L;
-        Dying.keep(held, data, parts(data), up);
+        Dying.keep(held, data, parts(data), up, lights.of(data.character).square);
     }
 
     /** The characters the eye's last picture drew alive, and the ones its picture drew this frame: see watchDeaths. */
@@ -2772,7 +2764,7 @@ public final class Characters {
             CharacterDraw.begin(held.person, combined, projection, casting, fromViewer(toX, toY, held.z - viewer.getZ()),
                     Quality.wholeFigureShadows(view.index) ? Float.POSITIVE_INFINITY : CharacterDraw.SHADOW_WHOLE_WITHIN);
             if (!casting) {
-                lightAt(square);
+                lightAt(lights.at(square, "a figure held of a dying character"));
             }
             for (int part = 0; part < held.parts.size(); part++) {
                 CharacterDraw.part(held.parts.get(part));
@@ -2850,6 +2842,12 @@ public final class Characters {
     }
 
     /**
+     * Render thread: the light the figures of the frame being drawn stand in, gathered on the
+     * logic thread as it was built. The game's light is not read here: see FigureLights.
+     */
+    FigureLights lights;
+
+    /**
      * Says to the picture's draw of a person the light on the square they stand on, as the
      * world's own squares take it (WorldScene.Frame.readLights), so that a person in a dark room
      * is as dark as the room and one in a lit room as lit as its floor. In a room the world goes
@@ -2858,37 +2856,14 @@ public final class Characters {
      * room not yet seen. Out of a room nothing is said of a square the viewer has not seen. The
      * viewer's torch is not in it: its beam lights a person as it lights the wall behind them.
      */
-    private final ColorInfo stoodIn = new ColorInfo();
-    /** Whether each room asked after in the frame roomsSeenFrame names has been seen as a whole. */
-    private final LongTable<Boolean> roomsSeen = new LongTable<>();
-    private long roomsSeenFrame = -1L;
-    private final LongPredicate roomSeenTest = this::roomSeen;
-
     private void lightWhere(ModelSlotRenderData data) {
-        lightAt(data.character.getCurrentSquare());
+        lightAt(lights.of(data.character));
     }
 
-    private void lightAt(IsoGridSquare square) {
-        if (square == null) {
-            return;
+    private static void lightAt(FigureLights.Lit lit) {
+        if (lit.square != null && !Float.isNaN(lit.light)) {
+            CharacterDraw.stands(lit.light, lit.outside);
         }
-        float light = view.worldScene.drawnLight(square, stoodIn, roomSeenTest);
-        if (!Float.isNaN(light)) {
-            CharacterDraw.stands(light, square.isOutside());
-        }
-    }
-
-    private boolean roomSeen(long room) {
-        if (roomsSeenFrame != notedFrames) {
-            roomsSeen.clear();
-            roomsSeenFrame = notedFrames;
-        }
-        Boolean known = roomsSeen.get(room);
-        if (known == null) {
-            known = WorldScene.roomSeen(IsoWorld.instance.currentCell, room, view.index);
-            roomsSeen.put(room, known);
-        }
-        return known;
     }
 
     /**
@@ -2993,30 +2968,24 @@ public final class Characters {
         data.squareDepth = squareDepth;
     }
 
-    private final ColorInfo carStandsIn = new ColorInfo();
-
     /**
      * The game lights a vehicle all over by the light of the square it stands on, and in the
      * beam of the viewer's torch that is the game's torch light, which lights whole squares
      * near full: the car shone white in the night. The light it is given is the square's with
-     * the torch left out (TorchLess), in the same share, so the game's blend between squares stays.
+     * the torch left out (TorchLess), in the same share, so the game's blend between squares
+     * stays. Both were gathered as the frame was built (FigureLights).
      */
     private void torchLeftOut(ModelSlotRenderData data) {
         if (!(data.object instanceof BaseVehicle vehicle)) {
             return;
         }
-        IsoGridSquare square = vehicle.getCurrentSquare();
-        if (square == null || !square.isSeen(view.index)) {
+        FigureLights.CarLit lit = lights.of(vehicle);
+        if (!lit.torched) {
             return;
         }
-        ColorInfo with = square.lighting[view.index].lightInfo();
-        ColorInfo without = view.torchLess.light(square, with, carStandsIn);
-        if (without == with) {
-            return;
-        }
-        data.ambientR = Math.clamp(data.ambientR * without.r / Math.max(with.r, 1e-3f), 0f, 1f);
-        data.ambientG = Math.clamp(data.ambientG * without.g / Math.max(with.g, 1e-3f), 0f, 1f);
-        data.ambientB = Math.clamp(data.ambientB * without.b / Math.max(with.b, 1e-3f), 0f, 1f);
+        data.ambientR = Math.clamp(data.ambientR * lit.withoutRed / Math.max(lit.withRed, 1e-3f), 0f, 1f);
+        data.ambientG = Math.clamp(data.ambientG * lit.withoutGreen / Math.max(lit.withGreen, 1e-3f), 0f, 1f);
+        data.ambientB = Math.clamp(data.ambientB * lit.withoutBlue / Math.max(lit.withBlue, 1e-3f), 0f, 1f);
     }
 
     /**

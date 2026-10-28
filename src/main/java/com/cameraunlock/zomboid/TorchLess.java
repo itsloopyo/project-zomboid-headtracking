@@ -552,13 +552,13 @@ final class TorchLess {
     /**
      * The square's light for the picture: the game's own, or where the viewer's torch is on
      * the square, that light without the torch, written into the answer given and returned.
-     * For either thread.
+     * Logic thread, where the game's light is read (FigureLights).
      */
     ColorInfo light(IsoGridSquare square, int playerIndex, ColorInfo answer) {
         return light(square, square.lighting[playerIndex].lightInfo(), answer);
     }
 
-    /** The same, given the square's light as the game has it. */
+    /** The same, given the square's light as the game has it. For either thread. */
     ColorInfo light(IsoGridSquare square, ColorInfo with, ColorInfo answer) {
         Taken now = taken;
         if (now == null) {
