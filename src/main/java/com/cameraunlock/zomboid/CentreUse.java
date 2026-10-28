@@ -436,6 +436,7 @@ final class CentreUse {
      */
     private static float topOf(IsoGridSquare square) {
         float top = 0f;
+        boolean appliance = false;
         IsoObject floor = square.getFloor();
         PZArrayList<IsoObject> objects = square.getObjects();
         for (int i = 0; i < objects.size(); i++) {
@@ -450,21 +451,25 @@ final class CentreUse {
             if (!stands) {
                 continue;
             }
-            int surface = properties == null ? 0 : properties.getSurface();
-            if (surface <= 0 || hung(properties)) {
-                return Float.POSITIVE_INFINITY;
-            }
             // A microwave or a television on a counter is taller than anything put down on it, and a sink let into a
             // counter tops out with the counter, as the game's own top for it (getSurfaceOffsetNoTable) does.
-            boolean onAnother = properties.has("IsTableTop") || object.getRenderYOffset() > 0f;
+            boolean onAnother = properties != null && properties.has("IsTableTop") || object.getRenderYOffset() > 0f;
             if (onAnother && (object.getContainer() != null || clickedThoughEmpty(object))) {
+                appliance = true;
+                continue;
+            }
+            int surface = properties == null ? 0 : properties.getSurface();
+            if (surface <= 0 || hung(properties)) {
                 return Float.POSITIVE_INFINITY;
             }
             float pixels = surface + object.getRenderYOffset() + properties.getItemHeight();
             top = Math.max(top, pixels / WorldScene.SURFACE_PIXELS_PER_LEVEL * ViewCamera.LEVEL_HEIGHT);
         }
-        return top;
+        return appliance ? top + APPLIANCE_TALL : top;
     }
+
+    /** How far a microwave, a radio or a television reaches over the counter it stands on, in tiles: a window over it is seen above it. */
+    private static final float APPLIANCE_TALL = 0.4f;
 
     /**
      * Whether a door is drawn on its square's north edge. Open on hinges it stands against the
