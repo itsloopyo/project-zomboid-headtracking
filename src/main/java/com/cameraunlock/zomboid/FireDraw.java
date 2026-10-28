@@ -178,7 +178,9 @@ final class FireDraw {
                 if (leave <= enter) {
                     discard;
                 }
-                float jitter = hash(vec3(gl_FragCoord.xy, fract(uTime * 7.31) * 61.0));
+                // Where along the line the steps fall is set apart pixel from pixel, never two alike side
+                // by side, and is the same there every frame: moved every frame it was a fizz over the smoke.
+                float jitter = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
                 // How much light smoke throws on along the way it came, by the angle it turns through: much more
                 // ahead than aside or back (Henyey and Greenstein's, g 0.45), so smoke before the sun glows at its edges.
                 float turn = dot(normalize(ray), uLightWay);
