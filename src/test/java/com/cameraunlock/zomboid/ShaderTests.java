@@ -77,6 +77,7 @@ final class ShaderTests {
         Checks.run("noSunThroughARoomsCorner", ShaderTests::noSunThroughARoomsCorner);
         Checks.run("whatHangsOnACordSwingsInTheViewAndInItsShadowAlike", () -> whatHangsOnACordSwingsInTheViewAndInItsShadowAlike(programs));
         Checks.run("whatTheAirHidesOfASurfaceItHidesOfItsShade", () -> whatTheAirHidesOfASurfaceItHidesOfItsShade(programs));
+        Checks.run("theLastFrameIsFoundFromTheEyeNotTheMap", () -> theLastFrameIsFoundFromTheEyeNotTheMap(programs));
         Checks.run("figuresAndTerrainShareSunsetHaze", ShaderTests::figuresAndTerrainShareSunsetHaze);
         Checks.run("aThinSpriteSampleTakesItsColourFromTheSamplesItsCutReads", ShaderTests::aThinSpriteSampleTakesItsColourFromTheSamplesItsCutReads);
         Checks.run("aCrownOpensOverTheEyeASprigAtATime", ShaderTests::aCrownOpensOverTheEyeASprigAtATime);
@@ -514,6 +515,32 @@ final class ShaderTests {
         Checks.check(developed.contains("develop.set(\"uFogStart\", fogStart);") && developed.contains("develop.set(\"uFogEnd\", fogEnd);")
                 && developed.contains("develop.set(\"uLoaded\", loadedX - camera.eyeX, loadedY - camera.eyeY, loadedWithin);") && developed.contains("develop.set(\"uBeyond\", beyond);"),
                 "the develop pass is not told where the world ends, as the world's is");
+    }
+
+    /**
+     * Out on the map a float holds a place to about a millimetre, a third of a pixel at the feet. The steadied picture and
+     * the lit air find where a pixel was in the last frame from the eye, with the eye's move taken on the CPU, so no
+     * place on the map is made in the shader and no two of them are taken from each other there. Read, not run.
+     */
+    private static void theLastFrameIsFoundFromTheEyeNotTheMap(List<Linked> programs) {
+        String steady = fragment(programs, "steady").replaceAll("//[^\n]*", "").replaceAll("\\s+", " ");
+        Checks.check(!steady.contains("uEye ") && !steady.contains("uEye;") && !steady.contains("uEyeBefore"), "the steadied picture is told where the eyes are on the map");
+        Checks.check(steady.contains("vec3 from = seen + uEyeMoved;") && steady.contains("float far = distance(seen.xy, uMover[i].xy);")
+                && steady.contains("vec3 limb = seen - uMover[i].xyz;"), "the steadied picture does not find the last frame from the eye");
+        String air = fragment(programs, "lit air").replaceAll("//[^\n]*", "").replaceAll("\\s+", " ");
+        Checks.check(!air.contains("uEyeBefore") && air.contains("vec3 seen = ray * ahead + uEyeMoved;"), "the lit air does not find the last frame from the eye");
+        String pipeline;
+        try {
+            pipeline = Files.readString(SOURCE.resolve("Pipeline.java")).replaceAll("//[^\n]*", "").replaceAll("\\s+", " ");
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        Checks.check(pipeline.contains("steady.set(\"uEyeMoved\", camera.eyeX - before.eyeX, camera.eyeY - before.eyeY, camera.eyeUp - before.eyeUp);")
+                && pipeline.contains("steady.set(MOVER_AT[i], movers.now[i * 4] - camera.eyeX, movers.now[i * 4 + 1] - camera.eyeY, movers.now[i * 4 + 2] - camera.eyeUp,")
+                && pipeline.contains("steady.set(MOVER_BEFORE[i], movers.before[i * 4] - before.eyeX, movers.before[i * 4 + 1] - before.eyeY, movers.before[i * 4 + 2] - before.eyeUp,"),
+                "the steadied picture is not told the eye's move, or where those who move are from the eye, now and a frame ago");
+        Checks.check(pipeline.contains("volume.set(\"uEyeMoved\", camera.eyeX - airBefore.eyeX, camera.eyeY - airBefore.eyeY, camera.eyeUp - airBefore.eyeUp);"),
+                "the lit air is not told the eye's move since its last frame");
     }
 
     /** A wall's skin is seen from the side it stands out to, as a wall's two faces are, and left out from behind. Read, not run. */
