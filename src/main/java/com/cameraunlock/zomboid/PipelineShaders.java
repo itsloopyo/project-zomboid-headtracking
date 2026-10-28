@@ -1248,6 +1248,20 @@ final class PipelineShaders {
                         smoothstep(0.3, 0.7, patches(on * vec2(2.3, 1.1) + which * 7.0)));
             }
 
+            // How a ground picture's alpha, read at one and at two and mixed by which, changes across and down the screen.
+            // Read at each pixel a footprint either side along the picture's own axes, a level of the picture coarser than
+            // the colour's: the dFdx of a read is one slope to a quad of pixels from grain a pixel across, and sparkles as
+            // the eye moves under a pixel.
+            vec2 groundRise(sampler2D picture, vec2 one, vec2 oneAcross, vec2 oneDown, vec2 two, vec2 twoAcross, vec2 twoDown, float which) {
+                vec2 oneX = oneAcross * 2.0, oneY = oneDown * 2.0, twoX = twoAcross * 2.0, twoY = twoDown * 2.0;
+                float oneStep = max(length(oneAcross), length(oneDown)) + 1e-6, twoStep = max(length(twoAcross), length(twoDown)) + 1e-6;
+                vec2 oneRise = vec2(texture2DGradARB(picture, one + vec2(oneStep, 0.0), oneX, oneY).a - texture2DGradARB(picture, one - vec2(oneStep, 0.0), oneX, oneY).a,
+                        texture2DGradARB(picture, one + vec2(0.0, oneStep), oneX, oneY).a - texture2DGradARB(picture, one - vec2(0.0, oneStep), oneX, oneY).a) / (2.0 * oneStep);
+                vec2 twoRise = vec2(texture2DGradARB(picture, two + vec2(twoStep, 0.0), twoX, twoY).a - texture2DGradARB(picture, two - vec2(twoStep, 0.0), twoX, twoY).a,
+                        texture2DGradARB(picture, two + vec2(0.0, twoStep), twoX, twoY).a - texture2DGradARB(picture, two - vec2(0.0, twoStep), twoX, twoY).a) / (2.0 * twoStep);
+                return mix(vec2(dot(oneRise, oneAcross), dot(oneRise, oneDown)), vec2(dot(twoRise, twoAcross), dot(twoRise, twoDown)), which);
+            }
+
             // The height of a bed of stones of three sizes, from coarse to fine.
             float stones(vec2 p) {
                 return patches(p * 9.0) * 0.5 + patches(p * 23.0 + 5.0) * 0.32 + patches(p * 61.0 + 11.0) * 0.18;
@@ -3780,20 +3794,23 @@ final class PipelineShaders {
                     // A picture is read only where some of the ground is made of it, since it is weighed by how much is.
                     // Each read is told its derivatives, which are the same whichever pixels round it read too.
                     vec4 asphalt = vec4(0.0), gravel = vec4(0.0), soil = vec4(0.0);
+                    vec2 rise = vec2(0.0);
                     if (dark != 0.0) {
                         asphalt = mix(texture2DGradARB(uAsphalt, one, oneAcross, oneDown), texture2DGradARB(uAsphalt, two, twoAcross, twoDown), which);
+                        rise += raisedGround > 0.0 ? dark * TARMAC_DEPTH_SHARE * groundRise(uAsphalt, one, oneAcross, oneDown, two, twoAcross, twoDown, which) : vec2(0.0);
                     }
                     if (loose != 0.0) {
                         gravel = mix(texture2DGradARB(uGravel, one, oneAcross, oneDown), texture2DGradARB(uGravel, two, twoAcross, twoDown), which);
+                        rise += raisedGround > 0.0 ? loose * groundRise(uGravel, one, oneAcross, oneDown, two, twoAcross, twoDown, which) : vec2(0.0);
                     }
                     if (earth != 0.0) {
                         soil = mix(texture2DGradARB(uSoil, one, oneAcross, oneDown), texture2DGradARB(uSoil, two, twoAcross, twoDown), which);
+                        rise += raisedGround > 0.0 ? earth * EARTH_DEPTH_SHARE * groundRise(uSoil, one, oneAcross, oneDown, two, twoAcross, twoDown, which) : vec2(0.0);
                     }
                     // Stones stand up out of a drive and clods out of earth, a finger deep, and tarmac is pitted a seventh as
-                    // deep: the pictures' alpha is how high each place stands, and the ground leans as that changes from pixel to pixel.
-                    float high = -GROUND_DEPTH * raisedGround * (dark * TARMAC_DEPTH_SHARE * (1.0 - asphalt.a) + loose * (1.0 - gravel.a) + earth * EARTH_DEPTH_SHARE * (1.0 - soil.a));
+                    // deep: the pictures' alpha is how high each place stands, and the ground leans as that changes.
                     vec2 placeAcross = dFdx(vPlace.xy), placeDown = dFdy(vPlace.xy);
-                    float highAcross = dFdx(high), highDown = dFdy(high);
+                    float highAcross = GROUND_DEPTH * raisedGround * rise.x, highDown = GROUND_DEPTH * raisedGround * rise.y;
                     float det = placeAcross.x * placeDown.y - placeAcross.y * placeDown.x;
                     if (raisedGround > 0.0 && abs(det) > 1e-12) {
                         vec2 slope = vec2(highAcross * placeDown.y - highDown * placeAcross.y, highDown * placeAcross.x - highAcross * placeDown.x) / det;
