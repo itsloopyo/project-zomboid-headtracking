@@ -11,6 +11,7 @@ final class SightTests {
         Checks.run("aRoomWithNothingRoundItIsDark", SightTests::aRoomWithNothingRoundItIsDark);
         Checks.run("theBlockPutsEachSquareWhereTheShaderReadsIt", SightTests::theBlockPutsEachSquareWhereTheShaderReadsIt);
         Checks.run("whatStandsOverAClosedRoomKeepsItsLight", SightTests::whatStandsOverAClosedRoomKeepsItsLight);
+        Checks.run("eachRingIsTheWholeBlockLookedAtAgain", SightTests::eachRingIsTheWholeBlockLookedAtAgain);
     }
 
     private static void check(boolean condition, String what) {
@@ -76,5 +77,62 @@ final class SightTests {
         sight.begin(1000, 2000);
         check(sight.lit.get(at + 1001 - sight.x) == Sight.NEVER_LIT, "a new frame forgets the last one's rooms");
         check(Sight.NEVER_LIT < 65504f, "the height a half float holds");
+    }
+
+    private static void eachRingIsTheWholeBlockLookedAtAgain() {
+        java.util.Random random = new java.util.Random(11);
+        for (int trial = 0; trial < 3000; trial++) {
+            int columns = 1 + random.nextInt(24), rows = 1 + random.nextInt(24), size = columns * rows;
+            int closedOdds = random.nextInt(10), unreadOdds = random.nextInt(4);
+            int[] figures = new int[size];
+            for (int at = 0; at < size; at++) {
+                int roll = random.nextInt(10);
+                figures[at] = roll < closedOdds ? Sight.CLOSED : roll < closedOdds + unreadOdds ? Sight.UNREAD : random.nextInt(256);
+            }
+            int unreached = random.nextBoolean() ? 0 : Sight.UNREAD;
+            int[] expected = figures.clone();
+            byRings(expected, columns, rows, unreached);
+            Sight.fill(figures, new int[size], new int[size], columns, rows, unreached);
+            check(java.util.Arrays.equals(figures, expected), "trial " + trial + ": every square takes what a ring over the whole block gives it");
+        }
+    }
+
+    /** Each ring every closed square still closed takes the mean of its sides' figures as they were at the start of the ring. */
+    private static void byRings(int[] figures, int columns, int rows, int unreached) {
+        int[] taken = new int[figures.length];
+        while (true) {
+            int reached = 0;
+            for (int at = 0; at < figures.length; at++) {
+                taken[at] = Sight.CLOSED;
+                if (figures[at] != Sight.CLOSED) {
+                    continue;
+                }
+                int column = at % columns, row = at / columns, sum = 0, count = 0;
+                for (int beside : new int[] {column > 0 ? at - 1 : -1, column < columns - 1 ? at + 1 : -1, row > 0 ? at - columns : -1,
+                        row < rows - 1 ? at + columns : -1}) {
+                    if (beside >= 0 && figures[beside] >= 0) {
+                        sum += figures[beside];
+                        count++;
+                    }
+                }
+                if (count > 0) {
+                    taken[at] = Math.round(sum / (float) count);
+                    reached++;
+                }
+            }
+            if (reached == 0) {
+                break;
+            }
+            for (int at = 0; at < figures.length; at++) {
+                if (taken[at] != Sight.CLOSED) {
+                    figures[at] = taken[at];
+                }
+            }
+        }
+        for (int at = 0; at < figures.length; at++) {
+            if (figures[at] == Sight.CLOSED) {
+                figures[at] = unreached;
+            }
+        }
     }
 }

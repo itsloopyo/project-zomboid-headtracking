@@ -106,17 +106,22 @@ final class Sight {
 
     /** The same, a closed run with nothing round it taking unreached. */
     static void fill(int[] figures, int[] scratch, int[] taken, int columns, int rows, int unreached) {
-        // scratch holds the closed squares still to be reached, taken what each takes this ring.
-        int pending = 0;
+        // A closed square is reached in the ring after the first of its neighbours is, so each ring
+        // looks only at the closed squares beside the last ring's. ring holds them, marked QUEUED,
+        // which lends nothing as a closed square does; next holds what they take, then the ring after.
+        int[] ring = scratch, next = taken;
+        int size = 0;
         for (int at = 0; at < columns * rows; at++) {
-            if (figures[at] == CLOSED) {
-                scratch[pending++] = at;
+            if (figures[at] == CLOSED && lends(figures, at, columns, rows)) {
+                ring[size++] = at;
             }
         }
-        while (pending > 0) {
-            int reached = 0;
-            for (int i = 0; i < pending; i++) {
-                int at = scratch[i], column = at % columns, row = at / columns;
+        for (int i = 0; i < size; i++) {
+            figures[ring[i]] = QUEUED;
+        }
+        while (size > 0) {
+            for (int i = 0; i < size; i++) {
+                int at = ring[i], column = at % columns, row = at / columns;
                 int sum = 0, count = 0;
                 if (column > 0 && figures[at - 1] >= 0) {
                     sum += figures[at - 1];
@@ -134,26 +139,49 @@ final class Sight {
                     sum += figures[at + columns];
                     count++;
                 }
-                taken[i] = count > 0 ? Math.round(sum / (float) count) : CLOSED;
-                if (count > 0) {
-                    reached++;
+                next[i] = Math.round(sum / (float) count);
+            }
+            for (int i = 0; i < size; i++) {
+                figures[ring[i]] = next[i];
+            }
+            int nextSize = 0;
+            for (int i = 0; i < size; i++) {
+                int at = ring[i], column = at % columns, row = at / columns;
+                if (column > 0 && figures[at - 1] == CLOSED) {
+                    figures[at - 1] = QUEUED;
+                    next[nextSize++] = at - 1;
+                }
+                if (column < columns - 1 && figures[at + 1] == CLOSED) {
+                    figures[at + 1] = QUEUED;
+                    next[nextSize++] = at + 1;
+                }
+                if (row > 0 && figures[at - columns] == CLOSED) {
+                    figures[at - columns] = QUEUED;
+                    next[nextSize++] = at - columns;
+                }
+                if (row < rows - 1 && figures[at + columns] == CLOSED) {
+                    figures[at + columns] = QUEUED;
+                    next[nextSize++] = at + columns;
                 }
             }
-            if (reached == 0) {
-                break;
-            }
-            int left = 0;
-            for (int i = 0; i < pending; i++) {
-                if (taken[i] == CLOSED) {
-                    scratch[left++] = scratch[i];
-                } else {
-                    figures[scratch[i]] = taken[i];
-                }
-            }
-            pending = left;
+            int[] was = ring;
+            ring = next;
+            next = was;
+            size = nextSize;
         }
-        for (int i = 0; i < pending; i++) {
-            figures[scratch[i]] = unreached;
+        for (int at = 0; at < columns * rows; at++) {
+            if (figures[at] == CLOSED) {
+                figures[at] = unreached;
+            }
         }
+    }
+
+    /** A square closed until it is reached, in the ring it is to be reached in. */
+    private static final int QUEUED = -3;
+
+    private static boolean lends(int[] figures, int at, int columns, int rows) {
+        int column = at % columns, row = at / columns;
+        return column > 0 && figures[at - 1] >= 0 || column < columns - 1 && figures[at + 1] >= 0 || row > 0 && figures[at - columns] >= 0
+                || row < rows - 1 && figures[at + columns] >= 0;
     }
 }
