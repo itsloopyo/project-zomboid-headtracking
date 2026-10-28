@@ -388,6 +388,16 @@ final class WorldScene {
         private boolean restless;
         /** Whether it was made, or last read and kept, for a view drawn as the game's own: a room not yet seen is built otherwise for the eye. */
         private boolean gamesView;
+        /**
+         * Whether it was built going by sight and that rule left out a room square: only such a
+         * build comes out otherwise once rooms are no longer built by sight (see tellEveryChunk).
+         */
+        private boolean roomsBySight;
+        /**
+         * Whether it was built going by sight and filled a square of a room not shown, which
+         * the other rule leaves empty from UNSHOWN_FILLED_WITHIN on: see tellEveryChunk.
+         */
+        private boolean filledUnshown;
         /** The light of its seen squares out of doors, as its last reading left them: see OpenLight. Null until it has been read. */
         private OpenLight seen;
         /** The light of its room squares in the character's sight, those with no lamp burning in their room and those with one. Null until it has been read. */
@@ -1121,6 +1131,13 @@ final class WorldScene {
     /** The storey of the viewer's building each slot's light was last asked for from, or Integer.MAX_VALUE for every level: see pullLights. */
     private final int[] litFor = new int[TABLE_SIDE * TABLE_SIDE];
     private long tollQuiet, tollPulls, tollPulled, tollAgedDiffered, tollAgedSame, tollAgedSamePlain, tollRestless;
+    /**
+     * Dev only: of the chunks told as rooms came to be built whole, those whose build is kept
+     * (1) and those told (2), until each is next built from the same sum, and how the new
+     * builds came out against the old: see tellEveryChunk.
+     */
+    private final byte[] ruleAudit = new byte[TABLE_SIDE * TABLE_SIDE];
+    private long tollRuleKeptSame, tollRuleKeptDiffered, tollRuleToldSame, tollRuleToldDiffered;
     /** Dev only: the chunks built ahead of the view's turning to them since the last asking, and the time that took. */
     private long tollAhead, tollAheadNanos;
     /** Dev only: how many times the room walk's horizon had been built when tolls last said. */
@@ -1498,8 +1515,11 @@ final class WorldScene {
         if (AUDIT_MARKS) {
             told += String.format(Locale.ROOT, ", sums changed with a mark %d without %d by a late light %d, marked and the same %d, restless %d, lights taken after the game %d, aged builds the same %d (plain %d) otherwise %d, marks by flag%s",
                     tollMarkedChanges, tollMissedChanges, tollMarkedByReading, tollMarkedSame, tollRestless, tollPulledAfterGame, tollAgedSame, tollAgedSamePlain, tollAgedDiffered, ChunkMarks.counted())
-                    + " | sums read because (marked, told, epoch, heights, map, restless, new, swept, unsigned, moved) " + Arrays.toString(tollWhy);
+                    + " | sums read because (marked, told, epoch, heights, map, restless, new, swept, unsigned, moved) " + Arrays.toString(tollWhy)
+                    + String.format(Locale.ROOT, " | built again once rooms are built whole, of builds kept the same %d otherwise %d, of builds told the same %d otherwise %d",
+                    tollRuleKeptSame, tollRuleKeptDiffered, tollRuleToldSame, tollRuleToldDiffered);
             Arrays.fill(tollWhy, 0);
+            tollRuleKeptSame = tollRuleKeptDiffered = tollRuleToldSame = tollRuleToldDiffered = 0;
             tollMarkedChanges = tollMissedChanges = tollMarkedSame = tollRestless = tollAgedSame = tollAgedSamePlain = tollAgedDiffered = tollMarkedByReading = tollPulledAfterGame = 0;
         }
         told += " | ms by cause " + Arrays.toString(Arrays.stream(tollBuiltNanos).map(each -> each / 1_000_000L).toArray()) + " moved for the band " + tollMovedBand + " unsigned " + tollMovedUnsigned
@@ -3993,6 +4013,8 @@ final class WorldScene {
                         fresh.summedFrom = summedFrom;
                         fresh.summedFromNanos = summedFromNanos;
                         fresh.plain = true;
+                        fresh.roomsBySight = false;
+                        fresh.filledUnshown = false;
                         fresh.marks = marks;
                         fresh.things = things;
                         if (summed) {
@@ -4066,6 +4088,21 @@ final class WorldScene {
                             } else if (aged) {
                                 tollAgedSame++;
                                 tollAgedSamePlain += current.plain ? 1 : 0;
+                            }
+                            if (ruleAudit[slot] != 0 && !buildingBySight && current != null && current.wx == chunk.wx && current.wy == chunk.wy && summed && current.signed
+                                    && current.signature == read && current.band == fresh.band && current.epoch == epoch) {
+                                boolean asBefore = current.auditFloats == fresh.auditFloats;
+                                if (ruleAudit[slot] == 1) {
+                                    tollRuleKeptSame += asBefore ? 1 : 0;
+                                    tollRuleKeptDiffered += asBefore ? 0 : 1;
+                                    if (!asBefore) {
+                                        Log.info("chunk marks: the build of " + chunk.wx + ", " + chunk.wy + " kept as rooms came to be built whole came out otherwise built again");
+                                    }
+                                } else {
+                                    tollRuleToldSame += asBefore ? 1 : 0;
+                                    tollRuleToldDiffered += asBefore ? 0 : 1;
+                                }
+                                ruleAudit[slot] = 0;
                             }
                         }
                         fresh.grown = false;
@@ -4514,17 +4551,45 @@ final class WorldScene {
             return chunk == null || !chunk.loaded || farther(chunk, camera.eyeX, camera.eyeY, reach) ? null : chunk;
         }
 
-        /** Has every chunk of the loaded map built again, as the rule its rooms are built by has changed. */
+        /** Has every chunk of the loaded map built again whose build the rule its rooms are built by decided any of, as that rule has changed. */
         private void tellEveryChunk(IsoChunkMap map) {
-            int side = IsoChunkMap.chunkGridWidth;
+            int side = IsoChunkMap.chunkGridWidth, told = 0, held = 0;
             for (int gridX = 0; gridX < side; gridX++) {
                 for (int gridY = 0; gridY < side; gridY++) {
                     IsoChunk chunk = map.getChunk(gridX, gridY);
-                    if (chunk != null) {
+                    if (chunk == null) {
+                        continue;
+                    }
+                    // A build with no room square the rules treat apart is what a build by the other rule would be. One that filled a
+                    // room not shown is too in a band short of UNSHOWN_FILLED_WITHIN, and stands no further, as that build's would.
+                    int slot = (chunk.wx & (TABLE_SIDE - 1)) * TABLE_SIDE + (chunk.wy & (TABLE_SIDE - 1));
+                    ChunkMeshes build = latest[slot];
+                    // The storeys of the building the eye was last in were summed as their build had them (signature): what
+                    // changed on them since is read only once they are told.
+                    int chunkX = chunk.wx * CHUNK_TILES, chunkY = chunk.wy * CHUNK_TILES;
+                    boolean wasHeld = chunkX < heldMaxX && chunkX + CHUNK_TILES > heldMinX && chunkY < heldMaxY && chunkY + CHUNK_TILES > heldMinY;
+                    boolean same = !wasHeld && build != null && build.wx == chunk.wx && build.wy == chunk.wy && !build.roomsBySight
+                            && !(build.filledUnshown && BAND_AWAY[build.band] >= UNSHOWN_FILLED_WITHIN);
+                    if (same && build.filledUnshown) {
+                        for (int band = 0; band < BAND_AWAY.length; band++) {
+                            if (BAND_AWAY[band] >= UNSHOWN_FILLED_WITHIN) {
+                                build.alike &= ~(1 << band);
+                            }
+                        }
+                    }
+                    if (AUDIT_MARKS) {
+                        // Dev only: every chunk is told as it was, and each built again is held to the build it had.
+                        ruleAudit[slot] = (byte) (same ? 1 : 2);
+                    }
+                    if (same && !AUDIT_MARKS) {
+                        held++;
+                    } else {
                         ChunkMarks.tell(chunk.wx, chunk.wy);
+                        told++;
                     }
                 }
             }
+            Log.info("rooms are built whole again: " + told + " chunks told, " + held + " kept as they were built");
         }
 
         /** Begins again what a frame counts and what it showed, and notes whether the eye has moved since the last. */
@@ -6961,6 +7026,11 @@ final class WorldScene {
             // The band is asked only where its answer changes the build: asked of every square, a chunk would be another build in every band.
             boolean empty = unexplored || !buildingBySight && emptied == Sightline.LEFT_OUT_FAR && !within(UNSHOWN_FILLED_WITHIN, false);
             boolean unsought = buildingBySight && room != RoomSight.OUTSIDE && !builtBySight(room);
+            if (buildingBySight && unsought) {
+                building.roomsBySight = true;
+            } else if (buildingBySight && emptied == Sightline.LEFT_OUT_FAR) {
+                building.filledUnshown = true;
+            }
             // A room's floor, its stairs and its ceiling are drawn only while the eye sees into
             // it, as what stands in it is. Not a floor over open air: its underside is seen from
             // out of doors (FloorBuilder.addCeiling).
