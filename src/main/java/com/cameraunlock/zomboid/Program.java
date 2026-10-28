@@ -93,6 +93,15 @@ final class Program {
         return uniform.location;
     }
 
+    /** The part of a float uniform the program was last sent, or 0, which linking leaves every uniform. */
+    float held(String name, int part) {
+        Uniform uniform = uniform(name);
+        if (uniform.location < 0 || uniform.raw) {
+            throw new IllegalStateException("what the program holds in " + name + " is not known here");
+        }
+        return uniform.held == null ? 0f : Float.intBitsToFloat(uniform.held[part]);
+    }
+
     private Uniform uniform(String name) {
         Uniform uniform = uniforms.get(name);
         if (uniform == null) {

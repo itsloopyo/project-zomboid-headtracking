@@ -13,6 +13,8 @@ import java.util.Random;
 import java.util.Set;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
@@ -221,6 +223,51 @@ final class Pipeline {
         return replacedOnce(grass, "uniform float uLaid;", "const float uLaid = " + LAID_GRASS + ";");
     }
 
+    /**
+     * The world's program as it is while no weather, held light, beam, flash or fire lights
+     * anything: each test of one of those that reads its uniform is told its answer as the
+     * program is compiled, and the driver leaves out what it guards. Every other use of the
+     * uniform stays, so a pixel drawn by it is the one the whole program draws while those
+     * answers hold, which drawWorld checks against what the whole program was told this frame.
+     * What they guard held registers whether it ran or not, and the whole program drew the
+     * clear day's world the slower for it.
+     */
+    private static final String[][] CALM_TESTS = {
+            {"uWet > 0.0", "false"}, {"uRaining > 0.0", "false"}, {"uSnowLying > 0.0", "false"}, {"uPlantSnow > 0.0", "false"},
+            {"uTorchAt.w > 0.0", "false"}, {"uFlashAt.w <= 0.0", "true"}, {"uLantern.w > 0.0", "false"}, {"uBeamAt[i].w > 0.0", "false"}};
+    private static final String WORLD_FRAGMENT_CALM = calm(WORLD_FRAGMENT);
+
+    private static String calm(String source) {
+        for (String[] test : CALM_TESTS) {
+            source = replacedEach(source, "(?<![\\w.])" + Pattern.quote(test[0]) + "(?![\\w.])", test[1]);
+        }
+        // The fires are listed from the first, and the lists stop at the first that gives no light.
+        return replacedEach(source, "(vec4 at = uFireAt\\[i\\];\\s+if \\()at\\.w <= 0\\.0(\\))", "$1true$2");
+    }
+
+    private static String replacedEach(String source, String pattern, String now) {
+        Matcher found = Pattern.compile(pattern).matcher(source);
+        if (!found.find()) {
+            throw new IllegalStateException("the world's fragment shader has no " + pattern);
+        }
+        return found.replaceAll(now);
+    }
+
+    /** Whether the whole world's program was told this frame what the calm one answers for itself. */
+    private static boolean calm() {
+        if (world.held("uWet", 0) > 0f || world.held("uRaining", 0) > 0f || world.held("uSnowLying", 0) > 0f || world.held("uPlantSnow", 0) > 0f
+                || world.held("uTorchAt", 3) > 0f || !(world.held("uFlashAt", 3) <= 0f) || world.held("uLantern", 3) > 0f
+                || !(world.held("uFireAt[0]", 3) <= 0f)) {
+            return false;
+        }
+        for (String beam : BEAM_AT) {
+            if (world.held(beam, 3) > 0f) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private static String replacedOnce(String source, String was, String now) {
         int at = source.indexOf(was);
         if (at < 0 || source.indexOf(was, at + 1) >= 0) {
@@ -289,7 +336,7 @@ final class Pipeline {
     private int jitterAt;
     /** How far to one side this frame is drawn, as the projection takes it: nothing with the frames not mixed. */
     private float asideX, asideY;
-    private static Program world, worldDepth, grassLit, grassDepth, shadow, solidShadow, figureLight, sky, clouds, skyNear, bolt, occlusion, soften, volume, bloomDown, bloomUp, develop, smooth, meter;
+    private static Program world, worldCalm, worldDepth, grassLit, grassDepth, shadow, solidShadow, figureLight, sky, clouds, skyNear, bolt, occlusion, soften, volume, bloomDown, bloomUp, develop, smooth, meter;
     private static Program far, farTree;
     /** What the shaders are told as uBeyond this frame: see PipelineShaders.ENDS. Not 0 where the far land is drawn behind the built world. */
     private float beyond;
@@ -3710,7 +3757,12 @@ final class Pipeline {
         // Read once for both drawings of the world: read for each, a mark the logic thread added between them would be in one and not the other.
         placeSnowPrints(camera);
         tellWorld(world, camera, state, tanHalfFieldOfView, aspect, fogStart, fogEnd);
-        world.set("uLaid", 0f);
+        Program lit = world;
+        if (calm()) {
+            lit = worldCalm;
+            tellWorld(lit, camera, state, tanHalfFieldOfView, aspect, fogStart, fogEnd);
+        }
+        lit.set("uLaid", 0f);
         // The solid world is drawn twice. The first time only its depth is kept, and the
         // program stops once it knows whether a pixel is left out. The second time a pixel is
         // worked out only where it is the nearest thing there: the program leaves pixels out,
@@ -3749,17 +3801,17 @@ final class Pipeline {
             GL11.glDepthFunc(GL_EQUAL);
             GL11.glDepthMask(false);
         }
-        world.use();
+        lit.use();
         // The parts of the view's own picture of the world are timed apart, and what "world" then has left is what follows the far trees: the sight queries, bullet holes and what mirrors show laid over their glass.
         if (own && !depthFirst) {
             stage(STAGE_DEPTH);
         }
-        drawRanges(listed, 0, listed.solidRanges(), world);
+        drawRanges(listed, 0, listed.solidRanges(), lit);
         if (depthFirst) {
             // The pieces the depth was drawn with: the two drawings must agree on which are there.
-            drawListed(world, true);
+            drawListed(lit, true);
         } else {
-            drawModels(world, true, camera, far, pixel, Outlines.NONE);
+            drawModels(lit, true, camera, far, pixel, Outlines.NONE);
         }
         if (own) {
             stage(STAGE_SOLID);
@@ -3774,9 +3826,9 @@ final class Pipeline {
         // The picture's alpha is how much of a mirror a pixel is, 1 for none, and what is laid gives how much of the pixel it covers:
         // mixed in as the colour is, a pixel half covered would be left a quarter of a mirror.
         GL14.glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-        world.set("uCut", 0.02f);
-        world.set("uLaid", 1f);
-        world.set("uTexel", 0f, 0f);
+        lit.set("uCut", 0.02f);
+        lit.set("uLaid", 1f);
+        lit.set("uTexel", 0f, 0f);
         // Grass is blade behind blade, and each pixel of each was lit in full to be drawn over
         // by the next. It is drawn by itself before the rest of what is laid: its depth first,
         // as the solid world's is, and then a pixel is lit only for the blade nearest the eye
@@ -3802,12 +3854,12 @@ final class Pipeline {
             if (own) {
                 stage(STAGE_GRASS_LIT);
             }
-            world.use();
-            world.set("uLaid", LAID_REST);
+            lit.use();
+            lit.set("uLaid", LAID_REST);
         }
         drawRanges(listed, listed.solidRanges(), listed.ranges());
-        drawStains(listed);
-        drawBlood(listed);
+        drawStains(listed, lit);
+        drawBlood(listed, lit);
         if (own) {
             stage(STAGE_LAID);
         }
@@ -3832,8 +3884,8 @@ final class Pipeline {
     /**
      * Grime over walls, told it is grime, so the picture draws grime of its own there: see WallSides.STAIN.
      */
-    private void drawStains(ChunkBuffers.Listing listed) {
-        int painted = world.at("uTint");
+    private void drawStains(ChunkBuffers.Listing listed, Program lit) {
+        int painted = lit.at("uTint");
         WallSides.tint(WallSides.STAIN, tint);
         for (int i = listed.solidRanges(); i < listed.ranges(); i++) {
             if (listed.tint(i) == WallSides.STAIN) {
@@ -3853,9 +3905,9 @@ final class Pipeline {
      * every splat under it, as the game's own view mixes them. Written to the depth, one splat
      * hid another wherever two met and the blood came out a pale pink where the game's is dark.
      */
-    private void drawBlood(ChunkBuffers.Listing listed) {
+    private void drawBlood(ChunkBuffers.Listing listed, Program lit) {
         GL11.glDepthMask(false);
-        int texel = world.at("uTexel");
+        int texel = lit.at("uTexel");
         for (int i = listed.solidRanges(); i < listed.ranges(); i++) {
             if (listed.tint(i) == WallSides.BLOOD) {
                 GL11.glBindTexture(GL_TEXTURE_2D, listed.texture(i));
@@ -6470,6 +6522,7 @@ final class Pipeline {
     private static List<Piece> shaderPieces() {
         List<Runnable> own = List.of(
                 () -> world = Program.link("world", WORLD_VERTEX, WORLD_FRAGMENT, linkProblem, PLACED_ATTRIBUTES, PLACED_NAMES),
+                () -> worldCalm = Program.link("world calm", WORLD_VERTEX, WORLD_FRAGMENT_CALM, linkProblem, PLACED_ATTRIBUTES, PLACED_NAMES),
                 () -> worldDepth = Program.link("world depth", WORLD_VERTEX, WORLD_FRAGMENT_DEPTH, linkProblem, PLACED_ATTRIBUTES, PLACED_NAMES),
                 () -> paneMask = Program.link("pane mask", PipelineShaders.PANE_VERTEX, PipelineShaders.PANE_FRAGMENT, linkProblem),
                 () -> glassShown = Program.link("mirror's glass", LookingGlass.VERTEX, LookingGlass.SHOWN, linkProblem),

@@ -133,7 +133,7 @@ final class SnowOnPlantsTests {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-        check(count(pipeline, "\"uPlantSnow\", state.snowOnPlants(view.index))") == 2 && count(pipeline, "\"uPlantSnow\"") == 2,
+        check(count(pipeline, "\"uPlantSnow\", state.snowOnPlants(view.index))") == 2 && count(pipeline, ".set(\"uPlantSnow\"") == 2,
                 "and both programs are told that, and nothing else, as the snow on what grows");
     }
 

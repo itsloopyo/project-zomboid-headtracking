@@ -69,6 +69,7 @@ final class ShaderTests {
     static void run() {
         List<Linked> programs = programs();
         Checks.run("depthProgramIsTheWorldsToldToDrawDepthAlone", () -> depthProgramIsTheWorldsToldToDrawDepthAlone(programs));
+        Checks.run("calmProgramIsTheWorldsWithItsTestsAnswered", () -> calmProgramIsTheWorldsWithItsTestsAnswered(programs));
         Checks.run("wiresAreOutOfTheMapFromAbove", () -> wiresAreOutOfTheMapFromAbove(programs));
         Checks.run("wallsAskTheSunFromUnderTheirRoof", () -> wallsAskTheSunFromUnderTheirRoof(programs));
         Checks.run("noSunThroughARoomsCorner", ShaderTests::noSunThroughARoomsCorner);
@@ -203,6 +204,15 @@ final class ShaderTests {
     private static void depthProgramIsTheWorldsToldToDrawDepthAlone(List<Linked> programs) {
         String whole = fragment(programs, "world"), depth = fragment(programs, "world depth");
         Checks.check(!whole.equals(depth) && depth.contains("const bool depthOnly = true;"), "the world depth program is not the world's program told to draw depth alone");
+    }
+
+    private static void calmProgramIsTheWorldsWithItsTestsAnswered(List<Linked> programs) {
+        String whole = fragment(programs, "world"), calm = fragment(programs, "world calm");
+        String[] tests = {"uWet > 0.0", "uRaining > 0.0", "uSnowLying > 0.0", "uPlantSnow > 0.0", "uTorchAt.w > 0.0", "uFlashAt.w <= 0.0", "uLantern.w > 0.0", "uBeamAt[i].w > 0.0"};
+        for (String test : tests) {
+            Checks.check(whole.contains(test) && !calm.contains(test), "the calm world program is not told the answer to " + test);
+        }
+        Checks.check(count(whole, "if (at.w <= 0.0)") - count(calm, "if (at.w <= 0.0)") == count(whole, "vec4 at = uFireAt[i];"), "the calm world program is not told that no fire gives light");
     }
 
     private static void everyProgramPassesTheReferenceCompiler(List<Linked> programs) throws IOException, InterruptedException {
