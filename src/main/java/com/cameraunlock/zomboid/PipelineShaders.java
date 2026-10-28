@@ -5953,8 +5953,9 @@ final class PipelineShaders {
                 caught += vec3(1.0, 0.92, 0.76) * ((beamed / float(STEPS) * ahead + torched) * along * (0.0004 + 0.2 * uMist));
                 // Where this pixel's line of sight ends, as the last frame saw it: kept only where
                 // that frame saw as far there, so what has come out from behind something is not
-                // given the air in front of what hid it.
-                vec3 seen = uEye + ray * ahead - uEyeBefore;
+                // given the air in front of what hid it. The eyes are taken from each other first:
+                // a place on the map is held to a millimetre, the difference of the eyes exactly.
+                vec3 seen = ray * ahead + (uEye - uEyeBefore);
                 float aheadBefore = dot(seen, uForwardBefore);
                 vec2 before = vec2(dot(seen, uRightBefore) / uTan.x, dot(seen, uUpBefore) / uTan.y) / max(aheadBefore, 0.001) * 0.5 + 0.5;
                 if (uAirKept > 0.0 && aheadBefore > 0.0 && before.x > 0.0 && before.x < 1.0 && before.y > 0.0 && before.y < 1.0) {
@@ -8173,11 +8174,11 @@ final class PipelineShaders {
             uniform vec2 uTan;
             uniform float uNear;
             uniform float uFar;
-            uniform vec3 uEye;
+            // How far the eye went since the last frame.
+            uniform vec3 uEyeMoved;
             uniform vec3 uRight;
             uniform vec3 uUp;
             uniform vec3 uForward;
-            uniform vec3 uEyeBefore;
             uniform vec3 uRightBefore;
             uniform vec3 uUpBefore;
             uniform vec3 uForwardBefore;
@@ -8271,13 +8272,13 @@ final class PipelineShaders {
                 }
                 vec2 ndc = nearest * 2.0 - 1.0;
                 vec3 seen = (uForward + uRight * (ndc.x * uTan.x) + uUp * (ndc.y * uTan.y)) * ahead;
-                vec3 at = uEye + seen;
                 // What is held in the hands is not a thing of the world that stood still. It
                 // stands in the aim's view: it turns as the mouse turns the view and stays put
                 // on the picture, and it stays behind as the head turns from the aim. Where it
                 // was is where the same place of the aim's view then was. It is measured from
-                // the eyes, not from places on the map, which a float holds to a millimetre there.
-                vec3 stood = at;
+                // the eyes, not from places on the map, which a float holds to a millimetre there:
+                // so is all of it, and from is where the place was from the eye a frame ago.
+                vec3 from = seen + uEyeMoved;
                 float moves = texture2D(uMoves, nearest).r;
                 bool lost = false;
                 bool inHands = ahead < uHeldWithin;
@@ -8297,18 +8298,18 @@ final class PipelineShaders {
                     float movers = abs(moves - 0.375) < 0.06 ? 0.0 : uMovers;
                     for (int i = 0; i < 16; i++) {
                         if (float(i) < movers) {
-                            float far = distance(at.xy, uMover[i].xy);
+                            float far = distance(seen.xy, uMover[i].xy);
                             if (far < off) {
                                 off = far;
                                 lost = false;
                                 float turned = uMoverBefore[i].w - uMover[i].w;
-                                vec3 limb = at - uMover[i].xyz;
-                                stood = uMoverBefore[i].xyz + vec3(cos(turned) * limb.x - sin(turned) * limb.y, sin(turned) * limb.x + cos(turned) * limb.y, limb.z);
+                                vec3 limb = seen - uMover[i].xyz;
+                                from = uMoverBefore[i].xyz + vec3(cos(turned) * limb.x - sin(turned) * limb.y, sin(turned) * limb.x + cos(turned) * limb.y, limb.z);
                             }
                         }
                     }
                 }
-                vec3 from = inHands ? heldFrom : stood - uEyeBefore;
+                from = inHands ? heldFrom : from;
                 float was = dot(from, uForwardBefore);
                 vec2 moved = vec2(dot(from, uRightBefore) / (was * uTan.x), dot(from, uUpBefore) / (was * uTan.y)) * 0.5 + 0.5 - nearest;
                 vec2 before = uv + moved;

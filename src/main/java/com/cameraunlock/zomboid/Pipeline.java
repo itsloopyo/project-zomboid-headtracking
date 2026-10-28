@@ -3078,9 +3078,10 @@ final class Pipeline {
         steady.set("uTan", tanHalfFieldOfView * aspect, tanHalfFieldOfView);
         steady.set("uNear", near);
         steady.set("uFar", far);
-        steady.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
+        // Out on the map a float holds a place to about a millimetre, a third of a pixel at the
+        // feet: places are given the shader from the eyes, each difference of two nearby floats exact.
+        steady.set("uEyeMoved", camera.eyeX - before.eyeX, camera.eyeY - before.eyeY, camera.eyeUp - before.eyeUp);
         setBasis(steady, camera);
-        steady.set("uEyeBefore", before.eyeX, before.eyeY, before.eyeUp);
         steady.set("uRightBefore", before.rightX, before.rightY, before.rightUp);
         steady.set("uUpBefore", before.upX, before.upY, before.upUp);
         steady.set("uForwardBefore", before.forwardX, before.forwardY, before.forwardUp);
@@ -3101,8 +3102,10 @@ final class Pipeline {
         Movers movers = view.characters.movers;
         steady.set("uMovers", (float) movers.found);
         for (int i = 0; i < movers.found; i++) {
-            steady.set(MOVER_AT[i], movers.now[i * 4], movers.now[i * 4 + 1], movers.now[i * 4 + 2], movers.now[i * 4 + 3]);
-            steady.set(MOVER_BEFORE[i], movers.before[i * 4], movers.before[i * 4 + 1], movers.before[i * 4 + 2], movers.before[i * 4 + 3]);
+            steady.set(MOVER_AT[i], movers.now[i * 4] - camera.eyeX, movers.now[i * 4 + 1] - camera.eyeY, movers.now[i * 4 + 2] - camera.eyeUp,
+                    movers.now[i * 4 + 3]);
+            steady.set(MOVER_BEFORE[i], movers.before[i * 4] - before.eyeX, movers.before[i * 4 + 1] - before.eyeY, movers.before[i * 4 + 2] - before.eyeUp,
+                    movers.before[i * 4 + 3]);
         }
         steady.set("uKept", keptAny && !WITHOUT.contains("steady") ? KEPT : 0f);
         steady.set("uOwnWithin", seated ? 3.2f : 0f);
