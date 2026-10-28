@@ -3771,9 +3771,18 @@ final class PipelineShaders {
                     if (dark + loose + earth > 0.02) {
                         raisedGround = uRelief * (1.0 - smoothstep(6.0, 10.0, max(length(uEye - vWorld) - uRangeFrom, 0.0)));
                     }
-                    vec4 asphalt = mix(texture2DGradARB(uAsphalt, one, oneAcross, oneDown), texture2DGradARB(uAsphalt, two, twoAcross, twoDown), which);
-                    vec4 gravel = mix(texture2DGradARB(uGravel, one, oneAcross, oneDown), texture2DGradARB(uGravel, two, twoAcross, twoDown), which);
-                    vec4 soil = mix(texture2DGradARB(uSoil, one, oneAcross, oneDown), texture2DGradARB(uSoil, two, twoAcross, twoDown), which);
+                    // A picture is read only where some of the ground is made of it, since it is weighed by how much is.
+                    // Each read is told its derivatives, which are the same whichever pixels round it read too.
+                    vec4 asphalt = vec4(0.0), gravel = vec4(0.0), soil = vec4(0.0);
+                    if (dark != 0.0) {
+                        asphalt = mix(texture2DGradARB(uAsphalt, one, oneAcross, oneDown), texture2DGradARB(uAsphalt, two, twoAcross, twoDown), which);
+                    }
+                    if (loose != 0.0) {
+                        gravel = mix(texture2DGradARB(uGravel, one, oneAcross, oneDown), texture2DGradARB(uGravel, two, twoAcross, twoDown), which);
+                    }
+                    if (earth != 0.0) {
+                        soil = mix(texture2DGradARB(uSoil, one, oneAcross, oneDown), texture2DGradARB(uSoil, two, twoAcross, twoDown), which);
+                    }
                     // Stones stand up out of a drive and clods out of earth, a finger deep, and tarmac is pitted a seventh as
                     // deep: the pictures' alpha is how high each place stands, and the ground leans as that changes from pixel to pixel.
                     float high = -GROUND_DEPTH * raisedGround * (dark * TARMAC_DEPTH_SHARE * (1.0 - asphalt.a) + loose * (1.0 - gravel.a) + earth * EARTH_DEPTH_SHARE * (1.0 - soil.a));
@@ -3785,12 +3794,16 @@ final class PipelineShaders {
                         slope *= min(1.0, 1.2 / max(length(slope), 1e-4));
                         n = normalize(n - vec3(slope, 0.0));
                     }
+                    vec3 lawn = vec3(0.0);
+                    if (green != 0.0) {
+                        lawn = mix(texture2DGradARB(uLawn, one, oneAcross, oneDown).rgb, texture2DGradARB(uLawn, two, twoAcross, twoDown).rgb, which);
+                    }
                     vec3 grain3 = dark * uMaterialGain.x * asphalt.rgb
                             + loose * uMaterialGain.y * gravel.rgb
                             + paved * uNatureGain.x * (0.95 + 0.1 * patches(p * 7.3 + 13.0))
                                     * mix(texture2DArray(uLitter, vec3(one, 2.0)).rgb, texture2DArray(uLitter, vec3(two, 2.0)).rgb, which)
                             + vec3(1.0 - stony - green - earth) + earth * uMaterialGain.z * soil.rgb
-                            + green * uMaterialGain.w * mix(texture2DGradARB(uLawn, one, oneAcross, oneDown).rgb, texture2DGradARB(uLawn, two, twoAcross, twoDown).rgb, which);
+                            + green * uMaterialGain.w * lawn;
                     // The picture's light and dark go over the game's colour everywhere. Where
                     // the ground is stone, which has no colour of its own to lose, the picture's
                     // colour comes too, as bright as the game painted the spot: tarmac and gravel
