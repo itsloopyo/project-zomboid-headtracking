@@ -13,6 +13,7 @@ import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoMovingObject;
 import zombie.iso.IsoObject;
+import zombie.iso.SpriteDetails.IsoFlagType;
 import zombie.iso.SpriteDetails.IsoObjectType;
 import zombie.iso.objects.IsoCurtain;
 import zombie.iso.objects.IsoDoor;
@@ -76,7 +77,7 @@ final class CentreUse {
 
     private static final String CLICK_HANDLER = "ISObjectClickHandler", WORLD_MENU = "ISWorldObjectContextMenu", INVENTORY_PAGE = "ISInventoryPage";
     private static final String PRESS = "doClickSpecificObject", RELEASE = "doClick", GRAB = "onGrabWItem", DOOR = "onOpenCloseDoor",
-            CLIMB = "onClimbThroughWindow", GET_UP = "getUpAndThen";
+            CLIMB = "onClimbThroughWindow", GET_UP = "getUpAndThen", WINDOW = "onOpenCloseWindow";
 
     /**
      * The key (Outlines.key) of what the key would act on this frame, for the picture to
@@ -104,6 +105,9 @@ final class CentreUse {
         }
         if (gap == null) {
             gap = gap(WORLD_MENU, CLIMB);
+        }
+        if (gap == null) {
+            gap = gap(WORLD_MENU, WINDOW);
         }
         return gap != null ? gap : gap(WORLD_MENU, GET_UP);
     }
@@ -135,6 +139,13 @@ final class CentreUse {
             // floor beyond to land on, the way the game's click climbs: up first, then over, walking to the window first.
             Object climb = ((KahluaTable) LuaManager.env.rawget(WORLD_MENU)).rawget(CLIMB);
             return call(WORLD_MENU, GET_UP, player, climb, null, pane, Double.valueOf(player.getIndex())) == null ? Outcome.NOTHING : Outcome.USED;
+        }
+        if (found instanceof IsoWindow pane && !pane.isSmashed() && !pane.isInvincible() && pane.getBarricadeForCharacter(player) == null
+                && player.getCurrentSquare() != pane.getSquare() && player.getCurrentSquare() != pane.getOppositeSquare()) {
+            // The game's click on a window is for a character standing at it, and takes any other click without acting.
+            // One over a counter or a dresser has no square in front of it to stand on, so the key is the world menu's
+            // Open or Close, which walks the character to it first where the game can find a way.
+            return call(WORLD_MENU, WINDOW, null, pane, Double.valueOf(player.getIndex())) == null ? Outcome.NOTHING : Outcome.USED;
         }
         if (keyActsOn(found)) {
             // False when the game will not have it: too far off, the wrong side of a wall, aiming.
@@ -273,8 +284,13 @@ final class CentreUse {
         float perTileX = view.forwardX == 0f ? Float.POSITIVE_INFINITY : Math.abs(1f / view.forwardX);
         float perTileY = view.forwardY == 0f ? Float.POSITIVE_INFINITY : Math.abs(1f / view.forwardY);
         IsoGridSquare from = cell.getGridSquare(tileX, tileY, level);
+        float entered = 0f;
         while (from != null) {
             IsoObject here = onSquare(from, view, reach, floorUp, false);
+            if (here != null && !(here instanceof IsoWorldInventoryObject) && !(here instanceof IsoMovingObject)) {
+                IsoObject beyond = overTheTop(from, view, floorUp, cell, level, entered, reach);
+                here = beyond != null ? beyond : here;
+            }
             if (here == null && menu) {
                 here = lowOn(from, view, floorUp);
             }
@@ -312,6 +328,10 @@ final class CentreUse {
                 return switchOn(from);
             }
             if (to.isSolid() || to.isSolidTrans()) {
+                IsoObject beyond = overTheTop(to, view, floorUp, cell, level, distance, reach);
+                if (beyond != null) {
+                    return beyond;
+                }
                 // A counter, a fridge, a shelf unit: the view stops on it, and it is what is looked at.
                 IsoObject there = onSquare(to, view, Float.POSITIVE_INFINITY, floorUp, true);
                 if (there == null && menu) {
@@ -320,6 +340,7 @@ final class CentreUse {
                 return there != null ? there : switchOn(from);
             }
             from = to;
+            entered = distance;
             tileX = toX;
             tileY = toY;
             if (crossX) {
@@ -366,6 +387,73 @@ final class CentreUse {
             return curtain;
         }
         return window != null ? window : curtain;
+    }
+
+    /**
+     * A door, a window or a curtain on the edge the view leaves a square by, where the view crosses the whole square
+     * over the top of what stands on it: the window over a counter or a dresser under it. Null where the view comes
+     * down onto what stands there first, or there is nothing on that edge. A window on a room's south or east wall
+     * belongs to the square outside, so it is met past the square in front of it, never on it.
+     *
+     * @param entered how far along the view it comes onto the square, in tiles
+     */
+    private IsoObject overTheTop(IsoGridSquare square, ViewCamera.Pose view, float floorUp, IsoCell cell, int level, float entered, float reach) {
+        int x = square.getX(), y = square.getY();
+        float outX = view.forwardX == 0f ? Float.POSITIVE_INFINITY : ((view.forwardX > 0f ? x + 1 : x) - view.eyeX) / view.forwardX;
+        float outY = view.forwardY == 0f ? Float.POSITIVE_INFINITY : ((view.forwardY > 0f ? y + 1 : y) - view.eyeY) / view.forwardY;
+        boolean crossX = outX <= outY;
+        float left = crossX ? outX : outY;
+        if (left > reach) {
+            return null;
+        }
+        float top = topOf(square);
+        float atEntry = view.eyeUp + view.forwardUp * entered - floorUp, atExit = view.eyeUp + view.forwardUp * left - floorUp;
+        if (Math.min(atEntry, atExit) <= top || atExit > ViewCamera.LEVEL_HEIGHT) {
+            return null;
+        }
+        int toX = crossX ? x + (view.forwardX > 0f ? 1 : -1) : x, toY = crossX ? y : y + (view.forwardY > 0f ? 1 : -1);
+        IsoGridSquare to = cell.getGridSquare(toX, toY, level);
+        if (to == null) {
+            return null;
+        }
+        boolean ownerIsTo = crossX ? toX > x : toY > y;
+        return onEdge(ownerIsTo ? to : square, ownerIsTo ? square : to, !crossX);
+    }
+
+    /**
+     * How high over its floor, in tiles, what stands on a square reaches: the highest of their tops (Surface), or
+     * no height at all where something there that stops the view or holds things has no top to put things on.
+     */
+    private static float topOf(IsoGridSquare square) {
+        float top = 0f;
+        IsoObject floor = square.getFloor();
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoObject object = objects.get(i);
+            PropertyContainer properties = object.getProperties();
+            if (object == floor || object.getType() == IsoObjectType.wall || keyActsOn(object) || object instanceof IsoWorldInventoryObject) {
+                continue;
+            }
+            boolean stands = object.getContainer() != null || clickedThoughEmpty(object) || properties != null
+                    && (properties.has(IsoFlagType.solid) || properties.has(IsoFlagType.solidtrans) || properties.has("IsTableTop") || hung(properties))
+                    || object.getRenderYOffset() > 0f;
+            if (!stands) {
+                continue;
+            }
+            int surface = properties == null ? 0 : properties.getSurface();
+            if (surface <= 0 || hung(properties)) {
+                return Float.POSITIVE_INFINITY;
+            }
+            // A microwave or a television on a counter is taller than anything put down on it, and a sink let into a
+            // counter tops out with the counter, as the game's own top for it (getSurfaceOffsetNoTable) does.
+            boolean onAnother = properties.has("IsTableTop") || object.getRenderYOffset() > 0f;
+            if (onAnother && (object.getContainer() != null || clickedThoughEmpty(object))) {
+                return Float.POSITIVE_INFINITY;
+            }
+            float pixels = surface + object.getRenderYOffset() + properties.getItemHeight();
+            top = Math.max(top, pixels / WorldScene.SURFACE_PIXELS_PER_LEVEL * ViewCamera.LEVEL_HEIGHT);
+        }
+        return top;
     }
 
     /**
