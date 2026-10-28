@@ -78,6 +78,7 @@ final class ShaderTests {
         Checks.run("whatHangsOnACordSwingsInTheViewAndInItsShadowAlike", () -> whatHangsOnACordSwingsInTheViewAndInItsShadowAlike(programs));
         Checks.run("whatTheAirHidesOfASurfaceItHidesOfItsShade", () -> whatTheAirHidesOfASurfaceItHidesOfItsShade(programs));
         Checks.run("theLastFrameIsFoundFromTheEyeNotTheMap", () -> theLastFrameIsFoundFromTheEyeNotTheMap(programs));
+        Checks.run("whatIsDrawnThroughTheTurnTakesTheEyeOffItself", () -> whatIsDrawnThroughTheTurnTakesTheEyeOffItself(programs));
         Checks.run("figuresAndTerrainShareSunsetHaze", ShaderTests::figuresAndTerrainShareSunsetHaze);
         Checks.run("aThinSpriteSampleTakesItsColourFromTheSamplesItsCutReads", ShaderTests::aThinSpriteSampleTakesItsColourFromTheSamplesItsCutReads);
         Checks.run("aCrownOpensOverTheEyeASprigAtATime", ShaderTests::aCrownOpensOverTheEyeASprigAtATime);
@@ -541,6 +542,39 @@ final class ShaderTests {
                 "the steadied picture is not told the eye's move, or where those who move are from the eye, now and a frame ago");
         Checks.check(pipeline.contains("volume.set(\"uEyeMoved\", (float) (camera.exactX() - airBefore.exactX()), (float) (camera.exactY() - airBefore.exactY()), (float) (camera.exactUp() - airBefore.exactUp()));"),
                 "the lit air is not told the eye's move since its last frame");
+    }
+
+    private static final Pattern PLACED_BY_THE_MATRIX = Pattern.compile("gl_ModelViewProjectionMatrix \\* vec4\\(([^;]*?), 1\\.0\\)");
+
+    /**
+     * A picture drawn aside from the world's (Pipeline.lookFrom) is given only the turn of the view, with the eye's fine part
+     * (ViewCamera.turned), so each program drawn through it takes the eye's float place off a vertex itself, as the world's
+     * does: one that did not would draw its drops or its debris as far again from the eye as the eye is from the map's corner.
+     * The bolt is a mile off and is drawn through the whole view. Read, not run.
+     */
+    private static void whatIsDrawnThroughTheTurnTakesTheEyeOffItself(List<Linked> programs) {
+        for (String name : List.of("rain", "snow", "dust", "falling leaves", "debris of shots", "bullet holes")) {
+            String vertex = vertex(programs, name).replaceAll("//[^\n]*", "").replaceAll("\\s+", " ");
+            Matcher placed = PLACED_BY_THE_MATRIX.matcher(vertex);
+            int found = 0;
+            while (placed.find()) {
+                found++;
+                Checks.check(placed.group(1).contains("- uEye"), "the " + name + " program puts a place on the map through the turn alone: " + placed.group(0));
+            }
+            Checks.check(found > 0, "the " + name + " program places nothing by the matrix, which this cannot read");
+        }
+        String bolt = vertex(programs, "lightning").replaceAll("//[^\n]*", "").replaceAll("\\s+", " ");
+        Checks.check(!bolt.contains("uEye"), "the bolt takes the eye off itself, and is drawn through the whole view");
+        String pipeline;
+        try {
+            pipeline = Files.readString(SOURCE.resolve("Pipeline.java")).replaceAll("//[^\n]*", "").replaceAll("\\s+", " ");
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        Checks.check(pipeline.contains("GL11.glMatrixMode(GL_MODELVIEW); ViewCamera.turned(camera, viewed); GL11.glLoadMatrixf(viewed); }"),
+                "a picture drawn aside is not given the turn of the view alone");
+        Checks.check(pipeline.contains("lookFrom(camera, tanHalfFieldOfView, aspect, near, far, asideX, asideY); ViewCamera.view(camera, boltView); GL11.glLoadMatrixf(boltView);"),
+                "the bolt is not drawn through the whole view");
     }
 
     /** A wall's skin is seen from the side it stands out to, as a wall's two faces are, and left out from behind. Read, not run. */
