@@ -5779,7 +5779,7 @@ final class WorldScene {
                     // The upper part of a tall hall is the hall, and is lit as its floor is: by
                     // whether the player has seen it, by the day the hall lets in and by its lamps.
                     // A row left out of the upper room is in no room at all.
-                    IsoGridSquare hallFloor = TallHalls.floorOf(cell, square.getX(), square.getY(), z);
+                    IsoGridSquare hallFloor = z == 0 && groundObject[at] != null ? null : TallHalls.floorOf(cell, square);
                     IsoGridSquare lighting = hallFloor != null ? hallFloor : square;
                     ColorInfo light = hallFloor != null ? hallLightOf(square, hallFloor) : lightOf(square);
                     boolean outside = square.isOutside();

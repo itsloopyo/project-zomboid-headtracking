@@ -90,10 +90,15 @@ final class TallHalls {
      * any other square.
      */
     static IsoGridSquare floorOf(IsoCell cell, int x, int y, int z) {
-        IsoGridSquare square = cell.getGridSquare(x, y, z);
+        return floorOf(cell, cell.getGridSquare(x, y, z));
+    }
+
+    /** floorOf for a square already in hand, or null. */
+    static IsoGridSquare floorOf(IsoCell cell, IsoGridSquare square) {
         if (square == null || square.getFloor() != null) {
             return null;
         }
+        int x = square.getX(), y = square.getY(), z = square.getZ();
         if (holdsStairs(cell.getGridSquare(x, y, z - 1)) && !besideHallOver(cell, x, y, z)) {
             return square.getRoomID() != -1L ? null : besideStairwell(cell, x, y, z);
         }

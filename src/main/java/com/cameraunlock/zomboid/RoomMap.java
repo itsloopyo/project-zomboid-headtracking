@@ -288,7 +288,7 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
             throw new IllegalStateException("the room map is read on " + Thread.currentThread().getName() + ", off the logic thread");
         }
         IsoGridSquare square = cell.getGridSquare(x, y, z);
-        IsoGridSquare hall = square == null ? null : TallHalls.floorOf(cell, x, y, z);
+        IsoGridSquare hall = TallHalls.floorOf(cell, square);
         return hall != null ? hall : square;
     }
 
