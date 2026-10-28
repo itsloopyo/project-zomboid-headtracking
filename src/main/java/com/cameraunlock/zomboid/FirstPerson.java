@@ -539,6 +539,7 @@ public final class FirstPerson {
             view.viewModel.rest();
             view.crosshair.hide();
             view.crosshair.hideSquare();
+            view.crosshair.point(null);
             view.dragAim.aimed.forget();
             view.dragAim.ghost.clear();
             reticleOnScreen = false;
@@ -839,6 +840,7 @@ public final class FirstPerson {
             view.headTracking.follow(player != null && !GameTime.isGamePaused() && !player.isDead());
             view.viewModel.rest();
             view.crosshair.hide();
+            view.crosshair.point(null);
             reticleOnScreen = false;
             view.nameTags.lookAway();
             view.hearing.rest();
@@ -990,6 +992,11 @@ public final class FirstPerson {
         } else {
             view.crosshair.hide();
         }
+        // The shape of the picture is not known until a frame has been drawn.
+        float drawnAspect = view.worldScene.drawnAspect();
+        int level = (int) Math.floor(player.getZ());
+        view.crosshair.point(drawnAspect == 0f ? null : Homing.pointers(player.getIndex(), trackedView, pictureTanHalf, drawnAspect,
+                (x, y) -> level * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(x, y, level)));
 
         if (TRACE) {
             trace(player, scene, zoom);

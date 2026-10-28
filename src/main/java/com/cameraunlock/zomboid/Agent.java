@@ -24,6 +24,7 @@ public final class Agent {
     private static final String ATLAS = "zombie/core/skinnedmodel/DeadBodyAtlas", BODY_PARAMS = ATLAS + "$BodyParams", RENDER_JOB = ATLAS + "$RenderJob";
     private static final String ANIMATED_MODEL = "zombie/core/skinnedmodel/advancedanimation/AnimatedModel";
     private static final String HOOKS = "com/cameraunlock/zomboid/Hooks";
+    private static final String HIGHLIGHT = "zombie/iso/fboRenderChunk/FBORenderObjectHighlight";
     private static final String GAME_MOUSE = "zombie/input/Mouse";
     private static final String TORCH = "zombie/characters/IsoGameCharacter$TorchInfo";
     private static final String EXCEPTION_LOGGER = "zombie/core/logger/ExceptionLogger";
@@ -578,6 +579,17 @@ public final class Agent {
                             code.iload(5);
                             CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "zombieHit", "(L" + zombie + ";Lzombie/inventory/types/HandWeapon;" + character + "FZ)V"));
                         })),
+                // The game forgets a highlighted object it draws into a chunk's texture once it has
+                // drawn it there, and keeps only the object's flag: Outlines keeps its own list.
+                new Patch(HIGHLIGHT, "registerObject and unregisterObject at their starts", classBytes -> {
+                    for (String[] hook : new String[][] {{"registerObject", "highlightRegistered"}, {"unregisterObject", "highlightUnregistered"}}) {
+                        classBytes = CallSite.insertAtStartOfInstanceMethod(classBytes, new CallSite.Method(HIGHLIGHT, hook[0], "(Lzombie/iso/IsoObject;)V"), code -> {
+                            code.aload(1);
+                            CallSite.invokeStatic(code, new CallSite.Method(HOOKS, hook[1], "(Lzombie/iso/IsoObject;)V"));
+                        });
+                    }
+                    return classBytes;
+                }),
                 new Patch(zombie, "resetForReuse at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
                         new CallSite.Method(zombie, "resetForReuse", "()V"), code -> {
                             code.aload(0);
@@ -721,6 +733,12 @@ public final class Agent {
                 // is let go of when the game's view next draws.
                 new Patch(outline, "object outlines left out under the first person picture", classBytes -> CallSite.returnAtOnceIf(classBytes,
                         new CallSite.Method(outline, "render", "(I)V"), covered)),
+                // The arrow to where the game's Lua points the player is drawn by where the player stands
+                // in the game's own view and turned the way the place lies in it: over the picture it
+                // pointed nowhere by the middle of the screen. The picture points to the place itself:
+                // see Homing.
+                new Patch("zombie/iso/WorldMarkers", "homing arrows left out under the first person picture", classBytes -> CallSite.returnAtOnceIf(classBytes,
+                        new CallSite.Method("zombie/iso/WorldMarkers", "renderHomingPoint", "()V"), covered)),
                 // The rest of what the game draws of the world into its own view while the picture
                 // covers it: the squares of each chunk, into the chunk's own texture; the trees,
                 // plants, windows and whatever else it draws afresh over those every frame, sprite by

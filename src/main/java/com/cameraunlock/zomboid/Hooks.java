@@ -724,6 +724,16 @@ public final class Hooks {
 
     private static final String[] LIMB_NAMES = {"left arm", "right arm", "left leg", "right leg"};
 
+    /** Called as the game notes an object it highlights. */
+    public static void highlightRegistered(IsoObject object) {
+        Outlines.highlighted(object);
+    }
+
+    /** Called as the game lets go of an object it highlighted, or that left the world. */
+    public static void highlightUnregistered(IsoObject object) {
+        Outlines.unhighlighted(object);
+    }
+
     /** Called as the game starts making a new zombie of an object it kept from one that left the world. */
     public static void zombieReused(IsoZombie zombie) {
         wounds.forget(zombie);

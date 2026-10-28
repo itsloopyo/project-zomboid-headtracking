@@ -59,7 +59,7 @@ final class Links {
     private static final String VERTEX_BUFFER_HANDLE = VERTEX_BUFFER + "$Vbo";
     /**
      * The fields read by name, which no instruction of the mod's names: the vertex buffer's, the body's picture and its entry,
-     * the parts of a posed body, the outlined things, the layer an animation node is in the item renderer's and a door's shut sprite.
+     * the parts of a posed body, the outlined things, the game's marks on the ground and its homing points, the layer an animation node is in the item renderer's and a door's shut sprite.
      */
     static final Field BUFFER_HANDLE = new Field(VERTEX_BUFFER, "handle", "L" + VERTEX_BUFFER_HANDLE + ";");
     static final Field BUFFER_ELEMENTS = new Field(VERTEX_BUFFER, "elements", "[I");
@@ -76,6 +76,10 @@ final class Links {
     static final Field POSED_PARTS = new Field(ANIMATED_MODEL + "$StateInfo", "instData", "Ljava/util/ArrayList;");
     /** The things the game outlines, which Outlines reads. */
     static final Field OUTLINED = new Field("zombie/iso/fboRenderChunk/FBORenderObjectOutline", "objectSet", "Ljava/util/HashSet;");
+    /** The marks the game's Lua lays on the ground, which Outlines reads. */
+    static final Field GROUND_MARKERS = new Field("zombie/iso/WorldMarkers", "gridSquareMarkers", "Ljava/util/List;");
+    /** The places the game's Lua points each player to, which Homing reads. */
+    static final Field HOMING_POINTS = new Field("zombie/iso/WorldMarkers", "homingPoints", "[Lzombie/iso/WorldMarkers$PlayerHomingPointList;");
     /** The layer an animation node is in, which Ragdolls reads. */
     static final Field NODE_LAYER = new Field("zombie/core/skinnedmodel/advancedanimation/LiveAnimNode", "animLayer",
             "Lzombie/core/skinnedmodel/advancedanimation/AnimLayer;");
@@ -91,7 +95,7 @@ final class Links {
     /** The sprite a door shows shut, which an open door is read from: see WorldScene.shutSprite. */
     static final Field DOOR_SHUT = new Field("zombie/iso/objects/IsoDoor", "closedSprite", "Lzombie/iso/sprite/IsoSprite;");
     static final Field THUMPABLE_SHUT = new Field("zombie/iso/objects/IsoThumpable", "closedSprite", "Lzombie/iso/sprite/IsoSprite;");
-    static final List<Field> REFLECTED = List.of(BUFFER_HANDLE, BUFFER_ELEMENTS, BUFFER_FORMAT, HANDLE_BUFFER, HANDLE_STRIDE, BODY_PICTURE, OUTLINED, NODE_LAYER,
+    static final List<Field> REFLECTED = List.of(BUFFER_HANDLE, BUFFER_ELEMENTS, BUFFER_FORMAT, HANDLE_BUFFER, HANDLE_STRIDE, BODY_PICTURE, OUTLINED, GROUND_MARKERS, HOMING_POINTS, NODE_LAYER,
             ITEM_MODEL, ITEM_TRANSFORM, ITEM_TINT_R, ITEM_TINT_G, ITEM_TINT_B, ITEM_TINT_MASK,
             DOOR_SHUT, THUMPABLE_SHUT, BODY_PICTURE_ENTRY, POSED_STATES, POSED_PARTS);
 

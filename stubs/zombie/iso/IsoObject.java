@@ -35,4 +35,7 @@ public class IsoObject {
     public void setTargetAlpha(int playerIndex, float alpha) { throw new UnsupportedOperationException("reference stub"); }
     public final boolean isOutlineHighlight(int playerIndex) { throw new UnsupportedOperationException("reference stub"); }
     public final int getOutlineHighlightCol(int playerIndex) { throw new UnsupportedOperationException("reference stub"); }
+    public boolean isHighlighted() { throw new UnsupportedOperationException("reference stub"); }
+    public boolean isHighlighted(int playerIndex) { throw new UnsupportedOperationException("reference stub"); }
+    public zombie.core.textures.ColorInfo getHighlightColor(int playerIndex) { throw new UnsupportedOperationException("reference stub"); }
 }

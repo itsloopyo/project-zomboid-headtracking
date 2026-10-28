@@ -9,8 +9,9 @@ import org.lwjgl.opengl.GL20;
  * shot lands. Otherwise this marks the same point, which is also what the interact key acts
  * on: a crosshair with a weapon in hand, and a dot without one.
  *
- * It also draws the square a drag cursor of the game's is on (DragAim), whatever the Crosshair
- * row says: the game draws its ghost into its own view, which is under the picture.
+ * It also draws the square a drag cursor of the game's is on (DragAim), and the pointers to the
+ * places the game's Lua points the player to (Homing), whatever the Crosshair row says: the
+ * game draws both by its own view, which is under the picture.
  *
  * The logic thread says where they are and the render thread draws them over the finished picture.
  */
@@ -42,6 +43,22 @@ final class Crosshair {
     /** Where it is, -1 to 1 across the picture and up it, how spread, and whether it is the dot alone. */
     private record Mark(float x, float y, float spread, boolean dot) {
     }
+
+    /**
+     * A pointer to a place (Homing): from over it at x, y, -1 to 1 across the picture and up
+     * it, where it is in view; otherwise from the edge of the screen, the way wayX, wayY points
+     * across and up the picture. In the colour the game gave it.
+     */
+    record Pointer(float x, float y, boolean inView, float wayX, float wayY, float red, float green, float blue, float alpha) {
+    }
+
+    /** In pixels on a screen 1080 high: a pointer's length and its width at the base, and the dark edge round it. */
+    private static final float POINTER_LONG = 26f, POINTER_WIDE = 22f, POINTER_EDGE = 2f;
+    /** How far in from the edges of the screen, as a share of half of it across and up, a pointer to a place out of view stands. */
+    private static final float EDGE_ACROSS = 0.88f, EDGE_UP = 0.82f;
+
+    /** Null when the game points the player nowhere. */
+    private volatile Pointer[] pointers;
 
     /** The Crosshair row of CameraUnlock.ini. The thread that watches the file sets it, the render thread reads it. */
     private static volatile boolean on = true;
@@ -106,11 +123,17 @@ final class Crosshair {
         square = null;
     }
 
+    /** The pointers to show, or null for none. Logic thread. */
+    void point(Pointer[] toShow) {
+        pointers = toShow;
+    }
+
     /** Draws it into the picture bound, whose viewport is the whole of a picture this many pixels each way. */
     void draw(int width, int height) {
         Mark where = on ? shown : null;
         Square outlined = square;
-        if (where == null && outlined == null || !flat.use()) {
+        Pointer[] pointing = pointers;
+        if (where == null && outlined == null && pointing == null || !flat.use()) {
             return;
         }
         GL11.glDisable(GL_DEPTH_TEST);
@@ -120,10 +143,53 @@ final class Crosshair {
         if (outlined != null) {
             drawSquare(outlined, width, height);
         }
+        if (pointing != null) {
+            for (Pointer pointer : pointing) {
+                drawPointer(pointer, width, height);
+            }
+        }
         if (where != null) {
             drawMark(where, width, height);
         }
         GL11.glDisable(GL_BLEND);
+    }
+
+    /** A pointer as a wedge whose tip is on the place, pointing down at it, or at the edge of the screen, pointing out the way to turn. */
+    private static void drawPointer(Pointer pointer, int width, int height) {
+        float unit = (float) height / DESIGN_HEIGHT;
+        float tipX, tipY, wayX, wayY;
+        if (pointer.inView) {
+            tipX = (pointer.x * 0.5f + 0.5f) * width;
+            tipY = (pointer.y * 0.5f + 0.5f) * height;
+            wayX = 0f;
+            wayY = -1f;
+        } else {
+            // Turned to pixels, so the wedge points the true way on a wide screen.
+            wayX = pointer.wayX * width;
+            wayY = pointer.wayY * height;
+            float length = (float) Math.hypot(wayX, wayY);
+            wayX /= length;
+            wayY /= length;
+            float reach = Math.min(EDGE_ACROSS * width / 2f / Math.max(Math.abs(wayX), 1e-6f), EDGE_UP * height / 2f / Math.max(Math.abs(wayY), 1e-6f));
+            tipX = width / 2f + wayX * reach;
+            tipY = height / 2f + wayY * reach;
+        }
+        int color = flat.at("uColor");
+        for (int layer = 0; layer < 2; layer++) {
+            float edge = layer == 0 ? POINTER_EDGE * unit : 0f;
+            if (layer == 0) {
+                GL20.glUniform4f(color, 0f, 0f, 0f, 0.55f * pointer.alpha);
+            } else {
+                GL20.glUniform4f(color, pointer.red, pointer.green, pointer.blue, 0.95f * pointer.alpha);
+            }
+            float baseX = tipX - wayX * (POINTER_LONG * unit + edge), baseY = tipY - wayY * (POINTER_LONG * unit + edge);
+            float half = POINTER_WIDE * unit / 2f + edge;
+            GL11.glBegin(GL_TRIANGLE_STRIP);
+            vertex(tipX + wayX * edge, tipY + wayY * edge, width, height);
+            vertex(baseX - wayY * half, baseY + wayX * half, width, height);
+            vertex(baseX + wayY * half, baseY - wayX * half, width, height);
+            GL11.glEnd();
+        }
     }
 
     private static void drawSquare(Square outlined, int width, int height) {

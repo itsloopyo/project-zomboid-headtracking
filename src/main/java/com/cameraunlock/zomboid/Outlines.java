@@ -1,24 +1,26 @@
 package com.cameraunlock.zomboid;
 
 import java.lang.reflect.Field;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
 import zombie.core.Color;
+import zombie.core.textures.ColorInfo;
+import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoMovingObject;
 import zombie.iso.IsoObject;
+import zombie.iso.IsoWorld;
+import zombie.iso.WorldMarkers;
 import zombie.iso.fboRenderChunk.FBORenderObjectOutline;
-import zombie.iso.objects.IsoCurtain;
-import zombie.iso.objects.IsoDoor;
-import zombie.iso.objects.IsoLightSwitch;
-import zombie.iso.objects.IsoThumpable;
-import zombie.iso.objects.IsoWindow;
 import zombie.iso.objects.IsoWorldInventoryObject;
 
 /**
  * What the picture draws a line round: what the Interact key would act on, and what the game
- * has outlined for the player, such as the container the loot panel shows, in the colour the
- * game gave it. The game draws its own outline into its own view, under the picture.
+ * has outlined, highlighted or ringed on the ground for the player, such as the container the
+ * loot panel shows, in the colour the game gave it. The game draws its own into its own view,
+ * under the picture.
  *
  * A build of a chunk notes which of its triangles and pieces each thing that may be outlined
  * drew (SpriteGeometry.MeshSet.own, Models.Instances.key), and the picture draws those again
@@ -37,19 +39,29 @@ final class Outlines {
     /** The colours of the line round the piece a drag would put down (DragAim.Ghost), where it fits and where it does not, as the outline of its square. */
     static final float FITS_RED = 0.2f, FITS_GREEN = 1f, FITS_BLUE = 0.3f, CLASHES_RED = 1f, CLASHES_GREEN = 0.25f, CLASHES_BLUE = 0.2f;
 
-    /** What one picture outlines: each thing's key, and its colour as red, green and blue by turns. */
-    record Frame(long[] keys, float[] colours) {}
+    /**
+     * What one picture outlines: each thing's key, its colour as red, green and blue by turns,
+     * and whether it is a floor (see Pipeline.FLOOR_NEARER).
+     */
+    record Frame(long[] keys, float[] colours, boolean[] floors) {}
 
-    private static Field outlined;
+    /** The game's fields read by name, each looked up once. */
+    private static final Field[] OUTLINED = new Field[1], MARKERS = new Field[1];
+    /**
+     * What the game has highlighted (IsoObject.setHighlighted) and not yet let go of. The game's
+     * own list (FBORenderObjectHighlight) drops a thing it draws into a chunk's texture once it
+     * is drawn there, which is most of what stands still, and keeps only the thing's flag.
+     */
+    private static final HashSet<IsoObject> HIGHLIGHTS = new HashSet<>();
 
     private Outlines() {}
 
     /**
-     * The key of a thing that may be outlined, or NONE. The things the Interact key acts on,
-     * every container, what lies on the ground and the bodies: the game outlines nothing else
-     * that a player in first person can be shown. Taken as an Object so that a caller handing
-     * it a body or an item has its class looked up only when this runs: see TestMap, whose map
-     * has neither.
+     * The key of a thing that may be outlined, or NONE. Every object on a square, floors
+     * included, since the game's Lua may outline or highlight any of them (the tutorial its
+     * sink and the floor by a window); what lies on the ground; and the bodies that hold
+     * things. Taken as an Object so that a caller handing it a body or an item has its class
+     * looked up only when this runs: see TestMap, whose map has neither.
      */
     static long key(Object thing) {
         IsoObject object = (IsoObject) thing;
@@ -61,10 +73,6 @@ final class Outlines {
             IsoGridSquare square = body.getCurrentSquare();
             return square == null || body.getContainer() == null ? NONE : key(square, BODY, square.getStaticMovingObjects().indexOf(body));
         }
-        if (object.getContainer() == null && !(object instanceof IsoDoor) && !(object instanceof IsoWindow) && !(object instanceof IsoCurtain)
-                && !(object instanceof IsoLightSwitch) && !(object instanceof IsoThumpable thumpable && thumpable.isDoor()) && !CentreUse.clickedThoughEmpty(object)) {
-            return NONE;
-        }
         IsoGridSquare square = object.getSquare();
         return square == null ? NONE : key(square, OBJECT, square.getObjects().indexOf(object));
     }
@@ -72,6 +80,16 @@ final class Outlines {
     /** The key of the piece a drag would put down whose first part stands on the square: see DragAim.Ghost. */
     static long ghost(IsoGridSquare square) {
         return key(square, GHOST, 0);
+    }
+
+    /** The x of the square a thing with this key stands on, as far as a key holds it. */
+    static int squareX(long key) {
+        return (int) (key >>> 42 & 0x3FFFFF);
+    }
+
+    /** The y of the square a thing with this key stands on, as far as a key holds it. */
+    static int squareY(long key) {
+        return (int) (key >>> 20 & 0x3FFFFF);
     }
 
     private static long key(IsoGridSquare square, int kind, int index) {
@@ -84,45 +102,104 @@ final class Outlines {
 
     /**
      * What a player's picture outlines this frame, or null for nothing. Logic thread, where the
-     * game's Lua outlines and lets go of things.
+     * game's Lua outlines, highlights and marks things and lets go of them.
+     *
+     * The game draws each of these into its own view, which is under the picture: what it
+     * highlights (a tint over the thing, such as the tutorial's sink and the floor by its
+     * window), what it outlines (the container the loot panel shows), and the rings it lays
+     * on the ground (the tutorial's places to walk to), whose floors are outlined here as far
+     * as the ring reaches. A thing both highlighted and outlined takes the outline's colour,
+     * which is the one drawn after.
      *
      * @param interact the key of what the Interact key would act on, or NONE
      */
     static Frame gather(int playerIndex, long interact) {
-        ArrayList<IsoObject> game = null;
-        for (IsoObject object : outlinedByTheGame()) {
-            if (object.isOutlineHighlight(playerIndex) && key(object) != NONE) {
-                if (game == null) {
-                    game = new ArrayList<>();
+        Gathering gathering = new Gathering();
+        synchronized (HIGHLIGHTS) {
+            for (Iterator<IsoObject> each = HIGHLIGHTS.iterator(); each.hasNext(); ) {
+                IsoObject object = each.next();
+                if (!object.isHighlighted() || object.getSquare() == null) {
+                    each.remove();
+                    continue;
                 }
-                game.add(object);
+                long key = key(object);
+                if (object.isHighlighted(playerIndex) && key != NONE) {
+                    ColorInfo colour = object.getHighlightColor(playerIndex);
+                    gathering.add(key, colour.r, colour.g, colour.b, isFloor(object));
+                }
             }
         }
-        int count = (interact != NONE ? 1 : 0) + (game == null ? 0 : game.size());
-        if (count == 0) {
-            return null;
+        IsoCell cell = IsoWorld.instance.currentCell;
+        for (WorldMarkers.GridSquareMarker marker : Outlines.<List<WorldMarkers.GridSquareMarker>>read(MARKERS, Links.GROUND_MARKERS, WorldMarkers.instance)) {
+            if (!marker.isActive() || marker.isRemoved()) {
+                continue;
+            }
+            int x = (int) marker.getOriginalX(), y = (int) marker.getOriginalY(), z = (int) marker.getOriginalZ();
+            int reach = (int) Math.floor(marker.getSize());
+            for (int dx = -reach; dx <= reach; dx++) {
+                for (int dy = -reach; dy <= reach; dy++) {
+                    IsoGridSquare square = dx * dx + dy * dy > marker.getSize() * marker.getSize() ? null : cell.getGridSquare(x + dx, y + dy, z);
+                    IsoObject floor = square == null ? null : square.getFloor();
+                    long key = floor == null ? NONE : key(floor);
+                    if (key != NONE) {
+                        gathering.add(key, marker.getR(), marker.getG(), marker.getB(), true);
+                    }
+                }
+            }
         }
-        long[] keys = new long[count];
-        float[] colours = new float[count * 3];
-        int at = 0;
-        if (game != null) {
-            for (IsoObject object : game) {
+        for (IsoObject object : Outlines.<HashSet<IsoObject>>read(OUTLINED, Links.OUTLINED, FBORenderObjectOutline.getInstance())) {
+            long key = key(object);
+            if (object.isOutlineHighlight(playerIndex) && key != NONE) {
                 int abgr = object.getOutlineHighlightCol(playerIndex);
-                keys[at] = key(object);
-                colours[at * 3] = Color.getRedChannelFromABGR(abgr);
-                colours[at * 3 + 1] = Color.getGreenChannelFromABGR(abgr);
-                colours[at * 3 + 2] = Color.getBlueChannelFromABGR(abgr);
-                at++;
+                gathering.add(key, Color.getRedChannelFromABGR(abgr), Color.getGreenChannelFromABGR(abgr), Color.getBlueChannelFromABGR(abgr),
+                        isFloor(object));
             }
         }
         // Last, so that its line is the one drawn where it is also outlined by the game.
         if (interact != NONE) {
-            keys[at] = interact;
-            colours[at * 3] = INTERACT_RED;
-            colours[at * 3 + 1] = INTERACT_GREEN;
-            colours[at * 3 + 2] = INTERACT_BLUE;
+            gathering.add(interact, INTERACT_RED, INTERACT_GREEN, INTERACT_BLUE, false);
         }
-        return new Frame(keys, colours);
+        return gathering.count == 0 ? null : new Frame(Arrays.copyOf(gathering.keys, gathering.count), Arrays.copyOf(gathering.colours, gathering.count * 3),
+                Arrays.copyOf(gathering.floors, gathering.count));
+    }
+
+    static void highlighted(IsoObject object) {
+        synchronized (HIGHLIGHTS) {
+            HIGHLIGHTS.add(object);
+        }
+    }
+
+    static void unhighlighted(IsoObject object) {
+        synchronized (HIGHLIGHTS) {
+            HIGHLIGHTS.remove(object);
+        }
+    }
+
+    private static boolean isFloor(IsoObject object) {
+        IsoGridSquare square = object.getSquare();
+        return square != null && square.getFloor() == object;
+    }
+
+    /** What one picture outlines as it is gathered. */
+    private static final class Gathering {
+        long[] keys = new long[8];
+        float[] colours = new float[24];
+        boolean[] floors = new boolean[8];
+        int count;
+
+        void add(long key, float red, float green, float blue, boolean floor) {
+            if (count == keys.length) {
+                keys = Arrays.copyOf(keys, count * 2);
+                colours = Arrays.copyOf(colours, count * 6);
+                floors = Arrays.copyOf(floors, count * 2);
+            }
+            keys[count] = key;
+            floors[count] = floor;
+            colours[count * 3] = red;
+            colours[count * 3 + 1] = green;
+            colours[count * 3 + 2] = blue;
+            count++;
+        }
     }
 
     /**
@@ -137,6 +214,7 @@ final class Outlines {
         int others = gathered == null ? 0 : gathered.keys.length;
         long[] keys = new long[others + 1];
         float[] colours = new float[keys.length * 3];
+        boolean[] floors = new boolean[keys.length];
         keys[0] = ghost(square);
         colours[0] = ghost.fits() ? FITS_RED : CLASHES_RED;
         colours[1] = ghost.fits() ? FITS_GREEN : CLASHES_GREEN;
@@ -144,20 +222,21 @@ final class Outlines {
         if (gathered != null) {
             System.arraycopy(gathered.keys, 0, keys, 1, others);
             System.arraycopy(gathered.colours, 0, colours, 3, others * 3);
+            System.arraycopy(gathered.floors, 0, floors, 1, others);
         }
-        return new Frame(keys, colours);
+        return new Frame(keys, colours, floors);
     }
 
     @SuppressWarnings("unchecked")
-    private static HashSet<IsoObject> outlinedByTheGame() {
+    private static <T> T read(Field[] cache, Links.Field link, Object owner) {
         try {
-            if (outlined == null) {
-                outlined = FBORenderObjectOutline.class.getDeclaredField(Links.OUTLINED.name());
-                outlined.setAccessible(true);
+            if (cache[0] == null) {
+                cache[0] = owner.getClass().getDeclaredField(link.name());
+                cache[0].setAccessible(true);
             }
-            return (HashSet<IsoObject>) outlined.get(FBORenderObjectOutline.getInstance());
+            return (T) cache[0].get(owner);
         } catch (ReflectiveOperationException failure) {
-            throw new IllegalStateException("the things the game outlines could not be read", failure);
+            throw new IllegalStateException("the things the game draws round or over could not be read: " + link.name(), failure);
         }
     }
 }

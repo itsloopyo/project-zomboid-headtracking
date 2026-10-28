@@ -244,6 +244,8 @@ final class WorldScene {
         long[] ownedKey = new long[0];
         int[] ownedRun = new int[0], ownedFrom = new int[0], ownedFloats = new int[0];
         int owned;
+        /** The least and the greatest square x and y of what the build's things stand on: see Outlines.squareX. */
+        int ownedLowX, ownedHighX, ownedLowY, ownedHighY;
         /**
          * The box that holds every vertex of the runs as it stands, before the wind moves any:
          * the least and the greatest x, y and height. Of no meaning for a build with no runs.
@@ -437,6 +439,8 @@ final class WorldScene {
             runs = 0;
             floats = 0;
             owned = 0;
+            ownedLowX = ownedLowY = Integer.MAX_VALUE;
+            ownedHighX = ownedHighY = Integer.MIN_VALUE;
             minX = minY = minUp = Float.POSITIVE_INFINITY;
             maxX = maxY = maxUp = Float.NEGATIVE_INFINITY;
             turned = 0f;
@@ -491,7 +495,12 @@ final class WorldScene {
                         ownedFrom = Arrays.copyOf(ownedFrom, more);
                         ownedFloats = Arrays.copyOf(ownedFloats, more);
                     }
-                    ownedKey[owned] = mesh.spanKey[span];
+                    long key = mesh.spanKey[span];
+                    ownedKey[owned] = key;
+                    ownedLowX = Math.min(ownedLowX, Outlines.squareX(key));
+                    ownedHighX = Math.max(ownedHighX, Outlines.squareX(key));
+                    ownedLowY = Math.min(ownedLowY, Outlines.squareY(key));
+                    ownedHighY = Math.max(ownedHighY, Outlines.squareY(key));
                     ownedRun[owned] = runs;
                     ownedFrom[owned] = floats + mesh.spanFrom[span];
                     ownedFloats[owned] = mesh.spanTo[span] - mesh.spanFrom[span];

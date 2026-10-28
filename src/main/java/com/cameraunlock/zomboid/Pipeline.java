@@ -101,6 +101,12 @@ final class Pipeline {
     private static final float SOLID_CUT = 0.48f;
     /** How much nearer the eye, in tiles, what is outlined is drawn into its mask than it is: more than a wall's skin is in front of a door's leaf. */
     static final float OUTLINE_NEARER = 0.05f;
+    /**
+     * The same for a floor, which lies flat and in no wall: at OUTLINE_NEARER the floor just
+     * behind a wall won over the wall's foot, and a floor outlined in the next room drew its
+     * line a hand up the wall.
+     */
+    static final float FLOOR_NEARER = 0.002f;
     private static final int GL_TEXTURE_3D = 0x806F;
     private static final int GL_TEXTURE0 = 0x84C0;
     private static final int GL_TEXTURE_MAG_FILTER = 0x2800;
@@ -4742,7 +4748,7 @@ final class Pipeline {
         // Drawn OUTLINE_NEARER nearer the eye than it is, on the screen where it is: a door hangs inside its wall's
         // thickness and the wall's skins are nearer than its leaf, and drawn where it is the leaf's edge was the ragged
         // edge of the skin's cut-out sprite, which came and went with the frame's jitter.
-        projection[14] += projection[10] * OUTLINE_NEARER;
+        float drawnAt = projection[14];
         arrays();
         GL33.glBindSampler(0, spriteSampler);
         GL11.glEnable(GL_DEPTH_TEST);
@@ -4755,9 +4761,18 @@ final class Pipeline {
         long[] keys = outlined.keys();
         float[] colours = outlined.colours();
         for (int k = 0; k < keys.length; k++) {
+            projection[14] = drawnAt + projection[10] * (outlined.floors()[k] ? FLOOR_NEARER : OUTLINE_NEARER);
+            GL11.glMatrixMode(GL_PROJECTION);
+            GL11.glLoadMatrixf(projection);
+            GL11.glMatrixMode(GL_MODELVIEW);
             GL20.glUniform4f(outline, colours[k * 3], colours[k * 3 + 1], colours[k * 3 + 2], 1f);
+            int squareX = Outlines.squareX(keys[k]), squareY = Outlines.squareY(keys[k]);
             for (int chunk = 0; chunk < drawn.size(); chunk++) {
                 WorldScene.ChunkMeshes build = drawn.get(chunk);
+                // Every object of the map is a thing that may be outlined: only the build that holds its square is looked through.
+                if (squareX < build.ownedLowX || squareX > build.ownedHighX || squareY < build.ownedLowY || squareY > build.ownedHighY) {
+                    continue;
+                }
                 for (int i = 0; i < build.owned; i++) {
                     int run = build.ownedRun[i];
                     if (build.ownedKey[i] != keys[k] || build.runUnless[run] != RoomSight.OUTSIDE
@@ -4791,6 +4806,7 @@ final class Pipeline {
             worldDepth.set("uCut", SOLID_CUT);
             drawModels(worldDepth, false, camera, far, pixel, keys[k]);
         }
+        projection[14] = drawnAt + projection[10] * OUTLINE_NEARER;
         GL20.glUniform4f(outline, 0f, 0f, 0f, 0f);
         leaveWorld();
         if (bodiesLie()) {
