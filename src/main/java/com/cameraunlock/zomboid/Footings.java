@@ -1,7 +1,6 @@
 package com.cameraunlock.zomboid;
 
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -176,7 +175,7 @@ final class Footings {
      * it is in without looking over MOST squares again, and a building's own square among
      * them answers with no search.
      */
-    private final HashSet<Long> large = new HashSet<>();
+    private final LongTable<Boolean> large = new LongTable<>();
 
     private static final int CHUNK = Terrain.CHUNK_TILES;
 
@@ -404,7 +403,7 @@ final class Footings {
             }
             return;
         }
-        boolean big = large.contains(spread(square(x, y)));
+        boolean big = large.containsKey(square(x, y));
         if (big && start == HOUSE) {
             whole = false;
             found = site.house(x, y);
@@ -439,7 +438,7 @@ final class Footings {
                 if (over != BUILT && over != HOUSE && over != HUNG) {
                     continue;
                 }
-                big |= large.contains(spread(square(toX, toY)));
+                big |= large.containsKey(square(toX, toY));
                 whole = count < MOST;
                 if (whole) {
                     answered[at] |= QUEUED;
@@ -476,7 +475,7 @@ final class Footings {
                         continue;
                     }
                     if (across > 1 && (over == BUILT || over == HOUSE)) {
-                        big |= large.contains(spread(square(toX, toY)));
+                        big |= large.containsKey(square(toX, toY));
                         whole = count < MOST;
                         if (whole) {
                             answered[at] |= QUEUED;
@@ -491,7 +490,7 @@ final class Footings {
             whole = false;
             boolean grew = false;
             for (int member = 0; member < count; member++) {
-                grew |= large.add(spread(square(squares[member * 2], squares[member * 2 + 1])));
+                grew |= takeLarge(squares[member * 2], squares[member * 2 + 1]);
             }
             largeThings += grew ? 1 : 0;
             found = start == HOUSE ? site.house(x, y) : nearest;
@@ -534,7 +533,7 @@ final class Footings {
      * round it, and Terrain lays the box level: see boxed.
      */
     private void findLevel(Site site, int x, int y, int startAt) {
-        if (large.contains(spread(square(x, y)))) {
+        if (large.containsKey(square(x, y))) {
             whole = false;
             return;
         }
@@ -562,11 +561,21 @@ final class Footings {
         remember(site, 0, count);
     }
 
+    /** Has large take in a square, and whether it had it not. */
+    private boolean takeLarge(int x, int y) {
+        long square = square(x, y);
+        if (large.containsKey(square)) {
+            return false;
+        }
+        large.put(square, Boolean.TRUE);
+        return true;
+    }
+
     /** Has large take in the squares from the one at from on, of a thing found too large to look over. */
     private void keepLarge(int from) {
         boolean grew = false;
         for (int member = from; member < count; member++) {
-            grew |= large.add(spread(square(squares[member * 2], squares[member * 2 + 1])));
+            grew |= takeLarge(squares[member * 2], squares[member * 2 + 1]);
         }
         largeThings += grew ? 1 : 0;
     }
@@ -682,7 +691,7 @@ final class Footings {
                         if (over == UNLOADED) {
                             settled = false;
                         }
-                        if (over != LEVEL || large.contains(spread(square(atX, atY)))) {
+                        if (over != LEVEL || large.containsKey(square(atX, atY))) {
                             continue;
                         }
                         int from = count;
@@ -776,10 +785,10 @@ final class Footings {
             settled = false;
         }
         if (over != LEVEL || kind != Grounds.NONE && site.levelKind(x, y) != kind) {
-            metLarge |= ruling && over == (LEVEL | QUEUED) && large.contains(spread(square(x, y)));
+            metLarge |= ruling && over == (LEVEL | QUEUED) && large.containsKey(square(x, y));
             return;
         }
-        if (ruling && large.contains(spread(square(x, y)))) {
+        if (ruling && large.containsKey(square(x, y))) {
             metLarge = true;
             return;
         }
