@@ -659,9 +659,8 @@ final class Scope {
         }
         power = ScopeOptics.magnification(glass, zoom);
         pictureTan = ScopeOptics.pictureTan(glass, zoom);
-        sees.eyeX = aim.eyeX + aim.rightX * held[0] + aim.upX * held[1] + aim.forwardX * held[2];
-        sees.eyeY = aim.eyeY + aim.rightY * held[0] + aim.upY * held[1] + aim.forwardY * held[2];
-        sees.eyeUp = aim.eyeUp + aim.rightUp * held[0] + aim.upUp * held[1] + aim.forwardUp * held[2];
+        sees.moveEye(aim.rightX * held[0] + aim.upX * held[1] + aim.forwardX * held[2], aim.rightY * held[0] + aim.upY * held[1] + aim.forwardY * held[2],
+                aim.rightUp * held[0] + aim.upUp * held[1] + aim.forwardUp * held[2]);
         sees.rightX = aim.rightX * held[3] + aim.upX * held[4] + aim.forwardX * held[5];
         sees.rightY = aim.rightY * held[3] + aim.upY * held[4] + aim.forwardY * held[5];
         sees.rightUp = aim.rightUp * held[3] + aim.upUp * held[4] + aim.forwardUp * held[5];

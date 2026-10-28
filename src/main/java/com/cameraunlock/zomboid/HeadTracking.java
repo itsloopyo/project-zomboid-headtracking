@@ -261,9 +261,7 @@ final class HeadTracking {
                     reach, margin, found);
         }
         Tracking.lean(index, found, lean);
-        out.eyeX += lean.camera[0] + lean.rig[0];
-        out.eyeY += lean.camera[1] + lean.rig[1];
-        out.eyeUp += lean.camera[2] + lean.rig[2];
+        out.moveEye(lean.camera[0] + lean.rig[0], lean.camera[1] + lean.rig[1], lean.camera[2] + lean.rig[2]);
 
         boolean unmeasured = (lean.flags & CameraUnlock.LEAN_QUERY_FAILED) != 0;
         if (unmeasured != unmeasuredLogged) {

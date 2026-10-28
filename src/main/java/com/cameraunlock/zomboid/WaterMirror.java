@@ -174,9 +174,7 @@ final class WaterMirror {
      */
     static void mirror(ViewCamera.Pose eye, float[] plane, ViewCamera.Pose out) {
         float over = 2f * above(plane, eye.eyeX, eye.eyeY, eye.eyeUp);
-        out.eyeX = eye.eyeX - over * plane[0];
-        out.eyeY = eye.eyeY - over * plane[1];
-        out.eyeUp = eye.eyeUp - over * plane[2];
+        out.eyeAt(eye.exactX() - over * plane[0], eye.exactY() - over * plane[1], eye.exactUp() - over * plane[2]);
         float right = 2f * (plane[0] * eye.rightX + plane[1] * eye.rightY + plane[2] * eye.rightUp);
         out.rightX = eye.rightX - right * plane[0];
         out.rightY = eye.rightY - right * plane[1];

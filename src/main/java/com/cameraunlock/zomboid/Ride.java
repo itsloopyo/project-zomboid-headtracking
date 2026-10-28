@@ -127,7 +127,7 @@ final class Ride {
      * @param terrain the lie of the land the player's view is drawn on
      * @param eye     the eye's x, y and height, which a seat replaces
      */
-    void note(IsoPlayer player, BaseVehicle vehicle, float floorUp, Terrain terrain, float[] eye) {
+    void note(IsoPlayer player, BaseVehicle vehicle, float floorUp, Terrain terrain, double[] eye) {
         // The picture reads the seats as soon as it sees the viewer seated: they are set first.
         if (vehicle != null && !vehicle.getScriptName().equals(seatsOf)) {
             seatsOf = vehicle.getScriptName();
@@ -359,7 +359,7 @@ final class Ride {
         return vehicle != null && vehicle.getSeat(player) == 0;
     }
 
-    private void seatTheEye(BaseVehicle vehicle, int seat, float floorUp, float[] eye) {
+    private void seatTheEye(BaseVehicle vehicle, int seat, float floorUp, double[] eye) {
         vehicle.getPassengerWorldPos(seat, seatAt);
         // The game's seat is at the door. The head is further in, straight across
         // the vehicle. Which way the vehicle faces the game gives with y as up.
@@ -371,9 +371,9 @@ final class Ride {
         float ahead = outX * aheadX + outY * aheadY;
         float sideX = outX - ahead * aheadX, sideY = outY - ahead * aheadY;
         float side = Math.max((float) Math.hypot(sideX, sideY), 1e-3f);
-        eye[0] = seatAt.x - sideX / side * Math.min(HEAD_INBOARD, side);
-        eye[1] = seatAt.y - sideY / side * Math.min(HEAD_INBOARD, side);
-        eye[2] = floorUp + EYE_HEIGHT_IN_VEHICLE;
+        eye[0] = (double) seatAt.x - sideX / side * Math.min(HEAD_INBOARD, side);
+        eye[1] = (double) seatAt.y - sideY / side * Math.min(HEAD_INBOARD, side);
+        eye[2] = (double) floorUp + EYE_HEIGHT_IN_VEHICLE;
         // Where the vehicle's own wheel has been found the driver sits behind it: a
         // pickup's seat is higher than a saloon's and a van's further forward.
         // A passenger sits where the script seats them from the driver. The eye goes
@@ -385,9 +385,9 @@ final class Ride {
             float back = wheel[0] - Cabins.EYE_BEHIND + fromDriver[0], across = wheel[1] + fromDriver[1], raised = wheel[2] + Cabins.EYE_ABOVE;
             // Turned about the centre of mass, as the game's physics turns the body.
             float centre = wheel[4];
-            eye[0] = vehicle.getX() + turn[6] * centre + axes[0] * back + axes[3] * across + axes[6] * raised;
-            eye[1] = vehicle.getY() + turn[7] * centre + axes[1] * back + axes[4] * across + axes[7] * raised;
-            eye[2] = groundUp + turn[8] * centre + axes[2] * back + axes[5] * across + axes[8] * raised;
+            eye[0] = (double) vehicle.getX() + turn[6] * centre + axes[0] * back + axes[3] * across + axes[6] * raised;
+            eye[1] = (double) vehicle.getY() + turn[7] * centre + axes[1] * back + axes[4] * across + axes[7] * raised;
+            eye[2] = (double) groundUp + turn[8] * centre + axes[2] * back + axes[5] * across + axes[8] * raised;
         }
         if (FirstPerson.TRACE && (seatSaid++ & 127) == 0) {
             Log.info(String.format(Locale.ROOT, "seat %d at (%.2f, %.2f, %.2f) vehicle (%.2f, %.2f) forward (%.2f, %.2f, %.2f) eye (%.2f, %.2f)", seat,

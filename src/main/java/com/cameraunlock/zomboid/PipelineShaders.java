@@ -5108,7 +5108,7 @@ final class PipelineShaders {
                 vWorld = at;
                 vIn = vec2(across, along);
                 // The harder it rains the more of the drops there are.
-                gl_Position = fract(seed.z * 17.0 + seed.x * 5.0) > uRain ? vec4(2.0, 2.0, 2.0, 1.0) : gl_ModelViewProjectionMatrix * vec4(at, 1.0);
+                gl_Position = fract(seed.z * 17.0 + seed.x * 5.0) > uRain ? vec4(2.0, 2.0, 2.0, 1.0) : gl_ModelViewProjectionMatrix * vec4(at - uEye, 1.0);
             }
             """;
 
@@ -5166,7 +5166,7 @@ final class PipelineShaders {
                 vWorld = at;
                 vIn = vec2(across, along);
                 // The harder it snows the more of the flakes there are.
-                gl_Position = fract(seed.z * 17.0 + seed.x * 5.0) > uSnow ? vec4(2.0, 2.0, 2.0, 1.0) : gl_ModelViewProjectionMatrix * vec4(at, 1.0);
+                gl_Position = fract(seed.z * 17.0 + seed.x * 5.0) > uSnow ? vec4(2.0, 2.0, 2.0, 1.0) : gl_ModelViewProjectionMatrix * vec4(at - uEye, 1.0);
             }
             """;
 
@@ -5387,7 +5387,7 @@ final class PipelineShaders {
                 vIn = at;
                 vWorld = p;
                 vec3 v = p + side * (at.x * size) + over * (at.y * size);
-                gl_Position = far < 0.12 ? vec4(2.0, 2.0, 2.0, 1.0) : gl_ModelViewProjectionMatrix * vec4(v, 1.0);
+                gl_Position = far < 0.12 ? vec4(2.0, 2.0, 2.0, 1.0) : gl_ModelViewProjectionMatrix * vec4(v - uEye, 1.0);
             }
             """;
 

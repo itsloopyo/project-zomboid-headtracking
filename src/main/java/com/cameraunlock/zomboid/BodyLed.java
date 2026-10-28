@@ -109,9 +109,9 @@ final class BodyLed {
         out.upY = upY;
         out.upUp = upUp;
         orthonormal(out);
-        out.eyeX = footX + jointX + out.forwardX * ViewCamera.EYES_AHEAD + out.upX * ViewCamera.EYES_ABOVE_JOINT;
-        out.eyeY = footY + jointY + out.forwardY * ViewCamera.EYES_AHEAD + out.upY * ViewCamera.EYES_ABOVE_JOINT;
-        out.eyeUp = footUp + jointUp + out.forwardUp * ViewCamera.EYES_AHEAD + out.upUp * ViewCamera.EYES_ABOVE_JOINT;
+        out.eyeAt((double) footX + jointX + out.forwardX * ViewCamera.EYES_AHEAD + out.upX * ViewCamera.EYES_ABOVE_JOINT,
+                (double) footY + jointY + out.forwardY * ViewCamera.EYES_AHEAD + out.upY * ViewCamera.EYES_ABOVE_JOINT,
+                (double) footUp + jointUp + out.forwardUp * ViewCamera.EYES_AHEAD + out.upUp * ViewCamera.EYES_ABOVE_JOINT);
     }
 
     /**
@@ -228,9 +228,8 @@ final class BodyLed {
         out.forwardX = 2f * (x * z + w * y);
         out.forwardY = 2f * (y * z - w * x);
         out.forwardUp = 1f - 2f * (x * x + y * y);
-        out.eyeX = from.eyeX + (to.eyeX - from.eyeX) * share;
-        out.eyeY = from.eyeY + (to.eyeY - from.eyeY) * share;
-        out.eyeUp = from.eyeUp + (to.eyeUp - from.eyeUp) * share;
+        out.eyeAt(from.exactX() + (to.exactX() - from.exactX()) * share, from.exactY() + (to.exactY() - from.exactY()) * share,
+                from.exactUp() + (to.exactUp() - from.exactUp()) * share);
     }
 
     /** A view's turn as a quaternion (x, y, z, w), of the matrix whose columns are its right, up and forward. */

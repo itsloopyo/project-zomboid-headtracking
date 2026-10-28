@@ -172,7 +172,7 @@ public final class FirstPerson {
     /** The eye goes from one of those heights to another over a few of these, where set at once the whole picture cut half a tile in a frame. */
     private static final float EYE_HEIGHT_SECONDS = 0.1f;
     private float eyeHigh;
-    private final float[] eye = new float[3];
+    private final double[] eye = new double[3];
     private final float[] headOffset = new float[3];
     private final float[] headTurn = new float[9], headJoint = new float[3], ledTilt = new float[9];
     /** The clean view as the mouse has it this frame, before the head takes any of it: the aim is made from it. */
@@ -904,8 +904,8 @@ public final class FirstPerson {
                 || state == ClimbThroughWindowState.instance();
         float share = reach > 0f ? world.roomForTheEye(player.getX(), player.getY(), headOffset[0] / reach,
                 headOffset[1] / reach, reach, Tracking.settings().collisionMargin, climbing) / reach : 1f;
-        eye[0] = player.getX() + headOffset[0] * share;
-        eye[1] = player.getY() + headOffset[1] * share;
+        eye[0] = (double) player.getX() + headOffset[0] * share;
+        eye[1] = (double) player.getY() + headOffset[1] * share;
         // Eased from where the last frame at the eye had it. The first of them has none before it.
         eyeHigh = landed && wasLanded ? ViewModelMath.ease(eyeHigh, height, sinceLastFrame, EYE_HEIGHT_SECONDS) : height;
         BaseVehicle vehicle = player.getVehicle();
@@ -916,10 +916,10 @@ public final class FirstPerson {
         } else {
             view.kerbSteps.lose(player);
         }
-        eye[2] = standsUp + eyeHigh;
+        eye[2] = (double) standsUp + eyeHigh;
         view.ride.note(player, vehicle, floorUp, view.worldScene.terrain, eye);
         // After the ride is noted: the beam of the vehicle sat in comes from where it lies this frame.
-        view.headlights.gather(view.worldScene.terrain, eye[0], eye[1], view.ride);
+        view.headlights.gather(view.worldScene.terrain, (float) eye[0], (float) eye[1], view.ride);
         // Nothing is aimed while the game's animation has the body: a zoom would close in on the head's view.
         boolean sightsUp = view.controls.sightsUp(player) && !bodyLeads;
         view.fieldOfView.ease(sightsUp, sinceLastFrame);
@@ -949,13 +949,11 @@ public final class FirstPerson {
         double beamHeading = Math.atan2(cleanView.forwardY, cleanView.forwardX) + view.headFollowLight.turn();
         float beamUp = view.headFollowLight.up(cleanView);
         float beamFlat = (float) Math.sqrt(Math.max(1f - beamUp * beamUp, 0f));
-        view.carriedLight.gather(player, eye[0], eye[1], eye[2], (float) Math.cos(beamHeading) * beamFlat, (float) Math.sin(beamHeading) * beamFlat, beamUp);
-        view.heldLight.gather(player, world, eye[0], eye[1], cleanView.forwardX, cleanView.forwardY, vehicle != null);
+        view.carriedLight.gather(player, (float) eye[0], (float) eye[1], (float) eye[2], (float) Math.cos(beamHeading) * beamFlat, (float) Math.sin(beamHeading) * beamFlat, beamUp);
+        view.heldLight.gather(player, world, (float) eye[0], (float) eye[1], cleanView.forwardX, cleanView.forwardY, vehicle != null);
         float[] carried = view.headTracking.carried();
         aimView.set(mouseView);
-        aimView.eyeX += carried[0];
-        aimView.eyeY += carried[1];
-        aimView.eyeUp += carried[2];
+        aimView.moveEye(carried[0], carried[1], carried[2]);
         if (view.bodyLed.holding()) {
             ViewCamera.eyeFrom(aimView, trackedView, eyeFromAim);
         } else {
@@ -1099,9 +1097,7 @@ public final class FirstPerson {
         view.hearing.face(flightView, -OVERHEAD_PITCH * (1f - view.flight.share()), view.flight.share());
         if (view.flight.away() > OWN_FROM) {
             standingView.set(flightView);
-            standingView.eyeX = eye[0];
-            standingView.eyeY = eye[1];
-            standingView.eyeUp = eye[2];
+            standingView.eyeAt(eye[0], eye[1], eye[2]);
             view.ride.seated = false;
             scene.build(player, standingView, standingView, ViewCamera.SAME_EYE, view.fieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), flightView, false);
             scene.seenFrom(flightView, view.flight.tanHalfFieldOfView(), view.flight.away(), view.flight.share());
@@ -1389,9 +1385,8 @@ public final class FirstPerson {
                     atX, atY, wide, high, zoom, eastX, eastY, southX, southY, IsoCamera.getOffX(), IsoCamera.getOffY(), middleX, middleY, x, y, level));
         }
         ViewCamera.clean(overheadView, 0f, 0f, 0f, OVERHEAD_YAW, OVERHEAD_PITCH);
-        overheadView.eyeX = middleX - overheadView.forwardX * OVERHEAD_AWAY;
-        overheadView.eyeY = middleY - overheadView.forwardY * OVERHEAD_AWAY;
-        overheadView.eyeUp = floorUp - overheadView.forwardUp * OVERHEAD_AWAY;
+        overheadView.eyeAt((double) middleX - overheadView.forwardX * OVERHEAD_AWAY, (double) middleY - overheadView.forwardY * OVERHEAD_AWAY,
+                (double) floorUp - overheadView.forwardUp * OVERHEAD_AWAY);
     }
 
     /** Adds the trees the game is fading under a mask about that place on the floor, ring by ring out from it, each tree once. */
@@ -1504,9 +1499,7 @@ public final class FirstPerson {
         }
         float lineX = shownX - trackedView.eyeX, lineY = shownY - trackedView.eyeY, lineUp = shownUp - trackedView.eyeUp;
         float lineLength = (float) Math.sqrt(lineX * lineX + lineY * lineY + lineUp * lineUp);
-        reticleLine.eyeX = trackedView.eyeX;
-        reticleLine.eyeY = trackedView.eyeY;
-        reticleLine.eyeUp = trackedView.eyeUp;
+        reticleLine.eyeAt(trackedView.exactX(), trackedView.exactY(), trackedView.exactUp());
         reticleLine.forwardX = lineX / lineLength;
         reticleLine.forwardY = lineY / lineLength;
         reticleLine.forwardUp = lineUp / lineLength;
@@ -2091,10 +2084,9 @@ public final class FirstPerson {
         float awayX = head.eyeX - x, awayY = head.eyeY - y, reach = (float) Math.hypot(awayX, awayY);
         if (reach > 0f) {
             float room = world.roomForTheEye(x, y, awayX / reach, awayY / reach, reach, margin) / reach;
-            head.eyeX = x + awayX * room;
-            head.eyeY = y + awayY * room;
+            head.eyeAt((double) x + awayX * room, (double) y + awayY * room, head.exactUp());
         }
-        head.eyeUp = Math.max(head.eyeUp, footUp + margin);
+        head.eyeAt(head.exactX(), head.exactY(), Math.max(head.exactUp(), (double) footUp + margin));
         if (share < 1f) {
             view.bodyLed.between(mouseView, head, share, cleanView);
         } else {

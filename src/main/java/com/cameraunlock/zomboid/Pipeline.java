@@ -939,7 +939,7 @@ final class Pipeline {
     private final int[] samplers = new int[UNITS];
     /** Where the driver puts an answer: see bound. As long as the longest answer OpenGL gives to one question. */
     private final int[] asked = new int[16];
-    private final float[] projection = new float[16], viewed = new float[16], flash = new float[7];
+    private final float[] projection = new float[16], viewed = new float[16], boltView = new float[16], flash = new float[7];
     /**
      * The eye's light meter: the picture before its exposure at METER_WIDE by METER_HIGH, as the
      * log of its light and the weight the eye's reading takes it by (more to the middle of the
@@ -1559,18 +1559,15 @@ final class Pipeline {
     /** Where the mirror on the screen hangs this frame, and the way it looks: into behind. */
     private void placeBehind(ViewCamera.Pose camera, float[] cabin) {
         float aheadX = view.ride.aheadX, aheadY = view.ride.aheadY;
-        behind.eyeX = camera.eyeX + (aheadX * cabin[7] - aheadY * cabin[8]) * Cabins.SCALE;
-        behind.eyeY = camera.eyeY + (aheadY * cabin[7] + aheadX * cabin[8]) * Cabins.SCALE;
-        behind.eyeUp = camera.eyeUp + cabin[9] * Cabins.SCALE;
+        behind.eyeAt(camera.exactX() + (aheadX * cabin[7] - aheadY * cabin[8]) * Cabins.SCALE, camera.exactY() + (aheadY * cabin[7] + aheadX * cabin[8]) * Cabins.SCALE,
+                camera.exactUp() + cabin[9] * Cabins.SCALE);
         // Where the vehicle's wheel was when it was last drawn says where the mirror
         // is, whichever seat the eye is in and however the head leans.
         float[] wheelAt = view.characters.cabin.wheel;
         VehicleMeshes.Parts body = view.characters.cabin.parts;
         if (wheelAt != null) {
             Cabins.mirrorAt(wheelAt, Cabins.house(view.ride.seatedIn, body != null ? body.measures : Cabins.STANDARD_MEASURES), aheadX, aheadY, mirrorPlace);
-            behind.eyeX = mirrorPlace[0];
-            behind.eyeY = mirrorPlace[1];
-            behind.eyeUp = mirrorPlace[2];
+            behind.eyeAt(mirrorPlace[0], mirrorPlace[1], mirrorPlace[2]);
         }
         behind.forwardX = -aheadX;
         behind.forwardY = -aheadY;
@@ -2741,9 +2738,7 @@ final class Pipeline {
         // throws its shadow down the road.
         heldChunks[BEAM_MAP] = 0;
         if (beams[6] > 0f) {
-            lamp.eyeX = beams[0];
-            lamp.eyeY = beams[1];
-            lamp.eyeUp = beams[2];
+            lamp.eyeAt(beams[0], beams[1], beams[2]);
             lamp.forwardX = beams[3];
             lamp.forwardY = beams[4];
             lamp.forwardUp = beams[5];
@@ -3079,8 +3074,8 @@ final class Pipeline {
         steady.set("uNear", near);
         steady.set("uFar", far);
         // Out on the map a float holds a place to about a millimetre, a third of a pixel at the
-        // feet: places are given the shader from the eyes, each difference of two nearby floats exact.
-        steady.set("uEyeMoved", camera.eyeX - before.eyeX, camera.eyeY - before.eyeY, camera.eyeUp - before.eyeUp);
+        // feet: places are given the shader from the eyes, and how far the eye has moved in doubles.
+        steady.set("uEyeMoved", (float) (camera.exactX() - before.exactX()), (float) (camera.exactY() - before.exactY()), (float) (camera.exactUp() - before.exactUp()));
         setBasis(steady, camera);
         steady.set("uRightBefore", before.rightX, before.rightY, before.rightUp);
         steady.set("uUpBefore", before.upX, before.upY, before.upUp);
@@ -3102,9 +3097,11 @@ final class Pipeline {
         Movers movers = view.characters.movers;
         steady.set("uMovers", (float) movers.found);
         for (int i = 0; i < movers.found; i++) {
-            steady.set(MOVER_AT[i], movers.now[i * 4] - camera.eyeX, movers.now[i * 4 + 1] - camera.eyeY, movers.now[i * 4 + 2] - camera.eyeUp,
+            steady.set(MOVER_AT[i], movers.now[i * 4] - camera.eyeX - camera.eyeFineX, movers.now[i * 4 + 1] - camera.eyeY - camera.eyeFineY,
+                    movers.now[i * 4 + 2] - camera.eyeUp - camera.eyeFineUp,
                     movers.now[i * 4 + 3]);
-            steady.set(MOVER_BEFORE[i], movers.before[i * 4] - before.eyeX, movers.before[i * 4 + 1] - before.eyeY, movers.before[i * 4 + 2] - before.eyeUp,
+            steady.set(MOVER_BEFORE[i], movers.before[i * 4] - before.eyeX - before.eyeFineX, movers.before[i * 4 + 1] - before.eyeY - before.eyeFineY,
+                    movers.before[i * 4 + 2] - before.eyeUp - before.eyeFineUp,
                     movers.before[i * 4 + 3]);
         }
         steady.set("uKept", keptAny && !WITHOUT.contains("steady") ? KEPT : 0f);
@@ -3129,7 +3126,10 @@ final class Pipeline {
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, to);
     }
 
-    /** Loads the matrices of a picture drawn from a camera, drawn aside as the world was. */
+    /**
+     * Loads the matrices of a picture drawn from a camera, drawn aside as the world was. Only the turn: what is
+     * drawn has the eye's place taken off each vertex itself, as the world's vertex program does.
+     */
     private void lookFrom(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far, float asideX, float asideY) {
         GL11.glMatrixMode(GL_PROJECTION);
         ViewCamera.projection(tanHalfFieldOfView, aspect, near, far, projection);
@@ -3137,7 +3137,7 @@ final class Pipeline {
         projection[9] += asideY;
         GL11.glLoadMatrixf(projection);
         GL11.glMatrixMode(GL_MODELVIEW);
-        ViewCamera.view(camera, viewed);
+        ViewCamera.turned(camera, viewed);
         GL11.glLoadMatrixf(viewed);
     }
 
@@ -3214,9 +3214,6 @@ final class Pipeline {
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, target);
         GL11.glViewport(0, 0, width, height);
         lookFrom(camera, tanHalfFieldOfView, aspect, near, far, asideX, asideY);
-        // Only the turn: the leaf's vertex program takes the eye's place off each vertex itself.
-        ViewCamera.turned(camera, viewed);
-        GL11.glLoadMatrixf(viewed);
         arrays();
         cardArrayOff();
         GL11.glDisableClientState(GL_COLOR_ARRAY);
@@ -3461,6 +3458,9 @@ final class Pipeline {
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, steadying ? movesTarget : sceneTarget);
         GL11.glViewport(0, 0, width, height);
         lookFrom(camera, tanHalfFieldOfView, aspect, near, far, asideX, asideY);
+        // A bolt is a mile off, where a millimetre is nothing: it is drawn from the map through the whole view.
+        ViewCamera.view(camera, boltView);
+        GL11.glLoadMatrixf(boltView);
         arrays();
         GL11.glDisableClientState(GL_COLOR_ARRAY);
         GL11.glDisableClientState(GL_NORMAL_ARRAY);
@@ -4629,7 +4629,7 @@ final class Pipeline {
         GL11.glBindTexture(GL_TEXTURE_2D, airKept[airNow]);
         volume.set("uAirKept", airKeptFrame == frameNumber - 1 ? AIR_KEPT : 0f);
         // Taken here and not in the shader, which may not keep the eyes' difference apart from the rest of the sum.
-        volume.set("uEyeMoved", camera.eyeX - airBefore.eyeX, camera.eyeY - airBefore.eyeY, camera.eyeUp - airBefore.eyeUp);
+        volume.set("uEyeMoved", (float) (camera.exactX() - airBefore.exactX()), (float) (camera.exactY() - airBefore.exactY()), (float) (camera.exactUp() - airBefore.exactUp()));
         volume.set("uRightBefore", airBefore.rightX, airBefore.rightY, airBefore.rightUp);
         volume.set("uUpBefore", airBefore.upX, airBefore.upY, airBefore.upUp);
         volume.set("uForwardBefore", airBefore.forwardX, airBefore.forwardY, airBefore.forwardUp);

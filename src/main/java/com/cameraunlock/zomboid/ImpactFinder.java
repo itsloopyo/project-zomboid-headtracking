@@ -183,9 +183,7 @@ final class ImpactFinder {
     /** Sets the line traced to start at a place in the picture's measure and go the way given, made a unit. Its length. */
     private static float along(float x, float y, float up, float wayX, float wayY, float wayUp) {
         float length = (float) Math.sqrt(wayX * wayX + wayY * wayY + wayUp * wayUp);
-        line.eyeX = x;
-        line.eyeY = y;
-        line.eyeUp = up;
+        line.eyeAt(x, y, up);
         float unit = length > 1e-6f ? 1f / length : 0f;
         line.forwardX = wayX * unit;
         line.forwardY = wayY * unit;
@@ -247,13 +245,9 @@ final class ImpactFinder {
             }
             surface(cell, terrain, distance, size);
             gone += distance + PAST_WALL;
-            line.eyeX = startX + line.forwardX * gone;
-            line.eyeY = startY + line.forwardY * gone;
-            line.eyeUp = startUp + line.forwardUp * gone;
+            line.eyeAt(startX + line.forwardX * gone, startY + line.forwardY * gone, startUp + line.forwardUp * gone);
         }
-        line.eyeX = startX;
-        line.eyeY = startY;
-        line.eyeUp = startUp;
+        line.eyeAt(startX, startY, startUp);
     }
 
     /** A shot went into a character, along the line: blood, unless the game's own blood is switched off. */

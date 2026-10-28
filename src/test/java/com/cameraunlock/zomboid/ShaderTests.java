@@ -535,11 +535,11 @@ final class ShaderTests {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-        Checks.check(pipeline.contains("steady.set(\"uEyeMoved\", camera.eyeX - before.eyeX, camera.eyeY - before.eyeY, camera.eyeUp - before.eyeUp);")
-                && pipeline.contains("steady.set(MOVER_AT[i], movers.now[i * 4] - camera.eyeX, movers.now[i * 4 + 1] - camera.eyeY, movers.now[i * 4 + 2] - camera.eyeUp,")
-                && pipeline.contains("steady.set(MOVER_BEFORE[i], movers.before[i * 4] - before.eyeX, movers.before[i * 4 + 1] - before.eyeY, movers.before[i * 4 + 2] - before.eyeUp,"),
+        Checks.check(pipeline.contains("steady.set(\"uEyeMoved\", (float) (camera.exactX() - before.exactX()), (float) (camera.exactY() - before.exactY()), (float) (camera.exactUp() - before.exactUp()));")
+                && pipeline.contains("steady.set(MOVER_AT[i], movers.now[i * 4] - camera.eyeX - camera.eyeFineX, movers.now[i * 4 + 1] - camera.eyeY - camera.eyeFineY, movers.now[i * 4 + 2] - camera.eyeUp - camera.eyeFineUp,")
+                && pipeline.contains("steady.set(MOVER_BEFORE[i], movers.before[i * 4] - before.eyeX - before.eyeFineX, movers.before[i * 4 + 1] - before.eyeY - before.eyeFineY, movers.before[i * 4 + 2] - before.eyeUp - before.eyeFineUp,"),
                 "the steadied picture is not told the eye's move, or where those who move are from the eye, now and a frame ago");
-        Checks.check(pipeline.contains("volume.set(\"uEyeMoved\", camera.eyeX - airBefore.eyeX, camera.eyeY - airBefore.eyeY, camera.eyeUp - airBefore.eyeUp);"),
+        Checks.check(pipeline.contains("volume.set(\"uEyeMoved\", (float) (camera.exactX() - airBefore.exactX()), (float) (camera.exactY() - airBefore.exactY()), (float) (camera.exactUp() - airBefore.exactUp()));"),
                 "the lit air is not told the eye's move since its last frame");
     }
 

@@ -137,7 +137,6 @@ final class FireCards {
     static final SmallProgram program = new SmallProgram("fire cards", VERTEX, FRAGMENT);
 
     private final float[] projection = new float[16], turned = new float[16];
-    private final ViewCamera.Pose atEye = new ViewCamera.Pose();
     private final float[] at = new float[4], before = new float[4];
     /** A pixel of the picture begun, in tiles for each tile ahead of the eye: the least an ember is drawn across. */
     private float pixelPerTile;
@@ -159,9 +158,7 @@ final class FireCards {
         projection[9] += asideY;
         GL11.glLoadMatrixf(projection);
         GL11.glMatrixMode(GL_MODELVIEW);
-        atEye.set(camera);
-        atEye.eyeX = atEye.eyeY = atEye.eyeUp = 0f;
-        ViewCamera.view(atEye, turned);
+        ViewCamera.turned(camera, turned);
         GL11.glLoadMatrixf(turned);
         pixelPerTile = pixelPerTile(tanHalfFieldOfView, height);
         GL13.glActiveTexture(GL_TEXTURE0);

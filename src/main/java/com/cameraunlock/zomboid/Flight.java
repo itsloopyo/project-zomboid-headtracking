@@ -142,9 +142,8 @@ final class Flight {
         away = overheadAway * overheadTan * (1f - s) / tan;
         float atX = overhead.eyeX + overhead.forwardX * overheadAway, atY = overhead.eyeY + overhead.forwardY * overheadAway;
         float atUp = overhead.eyeUp + overhead.forwardUp * overheadAway;
-        out.eyeX = atX + (tracked.eyeX - atX) * s - forwardX * away;
-        out.eyeY = atY + (tracked.eyeY - atY) * s - forwardY * away;
-        out.eyeUp = atUp + (tracked.eyeUp - atUp) * s - forwardUp * away;
+        out.eyeAt(atX + (tracked.exactX() - atX) * s - forwardX * away, atY + (tracked.exactY() - atY) * s - forwardY * away,
+                atUp + (tracked.exactUp() - atUp) * s - forwardUp * away);
     }
 
     /**

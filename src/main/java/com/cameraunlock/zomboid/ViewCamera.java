@@ -43,13 +43,43 @@ final class ViewCamera {
 
     /** An eye position and the three unit vectors of the view from it, in world axes. */
     static final class Pose {
+        /**
+         * The eye as a float holds it, and what that misses of where it is. Out on the map a float
+         * holds a place to a millimetre (from x 8192 on), so an eye moving smoothly would move in
+         * millimetre steps and the ground at the feet jump by half a dot of the picture with each.
+         * What is drawn takes eyeX off a vertex, which is exact, and the matrix (turned) takes the
+         * fine part off what is left. Set through eyeAt or moveEye, which keep the two together.
+         */
         float eyeX, eyeY, eyeUp;
+        float eyeFineX, eyeFineY, eyeFineUp;
         float rightX, rightY, rightUp;
         float upX, upY, upUp;
         float forwardX, forwardY, forwardUp;
 
+        void eyeAt(double x, double y, double up) {
+            eyeX = (float) x; eyeY = (float) y; eyeUp = (float) up;
+            eyeFineX = (float) (x - eyeX); eyeFineY = (float) (y - eyeY); eyeFineUp = (float) (up - eyeUp);
+        }
+
+        void moveEye(double x, double y, double up) {
+            eyeAt(exactX() + x, exactY() + y, exactUp() + up);
+        }
+
+        double exactX() {
+            return (double) eyeX + eyeFineX;
+        }
+
+        double exactY() {
+            return (double) eyeY + eyeFineY;
+        }
+
+        double exactUp() {
+            return (double) eyeUp + eyeFineUp;
+        }
+
         void set(Pose other) {
             eyeX = other.eyeX; eyeY = other.eyeY; eyeUp = other.eyeUp;
+            eyeFineX = other.eyeFineX; eyeFineY = other.eyeFineY; eyeFineUp = other.eyeFineUp;
             rightX = other.rightX; rightY = other.rightY; rightUp = other.rightUp;
             upX = other.upX; upY = other.upY; upUp = other.upUp;
             forwardX = other.forwardX; forwardY = other.forwardY; forwardUp = other.forwardUp;
@@ -65,12 +95,12 @@ final class ViewCamera {
      * @param yaw    radians, 0 facing +x, positive turning towards +y (to the right)
      * @param pitch  radians, positive looking up
      */
-    static void clean(Pose out, float eyeX, float eyeY, float eyeUp, float yaw, float pitch) {
+    static void clean(Pose out, double eyeX, double eyeY, double eyeUp, float yaw, float pitch) {
         float cy = (float) Math.cos(yaw);
         float sy = (float) Math.sin(yaw);
         float cp = (float) Math.cos(pitch);
         float sp = (float) Math.sin(pitch);
-        out.eyeX = eyeX; out.eyeY = eyeY; out.eyeUp = eyeUp;
+        out.eyeAt(eyeX, eyeY, eyeUp);
         out.forwardX = cy * cp; out.forwardY = sy * cp; out.forwardUp = sp;
         out.rightX = -sy; out.rightY = cy; out.rightUp = 0f;
         out.upX = -cy * sp; out.upY = -sy * sp; out.upUp = cp;
@@ -152,17 +182,18 @@ final class ViewCamera {
 
     /** Where one view's eye is from another's, as the difference of the two: for views a long way apart, where a millimetre is nothing. */
     static void eyeFrom(Pose from, Pose to, float[] out) {
-        out[0] = to.eyeX - from.eyeX;
-        out[1] = to.eyeY - from.eyeY;
-        out[2] = to.eyeUp - from.eyeUp;
+        out[0] = (float) (to.exactX() - from.exactX());
+        out[1] = (float) (to.exactY() - from.exactY());
+        out[2] = (float) (to.exactUp() - from.exactUp());
     }
 
     /** As view, into a matrix the caller keeps: a frame that makes one each time it draws makes garbage. */
     static void view(Pose pose, float[] out) {
         turned(pose, out);
-        out[12] = -(pose.rightX * pose.eyeX + pose.rightY * pose.eyeY + pose.rightUp * pose.eyeUp);
-        out[13] = -(pose.upX * pose.eyeX + pose.upY * pose.eyeY + pose.upUp * pose.eyeUp);
-        out[14] = pose.forwardX * pose.eyeX + pose.forwardY * pose.eyeY + pose.forwardUp * pose.eyeUp;
+        double x = pose.exactX(), y = pose.exactY(), up = pose.exactUp();
+        out[12] = (float) -(pose.rightX * x + pose.rightY * y + pose.rightUp * up);
+        out[13] = (float) -(pose.upX * x + pose.upY * y + pose.upUp * up);
+        out[14] = (float) (pose.forwardX * x + pose.forwardY * y + pose.forwardUp * up);
     }
 
     /**
@@ -197,8 +228,9 @@ final class ViewCamera {
 
     /**
      * The view with the eye at the origin: what view does to a point that has had the eye's
-     * place taken off it already. Taken off by the matrix, after the point has been multiplied
-     * through, the last digits of both are lost: see the world's vertex program.
+     * float place (eyeX) taken off it already, and the eye's fine part with it. Taken off by
+     * the matrix, after the point has been multiplied through, the last digits of both are
+     * lost: see the world's vertex program.
      */
     static float[] turned(Pose pose) {
         float[] out = new float[16];
@@ -220,9 +252,9 @@ final class ViewCamera {
         out[9] = pose.upUp;
         out[10] = -pose.forwardUp;
         out[11] = 0f;
-        out[12] = 0f;
-        out[13] = 0f;
-        out[14] = 0f;
+        out[12] = -(pose.rightX * pose.eyeFineX + pose.rightY * pose.eyeFineY + pose.rightUp * pose.eyeFineUp);
+        out[13] = -(pose.upX * pose.eyeFineX + pose.upY * pose.eyeFineY + pose.upUp * pose.eyeFineUp);
+        out[14] = pose.forwardX * pose.eyeFineX + pose.forwardY * pose.eyeFineY + pose.forwardUp * pose.eyeFineUp;
         out[15] = 1f;
     }
 
@@ -232,7 +264,7 @@ final class ViewCamera {
      * point that is not in front of the eye, where the divide has no meaning.
      */
     static boolean project(Pose pose, float tanHalfVerticalFov, float aspect, float x, float y, float up, float[] ndc) {
-        float dx = x - pose.eyeX, dy = y - pose.eyeY, du = up - pose.eyeUp;
+        float dx = (float) (x - pose.exactX()), dy = (float) (y - pose.exactY()), du = (float) (up - pose.exactUp());
         float ahead = dx * pose.forwardX + dy * pose.forwardY + du * pose.forwardUp;
         if (ahead <= MIN_DEPTH_AHEAD) {
             return false;

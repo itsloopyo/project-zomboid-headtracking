@@ -21,6 +21,7 @@ final class ShapeTests {
         Checks.run("binAndPostAreNeitherPanelNorBeam", ShapeTests::binAndPostAreNeitherPanelNorBeam);
         Checks.run("beamHasAnUndersideAndPanelIsOneUprightFace", ShapeTests::beamHasAnUndersideAndPanelIsOneUprightFace);
         Checks.run("depthFarAcrossTheMapKeepsItsOrderFromTheEye", ShapeTests::depthFarAcrossTheMapKeepsItsOrderFromTheEye);
+        Checks.run("anEyeMovingSmoothlyFarOutMovesTheGroundSmoothly", ShapeTests::anEyeMovingSmoothlyFarOutMovesTheGroundSmoothly);
         Checks.run("lampProudOfItsWallIsFoundWhereItIsFixed", ShapeTests::lampProudOfItsWallIsFoundWhereItIsFixed);
         Checks.run("newModelsAreInTheJar", ShapeTests::newModelsAreInTheJar);
         Checks.run("footOfAPostIsItsCornerNearestTheView", ShapeTests::footOfAPostIsItsCornerNearestTheView);
@@ -714,6 +715,37 @@ final class ShapeTests {
             }
         }
         return out;
+    }
+
+    private static void anEyeMovingSmoothlyFarOutMovesTheGroundSmoothly() {
+        // Downtown Louisville, where a float holds x to a millimetre: an eye stepping east a tenth
+        // of a millimetre a frame, looking down at a mark on the ground at its feet. The mark is
+        // put through what the world's vertex program does: its float place less the eye's, then
+        // the turn. It goes across the picture by the same amount every frame.
+        ViewCamera.Pose pose = new ViewCamera.Pose();
+        float[] projection = ViewCamera.projection(0.577f, 16f / 9f, 0.05f, 200f);
+        float markX = 12599.5f, markY = 1322f, markUp = 0f;
+        double worst = 0, step = 0;
+        float first = 0f, last = 0f;
+        for (int k = 0; k <= 40; k++) {
+            ViewCamera.clean(pose, 12599.5 + k * 1e-4, 1320.5, 1.6, (float) (Math.PI / 2), (float) Math.toRadians(-40));
+            float[] seen = times(projection, ViewCamera.turned(pose));
+            float x = markX - pose.eyeX, y = markY - pose.eyeY, up = markUp - pose.eyeUp;
+            float ndcX = (seen[0] * x + seen[4] * y + seen[8] * up + seen[12]) / (seen[3] * x + seen[7] * y + seen[11] * up + seen[15]);
+            float dots = ndcX * 960f;
+            if (k == 0) {
+                first = dots;
+            } else {
+                double moved = dots - last;
+                if (k == 1) {
+                    step = moved;
+                }
+                worst = Math.max(worst, Math.abs(moved - step));
+            }
+            last = dots;
+        }
+        check(Math.abs(last - first) > 1f, "the mark goes across the picture as the eye moves 4 mm: " + (last - first) + " dots");
+        check(worst < 0.01, "the mark moves the same each frame, to a hundredth of a dot, and differed by " + worst + " of a step of " + step);
     }
 
     private static void depthFarAcrossTheMapKeepsItsOrderFromTheEye() {

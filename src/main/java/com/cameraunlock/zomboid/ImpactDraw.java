@@ -219,7 +219,7 @@ final class ImpactDraw {
                 vLonger = uLonger;
                 vFade = uPuff > 0.5 ? pow(1.0 - t / life, 1.5) * smoothstep(0.0, 0.06, t) : 1.0 - smoothstep(0.65 * life, life, t);
                 vShade = 0.75 + 0.5 * rnd(i, 10.0);
-                gl_Position = gl_ModelViewProjectionMatrix * vec4(at, 1.0);
+                gl_Position = gl_ModelViewProjectionMatrix * vec4(at - uEye, 1.0);
             }
             """;
 
@@ -301,7 +301,7 @@ final class ImpactDraw {
                 vec3 across = cross(gl_Normal, vAlong);
                 // Drawn a little larger than the mark and a little off the face, so that it covers the mark however the face is seen.
                 vec3 at = gl_MultiTexCoord0.xyz + (vAlong * gl_Vertex.x + across * gl_Vertex.y) * (radius * 1.3) + gl_Normal * 0.01;
-                gl_Position = gl_ModelViewProjectionMatrix * vec4(at, 1.0);
+                gl_Position = gl_ModelViewProjectionMatrix * vec4(at - uEye, 1.0);
             }
             """;
 

@@ -867,9 +867,7 @@ final class RoomSight {
         }
         prepare(openings, blocks, round.atX, round.atY, round.atUp, round.eyeBuilding, round.grow, round.shutWithin, round.eye);
         float[] way = CUBE[round.faces++];
-        cubeFace.eyeX = round.atX;
-        cubeFace.eyeY = round.atY;
-        cubeFace.eyeUp = round.atUp;
+        cubeFace.eyeAt(round.atX, round.atY, round.atUp);
         cubeFace.forwardX = way[0];
         cubeFace.forwardY = way[1];
         cubeFace.forwardUp = way[2];
