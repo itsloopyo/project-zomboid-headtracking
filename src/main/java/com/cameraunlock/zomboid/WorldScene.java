@@ -5028,9 +5028,15 @@ final class WorldScene {
             checkPlaced.clear();
             checkLying.clear();
             crownsChecked.clear();
-            addSquares(chunk, chunkX, chunkY, lowest);
-            kerbBuilder.noKerb();
-            roofBuilder.addBacks(chunk, chunkX, chunkY);
+            // Made first on arrays the sets kept, now on new ones: nothing past a mesh's floats comes into a build.
+            solid.lendsNew = laid.lendsNew = true;
+            try {
+                addSquares(chunk, chunkX, chunkY, lowest);
+                kerbBuilder.noKerb();
+                roofBuilder.addBacks(chunk, chunkX, chunkY);
+            } finally {
+                solid.lendsNew = laid.lendsNew = false;
+            }
             long second = floatsOf(solid) * 31 + floatsOf(laid);
             boolean sameCrowns = crownsRead.same(crownsChecked);
             afresh = false;

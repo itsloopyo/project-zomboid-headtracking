@@ -21,6 +21,7 @@ final class BufferTests {
         Checks.run("whatIsLaidCarriesItsLayersAndACardDoesNot", BufferTests::whatIsLaidCarriesItsLayersAndACardDoesNot);
         Checks.run("aSetListsWhatWasAskedForInTheOrderItWasAsked", BufferTests::aSetListsWhatWasAskedForInTheOrderItWasAsked);
         Checks.run("aTrimmedSetLetsGoOfWhatIsNoLongerAskedFor", BufferTests::aTrimmedSetLetsGoOfWhatIsNoLongerAskedFor);
+        Checks.run("aSetsMeshesHoldWhatAMeshOfTheirOwnWould", BufferTests::aSetsMeshesHoldWhatAMeshOfTheirOwnWould);
         Checks.run("aBuildIsFilledWithItsRunsOneAfterAnother", BufferTests::aBuildIsFilledWithItsRunsOneAfterAnother);
         Checks.run("aBuildFilledAgainGivesBackWhatNoFrameTook", BufferTests::aBuildFilledAgainGivesBackWhatNoFrameTook);
         Checks.run("loansGoRoundAndTheIdleOnesAreCapped", BufferTests::loansGoRoundAndTheIdleOnesAreCapped);
@@ -518,24 +519,72 @@ final class BufferTests {
                 "the same meshes serve the next filling, listed in its own order");
     }
 
+    private static void aSetsMeshesHoldWhatAMeshOfTheirOwnWould() {
+        SpriteGeometry.MeshSet set = new SpriteGeometry.MeshSet();
+        float[] first = set.get(1).vertices;
+        set.clear();
+        check(set.get(1).vertices == first && set.get(2).vertices != first, "an emptied set lends a mesh's array to the next mesh asked for");
+        set.clear();
+        Random random = new Random(7);
+        for (int filling = 0; filling < 40; filling++) {
+            int textures = 1 + random.nextInt(12);
+            SpriteGeometry.Mesh[] meshes = new SpriteGeometry.Mesh[textures], own = new SpriteGeometry.Mesh[textures];
+            for (int t = 0; t < textures; t++) {
+                set.room = random.nextInt(4) == 0 ? RoomSight.OUTSIDE : filling * 100L + t;
+                meshes[t] = set.get(1 + random.nextInt(30));
+                boolean again = false;
+                for (int earlier = 0; earlier < t; earlier++) {
+                    again |= meshes[earlier] == meshes[t];
+                }
+                own[t] = again ? null : new SpriteGeometry.Mesh();
+            }
+            for (int step = 0; step < 3000; step++) {
+                int t = random.nextInt(textures);
+                if (own[t] == null) {
+                    continue;
+                }
+                float mark = filling * 10000f + step;
+                if (meshes[t].floats > 0 && random.nextInt(5) == 0) {
+                    int from = random.nextInt(meshes[t].floats / SpriteGeometry.VERTEX_FLOATS) * SpriteGeometry.VERTEX_FLOATS;
+                    meshes[t].again(from);
+                    own[t].again(from);
+                } else {
+                    meshes[t].add(mark, t, step, 0f, 0f, 1f, 1f, 1f);
+                    own[t].add(mark, t, step, 0f, 0f, 1f, 1f, 1f);
+                }
+            }
+            for (int t = 0; t < textures; t++) {
+                if (own[t] != null) {
+                    check(meshes[t].floats == own[t].floats && Arrays.equals(meshes[t].vertices, 0, meshes[t].floats, own[t].vertices, 0, own[t].floats),
+                            "a set's mesh, on arrays lent and lent again, holds the floats a mesh of its own would");
+                }
+            }
+            set.room = RoomSight.OUTSIDE;
+            set.clear();
+            if (filling % 10 == 9) {
+                set.trim();
+            }
+        }
+    }
+
     private static void aTrimmedSetLetsGoOfWhatIsNoLongerAskedFor() {
         SpriteGeometry.MeshSet set = new SpriteGeometry.MeshSet();
         for (int texture = 1; texture <= 300; texture++) {
             set.get(texture);
         }
         SpriteGeometry.Mesh big = triangles(set.get(7), 8000, 1f);
-        int grown = big.vertices.length;
+        int grown = big.capacity();
         set.clear();
         set.trim();
-        check(set.kept() == 300 && big.vertices.length == grown, "what the last fillings used is kept as it is");
+        check(set.kept() == 300 && big.capacity() == grown, "what the last fillings used is kept as it is");
         for (int filling = 0; filling < 3; filling++) {
             triangles(set.get(7), 10, 1f);
             set.get(8);
             set.clear();
         }
         set.trim();
-        check(set.kept() == 2 && set.get(7) == big && big.vertices.length < grown / 4, "meshes not asked for are let go, and room many times what was used");
-        check(big.vertices.length >= 10 * 3 * SpriteGeometry.VERTEX_FLOATS, "with room left for what was used");
+        check(set.kept() == 2 && set.get(7) == big && big.capacity() < grown / 4, "meshes not asked for are let go, and room many times what was used");
+        check(big.capacity() >= 10 * 3 * SpriteGeometry.VERTEX_FLOATS, "with room left for what was used");
         set.clear();
         for (int texture = 1; texture <= 300; texture++) {
             check(set.get(texture).floats == 0, "a mesh asked for again is found or made empty");

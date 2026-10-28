@@ -159,11 +159,14 @@ final class SpriteGeometry {
         int level;
         /**
          * Starts small and doubles. A set keeps a mesh for every texture a chunk has lately
-         * worn, and most of them only ever hold a few sprites.
+         * worn, and most of them only ever hold a few sprites. A set's mesh holds its array only
+         * while the set is filled: see MeshSet.spares.
          */
-        private static final int START_FLOATS = VERTEX_FLOATS * 3 * 8, SHRINK_ABOVE = 1 << 16;
-        float[] vertices = new float[START_FLOATS];
+        static final int START_FLOATS = VERTEX_FLOATS * 3 * 8, SHRINK_ABOVE = 1 << 16;
+        float[] vertices;
         int floats;
+        /** For a set's mesh, the length of the array it is lent when the set is next filled. */
+        private int lent = START_FLOATS;
         /** Which filling of its set last asked for the mesh, and the most it has held in any filling since the set was last trimmed. */
         private int round, most;
         private boolean asked;
@@ -221,6 +224,14 @@ final class SpriteGeometry {
         /** The set the mesh is of, or null for one of its own, and whether it has grown since the set's last own: see MeshSet.grown. */
         MeshSet set;
         private boolean grown;
+
+        Mesh() {
+            vertices = new float[START_FLOATS];
+        }
+
+        private Mesh(MeshSet set) {
+            this.set = set;
+        }
 
         /** Has what the vertices added next carry be what another mesh's would. */
         void carryAs(Mesh other) {
@@ -300,11 +311,33 @@ final class SpriteGeometry {
             return floats / (VERTEX_FLOATS * 3);
         }
 
+        /** Room for that many floats, the array doubled as often as it takes. Nothing reads past floats, so only they are carried over. */
+        void roomFor(int need) {
+            if (need <= vertices.length) {
+                return;
+            }
+            int length = vertices.length * 2;
+            while (length < need) {
+                length *= 2;
+            }
+            if (set == null) {
+                vertices = Arrays.copyOf(vertices, length);
+                return;
+            }
+            float[] more = set.spare(length);
+            System.arraycopy(vertices, 0, more, 0, floats);
+            set.giveBack(vertices);
+            vertices = more;
+        }
+
+        /** How many floats the mesh has room for, or will have when its set is next filled. */
+        int capacity() {
+            return vertices != null ? vertices.length : lent;
+        }
+
         void add(float x, float y, float up, float u, float v, float red, float green, float blue) {
             growing();
-            if (floats + VERTEX_FLOATS > vertices.length) {
-                vertices = Arrays.copyOf(vertices, vertices.length * 2);
-            }
+            roomFor(floats + VERTEX_FLOATS);
             vertices[floats++] = x;
             vertices[floats++] = y;
             vertices[floats++] = up;
@@ -342,9 +375,7 @@ final class SpriteGeometry {
         /** Adds the vertex that starts at the given float once more, as it is. */
         void again(int from) {
             growing();
-            if (floats + VERTEX_FLOATS > vertices.length) {
-                vertices = Arrays.copyOf(vertices, vertices.length * 2);
-            }
+            roomFor(floats + VERTEX_FLOATS);
             System.arraycopy(vertices, from, vertices, floats, VERTEX_FLOATS);
             floats += VERTEX_FLOATS;
         }
@@ -412,12 +443,11 @@ final class SpriteGeometry {
             int slot = slotFor(byTexture, texture, tint, room, building, level);
             Mesh mesh = byTexture[slot];
             if (mesh == null) {
-                mesh = new Mesh();
+                mesh = new Mesh(this);
                 mesh.layers = layers;
                 mesh.texture = texture;
                 mesh.tint = tint;
                 mesh.room = room;
-                mesh.set = this;
                 mesh.building = building;
                 mesh.level = level;
                 all.add(mesh);
@@ -434,9 +464,58 @@ final class SpriteGeometry {
             if (mesh.round != round) {
                 mesh.round = round;
                 mesh.asked = true;
+                mesh.vertices = spare(mesh.lent);
                 used.add(mesh);
             }
             return mesh;
+        }
+
+        /**
+         * The set's arrays not lent to a mesh, by length: START_FLOATS doubled the index's number
+         * of times. A set's meshes give theirs back as it is emptied and as they grow, and take
+         * one as they are asked for, so that a chunk whose rooms each have meshes of their own
+         * fills arrays the chunk before it filled rather than new ones grown from the start.
+         * Nothing reads a mesh's floats past its count, so what an array held before is no matter.
+         */
+        private final ArrayList<ArrayList<float[]>> spares = new ArrayList<>();
+
+        private static int sizeOf(int length) {
+            int size = Integer.numberOfTrailingZeros(length / Mesh.START_FLOATS);
+            if (length != Mesh.START_FLOATS << size) {
+                throw new IllegalArgumentException("a set's array of " + length + " floats is not " + Mesh.START_FLOATS + " doubled");
+            }
+            return size;
+        }
+
+        /**
+         * Dev only: while set, the set lends new arrays with nothing but NaN in them in place of
+         * its spares, which it lets go of, and lets go of what it is given back.
+         */
+        boolean lendsNew;
+
+        private float[] spare(int length) {
+            int size = sizeOf(length);
+            float[] spare = null;
+            if (size < spares.size() && !spares.get(size).isEmpty()) {
+                ArrayList<float[]> kept = spares.get(size);
+                spare = kept.remove(kept.size() - 1);
+            }
+            if (lendsNew) {
+                spare = new float[length];
+                Arrays.fill(spare, Float.NaN);
+            }
+            return spare != null ? spare : new float[length];
+        }
+
+        private void giveBack(float[] vertices) {
+            int size = sizeOf(vertices.length);
+            if (lendsNew) {
+                return;
+            }
+            while (spares.size() <= size) {
+                spares.add(new ArrayList<>());
+            }
+            spares.get(size).add(vertices);
         }
 
         /** What is asked for from now on is of the building's storey on that level, or of none with NO_BUILDING: see building. */
@@ -475,7 +554,11 @@ final class SpriteGeometry {
                 throw new IllegalStateException("a set is emptied while a thing is still being drawn into it");
             }
             for (int i = 0; i < used.size(); i++) {
-                used.get(i).clear();
+                Mesh mesh = used.get(i);
+                mesh.clear();
+                mesh.lent = mesh.vertices.length;
+                giveBack(mesh.vertices);
+                mesh.vertices = null;
             }
             used.clear();
             grown.clear();
@@ -489,8 +572,11 @@ final class SpriteGeometry {
 
         long room() {
             long room = 0;
-            for (int i = 0; i < all.size(); i++) {
-                room += all.get(i).vertices.length;
+            for (int i = 0; i < used.size(); i++) {
+                room += used.get(i).vertices.length;
+            }
+            for (int i = 0; i < spares.size(); i++) {
+                room += (long) spares.get(i).size() * (Mesh.START_FLOATS << i);
             }
             return room;
         }
@@ -506,17 +592,31 @@ final class SpriteGeometry {
                 throw new IllegalStateException("a set is trimmed when it is empty, and this one holds " + used.size() + " meshes");
             }
             int kept = 0;
+            int[] wanted = new int[spares.size()];
             for (int i = 0; i < all.size(); i++) {
                 Mesh mesh = all.get(i);
                 if (!mesh.asked) {
                     continue;
                 }
-                if (mesh.vertices.length > Mesh.SHRINK_ABOVE && mesh.most * 4 < mesh.vertices.length) {
-                    mesh.vertices = new float[Math.max(mesh.most * 2, Mesh.START_FLOATS)];
+                if (mesh.lent > Mesh.SHRINK_ABOVE && mesh.most * 4 < mesh.lent) {
+                    int length = Mesh.START_FLOATS;
+                    while (length < mesh.most * 2) {
+                        length *= 2;
+                    }
+                    mesh.lent = length;
+                }
+                int size = sizeOf(mesh.lent);
+                if (size < wanted.length) {
+                    wanted[size]++;
                 }
                 mesh.asked = false;
                 mesh.most = 0;
                 all.set(kept++, mesh);
+            }
+            // As many spare arrays of each length as the meshes kept will be lent: the room they held before the set was emptied.
+            for (int size = 0; size < spares.size(); size++) {
+                ArrayList<float[]> spare = spares.get(size);
+                spare.subList(Math.min(wanted[size], spare.size()), spare.size()).clear();
             }
             if (kept == all.size()) {
                 return;
@@ -1681,10 +1781,7 @@ final class SpriteGeometry {
         float level = (float) Math.floor(Math.clamp(vigour, 0f, 1f) * 15.99f);
         seed = Math.min(seed, 0.999f);
         // Written straight into the mesh: a lawn is a hundred thousand of these corners a frame.
-        int need = mesh.floats + steps * 6 * VERTEX_FLOATS;
-        if (need > mesh.vertices.length) {
-            mesh.vertices = Arrays.copyOf(mesh.vertices, Math.max(mesh.vertices.length * 2, need));
-        }
+        mesh.roomFor(mesh.floats + steps * 6 * VERTEX_FLOATS);
         float[] to = mesh.vertices;
         int at = mesh.floats;
         float open = frame.open + BLADES;
