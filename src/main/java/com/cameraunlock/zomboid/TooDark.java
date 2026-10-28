@@ -115,7 +115,8 @@ final class TooDark {
                         drawn[at] = open;
                         continue;
                     }
-                    float picture = view.characters.drawnLight(square);
+                    // Only a square under a roof is darkened by its drawn light (known, below).
+                    float picture = outside[at] ? Float.NaN : view.characters.drawnLight(square);
                     drawn[at] = Float.isNaN(picture) ? open : picture;
                     // isCanSee brings the square's light up to date from the lighting engine.
                     if (!square.isCanSee(playerIndex)) {
