@@ -296,6 +296,9 @@ final class RoomSight {
          * step off holds a few hundred entries.
          */
         private long[] sorting = new long[1024];
+        /** For each block in build, the ways it fills, first and last, and its reach and rise in them: the same in both passes. */
+        private long[] wayFirst = new long[64], wayLast = new long[64];
+        private float[] wayReach = new float[64], wayRise = new float[64];
         private float eyeX, eyeY, eyeUp;
         /** What it was built from, and whether it is built. */
         private Blocks builtFrom;
@@ -321,45 +324,57 @@ final class RoomSight {
             builtBesides = besides;
             built = true;
             builds++;
+            if (wayFirst.length < blocks.count) {
+                wayFirst = new long[Integer.highestOneBit(blocks.count) * 2];
+                wayLast = new long[wayFirst.length];
+                wayReach = new float[wayFirst.length];
+                wayRise = new float[wayFirst.length];
+            }
+            for (int i = 0; i < blocks.count; i++) {
+                wayFirst[i] = 1L;
+                wayLast[i] = 0L;
+                if (blocks.building[i] == besides) {
+                    continue;
+                }
+                float[] b = blocks.box;
+                int at = i * 5;
+                float minX = b[at] - eyeX, minY = b[at + 1] - eyeY, maxX = b[at + 2] - eyeX, maxY = b[at + 3] - eyeY;
+                if (minX <= 2f * SLACK_TILES && maxX >= -2f * SLACK_TILES && minY <= 2f * SLACK_TILES && maxY >= -2f * SLACK_TILES) {
+                    // An eye stands over it or beside it, on a roof or a balcony: it fills no way round the eye for certain.
+                    continue;
+                }
+                double middle = Math.atan2((minY + maxY) / 2.0, (minX + maxX) / 2.0);
+                double low = Double.MAX_VALUE, high = -Double.MAX_VALUE;
+                float far = 0f;
+                for (int corner = 0; corner < 4; corner++) {
+                    float cx = (corner & 1) == 0 ? minX : maxX, cy = (corner & 2) == 0 ? minY : maxY;
+                    double off = wrap(Math.atan2(cy, cx) - middle);
+                    low = Math.min(low, off);
+                    high = Math.max(high, off);
+                    far = Math.max(far, (float) Math.sqrt(cx * cx + cy * cy));
+                }
+                float nearX = Math.max(minX, Math.min(0f, maxX)), nearY = Math.max(minY, Math.min(0f, maxY));
+                float near = (float) Math.sqrt(nearX * nearX + nearY * nearY);
+                // From any eye within the slack: no taller, no further off when its top is above the eye, no nearer when below.
+                float top = b[at + 4] - eyeUp - SLACK_UP;
+                wayRise[i] = top / (top > 0f ? far + SLACK_TILES : near - SLACK_TILES);
+                wayReach[i] = far + SLACK_TILES;
+                // And no wider: only the ways it fills from one side to the other from every such eye.
+                double narrower = Math.asin(Math.min(1.0, SLACK_TILES / (near - SLACK_TILES)));
+                wayFirst[i] = (long) Math.ceil((middle + low + narrower + Math.PI) / PER_BIN);
+                wayLast[i] = (long) Math.floor((middle + high - narrower + Math.PI) / PER_BIN) - 1;
+            }
             Arrays.fill(fill, 0);
             for (int pass = 0; pass < 2; pass++) {
                 for (int i = 0; i < blocks.count; i++) {
-                    if (blocks.building[i] == besides) {
-                        continue;
-                    }
-                    float[] b = blocks.box;
-                    int at = i * 5;
-                    float minX = b[at] - eyeX, minY = b[at + 1] - eyeY, maxX = b[at + 2] - eyeX, maxY = b[at + 3] - eyeY;
-                    if (minX <= 2f * SLACK_TILES && maxX >= -2f * SLACK_TILES && minY <= 2f * SLACK_TILES && maxY >= -2f * SLACK_TILES) {
-                        // An eye stands over it or beside it, on a roof or a balcony: it fills no way round the eye for certain.
-                        continue;
-                    }
-                    double middle = Math.atan2((minY + maxY) / 2.0, (minX + maxX) / 2.0);
-                    double low = Double.MAX_VALUE, high = -Double.MAX_VALUE;
-                    float far = 0f;
-                    for (int corner = 0; corner < 4; corner++) {
-                        float cx = (corner & 1) == 0 ? minX : maxX, cy = (corner & 2) == 0 ? minY : maxY;
-                        double off = wrap(Math.atan2(cy, cx) - middle);
-                        low = Math.min(low, off);
-                        high = Math.max(high, off);
-                        far = Math.max(far, (float) Math.sqrt(cx * cx + cy * cy));
-                    }
-                    float nearX = Math.max(minX, Math.min(0f, maxX)), nearY = Math.max(minY, Math.min(0f, maxY));
-                    float near = (float) Math.sqrt(nearX * nearX + nearY * nearY);
-                    // From any eye within the slack: no taller, no further off when its top is above the eye, no nearer when below.
-                    float top = b[at + 4] - eyeUp - SLACK_UP;
-                    float slope = top / (top > 0f ? far + SLACK_TILES : near - SLACK_TILES);
-                    // And no wider: only the ways it fills from one side to the other from every such eye.
-                    double narrower = Math.asin(Math.min(1.0, SLACK_TILES / (near - SLACK_TILES)));
-                    long first = (long) Math.ceil((middle + low + narrower + Math.PI) / PER_BIN), last = (long) Math.floor((middle + high - narrower + Math.PI) / PER_BIN) - 1;
-                    for (long way = first; way <= last; way++) {
+                    for (long way = wayFirst[i]; way <= wayLast[i]; way++) {
                         int bin = (int) Math.floorMod(way, (long) BINS);
                         if (pass == 0) {
                             fill[bin]++;
                         } else {
                             int slot = from[bin] + fill[bin]++;
-                            reach[slot] = far + SLACK_TILES;
-                            rise[slot] = slope;
+                            reach[slot] = wayReach[i];
+                            rise[slot] = wayRise[i];
                         }
                     }
                 }
