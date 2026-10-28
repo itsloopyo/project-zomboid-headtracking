@@ -558,8 +558,12 @@ public final class FirstPerson {
                 RenderThread.queueInvokeOnRenderContext(view.pipeline.RELEASE::render);
             }
             if (held) {
-                letGo();
-                RenderThread.queueInvokeOnRenderContext(view.pipeline.LET_GO::render);
+                // A fault thrown by work out on another thread is thrown once the world is let go of: the graphics card's copy goes too.
+                try {
+                    letGo();
+                } finally {
+                    RenderThread.queueInvokeOnRenderContext(view.pipeline.LET_GO::render);
+                }
                 Log.info(why + ": first person has let go of the map, and the render thread is asked for what the graphics card holds of it");
             }
         } catch (RuntimeException | LinkageError thrown) {
