@@ -451,14 +451,14 @@ final class CentreUse {
             if (!stands) {
                 continue;
             }
-            // A microwave or a television on a counter is taller than anything put down on it, and a sink let into a
+            // A microwave, a lamp or a plant on a counter is taller than anything put down on it, and a sink let into a
             // counter tops out with the counter, as the game's own top for it (getSurfaceOffsetNoTable) does.
+            int surface = properties == null ? 0 : properties.getSurface();
             boolean onAnother = properties != null && properties.has("IsTableTop") || object.getRenderYOffset() > 0f;
-            if (onAnother && (object.getContainer() != null || clickedThoughEmpty(object))) {
+            if (onAnother && !hung(properties) && (surface <= 0 || object.getContainer() != null || clickedThoughEmpty(object))) {
                 appliance = true;
                 continue;
             }
-            int surface = properties == null ? 0 : properties.getSurface();
             if (surface <= 0 || hung(properties)) {
                 return Float.POSITIVE_INFINITY;
             }
@@ -468,7 +468,7 @@ final class CentreUse {
         return appliance ? top + APPLIANCE_TALL : top;
     }
 
-    /** How far a microwave, a radio or a television reaches over the counter it stands on, in tiles: a window over it is seen above it. */
+    /** How far a microwave, a lamp or anything else standing on a counter reaches over it, in tiles: a window over it is seen above it. */
     private static final float APPLIANCE_TALL = 0.4f;
 
     /**
