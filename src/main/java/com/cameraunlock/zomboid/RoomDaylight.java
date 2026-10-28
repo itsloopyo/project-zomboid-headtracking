@@ -126,9 +126,55 @@ final class RoomDaylight {
         }
     }
 
+    /**
+     * The region of each square of a box and the squares round it, on a level and the levels
+     * looked through over it, as the map gave it in one working out. Each square is asked for
+     * by itself and by each square beside it.
+     */
+    private static final class Regions {
+        private long[] regions = new long[0];
+        /** The working out each square was read in. */
+        private int[] readFor = new int[0];
+        private int reading, fromX, fromY, width, height, level;
+
+        /** Forgets what was read and holds the box fromX, fromY, toX, toY on level z from now on. */
+        void over(int[] box, int z) {
+            boolean any = box[2] >= box[0] && box[3] >= box[1];
+            fromX = box[0] - 1;
+            fromY = box[1] - 1;
+            width = any ? box[2] - box[0] + 3 : 0;
+            height = any ? box[3] - box[1] + 3 : 0;
+            level = z;
+            int size = width * height * (LEVELS_OPEN_OVER + 1);
+            if (readFor.length < size) {
+                regions = new long[size];
+                readFor = new int[size];
+                reading = 0;
+            }
+            if (++reading == Integer.MAX_VALUE) {
+                Arrays.fill(readFor, 0);
+                reading = 1;
+            }
+        }
+
+        long region(Edges map, int x, int y, int z) {
+            int i = x - fromX, j = y - fromY, k = z - level;
+            if (i < 0 || j < 0 || i >= width || j >= height || k < 0 || k > LEVELS_OPEN_OVER) {
+                return map.region(x, y, z);
+            }
+            int at = (k * height + j) * width + i;
+            if (readFor[at] != reading) {
+                readFor[at] = reading;
+                regions[at] = map.region(x, y, z);
+            }
+            return regions[at];
+        }
+    }
+
     /** What working out a room's shares writes into as it goes, kept from one room to the next. */
     static final class Scratch {
         private final Openings own = new Openings();
+        private final Regions ownRegions = new Regions(), besideRegions = new Regions();
         private final ArrayList<Openings> spare = new ArrayList<>();
         private final Map<Long, Openings> beside = new HashMap<>();
         private final int[] box = new int[4], besideBox = new int[4];
@@ -162,7 +208,9 @@ final class RoomDaylight {
         scratch.reset();
         rooms.box(room, scratch.box);
         int[] box = clip(scratch.box, loaded);
-        Openings openings = openings(map, rooms, room, z, box, loaded, scratch, scratch.own, true);
+        Regions regions = scratch.ownRegions;
+        regions.over(box, z);
+        Openings openings = openings(map, rooms, room, z, box, loaded, scratch, regions, scratch.own, true);
         int width = Math.max(box[2] - box[0] + 1, 0), height = Math.max(box[3] - box[1] + 1, 0);
         int floats = openings.count * 4;
         if (was != null && was.fromX == box[0] && was.fromY == box[1] && was.width == width && was.height == height && was.members == openings.members
@@ -177,7 +225,7 @@ final class RoomDaylight {
         }
         for (int j = box[1]; j <= box[3]; j++) {
             for (int i = box[0]; i <= box[2]; i++) {
-                if (map.region(i, j, z) == room) {
+                if (regions.region(map, i, j, z) == room) {
                     shares.share[(j - box[1]) * shares.width + (i - box[0])] = MOST * openings.reached(i + 0.5f, j + 0.5f);
                 }
             }
@@ -198,10 +246,10 @@ final class RoomDaylight {
      * what that room has from the open air at the square beyond, its own openings found without;
      * without, only openings to the open air are found.
      */
-    private static Openings openings(Edges map, Rooms rooms, long room, int z, int[] box, Loaded loaded, Scratch scratch, Openings found, boolean throughRooms) {
+    private static Openings openings(Edges map, Rooms rooms, long room, int z, int[] box, Loaded loaded, Scratch scratch, Regions regions, Openings found, boolean throughRooms) {
         for (int y = box[1]; y <= box[3]; y++) {
             for (int x = box[0]; x <= box[2]; x++) {
-                if (map.region(x, y, z) != room) {
+                if (regions.region(map, x, y, z) != room) {
                     continue;
                 }
                 found.members = found.members * 31L + ((long) y << 32 ^ x);
@@ -213,7 +261,7 @@ final class RoomDaylight {
                     if (!loaded.holds(beyondX, beyondY)) {
                         continue;
                     }
-                    long beyond = map.region(beyondX, beyondY, z);
+                    long beyond = regions.region(map, beyondX, beyondY, z);
                     if (beyond == room) {
                         continue;
                     }
@@ -226,7 +274,9 @@ final class RoomDaylight {
                             Openings next = scratch.beside.get(beyond);
                             if (next == null) {
                                 rooms.box(beyond, scratch.besideBox);
-                                next = openings(map, rooms, beyond, z, clip(scratch.besideBox, loaded), loaded, scratch, scratch.fresh(), false);
+                                int[] besideBox = clip(scratch.besideBox, loaded);
+                                scratch.besideRegions.over(besideBox, z);
+                                next = openings(map, rooms, beyond, z, besideBox, loaded, scratch, scratch.besideRegions, scratch.fresh(), false);
                                 scratch.beside.put(beyond, next);
                             }
                             float passed = through * next.reached(beyondX + 0.5f, beyondY + 0.5f);
@@ -236,8 +286,8 @@ final class RoomDaylight {
                         }
                     }
                     // Over the room's own walls, the levels over it while a room is over it with no floor between.
-                    for (int over = 1; over <= LEVELS_OPEN_OVER && map.region(x, y, z + over) != RoomSight.OUTSIDE && !map.floored(x, y, z + over); over++) {
-                        if (map.region(beyondX, beyondY, z + over) == RoomSight.OUTSIDE) {
+                    for (int over = 1; over <= LEVELS_OPEN_OVER && regions.region(map, x, y, z + over) != RoomSight.OUTSIDE && !map.floored(x, y, z + over); over++) {
+                        if (regions.region(map, beyondX, beyondY, z + over) == RoomSight.OUTSIDE) {
                             float high = map.through(edgeX, edgeY, z + over, north);
                             if (high > 0f) {
                                 found.add(openX, openY, over * ViewCamera.LEVEL_HEIGHT, high);

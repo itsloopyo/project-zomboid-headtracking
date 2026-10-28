@@ -18,6 +18,7 @@ final class RoomDaylightTests {
         Checks.run("thereIsNoDaylightAtNight", RoomDaylightTests::thereIsNoDaylightAtNight);
         Checks.run("sharesWorkedOutAgainFromTheSameOpeningsAreKept", RoomDaylightTests::sharesWorkedOutAgainFromTheSameOpeningsAreKept);
         Checks.run("aLowSunTurnsARoomsDaylightGold", RoomDaylightTests::aLowSunTurnsARoomsDaylightGold);
+        Checks.run("aScratchKeptFromRoomToRoomReadsTheMapAfresh", RoomDaylightTests::aScratchKeptFromRoomToRoomReadsTheMapAfresh);
     }
 
     private static String source(String file) {
@@ -187,6 +188,58 @@ final class RoomDaylightTests {
         // The map is loaded from x 3 on: the room's squares west of that are not there, and read as in no room.
         RoomDaylight.Shares cut = shares(house(), 4, 3, new RoomDaylight.Loaded(3, -FAR, FAR, FAR));
         check(cut.at(3, 3) == 0f && cut.at(5, 3) == 0f, "a room cut by the edge of the loaded map has no daylight from it");
+    }
+
+    private static void aScratchKeptFromRoomToRoomReadsTheMapAfresh() {
+        Lit lit = new Lit(house().opening(4, 1, 0, true, RoomSight.SEE).opening(12, 3, 0, false, RoomSight.SEE).opening(9, 2, 0, false, RoomSight.SEE));
+        java.util.Set<String> gone = new java.util.HashSet<>();
+        RoomDaylight.Edges map = new RoomDaylight.Edges() {
+            @Override
+            public float through(int x, int y, int z, boolean north) {
+                return lit.through(x, y, z, north);
+            }
+
+            @Override
+            public long region(int x, int y, int z) {
+                return gone.contains(x + "," + y + "," + z) ? RoomSight.OUTSIDE : lit.region(x, y, z);
+            }
+
+            @Override
+            public int edge(int x, int y, int z, boolean north) {
+                return lit.edge(x, y, z, north);
+            }
+
+            @Override
+            public boolean floored(int x, int y, int z) {
+                return lit.floored(x, y, z);
+            }
+
+            @Override
+            public float floorUp(float x, float y, int z) {
+                return lit.floorUp(x, y, z);
+            }
+
+            @Override
+            public long building(int x, int y, int z) {
+                return lit.building(x, y, z);
+            }
+        };
+        RoomDaylight.Rooms boxes = (room, box) -> System.arraycopy(BOXES.get(room), 0, box, 0, 4);
+        RoomDaylight.Scratch kept = new RoomDaylight.Scratch();
+        java.util.Random random = new java.util.Random(5);
+        for (int round = 0; round < 200; round++) {
+            // Squares of both rooms and round them come and go from the map, and the door between them opens by steps.
+            gone.add((random.nextInt(14)) + "," + random.nextInt(8) + "," + random.nextInt(2));
+            if (random.nextInt(3) == 0) {
+                gone.clear();
+            }
+            lit.passing(9, 3, 0, false, random.nextInt(5) * 0.25f);
+            for (long room : new long[] {ROOM, NEXT, ROOM}) {
+                RoomDaylight.Shares reused = RoomDaylight.of(map, boxes, room, 0, ALL, kept);
+                RoomDaylight.Shares fresh = RoomDaylight.of(map, boxes, room, 0, ALL, new RoomDaylight.Scratch());
+                check(reused.sameAs(fresh), "round " + round + ", room " + room + ": shares worked out with the scratch of the last room are those worked out afresh");
+            }
+        }
     }
 
     private static void aLowSunTurnsARoomsDaylightGold() {
