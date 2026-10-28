@@ -11,9 +11,11 @@ import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import se.krka.kahlua.vm.KahluaTable;
 import zombie.core.properties.PropertyContainer;
+import zombie.iso.BuildingDef;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoChunk;
 import zombie.iso.IsoGridSquare;
@@ -107,6 +109,7 @@ final class HiddenWalls {
         }
         IsoCell cell = IsoWorld.instance.currentCell;
         ROOMS.clear();
+        KINDS.clear();
         IsoWorld.instance.getMetaGrid().getRoomsIntersecting(chunk.wx * CHUNK - 1, chunk.wy * CHUNK - 1, CHUNK + 2, CHUNK + 2, ROOMS);
         for (int i = 0; i < ROOMS.size(); i++) {
             RoomDef room = ROOMS.get(i);
@@ -124,7 +127,14 @@ final class HiddenWalls {
             }
         }
         ROOMS.clear();
+        KINDS.clear();
     }
+
+    /**
+     * kindsInBuilding by building, for the rooms dressed as one chunk loads: what dress hangs is
+     * counted in as it is hung, and nothing else on the map changes until the next chunk loads.
+     */
+    private static final HashMap<BuildingDef, Map<String, Integer>> KINDS = new HashMap<>();
 
     /**
      * A picture the mod draws on a hidden wall in first person and nowhere else: nothing of it is
@@ -614,40 +624,41 @@ final class HiddenWalls {
         spots.removeIf(spot -> nearAnOpening(cell, spot));
         ArrayList<Spot> placed = new ArrayList<>();
         ArrayList<String> hung = new ArrayList<>();
-        Map<String, Integer> kinds = kindsInBuilding(cell, room);
+        // Read over the whole building only when a spot is found to hang a kind on, which is before anything it counts is hung.
+        Supplier<Map<String, Integer>> kinds = () -> KINDS.computeIfAbsent(room.getBuilding(), building -> kindsInBuilding(cell, room));
         switch (kind) {
             case BATH -> {
                 if (!mirror) {
-                    hang(spots, placed, hung, Spot::sink, "Mirror", preferred(kinds, "Mirror", "Large"));
+                    hang(room, spots, placed, hung, Spot::sink, "Mirror", () -> preferred(kinds.get(), "Mirror", "Large"));
                 }
             }
             case BED -> {
                 if (!mirror) {
-                    hang(spots, placed, hung, Spot::bare, "Mirror", preferred(kinds, "Mirror", "Tall"));
+                    hang(room, spots, placed, hung, Spot::bare, "Mirror", () -> preferred(kinds.get(), "Mirror", "Tall"));
                 }
             }
             case KITCHEN, OFFICE -> {
                 if (!clock) {
-                    hang(spots, placed, hung, spot -> spot.bare() || spot.low(), "Clock", preferred(kinds, "Clock", "Wall"));
+                    hang(room, spots, placed, hung, spot -> spot.bare() || spot.low(), "Clock", () -> preferred(kinds.get(), "Clock", "Wall"));
                 }
             }
             case LIVING -> {
                 if (!clock) {
-                    hang(spots, placed, hung, spot -> spot.bare() || spot.low(), "Clock", preferred(kinds, "Clock", "Wall"));
+                    hang(room, spots, placed, hung, spot -> spot.bare() || spot.low(), "Clock", () -> preferred(kinds.get(), "Clock", "Wall"));
                 }
-                if (wantsATrophy(kinds) && home(room)) {
-                    hang(spots, placed, hung, Spot::bare, "Deer Trophy", "Mounted");
+                if (home(room) && spots.stream().anyMatch(Spot::bare) && wantsATrophy(kinds.get())) {
+                    hang(room, spots, placed, hung, Spot::bare, "Deer Trophy", () -> "Mounted");
                 }
                 if (!mirror && shown >= 2 && home(room)) {
-                    hang(spots, placed, hung, Spot::bare, "Mirror", preferred(kinds, "Mirror", "Wooden Framed"));
+                    hang(room, spots, placed, hung, Spot::bare, "Mirror", () -> preferred(kinds.get(), "Mirror", "Wooden Framed"));
                 }
             }
             case HALL -> {
                 if (!rack && room.level == 0 && doorOut(cell, room, squares)) {
-                    hang(spots, placed, hung, Spot::bare, "Rack", "Coat");
+                    hang(room, spots, placed, hung, Spot::bare, "Rack", () -> "Coat");
                 }
                 if (!mirror && shown >= 1 && home(room)) {
-                    hang(spots, placed, hung, Spot::bare, "Mirror", preferred(kinds, "Mirror", "Wooden Framed"));
+                    hang(room, spots, placed, hung, Spot::bare, "Mirror", () -> preferred(kinds.get(), "Mirror", "Wooden Framed"));
                 }
             }
             case NONE -> { }
@@ -935,25 +946,29 @@ final class HiddenWalls {
                             continue;
                         }
                         for (int j = 0; j < square.getObjects().size(); j++) {
-                            ArrayList<IsoSprite> sprites = spritesOf(square.getObjects().get(j));
-                            for (int k = 0; k < sprites.size(); k++) {
-                                IsoSprite sprite = sprites.get(k);
-                                PropertyContainer properties = sprite.getProperties();
-                                String called = properties.get("CustomName"), group = properties.get("GroupName");
-                                if ("Mirror".equals(called) || "Clock".equals(called) || trophy(called)) {
-                                    kinds.merge(called + "|" + group, 1, Integer::sum);
-                                }
-                                int picture = Decor.of(sprite.getName(), called, group == null ? "" : group, sprite.getSpriteGrid() != null);
-                                if (picture != Decor.NONE && HUNTING.equals(subjectOf(Decor.nameOf(picture)))) {
-                                    kinds.merge(HUNTING + "|", 1, Integer::sum);
-                                }
-                            }
+                            countKinds(square.getObjects().get(j), kinds);
                         }
                     }
                 }
             }
         }
         return kinds;
+    }
+
+    private static void countKinds(IsoObject object, Map<String, Integer> kinds) {
+        ArrayList<IsoSprite> sprites = spritesOf(object);
+        for (int k = 0; k < sprites.size(); k++) {
+            IsoSprite sprite = sprites.get(k);
+            PropertyContainer properties = sprite.getProperties();
+            String called = properties.get("CustomName"), group = properties.get("GroupName");
+            if ("Mirror".equals(called) || "Clock".equals(called) || trophy(called)) {
+                kinds.merge(called + "|" + group, 1, Integer::sum);
+            }
+            int picture = Decor.of(sprite.getName(), called, group == null ? "" : group, sprite.getSpriteGrid() != null);
+            if (picture != Decor.NONE && HUNTING.equals(subjectOf(Decor.nameOf(picture)))) {
+                kinds.merge(HUNTING + "|", 1, Integer::sum);
+            }
+        }
     }
 
     /** The group of mirror or clock the building has most of among those the game draws facing in, or the given one. */
@@ -976,7 +991,11 @@ final class HiddenWalls {
      * longest stretch of wall still clear, on a wall nothing has been hung on yet where there is one,
      * and takes the spots beside it.
      */
-    private static void hang(ArrayList<Spot> spots, ArrayList<Spot> placed, ArrayList<String> hung, Predicate<Spot> takes, String called, String group) {
+    private static void hang(RoomDef room, ArrayList<Spot> spots, ArrayList<Spot> placed, ArrayList<String> hung, Predicate<Spot> takes, String called, Supplier<String> asked) {
+        if (!spots.stream().anyMatch(takes)) {
+            return;
+        }
+        String group = asked.get();
         String[] sprites = FACING_IN.get(called + "|" + group);
         Spot best = null;
         int bestScore = Integer.MIN_VALUE;
@@ -1002,6 +1021,10 @@ final class HiddenWalls {
             throw new IllegalStateException("the game has no sprite " + name + " to hang");
         }
         square.AddTileObject(thing);
+        Map<String, Integer> kinds = KINDS.get(room.getBuilding());
+        if (kinds != null) {
+            countKinds(thing, kinds);
+        }
         hung.add(String.format(Locale.ROOT, "%s %s on the %s wall at %d,%d (%s)", group, called.toLowerCase(Locale.ROOT), best.wall() == SOUTH ? "south" : "east",
                 square.getX(), square.getY(), name));
         placed.add(best);
