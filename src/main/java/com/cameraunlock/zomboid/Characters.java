@@ -153,7 +153,9 @@ public final class Characters {
     private final float[] placed = new float[16];
     private final float[] combined = new float[16];
     private final float[] projection = new float[16];
-    private final float[] eyeView = new float[16];
+    private final float[] eyeView = new float[16], eyeTurned = new float[16];
+    /** Where the matrix figures are drawn through counts places from: see fromEye. */
+    private float fromX, fromY, fromUp;
     private int drawnLast;
     /**
      * While set, a vehicle is drawn in another colour of paint than its own. What of it comes
@@ -430,7 +432,7 @@ public final class Characters {
         ViewCamera.view(camera, eyeView);
         CharacterDraw.nearCut = scope ? 0f : CharacterDraw.NEAR_CUT;
         CharacterDraw.looking(eyeView);
-        int drawn = draw(eyeView, view.pipeline.outside, false, null, camera.eyeX, camera.eyeY, Float.MAX_VALUE);
+        int drawn = draw(fromEye(camera), view.pipeline.outside, false, null, camera.eyeX, camera.eyeY, Float.MAX_VALUE);
         CharacterDraw.nearCut = 0f;
         if (Dying.ON && !vehicles && !scope) {
             watchDeaths();
@@ -471,7 +473,7 @@ public final class Characters {
         notingRoots = true;
         rootsFound = 0;
         try {
-            return drawBodies(eyeView, camera.eyeX, camera.eyeY, Float.MAX_VALUE);
+            return drawBodies(fromEye(camera), camera.eyeX, camera.eyeY, Float.MAX_VALUE);
         } finally {
             byRoom = null;
             seenFrom = null;
@@ -498,7 +500,7 @@ public final class Characters {
                         continue;
                     }
                     place(body.x(), body.y(), body.up(), kept.angle, CHARACTER_SCALE);
-                    multiply(eyeView, placed, combined);
+                    multiplyPlaced(fromEye(camera), combined);
                     CharacterDraw.begin(kept.person, combined, projected, true, 0f, Float.POSITIVE_INFINITY);
                     for (int part = 0; part < kept.parts.size(); part++) {
                         CharacterDraw.part(kept.parts.get(part));
@@ -615,7 +617,7 @@ public final class Characters {
         CharacterDraw.plainly = true;
         int drawn;
         try {
-            drawn = draw(eyeView, false, false, null, camera.eyeX, camera.eyeY, vehicles ? MIRROR_VEHICLES : MIRROR_PEOPLE);
+            drawn = draw(fromEye(camera), false, false, null, camera.eyeX, camera.eyeY, vehicles ? MIRROR_VEHICLES : MIRROR_PEOPLE);
         } finally {
             CharacterDraw.plainly = false;
         }
@@ -661,7 +663,7 @@ public final class Characters {
         }
         CharacterDraw.mirrored = true;
         try {
-            return draw(eyeView, true, false, null, camera.eyeX, camera.eyeY, Float.MAX_VALUE);
+            return draw(fromEye(camera), true, false, null, camera.eyeX, camera.eyeY, Float.MAX_VALUE);
         } finally {
             CharacterDraw.mirrored = false;
             notingCars = false;
@@ -817,9 +819,9 @@ public final class Characters {
                 ViewCamera.view(camera, eyeView);
                 CharacterDraw.looking(eyeView);
                 if (script != null && !parts(data).isEmpty()) {
-                    multiply(projection, eyeView, combined);
+                    multiply(projection, fromEye(camera), combined);
                     VehicleMeshes.note(cabin, view.ride, script, parts(data).get(0), placed, view.pipeline.seatedAxes, WHEEL_SETTLES, view.pipeline.seatedX, view.pipeline.seatedY, groundUp,
-                            data.centerOfMassY, combined);
+                            data.centerOfMassY, combined, camera);
                 }
                 float red = data.ambientR, green = data.ambientG, blue = data.ambientB;
                 data.ambientR = 1f;
@@ -827,7 +829,7 @@ public final class Characters {
                 data.ambientB = 1f;
                 fromSeat = true;
                 CharacterDraw.release();
-                vehicle(data, i * 4, eyeView);
+                vehicle(data, i * 4, fromEye(camera));
                 fromSeat = false;
                 data.ambientR = red;
                 data.ambientG = green;
@@ -1088,7 +1090,7 @@ public final class Characters {
         // Put back whatever the draw does: the other view's people are drawn by the same flag.
         CharacterDraw.fromTheEye = true;
         try {
-            character(data, standsUp(data, System.nanoTime()), eyeView, true, false, holding != null, heldBoth, 0f);
+            character(data, standsUp(data, System.nanoTime()), fromEye(camera), true, false, holding != null, heldBoth, 0f);
         } finally {
             CharacterDraw.fromTheEye = false;
             CharacterDraw.release();
@@ -2075,6 +2077,7 @@ public final class Characters {
     void cast(float[] lightMatrix) {
         kind = within == null ? BY_NEAR : BY_FAR;
         System.arraycopy(IDENTITY, 0, projection, 0, 16);
+        fromMap();
         draw(lightMatrix, true, true, lightMatrix, view.pipeline.focusX, view.pipeline.focusY, SHADOW_REACH);
     }
 
@@ -2122,6 +2125,7 @@ public final class Characters {
         seenWide = tanHalf;
         seenHigh = tanHalf;
         seenWithin = reaches;
+        fromMap();
         draw(lightMatrix, true, true, null, view.pipeline.focusX, view.pipeline.focusY, SHADOW_REACH);
         seenFrom = null;
         seenWithin = 0f;
@@ -2140,6 +2144,7 @@ public final class Characters {
         seenWide = tanHalf;
         seenHigh = tanHalf;
         seenWithin = reaches;
+        fromMap();
         draw(lightMatrix, false, true, null, view.pipeline.focusX, view.pipeline.focusY, SHADOW_REACH);
         seenFrom = null;
         seenWithin = 0f;
@@ -2410,7 +2415,7 @@ public final class Characters {
             angle += view.firstPerson.yaw() - (float) Math.atan2(ahead.y, ahead.x);
         }
         place(data.x, data.y, up, angle, CHARACTER_SCALE);
-        multiply(viewMatrix, placed, combined);
+        multiplyPlaced(viewMatrix, combined);
         EYE.Begin();
         CharacterDraw.begin(data, combined, projection, casting, fromEye,
                 Quality.wholeFigureShadows(view.index) ? Float.POSITIVE_INFINITY : CharacterDraw.SHADOW_WHOLE_WITHIN);
@@ -2507,7 +2512,7 @@ public final class Characters {
                 continue;
             }
             place(piece.x, piece.y, piece.standsUp, piece.angle, CHARACTER_SCALE);
-            multiply(viewMatrix, placed, combined);
+            multiplyPlaced(viewMatrix, combined);
             ModelSlotRenderData person = piece.person;
             person.ambientR = 1f;
             person.ambientG = 1f;
@@ -2573,7 +2578,7 @@ public final class Characters {
                     continue;
                 }
                 place(x, y, up, kept.angle, CHARACTER_SCALE);
-                multiply(viewMatrix, placed, combined);
+                multiplyPlaced(viewMatrix, combined);
                 CharacterDraw.begin(kept.person, combined, projection, false, fromViewer(toX, toY, body.z() - viewer.getZ()), Float.POSITIVE_INFINITY);
                 lightAt(lights.at(square, "a corpse"));
                 for (int part = 0; part < kept.parts.size(); part++) {
@@ -2760,7 +2765,7 @@ public final class Characters {
                 continue;
             }
             place(x, y, held.up, held.angle, CHARACTER_SCALE);
-            multiply(viewMatrix, placed, combined);
+            multiplyPlaced(viewMatrix, combined);
             CharacterDraw.begin(held.person, combined, projection, casting, fromViewer(toX, toY, held.z - viewer.getZ()),
                     Quality.wholeFigureShadows(view.index) ? Float.POSITIVE_INFINITY : CharacterDraw.SHADOW_WHOLE_WITHIN);
             if (!casting) {
@@ -2880,7 +2885,7 @@ public final class Characters {
             place(stood[at], stood[at + 1], stood[at + 2] * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(stood[at], stood[at + 1], stood[at + 2]) + VEHICLE_RAISE,
                     stood[at + 3], VEHICLE_SCALE);
         }
-        multiply(viewMatrix, placed, combined);
+        multiplyPlaced(viewMatrix, combined);
         gameCamera = ModelCamera.instance;
         ModelCamera.instance = EYE;
         Model.CharacterModelCameraBegin(data);
@@ -2913,7 +2918,7 @@ public final class Characters {
             place(stood[at], stood[at + 1], stood[at + 2] * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(stood[at], stood[at + 1], stood[at + 2]) + VEHICLE_RAISE,
                     stood[at + 3], VEHICLE_SCALE);
         }
-        multiply(viewMatrix, placed, combined);
+        multiplyPlaced(viewMatrix, combined);
         float eyeX = combined[4] * data.centerOfMassY + combined[12];
         float eyeY = combined[5] * data.centerOfMassY + combined[13];
         float eyeZ = combined[6] * data.centerOfMassY + combined[14];
@@ -3138,6 +3143,38 @@ public final class Characters {
         placed[4] = 0f; placed[5] = 0f; placed[6] = scale; placed[7] = 0f;
         placed[8] = sin; placed[9] = -cos; placed[10] = 0f; placed[11] = 0f;
         placed[12] = x; placed[13] = y; placed[14] = up; placed[15] = 1f;
+    }
+
+    /**
+     * The turn of the view figures are drawn through from camera, which counts places from the eye's
+     * float place, and its fine part with it (see ViewCamera.Pose): eyeView takes the eye off a figure
+     * stood thousands of tiles out after turning it, which loses the last millimetre, a dot of the
+     * picture on a hand half a pace off.
+     */
+    private float[] fromEye(ViewCamera.Pose camera) {
+        ViewCamera.turned(camera, eyeTurned);
+        fromX = camera.eyeX;
+        fromY = camera.eyeY;
+        fromUp = camera.eyeUp;
+        return eyeTurned;
+    }
+
+    /** Figures drawn through a matrix that takes them from the map, a light's. */
+    private void fromMap() {
+        fromX = 0f;
+        fromY = 0f;
+        fromUp = 0f;
+    }
+
+    /** combined = view times placed, with placed counted from where view counts (fromEye, fromMap). */
+    private void multiplyPlaced(float[] view, float[] combined) {
+        placed[12] -= fromX;
+        placed[13] -= fromY;
+        placed[14] -= fromUp;
+        multiply(view, placed, combined);
+        placed[12] += fromX;
+        placed[13] += fromY;
+        placed[14] += fromUp;
     }
 
     /**

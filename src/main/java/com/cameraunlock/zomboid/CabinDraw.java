@@ -606,9 +606,10 @@ final class CabinDraw {
             f.model[column * 4 + 2] = axes[column * 3 + 2];
             f.model[column * 4 + 3] = 0f;
         }
-        float ox = wheelAt[0] - camera.eyeX - (axes[0] * wx + axes[3] * wy + axes[6] * wz);
-        float oy = wheelAt[1] - camera.eyeY - (axes[1] * wx + axes[4] * wy + axes[7] * wz);
-        float oz = wheelAt[2] - camera.eyeUp - (axes[2] * wx + axes[5] * wy + axes[8] * wz);
+        // The eye's float place comes off first, which is exact, then what that misses of it (ViewCamera.Pose).
+        float ox = wheelAt[0] - camera.eyeX - camera.eyeFineX - (axes[0] * wx + axes[3] * wy + axes[6] * wz);
+        float oy = wheelAt[1] - camera.eyeY - camera.eyeFineY - (axes[1] * wx + axes[4] * wy + axes[7] * wz);
+        float oz = wheelAt[2] - camera.eyeUp - camera.eyeFineUp - (axes[2] * wx + axes[5] * wy + axes[8] * wz);
         f.model[12] = ox;
         f.model[13] = oy;
         f.model[14] = oz;

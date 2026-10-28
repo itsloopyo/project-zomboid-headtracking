@@ -48,7 +48,7 @@ final class VehicleMeshes {
      */
     private static final HashMap<Body, FloatBuffer> panes = new HashMap<>();
     private static final HashMap<Body, Integer> rearPanes = new HashMap<>();
-    private static final float[] shifted = new float[16], stands = new float[16];
+    private static final float[] shifted = new float[16], stands = new float[16], fromEye = new float[16];
 
     /** The triangles of a body that are not glass, sorted by what part of the cabin each is, in the model's own space. */
     static final class Parts {
@@ -131,9 +131,10 @@ final class VehicleMeshes {
      * @param seated what that viewer's picture is told of the vehicle
      * @param ride   that viewer's vehicle as the logic thread has it
      * @param faces  the way the vehicle faces, its left and its up, as the logic thread had them when it seated the eye: see Ride.stands
+     * @param eye    the projection times the turn of the view from the eye (ViewCamera.turned), which takes places counted from camera's eyeX
      */
     static void note(Seated seated, Ride ride, String script, ModelInstanceRenderData body, float[] placed, float[] faces, float settles, float standsX, float standsY,
-            float groundUp, float centreOfMass, float[] eye) {
+            float groundUp, float centreOfMass, float[] eye, ViewCamera.Pose camera) {
         seated.clear();
         float[] seatedAxes = seated.axes, paneMatrix = seated.paneMatrix;
         float aheadX = ride.aheadX, aheadY = ride.aheadY;
@@ -152,7 +153,12 @@ final class VehicleMeshes {
             shifted[12 + k] += placed[4 + k] * centreOfMass;
         }
         ViewCamera.multiply(shifted, xfrm, stands);
-        ViewCamera.multiply(eye, stands, paneMatrix);
+        // The panes are half a pace from the eye: stood from the map, the eye's place taken off by the matrix, they were a millimetre off.
+        System.arraycopy(stands, 0, fromEye, 0, 16);
+        fromEye[12] -= camera.eyeX;
+        fromEye[13] -= camera.eyeY;
+        fromEye[14] -= camera.eyeUp;
+        ViewCamera.multiply(eye, fromEye, paneMatrix);
         Body read = new Body(mesh, instance.textureMask, script);
         int[] upright = uprights.get(read);
         if (upright == null) {
