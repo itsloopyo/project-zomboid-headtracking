@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -14,6 +16,7 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import se.krka.kahlua.vm.KahluaTable;
+import zombie.characters.IsoPlayer;
 import zombie.core.properties.PropertyContainer;
 import zombie.iso.BuildingDef;
 import zombie.iso.IsoCell;
@@ -26,6 +29,7 @@ import zombie.iso.SpriteDetails.IsoFlagType;
 import zombie.iso.SpriteDetails.IsoObjectType;
 import zombie.iso.sprite.IsoSprite;
 import zombie.iso.sprite.IsoSpriteInstance;
+import zombie.vehicles.BaseVehicle;
 
 /**
  * The south and east walls of a room, which the game's camera, looking in from the south east,
@@ -100,48 +104,112 @@ final class HiddenWalls {
     /**
      * Called as the game has loaded a chunk's squares, on its logic thread: every room the chunk
      * or the squares round it touch that is now loaded whole, and not yet dressed, is dressed, and
-     * the pictures drawn on its hidden walls are chosen once a session (plan).
+     * the pictures drawn on its hidden walls are chosen once a session (plan). While every player
+     * is driving the rooms wait instead (tick): from the road the decor of the houses passed is
+     * not seen (owner, 2026-10-28: "if we're just driving past them, we don't care so much what
+     * the interior decor looks like in the houses").
      */
     static void loaded(IsoChunk chunk) {
         boolean dresses = Rules.dressesHiddenWalls(), draws = Rules.drawsHiddenWallPictures();
         if (!dresses && !draws) {
             return;
         }
-        IsoCell cell = IsoWorld.instance.currentCell;
-        ROOMS.clear();
-        KINDS.clear();
-        SHOWN.clear();
         IsoWorld.instance.getMetaGrid().getRoomsIntersecting(chunk.wx * CHUNK - 1, chunk.wy * CHUNK - 1, CHUNK + 2, CHUNK + 2, ROOMS);
-        for (int i = 0; i < ROOMS.size(); i++) {
-            RoomDef room = ROOMS.get(i);
-            boolean plans = draws && !PLANNED.contains(room);
-            if (room.userDefined || kindOf(room.getName()) == Kind.NONE || !dresses && !plans || !whole(cell, room)) {
-                continue;
+        if (allDriving()) {
+            WAITING.addAll(ROOMS);
+        } else {
+            IsoCell cell = IsoWorld.instance.currentCell;
+            KINDS.clear();
+            SHOWN.clear();
+            for (int i = 0; i < ROOMS.size(); i++) {
+                look(cell, ROOMS.get(i), dresses, draws);
             }
-            IsoGridSquare first = firstSquare(cell, room);
-            if (dresses && !dressed(first)) {
-                dress(cell, room, first);
-            }
-            if (plans) {
-                PLANNED.add(room);
-                plan(cell, room);
-            }
+            KINDS.clear();
+            SHOWN.clear();
         }
         ROOMS.clear();
+    }
+
+    /**
+     * Called as the game starts a tick of the world, on its logic thread: once a player is no
+     * longer driving, the rooms that waited are looked at as loaded would have, the last found
+     * first, which are the ones round where the drive ended, for up to TICK_NANOS a tick.
+     */
+    static void tick() {
+        if (WAITING.isEmpty() || allDriving()) {
+            return;
+        }
+        boolean dresses = Rules.dressesHiddenWalls(), draws = Rules.drawsHiddenWallPictures();
+        if (!dresses && !draws) {
+            WAITING.clear();
+            return;
+        }
+        IsoCell cell = IsoWorld.instance.currentCell;
+        long until = System.nanoTime() + TICK_NANOS;
+        KINDS.clear();
+        SHOWN.clear();
+        for (Iterator<RoomDef> each = WAITING.reversed().iterator(); each.hasNext() && System.nanoTime() < until; ) {
+            RoomDef room = each.next();
+            each.remove();
+            look(cell, room, dresses, draws);
+        }
         KINDS.clear();
         SHOWN.clear();
     }
 
     /**
-     * kindsInBuilding by building, for the rooms dressed as one chunk loads: what dress hangs is
-     * counted in as it is hung, and nothing else on the map changes until the next chunk loads.
+     * A room that is loaded whole, and not yet dressed, is dressed, and its pictures planned once a
+     * session. A room no longer loaded whole is let go, and is looked at again when the chunk that
+     * makes it whole loads.
+     */
+    private static void look(IsoCell cell, RoomDef room, boolean dresses, boolean draws) {
+        boolean plans = draws && !PLANNED.contains(room);
+        if (room.userDefined || kindOf(room.getName()) == Kind.NONE || !dresses && !plans || !whole(cell, room)) {
+            return;
+        }
+        IsoGridSquare first = firstSquare(cell, room);
+        if (dresses && !dressed(first)) {
+            dress(cell, room, first);
+        }
+        if (plans) {
+            PLANNED.add(room);
+            plan(cell, room);
+        }
+    }
+
+    /** Whether every player on this machine is in a vehicle going faster than DRIVING_KMH. */
+    private static boolean allDriving() {
+        boolean any = false;
+        for (int i = 0; i < IsoPlayer.numPlayers; i++) {
+            IsoPlayer player = IsoPlayer.players[i];
+            if (player == null) {
+                continue;
+            }
+            BaseVehicle vehicle = player.getVehicle();
+            if (vehicle == null || Math.abs(vehicle.getCurrentSpeedKmHour()) <= DRIVING_KMH) {
+                return false;
+            }
+            any = true;
+        }
+        return any;
+    }
+
+    /** The rooms chunk loads found while every player was driving, in the order they were found. Logic thread. */
+    private static final LinkedHashSet<RoomDef> WAITING = new LinkedHashSet<>();
+    /** The longest a tick spends on the rooms waiting, and the speed from which a player counts as driving past. */
+    private static final long TICK_NANOS = 1_000_000L;
+    private static final float DRIVING_KMH = 10f;
+
+    /**
+     * kindsInBuilding by building, for the rooms dressed as one chunk loads or in one tick: what
+     * dress hangs is counted in as it is hung, and nothing else on the map changes meanwhile.
      */
     private static final HashMap<BuildingDef, Map<String, Integer>> KINDS = new HashMap<>();
 
     /**
      * The pictures what stands in each room of a building shows, by building and then by its
-     * rooms in order, for the rooms planned as one chunk loads: nothing on the map changes until
-     * the next chunk loads but what dress hangs, which drops its building's.
+     * rooms in order, for the rooms planned as one chunk loads or in one tick: nothing on the map
+     * changes meanwhile but what dress hangs, which drops its building's.
      */
     private static final HashMap<BuildingDef, int[][]> SHOWN = new HashMap<>();
 
@@ -214,6 +282,7 @@ final class HiddenWalls {
     static void forget() {
         DRAWN.clear();
         PLANNED.clear();
+        WAITING.clear();
     }
 
     /** What a room is, by its name on the map. */

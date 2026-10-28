@@ -665,6 +665,7 @@ public final class Hooks {
         Bleeding.tick(wounds);
         Pieces.tick();
         Rewind.tick();
+        HiddenWalls.tick();
     }
 
     /** How often a limb a shot takes off bursts in blood and shards rather than coming off whole. */
