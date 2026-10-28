@@ -28,6 +28,7 @@ final class RoofTests {
         Checks.run("gablesFarSideComesDownToTheCrownOfALowerWingBesideIt", RoofTests::gablesFarSideComesDownToTheCrownOfALowerWingBesideIt);
         Checks.run("wingPastAGableFromTheRidgesSquareIsNoNotch", RoofTests::wingPastAGableFromTheRidgesSquareIsNoNotch);
         Checks.run("longestRunLeavesOutAStrayRow", RoofTests::longestRunLeavesOutAStrayRow);
+        Checks.run("keptMeasuresAreTheMeasures", RoofTests::keptMeasuresAreTheMeasures);
         Checks.run("roofOverAnLShapedBuildingIsClosedAllRound", RoofTests::roofOverAnLShapedBuildingIsClosedAllRound);
         Checks.run("hipsAndValleyOfTheLShapeAreFoldedTheRightWay", RoofTests::hipsAndValleyOfTheLShapeAreFoldedTheRightWay);
         Checks.run("mapTilesAtAHipKeepTheirOwnHalf", RoofTests::mapTilesAtAHipKeepTheirOwnHalf);
@@ -1214,6 +1215,52 @@ final class RoofTests {
         float[] dished = {1f, 2f, 1f, 1f};
         check(RoofFit.creaseOf(dished, 1.5f) == RoofFit.NE_SW, "and through the other two when it is one of them that stands up");
         check(RoofFit.creaseOf(hip, 1f) == RoofFit.NE_SW, "the same corners over a middle that is low are folded the other way");
+    }
+
+    /** While measures are kept, a sprite measured anywhere, in any of its frames, lies as it does measured afresh. */
+    private static void keptMeasuresAreTheMeasures() {
+        Texture slope = new Texture(9, 128, 160);
+        slope.paint(0, 20, 128, 140);
+        slope.paint(60, 150, 62, 152);
+        Texture half = new Texture(10, 96, 96);
+        half.paint(0, 10, 96, 90);
+        Texture[] textures = {slope, half};
+        int[][] places = {{3, 4, 0}, {3, 4, 2}, {-7, 11, 1}};
+        float[][] origins = {{64f, 192f}, {64f, 160f}, {48f, 192f}};
+        RoofFit.Tile[] fresh = new RoofFit.Tile[textures.length * origins.length * places.length];
+        for (int pass = 0; pass < 3; pass++) {
+            if (pass == 1) {
+                Roofs.keepMeasures();
+            }
+            try {
+                int i = 0;
+                for (Texture texture : textures) {
+                    for (float[] origin : origins) {
+                        for (int[] at : places) {
+                            SpriteGeometry.Frame frame = new SpriteGeometry.Frame();
+                            frame.scale = 1f;
+                            frame.originU = origin[0];
+                            frame.originV = origin[1];
+                            frame.takeTexels(texture);
+                            RoofFit.Tile tile = Roofs.measure(frame, texture, at[0], at[1], at[2]);
+                            if (pass == 0) {
+                                fresh[i++] = tile;
+                                continue;
+                            }
+                            RoofFit.Tile was = fresh[i++];
+                            check(tile.x == at[0] && tile.y == at[1] && tile.z == at[2] && tile.axis == was.axis && tile.sure == was.sure
+                                    && tile.low == was.low && tile.high == was.high && tile.fitting == was.fitting && tile.half == was.half
+                                    && tile.halfEdge == was.halfEdge && tile.cutCorner == was.cutCorner,
+                                    "kept, texture " + texture.getID() + " at " + Arrays.toString(at) + " from " + Arrays.toString(origin) + " lies as measured afresh");
+                        }
+                    }
+                }
+            } finally {
+                if (pass == 2) {
+                    Roofs.forgetMeasures();
+                }
+            }
+        }
     }
 
     private static void longestRunLeavesOutAStrayRow() {

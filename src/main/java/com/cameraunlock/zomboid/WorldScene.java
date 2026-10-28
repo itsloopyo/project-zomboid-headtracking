@@ -3213,6 +3213,17 @@ final class WorldScene {
          */
         void build(IsoPlayer player, ViewCamera.Pose pose, ViewCamera.Pose aimed, float[] eyeFromAim, float tanHalfFieldOfView, float tanHalfSet,
                 ViewCamera.Pose from, boolean opened) {
+            // The textures' masks stand still while a frame is built.
+            Roofs.keepMeasures();
+            try {
+                buildFrame(player, pose, aimed, eyeFromAim, tanHalfFieldOfView, tanHalfSet, from, opened);
+            } finally {
+                Roofs.forgetMeasures();
+            }
+        }
+
+        private void buildFrame(IsoPlayer player, ViewCamera.Pose pose, ViewCamera.Pose aimed, float[] eyeFromAim, float tanHalfFieldOfView, float tanHalfSet,
+                ViewCamera.Pose from, boolean opened) {
             long start = System.nanoTime();
             builtAt[view.index] = start;
             int sharing = building(start);

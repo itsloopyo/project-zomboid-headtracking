@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -1223,6 +1224,89 @@ final class Roofs {
      * places has the sprite's pixels in it.
      */
     static RoofFit.Tile measure(SpriteGeometry.Frame frame, Texture texture, int x, int y, int z) {
+        if (measurer != Thread.currentThread()) {
+            return measureAt(frame, texture, x, y, z);
+        }
+        Measured kept = measured.get(texture);
+        while (kept != null && !kept.of(frame)) {
+            kept = kept.next;
+        }
+        if (kept == null) {
+            kept = new Measured(frame, measureAt(frame, texture, 0, 0, 0), measured.get(texture));
+            measured.put(texture, kept);
+        }
+        RoofFit.Tile was = kept.tile, tile = new RoofFit.Tile(x, y, z, was.axis, was.sure, z + was.low, z + was.high);
+        tile.fitting = was.fitting;
+        tile.half = was.half;
+        tile.halfEdge = was.half == 0 ? 0f : z + was.halfEdge;
+        tile.cutCorner = was.cutCorner;
+        if (CHECK_KEPT) {
+            RoofFit.Tile again = measureAt(frame, texture, x, y, z);
+            if (again.axis != tile.axis || again.sure != tile.sure || Float.compare(again.low, tile.low) != 0 || Float.compare(again.high, tile.high) != 0
+                    || again.fitting != tile.fitting || again.half != tile.half || Float.compare(again.halfEdge, tile.halfEdge) != 0 || again.cutCorner != tile.cutCorner) {
+                throw new IllegalStateException("the roof tile kept for " + texture.getName() + " at " + x + ", " + y + ", level " + z + " is not the one measured again");
+            }
+            measuresChecked++;
+        }
+        return tile;
+    }
+
+    /**
+     * Logic thread: from now until forgetMeasures, how a roof's sprite lies (measure) is kept for
+     * each texture and frame it is measured in, at its first measuring. A frame is built with
+     * every texture's mask as it is, and a roof wears one sprite over many squares.
+     */
+    static void keepMeasures() {
+        if (measurer != null) {
+            throw new IllegalStateException("roof measures are kept already");
+        }
+        measurer = Thread.currentThread();
+    }
+
+    /** Lets go of what keepMeasures kept. */
+    static void forgetMeasures() {
+        measurer = null;
+        measured.clear();
+        if (CHECK_KEPT && measuresChecked >= measuresSaid + CHECKS_SAID_EVERY) {
+            measuresSaid = measuresChecked;
+            Log.info("roof measures check: " + measuresChecked + " kept measures measured again, every one the same");
+        }
+    }
+
+    /** A roof's sprite as measure read it in one frame of the texture: the tile it gave at the map's origin. */
+    private static final class Measured {
+        final float scale, originU, originV, left, top, width, height;
+        final RoofFit.Tile tile;
+        final Measured next;
+
+        Measured(SpriteGeometry.Frame frame, RoofFit.Tile tile, Measured next) {
+            scale = frame.scale;
+            originU = frame.originU;
+            originV = frame.originV;
+            left = frame.left;
+            top = frame.top;
+            width = frame.width;
+            height = frame.height;
+            this.tile = tile;
+            this.next = next;
+        }
+
+        /** Whether the frame is the one measured: measureAt reads nothing else of it. */
+        boolean of(SpriteGeometry.Frame frame) {
+            return Float.compare(frame.scale, scale) == 0 && Float.compare(frame.originU, originU) == 0 && Float.compare(frame.originV, originV) == 0
+                    && Float.compare(frame.left, left) == 0 && Float.compare(frame.top, top) == 0 && Float.compare(frame.width, width) == 0
+                    && Float.compare(frame.height, height) == 0;
+        }
+    }
+
+    private static Thread measurer;
+    private static final IdentityHashMap<Texture, Measured> measured = new IdentityHashMap<>();
+    /** Dev only: each measure kept is measured again as it is given, and must be the same. */
+    private static final boolean CHECK_KEPT = Boolean.getBoolean("cameraunlock.zomboid.checkKept");
+    private static final long CHECKS_SAID_EVERY = 100_000L;
+    private static long measuresChecked, measuresSaid;
+
+    private static RoofFit.Tile measureAt(SpriteGeometry.Frame frame, Texture texture, int x, int y, int z) {
         float northWest = SpriteGeometry.heightDrawnAt(frame, 0f, 0f, frame.top);
         float southEast = SpriteGeometry.heightDrawnAt(frame, 1f, 1f, frame.top + frame.height);
         // Half a tile, the top of a slope under a ridge along the middle of a square: its
