@@ -15,8 +15,9 @@ final class DevPatches {
 
     /**
      * Rewind 30s, which is not ready to ship (see Rewind), the invincible key (see DevKeys.cheatsAllowed),
-     * the frame recorder's clock and its two places in a frame, and the mod's own words on the screen,
-     * which the recorder keeps out of a take (see FrameRecorder).
+     * the frame recorder's clock and its two places in a frame, the mod's own words on the screen,
+     * which the recorder keeps out of a take (see FrameRecorder), and the check of the thread a
+     * square's light is read on (see LightingThread).
      */
     static List<Agent.Patch> list() {
         List<Agent.Patch> patches = new ArrayList<>(List.of(new Agent.Patch("zombie/characters/PlayerCheats", "isCheatAllowed before its returns", classBytes -> CallSite.filterReturn(classBytes,
@@ -38,6 +39,10 @@ final class DevPatches {
                         new CallSite.Method("com/cameraunlock/zomboid/FrameRecorder", "said",
                                 "(Lzombie/ui/TextManager;Lzombie/ui/UIFont;DDLjava/lang/String;DDDD)V"), 1))));
         patches.addAll(rewind());
+        String lighting = "zombie/iso/LightingJNI$JNILighting";
+        patches.add(new Agent.Patch(lighting, "update checks the thread a square's light is read on", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
+                new CallSite.Method(lighting, "update", "()V"),
+                code -> CallSite.invokeStatic(code, new CallSite.Method("com/cameraunlock/zomboid/LightingThread", "update", "()V")))));
         return patches;
     }
 
