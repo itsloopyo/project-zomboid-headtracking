@@ -374,6 +374,13 @@ final class Flora {
         return places.length == 0 ? 0f : (right - left) * (bottom - top);
     }
 
+    /** Both lists of places, one after the other. */
+    static float[] with(float[] places, float[] more) {
+        float[] both = Arrays.copyOf(places, places.length + more.length);
+        System.arraycopy(more, 0, both, places.length, more.length);
+        return both;
+    }
+
     /** The places of leafPlaces at least least tiles over the foot, which the sprite shows at the frame row footV. */
     static float[] above(float[] places, SpriteGeometry.Frame frame, float footV, float least) {
         float up = ViewCamera.LEVEL_HEIGHT / SpriteGeometry.PIXELS_PER_LEVEL / frame.scale;

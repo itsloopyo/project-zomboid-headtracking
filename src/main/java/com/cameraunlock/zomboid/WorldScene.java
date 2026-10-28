@@ -2825,8 +2825,6 @@ final class WorldScene {
         final ColorInfo torchless = new ColorInfo();
         final float[] box = new float[4];
         int overLayer;
-        /** The object being added when the build adds the layers the game hangs over its sprite after it (a bush's leaves on its stems), null when it leaves them out. */
-        IsoObject leavesOn;
         /** How many layers of cards towards the eye the object being added stands, before its overlays: see standingNearer. */
         float standsNearer;
         /** How many things stood on something the square being built has had added so far. */
@@ -6989,7 +6987,6 @@ final class WorldScene {
                 // The game's leaves stay on a tree until a day of its own; the mod's may have fallen sooner.
                 boolean bare = inLeaf && plantBuilder.bareBySeason(sprite.getName(), x, y);
                 geometry.keep = inLeaf && !bare ? BOLE : 1f;
-                leavesOn = bare ? null : object;
                 if (unexplored && object == floor) {
                     frame.light(0f, 0f, 0f);
                 }

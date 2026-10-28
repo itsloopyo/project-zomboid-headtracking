@@ -7,7 +7,6 @@ import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.SpriteDetails.IsoObjectType;
 import zombie.iso.sprite.IsoSprite;
-import zombie.iso.sprite.IsoSpriteInstance;
 import zombie.util.list.PZArrayList;
 
 /**
@@ -688,10 +687,7 @@ final class PlantBuilder {
         int sprig = bare ? Flora.BARE : bush ? Flora.SHRUB : plant.treeSprig();
         boolean crowned = grown != null && (bush || type == IsoObjectType.tree && build.overLayer > 0 || evergreen || bare) && Own.plants(build.playerIndex)
                 && addCrown(texture, plant, sprig, x, y, z, leaf, seasonal ? Flora.autumnHue(plant.turnsAs(), Flora.otherHue(treeHash)) : Flora.YELLOW_LEAF, seasonal ? Seasons.turned(treeHash) : 0f);
-        // A bush's bare stems with the season's leaves hung on them are inside the crown the leaves make (addCrown).
-        // Stood as canes as big as painted, they reached out past it to the sides and down to the ground, and through its front.
-        boolean underLeaves = plant.stems() && build.overLayer == 0 && Own.plants(build.playerIndex) && (world.crownedToSight || build.within(Crowns.REACH, true)) && crownHung();
-        if (crowned || underLeaves) {
+        if (crowned) {
             Flora.shadeOnly(build.frame, leaf);
         }
         // A second plant on the square turns its fan half a card from the first's: the game paints
@@ -715,7 +711,7 @@ final class PlantBuilder {
         }
         build.frame.material = fanned;
         build.frame.red = red;
-        if (bush && !crowned && !underLeaves && Own.plants(build.playerIndex) && build.within(WorldScene.BUSH_REACH, false)) {
+        if (bush && !crowned && Own.plants(build.playerIndex) && build.within(WorldScene.BUSH_REACH, false)) {
             // A fan of cards through one line is thin seen along that line, and from
             // above it is a star. A bush is a clump: three more cards stand round its
             // middle, each across the way out to it, so there are leaves on every side.
@@ -733,40 +729,6 @@ final class PlantBuilder {
         build.geometry.roomLowA = build.geometry.roomLowB = -Float.MAX_VALUE;
         build.geometry.roomHighA = build.geometry.roomHighB = Float.MAX_VALUE;
     }
-
-    /**
-     * Whether a layer the game hangs over the object being added makes a crown of its own (addCrown): one with enough
-     * leaves for it. A layer with too few is a bloom on the stems' shape, flowers with no crown round the stems.
-     */
-    private boolean crownHung() {
-        IsoObject object = build.leavesOn;
-        ArrayList<IsoSpriteInstance> hung = object == null ? null : object.getAttachedAnimSprite();
-        if (hung == null) {
-            return false;
-        }
-        for (int k = 0; k < hung.size(); k++) {
-            IsoSprite sprite = hung.get(k).parentSprite;
-            Texture texture = sprite == null ? null : sprite.getTextureForCurrentFrame(object.getDir());
-            if (!WorldScene.usable(texture)) {
-                continue;
-            }
-            float[] places = WorldScene.leafPlaces.get(texture);
-            if (places == null) {
-                hungFrame.takeTexels(texture);
-                places = Flora.leafPlaces(texture::isMaskSet, hungFrame);
-                if (places.length >= CROWN_LEAST_PLACES * 2) {
-                    WorldScene.leafPlaces.put(texture, places);
-                }
-            }
-            if (places.length >= CROWN_LEAST_PLACES * 2) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /** The frame crownHung reads a hung layer's places in, so that the frame of the object being added is left as it is. */
-    private final SpriteGeometry.Frame hungFrame = new SpriteGeometry.Frame();
 
     /**
      * Grows the crop the frame's sprite paints, if it is one and near enough: see Crops. False,
@@ -880,8 +842,7 @@ final class PlantBuilder {
         // a crown inside the leaves, hidden by them.
         float spread = bush ? Flora.spread(places) : 0f;
         // A bush's bare stems are wood: made a crown of their own, in the stems' colour, they were a brown sack round the bush
-        // whatever leaves the season hung on it. They stand as canes, inside the leaves' crown when there is one (addGrownOn), and
-        // only lend their shape to leaves too sparse for a crown.
+        // whatever leaves the season hung on it. They stand as canes, and the leaves' crown grows out along them.
         if (bush && plant.stems() && build.overLayer == 0) {
             if (!few) {
                 bushPlaces = places;
@@ -895,13 +856,18 @@ final class PlantBuilder {
         }
         boolean sameBush = bush && build.overLayer > 0 && bushPlaces != null && bushX == x && bushY == y && bushZ == z;
         boolean bloom = sameBush && (bushOnStems ? few : few || spread < bushSpread);
+        boolean onStems = sameBush && bushOnStems;
         bushOnStems = false;
         if (few && !bloom) {
             return false;
         }
         if (bloom) {
             places = bushPlaces;
-        } else if (bush) {
+        } else if (onStems) {
+            // The leaves over a bush's stems leave most of the stems bare, a few leaves on long canes: they grow out along every stem.
+            places = Flora.with(places, bushPlaces);
+        }
+        if (!bloom && bush) {
             bushPlaces = places;
             bushSpread = spread;
             bushX = x;
