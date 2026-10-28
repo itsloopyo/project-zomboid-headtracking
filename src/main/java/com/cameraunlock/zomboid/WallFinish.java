@@ -246,7 +246,7 @@ final class WallFinish {
     /** and for each the wall of it met on a north edge, on a west edge, and as the corner of the two. */
     private static final ArrayList<Facing[]> styled = new ArrayList<>();
     /** Which of them the wall along the south and along the east of a square of the building shows. */
-    private static final HashMap<Long, Integer> southOf = new HashMap<>(), eastOf = new HashMap<>();
+    private static final LongTable<Integer> southOf = new LongTable<>(), eastOf = new LongTable<>();
     private static final int NORTH = 0, WEST = 1, CORNER = 2;
 
     private WallFinish() {}
@@ -369,6 +369,10 @@ final class WallFinish {
         HashMap<Long, Tally> rooms = new HashMap<>();
         HashMap<Long, Tally[]> roomEdges = new HashMap<>();
         HashMap<Long, int[]> grime = new HashMap<>();
+        long lastRoom = 0L;
+        Tally roomTally = null;
+        Tally[] edgeTallies = null;
+        int[] wallsGrimed = null;
         for (int x = def.getX(); x < def.getX() + def.getW(); x++) {
             for (int y = def.getY(); y < def.getY() + def.getH(); y++) {
                 IsoGridSquare square = cell.getGridSquare(x, y, z);
@@ -387,18 +391,23 @@ final class WallFinish {
                 if (square.getBuilding() != building) {
                     continue;
                 }
-                Tally room = rooms.computeIfAbsent(square.getRoomID(), unused -> new Tally());
-                vote(room, square, true);
-                vote(room, square, false);
-                Tally[] edges = roomEdges.computeIfAbsent(square.getRoomID(), unused -> new Tally[] {new Tally(), new Tally()});
-                vote(edges[NORTH], square, true);
-                vote(edges[WEST], square, false);
-                int[] walls = grime.computeIfAbsent(square.getRoomID(), unused -> new int[2]);
+                // Squares of a room lie side by side: the one before was most often in the same room.
+                long roomId = square.getRoomID();
+                if (roomTally == null || roomId != lastRoom) {
+                    roomTally = rooms.computeIfAbsent(roomId, unused -> new Tally());
+                    edgeTallies = roomEdges.computeIfAbsent(roomId, unused -> new Tally[] {new Tally(), new Tally()});
+                    wallsGrimed = grime.computeIfAbsent(roomId, unused -> new int[2]);
+                    lastRoom = roomId;
+                }
+                vote(roomTally, square, true);
+                vote(roomTally, square, false);
+                vote(edgeTallies[NORTH], square, true);
+                vote(edgeTallies[WEST], square, false);
                 for (int edge = NORTH; edge <= WEST; edge++) {
                     IsoObject wall = WorldScene.wallOn(square, edge == NORTH);
                     if (wall != null) {
-                        walls[0]++;
-                        walls[1] += grimed(wall) ? 1 : 0;
+                        wallsGrimed[0]++;
+                        wallsGrimed[1] += grimed(wall) ? 1 : 0;
                     }
                 }
                 IsoGridSquare south = filled(cell.getGridSquare(x, y + 1, z)), east = filled(cell.getGridSquare(x + 1, y, z));
