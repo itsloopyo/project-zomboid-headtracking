@@ -110,6 +110,7 @@ final class HiddenWalls {
         IsoCell cell = IsoWorld.instance.currentCell;
         ROOMS.clear();
         KINDS.clear();
+        SHOWN.clear();
         IsoWorld.instance.getMetaGrid().getRoomsIntersecting(chunk.wx * CHUNK - 1, chunk.wy * CHUNK - 1, CHUNK + 2, CHUNK + 2, ROOMS);
         for (int i = 0; i < ROOMS.size(); i++) {
             RoomDef room = ROOMS.get(i);
@@ -128,6 +129,7 @@ final class HiddenWalls {
         }
         ROOMS.clear();
         KINDS.clear();
+        SHOWN.clear();
     }
 
     /**
@@ -135,6 +137,13 @@ final class HiddenWalls {
      * counted in as it is hung, and nothing else on the map changes until the next chunk loads.
      */
     private static final HashMap<BuildingDef, Map<String, Integer>> KINDS = new HashMap<>();
+
+    /**
+     * The pictures what stands in each room of a building shows, by building and then by its
+     * rooms in order, for the rooms planned as one chunk loads: nothing on the map changes until
+     * the next chunk loads but what dress hangs, which drops its building's.
+     */
+    private static final HashMap<BuildingDef, int[][]> SHOWN = new HashMap<>();
 
     /**
      * A picture the mod draws on a hidden wall in first person and nowhere else: nothing of it is
@@ -548,6 +557,7 @@ final class HiddenWalls {
     private static Set<Integer> picturesInBuilding(IsoCell cell, RoomDef room, Set<Integer> inRoom, Set<Integer> drawnElsewhere) {
         Set<Integer> pictures = new HashSet<>();
         ArrayList<RoomDef> rooms = room.getBuilding().rooms;
+        int[][] shown = SHOWN.computeIfAbsent(room.getBuilding(), building -> shownIn(cell, rooms));
         for (int i = 0; i < rooms.size(); i++) {
             RoomDef each = rooms.get(i);
             for (int r = 0; r < each.rects.size(); r++) {
@@ -565,6 +575,30 @@ final class HiddenWalls {
                                 }
                             }
                         }
+                    }
+                }
+            }
+            for (int picture : shown[i]) {
+                pictures.add(picture);
+                if (each == room) {
+                    inRoom.add(picture);
+                }
+            }
+        }
+        return pictures;
+    }
+
+    /** The pictures what stands in each of the rooms shows where it is loaded, room by room. */
+    private static int[][] shownIn(IsoCell cell, ArrayList<RoomDef> rooms) {
+        int[][] shown = new int[rooms.size()][];
+        ArrayList<Integer> room = new ArrayList<>();
+        for (int i = 0; i < rooms.size(); i++) {
+            RoomDef each = rooms.get(i);
+            room.clear();
+            for (int r = 0; r < each.rects.size(); r++) {
+                RoomDef.RoomRect rect = each.rects.get(r);
+                for (int y = rect.y; y < rect.y + rect.h; y++) {
+                    for (int x = rect.x; x < rect.x + rect.w; x++) {
                         IsoGridSquare square = cell.getGridSquare(x, y, each.level);
                         if (square == null) {
                             continue;
@@ -577,19 +611,16 @@ final class HiddenWalls {
                                 int picture = Decor.of(sprite.getName(), properties.get("CustomName"), properties.get("GroupName") == null ? "" : properties.get("GroupName"),
                                         sprite.getSpriteGrid() != null);
                                 if (picture != Decor.NONE) {
-                                    int shown = Decor.inRoom(picture, x, y, each.level);
-                                    pictures.add(shown);
-                                    if (each == room) {
-                                        inRoom.add(shown);
-                                    }
+                                    room.add(Decor.inRoom(picture, x, y, each.level));
                                 }
                             }
                         }
                     }
                 }
             }
+            shown[i] = room.stream().mapToInt(Integer::intValue).toArray();
         }
-        return pictures;
+        return shown;
     }
 
     private static void dress(IsoCell cell, RoomDef room, IsoGridSquare first) {
@@ -1021,6 +1052,7 @@ final class HiddenWalls {
             throw new IllegalStateException("the game has no sprite " + name + " to hang");
         }
         square.AddTileObject(thing);
+        SHOWN.remove(room.getBuilding());
         Map<String, Integer> kinds = KINDS.get(room.getBuilding());
         if (kinds != null) {
             countKinds(thing, kinds);
