@@ -1303,12 +1303,12 @@ final class PipelineShaders {
 
             """ + SKY_SEEN + """
 
-            // A number from 0 to 1 that is different at every pixel and different again every
-            // frame, sixty-four frames round. What is let through by it at one pixel in so
-            // many, the picture's steadying of one frame into the next makes an even veil of.
+            // A number from 0 to 1 that is different at every pixel and the same there in every
+            // frame. What is let through by it at one pixel in so many is an even veil, fine-grained
+            // and still: drawn as a new set of pixels each frame it sparkled, with no frames
+            // blended to make one veil of them.
             float sifted() {
-                float frame = mod(floor(uSeconds * 60.0), 64.0);
-                return fract(52.9829189 * fract(dot(gl_FragCoord.xy + 5.588238 * frame, vec2(0.06711056, 0.00583715))));
+                return fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
             }
 
             // What a pane of glass throws back along a line: the sky, and below a ragged line
@@ -3212,9 +3212,8 @@ final class PipelineShaders {
                 // thick, in the colour the sprite paints it, a security fence's dark green or a site
                 // fence's zinc.
                 if (vMaterial > 14.5 && vMaterial < 15.5) {
-                    // Far off, where a pixel takes in several wires, the fence is a veil: each
-                    // pixel is wire as often as that much of it is wire, a different set of
-                    // pixels every frame, and the frames together are an even grey gauze. Cut
+                    // Far off, where a pixel takes in several wires, the fence is a veil: as
+                    // many of its pixels are wire as that much of it is wire, an even grey gauze. Cut
                     // at one level, the wires that happened to fall on a pixel's middle were a
                     // coarse lattice of dots that crawled.
                     float spread = uTexel.x > 0.0 ? sqrt(max(dot(stepX, stepX), dot(stepY, stepY))) / uTexel.x : 0.0;
@@ -3303,8 +3302,8 @@ final class PipelineShaders {
                 // pane lets most of the light behind it through and throws back a little of
                 // what is in front of it, more the more it is seen on the slant: so of the
                 // pixels on a pane some are the glass, showing the sky and the roofs across
-                // the street, and the rest are let through to what is behind, a different set
-                // every frame. Out of doors by day what is behind is a dim room, and the
+                // the street, and the rest are let through to what is behind, the same set
+                // every frame (sifted). Out of doors by day what is behind is a dim room, and the
                 // glass takes more of the pixels. Seen from the street by day a pane throws
                 // back more of it (LookingGlass.paneThrown). A window's sheet faces into its
                 // room; one with the street on both faces is street from both
@@ -4863,7 +4862,7 @@ final class PipelineShaders {
                 // through for at most half: the ring shows through the traced picture, which stays.
                 float traced = water && uWater.z > 0.0 ? 0.0 : shine * (1.0 - 0.5 * smoothstep(0.1, 0.5, length(rings)));
                 // Glass told from a sprite is no mirror for it either: only some of its pixels are
-                // drawn, a different set every frame, so the depth the last pass reads a mirror's
+                // drawn (sifted), so the depth the last pass reads a mirror's
                 // facing from is not the glass's. It throws back what the glazed block gives it.
                 // A mirror is a level face, told by the face and not by its relief: tipped at the
                 // joints of its tiles, the relief let the mirror through in some pixels of a joint
