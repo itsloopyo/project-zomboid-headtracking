@@ -1,6 +1,6 @@
 [workspace]
 name = "project-zomboid-headtracking"
-version = "0.1.0"
+version = "0.1.1"
 description = "Head tracking mod for Project Zomboid"
 license = "MIT"
 channels = ["conda-forge"]
