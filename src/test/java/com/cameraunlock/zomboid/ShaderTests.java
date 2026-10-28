@@ -70,6 +70,8 @@ final class ShaderTests {
         List<Linked> programs = programs();
         Checks.run("depthProgramIsTheWorldsToldToDrawDepthAlone", () -> depthProgramIsTheWorldsToldToDrawDepthAlone(programs));
         Checks.run("calmProgramIsTheWorldsWithItsTestsAnswered", () -> calmProgramIsTheWorldsWithItsTestsAnswered(programs));
+        Checks.run("untintedProgramIsTheCalmToldNothingIsPainted", () -> untintedProgramIsTheCalmToldNothingIsPainted(programs));
+        Checks.run("aGroundPictureReadOnlyWhereItIsTakesItsDerivativesFromOutside", ShaderTests::aGroundPictureReadOnlyWhereItIsTakesItsDerivativesFromOutside);
         Checks.run("wiresAreOutOfTheMapFromAbove", () -> wiresAreOutOfTheMapFromAbove(programs));
         Checks.run("wallsAskTheSunFromUnderTheirRoof", () -> wallsAskTheSunFromUnderTheirRoof(programs));
         Checks.run("noSunThroughARoomsCorner", ShaderTests::noSunThroughARoomsCorner);
@@ -213,6 +215,36 @@ final class ShaderTests {
             Checks.check(whole.contains(test) && !calm.contains(test), "the calm world program is not told the answer to " + test);
         }
         Checks.check(count(whole, "if (at.w <= 0.0)") - count(calm, "if (at.w <= 0.0)") == count(whole, "vec4 at = uFireAt[i];"), "the calm world program is not told that no fire gives light");
+    }
+
+    /**
+     * The untinted program draws the ranges of tint key 0 in place of the calm one, so it is the calm
+     * text with uTint held at what WallSides.tint tells a key of 0, and nothing else changed.
+     */
+    private static void untintedProgramIsTheCalmToldNothingIsPainted(List<Linked> programs) {
+        String calm = fragment(programs, "world calm"), untinted = fragment(programs, "world untinted");
+        Checks.check(count(calm, "uniform vec4 uTint;") == 1 && calm.replace("uniform vec4 uTint;", "const vec4 uTint = vec4(0.0);").equals(untinted),
+                "the untinted world program is not the calm one with only uTint held at nothing");
+        float[] tint = {1f, 1f, 1f, 1f};
+        WallSides.tint(0, tint);
+        Checks.check(tint[0] == 0f && tint[1] == 0f && tint[2] == 0f && tint[3] == 0f, "a range of tint key 0 is told a tint, which the untinted program cannot take");
+    }
+
+    /**
+     * A ground picture is read only where the ground is made of some of it, a test that differs
+     * between the pixels of one quad, so each read is told its derivatives, taken before the tests.
+     */
+    private static void aGroundPictureReadOnlyWhereItIsTakesItsDerivativesFromOutside() {
+        String main = PipelineShaders.WORLD_FRAGMENT_MAIN;
+        int taken = main.indexOf("vec2 oneAcross = dFdx(one), oneDown = dFdy(one), twoAcross = dFdx(two), twoDown = dFdy(two);");
+        for (String[] read : new String[][] {{"dark", "uAsphalt"}, {"loose", "uGravel"}, {"earth", "uSoil"}, {"green", "uLawn"}}) {
+            int test = main.indexOf("if (" + read[0] + " != 0.0) {");
+            int end = test < 0 ? -1 : main.indexOf("}", test);
+            String body = end < 0 ? "" : main.substring(test, end);
+            Checks.check(taken >= 0 && test > taken && body.contains("texture2DGradARB(" + read[1] + ", one, oneAcross, oneDown)")
+                    && body.contains("texture2DGradARB(" + read[1] + ", two, twoAcross, twoDown)") && !body.contains("texture2D(") && !body.contains("dFd"),
+                    "the " + read[1] + " picture read where there is " + read[0] + " is not told derivatives taken before the test");
+        }
     }
 
     private static void everyProgramPassesTheReferenceCompiler(List<Linked> programs) throws IOException, InterruptedException {
