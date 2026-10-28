@@ -19,6 +19,10 @@ final class RoomsSeen {
 
     /** Whether most of the loaded squares of a room laid in the rectangles given, x, y, width and height in turn, are seen. */
     static boolean most(int[] rects, Squares squares) {
+        int left = 0;
+        for (int r = 0; r < rects.length; r += 4) {
+            left += rects[r + 2] * rects[r + 3];
+        }
         int seen = 0, unseen = 0;
         for (int r = 0; r < rects.length; r += 4) {
             for (int y = rects[r + 1]; y < rects[r + 1] + rects[r + 3]; y++) {
@@ -26,6 +30,11 @@ final class RoomsSeen {
                     int state = squares.at(x, y);
                     seen += state == SEEN ? 1 : 0;
                     unseen += state == UNSEEN ? 1 : 0;
+                    left--;
+                    // The squares not yet asked cannot turn it.
+                    if (seen > unseen + left || unseen >= seen + left) {
+                        return seen > unseen;
+                    }
                 }
             }
         }

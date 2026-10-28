@@ -11,6 +11,7 @@ final class RoomsSeenTests {
         Checks.run("aRoomMostlyUnseenIsNot", RoomsSeenTests::aRoomMostlyUnseenIsNot);
         Checks.run("squaresNotLoadedAreNotCounted", RoomsSeenTests::squaresNotLoadedAreNotCounted);
         Checks.run("everyRectangleIsCounted", RoomsSeenTests::everyRectangleIsCounted);
+        Checks.run("stoppingEarlyGivesTheWholeCount", RoomsSeenTests::stoppingEarlyGivesTheWholeCount);
     }
 
     /** A hall 10 by 6 at (100, 200), seen but for an unseen patch of x by y at its north-east corner. */
@@ -35,5 +36,33 @@ final class RoomsSeenTests {
     private static void everyRectangleIsCounted() {
         RoomsSeen.Squares squares = (x, y) -> x < 10 ? RoomsSeen.SEEN : RoomsSeen.UNSEEN;
         check(!RoomsSeen.most(new int[] {0, 0, 10, 1, 10, 0, 5, 3}, squares), "10 seen in one rectangle against 15 unseen in another is not seen");
+    }
+
+    private static void stoppingEarlyGivesTheWholeCount() {
+        java.util.Random random = new java.util.Random(7);
+        for (int trial = 0; trial < 20000; trial++) {
+            int[] rects = new int[4 * (1 + random.nextInt(3))];
+            for (int r = 0; r < rects.length; r += 4) {
+                rects[r] = random.nextInt(6);
+                rects[r + 1] = random.nextInt(6);
+                rects[r + 2] = 1 + random.nextInt(5);
+                rects[r + 3] = 1 + random.nextInt(5);
+            }
+            int[] states = new int[144];
+            for (int i = 0; i < states.length; i++) {
+                states[i] = random.nextInt(3) - 1;
+            }
+            RoomsSeen.Squares squares = (x, y) -> states[y * 12 + x];
+            int seen = 0, unseen = 0;
+            for (int r = 0; r < rects.length; r += 4) {
+                for (int y = rects[r + 1]; y < rects[r + 1] + rects[r + 3]; y++) {
+                    for (int x = rects[r]; x < rects[r] + rects[r + 2]; x++) {
+                        seen += squares.at(x, y) == RoomsSeen.SEEN ? 1 : 0;
+                        unseen += squares.at(x, y) == RoomsSeen.UNSEEN ? 1 : 0;
+                    }
+                }
+            }
+            check(RoomsSeen.most(rects, squares) == seen > unseen, "trial " + trial + " answers as the whole count does");
+        }
     }
 }
