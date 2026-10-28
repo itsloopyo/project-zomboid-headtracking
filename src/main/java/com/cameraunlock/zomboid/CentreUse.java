@@ -123,8 +123,9 @@ final class CentreUse {
      * @param view    the line from the eye through the reticle
      * @param floorUp the height of the floor the player stands on, in tiles above level 0
      * @param pointer whether the player has a pointer to work a container's panels with
+     * @param climb   whether the key was held, which climbs through a window that can be climbed through instead of opening or shutting it
      */
-    Outcome press(ViewCamera.Pose view, float floorUp, IsoPlayer player, IsoCell cell, boolean pointer) {
+    Outcome press(ViewCamera.Pose view, float floorUp, IsoPlayer player, IsoCell cell, boolean pointer, boolean climb) {
         IsoObject found = find(view, floorUp, cell, (int) Math.floor(player.getZ()), false);
         if (found == null) {
             return Outcome.NOTHING;
@@ -132,13 +133,12 @@ final class CentreUse {
         if (found instanceof IsoWorldInventoryObject item) {
             return call(WORLD_MENU, GRAB, null, item, Double.valueOf(player.getIndex())) == null ? Outcome.NOTHING : Outcome.USED;
         }
-        if (found instanceof IsoWindow pane && (pane.IsOpen() || pane.isSmashed()) && !player.isAiming() && pane.canClimbThrough(player)
-                && landsOnAFloor(pane, player)) {
+        if (climb && climbable(found, player)) {
             // The game's click shuts an open window, and climbs through a smashed one only from a square beside it, answering
             // that it took the click from further off. The key climbs through either from within its reach, where there is a
             // floor beyond to land on, the way the game's click climbs: up first, then over, walking to the window first.
-            Object climb = ((KahluaTable) LuaManager.env.rawget(WORLD_MENU)).rawget(CLIMB);
-            return call(WORLD_MENU, GET_UP, player, climb, null, pane, Double.valueOf(player.getIndex())) == null ? Outcome.NOTHING : Outcome.USED;
+            Object climbing = ((KahluaTable) LuaManager.env.rawget(WORLD_MENU)).rawget(CLIMB);
+            return call(WORLD_MENU, GET_UP, player, climbing, null, (IsoWindow) found, Double.valueOf(player.getIndex())) == null ? Outcome.NOTHING : Outcome.USED;
         }
         if (found instanceof IsoWindow pane && !pane.isSmashed() && !pane.isInvincible() && pane.getBarricadeForCharacter(player) == null
                 && player.getCurrentSquare() != pane.getSquare() && player.getCurrentSquare() != pane.getOppositeSquare()) {
@@ -234,6 +234,16 @@ final class CentreUse {
         }
         float toX = square.getX() + 0.5f - line.eyeX, toY = square.getY() + 0.5f - line.eyeY;
         return toX * toX + toY * toY <= (REACH + 0.71f) * (REACH + 0.71f) ? found : null;
+    }
+
+    /** Whether the reticle is on a window the player can climb through, which a tap of the key opens or shuts and holding it climbs. */
+    boolean climbableAt(ViewCamera.Pose view, float floorUp, IsoPlayer player, IsoCell cell) {
+        return climbable(find(view, floorUp, cell, (int) Math.floor(player.getZ()), false), player);
+    }
+
+    private static boolean climbable(IsoObject found, IsoPlayer player) {
+        return found instanceof IsoWindow pane && (pane.IsOpen() || pane.isSmashed()) && !player.isAiming() && pane.canClimbThrough(player)
+                && landsOnAFloor(pane, player);
     }
 
     /** Whether the square on the other side of a window from the player has a floor, so climbing out is no fall. */

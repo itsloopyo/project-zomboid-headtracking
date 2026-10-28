@@ -45,7 +45,9 @@ public final class Controls {
 
     private final AimInput aim = new AimInput();
     private boolean stockAim, filteredAim, attackDown;
-    private boolean interactDown, interactTaken;
+    private boolean interactDown, interactTaken, windowHeld;
+    private long interactSince;
+    private static final long CLIMB_HOLD_NANOS = 400_000_000L;
 
     /** Where the clean aim meets the world, in the game's own axes: tiles and floor levels. */
     private float aimPointX, aimPointY, aimPointLevel;
@@ -300,13 +302,23 @@ public final class Controls {
      */
     public boolean interactKey(boolean stock) {
         if (!stock) {
+            if (windowHeld) {
+                windowHeld = false;
+                view.firstPerson.useAtCentre(false);
+            }
             interactDown = false;
             interactTaken = false;
             return false;
         }
         if (!interactDown) {
             interactDown = true;
-            interactTaken = view.firstPerson.lookCaptured() && view.firstPerson.useAtCentre();
+            interactSince = System.nanoTime();
+            // On a window that can be climbed through, a tap opens or shuts it and holding the key climbs, as in the game's own view.
+            windowHeld = view.firstPerson.lookCaptured() && view.firstPerson.climbableAtCentre();
+            interactTaken = windowHeld || view.firstPerson.lookCaptured() && view.firstPerson.useAtCentre(false);
+        } else if (windowHeld && System.nanoTime() - interactSince >= CLIMB_HOLD_NANOS) {
+            windowHeld = false;
+            view.firstPerson.useAtCentre(true);
         }
         return !interactTaken;
     }

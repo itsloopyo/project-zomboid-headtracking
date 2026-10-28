@@ -1769,17 +1769,23 @@ public final class FirstPerson {
         }
     }
 
+    /** Whether the reticle is on a window the character can climb through, for which the key waits to see if it is held. */
+    boolean climbableAtCentre() {
+        IsoPlayer player = view.player();
+        return player.getVehicle() == null && reticleOnScreen && view.centreUse.climbableAt(reticleLine, floorUp(player), player, IsoWorld.instance.currentCell);
+    }
+
     /**
      * Called as the Interact key goes down with the mouse turning the view: acts on what the
      * last picture drew under the reticle, and says whether anything was there for it. In a
      * vehicle the key is the game's, which gets out with it.
      */
-    boolean useAtCentre() {
+    boolean useAtCentre(boolean climb) {
         IsoPlayer player = view.player();
         if (player.getVehicle() != null || !reticleOnScreen) {
             return false;
         }
-        CentreUse.Outcome outcome = view.centreUse.press(reticleLine, floorUp(player), player, IsoWorld.instance.currentCell, view.onMouse());
+        CentreUse.Outcome outcome = view.centreUse.press(reticleLine, floorUp(player), player, IsoWorld.instance.currentCell, view.onMouse(), climb);
         if (outcome == CentreUse.Outcome.CONTAINER) {
             pointer.open();
         }
@@ -1839,7 +1845,7 @@ public final class FirstPerson {
         if (player.getVehicle() != null || line == null) {
             return;
         }
-        CentreUse.Outcome outcome = view.centreUse.press(line, floorUp(player), player, IsoWorld.instance.currentCell, true);
+        CentreUse.Outcome outcome = view.centreUse.press(line, floorUp(player), player, IsoWorld.instance.currentCell, true, false);
         if (TRACE) {
             Log.info("use at the pointer (" + x + ", " + y + "): " + outcome);
         }
