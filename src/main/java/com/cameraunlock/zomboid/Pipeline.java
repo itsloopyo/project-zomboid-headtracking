@@ -4628,7 +4628,8 @@ final class Pipeline {
         GL13.glActiveTexture(GL_TEXTURE0 + 5);
         GL11.glBindTexture(GL_TEXTURE_2D, airKept[airNow]);
         volume.set("uAirKept", airKeptFrame == frameNumber - 1 ? AIR_KEPT : 0f);
-        volume.set("uEyeBefore", airBefore.eyeX, airBefore.eyeY, airBefore.eyeUp);
+        // Taken here and not in the shader, which may not keep the eyes' difference apart from the rest of the sum.
+        volume.set("uEyeMoved", camera.eyeX - airBefore.eyeX, camera.eyeY - airBefore.eyeY, camera.eyeUp - airBefore.eyeUp);
         volume.set("uRightBefore", airBefore.rightX, airBefore.rightY, airBefore.rightUp);
         volume.set("uUpBefore", airBefore.upX, airBefore.upY, airBefore.upUp);
         volume.set("uForwardBefore", airBefore.forwardX, airBefore.forwardY, airBefore.forwardUp);

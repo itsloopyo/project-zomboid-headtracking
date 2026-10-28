@@ -5871,11 +5871,11 @@ final class PipelineShaders {
             uniform sampler2D uRoomAirMap;
             uniform vec3 uRoomAirAt;
             // The last frame's air before it was softened, with how far each of its pixels saw in
-            // alpha, the eye it was seen from, and how much of it is kept where it is seen at the
+            // alpha, how far the eye has gone since, and how much of it is kept where it is seen at the
             // same distance. uStepsFrom moves where along a line of sight the steps fall, frame by frame.
             uniform sampler2D uAirBefore;
             uniform float uAirKept;
-            uniform vec3 uEyeBefore;
+            uniform vec3 uEyeMoved;
             uniform vec3 uRightBefore;
             uniform vec3 uUpBefore;
             uniform vec3 uForwardBefore;
@@ -5953,9 +5953,8 @@ final class PipelineShaders {
                 caught += vec3(1.0, 0.92, 0.76) * ((beamed / float(STEPS) * ahead + torched) * along * (0.0004 + 0.2 * uMist));
                 // Where this pixel's line of sight ends, as the last frame saw it: kept only where
                 // that frame saw as far there, so what has come out from behind something is not
-                // given the air in front of what hid it. The eyes are taken from each other first:
-                // a place on the map is held to a millimetre, the difference of the eyes exactly.
-                vec3 seen = ray * ahead + (uEye - uEyeBefore);
+                // given the air in front of what hid it.
+                vec3 seen = ray * ahead + uEyeMoved;
                 float aheadBefore = dot(seen, uForwardBefore);
                 vec2 before = vec2(dot(seen, uRightBefore) / uTan.x, dot(seen, uUpBefore) / uTan.y) / max(aheadBefore, 0.001) * 0.5 + 0.5;
                 if (uAirKept > 0.0 && aheadBefore > 0.0 && before.x > 0.0 && before.x < 1.0 && before.y > 0.0 && before.y < 1.0) {
