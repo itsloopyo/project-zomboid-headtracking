@@ -1846,6 +1846,10 @@ public final class FirstPerson {
             return;
         }
         CentreUse.Outcome outcome = view.centreUse.press(line, floorUp(player), player, IsoWorld.instance.currentCell, true, false);
+        if (outcome == CentreUse.Outcome.CONTAINER) {
+            // Opened as the Interact key opens one, it is put away as that one is: the pointer button or Escape shuts it.
+            pointer.open();
+        }
         if (TRACE) {
             Log.info("use at the pointer (" + x + ", " + y + "): " + outcome);
         }
