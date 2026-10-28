@@ -5,8 +5,10 @@ package com.cameraunlock.zomboid;
  * point at the game's panels. Three things let go of it: the inventory key,
  * which opens the inventory and holds the pointer until it is pressed again or
  * Escape is, as does a container opened from the look; a panel of the game's
- * that opens; and a click of a button, which holds it until the button is
- * clicked again or Escape is pressed.
+ * that opens; and a click of a button, which holds it until Escape is pressed.
+ * A click of the button with the pointer out, whatever brought it out, is the
+ * way back to the look: it closes the inventory as Escape does and leaves any
+ * other panel open without the pointer.
  */
 final class PointerMode {
     /** What the inventory and loot panels are to do after an update. */
@@ -42,6 +44,7 @@ final class PointerMode {
         } else {
             ignoredPanels = panels;
         }
+        boolean back = click && on();
         if (inventoryKey) {
             byKey = !byKey;
             inventory = byKey ? Inventory.OPEN : Inventory.CLOSE;
@@ -51,14 +54,18 @@ final class PointerMode {
                 clicked = false;
                 ignoredPanels = panels;
             }
-        } else if (escape && byKey) {
+        } else if ((escape || back) && byKey) {
             byKey = false;
             inventory = Inventory.CLOSE;
         }
-        if (escape) {
+        if (back) {
+            byPanel = false;
+            clicked = false;
+            ignoredPanels = panels;
+        } else if (escape) {
             clicked = false;
         } else if (click) {
-            clicked = !clicked;
+            clicked = true;
         }
         return inventory;
     }

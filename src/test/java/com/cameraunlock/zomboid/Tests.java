@@ -3013,8 +3013,20 @@ public final class Tests {
         pointer.update(false, false, true, 0);
         pointer.update(false, false, false, 1);
         check("true panel+clicked".equals(pointer.describe()), "a menu opened from it keeps the pointer");
-        check(pointer.update(false, false, true, 1) == leave && pointer.on(), "after the button is clicked again");
-        check(pointer.update(false, false, false, 0) == leave && !pointer.on(), "until the menu closes");
+        check(pointer.update(false, false, true, 1) == leave && !pointer.on(), "until the button is clicked again, past the menu");
+        check(pointer.update(false, false, false, 1) == leave && !pointer.on(), "which no longer holds it");
+        pointer.update(false, false, false, 0);
+
+        pointer.update(true, false, false, 0);
+        check(pointer.update(false, false, true, 0) == close && !pointer.on(), "a click with the inventory key's pointer out closes the inventory and goes back to the look");
+        pointer.open();
+        check(pointer.update(false, false, true, 0) == close && !pointer.on(), "and so does a click with a container opened from the look");
+        pointer.update(false, false, false, 1);
+        check(pointer.on(), "a panel opening brings the pointer out");
+        check(pointer.update(false, false, true, 1) == leave && !pointer.on(), "and a click puts it back, leaving the panel open");
+        check(pointer.update(false, false, true, 1) == leave && pointer.on(), "the next click brings it out again");
+        pointer.update(false, false, true, 1);
+        pointer.update(false, false, false, 0);
 
         pointer.update(false, false, false, 2);
         check(pointer.on(), "two panels open");
