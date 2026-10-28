@@ -7528,7 +7528,6 @@ final class PipelineShaders {
             uniform vec2 uSunAt;
             uniform vec3 uRayColor;
             uniform float uAspect;
-            uniform float uTime;
 
             uniform vec2 uTan;
             uniform float uNear;
@@ -8152,7 +8151,9 @@ final class PipelineShaders {
                 }
                 vec2 fromCentre = uv - 0.5;
                 c *= 1.0 - dot(fromCentre, fromCentre) * uGrade.z;
-                c += (hash(gl_FragCoord.xy + uTime * 61.0) - 0.5) / 160.0;
+                // The grain that breaks up banding in smooth shades is the same at a pixel in every frame:
+                // drawn anew each frame it was a fizz over the whole picture that nothing blends away.
+                c += (hash(gl_FragCoord.xy) - 0.5) / 160.0;
                 if (uOutlined > 0.5) {
                     // What is outlined has a line round it, where it meets what is not it, in
                     // its own colour, and is a little lighter all over. The line is as wide on

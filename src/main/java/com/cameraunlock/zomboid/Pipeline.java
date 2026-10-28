@@ -4936,7 +4936,6 @@ final class Pipeline {
         // The way up in the world, as the eye sees it: across, up and ahead.
         develop.set("uUp", camera.rightUp, camera.upUp, camera.forwardUp);
         develop.set("uAspect", aspect);
-        develop.set("uTime", state.seconds);
         atmosphere(develop, state);
         develop.set("uRangeFrom", rangeFrom);
         develop.set("uFogStart", fogStart);
