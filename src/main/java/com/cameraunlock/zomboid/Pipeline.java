@@ -236,6 +236,13 @@ final class Pipeline {
             {"uWet > 0.0", "false"}, {"uRaining > 0.0", "false"}, {"uSnowLying > 0.0", "false"}, {"uPlantSnow > 0.0", "false"},
             {"uTorchAt.w > 0.0", "false"}, {"uFlashAt.w <= 0.0", "true"}, {"uLantern.w > 0.0", "false"}, {"uBeamAt[i].w > 0.0", "false"}};
     private static final String WORLD_FRAGMENT_CALM = calm(WORLD_FRAGMENT);
+    /**
+     * The calm program told as it is compiled that nothing is painted over, which is what
+     * WallSides.tint tells a range of key 0: drawWorld colours the solid world's ranges of that
+     * key with it. The sums for paint, laid masonry, grime and slats held registers whether a
+     * range was painted or not.
+     */
+    private static final String WORLD_FRAGMENT_UNTINTED = replacedOnce(WORLD_FRAGMENT_CALM, "uniform vec4 uTint;", "const vec4 uTint = vec4(0.0);");
 
     private static String calm(String source) {
         for (String[] test : CALM_TESTS) {
@@ -336,7 +343,7 @@ final class Pipeline {
     private int jitterAt;
     /** How far to one side this frame is drawn, as the projection takes it: nothing with the frames not mixed. */
     private float asideX, asideY;
-    private static Program world, worldCalm, worldDepth, grassLit, grassDepth, shadow, solidShadow, figureLight, sky, clouds, skyNear, bolt, occlusion, soften, volume, bloomDown, bloomUp, develop, smooth, meter;
+    private static Program world, worldCalm, worldUntinted, worldDepth, grassLit, grassDepth, shadow, solidShadow, figureLight, sky, clouds, skyNear, bolt, occlusion, soften, volume, bloomDown, bloomUp, develop, smooth, meter;
     private static Program far, farTree;
     /** What the shaders are told as uBeyond this frame: see PipelineShaders.ENDS. Not 0 where the far land is drawn behind the built world. */
     private float beyond;
@@ -2105,10 +2112,18 @@ final class Pipeline {
      * colour it is painted over in, and leaves it told that nothing is painted over.
      */
     private void drawRanges(ChunkBuffers.Listing listed, int from, int to, Program program) {
-        int texel = program.at("uTexel"), painted = program.at("uTint"), joints = program.at("uJoint");
+        drawRanges(listed, from, to, program, true, true);
+    }
+
+    /** The same for the ranges of tint key 0 if plain is true, and for the others if painted is. */
+    private void drawRanges(ChunkBuffers.Listing listed, int from, int to, Program program, boolean plain, boolean painted) {
+        int texel = program.at("uTexel"), tinted = program.at("uTint"), joints = program.at("uJoint");
         boolean told = false;
         int toldKey = 0;
         for (int i = from; i < to; i++) {
+            if (!(listed.tint(i) == 0 ? plain : painted)) {
+                continue;
+            }
             int texture = listed.texture(i) == 0 ? whiteTexture : listed.texture(i);
             GL11.glBindTexture(GL_TEXTURE_2D, texture);
             tellTexel(texel, texture);
@@ -2117,13 +2132,13 @@ final class Pipeline {
                 WallSides.joint(key, tint);
                 GL20.glUniform3f(joints, tint[0], tint[1], tint[2]);
                 WallSides.tint(key, tint);
-                GL20.glUniform4f(painted, tint[0], tint[1], tint[2], tint[3]);
+                GL20.glUniform4f(tinted, tint[0], tint[1], tint[2], tint[3]);
                 told = true;
                 toldKey = key;
             }
             listed.draw(i);
         }
-        GL20.glUniform4f(painted, 0f, 0f, 0f, 0f);
+        GL20.glUniform4f(tinted, 0f, 0f, 0f, 0f);
     }
 
     /**
@@ -3736,6 +3751,12 @@ final class Pipeline {
             tellWorld(lit, camera, state, tanHalfFieldOfView, aspect, fogStart, fogEnd);
         }
         lit.set("uLaid", 0f);
+        Program untinted = lit;
+        if (lit == worldCalm && depthFirst) {
+            untinted = worldUntinted;
+            tellWorld(untinted, camera, state, tanHalfFieldOfView, aspect, fogStart, fogEnd);
+            untinted.set("uLaid", 0f);
+        }
         // The solid world is drawn twice. The first time only its depth is kept, and the
         // program stops once it knows whether a pixel is left out. The second time a pixel is
         // worked out only where it is the nearest thing there: the program leaves pixels out,
@@ -3779,12 +3800,22 @@ final class Pipeline {
         if (own && !depthFirst) {
             stage(STAGE_DEPTH);
         }
-        drawRanges(listed, 0, listed.solidRanges(), lit);
-        if (depthFirst) {
-            // The pieces the depth was drawn with: the two drawings must agree on which are there.
-            drawListed(lit, true);
+        if (untinted != lit) {
+            // Painted ranges first and the rest after: the ranges come in the order their texture
+            // and tint fall in a table, which was never the order of anything in the world.
+            drawRanges(listed, 0, listed.solidRanges(), lit, false, true);
+            untinted.use();
+            drawRanges(listed, 0, listed.solidRanges(), untinted, true, false);
+            drawListed(untinted, true);
+            lit.use();
         } else {
-            drawModels(lit, true, camera, far, pixel, Outlines.NONE);
+            drawRanges(listed, 0, listed.solidRanges(), lit);
+            if (depthFirst) {
+                // The pieces the depth was drawn with: the two drawings must agree on which are there.
+                drawListed(lit, true);
+            } else {
+                drawModels(lit, true, camera, far, pixel, Outlines.NONE);
+            }
         }
         if (own) {
             stage(STAGE_SOLID);
@@ -6464,6 +6495,7 @@ final class Pipeline {
         List<Runnable> own = List.of(
                 () -> world = Program.link("world", WORLD_VERTEX, WORLD_FRAGMENT, linkProblem, PLACED_ATTRIBUTES, PLACED_NAMES),
                 () -> worldCalm = Program.link("world calm", WORLD_VERTEX, WORLD_FRAGMENT_CALM, linkProblem, PLACED_ATTRIBUTES, PLACED_NAMES),
+                () -> worldUntinted = Program.link("world untinted", WORLD_VERTEX, WORLD_FRAGMENT_UNTINTED, linkProblem, PLACED_ATTRIBUTES, PLACED_NAMES),
                 () -> worldDepth = Program.link("world depth", WORLD_VERTEX, WORLD_FRAGMENT_DEPTH, linkProblem, PLACED_ATTRIBUTES, PLACED_NAMES),
                 () -> paneMask = Program.link("pane mask", PipelineShaders.PANE_VERTEX, PipelineShaders.PANE_FRAGMENT, linkProblem),
                 () -> glassShown = Program.link("mirror's glass", LookingGlass.VERTEX, LookingGlass.SHOWN, linkProblem),
