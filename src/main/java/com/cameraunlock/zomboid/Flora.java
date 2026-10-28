@@ -1375,6 +1375,15 @@ final class Flora {
     }
 
     /**
+     * Whether a sprite is the bare stems of one of the bushes the map's erosion grows (f_bushes_1_0..31). The game
+     * hangs the season's leaves and the flowers or berries on them as further layers of the one object.
+     */
+    static boolean bushStems(String name) {
+        int place = Sheets.place(name, "f_bushes_1_");
+        return place >= 0 && place < 32;
+    }
+
+    /**
      * Whether a sprite, by its name, is one of the wild plants the game paints as a clump of
      * broad leaves: of the weeds the map's erosion grows, the leafy ones, which are small bushes.
      * Its seedlings, its dried plants and its flowers are none, and nor are the reeds (18, 19)

@@ -102,7 +102,7 @@ final class PlantBuilder {
      * turns (Flora.turnsAs) and its species (TreeForm.kindOf). A sprite with no name is none of
      * these, and bears what an unnamed tree would, which nothing asks of it.
      */
-    private record Plant(String name, boolean dead, boolean fern, boolean bushy, boolean evergreen, int crop, int treeSprig, int barkedAs, int turnsAs,
+    private record Plant(String name, boolean dead, boolean fern, boolean bushy, boolean stems, boolean evergreen, int crop, int treeSprig, int barkedAs, int turnsAs,
             int kind) {}
 
     private static final IdentityHashMap<IsoSprite, Plant> plants = new IdentityHashMap<>();
@@ -121,7 +121,7 @@ final class PlantBuilder {
         boolean named = name != null;
         plant = new Plant(name, Flora.deadTree(name), Flora.fernSprite(name),
                 named && (name.startsWith("f_bushes") || name.startsWith("vegetation_foliage") || name.startsWith("vegetation_ornamental") || Flora.leafyWeed(name)),
-                Flora.evergreen(name), Crops.of(name), named ? Flora.sprigOf(name, false) : Flora.LINDEN, named ? Flora.barkedAs(name) : Flora.BARKED_AS_ANY,
+                named && Flora.bushStems(name), Flora.evergreen(name), Crops.of(name), named ? Flora.sprigOf(name, false) : Flora.LINDEN, named ? Flora.barkedAs(name) : Flora.BARKED_AS_ANY,
                 named ? Flora.turnsAs(name) : Flora.TURNS_AS_ANY, named ? TreeForm.kindOf(name) : TreeForm.NONE);
         plants.put(sprite, plant);
         return plant;
@@ -632,6 +632,7 @@ final class PlantBuilder {
         boolean dead = plant.dead();
         if (build.overLayer == 0) {
             bushPlaces = null;
+            bushOnStems = false;
         }
         if ((type == IsoObjectType.tree || dead) && build.overLayer == 0 && Own.plants(build.playerIndex) && addBole(sprite, texture, x, y, z) && build.geometry.keep < 1f) {
             return;
@@ -839,7 +840,22 @@ final class PlantBuilder {
         // one too sparse to be a crown, is a bloom on that crown. Made of its own places, a bloom was
         // a crown inside the leaves, hidden by them.
         float spread = bush ? Flora.spread(places) : 0f;
-        boolean bloom = bush && build.overLayer > 0 && bushPlaces != null && bushX == x && bushY == y && bushZ == z && (few || spread < bushSpread);
+        // A bush's bare stems are wood: made a crown of their own, in the stems' colour, they were a brown sack round the bush
+        // whatever leaves the season hung on it. They stand as canes, and only lend their shape to leaves too sparse for a crown.
+        if (bush && plant.stems() && build.overLayer == 0) {
+            if (!few) {
+                bushPlaces = places;
+                bushSpread = spread;
+                bushX = x;
+                bushY = y;
+                bushZ = z;
+                bushOnStems = true;
+            }
+            return false;
+        }
+        boolean sameBush = bush && build.overLayer > 0 && bushPlaces != null && bushX == x && bushY == y && bushZ == z;
+        boolean bloom = sameBush && (bushOnStems ? few : few || spread < bushSpread);
+        bushOnStems = false;
         if (few && !bloom) {
             return false;
         }
@@ -896,6 +912,8 @@ final class PlantBuilder {
     /** The places of the widest-reaching layer of the bush whose crown was stood last, how far they reach (Flora.spread), and its square: a smaller layer over it there blooms on that crown. */
     private float[] bushPlaces;
     private float bushSpread;
+    /** Whether bushPlaces are the bare stems' of the bush (Flora.bushStems), which have no crown of their own: the leaves over them make it. */
+    private boolean bushOnStems;
     private int bushX, bushY, bushZ;
 
     /** The tile of the tree whose trunk was stood last, and its square: a crown is its tree's when it is on the same square. */
