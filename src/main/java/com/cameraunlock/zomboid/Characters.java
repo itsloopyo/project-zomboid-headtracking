@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import zombie.iso.IsoWorld;
+import zombie.iso.Vector2;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -2395,7 +2396,13 @@ public final class Characters {
     private void character(ModelSlotRenderData data, float up, float[] viewMatrix, boolean own, boolean casting, boolean held, boolean bothHands, float fromEye) {
         // Run on a forward diagonal, the game turns the player to the way they go; drawn, they face the view, as a mirror should show.
         boolean aslant = data.character == viewer && view.controls.runsAslant();
-        place(data.x, data.y, up, aslant ? view.firstPerson.yaw() : data.animPlayerAngle, CHARACTER_SCALE);
+        float angle = data.animPlayerAngle;
+        if (aslant) {
+            // Turned by how far the game has the player off the view, whatever the angle's own zero is.
+            Vector2 ahead = data.character.getForwardDirection();
+            angle += view.firstPerson.yaw() - (float) Math.atan2(ahead.y, ahead.x);
+        }
+        place(data.x, data.y, up, angle, CHARACTER_SCALE);
         multiply(viewMatrix, placed, combined);
         EYE.Begin();
         CharacterDraw.begin(data, combined, projection, casting, fromEye,
