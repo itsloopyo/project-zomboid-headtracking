@@ -228,9 +228,10 @@ final class ViewCamera {
 
     /**
      * The view with the eye at the origin: what view does to a point that has had the eye's
-     * float place (eyeX) taken off it already, and the eye's fine part with it. Taken off by
-     * the matrix, after the point has been multiplied through, the last digits of both are
-     * lost: see the world's vertex program.
+     * float place (eyeX) taken off it already, and only that: the matrix takes the eye's fine
+     * part off itself, so a point that has had it taken off too is that far out. The float place
+     * taken off by the matrix, after the point has been multiplied through, loses the last
+     * digits of both: see the world's vertex program.
      */
     static float[] turned(Pose pose) {
         float[] out = new float[16];
