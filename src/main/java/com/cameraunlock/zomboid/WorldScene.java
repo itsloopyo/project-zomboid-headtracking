@@ -1142,6 +1142,8 @@ final class WorldScene {
     private long tollRuleKeptSame, tollRuleKeptDiffered, tollRuleToldSame, tollRuleToldDiffered;
     /** Dev only: the chunks built ahead of the view's turning to them since the last asking, and the time that took. */
     private long tollAhead, tollAheadNanos;
+    /** Dev only: figure light gatherings, the time they took and the squares they read. */
+    private long tollFigureLights, tollFigureLightsNanos, tollFigureSquares;
     /** Dev only: how many times the room walk's horizon had been built when tolls last said. */
     private int horizonsTold;
     /** Dev only: builds due for nothing but light that waited, the view not facing their chunk. */
@@ -1502,6 +1504,9 @@ final class WorldScene {
         told += ", " + roomDaylight.tolls();
         told += String.format(Locale.ROOT, ", frames with chunks in reach unread %d", tollUnreadFrames);
         tollUnreadFrames = 0;
+        told += String.format(Locale.ROOT, ", figure lights gathered %d times in %.3f ms each, %.1f squares read each", tollFigureLights,
+                tollFigureLightsNanos / 1e6 / Math.max(1, tollFigureLights), (double) tollFigureSquares / Math.max(1, tollFigureLights));
+        tollFigureLights = tollFigureLightsNanos = tollFigureSquares = 0;
         tollRoomsWalks = tollRoomsNanos = 0;
         roomMap.chunksRead = 0;
         tollAhead = tollAheadNanos = 0;
@@ -4260,7 +4265,10 @@ final class WorldScene {
             SpriteColours.askingFrom(view.index, Float.NaN, Float.NaN);
             addCharacters(player, pose);
             takeLight(start);
-            figureLights.gather(WorldScene.this, cell, view.index, shown, figuresStood);
+            long gatherBegan = System.nanoTime();
+            tollFigureSquares += figureLights.gather(WorldScene.this, cell, view.index, shown, figuresStood);
+            tollFigureLights++;
+            tollFigureLightsNanos += System.nanoTime() - gatherBegan;
             if (DepthFights.ON && !fromOutside) {
                 DepthFights.audit(shown, pose.eyeX, pose.eyeY, pose.eyeUp, cell);
             }

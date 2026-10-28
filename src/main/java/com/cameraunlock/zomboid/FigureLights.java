@@ -124,8 +124,9 @@ final class FigureLights {
      * figure the frame may draw.
      *
      * @param shown the builds the frame draws, whose corpses are drawn as models
+     * @return how many squares' light was read
      */
-    void gather(WorldScene scene, IsoCell cell, int playerIndex, List<WorldScene.ChunkMeshes> shown, Stood stood) {
+    int gather(WorldScene scene, IsoCell cell, int playerIndex, List<WorldScene.ChunkMeshes> shown, Stood stood) {
         this.scene = scene;
         this.cell = cell;
         this.playerIndex = playerIndex;
@@ -177,6 +178,7 @@ final class FigureLights {
         // Held past the gathering, they would keep a save that is left alive.
         this.cell = null;
         this.scene = null;
+        return litsTaken;
     }
 
     /** Lets go of everything gathered, as the save is left: the next frame gathers again before it is drawn. */
