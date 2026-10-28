@@ -244,7 +244,7 @@ public final class CoreTests {
         String start = started();
         check(start.contains("tracking idle mode rotation and position yaw about world up") && start.contains("Aim mode: sights locked"),
                 "with tracking on, rotation and position, yaw about straight up, sights locked: " + start);
-        check(start.endsWith("field of view 65.0 | own " + Own.described(Own.ALL) + " | graphics Automatic (High) | style Bleak | frame blending true"),
+        check(start.endsWith("field of view 65.0 | own " + Own.described(Own.ALL) + " | graphics Automatic (High) | style Bleak | frame blending false"),
                 "65 degrees, everything of the mod's own on, the Automatic graphics mode in first person beginning at High, the Bleak style, frame blending: "
                         + start);
         check(Quality.overheadRow(0) == Quality.LOW && Quality.overheadPlain(0) && holds("IsometricQuality=Low"),

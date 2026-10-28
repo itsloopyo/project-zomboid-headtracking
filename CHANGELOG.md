@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- Frame blending is off in every graphics mode: each frame is drawn on its own, without the one before mixed in, and edges are a little harder. `Custom` with `[Graphics] FrameBlending=true` turns it back on.
+
 ## [0.1.1] - 2026-10-28
 
 ### Changed

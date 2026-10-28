@@ -82,8 +82,8 @@ final class Quality {
     static final int MOST_LIGHT_DISTANCE = 80;
 
     static final Picture LOW_PICTURE = new Picture(true, TREES_SPRITES, SOME_GRASS, 0.62f, false, 48, 48, 300, 0, false, false, false, false, false, false, 20, 0.5f, false);
-    static final Picture MEDIUM_PICTURE = new Picture(false, TREES_NEAR, SOME_GRASS, 0.8f, false, 60, 60, 150, 1, true, true, false, false, false, true, 30, 0.5f, false);
-    static final Picture HIGH_PICTURE = new Picture(false, TREES_TO_SIGHT, ALL_GRASS, 1f, true, 80, 80, 400, 2, true, true, true, true, true, true, 60, 0.75f, false);
+    static final Picture MEDIUM_PICTURE = new Picture(false, TREES_NEAR, SOME_GRASS, 0.8f, false, 60, 60, 150, 1, true, true, false, false, false, false, 30, 0.5f, false);
+    static final Picture HIGH_PICTURE = new Picture(false, TREES_TO_SIGHT, ALL_GRASS, 1f, true, 80, 80, 400, 2, true, true, true, true, true, false, 60, 0.75f, false);
     /**
      * Automatic's levels, cheapest first. STOCK is the Low mode's picture, the game's own look;
      * the three above it are Low's, Medium's and High's cost, still with everything the mod made.
