@@ -497,6 +497,7 @@ public final class FirstPerson {
             giveBack("player " + (view.index + 1) + " is gone");
         }
         viewAtLoadOwed = true;
+        risen = null;
         view.modeFade.giveBack("player " + (view.index + 1) + " is gone");
         // After giveBack, whose rest of the head tracking marks the view as one played in.
         Tracking.gone(view.index);
@@ -516,6 +517,7 @@ public final class FirstPerson {
 
     /** Lets go of the look out of the eye, and of the mouse where the view has it. */
     private void stopLooking() {
+        risen = null;
         landed = false;
         active = false;
         lookCaptured = false;
@@ -2006,7 +2008,7 @@ public final class FirstPerson {
         if (risenNow != risenId) {
             Log.info(risen != null
                     ? String.format(Locale.ROOT, "%sthe corpse has risen: the eye is the head of zombie %d, at (%.2f, %.2f, %.2f)", who(), risenNow, risen.getX(), risen.getY(), risen.getZ())
-                    : String.format(Locale.ROOT, "%sthe zombie the corpse rose as, %d, is gone from the world or dead again: the eye is no longer its head", who(), risenId));
+                    : String.format(Locale.ROOT, "%sthe zombie the corpse rose as, %d, is gone from the world, dead again or not posed this frame: the eye is no longer its head", who(), risenId));
             risenId = risenNow;
         }
         bodyLeads = view.bodyLed.leads();
@@ -2036,11 +2038,13 @@ public final class FirstPerson {
      * in the world: the eye is that head's, as it was the dying body's, through standing up and
      * walking off, and through dying again until the game makes it a body. The game takes the
      * zombie off the map as it does, or as its chunk is let go, so it is found again every frame
-     * and never kept.
+     * and never kept. A client does not clear the link when the server takes the zombie away, and
+     * the game hands that zombie out again as another: one handed out again is no longer a
+     * reanimated player.
      */
     private IsoZombie risenOf(IsoPlayer player) {
-        return player.isDead() && player.getReanimatedCorpse() instanceof IsoZombie zombie && zombie.getCurrentSquare() != null && view.modelHead.posed(zombie)
-                ? zombie : null;
+        return player.isDead() && player.getReanimatedCorpse() instanceof IsoZombie zombie && zombie.isReanimatedPlayer() && zombie.getCurrentSquare() != null
+                && view.modelHead.posed(zombie) ? zombie : null;
     }
 
     /** The character whose head the eye is in this frame: the player, or the zombie their corpse rose as (risenOf). Logic thread. */
