@@ -136,7 +136,7 @@ public final class CoreTests {
     private static String leftOut() {
         StringJoiner names = new StringJoiner(", ", "left out: ", "");
         names.setEmptyValue("left out: none");
-        for (Agent.PatchSet set : Agent.sets(true)) {
+        for (Agent.PatchSet set : Agent.sets()) {
             if (set.leftOut() != null) {
                 names.add(set.name());
             }
@@ -716,6 +716,7 @@ public final class CoreTests {
         {"BurntBuildingFreezeFix", "hang fix"},
         {"CentreTheWindow", "window"},
         {"ControllerChoiceFix", "controller"},
+        {"CachedGameLookups", "cached lookups"},
     };
 
     private static String leftOutLine(String output) {
@@ -819,7 +820,7 @@ public final class CoreTests {
                         + "SecondPlayerQuality SecondPlayerIsometricQuality SecondPlayerStyle SecondPlayerFirstPerson ThirdPlayerQuality ThirdPlayerIsometricQuality ThirdPlayerStyle "
                         + "ThirdPlayerFirstPerson FourthPlayerQuality FourthPlayerIsometricQuality FourthPlayerStyle FourthPlayerFirstPerson TreeQuality "
                         + "GrassDensity RenderScale ViewDistance ZombiesAndPropsDrawDistance FarTreeDistance RainOnGlass ShadingAndLight Reflections ReflectionScale "
-                        + "FullSizeTextures SurfaceDepth SharpShadows WholeFigureShadows FrameBlending LightDistance CorpseModels SpreadLightUpdates VanillaWeapons VanillaFurniture "
+                        + "FullSizeTextures SurfaceDepth SharpShadows WholeFigureShadows FrameBlending LightDistance CorpseModels SpreadLightUpdates CachedGameLookups VanillaWeapons VanillaFurniture "
                         + "VanillaPictures VanillaPlants VanillaTextures VanillaBuildings VanillaZombies VanillaPeople VanillaArms VanillaClothes VanillaAnimals VanillaFire "
                         + "VanillaCabins "
                         + "ShotsThroughWalls ShotsBreakLamps ShotsBreakGlass ShotsWoundLimbs VehiclesSmashThrough FacesTheView ShotsPastTrees ZombiesSeenAtOnce HiddenWallDecor HiddenWallDecorSaved ShotsFromVehicleSeats DriveWhileAiming HillsMoveVehicles HandLightOutAtTheWheel BurntBuildingFreezeFix CentreTheWindow ControllerChoiceFix TalkingMouths "),
@@ -835,7 +836,7 @@ public final class CoreTests {
         check(page.toString().equals("[Tracking] TrackingMode AimMode WorldSpaceYaw [First person] FirstPersonEnabled FirstPerson FieldOfView Crosshair HillHeight TorchFollowsHead HearFromTheEye LightningBolts ShotImpacts FarVehiclesAndZombies QuickRagdolls HitFlinch HeadLedViewWhenDown ItemsAsModels FinerSkins LeaveOutScreenGrey NameTagsAtHeads [Weapons] MuzzleFlash RegripTwoHandedWeapons "
                         + "[Graphics] Quality IsometricQuality Style [Custom graphics] TreeQuality GrassDensity RenderScale ViewDistance ZombiesAndPropsDrawDistance "
                         + "FarTreeDistance RainOnGlass ShadingAndLight Reflections ReflectionScale FullSizeTextures SurfaceDepth SharpShadows WholeFigureShadows FrameBlending "
-                        + "LightDistance CorpseModels [Optimizations] SpreadLightUpdates [Vanilla content] VanillaWeapons VanillaFurniture VanillaPictures VanillaPlants VanillaTextures VanillaBuildings "
+                        + "LightDistance CorpseModels [Optimizations] SpreadLightUpdates CachedGameLookups [Vanilla content] VanillaWeapons VanillaFurniture VanillaPictures VanillaPlants VanillaTextures VanillaBuildings "
                         + "VanillaZombies VanillaPeople VanillaArms VanillaClothes VanillaAnimals VanillaFire VanillaCabins [Offline rules] ShotsThroughWalls "
                         + "ShotsBreakLamps ShotsBreakGlass ShotsWoundLimbs VehiclesSmashThrough FacesTheView ShotsPastTrees ZombiesSeenAtOnce HiddenWallDecor HiddenWallDecorSaved ShotsFromVehicleSeats DriveWhileAiming HillsMoveVehicles HandLightOutAtTheWheel [Game fixes] BurntBuildingFreezeFix CentreTheWindow ControllerChoiceFix [Split screen] SplitScreen "
                         + "SecondPlayerQuality SecondPlayerIsometricQuality SecondPlayerStyle SecondPlayerFirstPerson ThirdPlayerQuality ThirdPlayerIsometricQuality ThirdPlayerStyle "

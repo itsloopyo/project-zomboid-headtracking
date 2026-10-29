@@ -407,12 +407,14 @@ public final class Agent {
 
         Tracking.start(gameDirectory);
 
-        boolean gameFixes = !Boolean.getBoolean("cameraunlock.zomboid.withoutGameFixes");
-        if (gameFixes) {
-            addItemLookupTransformers(instrumentation);
-        }
         Map<String, StringJoiner> leftOut = new LinkedHashMap<>();
-        for (PatchSet set : sets(gameFixes)) {
+        String lookupsOff = off(Part.CACHED_GAME_LOOKUPS);
+        if (lookupsOff == null) {
+            addItemLookupTransformers(instrumentation);
+        } else {
+            leftOut.computeIfAbsent(lookupsOff, why -> new StringJoiner(", ")).add("item lookups");
+        }
+        for (PatchSet set : sets()) {
             if (set.leftOut() == null) {
                 add(instrumentation, set.transformer());
             } else {
@@ -433,7 +435,7 @@ public final class Agent {
      * is left out as the parts and rules of CameraUnlock.ini were when the game started: asked
      * once Tracking.start has read the file. Gives each set whose gap the mod asks its field.
      */
-    static List<PatchSet> sets(boolean gameFixes) {
+    static List<PatchSet> sets() {
         String firstPersonOff = off(Part.FIRST_PERSON);
         firstPerson = new PatchTransformer(firstPersonPatches());
         fineSkins = new PatchTransformer(fineSkinPatches());
@@ -471,8 +473,7 @@ public final class Agent {
                 new PatchSet("impacts", impacts, impactsOff == null ? null : impactsOff + ", and so were ShotsBreakLamps and ShotsBreakGlass"),
                 new PatchSet("model head", modelHead, null),
                 new PatchSet("name tags", nameTags, off(Part.FIRST_PERSON, Part.NAME_TAGS_AT_HEADS)),
-                new PatchSet("game fixes", new PatchTransformer(gameFixPatches()),
-                        gameFixes ? null : "the cameraunlock.zomboid.withoutGameFixes property was set"),
+                new PatchSet("cached lookups", new PatchTransformer(gameFixPatches()), off(Part.CACHED_GAME_LOOKUPS)),
                 new PatchSet("hang fix", new PatchTransformer(hangFixPatches()), off(Part.BURNT_BUILDING_FREEZE_FIX)),
                 new PatchSet("covered", new PatchTransformer(coveredPatches()), firstPersonOff),
                 new PatchSet("part draw", new PatchTransformer(partDrawPatches()), null),

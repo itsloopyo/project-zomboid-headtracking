@@ -78,7 +78,11 @@ enum Part {
     CONTROLLER_CHOICE_FIX("Fixes", "ControllerChoiceFix", false, true,
             "true: the controllers you tick in the game's options stay ticked, a 3Dconnexion 6-axis mouse never plays, and\n"
                     + "the main menu goes to the controller whose A was pressed. false: the game picks its controllers, which with\n"
-                    + "none ticked is the one at index 0, a SpaceMouse when one is plugged in first.");
+                    + "none ticked is the one at index 0, a SpaceMouse when one is plugged in first."),
+    CACHED_GAME_LOOKUPS("Optimizations", "CachedGameLookups", false, true,
+            "true: the game's lookups of items by name, of a component's class and of a character's state machine are\n"
+                    + "answered from what they found before, and two of its bone updates skip work that changes nothing, in either\n"
+                    + "view. The answers are the same. false: the game works each of them out every time.");
 
     final String section, key, comment;
     /** Whether the row is taken while the game runs, and whether it is read at the start to leave patches out. */

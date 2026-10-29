@@ -270,6 +270,7 @@ final class Config {
                         + "frames, nearest first, so that driving past lights stutters less. false: all of it in the frame the game relights\n"
                         + "it, so a far light change can show about a tenth of a second sooner, in longer frames.",
                 writable | live, true);
+        describeParts("Optimizations");
 
         firstPersonKey = core.configLocalHotkeyTaps("FirstPersonKey",
                 "Switches between first person and the game's own view. Tap once for player 1, twice for player 2, three times for\n"
