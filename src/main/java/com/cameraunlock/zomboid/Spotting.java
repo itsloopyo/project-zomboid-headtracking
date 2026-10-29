@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -29,44 +30,66 @@ import zombie.network.GameClient;
  * filled with zombies, and when, went by how the mod read light.
  *
  * So under the picture the light spots no room (Hooks.roomSeenByLight) and hands each square it
- * finds turned seen to turned (Hooks.squareSeenByLight), and here, at a rhythm of its own, the
- * game's two calls are made for the squares the first person view sees: every square of each
- * room the eye's picture saw into in the last half second, and every square out of doors on the
- * chunks the picture draws where it sees the open air. A room is spotted from those of its
+ * finds turned seen to turned (Hooks.squareSeenByLight), and here, in rounds of a rhythm of their
+ * own, the game's two calls are made for the squares the first person view sees: every square of
+ * each room the eye's picture saw into in the last half second, and every square out of doors on
+ * the chunks the picture draws where it sees the open air. A room is spotted from those of its
  * squares the game has had in the player's sight (IsoGridSquare.isSeen), and a square is marked
- * where it has turned seen since the last pass, whoever's read of its light found the turn. What
- * comes of each call is the game's to say: the level, the reach, whether the room is explored,
- * whether this machine is a client and whether the square was marked this hour.
+ * where it has turned seen since the last round, whoever's read of its light found the turn.
+ * What comes of each call is the game's to say: the level, the reach, whether the room is
+ * explored, whether this machine is a client and whether the square was marked this hour.
  *
  * Asking isSeen is a read of the square's light: the game works it out afresh where its
  * lighting engine has changed it since it was last read, and otherwise asks the engine whether
  * it has, over JNI, on every asking (updateFBORenderChunk 0 to 82). A square seen stays seen (the
  * game saves it so: IsoGridSquare.save and load), so a square is asked only until it is found
- * seen, which is the only way a turn there can still come, and nothing is asked where no call
- * could come of it.
+ * seen, which is the only way a turn there can still come, and a round's askings are spread over
+ * as many frames as they take at half a millisecond a frame (SLICE_NANOS).
  *
  * Logic thread, where the game's light is read, but for turned.
  */
 final class Spotting {
-    /** How often the squares the view sees are gone over: four times a second, whatever the frame rate and however the light is read. */
+    /** How often a round over the squares the view sees begins: up to four times a second, whatever the frame rate and however the light is read. One the frames were too slow to finish in its quarter second holds back the next until it is done. */
     static final long EVERY_NANOS = 250_000_000L;
-    /** Dev only, with this property set: what the light left alone and what the passes did are logged every ten seconds, and SpotCheck says where anything else spots or marks under the picture. */
+    /** Dev only, with this property set: what the light left alone and what the rounds did are logged every ten seconds, and SpotCheck says where anything else spots or marks under the picture. */
     static final String CHECKED_BY = "cameraunlock.zomboid.checkSpotting";
     static final boolean CHECK = DevBuild.ON && Boolean.getBoolean(CHECKED_BY);
     private static final long SAID_EVERY_NANOS = 10_000_000_000L;
+    /**
+     * How long a frame's share of a round may take, from the start of the frame's slice, the
+     * beginning of a round included: the time is looked at after each unit, so a share runs over
+     * by at most a unit, and a frame with none left does one unit, so a round always moves on.
+     */
+    static final long SLICE_NANOS = 500_000L;
     /** The levels a chunk can have, from LOWEST up (LightingJNI takes a level as z + 32). */
     private static final int LEVELS = 64, LOWEST = -32;
+    /** A unit of a round that is a piece of a room, where the rest is a level of a chunk. */
+    private static final long ROOM_UNIT = 1L << 62;
+    /** The ints a piece of a room takes in pieces: the room's index in roomDefs, then the piece's least x and y and its greatest x and y, left out. */
+    private static final int PIECE = 5;
 
     /** Dev only, from any thread that reads a square's light: the rooms the light passed over under the picture. */
     static final LongAdder roomsLeftByLight = new LongAdder();
-    /** Dev only: the thread a pass is making the game's calls on, or null, which SpotCheck asks. */
+    /** Dev only: the thread a round is making the game's calls on, or null, which SpotCheck asks. */
     static volatile Thread passer;
 
     private final int playerIndex;
     private boolean passed;
     private long passedNanos;
-    private final RoomSight.Seen rooms = new RoomSight.Seen(), chunkKeys = new RoomSight.Seen(), drawnKeys = new RoomSight.Seen();
-    private final List<IsoChunk> chunks = new ArrayList<>();
+    private final RoomSight.Seen shownRooms = new RoomSight.Seen();
+    private final List<IsoChunk> shownChunks = new ArrayList<>();
+
+    /** The round under way: whether there is one, what it goes over, the units it is made of and how far it has got. */
+    private boolean open, marks;
+    private final RoomSight.Seen inSight = new RoomSight.Seen(), drawnKeys = new RoomSight.Seen();
+    private final List<RoomDef> roomDefs = new ArrayList<>();
+    private final List<IsoChunk> drawnChunks = new ArrayList<>();
+    private long[] drawnAt = new long[64], units = new long[256];
+    /** The rooms' rectangles cut at the chunks' edges, PIECE ints each, so that a unit is never more than a chunk's 64 squares. */
+    private int[] pieces = new int[PIECE * 64];
+    private int unitCount, nextUnit, pieceCount;
+    private long roundNanos;
+    private final long sliceLength;
 
     /**
      * The squares of each chunk asked about that were found seen, a bit for each square on each
@@ -83,25 +106,32 @@ final class Spotting {
         final long[] seen = new long[LEVELS];
     }
 
-    /** The squares the light has found turned seen since the last pass, by place (key), and the set a pass empties: swapped under this object's lock. */
+    /** The squares the light has found turned seen since the last round, by place (key), and the set a round empties: swapped under this object's lock. */
     private RoomSight.Seen turned = new RoomSight.Seen(), turnedBefore = new RoomSight.Seen();
 
-    /** Dev only: what the passes came to since they were last said. */
-    private long frames, passes, passNanos, longestNanos, squaresRead, seenAsked, sampled, seenOutOfSight, spotted, readAfresh, readUnchanged, saidNanos;
-    /** Dev only, under this object's lock: the turns found as a pass asked and by other reads of the light, and those marked where the view sees and left elsewhere. */
+    /** Dev only: what the rounds came to since they were last said. */
+    private long frames, passes, late, passNanos, longestPassNanos, sliceNanos, longestSliceNanos, longestBeginNanos, longestEndNanos, squaresRead, seenAsked,
+            sampled, seenOutOfSight, spotted, readAfresh, readUnchanged, saidNanos;
+    /** Dev only, under this object's lock: the turns found as a round asked and by other reads of the light, and those marked where the view sees and left elsewhere. */
     private long turnsAsked, turnsAside, turnsMarked, turnsLeft;
     /**
      * Dev only: the game's own counts of the squares whose light it read afresh and of those its
      * engine said were unchanged (LightingJNI.JNILighting.dirty and notDirty), read round each
-     * pass. Any other thread's reads during a pass are counted in with the pass's.
+     * frame's share of a round. Any other thread's reads meanwhile are counted in with it.
      */
-    private static java.lang.reflect.Field lightsAfresh, lightsUnchanged;
+    private static Field lightsAfresh, lightsUnchanged;
 
     Spotting(int playerIndex) {
-        this.playerIndex = playerIndex;
+        this(playerIndex, SLICE_NANOS);
     }
 
-    /** Whether a pass is due at a time on System.nanoTime's clock, which is then the time of the last. */
+    /** With the time a frame's share of a round may take. */
+    Spotting(int playerIndex, long sliceLength) {
+        this.playerIndex = playerIndex;
+        this.sliceLength = sliceLength;
+    }
+
+    /** Whether a round is due at a time on System.nanoTime's clock, which is then the time of the last. */
     boolean due(long now) {
         if (passed && now - passedNanos < EVERY_NANOS) {
             return false;
@@ -111,7 +141,7 @@ final class Spotting {
         return true;
     }
 
-    /** The light has found a square of this player's turned seen, under the picture, on whichever thread read it: the next pass marks it if the view sees it. */
+    /** The light has found a square of this player's turned seen, under the picture, on whichever thread read it: the next round marks it if the view sees it. */
     void turned(IsoGridSquare square) {
         synchronized (this) {
             turned.add(key(square.getX(), square.getY(), square.getZ()));
@@ -127,22 +157,72 @@ final class Spotting {
         return (long) x << 32 | (long) (y & 0xFFFFFF) << 8 | z + 128 & 0xFF;
     }
 
+    private static long chunkKey(int wx, int wy) {
+        return (long) wx << 32 | wy & 0xFFFFFFFFL;
+    }
+
     /**
      * Called once a frame of the eye's picture is built while the picture covers the game's
-     * view: a pass over what it sees, when one is due and the light leaves spotting to it.
+     * view: this frame's share of the round under way, and a new round when one is due, where
+     * the light leaves spotting to the rounds.
      */
     void look(WorldScene scene, WorldScene.Frame frame, long now) {
         frames++;
-        if (!due(now) || !leftHere()) {
+        if (!leftHere()) {
             sayIfDue(now);
             return;
         }
-        long began = System.nanoTime();
+        long began = System.nanoTime(), deadline = began + sliceLength;
         IsoCell cell = IsoWorld.instance.currentCell;
-        rooms.clear();
-        scene.roomsShownTo(rooms);
-        chunkKeys.clear();
-        chunks.clear();
+        int afresh = CHECK ? count(true) : 0, unchanged = CHECK ? count(false) : 0;
+        passer = Thread.currentThread();
+        boolean finished = false;
+        try {
+            // A round the frames were too slow to finish in its quarter second goes on over the next, and the next round begins once it is done.
+            boolean begun = !open && due(now);
+            if (begun) {
+                gather(scene, frame, cell);
+                begin(cell, shownRooms, IsoWorld.instance.getMetaGrid()::getRoomDefByID, shownChunks);
+                if (CHECK) {
+                    longestBeginNanos = Math.max(longestBeginNanos, System.nanoTime() - began);
+                }
+            }
+            // The frame that begins a round counts the beginning against its time; any other does at least a unit.
+            if (open && (!begun || System.nanoTime() < deadline) && work(cell, deadline)) {
+                long ending = CHECK ? System.nanoTime() : 0L;
+                finish(cell);
+                finished = true;
+                if (CHECK) {
+                    late += now - passedNanos >= EVERY_NANOS ? 1 : 0;
+                    longestEndNanos = Math.max(longestEndNanos, System.nanoTime() - ending);
+                }
+            }
+        } finally {
+            passer = null;
+        }
+        if (CHECK) {
+            readAfresh += count(true) - afresh;
+            readUnchanged += count(false) - unchanged;
+        }
+        long ended = System.nanoTime();
+        if (open || finished) {
+            roundNanos += ended - began;
+        }
+        if (finished) {
+            passes++;
+            passNanos += roundNanos;
+            longestPassNanos = Math.max(longestPassNanos, roundNanos);
+        }
+        sliceNanos += ended - began;
+        longestSliceNanos = Math.max(longestSliceNanos, ended - began);
+        sayIfDue(now);
+    }
+
+    /** What the picture sees now: the rooms it saw into in the last half second, and the chunks it draws where it sees their open air. */
+    private void gather(WorldScene scene, WorldScene.Frame frame, IsoCell cell) {
+        shownRooms.clear();
+        scene.roomsShownTo(shownRooms);
+        shownChunks.clear();
         RoomSight.Seen air = frame.roomsSeen;
         List<WorldScene.ChunkMeshes> shown = frame.shownBuilds();
         for (int i = 0; i < shown.size(); i++) {
@@ -156,35 +236,12 @@ final class Spotting {
             if (air != null && !air.airSees(build.minX - slack, build.minY - slack, build.minUp - slack, build.maxX + slack, build.maxY + slack, build.maxUp + slack)) {
                 continue;
             }
-            if (chunkKeys.add(chunkKey(build.wx(), build.wy()))) {
-                IsoChunk chunk = cell.getChunkForGridSquare(build.wx() * WorldScene.CHUNK_TILES, build.wy() * WorldScene.CHUNK_TILES, 0);
-                if (chunk == null) {
-                    throw new IllegalStateException("the picture drew a build of the chunk at " + build.wx() + ", " + build.wy() + ", which is not on the map");
-                }
-                chunks.add(chunk);
+            IsoChunk chunk = cell.getChunkForGridSquare(build.wx() * WorldScene.CHUNK_TILES, build.wy() * WorldScene.CHUNK_TILES, 0);
+            if (chunk == null) {
+                throw new IllegalStateException("the picture drew a build of the chunk at " + build.wx() + ", " + build.wy() + ", which is not on the map");
             }
+            shownChunks.add(chunk);
         }
-        IsoMetaGrid grid = IsoWorld.instance.getMetaGrid();
-        int afresh = CHECK ? count(true) : 0, unchanged = CHECK ? count(false) : 0;
-        passer = Thread.currentThread();
-        try {
-            pass(cell, rooms, grid::getRoomDefByID, chunks);
-        } finally {
-            passer = null;
-        }
-        if (CHECK) {
-            readAfresh += count(true) - afresh;
-            readUnchanged += count(false) - unchanged;
-        }
-        long took = System.nanoTime() - began;
-        passes++;
-        passNanos += took;
-        longestNanos = Math.max(longestNanos, took);
-        sayIfDue(now);
-    }
-
-    private static long chunkKey(int wx, int wy) {
-        return (long) wx << 32 | wy & 0xFFFFFFFFL;
     }
 
     /** How far past a chunk build's box what is built in it may be drawn, in tiles: ChunkBuffers.AIR_SLACK. */
@@ -207,15 +264,15 @@ final class Spotting {
     }
 
     /**
-     * Whether the game's light leaves spotting to the passes on this build of the game. Where
-     * it does not, the light spots and marks under the picture as it did, and a pass would
+     * Whether the game's light leaves spotting to the rounds on this build of the game. Where
+     * it does not, the light spots and marks under the picture as it did, and a round would
      * do both a second time. Asked once, and said. Logic thread.
      */
     private static boolean leftHere() {
         if (!gapAsked) {
             gapAsked = true;
             gap = Agent.spottingGap();
-            Log.info(gap == null ? "under the first person picture rooms are spotted and squares marked seen by what the view sees, four times a second"
+            Log.info(gap == null ? "under the first person picture rooms are spotted and squares marked seen by what the view sees, up to four times a second"
                     : "under the first person picture rooms are spotted and squares marked seen by where the mod reads light (" + gap + ")");
         }
         return gap == null;
@@ -224,18 +281,28 @@ final class Spotting {
     private static boolean gapAsked;
     private static String gap;
 
+    /** A whole round over the rooms given and the squares out of doors on the chunks given, at once. */
+    void pass(IsoCell cell, RoomSight.Seen rooms, LongFunction<RoomDef> defs, List<IsoChunk> drawn) {
+        begin(cell, rooms, defs, drawn);
+        work(cell, Long.MAX_VALUE);
+        finish(cell);
+    }
+
     /**
-     * One pass over the rooms given and the squares out of doors on the chunks given: the game's
-     * spotting of each room from its squares the game has had in the player's sight, and its
-     * marking of each square there that the light has found turned seen, by the pass's asking or
-     * since the last pass. Each asking is left out where the game would make nothing of it: of a
-     * square found seen before, and on a client of a room already explored.
+     * Begins a round over the rooms given and the squares out of doors on the chunks given: a
+     * unit for each piece of each room's rectangles inside a chunk, and for each level of each
+     * chunk. On a client, which marks nothing, the units are only those that can spot a room.
      */
-    void pass(IsoCell cell, RoomSight.Seen inSight, LongFunction<RoomDef> defs, List<IsoChunk> drawn) {
+    void begin(IsoCell cell, RoomSight.Seen rooms, LongFunction<RoomDef> defs, List<IsoChunk> drawn) {
         letGoOfChunksGone(cell);
-        boolean marks = !GameClient.client;
-        for (int slot = 0; slot < inSight.slots(); slot++) {
-            long room = inSight.at(slot);
+        open = true;
+        marks = !GameClient.client;
+        unitCount = nextUnit = pieceCount = 0;
+        roundNanos = 0L;
+        inSight.clear();
+        roomDefs.clear();
+        for (int slot = 0; slot < rooms.slots(); slot++) {
+            long room = rooms.at(slot);
             if (room == RoomSight.OUTSIDE) {
                 continue;
             }
@@ -244,94 +311,138 @@ final class Spotting {
             if (def == null) {
                 continue;
             }
-            for (int r = 0; r < def.rects.size(); r++) {
-                RoomDef.RoomRect rect = def.rects.get(r);
-                Known at = null;
-                for (int y = rect.y; y < rect.y + rect.h; y++) {
-                    for (int x = rect.x; x < rect.x + rect.w; x++) {
-                        IsoGridSquare square = cell.getGridSquare(x, y, def.level);
-                        if (square == null) {
-                            continue;
-                        }
-                        squaresRead++;
-                        if (at == null || at.chunk.wx != x >> 3 || at.chunk.wy != y >> 3) {
-                            IsoChunk chunk = cell.getChunkForGridSquare(x, y, def.level);
-                            if (chunk == null) {
-                                throw new IllegalStateException("the square at " + x + ", " + y + ", " + def.level + " is on the map and its chunk is not");
-                            }
-                            at = knownOf(chunk);
-                        }
-                        long bit = 1L << ((y & 7) << 3 | x & 7);
-                        boolean spot = !def.explored;
-                        if ((at.seen[def.level - LOWEST] & bit) == 0L) {
-                            if (!spot && !marks || !asked(square)) {
-                                continue;
-                            }
-                            at.seen[def.level - LOWEST] |= bit;
-                        }
-                        if (spot) {
-                            square.checkRoomSeen(playerIndex);
-                            spotted += def.explored ? 1 : 0;
-                        }
-                    }
-                }
-            }
-        }
-        drawnKeys.clear();
-        for (int i = 0; i < drawn.size(); i++) {
-            drawnKeys.add(chunkKey(drawn.get(i).wx, drawn.get(i).wy));
-        }
-        if (!marks) {
-            return;
-        }
-        for (int i = 0; i < drawn.size(); i++) {
-            IsoChunk chunk = drawn.get(i);
-            Known at = knownOf(chunk);
-            for (int z = chunk.getMinLevel(); z <= chunk.getMaxLevel(); z++) {
-                for (int y = 0; y < WorldScene.CHUNK_TILES; y++) {
-                    for (int x = 0; x < WorldScene.CHUNK_TILES; x++) {
-                        IsoGridSquare square = chunk.getGridSquare(x, y, z);
-                        if (square == null || square.getRoomID() != RoomSight.OUTSIDE) {
-                            continue;
-                        }
-                        squaresRead++;
-                        long bit = 1L << (y << 3 | x);
-                        if ((at.seen[z - LOWEST] & bit) == 0L && asked(square)) {
-                            at.seen[z - LOWEST] |= bit;
-                        }
-                    }
-                }
-            }
-        }
-        RoomSight.Seen marking;
-        synchronized (this) {
-            marking = turned;
-            turned = turnedBefore;
-            turnedBefore = marking;
-        }
-        long marked = 0L, left = 0L;
-        for (int slot = 0; slot < marking.slots(); slot++) {
-            long place = marking.at(slot);
-            if (place == RoomSight.OUTSIDE) {
+            inSight.add(room);
+            if (!marks && def.explored) {
                 continue;
             }
-            int x = (int) (place >>> 32), y = (int) (place >>> 8 & 0xFFFFFF), z = (int) (place & 0xFF) - 128;
-            IsoGridSquare square = cell.getGridSquare(x, y, z);
-            long room = square == null ? RoomSight.OUTSIDE : square.getRoomID();
-            boolean sees = square != null && (room == RoomSight.OUTSIDE
-                    ? drawnKeys.contains(chunkKey(Math.floorDiv(x, WorldScene.CHUNK_TILES), Math.floorDiv(y, WorldScene.CHUNK_TILES)))
-                    : inSight.contains(room));
-            if (sees) {
-                Meta.instance.dealWithSquareSeen(square);
+            for (int r = 0; r < def.rects.size(); r++) {
+                cut(roomDefs.size(), def.rects.get(r));
             }
-            marked += sees ? 1 : 0;
-            left += sees ? 0 : 1;
+            roomDefs.add(def);
         }
-        marking.clear();
-        if (CHECK) {
-            synchronized (this) {
-                turnsMarked += marked;
-                turnsLeft += left;
+        for (int piece = 0; piece < pieceCount; piece++) {
+            unit(ROOM_UNIT | piece);
+        }
+        drawnKeys.clear();
+        drawnChunks.clear();
+        for (int i = 0; i < drawn.size(); i++) {
+            IsoChunk chunk = drawn.get(i);
+            long place = chunkKey(chunk.wx, chunk.wy);
+            if (!drawnKeys.add(place)) {
+                continue;
+            }
+            if (drawnChunks.size() == drawnAt.length) {
+                drawnAt = Arrays.copyOf(drawnAt, drawnAt.length * 2);
+            }
+            drawnAt[drawnChunks.size()] = place;
+            for (int z = chunk.getMinLevel(); marks && z <= chunk.getMaxLevel(); z++) {
+                unit((long) drawnChunks.size() << 8 | z - LOWEST);
+            }
+            drawnChunks.add(chunk);
+        }
+    }
+
+    /** Cuts a rectangle of the room at an index of roomDefs into pieces at the chunks' edges. */
+    private void cut(int room, RoomDef.RoomRect rect) {
+        int x1 = rect.x + rect.w, y1 = rect.y + rect.h;
+        for (int y = rect.y; y < y1; y = ((y >> 3) + 1) << 3) {
+            for (int x = rect.x; x < x1; x = ((x >> 3) + 1) << 3) {
+                if ((pieceCount + 1) * PIECE > pieces.length) {
+                    pieces = Arrays.copyOf(pieces, pieces.length * 2);
+                }
+                int at = pieceCount++ * PIECE;
+                pieces[at] = room;
+                pieces[at + 1] = x;
+                pieces[at + 2] = y;
+                pieces[at + 3] = Math.min(x1, ((x >> 3) + 1) << 3);
+                pieces[at + 4] = Math.min(y1, ((y >> 3) + 1) << 3);
+            }
+        }
+    }
+
+    private void unit(long unit) {
+        if (unitCount == units.length) {
+            units = Arrays.copyOf(units, units.length * 2);
+        }
+        units[unitCount++] = unit;
+    }
+
+    /**
+     * Goes over the round's units until the time given on System.nanoTime's clock has come, at
+     * least one of them, and says whether the round's units are all done.
+     */
+    boolean work(IsoCell cell, long deadline) {
+        while (nextUnit < unitCount) {
+            long unit = units[nextUnit++];
+            if ((unit & ROOM_UNIT) != 0L) {
+                roomPiece(cell, (int) unit);
+            } else {
+                chunkLevel(cell, (int) (unit >>> 8), (int) (unit & 0xFF) + LOWEST);
+            }
+            if (System.nanoTime() >= deadline) {
+                break;
+            }
+        }
+        return nextUnit == unitCount;
+    }
+
+    /** One piece of a room in sight, inside one chunk: the room spotted from each square of it the game has had in the player's sight. */
+    private void roomPiece(IsoCell cell, int piece) {
+        int p = piece * PIECE, x0 = pieces[p + 1], y0 = pieces[p + 2], x1 = pieces[p + 3], y1 = pieces[p + 4];
+        RoomDef def = roomDefs.get(pieces[p]);
+        int z = def.level;
+        Known at = null;
+        for (int y = y0; y < y1; y++) {
+            for (int x = x0; x < x1; x++) {
+                IsoGridSquare square = cell.getGridSquare(x, y, z);
+                if (square == null) {
+                    continue;
+                }
+                if (at == null) {
+                    IsoChunk chunk = cell.getChunkForGridSquare(x, y, z);
+                    if (chunk == null) {
+                        throw new IllegalStateException("the square at " + x + ", " + y + ", " + z + " is on the map and its chunk is not");
+                    }
+                    at = knownOf(chunk);
+                }
+                squaresRead++;
+                long bit = 1L << ((y & 7) << 3 | x & 7);
+                boolean spot = !def.explored;
+                if ((at.seen[z - LOWEST] & bit) == 0L) {
+                    if (!spot && !marks || !asked(square)) {
+                        continue;
+                    }
+                    at.seen[z - LOWEST] |= bit;
+                }
+                if (spot) {
+                    square.checkRoomSeen(playerIndex);
+                    spotted += def.explored ? 1 : 0;
+                }
+            }
+        }
+    }
+
+    /** One level of a chunk drawn: each square of it out of doors that has not been found seen is asked about. */
+    private void chunkLevel(IsoCell cell, int index, int z) {
+        IsoChunk chunk = drawnChunks.get(index);
+        long place = drawnAt[index];
+        // A chunk let go of since the round began is let be: what holds it may be another chunk now.
+        if (chunk.wx != (int) (place >> 32) || chunk.wy != (int) place
+                || cell.getChunkForGridSquare(chunk.wx * WorldScene.CHUNK_TILES, chunk.wy * WorldScene.CHUNK_TILES, 0) != chunk) {
+            return;
+        }
+        Known at = knownOf(chunk);
+        for (int y = 0; y < WorldScene.CHUNK_TILES; y++) {
+            for (int x = 0; x < WorldScene.CHUNK_TILES; x++) {
+                IsoGridSquare square = chunk.getGridSquare(x, y, z);
+                if (square == null || square.getRoomID() != RoomSight.OUTSIDE) {
+                    continue;
+                }
+                squaresRead++;
+                long bit = 1L << (y << 3 | x);
+                if ((at.seen[z - LOWEST] & bit) == 0L && asked(square)) {
+                    at.seen[z - LOWEST] |= bit;
+                }
             }
         }
     }
@@ -347,10 +458,14 @@ final class Spotting {
             turnedBefore.clear();
         }
         passed = false;
-        rooms.clear();
-        chunkKeys.clear();
+        open = false;
+        unitCount = nextUnit = pieceCount = 0;
+        inSight.clear();
+        roomDefs.clear();
         drawnKeys.clear();
-        chunks.clear();
+        drawnChunks.clear();
+        shownChunks.clear();
+        shownRooms.clear();
         known.clear();
         knownAt.clear();
         knownSpare.clear();
@@ -408,6 +523,49 @@ final class Spotting {
         knownSpare = was;
     }
 
+    /**
+     * Ends the round: each square the light has found turned seen since the last is marked if the
+     * view sees it, in a room in sight or in the open air of a chunk drawn.
+     */
+    private void finish(IsoCell cell) {
+        open = false;
+        if (marks) {
+            mark(cell);
+        }
+    }
+
+    private void mark(IsoCell cell) {
+        RoomSight.Seen marking;
+        synchronized (this) {
+            marking = turned;
+            turned = turnedBefore;
+            turnedBefore = marking;
+        }
+        long marked = 0L, left = 0L;
+        for (int slot = 0; slot < marking.slots(); slot++) {
+            long place = marking.at(slot);
+            if (place == RoomSight.OUTSIDE) {
+                continue;
+            }
+            int x = (int) (place >>> 32), y = (int) (place >>> 8 & 0xFFFFFF), z = (int) (place & 0xFF) - 128;
+            IsoGridSquare square = cell.getGridSquare(x, y, z);
+            long room = square == null ? RoomSight.OUTSIDE : square.getRoomID();
+            boolean sees = square != null && (room == RoomSight.OUTSIDE ? drawnKeys.contains(chunkKey(x >> 3, y >> 3)) : inSight.contains(room));
+            if (sees) {
+                Meta.instance.dealWithSquareSeen(square);
+            }
+            marked += sees ? 1 : 0;
+            left += sees ? 0 : 1;
+        }
+        marking.clear();
+        if (CHECK) {
+            synchronized (this) {
+                turnsMarked += marked;
+                turnsLeft += left;
+            }
+        }
+    }
+
     /** Whether the game has had a square in the player's sight, asked of its light, which may find it turned seen (turned). */
     private boolean asked(IsoGridSquare square) {
         seenAsked++;
@@ -420,7 +578,7 @@ final class Spotting {
         return seen;
     }
 
-    /** Dev only: says what the passes and the light came to, once SAID_EVERY_NANOS has gone by since it last did. */
+    /** Dev only: says what the rounds and the light came to, once SAID_EVERY_NANOS has gone by since it last did. */
     private void sayIfDue(long now) {
         if (!CHECK) {
             return;
@@ -441,13 +599,16 @@ final class Spotting {
             turnsAsked = turnsAside = turnsMarked = turnsLeft = 0;
         }
         Log.info(String.format(Locale.ROOT,
-                "spotting: player %d, %.1f s, %d frames, %d passes in %.3f ms each (longest %.3f, %.4f ms a frame); squares read %d, asked whether seen %d"
-                        + " (seen and out of sight in %d of %d sampled), light read afresh %d and found unchanged %d, rooms spotted %d, rooms the light passed over %d;"
-                        + " squares found turned seen as a pass asked %d and by other reads %d, marked where the view sees them %d, left elsewhere %d; chunks known %d",
-                playerIndex + 1, (now - saidNanos) / 1e9, frames, passes, passNanos / 1e6 / Math.max(1, passes), longestNanos / 1e6,
-                passNanos / 1e6 / Math.max(1, frames), squaresRead, seenAsked, seenOutOfSight, sampled, readAfresh, readUnchanged, spotted,
-                roomsLeftByLight.sumThenReset(), asked, aside, marked, left, knownAt.size()));
+                "spotting: player %d, %.1f s, %d frames, %d rounds (%d over their quarter second) in %.3f ms each (longest %.3f), %.4f ms a frame (longest %.3f,"
+                        + " beginning a round up to %.3f, ending one up to %.3f);"
+                        + " squares read %d, asked whether seen %d (seen and out of sight in %d of %d sampled), light read afresh %d and found unchanged %d,"
+                        + " rooms spotted %d, rooms the light passed over %d; squares found turned seen as a round asked %d and by other reads %d,"
+                        + " marked where the view sees them %d, left elsewhere %d; chunks known %d",
+                playerIndex + 1, (now - saidNanos) / 1e9, frames, passes, late, passNanos / 1e6 / Math.max(1, passes), longestPassNanos / 1e6,
+                sliceNanos / 1e6 / Math.max(1, frames), longestSliceNanos / 1e6, longestBeginNanos / 1e6, longestEndNanos / 1e6, squaresRead, seenAsked, seenOutOfSight, sampled, readAfresh, readUnchanged,
+                spotted, roomsLeftByLight.sumThenReset(), asked, aside, marked, left, knownAt.size()));
         saidNanos = now;
-        frames = passes = passNanos = longestNanos = squaresRead = seenAsked = sampled = seenOutOfSight = spotted = readAfresh = readUnchanged = 0;
+        frames = passes = late = passNanos = longestPassNanos = sliceNanos = longestSliceNanos = longestBeginNanos = longestEndNanos = squaresRead = seenAsked = sampled = seenOutOfSight = spotted
+                = readAfresh = readUnchanged = 0;
     }
 }

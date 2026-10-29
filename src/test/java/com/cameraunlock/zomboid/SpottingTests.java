@@ -5,6 +5,7 @@ import java.lang.constant.ClassDesc;
 import java.lang.constant.ConstantDescs;
 import java.lang.constant.MethodTypeDesc;
 import java.lang.invoke.MethodHandles;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -31,6 +32,8 @@ public final class SpottingTests {
         Checks.run("aClientSpotsRoomsAndMarksNothing", SpottingTests::aClientSpotsRoomsAndMarksNothing);
         Checks.run("aSquareFoundSeenIsNotAskedAboutAgain", SpottingTests::aSquareFoundSeenIsNotAskedAboutAgain);
         Checks.run("aChunkLoadedAgainIsAskedAboutAgain", SpottingTests::aChunkLoadedAgainIsAskedAboutAgain);
+        Checks.run("aFramesShareOfARoundEndsOnceItsTimeIsUp", SpottingTests::aFramesShareOfARoundEndsOnceItsTimeIsUp);
+        Checks.run("aRoomIsGoneOverAChunkAtATime", SpottingTests::aRoomIsGoneOverAChunkAtATime);
         Checks.run("passesComeFourTimesASecondWhateverTheFrames", SpottingTests::passesComeFourTimesASecondWhateverTheFrames);
         Checks.run("aCallReplacedHandsItsHookWhatItsMethodBelongsTo", SpottingTests::aCallReplacedHandsItsHookWhatItsMethodBelongsTo);
     }
@@ -275,6 +278,44 @@ public final class SpottingTests {
         cell.reload(square.getX(), square.getY());
         pass(spotting, cell, inSight(), List.of(drawn(cell, square)));
         check(square.seenAsked == 2, "what was found seen of a chunk is let go with it, and the chunk loaded again at its place is asked about again");
+    }
+
+    private static void aFramesShareOfARoundEndsOnceItsTimeIsUp() {
+        IsoCell cell = new IsoCell();
+        IsoGridSquare[] corners = new IsoGridSquare[4];
+        for (int i = 0; i < corners.length; i++) {
+            corners[i] = cell.square(200 + 8 * i, 200, 0);
+        }
+        Spotting spotting = spotting();
+        spotting.begin(cell, inSight(), defs()::get, List.of(drawn(cell, corners[0]), drawn(cell, corners[1]), drawn(cell, corners[2]), drawn(cell, corners[3])));
+        boolean done = spotting.work(cell, 0L);
+        check(!done && corners[0].seenAsked == 1 && asked(corners) == 1, "a frame's share of a round whose time is up stops after the unit it is on, and does that one");
+        done = spotting.work(cell, 0L) | spotting.work(cell, 0L);
+        check(!done && asked(corners) == 3, "each frame's share takes up where the last left off");
+        check(spotting.work(cell, 0L) && asked(corners) == 4, "and the last says the round's units are all done");
+        spotting.begin(cell, inSight(), defs()::get, List.of(drawn(cell, corners[0]), drawn(cell, corners[1]), drawn(cell, corners[2]), drawn(cell, corners[3])));
+        check(spotting.work(cell, Long.MAX_VALUE), "a share with time to spare goes on to the end of the round");
+    }
+
+    private static void aRoomIsGoneOverAChunkAtATime() {
+        IsoCell cell = new IsoCell();
+        // Twelve tiles square from 4, 4: four tiles in the chunk at 0, 0, eight in those at 1, 0 and 0, 1, and a whole chunk at 1, 1.
+        Room hall = Room.of(cell, 45L, 4, 4, 12, 12, 0);
+        hall.def().explored = true;
+        Spotting spotting = spotting();
+        spotting.begin(cell, inSight(hall), defs(hall)::get, List.of());
+        List<Integer> pieces = new ArrayList<>();
+        boolean done = false;
+        for (int before = 0; !done; before = asked(hall.squares())) {
+            done = spotting.work(cell, 0L);
+            pieces.add(asked(hall.squares()) - before);
+        }
+        check(pieces.equals(List.of(16, 32, 32, 64)), "a room's rectangle is gone over a piece in each chunk at a time: " + pieces);
+        boolean once = true;
+        for (IsoGridSquare square : hall.squares()) {
+            once &= square.seenAsked == 1;
+        }
+        check(once, "and each of its squares once");
     }
 
     private static void passesComeFourTimesASecondWhateverTheFrames() {
