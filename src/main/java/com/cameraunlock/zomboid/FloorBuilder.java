@@ -865,7 +865,10 @@ final class FloorBuilder {
         for (int under = z - 1; under >= 0 && ground == null; under--) {
             ground = build.cell.getGridSquare(x, y, under);
         }
-        boolean shown = ground != null && ground.isSeen(build.playerIndex);
+        boolean shown;
+        synchronized (BuildThreads.SHARED) {
+            shown = ground != null && ground.isSeen(build.playerIndex);
+        }
         ColorInfo light = shown ? build.lightOf(ground) : WorldScene.SHADE_ONLY;
         boolean lit = build.mainsOn || here.haveElectricity();
         float red = lit ? Soffits.under(shown ? light.r : 0f, Soffits.GLOW_RED) : light.r, green = lit ? Soffits.under(shown ? light.g : 0f, Soffits.GLOW_GREEN) : light.g;
@@ -882,7 +885,11 @@ final class FloorBuilder {
      * carry no unlit share, so the kind of the light the game has not given is none of theirs.
      */
     void ceilingLight(IsoGridSquare below, SpriteGeometry.Frame into) {
-        byte lit = below != null && below.isSeen(build.playerIndex) ? WorldScene.OWN_LIGHT
+        boolean seen;
+        synchronized (BuildThreads.SHARED) {
+            seen = below != null && below.isSeen(build.playerIndex);
+        }
+        byte lit = seen ? WorldScene.OWN_LIGHT
                 : below == null || below.getRoomID() == -1L || build.asTheGameShows || build.gamesView ? WorldScene.OPEN_LIT
                 : WorldScene.lampBurns(build.cell, below, build.lampsNear) ? WorldScene.LAMP_LIT : WorldScene.ROOM_LIT;
         ColorInfo light = lit == WorldScene.OWN_LIGHT ? build.daylit(below, build.lightOf(below)) : WorldScene.SHADE_ONLY;

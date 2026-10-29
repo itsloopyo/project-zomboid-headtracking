@@ -2923,20 +2923,22 @@ final class WorldScene {
 
     /** Whether a player has seen a room, as RoomsSeen takes it from the room's squares on its own level. Logic thread, where the game's light is read (FigureLights). */
     static boolean roomSeen(IsoCell cell, long room, int playerIndex) {
-        RoomDef def = IsoWorld.instance.getMetaGrid().getRoomDefByID(room);
-        int[] rects = new int[def.rects.size() * 4];
-        for (int i = 0; i < def.rects.size(); i++) {
-            RoomDef.RoomRect rect = def.rects.get(i);
-            rects[i * 4] = rect.x;
-            rects[i * 4 + 1] = rect.y;
-            rects[i * 4 + 2] = rect.w;
-            rects[i * 4 + 3] = rect.h;
+        synchronized (BuildThreads.SHARED) {
+            RoomDef def = IsoWorld.instance.getMetaGrid().getRoomDefByID(room);
+            int[] rects = new int[def.rects.size() * 4];
+            for (int i = 0; i < def.rects.size(); i++) {
+                RoomDef.RoomRect rect = def.rects.get(i);
+                rects[i * 4] = rect.x;
+                rects[i * 4 + 1] = rect.y;
+                rects[i * 4 + 2] = rect.w;
+                rects[i * 4 + 3] = rect.h;
+            }
+            int level = def.level;
+            return RoomsSeen.most(rects, (x, y) -> {
+                IsoGridSquare square = cell.getGridSquare(x, y, level);
+                return square == null ? RoomsSeen.NONE : square.isSeen(playerIndex) ? RoomsSeen.SEEN : RoomsSeen.UNSEEN;
+            });
         }
-        int level = def.level;
-        return RoomsSeen.most(rects, (x, y) -> {
-            IsoGridSquare square = cell.getGridSquare(x, y, level);
-            return square == null ? RoomsSeen.NONE : square.isSeen(playerIndex) ? RoomsSeen.SEEN : RoomsSeen.UNSEEN;
-        });
     }
 
     /**
@@ -3000,14 +3002,16 @@ final class WorldScene {
      * from the eye a lamp burning in it lights it, and shown only as the game shows it, it is dark.
      */
     static boolean lamplit(IsoCell cell, IsoGridSquare square, int playerIndex, boolean asTheGameShows, List<IsoLightSource> lamps) {
-        if (square.getRoom() == null) {
-            return false;
+        synchronized (BuildThreads.SHARED) {
+            if (square.getRoom() == null) {
+                return false;
+            }
+            if (!square.isSeen(playerIndex)) {
+                return !asTheGameShows && lampBurns(cell, square, lamps);
+            }
+            ColorInfo light = square.lighting[playerIndex].lightInfo();
+            return Math.max(light.r, Math.max(light.g, light.b)) > LAMPLIT && lampBurns(cell, square, lamps);
         }
-        if (!square.isSeen(playerIndex)) {
-            return !asTheGameShows && lampBurns(cell, square, lamps);
-        }
-        ColorInfo light = square.lighting[playerIndex].lightInfo();
-        return Math.max(light.r, Math.max(light.g, light.b)) > LAMPLIT && lampBurns(cell, square, lamps);
     }
 
     /**
@@ -6199,7 +6203,9 @@ final class WorldScene {
                     System.arraycopy(keptDay, at, lightDay, 0, lightRed.length);
                 } else {
                     tallying = !growing && !afresh;
-                    readLights(chunkX, chunkY, z);
+                    synchronized (BuildThreads.SHARED) {
+                        readLights(chunkX, chunkY, z);
+                    }
                     if (z == 0) {
                         readWoods(chunkX, chunkY);
                     }
@@ -6404,7 +6410,9 @@ final class WorldScene {
                 }
                 tollLevelsRead++;
                 long level = bloodBuilder.read(chunkX, chunkY, z);
-                readLights(chunkX, chunkY, z);
+                synchronized (BuildThreads.SHARED) {
+                    readLights(chunkX, chunkY, z);
+                }
                 System.arraycopy(lightRed, 0, keptRed, (z - from) * span, span);
                 System.arraycopy(lightGreen, 0, keptGreen, (z - from) * span, span);
                 System.arraycopy(lightBlue, 0, keptBlue, (z - from) * span, span);
@@ -6831,7 +6839,9 @@ final class WorldScene {
          * torchless or one of SquareLights' own, and good until the next asking.
          */
         ColorInfo lightOf(IsoGridSquare square) {
-            return view.torchLess.light(square, squareLights.of(square, playerIndex, lightPass), torchless);
+            synchronized (BuildThreads.SHARED) {
+                return view.torchLess.light(square, squareLights.of(square, playerIndex, lightPass), torchless);
+            }
         }
 
         /**
@@ -8465,7 +8475,11 @@ final class WorldScene {
             long room = keyed.getRoomID();
             squareRoom = room;
             paintsLater = z == 0 && room == RoomSight.OUTSIDE && floorBuilder.spreadsOver(localX, localY);
-            int emptied = Sightline.emptied(asTheGameShows, gamesView, room != RoomSight.OUTSIDE, keyed.isSeen(playerIndex));
+            boolean keyedSeen;
+            synchronized (BuildThreads.SHARED) {
+                keyedSeen = keyed.isSeen(playerIndex);
+            }
+            int emptied = Sightline.emptied(asTheGameShows, gamesView, room != RoomSight.OUTSIDE, keyedSeen);
             boolean unexplored = emptied == Sightline.LEFT_OUT;
             // The band is asked only where its answer changes the build: asked of every square, a chunk would be another build in every band.
             boolean empty = unexplored || !buildingBySight && emptied == Sightline.LEFT_OUT_FAR && !within(UNSHOWN_FILLED_WITHIN, false);
@@ -8921,7 +8935,9 @@ final class WorldScene {
          * the frame leaves nothing out of it: the room has the engine's light, which is what hides it.
          */
         private boolean unexplored(IsoGridSquare square) {
-            return Sightline.leftOut(asTheGameShows, gamesView, square.getRoomID() != -1L, square.isSeen(playerIndex));
+            synchronized (BuildThreads.SHARED) {
+                return Sightline.leftOut(asTheGameShows, gamesView, square.getRoomID() != -1L, square.isSeen(playerIndex));
+            }
         }
 
         /**

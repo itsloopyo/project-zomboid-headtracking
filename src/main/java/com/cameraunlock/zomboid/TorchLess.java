@@ -475,7 +475,8 @@ final class TorchLess {
                     }
                 }
                 if (!same) {
-                    ChunkMarks.markLight(Math.floorDiv(x, WorldScene.CHUNK_TILES), Math.floorDiv(y, WorldScene.CHUNK_TILES));
+                    int wx = Math.floorDiv(x, WorldScene.CHUNK_TILES), wy = Math.floorDiv(y, WorldScene.CHUNK_TILES);
+                    BuildThreads.later(() -> ChunkMarks.markLight(wx, wy));
                 }
             }
         }
