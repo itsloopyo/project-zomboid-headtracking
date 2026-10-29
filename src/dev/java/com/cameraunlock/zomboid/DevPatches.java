@@ -16,8 +16,9 @@ final class DevPatches {
     /**
      * Rewind 30s, which is not ready to ship (see Rewind), the invincible key (see DevKeys.cheatsAllowed),
      * the frame recorder's clock and its two places in a frame, the mod's own words on the screen,
-     * which the recorder keeps out of a take (see FrameRecorder), and the check of the thread a
-     * square's light is read on (see LightingThread).
+     * which the recorder keeps out of a take (see FrameRecorder), the check of the thread a
+     * square's light is read on (see LightingThread), and when asked for, the check of the
+     * composites made while the render thread waits for the frame (see CompositeCheck).
      */
     static List<Agent.Patch> list() {
         List<Agent.Patch> patches = new ArrayList<>(List.of(new Agent.Patch("zombie/characters/PlayerCheats", "isCheatAllowed before its returns", classBytes -> CallSite.filterReturn(classBytes,
@@ -43,7 +44,30 @@ final class DevPatches {
         patches.add(new Agent.Patch(lighting, "update checks the thread a square's light is read on", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
                 new CallSite.Method(lighting, "update", "()V"),
                 code -> CallSite.invokeStatic(code, new CallSite.Method("com/cameraunlock/zomboid/LightingThread", "update", "()V")))));
+        if (Boolean.getBoolean("cameraunlock.zomboid.checkComposites")) {
+            patches.addAll(compositeCheck());
+        }
         return patches;
+    }
+
+    /**
+     * With cameraunlock.zomboid.checkComposites set, each composite made while the render thread
+     * waits for the frame is made again where the game makes it, and the two compared: see CompositeCheck.
+     */
+    private static List<Agent.Patch> compositeCheck() {
+        String creator = "zombie/core/skinnedmodel/model/ModelInstanceTextureCreator", slot = "zombie/core/skinnedmodel/model/ModelSlotRenderData",
+                check = "com/cameraunlock/zomboid/CompositeCheck";
+        CallSite.Method render = new CallSite.Method(creator, "render", "()V"), checkReady = new CallSite.Method(slot, "checkReady", "()Z");
+        return List.of(new Agent.Patch(creator, "render at its start and on every way out, and postRender at its start, for the composite check",
+                        classBytes -> CallSite.insertAtStartOfInstanceMethod(CallSite.insertOnEveryWayOut(CallSite.insertAtStartOfInstanceMethod(classBytes, render,
+                                        code -> CallSite.passThis(code, new CallSite.Method(check, "making", "(L" + creator + ";)V"))),
+                                        render, code -> CallSite.passThis(code, new CallSite.Method(check, "made", "(L" + creator + ";)V"))),
+                                new CallSite.Method(creator, "postRender", "()V"),
+                                code -> CallSite.passThis(code, new CallSite.Method(check, "released", "(L" + creator + ";)V")))),
+                new Agent.Patch(slot, "checkReady at its start and on every way out, for the composite check",
+                        classBytes -> CallSite.insertOnEveryWayOut(CallSite.insertAtStartOfInstanceMethod(classBytes, checkReady,
+                                        code -> CallSite.passThis(code, new CallSite.Method(check, "checking", "(L" + slot + ";)V"))),
+                                checkReady, code -> CallSite.passThis(code, new CallSite.Method(check, "checked", "(L" + slot + ";)V")))));
     }
 
     /**
