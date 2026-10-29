@@ -2,7 +2,10 @@ package com.cameraunlock.zomboid;
 
 import com.cameraunlock.core.CameraUnlock;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -454,6 +457,73 @@ final class Tracking {
         } catch (RuntimeException failure) {
             Log.error("the rows of [Graphics] as applied on the game's options screen were not taken", failure);
         }
+    }
+
+    /**
+     * What the options page's first button sets: first person and the isometric graphics both on
+     * or both off. On, a player's isometric view at Low, the game's own picture, goes to Medium,
+     * and one at Medium, High or Custom stays there; off, every player's goes to Low.
+     */
+    static Map<String, Double> firstPersonAndIsometric(boolean on) {
+        Map<String, Double> values = new LinkedHashMap<>();
+        values.put(Part.FIRST_PERSON.key, on ? 1.0 : 0.0);
+        for (int player = 0; player < View.COUNT; player++) {
+            int now = Quality.overheadRow(player);
+            values.put(Config.overheadQualityKey(player), (double) ((on ? (now == Quality.LOW ? Quality.MEDIUM : now) : Quality.LOW) - Quality.LOW));
+        }
+        return values;
+    }
+
+    /**
+     * What the options page's second button sets: every part, rule, fix and optimization of the
+     * mod off, the game's own content, isometric picture and split screen, so that what is left
+     * is head tracking and talking mouths, which keep what they have. Rewind30s, off unless a
+     * development build is asked, is left as it is.
+     */
+    static Map<String, Double> everythingOff() {
+        Map<String, Double> values = new LinkedHashMap<>(firstPersonAndIsometric(false));
+        for (Part part : Part.values()) {
+            values.put(part.key, 0.0);
+        }
+        for (String key : Config.RULE_KEYS) {
+            if (!key.equals("Rewind30s")) {
+                values.put(key, 0.0);
+            }
+        }
+        for (String key : Config.VANILLA_KEYS) {
+            values.put(key, 1.0);
+        }
+        for (String key : new String[] {"SpreadLightUpdates", "MuzzleFlash", "Crosshair", "RegripTwoHandedWeapons"}) {
+            values.put(key, 0.0);
+        }
+        values.put("SplitScreen", (double) SplitScreen.VERTICAL);
+        return values;
+    }
+
+    /**
+     * Sets each option the values name to its value where it reads otherwise, as applyOption takes
+     * a setting applied on the options screen, and answers the places of those it set. Throws for
+     * a name that is no option. Logic thread.
+     */
+    static List<Integer> applyAll(Map<String, Double> values) {
+        CameraUnlock.Option[] options = options();
+        List<Integer> set = new ArrayList<>();
+        int found = 0;
+        for (int option = 0; option < options.length; option++) {
+            Double value = values.get(options[option].id);
+            if (value == null) {
+                continue;
+            }
+            found++;
+            if (optionValue(option) != value) {
+                applyOption(option, options[option], value);
+                set.add(option);
+            }
+        }
+        if (found != values.size()) {
+            throw new IllegalStateException(values.size() - found + " of " + values.keySet() + " are no options of the screen");
+        }
+        return set;
     }
 
     /** Has the next frame drawn say the graphics mode on the screens of the players of the bits. */

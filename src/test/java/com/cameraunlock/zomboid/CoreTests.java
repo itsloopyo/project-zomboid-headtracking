@@ -12,9 +12,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.FileTime;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.StringJoiner;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -110,6 +112,8 @@ public final class CoreTests {
         Checks.run("theDrawDistanceFarTreesAndReflectionsGoToCustomAsTheOtherRowsDo", CoreTests::theDrawDistanceFarTreesAndReflectionsGoToCustomAsTheOtherRowsDo);
         Checks.run("theGrassDensityGoesToCustomAsTheOtherRowsDo", CoreTests::theGrassDensityGoesToCustomAsTheOtherRowsDo);
         Checks.run("aRowChangedInAutomaticStartsCustomFromItsLevelAndNeverFromStock", CoreTests::aRowChangedInAutomaticStartsCustomFromItsLevelAndNeverFromStock);
+        Checks.run("theOptionsPagesButtonsAreTakenSavedAndReadAtTheNextStart", CoreTests::theOptionsPagesButtonsAreTakenSavedAndReadAtTheNextStart);
+        Checks.run("everyTickBoxTickedOrUntickedIsSavedAndReadAtTheNextStart", CoreTests::everyTickBoxTickedOrUntickedIsSavedAndReadAtTheNextStart);
         Checks.run("theShippedJarStartsThroughBoot", CoreTests::theShippedJarStartsThroughBoot);
         Checks.tally();
     }
@@ -753,6 +757,108 @@ public final class CoreTests {
         check(next.contains("left out: impacts" + System.lineSeparator()), "with ShotImpacts off the impacts go once no shot breaks lamps or glass either: " + leftOutLine(next));
         edit(saved);
         check(nextStart("parts-on-again").contains("left out: none"), "set back, the next start has every set in again");
+    }
+
+    /** The sets of patches every start keeps: head tracking's, talking mouths', and those that only ask a row of [Rules] whether to act. */
+    private static final String KEPT_SETS = "base, frame, shots through walls, world, development, lamps, model head, part draw, live sight, left save, lua loaded, knockdown, split screen";
+
+    private static void theOptionsPagesButtonsAreTakenSavedAndReadAtTheNextStart() throws IOException, InterruptedException {
+        String saved = text();
+        boolean mouths = Mouths.on();
+        String tracking = Tracking.trackingModeLabel();
+        CameraUnlock.Option[] options = Tracking.options();
+        // Put back by the session at the end: a row read only as the game starts is not read again from the file.
+        Map<String, Double> before = new java.util.LinkedHashMap<>();
+        for (String key : Tracking.everythingOff().keySet()) {
+            before.put(key, Tracking.optionValue(optionNamed(options, key)));
+        }
+        Map<String, Double> off = Tracking.everythingOff();
+        check(!Tracking.applyAll(off).isEmpty() && Tracking.applyAll(Tracking.everythingOff()).isEmpty(),
+                "the button that turns everything off sets what it names, and pressed again sets nothing");
+        boolean all = true;
+        for (Map.Entry<String, Double> row : off.entrySet()) {
+            all &= Tracking.optionValue(optionNamed(options, row.getKey())) == row.getValue();
+        }
+        check(all && !Part.FIRST_PERSON.on() && Rules.rows() == 0 && Own.rows() == 0 && Quality.overheadRow(0) == Quality.LOW && !PendingLights.spread()
+                        && !MuzzleFlash.on() && !Crosshair.on() && !Regrip.on() && SplitScreen.row() == SplitScreen.VERTICAL,
+                "every part, rule and optimization is off, and the content, isometric view and split screen are the game's: " + Part.described());
+        check(Mouths.on() == mouths && Tracking.trackingModeLabel().equals(tracking), "and talking mouths and head tracking are as they were");
+        savesMade();
+        check(saved("FirstPersonEnabled=false", "TorchFollowsHead=false", "ShotsThroughWalls=false", "HiddenWallDecorSaved=false", "HillsMoveVehicles=false",
+                        "BurntBuildingFreezeFix=false", "CachedGameLookups=false", "SpotBySight=false", "SpreadLightUpdates=false", "VanillaWeapons=true",
+                        "IsometricQuality=Low", "FourthPlayerIsometricQuality=Low"),
+                "and all of it is saved");
+        String next = nextStart("everything-off");
+        check(next.contains("left out: " + leftOutBut(KEPT_SETS) + System.lineSeparator()),
+                "the next start leaves out every set of patches but head tracking's, talking mouths' and the rules' own: " + leftOutLine(next));
+
+        Tracking.applyAll(Tracking.firstPersonAndIsometric(true));
+        check(Part.FIRST_PERSON.on() && Quality.overheadRow(0) == Quality.MEDIUM && Quality.overheadRow(3) == Quality.MEDIUM,
+                "the button for both views turns first person on and every isometric view at Low to Medium");
+        Tracking.applyOption(optionNamed(options, "IsometricQuality"), options[optionNamed(options, "IsometricQuality")], Quality.HIGH - Quality.LOW);
+        Tracking.applyAll(Tracking.firstPersonAndIsometric(false));
+        check(!Part.FIRST_PERSON.on() && Quality.overheadRow(0) == Quality.LOW && Quality.overheadRow(1) == Quality.LOW,
+                "turns both off together, an isometric view at High too");
+        Tracking.applyOption(optionNamed(options, "IsometricQuality"), options[optionNamed(options, "IsometricQuality")], Quality.HIGH - Quality.LOW);
+        Tracking.applyAll(Tracking.firstPersonAndIsometric(true));
+        check(Part.FIRST_PERSON.on() && Quality.overheadRow(0) == Quality.HIGH && Quality.overheadRow(2) == Quality.MEDIUM,
+                "and on again keeps an isometric view that was above Low where it was");
+        savesMade();
+        check(saved("FirstPersonEnabled=true", "IsometricQuality=High", "ThirdPlayerIsometricQuality=Medium"), "each press is saved");
+        Tracking.applyAll(before);
+        savesMade();
+        check(text().equals(saved), "and every row set back as it was, the file is as it was");
+        Tracking.watchSettings();
+        check(Part.FIRST_PERSON.on() && Quality.overheadRow(0) == Quality.LOW && (Rules.rows() & Rules.THROUGH_WALLS) != 0,
+                "the file set back is read back");
+    }
+
+    /** Every set of patches by name in the order they go in, but those named. */
+    private static String leftOutBut(String kept) {
+        List<String> keep = List.of(kept.split(", "));
+        StringJoiner names = new StringJoiner(", ");
+        for (Agent.PatchSet set : Agent.sets()) {
+            if (!keep.contains(set.name())) {
+                names.add(set.name());
+            }
+        }
+        return names.toString();
+    }
+
+    private static void everyTickBoxTickedOrUntickedIsSavedAndReadAtTheNextStart() throws IOException, InterruptedException {
+        String saved = text();
+        CameraUnlock.Option[] options = Tracking.options();
+        StringBuilder rows = new StringBuilder();
+        List<String> flipped = new ArrayList<>(), back = new ArrayList<>();
+        List<Integer> places = new ArrayList<>();
+        for (int option = 0; option < options.length; option++) {
+            if (options[option].kind != CameraUnlock.OPTION_BOOL || options[option].source != CameraUnlock.OPTION_ROW
+                    || options[option].id.equals(Config.TALKING_MOUTHS) || Config.graphicsPart(options[option].id) >= 0) {
+                continue;
+            }
+            boolean now = Tracking.optionValue(option) != 0;
+            Tracking.applyOption(option, options[option], now ? 0 : 1);
+            flipped.add(options[option].id + "=" + !now);
+            back.add(options[option].id + "=" + now);
+            places.add(option);
+            rows.append(options[option].id).append(' ');
+        }
+        savesMade();
+        check(flipped.size() > 50 && saved(flipped.toArray(String[]::new)), "every tick box of the mod's rows, ticked or unticked, is saved as its row: " + rows);
+        String next = nextStart("every-tick-flipped");
+        String parts = next.substring(next.indexOf("the mod's parts: "));
+        boolean read = true;
+        for (Part part : Part.values()) {
+            read &= parts.contains(part.key + " off");
+        }
+        check(read, "and the next start reads each of them as it was left: " + parts.substring(0, parts.indexOf(System.lineSeparator())));
+        for (int option : places) {
+            Tracking.applyOption(option, options[option], Tracking.optionValue(option) != 0 ? 0 : 1);
+        }
+        savesMade();
+        check(saved(back.toArray(String[]::new)), "and each ticked back is saved back as it was");
+        edit(saved);
+        Tracking.watchSettings();
     }
 
     private static void rowsReadAgainWhileTheGameRuns() throws IOException, InterruptedException {

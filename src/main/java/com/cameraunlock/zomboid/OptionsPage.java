@@ -4,6 +4,7 @@ import com.cameraunlock.core.CameraUnlock;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import se.krka.kahlua.vm.JavaFunction;
 import se.krka.kahlua.vm.KahluaTable;
 import se.krka.kahlua.vm.LuaCallFrame;
@@ -20,6 +21,10 @@ import zombie.ui.UIManager;
  *
  * Each player's microphone is a name and no option of core's: the page lists the microphones
  * connected as it opens, for each player, below the settings.
+ *
+ * Two buttons head the page: one turns first person and the isometric graphics on or off
+ * together (Tracking.firstPersonAndIsometric), the other everything but head tracking and talking
+ * mouths off (Tracking.everythingOff). Each is taken and saved as it is pressed.
  *
  * The game saves what its mod page shows in a file of its own, ModOptions.ini, and reads that
  * back when it builds the page. The mod never takes a value from there: the controls are filled
@@ -74,7 +79,16 @@ final class OptionsPage {
 
     private static final String MICROPHONE_TIP = "Read for Talking mouths alone, and only for how loud it is.";
 
-    private static final JavaFunction OPENED = OptionsPage::opened, APPLIED = OptionsPage::applied;
+    private static final JavaFunction OPENED = OptionsPage::opened, APPLIED = OptionsPage::applied,
+            BOTH_VIEWS_PRESSED = OptionsPage::bothViewsPressed, EVERYTHING_OFF_PRESSED = OptionsPage::everythingOffPressed;
+
+    private static final String BOTH_VIEWS_TIP = "First person and the isometric view's own graphics, both on or both off, for every player. "
+            + "On, an isometric view at Low goes to Medium. Taken at once and saved.",
+            EVERYTHING_OFF_TIP = "Every part, rule, fix and optimization of the mod off, and the game's own content, isometric picture and split screen. "
+            + "Head tracking and talking mouths are left as they are. Taken at once and saved; what is read as the game starts is left out from the next start.";
+
+    /** The game's Lua table for the button that turns first person and the isometric graphics on or off together. */
+    private static KahluaTable bothViews;
 
     private static List<Control> controls = List.of();
     private static List<MicrophoneList> microphones = List.of();
@@ -115,6 +129,8 @@ final class OptionsPage {
         }
         int[][] layout = OptionsLayout.of(OptionsLayout.PAGE, options);
         KahluaTable section = (KahluaTable) call(modOptions, "create", SECTION, HEADING);
+        KahluaTable both = (KahluaTable) call(section, "addButton", "FirstPersonAndIsometric", bothViewsTitle(), BOTH_VIEWS_TIP, BOTH_VIEWS_PRESSED);
+        call(section, "addButton", "EverythingOff", "Turn off everything but head tracking and talking mouths", EVERYTHING_OFF_TIP, EVERYTHING_OFF_PRESSED);
         List<Control> made = new ArrayList<>();
         for (int group = 0; group < OptionsLayout.PAGE.length; group++) {
             call(section, "addTitle", OptionsLayout.PAGE[group].title());
@@ -139,6 +155,7 @@ final class OptionsPage {
         screen.rawset("toUI", OPENED);
         controls = made;
         microphones = lists;
+        bothViews = both;
         Log.info("the game's options screen has " + made.size() + " of the mod's settings and " + lists.size() + " lists of microphones under "
                 + HEADING);
     }
@@ -189,6 +206,7 @@ final class OptionsPage {
             for (MicrophoneList list : microphones) {
                 list(list, Tracking.microphones().get(list.player));
             }
+            title();
             filled = true;
         } catch (RuntimeException failure) {
             // Thrown on, it would stop the game's options screen from opening.
@@ -384,6 +402,52 @@ final class OptionsPage {
             }
         }
         return 0;
+    }
+
+    /** The first button's title: what pressing it does now. */
+    private static String bothViewsTitle() {
+        return Part.FIRST_PERSON.on() ? "Turn first person and the isometric graphics off" : "Turn first person and the isometric graphics on";
+    }
+
+    /** Gives the first button its title: in the page's own table, which a screen made after this is made from, and on the button on the screen. */
+    private static void title() {
+        bothViews.rawset("name", bothViewsTitle());
+        if (bothViews.rawget("element") instanceof KahluaTable button) {
+            call(button, "setTitle", bothViewsTitle());
+        }
+    }
+
+    /** The first button, pressed: first person and the isometric graphics go on together if first person is off, and off together if it is on. */
+    private static int bothViewsPressed(LuaCallFrame frame, int arguments) {
+        boolean on = !Part.FIRST_PERSON.on();
+        pressed(Tracking.firstPersonAndIsometric(on), "first person and the isometric graphics " + (on ? "on" : "off"));
+        return 0;
+    }
+
+    private static int everythingOffPressed(LuaCallFrame frame, int arguments) {
+        pressed(Tracking.everythingOff(), "everything but head tracking and talking mouths off");
+        return 0;
+    }
+
+    /**
+     * A button's settings are taken and saved at once, as an apply of the screen takes them, and
+     * each control they changed is set on the open screen to show it, so an apply after does not
+     * take them again. The first button's title is set to what it does now.
+     */
+    private static void pressed(Map<String, Double> values, String what) {
+        try {
+            List<Integer> set = Tracking.applyAll(values);
+            for (Control control : controls) {
+                if (set.contains(control.option)) {
+                    put(control, Tracking.optionValue(control.option));
+                }
+            }
+            title();
+            Log.info("the options screen's button: " + what + ", " + set.size() + " settings changed: " + Part.described());
+        } catch (RuntimeException failure) {
+            // Thrown on, it would stop the game's options screen.
+            Log.error("the options screen's button for " + what + " was not taken whole", failure);
+        }
     }
 
     /** Whether the game's menu is up, the one Esc brings up in a save, which the options screen is opened from there. Logic thread. */

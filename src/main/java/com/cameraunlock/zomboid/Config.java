@@ -66,6 +66,13 @@ final class Config {
     record Live(float fieldOfView, int own, int rules, int[] quality, int[] overheadQuality, int[] style, boolean spreadLightUpdates, int firstPerson, float hillHeight, boolean muzzleFlash, boolean crosshair, boolean regrip, int splitScreen,
             Quality.Picture custom, boolean talkingMouths, List<String> microphones, long parts) {}
 
+    /** The keys of [Content], in the order of Own's bits. */
+    static final String[] VANILLA_KEYS = {"VanillaWeapons", "VanillaFurniture", "VanillaPictures", "VanillaPlants", "VanillaTextures", "VanillaBuildings",
+        "VanillaZombies", "VanillaPeople", "VanillaArms", "VanillaClothes", "VanillaAnimals", "VanillaFire", "VanillaCabins"};
+    /** The keys of the rows of [Rules] that are not parts, in the order of Rules' bits. */
+    static final String[] RULE_KEYS = {"ShotsThroughWalls", "ShotsBreakLamps", "ShotsBreakGlass", "ShotsWoundLimbs", "VehiclesSmashThrough", "FacesTheView",
+        "ShotsPastTrees", "ZombiesSeenAtOnce", "Rewind30s", "HiddenWallDecor", "HiddenWallDecorSaved"};
+
     /** The keys of [Graphics], the Custom graphics mode, in the order the options screen shows them. */
     static final String[] GRAPHICS = {"TreeQuality", "GrassDensity", "RenderScale", "ViewDistance", "ZombiesAndPropsDrawDistance",
         "FarTreeDistance", "RainOnGlass", "ShadingAndLight", "Reflections", "ReflectionScale", "FullSizeTextures", "SurfaceDepth", "SharpShadows",
@@ -444,11 +451,9 @@ final class Config {
             Microphones.set(value != 0, Tracking.microphones().toArray(String[]::new));
             Log.info("talking mouths " + (value != 0 ? "on" : "off: no microphone is opened"));
         });
-        String[] vanillaKeys = {"VanillaWeapons", "VanillaFurniture", "VanillaPictures", "VanillaPlants", "VanillaTextures", "VanillaBuildings",
-            "VanillaZombies", "VanillaPeople", "VanillaArms", "VanillaClothes", "VanillaAnimals", "VanillaFire", "VanillaCabins"};
-        for (int i = 0; i < vanillaKeys.length; i++) {
+        for (int i = 0; i < VANILLA_KEYS.length; i++) {
             int bit = 1 << i;
-            puts.put(vanillaKeys[i], value -> {
+            puts.put(VANILLA_KEYS[i], value -> {
                 Own.set(value != 0 ? Own.rows() & ~bit : Own.rows() | bit);
                 Log.info("the mod's own in first person: " + Own.described(Own.rows()));
             });
@@ -463,10 +468,9 @@ final class Config {
                 }
             });
         }
-        String[] ruleKeys = {"ShotsThroughWalls", "ShotsBreakLamps", "ShotsBreakGlass", "ShotsWoundLimbs", "VehiclesSmashThrough", "FacesTheView", "ShotsPastTrees", "ZombiesSeenAtOnce", "Rewind30s", "HiddenWallDecor", "HiddenWallDecorSaved"};
-        for (int i = 0; i < ruleKeys.length; i++) {
+        for (int i = 0; i < RULE_KEYS.length; i++) {
             int bit = 1 << i;
-            puts.put(ruleKeys[i], value -> {
+            puts.put(RULE_KEYS[i], value -> {
                 Rules.set(value != 0 ? Rules.rows() | bit : Rules.rows() & ~bit);
                 Log.info("the mod's rules offline: " + Rules.described(Rules.rows()));
             });
