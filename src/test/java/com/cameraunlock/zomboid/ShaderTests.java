@@ -98,8 +98,9 @@ final class ShaderTests {
     /**
      * GlFloor turns first person off on a card that reads fewer textures, or holds fewer uniform
      * components, in a fragment shader than the most any program asks for: so its numbers are
-     * that most, as glslangValidator's reflection of the linked programs counts them, a vec4 to
-     * each uniform and each column of a matrix, the way a driver lays them out.
+     * that most, as glslangValidator's reflection of the linked programs counts them, of the
+     * uniforms the fragment source names, a vec4 to each uniform and each column of a matrix, the
+     * way a driver lays them out.
      */
     private static void theFloorAsksForWhatTheFragmentStagesRead(List<Linked> programs) throws IOException, InterruptedException {
         Path out = OUT.resolve("reflected");
@@ -119,9 +120,12 @@ final class ShaderTests {
             int start = said.indexOf("Uniform reflection:"), end = said.indexOf("Uniform block reflection:");
             Checks.check(start >= 0 && end > start, "glslangValidator's reflection of the " + program.name + " program has no uniforms section:\n" + said);
             int readSamplers = 0, held = 0;
+            String fragment = program.stages.get("frag");
             Matcher uniform = REFLECTED.matcher(said.substring(start, end));
             while (uniform.find()) {
-                if (uniform.group(1).startsWith("gl_") || (Integer.parseInt(uniform.group(4)) & FRAGMENT_STAGE) == 0) {
+                // The reflection of a linked program gives a uniform only its vertex stage reads the fragment stage's bit as well:
+                // the world's uLightPages comes out as stages 17. What the fragment source does not name, it does not read.
+                if (uniform.group(1).startsWith("gl_") || (Integer.parseInt(uniform.group(4)) & FRAGMENT_STAGE) == 0 || !names(fragment, uniform.group(1))) {
                     continue;
                 }
                 int type = Integer.parseInt(uniform.group(2), 16), size = Integer.parseInt(uniform.group(3));
@@ -144,6 +148,11 @@ final class ShaderTests {
                 + " textures, the most of any, and GlFloor.FRAGMENT_SAMPLERS says " + GlFloor.FRAGMENT_SAMPLERS + RAISING);
         Checks.check(components == GlFloor.FRAGMENT_UNIFORM_COMPONENTS, "the " + mostComponents + " fragment stage holds " + components
                 + " uniform components, the most of any, and GlFloor.FRAGMENT_UNIFORM_COMPONENTS says " + GlFloor.FRAGMENT_UNIFORM_COMPONENTS + RAISING);
+    }
+
+    /** Whether a stage's source names the uniform the reflection calls name, or the array or the struct an element or a member of it is called after. */
+    private static boolean names(String source, String name) {
+        return Pattern.compile("\\b" + Pattern.quote(name.split("[\\[.]", 2)[0]) + "\\b").matcher(source).find();
     }
 
     /** Said when the shaders and GlFloor disagree, since the fix that reads easiest is the one players pay for. */
