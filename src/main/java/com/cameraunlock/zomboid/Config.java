@@ -160,11 +160,6 @@ final class Config {
                 "Picture style: Vivid (strong contrast and colour), Natural (colours as lit, less contrast) or Bleak (washed out, near\n"
                         + "the game's own look).",
                 writable | live, Style.words(), Style.BLEAK.ordinal());
-        spreadLightUpdates = core.configLocalBool("General", "SpreadLightUpdates",
-                "true: when the game relights many places at once, the first person view takes up their new light over the next few\n"
-                        + "frames, nearest first, so that driving past lights stutters less. false: all of it in the frame the game relights\n"
-                        + "it, so a far light change can show about a tenth of a second sooner, in longer frames.",
-                writable | live, true);
         firstPerson[0] = core.configLocalBool("General", "FirstPerson",
                 "true: a save loads in first person. The first person key sets it as it switches the view.", writable | live, false);
         // Not a row of [Graphics]: it changes what the land looks like and not what the picture costs, in every graphics mode alike.
@@ -266,6 +261,11 @@ final class Config {
                             + "each, laid on the ground, which costs far less where many lie. Low, Medium and High lay the picture.",
                     writable | live, high.corpseModels()),
         };
+        spreadLightUpdates = core.configLocalBool("Optimizations", "SpreadLightUpdates",
+                "true: when the game relights many places at once, the first person view takes up their new light over the next few\n"
+                        + "frames, nearest first, so that driving past lights stutters less. false: all of it in the frame the game relights\n"
+                        + "it, so a far light change can show about a tenth of a second sooner, in longer frames.",
+                writable | live, true);
 
         firstPersonKey = core.configLocalHotkeyTaps("FirstPersonKey",
                 "Switches between first person and the game's own view. Tap once for player 1, twice for player 2, three times for\n"
