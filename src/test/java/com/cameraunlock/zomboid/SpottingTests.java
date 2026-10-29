@@ -27,7 +27,10 @@ public final class SpottingTests {
         Checks.run("aRoomOutOfSightIsLeftAlone", SpottingTests::aRoomOutOfSightIsLeftAlone);
         Checks.run("aSquareIsMarkedAsTheLightFindsItHasTurnedSeen", SpottingTests::aSquareIsMarkedAsTheLightFindsItHasTurnedSeen);
         Checks.run("aTurnAnotherReadFoundIsMarkedWhereTheViewSeesIt", SpottingTests::aTurnAnotherReadFoundIsMarkedWhereTheViewSeesIt);
+        Checks.run("aTurnWaitingIsLetGoWithItsChunk", SpottingTests::aTurnWaitingIsLetGoWithItsChunk);
+        Checks.run("theTurnsWaitingAreMarkedWhenThePictureStopsCovering", SpottingTests::theTurnsWaitingAreMarkedWhenThePictureStopsCovering);
         Checks.run("nothingIsCarriedIntoTheNextSave", SpottingTests::nothingIsCarriedIntoTheNextSave);
+        Checks.run("aTurnFoundAfterTheTurnsWereHandedBackIsNotKept", SpottingTests::aTurnFoundAfterTheTurnsWereHandedBackIsNotKept);
         Checks.run("theOpenAirOfAChunkDrawnIsMarkedAndItsRoomsAreNot", SpottingTests::theOpenAirOfAChunkDrawnIsMarkedAndItsRoomsAreNot);
         Checks.run("aClientSpotsRoomsAndMarksNothing", SpottingTests::aClientSpotsRoomsAndMarksNothing);
         Checks.run("aSquareFoundSeenIsNotAskedAboutAgain", SpottingTests::aSquareFoundSeenIsNotAskedAboutAgain);
@@ -71,6 +74,7 @@ public final class SpottingTests {
     /** A player's spotting, handed each square the light finds turned seen as the game's light hands it under the picture. */
     private static Spotting spotting() {
         Spotting spotting = new Spotting(0);
+        spotting.covering();
         IsoGridSquare.onTurn = spotting::turned;
         return spotting;
     }
@@ -193,26 +197,86 @@ public final class SpottingTests {
         pass(spotting, cell, inSight(inView), List.of(drawn(cell, street)), inView, outOfView);
         check(Meta.instance.told.size() == told + 2 && Meta.instance.told.contains(indoors) && Meta.instance.told.contains(street),
                 "a square another read of the light found turned seen is marked where the view sees it, in a room it sees into or in the open air of a chunk drawn");
-        check(!Meta.instance.told.contains(elsewhere) && !Meta.instance.told.contains(far), "and left where it does not");
+        check(!Meta.instance.told.contains(elsewhere) && !Meta.instance.told.contains(far), "and not where it does not");
         pass(spotting, cell, inSight(inView, outOfView), List.of(drawn(cell, street), drawn(cell, far)), inView, outOfView);
-        check(Meta.instance.told.size() == told + 2, "a turn is gone with the round that came after it, whether it was marked or not");
+        check(Meta.instance.told.size() == told + 4 && Meta.instance.told.contains(elsewhere) && Meta.instance.told.contains(far),
+                "a turn the view did not see waits, and is marked once the view sees it, in a room or in the open air: the game marks a square only as it turns");
+        pass(spotting, cell, inSight(inView, outOfView), List.of(drawn(cell, street), drawn(cell, far)), inView, outOfView);
+        check(Meta.instance.told.size() == told + 4, "and a square marked, at once or once seen, is not marked again");
+    }
+
+    private static void aTurnWaitingIsLetGoWithItsChunk() {
+        IsoCell cell = new IsoCell();
+        IsoGridSquare square = cell.square(140, 140, 0), other = cell.square(150, 140, 0);
+        square.seen(true);
+        Spotting spotting = spotting();
+        spotting.turned(square);
+        int told = Meta.instance.told.size();
+        pass(spotting, cell, inSight(), List.of(drawn(cell, other)));
+        cell.reload(square.getX(), square.getY());
+        pass(spotting, cell, inSight(), List.of(drawn(cell, square)));
+        check(Meta.instance.told.size() == told && square.seenAsked == 1, "a turn that waited for the view is let go with its chunk, and the chunk loaded again is asked about afresh");
+    }
+
+    private static void theTurnsWaitingAreMarkedWhenThePictureStopsCovering() {
+        IsoCell cell = new IsoCell();
+        IsoGridSquare waited = cell.square(220, 220, 0), found = cell.square(230, 220, 0), elsewhere = cell.square(240, 220, 0);
+        waited.seen(true);
+        found.seen(true);
+        Spotting spotting = spotting();
+        spotting.turned(waited);
+        int told = Meta.instance.told.size();
+        pass(spotting, cell, inSight(), List.of(drawn(cell, elsewhere)));
+        spotting.turned(found);
+        check(Meta.instance.told.size() == told, "a turn the view has not seen waits for it");
+        // A room the game could spot, whose square is asked about in every round that goes over it.
+        Room den = Room.of(cell, 51L, 246, 226, 1, 1, 0);
+        spotting.begin(cell, inSight(den), defs(den)::get, List.of(), IsoChunk::getMinLevel, IsoChunk::getMaxLevel);
+        spotting.stoppedCovering(cell);
+        check(Meta.instance.told.size() == told + 2 && Meta.instance.told.contains(waited) && Meta.instance.told.contains(found),
+                "once the picture stops covering the view, every turn that waited for it is marked, as the game's own light marks a turn as it finds it");
+        spotting.work(cell, Long.MAX_VALUE);
+        check(den.squares()[0].seenAsked == 0, "and the round under way is closed, not carried on over what the picture saw");
+        spotting.stoppedCovering(cell);
+        check(Meta.instance.told.size() == told + 2, "and none is marked twice");
     }
 
     private static void nothingIsCarriedIntoTheNextSave() {
         IsoCell cell = new IsoCell();
-        Room room = Room.of(cell, 20L, 260, 260, 1, 1, 0);
-        IsoGridSquare square = room.squares()[0];
-        square.seen(true);
+        IsoGridSquare waited = cell.square(260, 260, 0), found = cell.square(270, 260, 0), seen = cell.square(280, 260, 0);
+        for (IsoGridSquare square : new IsoGridSquare[] {waited, found, seen}) {
+            square.seen(true);
+        }
         Spotting spotting = spotting();
-        IsoGridSquare street = cell.square(280, 260, 0);
-        street.seen(true);
-        pass(spotting, cell, inSight(), List.of(drawn(cell, street)));
-        spotting.turned(square);
+        spotting.turned(waited);
+        pass(spotting, cell, inSight(), List.of(drawn(cell, seen)));
+        spotting.turned(found);
         spotting.leftSave();
         int told = Meta.instance.told.size();
-        pass(spotting, cell, inSight(room), List.of(drawn(cell, street)), room);
-        check(Meta.instance.told.size() == told, "a turn found in a save left is not marked in the next, though the view sees its place");
-        check(street.seenAsked == 2, "and a square found seen there is asked about afresh");
+        pass(spotting, cell, inSight(), List.of(drawn(cell, waited), drawn(cell, found), drawn(cell, seen)));
+        check(Meta.instance.told.size() == told, "a turn found in a save left, waiting for the view or not, is not marked in the next");
+        check(seen.seenAsked == 2, "and a square found seen there is asked about afresh");
+    }
+
+    private static void aTurnFoundAfterTheTurnsWereHandedBackIsNotKept() {
+        IsoCell cell = new IsoCell();
+        IsoGridSquare late = cell.square(290, 290, 0), left = cell.square(300, 290, 0), again = cell.square(310, 290, 0);
+        for (IsoGridSquare square : new IsoGridSquare[] {late, left, again}) {
+            square.seen(true);
+        }
+        Spotting spotting = spotting();
+        spotting.stoppedCovering(cell);
+        check(spotting.turned(late),
+                "a turn a read found under the picture that comes after the picture stopped covering is the game's to mark, as it would be from a read a moment later");
+        spotting.leftSave();
+        boolean leftMarked = spotting.turned(left);
+        spotting.covering();
+        int told = Meta.instance.told.size();
+        pass(spotting, cell, inSight(), List.of(drawn(cell, left)));
+        check(!leftMarked && Meta.instance.told.size() == told, "one that comes after the save was left is let go, and not marked in the next");
+        check(!spotting.turned(again), "once the picture covers a view again the turns are taken again");
+        pass(spotting, cell, inSight(), List.of(drawn(cell, again)));
+        check(Meta.instance.told.size() == told + 1 && Meta.instance.told.contains(again), "to be marked where the view sees them");
     }
 
     private static void theOpenAirOfAChunkDrawnIsMarkedAndItsRoomsAreNot() {

@@ -36,8 +36,10 @@ import zombie.network.GameClient;
  * each room the eye's picture saw into in the last half second, and every square out of doors on
  * the chunks the picture draws that its cone takes in (WorldScene.Frame.faces), where it sees
  * the open air. A room is spotted from those of its
- * squares the game has had in the player's sight (IsoGridSquare.isSeen), and a square is marked
- * where it has turned seen since the last round, whoever's read of its light found the turn.
+ * squares the game has had in the player's sight (IsoGridSquare.isSeen), and a square the light
+ * has found turned seen, whoever's read of it found the turn, is marked once the view sees it.
+ * The game marks a square only as it turns, so a turn the view has not seen yet waits for it,
+ * until its chunk is let go, or until the picture stops covering the view (stoppedCovering).
  * What comes of each call is the game's to say: the level, the reach, whether the room is
  * explored, whether this machine is a client and whether the square was marked this hour.
  *
@@ -95,28 +97,29 @@ final class Spotting {
     private ToIntFunction<IsoChunk> lightFrom, lightTop;
 
     /**
-     * The squares of each chunk asked about that were found seen, a bit for each square on each
-     * level, by the chunk's place (knownAt, to an index into known). Let go with the chunk: a
-     * chunk loaded again at its place is asked about again.
+     * What is known of each chunk (Known), by the chunk's place (knownAt, to an index into
+     * known). Let go with the chunk: a chunk loaded again at its place is asked about again, and
+     * the turns that waited on it are let go.
      */
     private final List<Known> known = new ArrayList<>();
     private RoomSight.Seen knownAt = new RoomSight.Seen(), knownSpare = new RoomSight.Seen();
     private int[] knownFree = new int[16];
     private int knownFreeCount;
 
+    /** Of a chunk: the squares found seen, and those the light found turned seen that wait for the view to see them, a bit a square on each level. */
     private static final class Known {
         IsoChunk chunk;
-        final long[] seen = new long[LEVELS];
+        final long[] seen = new long[LEVELS], waiting = new long[LEVELS];
     }
 
-    /** The squares the light has found turned seen since the last round, by place (key), and the set a round empties: swapped under this object's lock. */
+    /** The squares the light has found turned seen since the last round ended, by place (key), and the set a round empties: swapped under this object's lock. */
     private RoomSight.Seen turned = new RoomSight.Seen(), turnedBefore = new RoomSight.Seen();
 
     /** Dev only: what the rounds came to since they were last said. */
     private long frames, passes, late, passNanos, longestPassNanos, sliceNanos, longestSliceNanos, longestBeginNanos, longestEndNanos, squaresRead, seenAsked,
-            sampled, seenOutOfSight, spotted, readAfresh, readUnchanged, saidNanos;
-    /** Dev only, under this object's lock: the turns found as a round asked and by other reads of the light, and those marked where the view sees and left elsewhere. */
-    private long turnsAsked, turnsAside, turnsMarked, turnsLeft;
+            sampled, seenOutOfSight, spotted, marked, letGo, readAfresh, readUnchanged, saidNanos;
+    /** Dev only, under this object's lock: the turns found as a round asked and by other reads of the light. */
+    private long turnsAsked, turnsAside;
     /**
      * Dev only: the game's own counts of the squares whose light it read afresh and of those its
      * engine said were unchanged (LightingJNI.JNILighting.dirty and notDirty), read round each
@@ -144,14 +147,40 @@ final class Spotting {
         return true;
     }
 
-    /** The light has found a square of this player's turned seen, under the picture, on whichever thread read it: the next round marks it if the view sees it. */
-    void turned(IsoGridSquare square) {
+    /**
+     * Where a turn the light finds goes (turned), under this object's lock: taken here from the
+     * moment the picture comes to cover the view (covering), the game's to mark once
+     * stoppedCovering has handed the turns back, and let go once leftSave has.
+     */
+    private Turns turnsGo = Turns.GIVEN_BACK;
+
+    private enum Turns { TAKEN, GIVEN_BACK, LET_GO }
+
+    /** Called as the picture comes to cover the game's view, before anything can find it covering: the turns the light finds are taken here from then on. */
+    void covering() {
         synchronized (this) {
-            turned.add(key(square.getX(), square.getY(), square.getZ()));
-            if (CHECK) {
-                turnsAsked += passer == Thread.currentThread() ? 1 : 0;
-                turnsAside += passer == Thread.currentThread() ? 0 : 1;
+            turnsGo = Turns.TAKEN;
+        }
+    }
+
+    /**
+     * The light has found a square of this player's turned seen, under the picture, on whichever
+     * thread read it, and is told whether it is the game's to mark. While the picture covers the
+     * view it is taken, for a round to mark once the view sees it. A read that found the picture
+     * covering can still come here after the turns were handed back: after stoppedCovering it is
+     * the game's to mark, as it would have been had the read come a moment later, and after
+     * leftSave it is let go with the world.
+     */
+    boolean turned(IsoGridSquare square) {
+        synchronized (this) {
+            if (turnsGo == Turns.TAKEN) {
+                turned.add(key(square.getX(), square.getY(), square.getZ()));
+                if (CHECK) {
+                    turnsAsked += passer == Thread.currentThread() ? 1 : 0;
+                    turnsAside += passer == Thread.currentThread() ? 0 : 1;
+                }
             }
+            return turnsGo == Turns.GIVEN_BACK;
         }
     }
 
@@ -420,6 +449,7 @@ final class Spotting {
                 }
                 squaresRead++;
                 long bit = 1L << ((y & 7) << 3 | x & 7);
+                markIfWaiting(at, z, bit, square);
                 boolean spot = !def.explored;
                 if ((at.seen[z - LOWEST] & bit) == 0L) {
                     if (!spot && !marks || !asked(square)) {
@@ -453,37 +483,12 @@ final class Spotting {
                 }
                 squaresRead++;
                 long bit = 1L << (y << 3 | x);
+                markIfWaiting(at, z, bit, square);
                 if ((at.seen[z - LOWEST] & bit) == 0L && asked(square)) {
                     at.seen[z - LOWEST] |= bit;
                 }
             }
         }
-    }
-
-    /**
-     * Called as the game leaves a save for its menu: everything is let go and nothing marked, as
-     * the world is being let go. A room id and a square's key name a place on the map, so a turn
-     * kept into the next save would be marked there, where its character never saw it.
-     */
-    void leftSave() {
-        synchronized (this) {
-            turned.clear();
-            turnedBefore.clear();
-        }
-        passed = false;
-        open = false;
-        unitCount = nextUnit = pieceCount = 0;
-        inSight.clear();
-        roomDefs.clear();
-        drawnKeys.clear();
-        drawnChunks.clear();
-        shownChunks.clear();
-        shownRooms.clear();
-        lightFrom = lightTop = null;
-        known.clear();
-        knownAt.clear();
-        knownSpare.clear();
-        knownFreeCount = 0;
     }
 
     /** What has been found seen of a chunk, begun again where the chunk at its place is not the one it was found of. */
@@ -507,9 +512,27 @@ final class Spotting {
         }
         if (at.chunk != chunk) {
             at.chunk = chunk;
-            Arrays.fill(at.seen, 0L);
+            forget(at);
         }
         return at;
+    }
+
+    /** Forgets what was found of a chunk, the squares that waited for the view to see them included. */
+    private void forget(Known at) {
+        Arrays.fill(at.seen, 0L);
+        for (int z = 0; z < LEVELS; z++) {
+            letGo += Long.bitCount(at.waiting[z]);
+            at.waiting[z] = 0L;
+        }
+    }
+
+    /** Marks a square that turned seen while the view did not see it, now a round goes over it. */
+    private void markIfWaiting(Known at, int z, long bit, IsoGridSquare square) {
+        if ((at.waiting[z - LOWEST] & bit) != 0L) {
+            at.waiting[z - LOWEST] &= ~bit;
+            Meta.instance.dealWithSquareSeen(square);
+            marked++;
+        }
     }
 
     /** Lets go of what was found seen of each chunk that is no longer the one at its place on the map. */
@@ -527,6 +550,7 @@ final class Spotting {
                 continue;
             }
             at.chunk = null;
+            forget(at);
             if (knownFreeCount == knownFree.length) {
                 knownFree = Arrays.copyOf(knownFree, knownFree.length * 2);
             }
@@ -538,8 +562,8 @@ final class Spotting {
     }
 
     /**
-     * Ends the round: each square the light has found turned seen since the last is marked if the
-     * view sees it, in a room in sight or in the open air of a chunk drawn.
+     * Ends the round: each square the light has found turned seen since the last ended is marked
+     * if the view sees it, and otherwise waits for a round that goes over it.
      */
     private void finish(IsoCell cell) {
         open = false;
@@ -548,14 +572,18 @@ final class Spotting {
         }
     }
 
-    private void mark(IsoCell cell) {
-        RoomSight.Seen marking;
+    /** The squares the light has found turned seen since this was last asked, to be emptied by the caller. */
+    private RoomSight.Seen takeTurns() {
         synchronized (this) {
-            marking = turned;
+            RoomSight.Seen taken = turned;
             turned = turnedBefore;
-            turnedBefore = marking;
+            turnedBefore = taken;
+            return taken;
         }
-        long marked = 0L, left = 0L;
+    }
+
+    private void mark(IsoCell cell) {
+        RoomSight.Seen marking = takeTurns();
         for (int slot = 0; slot < marking.slots(); slot++) {
             long place = marking.at(slot);
             if (place == RoomSight.OUTSIDE) {
@@ -563,21 +591,125 @@ final class Spotting {
             }
             int x = (int) (place >>> 32), y = (int) (place >>> 8 & 0xFFFFFF), z = (int) (place & 0xFF) - 128;
             IsoGridSquare square = cell.getGridSquare(x, y, z);
-            long room = square == null ? RoomSight.OUTSIDE : square.getRoomID();
-            boolean sees = square != null && (room == RoomSight.OUTSIDE ? drawnKeys.contains(chunkKey(x >> 3, y >> 3)) : inSight.contains(room));
-            if (sees) {
-                Meta.instance.dealWithSquareSeen(square);
+            if (square == null) {
+                letGo++;
+                continue;
             }
-            marked += sees ? 1 : 0;
-            left += sees ? 0 : 1;
+            IsoChunk chunk = cell.getChunkForGridSquare(x, y, z);
+            if (chunk == null) {
+                throw new IllegalStateException("the square at " + x + ", " + y + ", " + z + " is on the map and its chunk is not");
+            }
+            if (goesOver(square, chunk, z)) {
+                Meta.instance.dealWithSquareSeen(square);
+                marked++;
+            } else {
+                knownOf(chunk).waiting[z - LOWEST] |= 1L << ((y & 7) << 3 | x & 7);
+            }
         }
         marking.clear();
-        if (CHECK) {
-            synchronized (this) {
-                turnsMarked += marked;
-                turnsLeft += left;
+    }
+
+    /**
+     * Called on the first frame the picture no longer covers the game's view, however it
+     * stopped. From then on the game's own light marks a square as it finds it turned seen, and a
+     * square seen stays seen, so nothing would come to mark those that turned under the picture
+     * and still wait for the view: each is marked now, the nearest the game's rule comes to when
+     * it would have marked them, and any found after this is the game's to mark (turned). The
+     * round under way is closed, as what it went over was what the picture saw.
+     */
+    void stoppedCovering(IsoCell cell) {
+        letGoOfChunksGone(cell);
+        RoomSight.Seen marking;
+        synchronized (this) {
+            turnsGo = Turns.GIVEN_BACK;
+            marking = takeTurns();
+        }
+        for (int slot = 0; slot < marking.slots(); slot++) {
+            long place = marking.at(slot);
+            if (place == RoomSight.OUTSIDE) {
+                continue;
+            }
+            IsoGridSquare square = cell.getGridSquare((int) (place >>> 32), (int) (place >>> 8 & 0xFFFFFF), (int) (place & 0xFF) - 128);
+            if (square == null) {
+                letGo++;
+                continue;
+            }
+            Meta.instance.dealWithSquareSeen(square);
+            marked++;
+        }
+        marking.clear();
+        for (int i = 0; i < known.size(); i++) {
+            Known at = known.get(i);
+            for (int z = 0; at.chunk != null && z < LEVELS; z++) {
+                for (long bits = at.waiting[z]; bits != 0L; bits &= bits - 1) {
+                    int bit = Long.numberOfTrailingZeros(bits);
+                    IsoGridSquare square = at.chunk.getGridSquare(bit & 7, bit >>> 3, z + LOWEST);
+                    if (square == null) {
+                        letGo++;
+                        continue;
+                    }
+                    Meta.instance.dealWithSquareSeen(square);
+                    marked++;
+                }
+                at.waiting[z] = 0L;
             }
         }
+        open = false;
+        unitCount = nextUnit = pieceCount = 0;
+        inSight.clear();
+        roomDefs.clear();
+        drawnKeys.clear();
+        drawnChunks.clear();
+        shownChunks.clear();
+    }
+
+    /**
+     * Called as the game leaves a save for its menu: everything is let go and nothing marked, as
+     * the world is being let go. A room id and a chunk key name a place on the map, so a turn
+     * kept into the next save would be marked there, where its character never saw it, and a turn
+     * found after this is let go too (turned), until the picture covers a view again.
+     */
+    void leftSave() {
+        synchronized (this) {
+            turnsGo = Turns.LET_GO;
+            turned.clear();
+            turnedBefore.clear();
+        }
+        passed = false;
+        open = false;
+        unitCount = nextUnit = pieceCount = 0;
+        inSight.clear();
+        roomDefs.clear();
+        drawnKeys.clear();
+        drawnChunks.clear();
+        shownChunks.clear();
+        shownRooms.clear();
+        lightFrom = lightTop = null;
+        known.clear();
+        knownAt.clear();
+        knownSpare.clear();
+        knownFreeCount = 0;
+    }
+
+    /** Whether the round goes over a square: in a room in sight, or out of doors on a chunk drawn, on a level the picture reads light on. */
+    private boolean goesOver(IsoGridSquare square, IsoChunk chunk, int z) {
+        if (z < lightFrom.applyAsInt(chunk) || z > lightTop.applyAsInt(chunk)) {
+            return false;
+        }
+        long room = square.getRoomID();
+        return room == RoomSight.OUTSIDE ? drawnKeys.contains(chunkKey(chunk.wx, chunk.wy)) : inSight.contains(room);
+    }
+
+    /** Dev only: how many squares wait for the view to see them. */
+    private long waiting() {
+        long waiting = 0L;
+        for (int i = 0; i < known.size(); i++) {
+            Known at = known.get(i);
+            for (int z = 0; at.chunk != null && z < LEVELS; z++) {
+                waiting += Long.bitCount(at.waiting[z]);
+            }
+        }
+        return waiting;
     }
 
     /** Whether the game has had a square in the player's sight, asked of its light, which may find it turned seen (turned). */
@@ -604,25 +736,23 @@ final class Spotting {
         if (now - saidNanos < SAID_EVERY_NANOS) {
             return;
         }
-        long asked, aside, marked, left;
+        long asked, aside;
         synchronized (this) {
             asked = turnsAsked;
             aside = turnsAside;
-            marked = turnsMarked;
-            left = turnsLeft;
-            turnsAsked = turnsAside = turnsMarked = turnsLeft = 0;
+            turnsAsked = turnsAside = 0;
         }
         Log.info(String.format(Locale.ROOT,
                 "spotting: player %d, %.1f s, %d frames, %d rounds (%d over their quarter second) in %.3f ms each (longest %.3f), %.4f ms a frame (longest %.3f,"
                         + " beginning a round up to %.3f, ending one up to %.3f);"
                         + " squares read %d, asked whether seen %d (seen and out of sight in %d of %d sampled), light read afresh %d and found unchanged %d,"
                         + " rooms spotted %d, rooms the light passed over %d; squares found turned seen as a round asked %d and by other reads %d,"
-                        + " marked where the view sees them %d, left elsewhere %d; chunks known %d",
+                        + " marked where the view sees them %d, waiting for the view %d, let go with their chunk %d; chunks known %d",
                 playerIndex + 1, (now - saidNanos) / 1e9, frames, passes, late, passNanos / 1e6 / Math.max(1, passes), longestPassNanos / 1e6,
                 sliceNanos / 1e6 / Math.max(1, frames), longestSliceNanos / 1e6, longestBeginNanos / 1e6, longestEndNanos / 1e6, squaresRead, seenAsked, seenOutOfSight, sampled, readAfresh, readUnchanged,
-                spotted, roomsLeftByLight.sumThenReset(), asked, aside, marked, left, knownAt.size()));
+                spotted, roomsLeftByLight.sumThenReset(), asked, aside, marked, waiting(), letGo, knownAt.size()));
         saidNanos = now;
         frames = passes = late = passNanos = longestPassNanos = sliceNanos = longestSliceNanos = longestBeginNanos = longestEndNanos = squaresRead = seenAsked = sampled = seenOutOfSight = spotted
-                = readAfresh = readUnchanged = 0;
+                = marked = letGo = readAfresh = readUnchanged = 0;
     }
 }

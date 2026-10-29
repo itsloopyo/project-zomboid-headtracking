@@ -482,6 +482,7 @@ public final class FirstPerson {
         view.characters.leftSave();
         view.modeFade.giveBack("the save was left");
         giveBack("the save was left");
+        coveredLastFrame = false;
     }
 
     /**
@@ -503,6 +504,7 @@ public final class FirstPerson {
         // After giveBack, whose rest of the head tracking marks the view as one played in.
         Tracking.gone(view.index);
         Quality.gone(view.index);
+        spottingFollowsCover();
     }
 
     /** What the screen says when first person cannot be drawn on this PC; the log has the whole of why. */
@@ -691,8 +693,26 @@ public final class FirstPerson {
             view.flight.cut(false);
             view.hearing.rest();
         }
+        spottingFollowsCover();
         if (TRACE) {
             paceBuiltBytes += Allocation.byThisThread() - before;
+        }
+    }
+
+    /** Whether the picture covered the game's view at the end of the last frame: see spottingFollowsCover. */
+    private boolean coveredLastFrame;
+
+    /**
+     * Hands spotting back to the game on the first frame the picture no longer covers its view,
+     * however it stopped: stopLooking clears landed outside a frame too, so it is asked here, after
+     * each frame and each frame with no player.
+     */
+    private void spottingFollowsCover() {
+        boolean covering = coversTheGamesView();
+        boolean stopped = coveredLastFrame && !covering;
+        coveredLastFrame = covering;
+        if (stopped) {
+            view.spotting.stoppedCovering(IsoWorld.instance.currentCell);
         }
     }
 
@@ -796,8 +816,12 @@ public final class FirstPerson {
             said = Quality.said(view.index);
             saidAt = now;
         }
-        boolean wasLanded = landed;
-        landed = on && view.flight.landed();
+        boolean wasLanded = landed, landing = on && view.flight.landed();
+        if (landing && !wasLanded) {
+            // Before landed says the picture covers the view: a read of the light on another thread may find it covering from then on.
+            view.spotting.covering();
+        }
+        landed = landing;
         if (landed && !wasLanded) {
             landedNanos = now;
             landingSaid = false;
