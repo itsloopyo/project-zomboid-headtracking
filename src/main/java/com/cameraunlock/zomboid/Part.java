@@ -36,7 +36,10 @@ enum Part {
     QUICK_RAGDOLLS("FirstPerson", "QuickRagdolls", false, true,
             "true: while anyone plays in first person a body that is hit goes into its ragdoll at once, and a first person\n"
                     + "shot pushes it along the shot, at the place it went in. false: bodies go into their ragdolls as the game's own\n"
-                    + "blends have them.");
+                    + "blends have them."),
+    HIT_FLINCH("FirstPerson", "HitFlinch", true, false,
+            "true: a zombie shot in first person that stays up is knocked by the round where it went in: a head snaps back, a\n"
+                    + "shoulder is spun round. false: it plays the game's own stagger alone.");
 
     final String section, key, comment;
     /** Whether the row is taken while the game runs, and whether it is read at the start to leave patches out. */

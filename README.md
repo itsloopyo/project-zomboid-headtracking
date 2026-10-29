@@ -494,6 +494,9 @@ FarVehiclesAndZombies=true
 ; blends have them.
 ; Taken at the next start. Off, its patches of the game's code are left out.
 QuickRagdolls=true
+; true: a zombie shot in first person that stays up is knocked by the round where it went in: a head snaps back, a
+; shoulder is spun round. false: it plays the game's own stagger alone.
+HitFlinch=true
 
 [Players]
 ; Player 2's first person graphics mode, as Quality.

@@ -109,11 +109,15 @@ public final class HitFlinch {
     private static final ThreadLocal<Scratch> scratch = ThreadLocal.withInitial(Scratch::new);
 
     /**
-     * Called as a first person shot is found to be on a part of a zombie.
+     * Called as a first person shot is found to be on a part of a zombie. With HitFlinch off the
+     * game's stagger is left alone, and a knock already started plays out.
      *
      * @param push the push the game gives a body that round drops, hit in the chest
      */
     static void hit(IsoGameCharacter target, int part, ViewCamera.Pose aim, HitPart where, float standsUp, float push) {
+        if (!Part.HIT_FLINCH.on()) {
+            return;
+        }
         long now = System.nanoTime();
         // A body is let go of as it is next posed with its hits over: one unloaded first is never posed again.
         flinching.values().removeIf(each -> over(each, now));
