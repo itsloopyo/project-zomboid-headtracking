@@ -73,6 +73,10 @@ final class Log {
         }
     }
 
+    static void error(String message) {
+        info("ERROR " + message);
+    }
+
     static void error(String message, Throwable cause) {
         StringWriter trace = new StringWriter();
         cause.printStackTrace(new PrintWriter(trace, true));

@@ -390,6 +390,45 @@ final class CallSite {
     }
 
     /**
+     * Calls the static method {@code begins} before anything else in {@code within}, and the
+     * static method {@code ends} before each of its returns and on every throw out of it, which
+     * is then thrown on, so whatever begins with the method ends with it. Both take and return
+     * nothing. The method has to have at least one return.
+     */
+    static byte[] insertAround(byte[] classBytes, Method within, Method begins, Method ends) {
+        int[] returns = {0};
+        CodeTransform around = new CodeTransform() {
+            private Label start;
+
+            @Override
+            public void accept(CodeBuilder code, CodeElement element) {
+                if (start == null) {
+                    invokeStatic(code, begins);
+                    start = code.newBoundLabel();
+                }
+                if (element instanceof ReturnInstruction) {
+                    returns[0]++;
+                    invokeStatic(code, ends);
+                }
+                code.with(element);
+            }
+
+            @Override
+            public void atEnd(CodeBuilder code) {
+                Label handler = code.newBoundLabel();
+                code.exceptionCatchAll(start, handler, handler);
+                invokeStatic(code, ends);
+                code.athrow();
+            }
+        };
+        byte[] transformed = transform(classBytes, within, around);
+        if (returns[0] == 0) {
+            throw new IllegalStateException("found no return in " + within);
+        }
+        return transformed;
+    }
+
+    /**
      * Throws unless the class declares {@code field} as a static int that can
      * be written, which is what filterStaticInt reads and writes. The JVM only
      * looks a field up when the instruction first runs, so without this a build

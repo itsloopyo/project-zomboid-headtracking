@@ -7,4 +7,5 @@ public final class ScriptManager {
 
     public ModelScript getModelScript(String name) { throw new UnsupportedOperationException("reference stub"); }
     public java.util.ArrayList<zombie.scripting.objects.VehicleScript> getAllVehicleScripts() { throw new UnsupportedOperationException("reference stub"); }
+    public zombie.scripting.objects.Item FindItem(String name, boolean orBase) { throw new UnsupportedOperationException("reference stub"); }
 }

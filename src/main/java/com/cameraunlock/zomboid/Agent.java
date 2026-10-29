@@ -167,6 +167,42 @@ public final class Agent {
         return splitScreen.gap();
     }
 
+    /** The patches that let GameFixes keep what the game's item lookups find. */
+    private static PatchTransformer itemLookups;
+    private static ItemLookupGuard itemLookupGuard;
+
+    /**
+     * Why a change to the game's scripts could go by without telling GameFixes, which leaves every
+     * item looked up as the game does: a patch missing from the game's code. Null when none is.
+     * A class of theirs loaded before the mod started, in which a change could have begun before
+     * its patch went in, is ItemLookupGuard's to find.
+     */
+    static String itemLookupsGap() {
+        return itemLookups.gap();
+    }
+
+    /** How much ItemLookupGuard's reading of the classes has cost so far, for the log. */
+    static String itemLookupGuardCost() {
+        return itemLookupGuard.cost();
+    }
+
+    /**
+     * Adds ItemLookupGuard, then the patches of the item lookups, both able to retransform, ahead
+     * of every other transformer of the mod's, so the guard reads the game's classes as the game
+     * has them; then has the guard read the classes loaded before it was added. A patch of the
+     * lookups that fails, as its class loads or is transformed again, stops the keeping for good
+     * before the class is given its new code. No other patch of the mod's is in a method these
+     * patch, so they go in as they would later in the order.
+     */
+    static void addItemLookupTransformers(Instrumentation instrumentation) {
+        itemLookupGuard = new ItemLookupGuard(GameFixes::stopKeepingItems, GameFixes::keepNoItemsAfterALateStart);
+        instrumentation.addTransformer(itemLookupGuard, true);
+        itemLookups = new PatchTransformer(itemLookupPatches(),
+                what -> GameFixes.stopKeepingItems("the patch of " + what + " failed, see the error above", null));
+        add(instrumentation, itemLookups);
+        itemLookupGuard.loadedBefore(instrumentation.getAllLoadedClasses());
+    }
+
     private static volatile boolean loaded;
 
     /** The classes loaded when the mod began, which cannot be given new members: see catchUp. */
@@ -342,6 +378,10 @@ public final class Agent {
 
         Tracking.start(gameDirectory);
 
+        boolean gameFixes = !Boolean.getBoolean("cameraunlock.zomboid.withoutGameFixes");
+        if (gameFixes) {
+            addItemLookupTransformers(instrumentation);
+        }
         add(instrumentation, new PatchTransformer(basePatches()));
         firstPerson = new PatchTransformer(firstPersonPatches());
         add(instrumentation, firstPerson);
@@ -368,7 +408,7 @@ public final class Agent {
         nameTags = new PatchTransformer(nameTagPatches());
         add(instrumentation, nameTags);
 
-        if (!Boolean.getBoolean("cameraunlock.zomboid.withoutGameFixes")) {
+        if (gameFixes) {
             add(instrumentation, new PatchTransformer(gameFixPatches()));
         }
         add(instrumentation, new PatchTransformer(hangFixPatches()));
@@ -1243,6 +1283,44 @@ public final class Agent {
                         new CallSite.Method("com/cameraunlock/zomboid/BoneMatrices", "store", "(L" + matrix + ";Ljava/nio/FloatBuffer;)Lorg/lwjgl/util/vector/Matrix;"), 1)));
     }
 
+    /**
+     * Apart from the other game fixes, and all or nothing: FindItem(String) answered from what a
+     * name found before, and each method that changes what a name finds telling GameFixes as it
+     * begins and on every way out of it. The rest of ScriptManager's code that changes its
+     * modules and their items runs only inside its methods here; ScriptModule's two can be called
+     * from Lua as well; and Lua makes an item, or a copy of one, straight into a module. GameFixes
+     * keeps nothing unless every one of these is in the game's code, so on a build of the game
+     * one of them does not fit, every item is looked up as the game always did, and the log says
+     * which did not fit. A patch that fails when its class is transformed again stops the keeping
+     * for good before the class is given its new code, as does a start after the game has loaded
+     * one of these classes: see ItemLookupGuard.
+     */
+    static List<Patch> itemLookupPatches() {
+        String scripts = "zombie/scripting/ScriptManager", module = "zombie/scripting/objects/ScriptModule", lua = "zombie/Lua/LuaManager$GlobalObject";
+        String fixes = "com/cameraunlock/zomboid/GameFixes", item = "Lzombie/scripting/objects/Item;", mode = "Lzombie/scripting/ScriptLoadMode;";
+        CallSite.Method changing = new CallSite.Method(fixes, "scriptsChanging", "()V"), changed = new CallSite.Method(fixes, "scriptsChanged", "()V");
+        List<Patch> patches = new ArrayList<>();
+        patches.add(new Patch(scripts, "FindItem(String) answered from what the name found before", classBytes -> CallSite.replaceEach(classBytes,
+                new CallSite.Method(scripts, "FindItem", "(Ljava/lang/String;)" + item),
+                new CallSite.Method(scripts, "FindItem", "(Ljava/lang/String;Z)" + item),
+                new CallSite.Method(fixes, "findItem", "(L" + scripts + ";Ljava/lang/String;Z)" + item), 1)));
+        for (CallSite.Method changer : List.of(
+                new CallSite.Method(scripts, "Reset", "()V"),
+                new CallSite.Method(scripts, "Load", "()V"),
+                new CallSite.Method(scripts, "LoadFile", "(" + mode + "Ljava/lang/String;Z)V"),
+                new CallSite.Method(scripts, "ParseScript", "(" + mode + "Ljava/lang/String;)V"),
+                new CallSite.Method(scripts, "ReloadScripts", "(Lzombie/scripting/ScriptType;)V"),
+                new CallSite.Method(scripts, "ReloadScripts", "(Ljava/util/EnumSet;)V"),
+                new CallSite.Method(module, "ParseScriptPP", "(" + mode + "Ljava/lang/String;)V"),
+                new CallSite.Method(module, "Reset", "()V"),
+                new CallSite.Method(lua, "createNewScriptItem", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)" + item),
+                new CallSite.Method(lua, "cloneItemType", "(Ljava/lang/String;Ljava/lang/String;)" + item))) {
+            patches.add(new Patch(changer.owner(), changer.name() + changer.descriptor() + " telling GameFixes the scripts change",
+                    classBytes -> CallSite.insertAround(classBytes, changer, changing, changed)));
+        }
+        return patches;
+    }
+
     /** Where the game's own code would go round a loop for ever: see BurntBuildings. Always, in its own view as in first person. */
     private static List<Patch> hangFixPatches() {
         String square = "zombie/iso/IsoGridSquare";
@@ -1438,10 +1516,17 @@ public final class Agent {
 
     static final class PatchTransformer implements ClassFileTransformer {
         private final List<Patch> patches;
+        private final Consumer<String> lost;
         private final Set<Patch> applied = ConcurrentHashMap.newKeySet();
 
         PatchTransformer(List<Patch> patches) {
+            this(patches, what -> {});
+        }
+
+        /** {@code lost} is handed the class and what each patch that fails was for, before transform returns. */
+        PatchTransformer(List<Patch> patches, Consumer<String> lost) {
             this.patches = patches;
+            this.lost = lost;
         }
 
         Set<String> owners() {
@@ -1507,6 +1592,7 @@ public final class Agent {
                     // that went in the first time is out of it now.
                     applied.remove(patch);
                     Log.error("could not patch " + className + "." + patch.what() + ", the method runs unchanged", failure);
+                    lost.accept(className + "." + patch.what());
                 }
             }
             return patched;
