@@ -27,6 +27,7 @@ final class SpanTests {
         Checks.run("runWithASquareLeftOutIsFollowedOverIt", SpanTests::runWithASquareLeftOutIsFollowedOverIt);
         Checks.run("aPoleAtTheEdgeOfTheLoadedMapIsReadFromItsOwnSquare", SpanTests::aPoleAtTheEdgeOfTheLoadedMapIsReadFromItsOwnSquare);
         Checks.run("poleLengthsDrawnOffTheirFootStandOnIt", SpanTests::poleLengthsDrawnOffTheirFootStandOnIt);
+        Checks.run("aPoleOnARoofThreeSquaresOnFromASetBackFootStandsOnTheRoof", SpanTests::aPoleOnARoofThreeSquaresOnFromASetBackFootStandsOnTheRoof);
         Checks.run("aRunHangsFromAPoleTheMapMayYetShowMoreOf", SpanTests::aRunHangsFromAPoleTheMapMayYetShowMoreOf);
         Checks.run("aTallPoleWhoseTopMayBeDrawnUpOntoMapNotLoadedWantsTheMap", SpanTests::aTallPoleWhoseTopMayBeDrawnUpOntoMapNotLoadedWantsTheMap);
         Checks.run("spansFoundTogetherInAFrameAreThoseFoundOneByOne", SpanTests::spansFoundTogetherInAFrameAreThoseFoundOneByOne);
@@ -658,6 +659,37 @@ final class SpanTests {
         Poles.Floored roof = (x, y, z) -> z <= 1;
         check(Poles.footLevel(roof, 50, 5, 1) == 1, "a pole with a floor under its foot stands on it");
         check(Poles.footLevel((x, y, z) -> false, 50, 5, 2) == 0, "and none stands lower than the ground");
+    }
+
+    /**
+     * A pole set back as at (468, 9812), and three squares on from its foot a pole standing on a roof two levels up. The
+     * foot stands one square on, under the rest of its pole, and is no top for the pole on the roof to be drawn up from.
+     */
+    private static void aPoleOnARoofThreeSquaresOnFromASetBackFootStandsOnTheRoof() {
+        HashMap<Long, String> drawn = new HashMap<>();
+        Poles.Drawn map = (x, y, z) -> drawn.get(Map.key(x, y, z));
+        drawn.put(Map.key(10, 5, 0), "appliances_com_01_88");
+        drawn.put(Map.key(11, 6, 1), "appliances_com_01_89");
+        drawn.put(Map.key(11, 6, 2), "appliances_com_01_93");
+        String[] onTheRoof = {"appliances_com_01_88", "appliances_com_01_89", "appliances_com_01_93"};
+        for (int i = 0; i < onTheRoof.length; i++) {
+            drawn.put(Map.key(13, 8, 2 + i), onTheRoof[i]);
+        }
+        for (int i = 0; i < onTheRoof.length; i++) {
+            check(!Poles.drawnUp(map, 13, 8, 2 + i, 0) && onTheRoof[i].equals(Poles.standsOn(map, 13, 8, 2 + i, 0)),
+                    "the length on level " + (2 + i) + " of the pole on the roof stands where it is drawn");
+            check(Poles.standsOn(map, 10, 5, 1 + i, 0) == null, "and nothing of it stands over the set-back foot, on level " + (1 + i));
+        }
+        check("appliances_com_01_88".equals(Poles.standsOn(map, 11, 6, 0, 0)), "which stands under the rest of its own pole");
+        Poles.Loaded all = (x, y) -> true, butOneOn = (x, y) -> x != 11 || y != 6;
+        check(!Poles.unsettled(map, all, 13, 8, 2, 0) && Poles.unsettled(map, butOneOn, 13, 8, 2, 0),
+                "whether the roof's pole is its own waits on the map one square on from the foot it might stand on");
+        // A foot with one length drawn up over it, and a pole on a roof three squares on from that length, two levels over it.
+        drawn.put(Map.key(30, 5, 0), "appliances_com_01_88");
+        drawn.put(Map.key(33, 8, 2), "appliances_com_01_89");
+        drawn.put(Map.key(36, 11, 4), "appliances_com_01_88");
+        check(Poles.drawnUp(map, 33, 8, 2, 0) && !Poles.drawnUp(map, 36, 11, 4, 0) && "appliances_com_01_88".equals(Poles.standsOn(map, 36, 11, 4, 0)),
+                "a length drawn up is no top for another to be drawn up from either");
     }
 
     /**

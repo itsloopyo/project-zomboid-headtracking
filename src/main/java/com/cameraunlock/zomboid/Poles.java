@@ -79,14 +79,16 @@ final class Poles {
      * Whether the length of pole drawn on a square stands a level lower and Spans.LEVEL_SQUARES
      * back along x and y, where the game's view draws it on the same place: on the top of a
      * pole there, with nothing of its own under it, or on a length of its own square that is
-     * itself drawn so. The map's artists put some poles' tops so. No level is lower than lowest.
+     * itself drawn so. The map's artists put some poles' tops so. A length there that stands
+     * elsewhere is no top to stand on: three squares on from the foot of a pole set back, as at
+     * (468, 9812), a pole on a roof two levels up is the roof's. No level is lower than lowest.
      */
     static boolean drawnUp(Drawn map, int x, int y, int z, int lowest) {
         int back = Spans.LEVEL_SQUARES;
         if (z - 2 < lowest || map.on(x, y, z) == null || map.on(x - back, y - back, z - 1) != null) {
             return false;
         }
-        return map.on(x, y, z - 1) == null ? map.on(x - back, y - back, z - 2) != null : drawnUp(map, x, y, z - 1, lowest);
+        return map.on(x, y, z - 1) == null ? drawnFrom(map, x - back, y - back, z - 2, lowest) == SAME : drawnUp(map, x, y, z - 1, lowest);
     }
 
     /**
@@ -151,7 +153,8 @@ final class Poles {
      * set back from one square back; a bare length under no arm on its square may be set
      * back under a length one square on; and an empty square may have a length over it set
      * back from one square back, or the top of a length under it drawn up Spans.LEVEL_SQUARES on,
-     * each on map not loaded.
+     * each on map not loaded. And a top drawn up stands only on a length that stands where it is
+     * drawn, which may itself change so.
      */
     static boolean unsettled(Drawn map, Loaded loaded, int x, int y, int z, int lowest) {
         int other = Spans.LEVEL_SQUARES;
@@ -162,7 +165,7 @@ final class Poles {
             for (int up = 1; up <= POLE_LEVELS; up++) {
                 over |= map.on(x, y, z + up) != null;
             }
-            return under && !loaded.at(x + other, y + other) || over && !loaded.at(x - 1, y - 1);
+            return under && (!loaded.at(x + other, y + other) || unsettled(map, loaded, x, y, z - 1, lowest)) || over && !loaded.at(x - 1, y - 1);
         }
         int bottom = z, top = z;
         while (bottom - 1 >= lowest && map.on(x, y, bottom - 1) != null) {
@@ -171,7 +174,9 @@ final class Poles {
         while (map.on(x, y, top + 1) != null) {
             top++;
         }
-        return bottom - 2 >= lowest && !loaded.at(x - other, y - other) || !under && z - 1 >= lowest && !loaded.at(x - 1, y - 1)
+        boolean footBack = bottom - 2 >= lowest && (!loaded.at(x - other, y - other)
+                || map.on(x - other, y - other, bottom - 2) != null && unsettled(map, loaded, x - other, y - other, bottom - 2, lowest));
+        return footBack || !under && z - 1 >= lowest && !loaded.at(x - 1, y - 1)
                 || arm(map.on(x, y, top)) == null && !loaded.at(x + 1, y + 1);
     }
 
