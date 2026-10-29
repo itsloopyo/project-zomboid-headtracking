@@ -319,7 +319,9 @@ public final class Agent {
             return;
         }
         if (catchUp(instrumentation)) {
-            WindowPlacement.centreNewWindow();
+            if (Part.CENTRE_THE_WINDOW.atStart()) {
+                WindowPlacement.centreNewWindow();
+            }
             if (org.lwjglx.input.Controllers.isCreated()) {
                 Gamepads.found();
             }
@@ -453,6 +455,7 @@ public final class Agent {
         String impactsOff = shotsBreak ? null : off(Part.FIRST_PERSON, Part.SHOT_IMPACTS);
         return List.of(
                 new PatchSet("base", new PatchTransformer(basePatches()), null),
+                new PatchSet("window", new PatchTransformer(windowPatches()), off(Part.CENTRE_THE_WINDOW)),
                 new PatchSet("torch", new PatchTransformer(torchPatches()), firstPersonOff),
                 new PatchSet("first person", firstPerson, firstPersonOff),
                 new PatchSet("ragdolls", new PatchTransformer(ragdollPatches()), off(Part.FIRST_PERSON, Part.QUICK_RAGDOLLS)),
@@ -503,8 +506,8 @@ public final class Agent {
         return null;
     }
 
-    /** The patches for the window's place and the log. */
-    private static List<Patch> basePatches() {
+    /** The patches for the window's place: see WindowPlacement. */
+    private static List<Patch> windowPatches() {
         return List.of(
                 after(new CallSite.Method(DISPLAY, "create", "()V"),
                         new CallSite.Method(GLFW, "glfwSetWindowPos", "(JII)V"),
@@ -514,7 +517,12 @@ public final class Agent {
                         new CallSite.Method(WINDOW_PLACEMENT, "centreAfterModeChange", "()V")),
                 after(new CallSite.Method(DISPLAY, "setBorderlessWindow", "(Z)V"),
                         new CallSite.Method(GLFW, "glfwSetWindowAttrib", "(JII)V"),
-                        new CallSite.Method(WINDOW_PLACEMENT, "centreAfterModeChange", "()V")),
+                        new CallSite.Method(WINDOW_PLACEMENT, "centreAfterModeChange", "()V")));
+    }
+
+    /** The patch for the log. */
+    private static List<Patch> basePatches() {
+        return List.of(
                 // The one method every exception the game catches or lets a thread end on is logged by.
                 new Patch(EXCEPTION_LOGGER, "logException before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
                         new CallSite.Method(EXCEPTION_LOGGER, "logException",

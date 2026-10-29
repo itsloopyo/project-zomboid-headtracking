@@ -71,7 +71,10 @@ enum Part {
                     + "your hands are on the wheel. false: it stays as it was."),
     BURNT_BUILDING_FREEZE_FIX("Fixes", "BurntBuildingFreezeFix", false, true,
             "true: the game no longer stops for good as it lays out a burnt-down building whose door or window stands across\n"
-                    + "into a chunk that is not loaded yet. false: the game's own code, which can go round that door for ever.");
+                    + "into a chunk that is not loaded yet. false: the game's own code, which can go round that door for ever."),
+    CENTRE_THE_WINDOW("Fixes", "CentreTheWindow", false, true,
+            "true: the game's window is centred in the part of its monitor the taskbar leaves free. false: the game places\n"
+                    + "it, centred by its inside against the whole of the main monitor, which can leave it partly under the taskbar.");
 
     final String section, key, comment;
     /** Whether the row is taken while the game runs, and whether it is read at the start to leave patches out. */
