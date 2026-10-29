@@ -632,6 +632,11 @@ GraphicsMemorySteps=true
 ; first person makes them as you play.
 ; Taken at once. Off, its patches of the game's code are left out from the next start.
 PrepareWhileLoading=true
+; true: under the first person picture the rooms the game fills with zombies, and the squares it counts as seen, go
+; by what the view sees, a few times a second. false: they go by where the mod has the game work out light, which
+; can fill a room you have not looked into. Needs SkipCoveredGameDrawing.
+; Taken at once. Off, its patches of the game's code are left out from the next start.
+SpotBySight=true
 
 [Content]
 ; true: the game's own weapons, with no picture through the scope. false: the mod's models of the pump shotgun and

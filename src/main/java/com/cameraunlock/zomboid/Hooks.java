@@ -343,7 +343,7 @@ public final class Hooks {
     /** A player's spotting while the first person picture covers their view, and otherwise null. */
     private static Spotting spottingUnderThePicture(int playerIndex) {
         View view = View.of(playerIndex);
-        return view != null && view.firstPerson.skipsTheGamesView() ? view.spotting : null;
+        return view != null && view.firstPerson.spotsBySight() ? view.spotting : null;
     }
 
     /** In place of the game's reading of where a player's reticle or aim cursor is drawn, across the screen. */

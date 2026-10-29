@@ -711,7 +711,7 @@ public final class FirstPerson {
      * each frame and each frame with no player.
      */
     private void spottingFollowsCover() {
-        boolean covering = skipsTheGamesView();
+        boolean covering = spotsBySight();
         boolean stopped = coveredLastFrame && !covering;
         coveredLastFrame = covering;
         if (stopped) {
@@ -1001,7 +1001,7 @@ public final class FirstPerson {
         WorldScene.Frame scene = view.worldScene.next();
         if (landed) {
             scene.build(player, trackedView, aimView, eyeFromAim, view.fieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), null, false);
-            if (skipsTheGamesView()) {
+            if (spotsBySight()) {
                 view.spotting.look(view.worldScene, scene, player, now);
             }
             view.hearing.face(trackedView, 0f, 1f);
@@ -2169,6 +2169,11 @@ public final class FirstPerson {
      */
     public boolean skipsTheGamesView() {
         return landed && Part.SKIP_COVERED_GAME_DRAWING.running();
+    }
+
+    /** Whether rooms are spotted and squares marked seen by what the view sees (Spotting), the game's view being left undrawn: SpotBySight. */
+    public boolean spotsBySight() {
+        return skipsTheGamesView() && Part.SPOT_BY_SIGHT.running();
     }
 
     /**

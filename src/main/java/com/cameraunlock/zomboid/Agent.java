@@ -494,7 +494,7 @@ public final class Agent {
                 new PatchSet("chunk centre", new PatchTransformer(chunkCentrePatches()), off(Part.HOLD_CHUNK_MAP_CENTRE)),
                 new PatchSet("split screen", splitScreen, null),
                 new PatchSet("waiting composites", waitingComposites, off(Part.FIRST_PERSON, Part.SKINS_COMPOSED_WHILE_WAITING)),
-                new PatchSet("spotting", spotting, off(Part.FIRST_PERSON, Part.SKIP_COVERED_GAME_DRAWING)));
+                new PatchSet("spotting", spotting, off(Part.FIRST_PERSON, Part.SKIP_COVERED_GAME_DRAWING, Part.SPOT_BY_SIGHT)));
     }
 
     /** Why a set that serves only these parts, each needing the ones before it, is left out at this start: the first off as the game started, or null. */

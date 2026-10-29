@@ -108,7 +108,11 @@ enum Part {
     PREPARE_WHILE_LOADING("Optimizations", "PrepareWhileLoading", true, true,
             "true: a save starts only once the mod's shaders are compiled and the far land and skins round you are made, so\n"
                     + "first person does not stutter making them in play. false: the save starts as soon as the game is ready, and\n"
-                    + "first person makes them as you play.");
+                    + "first person makes them as you play."),
+    SPOT_BY_SIGHT("Optimizations", "SpotBySight", true, true,
+            "true: under the first person picture the rooms the game fills with zombies, and the squares it counts as seen, go\n"
+                    + "by what the view sees, a few times a second. false: they go by where the mod has the game work out light, which\n"
+                    + "can fill a room you have not looked into. Needs SkipCoveredGameDrawing.");
 
     final String section, key, comment;
     /** Whether the row is taken while the game runs, and whether it is read at the start to leave patches out. */
