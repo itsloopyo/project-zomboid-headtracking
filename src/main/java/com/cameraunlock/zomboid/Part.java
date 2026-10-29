@@ -48,7 +48,10 @@ enum Part {
                     + "game's own models of them. false: each lies flat as its picture."),
     FINER_SKINS("FirstPerson", "FinerSkins", false, true,
             "true: in first person the people near the eye wear skins finer than the game's, the mod's own and any finer\n"
-                    + "ones in the folder the log names. false: they wear the game's own.");
+                    + "ones in the folder the log names. false: they wear the game's own."),
+    LEAVE_OUT_SCREEN_GREY("FirstPerson", "LeaveOutScreenGrey", false, true,
+            "true: the game's greying of the screen by the season, fog and weather is left off the first person picture,\n"
+                    + "which shows those by its own light. false: the game greys first person's picture as it greys its own view.");
 
     final String section, key, comment;
     /** Whether the row is taken while the game runs, and whether it is read at the start to leave patches out. */

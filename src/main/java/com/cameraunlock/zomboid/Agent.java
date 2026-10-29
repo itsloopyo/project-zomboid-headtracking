@@ -473,7 +473,7 @@ public final class Agent {
                 new PatchSet("hang fix", new PatchTransformer(hangFixPatches()), null),
                 new PatchSet("covered", new PatchTransformer(coveredPatches()), firstPersonOff),
                 new PatchSet("part draw", new PatchTransformer(partDrawPatches()), null),
-                new PatchSet("screen grey", new PatchTransformer(screenGreyPatches()), firstPersonOff),
+                new PatchSet("screen grey", new PatchTransformer(screenGreyPatches()), off(Part.FIRST_PERSON, Part.LEAVE_OUT_SCREEN_GREY)),
                 new PatchSet("far vehicles", new PatchTransformer(farVehiclePatches()), firstPersonOff),
                 new PatchSet("live sight", new PatchTransformer(liveSightPatches()), null),
                 new PatchSet("left save", new PatchTransformer(leftSavePatches()), null),
