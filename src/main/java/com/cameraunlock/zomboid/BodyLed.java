@@ -40,12 +40,13 @@ final class BodyLed {
      * Carries the hand-over on by a frame.
      *
      * @param leads   whether the game's animation has the body
-     * @param whole   whether it has the view as well: not for a hit or a bite the character stays on its feet through
+     * @param whole   whether it has the view as well: not for a hit or a bite the character stays on its feet through,
+     *                nor with HeadLedViewWhenDown off until the game has made the body
      * @param holding whether the game has made the body it poses no more, and it has not risen
      */
     void frame(boolean leads, boolean whole, boolean holding, float seconds) {
         this.leads = leads;
-        this.whole = whole && leads;
+        this.whole = whole && leads && (Part.HEAD_LED_VIEW_WHEN_DOWN.on() || holding);
         this.holding = holding && this.whole;
         float to = this.whole ? 1f : 0f;
         share = ViewModelMath.ease(share, to, seconds, to > share ? IN_SECONDS : OUT_SECONDS);

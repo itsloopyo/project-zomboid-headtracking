@@ -39,7 +39,10 @@ enum Part {
                     + "blends have them."),
     HIT_FLINCH("FirstPerson", "HitFlinch", true, false,
             "true: a zombie shot in first person that stays up is knocked by the round where it went in: a head snaps back, a\n"
-                    + "shoulder is spun round. false: it plays the game's own stagger alone.");
+                    + "shoulder is spun round. false: it plays the game's own stagger alone."),
+    HEAD_LED_VIEW_WHEN_DOWN("FirstPerson", "HeadLedViewWhenDown", true, false,
+            "true: in first person, knocked over, lying down, getting up and dying, the view is your character's head's.\n"
+                    + "false: the view stays the mouse's while the game's animation has the body, and dead, it is held where it was.");
 
     final String section, key, comment;
     /** Whether the row is taken while the game runs, and whether it is read at the start to leave patches out. */

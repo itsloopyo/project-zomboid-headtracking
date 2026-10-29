@@ -16,6 +16,7 @@ final class BodyLedTests {
         Checks.run("theHeadTakesTheEyeQuicklyAndGivesItBack", BodyLedTests::theHeadTakesTheEyeQuicklyAndGivesItBack);
         Checks.run("aHitLeavesTheEyeTheMouses", BodyLedTests::aHitLeavesTheEyeTheMouses);
         Checks.run("onlyALedBodyIsHeld", BodyLedTests::onlyALedBodyIsHeld);
+        Checks.run("withHeadLedViewWhenDownOffTheEyeStaysTheMouses", BodyLedTests::withHeadLedViewWhenDownOffTheEyeStaysTheMouses);
         Checks.run("aTippedRolledHeadOnATurnedBodyLooksWhereItsFaceDoes", BodyLedTests::aTippedRolledHeadOnATurnedBodyLooksWhereItsFaceDoes);
         Checks.run("aHeadThrownBackPastStraightUpLooksStraightUp", BodyLedTests::aHeadThrownBackPastStraightUpLooksStraightUp);
         Checks.run("aHeadRolledPastItsSideLiesOnItsSide", BodyLedTests::aHeadRolledPastItsSideLiesOnItsSide);
@@ -195,6 +196,25 @@ final class BodyLedTests {
         check(led.holding(), "a dead body taken off the map holds the head's last view");
         led.frame(false, false, true, 1f / 60f);
         check(!led.holding(), "and lets it go once the body no longer leads");
+    }
+
+    private static void withHeadLedViewWhenDownOffTheEyeStaysTheMouses() {
+        BodyLed led = new BodyLed();
+        Part.HEAD_LED_VIEW_WHEN_DOWN.set(false);
+        try {
+            for (int frame = 0; frame < 30; frame++) {
+                led.frame(true, true, false, 1f / 60f);
+            }
+            check(led.leads() && !led.whole() && !led.holding() && led.share() == 0f,
+                    "with HeadLedViewWhenDown off a body the game's animation has leaves the eye the mouse's: " + led.share());
+            led.frame(true, true, true, 1f / 60f);
+            check(led.holding(), "and once the game has made the dead body, the view there is held");
+            led.reset();
+        } finally {
+            Part.HEAD_LED_VIEW_WHEN_DOWN.set(true);
+        }
+        led.frame(true, true, false, 1f / 60f);
+        check(led.whole() && led.share() > 0f, "on again, the head takes the eye: " + led.share());
     }
 
     /** A direction in the model placed in the world as the game places a body drawn at that angle. */
