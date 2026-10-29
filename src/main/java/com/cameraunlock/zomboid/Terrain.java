@@ -840,11 +840,6 @@ final class Terrain {
         return grid(wx, wy).kerb;
     }
 
-    /** The lanes of a chunk's roads, as Lanes keeps them, and null where none of its squares is in one. After corners. */
-    float[] lanes(int wx, int wy) {
-        return grid(wx, wy).lanes;
-    }
-
     /** The kerbs and the lanes of a chunk as one number, which is another when they run otherwise. After corners. */
     long kerbSum(int wx, int wy) {
         return grid(wx, wy).kerbSum;
@@ -864,6 +859,29 @@ final class Terrain {
      */
     float[] corners(IsoCell cell, int wx, int wy) {
         return corners(cell, wx, wy, false);
+    }
+
+    /** A chunk's corner heights and what goes with them, all from the one set of heights: see ground. */
+    static final class Ground {
+        float[] heights, water, kerb, lanes;
+        int version;
+        long kerbSum;
+    }
+
+    /**
+     * corners, and with the heights the chunk's version, water, kerbs and lanes, read under the builds' lock in one
+     * go: read after it, another build thread's corners may have kept other heights for the chunk, or let it go.
+     */
+    void ground(IsoCell cell, int wx, int wy, Ground into) {
+        synchronized (BuildThreads.SHARED) {
+            into.heights = corners(cell, wx, wy, false);
+            Grid grid = grid(wx, wy);
+            into.water = grid.water;
+            into.kerb = grid.kerb;
+            into.lanes = grid.lanes;
+            into.version = grid.version;
+            into.kerbSum = grid.kerbSum;
+        }
     }
 
     /** The same, and with now whatever the frame has spent on heights worked out again. */

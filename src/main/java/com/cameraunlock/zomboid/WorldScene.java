@@ -6227,13 +6227,14 @@ final class WorldScene {
             bodiesLaid = 0;
             // Once for the chunk and not once a level: until the ground round a chunk is all
             // loaded its corners are worked out afresh at every asking.
-            float[] ground = terrain.corners(cell, chunk.wx, chunk.wy);
+            terrain.ground(cell, chunk.wx, chunk.wy, groundRead);
+            float[] ground = groundRead.heights;
             if (!growing) {
-                building.terrainVersion = terrain.version(chunk.wx, chunk.wy);
+                building.terrainVersion = groundRead.version;
             }
-            float[] water = terrain.water(chunk.wx, chunk.wy);
-            kerbs = terrain.kerb(chunk.wx, chunk.wy);
-            geometry.lanes = terrain.lanes(chunk.wx, chunk.wy);
+            float[] water = groundRead.water;
+            kerbs = groundRead.kerb;
+            geometry.lanes = groundRead.lanes;
             waterCorners = water;
             boolean kept = !afresh && keptFrame == frames && keptWx == chunk.wx && keptWy == chunk.wy;
             if (!kept && !growing) {
@@ -6427,13 +6428,13 @@ final class WorldScene {
                 readSums = new long[to - from + 1];
             }
             long sum = sum(sum(sum(SUM_FROM, Float.floatToRawIntBits(frame.scale)), from), to);
-            float[] ground = terrain.corners(cell, chunk.wx, chunk.wy);
-            float[] water = terrain.water(chunk.wx, chunk.wy);
+            terrain.ground(cell, chunk.wx, chunk.wy, groundRead);
+            float[] ground = groundRead.heights, water = groundRead.water;
             long land = SUM_FROM;
             for (int i = 0; i < ground.length; i++) {
                 land = sum(sum(land, Float.floatToRawIntBits(ground[i])), Float.floatToRawIntBits(water[i]));
             }
-            land = sum(land, terrain.kerbSum(chunk.wx, chunk.wy));
+            land = sum(land, groundRead.kerbSum);
             readLand = land;
             int span = lightRed.length;
             if (AUDIT_MARKS) {
@@ -8301,7 +8302,10 @@ final class WorldScene {
             int at = 0;
             fresh.heightsSeenOf[0] = wx;
             fresh.heightsSeenOf[1] = wy;
-            fresh.heightsSeen[at++] = terrain.corners(cell, wx, wy);
+            terrain.ground(cell, wx, wy, groundRead);
+            fresh.heightsSeen[at++] = groundRead.heights;
+            fresh.waterSeen = groundRead.water;
+            fresh.kerbs = groundRead.kerbSum;
             for (int bit = 0; bit < 9; bit++) {
                 if ((heightsRound >> bit & 1) != 0) {
                     fresh.heightsSeenOf[at * 2] = wx + bit / 3 - 1;
@@ -8315,8 +8319,6 @@ final class WorldScene {
                 fresh.heightsSeen[at] = terrain.corners(cell, fresh.heightsSeenOf[at * 2], fresh.heightsSeenOf[at * 2 + 1]);
                 at++;
             }
-            fresh.waterSeen = terrain.water(wx, wy);
-            fresh.kerbs = terrain.kerbSum(wx, wy);
         }
 
         /**
@@ -8357,20 +8359,23 @@ final class WorldScene {
          * After corners.
          */
         private int landOf(int wx, int wy, int round, long[] far, int count, boolean wantsMap) {
-            int land = terrain.version(wx, wy);
+            terrain.ground(cell, wx, wy, groundRead);
+            int land = groundRead.version;
             for (int bit = 0; bit < 9; bit++) {
                 if ((round >> bit & 1) != 0) {
-                    terrain.corners(cell, wx + bit / 3 - 1, wy + bit % 3 - 1);
-                    land = land * 31 + terrain.version(wx + bit / 3 - 1, wy + bit % 3 - 1);
+                    terrain.ground(cell, wx + bit / 3 - 1, wy + bit % 3 - 1, groundRead);
+                    land = land * 31 + groundRead.version;
                 }
             }
             for (int known = 0; known < count; known++) {
-                int farX = (int) (far[known] >> 32), farY = (int) far[known];
-                terrain.corners(cell, farX, farY);
-                land = land * 31 + terrain.version(farX, farY);
+                terrain.ground(cell, (int) (far[known] >> 32), (int) far[known], groundRead);
+                land = land * 31 + groundRead.version;
             }
             return wantsMap ? land * 31 + loadedNow : land;
         }
+
+        /** What Terrain.ground last gave this frame. */
+        private final Terrain.Ground groundRead = new Terrain.Ground();
 
         final float[] wireEnds = new float[6], wireHangs = new float[2], insulatorAt = new float[2];
 
