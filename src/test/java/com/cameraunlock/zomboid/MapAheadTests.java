@@ -16,6 +16,7 @@ final class MapAheadTests {
         Checks.run("aFloorLaidOnADiamondFloorTakesItsPlace", MapAheadTests::aFloorLaidOnADiamondFloorTakesItsPlace);
         Checks.run("aSquareIsMadeOfWhatTheGameWouldMakeOfIt", MapAheadTests::aSquareIsMadeOfWhatTheGameWouldMakeOfIt);
         Checks.run("whatStandsOnASquareAndWhatIsOverItAreRead", MapAheadTests::whatStandsOnASquareAndWhatIsOverItAreRead);
+        Checks.run("theWindowHoldsTheChunksRoundTheLoadedMapAndTheWaterRoundThem", MapAheadTests::theWindowHoldsTheChunksRoundTheLoadedMapAndTheWaterRoundThem);
         Checks.run("theWindowIsAskedRingByRingInTheOrderOfTheWholeBox", MapAheadTests::theWindowIsAskedRingByRingInTheOrderOfTheWholeBox);
     }
 
@@ -175,6 +176,25 @@ final class MapAheadTests {
         MapAhead.Rooms upstairs = (x, y, z) -> x == 80 && y == 160 && z == 2 ? 1L : Footings.NONE;
         check(MapAhead.guess(raw(grass, 0, MapAhead.ANY, 1 << 2), upstairs).above[0] == Footings.BUILT, "a room above is built over the square");
         check(MapAhead.guess(raw(grass, 0, 0, 0), upstairs).above[0] == Footings.OPEN, "a room above on no square the map has is nothing over it");
+    }
+
+    /**
+     * With the game's loaded map 19 chunks a side, the window holds the chunks round each chunk
+     * of it to Terrain.AROUND, the water round each of those, and what a goal, a base, a hoop or
+     * a jump on the loaded map's last square reaches for a partner. The middle of a thing, round
+     * which its water is looked for, and a chain of partners can lie further, and are not held.
+     */
+    private static void theWindowHoldsTheChunksRoundTheLoadedMapAndTheWaterRoundThem() {
+        int loaded = 19 / 2, window = (19 + 2 * MapAhead.BEYOND) / 2;
+        int water = TestMap.<Integer>read(null, Terrain.class, "WATER_CHUNKS");
+        int round = loaded + Terrain.AROUND / Terrain.CHUNK_TILES + water;
+        check(window >= round, "the window holds the water round the farthest chunk a chunk of the loaded map goes by: " + window + " chunks each way, the water " + round);
+        int reach = 0;
+        for (byte kind = Grounds.NONE; kind <= Grounds.JUMP; kind++) {
+            reach = Math.max(reach, Grounds.reach(kind));
+        }
+        int partners = (loaded * Terrain.CHUNK_TILES + Terrain.CHUNK_TILES - 1 + reach) / Terrain.CHUNK_TILES;
+        check(window >= partners, "and what a goal on the loaded map's last square reaches for its partner: " + window + " chunks each way, the goal " + partners);
     }
 
     private static void theWindowIsAskedRingByRingInTheOrderOfTheWholeBox() {

@@ -34,8 +34,10 @@ final class Grounds {
     /**
      * How far each kind reaches across open ground for another of its kind, in squares: a goal
      * down the longest pitch on the map (74 between the goals), a base across a diamond, a hoop
-     * down its court, a jump across its arena. Each is within what MapAhead reads past the
-     * loaded map, so a search for partners never has to wait on more of the map to load.
+     * down its court, a jump across its arena. From one in the loaded map a partner within reach
+     * is within what MapAhead reads past it (MapAhead.BEYOND). A search that goes on from partner
+     * to partner, along a row of pitches say, or that starts beyond the loaded map, may reach
+     * chunks not yet read: it stops there, and is worked out again once they are.
      */
     private static final int[] REACH = {0, 0, 0, 80, 80, 30, 32, 24};
 

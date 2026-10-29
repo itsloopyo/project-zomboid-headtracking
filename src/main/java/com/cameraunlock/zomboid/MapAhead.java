@@ -45,11 +45,18 @@ import zombie.iso.sprite.IsoSpriteManager;
  */
 final class MapAhead {
     /**
-     * Chunks beyond the loaded map each way that are read: as far as a chunk at its edge looks
-     * for what is built round it (Terrain.AROUND, 6 chunks), and from the middle of a thing it
-     * finds there for water (5 more), with a chunk to spare.
+     * Chunks beyond the loaded map each way that are read. The heights of a chunk of the loaded
+     * map go by the chunks round it to Terrain.AROUND (6 chunks) and by the water round each of
+     * those (Terrain.WATER_CHUNKS, 5 more), and a goal, a base, a hoop or a jump in the loaded map
+     * looks for a partner to Grounds.reach (80 squares at most): the window holds all of that,
+     * with three chunks to spare for the player moving on while what was asked is read. It does
+     * not hold all of what a thing goes by. The water is looked for round the thing's middle,
+     * which for a building or a chain of level ground can lie further off, and a search for the
+     * rest of a thing, or from partner to partner, looks as far as they go. One that runs to the
+     * window's edge stops at the chunks not read, and is worked out again as the window moves on
+     * and they are read.
      */
-    static final int BEYOND = 12;
+    static final int BEYOND = 14;
     private static final int CHUNK = Terrain.CHUNK_TILES;
     private static final int SQUARES = CHUNK * CHUNK;
     private static final int CELL_CHUNKS = FarCells.CELL / CHUNK;
