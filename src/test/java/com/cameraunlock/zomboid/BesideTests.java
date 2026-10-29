@@ -11,6 +11,8 @@ final class BesideTests {
         Checks.run("aFrameBesideKeepsWhatItBuildsWithAndInto", BesideTests::aFrameBesideKeepsWhatItBuildsWithAndInto);
         Checks.run("aBuildBesideComesOutAsTheWalkingFramesBuild", BesideTests::aBuildBesideComesOutAsTheWalkingFramesBuild);
         Checks.run("aBuildThreadIsKnownAndWhatItThrowsIsThrownAgain", BesideTests::aBuildThreadIsKnownAndWhatItThrowsIsThrownAgain);
+        Checks.run("whatBuildThreadsAskOfTheLogicThreadIsDoneThereAsItWaits", BesideTests::whatBuildThreadsAskOfTheLogicThreadIsDoneThereAsItWaits);
+        Checks.run("whatABuildLeavesToTheLogicThreadIsKeptInOrderUntilItLands", BesideTests::whatABuildLeavesToTheLogicThreadIsKeptInOrderUntilItLands);
     }
 
     private static void aFrameBesideTakesWhatABuildReads() {
@@ -95,6 +97,66 @@ final class BesideTests {
                 caught = e.getCause();
             }
             check(caught == thrown, "what a build throws is thrown again on the thread that waits on it");
+        } finally {
+            thread.shutdown();
+        }
+    }
+
+    private static void whatBuildThreadsAskOfTheLogicThreadIsDoneThereAsItWaits() {
+        java.util.concurrent.ExecutorService pool = BuildThreads.pool(3, "tests' build thread");
+        try {
+            Thread logic = Thread.currentThread();
+            Thread[] askedOn = new Thread[3];
+            int[] numbers = new int[3];
+            BuildThreads.runOnAll(pool, 3, thread -> {
+                numbers[thread] = BuildThreads.onLogicThread(() -> {
+                    askedOn[thread] = Thread.currentThread();
+                    return thread + 10;
+                });
+            });
+            check(askedOn[0] == logic && askedOn[1] == logic && askedOn[2] == logic, "what each build thread asks is done on the thread that waits on them");
+            check(numbers[0] == 10 && numbers[1] == 11 && numbers[2] == 12, "and each is handed back its own answer");
+            check(BuildThreads.onLogicThread(() -> Thread.currentThread()) == logic, "on the logic thread itself it is done at once");
+            IllegalArgumentException thrown = new IllegalArgumentException("thrown on the logic thread");
+            Throwable caught = null;
+            try {
+                BuildThreads.runOnAll(pool, 2, thread -> BuildThreads.onLogicThread(() -> {
+                    throw thrown;
+                }));
+            } catch (IllegalStateException e) {
+                caught = e.getCause() == null ? null : e.getCause().getCause();
+            }
+            check(caught == thrown, "what the asking throws is thrown on the build thread, and again on the thread that waits on it");
+        } finally {
+            pool.shutdown();
+        }
+    }
+
+    private static void whatABuildLeavesToTheLogicThreadIsKeptInOrderUntilItLands() {
+        java.util.ArrayList<Integer> done = new java.util.ArrayList<>();
+        BuildThreads.later(() -> done.add(0));
+        check(done.size() == 1, "on the logic thread it is done at once");
+        java.util.concurrent.ExecutorService thread = BuildThreads.one("tests' build thread");
+        try {
+            BuildThreads.Landing landing = new BuildThreads.Landing();
+            BuildThreads.runAndWait(thread, () -> {
+                BuildThreads.landInto(landing);
+                BuildThreads.later(() -> done.add(1));
+                BuildThreads.later(() -> done.add(2));
+                BuildThreads.landInto(null);
+            });
+            check(done.size() == 1, "on a build thread it is kept");
+            landing.land();
+            check(done.equals(java.util.List.of(0, 1, 2)), "and done in the order it was left as it lands");
+            landing.land();
+            check(done.size() == 3, "once");
+            Throwable caught = null;
+            try {
+                BuildThreads.runAndWait(thread, () -> BuildThreads.later(() -> done.add(3)));
+            } catch (IllegalStateException e) {
+                caught = e.getCause();
+            }
+            check(caught instanceof IllegalStateException && done.size() == 3, "a build thread with nowhere to keep it throws");
         } finally {
             thread.shutdown();
         }
