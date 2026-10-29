@@ -27,7 +27,9 @@ public final class SpotCheck {
 
     /** At the start of the game's spotting of a room, which names no player. */
     public static void roomSpotted(IsoRoom room) {
-        if (covered() && !byTheLightFor("roomSeenByLight")) {
+        if (Spotting.passer == Thread.currentThread()) {
+            Spotting.roomsSpotted.increment();
+        } else if (covered() && !byTheLightFor("roomSeenByLight")) {
             RoomDef def = room.getRoomDef();
             RoomDef.RoomRect rect = def.rects.get(0);
             outside("a room spotted", "the room " + def.getName() + " at " + rect.x + ", " + rect.y + ", " + def.level);
