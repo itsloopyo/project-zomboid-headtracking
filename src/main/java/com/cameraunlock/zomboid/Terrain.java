@@ -4,13 +4,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import zombie.core.properties.PropertyContainer;
-import zombie.iso.BuildingDef;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.SpriteDetails.IsoFlagType;
 import zombie.iso.SpriteDetails.IsoObjectType;
-import zombie.iso.areas.IsoBuilding;
 import zombie.iso.sprite.IsoSprite;
 import zombie.iso.sprite.IsoSpriteInstance;
 import zombie.util.list.PZArrayList;
@@ -56,13 +54,15 @@ import zombie.util.list.PZArrayList;
  * They go by the map and by nothing that was loaded or asked for before. What each chunk's
  * squares are is read into a record of the chunk (Kinds): from its squares where it is loaded,
  * from the map's files where it is not and MapAhead has read them, and as UNKNOWN where
- * neither has it. Whatever is worked out from records, a footing, a pad, a chunk's heights, is
- * kept with the chunks it went by (Reads), and holds while none of them has come out
- * otherwise. A record is read again when its chunk loads or is let go, and when what MapAhead
- * holds of the chunk is another (scan). Only where it then comes out otherwise is what went by
- * it worked out again: where the save has a chunk as the map's files do, nothing is. What the
- * game changes in a loaded chunk later, a wall built or burnt down, is read when the chunk
- * loads again.
+ * neither has it. A loaded chunk's record goes by its own squares, and above the ground only
+ * by those the game makes on every load of the chunk (above): a square it makes on a first
+ * load only, or on the chunk's edge for a chunk that loads beside it, adds nothing. Whatever
+ * is worked out from records, a footing, a pad, a chunk's heights, is kept with the chunks it
+ * went by (Reads), and holds while none of them has come out otherwise. A record is read again
+ * when its chunk loads or is let go, and when what MapAhead holds of the chunk is another
+ * (scan). Only where it then comes out otherwise is what went by it worked out again: where
+ * the save has a chunk as the map's files do, nothing is. What the game changes in a loaded
+ * chunk later, a wall built or burnt down, is read when the chunk loads again.
  *
  * There are two lies of the land, the hills and the country left level, and each player's
  * view is drawn on one of them (WorldScene.terrain): what a square is made of is the same for
@@ -197,7 +197,13 @@ final class Terrain {
         final boolean[] footway = new boolean[CHUNK_TILES * CHUNK_TILES];
         /** The straight lines the game paints on the square, as Lanes.mark gives them. */
         final byte[] marks = new byte[CHUNK_TILES * CHUNK_TILES];
-        /** The middle of the building whose pad the square is part of (footingOf), as Footings.key packs it, or Footings.NONE. */
+        /**
+         * The middle of the building whose pad the square is part of, as Footings.key packs it, or
+         * Footings.NONE: the one with a room on the square, or the one with a room under it. A
+         * basement runs out under the yard beside its house, and with the yard graded off the pad
+         * over it, the basement's ceiling and floor sank with the yard where its walls stood at
+         * the pad (2319..2321, 13997..14001).
+         */
         final long[] house = new long[CHUNK_TILES * CHUNK_TILES];
         /** What the square is to level ground (groundOf), as Grounds names it. */
         final byte[] level = new byte[CHUNK_TILES * CHUNK_TILES];
@@ -1635,10 +1641,23 @@ final class Terrain {
     }
 
     /**
+     * The map's buildings, as MapAhead.Rooms has them, asked with the loaded map they are asked
+     * for: the game's map (MapAhead.ROOMS), whatever the loaded map, where a test hands its own.
+     */
+    interface Rooms {
+        long house(IsoCell cell, int x, int y, int z);
+    }
+
+    static Rooms rooms = (cell, x, y, z) -> MapAhead.ROOMS.house(x, y, z);
+
+    /**
      * Reads what each square of the chunk of a record is, as the map has it now, of the square
-     * alone, into the record: where the chunk is loaded off its squares, where it is not off what
-     * MapAhead read of it, and where it has read nothing every square as UNKNOWN. A chunk with
-     * its middle square missing is not loaded: the map has every square of a chunk or none of it.
+     * and what is over it, into the record: where the chunk is loaded off its squares, where it
+     * is not off what MapAhead read of it, and where it has read nothing every square as UNKNOWN.
+     * A chunk with its middle square missing is not loaded: the map has every square of a chunk
+     * or none of it. The rooms of a loaded chunk are the ones the map has (rooms), as the game
+     * gives them when the chunk loads from the save (IsoChunk.LoadFromDiskOrBufferInternal): on a
+     * first load it gives none to the squares the lotpack has no tile on (IsoCell.PlaceLot).
      */
     private static void read(IsoCell cell, Kinds into) {
         int wx = into.wx, wy = into.wy;
@@ -1656,6 +1675,9 @@ final class Terrain {
             System.arraycopy(guess.stands, 0, into.stands, 0, into.stands.length);
         } else {
             into.source = middle ? LOADED : UNREAD;
+            if (middle) {
+                above(cell, into, ground(cell, wx * CHUNK_TILES + CHUNK_TILES / 2, wy * CHUNK_TILES + CHUNK_TILES / 2).getChunk().getMaxLevel());
+            }
             for (int i = 0; i < CHUNK_TILES; i++) {
                 for (int j = 0; j < CHUNK_TILES; j++) {
                     int x = wx * CHUNK_TILES + i, y = wy * CHUNK_TILES + j, at = i * CHUNK_TILES + j;
@@ -1671,11 +1693,10 @@ final class Terrain {
                         into.stands[at] = 0;
                         continue;
                     }
-                    BuildingDef def = footingOf(cell, square, x, y);
-                    into.house[at] = def == null ? Footings.NONE : Footings.key(def.getX() + def.getW() / 2f, def.getY() + def.getH() / 2f);
+                    long room = rooms.house(cell, x, y, 0);
+                    into.house[at] = room != Footings.NONE ? room : rooms.house(cell, x, y, -1);
                     into.level[at] = groundOf(cell, square, x, y);
-                    into.above[at] = above(cell, square, x, y);
-                    into.stands[at] = standsOf(square);
+                    into.stands[at] = standsOf(square, room);
                 }
             }
         }
@@ -1968,33 +1989,13 @@ final class Terrain {
         return mixed ^ mixed >>> 29;
     }
 
-    private static BuildingDef defOf(IsoGridSquare square) {
-        IsoBuilding building = square.getBuilding();
-        return building == null ? null : building.getDef();
-    }
-
-    /**
-     * The building whose pad a square of the ground is part of: the one with a room on it, or
-     * the one with a room under it. A basement runs out under the yard beside its house, and
-     * with the yard graded off the pad over it, the basement's ceiling and floor sank with the
-     * yard where its walls stood at the pad (2319..2321, 13997..14001).
-     */
-    private static BuildingDef footingOf(IsoCell cell, IsoGridSquare square, int x, int y) {
-        BuildingDef def = defOf(square);
-        if (def != null) {
-            return def;
-        }
-        IsoGridSquare under = cell.getGridSquare(x, y, -1);
-        return under == null ? null : defOf(under);
-    }
-
     /**
      * What stands on the ground of a square, as STAIR_OR_ROOF and the rest keep it, of the
-     * square alone: whether a canopy's quarter or a wall stands on the ground goes by the
-     * squares round it as well (standsOn).
+     * square alone and the room the map has on it: whether a canopy's quarter or a wall stands
+     * on the ground goes by the squares round it as well (standsOn).
      */
-    private static short standsOf(IsoGridSquare square) {
-        int stands = defOf(square) != null ? ROOMED : 0;
+    private static short standsOf(IsoGridSquare square, long room) {
+        int stands = room != Footings.NONE ? ROOMED : 0;
         PZArrayList<IsoObject> objects = square.getObjects();
         for (int i = 0; i < objects.size(); i++) {
             IsoSprite sprite = objects.get(i).getSprite();
@@ -2045,37 +2046,74 @@ final class Terrain {
     }
 
     /**
-     * What is over a square on the levels above it, as Footings names it: BUILT under a room,
-     * a floor, a roof, a wall, a rail or a stair, HUNG under anything else, a sign, a coping
-     * or the head of a street lamp, and OPEN under nothing. The wires the game hangs over a
-     * road on squares of air, and the upper lengths of the poles that carry them, are
-     * nothing: they go by the land (WorldScene.addPole, addWires).
+     * What is over each square of a loaded chunk on the levels above it, into its record, as
+     * Footings names it: BUILT under a floor, a roof, a wall, a rail or a stair, or under a room
+     * on a square the game makes on every load of the chunk; HUNG under anything else, a sign, a
+     * coping or the head of a street lamp; and OPEN under nothing. The wires the game hangs over
+     * a road on squares of air, and the upper lengths of the poles that carry them, are nothing:
+     * they go by the land (WorldScene.addPole, addWires).
+     *
+     * On every load the game makes a square above the ground where something is on it, and the
+     * squares round that in the 3 x 3 in its chunk, on its level and each level under it
+     * (IsoChunk.loadInWorldStreamerThread, ensureNotNull3x3). Their room is the one the map has
+     * (rooms), as a load from the save gives it. Every other square above the ground the game
+     * makes on some loads only, and the save keeps none (IsoChunk.Save): on a first load, those
+     * the lotpack has tiles on that the game lays nothing for, and those round the lotpack's
+     * (IsoCell.PlaceLot); and on the chunk's edge, those next to something in a chunk that loads
+     * beside it after it (IsoChunk.loadInMainThread). A room on one of those is nothing over the
+     * ground. The 3 x 3 stops at the chunk's edge, so a square on the edge whose only neighbour
+     * with something on it is in the next chunk is one of them.
      */
-    private static byte above(IsoCell cell, IsoGridSquare square, int x, int y) {
-        boolean hung = false;
-        for (int z = 1; z <= square.getChunk().getMaxLevel(); z++) {
-            IsoGridSquare over = cell.getGridSquare(x, y, z);
-            if (over == null) {
-                continue;
-            }
-            if (over.getBuilding() != null || over.getFloor() != null) {
-                return Footings.BUILT;
-            }
-            PZArrayList<IsoObject> objects = over.getObjects();
-            for (int i = 0; i < objects.size(); i++) {
-                IsoSprite sprite = objects.get(i).getSprite();
-                if (sprite == null || sprite.getName() != null && sprite.getName().startsWith(Footings.OVERHEAD_LINES)) {
+    private static void above(IsoCell cell, Kinds into, int highest) {
+        int x0 = into.wx * CHUNK_TILES, y0 = into.wy * CHUNK_TILES;
+        long built = 0L, hung = 0L, laid = 0L;
+        for (int z = highest; z >= 1; z--) {
+            for (int at = 0; at < CHUNK_TILES * CHUNK_TILES; at++) {
+                IsoGridSquare on = cell.getGridSquare(x0 + at / CHUNK_TILES, y0 + at % CHUNK_TILES, z);
+                if (on == null || on.getObjects().isEmpty()) {
                     continue;
                 }
-                PropertyContainer flags = sprite.getProperties();
-                if (isStair(sprite.getType()) || isRoof(sprite.getType()) || flags.has(IsoFlagType.WallN) || flags.has(IsoFlagType.WallW) || flags.has(IsoFlagType.WallNW)
-                        || flags.has(IsoFlagType.WallSE) || flags.has(IsoFlagType.DoorWallN) || flags.has(IsoFlagType.DoorWallW) || flags.has(IsoFlagType.WindowN) || flags.has(IsoFlagType.WindowW)) {
-                    return Footings.BUILT;
-                }
-                hung = true;
+                laid |= 1L << at;
+                byte over = overOf(on);
+                built |= over == Footings.BUILT ? 1L << at : 0L;
+                hung |= over == Footings.HUNG ? 1L << at : 0L;
+            }
+            for (long made = withRound(laid) & ~built; made != 0L; made &= made - 1) {
+                int at = Long.numberOfTrailingZeros(made);
+                built |= rooms.house(cell, x0 + at / CHUNK_TILES, y0 + at % CHUNK_TILES, z) != Footings.NONE ? 1L << at : 0L;
             }
         }
+        for (int at = 0; at < CHUNK_TILES * CHUNK_TILES; at++) {
+            into.above[at] = (built & 1L << at) != 0L ? Footings.BUILT : (hung & 1L << at) != 0L ? Footings.HUNG : Footings.OPEN;
+        }
+    }
+
+    /** What the things on a square above the ground are over the ground under it, as above names them, its room left out. */
+    private static byte overOf(IsoGridSquare on) {
+        if (on.getFloor() != null) {
+            return Footings.BUILT;
+        }
+        boolean hung = false;
+        PZArrayList<IsoObject> objects = on.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoSprite sprite = objects.get(i).getSprite();
+            if (sprite == null || sprite.getName() != null && sprite.getName().startsWith(Footings.OVERHEAD_LINES)) {
+                continue;
+            }
+            PropertyContainer flags = sprite.getProperties();
+            if (isStair(sprite.getType()) || isRoof(sprite.getType()) || flags.has(IsoFlagType.WallN) || flags.has(IsoFlagType.WallW) || flags.has(IsoFlagType.WallNW)
+                    || flags.has(IsoFlagType.WallSE) || flags.has(IsoFlagType.DoorWallN) || flags.has(IsoFlagType.DoorWallW) || flags.has(IsoFlagType.WindowN) || flags.has(IsoFlagType.WindowW)) {
+                return Footings.BUILT;
+            }
+            hung = true;
+        }
         return hung ? Footings.HUNG : Footings.OPEN;
+    }
+
+    /** Squares of a chunk, a bit each at i * CHUNK_TILES + j as Kinds keeps them, with the squares in the 3 x 3 round each in the chunk. */
+    private static long withRound(long squares) {
+        long rows = squares | squares << CHUNK_TILES | squares >>> CHUNK_TILES;
+        return rows | (rows << 1 & ~0x0101010101010101L) | (rows >>> 1 & ~0x8080808080808080L);
     }
 
     static boolean isRoof(IsoObjectType type) {

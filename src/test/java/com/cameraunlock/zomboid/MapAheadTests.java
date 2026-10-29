@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import zombie.core.properties.PropertyContainer;
@@ -17,6 +18,7 @@ final class MapAheadTests {
         Checks.run("aFloorLaidOnADiamondFloorTakesItsPlace", MapAheadTests::aFloorLaidOnADiamondFloorTakesItsPlace);
         Checks.run("aSquareIsMadeOfWhatTheGameWouldMakeOfIt", MapAheadTests::aSquareIsMadeOfWhatTheGameWouldMakeOfIt);
         Checks.run("whatStandsOnASquareAndWhatIsOverItAreRead", MapAheadTests::whatStandsOnASquareAndWhatIsOverItAreRead);
+        Checks.run("aRoomUpstairsIsOverEverySquareTheGameMakesUnderATileOrBesideIt", MapAheadTests::aRoomUpstairsIsOverEverySquareTheGameMakesUnderATileOrBesideIt);
         Checks.run("theWindowHoldsTheChunksRoundTheLoadedMapAndTheWaterRoundThem", MapAheadTests::theWindowHoldsTheChunksRoundTheLoadedMapAndTheWaterRoundThem);
         Checks.run("theWindowIsAskedRingByRingInTheOrderOfTheWholeBox", MapAheadTests::theWindowIsAskedRingByRingInTheOrderOfTheWholeBox);
     }
@@ -202,6 +204,29 @@ final class MapAheadTests {
         MapAhead.Rooms upstairs = (x, y, z) -> x == 80 && y == 160 && z == 2 ? 1L : Footings.NONE;
         check(MapAhead.guess(raw(grass, 0, MapAhead.ANY, 1 << 2), upstairs).above[0] == Footings.BUILT, "a room above is built over the square");
         check(MapAhead.guess(raw(grass, 0, 0, 0), upstairs).above[0] == Footings.OPEN, "a room above on no square the map has is nothing over it");
+    }
+
+    /**
+     * On every load the game has a square on each level up to the highest it lays a tile on, on
+     * that square or on one round it in its chunk, and from the save the square has the room the
+     * map has there: a room on the first level, with a sign on the second and no tile on the
+     * first, is over the squares round the sign.
+     */
+    private static void aRoomUpstairsIsOverEverySquareTheGameMakesUnderATileOrBesideIt() {
+        int[] floors = new int[64], grounds = new int[64], aboves = new int[64], levelses = new int[64];
+        int grass = MapAhead.FLOOR | MapAhead.NATURAL_NAME;
+        Arrays.fill(floors, grass);
+        Arrays.fill(grounds, grass);
+        int sign = 1 * 8 + 1;
+        aboves[sign] = MapAhead.ANY;
+        levelses[sign] = 1 << 2;
+        MapAhead.Raw raw = new MapAhead.Raw(0, 10, 20, floors, grounds, aboves, levelses, new byte[64], new short[64]);
+        MapAhead.Guess first = MapAhead.guess(raw, (x, y, z) -> z == 1 ? 1L : Footings.NONE);
+        check(first.above[sign] == Footings.BUILT, "a room on the level under a tile is over its square");
+        check(first.above[0] == Footings.BUILT && first.above[2 * 8 + 2] == Footings.BUILT && first.above[2 * 8] == Footings.BUILT, "and over each square round it");
+        check(first.above[3 * 8 + 3] == Footings.OPEN && first.above[1 * 8 + 3] == Footings.OPEN, "and over no square further off");
+        MapAhead.Guess third = MapAhead.guess(raw, (x, y, z) -> z == 3 ? 1L : Footings.NONE);
+        check(third.above[sign] == Footings.HUNG && third.above[0] == Footings.OPEN, "a room on a level over the highest tile is over no square the game has");
     }
 
     /**

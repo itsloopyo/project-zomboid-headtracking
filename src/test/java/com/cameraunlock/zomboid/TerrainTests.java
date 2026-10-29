@@ -41,7 +41,9 @@ final class TerrainTests {
         byte[] around = Terrain.around.clone();
         float[] pads = Terrain.padsAround.clone();
         boolean[] footway = Terrain.footwayAround.clone();
+        Terrain.Rooms rooms = Terrain.rooms;
         try {
+            Terrain.rooms = TerrainTests::roomOf;
             Arrays.fill(Terrain.footwayAround, false);
             terrain = Terrain.HILLS;
             Checks.run("streetAlongAHillsideIsLevelFromSideToSide", TerrainTests::streetAlongAHillsideIsLevelFromSideToSide);
@@ -69,14 +71,25 @@ final class TerrainTests {
             Checks.run("recordsLetGoFarFromEveryEyeAreReadAgainAsTheyWere", () -> TestMap.withEverything(TerrainTests::recordsLetGoFarFromEveryEyeAreReadAgainAsTheyWere));
             Checks.run("recordsPutOutForRoomAreReadAgainAsTheyWere", TerrainTests::recordsPutOutForRoomAreReadAgainAsTheyWere);
             Checks.run("aRowOfContentSwitchedGivesTheHeightsWorkedOutAfresh", TerrainTests::aRowOfContentSwitchedGivesTheHeightsWorkedOutAfresh);
+            Checks.run("aSquareTheGameMakesOnAChunksEdgeForTheChunkBesideItIsNothingOverTheGround", TerrainTests::aSquareTheGameMakesOnAChunksEdgeForTheChunkBesideItIsNothingOverTheGround);
+            Checks.run("aChunkHasTheHeightsOnItsFirstLoadThatItHasFromTheSave", TerrainTests::aChunkHasTheHeightsOnItsFirstLoadThatItHasFromTheSave);
             Checks.run("postsOnALevelAboveTheRoadLeaveTheKerbAndWhatIsBuiltOnAsTheyAre", TerrainTests::postsOnALevelAboveTheRoadLeaveTheKerbAndWhatIsBuiltOnAsTheyAre);
         } finally {
+            Terrain.rooms = rooms;
             System.arraycopy(around, 0, Terrain.around, 0, around.length);
             System.arraycopy(pads, 0, Terrain.padsAround, 0, pads.length);
             System.arraycopy(footway, 0, Terrain.footwayAround, 0, footway.length);
             Terrain.HILLS.heighten(1f);
             Country.set(List.of());
         }
+    }
+
+    /** The rooms of a test's map, as Terrain.rooms asks them: those of the buildings the test put its squares in. */
+    private static long roomOf(IsoCell cell, int x, int y, int z) {
+        IsoGridSquare square = cell.getGridSquare(x, y, z);
+        IsoBuilding building = square == null ? null : square.getBuilding();
+        BuildingDef def = building == null ? null : building.getDef();
+        return def == null ? Footings.NONE : Footings.key(def.getX() + def.getW() / 2f, def.getY() + def.getH() / 2f);
     }
 
     private static void check(boolean condition, String what) {
@@ -713,12 +726,7 @@ final class TerrainTests {
             traits[tile] = MapAhead.traits(sprites.get(tile));
             tileOf.put(sprites.get(tile), tile);
         }
-        MapAhead.Rooms rooms = (x, y, z) -> {
-            IsoGridSquare square = shipped.map.cell.getGridSquare(x, y, z);
-            IsoBuilding building = square == null ? null : square.getBuilding();
-            BuildingDef def = building == null ? null : building.getDef();
-            return def == null ? Footings.NONE : Footings.key(def.getX() + def.getW() / 2f, def.getY() + def.getH() / 2f);
-        };
+        MapAhead.Rooms rooms = (x, y, z) -> roomOf(shipped.map.cell, x, y, z);
         for (int wx = -TOWN_MARGIN; wx < TOWN_X + TOWN_MARGIN; wx++) {
             for (int wy = -TOWN_MARGIN; wy < TOWN_Y + TOWN_MARGIN; wy++) {
                 shipped.lay(wx, wy);
@@ -769,10 +777,33 @@ final class TerrainTests {
         return heights;
     }
 
+    /** The chunks whose heights two of heightsIn's differ in. */
+    private static List<String> differing(Map<String, String> one, Map<String, String> other) {
+        List<String> differing = new ArrayList<>();
+        for (Map.Entry<String, String> chunk : one.entrySet()) {
+            if (!chunk.getValue().equals(other.get(chunk.getKey()))) {
+                differing.add(chunk.getKey());
+            }
+        }
+        return differing;
+    }
+
     /** What is over a square, as the record of its chunk has it worked out (Terrain.Kinds.over). */
     private static byte overAt(int x, int y) {
         Object kinds = derivedRecord(Math.floorDiv(x, Terrain.CHUNK_TILES), Math.floorDiv(y, Terrain.CHUNK_TILES));
         return TestMap.<byte[]>read(kinds, "over")[Math.floorMod(x, Terrain.CHUNK_TILES) * Terrain.CHUNK_TILES + Math.floorMod(y, Terrain.CHUNK_TILES)];
+    }
+
+    /** The building a square is part of the pad of, as the record of its chunk has it (Terrain.Kinds.house). */
+    private static long houseAt(int x, int y) {
+        Object kinds = derivedRecord(Math.floorDiv(x, Terrain.CHUNK_TILES), Math.floorDiv(y, Terrain.CHUNK_TILES));
+        return TestMap.<long[]>read(kinds, "house")[Math.floorMod(x, Terrain.CHUNK_TILES) * Terrain.CHUNK_TILES + Math.floorMod(y, Terrain.CHUNK_TILES)];
+    }
+
+    /** What stands on the ground of a square, as the record of its chunk has it (Terrain.Kinds.stands). */
+    private static short standsAt(int x, int y) {
+        Object kinds = derivedRecord(Math.floorDiv(x, Terrain.CHUNK_TILES), Math.floorDiv(y, Terrain.CHUNK_TILES));
+        return TestMap.<short[]>read(kinds, "stands")[Math.floorMod(x, Terrain.CHUNK_TILES) * Terrain.CHUNK_TILES + Math.floorMod(y, Terrain.CHUNK_TILES)];
     }
 
     /** The record of a chunk (Terrain.Kinds), which must have had what is over its squares worked out. */
@@ -984,6 +1015,176 @@ final class TerrainTests {
                     + differing.subList(0, Math.min(12, differing.size())));
         } finally {
             Own.set(rows);
+            ChunkMarks.live = live;
+            Terrain.forget();
+            MapAhead.forget();
+        }
+    }
+
+    /**
+     * On every load of a chunk the game makes a square above the ground where something is on
+     * it, and in the 3 x 3 round that in the chunk (Terrain.above). A square on the chunk's edge
+     * whose only neighbour with something on it is in the next chunk it makes only when that
+     * chunk loads after its own (IsoChunk.loadInMainThread), with the room the map has there, so
+     * the room is nothing over the ground: under a room upstairs over the edge between two
+     * chunks, with signs up there all along the far side of the edge, the near chunk's edge is
+     * open and the far chunk's squares by the signs are built over, whichever chunk loads first,
+     * and the heights are those of both loaded at once.
+     */
+    private static void aSquareTheGameMakesOnAChunksEdgeForTheChunkBesideItIsNothingOverTheGround() {
+        boolean live = ChunkMarks.live;
+        Terrain.Rooms rooms = Terrain.rooms;
+        Terrain.HILLS.heighten(1f);
+        Country.set(List.of());
+        int besideX = 3, besideY = 1, edgeX = besideX * Terrain.CHUNK_TILES - 1, fromY = besideY * Terrain.CHUNK_TILES;
+        IsoBuilding upstairs = new IsoBuilding(new BuildingDef(9, edgeX - 3, fromY, 8, Terrain.CHUNK_TILES));
+        long middle = Footings.key(edgeX + 1f, fromY + Terrain.CHUNK_TILES / 2f);
+        try {
+            ChunkMarks.live = true;
+            // The map's room upstairs, over the four squares either side of the edge, all along it.
+            Terrain.rooms = (cell, x, y, z) -> z == 1 && x >= edgeX - 3 && x <= edgeX + 4 && y >= fromY && y < fromY + Terrain.CHUNK_TILES ? middle : roomOf(cell, x, y, z);
+            Map<String, String> nearFirst = null;
+            for (boolean near : new boolean[] {true, false}) {
+                MapAhead.forget();
+                Terrain.forget();
+                Town town = new Town(false);
+                IsoCell cell = town.map.cell;
+                Runnable rest = () -> {
+                    for (int wx = -2; wx <= 6; wx++) {
+                        for (int wy = -2; wy <= 4; wy++) {
+                            if (wx != besideX || wy != besideY) {
+                                town.lay(wx, wy);
+                            }
+                        }
+                    }
+                };
+                Runnable far = () -> {
+                    town.lay(besideX, besideY);
+                    for (int y = fromY; y < fromY + Terrain.CHUNK_TILES; y++) {
+                        cell.square(edgeX + 1, y, 1).add(town.sign);
+                    }
+                };
+                int frame = near ? 9601 : 9604;
+                if (near) {
+                    rest.run();
+                    heightsIn(cell, 0, -1, 5, 3, frame, frame);
+                    check(overAt(edgeX, fromY) == Footings.OPEN, "the near chunk's edge, with nothing over it, is open");
+                    far.run();
+                    for (int y = fromY; y < fromY + Terrain.CHUNK_TILES; y++) {
+                        IsoGridSquare made = cell.square(edgeX, y, 1);
+                        made.building(upstairs);
+                        made.setRoomID(9);
+                    }
+                } else {
+                    far.run();
+                    heightsIn(cell, 0, -1, 5, 3, frame, frame);
+                    rest.run();
+                }
+                String order = near ? " with the near chunk loaded first" : " with the far chunk loaded first";
+                Map<String, String> streamed = heightsIn(cell, 0, -1, 5, 3, frame + 1, frame + 1);
+                check(overAt(edgeX, fromY) == Footings.OPEN && overAt(edgeX, fromY + 7) == Footings.OPEN,
+                        "the near chunk's edge under the room is open" + order + ": " + overAt(edgeX, fromY) + " " + overAt(edgeX, fromY + 7));
+                check(overAt(edgeX + 1, fromY) == Footings.BUILT && overAt(edgeX + 2, fromY + 7) == Footings.BUILT && overAt(edgeX + 3, fromY + 3) == Footings.OPEN,
+                        "and the far chunk's squares under the signs and round them in it are built over, and none further off," + order);
+                Terrain.forget();
+                Map<String, String> whole = heightsIn(cell, 0, -1, 5, 3, frame + 2, frame + 2);
+                List<String> differ = differing(whole, streamed);
+                check(differ.isEmpty(), "every chunk has the heights it has with both loaded at once" + order + ": " + differ.size() + " of " + whole.size() + " differ, "
+                        + differ.subList(0, Math.min(12, differ.size())));
+                if (nearFirst == null) {
+                    nearFirst = streamed;
+                } else {
+                    differ = differing(nearFirst, streamed);
+                    check(differ.isEmpty(), "and the heights are the same whichever chunk loads first: " + differ.size() + " of " + streamed.size() + " differ, "
+                            + differ.subList(0, Math.min(12, differ.size())));
+                }
+            }
+        } finally {
+            Terrain.rooms = rooms;
+            ChunkMarks.live = live;
+            Terrain.forget();
+            MapAhead.forget();
+        }
+    }
+
+    /**
+     * A loaded chunk's rooms are the map's (Terrain.rooms), as the game gives them when the chunk
+     * loads from the save (IsoChunk.LoadFromDiskOrBufferInternal). On the chunk's first load it
+     * gives no room to a square the lotpack has no tile on, on the ground or beside a tile above
+     * it (IsoCell.PlaceLot), and it makes a square above the ground for a tile it then lays
+     * nothing for, which the save does not keep (IsoChunk.Save). A house whose room upstairs runs
+     * out over the yard, with a square of its ground and one of its upstairs that have no tile,
+     * and a basement out under the yard, has the same heights on its first load as from the save.
+     */
+    private static void aChunkHasTheHeightsOnItsFirstLoadThatItHasFromTheSave() {
+        boolean live = ChunkMarks.live;
+        Terrain.Rooms rooms = Terrain.rooms;
+        Terrain.HILLS.heighten(1f);
+        Country.set(List.of());
+        long middle = Footings.key(12f, 12f);
+        try {
+            ChunkMarks.live = true;
+            // The map's house: on the ground over x 9 to 14 and y 9 to 11, with a basement out to y 12 and a room upstairs out to y 15.
+            Terrain.rooms = (cell, x, y, z) -> x >= 9 && x < 15 && y >= 9 && y < (z == 0 ? 12 : z == -1 ? 13 : z == 1 ? 16 : 9) ? middle : Footings.NONE;
+            Map<String, String> first = null;
+            for (boolean fromSave : new boolean[] {false, true}) {
+                MapAhead.forget();
+                Terrain.forget();
+                Town town = new Town(false);
+                IsoCell cell = town.map.cell;
+                IsoBuilding house = new IsoBuilding(new BuildingDef(9, 9, 9, 6, 6));
+                for (int x = -16; x < 40; x++) {
+                    for (int y = -16; y < 40; y++) {
+                        IsoGridSquare ground = cell.square(x, y, 0);
+                        boolean inside = x >= 9 && x < 15 && y >= 9 && y < 12, tiled = x != 10 || y != 10;
+                        if (tiled) {
+                            ground.floor(inside ? town.inside : town.grass);
+                        }
+                        if (inside && (tiled || fromSave)) {
+                            ground.building(house);
+                        }
+                    }
+                }
+                // Upstairs: the floor, and the squares the game makes round it on every load, which on the first load have no room where they have no tile.
+                for (int x = 8; x < 16; x++) {
+                    for (int y = 8; y < 15; y++) {
+                        IsoGridSquare upstairs = cell.square(x, y, 1);
+                        boolean floored = x >= 9 && x < 15 && y >= 9 && y < 14 && (x != 11 || y != 13);
+                        if (floored) {
+                            upstairs.floor(town.inside);
+                        }
+                        if (floored || fromSave && x >= 9 && x < 15 && y >= 9) {
+                            upstairs.building(house);
+                        }
+                    }
+                }
+                if (!fromSave) {
+                    // A tile the game drops, two squares past the floor: its square, in the room, and the squares round it.
+                    for (int x = 11; x < 14; x++) {
+                        for (int y = 14; y < 17; y++) {
+                            cell.square(x, y, 1);
+                        }
+                    }
+                    cell.square(12, 15, 1).building(house);
+                }
+                String load = fromSave ? " from the save" : " on the first load";
+                int frame = fromSave ? 9612 : 9611;
+                Map<String, String> heights = heightsIn(cell, -1, -1, 3, 3, frame, frame);
+                check(houseAt(10, 10) == middle && (standsAt(10, 10) & Terrain.ROOMED) != 0, "a square of the ground in a room, with no tile, is the house's, with the room on it," + load);
+                check(houseAt(12, 12) == middle, "and so is a square of the yard over the basement, with no square under it," + load);
+                check(overAt(11, 13) == Footings.BUILT && overAt(12, 14) == Footings.BUILT,
+                        "the room upstairs is over the yard on the squares with no tile the game makes beside its floor" + load + ": " + overAt(11, 13) + " " + overAt(12, 14));
+                check(overAt(12, 15) == Footings.OPEN, "and over none of it where the game makes a square only for a tile it drops" + load + ": " + overAt(12, 15));
+                if (first == null) {
+                    first = heights;
+                } else {
+                    List<String> differ = differing(first, heights);
+                    check(differ.isEmpty(), "and the chunks have the same heights on the first load as from the save: " + differ.size() + " of " + heights.size() + " differ, "
+                            + differ.subList(0, Math.min(12, differ.size())));
+                }
+            }
+        } finally {
+            Terrain.rooms = rooms;
             ChunkMarks.live = live;
             Terrain.forget();
             MapAhead.forget();

@@ -108,7 +108,7 @@ final class MapAhead {
         final boolean[] footway = new boolean[SQUARES];
         /** The lines painted on a road's square, as Lanes.mark gives them, as Terrain.Kinds keeps them. */
         final byte[] marks = new byte[SQUARES];
-        /** The middle of the building whose pad the square is part of (Terrain.footingOf), as Footings.key packs it, or Footings.NONE. */
+        /** The middle of the building whose pad the square is part of, as Footings.key packs it, or Footings.NONE: as Terrain's records have it (Kinds.house). */
         final long[] house = new long[SQUARES];
         /** What stands on the ground of the square, as Terrain.standsOf reads it of a loaded square. */
         final short[] stands = new short[SQUARES];
@@ -250,7 +250,7 @@ final class MapAhead {
             for (int j = 0; j < CHUNK; j++) {
                 int at = i * CHUNK + j, x = raw.wx * CHUNK + i, y = raw.wy * CHUNK + j;
                 long house = rooms.house(x, y, 0);
-                // A basement's pad reaches out under the yard over it, as Terrain.footingOf has it.
+                // A basement's pad reaches out under the yard over it, as Terrain's records have it (Kinds.house).
                 guess.house[at] = house != Footings.NONE ? house : rooms.house(x, y, -1);
                 // The game's own rule for outside (IsoGridSquare.RecalcProperties): no room, and nothing over it that keeps the rain off.
                 boolean outside = house == Footings.NONE && (raw.above[at] & BLOCKS_RAIN) == 0;
@@ -268,10 +268,16 @@ final class MapAhead {
                 stands |= (ground & WALL_W) != 0 ? Terrain.WEST_WALL : 0;
                 stands |= house != Footings.NONE ? Terrain.ROOMED : 0;
                 guess.stands[at] = (short) (stands | raw.quarters[at]);
-                int over = raw.above[at];
+                int over = raw.above[at], reach = 0;
+                for (int ni = Math.max(i - 1, 0); ni <= Math.min(i + 1, CHUNK - 1); ni++) {
+                    for (int nj = Math.max(j - 1, 0); nj <= Math.min(j + 1, CHUNK - 1); nj++) {
+                        reach |= raw.levels[ni * CHUNK + nj];
+                    }
+                }
                 boolean built = (over & (FLOOR | BUILT_UP)) != 0;
-                for (int z = 1; z <= Lotpack.HIGHEST && !built; z++) {
-                    built = (raw.levels[at] & 1 << z) != 0 && rooms.house(x, y, z) != Footings.NONE;
+                // A room above the ground is over the square on the levels the game makes it on every load of the chunk, as Terrain.above has it: up to the highest level a tile is on, on this square or on one round it in the chunk (IsoChunk.loadInWorldStreamerThread, ensureNotNull3x3).
+                for (int z = 1; z < Integer.SIZE - Integer.numberOfLeadingZeros(reach) && !built; z++) {
+                    built = rooms.house(x, y, z) != Footings.NONE;
                 }
                 guess.above[at] = built ? Footings.BUILT : (over & ANY) != 0 ? Footings.HUNG : Footings.OPEN;
                 guess.level[at] = raw.level[at];
@@ -281,7 +287,7 @@ final class MapAhead {
     }
 
     /** The buildings of the game's map. */
-    private static final Rooms ROOMS = (x, y, z) -> {
+    static final Rooms ROOMS = (x, y, z) -> {
         RoomDef room = IsoWorld.instance.getMetaGrid().getRoomAt(x, y, z);
         BuildingDef def = room == null ? null : room.getBuilding();
         return def == null ? Footings.NONE : Footings.key(def.getX() + def.getW() / 2f, def.getY() + def.getH() / 2f);
