@@ -29,9 +29,9 @@ final class BuildThreads {
 
     /**
      * The one lock over what the builds share and change as they go (the roofs, the wall finishes, the heights, room
-     * daylight, the sets' numbers, the game's light): a build thread holds it for each asking. Taken in that order
-     * nowhere else, so there is no other lock to wait on under it, and what the logic thread does for a build thread
-     * as it waits (onLogicThread) never takes it.
+     * daylight, the sets' numbers, the game's light): a build thread holds it for each asking, and the logic thread
+     * holds it for what it does for a build thread as it waits (onLogicThread), which may read the game's light too.
+     * No other lock is waited on under it.
      */
     static final Object SHARED = new Object();
 
@@ -142,7 +142,10 @@ final class BuildThreads {
                 if (ask == DONE) {
                     left--;
                 } else {
-                    ask.run();
+                    // Under SHARED, so that the game's light, which what is asked may read, is read by one thread at a time.
+                    synchronized (SHARED) {
+                        ask.run();
+                    }
                 }
             }
             for (Future<?> each : running) {
@@ -158,12 +161,15 @@ final class BuildThreads {
 
     /**
      * What has to be done on the logic thread, done there: at once on the logic thread itself, and from a build
-     * thread by the logic thread as it waits on the build, while this one waits for the answer. What is asked
-     * never takes SHARED, which the build thread asking may hold.
+     * thread by the logic thread as it waits on the build, under SHARED, while this one waits for the answer. A
+     * build thread holding SHARED cannot ask, as the logic thread would wait on it for the lock.
      */
     static <T> T onLogicThread(Supplier<T> work) {
         if (!here()) {
             return work.get();
+        }
+        if (Thread.holdsLock(SHARED)) {
+            throw new IllegalStateException(Thread.currentThread().getName() + " asked the logic thread for something holding the builds' lock, which it would wait on");
         }
         FutureTask<T> task = new FutureTask<>(work::get);
         asked.add(task);
