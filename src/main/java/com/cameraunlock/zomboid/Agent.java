@@ -1262,11 +1262,11 @@ public final class Agent {
      * Apart again, and each from the other: where the game changes what a build of a chunk is
      * made from and marks nothing. Erosion's vines and moss hung on a wall and taken off it, the
      * dirt a story stamps on a floor and the four beside it, the graffiti it sprays, a compost
-     * bin filling, a door, a built door or a curtain the game moves without a sound, a hearth or
-     * a barbecue lit or put out, and a square put on the map where there was none. Without one of
-     * them the change waits for the chunk's next sweep (WorldScene.sweptEvery), half a second or
-     * more by the eye and six seconds or more far off, unless the chunk is read sooner for
-     * something else.
+     * bin filling, a door, a built door or a curtain the game moves without a sound, a plank or
+     * metal broken off a barricade, a hearth or a barbecue lit or put out, and a square put on
+     * the map where there was none. Without one of them the change waits for the chunk's next
+     * sweep (WorldScene.sweptEvery), half a second or more by the eye and six seconds or more
+     * far off, unless the chunk is read sooner for something else.
      */
     static List<Patch> unmarkedChangePatches() {
         String marks = "com/cameraunlock/zomboid/ChunkMarks", overlay = "zombie/erosion/obj/ErosionObjOverlay", square = "zombie/iso/IsoGridSquare",
@@ -1304,6 +1304,14 @@ public final class Agent {
                     new CallSite.Method(door, "ToggleDoorSilent", "()V"), new CallSite.Method(square, "setRecalcLightTime", "(F)V"),
                     code -> CallSite.passThis(code, changed), 1)));
         }
+        // A blow, a zombie's or a weapon's, wears down the barricade's metal sheet, else its metal bars, else a plank, and has its sprite chosen again only as one of them breaks.
+        // A server's client is sent what is left of each instead (syncIsoObjectReceive), which it writes and returns once, choosing no sprite.
+        String barricade = "zombie/iso/objects/IsoBarricade";
+        patches.add(new Patch(barricade, "Damage telling of what it breaks off the barricade", classBytes -> CallSite.insertAfterEach(classBytes,
+                new CallSite.Method(barricade, "Damage", "(F)V"), new CallSite.Method(barricade, "chooseSprite", "()V"),
+                code -> CallSite.passThis(code, changed), 3)));
+        patches.add(new Patch(barricade, "syncIsoObjectReceive telling of what the server says is left of the barricade", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                new CallSite.Method(barricade, "syncIsoObjectReceive", "(Lzombie/core/network/ByteBufferReader;)V"), code -> CallSite.passThis(code, changed))));
         for (String fire : new String[] {"zombie/iso/objects/IsoFireplace", "zombie/iso/objects/IsoBarbecue"}) {
             patches.add(new Patch(fire, "setLit telling of a fire lit or put out", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
                     new CallSite.Method(fire, "setLit", "(Z)V"), code -> {
