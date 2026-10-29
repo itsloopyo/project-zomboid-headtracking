@@ -6188,7 +6188,9 @@ final class WorldScene {
             String differs = solidFloats != floatsOf(other.solid) || laidFloats != floatsOf(other.laid) ? "in its vertices"
                     : !sameSites ? "in its light sites"
                     : !crowns.same(other.crownsRead) ? "in its crowns"
-                    : !samePlaced(fresh.placed, into.placed) || fresh.lying.size() != into.lying.size() ? "in the models it places or the bodies it lays"
+                    : fresh.placed.count != into.placed.count ? "in how many models it places, " + fresh.placed.count + " against " + into.placed.count
+                    : !samePlaced(fresh.placed, into.placed) ? "in the models it places"
+                    : fresh.lying.size() != into.lying.size() ? "in how many bodies it lays, " + fresh.lying.size() + " against " + into.lying.size()
                     : alike != other.alike || fresh.plain != into.plain || fresh.grows != into.grows || fresh.seasonal != into.seasonal || fresh.roomsBySight != into.roomsBySight
                             || fresh.filledUnshown != into.filledUnshown || fresh.terrainVersion != into.terrainVersion || !Arrays.equals(fresh.groundLayers, into.groundLayers)
                             ? "in what it says of itself"
