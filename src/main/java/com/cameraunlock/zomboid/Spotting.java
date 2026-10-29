@@ -141,8 +141,9 @@ final class Spotting {
     private final RoomSight.Kept roomsKept = new RoomSight.Kept();
 
     /** Dev only: what the rounds came to since they were last said. */
-    private long frames, passes, late, passNanos, longestPassNanos, sliceNanos, longestSliceNanos, longestBeginNanos, longestEndNanos, squaresRead, seenAsked,
-            sampled, seenOutOfSight, spotted, marked, letGo, readAfresh, readUnchanged, saidNanos;
+    private long frames, passes, late, passNanos, longestPassNanos, sliceNanos, longestSliceNanos, longestSliceAfresh, begins, gatherNanos, longestGatherNanos,
+            beginNanos, longestBeginNanos, workNanos, longestWorkNanos, longestEndNanos, squaresRead, seenAsked, foundSeen, seenTimed, seenTimedNanos, unseenTimed,
+            unseenTimedNanos, sampled, seenOutOfSight, spotted, marked, letGo, readAfresh, readUnchanged, saidNanos;
     /** Dev only, under this object's lock: the turns found as a round asked and by other reads of the light. */
     private long turnsAsked, turnsAside;
     /**
@@ -293,27 +294,45 @@ final class Spotting {
             // A round the frames were too slow to finish in its quarter second goes on over the next, and the next round begins once it is done.
             boolean begun = !open && due(now);
             if (begun) {
+                long gathering = CHECK ? System.nanoTime() : 0L;
                 gather(frame, cell, now);
+                long beginning = CHECK ? System.nanoTime() : 0L;
                 begin(cell, shownRooms, defs, shownChunks, frame::lightFrom, frame::lightTop);
                 if (CHECK) {
-                    longestBeginNanos = Math.max(longestBeginNanos, System.nanoTime() - began);
+                    long begunAt = System.nanoTime();
+                    begins++;
+                    gatherNanos += beginning - gathering;
+                    longestGatherNanos = Math.max(longestGatherNanos, beginning - gathering);
+                    beginNanos += begunAt - beginning;
+                    longestBeginNanos = Math.max(longestBeginNanos, begunAt - beginning);
                 }
             }
             // The frame that begins a round counts the beginning against its time; any other does at least a unit.
-            if (open && (!begun || System.nanoTime() < deadline) && work(cell, deadline)) {
-                long ending = CHECK ? System.nanoTime() : 0L;
-                finish(cell);
-                finished = true;
+            if (open && (!begun || System.nanoTime() < deadline)) {
+                long working = CHECK ? System.nanoTime() : 0L;
+                boolean done = work(cell, deadline);
                 if (CHECK) {
-                    late += now - passedNanos >= EVERY_NANOS ? 1 : 0;
-                    longestEndNanos = Math.max(longestEndNanos, System.nanoTime() - ending);
+                    long worked = System.nanoTime() - working;
+                    workNanos += worked;
+                    longestWorkNanos = Math.max(longestWorkNanos, worked);
+                }
+                if (done) {
+                    long ending = CHECK ? System.nanoTime() : 0L;
+                    finish(cell);
+                    finished = true;
+                    if (CHECK) {
+                        late += now - passedNanos >= EVERY_NANOS ? 1 : 0;
+                        longestEndNanos = Math.max(longestEndNanos, System.nanoTime() - ending);
+                    }
                 }
             }
         } finally {
             passer = null;
         }
+        int sliceAfresh = 0;
         if (CHECK) {
-            readAfresh += count(true) - afresh;
+            sliceAfresh = count(true) - afresh;
+            readAfresh += sliceAfresh;
             readUnchanged += count(false) - unchanged;
         }
         long ended = System.nanoTime();
@@ -326,7 +345,10 @@ final class Spotting {
             longestPassNanos = Math.max(longestPassNanos, roundNanos);
         }
         sliceNanos += ended - began;
-        longestSliceNanos = Math.max(longestSliceNanos, ended - began);
+        if (ended - began > longestSliceNanos) {
+            longestSliceNanos = ended - began;
+            longestSliceAfresh = sliceAfresh;
+        }
         sayIfDue(now);
     }
 
@@ -878,9 +900,20 @@ final class Spotting {
     /** Whether the game has had a square in the player's sight, asked of its light, which may find it turned seen (turned). */
     private boolean asked(IsoGridSquare square) {
         seenAsked++;
+        // Dev only: one asking in sixteen is timed, those that find the square seen apart from the rest.
+        boolean timed = CHECK && (seenAsked & 15) == 0;
+        long from = timed ? System.nanoTime() : 0L;
         boolean seen = square.isSeen(playerIndex);
-        // Dev only: whether the game's seen stays on out of the player's sight, sampled from one square in sixteen.
-        if (CHECK && seen && (seenAsked & 15) == 0) {
+        if (timed) {
+            long took = System.nanoTime() - from;
+            seenTimed += seen ? 1 : 0;
+            seenTimedNanos += seen ? took : 0L;
+            unseenTimed += seen ? 0 : 1;
+            unseenTimedNanos += seen ? 0L : took;
+        }
+        foundSeen += seen ? 1 : 0;
+        // Dev only: whether the game's seen stays on out of the player's sight, sampled from the same askings.
+        if (timed && seen) {
             sampled++;
             seenOutOfSight += square.isCouldSee(playerIndex) ? 0 : 1;
         }
@@ -907,15 +940,21 @@ final class Spotting {
         }
         Log.info(String.format(Locale.ROOT,
                 "spotting: player %d, %.1f s, %d frames, %d rounds (%d over their quarter second) in %.3f ms each (longest %.3f), %.4f ms a frame (longest %.3f,"
-                        + " beginning a round up to %.3f, ending one up to %.3f);"
-                        + " squares read %d, asked whether seen %d (seen and out of sight in %d of %d sampled), light read afresh %d and found unchanged %d, chunk levels marked for their light %d times,"
-                        + " buildings spotted %d (rooms %d), rooms the light passed over %d, rooms in sight %d; squares found turned seen as a round asked %d and by other reads %d,"
-                        + " marked where the view sees them %d, waiting for the view %d, let go with their chunk %d; chunks known %d",
+                        + " with %d squares' light read afresh); gathering %.3f ms a round (longest %.3f), beginning %.3f (longest %.3f), the work %.4f ms a frame"
+                        + " (longest %.3f), ending a round up to %.3f; squares read %d, asked whether seen %d, found seen %d (of the askings timed, %d that found it at"
+                        + " %.2f us each and %d that did not at %.2f us; seen and out of sight in %d of %d), light read afresh %d and found unchanged %d,"
+                        + " chunk levels marked for their light %d times, buildings spotted %d (rooms %d), rooms the light passed over %d, rooms in sight %d; squares found"
+                        + " turned seen as a round asked %d and by other reads %d, marked where the view sees them %d, waiting for the view %d, let go with their chunk %d;"
+                        + " chunks known %d",
                 playerIndex + 1, (now - saidNanos) / 1e9, frames, passes, late, passNanos / 1e6 / Math.max(1, passes), longestPassNanos / 1e6,
-                sliceNanos / 1e6 / Math.max(1, frames), longestSliceNanos / 1e6, longestBeginNanos / 1e6, longestEndNanos / 1e6, squaresRead, seenAsked, seenOutOfSight, sampled, readAfresh, readUnchanged, levelsMarked.sumThenReset(),
-                spotted, roomsSpotted.sumThenReset(), roomsLeftByLight.sumThenReset(), roomsKept.size(), asked, aside, marked, waiting(), letGo, knownAt.size()));
+                sliceNanos / 1e6 / Math.max(1, frames), longestSliceNanos / 1e6, longestSliceAfresh, gatherNanos / 1e6 / Math.max(1, begins), longestGatherNanos / 1e6,
+                beginNanos / 1e6 / Math.max(1, begins), longestBeginNanos / 1e6, workNanos / 1e6 / Math.max(1, frames), longestWorkNanos / 1e6, longestEndNanos / 1e6,
+                squaresRead, seenAsked, foundSeen, seenTimed, seenTimedNanos / 1e3 / Math.max(1, seenTimed), unseenTimed, unseenTimedNanos / 1e3 / Math.max(1, unseenTimed),
+                seenOutOfSight, sampled, readAfresh, readUnchanged, levelsMarked.sumThenReset(), spotted, roomsSpotted.sumThenReset(), roomsLeftByLight.sumThenReset(),
+                roomsKept.size(), asked, aside, marked, waiting(), letGo, knownAt.size()));
         saidNanos = now;
-        frames = passes = late = passNanos = longestPassNanos = sliceNanos = longestSliceNanos = longestBeginNanos = longestEndNanos = squaresRead = seenAsked = sampled = seenOutOfSight = spotted
-                = marked = letGo = readAfresh = readUnchanged = 0;
+        frames = passes = late = passNanos = longestPassNanos = sliceNanos = longestSliceNanos = longestSliceAfresh = begins = gatherNanos = longestGatherNanos = beginNanos
+                = longestBeginNanos = workNanos = longestWorkNanos = longestEndNanos = squaresRead = seenAsked = foundSeen = seenTimed = seenTimedNanos = unseenTimed
+                = unseenTimedNanos = sampled = seenOutOfSight = spotted = marked = letGo = readAfresh = readUnchanged = 0;
     }
 }
