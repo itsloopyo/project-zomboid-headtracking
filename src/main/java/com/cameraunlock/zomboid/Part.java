@@ -32,7 +32,11 @@ enum Part {
     FAR_VEHICLES_AND_ZOMBIES("FirstPerson", "FarVehiclesAndZombies", true, false,
             "true: in first person a vehicle, zombie or animal within sight is drawn wherever the game's own screen ends,\n"
                     + "and so is another player where players cannot fight. false: each is drawn only where the game's own view\n"
-                    + "would show it.");
+                    + "would show it."),
+    QUICK_RAGDOLLS("FirstPerson", "QuickRagdolls", false, true,
+            "true: while anyone plays in first person a body that is hit goes into its ragdoll at once, and a first person\n"
+                    + "shot pushes it along the shot, at the place it went in. false: bodies go into their ragdolls as the game's own\n"
+                    + "blends have them.");
 
     final String section, key, comment;
     /** Whether the row is taken while the game runs, and whether it is read at the start to leave patches out. */

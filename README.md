@@ -489,6 +489,11 @@ ShotImpacts=true
 ; and so is another player where players cannot fight. false: each is drawn only where the game's own view
 ; would show it.
 FarVehiclesAndZombies=true
+; true: while anyone plays in first person a body that is hit goes into its ragdoll at once, and a first person
+; shot pushes it along the shot, at the place it went in. false: bodies go into their ragdolls as the game's own
+; blends have them.
+; Taken at the next start. Off, its patches of the game's code are left out.
+QuickRagdolls=true
 
 [Players]
 ; Player 2's first person graphics mode, as Quality.

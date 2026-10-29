@@ -698,7 +698,7 @@ public final class CoreTests {
     }
 
     /** The sets of patches first person alone uses, which FirstPersonEnabled off leaves out while lamps and glass still break. */
-    private static final String FIRST_PERSON_SETS = "torch, first person, fine skins, shot, thunder, name tags, covered, screen grey, far vehicles, loading, chunk marks, "
+    private static final String FIRST_PERSON_SETS = "torch, first person, ragdolls, fine skins, shot, thunder, name tags, covered, screen grey, far vehicles, loading, chunk marks, "
             + "window marks, unmarked changes, hushed marks, hearing, waiting composites, spotting";
 
     /** Each row read as the game starts, and the sets of patches the next start leaves out with it alone off. */
@@ -707,6 +707,7 @@ public final class CoreTests {
         {"HearFromTheEye", "hearing"},
         {"LightningBolts", "thunder"},
         {"ShotImpacts", "none"},
+        {"QuickRagdolls", "ragdolls"},
     };
 
     private static String leftOutLine(String output) {
@@ -806,7 +807,7 @@ public final class CoreTests {
         for (CameraUnlock.Option option : options) {
             ids.append(option.id).append(' ');
         }
-        check(ids.toString().equals("WorldSpaceYaw TrackingMode AimMode FirstPersonEnabled FieldOfView Quality IsometricQuality Style FirstPerson HillHeight MuzzleFlash Crosshair RegripTwoHandedWeapons SplitScreen TorchFollowsHead HearFromTheEye LightningBolts ShotImpacts FarVehiclesAndZombies "
+        check(ids.toString().equals("WorldSpaceYaw TrackingMode AimMode FirstPersonEnabled FieldOfView Quality IsometricQuality Style FirstPerson HillHeight MuzzleFlash Crosshair RegripTwoHandedWeapons SplitScreen TorchFollowsHead HearFromTheEye LightningBolts ShotImpacts FarVehiclesAndZombies QuickRagdolls "
                         + "SecondPlayerQuality SecondPlayerIsometricQuality SecondPlayerStyle SecondPlayerFirstPerson ThirdPlayerQuality ThirdPlayerIsometricQuality ThirdPlayerStyle "
                         + "ThirdPlayerFirstPerson FourthPlayerQuality FourthPlayerIsometricQuality FourthPlayerStyle FourthPlayerFirstPerson TreeQuality "
                         + "GrassDensity RenderScale ViewDistance ZombiesAndPropsDrawDistance FarTreeDistance RainOnGlass ShadingAndLight Reflections ReflectionScale "
@@ -823,7 +824,7 @@ public final class CoreTests {
                 page.append(options[option].id).append(' ');
             }
         }
-        check(page.toString().equals("[Tracking] TrackingMode AimMode WorldSpaceYaw [First person] FirstPersonEnabled FirstPerson FieldOfView Crosshair HillHeight TorchFollowsHead HearFromTheEye LightningBolts ShotImpacts FarVehiclesAndZombies [Weapons] MuzzleFlash RegripTwoHandedWeapons "
+        check(page.toString().equals("[Tracking] TrackingMode AimMode WorldSpaceYaw [First person] FirstPersonEnabled FirstPerson FieldOfView Crosshair HillHeight TorchFollowsHead HearFromTheEye LightningBolts ShotImpacts FarVehiclesAndZombies QuickRagdolls [Weapons] MuzzleFlash RegripTwoHandedWeapons "
                         + "[Graphics] Quality IsometricQuality Style [Custom graphics] TreeQuality GrassDensity RenderScale ViewDistance ZombiesAndPropsDrawDistance "
                         + "FarTreeDistance RainOnGlass ShadingAndLight Reflections ReflectionScale FullSizeTextures SurfaceDepth SharpShadows WholeFigureShadows FrameBlending "
                         + "LightDistance CorpseModels [Optimizations] SpreadLightUpdates [Vanilla content] VanillaWeapons VanillaFurniture VanillaPictures VanillaPlants VanillaTextures VanillaBuildings "
