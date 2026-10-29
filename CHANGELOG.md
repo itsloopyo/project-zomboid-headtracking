@@ -31,6 +31,7 @@
 - A shop window's display stands, such as the mannequin stands behind the glass, no longer flicker against the glass along the window's foot.
 - In first person, a fireplace or barbecue lit or put out, a compost bin filling or emptying, a plank knocked off a barricade, a body the game's corpse removal clears away, and vines and cracks spreading on walls and streets now show as they change, and a part of the map you come back to shows what changed there while you were away. Each could wait half a second or more close by, and six seconds or more further off.
 - In first person, a building fills with zombies when you first see into one of its rooms on your floor from close enough, by the game's own rule, and no longer by where the mod happened to work out the light round you. What you have seen counts as seen for the game's random scenes, such as car crashes, the same way.
+- In first person, the sides of a doorway or window with no frame of its own, such as the doorways and serving hatches in Spiffo's, are painted the colour of the wall. They were bare white, and showed as a pale strip down the edge of the opening and beside a shut door.
 
 ## [0.1.1] - 2026-10-28
 
