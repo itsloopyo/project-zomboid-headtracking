@@ -1,6 +1,5 @@
 package com.cameraunlock.zomboid;
 
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicReferenceArray;
@@ -53,6 +52,17 @@ import zombie.util.list.PZArrayList;
  *
  * Heights are kept at the corners of the squares, a chunk at a time. The logic thread works
  * them out and both threads read them.
+ *
+ * They go by the map and by nothing that was loaded or asked for before. What each chunk's
+ * squares are is read into a record of the chunk (Kinds): from its squares where it is loaded,
+ * from the map's files where it is not and MapAhead has read them, and as UNKNOWN where
+ * neither has it. Whatever is worked out from records, a footing, a pad, a chunk's heights, is
+ * kept with the chunks it went by (Reads), and holds while none of them has come out
+ * otherwise. A record is read again when its chunk loads or is let go, and when what MapAhead
+ * holds of the chunk is another (scan). Only where it then comes out otherwise is what went by
+ * it worked out again: where the save has a chunk as the map's files do, nothing is. What the
+ * game changes in a loaded chunk later, a wall built or burnt down, is read when the chunk
+ * loads again.
  *
  * There are two lies of the land, the hills and the country left level, and each player's
  * view is drawn on one of them (WorldScene.terrain): what a square is made of is the same for
@@ -110,14 +120,10 @@ final class Terrain {
 
     private static final class Grid {
         int wx, wy;
-        boolean settled;
-        /** The frame it was worked out in, and when. */
+        /** The frame it was worked out in. */
         int stamp;
-        long stampNanos;
         /** The frame it was last asked for in: of the chunks that share a place in the table, the one asked for longest ago makes way. */
         int used;
-        /** Which chunks the map had loaded when it was worked out: see loaded. */
-        int loaded;
         /** A number no other heights have had: the same as the grid's before it when nothing of it came out otherwise. */
         int version;
         final float[] heights = new float[CORNERS * CORNERS];
@@ -135,17 +141,18 @@ final class Terrain {
         long folded;
         /** The gain they were worked out at. */
         float gain;
+        /** The chunks they were worked out from: they hold while none of those has come out otherwise. */
+        Reads reads;
+        /** Whether one has since: they are worked out again as the frame has the time (corners). */
+        boolean stale;
 
         Grid() {}
 
         Grid(Grid source) {
             wx = source.wx;
             wy = source.wy;
-            settled = source.settled;
             stamp = source.stamp;
-            stampNanos = source.stampNanos;
             used = source.used;
-            loaded = source.loaded;
             version = source.version;
             System.arraycopy(source.heights, 0, heights, 0, heights.length);
             System.arraycopy(source.water, 0, water, 0, water.length);
@@ -156,12 +163,63 @@ final class Terrain {
             from = source.from;
             folded = source.folded;
             gain = source.gain;
+            reads = source.reads;
+            stale = source.stale;
         }
     }
 
+    /** Where a record was read from: the chunk's squares, what MapAhead read of the map's files, or neither, with every square UNKNOWN. */
+    private static final byte LOADED = 0, READ_AHEAD = 1, UNREAD = 2;
+
+    /**
+     * What stands on the ground of a square, as standsOf reads it, a bit each: a stair, or a roof
+     * tile that is no quarter of a round canopy; a building's wall along the square's north side,
+     * and along its west; a room of a building on the square; and from ROOF_QUARTERS on the
+     * quarters of a round canopy (Parasols.quarter) that are roof tiles, and from HELD_QUARTERS on
+     * those of any kind, a bit for each quarter.
+     */
+    static final int STAIR_OR_ROOF = 1, NORTH_WALL = 1 << 1, WEST_WALL = 1 << 2, ROOMED = 1 << 3;
+    static final int ROOF_QUARTERS = 4, HELD_QUARTERS = 8;
+
+    /**
+     * The record of a chunk: what each of its squares is, read of the square alone (read), what
+     * is over each square, which goes by the squares round it as well (deriveFrom), and what made
+     * thing stands over each (footed).
+     */
     private static final class Kinds {
         int wx, wy;
+        /** Where it was read from: LOADED, READ_AHEAD or UNREAD. */
+        byte source;
+        /** What MapAhead had read of the chunk where it was read from that, and otherwise null. */
+        MapAhead.Guess guess;
         final byte[] kinds = new byte[CHUNK_TILES * CHUNK_TILES];
+        /** Whether the square is made ground that is no road: a yard, a path, or the pale paving the game lays along a street as its footway. */
+        final boolean[] footway = new boolean[CHUNK_TILES * CHUNK_TILES];
+        /** The straight lines the game paints on the square, as Lanes.mark gives them. */
+        final byte[] marks = new byte[CHUNK_TILES * CHUNK_TILES];
+        /** The middle of the building whose pad the square is part of (footingOf), as Footings.key packs it, or Footings.NONE. */
+        final long[] house = new long[CHUNK_TILES * CHUNK_TILES];
+        /** What the square is to level ground (groundOf), as Grounds names it. */
+        final byte[] level = new byte[CHUNK_TILES * CHUNK_TILES];
+        /** What is over the square on the levels above it (above). */
+        final byte[] above = new byte[CHUNK_TILES * CHUNK_TILES];
+        /** What stands on the ground of the square (standsOf). */
+        final short[] stands = new short[CHUNK_TILES * CHUNK_TILES];
+        /** Whether no square is UNKNOWN, and whether then some square is water. */
+        boolean whole, water;
+        /**
+         * Whether over, hard, builtOn and sum are worked out from what the squares are and what
+         * those of the eight chunks round it are: while it is, those eight have records.
+         */
+        boolean derived;
+        /** What is over each square, as Footings.Site.over tells it. */
+        final byte[] over = new byte[CHUNK_TILES * CHUNK_TILES];
+        /** Whether a building or something built stands on the square's own ground, which a kerb's line keeps out of. */
+        final boolean[] hard = new boolean[CHUNK_TILES * CHUNK_TILES];
+        /** How many of the squares are hard where the chunk is whole, and 0 where it is not. */
+        int builtOn;
+        /** What the squares are, kinds, hard, footway and marks, as one number. */
+        long sum;
         /** The middle of the made thing that stands over each square, as Footings finds it. NaN where there is none. */
         final float[] midX = new float[CHUNK_TILES * CHUNK_TILES], midY = new float[CHUNK_TILES * CHUNK_TILES];
         /** Of a thing of level ground, the box of its ruler (Footings.ruler), whose middle midX and midY are and whose footing it is laid at, as box has them. */
@@ -170,69 +228,82 @@ final class Terrain {
         final boolean[] free = new boolean[CHUNK_TILES * CHUNK_TILES];
         /** Of a thing of level ground, the box Terrain lays level (Footings.boxed): its first corner and its last, four to a square. NaN where there is none. */
         final float[] box = new float[4 * CHUNK_TILES * CHUNK_TILES];
-
-        {
-            Arrays.fill(box, Float.NaN);
-            Arrays.fill(rulerBox, Float.NaN);
-        }
-        /** Whether a building or something built stands on the square's own ground, which a kerb's line keeps out of. */
-        final boolean[] hard = new boolean[CHUNK_TILES * CHUNK_TILES];
-        /** Whether the square is made ground that is no road: a yard, a path, or the pale paving the game lays along a street as its footway. */
-        final boolean[] footway = new boolean[CHUNK_TILES * CHUNK_TILES];
-        /** The straight lines the game paints on the square, as Lanes.mark gives them. */
-        final byte[] marks = new byte[CHUNK_TILES * CHUNK_TILES];
-        /** Whether every square of the chunk was loaded: then it is kept, and is the same whenever it is asked for. */
-        boolean whole;
-        /** Whether it is what the map's files have of a chunk not loaded (MapAhead), which the save may have otherwise. */
-        boolean guessed;
-        /** Whether footed has filled in midX, midY and free; whether what it found can no longer change; and the map it found it on. */
-        boolean footed, footSettled;
-        long footedAsOf;
-        /**
-         * Which squares footed found open (Footings.open), and whether the chunk and the eight
-         * round it were all loaded then: what over says of a square goes by the chunks round
-         * it, and while they stay loaded an open square is open still and is not asked again.
-         */
-        final boolean[] open = new boolean[CHUNK_TILES * CHUNK_TILES];
-        boolean ringLoaded;
-        boolean water;
-        /** How many of the squares have a building or something built standing on them: see hard. */
-        int builtOn;
-        /** What the squares are, kinds, hard, footway and marks, as one number. They never change once the chunk is looked over. */
-        long sum;
+        /** Whether footed has filled in midX and the rest, and the chunks its searches went by. */
+        boolean footed;
+        Reads footReads;
         /** What footed last found, midX, midY and free, as one number; whether some square has a made thing over it, and whether one stands free. */
         long footSum;
         boolean anyThing, anyFree;
         /** As Grid.used. */
         int used;
+        /** Where it is in kept. */
+        int index;
 
-        /** Every field back to what new gives it. */
-        void reset() {
-            wx = 0;
-            wy = 0;
-            Arrays.fill(kinds, (byte) 0);
-            Arrays.fill(midX, 0f);
-            Arrays.fill(midY, 0f);
-            Arrays.fill(free, false);
+        Kinds(int wx, int wy) {
+            this.wx = wx;
+            this.wy = wy;
             Arrays.fill(box, Float.NaN);
             Arrays.fill(rulerBox, Float.NaN);
-            Arrays.fill(hard, false);
-            Arrays.fill(footway, false);
-            Arrays.fill(marks, (byte) 0);
-            whole = false;
-            guessed = false;
-            footed = false;
-            footSettled = false;
-            footedAsOf = 0L;
-            Arrays.fill(open, false);
-            ringLoaded = false;
-            water = false;
-            builtOn = 0;
-            sum = 0L;
-            footSum = 0L;
-            anyThing = false;
-            anyFree = false;
-            used = 0;
+        }
+    }
+
+    /**
+     * The chunks something was worked out from, from the first chunk to the last, and how many
+     * chunks the log had had when it was last found to hold: while none of them has been logged
+     * since, what was worked out from them is what working it out again would give.
+     */
+    private static final class Reads {
+        int lowX = Integer.MAX_VALUE, lowY = Integer.MAX_VALUE, highX = Integer.MIN_VALUE, highY = Integer.MIN_VALUE;
+        long heldTo;
+
+        Reads(long heldTo) {
+            this.heldTo = heldTo;
+        }
+
+        void add(int fromX, int fromY, int toX, int toY) {
+            lowX = Math.min(lowX, fromX);
+            lowY = Math.min(lowY, fromY);
+            highX = Math.max(highX, toX);
+            highY = Math.max(highY, toY);
+        }
+
+        void add(Reads other) {
+            add(other.lowX, other.lowY, other.highX, other.highY);
+        }
+
+        /** Whether none of the chunks has been logged since they last held, and if so that they hold now. */
+        boolean hold() {
+            if (!unchanged(lowX, lowY, highX, highY, heldTo)) {
+                return false;
+            }
+            heldTo = logged;
+            return true;
+        }
+    }
+
+    /** How a footing was worked out: at the middle of a thing (plainPad), over the box of a thing of level ground, or under the middle of a thing with the ground bare (freePad). */
+    private static final byte PLAIN = 0, BOXED = 1, BARE = 2;
+
+    /** A footing, how it was worked out, of a BOXED one the box it was worked out over as Kinds.rulerBox has it, and the chunks it went by. */
+    private static final class Pad {
+        final float pad;
+        final byte how;
+        final float lowX, lowY, highX, highY;
+        final Reads reads;
+
+        Pad(float pad, byte how, float[] boxes, int from, Reads reads) {
+            this.pad = pad;
+            this.how = how;
+            lowX = how == BOXED ? boxes[from] : Float.NaN;
+            lowY = how == BOXED ? boxes[from + 1] : Float.NaN;
+            highX = how == BOXED ? boxes[from + 2] : Float.NaN;
+            highY = how == BOXED ? boxes[from + 3] : Float.NaN;
+            this.reads = reads;
+        }
+
+        /** Whether it was worked out as the footing asked for now would be. */
+        boolean fits(byte how, float[] boxes, int from) {
+            return this.how == how && (how != BOXED || lowX == boxes[from] && lowY == boxes[from + 1] && highX == boxes[from + 2] && highY == boxes[from + 3]);
         }
     }
 
@@ -250,24 +321,44 @@ final class Terrain {
     /** How many times its height at 1 every rise of the land is: 0 for the level land, and the player's for the hills. Set by the logic thread. */
     private volatile float gain;
     private final AtomicReferenceArray<Grid> grids = new AtomicReferenceArray<>(TABLE_SIDE * TABLE_SIDE * WAYS);
-    private static final Kinds[] known = new Kinds[TABLE_SIDE * TABLE_SIDE * WAYS];
-    private static final Kinds passing = new Kinds();
+    /** How many records a place in records keeps: see KEPT_AROUND. */
+    private static final int RECORD_WAYS = 2 * View.COUNT;
+    private static final Kinds[] records = new Kinds[TABLE_SIDE * TABLE_SIDE * RECORD_WAYS];
+    /** Every record in records, each at its index, for scan to go over. */
+    private static final ArrayList<Kinds> kept = new ArrayList<>();
     /**
-     * What the chunks that are not whole are made of, by chunk, for as long as the map has the
-     * chunks loaded that it had when they were looked over. One height asks about the same
-     * chunk many times, and looking one over is a search for what each thing on it is joined to.
+     * Records of chunks further than this from every eye are let go (scan), in chunks. The map
+     * the game loads reaches some 76 tiles from the player, and what is worked out for a chunk
+     * of it goes by chunks round it to AROUND and, by footing searches and the water round a
+     * footing, some way past that. A record let go while what went by it is kept has that
+     * worked out again. One eye's records share a place in records with no more than three
+     * others, and two eyes' fit RECORD_WAYS.
      */
-    private static final LongTable<Kinds> unsure = new LongTable<>();
-    private static long unsureAsOf = Long.MIN_VALUE;
+    private static final int KEPT_AROUND = 40;
+    /** The chunk each view's eye was last over, where it has told of one (heighten). */
+    private static final int[] eyeChunkX = new int[View.COUNT], eyeChunkY = new int[View.COUNT];
+    private static final boolean[] eyed = new boolean[View.COUNT];
+    /** What scan reads a chunk into again, to set beside its record, and the records it found otherwise. */
+    private static final Kinds passing = new Kinds(0, 0);
+    private static final ArrayList<Kinds> otherwise = new ArrayList<>();
+    /** The records of a chunk and of the eight round it, x first, that deriveFrom works from. */
+    private static final Kinds[] ring = new Kinds[9];
     /**
-     * What unsure let go of when the map changed, for blank to fill again: driving, the map
-     * changes most frames, and each time the chunks round findWater not loaded were made anew.
-     * Nothing holds one past the frame: region is filled again before it is read.
+     * The chunks whose records came out otherwise or were let go, one after another, the last
+     * LOG of them, and how many there have been: see Reads.
      */
-    private static final ArrayDeque<Kinds> spare = new ArrayDeque<>();
-    /** The footings worked out for made things with no building in them that cannot be kept yet, for as long. */
-    private final LongTable<Float> padsForNow = new LongTable<>();
-    private long padsAsOf = Long.MIN_VALUE;
+    private static final int LOG = 1 << 14;
+    private static final long[] changeLog = new long[LOG];
+    private static long logged;
+    /**
+     * The chunks whose records drop let go of or set back since the log was last added to.
+     * They go in the log only when nothing is being worked out (flush): what is being worked
+     * out went by them as they were, and holds to the log as it was when it began.
+     */
+    private static long[] pending = new long[64];
+    private static int pendingCount;
+    /** What mapAsOf was at the last scan. */
+    private static long scannedAsOf = Long.MIN_VALUE;
 
     /**
      * A number that is another when the map may have other chunks loaded: the game's own count
@@ -289,66 +380,51 @@ final class Terrain {
     /** Which squares of around are of a thing of level ground with a box: see fill. */
     private static final boolean[] levelAround = new boolean[SPAN * SPAN];
     private static final Footings footings = new Footings();
-    /** The map Footings is asking about, while kinds runs. */
+    /** The map Footings is asking about while footed runs, and the record of the chunk it last asked about: it asks about the squares of one chunk in a row. */
     private static IsoCell siteCell;
+    private static Kinds siteKinds;
     private static final Footings.Site site = new Footings.Site() {
         @Override
         public byte over(int x, int y) {
-            IsoGridSquare square = ground(siteCell, x, y);
-            if (square == null) {
-                return guessedOver(x, y);
-            }
-            if (footingOf(siteCell, square, x, y) != null) {
-                return Footings.HOUSE;
-            }
-            if (stands(siteCell, square, x, y)) {
-                return Footings.BUILT;
-            }
-            if (groundOf(siteCell, square, x, y) != Grounds.NONE) {
-                return Footings.LEVEL;
-            }
-            byte over = above(siteCell, square, x, y);
-            if (over != Footings.OPEN) {
-                return over;
-            }
-            byte kind = kind(square);
-            return !Paving.without && (kind == STREET || kind == MADE) ? Footings.PAVED : Footings.OPEN;
-        }
-
-        @Override
-        public boolean loaded(int wx, int wy) {
-            // As findWater and kerbs take it: the map has every square of a chunk or none of it.
-            return ground(siteCell, wx * CHUNK_TILES + CHUNK_TILES / 2, wy * CHUNK_TILES + CHUNK_TILES / 2) != null;
-        }
-
-        @Override
-        public byte state(int wx, int wy) {
-            return loaded(wx, wy) ? Footings.LOADED : MapAhead.guessed(wx, wy) != null ? Footings.READ_AHEAD : Footings.NOT_LOADED;
+            return siteKinds(x, y).over[inChunk(x, y)];
         }
 
         @Override
         public long house(int x, int y) {
-            IsoGridSquare square = ground(siteCell, x, y);
-            if (square == null) {
-                return MapAhead.guessed(Math.floorDiv(x, CHUNK_TILES), Math.floorDiv(y, CHUNK_TILES)).house[inChunk(x, y)];
-            }
-            BuildingDef def = footingOf(siteCell, square, x, y);
-            return Footings.key(def.getX() + def.getW() / 2f, def.getY() + def.getH() / 2f);
+            return siteKinds(x, y).house[inChunk(x, y)];
         }
 
         @Override
         public byte levelKind(int x, int y) {
-            IsoGridSquare square = ground(siteCell, x, y);
-            return square != null ? groundOf(siteCell, square, x, y) : MapAhead.guessed(Math.floorDiv(x, CHUNK_TILES), Math.floorDiv(y, CHUNK_TILES)).level[inChunk(x, y)];
+            return siteKinds(x, y).level[inChunk(x, y)];
         }
 
         @Override
         public boolean paved(int x, int y) {
-            IsoGridSquare square = ground(siteCell, x, y);
-            byte kind = square == null ? MapAhead.guessed(Math.floorDiv(x, CHUNK_TILES), Math.floorDiv(y, CHUNK_TILES)).kind[inChunk(x, y)] : kind(square);
+            byte kind = siteKinds(x, y).kinds[inChunk(x, y)];
             return !Paving.without && (kind == STREET || kind == MADE);
         }
+
+        @Override
+        public long changes() {
+            return logged;
+        }
+
+        @Override
+        public boolean asItWas(int lowX, int lowY, int highX, int highY, long since) {
+            return unchanged(Math.floorDiv(lowX, CHUNK_TILES), Math.floorDiv(lowY, CHUNK_TILES), Math.floorDiv(highX, CHUNK_TILES), Math.floorDiv(highY, CHUNK_TILES), since);
+        }
     };
+
+    /** The record of the chunk a square is in, for site. */
+    private static Kinds siteKinds(int x, int y) {
+        int wx = Math.floorDiv(x, CHUNK_TILES), wy = Math.floorDiv(y, CHUNK_TILES);
+        if (siteKinds == null || siteKinds.wx != wx || siteKinds.wy != wy) {
+            siteKinds = kinds(siteCell, wx, wy);
+        }
+        return siteKinds;
+    }
+
     /**
      * A square of the ground, or null while the map is still filling its chunk: such a square
      * may have no floor or room yet, and what it was read as would be kept as what it is. The
@@ -364,33 +440,15 @@ final class Terrain {
         return Math.floorMod(x, CHUNK_TILES) * CHUNK_TILES + Math.floorMod(y, CHUNK_TILES);
     }
 
+    /** The footing of each made thing worked out, by the middle of the thing: see plainPad and freePad. */
+    private final LongTable<Pad> pads = new LongTable<>();
     /**
-     * What over says of a square not loaded, as the map's files have it (MapAhead), with
-     * Footings.GUESSED: in the same order as over asks it of a loaded square. UNLOADED where
-     * nothing has been read of it.
+     * How many things pads has, and past how many it lets them all go, to be worked out again as
+     * they are asked for: a drive meets things for as long as it goes on, and a pad of a thing
+     * left behind is never asked for again.
      */
-    private static byte guessedOver(int x, int y) {
-        MapAhead.Guess guess = MapAhead.guessed(Math.floorDiv(x, CHUNK_TILES), Math.floorDiv(y, CHUNK_TILES));
-        if (guess == null) {
-            return Footings.UNLOADED;
-        }
-        int at = inChunk(x, y);
-        byte kind = guess.kind[at];
-        byte over = guess.house[at] != Footings.NONE ? Footings.HOUSE
-                : standsNow(guess.stands[at]) ? Footings.BUILT
-                : guess.level[at] != Grounds.NONE ? Footings.LEVEL
-                : guess.above[at] != Footings.OPEN ? guess.above[at]
-                : !Paving.without && (kind == STREET || kind == MADE) ? Footings.PAVED : Footings.OPEN;
-        return (byte) (over | Footings.GUESSED);
-    }
-
-    /** Whether something built stands on a square not loaded, as stands tells of a loaded one, from what MapAhead read of it. */
-    private static boolean standsNow(byte stands) {
-        return (stands & (MapAhead.STAIR_OR_ROOF | MapAhead.WALLED)) != 0 || (stands & MapAhead.CANOPY) != 0 && !Own.furniture();
-    }
-
-    /** The height of the footing of each made thing whose footing can no longer change, by the middle of the thing. */
-    private final LongTable<Float> pads = new LongTable<>();
+    private int padsKept;
+    private static final int PADS_KEPT = 1 << 14;
     private static final byte[] kerbKinds = new byte[Kerbs.SPAN * Kerbs.SPAN];
     private static final boolean[] kerbHard = new boolean[Kerbs.SPAN * Kerbs.SPAN];
     private static final boolean[] kerbFootway = new boolean[Kerbs.SPAN * Kerbs.SPAN];
@@ -420,16 +478,9 @@ final class Terrain {
     private static final float[] townAt = new float[(WATER_SIDE + 1) * (WATER_SIDE + 1)];
     private static final boolean[] townKnown = new boolean[townAt.length];
 
-    /**
-     * A chunk within a valley's width of ground that is not loaded has heights that may yet
-     * change. They are worked out again this many frames on, not at every asking: a build asks
-     * up to three times, and most of the chunks in sight are that near the map's edge.
-     */
+    /** Dev only: heights that hold are worked out again this many frames after they last were, to say so if they come out otherwise (AUDITED). */
     private static final int RETRIED = 30;
-    /** The time the frames above stand for at a hundred frames a second: a faster PC waits it out as well, or a grid at the map's edge, which never settles, is worked out more often the faster the picture is drawn. */
-    private static final long RETRIED_NANOS = 300_000_000L;
     private static int frame;
-    private static long frameNanos;
     /**
      * The longest a frame spends working heights out again for chunks that have them, in
      * nanoseconds. When the map loads a row of chunks every chunk near its edge is due at
@@ -440,6 +491,8 @@ final class Terrain {
     private static long againNanos;
     /** Dev only, for the rig: heights worked out for chunks that had none and again for chunks that had, how long each took, and how many came from what they had before, and how many of those the fold told without working them out. */
     private static long tollFirst, tollFirstNanos, tollAgain, tollAgainNanos, tollAsBefore, tollFolded;
+    /** Dev only, for the rig: chunks read into new records, read again by scan and found otherwise, records let go, records whose footings were found again, and how long scan took. */
+    private static long tollRead, tollReadAgain, tollOtherwise, tollDropped, tollFooted, tollScanNanos;
     /**
      * A chunk worked out this many frames ago is worked out whatever the frame has spent, one
      * such chunk a frame: the chunks are asked for in one order every frame, and the last of
@@ -449,14 +502,13 @@ final class Terrain {
     private static boolean overdueTaken;
     private static int loaded;
     private static int versions;
-    /** Dev only: an unsettled grid is worked out again on the clock though the map is as it was, to say so if it then comes out otherwise. */
+    /** Dev only: heights that hold are worked out again on the clock, and the map is read again every frame, to say so if they then come out otherwise. */
     private static final boolean AUDITED = ChunkMarks.COUNTED;
 
     /**
      * Logic thread, once a frame the picture is built: a number that is another whenever the
-     * map has another set of chunks loaded. A grid is unsettled only for want of ground that
-     * is not loaded, so with the game telling of its changes it is worked out again when
-     * that number has changed and not otherwise.
+     * map has another set of chunks loaded. The records are read again (scan) when it has
+     * changed, with the game telling of its changes, and not otherwise.
      */
     static void loaded(int epoch) {
         // What has been read of the map not loaded is another, as much as another set of chunks loaded is.
@@ -477,7 +529,6 @@ final class Terrain {
     /** Logic thread, once a round of the views' builds: see Rounds. */
     static void frame(int number) {
         frame = number;
-        frameNanos = System.nanoTime();
         againNanos = 0L;
         overdueTaken = false;
     }
@@ -506,14 +557,19 @@ final class Terrain {
     private final int[] roundEyeAsOf = new int[View.COUNT];
 
     /**
-     * Logic thread, as a view is built with its eye at (eyeX, eyeY): heighten when the gain is
-     * another, and whenever the gain has changed since the heights round this view's eye were
-     * last worked out again, those of the chunk the eye is over and of the eight round it worked
-     * out again by now, from `from` (fromMap and the map). The views share the land, and each eye has its own. The rest
-     * are worked out as they are asked for, and a build asks for the nearest first: the land an
-     * eye stands in and the water beside it are never at two heights. Whether the gain changed.
+     * Logic thread, as a view is built with its eye at (eyeX, eyeY): keeps the records round
+     * the eye (scan), heightens when the gain is another, and whenever the gain has changed
+     * since the heights round this view's eye were last worked out again, has those of the
+     * chunk the eye is over and of the eight round it worked out again by now, from `from`
+     * (fromMap and the map). The views share the land, and each eye has its own. The rest are
+     * worked out as they are asked for, and a build asks for the nearest first: the land an eye
+     * stands in and the water beside it are never at two heights. Whether the gain changed.
      */
     <C> boolean heighten(float gain, int view, float eyeX, float eyeY, C from, Rework<C> now) {
+        int wx = Math.floorDiv((int) Math.floor(eyeX), CHUNK_TILES), wy = Math.floorDiv((int) Math.floor(eyeY), CHUNK_TILES);
+        eyeChunkX[view] = wx;
+        eyeChunkY[view] = wy;
+        eyed[view] = true;
         boolean changed = gain != this.gain;
         if (changed) {
             heighten(gain);
@@ -522,7 +578,6 @@ final class Terrain {
             return changed;
         }
         roundEyeAsOf[view] = changes;
-        int wx = Math.floorDiv((int) Math.floor(eyeX), CHUNK_TILES), wy = Math.floorDiv((int) Math.floor(eyeY), CHUNK_TILES);
         for (int x = wx - 1; x <= wx + 1; x++) {
             for (int y = wy - 1; y <= wy + 1; y++) {
                 now.chunk(from, x, y);
@@ -545,56 +600,43 @@ final class Terrain {
         this.gain = gain;
         changes++;
         pads.clear();
-        padsForNow.clear();
-        rework();
+        padsKept = 0;
     }
 
     static Terrain of(boolean level) {
         return level ? LEVEL : HILLS;
     }
 
-    /** For a map loaded anew: lets go of every height worked out and of what every square was made of. Logic thread. */
+    /** For a map loaded anew: lets go of every height worked out and of every record. Logic thread. */
     static void forget() {
         for (int slot = 0; slot < TABLE_SIDE * TABLE_SIDE * WAYS; slot++) {
             HILLS.grids.set(slot, null);
             LEVEL.grids.set(slot, null);
         }
-        Arrays.fill(known, null);
-        unsure.clear();
-        footings.forget();
-        HILLS.pads.clear();
-        LEVEL.pads.clear();
-        HILLS.padsForNow.clear();
-        LEVEL.padsForNow.clear();
-    }
-
-    /**
-     * For what a square is made of read otherwise with the map as it is (a parasol's canopy is
-     * built ground or not by a row of [Content]): lets go of what every square was made of and
-     * has every chunk's heights worked out again the next time they are asked for. The heights
-     * kept stay for any thread to read until then, and keep their version where they come out
-     * the same. Logic thread.
-     */
-    static void reread() {
-        Arrays.fill(known, null);
-        unsure.clear();
+        Arrays.fill(records, null);
+        kept.clear();
+        pendingCount = 0;
+        siteKinds = null;
+        scannedAsOf = Long.MIN_VALUE;
+        Arrays.fill(eyed, false);
         footings.forget();
         for (Terrain terrain : new Terrain[] {HILLS, LEVEL}) {
             terrain.pads.clear();
-            terrain.padsForNow.clear();
-            terrain.rework();
+            terrain.padsKept = 0;
         }
     }
 
-    /** Has every chunk's heights worked out again the next time they are asked for. */
-    private void rework() {
-        for (int slot = 0; slot < TABLE_SIDE * TABLE_SIDE * WAYS; slot++) {
-            Grid grid = grids.get(slot);
-            if (grid != null) {
-                grid.settled = false;
-                grid.loaded = loaded - 1;
-                grid.stamp = frame - RETRIED;
-                grid.stampNanos = frameNanos - RETRIED_NANOS;
+    /**
+     * For what is over a square told otherwise with the map as it is (a parasol's canopy is
+     * built ground or not by a row of [Content]): works out again what is over each square of
+     * every record, and logs each that comes out otherwise, so that what went by it is worked
+     * out again as it is asked for. The heights kept stay for any thread to read until then,
+     * and keep their version where they come out the same. Logic thread.
+     */
+    static void reread() {
+        for (Kinds kinds : kept) {
+            if (kinds.derived && derive(kinds)) {
+                log(kinds.wx, kinds.wy);
             }
         }
     }
@@ -632,17 +674,123 @@ final class Terrain {
         grids.set(into, fresh);
     }
 
-    /** What is kept of what a chunk's squares are, or null. Logic thread. */
-    private static Kinds known(int wx, int wy) {
-        int slot = slot(wx, wy);
-        for (int way = 0; way < WAYS; way++) {
-            Kinds kept = known[slot + way];
-            if (kept != null && kept.wx == wx && kept.wy == wy) {
-                kept.used = frame;
-                return kept;
+    /** The first of the RECORD_WAYS places a chunk's record may be kept in. */
+    private static int recordSlot(int wx, int wy) {
+        return ((wx & (TABLE_SIDE - 1)) * TABLE_SIDE + (wy & (TABLE_SIDE - 1))) * RECORD_WAYS;
+    }
+
+    /** The record of a chunk, or null. Logic thread. */
+    private static Kinds recordOf(int wx, int wy) {
+        int slot = recordSlot(wx, wy);
+        for (int way = 0; way < RECORD_WAYS; way++) {
+            Kinds kinds = records[slot + way];
+            if (kinds != null && kinds.wx == wx && kinds.wy == wy) {
+                return kinds;
             }
         }
         return null;
+    }
+
+    /**
+     * The record of a chunk, read now where there is none, in a place free or in place of the
+     * record asked for longest ago. Logic thread.
+     */
+    private static Kinds record(IsoCell cell, int wx, int wy) {
+        Kinds kinds = recordOf(wx, wy);
+        if (kinds == null) {
+            kinds = new Kinds(wx, wy);
+            read(cell, kinds);
+            tollRead++;
+            int slot = recordSlot(wx, wy), into = -1;
+            for (int way = 0; way < RECORD_WAYS && into < 0; way++) {
+                into = records[slot + way] == null ? slot + way : -1;
+            }
+            if (into < 0) {
+                into = slot;
+                for (int way = 1; way < RECORD_WAYS; way++) {
+                    into = records[slot + way].used < records[into].used ? slot + way : into;
+                }
+                drop(records[into]);
+            }
+            records[into] = kinds;
+            kinds.index = kept.size();
+            kept.add(kinds);
+        }
+        kinds.used = frame;
+        return kinds;
+    }
+
+    /**
+     * Lets go of a record. Its chunk goes in the log, and so does each derived record round it,
+     * which is set back to be derived again when it is next asked for: when they are, the chunk
+     * let go of is read anew. See pending.
+     */
+    private static void drop(Kinds kinds) {
+        int slot = recordSlot(kinds.wx, kinds.wy);
+        for (int way = 0; way < RECORD_WAYS; way++) {
+            if (records[slot + way] == kinds) {
+                records[slot + way] = null;
+            }
+        }
+        Kinds last = kept.remove(kept.size() - 1);
+        if (last != kinds) {
+            kept.set(kinds.index, last);
+            last.index = kinds.index;
+        }
+        siteKinds = null;
+        pend(kinds.wx, kinds.wy);
+        for (int cx = -1; cx <= 1; cx++) {
+            for (int cy = -1; cy <= 1; cy++) {
+                Kinds near = recordOf(kinds.wx + cx, kinds.wy + cy);
+                if (near != null && near.derived) {
+                    near.derived = false;
+                    pend(near.wx, near.wy);
+                }
+            }
+        }
+        tollDropped++;
+    }
+
+    private static void pend(int wx, int wy) {
+        if (pendingCount == pending.length) {
+            pending = Arrays.copyOf(pending, pendingCount * 2);
+        }
+        pending[pendingCount++] = chunkKey(wx, wy);
+    }
+
+    /** Puts the chunks pending in the log. Logic thread, with nothing being worked out. */
+    private static void flush() {
+        for (int at = 0; at < pendingCount; at++) {
+            log((int) (pending[at] >> 32), (int) pending[at]);
+        }
+        pendingCount = 0;
+    }
+
+    private static void log(int wx, int wy) {
+        changeLog[(int) (logged & (LOG - 1))] = chunkKey(wx, wy);
+        logged++;
+    }
+
+    /**
+     * Whether no chunk from (lowX, lowY) to (highX, highY) has been logged since the log had
+     * had since chunks. False where the log no longer reaches back that far.
+     */
+    private static boolean unchanged(int lowX, int lowY, int highX, int highY, long since) {
+        if (logged - since > LOG) {
+            return false;
+        }
+        for (long at = since; at < logged; at++) {
+            long chunk = changeLog[(int) (at & (LOG - 1))];
+            int wx = (int) (chunk >> 32), wy = (int) chunk;
+            if (wx >= lowX && wx <= highX && wy >= lowY && wy <= highY) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static long chunkKey(int wx, int wy) {
+        return (long) wx << 32 | wy & 0xFFFFFFFFL;
     }
 
     /** The height of the ground at (x, y) above the flat map, in tiles. 0 where it is not known. */
@@ -695,7 +843,7 @@ final class Terrain {
 
     /**
      * The corner heights of a chunk, CORNERS by CORNERS with x first, worked out if they are
-     * not yet or if the ground round the chunk was not all loaded when they last were. Logic
+     * not yet or if a chunk they went by has come out otherwise since they last were. Logic
      * thread.
      */
     float[] corners(IsoCell cell, int wx, int wy) {
@@ -704,13 +852,21 @@ final class Terrain {
 
     /** The same, and with now whatever the frame has spent on heights worked out again. */
     private float[] corners(IsoCell cell, int wx, int wy, boolean now) {
+        scan(cell);
+        if (padsKept > PADS_KEPT) {
+            pads.clear();
+            padsKept = 0;
+        }
         Grid grid = grid(wx, wy);
         boolean known = grid != null;
         if (known) {
             grid.used = frame;
+            if (!grid.stale && (grid.gain != gain || !grid.reads.hold())) {
+                grid.stale = true;
+            }
         }
-        boolean mapAsItWas = known && ChunkMarks.live && grid.loaded == loaded;
-        if (known && (grid.settled || mapAsItWas && !AUDITED || !now && (frame - grid.stamp < RETRIED || frameNanos - grid.stampNanos < RETRIED_NANOS))) {
+        boolean audit = known && !grid.stale && AUDITED && frame - grid.stamp >= RETRIED;
+        if (known && !grid.stale && !audit) {
             return grid.heights;
         }
         if (known && !now && againNanos > AGAIN_NANOS_A_FRAME) {
@@ -720,16 +876,17 @@ final class Terrain {
             overdueTaken = true;
         }
         long began = System.nanoTime();
+        Reads reads = new Reads(logged);
         // In this order: lookOver looks for the water round each building, and the corners want the water round the chunk.
-        boolean settled = lookOver(cell, wx, wy) & findWater(cell, wx, wy);
+        lookOver(cell, wx, wy, reads);
+        findWater(cell, wx, wy, reads);
         long folded = fold();
         boolean foldAsBefore = known && grid.folded == folded;
         if (foldAsBefore && !AUDITED) {
             // All the heights, the water and the kerbs go by is as it was when they were last worked out, and so are they.
-            grid.settled = settled;
+            grid.reads = reads;
+            grid.stale = false;
             grid.stamp = frame;
-            grid.stampNanos = frameNanos;
-            grid.loaded = loaded;
             joinEdges(grid);
             long took = System.nanoTime() - began;
             againNanos += took;
@@ -744,10 +901,8 @@ final class Terrain {
         fresh.wy = wy;
         fresh.stamp = frame;
         fresh.used = frame;
-        fresh.stampNanos = frameNanos;
-        fresh.loaded = loaded;
         fresh.gain = gain;
-        fresh.settled = settled;
+        fresh.reads = reads;
         fresh.folded = folded;
         fill();
         // The gain with them: the same squares give other heights at another.
@@ -795,8 +950,8 @@ final class Terrain {
         joinEdges(fresh);
         boolean same = known && fresh.kerbSum == grid.kerbSum && Arrays.equals(fresh.heights, grid.heights) && Arrays.equals(fresh.water, grid.water);
         fresh.version = same ? grid.version : ++versions;
-        if (mapAsItWas && !same) {
-            Log.info("chunk marks: MISSED the heights at " + wx + ", " + wy + ", which came out otherwise with the map as it was");
+        if (audit && !same) {
+            Log.info("terrain: MISSED the heights at " + wx + ", " + wy + ", which came out otherwise with nothing they went by changed");
         }
         if (foldAsBefore && (fresh.from != grid.from || fresh.kerbFrom != grid.kerbFrom)) {
             Log.info("terrain: MISSED the ground at " + wx + ", " + wy + ", which came out otherwise with the fold as it was");
@@ -816,9 +971,12 @@ final class Terrain {
 
     /** Dev only: what tollFirst and the rest have come to since this was last asked. */
     static String tolls() {
-        String told = String.format(java.util.Locale.ROOT, "heights first %d in %.1f ms, again %d in %.1f ms (from what they had %d, by the fold %d)",
-                tollFirst, tollFirstNanos / 1e6, tollAgain, tollAgainNanos / 1e6, tollAsBefore, tollFolded);
+        String told = String.format(java.util.Locale.ROOT,
+                "heights first %d in %.1f ms, again %d in %.1f ms (from what they had %d, by the fold %d), chunks read %d, read again and otherwise %d of %d in %.1f ms, let go %d, footings found for %d",
+                tollFirst, tollFirstNanos / 1e6, tollAgain, tollAgainNanos / 1e6, tollAsBefore, tollFolded, tollRead, tollOtherwise, tollReadAgain, tollScanNanos / 1e6, tollDropped,
+                tollFooted);
         tollFirst = tollFirstNanos = tollAgain = tollAgainNanos = tollAsBefore = tollFolded = 0;
+        tollRead = tollReadAgain = tollOtherwise = tollDropped = tollFooted = tollScanNanos = 0;
         return told;
     }
 
@@ -874,17 +1032,14 @@ final class Terrain {
         int reach = Kerbs.MARGIN / CHUNK_TILES;
         for (int cx = -reach; cx <= reach; cx++) {
             for (int cy = -reach; cy <= reach; cy++) {
-                Kinds kinds = known(fresh.wx + cx, fresh.wy + cy);
-                if (kinds == null) {
-                    kinds = onMap(cell, fresh.wx + cx, fresh.wy + cy) ? kinds(cell, fresh.wx + cx, fresh.wy + cy) : null;
-                }
+                Kinds kinds = kinds(cell, fresh.wx + cx, fresh.wy + cy);
                 for (int i = 0; i < CHUNK_TILES; i++) {
                     for (int j = 0; j < CHUNK_TILES; j++) {
                         int at = ((cx + reach) * CHUNK_TILES + i) * Kerbs.SPAN + (cy + reach) * CHUNK_TILES + j;
-                        kerbKinds[at] = kinds == null ? UNKNOWN : kinds.kinds[i * CHUNK_TILES + j];
-                        kerbHard[at] = kinds != null && kinds.hard[i * CHUNK_TILES + j];
-                        kerbFootway[at] = kinds != null && kinds.footway[i * CHUNK_TILES + j];
-                        kerbMarks[at] = kinds == null ? 0 : kinds.marks[i * CHUNK_TILES + j];
+                        kerbKinds[at] = kinds.kinds[i * CHUNK_TILES + j];
+                        kerbHard[at] = kinds.hard[i * CHUNK_TILES + j];
+                        kerbFootway[at] = kinds.footway[i * CHUNK_TILES + j];
+                        kerbMarks[at] = kinds.marks[i * CHUNK_TILES + j];
                     }
                 }
             }
@@ -1040,24 +1195,18 @@ final class Terrain {
 
     /**
      * Looks over what each square within AROUND of the chunk is and the footing each stands
-     * on, for fill to lay out in around and padsAround. False if some of it is not loaded,
-     * which counts as made ground, or if a pad may yet change.
+     * on, for fill to lay out in around and padsAround, and adds to reads the chunks it went by.
      *
      * A made thing that stands at the height of the ground under it (Footings.free) has that
      * height from the land and the streets alone, with nothing standing and no made ground
-     * laid to anything: so what stands round the chunk is first looked over, each such
-     * thing's footing is read off the chunks round its own middle, and then the ground is
-     * looked over again with them all standing.
+     * laid to anything: so what stands round the chunk is first looked over, each such thing's
+     * footing is read off the chunks round its own middle (freePad), and then the footing of
+     * each run of squares over one thing is taken in turn.
      */
-    private boolean lookOver(IsoCell cell, int wx, int wy) {
+    private void lookOver(IsoCell cell, int wx, int wy, Reads reads) {
         // The footings of things that stand at the height of the ground under them are the land's and the streets' alone.
         groundCount = 0;
-        if (padsAsOf != mapAsOf()) {
-            padsForNow.clear();
-            padsAsOf = mapAsOf();
-        }
-        // First for what stands round the chunk alone: the footings are laid under it last, when every one of them is known.
-        boolean all = region(cell, wx, wy);
+        region(cell, wx, wy, reads);
         freeAsked = 0;
         long last = Footings.NONE;
         for (int row = 0; row < SPAN; row++) {
@@ -1076,11 +1225,7 @@ final class Terrain {
                         continue;
                     }
                     last = key;
-                    boolean asked = pads.containsKey(key);
-                    if (!asked && padsForNow.containsKey(key)) {
-                        asked = true;
-                        all = false;
-                    }
+                    boolean asked = false;
                     for (int earlier = 0; earlier < freeAsked && !asked; earlier++) {
                         asked = freeKeys[earlier] == key;
                     }
@@ -1088,6 +1233,7 @@ final class Terrain {
                         if (freeAsked == freeKeys.length) {
                             freeKeys = Arrays.copyOf(freeKeys, freeAsked * 2);
                             freeBoxes = Arrays.copyOf(freeBoxes, freeAsked * 2 * 4);
+                            freePads = Arrays.copyOf(freePads, freeAsked * 2);
                         }
                         System.arraycopy(kinds.rulerBox, at * 4, freeBoxes, freeAsked * 4, 4);
                         freeKeys[freeAsked++] = key;
@@ -1095,29 +1241,14 @@ final class Terrain {
                 }
             }
         }
+        // All of them before any run: working one out lays the ground round its middle in around.
         for (int asked = 0; asked < freeAsked; asked++) {
-            // The corner of the map nearest the thing's middle, in the chunk that has it for one of its own.
-            int x = Math.round(Footings.keyX(freeKeys[asked])), y = Math.round(Footings.keyY(freeKeys[asked]));
-            int midWx = Math.floorDiv(x, CHUNK_TILES), midWy = Math.floorDiv(y, CHUNK_TILES);
-            if (!Float.isNaN(freeBoxes[asked * 4])) {
-                boolean lasting = findWater(cell, midWx, midWy);
-                (lasting ? pads : padsForNow).put(freeKeys[asked], meanLand(freeBoxes, asked * 4));
-                all &= lasting;
-                continue;
-            }
-            // Only the chunks round the middle: the height asked for there is the land's and the street's own, which reach no further.
-            boolean lasting = lay(cell, midWx, midWy, true, 1, true) & findWater(cell, midWx, midWy);
-            // The streets round that one corner, which is all that is read.
-            int cornerI = x - midWx * CHUNK_TILES + AROUND, cornerJ = y - midWy * CHUNK_TILES + AROUND;
-            streets(midWx * CHUNK_TILES - AROUND, midWy * CHUNK_TILES - AROUND, Math.min(cornerI, cornerJ), Math.max(cornerI, cornerJ), false);
-            (lasting ? pads : padsForNow).put(freeKeys[asked], corner(x, y, cornerI, cornerJ));
-            all &= lasting;
+            freePads[asked] = freePad(cell, freeKeys[asked], freeBoxes, asked * 4);
+            reads.add(freePads[asked].reads);
         }
-        all &= region(cell, wx, wy);
-        // The footings as lay finds them, one run of squares over the same thing at a time.
+        // The footings as fill lays them, one run of squares over the same thing at a time.
         runs = 0;
         float lastX = Float.NaN, lastY = Float.NaN;
-        Unkept unkept = new Unkept();
         for (int row = 0; row < SPAN; row++) {
             for (int across = 0; across < REGION; across++) {
                 Kinds kinds = region[row / CHUNK_TILES * REGION + across];
@@ -1130,38 +1261,31 @@ final class Terrain {
                         continue;
                     }
                     long key = Footings.key(x, y);
-                    Float kept = pads.get(key);
-                    if (kinds.free[at]) {
-                        kept = kept != null ? kept : padsForNow.get(key);
-                    } else if (kept == null) {
-                        kept = padOf(cell, x, y, key, unkept);
-                    }
+                    Pad pad = kinds.free[at] ? freePadOf(key) : plainPad(cell, x, y, key);
+                    reads.add(pad.reads);
                     lastX = x;
                     lastY = y;
                     if (runs == runPads.length) {
                         runPads = Arrays.copyOf(runPads, runs * 2);
                     }
-                    runPads[runs++] = kept;
+                    runPads[runs++] = pad.pad;
                 }
             }
         }
-        return all & unkept.allLasting;
     }
 
-    /** Has region hold what the chunks within AROUND of the chunk are, each with its footings found. Whether all of it is loaded and settled. */
-    private boolean region(IsoCell cell, int wx, int wy) {
+    /** Has region hold the records of the chunks within AROUND of the chunk, each with its footings found, and adds to reads the chunks they went by. */
+    private void region(IsoCell cell, int wx, int wy, Reads reads) {
         int reach = AROUND / CHUNK_TILES;
-        boolean all = true;
+        reads.add(wx - reach, wy - reach, wx + reach, wy + reach);
         for (int cx = -reach; cx <= reach; cx++) {
             for (int cy = -reach; cy <= reach; cy++) {
                 Kinds kinds = kinds(cell, wx + cx, wy + cy);
                 footed(cell, kinds);
-                // What stands on a chunk may be joined to something on ground that is not loaded, and is then another thing with another footing.
-                all &= kinds.whole && kinds.footSettled;
+                reads.add(kinds.footReads);
                 region[(cx + reach) * REGION + cy + reach] = kinds;
             }
         }
-        return all;
     }
 
     /**
@@ -1311,52 +1435,39 @@ final class Terrain {
         return sum;
     }
 
-    /** The things that stand at the height of the ground under them whose footings the gathering in hand has still to work out, and the box each lays level, four to a thing, NaN where it has none. */
+    /** The things that stand at the height of the ground under them that lookOver has met, the box each lays level, four to a thing, NaN where it has none, the footing of each, and how many. */
     private long[] freeKeys = new long[8];
     private float[] freeBoxes = new float[8 * 4];
+    private Pad[] freePads = new Pad[8];
     private int freeAsked;
 
     /**
-     * Fills around for lookOver, out to reach chunks from the chunk and no further, and with
-     * footings padsAround as far: bare, with nothing standing that takes its height from the
-     * ground under it.
+     * Fills around, footwayAround and padsAround for freePad, for the chunk and the eight round
+     * it and no further: bare, with nothing standing that takes its height from the ground under
+     * it. Adds to reads the chunks it went by.
      */
-    private boolean lay(IsoCell cell, int wx, int wy, boolean bare, int reach, boolean footings) {
-        boolean all = true;
-        for (int cx = -reach; cx <= reach; cx++) {
-            for (int cy = -reach; cy <= reach; cy++) {
+    private void lay(IsoCell cell, int wx, int wy, Reads reads) {
+        reads.add(wx - 1, wy - 1, wx + 1, wy + 1);
+        for (int cx = -1; cx <= 1; cx++) {
+            for (int cy = -1; cy <= 1; cy++) {
                 Kinds kinds = kinds(cell, wx + cx, wy + cy);
                 footed(cell, kinds);
-                // What stands on a chunk may be joined to something on ground that is not loaded, and is then another thing with another footing.
-                all &= kinds.whole && kinds.footSettled;
+                reads.add(kinds.footReads);
                 for (int i = 0; i < CHUNK_TILES; i++) {
-                    int row = cx * CHUNK_TILES + i + AROUND;
-                    if (row < 0 || row >= SPAN) {
-                        continue;
-                    }
                     for (int j = 0; j < CHUNK_TILES; j++) {
-                        int column = cy * CHUNK_TILES + j + AROUND;
-                        if (column < 0 || column >= SPAN) {
-                            continue;
-                        }
-                        byte kind = kinds.kinds[i * CHUNK_TILES + j];
-                        all &= kind != UNKNOWN;
-                        around[row * SPAN + column] = kind;
-                        midXAround[row * SPAN + column] = kinds.midX[i * CHUNK_TILES + j];
-                        midYAround[row * SPAN + column] = kinds.midY[i * CHUNK_TILES + j];
-                        freeAround[row * SPAN + column] = kinds.free[i * CHUNK_TILES + j];
-                        footwayAround[row * SPAN + column] = kinds.footway[i * CHUNK_TILES + j];
+                        int at = (cx * CHUNK_TILES + i + AROUND) * SPAN + cy * CHUNK_TILES + j + AROUND;
+                        around[at] = kinds.kinds[i * CHUNK_TILES + j];
+                        midXAround[at] = kinds.midX[i * CHUNK_TILES + j];
+                        midYAround[at] = kinds.midY[i * CHUNK_TILES + j];
+                        freeAround[at] = kinds.free[i * CHUNK_TILES + j];
+                        footwayAround[at] = kinds.footway[i * CHUNK_TILES + j];
                     }
                 }
             }
         }
-        if (!footings) {
-            return all;
-        }
-        // Only now: finding a pad looks at other chunks, and lays their water over this one's.
+        // Only now: working out a pad looks at other chunks, and lays their water over this one's.
         float lastX = Float.NaN, lastY = Float.NaN, lastPad = Float.NaN;
-        Unkept unkept = new Unkept();
-        int first = AROUND - reach * CHUNK_TILES, past = AROUND + (reach + 1) * CHUNK_TILES;
+        int first = AROUND - CHUNK_TILES, past = AROUND + 2 * CHUNK_TILES;
         for (int row = first; row < past; row++) {
             for (int at = row * SPAN + first; at < row * SPAN + past; at++) {
                 float x = midXAround[at], y = midYAround[at];
@@ -1365,86 +1476,100 @@ final class Terrain {
                     continue;
                 }
                 if (x != lastX || y != lastY) {
-                    long key = Footings.key(x, y);
-                    Float kept = pads.get(key);
-                    if (freeAround[at]) {
-                        kept = bare ? Float.valueOf(Float.NaN) : kept != null ? kept : padsForNow.get(key);
-                    } else if (kept == null) {
-                        kept = padOf(cell, x, y, key, unkept);
-                    }
                     lastX = x;
                     lastY = y;
-                    lastPad = kept;
+                    lastPad = Float.NaN;
+                    if (!freeAround[at]) {
+                        Pad pad = plainPad(cell, x, y, Footings.key(x, y));
+                        reads.add(pad.reads);
+                        lastPad = pad.pad;
+                    }
                 }
                 padsAround[at] = lastPad;
             }
         }
-        return all & unkept.allLasting;
     }
 
-    /**
-     * The two last footings whose pads could not be kept yet: rows of squares cross two buildings in turn, and each would
-     * look for its water again at every crossing. allLasting is false once a pad was found that could not be kept.
-     */
-    private static final class Unkept {
-        long key = Footings.NONE, otherKey = Footings.NONE;
-        float pad = Float.NaN, otherPad = Float.NaN;
-        boolean allLasting = true;
-    }
-
-    /** The pad of a footing at (x, y) not on free ground and not in pads: one of the two unkept, or found now and kept in pads if it lasts. */
-    private Float padOf(IsoCell cell, float x, float y, long key, Unkept unkept) {
-        if (key == unkept.key) {
-            return unkept.pad;
+    /** The footing of a made thing that does not stand free, its middle at (x, y) as key packs it: the height of the land there. */
+    private Pad plainPad(IsoCell cell, float x, float y, long key) {
+        Pad pad = pads.get(key);
+        if (pad != null && pad.fits(PLAIN, null, 0) && pad.reads.hold()) {
+            return pad;
         }
-        if (key == unkept.otherKey) {
-            return unkept.otherPad;
-        }
-        boolean lasting = findWater(cell, Math.floorDiv((int) Math.floor(x), CHUNK_TILES), Math.floorDiv((int) Math.floor(y), CHUNK_TILES));
-        Float pad = base(x, y);
-        if (lasting) {
-            pads.put(key, pad);
-        } else {
-            unkept.otherKey = unkept.key;
-            unkept.otherPad = unkept.pad;
-            unkept.key = key;
-            unkept.pad = pad;
-        }
-        unkept.allLasting &= lasting;
+        padsKept += pad == null ? 1 : 0;
+        Reads reads = new Reads(logged);
+        findWater(cell, Math.floorDiv((int) Math.floor(x), CHUNK_TILES), Math.floorDiv((int) Math.floor(y), CHUNK_TILES), reads);
+        pad = new Pad(base(x, y), PLAIN, null, 0, reads);
+        pads.put(key, pad);
         return pad;
     }
 
     /**
-     * Notes which chunks within WATER_CHUNKS of the chunk hold water. False if some of them are
-     * not loaded, and so not known.
+     * The footing of a made thing that stands at the height the ground has under its middle
+     * with nothing standing (Footings.free), the middle as key packs it, and the box it lays
+     * level from from in boxes, NaN where it lays none: the land over the box (meanLand), or
+     * the land and the streets at the corner of the map nearest the middle, read off the chunks
+     * round it alone (lay).
      */
-    private static boolean findWater(IsoCell cell, int wx, int wy) {
-        boolean all = true;
+    private Pad freePad(IsoCell cell, long key, float[] boxes, int from) {
+        byte how = Float.isNaN(boxes[from]) ? BARE : BOXED;
+        Pad pad = pads.get(key);
+        if (pad != null && pad.fits(how, boxes, from) && pad.reads.hold()) {
+            return pad;
+        }
+        padsKept += pad == null ? 1 : 0;
+        // The corner of the map nearest the thing's middle, in the chunk that has it for one of its own.
+        int x = Math.round(Footings.keyX(key)), y = Math.round(Footings.keyY(key));
+        int midWx = Math.floorDiv(x, CHUNK_TILES), midWy = Math.floorDiv(y, CHUNK_TILES);
+        Reads reads = new Reads(logged);
+        float footing;
+        if (how == BOXED) {
+            findWater(cell, midWx, midWy, reads);
+            footing = meanLand(boxes, from);
+        } else {
+            // Only the chunks round the middle: the height asked for there is the land's and the street's own, which reach no further.
+            lay(cell, midWx, midWy, reads);
+            findWater(cell, midWx, midWy, reads);
+            // The streets round that one corner, which is all that is read.
+            int cornerI = x - midWx * CHUNK_TILES + AROUND, cornerJ = y - midWy * CHUNK_TILES + AROUND;
+            streets(midWx * CHUNK_TILES - AROUND, midWy * CHUNK_TILES - AROUND, Math.min(cornerI, cornerJ), Math.max(cornerI, cornerJ), false);
+            footing = corner(x, y, cornerI, cornerJ);
+        }
+        pad = new Pad(footing, how, boxes, from, reads);
+        pads.put(key, pad);
+        return pad;
+    }
+
+    /** The footing lookOver worked out for the free thing whose middle key packs. */
+    private Pad freePadOf(long key) {
+        for (int asked = 0; asked < freeAsked; asked++) {
+            if (freeKeys[asked] == key) {
+                return freePads[asked];
+            }
+        }
+        throw new IllegalStateException("terrain: no footing was worked out for the thing at " + Footings.keyX(key) + ", " + Footings.keyY(key) + ", which stands free");
+    }
+
+    /**
+     * Notes which chunks within WATER_CHUNKS of the chunk hold water and how much is built on
+     * each, and adds them to reads. A chunk with a square not known counts as dry and unbuilt.
+     */
+    private static void findWater(IsoCell cell, int wx, int wy, Reads reads) {
+        reads.add(wx - WATER_CHUNKS, wy - WATER_CHUNKS, wx + WATER_CHUNKS, wy + WATER_CHUNKS);
         waterChunks = 0;
         builtFromX = wx - WATER_CHUNKS;
         builtFromY = wy - WATER_CHUNKS;
         Arrays.fill(townKnown, false);
-        Arrays.fill(builtChunks, 0);
         for (int cx = -WATER_CHUNKS; cx <= WATER_CHUNKS; cx++) {
             for (int cy = -WATER_CHUNKS; cy <= WATER_CHUNKS; cy++) {
-                Kinds kept = known(wx + cx, wy + cy);
-                if (kept == null) {
-                    kept = onMap(cell, wx + cx, wy + cy) ? kinds(cell, wx + cx, wy + cy) : null;
-                    if (kept == null || !kept.whole) {
-                        all = false;
-                        if (kept == null || !kept.guessed) {
-                            continue;
-                        }
-                    }
-                }
-                builtChunks[(cx + WATER_CHUNKS) * WATER_SIDE + cy + WATER_CHUNKS] = kept.builtOn;
-                if (kept.water) {
+                Kinds kinds = kinds(cell, wx + cx, wy + cy);
+                builtChunks[(cx + WATER_CHUNKS) * WATER_SIDE + cy + WATER_CHUNKS] = kinds.builtOn;
+                if (kinds.water) {
                     waterChunkX[waterChunks] = (wx + cx) * CHUNK_TILES;
                     waterChunkY[waterChunks++] = (wy + cy) * CHUNK_TILES;
                 }
             }
         }
-        return all;
     }
 
     /** How far (x, y) is from the nearest chunk findWater found water in, in tiles, and VALLEY if from none. */
@@ -1510,153 +1635,290 @@ final class Terrain {
     }
 
     /**
-     * Whether the chunk is loaded or MapAhead has read it: whether kinds has anything to say of
-     * it. A chunk with its middle square missing is not loaded, and looking over the rest of it
-     * would find nothing.
+     * Reads what each square of the chunk of a record is, as the map has it now, of the square
+     * alone, into the record: where the chunk is loaded off its squares, where it is not off what
+     * MapAhead read of it, and where it has read nothing every square as UNKNOWN. A chunk with
+     * its middle square missing is not loaded: the map has every square of a chunk or none of it.
      */
-    private static boolean onMap(IsoCell cell, int wx, int wy) {
-        return ground(cell, wx * CHUNK_TILES + CHUNK_TILES / 2, wy * CHUNK_TILES + CHUNK_TILES / 2) != null || MapAhead.guessed(wx, wy) != null;
+    private static void read(IsoCell cell, Kinds into) {
+        int wx = into.wx, wy = into.wy;
+        boolean middle = ground(cell, wx * CHUNK_TILES + CHUNK_TILES / 2, wy * CHUNK_TILES + CHUNK_TILES / 2) != null;
+        MapAhead.Guess guess = middle ? null : MapAhead.guessed(wx, wy);
+        into.guess = guess;
+        if (guess != null) {
+            into.source = READ_AHEAD;
+            System.arraycopy(guess.kind, 0, into.kinds, 0, into.kinds.length);
+            System.arraycopy(guess.footway, 0, into.footway, 0, into.footway.length);
+            System.arraycopy(guess.marks, 0, into.marks, 0, into.marks.length);
+            System.arraycopy(guess.house, 0, into.house, 0, into.house.length);
+            System.arraycopy(guess.level, 0, into.level, 0, into.level.length);
+            System.arraycopy(guess.above, 0, into.above, 0, into.above.length);
+            System.arraycopy(guess.stands, 0, into.stands, 0, into.stands.length);
+        } else {
+            into.source = middle ? LOADED : UNREAD;
+            for (int i = 0; i < CHUNK_TILES; i++) {
+                for (int j = 0; j < CHUNK_TILES; j++) {
+                    int x = wx * CHUNK_TILES + i, y = wy * CHUNK_TILES + j, at = i * CHUNK_TILES + j;
+                    IsoGridSquare square = ground(cell, x, y);
+                    byte kind = kind(square);
+                    into.kinds[at] = kind;
+                    into.footway[at] = kind == MADE || kind == STREET && footway(square);
+                    into.marks[at] = kind == STREET ? marks(square) : 0;
+                    if (square == null) {
+                        into.house[at] = Footings.NONE;
+                        into.level[at] = Grounds.NONE;
+                        into.above[at] = Footings.OPEN;
+                        into.stands[at] = 0;
+                        continue;
+                    }
+                    BuildingDef def = footingOf(cell, square, x, y);
+                    into.house[at] = def == null ? Footings.NONE : Footings.key(def.getX() + def.getW() / 2f, def.getY() + def.getH() / 2f);
+                    into.level[at] = groundOf(cell, square, x, y);
+                    into.above[at] = above(cell, square, x, y);
+                    into.stands[at] = standsOf(square);
+                }
+            }
+        }
+        boolean whole = true, water = false;
+        for (byte kind : into.kinds) {
+            whole &= kind != UNKNOWN;
+            water |= kind == WATER;
+        }
+        into.whole = whole;
+        into.water = whole && water;
     }
 
-    /** What the squares of a chunk not loaded are, as MapAhead read them. */
-    private static Kinds guessed(MapAhead.Guess guess) {
-        Kinds fresh = blank();
-        fresh.wx = guess.wx;
-        fresh.wy = guess.wy;
-        fresh.guessed = true;
-        for (int at = 0; at < CHUNK_TILES * CHUNK_TILES; at++) {
-            fresh.kinds[at] = guess.kind[at];
-            fresh.hard[at] = guess.house[at] != Footings.NONE || standsNow(guess.stands[at]);
-            fresh.footway[at] = guess.footway[at];
-            fresh.marks[at] = guess.marks[at];
-            fresh.water |= guess.kind[at] == WATER;
-            fresh.builtOn += fresh.hard[at] ? 1 : 0;
+    /**
+     * Whether the chunk of a record has what it had when the record was read, as far as can be
+     * told without reading its squares again: loaded as it was, or read ahead from the same
+     * read, or neither still, and no square that was missing loaded since. A square seen loaded
+     * is taken to be as it was for as long as its chunk is loaded.
+     */
+    private static boolean asRead(IsoCell cell, Kinds kinds) {
+        int wx = kinds.wx, wy = kinds.wy;
+        boolean middle = ground(cell, wx * CHUNK_TILES + CHUNK_TILES / 2, wy * CHUNK_TILES + CHUNK_TILES / 2) != null;
+        if (kinds.source == READ_AHEAD) {
+            return !middle && MapAhead.guessed(wx, wy) == kinds.guess;
         }
-        fresh.sum = sum(fresh);
-        return fresh;
+        if (middle != (kinds.source == LOADED) || !middle && MapAhead.guessed(wx, wy) != null) {
+            return false;
+        }
+        if (kinds.whole) {
+            return true;
+        }
+        for (int i = 0; i < CHUNK_TILES; i++) {
+            for (int j = 0; j < CHUNK_TILES; j++) {
+                if (kinds.kinds[i * CHUNK_TILES + j] == UNKNOWN && ground(cell, wx * CHUNK_TILES + i, wy * CHUNK_TILES + j) != null) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
-    /** A Kinds as new gives it: a spare one set back, or a new one. */
-    private static Kinds blank() {
-        Kinds kinds = spare.poll();
-        if (kinds == null) {
-            return new Kinds();
+    /**
+     * Logic thread, at each corners before anything is worked out: when the map has other
+     * chunks loaded or MapAhead has read more since the last scan, lets go of the records far
+     * from every eye, and reads again each record whose chunk is not as it was read (asRead).
+     * Each that comes out otherwise goes in the log, and so does each derived record round it
+     * whose over comes out otherwise with it.
+     */
+    private static void scan(IsoCell cell) {
+        flush();
+        long asOf = mapAsOf();
+        if (asOf == scannedAsOf) {
+            return;
         }
-        kinds.reset();
+        scannedAsOf = asOf;
+        long began = System.nanoTime();
+        // From the last, as drop moves the last record into the place it frees.
+        for (int at = kept.size() - 1; at >= 0; at--) {
+            if (farFromEveryEye(kept.get(at))) {
+                drop(kept.get(at));
+            }
+        }
+        flush();
+        otherwise.clear();
+        for (Kinds kinds : kept) {
+            if (asRead(cell, kinds)) {
+                continue;
+            }
+            passing.wx = kinds.wx;
+            passing.wy = kinds.wy;
+            read(cell, passing);
+            tollReadAgain++;
+            kinds.source = passing.source;
+            kinds.guess = passing.guess;
+            if (!sameSquares(kinds, passing)) {
+                copySquares(passing, kinds);
+                otherwise.add(kinds);
+            }
+        }
+        for (Kinds kinds : otherwise) {
+            kinds.derived = false;
+            log(kinds.wx, kinds.wy);
+        }
+        for (Kinds kinds : otherwise) {
+            for (int cx = -1; cx <= 1; cx++) {
+                for (int cy = -1; cy <= 1; cy++) {
+                    Kinds near = recordOf(kinds.wx + cx, kinds.wy + cy);
+                    if (near != null && near.derived && derive(near)) {
+                        log(near.wx, near.wy);
+                    }
+                }
+            }
+        }
+        tollOtherwise += otherwise.size();
+        tollScanNanos += System.nanoTime() - began;
+    }
+
+    /** Whether a record's chunk is more than KEPT_AROUND chunks from the eye of every view that has told of one. False while none has. */
+    private static boolean farFromEveryEye(Kinds kinds) {
+        boolean any = false;
+        for (int view = 0; view < View.COUNT; view++) {
+            if (eyed[view]) {
+                any = true;
+                if (Math.max(Math.abs(kinds.wx - eyeChunkX[view]), Math.abs(kinds.wy - eyeChunkY[view])) <= KEPT_AROUND) {
+                    return false;
+                }
+            }
+        }
+        return any;
+    }
+
+    /** Whether two records have every square read the same. */
+    private static boolean sameSquares(Kinds one, Kinds other) {
+        return Arrays.equals(one.kinds, other.kinds) && Arrays.equals(one.footway, other.footway) && Arrays.equals(one.marks, other.marks)
+                && Arrays.equals(one.house, other.house) && Arrays.equals(one.level, other.level) && Arrays.equals(one.above, other.above)
+                && Arrays.equals(one.stands, other.stands);
+    }
+
+    private static void copySquares(Kinds from, Kinds into) {
+        System.arraycopy(from.kinds, 0, into.kinds, 0, into.kinds.length);
+        System.arraycopy(from.footway, 0, into.footway, 0, into.footway.length);
+        System.arraycopy(from.marks, 0, into.marks, 0, into.marks.length);
+        System.arraycopy(from.house, 0, into.house, 0, into.house.length);
+        System.arraycopy(from.level, 0, into.level, 0, into.level.length);
+        System.arraycopy(from.above, 0, into.above, 0, into.above.length);
+        System.arraycopy(from.stands, 0, into.stands, 0, into.stands.length);
+        into.whole = from.whole;
+        into.water = from.water;
+    }
+
+    /** The record of a chunk, read now where there is none, with what is over each square worked out. Logic thread. */
+    private static Kinds kinds(IsoCell cell, int wx, int wy) {
+        Kinds kinds = record(cell, wx, wy);
+        if (!kinds.derived) {
+            for (int cx = -1; cx <= 1; cx++) {
+                for (int cy = -1; cy <= 1; cy++) {
+                    ring[(cx + 1) * 3 + cy + 1] = cx == 0 && cy == 0 ? kinds : record(cell, wx + cx, wy + cy);
+                }
+            }
+            deriveFrom(ring);
+        }
         return kinds;
     }
 
-    /** What each square of a chunk is. Kept once every square of the chunk has been seen loaded. */
-    private static Kinds kinds(IsoCell cell, int wx, int wy) {
-        Kinds kept = known(wx, wy);
-        if (kept != null) {
-            return kept;
+    /** Works out again what is over each square of a derived record, from the records it was derived from. Whether over came out otherwise. */
+    private static boolean derive(Kinds kinds) {
+        for (int cx = -1; cx <= 1; cx++) {
+            for (int cy = -1; cy <= 1; cy++) {
+                ring[(cx + 1) * 3 + cy + 1] = cx == 0 && cy == 0 ? kinds : recordOf(kinds.wx + cx, kinds.wy + cy);
+            }
         }
-        if (unsureAsOf != mapAsOf()) {
-            unsure.addValuesTo(spare);
-            unsure.clear();
-            unsureAsOf = mapAsOf();
-        }
-        long chunk = (long) wx << 32 | wy & 0xFFFFFFFFL;
-        kept = unsure.get(chunk);
-        if (kept != null) {
-            return kept;
-        }
-        MapAhead.Guess guess = ground(cell, wx * CHUNK_TILES + CHUNK_TILES / 2, wy * CHUNK_TILES + CHUNK_TILES / 2) == null ? MapAhead.guessed(wx, wy) : null;
-        if (guess != null) {
-            kept = guessed(guess);
-            unsure.put(chunk, kept);
-            return kept;
-        }
-        boolean whole = true, water = false;
+        return deriveFrom(ring);
+    }
+
+    /**
+     * Works out what is over each square of the chunk in the middle of ring, as Footings.Site.over
+     * tells it, and with it which squares are hard, builtOn and sum, from what the squares are and
+     * what stands on those of the eight chunks round it (standsOn). A square built over only on
+     * the levels above it is not hard: nothing stands on its ground. Whether over came out
+     * otherwise than it was.
+     */
+    private static boolean deriveFrom(Kinds[] ring) {
+        Kinds kinds = ring[4];
+        boolean changed = false;
+        int builtOn = 0;
         for (int i = 0; i < CHUNK_TILES; i++) {
             for (int j = 0; j < CHUNK_TILES; j++) {
-                int x = wx * CHUNK_TILES + i, y = wy * CHUNK_TILES + j;
-                IsoGridSquare square = ground(cell, x, y);
-                byte kind = kind(square);
-                whole &= kind != UNKNOWN;
-                passing.kinds[i * CHUNK_TILES + j] = kind;
-                passing.hard[i * CHUNK_TILES + j] = square != null && (footingOf(cell, square, x, y) != null || stands(cell, square, x, y));
-                passing.footway[i * CHUNK_TILES + j] = kind == MADE || kind == STREET && footway(square);
-                passing.marks[i * CHUNK_TILES + j] = kind == STREET ? marks(square) : 0;
-                water |= kind == WATER;
+                int at = i * CHUNK_TILES + j;
+                byte kind = kinds.kinds[at];
+                boolean hard = kind != UNKNOWN && (kinds.house[at] != Footings.NONE || standsOn(ring, i, j));
+                byte over = kind == UNKNOWN ? Footings.UNLOADED
+                        : kinds.house[at] != Footings.NONE ? Footings.HOUSE
+                        : hard ? Footings.BUILT
+                        : kinds.level[at] != Grounds.NONE ? Footings.LEVEL
+                        : kinds.above[at] != Footings.OPEN ? kinds.above[at]
+                        : !Paving.without && (kind == STREET || kind == MADE) ? Footings.PAVED : Footings.OPEN;
+                changed |= over != kinds.over[at];
+                kinds.over[at] = over;
+                kinds.hard[at] = hard;
+                builtOn += hard ? 1 : 0;
             }
         }
-        Kinds fresh = blank();
-        fresh.wx = wx;
-        fresh.wy = wy;
-        fresh.whole = whole;
-        fresh.water = water;
-        for (boolean built : passing.hard) {
-            fresh.builtOn += built ? 1 : 0;
+        kinds.builtOn = kinds.whole ? builtOn : 0;
+        kinds.sum = sum(kinds);
+        kinds.derived = true;
+        return changed;
+    }
+
+    /**
+     * Whether something built stands on the ground of the square (i, j) of the chunk in the
+     * middle of ring that is in no room of a building: a stair, a roof tile, which there is an
+     * awning or a canopy, or a building's own wall, which the game stands on the square outside
+     * the building along its south and east sides. A fence or a garden wall does not: it runs
+     * with the ground it stands on.
+     */
+    private static boolean standsOn(Kinds[] ring, int i, int j) {
+        int stands = standsAt(ring, i, j);
+        if ((stands & STAIR_OR_ROOF) != 0) {
+            return true;
         }
-        System.arraycopy(passing.kinds, 0, fresh.kinds, 0, fresh.kinds.length);
-        System.arraycopy(passing.hard, 0, fresh.hard, 0, fresh.hard.length);
-        System.arraycopy(passing.footway, 0, fresh.footway, 0, fresh.footway.length);
-        System.arraycopy(passing.marks, 0, fresh.marks, 0, fresh.marks.length);
-        fresh.sum = sum(fresh);
-        if (!whole) {
-            unsure.put(chunk, fresh);
-            return fresh;
-        }
-        fresh.used = frame;
-        int slot = slot(wx, wy), into = slot;
-        for (int way = 0; way < WAYS; way++) {
-            Kinds held = known[slot + way];
-            if (held == null) {
-                into = slot + way;
-                break;
-            }
-            if (held.used < known[into].used) {
-                into = slot + way;
+        for (int quarter = Parasols.NORTH_WEST; quarter <= Parasols.SOUTH_EAST; quarter++) {
+            // A parasol's canopy is marked as a roof tile, and where the mod stands it as a parasol it stands on the ground as furniture does: see Parasols.
+            if ((stands & 1 << ROOF_QUARTERS + quarter) != 0 && !(Own.furniture() && wholeParasol(ring, i - Parasols.ALONG_X[quarter], j - Parasols.ALONG_Y[quarter]))) {
+                return true;
             }
         }
-        known[into] = fresh;
-        return fresh;
+        return (stands & NORTH_WALL) != 0 && (standsAt(ring, i, j - 1) & ROOMED) != 0 || (stands & WEST_WALL) != 0 && (standsAt(ring, i - 1, j) & ROOMED) != 0;
+    }
+
+    /** Whether all four quarters of a round canopy stand on the squares from (i, j), the north-west one's, as Parasols.whole tells: of the chunk in the middle of ring, each from -1 to CHUNK_TILES. */
+    private static boolean wholeParasol(Kinds[] ring, int i, int j) {
+        for (int quarter = Parasols.NORTH_WEST; quarter <= Parasols.SOUTH_EAST; quarter++) {
+            if ((standsAt(ring, i + Parasols.ALONG_X[quarter], j + Parasols.ALONG_Y[quarter]) & 1 << HELD_QUARTERS + quarter) == 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** What stands on the ground of the square (i, j) of the chunk in the middle of ring, each from -1 to CHUNK_TILES. */
+    private static int standsAt(Kinds[] ring, int i, int j) {
+        int cx = Math.floorDiv(i, CHUNK_TILES), cy = Math.floorDiv(j, CHUNK_TILES);
+        return ring[(cx + 1) * 3 + cy + 1].stands[(i - cx * CHUNK_TILES) * CHUNK_TILES + j - cy * CHUNK_TILES];
     }
 
     /**
      * Fills in which made thing stands over each square of a chunk, and what it stands at:
      * the search of what a square is joined to looks over chunks round it, so it is asked
-     * only of the chunks a height is worked out from (lay) and not of every chunk looked at
-     * for water. Kept while what it found is settled, and otherwise for as long as the map
-     * has the same chunks loaded.
+     * only of the chunks a height is worked out from (region, lay) and not of every chunk
+     * looked at for water. Kept while none of the chunks its searches went by has come out
+     * otherwise.
      */
     private static void footed(IsoCell cell, Kinds kinds) {
-        long asOf = mapAsOf();
-        if (footingsAsOf != asOf) {
-            footings.changed();
-            footingsAsOf = asOf;
-        }
-        if (kinds.footed && (kinds.footSettled || kinds.footedAsOf == asOf)) {
+        if (kinds.footed && kinds.footReads.hold()) {
             return;
         }
-        boolean settled = true, onMap = false;
-        for (byte kind : kinds.kinds) {
-            onMap |= kind != UNKNOWN;
-        }
+        Reads reads = new Reads(logged);
         siteCell = cell;
-        boolean ringLoaded = onMap;
-        for (int cx = -1; cx <= 1 && ringLoaded; cx++) {
-            for (int cy = -1; cy <= 1 && ringLoaded; cy++) {
-                ringLoaded = site.loaded(kinds.wx + cx, kinds.wy + cy);
-            }
-        }
-        boolean openHolds = kinds.footed && kinds.ringLoaded && ringLoaded;
         for (int i = 0; i < CHUNK_TILES; i++) {
             for (int j = 0; j < CHUNK_TILES; j++) {
                 int at = i * CHUNK_TILES + j;
-                if (openHolds && kinds.open[at]) {
-                    continue;
-                }
-                // A chunk that is not whole is looked over again whenever the map has other chunks loaded (kinds): one with no square known has none loaded now.
-                if (onMap) {
-                    footings.find(site, kinds.wx * CHUNK_TILES + i, kinds.wy * CHUNK_TILES + j);
-                } else {
-                    footings.findUnloaded(kinds.wx * CHUNK_TILES + i, kinds.wy * CHUNK_TILES + j);
-                }
-                settled &= footings.settled;
-                kinds.open[at] = footings.open;
+                footings.find(site, kinds.wx * CHUNK_TILES + i, kinds.wy * CHUNK_TILES + j);
+                reads.add(Math.floorDiv(footings.readLowX, CHUNK_TILES), Math.floorDiv(footings.readLowY, CHUNK_TILES),
+                        Math.floorDiv(footings.readHighX, CHUNK_TILES), Math.floorDiv(footings.readHighY, CHUNK_TILES));
                 long middle = footings.boxed ? footings.ruler : footings.found;
                 kinds.midX[at] = Footings.keyX(middle);
                 kinds.midY[at] = Footings.keyY(middle);
@@ -1672,6 +1934,7 @@ final class Terrain {
             }
         }
         siteCell = null;
+        siteKinds = null;
         long sum = 0L;
         boolean anyThing = false, anyFree = false;
         for (int at = 0; at < CHUNK_TILES * CHUNK_TILES; at++) {
@@ -1684,13 +1947,10 @@ final class Terrain {
         kinds.footSum = sum;
         kinds.anyThing = anyThing;
         kinds.anyFree = anyFree;
-        kinds.ringLoaded = ringLoaded;
+        kinds.footReads = reads;
         kinds.footed = true;
-        kinds.footSettled = settled;
-        kinds.footedAsOf = asOf;
+        tollFooted++;
     }
-
-    private static long footingsAsOf = Long.MIN_VALUE;
 
     /** What a chunk's squares are, as Kinds.sum keeps it. */
     private static long sum(Kinds kinds) {
@@ -1729,28 +1989,36 @@ final class Terrain {
     }
 
     /**
-     * Whether something built stands on the ground of a square that is in no room of a
-     * building: a stair, a roof tile, which there is an awning or a canopy, or a building's
-     * own wall, which the game stands on the square outside the building along its south and
-     * east sides. A fence or a garden wall does not: it runs with the ground it stands on.
+     * What stands on the ground of a square, as STAIR_OR_ROOF and the rest keep it, of the
+     * square alone: whether a canopy's quarter or a wall stands on the ground goes by the
+     * squares round it as well (standsOn).
      */
-    private static boolean stands(IsoCell cell, IsoGridSquare square, int x, int y) {
+    private static short standsOf(IsoGridSquare square) {
+        int stands = defOf(square) != null ? ROOMED : 0;
         PZArrayList<IsoObject> objects = square.getObjects();
-        boolean north = false, west = false;
         for (int i = 0; i < objects.size(); i++) {
             IsoSprite sprite = objects.get(i).getSprite();
             if (sprite == null) {
                 continue;
             }
-            // A parasol's canopy is marked as a roof tile, and where the mod stands it as a parasol it stands on the ground as furniture does: see Parasols.
-            if (isStair(sprite.getType()) || isRoof(sprite.getType()) && !(Own.furniture() && Parasols.partOfOne(cell, sprite, x, y, 0))) {
-                return true;
+            int quarter = Parasols.quarter(sprite);
+            if (quarter != Parasols.NONE) {
+                stands |= 1 << HELD_QUARTERS + quarter;
+            }
+            if (isStair(sprite.getType()) || isRoof(sprite.getType()) && quarter == Parasols.NONE) {
+                stands |= STAIR_OR_ROOF;
+            } else if (isRoof(sprite.getType())) {
+                stands |= 1 << ROOF_QUARTERS + quarter;
             }
             PropertyContainer flags = sprite.getProperties();
-            north |= flags.has(IsoFlagType.WallN) || flags.has(IsoFlagType.WallNW) || flags.has(IsoFlagType.DoorWallN) || flags.has(IsoFlagType.WindowN);
-            west |= flags.has(IsoFlagType.WallW) || flags.has(IsoFlagType.WallNW) || flags.has(IsoFlagType.DoorWallW) || flags.has(IsoFlagType.WindowW);
+            if (flags.has(IsoFlagType.WallN) || flags.has(IsoFlagType.WallNW) || flags.has(IsoFlagType.DoorWallN) || flags.has(IsoFlagType.WindowN)) {
+                stands |= NORTH_WALL;
+            }
+            if (flags.has(IsoFlagType.WallW) || flags.has(IsoFlagType.WallNW) || flags.has(IsoFlagType.DoorWallW) || flags.has(IsoFlagType.WindowW)) {
+                stands |= WEST_WALL;
+            }
         }
-        return north && inBuilding(cell.getGridSquare(x, y - 1, 0)) || west && inBuilding(cell.getGridSquare(x - 1, y, 0));
+        return (short) stands;
     }
 
     /**
@@ -1812,10 +2080,6 @@ final class Terrain {
 
     static boolean isRoof(IsoObjectType type) {
         return type == IsoObjectType.WestRoofB || type == IsoObjectType.WestRoofM || type == IsoObjectType.WestRoofT;
-    }
-
-    private static boolean inBuilding(IsoGridSquare square) {
-        return square != null && defOf(square) != null;
     }
 
     static boolean isStair(IsoObjectType type) {
@@ -1902,10 +2166,10 @@ final class Terrain {
         return grid == null ? gain : grid.gain;
     }
 
-    /** Whether a chunk whose squares have all been seen loaded has water on it. Logic thread. */
+    /** Whether a chunk loaded whole has water on it, as its record has it. Logic thread. */
     static boolean holdsWater(int wx, int wy) {
-        Kinds kept = known(wx, wy);
-        return kept != null && kept.water;
+        Kinds kinds = recordOf(wx, wy);
+        return kinds != null && kinds.source == LOADED && kinds.water;
     }
 
     /** The height of the land at (x, y) before what is uneven on open ground and what is built is on it. After findWater. */

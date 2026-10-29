@@ -1,10 +1,21 @@
 package com.cameraunlock.zomboid;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.Arrays;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import zombie.iso.BuildingDef;
+import zombie.iso.IsoCell;
+import zombie.iso.IsoGridSquare;
+import zombie.iso.IsoObject;
+import zombie.iso.SpriteDetails.IsoObjectType;
+import zombie.iso.areas.IsoBuilding;
+import zombie.iso.sprite.IsoSprite;
+import zombie.util.list.PZArrayList;
 
 /** Tests of the height Terrain gives a street and the ground beside it, the hills of the country, and how high the player has them stand. */
 final class TerrainTests {
@@ -54,7 +65,11 @@ final class TerrainTests {
             Checks.run("aChunkStillFillingIsReadAgainOnceLoaded", TerrainTests::aChunkStillFillingIsReadAgainOnceLoaded);
             Checks.run("aChunkWhoseGroundIsAsItWasKeepsItsHeightsUntilAnyOfItChanges", TerrainTests::aChunkWhoseGroundIsAsItWasKeepsItsHeightsUntilAnyOfItChanges);
             Checks.run("aPitchOnAHillsideIsLaidLevelAndTheHillsEaseBackRoundIt", TerrainTests::aPitchOnAHillsideIsLaidLevelAndTheHillsEaseBackRoundIt);
-            Checks.run("aKindsSetBackIsAsNew", TerrainTests::aKindsSetBackIsAsNew);
+            Checks.run("aTownStreamedARowAtATimeHasTheHeightsOfOneLoadedWhole", () -> TestMap.withEverything(TerrainTests::aTownStreamedARowAtATimeHasTheHeightsOfOneLoadedWhole));
+            Checks.run("recordsLetGoFarFromEveryEyeAreReadAgainAsTheyWere", () -> TestMap.withEverything(TerrainTests::recordsLetGoFarFromEveryEyeAreReadAgainAsTheyWere));
+            Checks.run("recordsPutOutForRoomAreReadAgainAsTheyWere", TerrainTests::recordsPutOutForRoomAreReadAgainAsTheyWere);
+            Checks.run("aRowOfContentSwitchedGivesTheHeightsWorkedOutAfresh", TerrainTests::aRowOfContentSwitchedGivesTheHeightsWorkedOutAfresh);
+            Checks.run("postsOnALevelAboveTheRoadLeaveTheKerbAndWhatIsBuiltOnAsTheyAre", TerrainTests::postsOnALevelAboveTheRoadLeaveTheKerbAndWhatIsBuiltOnAsTheyAre);
         } finally {
             System.arraycopy(around, 0, Terrain.around, 0, around.length);
             System.arraycopy(pads, 0, Terrain.padsAround, 0, pads.length);
@@ -66,49 +81,6 @@ final class TerrainTests {
 
     private static void check(boolean condition, String what) {
         Checks.check(condition, what);
-    }
-
-    /** Terrain fills a Kinds the map has let go of in place of a new one: set back, it is a new one in every field. */
-    private static void aKindsSetBackIsAsNew() {
-        try {
-            Class<?> type = Class.forName("com.cameraunlock.zomboid.Terrain$Kinds");
-            java.lang.reflect.Constructor<?> make = type.getDeclaredConstructor();
-            make.setAccessible(true);
-            Object used = make.newInstance(), fresh = make.newInstance();
-            java.lang.reflect.Field[] fields = type.getDeclaredFields();
-            for (java.lang.reflect.Field field : fields) {
-                field.setAccessible(true);
-                Object value = field.get(used);
-                if (value instanceof byte[] bytes) {
-                    Arrays.fill(bytes, (byte) 3);
-                } else if (value instanceof float[] floats) {
-                    Arrays.fill(floats, 3f);
-                } else if (value instanceof boolean[] flags) {
-                    Arrays.fill(flags, true);
-                } else if (field.getType() == int.class) {
-                    field.setInt(used, 3);
-                } else if (field.getType() == long.class) {
-                    field.setLong(used, 3L);
-                } else if (field.getType() == boolean.class) {
-                    field.setBoolean(used, true);
-                } else {
-                    throw new IllegalStateException("a field of Kinds of a type this test does not set: " + field);
-                }
-            }
-            java.lang.reflect.Method reset = type.getDeclaredMethod("reset");
-            reset.setAccessible(true);
-            reset.invoke(used);
-            for (java.lang.reflect.Field field : fields) {
-                Object was = field.get(used), is = field.get(fresh);
-                boolean same = was instanceof byte[] a ? Arrays.equals(a, (byte[]) is)
-                        : was instanceof float[] b ? Arrays.equals(b, (float[]) is)
-                        : was instanceof boolean[] c ? Arrays.equals(c, (boolean[]) is)
-                        : was.equals(is);
-                check(same, "Kinds." + field.getName() + " set back is as a new Kinds has it");
-            }
-        } catch (ReflectiveOperationException e) {
-            throw new IllegalStateException(e);
-        }
     }
 
     /**
@@ -338,6 +310,11 @@ final class TerrainTests {
         return TestMap.<Long>read(null, Terrain.class, "tollFolded");
     }
 
+    /** How many times heights that were kept have been worked out again. */
+    private static long again() {
+        return TestMap.<Long>read(null, Terrain.class, "tollAgain");
+    }
+
     /** The heights, water and kerbs of the chunk at (0, 0), as one string. */
     private static String chunkAtNought(TestMap map) {
         float[] heights = Terrain.HILLS.corners(map.cell, 0, 0);
@@ -353,11 +330,12 @@ final class TerrainTests {
     }
 
     /**
-     * An unsettled chunk is looked at again whenever the map loads more or more of it is read
-     * ahead, which the eye only turning round does. Where nothing its heights go by has
-     * changed, the fold says so and they are kept, and they are what working them out afresh
-     * gives. Where any one thing has, a square, a footing, water or a pad worked out from
-     * ground beyond what the heights go by, the fold says so and they are worked out again.
+     * The map loads more, or more of it is read ahead, whenever the eye only turns round. Where
+     * none of the chunks a chunk's heights went by comes out otherwise, they are kept without
+     * being worked out again, and they are what working them out afresh gives. Where one does,
+     * the fold tells whether anything the heights go by changed with it, a square, a footing,
+     * water or a pad worked out from ground beyond what the heights go by, and where it did
+     * they are worked out again.
      */
     private static void aChunkWhoseGroundIsAsItWasKeepsItsHeightsUntilAnyOfItChanges() {
         boolean live = ChunkMarks.live;
@@ -392,11 +370,11 @@ final class TerrainTests {
             int epoch = 2;
             for (Map.Entry<String, Change> change : unchanged.entrySet()) {
                 change.getValue().make(map);
-                long before = folded();
+                long before = again();
                 Terrain.frame(4000 + epoch);
                 Terrain.loaded(epoch++);
                 Terrain.HILLS.fromMap(map.cell, 0, 0);
-                check(folded() == before + 1, "with " + change.getKey() + " and nothing the chunk's heights go by changed, the fold keeps them");
+                check(again() == before, "with " + change.getKey() + " and none of the chunks the heights went by changed, they are kept without being worked out again");
                 String kept = chunkAtNought(map);
                 check(kept.equals(first) && Terrain.HILLS.version(0, 0) == version, "with " + change.getKey() + ", the heights kept are the heights and the version they were");
             }
@@ -547,6 +525,522 @@ final class TerrainTests {
         } finally {
             ChunkMarks.live = live;
             Terrain.forget();
+        }
+    }
+
+    /** The test town's chunks, TOWN_X by TOWN_Y from (0, 0), and how far round it the map's files have grass. */
+    private static final int TOWN_X = 8, TOWN_Y = 12, TOWN_MARGIN = 7;
+    /** The town's houses: their first corner, their last, and their storeys. The south walls of the first, second and last stand on a chunk's northern edge. */
+    private static final int[][] HOUSES = {{2, 4, 12, 16, 1}, {20, 28, 32, 40, 1}, {52, 30, 60, 48, 2}, {24, 76, 40, 88, 1}};
+
+    /**
+     * A town of houses, streets with their pavements and lines, a court with its hoops, a shed, a
+     * garden wall, a parasol and a pond, with walls, the shed, the court and the parasol across
+     * the edges between rows of chunks. As the save has it, or as the map's files have it, which
+     * have no last house and a second shed the save does not.
+     */
+    private static final class Town {
+        final TestMap map = new TestMap();
+        final boolean asShipped;
+        final IsoSprite grass, water, road, pavement, line, inside, roof, northWall, westWall, surface, hoop, sign;
+        final IsoSprite[] parasol = new IsoSprite[4];
+        final IsoBuilding[] houses = new IsoBuilding[HOUSES.length];
+
+        Town(boolean asShipped) {
+            this.asShipped = asShipped;
+            grass = map.spriteWith("blends_natural_01_0", IsoObjectType.normal, map.painted, "solidfloor", "");
+            water = map.spriteWith("blends_natural_02_0", IsoObjectType.normal, map.painted, "solidfloor", "", "water", "");
+            road = map.spriteWith("blends_street_01_0", IsoObjectType.normal, map.painted, "solidfloor", "");
+            pavement = map.spriteWith("blends_street_01_48", IsoObjectType.normal, map.painted, "solidfloor", "", "FloorMaterial", "Road_04");
+            line = map.sprite("street_trafficlines_01_2", IsoObjectType.normal);
+            inside = map.spriteWith("floors_interior_tilesandwood_01_0", IsoObjectType.normal, map.painted, "solidfloor", "");
+            roof = map.sprite("roofs_02_0", IsoObjectType.WestRoofB, "BlockRain");
+            northWall = map.sprite("walls_exterior_house_01_1", IsoObjectType.wall, "WallN");
+            westWall = map.sprite("walls_exterior_house_01_0", IsoObjectType.wall, "WallW");
+            surface = map.sprite("recreational_sports_01_22", IsoObjectType.normal);
+            hoop = map.sprite("recreational_sports_01_24", IsoObjectType.normal);
+            sign = map.sprite("signs_one-off_01_0", IsoObjectType.normal);
+            String[] facing = {"N", "E", "W", "S"};
+            for (int quarter = 0; quarter < 4; quarter++) {
+                parasol[quarter] = map.spriteWith("walls_decoration_01_8" + quarter, IsoObjectType.WestRoofT, map.painted, "CustomName", "Canopy", "GroupName", "Curved red", "Facing", facing[quarter]);
+            }
+            for (int h = 0; h < HOUSES.length; h++) {
+                int[] house = HOUSES[h];
+                houses[h] = new IsoBuilding(new BuildingDef(h + 1, house[0], house[1], house[2] - house[0], house[3] - house[1]));
+            }
+        }
+
+        /** Every sprite of the town. */
+        List<IsoSprite> sprites() {
+            List<IsoSprite> all = new ArrayList<>(List.of(grass, water, road, pavement, line, inside, roof, northWall, westWall, surface, hoop, sign));
+            all.addAll(List.of(parasol));
+            return all;
+        }
+
+        private static boolean street(int x, int y) {
+            return y >= 22 && y < 26 || y >= 70 && y < 74 || x >= 14 && x < 18 || x >= 46 && x < 50;
+        }
+
+        private static boolean nearStreet(int x, int y) {
+            for (int dx = -2; dx <= 2; dx++) {
+                for (int dy = -2; dy <= 2; dy++) {
+                    if (street(x + dx, y + dy)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        /** The house a square is in, or -1. */
+        private int house(int x, int y) {
+            for (int h = 0; h < HOUSES.length; h++) {
+                int[] house = HOUSES[h];
+                if ((h != 3 || !asShipped) && x >= house[0] && x < house[2] && y >= house[1] && y < house[3]) {
+                    return h;
+                }
+            }
+            return -1;
+        }
+
+        private boolean shed(int x, int y) {
+            return x >= 4 && x < 9 && y >= 62 && y < 66 || asShipped && x >= 52 && x < 56 && y >= 58 && y < 61;
+        }
+
+        /** Puts the squares of a chunk on the map: the town's, or grass beyond it. */
+        void lay(int wx, int wy) {
+            boolean inTown = wx >= 0 && wx < TOWN_X && wy >= 0 && wy < TOWN_Y;
+            for (int i = 0; i < Terrain.CHUNK_TILES; i++) {
+                for (int j = 0; j < Terrain.CHUNK_TILES; j++) {
+                    int x = wx * Terrain.CHUNK_TILES + i, y = wy * Terrain.CHUNK_TILES + j;
+                    if (inTown) {
+                        layTown(x, y);
+                    } else {
+                        map.cell.square(x, y, 0).floor(grass);
+                    }
+                }
+            }
+        }
+
+        private void layTown(int x, int y) {
+            IsoGridSquare square = map.cell.square(x, y, 0);
+            int house = house(x, y);
+            boolean pond = x >= 56 && y >= 80;
+            square.floor(pond ? water : street(x, y) ? road : house >= 0 ? inside : nearStreet(x, y) ? pavement : grass);
+            if (street(x, y) && y == 24 && !(x >= 14 && x < 18 || x >= 46 && x < 50)) {
+                square.add(line);
+            }
+            if (x >= 2 && x < 8 && y >= 34 && y < 50) {
+                square.add(x == 4 && (y == 35 || y == 48) ? hoop : surface);
+            }
+            if (shed(x, y)) {
+                square.add(roof);
+            }
+            for (int h = 0; h < HOUSES.length; h++) {
+                int[] box = HOUSES[h];
+                if (h == 3 && asShipped) {
+                    continue;
+                }
+                if (x >= box[0] && x < box[2] && (y == box[1] || y == box[3])) {
+                    square.add(northWall);
+                }
+                if (y >= box[1] && y < box[3] && (x == box[0] || x == box[2])) {
+                    square.add(westWall);
+                }
+            }
+            if (y == 56 && x >= 20 && x < 30) {
+                square.add(northWall);
+            }
+            for (int quarter = 0; quarter < 4; quarter++) {
+                if (x == 36 + Parasols.ALONG_X[quarter] && y == 55 + Parasols.ALONG_Y[quarter]) {
+                    square.add(parasol[quarter]);
+                }
+            }
+            if (house >= 0) {
+                square.building(houses[house]);
+                square.setRoomID(house + 1);
+                if (HOUSES[house][4] > 1) {
+                    IsoGridSquare upstairs = map.cell.square(x, y, 1);
+                    upstairs.floor(inside);
+                    upstairs.building(houses[house]);
+                    upstairs.setRoomID(house + 101);
+                }
+            }
+            if (x == 20 && y == 21) {
+                map.cell.square(x, y, 1).add(sign);
+            }
+        }
+    }
+
+    /** A lotpack of one chunk, the chunk at (0, 0) of its cell and every other the same: the tiles of each square, by level from 0 to 1, x and y. */
+    private static ByteBuffer packOf(int[][] tiles) {
+        ByteBuffer out = ByteBuffer.allocate(1 << 16).order(ByteOrder.LITTLE_ENDIAN);
+        out.putInt(1024);
+        int table = out.position(), data = table + 1024 * 8;
+        for (int chunk = 0; chunk < 1024; chunk++) {
+            out.putLong(table + chunk * 8, data);
+        }
+        out.position(data);
+        int empty = 0;
+        for (int[] held : tiles) {
+            if (held.length == 0) {
+                empty++;
+                continue;
+            }
+            if (empty > 0) {
+                out.putInt(-1).putInt(empty);
+                empty = 0;
+            }
+            out.putInt(held.length + 1).putInt(-1);
+            for (int tile : held) {
+                out.putInt(tile);
+            }
+        }
+        if (empty > 0) {
+            out.putInt(-1).putInt(empty);
+        }
+        out.flip();
+        return out;
+    }
+
+    /** Has MapAhead read the town and the grass round it from the map's files: as the save has the town, or with the map's own differences. */
+    private static void readTownAhead(boolean asShipped) {
+        Town shipped = new Town(asShipped);
+        List<IsoSprite> sprites = shipped.sprites();
+        int[] traits = new int[sprites.size()];
+        IdentityHashMap<IsoSprite, Integer> tileOf = new IdentityHashMap<>();
+        for (int tile = 0; tile < traits.length; tile++) {
+            traits[tile] = MapAhead.traits(sprites.get(tile));
+            tileOf.put(sprites.get(tile), tile);
+        }
+        MapAhead.Rooms rooms = (x, y, z) -> {
+            IsoGridSquare square = shipped.map.cell.getGridSquare(x, y, z);
+            IsoBuilding building = square == null ? null : square.getBuilding();
+            BuildingDef def = building == null ? null : building.getDef();
+            return def == null ? Footings.NONE : Footings.key(def.getX() + def.getW() / 2f, def.getY() + def.getH() / 2f);
+        };
+        for (int wx = -TOWN_MARGIN; wx < TOWN_X + TOWN_MARGIN; wx++) {
+            for (int wy = -TOWN_MARGIN; wy < TOWN_Y + TOWN_MARGIN; wy++) {
+                shipped.lay(wx, wy);
+            }
+        }
+        for (int wx = -TOWN_MARGIN; wx < TOWN_X + TOWN_MARGIN; wx++) {
+            for (int wy = -TOWN_MARGIN; wy < TOWN_Y + TOWN_MARGIN; wy++) {
+                int[][] tiles = new int[2 * Terrain.CHUNK_TILES * Terrain.CHUNK_TILES][];
+                for (int z = 0; z <= 1; z++) {
+                    for (int i = 0; i < Terrain.CHUNK_TILES; i++) {
+                        for (int j = 0; j < Terrain.CHUNK_TILES; j++) {
+                            IsoGridSquare square = shipped.map.cell.getGridSquare(wx * Terrain.CHUNK_TILES + i, wy * Terrain.CHUNK_TILES + j, z);
+                            PZArrayList<IsoObject> objects = square == null ? new PZArrayList<>() : square.getObjects();
+                            int[] held = new int[objects.size()];
+                            for (int k = 0; k < held.length; k++) {
+                                held[k] = tileOf.get(objects.get(k).getSprite());
+                            }
+                            tiles[(z * Terrain.CHUNK_TILES + i) * Terrain.CHUNK_TILES + j] = held;
+                        }
+                    }
+                }
+                MapAhead.put(MapAhead.guess(MapAhead.read(0, packOf(tiles), traits, 0, 1, wx, wy, 0, 0), rooms));
+            }
+        }
+    }
+
+    /** The heights, water and kerbs of the town's chunks and the ring round them, by chunk, worked out with the frame's budget no object. */
+    private static Map<String, String> townHeights(Town town, int frame, int epoch) {
+        return heightsIn(town.map.cell, -1, -1, TOWN_X, TOWN_Y, frame, epoch);
+    }
+
+    /** The same of the chunks from (fromX, fromY) to (toX, toY). */
+    private static Map<String, String> heightsIn(IsoCell cell, int fromX, int fromY, int toX, int toY, int frame, int epoch) {
+        Terrain.frame(frame);
+        Terrain.loaded(epoch);
+        for (int wx = fromX; wx <= toX; wx++) {
+            for (int wy = fromY; wy <= toY; wy++) {
+                Terrain.HILLS.fromMap(cell, wx, wy);
+            }
+        }
+        Map<String, String> heights = new LinkedHashMap<>();
+        for (int wx = fromX; wx <= toX; wx++) {
+            for (int wy = fromY; wy <= toY; wy++) {
+                heights.put(wx + "," + wy, Arrays.toString(Terrain.HILLS.corners(cell, wx, wy)) + Arrays.toString(Terrain.HILLS.water(wx, wy))
+                        + Arrays.toString(Terrain.HILLS.kerb(wx, wy)));
+            }
+        }
+        return heights;
+    }
+
+    /** What is over a square, as the record of its chunk has it worked out (Terrain.Kinds.over). */
+    private static byte overAt(int x, int y) {
+        Object kinds = derivedRecord(Math.floorDiv(x, Terrain.CHUNK_TILES), Math.floorDiv(y, Terrain.CHUNK_TILES));
+        return TestMap.<byte[]>read(kinds, "over")[Math.floorMod(x, Terrain.CHUNK_TILES) * Terrain.CHUNK_TILES + Math.floorMod(y, Terrain.CHUNK_TILES)];
+    }
+
+    /** The record of a chunk (Terrain.Kinds), which must have had what is over its squares worked out. */
+    private static Object derivedRecord(int wx, int wy) {
+        for (Object kinds : TestMap.<Object[]>read(null, Terrain.class, "records")) {
+            if (kinds != null && TestMap.<Integer>read(kinds, "wx") == wx && TestMap.<Integer>read(kinds, "wy") == wy) {
+                if (!TestMap.<Boolean>read(kinds, "derived")) {
+                    throw new IllegalStateException("the record of the chunk at " + wx + ", " + wy + " has not had what is over its squares worked out");
+                }
+                return kinds;
+            }
+        }
+        throw new IllegalStateException("no record of the chunk at " + wx + ", " + wy);
+    }
+
+    /**
+     * A chunk's heights go by the ground round it, and the map loads a row of chunks at a time
+     * as the player goes: for a given map and save, they come out the same whatever order the
+     * chunks loaded in. Streamed a row at a time south and north, with the ground beyond read
+     * ahead as the save has it, not at all, and as the map's files have it, the town ends with
+     * every chunk at the heights it has loaded whole and worked out from nothing.
+     */
+    private static void aTownStreamedARowAtATimeHasTheHeightsOfOneLoadedWhole() throws Throwable {
+        boolean live = ChunkMarks.live;
+        Terrain.HILLS.heighten(1f);
+        Country.set(List.of());
+        try {
+            ChunkMarks.live = true;
+            int epoch = 0;
+            for (String ahead : new String[] {"as the save has it", "not at all", "as the map's files have it"}) {
+                for (boolean southward : new boolean[] {true, false}) {
+                    MapAhead.forget();
+                    if (!ahead.equals("not at all")) {
+                        readTownAhead(ahead.equals("as the map's files have it"));
+                    }
+                    Terrain.forget();
+                    Town town = new Town(false);
+                    for (int row = 0; row < TOWN_Y; row++) {
+                        int wy = southward ? row : TOWN_Y - 1 - row;
+                        for (int wx = 0; wx < TOWN_X; wx++) {
+                            town.lay(wx, wy);
+                        }
+                        epoch++;
+                        Terrain.frame(7000 + epoch);
+                        Terrain.loaded(epoch);
+                        int first = southward ? 0 : wy, last = southward ? wy : TOWN_Y - 1;
+                        for (int y = first - 1; y <= last + 1; y++) {
+                            for (int x = -1; x <= TOWN_X; x++) {
+                                Terrain.HILLS.corners(town.map.cell, x, y);
+                            }
+                        }
+                    }
+                    epoch++;
+                    Map<String, String> streamed = townHeights(town, 7000 + epoch, epoch);
+                    Terrain.forget();
+                    epoch++;
+                    Map<String, String> whole = townHeights(town, 7000 + epoch, epoch);
+                    List<String> differing = new ArrayList<>();
+                    for (Map.Entry<String, String> chunk : whole.entrySet()) {
+                        if (!chunk.getValue().equals(streamed.get(chunk.getKey()))) {
+                            differing.add(chunk.getKey());
+                        }
+                    }
+                    check(differing.isEmpty(), "streamed " + (southward ? "south" : "north") + " with the ground beyond read ahead " + ahead + ", every chunk has the heights it has loaded whole: "
+                            + differing.size() + " of " + whole.size() + " differ, " + differing.subList(0, Math.min(12, differing.size())));
+                }
+            }
+        } finally {
+            ChunkMarks.live = live;
+            Terrain.forget();
+            MapAhead.forget();
+        }
+    }
+
+    /** The test town's chunks put on the map, with nothing round them, and Terrain and MapAhead holding nothing of any map. */
+    private static Town loadedTown() {
+        MapAhead.forget();
+        Terrain.forget();
+        Town town = new Town(false);
+        for (int wx = 0; wx < TOWN_X; wx++) {
+            for (int wy = 0; wy < TOWN_Y; wy++) {
+                town.lay(wx, wy);
+            }
+        }
+        return town;
+    }
+
+    private static long toll(String name) {
+        return TestMap.<Long>read(null, Terrain.class, name);
+    }
+
+    /**
+     * The records of chunks far from every eye are let go, and whatever went by them is worked
+     * out again from the map as it is when next asked for: the town's heights, with every
+     * record round it let go while the eye was away, are as they were once the eye is back.
+     */
+    private static void recordsLetGoFarFromEveryEyeAreReadAgainAsTheyWere() {
+        boolean live = ChunkMarks.live;
+        Terrain.HILLS.heighten(1f);
+        Country.set(List.of());
+        try {
+            ChunkMarks.live = true;
+            Town town = loadedTown();
+            Terrain.Rework<IsoCell> none = (cell, wx, wy) -> {};
+            float townX = TOWN_X * Terrain.CHUNK_TILES / 2f, townY = TOWN_Y * Terrain.CHUNK_TILES / 2f;
+            Terrain.HILLS.heighten(1f, 0, townX, townY, town.map.cell, none);
+            Map<String, String> before = townHeights(town, 9001, 9001);
+            long dropped = toll("tollDropped"), read = toll("tollRead");
+            Terrain.HILLS.heighten(1f, 0, 8000.5f, 8000.5f, town.map.cell, none);
+            Terrain.frame(9002);
+            Terrain.loaded(9002);
+            Terrain.HILLS.corners(town.map.cell, 1000, 1000);
+            check(toll("tollDropped") - dropped >= (TOWN_X + 2) * (TOWN_Y + 2), "the records round the town are let go with the eye a thousand chunks off: " + (toll("tollDropped") - dropped));
+            Terrain.HILLS.heighten(1f, 0, townX, townY, town.map.cell, none);
+            long readAway = toll("tollRead") - read;
+            Map<String, String> after = townHeights(town, 9003, 9003);
+            check(toll("tollRead") - read - readAway >= TOWN_X * TOWN_Y, "once the eye is back the town's chunks are read again: " + (toll("tollRead") - read - readAway));
+            List<String> differing = new ArrayList<>();
+            for (Map.Entry<String, String> chunk : before.entrySet()) {
+                if (!chunk.getValue().equals(after.get(chunk.getKey()))) {
+                    differing.add(chunk.getKey());
+                }
+            }
+            check(differing.isEmpty(), "and every chunk has the heights it had before the eye went: " + differing.size() + " of " + before.size() + " differ, " + differing.subList(0, Math.min(12, differing.size())));
+        } finally {
+            ChunkMarks.live = live;
+            Terrain.forget();
+            MapAhead.forget();
+        }
+    }
+
+    /**
+     * A place in the records holds as many chunks a table's side apart as it has ways, and one
+     * more puts out the record asked for longest ago: what went by the records put out is worked
+     * out again from the map when next asked for, and comes out as it was.
+     */
+    private static void recordsPutOutForRoomAreReadAgainAsTheyWere() {
+        boolean live = ChunkMarks.live;
+        Terrain.HILLS.heighten(1f);
+        Country.set(List.of());
+        try {
+            ChunkMarks.live = true;
+            MapAhead.forget();
+            Terrain.forget();
+            TestMap map = new TestMap();
+            IsoSprite grass = map.spriteWith("blends_natural_01_0", IsoObjectType.normal, map.painted, "solidfloor", "");
+            IsoSprite water = map.spriteWith("blends_natural_02_0", IsoObjectType.normal, map.painted, "solidfloor", "", "water", "");
+            int ways = TestMap.<Integer>read(null, Terrain.class, "RECORD_WAYS"), apart = TestMap.<Integer>read(null, Terrain.class, "TABLE_SIDE");
+            for (int place = 0; place <= ways; place++) {
+                int from = place * apart * Terrain.CHUNK_TILES;
+                for (int x = from - 24; x < from + 32; x++) {
+                    for (int y = -24; y < 32; y++) {
+                        boolean pond = x >= from + 2 + place && x < from + 7 + place && y >= 2 && y < 6;
+                        map.cell.square(x, y, 0).floor(pond ? water : grass);
+                    }
+                }
+            }
+            long dropped = toll("tollDropped");
+            List<String> heights = new ArrayList<>();
+            for (int place = 0; place <= ways; place++) {
+                Terrain.frame(9101 + place);
+                Terrain.loaded(9101 + place);
+                heights.add(Arrays.toString(Terrain.HILLS.corners(map.cell, place * apart, 0)) + Arrays.toString(Terrain.HILLS.water(place * apart, 0)));
+                check(place < ways || toll("tollDropped") > dropped, "the place after the last way puts out records for room: " + (toll("tollDropped") - dropped));
+            }
+            check(!heights.get(0).equals(heights.get(1)), "the places' ponds are a tile apart, and so are their heights: " + heights.get(0));
+            Terrain.frame(9200);
+            Terrain.loaded(9200);
+            String again = Arrays.toString(Terrain.HILLS.corners(map.cell, 0, 0)) + Arrays.toString(Terrain.HILLS.water(0, 0));
+            check(again.equals(heights.get(0)), "and the first place's heights, asked for again, are as they were: " + heights.get(0) + " then " + again);
+        } finally {
+            ChunkMarks.live = live;
+            Terrain.forget();
+            MapAhead.forget();
+        }
+    }
+
+    /**
+     * A row of [Content] switched tells what is over a parasol's squares otherwise
+     * (Terrain.reread): the town's heights then are those it has worked out afresh with the
+     * row as it is now.
+     */
+    private static void aRowOfContentSwitchedGivesTheHeightsWorkedOutAfresh() {
+        boolean live = ChunkMarks.live;
+        int rows = Own.rows();
+        Terrain.HILLS.heighten(1f);
+        Country.set(List.of());
+        try {
+            ChunkMarks.live = true;
+            Town town = loadedTown();
+            Own.set(Own.ALL);
+            Map<String, String> furnished = townHeights(town, 9301, 9301);
+            Own.set(Own.ALL & ~Own.FURNITURE);
+            Terrain.reread();
+            Map<String, String> switched = townHeights(town, 9302, 9302);
+            Terrain.forget();
+            Map<String, String> afresh = townHeights(town, 9303, 9303);
+            List<String> differing = new ArrayList<>(), changed = new ArrayList<>();
+            for (Map.Entry<String, String> chunk : afresh.entrySet()) {
+                if (!chunk.getValue().equals(switched.get(chunk.getKey()))) {
+                    differing.add(chunk.getKey());
+                }
+                if (!chunk.getValue().equals(furnished.get(chunk.getKey()))) {
+                    changed.add(chunk.getKey());
+                }
+            }
+            check(!changed.isEmpty(), "the parasol's canopy, the game's own, is built over its squares, and the heights round it are others: " + changed);
+            check(differing.isEmpty(), "and with the row switched the town has the heights worked out afresh: " + differing.size() + " of " + afresh.size() + " differ, "
+                    + differing.subList(0, Math.min(12, differing.size())));
+        } finally {
+            Own.set(rows);
+            ChunkMarks.live = live;
+            Terrain.forget();
+            MapAhead.forget();
+        }
+    }
+
+    /**
+     * Posts on the level above a road along a shop front, which the game stands on the road's
+     * squares, are built over those squares, and nothing stands on their ground: the kerb runs
+     * where it runs without them, and their chunks count no more of their squares built on
+     * (Terrain.Kinds.hard).
+     */
+    private static void postsOnALevelAboveTheRoadLeaveTheKerbAndWhatIsBuiltOnAsTheyAre() {
+        boolean live = ChunkMarks.live;
+        Terrain.HILLS.heighten(1f);
+        Country.set(List.of());
+        try {
+            ChunkMarks.live = true;
+            String[] kerbs = new String[2];
+            int[][] builtOn = new int[2][];
+            for (int posts = 0; posts < 2; posts++) {
+                MapAhead.forget();
+                Terrain.forget();
+                Town town = new Town(false);
+                IsoCell cell = town.map.cell;
+                IsoBuilding shop = new IsoBuilding(new BuildingDef(9, 4, 4, 12, 4));
+                for (int x = -16; x < 48; x++) {
+                    for (int y = -16; y < 48; y++) {
+                        IsoGridSquare square = cell.square(x, y, 0);
+                        boolean in = x >= 4 && x < 16 && y >= 4 && y < 8;
+                        square.floor(in ? town.inside : y >= 8 && y < 24 ? town.road : town.grass);
+                        if (in) {
+                            square.building(shop);
+                            square.setRoomID(9);
+                        }
+                    }
+                }
+                if (posts == 1) {
+                    IsoSprite post = town.map.sprite("walls_commercial_03_35", IsoObjectType.wall, "WallSE");
+                    for (int x = 6; x < 14; x += 2) {
+                        cell.square(x, 8, 1).add(post);
+                    }
+                }
+                heightsIn(cell, 0, 0, 2, 2, 9911 + posts, 9911 + posts);
+                if (posts == 1) {
+                    check(overAt(6, 8) == Footings.BUILT && overAt(12, 8) == Footings.BUILT, "a post on the level above is built over the road's square: " + overAt(6, 8) + " " + overAt(12, 8));
+                }
+                kerbs[posts] = Arrays.toString(Terrain.HILLS.kerb(0, 1)) + Arrays.toString(Terrain.HILLS.kerb(1, 1));
+                builtOn[posts] = new int[] {TestMap.<Integer>read(derivedRecord(0, 1), "builtOn"), TestMap.<Integer>read(derivedRecord(1, 1), "builtOn")};
+            }
+            check(!kerbs[0].equals("nullnull"), "the road has a kerb along the shop front");
+            check(kerbs[1].equals(kerbs[0]), "the kerb runs where it runs without the posts");
+            check(Arrays.equals(builtOn[1], builtOn[0]), "the chunks count no more of their squares built on: " + Arrays.toString(builtOn[0]) + " without the posts, " + Arrays.toString(builtOn[1]) + " with");
+        } finally {
+            ChunkMarks.live = live;
+            Terrain.forget();
+            MapAhead.forget();
         }
     }
 
@@ -837,6 +1331,8 @@ final class TerrainTests {
         check(Terrain.waterLevel(1.5f, eyeX, eyeY) == 1.5f * (Terrain.waterLevel(1f, eyeX, eyeY) + Terrain.WATER_BELOW) - Terrain.WATER_BELOW,
                 "water lies at the height of the hills times the country's rise and fall");
         Terrain.HILLS.heighten(1f);
+        // The views' eyes stay where they were told of until the map is let go, and the records of the tests after this one would be let go as far from them.
+        Terrain.forget();
     }
 
     /** Where the test pitch lies: the hills rise and fall across it there. */

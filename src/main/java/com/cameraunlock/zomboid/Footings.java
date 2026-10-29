@@ -30,6 +30,10 @@ import java.util.Map;
  * or below it. What only hangs, with nothing built that it touches, is the head of
  * something on a pole, a street lamp or a flag, and goes by the land as its pole does.
  *
+ * An answer is kept for as long as what the site says of every square its search went by is
+ * as it was (Site.asItWas): it is then what a search would find again, whatever was loaded or
+ * asked about before.
+ *
  * Logic thread.
  */
 final class Footings {
@@ -47,43 +51,12 @@ final class Footings {
      * has under its middle with nothing standing.
      */
     static final byte LEVEL = 6;
-    /**
-     * With what over says of a square not loaded, read from the map's files ahead of the game
-     * (MapAhead): the save may have it otherwise, so a thing found with it is not settled. Except
-     * a thing of level ground: what marks it is the map's own, its goals look 80 squares past
-     * the far goal for another, which is past the loaded map wherever the player stands, and it
-     * would never settle (findLevel).
-     */
-    static final byte GUESSED = 16;
-    /** What Site.state says of a chunk. */
-    static final byte NOT_LOADED = 0, READ_AHEAD = 1, LOADED = 2;
     /** The widest passage of made ground that what is built either side of it is one thing across, counting what hangs out over it from either side. */
     static final int PASSAGE = 4;
 
-    /**
-     * The map, as far as a footing goes by it. What over says of a square goes by the map at
-     * that square and the squares round it alone, and so is the same for as long as each
-     * chunk they are in is as loaded as it was and nothing is built or taken down there.
-     */
+    /** The map, as far as a footing goes by it. */
     interface Site {
         byte over(int x, int y);
-
-        /**
-         * Whether the chunk (wx, wy) is loaded: what over says of its squares changes with
-         * this and with nothing else of the map's. By what over says of its middle square,
-         * for a map whose chunks are loaded whole.
-         */
-        default boolean loaded(int wx, int wy) {
-            return over(wx * CHUNK + CHUNK / 2, wy * CHUNK + CHUNK / 2) != UNLOADED;
-        }
-
-        /**
-         * LOADED, READ_AHEAD for a chunk not loaded that over says what the map's files have of,
-         * or NOT_LOADED: what over says of its squares changes with this.
-         */
-        default byte state(int wx, int wy) {
-            return loaded(wx, wy) ? LOADED : NOT_LOADED;
-        }
 
         /** The middle of the building over a HOUSE square, as key packs it. */
         long house(int x, int y);
@@ -94,6 +67,19 @@ final class Footings {
         /** What a LEVEL square is to level ground, as Grounds names it. */
         default byte levelKind(int x, int y) {
             return Grounds.SURFACE;
+        }
+
+        /** How many changes the site has had: see asItWas. A site that never changes has none. */
+        default long changes() {
+            return 0L;
+        }
+
+        /**
+         * Whether what over, house, paved and levelKind say of every square from (lowX, lowY)
+         * to (highX, highY) is as it was when the site had had since changes.
+         */
+        default boolean asItWas(int lowX, int lowY, int highX, int highY, long since) {
+            return true;
         }
     }
 
@@ -115,21 +101,20 @@ final class Footings {
     long found;
     /** Whether it stands at the height the ground has where found is with nothing built standing, and not at a building's footing: it has no building in it, or it has made ground against it. */
     boolean free;
-    /** Whether all of it was on loaded map: one that was not may be another thing when more is loaded. */
-    boolean settled;
     /**
      * Whether all of it was looked over: then every square of it has the same answer, and the
      * first count pairs of squares are those squares, or none where the answer was kept from
      * the search that found it.
      */
     boolean whole;
-    /**
-     * Whether the square asked about was open ground or paving with nothing over it: then
-     * there is nothing to stand at, and that holds for as long as over says the same of it.
-     */
-    boolean open;
     int count;
     int[] squares = new int[512];
+    /**
+     * The first corner and the last of the squares the answer went by, the squares its search
+     * asked the site about and those a thing too large to look over that it met went by: it
+     * holds for as long as what the site says of them is as it was.
+     */
+    int readLowX, readLowY, readHighX, readHighY;
     /**
      * Of a thing of level ground, the box round it that Terrain lays level, from its first
      * corner to its last, in whole squares, and whether there is one: every thing of level
@@ -152,15 +137,15 @@ final class Footings {
     int rulerLowX, rulerLowY, rulerHighX, rulerHighY;
     /** How near a square of a thing of level ground every square of its box and of the land eased round it must be, either way: see boxed. */
     static final int SEEN = Terrain.AROUND - 1;
-    /** Whether the search in hand is findLevel's, which what is read ahead of the map settles: see GUESSED. */
-    private boolean levelSearch;
     /** Whether findRuler is looking round the chain, and whether the thing it gathers touches a square found in a thing too large to look over. */
     private boolean ruling, metLarge;
+    /** How many changes the site had had when the search in hand began. */
+    private long since;
 
     /**
      * What each square asked about in the search in hand is, by the square as square packs
      * it: the search asks about each of a square's eight neighbours, and telling what is over
-     * a square is a walk up through its levels. A place holds for the search whose number it
+     * a square takes the site a look of its own. A place holds for the search whose number it
      * has, so the table is never cleared. It is made twice as large whenever the search in
      * hand has asked about half as many squares as it has places: looking for the ruler of a
      * thing of level ground asks about every square round each box of its chain.
@@ -171,61 +156,59 @@ final class Footings {
     private int search, places;
     private static final byte QUEUED = 8;
     /**
-     * The squares found in things too large to look over. A search that meets one knows what
-     * it is in without looking over MOST squares again, and a building's own square among
-     * them answers with no search.
+     * The squares found in things too large to look over, each with what the search that found
+     * it went by. While that is as it was, the thing is as large still, and a search that meets
+     * one of its squares knows what it is in without looking over MOST squares again, and a
+     * building's own square among them answers with no search.
      */
-    private final LongTable<Boolean> large = new LongTable<>();
+    private final LongTable<Went> large = new LongTable<>();
 
-    private static final int CHUNK = Terrain.CHUNK_TILES;
-
-    /** The answer for a thing looked over whole: see find. Of one not all on loaded map, what the search went by, and null for one that is. */
-    private record Answer(long found, boolean free, boolean settled, Ground ground, boolean boxed, int lowX, int lowY, int highX, int highY,
-            long ruler, int rulerLowX, int rulerLowY, int rulerHighX, int rulerHighY) {}
-
-    /**
-     * The chunks a search that met ground the map had not loaded went by, each chunk with a
-     * square it asked about or a square round one, and which of them were loaded or read ahead
-     * (Site.state). While each is as it was, a search of the same thing asks the same of every
-     * square and comes out the same, and the answer holds, unless a thing found too large to look over
-     * since has taken in some of its squares: a search that meets one of those stops short.
-     * What is built or taken down on loaded ground is not seen until the thing is looked over
-     * again, as with a settled thing.
-     */
-    private static final class Ground {
-        final long[] chunks;
-        /** As Site.state said of each chunk. */
-        final byte[] states;
-        /** How many things had been found too large when it was found. */
-        final int largeThings;
-        /** The last changed it was found to hold in, and whether it has been found not to. */
-        int heldIn;
+    /** The squares a search went by, from the first corner to the last, and how many changes the site had had when it was last found to hold, or that it no longer does. */
+    private static class Went {
+        final int lowX, lowY, highX, highY;
+        long heldTo;
         boolean gone;
 
-        Ground(long[] chunks, byte[] states, int largeThings, int heldIn) {
-            this.chunks = chunks;
-            this.states = states;
-            this.largeThings = largeThings;
-            this.heldIn = heldIn;
+        Went(int lowX, int lowY, int highX, int highY, long heldTo) {
+            this.lowX = lowX;
+            this.lowY = lowY;
+            this.highX = highX;
+            this.highY = highY;
+            this.heldTo = heldTo;
         }
     }
 
-    /** How many times changed has been called, and how many times large has taken in squares it did not have: see Ground. */
-    private int changes, largeThings;
-    /** The chunks the search in hand has gone by, by the chunk as square packs it, in the same way as asked, in a table twice as large as it needs to be or more. */
-    private long[] chunkAsked = new long[1 << 12];
-    private int[] chunkAskedIn = new int[chunkAsked.length];
-    private long[] touched = new long[64];
-    private int touchedCount;
+    /** The answer for a thing looked over whole (see find), and what its search went by. */
+    private static final class Answer extends Went {
+        final long found;
+        final boolean free, boxed;
+        final int boxLowX, boxLowY, boxHighX, boxHighY;
+        final long ruler;
+        final int rulerLowX, rulerLowY, rulerHighX, rulerHighY;
+
+        Answer(Footings from, long since) {
+            super(from.readLowX, from.readLowY, from.readHighX, from.readHighY, since);
+            found = from.found;
+            free = from.free;
+            boxed = from.boxed;
+            boxLowX = from.boxLowX;
+            boxLowY = from.boxLowY;
+            boxHighX = from.boxHighX;
+            boxHighY = from.boxHighY;
+            ruler = from.ruler;
+            rulerLowX = from.rulerLowX;
+            rulerLowY = from.rulerLowY;
+            rulerHighX = from.rulerHighX;
+            rulerHighY = from.rulerHighY;
+        }
+    }
 
     /**
      * The answers for the squares of things looked over whole, by chunk and square: one search
-     * of a thing answers for every square of it. Those of a settled thing hold until a map is
-     * loaded anew, the others only while the map has the chunks loaded that it had when they
-     * were found: see changed. Of chunks not asked about lately the answers are let go, past
-     * KEPT_CHUNKS of them, and found again if they are asked about.
+     * of a thing answers for every square of it. Of chunks not asked about lately the answers
+     * are let go, past KEPT_CHUNKS of them, and found again if they are asked about.
      */
-    private final Answers lasting = new Answers(), forNow = new Answers();
+    private final Answers answers = new Answers();
     /** About twice the chunks a view of the farthest the game loads looks over. */
     static final int KEPT_CHUNKS = 2048;
 
@@ -284,17 +267,7 @@ final class Footings {
     /** For a map loaded anew. */
     void forget() {
         large.clear();
-        lasting.clear();
-        forNow.clear();
-    }
-
-    /**
-     * For a map with other chunks loaded: a thing that was not all on loaded map may be another
-     * thing now, and is looked over again when it is next asked about if a chunk it went by is
-     * loaded or let go since.
-     */
-    void changed() {
-        changes++;
+        answers.clear();
     }
 
     private static long square(int x, int y) {
@@ -323,31 +296,11 @@ final class Footings {
         return Float.intBitsToFloat((int) key);
     }
 
-    /**
-     * What find leaves in the fields for a square the map has not loaded, without asking the
-     * site about it: the answer for a settled thing that was found while the square was
-     * loaded, and otherwise none, not settled. A thing not all on loaded map does not hold
-     * once a chunk it went by is let go, and the square's own is one of those.
-     */
-    void findUnloaded(int x, int y) {
-        count = 0;
-        whole = true;
-        open = false;
-        Answer known = lasting.at(x, y);
-        found = known == null ? NONE : known.found;
-        free = known != null && known.free;
-        settled = known != null;
-        boxed = known != null && known.boxed;
-        if (boxed) {
-            boxFrom(known);
-        }
-    }
-
     private void boxFrom(Answer known) {
-        boxLowX = known.lowX;
-        boxLowY = known.lowY;
-        boxHighX = known.highX;
-        boxHighY = known.highY;
+        boxLowX = known.boxLowX;
+        boxLowY = known.boxLowY;
+        boxHighX = known.boxHighX;
+        boxHighY = known.boxHighY;
         ruler = known.ruler;
         rulerLowX = known.rulerLowX;
         rulerLowY = known.rulerLowY;
@@ -355,55 +308,52 @@ final class Footings {
         rulerHighY = known.rulerHighY;
     }
 
+    /** Whether what a search went by is as it was, so that what it found holds. */
+    private static boolean holds(Site site, Went went) {
+        if (went.gone || !site.asItWas(went.lowX, went.lowY, went.highX, went.highY, went.heldTo)) {
+            went.gone = true;
+            return false;
+        }
+        went.heldTo = site.changes();
+        return true;
+    }
+
     /** Finds the thing that stands over (x, y) and leaves it in the fields. */
     void find(Site site, int x, int y) {
         count = 0;
         free = false;
-        settled = true;
         whole = true;
-        open = false;
         boxed = false;
         found = NONE;
-        Answer known = lasting.at(x, y);
-        if (known == null) {
-            known = forNow.at(x, y);
-            if (known != null && !holds(site, known.ground)) {
-                known = null;
-            }
-        }
-        if (known != null) {
+        Answer known = answers.at(x, y);
+        if (known != null && holds(site, known)) {
             found = known.found;
             free = known.free;
-            settled = known.settled;
             boxed = known.boxed;
             if (boxed) {
                 boxFrom(known);
             }
+            readLowX = known.lowX;
+            readLowY = known.lowY;
+            readHighX = known.highX;
+            readHighY = known.highY;
             return;
         }
         search++;
         places = 0;
-        touchedCount = 0;
+        since = site.changes();
+        readLowX = readHighX = x;
+        readLowY = readHighY = y;
         int startAt = place(site, x, y);
         byte start = answered[startAt];
-        if (start == UNLOADED) {
-            settled = false;
-            return;
-        }
-        if (start == OPEN || start == PAVED) {
-            open = true;
+        if (start == UNLOADED || start == OPEN || start == PAVED) {
             return;
         }
         if (start == LEVEL) {
-            levelSearch = true;
-            try {
-                findLevel(site, x, y, startAt);
-            } finally {
-                levelSearch = false;
-            }
+            findLevel(site, x, y, startAt);
             return;
         }
-        boolean big = large.containsKey(square(x, y));
+        boolean big = isLarge(site, x, y);
         if (big && start == HOUSE) {
             whole = false;
             found = site.house(x, y);
@@ -432,13 +382,10 @@ final class Footings {
                 int toX = atX + STEP_X[side], toY = atY + STEP_Y[side];
                 int at = place(site, toX, toY);
                 byte over = answered[at];
-                if (over == UNLOADED) {
-                    settled = false;
-                }
                 if (over != BUILT && over != HOUSE && over != HUNG) {
                     continue;
                 }
-                big |= large.containsKey(square(toX, toY));
+                big |= isLarge(site, toX, toY);
                 whole = count < MOST;
                 if (whole) {
                     answered[at] |= QUEUED;
@@ -459,9 +406,6 @@ final class Footings {
                     int toX = atX + STEP_X[side] * across, toY = atY + STEP_Y[side] * across;
                     int at = place(site, toX, toY);
                     byte over = answered[at];
-                    if (over == UNLOADED) {
-                        settled = false;
-                    }
                     if (over == PAVED) {
                         if (across == 1) {
                             // Twice the middle of the square, to keep to whole numbers: the sum is then the same in whatever order the squares are met.
@@ -475,7 +419,7 @@ final class Footings {
                         continue;
                     }
                     if (across > 1 && (over == BUILT || over == HOUSE)) {
-                        big |= large.containsKey(square(toX, toY));
+                        big |= isLarge(site, toX, toY);
                         whole = count < MOST;
                         if (whole) {
                             answered[at] |= QUEUED;
@@ -488,24 +432,20 @@ final class Footings {
         }
         if (big || !whole) {
             whole = false;
-            boolean grew = false;
-            for (int member = 0; member < count; member++) {
-                grew |= takeLarge(squares[member * 2], squares[member * 2 + 1]);
-            }
-            largeThings += grew ? 1 : 0;
+            keepLarge(0);
             found = start == HOUSE ? site.house(x, y) : nearest;
             return;
         }
         if (structured && paved > 0) {
             free = true;
             found = key(pavedX / (2f * paved), pavedY / (2f * paved));
-            remember(site);
+            remember(0, count);
             return;
         }
         if (nearest == NONE) {
             free = structured;
             found = structured ? key((lowX + highX + 1) / 2f, (lowY + highY + 1) / 2f) : NONE;
-            remember(site);
+            remember(0, count);
             return;
         }
         // Of buildings joined, the one nearest the middle of them all: a row down a hill stands at the height of its middle and not of one end.
@@ -522,7 +462,7 @@ final class Footings {
                 found = house;
             }
         }
-        remember(site);
+        remember(0, count);
     }
 
     /**
@@ -533,7 +473,7 @@ final class Footings {
      * round it, and Terrain lays the box level: see boxed.
      */
     private void findLevel(Site site, int x, int y, int startAt) {
-        if (large.containsKey(square(x, y))) {
+        if (isLarge(site, x, y)) {
             whole = false;
             return;
         }
@@ -558,26 +498,31 @@ final class Footings {
         }
         boxed = true;
         findRuler(site);
-        remember(site, 0, count);
+        remember(0, count);
     }
 
-    /** Has large take in a square, and whether it had it not. */
-    private boolean takeLarge(int x, int y) {
-        long square = square(x, y);
-        if (large.containsKey(square)) {
+    /**
+     * Whether a square was found in a thing too large to look over by a search whose squares
+     * are as they were: the thing is as large still, and the search in hand goes by them too.
+     */
+    private boolean isLarge(Site site, int x, int y) {
+        Went went = large.get(square(x, y));
+        if (went == null || !holds(site, went)) {
             return false;
         }
-        large.put(square, Boolean.TRUE);
+        readLowX = Math.min(readLowX, went.lowX);
+        readLowY = Math.min(readLowY, went.lowY);
+        readHighX = Math.max(readHighX, went.highX);
+        readHighY = Math.max(readHighY, went.highY);
         return true;
     }
 
-    /** Has large take in the squares from the one at from on, of a thing found too large to look over. */
+    /** Has large take in the squares from the one at from on, of a thing found too large to look over, with what the search in hand went by. */
     private void keepLarge(int from) {
-        boolean grew = false;
+        Went went = new Went(readLowX, readLowY, readHighX, readHighY, since);
         for (int member = from; member < count; member++) {
-            grew |= takeLarge(squares[member * 2], squares[member * 2 + 1]);
+            large.put(square(squares[member * 2], squares[member * 2 + 1]), went);
         }
-        largeThings += grew ? 1 : 0;
     }
 
     /**
@@ -616,11 +561,7 @@ final class Footings {
                     int toX = atX + STEP_X[side] * across, toY = atY + STEP_Y[side] * across;
                     int at = place(site, toX, toY);
                     byte over = (byte) (answered[at] & ~QUEUED);
-                    if (over == UNLOADED) {
-                        settled = false;
-                        break;
-                    }
-                    if (over == BUILT || over == HOUSE) {
+                    if (over == UNLOADED || over == BUILT || over == HOUSE) {
                         break;
                     }
                     if (over == LEVEL && site.levelKind(toX, toY) == kind) {
@@ -688,10 +629,7 @@ final class Footings {
                     for (int atY = lowY - SEEN; atY < highY + SEEN; atY++) {
                         int at = place(site, atX, atY);
                         byte over = answered[at];
-                        if (over == UNLOADED) {
-                            settled = false;
-                        }
-                        if (over != LEVEL || large.containsKey(square(atX, atY))) {
+                        if (over != LEVEL || isLarge(site, atX, atY)) {
                             continue;
                         }
                         int from = count;
@@ -767,7 +705,7 @@ final class Footings {
                 throw new IllegalStateException("the box of level ground from " + boxLowX + ", " + boxLowY + " to " + boxHighX + ", " + boxHighY
                         + " reaches farther than Terrain gathers round the chunks it changes: see Grounds.reach");
             }
-            remember(site, ends[one - 1], ends[one]);
+            remember(ends[one - 1], ends[one]);
         }
         found = ownFound;
         boxLowX = boxes[0];
@@ -781,14 +719,11 @@ final class Footings {
     private void joinLevel(Site site, int x, int y, byte kind, int from) {
         int at = place(site, x, y);
         byte over = answered[at];
-        if (over == UNLOADED) {
-            settled = false;
-        }
         if (over != LEVEL || kind != Grounds.NONE && site.levelKind(x, y) != kind) {
-            metLarge |= ruling && over == (LEVEL | QUEUED) && large.containsKey(square(x, y));
+            metLarge |= ruling && over == (LEVEL | QUEUED) && isLarge(site, x, y);
             return;
         }
-        if (ruling && large.containsKey(square(x, y))) {
+        if (ruling && isLarge(site, x, y)) {
             metLarge = true;
             return;
         }
@@ -834,45 +769,11 @@ final class Footings {
         return farthest <= SEEN;
     }
 
-    /** Whether what a search went by is as it was, so that its answer holds. */
-    private boolean holds(Site site, Ground ground) {
-        if (ground.gone || ground.largeThings != largeThings) {
-            ground.gone = true;
-            return false;
-        }
-        if (ground.heldIn == changes) {
-            return true;
-        }
-        for (int at = 0; at < ground.chunks.length; at++) {
-            if (site.state((int) (ground.chunks[at] >> 32), (int) ground.chunks[at]) != ground.states[at]) {
-                ground.gone = true;
-                return false;
-            }
-        }
-        ground.heldIn = changes;
-        return true;
-    }
-
-    /** Keeps the answer of a search that looked its thing over whole for every square of the thing. */
-    private void remember(Site site) {
-        remember(site, 0, count);
-    }
-
-    /** Keeps the answer in the fields for the squares from from to to in squares. */
-    private void remember(Site site, int from, int to) {
-        Ground ground = null;
-        if (!settled) {
-            long[] chunks = Arrays.copyOf(touched, touchedCount);
-            byte[] states = new byte[touchedCount];
-            for (int at = 0; at < touchedCount; at++) {
-                states[at] = site.state((int) (chunks[at] >> 32), (int) chunks[at]);
-            }
-            ground = new Ground(chunks, states, largeThings, changes);
-        }
-        Answer answer = new Answer(found, free, settled, ground, boxed, boxLowX, boxLowY, boxHighX, boxHighY, ruler, rulerLowX, rulerLowY, rulerHighX, rulerHighY);
-        Answers into = settled ? lasting : forNow;
+    /** Keeps the answer in the fields for the squares from from to to in squares, with what the search in hand went by. */
+    private void remember(int from, int to) {
+        Answer answer = new Answer(this, since);
         for (int member = from; member < to; member++) {
-            into.put(squares[member * 2], squares[member * 2 + 1], answer);
+            answers.put(squares[member * 2], squares[member * 2 + 1], answer);
         }
     }
 
@@ -897,18 +798,11 @@ final class Footings {
         }
         asked[at] = square;
         askedIn[at] = search;
-        byte over = site.over(x, y);
-        if ((over & GUESSED) != 0) {
-            settled &= levelSearch;
-            over &= ~GUESSED;
-        }
-        answered[at] = over;
-        // What over said of the square went by the squares round it as well.
-        for (int chunkX = Math.floorDiv(x - 1, CHUNK); chunkX <= Math.floorDiv(x + 1, CHUNK); chunkX++) {
-            for (int chunkY = Math.floorDiv(y - 1, CHUNK); chunkY <= Math.floorDiv(y + 1, CHUNK); chunkY++) {
-                touch(square(chunkX, chunkY));
-            }
-        }
+        answered[at] = site.over(x, y);
+        readLowX = Math.min(readLowX, x);
+        readLowY = Math.min(readLowY, y);
+        readHighX = Math.max(readHighX, x);
+        readHighY = Math.max(readHighY, y);
         return at;
     }
 
@@ -936,39 +830,6 @@ final class Footings {
             askedIn[to] = search;
             answered[to] = wasAnswered[each];
         }
-    }
-
-    /** Notes that the search in hand went by a chunk. */
-    private void touch(long chunk) {
-        int at = chunkPlace(chunk);
-        while (chunkAskedIn[at] == search) {
-            if (chunkAsked[at] == chunk) {
-                return;
-            }
-            at = at + 1 & chunkAsked.length - 1;
-        }
-        chunkAsked[at] = chunk;
-        chunkAskedIn[at] = search;
-        if (touchedCount == touched.length) {
-            touched = Arrays.copyOf(touched, touchedCount * 2);
-        }
-        touched[touchedCount++] = chunk;
-        if (2 * touchedCount > chunkAsked.length) {
-            chunkAsked = new long[chunkAsked.length * 2];
-            chunkAskedIn = new int[chunkAsked.length];
-            for (int each = 0; each < touchedCount; each++) {
-                int to = chunkPlace(touched[each]);
-                while (chunkAskedIn[to] == search) {
-                    to = to + 1 & chunkAsked.length - 1;
-                }
-                chunkAsked[to] = touched[each];
-                chunkAskedIn[to] = search;
-            }
-        }
-    }
-
-    private int chunkPlace(long chunk) {
-        return (int) (chunk * 0x9E3779B97F4A7C15L >>> 64 - Integer.numberOfTrailingZeros(chunkAsked.length));
     }
 
     private void push(int x, int y) {

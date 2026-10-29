@@ -13,6 +13,7 @@ final class MapAheadTests {
     static void run() {
         Checks.run("aTileIsWhatTheHeightsTakeOfItsSprite", MapAheadTests::aTileIsWhatTheHeightsTakeOfItsSprite);
         Checks.run("theGroundsFirstFloorAndWhatIsAboveAreRead", MapAheadTests::theGroundsFirstFloorAndWhatIsAboveAreRead);
+        Checks.run("theQuartersOfACanopyOnTheGroundAreRead", MapAheadTests::theQuartersOfACanopyOnTheGroundAreRead);
         Checks.run("aFloorLaidOnADiamondFloorTakesItsPlace", MapAheadTests::aFloorLaidOnADiamondFloorTakesItsPlace);
         Checks.run("aSquareIsMadeOfWhatTheGameWouldMakeOfIt", MapAheadTests::aSquareIsMadeOfWhatTheGameWouldMakeOfIt);
         Checks.run("whatStandsOnASquareAndWhatIsOverItAreRead", MapAheadTests::whatStandsOnASquareAndWhatIsOverItAreRead);
@@ -42,7 +43,7 @@ final class MapAheadTests {
         int roof = MapAhead.traits(sprite("roofs_01_0", IsoObjectType.WestRoofB, "BlockRain", ""));
         check(roof == (MapAhead.ROOF | MapAhead.BUILT_UP | MapAhead.BLOCKS_RAIN), "a roof tile is built and keeps the rain off: " + roof);
         int canopy = MapAhead.traits(sprite("walls_decoration_01_86", IsoObjectType.WestRoofT, "CustomName", "Canopy", "GroupName", "Curved blue and white striped", "Facing", "S"));
-        check(canopy == (MapAhead.PARASOL | MapAhead.BUILT_UP), "a parasol's canopy is a roof tile of its own kind: " + canopy);
+        check(canopy == (MapAhead.PARASOL | MapAhead.BUILT_UP | MapAhead.QUARTER | Parasols.SOUTH_EAST << MapAhead.QUARTER_SHIFT), "a parasol's canopy is a roof tile of its own kind, and the quarter it is: " + canopy);
         int wall = MapAhead.traits(sprite("walls_exterior_house_01_2", IsoObjectType.wall, "WallNW", ""));
         check(wall == (MapAhead.WALL_N | MapAhead.WALL_W | MapAhead.BUILT_UP), "a corner wall is on the north and the west: " + wall);
         int door = MapAhead.traits(sprite("walls_exterior_house_01_3", IsoObjectType.wall, "DoorWallW", ""));
@@ -118,16 +119,39 @@ final class MapAheadTests {
         check(raw.level()[5 * 8 + 7] == Grounds.NONE, "and nothing two levels up does");
     }
 
+    private static void theQuartersOfACanopyOnTheGroundAreRead() {
+        int grass = MapAhead.FLOOR | MapAhead.NATURAL_NAME;
+        int roofQuarter = MapAhead.PARASOL | MapAhead.BUILT_UP | MapAhead.QUARTER | Parasols.SOUTH_EAST << MapAhead.QUARTER_SHIFT;
+        int heldQuarter = MapAhead.QUARTER | Parasols.NORTH_WEST << MapAhead.QUARTER_SHIFT;
+        int[] traits = {grass, roofQuarter, heldQuarter};
+        var pack = FarTreeTests.pack(true, 0, 1,
+                new FarTreeTests.Square(2, 1, 0, 1, 1, 0, 1),
+                new FarTreeTests.Square(2, 1, 0, 2, 2, 0, 2),
+                new FarTreeTests.Square(2, 1, 1, 3, 3, 1));
+        MapAhead.Raw raw = MapAhead.read(0, pack, traits, 0, 1, 66, 33, 2, 1);
+        int roofed = raw.quarters()[1 * 8 + 1], held = raw.quarters()[2 * 8 + 2];
+        check(roofed == (1 << Terrain.ROOF_QUARTERS + Parasols.SOUTH_EAST | 1 << Terrain.HELD_QUARTERS + Parasols.SOUTH_EAST), "a canopy's quarter on the ground is held there, and is a roof tile: " + roofed);
+        check(held == 1 << Terrain.HELD_QUARTERS + Parasols.NORTH_WEST, "a quarter that is no roof tile is held there and is no more: " + held);
+        check(raw.quarters()[3 * 8 + 3] == 0, "and a quarter on a level above is none on the ground");
+    }
+
     /** One square's worth of what the lotpack has: see MapAhead.Raw. */
     private static MapAhead.Raw raw(int floor, int ground, int above, int levels) {
+        return raw(floor, ground, above, levels, (short) 0);
+    }
+
+    /** The same, with the canopy quarters on the ground, as MapAhead.Raw keeps them. */
+    private static MapAhead.Raw raw(int floor, int ground, int above, int levels, short quarter) {
         int[] floors = new int[64], grounds = new int[64], aboves = new int[64], levelses = new int[64];
         byte[] level = new byte[64];
+        short[] quarters = new short[64];
         level[0] = Grounds.GOAL_ALONG_Y;
         floors[0] = floor;
         grounds[0] = ground | floor;
         aboves[0] = above;
         levelses[0] = levels;
-        return new MapAhead.Raw(0, 10, 20, floors, grounds, aboves, levelses, level);
+        quarters[0] = quarter;
+        return new MapAhead.Raw(0, 10, 20, floors, grounds, aboves, levelses, level, quarters);
     }
 
     private static final MapAhead.Rooms NO_ROOMS = (x, y, z) -> Footings.NONE;
@@ -161,14 +185,16 @@ final class MapAheadTests {
 
     private static void whatStandsOnASquareAndWhatIsOverItAreRead() {
         int grass = MapAhead.FLOOR | MapAhead.NATURAL_NAME;
-        check(MapAhead.guess(raw(grass, MapAhead.STAIR, 0, 0), NO_ROOMS).stands[0] == MapAhead.STAIR_OR_ROOF, "a stair stands on the ground");
-        check(MapAhead.guess(raw(grass, MapAhead.ROOF, 0, 0), NO_ROOMS).stands[0] == MapAhead.STAIR_OR_ROOF, "a roof tile stands on the ground");
-        check(MapAhead.guess(raw(grass, MapAhead.PARASOL, 0, 0), NO_ROOMS).stands[0] == MapAhead.CANOPY, "a parasol's canopy is told apart");
-        MapAhead.Rooms north = (x, y, z) -> x == 80 && y == 159 && z == 0 ? 1L : Footings.NONE;
-        check(MapAhead.guess(raw(grass, MapAhead.WALL_N, 0, 0), north).stands[0] == MapAhead.WALLED, "a wall on the north of a building to the north is the building's");
-        check(MapAhead.guess(raw(grass, MapAhead.WALL_W, 0, 0), north).stands[0] == 0, "a wall on the west with no building to the west is a garden wall");
-        MapAhead.Rooms west = (x, y, z) -> x == 79 && y == 160 && z == 0 ? 1L : Footings.NONE;
-        check(MapAhead.guess(raw(grass, MapAhead.WALL_W, 0, 0), west).stands[0] == MapAhead.WALLED, "a wall on the west of a building to the west is the building's");
+        check(MapAhead.guess(raw(grass, MapAhead.STAIR, 0, 0), NO_ROOMS).stands[0] == Terrain.STAIR_OR_ROOF, "a stair stands on the ground");
+        check(MapAhead.guess(raw(grass, MapAhead.ROOF, 0, 0), NO_ROOMS).stands[0] == Terrain.STAIR_OR_ROOF, "a roof tile stands on the ground");
+        short canopy = (short) (1 << Terrain.ROOF_QUARTERS + Parasols.SOUTH_EAST | 1 << Terrain.HELD_QUARTERS + Parasols.SOUTH_EAST);
+        check(MapAhead.guess(raw(grass, MapAhead.PARASOL, 0, 0, canopy), NO_ROOMS).stands[0] == canopy, "a parasol's canopy is kept as the quarter it is, for Terrain to tell whether the parasol is whole");
+        check(MapAhead.guess(raw(grass, MapAhead.WALL_N, 0, 0), NO_ROOMS).stands[0] == Terrain.NORTH_WALL, "a wall on the north is kept, for Terrain to tell whether a building is to the north of it");
+        check(MapAhead.guess(raw(grass, MapAhead.WALL_W, 0, 0), NO_ROOMS).stands[0] == Terrain.WEST_WALL, "and one on the west");
+        MapAhead.Rooms room = (x, y, z) -> x == 80 && y == 160 && z == 0 ? 1L : Footings.NONE;
+        check(MapAhead.guess(raw(grass, 0, 0, 0), room).stands[0] == Terrain.ROOMED, "a square with a room on it is kept as one");
+        MapAhead.Rooms basement = (x, y, z) -> x == 80 && y == 160 && z == -1 ? 1L : Footings.NONE;
+        check(MapAhead.guess(raw(grass, 0, 0, 0), basement).stands[0] == 0, "a square over a basement has no room on it");
         check(MapAhead.guess(raw(grass, 0, MapAhead.FLOOR | MapAhead.ANY, 1 << 1), NO_ROOMS).above[0] == Footings.BUILT, "a floor above is built over the square");
         check(MapAhead.guess(raw(grass, 0, MapAhead.BUILT_UP | MapAhead.ANY, 1 << 3), NO_ROOMS).above[0] == Footings.BUILT, "a wall above is built over the square");
         check(MapAhead.guess(raw(grass, 0, MapAhead.ANY, 1 << 1), NO_ROOMS).above[0] == Footings.HUNG, "a sign above hangs over the square");

@@ -37,8 +37,9 @@ import zombie.iso.sprite.IsoSpriteManager;
  *
  * It is the map as shipped, not the save: where a save has something built, burned or moved,
  * what is read here is not what the game loads. So what is read here is a guess: Terrain works
- * a chunk's heights out from it while the ground is not loaded, as it did from nothing, and
- * again from the ground once it is, and where the two agree they come out the same.
+ * a chunk's heights out from it while the ground is not loaded, and reads the chunk again from
+ * its squares once it is. Where the two agree, nothing that went by the chunk is worked out
+ * again.
  *
  * The lotpacks are read on a thread of their own. The sprites and the buildings are the
  * game's, and are asked on the logic thread.
@@ -80,21 +81,21 @@ final class MapAhead {
      * the square's floor, and on a square with no floor is not laid at all.
      */
     static final int DIAMOND = 1 << 26, SEE_THROUGH = 1 << 27, OVERLAY = 1 << 28;
+    /** Of a tile that is a quarter of a round canopy (Parasols.quarter), of whatever kind: that it is one, and which, two bits from QUARTER_SHIFT. */
+    static final int QUARTER = 1 << 29, QUARTER_SHIFT = 30;
     /** Of what the overlays laid on a floor are, the lines on a road: Terrain.marks reads them off the floor. */
     private static final int MARKS = 0xFF << MARK_SHIFT;
-
-    /** Of Guess.stands: a stair or a roof tile, a parasol's canopy, a building's own wall along its south or east side. */
-    static final byte STAIR_OR_ROOF = 1, CANOPY = 2, WALLED = 4;
 
     /**
      * A chunk's squares as the game lays its lotpack's tiles (see DIAMOND), x first: the traits of
      * the floor on the ground (0 where there is none), of every tile laid on the ground and the
      * lines of the overlays laid on its floor, and of every tile laid on the levels above that is
      * no overhead line (with ANY), and the levels the lotpack has tiles on, a bit each from 1;
-     * and what the square is to level ground (Grounds), by the tiles laid on the ground or the
-     * level over it.
+     * what the square is to level ground (Grounds), by the tiles laid on the ground or the level
+     * over it; and the quarters of a round canopy laid on the ground, as Terrain keeps them
+     * (Terrain.ROOF_QUARTERS and HELD_QUARTERS).
      */
-    record Raw(int generation, int wx, int wy, int[] floor, int[] ground, int[] above, int[] levels, byte[] level) {}
+    record Raw(int generation, int wx, int wy, int[] floor, int[] ground, int[] above, int[] levels, byte[] level, short[] quarters) {}
 
     /**
      * What Terrain asks of a square of a chunk that is not loaded, x first. Whether something
@@ -109,7 +110,8 @@ final class MapAhead {
         final byte[] marks = new byte[SQUARES];
         /** The middle of the building whose pad the square is part of (Terrain.footingOf), as Footings.key packs it, or Footings.NONE. */
         final long[] house = new long[SQUARES];
-        final byte[] stands = new byte[SQUARES];
+        /** What stands on the ground of the square, as Terrain.standsOf reads it of a loaded square. */
+        final short[] stands = new short[SQUARES];
         /** Footings.BUILT, HUNG or OPEN, as Terrain.above has it. */
         final byte[] above = new byte[SQUARES];
         /** What the square is to level ground, as Terrain.groundOf has it. */
@@ -128,7 +130,7 @@ final class MapAhead {
 
     private MapAhead() {}
 
-    /** What a tile is, as Terrain.kind, Terrain.stands and Terrain.above take it. Logic thread. */
+    /** What a tile is, as Terrain.kind, Terrain.standsOf and Terrain.above take it. Logic thread. */
     static int traits(IsoSprite sprite) {
         PropertyContainer flags = sprite.getProperties();
         int traits = 0;
@@ -156,8 +158,10 @@ final class MapAhead {
         }
         IsoObjectType type = sprite.getType();
         boolean stair = Terrain.isStair(type), roof = Terrain.isRoof(type);
+        int quarter = Parasols.quarter(sprite);
         traits |= stair ? STAIR : 0;
-        traits |= roof ? Parasols.quarter(sprite) != Parasols.NONE ? PARASOL : ROOF : 0;
+        traits |= roof ? quarter != Parasols.NONE ? PARASOL : ROOF : 0;
+        traits |= quarter != Parasols.NONE ? QUARTER | quarter << QUARTER_SHIFT : 0;
         boolean wallN = flags.has(IsoFlagType.WallN), wallW = flags.has(IsoFlagType.WallW), wallNW = flags.has(IsoFlagType.WallNW);
         boolean doorN = flags.has(IsoFlagType.DoorWallN), doorW = flags.has(IsoFlagType.DoorWallW);
         boolean windowN = flags.has(IsoFlagType.WindowN), windowW = flags.has(IsoFlagType.WindowW);
@@ -184,6 +188,7 @@ final class MapAhead {
         Lotpack in = new Lotpack(pack);
         int[] floor = new int[SQUARES], ground = new int[SQUARES], above = new int[SQUARES], levels = new int[SQUARES];
         byte[] level = new byte[SQUARES];
+        short[] quarters = new short[SQUARES];
         int from = Math.max(minLevel, Lotpack.LOWEST), to = Math.min(maxLevel, Lotpack.HIGHEST);
         in.chunk(cx, cy);
         for (int z = from; z <= to; z++) {
@@ -194,8 +199,8 @@ final class MapAhead {
                         continue;
                     }
                     int at = x * CHUNK + y;
-                    // As the game lays them (see DIAMOND): the floor, the overlays laid on it, the other tiles, those that are no overhead line, and the most the others are to level ground.
-                    int laid = 0, overlaid = 0, others = 0, standing = 0, grounds = 0;
+                    // As the game lays them (see DIAMOND): the floor, the overlays laid on it, the other tiles, those that are no overhead line, the most the others are to level ground, and their canopy quarters.
+                    int laid = 0, overlaid = 0, others = 0, standing = 0, grounds = 0, quartered = 0;
                     for (int i = 0; i < tiles; i++) {
                         int of = traits[in.tile(traits.length)];
                         if ((of & (FLOOR | DIAMOND | SEE_THROUGH)) == (FLOOR | DIAMOND) && (laid & DIAMOND) != 0) {
@@ -209,6 +214,7 @@ final class MapAhead {
                             others |= of;
                             standing |= (of & OVERHEAD) == 0 ? of | ANY : 0;
                             grounds = Math.max(grounds, of >>> LEVEL_SHIFT & 15);
+                            quartered |= quarters(of);
                         }
                     }
                     if (z == 0 || z == 1) {
@@ -217,6 +223,7 @@ final class MapAhead {
                     if (z == 0) {
                         floor[at] = laid;
                         ground[at] = laid | others | overlaid & MARKS;
+                        quarters[at] = (short) (quartered | quarters(laid));
                     } else if (z > 0) {
                         levels[at] |= 1 << z;
                         above[at] |= standing | (laid != 0 ? laid | ANY : 0);
@@ -224,7 +231,16 @@ final class MapAhead {
                 }
             }
         }
-        return new Raw(generation, wx, wy, floor, ground, above, levels, level);
+        return new Raw(generation, wx, wy, floor, ground, above, levels, level, quarters);
+    }
+
+    /** The canopy quarter a tile is, as Terrain keeps it of what stands on a square: a roof tile's among the roof quarters as well. */
+    private static int quarters(int traits) {
+        if ((traits & QUARTER) == 0) {
+            return 0;
+        }
+        int quarter = traits >>> QUARTER_SHIFT;
+        return 1 << Terrain.HELD_QUARTERS + quarter | ((traits & PARASOL) != 0 ? 1 << Terrain.ROOF_QUARTERS + quarter : 0);
     }
 
     /** What the heights take of a chunk the lotpack has, with the buildings of the map. Logic thread. */
@@ -247,12 +263,11 @@ final class MapAhead {
                 guess.footway[at] = kind == Terrain.MADE || kind == Terrain.STREET && (floor & ROAD_04) != 0;
                 int ground = raw.ground[at];
                 guess.marks[at] = kind == Terrain.STREET ? (byte) (ground >>> MARK_SHIFT) : 0;
-                byte stands = (ground & (STAIR | ROOF)) != 0 ? STAIR_OR_ROOF : 0;
-                stands |= (ground & PARASOL) != 0 ? CANOPY : 0;
-                if ((ground & WALL_N) != 0 && rooms.house(x, y - 1, 0) != Footings.NONE || (ground & WALL_W) != 0 && rooms.house(x - 1, y, 0) != Footings.NONE) {
-                    stands |= WALLED;
-                }
-                guess.stands[at] = stands;
+                int stands = (ground & (STAIR | ROOF)) != 0 ? Terrain.STAIR_OR_ROOF : 0;
+                stands |= (ground & WALL_N) != 0 ? Terrain.NORTH_WALL : 0;
+                stands |= (ground & WALL_W) != 0 ? Terrain.WEST_WALL : 0;
+                stands |= house != Footings.NONE ? Terrain.ROOMED : 0;
+                guess.stands[at] = (short) (stands | raw.quarters[at]);
                 int over = raw.above[at];
                 boolean built = (over & (FLOOR | BUILT_UP)) != 0;
                 for (int z = 1; z <= Lotpack.HIGHEST && !built; z++) {

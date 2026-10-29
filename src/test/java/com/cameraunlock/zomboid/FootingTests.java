@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 
@@ -11,7 +12,7 @@ final class FootingTests {
         Checks.run("aBuildingItsStairAndItsOverhangAreOneThing", FootingTests::aBuildingItsStairAndItsOverhangAreOneThing);
         Checks.run("buildingsThatShareAWallOrACornerStandOnOneFooting", FootingTests::buildingsThatShareAWallOrACornerStandOnOneFooting);
         Checks.run("aThingWithNoBuildingStandsAtTheLandUnderItsMiddle", FootingTests::aThingWithNoBuildingStandsAtTheLandUnderItsMiddle);
-        Checks.run("whatIsNotLoadedLeavesAThingUnsettled", FootingTests::whatIsNotLoadedLeavesAThingUnsettled);
+        Checks.run("anAnswerIsLookedForAgainOnlyOnceASquareItWentByChanges", FootingTests::anAnswerIsLookedForAgainOnlyOnceASquareItWentByChanges);
         Checks.run("aThingTooLargeToLookOverKeepsEachBuildingWhole", FootingTests::aThingTooLargeToLookOverKeepsEachBuildingWhole);
         Checks.run("openGroundAndWhatIsApartFromABuildingAreNotIt", FootingTests::openGroundAndWhatIsApartFromABuildingAreNotIt);
         Checks.run("whatOnlyHangsIsNothingUnlessItTouchesSomethingBuilt", FootingTests::whatOnlyHangsIsNothingUnlessItTouchesSomethingBuilt);
@@ -27,7 +28,6 @@ final class FootingTests {
         Checks.run("goalsReachOnlyAcrossTheirCrossbarAndNotThroughAWall", FootingTests::goalsReachOnlyAcrossTheirCrossbarAndNotThroughAWall);
         Checks.run("basesOfADiamondTurnedOnTheMapAreOneThing", FootingTests::basesOfADiamondTurnedOnTheMapAreOneThing);
         Checks.run("goalsAsFarApartAsAGoalReachesAreLaidLevel", FootingTests::goalsAsFarApartAsAGoalReachesAreLaidLevel);
-        Checks.run("aPitchReadPartlyAheadOfTheLoadedMapIsSettledAndABuildingIsNot", FootingTests::aPitchReadPartlyAheadOfTheLoadedMapIsSettledAndABuildingIsNot);
     }
 
     private static void check(boolean condition, String what) {
@@ -36,8 +36,7 @@ final class FootingTests {
 
     /**
      * A map drawn in rows of text: '.' open, 's' built, 'h' hung over, a letter A to Z a building, '?' not loaded, and level
-     * ground: 'c' a court's surface, 'g' a goal whose crossbar runs along x, 'y' one along y, 'b' a base. Read ahead of the
-     * loaded map (Footings.GUESSED): ',' open, 'q' a goal whose crossbar runs along x. Outside it is open.
+     * ground: 'c' a court's surface, 'g' a goal whose crossbar runs along x, 'y' one along y, 'b' a base. Outside it is open.
      */
     private static final class Plan implements Footings.Site {
         final String[] rows;
@@ -78,7 +77,6 @@ final class FootingTests {
         public byte over(int x, int y) {
             char c = at(x, y);
             return c == '.' ? Footings.OPEN : c == 's' ? Footings.BUILT : c == 'h' ? Footings.HUNG : c == '?' ? Footings.UNLOADED
-                    : c == ',' ? Footings.OPEN | Footings.GUESSED : c == 'q' ? Footings.LEVEL | Footings.GUESSED
                     : levelKind(x, y) != Grounds.NONE ? Footings.LEVEL : Footings.HOUSE;
         }
 
@@ -86,7 +84,7 @@ final class FootingTests {
         public byte levelKind(int x, int y) {
             return switch (at(x, y)) {
                 case 'c' -> Grounds.SURFACE;
-                case 'g', 'q' -> Grounds.GOAL_ALONG_X;
+                case 'g' -> Grounds.GOAL_ALONG_X;
                 case 'y' -> Grounds.GOAL_ALONG_Y;
                 case 'b' -> Grounds.BASE;
                 default -> Grounds.NONE;
@@ -126,7 +124,7 @@ final class FootingTests {
             for (int x = 0; x < plan.rows[y].length(); x++) {
                 long here = found(plan, x, y);
                 check(here == (plan.at(x, y) == '.' ? Footings.NONE : house), "the stair, the overhang and the building are one thing, at " + x + ", " + y);
-                check(footings.settled && footings.whole, "a thing all on loaded map is settled");
+                check(footings.whole, "a thing all on loaded map is looked over whole");
                 check(plan.at(x, y) == '.' || !footings.free, "what is joined to a building stands at the building's footing");
             }
         }
@@ -162,19 +160,35 @@ final class FootingTests {
         check(here == found(canopy, 5, 2), "every square of it has the same middle");
     }
 
-    private static void whatIsNotLoadedLeavesAThingUnsettled() {
+    /**
+     * An answer holds for as long as no square its search went by has changed: asked again, it
+     * is not looked for again, and once a square it went by has changed, it is.
+     */
+    private static void anAnswerIsLookedForAgainOnlyOnceASquareItWentByChanges() {
         Plan edge = new Plan(
-                "AAA?",
-                "AAA?");
-        found(edge, 0, 0);
-        check(!footings.settled, "a building at the edge of the loaded map may yet turn out to be joined to another");
-        found(edge, 3, 0);
-        check(!footings.settled && footings.found == Footings.NONE, "a square that is not loaded has no footing yet");
-        Plan inland = new Plan(
-                "AAA.?",
-                "AAA.?");
-        found(inland, 0, 0);
-        check(footings.settled, "open ground between a building and the map's edge settles it");
+                "AA????",
+                "AA????");
+        Changing site = new Changing(edge);
+        Footings fresh = new Footings();
+        long house = edge.houses.get('A');
+        fresh.find(site, 0, 0);
+        check(fresh.found == house && fresh.whole, "a building at the edge of the loaded map is looked over whole");
+        check(fresh.readLowX == -1 && fresh.readHighX == 2 && fresh.readLowY == -1 && fresh.readHighY == 2,
+                "its search went by the building and the squares round it, those not loaded among them: " + fresh.readLowX + ", " + fresh.readLowY + " to " + fresh.readHighX + ", " + fresh.readHighY);
+        int asked = site.asked;
+        fresh.find(site, 1, 1);
+        check(site.asked == asked && fresh.found == house, "another square of the building is answered with no search");
+        site.change(new Plan(
+                "AA??CC",
+                "AA??CC"), 4, 0, 5, 1);
+        fresh.find(site, 0, 0);
+        check(site.asked == asked && fresh.found == house, "a building loaded past what the search went by leaves its answer as it was");
+        Plan joined = new Plan(
+                "AACCCC",
+                "AACCCC");
+        site.change(joined, 2, 0, 3, 1);
+        fresh.find(site, 0, 0);
+        check(site.asked > asked && fresh.found == joined.houses.get('C'), "once ground it went by is loaded and joins it to the other, it is looked for again and stands with the other");
     }
 
     private static void aThingTooLargeToLookOverKeepsEachBuildingWhole() {
@@ -233,29 +247,61 @@ final class FootingTests {
         check(found(new Plan(long1), 5, 1) == Footings.NONE, "a viaduct with no building in it follows the land as its road does");
     }
 
-    /** A site that counts the squares it is asked about. */
-    private static final class Counted implements Footings.Site {
-        final Plan plan;
+    /**
+     * A site that counts the squares it is asked about, and whose squares change a box at a
+     * time: asItWas tells of a box whether a change since overlapped it, as Terrain's site
+     * tells it from its log of the chunks that came out otherwise.
+     */
+    static final class Changing implements Footings.Site {
+        private Footings.Site now;
+        private final ArrayList<int[]> changes = new ArrayList<>();
         int asked;
 
-        Counted(Plan plan) {
-            this.plan = plan;
+        Changing(Footings.Site now) {
+            this.now = now;
+        }
+
+        /** From now on the site is to, which is otherwise than it was only from (lowX, lowY) to (highX, highY). */
+        void change(Footings.Site to, int lowX, int lowY, int highX, int highY) {
+            now = to;
+            changes.add(new int[] {lowX, lowY, highX, highY});
         }
 
         @Override
         public byte over(int x, int y) {
             asked++;
-            return plan.over(x, y);
+            return now.over(x, y);
         }
 
         @Override
         public long house(int x, int y) {
-            return plan.house(x, y);
+            return now.house(x, y);
         }
 
         @Override
         public boolean paved(int x, int y) {
-            return plan.paved(x, y);
+            return now.paved(x, y);
+        }
+
+        @Override
+        public byte levelKind(int x, int y) {
+            return now.levelKind(x, y);
+        }
+
+        @Override
+        public long changes() {
+            return changes.size();
+        }
+
+        @Override
+        public boolean asItWas(int lowX, int lowY, int highX, int highY, long since) {
+            for (int at = (int) since; at < changes.size(); at++) {
+                int[] box = changes.get(at);
+                if (box[0] <= highX && box[2] >= lowX && box[1] <= highY && box[3] >= lowY) {
+                    return false;
+                }
+            }
+            return true;
         }
     }
 
@@ -269,7 +315,7 @@ final class FootingTests {
             }
             rows[y] = row.toString();
         }
-        Counted site = new Counted(new Plan(rows));
+        Changing site = new Changing(new Plan(rows));
         Footings fresh = new Footings();
         for (int y = 0; y < rows.length; y++) {
             for (int x = 0; x < 48; x++) {
@@ -280,13 +326,13 @@ final class FootingTests {
         // Each square asked once for itself, and the block's search asks once about each square of it and round it.
         check(site.asked < squares + 2 * (thing + 4 * 42) + 200, "every square of a map asked for its footing asks about each square a few times, not once a square of the thing: " + site.asked);
         int before = site.asked;
-        fresh.changed();
+        site.change(site.now, 100, 0, 107, 7);
         for (int y = 0; y < rows.length; y++) {
             for (int x = 0; x < 48; x++) {
                 fresh.find(site, x, y);
             }
         }
-        check(site.asked - before < squares + 200, "with other chunks loaded the settled block is not looked over again, only what may have changed: " + (site.asked - before));
+        check(site.asked - before < squares + 200, "with a chunk changed away from the block it is not looked over again: " + (site.asked - before));
     }
 
     /** A building of one square at the first corner of every chunk, and open ground round it. */
@@ -463,7 +509,7 @@ final class FootingTests {
         // Two goals 30 squares apart down the pitch.
         Plan pitch = Plan.pitch(10, 2, 30);
         long goal = found(pitch, 10, 2);
-        check(goal != Footings.NONE && footings.free && footings.settled && footings.whole, "a goal is a thing that stands at the height of the ground under it");
+        check(goal != Footings.NONE && footings.free && footings.whole, "a goal is a thing that stands at the height of the ground under it");
         check(goal == found(pitch, 12, 32), "the goal at the other end of the pitch is the same thing");
         check(Footings.keyX(goal) == 11.5f && Footings.keyY(goal) == 17.5f, "it stands at the middle of the pitch, got " + Footings.keyX(goal) + ", " + Footings.keyY(goal));
         check(footings.boxed, "a pitch is laid level");
@@ -576,26 +622,5 @@ final class FootingTests {
         check(found(Plan.pitch(10, 2, Grounds.reach(Grounds.GOAL_ALONG_X)), 10, 2) != Footings.NONE && footings.whole && footings.boxed, "goals as far apart as a goal reaches are one thing laid level");
         check(footings.boxHighY - footings.boxLowY == Grounds.reach(Grounds.GOAL_ALONG_X) + 1 + 2 * Grounds.MARGIN, "from end to end");
         check(found(Plan.pitch(10, 2, Grounds.reach(Grounds.GOAL_ALONG_X) + 1), 10, 2) != found(Plan.pitch(10, 2, Grounds.reach(Grounds.GOAL_ALONG_X) + 1), 12, 83), "goals farther apart are two");
-    }
-
-    private static void aPitchReadPartlyAheadOfTheLoadedMapIsSettledAndABuildingIsNot() {
-        // The far goal and the ground past it are read ahead of the loaded map.
-        String[] rows = new String[120];
-        for (int row = 0; row < rows.length; row++) {
-            rows[row] = row == 2 ? "....ggg." : row < 20 ? "........" : row == 50 ? ",,,,qqq," : ",,,,,,,,";
-        }
-        Plan pitch = new Plan(rows);
-        long goal = found(pitch, 4, 2);
-        check(goal == found(pitch, 6, 50), "a goal read ahead of the loaded map is one thing with the goal facing it");
-        found(pitch, 4, 2);
-        check(footings.settled && footings.boxed, "and the pitch is settled and laid level, with nothing but the map ahead past the far goal");
-        rows[60] = "????????";
-        found(new Plan(rows), 4, 2);
-        check(!footings.settled, "a goal that looks past what is read ahead is not settled");
-        Plan house = new Plan(
-                "AAA,",
-                "AAA,");
-        found(house, 0, 0);
-        check(!footings.settled, "a building with ground read ahead beside it is not settled");
     }
 }
