@@ -1176,7 +1176,9 @@ public final class Agent {
      * chunk in view read through over and over to see whether it has changed. With them the
      * game says which chunks it has changed: what changes a chunk's look goes through the
      * two methods of IsoChunk, and a square's light found changed through the one of
-     * FBORenderLevels, all for the game's own chunk textures. See ChunkMarks.
+     * FBORenderLevels, all for the game's own chunk textures. The fourth tells of a chunk
+     * loaded, since what the game marks as it fills one is not counted while the chunk is not
+     * yet loaded. See ChunkMarks.
      */
     private static List<Patch> chunkMarkPatches() {
         String chunk = "zombie/iso/IsoChunk", levels = "zombie/iso/fboRenderChunk/FBORenderLevels";
@@ -1197,6 +1199,12 @@ public final class Agent {
                     refuseChunkMarksIfAsked();
                     return CallSite.insertAtStartOfInstanceMethod(classBytes, new CallSite.Method(levels, "invalidateLevel", "(IJ)V"),
                             code -> code.aload(0).iload(1).lload(2).invokestatic(marks, "lit", lit));
+                }),
+                // IsoChunkMap.updateInternal and processAllLoadGridSquare finish each chunk they put on a map in it.
+                new Patch(chunk, "doLoadGridsquare telling of the chunk it has loaded", classBytes -> {
+                    refuseChunkMarksIfAsked();
+                    return CallSite.insertOnEveryWayOut(classBytes, new CallSite.Method(chunk, "doLoadGridsquare", "()V"),
+                            code -> code.aload(0).invokestatic(marks, "loaded", MethodTypeDesc.ofDescriptor("(L" + chunk + ";)V")));
                 }));
     }
 

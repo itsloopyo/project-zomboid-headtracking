@@ -1593,7 +1593,7 @@ final class WorldScene {
     private static String polledBecause;
     private static boolean pollingSaid;
 
-    /** Whether the game tells which chunks it changes: its code took the three patches, and it keeps a texture of each chunk, which is what it marks for. */
+    /** Whether the game tells which chunks it changes: its code took the four patches, and it keeps a texture of each chunk, which is what it marks for. */
     private boolean told() {
         if (!pollingSaid) {
             pollingSaid = true;

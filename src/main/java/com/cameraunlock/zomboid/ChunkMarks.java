@@ -83,7 +83,7 @@ public final class ChunkMarks {
     private static final Set<String> threads = ConcurrentHashMap.newKeySet();
     private static final ConcurrentHashMap<String, AtomicInteger> callers = new ConcurrentHashMap<>();
     /**
-     * Whether the game is telling: the three patches are in its code and it keeps a texture for each
+     * Whether the game is telling: the four patches are in its code and it keeps a texture for each
      * chunk, which is what it marks for. Set by WorldScene on the logic thread, and read there.
      */
     static boolean live;
@@ -100,6 +100,17 @@ public final class ChunkMarks {
         }
     }
 
+    /**
+     * Called by the game once it has loaded a chunk onto the map. What it put on the chunk as it
+     * filled it was not counted (marked), and the game reuses its IsoChunk objects, so neither the
+     * marks nor the object tell the chunk loaded again in a place from the one let go of there, which
+     * may have changed while it was away. Counted as a mark with no level for what may be part of a
+     * building, so that what is kept by those (structuresIn) is read again. See Agent.chunkMarkPatches.
+     */
+    public static void loaded(IsoChunk chunk) {
+        built(slot(chunk.wx, chunk.wy), LOWEST_LEVEL - 1);
+    }
+
     /** Called by the game where something on a chunk has changed on all of its levels. */
     public static void marked(IsoChunk chunk, long flags) {
         marked(chunk, flags, LOWEST_LEVEL - 1);
@@ -114,7 +125,7 @@ public final class ChunkMarks {
         if ((flags & ~NOT_BUILT_FROM) == 0L || hushed == Thread.currentThread()) {
             return;
         }
-        // A chunk being filled as it loads is marked for every object put on it. It has no build yet, and the chunks beside it learn of it from the map.
+        // A chunk being filled as it loads is marked for every object put on it. The load is counted once it is done (loaded), and the chunks beside it learn of it from the map.
         if (!chunk.loaded) {
             if (COUNTED) {
                 byFlag.getAndIncrement(UNLOADED);

@@ -5,6 +5,7 @@ import java.lang.constant.ClassDesc;
 import java.lang.constant.ConstantDescs;
 import java.lang.constant.MethodTypeDesc;
 import java.lang.invoke.MethodHandles;
+import zombie.iso.IsoChunk;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.SpriteDetails.IsoObjectType;
@@ -20,6 +21,7 @@ final class MarkTests {
         Checks.run("aChunkLetGoOfIsNeverReadAsUntold", MarkTests::aChunkLetGoOfIsNeverReadAsUntold);
         Checks.run("aChunkKeptReadsWhatItDidWhenOneInItsPlaceIsLetGoOf", MarkTests::aChunkKeptReadsWhatItDidWhenOneInItsPlaceIsLetGoOf);
         Checks.run("aChunkAnotherViewKeepsIsNotLetGoOf", MarkTests::aChunkAnotherViewKeepsIsNotLetGoOf);
+        Checks.run("aChunkLoadedIsMarkedForWhatMayBeBuiltOnIt", MarkTests::aChunkLoadedIsMarkedForWhatMayBeBuiltOnIt);
         Checks.run("aFireLitOrPutOutIsMarkedOnItsChunk", MarkTests::aFireLitOrPutOutIsMarkedOnItsChunk);
         Checks.run("dirtStampedIsMarkedOnTheSquaresBesideIt", MarkTests::dirtStampedIsMarkedOnTheSquaresBesideIt);
         Checks.run("aTallyIsCountedIntoAnother", MarkTests::aTallyIsCountedIntoAnother);
@@ -41,6 +43,21 @@ final class MarkTests {
         check(ChunkMarks.around(300, 400) == all + 1 && ChunkMarks.around(301, 401) == beside + 1, "a light marked on a chunk is a mark round it and round the chunks beside it");
         check(ChunkMarks.thingsAround(300, 400) == things, "and none for things");
         check(ChunkMarks.around(302, 400) == far, "a chunk two away does not count it");
+    }
+
+    private static void aChunkLoadedIsMarkedForWhatMayBeBuiltOnIt() {
+        IsoChunk chunk = new IsoChunk();
+        chunk.wx = 700;
+        chunk.wy = 702;
+        int round = ChunkMarks.structuresIn(699, 701, 701, 703), fourth = ChunkMarks.structuresIn(700, 702, 700, 702, 4, 4);
+        int loose = ChunkMarks.structuresLoose(700, 702, 700, 702), far = ChunkMarks.structuresIn(702, 702, 702, 702);
+        int all = ChunkMarks.around(700, 702), things = ChunkMarks.thingsAround(700, 702);
+        ChunkMarks.loaded(chunk);
+        check(ChunkMarks.structuresIn(699, 701, 701, 703) == round + 1, "a chunk loaded is marked for what may be part of a building");
+        check(ChunkMarks.structuresIn(700, 702, 700, 702, 4, 4) == fourth + 1 && ChunkMarks.structuresLoose(700, 702, 700, 702) == loose + 1,
+                "with no level, so that every level of it is read again");
+        check(ChunkMarks.structuresIn(702, 702, 702, 702) == far, "a chunk two away is not marked");
+        check(ChunkMarks.around(700, 702) == all && ChunkMarks.thingsAround(700, 702) == things, "and for nothing else");
     }
 
     private static void aChunkThatIsToldHasAnotherNumber() {
