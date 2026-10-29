@@ -100,7 +100,11 @@ enum Part {
     HOLD_CHUNK_MAP_CENTRE("Optimizations", "HoldChunkMapCentre", true, true,
             "true: the game's map of loaded chunks keeps its centre until you are a tile past a chunk line, so turning on the\n"
                     + "spot on one does not load a column of chunks again every few seconds. false: the centre goes to the chunk you\n"
-                    + "stand in at once, as the game has it.");
+                    + "stand in at once, as the game has it."),
+    GRAPHICS_MEMORY_STEPS("Optimizations", "GraphicsMemorySteps", true, false,
+            "true: on an NVIDIA graphics card too small for what a graphics mode draws, first person starts the session with\n"
+                    + "less drawn in every mode. false: every mode starts as it is. Read as first person first starts in a session.\n"
+                    + "Either way, when the card has no room for something the mod makes, every mode is drawn a step lower.");
 
     final String section, key, comment;
     /** Whether the row is taken while the game runs, and whether it is read at the start to leave patches out. */

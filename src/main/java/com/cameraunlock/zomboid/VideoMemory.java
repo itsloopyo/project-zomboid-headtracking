@@ -220,9 +220,13 @@ final class VideoMemory {
             if (ballastMb > 0) {
                 how += "; cameraunlock.zomboid.ballastMb filled " + ballastMb + " MB of it, " + free() + " MB is free after";
             }
-            at = stepFor(cardMb);
-            how += String.format(Locale.ROOT, ". A step starts on a card of at least its need, %d MB for the game and %d MB for other programs (%s MB)", GAME_MB,
-                    OTHERS_MB, Arrays.toString(NEED_MB));
+            if (Part.GRAPHICS_MEMORY_STEPS.on()) {
+                at = stepFor(cardMb);
+                how += String.format(Locale.ROOT, ". A step starts on a card of at least its need, %d MB for the game and %d MB for other programs (%s MB)", GAME_MB,
+                        OTHERS_MB, Arrays.toString(NEED_MB));
+            } else {
+                how += ". GraphicsMemorySteps is off: every mode starts as it is, and steps down only if the driver has no room for what the mod makes";
+            }
         } else if (card.GL_ATI_meminfo) {
             says = AMD;
             how = free() + " MB free for textures (GL_ATI_meminfo, which says nothing of the card's size): every mode starts as it is, and steps down only if the"
