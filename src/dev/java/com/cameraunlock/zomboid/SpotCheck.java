@@ -4,13 +4,17 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import zombie.iso.IsoGridSquare;
+import zombie.iso.RoomDef;
+import zombie.iso.areas.IsoRoom;
 
 /**
  * Dev only, with -Dcameraunlock.zomboid.checkSpotting=true: says where the game spots a room
- * (IsoGridSquare.checkRoomSeen) or marks a square seen (Meta.dealWithSquareSeen) while the
- * first person picture covers the view, from anything but Spotting's pass. Under the picture
- * that is Spotting's alone, so each such place is a way rooms still fill with zombies by
- * something other than what the view sees. Each place is said the first time it is found.
+ * (IsoCell.roomSpotted, which every way of spotting one comes to) or marks a square seen
+ * (Meta.dealWithSquareSeen) while a first person picture covers the view, from anything but
+ * Spotting's rounds. Each such place is a way rooms fill with zombies, or squares are marked, by
+ * something other than what the view sees. Not all of them are wrong: the game spots the rooms
+ * of the building a player is in as it draws the player's view (FBORenderCell.checkSeenRooms),
+ * which the picture leaves running. Each place is said the first time it is found.
  */
 public final class SpotCheck {
     private SpotCheck() {}
@@ -18,30 +22,40 @@ public final class SpotCheck {
     private static final StackWalker WALKER = StackWalker.getInstance();
     private static final Set<String> said = ConcurrentHashMap.newKeySet();
 
-    /** At the start of the game's spotting of a square's room for a player. */
-    public static void roomChecked(IsoGridSquare square, int playerIndex) {
-        View view = View.of(playerIndex);
-        if (view != null && view.firstPerson.coversTheGamesView() && Spotting.passer != Thread.currentThread()) {
-            outside("a room spotted", square);
+    /** At the start of the game's spotting of a room, which names no player. */
+    public static void roomSpotted(IsoRoom room) {
+        if (covered()) {
+            RoomDef def = room.getRoomDef();
+            RoomDef.RoomRect rect = def.rects.get(0);
+            outside("a room spotted", "the room " + def.getName() + " at " + rect.x + ", " + rect.y + ", " + def.level);
         }
     }
 
     /** At the start of the game's marking of a square seen, which names no player. */
     public static void squareSeen(IsoGridSquare square) {
-        for (int i = 0; i < View.COUNT; i++) {
-            View view = View.of(i);
-            if (view != null && view.firstPerson.coversTheGamesView() && Spotting.passer != Thread.currentThread()) {
-                outside("a square marked seen", square);
-                return;
-            }
+        if (covered()) {
+            outside("a square marked seen", "the square at " + square.getX() + ", " + square.getY() + ", " + square.getZ());
         }
     }
 
-    private static void outside(String what, IsoGridSquare square) {
+    /** Whether a first person picture covers a view, and this is not the thread a round is making the game's calls on. */
+    private static boolean covered() {
+        if (Spotting.passer == Thread.currentThread()) {
+            return false;
+        }
+        for (int i = 0; i < View.COUNT; i++) {
+            View view = View.of(i);
+            if (view != null && view.firstPerson.coversTheGamesView()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void outside(String what, String where) {
         String from = WALKER.walk(frames -> frames.skip(2).limit(8).map(frame -> frame.getClassName() + "." + frame.getMethodName()).collect(Collectors.joining(" < ")));
         if (said.add(what + " " + from)) {
-            Log.info("spot check: " + what + " under the first person picture outside Spotting's pass, at " + square.getX() + ", " + square.getY() + ", "
-                    + square.getZ() + " on " + Thread.currentThread().getName() + ", from " + from);
+            Log.info("spot check: " + what + " under a first person picture outside Spotting's rounds, " + where + " on " + Thread.currentThread().getName() + ", from " + from);
         }
     }
 }
