@@ -174,6 +174,25 @@ final class RoomSight {
             }
         }
 
+        /** Dev only: the first opening these hold otherwise than others do, in order and to the bit of each height, or null for none. */
+        String otherwise(Openings other) {
+            if (count != other.count) {
+                return count + " openings against " + other.count;
+            }
+            for (int i = 0; i < count; i++) {
+                boolean same = x[i] == other.x[i] && y[i] == other.y[i] && z[i] == other.z[i] && kind[i] == other.kind[i] && here[i] == other.here[i]
+                        && there[i] == other.there[i] && hereBuilding[i] == other.hereBuilding[i] && thereBuilding[i] == other.thereBuilding[i];
+                for (int k = i * 4; same && k < i * 4 + 4; k++) {
+                    same = Float.floatToRawIntBits(heights[k]) == Float.floatToRawIntBits(other.heights[k]);
+                }
+                if (!same) {
+                    return "opening " + i + " of kind " + kind[i] + " at " + x[i] + "," + y[i] + "," + z[i] + " from " + here[i] + " to " + there[i]
+                            + " against one of kind " + other.kind[i] + " at " + other.x[i] + "," + other.y[i] + "," + other.z[i] + " from " + other.here[i] + " to " + other.there[i];
+                }
+            }
+            return null;
+        }
+
         /**
          * Adds the openings a square has to the regions beside it and above it: every edge
          * between two regions that is not a wall that always stops sight, and the gap to the
@@ -239,6 +258,23 @@ final class RoomSight {
             for (int i = 0; i < other.count; i++) {
                 add(other.box[i * 5], other.box[i * 5 + 1], other.box[i * 5 + 2], other.box[i * 5 + 3], other.box[i * 5 + 4], other.building[i]);
             }
+        }
+
+        /** Dev only: the first block these hold otherwise than others do, in order and to the bit, or null for none. */
+        String otherwise(Blocks other) {
+            if (count != other.count) {
+                return count + " blocks against " + other.count;
+            }
+            for (int i = 0; i < count; i++) {
+                boolean same = building[i] == other.building[i];
+                for (int k = i * 5; same && k < i * 5 + 5; k++) {
+                    same = Float.floatToRawIntBits(box[k]) == Float.floatToRawIntBits(other.box[k]);
+                }
+                if (!same) {
+                    return "block " + i + " from " + box[i * 5] + "," + box[i * 5 + 1] + " in " + building[i] + " against one from " + other.box[i * 5] + "," + other.box[i * 5 + 1] + " in " + other.building[i];
+                }
+            }
+            return null;
         }
 
         /** Adds the blocks of a row of squares, from fromX up to but not including toX. */

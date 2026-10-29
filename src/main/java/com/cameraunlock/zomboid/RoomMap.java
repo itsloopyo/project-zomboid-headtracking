@@ -64,6 +64,15 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
     private final boolean[] keptUnread = new boolean[SIDE * SIDE];
     /** Dev only: how many chunks were read for their openings since the last asking. */
     int chunksRead;
+    private final Reading reading = new Reading();
+    private static final boolean CHECKED = DevBuild.ON && Boolean.getBoolean("cameraunlock.zomboid.checkRooms");
+    /** Dev only: each chunk read through the reading is read again asking the map each time, and a read that comes out otherwise throws. */
+    private final boolean checked;
+    private final RoomSight.Openings plainLevel = new RoomSight.Openings();
+    private final RoomSight.Blocks plainBlocks = new RoomSight.Blocks();
+    private final RoomSight.Seen plainRooms = new RoomSight.Seen();
+    /** For the rig and the tests: the squares reads walked TallHalls for, and how many times they asked of them. */
+    long tollWalked, tollAsked;
     /**
      * Dev only, for the rig: the reads since the last asking by why they were made: a chunk not
      * kept, the chunks north or west of it changed, its levels, the land under it alone, the
@@ -86,6 +95,8 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
                 "chunk reads by why (new %d, north or west %d of them the same %d, levels %d, land alone %d of them the same but for heights %d, aged %d, marked levels %d, marked whole %d)",
                 readNew, readNeighbours, readNeighboursSame, readLevelsChanged, readLand, readLandSame, readAged, readMarkedLevels, readMarkedWhole);
         readNew = readNeighbours = readLevelsChanged = readLand = readAged = readMarkedLevels = readMarkedWhole = readLandSame = readNeighboursSame = 0;
+        told += String.format(java.util.Locale.ROOT, ", squares read %d for %d asked", tollWalked, tollAsked);
+        tollWalked = tollAsked = 0;
         return told;
     }
 
@@ -126,6 +137,14 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
         return true;
     }
 
+    RoomMap() {
+        this(CHECKED);
+    }
+
+    RoomMap(boolean checked) {
+        this.checked = checked;
+    }
+
     void begin(IsoCell cell, Terrain terrain) {
         Thread now = Thread.currentThread();
         if (logic == null) {
@@ -153,6 +172,7 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
         Arrays.fill(keptWest, null);
         Arrays.fill(keptByLevel, null);
         Arrays.fill(keptLevelMarks, null);
+        reading.end();
     }
 
     /** What read says of a chunk it was not to read and has no reading of as it is now. */
@@ -244,10 +264,8 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
             blocks.clear();
             RoomSight.Seen rooms = keptRooms[slot];
             rooms.clear();
-            int fromX = chunk.wx * WorldScene.CHUNK_TILES, fromY = chunk.wy * WorldScene.CHUNK_TILES;
-            for (int y = fromY; y < fromY + WorldScene.CHUNK_TILES; y++) {
-                blocks.scanRow(this, fromX, fromX + WorldScene.CHUNK_TILES, y);
-            }
+            reading.begin(chunk);
+            scanBlocks(reading, chunk, blocks);
             // The gap over the highest level is to whatever is above it, which is open air.
             int count = chunk.getMaxLevel() - chunk.getMinLevel() + 1;
             if (keptByLevel[slot] == null || keptByLevel[slot].length < count) {
@@ -257,9 +275,13 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
             for (int z = chunk.getMinLevel(); z <= chunk.getMaxLevel(); z++) {
                 int at = z - chunk.getMinLevel();
                 keptLevelMarks[slot][at] = levelMarks(chunk, z);
-                scanLevel(chunk, slot, z, rooms);
+                scanLevel(reading, chunk, z, keptLevel(slot, at), rooms);
                 openings.addAll(keptByLevel[slot][at]);
             }
+            if (checked) {
+                check(chunk, slot, -1L >>> 64 - count, true);
+            }
+            reading.end();
             keptLoose[slot] = ChunkMarks.structuresLoose(chunk.wx - 1, chunk.wy - 1, chunk.wx + 1, chunk.wy + 1);
             keptChunk[slot] = chunk;
             keptNorth[slot] = north;
@@ -319,17 +341,19 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
         openings.clear();
         RoomSight.Blocks blocks = keptBlocks[slot];
         blocks.clear();
-        int fromX = chunk.wx * WorldScene.CHUNK_TILES, fromY = chunk.wy * WorldScene.CHUNK_TILES;
-        for (int y = fromY; y < fromY + WorldScene.CHUNK_TILES; y++) {
-            blocks.scanRow(this, fromX, fromX + WorldScene.CHUNK_TILES, y);
-        }
+        reading.begin(chunk);
+        scanBlocks(reading, chunk, blocks);
         for (int z = chunk.getMinLevel(); z <= chunk.getMaxLevel(); z++) {
             int at = z - chunk.getMinLevel();
             if ((changed >> at & 1L) != 0L) {
-                scanLevel(chunk, slot, z, keptRooms[slot]);
+                scanLevel(reading, chunk, z, keptLevel(slot, at), keptRooms[slot]);
             }
             openings.addAll(keptByLevel[slot][at]);
         }
+        if (checked) {
+            check(chunk, slot, changed, false);
+        }
+        reading.end();
         return true;
     }
 
@@ -339,24 +363,164 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
                 - ChunkMarks.structuresLoose(chunk.wx - 1, chunk.wy - 1, chunk.wx + 1, chunk.wy + 1);
     }
 
-    /** Reads one level of a chunk's openings into what is kept of that level, and its rooms into a set. */
-    private void scanLevel(IsoChunk chunk, int slot, int z, RoomSight.Seen rooms) {
-        RoomSight.Openings level = keptByLevel[slot][z - chunk.getMinLevel()];
+    /** What is kept of a level of a chunk, by its place from the chunk's lowest. */
+    private RoomSight.Openings keptLevel(int slot, int at) {
+        RoomSight.Openings level = keptByLevel[slot][at];
         if (level == null) {
-            level = keptByLevel[slot][z - chunk.getMinLevel()] = new RoomSight.Openings();
+            level = keptByLevel[slot][at] = new RoomSight.Openings();
         }
+        return level;
+    }
+
+    /** Reads the blocks of a chunk. */
+    private static void scanBlocks(RoomSight.Ground ground, IsoChunk chunk, RoomSight.Blocks blocks) {
+        int fromX = chunk.wx * WorldScene.CHUNK_TILES, fromY = chunk.wy * WorldScene.CHUNK_TILES;
+        for (int y = fromY; y < fromY + WorldScene.CHUNK_TILES; y++) {
+            blocks.scanRow(ground, fromX, fromX + WorldScene.CHUNK_TILES, y);
+        }
+    }
+
+    /** Reads one level of a chunk's openings into a level's, and its rooms into a set. */
+    private static void scanLevel(RoomSight.Ground ground, IsoChunk chunk, int z, RoomSight.Openings level, RoomSight.Seen rooms) {
         level.clear();
         int fromX = chunk.wx * WorldScene.CHUNK_TILES, fromY = chunk.wy * WorldScene.CHUNK_TILES;
         for (int x = fromX; x < fromX + WorldScene.CHUNK_TILES; x++) {
             for (int y = fromY; y < fromY + WorldScene.CHUNK_TILES; y++) {
-                level.scan(this, x, y, z);
-                long room = region(x, y, z);
+                level.scan(ground, x, y, z);
+                long room = ground.region(x, y, z);
                 if (room != RoomSight.OUTSIDE) {
                     rooms.add(room);
                 }
             }
         }
     }
+
+    /**
+     * Dev only: reads a chunk's blocks and the levels just read of it again asking the map each
+     * time, and throws where they come out otherwise than they did through the reading. Whole,
+     * the chunk's rooms are those of the levels read again and no others.
+     */
+    private void check(IsoChunk chunk, int slot, long levels, boolean whole) {
+        plainBlocks.clear();
+        scanBlocks(this, chunk, plainBlocks);
+        String otherwise = keptBlocks[slot].otherwise(plainBlocks);
+        plainRooms.clear();
+        for (int z = chunk.getMinLevel(); otherwise == null && z <= chunk.getMaxLevel(); z++) {
+            int at = z - chunk.getMinLevel();
+            if ((levels >> at & 1L) != 0L) {
+                scanLevel(this, chunk, z, plainLevel, plainRooms);
+                otherwise = keptByLevel[slot][at].otherwise(plainLevel);
+            }
+        }
+        RoomSight.Seen rooms = keptRooms[slot];
+        for (int at = 0; otherwise == null && at < plainRooms.slots(); at++) {
+            long room = plainRooms.at(at);
+            if (room != RoomSight.OUTSIDE && !rooms.contains(room)) {
+                otherwise = "room " + room + " is not among the chunk's";
+            }
+        }
+        if (otherwise == null && whole && rooms.size() != plainRooms.size()) {
+            otherwise = rooms.size() + " rooms against " + plainRooms.size();
+        }
+        if (otherwise != null) {
+            throw new IllegalStateException("room map: the chunk at " + chunk.wx + "," + chunk.wy + " came out otherwise read through the reading than asking the map each time: " + otherwise);
+        }
+    }
+
+    /**
+     * The map as one read of a chunk asks it. A read asks the room of each square on and beside
+     * the chunk four or five times (for itself, for the squares south and east of it and the one
+     * under it, and for the chunk's rooms) and the building of the chunk's squares twice or more
+     * for its blocks, and each asking walks TallHalls through the squares round it: this walks
+     * each square once a read and keeps what it found until the read is done. The map does not
+     * change during a read: the game changes it on the logic thread, which reads it.
+     */
+    private final class Reading implements RoomSight.Ground {
+        /** The squares a read asks of, the chunk's and those a row north and a column west, on levels fromZ to toZ: the lower of 0 and the chunk's lowest, to the one over its highest. */
+        private int fromX, fromY, fromZ, toZ;
+        /** The read the squares and buildings kept were found by: one kept by another is found again. */
+        private int stamp;
+        private int[] squareAt = new int[0], buildingAt = new int[0];
+        private IsoGridSquare[] squares = new IsoGridSquare[0];
+        private long[] buildings = new long[0];
+
+        void begin(IsoChunk chunk) {
+            fromX = chunk.wx * WorldScene.CHUNK_TILES - 1;
+            fromY = chunk.wy * WorldScene.CHUNK_TILES - 1;
+            fromZ = Math.min(0, chunk.getMinLevel());
+            toZ = chunk.getMaxLevel() + 1;
+            int used = SPAN * SPAN * (toZ - fromZ + 1);
+            if (squares.length < used) {
+                squares = new IsoGridSquare[used];
+                buildings = new long[used];
+                squareAt = new int[used];
+                buildingAt = new int[used];
+            }
+            stamp++;
+        }
+
+        /** Lets go of the squares found: kept, they would keep a chunk the game has let go of. */
+        void end() {
+            Arrays.fill(squares, null);
+        }
+
+        private int at(int x, int y, int z) {
+            int i = x - fromX, j = y - fromY;
+            return i < 0 || i >= SPAN || j < 0 || j >= SPAN || z < fromZ || z > toZ ? -1 : ((z - fromZ) * SPAN + j) * SPAN + i;
+        }
+
+        private IsoGridSquare square(int at, int x, int y, int z) {
+            if (squareAt[at] != stamp) {
+                squares[at] = hallOrSquare(x, y, z);
+                squareAt[at] = stamp;
+                tollWalked++;
+            }
+            return squares[at];
+        }
+
+        @Override
+        public long region(int x, int y, int z) {
+            int at = at(x, y, z);
+            if (at < 0) {
+                return RoomMap.this.region(x, y, z);
+            }
+            tollAsked++;
+            IsoGridSquare square = square(at, x, y, z);
+            return square == null ? RoomSight.OUTSIDE : square.getRoomID();
+        }
+
+        @Override
+        public long building(int x, int y, int z) {
+            int at = at(x, y, z);
+            if (at < 0) {
+                return RoomMap.this.building(x, y, z);
+            }
+            tollAsked++;
+            if (buildingAt[at] != stamp) {
+                IsoGridSquare square = square(at, x, y, z);
+                buildings[at] = square == null || square.getRoomID() == RoomSight.OUTSIDE ? RoomSight.OUTSIDE : square.getBuilding().getDef().id;
+                buildingAt[at] = stamp;
+            }
+            return buildings[at];
+        }
+
+        @Override
+        public int edge(int x, int y, int z, boolean north) {
+            return RoomMap.this.edge(x, y, z, north);
+        }
+
+        @Override
+        public boolean floored(int x, int y, int z) {
+            return RoomMap.this.floored(x, y, z);
+        }
+
+        @Override
+        public float floorUp(float x, float y, int z) {
+            return RoomMap.this.floorUp(x, y, z);
+        }
+    }
+
+    private static final int SPAN = WorldScene.CHUNK_TILES + 1;
 
     /** Adds the openings and blocks of a chunk read lately to a frame's, and nothing for one it has no reading of as it is now loaded. */
     void addTo(IsoChunk chunk, RoomSight.Openings into, RoomSight.Blocks blocksInto) {

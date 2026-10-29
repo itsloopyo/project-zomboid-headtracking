@@ -47,6 +47,7 @@ final class RoomSightTests {
         Checks.run("aChunkNotToBeReadKeepsWhatItHadAndOneNeverReadIsUnread", RoomSightTests::aChunkNotToBeReadKeepsWhatItHadAndOneNeverReadIsUnread);
         Checks.run("aChunkUnreadAddsNothingToTheFramesOpenings", RoomSightTests::aChunkUnreadAddsNothingToTheFramesOpenings);
         Checks.run("aChunkMarkedWhileItMayNotBeReadIsUnread", RoomSightTests::aChunkMarkedWhileItMayNotBeReadIsUnread);
+        Checks.run("aChunkReadAsksEachSquareOnceAndFindsWhatAskingEachTimeFinds", RoomSightTests::aChunkReadAsksEachSquareOnceAndFindsWhatAskingEachTimeFinds);
     }
 
     private static void check(boolean condition, String what) {
@@ -862,6 +863,131 @@ final class RoomSightTests {
         ChunkMarks.marked(chunk, 64L);
         check(map.read(chunk, null, null, true, 0L, false) == RoomMap.UNREAD, "marked as built on since, and not to be read, it is unread");
         check(map.read(chunk, null, null, true, 0L, true) > read, "and is read again once it may be");
+    }
+
+    /**
+     * A chunk read asks each square on and beside it for its room once (RoomMap's reading), and
+     * has to find what asking the map each time finds: a map that checks reads every chunk of
+     * random towns both ways, whole and by the levels marked, and throws where the two differ.
+     * The towns' houses cross the chunks' edges and go from a cellar up three floors, with walls,
+     * tall halls and rows left out of them, and stairwells: places where a square's room is
+     * another square's.
+     */
+    private static void aChunkReadAsksEachSquareOnceAndFindsWhatAskingEachTimeFinds() {
+        zombie.iso.sprite.IsoSprite floor = sprite("floors_interior_tilesandwood_01_47", "solidfloor");
+        zombie.iso.sprite.IsoSprite wallNorth = sprite("walls_exterior_house_01_1", "WallN"), wallWest = sprite("walls_exterior_house_01_0", "WallW");
+        zombie.iso.sprite.IsoSprite stairs = new zombie.iso.sprite.IsoSprite("fixtures_stairs_01_56", new zombie.core.properties.PropertyContainer(Map.of()),
+                zombie.iso.SpriteDetails.IsoObjectType.stairsBN, null);
+        int openings = 0, rereads = 0;
+        long walked = 0, asked = 0;
+        for (int town = 0; town < 6; town++) {
+            Random random = new Random(7100 + town);
+            zombie.iso.IsoCell cell = new zombie.iso.IsoCell();
+            int fromWx = 40 + town * 6, fromWy = 50, fromX = fromWx * 8, fromY = fromWy * 8, side = 24;
+            for (int x = fromX - 8; x < fromX + side + 8; x++) {
+                for (int y = fromY - 8; y < fromY + side + 8; y++) {
+                    cell.square(x, y, 0).floor(floor);
+                    for (int z = 1; z <= 3; z++) {
+                        if (random.nextInt(3) > 0) {
+                            cell.square(x, y, z);
+                        }
+                    }
+                }
+            }
+            for (int house = 0; house < 10; house++) {
+                int w = 3 + random.nextInt(9), h = 3 + random.nextInt(9);
+                int x0 = fromX - 6 + random.nextInt(side + 6), y0 = fromY - 6 + random.nextInt(side + 6);
+                int bottom = random.nextInt(4) == 0 ? -1 : 0, top = random.nextInt(4);
+                long id = 9000L + town * 100 + house;
+                zombie.iso.areas.IsoBuilding building = new zombie.iso.areas.IsoBuilding(new zombie.iso.BuildingDef(id, x0, y0, w, h));
+                for (int z = bottom; z <= top; z++) {
+                    int split = x0 + random.nextInt(w), door = y0 + random.nextInt(h);
+                    boolean tall = z > bottom && random.nextInt(3) == 0;
+                    for (int x = x0; x < x0 + w; x++) {
+                        for (int y = y0; y < y0 + h; y++) {
+                            zombie.iso.IsoGridSquare square = cell.square(x, y, z);
+                            if (!tall || random.nextInt(6) > 0) {
+                                square.setRoomID(id * 16 + (z + 1) * 2 + (x < split ? 0 : 1));
+                                square.building(building);
+                            }
+                            boolean floored = !tall || random.nextInt(5) == 0;
+                            if (floored && square.getFloor() == null) {
+                                square.floor(floor);
+                            } else if (!floored && square.getFloor() != null) {
+                                square.unfloor();
+                            }
+                            if (y == y0 && random.nextInt(4) > 0) {
+                                square.add(wallNorth);
+                            }
+                            if ((x == x0 || x == split && y != door) && random.nextInt(4) > 0) {
+                                square.add(wallWest);
+                            }
+                        }
+                    }
+                    if (z > bottom && !tall && random.nextBoolean()) {
+                        int x = x0 + random.nextInt(w), y = y0 + random.nextInt(h);
+                        cell.square(x, y, z - 1).add(stairs);
+                        zombie.iso.IsoGridSquare well = cell.square(x, y, z);
+                        if (well.getFloor() != null) {
+                            well.unfloor();
+                        }
+                        if (random.nextBoolean()) {
+                            well.setRoomID(-1L);
+                        }
+                    }
+                }
+            }
+            RoomMap map = new RoomMap(true);
+            map.begin(cell, Terrain.LEVEL);
+            zombie.iso.IsoChunk[][] chunks = new zombie.iso.IsoChunk[5][5];
+            int[][] readings = new int[5][5];
+            for (int i = 0; i < 5; i++) {
+                for (int j = 0; j < 5; j++) {
+                    chunks[i][j] = loadedChunk(fromWx - 1 + i, fromWy - 1 + j);
+                    chunks[i][j].minLevel = -1;
+                    chunks[i][j].maxLevel = 3;
+                }
+            }
+            for (int round = 0; round < 8; round++) {
+                for (int i = 0; i < 5; i++) {
+                    for (int j = 0; j < 5; j++) {
+                        int read = map.read(chunks[i][j], j > 0 ? chunks[i][j - 1] : null, i > 0 ? chunks[i - 1][j] : null, true, 0L, true);
+                        rereads += round > 0 && read != readings[i][j] ? 1 : 0;
+                        readings[i][j] = read;
+                        if (round == 0) {
+                            RoomSight.Openings found = new RoomSight.Openings();
+                            map.addTo(chunks[i][j], found, new RoomSight.Blocks());
+                            openings += found.count;
+                        }
+                    }
+                }
+                // A level of a chunk changed, as the game marks it: its floor taken up or laid where a room is, or a room let go of.
+                int i = 1 + random.nextInt(3), j = 1 + random.nextInt(3), z = -1 + random.nextInt(5);
+                int x = chunks[i][j].wx * 8 + random.nextInt(8), y = chunks[i][j].wy * 8 + random.nextInt(8);
+                zombie.iso.IsoGridSquare square = cell.square(x, y, z);
+                if (square.getFloor() != null) {
+                    square.unfloor();
+                } else if (random.nextBoolean()) {
+                    square.floor(floor);
+                } else {
+                    square.setRoomID(-1L);
+                }
+                ChunkMarks.marked(chunks[i][j], z, 64L);
+            }
+            walked += map.tollWalked;
+            asked += map.tollAsked;
+        }
+        check(openings > 1000, "the towns' chunks have openings to read: " + openings);
+        check(rereads >= 6 * 7, "and their levels marked are read again: " + rereads + " chunks read again");
+        check(walked * 3 < asked, "each square is walked once a read, though it is asked of three times and more: " + walked + " walked for " + asked + " asked");
+        RoomSight.Openings one = new RoomSight.Openings(), other = new RoomSight.Openings();
+        one.add(1, 2, 0, RoomSight.NORTH, 5L, 6L, 7L, 7L, 0f, 0f, 2.5f, 2.5f);
+        other.add(1, 2, 0, RoomSight.NORTH, 5L, 6L, 7L, 7L, 0f, -0f, 2.5f, 2.5f);
+        check(one.otherwise(one) == null && one.otherwise(other) != null, "and a read that differs by the sign of a height is told from one that does not");
+    }
+
+    private static zombie.iso.sprite.IsoSprite sprite(String name, String flag) {
+        return new zombie.iso.sprite.IsoSprite(name, new zombie.core.properties.PropertyContainer(Map.of(flag, "")));
     }
 
     private static void aPictureListsOnlyTheRoomsItSeesInto() {
