@@ -401,6 +401,8 @@ final class WorldScene {
         int shownFrame = -1;
         /** Dev only: every float of the build as one number. */
         private long auditFloats;
+        /** How long a build handed off took to make: what a build of the chunk handed off next is reckoned to take (Frame.handOff). */
+        long tookNanos;
         /** Dev only, for auditStale: each mesh of the build as its set, texture and tint in one number, then how many floats it had, then their sum. */
         private long[] auditMeshes;
         /** Dev only: what the sum was made of, part by part. See audit. */
@@ -738,6 +740,33 @@ final class WorldScene {
      * a tenth of the work of a chunk, so it is what is made again as the eye moves.
      */
     private final ChunkMeshes[] latestGrown = new ChunkMeshes[TABLE_SIDE * TABLE_SIDE];
+    /** The builds the walk of the view's last frame handed off, in walk order: made after it and landed at the start of the next (Frame.handOff). */
+    private final ArrayList<Handed> handed = new ArrayList<>();
+    /** The build handed off for each slot of the table and not landed yet, or null. */
+    private final Handed[] handedAt = new Handed[TABLE_SIDE * TABLE_SIDE];
+    private final ArrayDeque<Handed> spareHanded = new ArrayDeque<>();
+    /** What a build takes to make, by a running mean: the frame's time a build of a chunk with none is reckoned to take as it is handed off. */
+    private long handedMeanNanos = 1_000_000L;
+
+    /**
+     * A build the walk handed off: the walking frame's state as it was then (taken), what the build is made into,
+     * and what it leaves for its landing.
+     */
+    private final class Handed {
+        final Frame taken = new Frame(new SpriteGeometry.Layers());
+        IsoChunk chunk;
+        int chunkX, chunkY, lowest, toldSoFar, slot, cause;
+        /** For crown: the build was made only because the eye moved or it was old. */
+        boolean mayWait;
+        ChunkMeshes fresh;
+        /** Made into for what grows on the chunk's ground, if the chunk has any: taken from spare as the build is handed off. */
+        ChunkMeshes grown;
+        float eyeX, eyeY, eyeUp;
+        /** What the build wrote down of its crowns, for crown as it lands. */
+        Crowns crowns = new Crowns();
+        long took, grownNanos;
+        boolean made, grownMade, dropped;
+    }
     /**
      * The crowns of each chunk's trees and bushes, as a build of their own beside the chunk's.
      * A build of the chunk writes down what its crowns are made from (Frame.crownsRead) and makes
@@ -1677,8 +1706,15 @@ final class WorldScene {
     }
     /** Dev only: every build is made a second time with nothing taken from what is kept, and the two are compared float for float. */
     private static final boolean CHECK_BUILDS = Boolean.getBoolean("cameraunlock.zomboid.checkBuilds");
+    /**
+     * Dev only, until it is a setting: the walk hands each build off, with its frame's state as it stands, and the
+     * builds are made after the walk and landed at the start of the view's next frame (Frame.handOff).
+     */
+    static final boolean HAND_BUILDS = Boolean.getBoolean("cameraunlock.zomboid.handBuilds");
     /** Dev only: the build thread the frame beside builds on while the walk waits on it, as a build off the logic thread has to come out the same. */
     private static final java.util.concurrent.ExecutorService besideThread = CHECK_BUILDS ? BuildThreads.one("head tracking build beside") : null;
+    /** The frame the builds the walk hands off are made on: it takes what the walk had as each was handed off (Handed.taken). */
+    private final Frame maker = HAND_BUILDS ? new Frame(new SpriteGeometry.Layers()) : null;
     /**
      * A far chunk is not built again for heights that moved by less than half a dot of a picture
      * this many dots high, at the field of view it is drawn with: see heightsHeld.
@@ -1693,6 +1729,8 @@ final class WorldScene {
     private long tollFrames, tollSums, tollSumNanos, tollBuildNanos, tollGrown, tollGrownNanos, tollChecked, tollDiffered;
     /** Dev only: the builds made again beside the walk and held to the walk's (Frame.checkBeside), those that differed, and those not held to it for asking a sprite's colours. */
     private long tollBesideChecked, tollBesideDiffered, tollBesideUnsigned;
+    /** The builds the walk handed off (Frame.handOff). */
+    private long tollHanded;
     private static int besideLogged;
     private long tollWoods, tollWoodsNanos;
     private long tollLevelsRead, tollLevelsHeld;
@@ -1736,10 +1774,10 @@ final class WorldScene {
     /** Dev only: the builds, the sums and the time they took since the last asking, for a rig run's window. */
     String tolls() {
         String told = String.format(Locale.ROOT, "frames %d sums %d in %.1f ms, builds %d in %.1f ms (new %d moved %d changed %d aged %d unsigned %d unread %d), grown %d in %.1f ms, checked %d differed %d"
-                + ", beside %d differed %d unsigned %d",
+                + ", beside %d differed %d unsigned %d, handed %d",
                 tollFrames, tollSums, tollSumNanos / 1e6, tollBuilt[NEW] + tollBuilt[MOVED] + tollBuilt[CHANGED] + tollBuilt[AGED] + tollBuilt[UNSIGNED] + tollBuilt[LEFT_UNREAD],
                 tollBuildNanos / 1e6, tollBuilt[NEW], tollBuilt[MOVED], tollBuilt[CHANGED], tollBuilt[AGED], tollBuilt[UNSIGNED], tollBuilt[LEFT_UNREAD],
-                tollGrown, tollGrownNanos / 1e6, tollChecked, tollDiffered, tollBesideChecked, tollBesideDiffered, tollBesideUnsigned);
+                tollGrown, tollGrownNanos / 1e6, tollChecked, tollDiffered, tollBesideChecked, tollBesideDiffered, tollBesideUnsigned, tollHanded);
         told += String.format(Locale.ROOT, ", telling %b quiet %d, lights asked %d taken %d", ChunkMarks.live, tollQuiet, tollPulls, tollPulled);
         // A p99 is the step 99 frames in 100 come under, the time's to the top of its step.
         int countsAt = centile(tollRefreshCounts, tollFrames), nanosAt = centile(tollRefreshFrameNanos, tollFrames);
@@ -1825,7 +1863,7 @@ final class WorldScene {
         tollMovedBand = tollMovedUnsigned = tollRebanded = tollHeightsHeld = 0;
         Arrays.fill(tollBuilt, 0);
         tollFrames = tollSums = tollSumNanos = tollBuildNanos = tollGrown = tollGrownNanos = tollChecked = tollDiffered = 0;
-        tollBesideChecked = tollBesideDiffered = tollBesideUnsigned = 0;
+        tollBesideChecked = tollBesideDiffered = tollBesideUnsigned = tollHanded = 0;
         return told;
     }
 
@@ -1906,16 +1944,22 @@ final class WorldScene {
      */
     void setDown() {
         for (Frame scene : scenes) {
-            scene.cell = null;
-            scene.here = null;
-            Arrays.fill(scene.groundObject, null);
-            Arrays.fill(scene.lightSquare, null);
-            Arrays.fill(scene.around, null);
-            scene.lampsNear.clear();
-            scene.lampsBurning.clear();
-            scene.lampsSortedFrame = -1;
-            scene.roomAsked = null;
-            scene.keptFrame = -1;
+            setDown(scene);
+        }
+        for (int i = 0; i < handed.size(); i++) {
+            drop(handed.get(i));
+            spareHanded.push(handed.get(i));
+        }
+        handed.clear();
+        // Those that take the walk's state hold the map as the scenes do.
+        for (Handed job : spareHanded) {
+            job.chunk = null;
+            job.fresh = job.grown = null;
+            setDown(job.taken);
+        }
+        setDown(beside);
+        if (maker != null) {
+            setDown(maker);
         }
         squareLights.forget();
         roomDaylight.forget();
@@ -1953,6 +1997,19 @@ final class WorldScene {
             VertexLoans.letGoIdle();
             SpriteColours.letGoOfThePage();
         }
+    }
+
+    private static void setDown(Frame scene) {
+        scene.cell = null;
+        scene.here = null;
+        Arrays.fill(scene.groundObject, null);
+        Arrays.fill(scene.lightSquare, null);
+        Arrays.fill(scene.around, null);
+        scene.lampsNear.clear();
+        scene.lampsBurning.clear();
+        scene.lampsSortedFrame = -1;
+        scene.roomAsked = null;
+        scene.keptFrame = -1;
     }
 
     /**
@@ -2066,11 +2123,11 @@ final class WorldScene {
     private long tollStaleAsked, tollStale, tollStaleDue, tollStaleGrownAsked;
 
     /** Dev only: see ChunkMeshes.auditMeshes. */
-    private long[] meshesOf() {
-        long[] of = new long[(sharedSolid.used.size() + sharedLaid.used.size()) * 3];
+    private static long[] meshesOf(SpriteGeometry.MeshSet solid, SpriteGeometry.MeshSet laid) {
+        long[] of = new long[(solid.used.size() + laid.used.size()) * 3];
         int at = 0;
         for (int set = 0; set < 2; set++) {
-            SpriteGeometry.MeshSet from = set == 0 ? sharedSolid : sharedLaid;
+            SpriteGeometry.MeshSet from = set == 0 ? solid : laid;
             for (int i = 0; i < from.used.size(); i++) {
                 SpriteGeometry.Mesh mesh = from.used.get(i);
                 long sum = SUM_FROM;
@@ -2342,6 +2399,7 @@ final class WorldScene {
 
     /** Lets go of the builds held in a slot of the table. */
     private void forget(int slot) {
+        drop(handedAt[slot]);
         if (latest[slot] != null) {
             release(latest[slot]);
             latest[slot] = null;
@@ -2351,6 +2409,30 @@ final class WorldScene {
             latestGrown[slot] = null;
         }
         forgetCrowns(slot);
+    }
+
+    /** Lets go of a build handed off and not landed yet, if there is one: what it was made for has changed, or the view is set down. */
+    private void drop(Handed job) {
+        if (job == null || job.dropped) {
+            return;
+        }
+        job.dropped = true;
+        handedAt[job.slot] = null;
+        unmade(job.fresh, job.made);
+        if (job.grown != null) {
+            unmade(job.grown, job.grownMade);
+        }
+    }
+
+    /** A build handed off that will not land: let go of as any build is if it was made, or given back to the spares as it was taken. */
+    private void unmade(ChunkMeshes meshes, boolean made) {
+        if (made) {
+            release(meshes);
+        } else if (spare.size() < MOST_SPARE) {
+            spare.push(meshes);
+        } else {
+            meshes.scrap();
+        }
     }
 
     /** Lets go of every build: for when what all of them were built on has changed. */
@@ -3723,6 +3805,9 @@ final class WorldScene {
             Roofs.keepMeasures();
             try {
                 buildFrame(player, pose, aimed, eyeFromAim, tanHalfFieldOfView, tanHalfSet, from, opened);
+                if (HAND_BUILDS) {
+                    makeHanded();
+                }
             } finally {
                 Roofs.forgetMeasures();
             }
@@ -3764,6 +3849,7 @@ final class WorldScene {
                 rightY = pose.forwardX / flat;
             }
             beginTallies(pose);
+            landHanded();
             int agedBuilt = 0;
 
             viewer = player;
@@ -4147,6 +4233,8 @@ final class WorldScene {
             int eyeGridX = Math.floorDiv((int) Math.floor(pose.eyeX) - map.getWorldXMinTiles(), CHUNK_TILES);
             int eyeGridY = Math.floorDiv((int) Math.floor(pose.eyeY) - map.getWorldYMinTiles(), CHUNK_TILES);
             int builtLate = 0, changedLate = 0;
+            // What the builds handed off are reckoned to take: the frame's time spent on building, as if they were made in the walk.
+            long handedNanos = 0L;
             float nearestWaiting = Float.MAX_VALUE;
             long aheadBegan = 0L;
             int swept = 0;
@@ -4162,7 +4250,7 @@ final class WorldScene {
             for (int step = 0; step <= walk.length; step += 2) {
                 boolean ahead = step == walk.length;
                 if (ahead && (aheadStep < 0 || !Sightline.buildsAhead(view.index, withoutSightline) || rehearsing || chunksWaiting > 0 || waitedLast > 0
-                        || System.nanoTime() - start > BUILD_NANOS_A_FRAME / sharing)) {
+                        || System.nanoTime() - start + handedNanos > BUILD_NANOS_A_FRAME / sharing)) {
                     break;
                 }
                 {
@@ -4216,7 +4304,7 @@ final class WorldScene {
                     // fast, hundreds of chunks want building at once, and built in one frame they held it
                     // for most of a second. What is near is built whatever it takes. The rest is built
                     // until the frame has spent its time on building, and the others come on the next frames.
-                    boolean late = !aside && (rehearsing || distance >= BUILT_WHATEVER_IT_TAKES) && System.nanoTime() - start > BUILD_NANOS_A_FRAME / sharing;
+                    boolean late = !aside && (rehearsing || distance >= BUILT_WHATEVER_IT_TAKES) && System.nanoTime() - start + handedNanos > BUILD_NANOS_A_FRAME / sharing;
                     // One chunk a frame is built however late the frame is: on a PC where what is near takes all
                     // of the frame's time, nothing further off would otherwise ever be built.
                     if (missing && late && builtLate++ > 0) {
@@ -4348,7 +4436,7 @@ final class WorldScene {
                     float middleX = chunkX + CHUNK_TILES / 2f, middleY = chunkY + CHUNK_TILES / 2f;
                     // One put off for want of time is not read again while the frame still has none: see where one is put off.
                     if (due && !missing && current.putOffNanos != 0L && start - current.putOffNanos < CHANGED_WAITS_NANOS && changedLate > 0
-                            && (distance >= CHUNK_TILES * 1.5f || current.things == things) && System.nanoTime() - start > BUILD_NANOS_A_FRAME / sharing) {
+                            && (distance >= CHUNK_TILES * 1.5f || current.things == things) && System.nanoTime() - start + handedNanos > BUILD_NANOS_A_FRAME / sharing) {
                         due = false;
                         tollChangedWaited++;
                     }
@@ -4421,7 +4509,7 @@ final class WorldScene {
                             // One a frame is made however late the frame is.
                             if (cause == CHANGED && (distance >= CHUNK_TILES * 1.5f || current.things == things)
                                     && (current.putOffNanos == 0L || start - current.putOffNanos < CHANGED_WAITS_NANOS)
-                                    && System.nanoTime() - start > BUILD_NANOS_A_FRAME / sharing && changedLate++ > 0) {
+                                    && System.nanoTime() - start + handedNanos > BUILD_NANOS_A_FRAME / sharing && changedLate++ > 0) {
                                 due = false;
                                 if (current.putOffNanos == 0L) {
                                     current.putOffNanos = start;
@@ -4465,10 +4553,12 @@ final class WorldScene {
                         builtBecause[cause]++;
                     }
                     // Dev only: the build of a chunk made again for its age alone is kept until its page has been set against the new one's.
-                    ChunkMeshes replaced = AUDIT_PAGES && due && cause == AGED ? current : null;
+                    ChunkMeshes replaced = AUDIT_PAGES && !HAND_BUILDS && due && cause == AGED ? current : null;
                     if (replaced != null) {
                         replaced.users++;
                     }
+                    // A build handed off: until it lands at the start of the next frame, the chunk is shown as it was, if it was.
+                    boolean handedNow = false;
                     if (missing || due) {
                         ChunkMeshes fresh = spare.isEmpty() ? new ChunkMeshes(view.index) : spare.pop();
                         solid.clear();
@@ -4526,82 +4616,98 @@ final class WorldScene {
                         fresh.seasonal = false;
                         fresh.stage = stage;
                         chunksBuilt++;
-                        if (CHECK_BUILDS) {
-                            beside.takeFrom(this);
-                            besideMeshes.headFrom(fresh);
-                        }
-                        long began = System.nanoTime();
-                        buildInto(chunk, chunkX, chunkY, lowest, fresh, toldSoFar);
-                        long squaresNanos = squaresTook, backsNanos = backsTook;
-                        if (AUDIT_STALE) {
-                            fresh.auditFloats = floatsOf(solid) * 31 + floatsOf(laid);
-                            fresh.auditMeshes = meshesOf();
-                        }
-                        if (AUDIT_MARKS) {
-                            fresh.auditFloats = floatsOf(solid) * 31 + floatsOf(laid);
-                            boolean aged = current != null && summed && current.signed && current.signature == read && current.band == fresh.band && fresh.signed
-                                    && current.epoch == epoch && current.told == toldSoFar && ChunkMarks.told(chunk.wx, chunk.wy) == toldSoFar;
-                            if (aged && current.auditFloats != fresh.auditFloats) {
-                                tollAgedDiffered++;
-                                if (auditLogged++ < 4000) {
-                                    Log.info(String.format(Locale.ROOT, "chunk marks: a build of %d, %d with the same sum and the same eye came out otherwise, %.1f s old, last built %.2f s ago, told %d then %d now, plain %b",
-                                            chunk.wx, chunk.wy, (start - current.bornNanos) / 1e9, (start - current.builtNanos) / 1e9, current.told, fresh.told, current.plain));
-                                }
-                            } else if (aged) {
-                                tollAgedSame++;
-                                tollAgedSamePlain += current.plain ? 1 : 0;
-                            }
-                            if (ruleAudit[slot] != 0 && !buildingBySight && current != null && current.wx == chunk.wx && current.wy == chunk.wy && summed && current.signed
-                                    && current.signature == read && current.band == fresh.band && current.epoch == epoch) {
-                                boolean asBefore = current.auditFloats == fresh.auditFloats;
-                                if (ruleAudit[slot] == 1) {
-                                    tollRuleKeptSame += asBefore ? 1 : 0;
-                                    tollRuleKeptDiffered += asBefore ? 0 : 1;
-                                    if (!asBefore) {
-                                        Log.info("chunk marks: the build of " + chunk.wx + ", " + chunk.wy + " kept as rooms came to be built whole came out otherwise built again");
-                                    }
+                        if (HAND_BUILDS) {
+                            if (cause == MOVED) {
+                                if (inBand(current.band, nearest)) {
+                                    tollMovedUnsigned++;
                                 } else {
-                                    tollRuleToldSame += asBefore ? 1 : 0;
-                                    tollRuleToldDiffered += asBefore ? 0 : 1;
+                                    tollMovedBand++;
                                 }
-                                ruleAudit[slot] = 0;
                             }
-                        }
-                        fresh.grown = false;
-                        fresh.alike = alike;
-                        if (layers.lying()) {
-                            throw new IllegalStateException("the build of the chunk at " + chunk.wx + ", " + chunk.wy + " ended with its layers still counted");
-                        }
-                        if (CHECK_BUILDS) {
-                            checkBeside(chunk, chunkX, chunkY, lowest, fresh, toldSoFar);
-                            check(chunk, chunkX, chunkY, lowest, fresh);
-                        }
-                        fresh.fill(solid, laid);
-                        slowed(began);
-                        long took = System.nanoTime() - began;
-                        if (FirstPerson.TRACE && took + sumNanos > SLOW_BUILD_NANOS) {
-                            Log.info(String.format(Locale.ROOT, "slow build: the chunk at %d, %d (levels %d to %d) %.1f tiles off, %s, in %.1f ms: sums %.1f, squares %.1f, roofs' backs %.1f, the rest %.1f"
-                                    + " | eye still %b, in its band %b (band %d now %d, alike %s), signed %b, trusted %b, summed %b, restless %b, built %.0f ms ago",
-                                    chunk.wx, chunk.wy, lowest, chunk.getMaxLevel(), distance, CAUSES[cause], (took + sumNanos) / 1e6, sumNanos / 1e6, squaresNanos / 1e6, backsNanos / 1e6,
-                                    (took - squaresNanos - backsNanos) / 1e6, eyeStill, stands, missing ? -1 : current.band, band(nearest),
-                                    missing ? "-" : Integer.toBinaryString(current.alike), !missing && current.signed, trusted, summed, !missing && current.restless,
-                                    missing ? 0.0 : (start - current.builtNanos) / 1e6));
-                        }
-                        tollBuildNanos += took;
-                        tollBuiltNanos[cause] += took;
-                        if (cause == MOVED) {
-                            if (inBand(current.band, nearest)) {
-                                tollMovedUnsigned++;
-                            } else {
-                                tollMovedBand++;
+                            handedNanos += handOff(chunk, chunkX, chunkY, lowest, fresh, toldSoFar, slot, cause, unchanged && (cause == MOVED || cause == AGED), current,
+                                    marks - things, pose);
+                            if (missing) {
+                                continue;
                             }
+                            handedNow = true;
+                        } else {
+                            if (CHECK_BUILDS) {
+                                beside.takeFrom(this);
+                                besideMeshes.headFrom(fresh);
+                            }
+                            long began = System.nanoTime();
+                            buildInto(chunk, chunkX, chunkY, lowest, fresh, toldSoFar);
+                            long squaresNanos = squaresTook, backsNanos = backsTook;
+                            if (AUDIT_STALE) {
+                                fresh.auditFloats = floatsOf(solid) * 31 + floatsOf(laid);
+                                fresh.auditMeshes = meshesOf(solid, laid);
+                            }
+                            if (AUDIT_MARKS) {
+                                fresh.auditFloats = floatsOf(solid) * 31 + floatsOf(laid);
+                                boolean aged = current != null && summed && current.signed && current.signature == read && current.band == fresh.band && fresh.signed
+                                        && current.epoch == epoch && current.told == toldSoFar && ChunkMarks.told(chunk.wx, chunk.wy) == toldSoFar;
+                                if (aged && current.auditFloats != fresh.auditFloats) {
+                                    tollAgedDiffered++;
+                                    if (auditLogged++ < 4000) {
+                                        Log.info(String.format(Locale.ROOT, "chunk marks: a build of %d, %d with the same sum and the same eye came out otherwise, %.1f s old, last built %.2f s ago, told %d then %d now, plain %b",
+                                                chunk.wx, chunk.wy, (start - current.bornNanos) / 1e9, (start - current.builtNanos) / 1e9, current.told, fresh.told, current.plain));
+                                    }
+                                } else if (aged) {
+                                    tollAgedSame++;
+                                    tollAgedSamePlain += current.plain ? 1 : 0;
+                                }
+                                if (ruleAudit[slot] != 0 && !buildingBySight && current != null && current.wx == chunk.wx && current.wy == chunk.wy && summed && current.signed
+                                        && current.signature == read && current.band == fresh.band && current.epoch == epoch) {
+                                    boolean asBefore = current.auditFloats == fresh.auditFloats;
+                                    if (ruleAudit[slot] == 1) {
+                                        tollRuleKeptSame += asBefore ? 1 : 0;
+                                        tollRuleKeptDiffered += asBefore ? 0 : 1;
+                                        if (!asBefore) {
+                                            Log.info("chunk marks: the build of " + chunk.wx + ", " + chunk.wy + " kept as rooms came to be built whole came out otherwise built again");
+                                        }
+                                    } else {
+                                        tollRuleToldSame += asBefore ? 1 : 0;
+                                        tollRuleToldDiffered += asBefore ? 0 : 1;
+                                    }
+                                    ruleAudit[slot] = 0;
+                                }
+                            }
+                            fresh.grown = false;
+                            fresh.alike = alike;
+                            if (layers.lying()) {
+                                throw new IllegalStateException("the build of the chunk at " + chunk.wx + ", " + chunk.wy + " ended with its layers still counted");
+                            }
+                            if (CHECK_BUILDS) {
+                                checkBeside(chunk, chunkX, chunkY, lowest, fresh, toldSoFar);
+                                check(chunk, chunkX, chunkY, lowest, fresh);
+                            }
+                            fresh.fill(solid, laid);
+                            slowed(began);
+                            long took = System.nanoTime() - began;
+                            if (FirstPerson.TRACE && took + sumNanos > SLOW_BUILD_NANOS) {
+                                Log.info(String.format(Locale.ROOT, "slow build: the chunk at %d, %d (levels %d to %d) %.1f tiles off, %s, in %.1f ms: sums %.1f, squares %.1f, roofs' backs %.1f, the rest %.1f"
+                                        + " | eye still %b, in its band %b (band %d now %d, alike %s), signed %b, trusted %b, summed %b, restless %b, built %.0f ms ago",
+                                        chunk.wx, chunk.wy, lowest, chunk.getMaxLevel(), distance, CAUSES[cause], (took + sumNanos) / 1e6, sumNanos / 1e6, squaresNanos / 1e6, backsNanos / 1e6,
+                                        (took - squaresNanos - backsNanos) / 1e6, eyeStill, stands, missing ? -1 : current.band, band(nearest),
+                                        missing ? "-" : Integer.toBinaryString(current.alike), !missing && current.signed, trusted, summed, !missing && current.restless,
+                                        missing ? 0.0 : (start - current.builtNanos) / 1e6));
+                            }
+                            tollBuildNanos += took;
+                            tollBuiltNanos[cause] += took;
+                            if (cause == MOVED) {
+                                if (inBand(current.band, nearest)) {
+                                    tollMovedUnsigned++;
+                                } else {
+                                    tollMovedBand++;
+                                }
+                            }
+                            if (current != null) {
+                                release(current);
+                            }
+                            latest[slot] = fresh;
+                            current = fresh;
+                            crown(slot, chunk.wx, chunk.wy, unchanged && (cause == MOVED || cause == AGED));
                         }
-                        if (current != null) {
-                            release(current);
-                        }
-                        latest[slot] = fresh;
-                        current = fresh;
-                        crown(slot, chunk.wx, chunk.wy, unchanged && (cause == MOVED || cause == AGED));
                     }
                     current.users++;
                     current.water = Terrain.holdsWater(chunk.wx, chunk.wy);
@@ -4634,7 +4740,7 @@ final class WorldScene {
                         grown = null;
                     }
                     // What grows is made with its chunk. Made again only because the eye has moved, it waits for a frame with the time.
-                    if (Own.plants(view.index) && current.grows && (ungrown || regrown && !late)) {
+                    if (!handedNow && Own.plants(view.index) && current.grows && (ungrown || regrown && !late)) {
                         if (!missing && !due) {
                             surround(map, chunk, gridX, gridY, side);
                         }
@@ -4695,8 +4801,8 @@ final class WorldScene {
                         current.pageTo = chunk.getMaxLevel();
                         current.pageWaitsNanos = 0L;
                     }
-                    boolean fromSum = current.checkedFrame == frames && current.builtFrame != frames;
-                    boolean refreshes = telling && faced && !aside && !rehearsing && current.builtFrame != frames;
+                    boolean fromSum = !handedNow && current.checkedFrame == frames && current.builtFrame != frames;
+                    boolean refreshes = !handedNow && telling && faced && !aside && !rehearsing && current.builtFrame != frames;
                     boolean stale = current.pageMarks != lit || current.pageDaylit && current.pageDay != dayCode();
                     boolean refreshesLate = refreshesNow > 0 && refreshNanosNow > REFRESH_NANOS_A_FRAME / sharing;
                     boolean pageWaited = current.pageWaitsNanos != 0L && start - current.pageWaitsNanos >= CHANGED_WAITS_NANOS;
@@ -5515,14 +5621,14 @@ final class WorldScene {
             if (floats != standing.auditFloats && due) {
                 tollStaleDue++;
                 standing.auditFloats = floats;
-                standing.auditMeshes = meshesOf();
+                standing.auditMeshes = meshesOf(solid, laid);
             } else if (floats != standing.auditFloats) {
                 tollStale++;
                 Log.info(String.format(Locale.ROOT, "stale build: the chunk at %d, %d (%d, %d), %.0f tiles off, band %d, built %.1f s ago and %.1f s old, would be built otherwise now: its sum %s, told %s, heights %s, map round it %s, plain %b, this build asked for what is not read yet %b",
                         chunk.wx, chunk.wy, chunkX, chunkY, distance, standing.band, (now - standing.builtNanos) / 1e9, (now - standing.bornNanos) / 1e9,
                         !signed ? "was not taken" : sum == standing.signature ? "the same" : "another", toldNow == standing.told ? "the same" : "another",
                         landNow == standing.land ? "the same" : "another", ring == standing.ring ? "the same" : "another", plain, asked));
-                long[] now2 = meshesOf();
+                long[] now2 = meshesOf(solid, laid);
                 int said = 0;
                 for (int i = 0; i < now2.length && said < 8; i += 3) {
                     int at = -1;
@@ -5632,6 +5738,175 @@ final class WorldScene {
             fresh.signed = signed && fresh.signed;
         }
 
+        /**
+         * Hands the build of the chunk off (HAND_BUILDS), with this frame's state as it stands: it is made after the walk
+         * (makeHanded) from what the walk had here, and landed at the start of the view's next frame (landHanded). The
+         * page is set as the walk sets a fresh build's. Returns the frame's time the build is reckoned to take, which the
+         * walk counts as spent on building: what the chunk's last build took, or what builds take.
+         */
+        private long handOff(IsoChunk chunk, int chunkX, int chunkY, int lowest, ChunkMeshes fresh, int toldSoFar, int slot, int cause, boolean mayWait,
+                ChunkMeshes current, int lit, ViewCamera.Pose pose) {
+            Handed job = spareHanded.isEmpty() ? new Handed() : spareHanded.pop();
+            job.taken.takeFrom(this);
+            job.chunk = chunk;
+            job.chunkX = chunkX;
+            job.chunkY = chunkY;
+            job.lowest = lowest;
+            job.toldSoFar = toldSoFar;
+            job.slot = slot;
+            job.cause = cause;
+            job.mayWait = mayWait;
+            job.fresh = fresh;
+            job.grown = !Own.plants(view.index) ? null : spare.isEmpty() ? new ChunkMeshes(view.index) : spare.pop();
+            job.eyeX = pose.eyeX;
+            job.eyeY = pose.eyeY;
+            job.eyeUp = pose.eyeUp;
+            job.made = job.grownMade = job.dropped = false;
+            fresh.pageMarks = lit;
+            fresh.pageDay = dayCode();
+            fresh.pageFrom = Math.max(lowest, chunk.getMinLevel());
+            fresh.pageTo = chunk.getMaxLevel();
+            fresh.pageWaitsNanos = 0L;
+            handed.add(job);
+            handedAt[slot] = job;
+            tollHanded++;
+            return current != null && current.tookNanos > 0L ? current.tookNanos : handedMeanNanos;
+        }
+
+        /** After the walk: makes the builds it handed off on the maker, in walk order. */
+        private void makeHanded() {
+            for (int i = 0; i < handed.size(); i++) {
+                Handed job = handed.get(i);
+                if (!job.dropped && !job.made) {
+                    maker.make(job);
+                }
+            }
+        }
+
+        /**
+         * Makes a build the walk handed off on this frame, the maker, from what the walk had as it handed it off: the
+         * build and what grows on its ground, as the walk makes them, with the build's page from what it read of the light.
+         */
+        private void make(Handed job) {
+            takeFrom(job.taken);
+            ChunkMeshes fresh = job.fresh;
+            solid.clear();
+            laid.clear();
+            layers.none();
+            SpriteColours.askingFrom(view.index, job.chunkX + CHUNK_TILES / 2f, job.chunkY + CHUNK_TILES / 2f);
+            if (CHECK_BUILDS) {
+                beside.takeFrom(job.taken);
+                besideMeshes.headFrom(fresh);
+            }
+            long began = System.nanoTime();
+            buildInto(job.chunk, job.chunkX, job.chunkY, job.lowest, fresh, job.toldSoFar);
+            if (AUDIT_STALE || AUDIT_MARKS) {
+                fresh.auditFloats = floatsOf(solid) * 31 + floatsOf(laid);
+            }
+            if (AUDIT_STALE) {
+                fresh.auditMeshes = meshesOf(solid, laid);
+            }
+            fresh.grown = false;
+            fresh.alike = alike;
+            if (layers.lying()) {
+                throw new IllegalStateException("the build of the chunk at " + job.chunk.wx + ", " + job.chunk.wy + " ended with its layers still counted");
+            }
+            if (CHECK_BUILDS) {
+                checkBeside(job.chunk, job.chunkX, job.chunkY, job.lowest, fresh, job.toldSoFar);
+            }
+            fresh.fill(solid, laid);
+            slowed(began);
+            job.took = System.nanoTime() - began;
+            fresh.tookNanos = job.took;
+            Crowns made = crownsRead;
+            crownsRead = job.crowns;
+            job.crowns = made;
+            job.made = true;
+            ChunkMeshes grown = job.grown;
+            if (grown != null && fresh.grows) {
+                solid.clear();
+                laid.clear();
+                grown.placed.clear();
+                grown.lying.clear();
+                grown.wx = fresh.wx;
+                grown.wy = fresh.wy;
+                grown.builtFrame = fresh.builtFrame;
+                grown.checkedFrame = fresh.builtFrame;
+                grown.eyeX = job.eyeX;
+                grown.eyeY = job.eyeY;
+                grown.eyeUp = job.eyeUp;
+                grown.grown = true;
+                grown.users = 1;
+                placed = grown.placed;
+                lying = grown.lying;
+                building = fresh;
+                growing = true;
+                long growBegan = System.nanoTime();
+                addSquares(job.chunk, job.chunkX, job.chunkY, 0);
+                growing = false;
+                kerbBuilder.noKerb();
+                if (AUDIT_STALE) {
+                    grown.auditFloats = floatsOf(solid) * 31 + floatsOf(laid);
+                }
+                grown.fill(solid, laid);
+                slowed(growBegan);
+                job.grownNanos = System.nanoTime() - growBegan;
+                job.grownMade = true;
+            }
+            // As the walk sets a fresh build's page after it and what grows on it.
+            fresh.pageDaylit = readDaylit;
+            SpriteColours.askingFrom(view.index, Float.NaN, Float.NaN);
+        }
+
+        /** As the frame begins: lands the builds the walk of the view's last frame handed off, in walk order. */
+        private void landHanded() {
+            for (int i = 0; i < handed.size(); i++) {
+                Handed job = handed.get(i);
+                if (!job.dropped) {
+                    landBuild(job);
+                }
+                job.chunk = null;
+                job.fresh = job.grown = null;
+                spareHanded.push(job);
+            }
+            handed.clear();
+        }
+
+        /** Lands a build handed off as the walk would have left it in the frame it was handed off in, and what grows on its ground. */
+        private void landBuild(Handed job) {
+            int slot = job.slot;
+            handedAt[slot] = null;
+            ChunkMeshes fresh = job.fresh, standing = latest[slot];
+            if (standing != null) {
+                release(standing);
+            }
+            latest[slot] = fresh;
+            Crowns mine = crownsRead;
+            crownsRead = job.crowns;
+            job.crowns = mine;
+            crown(slot, fresh.wx, fresh.wy, job.mayWait);
+            ChunkMeshes grown = latestGrown[slot];
+            if (!fresh.grows && grown != null && grown.wx == fresh.wx && grown.wy == fresh.wy) {
+                release(grown);
+                latestGrown[slot] = null;
+                grown = null;
+            }
+            if (job.grownMade) {
+                if (grown != null) {
+                    release(grown);
+                }
+                latestGrown[slot] = job.grown;
+                chunksGrown++;
+                tollGrown++;
+                tollGrownNanos += job.grownNanos;
+            } else if (job.grown != null) {
+                unmade(job.grown, false);
+            }
+            tollBuildNanos += job.took;
+            tollBuiltNanos[job.cause] += job.took;
+            handedMeanNanos += (job.took - handedMeanNanos) / 8;
+        }
+
         /** How long the last build's squares and its roofs' backs took: see buildInto. */
         private long squaresTook, backsTook;
 
@@ -5736,6 +6011,8 @@ final class WorldScene {
             from.reading.copyTo(reading);
             from.readingRooms.copyTo(readingRooms);
             from.readingLamplit.copyTo(readingLamplit);
+            // What the roof builder found is the map's as it stands while the frame is built, and this frame's was found in another.
+            roofBuilder.newBuild();
         }
 
         /** The fields takeFrom takes, found once: see there. */
