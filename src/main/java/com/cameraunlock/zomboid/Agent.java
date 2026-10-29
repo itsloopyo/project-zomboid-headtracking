@@ -13,6 +13,7 @@ import java.security.ProtectionDomain;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.StringJoiner;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
@@ -149,6 +150,14 @@ public final class Agent {
     /** Why a window smashed or opened is not told of at once on this build of the game, or null once it is. */
     static String windowMarksGap() {
         return windowMarks.gap();
+    }
+
+    /** The patches that tell ChunkMarks of the rest of what the game changes without marking it. */
+    private static PatchTransformer unmarkedChanges;
+
+    /** Which of the changes the game marks nothing for are not told of on this build of it, each by its patch, or null once all are. */
+    static String unmarkedChangesGap() {
+        return unmarkedChanges.gaps();
     }
 
     /** The patches that have Hearing say which way the game's listener faces and how far out its camera is. */
@@ -434,7 +443,8 @@ public final class Agent {
         add(instrumentation, chunkMarks);
         windowMarks = new PatchTransformer(windowMarkPatches());
         add(instrumentation, windowMarks);
-        add(instrumentation, new PatchTransformer(unmarkedChangePatches()));
+        unmarkedChanges = new PatchTransformer(unmarkedChangePatches());
+        add(instrumentation, unmarkedChanges);
         add(instrumentation, new PatchTransformer(hushedMarkPatches()));
         hearing = new PatchTransformer(hearingPatches());
         add(instrumentation, hearing);
@@ -1662,19 +1672,37 @@ public final class Agent {
          */
         String gap() {
             for (Patch patch : patches) {
-                if (applied.contains(patch)) {
-                    continue;
-                }
-                try {
-                    Class.forName(patch.owner().replace('/', '.'), false, PatchTransformer.class.getClassLoader());
-                } catch (ClassNotFoundException missing) {
-                    return "the game has no class " + patch.owner();
-                }
-                if (!applied.contains(patch)) {
-                    return patch.owner() + "." + patch.what() + " is not patched";
+                String missing = missing(patch);
+                if (missing != null) {
+                    return missing;
                 }
             }
             return null;
+        }
+
+        /** The same for patches that each stand apart from the others: every one that is not in the game's code, or null when all of them are. */
+        String gaps() {
+            StringJoiner all = new StringJoiner("; ");
+            for (Patch patch : patches) {
+                String missing = missing(patch);
+                if (missing != null) {
+                    all.add(missing);
+                }
+            }
+            return all.length() == 0 ? null : all.toString();
+        }
+
+        /** Why a patch is not in the game's code, or null if it is. */
+        private String missing(Patch patch) {
+            if (applied.contains(patch)) {
+                return null;
+            }
+            try {
+                Class.forName(patch.owner().replace('/', '.'), false, PatchTransformer.class.getClassLoader());
+            } catch (ClassNotFoundException missing) {
+                return "the game has no class " + patch.owner();
+            }
+            return applied.contains(patch) ? null : patch.owner() + "." + patch.what() + " is not patched";
         }
 
         @Override

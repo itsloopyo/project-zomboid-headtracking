@@ -121,6 +121,7 @@ public final class Tests {
         Checks.run("hookIsGivenAStaticMethodsFirstArgument", Tests::hookIsGivenAStaticMethodsFirstArgument);
         Checks.run("transformerLeavesAClassItCannotPatchAloneAndNamesTheGap", Tests::transformerLeavesAClassItCannotPatchAloneAndNamesTheGap);
         Checks.run("transformerNamesAClassTheGameDoesNotHave", Tests::transformerNamesAClassTheGameDoesNotHave);
+        Checks.run("transformerOfPatchesApartNamesEachThatIsNotIn", Tests::transformerOfPatchesApartNamesEachThatIsNotIn);
         Checks.run("floorFaceShowsTheSpritesDiamond", Tests::floorFaceShowsTheSpritesDiamond);
         Checks.run("flatFloorTakesItsTexelsFromWhereItLies", Tests::flatFloorTakesItsTexelsFromWhereItLies);
         Checks.run("faceMadeTheShortWayIsTheFaceMadeTheLongWay", Tests::faceMadeTheShortWayIsTheFaceMadeTheLongWay);
@@ -3234,6 +3235,27 @@ public final class Tests {
         String gap = transformer.gap();
         if (gap == null || !gap.contains("no class com/cameraunlock/zomboid/NoSuchClass")) {
             throw new AssertionError("a class that cannot be found is a gap, got: " + gap);
+        }
+    }
+
+    private static void transformerOfPatchesApartNamesEachThatIsNotIn() {
+        String loaded = "com/cameraunlock/zomboid/Tests";
+        Agent.Patch missing = new Agent.Patch(loaded, "missing after target", classBytes ->
+                CallSite.insertAfter(classBytes, new CallSite.Method(RUN.owner(), "missing", "()V"), TARGET, HOOK));
+        Agent.Patch absent = new Agent.Patch(loaded, "absent after target", classBytes ->
+                CallSite.insertAfter(classBytes, new CallSite.Method(RUN.owner(), "absent", "()V"), TARGET, HOOK));
+        Agent.PatchTransformer transformer = new Agent.PatchTransformer(List.of(missing, hookAfterTarget(loaded), absent,
+                hookAfterTarget("com/cameraunlock/zomboid/NoSuchClass")));
+        transformer.transform(null, loaded, null, null, subjectCallingTarget(1));
+        String gaps = transformer.gaps();
+        if (gaps == null || !gaps.contains("missing after target") || !gaps.contains("absent after target")
+                || !gaps.contains("no class com/cameraunlock/zomboid/NoSuchClass") || gaps.contains("Tests.run after target")) {
+            throw new AssertionError("each patch that is not in is named, and the one that is in is not, got: " + gaps);
+        }
+        Agent.PatchTransformer whole = new Agent.PatchTransformer(List.of(hookAfterTarget(loaded)));
+        whole.transform(null, loaded, null, null, subjectCallingTarget(1));
+        if (whole.gaps() != null) {
+            throw new AssertionError("with every patch in there is nothing to name, got: " + whole.gaps());
         }
     }
 }

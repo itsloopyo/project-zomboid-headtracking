@@ -1604,6 +1604,10 @@ final class WorldScene {
             if (windows != null) {
                 Log.info("a window smashed or opened is not told of (" + windows + "): it shows when its chunk is next read through");
             }
+            String changes = Agent.unmarkedChangesGap();
+            if (changes != null) {
+                Log.info("some of the changes the game makes without marking them are not told of (" + changes + "): each shows when its chunk is next read through");
+            }
         }
         return polledBecause == null && PerformanceSettings.fboRenderChunk && !withoutMarks;
     }
