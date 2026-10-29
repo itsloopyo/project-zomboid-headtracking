@@ -105,10 +105,14 @@ public final class ChunkMarks {
      * filled it was not counted (marked), and the game reuses its IsoChunk objects, so neither the
      * marks nor the object tell the chunk loaded again in a place from the one let go of there, which
      * may have changed while it was away. Counted as a mark with no level for what may be part of a
-     * building, so that what is kept by those (structuresIn) is read again. See Agent.chunkMarkPatches.
+     * building, so that what is kept by those (structuresIn) is read again, and as one for what is on
+     * the chunk, so that the builds of it and of the chunks round it are (around): one loaded again
+     * with the same chunks round it kept its build until the sweep. See Agent.chunkMarkPatches.
      */
     public static void loaded(IsoChunk chunk) {
-        built(slot(chunk.wx, chunk.wy), LOWEST_LEVEL - 1);
+        int slot = slot(chunk.wx, chunk.wy);
+        things.getAndIncrement(slot);
+        built(slot, LOWEST_LEVEL - 1);
     }
 
     /** Called by the game where something on a chunk has changed on all of its levels. */
@@ -125,7 +129,7 @@ public final class ChunkMarks {
         if ((flags & ~NOT_BUILT_FROM) == 0L || hushed == Thread.currentThread()) {
             return;
         }
-        // A chunk being filled as it loads is marked for every object put on it. The load is counted once it is done (loaded), and the chunks beside it learn of it from the map.
+        // A chunk being filled as it loads is marked for every object put on it. The load is counted once it is done (loaded), for the chunk and the chunks round it.
         if (!chunk.loaded) {
             if (COUNTED) {
                 byFlag.getAndIncrement(UNLOADED);

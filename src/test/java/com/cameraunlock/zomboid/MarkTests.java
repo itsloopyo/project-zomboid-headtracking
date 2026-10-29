@@ -52,13 +52,15 @@ final class MarkTests {
         chunk.wy = 702;
         int round = ChunkMarks.structuresIn(699, 701, 701, 703), fourth = ChunkMarks.structuresIn(700, 702, 700, 702, 4, 4);
         int loose = ChunkMarks.structuresLoose(700, 702, 700, 702), far = ChunkMarks.structuresIn(702, 702, 702, 702);
-        int all = ChunkMarks.around(700, 702), things = ChunkMarks.thingsAround(700, 702);
+        int all = ChunkMarks.around(700, 702), things = ChunkMarks.thingsAround(700, 702), beside = ChunkMarks.around(701, 703), farAll = ChunkMarks.around(702, 702);
         ChunkMarks.loaded(chunk);
         check(ChunkMarks.structuresIn(699, 701, 701, 703) == round + 1, "a chunk loaded is marked for what may be part of a building");
         check(ChunkMarks.structuresIn(700, 702, 700, 702, 4, 4) == fourth + 1 && ChunkMarks.structuresLoose(700, 702, 700, 702) == loose + 1,
                 "with no level, so that every level of it is read again");
         check(ChunkMarks.structuresIn(702, 702, 702, 702) == far, "a chunk two away is not marked");
-        check(ChunkMarks.around(700, 702) == all && ChunkMarks.thingsAround(700, 702) == things, "and for nothing else");
+        check(ChunkMarks.around(700, 702) == all + 1 && ChunkMarks.thingsAround(700, 702) == things + 1 && ChunkMarks.around(701, 703) == beside + 1,
+                "and for what is on it, so that the builds of it and of the chunks round it are read again");
+        check(ChunkMarks.around(702, 702) == farAll, "but not the build of a chunk two away");
     }
 
     private static void aChunkThatIsToldHasAnotherNumber() {
