@@ -698,7 +698,7 @@ public final class CoreTests {
     }
 
     /** The sets of patches first person alone uses, which FirstPersonEnabled off leaves out while lamps and glass still break. */
-    private static final String FIRST_PERSON_SETS = "torch, first person, ragdolls, item models, fine skins, shot, thunder, name tags, covered, screen grey, far vehicles, loading, chunk marks, "
+    private static final String FIRST_PERSON_SETS = "torch, first person, ragdolls, item models, fine skins, shot, thunder, name tags, covered, screen grey, far vehicles, loading, car physics, chunk marks, "
             + "window marks, unmarked changes, hushed marks, hearing, waiting composites, spotting";
 
     /** Each row read as the game starts, and the sets of patches the next start leaves out with it alone off. */
@@ -712,6 +712,7 @@ public final class CoreTests {
         {"FinerSkins", "fine skins"},
         {"LeaveOutScreenGrey", "screen grey"},
         {"NameTagsAtHeads", "name tags"},
+        {"HillsMoveVehicles", "car physics"},
     };
 
     private static String leftOutLine(String output) {
@@ -818,7 +819,7 @@ public final class CoreTests {
                         + "FullSizeTextures SurfaceDepth SharpShadows WholeFigureShadows FrameBlending LightDistance CorpseModels SpreadLightUpdates VanillaWeapons VanillaFurniture "
                         + "VanillaPictures VanillaPlants VanillaTextures VanillaBuildings VanillaZombies VanillaPeople VanillaArms VanillaClothes VanillaAnimals VanillaFire "
                         + "VanillaCabins "
-                        + "ShotsThroughWalls ShotsBreakLamps ShotsBreakGlass ShotsWoundLimbs VehiclesSmashThrough FacesTheView ShotsPastTrees ZombiesSeenAtOnce HiddenWallDecor HiddenWallDecorSaved ShotsFromVehicleSeats DriveWhileAiming TalkingMouths "),
+                        + "ShotsThroughWalls ShotsBreakLamps ShotsBreakGlass ShotsWoundLimbs VehiclesSmashThrough FacesTheView ShotsPastTrees ZombiesSeenAtOnce HiddenWallDecor HiddenWallDecorSaved ShotsFromVehicleSeats DriveWhileAiming HillsMoveVehicles TalkingMouths "),
                 "the game's options screen is given the modes, the yaw mode and the mod's own rows, and no key list, port or microphone: " + ids);
         int[][] layout = OptionsLayout.of(OptionsLayout.PAGE, options);
         StringBuilder page = new StringBuilder();
@@ -833,7 +834,7 @@ public final class CoreTests {
                         + "FarTreeDistance RainOnGlass ShadingAndLight Reflections ReflectionScale FullSizeTextures SurfaceDepth SharpShadows WholeFigureShadows FrameBlending "
                         + "LightDistance CorpseModels [Optimizations] SpreadLightUpdates [Vanilla content] VanillaWeapons VanillaFurniture VanillaPictures VanillaPlants VanillaTextures VanillaBuildings "
                         + "VanillaZombies VanillaPeople VanillaArms VanillaClothes VanillaAnimals VanillaFire VanillaCabins [Offline rules] ShotsThroughWalls "
-                        + "ShotsBreakLamps ShotsBreakGlass ShotsWoundLimbs VehiclesSmashThrough FacesTheView ShotsPastTrees ZombiesSeenAtOnce HiddenWallDecor HiddenWallDecorSaved ShotsFromVehicleSeats DriveWhileAiming [Split screen] SplitScreen "
+                        + "ShotsBreakLamps ShotsBreakGlass ShotsWoundLimbs VehiclesSmashThrough FacesTheView ShotsPastTrees ZombiesSeenAtOnce HiddenWallDecor HiddenWallDecorSaved ShotsFromVehicleSeats DriveWhileAiming HillsMoveVehicles [Split screen] SplitScreen "
                         + "SecondPlayerQuality SecondPlayerIsometricQuality SecondPlayerStyle SecondPlayerFirstPerson ThirdPlayerQuality ThirdPlayerIsometricQuality ThirdPlayerStyle "
                         + "ThirdPlayerFirstPerson FourthPlayerQuality FourthPlayerIsometricQuality FourthPlayerStyle FourthPlayerFirstPerson [Voice] TalkingMouths "),
                 "the page puts each setting under one title, the tracking mode first: " + page);

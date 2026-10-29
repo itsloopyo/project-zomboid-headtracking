@@ -62,7 +62,10 @@ enum Part {
     DRIVE_WHILE_AIMING("Rules", "DriveWhileAiming", true, false,
             "true: in first person, driving by keyboard, you keep steering, accelerating and braking with a firearm raised.\n"
                     + "false: raising a firearm takes the controls, as the game has it. On a controller, and on a server where players\n"
-                    + "can hurt each other, the game's rule holds.");
+                    + "can hurt each other, the game's rule holds."),
+    HILLS_MOVE_VEHICLES("Rules", "HillsMoveVehicles", true, true,
+            "true: offline, driving in first person, the hills pull a vehicle down them and throw it into the air over a crest\n"
+                    + "at speed. false: vehicles move as on the game's level ground. On a server they always do.");
 
     final String section, key, comment;
     /** Whether the row is taken while the game runs, and whether it is read at the start to leave patches out. */

@@ -688,6 +688,10 @@ ShotsFromVehicleSeats=true
 ; false: raising a firearm takes the controls, as the game has it. On a controller, and on a server where players
 ; can hurt each other, the game's rule holds.
 DriveWhileAiming=true
+; true: offline, driving in first person, the hills pull a vehicle down them and throw it into the air over a crest
+; at speed. false: vehicles move as on the game's level ground. On a server they always do.
+; Taken at once. Off, its patches of the game's code are left out from the next start.
+HillsMoveVehicles=true
 
 [Voice]
 ; true: your character's mouth moves with what you say into your microphone: the jaw drops for "ah", the lips

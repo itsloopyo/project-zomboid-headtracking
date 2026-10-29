@@ -480,7 +480,7 @@ public final class Agent {
                 new PatchSet("loading", new PatchTransformer(loadingPatches()), firstPersonOff),
                 new PatchSet("lua loaded", new PatchTransformer(luaLoadedPatches()), null),
                 new PatchSet("knockdown", new PatchTransformer(knockdownPatches()), null),
-                new PatchSet("car physics", new PatchTransformer(carPhysicsPatches()), null),
+                new PatchSet("car physics", new PatchTransformer(carPhysicsPatches()), off(Part.FIRST_PERSON, Part.HILLS_MOVE_VEHICLES)),
                 new PatchSet("controller", new PatchTransformer(controllerPatches()), null),
                 new PatchSet("chunk marks", chunkMarks, firstPersonOff),
                 new PatchSet("window marks", windowMarks, firstPersonOff),

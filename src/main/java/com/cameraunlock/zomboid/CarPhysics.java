@@ -121,7 +121,8 @@ final class CarPhysics {
      * wheels and whether it is flying off it.
      */
     static void land(BaseVehicle vehicle, VehicleSlope ground, boolean flying, float steering) {
-        if (Online.joined()) {
+        // Told nothing, a vehicle's last word on the land runs out (LAND_SAID_FOR_NANOS), and it is pulled and held by nothing.
+        if (Online.joined() || !Part.HILLS_MOVE_VEHICLES.running()) {
             return;
         }
         Kept kept = kept(vehicle);
