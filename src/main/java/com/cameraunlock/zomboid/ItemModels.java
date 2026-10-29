@@ -97,11 +97,16 @@ public final class ItemModels {
     }
 
     /**
-     * Logic thread: puts into placed the model of a loose item and says whether it has one to
-     * build now. An item whose model the game is still loading, or whose mesh is not read yet,
-     * is noted as waiting (see stillWaiting) and has none yet.
+     * Puts into placed the model of a loose item and says whether it has one to build now, asked
+     * of the game on the logic thread (BuildThreads.onLogicThread). An item whose model the game
+     * is still loading, or whose mesh is not read yet, is noted as waiting (see stillWaiting) and
+     * has none yet.
      */
     static boolean place(IsoWorldInventoryObject object, Placed placed) {
+        return BuildThreads.onLogicThread(() -> placeHere(object, placed));
+    }
+
+    private static boolean placeHere(IsoWorldInventoryObject object, Placed placed) {
         InventoryItem item = object.getItem();
         try {
             ItemModelRenderer.RenderStatus status = ask(object);
@@ -157,11 +162,18 @@ public final class ItemModels {
     }
 
     /**
-     * Logic thread: has the game start loading the model of a loose item a little past REACH,
-     * so that it is ready when the item comes near enough to be built as one, and has its mesh
-     * read where the model is ready already.
+     * Has the game start loading the model of a loose item a little past REACH, on the logic
+     * thread, so that it is ready when the item comes near enough to be built as one, and has
+     * its mesh read where the model is ready already.
      */
     static void ahead(IsoWorldInventoryObject object) {
+        BuildThreads.onLogicThread(() -> {
+            aheadHere(object);
+            return null;
+        });
+    }
+
+    private static void aheadHere(IsoWorldInventoryObject object) {
         try {
             if (ask(object) == ItemModelRenderer.RenderStatus.Ready) {
                 fields();
@@ -217,7 +229,7 @@ public final class ItemModels {
         if (waiting.isEmpty() || !waiting.contains(object.getItem())) {
             return false;
         }
-        place(object, scratch);
+        placeHere(object, scratch);
         return waiting.contains(object.getItem());
     }
 

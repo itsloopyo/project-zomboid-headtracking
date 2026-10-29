@@ -2522,10 +2522,14 @@ final class WorldScene {
      * Asks the game for the picture of a body that has none, as IsoDeadBody.render does when the
      * body first comes into the game's own view, and returns whether it was asked. That view
      * draws no body under the first person picture, so a body that came to lie while it was
-     * covered was never given one, and was not drawn. Logic thread, while a frame is handed to
-     * the render thread, where the game's own asking is.
+     * covered was never given one, and was not drawn. On the logic thread, while a frame is
+     * handed to the render thread, where the game's own asking is (BuildThreads.onLogicThread).
      */
     private static boolean askPicture(IsoDeadBody body) {
+        return BuildThreads.onLogicThread(() -> askPictureHere(body));
+    }
+
+    private static boolean askPictureHere(IsoDeadBody body) {
         if (body.getAtlasTexture() != null || !ModelManager.instance.debugEnableModels || !ModelManager.instance.isCreated()) {
             return false;
         }
@@ -6236,7 +6240,7 @@ final class WorldScene {
                 for (int localX = 0; localX < CHUNK_TILES; localX++) {
                     for (int localY = 0; localY < CHUNK_TILES; localY++) {
                         IsoGridSquare square = chunk.getGridSquare(localX, localY, z);
-                        if (square == null || z > topLevel && !FBORenderCutaways.getInstance().shouldRenderBuildingSquare(playerIndex, square)) {
+                        if (square == null || z > topLevel && !BuildThreads.onLogicThread(() -> FBORenderCutaways.getInstance().shouldRenderBuildingSquare(playerIndex, square))) {
                             continue;
                         }
                         if (!growing) {

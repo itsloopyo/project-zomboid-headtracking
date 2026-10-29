@@ -170,6 +170,11 @@ final class BloodBuilder {
 
     /** The picture of a kind of splat, as the game's view takes it: from the sprites it keeps for them, made as it makes them the first time one is asked for. */
     private static Texture picture(String kind) {
+        return BuildThreads.onLogicThread(() -> pictureHere(kind));
+    }
+
+    /** The same, on the logic thread: the game keeps the sprites in one map, which only that thread changes. */
+    private static Texture pictureHere(String kind) {
         IsoSprite sprite = IsoFloorBloodSplat.spriteMap.get(kind);
         if (sprite == null) {
             sprite = IsoSprite.CreateSprite(IsoSpriteManager.instance);

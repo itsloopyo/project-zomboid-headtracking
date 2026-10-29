@@ -5,11 +5,16 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.function.IntConsumer;
+import java.util.function.Supplier;
 
 /**
  * The threads chunks are built on off the logic thread. A build reads the game's map, which the
  * game changes on the logic thread, so it runs only while the logic thread waits on it inside the
- * mod's frame, where the game moves nothing on the map.
+ * mod's frame, where the game moves nothing on the map. What a build has to have done on the
+ * logic thread, the logic thread does as it waits (onLogicThread).
  */
 final class BuildThreads {
     private BuildThreads() {}
@@ -87,21 +92,88 @@ final class BuildThreads {
         return Thread.currentThread() instanceof BuildThread;
     }
 
+    /** What the build threads have asked the logic thread to do, and for each piece of work run, its end (DONE). */
+    private static final LinkedBlockingQueue<FutureTask<?>> asked = new LinkedBlockingQueue<>();
+    private static final FutureTask<?> DONE = new FutureTask<>(() -> null);
+
     /** A pool of one build thread, made on first use. */
     static ExecutorService one(String name) {
-        return Executors.newSingleThreadExecutor(run -> new BuildThread(run, name));
+        return pool(1, name);
     }
 
-    /** Runs the build on the pool and waits for it: what it throws, thrown again here. */
+    /** A pool of count build threads, each made on first use. */
+    static ExecutorService pool(int count, String name) {
+        int[] made = {0};
+        return Executors.newFixedThreadPool(count, run -> new BuildThread(run, count == 1 ? name : name + " " + ++made[0]));
+    }
+
+    /** Runs the build on the pool and waits for it, doing what it asks of the logic thread: what it throws, thrown again here. */
     static void runAndWait(ExecutorService pool, Runnable build) {
-        Future<?> running = pool.submit(build);
+        waitOn(new Future<?>[] {pool.submit(ended(build))});
+    }
+
+    /**
+     * Runs work on count threads of the pool at once, each handed its number from 0, and waits for them all, doing
+     * what they ask of the logic thread. What any of them throws is thrown again here once all have ended.
+     */
+    static void runOnAll(ExecutorService pool, int count, IntConsumer work) {
+        Future<?>[] running = new Future<?>[count];
+        for (int thread = 0; thread < count; thread++) {
+            int number = thread;
+            running[thread] = pool.submit(ended(() -> work.accept(number)));
+        }
+        waitOn(running);
+    }
+
+    private static Runnable ended(Runnable work) {
+        return () -> {
+            try {
+                work.run();
+            } finally {
+                asked.add(DONE);
+            }
+        };
+    }
+
+    private static void waitOn(Future<?>[] running) {
         try {
-            running.get();
+            for (int left = running.length; left > 0;) {
+                FutureTask<?> ask = asked.take();
+                if (ask == DONE) {
+                    left--;
+                } else {
+                    ask.run();
+                }
+            }
+            for (Future<?> each : running) {
+                each.get();
+            }
         } catch (ExecutionException e) {
             throw new IllegalStateException("a build on a build thread threw", e.getCause());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("the logic thread was interrupted waiting on a build thread", e);
+        }
+    }
+
+    /**
+     * What has to be done on the logic thread, done there: at once on the logic thread itself, and from a build
+     * thread by the logic thread as it waits on the build, while this one waits for the answer. What is asked
+     * never takes SHARED, which the build thread asking may hold.
+     */
+    static <T> T onLogicThread(Supplier<T> work) {
+        if (!here()) {
+            return work.get();
+        }
+        FutureTask<T> task = new FutureTask<>(work::get);
+        asked.add(task);
+        try {
+            return task.get();
+        } catch (ExecutionException e) {
+            throw new IllegalStateException("what a build thread asked of the logic thread threw", e.getCause());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("a build thread was interrupted waiting on the logic thread", e);
         }
     }
 }
