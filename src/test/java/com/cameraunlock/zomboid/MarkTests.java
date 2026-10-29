@@ -25,6 +25,7 @@ final class MarkTests {
         Checks.run("aFireLitOrPutOutIsMarkedOnItsChunk", MarkTests::aFireLitOrPutOutIsMarkedOnItsChunk);
         Checks.run("dirtStampedIsMarkedOnTheSquaresBesideIt", MarkTests::dirtStampedIsMarkedOnTheSquaresBesideIt);
         Checks.run("aSquareMadeOnALoadedChunkIsMarkedOnItsLevel", MarkTests::aSquareMadeOnALoadedChunkIsMarkedOnItsLevel);
+        Checks.run("aSquareALoadMakesBesideItIsMarkedOnlyForWhatMayBeBuiltOnIt", MarkTests::aSquareALoadMakesBesideItIsMarkedOnlyForWhatMayBeBuiltOnIt);
         Checks.run("aTallyIsCountedIntoAnother", MarkTests::aTallyIsCountedIntoAnother);
         Checks.run("aMethodOfAnObjectHandsItselfOverBeforeAnythingElse", MarkTests::aMethodOfAnObjectHandsItselfOverBeforeAnythingElse);
         Checks.run("aStaticMethodIsRefused", MarkTests::aStaticMethodIsRefused);
@@ -162,6 +163,28 @@ final class MarkTests {
         ChunkMarks.made(filling);
         check(ChunkMarks.thingsAround(1146, 1150) == things + 1 && ChunkMarks.structuresIn(1146, 1150, 1146, 1150, 1, 1) == built + 1,
                 "one put on a chunk the map is still filling is not marked: its load is");
+    }
+
+    private static void aSquareALoadMakesBesideItIsMarkedOnlyForWhatMayBeBuiltOnIt() {
+        TestMap map = new TestMap();
+        IsoChunk loading = new IsoChunk();
+        loading.wx = 1160;
+        loading.wy = 1150;
+        loading.loaded = true;
+        // On the south edge of the chunk north of the one loading, and two squares further into it.
+        IsoGridSquare edge = map.cell.square(1160 * 8 + 3, 1150 * 8 - 1, 1), inside = map.cell.square(1160 * 8 + 3, 1150 * 8 - 3, 1);
+        int built = ChunkMarks.structuresIn(1160, 1149, 1160, 1149, 1, 1), twoAway = ChunkMarks.thingsAround(1160, 1148);
+        ChunkMarks.loading(loading);
+        ChunkMarks.made(edge);
+        check(ChunkMarks.structuresIn(1160, 1149, 1160, 1149, 1, 1) == built + 1,
+                "a square the load of a chunk puts on the edge of the chunk beside it is marked on its level, for what may be built on it");
+        check(ChunkMarks.thingsAround(1160, 1148) == twoAway, "and not for what is on it: no build of a chunk two from the load reads it, and those that do have the load's own mark");
+        ChunkMarks.made(inside);
+        check(ChunkMarks.thingsAround(1160, 1148) == twoAway + 1, "one put two squares further in while the load runs is marked as any other");
+        ChunkMarks.loaded(loading);
+        twoAway = ChunkMarks.thingsAround(1160, 1148);
+        ChunkMarks.made(edge);
+        check(ChunkMarks.thingsAround(1160, 1148) == twoAway + 1, "and once the load is done, so is one on the edge");
     }
 
     private static void aTallyIsCountedIntoAnother() {

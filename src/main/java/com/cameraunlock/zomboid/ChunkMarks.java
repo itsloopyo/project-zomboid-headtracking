@@ -110,9 +110,21 @@ public final class ChunkMarks {
      * with the same chunks round it kept its build until the sweep. See Agent.chunkMarkPatches.
      */
     public static void loaded(IsoChunk chunk) {
+        loadingOn = null;
+        loading = null;
         int slot = slot(chunk.wx, chunk.wy);
         things.getAndIncrement(slot);
         built(slot, LOWEST_LEVEL - 1);
+    }
+
+    /** The thread finishing the load of a chunk onto the map, while it does, and the chunk: see made. */
+    private static volatile Thread loadingOn;
+    private static IsoChunk loading;
+
+    /** Called by the game as it begins to finish a chunk it is loading onto the map, before what made marks for it: see loaded. */
+    public static void loading(IsoChunk chunk) {
+        loading = chunk;
+        loadingOn = Thread.currentThread();
     }
 
     /** Called by the game where something on a chunk has changed on all of its levels. */
@@ -243,12 +255,28 @@ public final class ChunkMarks {
      * which it marks nothing for. The build cursor makes one where its level has none, and a chunk that
      * loads puts squares on the edge of each loaded chunk beside it, by every square of its own edge that
      * holds something (IsoChunk.loadInMainThread). A square with nothing on it is not read as no square:
-     * RoomMap reads one beside a tall hall's upper room as the hall's (TallHalls.floorOf). One put on a
-     * chunk still being filled is counted with its load (loaded).
+     * RoomMap reads one beside a tall hall's upper room as the hall's (TallHalls.floorOf), and a roof
+     * stops looking along its ridge at a building's level where the map has none (Roofs.beyondRidge). One
+     * put on a chunk still being filled is counted with its load (loaded). One put within a square of a
+     * chunk being loaded, as those the load puts on the edges of the chunks beside it are, is marked only
+     * for what may be built on it: every chunk build that reads it is round the chunk loaded and has that
+     * load's own mark, while a mark for what is on it would have the chunks round its own chunk, two from
+     * the load, summed again for a square none of them reads.
      */
     public static void made(IsoGridSquare square) {
         IsoChunk chunk = square.getChunk();
-        if (chunk != null && chunk.loaded) {
+        if (chunk == null || !chunk.loaded) {
+            return;
+        }
+        boolean besideTheLoad = false;
+        if (loadingOn == Thread.currentThread()) {
+            int fromX = loading.wx * WorldScene.CHUNK_TILES, fromY = loading.wy * WorldScene.CHUNK_TILES;
+            besideTheLoad = square.getX() >= fromX - 1 && square.getX() <= fromX + WorldScene.CHUNK_TILES
+                    && square.getY() >= fromY - 1 && square.getY() <= fromY + WorldScene.CHUNK_TILES;
+        }
+        if (besideTheLoad) {
+            built(slot(chunk.wx, chunk.wy), square.getZ());
+        } else {
             changedOn(square);
         }
     }

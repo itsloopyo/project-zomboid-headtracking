@@ -1177,8 +1177,8 @@ public final class Agent {
      * game says which chunks it has changed: what changes a chunk's look goes through the
      * two methods of IsoChunk, and a square's light found changed through the one of
      * FBORenderLevels, all for the game's own chunk textures. The fourth tells of a chunk
-     * loaded, since what the game marks as it fills one is not counted while the chunk is not
-     * yet loaded. See ChunkMarks.
+     * as its load begins and once it has loaded, since what the game marks as it fills one is
+     * not counted while the chunk is not yet loaded. See ChunkMarks.
      */
     private static List<Patch> chunkMarkPatches() {
         String chunk = "zombie/iso/IsoChunk", levels = "zombie/iso/fboRenderChunk/FBORenderLevels";
@@ -1201,10 +1201,12 @@ public final class Agent {
                             code -> code.aload(0).iload(1).lload(2).invokestatic(marks, "lit", lit));
                 }),
                 // IsoChunkMap.updateInternal and processAllLoadGridSquare finish each chunk they put on a map in it.
-                new Patch(chunk, "doLoadGridsquare telling of the chunk it has loaded", classBytes -> {
+                new Patch(chunk, "doLoadGridsquare telling of the chunk it is loading and has loaded", classBytes -> {
                     refuseChunkMarksIfAsked();
-                    return CallSite.insertOnEveryWayOut(classBytes, new CallSite.Method(chunk, "doLoadGridsquare", "()V"),
-                            code -> code.aload(0).invokestatic(marks, "loaded", MethodTypeDesc.ofDescriptor("(L" + chunk + ";)V")));
+                    CallSite.Method load = new CallSite.Method(chunk, "doLoadGridsquare", "()V");
+                    MethodTypeDesc ofChunk = MethodTypeDesc.ofDescriptor("(L" + chunk + ";)V");
+                    return CallSite.insertOnEveryWayOut(CallSite.insertAtStartOfInstanceMethod(classBytes, load, code -> code.aload(0).invokestatic(marks, "loading", ofChunk)),
+                            load, code -> code.aload(0).invokestatic(marks, "loaded", ofChunk));
                 }));
     }
 
