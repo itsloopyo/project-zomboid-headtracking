@@ -77,6 +77,8 @@ final class TerrainTests {
             Checks.run("theMapIsAskedOnceAChunkWhetherItIsLoadedAndOnlyWhenItLoadsOtherChunks", TerrainTests::theMapIsAskedOnceAChunkWhetherItIsLoadedAndOnlyWhenItLoadsOtherChunks);
             Checks.run("aLoadedChunkWithASquareOfItsGroundNotMadeHasThatSquareAsNotLoaded", TerrainTests::aLoadedChunkWithASquareOfItsGroundNotMadeHasThatSquareAsNotLoaded);
             Checks.run("fourEyesFarApartEachKeepTheRecordsRoundThem", TerrainTests::fourEyesFarApartEachKeepTheRecordsRoundThem);
+            Checks.run("aBuildingsWallAndALoneCanopyAreBuiltOverTheGroundAndAGardenWallAndAParasolAreNot",
+                    TerrainTests::aBuildingsWallAndALoneCanopyAreBuiltOverTheGroundAndAGardenWallAndAParasolAreNot);
             Checks.run("postsOnALevelAboveTheRoadLeaveTheKerbAndWhatIsBuiltOnAsTheyAre", TerrainTests::postsOnALevelAboveTheRoadLeaveTheKerbAndWhatIsBuiltOnAsTheyAre);
         } finally {
             Terrain.rooms = rooms;
@@ -1368,6 +1370,71 @@ final class TerrainTests {
             }
             check(toll("tollDropped") == dropped, "four eyes far apart keep every record round them, and none is put out for room: " + (toll("tollDropped") - dropped));
         } finally {
+            ChunkMarks.live = live;
+            Terrain.forget();
+            MapAhead.forget();
+        }
+    }
+
+    /**
+     * A building's own wall, which the game stands on the square outside it along its south and
+     * east sides, is built over that square, and a garden wall is not. A round canopy's lone
+     * quarter is a roof over its square, and a whole parasol stands on the ground as furniture
+     * does where the mod stands it, and is the game's roof where it does not (Terrain.standsOn).
+     */
+    private static void aBuildingsWallAndALoneCanopyAreBuiltOverTheGroundAndAGardenWallAndAParasolAreNot() {
+        boolean live = ChunkMarks.live;
+        int rows = Own.rows();
+        Terrain.HILLS.heighten(1f);
+        Country.set(List.of());
+        try {
+            ChunkMarks.live = true;
+            Own.set(Own.ALL);
+            MapAhead.forget();
+            Terrain.forget();
+            Town town = new Town(false);
+            IsoCell cell = town.map.cell;
+            IsoBuilding house = new IsoBuilding(new BuildingDef(9, 4, 4, 12, 4));
+            for (int x = -16; x < 48; x++) {
+                for (int y = -16; y < 48; y++) {
+                    IsoGridSquare square = cell.square(x, y, 0);
+                    boolean in = x >= 4 && x < 16 && y >= 4 && y < 8;
+                    square.floor(in ? town.inside : town.grass);
+                    if (in) {
+                        square.building(house);
+                        square.setRoomID(9);
+                    }
+                    if (x >= 4 && x < 16 && y == 8 || x >= 20 && x < 28 && y == 28) {
+                        square.add(town.northWall);
+                    }
+                    if (x == 16 && y >= 4 && y < 8 || x == 36 && y >= 20 && y < 28) {
+                        square.add(town.westWall);
+                    }
+                }
+            }
+            for (int quarter = Parasols.NORTH_WEST; quarter <= Parasols.SOUTH_EAST; quarter++) {
+                cell.square(8 + Parasols.ALONG_X[quarter], 24 + Parasols.ALONG_Y[quarter], 0).add(town.parasol[quarter]);
+            }
+            cell.square(28, 12, 0).add(town.parasol[Parasols.SOUTH_EAST]);
+            heightsIn(cell, 0, 0, 4, 4, 9901, 9901);
+            check(overAt(4, 8) == Footings.BUILT && overAt(15, 8) == Footings.BUILT, "a building's wall on the square south of it, across a chunk's edge, is built over that square: " + overAt(4, 8));
+            check(overAt(16, 4) == Footings.BUILT && overAt(16, 7) == Footings.BUILT, "and one on the square east of it: " + overAt(16, 4));
+            check(overAt(24, 28) == Footings.OPEN && overAt(36, 24) == Footings.OPEN, "a garden wall is not: " + overAt(24, 28) + " " + overAt(36, 24));
+            check(overAt(28, 12) == Footings.BUILT, "a canopy's lone quarter is a roof over its square: " + overAt(28, 12));
+            boolean open = true;
+            for (int quarter = Parasols.NORTH_WEST; quarter <= Parasols.SOUTH_EAST; quarter++) {
+                open &= overAt(8 + Parasols.ALONG_X[quarter], 24 + Parasols.ALONG_Y[quarter]) == Footings.OPEN;
+            }
+            check(open, "a whole parasol, the mod's furniture, stands on the ground as furniture does");
+            Own.set(Own.ALL & ~Own.FURNITURE);
+            Terrain.reread();
+            boolean built = true;
+            for (int quarter = Parasols.NORTH_WEST; quarter <= Parasols.SOUTH_EAST; quarter++) {
+                built &= overAt(8 + Parasols.ALONG_X[quarter], 24 + Parasols.ALONG_Y[quarter]) == Footings.BUILT;
+            }
+            check(built, "and with the game's own furniture, it is the game's roof over its squares");
+        } finally {
+            Own.set(rows);
             ChunkMarks.live = live;
             Terrain.forget();
             MapAhead.forget();
