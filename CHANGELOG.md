@@ -18,6 +18,7 @@
 
 ### Fixed
 
+- Standing or turning on the spot where two parts of the map meet no longer loads a strip of the map again every few seconds, each time with a small hitch. The far edge of the loaded map now follows you up to a tile later.
 - The slight wobble on edges in first person, worst round door and window frames, is gone: the eye's place is kept finer than before, so near edges no longer step as the head moves.
 - Tarmac and gravel near your feet no longer sparkle as your head moves.
 - Chain-link fences, window glass, film grain and fire smoke no longer fizz from frame to frame.
