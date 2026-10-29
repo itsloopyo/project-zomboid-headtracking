@@ -327,8 +327,12 @@ final class Spotting {
         if (!gapAsked) {
             gapAsked = true;
             gap = Agent.spottingGap();
-            Log.info(gap == null ? "under the first person picture rooms are spotted and squares marked seen by what the view sees, up to four times a second"
-                    : "under the first person picture rooms are spotted and squares marked seen by where the mod reads light (" + gap + ")");
+            if (gap == null) {
+                Log.info("under the first person picture rooms are spotted and squares marked seen by what the view sees, up to four times a second");
+            } else {
+                Log.error("under the first person picture rooms are spotted and squares marked seen by where the mod reads light, as the game's light"
+                        + " could not be patched to leave them to what the view sees (" + gap + ")");
+            }
         }
         return gap == null;
     }
