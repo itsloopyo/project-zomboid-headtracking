@@ -17,12 +17,12 @@ import zombie.iso.sprite.IsoSprite;
  */
 final class TestMap {
     final IsoCell cell = new IsoCell();
+    final WorldScene world = new WorldScene(null);
     final WorldScene.Frame build;
     /** A texture with something painted on it, as a wall's sprite has. */
     final Texture painted = new Texture(7, 4, 4);
 
     TestMap() {
-        WorldScene world = new WorldScene(null);
         build = world.next();
         build.cell = cell;
         build.building = new WorldScene.ChunkMeshes(0);

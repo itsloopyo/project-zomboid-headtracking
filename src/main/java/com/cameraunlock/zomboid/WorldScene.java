@@ -1,6 +1,9 @@
 package com.cameraunlock.zomboid;
 
 import java.lang.ref.WeakReference;
+import java.lang.reflect.Array;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.nio.FloatBuffer;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -164,6 +167,9 @@ final class WorldScene {
     static final int SCENES = 4;
     private final Frame[] scenes = {new Frame(), new Frame(), new Frame(), new Frame()};
     private int nextScene;
+    /** Dev only: a frame a build is made on again beside the walking frame's, which has to come out the same: see Frame.checkBeside. */
+    final Frame beside = new Frame(new SpriteGeometry.Layers());
+    private final ChunkMeshes besideMeshes = new ChunkMeshes(-1);
 
     private volatile float lastDrawMillis;
     /** Width over height of the buffer the last frame was drawn into, 0 until a frame has been drawn. */
@@ -526,6 +532,29 @@ final class WorldScene {
 
         ChunkMeshes(int of) {
             this.of = of;
+        }
+
+        /** Dev only: the head the walk set on a build, for the same build made again beside the walk (Frame.checkBeside). */
+        void headFrom(ChunkMeshes from) {
+            wx = from.wx;
+            wy = from.wy;
+            band = from.band;
+            signed = from.signed;
+            plain = from.plain;
+            roomsBySight = from.roomsBySight;
+            filledUnshown = from.filledUnshown;
+            grows = from.grows;
+            seasonal = from.seasonal;
+            stage = from.stage;
+            terrainVersion = from.terrainVersion;
+            System.arraycopy(from.groundLayers, 0, groundLayers, 0, groundLayers.length);
+            placed.clear();
+            lying.clear();
+            if (from.traced != null) {
+                traced = Collections.newSetFromMap(new IdentityHashMap<>());
+                modelled = Collections.newSetFromMap(new IdentityHashMap<>());
+                pictured = Collections.newSetFromMap(new IdentityHashMap<>());
+            }
         }
 
         /**
@@ -1660,6 +1689,9 @@ final class WorldScene {
     private long tollCrownsWaitNanos, tollCrownsLongestNanos;
     private long tollCrownsKept, tollCrownsHere, tollCrownsHereNanos, tollCrownsThere, tollCrownsUnwanted;
     private long tollFrames, tollSums, tollSumNanos, tollBuildNanos, tollGrown, tollGrownNanos, tollChecked, tollDiffered;
+    /** Dev only: the builds made again beside the walk and held to the walk's (Frame.checkBeside), those that differed, and those not held to it for asking a sprite's colours. */
+    private long tollBesideChecked, tollBesideDiffered, tollBesideUnsigned;
+    private static int besideLogged;
     private long tollWoods, tollWoodsNanos;
     private long tollLevelsRead, tollLevelsHeld;
     /**
@@ -1701,10 +1733,11 @@ final class WorldScene {
 
     /** Dev only: the builds, the sums and the time they took since the last asking, for a rig run's window. */
     String tolls() {
-        String told = String.format(Locale.ROOT, "frames %d sums %d in %.1f ms, builds %d in %.1f ms (new %d moved %d changed %d aged %d unsigned %d unread %d), grown %d in %.1f ms, checked %d differed %d",
+        String told = String.format(Locale.ROOT, "frames %d sums %d in %.1f ms, builds %d in %.1f ms (new %d moved %d changed %d aged %d unsigned %d unread %d), grown %d in %.1f ms, checked %d differed %d"
+                + ", beside %d differed %d unsigned %d",
                 tollFrames, tollSums, tollSumNanos / 1e6, tollBuilt[NEW] + tollBuilt[MOVED] + tollBuilt[CHANGED] + tollBuilt[AGED] + tollBuilt[UNSIGNED] + tollBuilt[LEFT_UNREAD],
                 tollBuildNanos / 1e6, tollBuilt[NEW], tollBuilt[MOVED], tollBuilt[CHANGED], tollBuilt[AGED], tollBuilt[UNSIGNED], tollBuilt[LEFT_UNREAD],
-                tollGrown, tollGrownNanos / 1e6, tollChecked, tollDiffered);
+                tollGrown, tollGrownNanos / 1e6, tollChecked, tollDiffered, tollBesideChecked, tollBesideDiffered, tollBesideUnsigned);
         told += String.format(Locale.ROOT, ", telling %b quiet %d, lights asked %d taken %d", ChunkMarks.live, tollQuiet, tollPulls, tollPulled);
         // A p99 is the step 99 frames in 100 come under, the time's to the top of its step.
         int countsAt = centile(tollRefreshCounts, tollFrames), nanosAt = centile(tollRefreshFrameNanos, tollFrames);
@@ -1790,6 +1823,7 @@ final class WorldScene {
         tollMovedBand = tollMovedUnsigned = tollRebanded = tollHeightsHeld = 0;
         Arrays.fill(tollBuilt, 0);
         tollFrames = tollSums = tollSumNanos = tollBuildNanos = tollGrown = tollGrownNanos = tollChecked = tollDiffered = 0;
+        tollBesideChecked = tollBesideDiffered = tollBesideUnsigned = 0;
         return told;
     }
 
@@ -2088,6 +2122,23 @@ final class WorldScene {
             }
         }
         return all;
+    }
+
+    /** Dev only: whether two tables hold the same light sites, in the same order. */
+    private static boolean sameSites(LightSites.Table one, LightSites.Table other) {
+        int count = one.count;
+        return count == other.count && Arrays.equals(one.keys, 0, count, other.keys, 0, count)
+                && Arrays.equals(one.records, 0, count * LightSites.RECORD, other.records, 0, count * LightSites.RECORD)
+                && Arrays.equals(one.bases, 0, count, other.bases, 0, count) && Arrays.equals(one.places, 0, count, other.places, 0, count)
+                && Arrays.equals(one.tints, 0, count * 3, other.tints, 0, count * 3);
+    }
+
+    /** Dev only: whether two builds place the same models, in the same order. */
+    private static boolean samePlaced(Models.Instances one, Models.Instances other) {
+        int count = one.count;
+        return count == other.count && Arrays.equals(one.floats, 0, count * Models.Instances.FLOATS, other.floats, 0, count * Models.Instances.FLOATS)
+                && Arrays.equals(one.ints, 0, count * Models.Instances.INTS, other.ints, 0, count * Models.Instances.INTS)
+                && Arrays.equals(one.keys, 0, count, other.keys, 0, count) && Arrays.equals(one.sites, 0, count, other.sites, 0, count);
     }
 
     static long floatsOf(SpriteGeometry.MeshSet set) {
@@ -3004,10 +3055,10 @@ final class WorldScene {
             return grassGrown;
         }
 
-        /** Where the builds of this frame put their triangles, the solid and the laid, and their light sites: the shared pair (see sharedLayers). */
-        final SpriteGeometry.Layers layers = sharedLayers;
-        final LightSites.Table sites = sharedSites;
-        final SpriteGeometry.MeshSet solid = sharedSolid, laid = sharedLaid;
+        /** Where the builds of this frame put their triangles, the solid and the laid, and their light sites: the shared pair (see sharedLayers), or a frame beside's own. */
+        final SpriteGeometry.Layers layers;
+        final LightSites.Table sites;
+        final SpriteGeometry.MeshSet solid, laid;
         /** What the build being made has written down of its crowns: see latestCrowned. */
         Crowns crownsRead = new Crowns();
 
@@ -3094,7 +3145,7 @@ final class WorldScene {
         private final float[] seatedAxes = new float[9];
         private float outsideTan, outsideAway;
         /** The windows near the viewer whose glass may throw the room back. */
-        private final WindowGlass.Panes panes = new WindowGlass.Panes();
+        private WindowGlass.Panes panes = new WindowGlass.Panes();
         /** How much of the way from overhead to the eye the outside camera has come. */
         private float landing;
         /** How much of the game's own picture this one covers: less than all of it while one is mixed into the other. */
@@ -3170,13 +3221,13 @@ final class WorldScene {
         float[] characterX = new float[16], characterY = new float[16], characterBase = new float[16];
         IsoGameCharacter[] characterOf = new IsoGameCharacter[16];
         int characters;
-        private final SkyState sky = new SkyState();
-        private final RoomLamps roomLamps = new RoomLamps();
+        private SkyState sky = new SkyState();
+        private RoomLamps roomLamps = new RoomLamps();
         private float fogEnd;
         /** The middle of the map the game has loaded, and how far from it the map reaches every way, in tiles. */
         private float loadedX, loadedY, loadedWithin;
         /** How far from the eye people, zombies, vehicles and furniture are drawn, from the eye's frame: see DrawDistance. */
-        private final DrawDistance drawDistance = new DrawDistance();
+        private DrawDistance drawDistance = new DrawDistance();
         /** How much light the eye lets in this frame: see adaptEye. */
         float exposure;
         /** What the eye would let in by where the viewer stands alone, and what the light meter read: see adaptEye. */
@@ -3201,10 +3252,10 @@ final class WorldScene {
         private int cutRowsX, cutRowsY;
         private float cutBelow;
         /** For a frame seen from outside the viewer, how the game's own view would darken each square: see Sight. */
-        private final Sight sight = new Sight();
+        private Sight sight = new Sight();
         private boolean sightRead;
         /** Where the game counts a square too dark round the viewer: see TooDark. */
-        private final TooDark tooDark = new TooDark();
+        private TooDark tooDark = new TooDark();
         /**
          * The height at which the viewer's storey ends, for a viewer indoors whose building is
          * whole in the scene: what is above it is left out of the picture while the camera is too.
@@ -3613,7 +3664,20 @@ final class WorldScene {
         final SpriteGeometry.Frame held = new SpriteGeometry.Frame();
         final float[] reveal = new float[12];
 
-        private Frame() {}
+        private Frame() {
+            layers = sharedLayers;
+            sites = sharedSites;
+            solid = sharedSolid;
+            laid = sharedLaid;
+        }
+
+        /** A frame beside the walking frame's: a build is made on it as on the walking frame (takeFrom), into a pair and light sites of its own. */
+        private Frame(SpriteGeometry.Layers layers) {
+            this.layers = layers;
+            sites = new LightSites.Table();
+            solid = new SpriteGeometry.MeshSet(layers, sites);
+            laid = new SpriteGeometry.MeshSet(layers, sites);
+        }
 
         /** What the frame cost: said when a frame was long enough to feel. */
         String timing() {
@@ -4460,6 +4524,10 @@ final class WorldScene {
                         fresh.seasonal = false;
                         fresh.stage = stage;
                         chunksBuilt++;
+                        if (CHECK_BUILDS) {
+                            beside.takeFrom(this);
+                            besideMeshes.headFrom(fresh);
+                        }
                         long began = System.nanoTime();
                         buildInto(chunk, chunkX, chunkY, lowest, fresh, toldSoFar);
                         long squaresNanos = squaresTook, backsNanos = backsTook;
@@ -4503,6 +4571,7 @@ final class WorldScene {
                             throw new IllegalStateException("the build of the chunk at " + chunk.wx + ", " + chunk.wy + " ended with its layers still counted");
                         }
                         if (CHECK_BUILDS) {
+                            checkBeside(chunk, chunkX, chunkY, lowest, fresh, toldSoFar);
                             check(chunk, chunkX, chunkY, lowest, fresh);
                         }
                         fresh.fill(solid, laid);
@@ -5564,7 +5633,10 @@ final class WorldScene {
         /** How long the last build's squares and its roofs' backs took: see buildInto. */
         private long squaresTook, backsTook;
 
-        /** The build proper of the chunk into fresh, whose head the walk has set, on this frame's pair. */
+        /**
+         * The build proper of the chunk into fresh, whose head the walk has set, on this frame's pair: the walking
+         * frame's own, or a frame beside's that has taken the walking frame's state first (takeFrom).
+         */
         private void buildInto(IsoChunk chunk, int chunkX, int chunkY, int lowest, ChunkMeshes fresh, int toldSoFar) {
             crownsRead.clear();
             bandAway = BAND_AWAY[fresh.band];
@@ -5601,6 +5673,126 @@ final class WorldScene {
             reading.copyTo(fresh.seen);
             readingRooms.copyTo(fresh.seenRooms);
             readingLamplit.copyTo(fresh.seenLamplit);
+        }
+
+        /**
+         * Takes everything of the walking frame's that a build reads, as it stands before the build: every field the
+         * frame does not keep for itself, and what every final array and list holds but the walk's lists of what it
+         * shows. A frame keeps for itself its builders, its output pair and light sites, its crowns and the scratch it
+         * builds with, which are final, and the meshes it builds into, which buildInto sets. The final things a build
+         * reads that are neither arrays nor lists are taken by name at the end.
+         */
+        void takeFrom(Frame from) {
+            try {
+                for (Field field : TAKEN) {
+                    Class<?> type = field.getType();
+                    if (type == int.class) {
+                        field.setInt(this, field.getInt(from));
+                    } else if (type == float.class) {
+                        field.setFloat(this, field.getFloat(from));
+                    } else if (type == boolean.class) {
+                        field.setBoolean(this, field.getBoolean(from));
+                    } else if (type == long.class) {
+                        field.setLong(this, field.getLong(from));
+                    } else if (type == byte.class) {
+                        field.setByte(this, field.getByte(from));
+                    } else if (type == short.class) {
+                        field.setShort(this, field.getShort(from));
+                    } else if (type == double.class) {
+                        field.setDouble(this, field.getDouble(from));
+                    } else if (type == char.class) {
+                        field.setChar(this, field.getChar(from));
+                    } else if (type.isArray()) {
+                        // Into the frame's own array, never the walking frame's: a build writes into what it reads.
+                        Object taken = field.get(from), own = field.get(this);
+                        if (taken == null) {
+                            field.set(this, null);
+                        } else {
+                            int length = Array.getLength(taken);
+                            if (own == null || Array.getLength(own) != length) {
+                                own = Array.newInstance(type.getComponentType(), length);
+                                field.set(this, own);
+                            }
+                            System.arraycopy(taken, 0, own, 0, length);
+                        }
+                    } else if (Modifier.isFinal(field.getModifiers())) {
+                        @SuppressWarnings("unchecked")
+                        ArrayList<Object> own = (ArrayList<Object>) field.get(this);
+                        own.clear();
+                        own.addAll((ArrayList<?>) field.get(from));
+                    } else {
+                        field.set(this, field.get(from));
+                    }
+                }
+            } catch (IllegalAccessException e) {
+                throw new IllegalStateException("a frame beside could not take the walking frame's state", e);
+            }
+            camera.set(from.camera);
+            aim.set(from.aim);
+            outsideCamera.set(from.outsideCamera);
+            frame.scale = from.frame.scale;
+            from.reading.copyTo(reading);
+            from.readingRooms.copyTo(readingRooms);
+            from.readingLamplit.copyTo(readingLamplit);
+        }
+
+        /** The fields takeFrom takes, found once: see there. */
+        private static final Field[] TAKEN = taken();
+
+        private static Field[] taken() {
+            // The kerbs and the water are Terrain's own arrays, which a build points at as it begins (addSquares): copied
+            // into, a chunk on the map would have another's.
+            Set<String> kept = Set.of("crownsRead", "placed", "lying", "building", "shown", "builtAheadOf", "kerbs", "waterCorners", "kerbUnderKerb");
+            ArrayList<Field> taken = new ArrayList<>();
+            for (Field field : Frame.class.getDeclaredFields()) {
+                int modifiers = field.getModifiers();
+                Class<?> type = field.getType();
+                if (Modifier.isStatic(modifiers) || field.isSynthetic() || kept.contains(field.getName())
+                        || Modifier.isFinal(modifiers) && !type.isArray() && type != ArrayList.class) {
+                    continue;
+                }
+                field.setAccessible(true);
+                taken.add(field);
+            }
+            return taken.toArray(new Field[0]);
+        }
+
+        /**
+         * Dev only: makes the build just made again on the frame beside, which took this frame's state before it
+         * (takeFrom), and says so where the two differ: in any float or light site, in their crowns, in the models they
+         * place or the bodies they lay, in what they say of themselves or in the heights they went by. A build that
+         * asked for a sprite's colours is not held to it, as check does not hold one.
+         */
+        private void checkBeside(IsoChunk chunk, int chunkX, int chunkY, int lowest, ChunkMeshes fresh, int toldSoFar) {
+            Frame other = beside;
+            ChunkMeshes into = besideMeshes;
+            other.solid.clear();
+            other.laid.clear();
+            other.layers.none();
+            other.buildInto(chunk, chunkX, chunkY, lowest, into, toldSoFar);
+            String differs = floatsOf(solid) != floatsOf(other.solid) || floatsOf(laid) != floatsOf(other.laid) ? "in its vertices"
+                    : !sameSites(sites, other.sites) ? "in its light sites"
+                    : !crownsRead.same(other.crownsRead) ? "in its crowns"
+                    : !samePlaced(fresh.placed, into.placed) || fresh.lying.size() != into.lying.size() ? "in the models it places or the bodies it lays"
+                    : alike != other.alike || fresh.plain != into.plain || fresh.grows != into.grows || fresh.seasonal != into.seasonal || fresh.roomsBySight != into.roomsBySight
+                            || fresh.filledUnshown != into.filledUnshown || fresh.terrainVersion != into.terrainVersion || !Arrays.equals(fresh.groundLayers, into.groundLayers)
+                            ? "in what it says of itself"
+                    : fresh.land != into.land || fresh.heightsRound != into.heightsRound || !Arrays.equals(fresh.heightsFar, into.heightsFar) || fresh.wantsMap != into.wantsMap
+                            ? "in the heights it went by"
+                    : null;
+            other.solid.clear();
+            other.laid.clear();
+            if (!fresh.signed || !into.signed) {
+                tollBesideUnsigned++;
+                return;
+            }
+            tollBesideChecked++;
+            if (differs != null) {
+                tollBesideDiffered++;
+                if (besideLogged++ < 200) {
+                    Log.info("build check: the chunk at " + chunk.wx + ", " + chunk.wy + " built again beside the walk came out otherwise " + differs);
+                }
+            }
         }
 
         /**
