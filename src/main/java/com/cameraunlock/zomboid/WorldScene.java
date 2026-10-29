@@ -6110,8 +6110,10 @@ final class WorldScene {
 
         private static Field[] taken() {
             // The kerbs and the water are Terrain's own arrays, which a build points at as it begins (addSquares): copied
-            // into, a chunk on the map would have another's.
-            Set<String> kept = Set.of("crownsRead", "placed", "lying", "building", "shown", "builtAheadOf", "kerbs", "waterCorners", "kerbUnderKerb");
+            // into, a chunk on the map would have another's. The frame and pass roomsSeenInReading was filled in stay with
+            // the frame's own table, which is not taken: taken, they would pass off another frame's answers as this one's.
+            Set<String> kept = Set.of("crownsRead", "placed", "lying", "building", "shown", "builtAheadOf", "kerbs", "waterCorners", "kerbUnderKerb",
+                    "roomsSeenFrame", "roomsSeenPass");
             ArrayList<Field> taken = new ArrayList<>();
             for (Field field : Frame.class.getDeclaredFields()) {
                 int modifiers = field.getModifiers();
