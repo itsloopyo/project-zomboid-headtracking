@@ -61,7 +61,7 @@ public final class WaitingComposites {
             Log.info(patched ? "what characters wear is composed into their skins while the render thread waits for the frame, and what is left as the game does, in the draw"
                     : "what characters wear is composed into their skins as the game does, in the draw: " + gap);
         }
-        if (!patched) {
+        if (!patched || !Part.SKINS_COMPOSED_WHILE_WAITING.on()) {
             return false;
         }
         for (int i = 0; i < View.COUNT; i++) {

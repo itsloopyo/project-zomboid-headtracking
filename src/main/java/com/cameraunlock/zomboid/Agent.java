@@ -493,7 +493,7 @@ public final class Agent {
                 new PatchSet("hearing", hearing, off(Part.FIRST_PERSON, Part.HEAR_FROM_THE_EYE)),
                 new PatchSet("chunk centre", new PatchTransformer(chunkCentrePatches()), null),
                 new PatchSet("split screen", splitScreen, null),
-                new PatchSet("waiting composites", waitingComposites, firstPersonOff),
+                new PatchSet("waiting composites", waitingComposites, off(Part.FIRST_PERSON, Part.SKINS_COMPOSED_WHILE_WAITING)),
                 new PatchSet("spotting", spotting, off(Part.FIRST_PERSON, Part.SKIP_COVERED_GAME_DRAWING)));
     }
 

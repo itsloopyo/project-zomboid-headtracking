@@ -86,7 +86,11 @@ enum Part {
     SKIP_COVERED_GAME_DRAWING("Optimizations", "SkipCoveredGameDrawing", true, true,
             "true: under the first person picture the game leaves out drawing its own view, which the picture covers: its\n"
                     + "weather, floors, objects, shadows, people and the rest. The picture is the same. false: the game draws its whole\n"
-                    + "view under the picture every frame, as it does with no picture over it.");
+                    + "view under the picture every frame, as it does with no picture over it."),
+    SKINS_COMPOSED_WHILE_WAITING("Optimizations", "SkinsComposedWhileWaiting", true, true,
+            "true: while the first person picture covers the game's view, what a character wears is composed into its skin\n"
+                    + "while the render thread waits for the next frame. The skins are the same. false: the game composes them in the\n"
+                    + "middle of drawing the frame, as it does.");
 
     final String section, key, comment;
     /** Whether the row is taken while the game runs, and whether it is read at the start to leave patches out. */

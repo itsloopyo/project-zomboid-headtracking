@@ -606,6 +606,11 @@ CachedGameLookups=true
 ; view under the picture every frame, as it does with no picture over it.
 ; Taken at once. Off, its patches of the game's code are left out from the next start.
 SkipCoveredGameDrawing=true
+; true: while the first person picture covers the game's view, what a character wears is composed into its skin
+; while the render thread waits for the next frame. The skins are the same. false: the game composes them in the
+; middle of drawing the frame, as it does.
+; Taken at once. Off, its patches of the game's code are left out from the next start.
+SkinsComposedWhileWaiting=true
 
 [Content]
 ; true: the game's own weapons, with no picture through the scope. false: the mod's models of the pump shotgun and
