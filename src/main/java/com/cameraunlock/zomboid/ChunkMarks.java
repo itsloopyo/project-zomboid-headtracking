@@ -8,6 +8,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerArray;
 import java.util.concurrent.atomic.AtomicLongArray;
 import zombie.iso.IsoChunk;
+import zombie.iso.IsoDirections;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.fboRenderChunk.FBORenderLevels;
@@ -197,14 +198,35 @@ public final class ChunkMarks {
     /**
      * Called by the game where it gives an object another sprite without marking the chunk:
      * a window smashed, opened or shut. The game draws such an object afresh on every frame
-     * and has nothing to mark for it. See Agent.windowMarkPatches.
+     * and has nothing to mark for it. See Agent.windowMarkPatches, and unmarkedChangePatches
+     * for the rest.
      */
     public static void changed(IsoObject object) {
-        IsoGridSquare square = object.getSquare();
+        changedOn(object.getSquare());
+    }
+
+    /** The same for what is on a square: the graffiti a story sprays on a wall. */
+    public static void changedOn(IsoGridSquare square) {
         IsoChunk chunk = square == null ? null : square.getChunk();
         if (chunk != null) {
             things.getAndIncrement(slot(chunk.wx, chunk.wy));
             built(slot(chunk.wx, chunk.wy), square.getZ());
+        }
+    }
+
+    /** Called by the game as it stamps dirt on a square's floor: it changes the floors of the four squares beside it too. */
+    public static void stamped(IsoGridSquare square) {
+        changedOn(square);
+        changedOn(square.getAdjacentSquare(IsoDirections.N));
+        changedOn(square.getAdjacentSquare(IsoDirections.S));
+        changedOn(square.getAdjacentSquare(IsoDirections.E));
+        changedOn(square.getAdjacentSquare(IsoDirections.W));
+    }
+
+    /** Called by the game as it lights a hearth or a barbecue, or puts it out, with whether it was lit and is to be: it marks neither. */
+    public static void burning(IsoObject object, boolean was, boolean now) {
+        if (was != now) {
+            thing(object.getSquare());
         }
     }
 

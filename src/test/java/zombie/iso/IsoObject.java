@@ -8,8 +8,15 @@ public class IsoObject {
     public float offsetY;
     private final IsoSprite sprite;
 
+    /** The square it was put on: see IsoGridSquare.add. */
+    IsoGridSquare square;
+
     public IsoObject(IsoSprite sprite) {
         this.sprite = sprite;
+    }
+
+    public IsoGridSquare getSquare() {
+        return square;
     }
 
     public IsoSprite getSprite() {

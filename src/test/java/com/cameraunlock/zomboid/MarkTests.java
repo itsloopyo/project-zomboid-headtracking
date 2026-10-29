@@ -5,6 +5,9 @@ import java.lang.constant.ClassDesc;
 import java.lang.constant.ConstantDescs;
 import java.lang.constant.MethodTypeDesc;
 import java.lang.invoke.MethodHandles;
+import zombie.iso.IsoGridSquare;
+import zombie.iso.IsoObject;
+import zombie.iso.SpriteDetails.IsoObjectType;
 
 final class MarkTests {
     private MarkTests() {}
@@ -17,6 +20,8 @@ final class MarkTests {
         Checks.run("aChunkLetGoOfIsNeverReadAsUntold", MarkTests::aChunkLetGoOfIsNeverReadAsUntold);
         Checks.run("aChunkKeptReadsWhatItDidWhenOneInItsPlaceIsLetGoOf", MarkTests::aChunkKeptReadsWhatItDidWhenOneInItsPlaceIsLetGoOf);
         Checks.run("aChunkAnotherViewKeepsIsNotLetGoOf", MarkTests::aChunkAnotherViewKeepsIsNotLetGoOf);
+        Checks.run("aFireLitOrPutOutIsMarkedOnItsChunk", MarkTests::aFireLitOrPutOutIsMarkedOnItsChunk);
+        Checks.run("dirtStampedIsMarkedOnTheSquaresBesideIt", MarkTests::dirtStampedIsMarkedOnTheSquaresBesideIt);
         Checks.run("aTallyIsCountedIntoAnother", MarkTests::aTallyIsCountedIntoAnother);
         Checks.run("aMethodOfAnObjectHandsItselfOverBeforeAnythingElse", MarkTests::aMethodOfAnObjectHandsItselfOverBeforeAnythingElse);
         Checks.run("aStaticMethodIsRefused", MarkTests::aStaticMethodIsRefused);
@@ -92,6 +97,34 @@ final class MarkTests {
         ChunkMarks.keepTellings(0, 390, 390, 21);
         check(ChunkMarks.told(605, 610) == told && ChunkMarks.told(605 + ChunkMarks.SIDE, 610) == place,
                 "the second player's chunks keep their tellings when the first player's view lets go of what it does not keep");
+    }
+
+    private static void aFireLitOrPutOutIsMarkedOnItsChunk() {
+        TestMap map = new TestMap();
+        IsoObject barbecue = map.cell.square(1134 * 8 + 3, 1150 * 8 + 3, 1).add(map.sprite("appliances_cooking_01_35", IsoObjectType.normal));
+        int things = ChunkMarks.thingsAround(1134, 1150), built = ChunkMarks.structuresIn(1134, 1150, 1134, 1150);
+        ChunkMarks.burning(barbecue, false, true);
+        check(ChunkMarks.thingsAround(1134, 1150) == things + 1, "a barbecue lit is marked on its chunk");
+        check(ChunkMarks.structuresIn(1134, 1150, 1134, 1150) == built, "and not as a part of a building");
+        ChunkMarks.burning(barbecue, true, true);
+        check(ChunkMarks.thingsAround(1134, 1150) == things + 1, "one lit again that was lit is not marked");
+        ChunkMarks.burning(barbecue, true, false);
+        check(ChunkMarks.thingsAround(1134, 1150) == things + 2, "one put out is");
+    }
+
+    private static void dirtStampedIsMarkedOnTheSquaresBesideIt() {
+        TestMap map = new TestMap();
+        int x = 1136 * 8, y = 1150 * 8 + 4;
+        IsoGridSquare square = map.cell.square(x, y, 0);
+        map.cell.square(x, y - 1, 0);
+        map.cell.square(x - 1, y, 0);
+        int things = ChunkMarks.thingsAround(1136, 1150);
+        int here = ChunkMarks.structuresIn(1136, 1150, 1136, 1150, 0, 0), beside = ChunkMarks.structuresIn(1135, 1150, 1135, 1150, 0, 0);
+        ChunkMarks.stamped(square);
+        check(ChunkMarks.structuresIn(1136, 1150, 1136, 1150, 0, 0) == here + 2,
+                "dirt stamped on a square is marked on its level of the chunk for it and for the square north of it, the two of the five the map has in that chunk");
+        check(ChunkMarks.structuresIn(1135, 1150, 1135, 1150, 0, 0) == beside + 1, "and for the square west of it, in the chunk beside");
+        check(ChunkMarks.thingsAround(1136, 1150) == things + 3, "each a mark for what is on a square");
     }
 
     private static void aTallyIsCountedIntoAnother() {

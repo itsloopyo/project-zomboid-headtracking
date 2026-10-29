@@ -24,8 +24,20 @@ public final class IsoGridSquare {
     /** Puts a thing with that sprite on the square, after what is on it already. */
     public IsoObject add(IsoSprite sprite) {
         IsoObject object = new IsoObject(sprite);
+        object.square = this;
         objects.add(object);
         return object;
+    }
+
+    /** The square beside it that way, if the map has it. */
+    public IsoGridSquare getAdjacentSquare(IsoDirections direction) {
+        return switch (direction) {
+            case N -> cell.getGridSquare(x, y - 1, z);
+            case S -> cell.getGridSquare(x, y + 1, z);
+            case E -> cell.getGridSquare(x + 1, y, z);
+            case W -> cell.getGridSquare(x - 1, y, z);
+            default -> throw new IllegalArgumentException("the stand-in finds the squares north, south, east and west of it, and was asked for " + direction);
+        };
     }
 
     /** Lays a floor of that sprite on the square, under what is on it. */

@@ -434,6 +434,7 @@ public final class Agent {
         add(instrumentation, chunkMarks);
         windowMarks = new PatchTransformer(windowMarkPatches());
         add(instrumentation, windowMarks);
+        add(instrumentation, new PatchTransformer(unmarkedChangePatches()));
         add(instrumentation, new PatchTransformer(hushedMarkPatches()));
         hearing = new PatchTransformer(hearingPatches());
         add(instrumentation, hearing);
@@ -1233,6 +1234,54 @@ public final class Agent {
                 {"syncIsoObjectReceive", "(Lzombie/core/network/ByteBufferReader;)V"}}) {
             patches.add(new Patch(window, method[0] + " telling of the window's new sprite", classBytes -> CallSite.insertBeforeReturns(classBytes,
                     new CallSite.Method(window, method[0], method[1]), code -> CallSite.passThis(code, changed))));
+        }
+        return patches;
+    }
+
+    /**
+     * Apart again, and each from the other: where the game changes what a build of a chunk is
+     * made from and marks nothing. Erosion's vines and moss hung on a wall and taken off it, the
+     * dirt a story stamps on a floor and the four beside it, the graffiti it sprays, a compost
+     * bin filling, a door, a built door or a curtain the game moves without a sound, and a hearth
+     * or a barbecue lit or put out. Without one of them the change waits for the chunk's next
+     * sweep (WorldScene.sweptEvery), half a second or more by the eye and six seconds or more far
+     * off, unless the chunk is read sooner for something else.
+     */
+    private static List<Patch> unmarkedChangePatches() {
+        String marks = "com/cameraunlock/zomboid/ChunkMarks", overlay = "zombie/erosion/obj/ErosionObjOverlay", square = "zombie/iso/IsoGridSquare",
+                world = "zombie/randomizedWorld/RandomizedWorldBase", compost = "zombie/iso/objects/IsoCompost";
+        CallSite.Method changed = new CallSite.Method(marks, "changed", "(Lzombie/iso/IsoObject;)V");
+        CallSite.Method changedOn = new CallSite.Method(marks, "changedOn", "(Lzombie/iso/IsoGridSquare;)V");
+        CallSite.Method burning = new CallSite.Method(marks, "burning", "(Lzombie/iso/IsoObject;ZZ)V");
+        ArrayList<Patch> patches = new ArrayList<>();
+        // The object is the first argument of both, which neither assigns.
+        patches.add(new Patch(overlay, "setOverlay telling of the object's new overlay", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                new CallSite.Method(overlay, "setOverlay", "(Lzombie/iso/IsoObject;IIIF)I"), code -> CallSite.passFirstArgument(code, changed))));
+        patches.add(new Patch(overlay, "removeOverlay telling of the overlay taken off", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                new CallSite.Method(overlay, "removeOverlay", "(Lzombie/iso/IsoObject;I)Z"), code -> CallSite.passFirstArgument(code, changed))));
+        patches.add(new Patch(square, "dirtStamp telling of the floors it stamps", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                new CallSite.Method(square, "dirtStamp", "()V"), code -> CallSite.passThis(code, new CallSite.Method(marks, "stamped", "(Lzombie/iso/IsoGridSquare;)V")))));
+        // The square argument is moved to the one south of it for two of the graffiti, before the wall is found: by the call that ends the method it is the square sprayed.
+        patches.add(new Patch(world, "graffSquare telling of the graffiti", classBytes -> CallSite.insertAfterEach(classBytes,
+                new CallSite.Method(world, "graffSquare", "(Lzombie/iso/IsoGridSquare;Ljava/lang/String;Z)V"),
+                new CallSite.Method(square, "RecalcAllWithNeighbours", "(Z)V"), code -> {
+                    code.aload(1);
+                    CallSite.invokeStatic(code, changedOn);
+                }, 1)));
+        // A bin is asked for its sprite on every update, and sends the four it can have to a server's clients only when it is given another.
+        patches.add(new Patch(compost, "updateSprite telling of the bin's new sprite", classBytes -> CallSite.insertAfterEach(classBytes,
+                new CallSite.Method(compost, "updateSprite", "()V"), new CallSite.Method(compost, "transmitUpdatedSpriteToClients", "()V"),
+                code -> CallSite.passThis(code, changed), 4)));
+        for (String door : new String[] {"zombie/iso/objects/IsoDoor", "zombie/iso/objects/IsoThumpable", "zombie/iso/objects/IsoCurtain"}) {
+            patches.add(new Patch(door, "ToggleDoorSilent telling of its new sprite", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                    new CallSite.Method(door, "ToggleDoorSilent", "()V"), code -> CallSite.passThis(code, changed))));
+        }
+        for (String fire : new String[] {"zombie/iso/objects/IsoFireplace", "zombie/iso/objects/IsoBarbecue"}) {
+            patches.add(new Patch(fire, "setLit telling of a fire lit or put out", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
+                    new CallSite.Method(fire, "setLit", "(Z)V"), code -> {
+                        code.aload(0).aload(0).invokevirtual(ClassDesc.ofInternalName(fire), "isLit", MethodTypeDesc.ofDescriptor("()Z")).iload(1);
+                        CallSite.invokeStatic(code, burning);
+                    })));
         }
         return patches;
     }
