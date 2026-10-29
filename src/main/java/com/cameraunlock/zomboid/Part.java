@@ -90,7 +90,10 @@ enum Part {
     SKINS_COMPOSED_WHILE_WAITING("Optimizations", "SkinsComposedWhileWaiting", true, true,
             "true: while the first person picture covers the game's view, what a character wears is composed into its skin\n"
                     + "while the render thread waits for the next frame. The skins are the same. false: the game composes them in the\n"
-                    + "middle of drawing the frame, as it does.");
+                    + "middle of drawing the frame, as it does."),
+    CHUNK_CHANGE_COUNTS("Optimizations", "ChunkChangeCounts", false, true,
+            "true: the game's changes to each chunk are counted as it makes them, so the first person view builds again only\n"
+                    + "the chunks that changed. The picture is the same. false: the view looks over every chunk it draws for changes.");
 
     final String section, key, comment;
     /** Whether the row is taken while the game runs, and whether it is read at the start to leave patches out. */

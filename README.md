@@ -611,6 +611,10 @@ SkipCoveredGameDrawing=true
 ; middle of drawing the frame, as it does.
 ; Taken at once. Off, its patches of the game's code are left out from the next start.
 SkinsComposedWhileWaiting=true
+; true: the game's changes to each chunk are counted as it makes them, so the first person view builds again only
+; the chunks that changed. The picture is the same. false: the view looks over every chunk it draws for changes.
+; Taken at the next start. Off, its patches of the game's code are left out.
+ChunkChangeCounts=true
 
 [Content]
 ; true: the game's own weapons, with no picture through the scope. false: the mod's models of the pump shotgun and
