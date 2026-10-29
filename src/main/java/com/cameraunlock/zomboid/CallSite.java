@@ -16,7 +16,9 @@ import java.lang.classfile.instruction.BranchInstruction;
 import java.lang.classfile.instruction.ConstantInstruction;
 import java.lang.classfile.instruction.FieldInstruction;
 import java.lang.classfile.instruction.InvokeInstruction;
+import java.lang.classfile.instruction.LoadInstruction;
 import java.lang.classfile.instruction.ReturnInstruction;
+import java.lang.classfile.instruction.StoreInstruction;
 import java.lang.constant.ClassDesc;
 import java.lang.constant.MethodTypeDesc;
 import java.lang.reflect.AccessFlag;
@@ -531,6 +533,62 @@ final class CallSite {
         byte[] transformed = transform(classBytes, within, insert);
         if (matches[0] != expected) {
             throw new IllegalStateException("expected " + expected + " of the read of " + owner + "." + field + " in " + within + ", found " + matches[0]);
+        }
+        return transformed;
+    }
+
+    /**
+     * Passes each int {@code within} works out as {@code floor} of a float local divided by the
+     * constant {@code divisor}, and stores in an int local, through the matching one of
+     * {@code filters}, in the order the method stores them: the method loads the float, divides
+     * it, calls {@code floor} and stores what that answered. A filter takes that int, the object
+     * the method belongs to and the float, and returns the int to store, so {@code within} is a
+     * method of an object. Any number of such stores but one for each filter is a game build this
+     * was not written for, and throws.
+     */
+    static byte[] filterFlooredQuotients(byte[] classBytes, Method within, float divisor, Method floor, List<Method> filters) {
+        for (MethodModel method : ClassFile.of().parse(classBytes).methods()) {
+            if (method.methodName().equalsString(within.name()) && method.methodType().equalsString(within.descriptor())
+                    && method.flags().has(AccessFlag.STATIC)) {
+                throw new IllegalStateException(within + " is static: it has no object to hand the filters");
+            }
+        }
+        int[] matches = {0};
+        // The float local loaded last, and how far the load, the divisor, the division and the floor have been seen in a row.
+        int[] loaded = {-1};
+        int[] stage = {0};
+        CodeTransform insert = (code, element) -> {
+            if (!(element instanceof Instruction instruction)) {
+                code.with(element);
+                return;
+            }
+            if (stage[0] == 4 && instruction instanceof StoreInstruction store && store.typeKind() == TypeKind.INT) {
+                if (matches[0] < filters.size()) {
+                    code.aload(0);
+                    code.fload(loaded[0]);
+                    invokeStatic(code, filters.get(matches[0]));
+                }
+                matches[0]++;
+            }
+            if (instruction instanceof LoadInstruction load && load.typeKind() == TypeKind.FLOAT) {
+                loaded[0] = load.slot();
+                stage[0] = 1;
+            } else if (stage[0] == 1 && instruction instanceof ConstantInstruction constant && constant.constantValue() instanceof Float value
+                    && value == divisor) {
+                stage[0] = 2;
+            } else if (stage[0] == 2 && instruction.opcode() == Opcode.FDIV) {
+                stage[0] = 3;
+            } else if (stage[0] == 3 && instruction instanceof InvokeInstruction invoke && isCallTo(invoke, floor)) {
+                stage[0] = 4;
+            } else {
+                stage[0] = 0;
+            }
+            code.with(element);
+        };
+        byte[] transformed = transform(classBytes, within, insert);
+        if (matches[0] != filters.size()) {
+            throw new IllegalStateException("expected " + filters.size() + " ints stored from " + floor + " of a float over " + divisor + " in "
+                    + within + ", found " + matches[0]);
         }
         return transformed;
     }

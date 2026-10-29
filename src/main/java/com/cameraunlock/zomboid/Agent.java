@@ -456,6 +456,7 @@ public final class Agent {
         add(instrumentation, new PatchTransformer(hushedMarkPatches()));
         hearing = new PatchTransformer(hearingPatches());
         add(instrumentation, hearing);
+        add(instrumentation, new PatchTransformer(chunkCentrePatches()));
         splitScreen = new PatchTransformer(splitScreenPatches());
         add(instrumentation, splitScreen);
         waitingComposites = new PatchTransformer(waitingCompositePatches());
@@ -1110,6 +1111,21 @@ public final class Agent {
                         new CallSite.Method(HOOKS, "loadingText", "()V")),
                 new Patch(state, "render's Click to Start held back while the shaders compile", classBytes -> CallSite.filterStaticBooleanReads(classBytes,
                         new CallSite.Method(state, "render", "()V"), state, "done", new CallSite.Method(HOOKS, "clickToStartShown", "(Z)Z"), 1)));
+    }
+
+    /**
+     * Apart: without it a player's chunk map follows them as the game's own does. ProcessChunkPos
+     * works the map's centre out as PZMath.fastfloor of the place over 8, x and then y, from the
+     * player's place or the one ahead of their vehicle, and moves the map when either differs from
+     * worldX or worldY. Both pass through ChunkCentre before they are kept, so the map is moved,
+     * and LightingJNI told, only to the centre it decides.
+     */
+    private static List<Patch> chunkCentrePatches() {
+        String map = "zombie/iso/IsoChunkMap", centre = "com/cameraunlock/zomboid/ChunkCentre", held = "(IL" + map + ";F)I";
+        return List.of(new Patch(map, "ProcessChunkPos keeps its centre a tile past the chunk line", classBytes -> CallSite.filterFlooredQuotients(classBytes,
+                new CallSite.Method(map, "ProcessChunkPos", "(Lzombie/characters/IsoGameCharacter;)V"), 8f,
+                new CallSite.Method("zombie/core/math/PZMath", "fastfloor", "(F)I"),
+                List.of(new CallSite.Method(centre, "heldX", held), new CallSite.Method(centre, "heldY", held)))));
     }
 
     /**

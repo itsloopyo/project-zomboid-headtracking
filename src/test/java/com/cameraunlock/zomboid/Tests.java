@@ -293,6 +293,7 @@ public final class Tests {
         Checks.run("BodyLedTests", BodyLedTests::run);
         Checks.run("AimGroundTests", AimGroundTests::run);
         Checks.run("SplitScreenTests", SplitScreenTests::run);
+        Checks.run("ChunkCentreTests", ChunkCentreTests::run);
         Checks.run("DoubleTapTests", DoubleTapTests::run);
         Checks.run("WoundsTests", WoundsTests::run);
         Checks.run("PieceMotionTests", PieceMotionTests::run);
