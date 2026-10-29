@@ -743,7 +743,7 @@ final class RoomSight {
      */
     private int[] hiddenFor = new int[256];
     private boolean[] hiddenWas = new boolean[256];
-    /** The same for a walk round an eye, whose openings are grown: the eye it was worked out for, and the answer, which every picture of the round shares. */
+    /** The same for a walk round an eye, whose openings are grown: the place it was worked out from (see places), and the answer, which every picture of the rounds from there shares. */
     private int[] hiddenGrownFor = new int[256];
     private boolean[] hiddenGrownWas = new boolean[256];
     /**
@@ -763,8 +763,23 @@ final class RoomSight {
     private byte[] readWas = new byte[256];
     private int pictures = 1;
     private int walks, eyes, eyeNow;
-    /** Whether walks share an opening's state read in the same frame. Off, each reads its own, as the check of the sharing has it. */
+    /**
+     * Whether walks share what they would work out alike: an opening's state read in the same
+     * frame, and the rectangles and hidden answers of a face walked just before from the same
+     * place the same way. Off, each works out its own, as the check of the sharing has it.
+     */
     private final boolean shares;
+    /**
+     * The places rounds were set out from: a round set out from where the last one was, with the
+     * same growth, among the same blocks and the same openings listed, is the same place. Its
+     * faces work out the same rectangles and hidden answers as that round's (the round of what
+     * may show is set out with the round of what is built, from the same eye).
+     */
+    private int places, placeNow, placeIndexes, indexes, lastFace;
+    private float placeX, placeY, placeUp, placeGrow;
+    private long placeBuilding;
+    private Blocks placeBlocks;
+    private int placeFilling;
 
     RoomSight() {
         this(true);
@@ -840,7 +855,7 @@ final class RoomSight {
     void walk(Ground ground, Openings openings, Blocks blocks, ViewCamera.Pose eye, float tanAcross, float tanUp, long start, long eyeBuilding, Seen seen) {
         pictures++;
         prepare(openings, blocks, eye.eyeX, eye.eyeY, eye.eyeUp, eyeBuilding, 0f, 0f, ++eyes);
-        face(ground, openings, eye, tanAcross, tanUp, start, seen);
+        face(ground, openings, eye, tanAcross, tanUp, start, seen, 0);
         seen.airFrom(this, start == OUTSIDE);
     }
 
@@ -872,7 +887,7 @@ final class RoomSight {
     static final class Round {
         private float atX, atY, atUp, grow, shutWithin;
         private long start, eyeBuilding;
-        private int eye, faces = CUBE.length;
+        private int eye, place, faces = CUBE.length;
         private Seen seen;
 
         boolean walking() {
@@ -896,6 +911,7 @@ final class RoomSight {
         round.shutWithin = shutWithin;
         round.seen = seen;
         round.eye = ++eyes;
+        round.place = 0;
         round.faces = 0;
     }
 
@@ -905,6 +921,11 @@ final class RoomSight {
             throw new IllegalStateException("a walk round the eye was walked past its last picture");
         }
         prepare(openings, blocks, round.atX, round.atY, round.atUp, round.eyeBuilding, round.grow, round.shutWithin, round.eye);
+        if (round.place == 0) {
+            round.place = placeOf(round, blocks);
+        }
+        placeNow = shares ? round.place : round.eye;
+        int faceKey = shares ? round.place * CUBE.length + round.faces + 1 : 0;
         float[] way = CUBE[round.faces++];
         cubeFace.eyeAt(round.atX, round.atY, round.atUp);
         cubeFace.forwardX = way[0];
@@ -922,8 +943,25 @@ final class RoomSight {
         if (!round.walking()) {
             round.seen = null;
         }
-        face(ground, openings, cubeFace, 1f, 1f, round.start, seen);
+        face(ground, openings, cubeFace, 1f, 1f, round.start, seen, faceKey);
         return !round.walking();
+    }
+
+    /** The place a round is walked from, among the blocks given: the last round's where it is the same (see places). */
+    private int placeOf(Round round, Blocks blocks) {
+        if (shares && places > 0 && round.atX == placeX && round.atY == placeY && round.atUp == placeUp && round.grow == placeGrow && round.eyeBuilding == placeBuilding
+                && blocks == placeBlocks && blocks.filling == placeFilling && indexes == placeIndexes) {
+            return places;
+        }
+        placeX = round.atX;
+        placeY = round.atY;
+        placeUp = round.atUp;
+        placeGrow = round.grow;
+        placeBuilding = round.eyeBuilding;
+        placeBlocks = blocks;
+        placeFilling = blocks.filling;
+        placeIndexes = indexes;
+        return ++places;
     }
 
     /** Lists the openings by region and takes what every picture walked from this eye shares. */
@@ -949,8 +987,12 @@ final class RoomSight {
         openingsTested = openingsCovering = steps = hiddenByBlocks = 0;
     }
 
-    /** One picture's walk, from the eye prepare was given. */
-    private void face(Ground ground, Openings openings, ViewCamera.Pose eye, float tanAcross, float tanUp, long start, Seen seen) {
+    /**
+     * One picture's walk, from the eye prepare was given. A face of a round has a key, the same
+     * for the same face of a round from the same place: one walked straight after a face with
+     * its key keeps that face's rectangles, which are what it would work out again.
+     */
+    private void face(Ground ground, Openings openings, ViewCamera.Pose eye, float tanAcross, float tanUp, long start, Seen seen, int faceKey) {
         rightX = eye.rightX;
         rightY = eye.rightY;
         rightUp = eye.rightUp;
@@ -962,7 +1004,10 @@ final class RoomSight {
         forwardUp = eye.forwardUp;
         this.tanAcross = tanAcross;
         this.tanUp = tanUp;
-        Arrays.fill(worked, 0, openings.count, UNWORKED);
+        if (faceKey == 0 || faceKey != lastFace) {
+            Arrays.fill(worked, 0, openings.count, UNWORKED);
+        }
+        lastFace = faceKey;
         walks++;
         tollFaces++;
         liveUsed = 0;
@@ -1132,8 +1177,8 @@ final class RoomSight {
             }
         }
         if (grow != 0f) {
-            if (hiddenGrownFor[opening] != eyeNow) {
-                hiddenGrownFor[opening] = eyeNow;
+            if (hiddenGrownFor[opening] != placeNow) {
+                hiddenGrownFor[opening] = placeNow;
                 hiddenGrownWas[opening] = hiddenByBlocksNow(openings, opening, from);
                 tollHidden++;
             }
@@ -1409,6 +1454,8 @@ final class RoomSight {
         Arrays.fill(hiddenGrownFor, 0);
         Arrays.fill(stateFor, 0);
         Arrays.fill(readAfter, 0);
+        indexes++;
+        lastFace = 0;
         if (worked.length < count) {
             int grown = Integer.highestOneBit(count) * 2;
             worked = new byte[grown];
