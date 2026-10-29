@@ -2461,8 +2461,8 @@ final class WorldScene {
                 || type == IsoObjectType.stairsBN || type == IsoObjectType.stairsMN || type == IsoObjectType.stairsTN;
     }
 
-    /** How deep the canopy over each square of one is, in tiles, by the square's place: 0 for a floor in the air with no band round it. */
-    static final HashMap<Long, Float> canopies = new HashMap<>();
+    /** How deep the canopy over each square of one is, in tiles, by the square's place: 0 for a floor in the air with no band round it. See CeilingBuilder.canopyDrop. */
+    static final HashMap<Long, CeilingBuilder.Depth> canopies = new HashMap<>();
 
     /** Whether a square with a floor is roof over open air and no room's floor: nothing is built on it, nor under it on the level below. */
     static boolean isCanopy(IsoGridSquare square, IsoGridSquare below) {

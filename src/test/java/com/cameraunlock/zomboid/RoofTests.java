@@ -1,15 +1,20 @@
 package com.cameraunlock.zomboid;
 
+import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicIntegerArray;
+import zombie.core.properties.PropertyContainer;
 import zombie.core.textures.Texture;
 import zombie.iso.SpriteDetails.IsoObjectType;
+import zombie.iso.sprite.IsoSprite;
 
 /** Tests of a roof's shape where its slopes meet: hips, valleys, ridges and their caps. */
 final class RoofTests {
@@ -97,6 +102,7 @@ final class RoofTests {
         Checks.run("oneRowWingIsNotCarriedOverItsRidgeSquare", RoofTests::oneRowWingIsNotCarriedOverItsRidgeSquare);
         Checks.run("gabledCanopyHasItsFarSideOverOpenGround", RoofTests::gabledCanopyHasItsFarSideOverOpenGround);
         Checks.run("endRowMeetsAWingAtItsFootInAValley", RoofTests::endRowMeetsAWingAtItsFootInAValley);
+        Checks.run("canopyDepthIsFoundAgainOnceItsBandIsTakenDown", RoofTests::canopyDepthIsFoundAgainOnceItsBandIsTakenDown);
     }
 
     private static void hippedCornerAtTheEaveCarriesTheEaveRowOn() {
@@ -3060,6 +3066,101 @@ final class RoofTests {
             int triangles = TestMap.plain().triangles();
             check(floor.startsWith("roofs_") ? triangles == 0 : triangles == 4, "a room's square floored with " + floor + " has " + triangles + " triangles of ceiling");
         }
+    }
+
+    /**
+     * A square of canopy on level 2 with its band hung a level down on the square south of it,
+     * as the gas station's at 10611..10623, 9758..9769, with the ground of every chunk the search
+     * from it reaches: south to (75, 115), east to (78, 112). The band is 110 pixels high from
+     * the top of its level.
+     */
+    private static void canopyDepthIsFoundAgainOnceItsBandIsTakenDown() throws IllegalAccessException {
+        boolean live = ChunkMarks.live;
+        HashMap<Long, CeilingBuilder.Depth> canopies = new HashMap<>(WorldScene.canopies);
+        Map<AtomicIntegerArray, int[]> marks = chunkMarks();
+        try {
+            ChunkMarks.live = true;
+            WorldScene.canopies.clear();
+            TestMap map = new TestMap();
+            WorldScene world = new WorldScene(null);
+            CeilingBuilder ceilings = new CeilingBuilder(world, map.build);
+            map.cell.square(600, 900, 2).floor(map.sprite("floors_exterior_street_01_16", IsoObjectType.normal));
+            for (int wx = 75; wx <= 78; wx++) {
+                groundOf(map, wx, 112, false);
+            }
+            for (int wy = 113; wy <= 115; wy++) {
+                groundOf(map, 75, wy, false);
+            }
+            Texture band = new Texture(8, 64, 110);
+            band.paint(0, 0, 64, 110);
+            IsoSprite banded = new IsoSprite("location_shop_fossoil_01_40", new PropertyContainer(Map.of("attachedN", "")), IsoObjectType.normal, band);
+            map.cell.square(600, 901, 1).add(banded).offsetY = 192f;
+            float deep = ceilings.canopyDrop(600, 900, 2);
+            check(deep > 0.9f && deep < 1.1f, "a canopy is as deep as its band is high, 1 m, not " + deep);
+            // The chunks the search reaches south and east, in the middle and at its end. The stand-in reads a chunk as
+            // filling from the square asked, so every square of its ground is.
+            for (int[] chunk : new int[][] {{75, 113}, {75, 115}, {77, 112}, {78, 112}}) {
+                String filling = " with the chunk (" + chunk[0] + ", " + chunk[1] + ") still filling";
+                WorldScene.canopies.clear();
+                groundOf(map, chunk[0], chunk[1], true);
+                map.build.wantsMap = false;
+                check(ceilings.canopyDrop(600, 900, 2) == deep && map.build.wantsMap, "the band is found" + filling + ", and the build wants the map");
+                map.cell.square(600, 901, 1).getObjects().remove(0);
+                check(ceilings.canopyDrop(600, 900, 2) == 0f, "but the depth is not kept" + filling);
+                groundOf(map, chunk[0], chunk[1], false);
+                map.cell.square(600, 901, 1).add(banded).offsetY = 192f;
+            }
+            map.build.wantsMap = false;
+            check(ceilings.canopyDrop(600, 900, 2) == deep && !map.build.wantsMap, "with every chunk filled the band is found, and the build wants nothing more");
+            map.cell.square(600, 901, 1).getObjects().remove(0);
+            check(ceilings.canopyDrop(600, 900, 2) == deep, "and that depth is kept while the game marks nothing round it");
+            ChunkMarks.marked(map.cell.square(600, 901, 1).getChunk(), 1, 64L);
+            check(ceilings.canopyDrop(600, 900, 2) == 0f, "the band taken down and its chunk marked, the canopy has none");
+            ChunkMarks.live = false;
+            map.cell.square(600, 901, 1).add(banded).offsetY = 192f;
+            check(ceilings.canopyDrop(600, 900, 2) == 0f, "without the chunk-mark patches in, the depth is kept a while");
+            world.roundNow += WallFinish.KEPT;
+            check(ceilings.canopyDrop(600, 900, 2) == deep, "and the band put back is found once WallFinish would read a building again");
+        } finally {
+            ChunkMarks.live = live;
+            WorldScene.canopies.clear();
+            WorldScene.canopies.putAll(canopies);
+            putBack(marks);
+        }
+    }
+
+    /** Lays every square of the ground of the chunk (wx, wy), as still filling or filled. */
+    private static void groundOf(TestMap map, int wx, int wy, boolean filling) {
+        for (int x = wx * WorldScene.CHUNK_TILES; x < (wx + 1) * WorldScene.CHUNK_TILES; x++) {
+            for (int y = wy * WorldScene.CHUNK_TILES; y < (wy + 1) * WorldScene.CHUNK_TILES; y++) {
+                map.cell.square(x, y, 0).filling(filling);
+            }
+        }
+    }
+
+    /** The counts ChunkMarks keeps for each chunk, as they are now, to be put back once a test that marks chunks is done. */
+    private static Map<AtomicIntegerArray, int[]> chunkMarks() throws IllegalAccessException {
+        Map<AtomicIntegerArray, int[]> counts = new IdentityHashMap<>();
+        for (Field field : ChunkMarks.class.getDeclaredFields()) {
+            if (field.getType() == AtomicIntegerArray.class) {
+                field.setAccessible(true);
+                AtomicIntegerArray kept = (AtomicIntegerArray) field.get(null);
+                int[] now = new int[kept.length()];
+                for (int i = 0; i < now.length; i++) {
+                    now[i] = kept.get(i);
+                }
+                counts.put(kept, now);
+            }
+        }
+        return counts;
+    }
+
+    private static void putBack(Map<AtomicIntegerArray, int[]> counts) {
+        counts.forEach((kept, then) -> {
+            for (int i = 0; i < then.length; i++) {
+                kept.set(i, then[i]);
+            }
+        });
     }
 
     private static boolean near(float a, float b) {

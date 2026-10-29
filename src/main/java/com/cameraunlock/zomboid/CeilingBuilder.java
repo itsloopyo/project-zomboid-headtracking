@@ -227,9 +227,13 @@ final class CeilingBuilder {
      */
     float canopyDrop(int x, int y, int z) {
         long key = ((long) x << 36) ^ ((long) y << 8) ^ z;
-        Float known = WorldScene.canopies.get(key);
-        if (known != null) {
-            return known;
+        // Marks are read before the squares, so a change marked while they are read leaves the count above the kept one, and the depth is worked out again.
+        int marks = marksRead(x, y, z);
+        Depth known = WorldScene.canopies.get(key);
+        // A band or a square of canopy taken down or put up is marked on its chunk. Without the chunk-mark patches in, nothing is
+        // marked, and the depth is worked out again as often as WallFinish reads a building's finishes again.
+        if (known != null && known.marks() == marks && (ChunkMarks.live || world.roundNow - known.round() < WallFinish.KEPT)) {
+            return known.drop();
         }
         float drop = 0f;
         for (int way = 0; way < 2 && drop == 0f; way++) {
@@ -243,11 +247,44 @@ final class CeilingBuilder {
                 drop = Math.clamp((1f - build.hungAt[WallHung.BOTTOM]) * ViewCamera.LEVEL_HEIGHT, CANOPY_SHALLOWEST, CANOPY_DEEPEST);
             }
         }
-        // Kept only once the map is loaded as far as the search reaches: before that the answer may be short of the truth.
-        if (build.cell.getGridSquare(x + CANOPY_SPAN, y, 0) != null && build.cell.getGridSquare(x, y + CANOPY_SPAN, 0) != null) {
-            WorldScene.canopies.put(key, drop);
+        // Kept only once every chunk the search reaches is loaded: before that the answer may be short of the truth, and what a
+        // chunk is filled with as it loads is not marked. The build is made again once more of the map is loaded.
+        if (filled(x, y)) {
+            WorldScene.canopies.put(key, new Depth(drop, marks, world.roundNow));
+        } else {
+            build.wantsMap = true;
         }
         return drop;
+    }
+
+    /** Whether every chunk fasciaOf reads from a square, south and east, is loaded and filled: one square of each is looked at, on the ground, which a loaded chunk has whole. */
+    private boolean filled(int x, int y) {
+        int wx = Math.floorDiv(x, WorldScene.CHUNK_TILES), wy = Math.floorDiv(y, WorldScene.CHUNK_TILES);
+        for (int east = wx; east <= Math.floorDiv(x + CANOPY_SPAN, WorldScene.CHUNK_TILES); east++) {
+            if (!filled(build.cell.getGridSquare(east * WorldScene.CHUNK_TILES, y, 0))) {
+                return false;
+            }
+        }
+        for (int south = wy + 1; south <= Math.floorDiv(y + CANOPY_SPAN, WorldScene.CHUNK_TILES); south++) {
+            if (!filled(build.cell.getGridSquare(x, south * WorldScene.CHUNK_TILES, 0))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean filled(IsoGridSquare square) {
+        return square != null && square.getChunk().loaded;
+    }
+
+    /** How deep canopyDrop found a canopy, the marks on the chunks it read when it did (marksRead), and the round of builds it did in. */
+    record Depth(float drop, int marks, int round) {}
+
+    /** The marks for what may be built on the chunks fasciaOf reads from a square, south and east, on the square's level and the one under it. */
+    private static int marksRead(int x, int y, int z) {
+        int wx = Math.floorDiv(x, WorldScene.CHUNK_TILES), wy = Math.floorDiv(y, WorldScene.CHUNK_TILES);
+        return ChunkMarks.structuresIn(wx, wy, wx, Math.floorDiv(y + CANOPY_SPAN, WorldScene.CHUNK_TILES), z - 1, z)
+                + ChunkMarks.structuresIn(wx, wy, Math.floorDiv(x + CANOPY_SPAN, WorldScene.CHUNK_TILES), wy, z - 1, z);
     }
 
     /** Whether a square out of doors has a canopy over it, one or two levels up, whose lights are on. */

@@ -46,7 +46,7 @@ import zombie.iso.sprite.IsoSpriteManager;
  */
 final class WallFinish {
     /** How many frames a level's finishes are kept for. */
-    private static final int KEPT = 600;
+    static final int KEPT = 600;
     /**
      * How long a level read while part of the building was not loaded is kept before it is read
      * again, in nanoseconds. A time and not a count of frames: frames run as slow as three a
