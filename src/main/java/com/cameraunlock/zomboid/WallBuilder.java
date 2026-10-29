@@ -845,7 +845,9 @@ final class WallBuilder {
         build.geometry.shownA = build.geometry.shownB = 0f;
         build.geometry.sealLow = build.geometry.sealHigh = build.geometry.sealTop = 0f;
         if (build.overLayer == 0 && opening[at + OPENING_START] >= 0f) {
-            addReveals(opening, at, x, y, z, 0f, 0f, da, db, inX, inY);
+            float[] nearPaint = SpriteColours.of(texture);
+            build.building.signed &= !SpriteColours.unread(texture);
+            addReveals(opening, at, x, y, z, 0f, 0f, da, db, inX, inY, nearPaint, tint != 0 || faced != null ? farColour : nearPaint);
         }
         if (build.overLayer == 0) {
             addCaps(mesh, texture, opening[at + OPENING_TOP], (startJoin & WallJoins.OPEN) != 0, (endJoin & WallJoins.OPEN) != 0, covered,
@@ -2185,9 +2187,11 @@ final class WallBuilder {
      * underside of the lintel and the sill. Without them the eye sees in between the two skins.
      * Each half of the wall's thickness is lit as the place on its side is: lit as the street
      * whole, a front door's jambs and lintel were a bright line round the leaf from a dark room.
+     * Each half is painted as the skin on its side is, nearPaint and farPaint, the colour most of
+     * that skin's sprite is painted in: in bare concrete they were a pale strip round every
+     * opening no casing covers. Concrete still for a half whose sprite has not been read yet.
      */
-    private void addReveals(float[] opening, int at, int x, int y, int z, float a, float b, float da, float db, float inX, float inY) {
-        SpriteGeometry.Mesh plain = WorldScene.solid.get(WorldScene.PLAIN);
+    void addReveals(float[] opening, int at, int x, int y, int z, float a, float b, float da, float db, float inX, float inY, float[] nearPaint, float[] farPaint) {
         float lift = (build.geometry.lift[0] + build.geometry.lift[1] + build.geometry.lift[2] + build.geometry.lift[3]) / 4f;
         float foot = (z + opening[at + OPENING_FOOT]) * ViewCamera.LEVEL_HEIGHT + lift, head = (z + opening[at + OPENING_HEAD]) * ViewCamera.LEVEL_HEIGHT + lift;
         float x0 = x + a + da * opening[at + OPENING_START], y0 = y + b + db * opening[at + OPENING_START];
@@ -2217,7 +2221,11 @@ final class WallBuilder {
         for (int half = 0; half < 2; half++) {
             float from = half == 0 ? 0f : -1f, to = half == 0 ? 1f : 0f;
             float r = half == 0 ? red : farRed, g = half == 0 ? green : farGreen, bl = half == 0 ? blue : farBlue;
-            plain.open = (half == 0 ? open : farOpen) + 32f * WorldScene.CONCRETE;
+            float[] paint = half == 0 ? nearPaint : farPaint;
+            SpriteGeometry.Mesh plain = paint == null ? WorldScene.solid.get(WorldScene.PLAIN)
+                    : WorldScene.solid.get(WorldScene.PLAIN, WallSides.laid(paint[0], paint[1], paint[2], 0f, 0f, 0f, WallSides.FINE));
+            plain.sway = 0f;
+            plain.open = (half == 0 ? open : farOpen) + 32f * (paint == null ? WorldScene.CONCRETE : WorldScene.PAINT);
             plain.lightFlat(half == 0 ? build.frame : revealFrame);
             for (int side = 0; side < 2; side++) {
                 float jx = side == 0 ? x0 : x1, jy = side == 0 ? y0 : y1;

@@ -4,6 +4,7 @@ import static com.cameraunlock.zomboid.Checks.check;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import zombie.core.textures.Texture;
 
 /** Tests of a door as OpeningBuilder builds it: its raised panels, hinges and knob, and the numbers its wood and metal are drawn under. */
 final class DoorTests {
@@ -29,6 +30,8 @@ final class DoorTests {
         Checks.run("paneWithARoomOnBothSidesHasNoStreetSide", DoorTests::paneWithARoomOnBothSidesHasNoStreetSide);
         Checks.run("openGarageDoorLiesInTheGarageWithItsTracksAtTheJambs", DoorTests::openGarageDoorLiesInTheGarageWithItsTracksAtTheJambs);
         Checks.run("capUnderAWallsFootLeavesTheDoorwayFloorBare", DoorTests::capUnderAWallsFootLeavesTheDoorwayFloorBare);
+        Checks.run("doorwaysSidesArePaintedAsItsWallNotInConcrete", DoorTests::doorwaysSidesArePaintedAsItsWallNotInConcrete);
+        Checks.run("eachHalfOfAnOpeningsSidesIsPaintedAsTheSkinOnItsSide", DoorTests::eachHalfOfAnOpeningsSidesIsPaintedAsTheSkinOnItsSide);
         Checks.run("anOpenDoorIsItsShutLeafOnItsOpenOutline", DoorTests::anOpenDoorIsItsShutLeafOnItsOpenOutline);
         Checks.run("aShutLeafReadWithItsHandleAtItsStartIsTurnedEndForEnd", DoorTests::aShutLeafReadWithItsHandleAtItsStartIsTurnedEndForEnd);
         Checks.run("aLongHandleIsALeverAndARoundOneAKnob", DoorTests::aLongHandleIsALeverAndARoundOneAKnob);
@@ -44,6 +47,113 @@ final class DoorTests {
         check(java.util.Arrays.equals(WallBuilder.underFoot(0f, 0.7f, 0f), new float[] {0.7f, 1f}), "a doorway from the wall's start leaves only the far end capped");
         check(java.util.Arrays.equals(WallBuilder.underFoot(0.3f, 1f, 0f), new float[] {0f, 0.3f}), "and one to its end only the near end");
         check(WallBuilder.underFoot(0f, 1f, 0f).length == 0, "and one across the whole wall none");
+    }
+
+    /**
+     * Louisville, Spiffo's, 12722,1613 (spiffos_01_11, a doorway with no casing): its sides, from skin to skin, were bare
+     * concrete, white under the room's light, a pale strip down the doorway beside a cream wall. A north wall's sprite at
+     * the game's doubled scale with a doorway from 0.3 to 0.7 along and up to 0.8 of a level is read, and the jambs and the
+     * lintel's underside are painted in the colour most of the sprite is, the paint of the wall, both halves of the wall's
+     * thickness alike with the same place on both sides. A sprite not read yet still has its sides closed, in concrete.
+     */
+    private static void doorwaysSidesArePaintedAsItsWallNotInConcrete() {
+        java.util.Map<Texture, float[]> colours = TestMap.read(null, SpriteColours.class, "known");
+        Texture read = holedWall(41), unread = holedWall(42);
+        float[] cream = {0.8f, 0.75f, 0.55f};
+        colours.put(read, cream);
+        try {
+            TestMap map = new TestMap();
+            SpriteGeometry.Mesh paint = WorldScene.solid.get(WorldScene.PLAIN, WallSides.laid(cream[0], cream[1], cream[2], 0f, 0f, 0f, WallSides.FINE));
+            paint.clear();
+            addWall(map, read);
+            check(TestMap.plain().triangles() == 0, "nothing of a doorway in a wall whose sprite is read is bare concrete: " + TestMap.plain().triangles());
+            check(paint.triangles() == 2 * 3 * 2, "both halves of its jambs and its lintel's underside are in the wall's paint: " + paint.triangles());
+            check((float) Math.floor((paint.open + 0.5f) / 32f) == WorldScene.PAINT, "drawn as paint");
+            float least = Float.MAX_VALUE, most = -Float.MAX_VALUE;
+            for (int at = 0; at < paint.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+                least = Math.min(least, paint.vertices[at + 1]);
+                most = Math.max(most, paint.vertices[at + 1]);
+            }
+            check(Math.abs(least - (1f - WorldScene.WALL_HALF)) < 1e-5f && Math.abs(most - (1f + WorldScene.WALL_HALF)) < 1e-5f,
+                    "from one skin to the other: " + least + " to " + most);
+            paint.clear();
+            addWall(map, unread);
+            check(TestMap.plain().triangles() == 2 * 3 * 2 && paint.triangles() == 0, "a wall whose sprite is not read yet has its doorway's sides in concrete");
+        } finally {
+            colours.remove(read);
+            colours.remove(unread);
+            WorldScene.solid.clear();
+            WorldScene.laid.clear();
+        }
+    }
+
+    /** A north wall's sprite at the game's doubled scale, painted but for a doorway from 0.3 to 0.7 along and from the floor to 0.8 of a level. */
+    private static Texture holedWall(int id) {
+        Texture texture = new Texture(id, 128, 256);
+        for (int u = 64; u < 128; u++) {
+            for (int v = 0; v < 256; v++) {
+                float along = (u + 0.5f - 64f) / 64f, up = (192f + 32f * along - (v + 0.5f)) / 192f;
+                if (up >= 0f && up <= 1f && !(along > 0.3f && along < 0.7f && up < 0.8f)) {
+                    texture.paint(u, v, u + 1, v + 1);
+                }
+            }
+        }
+        return texture;
+    }
+
+    /** Adds the wall with that sprite on the north edge of square (0, 1), with no other place beyond it. */
+    private static void addWall(TestMap map, Texture texture) {
+        WorldScene.Frame build = map.build;
+        TestMap.plain().clear();
+        zombie.iso.IsoObject wall = map.cell.square(0, 1, 0).add(map.spriteWith("walls_exterior_house_01_1", zombie.iso.SpriteDetails.IsoObjectType.wall, texture,
+                "WallN", "", "wall", ""));
+        wall.offsetX = 64f;
+        wall.offsetY = 192f;
+        build.here = map.cell.getGridSquare(0, 1, 0);
+        java.util.Arrays.fill(build.geometry.lift, 0f);
+        build.geometry.kerb = null;
+        WorldScene.frameOf(build.frame, wall, texture);
+        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+        mesh.texture = texture.getID();
+        build.wallBuilder.addEdge(mesh, texture, true, false, 0, 1, 0, 0f, 1f, 0f);
+    }
+
+    /**
+     * A window between a room and another place (the room's sprite and the far skin's colour, as farTint reads it): the
+     * half of its sides inside the square, from the wall's middle to the skin there, is in the near paint, and the half
+     * beyond in the far paint, sill, jambs and lintel alike.
+     */
+    private static void eachHalfOfAnOpeningsSidesIsPaintedAsTheSkinOnItsSide() {
+        TestMap map = new TestMap();
+        WorldScene.Frame build = map.build;
+        TestMap.write(build.wallBuilder, "farLight", -1);
+        int floats = TestMap.<Integer>read(null, WallBuilder.class, "OPENING_FLOATS");
+        float[] opening = new float[2 * floats];
+        java.util.Arrays.fill(opening, -1f);
+        opening[TestMap.<Integer>read(null, WallBuilder.class, "OPENING_START")] = 0.3f;
+        opening[TestMap.<Integer>read(null, WallBuilder.class, "OPENING_END")] = 0.7f;
+        opening[TestMap.<Integer>read(null, WallBuilder.class, "OPENING_FOOT")] = 0.35f;
+        opening[TestMap.<Integer>read(null, WallBuilder.class, "OPENING_HEAD")] = 0.8f;
+        java.util.Arrays.fill(build.geometry.lift, 0f);
+        float[] cream = {0.8f, 0.75f, 0.55f}, blue = {0.3f, 0.4f, 0.6f};
+        SpriteGeometry.Mesh near = WorldScene.solid.get(WorldScene.PLAIN, WallSides.laid(cream[0], cream[1], cream[2], 0f, 0f, 0f, WallSides.FINE));
+        SpriteGeometry.Mesh far = WorldScene.solid.get(WorldScene.PLAIN, WallSides.laid(blue[0], blue[1], blue[2], 0f, 0f, 0f, WallSides.FINE));
+        near.clear();
+        far.clear();
+        try {
+            build.wallBuilder.addReveals(opening, 0, 0, 1, 0, 0f, 0f, 1f, 0f, 0f, WorldScene.WALL_HALF, cream, blue);
+            check(near.triangles() == 4 * 2 && far.triangles() == 4 * 2 && TestMap.plain().triangles() == 0,
+                    "each half's jambs, sill and lintel are in its own paint: " + near.triangles() + ", " + far.triangles() + ", " + TestMap.plain().triangles());
+            for (int at = 0; at < near.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+                check(near.vertices[at + 1] >= 1f - 1e-6f && near.vertices[at + 1] <= 1f + WorldScene.WALL_HALF + 1e-6f, "the near paint is inside the square: " + near.vertices[at + 1]);
+            }
+            for (int at = 0; at < far.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+                check(far.vertices[at + 1] >= 1f - WorldScene.WALL_HALF - 1e-6f && far.vertices[at + 1] <= 1f + 1e-6f, "the far paint is beyond it: " + far.vertices[at + 1]);
+            }
+        } finally {
+            WorldScene.solid.clear();
+            WorldScene.laid.clear();
+        }
     }
 
     private static final float LEVEL = ViewCamera.LEVEL_HEIGHT, FACE = 0.022f;
