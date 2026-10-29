@@ -75,7 +75,17 @@ public final class ChunkMarks {
     private static final int[] keptBy = new int[View.COUNT * 3];
     private static final ArrayList<Told> held = new ArrayList<>();
 
-    private record Told(int wx, int wy, int telling) {}
+    /** A chunk's last telling, which takes the number of each later one in place: a torch's light tells the chunk of each square it changes, square by square (TorchLess.retell). */
+    private static final class Told {
+        final int wx, wy;
+        int telling;
+
+        Told(int wx, int wy, int telling) {
+            this.wx = wx;
+            this.wy = wy;
+            this.telling = telling;
+        }
+    }
     /** Dev only: how many marks came with each of the game's flags, by the flag's bit. */
     static final boolean COUNTED = Boolean.getBoolean("cameraunlock.zomboid.auditMarks");
     private static final AtomicLongArray byFlag = new AtomicLongArray(17);
@@ -311,7 +321,13 @@ public final class ChunkMarks {
         int telling = ++tellings;
         for (int wx = minWx; wx <= maxWx; wx++) {
             for (int wy = minWy; wy <= maxWy; wy++) {
-                told.put(chunkKey(wx, wy), new Told(wx, wy, telling));
+                long key = chunkKey(wx, wy);
+                Told last = told.get(key);
+                if (last == null) {
+                    told.put(key, new Told(wx, wy, telling));
+                } else {
+                    last.telling = telling;
+                }
             }
         }
     }
