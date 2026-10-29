@@ -857,8 +857,10 @@ final class Terrain {
 
     /**
      * The corner heights of a chunk, CORNERS by CORNERS with x first, worked out if they are
-     * not yet or if a chunk they went by has come out otherwise since they last were. Logic
-     * thread.
+     * not yet or if a chunk they went by has come out otherwise since they last were. The logic
+     * thread, or a build thread under BuildThreads.SHARED, which works out stale heights again
+     * whatever the frame has spent on them, as it cannot tell what the others have spent, and
+     * leaves the joining of their edges into the chunks round them to the logic thread (join).
      */
     float[] corners(IsoCell cell, int wx, int wy) {
         return corners(cell, wx, wy, false);
@@ -866,121 +868,123 @@ final class Terrain {
 
     /** The same, and with now whatever the frame has spent on heights worked out again. */
     private float[] corners(IsoCell cell, int wx, int wy, boolean now) {
-        scan(cell);
-        if (padsKept > PADS_KEPT) {
-            pads.clear();
-            padsKept = 0;
-        }
-        Grid grid = grid(wx, wy);
-        boolean known = grid != null;
-        if (known) {
-            grid.used = frame;
-            if (!grid.stale && (grid.gain != gain || !grid.reads.hold())) {
-                grid.stale = true;
+        synchronized (BuildThreads.SHARED) {
+            scan(cell);
+            if (padsKept > PADS_KEPT) {
+                pads.clear();
+                padsKept = 0;
             }
-        }
-        boolean audit = known && !grid.stale && AUDITED && frame - grid.stamp >= RETRIED;
-        if (known && !grid.stale && !audit) {
-            return grid.heights;
-        }
-        if (known && !now && againNanos > AGAIN_NANOS_A_FRAME) {
-            if (overdueTaken || frame - grid.stamp < AGAIN_AT_THE_LATEST) {
+            Grid grid = grid(wx, wy);
+            boolean known = grid != null;
+            if (known) {
+                grid.used = frame;
+                if (!grid.stale && (grid.gain != gain || !grid.reads.hold())) {
+                    grid.stale = true;
+                }
+            }
+            boolean audit = known && !grid.stale && AUDITED && frame - grid.stamp >= RETRIED;
+            if (known && !grid.stale && !audit) {
                 return grid.heights;
             }
-            overdueTaken = true;
-        }
-        long began = System.nanoTime();
-        Reads reads = new Reads(logged);
-        // In this order: lookOver looks for the water round each building, and the corners want the water round the chunk.
-        lookOver(cell, wx, wy, reads);
-        findWater(cell, wx, wy, reads);
-        long folded = fold();
-        boolean foldAsBefore = known && grid.folded == folded;
-        if (foldAsBefore && !AUDITED) {
-            // All the heights, the water and the kerbs go by is as it was when they were last worked out, and so are they.
-            grid.reads = reads;
-            grid.stale = false;
-            grid.stamp = frame;
-            joinEdges(grid);
+            if (known && !now && againNanos > AGAIN_NANOS_A_FRAME && !BuildThreads.here()) {
+                if (overdueTaken || frame - grid.stamp < AGAIN_AT_THE_LATEST) {
+                    return grid.heights;
+                }
+                overdueTaken = true;
+            }
+            long began = System.nanoTime();
+            Reads reads = new Reads(logged);
+            // In this order: lookOver looks for the water round each building, and the corners want the water round the chunk.
+            lookOver(cell, wx, wy, reads);
+            findWater(cell, wx, wy, reads);
+            long folded = fold();
+            boolean foldAsBefore = known && grid.folded == folded;
+            if (foldAsBefore && !AUDITED) {
+                // All the heights, the water and the kerbs go by is as it was when they were last worked out, and so are they.
+                grid.reads = reads;
+                grid.stale = false;
+                grid.stamp = frame;
+                join(grid);
+                long took = System.nanoTime() - began;
+                againNanos += took;
+                tollAgain++;
+                tollAgainNanos += took;
+                tollAsBefore++;
+                tollFolded++;
+                return grid.heights;
+            }
+            Grid fresh = new Grid();
+            fresh.wx = wx;
+            fresh.wy = wy;
+            fresh.stamp = frame;
+            fresh.used = frame;
+            fresh.gain = gain;
+            fresh.reads = reads;
+            fresh.folded = folded;
+            fill();
+            // The gain with them: the same squares give other heights at another.
+            fresh.from = gathered() * 31 + Float.floatToRawIntBits(gain);
+            boolean asBefore = known && grid.from == fresh.from;
+            if (asBefore) {
+                tollAsBefore++;
+            }
+            if (asBefore && !AUDITED) {
+                // Every square and every footing the heights go by is as it was when they were last worked out, and so are they.
+                System.arraycopy(grid.heights, 0, fresh.heights, 0, fresh.heights.length);
+                System.arraycopy(grid.water, 0, fresh.water, 0, fresh.water.length);
+            } else {
+                boolean wet = false;
+                for (int i = 0; i < CHUNK_TILES; i++) {
+                    for (int j = 0; j < CHUNK_TILES; j++) {
+                        wet |= around[(AROUND + i) * SPAN + AROUND + j] == WATER;
+                    }
+                }
+                streets(wx * CHUNK_TILES - AROUND, wy * CHUNK_TILES - AROUND, AROUND, AROUND + CHUNK_TILES, true);
+                for (int i = 0; i < CORNERS; i++) {
+                    for (int j = 0; j < CORNERS; j++) {
+                        float x = wx * CHUNK_TILES + i, y = wy * CHUNK_TILES + j;
+                        // Tiny height changes otherwise invalidate every mesh standing on the chunk.
+                        fresh.heights[i * CORNERS + j] = Math.round(corner(x, y, i + AROUND, j + AROUND) * 256f) / 256f;
+                        fresh.water[i * CORNERS + j] = wet ? base(x, y) - WATER_BELOW : 0f;
+                    }
+                }
+            }
+            if (asBefore && AUDITED) {
+                boolean sameInputs = Arrays.equals(fresh.water, grid.water);
+                // Border heights also depend on neighbouring cached grids.
+                for (int x = 1; x < CHUNK_TILES; x++) {
+                    for (int y = 1; y < CHUNK_TILES; y++) {
+                        sameInputs &= fresh.heights[x * CORNERS + y] == grid.heights[x * CORNERS + y];
+                    }
+                }
+                if (!sameInputs) {
+                    Log.info("terrain: cached interior heights changed with identical inputs at " + wx + ", " + wy);
+                }
+            }
+            if (!level) {
+                kerbs(cell, fresh, known ? grid : null);
+            }
+            join(fresh);
+            boolean same = known && fresh.kerbSum == grid.kerbSum && Arrays.equals(fresh.heights, grid.heights) && Arrays.equals(fresh.water, grid.water);
+            fresh.version = same ? grid.version : ++versions;
+            if (audit && !same) {
+                Log.info("terrain: MISSED the heights at " + wx + ", " + wy + ", which came out otherwise with nothing they went by changed");
+            }
+            if (foldAsBefore && (fresh.from != grid.from || fresh.kerbFrom != grid.kerbFrom)) {
+                Log.info("terrain: MISSED the ground at " + wx + ", " + wy + ", which came out otherwise with the fold as it was");
+            }
+            keep(fresh);
             long took = System.nanoTime() - began;
-            againNanos += took;
-            tollAgain++;
-            tollAgainNanos += took;
-            tollAsBefore++;
-            tollFolded++;
-            return grid.heights;
-        }
-        Grid fresh = new Grid();
-        fresh.wx = wx;
-        fresh.wy = wy;
-        fresh.stamp = frame;
-        fresh.used = frame;
-        fresh.gain = gain;
-        fresh.reads = reads;
-        fresh.folded = folded;
-        fill();
-        // The gain with them: the same squares give other heights at another.
-        fresh.from = gathered() * 31 + Float.floatToRawIntBits(gain);
-        boolean asBefore = known && grid.from == fresh.from;
-        if (asBefore) {
-            tollAsBefore++;
-        }
-        if (asBefore && !AUDITED) {
-            // Every square and every footing the heights go by is as it was when they were last worked out, and so are they.
-            System.arraycopy(grid.heights, 0, fresh.heights, 0, fresh.heights.length);
-            System.arraycopy(grid.water, 0, fresh.water, 0, fresh.water.length);
-        } else {
-            boolean wet = false;
-            for (int i = 0; i < CHUNK_TILES; i++) {
-                for (int j = 0; j < CHUNK_TILES; j++) {
-                    wet |= around[(AROUND + i) * SPAN + AROUND + j] == WATER;
-                }
+            if (known) {
+                againNanos += took;
+                tollAgain++;
+                tollAgainNanos += took;
+            } else {
+                tollFirst++;
+                tollFirstNanos += took;
             }
-            streets(wx * CHUNK_TILES - AROUND, wy * CHUNK_TILES - AROUND, AROUND, AROUND + CHUNK_TILES, true);
-            for (int i = 0; i < CORNERS; i++) {
-                for (int j = 0; j < CORNERS; j++) {
-                    float x = wx * CHUNK_TILES + i, y = wy * CHUNK_TILES + j;
-                    // Tiny height changes otherwise invalidate every mesh standing on the chunk.
-                    fresh.heights[i * CORNERS + j] = Math.round(corner(x, y, i + AROUND, j + AROUND) * 256f) / 256f;
-                    fresh.water[i * CORNERS + j] = wet ? base(x, y) - WATER_BELOW : 0f;
-                }
-            }
+            return fresh.heights;
         }
-        if (asBefore && AUDITED) {
-            boolean sameInputs = Arrays.equals(fresh.water, grid.water);
-            // Border heights also depend on neighbouring cached grids.
-            for (int x = 1; x < CHUNK_TILES; x++) {
-                for (int y = 1; y < CHUNK_TILES; y++) {
-                    sameInputs &= fresh.heights[x * CORNERS + y] == grid.heights[x * CORNERS + y];
-                }
-            }
-            if (!sameInputs) {
-                Log.info("terrain: cached interior heights changed with identical inputs at " + wx + ", " + wy);
-            }
-        }
-        if (!level) {
-            kerbs(cell, fresh, known ? grid : null);
-        }
-        joinEdges(fresh);
-        boolean same = known && fresh.kerbSum == grid.kerbSum && Arrays.equals(fresh.heights, grid.heights) && Arrays.equals(fresh.water, grid.water);
-        fresh.version = same ? grid.version : ++versions;
-        if (audit && !same) {
-            Log.info("terrain: MISSED the heights at " + wx + ", " + wy + ", which came out otherwise with nothing they went by changed");
-        }
-        if (foldAsBefore && (fresh.from != grid.from || fresh.kerbFrom != grid.kerbFrom)) {
-            Log.info("terrain: MISSED the ground at " + wx + ", " + wy + ", which came out otherwise with the fold as it was");
-        }
-        keep(fresh);
-        long took = System.nanoTime() - began;
-        if (known) {
-            againNanos += took;
-            tollAgain++;
-            tollAgainNanos += took;
-        } else {
-            tollFirst++;
-            tollFirstNanos += took;
-        }
-        return fresh.heights;
     }
 
     /** Dev only: what tollFirst and the rest have come to since this was last asked. */
@@ -992,6 +996,25 @@ final class Terrain {
         tollFirst = tollFirstNanos = tollAgain = tollAgainNanos = tollAsBefore = tollFolded = 0;
         tollRead = tollReadAgain = tollOtherwise = tollDropped = tollFooted = tollScanNanos = tollAsked = 0;
         return told;
+    }
+
+    /**
+     * Joins a chunk's fresh heights into the chunks round it (joinEdges): at once on the logic thread, and from a build
+     * thread when its builds land, from the heights the chunk has kept then, so that each edge two chunks share holds
+     * one height on both sides whichever was joined first.
+     */
+    private void join(Grid fresh) {
+        if (!BuildThreads.here()) {
+            joinEdges(fresh);
+            return;
+        }
+        int wx = fresh.wx, wy = fresh.wy;
+        BuildThreads.later(() -> {
+            Grid kept = grid(wx, wy);
+            if (kept != null) {
+                joinEdges(kept);
+            }
+        });
     }
 
     private void joinEdges(Grid fresh) {
