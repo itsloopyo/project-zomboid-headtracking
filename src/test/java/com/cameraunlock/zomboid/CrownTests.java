@@ -557,7 +557,7 @@ final class CrownTests {
     }
 
     private static void crownsWrittenDownAreMadeAsTheBuildWouldHaveMadeThem() {
-        SpriteGeometry.MeshSet apart = new SpriteGeometry.MeshSet(), inBuild = new SpriteGeometry.MeshSet(new SpriteGeometry.Layers(), WorldScene.sites);
+        SpriteGeometry.MeshSet apart = new SpriteGeometry.MeshSet(), inBuild = new SpriteGeometry.MeshSet(new SpriteGeometry.Layers(), WorldScene.sharedSites);
         // Near, with limbs and stood under; in between; and far off, coarse and in its own bark.
         for (float away : new float[] {6f, 20f, 30f}) {
             apart.clear();
@@ -572,7 +572,7 @@ final class CrownTests {
         Crowns near = chunkOfThree(0.6f, 6f), moved = new Crowns();
         near.copyTo(moved, 30f);
         check(!moved.same(near) && moved.same(chunkOfThree(0.6f, 30f)), "written down again as from further off, they are what a build from there writes down");
-        SpriteGeometry.MeshSet apart = new SpriteGeometry.MeshSet(), inBuild = new SpriteGeometry.MeshSet(new SpriteGeometry.Layers(), WorldScene.sites);
+        SpriteGeometry.MeshSet apart = new SpriteGeometry.MeshSet(), inBuild = new SpriteGeometry.MeshSet(new SpriteGeometry.Layers(), WorldScene.sharedSites);
         moved.mesh(apart, PLAIN, new SpriteGeometry.Frame());
         threeInTheBuild(inBuild, 30f);
         same(apart, inBuild);

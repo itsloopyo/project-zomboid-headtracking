@@ -123,8 +123,8 @@ final class FloorBuilder {
             // Grass does not spread down a kerb onto the street.
             build.geometry.kerbKeep = SpriteGeometry.LAND;
             build.spreadFaces++;
-            WorldScene.layers.lie(SpriteGeometry.LAYERS_UP, build.floorLayer + spread - 1);
-            SpriteGeometry.Mesh laidOn = WorldScene.laid.get(flat != 0 ? flat : build.groundTexture[at].getID());
+            build.layers.lie(SpriteGeometry.LAYERS_UP, build.floorLayer + spread - 1);
+            SpriteGeometry.Mesh laidOn = build.laid.get(flat != 0 ? flat : build.groundTexture[at].getID());
             if (grid) {
                 for (int quarter = 0; quarter < 4; quarter++) {
                     build.geometry.addFace(laidOn, build.frame, x, y, 0, (quarter & 1) * 0.5f, (quarter >> 1) * 0.5f, 0f, 0.5f, 0f, 0f, 0f, 0.5f, 0f);
@@ -133,7 +133,7 @@ final class FloorBuilder {
                 build.geometry.addFace(laidOn, build.frame, x, y, 0, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
             }
             build.frame.flat = 0;
-            WorldScene.layers.none();
+            build.layers.none();
             build.geometry.kerbKeep = SpriteGeometry.BOTH;
             build.geometry.cover = null;
         }
@@ -325,7 +325,7 @@ final class FloorBuilder {
         int flat = floor ? build.flatOf(texture, Flats.FLOOR, 0f, 0f, 0f) : 0;
         build.frame.flat = flat != 0 ? SpriteGeometry.FLAT_FLOOR : 0;
         if (flat != 0) {
-            mesh = WorldScene.solid.get(flat);
+            mesh = build.solid.get(flat);
         }
         // A floor shows one pattern of boards, the sprite's: the picture's own wood is laid on it only as boards of the sprite's size and lie.
         // Where the picture lays none of its own textures a wooden floor stays wood, which is how its board joints and its gloss are drawn.
@@ -347,7 +347,7 @@ final class FloorBuilder {
         if (painted && paint == null && RoadPaint.unread(texture)) {
             build.building.signed = false;
         }
-        SpriteGeometry.Mesh on = paint != null ? WorldScene.laid.get(paint.picture) : build.floorLayer == 0 ? mesh : WorldScene.laid.get(texture.getID());
+        SpriteGeometry.Mesh on = paint != null ? build.laid.get(paint.picture) : build.floorLayer == 0 ? mesh : build.laid.get(texture.getID());
         // Straw is the square's floor in a barn, and laid over the grass outside one.
         if (sprite.straw && build.frame.kind == 0f && build.geometry.kerb == null && Own.textures(build.playerIndex)) {
             build.frame.flat = 0;
@@ -360,7 +360,7 @@ final class FloorBuilder {
         int rug = !isFloor && build.floorLayer > 0 && Own.textures(build.playerIndex) ? build.rugOf(texture, sprite.rug, sprite.pile, x, y, z) : 0;
         float laidAs = build.frame.material;
         if (rug != 0) {
-            on = WorldScene.laid.get(rug);
+            on = build.laid.get(rug);
             build.frame.flat = SpriteGeometry.FLAT_RUG;
             build.frame.material = Rugs.material(sprite.rug, build.frame.material);
         }
@@ -370,7 +370,7 @@ final class FloorBuilder {
             if (earth == Flowerbeds.PENDING) {
                 build.building.signed = false;
             } else if (earth != 0) {
-                on = WorldScene.laid.get(earth);
+                on = build.laid.get(earth);
                 build.frame.flat = SpriteGeometry.FLAT_FLOOR;
             }
         }
@@ -420,7 +420,7 @@ final class FloorBuilder {
         } else {
             build.geometry.addFace(on, build.frame, x, y, z, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
         }
-        WorldScene.layers.none();
+        build.layers.none();
         build.geometry.kerbKeep = SpriteGeometry.BOTH;
         build.frame.kind = 0f;
         build.frame.flat = 0;
@@ -436,9 +436,9 @@ final class FloorBuilder {
      */
     private void layFloor(boolean floor) {
         if (floor && build.floorLayer == 0) {
-            WorldScene.layers.sheet(build.floorLayer++);
+            build.layers.sheet(build.floorLayer++);
         } else {
-            WorldScene.layers.lie(SpriteGeometry.LAYERS_UP, build.floorLayer++);
+            build.layers.lie(SpriteGeometry.LAYERS_UP, build.floorLayer++);
         }
     }
 
@@ -501,7 +501,7 @@ final class FloorBuilder {
             for (int i = 0; i < count; i++) {
                 for (int j = 0; j < count; j++) {
                     int at = (i * count + j) * 3;
-                    SpriteGeometry.Mesh on = WorldScene.solid.get(WorldScene.PLAIN, WallSides.laid(tiles.colours[at], tiles.colours[at + 1], tiles.colours[at + 2],
+                    SpriteGeometry.Mesh on = build.solid.get(WorldScene.PLAIN, WallSides.laid(tiles.colours[at], tiles.colours[at + 1], tiles.colours[at + 2],
                             JOINT_DARK * tiles.jointRed, JOINT_DARK * tiles.jointGreen, JOINT_DARK * tiles.jointBlue, WallSides.TILED));
                     geometry.addFace(on, build.frame, x, y, z, i * each, j * each, 0f, each, 0f, 0f, 0f, each, 0f);
                 }
@@ -509,7 +509,7 @@ final class FloorBuilder {
             geometry.jointStep = Float.NaN;
             geometry.acrossB = 0f;
         }
-        WorldScene.layers.none();
+        build.layers.none();
         build.frame.material = made;
         build.frame.red = red;
         build.frame.green = green;
@@ -537,7 +537,7 @@ final class FloorBuilder {
         layFloor(isFloor);
         build.geometry.addFace(painted(texture.getID(), red, green, blue, colour[WallSides.MEAN], colour[WallSides.MEAN + 1], colour[WallSides.MEAN + 2]),
                 build.frame, x, y, z, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
-        WorldScene.layers.none();
+        build.layers.none();
         build.frame.material = made;
         build.frame.red = red;
         build.frame.green = green;
@@ -561,7 +561,7 @@ final class FloorBuilder {
         geometry.footH = geometry.perLevel = 0f;
         shade(red, green, blue, 1f, 1f, 1f);
         for (int odd = 0; odd < (tiles.checkered ? 2 : 1); odd++) {
-            SpriteGeometry.Mesh on = WorldScene.solid.get(WorldScene.PLAIN, diagonalKey(tiles, odd));
+            SpriteGeometry.Mesh on = build.solid.get(WorldScene.PLAIN, diagonalKey(tiles, odd));
             if (!tiles.checkered) {
                 geometry.addFace(on, build.frame, x, y, z, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
                 break;
@@ -600,7 +600,7 @@ final class FloorBuilder {
             startA -= (float) Math.floor(startA);
             startB -= (float) Math.floor(startB);
             int key = WallSides.laid(pavers[at + 4], pavers[at + 5], pavers[at + 6], sunk * tiles.jointRed, sunk * tiles.jointGreen, sunk * tiles.jointBlue, WallSides.TILED);
-            SpriteGeometry.Mesh on = WorldScene.solid.get(WorldScene.PLAIN, tiles.courses ? WallSides.mortared(key) : key);
+            SpriteGeometry.Mesh on = build.solid.get(WorldScene.PLAIN, tiles.courses ? WallSides.mortared(key) : key);
             geometry.alongA = 1f / wide;
             geometry.acrossB = 1f / deep;
             for (int backA = 0; backA <= 1; backA++) {
@@ -640,7 +640,7 @@ final class FloorBuilder {
             reach = Math.max(reach, Math.abs(corner));
         }
         for (int at = 0; at < hexes.length; at += 5) {
-            SpriteGeometry.Mesh on = WorldScene.solid.get(WorldScene.PLAIN, WallSides.laid(hexes[at + 2], hexes[at + 3], hexes[at + 4],
+            SpriteGeometry.Mesh on = build.solid.get(WorldScene.PLAIN, WallSides.laid(hexes[at + 2], hexes[at + 3], hexes[at + 4],
                     JOINT_DARK * tiles.jointRed, JOINT_DARK * tiles.jointGreen, JOINT_DARK * tiles.jointBlue, WallSides.TILED));
             for (int backA = -1; backA <= 1; backA++) {
                 for (int backB = -1; backB <= 1; backB++) {
@@ -742,7 +742,7 @@ final class FloorBuilder {
         SpriteGeometry.Mesh on = painted(flat, red, green, blue, boards.red(), boards.green(), boards.blue());
         layFloor(true);
         build.geometry.addFace(on, build.frame, x, y, z, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
-        WorldScene.layers.none();
+        build.layers.none();
         build.frame.material = made;
         build.frame.red = red;
         build.frame.green = green;
@@ -763,7 +763,7 @@ final class FloorBuilder {
         WallSides.tint(key, tileTint);
         float lighter = (r + g + b) / Math.max(tileTint[0] + tileTint[1] + tileTint[2], 0.06f);
         shade(red, green, blue, lighter, lighter, lighter);
-        return WorldScene.solid.get(texture, key);
+        return build.solid.get(texture, key);
     }
 
     /**
@@ -784,7 +784,7 @@ final class FloorBuilder {
         if (held == LightSites.STATIC) {
             build.frame.site = LightSites.STATIC;
         } else {
-            WorldScene.sites.tinted(held, r, g, b, build.frame);
+            build.sites.tinted(held, r, g, b, build.frame);
         }
     }
 
@@ -798,9 +798,9 @@ final class FloorBuilder {
         build.building.plain = false;
         boolean lit = canopyLight(build.here, x, y, z, canopyFrame);
         float red = canopyFrame.red, green = canopyFrame.green, blue = canopyFrame.blue, unlit = canopyFrame.open;
-        WorldScene.sites.putAt(LightSites.CANOPY, build.own(), LightSites.place(x, y, z), canopyFrame);
+        build.sites.putAt(LightSites.CANOPY, build.own(), LightSites.place(x, y, z), canopyFrame);
         float up = z * ViewCamera.LEVEL_HEIGHT - drop;
-        SpriteGeometry.Mesh plain = WorldScene.solid.get(WorldScene.PLAIN);
+        SpriteGeometry.Mesh plain = build.solid.get(WorldScene.PLAIN);
         Soffits.add(plain, x, y, up, canopyFrame, unlit + 32f * WorldScene.CONCRETE, unlit + 32f * WorldScene.LAMP, Soffits.fitted(x, y), lit);
         plain.open = unlit + 32f * WorldScene.CONCRETE;
         float[] c = build.eave;
@@ -844,11 +844,11 @@ final class FloorBuilder {
             build.geometry.raised = 0f;
             if (north) {
                 build.geometry.shownB = y - CANOPY_LIP - build.bandY;
-                build.geometry.addFace(WorldScene.solid.get(texture.getID()), build.bandFrame, x, build.bandY, z - 1, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f);
+                build.geometry.addFace(build.solid.get(texture.getID()), build.bandFrame, x, build.bandY, z - 1, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f);
                 build.geometry.shownB = 0f;
             } else {
                 build.geometry.shownA = x - CANOPY_LIP - build.bandX;
-                build.geometry.addFace(WorldScene.solid.get(texture.getID()), build.bandFrame, build.bandX, y, z - 1, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f);
+                build.geometry.addFace(build.solid.get(texture.getID()), build.bandFrame, build.bandX, y, z - 1, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f);
                 build.geometry.shownA = 0f;
             }
             build.geometry.raised = raised;
@@ -924,12 +924,12 @@ final class FloorBuilder {
         float red = build.frame.red, green = build.frame.green, blue = build.frame.blue, open = build.frame.open, kind = build.frame.kind;
         build.frame.cornersInto(build.heldRed, build.heldGreen, build.heldBlue, build.heldUnlit);
         ceilingLight(below, build.frame);
-        WorldScene.sites.putAt(LightSites.CEILING, build.own(), LightSites.place(x, y, z), build.frame);
+        build.sites.putAt(LightSites.CEILING, build.own(), LightSites.place(x, y, z), build.frame);
         // The ceiling under a floor of water is a ceiling, not more water.
         build.frame.kind = 0f;
-        WorldScene.layers.sheet(-1f);
+        build.layers.sheet(-1f);
         build.geometry.addFace(mesh, build.frame, x, y, z, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
-        WorldScene.layers.none();
+        build.layers.none();
         build.frame.kind = kind;
         build.frame.red = red;
         build.frame.green = green;

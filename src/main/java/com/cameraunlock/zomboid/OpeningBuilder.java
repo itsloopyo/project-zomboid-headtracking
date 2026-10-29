@@ -257,7 +257,7 @@ final class OpeningBuilder {
         windowFoot = footOf(z) + (far ? 0f : build.kerbTopRise(z, north));
         float level = ViewCamera.LEVEL_HEIGHT, into = far ? -1f : 1f, out = into * (WorldScene.WALL_HALF + DRAPE_CLEAR);
         float red = build.frame.red, green = build.frame.green, blue = build.frame.blue;
-        SpriteGeometry.Mesh cloth = WorldScene.solid.get(WorldScene.PLAIN, WallSides.key(shape.red, shape.green, shape.blue, WallSides.FLAT));
+        SpriteGeometry.Mesh cloth = build.solid.get(WorldScene.PLAIN, WallSides.key(shape.red, shape.green, shape.blue, WallSides.FLAT));
         cloth.sway = 0f;
         cloth.open = build.frame.open + 32f * DRAPE;
         cloth.lightFlat(build.frame);
@@ -312,7 +312,7 @@ final class OpeningBuilder {
                 beforeFoot = hereFoot;
             }
         }
-        SpriteGeometry.Mesh rod = WorldScene.solid.get(WorldScene.PLAIN, WallSides.key(ROD_RED, ROD_GREEN, ROD_BLUE, WallSides.FLAT));
+        SpriteGeometry.Mesh rod = build.solid.get(WorldScene.PLAIN, WallSides.key(ROD_RED, ROD_GREEN, ROD_BLUE, WallSides.FLAT));
         rod.sway = 0f;
         rod.open = build.frame.open + 32f * WorldScene.WOOD;
         rod.lightFlat(build.frame);
@@ -425,10 +425,10 @@ final class OpeningBuilder {
 
         boolean wooden = door.kind == Doors.PLANKED || wooden(leaf.red, leaf.green, leaf.blue);
         // Kept as finely as a tile's colour (WallSides.FINE): at a fifteenth a channel a dark maroon door rounds to a grey one.
-        SpriteGeometry.Mesh wood = WorldScene.solid.get(WorldScene.PLAIN, WallSides.laid(leaf.red, leaf.green, leaf.blue, 0f, 0f, 0f, WallSides.FINE));
-        SpriteGeometry.Mesh joint = WorldScene.solid.get(WorldScene.PLAIN,
+        SpriteGeometry.Mesh wood = build.solid.get(WorldScene.PLAIN, WallSides.laid(leaf.red, leaf.green, leaf.blue, 0f, 0f, 0f, WallSides.FINE));
+        SpriteGeometry.Mesh joint = build.solid.get(WorldScene.PLAIN,
                 WallSides.laid(leaf.red * JOINT_SHADE, leaf.green * JOINT_SHADE, leaf.blue * JOINT_SHADE, 0f, 0f, 0f, WallSides.FINE));
-        SpriteGeometry.Mesh metal = WorldScene.solid.get(WorldScene.PLAIN);
+        SpriteGeometry.Mesh metal = build.solid.get(WorldScene.PLAIN);
         wood.sway = joint.sway = metal.sway = 0f;
         float level = ViewCamera.LEVEL_HEIGHT, wide = leaf.end - leaf.start;
         float inStart = leaf.start + leaf.startWide, inEnd = leaf.end - leaf.endWide;
@@ -481,12 +481,12 @@ final class OpeningBuilder {
                 }
             }
             // The jamb is the doorway's, not the leaf's: the line round a door E would open goes round the leaf.
-            long thing = WorldScene.solid.owner();
-            WorldScene.solid.own(Outlines.NONE);
+            long thing = build.solid.owner();
+            build.solid.own(Outlines.NONE);
             for (int jamb = 0; jamb < 2 * filled; jamb += 2) {
                 addJoinery(wood, jambs[jamb], jambs[jamb + 1], leaf.foot, leaf.head, Math.signum(face) * (WorldScene.WALL_HALF - JAMB_IN), r, g, b);
             }
-            WorldScene.solid.own(thing);
+            build.solid.own(thing);
             if (door.kind == Doors.PANELLED && panelled - leaf.foot > 0.15f) {
                 float high = panelled - leaf.foot;
                 for (int column = 0; column < PANELS_ACROSS.length; column += 2) {
@@ -545,7 +545,7 @@ final class OpeningBuilder {
                 }
             }
         }
-        SpriteGeometry.Mesh glass = WorldScene.laid.get(WorldScene.PLAIN, WallSides.PANES);
+        SpriteGeometry.Mesh glass = build.laid.get(WorldScene.PLAIN, WallSides.PANES);
         glass.sway = 0f;
         edgeSide = -1;
         facePane(glass, beyond, false, da, db);
@@ -582,7 +582,7 @@ final class OpeningBuilder {
             return false;
         }
         // The sprite's layers would lie both faces into the square and sink the far one behind the far skin.
-        WorldScene.layers.none();
+        build.layers.none();
         boolean measured = doorwayX == x && doorwayY == y && doorwayZ == z && doorwayNorth == north && doorwayStart >= 0f;
         float[] members = casingMembers(casing, measured ? doorwayStart : -1f, measured ? doorwayEnd : -1f);
         windowX = x;
@@ -592,10 +592,10 @@ final class OpeningBuilder {
         windowFoot = footOf(z);
         lightSides(north, false);
         boolean wooden = wooden(casing.red, casing.green, casing.blue);
-        SpriteGeometry.Mesh wood = WorldScene.solid.get(WorldScene.PLAIN, WallSides.key(casing.red, casing.green, casing.blue, WallSides.FLAT));
+        SpriteGeometry.Mesh wood = build.solid.get(WorldScene.PLAIN, WallSides.key(casing.red, casing.green, casing.blue, WallSides.FLAT));
         wood.sway = 0f;
-        long thing = WorldScene.solid.owner();
-        WorldScene.solid.own(Outlines.NONE);
+        long thing = build.solid.owner();
+        build.solid.own(Outlines.NONE);
         for (int side = 0; side < 2; side++) {
             float out = side == 0 ? 1f : -1f;
             wood.day = sideDay[side];
@@ -619,7 +619,7 @@ final class OpeningBuilder {
                 }
             }
         }
-        WorldScene.solid.own(thing);
+        build.solid.own(thing);
         wood.day = 0f;
         return true;
     }
@@ -800,7 +800,7 @@ final class OpeningBuilder {
         windowFoot = footOf(z);
         lightSides(north, false);
 
-        SpriteGeometry.Mesh joinery = WorldScene.solid.get(WorldScene.PLAIN, WallSides.key(shape.red, shape.green, shape.blue, WallSides.FLAT));
+        SpriteGeometry.Mesh joinery = build.solid.get(WorldScene.PLAIN, WallSides.key(shape.red, shape.green, shape.blue, WallSides.FLAT));
         joinery.sway = 0f;
         float made = wooden(shape.red, shape.green, shape.blue) ? JOINERY : WorldScene.PAINT;
         float level = ViewCamera.LEVEL_HEIGHT, lap = FRAME_LAP / level;
@@ -838,11 +838,11 @@ final class OpeningBuilder {
             }
         }
 
-        SpriteGeometry.Mesh glass = WorldScene.laid.get(WorldScene.PLAIN, WallSides.PANES);
+        SpriteGeometry.Mesh glass = build.laid.get(WorldScene.PLAIN, WallSides.PANES);
         glass.sway = 0f;
         facePane(glass, beyond, lit, da, db);
         paneFrame.lightAs(sideFrames[paneSide]);
-        WorldScene.sites.lamp(paneFrame, ownIsRoom ? LightSites.LAMP_OWN : north ? LightSites.LAMP_NORTH : LightSites.LAMP_WEST,
+        build.sites.lamp(paneFrame, ownIsRoom ? LightSites.LAMP_OWN : north ? LightSites.LAMP_NORTH : LightSites.LAMP_WEST,
                 ownIsRoom ? LightSites.place(x, y, z) : north ? LightSites.place(x, y - 1, z) : LightSites.place(x - 1, y, z), lit);
         glass.lightFlat(paneFrame);
         float clear = glass.open;
@@ -1010,9 +1010,9 @@ final class OpeningBuilder {
      * the room left out would leave the glass showing through the building.
      */
     private void addBlind(Windows.Shape shape, long room, int side) {
-        long given = WorldScene.solid.room;
+        long given = build.solid.room;
         build.contentsOf(RoomSight.blind(room));
-        SpriteGeometry.Mesh sheet = WorldScene.solid.get(WorldScene.PLAIN, WallSides.key(BLIND_RED, BLIND_GREEN, BLIND_BLUE, WallSides.FLAT));
+        SpriteGeometry.Mesh sheet = build.solid.get(WorldScene.PLAIN, WallSides.key(BLIND_RED, BLIND_GREEN, BLIND_BLUE, WallSides.FLAT));
         sheet.sway = 0f;
         sheet.open = sideOpen[side] + 32f * WorldScene.PAINT;
         sheet.day = sideDay[side];
@@ -1096,10 +1096,10 @@ final class OpeningBuilder {
         build.geometry.shownB = windowAlongX * out * WorldScene.WALL_HALF;
         // The skin's own plane, where the skin is as opaque as this is: laid a layer behind it, this shows only through the
         // skin's opening. In the plane, the two fought down every jamb; in front, it stood off the wall as a paler slab.
-        WorldScene.layers.lie(windowAlongY != 0f ? SpriteGeometry.LAYERS_X : SpriteGeometry.LAYERS_Y, -out);
+        build.layers.lie(windowAlongY != 0f ? SpriteGeometry.LAYERS_X : SpriteGeometry.LAYERS_Y, -out);
         build.geometry.addFace(wall, build.frame, x, y, z, windowAlongX * start, windowAlongY * start, low, windowAlongX * (end - start), windowAlongY * (end - start), 0f,
                 0f, 0f, high - low);
-        WorldScene.layers.none();
+        build.layers.none();
         build.geometry.shownA = build.geometry.shownB = 0f;
         build.frame.red = wasRed;
         build.frame.green = wasGreen;
@@ -1141,9 +1141,9 @@ final class OpeningBuilder {
             sideLight(sideRed[side], sideGreen[side], sideBlue[side], sideOpen[side], sideDay[side], frame);
             // The square's own side is lit as the frame was, and is worked out again from the site the frame had.
             if (side == 0 || same) {
-                WorldScene.sites.putOver(LightSites.SIDE, ownLight, build.frame.site, frame, sideDay[side]);
+                build.sites.putOver(LightSites.SIDE, ownLight, build.frame.site, frame, sideDay[side]);
             } else {
-                WorldScene.sites.put(LightSites.SIDE, ownLight | 1L << 8 | (north ? 1L : 0L) << 9, frame, sideDay[side], false);
+                build.sites.put(LightSites.SIDE, ownLight | 1L << 8 | (north ? 1L : 0L) << 9, frame, sideDay[side], false);
             }
         }
     }

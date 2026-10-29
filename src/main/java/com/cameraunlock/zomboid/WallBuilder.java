@@ -231,7 +231,7 @@ final class WallBuilder {
         boolean onKerbTop = build.standOnKerbTop(z, da != 0f);
         // What stands on an edge is seen from the place either side of it, and is drawn while the
         // eye sees into either: a room's, or the open air's. What is built as a room's contents stays its room's.
-        long given = WorldScene.solid.room;
+        long given = build.solid.room;
         boolean own = given != RoomSight.OUTSIDE && given != RoomSight.ANYWHERE;
         edgeNear = own ? given : roomAt(x, y, z);
         edgeFar = own ? given : da != 0f ? roomAt(x, y - 1, z) : roomAt(x - 1, y, z);
@@ -250,9 +250,9 @@ final class WallBuilder {
             }
             // What shares the edge's plane with the wall lies its layers into the square.
             float way = db != 0f ? SpriteGeometry.LAYERS_X : SpriteGeometry.LAYERS_Y;
-            WorldScene.layers.lie(way, layer);
+            build.layers.lie(way, layer);
             standEdge(mesh, texture, wall, door, x, y, z, way, layer, da, db);
-            WorldScene.layers.none();
+            build.layers.none();
             if (wall && build.logs) {
                 addLogs(texture, x, y, z, da, db);
             }
@@ -305,7 +305,7 @@ final class WallBuilder {
                 lightAlong(farAt, north);
             }
         }
-        long given = WorldScene.solid.room;
+        long given = build.solid.room;
         build.contentsOf(own ? roomAt(x, y, z) : north ? roomAt(x, y - 1, z) : roomAt(x - 1, y, z));
         build.placed.add(Models.get(name), build.frame, x, y, x + a, y + b, foot, turns, 1f, 1f, texture.getID(), 1 << Models.PAINT,
                 SpriteGeometry.textureU(build.frame, a, b), SpriteGeometry.textureV(build.frame, a, b, RAISED_DYE_UP), 0, 0f, 0f);
@@ -379,7 +379,7 @@ final class WallBuilder {
      */
     private void stain(SpriteGeometry.Mesh mesh, int x, int y, int z, float layer, float da, float db, float side, boolean onLogs, Texture wall) {
         float way = db != 0f ? SpriteGeometry.LAYERS_X : SpriteGeometry.LAYERS_Y;
-        WorldScene.layers.lie(way, side * layer);
+        build.layers.lie(way, side * layer);
         float face = side * (onLogs ? LogWalls.RADIUS + WorldScene.HUNG_CLEAR : WorldScene.WALL_HALF);
         build.geometry.shownA = skinA(db, face);
         build.geometry.shownB = skinB(da, face);
@@ -389,7 +389,7 @@ final class WallBuilder {
             build.geometry.addFace(mesh, build.frame, x, y, z, 0f, 0f, 0f, da, db, 0f, 0f, 0f, 1f);
         }
         build.geometry.shownA = build.geometry.shownB = 0f;
-        WorldScene.layers.none();
+        build.layers.none();
     }
 
     /** How far across a skin of the wall along (da, db) lies from the edge's line, face out on the wall's own square's side. */
@@ -509,7 +509,7 @@ final class WallBuilder {
             } else {
                 float from = build.sheetFrom;
                 if (from != 0f) {
-                    WorldScene.layers.lie(way, layer + build.sheetLayers);
+                    build.layers.lie(way, layer + build.sheetLayers);
                     addKerb(texture, x, y, z, da, db, build.sheetLayers == Fences.POSTED_LAYERS);
                 }
                 build.geometry.addFace(mesh, build.frame, x, y, z, from * da, from * db, 0f, (1f - from) * da, (1f - from) * db, 0f, 0f, 0f, 1f);
@@ -533,9 +533,9 @@ final class WallBuilder {
             }
             if (door && build.doorLeaf && build.overLayer == 0) {
                 // A leaf hangs in the middle of the wall's thickness: a built one where the wall is, the sprite's own with the edge's layers.
-                WorldScene.layers.none();
+                build.layers.none();
                 boolean built = Own.buildings() && build.openingBuilder.addBuiltDoor(texture, x, y, z, da, db);
-                WorldScene.layers.lie(way, layer);
+                build.layers.lie(way, layer);
                 if (built || build.openingBuilder.addDoor(mesh, texture, x, y, z, 0f, 0f, da, db)) {
                     build.geometry.shownA = build.geometry.shownB = 0f;
                     build.frame.site = site;
@@ -543,7 +543,7 @@ final class WallBuilder {
                 }
             }
             // And three layers more, which are thicker the further off: there the picture's depth is coarser.
-            WorldScene.layers.lie(way, layer + 3f);
+            build.layers.lie(way, layer + 3f);
             // Laid over a wall it is tiles only where its own sprite is of a sheet of them: a poster on a tiled wall is a poster.
             String sheet = build.overLayer == 0 ? build.tiledSheet : build.overSheet;
             if (!door && !sign && material != WorldScene.GLASS && addTiledOverlay(mesh, texture, sheet, x, y, z, da, db)) {
@@ -584,7 +584,7 @@ final class WallBuilder {
                 // has it on the side its view saw, and from the other the doorway was bare.
                 build.geometry.shownA = -build.geometry.shownA;
                 build.geometry.shownB = -build.geometry.shownB;
-                WorldScene.layers.lie(way, layer - 3f);
+                build.layers.lie(way, layer - 3f);
                 addFarCasing(mesh, x, y, z, da, db);
             }
             build.geometry.exactAcross = false;
@@ -618,7 +618,7 @@ final class WallBuilder {
                     build.geometry.sealTop = unpaintedTop(shown, 0f, 0f, da, db);
                 }
                 // Grime is a haze over the wall's own picture, which on a log wall is under the logs with it.
-                stain(inRoom(WorldScene.laid.get(shown.getID(), grime ? WallSides.STAIN : 0), mesh.room), x, y, z, 1f + layer, da, db, 1f,
+                stain(inRoom(build.laid.get(shown.getID(), grime ? WallSides.STAIN : 0), mesh.room), x, y, z, 1f + layer, da, db, 1f,
                         !grime && Own.buildings() && logsOn(x, y, z, da != 0f), grime ? build.overUnder : null);
                 build.geometry.sealLow = build.geometry.sealHigh = build.geometry.sealTop = 0f;
                 return;
@@ -678,14 +678,14 @@ final class WallBuilder {
         if (paper != null) {
             int key = WallSides.key(paper.red, paper.green, paper.blue, WallSides.FLAT);
             WallSides.tint(key, build.paperTint);
-            near = WorldScene.solid.get(texture.getID(), key);
+            near = build.solid.get(texture.getID(), key);
         }
         if (tiles != null) {
             // Stood square the sprite's far end, which it stops a few dots short of, is filled in: on the sprite itself the last tile had a slit cut in it there.
             int stood = build.flatOf(texture, da != 0f ? Flats.NORTH : Flats.WEST, 0f, 0f, 0f);
             tileBase = stood != 0 ? stood : texture.getID();
             tileFlat = stood == 0 ? 0 : da != 0f ? SpriteGeometry.FLAT_NORTH : SpriteGeometry.FLAT_WEST;
-            tileStood = WorldScene.solid.get(tileBase);
+            tileStood = build.solid.get(tileBase);
             near = tileStood;
         }
         // A wall that shows its own sprite shows it stood square, so its courses run on into the next length: see Flats.
@@ -801,11 +801,11 @@ final class WallBuilder {
             far = tileStood;
             build.frame.flat = tileFlat;
         } else if (farStood != null) {
-            far = stoodSquare(laid(WorldScene.solid.get(farStood.texture.getID()), farStood.texture, false, true, WallSides.madeOf(farStood.sprite), x, y, z, da != 0f), farStood.texture, da != 0f);
+            far = stoodSquare(laid(build.solid.get(farStood.texture.getID()), farStood.texture, false, true, WallSides.madeOf(farStood.sprite), x, y, z, da != 0f), farStood.texture, da != 0f);
         } else if (faced != null) {
-            far = stoodSquare(laid(WorldScene.solid.get(faced.texture.getID()), faced.texture, Masonry.suits(faced.sprite.getName()), false, WallSides.madeOf(faced.sprite), x, y, z, da != 0f), faced.texture, da != 0f);
+            far = stoodSquare(laid(build.solid.get(faced.texture.getID()), faced.texture, Masonry.suits(faced.sprite.getName()), false, WallSides.madeOf(faced.sprite), x, y, z, da != 0f), faced.texture, da != 0f);
         } else if (tint != 0) {
-            far = WorldScene.solid.get(build.ownGlass ? mesh.texture : texture.getID(), tint);
+            far = build.solid.get(build.ownGlass ? mesh.texture : texture.getID(), tint);
         } else {
             build.frame.flat = nearFlat;
         }
@@ -829,7 +829,7 @@ final class WallBuilder {
         }
         // The game hangs its grime only on the walls its view shows, and the other walls of a grimy room are as grimy.
         if (farGrimy && build.overLayer == 0 && !build.ownGlass && Own.textures(build.playerIndex)) {
-            stain(inRoom(WorldScene.laid.get(texture.getID(), WallSides.STAIN), farRoom), x, y, z, 1f, da, db, -1f, false, texture);
+            stain(inRoom(build.laid.get(texture.getID(), WallSides.STAIN), farRoom), x, y, z, 1f, da, db, -1f, false, texture);
         }
         if (build.overLayer == 0 && farLight >= 0) {
             build.frame.red = red;
@@ -865,7 +865,7 @@ final class WallBuilder {
     private void addChainLink(int x, int y, int z, float da, float db) {
         ChainLink.Run run = build.chainLink;
         boolean north = da != 0f;
-        SpriteGeometry.Mesh steel = WorldScene.solid.get(WorldScene.PLAIN, WallSides.key(ChainLink.RED, ChainLink.GREEN, ChainLink.BLUE, WallSides.FLAT));
+        SpriteGeometry.Mesh steel = build.solid.get(WorldScene.PLAIN, WallSides.key(ChainLink.RED, ChainLink.GREEN, ChainLink.BLUE, WallSides.FLAT));
         float material = build.frame.material;
         build.frame.material = ChainLink.FABRIC;
         build.geometry.addFace(steel, build.frame, x, y, z, 0f, 0f, 0f, da, db, 0f, 0f, 0f, run.rail());
@@ -1321,7 +1321,7 @@ final class WallBuilder {
      */
     private void lightAlong(int at, boolean north) {
         along(at, north, build.frame);
-        WorldScene.sites.put(LightSites.ALONG, at | (north ? 1L : 0L) << 8, build.frame, 0f, false);
+        build.sites.put(LightSites.ALONG, at | (north ? 1L : 0L) << 8, build.frame, 0f, false);
     }
 
     /** The light lightAlong gives a wall's far side, into into, from the light the build last read: a site's record is worked out again so (LightSites.ALONG). */
@@ -1379,7 +1379,7 @@ final class WallBuilder {
         }
         boolean over = build.overLayer != 0 || trim;
         int stood = build.flatOf(texture, over ? north ? Flats.OVER_NORTH : Flats.OVER_WEST : north ? Flats.NORTH : Flats.WEST, 0f, 0f, 0f);
-        SpriteGeometry.Mesh square = standSquare(WorldScene.solid, mesh, stood);
+        SpriteGeometry.Mesh square = standSquare(build.solid, mesh, stood);
         if (square != mesh) {
             build.frame.flat = north ? SpriteGeometry.FLAT_NORTH : SpriteGeometry.FLAT_WEST;
         }
@@ -1427,7 +1427,7 @@ final class WallBuilder {
      */
     SpriteGeometry.Mesh laid(SpriteGeometry.Mesh mesh, Texture texture, boolean suits, boolean ownOnly, int masonry, int x, int y, int z, boolean north) {
         if (laysSlats(Own.textures(build.playerIndex), build.overLayer, build.garageDoor, texture.getName())) {
-            return WorldScene.solid.get(texture.getID(), WallSides.SLATS);
+            return build.solid.get(texture.getID(), WallSides.SLATS);
         }
         if (build.overLayer != 0 || !Own.textures(build.playerIndex)) {
             return mesh;
@@ -1446,7 +1446,7 @@ final class WallBuilder {
                     return mesh;
                 }
                 if ((read & 15) == WallSides.LAPPED) {
-                    return WorldScene.solid.get(texture.getID(), read);
+                    return build.solid.get(texture.getID(), read);
                 }
                 if (Masonry.banded(texture)) {
                     build.frame.material = 0f;
@@ -1458,7 +1458,7 @@ final class WallBuilder {
                 build.building.signed &= !SpriteColours.unread(texture);
                 return mesh;
             }
-            return WorldScene.solid.get(texture.getID(), WallSides.laid(colour[0], colour[1], colour[2], 0f, 0f, 0f, WallSides.BOARDED));
+            return build.solid.get(texture.getID(), WallSides.laid(colour[0], colour[1], colour[2], 0f, 0f, 0f, WallSides.BOARDED));
         }
         if (!suits) {
             return mesh;
@@ -1528,7 +1528,7 @@ final class WallBuilder {
         if (how == 0) {
             return mesh;
         }
-        return WorldScene.solid.get(texture.getID(), build.gableSheet ? how : WallSides.asMade(how, masonry));
+        return build.solid.get(texture.getID(), build.gableSheet ? how : WallSides.asMade(how, masonry));
     }
 
     /**
@@ -1581,7 +1581,7 @@ final class WallBuilder {
             return;
         }
         boolean lamplit = WorldScene.lamplit(build.cell, ownIsRoom ? build.here : beyond, build.playerIndex, build.asTheGameShows || build.gamesView, build.lampsNear);
-        WorldScene.sites.lamp(build.frame, ownIsRoom ? LightSites.LAMP_OWN : north ? LightSites.LAMP_NORTH : LightSites.LAMP_WEST,
+        build.sites.lamp(build.frame, ownIsRoom ? LightSites.LAMP_OWN : north ? LightSites.LAMP_NORTH : LightSites.LAMP_WEST,
                 ownIsRoom ? LightSites.place(x, y, z) : north ? LightSites.place(x, y - 1, z) : LightSites.place(x - 1, y, z), lamplit);
         if (lamplit) {
             build.frame.material = LIT_GLASS;
@@ -1817,7 +1817,7 @@ final class WallBuilder {
                 addFigures(band, x, y, z, a, b, da, db, from, to, low, high);
                 continue;
             }
-            SpriteGeometry.Mesh laid = WorldScene.solid.get(WorldScene.PLAIN,
+            SpriteGeometry.Mesh laid = build.solid.get(WorldScene.PLAIN,
                     WallSides.laid(band.red, band.green, band.blue, band.jointRed, band.jointGreen, band.jointBlue, WallSides.TILED));
             SpriteGeometry.Mesh joints = painted(band.jointRed, band.jointGreen, band.jointBlue);
             for (WallTiles.Stretch stretch : WallTiles.stretches(band, halfUp)) {
@@ -1873,11 +1873,11 @@ final class WallBuilder {
         if (band.motifs.length == 0 && !(band.tiled && band.stripes != null)) {
             return;
         }
-        float material = build.frame.material, way = db != 0f ? SpriteGeometry.LAYERS_X : SpriteGeometry.LAYERS_Y, was = WorldScene.layers.count();
+        float material = build.frame.material, way = db != 0f ? SpriteGeometry.LAYERS_X : SpriteGeometry.LAYERS_Y, was = build.layers.count();
         float side = Math.signum(build.geometry.shownA + build.geometry.shownB);
         build.frame.material = WorldScene.TILE;
         build.geometry.sealLow = build.geometry.sealHigh = 0f;
-        WorldScene.layers.lie(way, was + side * FIGURE_LAYERS);
+        build.layers.lie(way, was + side * FIGURE_LAYERS);
         if (band.tiled && band.stripes != null) {
             for (WallTiles.Stripe stripe : band.stripes) {
                 float foot = Math.max(low, stripe.foot), head = Math.min(high, stripe.head);
@@ -1891,15 +1891,15 @@ final class WallBuilder {
             if (motif.along - motif.halfAlong < start || motif.along + motif.halfAlong > end || motif.level - motif.halfUp < low || motif.level + motif.halfUp > high) {
                 continue;
             }
-            WorldScene.layers.lie(way, was + side * FIGURE_LAYERS);
+            build.layers.lie(way, was + side * FIGURE_LAYERS);
             addFigure(painted(motif.red, motif.green, motif.blue), motif.shape, x, y, z, a, b, da, db, motif.along, motif.level, motif.halfAlong, motif.halfUp);
             if (motif.inner > 0f) {
-                WorldScene.layers.lie(way, was + side * 2f * FIGURE_LAYERS);
+                build.layers.lie(way, was + side * 2f * FIGURE_LAYERS);
                 addFigure(painted(motif.innerRed, motif.innerGreen, motif.innerBlue), motif.shape, x, y, z, a, b, da, db, motif.along, motif.level,
                         motif.halfAlong * motif.inner, motif.halfUp * motif.inner);
             }
         }
-        WorldScene.layers.lie(way, was);
+        build.layers.lie(way, was);
         build.frame.material = material;
     }
 
@@ -1939,7 +1939,7 @@ final class WallBuilder {
         }
         // Its own dots are shown stood square: the sprite stops a few dots short of the wall's end, and there a tile of a figure would show a slit.
         int stood = build.flatOf(texture, north ? Flats.NORTH : Flats.WEST, 0f, 0f, 0f);
-        SpriteGeometry.Mesh picture = stood != 0 ? WorldScene.solid.get(stood) : mesh;
+        SpriteGeometry.Mesh picture = stood != 0 ? build.solid.get(stood) : mesh;
         int pictureFlat = stood == 0 ? 0 : north ? SpriteGeometry.FLAT_NORTH : SpriteGeometry.FLAT_WEST;
         float made = build.frame.material;
         for (WallTiles.Face face : WallTiles.overlayFaces(over, TILE_JOINT_HALF, TILE_JOINT_HALF / ViewCamera.LEVEL_HEIGHT)) {
@@ -1959,12 +1959,12 @@ final class WallBuilder {
                 geometry.footH = face.foot;
                 geometry.footV = face.footV;
                 geometry.perLevel = face.perLevel;
-                tiledFace(WorldScene.solid.get(WorldScene.PLAIN, WallSides.laid(band.red, band.green, band.blue, band.jointRed, band.jointGreen, band.jointBlue, WallSides.TILED)),
+                tiledFace(build.solid.get(WorldScene.PLAIN, WallSides.laid(band.red, band.green, band.blue, band.jointRed, band.jointGreen, band.jointBlue, WallSides.TILED)),
                         x, y, z, 0f, 0f, da, db, face.start, face.stop, face.low, face.high, 0f, 1f, 0f, 0f, true);
                 geometry.jointStep = Float.NaN;
             } else {
                 build.frame.material = made;
-                tiledFace(WorldScene.solid.get(texture.getID(), WallSides.laid(band.red, band.green, band.blue, 0f, 0f, 0f, WallSides.FINE)),
+                tiledFace(build.solid.get(texture.getID(), WallSides.laid(band.red, band.green, band.blue, 0f, 0f, 0f, WallSides.FINE)),
                         x, y, z, 0f, 0f, da, db, face.start, face.stop, face.low, face.high, 0f, 1f, 0f, 0f, true);
                 addCells(band, texture, x, y, z, da, db, face);
             }
@@ -1983,11 +1983,11 @@ final class WallBuilder {
         if (band.motifs.length == 0) {
             return;
         }
-        float way = db != 0f ? SpriteGeometry.LAYERS_X : SpriteGeometry.LAYERS_Y, was = WorldScene.layers.count();
-        WorldScene.layers.lie(way, was + Math.signum(build.geometry.shownA + build.geometry.shownB) * FIGURE_LAYERS);
+        float way = db != 0f ? SpriteGeometry.LAYERS_X : SpriteGeometry.LAYERS_Y, was = build.layers.count();
+        build.layers.lie(way, was + Math.signum(build.geometry.shownA + build.geometry.shownB) * FIGURE_LAYERS);
         build.geometry.sealLow = build.geometry.sealHigh = 0f;
         for (WallTiles.Motif cell : band.motifs) {
-            SpriteGeometry.Mesh on = WorldScene.solid.get(texture.getID(), WallSides.laid(cell.red, cell.green, cell.blue, 0f, 0f, 0f, WallSides.FINE));
+            SpriteGeometry.Mesh on = build.solid.get(texture.getID(), WallSides.laid(cell.red, cell.green, cell.blue, 0f, 0f, 0f, WallSides.FINE));
             float[] outline = cellOutline;
             if (cell.shape == WallTiles.Motif.DIAMOND) {
                 outline[0] = cell.along + cell.halfAlong;
@@ -2022,7 +2022,7 @@ final class WallBuilder {
                 build.geometry.addTriangle(on, build.frame, x, y, z, corners);
             }
         }
-        WorldScene.layers.lie(way, was);
+        build.layers.lie(way, was);
     }
 
     private final float[] cellOutline = new float[8], cellCorners = new float[9];
@@ -2056,7 +2056,7 @@ final class WallBuilder {
 
     /** The mesh a face of a tiled wall goes in to be the colour (r, g, b), lit as the place is: see WallSides.FINE. */
     private SpriteGeometry.Mesh painted(float r, float g, float b) {
-        return WorldScene.solid.get(tileBase, WallSides.laid(r, g, b, 0f, 0f, 0f, WallSides.FINE));
+        return build.solid.get(tileBase, WallSides.laid(r, g, b, 0f, 0f, 0f, WallSides.FINE));
     }
 
     /** One face of a tiled wall, from start to end along it and from low to high, sealed as the piece from from to to is at its ends. Nothing where it has no size. */
@@ -2098,7 +2098,7 @@ final class WallBuilder {
                 tileBase = stood != 0 ? stood : shows.getID();
                 // Its picture stood square is laid along this wall, whichever edge it was read on.
                 tileFlat = stood == 0 ? 0 : north ? SpriteGeometry.FLAT_NORTH : SpriteGeometry.FLAT_WEST;
-                tileStood = WorldScene.solid.get(tileBase);
+                tileStood = build.solid.get(tileBase);
                 // A face is cut to its frame's rectangle, and that of a sprite painted for the other edge
                 // meets this one only at the corner: the tiles are cut to this wall's own sprite instead.
                 if (on != north) {
@@ -2221,8 +2221,8 @@ final class WallBuilder {
             float from = half == 0 ? 0f : -1f, to = half == 0 ? 1f : 0f;
             SpriteGeometry.Frame lit = half == 0 ? build.frame : revealFrame;
             float[] paint = half == 0 ? nearPaint : farPaint;
-            SpriteGeometry.Mesh plain = paint == null ? WorldScene.solid.get(WorldScene.PLAIN)
-                    : WorldScene.solid.get(WorldScene.PLAIN, WallSides.laid(paint[0], paint[1], paint[2], 0f, 0f, 0f, WallSides.FINE));
+            SpriteGeometry.Mesh plain = paint == null ? build.solid.get(WorldScene.PLAIN)
+                    : build.solid.get(WorldScene.PLAIN, WallSides.laid(paint[0], paint[1], paint[2], 0f, 0f, 0f, WallSides.FINE));
             plain.sway = 0f;
             plain.open = (half == 0 ? open : farOpen) + 32f * (paint == null ? WorldScene.CONCRETE : WorldScene.PAINT);
             for (int side = 0; side < 2; side++) {
@@ -2483,8 +2483,8 @@ final class WallBuilder {
      * one floor ends and the next begins. The plinth stops either side of a doorway.
      */
     void addCourses(float[] opening, int at, int x, int y, int z, float a, float b, float da, float db, float outX, float outY) {
-        SpriteGeometry.Mesh plinth = WorldScene.solid.get(WorldScene.PLAIN, Courses.paint(farColour, Courses.PLINTH_SHADE));
-        SpriteGeometry.Mesh course = WorldScene.solid.get(WorldScene.PLAIN, Courses.paint(farColour, Courses.COURSE_SHADE));
+        SpriteGeometry.Mesh plinth = build.solid.get(WorldScene.PLAIN, Courses.paint(farColour, Courses.PLINTH_SHADE));
+        SpriteGeometry.Mesh course = build.solid.get(WorldScene.PLAIN, Courses.paint(farColour, Courses.COURSE_SHADE));
         plinth.open = course.open = build.frame.open;
         plinth.sway = course.sway = 0f;
         plinth.lightFlat(build.frame);
@@ -2516,7 +2516,7 @@ final class WallBuilder {
         if (battens.length == 0) {
             return;
         }
-        SpriteGeometry.Mesh batten = inRoom(WorldScene.solid.get(WorldScene.PLAIN, Courses.paint(colour, BATTEN_SHADE)), room);
+        SpriteGeometry.Mesh batten = inRoom(build.solid.get(WorldScene.PLAIN, Courses.paint(colour, BATTEN_SHADE)), room);
         batten.open = build.frame.open;
         batten.sway = 0f;
         batten.lightFlat(build.frame);

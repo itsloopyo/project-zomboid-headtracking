@@ -466,8 +466,8 @@ final class ShaderTests {
         Checks.check(casterVertex.contains("(kind < 3.5 ? vec3(1.0, 0.0, 0.0) : kind < 4.5 ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0))"), "a sheet does not lie up as what lies in layers up does");
         String scene = LowTests.scene();
         Checks.check(!(count(scene, "layers.sheet(") != 3 || count(scene, "layers.sheet(-1f); ") != 2
-                || !scene.contains("private void layFloor(boolean floor) { if (floor && build.floorLayer == 0) { WorldScene.layers.sheet(build.floorLayer++); }"
-                        + " else { WorldScene.layers.lie(SpriteGeometry.LAYERS_UP, build.floorLayer++); } }")
+                || !scene.contains("private void layFloor(boolean floor) { if (floor && build.floorLayer == 0) { build.layers.sheet(build.floorLayer++); }"
+                        + " else { build.layers.lie(SpriteGeometry.LAYERS_UP, build.floorLayer++); } }")
                 || !scene.contains("layFloor(isFloor && build.frame.kind == 0f);")), "the scene does not mark the first layer of a floor and both ceilings a sheet, and only those");
         Checks.check(!(count(pipeline, "glPolygonOffset(") != 2 || count(pipeline, "GL11.glPolygonOffset(SLOPE_OFFSET, 6f);") != 2
                 || count(pipeline, "glPolygonOffsetClamp(") != 1 || count(pipeline, "glPolygonOffsetClampEXT(") != 1

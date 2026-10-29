@@ -79,7 +79,7 @@ final class StairBuilder {
                 build.building.signed &= !SpriteColours.unread(texture);
                 return true;
             }
-            SpriteGeometry.Mesh plain = WorldScene.solid.get(WorldScene.PLAIN, WallSides.key(colour[WallSides.MEAN], colour[WallSides.MEAN + 1], colour[WallSides.MEAN + 2], WallSides.FLAT));
+            SpriteGeometry.Mesh plain = build.solid.get(WorldScene.PLAIN, WallSides.key(colour[WallSides.MEAN], colour[WallSides.MEAN + 1], colour[WallSides.MEAN + 2], WallSides.FLAT));
             plain.open = build.frame.open;
             plain.sway = 0f;
             build.flightOn(plain, x, y, z, west, third);
@@ -137,7 +137,7 @@ final class StairBuilder {
             build.building.signed &= !SpriteColours.unread(texture);
             return null;
         }
-        SpriteGeometry.Mesh treads = WorldScene.solid.get(WorldScene.PLAIN, WallSides.laid(colour[WallSides.MEAN], colour[WallSides.MEAN + 1], colour[WallSides.MEAN + 2], 0f, 0f, 0f, WallSides.FINE));
+        SpriteGeometry.Mesh treads = build.solid.get(WorldScene.PLAIN, WallSides.laid(colour[WallSides.MEAN], colour[WallSides.MEAN + 1], colour[WallSides.MEAN + 2], 0f, 0f, 0f, WallSides.FINE));
         treads.sway = 0f;
         return treads;
     }

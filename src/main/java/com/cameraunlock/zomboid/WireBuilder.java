@@ -281,7 +281,7 @@ final class WireBuilder {
             WorldScene.set(poleTo, 0, armX + alongX * at, armY + alongY * at, armUp - Poles.ARM_HALF);
             build.geometry.addStrut(mesh, poleFrom, poleTo, Poles.BRACE_HALF, u, v, build.frame.red, build.frame.green, build.frame.blue);
         }
-        SpriteGeometry.Mesh glazed = WorldScene.solid.get(WorldScene.PLAIN, WallSides.key(Poles.INSULATOR_RED, Poles.INSULATOR_GREEN, Poles.INSULATOR_BLUE, WallSides.FLAT));
+        SpriteGeometry.Mesh glazed = build.solid.get(WorldScene.PLAIN, WallSides.key(Poles.INSULATOR_RED, Poles.INSULATOR_GREEN, Poles.INSULATOR_BLUE, WallSides.FLAT));
         glazed.open = build.frame.open;
         glazed.sway = 0f;
         glazed.lightFlat(build.frame);
@@ -316,7 +316,7 @@ final class WireBuilder {
      * each other.
      */
     void cable(float x0, float y0, float up0, float hangs0, float x1, float y1, float up1, float hangs1, float swing) {
-        SpriteGeometry.Mesh plain = WorldScene.solid.get(WorldScene.PLAIN);
+        SpriteGeometry.Mesh plain = build.solid.get(WorldScene.PLAIN);
         plain.open = build.frame.open + SpriteGeometry.CARD + 32f * WorldScene.WIRE;
         plain.lightFlat(build.frame);
         float length = (float) Math.sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0));

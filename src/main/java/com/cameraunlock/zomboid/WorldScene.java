@@ -806,10 +806,10 @@ final class WorldScene {
      * until the graphics card has it: a pair kept by each build was two copies of every chunk
      * in sight, each with the room of the fullest chunk it had ever held.
      */
-    static final SpriteGeometry.Layers layers = new SpriteGeometry.Layers();
+    static final SpriteGeometry.Layers sharedLayers = new SpriteGeometry.Layers();
     /** The light sites of the chunk being built, every level of it, emptied with the pair: see LightSites. */
-    static final LightSites.Table sites = new LightSites.Table();
-    static final SpriteGeometry.MeshSet solid = new SpriteGeometry.MeshSet(layers, sites), laid = new SpriteGeometry.MeshSet(layers, sites);
+    static final LightSites.Table sharedSites = new LightSites.Table();
+    static final SpriteGeometry.MeshSet sharedSolid = new SpriteGeometry.MeshSet(sharedLayers, sharedSites), sharedLaid = new SpriteGeometry.MeshSet(sharedLayers, sharedSites);
     /** How far in front of the place looked at the picture reaches from far overhead, in tiles. */
     private static final float OVERHEAD_DEPTH = 160f;
     /** The distance the place looked at is taken to be at, for what the picture does by distance. */
@@ -1961,14 +1961,14 @@ final class WorldScene {
             return;
         }
         if (CHECK_BUILDS) {
-            solid.clear();
-            back.from.mesh(solid, PLAIN, crownFrame);
+            sharedSolid.clear();
+            back.from.mesh(sharedSolid, PLAIN, crownFrame);
             tollChecked++;
-            if (floatsOf(solid) != back.sum) {
+            if (floatsOf(sharedSolid) != back.sum) {
                 tollDiffered++;
                 Log.info("build check: the crowns of the chunk at " + back.into.wx + ", " + back.into.wy + " came out otherwise on their own thread");
             }
-            solid.clear();
+            sharedSolid.clear();
         }
         crownsWaited[back.slot] = null;
         ChunkMeshes standing = latestCrowned[back.slot];
@@ -2032,10 +2032,10 @@ final class WorldScene {
 
     /** Dev only: see ChunkMeshes.auditMeshes. */
     private long[] meshesOf() {
-        long[] of = new long[(solid.used.size() + laid.used.size()) * 3];
+        long[] of = new long[(sharedSolid.used.size() + sharedLaid.used.size()) * 3];
         int at = 0;
         for (int set = 0; set < 2; set++) {
-            SpriteGeometry.MeshSet from = set == 0 ? solid : laid;
+            SpriteGeometry.MeshSet from = set == 0 ? sharedSolid : sharedLaid;
             for (int i = 0; i < from.used.size(); i++) {
                 SpriteGeometry.Mesh mesh = from.used.get(i);
                 long sum = SUM_FROM;
@@ -2055,7 +2055,7 @@ final class WorldScene {
     private String describe(long key, long before, long after) {
         int set = (int) (key >>> 62), texture = (int) (key >>> 32 & 0x3fffffff), tint = (int) key;
         String said = (set == 0 ? "solid" : "laid") + " texture " + texture + " tint " + Integer.toHexString(tint) + " floats " + before + " then " + after;
-        SpriteGeometry.Mesh mesh = after == 0 ? null : (set == 0 ? solid : laid).get(texture, tint);
+        SpriteGeometry.Mesh mesh = after == 0 ? null : (set == 0 ? sharedSolid : sharedLaid).get(texture, tint);
         if (mesh == null) {
             return said;
         }
@@ -2227,10 +2227,10 @@ final class WorldScene {
             spareCrowns.clear();
             Crowns.letGo();
             FarLand.forgetTheMap();
-            solid.clear();
-            laid.clear();
-            solid.trim();
-            laid.trim();
+            sharedSolid.clear();
+            sharedLaid.clear();
+            sharedSolid.trim();
+            sharedLaid.trim();
         }
     }
 
@@ -2336,10 +2336,10 @@ final class WorldScene {
         roomDaylight.forgetOutside(mapWx, mapWy, mapSide);
         // On the map and a step off it, as ChunkBuffers.kept keeps builds.
         ChunkMarks.keepTellings(view.index, mapWx - 1, mapWy - 1, mapSide + 2);
-        solid.clear();
-        laid.clear();
-        solid.trim();
-        laid.trim();
+        sharedSolid.clear();
+        sharedLaid.clear();
+        sharedSolid.trim();
+        sharedLaid.trim();
         VertexLoans.trim(System.nanoTime());
     }
 
@@ -3004,6 +3004,11 @@ final class WorldScene {
         float grassDensity() {
             return grassGrown;
         }
+
+        /** Where the builds of this frame put their triangles, the solid and the laid, and their light sites: the shared pair (see sharedLayers). */
+        final SpriteGeometry.Layers layers = sharedLayers;
+        final LightSites.Table sites = sharedSites;
+        final SpriteGeometry.MeshSet solid = sharedSolid, laid = sharedLaid;
 
         final FloorBuilder floorBuilder = new FloorBuilder(this);
         private final KerbBuilder kerbBuilder = new KerbBuilder(this);

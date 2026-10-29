@@ -171,7 +171,7 @@ final class FurnishingBuilder {
             float out = WorldScene.WALL_HALF + WallDrapes.CLEAR + WallDrapes.BANNER_PROUD;
             build.geometry.shownA = north ? 0f : out;
             build.geometry.shownB = north ? out : 0f;
-            build.geometry.addFace(WorldScene.solid.get(texture.getID()), build.frame, x, y, z, 0f, 0f, 0f, north ? 1f : 0f, north ? 0f : 1f, 0f, 0f, 0f, 1f);
+            build.geometry.addFace(build.solid.get(texture.getID()), build.frame, x, y, z, 0f, 0f, 0f, north ? 1f : 0f, north ? 0f : 1f, 0f, 0f, 0f, 1f);
             build.geometry.shownA = build.geometry.shownB = 0f;
         }
         return true;
@@ -221,8 +221,8 @@ final class FurnishingBuilder {
         float foot = floor + Math.max(0f, drapeAt[WallHung.BOTTOM]) * level, head = floor + (drapeAt[WallHung.TOP] + (over ? 1f : 0f)) * level;
         float hem = fringe ? foot + WallDrapes.FRINGE * (drapeAt[WallHung.TOP] - Math.max(0f, drapeAt[WallHung.BOTTOM])) * level : foot;
         float red = colour[0], green = colour[1], blue = colour[2];
-        SpriteGeometry.Mesh cloth = WorldScene.solid.get(WorldScene.PLAIN, WallSides.key(red, green, blue, WallSides.FLAT));
-        SpriteGeometry.Mesh gold = WorldScene.solid.get(WorldScene.PLAIN,
+        SpriteGeometry.Mesh cloth = build.solid.get(WorldScene.PLAIN, WallSides.key(red, green, blue, WallSides.FLAT));
+        SpriteGeometry.Mesh gold = build.solid.get(WorldScene.PLAIN,
                 WallSides.key(red * WallDrapes.FRINGE_RED, red * WallDrapes.FRINGE_GREEN, red * WallDrapes.FRINGE_BLUE, WallSides.FLAT));
         long line = WallDrapes.line(north, north ? y : x, z);
         int strips = WallDrapes.FOLDS * WallDrapes.FOLD_STRIPS;
@@ -1106,7 +1106,7 @@ final class FurnishingBuilder {
         if (side == Leisure.NO_NET) {
             return;
         }
-        SpriteGeometry.Mesh white = WorldScene.solid.get(WorldScene.PLAIN, WallSides.key(NET_WHITE, NET_WHITE, NET_WHITE, WallSides.FLAT));
+        SpriteGeometry.Mesh white = build.solid.get(WorldScene.PLAIN, WallSides.key(NET_WHITE, NET_WHITE, NET_WHITE, WallSides.FLAT));
         white.sway = 0f;
         float red = build.frame.red, green = build.frame.green, blue = build.frame.blue;
         int sheets = Leisure.netSheets(goal, side, netPoints);

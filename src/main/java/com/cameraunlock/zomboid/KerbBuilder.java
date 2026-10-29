@@ -130,7 +130,7 @@ final class KerbBuilder {
      * four points of the field is two triangles, and the line runs straight through each.
      */
     void addKerb(int x, int y, int localX, int localY) {
-        SpriteGeometry.Mesh mesh = WorldScene.solid.get(WorldScene.PLAIN);
+        SpriteGeometry.Mesh mesh = build.solid.get(WorldScene.PLAIN);
         // The colour given is the light on it. What colour the thing is, the picture knows by
         // what it is made of.
         mesh.open = build.frame.open + 32f * KERB_STONE;
@@ -302,7 +302,7 @@ final class KerbBuilder {
         if (build.frame.material == WorldScene.WOOD && Own.textures(build.playerIndex)) {
             build.frame.material = WorldScene.TILE;
         }
-        build.geometry.addFace(WorldScene.solid.get(flat != 0 ? flat : texture.getID()), build.frame, x, y, 0, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
+        build.geometry.addFace(build.solid.get(flat != 0 ? flat : texture.getID()), build.frame, x, y, 0, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
         build.frame.flat = 0;
         build.geometry.kerbKeep = SpriteGeometry.BOTH;
         build.frame.material = 0f;

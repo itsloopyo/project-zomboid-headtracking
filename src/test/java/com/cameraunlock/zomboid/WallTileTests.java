@@ -979,7 +979,7 @@ final class WallTileTests {
     /** How many triangles the frame's build has added showing that texture as it is painted, in every room. */
     private static int laidWith(Texture texture) {
         int triangles = 0;
-        for (SpriteGeometry.Mesh mesh : TestMap.<java.util.List<SpriteGeometry.Mesh>>read(WorldScene.solid, "all")) {
+        for (SpriteGeometry.Mesh mesh : TestMap.<java.util.List<SpriteGeometry.Mesh>>read(WorldScene.sharedSolid, "all")) {
             triangles += mesh.texture == texture.getID() && mesh.tint == 0 ? mesh.triangles() : 0;
         }
         return triangles;
@@ -1003,12 +1003,12 @@ final class WallTileTests {
             // Were it read as tiles laid over the wall, it would be built as them and not as itself.
             WallTiles.knownForTests(poster, true, true, read((column, row) -> row < 110 ? null : tiles(WHITE, column, row, 11, 16, 120, 22), true));
             map.build.overSheet = null;
-            map.build.wallBuilder.addEdge(WorldScene.solid.get(poster.getID()), poster, false, false, 1, 0, 0, 0f, 1f, 0f);
+            map.build.wallBuilder.addEdge(WorldScene.sharedSolid.get(poster.getID()), poster, false, false, 1, 0, 0, 0f, 1f, 0f);
             check(laidWith(poster) > 0, "a poster hung on a tiled wall is laid as its picture, not read as the wall's tiles");
             Texture panel = over(map, 322);
             WallTiles.knownForTests(panel, true, true, read((column, row) -> row < 110 ? null : tiles(WHITE, column, row, 11, 16, 120, 22), true));
             map.build.overSheet = SHEET;
-            map.build.wallBuilder.addEdge(WorldScene.solid.get(panel.getID()), panel, false, false, 1, 0, 0, 0f, 1f, 0f);
+            map.build.wallBuilder.addEdge(WorldScene.sharedSolid.get(panel.getID()), panel, false, false, 1, 0, 0, 0f, 1f, 0f);
             check(laidWith(panel) == 0, "and a panel of tiles hung so, of a sheet of them, is built as its tiles");
         });
     }
@@ -1019,9 +1019,9 @@ final class WallTileTests {
             map.cell.square(1, -1, 0).setRoomID(2L);
             Texture grime = over(map, 321);
             map.build.overSheet = null;
-            map.build.wallBuilder.addEdge(WorldScene.solid.get(grime.getID()), grime, true, false, 1, 0, 0, 0f, 1f, 0f);
+            map.build.wallBuilder.addEdge(WorldScene.sharedSolid.get(grime.getID()), grime, true, false, 1, 0, 0, 0f, 1f, 0f);
             int near = 0, far = 0;
-            for (SpriteGeometry.Mesh mesh : TestMap.<java.util.List<SpriteGeometry.Mesh>>read(WorldScene.solid, "all")) {
+            for (SpriteGeometry.Mesh mesh : TestMap.<java.util.List<SpriteGeometry.Mesh>>read(WorldScene.sharedSolid, "all")) {
                 if (mesh.texture == grime.getID()) {
                     near += mesh.room == 1L ? mesh.triangles() : 0;
                     far += mesh.room == 2L ? mesh.triangles() : 0;
@@ -1035,7 +1035,7 @@ final class WallTileTests {
     /** How many triangles the frame's build has added in that colour, painted as the picture paints a tile, in room 1. */
     private static int paintedIn(float[] colour) {
         int tint = WallSides.laid(colour[0], colour[1], colour[2], 0f, 0f, 0f, WallSides.FINE), triangles = 0;
-        for (SpriteGeometry.Mesh mesh : TestMap.<java.util.List<SpriteGeometry.Mesh>>read(WorldScene.solid, "all")) {
+        for (SpriteGeometry.Mesh mesh : TestMap.<java.util.List<SpriteGeometry.Mesh>>read(WorldScene.sharedSolid, "all")) {
             triangles += mesh.tint == tint && mesh.room == 1L ? mesh.triangles() : 0;
         }
         return triangles;
@@ -1090,7 +1090,7 @@ final class WallTileTests {
             frame.width = 128f;
             frame.height = 256f;
             frame.uEnd = frame.vEnd = 1f;
-            map.build.wallBuilder.addEdge(WorldScene.solid.get(texture.getID()), texture, true, false, 2, 0, 0, 0f, 1f, 0f);
+            map.build.wallBuilder.addEdge(WorldScene.sharedSolid.get(texture.getID()), texture, true, false, 2, 0, 0, 0f, 1f, 0f);
             check(paintedIn(NAVY) == 2, "a diamond read off a wall of tiles is built as one face of its own colour: " + paintedIn(NAVY));
             check(paintedIn(BLUE) == 2, "with its middle in its second colour: " + paintedIn(BLUE));
             check(paintedIn(PEACH) > 0, "and a line read across the tiles is built over them in its colour");
@@ -1121,7 +1121,7 @@ final class WallTileTests {
             frame.width = 128f;
             frame.height = 256f;
             frame.uEnd = frame.vEnd = 1f;
-            map.build.wallBuilder.addEdge(WorldScene.solid.get(harlequin.getID()), harlequin, true, false, 1, 0, 0, 0f, 1f, 0f);
+            map.build.wallBuilder.addEdge(WorldScene.sharedSolid.get(harlequin.getID()), harlequin, true, false, 1, 0, 0, 0f, 1f, 0f);
             check(laidWith(harlequin) == 0, "a harlequin laid over a wall is not shown as the sprite's dots: " + laidWith(harlequin));
             check(paintedIn(GREY) >= 20, "its grey diamonds are built as faces of their colour: " + paintedIn(GREY));
         });

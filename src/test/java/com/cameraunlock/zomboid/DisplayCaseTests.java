@@ -174,7 +174,7 @@ final class DisplayCaseTests {
         }
         Arrays.fill(build.geometry.lift, 0f);
         build.geometry.raised = 0f;
-        WorldScene.laid.clear();
+        WorldScene.sharedLaid.clear();
         FurnishingBuilder furnishing = new FurnishingBuilder(build);
         check(furnishing.addFurniture(first, one, 10, 20, 0), "the case stands on its first square" + (logs ? " with logs behind it" : ""));
         Models.Instances placed = build.placed;
@@ -184,7 +184,7 @@ final class DisplayCaseTests {
         float stands = placed.floats[at + Models.Instances.PLACE + 1] + placed.floats[at + Models.Instances.FOOT + 1];
         float sum = 0f;
         int corners = 0;
-        for (SpriteGeometry.Mesh mesh : WorldScene.laid.used) {
+        for (SpriteGeometry.Mesh mesh : WorldScene.sharedLaid.used) {
             for (int v = 0; v < mesh.floats; v += SpriteGeometry.VERTEX_FLOATS) {
                 sum += mesh.vertices[v + 1];
                 corners++;

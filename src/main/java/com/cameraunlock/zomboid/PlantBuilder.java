@@ -194,7 +194,7 @@ final class PlantBuilder {
         build.grownUnder = 0.85f;
         build.frameOf(build.groundObject[own], build.groundTexture[own]);
         // Looking no way, as long grass is grown: a lawn left out behind the view was bare when the head turned to it.
-        Grass.lawn(build.geometry, WorldScene.laid.get(build.groundTexture[own].getID()), build.frame, x, y, build.camera.eyeX, build.camera.eyeY, 0f, 0f,
+        Grass.lawn(build.geometry, build.laid.get(build.groundTexture[own].getID()), build.frame, x, y, build.camera.eyeX, build.camera.eyeY, 0f, 0f,
                 lowA, highA, lowB, highB, build, build.grassDensity());
     }
 
@@ -227,7 +227,7 @@ final class PlantBuilder {
         build.grownLocalY = localY;
         build.grownUnder = 0.85f;
         build.frameOf(build.groundObject[at], build.groundTexture[at]);
-        Grass.lawn(build.geometry, WorldScene.laid.get(build.groundTexture[at].getID()), build.frame, x, y, build.camera.eyeX, build.camera.eyeY, 0f, 0f,
+        Grass.lawn(build.geometry, build.laid.get(build.groundTexture[at].getID()), build.frame, x, y, build.camera.eyeX, build.camera.eyeY, 0f, 0f,
                 lowA, highA, lowB, highB, spreadGround, build.grassDensity());
     }
 
@@ -263,10 +263,10 @@ final class PlantBuilder {
             littered[corner] = open ? build.wooded[i * Terrain.CORNERS + j] : 0f;
             deepest = Math.max(deepest, Math.max(leafAt[corner] * Litter.SPREAD_MOST, needleAt[corner]));
         }
-        SpriteGeometry.Mesh cards = WorldScene.laid.get(WorldScene.PLAIN);
+        SpriteGeometry.Mesh cards = build.laid.get(WorldScene.PLAIN);
         float[] kerbs = build.kerbs;
         if (deepest > 0.02f) {
-            WorldScene.layers.lie(SpriteGeometry.LAYERS_UP, build.floorLayer + 1);
+            build.layers.lie(SpriteGeometry.LAYERS_UP, build.floorLayer + 1);
             byte kind = build.leafKinds[localX * Terrain.CHUNK_TILES + localY];
             // Where a kerb crosses the square or the gutter runs over it, the litter is laid in pieces, each on its own side of the kerb.
             boolean pieces = kerbs != null && (build.geometry.kerb != null || nearKerb(kerbs, localX, localY));
@@ -276,7 +276,7 @@ final class PlantBuilder {
                     layLitter(cards, x, y, localX, localY, (float) p / parts, (float) q / parts, 1f / parts, kerbs, kind);
                 }
             }
-            WorldScene.layers.none();
+            build.layers.none();
         }
         float deep = (littered[0] + littered[1] + littered[2] + littered[3]) / 4f;
         boolean tree = build.woods[(localX + Litter.RING) * WorldScene.WOOD_SPAN + localY + Litter.RING] != Litter.NONE;
@@ -482,7 +482,7 @@ final class PlantBuilder {
         float roomLowA = build.room[0] - x, roomHighA = build.room[1] - x, roomLowB = build.room[2] - y, roomHighB = build.room[3] - y;
         float lowA = spillsTo(own - WorldScene.LIGHT_SPAN) && roomLowA < 0f ? -GRASS_SPILL : 0.12f, highA = spillsTo(own + WorldScene.LIGHT_SPAN) && roomHighA > 1f ? 1f + GRASS_SPILL : 0.88f;
         float lowB = spillsTo(own - 1) && roomLowB < 0f ? -GRASS_SPILL : 0.12f, highB = spillsTo(own + 1) && roomHighB > 1f ? 1f + GRASS_SPILL : 0.88f;
-        SpriteGeometry.Mesh mesh = WorldScene.laid.get(build.groundTexture[own].getID());
+        SpriteGeometry.Mesh mesh = build.laid.get(build.groundTexture[own].getID());
         float away = build.bandAway;
         // Near the eye it is grown plant by plant. Far off, where a blade is finer than the
         // picture can draw, it is cards with the blades cut out of them, and between the two
@@ -521,7 +521,7 @@ final class PlantBuilder {
         }
         if (away < WorldScene.FLOWER_REACH) {
             // Flowers in long grass stand as tall as it does.
-            addFlowers(WorldScene.laid.get(WorldScene.PLAIN), x, y, 0.4f, 0.35f, 0.03f);
+            addFlowers(build.laid.get(WorldScene.PLAIN), x, y, 0.4f, 0.35f, 0.03f);
         }
         build.frame.originU = originU;
         build.frame.originV = originV;
@@ -575,9 +575,9 @@ final class PlantBuilder {
         build.building.seasonal = true;
         long now = Seasons.now();
         int season = Seasons.seasonOf(now);
-        Flowerbeds.grow(build.geometry, WorldScene.laid.get(texture.getID()), build.frame, bed, x, y, build.bandAway, build.room, season,
+        Flowerbeds.grow(build.geometry, build.laid.get(texture.getID()), build.frame, bed, x, y, build.bandAway, build.room, season,
                 Seasons.stepped(season, Seasons.progressionOf(now)));
-        Flowerbeds.pebbles(flora, build.geometry, WorldScene.solid.get(WorldScene.PLAIN), build.frame, bed, x, y, z * ViewCamera.LEVEL_HEIGHT, build.bandAway);
+        Flowerbeds.pebbles(flora, build.geometry, build.solid.get(WorldScene.PLAIN), build.frame, bed, x, y, z * ViewCamera.LEVEL_HEIGHT, build.bandAway);
     }
 
     /**
@@ -596,7 +596,7 @@ final class PlantBuilder {
         treeX = x;
         treeY = y;
         // Everything stood for a tree is its tree's: see SpriteGeometry.VERTEX_FLOATS.
-        SpriteGeometry.Mesh trunks = WorldScene.solid.get(WorldScene.PLAIN), ivy = WorldScene.laid.get(WorldScene.PLAIN);
+        SpriteGeometry.Mesh trunks = build.solid.get(WorldScene.PLAIN), ivy = build.laid.get(WorldScene.PLAIN);
         mesh.rooted(x, y);
         trunks.rooted(x, y);
         ivy.rooted(x, y);
@@ -747,7 +747,7 @@ final class PlantBuilder {
         }
         float lowA = Math.max(0.04f, build.room[0] - x), highA = Math.min(0.96f, build.room[1] - x);
         float lowB = Math.max(0.04f, build.room[2] - y), highB = Math.min(0.96f, build.room[3] - y);
-        Crops.grow(build.geometry, WorldScene.laid.get(texture.getID()), build.frame, places, crop, x, y, Crops.tall(build.box[3]), build.bandAway, lowA, highA, lowB, highB);
+        Crops.grow(build.geometry, build.laid.get(texture.getID()), build.frame, places, crop, x, y, Crops.tall(build.box[3]), build.bandAway, lowA, highA, lowB, highB);
         build.cropsGrownHere |= 1 << crop;
         return true;
     }
@@ -765,7 +765,7 @@ final class PlantBuilder {
         float a = Flora.within(Math.clamp(build.box[0], 0.2f, 0.8f), reach, build.room[0] - x, build.room[1] - x);
         float b = Flora.within(Math.clamp(build.box[1], 0.2f, 0.8f), reach, build.room[2] - y, build.room[3] - y);
         int seed = Flora.mix(x, y, 85);
-        Flora.addFern(WorldScene.laid.get(WorldScene.PLAIN), x + a, y + b, z * ViewCamera.LEVEL_HEIGHT + build.geometry.liftAt(a, b), size, build.box[3] * ViewCamera.LEVEL_HEIGHT,
+        Flora.addFern(build.laid.get(WorldScene.PLAIN), x + a, y + b, z * ViewCamera.LEVEL_HEIGHT + build.geometry.liftAt(a, b), size, build.box[3] * ViewCamera.LEVEL_HEIGHT,
                 PAINTED_FRONDS + (seed >>> 24 & 1), seed, build.frame);
         return true;
     }
@@ -890,7 +890,7 @@ final class PlantBuilder {
         }
         if (build.crownsInline) {
             boolean limbed = boled && Crowns.limbed(away, sprig, leaf);
-            return Flora.addCrown(WorldScene.solid.get(texture.getID()), WorldScene.solid.get(WorldScene.PLAIN), build.frame, places, x + 0.5f, y + 0.5f, base, footU, footV, Crowns.detail(away), Crowns.close(away),
+            return Flora.addCrown(build.solid.get(texture.getID()), build.solid.get(WorldScene.PLAIN), build.frame, places, x + 0.5f, y + 0.5f, base, footU, footV, Crowns.detail(away), Crowns.close(away),
                     limbed ? boleThick : 0f, limbed ? boleTall : 0f, limbed ? boleBark : bark, sprig, seed, build.room, leaf, hue, turned,
                     boled ? boleKind : TreeForm.NONE, boled ? boleShape : null, world.twiggedFrom, painted, world.terrain.level, bloom);
         }
@@ -940,7 +940,7 @@ final class PlantBuilder {
             return false;
         }
         float a = Math.clamp(build.box[0], 0.2f, 0.8f), b = Math.clamp(build.box[1], 0.2f, 0.8f);
-        flora.addRock(WorldScene.solid.get(WorldScene.PLAIN), x + a, y + b, z * ViewCamera.LEVEL_HEIGHT + build.geometry.liftAt(a, b), Math.clamp(build.box[2] * 1.15f, 0.15f, 0.6f),
+        flora.addRock(build.solid.get(WorldScene.PLAIN), x + a, y + b, z * ViewCamera.LEVEL_HEIGHT + build.geometry.liftAt(a, b), Math.clamp(build.box[2] * 1.15f, 0.15f, 0.6f),
                 Math.clamp(build.box[3] * ViewCamera.LEVEL_HEIGHT, 0.12f, 1.4f), build.within(WorldScene.ROCK_NEAR, false), Flora.mix(x, y, 80), 0f, build.frame);
         return true;
     }
@@ -978,13 +978,13 @@ final class PlantBuilder {
         boolean footed = wooded && TreeForm.footed(boleKind);
         float thick = footed ? bole[0] * TreeForm.FOOT_THICK : bole[0];
         float tall = footed ? bole[1] * TreeForm.FOOT_TALL : wooded ? bole[1] * TreeForm.UNDER_WOOD : bole[1];
-        flora.addTrunk(WorldScene.solid.get(WorldScene.PLAIN), x + 0.5f, y + 0.5f, base, thick, tall, near, !footed, boleBark, seed, build.frame);
+        flora.addTrunk(build.solid.get(WorldScene.PLAIN), x + 0.5f, y + 0.5f, base, thick, tall, near, !footed, boleBark, seed, build.frame);
         boleX = x;
         boleY = y;
         boleThick = thick;
         boleTall = tall;
         if (near && Flora.ivied(x, y)) {
-            flora.addIvy(WorldScene.laid.get(WorldScene.PLAIN), x + 0.5f, y + 0.5f, base, thick, tall, tall * (0.5f + 0.5f * Flora.unit(seed, 16)), seed, build.frame);
+            flora.addIvy(build.laid.get(WorldScene.PLAIN), x + 0.5f, y + 0.5f, base, thick, tall, tall * (0.5f + 0.5f * Flora.unit(seed, 16)), seed, build.frame);
             addGroundIvy(x, y, z, thick, seed);
         }
         return true;
@@ -1028,7 +1028,7 @@ final class PlantBuilder {
         float lowY = Math.max(spillsTo(own - 1) ? y - GROUND_IVY_SPILL : y + GROUND_IVY_IN, build.room[2]);
         float highY = Math.min(spillsTo(own + 1) ? y + 1f + GROUND_IVY_SPILL : y + 1f - GROUND_IVY_IN, build.room[3]);
         float reach = GROUND_IVY_LEAST + GROUND_IVY_MORE * Flora.unit(seed, 24);
-        Flora.addGroundIvy(WorldScene.laid.get(WorldScene.PLAIN), x + 0.5f, y + 0.5f, x, y, z * ViewCamera.LEVEL_HEIGHT, build.geometry.lift, radius, reach,
+        Flora.addGroundIvy(build.laid.get(WorldScene.PLAIN), x + 0.5f, y + 0.5f, x, y, z * ViewCamera.LEVEL_HEIGHT, build.geometry.lift, radius, reach,
                 lowX, highX, lowY, highY, seed, build.frame);
     }
 

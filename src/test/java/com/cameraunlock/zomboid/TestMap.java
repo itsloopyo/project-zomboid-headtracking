@@ -31,10 +31,10 @@ final class TestMap {
         // A test that calls a builder without the build lighting the frame from the map builds in the frame's light as it is, on a site as a builder's light is.
         LightSiteTests.sited(build.frame);
         // Each site a builder puts is worked out again by the frame, as a build has it (Frame.addSquares).
-        WorldScene.sites.evaluator = build;
+        WorldScene.sharedSites.evaluator = build;
         build.roofBuilder.newBuild();
         Roofs.forget();
-        WorldScene.solid.get(WorldScene.PLAIN).clear();
+        WorldScene.sharedSolid.get(WorldScene.PLAIN).clear();
         painted.paint(0, 0, 4, 4);
     }
 
@@ -88,7 +88,7 @@ final class TestMap {
 
     /** What the frame's build wrote into the mesh of things drawn without a texture. */
     static SpriteGeometry.Mesh plain() {
-        return WorldScene.solid.get(WorldScene.PLAIN);
+        return WorldScene.sharedSolid.get(WorldScene.PLAIN);
     }
 
     @SuppressWarnings("unchecked")

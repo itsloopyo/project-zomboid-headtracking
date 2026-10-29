@@ -58,12 +58,12 @@ final class CeilingBuilder {
             return;
         }
         build.cornerLights(localX, localY);
-        SpriteGeometry.Mesh plain = WorldScene.solid.get(WorldScene.PLAIN);
+        SpriteGeometry.Mesh plain = build.solid.get(WorldScene.PLAIN);
         plain.open = 32f * WorldScene.CONCRETE;
         plain.sway = 0f;
         plain.face(0f, 0f, -1f);
         float up = (z + 1) * ViewCamera.LEVEL_HEIGHT;
-        WorldScene.layers.sheet(-1f);
+        build.layers.sheet(-1f);
         float[] lift = build.geometry.lift, red = build.frame.cornerRed, green = build.frame.cornerGreen, blue = build.frame.cornerBlue;
         for (int corner : CEILING_CORNERS) {
             // The weights at a corner are 1 and 0, and at the middle each a quarter, a power of two: the blend gives the bits of the corner's light and of the mean.
@@ -80,7 +80,7 @@ final class CeilingBuilder {
             plain.add(x + a, y + b, up + lift[corner], 0f, 0f, red[corner], green[corner], blue[corner]);
         }
         plain.litAsFace();
-        WorldScene.layers.none();
+        build.layers.none();
     }
 
     /**
@@ -119,7 +119,7 @@ final class CeilingBuilder {
             c[3] = x + CORNER_X[q]; c[4] = y + CORNER_Y[q]; c[5] = floor + lift[q];
             c[6] = c[3]; c[7] = c[4]; c[8] = c[5] + ViewCamera.LEVEL_HEIGHT;
             c[9] = c[0]; c[10] = c[1]; c[11] = c[2] + ViewCamera.LEVEL_HEIGHT;
-            SpriteGeometry.Mesh plain = WorldScene.solid.get(WorldScene.PLAIN);
+            SpriteGeometry.Mesh plain = build.solid.get(WorldScene.PLAIN);
             plain.open = 32f * WorldScene.CONCRETE;
             plain.sway = 0f;
             // At the middle of the side, the weights of its two corners are each a half, a power of two: the blend gives the bits of their mean.

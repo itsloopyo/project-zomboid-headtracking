@@ -346,7 +346,7 @@ final class Furniture {
          * the model stands, foot the floor under it.
          */
         Glass(WorldScene.Frame build, Furniture piece, int x, int y, float centreX, float centreY, float foot) {
-            mesh = WorldScene.laid.get(WorldScene.PLAIN, WallSides.PANES);
+            mesh = build.laid.get(WorldScene.PLAIN, WallSides.PANES);
             mesh.sway = 0f;
             mesh.open = build.frame.open + 32f * WorldScene.INNER_PANE;
             mesh.lightFlat(build.frame);

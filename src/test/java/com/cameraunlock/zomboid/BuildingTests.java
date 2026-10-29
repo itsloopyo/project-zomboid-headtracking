@@ -95,8 +95,8 @@ final class BuildingTests {
         TestMap map = new TestMap();
         float[] white = {1f, 1f, 1f};
         TestMap.write(map.build.wallBuilder, "farColour", white);
-        SpriteGeometry.Mesh plinth = WorldScene.solid.get(WorldScene.PLAIN, Courses.paint(white, Courses.PLINTH_SHADE));
-        SpriteGeometry.Mesh course = WorldScene.solid.get(WorldScene.PLAIN, Courses.paint(white, Courses.COURSE_SHADE));
+        SpriteGeometry.Mesh plinth = WorldScene.sharedSolid.get(WorldScene.PLAIN, Courses.paint(white, Courses.PLINTH_SHADE));
+        SpriteGeometry.Mesh course = WorldScene.sharedSolid.get(WorldScene.PLAIN, Courses.paint(white, Courses.COURSE_SHADE));
         float[] noOpening = new float[14];
         Arrays.fill(noOpening, -1f);
         map.build.wallBuilder.addCourses(noOpening, 0, 4, 9, 0, 0f, 0f, 1f, 0f, 0f, -1f);
@@ -708,17 +708,17 @@ final class BuildingTests {
 
     /** Empties what the frame's builders write into. */
     private static void emptied() {
-        WorldScene.solid.clear();
-        WorldScene.laid.clear();
+        WorldScene.sharedSolid.clear();
+        WorldScene.sharedLaid.clear();
     }
 
     /** The lowest vertex of everything the builders wrote since emptied. */
     private static float lowestBuilt() {
         float lowest = Float.MAX_VALUE;
-        for (SpriteGeometry.Mesh mesh : WorldScene.solid.used) {
+        for (SpriteGeometry.Mesh mesh : WorldScene.sharedSolid.used) {
             lowest = Math.min(lowest, lowest(mesh));
         }
-        for (SpriteGeometry.Mesh mesh : WorldScene.laid.used) {
+        for (SpriteGeometry.Mesh mesh : WorldScene.sharedLaid.used) {
             lowest = Math.min(lowest, lowest(mesh));
         }
         return lowest;

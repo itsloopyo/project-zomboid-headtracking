@@ -198,18 +198,18 @@ final class BloodBuilder {
             if (count < 3) {
                 continue;
             }
-            SpriteGeometry.Mesh mesh = WorldScene.laid.get(pictures[at].getID(), WallSides.BLOOD);
+            SpriteGeometry.Mesh mesh = build.laid.get(pictures[at].getID(), WallSides.BLOOD);
             Arrays.fill(cover, covers[at]);
             build.geometry.cover = cover;
             mesh.rootX = reds[at];
             mesh.rootY = greenBlues[at];
-            WorldScene.layers.lie(SpriteGeometry.LAYERS_UP, under + 1);
+            build.layers.lie(SpriteGeometry.LAYERS_UP, under + 1);
             for (int corner = 1; corner < count - 1; corner++) {
                 System.arraycopy(piece, 0, triangle, 0, Blood.CORNER);
                 System.arraycopy(piece, corner * Blood.CORNER, triangle, Blood.CORNER, 2 * Blood.CORNER);
                 build.geometry.addGiven(mesh, build.frame, x, y, z, triangle, 0);
             }
-            WorldScene.layers.none();
+            build.layers.none();
             mesh.rootX = mesh.rootY = SpriteGeometry.NO_ROOT;
             build.geometry.cover = null;
             laidCount++;
@@ -250,7 +250,7 @@ final class BloodBuilder {
             build.frameOf(object, texture);
             float fresh = Blood.freshness(now, splat.worldAge, phase);
             float dark = Blood.darkness(fresh);
-            SpriteGeometry.Mesh mesh = WorldScene.laid.get(texture.getID(), WallSides.BLOOD);
+            SpriteGeometry.Mesh mesh = build.laid.get(texture.getID(), WallSides.BLOOD);
             Arrays.fill(cover, Blood.wallCover(fresh));
             build.geometry.cover = cover;
             mesh.rootX = Blood.WALL_RED * dark;

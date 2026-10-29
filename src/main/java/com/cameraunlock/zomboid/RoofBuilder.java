@@ -119,7 +119,7 @@ final class RoofBuilder {
             if (world.cutAway(tile.x, tile.y)) {
                 continue;
             }
-            WorldScene.solid.storey(SpriteGeometry.NO_BUILDING, tile.z);
+            build.solid.storey(SpriteGeometry.NO_BUILDING, tile.z);
             liftOf(ground, tile.x - chunkX, tile.y - chunkY);
             roof = backs.get(i).roof;
             SpriteGeometry.Mesh sheet = roofSheet();
@@ -157,7 +157,7 @@ final class RoofBuilder {
             addEave(sheet, tile.x, tile.y, tile.z, at[0] - tile.z, at[1] - at[0], at[3] - at[0], true);
             addRake(sheet, tile.x, tile.y, tile.z, at[0] - tile.z, at[1] - at[0], at[3] - at[0]);
         }
-        WorldScene.solid.storey(SpriteGeometry.NO_BUILDING, 0);
+        build.solid.storey(SpriteGeometry.NO_BUILDING, 0);
         for (int i = 0; caps != null && i < caps.size(); i++) {
             RoofFit.Cap cap = caps.get(i).cap;
             if (turf(caps.get(i).roof.finish) || world.cutAway((int) Math.floor((cap.x0 + cap.x1) / 2f), (int) Math.floor((cap.y0 + cap.y1) / 2f))) {
@@ -436,7 +436,7 @@ final class RoofBuilder {
             build.gablesPainted++;
             int built = Own.textures(build.playerIndex) ? Masonry.of(finish) : 0;
             build.building.signed &= !Own.textures(build.playerIndex) || !Masonry.unread(finish);
-            SpriteGeometry.Mesh painted = WorldScene.solid.get(WorldScene.PLAIN, built != 0 ? WallSides.over(built) : WallSides.key(colour[0], colour[1], colour[2], WallSides.SIDING));
+            SpriteGeometry.Mesh painted = build.solid.get(WorldScene.PLAIN, built != 0 ? WallSides.over(built) : WallSides.key(colour[0], colour[1], colour[2], WallSides.SIDING));
             painted.open = build.frame.open + 32f * WorldScene.PAINT;
             float foot = z * ViewCamera.LEVEL_HEIGHT + meanLift();
             float farX = x + alongA, farY = y + alongB;
@@ -462,7 +462,7 @@ final class RoofBuilder {
         float material = build.frame.material;
         build.frame.takeTexels(facing.texture);
         build.frame.material = WorldScene.materialOf(facing.sprite);
-        SpriteGeometry.Mesh mesh = build.wallBuilder.laid(WorldScene.solid.get(facing.texture.getID()), facing.texture, Masonry.suits(facing.sprite.getName()), false, WallSides.madeOf(facing.sprite), x, y, z, north);
+        SpriteGeometry.Mesh mesh = build.wallBuilder.laid(build.solid.get(facing.texture.getID()), facing.texture, Masonry.suits(facing.sprite.getName()), false, WallSides.madeOf(facing.sprite), x, y, z, north);
         if (second >= GABLE_LEAST) {
             WorldScene.set(folded, 0, 0f, 0f, 0f);
             WorldScene.set(folded, 1, alongA, alongB, 0f);
@@ -684,10 +684,10 @@ final class RoofBuilder {
             float level = (northWest + southEast) / 2f;
             // A flat roof that lies on its level has the floor there under it already, and lies
             // clear of it: in the floor's own plane the two are drawn through each other.
-            WorldScene.layers.lie(SpriteGeometry.LAYERS_UP, level < FLAT_ROOF_ON_FLOOR ? FLAT_ROOF_LAYERS : 0f);
+            build.layers.lie(SpriteGeometry.LAYERS_UP, level < FLAT_ROOF_ON_FLOOR ? FLAT_ROOF_LAYERS : 0f);
             int made = build.geometry.addFace(roofLaidFlat(mesh, texture, level, 0f, 0f), build.frame, x, y, z, 0f, 0f, level, 1f, 0f, 0f, 0f, 1f, 0f);
             build.frame.flat = 0;
-            WorldScene.layers.none();
+            build.layers.none();
             if (made > 0 && level > 2f * WorldScene.UNDER_ROOF) {
                 underRoof(x, y, z, level, 0f, 0f, true);
             }
@@ -714,14 +714,14 @@ final class RoofBuilder {
         // the square, and the made sheet drawn through it showed in place of the shingles: the inn's valley at 3487..3489, 8210.
         boolean overCarried = !itsOwn && onCarried(tile, alongX, x, y, z);
         if (overCarried) {
-            WorldScene.layers.lie(SpriteGeometry.LAYERS_UP, 1f);
+            build.layers.lie(SpriteGeometry.LAYERS_UP, 1f);
         }
         SpriteGeometry.Mesh slope = roofLaidFlat(mesh, texture, northWest, readAlongX ? southEast - northWest : 0f, readAlongX ? 0f : southEast - northWest);
         int added = readAlongX ? build.geometry.addFace(slope, build.frame, x, y, z, 0f, 0f, northWest, 1f, 0f, southEast - northWest, 0f, 1f, 0f)
                 : build.geometry.addFace(slope, build.frame, x, y, z, 0f, 0f, northWest, 1f, 0f, 0f, 0f, 1f, southEast - northWest);
         build.frame.flat = 0;
         if (overCarried) {
-            WorldScene.layers.none();
+            build.layers.none();
         }
         System.arraycopy(heldLift, 0, lift, 0, 4);
         boolean placed = tile.fitted || tile.sure;
@@ -811,7 +811,7 @@ final class RoofBuilder {
             return mesh;
         }
         build.frame.flat = SpriteGeometry.FLAT_FLOOR;
-        return WorldScene.solid.get(flat);
+        return build.solid.get(flat);
     }
 
     /**
@@ -1016,12 +1016,12 @@ final class RoofBuilder {
         build.building.signed &= roof == null || roof.finish == null || !SpriteColours.unread(roof.finish);
         SpriteGeometry.Mesh sheet;
         if (colour == null) {
-            sheet = WorldScene.solid.get(WorldScene.PLAIN);
+            sheet = build.solid.get(WorldScene.PLAIN);
             roofU = roofV = 0f;
         } else {
             // The mean of the tile's sprite, the dark between its shingles with them: the usual
             // colour is the shingle's own face, and a sheet of that beside the tiles is paler and bluer than they are.
-            sheet = WorldScene.solid.get(roof.finish.getID(), WallSides.key(colour[WallSides.MEAN], colour[WallSides.MEAN + 1], colour[WallSides.MEAN + 2], WallSides.FLAT));
+            sheet = build.solid.get(roof.finish.getID(), WallSides.key(colour[WallSides.MEAN], colour[WallSides.MEAN + 1], colour[WallSides.MEAN + 2], WallSides.FLAT));
             roofU = roof.u;
             roofV = roof.v;
         }
@@ -1077,7 +1077,7 @@ final class RoofBuilder {
      * board along an eave follows the eave.
      */
     private void addBarge(SpriteGeometry.Mesh sheet, float x0, float y0, float up0, float x1, float y1, float up1) {
-        SpriteGeometry.Mesh plain = WorldScene.solid.get(WorldScene.PLAIN, BOARD);
+        SpriteGeometry.Mesh plain = build.solid.get(WorldScene.PLAIN, BOARD);
         // The roofing itself goes in this mesh when the roof has no colour of its own yet.
         float roofing = sheet.open;
         plain.open = build.frame.open;
@@ -1564,7 +1564,7 @@ final class RoofBuilder {
         SpriteGeometry.addQuad(sheet, c, roofU, roofV, build.frame.red, build.frame.green, build.frame.blue);
         // The soffit: the boarded underside of the eave, level from the fascia's foot back to
         // the wall, which is what is seen of a roof from the ground beside the house.
-        SpriteGeometry.Mesh plain = WorldScene.solid.get(WorldScene.PLAIN);
+        SpriteGeometry.Mesh plain = build.solid.get(WorldScene.PLAIN);
         // The roofing itself goes in this mesh when the roof has no colour of its own yet.
         float roofing = sheet.open;
         plain.open = build.frame.open + 32f * WorldScene.CONCRETE;
@@ -1577,7 +1577,7 @@ final class RoofBuilder {
         plain.lightFlat(build.frame);
         SpriteGeometry.addPlainQuad(plain, c, build.frame.red, build.frame.green, build.frame.blue);
         // The board along the eave's end.
-        SpriteGeometry.Mesh board = WorldScene.solid.get(WorldScene.PLAIN, BOARD);
+        SpriteGeometry.Mesh board = build.solid.get(WorldScene.PLAIN, BOARD);
         board.open = build.frame.open;
         float x1 = ex1, y1 = ey1, x2 = ex2, y2 = ey2;
         WorldScene.set(c, 0, x1, y1, far);

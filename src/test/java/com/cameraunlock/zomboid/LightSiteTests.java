@@ -33,7 +33,7 @@ final class LightSiteTests {
     }
 
     /**
-     * Puts the frame on a site of WorldScene.sites named by its light, as a builder puts one
+     * Puts the frame on a site of WorldScene.sharedSites named by its light, as a builder puts one
      * named by its square: frames lit alike share a site. A test that lights a frame by hand
      * sites it after the last change to its light.
      */
@@ -41,12 +41,12 @@ final class LightSiteTests {
         float[] record = new float[RECORD];
         LightSites.take(frame, record, 0, 0f, false);
         // Named by its light and not by a square, the site is none a frame could work out again (LightSites.Table.evaluator).
-        LightSites.Evaluator evaluator = WorldScene.sites.evaluator;
-        WorldScene.sites.evaluator = null;
+        LightSites.Evaluator evaluator = WorldScene.sharedSites.evaluator;
+        WorldScene.sharedSites.evaluator = null;
         try {
-            WorldScene.sites.put(LightSites.SQUARE, 1L << 40 | Arrays.hashCode(record) & 0xFFFFFFFFL, frame, 0f, false);
+            WorldScene.sharedSites.put(LightSites.SQUARE, 1L << 40 | Arrays.hashCode(record) & 0xFFFFFFFFL, frame, 0f, false);
         } finally {
-            WorldScene.sites.evaluator = evaluator;
+            WorldScene.sharedSites.evaluator = evaluator;
         }
         return frame;
     }
@@ -65,7 +65,7 @@ final class LightSiteTests {
      * world's, which a test's frames are put on (sited).
      */
     static float[] lit(SpriteGeometry.Mesh mesh) {
-        return lit(mesh, mesh.set != null ? mesh.set.sites : WorldScene.sites);
+        return lit(mesh, mesh.set != null ? mesh.set.sites : WorldScene.sharedSites);
     }
 
     static float[] lit(SpriteGeometry.Mesh mesh, LightSites.Table table) {

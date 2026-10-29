@@ -63,7 +63,7 @@ final class DoorTests {
         colours.put(read, cream);
         try {
             TestMap map = new TestMap();
-            SpriteGeometry.Mesh paint = WorldScene.solid.get(WorldScene.PLAIN, WallSides.laid(cream[0], cream[1], cream[2], 0f, 0f, 0f, WallSides.FINE));
+            SpriteGeometry.Mesh paint = WorldScene.sharedSolid.get(WorldScene.PLAIN, WallSides.laid(cream[0], cream[1], cream[2], 0f, 0f, 0f, WallSides.FINE));
             paint.clear();
             addWall(map, read);
             check(TestMap.plain().triangles() == 0, "nothing of a doorway in a wall whose sprite is read is bare concrete: " + TestMap.plain().triangles());
@@ -82,8 +82,8 @@ final class DoorTests {
         } finally {
             colours.remove(read);
             colours.remove(unread);
-            WorldScene.solid.clear();
-            WorldScene.laid.clear();
+            WorldScene.sharedSolid.clear();
+            WorldScene.sharedLaid.clear();
         }
     }
 
@@ -137,8 +137,8 @@ final class DoorTests {
         opening[TestMap.<Integer>read(null, WallBuilder.class, "OPENING_HEAD")] = 0.8f;
         java.util.Arrays.fill(build.geometry.lift, 0f);
         float[] cream = {0.8f, 0.75f, 0.55f}, blue = {0.3f, 0.4f, 0.6f};
-        SpriteGeometry.Mesh near = WorldScene.solid.get(WorldScene.PLAIN, WallSides.laid(cream[0], cream[1], cream[2], 0f, 0f, 0f, WallSides.FINE));
-        SpriteGeometry.Mesh far = WorldScene.solid.get(WorldScene.PLAIN, WallSides.laid(blue[0], blue[1], blue[2], 0f, 0f, 0f, WallSides.FINE));
+        SpriteGeometry.Mesh near = WorldScene.sharedSolid.get(WorldScene.PLAIN, WallSides.laid(cream[0], cream[1], cream[2], 0f, 0f, 0f, WallSides.FINE));
+        SpriteGeometry.Mesh far = WorldScene.sharedSolid.get(WorldScene.PLAIN, WallSides.laid(blue[0], blue[1], blue[2], 0f, 0f, 0f, WallSides.FINE));
         near.clear();
         far.clear();
         try {
@@ -159,8 +159,8 @@ final class DoorTests {
                 }
             }
         } finally {
-            WorldScene.solid.clear();
-            WorldScene.laid.clear();
+            WorldScene.sharedSolid.clear();
+            WorldScene.sharedLaid.clear();
         }
     }
 
