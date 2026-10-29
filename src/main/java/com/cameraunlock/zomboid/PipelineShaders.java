@@ -5384,7 +5384,14 @@ final class PipelineShaders {
             const float WIDE = 4.0;
             const float HIGH = 2.6;
             const float UNDER = 1.6;
-            const float SIZE = 0.0012;
+            // Real dust is finer than a dot at any distance the eye sees it from: this is a speck
+            // drawn no wider than a dot or two from an arm's length on, so the air holds a haze of
+            // fine points and not discs.
+            const float SIZE = 0.0006;
+            // A speck nearer than this is out of focus and a blur, not a point: it fades out on
+            // the way in, rather than growing into a bright disc in front of the eye.
+            const float BLURRED = 0.3;
+            const float SHARP = 1.0;
             const float TURN = 6.2831853 / 3600.0;
 
             void main() {
@@ -5409,11 +5416,11 @@ final class PipelineShaders {
                 // Drawn a dot wide and as much fainter, as the rain is.
                 float size = max(SIZE, uPerPixel * far);
                 float glint = pow(0.5 + 0.5 * sin(t * (2000.0 + floor(3000.0 * fract(seed.z * 71.0 + seed.y * 13.0))) + seed.x * 60.0), 4.0);
-                vShare = (SIZE / size) * (SIZE / size) * smoothstep(0.0, 0.5, edge) * (0.3 + 0.7 * glint);
+                vShare = (SIZE / size) * (SIZE / size) * smoothstep(0.0, 0.5, edge) * smoothstep(BLURRED, SHARP, far) * (0.3 + 0.7 * glint);
                 vIn = at;
                 vWorld = p;
                 vec3 v = p + side * (at.x * size) + over * (at.y * size);
-                gl_Position = far < 0.12 ? vec4(2.0, 2.0, 2.0, 1.0) : gl_ModelViewProjectionMatrix * vec4(v - uEye, 1.0);
+                gl_Position = far < BLURRED ? vec4(2.0, 2.0, 2.0, 1.0) : gl_ModelViewProjectionMatrix * vec4(v - uEye, 1.0);
             }
             """;
 

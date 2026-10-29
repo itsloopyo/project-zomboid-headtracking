@@ -3384,7 +3384,7 @@ final class Pipeline {
     }
 
     /** How bright a speck of dust that fills a dot is under the sun, in a room and out of doors. */
-    private static final float DUST_SHOWN_INSIDE = 6f, DUST_SHOWN_OUTSIDE = 1.8f;
+    private static final float DUST_SHOWN_INSIDE = 9f, DUST_SHOWN_OUTSIDE = 2.7f;
     /** How many times the rain's vertices are drawn as dust, each a set of specks of its own. */
     private static final int DUST_LAYERS = 6;
 
