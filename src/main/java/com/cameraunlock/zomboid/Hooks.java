@@ -324,27 +324,22 @@ public final class Hooks {
      * covers that player's view.
      */
     public static void roomSeenByLight(IsoGridSquare square, int playerIndex) {
-        View view = View.of(playerIndex);
-        if (view != null && view.firstPerson.coversTheGamesView()) {
-            if (Spotting.CHECK) {
-                Spotting.roomsLeftByLight.increment();
-            }
-            return;
-        }
-        square.checkRoomSeen(playerIndex);
+        Spotting.roomSeenByLight(square, playerIndex, spottingUnderThePicture(playerIndex));
     }
 
     /**
      * In place of the game's marking a square seen this hour as it works out the square's light
      * for a player and finds it has just turned seen: handed to Spotting while the first person
-     * picture covers that player's view, to be marked once the view sees it, unless Spotting has
-     * handed its turns back to the game.
+     * picture covers that player's view, to be marked once the view sees it.
      */
     public static void squareSeenByLight(Meta meta, IsoGridSquare square, int playerIndex) {
+        Spotting.squareSeenByLight(meta, square, spottingUnderThePicture(playerIndex));
+    }
+
+    /** A player's spotting while the first person picture covers their view, and otherwise null. */
+    private static Spotting spottingUnderThePicture(int playerIndex) {
         View view = View.of(playerIndex);
-        if (view == null || !view.firstPerson.coversTheGamesView() || view.spotting.turned(square)) {
-            meta.dealWithSquareSeen(square);
-        }
+        return view != null && view.firstPerson.coversTheGamesView() ? view.spotting : null;
     }
 
     /** In place of the game's reading of where a player's reticle or aim cursor is drawn, across the screen. */

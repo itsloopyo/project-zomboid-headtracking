@@ -119,8 +119,8 @@ public final class IsoGridSquare {
     }
 
     private boolean seen, inReach;
-    /** How many times the square was asked whether its player has seen it, and its room checked for being spotted from it. */
-    public int seenAsked, roomChecks;
+    /** How many times the square was asked whether its player has seen it, and its room checked for being spotted from it, and for which player last. */
+    public int seenAsked, roomChecks, roomCheckedFor = -1;
 
     /** Whether the game has had the square in its player's sight. */
     public void seen(boolean seen) {
@@ -157,6 +157,7 @@ public final class IsoGridSquare {
     /** The game's spotting of the square's room, which goes by the room's level and how far it is from the player: here by inReach. */
     public void checkRoomSeen(int playerIndex) {
         roomChecks++;
+        roomCheckedFor = playerIndex;
         if (inReach && room != null) {
             room.getRoomDef().explored = true;
         }

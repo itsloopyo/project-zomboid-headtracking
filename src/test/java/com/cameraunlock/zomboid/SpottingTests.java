@@ -1,14 +1,17 @@
 package com.cameraunlock.zomboid;
 
 import java.lang.classfile.ClassFile;
+import java.lang.classfile.CodeBuilder;
 import java.lang.constant.ClassDesc;
 import java.lang.constant.ConstantDescs;
 import java.lang.constant.MethodTypeDesc;
 import java.lang.invoke.MethodHandles;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.Consumer;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoChunk;
 import zombie.iso.IsoGridSquare;
@@ -31,13 +34,17 @@ public final class SpottingTests {
         Checks.run("theTurnsWaitingAreMarkedWhenThePictureStopsCovering", SpottingTests::theTurnsWaitingAreMarkedWhenThePictureStopsCovering);
         Checks.run("nothingIsCarriedIntoTheNextSave", SpottingTests::nothingIsCarriedIntoTheNextSave);
         Checks.run("aTurnFoundAfterTheTurnsWereHandedBackIsNotKept", SpottingTests::aTurnFoundAfterTheTurnsWereHandedBackIsNotKept);
-        Checks.run("aRoomSeenIntoIsInSightForFourSecondsAfter", SpottingTests::aRoomSeenIntoIsInSightForFourSecondsAfter);
+        Checks.run("aRoundGoesOverWhatThePictureSees", SpottingTests::aRoundGoesOverWhatThePictureSees);
+        Checks.run("aRoomSeenIntoWhileARoundGoesOnIsGoneOverByTheNext", SpottingTests::aRoomSeenIntoWhileARoundGoesOnIsGoneOverByTheNext);
+        Checks.run("theLightLeavesRoomsAndMarksToTheRoundsOnlyUnderThePicture", SpottingTests::theLightLeavesRoomsAndMarksToTheRoundsOnlyUnderThePicture);
+        Checks.run("aLightShapedLikeTheGamesHandsItsCallsToTheHooks", SpottingTests::aLightShapedLikeTheGamesHandsItsCallsToTheHooks);
         Checks.run("theOpenAirOfAChunkDrawnIsMarkedAndItsRoomsAreNot", SpottingTests::theOpenAirOfAChunkDrawnIsMarkedAndItsRoomsAreNot);
         Checks.run("aClientSpotsRoomsAndMarksNothing", SpottingTests::aClientSpotsRoomsAndMarksNothing);
         Checks.run("aSquareFoundSeenIsNotAskedAboutAgain", SpottingTests::aSquareFoundSeenIsNotAskedAboutAgain);
         Checks.run("aChunkLoadedAgainIsAskedAboutAgain", SpottingTests::aChunkLoadedAgainIsAskedAboutAgain);
         Checks.run("aFramesShareOfARoundEndsOnceItsTimeIsUp", SpottingTests::aFramesShareOfARoundEndsOnceItsTimeIsUp);
         Checks.run("aRoomIsGoneOverAChunkAtATime", SpottingTests::aRoomIsGoneOverAChunkAtATime);
+        Checks.run("aRoundTheFramesWereTooSlowForGoesOnOverTheNext", SpottingTests::aRoundTheFramesWereTooSlowForGoesOnOverTheNext);
         Checks.run("noLevelThePictureReadsNoLightOnIsAskedAbout", SpottingTests::noLevelThePictureReadsNoLightOnIsAskedAbout);
         Checks.run("onlyTheChunksTheConeTakesInAreSeen", SpottingTests::onlyTheChunksTheConeTakesInAreSeen);
         Checks.run("passesComeFourTimesASecondWhateverTheFrames", SpottingTests::passesComeFourTimesASecondWhateverTheFrames);
@@ -72,11 +79,16 @@ public final class SpottingTests {
         return seen;
     }
 
-    /** A player's spotting, handed each square the light finds turned seen as the game's light hands it under the picture. */
+    /** A player's spotting under the picture, handed each square the light finds turned seen as the game's light hands it there. */
     private static Spotting spotting() {
-        Spotting spotting = new Spotting(0);
+        return spotting(Spotting.SLICE_NANOS);
+    }
+
+    /** The same, with the time a frame's share of a round may take: none, and each frame's share is one unit, but for the frame that begins a round, which does none. */
+    private static Spotting spotting(long sliceNanos) {
+        Spotting spotting = new Spotting(0, sliceNanos);
         spotting.covering();
-        IsoGridSquare.onTurn = spotting::turned;
+        IsoGridSquare.onTurn = square -> Spotting.squareSeenByLight(Meta.instance, square, spotting);
         return spotting;
     }
 
@@ -219,24 +231,31 @@ public final class SpottingTests {
         check(Meta.instance.told.size() == told && square.seenAsked == 1, "a turn that waited for the view is let go with its chunk, and the chunk loaded again is asked about afresh");
     }
 
-    private static void theTurnsWaitingAreMarkedWhenThePictureStopsCovering() {
+    private static void theTurnsWaitingAreMarkedWhenThePictureStopsCovering() throws ReflectiveOperationException {
         IsoCell cell = new IsoCell();
         IsoGridSquare waited = cell.square(220, 220, 0), found = cell.square(230, 220, 0), elsewhere = cell.square(240, 220, 0);
         waited.seen(true);
         found.seen(true);
-        Spotting spotting = spotting();
+        Spotting spotting = spotting(0L);
         spotting.turned(waited);
         int told = Meta.instance.told.size();
         pass(spotting, cell, inSight(), List.of(drawn(cell, elsewhere)));
         spotting.turned(found);
         check(Meta.instance.told.size() == told, "a turn the view has not seen waits for it");
-        // A room the game could spot, whose square is asked about in every round that goes over it.
+        WorldScene.Frame frame = new WorldScene(null).next();
+        frame.aim(244f, 224f, 0f, 0f, -1f, false, 0f, 0f);
+        for (int i = 0; i < 4; i++) {
+            frame.shownBuilds().add(build(30 + i, 27, 1));
+        }
+        // A room by the eye the game could spot, whose square is asked about in every round that goes over it.
         Room den = Room.of(cell, 51L, 246, 226, 1, 1, 0);
-        spotting.begin(cell, inSight(den), defs(den)::get, List.of(), IsoChunk::getMinLevel, IsoChunk::getMaxLevel);
+        HashMap<Long, RoomDef> defs = defs(den);
+        long start = 5_000_000_000L;
+        spotting.look(inSight(den), frame, cell, defs::get, start);
         spotting.stoppedCovering(cell);
         check(Meta.instance.told.size() == told + 2 && Meta.instance.told.contains(waited) && Meta.instance.told.contains(found),
                 "once the picture stops covering the view, every turn that waited for it is marked, as the game's own light marks a turn as it finds it");
-        spotting.work(cell, Long.MAX_VALUE);
+        spotting.look(inSight(den), frame, cell, defs::get, start + 4_000_000L);
         check(den.squares()[0].seenAsked == 0, "and the round under way is closed, not carried on over what the picture saw");
         spotting.stoppedCovering(cell);
         check(Meta.instance.told.size() == told + 2, "and none is marked twice");
@@ -267,32 +286,173 @@ public final class SpottingTests {
         }
         Spotting spotting = spotting();
         spotting.stoppedCovering(cell);
-        check(spotting.turned(late),
+        int told = Meta.instance.told.size();
+        Spotting.squareSeenByLight(Meta.instance, late, spotting);
+        check(Meta.instance.told.size() == told + 1 && Meta.instance.told.get(told) == late,
                 "a turn a read found under the picture that comes after the picture stopped covering is the game's to mark, as it would be from a read a moment later");
         spotting.leftSave();
-        boolean leftMarked = spotting.turned(left);
+        Spotting.squareSeenByLight(Meta.instance, left, spotting);
         spotting.covering();
-        int told = Meta.instance.told.size();
         pass(spotting, cell, inSight(), List.of(drawn(cell, left)));
-        check(!leftMarked && Meta.instance.told.size() == told, "one that comes after the save was left is let go, and not marked in the next");
-        check(!spotting.turned(again), "once the picture covers a view again the turns are taken again");
+        check(Meta.instance.told.size() == told + 1, "one that comes after the save was left is let go, and not marked in the next");
+        Spotting.squareSeenByLight(Meta.instance, again, spotting);
+        check(Meta.instance.told.size() == told + 1, "once the picture covers a view again the turns are taken again");
         pass(spotting, cell, inSight(), List.of(drawn(cell, again)));
-        check(Meta.instance.told.size() == told + 1 && Meta.instance.told.contains(again), "to be marked where the view sees them");
+        check(Meta.instance.told.size() == told + 2 && Meta.instance.told.contains(again), "to be marked where the view sees them");
     }
 
-    private static void aRoomSeenIntoIsInSightForFourSecondsAfter() {
-        Spotting spotting = new Spotting(0);
+    private static void aRoomSeenIntoWhileARoundGoesOnIsGoneOverByTheNext() throws ReflectiveOperationException {
+        IsoCell cell = new IsoCell();
+        Room garage = Room.of(cell, 34L, 330, 330, 1, 1, 0);
+        garage.squares()[0].seen(true);
+        WorldScene.Frame frame = new WorldScene(null).next();
+        frame.aim(324f, 324f, 0f, 0f, -1f, false, 0f, 0f);
+        for (int i = 0; i < 4; i++) {
+            cell.square(320 + 8 * i, 320, 0);
+            frame.shownBuilds().add(build(40 + i, 40, 1));
+        }
+        Spotting spotting = spotting(0L);
+        HashMap<Long, RoomDef> defs = defs(garage);
         long start = 5_000_000_000L;
-        RoomSight.Seen rooms = inSight();
-        rooms.add(31L);
-        spotting.keepRoomsSeen(rooms, start);
-        spotting.keepRoomsSeen(inSight(), start + 300_000_000L);
-        rooms = inSight();
-        spotting.roomsInSight(rooms, start + 3_900_000_000L);
-        check(rooms.contains(31L),
-                "a room the picture saw into on one frame, a round or not, is in sight for spotting for a while after, as the game may find its squares seen late");
-        spotting.roomsInSight(rooms, start + 4_000_000_000L);
-        check(!rooms.contains(31L) && rooms.size() == 0, "and not once four seconds have gone by");
+        spotting.look(inSight(), frame, cell, defs::get, start);
+        spotting.look(inSight(garage), frame, cell, defs::get, start + 300_000_000L);
+        frames(spotting, inSight(), frame, cell, defs, start + 304_000_000L);
+        check(garage.squares()[0].roomChecks == 1, "a room the picture saw into for one frame while a round went on is gone over by the next round");
+    }
+
+    /** A build of the chunk at a place with as many runs as given, as the picture draws it. */
+    private static WorldScene.ChunkMeshes build(int wx, int wy, int runs) throws ReflectiveOperationException {
+        WorldScene.ChunkMeshes build = new WorldScene.ChunkMeshes(0);
+        build.runs = runs;
+        Field x = WorldScene.ChunkMeshes.class.getDeclaredField("wx"), y = WorldScene.ChunkMeshes.class.getDeclaredField("wy");
+        x.setAccessible(true);
+        y.setAccessible(true);
+        x.setInt(build, wx);
+        y.setInt(build, wy);
+        return build;
+    }
+
+    /** Twenty frames of the picture four milliseconds apart from a time, each with the rooms it saw into lately: a round begun in the first is done by the last. */
+    private static void frames(Spotting spotting, RoomSight.Seen lately, WorldScene.Frame frame, IsoCell cell, HashMap<Long, RoomDef> defs, long from) {
+        for (int i = 0; i < 20; i++) {
+            spotting.look(lately, frame, cell, defs::get, from + i * 4_000_000L);
+        }
+    }
+
+    private static void aRoundGoesOverWhatThePictureSees() throws ReflectiveOperationException {
+        IsoCell cell = new IsoCell();
+        // The eye in the chunk at 10, 10, facing east: one chunk ahead of it, one four behind, near enough to cast a shadow into the picture, and one ahead with nothing built.
+        IsoGridSquare here = cell.square(84, 84, 0), ahead = cell.square(92, 84, 0), behind = cell.square(52, 84, 0), bare = cell.square(100, 84, 0);
+        Room kitchen = Room.of(cell, 31L, 86, 86, 1, 1, 0), hall = Room.of(cell, 32L, 60, 60, 1, 1, 0);
+        kitchen.squares()[0].seen(true);
+        WorldScene.Frame frame = new WorldScene(null).next();
+        frame.aim(84f, 84f, 1f, 0f, (float) Math.cos(Math.toRadians(45)), false, 0f, 0f);
+        frame.shownBuilds().addAll(List.of(build(10, 10, 3), build(10, 10, 3), build(11, 10, 2), build(6, 10, 4), build(12, 10, 0)));
+        Spotting spotting = spotting();
+        long start = 5_000_000_000L;
+        HashMap<Long, RoomDef> defs = defs(kitchen, hall);
+        frames(spotting, inSight(kitchen), frame, cell, defs, start);
+        check(here.seenAsked == 1 && ahead.seenAsked == 1, "a round goes over the open air of the chunks the picture draws ahead, and of one drawn twice once");
+        check(behind.seenAsked == 0 && bare.seenAsked == 0, "and not of one it draws behind for its shadow, nor of one with nothing built");
+        check(kitchen.squares()[0].roomChecks == 1 && hall.squares()[0].seenAsked == 0, "it spots the rooms the picture saw into lately, and no other");
+        frames(spotting, inSight(), frame, cell, defs, start + 3_000_000_000L);
+        check(kitchen.squares()[0].roomChecks == 2, "a room the picture saw into is gone over for a while after, as the game may find its squares seen late");
+        frames(spotting, inSight(), frame, cell, defs, start + 4_100_000_000L);
+        check(kitchen.squares()[0].roomChecks == 2, "and not once four seconds have gone by since the last frame that saw into it");
+        check(here.seenAsked == 3 && ahead.seenAsked == 3, "a square not yet seen is asked about in every round");
+        frame.roomsSeen = new RoomSight.Seen();
+        frames(spotting, inSight(), frame, cell, defs, start + 5_000_000_000L);
+        check(here.seenAsked == 4 && ahead.seenAsked == 4, "where the picture lists the rooms it sees and sees the open air all round, as from out of doors, the chunks are gone over");
+        frame.roomsSeen.airFrom(new RoomSight(), false);
+        frames(spotting, inSight(), frame, cell, defs, start + 6_000_000_000L);
+        check(here.seenAsked == 4 && ahead.seenAsked == 4, "and where it sees none of the open air, from indoors, they are not");
+    }
+
+    private static void theLightLeavesRoomsAndMarksToTheRoundsOnlyUnderThePicture() {
+        IsoCell cell = new IsoCell();
+        Room room = Room.of(cell, 33L, 160, 160, 1, 1, 0);
+        IsoGridSquare indoors = room.squares()[0], street = cell.square(162, 160, 0);
+        Spotting.roomSeenByLight(indoors, 2, null);
+        check(indoors.roomChecks == 1 && indoors.roomCheckedFor == 2, "outside the first person picture the light spots a room as the game does, for the light's own player");
+        Spotting spotting = spotting();
+        Spotting.roomSeenByLight(indoors, 2, spotting);
+        check(indoors.roomChecks == 1, "and under it spots none");
+        int told = Meta.instance.told.size();
+        Spotting.squareSeenByLight(Meta.instance, street, null);
+        check(Meta.instance.told.size() == told + 1 && Meta.instance.told.get(told) == street, "outside the picture a square the light finds turned seen is marked at once, as the game does");
+        Spotting.squareSeenByLight(Meta.instance, street, spotting);
+        check(Meta.instance.told.size() == told + 1, "under it the light marks nothing");
+        street.seen(true);
+        pass(spotting, cell, inSight(), List.of(drawn(cell, street)));
+        check(Meta.instance.told.size() == told + 2 && Meta.instance.told.get(told + 1) == street, "and hands the square to the rounds, which mark it where the view sees it");
+    }
+
+    /** Where a light shaped like the game's hands its calls: see aLightShapedLikeTheGamesHandsItsCallsToTheHooks. */
+    private static final List<String> hooked = new ArrayList<>();
+
+    public static void roomSeenByLight(IsoGridSquare square, int playerIndex) {
+        hooked.add("room at " + square.getX() + " for player " + playerIndex);
+    }
+
+    public static void squareSeenByLight(Meta meta, IsoGridSquare square, int playerIndex) {
+        hooked.add("marked at " + square.getX() + " for player " + playerIndex + (meta == Meta.instance ? "" : " on another record"));
+    }
+
+    /**
+     * A class shaped like the game's light (LightingJNI.JNILighting) where it spots and marks: a
+     * player of its own, and a light worked out by updateFBORenderChunk, which spots once and
+     * marks once, and by update, which spots in as many places as given and marks once.
+     */
+    private static byte[] lightShaped(ClassDesc owner, int spotsInUpdate) {
+        ClassDesc square = ClassDesc.of("zombie.iso.IsoGridSquare"), meta = ClassDesc.of("zombie.meta.Meta");
+        MethodTypeDesc spot = MethodTypeDesc.of(ConstantDescs.CD_void, ConstantDescs.CD_int), mark = MethodTypeDesc.of(ConstantDescs.CD_void, square);
+        Consumer<CodeBuilder> spots = code -> code.getstatic(owner, "square", square).aload(0)
+                .getfield(owner, "playerIndex", ConstantDescs.CD_int).invokevirtual(square, "checkRoomSeen", spot);
+        Consumer<CodeBuilder> marks = code -> code.getstatic(meta, "instance", meta).getstatic(owner, "square", square)
+                .invokevirtual(meta, "dealWithSquareSeen", mark);
+        return ClassFile.of().build(owner, type -> type
+                .withFlags(ClassFile.ACC_PUBLIC)
+                .withField("playerIndex", ConstantDescs.CD_int, ClassFile.ACC_PRIVATE | ClassFile.ACC_FINAL)
+                .withField("square", square, ClassFile.ACC_PUBLIC | ClassFile.ACC_STATIC)
+                .withMethodBody(ConstantDescs.INIT_NAME, MethodTypeDesc.of(ConstantDescs.CD_void, ConstantDescs.CD_int), ClassFile.ACC_PUBLIC, code -> code
+                        .aload(0).invokespecial(ConstantDescs.CD_Object, ConstantDescs.INIT_NAME, ConstantDescs.MTD_void)
+                        .aload(0).iload(1).putfield(owner, "playerIndex", ConstantDescs.CD_int).return_())
+                .withMethodBody("updateFBORenderChunk", ConstantDescs.MTD_void, ClassFile.ACC_PUBLIC, code -> {
+                    spots.accept(code);
+                    marks.accept(code);
+                    code.return_();
+                })
+                .withMethodBody("update", ConstantDescs.MTD_void, ClassFile.ACC_PUBLIC, code -> {
+                    for (int i = 0; i < spotsInUpdate; i++) {
+                        spots.accept(code);
+                    }
+                    marks.accept(code);
+                    code.return_();
+                }));
+    }
+
+    private static void aLightShapedLikeTheGamesHandsItsCallsToTheHooks() throws Throwable {
+        ClassDesc owner = ClassDesc.of("com.cameraunlock.zomboid.LightShaped");
+        String hooks = "com/cameraunlock/zomboid/SpottingTests";
+        Class<?> light = MethodHandles.lookup().defineClass(Agent.lightLeavingSpotting(lightShaped(owner, 2), "com/cameraunlock/zomboid/LightShaped", hooks));
+        IsoGridSquare square = new IsoCell().square(7, 3, 0);
+        light.getField("square").set(null, square);
+        Object lightOf = light.getConstructor(int.class).newInstance(2);
+        int told = Meta.instance.told.size();
+        hooked.clear();
+        light.getMethod("updateFBORenderChunk").invoke(lightOf);
+        check(hooked.equals(List.of("room at 7 for player 2", "marked at 7 for player 2")), "the light's spotting and marking go to the hooks, with the light's own player: " + hooked);
+        hooked.clear();
+        light.getMethod("update").invoke(lightOf);
+        check(hooked.equals(List.of("room at 7 for player 2", "room at 7 for player 2", "marked at 7 for player 2")), "and in the older way of working out light, each of them: " + hooked);
+        check(square.roomChecks == 0 && Meta.instance.told.size() == told, "and none of the game's own calls is left");
+        boolean refused = false;
+        try {
+            Agent.lightLeavingSpotting(lightShaped(owner, 1), "com/cameraunlock/zomboid/LightShaped", hooks);
+        } catch (IllegalStateException unlike) {
+            refused = true;
+        }
+        check(refused, "a light that spots in more or fewer places than the game's is refused, and its patch with it");
     }
 
     private static void theOpenAirOfAChunkDrawnIsMarkedAndItsRoomsAreNot() {
@@ -400,6 +560,29 @@ public final class SpottingTests {
             once &= square.seenAsked == 1;
         }
         check(once, "and each of its squares once");
+    }
+
+    private static void aRoundTheFramesWereTooSlowForGoesOnOverTheNext() {
+        IsoCell cell = new IsoCell();
+        // A hall four chunks long, whose squares are asked about in every round: a piece of eight in each chunk.
+        Room hall = Room.of(cell, 52L, 200, 200, 32, 1, 0);
+        HashMap<Long, RoomDef> defs = defs(hall);
+        WorldScene.Frame frame = new WorldScene(null).next();
+        frame.aim(204f, 200.5f, 0f, 0f, -1f, false, 0f, 0f);
+        Spotting spotting = spotting(0L);
+        long start = 5_000_000_000L;
+        spotting.look(inSight(hall), frame, cell, defs::get, start);
+        check(asked(hall.squares()) == 0, "the frame that begins a round, with no time left once it has, does none of it");
+        spotting.look(inSight(hall), frame, cell, defs::get, start + 1_000_000_000L);
+        check(asked(hall.squares()) == 8,
+                "a frame with no time left does one unit of the round under way, though the round's quarter second is long gone, and does not finish it");
+        spotting.look(inSight(hall), frame, cell, defs::get, start + 1_004_000_000L);
+        spotting.look(inSight(hall), frame, cell, defs::get, start + 1_008_000_000L);
+        spotting.look(inSight(hall), frame, cell, defs::get, start + 1_012_000_000L);
+        check(asked(hall.squares()) == 32, "the round goes on over the next frames until it is done");
+        spotting.look(inSight(hall), frame, cell, defs::get, start + 1_016_000_000L);
+        spotting.look(inSight(hall), frame, cell, defs::get, start + 1_020_000_000L);
+        check(asked(hall.squares()) == 40, "and the next begins once it is");
     }
 
     private static void noLevelThePictureReadsNoLightOnIsAskedAbout() {

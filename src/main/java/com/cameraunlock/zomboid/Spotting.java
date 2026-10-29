@@ -207,16 +207,25 @@ final class Spotting {
      * the light leaves spotting to the rounds.
      */
     void look(WorldScene scene, WorldScene.Frame frame, long now) {
-        frames++;
         if (!leftHere()) {
+            frames++;
             sayIfDue(now);
             return;
         }
-        long began = System.nanoTime(), deadline = began + sliceLength;
-        IsoCell cell = IsoWorld.instance.currentCell;
         shownLately.clear();
         scene.roomsShownTo(shownLately);
-        keepRoomsSeen(shownLately, now);
+        look(shownLately, frame, IsoWorld.instance.currentCell, Spotting::roomDefOf, now);
+    }
+
+    private static RoomDef roomDefOf(long room) {
+        return IsoWorld.instance.getMetaGrid().getRoomDefByID(room);
+    }
+
+    /** The same, with the rooms the picture saw into in the last half second (WorldScene.roomsShownTo), on a map with the rooms' defs given. */
+    void look(RoomSight.Seen lately, WorldScene.Frame frame, IsoCell cell, LongFunction<RoomDef> defs, long now) {
+        frames++;
+        long began = System.nanoTime(), deadline = began + sliceLength;
+        roomsKept.found(lately, now, null);
         int afresh = CHECK ? count(true) : 0, unchanged = CHECK ? count(false) : 0;
         passer = Thread.currentThread();
         boolean finished = false;
@@ -225,7 +234,7 @@ final class Spotting {
             boolean begun = !open && due(now);
             if (begun) {
                 gather(frame, cell, now);
-                begin(cell, shownRooms, IsoWorld.instance.getMetaGrid()::getRoomDefByID, shownChunks, frame::lightFrom, frame::lightTop);
+                begin(cell, shownRooms, defs, shownChunks, frame::lightFrom, frame::lightTop);
                 if (CHECK) {
                     longestBeginNanos = Math.max(longestBeginNanos, System.nanoTime() - began);
                 }
@@ -263,7 +272,9 @@ final class Spotting {
 
     /** What the picture sees now: the rooms it saw into in the last four seconds, and the chunks it draws that the view faces, where it sees their open air. */
     private void gather(WorldScene.Frame frame, IsoCell cell, long now) {
-        roomsInSight(shownRooms, now);
+        roomsKept.expire(now, null);
+        shownRooms.clear();
+        roomsKept.copyTo(shownRooms);
         shownChunks.clear();
         RoomSight.Seen air = frame.roomsSeen;
         List<WorldScene.ChunkMeshes> shown = frame.shownBuilds();
@@ -290,16 +301,28 @@ final class Spotting {
     /** How far past a chunk build's box what is built in it may be drawn, in tiles: ChunkBuffers.AIR_SLACK. */
     private static final float AIR_SLACK = 1f;
 
-    /** Keeps the rooms the picture saw into lately for four seconds from a time on System.nanoTime's clock. Called on every frame. */
-    void keepRoomsSeen(RoomSight.Seen lately, long now) {
-        roomsKept.found(lately, now, null);
+    /**
+     * What the light does where the game spots a square's room as it works out the square's
+     * light for a player (Hooks.roomSeenByLight): nothing while the first person picture covers
+     * that player's view, which is when their spotting is given, and the game's spotting otherwise.
+     */
+    static void roomSeenByLight(IsoGridSquare square, int playerIndex, Spotting covered) {
+        if (covered == null) {
+            square.checkRoomSeen(playerIndex);
+        } else if (CHECK) {
+            roomsLeftByLight.increment();
+        }
     }
 
-    /** Puts into rooms every room kept at a time on System.nanoTime's clock, once those not seen into for four seconds are let go. */
-    void roomsInSight(RoomSight.Seen rooms, long now) {
-        roomsKept.expire(now, null);
-        rooms.clear();
-        roomsKept.copyTo(rooms);
+    /**
+     * The same where the game marks a square seen this hour as it finds it has just turned seen
+     * (Hooks.squareSeenByLight): handed to the spotting given, to be marked once the view sees it,
+     * unless it has handed its turns back to the game.
+     */
+    static void squareSeenByLight(Meta meta, IsoGridSquare square, Spotting covered) {
+        if (covered == null || covered.turned(square)) {
+            meta.dealWithSquareSeen(square);
+        }
     }
 
     /** Dev only: the game's count of squares whose light it read afresh, or of those it found unchanged. */
