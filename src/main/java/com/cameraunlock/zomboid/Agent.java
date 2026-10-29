@@ -71,7 +71,7 @@ public final class Agent {
      * still worked the game's own way.
      */
     static String firstPersonGap() {
-        // Asked several times a frame, and the answer once had does not change: see PatchTransformer.gap.
+        // Asked several times a frame, so the first answer is kept, though it can change later: see PatchTransformer.gap.
         if (!firstPersonAsked) {
             firstPersonGap = firstPerson.gap();
             firstPersonAsked = true;
@@ -1458,8 +1458,10 @@ public final class Agent {
         /**
          * What is missing from the game's code: the first patch that is not in
          * it, or null when all of them are. A class that has not loaded yet is
-         * loaded here, which runs its patches, so the answer does not change
-         * later.
+         * loaded here, which runs its patches. The answer can still change
+         * later, if another agent in the JVM has a class transformed again and
+         * a patch of it fails then, and a caller that keeps its first answer
+         * does not hear of that.
          */
         String gap() {
             for (Patch patch : patches) {
@@ -1500,6 +1502,10 @@ public final class Agent {
                         Log.info("patched " + className + "." + patch.what());
                     }
                 } catch (Throwable failure) {
+                    // When another agent has the class transformed again, what is returned here
+                    // replaces its code, unless the JVM refuses the retransformation, so a patch
+                    // that went in the first time is out of it now.
+                    applied.remove(patch);
                     Log.error("could not patch " + className + "." + patch.what() + ", the method runs unchanged", failure);
                 }
             }

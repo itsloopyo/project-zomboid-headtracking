@@ -21,6 +21,7 @@ final class GameFixTests {
         Checks.run("anAnswerIsWorkedOutOnceForEachThingAsked", GameFixTests::anAnswerIsWorkedOutOnceForEachThingAsked);
         Checks.run("falseIsAnsweredAtOnceWhileTheListIsEmpty", GameFixTests::falseIsAnsweredAtOnceWhileTheListIsEmpty);
         Checks.run("anAnswerIsKeptUntilWhatItCameFromChanges", GameFixTests::anAnswerIsKeptUntilWhatItCameFromChanges);
+        Checks.run("aPatchThatNoLongerFitsIsAGap", GameFixTests::aPatchThatNoLongerFitsIsAGap);
     }
 
     private static void check(boolean condition, String what) {
@@ -159,6 +160,21 @@ final class GameFixTests {
         check(refusesFalseAtOnce(subject, within, "missing"), "a class without the list is rejected");
         CallSite.Method asksMore = new CallSite.Method("com/cameraunlock/zomboid/SubjectAskingMore", "has", "(I)Z");
         check(refusesFalseAtOnce(holdingAList("SubjectAskingMore", true), asksMore, "held"), "a method that asks something besides the list is rejected");
+    }
+
+    private static void aPatchThatNoLongerFitsIsAGap() {
+        String owner = "com/cameraunlock/zomboid/GameFixTests";
+        Agent.PatchTransformer transformer = new Agent.PatchTransformer(List.of(new Agent.Patch(owner, "fitting two bytes", classBytes -> {
+            if (classBytes.length != 2) {
+                throw new IllegalStateException("does not fit " + classBytes.length + " bytes");
+            }
+            return classBytes;
+        })));
+        transformer.transform(null, owner, null, null, new byte[2]);
+        check(transformer.gap() == null, "a patch that went in as its class loaded is no gap");
+        transformer.transform(null, owner, GameFixTests.class, null, new byte[3]);
+        String gap = transformer.gap();
+        check(gap != null && gap.contains("fitting two bytes"), "but it is once it does not fit the class's code as the class is transformed again, got " + gap);
     }
 
     private static boolean refusesFalseAtOnce(byte[] subject, CallSite.Method within, String field) {
