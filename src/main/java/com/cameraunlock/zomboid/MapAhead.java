@@ -85,17 +85,23 @@ final class MapAhead {
     static final int QUARTER = 1 << 29, QUARTER_SHIFT = 30;
     /** Of what the overlays laid on a floor are, the lines on a road: Terrain.marks reads them off the floor. */
     private static final int MARKS = 0xFF << MARK_SHIFT;
+    /**
+     * The traits of a tile no sprite of the game's has the name of: the game lays nothing for it
+     * (IsoCell.PlaceLot). No sprite's traits are this, since a name is of the land's blends or
+     * the street's and never both.
+     */
+    static final int NO_SPRITE = -1;
 
     /**
      * A chunk's squares as the game lays its lotpack's tiles (see DIAMOND), x first: the traits of
      * the floor on the ground (0 where there is none), of every tile laid on the ground and the
      * lines of the overlays laid on its floor, and of every tile laid on the levels above that is
-     * no overhead line (with ANY), and the levels the lotpack has tiles on, a bit each from 1;
-     * what the square is to level ground (Grounds), by the tiles laid on the ground or the level
-     * over it; and the quarters of a round canopy laid on the ground, as Terrain keeps them
-     * (Terrain.ROOF_QUARTERS and HELD_QUARTERS).
+     * no overhead line (with ANY); of the levels above, a bit each from 1, those the game lays a
+     * tile on (held); what the square is to level ground (Grounds), by the tiles laid on the
+     * ground or the level over it; and the quarters of a round canopy laid on the ground, as
+     * Terrain keeps them (Terrain.ROOF_QUARTERS and HELD_QUARTERS).
      */
-    record Raw(int generation, int wx, int wy, int[] floor, int[] ground, int[] above, int[] levels, byte[] level, short[] quarters) {}
+    record Raw(int generation, int wx, int wy, int[] floor, int[] ground, int[] above, int[] held, byte[] level, short[] quarters) {}
 
     /**
      * What Terrain asks of a square of a chunk that is not loaded, x first. Whether something
@@ -186,7 +192,7 @@ final class MapAhead {
      */
     static Raw read(int generation, ByteBuffer pack, int[] traits, int minLevel, int maxLevel, int wx, int wy, int cx, int cy) {
         Lotpack in = new Lotpack(pack);
-        int[] floor = new int[SQUARES], ground = new int[SQUARES], above = new int[SQUARES], levels = new int[SQUARES];
+        int[] floor = new int[SQUARES], ground = new int[SQUARES], above = new int[SQUARES], held = new int[SQUARES];
         byte[] level = new byte[SQUARES];
         short[] quarters = new short[SQUARES];
         int from = Math.max(minLevel, Lotpack.LOWEST), to = Math.min(maxLevel, Lotpack.HIGHEST);
@@ -201,8 +207,12 @@ final class MapAhead {
                     int at = x * CHUNK + y;
                     // As the game lays them (see DIAMOND): the floor, the overlays laid on it, the other tiles, those that are no overhead line, the most the others are to level ground, and their canopy quarters.
                     int laid = 0, overlaid = 0, others = 0, standing = 0, grounds = 0, quartered = 0;
+                    boolean stood = false;
                     for (int i = 0; i < tiles; i++) {
                         int of = traits[in.tile(traits.length)];
+                        if (of == NO_SPRITE) {
+                            continue;
+                        }
                         if ((of & (FLOOR | DIAMOND | SEE_THROUGH)) == (FLOOR | DIAMOND) && (laid & DIAMOND) != 0) {
                             laid = of;
                             overlaid = 0;
@@ -211,6 +221,7 @@ final class MapAhead {
                         } else if ((of & FLOOR) != 0 && laid == 0) {
                             laid = of;
                         } else {
+                            stood = true;
                             others |= of;
                             standing |= (of & OVERHEAD) == 0 ? of | ANY : 0;
                             grounds = Math.max(grounds, of >>> LEVEL_SHIFT & 15);
@@ -225,13 +236,13 @@ final class MapAhead {
                         ground[at] = laid | others | overlaid & MARKS;
                         quarters[at] = (short) (quartered | quarters(laid));
                     } else if (z > 0) {
-                        levels[at] |= 1 << z;
+                        held[at] |= laid != 0 || stood ? 1 << z : 0;
                         above[at] |= standing | (laid != 0 ? laid | ANY : 0);
                     }
                 }
             }
         }
-        return new Raw(generation, wx, wy, floor, ground, above, levels, level, quarters);
+        return new Raw(generation, wx, wy, floor, ground, above, held, level, quarters);
     }
 
     /** The canopy quarter a tile is, as Terrain keeps it of what stands on a square: a roof tile's among the roof quarters as well. */
@@ -268,15 +279,15 @@ final class MapAhead {
                 stands |= (ground & WALL_W) != 0 ? Terrain.WEST_WALL : 0;
                 stands |= house != Footings.NONE ? Terrain.ROOMED : 0;
                 guess.stands[at] = (short) (stands | raw.quarters[at]);
-                int over = raw.above[at], reach = 0;
+                int over = raw.above[at], held = 0;
                 for (int ni = Math.max(i - 1, 0); ni <= Math.min(i + 1, CHUNK - 1); ni++) {
                     for (int nj = Math.max(j - 1, 0); nj <= Math.min(j + 1, CHUNK - 1); nj++) {
-                        reach |= raw.levels[ni * CHUNK + nj];
+                        held |= raw.held[ni * CHUNK + nj];
                     }
                 }
                 boolean built = (over & (FLOOR | BUILT_UP)) != 0;
-                // A room above the ground is over the square on the levels the game makes it on every load of the chunk, as Terrain.above has it: up to the highest level a tile is on, on this square or on one round it in the chunk (IsoChunk.loadInWorldStreamerThread, ensureNotNull3x3).
-                for (int z = 1; z < Integer.SIZE - Integer.numberOfLeadingZeros(reach) && !built; z++) {
+                // A room above the ground is over the square on the levels the game makes it on every load of the chunk, as Terrain.above has it: up to the highest level it lays a tile on, on this square or on one round it in the chunk (IsoChunk.loadInWorldStreamerThread, ensureNotNull3x3).
+                for (int z = 1; z < Integer.SIZE - Integer.numberOfLeadingZeros(held) && !built; z++) {
                     built = rooms.house(x, y, z) != Footings.NONE;
                 }
                 guess.above[at] = built ? Footings.BUILT : (over & ANY) != 0 ? Footings.HUNG : Footings.OPEN;
@@ -531,8 +542,7 @@ final class MapAhead {
         Integer known = traitsByName.get(tile);
         if (known == null) {
             IsoSprite sprite = IsoSpriteManager.instance.namedMap.get(tile);
-            // A tile no sprite of the game's is named for is put on no square when the chunk loads.
-            known = sprite == null ? 0 : traits(sprite);
+            known = sprite == null ? NO_SPRITE : traits(sprite);
             traitsByName.put(tile, known);
         }
         return known;

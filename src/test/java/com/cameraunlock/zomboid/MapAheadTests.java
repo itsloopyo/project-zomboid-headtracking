@@ -19,6 +19,7 @@ final class MapAheadTests {
         Checks.run("aSquareIsMadeOfWhatTheGameWouldMakeOfIt", MapAheadTests::aSquareIsMadeOfWhatTheGameWouldMakeOfIt);
         Checks.run("whatStandsOnASquareAndWhatIsOverItAreRead", MapAheadTests::whatStandsOnASquareAndWhatIsOverItAreRead);
         Checks.run("aRoomUpstairsIsOverEverySquareTheGameMakesUnderATileOrBesideIt", MapAheadTests::aRoomUpstairsIsOverEverySquareTheGameMakesUnderATileOrBesideIt);
+        Checks.run("aTileTheGameDropsIsNothingOverTheSquare", MapAheadTests::aTileTheGameDropsIsNothingOverTheSquare);
         Checks.run("theWindowHoldsTheChunksRoundTheLoadedMapAndTheWaterRoundThem", MapAheadTests::theWindowHoldsTheChunksRoundTheLoadedMapAndTheWaterRoundThem);
         Checks.run("theWindowIsAskedRingByRingInTheOrderOfTheWholeBox", MapAheadTests::theWindowIsAskedRingByRingInTheOrderOfTheWholeBox);
     }
@@ -87,7 +88,7 @@ final class MapAheadTests {
         check(raw.floor()[1] == grass && raw.ground()[1] == (grass | boulder), "a see-through one is laid beside the floor, not in its place: " + raw.floor()[1]);
         check(raw.floor()[2] == plain && raw.ground()[2] == (plain | stone), "and so is one laid on a floor that is no diamond floor: " + raw.floor()[2]);
         check(raw.floor()[3] == 0 && raw.ground()[3] == 0, "a line where no floor is is not laid: " + raw.ground()[3]);
-        check(raw.above()[4] == 0 && raw.levels()[4] == 1 << 1, "nor on a level above, where it is nothing over the square, though the level has a tile: " + raw.above()[4]);
+        check(raw.above()[4] == 0 && raw.held()[4] == 0, "nor on a level above, where it is nothing over the square, and the game lays nothing on that level: " + raw.above()[4]);
         check(raw.level()[5] == Grounds.NONE && raw.level()[6] == Grounds.SURFACE, "a court's surface floored over is no court, and floored over a floor is one");
         check(raw.floor()[7] == grass && raw.ground()[7] == grass, "an edging laid as an overlay where no floor is yet is not laid, and the floor after it is the floor: " + raw.floor()[7]);
         check(raw.floor()[8] == grass && raw.ground()[8] == (grass | 1 << MapAhead.MARK_SHIFT), "laid on a floor, an overlay is no floor and only its lines are read: " + raw.ground()[8]);
@@ -112,11 +113,11 @@ final class MapAheadTests {
         check(raw.floor()[at] == grass, "the floor is the first floor tile on the ground, after a sign and before water: " + raw.floor()[at]);
         check(raw.ground()[at] == (grass | water), "the ground has every tile on it: " + raw.ground()[at]);
         check(raw.above()[at] == (floor | MapAhead.ANY), "above is the floor two levels up, and not the wires: " + raw.above()[at]);
-        check(raw.levels()[at] == (1 << 1 | 1 << 2), "the wires' level has a tile on it, and so has the floor's: " + raw.levels()[at]);
+        check(raw.held()[at] == (1 << 1 | 1 << 2), "the wires' level has a tile the game lays on it, and so has the floor's: " + raw.held()[at]);
         int corner = 7 * 8 + 7;
         check(raw.floor()[corner] == 0 && raw.ground()[corner] == wires, "a square with only wires on the ground has no floor: " + raw.floor()[corner]);
-        check(raw.above()[corner] == MapAhead.ANY && raw.levels()[corner] == 1 << 1, "a sign hung above is something over the square: " + raw.above()[corner]);
-        check(raw.floor()[0] == 0 && raw.ground()[0] == 0 && raw.above()[0] == 0 && raw.levels()[0] == 0 && raw.level()[0] == Grounds.NONE, "an empty square has nothing");
+        check(raw.above()[corner] == MapAhead.ANY && raw.held()[corner] == 1 << 1, "a sign hung above is something over the square: " + raw.above()[corner]);
+        check(raw.floor()[0] == 0 && raw.ground()[0] == 0 && raw.above()[0] == 0 && raw.held()[0] == 0 && raw.level()[0] == Grounds.NONE, "an empty square has nothing");
         check(raw.level()[5 * 8 + 5] == Grounds.BASE && raw.level()[5 * 8 + 6] == Grounds.GOAL_ALONG_X, "a base on the ground and a goal's crossbar on the level over it mark level ground");
         check(raw.level()[5 * 8 + 7] == Grounds.NONE, "and nothing two levels up does");
     }
@@ -138,22 +139,22 @@ final class MapAheadTests {
     }
 
     /** One square's worth of what the lotpack has: see MapAhead.Raw. */
-    private static MapAhead.Raw raw(int floor, int ground, int above, int levels) {
-        return raw(floor, ground, above, levels, (short) 0);
+    private static MapAhead.Raw raw(int floor, int ground, int above, int held) {
+        return raw(floor, ground, above, held, (short) 0);
     }
 
     /** The same, with the canopy quarters on the ground, as MapAhead.Raw keeps them. */
-    private static MapAhead.Raw raw(int floor, int ground, int above, int levels, short quarter) {
-        int[] floors = new int[64], grounds = new int[64], aboves = new int[64], levelses = new int[64];
+    private static MapAhead.Raw raw(int floor, int ground, int above, int held, short quarter) {
+        int[] floors = new int[64], grounds = new int[64], aboves = new int[64], helds = new int[64];
         byte[] level = new byte[64];
         short[] quarters = new short[64];
         level[0] = Grounds.GOAL_ALONG_Y;
         floors[0] = floor;
         grounds[0] = ground | floor;
         aboves[0] = above;
-        levelses[0] = levels;
+        helds[0] = held;
         quarters[0] = quarter;
-        return new MapAhead.Raw(0, 10, 20, floors, grounds, aboves, levelses, level, quarters);
+        return new MapAhead.Raw(0, 10, 20, floors, grounds, aboves, helds, level, quarters);
     }
 
     private static final MapAhead.Rooms NO_ROOMS = (x, y, z) -> Footings.NONE;
@@ -213,20 +214,51 @@ final class MapAheadTests {
      * first, is over the squares round the sign.
      */
     private static void aRoomUpstairsIsOverEverySquareTheGameMakesUnderATileOrBesideIt() {
-        int[] floors = new int[64], grounds = new int[64], aboves = new int[64], levelses = new int[64];
+        int[] floors = new int[64], grounds = new int[64], aboves = new int[64], helds = new int[64];
         int grass = MapAhead.FLOOR | MapAhead.NATURAL_NAME;
         Arrays.fill(floors, grass);
         Arrays.fill(grounds, grass);
         int sign = 1 * 8 + 1;
         aboves[sign] = MapAhead.ANY;
-        levelses[sign] = 1 << 2;
-        MapAhead.Raw raw = new MapAhead.Raw(0, 10, 20, floors, grounds, aboves, levelses, new byte[64], new short[64]);
+        helds[sign] = 1 << 2;
+        MapAhead.Raw raw = new MapAhead.Raw(0, 10, 20, floors, grounds, aboves, helds, new byte[64], new short[64]);
         MapAhead.Guess first = MapAhead.guess(raw, (x, y, z) -> z == 1 ? 1L : Footings.NONE);
         check(first.above[sign] == Footings.BUILT, "a room on the level under a tile is over its square");
         check(first.above[0] == Footings.BUILT && first.above[2 * 8 + 2] == Footings.BUILT && first.above[2 * 8] == Footings.BUILT, "and over each square round it");
         check(first.above[3 * 8 + 3] == Footings.OPEN && first.above[1 * 8 + 3] == Footings.OPEN, "and over no square further off");
         MapAhead.Guess third = MapAhead.guess(raw, (x, y, z) -> z == 3 ? 1L : Footings.NONE);
         check(third.above[sign] == Footings.HUNG && third.above[0] == Footings.OPEN, "a room on a level over the highest tile is over no square the game has");
+    }
+
+    /**
+     * A tile no sprite has the name of is laid on no square (IsoCell.PlaceLot), and neither is a
+     * line where no floor is (CellLoader.DoTileObjectCreation). On a chunk's first load the game
+     * makes the square the lotpack has it on, and the squares round that on its level, and none on
+     * the levels under; the save keeps none of those (IsoChunk.Save), so a room there is nothing
+     * over the ground.
+     */
+    private static void aTileTheGameDropsIsNothingOverTheSquare() {
+        int grass = MapAhead.FLOOR | MapAhead.NATURAL_NAME, sign = 0, line = MapAhead.OVERLAY | 1 << MapAhead.MARK_SHIFT;
+        int[] traits = {grass, MapAhead.NO_SPRITE, sign, line};
+        int ofGrass = 0, ofMissing = 1, ofSign = 2, ofLine = 3;
+        var pack = FarTreeTests.pack(true, 0, 2,
+                new FarTreeTests.Square(0, 0, 0, 0, 0, ofMissing, ofGrass),
+                new FarTreeTests.Square(0, 0, 2, 2, 2, ofMissing),
+                new FarTreeTests.Square(0, 0, 2, 5, 5, ofLine),
+                new FarTreeTests.Square(0, 0, 2, 5, 2, ofMissing, ofSign),
+                new FarTreeTests.Square(0, 0, 1, 2, 5, ofMissing));
+        MapAhead.Raw raw = MapAhead.read(0, pack, traits, 0, 2, 40, 50, 0, 0);
+        check(raw.floor()[0] == grass && raw.ground()[0] == grass, "a tile with no sprite before the floor is not laid, and the floor is the floor: " + raw.ground()[0]);
+        int missing = 2 * 8 + 2, lined = 5 * 8 + 5, signed = 5 * 8 + 2, low = 2 * 8 + 5;
+        check(raw.above()[missing] == 0 && raw.held()[missing] == 0, "one on a level above is nothing over the square, and the game lays nothing on that level: " + raw.above()[missing]);
+        check(raw.above()[lined] == 0 && raw.held()[lined] == 0, "nor is a line where no floor is");
+        check(raw.above()[signed] == MapAhead.ANY && raw.held()[signed] == 1 << 2, "a sign beside one is laid: " + raw.above()[signed]);
+        MapAhead.Guess guess = MapAhead.guess(raw, (x, y, z) -> z == 1 ? 1L : Footings.NONE);
+        check(guess.above[missing] == Footings.OPEN && guess.above[lined] == Footings.OPEN, "a room on the level under a tile the game drops is over no square the game has");
+        check(guess.above[signed] == Footings.BUILT, "and one under a tile it lays is over the square");
+        check(guess.above[low] == Footings.OPEN && guess.above[low + 1] == Footings.OPEN,
+                "a room on the level of a tile the game drops is over neither the square the game makes for it on a first load nor the squares round it");
+        check(MapAhead.guess(raw, NO_ROOMS).above[missing] == Footings.OPEN, "and with no room, a tile the game drops hangs over nothing");
     }
 
     /**
