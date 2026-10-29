@@ -754,7 +754,25 @@ final class RoomSight {
      */
     private int[] stateFor = new int[256];
     private byte[] stateWas = new byte[256];
+    /**
+     * For each opening, the picture's walk its state was last read off the map after, and what
+     * it read: the map does not change between a frame's picture and the faces of the rounds
+     * walked after it, which ask the same openings again under eyes of their own.
+     */
+    private int[] readAfter = new int[256];
+    private byte[] readWas = new byte[256];
+    private int pictures = 1;
     private int walks, eyes, eyeNow;
+    /** Whether walks share an opening's state read in the same frame. Off, each reads its own, as the check of the sharing has it. */
+    private final boolean shares;
+
+    RoomSight() {
+        this(true);
+    }
+
+    RoomSight(boolean shares) {
+        this.shares = shares;
+    }
     private static final byte UNWORKED = 0, EMPTY = 1, COVERS = 2;
     /**
      * For each region the walk reaches, the rectangle of the picture it has been reached
@@ -820,6 +838,7 @@ final class RoomSight {
      * @param eyeBuilding the building the eye is in, or OUTSIDE: its rooms stand in the way of nothing, since every line starts in them
      */
     void walk(Ground ground, Openings openings, Blocks blocks, ViewCamera.Pose eye, float tanAcross, float tanUp, long start, long eyeBuilding, Seen seen) {
+        pictures++;
         prepare(openings, blocks, eye.eyeX, eye.eyeY, eye.eyeUp, eyeBuilding, 0f, 0f, ++eyes);
         face(ground, openings, eye, tanAcross, tanUp, start, seen);
         seen.airFrom(this, start == OUTSIDE);
@@ -837,6 +856,7 @@ final class RoomSight {
      * finds them built. The other arguments are walk's.
      */
     void walkAllRound(Ground ground, Openings openings, Blocks blocks, float atX, float atY, float atUp, long start, long eyeBuilding, float grow, float shutWithin, Seen seen) {
+        pictures++;
         Round round = new Round();
         begin(round, atX, atY, atUp, start, eyeBuilding, grow, shutWithin, seen);
         boolean last;
@@ -1009,10 +1029,16 @@ final class RoomSight {
                     if (stateFor[opening] == eyeNow) {
                         state = stateWas[opening];
                     } else {
-                        state = state(ground, openings, opening);
+                        if (shares && readAfter[opening] == pictures) {
+                            state = readWas[opening];
+                        } else {
+                            state = state(ground, openings, opening);
+                            readAfter[opening] = pictures;
+                            readWas[opening] = (byte) state;
+                            tollStatesRead++;
+                        }
                         stateFor[opening] = eyeNow;
                         stateWas[opening] = (byte) state;
-                        tollStatesRead++;
                     }
                     if (state != SEE && !(state == SHUT && nearerThan(openings, opening, shutWithin))) {
                         continue;
@@ -1382,6 +1408,7 @@ final class RoomSight {
         Arrays.fill(hiddenFor, 0);
         Arrays.fill(hiddenGrownFor, 0);
         Arrays.fill(stateFor, 0);
+        Arrays.fill(readAfter, 0);
         if (worked.length < count) {
             int grown = Integer.highestOneBit(count) * 2;
             worked = new byte[grown];
@@ -1391,6 +1418,8 @@ final class RoomSight {
             hiddenGrownWas = new boolean[grown];
             stateFor = new int[grown];
             stateWas = new byte[grown];
+            readAfter = new int[grown];
+            readWas = new byte[grown];
             covers = new float[grown * 4];
             next = new int[grown * 2];
         }
