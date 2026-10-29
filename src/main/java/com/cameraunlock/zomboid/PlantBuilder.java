@@ -897,7 +897,7 @@ final class PlantBuilder {
         if (!Flora.measure(build.frame, places, footU, footV, !bush, crownLeft, crownRight, crownCounts, crownSizes)) {
             return false;
         }
-        (build.afresh ? WorldScene.crownsChecked : world.crownsRead).add(texture.getID(), build.frame, places, x + 0.5f, y + 0.5f, base, footU, footV, away, boled ? boleThick : 0f, boled ? boleTall : 0f,
+        (build.afresh ? WorldScene.crownsChecked : build.crownsRead).add(texture.getID(), build.frame, places, x + 0.5f, y + 0.5f, base, footU, footV, away, boled ? boleThick : 0f, boled ? boleTall : 0f,
                 boled ? boleBark : bark, bark, sprig, seed, build.room, leaf, hue, turned, boled ? boleKind : TreeForm.NONE, boled ? boleShape : null,
                 world.twiggedFrom, painted, world.terrain.level, bloom);
         return true;

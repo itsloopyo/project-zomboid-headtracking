@@ -711,7 +711,7 @@ final class WorldScene {
     private final ChunkMeshes[] latestGrown = new ChunkMeshes[TABLE_SIDE * TABLE_SIDE];
     /**
      * The crowns of each chunk's trees and bushes, as a build of their own beside the chunk's.
-     * A build of the chunk writes down what its crowns are made from (crownsRead) and makes
+     * A build of the chunk writes down what its crowns are made from (Frame.crownsRead) and makes
      * none: the crowns it has stand while they were made from the same, and are otherwise
      * made on a thread of their own and stand until the new ones come back. A chunk with no
      * crowns standing has them made there and then, so that no tree is ever seen bare, and
@@ -723,8 +723,7 @@ final class WorldScene {
     /** How many pieces of work are out, wanted or not: each comes back, made or not, in crownsBack. */
     private int crownsOut;
     private final LinkedBlockingQueue<Crowns.Work> crownsBack = new LinkedBlockingQueue<>();
-    /** What the build being made has written down of its crowns, and what a check's second build has. */
-    Crowns crownsRead = new Crowns();
+    /** What a check's second build has written down of its crowns: see Frame.crownsRead. */
     static final Crowns crownsChecked = new Crowns();
     private static final ArrayDeque<Crowns> spareCrowns = new ArrayDeque<>();
     private static final SpriteGeometry.Frame crownFrame = new SpriteGeometry.Frame();
@@ -3009,6 +3008,8 @@ final class WorldScene {
         final SpriteGeometry.Layers layers = sharedLayers;
         final LightSites.Table sites = sharedSites;
         final SpriteGeometry.MeshSet solid = sharedSolid, laid = sharedLaid;
+        /** What the build being made has written down of its crowns: see latestCrowned. */
+        Crowns crownsRead = new Crowns();
 
         final FloorBuilder floorBuilder = new FloorBuilder(this);
         private final KerbBuilder kerbBuilder = new KerbBuilder(this);
@@ -4455,45 +4456,13 @@ final class WorldScene {
                         }
                         fresh.users = 1;
                         fresh.band = band(nearest);
-                        crownsRead.clear();
                         fresh.grows = false;
                         fresh.seasonal = false;
                         fresh.stage = stage;
-                        bandAway = BAND_AWAY[fresh.band];
-                        alike = ALL_BANDS;
-                        heightsRound = 0;
-                        heightsFarCount = 0;
-                        wantsMap = false;
-                        trackReader.forget();
-                        placed = fresh.placed;
-                        lying = fresh.lying;
-                        building = fresh;
                         chunksBuilt++;
-                        growing = false;
                         long began = System.nanoTime();
-                        addSquares(chunk, chunkX, chunkY, lowest);
-                        long squaresNanos = System.nanoTime() - began;
-                        kerbBuilder.noKerb();
-                        roofBuilder.addBacks(chunk, chunkX, chunkY);
-                        long backsNanos = System.nanoTime() - began - squaresNanos;
-                        fresh.plain &= !canopied;
-                        // As it was before the build. A build may itself tell its own chunk, part way through: the roof first
-                        // read from one of its squares lays slopes over squares the build has already passed, which asked
-                        // while there was none. The chunk is then told still, and is built once more.
-                        fresh.told = toldSoFar;
-                        fresh.heightsRound = heightsRound;
-                        fresh.heightsFar = heightsFarCount == 0 ? NO_CHUNKS : Arrays.copyOf(heightsFar, heightsFarCount);
-                        fresh.wantsMap = wantsMap;
-                        fresh.land = landOf(chunk.wx, chunk.wy, heightsRound, heightsFar, heightsFarCount, wantsMap);
-                        heightsSeen(fresh, chunk.wx, chunk.wy);
-                        if (fresh.seen == null) {
-                            fresh.seen = new OpenLight();
-                            fresh.seenRooms = new OpenLight();
-                            fresh.seenLamplit = new OpenLight();
-                        }
-                        reading.copyTo(fresh.seen);
-                        readingRooms.copyTo(fresh.seenRooms);
-                        readingLamplit.copyTo(fresh.seenLamplit);
+                        buildInto(chunk, chunkX, chunkY, lowest, fresh, toldSoFar);
+                        long squaresNanos = squaresTook, backsNanos = backsTook;
                         if (AUDIT_STALE) {
                             fresh.auditFloats = floatsOf(solid) * 31 + floatsOf(laid);
                             fresh.auditMeshes = meshesOf();
@@ -5590,6 +5559,48 @@ final class WorldScene {
                         ? ", with its crowns made apart from it and in it" : !sameCrowns ? " in its crowns" : " for a band it was said to be the same for"));
             }
             fresh.signed = signed && fresh.signed;
+        }
+
+        /** How long the last build's squares and its roofs' backs took: see buildInto. */
+        private long squaresTook, backsTook;
+
+        /** The build proper of the chunk into fresh, whose head the walk has set, on this frame's pair. */
+        private void buildInto(IsoChunk chunk, int chunkX, int chunkY, int lowest, ChunkMeshes fresh, int toldSoFar) {
+            crownsRead.clear();
+            bandAway = BAND_AWAY[fresh.band];
+            alike = ALL_BANDS;
+            heightsRound = 0;
+            heightsFarCount = 0;
+            wantsMap = false;
+            trackReader.forget();
+            placed = fresh.placed;
+            lying = fresh.lying;
+            building = fresh;
+            growing = false;
+            long began = System.nanoTime();
+            addSquares(chunk, chunkX, chunkY, lowest);
+            squaresTook = System.nanoTime() - began;
+            kerbBuilder.noKerb();
+            roofBuilder.addBacks(chunk, chunkX, chunkY);
+            backsTook = System.nanoTime() - began - squaresTook;
+            fresh.plain &= !canopied;
+            // As it was before the build. A build may itself tell its own chunk, part way through: the roof first
+            // read from one of its squares lays slopes over squares the build has already passed, which asked
+            // while there was none. The chunk is then told still, and is built once more.
+            fresh.told = toldSoFar;
+            fresh.heightsRound = heightsRound;
+            fresh.heightsFar = heightsFarCount == 0 ? NO_CHUNKS : Arrays.copyOf(heightsFar, heightsFarCount);
+            fresh.wantsMap = wantsMap;
+            fresh.land = landOf(chunk.wx, chunk.wy, heightsRound, heightsFar, heightsFarCount, wantsMap);
+            heightsSeen(fresh, chunk.wx, chunk.wy);
+            if (fresh.seen == null) {
+                fresh.seen = new OpenLight();
+                fresh.seenRooms = new OpenLight();
+                fresh.seenLamplit = new OpenLight();
+            }
+            reading.copyTo(fresh.seen);
+            readingRooms.copyTo(fresh.seenRooms);
+            readingLamplit.copyTo(fresh.seenLamplit);
         }
 
         /**
