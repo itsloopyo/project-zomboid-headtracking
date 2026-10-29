@@ -82,7 +82,11 @@ enum Part {
     CACHED_GAME_LOOKUPS("Optimizations", "CachedGameLookups", false, true,
             "true: the game's lookups of items by name, of a component's class and of a character's state machine are\n"
                     + "answered from what they found before, and two of its bone updates skip work that changes nothing, in either\n"
-                    + "view. The answers are the same. false: the game works each of them out every time.");
+                    + "view. The answers are the same. false: the game works each of them out every time."),
+    SKIP_COVERED_GAME_DRAWING("Optimizations", "SkipCoveredGameDrawing", true, true,
+            "true: under the first person picture the game leaves out drawing its own view, which the picture covers: its\n"
+                    + "weather, floors, objects, shadows, people and the rest. The picture is the same. false: the game draws its whole\n"
+                    + "view under the picture every frame, as it does with no picture over it.");
 
     final String section, key, comment;
     /** Whether the row is taken while the game runs, and whether it is read at the start to leave patches out. */

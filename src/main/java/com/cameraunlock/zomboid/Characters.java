@@ -72,7 +72,7 @@ public final class Characters {
      * picture that covers that view: it is then not drawn. Called from the game's code.
      */
     public boolean gamesOwnDrawIsCovered() {
-        return !ours && view.firstPerson.coversTheGamesView();
+        return !ours && view.firstPerson.skipsTheGamesView();
     }
 
     /** Called by the game's draw of a part as it begins: a part of an animal near the eye wears its finer skin. */

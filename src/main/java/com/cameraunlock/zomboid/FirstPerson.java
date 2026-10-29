@@ -711,7 +711,7 @@ public final class FirstPerson {
      * each frame and each frame with no player.
      */
     private void spottingFollowsCover() {
-        boolean covering = coversTheGamesView();
+        boolean covering = skipsTheGamesView();
         boolean stopped = coveredLastFrame && !covering;
         coveredLastFrame = covering;
         if (stopped) {
@@ -1001,7 +1001,7 @@ public final class FirstPerson {
         WorldScene.Frame scene = view.worldScene.next();
         if (landed) {
             scene.build(player, trackedView, aimView, eyeFromAim, view.fieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), null, false);
-            if (coversTheGamesView()) {
+            if (skipsTheGamesView()) {
                 view.spotting.look(view.worldScene, scene, player, now);
             }
             view.hearing.face(trackedView, 0f, 1f);
@@ -2159,11 +2159,17 @@ public final class FirstPerson {
      * is as good as whole.
      */
     public boolean coversTheGamesView() {
-        return landed && !WITHOUT_COVER;
+        return landed;
     }
 
-    /** Dev only: the game draws its weather under the picture as it always did, to measure what leaving it out saves. */
-    private static final boolean WITHOUT_COVER = Boolean.getBoolean("cameraunlock.zomboid.withoutCover");
+    /**
+     * Whether the game leaves out drawing the view the picture covers (Agent.coveredPatches), and so
+     * works out only the light the mod asks for and spots no room by it: SkipCoveredGameDrawing.
+     * Asked on the same threads as coversTheGamesView.
+     */
+    public boolean skipsTheGamesView() {
+        return landed && Part.SKIP_COVERED_GAME_DRAWING.running();
+    }
 
     /**
      * Called as the game's window is about to show or hide its cursor to suit the game. The

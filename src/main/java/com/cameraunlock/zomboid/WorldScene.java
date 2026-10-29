@@ -3523,7 +3523,7 @@ final class WorldScene {
             litByGame[slot] = chunk.lightingUpdateCounter;
             litFor[slot] = storey;
             FBORenderLevels levels = chunk.getRenderLevels(playerIndex);
-            boolean gameAsks = !view.firstPerson.coversTheGamesView();
+            boolean gameAsks = !view.firstPerson.skipsTheGamesView();
             int top = lightTop(chunk);
             long relit = 0L;
             for (int z = lightFrom(chunk, lowest); z <= top; z++) {

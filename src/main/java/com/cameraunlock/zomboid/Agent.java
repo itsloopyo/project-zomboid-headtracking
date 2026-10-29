@@ -475,7 +475,7 @@ public final class Agent {
                 new PatchSet("name tags", nameTags, off(Part.FIRST_PERSON, Part.NAME_TAGS_AT_HEADS)),
                 new PatchSet("cached lookups", new PatchTransformer(gameFixPatches()), off(Part.CACHED_GAME_LOOKUPS)),
                 new PatchSet("hang fix", new PatchTransformer(hangFixPatches()), off(Part.BURNT_BUILDING_FREEZE_FIX)),
-                new PatchSet("covered", new PatchTransformer(coveredPatches()), firstPersonOff),
+                new PatchSet("covered", new PatchTransformer(coveredPatches()), off(Part.FIRST_PERSON, Part.SKIP_COVERED_GAME_DRAWING)),
                 new PatchSet("part draw", new PatchTransformer(partDrawPatches()), null),
                 new PatchSet("screen grey", new PatchTransformer(screenGreyPatches()), off(Part.FIRST_PERSON, Part.LEAVE_OUT_SCREEN_GREY)),
                 new PatchSet("far vehicles", new PatchTransformer(farVehiclePatches()), firstPersonOff),
@@ -494,7 +494,7 @@ public final class Agent {
                 new PatchSet("chunk centre", new PatchTransformer(chunkCentrePatches()), null),
                 new PatchSet("split screen", splitScreen, null),
                 new PatchSet("waiting composites", waitingComposites, firstPersonOff),
-                new PatchSet("spotting", spotting, firstPersonOff));
+                new PatchSet("spotting", spotting, off(Part.FIRST_PERSON, Part.SKIP_COVERED_GAME_DRAWING)));
     }
 
     /** Why a set that serves only these parts, each needing the ones before it, is left out at this start: the first off as the game started, or null. */

@@ -316,10 +316,10 @@ public final class Hooks {
         throw new IllegalStateException("render settings of no player");
     }
 
-    /** Whether the first person picture is drawn over the whole of the game's own view of the player it is drawing. */
+    /** Whether the first person picture is drawn over the whole of the game's own view of the player it is drawing, and the game leaves that view undrawn. */
     public static boolean coversTheGamesView() {
         View view = drawing();
-        return view != null && view.firstPerson.coversTheGamesView();
+        return view != null && view.firstPerson.skipsTheGamesView();
     }
 
     /**
@@ -343,7 +343,7 @@ public final class Hooks {
     /** A player's spotting while the first person picture covers their view, and otherwise null. */
     private static Spotting spottingUnderThePicture(int playerIndex) {
         View view = View.of(playerIndex);
-        return view != null && view.firstPerson.coversTheGamesView() ? view.spotting : null;
+        return view != null && view.firstPerson.skipsTheGamesView() ? view.spotting : null;
     }
 
     /** In place of the game's reading of where a player's reticle or aim cursor is drawn, across the screen. */

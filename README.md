@@ -601,6 +601,11 @@ SpreadLightUpdates=true
 ; view. The answers are the same. false: the game works each of them out every time.
 ; Taken at the next start. Off, its patches of the game's code are left out.
 CachedGameLookups=true
+; true: under the first person picture the game leaves out drawing its own view, which the picture covers: its
+; weather, floors, objects, shadows, people and the rest. The picture is the same. false: the game draws its whole
+; view under the picture every frame, as it does with no picture over it.
+; Taken at once. Off, its patches of the game's code are left out from the next start.
+SkipCoveredGameDrawing=true
 
 [Content]
 ; true: the game's own weapons, with no picture through the scope. false: the mod's models of the pump shotgun and
