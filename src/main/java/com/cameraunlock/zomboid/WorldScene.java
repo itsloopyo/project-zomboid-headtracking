@@ -18,6 +18,7 @@ import java.util.Set;
 import java.util.Stack;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongPredicate;
@@ -766,6 +767,9 @@ final class WorldScene {
         Crowns crowns = new Crowns();
         long took, grownNanos;
         boolean made, grownMade, dropped;
+        /** Dev only: the head the walk set on the build, and what its vertices came out, for the build made again beside (Frame.checkHanded). */
+        final ChunkMeshes head = CHECK_BUILDS ? new ChunkMeshes(-1) : null;
+        long solidFloats, laidFloats;
     }
     /**
      * The crowns of each chunk's trees and bushes, as a build of their own beside the chunk's.
@@ -1712,7 +1716,7 @@ final class WorldScene {
      */
     static final boolean HAND_BUILDS = Boolean.getBoolean("cameraunlock.zomboid.handBuilds");
     /** Dev only: the build thread the frame beside builds on while the walk waits on it, as a build off the logic thread has to come out the same. */
-    private static final java.util.concurrent.ExecutorService besideThread = CHECK_BUILDS ? BuildThreads.one("head tracking build beside") : null;
+    private static final ExecutorService besideThread = CHECK_BUILDS ? BuildThreads.one("head tracking build beside") : null;
     /** The frame the builds the walk hands off are made on: it takes what the walk had as each was handed off (Handed.taken). */
     private final Frame maker = HAND_BUILDS ? new Frame(new SpriteGeometry.Layers()) : null;
     /**
@@ -2190,6 +2194,15 @@ final class WorldScene {
                 && Arrays.equals(one.records, 0, count * LightSites.RECORD, other.records, 0, count * LightSites.RECORD)
                 && Arrays.equals(one.bases, 0, count, other.bases, 0, count) && Arrays.equals(one.places, 0, count, other.places, 0, count)
                 && Arrays.equals(one.tints, 0, count * 3, other.tints, 0, count * 3);
+    }
+
+    /** Dev only: whether a build's page holds the light sites of a table, in the same order. */
+    private static boolean samePage(ChunkMeshes build, LightSites.Table table) {
+        int count = build.pageRecords;
+        return count == table.count && Arrays.equals(build.pageKeys, 0, count, table.keys, 0, count)
+                && Arrays.equals(build.page, 0, count * LightSites.RECORD, table.records, 0, count * LightSites.RECORD)
+                && Arrays.equals(build.pageBases, 0, count, table.bases, 0, count) && Arrays.equals(build.pagePlaces, 0, count, table.places, 0, count)
+                && Arrays.equals(build.pageTints, 0, count * 3, table.tints, 0, count * 3);
     }
 
     /** Dev only: whether two builds place the same models, in the same order. */
@@ -5762,6 +5775,9 @@ final class WorldScene {
             job.eyeY = pose.eyeY;
             job.eyeUp = pose.eyeUp;
             job.made = job.grownMade = job.dropped = false;
+            if (CHECK_BUILDS) {
+                job.head.headFrom(fresh);
+            }
             fresh.pageMarks = lit;
             fresh.pageDay = dayCode();
             fresh.pageFrom = Math.max(lowest, chunk.getMinLevel());
@@ -5773,12 +5789,22 @@ final class WorldScene {
             return current != null && current.tookNanos > 0L ? current.tookNanos : handedMeanNanos;
         }
 
-        /** After the walk: makes the builds it handed off on the maker, in walk order. */
+        /**
+         * After the walk: makes the builds it handed off on the maker, in walk order. Dev only, each is then made again
+         * beside and held to what it came out (checkHanded).
+         */
         private void makeHanded() {
             for (int i = 0; i < handed.size(); i++) {
                 Handed job = handed.get(i);
                 if (!job.dropped && !job.made) {
                     maker.make(job);
+                }
+            }
+            if (CHECK_BUILDS) {
+                for (int i = 0; i < handed.size(); i++) {
+                    if (handed.get(i).made) {
+                        checkHanded(handed.get(i));
+                    }
                 }
             }
         }
@@ -5794,10 +5820,6 @@ final class WorldScene {
             laid.clear();
             layers.none();
             SpriteColours.askingFrom(view.index, job.chunkX + CHUNK_TILES / 2f, job.chunkY + CHUNK_TILES / 2f);
-            if (CHECK_BUILDS) {
-                beside.takeFrom(job.taken);
-                besideMeshes.headFrom(fresh);
-            }
             long began = System.nanoTime();
             buildInto(job.chunk, job.chunkX, job.chunkY, job.lowest, fresh, job.toldSoFar);
             if (AUDIT_STALE || AUDIT_MARKS) {
@@ -5812,7 +5834,8 @@ final class WorldScene {
                 throw new IllegalStateException("the build of the chunk at " + job.chunk.wx + ", " + job.chunk.wy + " ended with its layers still counted");
             }
             if (CHECK_BUILDS) {
-                checkBeside(job.chunk, job.chunkX, job.chunkY, job.lowest, fresh, job.toldSoFar);
+                job.solidFloats = floatsOf(solid);
+                job.laidFloats = floatsOf(laid);
             }
             fresh.fill(solid, laid);
             slowed(began);
@@ -6038,9 +6061,7 @@ final class WorldScene {
 
         /**
          * Dev only: makes the build just made again on the frame beside, which took this frame's state before it
-         * (takeFrom), on a build thread while this one waits, and says so where the two differ: in any float or light site, in their crowns, in the models they
-         * place or the bodies they lay, in what they say of themselves or in the heights they went by. A build that
-         * asked for a sprite's colours is not held to it, as check does not hold one.
+         * (takeFrom), on a build thread while this one waits, and says so where the two differ (otherwise).
          */
         private void checkBeside(IsoChunk chunk, int chunkX, int chunkY, int lowest, ChunkMeshes fresh, int toldSoFar) {
             Frame other = beside;
@@ -6049,9 +6070,40 @@ final class WorldScene {
             other.laid.clear();
             other.layers.none();
             BuildThreads.runAndWait(besideThread, () -> other.buildInto(chunk, chunkX, chunkY, lowest, into, toldSoFar));
-            String differs = floatsOf(solid) != floatsOf(other.solid) || floatsOf(laid) != floatsOf(other.laid) ? "in its vertices"
-                    : !sameSites(sites, other.sites) ? "in its light sites"
-                    : !crownsRead.same(other.crownsRead) ? "in its crowns"
+            heldBeside(chunk, fresh, into, otherwise(floatsOf(solid), floatsOf(laid), sameSites(sites, other.sites), crownsRead, alike, fresh, other, into));
+        }
+
+        /**
+         * Dev only, after the builds handed off are made: makes one again on the frame beside, from what the walk had as
+         * it was handed off, on a build thread while this one waits, and says so where the two differ (otherwise). The
+         * first was filled, and is held to by what its vertices came out, its page and what it wrote down of its crowns.
+         */
+        private void checkHanded(Handed job) {
+            Frame other = beside;
+            ChunkMeshes into = besideMeshes, fresh = job.fresh;
+            other.takeFrom(job.taken);
+            into.headFrom(job.head);
+            other.solid.clear();
+            other.laid.clear();
+            other.layers.none();
+            BuildThreads.runAndWait(besideThread, () -> {
+                SpriteColours.askingFrom(view.index, job.chunkX + CHUNK_TILES / 2f, job.chunkY + CHUNK_TILES / 2f);
+                other.buildInto(job.chunk, job.chunkX, job.chunkY, job.lowest, into, job.toldSoFar);
+                SpriteColours.askingFrom(view.index, Float.NaN, Float.NaN);
+            });
+            heldBeside(job.chunk, fresh, into, otherwise(job.solidFloats, job.laidFloats, samePage(fresh, other.sites), job.crowns, fresh.alike, fresh, other, into));
+        }
+
+        /**
+         * Dev only: where a build made again beside, on other into into, came out otherwise than the first, into fresh,
+         * whose vertices came out solidFloats and laidFloats, whose light sites were the same as other's or not and whose
+         * crowns and bands alike are these: in any float or light site, in their crowns, in the models they place or the
+         * bodies they lay, in what they say of themselves or in the heights they went by. Null where it came out the same.
+         */
+        private String otherwise(long solidFloats, long laidFloats, boolean sameSites, Crowns crowns, int alike, ChunkMeshes fresh, Frame other, ChunkMeshes into) {
+            String differs = solidFloats != floatsOf(other.solid) || laidFloats != floatsOf(other.laid) ? "in its vertices"
+                    : !sameSites ? "in its light sites"
+                    : !crowns.same(other.crownsRead) ? "in its crowns"
                     : !samePlaced(fresh.placed, into.placed) || fresh.lying.size() != into.lying.size() ? "in the models it places or the bodies it lays"
                     : alike != other.alike || fresh.plain != into.plain || fresh.grows != into.grows || fresh.seasonal != into.seasonal || fresh.roomsBySight != into.roomsBySight
                             || fresh.filledUnshown != into.filledUnshown || fresh.terrainVersion != into.terrainVersion || !Arrays.equals(fresh.groundLayers, into.groundLayers)
@@ -6061,6 +6113,11 @@ final class WorldScene {
                     : null;
             other.solid.clear();
             other.laid.clear();
+            return differs;
+        }
+
+        /** Dev only: counts a build made again beside, and says so where it came out otherwise. A build that asked for a sprite's colours is not held to it, as check does not hold one. */
+        private void heldBeside(IsoChunk chunk, ChunkMeshes fresh, ChunkMeshes into, String differs) {
             if (!fresh.signed || !into.signed) {
                 tollBesideUnsigned++;
                 return;
