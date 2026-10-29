@@ -705,6 +705,11 @@ BurntBuildingFreezeFix=true
 ; it, centred by its inside against the whole of the main monitor, which can leave it partly under the taskbar.
 ; Taken at the next start. Off, its patches of the game's code are left out.
 CentreTheWindow=true
+; true: the controllers you tick in the game's options stay ticked, a 3Dconnexion 6-axis mouse never plays, and
+; the main menu goes to the controller whose A was pressed. false: the game picks its controllers, which with
+; none ticked is the one at index 0, a SpaceMouse when one is plugged in first.
+; Taken at the next start. Off, its patches of the game's code are left out.
+ControllerChoiceFix=true
 
 [Voice]
 ; true: your character's mouth moves with what you say into your microphone: the jaw drops for "ah", the lips

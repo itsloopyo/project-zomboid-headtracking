@@ -322,7 +322,7 @@ public final class Agent {
             if (Part.CENTRE_THE_WINDOW.atStart()) {
                 WindowPlacement.centreNewWindow();
             }
-            if (org.lwjglx.input.Controllers.isCreated()) {
+            if (Part.CONTROLLER_CHOICE_FIX.atStart() && org.lwjglx.input.Controllers.isCreated()) {
                 Gamepads.found();
             }
         }
@@ -484,7 +484,7 @@ public final class Agent {
                 new PatchSet("lua loaded", new PatchTransformer(luaLoadedPatches()), null),
                 new PatchSet("knockdown", new PatchTransformer(knockdownPatches()), null),
                 new PatchSet("car physics", new PatchTransformer(carPhysicsPatches()), off(Part.FIRST_PERSON, Part.HILLS_MOVE_VEHICLES)),
-                new PatchSet("controller", new PatchTransformer(controllerPatches()), null),
+                new PatchSet("controller", new PatchTransformer(controllerPatches()), off(Part.CONTROLLER_CHOICE_FIX)),
                 new PatchSet("chunk marks", chunkMarks, firstPersonOff),
                 new PatchSet("window marks", windowMarks, firstPersonOff),
                 new PatchSet("unmarked changes", unmarkedChanges, firstPersonOff),

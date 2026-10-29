@@ -74,7 +74,11 @@ enum Part {
                     + "into a chunk that is not loaded yet. false: the game's own code, which can go round that door for ever."),
     CENTRE_THE_WINDOW("Fixes", "CentreTheWindow", false, true,
             "true: the game's window is centred in the part of its monitor the taskbar leaves free. false: the game places\n"
-                    + "it, centred by its inside against the whole of the main monitor, which can leave it partly under the taskbar.");
+                    + "it, centred by its inside against the whole of the main monitor, which can leave it partly under the taskbar."),
+    CONTROLLER_CHOICE_FIX("Fixes", "ControllerChoiceFix", false, true,
+            "true: the controllers you tick in the game's options stay ticked, a 3Dconnexion 6-axis mouse never plays, and\n"
+                    + "the main menu goes to the controller whose A was pressed. false: the game picks its controllers, which with\n"
+                    + "none ticked is the one at index 0, a SpaceMouse when one is plugged in first.");
 
     final String section, key, comment;
     /** Whether the row is taken while the game runs, and whether it is read at the start to leave patches out. */
