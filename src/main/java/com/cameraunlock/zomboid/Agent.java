@@ -1245,13 +1245,23 @@ public final class Agent {
      * every frame. Without one of them that change shows when the chunk is next read through,
      * which with the game telling is up to half a second on for a window right by the eye.
      */
-    private static List<Patch> windowMarkPatches() {
+    static List<Patch> windowMarkPatches() {
         String window = "zombie/iso/objects/IsoWindow";
         CallSite.Method changed = new CallSite.Method("com/cameraunlock/zomboid/ChunkMarks", "changed", "(Lzombie/iso/IsoObject;)V");
         ArrayList<Patch> patches = new ArrayList<>();
-        for (String[] method : new String[][] {{"smashWindow", "(ZZ)V"}, {"setSmashed", "(Z)V"}, {"setGlassRemoved", "(Z)V"},
-                {"ToggleWindow", "(Lzombie/characters/IsoGameCharacter;)V"}, {"Thump", "(Lzombie/iso/IsoMovingObject;I)V"},
-                {"syncIsoObjectReceive", "(Lzombie/core/network/ByteBufferReader;)V"}}) {
+        // Each returns early having changed nothing: Thump for a blow that does not break the window, or that falls on its barricade, ToggleWindow for a
+        // window locked for good, broken or barricaded against the character, smashWindow for one already broken, setGlassRemoved for one not broken.
+        // Each marks after the one call that follows its new sprite.
+        for (String[] method : new String[][] {
+                {"Thump", "(Lzombie/iso/IsoMovingObject;I)V", window, "addBrokenGlass", "(Lzombie/iso/IsoMovingObject;)V"},
+                {"ToggleWindow", "(Lzombie/characters/IsoGameCharacter;)V", "zombie/iso/IsoGridSquare", "RecalcProperties", "()V"},
+                {"smashWindow", "(ZZ)V", "zombie/pathfind/PolygonalMap2", "squareChanged", "(Lzombie/iso/IsoGridSquare;)V"},
+                {"setGlassRemoved", "(Z)V", window, "getObjectIndex", "()I"}}) {
+            patches.add(new Patch(window, method[0] + " telling of the window's new sprite", classBytes -> CallSite.insertAfterEach(classBytes,
+                    new CallSite.Method(window, method[0], method[1]), new CallSite.Method(method[2], method[3], method[4]),
+                    code -> CallSite.passThis(code, changed), 1)));
+        }
+        for (String[] method : new String[][] {{"setSmashed", "(Z)V"}, {"syncIsoObjectReceive", "(Lzombie/core/network/ByteBufferReader;)V"}}) {
             patches.add(new Patch(window, method[0] + " telling of the window's new sprite", classBytes -> CallSite.insertBeforeReturns(classBytes,
                     new CallSite.Method(window, method[0], method[1]), code -> CallSite.passThis(code, changed))));
         }

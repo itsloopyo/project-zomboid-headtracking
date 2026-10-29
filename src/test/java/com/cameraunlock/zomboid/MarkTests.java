@@ -46,6 +46,7 @@ final class MarkTests {
         Checks.run("aStaticMethodIsRefused", MarkTests::aStaticMethodIsRefused);
         Checks.run("eachUnmarkedChangeIsMarkedAfterTheGameMakesItAndNotOnAReturnBeforeIt", MarkTests::eachUnmarkedChangeIsMarkedAfterTheGameMakesItAndNotOnAReturnBeforeIt);
         Checks.run("aLoadIsToldOfAsItBeginsAndOnEveryWayOut", MarkTests::aLoadIsToldOfAsItBeginsAndOnEveryWayOut);
+        Checks.run("aWindowIsMarkedOnlyWhereItsSpriteChanges", MarkTests::aWindowIsMarkedOnlyWhereItsSpriteChanges);
     }
 
     private static void check(boolean condition, String what) {
@@ -340,6 +341,27 @@ final class MarkTests {
     private static void aLoadIsToldOfAsItBeginsAndOnEveryWayOut() {
         placed(Agent.chunkMarkPatches(), "zombie/iso/IsoChunk", "doLoadGridsquare", "()V", new Call("zombie/iso/IsoChunk", "loadInMainThread", "()V", true), 1,
                 "mark loading 0", "mark loaded 0", "return", "loadInMainThread", "mark loaded 0", "return", "mark loaded 0", "throw");
+    }
+
+    /**
+     * Each window patch put into a method shaped as the game's: a thump that does not break the
+     * window returns at once and marks nothing, as do a toggle, a smash and a removal of the
+     * glass the window refuses, and each marks after the call that follows its new sprite.
+     * setSmashed and syncIsoObjectReceive return once in the game, and mark there.
+     */
+    private static void aWindowIsMarkedOnlyWhereItsSpriteChanges() {
+        List<Agent.Patch> patches = Agent.windowMarkPatches();
+        String window = "zombie/iso/objects/IsoWindow";
+        placed(patches, window, "Thump", "(Lzombie/iso/IsoMovingObject;I)V", new Call(window, "addBrokenGlass", "(Lzombie/iso/IsoMovingObject;)V", true), 1,
+                "return", "addBrokenGlass", "mark changed 0", "return");
+        placed(patches, window, "ToggleWindow", "(Lzombie/characters/IsoGameCharacter;)V", new Call("zombie/iso/IsoGridSquare", "RecalcProperties", "()V", true), 1,
+                "return", "RecalcProperties", "mark changed 0", "return");
+        placed(patches, window, "smashWindow", "(ZZ)V", new Call("zombie/pathfind/PolygonalMap2", "squareChanged", "(Lzombie/iso/IsoGridSquare;)V", true), 1,
+                "return", "squareChanged", "mark changed 0", "return");
+        placed(patches, window, "setGlassRemoved", "(Z)V", new Call(window, "getObjectIndex", "()I", true), 1,
+                "return", "getObjectIndex", "mark changed 0", "return");
+        placed(patches, window, "setSmashed", "(Z)V", null, 0, "mark changed 0", "return", "mark changed 0", "return");
+        placed(patches, window, "syncIsoObjectReceive", "(Lzombie/core/network/ByteBufferReader;)V", null, 0, "mark changed 0", "return", "mark changed 0", "return");
     }
 
     /** Checks the steps (see steps) of the method once the patch of it is put into one shaped as the game's (see shaped). */
