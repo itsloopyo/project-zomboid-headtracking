@@ -818,7 +818,8 @@ public final class Hooks {
      * Called with the ground a character's animation has moved it this frame, before the game
      * moves it. For a player of this machine walking, jogging or sprinting ahead in first person it
      * is the game's pace for that gait, and held in the aiming stance while moved sideways or
-     * backwards (Controls.turnedOnly) it is raised to that pace: see Sidestep.
+     * backwards (Controls.turnedOnly) it is raised to that pace: see Sidestep. Where players can
+     * fight the stance keeps its own pace (Rules.facing).
      */
     public static Vector2 moved(Vector2 ground, IsoGameCharacter character) {
         if (!(character instanceof IsoPlayer player)) {
@@ -831,6 +832,9 @@ public final class Hooks {
         }
         float moved = (float) Math.hypot(ground.x, ground.y);
         if (view.controls.turnedOnly() && player.isAiming()) {
+            if (!view.controls.pacedAhead()) {
+                return ground;
+            }
             float raised = view.sidestep.raised(moved, multiplier, view.firstPerson.keysAhead(), view.controls.stanceGait(), System.nanoTime());
             return ground.set(ground.x * raised, ground.y * raised);
         }

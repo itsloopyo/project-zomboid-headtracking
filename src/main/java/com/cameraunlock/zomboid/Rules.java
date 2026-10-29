@@ -11,6 +11,7 @@ import zombie.network.GameServer;
  * it, so a shot through a wall or past a tree holds where players cannot fight (Online.contested), as
  * does a rule that changes only this player's own screen or stance; one that shows nothing of another
  * player holds on every server.
+ * Where players can fight, FacesTheView is the one rule the mod applies even with its row off: see facing.
  *
  * The rows are read again while the game runs: the thread that watches the file and the game's
  * options screen set them, and the logic thread asks them as shots land and vehicles move.
@@ -62,9 +63,48 @@ final class Rules {
         return Online.joined() || (on & SMASHES_THROUGH) == 0;
     }
 
-    /** Whether a character moved sideways or backwards in first person keeps facing the view, at the game's pace for the gait: see Controls and Sidestep. */
-    static boolean facesTheView() {
-        return !Online.contested() && (on & FACES_THE_VIEW) != 0;
+    /** How a character moved any way but straight ahead in first person faces: see Controls and Sidestep. */
+    enum Facing {
+        /** It turns to the way it moves, as the game has it. */
+        TURNS_TO_THE_WAY_IT_MOVES,
+        /** Moved sideways or backwards it is held in the game's aiming stance, facing the view, at the pace the game gives that stance. */
+        FACES_THE_VIEW_AT_THE_STANCES_PACE,
+        /**
+         * Moved sideways or backwards, or ahead and off straight ahead, it is held in the aiming stance
+         * facing the view and moved at the pace the game gives the same gait straight ahead (Sidestep).
+         */
+        FACES_THE_VIEW_AT_THE_PACE_AHEAD;
+
+        /**
+         * Whether a character is held in the aiming stance to face the view, moved sideways or
+         * backwards ({@code aside}) or ahead but off straight ahead at a pace the stance stands in
+         * for ({@code aheadOffStraight}).
+         */
+        boolean holds(boolean aside, boolean aheadOffStraight) {
+            return switch (this) {
+                case TURNS_TO_THE_WAY_IT_MOVES -> false;
+                case FACES_THE_VIEW_AT_THE_STANCES_PACE -> aside;
+                case FACES_THE_VIEW_AT_THE_PACE_AHEAD -> aside || aheadOffStraight;
+            };
+        }
+
+        /** Whether the stance a character is held in to face the view is raised to the pace ahead: see Hooks.moved. */
+        boolean raises() {
+            return this == FACES_THE_VIEW_AT_THE_PACE_AHEAD;
+        }
+    }
+
+    /**
+     * The FacesTheView row, but where players can fight the character faces the view whatever the
+     * row says, so other players, a mirror and the game's own vision cone see it face where its
+     * player looks and never its back. There it goes at the stance's own pace: raised past it, it
+     * would back away and strafe faster than any other player facing one way and moving another.
+     */
+    static Facing facing() {
+        if (Online.contested()) {
+            return Facing.FACES_THE_VIEW_AT_THE_STANCES_PACE;
+        }
+        return (on & FACES_THE_VIEW) != 0 ? Facing.FACES_THE_VIEW_AT_THE_PACE_AHEAD : Facing.TURNS_TO_THE_WAY_IT_MOVES;
     }
 
     /** Whether a first person shot goes on past a tree it does not meet the bole of: see Trunks. */

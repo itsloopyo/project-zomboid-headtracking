@@ -363,7 +363,8 @@ final class Config {
             core.configLocalBool("Rules", "FacesTheView",
                     "true: walking or sneaking sideways or backwards in first person, your character keeps facing where you look,\n"
                             + "and jogging or sprinting is straight ahead only. false: it always turns, as the game has it. On a server\n"
-                            + "where players can hurt each other the game's rule holds.",
+                            + "where players can hurt each other it keeps facing where you look sideways and backwards whether this is\n"
+                            + "true or false, at the slower pace the game gives its aiming stance.",
                     writable | live, true),
             core.configLocalBool("Rules", "ShotsPastTrees",
                     "true: a tree stops your shots only where its trunk is drawn, and a shot past the trunk goes on. false: a\n"

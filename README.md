@@ -255,7 +255,7 @@ Every key saves its new setting to `CameraUnlock.ini` as you press it, and `Dele
 
 ### Mouse and keyboard
 
-The mouse turns the view. Movement keys follow the direction you face. Walking or sneaking any way but straight ahead, diagonals included, your character keeps facing where you look, in the game's aiming stance at the pace of the walk ahead. Jogging and sprinting are straight ahead only: held any other way, your character walks. Offline and on servers where players cannot hurt each other; `FacesTheView=false` gives the game's own turn every time.
+The mouse turns the view. Movement keys follow the direction you face. Walking or sneaking any way but straight ahead, diagonals included, your character keeps facing where you look, in the game's aiming stance at the pace of the walk ahead. Jogging and sprinting are straight ahead only: held any other way, your character walks. Offline and on servers where players cannot hurt each other; `FacesTheView=false` gives the game's own turn every time. On a server where players can hurt each other your character faces where you look only walking sideways or backwards, at the game's own pace: see **PvP** below.
 
 | Input | Action |
 | --- | --- |
@@ -289,6 +289,7 @@ The mouse turns the view. Movement keys follow the direction you face. Walking o
 - Hills stand at height 1 whatever you set, and zombies and props are drawn at full distance.
 - Fog is as thick as in the game's own view.
 - Walls, doors and trees stop shots as in the game.
+- Walking sideways or backwards in first person, your character faces where you look, in the game's aiming stance at the slower pace the game gives that stance, whatever `FacesTheView` says. Other players see it face the way you are looking rather than its back. Jogging or sprinting that way, it walks. Walking ahead or on a forward diagonal it turns to the way it walks, as in the game.
 - From a vehicle seat you shoot only with your window open or broken, and a driver who raises a rifle or shotgun lets go of the wheel, as in the game.
 
 Zombies, rooms and vehicles with no other player in them look as they do offline. In split screen and on a server without PvP, other players are drawn as far off as zombies, where the game's own view from above would leave them out or fade them; an admin the game makes invisible stays invisible. On a server without PvP the mod plays as it does alone, apart from wounds and vehicles: on any server, your own co-op host included, a shot arm or leg leaves a zombie as the game does, and vehicles drive and roll as the game has them, on level ground.
@@ -599,7 +600,8 @@ ShotsWoundLimbs=true
 VehiclesSmashThrough=true
 ; true: walking or sneaking sideways or backwards in first person, your character keeps facing where you look,
 ; and jogging or sprinting is straight ahead only. false: it always turns, as the game has it. On a server
-; where players can hurt each other the game's rule holds.
+; where players can hurt each other it keeps facing where you look sideways and backwards whether this is
+; true or false, at the slower pace the game gives its aiming stance.
 FacesTheView=true
 ; true: a tree stops your shots only where its trunk is drawn, and a shot past the trunk goes on. false: a
 ; tree stops every shot across its square, as the game has it. On a server where players can hurt each

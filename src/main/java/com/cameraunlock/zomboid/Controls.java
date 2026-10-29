@@ -126,27 +126,32 @@ public final class Controls {
      * own vision cone, and sprinted sideways it would turn its body where a first person player
      * keeps looking ahead. Moved any way but straight ahead, it is held in the game's aiming stance, the
      * one way the game has of facing one way and moving another, raised to the pace the game
-     * gives the walk, jog or sprint ahead (Sidestep). Dragging a body, with the FacesTheView row
-     * off or on a server where players can fight, the game turns the character to the way it goes, as it would anyway.
+     * gives the walk, jog or sprint ahead (Sidestep). Dragging a body, or with the FacesTheView row
+     * off, the game turns the character to the way it goes, as it would anyway. Where players can
+     * fight it is held only moved sideways or backwards, row or no row, at the stance's own pace
+     * (Rules.facing).
      * The sights stay down. They follow the player's own aim input alone.
      */
     private boolean turnedToTheView(IsoPlayer player) {
-        if (!Rules.facesTheView() || player == null || player.getVehicle() != null || player.isDraggingCorpse()) {
+        Rules.Facing facing = Rules.facing();
+        if (facing == Rules.Facing.TURNS_TO_THE_WAY_IT_MOVES || player == null || player.getVehicle() != null || player.isDraggingCorpse()) {
             stanceGait = Sidestep.WALKING;
             runsAslant = false;
+            paced = false;
             return false;
         }
+        boolean raises = facing.raises();
         // Off, a jog or sprint asked for sideways or back is the walk, and only straight ahead runs.
-        int gait = SPRINT_ASIDE ? askedGait(player) : Sidestep.WALKING;
+        int gait = raises && SPRINT_ASIDE ? askedGait(player) : Sidestep.WALKING;
         // Moved ahead and to one side it faces the view too, so a mirror shows it looking where the
         // player looks: only straight ahead is the game's own walk or run.
         // A jog or sprint on a forward diagonal is the game's own, at its own pace: the drawn figure
         // alone is turned to the view (runsAslant).
-        runsAslant = view.firstPerson.walkingAhead() && view.firstPerson.keysAhead() < STRAIGHT_AHEAD
-                && !SPRINT_ASIDE && askedGait(player) >= Sidestep.JOGGING;
-        boolean turned = view.firstPerson.movingAside()
-                || view.firstPerson.walkingAhead() && view.firstPerson.keysAhead() < STRAIGHT_AHEAD && !runsAslant;
+        boolean offStraight = view.firstPerson.walkingAhead() && view.firstPerson.keysAhead() < STRAIGHT_AHEAD;
+        runsAslant = raises && offStraight && !SPRINT_ASIDE && askedGait(player) >= Sidestep.JOGGING;
+        boolean turned = facing.holds(view.firstPerson.movingAside(), offStraight && !runsAslant);
         stanceGait = turned ? gait : Sidestep.WALKING;
+        paced = turned && raises;
         return turned;
     }
 
@@ -199,6 +204,13 @@ public final class Controls {
 
     private boolean turnedOnly;
     private boolean runsAslant;
+    /** Whether the stance held for facing alone is raised to the pace ahead (Sidestep), and not left at its own. */
+    private boolean paced;
+
+    /** Whether the character is held in the aiming stance for facing alone and moved at the pace ahead: see Hooks.moved. */
+    boolean pacedAhead() {
+        return turnedOnly && paced;
+    }
 
     /** Whether the player jogs or sprints on a forward diagonal, turned there by the game while its drawn figure faces the view. */
     boolean runsAslant() {
