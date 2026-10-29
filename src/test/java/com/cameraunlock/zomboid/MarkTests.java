@@ -18,9 +18,12 @@ final class MarkTests {
         Checks.run("aBoxOfChunksIsToldWhole", MarkTests::aBoxOfChunksIsToldWhole);
         Checks.run("aLightIsMarkedApartFromThings", MarkTests::aLightIsMarkedApartFromThings);
         Checks.run("aChunkSharingItsPlaceIsNotToldWithAnother", MarkTests::aChunkSharingItsPlaceIsNotToldWithAnother);
+        Checks.run("aChunkToldAgainKeepsOneTelling", MarkTests::aChunkToldAgainKeepsOneTelling);
         Checks.run("aChunkLetGoOfIsNeverReadAsUntold", MarkTests::aChunkLetGoOfIsNeverReadAsUntold);
         Checks.run("aChunkKeptReadsWhatItDidWhenOneInItsPlaceIsLetGoOf", MarkTests::aChunkKeptReadsWhatItDidWhenOneInItsPlaceIsLetGoOf);
         Checks.run("aChunkAnotherViewKeepsIsNotLetGoOf", MarkTests::aChunkAnotherViewKeepsIsNotLetGoOf);
+        // What the views keep would otherwise be kept into the tests after these.
+        keepNone();
         Checks.run("aChunkLoadedIsMarkedForWhatMayBeBuiltOnIt", MarkTests::aChunkLoadedIsMarkedForWhatMayBeBuiltOnIt);
         Checks.run("aFireLitOrPutOutIsMarkedOnItsChunk", MarkTests::aFireLitOrPutOutIsMarkedOnItsChunk);
         Checks.run("dirtStampedIsMarkedOnTheSquaresBesideIt", MarkTests::dirtStampedIsMarkedOnTheSquaresBesideIt);
@@ -90,11 +93,31 @@ final class MarkTests {
         check(ChunkMarks.told(500 + ChunkMarks.SIDE, 700) != at && ChunkMarks.told(500 + ChunkMarks.SIDE, 700) != 0, "and that one is");
     }
 
+    /** Has every view keep no chunks, which lets go of every telling. */
+    private static void keepNone() {
+        for (int view = 0; view < View.COUNT; view++) {
+            ChunkMarks.keepTellings(view, 0, 0, 0);
+        }
+    }
+
+    private static void aChunkToldAgainKeepsOneTelling() {
+        keepNone();
+        check(ChunkMarks.tellingsKept() == 0, "with no view keeping any chunks, no telling is kept");
+        ChunkMarks.tell(400, 400);
+        ChunkMarks.tell(430, 430);
+        int first = ChunkMarks.told(400, 400);
+        ChunkMarks.tell(400, 400);
+        check(ChunkMarks.told(400, 400) != first, "a chunk told again has another number");
+        check(ChunkMarks.tellingsKept() == 2, "a chunk told again keeps one telling");
+    }
+
     private static void aChunkLetGoOfIsNeverReadAsUntold() {
+        keepNone();
         ChunkMarks.tell(400, 400);
         ChunkMarks.tell(430, 430);
         int on = ChunkMarks.told(400, 400), off = ChunkMarks.told(430, 430);
         ChunkMarks.keepTellings(0, 390, 390, 21);
+        check(ChunkMarks.tellingsKept() == 1, "the telling of a chunk no view keeps is let go of");
         check(ChunkMarks.told(400, 400) == on, "a chunk a view keeps keeps its number");
         check(ChunkMarks.told(430, 430) == off, "one no view keeps is let go of and reads what it read: a build made since it was told is still good");
         int beside = ChunkMarks.told(430 - ChunkMarks.SIDE, 430);
@@ -104,18 +127,22 @@ final class MarkTests {
     }
 
     private static void aChunkKeptReadsWhatItDidWhenOneInItsPlaceIsLetGoOf() {
+        keepNone();
         int kept = ChunkMarks.told(401, 402);
         ChunkMarks.tell(401 + ChunkMarks.SIDE, 402);
         ChunkMarks.keepTellings(0, 390, 390, 21);
+        check(ChunkMarks.tellingsKept() == 1, "the chunk let go of has no telling kept, and the one the view keeps in its place has one of its own");
         check(ChunkMarks.told(401, 402) == kept, "a chunk the view keeps reads the number it read before one in its place was let go of");
         check(ChunkMarks.told(401 + ChunkMarks.SIDE, 402) != kept, "and the one let go of does not read it");
     }
 
     private static void aChunkAnotherViewKeepsIsNotLetGoOf() {
+        keepNone();
         ChunkMarks.keepTellings(1, 600, 600, 21);
         ChunkMarks.tell(605, 610);
         int told = ChunkMarks.told(605, 610), place = ChunkMarks.told(605 + ChunkMarks.SIDE, 610);
         ChunkMarks.keepTellings(0, 390, 390, 21);
+        check(ChunkMarks.tellingsKept() == 1, "the second player's chunk keeps its telling");
         check(ChunkMarks.told(605, 610) == told && ChunkMarks.told(605 + ChunkMarks.SIDE, 610) == place,
                 "the second player's chunks keep their tellings when the first player's view lets go of what it does not keep");
     }

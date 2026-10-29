@@ -472,6 +472,11 @@ public final class ChunkMarks {
         return last == null ? letGoAt[slot(wx, wy)] : last.telling;
     }
 
+    /** Tests only: how many chunks have a telling of their own. */
+    static int tellingsKept() {
+        return told.size();
+    }
+
     /** Dev only: the marks by flag since the last asking. */
     static String counted() {
         StringBuilder all = new StringBuilder();

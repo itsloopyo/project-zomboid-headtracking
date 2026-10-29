@@ -31,6 +31,10 @@ final class LongTable<V> {
         return get(key) != null;
     }
 
+    int size() {
+        return size;
+    }
+
     void put(long key, V value) {
         if (value == null) {
             throw new IllegalArgumentException("a LongTable holds no null, and " + key + " was given one");
