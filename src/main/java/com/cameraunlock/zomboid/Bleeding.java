@@ -25,7 +25,8 @@ import zombie.iso.IsoGridSquare;
  * gets, and then taken off the floor: the game never takes blood away, and a trail behind every
  * crawler would cover the map.
  *
- * Logic thread only.
+ * Logic thread only, but for saving and saved: the game writes a chunk it lets go of to its
+ * save off its logic thread. Everything that reads or changes the trail takes its lock.
  */
 final class Bleeding {
     private Bleeding() {}
