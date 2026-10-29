@@ -24,6 +24,7 @@ final class MarkTests {
         Checks.run("aChunkLoadedIsMarkedForWhatMayBeBuiltOnIt", MarkTests::aChunkLoadedIsMarkedForWhatMayBeBuiltOnIt);
         Checks.run("aFireLitOrPutOutIsMarkedOnItsChunk", MarkTests::aFireLitOrPutOutIsMarkedOnItsChunk);
         Checks.run("dirtStampedIsMarkedOnTheSquaresBesideIt", MarkTests::dirtStampedIsMarkedOnTheSquaresBesideIt);
+        Checks.run("aSquareMadeOnALoadedChunkIsMarkedOnItsLevel", MarkTests::aSquareMadeOnALoadedChunkIsMarkedOnItsLevel);
         Checks.run("aTallyIsCountedIntoAnother", MarkTests::aTallyIsCountedIntoAnother);
         Checks.run("aMethodOfAnObjectHandsItselfOverBeforeAnythingElse", MarkTests::aMethodOfAnObjectHandsItselfOverBeforeAnythingElse);
         Checks.run("aStaticMethodIsRefused", MarkTests::aStaticMethodIsRefused);
@@ -142,6 +143,23 @@ final class MarkTests {
                 "dirt stamped on a square is marked on its level of the chunk for it and for the square north of it, the two of the five the map has in that chunk");
         check(ChunkMarks.structuresIn(1135, 1150, 1135, 1150, 0, 0) == beside + 1, "and for the square west of it, in the chunk beside");
         check(ChunkMarks.thingsAround(1136, 1150) == things + 3, "each a mark for what is on a square");
+    }
+
+    private static void aSquareMadeOnALoadedChunkIsMarkedOnItsLevel() {
+        TestMap map = new TestMap();
+        // The square a chunk loading south of it puts on its edge, holding nothing.
+        IsoGridSquare made = map.cell.square(1146 * 8 + 3, 1150 * 8 + 7, 1);
+        int things = ChunkMarks.thingsAround(1146, 1150), built = ChunkMarks.structuresIn(1146, 1150, 1146, 1150, 1, 1);
+        int ground = ChunkMarks.structuresIn(1146, 1150, 1146, 1150, 0, 0);
+        ChunkMarks.made(made);
+        check(ChunkMarks.thingsAround(1146, 1150) == things + 1 && ChunkMarks.structuresIn(1146, 1150, 1146, 1150, 1, 1) == built + 1,
+                "a square the game puts on a loaded chunk is marked on its level, as a part of a building: a chunk loading gives the squares it makes beside it their rooms");
+        check(ChunkMarks.structuresIn(1146, 1150, 1146, 1150, 0, 0) == ground, "and on that level alone");
+        IsoGridSquare filling = map.cell.square(1146 * 8 + 4, 1150 * 8 + 7, 1);
+        filling.filling(true);
+        ChunkMarks.made(filling);
+        check(ChunkMarks.thingsAround(1146, 1150) == things + 1 && ChunkMarks.structuresIn(1146, 1150, 1146, 1150, 1, 1) == built + 1,
+                "one put on a chunk the map is still filling is not marked: its load is");
     }
 
     private static void aTallyIsCountedIntoAnother() {

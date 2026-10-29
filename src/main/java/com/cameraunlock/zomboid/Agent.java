@@ -1250,10 +1250,11 @@ public final class Agent {
      * Apart again, and each from the other: where the game changes what a build of a chunk is
      * made from and marks nothing. Erosion's vines and moss hung on a wall and taken off it, the
      * dirt a story stamps on a floor and the four beside it, the graffiti it sprays, a compost
-     * bin filling, a door, a built door or a curtain the game moves without a sound, and a hearth
-     * or a barbecue lit or put out. Without one of them the change waits for the chunk's next
-     * sweep (WorldScene.sweptEvery), half a second or more by the eye and six seconds or more far
-     * off, unless the chunk is read sooner for something else.
+     * bin filling, a door, a built door or a curtain the game moves without a sound, a hearth or
+     * a barbecue lit or put out, and a square put on the map where there was none. Without one of
+     * them the change waits for the chunk's next sweep (WorldScene.sweptEvery), half a second or
+     * more by the eye and six seconds or more far off, unless the chunk is read sooner for
+     * something else.
      */
     private static List<Patch> unmarkedChangePatches() {
         String marks = "com/cameraunlock/zomboid/ChunkMarks", overlay = "zombie/erosion/obj/ErosionObjOverlay", square = "zombie/iso/IsoGridSquare",
@@ -1291,6 +1292,11 @@ public final class Agent {
                         CallSite.invokeStatic(code, burning);
                     })));
         }
+        // A square the game makes after a chunk's own fill is put on the map here: the build cursor makes one where its level has none (IsoCell.createNewGridSquare), a chunk loading puts them on the edges of the chunks beside it (IsoChunk.loadInMainThread), and IsoGridSquare.addFloor and AddStairs make them too. The square is the first argument, which it does not assign.
+        String cell = "zombie/iso/IsoCell";
+        patches.add(new Patch(cell, "ConnectNewSquare telling of the square it puts on the map", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                new CallSite.Method(cell, "ConnectNewSquare", "(L" + square + ";Z)L" + square + ";"),
+                code -> CallSite.passFirstArgument(code, new CallSite.Method(marks, "made", "(L" + square + ";)V")))));
         return patches;
     }
 

@@ -234,6 +234,21 @@ public final class ChunkMarks {
         changedOn(square.getAdjacentSquare(IsoDirections.W));
     }
 
+    /**
+     * Called by the game as it puts a square on the map where there was none (IsoCell.ConnectNewSquare),
+     * which it marks nothing for. The build cursor makes one where its level has none, and a chunk that
+     * loads puts squares on the edge of each loaded chunk beside it, by every square of its own edge that
+     * holds something (IsoChunk.loadInMainThread). A square with nothing on it is not read as no square:
+     * RoomMap reads one beside a tall hall's upper room as the hall's (TallHalls.floorOf). One put on a
+     * chunk still being filled is counted with its load (loaded).
+     */
+    public static void made(IsoGridSquare square) {
+        IsoChunk chunk = square.getChunk();
+        if (chunk != null && chunk.loaded) {
+            changedOn(square);
+        }
+    }
+
     /** Called by the game as it lights a hearth or a barbecue, or puts it out, with whether it was lit and is to be: it marks neither. */
     public static void burning(IsoObject object, boolean was, boolean now) {
         if (was != now) {
