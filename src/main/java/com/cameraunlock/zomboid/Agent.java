@@ -1275,13 +1275,18 @@ public final class Agent {
         CallSite.Method changedOn = new CallSite.Method(marks, "changedOn", "(Lzombie/iso/IsoGridSquare;)V");
         CallSite.Method burning = new CallSite.Method(marks, "burning", "(Lzombie/iso/IsoObject;ZZ)V");
         ArrayList<Patch> patches = new ArrayList<>();
-        // The object is the first argument of both, which neither assigns.
-        patches.add(new Patch(overlay, "setOverlay telling of the object's new overlay", classBytes -> CallSite.insertBeforeReturns(classBytes,
-                new CallSite.Method(overlay, "setOverlay", "(Lzombie/iso/IsoObject;IIIF)I"), code -> CallSite.passFirstArgument(code, changed))));
-        patches.add(new Patch(overlay, "removeOverlay telling of the overlay taken off", classBytes -> CallSite.insertBeforeReturns(classBytes,
-                new CallSite.Method(overlay, "removeOverlay", "(Lzombie/iso/IsoObject;I)Z"), code -> CallSite.passFirstArgument(code, changed))));
-        patches.add(new Patch(square, "dirtStamp telling of the floors it stamps", classBytes -> CallSite.insertBeforeReturns(classBytes,
-                new CallSite.Method(square, "dirtStamp", "()V"), code -> CallSite.passThis(code, new CallSite.Method(marks, "stamped", "(Lzombie/iso/IsoGridSquare;)V")))));
+        // Each tells where it changes the sprites attached to the object, its first argument, which neither assigns. setOverlay answers -1 at once for no
+        // object or a stage it has not got; removeOverlay answers false for an object with none of it, and also after taking some away by their sprite.
+        patches.add(new Patch(overlay, "setOverlay telling of the object's new overlay", classBytes -> CallSite.insertAfterEach(classBytes,
+                new CallSite.Method(overlay, "setOverlay", "(Lzombie/iso/IsoObject;IIIF)I"), new CallSite.Method("java/util/ArrayList", "add", "(Ljava/lang/Object;)Z"),
+                code -> CallSite.passFirstArgument(code, changed), 1)));
+        patches.add(new Patch(overlay, "removeOverlay telling of the overlay taken off", classBytes -> CallSite.insertAfterEach(classBytes,
+                new CallSite.Method(overlay, "removeOverlay", "(Lzombie/iso/IsoObject;I)Z"), new CallSite.Method("java/util/ArrayList", "remove", "(I)Ljava/lang/Object;"),
+                code -> CallSite.passFirstArgument(code, changed), 2)));
+        // It returns at once on sand, dirt or no floor; past that it gives the floor its dirt.
+        patches.add(new Patch(square, "dirtStamp telling of the floors it stamps", classBytes -> CallSite.insertAfterEach(classBytes,
+                new CallSite.Method(square, "dirtStamp", "()V"), new CallSite.Method("zombie/iso/IsoObject", "setSpriteFromName", "(Ljava/lang/String;)V"),
+                code -> CallSite.passThis(code, new CallSite.Method(marks, "stamped", "(Lzombie/iso/IsoGridSquare;)V")), 1)));
         // The square argument is moved to the one south of it for two of the graffiti, before the wall is found: by the call that ends the method it is the square sprayed.
         patches.add(new Patch(world, "graffSquare telling of the graffiti", classBytes -> CallSite.insertAfterEach(classBytes,
                 new CallSite.Method(world, "graffSquare", "(Lzombie/iso/IsoGridSquare;Ljava/lang/String;Z)V"),
@@ -1293,9 +1298,11 @@ public final class Agent {
         patches.add(new Patch(compost, "updateSprite telling of the bin's new sprite", classBytes -> CallSite.insertAfterEach(classBytes,
                 new CallSite.Method(compost, "updateSprite", "()V"), new CallSite.Method(compost, "transmitUpdatedSpriteToClients", "()V"),
                 code -> CallSite.passThis(code, changed), 4)));
+        // Each returns at once for one barricaded; past that it has the light worked out again and turns the door.
         for (String door : new String[] {"zombie/iso/objects/IsoDoor", "zombie/iso/objects/IsoThumpable", "zombie/iso/objects/IsoCurtain"}) {
-            patches.add(new Patch(door, "ToggleDoorSilent telling of its new sprite", classBytes -> CallSite.insertBeforeReturns(classBytes,
-                    new CallSite.Method(door, "ToggleDoorSilent", "()V"), code -> CallSite.passThis(code, changed))));
+            patches.add(new Patch(door, "ToggleDoorSilent telling of its new sprite", classBytes -> CallSite.insertAfterEach(classBytes,
+                    new CallSite.Method(door, "ToggleDoorSilent", "()V"), new CallSite.Method(square, "setRecalcLightTime", "(F)V"),
+                    code -> CallSite.passThis(code, changed), 1)));
         }
         for (String fire : new String[] {"zombie/iso/objects/IsoFireplace", "zombie/iso/objects/IsoBarbecue"}) {
             patches.add(new Patch(fire, "setLit telling of a fire lit or put out", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,

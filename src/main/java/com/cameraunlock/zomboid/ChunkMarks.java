@@ -241,7 +241,7 @@ public final class ChunkMarks {
         }
     }
 
-    /** Called by the game as it stamps dirt on a square's floor: it changes the floors of the four squares beside it too. */
+    /** Called by the game as it stamps dirt on a square's floor: it may change the floors of the four squares beside it too. */
     public static void stamped(IsoGridSquare square) {
         changedOn(square);
         changedOn(square.getAdjacentSquare(IsoDirections.N));
