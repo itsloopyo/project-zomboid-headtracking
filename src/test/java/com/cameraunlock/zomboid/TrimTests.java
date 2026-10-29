@@ -7,10 +7,11 @@ import java.util.Arrays;
 /** Tests of the skirting boards, rails and cornices built along inside walls: see Trims. */
 final class TrimTests {
     private static final int LONG = Flats.WALL_LONG, HIGH = Flats.WALL_HIGH;
-    private static final Trims.Light WHITE = (x, y, into) -> {
+    private static final Trims.Light WHITE = (mesh, x, y, into) -> {
         into[0] = 1f;
         into[1] = 1f;
         into[2] = 1f;
+        mesh.lightStatic();
     };
 
     private TrimTests() {}
@@ -335,10 +336,11 @@ final class TrimTests {
     private static void aMouldingIsLitByTheRoomAndPaintedByItsMesh() {
         Trims.Band wood = new Trims.Band(0f, 0.06f, 0f, 1f, 0.5f, 0.3f, 0.15f);
         SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
-        Trims.add(mesh, wood, 4f, 9f, 1f, 0f, 0f, 1f, 0f, 0f, false, (x, y, into) -> {
+        Trims.add(mesh, wood, 4f, 9f, 1f, 0f, 0f, 1f, 0f, 0f, false, (lit, x, y, into) -> {
             into[0] = 0.8f;
             into[1] = 0.6f;
             into[2] = 0.4f;
+            lit.lightStatic();
         });
         for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
             check(mesh.vertices[at + 5] == 0.8f && mesh.vertices[at + 6] == 0.6f && mesh.vertices[at + 7] == 0.4f, "each vertex is the light alone");

@@ -103,6 +103,7 @@ final class StairBuilder {
                 stairCorner(c, 1, x, y, z, west, far, side, high);
                 stairCorner(c, 2, x, y, z, west, far, side, underFar);
                 stairCorner(c, 3, x, y, z, west, near, side, under);
+                mesh.lightFlat(build.frame);
                 SpriteGeometry.addQuad(mesh, c, u, v, build.frame.red, build.frame.green, build.frame.blue);
             }
         }
@@ -112,12 +113,14 @@ final class StairBuilder {
         stairCorner(c, 1, x, y, z, west, 0f, 0f, Stairs.underside(third + 1f));
         stairCorner(c, 2, x, y, z, west, 0f, 1f, Stairs.underside(third + 1f));
         stairCorner(c, 3, x, y, z, west, foot, 1f, Stairs.underside(from));
+        mesh.lightFlat(build.frame);
         SpriteGeometry.addQuad(mesh, c, u, v, build.frame.red, build.frame.green, build.frame.blue);
         if (third == 2) {
             stairCorner(c, 0, x, y, z, west, 0f, 0f, 1f);
             stairCorner(c, 1, x, y, z, west, 0f, 1f, 1f);
             stairCorner(c, 2, x, y, z, west, 0f, 1f, Stairs.underside(3f));
             stairCorner(c, 3, x, y, z, west, 0f, 0f, Stairs.underside(3f));
+            mesh.lightFlat(build.frame);
             SpriteGeometry.addQuad(mesh, c, u, v, build.frame.red, build.frame.green, build.frame.blue);
         }
         return true;

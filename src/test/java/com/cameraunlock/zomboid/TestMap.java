@@ -28,6 +28,8 @@ final class TestMap {
         build.building = new WorldScene.ChunkMeshes(0);
         build.placed = build.building.placed;
         build.frame.scale = 2f;
+        // A test that calls a builder without the build lighting the frame from the map builds in the frame's light as it is, on a site as a builder's light is.
+        LightSiteTests.sited(build.frame);
         build.roofBuilder.newBuild();
         Roofs.forget();
         WorldScene.solid.get(WorldScene.PLAIN).clear();

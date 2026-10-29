@@ -222,6 +222,7 @@ final class LanesTests {
         frame.uEnd = 1f;
         frame.vEnd = 1f;
         frame.light(1f, 1f, 1f);
+        LightSiteTests.sited(frame);
         geometry.lanes = lanes((x, y) -> x >= 0 && x < 8 ? TARMAC : MADE, (x, y) -> twoLane(x, y) | (x == 6 ? bit(SHEET + 8) : 0), 0, 0);
         geometry.laneAt = at(7, 3);
         SpriteGeometry.Mesh ground = new SpriteGeometry.Mesh(), top = new SpriteGeometry.Mesh();

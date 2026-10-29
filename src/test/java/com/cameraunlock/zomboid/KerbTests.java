@@ -208,6 +208,7 @@ final class KerbTests {
         frame.uEnd = 1f;
         frame.vEnd = 1f;
         frame.light(1f, 1f, 1f);
+        LightSiteTests.sited(frame);
         Arrays.fill(geometry.lift, 1f);
         // The pavement's square in the corner of the made-up crossing: the kerb takes its point off.
         geometry.kerb = field((x, y) -> x >= 4 || y >= 4);

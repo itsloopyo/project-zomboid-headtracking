@@ -53,7 +53,7 @@ final class PlantKindTests {
         frame.vEnd = 1f;
         frame.open = 1f;
         frame.light(0.8f, 0.8f, 0.8f);
-        return frame;
+        return LightSiteTests.sited(frame);
     }
 
     private static boolean conifer(int u, int v) {

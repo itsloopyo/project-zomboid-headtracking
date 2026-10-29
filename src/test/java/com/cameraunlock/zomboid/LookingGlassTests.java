@@ -28,7 +28,7 @@ final class LookingGlassTests {
     /** A piece of the model stood at the middle of square (10, 20), turned, and its glass. */
     private static float[] stood(Models.Instances placed, String name, int turns, float scale, float scaleUp) {
         placed.clear();
-        placed.add(Models.get(name), new SpriteGeometry.Frame(), 10, 20, 10.5f, 20.5f, 0.3f, turns, scale, scaleUp, WorldScene.PLAIN, 0, 0f, 0f, 0, 0f, 0f);
+        placed.add(Models.get(name), LightSiteTests.sited(new SpriteGeometry.Frame()), 10, 20, 10.5f, 20.5f, 0.3f, turns, scale, scaleUp, WorldScene.PLAIN, 0, 0f, 0f, 0, 0f, 0f);
         placed.glass(Models.get(name));
         check(placed.glassCount == 1, name + ": one glass noted");
         return placed.glasses;

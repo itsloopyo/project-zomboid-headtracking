@@ -200,7 +200,7 @@ final class LightsTests {
                 float[] profile = glass ? Lights.glass(far) : Lights.holder(far);
                 int sides = Lights.sides(kind, far);
                 check(glass ? profile[profile.length - 1] == 0f : profile[0] == 0f, "a holder starts at its cord and the glass is closed underneath: shape " + shape);
-                SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+                SpriteGeometry.Mesh mesh = LightSiteTests.constant(new SpriteGeometry.Mesh());
                 float size = Lights.size(kind), deepest = profile[profile.length - 2] * size;
                 Lights.round(mesh, x, y, up, hangs, acrossX, acrossY, profile, size, sides, 0.2f, 0.4f, 0.6f);
                 int closing = (profile[1] == 0f ? 1 : 0) + (profile[profile.length - 1] == 0f ? 1 : 0);
@@ -234,7 +234,7 @@ final class LightsTests {
     }
 
     private static int triangles(int kind, boolean far) {
-        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+        SpriteGeometry.Mesh mesh = LightSiteTests.constant(new SpriteGeometry.Mesh());
         Lights.round(mesh, 0f, 0f, 0f, 0f, 1f, 0f, Lights.holder(far), Lights.size(kind), Lights.sides(kind, far), 1f, 1f, 1f);
         Lights.round(mesh, 0f, 0f, 0f, 0f, 1f, 0f, Lights.glass(far), Lights.size(kind), Lights.sides(kind, far), 1f, 1f, 1f);
         return mesh.triangles();

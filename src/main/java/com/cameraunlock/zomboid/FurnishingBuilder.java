@@ -250,7 +250,8 @@ final class FurnishingBuilder {
                     float t = corner == 1 || corner == 2 ? t1 : t0;
                     float w0 = 1f - t, w1 = north ? t : 0f, w3 = north ? 0f : t;
                     SpriteGeometry.Frame frame = build.frame;
-                    mesh.litAt(frame, w0, w1, 0f, w3);
+                    // At (t, 0) or (0, t) the weights are these, to the bit.
+                    mesh.litAt(frame, north ? t : 0f, north ? 0f : t, tintRed, tintGreen, tintBlue);
                     mesh.add(c[corner * 3], c[corner * 3 + 1], c[corner * 3 + 2], 0f, 0f,
                             (frame.cornerRed[0] * w0 + frame.cornerRed[1] * w1 + frame.cornerRed[3] * w3) * tintRed,
                             (frame.cornerGreen[0] * w0 + frame.cornerGreen[1] * w1 + frame.cornerGreen[3] * w3) * tintGreen,
@@ -1110,6 +1111,7 @@ final class FurnishingBuilder {
         float red = build.frame.red, green = build.frame.green, blue = build.frame.blue;
         int sheets = Leisure.netSheets(goal, side, netPoints);
         white.open = build.frame.open + 32f * ChainLink.FABRIC;
+        white.lightFlat(build.frame);
         for (int sheet = 0; sheet < sheets; sheet++) {
             for (int corner = 0; corner < 4; corner++) {
                 int from = (sheet * 4 + corner) * 3;

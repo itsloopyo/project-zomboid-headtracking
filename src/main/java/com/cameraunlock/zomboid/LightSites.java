@@ -1,0 +1,335 @@
+package com.cameraunlock.zomboid;
+
+import java.util.Arrays;
+
+/**
+ * Where the light of a chunk build's vertices comes from. A site names what lit a frame: a
+ * square's own light and corners (SQUARE), the square across a wall (ALONG), one side of a
+ * window or a door (SIDE), the place under a floor that juts out (CEILING) or under a canopy
+ * (CANOPY), a block of squares a piece of furniture stands over (BLOCK), the middle of the
+ * square a tower stands on (TOWER), or one of those with a paint's tint laid on each corner
+ * (TINTED). A build keeps the light of each site its vertices used once, as a record, in its
+ * table; a vertex says which record its light is (Mesh.lightSite) and how it takes it: the
+ * record's flat light (FLAT), or its corners blended at the shares (a, b) of the square in the
+ * weights form emitAt uses (CORNERS) or the lerp form of Trims and the litter (LERP), times a
+ * multiplier the builder lays on after the blend. A vertex whose light is a constant, (1, 1, 1)
+ * open ground the game has not lit, or a leaf's share of shadow, has no site (MODE_STATIC).
+ *
+ * A record is the light state a Frame holds, in RECORD floats: red, green, blue, the day a flat
+ * vertex of the site takes, the corners' red, green and blue, their unlit shares and their day,
+ * then the openness with its kind of light (WorldScene.LIT_STEP), unlitKind, and 1 where a lamp
+ * burns behind the glass the site lights (see material).
+ */
+final class LightSites {
+    /**
+     * Dev and the suite: every vertex is checked as it is added against the light its site's
+     * record gives it, worked out as the picture will work it out (twin), and every frame a
+     * vertex takes its site from against that site's record.
+     */
+    static final boolean TWIN = Boolean.getBoolean("cameraunlock.zomboid.lightTwin");
+
+    /** The site of a frame lit by hand, or never lit: its light is its own, in no table. */
+    static final int NO_SITE = -1;
+    /** The site of a frame whose light is a constant: its vertices carry their light as it is. */
+    static final int STATIC = -2;
+
+    /** How a vertex takes its light: not said yet, a constant, flat, or blended over the corners. */
+    static final int NONE = -1, MODE_STATIC = 0, FLAT = 1, CORNERS = 2, LERP = 3;
+
+    static final int RECORD = 32;
+    static final int RED = 0, GREEN = 1, BLUE = 2, FLAT_DAY = 3, CORNER_RED = 4, CORNER_GREEN = 8, CORNER_BLUE = 12, CORNER_UNLIT = 16,
+            CORNER_DAY = 20, OPEN = 24, UNLIT_KIND = 25, LAMPLIT = 26;
+
+    static final long SQUARE = 1, ALONG = 2, SIDE = 3, CEILING = 4, CANOPY = 5, BLOCK = 6, TOWER = 7, TINTED = 8;
+    /** Which square of the window a site's lamp is read from, in a site's key: see lamplit. */
+    static final long LAMP_OWN = 1, LAMP_NORTH = 2, LAMP_WEST = 3;
+
+    private LightSites() {}
+
+    /** A site's key: its kind, the level it is on, then what names it within the level. */
+    static long key(long kind, int level, long names) {
+        return kind << 56 | (long) (level + 128 & 0xFF) << 48 | names;
+    }
+
+    /** The key's kind. */
+    static long kindOf(long key) {
+        return key >>> 56;
+    }
+
+    /** The names of a site with a lamp behind it, which burns or not as the square of the window named by which (LAMP_OWN, LAMP_NORTH, LAMP_WEST) has it: see material. */
+    static long lamp(long names, long which) {
+        return names | which << 46;
+    }
+
+    /** The names of a site lit as nothing, the floor of a room the player has not seen into: its openness and kind of light are the site's, its light 0. */
+    static long dark(long names) {
+        return names | 1L << 45;
+    }
+
+    /** The material a vertex is made of where its site's record says a lamp burns behind it: lit glass for glass, a lit pane for a pane. */
+    static float material(float made, boolean lamplit) {
+        return !lamplit ? made : made == WorldScene.GLASS ? WallBuilder.LIT_GLASS : made == WorldScene.PANE ? WorldScene.LIT_PANE : made;
+    }
+
+    /** The sites of one build, each once, with the record of each. Used on one thread at a time. */
+    static final class Table {
+        /** The level the sites put next are on. */
+        int level;
+        long[] keys = new long[256];
+        float[] records = new float[256 * RECORD];
+        /** For a TINTED site, its base site and the red, green and blue its corners were multiplied by. */
+        float[] tints = new float[256 * 4];
+        int count;
+        private long[] slotKey = new long[512];
+        /** The site in the slot, plus 1: 0 for an empty slot. */
+        private int[] slotSite = new int[512];
+
+        void clear() {
+            count = 0;
+            Arrays.fill(slotSite, 0);
+        }
+
+        /**
+         * The site of the key on the table's level, which lights the frame as it now is: the frame
+         * takes it. A site put for the first time keeps the frame's light as its record, with the
+         * day its flat vertices take and whether a lamp burns behind it.
+         */
+        int put(long kind, long names, SpriteGeometry.Frame frame, float flatDay, boolean lamplit) {
+            long key = key(kind, level, names);
+            int slot = slot(key);
+            int site;
+            if (slotSite[slot] != 0) {
+                site = slotSite[slot] - 1;
+                if (TWIN && !(matches(frame, records, site * RECORD) && records[site * RECORD + FLAT_DAY] == flatDay
+                        && records[site * RECORD + LAMPLIT] == (lamplit ? 1f : 0f))) {
+                    throw new IllegalStateException("site " + Long.toHexString(key) + " lit twice, otherwise: " + describe(site) + " against "
+                            + LightSites.describe(frame, flatDay, lamplit));
+                }
+            } else {
+                site = add(key, slot);
+                take(frame, records, site * RECORD, flatDay, lamplit);
+            }
+            frame.site = site;
+            frame.sites = this;
+            return site;
+        }
+
+        /**
+         * The site of a key another table holds, with the record at at in from: the frame is lit
+         * as that record says and takes it. Crowns are made apart from their build (Crowns.mesh).
+         */
+        int putRecord(long key, float[] from, int at, SpriteGeometry.Frame frame) {
+            int slot = slot(key);
+            int site;
+            if (slotSite[slot] != 0) {
+                site = slotSite[slot] - 1;
+                if (TWIN && !Arrays.equals(records, site * RECORD, site * RECORD + RECORD, from, at, at + RECORD)) {
+                    throw new IllegalStateException("site " + Long.toHexString(key) + " lit twice, otherwise: " + describe(site) + " against "
+                            + Arrays.toString(Arrays.copyOfRange(from, at, at + LAMPLIT + 1)));
+                }
+            } else {
+                site = add(key, slot);
+                System.arraycopy(from, at, records, site * RECORD, RECORD);
+            }
+            give(records, site * RECORD, frame);
+            frame.site = site;
+            frame.sites = this;
+            return site;
+        }
+
+        /**
+         * The site of the frame's site with a lamp behind it, which burns or not (lamplit) as the
+         * square named by which has it: the site's own square, the first byte of its names
+         * (LAMP_OWN), or the one north or west of that (LAMP_NORTH, LAMP_WEST). The frame takes it.
+         */
+        int lamp(SpriteGeometry.Frame frame, long which, boolean lamplit) {
+            int base = frame.site;
+            long kind = kindOf(keys[base]);
+            if (kind != SQUARE && kind != SIDE) {
+                throw new IllegalStateException("a lamp is read from the square of site " + describe(base) + ", whose kind names no square");
+            }
+            long key = keys[base] | which << 46;
+            int slot = slot(key);
+            int site;
+            if (slotSite[slot] != 0) {
+                site = slotSite[slot] - 1;
+                if (TWIN && !(Arrays.equals(records, site * RECORD, site * RECORD + LAMPLIT, records, base * RECORD, base * RECORD + LAMPLIT)
+                        && records[site * RECORD + LAMPLIT] == (lamplit ? 1f : 0f))) {
+                    throw new IllegalStateException("site " + Long.toHexString(key) + " lit twice, otherwise: " + describe(site) + " against " + describe(base)
+                            + (lamplit ? " with the lamp burning" : " with no lamp"));
+                }
+            } else {
+                site = add(key, slot);
+                System.arraycopy(records, base * RECORD, records, site * RECORD, RECORD);
+                records[site * RECORD + LAMPLIT] = lamplit ? 1f : 0f;
+            }
+            frame.site = site;
+            return site;
+        }
+
+        /** A site of its own for the frame, lit as its base site times a tint at each corner (FloorBuilder.shade): the frame takes it. */
+        int tinted(int base, float red, float green, float blue, SpriteGeometry.Frame frame) {
+            if (base < 0) {
+                throw new IllegalStateException("a tint is laid on the light of a frame of no site: " + LightSites.describe(frame, 0f, false));
+            }
+            int site = add(key(TINTED, level, count), slot(key(TINTED, level, count)));
+            take(frame, records, site * RECORD, 0f, false);
+            tints[site * 4] = base;
+            tints[site * 4 + 1] = red;
+            tints[site * 4 + 2] = green;
+            tints[site * 4 + 3] = blue;
+            frame.site = site;
+            frame.sites = this;
+            return site;
+        }
+
+        /** The site of a key already put on the table's level, or NO_SITE. */
+        int find(long kind, long names) {
+            int slot = slot(key(kind, level, names));
+            return slotSite[slot] - 1;
+        }
+
+        private int add(long key, int slot) {
+            if (count == keys.length) {
+                keys = Arrays.copyOf(keys, count * 2);
+                records = Arrays.copyOf(records, count * 2 * RECORD);
+                tints = Arrays.copyOf(tints, count * 2 * 4);
+            }
+            int site = count++;
+            keys[site] = key;
+            slotKey[slot] = key;
+            slotSite[slot] = site + 1;
+            if (count * 2 > slotKey.length) {
+                long[] oldKeys = slotKey;
+                int[] oldSites = slotSite;
+                slotKey = new long[oldKeys.length * 2];
+                slotSite = new int[oldKeys.length * 2];
+                for (int i = 0; i < oldKeys.length; i++) {
+                    if (oldSites[i] != 0) {
+                        int to = slot(oldKeys[i]);
+                        slotKey[to] = oldKeys[i];
+                        slotSite[to] = oldSites[i];
+                    }
+                }
+            }
+            return site;
+        }
+
+        /** The slot of the key, or the empty slot it would go in. */
+        private int slot(long key) {
+            int mask = slotKey.length - 1;
+            int at = (int) (key * 0x9E3779B97F4A7C15L >>> 40) & mask;
+            while (slotSite[at] != 0 && slotKey[at] != key) {
+                at = at + 1 & mask;
+            }
+            return at;
+        }
+
+        String describe(int site) {
+            return Long.toHexString(keys[site]) + " " + Arrays.toString(Arrays.copyOfRange(records, site * RECORD, site * RECORD + LAMPLIT + 1));
+        }
+    }
+
+    /** Keeps the frame's light as a record at at, with the day a flat vertex of its site takes and whether a lamp burns behind it. */
+    static void take(SpriteGeometry.Frame frame, float[] into, int at, float flatDay, boolean lamplit) {
+        into[at + RED] = frame.red;
+        into[at + GREEN] = frame.green;
+        into[at + BLUE] = frame.blue;
+        into[at + FLAT_DAY] = flatDay;
+        System.arraycopy(frame.cornerRed, 0, into, at + CORNER_RED, 4);
+        System.arraycopy(frame.cornerGreen, 0, into, at + CORNER_GREEN, 4);
+        System.arraycopy(frame.cornerBlue, 0, into, at + CORNER_BLUE, 4);
+        System.arraycopy(frame.cornerUnlit, 0, into, at + CORNER_UNLIT, 4);
+        System.arraycopy(frame.cornerDay, 0, into, at + CORNER_DAY, 4);
+        into[at + OPEN] = frame.open;
+        into[at + UNLIT_KIND] = frame.unlitKind;
+        into[at + LAMPLIT] = lamplit ? 1f : 0f;
+        Arrays.fill(into, at + LAMPLIT + 1, at + RECORD, 0f);
+    }
+
+    /** Lights the frame as the record at at says, all the parts a frame has. Its site is the caller's to say. */
+    static void give(float[] records, int at, SpriteGeometry.Frame frame) {
+        frame.red = records[at + RED];
+        frame.green = records[at + GREEN];
+        frame.blue = records[at + BLUE];
+        System.arraycopy(records, at + CORNER_RED, frame.cornerRed, 0, 4);
+        System.arraycopy(records, at + CORNER_GREEN, frame.cornerGreen, 0, 4);
+        System.arraycopy(records, at + CORNER_BLUE, frame.cornerBlue, 0, 4);
+        System.arraycopy(records, at + CORNER_UNLIT, frame.cornerUnlit, 0, 4);
+        System.arraycopy(records, at + CORNER_DAY, frame.cornerDay, 0, 4);
+        frame.open = records[at + OPEN];
+        frame.unlitKind = records[at + UNLIT_KIND];
+    }
+
+    /** TWIN: throws for a frame with no site, or one lit otherwise than its site's record. A frame lit by a constant (STATIC) passes. */
+    static void check(SpriteGeometry.Frame frame) {
+        if (frame.site == NO_SITE) {
+            throw new IllegalStateException("a frame lit by hand, of no site, lights what is built: " + describe(frame, 0f, false));
+        }
+        if (frame.site >= 0 && !matches(frame, frame.sites.records, frame.site * RECORD)) {
+            throw new IllegalStateException("a frame is lit otherwise than its site " + frame.sites.describe(frame.site) + ": " + describe(frame, 0f, false));
+        }
+    }
+
+    /** Whether the frame holds the light of the record at at, the parts a frame has: all but the flat vertices' day and the lamp. */
+    static boolean matches(SpriteGeometry.Frame frame, float[] records, int at) {
+        if (frame.red != records[at + RED] || frame.green != records[at + GREEN] || frame.blue != records[at + BLUE] || frame.open != records[at + OPEN]
+                || frame.unlitKind != records[at + UNLIT_KIND]) {
+            return false;
+        }
+        for (int corner = 0; corner < 4; corner++) {
+            if (frame.cornerRed[corner] != records[at + CORNER_RED + corner] || frame.cornerGreen[corner] != records[at + CORNER_GREEN + corner]
+                    || frame.cornerBlue[corner] != records[at + CORNER_BLUE + corner] || frame.cornerUnlit[corner] != records[at + CORNER_UNLIT + corner]
+                    || frame.cornerDay[corner] != records[at + CORNER_DAY + corner]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    static String describe(SpriteGeometry.Frame frame, float flatDay, boolean lamplit) {
+        float[] record = new float[RECORD];
+        take(frame, record, 0, flatDay, lamplit);
+        return "the frame's " + Arrays.toString(Arrays.copyOfRange(record, 0, LAMPLIT + 1));
+    }
+
+    /**
+     * What the picture works out for a vertex that takes its light from the record at at in the
+     * given mode, at the shares (a, b), times the multiplier: red, green, blue, then what it has
+     * of a light the game has not given (Mesh.unlit), then of the day (Mesh.day), into out. In
+     * the order of operations the builders bake it in, so the same floats come out.
+     */
+    static void twin(float[] records, int at, int mode, float a, float b, float multRed, float multGreen, float multBlue, float[] out) {
+        if (mode == FLAT) {
+            out[0] = records[at + RED] * multRed;
+            out[1] = records[at + GREEN] * multGreen;
+            out[2] = records[at + BLUE] * multBlue;
+            out[3] = SpriteGeometry.AS_FACE;
+            out[4] = records[at + FLAT_DAY];
+            return;
+        }
+        float w0 = (1f - a) * (1f - b), w1 = a * (1f - b), w2 = a * b, w3 = (1f - a) * b;
+        for (int part = 0; part < 3; part++) {
+            int c = at + CORNER_RED + 4 * part;
+            float blended = mode == LERP
+                    ? (records[c] * (1f - a) + records[c + 1] * a) * (1f - b) + (records[c + 3] * (1f - a) + records[c + 2] * a) * b
+                    : records[c] * w0 + records[c + 1] * w1 + records[c + 2] * w2 + records[c + 3] * w3;
+            out[part] = blended * (part == 0 ? multRed : part == 1 ? multGreen : multBlue);
+        }
+        int u = at + CORNER_UNLIT, d = at + CORNER_DAY;
+        out[3] = records[u] < 0f ? SpriteGeometry.AS_FACE
+                : records[at + UNLIT_KIND] * SpriteGeometry.UNLIT_KIND_STEP + records[u] * w0 + records[u + 1] * w1 + records[u + 2] * w2 + records[u + 3] * w3;
+        out[4] = records[d] * w0 + records[d + 1] * w1 + records[d + 2] * w2 + records[d + 3] * w3;
+    }
+
+    /** The kind of light an openness (WorldScene.openOf) or a vertex's alpha carries, as the picture reads it. */
+    static int kindOf(float open) {
+        return (int) Math.floor((open + 0.5f) / WorldScene.LIT_STEP);
+    }
+
+    /** The material an alpha carries, as the shadow program reads it. */
+    static int materialOf(float alpha) {
+        float within = alpha - WorldScene.LIT_STEP * (float) Math.floor(alpha / WorldScene.LIT_STEP);
+        return (int) Math.floor((within + 0.5f) / 32f);
+    }
+}

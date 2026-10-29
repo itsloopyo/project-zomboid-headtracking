@@ -264,6 +264,7 @@ final class WireBuilder {
         float u = SpriteGeometry.textureU(build.frame, post.a, post.b), v = SpriteGeometry.textureV(build.frame, post.a, post.b, 0.5f);
         mesh.open = build.frame.open + 32f * SpriteGeometry.TIMBER;
         mesh.sway = 0f;
+        mesh.lightFlat(build.frame);
         SpriteGeometry.addRound(mesh, axisX, axisY, foot, head, post.half, thin, 12, u, v, build.frame.red, build.frame.green, build.frame.blue);
         build.boxes++;
         if (arm == null) {
@@ -283,6 +284,7 @@ final class WireBuilder {
         SpriteGeometry.Mesh glazed = WorldScene.solid.get(WorldScene.PLAIN, WallSides.key(Poles.INSULATOR_RED, Poles.INSULATOR_GREEN, Poles.INSULATOR_BLUE, WallSides.FLAT));
         glazed.open = build.frame.open;
         glazed.sway = 0f;
+        glazed.lightFlat(build.frame);
         float wire = floor + Wires.UP * level;
         for (int which = -1; which <= 1; which++) {
             boolean onShaft = Poles.insulator(arm, which, axisX, axisY, thin, build.insulatorAt);
@@ -316,6 +318,7 @@ final class WireBuilder {
     void cable(float x0, float y0, float up0, float hangs0, float x1, float y1, float up1, float hangs1, float swing) {
         SpriteGeometry.Mesh plain = WorldScene.solid.get(WorldScene.PLAIN);
         plain.open = build.frame.open + SpriteGeometry.CARD + 32f * WorldScene.WIRE;
+        plain.lightFlat(build.frame);
         float length = (float) Math.sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0));
         float turned = Spans.acrossSign(-(y1 - y0), x1 - x0) / length;
         float sideX = -(y1 - y0) * turned, sideY = (x1 - x0) * turned, half = WorldScene.WIRE_THICK / 2f, carried = 0.1f + 0.8f * swing;

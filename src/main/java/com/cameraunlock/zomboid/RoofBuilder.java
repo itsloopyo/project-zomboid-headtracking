@@ -108,8 +108,7 @@ final class RoofBuilder {
         }
         build.building.plain = false;
         float[] ground = world.terrain.corners(build.cell, chunk.wx, chunk.wy);
-        build.frame.light(1f, 1f, 1f);
-        build.frame.open = WorldScene.OPEN_UNLIT;
+        build.frame.openUnlit();
         build.frame.kind = 0f;
         // A gable under one of these is a plain wall with nothing over it: see laid.
         build.overLayer = 0;
@@ -130,6 +129,7 @@ final class RoofBuilder {
                     addPeak(sheet, tile);
                 } else {
                     float[] over = tile.corners;
+                    sheet.lightFlat(build.frame);
                     SpriteGeometry.addOver(sheet, tile.x, tile.y, over[0] * ViewCamera.LEVEL_HEIGHT + lift[0], over[1] * ViewCamera.LEVEL_HEIGHT + lift[1],
                             over[2] * ViewCamera.LEVEL_HEIGHT + lift[2], over[3] * ViewCamera.LEVEL_HEIGHT + lift[3], roofU, roofV, build.frame.red, build.frame.green, build.frame.blue);
                 }
@@ -151,6 +151,7 @@ final class RoofBuilder {
                 continue;
             }
             float[] at = tile.corners;
+            sheet.lightFlat(build.frame);
             SpriteGeometry.addOver(sheet, tile.x, tile.y, at[0] * ViewCamera.LEVEL_HEIGHT + lift[0], at[1] * ViewCamera.LEVEL_HEIGHT + lift[1],
                     at[2] * ViewCamera.LEVEL_HEIGHT + lift[2], at[3] * ViewCamera.LEVEL_HEIGHT + lift[3], roofU, roofV, build.frame.red, build.frame.green, build.frame.blue);
             addEave(sheet, tile.x, tile.y, tile.z, at[0] - tile.z, at[1] - at[0], at[3] - at[0], true);
@@ -260,8 +261,7 @@ final class RoofBuilder {
         indoorBlue = build.frame.blue;
         indoorOpen = build.frame.open;
         build.frame.cornersInto(build.heldRed, build.heldGreen, build.heldBlue, build.heldUnlit);
-        build.frame.light(1f, 1f, 1f);
-        build.frame.open = WorldScene.OPEN_UNLIT;
+        build.frame.openUnlit();
     }
 
     private void indoors() {
@@ -445,12 +445,14 @@ final class RoofBuilder {
             WorldScene.set(c, 1, farX, farY, foot);
             WorldScene.set(c, 2, farX, farY, foot + second * ViewCamera.LEVEL_HEIGHT);
             WorldScene.set(c, 3, x, y, foot + northWest * ViewCamera.LEVEL_HEIGHT);
+            painted.lightFlat(build.frame);
             SpriteGeometry.addPlainQuad(painted, c, build.frame.red, build.frame.green, build.frame.blue);
             if (peak > 0f && (peakAxis == RoofFit.ALONG_X) == north) {
                 WorldScene.set(c, 0, x, y, foot + northWest * ViewCamera.LEVEL_HEIGHT);
                 WorldScene.set(c, 1, farX, farY, foot + second * ViewCamera.LEVEL_HEIGHT);
                 WorldScene.set(c, 2, x + alongA / 2f, y + alongB / 2f, foot + ((northWest + second) / 2f + peak) * ViewCamera.LEVEL_HEIGHT);
                 WorldScene.set(c, 3, x, y, foot + northWest * ViewCamera.LEVEL_HEIGHT);
+                painted.lightFlat(build.frame);
                 SpriteGeometry.addPlainQuad(painted, c, build.frame.red, build.frame.green, build.frame.blue);
             }
             return;
@@ -514,6 +516,7 @@ final class RoofBuilder {
                 WorldScene.set(c, 2, tile.x + to, tile.y + high, top);
                 WorldScene.set(c, 3, tile.x + to, tile.y + low, edge);
             }
+            sheet.lightFlat(build.frame);
             SpriteGeometry.addQuad(sheet, c, roofU, roofV, build.frame.red, build.frame.green, build.frame.blue);
             // At a gable the half slope's edge has its board, as a whole slope's has.
             if (rakeFrom) {
@@ -558,6 +561,7 @@ final class RoofBuilder {
                 WorldScene.set(folded, i, tile.x + RoofFit.cornerX(corner), tile.y + RoofFit.cornerY(corner),
                         (under ? WorldScene.under(tile.z, high) : (tile.z + high) * ViewCamera.LEVEL_HEIGHT) + build.geometry.lift[corner]);
             }
+            sheet.lightFlat(build.frame);
             SpriteGeometry.addTriangle(sheet, folded, roofU, roofV, build.frame.red, build.frame.green, build.frame.blue);
         }
     }
@@ -620,6 +624,7 @@ final class RoofBuilder {
             WorldScene.set(c, 1, cap.x1 + acrossX * near, cap.y1 + acrossY * near, to + nearUp);
             WorldScene.set(c, 2, cap.x1 + acrossX * far, cap.y1 + acrossY * far, to + farUp);
             WorldScene.set(c, 3, cap.x0 + acrossX * far, cap.y0 + acrossY * far, from + farUp);
+            sheet.lightFlat(build.frame);
             SpriteGeometry.addQuad(sheet, c, roofU, roofV, build.frame.red, build.frame.green, build.frame.blue);
         }
     }
@@ -819,6 +824,7 @@ final class RoofBuilder {
     private void underRoof(int x, int y, int z, float atOrigin, float alongX, float alongY, boolean rake) {
         SpriteGeometry.Mesh sheet = roofSheet();
         float[] lift = build.geometry.lift;
+        sheet.lightFlat(build.frame);
         SpriteGeometry.addOver(sheet, x, y, WorldScene.under(z, atOrigin) + lift[0], WorldScene.under(z, atOrigin + alongX) + lift[1],
                 WorldScene.under(z, atOrigin + alongX + alongY) + lift[2], WorldScene.under(z, atOrigin + alongY) + lift[3],
                 roofU, roofV, build.frame.red, build.frame.green, build.frame.blue);
@@ -883,6 +889,7 @@ final class RoofBuilder {
         WorldScene.set(c, 0, alongY ? a0 : b0, alongY ? b0 : a0, up0);
         WorldScene.set(c, 1, alongY ? a1 : b1, alongY ? b1 : a1, up1);
         WorldScene.set(c, 2, alongY ? a2 : b2, alongY ? b2 : a2, up2);
+        sheet.lightFlat(build.frame);
         SpriteGeometry.addTriangle(sheet, c, roofU, roofV, build.frame.red, build.frame.green, build.frame.blue);
     }
 
@@ -974,6 +981,7 @@ final class RoofBuilder {
                 WorldScene.set(folded, at++, x + RoofFit.cornerX(corner), y + RoofFit.cornerY(corner), WorldScene.under(z, gable[corner]) + lift[corner]);
             }
         }
+        sheet.lightFlat(build.frame);
         SpriteGeometry.addTriangle(sheet, folded, roofU, roofV, build.frame.red, build.frame.green, build.frame.blue);
         // The north-west corner is on the edge nearer the map's origin whichever way the tile slopes, and the south-east on the far one.
         if (low < high == (tile.cutCorner == 2)) {
@@ -992,6 +1000,7 @@ final class RoofBuilder {
         WorldScene.set(cutWall, 1, x + 1f, y, foot * ViewCamera.LEVEL_HEIGHT + lift[1]);
         WorldScene.set(cutWall, 2, x + 1f, y, (z + gable[1]) * ViewCamera.LEVEL_HEIGHT + lift[1]);
         WorldScene.set(cutWall, 3, x, y + 1f, (z + gable[3]) * ViewCamera.LEVEL_HEIGHT + lift[3]);
+        sheet.lightFlat(build.frame);
         SpriteGeometry.addQuad(sheet, cutWall, roofU, roofV, build.frame.red, build.frame.green, build.frame.blue);
     }
 
@@ -1050,6 +1059,7 @@ final class RoofBuilder {
                 WorldScene.set(c, 2, x + edge + out, y + 1f, high);
                 WorldScene.set(c, 3, x + edge + out, y, low);
             }
+            sheet.lightFlat(build.frame);
             SpriteGeometry.addQuad(sheet, c, roofU, roofV, build.frame.red, build.frame.green, build.frame.blue);
             addBarge(sheet, c[9], c[10], c[11], c[6], c[7], c[8]);
         }
@@ -1076,6 +1086,7 @@ final class RoofBuilder {
         WorldScene.set(c, 1, x1, y1, up1);
         WorldScene.set(c, 2, x1, y1, up1 - BARGE);
         WorldScene.set(c, 3, x0, y0, up0 - BARGE);
+        plain.lightFlat(build.frame);
         SpriteGeometry.addPlainQuad(plain, c, build.frame.red, build.frame.green, build.frame.blue);
         sheet.open = roofing;
     }
@@ -1549,6 +1560,7 @@ final class RoofBuilder {
             WorldScene.set(c, 2, x + edgeTo, y + edge + out, far);
             WorldScene.set(c, 3, x + wallTo, y + edge, high);
         }
+        sheet.lightFlat(build.frame);
         SpriteGeometry.addQuad(sheet, c, roofU, roofV, build.frame.red, build.frame.green, build.frame.blue);
         // The soffit: the boarded underside of the eave, level from the fascia's foot back to
         // the wall, which is what is seen of a roof from the ground beside the house.
@@ -1562,6 +1574,7 @@ final class RoofBuilder {
         WorldScene.set(c, 1, ex1, ey1, under);
         WorldScene.set(c, 2, ex2, ey2, under);
         WorldScene.set(c, 3, wx2, wy2, under);
+        plain.lightFlat(build.frame);
         SpriteGeometry.addPlainQuad(plain, c, build.frame.red, build.frame.green, build.frame.blue);
         // The board along the eave's end.
         SpriteGeometry.Mesh board = WorldScene.solid.get(WorldScene.PLAIN, BOARD);
@@ -1571,6 +1584,7 @@ final class RoofBuilder {
         WorldScene.set(c, 1, x2, y2, far);
         WorldScene.set(c, 2, x2, y2, far - FASCIA);
         WorldScene.set(c, 3, x1, y1, far - FASCIA);
+        board.lightFlat(build.frame);
         SpriteGeometry.addPlainQuad(board, c, build.frame.red, build.frame.green, build.frame.blue);
         // Where the roof stops at a gable the eave is a hollow wedge seen end on, and is
         // closed with a board of its own.
@@ -1583,6 +1597,7 @@ final class RoofBuilder {
             WorldScene.set(c, 1, ex, ey, far);
             WorldScene.set(c, 2, ex, ey, under);
             WorldScene.set(c, 3, wx, wy, under);
+            board.lightFlat(build.frame);
             SpriteGeometry.addPlainQuad(board, c, build.frame.red, build.frame.green, build.frame.blue);
         }
         // The gutter along the eave: a trough standing out from the board, its outer face and
@@ -1593,11 +1608,13 @@ final class RoofBuilder {
         WorldScene.set(c, 1, x2 + ox, y2 + oy, far + 0.01f);
         WorldScene.set(c, 2, x2 + ox, y2 + oy, far - GUTTER);
         WorldScene.set(c, 3, x1 + ox, y1 + oy, far - GUTTER);
+        plain.lightFlat(build.frame);
         SpriteGeometry.addPlainQuad(plain, c, build.frame.red, build.frame.green, build.frame.blue);
         WorldScene.set(c, 0, x1, y1, far - GUTTER);
         WorldScene.set(c, 1, x2, y2, far - GUTTER);
         WorldScene.set(c, 2, x2 + ox, y2 + oy, far - GUTTER);
         WorldScene.set(c, 3, x1 + ox, y1 + oy, far - GUTTER);
+        plain.lightFlat(build.frame);
         SpriteGeometry.addPlainQuad(plain, c, build.frame.red, build.frame.green, build.frame.blue);
         // Where the roof stops at a gable the gutter's end is capped: left open, its face and floor stood past the
         // corner as a black L seen from below (13744, 3318).
@@ -1610,6 +1627,7 @@ final class RoofBuilder {
             WorldScene.set(c, 1, ex + ox, ey + oy, far + 0.01f);
             WorldScene.set(c, 2, ex + ox, ey + oy, far - GUTTER);
             WorldScene.set(c, 3, ex, ey, far - GUTTER);
+            plain.lightFlat(build.frame);
             SpriteGeometry.addPlainQuad(plain, c, build.frame.red, build.frame.green, build.frame.blue);
         }
         // Where the eave ends, at the corner of the building, the gutter empties into a pipe
@@ -1628,11 +1646,13 @@ final class RoofBuilder {
                 pipeFrom[1] = pipeTo[1] = py;
                 pipeFrom[2] = foot + Eaves.SHOE_HIGH;
                 pipeTo[2] = head;
+                plain.lightFlat(build.frame);
                 build.geometry.addStrut(plain, pipeFrom, pipeTo, PIPE, 0f, 0f, build.frame.red, build.frame.green, build.frame.blue);
                 // The shoe: the pipe's foot turned out from the wall, to throw the water clear of it.
                 pipeTo[0] = px + Math.signum(ox) * Eaves.SHOE_OUT;
                 pipeTo[1] = py + Math.signum(oy) * Eaves.SHOE_OUT;
                 pipeTo[2] = foot + PIPE;
+                plain.lightFlat(build.frame);
                 build.geometry.addStrut(plain, pipeFrom, pipeTo, PIPE, 0f, 0f, build.frame.red, build.frame.green, build.frame.blue);
             }
         }

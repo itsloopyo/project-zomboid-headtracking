@@ -52,7 +52,8 @@ final class FloorBuilder {
      */
     private static final int[] EDGE_MIDDLE = {1, 3, 5, 7}, EDGE_STEP = {1, 3, 3, 1};
     private final float[] tileTint = new float[4];
-    private final float[] canopyRed = new float[4], canopyGreen = new float[4], canopyBlue = new float[4];
+    /** The light under a canopy: see addCanopy. */
+    private final SpriteGeometry.Frame canopyFrame = new SpriteGeometry.Frame();
 
     FloorBuilder(WorldScene.Frame build) {
         this.build = build;
@@ -765,7 +766,11 @@ final class FloorBuilder {
         return WorldScene.solid.get(texture, key);
     }
 
-    /** Lights the frame as it was lit, held in paperRed and its fellows, times a shade for each of red, green and blue. */
+    /**
+     * Lights the frame as it was lit, held in paperRed and its fellows, times a shade for each of
+     * red, green and blue: a site of its own, the held one's tinted (LightSites.Table.tinted), but
+     * for light that is a constant, which stays one.
+     */
     void shade(float red, float green, float blue, float r, float g, float b) {
         build.frame.red = red * r;
         build.frame.green = green * g;
@@ -774,6 +779,12 @@ final class FloorBuilder {
             build.frame.cornerRed[corner] = build.paperRed[corner] * r;
             build.frame.cornerGreen[corner] = build.paperGreen[corner] * g;
             build.frame.cornerBlue[corner] = build.paperBlue[corner] * b;
+        }
+        int held = (int) build.paperUnlit[9];
+        if (held == LightSites.STATIC) {
+            build.frame.site = LightSites.STATIC;
+        } else {
+            WorldScene.sites.tinted(held, r, g, b, build.frame);
         }
     }
 
@@ -796,12 +807,13 @@ final class FloorBuilder {
         float red = lit ? Soffits.under(shown ? light.r : 0f, Soffits.GLOW_RED) : light.r, green = lit ? Soffits.under(shown ? light.g : 0f, Soffits.GLOW_GREEN) : light.g;
         float blue = lit ? Soffits.under(shown ? light.b : 0f, Soffits.GLOW_BLUE) : light.b;
         float unlit = shown || lit ? 0f : WorldScene.LIT_STEP * WorldScene.OPEN_LIT;
-        Arrays.fill(canopyRed, red);
-        Arrays.fill(canopyGreen, green);
-        Arrays.fill(canopyBlue, blue);
+        canopyFrame.light(red, green, blue);
+        canopyFrame.open = unlit;
+        canopyFrame.unlitKind = 0f;
+        WorldScene.sites.put(LightSites.CANOPY, build.own(), canopyFrame, 0f, false);
         float up = z * ViewCamera.LEVEL_HEIGHT - drop;
         SpriteGeometry.Mesh plain = WorldScene.solid.get(WorldScene.PLAIN);
-        Soffits.add(plain, x, y, up, canopyRed, canopyGreen, canopyBlue, unlit + 32f * WorldScene.CONCRETE, unlit + 32f * WorldScene.LAMP, Soffits.fitted(x, y), lit);
+        Soffits.add(plain, x, y, up, canopyFrame, unlit + 32f * WorldScene.CONCRETE, unlit + 32f * WorldScene.LAMP, Soffits.fitted(x, y), lit);
         plain.open = unlit + 32f * WorldScene.CONCRETE;
         float[] c = build.eave;
         for (int side = 0; side < 4; side++) {
@@ -816,6 +828,7 @@ final class FloorBuilder {
             WorldScene.set(c, 1, x1, y0, up);
             WorldScene.set(c, 2, x1, y1, up);
             WorldScene.set(c, 3, x0, y1, up);
+            plain.lightFlat(canopyFrame);
             SpriteGeometry.addPlainQuad(plain, c, red, green, blue);
             if (stepX > 0 || stepY > 0) {
                 continue;
@@ -831,13 +844,13 @@ final class FloorBuilder {
                 WorldScene.set(c, 1, north ? x + 1f : x, north ? y : y + 1f, up);
                 WorldScene.set(c, 2, north ? x + 1f : x, north ? y : y + 1f, top);
                 WorldScene.set(c, 3, x, y, top);
+                plain.lightFlat(canopyFrame);
                 SpriteGeometry.addPlainQuad(plain, c, red, green, blue);
                 continue;
             }
             build.bandFrame.scale = build.frame.scale;
             WorldScene.frameOf(build.bandFrame, band, texture);
-            build.bandFrame.light(1f, 1f, 1f);
-            build.bandFrame.open = WorldScene.OPEN_UNLIT;
+            build.bandFrame.openUnlit();
             build.bandFrame.material = WorldScene.materialOf(band.getSprite());
             float raised = build.geometry.raised;
             build.geometry.raised = 0f;
@@ -892,6 +905,7 @@ final class FloorBuilder {
         if (lit == WorldScene.ROOM_LIT || lit == WorldScene.LAMP_LIT) {
             Arrays.fill(build.frame.cornerDay, build.dayShare(below));
         }
+        WorldScene.sites.put(LightSites.CEILING, build.own(), build.frame, 0f, false);
         // The ceiling under a floor of water is a ceiling, not more water.
         build.frame.kind = 0f;
         WorldScene.layers.sheet(-1f);

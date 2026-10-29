@@ -275,6 +275,7 @@ final class DoorTests {
         frame.height = 256f;
         frame.uEnd = 1f;
         frame.vEnd = 1f;
+        LightSiteTests.sited(frame);
         SpriteGeometry geometry = new SpriteGeometry();
         geometry.exactAcross = true;
         SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
@@ -415,7 +416,7 @@ final class DoorTests {
     /** A door's jamb is drawn owning no thing between its leaf's pieces (OpeningBuilder.addBuiltDoor), so the line round the door goes round the leaf. */
     private static void whatIsDrawnBetweenOwningNoThingIsNoPartOfTheThing() {
         SpriteGeometry.MeshSet set = new SpriteGeometry.MeshSet();
-        SpriteGeometry.Mesh wood = set.get(5);
+        SpriteGeometry.Mesh wood = LightSiteTests.constant(set.get(5));
         int vertex = SpriteGeometry.VERTEX_FLOATS;
         set.own(7L);
         wood.add(0f, 0f, 0f, 0f, 0f, 1f, 1f, 1f);

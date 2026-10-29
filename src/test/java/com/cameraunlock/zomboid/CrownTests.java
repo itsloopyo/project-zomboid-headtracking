@@ -349,6 +349,7 @@ final class CrownTests {
         SpriteGeometry.Mesh round = new SpriteGeometry.Mesh();
         for (int sides : new int[] {6, 8, 12}) {
             round.clear();
+            LightSiteTests.constant(round);
             SpriteGeometry.addRound(round, 1.5f, 2.5f, 0.1f, 0.9f, 0.2f, 0.1f, sides, 0f, 0f, 1f, 1f, 1f);
             boolean outward = true;
             for (int at = 0; at < sides * 6 * SpriteGeometry.VERTEX_FLOATS; at += SpriteGeometry.VERTEX_FLOATS) {
@@ -388,7 +389,7 @@ final class CrownTests {
         frame.vEnd = 1f;
         frame.open = 1f;
         frame.light(0.8f, 0.8f, 0.8f);
-        return frame;
+        return LightSiteTests.sited(frame);
     }
 
     private static void leavesAreFoundOnlyWhereTheSpritePaintsThem() {
@@ -508,8 +509,10 @@ final class CrownTests {
         Crowns crowns = new Crowns();
         crowns.add(LEAVES, frame, places, 10.5f, 20.5f, 0.1f, FOOT_U, FOOT_V, away, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.MAPLE, 7, Flora.OPEN, 1f, 0, 0f, TreeForm.NONE, null, Flora.TWIGGED_AT_1080, false, false, false);
         frame.light(secondRed, 0.5f, 0.4f);
+        LightSiteTests.sited(frame);
         crowns.add(LEAVES + 1, frame, places, 12.5f, 21.5f, 0f, FOOT_U, FOOT_V, away, 0.12f, 0.9f, Flora.BARK_OAK + 1, Flora.BARK_OAK, Flora.LINDEN, 8, Flora.OPEN, 1f, 0, 0f, TreeForm.NONE, null, Flora.TWIGGED_AT_1080, false, false, false);
         frame.open = 0f;
+        LightSiteTests.sited(frame);
         crowns.add(LEAVES, frame, places, 14.5f, 22.5f, 0f, FOOT_U, FOOT_V, away, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.SHRUB, 9, Flora.OPEN, 1f, 0, 0f, TreeForm.NONE, null, Flora.TWIGGED_AT_1080, true, false, false);
         return crowns;
     }
@@ -526,9 +529,11 @@ final class CrownTests {
         boolean limbed = Crowns.limbed(away, Flora.LINDEN, 1f);
         Flora.addCrown(inBuild.get(LEAVES), inBuild.get(PLAIN), frame, places, 10.5f, 20.5f, 0.1f, FOOT_U, FOOT_V, detail, close, 0f, 0f, Flora.BARK_OAK, Flora.MAPLE, 7, Flora.OPEN, 1f, 0, 0f);
         frame.light(0.6f, 0.5f, 0.4f);
+        LightSiteTests.sited(frame);
         Flora.addCrown(inBuild.get(LEAVES + 1), inBuild.get(PLAIN), frame, places, 12.5f, 21.5f, 0f, FOOT_U, FOOT_V, detail, close, limbed ? 0.12f : 0f, limbed ? 0.9f : 0f,
                 limbed ? Flora.BARK_OAK + 1 : Flora.BARK_OAK, Flora.LINDEN, 8, Flora.OPEN, 1f, 0, 0f);
         frame.open = 0f;
+        LightSiteTests.sited(frame);
         Flora.addCrown(inBuild.get(LEAVES), inBuild.get(PLAIN), frame, places, 14.5f, 22.5f, 0f, FOOT_U, FOOT_V, detail, close, 0f, 0f, Flora.BARK_OAK, Flora.SHRUB, 9, Flora.OPEN, 1f, 0, 0f);
     }
 

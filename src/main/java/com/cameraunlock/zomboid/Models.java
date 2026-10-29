@@ -590,6 +590,9 @@ final class Models {
          */
         void add(Model model, SpriteGeometry.Frame light, int tileX, int tileY, float centreX, float centreY, float baseUp, int quarterTurns,
                 float scale, float scaleUp, int dyeTexture, int dyedSurfaces, float dyeU, float dyeV, int alsoDyed, float alsoU, float alsoV) {
+            if (LightSites.TWIN) {
+                LightSites.check(light);
+            }
             if ((count + 1) * FLOATS > floats.length) {
                 floats = Arrays.copyOf(floats, floats.length * 2);
                 ints = Arrays.copyOf(ints, ints.length * 2);

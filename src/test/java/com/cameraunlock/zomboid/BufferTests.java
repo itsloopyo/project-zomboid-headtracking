@@ -313,16 +313,16 @@ final class BufferTests {
 
     private static void aBuildKnowsTheBoxItsVerticesAreIn() {
         SpriteGeometry.MeshSet solid = new SpriteGeometry.MeshSet(), laid = new SpriteGeometry.MeshSet();
-        solid.get(1).add(3f, -2f, 0.5f, 0f, 0f, 1f, 1f, 1f);
-        solid.get(2).add(7f, 4f, -1f, 0f, 0f, 1f, 1f, 1f);
-        laid.get(1).add(5f, 9f, 6f, 0f, 0f, 1f, 1f, 1f);
+        LightSiteTests.constant(solid.get(1)).add(3f, -2f, 0.5f, 0f, 0f, 1f, 1f, 1f);
+        LightSiteTests.constant(solid.get(2)).add(7f, 4f, -1f, 0f, 0f, 1f, 1f, 1f);
+        LightSiteTests.constant(laid.get(1)).add(5f, 9f, 6f, 0f, 0f, 1f, 1f, 1f);
         WorldScene.ChunkMeshes build = new WorldScene.ChunkMeshes(0);
         build.fill(solid, laid);
         check(build.minX == 3f && build.maxX == 7f && build.minY == -2f && build.maxY == 9f && build.minUp == -1f && build.maxUp == 6f,
                 "the box runs from the least to the greatest of every run's vertices");
         check(build.turned == 0f && build.layered == 0f, "and with no card that turns and nothing in layers, nothing is drawn past it");
         build.scrap();
-        SpriteGeometry.Mesh card = laid.get(3);
+        SpriteGeometry.Mesh card = LightSiteTests.constant(laid.get(3));
         card.faces = true;
         card.along = -1.75f;
         card.add(5f, 5f, 0f, 0f, 0f, 1f, 1f, 1f);
@@ -342,7 +342,7 @@ final class BufferTests {
         build.fill(solid, laid);
         check(build.turned == 0f && build.layered == 0f, "a build filled again without them forgets both");
         build.scrap();
-        SpriteGeometry.Mesh wood = laid.get(4);
+        SpriteGeometry.Mesh wood = LightSiteTests.constant(laid.get(4));
         wood.wood = 0.02f;
         wood.add(4f, 1f, 5f, 0f, 0f, 1f, 1f, 1f);
         wood.wood = 0f;
@@ -351,6 +351,7 @@ final class BufferTests {
         check(build.maxUp == 6f && build.minX == 3f && build.minUp == -1f && build.turned == 0f && build.layered == 0f,
                 "wood within the box leaves it as it was, and is no card nor in layers");
         wood.clear();
+        LightSiteTests.constant(wood);
         wood.wood = -0.02f;
         wood.add(7f, 9f, 6f, 0f, 0f, 1f, 1f, 1f);
         wood.wood = 0f;
@@ -466,6 +467,7 @@ final class BufferTests {
     }
 
     private static SpriteGeometry.Mesh triangles(SpriteGeometry.Mesh mesh, int count, float mark) {
+        LightSiteTests.constant(mesh);
         for (int i = 0; i < count * 3; i++) {
             mesh.add(mark, i, 0f, 0f, 0f, 1f, 1f, 1f);
         }
@@ -475,7 +477,7 @@ final class BufferTests {
     private static void whatIsLaidCarriesItsLayersAndACardDoesNot() {
         SpriteGeometry.Layers layers = new SpriteGeometry.Layers();
         SpriteGeometry.MeshSet solid = new SpriteGeometry.MeshSet(layers), laid = new SpriteGeometry.MeshSet(layers);
-        SpriteGeometry.Mesh wall = solid.get(3), rug = laid.get(4);
+        SpriteGeometry.Mesh wall = LightSiteTests.constant(solid.get(3)), rug = LightSiteTests.constant(laid.get(4));
         int floats = SpriteGeometry.VERTEX_FLOATS;
         wall.add(1f, 2f, 3f, 0f, 0f, 1f, 1f, 1f);
         check(wall.vertices[12] == 0f && wall.vertices[13] == 0f && wall.vertices[14] == 0f, "a face in its own plane says nothing of layers");
@@ -531,12 +533,12 @@ final class BufferTests {
             SpriteGeometry.Mesh[] meshes = new SpriteGeometry.Mesh[textures], own = new SpriteGeometry.Mesh[textures];
             for (int t = 0; t < textures; t++) {
                 set.room = random.nextInt(4) == 0 ? RoomSight.OUTSIDE : filling * 100L + t;
-                meshes[t] = set.get(1 + random.nextInt(30));
+                meshes[t] = LightSiteTests.constant(set.get(1 + random.nextInt(30)));
                 boolean again = false;
                 for (int earlier = 0; earlier < t; earlier++) {
                     again |= meshes[earlier] == meshes[t];
                 }
-                own[t] = again ? null : new SpriteGeometry.Mesh();
+                own[t] = again ? null : LightSiteTests.constant(new SpriteGeometry.Mesh());
             }
             for (int step = 0; step < 3000; step++) {
                 int t = random.nextInt(textures);

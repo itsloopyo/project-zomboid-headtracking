@@ -139,6 +139,8 @@ final class WallBuilder {
     boolean trim;
     private final float[] run = new float[2], next = new float[2], upright = new float[4], walked = new float[2], walkedUpright = new float[4];
     private final SpriteGeometry.Frame runFrame = new SpriteGeometry.Frame();
+    /** The light of the far half of an opening's sides, the place beyond the wall's: see addReveals. */
+    private final SpriteGeometry.Frame revealFrame = new SpriteGeometry.Frame();
 
     WallBuilder(WorldScene world, WorldScene.Frame build) {
         this.world = world;
@@ -298,8 +300,7 @@ final class WallBuilder {
         if (!own) {
             build.frame.cornersInto(build.heldRed, build.heldGreen, build.heldBlue, build.heldUnlit);
             if (build.lightOpen[farAt] < 0) {
-                build.frame.light(1f, 1f, 1f);
-                build.frame.open = WorldScene.OPEN_UNLIT;
+                build.frame.openUnlit();
             } else {
                 lightAlong(farAt, north);
             }
@@ -481,8 +482,7 @@ final class WallBuilder {
         float red = build.frame.red, green = build.frame.green, blue = build.frame.blue, open = build.frame.open;
         build.frame.cornersInto(build.heldRed, build.heldGreen, build.heldBlue, build.heldUnlit);
         if (build.lightOpen[farAt] < 0) {
-            build.frame.light(1f, 1f, 1f);
-            build.frame.open = WorldScene.OPEN_UNLIT;
+            build.frame.openUnlit();
         } else {
             lightAlong(farAt, north);
         }
@@ -527,6 +527,7 @@ final class WallBuilder {
             build.geometry.shownA = inX + db * clear;
             build.geometry.shownB = inY + da * clear;
             float material = build.frame.material;
+            int site = build.frame.site;
             if (material == WorldScene.GLASS) {
                 faceIntoRoom(x, y, z, da != 0f);
             }
@@ -537,6 +538,7 @@ final class WallBuilder {
                 WorldScene.layers.lie(way, layer);
                 if (built || build.openingBuilder.addDoor(mesh, texture, x, y, z, 0f, 0f, da, db)) {
                     build.geometry.shownA = build.geometry.shownB = 0f;
+                    build.frame.site = site;
                     return;
                 }
             }
@@ -548,11 +550,13 @@ final class WallBuilder {
                 build.geometry.shownA = build.geometry.shownB = build.geometry.shownUp = 0f;
                 build.geometry.turned = false;
                 build.frame.material = material;
+                build.frame.site = site;
                 return;
             }
             if (build.casing && build.overLayer == 0 && Own.buildings() && build.openingBuilder.addBuiltCasing(texture, x, y, z, da, db)) {
                 build.geometry.shownA = build.geometry.shownB = 0f;
                 build.frame.material = material;
+                build.frame.site = site;
                 return;
             }
             // A sign is laid over all it paints up and down its wall, and along it where it runs on over the next squares: see EdgeRuns.
@@ -587,6 +591,7 @@ final class WallBuilder {
             build.geometry.shownA = build.geometry.shownB = build.geometry.shownUp = 0f;
             build.geometry.turned = false;
             build.frame.material = material;
+            build.frame.site = site;
             return;
         }
         // Grime or worn paint over the wall is mixed into it as the game mixes it, as blood is: see Stains.
@@ -783,8 +788,7 @@ final class WallBuilder {
         if (build.overLayer == 0 && farLight >= 0) {
             build.frame.cornersInto(build.heldRed, build.heldGreen, build.heldBlue, build.heldUnlit);
             if (build.lightOpen[farLight] < 0) {
-                build.frame.light(1f, 1f, 1f);
-                build.frame.open = WorldScene.OPEN_UNLIT;
+                build.frame.openUnlit();
             } else {
                 lightAlong(farLight, da != 0f);
             }
@@ -876,6 +880,7 @@ final class WallBuilder {
         float after = linkOn(x + (int) da, y + (int) db, z, north, x, y, north) ? 0f : ChainLink.RAIL_RADIUS;
         WorldScene.set(linkFrom, 0, x - da * before, y - db * before, startUp + run.rail() * level - slope * before);
         WorldScene.set(linkTo, 0, x + da * (1f + after), y + db * (1f + after), endUp + run.rail() * level + slope * after);
+        steel.lightFlat(build.frame);
         SpriteGeometry.addTube(steel, linkFrom, linkTo, ChainLink.RAIL_RADIUS, ChainLink.RAIL_SIDES, build.frame.red, build.frame.green, build.frame.blue);
         if (build.linkPostDue ? !lonePostOn(x, y, z) : !run.hasPost() && !postMeets(x, y, z, x, y, north)) {
             addLinkPost(steel, x, y, startUp, run.post() * level);
@@ -1221,6 +1226,7 @@ final class WallBuilder {
     }
 
     private void addLinkPost(SpriteGeometry.Mesh steel, float x, float y, float foot, float high) {
+        steel.lightFlat(build.frame);
         SpriteGeometry.addRound(steel, x, y, foot, foot + high, ChainLink.POST_RADIUS, ChainLink.POST_RADIUS, ChainLink.POST_SIDES,
                 0f, 0f, build.frame.red, build.frame.green, build.frame.blue);
     }
@@ -1343,6 +1349,7 @@ final class WallBuilder {
             build.frame.cornerUnlit[near] = build.frame.cornerUnlit[far] = unlit;
             build.frame.cornerDay[near] = build.frame.cornerDay[far] = day;
         }
+        WorldScene.sites.put(LightSites.ALONG, at | (north ? 1L : 0L) << 8, build.frame, 0f, false);
     }
 
     /**
@@ -1554,7 +1561,8 @@ final class WallBuilder {
      * room, which is how the picture tells the street side of a pane from the room side, and
      * marks it as lit from inside when a lamp burns in the room. A window between two
      * places out of doors faces into its own square, and one between two rooms is glass with
-     * no street side.
+     * no street side. Glass with a street side takes the site of its light with the room's
+     * lamp (LightSites.Table.lamp), which the caller puts back.
      */
     private void faceIntoRoom(int x, int y, int z, boolean north) {
         IsoGridSquare beyond = build.cell.getGridSquare(north ? x : x - 1, north ? y - 1 : y, z);
@@ -1563,7 +1571,11 @@ final class WallBuilder {
         build.geometry.turned = north == ownIsRoom;
         if (ownIsRoom && OpeningBuilder.indoors(beyond)) {
             build.frame.material = INNER_GLASS;
-        } else if (WorldScene.lamplit(build.cell, ownIsRoom ? build.here : beyond, build.playerIndex, build.asTheGameShows || build.gamesView, build.lampsNear)) {
+            return;
+        }
+        boolean lamplit = WorldScene.lamplit(build.cell, ownIsRoom ? build.here : beyond, build.playerIndex, build.asTheGameShows || build.gamesView, build.lampsNear);
+        WorldScene.sites.lamp(build.frame, ownIsRoom ? LightSites.LAMP_OWN : north ? LightSites.LAMP_NORTH : LightSites.LAMP_WEST, lamplit);
+        if (lamplit) {
             build.frame.material = LIT_GLASS;
         }
     }
@@ -1633,6 +1645,7 @@ final class WallBuilder {
             WorldScene.set(c, 1, ex + inX * to, ey + inY * to, foot);
             WorldScene.set(c, 2, ex + inX * to, ey + inY * to, foot + high);
             WorldScene.set(c, 3, ex + inX * from, ey + inY * from, foot + high);
+            mesh.lightFlat(build.frame);
             SpriteGeometry.addQuad(mesh, c, u, v, build.frame.red, build.frame.green, build.frame.blue);
         }
         if (overTop) {
@@ -1651,6 +1664,7 @@ final class WallBuilder {
         WorldScene.set(c, 1, x0 + da * from + inX, y0 + db * from + inY, foot0 + rise * from + up);
         WorldScene.set(c, 2, x0 + da * to + inX, y0 + db * to + inY, foot0 + rise * to + up);
         WorldScene.set(c, 3, x0 + da * to - inX, y0 + db * to - inY, foot0 + rise * to + up);
+        mesh.lightFlat(build.frame);
         SpriteGeometry.addQuad(mesh, c, u, v, build.frame.red, build.frame.green, build.frame.blue);
     }
 
@@ -2175,14 +2189,15 @@ final class WallBuilder {
         float[] c = build.reveal;
         float red = build.frame.red, green = build.frame.green, blue = build.frame.blue, open = build.frame.open;
         float farRed = red, farGreen = green, farBlue = blue, farOpen = open;
+        revealFrame.lightAs(build.frame);
         if (farLight >= 0) {
             build.frame.cornersInto(build.heldRed, build.heldGreen, build.heldBlue, build.heldUnlit);
             if (build.lightOpen[farLight] < 0) {
-                build.frame.light(1f, 1f, 1f);
-                build.frame.open = WorldScene.OPEN_UNLIT;
+                build.frame.openUnlit();
             } else {
                 lightAlong(farLight, da != 0f);
             }
+            revealFrame.lightAs(build.frame);
             farRed = build.frame.red;
             farGreen = build.frame.green;
             farBlue = build.frame.blue;
@@ -2197,6 +2212,7 @@ final class WallBuilder {
             float from = half == 0 ? 0f : -1f, to = half == 0 ? 1f : 0f;
             float r = half == 0 ? red : farRed, g = half == 0 ? green : farGreen, bl = half == 0 ? blue : farBlue;
             plain.open = (half == 0 ? open : farOpen) + 32f * WorldScene.CONCRETE;
+            plain.lightFlat(half == 0 ? build.frame : revealFrame);
             for (int side = 0; side < 2; side++) {
                 float jx = side == 0 ? x0 : x1, jy = side == 0 ? y0 : y1;
                 WorldScene.set(c, 0, jx + from * inX, jy + from * inY, foot);
@@ -2436,6 +2452,8 @@ final class WallBuilder {
         SpriteGeometry.Mesh course = WorldScene.solid.get(WorldScene.PLAIN, Courses.paint(farColour, Courses.COURSE_SHADE));
         plinth.open = course.open = build.frame.open;
         plinth.sway = course.sway = 0f;
+        plinth.lightFlat(build.frame);
+        course.lightFlat(build.frame);
         float doorFrom = -1f, doorTo = -1f;
         if (opening[at + OPENING_START] >= 0f && opening[at + OPENING_FOOT] < Courses.DOORWAY_FOOT) {
             doorFrom = opening[at + OPENING_START];
@@ -2466,6 +2484,7 @@ final class WallBuilder {
         SpriteGeometry.Mesh batten = inRoom(WorldScene.solid.get(WorldScene.PLAIN, Courses.paint(colour, BATTEN_SHADE)), room);
         batten.open = build.frame.open;
         batten.sway = 0f;
+        batten.lightFlat(build.frame);
         float base = z * ViewCamera.LEVEL_HEIGHT;
         float base0 = base + build.geometry.liftAt(0f, 0f), base1 = base + build.geometry.liftAt(da, db);
         float openFrom = opening[at + OPENING_START], openTo = opening[at + OPENING_END];

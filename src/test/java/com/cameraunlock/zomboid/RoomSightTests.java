@@ -992,11 +992,11 @@ final class RoomSightTests {
 
     private static void aPictureListsOnlyTheRoomsItSeesInto() {
         SpriteGeometry.MeshSet solid = new SpriteGeometry.MeshSet(), laid = new SpriteGeometry.MeshSet();
-        solid.get(4).add(0f, 0f, 0f, 0f, 0f, 1f, 1f, 1f);
+        LightSiteTests.constant(solid.get(4)).add(0f, 0f, 0f, 0f, 0f, 1f, 1f, 1f);
         solid.room = BATH;
-        solid.get(4).add(1f, 0f, 0f, 0f, 0f, 1f, 1f, 1f);
+        LightSiteTests.constant(solid.get(4)).add(1f, 0f, 0f, 0f, 0f, 1f, 1f, 1f);
         solid.room = HALL;
-        solid.get(4).add(2f, 0f, 0f, 0f, 0f, 1f, 1f, 1f);
+        LightSiteTests.constant(solid.get(4)).add(2f, 0f, 0f, 0f, 0f, 1f, 1f, 1f);
         solid.room = RoomSight.OUTSIDE;
         WorldScene.ChunkMeshes build = new WorldScene.ChunkMeshes(0);
         build.fill(solid, laid);
@@ -1013,9 +1013,9 @@ final class RoomSightTests {
     private static void aWallsEdgeAndAWindowsBlindAreListedByTheRoomsEitherSide() {
         SpriteGeometry.MeshSet solid = new SpriteGeometry.MeshSet(), laid = new SpriteGeometry.MeshSet();
         solid.room = RoomSight.pair(BATH, HALL);
-        solid.get(4).add(0f, 0f, 0f, 0f, 0f, 1f, 1f, 1f);
+        LightSiteTests.constant(solid.get(4)).add(0f, 0f, 0f, 0f, 0f, 1f, 1f, 1f);
         solid.room = RoomSight.blind(BATH);
-        solid.get(4).add(1f, 0f, 0f, 0f, 0f, 1f, 1f, 1f);
+        LightSiteTests.constant(solid.get(4)).add(1f, 0f, 0f, 0f, 0f, 1f, 1f, 1f);
         solid.room = RoomSight.OUTSIDE;
         WorldScene.ChunkMeshes build = new WorldScene.ChunkMeshes(0);
         build.fill(solid, laid);

@@ -349,6 +349,7 @@ final class Furniture {
             mesh = WorldScene.laid.get(WorldScene.PLAIN, WallSides.PANES);
             mesh.sway = 0f;
             mesh.open = build.frame.open + 32f * WorldScene.INNER_PANE;
+            mesh.lightFlat(build.frame);
             this.piece = piece;
             this.x = x;
             this.y = y;

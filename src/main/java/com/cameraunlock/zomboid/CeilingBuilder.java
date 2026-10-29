@@ -66,14 +66,18 @@ final class CeilingBuilder {
         WorldScene.layers.sheet(-1f);
         float[] lift = build.geometry.lift, red = build.frame.cornerRed, green = build.frame.cornerGreen, blue = build.frame.cornerBlue;
         for (int corner : CEILING_CORNERS) {
+            // The weights at a corner are 1 and 0, and at the middle each a quarter, a power of two: the blend gives the bits of the corner's light and of the mean.
             if (corner == CENTRE) {
-                plain.litAt(build.frame, 0.25f, 0.25f, 0.25f, 0.25f);
+                plain.litAt(build.frame, 0.5f, 0.5f, 1f, 1f, 1f);
+                plain.kindFixed();
                 plain.add(x + 0.5f, y + 0.5f, up + (lift[0] + lift[1] + lift[2] + lift[3]) / 4f, 0f, 0f,
                         (red[0] + red[1] + red[2] + red[3]) / 4f, (green[0] + green[1] + green[2] + green[3]) / 4f, (blue[0] + blue[1] + blue[2] + blue[3]) / 4f);
                 continue;
             }
-            plain.litAt(build.frame, corner == 0 ? 1f : 0f, corner == 1 ? 1f : 0f, corner == 2 ? 1f : 0f, corner == 3 ? 1f : 0f);
-            plain.add(x + (corner == 1 || corner == 2 ? 1f : 0f), y + (corner >= 2 ? 1f : 0f), up + lift[corner], 0f, 0f, red[corner], green[corner], blue[corner]);
+            float a = corner == 1 || corner == 2 ? 1f : 0f, b = corner >= 2 ? 1f : 0f;
+            plain.litAt(build.frame, a, b, 1f, 1f, 1f);
+            plain.kindFixed();
+            plain.add(x + a, y + b, up + lift[corner], 0f, 0f, red[corner], green[corner], blue[corner]);
         }
         plain.litAsFace();
         WorldScene.layers.none();
@@ -118,7 +122,9 @@ final class CeilingBuilder {
             SpriteGeometry.Mesh plain = WorldScene.solid.get(WorldScene.PLAIN);
             plain.open = 32f * WorldScene.CONCRETE;
             plain.sway = 0f;
-            plain.litAt(build.frame, p == 0 || q == 0 ? 0.5f : 0f, p == 1 || q == 1 ? 0.5f : 0f, p == 2 || q == 2 ? 0.5f : 0f, p == 3 || q == 3 ? 0.5f : 0f);
+            // At the middle of the side, the weights of its two corners are each a half, a power of two: the blend gives the bits of their mean.
+            plain.litAt(build.frame, (CORNER_X[p] + CORNER_X[q]) / 2f, (CORNER_Y[p] + CORNER_Y[q]) / 2f, 1f, 1f, 1f);
+            plain.kindFixed();
             SpriteGeometry.addPlainQuad(plain, c, (red[p] + red[q]) / 2f, (green[p] + green[q]) / 2f, (blue[p] + blue[q]) / 2f);
             plain.litAsFace();
         }

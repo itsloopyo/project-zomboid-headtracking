@@ -293,6 +293,7 @@ final class ShapeTests {
         SpriteGeometry.Frame frame = frame();
         Posts post = Posts.read(turned(frame, 0.5f, 0.5f, 1f, h -> 0.2), frame, false);
         frame.light(1f, 1f, 1f);
+        LightSiteTests.sited(frame);
         SpriteGeometry geometry = new SpriteGeometry();
         SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
         geometry.addPost(mesh, frame, 3, 4, 1, post, 0.5f, 0.5f, 0f, true, false, 0f, 0f);
@@ -318,6 +319,7 @@ final class ShapeTests {
         frame = frame();
         Posts square = Posts.read(box(frame, 0.4f, 0.4f, 0f, 0.6f, 0.6f, 1f), frame, false);
         frame.light(1f, 1f, 1f);
+        LightSiteTests.sited(frame);
         geometry.addPost(mesh, frame, 3, 4, 0, square, square.a, square.b, 1.3f, true, true, 0.25f, 0.75f);
         check(mesh.triangles() == 4 * 2 + 4, "a square post is four sides and a top");
         highest = 0f;
@@ -331,7 +333,7 @@ final class ShapeTests {
     }
 
     private static void strutIsABoxAlongItsLine() {
-        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+        SpriteGeometry.Mesh mesh = LightSiteTests.constant(new SpriteGeometry.Mesh());
         float[] from = {1f, 2f, 1f}, to = {1.6f, 2f, 1.5f};
         new SpriteGeometry().addStrut(mesh, from, to, 0.05f, 0.5f, 0.5f, 1f, 1f, 1f);
         check(mesh.triangles() == 12, "a strut is four sides and two ends");
@@ -448,7 +450,7 @@ final class ShapeTests {
         frame.uEnd = 1f;
         frame.vStart = 0f;
         frame.vEnd = 1f;
-        return frame;
+        return LightSiteTests.sited(frame);
     }
 
     /** Whether the pixel is inside the picture of the flat face from (a, b, h) along two edges. */

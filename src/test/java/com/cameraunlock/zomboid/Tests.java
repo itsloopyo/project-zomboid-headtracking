@@ -93,6 +93,7 @@ public final class Tests {
         Checks.run("TimedActsTests", TimedActsTests::run);
         Checks.run("MeleeTests", MeleeTests::run);
         Checks.run("BufferTests", BufferTests::run);
+        Checks.run("LightSiteTests", LightSiteTests::run);
         Checks.run("DepthFightTests", DepthFightTests::run);
         Checks.run("PictureTests", PictureTests::run);
         Checks.run("LinkTests", LinkTests::run);
@@ -944,7 +945,7 @@ public final class Tests {
 
     private static void aFlowerStandsOnAStalk() {
         SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
-        SpriteGeometry.Frame frame = new SpriteGeometry.Frame();
+        SpriteGeometry.Frame frame = LightSiteTests.sited(new SpriteGeometry.Frame());
         float ground = 0.3f, tall = 0.5f, half = 0.04f;
         Flora.addFlower(mesh, 10.5f, 20.5f, ground, tall, half, 0.0, Flora.PURPLE, 5, frame);
         int each = SpriteGeometry.VERTEX_FLOATS;
@@ -1180,7 +1181,7 @@ public final class Tests {
 
     private static void aThingOwnsWhatItDrewInEveryMesh() {
         SpriteGeometry.MeshSet set = new SpriteGeometry.MeshSet();
-        SpriteGeometry.Mesh first = set.get(1), second = set.get(2), idle = set.get(3);
+        SpriteGeometry.Mesh first = LightSiteTests.constant(set.get(1)), second = LightSiteTests.constant(set.get(2)), idle = set.get(3);
         first.add(0f, 0f, 0f, 0f, 0f, 1f, 1f, 1f);
         set.own(5L);
         first.add(0f, 0f, 0f, 0f, 0f, 1f, 1f, 1f);
@@ -1231,7 +1232,7 @@ public final class Tests {
         check(near(corner * (1f + share * (room - 1f)), (lit + room) / 2f), "a corner where a lit square meets an unlit one is the mean of the two lights");
         check(near(shade * corner * (1f + share * (room - 1f)), shade * (lit + room) / 2f), "and a shade laid on the corner's light is laid on that mean");
         check(WorldScene.Frame.unlitShare(0.8f, 0) == 0f && WorldScene.Frame.unlitShare(0f, 2) == 1f, "a corner of lit squares has none of it, one of unlit squares is all of it");
-        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+        SpriteGeometry.Mesh mesh = LightSiteTests.constant(new SpriteGeometry.Mesh());
         mesh.unlit = coded;
         mesh.add(0f, 0f, 0f, 0f, 0f, 1f, 1f, 1f);
         mesh.unlit = SpriteGeometry.AS_FACE;
@@ -1245,15 +1246,17 @@ public final class Tests {
         frame.cornerDay[3] = 0.4f;
         check(near(frame.dayAt(0.5f, 0.5f, 0f, 0f), 0.6f), "a vertex between corners has the mean of their day");
         float[] red = new float[4], green = new float[4], blue = new float[4], unlit = new float[SpriteGeometry.Frame.UNLIT_FLOATS];
+        int site = LightSiteTests.sited(frame).site;
         frame.cornersInto(red, green, blue, unlit);
         frame.light(0.4f, 0.4f, 0.4f);
-        check(frame.dayAt(1f, 0f, 0f, 0f) == 0f, "a frame lit as one light has none of the day");
+        check(frame.dayAt(1f, 0f, 0f, 0f) == 0f && frame.site == LightSites.NO_SITE, "a frame lit as one light has none of the day, and is of no site");
         frame.cornersFrom(red, green, blue, unlit);
-        check(near(frame.dayAt(1f, 0f, 0f, 0f), 0.8f) && frame.unlitKind == WorldScene.ROOM_LIT, "corners put back have their day and their kind");
+        check(near(frame.dayAt(1f, 0f, 0f, 0f), 0.8f) && frame.unlitKind == WorldScene.ROOM_LIT && frame.site == site, "corners put back have their day, their kind and their site");
         SpriteGeometry.Mesh daylit = new SpriteGeometry.Mesh();
-        daylit.litAt(frame, 0f, 1f, 0f, 0f);
-        daylit.add(0f, 0f, 0f, 0f, 0f, 1f, 1f, 1f);
+        daylit.litAt(frame, 1f, 0f, 1f, 1f, 1f);
+        daylit.add(0f, 0f, 0f, 0f, 0f, 0.4f, 0.4f, 0.4f);
         daylit.litAsFace();
+        daylit.lightStatic();
         daylit.add(0f, 0f, 0f, 0f, 0f, 1f, 1f, 1f);
         check(near(daylit.vertices[SpriteGeometry.DAY_AT], 0.4f) && daylit.vertices[SpriteGeometry.VERTEX_FLOATS + SpriteGeometry.DAY_AT] == 0f,
                 "each vertex carries the day it was added with, and none once put back");
@@ -1264,8 +1267,15 @@ public final class Tests {
         mesh.layers.lie(SpriteGeometry.LAYERS_UP, 3f);
         float[] light = {0.5f, 0.5f, 0.5f, 0.5f, 0.5f};
         byte red = (byte) (Litter.LEAF + Flora.SCARLET_LEAF);
+        // The corners' light as the square's corners give it, which the frame holds: what a corner has of a light the game has not given, over its kind.
+        SpriteGeometry.Frame square = new SpriteGeometry.Frame();
+        square.light(0.5f, 0.5f, 0.5f);
+        square.unlitKind = 2f;
+        System.arraycopy(new float[] {3f, 3.5f, 4f, 3f}, 0, square.cornerUnlit, 0, 4);
+        LightSiteTests.sited(square);
         Flora.addLitter(mesh, 4, new float[] {5f, 5.5f, 5.5f, 5f}, new float[] {6f, 6f, 6.5f, 6.5f}, new float[] {0f, 0.1f, 0.2f, 0.1f}, new float[] {1f, 0.25f, 0f, 0.5f},
-                new float[] {0f, 0.5f, 1f, 0f}, red, light, light, light, new float[] {35f, 35.5f, 36f, 35f}, new float[4], 0f);
+                new float[] {0f, 0.5f, 1f, 0f}, red, light, light, light, new float[] {35f, 35.5f, 36f, 35f}, new float[4], square, new float[] {0f, 1f, 1f, 0f},
+                new float[] {0f, 0f, 1f, 1f});
         check(mesh.triangles() == 2, "a piece of litter of four corners is two triangles");
         for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
             float[] f = mesh.vertices;
@@ -1283,7 +1293,12 @@ public final class Tests {
         check(mesh.unlit == SpriteGeometry.AS_FACE, "litter leaves its mesh lit as its faces say for what is added next");
         SpriteGeometry.Mesh cut = new SpriteGeometry.Mesh();
         // Clockwise this time, as a cut along a kerb may give it: it still faces up.
-        Flora.addLitter(cut, 5, new float[] {0f, 0f, 0.5f, 1f, 1f}, new float[] {0f, 1f, 1f, 0.4f, 0f}, new float[5], new float[5], new float[5], red, light, light, light, new float[5], new float[5], 0f);
+        SpriteGeometry.Frame even = new SpriteGeometry.Frame();
+        even.light(0.5f, 0.5f, 0.5f);
+        Arrays.fill(even.cornerUnlit, 0f);
+        LightSiteTests.sited(even);
+        float[] across = {0f, 0f, 0.5f, 1f, 1f}, down = {0f, 1f, 1f, 0.4f, 0f};
+        Flora.addLitter(cut, 5, across, down, new float[5], new float[5], new float[5], red, light, light, light, new float[5], new float[5], even, across, down);
         check(cut.triangles() == 3, "a piece of five corners is three triangles");
         for (int at = 0; at < cut.floats; at += SpriteGeometry.VERTEX_FLOATS) {
             check(near(cut.vertices[at + 11], 1f), "a flat piece faces straight up whichever way round its corners go");
@@ -1432,6 +1447,7 @@ public final class Tests {
         SpriteGeometry.Frame light = new SpriteGeometry.Frame();
         light.light(0.5f, 0.6f, 0.7f);
         light.open = 1f;
+        LightSiteTests.sited(light);
         Models.Instances pieces = new Models.Instances();
         pieces.add(wedge, light, 10, 20, 10.5f, 20.5f, 2.5f, 1, 0.5f, 0.25f, 77, 1 << Models.CLOTH, 0.25f, 0.75f,
                 1 << Models.METAL | 1 << Models.CLOTH, 0.3f, 0.4f);
@@ -1468,9 +1484,9 @@ public final class Tests {
         check(Models.FIRST_DYED_MATERIAL - Models.FIRST_MATERIAL >= Models.SURFACES, "the dyed surfaces are numbered clear of the plain ones");
         check((1 << Models.SURFACES) - 1 < 1 << 24, "every set of surfaces is a whole number a float holds exactly");
 
-        pieces.add(models.get("first"), new SpriteGeometry.Frame(), 3, 4, 3.5f, 4.5f, 0f, 0, 1f, 1f, 0, 0, 0f, 0f, 0, 0f, 0f);
+        pieces.add(models.get("first"), LightSiteTests.sited(new SpriteGeometry.Frame()), 3, 4, 3.5f, 4.5f, 0f, 0, 1f, 1f, 0, 0, 0f, 0f, 0, 0f, 0f);
         for (int i = 0; i < 20; i++) {
-            pieces.add(models.get("second"), new SpriteGeometry.Frame(), i, 0, i + 0.5f, 0.5f, 0f, i, 1f, 1f, 0, 0, 0f, 0f, 0, 0f, 0f);
+            pieces.add(models.get("second"), LightSiteTests.sited(new SpriteGeometry.Frame()), i, 0, i + 0.5f, 0.5f, 0f, i, 1f, 1f, 0, 0, 0f, 0f, 0, 0f, 0f);
         }
         f = pieces.floats;
         whole = pieces.ints;
@@ -1492,7 +1508,7 @@ public final class Tests {
      */
     private static void pieceStandsWhereTheModelTurnedScaledAndMovedIs() throws IOException {
         Models.Model wedge = wedge();
-        SpriteGeometry.Frame light = new SpriteGeometry.Frame();
+        SpriteGeometry.Frame light = LightSiteTests.sited(new SpriteGeometry.Frame());
         float[] turned = new float[2], stood = new float[3], rows = new float[4];
         float[][] sizes = {{1f, 1f}, {0.5f, 0.5f}, {0.97f, 1.4f}, {2f, 0.2f}};
         for (int turns = 0; turns < 4; turns++) {
@@ -1532,6 +1548,7 @@ public final class Tests {
         System.arraycopy(corners[0], 0, light.cornerRed, 0, 4);
         System.arraycopy(corners[1], 0, light.cornerGreen, 0, 4);
         System.arraycopy(corners[2], 0, light.cornerBlue, 0, 4);
+        LightSiteTests.sited(light);
         Models.Instances pieces = new Models.Instances();
         pieces.add(wedge(), light, 0, 0, 0.5f, 0.5f, 0f, 0, 0.2f, 0.2f, 0, 0, 0f, 0f, 0, 0f, 0f);
         float[] f = pieces.floats;
@@ -1592,7 +1609,7 @@ public final class Tests {
 
     private static void pieceIsHeldByItsBall() throws IOException {
         Models.Model wedge = wedge();
-        SpriteGeometry.Frame light = new SpriteGeometry.Frame();
+        SpriteGeometry.Frame light = LightSiteTests.sited(new SpriteGeometry.Frame());
         float[] stood = new float[3];
         for (int turns = 0; turns < 4; turns++) {
             Models.Instances pieces = new Models.Instances();
@@ -1699,7 +1716,7 @@ public final class Tests {
         check(near(f[Models.Instances.DYE], 0.1f) && near(f[Models.Instances.DYE + 1], 0.2f), "a picture's origin is where its piece's first colour was taken");
         check(near(f[Models.Instances.PICTURE], 0.3f) && near(f[Models.Instances.PICTURE + 1], 0.4f) && near(f[Models.Instances.PICTURE + 2], 0f)
                 && near(f[Models.Instances.PICTURE + 3], 0.6f), "and how it lies over the model goes with the piece");
-        pieces.add(wedge(), new SpriteGeometry.Frame(), 3, 4, 3.5f, 4.5f, 0f, 0, 1f, 1f, 0, 0, 0f, 0f, 0, 0f, 0f);
+        pieces.add(wedge(), LightSiteTests.sited(new SpriteGeometry.Frame()), 3, 4, 3.5f, 4.5f, 0f, 0, 1f, 1f, 0, 0, 0f, 0f, 0, 0f, 0f);
         check(near(pieces.floats[Models.Instances.FLOATS + Models.Instances.PICTURE + 3], 0f), "a piece with no picture has none left over from another");
     }
 
@@ -2520,7 +2537,7 @@ public final class Tests {
         frame.vStart = 0f;
         frame.uEnd = 1f;
         frame.vEnd = 1f;
-        return frame;
+        return LightSiteTests.sited(frame);
     }
 
     /** A face takes its texels from a little inside its edge, so a corner is near its texel, not on it. */
@@ -2591,6 +2608,7 @@ public final class Tests {
             frame.vStart = frame.top / 256f;
             frame.vEnd = (frame.top + frame.height) / 256f;
             frame.light(0.7f, 0.6f, 0.5f);
+            LightSiteTests.sited(frame);
             float[][] faces = {{0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f}, {0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f}, {0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f},
                     {0.2f, 0.1f, 0.3f, 0.6f, 0f, 0f, 0f, 0.7f, 0f}, {0f, 0f, 0f, 1f, 0f, 0.4f, 0f, 1f, 0f}};
             for (float[] f : faces) {

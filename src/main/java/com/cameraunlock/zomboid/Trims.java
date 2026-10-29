@@ -601,15 +601,19 @@ final class Trims {
     }
 
     private static void corner(SpriteGeometry.Mesh mesh, Light light, float[] lit, float x, float y, float up) {
-        light.at(x, y, lit);
+        light.at(mesh, x, y, lit);
         mesh.unlit = lit[3];
         mesh.day = lit[4];
         mesh.add(x, y, up, 0f, 0f, lit[0], lit[1], lit[2]);
         mesh.litAsFace();
     }
 
-    /** The light at a place on the square, as red, green and blue into, then what it has of a light the game has not given and of the day (SpriteGeometry.Mesh.unlit and day). */
+    /**
+     * The light at a place on the square, as red, green and blue into, then what it has of a
+     * light the game has not given and of the day (SpriteGeometry.Mesh.unlit and day), said on
+     * the mesh the place is added to.
+     */
     interface Light {
-        void at(float x, float y, float[] into);
+        void at(SpriteGeometry.Mesh mesh, float x, float y, float[] into);
     }
 }

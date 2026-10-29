@@ -49,7 +49,7 @@ final class TreeFormTests {
         frame.vEnd = 1f;
         frame.open = 1f;
         frame.light(0.8f, 0.8f, 0.8f);
-        return frame;
+        return LightSiteTests.sited(frame);
     }
 
     private static final float FOOT_U = 64f, FOOT_V = 240f;

@@ -179,11 +179,13 @@ final class Flora {
      * Sets the frame to make what is stood next throw a shadow and be in no other picture
      * (SHADE), as much shadow as a mass of leaves with that share of its leaves on it throws.
      * The share rides in the vertex's red, which only the sun's pictures read: see
-     * PipelineShaders.SHADOW_VERTEX. The caller puts the frame's red back after.
+     * PipelineShaders.SHADOW_VERTEX, carried as it is (LightSites.STATIC). The caller puts the
+     * frame's red and site back after.
      */
     static void shadeOnly(SpriteGeometry.Frame frame, float leaves) {
         frame.material = SHADE;
         frame.red = leaves;
+        frame.site = LightSites.STATIC;
     }
     /**
      * The inside of a crown: a closed mass of leaves in shade, within the sprigs, so that a
@@ -611,7 +613,7 @@ final class Flora {
         if (bare && boleRadius <= 0f) {
             return false;
         }
-        mark(mesh, frame.open, SpriteGeometry.CARD, CROWN + sprig);
+        mark(mesh, frame, SpriteGeometry.CARD, CROWN + sprig);
         int boughs = mix(seed, 0, 93);
         int lobes = shrub ? 2 + (boughs & 1) : 3 + (boughs & 0xff) % 3;
         float rows = shrub ? 1f : Math.clamp(1.6f * tall / Math.max(widest, 1e-3f), 1.5f, 4f);
@@ -741,6 +743,7 @@ final class Flora {
                 u = (float) Math.rint(paintedU(frame, footU, px, py) * CROWN_STEPS) + PAINTED;
                 v = (float) Math.rint(paintedV(frame, footV, px, py, high, up) * CROWN_STEPS) + (bloom ? BLOOMS : 0f);
             }
+            mesh.lightFlat(frame, shade, shade, shade);
             for (int corner : QUAD) {
                 boolean right = corner == 1 || corner == 2, tip = corner >= 2;
                 float side = right ? 1f : -1f;
@@ -754,7 +757,7 @@ final class Flora {
                 // The twig the sprig is on: from the middle of its leaves back and down into the crown, towards the bough it grew from.
                 float back = Math.min(TWIG_LONG * each / Math.max(out, 1e-3f), 0.7f);
                 float sway = Math.clamp(high * SWAY_PER_TILE, 0f, SWAY_MOST);
-                mark(wood, frame.open, 0f, TRUNK);
+                mark(wood, frame, 0f, TRUNK);
                 prism(wood, x + px * (1f - back), y + py * (1f - back), base + high - TWIG_DROP * TWIG_LONG * each, x + px, y + py, base + high,
                         TWIG_THICK, TWIG_TIP, TWIG_SIDES, BARK_UP * bark + WOOD_UP, sway, sway, hash, frame);
             }
@@ -784,7 +787,7 @@ final class Flora {
         boolean formed = kind != TreeForm.NONE;
         float leaderTop = formed ? TreeForm.LEADER_TOP[kind] : LEADER_TOP;
         if (boleRadius > 0f && !shrub && woodLowest + leaderTop * woodTall > boleTall + 0.2f) {
-            mark(wood, frame.open, 0f, TRUNK);
+            mark(wood, frame, 0f, TRUNK);
             float topUp = woodLowest + leaderTop * woodTall, thick = boleRadius * TAPER;
             // With no leaves to hide it the wood is the whole tree's outline: more limbs, out to the outline.
             int limbs = wooded ? Math.clamp(Math.round(6f + 3f * woodWidest), 7, 12) : Math.clamp(Math.round(4f + 2.5f * woodWidest), 5, 9);
@@ -962,8 +965,9 @@ final class Flora {
                 coreBough[ring * (around + 1) + face] = 1f - BOUGH_HOLLOW * (1f - bough(face * 6.2832f / around, share, lobes, rows, turnOne, turnTwo, turnThree));
             }
         }
-        mark(mesh, frame.open, SpriteGeometry.CARD, CORE);
+        mark(mesh, frame, SpriteGeometry.CARD, CORE);
         float red = frame.red * CORE_SHADE, green = frame.green * CORE_SHADE, blue = frame.blue * CORE_SHADE;
+        mesh.lightFlat(frame, CORE_SHADE, CORE_SHADE, CORE_SHADE);
         float kind = (sprig + 0.5f) / CORE_KINDS;
         for (int ring = 0; ring < rings; ring++) {
             int place = placeOf[ring];
@@ -1116,6 +1120,7 @@ final class Flora {
         dx /= length;
         dy /= length;
         dz /= length;
+        mesh.lightFlat(frame);
         // Two ways square to it and to each other. Near upright, the first is along x, which is not square to it, and the second is then short of 1.
         boolean upright = Math.abs(dz) > 0.95f;
         float ax = upright ? 1f : -dy, ay = upright ? 0f : dx;
@@ -1249,6 +1254,7 @@ final class Flora {
      */
     private static void tube(Mesh mesh, float[] line, int points, int sides, float up, float base, float boleTall, int seed, float mark, SpriteGeometry.Frame frame,
             boolean snowed, boolean carriedOn, Workings workings) {
+        mesh.lightFlat(frame);
         float across = mark + BARK_ACROSS * (BARK_WRAPS_MOST * (seed >>> 16 & 1) + 2 * BARK_WRAPS_MOST * (seed >>> 17 & BARK_SHIFTS - 1));
         float span = Math.max((line[3] + line[(points - 1) * 4 + 3]) * (float) Math.PI * 4f, 0.2f);
         float[] ring = workings.ring = atLeast(workings.ring, points * 6);
@@ -1463,8 +1469,10 @@ final class Flora {
         return frame.vStart + (pixel - frame.top) / frame.height * (frame.vEnd - frame.vStart);
     }
 
-    private static void mark(Mesh mesh, float open, float kind, float material) {
-        mesh.open = open + kind + 32f * material;
+    /** Has what is added next to the mesh be of that kind and material, in the frame's flat light. */
+    private static void mark(Mesh mesh, SpriteGeometry.Frame frame, float kind, float material) {
+        mesh.open = frame.open + kind + 32f * material;
+        mesh.lightFlat(frame);
     }
 
     /**
@@ -1473,11 +1481,12 @@ final class Flora {
      * the ground and mixed into it. Each corner carries how deep fallen leaf lies there at the end
      * of autumn and how deep needles lie, which the world shader shows as much of as the season
      * says, and the leaf's kind (Litter.LEAF and on) in steps of LITTER_KIND_STEP above its depth,
-     * the same at every corner.
+     * the same at every corner. The light at each corner is light's corners blended at the shares
+     * (a, b) of its square in the lerp form.
      */
     static void addLitter(Mesh mesh, int count, float[] x, float[] y, float[] lift, float[] leaf, float[] needle, byte kind,
-            float[] red, float[] green, float[] blue, float[] unlit, float[] day, float open) {
-        mark(mesh, open, 0f, LITTER);
+            float[] red, float[] green, float[] blue, float[] unlit, float[] day, SpriteGeometry.Frame light, float[] a, float[] b) {
+        mark(mesh, light, 0f, LITTER);
         // Newell's way to the facing of a polygon, which is any of its triangles' for one that is flat.
         float nx = 0f, ny = 0f, nz = 0f;
         for (int i = 0; i < count; i++) {
@@ -1488,17 +1497,18 @@ final class Flora {
         }
         mesh.face(nz < 0f ? -nx : nx, nz < 0f ? -ny : ny, Math.abs(nz));
         for (int i = 1; i < count - 1; i++) {
-            litterCorner(mesh, 0, x, y, lift, leaf, needle, kind, red, green, blue, unlit, day);
-            litterCorner(mesh, i, x, y, lift, leaf, needle, kind, red, green, blue, unlit, day);
-            litterCorner(mesh, i + 1, x, y, lift, leaf, needle, kind, red, green, blue, unlit, day);
+            litterCorner(mesh, 0, x, y, lift, leaf, needle, kind, red, green, blue, unlit, day, light, a, b);
+            litterCorner(mesh, i, x, y, lift, leaf, needle, kind, red, green, blue, unlit, day, light, a, b);
+            litterCorner(mesh, i + 1, x, y, lift, leaf, needle, kind, red, green, blue, unlit, day, light, a, b);
         }
         mesh.litAsFace();
     }
 
     private static void litterCorner(Mesh mesh, int corner, float[] x, float[] y, float[] lift, float[] leaf, float[] needle, byte kind,
-            float[] red, float[] green, float[] blue, float[] unlit, float[] day) {
+            float[] red, float[] green, float[] blue, float[] unlit, float[] day, SpriteGeometry.Frame light, float[] a, float[] b) {
         mesh.unlit = unlit[corner];
         mesh.day = day[corner];
+        mesh.lightLerp(light, a[corner], b[corner]);
         mesh.add(x[corner], y[corner], lift[corner], LITTER_KIND_STEP * kind + leaf[corner], needle[corner], red[corner], green[corner], blue[corner]);
     }
 
@@ -1520,7 +1530,7 @@ final class Flora {
      * it laid.
      */
     static int addFallenWood(Mesh wood, int x, int y, float base, float[] lift, int seed, SpriteGeometry.Frame frame) {
-        mark(wood, frame.open, 0f, TRUNK);
+        mark(wood, frame, 0f, TRUNK);
         int sticks = FALLEN_STICKS_LEAST + (seed >>> 28 & 3);
         for (int stick = 0; stick < sticks; stick++) {
             int own = mix(seed, stick, 98);
@@ -1593,7 +1603,7 @@ final class Flora {
         float acrossX = -wayY * half, acrossY = wayX * half;
         float tipX = wayX * half * TIPPED_ALONG, tipY = wayY * half * TIPPED_ALONG, tipUp = half * TIPPED_UP;
         float up = ground + tall;
-        mark(mesh, frame.open, SpriteGeometry.CARD, FLOWER);
+        mark(mesh, frame, SpriteGeometry.CARD, FLOWER);
         mesh.face(-wayX * TIPPED_UP, -wayY * TIPPED_UP, TIPPED_ALONG);
         mesh.sway = 1f;
         float pick = PICK_STEP * kind, thins = PICK_STEP * thinned;
@@ -1639,7 +1649,7 @@ final class Flora {
         float wayX = (float) Math.cos(turn), wayY = (float) Math.sin(turn);
         float along = length * (float) Math.cos(rise), climb = length * (float) Math.sin(rise);
         float acrossX = -wayY * width / 2f, acrossY = wayX * width / 2f;
-        mark(mesh, frame.open, SpriteGeometry.CARD, LEAF);
+        mark(mesh, frame, SpriteGeometry.CARD, LEAF);
         mesh.face(-wayX * climb, -wayY * climb, along);
         float pick = PICK_STEP * kind;
         for (int corner : QUAD) {
@@ -1673,7 +1683,7 @@ final class Flora {
      */
     static int addFern(Mesh mesh, float x, float y, float up, float size, float tall, int fronds, int seed, SpriteGeometry.Frame frame) {
         float stretch = Math.clamp(tall / (FERN_TALL * size), 1f, FERN_STRETCH_MOST);
-        mark(mesh, frame.open, SpriteGeometry.CARD, FROND);
+        mark(mesh, frame, SpriteGeometry.CARD, FROND);
         for (int frond = 0; frond < fronds; frond++) {
             int own = mix(seed, frond, 17);
             double turn = (frond + unit(own, 0) * 0.7) / fronds * 2.0 * Math.PI + unit(seed, 8) * Math.PI;
@@ -1746,7 +1756,7 @@ final class Flora {
         }
         float up = BARK_UP * bark;
         float[] cos = near ? NEAR_COS : FAR_COS, sin = near ? NEAR_SIN : FAR_SIN;
-        mark(mesh, frame.open, 0f, TRUNK);
+        mark(mesh, frame, 0f, TRUNK);
         mesh.sway = 0f;
         for (int ring = 0; ring + 1 < rings; ring++) {
             for (int side = 0; side < sides; side++) {
@@ -1795,7 +1805,7 @@ final class Flora {
         int repeats = Math.max(1, Math.round(girth / IVY_SPAN));
         // The picture goes round a whole number of times, and is as large up the bole as that makes it round it.
         float span = girth / repeats;
-        mark(mesh, frame.open, 0f, IVY);
+        mark(mesh, frame, 0f, IVY);
         float foot = ringUp[1];
         for (int ring = 1; ring + 1 < rings; ring++) {
             for (int side = 0; side < TRUNK_SIDES; side++) {
@@ -1829,7 +1839,7 @@ final class Flora {
      */
     static int addGroundIvy(Mesh mesh, float x, float y, int squareX, int squareY, float base, float[] lift, float radius, float reach,
             float lowX, float highX, float lowY, float highY, int seed, SpriteGeometry.Frame frame) {
-        mark(mesh, frame.open, 0f, IVY);
+        mark(mesh, frame, 0f, IVY);
         mesh.face(0f, 0f, 1f);
         float[] rim = new float[GROUND_IVY_SIDES + 1];
         double turnOne = unit(seed, 0) * 2.0 * Math.PI, turnTwo = unit(seed, 8) * 2.0 * Math.PI;
@@ -1945,7 +1955,7 @@ final class Flora {
             rock[vertex * 3 + 2] = midUp + ballUp * out * tall * (1f - ROCK_MIDDLE);
         }
         int[] faces = near ? FINE_FACES : COARSE_FACES;
-        mark(mesh, frame.open, 0f, ROCK);
+        mark(mesh, frame, 0f, ROCK);
         mesh.sway = 0f;
         for (int face = 0; face < faces.length; face += 3) {
             int a = faces[face] * 3, b = faces[face + 1] * 3, c = faces[face + 2] * 3;

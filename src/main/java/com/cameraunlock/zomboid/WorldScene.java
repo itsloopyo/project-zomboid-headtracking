@@ -687,7 +687,9 @@ final class WorldScene {
      * in sight, each with the room of the fullest chunk it had ever held.
      */
     static final SpriteGeometry.Layers layers = new SpriteGeometry.Layers();
-    static final SpriteGeometry.MeshSet solid = new SpriteGeometry.MeshSet(layers), laid = new SpriteGeometry.MeshSet(layers);
+    /** The light sites of the chunk being built, every level of it, emptied with the pair: see LightSites. */
+    static final LightSites.Table sites = new LightSites.Table();
+    static final SpriteGeometry.MeshSet solid = new SpriteGeometry.MeshSet(layers, sites), laid = new SpriteGeometry.MeshSet(layers, sites);
     /** How far in front of the place looked at the picture reaches from far overhead, in tiles. */
     private static final float OVERHEAD_DEPTH = 160f;
     /** The distance the place looked at is taken to be at, for what the picture does by distance. */
@@ -5221,6 +5223,7 @@ final class WorldScene {
                 lampsRound(chunkX, chunkY);
             }
             for (int z = Math.max(lowest, chunk.getMinLevel()); z <= (growing ? 0 : chunk.getMaxLevel()); z++) {
+                sites.level = z;
                 boolean inKept = kept && z >= keptFrom && z <= keptTo;
                 int at = (z - keptFrom) * lightRed.length;
                 if (inKept && (keptLevels >> (z - keptFrom) & 1L) != 0L) {
@@ -6113,6 +6116,7 @@ final class WorldScene {
             for (int corner = 0; corner < 4; corner++) {
                 cornerLight(lightRed, lightGreen, lightBlue, lightOpen, lightUnseen, lightDay, localX, localY, own, kind, corner, frame);
             }
+            sites.put(LightSites.SQUARE, own, frame, 0f, false);
         }
 
         /**
@@ -6126,7 +6130,15 @@ final class WorldScene {
          */
         boolean blockLights(int fromX, int fromY, int toX, int toY, int localX, int localY, SpriteGeometry.Frame into) {
             int own = (localX + 1) * LIGHT_SPAN + localY + 1;
-            return blockLights(lightRed, lightGreen, lightBlue, lightOpen, lightUnseen, lightDay, fromX, fromY, toX, toY, own, unlitKindRound(own), into);
+            if (!blockLights(lightRed, lightGreen, lightBlue, lightOpen, lightUnseen, lightDay, fromX, fromY, toX, toY, own, unlitKindRound(own), into)) {
+                return false;
+            }
+            // Nothing lit over a block takes its flat light: the square's own, so that the site's record is the same each time it is put.
+            into.red = lightRed[own];
+            into.green = lightGreen[own];
+            into.blue = lightBlue[own];
+            sites.put(LightSites.BLOCK, own | fromX << 8 | fromY << 11 | toX << 14 | toY << 17, into, 0f, false);
+            return true;
         }
 
         /** blockLights, from a light grid of LIGHT_SPAN by LIGHT_SPAN as readLights fills it: see cornerLight. */
@@ -6184,6 +6196,11 @@ final class WorldScene {
         /** How much of a mean of squares the ones the game has not lit are, each counted as 1, beside the light of the ones it has lit, summed as their grey. */
         static float unlitShare(float given, int unlit) {
             return unlit == 0 ? 0f : unlit / (given + unlit);
+        }
+
+        /** The place in the light grid of the square being added. */
+        int own() {
+            return (waterLocalX + 1) * LIGHT_SPAN + waterLocalY + 1;
         }
 
         /** The kind of light the game has not given that the square at the given place of the light grid is lit by, or for one it has lit the first such kind of a square round it with the same openness, or OWN_LIGHT. */
@@ -6464,13 +6481,14 @@ final class WorldScene {
                 return false;
             }
             float base = z * ViewCamera.LEVEL_HEIGHT;
-            Trims.Light light = (atX, atY, into) -> {
+            Trims.Light light = (mesh, atX, atY, into) -> {
                 float a = Math.clamp(atX - x, 0f, 1f), b = Math.clamp(atY - y, 0f, 1f);
                 into[0] = (frame.cornerRed[0] * (1f - a) + frame.cornerRed[1] * a) * (1f - b) + (frame.cornerRed[3] * (1f - a) + frame.cornerRed[2] * a) * b;
                 into[1] = (frame.cornerGreen[0] * (1f - a) + frame.cornerGreen[1] * a) * (1f - b) + (frame.cornerGreen[3] * (1f - a) + frame.cornerGreen[2] * a) * b;
                 into[2] = (frame.cornerBlue[0] * (1f - a) + frame.cornerBlue[1] * a) * (1f - b) + (frame.cornerBlue[3] * (1f - a) + frame.cornerBlue[2] * a) * b;
                 into[3] = frame.unlitAt((1f - a) * (1f - b), a * (1f - b), a * b, (1f - a) * b);
                 into[4] = frame.dayAt((1f - a) * (1f - b), a * (1f - b), a * b, (1f - a) * b);
+                mesh.lightLerp(frame, a, b);
             };
             for (int edge = 0; edge < 2; edge++) {
                 Trims.Band[] bands = edge == 0 ? onNorth : onWest;
@@ -6674,6 +6692,7 @@ final class WorldScene {
                 return;
             }
             SpriteGeometry.Mesh mesh = solid.get(PLAIN);
+            mesh.lightFlat(frame);
             // The colour given is the light on it. What colour the thing is, the picture knows by
             // what it is made of.
             if (mine != Terrain.NATURAL) {
@@ -6787,8 +6806,8 @@ final class WorldScene {
                     bannerCorners[at + 6] = frame.cornerGreen[0] * w0 + frame.cornerGreen[1] * w1 + frame.cornerGreen[2] * w2 + frame.cornerGreen[3] * w3;
                     bannerCorners[at + 7] = frame.cornerBlue[0] * w0 + frame.cornerBlue[1] * w1 + frame.cornerBlue[2] * w2 + frame.cornerBlue[3] * w3;
                     bannerCorners[at + 8] = sway;
-                    bannerCorners[at + 9] = frame.unlitAt(w0, w1, w2, w3);
-                    bannerCorners[at + 10] = frame.dayAt(w0, w1, w2, w3);
+                    bannerCorners[at + 9] = lightA;
+                    bannerCorners[at + 10] = lightB;
                 }
             }
             mesh.open = frame.open + 32f * frame.material;
@@ -6798,8 +6817,7 @@ final class WorldScene {
                     for (int corner : BANNER_CORNERS) {
                         int at = (j + (corner >> 1)) * row + (i + (corner & 1)) * BANNER_FLOATS;
                         mesh.sway = bannerCorners[at + 8];
-                        mesh.unlit = bannerCorners[at + 9];
-                        mesh.day = bannerCorners[at + 10];
+                        mesh.litAt(frame, bannerCorners[at + 9], bannerCorners[at + 10], 1f, 1f, 1f);
                         mesh.add(bannerCorners[at], bannerCorners[at + 1], bannerCorners[at + 2], bannerCorners[at + 3], bannerCorners[at + 4],
                                 bannerCorners[at + 5], bannerCorners[at + 6], bannerCorners[at + 7]);
                     }
@@ -7082,9 +7100,15 @@ final class WorldScene {
                 SpriteGeometry.Mesh glass = solid.get(PLAIN, WallSides.key(Lights.colour(kind, bulb, burning, 0), Lights.colour(kind, bulb, burning, 1),
                         Lights.colour(kind, bulb, burning, 2), WallSides.FLAT));
                 holder.open = frame.open + 32f * HUNG;
+                holder.lightFlat(frame);
                 Lights.round(holder, bulbX, bulbY, up, hangs, acrossX, acrossY, Lights.holder(far), size, sides, frame.red, frame.green, frame.blue);
                 // Glass that burns is of the stuff of a lamp, and a lamp's vertex that hangs below a line is what the picture swings.
                 glass.open = frame.open + 32f * (burning ? LAMP : HUNG);
+                if (burning) {
+                    glass.lightStatic();
+                } else {
+                    glass.lightFlat(frame);
+                }
                 Lights.round(glass, bulbX, bulbY, up, hangs, acrossX, acrossY, Lights.glass(far), size, sides, red, green, blue);
             }
             return true;
@@ -7258,6 +7282,7 @@ final class WorldScene {
                 geometry.keep = inLeaf && !bare ? BOLE : 1f;
                 if (unexplored && object == floor) {
                     frame.light(0f, 0f, 0f);
+                    sites.put(LightSites.SQUARE, LightSites.dark((localX + 1) * LIGHT_SPAN + localY + 1), frame, 0f, false);
                 }
                 int before = FirstPerson.TRACE ? worn(texture) : 0;
                 int firesBefore = placed.fireCount;
@@ -7305,6 +7330,7 @@ final class WorldScene {
                     frameOf(floor, texture);
                     if (unexplored) {
                         frame.light(0f, 0f, 0f);
+                        sites.put(LightSites.SQUARE, LightSites.dark((localX + 1) * LIGHT_SPAN + localY + 1), frame, 0f, false);
                     }
                 }
             }
@@ -7448,6 +7474,7 @@ final class WorldScene {
                 owning(Outlines.key(item));
                 SpriteGeometry.Mesh mesh = solid.get(texture.getID(), WallSides.multiplied(tint.r, tint.g, tint.b));
                 mesh.open = frame.open;
+                mesh.lightFlat(frame);
                 mesh.face(0f, 0f, 1f);
                 layers.lie(SpriteGeometry.LAYERS_UP, under + 1 + laid % GroundItems.LAYERS);
                 for (int corner : GroundItems.TRIANGLES) {
@@ -7481,6 +7508,7 @@ final class WorldScene {
             owning(Outlines.key(item));
             SpriteGeometry.Mesh mesh = solid.get(texture.getID(), WallSides.multiplied(placed.red, placed.green, placed.blue));
             mesh.open = frame.open;
+            mesh.lightFlat(frame);
             for (int corner : shape.corners()) {
                 int p = corner * 3;
                 float px = places[p], py = places[p + 1], pz = places[p + 2];
@@ -7529,6 +7557,7 @@ final class WorldScene {
             }
             SpriteGeometry.Mesh mesh = solid.get(texture.getID());
             mesh.open = frame.open + 32f * BODY;
+            mesh.lightFlat(frame);
             mesh.face(0f, 0f, 1f);
             // Where the game draws the picture, in its own pixels from where it draws the body's place on the floor.
             float left = picture.getRenderX(0f), top = picture.getRenderY(0f), wide = picture.getRenderWidth(), high = picture.getRenderHeight();
@@ -7574,6 +7603,7 @@ final class WorldScene {
         private void addLimb(LimbDecals.Laid laid) {
             SpriteGeometry.Mesh mesh = solid.get(LimbDecals.texture());
             mesh.open = frame.open + 32f * BODY;
+            mesh.lightFlat(frame);
             mesh.face(0f, 0f, 1f);
             float side = 2f * laid.half();
             float share = (float) LimbDecals.SLOT / LimbDecals.SIDE, u0 = laid.u0(), v0 = laid.v0();
@@ -7919,7 +7949,7 @@ final class WorldScene {
                 float lift = (geometry.lift[0] + geometry.lift[1] + geometry.lift[2] + geometry.lift[3]) / 4f;
                 layers.lie(SpriteGeometry.LAYERS_UP, -2f);
                 Soffits.strip(plain, x, y, (z + 1) * ViewCamera.LEVEL_HEIGHT + lift, sprite.getSpriteGrid().getWidth() > 1,
-                        frame.red, frame.green, frame.blue, frame.open, frame.open + 32f * LAMP);
+                        frame, frame.open, frame.open + 32f * LAMP);
                 layers.none();
                 return;
             }
@@ -8450,7 +8480,7 @@ final class WorldScene {
                 float v = liningV[corner] + Math.clamp(middleV - liningV[corner], -inset, inset);
                 float wa = Math.clamp(a, 0f, 1f), wb = Math.clamp(b, 0f, 1f);
                 float w0 = (1f - wa) * (1f - wb), w1 = wa * (1f - wb), w2 = wa * wb, w3 = (1f - wa) * wb;
-                mesh.litAt(frame, w0, w1, w2, w3);
+                mesh.litAt(frame, wa, wb, 1f, 1f, 1f);
                 mesh.add(x + a, y + b, (z + liningAt[corner * 3 + 2]) * ViewCamera.LEVEL_HEIGHT + geometry.liftAt(a, b),
                         SpriteGeometry.textureAtU(frame, u), SpriteGeometry.textureAtV(frame, v),
                         frame.cornerRed[0] * w0 + frame.cornerRed[1] * w1 + frame.cornerRed[2] * w2 + frame.cornerRed[3] * w3,
@@ -8588,6 +8618,11 @@ final class WorldScene {
                 }
                 towerLight.unlitKind = frame.unlitKind;
                 towerLight.open = frame.open;
+                // A model takes no flat light: the square's own, so that the site's record is the same each time it is put.
+                towerLight.red = frame.red;
+                towerLight.green = frame.green;
+                towerLight.blue = frame.blue;
+                sites.put(LightSites.TOWER, own(), towerLight, 0f, false);
                 placed.add(Models.get(section.model()), towerLight, x, y, centreX, centreY, foot, section.turns(), Furniture.TILES_PER_METRE,
                         Furniture.TILES_PER_METRE, 0, 0, 0f, 0f, 0, 0f, 0f);
                 placed.built();
@@ -8805,6 +8840,7 @@ final class WorldScene {
                 float a = flightA + along * alongA + across * acrossA, b = flightB + along * alongB + across * acrossB;
                 set(c, corner, flightX + a, flightY + b, (flightZ + q[corner * 3 + 2]) * ViewCamera.LEVEL_HEIGHT + geometry.liftAt(a, b));
             }
+            flightMesh.lightFlat(frame);
             SpriteGeometry.addQuad(flightMesh, c, 0f, 0f, frame.red, frame.green, frame.blue);
         }
 
@@ -8899,9 +8935,11 @@ final class WorldScene {
             @Override
             public void quad(float[] c, float[] along, int part) {
                 if (part == Track.RAIL) {
+                    railMesh.lightFlat(frame);
                     SpriteGeometry.addQuad(railMesh, c, railU, railV, frame.red, frame.green, frame.blue);
                     return;
                 }
+                tieMesh.lightFlat(frame);
                 float ux = c[3] - c[0], uy = c[4] - c[1], uz = c[5] - c[2];
                 float vx = c[9] - c[0], vy = c[10] - c[1], vz = c[11] - c[2];
                 tieMesh.face(uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx);

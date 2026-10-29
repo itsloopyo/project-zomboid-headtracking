@@ -367,7 +367,7 @@ final class PlantBuilder {
             shows = Math.max(shows, Math.max(pieceLeaf[corner] * Litter.SPREAD_MOST, pieceNeedle[corner]));
         }
         if (shows > 0.02f) {
-            Flora.addLitter(cards, count, pieceX, pieceY, pieceLift, pieceLeaf, pieceNeedle, kind, pieceRed, pieceGreen, pieceBlue, pieceUnlit, pieceDay, build.frame.open);
+            Flora.addLitter(cards, count, pieceX, pieceY, pieceLift, pieceLeaf, pieceNeedle, kind, pieceRed, pieceGreen, pieceBlue, pieceUnlit, pieceDay, build.frame, a, b);
         }
     }
 
@@ -542,6 +542,7 @@ final class PlantBuilder {
             return;
         }
         float material = frame.material, red = frame.red;
+        int site = frame.site;
         build.geometry.skipped = Math.max(bed, 0f);
         try {
             addGrown(mesh, sprite, type, texture, x, y, z);
@@ -549,6 +550,7 @@ final class PlantBuilder {
             build.geometry.skipped = 0f;
             frame.material = material;
             frame.red = red;
+            frame.site = site;
         }
     }
 
@@ -651,6 +653,7 @@ final class PlantBuilder {
         // The leaves of a tree and a bush, near enough to be seen as leaves, are a crown of
         // sprigs. The fan then stands only in the sun's own pictures, to throw the shadow.
         float fanned = build.frame.material, red = build.frame.red;
+        int site = build.frame.site;
         // A crop's cards stand as tall as the crop, seen from the eye. From overhead they stand as tall as painted, the game's picture of it.
         boolean cropCards = plant.crop() != Crops.NONE && !world.terrain.level;
         build.geometry.upright = cropCards ? Crops.cardShare(build.frame, build.box) : 1f;
@@ -695,6 +698,7 @@ final class PlantBuilder {
         }
         build.frame.material = fanned;
         build.frame.red = red;
+        build.frame.site = site;
         if (bush && !crowned && Own.plants(build.playerIndex) && build.within(WorldScene.BUSH_REACH, false)) {
             // A fan of cards through one line is thin seen along that line, and from
             // above it is a star. A bush is a clump: three more cards stand round its

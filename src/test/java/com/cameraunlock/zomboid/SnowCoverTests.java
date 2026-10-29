@@ -111,7 +111,7 @@ final class SnowCoverTests {
 
     private static void aRoofAndWhatIsAloftHoldSnowEvenly() {
         SpriteGeometry.MeshSet set = new SpriteGeometry.MeshSet();
-        SpriteGeometry.Mesh mesh = set.get(1);
+        SpriteGeometry.Mesh mesh = LightSiteTests.constant(set.get(1));
         set.storey(SpriteGeometry.NO_BUILDING, 1);
         mesh.add(0f, 0f, 0f, 0f, 0f, 1f, 1f, 1f);
         set.storey(SpriteGeometry.NO_BUILDING, 0);
@@ -122,7 +122,7 @@ final class SnowCoverTests {
         check(mesh.vertices[SpriteGeometry.ALOFT_AT] == 1f && mesh.vertices[SpriteGeometry.VERTEX_FLOATS + SpriteGeometry.ALOFT_AT] == 0f
                         && mesh.vertices[2 * SpriteGeometry.VERTEX_FLOATS + SpriteGeometry.ALOFT_AT] == 0f,
                 "a vertex of a square up a storey is aloft, and one on the ground or under it is not");
-        SpriteGeometry.Mesh alone = new SpriteGeometry.Mesh();
+        SpriteGeometry.Mesh alone = LightSiteTests.constant(new SpriteGeometry.Mesh());
         alone.add(0f, 0f, 0f, 0f, 0f, 1f, 1f, 1f);
         check(alone.vertices[SpriteGeometry.ALOFT_AT] == 0f, "a mesh of no set is not aloft");
         String main = PipelineShaders.WORLD_FRAGMENT_MAIN.replaceAll("\\s+", "");

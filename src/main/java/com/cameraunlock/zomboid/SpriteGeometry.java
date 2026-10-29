@@ -213,6 +213,21 @@ final class SpriteGeometry {
          */
         float day;
         /**
+         * Where the light of the vertices added next comes from (LightSites): how they take it,
+         * the site whose record holds it in which table, the shares (a, b) of the square they
+         * blend its corners at, and what the builder multiplies the blend by. The builder says
+         * it before it adds them, and litAsFace, clear and the set's get put it back to NONE, so
+         * that a vertex added with its light not said throws.
+         */
+        int lightMode = LightSites.NONE;
+        private int lightSite;
+        private LightSites.Table lightSites;
+        private float lightA, lightB, multRed, multGreen, multBlue;
+        /** Whether the kind of light the vertices' openness carries is their record's, or one the builder fixes whatever the light (CeilingBuilder's). */
+        private boolean kindFromSite;
+        /** TWIN only: what the twin gives a vertex. */
+        private float[] twinOut;
+        /**
          * The runs of the mesh's floats that a thing that may be outlined drew, each its key
          * (Outlines.key), its first float and the float after its last: see MeshSet.own.
          */
@@ -249,6 +264,15 @@ final class SpriteGeometry {
             rootY = other.rootY;
             unlit = other.unlit;
             day = other.day;
+            lightMode = other.lightMode;
+            lightSite = other.lightSite;
+            lightSites = other.lightSites;
+            lightA = other.lightA;
+            lightB = other.lightB;
+            multRed = other.multRed;
+            multGreen = other.multGreen;
+            multBlue = other.multBlue;
+            kindFromSite = other.kindFromSite;
         }
 
         /** Notes in the mesh's set that the mesh has grown since the set's last own. */
@@ -302,6 +326,7 @@ final class SpriteGeometry {
             floats = 0;
             unlit = AS_FACE;
             day = 0f;
+            lightMode = LightSites.NONE;
             spans = 0;
             ownedFrom = 0;
             grown = false;
@@ -336,6 +361,7 @@ final class SpriteGeometry {
         }
 
         void add(float x, float y, float up, float u, float v, float red, float green, float blue) {
+            lit(red, green, blue, open, unlit, day);
             growing();
             roomFor(floats + VERTEX_FLOATS);
             vertices[floats++] = x;
@@ -360,16 +386,103 @@ final class SpriteGeometry {
             vertices[floats++] = set != null ? set.aloft : 0f;
         }
 
-        /** unlit and day for vertices with the frame's corners' light in the given shares. */
-        void litAt(Frame frame, float w0, float w1, float w2, float w3) {
+        /**
+         * The vertices added next take the frame's corners blended at the shares (a, b) of the
+         * square in emitAt's weights, times the multiplier: sets unlit and day as they blend, and
+         * says so.
+         */
+        void litAt(Frame frame, float a, float b, float multRed, float multGreen, float multBlue) {
+            float w0 = (1f - a) * (1f - b), w1 = a * (1f - b), w2 = a * b, w3 = (1f - a) * b;
             unlit = frame.unlitAt(w0, w1, w2, w3);
             day = frame.dayAt(w0, w1, w2, w3);
+            said(frame, LightSites.CORNERS, a, b, multRed, multGreen, multBlue);
         }
 
-        /** Puts unlit and day back for vertices whose light is all of the kind their openness names. */
+        /** As litAt, for vertices whose unlit and day the builder leaves as they are. */
+        void lightCorners(Frame frame, float a, float b, float multRed, float multGreen, float multBlue) {
+            said(frame, LightSites.CORNERS, a, b, multRed, multGreen, multBlue);
+        }
+
+        /** The vertices added next take the frame's flat light, times the multiplier, with no unlit share and the day its site's flat vertices take. */
+        void lightFlat(Frame frame, float multRed, float multGreen, float multBlue) {
+            said(frame, LightSites.FLAT, 0f, 0f, multRed, multGreen, multBlue);
+        }
+
+        void lightFlat(Frame frame) {
+            lightFlat(frame, 1f, 1f, 1f);
+        }
+
+        /** The vertices added next take the frame's corners blended at (a, b) in the lerp form of Trims and the litter. The builder sets unlit and day. */
+        void lightLerp(Frame frame, float a, float b) {
+            said(frame, LightSites.LERP, a, b, 1f, 1f, 1f);
+        }
+
+        /** The vertices added next carry the light they are given as it is: a constant, or a share of shadow. */
+        void lightStatic() {
+            lightMode = LightSites.MODE_STATIC;
+        }
+
+        /** The vertices added next carry the kind of light their openness says, which the builder fixes whatever the light is, and not their record's. */
+        void kindFixed() {
+            kindFromSite = false;
+        }
+
+        private void said(Frame frame, int mode, float a, float b, float multRed, float multGreen, float multBlue) {
+            if (frame.site == LightSites.STATIC) {
+                lightMode = LightSites.MODE_STATIC;
+                return;
+            }
+            lightMode = mode;
+            lightSite = frame.site;
+            lightSites = frame.sites;
+            lightA = a;
+            lightB = b;
+            this.multRed = multRed;
+            this.multGreen = multGreen;
+            this.multBlue = multBlue;
+            kindFromSite = true;
+            if (LightSites.TWIN) {
+                LightSites.check(frame);
+            }
+        }
+
+        /**
+         * Throws for a vertex whose light has not been said. With TWIN, checks the light it
+         * carries, and the kind of light and the material its alpha carries, against what its
+         * site's record gives it as the picture will work it out.
+         */
+        void lit(float red, float green, float blue, float alpha, float unlit, float day) {
+            if (lightMode == LightSites.NONE) {
+                throw new IllegalStateException("a vertex was added with its light not said");
+            }
+            if (!LightSites.TWIN || lightMode == LightSites.MODE_STATIC) {
+                return;
+            }
+            float[] records = lightSites.records;
+            int at = lightSite * LightSites.RECORD;
+            if (twinOut == null) {
+                twinOut = new float[5];
+            }
+            LightSites.twin(records, at, lightMode, lightA, lightB, multRed, multGreen, multBlue, twinOut);
+            int material = LightSites.materialOf(alpha);
+            int base = material == (int) WallBuilder.LIT_GLASS ? (int) WorldScene.GLASS : material == (int) WorldScene.LIT_PANE ? (int) WorldScene.PANE : material;
+            if (Float.floatToRawIntBits(red) != Float.floatToRawIntBits(twinOut[0]) || Float.floatToRawIntBits(green) != Float.floatToRawIntBits(twinOut[1])
+                    || Float.floatToRawIntBits(blue) != Float.floatToRawIntBits(twinOut[2]) || Float.floatToRawIntBits(unlit) != Float.floatToRawIntBits(twinOut[3])
+                    || Float.floatToRawIntBits(day) != Float.floatToRawIntBits(twinOut[4])
+                    || kindFromSite && LightSites.kindOf(alpha) != LightSites.kindOf(records[at + LightSites.OPEN])
+                    || (int) LightSites.material(base, records[at + LightSites.LAMPLIT] == 1f) != material) {
+                throw new IllegalStateException("a vertex's light is not its site's: it carries " + red + ", " + green + ", " + blue + " unlit " + unlit + " day " + day
+                        + " alpha " + alpha + " where mode " + lightMode + " at (" + lightA + ", " + lightB + ") times (" + multRed + ", " + multGreen + ", " + multBlue
+                        + ") gives " + Arrays.toString(twinOut) + (kindFromSite ? " with the record's kind" : " with its own kind") + ", from site "
+                        + lightSites.describe(lightSite));
+            }
+        }
+
+        /** Puts unlit and day back for vertices whose light is all of the kind their openness names, and has the light of the next be said. */
         void litAsFace() {
             unlit = AS_FACE;
             day = 0f;
+            lightMode = LightSites.NONE;
         }
 
         /** Adds the vertex that starts at the given float once more, as it is. */
@@ -425,6 +538,8 @@ final class SpriteGeometry {
         float aloft;
         /** The key of the thing being drawn into the set, or Outlines.NONE: see own. */
         private long owner = Outlines.NONE;
+        /** The light sites of what the set is filled with, emptied with it: see LightSites. */
+        final LightSites.Table sites;
 
         MeshSet() {
             this(new Layers());
@@ -432,7 +547,13 @@ final class SpriteGeometry {
 
         /** A set whose meshes lie by the given layers, which another set may share. */
         MeshSet(Layers layers) {
+            this(layers, new LightSites.Table());
+        }
+
+        /** As MeshSet(layers), with the light sites in the given table, which another set may share. */
+        MeshSet(Layers layers, LightSites.Table sites) {
             this.layers = layers;
+            this.sites = sites;
         }
 
         Mesh get(int texture) {
@@ -467,6 +588,8 @@ final class SpriteGeometry {
                 mesh.vertices = spare(mesh.lent);
                 used.add(mesh);
             }
+            // Whoever asks for a mesh says the light of what it adds: none is left from the last to add to it.
+            mesh.lightMode = LightSites.NONE;
             return mesh;
         }
 
@@ -563,6 +686,7 @@ final class SpriteGeometry {
             used.clear();
             grown.clear();
             round++;
+            sites.clear();
         }
 
         /** How many meshes the set keeps, and how many floats they have room for. */
@@ -687,8 +811,15 @@ final class SpriteGeometry {
         float unlitKind;
         /** At each corner, how much of the open ground's light the rooms of the squares counted in cornerUnlit let in by day: see Mesh.day. */
         final float[] cornerDay = new float[4];
-        /** How many floats cornersInto copies out of cornerUnlit, unlitKind and cornerDay. */
-        static final int UNLIT_FLOATS = 9;
+        /** How many floats cornersInto copies out of cornerUnlit, unlitKind, cornerDay and site. */
+        static final int UNLIT_FLOATS = 10;
+        /**
+         * The site whose record in sites holds the light the frame has now, which the vertices
+         * it lights say they take (Mesh.lightSite): see LightSites. NO_SITE for a frame lit by
+         * hand (light), STATIC for one lit by a constant (openUnlit).
+         */
+        int site = LightSites.NO_SITE;
+        LightSites.Table sites;
         /** What a crown made with the frame is worked out in: see Flora.Workings. Null until one is. */
         Flora.Workings crownWorkings;
 
@@ -716,7 +847,7 @@ final class SpriteGeometry {
             vEnd = other.vEnd;
         }
 
-        /** Copies the light at the corners out, to be put back by {@link #cornersFrom}: into unlit, UNLIT_FLOATS long, cornerUnlit, unlitKind and then cornerDay. */
+        /** Copies the light at the corners out, to be put back by {@link #cornersFrom}: into unlit, UNLIT_FLOATS long, cornerUnlit, unlitKind, cornerDay and then the site. */
         void cornersInto(float[] red, float[] green, float[] blue, float[] unlit) {
             System.arraycopy(cornerRed, 0, red, 0, 4);
             System.arraycopy(cornerGreen, 0, green, 0, 4);
@@ -724,9 +855,10 @@ final class SpriteGeometry {
             System.arraycopy(cornerUnlit, 0, unlit, 0, 4);
             unlit[4] = unlitKind;
             System.arraycopy(cornerDay, 0, unlit, 5, 4);
+            unlit[9] = site;
         }
 
-        /** The light at the corners as {@link #cornersInto} copied it out. */
+        /** The light at the corners as {@link #cornersInto} copied it out, and the site it is. */
         void cornersFrom(float[] red, float[] green, float[] blue, float[] unlit) {
             System.arraycopy(red, 0, cornerRed, 0, 4);
             System.arraycopy(green, 0, cornerGreen, 0, 4);
@@ -734,9 +866,10 @@ final class SpriteGeometry {
             System.arraycopy(unlit, 0, cornerUnlit, 0, 4);
             unlitKind = unlit[4];
             System.arraycopy(unlit, 5, cornerDay, 0, 4);
+            site = (int) unlit[9];
         }
 
-        /** One light for the whole square. */
+        /** One light for the whole square, set by hand: no site's. */
         void light(float r, float g, float b) {
             red = r;
             green = g;
@@ -746,6 +879,36 @@ final class SpriteGeometry {
             Arrays.fill(cornerBlue, b);
             Arrays.fill(cornerUnlit, AS_FACE);
             Arrays.fill(cornerDay, 0f);
+            site = LightSites.NO_SITE;
+        }
+
+        /** The light of the open ground where the game has given none, (1, 1, 1) of OPEN_UNLIT: a constant, which its vertices carry as it is. */
+        void openUnlit() {
+            light(1f, 1f, 1f);
+            open = WorldScene.OPEN_UNLIT;
+            site = LightSites.STATIC;
+        }
+
+        /**
+         * The light another frame has, all its parts, and its site. A frame of no table's site
+         * (NO_SITE, STATIC) has no table to give, and the table this one has is kept: a site
+         * cornersFrom puts back is in it.
+         */
+        void lightAs(Frame other) {
+            red = other.red;
+            green = other.green;
+            blue = other.blue;
+            System.arraycopy(other.cornerRed, 0, cornerRed, 0, 4);
+            System.arraycopy(other.cornerGreen, 0, cornerGreen, 0, 4);
+            System.arraycopy(other.cornerBlue, 0, cornerBlue, 0, 4);
+            System.arraycopy(other.cornerUnlit, 0, cornerUnlit, 0, 4);
+            System.arraycopy(other.cornerDay, 0, cornerDay, 0, 4);
+            unlitKind = other.unlitKind;
+            open = other.open;
+            site = other.site;
+            if (other.site >= 0) {
+                sites = other.sites;
+            }
         }
 
         /** What a vertex with the corners' light in the given shares has of a light the game has not given, for Mesh.unlit. */
@@ -1643,6 +1806,7 @@ final class SpriteGeometry {
         mesh.nearer = nearer;
         mesh.sway = low;
         mesh.along = along0;
+        mesh.lightFlat(frame);
         mesh.add(x0, y0, baseUp + bottomHeight, uLeft, vBottom, frame.red, frame.green, frame.blue);
         mesh.along = along1;
         mesh.add(x1, y1, baseUp + bottomHeight, uRight, vBottom, frame.red, frame.green, frame.blue);
@@ -1714,6 +1878,7 @@ final class SpriteGeometry {
         float share = upShare(vigour);
         mesh.face(rightY, -rightX, share / (float) Math.sqrt(1f - share * share));
         mesh.sway = 0f;
+        mesh.lightFlat(frame);
         mesh.add(x0, y0, base, u, v, frame.red, frame.green, frame.blue);
         mesh.add(x1, y1, base, u, v, frame.red, frame.green, frame.blue);
         mesh.sway = 1f;
@@ -1787,6 +1952,8 @@ final class SpriteGeometry {
         float open = frame.open + BLADES;
         float aloft = mesh.set != null ? mesh.set.aloft : 0f;
         float red = frame.red, green = frame.green, blue = frame.blue;
+        mesh.lightFlat(frame);
+        mesh.lit(red, green, blue, open, AS_FACE, 0f);
         float leftEdge = -2f + seed, rightEdge = 2f + seed;
         float lastLeftX = 0f, lastLeftY = 0f, lastRightX = 0f, lastRightY = 0f, lastUp = 0f, lastCode = 0f, lastHigh = 0f;
         for (int step = 0; step <= steps; step++) {
@@ -1866,6 +2033,7 @@ final class SpriteGeometry {
         float foot = (tileZ + raised) * ViewCamera.LEVEL_HEIGHT + liftAt(0.5f, 0.5f), top = foot + high * ViewCamera.LEVEL_HEIGHT;
         mesh.open = frame.open + 32f * frame.material;
         mesh.sway = 0f;
+        mesh.lightFlat(frame);
         float x0 = tileX, y0 = tileY, x1 = tileX + 1f, y1 = tileY + 1f;
         mesh.face(0f, 0f, 1f);
         blockFace(mesh, frame, u, v, x0, y0, top, x1, y0, top, x1, y1, top, x0, y1, top);
@@ -1953,7 +2121,7 @@ final class SpriteGeometry {
         float x = tileX + a, y = tileY + b;
         mesh.open = frame.open + frame.kind + 32f * frame.material;
         mesh.sway = 0f;
-        mesh.litAt(frame, w0, w1, w2, w3);
+        mesh.litAt(frame, inA, inB, 1f, 1f, 1f);
         int stations = post.heights.length;
         float highest = Math.max(top, post.heights[stations - 1]);
         // Each corner round a station is in the faces of two sides, and of the stations either side of it: where it is and its texel are worked out once.
@@ -2206,7 +2374,7 @@ final class SpriteGeometry {
         float red = frame.cornerRed[0] * w0 + frame.cornerRed[1] * w1 + frame.cornerRed[2] * w2 + frame.cornerRed[3] * w3;
         float green = frame.cornerGreen[0] * w0 + frame.cornerGreen[1] * w1 + frame.cornerGreen[2] * w2 + frame.cornerGreen[3] * w3;
         float blue = frame.cornerBlue[0] * w0 + frame.cornerBlue[1] * w1 + frame.cornerBlue[2] * w2 + frame.cornerBlue[3] * w3;
-        mesh.litAt(frame, w0, w1, w2, w3);
+        mesh.litAt(frame, inA, inB, 1f, 1f, 1f);
         float foot = (tileZ + raised) * ViewCamera.LEVEL_HEIGHT + liftAt(a, b);
         for (int brace = 0; brace < braces; brace++) {
             post.armTo(brace, bracesAlongX, armTo);
@@ -2418,8 +2586,8 @@ final class SpriteGeometry {
         float a = Math.clamp(polygon[at], 0f, 1f), b = Math.clamp(polygon[at + 1], 0f, 1f);
         float w0 = (1f - a) * (1f - b), w1 = a * (1f - b), w2 = a * b, w3 = (1f - a) * b;
         mesh.sway = cover == null ? 0f : 1f - (cover.length == GRID_COVER ? gridCover(cover, a, b) : cover[0] * w0 + cover[1] * w1 + cover[2] * w2 + cover[3] * w3);
-        mesh.litAt(frame, w0, w1, w2, w3);
         float shade = creaseLow || creaseHigh ? creased(polygon[at], polygon[at + 1]) : 1f;
+        mesh.litAt(frame, a, b, shade, shade, shade);
         if (grimed) {
             mesh.rootX = grimeRootX(polygon[at], polygon[at + 1]);
             mesh.rootY = grimeRootY(polygon[at + 2]);

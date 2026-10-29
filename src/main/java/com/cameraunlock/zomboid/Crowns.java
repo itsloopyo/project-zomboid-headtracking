@@ -18,8 +18,7 @@ import java.util.concurrent.TimeUnit;
 final class Crowns {
     /** A crown's foot, where its sprite shows the foot, how far off it is made for, its bole, what addCrown reads of its sprite's frame, its room, and its season. */
     private static final int X = 0, Y = 1, BASE = 2, FOOT_U = 3, FOOT_V = 4, AWAY = 5, BOLE_RADIUS = 6, BOLE_TALL = 7, SCALE = 8, LEFT = 9, TOP = 10,
-            WIDTH = 11, HEIGHT = 12, U_START = 13, V_START = 14, U_END = 15, V_END = 16, RED = 17, GREEN = 18, BLUE = 19, OPEN = 20, ROOM = 21, LEAF = 25,
-            TURNED = 26, TWIGGED = 27, FLOATS = 28;
+            WIDTH = 11, HEIGHT = 12, U_START = 13, V_START = 14, U_END = 15, V_END = 16, ROOM = 17, LEAF = 21, TURNED = 22, TWIGGED = 23, FLOATS = 24;
     private static final int TEXTURE = 0, BARK = 1, BOLE_BARK = 2, SPRIG = 3, SEED = 4, HUE = 5, KIND = 6, PAINTED = 7, OVERHEAD = 8, BLOOM = 9, INTS = 10;
     /** How far from the eye a plant has a crown of sprigs, and within what it has them at their smallest and most. */
     static final float REACH = 40f, NEAR = 12f;
@@ -46,6 +45,12 @@ final class Crowns {
 
     private float[] floats = new float[FLOATS * 8];
     private int[] ints = new int[INTS * 8];
+    /**
+     * The key of the site that lit each crown's frame (LightSites), or the frame's site where it
+     * had none (LightSites.STATIC, NO_SITE), and the light of each, the site's record.
+     */
+    private long[] sites = new long[8];
+    private float[] lights = new float[LightSites.RECORD * 8];
     private float[][] places = new float[8][], woodShapes = new float[8][];
     private int count;
 
@@ -71,6 +76,18 @@ final class Crowns {
             ints = Arrays.copyOf(ints, ints.length * 2);
             places = Arrays.copyOf(places, places.length * 2);
             woodShapes = Arrays.copyOf(woodShapes, woodShapes.length * 2);
+            sites = Arrays.copyOf(sites, sites.length * 2);
+            lights = Arrays.copyOf(lights, lights.length * 2);
+        }
+        if (LightSites.TWIN) {
+            LightSites.check(frame);
+        }
+        if (frame.site >= 0) {
+            sites[count] = frame.sites.keys[frame.site];
+            System.arraycopy(frame.sites.records, frame.site * LightSites.RECORD, lights, count * LightSites.RECORD, LightSites.RECORD);
+        } else {
+            sites[count] = frame.site;
+            LightSites.take(frame, lights, count * LightSites.RECORD, 0f, false);
         }
         int at = count * FLOATS;
         floats[at + X] = x;
@@ -90,10 +107,6 @@ final class Crowns {
         floats[at + V_START] = frame.vStart;
         floats[at + U_END] = frame.uEnd;
         floats[at + V_END] = frame.vEnd;
-        floats[at + RED] = frame.red;
-        floats[at + GREEN] = frame.green;
-        floats[at + BLUE] = frame.blue;
-        floats[at + OPEN] = frame.open;
         System.arraycopy(room, 0, floats, at + ROOM, 4);
         floats[at + LEAF] = leaf;
         floats[at + TURNED] = turned;
@@ -124,9 +137,13 @@ final class Crowns {
             into.ints = new int[ints.length];
             into.places = new float[places.length][];
             into.woodShapes = new float[woodShapes.length][];
+            into.sites = new long[sites.length];
+            into.lights = new float[lights.length];
         }
         System.arraycopy(floats, 0, into.floats, 0, count * FLOATS);
         System.arraycopy(ints, 0, into.ints, 0, count * INTS);
+        System.arraycopy(sites, 0, into.sites, 0, count);
+        System.arraycopy(lights, 0, into.lights, 0, count * LightSites.RECORD);
         System.arraycopy(places, 0, into.places, 0, count);
         System.arraycopy(woodShapes, 0, into.woodShapes, 0, count);
         into.count = count;
@@ -147,6 +164,16 @@ final class Crowns {
         }
         for (int i = 0; i < count * INTS; i++) {
             if (ints[i] != other.ints[i]) {
+                return false;
+            }
+        }
+        for (int i = 0; i < count; i++) {
+            if (sites[i] != other.sites[i]) {
+                return false;
+            }
+        }
+        for (int i = 0; i < count * LightSites.RECORD; i++) {
+            if (Float.floatToRawIntBits(lights[i]) != Float.floatToRawIntBits(other.lights[i])) {
                 return false;
             }
         }
@@ -172,10 +199,12 @@ final class Crowns {
             frame.vStart = floats[at + V_START];
             frame.uEnd = floats[at + U_END];
             frame.vEnd = floats[at + V_END];
-            frame.red = floats[at + RED];
-            frame.green = floats[at + GREEN];
-            frame.blue = floats[at + BLUE];
-            frame.open = floats[at + OPEN];
+            if (sites[i] >= 0) {
+                into.sites.putRecord(sites[i], lights, i * LightSites.RECORD, frame);
+            } else {
+                LightSites.give(lights, i * LightSites.RECORD, frame);
+                frame.site = (int) sites[i];
+            }
             float away = floats[at + AWAY];
             System.arraycopy(floats, at + ROOM, room, 0, 4);
             boolean limbed = floats[at + BOLE_TALL] > 0f && limbed(away, ints[of + SPRIG], floats[at + LEAF]);

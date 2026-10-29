@@ -438,6 +438,7 @@ final class RoadPaintTests {
         frame.scale = 2f;
         frame.open = 1f;
         frame.light(0.5f, 0.6f, 0.7f);
+        LightSiteTests.sited(frame);
         geometry.lift[0] = 0.1f;
         geometry.lift[1] = 0.2f;
         geometry.lift[2] = 0.3f;
@@ -464,6 +465,7 @@ final class RoadPaintTests {
         frame.open = 1f;
         frame.material = 3f;
         frame.light(1f, 1f, 1f);
+        LightSiteTests.sited(frame);
         SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
         float[] triangles = PaintFit.triangles(cover((x, y) -> y > 0 && y < SIDE && x > 2 && x < 16), SIDE, MARGIN);
         for (int at = 0; at < triangles.length; at += 3 * PaintFit.CORNER) {

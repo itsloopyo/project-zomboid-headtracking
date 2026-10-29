@@ -188,6 +188,7 @@ final class KerbBuilder {
             kerbTop[end] = top;
         }
         float back = topBack(behind, kerbAt, kerbFacing);
+        mesh.lightFlat(build.frame);
         for (int strip = 0; strip + 1 < PROFILE.length; strip++) {
             for (int corner : KERB_CORNERS) {
                 int end = corner >> 1;

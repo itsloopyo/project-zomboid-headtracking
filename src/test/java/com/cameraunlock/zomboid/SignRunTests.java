@@ -39,7 +39,7 @@ final class SignRunTests {
         frame.top = top;
         frame.width = width;
         frame.height = height;
-        return frame;
+        return LightSiteTests.sited(frame);
     }
 
     private static boolean near(float a, float b) {

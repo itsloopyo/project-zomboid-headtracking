@@ -364,7 +364,7 @@ final class ShaderTests {
             // Holder and glass, near the eye and far from it.
             for (int shape = 0; shape < 4; shape++) {
                 boolean far = shape >= 2;
-                SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+                SpriteGeometry.Mesh mesh = LightSiteTests.constant(new SpriteGeometry.Mesh());
                 Lights.round(mesh, 0f, 0f, 0f, 0f, 1f, 0f, shape % 2 == 0 ? Lights.holder(far) : Lights.glass(far), Lights.size(kind), Lights.sides(kind, far), 1f, 1f, 1f);
                 int still = 0;
                 float least = Float.MAX_VALUE;
@@ -378,7 +378,7 @@ final class ShaderTests {
                         + " the least " + least + " squared (over " + over + "): they would stand still while the cord swings");
             }
         }
-        SpriteGeometry.Mesh stands = new SpriteGeometry.Mesh();
+        SpriteGeometry.Mesh stands = LightSiteTests.constant(new SpriteGeometry.Mesh());
         for (float[] facing : new float[][] {{1f, 0f, 0f}, {0.3f, -0.7f, 0.2f}, {-0.577f, 0.577f, 0.577f}}) {
             stands.face(facing[0], facing[1], facing[2]);
             stands.add(0f, 0f, 0f, 0f, 0f, 1f, 1f, 1f);

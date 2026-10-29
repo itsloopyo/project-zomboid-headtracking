@@ -139,6 +139,10 @@ final class OpeningBuilder {
     private int windowLit;
     /** The light on each side of the window or the door being built, as windowLit numbers them: see lightSides. */
     private final float[] sideRed = new float[2], sideGreen = new float[2], sideBlue = new float[2], sideOpen = new float[2], sideDay = new float[2];
+    /** The same, each side as a frame on its site (LightSites.SIDE), whose light what the side lights says it takes. */
+    private final SpriteGeometry.Frame[] sideFrames = {new SpriteGeometry.Frame(), new SpriteGeometry.Frame()};
+    /** A window's panes' light: their side's, with the lamp of the room they face into (LightSites.Table.lamp). */
+    private final SpriteGeometry.Frame paneFrame = new SpriteGeometry.Frame();
     /** The side the panes being laid face into: see facePane. */
     private int paneSide;
     /**
@@ -207,6 +211,7 @@ final class OpeningBuilder {
         float u = SpriteGeometry.textureU(build.frame, a + da * stile, b + db * stile), v = SpriteGeometry.textureV(build.frame, a + da * stile, b + db * stile, DOOR_READ_AT);
         mesh.open = build.frame.open + 32f * build.frame.material;
         mesh.sway = 0f;
+        mesh.lightFlat(build.frame);
         float nearX = db * (out - DOOR_HALF), nearY = da * (out - DOOR_HALF), farX = db * (out + DOOR_HALF), farY = da * (out + DOOR_HALF);
         float x0 = x + a + da * from, y0 = y + b + db * from, x1 = x + a + da * to, y1 = y + b + db * to;
         float foot = z * ViewCamera.LEVEL_HEIGHT + build.geometry.liftAt(a + da * 0.5f, b + db * 0.5f), head = foot + top * ViewCamera.LEVEL_HEIGHT;
@@ -255,6 +260,7 @@ final class OpeningBuilder {
         SpriteGeometry.Mesh cloth = WorldScene.solid.get(WorldScene.PLAIN, WallSides.key(shape.red, shape.green, shape.blue, WallSides.FLAT));
         cloth.sway = 0f;
         cloth.open = build.frame.open + 32f * DRAPE;
+        cloth.lightFlat(build.frame);
         float[] c = build.reveal;
         if (shape.hangs.length == 0) {
             // Rolled up and tied: a roll as thick as the sprite paints it, along the window's head.
@@ -293,11 +299,13 @@ final class OpeningBuilder {
                     windowPoint(c, 1, b, hem, hereFoot);
                     windowPoint(c, 2, b, shape.head, here);
                     windowPoint(c, 3, a, shape.head, before);
+                    cloth.lightFlat(build.frame);
                     SpriteGeometry.addPlainQuad(cloth, c, red, green, blue);
                     windowPoint(c, 0, a, shape.foot, beforeFoot);
                     windowPoint(c, 1, b, shape.foot, hereFoot);
                     windowPoint(c, 2, b, hem, hereFoot);
                     windowPoint(c, 3, a, hem, beforeFoot);
+                    cloth.lightFlat(build.frame, HEM_SHADE, HEM_SHADE, HEM_SHADE);
                     SpriteGeometry.addPlainQuad(cloth, c, red * HEM_SHADE, green * HEM_SHADE, blue * HEM_SHADE);
                 }
                 before = here;
@@ -307,6 +315,7 @@ final class OpeningBuilder {
         SpriteGeometry.Mesh rod = WorldScene.solid.get(WorldScene.PLAIN, WallSides.key(ROD_RED, ROD_GREEN, ROD_BLUE, WallSides.FLAT));
         rod.sway = 0f;
         rod.open = build.frame.open + 32f * WorldScene.WOOD;
+        rod.lightFlat(build.frame);
         float half = ROD_THICK / 2f;
         for (int side = 0; side < 4; side++) {
             float d0 = out + into * (FOLD_DEEP_BACK + half) + (side == 0 || side == 3 ? -half : half), d1 = out + into * (FOLD_DEEP_BACK + half) + (side < 2 ? half : -half);
@@ -515,6 +524,7 @@ final class OpeningBuilder {
                 float[] arm = lever(knob, door.handleAtEnd);
                 addBlock(metal, arm[0], arm[1], arm[2], arm[3], face + Math.signum(face) * LEVER_NEAR, face + Math.signum(face) * KNOB_OUT, r, g, b);
             }
+            metal.lightFlat(sideFrames[side]);
             for (int part = 0; part < (door.lever ? 2 : 3); part++) {
                 float round = part == 0 ? rose : part == 1 ? KNOB_ROUND * KNOB_NECK : KNOB_ROUND;
                 float near = part == 0 ? 0f : part == 1 ? ROSE_OUT : KNOB_OUT * 0.45f, far = part == 0 ? ROSE_OUT : part == 1 ? KNOB_OUT * 0.45f : KNOB_OUT;
@@ -539,6 +549,7 @@ final class OpeningBuilder {
         glass.sway = 0f;
         edgeSide = -1;
         facePane(glass, beyond, false, da, db);
+        glass.lightFlat(sideFrames[paneSide]);
         for (int pane = 0; pane < leaf.panes.length; pane += 5) {
             float t0 = leaf.panes[pane], t1 = leaf.panes[pane + 1], h0 = leaf.panes[pane + 2], h1 = leaf.panes[pane + 3];
             if (leaf.panes[pane + 4] >= 1f) {
@@ -588,6 +599,7 @@ final class OpeningBuilder {
         for (int side = 0; side < 2; side++) {
             float out = side == 0 ? 1f : -1f;
             wood.day = sideDay[side];
+            wood.lightFlat(sideFrames[side]);
             for (int at = 0; at < members.length; at += CASING_MEMBER) {
                 wood.open = sideOpen[side] + 32f * casingMaterial(wooden, (int) members[at + 4]);
                 addBoard(wood, members[at], members[at + 1], members[at + 2], members[at + 3], out * (WorldScene.WALL_HALF - CASING_INTO),
@@ -801,14 +813,15 @@ final class OpeningBuilder {
             float r = sideRed[side], g = sideGreen[side], b = sideBlue[side];
             // A frame with no stile at one end runs on into the window on the next square.
             windowLit = side;
+            joinerySide = side;
             if (shape.startWide > 0f) {
-                addMember(joinery, wall, x, y, z, shape.start - FRAME_LAP, inStart, shape.foot - lap, shape.head + lap, out * deep, r, g, b, sideOpen[side]);
+                addMember(joinery, wall, x, y, z, shape.start - FRAME_LAP, inStart, shape.foot - lap, shape.head + lap, out * deep, r, g, b);
             }
             if (shape.endWide > 0f) {
-                addMember(joinery, wall, x, y, z, inEnd, shape.end + FRAME_LAP, shape.foot - lap, shape.head + lap, out * deep, r, g, b, sideOpen[side]);
+                addMember(joinery, wall, x, y, z, inEnd, shape.end + FRAME_LAP, shape.foot - lap, shape.head + lap, out * deep, r, g, b);
             }
-            addMember(joinery, shape.headSolid ? wall : null, x, y, z, inStart, inEnd, shape.head - shape.headHigh, shape.head + lap, out * deep, r, g, b, sideOpen[side]);
-            addMember(joinery, shape.footSolid ? wall : null, x, y, z, inStart, inEnd, shape.foot - lap, shape.foot + shape.footHigh, out * deep, r, g, b, sideOpen[side]);
+            addMember(joinery, shape.headSolid ? wall : null, x, y, z, inStart, inEnd, shape.head - shape.headHigh, shape.head + lap, out * deep, r, g, b);
+            addMember(joinery, shape.footSolid ? wall : null, x, y, z, inStart, inEnd, shape.foot - lap, shape.foot + shape.footHigh, out * deep, r, g, b);
             if (shape.arch != null) {
                 addArch(joinery, shape, out * deep, r, g, b);
             }
@@ -828,6 +841,9 @@ final class OpeningBuilder {
         SpriteGeometry.Mesh glass = WorldScene.laid.get(WorldScene.PLAIN, WallSides.PANES);
         glass.sway = 0f;
         facePane(glass, beyond, lit, da, db);
+        paneFrame.lightAs(sideFrames[paneSide]);
+        WorldScene.sites.lamp(paneFrame, ownIsRoom ? LightSites.LAMP_OWN : north ? LightSites.LAMP_NORTH : LightSites.LAMP_WEST, lit);
+        glass.lightFlat(paneFrame);
         float clear = glass.open;
         for (int pane = 0; pane < shape.panes.length; pane += 5) {
             float t0 = shape.panes[pane], t1 = shape.panes[pane + 1], h0 = shape.panes[pane + 2], h1 = shape.panes[pane + 3];
@@ -999,6 +1015,7 @@ final class OpeningBuilder {
         sheet.sway = 0f;
         sheet.open = sideOpen[side] + 32f * WorldScene.PAINT;
         sheet.day = sideDay[side];
+        sheet.lightFlat(sideFrames[side]);
         float head = shape.head;
         if (shape.arch != null) {
             for (int at = 0; at < shape.arch.length; at += 3) {
@@ -1026,6 +1043,7 @@ final class OpeningBuilder {
      * its rims outside and inside.
      */
     private void addArch(SpriteGeometry.Mesh mesh, Windows.Shape shape, float across, float red, float green, float blue) {
+        mesh.lightFlat(sideFrames[joinerySide]);
         int places = shape.arch.length / 3;
         float[] c = build.reveal;
         for (int place = 0; place + 1 < places; place++) {
@@ -1060,7 +1078,7 @@ final class OpeningBuilder {
      * sprite on the skin; their edges, round the glass, are closed in the frame's colour.
      */
     private void addMember(SpriteGeometry.Mesh joinery, SpriteGeometry.Mesh wall, int x, int y, int z, float from, float to, float foot, float head,
-            float across, float red, float green, float blue, float open) {
+            float across, float red, float green, float blue) {
         if (wall == null || Math.min(to - from, (head - foot) * ViewCamera.LEVEL_HEIGHT) <= WALL_MEMBER) {
             addJoinery(joinery, from, to, foot, head, across, red, green, blue);
             return;
@@ -1071,9 +1089,7 @@ final class OpeningBuilder {
         float wasRed = build.frame.red, wasGreen = build.frame.green, wasBlue = build.frame.blue, wasOpen = build.frame.open;
         build.frame.cornersInto(build.heldRed, build.heldGreen, build.heldBlue, build.heldUnlit);
         if (windowLit == 1) {
-            build.frame.light(red, green, blue);
-            build.frame.open = open;
-            Arrays.fill(build.frame.cornerDay, sideDay[1]);
+            build.frame.lightAs(sideFrames[1]);
         }
         build.geometry.shownA = windowAlongY * out * WorldScene.WALL_HALF;
         build.geometry.shownB = windowAlongX * out * WorldScene.WALL_HALF;
@@ -1115,6 +1131,18 @@ final class OpeningBuilder {
         sideOpen[1] = same ? build.frame.open : unseen ? WorldScene.OPEN_UNLIT : build.openOf(beyondLight);
         sideDay[0] = build.lightDay[ownLight];
         sideDay[1] = same ? sideDay[0] : unseen ? 0f : build.lightDay[beyondLight];
+        for (int side = 0; side < 2; side++) {
+            SpriteGeometry.Frame frame = sideFrames[side];
+            if (side == 1 && unseen) {
+                frame.openUnlit();
+                continue;
+            }
+            frame.light(sideRed[side], sideGreen[side], sideBlue[side]);
+            frame.open = sideOpen[side];
+            frame.unlitKind = 0f;
+            Arrays.fill(frame.cornerDay, sideDay[side]);
+            WorldScene.sites.put(LightSites.SIDE, side == 0 || same ? ownLight : ownLight | 1L << 8 | (north ? 1L : 0L) << 9, frame, sideDay[side], false);
+        }
     }
 
     static boolean wooden(float red, float green, float blue) {
@@ -1206,6 +1234,7 @@ final class OpeningBuilder {
         windowPoint(c, 1, to, foot, front);
         windowPoint(c, 2, to, head, front);
         windowPoint(c, 3, from, head, front);
+        mesh.lightFlat(sideFrames[joinerySide]);
         SpriteGeometry.addPlainQuad(mesh, c, red, green, blue);
         float day = mesh.day;
         if (edgeSide >= 0) {
@@ -1214,6 +1243,7 @@ final class OpeningBuilder {
             red = sideRed[edgeSide];
             green = sideGreen[edgeSide];
             blue = sideBlue[edgeSide];
+            mesh.lightFlat(sideFrames[edgeSide]);
         }
         for (int edge = 0; edge < 4; edge++) {
             if (edge == 0 && from == revealedFrom || edge == 1 && to == revealedTo) {
@@ -1284,6 +1314,7 @@ final class OpeningBuilder {
 
     /** A block standing off a leaf's face, from along from to along to, foot to head in levels, and across tiles out of the leaf's middle from near to far: its six faces. */
     private void addBlock(SpriteGeometry.Mesh mesh, float from, float to, float foot, float head, float near, float far, float red, float green, float blue) {
+        mesh.lightFlat(sideFrames[joinerySide]);
         float[] c = build.reveal;
         for (int side = 0; side < 6; side++) {
             for (int corner = 0; corner < 4; corner++) {
@@ -1361,6 +1392,7 @@ final class OpeningBuilder {
                 windowPoint(c, corner, quads[at + 3 * corner], quads[at + 3 * corner + 1], quads[at + 3 * corner + 2]);
             }
             float shade = quads[at + 12];
+            mesh.lightFlat(sideFrames[joinerySide], shade, shade, shade);
             SpriteGeometry.addPlainQuad(mesh, c, red * shade, green * shade, blue * shade);
         }
     }

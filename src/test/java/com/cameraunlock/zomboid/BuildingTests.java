@@ -60,7 +60,7 @@ final class BuildingTests {
     }
 
     private static void plainWallHasAPlinthAndACourseAndThePlinthStopsAtADoor() {
-        SpriteGeometry.Mesh plinth = new SpriteGeometry.Mesh(), course = new SpriteGeometry.Mesh();
+        SpriteGeometry.Mesh plinth = LightSiteTests.constant(new SpriteGeometry.Mesh()), course = LightSiteTests.constant(new SpriteGeometry.Mesh());
         Courses.add(plinth, course, 4f, 9f, 0.5f, 5f, 9f, 0.5f, 0f, -1f, -1f, -1f, 0.9f, 0.6f, 0.3f);
         check(plinth.triangles() == 4 && course.triangles() == 4, "a plain wall has a plinth and a course, each a face and a ledge: " + plinth.triangles() + " and " + course.triangles());
         float lowest = Float.MAX_VALUE, highest = 0f;
@@ -77,6 +77,8 @@ final class BuildingTests {
         check(near(lowest, 0.5f) && near(highest, 0.5f + ViewCamera.LEVEL_HEIGHT), "from the ground the wall stands on to its top");
         plinth.clear();
         course.clear();
+        LightSiteTests.constant(plinth);
+        LightSiteTests.constant(course);
         Courses.add(plinth, course, 4f, 9f, 0f, 5f, 9f, 0f, 0f, -1f, 0.3f, 0.7f, 1f, 1f, 1f);
         check(plinth.triangles() == 8 && course.triangles() == 4, "at a doorway the plinth is two lengths");
         for (int at = 0; at < plinth.floats; at += SpriteGeometry.VERTEX_FLOATS) {
@@ -133,12 +135,14 @@ final class BuildingTests {
             }
         }
         check(fittings == 16 && Soffits.fitted(-2, 4) && !Soffits.fitted(0, 0), "one square in nine has a light, west and north of the map's corner as east and south of it");
-        float[] light = {0.5f, 0.5f, 0.5f, 0.5f};
+        SpriteGeometry.Frame light = new SpriteGeometry.Frame();
+        light.light(0.5f, 0.5f, 0.5f);
+        LightSiteTests.sited(light);
         SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
-        Soffits.add(mesh, 7, 9, 4f, light, light, light, 288f, 448f, false, true);
+        Soffits.add(mesh, 7, 9, 4f, light, 288f, 448f, false, true);
         check(mesh.triangles() == 2 + 4 * 2, "a square of lining is its panel and four joints: " + mesh.triangles());
         mesh.clear();
-        Soffits.add(mesh, 7, 9, 4f, light, light, light, 288f, 448f, true, true);
+        Soffits.add(mesh, 7, 9, 4f, light, 288f, 448f, true, true);
         check(mesh.triangles() == 4 * 2 + 4 * 2 + 2 + 4 * 2, "one with a light is the lining round the opening, the recess, the lens and the joints: " + mesh.triangles());
         int lens = 0;
         for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
@@ -154,7 +158,9 @@ final class BuildingTests {
         }
         check(lens == 6, "the lens is one face");
         mesh.clear();
-        Soffits.strip(mesh, 3, 5, 2.4f, true, 0.8f, 0.8f, 0.8f, 0f, 448f);
+        light.light(0.8f, 0.8f, 0.8f);
+        LightSiteTests.sited(light);
+        Soffits.strip(mesh, 3, 5, 2.4f, true, light, 0f, 448f);
         check(mesh.triangles() == 2 * 2 + 3 * 2, "a square of strip light is two sides and an underside in three bands: " + mesh.triangles());
         int lensFloats = 0;
         for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
@@ -956,7 +962,7 @@ final class BuildingTests {
         frame.vStart = 0f;
         frame.uEnd = 1f;
         frame.vEnd = 1f;
-        return frame;
+        return LightSiteTests.sited(frame);
     }
 
     /** The level line of the sprite a face on the north edge of its square shows at the height up, in tiles, at one end of the square. */
