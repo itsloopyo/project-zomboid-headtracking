@@ -14,6 +14,7 @@
 - On any server, the south and east walls of rooms carry the mod's pictures in first person, as they do offline.
 - In first person, light follows the game's sooner when it changes, such as a lamp switched on or headlights going by: what you can see is lit again as soon as the game marks its light changed, nearest first, instead of waiting for that part of the world to be built again.
 - Driving past lights stutters less: when the game relights many chunks at once, the mod reads their new light over the frames of the game's lighting pass, nearest first, instead of all in one frame. `SpreadLightUpdates` turns this off.
+- Streets and floors with a lot of spilt blood on them take less work to draw in first person. Blood still darkens and fades over three days in small hourly steps, but each part of the town now takes its step at its own minute of the game hour, where before the ground under the blood was made again every few seconds.
 
 ### Fixed
 
