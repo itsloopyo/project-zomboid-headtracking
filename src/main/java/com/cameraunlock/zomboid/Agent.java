@@ -461,7 +461,7 @@ public final class Agent {
                 new PatchSet("shots through walls", new PatchTransformer(throughWallPatches()), null),
                 new PatchSet("world", new PatchTransformer(worldPatches()), null),
                 new PatchSet("development", new PatchTransformer(DevPatches.list()), null),
-                new PatchSet("fine skins", fineSkins, firstPersonOff),
+                new PatchSet("fine skins", fineSkins, off(Part.FIRST_PERSON, Part.FINER_SKINS)),
                 new PatchSet("shot", shot, firstPersonOff),
                 new PatchSet("thunder", thunder, off(Part.FIRST_PERSON, Part.LIGHTNING_BOLTS)),
                 new PatchSet("lamps", lamps, null),

@@ -45,7 +45,10 @@ enum Part {
                     + "false: the view stays the mouse's while the game's animation has the body, and dead, it is held where it was."),
     ITEMS_AS_MODELS("FirstPerson", "ItemsAsModels", true, true,
             "true: in first person, while the game's 3D ground items option is on, items on the ground are built as the\n"
-                    + "game's own models of them. false: each lies flat as its picture.");
+                    + "game's own models of them. false: each lies flat as its picture."),
+    FINER_SKINS("FirstPerson", "FinerSkins", false, true,
+            "true: in first person the people near the eye wear skins finer than the game's, the mod's own and any finer\n"
+                    + "ones in the folder the log names. false: they wear the game's own.");
 
     final String section, key, comment;
     /** Whether the row is taken while the game runs, and whether it is read at the start to leave patches out. */
