@@ -305,6 +305,18 @@ public final class ChunkMarks {
         }
     }
 
+    /**
+     * Called by the game as it takes a body off the map, with where it lay: the game counts the
+     * bodies by place, and IsoDeadBody.removeFromWorld counts one out before anything else
+     * (CorpseCount.corpseRemoved). The corpse removal marks nothing, and every one of the game's
+     * presets has it take a body away 216 hours after its death (IsoDeadBody.updateBodies, by
+     * SandboxOptions.hoursForCorpseRemoval). The game marks the chunk itself when it takes a body
+     * away in IsoGridSquare.removeCorpse, as one rises, or as an animal's rots away.
+     */
+    public static void bodyGone(int x, int y) {
+        things.getAndIncrement(slot(x / WorldScene.CHUNK_TILES, y / WorldScene.CHUNK_TILES));
+    }
+
     private static void built(int slot, int level) {
         if (level >= LOWEST_LEVEL && level < LOWEST_LEVEL + LEVELS) {
             builtLevels.getAndIncrement(slot * LEVELS + level - LOWEST_LEVEL);

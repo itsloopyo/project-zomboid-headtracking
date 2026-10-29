@@ -1273,10 +1273,11 @@ public final class Agent {
      * made from and marks nothing. Erosion's vines and moss hung on a wall and taken off it, the
      * dirt a story stamps on a floor and the four beside it, the graffiti it sprays, a compost
      * bin filling, a door, a built door or a curtain the game moves without a sound, a plank or
-     * metal broken off a barricade, a hearth or a barbecue lit or put out, and a square put on
-     * the map where there was none. Without one of them the change waits for the chunk's next
-     * sweep (WorldScene.sweptEvery), half a second or more by the eye and six seconds or more
-     * far off, unless the chunk is read sooner for something else.
+     * metal broken off a barricade, a hearth or a barbecue lit or put out, a body the corpse
+     * removal takes away, and a square put on the map where there was none. Without one of
+     * them the change waits for the chunk's next sweep (WorldScene.sweptEvery), half a second
+     * or more by the eye and six seconds or more far off, unless the chunk is read sooner for
+     * something else.
      */
     static List<Patch> unmarkedChangePatches() {
         String marks = "com/cameraunlock/zomboid/ChunkMarks", overlay = "zombie/erosion/obj/ErosionObjOverlay", square = "zombie/iso/IsoGridSquare",
@@ -1329,6 +1330,13 @@ public final class Agent {
                         CallSite.invokeStatic(code, burning);
                     })));
         }
+        // Each body taken off the map is counted out here, first thing in IsoDeadBody.removeFromWorld, by where it lay. The corpse removal (IsoDeadBody.updateBodies) takes bodies away with no mark.
+        String corpses = "zombie/iso/CorpseCount";
+        patches.add(new Patch(corpses, "corpseRemoved telling of the body taken away", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
+                new CallSite.Method(corpses, "corpseRemoved", "(III)V"), code -> {
+                    code.iload(1).iload(2);
+                    CallSite.invokeStatic(code, new CallSite.Method(marks, "bodyGone", "(II)V"));
+                })));
         // A square the game makes after a chunk's own fill is put on the map here: the build cursor makes one where its level has none (IsoCell.createNewGridSquare), a chunk loading puts them on the edges of the chunks beside it (IsoChunk.loadInMainThread), and IsoGridSquare.addFloor and AddStairs make them too. The square is the first argument, which it does not assign.
         String cell = "zombie/iso/IsoCell";
         patches.add(new Patch(cell, "ConnectNewSquare telling of the square it puts on the map", classBytes -> CallSite.insertBeforeReturns(classBytes,

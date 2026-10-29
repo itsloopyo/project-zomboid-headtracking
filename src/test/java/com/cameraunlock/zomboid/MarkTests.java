@@ -38,6 +38,7 @@ final class MarkTests {
         keepNone();
         Checks.run("aChunkLoadedIsMarkedForWhatMayBeBuiltOnIt", MarkTests::aChunkLoadedIsMarkedForWhatMayBeBuiltOnIt);
         Checks.run("aFireLitOrPutOutIsMarkedOnItsChunk", MarkTests::aFireLitOrPutOutIsMarkedOnItsChunk);
+        Checks.run("aBodyTakenAwayIsMarkedOnTheChunkItLayOn", MarkTests::aBodyTakenAwayIsMarkedOnTheChunkItLayOn);
         Checks.run("dirtStampedIsMarkedOnTheSquaresBesideIt", MarkTests::dirtStampedIsMarkedOnTheSquaresBesideIt);
         Checks.run("aSquareMadeOnALoadedChunkIsMarkedOnItsLevel", MarkTests::aSquareMadeOnALoadedChunkIsMarkedOnItsLevel);
         Checks.run("aSquareALoadMakesBesideItIsMarkedOnlyForWhatMayBeBuiltOnIt", MarkTests::aSquareALoadMakesBesideItIsMarkedOnlyForWhatMayBeBuiltOnIt);
@@ -173,6 +174,14 @@ final class MarkTests {
         check(ChunkMarks.thingsAround(1134, 1150) == things + 1, "one lit again that was lit is not marked");
         ChunkMarks.burning(barbecue, true, false);
         check(ChunkMarks.thingsAround(1134, 1150) == things + 2, "one put out is");
+    }
+
+    private static void aBodyTakenAwayIsMarkedOnTheChunkItLayOn() {
+        int things = ChunkMarks.thingsAround(1140, 1150), twoAway = ChunkMarks.thingsAround(1142, 1150), built = ChunkMarks.structuresIn(1140, 1150, 1140, 1150);
+        ChunkMarks.bodyGone(1140 * 8 + 2, 1150 * 8 + 5);
+        check(ChunkMarks.thingsAround(1140, 1150) == things + 1, "a body taken away is marked on the chunk it lay on");
+        check(ChunkMarks.thingsAround(1142, 1150) == twoAway, "and not on one two chunks off");
+        check(ChunkMarks.structuresIn(1140, 1150, 1140, 1150) == built, "as a thing on it, not as a part of a building");
     }
 
     private static void dirtStampedIsMarkedOnTheSquaresBesideIt() {
@@ -335,6 +344,7 @@ final class MarkTests {
         for (String fire : new String[] {"zombie/iso/objects/IsoFireplace", "zombie/iso/objects/IsoBarbecue"}) {
             placed(patches, fire, "setLit", "(Z)V", null, 0, "isLit", "mark burning 0 0 1", "return", "return");
         }
+        placed(patches, "zombie/iso/CorpseCount", "corpseRemoved", "(III)V", null, 0, "mark bodyGone 1 2", "return", "return");
         placed(patches, "zombie/iso/IsoCell", "ConnectNewSquare", "(L" + square + ";Z)L" + square + ";", null, 0, "mark made 1", "return", "mark made 1", "return");
     }
 
