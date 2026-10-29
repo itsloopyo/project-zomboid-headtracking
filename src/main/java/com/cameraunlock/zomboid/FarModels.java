@@ -33,7 +33,7 @@ import zombie.vehicles.BaseVehicle;
  * server without PvP: the game draws one only on its screen, which in split screen is half as wide
  * again, and fades one its own sight from above does not reach. Where players can fight, other
  * players, and a vehicle with another player in it, are shown as the game shows them to everyone:
- * see shownWhole.
+ * see shownWhole. With FarVehiclesAndZombies off, every one of them is.
  */
 public final class FarModels {
     final View view;
@@ -260,7 +260,7 @@ public final class FarModels {
      * the eye and a vehicle hides it, and nothing else does.
      */
     public boolean seen(boolean byTheGame, BaseVehicle vehicle) {
-        return byTheGame || shownWhole(vehicle);
+        return byTheGame || Part.FAR_VEHICLES_AND_ZOMBIES.on() && shownWhole(vehicle);
     }
 
     /**
@@ -323,7 +323,7 @@ public final class FarModels {
     }
 
     private boolean withinSight(IsoMovingObject moving) {
-        if (!shownWhole(moving)) {
+        if (!Part.FAR_VEHICLES_AND_ZOMBIES.on() || !shownWhole(moving)) {
             return false;
         }
         IsoPlayer viewer = view.player();

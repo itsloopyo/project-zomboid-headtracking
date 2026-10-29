@@ -485,6 +485,10 @@ LightningBolts=true
 ; and glass as [Rules] says, and while either does the impacts' patches stay in.
 ; Taken at once. Off, its patches of the game's code are left out from the next start.
 ShotImpacts=true
+; true: in first person a vehicle, zombie or animal within sight is drawn wherever the game's own screen ends,
+; and so is another player where players cannot fight. false: each is drawn only where the game's own view
+; would show it.
+FarVehiclesAndZombies=true
 
 [Players]
 ; Player 2's first person graphics mode, as Quality.

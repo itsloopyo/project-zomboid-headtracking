@@ -28,7 +28,11 @@ enum Part {
     SHOT_IMPACTS("FirstPerson", "ShotImpacts", true, true,
             "true: in first person, in Medium and High, a shot throws up dust, chips, splinters, sparks or blood where it\n"
                     + "strikes and leaves a hole. false: shots leave no mark, as in the game's own view. A shot still breaks lamps\n"
-                    + "and glass as [Rules] says, and while either does the impacts' patches stay in.");
+                    + "and glass as [Rules] says, and while either does the impacts' patches stay in."),
+    FAR_VEHICLES_AND_ZOMBIES("FirstPerson", "FarVehiclesAndZombies", true, false,
+            "true: in first person a vehicle, zombie or animal within sight is drawn wherever the game's own screen ends,\n"
+                    + "and so is another player where players cannot fight. false: each is drawn only where the game's own view\n"
+                    + "would show it.");
 
     final String section, key, comment;
     /** Whether the row is taken while the game runs, and whether it is read at the start to leave patches out. */
