@@ -1274,6 +1274,9 @@ final class WorldScene {
     private final int[] litAt = new int[TABLE_SIDE * TABLE_SIDE], litByGame = new int[TABLE_SIDE * TABLE_SIDE];
     /** The storey of the viewer's building each slot's light was last asked for from, or Integer.MAX_VALUE for every level: see pullLights. */
     private final int[] litFor = new int[TABLE_SIDE * TABLE_SIDE];
+    /** The levels found relit and not yet taken, and the time this frame's light pulls have taken: see pullLights. */
+    private final PendingLights pendingLights = new PendingLights();
+    private long pullNanos;
     private long tollQuiet, tollPulls, tollPulled, tollAgedDiffered, tollAgedSame, tollAgedSamePlain, tollRestless;
     /**
      * Dev only: of the chunks told as rooms came to be built whole, those whose build is kept
@@ -1717,6 +1720,7 @@ final class WorldScene {
             Arrays.fill(tollUnmarkedChanged, 0L);
             tollPagesAudited = tollPagesSitesDiffer = tollSitesDiffer = tollPagesRecordsDiffer = tollRecordsDiffer = tollPagesAcrossPass = 0;
         }
+        told += ", " + pendingLights.tolls();
         told += String.format(Locale.ROOT, ", trees read for sums %d in %.2f ms", tollWoods, tollWoodsNanos / 1e6);
         told += ", " + Terrain.tolls();
         tollWoods = tollWoodsNanos = 0;
@@ -3415,6 +3419,12 @@ final class WorldScene {
          * own asking is gone by, and every square is taken. Under the first person picture the
          * game asks for none (Agent.coveredPatches leaves that out with the rest of what it does
          * for a texture it never draws), and every level is asked for here.
+         *
+         * Each chunk is still asked once a pass, but a level found relit is taken when
+         * PendingLights says: over the frames the pass lasts, nearest chunk first, since the
+         * chunks are walked so. The takes are made here, before the chunk's marks are read, so a
+         * level taken in the frame it is found in is built for its light in that frame, as it
+         * always was. What the walk leaves is taken or let go after it, in pullLightsLeft.
          */
         private void pullLights(IsoChunk chunk, int slot, int lowest) {
             int pass = LightingJNI.getUpdateCounter(playerIndex);
@@ -3428,32 +3438,72 @@ final class WorldScene {
                     ? heldFrom : Integer.MAX_VALUE;
             boolean taken = chunk.lightingUpdateCounter != litByGame[slot] || storey != litFor[slot];
             if (pass == litAt[slot] && !taken) {
+                if (pendingLights.waits(slot)) {
+                    long began = System.nanoTime();
+                    takeLights(chunk, slot);
+                    pullNanos += System.nanoTime() - began;
+                }
                 return;
             }
+            long began = System.nanoTime();
             litAt[slot] = pass;
             litByGame[slot] = chunk.lightingUpdateCounter;
             litFor[slot] = storey;
             FBORenderLevels levels = chunk.getRenderLevels(playerIndex);
             boolean gameAsks = !view.firstPerson.coversTheGamesView();
             int top = storey == Integer.MAX_VALUE ? chunk.getMaxLevel() : Math.min(chunk.getMaxLevel(), storey - 1);
+            long relit = 0L;
             for (int z = Math.max(storey == Integer.MAX_VALUE ? lowest : Math.max(lowest, heldUnder + 1), chunk.getMinLevel()); z <= top; z++) {
                 tollPulls++;
                 if (!taken && (gameAsks && levels.isOnScreen(z) || !LightingJNI.getChunkDirty(playerIndex, chunk.wx, chunk.wy, z + 32))) {
                     continue;
                 }
-                tollPulled++;
+                relit |= PendingLights.bit(z);
                 if (taken) {
                     tollPulledAfterGame++;
                 }
+            }
+            pendingLights.found(slot, chunk.wx, chunk.wy, relit);
+            takeLights(chunk, slot);
+            pullNanos += System.nanoTime() - began;
+        }
+
+        /** Takes as much of what waits of the chunk's light as the frame takes: see PendingLights. */
+        private void takeLights(IsoChunk chunk, int slot) {
+            for (int z = pendingLights.next(slot); z != PendingLights.NONE; z = pendingLights.next(slot)) {
+                int squares = 0;
                 for (int x = 0; x < CHUNK_TILES; x++) {
                     for (int y = 0; y < CHUNK_TILES; y++) {
                         IsoGridSquare square = chunk.getGridSquare(x, y, z);
                         if (square != null) {
                             square.cacheLightInfo();
+                            squares++;
                         }
                     }
                 }
+                tollPulled++;
+                pendingLights.took(slot, z, squares);
             }
+        }
+
+        /**
+         * After the walk, what still waits: taken where it is due or the frame has some of its
+         * share left, whether its chunk is in view or not, and let go with a chunk the map has
+         * let go of.
+         */
+        private void pullLightsLeft(IsoChunkMap map) {
+            long began = System.nanoTime();
+            for (int i = pendingLights.waiting() - 1; i >= 0; i--) {
+                int slot = pendingLights.waitingAt(i), wx = pendingLights.wx(slot), wy = pendingLights.wy(slot);
+                IsoChunk chunk = wx < mapWx || wy < mapWy || wx >= mapWx + mapSide || wy >= mapWy + mapSide ? null : map.getChunk(wx - mapWx, wy - mapWy);
+                if (chunk == null || !chunk.loaded || chunk.wx != wx || chunk.wy != wy) {
+                    pendingLights.letGo(slot);
+                } else {
+                    takeLights(chunk, slot);
+                }
+            }
+            pullNanos += System.nanoTime() - began;
+            pendingLights.end(pullNanos);
         }
         /** Set round the second build of a check: nothing kept is taken. */
         boolean afresh;
@@ -3957,6 +4007,10 @@ final class WorldScene {
             int swept = 0;
             for (Crowns.Work back = crownsBack.poll(); back != null; back = crownsBack.poll()) {
                 land(back);
+            }
+            if (telling) {
+                pullNanos = 0L;
+                pendingLights.begin(LightingJNI.getUpdateCounter(playerIndex), frames);
             }
             // The chunks in view, and after them the nearest one the view does not face that has no build: see where it is found aside.
             int aheadStep = -1;
@@ -4582,6 +4636,9 @@ final class WorldScene {
                         tollAheadNanos += System.nanoTime() - aheadBegan;
                     }
                 }
+            }
+            if (telling) {
+                pullLightsLeft(map);
             }
             SpriteColours.askingFrom(view.index, Float.NaN, Float.NaN);
             addCharacters(player, pose);

@@ -268,6 +268,7 @@ public final class Tests {
         Checks.run("DevelopTests", DevelopTests::run);
         Checks.run("GameFixTests", GameFixTests::run);
         Checks.run("MarkTests", MarkTests::run);
+        Checks.run("PendingLightsTests", PendingLightsTests::run);
         Checks.run("FarLandTests", FarLandTests::run);
         Checks.run("FarTreeTests", FarTreeTests::run);
         Checks.run("MapAheadTests", MapAheadTests::run);
