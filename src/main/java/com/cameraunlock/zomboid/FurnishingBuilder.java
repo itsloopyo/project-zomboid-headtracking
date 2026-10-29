@@ -104,7 +104,8 @@ final class FurnishingBuilder {
 
     /**
      * Where the piece last found ready takes its colours, the surfaces that take the second, and the texture of the
-     * sprite that gives them, PLAIN for a piece that takes none.
+     * sprite that gives them, PLAIN for a piece that takes none. A place a piece takes no colour from is 0, and not
+     * the place of the piece found ready before it, so that its model comes out the same whichever piece that was.
      */
     float dyeU, dyeV, alsoU, alsoV;
     int alsoDyed;
@@ -661,6 +662,7 @@ final class FurnishingBuilder {
         }
         dyeTexture = WorldScene.PLAIN;
         alsoDyed = piece.alsoDyed;
+        dyeU = dyeV = alsoU = alsoV = 0f;
         painter = piece;
         if (piece.dyed == 0) {
             return true;
