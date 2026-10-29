@@ -15,7 +15,10 @@ enum Part {
             "true: the mod's first person view. false: there is none, and the isometric view is the game's own whatever\n"
                     + "IsometricQuality says. The first person key, a controller's double tap of Back and FirstPerson do nothing, and\n"
                     + "nothing more is made ready for first person while you play or while a save loads; what was already made stays\n"
-                    + "until you leave the save.");
+                    + "until you leave the save."),
+    TORCH_FOLLOWS_HEAD("FirstPerson", "TorchFollowsHead", true, false,
+            "true: in first person a torch you carry lights where your head is turned, as far as LightMultiplier in [Light]\n"
+                    + "says. false: it lights the way the view faces, whatever your head does.");
 
     final String section, key, comment;
     /** Whether the row is taken while the game runs, and whether it is read at the start to leave patches out. */

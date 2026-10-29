@@ -468,6 +468,11 @@ SplitScreenKey=F7
 ; 1 matches the view, 0 keeps the light on your aim.
 LightMultiplier=default
 
+[FirstPerson]
+; true: in first person a torch you carry lights where your head is turned, as far as LightMultiplier in [Light]
+; says. false: it lights the way the view faces, whatever your head does.
+TorchFollowsHead=true
+
 [Players]
 ; Player 2's first person graphics mode, as Quality.
 SecondPlayerQuality=Automatic

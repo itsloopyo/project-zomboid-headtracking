@@ -185,7 +185,7 @@ final class HeadTracking {
         headTurn[0] = (float) Math.toRadians(frame.yaw);
         headTurn[1] = (float) Math.toRadians(frame.pitch);
         headTurn[2] = (float) Math.toRadians(frame.roll);
-        if (clean == null) {
+        if (clean == null || !Part.TORCH_FOLLOWS_HEAD.on()) {
             light.release();
         } else {
             light.follow(clean, (float) Math.toRadians(frame.lightYaw), (float) Math.toRadians(frame.lightPitch),

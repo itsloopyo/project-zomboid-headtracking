@@ -186,6 +186,7 @@ final class Config {
         splitScreen = core.configLocalEnum("General", "SplitScreen",
                 "How two players at one screen share it: Vertical (side by side) or Horizontal (one above the other).",
                 writable | live, SplitScreen.words(), SplitScreen.VERTICAL);
+        describeParts("FirstPerson");
         for (int player = 1; player < View.COUNT; player++) {
             String whose = "Player " + (player + 1) + "'s ";
             quality[player] = core.configLocalEnum("Players", qualityKey(player), whose + "first person graphics mode, as Quality.",
@@ -469,6 +470,15 @@ final class Config {
     private void describe(Part part) {
         parts[part.ordinal()] = core.configLocalBool(part.section, part.key, part.comment,
                 CameraUnlock.ROW_WRITABLE | (part.live ? CameraUnlock.ROW_LIVE : 0), true);
+    }
+
+    /** The rows of every part of a section of its own, in the order Part lists them. */
+    private void describeParts(String section) {
+        for (Part part : Part.values()) {
+            if (part.section.equals(section)) {
+                describe(part);
+            }
+        }
     }
 
     /** The key of a player's first person graphics mode: Quality, SecondPlayerQuality and so on. */
