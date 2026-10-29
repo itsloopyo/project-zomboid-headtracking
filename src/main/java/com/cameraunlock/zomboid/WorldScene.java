@@ -3028,6 +3028,38 @@ final class WorldScene {
             return shown;
         }
 
+        /** The drawn cone the frame is built for: the eye, the way it faces along the ground, the cosine of the cone's half angle, and a driver's mirror's way. */
+        private float faceEyeX, faceEyeY, faceX, faceY, faceCos = -1f, mirrorX, mirrorY;
+        private boolean mirrorShows;
+
+        /** Sets the drawn cone: a cosine of -1 takes in all round, as from outside the eye. */
+        void aim(float eyeX, float eyeY, float forwardX, float forwardY, float cosCone, boolean mirrored, float behindX, float behindY) {
+            faceEyeX = eyeX;
+            faceEyeY = eyeY;
+            faceX = forwardX;
+            faceY = forwardY;
+            faceCos = cosCone;
+            mirrorShows = mirrored;
+            mirrorX = behindX;
+            mirrorY = behindY;
+        }
+
+        /**
+         * Whether the frame's drawn cone, or a driver's mirror, takes in some of a chunk, from a
+         * place in it as far from the eye as given. Every chunk is drawn near enough to cast its
+         * shadow into the picture whether or not the cone takes it in (CASTS_SHADOWS).
+         */
+        private boolean faces(float toChunkX, float toChunkY, float distance) {
+            return toChunkX * faceX + toChunkY * faceY >= faceCos * distance - CHUNK_REACH
+                    || mirrorShows && toChunkX * mirrorX + toChunkY * mirrorY >= COS_MIRROR_CONE * distance - CHUNK_REACH;
+        }
+
+        /** The same of a chunk by its place on the map, until the frame is built again. Logic thread. */
+        boolean faces(int wx, int wy) {
+            float toChunkX = wx * CHUNK_TILES + CHUNK_TILES / 2f - faceEyeX, toChunkY = wy * CHUNK_TILES + CHUNK_TILES / 2f - faceEyeY;
+            return faces(toChunkX, toChunkY, (float) Math.sqrt(toChunkX * toChunkX + toChunkY * toChunkY));
+        }
+
         /** The builds this frame made of chunks the view does not face, which the frame hands to the graphics card and does not draw. */
         private final ArrayList<ChunkMeshes> builtAheadOf = new ArrayList<>();
         /** Whether any of them has water on it, and the plane that water lies in round the eye: see WaterMirror. */
@@ -4001,10 +4033,10 @@ final class WorldScene {
             float cosCone = fromOutside ? -1f : cosDrawnCone(pose, flat);
             // A driver's mirror shows a narrow cone straight behind the vehicle, and what is in it is drawn as well.
             boolean mirrored = !fromOutside && seated && Quality.reflections(view.index) && Cabins.wheel(view.ride) != null;
-            float behindX = -view.ride.aheadX, behindY = -view.ride.aheadY;
             boolean glassShown = !fromOutside && !seated && view.pipeline.lookingGlassShown();
             // Looking straight up or down the view faces no way along the ground, and nothing is left out.
             float forwardX = cosCone > -1f ? pose.forwardX / flat : 0f, forwardY = cosCone > -1f ? pose.forwardY / flat : 0f;
+            aim(pose.eyeX, pose.eyeY, forwardX, forwardY, cosCone, mirrored, -view.ride.aheadX, -view.ride.aheadY);
 
             mapWx = Math.floorDiv(map.getWorldXMinTiles(), CHUNK_TILES);
             mapWy = Math.floorDiv(map.getWorldYMinTiles(), CHUNK_TILES);
@@ -4065,8 +4097,7 @@ final class WorldScene {
                             ChunkBuffers.shadowReach(sky.lightUp, Math.max(TALL_AS_A_HOUSE, (chunk.getMaxLevel() + 1) * ViewCamera.LEVEL_HEIGHT)))) {
                         continue;
                     }
-                    boolean aside = distance > CASTS_SHADOWS && toChunkX * forwardX + toChunkY * forwardY < cosCone * distance - CHUNK_REACH
-                            && !(mirrored && toChunkX * behindX + toChunkY * behindY >= COS_MIRROR_CONE * distance - CHUNK_REACH);
+                    boolean aside = distance > CASTS_SHADOWS && !faces(toChunkX, toChunkY, distance);
                     int slot = (chunk.wx & (TABLE_SIDE - 1)) * TABLE_SIDE + (chunk.wy & (TABLE_SIDE - 1));
                     ChunkMeshes current = latest[slot];
                     boolean missing = current == null || current.wx != chunk.wx || current.wy != chunk.wy;
@@ -4207,9 +4238,7 @@ final class WorldScene {
                     // page is refreshed only once the view faces it: the game's sight goes round with the mouse and darkens
                     // what it leaves, and a mouse turn marks the light of a third of the chunks in reach.
                     // A mirror in a room shows what is behind the eye: while one shows, every chunk built here counts as faced.
-                    boolean faced = cosCone <= -1f || toChunkX * forwardX + toChunkY * forwardY >= cosCone * distance - CHUNK_REACH
-                            || mirrored && toChunkX * behindX + toChunkY * behindY >= COS_MIRROR_CONE * distance - CHUNK_REACH
-                            || glassShown;
+                    boolean faced = faces(toChunkX, toChunkY, distance) || glassShown;
                     // Dev only: nothing but light has been marked on the chunk since it was last read.
                     boolean lightOnly = !missing && marks != current.marks && current.things == things && current.told == toldSoFar;
                     // What the build of a chunk that is due would read of the map is summed first,

@@ -33,7 +33,8 @@ import zombie.network.GameClient;
  * finds turned seen to turned (Hooks.squareSeenByLight), and here, in rounds of a rhythm of their
  * own, the game's two calls are made for the squares the first person view sees: every square of
  * each room the eye's picture saw into in the last half second, and every square out of doors on
- * the chunks the picture draws where it sees the open air. A room is spotted from those of its
+ * the chunks the picture draws that its cone takes in (WorldScene.Frame.faces), where it sees
+ * the open air. A room is spotted from those of its
  * squares the game has had in the player's sight (IsoGridSquare.isSeen), and a square is marked
  * where it has turned seen since the last round, whoever's read of its light found the turn.
  * What comes of each call is the game's to say: the level, the reach, whether the room is
@@ -218,7 +219,7 @@ final class Spotting {
         sayIfDue(now);
     }
 
-    /** What the picture sees now: the rooms it saw into in the last half second, and the chunks it draws where it sees their open air. */
+    /** What the picture sees now: the rooms it saw into in the last half second, and the chunks it draws that the view faces, where it sees their open air. */
     private void gather(WorldScene scene, WorldScene.Frame frame, IsoCell cell) {
         shownRooms.clear();
         scene.roomsShownTo(shownRooms);
@@ -227,8 +228,9 @@ final class Spotting {
         List<WorldScene.ChunkMeshes> shown = frame.shownBuilds();
         for (int i = 0; i < shown.size(); i++) {
             WorldScene.ChunkMeshes build = shown.get(i);
-            // A build with no runs has no box, and draws nothing of its chunk.
-            if (build.runs == 0) {
+            // A build with no runs has no box, and draws nothing of its chunk. One near enough to cast its shadow
+            // into the picture is drawn wherever it is, and seen only where the view faces it.
+            if (build.runs == 0 || !frame.faces(build.wx(), build.wy())) {
                 continue;
             }
             // Where the picture lists the runs of the open air (ChunkBuffers.airShows): everywhere while it sees into every room.

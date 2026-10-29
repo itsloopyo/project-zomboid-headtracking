@@ -34,6 +34,7 @@ public final class SpottingTests {
         Checks.run("aChunkLoadedAgainIsAskedAboutAgain", SpottingTests::aChunkLoadedAgainIsAskedAboutAgain);
         Checks.run("aFramesShareOfARoundEndsOnceItsTimeIsUp", SpottingTests::aFramesShareOfARoundEndsOnceItsTimeIsUp);
         Checks.run("aRoomIsGoneOverAChunkAtATime", SpottingTests::aRoomIsGoneOverAChunkAtATime);
+        Checks.run("onlyTheChunksTheConeTakesInAreSeen", SpottingTests::onlyTheChunksTheConeTakesInAreSeen);
         Checks.run("passesComeFourTimesASecondWhateverTheFrames", SpottingTests::passesComeFourTimesASecondWhateverTheFrames);
         Checks.run("aCallReplacedHandsItsHookWhatItsMethodBelongsTo", SpottingTests::aCallReplacedHandsItsHookWhatItsMethodBelongsTo);
     }
@@ -316,6 +317,18 @@ public final class SpottingTests {
             once &= square.seenAsked == 1;
         }
         check(once, "and each of its squares once");
+    }
+
+    private static void onlyTheChunksTheConeTakesInAreSeen() {
+        WorldScene.Frame frame = new WorldScene(null).next();
+        // The eye at the middle of the chunk at 10, 10, facing east down a cone 45 degrees either side.
+        frame.aim(84f, 84f, 1f, 0f, (float) Math.cos(Math.toRadians(45)), false, 0f, 0f);
+        check(frame.faces(10, 10) && frame.faces(11, 10) && frame.faces(14, 11), "the eye's own chunk and those ahead of it are seen");
+        check(!frame.faces(6, 10) && !frame.faces(10, 6), "and not one four chunks behind or to the side, though near enough that its shadow is drawn");
+        frame.aim(84f, 84f, 1f, 0f, (float) Math.cos(Math.toRadians(45)), true, -1f, 0f);
+        check(frame.faces(6, 10), "a driver's mirror takes in what is straight behind");
+        frame.aim(84f, 84f, 0f, 0f, -1f, false, 0f, 0f);
+        check(frame.faces(6, 10) && frame.faces(10, 6), "and a view that faces no way along the ground takes in all round");
     }
 
     private static void passesComeFourTimesASecondWhateverTheFrames() {
