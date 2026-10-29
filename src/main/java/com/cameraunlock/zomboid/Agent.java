@@ -410,6 +410,9 @@ public final class Agent {
         add(instrumentation, new PatchTransformer(basePatches()));
         firstPerson = new PatchTransformer(firstPersonPatches());
         add(instrumentation, firstPerson);
+        add(instrumentation, new PatchTransformer(framePatches()));
+        add(instrumentation, new PatchTransformer(throughWallPatches()));
+        add(instrumentation, new PatchTransformer(worldPatches()));
         add(instrumentation, new PatchTransformer(DevPatches.list()));
 
         fineSkins = new PatchTransformer(fineSkinPatches());
@@ -438,6 +441,7 @@ public final class Agent {
         }
         add(instrumentation, new PatchTransformer(hangFixPatches()));
         add(instrumentation, new PatchTransformer(coveredPatches()));
+        add(instrumentation, new PatchTransformer(partDrawPatches()));
         add(instrumentation, new PatchTransformer(screenGreyPatches()));
         add(instrumentation, new PatchTransformer(farVehiclePatches()));
         add(instrumentation, new PatchTransformer(liveSightPatches()));
@@ -505,26 +509,14 @@ public final class Agent {
         String vector3 = "Lzombie/iso/Vector3;";
         CallSite.Method muzzleAt = new CallSite.Method(ballistics.owner(), "calculateMuzzlePosition", "(" + vector3 + vector3 + ")F");
         CallSite.Method muzzle = new CallSite.Method(HOOKS, "muzzle", "(L" + ballistics.owner() + ";" + vector3 + vector3 + ")F");
-        String testResults = "Lzombie/iso/LosUtil$TestResults;", moving = "Lzombie/iso/IsoMovingObject;";
-        CallSite.Method hitListWeapon = new CallSite.Method("zombie/CombatManager", "calculateHitListWeapon",
-                "(" + character + "Lzombie/network/fields/hit/AttackVars;Lzombie/util/list/PZArrayList;)V");
-        CallSite.Method hitInfoList = new CallSite.Method("zombie/CombatManager", "calculateHitInfoList", "(" + character + ")V");
-        CallSite.Method validTarget = new CallSite.Method(ballistics.owner(), "isValidTarget", "(I)Z");
-        CallSite.Method keptThrough = new CallSite.Method(HOOKS, "validTarget", "(Z" + moving + ")Z");
         CallSite.Method applyImpulse = new CallSite.Method("zombie/core/physics/Bullet", "applyImpulse", "(II[F)V");
         CallSite.Method pushAlongTheShot = new CallSite.Method("com/cameraunlock/zomboid/HitImpulse", "apply", "(II[F)V");
         String model = "zombie/core/skinnedmodel/model/Model";
         return List.of(
-                after(new CallSite.Method("zombie/gameStates/IngameState", "renderFrameInternal", "(I)V"),
-                        new CallSite.Method("zombie/iso/IsoWorld", "render", "()V"),
-                        new CallSite.Method(HOOKS, "afterWorldRender", "()V")),
                 new Patch(model, "<init> calling CreateShader", classBytes -> CallSite.replaceEach(classBytes,
                         new CallSite.Method(model, "<init>", "(Lzombie/asset/AssetPath;Lzombie/asset/AssetManager;L" + model + "$ModelAssetParams;)V"),
                         new CallSite.Method(model, "CreateShader", "(Ljava/lang/String;)V"),
                         new CallSite.Method("com/cameraunlock/zomboid/ItemModels", "createShader", "(L" + model + ";Ljava/lang/String;)V"), 1)),
-                after(new CallSite.Method("zombie/gameStates/IngameState", "renderFrameTextInternal", "(I)V"),
-                        new CallSite.Method("zombie/chat/ChatElement", "RenderBatch", "(I)V"),
-                        new CallSite.Method(HOOKS, "afterWorldText", "()V")),
                 new Patch(PLAYER, "getInputMoveVector after getInputMoveVector", classBytes -> CallSite.insertAfterEach(classBytes,
                         new CallSite.Method(PLAYER, "getInputMoveVector", VECTOR2_FILTER),
                         new CallSite.Method("zombie/characters/IsoLivingCharacter", "getInputMoveVector", VECTOR2_FILTER),
@@ -604,32 +596,6 @@ public final class Agent {
                         new CallSite.Method(processHit.owner(), "calculateBallistics", "(" + character + "F)V"), muzzleAt, muzzle, 1)),
                 new Patch(processHit.owner(), "fireWeapon calling calculateMuzzlePosition", classBytes -> CallSite.replaceEach(classBytes,
                         new CallSite.Method(processHit.owner(), "fireWeapon", "(Lzombie/inventory/types/HandWeapon;" + character + ")V"), muzzleAt, muzzle, 1)),
-                // A round goes on through plasterboard, boards and doors: see Penetration.
-                new Patch(processHit.owner(), "calculateHitInfoList at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes, hitInfoList,
-                        code -> CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "hitListStarts", "()V")))),
-                new Patch(processHit.owner(), "calculateHitListWeapon after lineClear", classBytes -> CallSite.insertAfterEach(classBytes, hitListWeapon,
-                        new CallSite.Method("zombie/iso/LosUtil", "lineClear", "(Lzombie/iso/IsoCell;IIIIIIZ)" + testResults), code -> {
-                            code.aload(1);
-                            code.aload(4);
-                            code.aload(8);
-                            CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "lineOfFire", "(" + testResults + character + "Lzombie/inventory/types/HandWeapon;" + moving + ")" + testResults));
-                        }, 1)),
-                // Both drop a ranged target the ballistics did not find: calculateHitInfoList has the target in local 14, processBallisticsTargets in 7.
-                new Patch(processHit.owner(), "calculateHitInfoList after isValidTarget", classBytes -> CallSite.insertAfterEach(classBytes, hitInfoList,
-                        validTarget, code -> {
-                            code.aload(14);
-                            CallSite.invokeStatic(code, keptThrough);
-                        }, 2)),
-                new Patch(processHit.owner(), "processBallisticsTargets after isValidTarget", classBytes -> CallSite.insertAfterEach(classBytes,
-                        new CallSite.Method(processHit.owner(), "processBallisticsTargets", "(" + character + "Lzombie/inventory/types/HandWeapon;Lzombie/util/list/PZArrayList;)V"),
-                        validTarget, code -> {
-                            code.aload(7);
-                            CallSite.invokeStatic(code, keptThrough);
-                        }, 1)),
-                new Patch(processHit.owner(), "attackCollisionCheck calling Hit", classBytes -> CallSite.replaceEach(classBytes,
-                        new CallSite.Method(processHit.owner(), "attackCollisionCheck", "(" + character + "Lzombie/inventory/types/HandWeapon;Lzombie/ai/states/SwipeStatePlayer;Lzombie/AttackType;)V"),
-                        new CallSite.Method("zombie/iso/IsoMovingObject", "Hit", "(Lzombie/inventory/types/HandWeapon;" + character + "FZF)F"),
-                        new CallSite.Method(HOOKS, "hitThrough", "(" + moving + "Lzombie/inventory/types/HandWeapon;" + character + "FZF)F"), 1)),
                 new Patch(processHit.owner(), "processHit at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes, processHit, code -> {
                     code.aload(1);
                     code.aload(2);
@@ -710,24 +676,6 @@ public final class Agent {
                             CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "keepsTexture", "(Lzombie/core/textures/Texture;)Z"));
                             code.ifThen(java.lang.classfile.Opcode.IFNE, java.lang.classfile.CodeBuilder::return_);
                         })),
-                new Patch("zombie/iso/IsoChunk", "Save to a buffer at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
-                        new CallSite.Method("zombie/iso/IsoChunk", "Save", "(Ljava/nio/ByteBuffer;Ljava/util/zip/CRC32;Z)Ljava/nio/ByteBuffer;"), code -> {
-                            code.aload(0);
-                            CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "chunkSaving", "(Lzombie/iso/IsoChunk;)V"));
-                        })),
-                new Patch("zombie/iso/IsoChunk", "Save to a buffer on its way out", classBytes -> CallSite.insertOnEveryWayOut(classBytes,
-                        new CallSite.Method("zombie/iso/IsoChunk", "Save", "(Ljava/nio/ByteBuffer;Ljava/util/zip/CRC32;Z)Ljava/nio/ByteBuffer;"), code -> {
-                            code.aload(0);
-                            CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "chunkSaved", "(Lzombie/iso/IsoChunk;)V"));
-                        })),
-                new Patch("zombie/iso/IsoChunk", "doLoadGridsquare on its way out", classBytes -> CallSite.insertOnEveryWayOut(classBytes,
-                        new CallSite.Method("zombie/iso/IsoChunk", "doLoadGridsquare", "()V"), code -> {
-                            code.aload(0);
-                            CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "chunkLoaded", "(Lzombie/iso/IsoChunk;)V"));
-                        })),
-                new Patch("zombie/iso/IsoWorld", "update at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
-                        new CallSite.Method("zombie/iso/IsoWorld", "update", "()V"),
-                        code -> CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "worldUpdate", "()V")))),
                 new Patch("zombie/iso/IsoMetaGrid", "processZones before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
                         new CallSite.Method("zombie/iso/IsoMetaGrid", "processZones", "()V"), code -> {
                             code.aload(0);
@@ -755,6 +703,92 @@ public final class Agent {
                         CallSite.filterStaticInt(code, GAME_MOUSE, "y", new CallSite.Method(HOOKS, "cursorY", "(I)I"));
                     });
                 }));
+    }
+
+    /**
+     * Apart from first person's, and in whichever view a player is: the hook every frame of the
+     * mod runs from, straight after the game has drawn a player's world (the keys, the head
+     * turned with the tracker and sent to other players, the sound's mix, first person's frame
+     * and the isometric view's), and the one after it has written what people say, where the
+     * mod writes what the screen tells the player. Without the first the mod does nothing in play.
+     */
+    private static List<Patch> framePatches() {
+        return List.of(
+                after(new CallSite.Method("zombie/gameStates/IngameState", "renderFrameInternal", "(I)V"),
+                        new CallSite.Method("zombie/iso/IsoWorld", "render", "()V"),
+                        new CallSite.Method(HOOKS, "afterWorldRender", "()V")),
+                after(new CallSite.Method("zombie/gameStates/IngameState", "renderFrameTextInternal", "(I)V"),
+                        new CallSite.Method("zombie/chat/ChatElement", "RenderBatch", "(I)V"),
+                        new CallSite.Method(HOOKS, "afterWorldText", "()V")));
+    }
+
+    /**
+     * Apart from first person's: a round goes on through plasterboard, boards and doors, from
+     * either view. See Penetration. Without them every shot stops at the first wall, as the game
+     * has it.
+     */
+    private static List<Patch> throughWallPatches() {
+        String character = "Lzombie/characters/IsoGameCharacter;", testResults = "Lzombie/iso/LosUtil$TestResults;", moving = "Lzombie/iso/IsoMovingObject;";
+        String combat = "zombie/CombatManager";
+        CallSite.Method hitListWeapon = new CallSite.Method(combat, "calculateHitListWeapon",
+                "(" + character + "Lzombie/network/fields/hit/AttackVars;Lzombie/util/list/PZArrayList;)V");
+        CallSite.Method hitInfoList = new CallSite.Method(combat, "calculateHitInfoList", "(" + character + ")V");
+        CallSite.Method validTarget = new CallSite.Method("zombie/core/physics/BallisticsController", "isValidTarget", "(I)Z");
+        CallSite.Method keptThrough = new CallSite.Method(HOOKS, "validTarget", "(Z" + moving + ")Z");
+        return List.of(
+                new Patch(combat, "calculateHitInfoList at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes, hitInfoList,
+                        code -> CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "hitListStarts", "()V")))),
+                new Patch(combat, "calculateHitListWeapon after lineClear", classBytes -> CallSite.insertAfterEach(classBytes, hitListWeapon,
+                        new CallSite.Method("zombie/iso/LosUtil", "lineClear", "(Lzombie/iso/IsoCell;IIIIIIZ)" + testResults), code -> {
+                            code.aload(1);
+                            code.aload(4);
+                            code.aload(8);
+                            CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "lineOfFire", "(" + testResults + character + "Lzombie/inventory/types/HandWeapon;" + moving + ")" + testResults));
+                        }, 1)),
+                // Both drop a ranged target the ballistics did not find: calculateHitInfoList has the target in local 14, processBallisticsTargets in 7.
+                new Patch(combat, "calculateHitInfoList after isValidTarget", classBytes -> CallSite.insertAfterEach(classBytes, hitInfoList,
+                        validTarget, code -> {
+                            code.aload(14);
+                            CallSite.invokeStatic(code, keptThrough);
+                        }, 2)),
+                new Patch(combat, "processBallisticsTargets after isValidTarget", classBytes -> CallSite.insertAfterEach(classBytes,
+                        new CallSite.Method(combat, "processBallisticsTargets", "(" + character + "Lzombie/inventory/types/HandWeapon;Lzombie/util/list/PZArrayList;)V"),
+                        validTarget, code -> {
+                            code.aload(7);
+                            CallSite.invokeStatic(code, keptThrough);
+                        }, 1)),
+                new Patch(combat, "attackCollisionCheck calling Hit", classBytes -> CallSite.replaceEach(classBytes,
+                        new CallSite.Method(combat, "attackCollisionCheck", "(" + character + "Lzombie/inventory/types/HandWeapon;Lzombie/ai/states/SwipeStatePlayer;Lzombie/AttackType;)V"),
+                        new CallSite.Method("zombie/iso/IsoMovingObject", "Hit", "(Lzombie/inventory/types/HandWeapon;" + character + "FZF)F"),
+                        new CallSite.Method(HOOKS, "hitThrough", "(" + moving + "Lzombie/inventory/types/HandWeapon;" + character + "FZF)F"), 1)));
+    }
+
+    /**
+     * Apart from first person's, and in whichever view a player is: the world's tick, which ages
+     * the blood trails and the flying pieces and dresses the hidden walls; the trail lifted off a
+     * chunk while the game saves it (Bleeding.saving); and the hidden walls of a chunk found as it
+     * loads (HiddenWalls.loaded).
+     */
+    private static List<Patch> worldPatches() {
+        String chunk = "zombie/iso/IsoChunk";
+        CallSite.Method save = new CallSite.Method(chunk, "Save", "(Ljava/nio/ByteBuffer;Ljava/util/zip/CRC32;Z)Ljava/nio/ByteBuffer;");
+        return List.of(
+                new Patch(chunk, "Save to a buffer at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes, save, code -> {
+                    code.aload(0);
+                    CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "chunkSaving", "(L" + chunk + ";)V"));
+                })),
+                new Patch(chunk, "Save to a buffer on its way out", classBytes -> CallSite.insertOnEveryWayOut(classBytes, save, code -> {
+                    code.aload(0);
+                    CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "chunkSaved", "(L" + chunk + ";)V"));
+                })),
+                new Patch(chunk, "doLoadGridsquare on its way out", classBytes -> CallSite.insertOnEveryWayOut(classBytes,
+                        new CallSite.Method(chunk, "doLoadGridsquare", "()V"), code -> {
+                            code.aload(0);
+                            CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "chunkLoaded", "(L" + chunk + ";)V"));
+                        })),
+                new Patch("zombie/iso/IsoWorld", "update at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
+                        new CallSite.Method("zombie/iso/IsoWorld", "update", "()V"),
+                        code -> CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "worldUpdate", "()V")))));
     }
 
     /** How much the game's screen shader greys a player's view, through ScreenGrey. */
@@ -863,13 +897,21 @@ public final class Agent {
                         new CallSite.Method(HOOKS, "gamesOwnDrawIsCovered", "()Z"))),
                 new Patch(PART_DRAW, "RenderCharacter left out under the first person picture", classBytes -> CallSite.returnAtOnceIf(classBytes,
                         new CallSite.Method(PART_DRAW, "RenderCharacter", "(L" + CHARACTER_DRAW + ";)V"),
-                        new CallSite.Method(HOOKS, "gamesOwnDrawIsCovered", "()Z"))),
-                // The game draws an animal by a program of its own, which the picture leaves to it:
-                // the picture's finer skin is handed to that draw once it has taken the model's.
-                new Patch(PART_DRAW, "RenderCharacter hands its skin to the picture", classBytes -> CallSite.replaceEach(classBytes,
-                        new CallSite.Method(PART_DRAW, "RenderCharacter", "(L" + CHARACTER_DRAW + ";)V"),
-                        new CallSite.Method(MODEL, "DrawChar", "(L" + CHARACTER_DRAW + ";L" + PART_DRAW + ";)V"),
-                        new CallSite.Method(HOOKS, "partDrawn", "(L" + MODEL + ";L" + CHARACTER_DRAW + ";L" + PART_DRAW + ";)V"), 1)));
+                        new CallSite.Method(HOOKS, "gamesOwnDrawIsCovered", "()Z"))));
+    }
+
+    /**
+     * Apart from the covered skips, and in whichever view a player is: the game's draw of each part
+     * of a person goes through GameMouths, which opens the mouth of one who talks. The game draws
+     * an animal by a program of its own, which the picture leaves to it: the picture's finer skin
+     * is handed to that draw once it has taken the model's. Without it the people the game draws
+     * keep their mouths shut.
+     */
+    private static List<Patch> partDrawPatches() {
+        return List.of(new Patch(PART_DRAW, "RenderCharacter hands its skin to the picture", classBytes -> CallSite.replaceEach(classBytes,
+                new CallSite.Method(PART_DRAW, "RenderCharacter", "(L" + CHARACTER_DRAW + ";)V"),
+                new CallSite.Method(MODEL, "DrawChar", "(L" + CHARACTER_DRAW + ";L" + PART_DRAW + ";)V"),
+                new CallSite.Method(HOOKS, "partDrawn", "(L" + MODEL + ";L" + CHARACTER_DRAW + ";L" + PART_DRAW + ";)V"), 1)));
     }
 
     /**
