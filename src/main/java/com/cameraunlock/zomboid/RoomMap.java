@@ -62,8 +62,8 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
     private final int[] keptReadings = new int[SIDE * SIDE];
     /** Whether the last read of each chunk said UNREAD: what is kept there is not of it as it is now. */
     private final boolean[] keptUnread = new boolean[SIDE * SIDE];
-    /** Dev only: how many chunks were read for their openings since the last asking. */
-    int chunksRead;
+    /** Dev only: how many chunks were read for their openings since the last asking, and how many had only their marked levels read again (readLevels). */
+    int chunksRead, chunksReadInPart;
     private final Reading reading = new Reading();
     private static final boolean CHECKED = DevBuild.ON && Boolean.getBoolean("cameraunlock.zomboid.checkRooms");
     /** Dev only: each chunk read through the reading is read again asking the map each time, and a read that comes out otherwise throws. */
@@ -218,6 +218,7 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
             keptNanos[slot] = now;
             keptReadings[slot]++;
             readMarkedLevels++;
+            chunksReadInPart++;
             return keptReadings[slot];
         }
         if (!same || keptMarks[slot] != marks) {

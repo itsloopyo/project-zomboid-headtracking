@@ -1718,8 +1718,8 @@ final class WorldScene {
         tollWoods = tollWoodsNanos = 0;
         told += String.format(Locale.ROOT, ", built ahead of a turn %d in %.1f ms, changed put off %d", tollAhead, tollAheadNanos / 1e6, tollChangedWaited);
         tollChangedWaited = 0;
-        told += String.format(Locale.ROOT, ", rooms walked %d times in %.2f ms each (chunks read for openings %d; last: openings %d, blocks %d, rooms seen %d, built %d, openings hidden by blocks %d)",
-                tollRoomsWalks, tollRoomsNanos / 1e6 / Math.max(1, tollRoomsWalks), roomMap.chunksRead, lastOpenings, lastBlocks, lastSeen, roomsBuilt.size(), lastHidden);
+        told += String.format(Locale.ROOT, ", rooms walked %d times in %.2f ms each (chunks read for openings %d, their marked levels alone %d; last: openings %d, blocks %d, rooms seen %d, built %d, openings hidden by blocks %d)",
+                tollRoomsWalks, tollRoomsNanos / 1e6 / Math.max(1, tollRoomsWalks), roomMap.chunksRead, roomMap.chunksReadInPart, lastOpenings, lastBlocks, lastSeen, roomsBuilt.size(), lastHidden);
         told += String.format(Locale.ROOT, ", horizons built %d", roomWalk.horizonBuilds() - horizonsTold);
         horizonsTold = roomWalk.horizonBuilds();
         double walks = Math.max(1, tollRoomsWalks);
@@ -1739,7 +1739,7 @@ final class WorldScene {
                 tollFigureLightsNanos / 1e6 / Math.max(1, tollFigureLights), (double) tollFigureSquares / Math.max(1, tollFigureLights));
         tollFigureLights = tollFigureLightsNanos = tollFigureSquares = 0;
         tollRoomsWalks = tollRoomsNanos = 0;
-        roomMap.chunksRead = 0;
+        roomMap.chunksRead = roomMap.chunksReadInPart = 0;
         tollAhead = tollAheadNanos = 0;
         told += String.format(Locale.ROOT, ", levels read for sums %d, held over the viewer %d", tollLevelsRead, tollLevelsHeld);
         tollLevelsRead = tollLevelsHeld = 0;
