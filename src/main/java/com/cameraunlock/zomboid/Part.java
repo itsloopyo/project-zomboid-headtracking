@@ -24,7 +24,11 @@ enum Part {
                     + "and rooms ring. false: first person is heard as the game's own view hears, facing north-west on the map."),
     LIGHTNING_BOLTS("FirstPerson", "LightningBolts", false, true,
             "true: in first person lightning strikes as a bolt from the cloud to the ground, which lights the world while it\n"
-                    + "is bright. false: lightning is the game's own flash, the whole map brightening for a moment.");
+                    + "is bright. false: lightning is the game's own flash, the whole map brightening for a moment."),
+    SHOT_IMPACTS("FirstPerson", "ShotImpacts", true, true,
+            "true: in first person, in Medium and High, a shot throws up dust, chips, splinters, sparks or blood where it\n"
+                    + "strikes and leaves a hole. false: shots leave no mark, as in the game's own view. A shot still breaks lamps\n"
+                    + "and glass as [Rules] says, and while either does the impacts' patches stay in.");
 
     final String section, key, comment;
     /** Whether the row is taken while the game runs, and whether it is read at the start to leave patches out. */

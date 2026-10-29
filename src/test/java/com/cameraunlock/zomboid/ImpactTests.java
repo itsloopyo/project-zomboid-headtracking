@@ -31,6 +31,7 @@ final class ImpactTests {
         Checks.run("eachImpactStartsWhenItStrikesAndHolesAreKept", ImpactTests::eachImpactStartsWhenItStrikesAndHolesAreKept);
         Checks.run("leavingTheSaveForgetsItsHoles", ImpactTests::leavingTheSaveForgetsItsHoles);
         Checks.run("theGamesOwnLookShowsNoImpacts", ImpactTests::theGamesOwnLookShowsNoImpacts);
+        Checks.run("withShotImpactsOffAShotLeavesNoMark", ImpactTests::withShotImpactsOffAShotLeavesNoMark);
     }
 
     /** The game's MaterialType words, every one of zombie.iso.enums.MaterialType. */
@@ -257,6 +258,42 @@ final class ImpactTests {
         } finally {
             Quality.custom(custom);
             Quality.set(0, mode);
+        }
+    }
+
+    private static int flying() {
+        int flying = 0;
+        for (Impacts.Struck each : Impacts.held) {
+            flying += each == null ? 0 : 1;
+        }
+        return flying;
+    }
+
+    private static void withShotImpactsOffAShotLeavesNoMark() {
+        int mode = Quality.row(0);
+        Quality.Picture custom = Quality.custom();
+        Impacts.forget();
+        Impacts.take();
+        try {
+            Quality.set(0, Quality.HIGH);
+            Impacts.add(struck(1f, true));
+            Impacts.take();
+            check(ImpactDraw.shown(0) && Impacts.holeCount == 1 && flying() == 1, "in High a shot leaves its hole");
+            Part.SHOT_IMPACTS.set(false);
+            Impacts.add(struck(2f, true));
+            Impacts.take();
+            check(!ImpactDraw.shown(0) && Impacts.holeCount == 0 && flying() == 0,
+                    "with ShotImpacts off none are drawn, a shot leaves no mark and the holes there were are gone: " + Impacts.holeCount + " holes, " + flying() + " flying");
+            Part.SHOT_IMPACTS.set(true);
+            Impacts.add(struck(3f, true));
+            Impacts.take();
+            check(ImpactDraw.shown(0) && Impacts.holeCount == 1 && flying() == 1, "on again, the next shot leaves its mark and the one shot while it was off none: " + Impacts.holeCount);
+        } finally {
+            Part.SHOT_IMPACTS.set(true);
+            Quality.custom(custom);
+            Quality.set(0, mode);
+            Impacts.forget();
+            Impacts.take();
         }
     }
 }

@@ -450,6 +450,7 @@ public final class Agent {
         spotting = new PatchTransformer(spottingPatches());
         // A shot breaks lamps and glass where ImpactFinder finds it ends, in either view.
         boolean shotsBreak = (Rules.rows() & (Rules.BREAKS_LAMPS | Rules.BREAKS_GLASS)) != 0;
+        String impactsOff = shotsBreak ? null : off(Part.FIRST_PERSON, Part.SHOT_IMPACTS);
         return List.of(
                 new PatchSet("base", new PatchTransformer(basePatches()), null),
                 new PatchSet("torch", new PatchTransformer(torchPatches()), firstPersonOff),
@@ -462,8 +463,7 @@ public final class Agent {
                 new PatchSet("shot", shot, firstPersonOff),
                 new PatchSet("thunder", thunder, off(Part.FIRST_PERSON, Part.LIGHTNING_BOLTS)),
                 new PatchSet("lamps", lamps, null),
-                new PatchSet("impacts", impacts, firstPersonOff == null || shotsBreak ? null
-                        : Part.FIRST_PERSON.key + ", ShotsBreakLamps and ShotsBreakGlass were off as the game started"),
+                new PatchSet("impacts", impacts, impactsOff == null ? null : impactsOff + ", and so were ShotsBreakLamps and ShotsBreakGlass"),
                 new PatchSet("model head", modelHead, null),
                 new PatchSet("name tags", nameTags, firstPersonOff),
                 new PatchSet("game fixes", new PatchTransformer(gameFixPatches()),

@@ -404,9 +404,9 @@ final class ImpactDraw {
     private final float[] ndc = new float[2];
     private final FloatBuffer unseen = ByteBuffer.allocateDirect(BLOCK * BLOCK * 4 * Float.BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
 
-    /** Whether impacts are drawn in a view's picture at all: never in the game's own look, which has none. */
+    /** Whether impacts are drawn in a view's picture at all: never in the game's own look, which has none, nor with ShotImpacts off. */
     static boolean shown(int view) {
-        return !Quality.plain(view);
+        return Part.SHOT_IMPACTS.on() && !Quality.plain(view);
     }
 
     /**

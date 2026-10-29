@@ -59,8 +59,14 @@ final class Impacts {
 
     private Impacts() {}
 
-    /** A shot has struck. Any thread. While no picture takes them, as in the game's own view, no more are held than there are places for holes. */
+    /**
+     * A shot has struck. Any thread. While no picture takes them, as in the game's own view, no
+     * more are held than there are places for holes, and none while ShotImpacts is off.
+     */
     static void add(Struck struck) {
+        if (!Part.SHOT_IMPACTS.on()) {
+            return;
+        }
         long at = System.nanoTime();
         synchronized (added) {
             if (added.size() == MOST_HOLES) {
@@ -70,9 +76,18 @@ final class Impacts {
         }
     }
 
+    /** Whether ShotImpacts was on at the last frame. Render thread. */
+    private static boolean marking = true;
+
     /** Takes what has struck since the last frame. Render thread. */
     static void take() {
         synchronized (added) {
+            boolean on = Part.SHOT_IMPACTS.on();
+            // Switched off, the holes go too, as the game's own view has none, and do not come back when it is on again.
+            if (marking && !on) {
+                forgotten = true;
+            }
+            marking = on;
             if (forgotten) {
                 forgotten = false;
                 added.clear();
