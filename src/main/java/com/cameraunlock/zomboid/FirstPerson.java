@@ -999,7 +999,7 @@ public final class FirstPerson {
         if (landed) {
             scene.build(player, trackedView, aimView, eyeFromAim, view.fieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), null, false);
             if (coversTheGamesView()) {
-                view.spotting.look(view.worldScene, scene, now);
+                view.spotting.look(view.worldScene, scene, player, now);
             }
             view.hearing.face(trackedView, 0f, 1f);
         } else {

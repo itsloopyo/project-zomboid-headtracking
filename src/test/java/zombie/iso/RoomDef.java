@@ -2,19 +2,20 @@ package zombie.iso;
 
 import java.util.ArrayList;
 
-/** The tests' stand-in for a room's place on the map: its level and its rectangles. See zombie.iso.areas.IsoRoom. */
+/** The tests' stand-in for a room's place on the map: its level, its rectangles and its building. See zombie.iso.areas.IsoRoom. */
 public final class RoomDef {
     public int level;
     public boolean userDefined;
     public boolean explored;
     public final ArrayList<RoomRect> rects = new ArrayList<>();
+    public BuildingDef building;
 
     public RoomDef(int level) {
         this.level = level;
     }
 
     public BuildingDef getBuilding() {
-        throw new UnsupportedOperationException("no test's room has a building's place");
+        return building;
     }
 
     public int getArea() {

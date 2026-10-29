@@ -12,6 +12,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.Consumer;
+import zombie.iso.BuildingDef;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoChunk;
 import zombie.iso.IsoGridSquare;
@@ -27,6 +28,8 @@ public final class SpottingTests {
     static void run() {
         Checks.run("aRoomInSightIsSpottedFromASquareThePlayerHasSeen", SpottingTests::aRoomInSightIsSpottedFromASquareThePlayerHasSeen);
         Checks.run("whetherARoomIsSpottedIsTheGamesToSay", SpottingTests::whetherARoomIsSpottedIsTheGamesToSay);
+        Checks.run("aRoomTheGameCouldNotSpotFromWhereThePlayerStandsIsNotHandedToIt", SpottingTests::aRoomTheGameCouldNotSpotFromWhereThePlayerStandsIsNotHandedToIt);
+        Checks.run("aRoomOfAnotherBuildingIsHandedToTheGameOnlyWithinTenTiles", SpottingTests::aRoomOfAnotherBuildingIsHandedToTheGameOnlyWithinTenTiles);
         Checks.run("aRoomOutOfSightIsLeftAlone", SpottingTests::aRoomOutOfSightIsLeftAlone);
         Checks.run("aSquareIsMarkedAsTheLightFindsItHasTurnedSeen", SpottingTests::aSquareIsMarkedAsTheLightFindsItHasTurnedSeen);
         Checks.run("aTurnAnotherReadFoundIsMarkedWhereTheViewSeesIt", SpottingTests::aTurnAnotherReadFoundIsMarkedWhereTheViewSeesIt);
@@ -55,10 +58,19 @@ public final class SpottingTests {
         Checks.check(condition, what);
     }
 
+    /** The building every test's room is in, but for those a test puts in one of its own. */
+    private static final BuildingDef HOUSE = new BuildingDef(1L, 0, 0, 1000, 1000);
+
     /** A room of a cell, its id, and its squares, w by h from x, y on a level. */
     private record Room(long id, RoomDef def, IsoGridSquare[] squares) {
         static Room of(IsoCell cell, long id, int x, int y, int w, int h, int level) {
+            return of(cell, HOUSE, id, x, y, w, h, level);
+        }
+
+        /** The same, in a building. */
+        static Room of(IsoCell cell, BuildingDef building, long id, int x, int y, int w, int h, int level) {
             RoomDef def = new RoomDef(level);
+            def.building = building;
             def.rects.add(new RoomDef.RoomRect(x, y, w, h));
             IsoRoom room = new IsoRoom(def);
             IsoGridSquare[] squares = new IsoGridSquare[w * h];
@@ -96,8 +108,11 @@ public final class SpottingTests {
         pass(spotting(), cell, rooms, chunks, known);
     }
 
+    /** A whole round, for a player on the first square of the first room known, in its building, or out of doors where no room is known. */
     private static void pass(Spotting spotting, IsoCell cell, RoomSight.Seen rooms, List<IsoChunk> chunks, Room... known) {
-        spotting.pass(cell, rooms, defs(known)::get, chunks);
+        IsoGridSquare at = known.length == 0 ? null : known[0].squares()[0];
+        spotting.pass(cell, rooms, defs(known)::get, chunks, at == null ? 0f : at.getX() + 0.5f, at == null ? 0f : at.getY() + 0.5f, at == null ? 0f : at.getZ(),
+                at == null ? null : known[0].def().getBuilding());
     }
 
     private static HashMap<Long, RoomDef> defs(Room... known) {
@@ -160,6 +175,51 @@ public final class SpottingTests {
         pass(spotting, cell, inSight(hall), List.of(), hall);
         check(roomChecks(hall) == 2 * hall.squares().length && asked(hall.squares()) == hall.squares().length,
                 "and in the next round it is asked about again, as the player may have come nearer, without the squares found seen being asked about again");
+    }
+
+    private static void aRoomTheGameCouldNotSpotFromWhereThePlayerStandsIsNotHandedToIt() {
+        IsoCell cell = new IsoCell();
+        Room near = Room.of(cell, 40L, 400, 400, 2, 1, 0), upstairs = Room.of(cell, 41L, 402, 400, 1, 1, 1), far = Room.of(cell, 42L, 420, 400, 1, 1, 0),
+                across = Room.of(cell, 43L, 440, 400, 1, 1, 0), beyond = Room.of(cell, 44L, 460, 400, 1, 1, 0);
+        for (Room room : new Room[] {near, upstairs, far, across, beyond}) {
+            for (IsoGridSquare square : room.squares()) {
+                square.seen(true);
+            }
+        }
+        Spotting spotting = spotting();
+        RoomSight.Seen rooms = inSight(near, upstairs, far, across);
+        HashMap<Long, RoomDef> defs = defs(near, upstairs, far, across);
+        // Out of doors on the ground at 400.5, 400.5: the game spots from 10 tiles, so upstairs is a floor up, and far 19.5 tiles off and across 39.5 are out of its reach.
+        spotting.pass(cell, rooms, defs::get, List.of(), 400.5f, 400.5f, 0f, null);
+        check(roomChecks(near) == 2 && roomChecks(upstairs) == 0 && roomChecks(far) == 0 && roomChecks(across) == 0,
+                "the game is handed only a room on the player's floor within its reach to spot");
+        check(asked(upstairs.squares()) == 1 && asked(far.squares()) == 1, "and the others' squares are still asked about, for their turns");
+        spotting.pass(cell, rooms, defs::get, List.of(), 400.5f, 400.5f, 0f, HOUSE);
+        check(roomChecks(far) == 1 && roomChecks(across) == 1 && roomChecks(upstairs) == 0, "inside a building, rooms out to 50 tiles are handed to the game, on the player's floor");
+        GameClient.client = true;
+        try {
+            spotting.pass(cell, inSight(beyond), defs(beyond)::get, List.of(), 400.5f, 400.5f, 0f, null);
+        } finally {
+            GameClient.client = false;
+        }
+        check(asked(beyond.squares()) == 0 && roomChecks(beyond) == 0, "and on a client, which marks nothing, a room the game could not spot is not asked about at all");
+    }
+
+    private static void aRoomOfAnotherBuildingIsHandedToTheGameOnlyWithinTenTiles() {
+        IsoCell cell = new IsoCell();
+        BuildingDef shop = new BuildingDef(2L, 520, 502, 2, 1);
+        Room ours = Room.of(cell, 54L, 520, 500, 2, 1, 0), theirs = Room.of(cell, shop, 55L, 520, 502, 2, 1, 0);
+        ours.squares()[0].seen(true);
+        theirs.squares()[0].seen(true);
+        RoomSight.Seen rooms = inSight(ours, theirs);
+        HashMap<Long, RoomDef> defs = defs(ours, theirs);
+        Spotting spotting = spotting();
+        // Inside the house at 500.5, 500.5, both rooms 19.5 tiles off: the game spots a room of its own building from 50 tiles, any other from 10.
+        for (int round = 0; round < 4; round++) {
+            spotting.pass(cell, rooms, defs::get, List.of(), 500.5f, 500.5f, 0f, HOUSE);
+        }
+        check(roomChecks(ours) == 4 && roomChecks(theirs) == 0, "inside a building, a room of it 20 tiles off is handed to the game to spot, and one of another building is not");
+        check(theirs.squares()[1].seenAsked == 4, "and a square of the other building's room is still asked about, for its turn");
     }
 
     private static void aRoomOutOfSightIsLeftAlone() {
@@ -251,11 +311,11 @@ public final class SpottingTests {
         Room den = Room.of(cell, 51L, 246, 226, 1, 1, 0);
         HashMap<Long, RoomDef> defs = defs(den);
         long start = 5_000_000_000L;
-        spotting.look(inSight(den), frame, cell, defs::get, start);
+        spotting.look(inSight(den), frame, cell, defs::get, 244f, 224f, 0f, null, start);
         spotting.stoppedCovering(cell);
         check(Meta.instance.told.size() == told + 2 && Meta.instance.told.contains(waited) && Meta.instance.told.contains(found),
                 "once the picture stops covering the view, every turn that waited for it is marked, as the game's own light marks a turn as it finds it");
-        spotting.look(inSight(den), frame, cell, defs::get, start + 4_000_000L);
+        spotting.look(inSight(den), frame, cell, defs::get, 244f, 224f, 0f, null, start + 4_000_000L);
         check(den.squares()[0].seenAsked == 0, "and the round under way is closed, not carried on over what the picture saw");
         spotting.stoppedCovering(cell);
         check(Meta.instance.told.size() == told + 2, "and none is marked twice");
@@ -314,9 +374,9 @@ public final class SpottingTests {
         Spotting spotting = spotting(0L);
         HashMap<Long, RoomDef> defs = defs(garage);
         long start = 5_000_000_000L;
-        spotting.look(inSight(), frame, cell, defs::get, start);
-        spotting.look(inSight(garage), frame, cell, defs::get, start + 300_000_000L);
-        frames(spotting, inSight(), frame, cell, defs, start + 304_000_000L);
+        spotting.look(inSight(), frame, cell, defs::get, 324f, 324f, 0f, null, start);
+        spotting.look(inSight(garage), frame, cell, defs::get, 324f, 324f, 0f, null, start + 300_000_000L);
+        frames(spotting, inSight(), frame, cell, defs, 324f, 324f, start + 304_000_000L);
         check(garage.squares()[0].roomChecks == 1, "a room the picture saw into for one frame while a round went on is gone over by the next round");
     }
 
@@ -332,10 +392,10 @@ public final class SpottingTests {
         return build;
     }
 
-    /** Twenty frames of the picture four milliseconds apart from a time, each with the rooms it saw into lately: a round begun in the first is done by the last. */
-    private static void frames(Spotting spotting, RoomSight.Seen lately, WorldScene.Frame frame, IsoCell cell, HashMap<Long, RoomDef> defs, long from) {
+    /** Twenty frames of the picture four milliseconds apart from a time, each with the rooms it saw into lately, for a player on the ground at a place outside: a round begun in the first is done by the last. */
+    private static void frames(Spotting spotting, RoomSight.Seen lately, WorldScene.Frame frame, IsoCell cell, HashMap<Long, RoomDef> defs, float x, float y, long from) {
         for (int i = 0; i < 20; i++) {
-            spotting.look(lately, frame, cell, defs::get, from + i * 4_000_000L);
+            spotting.look(lately, frame, cell, defs::get, x, y, 0f, null, from + i * 4_000_000L);
         }
     }
 
@@ -351,20 +411,20 @@ public final class SpottingTests {
         Spotting spotting = spotting();
         long start = 5_000_000_000L;
         HashMap<Long, RoomDef> defs = defs(kitchen, hall);
-        frames(spotting, inSight(kitchen), frame, cell, defs, start);
+        frames(spotting, inSight(kitchen), frame, cell, defs, 84f, 84f, start);
         check(here.seenAsked == 1 && ahead.seenAsked == 1, "a round goes over the open air of the chunks the picture draws ahead, and of one drawn twice once");
         check(behind.seenAsked == 0 && bare.seenAsked == 0, "and not of one it draws behind for its shadow, nor of one with nothing built");
         check(kitchen.squares()[0].roomChecks == 1 && hall.squares()[0].seenAsked == 0, "it spots the rooms the picture saw into lately, and no other");
-        frames(spotting, inSight(), frame, cell, defs, start + 3_000_000_000L);
+        frames(spotting, inSight(), frame, cell, defs, 84f, 84f, start + 3_000_000_000L);
         check(kitchen.squares()[0].roomChecks == 2, "a room the picture saw into is gone over for a while after, as the game may find its squares seen late");
-        frames(spotting, inSight(), frame, cell, defs, start + 4_100_000_000L);
+        frames(spotting, inSight(), frame, cell, defs, 84f, 84f, start + 4_100_000_000L);
         check(kitchen.squares()[0].roomChecks == 2, "and not once four seconds have gone by since the last frame that saw into it");
         check(here.seenAsked == 3 && ahead.seenAsked == 3, "a square not yet seen is asked about in every round");
         frame.roomsSeen = new RoomSight.Seen();
-        frames(spotting, inSight(), frame, cell, defs, start + 5_000_000_000L);
+        frames(spotting, inSight(), frame, cell, defs, 84f, 84f, start + 5_000_000_000L);
         check(here.seenAsked == 4 && ahead.seenAsked == 4, "where the picture lists the rooms it sees and sees the open air all round, as from out of doors, the chunks are gone over");
         frame.roomsSeen.airFrom(new RoomSight(), false);
-        frames(spotting, inSight(), frame, cell, defs, start + 6_000_000_000L);
+        frames(spotting, inSight(), frame, cell, defs, 84f, 84f, start + 6_000_000_000L);
         check(here.seenAsked == 4 && ahead.seenAsked == 4, "and where it sees none of the open air, from indoors, they are not");
     }
 
@@ -571,17 +631,17 @@ public final class SpottingTests {
         frame.aim(204f, 200.5f, 0f, 0f, -1f, false, 0f, 0f);
         Spotting spotting = spotting(0L);
         long start = 5_000_000_000L;
-        spotting.look(inSight(hall), frame, cell, defs::get, start);
+        spotting.look(inSight(hall), frame, cell, defs::get, 204f, 200.5f, 0f, HOUSE, start);
         check(asked(hall.squares()) == 0, "the frame that begins a round, with no time left once it has, does none of it");
-        spotting.look(inSight(hall), frame, cell, defs::get, start + 1_000_000_000L);
+        spotting.look(inSight(hall), frame, cell, defs::get, 204f, 200.5f, 0f, HOUSE, start + 1_000_000_000L);
         check(asked(hall.squares()) == 8,
                 "a frame with no time left does one unit of the round under way, though the round's quarter second is long gone, and does not finish it");
-        spotting.look(inSight(hall), frame, cell, defs::get, start + 1_004_000_000L);
-        spotting.look(inSight(hall), frame, cell, defs::get, start + 1_008_000_000L);
-        spotting.look(inSight(hall), frame, cell, defs::get, start + 1_012_000_000L);
+        spotting.look(inSight(hall), frame, cell, defs::get, 204f, 200.5f, 0f, HOUSE, start + 1_004_000_000L);
+        spotting.look(inSight(hall), frame, cell, defs::get, 204f, 200.5f, 0f, HOUSE, start + 1_008_000_000L);
+        spotting.look(inSight(hall), frame, cell, defs::get, 204f, 200.5f, 0f, HOUSE, start + 1_012_000_000L);
         check(asked(hall.squares()) == 32, "the round goes on over the next frames until it is done");
-        spotting.look(inSight(hall), frame, cell, defs::get, start + 1_016_000_000L);
-        spotting.look(inSight(hall), frame, cell, defs::get, start + 1_020_000_000L);
+        spotting.look(inSight(hall), frame, cell, defs::get, 204f, 200.5f, 0f, HOUSE, start + 1_016_000_000L);
+        spotting.look(inSight(hall), frame, cell, defs::get, 204f, 200.5f, 0f, HOUSE, start + 1_020_000_000L);
         check(asked(hall.squares()) == 40, "and the next begins once it is");
     }
 

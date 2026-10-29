@@ -8,6 +8,8 @@ import java.util.Locale;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.LongFunction;
 import java.util.function.ToIntFunction;
+import zombie.characters.IsoPlayer;
+import zombie.iso.BuildingDef;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoChunk;
 import zombie.iso.IsoGridSquare;
@@ -41,7 +43,9 @@ import zombie.network.GameClient;
  * The game marks a square only as it turns, so a turn the view has not seen yet waits for it,
  * until its chunk is let go, or until the picture stops covering the view (stoppedCovering).
  * What comes of each call is the game's to say: the level, the reach, whether the room is
- * explored, whether this machine is a client and whether the square was marked this hour.
+ * explored, whether this machine is a client and whether the square was marked this hour. A
+ * round leaves out only the spotting the game would make nothing of, of a room off the player's
+ * floor or out of their reach (canSpot).
  *
  * Asking isSeen is a read of the square's light: the game works it out afresh where its
  * lighting engine has changed it since it was last read, and otherwise asks the engine whether
@@ -162,6 +166,43 @@ final class Spotting {
     }
 
     /**
+     * Where the player stands, as the game reads them where it spots a room
+     * (IsoGridSquare.checkRoomSeen): their place, their floor, and the building they are in, or
+     * null. The game spots a room of that building from 50 tiles off and any other from 10
+     * (OWN_REACH, REACH), with REACH_SPARE over here.
+     */
+    private float playerX, playerY;
+    private int playerFloor = Integer.MIN_VALUE;
+    private BuildingDef playerBuilding;
+    private static final float REACH = 10f, OWN_REACH = 50f;
+    /** How far past the game's reach a room is still handed to the game, so that its own sums decide at the edge. */
+    private static final float REACH_SPARE = 1f;
+
+    /** Where the player stands for the rounds' work from now on, in the building of a def or in none. */
+    void stand(float x, float y, float z, BuildingDef building) {
+        playerX = x;
+        playerY = y;
+        playerFloor = (int) Math.floor(z);
+        playerBuilding = building;
+    }
+
+    /**
+     * Whether the game could spot a room from a square of a rectangle of it, x0 to x1 and y0 to
+     * y1 with the ends left out, where the player stands now: the room unexplored, on the
+     * player's floor, and the square of the rectangle nearest the player within reach. The game
+     * asks whether the room's building is the player's (player.getBuilding() == room.building),
+     * here asked of their defs.
+     */
+    private boolean canSpot(RoomDef def, int x0, int y0, int x1, int y1) {
+        if (def.explored || def.level != playerFloor) {
+            return false;
+        }
+        float reach = (playerBuilding != null && def.getBuilding() == playerBuilding ? OWN_REACH : REACH) + REACH_SPARE;
+        float dx = Math.clamp(playerX, x0 + 0.5f, x1 - 0.5f) - playerX, dy = Math.clamp(playerY, y0 + 0.5f, y1 - 0.5f) - playerY;
+        return dx * dx + dy * dy < reach * reach;
+    }
+
+    /**
      * Where a turn the light finds goes (turned), under this object's lock: taken here from the
      * moment the picture comes to cover the view (covering), the game's to mark once
      * stoppedCovering has handed the turns back, and let go once leftSave has.
@@ -212,7 +253,7 @@ final class Spotting {
      * view: this frame's share of the round under way, and a new round when one is due, where
      * the light leaves spotting to the rounds.
      */
-    void look(WorldScene scene, WorldScene.Frame frame, long now) {
+    void look(WorldScene scene, WorldScene.Frame frame, IsoPlayer player, long now) {
         if (!leftHere()) {
             frames++;
             sayIfDue(now);
@@ -220,15 +261,21 @@ final class Spotting {
         }
         shownLately.clear();
         scene.roomsShownTo(shownLately);
-        look(shownLately, frame, IsoWorld.instance.currentCell, Spotting::roomDefOf, now);
+        look(shownLately, frame, IsoWorld.instance.currentCell, Spotting::roomDefOf, player.getX(), player.getY(), player.getZ(),
+                player.getBuilding() == null ? null : player.getBuilding().getDef(), now);
     }
 
     private static RoomDef roomDefOf(long room) {
         return IsoWorld.instance.getMetaGrid().getRoomDefByID(room);
     }
 
-    /** The same, with the rooms the picture saw into in the last half second (WorldScene.roomsShownTo), on a map with the rooms' defs given. */
-    void look(RoomSight.Seen lately, WorldScene.Frame frame, IsoCell cell, LongFunction<RoomDef> defs, long now) {
+    /**
+     * The same, with the rooms the picture saw into in the last half second
+     * (WorldScene.roomsShownTo), on a map with the rooms' defs given, for a player standing at a
+     * place, in the building of a def or in none.
+     */
+    void look(RoomSight.Seen lately, WorldScene.Frame frame, IsoCell cell, LongFunction<RoomDef> defs, float x, float y, float z, BuildingDef building, long now) {
+        stand(x, y, z, building);
         frames++;
         long began = System.nanoTime(), deadline = began + sliceLength;
         roomsKept.found(lately, now, null);
@@ -369,8 +416,9 @@ final class Spotting {
     private static boolean gapAsked;
     private static String gap;
 
-    /** A whole round over the rooms given and the squares out of doors on every level of the chunks given, at once. */
-    void pass(IsoCell cell, RoomSight.Seen rooms, LongFunction<RoomDef> defs, List<IsoChunk> drawn) {
+    /** A whole round over the rooms given and the squares out of doors on every level of the chunks given, at once, for a player standing at a place, in the building of a def or in none. */
+    void pass(IsoCell cell, RoomSight.Seen rooms, LongFunction<RoomDef> defs, List<IsoChunk> drawn, float x, float y, float z, BuildingDef building) {
+        stand(x, y, z, building);
         begin(cell, rooms, defs, drawn, IsoChunk::getMinLevel, IsoChunk::getMaxLevel);
         work(cell, Long.MAX_VALUE);
         finish(cell);
@@ -480,11 +528,20 @@ final class Spotting {
         return nextUnit == unitCount;
     }
 
-    /** One piece of a room in sight, inside one chunk: the room spotted from each square of it the game has had in the player's sight. */
+    /**
+     * One piece of a room in sight, inside one chunk: the room spotted from each square of it the
+     * game has had in the player's sight, where the game could spot it from there now (canSpot).
+     * Where it could not, the game would make nothing of the call, and the squares are asked about
+     * only for their turns, and not at all on a client.
+     */
     private void roomPiece(IsoCell cell, int piece) {
         int p = piece * PIECE, x0 = pieces[p + 1], y0 = pieces[p + 2], x1 = pieces[p + 3], y1 = pieces[p + 4];
         RoomDef def = roomDefs.get(pieces[p]);
         int z = def.level;
+        boolean reachable = canSpot(def, x0, y0, x1, y1);
+        if (!reachable && !marks) {
+            return;
+        }
         Known at = null;
         for (int y = y0; y < y1; y++) {
             for (int x = x0; x < x1; x++) {
@@ -505,7 +562,7 @@ final class Spotting {
                 squaresRead++;
                 long bit = 1L << ((y & 7) << 3 | x & 7);
                 markIfWaiting(at, z, bit, square);
-                boolean spot = !def.explored;
+                boolean spot = reachable && !def.explored;
                 if ((at.seen[z - LOWEST] & bit) == 0L) {
                     if (!spot && !marks || !asked(square)) {
                         continue;
