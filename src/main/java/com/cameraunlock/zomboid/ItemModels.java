@@ -91,9 +91,9 @@ public final class ItemModels {
     private static Field modelField, transformField, tintRField, tintGField, tintBField, tintMaskField;
     private static Field handleField, elementsField, formatField;
 
-    /** Whether the player has the game draw items on the ground as models: its own option, which this follows. */
+    /** Whether the player has the game draw items on the ground as models, its own option, which this follows, and has ItemsAsModels on. */
     static boolean shown() {
-        return Core.getInstance().isOption3DGroundItem();
+        return Part.ITEMS_AS_MODELS.on() && Core.getInstance().isOption3DGroundItem();
     }
 
     /**

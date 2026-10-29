@@ -42,7 +42,10 @@ enum Part {
                     + "shoulder is spun round. false: it plays the game's own stagger alone."),
     HEAD_LED_VIEW_WHEN_DOWN("FirstPerson", "HeadLedViewWhenDown", true, false,
             "true: in first person, knocked over, lying down, getting up and dying, the view is your character's head's.\n"
-                    + "false: the view stays the mouse's while the game's animation has the body, and dead, it is held where it was.");
+                    + "false: the view stays the mouse's while the game's animation has the body, and dead, it is held where it was."),
+    ITEMS_AS_MODELS("FirstPerson", "ItemsAsModels", true, true,
+            "true: in first person, while the game's 3D ground items option is on, items on the ground are built as the\n"
+                    + "game's own models of them. false: each lies flat as its picture.");
 
     final String section, key, comment;
     /** Whether the row is taken while the game runs, and whether it is read at the start to leave patches out. */

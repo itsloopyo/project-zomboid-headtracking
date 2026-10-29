@@ -456,6 +456,7 @@ public final class Agent {
                 new PatchSet("torch", new PatchTransformer(torchPatches()), firstPersonOff),
                 new PatchSet("first person", firstPerson, firstPersonOff),
                 new PatchSet("ragdolls", new PatchTransformer(ragdollPatches()), off(Part.FIRST_PERSON, Part.QUICK_RAGDOLLS)),
+                new PatchSet("item models", new PatchTransformer(itemModelPatches()), off(Part.FIRST_PERSON, Part.ITEMS_AS_MODELS)),
                 new PatchSet("frame", new PatchTransformer(framePatches()), null),
                 new PatchSet("shots through walls", new PatchTransformer(throughWallPatches()), null),
                 new PatchSet("world", new PatchTransformer(worldPatches()), null),
@@ -544,12 +545,7 @@ public final class Agent {
         String vector3 = "Lzombie/iso/Vector3;";
         CallSite.Method muzzleAt = new CallSite.Method(ballistics.owner(), "calculateMuzzlePosition", "(" + vector3 + vector3 + ")F");
         CallSite.Method muzzle = new CallSite.Method(HOOKS, "muzzle", "(L" + ballistics.owner() + ";" + vector3 + vector3 + ")F");
-        String model = "zombie/core/skinnedmodel/model/Model";
         return List.of(
-                new Patch(model, "<init> calling CreateShader", classBytes -> CallSite.replaceEach(classBytes,
-                        new CallSite.Method(model, "<init>", "(Lzombie/asset/AssetPath;Lzombie/asset/AssetManager;L" + model + "$ModelAssetParams;)V"),
-                        new CallSite.Method(model, "CreateShader", "(Ljava/lang/String;)V"),
-                        new CallSite.Method("com/cameraunlock/zomboid/ItemModels", "createShader", "(L" + model + ";Ljava/lang/String;)V"), 1)),
                 new Patch(PLAYER, "getInputMoveVector after getInputMoveVector", classBytes -> CallSite.insertAfterEach(classBytes,
                         new CallSite.Method(PLAYER, "getInputMoveVector", VECTOR2_FILTER),
                         new CallSite.Method("zombie/characters/IsoLivingCharacter", "getInputMoveVector", VECTOR2_FILTER),
@@ -728,6 +724,15 @@ public final class Agent {
                         CallSite.filterStaticInt(code, GAME_MOUSE, "y", new CallSite.Method(HOOKS, "cursorY", "(I)I"));
                     });
                 }));
+    }
+
+    /** Apart from first person's: the shader of a model of an item on the ground is made without a frame's wait. See ItemModels.createShader. */
+    private static List<Patch> itemModelPatches() {
+        String model = "zombie/core/skinnedmodel/model/Model";
+        return List.of(new Patch(model, "<init> calling CreateShader", classBytes -> CallSite.replaceEach(classBytes,
+                new CallSite.Method(model, "<init>", "(Lzombie/asset/AssetPath;Lzombie/asset/AssetManager;L" + model + "$ModelAssetParams;)V"),
+                new CallSite.Method(model, "CreateShader", "(Ljava/lang/String;)V"),
+                new CallSite.Method("com/cameraunlock/zomboid/ItemModels", "createShader", "(L" + model + ";Ljava/lang/String;)V"), 1)));
     }
 
     /** Apart from first person's: a body hit goes into its ragdoll at once, and a first person shot pushes it along the shot. See Ragdolls and HitImpulse. */
