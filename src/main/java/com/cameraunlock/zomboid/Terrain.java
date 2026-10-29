@@ -53,16 +53,17 @@ import zombie.util.list.PZArrayList;
  *
  * They go by the map and by nothing that was loaded or asked for before. What each chunk's
  * squares are is read into a record of the chunk (Kinds): from its squares where it is loaded,
- * from the map's files where it is not and MapAhead has read them, and as UNKNOWN where
- * neither has it. A loaded chunk's record goes by its own squares, and above the ground only
- * by those the game makes on every load of the chunk (above): a square it makes on a first
- * load only, or on the chunk's edge for a chunk that loads beside it, adds nothing. Whatever
- * is worked out from records, a footing, a pad, a chunk's heights, is kept with the chunks it
- * went by (Reads), and holds while none of them has come out otherwise. A record is read again
- * when its chunk loads or is let go, and when what MapAhead holds of the chunk is another
- * (scan). Only where it then comes out otherwise is what went by it worked out again: where
- * the save has a chunk as the map's files do, nothing is. What the game changes in a loaded
- * chunk later, a wall built or burnt down, is read when the chunk loads again.
+ * from what MapAhead read of the map's files where it is not and some view's window holds it,
+ * and as UNKNOWN where neither has it. A loaded chunk's record goes by its own squares, and
+ * above the ground only by those the game makes on every load of the chunk (above): a square
+ * it makes on a first load only, or on the chunk's edge for a chunk that loads beside it, adds
+ * nothing. Whatever is worked out from records, a footing, a pad, a chunk's heights, is kept
+ * with the chunks it went by (Reads), and holds while none of them has come out otherwise. A
+ * record is read again when its chunk loads or is let go, and when what MapAhead holds of the
+ * chunk is another (scan). Only where it then comes out otherwise is what went by it worked
+ * out again: where the save has a chunk as the map's files do, nothing is. What the game
+ * changes in a loaded chunk later, a wall built or burnt down, is read when the chunk loads
+ * again.
  *
  * There are two lies of the land, the hills and the country left level, and each player's
  * view is drawn on one of them (WorldScene.terrain): what a square is made of is the same for

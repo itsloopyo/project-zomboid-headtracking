@@ -325,8 +325,7 @@ final class MapAhead {
     /** Each cell's lotpack and traits, or null for a cell the map has no lotpack for. */
     private static final HashMap<Long, Cell> cells = new HashMap<>();
     private static final HashMap<String, Integer> traitsByName = new HashMap<>();
-    /** Each view's chunk the window was last read round, and the windows to keep. */
-    private static final long[] roundOf = new long[View.COUNT];
+    /** Each view's window: its first chunk, and how many chunks a side it is. */
     private static final int[] windowX = new int[View.COUNT], windowY = new int[View.COUNT], windowSide = new int[View.COUNT];
     private static final boolean[] windowed = new boolean[View.COUNT];
     private static int version;
@@ -365,7 +364,7 @@ final class MapAhead {
         return version;
     }
 
-    /** What has been read of a chunk not loaded, or null. Logic thread. */
+    /** What has been read of a chunk, or null: it is let go of once no view's window holds the chunk (window). Logic thread. */
     static Guess guessed(int wx, int wy) {
         int slot = slot(wx, wy);
         for (int way = 0; way < View.COUNT; way++) {
@@ -394,9 +393,8 @@ final class MapAhead {
         throw new IllegalStateException("no place for the guess of chunk " + guess.wx + ", " + guess.wy + ": every way holds a chunk some view's window has");
     }
 
-    /** For tests: has the guess be what is read of its chunk, with no view's window kept. */
+    /** For tests: has the guess be what is read of its chunk, as if the thread had read it as asked. */
     static void put(Guess guess) {
-        Arrays.fill(windowed, false);
         keep(guess);
         version++;
     }
@@ -426,22 +424,31 @@ final class MapAhead {
             }
             return;
         }
-        int wx = Math.floorDiv(x, CHUNK), wy = Math.floorDiv(y, CHUNK);
-        long round = key(wx, wy);
-        if (!windowed[view] || roundOf[view] != round || windowSide[view] != side()) {
-            boolean had = windowed[view];
-            int wasX = windowX[view], wasY = windowY[view], wasSide = windowSide[view];
-            windowed[view] = true;
-            roundOf[view] = round;
-            windowSide[view] = side();
-            windowX[view] = wx - side() / 2;
-            windowY[view] = wy - side() / 2;
+        int side = side(), fromX = Math.floorDiv(x, CHUNK) - side / 2, fromY = Math.floorDiv(y, CHUNK) - side / 2;
+        if (!windowed[view] || windowX[view] != fromX || windowY[view] != fromY || windowSide[view] != side) {
+            window(view, fromX, fromY, side);
             ask(view);
-            if (had) {
-                forgetOutside(wasX, wasY, wasSide);
-            }
         }
         take();
+    }
+
+    /**
+     * Logic thread: has a view's window be the chunks from (fromX, fromY), side chunks a side,
+     * and lets go of what was asked and read of the chunks of the window it had that no view's
+     * window holds now. What is read of a chunk is kept while some window holds it and not
+     * after, so what Terrain reads of the map not loaded goes by where the eyes are and not by
+     * where they have been.
+     */
+    static void window(int view, int fromX, int fromY, int side) {
+        boolean had = windowed[view];
+        int wasX = windowX[view], wasY = windowY[view], wasSide = windowSide[view];
+        windowed[view] = true;
+        windowX[view] = fromX;
+        windowY[view] = fromY;
+        windowSide[view] = side;
+        if (had) {
+            forgetOutside(wasX, wasY, wasSide);
+        }
     }
 
     /** The chunks a side of a view's window, which must be no wider than the table (see TABLE_SIDE). */
@@ -593,8 +600,9 @@ final class MapAhead {
         throw new IllegalStateException("no place to note chunk " + wx + ", " + wy + " asked: every way holds a chunk some view's window has");
     }
 
-    /** Lets go of what was asked in a view's window from (fromX, fromY), side chunks a side, and lies outside every view's window now. */
+    /** Lets go of what was asked and read in a view's window from (fromX, fromY), side chunks a side, and lies outside every view's window now. */
     private static void forgetOutside(int fromX, int fromY, int side) {
+        boolean dropped = false;
         for (int wx = fromX; wx < fromX + side; wx++) {
             for (int wy = fromY; wy < fromY + side; wy++) {
                 if (inAnyWindow(wx, wy)) {
@@ -606,8 +614,16 @@ final class MapAhead {
                     if (asked[slot + way] == chunk) {
                         asked[slot + way] = NONE;
                     }
+                    Guess guess = guesses[slot + way];
+                    if (guess != null && guess.wx == wx && guess.wy == wy) {
+                        guesses[slot + way] = null;
+                        dropped = true;
+                    }
                 }
             }
+        }
+        if (dropped) {
+            version++;
         }
     }
 

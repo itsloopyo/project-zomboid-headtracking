@@ -71,6 +71,7 @@ final class TerrainTests {
             Checks.run("recordsLetGoFarFromEveryEyeAreReadAgainAsTheyWere", () -> TestMap.withEverything(TerrainTests::recordsLetGoFarFromEveryEyeAreReadAgainAsTheyWere));
             Checks.run("recordsPutOutForRoomAreReadAgainAsTheyWere", TerrainTests::recordsPutOutForRoomAreReadAgainAsTheyWere);
             Checks.run("aRowOfContentSwitchedGivesTheHeightsWorkedOutAfresh", TerrainTests::aRowOfContentSwitchedGivesTheHeightsWorkedOutAfresh);
+            Checks.run("groundReadAheadAndLeftBehindHasTheHeightsOfGroundReadAfresh", TerrainTests::groundReadAheadAndLeftBehindHasTheHeightsOfGroundReadAfresh);
             Checks.run("aSquareTheGameMakesOnAChunksEdgeForTheChunkBesideItIsNothingOverTheGround", TerrainTests::aSquareTheGameMakesOnAChunksEdgeForTheChunkBesideItIsNothingOverTheGround);
             Checks.run("aChunkHasTheHeightsOnItsFirstLoadThatItHasFromTheSave", TerrainTests::aChunkHasTheHeightsOnItsFirstLoadThatItHasFromTheSave);
             Checks.run("postsOnALevelAboveTheRoadLeaveTheKerbAndWhatIsBuiltOnAsTheyAre", TerrainTests::postsOnALevelAboveTheRoadLeaveTheKerbAndWhatIsBuiltOnAsTheyAre);
@@ -716,8 +717,11 @@ final class TerrainTests {
         return out;
     }
 
-    /** Has MapAhead read the town and the grass round it from the map's files: as the save has the town, or with the map's own differences. */
-    private static void readTownAhead(boolean asShipped) {
+    /**
+     * Has MapAhead read the town and the grass round it from the map's files, the chunks from
+     * fromX east: as the save has the town, or with the map's own differences.
+     */
+    private static void readTownAhead(boolean asShipped, int fromX) {
         Town shipped = new Town(asShipped);
         List<IsoSprite> sprites = shipped.sprites();
         int[] traits = new int[sprites.size()];
@@ -732,7 +736,7 @@ final class TerrainTests {
                 shipped.lay(wx, wy);
             }
         }
-        for (int wx = -TOWN_MARGIN; wx < TOWN_X + TOWN_MARGIN; wx++) {
+        for (int wx = Math.max(fromX, -TOWN_MARGIN); wx < TOWN_X + TOWN_MARGIN; wx++) {
             for (int wy = -TOWN_MARGIN; wy < TOWN_Y + TOWN_MARGIN; wy++) {
                 int[][] tiles = new int[2 * Terrain.CHUNK_TILES * Terrain.CHUNK_TILES][];
                 for (int z = 0; z <= 1; z++) {
@@ -837,7 +841,7 @@ final class TerrainTests {
                 for (boolean southward : new boolean[] {true, false}) {
                     MapAhead.forget();
                     if (!ahead.equals("not at all")) {
-                        readTownAhead(ahead.equals("as the map's files have it"));
+                        readTownAhead(ahead.equals("as the map's files have it"), -TOWN_MARGIN);
                     }
                     Terrain.forget();
                     Town town = new Town(false);
@@ -1015,6 +1019,55 @@ final class TerrainTests {
                     + differing.subList(0, Math.min(12, differing.size())));
         } finally {
             Own.set(rows);
+            ChunkMarks.live = live;
+            Terrain.forget();
+            MapAhead.forget();
+        }
+    }
+
+    /**
+     * What MapAhead read of a chunk is let go of once no view's window holds it, so the heights
+     * round it go by where the eyes are, not where they have been. Driven past a town read
+     * ahead, east till the town is out of the window, the ground beside it has the heights of
+     * the same ground read afresh there; and come back, those it has read afresh with the town.
+     */
+    private static void groundReadAheadAndLeftBehindHasTheHeightsOfGroundReadAfresh() {
+        boolean live = ChunkMarks.live;
+        Terrain.HILLS.heighten(1f);
+        Country.set(List.of());
+        try {
+            ChunkMarks.live = true;
+            int side = 47, fromY = -18, westX = -20, eastX = TOWN_X, toX = TOWN_X + 5;
+            IsoCell nothingLoaded = new TestMap().cell;
+            MapAhead.forget();
+            Terrain.forget();
+            MapAhead.window(0, westX, fromY, side);
+            readTownAhead(false, -TOWN_MARGIN);
+            Map<String, String> beside = heightsIn(nothingLoaded, eastX, 0, toX, TOWN_Y - 1, 9401, 9401);
+            MapAhead.window(0, eastX, fromY, side);
+            Map<String, String> passed = heightsIn(nothingLoaded, eastX, 0, toX, TOWN_Y - 1, 9402, 9401);
+            MapAhead.window(0, westX, fromY, side);
+            readTownAhead(false, -TOWN_MARGIN);
+            Map<String, String> back = heightsIn(nothingLoaded, eastX, 0, toX, TOWN_Y - 1, 9403, 9401);
+
+            MapAhead.forget();
+            Terrain.forget();
+            MapAhead.window(0, eastX, fromY, side);
+            readTownAhead(false, eastX);
+            Map<String, String> afresh = heightsIn(nothingLoaded, eastX, 0, toX, TOWN_Y - 1, 9404, 9404);
+            check(!differing(beside, afresh).isEmpty(), "the town read ahead beside the ground has the ground at heights of its own");
+            List<String> left = differing(afresh, passed);
+            check(left.isEmpty(), "the town left out of the window, the ground beside it has the heights it has read afresh without it: " + left.size() + " of " + afresh.size()
+                    + " differ, " + left.subList(0, Math.min(12, left.size())));
+            MapAhead.forget();
+            Terrain.forget();
+            MapAhead.window(0, westX, fromY, side);
+            readTownAhead(false, -TOWN_MARGIN);
+            Map<String, String> withTown = heightsIn(nothingLoaded, eastX, 0, toX, TOWN_Y - 1, 9405, 9405);
+            List<String> returned = differing(withTown, back);
+            check(returned.isEmpty(), "and come back, the heights it has read afresh with the town: " + returned.size() + " of " + withTown.size() + " differ, "
+                    + returned.subList(0, Math.min(12, returned.size())));
+        } finally {
             ChunkMarks.live = live;
             Terrain.forget();
             MapAhead.forget();
