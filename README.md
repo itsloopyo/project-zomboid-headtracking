@@ -368,6 +368,12 @@ RotationEnabled=default
 ; Milliseconds a tracker packet stays current. Once the tracker has sent nothing
 ; for this long, the mod stops following it until data arrives again.
 DataFreshnessMs=default
+; true: the mod's first person view. false: there is none, and the isometric view is the game's own whatever
+; IsometricQuality says. The first person key, a controller's double tap of Back and FirstPerson do nothing, and
+; nothing more is made ready for first person while you play or while a save loads; what was already made stays
+; until you leave the save.
+; Taken at once. Off, its patches of the game's code are left out from the next start.
+FirstPersonEnabled=true
 ; Vertical field of view of the first person view, in degrees: 40 to 110.
 FieldOfView=65.0
 ; First person graphics mode: Automatic, Low, Medium, High or Custom. Automatic draws less when the frame rate drops

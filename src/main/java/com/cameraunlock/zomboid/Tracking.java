@@ -158,6 +158,7 @@ final class Tracking {
         aimMode = settings.aimMode;
 
         Config.Live live = config.live();
+        Part.start(live.parts());
         Own.set(live.own());
         Rules.set(live.rules());
         customInFile = live.custom();
@@ -178,6 +179,7 @@ final class Tracking {
         talk(live);
         Log.info("the mod's own in first person: " + Own.described(Own.rows()));
         Log.info("the mod's rules offline: " + Rules.described(Rules.rows()));
+        Log.info("the mod's parts: " + Part.described());
         Log.info("hill height " + HillHeight.asked());
         Log.info("first person field of view set to " + FieldOfView.degrees() + " degrees vertical");
         Log.info("head tracking " + (enabled ? "on" : "off") + ", " + TRACKING_MODE_LABEL[trackingMode] + ", yaw about "
@@ -287,6 +289,11 @@ final class Tracking {
         }
         if (live.talkingMouths() != Mouths.on() || !live.microphones().equals(microphones)) {
             talk(live);
+        }
+        String parts = Part.described();
+        Part.take(live.parts());
+        if (!Part.described().equals(parts)) {
+            Log.info(Config.FILE_NAME + " changed: the mod's parts: " + Part.described());
         }
     }
 
@@ -618,7 +625,8 @@ final class Tracking {
         long now = System.nanoTime();
         for (int i = 0; i < View.COUNT; i++) {
             IsoPlayer player = IsoPlayer.players[i];
-            boolean down = player != null && View.onController(player) && JoypadButton.Back.isDown(player.getJoypadBind());
+            // With first person switched off the button is the game's alone: its wheel is left up.
+            boolean down = Part.FIRST_PERSON.running() && player != null && View.onController(player) && JoypadButton.Back.isDown(player.getJoypadBind());
             if (backTaps[i].press(down, now)) {
                 owed[i] |= Config.FIRST_PERSON;
                 backHeld[i] = true;

@@ -155,6 +155,10 @@ public final class Hooks {
      * FineSkins.holdsLoading), each for no longer than one wait from when the map was read.
      */
     public static boolean worldLoaded(boolean streaming) {
+        if (!Part.FIRST_PERSON.running()) {
+            loadingHeld = shadersHeld = false;
+            return streaming;
+        }
         boolean shaders = false, content = false;
         for (int i = 0; i < View.COUNT; i++) {
             IsoPlayer player = IsoPlayer.players[i];

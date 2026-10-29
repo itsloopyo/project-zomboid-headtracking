@@ -15,6 +15,7 @@ import java.nio.file.attribute.FileTime;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.StringJoiner;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
@@ -65,6 +66,7 @@ public final class CoreTests {
             Log.open(Path.of(arguments[3]));
             Tracking.open(Path.of(arguments[1]), Path.of(arguments[2]));
             System.out.println(started());
+            System.out.println(leftOut());
             return;
         }
         Checks.suite = "core tests";
@@ -97,6 +99,7 @@ public final class CoreTests {
         Checks.run("nextStartRunsOnWhatWasSaved", CoreTests::nextStartRunsOnWhatWasSaved);
         Checks.run("freeLookWithNoMarkerIsReadAsFreeLookWithOne", CoreTests::freeLookWithNoMarkerIsReadAsFreeLookWithOne);
         Checks.run("aFileFromBeforeTheKeysMovedStartsOnTheNavKeys", CoreTests::aFileFromBeforeTheKeysMovedStartsOnTheNavKeys);
+        Checks.run("firstPersonSwitchedOffLeavesItsPatchesOutOfTheNextStart", CoreTests::firstPersonSwitchedOffLeavesItsPatchesOutOfTheNextStart);
         Checks.run("rowsReadAgainWhileTheGameRuns", CoreTests::rowsReadAgainWhileTheGameRuns);
         Checks.run("settingsOfTheGamesOptionsScreenAreSavedAndTaken", CoreTests::settingsOfTheGamesOptionsScreenAreSavedAndTaken);
         Checks.run("eachPlayersMicrophoneIsChosenAndSavedByItsName", CoreTests::eachPlayersMicrophoneIsChosenAndSavedByItsName);
@@ -127,6 +130,18 @@ public final class CoreTests {
     private static String started() {
         return headTracking.describe() + " | field of view " + FieldOfView.degrees() + " | own " + Own.described(Own.rows()) + " | graphics "
                 + Quality.name(0) + " | style " + Style.of(0).label + " | frame blending " + Quality.frameBlending(0);
+    }
+
+    /** The sets of patches a start leaves out of the game's code, by name, in the order they would go in. */
+    private static String leftOut() {
+        StringJoiner names = new StringJoiner(", ", "left out: ", "");
+        names.setEmptyValue("left out: none");
+        for (Agent.PatchSet set : Agent.sets(true)) {
+            if (set.leftOut() != null) {
+                names.add(set.name());
+            }
+        }
+        return names.toString();
     }
 
     private static String java() {
@@ -676,15 +691,36 @@ public final class CoreTests {
         edit(saved);
     }
 
+    private static void firstPersonSwitchedOffLeavesItsPatchesOutOfTheNextStart() throws IOException, InterruptedException {
+        check(nextStart("parts-on").contains("left out: none" + System.lineSeparator()),
+                "with every part on, a start leaves no set of patches out");
+        String saved = text();
+        edit(saved.replace("FirstPersonEnabled=true", "FirstPersonEnabled=false"));
+        String next = nextStart("first-person-off");
+        String firstPersonSets = "torch, first person, fine skins, shot, thunder, name tags, covered, screen grey, far vehicles, loading, chunk marks, window marks, "
+                + "unmarked changes, hushed marks, hearing, waiting composites, spotting";
+        check(next.contains("left out: " + firstPersonSets + System.lineSeparator()),
+                "with FirstPersonEnabled off, the next start leaves out first person's patches and keeps the rest, the impacts too while a shot breaks lamps: " + next);
+        check(next.contains("the mod's parts: switched off: FirstPersonEnabled off"), "and says so in the log");
+        edit(saved.replace("FirstPersonEnabled=true", "FirstPersonEnabled=false").replace("ShotsBreakLamps=true", "ShotsBreakLamps=false")
+                .replace("ShotsBreakGlass=true", "ShotsBreakGlass=false"));
+        check(nextStart("first-person-and-breaking-off").contains("left out: " + firstPersonSets.replace("thunder, ", "thunder, impacts, ") + System.lineSeparator()),
+                "and the impacts as well once no shot breaks lamps or glass either");
+        edit(saved);
+        check(nextStart("first-person-on-again").contains("left out: none"), "set back, the next start has every set in again");
+    }
+
     private static void rowsReadAgainWhileTheGameRuns() throws IOException, InterruptedException {
         Tracking.watchSettings();
         String saved = text();
         edit(saved.replace("FieldOfView=65.0", "FieldOfView=90").replace("VanillaWeapons=false", "VanillaWeapons=true")
                 .replace("VanillaPlants=false", "VanillaPlants=true").replace("Quality=Medium", "Quality=High").replace("Style=Vivid", "Style=Natural")
                 .replace("MuzzleFlash=true", "MuzzleFlash=false").replace("Crosshair=true", "Crosshair=false").replace("RegripTwoHandedWeapons=true", "RegripTwoHandedWeapons=false").replace("SpreadLightUpdates=true", "SpreadLightUpdates=false").replace("SplitScreen=Horizontal", "SplitScreen=Vertical").replace("UdpPort=default", "UdpPort=5555")
-                .replace("HillHeight=1.5", "HillHeight=0.25"));
+                .replace("HillHeight=1.5", "HillHeight=0.25").replace("FirstPersonEnabled=true", "FirstPersonEnabled=false"));
         Tracking.watchSettings();
         check(FieldOfView.degrees() == 90f, "an edited field of view is read while the game runs");
+        check(!Part.FIRST_PERSON.on() && !Part.FIRST_PERSON.running() && Part.FIRST_PERSON.atStart(),
+                "and first person switched off, its patches still in until the next start: " + Part.described());
         check(HillHeight.asked() == 0.25f, "and the height of the hills: " + HillHeight.asked());
         check(Own.rows() == (Own.ALL & ~Own.WEAPONS & ~Own.PLANTS), "rows of [Content] switched on are the game's, and the rest stay the mod's: " + Own.described(Own.rows()));
         check(Quality.name(0).equals("High") && Style.of(0) == Style.NATURAL, "and the graphics mode and the picture style");
@@ -696,7 +732,8 @@ public final class CoreTests {
         edit(saved.replace("VanillaArms=false", "VanillaArms=true"));
         Tracking.watchSettings();
         check(FieldOfView.degrees() == 65f && Own.rows() == (Own.ALL & ~Own.ARMS) && Quality.name(0).equals("Medium") && Style.of(0) == Style.VIVID
-                        && MuzzleFlash.on() && Crosshair.on() && Regrip.on() && PendingLights.spread() && SplitScreen.row() == SplitScreen.HORIZONTAL && HillHeight.asked() == 1.5f,
+                        && MuzzleFlash.on() && Crosshair.on() && Regrip.on() && PendingLights.spread() && SplitScreen.row() == SplitScreen.HORIZONTAL && HillHeight.asked() == 1.5f
+                        && Part.FIRST_PERSON.running(),
                 "set back, they are as they were, and the arms row switched on is that row and no other: " + Own.described(Own.rows()));
         Tracking.cycleStyle(0);
         check(Style.of(0) == Style.NATURAL, "a save after an edit still saves");
@@ -733,7 +770,7 @@ public final class CoreTests {
         for (CameraUnlock.Option option : options) {
             ids.append(option.id).append(' ');
         }
-        check(ids.toString().equals("WorldSpaceYaw TrackingMode AimMode FieldOfView Quality IsometricQuality Style FirstPerson HillHeight MuzzleFlash Crosshair RegripTwoHandedWeapons SplitScreen "
+        check(ids.toString().equals("WorldSpaceYaw TrackingMode AimMode FirstPersonEnabled FieldOfView Quality IsometricQuality Style FirstPerson HillHeight MuzzleFlash Crosshair RegripTwoHandedWeapons SplitScreen "
                         + "SecondPlayerQuality SecondPlayerIsometricQuality SecondPlayerStyle SecondPlayerFirstPerson ThirdPlayerQuality ThirdPlayerIsometricQuality ThirdPlayerStyle "
                         + "ThirdPlayerFirstPerson FourthPlayerQuality FourthPlayerIsometricQuality FourthPlayerStyle FourthPlayerFirstPerson TreeQuality "
                         + "GrassDensity RenderScale ViewDistance ZombiesAndPropsDrawDistance FarTreeDistance RainOnGlass ShadingAndLight Reflections ReflectionScale "
@@ -750,7 +787,7 @@ public final class CoreTests {
                 page.append(options[option].id).append(' ');
             }
         }
-        check(page.toString().equals("[Tracking] TrackingMode AimMode WorldSpaceYaw [First person] FirstPerson FieldOfView Crosshair HillHeight [Weapons] MuzzleFlash RegripTwoHandedWeapons "
+        check(page.toString().equals("[Tracking] TrackingMode AimMode WorldSpaceYaw [First person] FirstPersonEnabled FirstPerson FieldOfView Crosshair HillHeight [Weapons] MuzzleFlash RegripTwoHandedWeapons "
                         + "[Graphics] Quality IsometricQuality Style [Custom graphics] TreeQuality GrassDensity RenderScale ViewDistance ZombiesAndPropsDrawDistance "
                         + "FarTreeDistance RainOnGlass ShadingAndLight Reflections ReflectionScale FullSizeTextures SurfaceDepth SharpShadows WholeFigureShadows FrameBlending "
                         + "LightDistance CorpseModels [Optimizations] SpreadLightUpdates [Vanilla content] VanillaWeapons VanillaFurniture VanillaPictures VanillaPlants VanillaTextures VanillaBuildings "

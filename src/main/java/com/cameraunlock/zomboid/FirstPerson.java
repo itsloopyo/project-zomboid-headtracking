@@ -607,6 +607,9 @@ public final class FirstPerson {
         if (player == null) {
             return "no player";
         }
+        if (!Part.FIRST_PERSON.on()) {
+            return Part.FIRST_PERSON.key + " is off in " + Config.FILE_NAME;
+        }
         String gap = Agent.firstPersonGap();
         if (gap == null) {
             gap = Panels.gap();
@@ -901,7 +904,7 @@ public final class FirstPerson {
             if (view.pipeline.failure() != null) {
                 return;
             }
-            boolean making = !gettingReady && !view.characters.wanted
+            boolean making = !gettingReady && !view.characters.wanted && Part.FIRST_PERSON.running()
                     && (view.pipeline.unprepared() || view.pipeline.contentWaited() || view.pipeline.contentHalfMade());
             if (making) {
                 SpriteRenderer.instance.drawGeneric(view.pipeline.PREPARE);

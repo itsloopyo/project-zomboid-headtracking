@@ -11,7 +11,9 @@ import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
 import java.security.ProtectionDomain;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.StringJoiner;
 import java.util.concurrent.ConcurrentHashMap;
@@ -407,71 +409,94 @@ public final class Agent {
         if (gameFixes) {
             addItemLookupTransformers(instrumentation);
         }
-        add(instrumentation, new PatchTransformer(basePatches()));
-        firstPerson = new PatchTransformer(firstPersonPatches());
-        add(instrumentation, firstPerson);
-        add(instrumentation, new PatchTransformer(framePatches()));
-        add(instrumentation, new PatchTransformer(throughWallPatches()));
-        add(instrumentation, new PatchTransformer(worldPatches()));
-        add(instrumentation, new PatchTransformer(DevPatches.list()));
-
-        fineSkins = new PatchTransformer(fineSkinPatches());
-        add(instrumentation, fineSkins);
-
-        shot = new PatchTransformer(shotPatches());
-        add(instrumentation, shot);
-
-        thunder = new PatchTransformer(thunderPatches());
-        add(instrumentation, thunder);
-
-        lamps = new PatchTransformer(lampPatches());
-        add(instrumentation, lamps);
-
-        impacts = new PatchTransformer(impactPatches());
-        add(instrumentation, impacts);
-
-        modelHead = new PatchTransformer(modelHeadPatches());
-        add(instrumentation, modelHead);
-
-        nameTags = new PatchTransformer(nameTagPatches());
-        add(instrumentation, nameTags);
-
-        if (gameFixes) {
-            add(instrumentation, new PatchTransformer(gameFixPatches()));
+        Map<String, StringJoiner> leftOut = new LinkedHashMap<>();
+        for (PatchSet set : sets(gameFixes)) {
+            if (set.leftOut() == null) {
+                add(instrumentation, set.transformer());
+            } else {
+                set.transformer().leaveOut(set.leftOut());
+                leftOut.computeIfAbsent(set.leftOut(), why -> new StringJoiner(", ")).add(set.name());
+            }
         }
-        add(instrumentation, new PatchTransformer(hangFixPatches()));
-        add(instrumentation, new PatchTransformer(coveredPatches()));
-        add(instrumentation, new PatchTransformer(partDrawPatches()));
-        add(instrumentation, new PatchTransformer(screenGreyPatches()));
-        add(instrumentation, new PatchTransformer(farVehiclePatches()));
-        add(instrumentation, new PatchTransformer(liveSightPatches()));
-        add(instrumentation, new PatchTransformer(leftSavePatches()));
-        add(instrumentation, new PatchTransformer(loadingPatches()));
-        add(instrumentation, new PatchTransformer(luaLoadedPatches()));
-        add(instrumentation, new PatchTransformer(knockdownPatches()));
-        add(instrumentation, new PatchTransformer(carPhysicsPatches()));
-        add(instrumentation, new PatchTransformer(controllerPatches()));
-        chunkMarks = new PatchTransformer(chunkMarkPatches());
-        add(instrumentation, chunkMarks);
-        windowMarks = new PatchTransformer(windowMarkPatches());
-        add(instrumentation, windowMarks);
-        unmarkedChanges = new PatchTransformer(unmarkedChangePatches());
-        add(instrumentation, unmarkedChanges);
-        add(instrumentation, new PatchTransformer(hushedMarkPatches()));
-        hearing = new PatchTransformer(hearingPatches());
-        add(instrumentation, hearing);
-        add(instrumentation, new PatchTransformer(chunkCentrePatches()));
-        splitScreen = new PatchTransformer(splitScreenPatches());
-        add(instrumentation, splitScreen);
-        waitingComposites = new PatchTransformer(waitingCompositePatches());
-        add(instrumentation, waitingComposites);
-        spotting = new PatchTransformer(spottingPatches());
-        add(instrumentation, spotting);
         Log.info("the mod's " + transformers.size() + " sets of patches are registered, each to go in as the game loads its class");
+        leftOut.forEach((why, sets) -> Log.info("left out of the game's code until a start with them on, as " + why + ": " + sets));
         return true;
     }
 
-    /** The patches for the window's place, the carried light and the log. */
+    /** A set of patches, its name in the log, and why this start leaves it out of the game's code, or null when it goes in. */
+    record PatchSet(String name, PatchTransformer transformer, String leftOut) {}
+
+    /**
+     * The mod's sets of patches after the item lookups, in the order they go in, each with why it
+     * is left out as the parts and rules of CameraUnlock.ini were when the game started: asked
+     * once Tracking.start has read the file. Gives each set whose gap the mod asks its field.
+     */
+    static List<PatchSet> sets(boolean gameFixes) {
+        String firstPersonOff = off(Part.FIRST_PERSON);
+        firstPerson = new PatchTransformer(firstPersonPatches());
+        fineSkins = new PatchTransformer(fineSkinPatches());
+        shot = new PatchTransformer(shotPatches());
+        thunder = new PatchTransformer(thunderPatches());
+        lamps = new PatchTransformer(lampPatches());
+        impacts = new PatchTransformer(impactPatches());
+        modelHead = new PatchTransformer(modelHeadPatches());
+        nameTags = new PatchTransformer(nameTagPatches());
+        chunkMarks = new PatchTransformer(chunkMarkPatches());
+        windowMarks = new PatchTransformer(windowMarkPatches());
+        unmarkedChanges = new PatchTransformer(unmarkedChangePatches());
+        hearing = new PatchTransformer(hearingPatches());
+        splitScreen = new PatchTransformer(splitScreenPatches());
+        waitingComposites = new PatchTransformer(waitingCompositePatches());
+        spotting = new PatchTransformer(spottingPatches());
+        // A shot breaks lamps and glass where ImpactFinder finds it ends, in either view.
+        boolean shotsBreak = (Rules.rows() & (Rules.BREAKS_LAMPS | Rules.BREAKS_GLASS)) != 0;
+        return List.of(
+                new PatchSet("base", new PatchTransformer(basePatches()), null),
+                new PatchSet("torch", new PatchTransformer(torchPatches()), firstPersonOff),
+                new PatchSet("first person", firstPerson, firstPersonOff),
+                new PatchSet("frame", new PatchTransformer(framePatches()), null),
+                new PatchSet("shots through walls", new PatchTransformer(throughWallPatches()), null),
+                new PatchSet("world", new PatchTransformer(worldPatches()), null),
+                new PatchSet("development", new PatchTransformer(DevPatches.list()), null),
+                new PatchSet("fine skins", fineSkins, firstPersonOff),
+                new PatchSet("shot", shot, firstPersonOff),
+                new PatchSet("thunder", thunder, firstPersonOff),
+                new PatchSet("lamps", lamps, null),
+                new PatchSet("impacts", impacts, firstPersonOff == null || shotsBreak ? null
+                        : Part.FIRST_PERSON.key + ", ShotsBreakLamps and ShotsBreakGlass were off as the game started"),
+                new PatchSet("model head", modelHead, null),
+                new PatchSet("name tags", nameTags, firstPersonOff),
+                new PatchSet("game fixes", new PatchTransformer(gameFixPatches()),
+                        gameFixes ? null : "the cameraunlock.zomboid.withoutGameFixes property was set"),
+                new PatchSet("hang fix", new PatchTransformer(hangFixPatches()), null),
+                new PatchSet("covered", new PatchTransformer(coveredPatches()), firstPersonOff),
+                new PatchSet("part draw", new PatchTransformer(partDrawPatches()), null),
+                new PatchSet("screen grey", new PatchTransformer(screenGreyPatches()), firstPersonOff),
+                new PatchSet("far vehicles", new PatchTransformer(farVehiclePatches()), firstPersonOff),
+                new PatchSet("live sight", new PatchTransformer(liveSightPatches()), null),
+                new PatchSet("left save", new PatchTransformer(leftSavePatches()), null),
+                new PatchSet("loading", new PatchTransformer(loadingPatches()), firstPersonOff),
+                new PatchSet("lua loaded", new PatchTransformer(luaLoadedPatches()), null),
+                new PatchSet("knockdown", new PatchTransformer(knockdownPatches()), null),
+                new PatchSet("car physics", new PatchTransformer(carPhysicsPatches()), null),
+                new PatchSet("controller", new PatchTransformer(controllerPatches()), null),
+                new PatchSet("chunk marks", chunkMarks, firstPersonOff),
+                new PatchSet("window marks", windowMarks, firstPersonOff),
+                new PatchSet("unmarked changes", unmarkedChanges, firstPersonOff),
+                new PatchSet("hushed marks", new PatchTransformer(hushedMarkPatches()), firstPersonOff),
+                new PatchSet("hearing", hearing, firstPersonOff),
+                new PatchSet("chunk centre", new PatchTransformer(chunkCentrePatches()), null),
+                new PatchSet("split screen", splitScreen, null),
+                new PatchSet("waiting composites", waitingComposites, firstPersonOff),
+                new PatchSet("spotting", spotting, firstPersonOff));
+    }
+
+    /** Why a set that serves only this part is left out at this start, or null when the part was on as the game started. */
+    private static String off(Part part) {
+        return part.atStart() ? null : part.key + " was off as the game started";
+    }
+
+    /** The patches for the window's place and the log. */
     private static List<Patch> basePatches() {
         return List.of(
                 after(new CallSite.Method(DISPLAY, "create", "()V"),
@@ -483,17 +508,21 @@ public final class Agent {
                 after(new CallSite.Method(DISPLAY, "setBorderlessWindow", "(Z)V"),
                         new CallSite.Method(GLFW, "glfwSetWindowAttrib", "(JII)V"),
                         new CallSite.Method(WINDOW_PLACEMENT, "centreAfterModeChange", "()V")),
-                new Patch(TORCH, "set after getLookVector", classBytes -> CallSite.insertAfterEach(classBytes,
-                        new CallSite.Method(TORCH, "set", "(L" + PLAYER + ";Lzombie/inventory/InventoryItem;)L" + TORCH + ";"),
-                        new CallSite.Method(PLAYER, "getLookVector", VECTOR2_FILTER),
-                        code -> CallSite.passFirstArgument(code, new CallSite.Method(HOOKS, "lightDirection",
-                                "(Lzombie/iso/Vector2;L" + PLAYER + ";)Lzombie/iso/Vector2;")), 1)),
                 // The one method every exception the game catches or lets a thread end on is logged by.
                 new Patch(EXCEPTION_LOGGER, "logException before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
                         new CallSite.Method(EXCEPTION_LOGGER, "logException",
                                 "(Ljava/lang/Throwable;Ljava/lang/String;Ljava/lang/String;Lzombie/debug/DebugType;Lzombie/debug/LogSeverity;)V"),
                         code -> CallSite.passFirstStaticArgument(code, new CallSite.Method("com/cameraunlock/zomboid/Agent", "caughtByTheGame",
                                 "(Ljava/lang/Throwable;)V")))));
+    }
+
+    /** The way a carried torch shines, which in first person is where the view faces and the head turns: see Hooks.lightDirection. */
+    private static List<Patch> torchPatches() {
+        return List.of(new Patch(TORCH, "set after getLookVector", classBytes -> CallSite.insertAfterEach(classBytes,
+                new CallSite.Method(TORCH, "set", "(L" + PLAYER + ";Lzombie/inventory/InventoryItem;)L" + TORCH + ";"),
+                new CallSite.Method(PLAYER, "getLookVector", VECTOR2_FILTER),
+                code -> CallSite.passFirstArgument(code, new CallSite.Method(HOOKS, "lightDirection",
+                        "(Lzombie/iso/Vector2;L" + PLAYER + ";)Lzombie/iso/Vector2;")), 1)));
     }
 
     private static List<Patch> firstPersonPatches() {
@@ -1774,6 +1803,8 @@ public final class Agent {
         private final List<Patch> patches;
         private final Consumer<String> lost;
         private final Set<Patch> applied = ConcurrentHashMap.newKeySet();
+        /** Why the set was left out of the game's code at this start, or null when it went in. */
+        private volatile String leftOut;
 
         PatchTransformer(List<Patch> patches) {
             this(patches, what -> {});
@@ -1791,6 +1822,10 @@ public final class Agent {
             return owners;
         }
 
+        void leaveOut(String why) {
+            leftOut = why;
+        }
+
         /** Marks the patches of a class the JVM refused to take back as not in the game's code. */
         void forget(String owner) {
             patches.stream().filter(patch -> patch.owner().equals(owner)).forEach(applied::remove);
@@ -1805,6 +1840,9 @@ public final class Agent {
          * does not hear of that.
          */
         String gap() {
+            if (leftOut != null) {
+                return leftOut;
+            }
             for (Patch patch : patches) {
                 String missing = missing(patch);
                 if (missing != null) {
@@ -1816,6 +1854,9 @@ public final class Agent {
 
         /** The same for patches that each stand apart from the others: every one that is not in the game's code, or null when all of them are. */
         String gaps() {
+            if (leftOut != null) {
+                return leftOut;
+            }
             StringJoiner all = new StringJoiner("; ");
             for (Patch patch : patches) {
                 String missing = missing(patch);

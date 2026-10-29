@@ -64,7 +64,7 @@ final class Config {
      * and each player's microphone.
      */
     record Live(float fieldOfView, int own, int rules, int[] quality, int[] overheadQuality, int[] style, boolean spreadLightUpdates, int firstPerson, float hillHeight, boolean muzzleFlash, boolean crosshair, boolean regrip, int splitScreen,
-            Quality.Picture custom, boolean talkingMouths, List<String> microphones) {}
+            Quality.Picture custom, boolean talkingMouths, List<String> microphones, long parts) {}
 
     /** The keys of [Graphics], the Custom graphics mode, in the order the options screen shows them. */
     static final String[] GRAPHICS = {"TreeQuality", "GrassDensity", "RenderScale", "ViewDistance", "ZombiesAndPropsDrawDistance",
@@ -91,6 +91,8 @@ final class Config {
     private static final int NO_ROW = -1;
     /** The rows of [Graphics], in the order of GRAPHICS. */
     private final int[] graphics;
+    /** The row of each Part, by its ordinal. */
+    private final int[] parts = new int[Part.values().length];
     /** For each of the mod's own rows the game's options screen shows, by its key: what puts a value applied there on the running game. */
     private final Map<String, DoubleConsumer> puts = new HashMap<>();
 
@@ -145,6 +147,7 @@ final class Config {
                 "Cycles the aim mode: sights locked, free look with a marker, stock sights.", "Insert");
         core.configConcept("LightMultiplier", 0, null, null);
 
+        describe(Part.FIRST_PERSON);
         fieldOfView = core.configLocalFloat("General", "FieldOfView",
                 "Vertical field of view of the first person view, in degrees: 40 to 110.",
                 writable | live, FieldOfView.DEFAULT_DEGREES, MIN_FIELD_OF_VIEW, MAX_FIELD_OF_VIEW);
@@ -442,6 +445,16 @@ final class Config {
                 Log.info("the mod's own in first person: " + Own.described(Own.rows()));
             });
         }
+        for (Part part : Part.values()) {
+            puts.put(part.key, value -> {
+                if (part.live) {
+                    part.set(value != 0);
+                    Log.info(part.key + " " + (value != 0) + ": " + Part.described());
+                } else {
+                    Log.info(part.key + " " + (value != 0) + ", taken at the next start");
+                }
+            });
+        }
         String[] ruleKeys = {"ShotsThroughWalls", "ShotsBreakLamps", "ShotsBreakGlass", "ShotsWoundLimbs", "VehiclesSmashThrough", "FacesTheView", "ShotsPastTrees", "ZombiesSeenAtOnce", "Rewind30s", "HiddenWallDecor"};
         for (int i = 0; i < ruleKeys.length; i++) {
             int bit = 1 << i;
@@ -450,6 +463,12 @@ final class Config {
                 Log.info("the mod's rules offline: " + Rules.described(Rules.rows()));
             });
         }
+    }
+
+    /** A part's row, true unless the player says otherwise: read again while the game runs only where the part is taken then. */
+    private void describe(Part part) {
+        parts[part.ordinal()] = core.configLocalBool(part.section, part.key, part.comment,
+                CameraUnlock.ROW_WRITABLE | (part.live ? CameraUnlock.ROW_LIVE : 0), true);
     }
 
     /** The key of a player's first person graphics mode: Quality, SecondPlayerQuality and so on. */
@@ -543,8 +562,12 @@ final class Config {
             styles[player] = core.configGetInt(style[player]);
             firstPersons |= core.configGetInt(firstPerson[player]) << player;
         }
+        long partsOn = 0;
+        for (Part part : Part.values()) {
+            partsOn |= core.configGetInt(parts[part.ordinal()]) != 0 ? part.bit() : 0;
+        }
         return new Live(core.configGetFloat(fieldOfView), rows, changed, qualities, overheadQualities, styles, core.configGetInt(spreadLightUpdates) != 0, firstPersons, core.configGetFloat(hillHeight), core.configGetInt(muzzleFlash) != 0, core.configGetInt(crosshair) != 0, core.configGetInt(regrip) != 0, core.configGetInt(splitScreen), picture(custom),
-                core.configGetInt(talkingMouths) != 0, List.of(microphones()));
+                core.configGetInt(talkingMouths) != 0, List.of(microphones()), partsOn);
     }
 
     /** Each player's microphone as the file names it now, player 1's first. */
