@@ -874,18 +874,24 @@ public final class Agent {
     /**
      * The game spots a room, and marks a square seen this hour, as it works out the square's
      * light, so under the first person picture both went by where and when the mod read light.
-     * With this they are left to Spotting there, and are as they were everywhere else. One
-     * patch, so that both calls go to the hooks or neither does.
+     * With this they are left to Spotting there, and are as they were everywhere else. The
+     * light is worked out by updateFBORenderChunk, and by update itself where
+     * PerformanceSettings.fboRenderChunk is off, which only the game's debug key for its old
+     * renderer does (IsoCell.checkToggleOldRendererKey). One patch, so that every call goes to
+     * the hooks or none does.
      */
     private static List<Patch> spottingPatches() {
         String lighting = "zombie/iso/LightingJNI$JNILighting", square = "zombie/iso/IsoGridSquare", meta = "zombie/meta/Meta";
-        CallSite.Method update = new CallSite.Method(lighting, "updateFBORenderChunk", "()V");
+        CallSite.Method roomSeen = new CallSite.Method(square, "checkRoomSeen", "(I)V"), byLight = new CallSite.Method(HOOKS, "roomSeenByLight", "(L" + square + ";I)V");
+        CallSite.Method marked = new CallSite.Method(meta, "dealWithSquareSeen", "(L" + square + ";)V");
         CallSite.Method squareSeen = new CallSite.Method(HOOKS, "squareSeenByLight", "(L" + meta + ";L" + square + ";L" + square + "$ILighting;)V");
-        return List.of(new Patch(lighting, "updateFBORenderChunk leaving rooms and marks to Spotting under the first person picture", classBytes -> {
-            classBytes = CallSite.replaceEach(classBytes, update, new CallSite.Method(square, "checkRoomSeen", "(I)V"),
-                    new CallSite.Method(HOOKS, "roomSeenByLight", "(L" + square + ";I)V"), 1);
-            return CallSite.replaceEach(classBytes, update, new CallSite.Method(meta, "dealWithSquareSeen", "(L" + square + ";)V"),
-                    code -> CallSite.passThis(code, squareSeen), 1);
+        CallSite.Method fbo = new CallSite.Method(lighting, "updateFBORenderChunk", "()V"), old = new CallSite.Method(lighting, "update", "()V");
+        return List.of(new Patch(lighting, "update and updateFBORenderChunk leaving rooms and marks to Spotting under the first person picture", classBytes -> {
+            classBytes = CallSite.replaceEach(classBytes, fbo, roomSeen, byLight, 1);
+            classBytes = CallSite.replaceEach(classBytes, fbo, marked, code -> CallSite.passThis(code, squareSeen), 1);
+            // update spots a room from a square seen, and also from an unseen one beside the player.
+            classBytes = CallSite.replaceEach(classBytes, old, roomSeen, byLight, 2);
+            return CallSite.replaceEach(classBytes, old, marked, code -> CallSite.passThis(code, squareSeen), 1);
         }));
     }
 
