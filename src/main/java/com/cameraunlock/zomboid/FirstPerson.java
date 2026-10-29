@@ -161,6 +161,14 @@ public final class FirstPerson {
         return keysAhead;
     }
 
+    /** The way the movement keys last asked the character to go, in world axes, a unit vector. */
+    private float keysWayX = 1f, keysWayY;
+
+    /** The cosine of the angle between a way in world axes, a unit vector, and the way the movement keys ask for. */
+    float alongTheKeys(float x, float y) {
+        return x * keysWayX + y * keysWayY;
+    }
+
     /** Whether the character is being walked the way the view faces, or ahead and to one side of it. */
     boolean walkingAhead() {
         return walkingAhead && lookCaptured();
@@ -2289,7 +2297,12 @@ public final class FirstPerson {
         float turn = stride.turn(move.x, move.y, yaw, STOCK_FORWARD_YAW, System.nanoTime());
         float cos = (float) Math.cos(turn);
         float sin = (float) Math.sin(turn);
-        return move.set(move.x * cos - move.y * sin, move.x * sin + move.y * cos);
+        move.set(move.x * cos - move.y * sin, move.x * sin + move.y * cos);
+        // The game reads the vector with up the screen, its -y, as STOCK_FORWARD_YAW on the ground.
+        double way = Math.atan2(move.y, move.x) + STOCK_FORWARD_YAW + Math.PI / 2;
+        keysWayX = (float) Math.cos(way);
+        keysWayY = (float) Math.sin(way);
+        return move;
     }
 
     private void trace(IsoPlayer player, WorldScene.Frame scene, float zoom) {

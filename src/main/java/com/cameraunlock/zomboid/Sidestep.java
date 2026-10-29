@@ -43,6 +43,13 @@ final class Sidestep {
     static final float JOG_OF_WALK = 1.33f, SPRINT_OF_WALK = 1.65f;
     /** The time constant the stance's own pace is followed with, for its start to ease in. */
     static final float STANCE_SECONDS = 0.15f;
+    /**
+     * The cosine of the angle off the way the keys ask within which a frame's ground is the stance's
+     * step, 25 degrees. Further off it is the gait before the stance still carrying the character: let
+     * go of forward while sprinting on a forward diagonal and the sprint runs on ahead for most of a
+     * second after the stance has begun (rig, 2026-10-29).
+     */
+    static final float WITH_THE_KEYS = 0.9f;
 
     /**
      * Each gait's ground and the game's time it took, summed with the older frames fading.
@@ -80,9 +87,11 @@ final class Sidestep {
      * @param moved      the ground the stance moved the character this frame
      * @param multiplier the game's time multiplier this frame
      * @param ahead      the cosine of the angle between the way walked and the view, -1 straight back
+     * @param along      the cosine of the angle between the ground moved and the way the keys ask
      */
-    float raised(float moved, float multiplier, float ahead, int gait, long now) {
-        if (moved <= 0f || multiplier <= 0f) {
+    float raised(float moved, float multiplier, float ahead, float along, int gait, long now) {
+        // Ground that goes another way than the keys is not the stance's, and is neither raised nor its pace.
+        if (moved <= 0f || multiplier <= 0f || along < WITH_THE_KEYS) {
             return 1f;
         }
         float fade = lastStance < 0L || now - lastStance > GAP_NANOS ? 0f : (float) Math.exp(-(now - lastStance) / 1e9 / STANCE_SECONDS);

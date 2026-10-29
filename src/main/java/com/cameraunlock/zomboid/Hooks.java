@@ -865,7 +865,8 @@ public final class Hooks {
             if (!view.controls.pacedAhead()) {
                 return ground;
             }
-            float raised = view.sidestep.raised(moved, multiplier, view.firstPerson.keysAhead(), view.controls.stanceGait(), System.nanoTime());
+            float along = moved > 0f ? view.firstPerson.alongTheKeys(ground.x / moved, ground.y / moved) : 1f;
+            float raised = view.sidestep.raised(moved, multiplier, view.firstPerson.keysAhead(), along, view.controls.stanceGait(), System.nanoTime());
             return ground.set(ground.x * raised, ground.y * raised);
         }
         if (moved > 0f && view.firstPerson.walkingAhead() && !player.isAiming() && player.getVehicle() == null && !player.isDraggingCorpse()) {

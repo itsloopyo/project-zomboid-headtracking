@@ -16,6 +16,7 @@ final class SidestepTests {
         Checks.run("aJogOrSprintAsideKeepsThePaceOfTheGaitAhead", SidestepTests::aJogOrSprintAsideKeepsThePaceOfTheGaitAhead);
         Checks.run("aSprintTheGameDropsForAFrameIsStillMeasured", SidestepTests::aSprintTheGameDropsForAFrameIsStillMeasured);
         Checks.run("aSwingingTimeMultiplierDoesNotCarryThePacePastTheGround", SidestepTests::aSwingingTimeMultiplierDoesNotCarryThePacePastTheGround);
+        Checks.run("aSprintStillCarryingTheCharacterAheadIsNotRaised", SidestepTests::aSprintStillCarryingTheCharacterAheadIsNotRaised);
     }
 
     private static void beforeAWalkAheadTheSharesMeasuredRaiseTheStance() {
@@ -129,7 +130,7 @@ final class SidestepTests {
         for (int frame = 0; frame < 120; frame++) {
             float multiplier = frame % 4 == 0 ? 0.1f : 0.5f;
             float moved = 0.008f;
-            float out = moved * sidestep.raised(moved, multiplier, -1f, Sidestep.SPRINTING, from + frame * FRAME);
+            float out = moved * sidestep.raised(moved, multiplier, -1f, 1f, Sidestep.SPRINTING, from + frame * FRAME);
             if (frame >= 60) {
                 ground += out;
                 time += multiplier;
@@ -138,12 +139,40 @@ final class SidestepTests {
         check(Math.abs(ground / time - wanted) < 1e-3f, "sprinted back, the stance covers the sprint ahead's ground in the same game time: " + ground / time);
     }
 
+    private static void aSprintStillCarryingTheCharacterAheadIsNotRaised() {
+        // As on the rig: a sprint on a forward diagonal at 0.11 a unit of game time, then forward let go
+        // of, so the keys ask for sideways while the sprint runs on ahead for 0.75 s, slowing.
+        Sidestep sidestep = new Sidestep();
+        float multiplier = 0.4f, sprint = 0.11f, walk = 0.045f;
+        long now = walk(sidestep, sprint * multiplier, Sidestep.SPRINTING, 0L, 2_000_000_000L);
+        float fastest = 0f;
+        int carried = 45;
+        for (int frame = 0; frame < carried; frame++) {
+            now += FRAME;
+            float moved = sprint * multiplier * (1f - frame / (float) carried);
+            float out = moved * sidestep.raised(moved, multiplier, 0f, 0f, Sidestep.WALKING, now);
+            fastest = Math.max(fastest, out / multiplier);
+        }
+        check(fastest <= sprint + 1e-5f, "the sprint running on ahead after forward is let go of goes no faster than the sprint: " + fastest + " against " + sprint);
+        float ground = 0f, time = 0f;
+        for (int frame = 0; frame < 120; frame++) {
+            now += FRAME;
+            float moved = walk * Sidestep.ASIDE * multiplier;
+            float out = moved * sidestep.raised(moved, multiplier, 0f, 1f, Sidestep.WALKING, now);
+            if (frame >= 60) {
+                ground += out;
+                time += multiplier;
+            }
+        }
+        check(Math.abs(ground / time - walk) < 1e-4f, "then the stance aside goes at the walk its own step makes: " + ground / time + " against " + walk);
+    }
+
     private static long raisedAt;
 
     /** One frame of the stance on its own, at a time multiplier of 1. */
     private static float raise(Sidestep sidestep, float pace, float ahead, int gait) {
         raisedAt += 1_000_000_000L;
-        return sidestep.raised(pace, 1f, ahead, gait, raisedAt);
+        return sidestep.raised(pace, 1f, ahead, 1f, gait, raisedAt);
     }
 
     /** Walks ahead at a pace for a time, a frame at a time from a moment, and gives the moment of the last frame. */
