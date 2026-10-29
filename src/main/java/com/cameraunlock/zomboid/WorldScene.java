@@ -6884,11 +6884,19 @@ final class WorldScene {
         /**
          * A square's light for the picture as the build takes it: the game's, asked once in the
          * lighting pass the chunk's lights were read in, without the viewer's torch. Written into
-         * torchless or one of SquareLights' own, and good until the next asking.
+         * torchless, this frame's own, and good until its next asking: what SquareLights and the
+         * game hand back is theirs, and another build thread's asking writes over it.
          */
         ColorInfo lightOf(IsoGridSquare square) {
             synchronized (BuildThreads.SHARED) {
-                return view.torchLess.light(square, squareLights.of(square, playerIndex, lightPass), torchless);
+                ColorInfo light = view.torchLess.light(square, squareLights.of(square, playerIndex, lightPass), torchless);
+                if (light != torchless) {
+                    torchless.r = light.r;
+                    torchless.g = light.g;
+                    torchless.b = light.b;
+                    torchless.a = light.a;
+                }
+                return torchless;
             }
         }
 
