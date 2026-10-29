@@ -163,6 +163,24 @@ public final class ChunkMarks {
     }
 
     /**
+     * Logic thread: the light the mod works out for a square of the chunk at (wx, wy) is
+     * otherwise, though the game has marked nothing there (TorchLess, RoomDaylight). Counted as
+     * the game's light marks are, so the pages of the builds round the chunk are worked out again.
+     */
+    static void markLight(int wx, int wy) {
+        lights.getAndIncrement(slot(wx, wy));
+    }
+
+    /** The same for every chunk from (minWx, minWy) to (maxWx, maxWy). */
+    static void markLight(int minWx, int minWy, int maxWx, int maxWy) {
+        for (int wx = minWx; wx <= maxWx; wx++) {
+            for (int wy = minWy; wy <= maxWy; wy++) {
+                lights.getAndIncrement(slot(wx, wy));
+            }
+        }
+    }
+
+    /**
      * Called by the game where it gives an object another sprite without marking the chunk:
      * a window smashed, opened or shut. The game draws such an object afresh on every frame
      * and has nothing to mark for it. See Agent.windowMarkPatches.

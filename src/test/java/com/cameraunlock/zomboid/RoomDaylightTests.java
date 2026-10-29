@@ -17,6 +17,7 @@ final class RoomDaylightTests {
         Checks.run("aBoardedWindowLetsInLessThanABareOne", RoomDaylightTests::aBoardedWindowLetsInLessThanABareOne);
         Checks.run("thereIsNoDaylightAtNight", RoomDaylightTests::thereIsNoDaylightAtNight);
         Checks.run("sharesWorkedOutAgainFromTheSameOpeningsAreKept", RoomDaylightTests::sharesWorkedOutAgainFromTheSameOpeningsAreKept);
+        Checks.run("aShareChangeMarksTheLightOfTheRoomsChunksAndTellsNone", RoomDaylightTests::aShareChangeMarksTheLightOfTheRoomsChunksAndTellsNone);
         Checks.run("aLowSunTurnsARoomsDaylightGold", RoomDaylightTests::aLowSunTurnsARoomsDaylightGold);
         Checks.run("aScratchKeptFromRoomToRoomReadsTheMapAfresh", RoomDaylightTests::aScratchKeptFromRoomToRoomReadsTheMapAfresh);
     }
@@ -106,6 +107,28 @@ final class RoomDaylightTests {
         check(changed != was && changed.sameAs(fresh), "a window letting in less makes them again, as they are made from nothing");
         RoomSightTests.Plan farther = house().opening(4, 1, 0, true, RoomSight.SEE).opening(10, 1, 0, true, RoomSight.SEE).opening(9, 2, 0, false, RoomSight.SHUT);
         check(again(new Lit(farther), was) != was, "and so does the door to the next room shut");
+    }
+
+    private static void aShareChangeMarksTheLightOfTheRoomsChunksAndTellsNone() {
+        RoomSightTests.Plan plan = house().opening(4, 1, 0, true, RoomSight.SEE);
+        RoomDaylight daylight = new RoomDaylight((room, box) -> System.arraycopy(BOXES.get(room), 0, box, 0, 4));
+        zombie.iso.IsoGridSquare square = new zombie.iso.IsoCell().square(4, 3, 0);
+        square.setRoomID(ROOM);
+        // Each asking comes after the shares of the one before are due, so they are worked out again.
+        long due = 10_000_000_000L;
+        float first = daylight.share(new Lit(plan), square, -FAR, -FAR, 2 * FAR, 1L);
+        int lit = lightMarksRoundTheRoom(), told = ChunkMarks.told(0, 0) + ChunkMarks.told(1, 0);
+        float again = daylight.share(new Lit(plan), square, -FAR, -FAR, 2 * FAR, due);
+        check(again == first && lightMarksRoundTheRoom() == lit, "shares worked out again the same mark nothing");
+        float boarded = daylight.share(new Lit(plan).passing(4, 1, 0, true, 0.3f), square, -FAR, -FAR, 2 * FAR, 2 * due);
+        check(boarded < first, "a window letting in less gives the room less: " + first + " then " + boarded);
+        check(lightMarksRoundTheRoom() == lit + 2, "and marks the light of the room's two chunks: " + (lightMarksRoundTheRoom() - lit));
+        check(ChunkMarks.told(0, 0) + ChunkMarks.told(1, 0) == told, "and tells neither, as nothing but the light of their builds is otherwise");
+    }
+
+    /** The light marks round the chunk at 0, 0, which ROOM's box (1 to 8 across, 1 to 6 down) shares with the chunk at 1, 0. */
+    private static int lightMarksRoundTheRoom() {
+        return ChunkMarks.around(0, 0) - ChunkMarks.thingsAround(0, 0);
     }
 
     private static RoomDaylight.Shares shares(RoomSightTests.Plan plan, int x, int y, RoomDaylight.Loaded loaded) {

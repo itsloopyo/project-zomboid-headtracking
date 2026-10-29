@@ -32,11 +32,12 @@ import zombie.iso.RoomDef;
  *
  * Shares are worked out on the logic thread, from the map as RoomSight reads it: again at once
  * when the game marks a chunk the room is on (a door, a window, a curtain, a barricade), and
- * every REFRESH_NANOS otherwise, each room at its own moment. Where a room's shares change, its
- * chunks are told to build again. Each is written whole before it is put in the table, the
- * render thread reads what is there (sharedAt) and works out nothing, and a room is let go only
- * when the loaded map no longer holds it, so the builds and the people in it go by the same
- * shares for as long as either is drawn.
+ * every REFRESH_NANOS otherwise, each room at its own moment. Where a room's shares change, the
+ * light of its chunks is marked (ChunkMarks.markLight), and their builds' pages are worked out
+ * again: the share is in their light and nothing else. Each is written whole before it is put
+ * in the table, the render thread reads what is there (sharedAt) and works out nothing, and a
+ * room is let go only when the loaded map no longer holds it, so the builds and the people in
+ * it go by the same shares for as long as either is drawn.
  */
 final class RoomDaylight {
     /** How far from an opening, in tiles, its light falls to half of what it is beside it. */
@@ -314,8 +315,18 @@ final class RoomDaylight {
             box[3] = Math.max(box[3], rect.y + rect.h - 1);
         }
     };
+    private final Rooms boxes;
     /** Dev only: rooms worked out since the last asking, the time it took, and the longest one with its box's squares. */
     private long tollRooms, tollNanos, tollLongestNanos, tollLongestSquares;
+
+    RoomDaylight() {
+        this(MAP_ROOMS);
+    }
+
+    /** With the rooms' boxes taken from boxes in place of the map: the suite's, whose stand-in world has no map. */
+    RoomDaylight(Rooms boxes) {
+        this.boxes = boxes;
+    }
 
     /**
      * Logic thread: the share of the open ground's light for a square in a room, worked out
@@ -333,12 +344,12 @@ final class RoomDaylight {
         }
         if (shares == null || shares.marks != marksOn(shares) || now >= shares.due) {
             long began = System.nanoTime();
-            Shares made = of(map, MAP_ROOMS, id, square.getZ(), new Loaded(loadedFromX, loadedFromY, loadedFromX + side - 1, loadedFromY + side - 1), scratch, shares);
+            Shares made = of(map, boxes, id, square.getZ(), new Loaded(loadedFromX, loadedFromY, loadedFromX + side - 1, loadedFromY + side - 1), scratch, shares);
             made.marks = marksOn(made);
             // Each room at its own moment of the period, so that the rooms in sight are not all worked out on one frame.
             made.due = now + REFRESH_NANOS + (shares == null ? Math.floorMod(id * 0x9E3779B97F4A7C15L, REFRESH_NANOS) : 0L);
             if (shares != null && !made.sameAs(shares)) {
-                tellChunks(made);
+                markLight(made);
             }
             rooms.put(id, made);
             shares = made;
@@ -360,8 +371,8 @@ final class RoomDaylight {
                 Math.floorDiv(shares.fromX + shares.width, WorldScene.CHUNK_TILES), Math.floorDiv(shares.fromY + shares.height, WorldScene.CHUNK_TILES));
     }
 
-    private static void tellChunks(Shares shares) {
-        ChunkMarks.tell(Math.floorDiv(shares.fromX, WorldScene.CHUNK_TILES), Math.floorDiv(shares.fromY, WorldScene.CHUNK_TILES),
+    private static void markLight(Shares shares) {
+        ChunkMarks.markLight(Math.floorDiv(shares.fromX, WorldScene.CHUNK_TILES), Math.floorDiv(shares.fromY, WorldScene.CHUNK_TILES),
                 Math.floorDiv(shares.fromX + shares.width - 1, WorldScene.CHUNK_TILES), Math.floorDiv(shares.fromY + shares.height - 1, WorldScene.CHUNK_TILES));
     }
 

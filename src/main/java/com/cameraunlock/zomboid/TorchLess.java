@@ -213,7 +213,7 @@ final class TorchLess {
             if (now != null) {
                 // Taken with no torch and no lamp on any square, the light was the game's own to the bit.
                 if (now.torched || now.lampId != 0) {
-                    retell(now, null);
+                    markLight(now, null);
                 }
                 taken = null;
             }
@@ -333,9 +333,9 @@ final class TorchLess {
             }
         }
         if (now != null) {
-            retell(now, next);
+            markLight(now, next);
         }
-        retell(next, now);
+        markLight(next, now);
         taken = next;
     }
 
@@ -450,15 +450,15 @@ final class TorchLess {
     }
 
     /**
-     * Has the chunks built again whose squares the picture was given one light for and would
-     * now be given another. The game marks a chunk when a square's own light changes, and a
-     * square whose sum is stopped at 1 before and after has not changed for the game, while
-     * what is worked out for it may have. A square the torch has come onto or gone
-     * off with its light what it was is the same square to the picture, and nothing is told
-     * for it: told for every such square, every chunk under the torch was built again at
-     * every step and every turn of the head.
+     * Marks the light of the chunks whose squares the picture was given one light for and would
+     * now be given another (ChunkMarks.markLight), so that their builds' pages are worked out
+     * again. The game marks a chunk when a square's own light changes, and a square whose sum is
+     * stopped at 1 before and after has not changed for the game, while what is worked out for it
+     * may have. A square the torch has come onto or gone off with its light what it was is the
+     * same square to the picture, and nothing is marked for it: with every such square told,
+     * every chunk under the torch was built again at every step and every turn of the head.
      */
-    private void retell(Taken of, Taken against) {
+    private void markLight(Taken of, Taken against) {
         for (int j = 0; j < of.spanY; j++) {
             for (int i = 0; i < of.spanX; i++) {
                 int at = j * of.spanX + i;
@@ -475,7 +475,7 @@ final class TorchLess {
                     }
                 }
                 if (!same) {
-                    ChunkMarks.tell(Math.floorDiv(x, WorldScene.CHUNK_TILES), Math.floorDiv(y, WorldScene.CHUNK_TILES));
+                    ChunkMarks.markLight(Math.floorDiv(x, WorldScene.CHUNK_TILES), Math.floorDiv(y, WorldScene.CHUNK_TILES));
                 }
             }
         }

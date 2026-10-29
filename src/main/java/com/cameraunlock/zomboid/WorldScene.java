@@ -321,40 +321,25 @@ final class WorldScene {
         boolean plain;
         /** What ChunkMarks had counted round the chunk when the build was made or last found unchanged, and what every build went by then: see epoch. */
         private int marks, told;
-        /** Of those marks, the ones for anything but light: see ChunkMarks.thingsAround. */
+        /** Of those marks, the ones for anything but light, which alone have the chunk read again: its light is its page's (Frame.refresh). See ChunkMarks.thingsAround. */
         private int things;
         /**
-         * For a build that was summed, the sum of each of its levels from sumFrom to sumTo, what
-         * ChunkMarks had counted for the light of each when it was read, and for light marked
-         * with no level. A level whose count is what it was is not read again: see signature.
-         * sumTo is under sumFrom for a build with no sums. And the light a square not yet seen
-         * was given, which is no square's own and changes with the hour, unmarked.
+         * For a build that was summed, the sum of each of its levels from sumFrom to sumTo, which
+         * a level of the viewer's building held over or under the viewer is summed as
+         * (signature). sumTo is under sumFrom for a build with no sums.
          */
         private long[] levelSums = new long[0];
-        private int[] litSeen = new int[0];
-        private int sumFrom, sumTo = -1, litLoose;
-        private long unseenRead;
-        /**
-         * When every level was last read. The engine's light for a square can go on changing
-         * with nothing marked, as it does for minutes after the hour is set, so a chunk read
-         * by its marked levels is still read whole as often as one nothing is marked on.
-         */
-        private long wholeNanos;
+        private int sumFrom, sumTo = -1;
 
-        /** Takes the sums of the levels as the last reading left them: one made at a time given, for a chunk whose build till now is given, or null. */
-        private void keepLevels(Frame scene, long now, ChunkMeshes before) {
-            wholeNanos = scene.readByLevel ? before.wholeNanos : now;
+        /** Takes the sums of the levels as the last reading left them. */
+        private void keepLevels(Frame scene) {
             int levels = scene.readTo - scene.readFrom + 1;
             if (levelSums.length < levels) {
                 levelSums = new long[levels];
-                litSeen = new int[levels];
             }
             System.arraycopy(scene.readSums, 0, levelSums, 0, levels);
-            System.arraycopy(scene.readLit, 0, litSeen, 0, levels);
             sumFrom = scene.readFrom;
             sumTo = scene.readTo;
-            litLoose = scene.readLoose;
-            unseenRead = scene.readUnseen;
         }
         private long epoch;
         /** Whether the build holds a tree the season shapes, and the season's stage it was made at: see Frame.seasonHolds. */
@@ -414,7 +399,7 @@ final class WorldScene {
         private long[] auditMeshes;
         /** Dev only: what the sum was made of, part by part. See audit. */
         private long auditTerrain, auditTrees;
-        private long[] auditLights, auditThings;
+        private long[] auditThings;
         private int auditFrom, auditTo;
         /** The frames in flight that show this build, and one more while it is the chunk's latest. */
         private int users;
@@ -462,6 +447,8 @@ final class WorldScene {
         boolean pageDaylit;
         /** The levels of the chunk the page was read from, which a refresh reads again but for those of the viewer's building held (Frame.relightPage). */
         int pageFrom, pageTo;
+        /** When the page was first left stale for a frame with time to refresh it, or 0: see CHANGED_WAITS_NANOS. */
+        long pageWaitsNanos;
         /**
          * Raised each time the page has been refreshed, and the first and last record the
          * refreshes have changed since the render thread last took the page (heldLit): it sends
@@ -1264,7 +1251,7 @@ final class WorldScene {
      * and one the game marked nothing for is logged with what of it changed. See audit.
      */
     private static final boolean AUDIT_MARKS = ChunkMarks.COUNTED;
-    private long tollMarkedChanges, tollMissedChanges, tollMarkedSame, tollMarkedByReading, tollPulledAfterGame;
+    private long tollMarkedChanges, tollMissedChanges, tollMarkedSame, tollPulledAfterGame;
     private int auditLogged;
     private final long[] tollWhy = new long[10];
     /** Which chunks of the map are loaded, as one number. */
@@ -1301,8 +1288,8 @@ final class WorldScene {
     private long tollFigureLights, tollFigureLightsNanos, tollFigureSquares;
     /** Dev only: how many times the room walk's horizon had been built when tolls last said. */
     private int horizonsTold;
-    /** Dev only: builds due for nothing but light that waited, the view not facing their chunk. */
-    private long tollLitUnfaced, tollChangedWaited;
+    /** Dev only: chunks found changed that waited for a frame with the time to build them (CHANGED_WAITS_NANOS). */
+    private long tollChangedWaited;
     /** Dev only: see SightTrace. */
     private SightTrace sightTrace;
     /** The rooms and their openings round the eye, and the walk through them: see RoomSight. Logic thread. */
@@ -1653,16 +1640,18 @@ final class WorldScene {
     private long tollCrownsKept, tollCrownsHere, tollCrownsHereNanos, tollCrownsThere, tollCrownsUnwanted;
     private long tollFrames, tollSums, tollSumNanos, tollBuildNanos, tollGrown, tollGrownNanos, tollChecked, tollDiffered;
     private long tollWoods, tollWoodsNanos;
-    private long tollSumsByLevel, tollLevelsRead, tollLevelsKept, tollLevelsHeld, tollSumsChecked, tollSumsDiffered, tollSumsLate;
+    private long tollLevelsRead, tollLevelsHeld;
     /**
      * Dev only, for the rig: the light pages refreshed since tolls was last asked (Frame.refresh)
      * and their time, of them those refreshed from the reading of a sum that kept their build and
      * their time, the part of it all spent reading the light, the squares whose light that asked
      * of the game, the levels read, the records that came out changed and those that could not be
-     * worked out again, the refreshes left for a later frame and those that changed nothing.
+     * worked out again, with the refreshes that told their chunk so, the refreshes left for a
+     * later frame, those made over the frame's time for having waited theirs, and those that
+     * changed nothing.
      */
     private long tollRefreshes, tollRefreshNanos, tollRefreshesFromSums, tollRefreshFromSumsNanos, tollRefreshReadNanos, tollRefreshAsks, tollRefreshLevels, tollRefreshChanged,
-            tollRefreshUnworked, tollRefreshPutOff, tollRefreshNothing;
+            tollRefreshUnworked, tollRefreshTold, tollRefreshPutOff, tollRefreshWaited, tollRefreshNothing;
     /**
      * Dev only: of the frames since tolls was last asked, how many made each count of refreshes,
      * and how many spent each step of REFRESH_TOLL_STEP_NANOS on them, the last of each for that
@@ -1671,16 +1660,16 @@ final class WorldScene {
     private final long[] tollRefreshCounts = new long[257], tollRefreshFrameNanos = new long[5001];
     private long tollRefreshMost, tollRefreshMostNanos;
     private static final long REFRESH_TOLL_STEP_NANOS = 10_000L;
-    /** Dev only: sums read with nothing but light marked on their chunk since its build, their time, and the builds made with nothing else marked. */
-    private long tollSumsLit, tollSumsLitNanos, tollBuiltLit;
+    /** Dev only: builds found changed with nothing but light marked on their chunk since it was last read. */
+    private long tollBuiltLit;
     /**
      * Dev only: every AUDIT_PAGES_EVERY frames a chunk in view whose page nothing has marked is
      * refreshed all the same, and one whose page that changes is counted by how far it is from
      * the eye (within 16, 32 and 64 tiles, and further): light that changed with no mark. And
-     * each build of a chunk made with nothing but light marked is set against the page of the
-     * build it replaces, refreshed in the same light: the builds whose sites differ are counted
-     * with the sites, and of the others those with records otherwise, with the records, apart
-     * from those where the lighting engine finished a pass between the two.
+     * each build of a chunk made again for its age alone (AGED), its sum what it was, is set
+     * against the page of the build it replaces, refreshed in the same light: the builds whose
+     * sites differ are counted with the sites, and of the others those with records otherwise,
+     * with the records, apart from those where the lighting engine finished a pass between the two.
      */
     private static final boolean AUDIT_PAGES = Boolean.getBoolean("cameraunlock.zomboid.auditPages");
     private static final int AUDIT_PAGES_EVERY = 60, PAGE_LOGS_A_SECOND = 20;
@@ -1701,23 +1690,23 @@ final class WorldScene {
         long perFrame = Math.max(1L, tollFrames);
         told += String.format(Locale.ROOT, ", page refreshes %d in %.1f ms, of them from a sum's reading %d in %.1f ms, a frame %.2f (p99 %s, most %d) in %.3f ms (p99 %s, most %.3f),"
                 + " reading the light %.1f ms (%.3f a frame) in which the game was asked the light of %d squares (%.1f a frame) on %d levels, records changed %d,"
-                + " not worked out again %d, refreshes that changed nothing %d, put off %d",
+                + " not worked out again %d (in refreshes that told their chunk %d), refreshes that changed nothing %d, put off %d, made late for having waited %d",
                 tollRefreshes, tollRefreshNanos / 1e6, tollRefreshesFromSums, tollRefreshFromSumsNanos / 1e6, (double) tollRefreshes / perFrame,
                 countsAt < 0 ? "over " + (tollRefreshCounts.length - 2) : Integer.toString(countsAt), tollRefreshMost, tollRefreshNanos / 1e6 / perFrame,
                 nanosAt < 0 ? "over " + (tollRefreshFrameNanos.length - 1) * REFRESH_TOLL_STEP_NANOS / 1_000_000L
                         : String.format(Locale.ROOT, "%.2f", (nanosAt + 1) * REFRESH_TOLL_STEP_NANOS / 1e6),
                 tollRefreshMostNanos / 1e6, tollRefreshReadNanos / 1e6, tollRefreshReadNanos / 1e6 / perFrame, tollRefreshAsks, (double) tollRefreshAsks / perFrame,
-                tollRefreshLevels, tollRefreshChanged, tollRefreshUnworked, tollRefreshNothing, tollRefreshPutOff);
-        told += String.format(Locale.ROOT, ", sums for nothing but light %d in %.1f ms, builds for nothing but light %d", tollSumsLit, tollSumsLitNanos / 1e6, tollBuiltLit);
+                tollRefreshLevels, tollRefreshChanged, tollRefreshUnworked, tollRefreshTold, tollRefreshNothing, tollRefreshPutOff, tollRefreshWaited);
+        told += String.format(Locale.ROOT, ", builds found changed with nothing but light marked %d", tollBuiltLit);
         tollRefreshes = tollRefreshNanos = tollRefreshesFromSums = tollRefreshFromSumsNanos = tollRefreshReadNanos = tollRefreshAsks = tollRefreshLevels = tollRefreshChanged = tollRefreshUnworked
-                = tollRefreshPutOff = tollRefreshNothing = 0;
+                = tollRefreshTold = tollRefreshPutOff = tollRefreshWaited = tollRefreshNothing = 0;
         Arrays.fill(tollRefreshCounts, 0L);
         Arrays.fill(tollRefreshFrameNanos, 0L);
         tollRefreshMost = tollRefreshMostNanos = 0;
-        tollSumsLit = tollSumsLitNanos = tollBuiltLit = 0;
+        tollBuiltLit = 0;
         if (AUDIT_PAGES) {
-            told += String.format(Locale.ROOT, ", pages refreshed with nothing marked within 16, 32 and 64 tiles and further %s, of which changed %s, builds for nothing but light set against"
-                    + " the page they replace refreshed %d, with other sites %d (sites %d), with the same sites and other records %d (records %d), with a lighting pass between %d",
+            told += String.format(Locale.ROOT, ", pages refreshed with nothing marked within 16, 32 and 64 tiles and further %s, of which changed %s, builds made again for their age set"
+                    + " against the page they replace refreshed %d, with other sites %d (sites %d), with the same sites and other records %d (records %d), with a lighting pass between %d",
                     Arrays.toString(tollUnmarkedRead), Arrays.toString(tollUnmarkedChanged), tollPagesAudited, tollPagesSitesDiffer, tollSitesDiffer, tollPagesRecordsDiffer, tollRecordsDiffer,
                     tollPagesAcrossPass);
             Arrays.fill(tollUnmarkedRead, 0L);
@@ -1727,9 +1716,7 @@ final class WorldScene {
         told += String.format(Locale.ROOT, ", trees read for sums %d in %.2f ms", tollWoods, tollWoodsNanos / 1e6);
         told += ", " + Terrain.tolls();
         tollWoods = tollWoodsNanos = 0;
-        told += String.format(Locale.ROOT, ", built ahead of a turn %d in %.1f ms, light left on chunks not faced %d, changed put off %d", tollAhead, tollAheadNanos / 1e6, tollLitUnfaced,
-                tollChangedWaited);
-        tollLitUnfaced = 0;
+        told += String.format(Locale.ROOT, ", built ahead of a turn %d in %.1f ms, changed put off %d", tollAhead, tollAheadNanos / 1e6, tollChangedWaited);
         tollChangedWaited = 0;
         told += String.format(Locale.ROOT, ", rooms walked %d times in %.2f ms each (chunks read for openings %d; last: openings %d, blocks %d, rooms seen %d, built %d, openings hidden by blocks %d)",
                 tollRoomsWalks, tollRoomsNanos / 1e6 / Math.max(1, tollRoomsWalks), roomMap.chunksRead, lastOpenings, lastBlocks, lastSeen, roomsBuilt.size(), lastHidden);
@@ -1754,9 +1741,8 @@ final class WorldScene {
         tollRoomsWalks = tollRoomsNanos = 0;
         roomMap.chunksRead = 0;
         tollAhead = tollAheadNanos = 0;
-        told += String.format(Locale.ROOT, ", sums by level %d (levels read %d, kept %d, held over the viewer %d, checked against whole sums %d, levels marked by that reading %d, levels otherwise with nothing marked %d)",
-                tollSumsByLevel, tollLevelsRead, tollLevelsKept, tollLevelsHeld, tollSumsChecked, tollSumsLate, tollSumsDiffered);
-        tollSumsByLevel = tollLevelsRead = tollLevelsKept = tollLevelsHeld = tollSumsChecked = tollSumsDiffered = tollSumsLate = 0;
+        told += String.format(Locale.ROOT, ", levels read for sums %d, held over the viewer %d", tollLevelsRead, tollLevelsHeld);
+        tollLevelsRead = tollLevelsHeld = 0;
         if (AUDIT_STALE) {
             told += String.format(Locale.ROOT, ", chunks left alone built beside %d and what grows on them %d, found otherwise and due to be read %d, found stale %d", tollStaleAsked, tollStaleGrownAsked,
                     tollStaleDue, tollStale);
@@ -1764,14 +1750,14 @@ final class WorldScene {
         }
         tollQuiet = tollPulls = tollPulled = 0;
         if (AUDIT_MARKS) {
-            told += String.format(Locale.ROOT, ", sums changed with a mark %d without %d by a late light %d, marked and the same %d, restless %d, lights taken after the game %d, aged builds the same %d (plain %d) otherwise %d, marks by flag%s",
-                    tollMarkedChanges, tollMissedChanges, tollMarkedByReading, tollMarkedSame, tollRestless, tollPulledAfterGame, tollAgedSame, tollAgedSamePlain, tollAgedDiffered, ChunkMarks.counted())
+            told += String.format(Locale.ROOT, ", sums changed with a mark %d without %d, marked and the same %d, restless %d, lights taken after the game %d, aged builds the same %d (plain %d) otherwise %d, marks by flag%s",
+                    tollMarkedChanges, tollMissedChanges, tollMarkedSame, tollRestless, tollPulledAfterGame, tollAgedSame, tollAgedSamePlain, tollAgedDiffered, ChunkMarks.counted())
                     + " | sums read because (marked, told, epoch, heights, map, restless, new, swept, unsigned, moved) " + Arrays.toString(tollWhy)
                     + String.format(Locale.ROOT, " | built again once rooms are built whole, of builds kept the same %d otherwise %d, of builds told the same %d otherwise %d",
                     tollRuleKeptSame, tollRuleKeptDiffered, tollRuleToldSame, tollRuleToldDiffered);
             Arrays.fill(tollWhy, 0);
             tollRuleKeptSame = tollRuleKeptDiffered = tollRuleToldSame = tollRuleToldDiffered = 0;
-            tollMarkedChanges = tollMissedChanges = tollMarkedSame = tollRestless = tollAgedSame = tollAgedSamePlain = tollAgedDiffered = tollMarkedByReading = tollPulledAfterGame = 0;
+            tollMarkedChanges = tollMissedChanges = tollMarkedSame = tollRestless = tollAgedSame = tollAgedSamePlain = tollAgedDiffered = tollPulledAfterGame = 0;
         }
         told += " | ms by cause " + Arrays.toString(Arrays.stream(tollBuiltNanos).map(each -> each / 1_000_000L).toArray()) + " moved for the band " + tollMovedBand + " unsigned " + tollMovedUnsigned
                 + " kept across a band " + tollRebanded + " kept with heights moved too little to show " + tollHeightsHeld;
@@ -1829,24 +1815,17 @@ final class WorldScene {
     private static final long NANOS_A_FRAME_COUNTED = 8_000_000L, UNCHANGED_READ_EVERY_NANOS = 33_000_000L;
     /**
      * How long a frame builds chunks for before those further off than {@link #BUILT_WHATEVER_IT_TAKES}
-     * wait for the next. It is the frame's time, and so is the time for chunks whose only news is
-     * their light: two players' views building in one frame have half of each.
+     * wait for the next. It is the frame's time: two players' views building in one frame have
+     * half of it each.
      */
     private static final long BUILD_NANOS_A_FRAME = 5_000_000L;
     /**
-     * How long a frame reads and builds chunks for before one whose only news is its light
-     * waits for the next, and how long such a chunk waits at most. The game's light for a
-     * square changes with where the character stands, on every level of the map at once, so a
-     * step indoors marks every chunk round the character together, and a chunk of a tall
-     * building is thirty levels to read and to build: all made on the frame of the step they
-     * were a frame of 40 to 50 ms at every step, on the tenth floor of a building of 27.
-     */
-    private static final long LIT_NANOS_A_FRAME = 2_000_000L, LIT_WAITS_NANOS = 150_000_000L;
-    /**
      * How long a frame refreshes light pages for (Frame.refresh) before the rest wait for the
      * next frames, nearest first, shared between views as BUILD_NANOS_A_FRAME is: one is
-     * refreshed a frame however long it takes. A step indoors marks every chunk round the
-     * character at once (LIT_NANOS_A_FRAME).
+     * refreshed a frame however long it takes. The game's light for a square changes with
+     * where the character stands, on every level of the map at once, so a step indoors marks
+     * the light of every chunk round the character together, and a chunk of a tall building
+     * is thirty levels to read.
      */
     private static final long REFRESH_NANOS_A_FRAME = 2_000_000L;
     /**
@@ -1855,7 +1834,7 @@ final class WorldScene {
      * from one to the next at once stepped brighter or darker.
      */
     private static final float UNLIT_EASE_SECONDS = 0.5f;
-    /** How long a chunk found changed waits at most for a frame with time to build it: see where one is put off. */
+    /** How long a chunk found changed waits at most for a frame with time to build it, and a stale page before it may be refreshed past a frame's time: see where each is put off. */
     private static final long CHANGED_WAITS_NANOS = 500_000_000L;
     /** Within this many tiles of the eye a chunk with no build is built on the frame it is wanted. */
     private static final float BUILT_WHATEVER_IT_TAKES = CHUNK_TILES * 2.5f;
@@ -2785,10 +2764,11 @@ final class WorldScene {
 
     /**
      * Whether a lamp burns in the room a square is in: the room's own light, which the game's
-     * lighting sets from the switch and the power, or a lamp stood in the room. A chunk's sum
-     * holds it for every lit square of a room: the game gives a room its lights, lists its
-     * lamps and switches both with no mark on the room's chunks, and in daylight no square's
-     * light changes with them either, so nothing else says that a window's pane is now lit.
+     * lighting sets from the switch and the power, or a lamp stood in the room. The game gives
+     * a room its lights, lists its lamps and switches both with no mark on the room's chunks,
+     * and in daylight no square's light changes with them either, so nothing marked says that a
+     * window's pane is now lit. A sum of the chunk that keeps its build has the build's page
+     * worked out again (Frame.refresh).
      */
     static boolean lampBurns(IsoCell cell, IsoGridSquare square, List<IsoLightSource> lamps) {
         IsoRoom room = square.getRoom();
@@ -2832,7 +2812,7 @@ final class WorldScene {
     private static final float LAMPLIT = 0.55f;
     /** What a room with a lamp burning is lit by before any lamplit room has been in sight: just what counts as lamplit. */
     private static final float LAMP_AT_LEAST = LAMPLIT + 0.05f;
-    /** How finely a room's daylight follows the hour: each step builds every room's chunks again. */
+    /** How finely a room's daylight follows the hour: each step refreshes the light page of every chunk with a room (Frame.dayCode). */
     private static final int DAY_STEPS = 32;
 
     /**
@@ -3309,7 +3289,7 @@ final class WorldScene {
         /** The chunk being read and the eight round it, by column then row, null where the map has none loaded. */
         final IsoChunk[] around = new IsoChunk[9];
         private long auditTerrain, auditTrees;
-        private long[] auditLights = new long[0], auditThings = new long[0];
+        private long[] auditThings = new long[0];
         /** What every build goes by that is not of its chunk, as one number: see build. */
         private long epoch;
         /**
@@ -3434,9 +3414,9 @@ final class WorldScene {
             int pass = LightingJNI.getUpdateCounter(playerIndex);
             // In the viewer's building only the storeys round the eye's are asked for: those over
             // it are held (heldFrom), and those further under are seen, if at all, down a
-            // stairwell. Each asking for a storey marks it for its light, and every mark built
-            // the whole tower's column again. Moved to another storey, every level now asked for
-            // is taken once, as what was left unasked may have changed.
+            // stairwell. Each asking for a storey marks it for its light, and every mark has the
+            // light of the whole tower's column read again (refresh). Moved to another storey,
+            // every level now asked for is taken once, as what was left unasked may have changed.
             int chunkX = chunk.wx * CHUNK_TILES, chunkY = chunk.wy * CHUNK_TILES;
             int storey = heldFrom != Integer.MAX_VALUE && chunkX < heldMaxX && chunkX + CHUNK_TILES > heldMinX && chunkY < heldMaxY && chunkY + CHUNK_TILES > heldMinY
                     ? heldFrom : Integer.MAX_VALUE;
@@ -3480,6 +3460,8 @@ final class WorldScene {
         /** The light pages this frame has refreshed, and the time they took: see refresh. */
         private int refreshesNow;
         private long refreshNanosNow;
+        /** Whether this frame has refreshed a page that had waited (CHANGED_WAITS_NANOS) past the frame's time for refreshes. */
+        private boolean waitedPastNow;
 
         /** Set by FirstPerson once the frame is built: whether the world round the eye is there to be drawn (Pipeline.cut). */
         boolean round = true;
@@ -4070,13 +4052,13 @@ final class WorldScene {
                     boolean held = !missing && still && trusted;
                     boolean waited = missing || (every > 1 ? since >= every * NANOS_A_FRAME_COUNTED * (held ? 2 : 1)
                             : held ? since >= UNCHANGED_READ_EVERY_NANOS : !stands || since >= CHANGING_BUILT_EVERY_NANOS);
-                    // Dev only: the lighting engine's pass before anything of the chunk's light is read, for auditLitBuild.
+                    // Dev only: the lighting engine's pass before anything of the chunk's light is read, for auditAgedBuild.
                     int passAtStart = AUDIT_PAGES ? LightingJNI.getUpdateCounter(playerIndex) : 0;
                     // With the game telling of its changes, a chunk nothing has been said of is not read:
-                    // not marked by the game, nor told of by the mod, nor waiting on the map to load
-                    // round it, with its heights and what every build goes by as they were. It is still
-                    // read every so often (sweptEvery), and for its first seconds as it always was,
-                    // while what loads late comes in.
+                    // not marked by the game but for its light, which its page follows, nor told of by the
+                    // mod, nor waiting on the map to load round it, with its heights and what every build
+                    // goes by as they were. It is still read every so often (sweptEvery), and for its
+                    // first seconds as it always was, while what loads late comes in.
                     int land = 0;
                     if (telling && !missing) {
                         pullLights(chunk, slot, lowest);
@@ -4103,7 +4085,7 @@ final class WorldScene {
                     boolean settled = !missing && (start - current.bornNanos >= SETTLES_IN_NANOS
                             || start - current.builtNanos < (distance < BUILT_EVERY_FRAME ? KEPT_WHILE_SETTLING_NANOS : Math.max(KEPT_WHILE_SETTLING_NANOS, (start - current.bornNanos) / 2)));
                     boolean landChanged = !missing && terrain.version(chunk.wx, chunk.wy) != current.terrainVersion;
-                    boolean quiet = telling && !missing && !landChanged && stands && trusted && !current.restless && marks == current.marks && toldSoFar == current.told
+                    boolean quiet = telling && !missing && !landChanged && stands && trusted && !current.restless && things == current.things && toldSoFar == current.told
                             && current.epoch == epoch && seasonHolds(current, slot) && current.gamesView == gamesView && land == current.land && ringAsItWas && settled;
                     // Only so many a frame are read for the time that has passed: a head that turns back to a street finds every chunk of it overdue at once.
                     if (quiet && since >= sweptEvery(distance, slot) && swept++ < SWEPT_A_FRAME) {
@@ -4117,7 +4099,7 @@ final class WorldScene {
                         }
                     }
                     // Dev only: what has a chunk read that would have been left alone, for the audit's line.
-                    int why = !AUDIT_MARKS || !telling || missing ? 0 : (marks != current.marks ? 1 : 0) | (toldSoFar != current.told ? 2 : 0) | (current.epoch != epoch ? 4 : 0)
+                    int why = !AUDIT_MARKS || !telling || missing ? 0 : (things != current.things ? 1 : 0) | (toldSoFar != current.told ? 2 : 0) | (current.epoch != epoch ? 4 : 0)
                             | (land != current.land ? 8 : 0) | (!ringAsItWas ? 16 : 0) | (current.restless ? 32 : 0)
                             | (!settled ? 64 : 0) | (!quiet && since >= sweptEvery(distance, slot) ? 128 : 0) | (!current.signed ? 256 : 0) | (!stands ? 512 : 0);
                     // One told of a room come into the rooms built or gone (ChunkMarks.tell) is due at once: the room may be
@@ -4140,30 +4122,15 @@ final class WorldScene {
                             && start - current.builtNanos < KEPT_WHILE_SETTLING_NANOS) {
                         due = false;
                     }
-                    // Nothing but light has been marked on it since it was last read, and the frame has
-                    // spent its time: the build it has is right but for that light, and is shown a frame or a few longer.
-                    // Not one told of a room come into the rooms built or gone (ChunkMarks.tell): its contents would wait.
-                    if (due && !landChanged && telling && stands && trusted && current.things == things && current.told == toldSoFar && since < LIT_WAITS_NANOS
-                            && System.nanoTime() - start > LIT_NANOS_A_FRAME / sharing) {
-                        due = false;
-                    }
-                    // Nothing but light has been marked on it and the view does not face it: its light is in no picture,
-                    // and its shadows are of its shape. The game's sight goes round with the mouse and darkens what it
-                    // leaves, so a mouse turn marked a third of the chunks in reach and they were built again every
-                    // few frames; with the view back on one, the game's light is mostly what its build was made with,
-                    // and its sum finds it unchanged.
+                    // A chunk the view does not face has its light in no picture, and its shadows are of its shape, so its
+                    // page is refreshed only once the view faces it: the game's sight goes round with the mouse and darkens
+                    // what it leaves, and a mouse turn marks the light of a third of the chunks in reach.
                     // A mirror in a room shows what is behind the eye: while one shows, every chunk built here counts as faced.
                     boolean faced = cosCone <= -1f || toChunkX * forwardX + toChunkY * forwardY >= cosCone * distance - CHUNK_REACH
                             || mirrored && toChunkX * behindX + toChunkY * behindY >= COS_MIRROR_CONE * distance - CHUNK_REACH
                             || glassShown;
-                    boolean onlyLit = telling && !missing && !landChanged && stands && trusted && !current.restless && settled && ringAsItWas
-                            && marks != current.marks && current.things == things && current.told == toldSoFar && current.epoch == epoch
-                            && seasonHolds(current, slot) && current.gamesView == gamesView && current.land == land
-                            && current.litLoose == ChunkMarks.litLooseAround(chunk.wx, chunk.wy);
-                    if (due && !faced && onlyLit) {
-                        due = false;
-                        tollLitUnfaced++;
-                    }
+                    // Dev only: nothing but light has been marked on the chunk since it was last read.
+                    boolean lightOnly = !missing && marks != current.marks && current.things == things && current.told == toldSoFar;
                     // What the build of a chunk that is due would read of the map is summed first,
                     // and a chunk whose sum is what its build's was, with the eye still in the
                     // build's band, is kept until it is as old as a build is kept: a new build
@@ -4191,30 +4158,7 @@ final class WorldScene {
                     long sumNanos = 0L;
                     if (summed) {
                         long summing = System.nanoTime();
-                        // Read for nothing but light the game marked, which it marks by its level: the other levels are as they were summed.
-                        boolean lightAlone = telling && !missing && !AUDIT_MARKS && stands && current.signed && !current.restless && settled && ringAsItWas
-                                && marks != current.marks && current.things == things && current.told == toldSoFar && current.epoch == epoch && seasonHolds(current, slot) && current.land == land
-                                && current.litLoose == ChunkMarks.litLooseAround(chunk.wx, chunk.wy) && start - current.wholeNanos < sweptEvery(distance, slot);
-                        read = signature(chunk, chunkX, chunkY, lowest, lightAlone ? current : null, current);
-                        if (CHECK_BUILDS && readByLevel) {
-                            long[] byLevel = Arrays.copyOf(readSums, readTo - readFrom + 1);
-                            read = signature(chunk, chunkX, chunkY, lowest, null, null);
-                            tollSumsChecked++;
-                            for (int z = readFrom; z <= readTo; z++) {
-                                if (byLevel[z - readFrom] == readSums[z - readFrom]) {
-                                    continue;
-                                }
-                                // A light the whole reading was the first to ask for is marked by that asking, and the level is read the next time.
-                                boolean markedSince = ChunkMarks.litAround(chunk.wx, chunk.wy, z) != readLit[z - readFrom];
-                                if (markedSince) {
-                                    tollSumsLate++;
-                                } else {
-                                    tollSumsDiffered++;
-                                }
-                                Log.info(String.format(Locale.ROOT, "chunk sums: level %d of the chunk at %d, %d, kept as it was summed, is another sum read now, %s", z, chunk.wx, chunk.wy,
-                                        markedSince ? "and that reading marked its light" : "WITH NOTHING MARKED"));
-                            }
-                        }
+                        read = signature(chunk, chunkX, chunkY, lowest, current);
                         slowed(summing);
                         tollSums++;
                         sumNanos = System.nanoTime() - summing;
@@ -4232,7 +4176,7 @@ final class WorldScene {
                                     Log.info(String.format(Locale.ROOT, "chunk marks: changed at %d, %d, %.0f tiles off, read because %d, last read %.0f ms ago", chunk.wx, chunk.wy, distance, why,
                                             since / 1e6));
                                 }
-                            } else if (marks != current.marks) {
+                            } else if (things != current.things) {
                                 tollMarkedSame++;
                             }
                         }
@@ -4269,9 +4213,9 @@ final class WorldScene {
                             // One found changed that is not right by the eye is shown as it was built while the
                             // frame has spent its time: a turn has the game show a tower's rooms and finds a dozen
                             // of its chunks changed at once, each of thirty storeys, and built together they held
-                            // the frame for a tenth of a second. So is one right by the eye that nothing but its
-                            // light was marked on: the game lights again the chunks round where the character
-                            // stands as it turns, and eight of a tower's built together held a frame for 70 ms.
+                            // the frame for a tenth of a second. So is one right by the eye with no thing marked on
+                            // it, found changed for what the mod tells, the land or the season, which change many
+                            // chunks at once: eight chunks of a tower built in one frame held it for 70 ms.
                             // One a frame is made however late the frame is.
                             if (cause == CHANGED && (distance >= CHUNK_TILES * 1.5f || current.things == things)
                                     && (current.putOffNanos == 0L || start - current.putOffNanos < CHANGED_WAITS_NANOS)
@@ -4291,7 +4235,7 @@ final class WorldScene {
                             current.checkedNanos = start;
                             current.marks = marks;
                             current.things = things;
-                            current.keepLevels(this, start, current);
+                            current.keepLevels(this);
                             current.land = land;
                             current.landSum = readLand;
                             current.terrainVersion = terrain.version(chunk.wx, chunk.wy);
@@ -4304,9 +4248,8 @@ final class WorldScene {
                         } else {
                             // With the game telling, a chunk found changed is read again when it is next marked, and one that is restless is read as it was without.
                             if (sameEye && current.signature != read && (!telling || restless)) {
-                                // Something on the chunk changes from frame to frame: a light that
-                                // flickers, a sprite that moves. Summing it each time it is due
-                                // would be work for nothing, so it is left for a while.
+                                // Something on the chunk changes from frame to frame: a sprite that moves.
+                                // Summing it each time it is due would be work for nothing, so it is left for a while.
                                 summedFrom = frames + KEPT_UNCHANGED_FRAMES;
                                 summedFromNanos = start + KEPT_UNCHANGED_FRAMES * NANOS_A_FRAME_COUNTED;
                             }
@@ -4319,8 +4262,8 @@ final class WorldScene {
                         cause = still ? LEFT_UNREAD : MOVED;
                         builtBecause[cause]++;
                     }
-                    // Dev only: the build of a chunk built for nothing but light is kept until its page has been set against the new one's.
-                    ChunkMeshes replaced = AUDIT_PAGES && due && onlyLit ? current : null;
+                    // Dev only: the build of a chunk made again for its age alone is kept until its page has been set against the new one's.
+                    ChunkMeshes replaced = AUDIT_PAGES && due && cause == AGED ? current : null;
                     if (replaced != null) {
                         replaced.users++;
                     }
@@ -4363,7 +4306,7 @@ final class WorldScene {
                         fresh.marks = marks;
                         fresh.things = things;
                         if (summed) {
-                            fresh.keepLevels(this, start, current);
+                            fresh.keepLevels(this);
                         } else {
                             fresh.sumTo = fresh.sumFrom - 1;
                         }
@@ -4561,10 +4504,13 @@ final class WorldScene {
                         (aside ? builtAheadOf : shown).add(grown);
                     }
                     // A build made in this frame has its page from the light of now. One a sum kept in this frame has its
-                    // page worked out again from the light the sum read: the sum found the light what the build was made in,
-                    // which a refresh since may have made the page otherwise. Otherwise the page is refreshed once the light
-                    // round the chunk has been marked since the page was last read, or the day it lights rooms by has moved a
-                    // step: in view, nearest first, for so long a frame (REFRESH_NANOS_A_FRAME) and at least one a frame.
+                    // page worked out again from the light the sum read and holds none of. Otherwise the page is refreshed
+                    // once the light round the chunk has been marked since the page was last read, or the day it lights rooms
+                    // by has moved a step: in view, nearest first, for so long a frame (REFRESH_NANOS_A_FRAME) and at least one a frame.
+                    // One left for a later frame waits no longer than a changed build does: while the chunks by the eye are marked
+                    // frame after frame they take the frame's time, and those further off would wait for their sweep (sweptEvery),
+                    // seconds away for a far chunk. Of those that have waited so long one a frame is refreshed past the frame's time,
+                    // as a step of the day leaves every page that holds a room stale in one frame and they come due together.
                     int lit = marks - things;
                     if (current.builtFrame == frames) {
                         current.pageMarks = lit;
@@ -4572,11 +4518,17 @@ final class WorldScene {
                         current.pageDaylit = readDaylit;
                         current.pageFrom = Math.max(lowest, chunk.getMinLevel());
                         current.pageTo = chunk.getMaxLevel();
+                        current.pageWaitsNanos = 0L;
                     }
                     boolean fromSum = current.checkedFrame == frames && current.builtFrame != frames;
                     boolean refreshes = telling && faced && !aside && !rehearsing && current.builtFrame != frames;
                     boolean stale = current.pageMarks != lit || current.pageDaylit && current.pageDay != dayCode();
-                    if (!fromSum && refreshes && stale && refreshesNow > 0 && refreshNanosNow > REFRESH_NANOS_A_FRAME / sharing) {
+                    boolean refreshesLate = refreshesNow > 0 && refreshNanosNow > REFRESH_NANOS_A_FRAME / sharing;
+                    boolean pageWaited = current.pageWaitsNanos != 0L && start - current.pageWaitsNanos >= CHANGED_WAITS_NANOS;
+                    if (!fromSum && refreshes && stale && refreshesLate && (!pageWaited || waitedPastNow)) {
+                        if (current.pageWaitsNanos == 0L) {
+                            current.pageWaitsNanos = start;
+                        }
                         tollRefreshPutOff++;
                     } else if (fromSum || refreshes && stale) {
                         long refreshing = System.nanoTime();
@@ -4585,6 +4537,7 @@ final class WorldScene {
                         }
                         int changed = refresh(chunk, current, slot, fromSum);
                         current.pageMarks = lit;
+                        current.pageWaitsNanos = 0L;
                         long took = System.nanoTime() - refreshing;
                         refreshesNow++;
                         refreshNanosNow += took;
@@ -4593,11 +4546,15 @@ final class WorldScene {
                         if (fromSum) {
                             tollRefreshesFromSums++;
                             tollRefreshFromSumsNanos += took;
+                        } else if (refreshesLate) {
+                            waitedPastNow = true;
+                            tollRefreshWaited++;
                         }
                         tollRefreshReadNanos += relitReadNanos;
                         tollRefreshAsks += relitAsks;
                         tollRefreshLevels += relitLevels;
                         tollRefreshUnworked += relitUnworked;
+                        tollRefreshTold += relitUnworked > 0 ? 1 : 0;
                         tollRefreshChanged += changed;
                         tollRefreshNothing += changed == 0 ? 1 : 0;
                     } else if (AUDIT_PAGES && refreshes && (frames + slot) % AUDIT_PAGES_EVERY == 0) {
@@ -4606,16 +4563,12 @@ final class WorldScene {
                         tollUnmarkedRead[away]++;
                         tollUnmarkedChanged[away] += refresh(chunk, current, slot, false) > 0 ? 1 : 0;
                     }
-                    if (summed && onlyLit) {
-                        tollSumsLit++;
-                        tollSumsLitNanos += sumNanos;
-                    }
-                    if (onlyLit && current.builtFrame == frames) {
+                    if (lightOnly && current.builtFrame == frames && cause == CHANGED) {
                         tollBuiltLit++;
                     }
                     if (replaced != null) {
                         surround(map, chunk, gridX, gridY, side);
-                        auditLitBuild(chunk, replaced, current, passAtStart);
+                        auditAgedBuild(chunk, replaced, current, passAtStart);
                         release(replaced);
                     }
                     if (aside) {
@@ -5073,6 +5026,7 @@ final class WorldScene {
             Arrays.fill(builtBecause, 0);
             refreshesNow = 0;
             refreshNanosNow = 0L;
+            waitedPastNow = false;
             eyeStill = pose.eyeX == lastEyeX && pose.eyeY == lastEyeY && pose.eyeUp == lastEyeUp;
             lastEyeX = pose.eyeX;
             lastEyeY = pose.eyeY;
@@ -5322,7 +5276,7 @@ final class WorldScene {
             boolean signed = standing.signed, plain = standing.plain, grows = standing.grows;
             int seen = squaresSeen, loaded = squaresLoaded, counted = sprites;
             System.arraycopy(standing.groundLayers, 0, auditLayers, 0, auditLayers.length);
-            long sum = signature(chunk, chunkX, chunkY, lowest, null, null);
+            long sum = signature(chunk, chunkX, chunkY, lowest, null);
             solid.clear();
             laid.clear();
             checkPlaced.clear();
@@ -5682,46 +5636,28 @@ final class WorldScene {
         }
 
         /**
-         * What a build of a chunk would read of the map, summed: the light, the ground and the
-         * trees of each of its squares and of the squares round it, as readLights and readWoods
-         * leave them, the land's heights, and on each square every object's sprite, the texture
-         * it shows this frame, where it is drawn from, what is laid over it, whether a door is
-         * open, and what lies dead there. Two sums that are equal mean, for the same eye, the
-         * same triangles.
+         * What a build of a chunk would read of the map, summed: whether each of its squares and
+         * of the squares round it is out of doors, its ground and its trees, as readLights and
+         * readWoods leave them, the land's heights, and on each square every object's sprite, the
+         * texture it shows this frame, where it is drawn from, what is laid over it, whether a
+         * door is open, and what lies dead there. Two sums that are equal mean, for the same eye,
+         * the same triangles. The light is none of it: that is the build's page.
          *
          * It reads the lights as a build does, so the squares it sees count towards the frame's
-         * light as they would have.
+         * light as they would have, and a build it keeps has its page refreshed from them (refresh).
+         * Each level is summed apart and the sums summed.
          *
-         * Each level is summed apart and the sums summed. Given a build whose chunk has had
-         * nothing but light marked since it was read, a level whose light no mark names takes the
-         * sum the build has for it and is not read. A build that follows reads the light of those
-         * levels itself, and takes the others' from the reading.
-         *
-         * @param readFor a build of the chunk to take the sums of its unmarked levels from, or null to read every level
+         * @param held the chunk's build, whose sums are taken for the levels held over and under the viewer, or null to read every level
          */
-        private long signature(IsoChunk chunk, int chunkX, int chunkY, int lowest, ChunkMeshes readFor, ChunkMeshes held) {
+        private long signature(IsoChunk chunk, int chunkX, int chunkY, int lowest, ChunkMeshes held) {
             int from = Math.max(lowest, chunk.getMinLevel()), to = chunk.getMaxLevel();
             // The levels of the viewer's building that are held (heldFrom, heldUnder) are summed as the build there is was.
             boolean holds = held != null && heldFrom <= to && held.signed && held.sumFrom == from && held.sumTo == to
                     && chunkX < heldMaxX && chunkX + CHUNK_TILES > heldMinX && chunkY < heldMaxY && chunkY + CHUNK_TILES > heldMinY;
-            readUnseen = sum(SUM_FROM, gamesView ? 1 : 0);
-            readUnseen = sum(readUnseen, asTheGameShows ? 1 : 0);
-            // A lit room's daylight goes by the hour and the open ground's light as well (daylit): read again at each step of it.
-            readUnseen = sum(sum(sum(sum(readUnseen, roomsDaylit ? 1 : 0), Math.round(dayLight[0] * DAY_STEPS)), Math.round(dayLight[1] * DAY_STEPS)), Math.round(dayLight[2] * DAY_STEPS));
-            readByLevel = readFor != null && readFor.sumFrom == from && readFor.sumTo == to && readFor.unseenRead == readUnseen;
             readFrom = from;
             readTo = to;
             if (readSums.length < to - from + 1) {
                 readSums = new long[to - from + 1];
-                readLit = new int[to - from + 1];
-            }
-            // Before the levels are read: a mark made while one is read is then one more than is remembered for it.
-            readLoose = ChunkMarks.litLooseAround(chunk.wx, chunk.wy);
-            for (int z = from; z <= to; z++) {
-                readLit[z - from] = ChunkMarks.litAround(chunk.wx, chunk.wy, z);
-            }
-            if (readByLevel) {
-                tollSumsByLevel++;
             }
             long sum = sum(sum(sum(SUM_FROM, Float.floatToRawIntBits(frame.scale)), from), to);
             float[] ground = terrain.corners(cell, chunk.wx, chunk.wy);
@@ -5735,9 +5671,8 @@ final class WorldScene {
             int span = lightRed.length;
             if (AUDIT_MARKS) {
                 auditTerrain = land;
-                if (auditLights.length < (to - from + 1) * span) {
-                    auditLights = new long[(to - from + 1) * span];
-                    auditThings = new long[auditLights.length];
+                if (auditThings.length < (to - from + 1) * span) {
+                    auditThings = new long[(to - from + 1) * span];
                 }
             }
             if (keptRed.length < (to - from + 1) * span) {
@@ -5765,13 +5700,7 @@ final class WorldScene {
             for (int z = from; z <= to; z++) {
                 if (holds && (z >= heldFrom || z <= heldUnder)) {
                     readSums[z - from] = held.levelSums[z - from];
-                    readLit[z - from] = held.litSeen[z - from];
                     tollLevelsHeld++;
-                    continue;
-                }
-                if (readByLevel && readLit[z - from] == readFor.litSeen[z - from]) {
-                    readSums[z - from] = readFor.levelSums[z - from];
-                    tollLevelsKept++;
                     continue;
                 }
                 tollLevelsRead++;
@@ -5814,18 +5743,21 @@ final class WorldScene {
                         if (lightOpen[at] < 0) {
                             level = sum(level, -1);
                             if (AUDIT_MARKS) {
-                                auditLights[(z - from) * span + at] = auditThings[(z - from) * span + at] = -1;
+                                auditThings[(z - from) * span + at] = -1;
                             }
                             continue;
                         }
-                        long lit = sum(sum(sum(sum(sum(sum(SUM_FROM, lightOpen[at]), lightUnseen[at]), Float.floatToRawIntBits(lightRed[at])), Float.floatToRawIntBits(lightGreen[at])),
-                                Float.floatToRawIntBits(lightBlue[at])), Float.floatToRawIntBits(lightDay[at]));
-                        long thing = SUM_FROM;
+                        // Of the square's light only whether it is out of doors is the build's: the builders go by it. The rest is the page's.
+                        long thing = sum(SUM_FROM, lightOpen[at]);
                         if (z == 0) {
                             thing = sum(sum(sum(thing, groundKind[at]), groundRank[at]), groundTexture[at] == null ? 0 : groundTexture[at].getID());
                         }
                         IsoGridSquare square = lightSquare[at];
-                        thing = sum(sum(sum(thing, square.getRoomID()), unexplored(square) ? 1 : 0), lightUnseen[at] == OWN_LIGHT && Math.max(lightRed[at], Math.max(lightGreen[at], lightBlue[at])) > LAMPLIT && lampBurnsAt(at, square) ? 1 : 0);
+                        thing = sum(sum(thing, square.getRoomID()), unexplored(square) ? 1 : 0);
+                        // A canopy's lens is built lit or dark by its power (FloorBuilder.canopyLight), which the game marks nothing for.
+                        if (!mainsOn && z >= 1 && square.getRoomID() == -1L && square.getFloor() != null && isCanopy(square, squareAt(chunkX, chunkY, square.getX(), square.getY(), z - 1))) {
+                            thing = sum(thing, square.haveElectricity() ? 1 : 0);
+                        }
                         PZArrayList<IsoObject> objects = square.getObjects();
                         thing = sum(thing, objects.size());
                         for (int k = 0; k < objects.size(); k++) {
@@ -5895,9 +5827,8 @@ final class WorldScene {
                         if (ghost != null) {
                             thing = sum(sum(thing, shown(ghost.getSprite(), ghost.getDir())), GHOSTED);
                         }
-                        level = sum(sum(level, lit), thing);
+                        level = sum(level, thing);
                         if (AUDIT_MARKS) {
-                            auditLights[(z - from) * span + at] = lit;
                             auditThings[(z - from) * span + at] = thing;
                         }
                     }
@@ -5913,14 +5844,11 @@ final class WorldScene {
             }
             return sum;
         }
-        /** What the last reading of a chunk came to level by level, from readFrom to readTo, with ChunkMarks' counts for the light of each as they were before it, and whether it took any level's sum from a build. */
+        /** What the last reading of a chunk came to level by level, from readFrom to readTo. */
         private long[] readSums = new long[8];
         /** The land's part of the last reading, which signature leaves out of its sum: see ChunkMeshes.landSum. */
         private long readLand;
-        private int[] readLit = new int[8];
-        private int readFrom, readTo, readLoose;
-        private long readUnseen;
-        private boolean readByLevel;
+        private int readFrom, readTo;
         /**
          * Whether the last reading read the light of every level, none of it held or taken from a
          * build. keptLevels may gain a level after it, read untallied by the build of what grows
@@ -5931,15 +5859,13 @@ final class WorldScene {
         /** Dev only: keeps with a build what its sum was made of. */
         private void auditKeep(ChunkMeshes fresh, boolean summed) {
             if (!summed) {
-                fresh.auditLights = null;
+                fresh.auditThings = null;
                 return;
             }
             int length = (keptTo - keptFrom + 1) * lightRed.length;
-            if (fresh.auditLights == null || fresh.auditLights.length < length) {
-                fresh.auditLights = new long[length];
+            if (fresh.auditThings == null || fresh.auditThings.length < length) {
                 fresh.auditThings = new long[length];
             }
-            System.arraycopy(auditLights, 0, fresh.auditLights, 0, length);
             System.arraycopy(auditThings, 0, fresh.auditThings, 0, length);
             fresh.auditTerrain = auditTerrain;
             fresh.auditTrees = auditTrees;
@@ -5952,26 +5878,19 @@ final class WorldScene {
          * marked the chunk or one beside it since, and for one it had not, what of the sum changed.
          */
         private void audit(IsoChunk chunk, ChunkMeshes current, float distance, long start, int why) {
-            int now = ChunkMarks.around(chunk.wx, chunk.wy);
             if ((why & 31) != 0) {
                 tollMarkedChanges++;
                 return;
             }
-            // Marked by the reading itself: a light this reading was the first to ask for, which pullLights should have asked for before.
-            boolean byReading = now != current.marks;
-            if (byReading) {
-                tollMarkedByReading++;
-            } else {
-                tollMissedChanges++;
-            }
+            tollMissedChanges++;
             if (auditLogged++ > 4000) {
                 return;
             }
             StringBuilder what = new StringBuilder();
-            what.append(String.format(Locale.ROOT, "chunk marks: %s at %d, %d, %.0f tiles off, %.1f s old, built %.2f s ago, plain %b, read because %d, on the game's screen %b:",
-                    byReading ? "LATE LIGHT" : "MISSED", chunk.wx, chunk.wy, distance,
+            what.append(String.format(Locale.ROOT, "chunk marks: MISSED at %d, %d, %.0f tiles off, %.1f s old, built %.2f s ago, plain %b, read because %d, on the game's screen %b:",
+                    chunk.wx, chunk.wy, distance,
                     (start - current.bornNanos) / 1e9, (start - current.builtNanos) / 1e9, current.plain, why, chunk.getRenderLevels(playerIndex).isOnScreen(0)));
-            if (current.auditLights == null || current.auditFrom != keptFrom || current.auditTo != keptTo) {
+            if (current.auditThings == null || current.auditFrom != keptFrom || current.auditTo != keptTo) {
                 what.append(" levels ").append(current.auditFrom).append("..").append(current.auditTo).append(" now ").append(keptFrom).append("..").append(keptTo);
                 Log.info(what.toString());
                 return;
@@ -5982,19 +5901,12 @@ final class WorldScene {
             if (current.auditTrees != auditTrees) {
                 what.append(" trees");
             }
-            int span = lightRed.length, litOwn = 0, litRing = 0, thingOwn = 0, thingRing = 0, named = 0;
+            int span = lightRed.length, thingOwn = 0, thingRing = 0, named = 0;
             for (int z = keptFrom; z <= keptTo; z++) {
                 for (int at = 0; at < span; at++) {
                     int i = at / LIGHT_SPAN, j = at % LIGHT_SPAN;
                     boolean own = i >= 1 && i <= CHUNK_TILES && j >= 1 && j <= CHUNK_TILES;
                     int index = (z - keptFrom) * span + at;
-                    if (current.auditLights[index] != auditLights[index]) {
-                        if (own) {
-                            litOwn++;
-                        } else {
-                            litRing++;
-                        }
-                    }
                     if (current.auditThings[index] != auditThings[index]) {
                         if (own) {
                             thingOwn++;
@@ -6022,7 +5934,7 @@ final class WorldScene {
                     }
                 }
             }
-            what.append(String.format(Locale.ROOT, " lights own %d ring %d, things own %d ring %d", litOwn, litRing, thingOwn, thingRing));
+            what.append(String.format(Locale.ROOT, " things own %d ring %d", thingOwn, thingRing));
             Log.info(what.toString());
         }
 
@@ -6574,12 +6486,11 @@ final class WorldScene {
          * the chunk are (lampsRound), and a lamp's, a ceiling's or a canopy's site asks the game
          * of the square it is lit by, as in any refresh. A level the sum took from the build
          * keeps its records, and on the ground so does what grows there: it is one of the
-         * viewer's building held as its build was made (heldFrom, heldUnder), or one whose light
-         * nothing has marked since the chunk was last summed, which the sum takes to be as it was
-         * (signature). The ground is read all the same where what grows there is built again in
-         * the frame (addSquares), and then has the light of that reading.
-         * Otherwise, with holding, a level of the viewer's building held keeps its records too,
-         * as the sum keeps its sum: its light is not asked for while the viewer is there (pullLights).
+         * viewer's building held as its build was made (heldFrom, heldUnder). The ground is read
+         * all the same where what grows there is built again in the frame (addSquares), and then
+         * has the light of that reading. Otherwise, with holding, such a level keeps its records
+         * too, as the sum keeps its sum: its light is not asked for while the viewer is there
+         * (pullLights).
          */
         private void relightPage(IsoChunk chunk, ChunkMeshes build, ChunkMeshes grown, boolean fromSum, boolean holding) {
             int chunkX = chunk.wx * CHUNK_TILES, chunkY = chunk.wy * CHUNK_TILES;
@@ -6668,6 +6579,10 @@ final class WorldScene {
          * shows are taken from the same reading, and so is whether its page goes by the day; where
          * a level kept its records, the page goes by the day if it did. How many records of the
          * build and of what grows on it differed.
+         *
+         * A site that could not be worked out again is one the build would not put now: its square
+         * has gone, or the squares under a piece lit across them no longer share a kind of light
+         * (blockLights). The chunk is told, so that it is built again as it now is.
          */
         private int refresh(IsoChunk chunk, ChunkMeshes build, int slot, boolean fromSum) {
             ChunkMeshes grown = latestGrown[slot];
@@ -6675,6 +6590,9 @@ final class WorldScene {
                 grown = null;
             }
             relightPage(chunk, build, grown, fromSum, true);
+            if (relitUnworked > 0) {
+                ChunkMarks.tell(chunk.wx, chunk.wy);
+            }
             if (relitWhole) {
                 reading.copyTo(build.seen);
                 readingRooms.copyTo(build.seenRooms);
@@ -6683,8 +6601,7 @@ final class WorldScene {
             } else {
                 build.pageDaylit |= readDaylit;
             }
-            // A level that kept its records is taken to be lit as it was: one of the viewer's building held over or under the viewer,
-            // whose light is not followed while it is, or one the sum took to be as it was.
+            // A level that kept its records is one of the viewer's building held over or under the viewer, whose light is not followed while it is.
             build.pageDay = dayCode();
             int changed = build.publish(refreshed);
             // Crowns out being made have the light their build had when they were handed over, and are lit again as they come back (land).
@@ -6697,13 +6614,13 @@ final class WorldScene {
         }
 
         /**
-         * Dev only (AUDIT_PAGES): sets the page of a build made for nothing but light marked
-         * against the page of the build it replaces, refreshed now. Sites either has and the other
-         * not are counted, and in a build with none, records that differ, apart from those of
-         * builds whose light was read across a pass of the lighting engine: the pass at whose start
-         * pass was taken.
+         * Dev only (AUDIT_PAGES): sets the page of a build made again for its age alone, the same
+         * triangles, against the page of the build it replaces, refreshed now. Sites either has
+         * and the other not are counted, and in a build with none, records that differ, apart from
+         * those of builds whose light was read across a pass of the lighting engine: the pass at
+         * whose start pass was taken.
          */
-        private void auditLitBuild(IsoChunk chunk, ChunkMeshes replaced, ChunkMeshes built, int pass) {
+        private void auditAgedBuild(IsoChunk chunk, ChunkMeshes replaced, ChunkMeshes built, int pass) {
             relightPage(chunk, replaced, null, false, false);
             boolean acrossPass = LightingJNI.getUpdateCounter(playerIndex) != pass;
             tollPagesAudited++;
@@ -6718,7 +6635,7 @@ final class WorldScene {
                 tollPagesSitesDiffer++;
                 tollSitesDiffer += sites;
                 if (pageLogFree()) {
-                    Log.info("light pages: the chunk at " + chunk.wx + ", " + chunk.wy + " built for nothing but light has " + built.pageRecords + " sites, and the build it replaces "
+                    Log.info("light pages: the chunk at " + chunk.wx + ", " + chunk.wy + " built again for its age has " + built.pageRecords + " sites, and the build it replaces "
                             + replaced.pageRecords + ", of which " + missing + " are not the new one's");
                 }
                 return;
@@ -6729,7 +6646,7 @@ final class WorldScene {
                 if (!Arrays.equals(refreshed, record * LightSites.RECORD, (record + 1) * LightSites.RECORD, built.page, site * LightSites.RECORD, (site + 1) * LightSites.RECORD)) {
                     records++;
                     if (!acrossPass && pageLogFree()) {
-                        Log.info("light pages: the chunk at " + chunk.wx + ", " + chunk.wy + " built for nothing but light has site " + Long.toHexString(replaced.pageKeys[record]) + " as "
+                        Log.info("light pages: the chunk at " + chunk.wx + ", " + chunk.wy + " built again for its age has site " + Long.toHexString(replaced.pageKeys[record]) + " as "
                                 + Arrays.toString(Arrays.copyOfRange(built.page, site * LightSites.RECORD, site * LightSites.RECORD + LightSites.LAMPLIT + 1))
                                 + ", and its page refreshed as " + Arrays.toString(Arrays.copyOfRange(refreshed, record * LightSites.RECORD, record * LightSites.RECORD + LightSites.LAMPLIT + 1)));
                     }
