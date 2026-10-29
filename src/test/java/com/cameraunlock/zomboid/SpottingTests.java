@@ -47,6 +47,7 @@ public final class SpottingTests {
         Checks.run("aChunkLoadedAgainIsAskedAboutAgain", SpottingTests::aChunkLoadedAgainIsAskedAboutAgain);
         Checks.run("aFramesShareOfARoundEndsOnceItsTimeIsUp", SpottingTests::aFramesShareOfARoundEndsOnceItsTimeIsUp);
         Checks.run("aRoomIsGoneOverAChunkAtATime", SpottingTests::aRoomIsGoneOverAChunkAtATime);
+        Checks.run("theRoomsThatCouldBeSpottedAreGoneOverFirst", SpottingTests::theRoomsThatCouldBeSpottedAreGoneOverFirst);
         Checks.run("aRoundTheFramesWereTooSlowForGoesOnOverTheNext", SpottingTests::aRoundTheFramesWereTooSlowForGoesOnOverTheNext);
         Checks.run("noLevelThePictureReadsNoLightOnIsAskedAbout", SpottingTests::noLevelThePictureReadsNoLightOnIsAskedAbout);
         Checks.run("onlyTheChunksTheConeTakesInAreSeen", SpottingTests::onlyTheChunksTheConeTakesInAreSeen);
@@ -620,6 +621,21 @@ public final class SpottingTests {
             once &= square.seenAsked == 1;
         }
         check(once, "and each of its squares once");
+    }
+
+    private static void theRoomsThatCouldBeSpottedAreGoneOverFirst() {
+        IsoCell cell = new IsoCell();
+        Room far = Room.of(cell, 46L, 500, 500, 1, 1, 0), near = Room.of(cell, 47L, 560, 500, 1, 1, 0), explored = Room.of(cell, 48L, 562, 500, 1, 1, 0);
+        explored.def().explored = true;
+        for (Room room : new Room[] {far, near, explored}) {
+            room.squares()[0].seen(true);
+        }
+        Spotting spotting = spotting();
+        spotting.stand(560.5f, 502.5f, 0f, null);
+        spotting.begin(cell, inSight(far, explored, near), defs(far, near, explored)::get, List.of(), IsoChunk::getMinLevel, IsoChunk::getMaxLevel);
+        spotting.work(cell, 0L);
+        check(near.squares()[0].seenAsked == 1 && near.squares()[0].roomChecks == 1 && far.squares()[0].seenAsked == 0 && explored.squares()[0].seenAsked == 0,
+                "the first piece a round goes over is of a room the game could spot from where the player stands, whatever the order the rooms came in");
     }
 
     private static void aRoundTheFramesWereTooSlowForGoesOnOverTheNext() {

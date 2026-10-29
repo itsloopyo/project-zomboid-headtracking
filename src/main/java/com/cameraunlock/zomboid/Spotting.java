@@ -426,9 +426,10 @@ final class Spotting {
 
     /**
      * Begins a round over the rooms given and the squares out of doors on the chunks given: a
-     * unit for each piece of each room's rectangles inside a chunk, and for each level of each
-     * chunk. On a client, which marks nothing, the units are only those that can spot a room. Only
-     * the levels of a chunk the picture reads light on are gone over (lightFrom to lightTop,
+     * unit for each piece of each room's rectangles inside a chunk, those that could spot their
+     * room from where the player stands first, and for each level of each chunk. On a client,
+     * which marks nothing, the units are only those that can spot a room. Only the levels of a
+     * chunk the picture reads light on are gone over (lightFrom to lightTop,
      * WorldScene.Frame.lightFrom): the storeys of the viewer's building held over the eye are read
      * by nothing, and an asking that found a square's light changed would mark its chunk to be
      * built again.
@@ -462,8 +463,16 @@ final class Spotting {
             }
             roomDefs.add(def);
         }
+        // Those that could spot first, so that a round spread over frames spots as soon as one done in a frame would.
         for (int piece = 0; piece < pieceCount; piece++) {
-            unit(ROOM_UNIT | piece);
+            if (canSpot(piece)) {
+                unit(ROOM_UNIT | piece);
+            }
+        }
+        for (int piece = 0; piece < pieceCount; piece++) {
+            if (!canSpot(piece)) {
+                unit(ROOM_UNIT | piece);
+            }
         }
         drawnKeys.clear();
         drawnChunks.clear();
@@ -500,6 +509,11 @@ final class Spotting {
                 pieces[at + 4] = Math.min(y1, ((y >> 3) + 1) << 3);
             }
         }
+    }
+
+    private boolean canSpot(int piece) {
+        int at = piece * PIECE;
+        return canSpot(roomDefs.get(pieces[at]), pieces[at + 1], pieces[at + 2], pieces[at + 3], pieces[at + 4]);
     }
 
     private void unit(long unit) {
