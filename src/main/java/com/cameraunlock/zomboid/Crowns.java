@@ -185,6 +185,23 @@ final class Crowns {
         return true;
     }
 
+    /**
+     * Takes the light of each crown of a site again from the record of its key in the page of
+     * the build it was written down from, as a refresh has left it (WorldScene.ChunkMeshes.pageSite).
+     */
+    void relight(WorldScene.ChunkMeshes build) {
+        for (int i = 0; i < count; i++) {
+            if (sites[i] < 0) {
+                continue;
+            }
+            int site = build.pageSite(sites[i]);
+            if (site < 0) {
+                throw new IllegalStateException("crown " + i + " is lit by site " + Long.toHexString(sites[i]) + ", which the build of the chunk at " + build.wx + ", " + build.wy + " has not");
+            }
+            System.arraycopy(build.page, site * LightSites.RECORD, lights, i * LightSites.RECORD, LightSites.RECORD);
+        }
+    }
+
     /** Makes the crowns into the set, leaves in the mesh of each one's texture and wood in the plain one. The frame is scratch. */
     void mesh(SpriteGeometry.MeshSet into, int plain, SpriteGeometry.Frame frame) {
         float[] room = new float[4];

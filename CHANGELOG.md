@@ -12,6 +12,7 @@
 - On a server where players can hurt each other, walking sideways or backwards in first person keeps your character facing where you look, in the game's aiming stance at that stance's own pace, whatever `FacesTheView` says. Other players see it face the way you are looking, not its back. Jogging or sprinting that way, it walks.
 - On a server where players cannot hurt each other, first person shots go on through thin walls and doors (`ShotsThroughWalls`) and past a tree's trunk (`ShotsPastTrees`), as they do offline.
 - On any server, the south and east walls of rooms carry the mod's pictures in first person, as they do offline.
+- In first person, light follows the game's sooner when it changes, such as a lamp switched on or headlights going by: what you can see is lit again as soon as the game marks its light changed, nearest first, instead of waiting for that part of the world to be built again.
 
 ### Fixed
 

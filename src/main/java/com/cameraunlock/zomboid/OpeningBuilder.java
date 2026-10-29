@@ -842,7 +842,8 @@ final class OpeningBuilder {
         glass.sway = 0f;
         facePane(glass, beyond, lit, da, db);
         paneFrame.lightAs(sideFrames[paneSide]);
-        WorldScene.sites.lamp(paneFrame, ownIsRoom ? LightSites.LAMP_OWN : north ? LightSites.LAMP_NORTH : LightSites.LAMP_WEST, lit);
+        WorldScene.sites.lamp(paneFrame, ownIsRoom ? LightSites.LAMP_OWN : north ? LightSites.LAMP_NORTH : LightSites.LAMP_WEST,
+                ownIsRoom ? LightSites.place(x, y, z) : north ? LightSites.place(x, y - 1, z) : LightSites.place(x - 1, y, z), lit);
         glass.lightFlat(paneFrame);
         float clear = glass.open;
         for (int pane = 0; pane < shape.panes.length; pane += 5) {
@@ -1137,12 +1138,22 @@ final class OpeningBuilder {
                 frame.openUnlit();
                 continue;
             }
-            frame.light(sideRed[side], sideGreen[side], sideBlue[side]);
-            frame.open = sideOpen[side];
-            frame.unlitKind = 0f;
-            Arrays.fill(frame.cornerDay, sideDay[side]);
-            WorldScene.sites.put(LightSites.SIDE, side == 0 || same ? ownLight : ownLight | 1L << 8 | (north ? 1L : 0L) << 9, frame, sideDay[side], false);
+            sideLight(sideRed[side], sideGreen[side], sideBlue[side], sideOpen[side], sideDay[side], frame);
+            // The square's own side is lit as the frame was, and is worked out again from the site the frame had.
+            if (side == 0 || same) {
+                WorldScene.sites.putOver(LightSites.SIDE, ownLight, build.frame.site, frame, sideDay[side]);
+            } else {
+                WorldScene.sites.put(LightSites.SIDE, ownLight | 1L << 8 | (north ? 1L : 0L) << 9, frame, sideDay[side], false);
+            }
         }
+    }
+
+    /** One side of a window or a door, as lightSides lights it: a site's record is worked out again so (LightSites.SIDE). */
+    static void sideLight(float red, float green, float blue, float open, float day, SpriteGeometry.Frame into) {
+        into.light(red, green, blue);
+        into.open = open;
+        into.unlitKind = 0f;
+        Arrays.fill(into.cornerDay, day);
     }
 
     static boolean wooden(float red, float green, float blue) {

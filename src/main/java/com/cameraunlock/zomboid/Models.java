@@ -526,6 +526,8 @@ final class Models {
         long room = RoomSight.OUTSIDE;
         /** For each piece, the key of the thing it is of (Outlines.key), or Outlines.NONE. */
         long[] keys = new long[8];
+        /** For each piece, the light site of the frame it was lit by, in its build's page (LightSites), or the frame's site where it had none (LightSites.STATIC). */
+        int[] sites = new int[8];
         /** The key of the thing the pieces added next are of: see SpriteGeometry.MeshSet.own. */
         long key = Outlines.NONE;
 
@@ -599,12 +601,14 @@ final class Models {
                 rooms = Arrays.copyOf(rooms, rooms.length * 2);
                 roomsToo = Arrays.copyOf(roomsToo, roomsToo.length * 2);
                 keys = Arrays.copyOf(keys, keys.length * 2);
+                sites = Arrays.copyOf(sites, sites.length * 2);
             }
             int at = count * FLOATS, whole = count * INTS;
             long[] two = RoomSight.pairOf(room);
             rooms[count] = two == null ? room : two[0];
             roomsToo[count] = two == null ? room : two[1];
             keys[count] = key;
+            sites[count] = light.site;
             float[] to = floats;
             to[at + PLACE] = tileX;
             to[at + PLACE + 1] = tileY;
@@ -614,22 +618,7 @@ final class Models {
             to[at + FOOT + 1] = centreY - tileY;
             to[at + FOOT + 2] = baseUp;
             turnRows(quarterTurns, to, at + TURN);
-            corners(light.cornerRed, to, at + LIGHT);
-            corners(light.cornerGreen, to, at + LIGHT + 1);
-            corners(light.cornerBlue, to, at + LIGHT + 2);
-            boolean blended = light.cornerUnlit[0] >= 0f;
-            float[] unlit = light.cornerUnlit;
-            to[at + UNLIT] = blended ? unlit[0] : 0f;
-            to[at + UNLIT + 1] = blended ? unlit[1] - unlit[0] : 0f;
-            to[at + UNLIT + 2] = blended ? unlit[3] - unlit[0] : 0f;
-            to[at + UNLIT + 3] = blended ? unlit[2] - unlit[1] - (unlit[3] - unlit[0]) : 0f;
-            to[at + UNLIT + 4] = blended ? light.unlitKind + 1f : 0f;
-            float[] day = light.cornerDay;
-            to[at + DAY] = day[0];
-            to[at + DAY + 1] = day[1] - day[0];
-            to[at + DAY + 2] = day[3] - day[0];
-            to[at + DAY + 3] = day[2] - day[1] - (day[3] - day[0]);
-            to[at + SURFACES] = light.open;
+            light(light, to, at);
             to[at + SURFACES + 1] = dyedSurfaces;
             to[at + SURFACES + 2] = alsoDyed & ~dyedSurfaces;
             to[at + DYE] = dyeU;
@@ -650,6 +639,41 @@ final class Models {
             float halfWide = model.width() * scale / 2f, halfDeep = model.depth() * scale / 2f, halfHigh = model.height() * scaleUp / 2f;
             to[at + BALL + 3] = (float) Math.sqrt(halfWide * halfWide + halfDeep * halfDeep + halfHigh * halfHigh);
             count++;
+        }
+
+        /** The light a piece takes from the frame it is lit by, at LIGHT, UNLIT, DAY and SURFACES of its floats from at. */
+        private static void light(SpriteGeometry.Frame light, float[] to, int at) {
+            corners(light.cornerRed, to, at + LIGHT);
+            corners(light.cornerGreen, to, at + LIGHT + 1);
+            corners(light.cornerBlue, to, at + LIGHT + 2);
+            boolean blended = light.cornerUnlit[0] >= 0f;
+            float[] unlit = light.cornerUnlit;
+            to[at + UNLIT] = blended ? unlit[0] : 0f;
+            to[at + UNLIT + 1] = blended ? unlit[1] - unlit[0] : 0f;
+            to[at + UNLIT + 2] = blended ? unlit[3] - unlit[0] : 0f;
+            to[at + UNLIT + 3] = blended ? unlit[2] - unlit[1] - (unlit[3] - unlit[0]) : 0f;
+            to[at + UNLIT + 4] = blended ? light.unlitKind + 1f : 0f;
+            float[] day = light.cornerDay;
+            to[at + DAY] = day[0];
+            to[at + DAY + 1] = day[1] - day[0];
+            to[at + DAY + 2] = day[3] - day[0];
+            to[at + DAY + 3] = day[2] - day[1] - (day[3] - day[0]);
+            to[at + SURFACES] = light.open;
+        }
+
+        /**
+         * Lights again each piece lit by a site whose record is from one to another of the page,
+         * as add lit it from a frame holding that record: the page has been refreshed (see
+         * WorldScene.ChunkMeshes.lit). The frame is scratch.
+         */
+        void relight(float[] page, int from, int to, SpriteGeometry.Frame scratch) {
+            for (int piece = 0; piece < count; piece++) {
+                int site = sites[piece];
+                if (site >= from && site <= to) {
+                    LightSites.give(page, site * LightSites.RECORD, scratch);
+                    light(scratch, floats, piece * FLOATS);
+                }
+            }
         }
 
         /**

@@ -30,6 +30,8 @@ final class TestMap {
         build.frame.scale = 2f;
         // A test that calls a builder without the build lighting the frame from the map builds in the frame's light as it is, on a site as a builder's light is.
         LightSiteTests.sited(build.frame);
+        // Each site a builder puts is worked out again by the frame, as a build has it (Frame.addSquares).
+        WorldScene.sites.evaluator = build;
         build.roofBuilder.newBuild();
         Roofs.forget();
         WorldScene.solid.get(WorldScene.PLAIN).clear();

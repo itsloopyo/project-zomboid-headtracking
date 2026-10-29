@@ -1318,12 +1318,18 @@ final class WallBuilder {
      * one in a grey wall.
      */
     private void lightAlong(int at, boolean north) {
+        along(at, north, build.frame);
+        WorldScene.sites.put(LightSites.ALONG, at | (north ? 1L : 0L) << 8, build.frame, 0f, false);
+    }
+
+    /** The light lightAlong gives a wall's far side, into into, from the light the build last read: a site's record is worked out again so (LightSites.ALONG). */
+    void along(int at, boolean north, SpriteGeometry.Frame into) {
         int step = north ? WorldScene.LIGHT_SPAN : 1;
-        build.frame.light(build.lightRed[at], build.lightGreen[at], build.lightBlue[at]);
-        build.frame.open = build.openOf(at);
+        into.light(build.lightRed[at], build.lightGreen[at], build.lightBlue[at]);
+        into.open = build.openOf(at);
         // As WorldScene.Frame.cornerLights: a square the game has given no light counts as 1, and the corner keeps how much of its light such squares are.
         byte kind = build.unlitKindRound(at);
-        build.frame.unlitKind = kind;
+        into.unlitKind = kind;
         boolean ownGiven = build.lightUnseen[at] == WorldScene.OWN_LIGHT;
         float ownGrey = (build.lightRed[at] + build.lightGreen[at] + build.lightBlue[at]) / 3f;
         for (int end = 0; end < 2; end++) {
@@ -1343,13 +1349,12 @@ final class WallBuilder {
             // The square's corners go north-west, north-east, south-east, south-west: a wall on its
             // north edge ends at the first two, one on its west edge at the first and the last.
             int near = end == 0 ? 0 : north ? 1 : 3, far = end == 0 ? (north ? 3 : 1) : 2;
-            build.frame.cornerRed[near] = build.frame.cornerRed[far] = red;
-            build.frame.cornerGreen[near] = build.frame.cornerGreen[far] = green;
-            build.frame.cornerBlue[near] = build.frame.cornerBlue[far] = blue;
-            build.frame.cornerUnlit[near] = build.frame.cornerUnlit[far] = unlit;
-            build.frame.cornerDay[near] = build.frame.cornerDay[far] = day;
+            into.cornerRed[near] = into.cornerRed[far] = red;
+            into.cornerGreen[near] = into.cornerGreen[far] = green;
+            into.cornerBlue[near] = into.cornerBlue[far] = blue;
+            into.cornerUnlit[near] = into.cornerUnlit[far] = unlit;
+            into.cornerDay[near] = into.cornerDay[far] = day;
         }
-        WorldScene.sites.put(LightSites.ALONG, at | (north ? 1L : 0L) << 8, build.frame, 0f, false);
     }
 
     /**
@@ -1574,7 +1579,8 @@ final class WallBuilder {
             return;
         }
         boolean lamplit = WorldScene.lamplit(build.cell, ownIsRoom ? build.here : beyond, build.playerIndex, build.asTheGameShows || build.gamesView, build.lampsNear);
-        WorldScene.sites.lamp(build.frame, ownIsRoom ? LightSites.LAMP_OWN : north ? LightSites.LAMP_NORTH : LightSites.LAMP_WEST, lamplit);
+        WorldScene.sites.lamp(build.frame, ownIsRoom ? LightSites.LAMP_OWN : north ? LightSites.LAMP_NORTH : LightSites.LAMP_WEST,
+                ownIsRoom ? LightSites.place(x, y, z) : north ? LightSites.place(x, y - 1, z) : LightSites.place(x - 1, y, z), lamplit);
         if (lamplit) {
             build.frame.material = LIT_GLASS;
         }

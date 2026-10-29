@@ -82,6 +82,10 @@ final class ChunkBuffers {
     /** What the last frame came to, for the logic thread's log: megabytes in use and in all, builds sent and megabytes sent. */
     private static volatile float usedMegabytes, allMegabytes, sentMegabytes;
     private static volatile int sent;
+    /** Builds held whose refreshed records the graphics card took this frame, and the last frame's count for the log. */
+    private static int relitBuilds;
+    private static volatile int relit;
+    private static final SpriteGeometry.Frame relitFrame = new SpriteGeometry.Frame();
 
     private ChunkBuffers() {}
 
@@ -102,8 +106,8 @@ final class ChunkBuffers {
     }
 
     static String describe() {
-        return String.format(Locale.ROOT, "card holds %.0f of %.0f MB, sent %d builds %.1f MB, %.0f MB on the way there and %.0f MB kept for the next, %s",
-                usedMegabytes, allMegabytes, sent, sentMegabytes, VertexLoans.lentBytes() / 1048576f, VertexLoans.idleBytes() / 1048576f, LightPages.describe());
+        return String.format(Locale.ROOT, "card holds %.0f of %.0f MB, sent %d builds %.1f MB and the light of %d, %.0f MB on the way there and %.0f MB kept for the next, %s",
+                usedMegabytes, allMegabytes, sent, sentMegabytes, relit, VertexLoans.lentBytes() / 1048576f, VertexLoans.idleBytes() / 1048576f, LightPages.describe());
     }
 
     /**
@@ -126,6 +130,7 @@ final class ChunkBuffers {
                 drop(build);
             }
         }
+        relitBuilds = 0;
         for (int i = 0; i < chunks.size(); i++) {
             WorldScene.ChunkMeshes build = chunks.get(i);
             if (!build.held && !send(build)) {
@@ -133,6 +138,9 @@ final class ChunkBuffers {
                 if (!send(build)) {
                     throw new IllegalStateException("a buffer of " + capacity + " floats made for this frame does not hold it");
                 }
+            }
+            if (build.heldLit != build.lit) {
+                relight(build);
             }
         }
         // A buffer made for a wide view is mostly empty once the view is a narrow one. Time in which no
@@ -152,6 +160,35 @@ final class ChunkBuffers {
         allMegabytes = (long) capacity * Float.BYTES / 1048576f;
         sentMegabytes = sentFloats * Float.BYTES / 1048576f;
         sent = sentBuilds;
+        relit = relitBuilds;
+    }
+
+    /**
+     * Has the graphics card take the records of a build's page refreshed since it last took
+     * the page (WorldScene.ChunkMeshes.lit), and lights its pieces again from them.
+     */
+    private static void relight(WorldScene.ChunkMeshes build) {
+        synchronized (build) {
+            if (build.heldPageRecords > 0) {
+                LightPages.update(build.heldPageAt, build.page, build.litFrom, build.litTo - build.litFrom + 1);
+            }
+            takeLit(build);
+        }
+        relitBuilds++;
+    }
+
+    /**
+     * Lights the build's pieces again from the records of its page refreshed since the render
+     * thread last took it, and has taken it: the graphics card holds the page as it now is.
+     * Holding the build's lock.
+     */
+    private static void takeLit(WorldScene.ChunkMeshes build) {
+        if (build.litTo >= build.litFrom) {
+            build.placed.relight(build.page, build.litFrom, build.litTo, relitFrame);
+        }
+        build.litFrom = Integer.MAX_VALUE;
+        build.litTo = -1;
+        build.heldLit = build.lit;
     }
 
     /**
@@ -168,6 +205,9 @@ final class ChunkBuffers {
             }
             if (!build.held) {
                 send(build);
+            }
+            if (build.held && build.heldLit != build.lit) {
+                relight(build);
             }
         }
     }
@@ -343,18 +383,22 @@ final class ChunkBuffers {
                 throw new IllegalStateException("a build of " + floats + " floats that the graphics card does not hold came with "
                         + (vertices == null ? "no vertices" : vertices.remaining() + " floats of them"));
             }
-            if (records > 0) {
-                try {
-                    pageAt = LightPages.send(build.page, records);
-                } catch (RuntimeException refused) {
-                    space.give(at, floats);
-                    throw refused;
-                }
-                // A vertex counts its record from the start of its build's page.
-                if (pageAt != 0) {
-                    for (int record = SpriteGeometry.RECORD_AT; record < floats; record += SpriteGeometry.VERTEX_FLOATS) {
-                        vertices.put(record, vertices.get(record) + pageAt);
+            // The page as a refresh on the logic thread last left it, sent whole with the build's pieces lit from it.
+            synchronized (build) {
+                if (records > 0) {
+                    try {
+                        pageAt = LightPages.send(build.page, records);
+                    } catch (RuntimeException refused) {
+                        space.give(at, floats);
+                        throw refused;
                     }
+                }
+                takeLit(build);
+            }
+            // A vertex counts its record from the start of its build's page.
+            if (pageAt != 0) {
+                for (int record = SpriteGeometry.RECORD_AT; record < floats; record += SpriteGeometry.VERTEX_FLOATS) {
+                    vertices.put(record, vertices.get(record) + pageAt);
                 }
             }
             GL15.glBufferSubData(GL_ARRAY_BUFFER, (long) at * Float.BYTES, vertices);
@@ -362,6 +406,10 @@ final class ChunkBuffers {
             VertexLoans.give(vertices);
             sentBuilds++;
             sentFloats += floats;
+        } else {
+            synchronized (build) {
+                takeLit(build);
+            }
         }
         build.heldAt = at;
         build.heldFloats = floats;

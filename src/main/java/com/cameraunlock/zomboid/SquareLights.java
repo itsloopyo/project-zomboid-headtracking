@@ -41,6 +41,8 @@ final class SquareLights {
     private final Block[][] levels = new Block[LEVELS][];
     /** What a square asked for again in the same pass is handed back in: only until the next asking. */
     private final ColorInfo kept = new ColorInfo();
+    /** How many times a square's light has been asked of the game, for the logic thread's tolls. */
+    long asked;
 
     /** The square's light for the player as the game has it in the engine's pass given. */
     ColorInfo of(IsoGridSquare square, int playerIndex, int pass) {
@@ -69,6 +71,7 @@ final class SquareLights {
             return kept;
         }
         ColorInfo light = square.lighting[playerIndex].lightInfo();
+        asked++;
         block.known[at] = true;
         block.pass[at] = pass;
         block.light[at * 4] = light.r;

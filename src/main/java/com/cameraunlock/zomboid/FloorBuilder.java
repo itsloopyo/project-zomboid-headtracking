@@ -796,21 +796,9 @@ final class FloorBuilder {
      */
     private void addCanopy(int x, int y, int z, float drop) {
         build.building.plain = false;
-        IsoGridSquare ground = null;
-        for (int under = z - 1; under >= 0 && ground == null; under--) {
-            ground = build.cell.getGridSquare(x, y, under);
-        }
-        boolean shown = ground != null && ground.isSeen(build.playerIndex);
-        ColorInfo light = shown ? build.lightOf(ground) : WorldScene.SHADE_ONLY;
-        boolean lit = build.mainsOn || build.here.haveElectricity();
-        // Under a lit canopy what the game has given no light is lit by the canopy alone.
-        float red = lit ? Soffits.under(shown ? light.r : 0f, Soffits.GLOW_RED) : light.r, green = lit ? Soffits.under(shown ? light.g : 0f, Soffits.GLOW_GREEN) : light.g;
-        float blue = lit ? Soffits.under(shown ? light.b : 0f, Soffits.GLOW_BLUE) : light.b;
-        float unlit = shown || lit ? 0f : WorldScene.LIT_STEP * WorldScene.OPEN_LIT;
-        canopyFrame.light(red, green, blue);
-        canopyFrame.open = unlit;
-        canopyFrame.unlitKind = 0f;
-        WorldScene.sites.put(LightSites.CANOPY, build.own(), canopyFrame, 0f, false);
+        boolean lit = canopyLight(build.here, x, y, z, canopyFrame);
+        float red = canopyFrame.red, green = canopyFrame.green, blue = canopyFrame.blue, unlit = canopyFrame.open;
+        WorldScene.sites.putAt(LightSites.CANOPY, build.own(), LightSites.place(x, y, z), canopyFrame);
         float up = z * ViewCamera.LEVEL_HEIGHT - drop;
         SpriteGeometry.Mesh plain = WorldScene.solid.get(WorldScene.PLAIN);
         Soffits.add(plain, x, y, up, canopyFrame, unlit + 32f * WorldScene.CONCRETE, unlit + 32f * WorldScene.LAMP, Soffits.fitted(x, y), lit);
@@ -868,6 +856,45 @@ final class FloorBuilder {
     }
 
     /**
+     * The light of the lining of a canopy over (x, y, z), whose square is here, into into: the
+     * ground's under it, and under a lit one at least the canopy's own glow, which lights what the
+     * game has given no light. Whether the canopy is lit. A site's record is worked out again so (LightSites.CANOPY).
+     */
+    boolean canopyLight(IsoGridSquare here, int x, int y, int z, SpriteGeometry.Frame into) {
+        IsoGridSquare ground = null;
+        for (int under = z - 1; under >= 0 && ground == null; under--) {
+            ground = build.cell.getGridSquare(x, y, under);
+        }
+        boolean shown = ground != null && ground.isSeen(build.playerIndex);
+        ColorInfo light = shown ? build.lightOf(ground) : WorldScene.SHADE_ONLY;
+        boolean lit = build.mainsOn || here.haveElectricity();
+        float red = lit ? Soffits.under(shown ? light.r : 0f, Soffits.GLOW_RED) : light.r, green = lit ? Soffits.under(shown ? light.g : 0f, Soffits.GLOW_GREEN) : light.g;
+        float blue = lit ? Soffits.under(shown ? light.b : 0f, Soffits.GLOW_BLUE) : light.b;
+        into.light(red, green, blue);
+        into.open = shown || lit ? 0f : WorldScene.LIT_STEP * WorldScene.OPEN_LIT;
+        into.unlitKind = 0f;
+        return lit;
+    }
+
+    /**
+     * The light of the underside of a floor that juts out, into into, from the square below it,
+     * which may be none: a site's record is worked out again so (LightSites.CEILING). Its corners
+     * carry no unlit share, so the kind of the light the game has not given is none of theirs.
+     */
+    void ceilingLight(IsoGridSquare below, SpriteGeometry.Frame into) {
+        byte lit = below != null && below.isSeen(build.playerIndex) ? WorldScene.OWN_LIGHT
+                : below == null || below.getRoomID() == -1L || build.asTheGameShows || build.gamesView ? WorldScene.OPEN_LIT
+                : WorldScene.lampBurns(build.cell, below, build.lampsNear) ? WorldScene.LAMP_LIT : WorldScene.ROOM_LIT;
+        ColorInfo light = lit == WorldScene.OWN_LIGHT ? build.daylit(below, build.lightOf(below)) : WorldScene.SHADE_ONLY;
+        into.light(light.r, light.g, light.b);
+        into.open = WorldScene.LIT_STEP * lit;
+        into.unlitKind = 0f;
+        if (lit == WorldScene.ROOM_LIT || lit == WorldScene.LAMP_LIT) {
+            Arrays.fill(into.cornerDay, build.dayShare(below));
+        }
+    }
+
+    /**
      * A floor that juts out over a pavement or a porch is the underside of a canopy, and one
      * over open ground shows its sprite underneath. Seen from below it is lit by the place
      * beneath, not by whatever falls on the floor above, so its underside is a face of its own
@@ -896,16 +923,8 @@ final class FloorBuilder {
         }
         float red = build.frame.red, green = build.frame.green, blue = build.frame.blue, open = build.frame.open, kind = build.frame.kind;
         build.frame.cornersInto(build.heldRed, build.heldGreen, build.heldBlue, build.heldUnlit);
-        byte lit = below != null && below.isSeen(build.playerIndex) ? WorldScene.OWN_LIGHT
-                : below == null || below.getRoomID() == -1L || build.asTheGameShows || build.gamesView ? WorldScene.OPEN_LIT
-                : WorldScene.lampBurns(build.cell, below, build.lampsNear) ? WorldScene.LAMP_LIT : WorldScene.ROOM_LIT;
-        ColorInfo light = lit == WorldScene.OWN_LIGHT ? build.daylit(below, build.lightOf(below)) : WorldScene.SHADE_ONLY;
-        build.frame.light(light.r, light.g, light.b);
-        build.frame.open = WorldScene.LIT_STEP * lit;
-        if (lit == WorldScene.ROOM_LIT || lit == WorldScene.LAMP_LIT) {
-            Arrays.fill(build.frame.cornerDay, build.dayShare(below));
-        }
-        WorldScene.sites.put(LightSites.CEILING, build.own(), build.frame, 0f, false);
+        ceilingLight(below, build.frame);
+        WorldScene.sites.putAt(LightSites.CEILING, build.own(), LightSites.place(x, y, z), build.frame);
         // The ceiling under a floor of water is a ceiling, not more water.
         build.frame.kind = 0f;
         WorldScene.layers.sheet(-1f);

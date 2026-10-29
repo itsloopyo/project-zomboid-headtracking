@@ -26,6 +26,10 @@ final class LightSiteTests {
         Checks.run("everyAlphaAVertexIsGivenIsReadBackAsItWasGiven", LightSiteTests::everyAlphaAVertexIsGivenIsReadBackAsItWasGiven);
         Checks.run("aBuildsPageIsTheRecordsOfItsTable", LightSiteTests::aBuildsPageIsTheRecordsOfItsTable);
         Checks.run("theWorldShaderReadsARecordWhereLightPagesLaysItOut", LightSiteTests::theWorldShaderReadsARecordWhereLightPagesLaysItOut);
+        Checks.run("aSiteWorkedOutAgainOtherwiseThanItWasPutThrows", LightSiteTests::aSiteWorkedOutAgainOtherwiseThanItWasPutThrows);
+        Checks.run("aRefreshedPageTakesTheRecordsThatDiffer", LightSiteTests::aRefreshedPageTakesTheRecordsThatDiffer);
+        Checks.run("aPageFindsTheRecordOfASiteByItsKey", LightSiteTests::aPageFindsTheRecordOfASiteByItsKey);
+        Checks.run("crownsAreLitAgainFromThePageOfTheirBuild", LightSiteTests::crownsAreLitAgainFromThePageOfTheirBuild);
     }
 
     /**
@@ -36,7 +40,14 @@ final class LightSiteTests {
     static SpriteGeometry.Frame sited(SpriteGeometry.Frame frame) {
         float[] record = new float[RECORD];
         LightSites.take(frame, record, 0, 0f, false);
-        WorldScene.sites.put(LightSites.SQUARE, 1L << 40 | Arrays.hashCode(record) & 0xFFFFFFFFL, frame, 0f, false);
+        // Named by its light and not by a square, the site is none a frame could work out again (LightSites.Table.evaluator).
+        LightSites.Evaluator evaluator = WorldScene.sites.evaluator;
+        WorldScene.sites.evaluator = null;
+        try {
+            WorldScene.sites.put(LightSites.SQUARE, 1L << 40 | Arrays.hashCode(record) & 0xFFFFFFFFL, frame, 0f, false);
+        } finally {
+            WorldScene.sites.evaluator = evaluator;
+        }
         return frame;
     }
 
@@ -223,17 +234,22 @@ final class LightSiteTests {
         SpriteGeometry.Frame frame = new SpriteGeometry.Frame();
         frame.light(0.3f, 0.4f, 0.5f);
         int square = table.put(LightSites.SQUARE, 33L, frame, 0f, false);
-        int lamp = table.lamp(frame, LightSites.LAMP_NORTH, true);
+        long north = LightSites.place(40, 59, 2);
+        int lamp = table.lamp(frame, LightSites.LAMP_NORTH, north, true);
         check(lamp != square && frame.site == lamp && table.keys[lamp] == (table.keys[square] | LightSites.LAMP_NORTH << 46),
                 "a lamp behind the glass is a site of its own, named by the square it is read from");
+        check(table.bases[lamp] == square && table.places[lamp] == north && LightSites.placeX(north) == 40 && LightSites.placeY(north) == 59 && LightSites.placeZ(north) == 2,
+                "worked out again from the square's site, with the lamp of the square it is read from");
         check(Arrays.equals(table.records, lamp * RECORD, lamp * RECORD + LightSites.LAMPLIT, table.records, square * RECORD, square * RECORD + LightSites.LAMPLIT)
                 && table.records[lamp * RECORD + LightSites.LAMPLIT] == 1f, "lit as the square's site, with the lamp burning");
         frame.site = square;
-        check(table.lamp(frame, LightSites.LAMP_NORTH, true) == lamp, "and the same site when laid again");
+        check(table.lamp(frame, LightSites.LAMP_NORTH, north, true) == lamp, "and the same site when laid again");
         frame.site = square;
-        check(throwsIllegalState(() -> table.lamp(frame, LightSites.LAMP_NORTH, false)), "a lamp read again otherwise throws");
+        check(throwsIllegalState(() -> table.lamp(frame, LightSites.LAMP_NORTH, north, false)), "a lamp read again otherwise throws");
         frame.site = square;
-        int own = table.lamp(frame, LightSites.LAMP_OWN, false);
+        check(throwsIllegalState(() -> table.lamp(frame, LightSites.LAMP_NORTH, LightSites.place(40, 58, 2), true)), "and so does one read again from another square");
+        frame.site = square;
+        int own = table.lamp(frame, LightSites.LAMP_OWN, LightSites.place(40, 60, 2), false);
         check(own != lamp && table.records[own * RECORD + LightSites.LAMPLIT] == 0f, "the square's own lamp is another site, here with none burning");
         SpriteGeometry.Mesh glass = new SpriteGeometry.Mesh();
         frame.site = lamp;
@@ -248,7 +264,7 @@ final class LightSiteTests {
         SpriteGeometry.Frame ceiling = new SpriteGeometry.Frame();
         ceiling.light(0.2f, 0.2f, 0.2f);
         table.put(LightSites.CEILING, 4L, ceiling, 0f, false);
-        check(throwsIllegalState(() -> table.lamp(ceiling, LightSites.LAMP_OWN, true)), "a lamp read from a site that names no square throws");
+        check(throwsIllegalState(() -> table.lamp(ceiling, LightSites.LAMP_OWN, north, true)), "a lamp read from a site that names no square throws");
     }
 
     private static void aTintIsASiteOfItsOwnOverItsBase() {
@@ -258,8 +274,9 @@ final class LightSiteTests {
         int base = table.put(LightSites.SQUARE, 2L, frame, 0f, false);
         frame.light(0.2f, 0.3f, 0.4f);
         int tinted = table.tinted(base, 0.5f, 0.75f, 1f, frame);
-        check(tinted != base && frame.site == tinted && table.tints[tinted * 4] == base && table.tints[tinted * 4 + 1] == 0.5f && table.tints[tinted * 4 + 2] == 0.75f
-                && table.records[tinted * RECORD + LightSites.GREEN] == 0.3f, "a tint is a site of its own, its base and the tint kept with it, and the light it gives its record");
+        check(tinted != base && frame.site == tinted && table.bases[tinted] == base && table.tints[tinted * 3] == 0.5f && table.tints[tinted * 3 + 1] == 0.75f
+                && table.tints[tinted * 3 + 2] == 1f && table.records[tinted * RECORD + LightSites.GREEN] == 0.3f,
+                "a tint is a site of its own, its base and the tint kept with it, and the light it gives its record");
         check(table.tinted(base, 0.5f, 0.75f, 1f, frame) != tinted, "and each tint laid is another");
         check(throwsIllegalState(() -> table.tinted(LightSites.NO_SITE, 1f, 1f, 1f, frame)), "a tint laid on the light of no site throws");
     }
@@ -431,5 +448,125 @@ final class LightSiteTests {
                 && vertex.contains("vColor.a+=" + (int) WorldScene.LIT_STEP + ".0*floor((tail.x+0.5)/" + (int) WorldScene.LIT_STEP + ".0);")
                 && vertex.contains("vColor.a+=variant<1.5?" + (int) (32f * (WallBuilder.LIT_GLASS - WorldScene.GLASS)) + ".0:" + (int) (32f * (WorldScene.LIT_PANE - WorldScene.PANE)) + ".0;"),
                 "and the code, the kind of light and the lamp's materials are read as LightSites codes them");
+    }
+
+    /** With the twin on, a site put for the first time is worked out again from its key (LightSites.Table.evaluator): otherwise than it was put, or as no site, it throws. */
+    private static void aSiteWorkedOutAgainOtherwiseThanItWasPutThrows() {
+        LightSites.Table table = new LightSites.Table();
+        SpriteGeometry.Frame frame = new SpriteGeometry.Frame();
+        frame.light(0.3f, 0.4f, 0.5f);
+        long[] asked = new long[1];
+        table.evaluator = (key, base, place, tints, tintAt, records, into, at) -> {
+            asked[0] = key;
+            LightSites.take(frame, into, at, 0f, false);
+            return true;
+        };
+        int site = table.put(LightSites.SQUARE, 6L, frame, 0f, false);
+        check(asked[0] == table.keys[site], "a site put for the first time is worked out again from its key");
+        asked[0] = 0L;
+        table.put(LightSites.SQUARE, 6L, frame, 0f, false);
+        check(asked[0] == 0L, "and not when it is put again");
+        table.evaluator = (key, base, place, tints, tintAt, records, into, at) -> {
+            into[at + LightSites.GREEN] = 0.41f;
+            return true;
+        };
+        check(throwsIllegalState(() -> table.put(LightSites.SQUARE, 7L, frame, 0f, false)), "one worked out otherwise throws");
+        table.evaluator = (key, base, place, tints, tintAt, records, into, at) -> false;
+        check(throwsIllegalState(() -> table.put(LightSites.SQUARE, 8L, frame, 0f, false)), "and so does one worked out to be no site");
+    }
+
+    /**
+     * A build's page refreshed (publish) takes the records that differ from it to the bit, and
+     * has the render thread send them: it raises lit, and the first and last record changed run
+     * over every refreshing until the render thread takes them. One that changes nothing leaves it as it was.
+     */
+    private static void aRefreshedPageTakesTheRecordsThatDiffer() {
+        LightSites.Table table = new LightSites.Table();
+        SpriteGeometry.Layers layers = new SpriteGeometry.Layers();
+        SpriteGeometry.MeshSet solid = new SpriteGeometry.MeshSet(layers, table), laid = new SpriteGeometry.MeshSet(layers, table);
+        SpriteGeometry.Frame frame = new SpriteGeometry.Frame();
+        for (int i = 0; i < 4; i++) {
+            frame.light(0.1f * i, 0.2f, 0.3f);
+            table.put(LightSites.SQUARE, i, frame, 0f, false);
+        }
+        WorldScene.ChunkMeshes build = new WorldScene.ChunkMeshes(0);
+        build.fill(solid, laid);
+        int lit = build.lit;
+        check(build.pageRecords == 4 && build.litTo < build.litFrom, "a page filled is its build's, with nothing refreshed to send");
+        float[] records = Arrays.copyOf(build.page, 4 * RECORD);
+        check(build.publish(records) == 0 && build.lit == lit && build.litTo < build.litFrom, "refreshed to the same records, it is as it was");
+        records[RECORD + LightSites.GREEN] = 0.25f;
+        records[2 * RECORD + LightSites.LAMPLIT] = 1f;
+        check(build.publish(records) == 2 && build.lit == lit + 1 && build.litFrom == 1 && build.litTo == 2
+                && Arrays.equals(build.page, 0, 4 * RECORD, records, 0, 4 * RECORD), "refreshed to two others, it takes them and has the two sent");
+        records[LightSites.RED] = -0f;
+        check(build.publish(records) == 1 && build.lit == lit + 2 && build.litFrom == 0 && build.litTo == 2 && Float.floatToRawIntBits(build.page[LightSites.RED]) == Integer.MIN_VALUE,
+                "a record that differs only in its bits differs, and what is sent runs from the first changed to the last");
+        build.fill(solid, laid);
+        check(build.litTo < build.litFrom && build.page[RECORD + LightSites.GREEN] == 0.2f, "a page filled again is its build's, with nothing refreshed to send");
+        build.scrap();
+    }
+
+    /** A build's page finds the record of a site's key (pageSite), and none for a key it has not, until it is filled again. */
+    private static void aPageFindsTheRecordOfASiteByItsKey() {
+        LightSites.Table table = new LightSites.Table();
+        SpriteGeometry.Layers layers = new SpriteGeometry.Layers();
+        SpriteGeometry.MeshSet solid = new SpriteGeometry.MeshSet(layers, table), laid = new SpriteGeometry.MeshSet(layers, table);
+        SpriteGeometry.Frame frame = new SpriteGeometry.Frame();
+        frame.light(0.2f, 0.3f, 0.4f);
+        for (int i = 0; i < 40; i++) {
+            table.put(LightSites.ALONG, i * 7L, frame, 0f, false);
+        }
+        WorldScene.ChunkMeshes build = new WorldScene.ChunkMeshes(0);
+        build.fill(solid, laid);
+        boolean found = true;
+        for (int i = 0; i < 40; i++) {
+            found &= build.pageSite(table.keys[i]) == i;
+        }
+        check(found && build.pageSite(LightSites.key(LightSites.ALONG, 0, 1L)) == -1, "each site's key finds its record, and a key put on no site finds none");
+        table.clear();
+        table.put(LightSites.SQUARE, 3L, frame, 0f, false);
+        build.fill(solid, laid);
+        check(build.pageSite(table.keys[0]) == 0 && build.pageSite(LightSites.key(LightSites.ALONG, 0, 7L)) == -1, "filled again, it finds the sites it has now and no others");
+        build.scrap();
+    }
+
+    private static final float[] LEAF_PLACES = {0.25f, 0.5f, 0.75f, 0.5f};
+
+    /** A crown written down in the frame's light, as a build writes one down. */
+    private static Crowns crownIn(SpriteGeometry.Frame frame) {
+        Crowns crowns = new Crowns();
+        crowns.add(5, frame, LEAF_PLACES, 1.5f, 2.5f, 0f, 0.5f, 0.9f, 6f, 0f, 0f, Flora.BARK_OAK, Flora.BARK_OAK, Flora.MAPLE, 3, Flora.OPEN, 1f, 0, 0f, TreeForm.NONE, null,
+                Flora.TWIGGED_AT_1080, false, false, false);
+        return crowns;
+    }
+
+    /**
+     * Crowns are lit again from the page of their build as a refresh leaves it (Crowns.relight):
+     * a crown of a site takes its key's record there, and one of a site the build has not throws.
+     */
+    private static void crownsAreLitAgainFromThePageOfTheirBuild() {
+        LightSites.Table table = new LightSites.Table();
+        SpriteGeometry.Layers layers = new SpriteGeometry.Layers();
+        SpriteGeometry.MeshSet solid = new SpriteGeometry.MeshSet(layers, table), laid = new SpriteGeometry.MeshSet(layers, table);
+        SpriteGeometry.Frame frame = new SpriteGeometry.Frame();
+        frame.light(0.3f, 0.4f, 0.5f);
+        int site = table.put(LightSites.SQUARE, 12L, frame, 0f, false);
+        Crowns crowns = crownIn(frame);
+        WorldScene.ChunkMeshes build = new WorldScene.ChunkMeshes(0);
+        build.fill(solid, laid);
+        float[] records = Arrays.copyOf(build.page, build.pageRecords * RECORD);
+        records[site * RECORD + LightSites.CORNER_GREEN + 2] = 0.9f;
+        build.publish(records);
+        crowns.relight(build);
+        SpriteGeometry.Frame relit = new SpriteGeometry.Frame();
+        LightSites.give(records, site * RECORD, relit);
+        new LightSites.Table().put(LightSites.SQUARE, 12L, relit, 0f, false);
+        check(crowns.same(crownIn(relit)) && !crowns.same(crownIn(frame)), "a crown lit again from its build's page is the crown its build would write down in that light");
+        table.clear();
+        table.put(LightSites.SQUARE, 13L, frame, 0f, false);
+        build.fill(solid, laid);
+        check(throwsIllegalState(() -> crowns.relight(build)), "and one of a site its build has not throws");
+        build.scrap();
     }
 }

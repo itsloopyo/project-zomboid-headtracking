@@ -19,6 +19,12 @@ import java.util.Arrays;
  * vertex of the site takes, the corners' red, green and blue, their unlit shares and their day,
  * then the openness with its kind of light (WorldScene.LIT_STEP), unlitKind, and 1 where a lamp
  * burns behind the glass the site lights (see coded).
+ *
+ * A record can be worked out again from its site's key, its base and its place alone, from the
+ * light read now (Evaluator): that is how a build's page is refreshed when the light changes. A
+ * site whose builder took its light from the frame's as it was (the floor of a room not seen
+ * into, a door's own side, a block of squares, a tower, a lamp, a tint) names that site, its
+ * base, in its key (putOver) or beside it (lamp, tinted), and is worked out from the base's record.
  */
 final class LightSites {
     /**
@@ -29,8 +35,9 @@ final class LightSites {
     static final boolean TWIN = Boolean.getBoolean("cameraunlock.zomboid.lightTwin");
     /**
      * Dev only: while set, every vertex is built carrying the light its site gives it as a
-     * vertex of no site carries its own (MODE_STATIC), as builds were before the light pages, so
-     * that a picture of each can be told apart.
+     * vertex of no site carries its own (MODE_STATIC), so that a picture of each can be told
+     * apart. A build so made keeps in its vertices the light it was built in until it is built
+     * again: a refresh of its page does not reach them.
      */
     static volatile boolean baked = Boolean.getBoolean("cameraunlock.zomboid.lightBaked");
 
@@ -49,6 +56,8 @@ final class LightSites {
     static final long SQUARE = 1, ALONG = 2, SIDE = 3, CEILING = 4, CANOPY = 5, BLOCK = 6, TOWER = 7, TINTED = 8;
     /** Which square of the window a site's lamp is read from, in a site's key: see lamplit. */
     static final long LAMP_OWN = 1, LAMP_NORTH = 2, LAMP_WEST = 3;
+    /** Where a site put over another (putOver) names its base in its key's names: bits 20 to 44. */
+    static final int BASE_SHIFT = 20;
 
     private LightSites() {}
 
@@ -60,6 +69,42 @@ final class LightSites {
     /** The key's kind. */
     static long kindOf(long key) {
         return key >>> 56;
+    }
+
+    /** The level the site of the key is on. */
+    static int levelOf(long key) {
+        return (int) (key >>> 48 & 0xFF) - 128;
+    }
+
+    /** A square of the map as a site's place holds it: see Table.places. */
+    static long place(int x, int y, int z) {
+        return (long) x << 40 | (y & 0xFFFFFFL) << 16 | z & 0xFFFFL;
+    }
+
+    static int placeX(long place) {
+        return (int) (place >> 40);
+    }
+
+    static int placeY(long place) {
+        return (int) (place << 24 >> 40);
+    }
+
+    static int placeZ(long place) {
+        return (short) place;
+    }
+
+    /**
+     * Works out a site's record again from its key, as a build's page is refreshed when the light
+     * changes: WorldScene.Frame.relight.
+     */
+    interface Evaluator {
+        /**
+         * The record of the site of the key, base and place, from the light as it is now, into into
+         * at at, with its base's record, where it has one (base not -1), at base * RECORD in records,
+         * and a TINTED site's tint at tintAt in tints. False, and into as it was, where no build
+         * would put that site now, the light having changed what is built.
+         */
+        boolean relight(long key, int base, long place, float[] tints, int tintAt, float[] records, float[] into, int at);
     }
 
     /** The names of a site with a lamp behind it, which burns or not as the square of the window named by which (LAMP_OWN, LAMP_NORTH, LAMP_WEST) has it: see coded. */
@@ -83,12 +128,19 @@ final class LightSites {
         int level;
         long[] keys = new long[256];
         float[] records = new float[256 * RECORD];
-        /** For a TINTED site, its base site and the red, green and blue its corners were multiplied by. */
-        float[] tints = new float[256 * 4];
+        /** For a site worked out from the site its frame had before (putOver, lamp, tinted), that site: -1 for one worked out from its key alone. */
+        int[] bases = new int[256];
+        /** For a site the game is asked of a square to light (CEILING, CANOPY, a lamp's), that square (place): 0 for any other. */
+        long[] places = new long[256];
+        /** For a TINTED site, the red, green and blue its base's light was multiplied by. */
+        float[] tints = new float[256 * 3];
         int count;
+        /** TWIN: works out each site put for the first time again from its key, which must give the record it was put with. Null for no such check. */
+        Evaluator evaluator;
         private long[] slotKey = new long[512];
         /** The site in the slot, plus 1: 0 for an empty slot. */
         private int[] slotSite = new int[512];
+        private final float[] worked = new float[RECORD];
 
         void clear() {
             count = 0;
@@ -101,28 +153,69 @@ final class LightSites {
          * day its flat vertices take and whether a lamp burns behind it.
          */
         int put(long kind, long names, SpriteGeometry.Frame frame, float flatDay, boolean lamplit) {
+            return put(kind, names, -1, 0, frame, flatDay, lamplit);
+        }
+
+        /** put, for a site the game is asked of the square at place (LightSites.place) to light: see places. */
+        int putAt(long kind, long names, long place, SpriteGeometry.Frame frame) {
+            return put(kind, names, -1, place, frame, 0f, false);
+        }
+
+        /**
+         * put, for a site lit from the light of another site of the same level, base, which the
+         * frame had before: the site's key names its base, and its record is worked out from the base's.
+         */
+        int putOver(long kind, long names, int base, SpriteGeometry.Frame frame, float flatDay) {
+            if (base < 0) {
+                throw new IllegalStateException("a light site of kind " + kind + " is laid over the light of a frame of no site's: " + LightSites.describe(frame, flatDay, false));
+            }
+            if (levelOf(keys[base]) != level) {
+                throw new IllegalStateException("a light site of kind " + kind + " on level " + level + " is laid over site " + base + ", " + describe(base));
+            }
+            return put(kind, names | (long) base << BASE_SHIFT, base, 0, frame, flatDay, false);
+        }
+
+        private int put(long kind, long names, int base, long place, SpriteGeometry.Frame frame, float flatDay, boolean lamplit) {
             long key = key(kind, level, names);
             int slot = slot(key);
             int site;
             if (slotSite[slot] != 0) {
                 site = slotSite[slot] - 1;
                 if (TWIN && !(matches(frame, records, site * RECORD) && records[site * RECORD + FLAT_DAY] == flatDay
-                        && records[site * RECORD + LAMPLIT] == (lamplit ? 1f : 0f))) {
+                        && records[site * RECORD + LAMPLIT] == (lamplit ? 1f : 0f) && places[site] == place)) {
                     throw new IllegalStateException("site " + Long.toHexString(key) + " lit twice, otherwise: " + describe(site) + " against "
                             + LightSites.describe(frame, flatDay, lamplit));
                 }
             } else {
                 site = add(key, slot);
                 take(frame, records, site * RECORD, flatDay, lamplit);
+                bases[site] = base;
+                places[site] = place;
+                checkWorked(site);
             }
             frame.site = site;
             frame.sites = this;
             return site;
         }
 
+        /** TWIN: throws where the evaluator works out the site's record otherwise than it was put. */
+        private void checkWorked(int site) {
+            if (!TWIN || evaluator == null) {
+                return;
+            }
+            System.arraycopy(records, site * RECORD, worked, 0, RECORD);
+            boolean put = evaluator.relight(keys[site], bases[site], places[site], tints, site * 3, records, worked, 0);
+            if (!put || !Arrays.equals(records, site * RECORD, site * RECORD + RECORD, worked, 0, RECORD)) {
+                throw new IllegalStateException("site " + Long.toHexString(keys[site]) + " is put as " + describe(site) + ", and worked out again from its key "
+                        + (put ? "as " + Arrays.toString(Arrays.copyOf(worked, LAMPLIT + 1)) : "is no site"));
+            }
+        }
+
         /**
          * The site of a key another table holds, with the record at at in from: the frame is lit
-         * as that record says and takes it. Crowns are made apart from their build (Crowns.mesh).
+         * as that record says and takes it. Crowns are made apart from their build (Crowns.mesh),
+         * and the record of each site of theirs is the same key's in their build's page, which is
+         * where it is refreshed from: neither its base nor its place is written down here.
          */
         int putRecord(long key, float[] from, int at, SpriteGeometry.Frame frame) {
             int slot = slot(key);
@@ -136,6 +229,8 @@ final class LightSites {
             } else {
                 site = add(key, slot);
                 System.arraycopy(from, at, records, site * RECORD, RECORD);
+                bases[site] = -1;
+                places[site] = 0L;
             }
             give(records, site * RECORD, frame);
             frame.site = site;
@@ -145,11 +240,15 @@ final class LightSites {
 
         /**
          * The site of the frame's site with a lamp behind it, which burns or not (lamplit) as the
-         * square named by which has it: the site's own square, the first byte of its names
-         * (LAMP_OWN), or the one north or west of that (LAMP_NORTH, LAMP_WEST). The frame takes it.
+         * square at place (LightSites.place) has it: the site's own square or the one north or west
+         * of it, which named by which (LAMP_OWN, LAMP_NORTH, LAMP_WEST) tells the three sites apart.
+         * The frame takes it.
          */
-        int lamp(SpriteGeometry.Frame frame, long which, boolean lamplit) {
+        int lamp(SpriteGeometry.Frame frame, long which, long place, boolean lamplit) {
             int base = frame.site;
+            if (base < 0) {
+                throw new IllegalStateException("a lamp is read for the light of a frame of no site's: " + LightSites.describe(frame, 0f, lamplit));
+            }
             long kind = kindOf(keys[base]);
             if (kind != SQUARE && kind != SIDE) {
                 throw new IllegalStateException("a lamp is read from the square of site " + describe(base) + ", whose kind names no square");
@@ -160,7 +259,7 @@ final class LightSites {
             if (slotSite[slot] != 0) {
                 site = slotSite[slot] - 1;
                 if (TWIN && !(Arrays.equals(records, site * RECORD, site * RECORD + LAMPLIT, records, base * RECORD, base * RECORD + LAMPLIT)
-                        && records[site * RECORD + LAMPLIT] == (lamplit ? 1f : 0f))) {
+                        && records[site * RECORD + LAMPLIT] == (lamplit ? 1f : 0f) && places[site] == place)) {
                     throw new IllegalStateException("site " + Long.toHexString(key) + " lit twice, otherwise: " + describe(site) + " against " + describe(base)
                             + (lamplit ? " with the lamp burning" : " with no lamp"));
                 }
@@ -168,6 +267,9 @@ final class LightSites {
                 site = add(key, slot);
                 System.arraycopy(records, base * RECORD, records, site * RECORD, RECORD);
                 records[site * RECORD + LAMPLIT] = lamplit ? 1f : 0f;
+                bases[site] = base;
+                places[site] = place;
+                checkWorked(site);
             }
             frame.site = site;
             return site;
@@ -178,12 +280,17 @@ final class LightSites {
             if (base < 0) {
                 throw new IllegalStateException("a tint is laid on the light of a frame of no site: " + LightSites.describe(frame, 0f, false));
             }
+            if (levelOf(keys[base]) != level) {
+                throw new IllegalStateException("a tint on level " + level + " is laid on site " + describe(base));
+            }
             int site = add(key(TINTED, level, count), slot(key(TINTED, level, count)));
             take(frame, records, site * RECORD, 0f, false);
-            tints[site * 4] = base;
-            tints[site * 4 + 1] = red;
-            tints[site * 4 + 2] = green;
-            tints[site * 4 + 3] = blue;
+            bases[site] = base;
+            places[site] = 0L;
+            tints[site * 3] = red;
+            tints[site * 3 + 1] = green;
+            tints[site * 3 + 2] = blue;
+            checkWorked(site);
             frame.site = site;
             frame.sites = this;
             return site;
@@ -199,7 +306,9 @@ final class LightSites {
             if (count == keys.length) {
                 keys = Arrays.copyOf(keys, count * 2);
                 records = Arrays.copyOf(records, count * 2 * RECORD);
-                tints = Arrays.copyOf(tints, count * 2 * 4);
+                bases = Arrays.copyOf(bases, count * 2);
+                places = Arrays.copyOf(places, count * 2);
+                tints = Arrays.copyOf(tints, count * 2 * 3);
             }
             int site = count++;
             keys[site] = key;

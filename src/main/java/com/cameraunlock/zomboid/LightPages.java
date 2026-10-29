@@ -44,8 +44,9 @@ final class LightPages {
     /** Every row of the texture as the pages sent to it left it, RECORD floats a record. */
     private static float[] copy = new float[0];
     private static final FloatBuffer sending = ByteBuffer.allocateDirect(ROWS_A_CALL * WIDE * 4 * Float.BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
-    /** Records in pages, for the logic thread's log. */
+    /** Records in pages, and records sent again as their pages were refreshed, for the logic thread's log. */
     private static volatile int usedRecords;
+    private static volatile long updatedRecords;
 
     private LightPages() {}
 
@@ -63,6 +64,20 @@ final class LightPages {
             at = space.take(records);
         }
         System.arraycopy(page, 0, copy, at * LightSites.RECORD, records * LightSites.RECORD);
+        upload(at, records);
+        usedRecords += records;
+        return at;
+    }
+
+    /** Puts records of a page send placed at pageAt, from the one at from in the page, in the texture and the copy as the page now holds them: it has been refreshed. */
+    static void update(int pageAt, float[] page, int from, int records) {
+        System.arraycopy(page, from * LightSites.RECORD, copy, (pageAt + from) * LightSites.RECORD, records * LightSites.RECORD);
+        upload(pageAt + from, records);
+        updatedRecords += records;
+    }
+
+    /** Sends the copy's records from the one at at to the texture, which is bound to UNIT after. */
+    private static void upload(int at, int records) {
         GL13.glActiveTexture(GL_TEXTURE0 + UNIT);
         GL11.glBindTexture(GL_TEXTURE_2D, texture);
         unpacked();
@@ -84,8 +99,6 @@ final class LightPages {
             }
         }
         GL13.glActiveTexture(GL_TEXTURE0);
-        usedRecords += records;
-        return at;
     }
 
     /** Gives back the place of a page that send gave, with how many records it holds. */
@@ -126,7 +139,7 @@ final class LightPages {
     }
 
     static String describe() {
-        return String.format(Locale.ROOT, "light pages hold %d records of %d", usedRecords, rows * A_ROW);
+        return String.format(Locale.ROOT, "light pages hold %d records of %d, %d sent again refreshed", usedRecords, rows * A_ROW, updatedRecords);
     }
 
     /** Doubles the rows of the texture, the first time makes it, and fills it from the copy. */
