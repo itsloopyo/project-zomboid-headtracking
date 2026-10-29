@@ -70,6 +70,7 @@ public final class Tests {
         Checks.run("fieldOfViewSetIsTheOneDrawnWith", Tests::fieldOfViewSetIsTheOneDrawnWith);
         Checks.run("lightTakesTheHeadingOfItsAngles", Tests::lightTakesTheHeadingOfItsAngles);
         Checks.run("gridTraceFindsTheFirstBlockedEdge", Tests::gridTraceFindsTheFirstBlockedEdge);
+        Checks.run("anEyeFlushAgainstAWallIsHeldOffItByTheMargin", Tests::anEyeFlushAgainstAWallIsHeldOffItByTheMargin);
         Checks.run("aFenceBetweenTwoSquaresIsTheSouthOrEastSquaresOwn", Tests::aFenceBetweenTwoSquaresIsTheSouthOrEastSquaresOwn);
         Checks.run("CabinTests", CabinTests::run);
         Checks.run("GlassPullTests", GlassPullTests::run);
@@ -2360,6 +2361,33 @@ public final class Tests {
         check(near(trace.firstBlockedEdge(wallAtXFive, 4.25f, 0.5f, diagonal, diagonal, 5f), 0.75f / diagonal),
                 "a ray at an angle meets it further along");
         check(near(trace.firstBlockedEdge(wallAtXFive, 5.5f, 0.5f, -1f, 0f, 2f), 0.5f), "and from the other side");
+    }
+
+    private static void anEyeFlushAgainstAWallIsHeldOffItByTheMargin() {
+        GridTrace trace = new GridTrace();
+        // The west wall of a building at x = 12807, as rr's second walk left the body against it, 0.03 of a tile off.
+        GridTrace.Edges westWall = (fromX, fromY, toX, toY) -> fromX == 12806 && toX == 12807 || fromX == 12807 && toX == 12806;
+        double[] eye = {12806.97, 1450.5};
+        WorldQuery.offWalls(trace, westWall, eye, 12806.97, 1450.5, 0.12f);
+        check(Math.abs(eye[0] - 12806.88) < 1e-4 && eye[1] == 1450.5, "an eye 0.03 off a wall goes back to the margin from it, and no way along it: " + eye[0] + ", " + eye[1]);
+        eye[0] = 12806.5;
+        WorldQuery.offWalls(trace, westWall, eye, 12806.5, 1450.5, 0.12f);
+        check(eye[0] == 12806.5, "an eye further off than the margin stays where it is");
+        eye[0] = 12807.0;
+        WorldQuery.offWalls(trace, westWall, eye, 12806.97, 1450.5, 0.12f);
+        check(Math.abs(eye[0] - 12806.88) < 1e-4, "an eye on the wall itself goes back to the body's side of it: " + eye[0]);
+        eye[0] = 12807.05;
+        WorldQuery.offWalls(trace, westWall, eye, 12807.1, 1450.5, 0.12f);
+        check(Math.abs(eye[0] - 12807.12) < 1e-4, "and from inside, to the inside: " + eye[0]);
+        eye[0] = 12806.97;
+        WorldQuery.offWalls(trace, westWall, eye, 12806.97, 1450.5, 1f);
+        check(Math.abs(eye[0] - (12807 - (double) WorldQuery.MOST_HELD_OFF)) < 1e-4, "a margin of a square holds the eye under half a square off, in its own square: " + eye[0]);
+        // In a corner, a wall north of the square as well: held off both.
+        GridTrace.Edges corner = (fromX, fromY, toX, toY) -> westWall.blocked(fromX, fromY, toX, toY)
+                || fromX == toX && (fromY == 1449 && toY == 1450 || fromY == 1450 && toY == 1449);
+        double[] cornered = {12806.98, 1450.02};
+        WorldQuery.offWalls(trace, corner, cornered, 12806.98, 1450.02, 0.12f);
+        check(Math.abs(cornered[0] - 12806.88) < 1e-4 && Math.abs(cornered[1] - 1450.12) < 1e-4, "an eye in a corner is held off both walls: " + cornered[0] + ", " + cornered[1]);
     }
 
     private static void aFenceBetweenTwoSquaresIsTheSouthOrEastSquaresOwn() {

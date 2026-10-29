@@ -173,6 +173,7 @@ public final class FirstPerson {
     private static final float EYE_HEIGHT_SECONDS = 0.1f;
     private float eyeHigh;
     private final double[] eye = new double[3];
+    private final double[] ledEye = new double[2];
     private final float[] headOffset = new float[3];
     private final float[] headTurn = new float[9], headJoint = new float[3], ledTilt = new float[9];
     /** The clean view as the mouse has it this frame, before the head takes any of it: the aim is made from it. */
@@ -906,6 +907,10 @@ public final class FirstPerson {
                 headOffset[1] / reach, reach, Tracking.settings().collisionMargin, climbing) / reach : 1f;
         eye[0] = (double) player.getX() + headOffset[0] * share;
         eye[1] = (double) player.getY() + headOffset[1] * share;
+        // A climb carries the head over the fence or through the window ahead of the feet: see roomForTheEye.
+        if (!climbing) {
+            world.holdOffWalls(eye, player.getX(), player.getY(), Tracking.settings().collisionMargin);
+        }
         // Eased from where the last frame at the eye had it. The first of them has none before it.
         eyeHigh = landed && wasLanded ? ViewModelMath.ease(eyeHigh, height, sinceLastFrame, EYE_HEIGHT_SECONDS) : height;
         BaseVehicle vehicle = player.getVehicle();
@@ -2086,7 +2091,10 @@ public final class FirstPerson {
             float room = world.roomForTheEye(x, y, awayX / reach, awayY / reach, reach, margin) / reach;
             head.eyeAt((double) x + awayX * room, (double) y + awayY * room, head.exactUp());
         }
-        head.eyeAt(head.exactX(), head.exactY(), Math.max(head.exactUp(), (double) footUp + margin));
+        ledEye[0] = head.exactX();
+        ledEye[1] = head.exactY();
+        world.holdOffWalls(ledEye, x, y, margin);
+        head.eyeAt(ledEye[0], ledEye[1], Math.max(head.exactUp(), (double) footUp + margin));
         if (share < 1f) {
             view.bodyLed.between(mouseView, head, share, cleanView);
         } else {

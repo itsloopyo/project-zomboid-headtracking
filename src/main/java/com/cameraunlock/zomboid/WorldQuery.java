@@ -246,6 +246,44 @@ final class WorldQuery {
     }
 
     /**
+     * Moves an eye at (at[0], at[1]) back off each wall closer to it than the margin, along x and
+     * along y, to the side of the wall the body is on. The game lets the body stand a few
+     * hundredths of a tile off a wall, and roomForTheEye only shortens the way from the body to the
+     * eye, so an eye left there has the wall inside the near plane. The picture then shows the
+     * building through the wall while RoomSight, walking from the eye's square outside, finds none
+     * of its rooms and leaves out every wall in them. The side is the body's, not the eye's square,
+     * as an eye on the edge itself is in the square beyond it. The margin is held under half a
+     * square, so a push never takes the eye past the next edge.
+     */
+    static void offWalls(GridTrace trace, GridTrace.Edges solid, double[] at, double bodyX, double bodyY, float margin) {
+        float held = Math.min(margin, MOST_HELD_OFF);
+        // In double: a whole tile number less a float is a float, a thousandth of a tile apart at these coordinates.
+        double off = held;
+        for (int way = 0; way < 4; way++) {
+            float alongX = way == 0 ? 1f : way == 1 ? -1f : 0f, alongY = way == 2 ? 1f : way == 3 ? -1f : 0f;
+            float hit = trace.firstBlockedEdge(solid, (float) at[0], (float) at[1], alongX, alongY, held);
+            if (hit >= held) {
+                continue;
+            }
+            if (alongX != 0f) {
+                long edge = Math.round(at[0] + alongX * hit);
+                at[0] = bodyX < edge ? Math.min(at[0], edge - off) : Math.max(at[0], edge + off);
+            } else {
+                long edge = Math.round(at[1] + alongY * hit);
+                at[1] = bodyY < edge ? Math.min(at[1], edge - off) : Math.max(at[1], edge + off);
+            }
+        }
+    }
+
+    /** The furthest offWalls holds an eye off a wall, in tiles: under half a square. */
+    static final float MOST_HELD_OFF = 0.45f;
+
+    /** As offWalls, on the level looked at. */
+    void holdOffWalls(double[] at, double bodyX, double bodyY, float margin) {
+        offWalls(trace, solidToTheEye, at, bodyX, bodyY, margin);
+    }
+
+    /**
      * The distance from the eye along its forward vector to the first thing a
      * shot stops on: a wall, a closed door, the floor, the ceiling or one of
      * the characters given. A character behind walls a round of the cartridge
