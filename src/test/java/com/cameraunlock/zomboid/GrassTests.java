@@ -83,8 +83,8 @@ final class GrassTests {
         SpriteGeometry.Mesh mesh = strip(3, SpriteGeometry.EVEN, Grass.PANICLE, seed, vigour);
         check(mesh.triangles() == 6, "an even strip of three steps is six triangles, got " + mesh.triangles());
         float highest = 0f;
+        float[] v = LightSiteTests.lit(mesh);
         for (int at = 0; at < mesh.floats; at += F) {
-            float[] v = mesh.vertices;
             float edge = edgeOf(v[at + 9]);
             check(edge == -1f || edge == 1f, "a vertex of an even strip is on one edge or the other, got " + edge);
             near(v[at + 9] - 2f * edge, seed, 1e-5f, "the strip's own number rides with the edge");

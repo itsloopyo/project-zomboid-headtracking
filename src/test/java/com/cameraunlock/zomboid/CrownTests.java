@@ -43,8 +43,9 @@ final class CrownTests {
     /** The sprigs of a crown, each by where its four corners are, to the thousandth of a tile. */
     private static java.util.Set<String> sprigsOf(SpriteGeometry.Mesh mesh) {
         java.util.Set<String> sprigs = new java.util.HashSet<>();
+        float[] lit = LightSiteTests.lit(mesh);
         for (int at = 0; at < mesh.floats; at += 6 * SpriteGeometry.VERTEX_FLOATS) {
-            if ((float) Math.floor((mesh.vertices[at + 8] + 0.5f) / 32f) == Flora.CORE) {
+            if ((float) Math.floor((lit[at + 8] + 0.5f) / 32f) == Flora.CORE) {
                 continue;
             }
             StringBuilder corners = new StringBuilder();
@@ -281,8 +282,9 @@ final class CrownTests {
             check(Flora.addCrown(mesh, new SpriteGeometry.Mesh(), frame, places, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 0f, 0f, 0f, Flora.BARK_OAK, Flora.SHRUB, 7, Flora.OPEN,
                     1f, 0, 0f, TreeForm.NONE, null, Flora.TWIGGED_AT_1080, true, overhead, false), "a bush makes a crown");
             int outside = 0, sprigs = 0;
+            float[] lit = LightSiteTests.lit(mesh);
             for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
-                if ((float) Math.floor((mesh.vertices[at + 8] + 0.5f) / 32f) == Flora.CORE) {
+                if ((float) Math.floor((lit[at + 8] + 0.5f) / 32f) == Flora.CORE) {
                     continue;
                 }
                 sprigs++;
@@ -411,6 +413,7 @@ final class CrownTests {
         float across = SpriteGeometry.TILES_PER_PIXEL_ACROSS, up = ViewCamera.LEVEL_HEIGHT / SpriteGeometry.PIXELS_PER_LEVEL;
         // The painted disc is 50 pixels round a middle 160 above the foot, and a sprig reaches at most its own length past where it grows.
         float reach = 50f * across + 1f, low = 110f * up - 1f, high = 210f * up + 1f;
+        float[] lit = LightSiteTests.lit(mesh);
         for (int vertex = 0; vertex < vertices; vertex++) {
             int at = vertex * SpriteGeometry.VERTEX_FLOATS;
             float dx = mesh.vertices[at] - 10.5f, dy = mesh.vertices[at + 1] - 20.5f, z = mesh.vertices[at + 2];
@@ -418,14 +421,14 @@ final class CrownTests {
             check(z >= low && z <= high, "every sprig is at the height the sprite paints leaves at, not " + z);
             float u = mesh.vertices[at + 3], v = mesh.vertices[at + 4];
             float partU = u - (float) Math.floor(u), partV = v - (float) Math.floor(v);
-            float material = (float) Math.floor((mesh.vertices[at + 8] + 0.5f) / 32f);
+            float material = (float) Math.floor((lit[at + 8] + 0.5f) / 32f);
             boolean core = material == Flora.CORE;
             if (core) {
                 // The inside of the crown: within the sprigs, in shade, and saying which kind of leaf it is made of.
                 inside++;
                 check(Math.sqrt(dx * dx + dy * dy) <= 50f * across * 0.8f, "the inside of a crown keeps inside its sprigs");
                 check(Math.abs(partU - (Flora.MAPLE + 0.5f) / Flora.CORE_KINDS) < 1e-3f, "the inside says which sprig its leaves are");
-                check(mesh.vertices[at + 5] < 0.8f * 0.7f, "the inside of a crown is in the shade of its outside");
+                check(lit[at + 5] < 0.8f * 0.7f, "the inside of a crown is in the shade of its outside");
             } else {
                 check(Math.abs(partU - 0.25f) < 1e-3f || Math.abs(partU - 0.75f) < 1e-3f, "a corner is a quarter in from the whole number across");
                 check(Math.abs(partV - 0.25f) < 1e-3f || Math.abs(partV - 0.75f) < 1e-3f, "and down");
@@ -442,8 +445,9 @@ final class CrownTests {
     /** How many of a crown's vertices are its sprigs', and not its inside's. */
     private static int sprigVertices(SpriteGeometry.Mesh mesh) {
         int count = 0;
+        float[] lit = LightSiteTests.lit(mesh);
         for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
-            if ((float) Math.floor((mesh.vertices[at + 8] + 0.5f) / 32f) != Flora.CORE) {
+            if ((float) Math.floor((lit[at + 8] + 0.5f) / 32f) != Flora.CORE) {
                 count++;
             }
         }
@@ -542,14 +546,18 @@ final class CrownTests {
         for (int i = 0; i < 3; i++) {
             SpriteGeometry.Mesh one = apart.used.get(i), other = inBuild.used.get(i);
             check(one.texture == other.texture && one.floats == other.floats && (one.floats > 0 || one.texture == PLAIN), "each mesh is of the same texture and as long");
+            float[] oneLit = LightSiteTests.lit(one), otherLit = LightSiteTests.lit(other);
             for (int at = 0; at < one.floats; at++) {
-                check(Float.floatToRawIntBits(one.vertices[at]) == Float.floatToRawIntBits(other.vertices[at]), "and the same to the last bit of every float");
+                // Each counts its records in a table of its own: what is the same is the light the two records give.
+                check(at % SpriteGeometry.VERTEX_FLOATS == SpriteGeometry.RECORD_AT || Float.floatToRawIntBits(one.vertices[at]) == Float.floatToRawIntBits(other.vertices[at]),
+                        "and the same to the last bit of every float");
+                check(Float.floatToRawIntBits(oneLit[at]) == Float.floatToRawIntBits(otherLit[at]), "and lit the same to the last bit");
             }
         }
     }
 
     private static void crownsWrittenDownAreMadeAsTheBuildWouldHaveMadeThem() {
-        SpriteGeometry.MeshSet apart = new SpriteGeometry.MeshSet(), inBuild = new SpriteGeometry.MeshSet();
+        SpriteGeometry.MeshSet apart = new SpriteGeometry.MeshSet(), inBuild = new SpriteGeometry.MeshSet(new SpriteGeometry.Layers(), WorldScene.sites);
         // Near, with limbs and stood under; in between; and far off, coarse and in its own bark.
         for (float away : new float[] {6f, 20f, 30f}) {
             apart.clear();
@@ -564,7 +572,7 @@ final class CrownTests {
         Crowns near = chunkOfThree(0.6f, 6f), moved = new Crowns();
         near.copyTo(moved, 30f);
         check(!moved.same(near) && moved.same(chunkOfThree(0.6f, 30f)), "written down again as from further off, they are what a build from there writes down");
-        SpriteGeometry.MeshSet apart = new SpriteGeometry.MeshSet(), inBuild = new SpriteGeometry.MeshSet();
+        SpriteGeometry.MeshSet apart = new SpriteGeometry.MeshSet(), inBuild = new SpriteGeometry.MeshSet(new SpriteGeometry.Layers(), WorldScene.sites);
         moved.mesh(apart, PLAIN, new SpriteGeometry.Frame());
         threeInTheBuild(inBuild, 30f);
         same(apart, inBuild);
@@ -659,8 +667,9 @@ final class CrownTests {
         check(Flora.addCrown(mesh, new SpriteGeometry.Mesh(), frame, places, 10.5f, 20.5f, 0f, FOOT_U, FOOT_V, 1f, 1f, 0f, 0f, Flora.BARK_OAK, Flora.MAPLE, 7, Flora.OPEN, 1f, 0, 0f),
                 "and is made");
         float lowestSprig = Float.MAX_VALUE;
+        float[] lit = LightSiteTests.lit(mesh);
         for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
-            if ((float) Math.floor((mesh.vertices[at + 8] + 0.5f) / 32f) == Flora.CROWN + Flora.MAPLE) {
+            if ((float) Math.floor((lit[at + 8] + 0.5f) / 32f) == Flora.CROWN + Flora.MAPLE) {
                 lowestSprig = Math.min(lowestSprig, mesh.vertices[at + 2]);
             }
         }
@@ -680,8 +689,9 @@ final class CrownTests {
                 Flora.OPEN, 1f, Flora.SCARLET_LEAF, 0f), "a crown near the eye is a crown");
         java.util.List<float[]> sprigs = new java.util.ArrayList<>();
         int turnedDown = 0;
+        float[] crownLight = LightSiteTests.lit(crown);
         for (int at = 0; at < crown.floats; at += 6 * SpriteGeometry.VERTEX_FLOATS) {
-            if ((float) Math.floor((crown.vertices[at + 8] + 0.5f) / 32f) == Flora.CORE) {
+            if ((float) Math.floor((crownLight[at + 8] + 0.5f) / 32f) == Flora.CORE) {
                 continue;
             }
             float x = 0f, y = 0f, up = 0f;

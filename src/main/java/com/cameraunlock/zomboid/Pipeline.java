@@ -184,8 +184,10 @@ final class Pipeline {
     private static final int GL_UNPACK_SKIP_ROWS = 0x0CF3;
     private static final int GL_UNPACK_SKIP_PIXELS = 0x0CF4;
     private static final int GL_ERROR_FLAGS = 8;
-    /** The texture units the frame uses, each of which the game may have left a sampler object on. */
+    /** The texture units the frame's own textures take, each of which the game may have left a sampler object on. */
     private static final int UNITS = 32;
+    /** The units the frame sets the game's samplers aside on: its own, and the light pages' after them (LightPages.UNIT). */
+    private static final int SAMPLED_UNITS = LightPages.UNIT + 1;
     /** The texture unit the headlights' shadow map stays bound to through the frame. */
     private static final int BEAM_UNIT = 20;
     /**
@@ -210,6 +212,8 @@ final class Pipeline {
      * every sum that only colours a pixel: see drawWorld.
      */
     private static final String WORLD_FRAGMENT_DEPTH = WORLD_FRAGMENT.replace(PipelineShaders.DEPTH_ONLY_ASKED, PipelineShaders.DEPTH_ONLY_ALWAYS);
+    /** The world's vertex program told the same, so it reads of a vertex's light only what depth asks of it. */
+    private static final String WORLD_VERTEX_DEPTH = WORLD_VERTEX.replace(PipelineShaders.DEPTH_ONLY_ASKED, PipelineShaders.DEPTH_ONLY_ALWAYS);
     /**
      * The same two programs told at compile time that they draw grass alone, all that is drawn
      * while uLaid is LAID_GRASS, which is made of nothing in particular: its material is 0. The
@@ -936,7 +940,7 @@ final class Pipeline {
     /** The texture unit the fires' shadow maps are bound to for the world's program: one none of its own samplers is on. */
     private static final int FIRE_SHADOW_UNIT = 19;
     private final float[] sunNdc = new float[2];
-    private final int[] samplers = new int[UNITS];
+    private final int[] samplers = new int[SAMPLED_UNITS];
     /** Where the driver puts an answer: see bound. As long as the longest answer OpenGL gives to one question. */
     private final int[] asked = new int[16];
     private final float[] projection = new float[16], viewed = new float[16], boltView = new float[16], flash = new float[7];
@@ -1015,7 +1019,7 @@ final class Pipeline {
     /** Whether any texture unit has been found with a sampler of the game's or another mod's bound to it, and how often they are looked at until one has. */
     private static boolean samplersSeen;
     private static final int SAMPLERS_ASKED_EVERY = 256;
-    private static final int[] NO_SAMPLERS = new int[UNITS];
+    private static final int[] NO_SAMPLERS = new int[SAMPLED_UNITS];
     /** Whether the card binds a run of units in one call (OpenGL 4.4 or ARB_multi_bind), asked once, and whether it has been asked. */
     private static boolean bindsMany, bindsManyAsked;
 
@@ -1172,11 +1176,11 @@ final class Pipeline {
         GL15.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
         // The game binds no sampler to any unit, so most frames there is nothing to ask: every
         // question put to a driver that runs on a thread of its own waits for that thread, and
-        // there are thirty-two units. They are asked on one frame in 256, and on every
+        // there are thirty-three units. They are asked on one frame in 256, and on every
         // frame from then on once any unit has held one, which another mod could see to.
         boolean looked = samplersSeen || (frameNumber & SAMPLERS_ASKED_EVERY - 1) == 1;
         if (looked) {
-            for (int unit = 0; unit < UNITS; unit++) {
+            for (int unit = 0; unit < SAMPLED_UNITS; unit++) {
                 GL13.glActiveTexture(GL_TEXTURE0 + unit);
                 samplers[unit] = bound(GL_SAMPLER_BINDING);
                 samplersSeen |= samplers[unit] != 0;
@@ -1266,6 +1270,11 @@ final class Pipeline {
         }
         // The world's buffer takes its room before the shadow maps and surfaces given back by a step are made again.
         ChunkBuffers.load(chunks, ahead);
+        if (LightCheck.asked) {
+            arrays();
+            LightCheck.run(PLACED_ATTRIBUTES, PLACED_NAMES);
+            leaveWorld();
+        }
         if (nearMap != 0 && shadowSize != Quality.shadowSize(view.index)) {
             giveBackShadowMaps();
         }
@@ -2070,7 +2079,7 @@ final class Pipeline {
         GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
         GL13.glClientActiveTexture(GL_TEXTURE0 + 3);
         GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-        GL13.glMultiTexCoord2f(GL_TEXTURE0 + 3, SpriteGeometry.AS_FACE, 0f);
+        GL13.glMultiTexCoord3f(GL_TEXTURE0 + 3, 0f, SpriteGeometry.AS_FACE, 0f);
         GL13.glClientActiveTexture(GL_TEXTURE0);
     }
 
@@ -3468,7 +3477,7 @@ final class Pipeline {
         GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
         GL13.glClientActiveTexture(GL_TEXTURE0 + 3);
         GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-        GL13.glMultiTexCoord2f(GL_TEXTURE0 + 3, SpriteGeometry.AS_FACE, 0f);
+        GL13.glMultiTexCoord3f(GL_TEXTURE0 + 3, 0f, SpriteGeometry.AS_FACE, 0f);
         GL11.glEnable(GL_DEPTH_TEST);
         GL11.glDepthFunc(GL_LEQUAL);
         GL11.glDepthMask(false);
@@ -4133,6 +4142,7 @@ final class Pipeline {
         GL13.glActiveTexture(GL_TEXTURE0);
         to.set("uHeights", UNITS - 1);
         to.set("uRoofMatrix", roofMatrix);
+        LightPages.bind(to);
         to.set("uCover", state.cover);
         to.set("uCloudsDrift", state.cloudsX, state.cloudsY);
         boolean fewerTaps = !Quality.sharpShadows(view.index);
@@ -6499,7 +6509,7 @@ final class Pipeline {
                 () -> world = Program.link("world", WORLD_VERTEX, WORLD_FRAGMENT, linkProblem, PLACED_ATTRIBUTES, PLACED_NAMES),
                 () -> worldCalm = Program.link("world calm", WORLD_VERTEX, WORLD_FRAGMENT_CALM, linkProblem, PLACED_ATTRIBUTES, PLACED_NAMES),
                 () -> worldUntinted = Program.link("world untinted", WORLD_VERTEX, WORLD_FRAGMENT_UNTINTED, linkProblem, PLACED_ATTRIBUTES, PLACED_NAMES),
-                () -> worldDepth = Program.link("world depth", WORLD_VERTEX, WORLD_FRAGMENT_DEPTH, linkProblem, PLACED_ATTRIBUTES, PLACED_NAMES),
+                () -> worldDepth = Program.link("world depth", WORLD_VERTEX_DEPTH, WORLD_FRAGMENT_DEPTH, linkProblem, PLACED_ATTRIBUTES, PLACED_NAMES),
                 () -> paneMask = Program.link("pane mask", PipelineShaders.PANE_VERTEX, PipelineShaders.PANE_FRAGMENT, linkProblem),
                 () -> glassShown = Program.link("mirror's glass", LookingGlass.VERTEX, LookingGlass.SHOWN, linkProblem),
                 () -> windowShown = Program.link("window's glass", LookingGlass.VERTEX, LookingGlass.THROWN, linkProblem),
@@ -6527,7 +6537,7 @@ final class Pipeline {
                 () -> smooth = Program.link("smooth", SCREEN_VERTEX, PipelineShaders.SMOOTH, linkProblem),
                 () -> steady = Program.link("steady", SCREEN_VERTEX, PipelineShaders.STEADY, linkProblem),
                 () -> grassLit = Program.link("grass", WORLD_VERTEX, GRASS_FRAGMENT, linkProblem, PLACED_ATTRIBUTES, PLACED_NAMES),
-                () -> grassDepth = Program.link("grass depth", WORLD_VERTEX, GRASS_FRAGMENT_DEPTH, linkProblem, PLACED_ATTRIBUTES, PLACED_NAMES));
+                () -> grassDepth = Program.link("grass depth", WORLD_VERTEX_DEPTH, GRASS_FRAGMENT_DEPTH, linkProblem, PLACED_ATTRIBUTES, PLACED_NAMES));
         List<Piece> pieces = new ArrayList<>();
         for (int each = 0; each < own.size(); each++) {
             Runnable link = own.get(each);

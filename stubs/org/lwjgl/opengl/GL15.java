@@ -4,6 +4,7 @@ public final class GL15 {
     public static void glBindBuffer(int target, int buffer) { throw new UnsupportedOperationException("reference stub"); }
     public static int glGetBufferParameteri(int target, int name) { throw new UnsupportedOperationException("reference stub"); }
     public static void glGetBufferSubData(int target, long offset, java.nio.ByteBuffer data) { throw new UnsupportedOperationException("reference stub"); }
+    public static void glGetBufferSubData(int target, long offset, java.nio.FloatBuffer data) { throw new UnsupportedOperationException("reference stub"); }
     public static int glGenBuffers() { throw new UnsupportedOperationException("reference stub"); }
     public static java.nio.ByteBuffer glMapBuffer(int target, int access, long length, java.nio.ByteBuffer old) { throw new UnsupportedOperationException("reference stub"); }
     public static boolean glUnmapBuffer(int target) { throw new UnsupportedOperationException("reference stub"); }

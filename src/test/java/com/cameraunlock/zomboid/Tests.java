@@ -1258,7 +1258,8 @@ public final class Tests {
         daylit.litAsFace();
         daylit.lightStatic();
         daylit.add(0f, 0f, 0f, 0f, 0f, 1f, 1f, 1f);
-        check(near(daylit.vertices[SpriteGeometry.DAY_AT], 0.4f) && daylit.vertices[SpriteGeometry.VERTEX_FLOATS + SpriteGeometry.DAY_AT] == 0f,
+        float[] daylight = LightSiteTests.lit(daylit);
+        check(near(daylight[SpriteGeometry.DAY_AT], 0.4f) && daylight[SpriteGeometry.VERTEX_FLOATS + SpriteGeometry.DAY_AT] == 0f,
                 "each vertex carries the day it was added with, and none once put back");
     }
 
@@ -1277,8 +1278,8 @@ public final class Tests {
                 new float[] {0f, 0.5f, 1f, 0f}, red, light, light, light, new float[] {35f, 35.5f, 36f, 35f}, new float[4], square, new float[] {0f, 1f, 1f, 0f},
                 new float[] {0f, 0f, 1f, 1f});
         check(mesh.triangles() == 2, "a piece of litter of four corners is two triangles");
+        float[] f = LightSiteTests.lit(mesh);
         for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
-            float[] f = mesh.vertices;
             float length = (float) Math.sqrt(f[at + 9] * f[at + 9] + f[at + 10] * f[at + 10] + f[at + 11] * f[at + 11]);
             check(near(length, 1f), "litter does not blow about");
             boolean east = near(f[at], 5.5f), south = near(f[at + 1], 6.5f);

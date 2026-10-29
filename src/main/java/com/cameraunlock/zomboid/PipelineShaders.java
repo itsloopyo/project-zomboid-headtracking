@@ -530,7 +530,11 @@ final class PipelineShaders {
             }
             """;
 
-    /** How the world's fragment shader says it draws colour, and what Pipeline puts in its place for the program that draws depth alone. */
+    /**
+     * How the world's shaders say they draw colour, and what Pipeline puts in its place for the
+     * programs that draw depth alone. Their vertex shader then reads a light site's record only
+     * for what its alpha carries, which is all that depth asks of a vertex's light.
+     */
     static final String DEPTH_ONLY_ASKED = "const bool depthOnly = false;";
     static final String DEPTH_ONLY_ALWAYS = "const bool depthOnly = true;";
 
@@ -579,6 +583,19 @@ final class PipelineShaders {
             uniform float uRangeFrom;
             uniform sampler2D uHeights;
             uniform mat4 uRoofMatrix;
+            // The light pages: the record of each light site of every build, which a vertex of the world takes its light
+            // from where it says, and how many rows of records there are. See LightPages and LightSites.decode.
+            uniform sampler2D uLightPages;
+            uniform float uPageRows;
+            const bool depthOnly = false;
+            // Texel k of record r of the light pages: 128 records to a row of 1024 texels, 8 texels to a record.
+            // The pages have one level, read NEAREST, so texture2D reads the texel itself: texture2DLod in a
+            // vertex stage of version 120 wants GL_ARB_shader_texture_lod in the reference compiler.
+            vec4 lightRecord(float r, float k) {
+                float row = floor((r + 0.5) / 128.0);
+                float column = (r - 128.0 * row) * 8.0 + k;
+                return texture2D(uLightPages, vec2((column + 0.5) / 1024.0, (row + 0.5) / uPageRows));
+            }
             """ + GROUND_NOISE + GRASS_WIND + MODEL_STANDS + FACED + SKY_SEEN + SnowShader.COVER + SnowShader.STOOD + SnowShader.RIDGE + """
             // A model's light at the corners of its square, a row of them a piece as MODEL_STANDS's are. Their w
             // are what it has of the day its room lets in, at the same corners: see Models.Instances.DAY.
@@ -629,10 +646,44 @@ final class PipelineShaders {
                 // another square: see Models.Model.piece.
                 float piece = 0.0;
                 vUv = gl_MultiTexCoord0.xy;
-                vColor = gl_Color;
+                // Above 16384 the alpha says how the vertex takes its light: see LightSites.coded.
+                float lightCode = floor((gl_Color.a + 0.5) / 16384.0);
+                vColor = vec4(gl_Color.rgb, gl_Color.a - 16384.0 * lightCode);
                 // What the vertex has of a light the game has not given, and of the day its room lets in: see SpriteGeometry.Mesh.unlit and Mesh.day.
-                float unlit = gl_MultiTexCoord3.x;
-                float day = gl_MultiTexCoord3.y;
+                float unlit = gl_MultiTexCoord3.y;
+                float day = gl_MultiTexCoord3.z;
+                float lightMode = mod(floor(lightCode / 2.0), 4.0);
+                if (uModel < 0.5 && lightMode > 0.5) {
+                    // A vertex of a light site takes its light from the site's record as LightSites.decode does, in the
+                    // same order of operations: its colour is what the builder laid on the light, and its fourth texture
+                    // coordinates are its record and its shares (a, b) of the square.
+                    float r = gl_MultiTexCoord3.x;
+                    vec4 tail = lightRecord(r, 6.0);
+                    if (!depthOnly && lightMode < 1.5) {
+                        vec4 own = lightRecord(r, 0.0);
+                        vColor.rgb = own.rgb * gl_Color.rgb;
+                        unlit = -1.0;
+                        day = own.w;
+                    } else if (!depthOnly) {
+                        float a = gl_MultiTexCoord3.y, b = gl_MultiTexCoord3.z;
+                        float w0 = (1.0 - a) * (1.0 - b), w1 = a * (1.0 - b), w2 = a * b, w3 = (1.0 - a) * b;
+                        vec4 red = lightRecord(r, 1.0), green = lightRecord(r, 2.0), blue = lightRecord(r, 3.0);
+                        vec4 share = lightRecord(r, 4.0), daily = lightRecord(r, 5.0);
+                        vec3 c0 = vec3(red.x, green.x, blue.x), c1 = vec3(red.y, green.y, blue.y), c2 = vec3(red.z, green.z, blue.z), c3 = vec3(red.w, green.w, blue.w);
+                        vec3 blended = lightMode > 2.5 ? (c0 * (1.0 - a) + c1 * a) * (1.0 - b) + (c3 * (1.0 - a) + c2 * a) * b : c0 * w0 + c1 * w1 + c2 * w2 + c3 * w3;
+                        vColor.rgb = blended * gl_Color.rgb;
+                        unlit = share.x < 0.0 ? -1.0 : tail.y * 16.0 + share.x * w0 + share.y * w1 + share.z * w2 + share.w * w3;
+                        day = daily.x * w0 + daily.y * w1 + daily.z * w2 + daily.w * w3;
+                    }
+                    if (mod(floor(lightCode / 8.0), 2.0) > 0.5) {
+                        vColor.a += 4096.0 * floor((tail.x + 0.5) / 4096.0);
+                    }
+                    // Glass and a pane with a lamp burning behind them are lit glass and a lit pane, 52 and 1 materials on.
+                    float variant = floor(lightCode / 16.0);
+                    if (variant > 0.5 && tail.z > 0.5) {
+                        vColor.a += variant < 1.5 ? 1664.0 : 32.0;
+                    }
+                }
                 if (uModel > 0.5) {
                     // A model's vertex is in the model's own metres, and carries its surface and
                     // how much light gets to it past the rest of the model where a sprite's
@@ -812,7 +863,7 @@ final class PipelineShaders {
                 vWorld = at.xyz + lies;
                 vLies = lies;
                 vSeen = uModel < 0.5 && gl_MultiTexCoord1.z > 6.5 ? (gl_MultiTexCoord1.z < 7.5 ? 1.0 : -1.0) : 0.0;
-                vAloft = uModel < 0.5 ? gl_MultiTexCoord3.z : 0.0;
+                vAloft = uModel < 0.5 ? mod(lightCode, 2.0) : 0.0;
                 // A cloud's shadow changes over tens of tiles, so it is worked out at the vertices.
                 vClouds = cloudBody(vWorld.xy, uLight, uCloudsDrift);
                 // The map is thousands of tiles across and a number here holds seven digits, so

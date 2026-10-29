@@ -2,11 +2,14 @@ package com.cameraunlock.zomboid;
 
 import java.util.HashMap;
 import org.lwjgl.opengl.GL20;
+import org.lwjgl.opengl.GL30;
 
 /** One compiled program and the places its uniforms live. */
 final class Program {
     private static final int GL_VERTEX_SHADER = 0x8B31, GL_FRAGMENT_SHADER = 0x8B30;
     private static final int GL_COMPILE_STATUS = 0x8B81, GL_LINK_STATUS = 0x8B82;
+    private static final int GL_INTERLEAVED_ATTRIBS = 0x8C8C;
+    private static final String[] NOTHING_CAUGHT = new String[0];
 
     final int id;
     private final HashMap<String, Uniform> uniforms = new HashMap<>();
@@ -39,6 +42,19 @@ final class Program {
 
     /** As link, with each vertex attribute named bound to the place of the same index. */
     static Program link(String name, String vertexSource, String fragmentSource, StringBuilder problem, int[] places, String... attributes) {
+        return made(name, vertexSource, fragmentSource, problem, NOTHING_CAUGHT, places, attributes);
+    }
+
+    /**
+     * As link, with the varyings named caught by transform feedback, one after another for each
+     * vertex, into the buffer bound at index 0: for a dev check that reads back what the vertex
+     * program worked out.
+     */
+    static Program caught(String name, String vertexSource, String fragmentSource, StringBuilder problem, String[] varyings, int[] places, String... attributes) {
+        return made(name, vertexSource, fragmentSource, problem, varyings, places, attributes);
+    }
+
+    private static Program made(String name, String vertexSource, String fragmentSource, StringBuilder problem, String[] varyings, int[] places, String[] attributes) {
         long start = System.nanoTime();
         try {
             int vertex = compile(name + " vertex", GL_VERTEX_SHADER, vertexSource, problem);
@@ -53,6 +69,9 @@ final class Program {
             GL20.glAttachShader(id, fragment);
             for (int i = 0; i < attributes.length; i++) {
                 GL20.glBindAttribLocation(id, places[i], attributes[i]);
+            }
+            if (varyings.length > 0) {
+                GL30.glTransformFeedbackVaryings(id, varyings, GL_INTERLEAVED_ATTRIBS);
             }
             GL20.glLinkProgram(id);
             GL20.glDetachShader(id, vertex);

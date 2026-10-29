@@ -13,5 +13,9 @@ public final class GL30 {
     public static void glGenerateMipmap(int target) { throw new UnsupportedOperationException("reference stub"); }
     public static void glEnablei(int target, int index) { throw new UnsupportedOperationException("reference stub"); }
     public static void glDisablei(int target, int index) { throw new UnsupportedOperationException("reference stub"); }
+    public static void glBindBufferBase(int target, int index, int buffer) { throw new UnsupportedOperationException("reference stub"); }
+    public static void glBeginTransformFeedback(int primitiveMode) { throw new UnsupportedOperationException("reference stub"); }
+    public static void glEndTransformFeedback() { throw new UnsupportedOperationException("reference stub"); }
+    public static void glTransformFeedbackVaryings(int program, CharSequence[] varyings, int bufferMode) { throw new UnsupportedOperationException("reference stub"); }
     public static void glBlitFramebuffer(int srcX0, int srcY0, int srcX1, int srcY1, int dstX0, int dstY0, int dstX1, int dstY1, int mask, int filter) { throw new UnsupportedOperationException("reference stub"); }
 }

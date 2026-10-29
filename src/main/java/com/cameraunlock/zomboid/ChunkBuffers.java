@@ -102,8 +102,8 @@ final class ChunkBuffers {
     }
 
     static String describe() {
-        return String.format(Locale.ROOT, "card holds %.0f of %.0f MB, sent %d builds %.1f MB, %.0f MB on the way there and %.0f MB kept for the next",
-                usedMegabytes, allMegabytes, sent, sentMegabytes, VertexLoans.lentBytes() / 1048576f, VertexLoans.idleBytes() / 1048576f);
+        return String.format(Locale.ROOT, "card holds %.0f of %.0f MB, sent %d builds %.1f MB, %.0f MB on the way there and %.0f MB kept for the next, %s",
+                usedMegabytes, allMegabytes, sent, sentMegabytes, VertexLoans.lentBytes() / 1048576f, VertexLoans.idleBytes() / 1048576f, LightPages.describe());
     }
 
     /**
@@ -298,6 +298,7 @@ final class ChunkBuffers {
         buffer = 0;
         capacity = 0;
         space.reset(0);
+        LightPages.letGo();
         usedMegabytes = 0f;
         allMegabytes = 0f;
         Log.info("first person has given the world's room on the graphics card back");
@@ -310,6 +311,9 @@ final class ChunkBuffers {
         if (build.heldFloats > 0) {
             space.give(build.heldAt, build.heldFloats);
         }
+        if (build.heldPageRecords > 0) {
+            LightPages.give(build.heldPageAt, build.heldPageRecords);
+        }
         WorldScene.ChunkMeshes last = holders.remove(holders.size() - 1);
         if (last != build) {
             holders.set(build.heldIndex, last);
@@ -320,14 +324,15 @@ final class ChunkBuffers {
     }
 
     /**
-     * Hands the graphics card a build's vertices and gives back the memory they came in. False
-     * when the buffer has no room, and the build is then as it was.
+     * Hands the graphics card a build's vertices and its light page, and gives back the memory
+     * the vertices came in. False when the buffer has no room, and the build is then as it was.
      */
     private static boolean send(WorldScene.ChunkMeshes build) {
-        // Read before the runs and the vertices are: the logic thread raised it after writing them.
+        // Read before the runs, the vertices and the page are: the logic thread raised it after writing them.
         int version = build.version;
         int floats = build.floats;
-        int at = 0;
+        int records = build.pageRecords;
+        int at = 0, pageAt = 0;
         if (floats > 0) {
             at = space.take(floats);
             if (at < 0) {
@@ -338,6 +343,20 @@ final class ChunkBuffers {
                 throw new IllegalStateException("a build of " + floats + " floats that the graphics card does not hold came with "
                         + (vertices == null ? "no vertices" : vertices.remaining() + " floats of them"));
             }
+            if (records > 0) {
+                try {
+                    pageAt = LightPages.send(build.page, records);
+                } catch (RuntimeException refused) {
+                    space.give(at, floats);
+                    throw refused;
+                }
+                // A vertex counts its record from the start of its build's page.
+                if (pageAt != 0) {
+                    for (int record = SpriteGeometry.RECORD_AT; record < floats; record += SpriteGeometry.VERTEX_FLOATS) {
+                        vertices.put(record, vertices.get(record) + pageAt);
+                    }
+                }
+            }
             GL15.glBufferSubData(GL_ARRAY_BUFFER, (long) at * Float.BYTES, vertices);
             build.vertices = null;
             VertexLoans.give(vertices);
@@ -346,6 +365,8 @@ final class ChunkBuffers {
         }
         build.heldAt = at;
         build.heldFloats = floats;
+        build.heldPageAt = pageAt;
+        build.heldPageRecords = floats > 0 ? records : 0;
         build.heldVersion = version;
         build.heldIndex = holders.size();
         holders.add(build);
@@ -454,7 +475,7 @@ final class ChunkBuffers {
         throw new VideoMemory.Refused(what);
     }
 
-    /** Points OpenGL's vertex, texture coordinate, colour and normal arrays at the buffer, the second texture coordinate array at what a vertex carries for a card, the third at its tree's square, and the fourth at what it has of a light the game has not given and whether it is aloft. Leaves no buffer bound. */
+    /** Points OpenGL's vertex, texture coordinate, colour and normal arrays at the buffer, the second texture coordinate array at what a vertex carries for a card, the third at its tree's square, and the fourth at its light: its record and shares, or what it has of a light the game has not given and of the day. Leaves no buffer bound. */
     static void point() {
         GL15.glBindBuffer(GL_ARRAY_BUFFER, buffer);
         GL11.glVertexPointer(3, GL_FLOAT, STRIDE, 0L);
@@ -466,9 +487,19 @@ final class ChunkBuffers {
         GL13.glClientActiveTexture(GL_TEXTURE0 + 2);
         GL11.glTexCoordPointer(2, GL_FLOAT, STRIDE, (long) SpriteGeometry.ROOT_AT * Float.BYTES);
         GL13.glClientActiveTexture(GL_TEXTURE0 + 3);
-        GL11.glTexCoordPointer(3, GL_FLOAT, STRIDE, (long) SpriteGeometry.UNLIT_AT * Float.BYTES);
+        GL11.glTexCoordPointer(3, GL_FLOAT, STRIDE, (long) SpriteGeometry.RECORD_AT * Float.BYTES);
         GL13.glClientActiveTexture(GL_TEXTURE0);
         GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
+    }
+
+    /** Dev: has LightCheck check the light of each build's block, with the world's arrays switched on. Render thread. */
+    static void checkLight() {
+        point();
+        for (WorldScene.ChunkMeshes build : holders) {
+            if (build.heldFloats > 0) {
+                LightCheck.block(buffer, build.heldAt, build.heldFloats);
+            }
+        }
     }
 
     /**

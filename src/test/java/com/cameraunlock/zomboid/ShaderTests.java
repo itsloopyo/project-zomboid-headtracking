@@ -39,7 +39,7 @@ final class ShaderTests {
     /** Every way a source reaches glShaderSource, by the file the call is in. A call anywhere else is one this cannot follow. */
     private static final List<String> HANDS_OVER = List.of("Program.java", "SmallProgram.java", "CharacterDraw.java", "OwnArms.java");
 
-    private static final Pattern LINKED = Pattern.compile("Program\\.link\\(\\s*\"([^\"]+)\"\\s*,([^,()]+),([^,()]+),");
+    private static final Pattern LINKED = Pattern.compile("Program\\.(?:link|caught)\\(\\s*\"([^\"]+)\"\\s*,([^,()]+),([^,()]+),");
     private static final Pattern SMALL = Pattern.compile("new SmallProgram\\(\\s*\"([^\"]+)\"\\s*,(?:\\s*\"[^\"]*\"\\s*,)?([^,()]+),([^,()]+)\\)");
     private static final Pattern STAGED = Pattern.compile("\\bprogram\\(\\s*\"([^\"]+)\"\\s*,([^()]+)\\)");
     private static final Pattern ARMS = Pattern.compile("String\\[\\] sources = \\{([^,{}]+),([^,{}]+)\\};");
@@ -89,6 +89,7 @@ final class ShaderTests {
         Checks.run("aWallSkinHasNoBack", () -> aWallSkinHasNoBack(programs));
         Checks.run("everyProgramPassesTheReferenceCompiler", () -> everyProgramPassesTheReferenceCompiler(programs));
         Checks.run("theFloorAsksForWhatTheFragmentStagesRead", () -> theFloorAsksForWhatTheFragmentStagesRead(programs));
+        Checks.run("whatDrawsTheWorldsBufferReadsAVertexsAlphaUnderItsLightCode", () -> whatDrawsTheWorldsBufferReadsAVertexsAlphaUnderItsLightCode(programs));
     }
 
     private static final Pattern REFLECTED = Pattern.compile("^(\\S+): offset -?\\d+, type ([0-9a-f]+), size (\\d+), .*?stages (\\d+)", Pattern.MULTILINE);
@@ -217,6 +218,12 @@ final class ShaderTests {
     private static void depthProgramIsTheWorldsToldToDrawDepthAlone(List<Linked> programs) {
         String whole = fragment(programs, "world"), depth = fragment(programs, "world depth");
         Checks.check(!whole.equals(depth) && depth.contains("const bool depthOnly = true;"), "the world depth program is not the world's program told to draw depth alone");
+        // Told in its vertex stage too, where it leaves out the light a vertex's record gives it and keeps what its alpha says.
+        String vertex = vertex(programs, "world");
+        for (String told : List.of("world depth", "grass depth")) {
+            Checks.check(vertex(programs, told).equals(vertex.replace(PipelineShaders.DEPTH_ONLY_ASKED, PipelineShaders.DEPTH_ONLY_ALWAYS)) && vertex.contains(PipelineShaders.DEPTH_ONLY_ASKED),
+                    "the " + told + " program's vertex stage is not the world's told to draw depth alone");
+        }
     }
 
     private static void calmProgramIsTheWorldsWithItsTestsAnswered(List<Linked> programs) {
@@ -655,6 +662,29 @@ final class ShaderTests {
                 "what is laid and looked down on is not lifted along the line it is seen on, and slides off its square");
     }
 
+    /** The programs that draw the world's buffer, whose vertices say how they take their light over LightSites.CODED_STEP of their alpha. */
+    private static final List<String> OF_THE_WORLDS_BUFFER = List.of("world", "world calm", "world untinted", "world depth", "grass", "grass depth", "shadow", "solid shadow",
+            "light check");
+    /** How such a program may read the alpha: under the 32 of a material, under the 4096 of a kind of light, or as the code and what is under it. */
+    private static final List<String> ALPHA_READS = List.of("gl_Color.a - 32.0 * floor((gl_Color.a + 0.5) / 32.0)", "mod(gl_Color.a, 32.0)", "mod(gl_Color.a, 4096.0)",
+            "floor((gl_Color.a + 0.5) / 16384.0)", "gl_Color.a - 16384.0 * lightCode");
+
+    /**
+     * A vertex of a light site says over LightSites.CODED_STEP of its alpha how it takes its light,
+     * and its colour is what its builder laid on its record's light: a program that draws the
+     * world's buffer reads the alpha under the code or as the code, and takes no colour from a
+     * vertex whole.
+     */
+    private static void whatDrawsTheWorldsBufferReadsAVertexsAlphaUnderItsLightCode(List<Linked> programs) {
+        for (String name : OF_THE_WORLDS_BUFFER) {
+            String stage = vertex(programs, name);
+            for (String read : ALPHA_READS) {
+                stage = stage.replace(read, "");
+            }
+            Checks.check(!stage.contains("gl_Color.a") && !stage.contains("= gl_Color;"), "the " + name + " program reads a vertex's alpha with its light code in it, or takes its colour whole");
+        }
+    }
+
     private static String fragment(List<Linked> programs, String name) {
         for (Linked program : programs) {
             if (program.name.equals(name)) {
@@ -679,7 +709,7 @@ final class ShaderTests {
                 for (Matcher linked = LINKED.matcher(text); linked.find(); ) {
                     found.add(new Linked(linked.group(1), name, stages("vert", text(owner, linked.group(2)), "frag", text(owner, linked.group(3)))));
                 }
-                expect(name, "Program.link(", count(text, "Program.link("), found.size() - before);
+                expect(name, "Program.link( and Program.caught(", count(text, "Program.link(") + count(text, "Program.caught("), found.size() - before);
                 before = found.size();
                 for (Matcher small = SMALL.matcher(text); small.find(); ) {
                     found.add(new Linked(small.group(1), name, stages("vert", text(owner, small.group(2)), "frag", text(owner, small.group(3)))));

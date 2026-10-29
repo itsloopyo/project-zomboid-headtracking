@@ -454,8 +454,9 @@ final class RoadPaintTests {
         near(mesh.vertices[2], 0.1 * 0.75 * 0.5 + 0.2 * 0.25 * 0.5 + 0.3 * 0.25 * 0.5 + 0.2 * 0.75 * 0.5, 1e-6, "it lies on the ground of the square");
         near(mesh.vertices[floats], 8.1, 1e-6, "a corner past the square's edge is laid where it is");
         near(mesh.vertices[floats + 2], 0.25, 1e-6, "as high as the edge is there");
-        near(mesh.vertices[5], 0.5, 1e-6, "lit as the square is");
-        near(mesh.vertices[8], 1f, 1e-6, "and out of doors as the square is, of no material the frame did not say");
+        float[] lit = LightSiteTests.lit(mesh);
+        near(lit[5], 0.5, 1e-6, "lit as the square is");
+        near(lit[8], 1f, 1e-6, "and out of doors as the square is, of no material the frame did not say");
     }
 
     private static void layGivesThePaintItsMaterialAndTheFrameItsOwnBack() {
@@ -472,7 +473,7 @@ final class RoadPaintTests {
             geometry.addGiven(mesh, paintFrame(frame), 0, 0, 0, triangles, at);
         }
         check(mesh.floats == triangles.length / PaintFit.CORNER * SpriteGeometry.VERTEX_FLOATS, "every triangle of the paint is laid");
-        near(mesh.vertices[8], 1f + 32f * RoadPaint.MATERIAL, 1e-3, "each vertex says it is paint, out of doors");
+        near(LightSiteTests.lit(mesh)[8], 1f + 32f * RoadPaint.MATERIAL, 1e-3, "each vertex says it is paint, out of doors");
     }
 
     /** The frame as RoadPaint.lay hands it on: the paint's material for the while. */

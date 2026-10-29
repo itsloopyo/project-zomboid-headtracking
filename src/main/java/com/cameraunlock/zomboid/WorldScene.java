@@ -433,6 +433,14 @@ final class WorldScene {
         volatile boolean held;
         /** The block: which filling of the build it holds, where it is, how long, and the build's place in ChunkBuffers' list of builds with a block. */
         int heldVersion, heldAt, heldFloats, heldIndex;
+        /**
+         * The build's light page: the record of each of its light sites (LightSites), in the order
+         * its vertices count them, and how many. Filled with the build, by the thread that fills it.
+         */
+        float[] page = new float[0];
+        int pageRecords;
+        /** Where its page is in LightPages' texture while the block is held, and how many records: see ChunkBuffers.send. */
+        int heldPageAt, heldPageRecords;
         /** Which player's view the build is of: a build goes back to be filled again by the view that made it. */
         final int of;
 
@@ -461,6 +469,15 @@ final class WorldScene {
             note(solid);
             solidRuns = runs;
             note(laid);
+            // A build has one page: what is laid takes its sites from the solid set's table, or has none.
+            if (laid.sites != solid.sites && laid.sites.count > 0) {
+                throw new IllegalStateException("a build's laid vertices count their light sites in a table of their own, and a build has one page");
+            }
+            pageRecords = floats > 0 ? solid.sites.count : 0;
+            if (page.length < pageRecords * LightSites.RECORD) {
+                page = new float[Math.max(pageRecords * LightSites.RECORD, page.length * 2)];
+            }
+            System.arraycopy(solid.sites.records, 0, page, 0, pageRecords * LightSites.RECORD);
             if (DepthFights.ON) {
                 depthCopy = DepthFights.copy(wx, wy, grown, solid, laid);
             }
@@ -1828,9 +1845,11 @@ final class WorldScene {
             return said;
         }
         TreeSet<Integer> made = new TreeSet<>();
+        float[] light = new float[6];
         float minX = Float.MAX_VALUE, minY = Float.MAX_VALUE, minUp = Float.MAX_VALUE, maxX = -Float.MAX_VALUE, maxY = -Float.MAX_VALUE, maxUp = -Float.MAX_VALUE;
         for (int k = 0; k < mesh.floats; k += SpriteGeometry.VERTEX_FLOATS) {
-            made.add((int) Math.floor((mesh.vertices[k + 8] % LIT_STEP + 0.5f) / 32f));
+            LightSites.decode(mesh.vertices, k, mesh.set.sites.records, light);
+            made.add((int) Math.floor((light[5] % LIT_STEP + 0.5f) / 32f));
             minX = Math.min(minX, mesh.vertices[k]);
             maxX = Math.max(maxX, mesh.vertices[k]);
             minY = Math.min(minY, mesh.vertices[k + 1]);

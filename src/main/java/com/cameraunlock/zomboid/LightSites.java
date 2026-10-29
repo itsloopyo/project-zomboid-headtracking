@@ -18,15 +18,21 @@ import java.util.Arrays;
  * A record is the light state a Frame holds, in RECORD floats: red, green, blue, the day a flat
  * vertex of the site takes, the corners' red, green and blue, their unlit shares and their day,
  * then the openness with its kind of light (WorldScene.LIT_STEP), unlitKind, and 1 where a lamp
- * burns behind the glass the site lights (see material).
+ * burns behind the glass the site lights (see coded).
  */
 final class LightSites {
     /**
-     * Dev and the suite: every vertex is checked as it is added against the light its site's
-     * record gives it, worked out as the picture will work it out (twin), and every frame a
-     * vertex takes its site from against that site's record.
+     * Dev and the suite: every vertex is checked as it is added against the light the picture
+     * will work out for it from the floats it carries and its site's record (decode), and every
+     * frame a vertex takes its site from against that site's record.
      */
     static final boolean TWIN = Boolean.getBoolean("cameraunlock.zomboid.lightTwin");
+    /**
+     * Dev only: while set, every vertex is built carrying the light its site gives it as a
+     * vertex of no site carries its own (MODE_STATIC), as builds were before the light pages, so
+     * that a picture of each can be told apart.
+     */
+    static volatile boolean baked = Boolean.getBoolean("cameraunlock.zomboid.lightBaked");
 
     /** The site of a frame lit by hand, or never lit: its light is its own, in no table. */
     static final int NO_SITE = -1;
@@ -56,19 +62,19 @@ final class LightSites {
         return key >>> 56;
     }
 
-    /** The names of a site with a lamp behind it, which burns or not as the square of the window named by which (LAMP_OWN, LAMP_NORTH, LAMP_WEST) has it: see material. */
+    /** The names of a site with a lamp behind it, which burns or not as the square of the window named by which (LAMP_OWN, LAMP_NORTH, LAMP_WEST) has it: see coded. */
     static long lamp(long names, long which) {
         return names | which << 46;
+    }
+
+    /** Whether the site of the key has a lamp behind it, burning or not: see lamp. */
+    static boolean hasLamp(long key) {
+        return (key >>> 46 & 3L) != 0;
     }
 
     /** The names of a site lit as nothing, the floor of a room the player has not seen into: its openness and kind of light are the site's, its light 0. */
     static long dark(long names) {
         return names | 1L << 45;
-    }
-
-    /** The material a vertex is made of where its site's record says a lamp burns behind it: lit glass for glass, a lit pane for a pane. */
-    static float material(float made, boolean lamplit) {
-        return !lamplit ? made : made == WorldScene.GLASS ? WallBuilder.LIT_GLASS : made == WorldScene.PANE ? WorldScene.LIT_PANE : made;
     }
 
     /** The sites of one build, each once, with the record of each. Used on one thread at a time. */
@@ -322,14 +328,68 @@ final class LightSites {
         out[4] = records[d] * w0 + records[d + 1] * w1 + records[d + 2] * w2 + records[d + 3] * w3;
     }
 
+    /**
+     * Above this a vertex's alpha says how it takes its light: 1 where its square is aloft
+     * (SpriteGeometry.MeshSet.aloft), 2 times its mode, 8 where the kind of its light is its
+     * record's, and 16 times its material's lit variant: 1 for glass and 2 for a pane, which a
+     * lamp burning behind them makes lit glass and a lit pane.
+     */
+    static final float CODED_STEP = 16384f;
+
+    /**
+     * The alpha a vertex of a site carries, from the alpha its light gives it: coded as
+     * CODED_STEP says, with the kind of its light left off where the picture takes it from the
+     * record, and, on a site with a lamp behind it, its material the one with no lamp.
+     */
+    static float coded(float alpha, float aloft, int mode, boolean kindFromSite, boolean lampSite) {
+        float kind = (float) Math.floor((alpha + 0.5f) / WorldScene.LIT_STEP);
+        float within = alpha - WorldScene.LIT_STEP * kind;
+        float material = (float) Math.floor((within + 0.5f) / 32f);
+        float base = material, variant = 0f;
+        if (lampSite) {
+            base = material == WallBuilder.LIT_GLASS ? WorldScene.GLASS : material == WorldScene.LIT_PANE ? WorldScene.PANE : material;
+            variant = base == WorldScene.GLASS ? 1f : base == WorldScene.PANE ? 2f : 0f;
+        }
+        return within + 32f * (base - material) + (kindFromSite ? 0f : WorldScene.LIT_STEP * kind)
+                + CODED_STEP * (aloft + 2f * mode + (kindFromSite ? 8f : 0f) + 16f * variant);
+    }
+
+    /**
+     * The light the picture works out for the vertex whose floats start at at, as
+     * PipelineShaders.WORLD_VERTEX does before the kinds of light the game has not given: from
+     * the floats alone for a vertex of no site, and from its record in records (a build's page,
+     * counted from the page's start) for one of a site. Into out: red, green, blue, what it has of
+     * a light the game has not given, of the day, and its alpha with the kind of its light and its
+     * material, and with no code over CODED_STEP.
+     */
+    static void decode(float[] vertices, int at, float[] records, float[] out) {
+        float alpha = vertices[at + 8];
+        int code = (int) Math.floor((alpha + 0.5f) / CODED_STEP);
+        float bare = alpha - CODED_STEP * code;
+        int mode = code >> 1 & 3;
+        if (mode == MODE_STATIC) {
+            out[0] = vertices[at + 5];
+            out[1] = vertices[at + 6];
+            out[2] = vertices[at + 7];
+            out[3] = vertices[at + SpriteGeometry.UNLIT_AT];
+            out[4] = vertices[at + SpriteGeometry.DAY_AT];
+            out[5] = bare;
+            return;
+        }
+        int record = (int) vertices[at + SpriteGeometry.RECORD_AT] * RECORD;
+        twin(records, record, mode, vertices[at + SpriteGeometry.A_AT], vertices[at + SpriteGeometry.B_AT], vertices[at + 5], vertices[at + 6], vertices[at + 7], out);
+        if ((code & 8) != 0) {
+            bare += WorldScene.LIT_STEP * kindOf(records[record + OPEN]);
+        }
+        int variant = code >> 4;
+        if (variant > 0 && records[record + LAMPLIT] > 0.5f) {
+            bare += variant == 1 ? 32f * (WallBuilder.LIT_GLASS - WorldScene.GLASS) : 32f * (WorldScene.LIT_PANE - WorldScene.PANE);
+        }
+        out[5] = bare;
+    }
+
     /** The kind of light an openness (WorldScene.openOf) or a vertex's alpha carries, as the picture reads it. */
     static int kindOf(float open) {
         return (int) Math.floor((open + 0.5f) / WorldScene.LIT_STEP);
-    }
-
-    /** The material an alpha carries, as the shadow program reads it. */
-    static int materialOf(float alpha) {
-        float within = alpha - WorldScene.LIT_STEP * (float) Math.floor(alpha / WorldScene.LIT_STEP);
-        return (int) Math.floor((within + 0.5f) / 32f);
     }
 }

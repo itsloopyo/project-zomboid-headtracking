@@ -145,15 +145,16 @@ final class BuildingTests {
         Soffits.add(mesh, 7, 9, 4f, light, 288f, 448f, true, true);
         check(mesh.triangles() == 4 * 2 + 4 * 2 + 2 + 4 * 2, "one with a light is the lining round the opening, the recess, the lens and the joints: " + mesh.triangles());
         int lens = 0;
+        float[] lit = LightSiteTests.lit(mesh);
         for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
             float a = mesh.vertices[at] - 7f, b = mesh.vertices[at + 1] - 9f, up = mesh.vertices[at + 2];
             check(a >= 0f && a <= 1f && b >= 0f && b <= 1f && up >= 4f - Soffits.JOINT_PROUD - 1e-5f && up <= 4f + Soffits.RECESS + 1e-5f, "all of it on its own square, at the lining or let into it");
             check(mesh.vertices[at + 11] < 0f, "and all of it faces down");
-            if (mesh.vertices[at + 8] == 448f) {
+            if (lit[at + 8] == 448f) {
                 lens++;
-                check(up == 4f + Soffits.RECESS && mesh.vertices[at + 5] == 1f && Math.abs(a - 0.5f) <= Soffits.LENS_HALF + 1e-5f, "a lit lens is let in over the middle of the square and is as bright as a light is");
+                check(up == 4f + Soffits.RECESS && lit[at + 5] == 1f && Math.abs(a - 0.5f) <= Soffits.LENS_HALF + 1e-5f, "a lit lens is let in over the middle of the square and is as bright as a light is");
             } else {
-                check(mesh.vertices[at + 5] <= 0.5f, "the lining has the light of what is under it");
+                check(lit[at + 5] <= 0.5f, "the lining has the light of what is under it");
             }
         }
         check(lens == 6, "the lens is one face");
@@ -163,13 +164,14 @@ final class BuildingTests {
         Soffits.strip(mesh, 3, 5, 2.4f, true, light, 0f, 448f);
         check(mesh.triangles() == 2 * 2 + 3 * 2, "a square of strip light is two sides and an underside in three bands: " + mesh.triangles());
         int lensFloats = 0;
+        lit = LightSiteTests.lit(mesh);
         for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
             float a = mesh.vertices[at] - 3f, b = mesh.vertices[at + 1] - 5f, up = mesh.vertices[at + 2];
             check(a >= 0f && a <= 1f && Math.abs(b - 0.5f) <= Soffits.STRIP_HALF + 1e-5f && up <= 2.4f && up >= 2.4f - Soffits.STRIP_DEEP - 1e-5f,
                     "it runs the whole square along x, under the ceiling, so that the next length meets it");
-            if (mesh.vertices[at + 8] == 448f) {
+            if (lit[at + 8] == 448f) {
                 lensFloats++;
-                check(mesh.vertices[at + 5] == 0.8f && Math.abs(b - 0.5f) <= Soffits.STRIP_LENS_HALF + 1e-5f, "its lens has the whole of the room's light");
+                check(lit[at + 5] == 0.8f && Math.abs(b - 0.5f) <= Soffits.STRIP_LENS_HALF + 1e-5f, "its lens has the whole of the room's light");
             }
         }
         check(lensFloats == 6, "and is one face");

@@ -107,6 +107,7 @@ final class DepthFights {
         copy.runLaid = new boolean[runs];
         int t = 0, run = 0, card = 0;
         final int v = SpriteGeometry.VERTEX_FLOATS;
+        float[] light = new float[6];
         for (SpriteGeometry.MeshSet set : new SpriteGeometry.MeshSet[] {solid, laid}) {
             for (int i = 0; i < set.used.size(); i++) {
                 SpriteGeometry.Mesh mesh = set.used.get(i);
@@ -118,6 +119,8 @@ final class DepthFights {
                 float[] from = mesh.vertices;
                 for (int at = 0; at < mesh.floats; at += 3 * v) {
                     float way = from[at + SpriteGeometry.WAY_AT];
+                    // What a vertex of a light site is made of is read with its build's records, as the picture reads it.
+                    LightSites.decode(from, at, set.sites.records, light);
                     // A card turned to the camera has no plane until it is seen from somewhere: it is set against the cards on
                     // the same spot (cardPairs). Wood is a ring standing where it is.
                     if (way == SpriteGeometry.FACES) {
@@ -129,7 +132,7 @@ final class DepthFights {
                             copy.cardCorners[to + 3 + c * 2] = from[at + c * v + 2];
                         }
                         copy.cardCorners[to + 8] = from[at + SpriteGeometry.ALONG_AT + 1];
-                        copy.cardCorners[to + 9] = from[at + 8];
+                        copy.cardCorners[to + 9] = light[5];
                         copy.cardRun[card] = run;
                         card++;
                         continue;
@@ -145,7 +148,7 @@ final class DepthFights {
                     copy.moves[t * 6] = way;
                     copy.moves[t * 6 + 1] = from[at + SpriteGeometry.ALONG_AT];
                     copy.moves[t * 6 + 2] = from[at + SpriteGeometry.ALONG_AT + 1];
-                    copy.moves[t * 6 + 3] = from[at + 8];
+                    copy.moves[t * 6 + 3] = light[5];
                     copy.moves[t * 6 + 4] = from[at + 9];
                     copy.moves[t * 6 + 5] = from[at + 10];
                     copy.run[t] = run;

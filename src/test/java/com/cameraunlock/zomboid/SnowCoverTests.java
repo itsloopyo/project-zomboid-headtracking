@@ -118,13 +118,10 @@ final class SnowCoverTests {
         mesh.add(0f, 0f, 0f, 0f, 0f, 1f, 1f, 1f);
         set.storey(SpriteGeometry.NO_BUILDING, -1);
         mesh.add(0f, 0f, 0f, 0f, 0f, 1f, 1f, 1f);
-        check(SpriteGeometry.ALOFT_AT == SpriteGeometry.VERTEX_FLOATS - 1, "whether a vertex is aloft is the last thing it carries");
-        check(mesh.vertices[SpriteGeometry.ALOFT_AT] == 1f && mesh.vertices[SpriteGeometry.VERTEX_FLOATS + SpriteGeometry.ALOFT_AT] == 0f
-                        && mesh.vertices[2 * SpriteGeometry.VERTEX_FLOATS + SpriteGeometry.ALOFT_AT] == 0f,
-                "a vertex of a square up a storey is aloft, and one on the ground or under it is not");
+        check(aloft(mesh, 0) == 1 && aloft(mesh, 1) == 0 && aloft(mesh, 2) == 0, "a vertex of a square up a storey is aloft, and one on the ground or under it is not");
         SpriteGeometry.Mesh alone = LightSiteTests.constant(new SpriteGeometry.Mesh());
         alone.add(0f, 0f, 0f, 0f, 0f, 1f, 1f, 1f);
-        check(alone.vertices[SpriteGeometry.ALOFT_AT] == 0f, "a mesh of no set is not aloft");
+        check(aloft(alone, 0) == 0, "a mesh of no set is not aloft");
         String main = PipelineShaders.WORLD_FRAGMENT_MAIN.replaceAll("\\s+", "");
         check(main.contains("boolroofing=capping||vMaterial>0.5&&vMaterial<1.5;") && main.contains("booleven=roofing||vAloft>0.5;"),
                 "snow lies evenly on a roof's covering wherever it is, and on whatever is up a storey");
@@ -139,6 +136,11 @@ final class SnowCoverTests {
                 "past a light fall a roof holds as much as the ground does on the mean");
         check(body(SnowShader.GLSL, "float snowLaid(vec2 q, vec2 seen, float lumpy, float foot, float floorUp, bool even)").contains("snowMelt=even?0.0:"),
                 "even snow wets nothing round it, for it has no lip");
-        check(PipelineShaders.WORLD_VERTEX.replaceAll("\\s+", "").contains("vAloft=uModel<0.5?gl_MultiTexCoord3.z:0.0;"), "a model is never aloft: it carries no such thing");
+        check(PipelineShaders.WORLD_VERTEX.replaceAll("\\s+", "").contains("vAloft=uModel<0.5?mod(lightCode,2.0):0.0;"), "a model is never aloft: it carries no such thing");
+    }
+
+    /** Whether the mesh's vertex is aloft, as the world's vertex program reads it: the lowest of what its alpha says over LightSites.CODED_STEP. */
+    private static int aloft(SpriteGeometry.Mesh mesh, int vertex) {
+        return (int) Math.floor((mesh.vertices[vertex * SpriteGeometry.VERTEX_FLOATS + 8] + 0.5f) / LightSites.CODED_STEP) & 1;
     }
 }

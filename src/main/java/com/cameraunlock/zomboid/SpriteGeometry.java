@@ -40,13 +40,20 @@ final class SpriteGeometry {
      * tree whole in its own view (see CanopyWindow). Blood is no tree, and carries there the
      * colour its texels are drawn in, red and then green and blue (see BloodBuilder), and grime
      * over a wall where on the wall it is (see grimed). Last of
-     * all, what the vertex has of a light the game has not given, and of the day its room
-     * lets in: see Mesh.unlit and Mesh.day; then 1 where its square is above the ground's level
-     * and 0 where not: see MeshSet.aloft.
+     * all, the vertex's light: for a vertex of a light site the place of its record in its
+     * build's page and its shares (a, b) of the square, and for any other a 0, then what it has
+     * of a light the game has not given and of the day its room lets in (see Mesh.unlit and
+     * Mesh.day). Its alpha says which over LightSites.CODED_STEP, and whether its square is above
+     * the ground's level (see MeshSet.aloft).
      */
     static final int VERTEX_FLOATS = 20;
-    /** Where in a vertex what the picture places it by is: how far along or how many layers, and what that is; its tree's square; what it has of a light the game has not given, then of the day; and whether it is aloft. */
-    static final int ALONG_AT = 12, WAY_AT = 14, ROOT_AT = 15, UNLIT_AT = 17, DAY_AT = 18, ALOFT_AT = 19;
+    /**
+     * Where in a vertex what the picture places it by is: how far along or how many layers, and
+     * what that is; its tree's square; its light site's record, then its shares a and b of the
+     * square, or for a vertex of no site what it has of a light the game has not given, then of
+     * the day.
+     */
+    static final int ALONG_AT = 12, WAY_AT = 14, ROOT_AT = 15, RECORD_AT = 17, A_AT = 18, B_AT = 19, UNLIT_AT = 18, DAY_AT = 19;
     static final float NO_ROOT = -1f;
     /** What a mesh is of when it is of no building's storey: see MeshSet.storey. */
     static final long NO_BUILDING = Long.MIN_VALUE;
@@ -225,7 +232,9 @@ final class SpriteGeometry {
         private float lightA, lightB, multRed, multGreen, multBlue;
         /** Whether the kind of light the vertices' openness carries is their record's, or one the builder fixes whatever the light (CeilingBuilder's). */
         private boolean kindFromSite;
-        /** TWIN only: what the twin gives a vertex. */
+        /** Whether their site has a lamp behind it, which lights its glass and panes as it burns: see LightSites.coded. */
+        private boolean lampSite;
+        /** TWIN only: the light the picture works out for a vertex. */
         private float[] twinOut;
         /**
          * The runs of the mesh's floats that a thing that may be outlined drew, each its key
@@ -273,6 +282,7 @@ final class SpriteGeometry {
             multGreen = other.multGreen;
             multBlue = other.multBlue;
             kindFromSite = other.kindFromSite;
+            lampSite = other.lampSite;
         }
 
         /** Notes in the mesh's set that the mesh has grown since the set's last own. */
@@ -361,29 +371,25 @@ final class SpriteGeometry {
         }
 
         void add(float x, float y, float up, float u, float v, float red, float green, float blue) {
-            lit(red, green, blue, open, unlit, day);
             growing();
             roomFor(floats + VERTEX_FLOATS);
-            vertices[floats++] = x;
-            vertices[floats++] = y;
-            vertices[floats++] = up;
-            vertices[floats++] = u;
-            vertices[floats++] = v;
-            vertices[floats++] = red;
-            vertices[floats++] = green;
-            vertices[floats++] = blue;
-            vertices[floats++] = open;
-            vertices[floats++] = normalX * (1f + sway);
-            vertices[floats++] = normalY * (1f + sway);
-            vertices[floats++] = normalUp * (1f + sway);
-            vertices[floats++] = wood != 0f ? wood : faces || clears ? along : layers.count;
-            vertices[floats++] = nearer;
-            vertices[floats++] = wood != 0f ? WOOD : faces ? FACES : clears ? CLEARS : layers.way != 0f ? layers.way : seen > 0f ? SEEN_ALONG : seen < 0f ? SEEN_AGAINST : 0f;
-            vertices[floats++] = rootX;
-            vertices[floats++] = rootY;
-            vertices[floats++] = unlit;
-            vertices[floats++] = day;
-            vertices[floats++] = set != null ? set.aloft : 0f;
+            int at = floats;
+            float[] to = vertices;
+            to[at] = x;
+            to[at + 1] = y;
+            to[at + 2] = up;
+            to[at + 3] = u;
+            to[at + 4] = v;
+            to[at + 9] = normalX * (1f + sway);
+            to[at + 10] = normalY * (1f + sway);
+            to[at + 11] = normalUp * (1f + sway);
+            to[at + 12] = wood != 0f ? wood : faces || clears ? along : layers.count;
+            to[at + 13] = nearer;
+            to[at + 14] = wood != 0f ? WOOD : faces ? FACES : clears ? CLEARS : layers.way != 0f ? layers.way : seen > 0f ? SEEN_ALONG : seen < 0f ? SEEN_AGAINST : 0f;
+            to[at + ROOT_AT] = rootX;
+            to[at + ROOT_AT + 1] = rootY;
+            light(to, at, red, green, blue, open, unlit, day, set != null ? set.aloft : 0f);
+            floats = at + VERTEX_FLOATS;
         }
 
         /**
@@ -432,6 +438,13 @@ final class SpriteGeometry {
                 lightMode = LightSites.MODE_STATIC;
                 return;
             }
+            if (frame.site < 0) {
+                throw new IllegalStateException("a vertex is lit by a frame lit by hand, of no site: " + LightSites.describe(frame, 0f, false));
+            }
+            // A build's page is its set's table: a vertex's record is counted in it.
+            if (set != null && frame.sites != set.sites) {
+                throw new IllegalStateException("a vertex is lit by a site of another table than its set's");
+            }
             lightMode = mode;
             lightSite = frame.site;
             lightSites = frame.sites;
@@ -441,40 +454,55 @@ final class SpriteGeometry {
             this.multGreen = multGreen;
             this.multBlue = multBlue;
             kindFromSite = true;
+            lampSite = LightSites.hasLamp(frame.sites.keys[frame.site]);
             if (LightSites.TWIN) {
                 LightSites.check(frame);
             }
         }
 
         /**
-         * Throws for a vertex whose light has not been said. With TWIN, checks the light it
-         * carries, and the kind of light and the material its alpha carries, against what its
-         * site's record gives it as the picture will work it out.
+         * Writes the light of the vertex at at as the picture reads it, from the light, the alpha,
+         * unlit and day it is given, and whether it is aloft. A vertex of a site carries what the
+         * builder laid on the light, its record and its shares, and says how it takes them in its
+         * alpha (LightSites.coded); any other carries what it is given. Throws for a vertex whose
+         * light has not been said, and with TWIN for one the picture would light otherwise than
+         * it is given (LightSites.decode).
          */
-        void lit(float red, float green, float blue, float alpha, float unlit, float day) {
+        void light(float[] to, int at, float red, float green, float blue, float alpha, float unlit, float day, float aloft) {
             if (lightMode == LightSites.NONE) {
                 throw new IllegalStateException("a vertex was added with its light not said");
             }
-            if (!LightSites.TWIN || lightMode == LightSites.MODE_STATIC) {
+            if (lightMode == LightSites.MODE_STATIC || LightSites.baked) {
+                to[at + 5] = red;
+                to[at + 6] = green;
+                to[at + 7] = blue;
+                to[at + 8] = alpha + LightSites.CODED_STEP * aloft;
+                to[at + RECORD_AT] = 0f;
+                to[at + UNLIT_AT] = unlit;
+                to[at + DAY_AT] = day;
+            } else {
+                to[at + 5] = multRed;
+                to[at + 6] = multGreen;
+                to[at + 7] = multBlue;
+                to[at + 8] = LightSites.coded(alpha, aloft, lightMode, kindFromSite, lampSite);
+                to[at + RECORD_AT] = lightSite;
+                to[at + A_AT] = lightA;
+                to[at + B_AT] = lightB;
+            }
+            if (!LightSites.TWIN) {
                 return;
             }
-            float[] records = lightSites.records;
-            int at = lightSite * LightSites.RECORD;
             if (twinOut == null) {
-                twinOut = new float[5];
+                twinOut = new float[6];
             }
-            LightSites.twin(records, at, lightMode, lightA, lightB, multRed, multGreen, multBlue, twinOut);
-            int material = LightSites.materialOf(alpha);
-            int base = material == (int) WallBuilder.LIT_GLASS ? (int) WorldScene.GLASS : material == (int) WorldScene.LIT_PANE ? (int) WorldScene.PANE : material;
+            LightSites.decode(to, at, lightSites == null ? null : lightSites.records, twinOut);
             if (Float.floatToRawIntBits(red) != Float.floatToRawIntBits(twinOut[0]) || Float.floatToRawIntBits(green) != Float.floatToRawIntBits(twinOut[1])
                     || Float.floatToRawIntBits(blue) != Float.floatToRawIntBits(twinOut[2]) || Float.floatToRawIntBits(unlit) != Float.floatToRawIntBits(twinOut[3])
-                    || Float.floatToRawIntBits(day) != Float.floatToRawIntBits(twinOut[4])
-                    || kindFromSite && LightSites.kindOf(alpha) != LightSites.kindOf(records[at + LightSites.OPEN])
-                    || (int) LightSites.material(base, records[at + LightSites.LAMPLIT] == 1f) != material) {
-                throw new IllegalStateException("a vertex's light is not its site's: it carries " + red + ", " + green + ", " + blue + " unlit " + unlit + " day " + day
-                        + " alpha " + alpha + " where mode " + lightMode + " at (" + lightA + ", " + lightB + ") times (" + multRed + ", " + multGreen + ", " + multBlue
-                        + ") gives " + Arrays.toString(twinOut) + (kindFromSite ? " with the record's kind" : " with its own kind") + ", from site "
-                        + lightSites.describe(lightSite));
+                    || Float.floatToRawIntBits(day) != Float.floatToRawIntBits(twinOut[4]) || Float.floatToRawIntBits(alpha) != Float.floatToRawIntBits(twinOut[5])) {
+                throw new IllegalStateException("a vertex's light is not what the picture will work out: it is given " + red + ", " + green + ", " + blue + " unlit " + unlit
+                        + " day " + day + " alpha " + alpha + ", and the picture works out " + Arrays.toString(twinOut) + " from mode " + lightMode + " at (" + lightA + ", "
+                        + lightB + ") times (" + multRed + ", " + multGreen + ", " + multBlue + ")" + (kindFromSite ? " with the record's kind" : " with its own kind")
+                        + (lightMode == LightSites.MODE_STATIC ? "" : ", from site " + lightSites.describe(lightSite)));
             }
         }
 
@@ -1897,6 +1925,8 @@ final class SpriteGeometry {
     static final float FAN_FOOT = 0.3f;
     /** Where the plant being grown stands on the map, and where on the ground's sprite it takes its colour. */
     private float plantX, plantY, plantUp, plantU, plantV;
+    /** The light of the strip addStrip is writing, in a vertex's places. */
+    private final float[] stripLight = new float[VERTEX_FLOATS];
     /** Where the strip added last ended, along its own way and up from the plant's root, and how far over it leant there: a head starts where its stem stops. */
     float endAlong, endUp, endLean;
 
@@ -1950,10 +1980,8 @@ final class SpriteGeometry {
         float[] to = mesh.vertices;
         int at = mesh.floats;
         float open = frame.open + BLADES;
-        float aloft = mesh.set != null ? mesh.set.aloft : 0f;
-        float red = frame.red, green = frame.green, blue = frame.blue;
         mesh.lightFlat(frame);
-        mesh.lit(red, green, blue, open, AS_FACE, 0f);
+        mesh.light(stripLight, 0, frame.red, frame.green, frame.blue, open, AS_FACE, 0f, mesh.set != null ? mesh.set.aloft : 0f);
         float leftEdge = -2f + seed, rightEdge = 2f + seed;
         float lastLeftX = 0f, lastLeftY = 0f, lastRightX = 0f, lastRightY = 0f, lastUp = 0f, lastCode = 0f, lastHigh = 0f;
         for (int step = 0; step <= steps; step++) {
@@ -1970,13 +1998,13 @@ final class SpriteGeometry {
             float code = form * 2f + t, high = level + Math.min(up, 0.999f);
             if (step > 0) {
                 boolean point = shape == POINTED && step == steps;
-                at = corner(to, at, lastLeftX, lastLeftY, plantUp + lastUp, red, green, blue, open, leftEdge, lastCode, lastHigh, aloft);
-                at = corner(to, at, lastRightX, lastRightY, plantUp + lastUp, red, green, blue, open, rightEdge, lastCode, lastHigh, aloft);
-                at = corner(to, at, rightX, rightY, plantUp + up, red, green, blue, open, point ? seed : rightEdge, code, high, aloft);
+                at = corner(to, at, lastLeftX, lastLeftY, plantUp + lastUp, leftEdge, lastCode, lastHigh);
+                at = corner(to, at, lastRightX, lastRightY, plantUp + lastUp, rightEdge, lastCode, lastHigh);
+                at = corner(to, at, rightX, rightY, plantUp + up, point ? seed : rightEdge, code, high);
                 if (!point) {
-                    at = corner(to, at, lastLeftX, lastLeftY, plantUp + lastUp, red, green, blue, open, leftEdge, lastCode, lastHigh, aloft);
-                    at = corner(to, at, rightX, rightY, plantUp + up, red, green, blue, open, rightEdge, code, high, aloft);
-                    at = corner(to, at, leftX, leftY, plantUp + up, red, green, blue, open, leftEdge, code, high, aloft);
+                    at = corner(to, at, lastLeftX, lastLeftY, plantUp + lastUp, leftEdge, lastCode, lastHigh);
+                    at = corner(to, at, rightX, rightY, plantUp + up, rightEdge, code, high);
+                    at = corner(to, at, leftX, leftY, plantUp + up, leftEdge, code, high);
                 }
             }
             lastLeftX = leftX;
@@ -1993,17 +2021,18 @@ final class SpriteGeometry {
         mesh.floats = at;
     }
 
-    private int corner(float[] to, int at, float x, float y, float up, float red, float green, float blue, float open, float edge, float code,
-            float high, float aloft) {
+    /** A corner of a strip, its light the strip's (stripLight). */
+    private int corner(float[] to, int at, float x, float y, float up, float edge, float code, float high) {
+        float[] light = stripLight;
         to[at] = x;
         to[at + 1] = y;
         to[at + 2] = up;
         to[at + 3] = plantU;
         to[at + 4] = plantV;
-        to[at + 5] = red;
-        to[at + 6] = green;
-        to[at + 7] = blue;
-        to[at + 8] = open;
+        to[at + 5] = light[5];
+        to[at + 6] = light[6];
+        to[at + 7] = light[7];
+        to[at + 8] = light[8];
         to[at + 9] = edge;
         to[at + 10] = code;
         to[at + 11] = high;
@@ -2012,9 +2041,9 @@ final class SpriteGeometry {
         to[at + 14] = 0f;
         to[at + ROOT_AT] = NO_ROOT;
         to[at + ROOT_AT + 1] = NO_ROOT;
-        to[at + UNLIT_AT] = AS_FACE;
-        to[at + DAY_AT] = 0f;
-        to[at + ALOFT_AT] = aloft;
+        to[at + RECORD_AT] = light[RECORD_AT];
+        to[at + A_AT] = light[A_AT];
+        to[at + B_AT] = light[B_AT];
         return at + VERTEX_FLOATS;
     }
 
