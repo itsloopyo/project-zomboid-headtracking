@@ -470,7 +470,7 @@ public final class Agent {
                 new PatchSet("name tags", nameTags, off(Part.FIRST_PERSON, Part.NAME_TAGS_AT_HEADS)),
                 new PatchSet("game fixes", new PatchTransformer(gameFixPatches()),
                         gameFixes ? null : "the cameraunlock.zomboid.withoutGameFixes property was set"),
-                new PatchSet("hang fix", new PatchTransformer(hangFixPatches()), null),
+                new PatchSet("hang fix", new PatchTransformer(hangFixPatches()), off(Part.BURNT_BUILDING_FREEZE_FIX)),
                 new PatchSet("covered", new PatchTransformer(coveredPatches()), firstPersonOff),
                 new PatchSet("part draw", new PatchTransformer(partDrawPatches()), null),
                 new PatchSet("screen grey", new PatchTransformer(screenGreyPatches()), off(Part.FIRST_PERSON, Part.LEAVE_OUT_SCREEN_GREY)),

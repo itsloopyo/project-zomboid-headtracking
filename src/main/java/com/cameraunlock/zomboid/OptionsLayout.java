@@ -23,6 +23,7 @@ final class OptionsLayout {
         new Group("Optimizations", "Optimizations"),
         new Group("Vanilla content", "Content"),
         new Group("Offline rules", "Rules"),
+        new Group("Game fixes", "Fixes"),
         new Group("Split screen", "Players", "SplitScreen"),
         new Group("Voice", "Voice"),
     };

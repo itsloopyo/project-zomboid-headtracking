@@ -68,7 +68,10 @@ enum Part {
                     + "at speed. false: vehicles move as on the game's level ground. On a server they always do."),
     HAND_LIGHT_OUT_AT_THE_WHEEL("Rules", "HandLightOutAtTheWheel", true, false,
             "true: in first person, a light you carry in your hands is switched off as you take the driver's seat, since\n"
-                    + "your hands are on the wheel. false: it stays as it was.");
+                    + "your hands are on the wheel. false: it stays as it was."),
+    BURNT_BUILDING_FREEZE_FIX("Fixes", "BurntBuildingFreezeFix", false, true,
+            "true: the game no longer stops for good as it lays out a burnt-down building whose door or window stands across\n"
+                    + "into a chunk that is not loaded yet. false: the game's own code, which can go round that door for ever.");
 
     final String section, key, comment;
     /** Whether the row is taken while the game runs, and whether it is read at the start to leave patches out. */

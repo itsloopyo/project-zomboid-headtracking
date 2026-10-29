@@ -403,6 +403,7 @@ final class Config {
                     writable | live, true),
         };
         describeParts("Rules");
+        describeParts("Fixes");
 
         talkingMouths = core.configLocalBool("Voice", TALKING_MOUTHS,
                 "true: your character's mouth moves with what you say into your microphone: the jaw drops for \"ah\", the lips\n"
