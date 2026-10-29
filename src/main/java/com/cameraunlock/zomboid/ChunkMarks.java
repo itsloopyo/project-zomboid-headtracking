@@ -29,10 +29,6 @@ import zombie.iso.fboRenderChunk.FBORenderLevels;
  *
  * The game marks from its logic thread and, on a server's client, from wherever it applies
  * what the server sent, so the counts are atomic and nothing here takes a lock.
- *
- * The game says which level a light it marks is on, and a count is kept for each level too:
- * a chunk of a tall building is thirty levels, and the light of one of them changing is no
- * reason to read the other twenty-nine.
  */
 public final class ChunkMarks {
     /** As many places a side as WorldScene's table of builds: the loaded map is at most 19 chunks a side, so no two of its chunks share one. */
@@ -48,10 +44,8 @@ public final class ChunkMarks {
     private static final long OBJECT = 64L | 128L | 256L, LOOSE = 1L | 2L | 4L | 8L | 16L;
     private static final AtomicIntegerArray things = new AtomicIntegerArray(SIDE * SIDE), lights = new AtomicIntegerArray(SIDE * SIDE),
             structures = new AtomicIntegerArray(SIDE * SIDE);
-    /** The levels a light may be marked on by its level: the game's map has none lower or higher. */
+    /** The levels an object may be marked on by its level: the game's map has none lower or higher. */
     private static final int LEVELS = 64, LOWEST_LEVEL = -32;
-    /** The marks for light by the level they were on, and those that came with no level or one outside the levels counted. */
-    private static final AtomicIntegerArray litLevels = new AtomicIntegerArray(SIDE * SIDE * LEVELS), litLoose = new AtomicIntegerArray(SIDE * SIDE);
     /**
      * The marks for an object by the level they were on, and those that came with no level or
      * one outside the levels counted. A vine growing on the ground had every level of a tower
@@ -78,24 +72,27 @@ public final class ChunkMarks {
 
     private ChunkMarks() {}
 
-    /** Called by the game where it marks a level of a chunk's texture as to be drawn again: see Agent.chunkMarkPatches. */
+    /**
+     * Called by the game where it marks a level of a chunk's texture as to be drawn again: see
+     * Agent.chunkMarkPatches. The light is counted for the chunk, whatever level it was marked on.
+     */
     public static void lit(FBORenderLevels levels, int level, long flags) {
         if ((flags & LIGHTING) != 0L) {
-            marked(levels.getChunk(), LIGHTING, level, LOWEST_LEVEL - 1);
+            marked(levels.getChunk(), LIGHTING, LOWEST_LEVEL - 1);
         }
     }
 
     /** Called by the game where something on a chunk has changed on all of its levels. */
     public static void marked(IsoChunk chunk, long flags) {
-        marked(chunk, flags, LOWEST_LEVEL - 1, LOWEST_LEVEL - 1);
+        marked(chunk, flags, LOWEST_LEVEL - 1);
     }
 
-    /** Called by the game where something on a level of a chunk has changed. Its light is counted as marked with no level: the game marks that by level apart (lit). */
+    /** Called by the game where something on a level of a chunk has changed. */
     public static void marked(IsoChunk chunk, int level, long flags) {
-        marked(chunk, flags, LOWEST_LEVEL - 1, level);
+        marked(chunk, flags, level);
     }
 
-    private static void marked(IsoChunk chunk, long flags, int level, int builtLevel) {
+    private static void marked(IsoChunk chunk, long flags, int level) {
         if ((flags & ~NOT_BUILT_FROM) == 0L || hushed == Thread.currentThread()) {
             return;
         }
@@ -111,10 +108,10 @@ public final class ChunkMarks {
             things.getAndIncrement(slot);
         }
         if ((flags & OBJECT) != 0L && (flags & LOOSE) == 0L) {
-            built(slot, builtLevel);
+            built(slot, level);
         }
         if ((flags & LIGHTING) != 0L) {
-            lit(slot, level);
+            lights.getAndIncrement(slot);
         }
         if (COUNTED) {
             for (int bit = 0; bit < 16; bit++) {
@@ -192,16 +189,6 @@ public final class ChunkMarks {
             things.getAndIncrement(slot(chunk.wx, chunk.wy));
             built(slot(chunk.wx, chunk.wy), square.getZ());
         }
-    }
-
-    /** Counts a mark for the light of the chunk in a place of the table, on a level or, given one outside the levels counted, on none. */
-    static void lit(int slot, int level) {
-        if (level >= LOWEST_LEVEL && level < LOWEST_LEVEL + LEVELS) {
-            litLevels.getAndIncrement(slot * LEVELS + level - LOWEST_LEVEL);
-        } else {
-            litLoose.getAndIncrement(slot);
-        }
-        lights.getAndIncrement(slot);
     }
 
     private static void built(int slot, int level) {
@@ -282,22 +269,6 @@ public final class ChunkMarks {
             }
         }
         return sum;
-    }
-
-    /** The marks for light on one level of a chunk and of the eight round it, as one number that is another once any is marked so again. */
-    static int litAround(int wx, int wy, int level) {
-        int sum = 0;
-        for (int dx = -1; dx <= 1; dx++) {
-            for (int dy = -1; dy <= 1; dy++) {
-                sum += litLevels.get(slot(wx + dx, wy + dy) * LEVELS + level - LOWEST_LEVEL);
-            }
-        }
-        return sum;
-    }
-
-    /** The marks for light that named no level, on a chunk and the eight round it. */
-    static int litLooseAround(int wx, int wy) {
-        return sumAround(litLoose, wx, wy);
     }
 
     /** The marks on a chunk and the eight round it for anything but light, as one number that is another once any is marked so again. */

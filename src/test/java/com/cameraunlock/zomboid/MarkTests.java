@@ -12,7 +12,7 @@ final class MarkTests {
     static void run() {
         Checks.run("aChunkThatIsToldHasAnotherNumber", MarkTests::aChunkThatIsToldHasAnotherNumber);
         Checks.run("aBoxOfChunksIsToldWhole", MarkTests::aBoxOfChunksIsToldWhole);
-        Checks.run("aLightIsCountedOnItsLevel", MarkTests::aLightIsCountedOnItsLevel);
+        Checks.run("aLightIsMarkedApartFromThings", MarkTests::aLightIsMarkedApartFromThings);
         Checks.run("aTallyIsCountedIntoAnother", MarkTests::aTallyIsCountedIntoAnother);
         Checks.run("aMethodOfAnObjectHandsItselfOverBeforeAnythingElse", MarkTests::aMethodOfAnObjectHandsItselfOverBeforeAnythingElse);
         Checks.run("aStaticMethodIsRefused", MarkTests::aStaticMethodIsRefused);
@@ -22,18 +22,16 @@ final class MarkTests {
         Checks.check(condition, what);
     }
 
-    private static void aLightIsCountedOnItsLevel() {
-        int tenth = ChunkMarks.litAround(300, 400, 10), ninth = ChunkMarks.litAround(300, 400, 9), beside = ChunkMarks.litAround(301, 401, 10);
-        int far = ChunkMarks.litAround(302, 400, 10), loose = ChunkMarks.litLooseAround(300, 400), all = ChunkMarks.around(300, 400), things = ChunkMarks.thingsAround(300, 400);
-        ChunkMarks.lit(ChunkMarks.slot(300, 400), 10);
-        check(ChunkMarks.litAround(300, 400, 10) == tenth + 1, "a light marked on a level is counted on that level");
-        check(ChunkMarks.litAround(300, 400, 9) == ninth, "and on no other");
-        check(ChunkMarks.litAround(301, 401, 10) == beside + 1, "the chunk beside it counts it too: it reads that chunk's squares along its edge");
-        check(ChunkMarks.litAround(302, 400, 10) == far, "a chunk two away does not");
-        check(ChunkMarks.litLooseAround(300, 400) == loose && ChunkMarks.around(300, 400) == all + 1 && ChunkMarks.thingsAround(300, 400) == things,
-                "it is a mark, for light and nothing else, and one that named its level");
-        ChunkMarks.lit(ChunkMarks.slot(300, 400), -33);
-        check(ChunkMarks.litLooseAround(300, 400) == loose + 1 && ChunkMarks.litAround(300, 400, 10) == tenth + 1, "a light marked with no level is counted apart");
+    private static void aLightIsMarkedApartFromThings() {
+        zombie.iso.IsoChunk chunk = new zombie.iso.IsoChunk();
+        chunk.wx = 300;
+        chunk.wy = 400;
+        chunk.loaded = true;
+        int all = ChunkMarks.around(300, 400), beside = ChunkMarks.around(301, 401), things = ChunkMarks.thingsAround(300, 400), far = ChunkMarks.around(302, 400);
+        ChunkMarks.marked(chunk, 32L);
+        check(ChunkMarks.around(300, 400) == all + 1 && ChunkMarks.around(301, 401) == beside + 1, "a light marked on a chunk is a mark round it and round the chunks beside it");
+        check(ChunkMarks.thingsAround(300, 400) == things, "and none for things");
+        check(ChunkMarks.around(302, 400) == far, "a chunk two away does not count it");
     }
 
     private static void aChunkThatIsToldHasAnotherNumber() {
