@@ -11,7 +11,7 @@ It adds a first person view to the game, with a rebuilt world and new graphics. 
 - **No head tracker needed** - first person plays with a mouse and keyboard or a controller. Without a tracker, nothing follows your head.
 - **No microphone needed** - Talking mouths is off until you tick it, and no microphone is opened until then.
 
-Offline the mod also changes some of the game's rules: shots go through thin walls and doors, break lamps and window glass, cripple zombies' limbs and can take them off; vehicles knock down fences, street lamp posts and road barricades and drive through bushes; in the isometric view zombies show as soon as your character has a clear line to them. Each is on until you untick it in **Options > Mods > Head Tracking**. On a server these stay as the game has them.
+Offline the mod also changes some of the game's rules: shots go through thin walls and doors, break lamps and window glass, cripple zombies' limbs and can take them off; vehicles knock down fences, street lamp posts and road barricades and drive through bushes; in the isometric view zombies show as soon as your character has a clear line to them. Each is on until you untick it in **Options > Mods > Head Tracking**. On a server these stay as the game has them, except that where players cannot hurt each other shots still go through thin walls and doors and past a tree's trunk, and zombies still show at once.
 
 ## Features
 
@@ -37,7 +37,7 @@ Press `Delete` to switch between the isometric and first person views, on foot o
 - **Weapons** - custom arms and hands, melee swings, recoil, and reloads with working bolts, levers, cylinders and break actions. Medium and High add new shotgun, rifle, pistol and revolver models and magnified scopes.
 - **Hits where you aim** - shots hit the body part under the reticle and jolt zombies along the line of fire. Offline, shot limbs go limp or come off, and a shotgun can take the head off.
 - **Impacts** - dust, splinters, sparks, blood and bullet holes in Medium and High.
-- **Shots through walls** - offline, rounds pass through plasterboard, wood, doors and glass, losing damage on each. Brick, concrete, metal and barricades stop them. A broad-leaved tree stops them at its trunk, not across its whole tile.
+- **Shots through walls** - offline and on servers where players cannot hurt each other, rounds pass through plasterboard, wood, doors and glass, losing damage on each. Brick, concrete, metal and barricades stop them. A broad-leaved tree stops them at its trunk, not across its whole tile.
 - **Shoot out lights** - offline, a shot breaks vehicle lamps and table, wall and street lamps.
 - **Shoot out windows** - offline, a shot breaks the glass of every shut window it goes through.
 
@@ -288,6 +288,7 @@ The mouse turns the view. Movement keys follow the direction you face. Walking o
 - With firearm sights up, a sideways lean eases out, so leaning never moves where a shot starts.
 - Hills stand at height 1 whatever you set, and zombies and props are drawn at full distance.
 - Fog is as thick as in the game's own view.
+- Walls, doors and trees stop shots as in the game.
 - From a vehicle seat you shoot only with your window open or broken, and a driver who raises a rifle or shotgun lets go of the wheel, as in the game.
 
 Zombies, rooms and vehicles with no other player in them look as they do offline. In split screen and on a server without PvP, other players are drawn as far off as zombies, where the game's own view from above would leave them out or fade them; an admin the game makes invisible stays invisible. On a server without PvP the mod plays as it does alone, apart from wounds and vehicles: on any server, your own co-op host included, a shot arm or leg leaves a zombie as the game does, and vehicles drive and roll as the game has them, on level ground.
@@ -577,8 +578,9 @@ VanillaFire=false
 VanillaCabins=false
 
 [Rules]
-; true: offline, your shots go on through stud walls, walls of boards, shut doors and windows, losing damage to
-; each by what it is made of. false: they stop it, as the game has it. On a server the game's rule holds.
+; true: your shots go on through stud walls, walls of boards, shut doors and windows, losing damage to each by
+; what it is made of. false: they stop it, as the game has it. On a server where players can hurt each other
+; the game's rule holds.
 ShotsThroughWalls=true
 ; true: offline, a shot breaks the lamp it passes through and the vehicle lamp it lands on. false: lamps
 ; are left lit, as the game has it. On a server the game's rule holds.
@@ -599,8 +601,9 @@ VehiclesSmashThrough=true
 ; and jogging or sprinting is straight ahead only. false: it always turns, as the game has it. On a server
 ; where players can hurt each other the game's rule holds.
 FacesTheView=true
-; true: offline, a tree stops your shots only where its trunk is drawn, and a shot past the trunk goes on.
-; false: a tree stops every shot across its square, as the game has it. On a server the game's rule holds.
+; true: a tree stops your shots only where its trunk is drawn, and a shot past the trunk goes on. false: a
+; tree stops every shot across its square, as the game has it. On a server where players can hurt each
+; other the game's rule holds.
 ShotsPastTrees=true
 ; true: in the isometric view a zombie shows as soon as nothing stands between your character and it, where
 ; your character's sight reaches by the game's rules. false: the game's own sight, which can show a zombie

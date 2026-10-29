@@ -27,7 +27,8 @@ import zombie.util.list.PZArrayList;
  * round reaches a target is the share of the game's damage it does.
  *
  * The game decides everything else about the hit: its chance, its damage, the blood, the fall.
- * Alone only. On a server the server decides what a shot reaches, by the game's own rule.
+ * Alone, and on a server where players cannot hurt each other: the server takes the hit as this game
+ * reports it. Where players can fight, a shot stops where the game's own rule stops it.
  * Logic thread.
  */
 final class Penetration {
@@ -96,7 +97,7 @@ final class Penetration {
         return spent == 0f ? WHOLE : spent < budget ? (budget - spent) / budget : 0f;
     }
 
-    /** Whether a shot by this character goes on through walls: a player of this machine, with a firearm, alone, with the rule's row on. */
+    /** Whether a shot by this character goes on through walls: a player of this machine, with a firearm, where Rules.throughWalls lets it, with the rule's row on. */
     static boolean applies(IsoGameCharacter shooter, HandWeapon weapon) {
         return Rules.throughWalls() && shooter instanceof IsoPlayer player && View.of(player) != null && weapon != null && weapon.isAimedFirearm();
     }

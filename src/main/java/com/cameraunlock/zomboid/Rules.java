@@ -6,9 +6,11 @@ import zombie.network.GameServer;
  * The game's rules the mod changes when played alone, each a row of [Rules] in CameraUnlock.ini,
  * on unless the player says otherwise, bar Rewind30s, which is off unless they say so and is a row
  * only in a development build (see Rewind). With a row off the game's own rule holds. On a server
- * a rule that changes what the server keeps (a shot, a zombie, a vehicle, the world) is the game's
- * whatever the rows say; one that changes only this player's own screen or stance holds where
- * players cannot fight (Online.contested), or on every server where it shows nothing of another player.
+ * a rule that changes what the server keeps (a lamp, the glass, a zombie, a vehicle, the world) is
+ * the game's whatever the rows say. What a shot reaches the server takes as the shooter's game reports
+ * it, so a shot through a wall or past a tree holds where players cannot fight (Online.contested), as
+ * does a rule that changes only this player's own screen or stance; one that shows nothing of another
+ * player holds on every server.
  *
  * The rows are read again while the game runs: the thread that watches the file and the game's
  * options screen set them, and the logic thread asks them as shots land and vehicles move.
@@ -34,7 +36,7 @@ final class Rules {
 
     /** Whether a first person shot goes on through thin walls and doors: see Penetration. */
     static boolean throughWalls() {
-        return !Online.joined() && (on & THROUGH_WALLS) != 0;
+        return !Online.contested() && (on & THROUGH_WALLS) != 0;
     }
 
     /** Whether a first person shot breaks the lamps it passes and the lamps of the vehicles it lands on: see ShotLights. */
@@ -67,7 +69,7 @@ final class Rules {
 
     /** Whether a first person shot goes on past a tree it does not meet the bole of: see Trunks. */
     static boolean pastTrees() {
-        return !Online.joined() && (on & PAST_TREES) != 0;
+        return !Online.contested() && (on & PAST_TREES) != 0;
     }
 
     /** Whether in the isometric view a zombie shows once the game's test for seeing it passes on the map as it is now: see LiveSight. */

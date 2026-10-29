@@ -65,17 +65,18 @@ final class RulesTests {
     private static void onAServerTheRulesItKeepsAreTheGames() {
         Rules.set(Rules.ALL);
         for (Servers.Where where : new Servers.Where[] {Servers.Where.FRIENDLY, Servers.Where.CONTESTED}) {
-            Servers.in(where, () -> check(!Rules.throughWalls() && !Rules.breaksLamps() && !Rules.breaksGlass() && !Rules.wounds() && Rules.vehiclesStock()
-                    && !Rules.pastTrees() && !Rules.rewind() && !Rules.dressesHiddenWalls(),
+            Servers.in(where, () -> check(!Rules.breaksLamps() && !Rules.breaksGlass() && !Rules.wounds() && Rules.vehiclesStock()
+                    && !Rules.rewind() && !Rules.dressesHiddenWalls(),
                     "on a server (" + where + ") every rule the server keeps is the game's with every row on"));
             Servers.in(where, () -> check(Rules.drawsHiddenWallPictures(), "and on a server (" + where + ") hidden walls still carry drawn pictures"));
         }
-        Servers.in(Servers.Where.FRIENDLY, () -> check(Rules.facesTheView() && Rules.seenAtOnce(),
-                "where players cannot fight, the character faces the view and zombies are seen at once"));
-        Servers.in(Servers.Where.CONTESTED, () -> check(!Rules.facesTheView() && !Rules.seenAtOnce(),
-                "where players can fight, the character turns as the game has it and zombies keep the game's sight"));
-        Rules.set(Rules.ALL & ~Rules.FACES_THE_VIEW & ~Rules.SEEN_AT_ONCE & ~Rules.HIDDEN_WALLS);
-        Servers.in(Servers.Where.FRIENDLY, () -> check(!Rules.facesTheView() && !Rules.seenAtOnce() && !Rules.drawsHiddenWallPictures(),
+        Servers.in(Servers.Where.FRIENDLY, () -> check(Rules.facesTheView() && Rules.seenAtOnce() && Rules.throughWalls() && Rules.pastTrees(),
+                "where players cannot fight, the character faces the view, zombies are seen at once and shots go through walls and past trees"));
+        Servers.in(Servers.Where.CONTESTED, () -> check(!Rules.facesTheView() && !Rules.seenAtOnce() && !Rules.throughWalls() && !Rules.pastTrees(),
+                "where players can fight, the character turns, zombies keep the game's sight and walls and trees stop shots, as the game has it"));
+        Rules.set(Rules.ALL & ~Rules.FACES_THE_VIEW & ~Rules.SEEN_AT_ONCE & ~Rules.HIDDEN_WALLS & ~Rules.THROUGH_WALLS & ~Rules.PAST_TREES);
+        Servers.in(Servers.Where.FRIENDLY, () -> check(!Rules.facesTheView() && !Rules.seenAtOnce() && !Rules.drawsHiddenWallPictures()
+                        && !Rules.throughWalls() && !Rules.pastTrees(),
                 "and a row turned off is off on a server too"));
         Rules.set(Rules.ALL);
         zombie.network.GameServer.server = true;

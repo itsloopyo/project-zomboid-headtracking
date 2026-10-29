@@ -13,7 +13,8 @@ import zombie.util.list.PZArrayList;
  * draws the tree as a round bole in the middle of its square (PlantBuilder.addBole), so a shot
  * that passes the bole by is seen to go on, and with the ShotsPastTrees row on it does: what
  * stops it is the bole. A tree the picture draws no bole for, an evergreen whose needles hide
- * its trunk, and every tree on a server, stop a shot on the whole square, as the game has it.
+ * its trunk, and every tree on a server where players can hurt each other, stop a shot on the whole
+ * square, as the game has it.
  */
 final class Trunks {
     private Trunks() {}

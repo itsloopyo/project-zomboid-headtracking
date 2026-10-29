@@ -337,8 +337,9 @@ final class Config {
         };
         rules = new int[] {
             core.configLocalBool("Rules", "ShotsThroughWalls",
-                    "true: offline, your shots go on through stud walls, walls of boards, shut doors and windows, losing damage to\n"
-                            + "each by what it is made of. false: they stop it, as the game has it. On a server the game's rule holds.",
+                    "true: your shots go on through stud walls, walls of boards, shut doors and windows, losing damage to each by\n"
+                            + "what it is made of. false: they stop it, as the game has it. On a server where players can hurt each other\n"
+                            + "the game's rule holds.",
                     writable | live, true),
             core.configLocalBool("Rules", "ShotsBreakLamps",
                     "true: offline, a shot breaks the lamp it passes through and the vehicle lamp it lands on. false: lamps\n"
@@ -365,8 +366,9 @@ final class Config {
                             + "where players can hurt each other the game's rule holds.",
                     writable | live, true),
             core.configLocalBool("Rules", "ShotsPastTrees",
-                    "true: offline, a tree stops your shots only where its trunk is drawn, and a shot past the trunk goes on.\n"
-                            + "false: a tree stops every shot across its square, as the game has it. On a server the game's rule holds.",
+                    "true: a tree stops your shots only where its trunk is drawn, and a shot past the trunk goes on. false: a\n"
+                            + "tree stops every shot across its square, as the game has it. On a server where players can hurt each\n"
+                            + "other the game's rule holds.",
                     writable | live, true),
             core.configLocalBool("Rules", "ZombiesSeenAtOnce",
                     "true: in the isometric view a zombie shows as soon as nothing stands between your character and it, where\n"
