@@ -74,6 +74,8 @@ final class TerrainTests {
             Checks.run("groundReadAheadAndLeftBehindHasTheHeightsOfGroundReadAfresh", TerrainTests::groundReadAheadAndLeftBehindHasTheHeightsOfGroundReadAfresh);
             Checks.run("aSquareTheGameMakesOnAChunksEdgeForTheChunkBesideItIsNothingOverTheGround", TerrainTests::aSquareTheGameMakesOnAChunksEdgeForTheChunkBesideItIsNothingOverTheGround);
             Checks.run("aChunkHasTheHeightsOnItsFirstLoadThatItHasFromTheSave", TerrainTests::aChunkHasTheHeightsOnItsFirstLoadThatItHasFromTheSave);
+            Checks.run("theMapIsAskedOnceAChunkWhetherItIsLoadedAndOnlyWhenItLoadsOtherChunks", TerrainTests::theMapIsAskedOnceAChunkWhetherItIsLoadedAndOnlyWhenItLoadsOtherChunks);
+            Checks.run("aLoadedChunkWithASquareOfItsGroundNotMadeHasThatSquareAsNotLoaded", TerrainTests::aLoadedChunkWithASquareOfItsGroundNotMadeHasThatSquareAsNotLoaded);
             Checks.run("postsOnALevelAboveTheRoadLeaveTheKerbAndWhatIsBuiltOnAsTheyAre", TerrainTests::postsOnALevelAboveTheRoadLeaveTheKerbAndWhatIsBuiltOnAsTheyAre);
         } finally {
             Terrain.rooms = rooms;
@@ -1238,6 +1240,92 @@ final class TerrainTests {
             }
         } finally {
             Terrain.rooms = rooms;
+            ChunkMarks.live = live;
+            Terrain.forget();
+            MapAhead.forget();
+        }
+    }
+
+    /**
+     * The map is asked whether a chunk is loaded, by its middle square, once for each record
+     * when it has other chunks loaded, and once for each record read. When only what MapAhead
+     * read is another, the records are not checked: the record of the chunk read is read again,
+     * and the map is asked about that chunk alone. A chunk that loads beside a loaded one has
+     * its own record read again and no other.
+     */
+    private static void theMapIsAskedOnceAChunkWhetherItIsLoadedAndOnlyWhenItLoadsOtherChunks() {
+        boolean live = ChunkMarks.live;
+        Terrain.HILLS.heighten(1f);
+        Country.set(List.of());
+        try {
+            ChunkMarks.live = true;
+            MapAhead.forget();
+            Terrain.forget();
+            Town town = new Town(false);
+            for (int wx = -1; wx <= 1; wx++) {
+                for (int wy = -1; wy <= 1; wy++) {
+                    town.lay(wx + 20, wy);
+                }
+            }
+            heightsIn(town.map.cell, 20, 0, 20, 0, 9701, 9701);
+            int records = TestMap.<List<?>>read(null, Terrain.class, "kept").size();
+            check(records > 9 * 9, "the heights of the loaded chunk go by records of chunks loaded and not: " + records);
+            int[] floors = new int[64], grounds = new int[64];
+            Arrays.fill(floors, MapAhead.FLOOR | MapAhead.NATURAL_NAME);
+            Arrays.fill(grounds, MapAhead.FLOOR | MapAhead.NATURAL_NAME);
+            MapAhead.put(MapAhead.guess(new MapAhead.Raw(0, 23, 2, floors, grounds, new int[64], new int[64], new byte[64], new short[64]),
+                    (x, y, z) -> Footings.NONE));
+            long asked = toll("tollAsked"), readAgain = toll("tollReadAgain");
+            heightsIn(town.map.cell, 20, 0, 20, 0, 9702, 9701);
+            check(toll("tollAsked") - asked == 1 && toll("tollReadAgain") - readAgain == 1,
+                    "with only a chunk read ahead, that chunk's record alone is read again, and the map is asked about it alone: " + (toll("tollAsked") - asked) + ", " + (toll("tollReadAgain") - readAgain));
+            records = TestMap.<List<?>>read(null, Terrain.class, "kept").size();
+            asked = toll("tollAsked");
+            heightsIn(town.map.cell, 20, 0, 20, 0, 9703, 9703);
+            check(toll("tollAsked") - asked == records, "with other chunks loaded, the map is asked once for each record: " + (toll("tollAsked") - asked) + " for " + records);
+            town.lay(22, 0);
+            records = TestMap.<List<?>>read(null, Terrain.class, "kept").size();
+            asked = toll("tollAsked");
+            readAgain = toll("tollReadAgain");
+            long read = toll("tollRead");
+            heightsIn(town.map.cell, 20, 0, 20, 0, 9704, 9704);
+            long reads = toll("tollReadAgain") - readAgain + toll("tollRead") - read;
+            check(toll("tollReadAgain") - readAgain == 1, "with a chunk loaded beside the loaded ones, its record alone is read again: " + (toll("tollReadAgain") - readAgain));
+            check(toll("tollAsked") - asked == records + reads,
+                    "and the map is asked once for each record and once for each read: " + (toll("tollAsked") - asked) + " for " + records + " and " + reads);
+        } finally {
+            ChunkMarks.live = live;
+            Terrain.forget();
+            MapAhead.forget();
+        }
+    }
+
+    /**
+     * Where the game's pass over a chunk it loads throws partway, it counts the chunk loaded
+     * with some squares of its ground not made (Terrain.isLoaded): the chunk's heights are
+     * worked out with those squares as not loaded, and the rest as they are.
+     */
+    private static void aLoadedChunkWithASquareOfItsGroundNotMadeHasThatSquareAsNotLoaded() {
+        boolean live = ChunkMarks.live;
+        Terrain.HILLS.heighten(1f);
+        Country.set(List.of());
+        try {
+            ChunkMarks.live = true;
+            MapAhead.forget();
+            Terrain.forget();
+            Town town = new Town(false);
+            IsoCell cell = town.map.cell;
+            for (int x = -16; x < 32; x++) {
+                for (int y = -16; y < 32; y++) {
+                    if (x != 9 || y != 10) {
+                        cell.square(x, y, 0).floor(town.grass);
+                    }
+                }
+            }
+            heightsIn(cell, 0, 0, 2, 2, 9921, 9921);
+            check(overAt(9, 10) == Footings.UNLOADED, "the square not made is not loaded: " + overAt(9, 10));
+            check(overAt(10, 10) == Footings.OPEN && overAt(12, 12) == Footings.OPEN, "and the rest of its chunk is as it is: " + overAt(10, 10) + " " + overAt(12, 12));
+        } finally {
             ChunkMarks.live = live;
             Terrain.forget();
             MapAhead.forget();

@@ -245,6 +245,8 @@ final class Terrain {
         int used;
         /** Where it is in kept. */
         int index;
+        /** Whether the chunk is loaded, as the last read or scan found it. */
+        boolean chunkLoaded;
 
         Kinds(int wx, int wy) {
             this.wx = wx;
@@ -364,8 +366,8 @@ final class Terrain {
      */
     private static long[] pending = new long[64];
     private static int pendingCount;
-    /** What mapAsOf was at the last scan. */
-    private static long scannedAsOf = Long.MIN_VALUE;
+    /** What mapAsOf and MapAhead.version were at the last scan. */
+    private static long scannedAsOf = Long.MIN_VALUE, scannedAhead = Long.MIN_VALUE;
 
     /**
      * A number that is another when the map may have other chunks loaded: the game's own count
@@ -498,8 +500,12 @@ final class Terrain {
     private static long againNanos;
     /** Dev only, for the rig: heights worked out for chunks that had none and again for chunks that had, how long each took, and how many came from what they had before, and how many of those the fold told without working them out. */
     private static long tollFirst, tollFirstNanos, tollAgain, tollAgainNanos, tollAsBefore, tollFolded;
-    /** Dev only, for the rig: chunks read into new records, read again by scan and found otherwise, records let go, records whose footings were found again, and how long scan took. */
-    private static long tollRead, tollReadAgain, tollOtherwise, tollDropped, tollFooted, tollScanNanos;
+    /**
+     * Dev only, for the rig: chunks read into new records, read again by scan and found
+     * otherwise, records let go, records whose footings were found again, how long scan took,
+     * and how many times the map was asked whether a chunk is loaded, by scan and by each read.
+     */
+    private static long tollRead, tollReadAgain, tollOtherwise, tollDropped, tollFooted, tollScanNanos, tollAsked;
     /**
      * A chunk worked out this many frames ago is worked out whatever the frame has spent, one
      * such chunk a frame: the chunks are asked for in one order every frame, and the last of
@@ -514,12 +520,12 @@ final class Terrain {
 
     /**
      * Logic thread, once a frame the picture is built: a number that is another whenever the
-     * map has another set of chunks loaded. The records are read again (scan) when it has
-     * changed, with the game telling of its changes, and not otherwise.
+     * map has another set of chunks loaded. The records are asked whether they are as read
+     * (scan) when it has changed, with the game telling of its changes, and those not loaded
+     * when MapAhead's version has.
      */
     static void loaded(int epoch) {
-        // What has been read of the map not loaded is another, as much as another set of chunks loaded is.
-        loaded = epoch * 31 + MapAhead.version();
+        loaded = epoch;
     }
 
     /** The version of a chunk's heights. After corners. */
@@ -624,7 +630,7 @@ final class Terrain {
         kept.clear();
         pendingCount = 0;
         siteKinds = null;
-        scannedAsOf = Long.MIN_VALUE;
+        scannedAsOf = scannedAhead = Long.MIN_VALUE;
         Arrays.fill(eyed, false);
         footings.forget();
         for (Terrain terrain : new Terrain[] {HILLS, LEVEL}) {
@@ -979,11 +985,11 @@ final class Terrain {
     /** Dev only: what tollFirst and the rest have come to since this was last asked. */
     static String tolls() {
         String told = String.format(java.util.Locale.ROOT,
-                "heights first %d in %.1f ms, again %d in %.1f ms (from what they had %d, by the fold %d), chunks read %d, read again and otherwise %d of %d in %.1f ms, let go %d, footings found for %d",
+                "heights first %d in %.1f ms, again %d in %.1f ms (from what they had %d, by the fold %d), chunks read %d, read again and otherwise %d of %d in %.1f ms, let go %d, footings found for %d, asked whether loaded %d",
                 tollFirst, tollFirstNanos / 1e6, tollAgain, tollAgainNanos / 1e6, tollAsBefore, tollFolded, tollRead, tollOtherwise, tollReadAgain, tollScanNanos / 1e6, tollDropped,
-                tollFooted);
+                tollFooted, tollAsked);
         tollFirst = tollFirstNanos = tollAgain = tollAgainNanos = tollAsBefore = tollFolded = 0;
-        tollRead = tollReadAgain = tollOtherwise = tollDropped = tollFooted = tollScanNanos = 0;
+        tollRead = tollReadAgain = tollOtherwise = tollDropped = tollFooted = tollScanNanos = tollAsked = 0;
         return told;
     }
 
@@ -1655,15 +1661,17 @@ final class Terrain {
      * Reads what each square of the chunk of a record is, as the map has it now, of the square
      * and what is over it, into the record: where the chunk is loaded off its squares, where it
      * is not off what MapAhead read of it, and where it has read nothing every square as UNKNOWN.
-     * A chunk with its middle square missing is not loaded: the map has every square of a chunk
-     * or none of it. The rooms of a loaded chunk are the ones the map has (rooms), as the game
-     * gives them when the chunk loads from the save (IsoChunk.LoadFromDiskOrBufferInternal): on a
-     * first load it gives none to the squares the lotpack has no tile on (IsoCell.PlaceLot).
+     * A square of a loaded chunk's ground that the game has not made is UNKNOWN (isLoaded). The
+     * rooms of a loaded chunk are the ones the map has (rooms), as the game gives them when the
+     * chunk loads from the save (IsoChunk.LoadFromDiskOrBufferInternal): on a first load it gives
+     * none to the squares the lotpack has no tile on (IsoCell.PlaceLot).
      */
     private static void read(IsoCell cell, Kinds into) {
         int wx = into.wx, wy = into.wy;
-        boolean middle = ground(cell, wx * CHUNK_TILES + CHUNK_TILES / 2, wy * CHUNK_TILES + CHUNK_TILES / 2) != null;
-        MapAhead.Guess guess = middle ? null : MapAhead.guessed(wx, wy);
+        boolean loaded = isLoaded(cell, wx, wy);
+        tollAsked++;
+        MapAhead.Guess guess = loaded ? null : MapAhead.guessed(wx, wy);
+        into.chunkLoaded = loaded;
         into.guess = guess;
         if (guess != null) {
             into.source = READ_AHEAD;
@@ -1674,11 +1682,18 @@ final class Terrain {
             System.arraycopy(guess.level, 0, into.level, 0, into.level.length);
             System.arraycopy(guess.above, 0, into.above, 0, into.above.length);
             System.arraycopy(guess.stands, 0, into.stands, 0, into.stands.length);
+        } else if (!loaded) {
+            into.source = UNREAD;
+            Arrays.fill(into.kinds, UNKNOWN);
+            Arrays.fill(into.footway, false);
+            Arrays.fill(into.marks, (byte) 0);
+            Arrays.fill(into.house, Footings.NONE);
+            Arrays.fill(into.level, Grounds.NONE);
+            Arrays.fill(into.above, Footings.OPEN);
+            Arrays.fill(into.stands, (short) 0);
         } else {
-            into.source = middle ? LOADED : UNREAD;
-            if (middle) {
-                above(cell, into, ground(cell, wx * CHUNK_TILES + CHUNK_TILES / 2, wy * CHUNK_TILES + CHUNK_TILES / 2).getChunk().getMaxLevel());
-            }
+            into.source = LOADED;
+            above(cell, into, ground(cell, wx * CHUNK_TILES + CHUNK_TILES / 2, wy * CHUNK_TILES + CHUNK_TILES / 2).getChunk().getMaxLevel());
             for (int i = 0; i < CHUNK_TILES; i++) {
                 for (int j = 0; j < CHUNK_TILES; j++) {
                     int x = wx * CHUNK_TILES + i, y = wy * CHUNK_TILES + j, at = i * CHUNK_TILES + j;
@@ -1711,58 +1726,63 @@ final class Terrain {
     }
 
     /**
-     * Whether the chunk of a record has what it had when the record was read, as far as can be
-     * told without reading its squares again: loaded as it was, or read ahead from the same
-     * read, or neither still, and no square that was missing loaded since. A square seen loaded
-     * is taken to be as it was for as long as its chunk is loaded.
+     * Whether a chunk is loaded, by the middle square of its ground: the game makes every square
+     * of a chunk's ground before it counts the chunk loaded (IsoChunk.loadInWorldStreamerThread).
+     * Where that pass throws partway, the game logs what it threw and counts the chunk loaded
+     * all the same (WorldStreamer.DoChunkAlways), with some squares of its ground not made.
      */
-    private static boolean asRead(IsoCell cell, Kinds kinds) {
-        int wx = kinds.wx, wy = kinds.wy;
-        boolean middle = ground(cell, wx * CHUNK_TILES + CHUNK_TILES / 2, wy * CHUNK_TILES + CHUNK_TILES / 2) != null;
-        if (kinds.source == READ_AHEAD) {
-            return !middle && MapAhead.guessed(wx, wy) == kinds.guess;
-        }
-        if (middle != (kinds.source == LOADED) || !middle && MapAhead.guessed(wx, wy) != null) {
-            return false;
-        }
-        if (kinds.whole) {
-            return true;
-        }
-        for (int i = 0; i < CHUNK_TILES; i++) {
-            for (int j = 0; j < CHUNK_TILES; j++) {
-                if (kinds.kinds[i * CHUNK_TILES + j] == UNKNOWN && ground(cell, wx * CHUNK_TILES + i, wy * CHUNK_TILES + j) != null) {
-                    return false;
-                }
-            }
-        }
-        return true;
+    private static boolean isLoaded(IsoCell cell, int wx, int wy) {
+        return ground(cell, wx * CHUNK_TILES + CHUNK_TILES / 2, wy * CHUNK_TILES + CHUNK_TILES / 2) != null;
     }
 
     /**
-     * Logic thread, at each corners before anything is worked out: when the map has other
-     * chunks loaded or MapAhead has read more since the last scan, lets go of the records far
-     * from every eye, and reads again each record whose chunk is not as it was read (asRead).
-     * Each that comes out otherwise goes in the log, and so does each derived record round it
-     * whose over comes out otherwise with it.
+     * Whether the chunk of a record has what it had when the record was read, as far as can be
+     * told without reading its squares again, with chunkLoaded as the map is: loaded, or not
+     * loaded and with what MapAhead holds of it the same, read ahead from the same read or not
+     * read. A loaded chunk's squares are taken to be as they were read for as long as it stays
+     * loaded.
+     */
+    private static boolean asRead(Kinds kinds) {
+        if (kinds.source == LOADED) {
+            return kinds.chunkLoaded;
+        }
+        return !kinds.chunkLoaded && MapAhead.guessed(kinds.wx, kinds.wy) == kinds.guess;
+    }
+
+    /**
+     * Logic thread, at each corners before anything is worked out. When the map has other
+     * chunks loaded since the last scan: lets go of the records far from every eye, asks the
+     * map which of the rest are loaded, and reads again each whose chunk is not as it was read
+     * (asRead). When only MapAhead has read more or let go: reads again each record not loaded
+     * whose chunk MapAhead holds otherwise. Each that comes out otherwise goes in the log, and
+     * so does each derived record round it whose over comes out otherwise with it.
      */
     private static void scan(IsoCell cell) {
         flush();
-        long asOf = mapAsOf();
-        if (asOf == scannedAsOf) {
+        long asOf = mapAsOf(), ahead = MapAhead.version();
+        boolean moved = asOf != scannedAsOf;
+        if (!moved && ahead == scannedAhead) {
             return;
         }
         scannedAsOf = asOf;
+        scannedAhead = ahead;
         long began = System.nanoTime();
-        // From the last, as drop moves the last record into the place it frees.
-        for (int at = kept.size() - 1; at >= 0; at--) {
-            if (farFromEveryEye(kept.get(at))) {
-                drop(kept.get(at));
+        if (moved) {
+            // From the last, as drop moves the last record into the place it frees.
+            for (int at = kept.size() - 1; at >= 0; at--) {
+                if (farFromEveryEye(kept.get(at))) {
+                    drop(kept.get(at));
+                }
             }
+            flush();
+            for (Kinds kinds : kept) {
+                kinds.chunkLoaded = isLoaded(cell, kinds.wx, kinds.wy);
+            }
+            tollAsked += kept.size();
         }
-        flush();
         otherwise.clear();
         for (Kinds kinds : kept) {
-            if (asRead(cell, kinds)) {
+            if (!moved && kinds.source == LOADED || asRead(kinds)) {
                 continue;
             }
             passing.wx = kinds.wx;
@@ -1771,6 +1791,7 @@ final class Terrain {
             tollReadAgain++;
             kinds.source = passing.source;
             kinds.guess = passing.guess;
+            kinds.chunkLoaded = passing.chunkLoaded;
             if (!sameSquares(kinds, passing)) {
                 copySquares(passing, kinds);
                 otherwise.add(kinds);
