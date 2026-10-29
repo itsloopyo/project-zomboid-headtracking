@@ -330,9 +330,9 @@ final class Terrain {
     /** How many times its height at 1 every rise of the land is: 0 for the level land, and the player's for the hills. Set by the logic thread. */
     private volatile float gain;
     private final AtomicReferenceArray<Grid> grids = new AtomicReferenceArray<>(TABLE_SIDE * TABLE_SIDE * WAYS);
-    /** How many records a place in records keeps: see KEPT_AROUND. */
-    private static final int RECORD_WAYS = 2 * View.COUNT;
-    private static final Kinds[] records = new Kinds[TABLE_SIDE * TABLE_SIDE * RECORD_WAYS];
+    /** How many chunks a side the places of records cover, and how many records a place keeps: see KEPT_AROUND. */
+    private static final int RECORD_SIDE = 128, RECORD_WAYS = View.COUNT;
+    private static final Kinds[] records = new Kinds[RECORD_SIDE * RECORD_SIDE * RECORD_WAYS];
     /** Every record in records, each at its index, for scan to go over. */
     private static final ArrayList<Kinds> kept = new ArrayList<>();
     /**
@@ -340,8 +340,9 @@ final class Terrain {
      * the game loads reaches some 76 tiles from the player, and what is worked out for a chunk
      * of it goes by chunks round it to AROUND and, by footing searches and the water round a
      * footing, some way past that. A record let go while what went by it is kept has that
-     * worked out again. One eye's records share a place in records with no more than three
-     * others, and two eyes' fit RECORD_WAYS.
+     * worked out again. The records kept round an eye are 2 * KEPT_AROUND + 1 chunks a side,
+     * fewer than RECORD_SIDE, so no two of them share a place in records, and each view's eye
+     * has a way of every place.
      */
     private static final int KEPT_AROUND = 40;
     /** The chunk each view's eye was last over, where it has told of one (heighten). */
@@ -689,7 +690,7 @@ final class Terrain {
 
     /** The first of the RECORD_WAYS places a chunk's record may be kept in. */
     private static int recordSlot(int wx, int wy) {
-        return ((wx & (TABLE_SIDE - 1)) * TABLE_SIDE + (wy & (TABLE_SIDE - 1))) * RECORD_WAYS;
+        return ((wx & (RECORD_SIDE - 1)) * RECORD_SIDE + (wy & (RECORD_SIDE - 1))) * RECORD_WAYS;
     }
 
     /** The record of a chunk, or null. Logic thread. */

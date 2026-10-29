@@ -76,6 +76,7 @@ final class TerrainTests {
             Checks.run("aChunkHasTheHeightsOnItsFirstLoadThatItHasFromTheSave", TerrainTests::aChunkHasTheHeightsOnItsFirstLoadThatItHasFromTheSave);
             Checks.run("theMapIsAskedOnceAChunkWhetherItIsLoadedAndOnlyWhenItLoadsOtherChunks", TerrainTests::theMapIsAskedOnceAChunkWhetherItIsLoadedAndOnlyWhenItLoadsOtherChunks);
             Checks.run("aLoadedChunkWithASquareOfItsGroundNotMadeHasThatSquareAsNotLoaded", TerrainTests::aLoadedChunkWithASquareOfItsGroundNotMadeHasThatSquareAsNotLoaded);
+            Checks.run("fourEyesFarApartEachKeepTheRecordsRoundThem", TerrainTests::fourEyesFarApartEachKeepTheRecordsRoundThem);
             Checks.run("postsOnALevelAboveTheRoadLeaveTheKerbAndWhatIsBuiltOnAsTheyAre", TerrainTests::postsOnALevelAboveTheRoadLeaveTheKerbAndWhatIsBuiltOnAsTheyAre);
         } finally {
             Terrain.rooms = rooms;
@@ -957,7 +958,7 @@ final class TerrainTests {
             TestMap map = new TestMap();
             IsoSprite grass = map.spriteWith("blends_natural_01_0", IsoObjectType.normal, map.painted, "solidfloor", "");
             IsoSprite water = map.spriteWith("blends_natural_02_0", IsoObjectType.normal, map.painted, "solidfloor", "", "water", "");
-            int ways = TestMap.<Integer>read(null, Terrain.class, "RECORD_WAYS"), apart = TestMap.<Integer>read(null, Terrain.class, "TABLE_SIDE");
+            int ways = TestMap.<Integer>read(null, Terrain.class, "RECORD_WAYS"), apart = TestMap.<Integer>read(null, Terrain.class, "RECORD_SIDE");
             for (int place = 0; place <= ways; place++) {
                 int from = place * apart * Terrain.CHUNK_TILES;
                 for (int x = from - 24; x < from + 32; x++) {
@@ -1325,6 +1326,47 @@ final class TerrainTests {
             heightsIn(cell, 0, 0, 2, 2, 9921, 9921);
             check(overAt(9, 10) == Footings.UNLOADED, "the square not made is not loaded: " + overAt(9, 10));
             check(overAt(10, 10) == Footings.OPEN && overAt(12, 12) == Footings.OPEN, "and the rest of its chunk is as it is: " + overAt(10, 10) + " " + overAt(12, 12));
+        } finally {
+            ChunkMarks.live = live;
+            Terrain.forget();
+            MapAhead.forget();
+        }
+    }
+
+    /**
+     * Each view's eye keeps the records round it: four eyes as far apart as the places of the
+     * records go round, so that each one's records take the same places as the others', with
+     * heights asked for out to the corners of what each keeps. None is put out for room, and
+     * asked for again with the map moved on, none is read again.
+     */
+    private static void fourEyesFarApartEachKeepTheRecordsRoundThem() {
+        boolean live = ChunkMarks.live;
+        Terrain.HILLS.heighten(1f);
+        Country.set(List.of());
+        try {
+            ChunkMarks.live = true;
+            MapAhead.forget();
+            Terrain.forget();
+            IsoCell nothingLoaded = new TestMap().cell;
+            int apart = TestMap.<Integer>read(null, Terrain.class, "RECORD_SIDE");
+            int out = TestMap.<Integer>read(null, Terrain.class, "KEPT_AROUND") - Terrain.AROUND / Terrain.CHUNK_TILES - 1;
+            Terrain.Rework<IsoCell> nothing = (cell, wx, wy) -> {};
+            for (int view = 0; view < View.COUNT; view++) {
+                Terrain.HILLS.heighten(1f, view, view * apart * Terrain.CHUNK_TILES + 4.5f, 4.5f, nothingLoaded, nothing);
+            }
+            long dropped = toll("tollDropped");
+            for (int pass = 0; pass < 2; pass++) {
+                long read = toll("tollRead");
+                Terrain.frame(9801 + pass);
+                Terrain.loaded(9801 + pass);
+                for (int view = 0; view < View.COUNT; view++) {
+                    for (int corner = 0; corner < 4; corner++) {
+                        Terrain.HILLS.corners(nothingLoaded, view * apart + (corner < 2 ? -out : out), corner % 2 == 0 ? -out : out);
+                    }
+                }
+                check(pass == 0 || toll("tollRead") == read, "asked for again, none of the four eyes' records is read again: " + (toll("tollRead") - read));
+            }
+            check(toll("tollDropped") == dropped, "four eyes far apart keep every record round them, and none is put out for room: " + (toll("tollDropped") - dropped));
         } finally {
             ChunkMarks.live = live;
             Terrain.forget();
