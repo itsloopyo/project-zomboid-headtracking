@@ -104,7 +104,7 @@ final class BloodBuilder {
                 if (fromX > toX || fromY > toY) {
                     continue;
                 }
-                float fresh = Blood.freshness(now - splat.worldAge);
+                float fresh = Blood.freshness(now, splat.worldAge);
                 Blood.floorTint(splat.x, splat.y, splat.type, fresh, tint);
                 int at = add();
                 System.arraycopy(laid, 0, corners, at * 4 * Blood.CORNER, 4 * Blood.CORNER);
@@ -242,7 +242,7 @@ final class BloodBuilder {
                 continue;
             }
             build.frameOf(object, texture);
-            float fresh = Blood.freshness(now - splat.worldAge);
+            float fresh = Blood.freshness(now, splat.worldAge);
             float dark = Blood.darkness(fresh);
             SpriteGeometry.Mesh mesh = WorldScene.laid.get(texture.getID(), WallSides.BLOOD);
             Arrays.fill(cover, Blood.wallCover(fresh));
@@ -267,7 +267,7 @@ final class BloodBuilder {
         sum = WorldScene.sum(sum, Core.getInstance().getOptionBloodDecals());
         for (int i = 0; i < splatsOnWall.size(); i++) {
             IsoWallBloodSplat splat = splatsOnWall.get(i);
-            sum = WorldScene.sum(WorldScene.sum(sum, System.identityHashCode(splat.sprite)), Float.floatToRawIntBits(Blood.freshness(now - splat.worldAge)));
+            sum = WorldScene.sum(WorldScene.sum(sum, System.identityHashCode(splat.sprite)), Float.floatToRawIntBits(Blood.freshness(now, splat.worldAge)));
         }
         return sum;
     }

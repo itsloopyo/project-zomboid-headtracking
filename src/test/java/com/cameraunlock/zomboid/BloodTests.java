@@ -20,6 +20,7 @@ final class BloodTests {
         Checks.run("everyCornerOfAPieceTakesTheTexelThePictureHasThere", BloodTests::everyCornerOfAPieceTakesTheTexelThePictureHasThere);
         Checks.run("aSquareTheSplatMissesGetsNothing", BloodTests::aSquareTheSplatMissesGetsNothing);
         Checks.run("bloodDriesByTheHourOverThreeDays", BloodTests::bloodDriesByTheHourOverThreeDays);
+        Checks.run("splatsSpiltInOneHourDryTogetherOnTheWorldsHours", BloodTests::splatsSpiltInOneHourDryTogetherOnTheWorldsHours);
         Checks.run("bloodCoversAsTheGamesDoesFreshAndDry", BloodTests::bloodCoversAsTheGamesDoesFreshAndDry);
         Checks.run("eachSplatIsAShadeOfItsOwnAndDarkensAsItDries", BloodTests::eachSplatIsAShadeOfItsOwnAndDarkensAsItDries);
         Checks.run("aShadeThatIsNoNumberIsNone", BloodTests::aShadeThatIsNoNumberIsNone);
@@ -168,13 +169,33 @@ final class BloodTests {
     }
 
     private static void bloodDriesByTheHourOverThreeDays() {
-        near(Blood.freshness(0.0), 1.0, 0.0, "just spilt");
-        near(Blood.freshness(0.99), 1.0, 0.0, "within its first hour");
-        near(Blood.freshness(1.0), 1.0 - 1.0 / 72.0, 1e-6, "an hour old");
-        near(Blood.freshness(71.9), 1.0 / 72.0, 1e-6, "the last hour");
-        near(Blood.freshness(72.0), 0.0, 0.0, "three days old");
-        near(Blood.freshness(500.0), 0.0, 0.0, "long dry");
-        near(Blood.freshness(-1.0), 0.0, 0.0, "spilt after now, as the game has it");
+        near(Blood.freshness(40.0, 40.0), 1.0, 0.0, "just spilt");
+        near(Blood.freshness(40.99, 40.0), 1.0, 0.0, "within the hour it was spilt in");
+        near(Blood.freshness(41.0, 40.0), 1.0 - 1.0 / 72.0, 1e-6, "the next hour");
+        near(Blood.freshness(111.9, 40.0), 1.0 / 72.0, 1e-6, "the last hour");
+        near(Blood.freshness(112.0, 40.0), 0.0, 0.0, "three days on");
+        near(Blood.freshness(540.0, 40.0), 0.0, 0.0, "long dry");
+        near(Blood.freshness(39.0, 40.0), 0.0, 0.0, "spilt in an hour after now, as the game has it");
+    }
+
+    /**
+     * Two splats spilt at different times in one hour of the world's clock dry together, on the
+     * world's whole hours: the sum a chunk is built again by, here their covers, holds between
+     * whole hours and changes at each one, for both at once.
+     */
+    private static void splatsSpiltInOneHourDryTogetherOnTheWorldsHours() {
+        double early = 65.31, late = 65.97;
+        for (int hour = 77; hour < 80; hour++) {
+            float earlyAtHour = Blood.floorCover(Blood.freshness(hour, early)), lateAtHour = Blood.floorCover(Blood.freshness(hour, late));
+            near(earlyAtHour, lateAtHour, 0.0, "spilt in one hour, the same cover at " + hour);
+            for (int minute = 1; minute < 600; minute++) {
+                double now = hour + minute / 600.0;
+                near(Blood.floorCover(Blood.freshness(now, early)), earlyAtHour, 0.0, "the earlier splat between whole hours, at " + now);
+                near(Blood.floorCover(Blood.freshness(now, late)), lateAtHour, 0.0, "the later splat between whole hours, at " + now);
+            }
+            check(Blood.floorCover(Blood.freshness(hour + 1, early)) < earlyAtHour, "the earlier splat dries at hour " + (hour + 1));
+            check(Blood.floorCover(Blood.freshness(hour + 1, late)) < lateAtHour, "the later splat dries at hour " + (hour + 1));
+        }
     }
 
     private static void bloodCoversAsTheGamesDoesFreshAndDry() {

@@ -21,12 +21,16 @@ final class Blood {
     private Blood() {}
 
     /**
-     * How fresh blood is, 1 just spilt and 0 dried, from how many game hours ago it was spilt.
-     * The game dries it continuously; here it dries by the whole hour, so a chunk is built again
-     * once an hour while its blood dries and not on every frame.
+     * How fresh blood is, 1 just spilt and 0 dried, from the world's age now and when the blood
+     * was spilt, both in game hours. The game dries it continuously; here it dries by the whole
+     * hour of the world's clock, the hours counted between the hour it was spilt in and the hour
+     * it is now. Every splat steps at the same moment that way, so a chunk is built again at most
+     * once a game hour for its blood, where one counted from each splat's own age is crossed
+     * every few seconds by a chunk hundreds of splats of different ages reach.
      */
-    static float freshness(double hoursOld) {
-        return hoursOld < 0.0 || hoursOld >= DRIES_IN_HOURS ? 0f : 1f - (float) Math.floor(hoursOld) / DRIES_IN_HOURS;
+    static float freshness(double worldHours, double spiltAtHours) {
+        double hoursOld = Math.floor(worldHours) - Math.floor(spiltAtHours);
+        return hoursOld < 0.0 || hoursOld >= DRIES_IN_HOURS ? 0f : 1f - (float) hoursOld / DRIES_IN_HOURS;
     }
 
     /** How much blood of this freshness keeps of its colour: it darkens as it dries. */
