@@ -402,6 +402,7 @@ final class Config {
                             + "false: nothing is added to the save, and what was added before stays. On a server nothing is added.",
                     writable | live, true),
         };
+        describeParts("Rules");
 
         talkingMouths = core.configLocalBool("Voice", TALKING_MOUTHS,
                 "true: your character's mouth moves with what you say into your microphone: the jaw drops for \"ah\", the lips\n"

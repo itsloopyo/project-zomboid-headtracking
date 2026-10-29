@@ -267,7 +267,8 @@ final class Ride {
      */
     static boolean shootsThroughGlass(IsoPlayer player) {
         View view = View.of(player);
-        return player.isLocalPlayer() && view != null && view.firstPerson.active() && player.isAimingFirearmEquipped() && !Online.contested();
+        return Part.SHOTS_FROM_VEHICLE_SEATS.on() && player.isLocalPlayer() && view != null && view.firstPerson.active() && player.isAimingFirearmEquipped()
+                && !Online.contested();
     }
 
     /**

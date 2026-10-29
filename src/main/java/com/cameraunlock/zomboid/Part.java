@@ -54,7 +54,11 @@ enum Part {
                     + "which shows those by its own light. false: the game greys first person's picture as it greys its own view."),
     NAME_TAGS_AT_HEADS("FirstPerson", "NameTagsAtHeads", false, true,
             "true: on a server, in first person, the names and speech the game writes over people are put over their heads\n"
-                    + "in the picture, and your own are left out. false: the game writes them where its own view has their owners.");
+                    + "in the picture, and your own are left out. false: the game writes them where its own view has their owners."),
+    SHOTS_FROM_VEHICLE_SEATS("Rules", "ShotsFromVehicleSeats", true, false,
+            "true: in first person, seated in a vehicle with a firearm, you can fire through the whole window of your seat,\n"
+                    + "which the shot breaks. false: the window has to be opened or broken first, as the game has it. On a server\n"
+                    + "where players can hurt each other the game's rule holds.");
 
     final String section, key, comment;
     /** Whether the row is taken while the game runs, and whether it is read at the start to leave patches out. */

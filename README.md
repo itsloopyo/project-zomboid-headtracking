@@ -680,6 +680,10 @@ HiddenWallDecor=true
 ; where the room's other walls say they belong, the first time the room is loaded, and those stay in your save.
 ; false: nothing is added to the save, and what was added before stays. On a server nothing is added.
 HiddenWallDecorSaved=true
+; true: in first person, seated in a vehicle with a firearm, you can fire through the whole window of your seat,
+; which the shot breaks. false: the window has to be opened or broken first, as the game has it. On a server
+; where players can hurt each other the game's rule holds.
+ShotsFromVehicleSeats=true
 
 [Voice]
 ; true: your character's mouth moves with what you say into your microphone: the jaw drops for "ah", the lips
