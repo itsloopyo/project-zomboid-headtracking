@@ -47,7 +47,26 @@ final class DevPatches {
         if (Boolean.getBoolean("cameraunlock.zomboid.checkComposites")) {
             patches.addAll(compositeCheck());
         }
+        // By the property's name, a constant, so that asking loads no class of the mod's that names the game's before their patches are in.
+        if (Boolean.getBoolean(Spotting.CHECKED_BY)) {
+            patches.addAll(spotCheck());
+        }
         return patches;
+    }
+
+    /** The game's spotting of a room and marking of a square seen, each told to SpotCheck as it begins. */
+    private static List<Agent.Patch> spotCheck() {
+        String square = "zombie/iso/IsoGridSquare", meta = "zombie/meta/Meta", check = "com/cameraunlock/zomboid/SpotCheck";
+        return List.of(
+                new Agent.Patch(square, "checkRoomSeen told to SpotCheck", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
+                        new CallSite.Method(square, "checkRoomSeen", "(I)V"),
+                        code -> {
+                            code.aload(0).iload(1);
+                            CallSite.invokeStatic(code, new CallSite.Method(check, "roomChecked", "(L" + square + ";I)V"));
+                        })),
+                new Agent.Patch(meta, "dealWithSquareSeen told to SpotCheck", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
+                        new CallSite.Method(meta, "dealWithSquareSeen", "(L" + square + ";)V"),
+                        code -> CallSite.passFirstArgument(code, new CallSite.Method(check, "squareSeen", "(L" + square + ";)V")))));
     }
 
     /**
