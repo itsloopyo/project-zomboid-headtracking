@@ -19,6 +19,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import javax.imageio.ImageIO;
@@ -1718,6 +1719,21 @@ public final class FineSkins {
     }
 
     private static Texture composedWithStateKept(Recipe recipe) throws Exception {
+        return withCombinerStateKept(() -> {
+            composing = true;
+            try {
+                return composed(recipe);
+            } finally {
+                composing = false;
+            }
+        });
+    }
+
+    /**
+     * Runs work that drives the game's texture combiner on the render thread, wherever in a
+     * frame it runs, and puts back the GL state the combiner leaves changed. Render thread.
+     */
+    static <T> T withCombinerStateKept(Callable<T> work) throws Exception {
         int drawTo = GL11.glGetInteger(GL_DRAW_FRAMEBUFFER_BINDING), readFrom = GL11.glGetInteger(GL_READ_FRAMEBUFFER_BINDING);
         int program = GL11.glGetInteger(GL_CURRENT_PROGRAM);
         int arrays = GL11.glGetInteger(GL_VERTEX_ARRAY_BINDING);
@@ -1736,11 +1752,9 @@ public final class FineSkins {
         // combiner is run believing none is bound, with none bound: that write changes nothing.
         TextureFBO.lastID = 0;
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        composing = true;
         try {
-            return composed(recipe);
+            return work.call();
         } finally {
-            composing = false;
             TextureFBO.lastID = believed;
             // The combiner pushes state of its own and pops it as it ends. One that threw
             // on the way has not, and what it left is popped before what was pushed here.
