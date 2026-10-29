@@ -30,7 +30,6 @@ public final class IsoGridSquare {
 
     public final ILighting[] lighting = null;
     public int lightLevel;
-    public int hourLastSeen;
 
     public PZArrayList<IsoObject> getObjects() { throw new UnsupportedOperationException("reference stub"); }
     public void AddTileObject(IsoObject object) { throw new UnsupportedOperationException("reference stub"); }

@@ -29,6 +29,8 @@ public final class SpottingTests {
         Checks.run("nothingIsCarriedIntoTheNextSave", SpottingTests::nothingIsCarriedIntoTheNextSave);
         Checks.run("theOpenAirOfAChunkDrawnIsMarkedAndItsRoomsAreNot", SpottingTests::theOpenAirOfAChunkDrawnIsMarkedAndItsRoomsAreNot);
         Checks.run("aClientSpotsRoomsAndMarksNothing", SpottingTests::aClientSpotsRoomsAndMarksNothing);
+        Checks.run("aSquareFoundSeenIsNotAskedAboutAgain", SpottingTests::aSquareFoundSeenIsNotAskedAboutAgain);
+        Checks.run("aChunkLoadedAgainIsAskedAboutAgain", SpottingTests::aChunkLoadedAgainIsAskedAboutAgain);
         Checks.run("passesComeFourTimesASecondWhateverTheFrames", SpottingTests::passesComeFourTimesASecondWhateverTheFrames);
         Checks.run("aCallReplacedHandsItsHookWhatItsMethodBelongsTo", SpottingTests::aCallReplacedHandsItsHookWhatItsMethodBelongsTo);
     }
@@ -36,8 +38,6 @@ public final class SpottingTests {
     private static void check(boolean condition, String what) {
         Checks.check(condition, what);
     }
-
-    private static final int HOUR = 100;
 
     /** A room of a cell, its id, and its squares, w by h from x, y on a level. */
     private record Room(long id, RoomDef def, IsoGridSquare[] squares) {
@@ -49,7 +49,6 @@ public final class SpottingTests {
             for (int i = 0; i < squares.length; i++) {
                 squares[i] = cell.square(x + i % w, y + i / w, level);
                 squares[i].room(room, id);
-                squares[i].hourLastSeen = HOUR;
             }
             return new Room(id, def, squares);
         }
@@ -76,11 +75,20 @@ public final class SpottingTests {
     }
 
     private static void pass(Spotting spotting, IsoCell cell, RoomSight.Seen rooms, List<IsoChunk> chunks, Room... known) {
+        spotting.pass(cell, rooms, defs(known)::get, chunks);
+    }
+
+    private static HashMap<Long, RoomDef> defs(Room... known) {
         HashMap<Long, RoomDef> defs = new HashMap<>();
         for (Room room : known) {
             defs.put(room.id(), room.def());
         }
-        spotting.pass(cell, HOUR, rooms, defs::get, chunks);
+        return defs;
+    }
+
+    /** The chunk drawn that holds a square. */
+    private static IsoChunk drawn(IsoCell cell, IsoGridSquare square) {
+        return cell.getChunkForGridSquare(square.getX(), square.getY(), square.getZ());
     }
 
     private static int roomChecks(Room room) {
@@ -89,6 +97,14 @@ public final class SpottingTests {
             checks += square.roomChecks;
         }
         return checks;
+    }
+
+    private static int asked(IsoGridSquare... squares) {
+        int asked = 0;
+        for (IsoGridSquare square : squares) {
+            asked += square.seenAsked;
+        }
+        return asked;
     }
 
     private static void aRoomInSightIsSpottedFromASquareThePlayerHasSeen() {
@@ -102,6 +118,11 @@ public final class SpottingTests {
         check(kitchen.def().explored, "a room the view sees into is spotted from a square of it the player has seen");
         check(kitchen.squares()[4].roomChecks == 1 && roomChecks(kitchen) == 1, "from the first such square: once the room is explored the game makes nothing more of it");
         check(kitchen.squares()[0].roomChecks == 0, "and never from a square the player has not seen");
+        Room upstairs = Room.of(cell, 18L, 10, 10, 1, 1, 2), downstairs = Room.of(cell, 19L, 10, 10, 1, 1, 1);
+        upstairs.squares()[0].seen(true);
+        upstairs.squares()[0].inReach(true);
+        pass(cell, inSight(upstairs, downstairs), List.of(), upstairs, downstairs);
+        check(upstairs.def().explored && !downstairs.def().explored, "a room is spotted from its squares on its own level, over the same place on another");
     }
 
     private static void whetherARoomIsSpottedIsTheGamesToSay() {
@@ -110,20 +131,13 @@ public final class SpottingTests {
         for (IsoGridSquare square : hall.squares()) {
             square.seen(true);
         }
-        pass(cell, inSight(hall), List.of(), hall);
+        Spotting spotting = spotting();
+        pass(spotting, cell, inSight(hall), List.of(), hall);
         check(!hall.def().explored && roomChecks(hall) == hall.squares().length,
                 "a room seen out of the game's reach is asked about from every square seen, and the game leaves it unexplored");
-        int asked = 0;
-        Room spotted = Room.of(cell, 9L, 30, 30, 2, 2, 0);
-        spotted.def().explored = true;
-        for (IsoGridSquare square : spotted.squares()) {
-            square.seen(true);
-        }
-        pass(cell, inSight(spotted), List.of(), spotted);
-        for (IsoGridSquare square : spotted.squares()) {
-            asked += square.seenAsked;
-        }
-        check(roomChecks(spotted) == 0 && asked == 0, "an explored room whose squares are marked this hour is not asked about, and nor are its squares");
+        pass(spotting, cell, inSight(hall), List.of(), hall);
+        check(roomChecks(hall) == 2 * hall.squares().length && asked(hall.squares()) == hall.squares().length,
+                "and in the next round it is asked about again, as the player may have come nearer, without the squares found seen being asked about again");
     }
 
     private static void aRoomOutOfSightIsLeftAlone() {
@@ -134,7 +148,6 @@ public final class SpottingTests {
                 square.seen(true);
                 square.inReach(true);
                 square.turns(true);
-                square.hourLastSeen = HOUR - 1;
             }
         }
         Spotting spotting = spotting();
@@ -144,25 +157,21 @@ public final class SpottingTests {
         check(seen.def().explored && !unseen.def().explored, "only a room the view sees into is spotted, though the game has had both in the player's sight");
         check(Meta.instance.told.size() == told + seen.squares().length && !Meta.instance.told.contains(unseen.squares()[0]),
                 "and only its squares are marked seen, though the light found a square of the other turned seen too");
-        check(unseen.squares()[1].seenAsked == 0, "nor are the other's squares asked about");
+        check(asked(unseen.squares()) == 0, "nor are the other's squares asked about");
     }
 
     private static void aSquareIsMarkedAsTheLightFindsItHasTurnedSeen() {
         IsoCell cell = new IsoCell();
-        Room room = Room.of(cell, 13L, 40, 40, 4, 1, 0);
+        Room room = Room.of(cell, 13L, 40, 40, 3, 1, 0);
         room.def().explored = true;
-        IsoGridSquare turning = room.squares()[0], steady = room.squares()[1], already = room.squares()[2], unseen = room.squares()[3];
-        for (IsoGridSquare square : new IsoGridSquare[] {turning, steady, already}) {
-            square.seen(true);
-        }
+        IsoGridSquare turning = room.squares()[0], steady = room.squares()[1], unseen = room.squares()[2];
+        turning.seen(true);
+        steady.seen(true);
         turning.turns(true);
-        already.turns(true);
-        turning.hourLastSeen = steady.hourLastSeen = unseen.hourLastSeen = HOUR - 1;
         int told = Meta.instance.told.size();
         pass(cell, inSight(room), List.of(), room);
-        check(Meta.instance.told.size() == told + 1 && Meta.instance.told.get(told) == turning, "a square the light finds has just turned seen as the pass asks is marked");
-        check(steady.seenAsked == 1, "one seen before is asked about and not marked: the game marks a square as it turns seen");
-        check(already.seenAsked == 0, "one marked in this hour is not asked about");
+        check(Meta.instance.told.size() == told + 1 && Meta.instance.told.get(told) == turning, "a square the light finds has just turned seen as the round asks is marked");
+        check(steady.seenAsked == 1 && !Meta.instance.told.contains(steady), "one seen before is asked about and not marked: the game marks a square as it turns seen");
         check(unseen.seenAsked == 1 && !Meta.instance.told.contains(unseen), "and one the player has not seen is asked about and not marked");
     }
 
@@ -173,16 +182,15 @@ public final class SpottingTests {
         Spotting spotting = spotting();
         for (IsoGridSquare square : new IsoGridSquare[] {indoors, elsewhere, street, far}) {
             square.seen(true);
-            square.hourLastSeen = HOUR - 1;
             spotting.turned(square);
         }
         int told = Meta.instance.told.size();
-        pass(spotting, cell, inSight(inView), List.of(street.getChunk()), inView, outOfView);
+        pass(spotting, cell, inSight(inView), List.of(drawn(cell, street)), inView, outOfView);
         check(Meta.instance.told.size() == told + 2 && Meta.instance.told.contains(indoors) && Meta.instance.told.contains(street),
                 "a square another read of the light found turned seen is marked where the view sees it, in a room it sees into or in the open air of a chunk drawn");
         check(!Meta.instance.told.contains(elsewhere) && !Meta.instance.told.contains(far), "and left where it does not");
-        pass(spotting, cell, inSight(inView, outOfView), List.of(street.getChunk(), far.getChunk()), inView, outOfView);
-        check(Meta.instance.told.size() == told + 2, "a turn is gone with the pass that came after it, whether it was marked or not");
+        pass(spotting, cell, inSight(inView, outOfView), List.of(drawn(cell, street), drawn(cell, far)), inView, outOfView);
+        check(Meta.instance.told.size() == told + 2, "a turn is gone with the round that came after it, whether it was marked or not");
     }
 
     private static void nothingIsCarriedIntoTheNextSave() {
@@ -191,26 +199,30 @@ public final class SpottingTests {
         IsoGridSquare square = room.squares()[0];
         square.seen(true);
         Spotting spotting = spotting();
+        IsoGridSquare street = cell.square(280, 260, 0);
+        street.seen(true);
+        pass(spotting, cell, inSight(), List.of(drawn(cell, street)));
         spotting.turned(square);
         spotting.leftSave();
         int told = Meta.instance.told.size();
-        pass(spotting, cell, inSight(room), List.of(), room);
+        pass(spotting, cell, inSight(room), List.of(drawn(cell, street)), room);
         check(Meta.instance.told.size() == told, "a turn found in a save left is not marked in the next, though the view sees its place");
+        check(street.seenAsked == 2, "and a square found seen there is asked about afresh");
     }
 
     private static void theOpenAirOfAChunkDrawnIsMarkedAndItsRoomsAreNot() {
         IsoCell cell = new IsoCell();
-        IsoGridSquare street = cell.square(81, 82, 0), alley = cell.square(83, 82, 0), beyond = cell.square(90, 82, 0);
+        IsoGridSquare street = cell.square(81, 82, 0), alley = cell.square(83, 82, 0), beyond = cell.square(90, 82, 0), roof = cell.square(82, 81, 1);
         Room shop = Room.of(cell, 14L, 84, 84, 1, 1, 0);
-        for (IsoGridSquare square : new IsoGridSquare[] {street, alley, beyond, shop.squares()[0]}) {
+        for (IsoGridSquare square : new IsoGridSquare[] {street, alley, beyond, roof, shop.squares()[0]}) {
             square.seen(true);
             square.turns(true);
-            square.hourLastSeen = HOUR - 1;
         }
         alley.seen(false);
         int told = Meta.instance.told.size();
-        pass(cell, inSight(), List.of(street.getChunk()), shop);
-        check(Meta.instance.told.size() == told + 1 && Meta.instance.told.get(told) == street, "of a chunk drawn, a square of open air the light finds turned seen is marked");
+        pass(cell, inSight(), List.of(drawn(cell, street)), shop);
+        check(Meta.instance.told.size() == told + 2 && Meta.instance.told.contains(street) && Meta.instance.told.contains(roof),
+                "of a chunk drawn, a square of open air the light finds turned seen is marked, on any level");
         check(alley.seenAsked == 1, "one they have not seen is asked about and left");
         check(beyond.seenAsked == 0, "a square of a chunk not drawn is not asked about");
         check(shop.squares()[0].seenAsked == 0, "nor a room's square on the chunk drawn: a room's squares are asked about as it is seen into");
@@ -218,33 +230,62 @@ public final class SpottingTests {
 
     private static void aClientSpotsRoomsAndMarksNothing() {
         IsoCell cell = new IsoCell();
-        Room room = Room.of(cell, 15L, 50, 50, 1, 1, 0);
+        Room room = Room.of(cell, 15L, 50, 50, 1, 1, 0), explored = Room.of(cell, 20L, 52, 52, 1, 1, 0);
+        explored.def().explored = true;
         IsoGridSquare square = room.squares()[0], street = cell.square(52, 50, 0);
-        for (IsoGridSquare seen : new IsoGridSquare[] {square, street}) {
+        for (IsoGridSquare seen : new IsoGridSquare[] {square, street, explored.squares()[0]}) {
             seen.seen(true);
-            seen.hourLastSeen = HOUR - 1;
         }
         square.inReach(true);
         int told = Meta.instance.told.size();
         GameClient.client = true;
         try {
-            pass(cell, inSight(room), List.of(street.getChunk()), room);
+            pass(cell, inSight(room, explored), List.of(drawn(cell, street)), room, explored);
         } finally {
             GameClient.client = false;
         }
         check(room.def().explored, "a client spots a room it sees into, as the game's own light has it do");
-        check(Meta.instance.told.size() == told && street.seenAsked == 0, "and marks no square seen: the server keeps what was seen when");
+        check(Meta.instance.told.size() == told && street.seenAsked == 0 && explored.squares()[0].seenAsked == 0,
+                "and asks nothing that could only mark a square seen: the server keeps what was seen when");
+    }
+
+    private static void aSquareFoundSeenIsNotAskedAboutAgain() {
+        IsoCell cell = new IsoCell();
+        IsoGridSquare seen = cell.square(100, 100, 0), unseen = cell.square(101, 100, 0);
+        seen.seen(true);
+        Spotting spotting = spotting();
+        List<IsoChunk> drawn = List.of(drawn(cell, seen));
+        pass(spotting, cell, inSight(), drawn);
+        pass(spotting, cell, inSight(), drawn);
+        check(seen.seenAsked == 1, "a square found seen is not asked about again: a square seen stays seen, so no turn can come there");
+        check(unseen.seenAsked == 2, "one not seen is asked about in every round, as it may yet turn");
+        unseen.seen(true);
+        unseen.turns(true);
+        int told = Meta.instance.told.size();
+        pass(spotting, cell, inSight(), drawn);
+        check(Meta.instance.told.size() == told + 1 && Meta.instance.told.get(told) == unseen, "and is marked as the light finds it has turned");
+    }
+
+    private static void aChunkLoadedAgainIsAskedAboutAgain() {
+        IsoCell cell = new IsoCell();
+        IsoGridSquare square = cell.square(120, 120, 0);
+        square.seen(true);
+        Spotting spotting = spotting();
+        pass(spotting, cell, inSight(), List.of(drawn(cell, square)));
+        cell.reload(square.getX(), square.getY());
+        pass(spotting, cell, inSight(), List.of(drawn(cell, square)));
+        check(square.seenAsked == 2, "what was found seen of a chunk is let go with it, and the chunk loaded again at its place is asked about again");
     }
 
     private static void passesComeFourTimesASecondWhateverTheFrames() {
         Spotting spotting = new Spotting(0);
         long start = 5_000_000_000L;
-        check(spotting.due(start), "the first frame makes a pass");
+        check(spotting.due(start), "the first frame makes a round");
         int passes = 1;
         for (long at = start + 4_000_000L; at < start + 1_000_000_000L; at += 4_000_000L) {
             passes += spotting.due(at) ? 1 : 0;
         }
-        check(passes == 4, String.format(Locale.ROOT, "at 250 frames a second a second has four passes, not %d", passes));
+        check(passes == 4, String.format(Locale.ROOT, "at 250 frames a second a second has four rounds, not %d", passes));
         check(spotting.due(start + 2_000_000_000L), "and a frame after a long wait makes one at once");
     }
 

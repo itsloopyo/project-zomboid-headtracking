@@ -118,8 +118,6 @@ public final class IsoGridSquare {
         return z;
     }
 
-    /** The game hour the game last marked the square seen in. */
-    public int hourLastSeen = -1;
     private boolean seen, inReach;
     /** How many times the square was asked whether its player has seen it, and its room checked for being spotted from it. */
     public int seenAsked, roomChecks;

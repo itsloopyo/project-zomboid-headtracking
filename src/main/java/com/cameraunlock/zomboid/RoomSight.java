@@ -534,7 +534,8 @@ final class RoomSight {
             return slotOf(id) >= 0;
         }
 
-        private int slotOf(long id) {
+        /** The slot a room is in, read by valueAt, or -1 where it is not in the set. */
+        int slotOf(long id) {
             int mask = ids.length - 1;
             for (int slot = hash(id) & mask; stamps[slot] == stamp; slot = (slot + 1) & mask) {
                 if (ids[slot] == id) {
