@@ -22,6 +22,35 @@ final class MapAheadTests {
         Checks.run("aTileTheGameDropsIsNothingOverTheSquare", MapAheadTests::aTileTheGameDropsIsNothingOverTheSquare);
         Checks.run("theWindowHoldsTheChunksRoundTheLoadedMapAndTheWaterRoundThem", MapAheadTests::theWindowHoldsTheChunksRoundTheLoadedMapAndTheWaterRoundThem);
         Checks.run("theWindowIsAskedRingByRingInTheOrderOfTheWholeBox", MapAheadTests::theWindowIsAskedRingByRingInTheOrderOfTheWholeBox);
+        Checks.run("whatWasReadAheadIsLetGoOfOnceTheMapCannotBeRead", MapAheadTests::whatWasReadAheadIsLetGoOfOnceTheMapCannotBeRead);
+    }
+
+    /**
+     * Once the thread has failed to read the map, what was read ahead is let go of, so that
+     * the land beyond the loaded map takes its heights as the map loads, as the log says.
+     */
+    private static void whatWasReadAheadIsLetGoOfOnceTheMapCannotBeRead() throws ReflectiveOperationException {
+        MapAhead.forget();
+        try {
+            MapAhead.put(new MapAhead.Guess(3, 4));
+            int before = MapAhead.version();
+            setStatic("failureCause", new IllegalStateException("a test's"));
+            setStatic("failure", "the map could not be read ahead: a test's");
+            MapAhead.tend(0, 3 * 8, 4 * 8);
+            check(MapAhead.guessed(3, 4) == null, "what was read of a chunk is let go of");
+            check(MapAhead.version() != before, "and the version is another, so that Terrain reads the chunk again");
+        } finally {
+            setStatic("failure", null);
+            setStatic("failureCause", null);
+            setStatic("failureTold", false);
+            MapAhead.forget();
+        }
+    }
+
+    private static void setStatic(String name, Object value) throws ReflectiveOperationException {
+        java.lang.reflect.Field field = MapAhead.class.getDeclaredField(name);
+        field.setAccessible(true);
+        field.set(null, value);
     }
 
     private static void check(boolean condition, String what) {

@@ -414,13 +414,18 @@ final class MapAhead {
     /**
      * Logic thread, as a view is built with its player over the tile (x, y): has the chunks
      * within the loaded map and BEYOND chunks past it each way read, and takes in what has
-     * been read since.
+     * been read since. Once the thread has failed to read the map, it lets go of everything
+     * read ahead, and reads nothing more.
      */
     static void tend(int view, int x, int y) {
         if (failure != null) {
             if (!failureTold) {
                 failureTold = true;
-                Log.error("map ahead: " + failure + ". Nothing more is read ahead in this session: the land beyond the loaded map takes its heights as the map loads", failureCause);
+                Arrays.fill(guesses, null);
+                Arrays.fill(asked, NONE);
+                read.clear();
+                version++;
+                Log.error("map ahead: " + failure + ". What was read ahead is let go of and nothing more is read ahead in this session: the land beyond the loaded map takes its heights as the map loads", failureCause);
             }
             return;
         }
