@@ -467,7 +467,7 @@ public final class Agent {
                 new PatchSet("lamps", lamps, null),
                 new PatchSet("impacts", impacts, impactsOff == null ? null : impactsOff + ", and so were ShotsBreakLamps and ShotsBreakGlass"),
                 new PatchSet("model head", modelHead, null),
-                new PatchSet("name tags", nameTags, firstPersonOff),
+                new PatchSet("name tags", nameTags, off(Part.FIRST_PERSON, Part.NAME_TAGS_AT_HEADS)),
                 new PatchSet("game fixes", new PatchTransformer(gameFixPatches()),
                         gameFixes ? null : "the cameraunlock.zomboid.withoutGameFixes property was set"),
                 new PatchSet("hang fix", new PatchTransformer(hangFixPatches()), null),

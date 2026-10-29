@@ -512,6 +512,10 @@ FinerSkins=true
 ; which shows those by its own light. false: the game greys first person's picture as it greys its own view.
 ; Taken at the next start. Off, its patches of the game's code are left out.
 LeaveOutScreenGrey=true
+; true: on a server, in first person, the names and speech the game writes over people are put over their heads
+; in the picture, and your own are left out. false: the game writes them where its own view has their owners.
+; Taken at the next start. Off, its patches of the game's code are left out.
+NameTagsAtHeads=true
 
 [Players]
 ; Player 2's first person graphics mode, as Quality.

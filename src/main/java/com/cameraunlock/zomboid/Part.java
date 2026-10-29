@@ -51,7 +51,10 @@ enum Part {
                     + "ones in the folder the log names. false: they wear the game's own."),
     LEAVE_OUT_SCREEN_GREY("FirstPerson", "LeaveOutScreenGrey", false, true,
             "true: the game's greying of the screen by the season, fog and weather is left off the first person picture,\n"
-                    + "which shows those by its own light. false: the game greys first person's picture as it greys its own view.");
+                    + "which shows those by its own light. false: the game greys first person's picture as it greys its own view."),
+    NAME_TAGS_AT_HEADS("FirstPerson", "NameTagsAtHeads", false, true,
+            "true: on a server, in first person, the names and speech the game writes over people are put over their heads\n"
+                    + "in the picture, and your own are left out. false: the game writes them where its own view has their owners.");
 
     final String section, key, comment;
     /** Whether the row is taken while the game runs, and whether it is read at the start to leave patches out. */
