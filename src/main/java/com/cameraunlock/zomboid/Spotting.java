@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.LongFunction;
+import java.util.function.ToIntFunction;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoChunk;
 import zombie.iso.IsoGridSquare;
@@ -91,6 +92,7 @@ final class Spotting {
     private int unitCount, nextUnit, pieceCount;
     private long roundNanos;
     private final long sliceLength;
+    private ToIntFunction<IsoChunk> lightFrom, lightTop;
 
     /**
      * The squares of each chunk asked about that were found seen, a bit for each square on each
@@ -183,7 +185,7 @@ final class Spotting {
             boolean begun = !open && due(now);
             if (begun) {
                 gather(scene, frame, cell);
-                begin(cell, shownRooms, IsoWorld.instance.getMetaGrid()::getRoomDefByID, shownChunks);
+                begin(cell, shownRooms, IsoWorld.instance.getMetaGrid()::getRoomDefByID, shownChunks, frame::lightFrom, frame::lightTop);
                 if (CHECK) {
                     longestBeginNanos = Math.max(longestBeginNanos, System.nanoTime() - began);
                 }
@@ -283,9 +285,9 @@ final class Spotting {
     private static boolean gapAsked;
     private static String gap;
 
-    /** A whole round over the rooms given and the squares out of doors on the chunks given, at once. */
+    /** A whole round over the rooms given and the squares out of doors on every level of the chunks given, at once. */
     void pass(IsoCell cell, RoomSight.Seen rooms, LongFunction<RoomDef> defs, List<IsoChunk> drawn) {
-        begin(cell, rooms, defs, drawn);
+        begin(cell, rooms, defs, drawn, IsoChunk::getMinLevel, IsoChunk::getMaxLevel);
         work(cell, Long.MAX_VALUE);
         finish(cell);
     }
@@ -293,10 +295,16 @@ final class Spotting {
     /**
      * Begins a round over the rooms given and the squares out of doors on the chunks given: a
      * unit for each piece of each room's rectangles inside a chunk, and for each level of each
-     * chunk. On a client, which marks nothing, the units are only those that can spot a room.
+     * chunk. On a client, which marks nothing, the units are only those that can spot a room. Only
+     * the levels of a chunk the picture reads light on are gone over (lightFrom to lightTop,
+     * WorldScene.Frame.lightFrom): the storeys of the viewer's building held over the eye are read
+     * by nothing, and an asking that found a square's light changed would mark its chunk to be
+     * built again.
      */
-    void begin(IsoCell cell, RoomSight.Seen rooms, LongFunction<RoomDef> defs, List<IsoChunk> drawn) {
+    void begin(IsoCell cell, RoomSight.Seen rooms, LongFunction<RoomDef> defs, List<IsoChunk> drawn, ToIntFunction<IsoChunk> lightFrom, ToIntFunction<IsoChunk> lightTop) {
         letGoOfChunksGone(cell);
+        this.lightFrom = lightFrom;
+        this.lightTop = lightTop;
         open = true;
         marks = !GameClient.client;
         unitCount = nextUnit = pieceCount = 0;
@@ -337,7 +345,7 @@ final class Spotting {
                 drawnAt = Arrays.copyOf(drawnAt, drawnAt.length * 2);
             }
             drawnAt[drawnChunks.size()] = place;
-            for (int z = chunk.getMinLevel(); marks && z <= chunk.getMaxLevel(); z++) {
+            for (int z = lightFrom.applyAsInt(chunk), top = lightTop.applyAsInt(chunk); marks && z <= top; z++) {
                 unit((long) drawnChunks.size() << 8 | z - LOWEST);
             }
             drawnChunks.add(chunk);
@@ -405,6 +413,9 @@ final class Spotting {
                     if (chunk == null) {
                         throw new IllegalStateException("the square at " + x + ", " + y + ", " + z + " is on the map and its chunk is not");
                     }
+                    if (z < lightFrom.applyAsInt(chunk) || z > lightTop.applyAsInt(chunk)) {
+                        return;
+                    }
                     at = knownOf(chunk);
                 }
                 squaresRead++;
@@ -468,6 +479,7 @@ final class Spotting {
         drawnChunks.clear();
         shownChunks.clear();
         shownRooms.clear();
+        lightFrom = lightTop = null;
         known.clear();
         knownAt.clear();
         knownSpare.clear();

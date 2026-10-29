@@ -3461,6 +3461,28 @@ final class WorldScene {
             lidsFrame = frames;
         }
 
+        /** The storey a chunk in the viewer's building is held from (heldFrom), or Integer.MAX_VALUE for a chunk that is not. */
+        private int heldStorey(IsoChunk chunk) {
+            int chunkX = chunk.wx * CHUNK_TILES, chunkY = chunk.wy * CHUNK_TILES;
+            return heldFrom != Integer.MAX_VALUE && chunkX < heldMaxX && chunkX + CHUNK_TILES > heldMinX && chunkY < heldMaxY && chunkY + CHUNK_TILES > heldMinY
+                    ? heldFrom : Integer.MAX_VALUE;
+        }
+
+        /** The lowest level of a chunk whose light the frame reads (pullLights), until the frame is built again. Logic thread. */
+        int lightFrom(IsoChunk chunk) {
+            return lightFrom(chunk, lowestLevel);
+        }
+
+        private int lightFrom(IsoChunk chunk, int lowest) {
+            return Math.max(heldStorey(chunk) == Integer.MAX_VALUE ? lowest : Math.max(lowest, heldUnder + 1), chunk.getMinLevel());
+        }
+
+        /** The highest. */
+        int lightTop(IsoChunk chunk) {
+            int storey = heldStorey(chunk);
+            return storey == Integer.MAX_VALUE ? chunk.getMaxLevel() : Math.min(chunk.getMaxLevel(), storey - 1);
+        }
+
         /**
          * Asks the lighting engine, once for each of its passes, whether a chunk's lights have
          * changed, and has the game take them where they have. The game holds a copy of each
@@ -3486,9 +3508,7 @@ final class WorldScene {
             // stairwell. Each asking for a storey marks it for its light, and every mark has the
             // light of the whole tower's column read again (refresh). Moved to another storey,
             // every level now asked for is taken once, as what was left unasked may have changed.
-            int chunkX = chunk.wx * CHUNK_TILES, chunkY = chunk.wy * CHUNK_TILES;
-            int storey = heldFrom != Integer.MAX_VALUE && chunkX < heldMaxX && chunkX + CHUNK_TILES > heldMinX && chunkY < heldMaxY && chunkY + CHUNK_TILES > heldMinY
-                    ? heldFrom : Integer.MAX_VALUE;
+            int storey = heldStorey(chunk);
             boolean taken = chunk.lightingUpdateCounter != litByGame[slot] || storey != litFor[slot];
             if (pass == litAt[slot] && !taken) {
                 if (pendingLights.waits(slot)) {
@@ -3504,9 +3524,9 @@ final class WorldScene {
             litFor[slot] = storey;
             FBORenderLevels levels = chunk.getRenderLevels(playerIndex);
             boolean gameAsks = !view.firstPerson.coversTheGamesView();
-            int top = storey == Integer.MAX_VALUE ? chunk.getMaxLevel() : Math.min(chunk.getMaxLevel(), storey - 1);
+            int top = lightTop(chunk);
             long relit = 0L;
-            for (int z = Math.max(storey == Integer.MAX_VALUE ? lowest : Math.max(lowest, heldUnder + 1), chunk.getMinLevel()); z <= top; z++) {
+            for (int z = lightFrom(chunk, lowest); z <= top; z++) {
                 tollPulls++;
                 if (!taken && (gameAsks && levels.isOnScreen(z) || !LightingJNI.getChunkDirty(playerIndex, chunk.wx, chunk.wy, z + 32))) {
                     continue;

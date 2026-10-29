@@ -34,6 +34,7 @@ public final class SpottingTests {
         Checks.run("aChunkLoadedAgainIsAskedAboutAgain", SpottingTests::aChunkLoadedAgainIsAskedAboutAgain);
         Checks.run("aFramesShareOfARoundEndsOnceItsTimeIsUp", SpottingTests::aFramesShareOfARoundEndsOnceItsTimeIsUp);
         Checks.run("aRoomIsGoneOverAChunkAtATime", SpottingTests::aRoomIsGoneOverAChunkAtATime);
+        Checks.run("noLevelThePictureReadsNoLightOnIsAskedAbout", SpottingTests::noLevelThePictureReadsNoLightOnIsAskedAbout);
         Checks.run("onlyTheChunksTheConeTakesInAreSeen", SpottingTests::onlyTheChunksTheConeTakesInAreSeen);
         Checks.run("passesComeFourTimesASecondWhateverTheFrames", SpottingTests::passesComeFourTimesASecondWhateverTheFrames);
         Checks.run("aCallReplacedHandsItsHookWhatItsMethodBelongsTo", SpottingTests::aCallReplacedHandsItsHookWhatItsMethodBelongsTo);
@@ -288,13 +289,15 @@ public final class SpottingTests {
             corners[i] = cell.square(200 + 8 * i, 200, 0);
         }
         Spotting spotting = spotting();
-        spotting.begin(cell, inSight(), defs()::get, List.of(drawn(cell, corners[0]), drawn(cell, corners[1]), drawn(cell, corners[2]), drawn(cell, corners[3])));
+        spotting.begin(cell, inSight(), defs()::get, List.of(drawn(cell, corners[0]), drawn(cell, corners[1]), drawn(cell, corners[2]), drawn(cell, corners[3])),
+                IsoChunk::getMinLevel, IsoChunk::getMaxLevel);
         boolean done = spotting.work(cell, 0L);
         check(!done && corners[0].seenAsked == 1 && asked(corners) == 1, "a frame's share of a round whose time is up stops after the unit it is on, and does that one");
         done = spotting.work(cell, 0L) | spotting.work(cell, 0L);
         check(!done && asked(corners) == 3, "each frame's share takes up where the last left off");
         check(spotting.work(cell, 0L) && asked(corners) == 4, "and the last says the round's units are all done");
-        spotting.begin(cell, inSight(), defs()::get, List.of(drawn(cell, corners[0]), drawn(cell, corners[1]), drawn(cell, corners[2]), drawn(cell, corners[3])));
+        spotting.begin(cell, inSight(), defs()::get, List.of(drawn(cell, corners[0]), drawn(cell, corners[1]), drawn(cell, corners[2]), drawn(cell, corners[3])),
+                IsoChunk::getMinLevel, IsoChunk::getMaxLevel);
         check(spotting.work(cell, Long.MAX_VALUE), "a share with time to spare goes on to the end of the round");
     }
 
@@ -304,7 +307,7 @@ public final class SpottingTests {
         Room hall = Room.of(cell, 45L, 4, 4, 12, 12, 0);
         hall.def().explored = true;
         Spotting spotting = spotting();
-        spotting.begin(cell, inSight(hall), defs(hall)::get, List.of());
+        spotting.begin(cell, inSight(hall), defs(hall)::get, List.of(), IsoChunk::getMinLevel, IsoChunk::getMaxLevel);
         List<Integer> pieces = new ArrayList<>();
         boolean done = false;
         for (int before = 0; !done; before = asked(hall.squares())) {
@@ -317,6 +320,17 @@ public final class SpottingTests {
             once &= square.seenAsked == 1;
         }
         check(once, "and each of its squares once");
+    }
+
+    private static void noLevelThePictureReadsNoLightOnIsAskedAbout() {
+        IsoCell cell = new IsoCell();
+        IsoGridSquare ground = cell.square(300, 300, 0), roof = cell.square(301, 300, 1), top = cell.square(302, 300, 2);
+        Room attic = Room.of(cell, 21L, 304, 304, 1, 1, 2);
+        Spotting spotting = spotting();
+        spotting.begin(cell, inSight(attic), defs(attic)::get, List.of(drawn(cell, ground)), chunk -> 0, chunk -> 1);
+        spotting.work(cell, Long.MAX_VALUE);
+        check(ground.seenAsked == 1 && roof.seenAsked == 1, "the levels of a chunk the picture reads light on are asked about");
+        check(top.seenAsked == 0 && attic.squares()[0].seenAsked == 0, "and none it does not, of the open air or of a room: an asking there could mark the chunk for its light");
     }
 
     private static void onlyTheChunksTheConeTakesInAreSeen() {
