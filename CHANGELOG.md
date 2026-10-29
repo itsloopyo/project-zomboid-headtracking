@@ -6,6 +6,7 @@
 
 - Driving through open country runs faster in first person, with about a fifth more frames a second on the road out of Muldraugh: working out the ground's heights as the map loads takes far less time.
 - Containers in places the save has not seen yet are filled with less work: an item the game looks up by name is found once and handed back until its scripts change. What each container gets is unchanged.
+- Fewer stutters when new people come into view: their clothes are put together while the frame waits for the game, and no longer hold up the frame they are drawn in. They look the same as before.
 - Frame blending is off in every graphics mode: each frame is drawn on its own, without the one before mixed in, and edges are a little harder. `Custom` with `[Graphics] FrameBlending=true` turns it back on.
 - On a server where players cannot hurt each other, your character keeps facing where you look when walking sideways or backwards (`FacesTheView`), and zombies show at once in the isometric view (`ZombiesSeenAtOnce`), as they do offline.
 - On a server where players can hurt each other, walking sideways or backwards in first person keeps your character facing where you look, in the game's aiming stance at that stance's own pace, whatever `FacesTheView` says. Other players see it face the way you are looking, not its back. Jogging or sprinting that way, it walks.
