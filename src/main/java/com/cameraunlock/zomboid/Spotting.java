@@ -1,5 +1,7 @@
 package com.cameraunlock.zomboid;
 
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadMXBean;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -143,7 +145,15 @@ final class Spotting {
     /** Dev only: what the rounds came to since they were last said. */
     private long frames, passes, late, passNanos, longestPassNanos, sliceNanos, longestSliceNanos, longestSliceAfresh, begins, gatherNanos, longestGatherNanos,
             beginNanos, longestBeginNanos, workNanos, longestWorkNanos, longestEndNanos, squaresRead, seenAsked, foundSeen, seenTimed, seenTimedNanos, unseenTimed,
-            unseenTimedNanos, sampled, seenOutOfSight, spotted, marked, letGo, readAfresh, readUnchanged, saidNanos;
+            unseenTimedNanos, sampled, seenOutOfSight, spotted, marked, letGo, readAfresh, readUnchanged, saidNanos, longestSliceCpu, longestUnitNanos, longestUnitRead,
+            longestUnitAsked, longestUnitMarked, longestUnitAfresh;
+    /** Dev only: whether the longest unit since the rounds were last said was a piece of a room, not a level of a chunk. */
+    private boolean longestUnitRoom;
+    /**
+     * Dev only: the thread's time on the CPU, round the longest slice. Windows counts it in clock
+     * ticks of 15.625 ms, so it tells a long slice spent working from one spent waiting, and no more.
+     */
+    private static final ThreadMXBean THREADS = CHECK ? ManagementFactory.getThreadMXBean() : null;
     /** Dev only, under this object's lock: the turns found as a round asked and by other reads of the light. */
     private long turnsAsked, turnsAside;
     /**
@@ -285,7 +295,7 @@ final class Spotting {
     void look(RoomSight.Seen lately, WorldScene.Frame frame, IsoCell cell, LongFunction<RoomDef> defs, float x, float y, float z, BuildingDef building, long now) {
         stand(x, y, z, building);
         frames++;
-        long began = System.nanoTime(), deadline = began + sliceLength;
+        long began = System.nanoTime(), deadline = began + sliceLength, cpuFrom = CHECK ? THREADS.getCurrentThreadCpuTime() : 0L;
         roomsKept.found(lately, now, null);
         int afresh = CHECK ? count(true) : 0, unchanged = CHECK ? count(false) : 0;
         passer = Thread.currentThread();
@@ -348,6 +358,7 @@ final class Spotting {
         if (ended - began > longestSliceNanos) {
             longestSliceNanos = ended - began;
             longestSliceAfresh = sliceAfresh;
+            longestSliceCpu = CHECK ? THREADS.getCurrentThreadCpuTime() - cpuFrom : 0L;
         }
         sayIfDue(now);
     }
@@ -558,14 +569,29 @@ final class Spotting {
      * least one of them, and says whether the round's units are all done.
      */
     boolean work(IsoCell cell, long deadline) {
+        long from = CHECK ? System.nanoTime() : 0L;
         while (nextUnit < unitCount) {
             long unit = units[nextUnit++];
+            long read = squaresRead, asks = seenAsked, marks = marked;
+            int afresh = CHECK ? count(true) : 0;
             if ((unit & ROOM_UNIT) != 0L) {
                 roomPiece(cell, (int) unit);
             } else {
                 chunkLevel(cell, (int) (unit >>> 8), (int) (unit & 0xFF) + LOWEST);
             }
-            if (System.nanoTime() >= deadline) {
+            long at = System.nanoTime();
+            if (CHECK) {
+                if (at - from > longestUnitNanos) {
+                    longestUnitNanos = at - from;
+                    longestUnitRoom = (unit & ROOM_UNIT) != 0L;
+                    longestUnitRead = squaresRead - read;
+                    longestUnitAsked = seenAsked - asks;
+                    longestUnitMarked = marked - marks;
+                    longestUnitAfresh = count(true) - afresh;
+                }
+                from = at;
+            }
+            if (at >= deadline) {
                 break;
             }
         }
@@ -940,21 +966,25 @@ final class Spotting {
         }
         Log.info(String.format(Locale.ROOT,
                 "spotting: player %d, %.1f s, %d frames, %d rounds (%d over their quarter second) in %.3f ms each (longest %.3f), %.4f ms a frame (longest %.3f,"
-                        + " with %d squares' light read afresh); gathering %.3f ms a round (longest %.3f), beginning %.3f (longest %.3f), the work %.4f ms a frame"
-                        + " (longest %.3f), ending a round up to %.3f; squares read %d, asked whether seen %d, found seen %d (of the askings timed, %d that found it at"
+                        + " %.1f of it on the thread's CPU clock of 15.6 ms steps, with %d squares' light read afresh); gathering %.3f ms a round (longest %.3f),"
+                        + " beginning %.3f (longest %.3f), the work %.4f ms a frame (longest %.3f; its longest unit %.3f ms, %s of %d squares read, %d asked whether"
+                        + " seen, %d light read afresh and %d marked), ending a round up to %.3f; squares read %d, asked whether seen %d, found seen %d (of the askings timed, %d that found it at"
                         + " %.2f us each and %d that did not at %.2f us; seen and out of sight in %d of %d), light read afresh %d and found unchanged %d,"
                         + " chunk levels marked for their light %d times, buildings spotted %d (rooms %d), rooms the light passed over %d, rooms in sight %d; squares found"
                         + " turned seen as a round asked %d and by other reads %d, marked where the view sees them %d, waiting for the view %d, let go with their chunk %d;"
                         + " chunks known %d",
                 playerIndex + 1, (now - saidNanos) / 1e9, frames, passes, late, passNanos / 1e6 / Math.max(1, passes), longestPassNanos / 1e6,
-                sliceNanos / 1e6 / Math.max(1, frames), longestSliceNanos / 1e6, longestSliceAfresh, gatherNanos / 1e6 / Math.max(1, begins), longestGatherNanos / 1e6,
-                beginNanos / 1e6 / Math.max(1, begins), longestBeginNanos / 1e6, workNanos / 1e6 / Math.max(1, frames), longestWorkNanos / 1e6, longestEndNanos / 1e6,
+                sliceNanos / 1e6 / Math.max(1, frames), longestSliceNanos / 1e6, longestSliceCpu / 1e6, longestSliceAfresh, gatherNanos / 1e6 / Math.max(1, begins),
+                longestGatherNanos / 1e6, beginNanos / 1e6 / Math.max(1, begins), longestBeginNanos / 1e6, workNanos / 1e6 / Math.max(1, frames), longestWorkNanos / 1e6,
+                longestUnitNanos / 1e6, longestUnitRoom ? "a room's piece" : "a chunk's level", longestUnitRead, longestUnitAsked, longestUnitAfresh, longestUnitMarked,
+                longestEndNanos / 1e6,
                 squaresRead, seenAsked, foundSeen, seenTimed, seenTimedNanos / 1e3 / Math.max(1, seenTimed), unseenTimed, unseenTimedNanos / 1e3 / Math.max(1, unseenTimed),
                 seenOutOfSight, sampled, readAfresh, readUnchanged, levelsMarked.sumThenReset(), spotted, roomsSpotted.sumThenReset(), roomsLeftByLight.sumThenReset(),
                 roomsKept.size(), asked, aside, marked, waiting(), letGo, knownAt.size()));
         saidNanos = now;
         frames = passes = late = passNanos = longestPassNanos = sliceNanos = longestSliceNanos = longestSliceAfresh = begins = gatherNanos = longestGatherNanos = beginNanos
                 = longestBeginNanos = workNanos = longestWorkNanos = longestEndNanos = squaresRead = seenAsked = foundSeen = seenTimed = seenTimedNanos = unseenTimed
-                = unseenTimedNanos = sampled = seenOutOfSight = spotted = marked = letGo = readAfresh = readUnchanged = 0;
+                = unseenTimedNanos = sampled = seenOutOfSight = spotted = marked = letGo = readAfresh = readUnchanged = longestSliceCpu = longestUnitNanos = longestUnitRead
+                = longestUnitAsked = longestUnitMarked = longestUnitAfresh = 0;
     }
 }
