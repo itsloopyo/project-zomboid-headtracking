@@ -172,6 +172,7 @@ final class Tracking {
         MuzzleFlash.set(live.muzzleFlash());
         Crosshair.set(live.crosshair());
         Regrip.set(live.regrip());
+        PendingLights.set(live.spreadLightUpdates());
         SplitScreen.set(live.splitScreen());
         FieldOfView.set(live.fieldOfView());
         talk(live);
@@ -274,6 +275,7 @@ final class Tracking {
         MuzzleFlash.set(live.muzzleFlash());
         Crosshair.set(live.crosshair());
         Regrip.set(live.regrip());
+        PendingLights.set(live.spreadLightUpdates());
         SplitScreen.set(live.splitScreen());
         if (live.own() != Own.rows()) {
             Own.set(live.own());

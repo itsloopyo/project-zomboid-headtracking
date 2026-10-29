@@ -59,11 +59,11 @@ final class Config {
 
     /**
      * What the rows read again while the game runs hold: the field of view in degrees, Own's bits, Rules' bits,
-     * by player the Quality rows, the IsometricQuality rows as Quality modes and the Style rows, the FirstPerson rows as a bit a player,
+     * by player the Quality rows, the IsometricQuality rows as Quality modes and the Style rows, the SpreadLightUpdates row, the FirstPerson rows as a bit a player,
      * the HillHeight row, the MuzzleFlash row, the Crosshair row, the RegripTwoHandedWeapons row, the SplitScreen row, the rows of [Graphics], the TalkingMouths row
      * and each player's microphone.
      */
-    record Live(float fieldOfView, int own, int rules, int[] quality, int[] overheadQuality, int[] style, int firstPerson, float hillHeight, boolean muzzleFlash, boolean crosshair, boolean regrip, int splitScreen,
+    record Live(float fieldOfView, int own, int rules, int[] quality, int[] overheadQuality, int[] style, boolean spreadLightUpdates, int firstPerson, float hillHeight, boolean muzzleFlash, boolean crosshair, boolean regrip, int splitScreen,
             Quality.Picture custom, boolean talkingMouths, List<String> microphones) {}
 
     /** The keys of [Graphics], the Custom graphics mode, in the order the options screen shows them. */
@@ -75,7 +75,7 @@ final class Config {
     static final int MIN_VIEW_DISTANCE = 32, MIN_DRAW_DISTANCE = 16;
 
     private final CameraUnlock core;
-    private final int fieldOfView, hillHeight, muzzleFlash, crosshair, regrip, splitScreen, talkingMouths;
+    private final int fieldOfView, spreadLightUpdates, hillHeight, muzzleFlash, crosshair, regrip, splitScreen, talkingMouths;
     /** By player, the rows of their first person graphics mode, their isometric view's and their picture style. */
     private final int[] quality = new int[View.COUNT], overheadQuality = new int[View.COUNT], style = new int[View.COUNT];
     private final int[] firstPerson = new int[View.COUNT];
@@ -160,6 +160,11 @@ final class Config {
                 "Picture style: Vivid (strong contrast and colour), Natural (colours as lit, less contrast) or Bleak (washed out, near\n"
                         + "the game's own look).",
                 writable | live, Style.words(), Style.BLEAK.ordinal());
+        spreadLightUpdates = core.configLocalBool("General", "SpreadLightUpdates",
+                "true: when the game relights many places at once, the first person view takes up their new light over the next few\n"
+                        + "frames, nearest first, so that driving past lights stutters less. false: all of it in the frame the game relights\n"
+                        + "it, so a far light change can show about a tenth of a second sooner, in longer frames.",
+                writable | live, true);
         firstPerson[0] = core.configLocalBool("General", "FirstPerson",
                 "true: a save loads in first person. The first person key sets it as it switches the view.", writable | live, false);
         // Not a row of [Graphics]: it changes what the land looks like and not what the picture costs, in every graphics mode alike.
@@ -421,6 +426,7 @@ final class Config {
         puts.put("MuzzleFlash", value -> MuzzleFlash.set(value != 0));
         puts.put("Crosshair", value -> Crosshair.set(value != 0));
         puts.put("RegripTwoHandedWeapons", value -> Regrip.set(value != 0));
+        puts.put("SpreadLightUpdates", value -> PendingLights.set(value != 0));
         puts.put("SplitScreen", value -> SplitScreen.set((int) value));
         puts.put(TALKING_MOUTHS, value -> {
             Mouths.set(value != 0);
@@ -537,7 +543,7 @@ final class Config {
             styles[player] = core.configGetInt(style[player]);
             firstPersons |= core.configGetInt(firstPerson[player]) << player;
         }
-        return new Live(core.configGetFloat(fieldOfView), rows, changed, qualities, overheadQualities, styles, firstPersons, core.configGetFloat(hillHeight), core.configGetInt(muzzleFlash) != 0, core.configGetInt(crosshair) != 0, core.configGetInt(regrip) != 0, core.configGetInt(splitScreen), picture(custom),
+        return new Live(core.configGetFloat(fieldOfView), rows, changed, qualities, overheadQualities, styles, core.configGetInt(spreadLightUpdates) != 0, firstPersons, core.configGetFloat(hillHeight), core.configGetInt(muzzleFlash) != 0, core.configGetInt(crosshair) != 0, core.configGetInt(regrip) != 0, core.configGetInt(splitScreen), picture(custom),
                 core.configGetInt(talkingMouths) != 0, List.of(microphones()));
     }
 

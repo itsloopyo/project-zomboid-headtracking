@@ -21,6 +21,9 @@ import java.util.Locale;
  * its squares are taken, across a pass and whether or not its chunk is still in view. Only
  * a chunk the map lets go of takes its levels with it.
  *
+ * With the SpreadLightUpdates row false a frame's share has no bound, so every level is taken
+ * in the frame it is found in.
+ *
  * Kept by the places of ChunkMarks' table, which no two chunks of the loaded map share.
  * Logic thread only.
  */
@@ -29,6 +32,8 @@ final class PendingLights {
     static final int NONE = Integer.MIN_VALUE;
     /** Dev only: at the end of every frame the levels found are held to those taken, let go and waiting, and none may be due. */
     static final boolean CHECKED = Boolean.getBoolean("cameraunlock.zomboid.checkLightPulls");
+    /** The SpreadLightUpdates row, read by each frame as it begins to take. */
+    private static volatile boolean spread = true;
     private static final int PLACES = ChunkMarks.SIDE * ChunkMarks.SIDE, LOWEST_LEVEL = -32, LEVELS = 64;
     /**
      * However little the last pass took, a frame may take this many squares, eight levels'
@@ -74,6 +79,18 @@ final class PendingLights {
     private int tollFrames, tollSquaresNow, tollMostSquares, tollMostWaiting, tollOldestWaiting, tollOldestTaken;
     private long tollMicros, tollMostMicros, tollSquares, tollWaiting, tollFound, tollTaken, tollLate, tollDue, tollLetGo, tollAgain;
 
+    static void set(boolean asked) {
+        if (asked == spread) {
+            return;
+        }
+        spread = asked;
+        Log.info("light updates spread over a lighting pass's frames: " + (asked ? "on" : "off"));
+    }
+
+    static boolean spread() {
+        return spread;
+    }
+
     /** The bit of a level in what a place holds. */
     static long bit(int level) {
         if (level < LOWEST_LEVEL || level >= LOWEST_LEVEL + LEVELS) {
@@ -116,8 +133,8 @@ final class PendingLights {
         }
         this.frame = frame;
         framesInPass++;
-        left = share;
-        if (framesInPass > 1) {
+        left = spread ? share : Integer.MAX_VALUE;
+        if (spread && framesInPass > 1) {
             // Not rounded: rounded down, passes of 2.7 frames on the mean would leave the second frame all of a pass's light.
             double framesLeft = Math.max(1.0, framesAPass - framesInPass + 1);
             long squaresALevel = taken == 0L ? WorldScene.CHUNK_TILES * WorldScene.CHUNK_TILES : Math.max(1L, squaresTaken / taken);

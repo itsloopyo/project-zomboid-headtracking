@@ -18,7 +18,7 @@ final class OptionsLayout {
         new Group("Tracking", null, "TrackingMode", "AimMode", "WorldSpaceYaw"),
         new Group("First person", null, "FirstPerson", "FieldOfView", "Crosshair", "HillHeight"),
         new Group("Weapons", null, "MuzzleFlash", "RegripTwoHandedWeapons"),
-        new Group("Graphics", null, "Quality", "IsometricQuality", "Style"),
+        new Group("Graphics", null, "Quality", "IsometricQuality", "Style", "SpreadLightUpdates"),
         new Group("Custom graphics", "Graphics"),
         new Group("Vanilla content", "Content"),
         new Group("Offline rules", "Rules"),

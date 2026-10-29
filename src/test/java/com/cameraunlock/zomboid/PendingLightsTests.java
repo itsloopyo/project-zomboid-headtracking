@@ -22,6 +22,7 @@ final class PendingLightsTests {
         Checks.run("aSteadyDriveTakesEachPassOverItsFrames", PendingLightsTests::aSteadyDriveTakesEachPassOverItsFrames);
         Checks.run("aBigFindIsTakenOverWhatIsLeftOfItsPass", PendingLightsTests::aBigFindIsTakenOverWhatIsLeftOfItsPass);
         Checks.run("theCheckFindsWhatWaitsFromAnEarlierPass", PendingLightsTests::theCheckFindsWhatWaitsFromAnEarlierPass);
+        Checks.run("withTheSpreadOffEveryLevelIsTakenInTheFrameItIsFound", PendingLightsTests::withTheSpreadOffEveryLevelIsTakenInTheFrameItIsFound);
     }
 
     private static void check(boolean condition, String what) {
@@ -345,6 +346,56 @@ final class PendingLightsTests {
         int after = 160 * SQUARES - squares[0];
         check(squares[1] <= after * 2 / 3 && squares[2] >= after / 3, "and the next takes what waits over the 1.86 frames the pass is expected to have left, not all of it: "
                 + squares[1] + " and " + squares[2] + " of " + after);
+    }
+
+    private static void withTheSpreadOffEveryLevelIsTakenInTheFrameItIsFound() {
+        taken.clear();
+        Chunk tower = new Chunk(300, 300), near = new Chunk(301, 300), middle = new Chunk(303, 300), far = new Chunk(306, 300);
+        Set<Chunk> map = Set.of(tower, near, middle, far);
+        // As aFrameTakesItsShareNearestFirst: a share of 800 squares, which the far chunk's light would wait past.
+        PendingLights lights = new PendingLights();
+        lights.begin(1, 1);
+        lights.found(tower.place(), tower.wx, tower.wy, levels(-8, 31));
+        take(lights, tower);
+        leave(lights, map);
+        for (int frame = 2; frame <= 4; frame++) {
+            lights.begin(1, frame);
+            leave(lights, map);
+        }
+        PendingLights.set(false);
+        try {
+            lights.begin(2, 5);
+            int before = taken.size();
+            for (Chunk chunk : List.of(near, middle, far)) {
+                lights.found(chunk.place(), chunk.wx, chunk.wy, levels(0, 5));
+                take(lights, chunk);
+            }
+            List<Took> walk = new ArrayList<>();
+            for (Chunk chunk : List.of(near, middle, far)) {
+                for (int z = 0; z <= 5; z++) {
+                    walk.add(new Took(chunk, z));
+                }
+            }
+            check(taken.subList(before, taken.size()).equals(walk) && lights.levelsWaiting() == 0,
+                    "every level found is taken in the walk of the frame it is found in, in the walk's order and from the lowest level up: " + taken.subList(before, taken.size()));
+            leave(lights, map);
+            // Turned on, a pass's light is spread again: the last pass's 1,152 squares in one frame give a share of 1,440, and 6,144 are found.
+            PendingLights.set(true);
+            lights.begin(3, 6);
+            for (Chunk chunk : List.of(near, middle, far)) {
+                lights.found(chunk.place(), chunk.wx, chunk.wy, levels(0, 31));
+                take(lights, chunk);
+            }
+            leave(lights, map);
+            check(lights.levelsWaiting() > 0, "turned on again, the frame takes its share and the rest waits: " + lights.levelsWaiting());
+            // Turned off with light waiting, the next frame takes all of it.
+            PendingLights.set(false);
+            lights.begin(3, 7);
+            leave(lights, map);
+            check(lights.levelsWaiting() == 0, "turned off with light waiting, the next frame takes what waits: " + lights.levelsWaiting());
+        } finally {
+            PendingLights.set(true);
+        }
     }
 
     private static void theCheckFindsWhatWaitsFromAnEarlierPass() {

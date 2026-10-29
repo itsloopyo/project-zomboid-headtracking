@@ -681,7 +681,7 @@ public final class CoreTests {
         String saved = text();
         edit(saved.replace("FieldOfView=65.0", "FieldOfView=90").replace("VanillaWeapons=false", "VanillaWeapons=true")
                 .replace("VanillaPlants=false", "VanillaPlants=true").replace("Quality=Medium", "Quality=High").replace("Style=Vivid", "Style=Natural")
-                .replace("MuzzleFlash=true", "MuzzleFlash=false").replace("Crosshair=true", "Crosshair=false").replace("RegripTwoHandedWeapons=true", "RegripTwoHandedWeapons=false").replace("SplitScreen=Horizontal", "SplitScreen=Vertical").replace("UdpPort=default", "UdpPort=5555")
+                .replace("MuzzleFlash=true", "MuzzleFlash=false").replace("Crosshair=true", "Crosshair=false").replace("RegripTwoHandedWeapons=true", "RegripTwoHandedWeapons=false").replace("SpreadLightUpdates=true", "SpreadLightUpdates=false").replace("SplitScreen=Horizontal", "SplitScreen=Vertical").replace("UdpPort=default", "UdpPort=5555")
                 .replace("HillHeight=1.5", "HillHeight=0.25"));
         Tracking.watchSettings();
         check(FieldOfView.degrees() == 90f, "an edited field of view is read while the game runs");
@@ -692,10 +692,11 @@ public final class CoreTests {
         check(!MuzzleFlash.on(), "and the muzzle flash switched off");
         check(!Crosshair.on(), "and the mod's own crosshair switched off");
         check(!Regrip.on(), "and two-handed weapons left in the right hand");
+        check(!PendingLights.spread(), "and the light updates taken up in the frame the game relights them");
         edit(saved.replace("VanillaArms=false", "VanillaArms=true"));
         Tracking.watchSettings();
         check(FieldOfView.degrees() == 65f && Own.rows() == (Own.ALL & ~Own.ARMS) && Quality.name(0).equals("Medium") && Style.of(0) == Style.VIVID
-                        && MuzzleFlash.on() && Crosshair.on() && Regrip.on() && SplitScreen.row() == SplitScreen.HORIZONTAL && HillHeight.asked() == 1.5f,
+                        && MuzzleFlash.on() && Crosshair.on() && Regrip.on() && PendingLights.spread() && SplitScreen.row() == SplitScreen.HORIZONTAL && HillHeight.asked() == 1.5f,
                 "set back, they are as they were, and the arms row switched on is that row and no other: " + Own.described(Own.rows()));
         Tracking.cycleStyle(0);
         check(Style.of(0) == Style.NATURAL, "a save after an edit still saves");
@@ -732,7 +733,7 @@ public final class CoreTests {
         for (CameraUnlock.Option option : options) {
             ids.append(option.id).append(' ');
         }
-        check(ids.toString().equals("WorldSpaceYaw TrackingMode AimMode FieldOfView Quality IsometricQuality Style FirstPerson HillHeight MuzzleFlash Crosshair RegripTwoHandedWeapons SplitScreen "
+        check(ids.toString().equals("WorldSpaceYaw TrackingMode AimMode FieldOfView Quality IsometricQuality Style SpreadLightUpdates FirstPerson HillHeight MuzzleFlash Crosshair RegripTwoHandedWeapons SplitScreen "
                         + "SecondPlayerQuality SecondPlayerIsometricQuality SecondPlayerStyle SecondPlayerFirstPerson ThirdPlayerQuality ThirdPlayerIsometricQuality ThirdPlayerStyle "
                         + "ThirdPlayerFirstPerson FourthPlayerQuality FourthPlayerIsometricQuality FourthPlayerStyle FourthPlayerFirstPerson TreeQuality "
                         + "GrassDensity RenderScale ViewDistance ZombiesAndPropsDrawDistance FarTreeDistance RainOnGlass ShadingAndLight Reflections ReflectionScale "
@@ -750,7 +751,7 @@ public final class CoreTests {
             }
         }
         check(page.toString().equals("[Tracking] TrackingMode AimMode WorldSpaceYaw [First person] FirstPerson FieldOfView Crosshair HillHeight [Weapons] MuzzleFlash RegripTwoHandedWeapons "
-                        + "[Graphics] Quality IsometricQuality Style [Custom graphics] TreeQuality GrassDensity RenderScale ViewDistance ZombiesAndPropsDrawDistance "
+                        + "[Graphics] Quality IsometricQuality Style SpreadLightUpdates [Custom graphics] TreeQuality GrassDensity RenderScale ViewDistance ZombiesAndPropsDrawDistance "
                         + "FarTreeDistance RainOnGlass ShadingAndLight Reflections ReflectionScale FullSizeTextures SurfaceDepth SharpShadows WholeFigureShadows FrameBlending "
                         + "LightDistance CorpseModels [Vanilla content] VanillaWeapons VanillaFurniture VanillaPictures VanillaPlants VanillaTextures VanillaBuildings "
                         + "VanillaZombies VanillaPeople VanillaArms VanillaClothes VanillaAnimals VanillaFire VanillaCabins [Offline rules] ShotsThroughWalls "
