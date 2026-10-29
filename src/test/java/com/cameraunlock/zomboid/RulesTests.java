@@ -59,7 +59,11 @@ final class RulesTests {
                     && Rules.seenAtOnce() && !Rules.rewind() && Rules.dressesHiddenWalls(), "Rewind30s off leaves a death final and changes nothing else");
             Rules.set(Rules.ALL & ~Rules.HIDDEN_WALLS);
             check(Rules.throughWalls() && Rules.breaksLamps() && Rules.breaksGlass() && Rules.wounds() && !Rules.vehiclesStock() && Rules.facing() == Rules.Facing.FACES_THE_VIEW_AT_THE_PACE_AHEAD && Rules.pastTrees()
-                    && Rules.seenAtOnce() && Rules.rewind() && !Rules.dressesHiddenWalls(), "HiddenWallDecor off hangs nothing and changes nothing else");
+                    && Rules.seenAtOnce() && Rules.rewind() && !Rules.dressesHiddenWalls() && !Rules.drawsHiddenWallPictures(),
+                    "HiddenWallDecor off hangs and draws nothing and changes nothing else");
+            Rules.set(Rules.ALL & ~Rules.HIDDEN_WALLS_SAVED);
+            check(Rules.throughWalls() && Rules.seenAtOnce() && Rules.rewind() && !Rules.dressesHiddenWalls() && Rules.drawsHiddenWallPictures(),
+                    "HiddenWallDecorSaved off adds nothing to the save, and the pictures are still drawn");
         });
     }
 

@@ -393,9 +393,13 @@ final class Config {
                     writable | live, false),
             core.configLocalBool("Rules", "HiddenWallDecor",
                     "true: in first person the south and east walls of a room, which the isometric view never shows from inside,\n"
-                            + "carry pictures that are drawn by the mod and never saved. Offline they also get the game's own mirrors, clocks\n"
-                            + "and coat racks where the room's other walls say they belong, the first time the room is loaded, and those\n"
-                            + "stay in your save. false: nothing is drawn or added. On a server the pictures are drawn and nothing is added.",
+                            + "carry pictures that are drawn by the mod and never saved. false: nothing is drawn on them, and nothing is\n"
+                            + "added to them whatever HiddenWallDecorSaved says. On a server the pictures are drawn too.",
+                    writable | live, true),
+            core.configLocalBool("Rules", "HiddenWallDecorSaved",
+                    "true: offline, while HiddenWallDecor is on, those walls also get the game's own mirrors, clocks and coat racks\n"
+                            + "where the room's other walls say they belong, the first time the room is loaded, and those stay in your save.\n"
+                            + "false: nothing is added to the save, and what was added before stays. On a server nothing is added.",
                     writable | live, true),
         };
 
@@ -456,7 +460,7 @@ final class Config {
                 }
             });
         }
-        String[] ruleKeys = {"ShotsThroughWalls", "ShotsBreakLamps", "ShotsBreakGlass", "ShotsWoundLimbs", "VehiclesSmashThrough", "FacesTheView", "ShotsPastTrees", "ZombiesSeenAtOnce", "Rewind30s", "HiddenWallDecor"};
+        String[] ruleKeys = {"ShotsThroughWalls", "ShotsBreakLamps", "ShotsBreakGlass", "ShotsWoundLimbs", "VehiclesSmashThrough", "FacesTheView", "ShotsPastTrees", "ZombiesSeenAtOnce", "Rewind30s", "HiddenWallDecor", "HiddenWallDecorSaved"};
         for (int i = 0; i < ruleKeys.length; i++) {
             int bit = 1 << i;
             puts.put(ruleKeys[i], value -> {
