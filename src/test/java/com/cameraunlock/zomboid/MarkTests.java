@@ -1,10 +1,22 @@
 package com.cameraunlock.zomboid;
 
 import java.lang.classfile.ClassFile;
+import java.lang.classfile.CodeBuilder;
+import java.lang.classfile.CodeElement;
+import java.lang.classfile.MethodModel;
+import java.lang.classfile.Opcode;
+import java.lang.classfile.instruction.BranchInstruction;
+import java.lang.classfile.instruction.FieldInstruction;
+import java.lang.classfile.instruction.InvokeInstruction;
+import java.lang.classfile.instruction.LoadInstruction;
+import java.lang.classfile.instruction.ReturnInstruction;
+import java.lang.classfile.instruction.ThrowInstruction;
 import java.lang.constant.ClassDesc;
 import java.lang.constant.ConstantDescs;
 import java.lang.constant.MethodTypeDesc;
 import java.lang.invoke.MethodHandles;
+import java.util.ArrayList;
+import java.util.List;
 import zombie.iso.IsoChunk;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
@@ -32,6 +44,8 @@ final class MarkTests {
         Checks.run("aTallyIsCountedIntoAnother", MarkTests::aTallyIsCountedIntoAnother);
         Checks.run("aMethodOfAnObjectHandsItselfOverBeforeAnythingElse", MarkTests::aMethodOfAnObjectHandsItselfOverBeforeAnythingElse);
         Checks.run("aStaticMethodIsRefused", MarkTests::aStaticMethodIsRefused);
+        Checks.run("eachUnmarkedChangeIsMarkedAfterTheGameMakesItAndNotOnAReturnBeforeIt", MarkTests::eachUnmarkedChangeIsMarkedAfterTheGameMakesItAndNotOnAReturnBeforeIt);
+        Checks.run("aLoadIsToldOfAsItBeginsAndOnEveryWayOut", MarkTests::aLoadIsToldOfAsItBeginsAndOnEveryWayOut);
     }
 
     private static void check(boolean condition, String what) {
@@ -285,5 +299,145 @@ final class MarkTests {
             return;
         }
         throw new AssertionError("a static method by the name took a patch that loads the object it has not got");
+    }
+
+    /** A call a method of the game makes, on an object or on none. */
+    private record Call(String owner, String name, String descriptor, boolean onAnObject) {}
+
+    /**
+     * Each patch of a change the game makes without marking it, put into a method shaped as the
+     * game's: it returns at once, as the game's do for no object, sand or dirt underfoot or a
+     * barricade, and otherwise makes the call the patch marks after. The methods are read, not run.
+     */
+    private static void eachUnmarkedChangeIsMarkedAfterTheGameMakesItAndNotOnAReturnBeforeIt() {
+        List<Agent.Patch> patches = Agent.unmarkedChangePatches();
+        String object = "zombie/iso/IsoObject", square = "zombie/iso/IsoGridSquare", list = "java/util/ArrayList";
+        placed(patches, "zombie/erosion/obj/ErosionObjOverlay", "setOverlay", "(L" + object + ";IIIF)I", new Call(list, "add", "(Ljava/lang/Object;)Z", true), 1,
+                "return", "add", "mark changed 1", "return");
+        placed(patches, "zombie/erosion/obj/ErosionObjOverlay", "removeOverlay", "(L" + object + ";I)Z", new Call(list, "remove", "(I)Ljava/lang/Object;", true), 2,
+                "return", "remove", "mark changed 1", "remove", "mark changed 1", "return");
+        placed(patches, square, "dirtStamp", "()V", new Call(object, "setSpriteFromName", "(Ljava/lang/String;)V", true), 1,
+                "return", "setSpriteFromName", "mark stamped 0", "return");
+        placed(patches, "zombie/randomizedWorld/RandomizedWorldBase", "graffSquare", "(L" + square + ";Ljava/lang/String;Z)V",
+                new Call(square, "RecalcAllWithNeighbours", "(Z)V", true), 1, "return", "RecalcAllWithNeighbours", "mark changedOn 1", "return");
+        placed(patches, "zombie/iso/objects/IsoCompost", "updateSprite", "()V", new Call("zombie/iso/objects/IsoCompost", "transmitUpdatedSpriteToClients", "()V", true), 4,
+                "return", "transmitUpdatedSpriteToClients", "mark changed 0", "transmitUpdatedSpriteToClients", "mark changed 0",
+                "transmitUpdatedSpriteToClients", "mark changed 0", "transmitUpdatedSpriteToClients", "mark changed 0", "return");
+        for (String door : new String[] {"zombie/iso/objects/IsoDoor", "zombie/iso/objects/IsoThumpable", "zombie/iso/objects/IsoCurtain"}) {
+            placed(patches, door, "ToggleDoorSilent", "()V", new Call(square, "setRecalcLightTime", "(F)V", false), 1,
+                    "return", "setRecalcLightTime", "mark changed 0", "return");
+        }
+        for (String fire : new String[] {"zombie/iso/objects/IsoFireplace", "zombie/iso/objects/IsoBarbecue"}) {
+            placed(patches, fire, "setLit", "(Z)V", null, 0, "isLit", "mark burning 0 0 1", "return", "return");
+        }
+        placed(patches, "zombie/iso/IsoCell", "ConnectNewSquare", "(L" + square + ";Z)L" + square + ";", null, 0, "mark made 1", "return", "mark made 1", "return");
+    }
+
+    private static void aLoadIsToldOfAsItBeginsAndOnEveryWayOut() {
+        placed(Agent.chunkMarkPatches(), "zombie/iso/IsoChunk", "doLoadGridsquare", "()V", new Call("zombie/iso/IsoChunk", "loadInMainThread", "()V", true), 1,
+                "mark loading 0", "mark loaded 0", "return", "loadInMainThread", "mark loaded 0", "return", "mark loaded 0", "throw");
+    }
+
+    /** Checks the steps (see steps) of the method once the patch of it is put into one shaped as the game's (see shaped). */
+    private static void placed(List<Agent.Patch> patches, String owner, String method, String descriptor, Call call, int calls, String... expected) {
+        Agent.Patch patch = null;
+        for (Agent.Patch each : patches) {
+            if (each.owner().equals(owner) && each.what().startsWith(method + " ")) {
+                if (patch != null) {
+                    throw new IllegalStateException("two patches of " + owner + "." + method);
+                }
+                patch = each;
+            }
+        }
+        if (patch == null) {
+            throw new IllegalStateException("no patch of " + owner + "." + method);
+        }
+        List<String> steps = steps(patch.rewrite().apply(shaped(method, descriptor, call, calls)), method);
+        check(steps.equals(List.of(expected)), owner + "." + method + " patched reads " + steps + ", where it should read " + List.of(expected));
+    }
+
+    /**
+     * A class with a method of the name and descriptor given, which returns at once when its
+     * object says so and otherwise makes the call given as many times as given, and returns.
+     * Whatever it returns or hands a call is null or naught.
+     */
+    private static byte[] shaped(String method, String descriptor, Call call, int calls) {
+        ClassDesc owner = ClassDesc.of("com.cameraunlock.zomboid.ShapedAsTheGames");
+        MethodTypeDesc type = MethodTypeDesc.ofDescriptor(descriptor);
+        return ClassFile.of().build(owner, shape -> shape
+                .withFlags(ClassFile.ACC_PUBLIC)
+                .withField("early", ConstantDescs.CD_boolean, ClassFile.ACC_PUBLIC)
+                .withMethodBody(method, type, ClassFile.ACC_PUBLIC, code -> {
+                    code.aload(0).getfield(owner, "early", ConstantDescs.CD_boolean).ifThen(Opcode.IFNE, early -> answer(early, type));
+                    for (int made = 0; made < calls; made++) {
+                        MethodTypeDesc called = MethodTypeDesc.ofDescriptor(call.descriptor());
+                        if (call.onAnObject()) {
+                            code.aconst_null();
+                        }
+                        for (ClassDesc parameter : called.parameterList()) {
+                            naught(code, parameter);
+                        }
+                        code.invoke(call.onAnObject() ? Opcode.INVOKEVIRTUAL : Opcode.INVOKESTATIC, ClassDesc.ofInternalName(call.owner()), call.name(), called, false);
+                        char returned = called.returnType().descriptorString().charAt(0);
+                        if (returned == 'J' || returned == 'D') {
+                            code.pop2();
+                        } else if (returned != 'V') {
+                            code.pop();
+                        }
+                    }
+                    answer(code, type);
+                }));
+    }
+
+    private static void answer(CodeBuilder code, MethodTypeDesc type) {
+        switch (type.returnType().descriptorString().charAt(0)) {
+            case 'V' -> code.return_();
+            case 'L', '[' -> code.aconst_null().areturn();
+            default -> code.iconst_0().ireturn();
+        }
+    }
+
+    private static void naught(CodeBuilder code, ClassDesc type) {
+        switch (type.descriptorString().charAt(0)) {
+            case 'L', '[' -> code.aconst_null();
+            case 'F' -> code.fconst_0();
+            case 'J' -> code.lconst_0();
+            case 'D' -> code.dconst_0();
+            default -> code.iconst_0();
+        }
+    }
+
+    /**
+     * What a method does, in order: each call by its name, each call to ChunkMarks as "mark", its
+     * name and the slots of the locals loaded before it since the last field read or write, branch,
+     * return, throw or mark, each return and each throw.
+     */
+    private static List<String> steps(byte[] classBytes, String method) {
+        ArrayList<String> steps = new ArrayList<>();
+        for (MethodModel model : ClassFile.of().parse(classBytes).methods()) {
+            if (!model.methodName().equalsString(method)) {
+                continue;
+            }
+            StringBuilder loaded = new StringBuilder();
+            for (CodeElement element : model.code().orElseThrow()) {
+                if (element instanceof LoadInstruction load) {
+                    loaded.append(' ').append(load.slot());
+                } else if (element instanceof InvokeInstruction invoke && invoke.owner().asInternalName().equals("com/cameraunlock/zomboid/ChunkMarks")) {
+                    steps.add("mark " + invoke.name().stringValue() + loaded);
+                    loaded.setLength(0);
+                } else if (element instanceof InvokeInstruction invoke) {
+                    steps.add(invoke.name().stringValue());
+                } else if (element instanceof ReturnInstruction) {
+                    steps.add("return");
+                    loaded.setLength(0);
+                } else if (element instanceof ThrowInstruction) {
+                    steps.add("throw");
+                    loaded.setLength(0);
+                } else if (element instanceof FieldInstruction || element instanceof BranchInstruction) {
+                    loaded.setLength(0);
+                }
+            }
+        }
+        return steps;
     }
 }

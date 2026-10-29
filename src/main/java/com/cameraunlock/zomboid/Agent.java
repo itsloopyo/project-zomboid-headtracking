@@ -1190,7 +1190,7 @@ public final class Agent {
      * as its load begins and once it has loaded, since what the game marks as it fills one is
      * not counted while the chunk is not yet loaded. See ChunkMarks.
      */
-    private static List<Patch> chunkMarkPatches() {
+    static List<Patch> chunkMarkPatches() {
         String chunk = "zombie/iso/IsoChunk", levels = "zombie/iso/fboRenderChunk/FBORenderLevels";
         MethodTypeDesc marked = MethodTypeDesc.ofDescriptor("(L" + chunk + ";J)V"), markedOn = MethodTypeDesc.ofDescriptor("(L" + chunk + ";IJ)V"), lit = MethodTypeDesc.ofDescriptor("(L" + levels + ";IJ)V");
         ClassDesc marks = ClassDesc.ofInternalName("com/cameraunlock/zomboid/ChunkMarks");
@@ -1268,7 +1268,7 @@ public final class Agent {
      * more by the eye and six seconds or more far off, unless the chunk is read sooner for
      * something else.
      */
-    private static List<Patch> unmarkedChangePatches() {
+    static List<Patch> unmarkedChangePatches() {
         String marks = "com/cameraunlock/zomboid/ChunkMarks", overlay = "zombie/erosion/obj/ErosionObjOverlay", square = "zombie/iso/IsoGridSquare",
                 world = "zombie/randomizedWorld/RandomizedWorldBase", compost = "zombie/iso/objects/IsoCompost";
         CallSite.Method changed = new CallSite.Method(marks, "changed", "(Lzombie/iso/IsoObject;)V");
