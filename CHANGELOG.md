@@ -9,6 +9,16 @@
 - On a server where players cannot hurt each other, first person shots go on through thin walls and doors (`ShotsThroughWalls`) and past a tree's trunk (`ShotsPastTrees`), as they do offline.
 - On any server, the south and east walls of rooms carry the mod's pictures in first person, as they do offline.
 
+### Fixed
+
+- The slight wobble on edges in first person, worst round door and window frames, is gone: the eye's place is kept finer than before, so near edges no longer step as the head moves.
+- Tarmac and gravel near your feet no longer sparkle as your head moves.
+- Chain-link fences, window glass, film grain and fire smoke no longer fizz from frame to frame.
+- First person no longer turns off for the session near a noise trap, or on a map with floor tiles from a mod that is missing.
+- A pole on a roof is no longer drawn as the top of a pole set back below it.
+- A porch canopy's depth follows when its band or its squares are built or taken down.
+- Leaving a save gives the graphics card's memory back even when unloading the world fails.
+
 ## [0.1.1] - 2026-10-28
 
 ### Changed
