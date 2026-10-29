@@ -460,16 +460,17 @@ final class Tracking {
     }
 
     /**
-     * What the options page's first button sets: first person and the isometric graphics both on
-     * or both off. On, a player's isometric view at Low, the game's own picture, goes to Medium,
-     * and one at Medium, High or Custom stays there; off, every player's goes to Low.
+     * What the options page's first button sets: on, first person, with every player's isometric
+     * view left at the graphics mode it has; off, first person off and every player's isometric
+     * view at Low, the game's own picture.
      */
     static Map<String, Double> firstPersonAndIsometric(boolean on) {
         Map<String, Double> values = new LinkedHashMap<>();
         values.put(Part.FIRST_PERSON.key, on ? 1.0 : 0.0);
-        for (int player = 0; player < View.COUNT; player++) {
-            int now = Quality.overheadRow(player);
-            values.put(Config.overheadQualityKey(player), (double) ((on ? (now == Quality.LOW ? Quality.MEDIUM : now) : Quality.LOW) - Quality.LOW));
+        if (!on) {
+            for (int player = 0; player < View.COUNT; player++) {
+                values.put(Config.overheadQualityKey(player), 0.0);
+            }
         }
         return values;
     }

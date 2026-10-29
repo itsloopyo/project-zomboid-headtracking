@@ -796,18 +796,18 @@ public final class CoreTests {
                 "the next start leaves out every set of patches but head tracking's, talking mouths' and the rules' own: " + leftOutLine(next));
 
         Tracking.applyAll(Tracking.firstPersonAndIsometric(true));
-        check(Part.FIRST_PERSON.on() && Quality.overheadRow(0) == Quality.MEDIUM && Quality.overheadRow(3) == Quality.MEDIUM,
-                "the button for both views turns first person on and every isometric view at Low to Medium");
+        check(Part.FIRST_PERSON.on() && Quality.overheadRow(0) == Quality.LOW && Quality.overheadRow(3) == Quality.LOW,
+                "the button for both views turns first person on and leaves every isometric view at Low");
         Tracking.applyOption(optionNamed(options, "IsometricQuality"), options[optionNamed(options, "IsometricQuality")], Quality.HIGH - Quality.LOW);
         Tracking.applyAll(Tracking.firstPersonAndIsometric(false));
         check(!Part.FIRST_PERSON.on() && Quality.overheadRow(0) == Quality.LOW && Quality.overheadRow(1) == Quality.LOW,
                 "turns both off together, an isometric view at High too");
         Tracking.applyOption(optionNamed(options, "IsometricQuality"), options[optionNamed(options, "IsometricQuality")], Quality.HIGH - Quality.LOW);
         Tracking.applyAll(Tracking.firstPersonAndIsometric(true));
-        check(Part.FIRST_PERSON.on() && Quality.overheadRow(0) == Quality.HIGH && Quality.overheadRow(2) == Quality.MEDIUM,
-                "and on again keeps an isometric view that was above Low where it was");
+        check(Part.FIRST_PERSON.on() && Quality.overheadRow(0) == Quality.HIGH && Quality.overheadRow(2) == Quality.LOW,
+                "and on again leaves each isometric view at the mode it has");
         savesMade();
-        check(saved("FirstPersonEnabled=true", "IsometricQuality=High", "ThirdPlayerIsometricQuality=Medium"), "each press is saved");
+        check(saved("FirstPersonEnabled=true", "IsometricQuality=High", "ThirdPlayerIsometricQuality=Low"), "each press is saved");
         Tracking.applyAll(before);
         savesMade();
         check(text().equals(saved), "and every row set back as it was, the file is as it was");

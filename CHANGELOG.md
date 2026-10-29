@@ -9,7 +9,7 @@
 - A `[Fixes]` section, under Game fixes on the options page: `BurntBuildingFreezeFix`, `CentreTheWindow` and `ControllerChoiceFix`.
 - The `[Optimizations]` section has `CachedGameLookups`, `SkipCoveredGameDrawing`, `SkinsComposedWhileWaiting`, `ChunkChangeCounts`, `UnseenRoomZombiesUnmodelled`, `HoldChunkMapCentre`, `GraphicsMemorySteps`, `PrepareWhileLoading` and `SpotBySight`, beside `SpreadLightUpdates`.
 - A row read as the game starts leaves its patches out of the game's code from the next start when it is off, so another Java mod that patches the same methods meets the game's own. `ZombiesSeenAtOnce` and `VehiclesSmashThrough` do the same.
-- Two buttons at the top of the mod's options page: one turns first person and the isometric graphics on or off together, the other turns off everything but head tracking and talking mouths. Each is saved as you press it.
+- Two buttons at the top of the mod's options page: one turns first person on, or turns it off with the isometric view at `Low`, the game's own picture, the other turns off everything but head tracking and talking mouths. Each is saved as you press it.
 
 ### Changed
 

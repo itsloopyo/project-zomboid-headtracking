@@ -22,8 +22,8 @@ import zombie.ui.UIManager;
  * Each player's microphone is a name and no option of core's: the page lists the microphones
  * connected as it opens, for each player, below the settings.
  *
- * Two buttons head the page: one turns first person and the isometric graphics on or off
- * together (Tracking.firstPersonAndIsometric), the other everything but head tracking and talking
+ * Two buttons head the page: one turns first person on, or off with the isometric view at the
+ * game's own picture (Tracking.firstPersonAndIsometric), the other everything but head tracking and talking
  * mouths off (Tracking.everythingOff). Each is taken and saved as it is pressed.
  *
  * The game saves what its mod page shows in a file of its own, ModOptions.ini, and reads that
@@ -82,8 +82,8 @@ final class OptionsPage {
     private static final JavaFunction OPENED = OptionsPage::opened, APPLIED = OptionsPage::applied,
             BOTH_VIEWS_PRESSED = OptionsPage::bothViewsPressed, EVERYTHING_OFF_PRESSED = OptionsPage::everythingOffPressed;
 
-    private static final String BOTH_VIEWS_TIP = "First person and the isometric view's own graphics, both on or both off, for every player. "
-            + "On, an isometric view at Low goes to Medium. Taken at once and saved.",
+    private static final String BOTH_VIEWS_TIP = "On, first person, with the isometric view's graphics mode left as it is. "
+            + "Off, first person off and the isometric view at Low, the game's own picture, for every player. Taken at once and saved.",
             EVERYTHING_OFF_TIP = "Every part, rule, fix and optimization of the mod off, and the game's own content, isometric picture and split screen. "
             + "Head tracking and talking mouths are left as they are. Taken at once and saved; what is read as the game starts is left out from the next start.";
 
@@ -406,7 +406,7 @@ final class OptionsPage {
 
     /** The first button's title: what pressing it does now. */
     private static String bothViewsTitle() {
-        return Part.FIRST_PERSON.on() ? "Turn first person and the isometric graphics off" : "Turn first person and the isometric graphics on";
+        return Part.FIRST_PERSON.on() ? "Turn first person and the isometric graphics off" : "Turn first person on";
     }
 
     /** Gives the first button its title: in the page's own table, which a screen made after this is made from, and on the button on the screen. */
@@ -417,10 +417,10 @@ final class OptionsPage {
         }
     }
 
-    /** The first button, pressed: first person and the isometric graphics go on together if first person is off, and off together if it is on. */
+    /** The first button, pressed: first person goes on if it is off, and first person and the isometric graphics go off together if it is on. */
     private static int bothViewsPressed(LuaCallFrame frame, int arguments) {
         boolean on = !Part.FIRST_PERSON.on();
-        pressed(Tracking.firstPersonAndIsometric(on), "first person and the isometric graphics " + (on ? "on" : "off"));
+        pressed(Tracking.firstPersonAndIsometric(on), on ? "first person on" : "first person and the isometric graphics off");
         return 0;
     }
 
