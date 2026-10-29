@@ -375,7 +375,7 @@ final class Config {
             core.configLocalBool("Rules", "VehiclesSmashThrough",
                     "true: offline, a vehicle faster than a walk knocks down fences, street lamp posts and road barricades, drives through bushes\n"
                             + "unslowed and keeps its engine's full power off the road. false: the game's rules for all of it. On a server the\n"
-                            + "game's rules hold.",
+                            + "game's rules hold.\n" + Part.LIVE_AND_NEXT_START,
                     writable | live, true),
             core.configLocalBool("Rules", "FacesTheView",
                     "true: walking or sneaking sideways or backwards in first person, your character keeps facing where you look,\n"
@@ -391,7 +391,7 @@ final class Config {
             core.configLocalBool("Rules", "ZombiesSeenAtOnce",
                     "true: in the isometric view a zombie shows as soon as nothing stands between your character and it, where\n"
                             + "your character's sight reaches by the game's rules. false: the game's own sight, which can show a zombie\n"
-                            + "late or only once it is close. On a server where players can hurt each other the game's rule holds.",
+                            + "late or only once it is close. On a server where players can hurt each other the game's rule holds.\n" + Part.LIVE_AND_NEXT_START,
                     writable | live, true),
             !DevBuild.ON ? NO_ROW : core.configLocalBool("Rules", "Rewind30s",
                     "true: offline, when you die the game pauses and asks whether to go back to where you were 30 seconds before,\n"

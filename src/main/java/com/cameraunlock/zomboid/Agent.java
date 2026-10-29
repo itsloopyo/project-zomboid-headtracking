@@ -479,11 +479,11 @@ public final class Agent {
                 new PatchSet("part draw", new PatchTransformer(partDrawPatches()), null),
                 new PatchSet("screen grey", new PatchTransformer(screenGreyPatches()), off(Part.FIRST_PERSON, Part.LEAVE_OUT_SCREEN_GREY)),
                 new PatchSet("far vehicles", new PatchTransformer(farVehiclePatches()), firstPersonOff),
-                new PatchSet("live sight", new PatchTransformer(liveSightPatches()), null),
+                new PatchSet("live sight", new PatchTransformer(liveSightPatches()), ruleOff(Rules.SEEN_AT_ONCE, "ZombiesSeenAtOnce")),
                 new PatchSet("left save", new PatchTransformer(leftSavePatches()), null),
                 new PatchSet("loading", new PatchTransformer(loadingPatches()), off(Part.FIRST_PERSON, Part.PREPARE_WHILE_LOADING)),
                 new PatchSet("lua loaded", new PatchTransformer(luaLoadedPatches()), null),
-                new PatchSet("knockdown", new PatchTransformer(knockdownPatches()), null),
+                new PatchSet("knockdown", new PatchTransformer(knockdownPatches()), ruleOff(Rules.SMASHES_THROUGH, "VehiclesSmashThrough")),
                 new PatchSet("car physics", new PatchTransformer(carPhysicsPatches()), off(Part.FIRST_PERSON, Part.HILLS_MOVE_VEHICLES)),
                 new PatchSet("controller", new PatchTransformer(controllerPatches()), off(Part.CONTROLLER_CHOICE_FIX)),
                 new PatchSet("chunk marks", chunkMarks, off(Part.FIRST_PERSON, Part.CHUNK_CHANGE_COUNTS)),
@@ -495,6 +495,11 @@ public final class Agent {
                 new PatchSet("split screen", splitScreen, null),
                 new PatchSet("waiting composites", waitingComposites, off(Part.FIRST_PERSON, Part.SKINS_COMPOSED_WHILE_WAITING)),
                 new PatchSet("spotting", spotting, off(Part.FIRST_PERSON, Part.SKIP_COVERED_GAME_DRAWING, Part.SPOT_BY_SIGHT)));
+    }
+
+    /** Why a set that serves one row of [Rules] alone is left out at this start: that row off as the game started, or null. */
+    private static String ruleOff(int bit, String key) {
+        return (Rules.rows() & bit) != 0 ? null : key + " was off as the game started";
     }
 
     /** Why a set that serves only these parts, each needing the ones before it, is left out at this start: the first off as the game started, or null. */

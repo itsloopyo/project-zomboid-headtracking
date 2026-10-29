@@ -699,6 +699,7 @@ ShotsWoundLimbs=true
 ; true: offline, a vehicle faster than a walk knocks down fences, street lamp posts and road barricades, drives through bushes
 ; unslowed and keeps its engine's full power off the road. false: the game's rules for all of it. On a server the
 ; game's rules hold.
+; Taken at once. Off, its patches of the game's code are left out from the next start.
 VehiclesSmashThrough=true
 ; true: walking or sneaking sideways or backwards in first person, your character keeps facing where you look,
 ; and jogging or sprinting is straight ahead only. false: it always turns, as the game has it. On a server
@@ -712,6 +713,7 @@ ShotsPastTrees=true
 ; true: in the isometric view a zombie shows as soon as nothing stands between your character and it, where
 ; your character's sight reaches by the game's rules. false: the game's own sight, which can show a zombie
 ; late or only once it is close. On a server where players can hurt each other the game's rule holds.
+; Taken at once. Off, its patches of the game's code are left out from the next start.
 ZombiesSeenAtOnce=true
 ; true: in first person the south and east walls of a room, which the isometric view never shows from inside,
 ; carry pictures that are drawn by the mod and never saved. false: nothing is drawn on them, and nothing is

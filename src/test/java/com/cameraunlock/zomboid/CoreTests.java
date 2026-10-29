@@ -727,6 +727,8 @@ public final class CoreTests {
         {"HoldChunkMapCentre", "chunk centre"},
         {"PrepareWhileLoading", "loading"},
         {"SpotBySight", "spotting"},
+        {"ZombiesSeenAtOnce", "live sight"},
+        {"VehiclesSmashThrough", "knockdown"},
     };
 
     private static String leftOutLine(String output) {
@@ -744,7 +746,8 @@ public final class CoreTests {
             String next = nextStart(row[0] + "-off");
             check(next.contains("left out: " + row[1] + System.lineSeparator()),
                     row[0] + " off as the game starts leaves out " + row[1] + " and keeps every other set: " + leftOutLine(next));
-            check(next.contains("the mod's parts: switched off: " + row[0] + " off"), "and the log says it is off");
+            boolean part = Arrays.stream(Part.values()).anyMatch(each -> each.key.equals(row[0]));
+            check(!part || next.contains("the mod's parts: switched off: " + row[0] + " off"), "and the log says it is off");
         }
         edit(saved.replace("FirstPersonEnabled=true", "FirstPersonEnabled=false").replace("ShotsBreakLamps=true", "ShotsBreakLamps=false")
                 .replace("ShotsBreakGlass=true", "ShotsBreakGlass=false"));
@@ -760,7 +763,7 @@ public final class CoreTests {
     }
 
     /** The sets of patches every start keeps: head tracking's, talking mouths', and those that only ask a row of [Rules] whether to act. */
-    private static final String KEPT_SETS = "base, frame, shots through walls, world, development, lamps, model head, part draw, live sight, left save, lua loaded, knockdown, split screen";
+    private static final String KEPT_SETS = "base, frame, shots through walls, world, development, lamps, model head, part draw, left save, lua loaded, split screen";
 
     private static void theOptionsPagesButtonsAreTakenSavedAndReadAtTheNextStart() throws IOException, InterruptedException {
         String saved = text();
