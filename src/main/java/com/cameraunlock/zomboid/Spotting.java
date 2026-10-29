@@ -74,6 +74,8 @@ final class Spotting {
 
     /** Dev only, from any thread that reads a square's light: the rooms the light passed over under the picture. */
     static final LongAdder roomsLeftByLight = new LongAdder();
+    /** Dev only, counted by SpotCheck on the thread a round makes the game's calls on: the chunk levels the game marked to be built again, once for each light an asking found changed. */
+    static final LongAdder levelsMarked = new LongAdder();
     /** Dev only: the thread a round is making the game's calls on, or null, which SpotCheck asks. */
     static volatile Thread passer;
 
@@ -796,11 +798,11 @@ final class Spotting {
         Log.info(String.format(Locale.ROOT,
                 "spotting: player %d, %.1f s, %d frames, %d rounds (%d over their quarter second) in %.3f ms each (longest %.3f), %.4f ms a frame (longest %.3f,"
                         + " beginning a round up to %.3f, ending one up to %.3f);"
-                        + " squares read %d, asked whether seen %d (seen and out of sight in %d of %d sampled), light read afresh %d and found unchanged %d,"
+                        + " squares read %d, asked whether seen %d (seen and out of sight in %d of %d sampled), light read afresh %d and found unchanged %d, chunk levels marked for their light %d times,"
                         + " rooms spotted %d, rooms the light passed over %d, rooms in sight %d; squares found turned seen as a round asked %d and by other reads %d,"
                         + " marked where the view sees them %d, waiting for the view %d, let go with their chunk %d; chunks known %d",
                 playerIndex + 1, (now - saidNanos) / 1e9, frames, passes, late, passNanos / 1e6 / Math.max(1, passes), longestPassNanos / 1e6,
-                sliceNanos / 1e6 / Math.max(1, frames), longestSliceNanos / 1e6, longestBeginNanos / 1e6, longestEndNanos / 1e6, squaresRead, seenAsked, seenOutOfSight, sampled, readAfresh, readUnchanged,
+                sliceNanos / 1e6 / Math.max(1, frames), longestSliceNanos / 1e6, longestBeginNanos / 1e6, longestEndNanos / 1e6, squaresRead, seenAsked, seenOutOfSight, sampled, readAfresh, readUnchanged, levelsMarked.sumThenReset(),
                 spotted, roomsLeftByLight.sumThenReset(), roomsKept.size(), asked, aside, marked, waiting(), letGo, knownAt.size()));
         saidNanos = now;
         frames = passes = late = passNanos = longestPassNanos = sliceNanos = longestSliceNanos = longestBeginNanos = longestEndNanos = squaresRead = seenAsked = sampled = seenOutOfSight = spotted

@@ -54,9 +54,9 @@ final class DevPatches {
         return patches;
     }
 
-    /** The game's spotting of a room and marking of a square seen, each told to SpotCheck as it begins. */
+    /** The game's spotting of a room, marking of a square seen and marking of a chunk level to be built again for its light, each told to SpotCheck as it begins. */
     private static List<Agent.Patch> spotCheck() {
-        String cell = "zombie/iso/IsoCell", room = "zombie/iso/areas/IsoRoom", square = "zombie/iso/IsoGridSquare", meta = "zombie/meta/Meta",
+        String cell = "zombie/iso/IsoCell", room = "zombie/iso/areas/IsoRoom", square = "zombie/iso/IsoGridSquare", meta = "zombie/meta/Meta", levels = "zombie/iso/fboRenderChunk/FBORenderLevels",
                 check = "com/cameraunlock/zomboid/SpotCheck";
         return List.of(
                 new Agent.Patch(cell, "roomSpotted told to SpotCheck", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
@@ -64,7 +64,10 @@ final class DevPatches {
                         code -> CallSite.passFirstArgument(code, new CallSite.Method(check, "roomSpotted", "(L" + room + ";)V")))),
                 new Agent.Patch(meta, "dealWithSquareSeen told to SpotCheck", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
                         new CallSite.Method(meta, "dealWithSquareSeen", "(L" + square + ";)V"),
-                        code -> CallSite.passFirstArgument(code, new CallSite.Method(check, "squareSeen", "(L" + square + ";)V")))));
+                        code -> CallSite.passFirstArgument(code, new CallSite.Method(check, "squareSeen", "(L" + square + ";)V")))),
+                new Agent.Patch(levels, "invalidateLevel told to SpotCheck", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
+                        new CallSite.Method(levels, "invalidateLevel", "(IJ)V"),
+                        code -> CallSite.invokeStatic(code, new CallSite.Method(check, "levelMarked", "()V")))));
     }
 
     /**

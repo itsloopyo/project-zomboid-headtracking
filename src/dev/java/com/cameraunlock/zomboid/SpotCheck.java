@@ -41,6 +41,13 @@ public final class SpotCheck {
         }
     }
 
+    /** At the start of the game's marking of a chunk level to be built again for its light, which it does for each change it finds: counted where a round's asking found the light changed. */
+    public static void levelMarked() {
+        if (Spotting.passer == Thread.currentThread()) {
+            Spotting.levelsMarked.increment();
+        }
+    }
+
     /** Whether a first person picture covers a view, and this is not the thread a round is making the game's calls on. */
     private static boolean covered() {
         if (Spotting.passer == Thread.currentThread()) {
