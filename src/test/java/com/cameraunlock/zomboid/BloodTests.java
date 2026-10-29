@@ -20,7 +20,10 @@ final class BloodTests {
         Checks.run("everyCornerOfAPieceTakesTheTexelThePictureHasThere", BloodTests::everyCornerOfAPieceTakesTheTexelThePictureHasThere);
         Checks.run("aSquareTheSplatMissesGetsNothing", BloodTests::aSquareTheSplatMissesGetsNothing);
         Checks.run("bloodDriesByTheHourOverThreeDays", BloodTests::bloodDriesByTheHourOverThreeDays);
-        Checks.run("splatsSpiltInOneHourDryTogetherOnTheWorldsHours", BloodTests::splatsSpiltInOneHourDryTogetherOnTheWorldsHours);
+        Checks.run("theSplatsOfOneChunkDryTogether", BloodTests::theSplatsOfOneChunkDryTogether);
+        Checks.run("chunksSideBySideDryAtMomentsOfTheirOwn", BloodTests::chunksSideBySideDryAtMomentsOfTheirOwn);
+        Checks.run("aSplatDriesAtMostAStepAnHour", BloodTests::aSplatDriesAtMostAStepAnHour);
+        Checks.run("theSumAndTheBuildStepTogether", BloodTests::theSumAndTheBuildStepTogether);
         Checks.run("bloodCoversAsTheGamesDoesFreshAndDry", BloodTests::bloodCoversAsTheGamesDoesFreshAndDry);
         Checks.run("eachSplatIsAShadeOfItsOwnAndDarkensAsItDries", BloodTests::eachSplatIsAShadeOfItsOwnAndDarkensAsItDries);
         Checks.run("aShadeThatIsNoNumberIsNone", BloodTests::aShadeThatIsNoNumberIsNone);
@@ -169,32 +172,106 @@ final class BloodTests {
     }
 
     private static void bloodDriesByTheHourOverThreeDays() {
-        near(Blood.freshness(40.0, 40.0), 1.0, 0.0, "just spilt");
-        near(Blood.freshness(40.99, 40.0), 1.0, 0.0, "within the hour it was spilt in");
-        near(Blood.freshness(41.0, 40.0), 1.0 - 1.0 / 72.0, 1e-6, "the next hour");
-        near(Blood.freshness(111.9, 40.0), 1.0 / 72.0, 1e-6, "the last hour");
-        near(Blood.freshness(112.0, 40.0), 0.0, 0.0, "three days on");
-        near(Blood.freshness(540.0, 40.0), 0.0, 0.0, "long dry");
-        near(Blood.freshness(39.0, 40.0), 0.0, 0.0, "spilt in an hour after now, as the game has it");
+        near(Blood.freshness(40.0, 40.0, 0.0), 1.0, 0.0, "just spilt");
+        near(Blood.freshness(40.99, 40.0, 0.0), 1.0, 0.0, "within the hour it was spilt in");
+        near(Blood.freshness(41.0, 40.0, 0.0), 1.0 - 1.0 / 72.0, 1e-6, "the next hour");
+        near(Blood.freshness(40.75, 40.0, 0.25), 1.0 - 1.0 / 72.0, 1e-6, "the next hour of a chunk a quarter of an hour ahead");
+        near(Blood.freshness(111.9, 40.0, 0.0), 1.0 / 72.0, 1e-6, "the last hour");
+        near(Blood.freshness(112.0, 40.0, 0.0), 0.0, 0.0, "three days on");
+        near(Blood.freshness(540.0, 40.0, 0.0), 0.0, 0.0, "long dry");
+        near(Blood.freshness(39.0, 40.0, 0.0), 0.0, 0.0, "spilt in an hour after now, as the game has it");
+    }
+
+    /** The game seconds from the world's age from, over hours, at which the freshness of a splat spilt at spiltAt changes. */
+    private static java.util.List<Integer> steps(double spiltAt, double phase, int from, int hours) {
+        java.util.List<Integer> at = new java.util.ArrayList<>();
+        float was = Blood.freshness(from, spiltAt, phase);
+        for (int second = 1; second <= hours * 3600; second++) {
+            float now = Blood.freshness(from + second / 3600.0, spiltAt, phase);
+            if (now != was) {
+                at.add(second);
+            }
+            was = now;
+        }
+        return at;
+    }
+
+    /** The splats of one chunk, spilt at different times, all dry at the same moments, so the chunk's sum holds between them. */
+    private static void theSplatsOfOneChunkDryTogether() {
+        double phase = Blood.phase(1596, 194);
+        java.util.List<Integer> first = steps(65.31, phase, 77, 3);
+        check(first.size() == 3, "three hours, three steps: " + first);
+        for (double spiltAt : new double[] {65.97, 70.5, 76.2, 77.01}) {
+            check(steps(spiltAt, phase, 77, 3).equals(first), "a splat of the same chunk spilt at " + spiltAt + " steps with the one spilt at 65.31: " + steps(spiltAt, phase, 77, 3) + " against " + first);
+        }
+    }
+
+    /** Chunks side by side dry at minutes of their own, so the chunks in sight do not all come up to be built at once. */
+    private static void chunksSideBySideDryAtMomentsOfTheirOwn() {
+        double one = Blood.phase(1596, 194), next = Blood.phase(1597, 194);
+        check(one >= 0.0 && one < 1.0 && next >= 0.0 && next < 1.0, "a phase is part of an hour: " + one + ", " + next);
+        check(Math.abs(one - next) > 1.0 / 60.0, "chunks side by side a minute and more apart: " + one + ", " + next);
+        java.util.List<Integer> ones = steps(65.31, one, 77, 3), nexts = steps(65.31, next, 77, 3);
+        for (int k = 0; k < ones.size(); k++) {
+            check(!nexts.contains(ones.get(k)), "the next chunk steps at another moment than " + ones.get(k) + ": " + nexts);
+        }
+        int[] phases = new int[60];
+        for (int wx = 1590; wx < 1600; wx++) {
+            for (int wy = 190; wy < 200; wy++) {
+                phases[(int) (Blood.phase(wx, wy) * 60)]++;
+            }
+        }
+        int most = 0;
+        for (int count : phases) {
+            most = Math.max(most, count);
+        }
+        check(most <= 8, "a hundred chunks spread over the hour, the most in one minute " + most);
+    }
+
+    /** However its chunk's phase falls, a splat dries by at most one step an hour, a 72nd of the way. */
+    private static void aSplatDriesAtMostAStepAnHour() {
+        Random random = new Random(7);
+        for (int trial = 0; trial < 200; trial++) {
+            double phase = Blood.phase(random.nextInt(4000), random.nextInt(4000)), spiltAt = 10.0 + random.nextDouble() * 60.0;
+            java.util.List<Integer> at = steps(spiltAt, phase, 80, 5);
+            for (int k = 0; k < at.size(); k++) {
+                check(k == 0 || at.get(k) - at.get(k - 1) >= 3600, "steps an hour apart: " + at);
+                float before = Blood.freshness(80 + (at.get(k) - 1) / 3600.0, spiltAt, phase), after = Blood.freshness(80 + at.get(k) / 3600.0, spiltAt, phase);
+                near(before - after, 1.0 / Blood.DRIES_IN_HOURS, 1e-6, "one step of a splat spilt at " + spiltAt + ", phase " + phase);
+            }
+        }
     }
 
     /**
-     * Two splats spilt at different times in one hour of the world's clock dry together, on the
-     * world's whole hours: the sum a chunk is built again by, here their covers, holds between
-     * whole hours and changes at each one, for both at once.
+     * What a chunk's change sum holds of its blood (a floor splat's cover, a wall splat's
+     * freshness) changes on exactly the game seconds what the build draws of it changes (the
+     * colour and the cover), so no frame finds the sum unchanged while the build would differ, or
+     * the other way round.
      */
-    private static void splatsSpiltInOneHourDryTogetherOnTheWorldsHours() {
-        double early = 65.31, late = 65.97;
-        for (int hour = 77; hour < 80; hour++) {
-            float earlyAtHour = Blood.floorCover(Blood.freshness(hour, early)), lateAtHour = Blood.floorCover(Blood.freshness(hour, late));
-            near(earlyAtHour, lateAtHour, 0.0, "spilt in one hour, the same cover at " + hour);
-            for (int minute = 1; minute < 600; minute++) {
-                double now = hour + minute / 600.0;
-                near(Blood.floorCover(Blood.freshness(now, early)), earlyAtHour, 0.0, "the earlier splat between whole hours, at " + now);
-                near(Blood.floorCover(Blood.freshness(now, late)), lateAtHour, 0.0, "the later splat between whole hours, at " + now);
+    private static void theSumAndTheBuildStepTogether() {
+        Random random = new Random(11);
+        float[] tint = new float[2];
+        for (int trial = 0; trial < 50; trial++) {
+            double phase = Blood.phase(random.nextInt(4000), random.nextInt(4000)), spiltAt = 10.0 + random.nextDouble() * 70.0;
+            float wasFloorSum = Float.NaN, wasWallSum = Float.NaN, wasRed = Float.NaN, wasCover = Float.NaN, wasDark = Float.NaN, wasWallCover = Float.NaN;
+            for (int second = 0; second <= 3 * 3600; second++) {
+                float fresh = Blood.freshness(80 + second / 3600.0, spiltAt, phase);
+                Blood.floorTint(3.2f, 4.7f, 2, fresh, tint);
+                float floorSum = Blood.floorCover(fresh), wallSum = fresh;
+                float red = tint[0], cover = Blood.floorCover(fresh), dark = Blood.darkness(fresh), wallCover = Blood.wallCover(fresh);
+                if (second > 0) {
+                    check((floorSum != wasFloorSum) == (red != wasRed || cover != wasCover),
+                            "a floor splat's sum and build step together, spilt at " + spiltAt + ", phase " + phase + ", second " + second);
+                    check((wallSum != wasWallSum) == (dark != wasDark || wallCover != wasWallCover),
+                            "a wall splat's sum and build step together, spilt at " + spiltAt + ", phase " + phase + ", second " + second);
+                }
+                wasFloorSum = floorSum;
+                wasWallSum = wallSum;
+                wasRed = red;
+                wasCover = cover;
+                wasDark = dark;
+                wasWallCover = wallCover;
             }
-            check(Blood.floorCover(Blood.freshness(hour + 1, early)) < earlyAtHour, "the earlier splat dries at hour " + (hour + 1));
-            check(Blood.floorCover(Blood.freshness(hour + 1, late)) < lateAtHour, "the later splat dries at hour " + (hour + 1));
         }
     }
 

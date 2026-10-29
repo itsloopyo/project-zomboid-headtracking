@@ -22,15 +22,25 @@ final class Blood {
 
     /**
      * How fresh blood is, 1 just spilt and 0 dried, from the world's age now and when the blood
-     * was spilt, both in game hours. The game dries it continuously; here it dries by the whole
-     * hour of the world's clock, the hours counted between the hour it was spilt in and the hour
-     * it is now. Every splat steps at the same moment that way, so a chunk is built again at most
-     * once a game hour for its blood, where one counted from each splat's own age is crossed
-     * every few seconds by a chunk hundreds of splats of different ages reach.
+     * was spilt, both in game hours, and the phase of the chunk it is drawn in (see phase). The game
+     * dries it continuously; here it dries by the whole hour, counted on the world's clock moved
+     * on by the phase, so the blood of one chunk all steps at the same moment, once a game hour,
+     * and the chunks round them each at a minute of their own. A chunk is then built again for
+     * its blood about once a game hour and the chunks in sight do not all come up at once, where
+     * an hour counted from each splat's own age is crossed every few seconds by a chunk hundreds
+     * of splats of different ages reach.
      */
-    static float freshness(double worldHours, double spiltAtHours) {
-        double hoursOld = Math.floor(worldHours) - Math.floor(spiltAtHours);
+    static float freshness(double worldHours, double spiltAtHours, double phase) {
+        double hoursOld = Math.floor(worldHours + phase) - Math.floor(spiltAtHours + phase);
         return hoursOld < 0.0 || hoursOld >= DRIES_IN_HOURS ? 0f : 1f - (float) hoursOld / DRIES_IN_HOURS;
+    }
+
+    /** The part of a game hour, from 0 up to 1, by which the blood of the chunk (wx, wy) dries ahead of the world's clock. */
+    static double phase(int wx, int wy) {
+        long h = wx * 0x9E3779B97F4A7C15L + wy * 0xC2B2AE3D27D4EB4FL;
+        h = (h ^ h >>> 33) * 0xFF51AFD7ED558CCDL;
+        h = (h ^ h >>> 33) * 0xC4CEB9FE1A85EC53L;
+        return ((h ^ h >>> 33) >>> 11) * 0x1.0p-53;
     }
 
     /** How much blood of this freshness keeps of its colour: it darkens as it dries. */

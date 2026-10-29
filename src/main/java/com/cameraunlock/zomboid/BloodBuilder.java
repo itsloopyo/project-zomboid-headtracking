@@ -9,6 +9,7 @@ import zombie.core.utils.BoundedQueue;
 import zombie.iso.IsoChunk;
 import zombie.iso.IsoDirections;
 import zombie.iso.IsoFloorBloodSplat;
+import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.IsoWallBloodSplat;
 import zombie.iso.sprite.IsoSprite;
@@ -69,6 +70,10 @@ final class BloodBuilder {
             return sum;
         }
         double now = GameTime.getInstance().getWorldAgeHours();
+        // The pieces laid here dry on this chunk's minute, wherever their splats are kept: a splat
+        // over the edge dries a minute apart on either side, and the chunk steps once an hour, not
+        // once for each of the nine chunks whose splats reach it.
+        double phase = Blood.phase(Math.floorDiv(chunkX, WorldScene.CHUNK_TILES), Math.floorDiv(chunkY, WorldScene.CHUNK_TILES));
         String[] kinds = IsoFloorBloodSplat.FLOOR_BLOOD_TYPES;
         byte[] kept = IsoChunk.renderByIndex[setting - 1];
         for (int c = 0; c < build.around.length; c++) {
@@ -104,7 +109,7 @@ final class BloodBuilder {
                 if (fromX > toX || fromY > toY) {
                     continue;
                 }
-                float fresh = Blood.freshness(now, splat.worldAge);
+                float fresh = Blood.freshness(now, splat.worldAge, phase);
                 Blood.floorTint(splat.x, splat.y, splat.type, fresh, tint);
                 int at = add();
                 System.arraycopy(laid, 0, corners, at * 4 * Blood.CORNER, 4 * Blood.CORNER);
@@ -225,6 +230,7 @@ final class BloodBuilder {
         }
         ArrayList<IsoWallBloodSplat> splatsOnWall = object.wallBloodSplats;
         double now = GameTime.getInstance().getWorldAgeHours();
+        double phase = Blood.phase(Math.floorDiv(x, WorldScene.CHUNK_TILES), Math.floorDiv(y, WorldScene.CHUNK_TILES));
         float material = build.frame.material;
         build.frame.material = WorldScene.BLOOD;
         for (int i = 0; i < splatsOnWall.size(); i++) {
@@ -242,7 +248,7 @@ final class BloodBuilder {
                 continue;
             }
             build.frameOf(object, texture);
-            float fresh = Blood.freshness(now, splat.worldAge);
+            float fresh = Blood.freshness(now, splat.worldAge, phase);
             float dark = Blood.darkness(fresh);
             SpriteGeometry.Mesh mesh = WorldScene.laid.get(texture.getID(), WallSides.BLOOD);
             Arrays.fill(cover, Blood.wallCover(fresh));
@@ -264,10 +270,12 @@ final class BloodBuilder {
             return sum;
         }
         double now = GameTime.getInstance().getWorldAgeHours();
+        IsoGridSquare square = object.getSquare();
+        double phase = Blood.phase(Math.floorDiv(square.getX(), WorldScene.CHUNK_TILES), Math.floorDiv(square.getY(), WorldScene.CHUNK_TILES));
         sum = WorldScene.sum(sum, Core.getInstance().getOptionBloodDecals());
         for (int i = 0; i < splatsOnWall.size(); i++) {
             IsoWallBloodSplat splat = splatsOnWall.get(i);
-            sum = WorldScene.sum(WorldScene.sum(sum, System.identityHashCode(splat.sprite)), Float.floatToRawIntBits(Blood.freshness(now, splat.worldAge)));
+            sum = WorldScene.sum(WorldScene.sum(sum, System.identityHashCode(splat.sprite)), Float.floatToRawIntBits(Blood.freshness(now, splat.worldAge, phase)));
         }
         return sum;
     }

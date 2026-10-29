@@ -173,7 +173,8 @@ final class Bleeding {
                 continue;
             }
             float worldAge = (float) (drop.born - GAME_DRIES * Math.min(1.0, age / TRAIL_DRIES));
-            if (Math.floor(worldAge) != Math.floor(drop.splat.worldAge)) {
+            double phase = Blood.phase(drop.chunk.wx, drop.chunk.wy);
+            if (Math.floor(worldAge + phase) != Math.floor(drop.splat.worldAge + phase)) {
                 drop.splat.worldAge = worldAge;
                 drop.chunk.invalidateRenderChunkLevel(drop.level, 1L);
             }
