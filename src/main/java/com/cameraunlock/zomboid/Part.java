@@ -93,7 +93,10 @@ enum Part {
                     + "middle of drawing the frame, as it does."),
     CHUNK_CHANGE_COUNTS("Optimizations", "ChunkChangeCounts", false, true,
             "true: the game's changes to each chunk are counted as it makes them, so the first person view builds again only\n"
-                    + "the chunks that changed. The picture is the same. false: the view looks over every chunk it draws for changes.");
+                    + "the chunks that changed. The picture is the same. false: the view looks over every chunk it draws for changes."),
+    UNSEEN_ROOM_ZOMBIES_UNMODELLED("Optimizations", "UnseenRoomZombiesUnmodelled", true, false,
+            "true: in first person a zombie in a room no line of sight could reach, even with every door and curtain in reach\n"
+                    + "open, has no model until you come near enough to see in. false: it keeps its model wherever it stands.");
 
     final String section, key, comment;
     /** Whether the row is taken while the game runs, and whether it is read at the start to leave patches out. */

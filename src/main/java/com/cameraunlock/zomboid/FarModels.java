@@ -222,7 +222,7 @@ public final class FarModels {
      */
     private boolean inARoomNotSeen(IsoZombie zombie) {
         FigureRooms rooms = view.worldScene.roomsForModels;
-        if (rooms == null || !shownWhole(zombie)) {
+        if (rooms == null || !Part.UNSEEN_ROOM_ZOMBIES_UNMODELLED.on() || !shownWhole(zombie)) {
             return false;
         }
         IsoGridSquare square = zombie.getCurrentSquare();

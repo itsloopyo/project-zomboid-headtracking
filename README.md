@@ -615,6 +615,9 @@ SkinsComposedWhileWaiting=true
 ; the chunks that changed. The picture is the same. false: the view looks over every chunk it draws for changes.
 ; Taken at the next start. Off, its patches of the game's code are left out.
 ChunkChangeCounts=true
+; true: in first person a zombie in a room no line of sight could reach, even with every door and curtain in reach
+; open, has no model until you come near enough to see in. false: it keeps its model wherever it stands.
+UnseenRoomZombiesUnmodelled=true
 
 [Content]
 ; true: the game's own weapons, with no picture through the scope. false: the mod's models of the pump shotgun and
