@@ -168,7 +168,7 @@ final class WallFinish {
 
     /** Tells the chunks a building's walls stand on that their builds are to be made again. */
     private static void tell(BuildingDef def) {
-        ChunkMarks.tell(Math.floorDiv(def.getX() - 1, WorldScene.CHUNK_TILES), Math.floorDiv(def.getY() - 1, WorldScene.CHUNK_TILES),
+        BuildThreads.tell(Math.floorDiv(def.getX() - 1, WorldScene.CHUNK_TILES), Math.floorDiv(def.getY() - 1, WorldScene.CHUNK_TILES),
                 Math.floorDiv(def.getX() + def.getW(), WorldScene.CHUNK_TILES), Math.floorDiv(def.getY() + def.getH(), WorldScene.CHUNK_TILES));
     }
 

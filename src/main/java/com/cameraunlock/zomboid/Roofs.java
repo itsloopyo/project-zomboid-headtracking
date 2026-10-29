@@ -302,12 +302,12 @@ final class Roofs {
         }
         for (Part part : roof.parts) {
             if (part(before, part.wx, part.wy).print != part.print) {
-                ChunkMarks.tell(part.wx, part.wy);
+                BuildThreads.tell(part.wx, part.wy);
             }
         }
         for (Part was : before) {
             if (was.print != 0L && part(roof.parts, was.wx, was.wy).print == 0L) {
-                ChunkMarks.tell(was.wx, was.wy);
+                BuildThreads.tell(was.wx, was.wy);
             }
         }
         roofs.add(roof);
