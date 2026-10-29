@@ -13,6 +13,7 @@ final class MapAheadTests {
     static void run() {
         Checks.run("aTileIsWhatTheHeightsTakeOfItsSprite", MapAheadTests::aTileIsWhatTheHeightsTakeOfItsSprite);
         Checks.run("theGroundsFirstFloorAndWhatIsAboveAreRead", MapAheadTests::theGroundsFirstFloorAndWhatIsAboveAreRead);
+        Checks.run("aFloorLaidOnADiamondFloorTakesItsPlace", MapAheadTests::aFloorLaidOnADiamondFloorTakesItsPlace);
         Checks.run("aSquareIsMadeOfWhatTheGameWouldMakeOfIt", MapAheadTests::aSquareIsMadeOfWhatTheGameWouldMakeOfIt);
         Checks.run("whatStandsOnASquareAndWhatIsOverItAreRead", MapAheadTests::whatStandsOnASquareAndWhatIsOverItAreRead);
         Checks.run("theWindowIsAskedRingByRingInTheOrderOfTheWholeBox", MapAheadTests::theWindowIsAskedRingByRingInTheOrderOfTheWholeBox);
@@ -51,6 +52,41 @@ final class MapAheadTests {
         check(goal == Grounds.GOAL_ALONG_X << MapAhead.LEVEL_SHIFT, "a goal's crossbar marks level ground and is nothing else: " + goal);
         int centre = MapAhead.traits(sprite("street_trafficlines_01_20", IsoObjectType.normal));
         check(centre == Lanes.mark("street_trafficlines_01_20") << MapAhead.MARK_SHIFT, "a road's line is the line it paints and nothing else: " + centre);
+        int stone = MapAhead.traits(sprite("floors_exterior_tilesandstone_01_5", IsoObjectType.normal, "solidfloor", "", "diamondFloor", ""));
+        check(stone == (MapAhead.FLOOR | MapAhead.BLOCKS_RAIN | MapAhead.DIAMOND), "a paving stone is a diamond floor: " + stone);
+        int boulder = MapAhead.traits(sprite("boulders_40", IsoObjectType.normal, "solidfloor", "", "diamondFloor", "", "transparentFloor", ""));
+        check(boulder == (MapAhead.FLOOR | MapAhead.BLOCKS_RAIN | MapAhead.DIAMOND | MapAhead.SEE_THROUGH), "a boulder's top is a diamond floor that is see-through: " + boulder);
+        int line = MapAhead.traits(sprite("street_trafficlines_01_2", IsoObjectType.normal, "FloorOverlay", ""));
+        check(line == (MapAhead.OVERLAY | Lanes.mark("street_trafficlines_01_2") << MapAhead.MARK_SHIFT), "a line on the road is laid over the floor: " + line);
+    }
+
+    private static void aFloorLaidOnADiamondFloorTakesItsPlace() {
+        int grass = MapAhead.FLOOR | MapAhead.NATURAL_NAME | MapAhead.DIAMOND, stone = MapAhead.FLOOR | MapAhead.DIAMOND;
+        int boulder = stone | MapAhead.SEE_THROUGH, plain = MapAhead.FLOOR | MapAhead.STREET_NAME;
+        int yellow = MapAhead.OVERLAY | 1 << MapAhead.MARK_SHIFT, white = MapAhead.OVERLAY | 2 << MapAhead.MARK_SHIFT;
+        int court = stone | Grounds.SURFACE << MapAhead.LEVEL_SHIFT, edging = MapAhead.FLOOR | MapAhead.OVERLAY | MapAhead.NATURAL_NAME;
+        int[] traits = {grass, stone, boulder, plain, yellow, white, court, edging};
+        int ofGrass = 0, ofStone = 1, ofBoulder = 2, ofPlain = 3, ofYellow = 4, ofWhite = 5, ofCourt = 6, ofEdging = 7;
+        var pack = FarTreeTests.pack(true, 0, 1,
+                new FarTreeTests.Square(0, 0, 0, 0, 0, ofGrass, ofYellow, ofStone, ofWhite),
+                new FarTreeTests.Square(0, 0, 0, 0, 1, ofGrass, ofBoulder),
+                new FarTreeTests.Square(0, 0, 0, 0, 2, ofPlain, ofStone),
+                new FarTreeTests.Square(0, 0, 0, 0, 3, ofWhite),
+                new FarTreeTests.Square(0, 0, 1, 0, 4, ofWhite),
+                new FarTreeTests.Square(0, 0, 0, 0, 5, ofCourt, ofStone),
+                new FarTreeTests.Square(0, 0, 0, 0, 6, ofStone, ofCourt),
+                new FarTreeTests.Square(0, 0, 0, 0, 7, ofEdging, ofGrass),
+                new FarTreeTests.Square(0, 0, 0, 1, 0, ofGrass, ofEdging, ofYellow));
+        MapAhead.Raw raw = MapAhead.read(0, pack, traits, 0, 1, 40, 50, 0, 0);
+        check(raw.floor()[0] == stone && raw.ground()[0] == (stone | 2 << MapAhead.MARK_SHIFT),
+                "a diamond floor laid on a diamond floor takes its place, and the line laid before it goes with the floor it was on: " + raw.floor()[0] + " " + raw.ground()[0]);
+        check(raw.floor()[1] == grass && raw.ground()[1] == (grass | boulder), "a see-through one is laid beside the floor, not in its place: " + raw.floor()[1]);
+        check(raw.floor()[2] == plain && raw.ground()[2] == (plain | stone), "and so is one laid on a floor that is no diamond floor: " + raw.floor()[2]);
+        check(raw.floor()[3] == 0 && raw.ground()[3] == 0, "a line where no floor is is not laid: " + raw.ground()[3]);
+        check(raw.above()[4] == 0 && raw.levels()[4] == 1 << 1, "nor on a level above, where it is nothing over the square, though the level has a tile: " + raw.above()[4]);
+        check(raw.level()[5] == Grounds.NONE && raw.level()[6] == Grounds.SURFACE, "a court's surface floored over is no court, and floored over a floor is one");
+        check(raw.floor()[7] == grass && raw.ground()[7] == grass, "an edging laid as an overlay where no floor is yet is not laid, and the floor after it is the floor: " + raw.floor()[7]);
+        check(raw.floor()[8] == grass && raw.ground()[8] == (grass | 1 << MapAhead.MARK_SHIFT), "laid on a floor, an overlay is no floor and only its lines are read: " + raw.ground()[8]);
     }
 
     private static void theGroundsFirstFloorAndWhatIsAboveAreRead() {

@@ -65,15 +65,27 @@ final class MapAhead {
     static final int LEVEL_SHIFT = 14;
     /** Where in a tile's traits the line it paints on a road is (Lanes.mark), eight bits from here. */
     static final int MARK_SHIFT = 18;
+    /**
+     * How the game's loader lays a tile on a square (CellLoader.DoTileObjectCreation). A
+     * solidfloor tile flagged diamondFloor and not transparentFloor, laid where the square's
+     * floor (its first solidfloor object) is flagged diamondFloor, becomes that floor: it takes
+     * the place of the floor's sprite and of the overlays laid on it. A FloorOverlay is laid on
+     * the square's floor, and on a square with no floor is not laid at all.
+     */
+    static final int DIAMOND = 1 << 26, SEE_THROUGH = 1 << 27, OVERLAY = 1 << 28;
+    /** Of what the overlays laid on a floor are, the lines on a road: Terrain.marks reads them off the floor. */
+    private static final int MARKS = 0xFF << MARK_SHIFT;
 
     /** Of Guess.stands: a stair or a roof tile, a parasol's canopy, a building's own wall along its south or east side. */
     static final byte STAIR_OR_ROOF = 1, CANOPY = 2, WALLED = 4;
 
     /**
-     * A chunk's squares as its lotpack has them, x first: the traits of the first floor tile on
-     * the ground (0 where there is none), of every tile on the ground, and of every tile on the
-     * levels above that is no overhead line (with ANY), and those levels, a bit each from 1; and
-     * what the square is to level ground (Grounds), on the ground or the level over it.
+     * A chunk's squares as the game lays its lotpack's tiles (see DIAMOND), x first: the traits of
+     * the floor on the ground (0 where there is none), of every tile laid on the ground and the
+     * lines of the overlays laid on its floor, and of every tile laid on the levels above that is
+     * no overhead line (with ANY), and the levels the lotpack has tiles on, a bit each from 1;
+     * and what the square is to level ground (Grounds), by the tiles laid on the ground or the
+     * level over it.
      */
     record Raw(int generation, int wx, int wy, int[] floor, int[] ground, int[] above, int[] levels, byte[] level) {}
 
@@ -122,6 +134,9 @@ final class MapAhead {
         if (flags.has(IsoFlagType.water)) {
             traits |= WATER;
         }
+        traits |= flags.has(IsoFlagType.diamondFloor) ? DIAMOND : 0;
+        traits |= flags.has(IsoFlagType.transparentFloor) ? SEE_THROUGH : 0;
+        traits |= flags.has(IsoFlagType.FloorOverlay) ? OVERLAY : 0;
         String name = sprite.getName();
         if (name != null) {
             traits |= name.startsWith("blends_natural") ? NATURAL_NAME : name.startsWith("blends_street") ? STREET_NAME : 0;
@@ -168,23 +183,36 @@ final class MapAhead {
             for (int x = 0; x < CHUNK; x++) {
                 for (int y = 0; y < CHUNK; y++) {
                     int tiles = in.square();
+                    if (tiles == 0) {
+                        continue;
+                    }
                     int at = x * CHUNK + y;
+                    // As the game lays them (see DIAMOND): the floor, the overlays laid on it, the other tiles, those that are no overhead line, and the most the others are to level ground.
+                    int laid = 0, overlaid = 0, others = 0, standing = 0, grounds = 0;
                     for (int i = 0; i < tiles; i++) {
                         int of = traits[in.tile(traits.length)];
-                        if (z == 0 || z == 1) {
-                            level[at] = (byte) Math.max(level[at], of >>> LEVEL_SHIFT & 15);
+                        if ((of & (FLOOR | DIAMOND | SEE_THROUGH)) == (FLOOR | DIAMOND) && (laid & DIAMOND) != 0) {
+                            laid = of;
+                            overlaid = 0;
+                        } else if ((of & OVERLAY) != 0) {
+                            overlaid |= laid != 0 ? of : 0;
+                        } else if ((of & FLOOR) != 0 && laid == 0) {
+                            laid = of;
+                        } else {
+                            others |= of;
+                            standing |= (of & OVERHEAD) == 0 ? of | ANY : 0;
+                            grounds = Math.max(grounds, of >>> LEVEL_SHIFT & 15);
                         }
-                        if (z == 0) {
-                            if (floor[at] == 0 && (of & FLOOR) != 0) {
-                                floor[at] = of;
-                            }
-                            ground[at] |= of;
-                        } else if (z > 0) {
-                            levels[at] |= 1 << z;
-                            if ((of & OVERHEAD) == 0) {
-                                above[at] |= of | ANY;
-                            }
-                        }
+                    }
+                    if (z == 0 || z == 1) {
+                        level[at] = (byte) Math.max(level[at], Math.max(grounds, laid >>> LEVEL_SHIFT & 15));
+                    }
+                    if (z == 0) {
+                        floor[at] = laid;
+                        ground[at] = laid | others | overlaid & MARKS;
+                    } else if (z > 0) {
+                        levels[at] |= 1 << z;
+                        above[at] |= standing | (laid != 0 ? laid | ANY : 0);
                     }
                 }
             }
