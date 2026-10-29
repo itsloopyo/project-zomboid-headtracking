@@ -91,6 +91,10 @@ final class PorchGableTests {
         TestMap overhang = porch(true, true, 1);
         overhang.cell.square(0, 0, 0).floor(GRASS);
         check(gables(overhang) == 0, "a roof run on a square past its wall over the grass is an eave, its gable the wall's");
+        // IsoGridSquare.addFloor lays a floor by the name it is given, and for a name no tile has the sprite it makes has none.
+        TestMap unnamed = porch(true, true, 1);
+        unnamed.cell.square(0, 0, 0).floor(new IsoSprite(null, new PropertyContainer(Map.of())));
+        check(gables(unnamed) == 0, "so is one over a floor whose sprite has no name, which is no porch's deck");
     }
 
     /**

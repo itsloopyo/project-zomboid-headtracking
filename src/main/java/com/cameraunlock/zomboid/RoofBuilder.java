@@ -224,7 +224,7 @@ final class RoofBuilder {
     private boolean builtFloorUnder(int x, int y, int z) {
         IsoGridSquare under = build.cell.getGridSquare(x, y, z - 1);
         IsoObject floor = under == null ? null : under.getFloor();
-        return floor != null && floor.getSprite() != null && floor.getSprite().getName().startsWith("floors_");
+        return floor != null && floor.getSprite() != null && floor.getSprite().getName() != null && floor.getSprite().getName().startsWith("floors_");
     }
 
     /**
