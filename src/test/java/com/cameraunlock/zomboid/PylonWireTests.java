@@ -29,5 +29,6 @@ final class PylonWireTests {
         Checks.check(Float.isNaN(PylonWires.ball("electricity_pylon_162")), "a wire with no ball has none");
         Checks.check(PylonWires.of("electricity_pylon_159") == null && PylonWires.of("electricity_pylon_168") == null
                 && PylonWires.of("appliances_com_01_96") == null, "only the pylons' wires are");
+        Checks.check(PylonWires.of(null) == null && Float.isNaN(PylonWires.ball(null)), "nor is a sprite with no name, as a noise trap's");
     }
 }

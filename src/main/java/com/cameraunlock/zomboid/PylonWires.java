@@ -34,7 +34,7 @@ final class PylonWires {
 
     /** The wire a sprite paints, as {x0, y0, x1, y1, high}, or null for a sprite that is none. */
     static float[] of(String name) {
-        int place = Sheets.place(name, SHEET);
+        int place = place(name);
         if (place == MARKED || place == MARKED + 1) {
             return SPANS[place - MARKED + MARKED_AS - 160];
         }
@@ -43,7 +43,16 @@ final class PylonWires {
 
     /** How far along its wire the sprite paints a marker ball, as a share of the wire, or NaN for a wire with none. */
     static float ball(String name) {
-        int place = Sheets.place(name, SHEET);
+        int place = place(name);
         return place == MARKED || place == MARKED + 1 ? BALLS[place - MARKED] : Float.NaN;
+    }
+
+    /**
+     * Which sprite of the sheet a name is, or -1. A sprite the game makes from a picture of
+     * its own has no name: a trap whose item gives no sprite to be placed as, as a noise
+     * trap's does not (IsoTrap.initSprite), or a thing a mod puts down from a texture's path.
+     */
+    private static int place(String name) {
+        return name == null ? -1 : Sheets.place(name, SHEET);
     }
 }
