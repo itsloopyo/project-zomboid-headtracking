@@ -1022,6 +1022,35 @@ final class WorldScene {
     static final float UNDER_ROOF = 0.03f;
     /** Half the thickness of a wall, in tiles. */
     static final float WALL_HALF = 0.04f;
+    /** The edges of a square for boxWithinWalls, as bits. */
+    static final int BOX_WEST = 1, BOX_EAST = 2, BOX_NORTH = 4, BOX_SOUTH = 8;
+
+    /**
+     * Cuts a box (middle along a and b, half along a, height) back at each edge of its square a wall is on (walled, BOX_ bits), and
+     * gives its half along b. A wall's thickness hides a face on the wall's line, but a window's glass lies on that line, and a
+     * face stopped there fights the pane for depth wherever the box stands higher than the window's foot. At an edge with a
+     * window in it (glazed) the box stops at the wall's face instead, inside the frame, which stands WALL_HALF + FRAME_PROUD out.
+     */
+    static float boxWithinWalls(float[] box, int walled, int glazed) {
+        float west = box[0] - box[2], east = box[0] + box[2], north = box[1] - box[2], south = box[1] + box[2];
+        if ((walled & BOX_WEST) != 0) {
+            west = Math.max(west, (glazed & BOX_WEST) != 0 ? WALL_HALF : 0f);
+        }
+        if ((walled & BOX_EAST) != 0) {
+            east = Math.min(east, (glazed & BOX_EAST) != 0 ? 1f - WALL_HALF : 1f);
+        }
+        if ((walled & BOX_NORTH) != 0) {
+            north = Math.max(north, (glazed & BOX_NORTH) != 0 ? WALL_HALF : 0f);
+        }
+        if ((walled & BOX_SOUTH) != 0) {
+            south = Math.min(south, (glazed & BOX_SOUTH) != 0 ? 1f - WALL_HALF : 1f);
+        }
+        box[0] = (west + east) / 2f;
+        box[1] = (north + south) / 2f;
+        box[2] = (east - west) / 2f;
+        return (south - north) / 2f;
+    }
+
     /** How far a corner post stands proud of the skins round the outside of its corner: see addPillar. */
     static final float CORNER_PROUD = 0.004f;
     /** How far from the line of a wall the middle of a handrail fixed to it runs, in tiles. */
@@ -7557,23 +7586,12 @@ final class WorldScene {
          * past the wall's line: stood where its outline says, it shows through the wall outside.
          */
         private void addBoxWithinWalls(SpriteGeometry.Mesh mesh, int x, int y, int z) {
-            float west = box[0] - box[2], east = box[0] + box[2], north = box[1] - box[2], south = box[1] + box[2];
-            if (Hoods.walled(here, false)) {
-                west = Math.max(west, 0f);
-            }
-            if (Hoods.walled(cell.getGridSquare(x + 1, y, z), false)) {
-                east = Math.min(east, 1f);
-            }
-            if (Hoods.walled(here, true)) {
-                north = Math.max(north, 0f);
-            }
-            if (Hoods.walled(cell.getGridSquare(x, y + 1, z), true)) {
-                south = Math.min(south, 1f);
-            }
-            box[0] = (west + east) / 2f;
-            box[1] = (north + south) / 2f;
-            box[2] = (east - west) / 2f;
-            geometry.boxHalfB = (south - north) / 2f;
+            IsoGridSquare eastward = cell.getGridSquare(x + 1, y, z), southward = cell.getGridSquare(x, y + 1, z);
+            int walled = (Hoods.walled(here, false) ? BOX_WEST : 0) | (Hoods.walled(eastward, false) ? BOX_EAST : 0)
+                    | (Hoods.walled(here, true) ? BOX_NORTH : 0) | (Hoods.walled(southward, true) ? BOX_SOUTH : 0);
+            int glazed = walled == 0 ? 0 : (Hoods.glazed(here, false) ? BOX_WEST : 0) | (Hoods.glazed(eastward, false) ? BOX_EAST : 0)
+                    | (Hoods.glazed(here, true) ? BOX_NORTH : 0) | (Hoods.glazed(southward, true) ? BOX_SOUTH : 0);
+            geometry.boxHalfB = boxWithinWalls(box, walled, glazed);
             geometry.addBox(mesh, frame, x, y, z, box);
             geometry.boxHalfB = 0f;
         }

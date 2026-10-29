@@ -240,6 +240,31 @@ final class Hoods {
         return false;
     }
 
+    /**
+     * Whether a window stands on the north edge of a square, or the west one: one the game marks as a window, or a wall
+     * of glass, which WallBuilder lays as a window though the game makes none of it. False for no square.
+     */
+    static boolean glazed(IsoGridSquare square, boolean north) {
+        if (square == null) {
+            return false;
+        }
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoSprite sprite = objects.get(i).getSprite();
+            if (sprite == null) {
+                continue;
+            }
+            PropertyContainer flags = sprite.getProperties();
+            if (north ? flags.has(IsoFlagType.WindowN) || flags.has(IsoFlagType.windowN) : flags.has(IsoFlagType.WindowW) || flags.has(IsoFlagType.windowW)) {
+                return true;
+            }
+            if ((flags.has(IsoFlagType.WallNW) || (north ? walledNorth(flags) : walledWest(flags))) && WorldScene.materialOf(sprite.getName(), false) == WorldScene.GLASS) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     static Squares on(IsoCell cell, int z) {
         return new Squares() {
             @Override

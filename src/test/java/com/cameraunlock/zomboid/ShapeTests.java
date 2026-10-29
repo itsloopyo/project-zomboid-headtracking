@@ -37,6 +37,27 @@ final class ShapeTests {
         Checks.run("pipeWithABendAtItsFootIsAPostFromTheBendUp", ShapeTests::pipeWithABendAtItsFootIsAPostFromTheBendUp);
         Checks.run("litterAndLowSlabsLieFlat", ShapeTests::litterAndLowSlabsLieFlat);
         Checks.run("cardOfABushBesideAFenceIsCutToItsOwnSideInAnyWind", ShapeTests::cardOfABushBesideAFenceIsCutToItsOwnSideInAnyWind);
+        Checks.run("aBoxAgainstAWindowStopsClearOfItsGlass", ShapeTests::aBoxAgainstAWindowStopsClearOfItsGlass);
+    }
+
+    private static void aBoxAgainstAWindowStopsClearOfItsGlass() {
+        // A mannequin stand's outline, painted a little past its square on every side, as high as its top.
+        float[] stand = {0.5f, 0.5f, 0.55f, 0.4f};
+        float southHalf = WorldScene.boxWithinWalls(stand, WorldScene.BOX_EAST | WorldScene.BOX_SOUTH, WorldScene.BOX_EAST | WorldScene.BOX_SOUTH);
+        float east = stand[0] + stand[2], south = stand[1] + southHalf;
+        check(near(east, 1f - WorldScene.WALL_HALF, 1e-6f), "against a shop window on its east edge the stand stops at the wall's face: " + east);
+        check(near(south, 1f - WorldScene.WALL_HALF, 1e-6f), "and against one on its south edge: " + south);
+        check(DepthFights.nearestFight(1f - east, 0, 0) == Float.MAX_VALUE, "its face never fights the glass on the wall's line, from anywhere: " + (1f - east));
+        check(near(stand[0] - stand[2], -0.05f, 1e-6f) && near(stand[1] - southHalf, -0.05f, 1e-6f), "an edge with no wall keeps the outline");
+
+        float[] west = {0.5f, 0.5f, 0.55f, 0.4f};
+        float northHalf = WorldScene.boxWithinWalls(west, WorldScene.BOX_WEST | WorldScene.BOX_NORTH, WorldScene.BOX_WEST | WorldScene.BOX_NORTH);
+        check(near(west[0] - west[2], WorldScene.WALL_HALF, 1e-6f) && near(west[1] - northHalf, WorldScene.WALL_HALF, 1e-6f),
+                "a window on the square's own west or north edge stops it at the wall's face too: " + (west[0] - west[2]) + ", " + (west[1] - northHalf));
+
+        float[] plain = {0.5f, 0.5f, 0.55f, 0.4f};
+        float plainHalf = WorldScene.boxWithinWalls(plain, WorldScene.BOX_EAST | WorldScene.BOX_NORTH, 0);
+        check(near(plain[0] + plain[2], 1f, 1e-6f) && near(plain[1] - plainHalf, 0f, 1e-6f), "against a plain wall it stops on the wall's line, inside the wall");
     }
 
     private static void cardOfABushBesideAFenceIsCutToItsOwnSideInAnyWind() {
