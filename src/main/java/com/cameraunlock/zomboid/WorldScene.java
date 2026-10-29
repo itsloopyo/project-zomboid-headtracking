@@ -2207,13 +2207,23 @@ final class WorldScene {
                 && Arrays.equals(one.tints, 0, count * 3, other.tints, 0, count * 3);
     }
 
-    /** Dev only: whether a build's page holds the light sites of a table, in the same order. */
+    /**
+     * Dev only: whether a build's page holds the light sites of a table, in the same order. Only a TINTED site has a
+     * tint: the rest of the tints are what an earlier build left there.
+     */
     private static boolean samePage(ChunkMeshes build, LightSites.Table table) {
         int count = build.pageRecords;
-        return count == table.count && Arrays.equals(build.pageKeys, 0, count, table.keys, 0, count)
-                && Arrays.equals(build.page, 0, count * LightSites.RECORD, table.records, 0, count * LightSites.RECORD)
-                && Arrays.equals(build.pageBases, 0, count, table.bases, 0, count) && Arrays.equals(build.pagePlaces, 0, count, table.places, 0, count)
-                && Arrays.equals(build.pageTints, 0, count * 3, table.tints, 0, count * 3);
+        if (count != table.count || !Arrays.equals(build.pageKeys, 0, count, table.keys, 0, count)
+                || !Arrays.equals(build.page, 0, count * LightSites.RECORD, table.records, 0, count * LightSites.RECORD)
+                || !Arrays.equals(build.pageBases, 0, count, table.bases, 0, count) || !Arrays.equals(build.pagePlaces, 0, count, table.places, 0, count)) {
+            return false;
+        }
+        for (int site = 0; site < count; site++) {
+            if (LightSites.kindOf(table.keys[site]) == LightSites.TINTED && !Arrays.equals(build.pageTints, site * 3, site * 3 + 3, table.tints, site * 3, site * 3 + 3)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /** Dev only: whether two builds place the same models, in the same order. */
