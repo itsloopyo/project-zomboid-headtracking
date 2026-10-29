@@ -21,9 +21,11 @@ import zombie.iso.fboRenderChunk.FBORenderLevels;
  * texture says so: an object put down, taken away or given another sprite, a door, a body,
  * blood, through two methods of IsoChunk, and the light of a square, which the game finds
  * changed whenever anything asks a square for its light and the lighting engine has a new
- * one, through one of FBORenderLevels. The three are patched to call marked and lit. A count
- * is kept for each chunk, and a build that remembers the counts round its chunk knows
- * without reading the chunk that the game has changed nothing on it since.
+ * one, through one of FBORenderLevels. The three are patched to call marked and lit. What the
+ * game marks as it fills a chunk is not counted, since the chunk is not yet loaded (marked),
+ * so a fourth patch tells of each load as it begins and as it ends (loading, loaded). A count
+ * is kept for each chunk, and a build that remembers the counts round its chunk knows without
+ * reading the chunk that the game has changed nothing on it since.
  *
  * The game marks a chunk's texture for more than that through FBORenderLevels, with the same
  * flags: every chunk that comes onto its own screen, as if all its objects were new. So only
