@@ -22,6 +22,7 @@
 - Leaving a save gives the graphics card's memory back even when unloading the world fails.
 - Walking pressed against a building's wall no longer shows the building through it with its inner walls missing.
 - The dust in the air is a faint haze of fine specks, and no longer shows as large blobs close to the eye.
+- A shop window's display stands, such as the mannequin stands behind the glass, no longer flicker against the glass along the window's foot.
 
 ## [0.1.1] - 2026-10-28
 
