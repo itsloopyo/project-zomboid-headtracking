@@ -36,7 +36,8 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
     private Terrain terrain;
     /**
      * The thread the map is begun on, the logic thread: the game changes its squares there,
-     * and a chunk's build reading rooms off it from elsewhere would read them half changed.
+     * and a chunk's build reading rooms off it from elsewhere would read them half changed. A
+     * build thread reads it while the logic thread waits on its build (BuildThreads).
      */
     private Thread logic;
     /** Until when, by System.nanoTime, chunks may be read: every reader in a frame spends the one budget. */
@@ -550,7 +551,7 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
      * square: that is all one space, and the hall's ceiling hangs at its top (TallHalls).
      */
     private IsoGridSquare hallOrSquare(int x, int y, int z) {
-        if (Thread.currentThread() != logic) {
+        if (Thread.currentThread() != logic && !BuildThreads.here()) {
             throw new IllegalStateException("the room map is read on " + Thread.currentThread().getName() + ", off the logic thread");
         }
         IsoGridSquare square = cell.getGridSquare(x, y, z);

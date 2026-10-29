@@ -10,6 +10,7 @@ final class BesideTests {
         Checks.run("aFrameBesideTakesWhatABuildReads", BesideTests::aFrameBesideTakesWhatABuildReads);
         Checks.run("aFrameBesideKeepsWhatItBuildsWithAndInto", BesideTests::aFrameBesideKeepsWhatItBuildsWithAndInto);
         Checks.run("aBuildBesideComesOutAsTheWalkingFramesBuild", BesideTests::aBuildBesideComesOutAsTheWalkingFramesBuild);
+        Checks.run("aBuildThreadIsKnownAndWhatItThrowsIsThrownAgain", BesideTests::aBuildThreadIsKnownAndWhatItThrowsIsThrownAgain);
     }
 
     private static void aFrameBesideTakesWhatABuildReads() {
@@ -65,10 +66,38 @@ final class BesideTests {
         LightSiteTests.sited(walking.frame);
         sitedBeside(beside);
         check(walking.roofBuilder.addEaveRow(map.painted, 1, 0, 0) && TestMap.plain().triangles() > 0, "the walking frame builds the eave row");
-        check(beside.roofBuilder.addEaveRow(map.painted, 1, 0, 0) && beside.solid.get(WorldScene.PLAIN).triangles() > 0, "and so does the frame beside, into its own pair");
+        boolean[] built = new boolean[1];
+        java.util.concurrent.ExecutorService thread = BuildThreads.one("tests' build thread");
+        try {
+            BuildThreads.runAndWait(thread, () -> built[0] = beside.roofBuilder.addEaveRow(map.painted, 1, 0, 0));
+        } finally {
+            thread.shutdown();
+        }
+        check(built[0] && beside.solid.get(WorldScene.PLAIN).triangles() > 0, "and so does the frame beside on a build thread, into its own pair");
         check(WorldScene.floatsOf(walking.solid) == WorldScene.floatsOf(beside.solid) && WorldScene.floatsOf(walking.laid) == WorldScene.floatsOf(beside.laid),
                 "to every float of the walking frame's");
         check(WorldScene.sharedSites.count == beside.sites.count, "on as many light sites");
+    }
+
+    private static void aBuildThreadIsKnownAndWhatItThrowsIsThrownAgain() {
+        java.util.concurrent.ExecutorService thread = BuildThreads.one("tests' build thread");
+        try {
+            boolean[] here = new boolean[1];
+            BuildThreads.runAndWait(thread, () -> here[0] = BuildThreads.here());
+            check(here[0] && !BuildThreads.here(), "a build thread knows itself for one, and the thread that waits on it is not one");
+            IllegalArgumentException thrown = new IllegalArgumentException("thrown on the build thread");
+            Throwable caught = null;
+            try {
+                BuildThreads.runAndWait(thread, () -> {
+                    throw thrown;
+                });
+            } catch (IllegalStateException e) {
+                caught = e.getCause();
+            }
+            check(caught == thrown, "what a build throws is thrown again on the thread that waits on it");
+        } finally {
+            thread.shutdown();
+        }
     }
 
     /** As LightSiteTests.sited, on the frame beside's own table. */

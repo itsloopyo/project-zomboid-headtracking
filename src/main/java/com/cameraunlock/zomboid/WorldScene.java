@@ -1677,6 +1677,8 @@ final class WorldScene {
     }
     /** Dev only: every build is made a second time with nothing taken from what is kept, and the two are compared float for float. */
     private static final boolean CHECK_BUILDS = Boolean.getBoolean("cameraunlock.zomboid.checkBuilds");
+    /** Dev only: the build thread the frame beside builds on while the walk waits on it, as a build off the logic thread has to come out the same. */
+    private static final java.util.concurrent.ExecutorService besideThread = CHECK_BUILDS ? BuildThreads.one("head tracking build beside") : null;
     /**
      * A far chunk is not built again for heights that moved by less than half a dot of a picture
      * this many dots high, at the field of view it is drawn with: see heightsHeld.
@@ -5759,7 +5761,7 @@ final class WorldScene {
 
         /**
          * Dev only: makes the build just made again on the frame beside, which took this frame's state before it
-         * (takeFrom), and says so where the two differ: in any float or light site, in their crowns, in the models they
+         * (takeFrom), on a build thread while this one waits, and says so where the two differ: in any float or light site, in their crowns, in the models they
          * place or the bodies they lay, in what they say of themselves or in the heights they went by. A build that
          * asked for a sprite's colours is not held to it, as check does not hold one.
          */
@@ -5769,7 +5771,7 @@ final class WorldScene {
             other.solid.clear();
             other.laid.clear();
             other.layers.none();
-            other.buildInto(chunk, chunkX, chunkY, lowest, into, toldSoFar);
+            BuildThreads.runAndWait(besideThread, () -> other.buildInto(chunk, chunkX, chunkY, lowest, into, toldSoFar));
             String differs = floatsOf(solid) != floatsOf(other.solid) || floatsOf(laid) != floatsOf(other.laid) ? "in its vertices"
                     : !sameSites(sites, other.sites) ? "in its light sites"
                     : !crownsRead.same(other.crownsRead) ? "in its crowns"
