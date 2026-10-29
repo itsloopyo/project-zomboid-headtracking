@@ -2185,7 +2185,8 @@ final class WallBuilder {
     /**
      * The sides of an opening through a wall, from one skin to the other: the jambs, the
      * underside of the lintel and the sill. Without them the eye sees in between the two skins.
-     * Each half of the wall's thickness is lit as the place on its side is: lit as the street
+     * Each half of the wall's thickness is lit as the skin on its side is where the opening cuts
+     * it, from the light at the square's corners at that place along the wall: lit as the street
      * whole, a front door's jambs and lintel were a bright line round the leaf from a dark room.
      * Each half is painted as the skin on its side is, nearPaint and farPaint, the colour most of
      * that skin's sprite is painted in: in bare concrete they were a pale strip round every
@@ -2196,9 +2197,10 @@ final class WallBuilder {
         float foot = (z + opening[at + OPENING_FOOT]) * ViewCamera.LEVEL_HEIGHT + lift, head = (z + opening[at + OPENING_HEAD]) * ViewCamera.LEVEL_HEIGHT + lift;
         float x0 = x + a + da * opening[at + OPENING_START], y0 = y + b + db * opening[at + OPENING_START];
         float x1 = x + a + da * opening[at + OPENING_END], y1 = y + b + db * opening[at + OPENING_END];
+        float start = opening[at + OPENING_START], end = opening[at + OPENING_END];
         float[] c = build.reveal;
         float red = build.frame.red, green = build.frame.green, blue = build.frame.blue, open = build.frame.open;
-        float farRed = red, farGreen = green, farBlue = blue, farOpen = open;
+        float farOpen = open;
         revealFrame.lightAs(build.frame);
         if (farLight >= 0) {
             build.frame.cornersInto(build.heldRed, build.heldGreen, build.heldBlue, build.heldUnlit);
@@ -2208,9 +2210,6 @@ final class WallBuilder {
                 lightAlong(farLight, da != 0f);
             }
             revealFrame.lightAs(build.frame);
-            farRed = build.frame.red;
-            farGreen = build.frame.green;
-            farBlue = build.frame.blue;
             farOpen = build.frame.open;
             build.frame.red = red;
             build.frame.green = green;
@@ -2220,20 +2219,19 @@ final class WallBuilder {
         }
         for (int half = 0; half < 2; half++) {
             float from = half == 0 ? 0f : -1f, to = half == 0 ? 1f : 0f;
-            float r = half == 0 ? red : farRed, g = half == 0 ? green : farGreen, bl = half == 0 ? blue : farBlue;
+            SpriteGeometry.Frame lit = half == 0 ? build.frame : revealFrame;
             float[] paint = half == 0 ? nearPaint : farPaint;
             SpriteGeometry.Mesh plain = paint == null ? WorldScene.solid.get(WorldScene.PLAIN)
                     : WorldScene.solid.get(WorldScene.PLAIN, WallSides.laid(paint[0], paint[1], paint[2], 0f, 0f, 0f, WallSides.FINE));
             plain.sway = 0f;
             plain.open = (half == 0 ? open : farOpen) + 32f * (paint == null ? WorldScene.CONCRETE : WorldScene.PAINT);
-            plain.lightFlat(half == 0 ? build.frame : revealFrame);
             for (int side = 0; side < 2; side++) {
                 float jx = side == 0 ? x0 : x1, jy = side == 0 ? y0 : y1;
                 WorldScene.set(c, 0, jx + from * inX, jy + from * inY, foot);
                 WorldScene.set(c, 1, jx + to * inX, jy + to * inY, foot);
                 WorldScene.set(c, 2, jx + to * inX, jy + to * inY, head);
                 WorldScene.set(c, 3, jx + from * inX, jy + from * inY, head);
-                SpriteGeometry.addPlainQuad(plain, c, r, g, bl);
+                addRevealQuad(plain, lit, c, a, b, da, db, side == 0 ? start : end, side == 0 ? start : end);
             }
             for (int side = 0; side < 2; side++) {
                 if (side == 0 ? opening[at + OPENING_HEAD] >= 1f : opening[at + OPENING_FOOT] <= 0f) {
@@ -2244,9 +2242,32 @@ final class WallBuilder {
                 WorldScene.set(c, 1, x0 + to * inX, y0 + to * inY, up);
                 WorldScene.set(c, 2, x1 + to * inX, y1 + to * inY, up);
                 WorldScene.set(c, 3, x1 + from * inX, y1 + from * inY, up);
-                SpriteGeometry.addPlainQuad(plain, c, r, g, bl);
+                addRevealQuad(plain, lit, c, a, b, da, db, start, end);
             }
         }
+    }
+
+    private static final int[] REVEAL_QUAD = {0, 1, 2, 0, 2, 3};
+
+    /**
+     * A quad of an opening's sides, corners c, with corners 0 and 1 a share along0 along the wall from
+     * (a, b) by (da, db), and 2 and 3 along2: each is lit from frame as the wall's skin is at that
+     * place along it (see SpriteGeometry.emitAt).
+     */
+    private static void addRevealQuad(SpriteGeometry.Mesh mesh, SpriteGeometry.Frame frame, float[] c, float a, float b, float da, float db, float along0, float along2) {
+        float ux = c[3] - c[0], uy = c[4] - c[1], uz = c[5] - c[2];
+        float vx = c[9] - c[0], vy = c[10] - c[1], vz = c[11] - c[2];
+        mesh.face(uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx);
+        for (int corner : REVEAL_QUAD) {
+            float along = corner < 2 ? along0 : along2, sa = a + da * along, sb = b + db * along;
+            float w0 = (1f - sa) * (1f - sb), w1 = sa * (1f - sb), w2 = sa * sb, w3 = (1f - sa) * sb;
+            mesh.litAt(frame, sa, sb, 1f, 1f, 1f);
+            mesh.add(c[corner * 3], c[corner * 3 + 1], c[corner * 3 + 2], 0f, 0f,
+                    frame.cornerRed[0] * w0 + frame.cornerRed[1] * w1 + frame.cornerRed[2] * w2 + frame.cornerRed[3] * w3,
+                    frame.cornerGreen[0] * w0 + frame.cornerGreen[1] * w1 + frame.cornerGreen[2] * w2 + frame.cornerGreen[3] * w3,
+                    frame.cornerBlue[0] * w0 + frame.cornerBlue[1] * w1 + frame.cornerBlue[2] * w2 + frame.cornerBlue[3] * w3);
+        }
+        mesh.litAsFace();
     }
 
     /**

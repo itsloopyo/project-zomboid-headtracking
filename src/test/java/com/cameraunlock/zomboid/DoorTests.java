@@ -121,7 +121,8 @@ final class DoorTests {
     /**
      * A window between a room and another place (the room's sprite and the far skin's colour, as farTint reads it): the
      * half of its sides inside the square, from the wall's middle to the skin there, is in the near paint, and the half
-     * beyond in the far paint, sill, jambs and lintel alike.
+     * beyond in the far paint, sill, jambs and lintel alike. Each corner is lit as the wall's skin is where the opening cuts
+     * it, from the light at the square's corners at its place along the wall, and not with the square's own light.
      */
     private static void eachHalfOfAnOpeningsSidesIsPaintedAsTheSkinOnItsSide() {
         TestMap map = new TestMap();
@@ -149,6 +150,13 @@ final class DoorTests {
             }
             for (int at = 0; at < far.floats; at += SpriteGeometry.VERTEX_FLOATS) {
                 check(far.vertices[at + 1] >= 1f - WorldScene.WALL_HALF - 1e-6f && far.vertices[at + 1] <= 1f + 1e-6f, "the far paint is beyond it: " + far.vertices[at + 1]);
+            }
+            for (SpriteGeometry.Mesh half : new SpriteGeometry.Mesh[] {near, far}) {
+                for (int at = 0; at < half.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+                    float x = half.vertices[at], a = half.vertices[at + SpriteGeometry.A_AT], b = half.vertices[at + SpriteGeometry.B_AT];
+                    check(Math.abs(a - x) < 1e-5f && (Math.abs(a - 0.3f) < 1e-5f || Math.abs(a - 0.7f) < 1e-5f) && b == 0f,
+                            "a corner at " + x + " along is lit from the corners' light at the cut it stands at, " + x + " along the wall's line: " + a + ", " + b);
+                }
             }
         } finally {
             WorldScene.solid.clear();
