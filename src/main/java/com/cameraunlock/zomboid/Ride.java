@@ -350,8 +350,8 @@ final class Ride {
     static boolean drivesWhileAiming(IsoPlayer player) {
         BaseVehicle vehicle = player.getVehicle();
         View view = View.of(player);
-        return vehicle != null && vehicle.getJoypad() == -1 && player.isLocalPlayer() && view != null && view.firstPerson.active()
-                && !Online.contested();
+        return Part.DRIVE_WHILE_AIMING.on() && vehicle != null && vehicle.getJoypad() == -1 && player.isLocalPlayer() && view != null
+                && view.firstPerson.active() && !Online.contested();
     }
 
     /** Whether the player sits in the driver's seat of a vehicle. */

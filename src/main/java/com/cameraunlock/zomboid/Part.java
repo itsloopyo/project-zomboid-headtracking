@@ -58,7 +58,11 @@ enum Part {
     SHOTS_FROM_VEHICLE_SEATS("Rules", "ShotsFromVehicleSeats", true, false,
             "true: in first person, seated in a vehicle with a firearm, you can fire through the whole window of your seat,\n"
                     + "which the shot breaks. false: the window has to be opened or broken first, as the game has it. On a server\n"
-                    + "where players can hurt each other the game's rule holds.");
+                    + "where players can hurt each other the game's rule holds."),
+    DRIVE_WHILE_AIMING("Rules", "DriveWhileAiming", true, false,
+            "true: in first person, driving by keyboard, you keep steering, accelerating and braking with a firearm raised.\n"
+                    + "false: raising a firearm takes the controls, as the game has it. On a controller, and on a server where players\n"
+                    + "can hurt each other, the game's rule holds.");
 
     final String section, key, comment;
     /** Whether the row is taken while the game runs, and whether it is read at the start to leave patches out. */
