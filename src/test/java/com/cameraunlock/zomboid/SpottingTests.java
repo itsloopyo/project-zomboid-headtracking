@@ -31,6 +31,7 @@ public final class SpottingTests {
         Checks.run("theTurnsWaitingAreMarkedWhenThePictureStopsCovering", SpottingTests::theTurnsWaitingAreMarkedWhenThePictureStopsCovering);
         Checks.run("nothingIsCarriedIntoTheNextSave", SpottingTests::nothingIsCarriedIntoTheNextSave);
         Checks.run("aTurnFoundAfterTheTurnsWereHandedBackIsNotKept", SpottingTests::aTurnFoundAfterTheTurnsWereHandedBackIsNotKept);
+        Checks.run("aRoomSeenIntoIsInSightForFourSecondsAfter", SpottingTests::aRoomSeenIntoIsInSightForFourSecondsAfter);
         Checks.run("theOpenAirOfAChunkDrawnIsMarkedAndItsRoomsAreNot", SpottingTests::theOpenAirOfAChunkDrawnIsMarkedAndItsRoomsAreNot);
         Checks.run("aClientSpotsRoomsAndMarksNothing", SpottingTests::aClientSpotsRoomsAndMarksNothing);
         Checks.run("aSquareFoundSeenIsNotAskedAboutAgain", SpottingTests::aSquareFoundSeenIsNotAskedAboutAgain);
@@ -277,6 +278,21 @@ public final class SpottingTests {
         check(!spotting.turned(again), "once the picture covers a view again the turns are taken again");
         pass(spotting, cell, inSight(), List.of(drawn(cell, again)));
         check(Meta.instance.told.size() == told + 1 && Meta.instance.told.contains(again), "to be marked where the view sees them");
+    }
+
+    private static void aRoomSeenIntoIsInSightForFourSecondsAfter() {
+        Spotting spotting = new Spotting(0);
+        long start = 5_000_000_000L;
+        RoomSight.Seen rooms = inSight();
+        rooms.add(31L);
+        spotting.keepRoomsSeen(rooms, start);
+        spotting.keepRoomsSeen(inSight(), start + 300_000_000L);
+        rooms = inSight();
+        spotting.roomsInSight(rooms, start + 3_900_000_000L);
+        check(rooms.contains(31L),
+                "a room the picture saw into on one frame, a round or not, is in sight for spotting for a while after, as the game may find its squares seen late");
+        spotting.roomsInSight(rooms, start + 4_000_000_000L);
+        check(!rooms.contains(31L) && rooms.size() == 0, "and not once four seconds have gone by");
     }
 
     private static void theOpenAirOfAChunkDrawnIsMarkedAndItsRoomsAreNot() {

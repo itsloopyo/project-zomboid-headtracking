@@ -33,7 +33,7 @@ import zombie.network.GameClient;
  * So under the picture the light spots no room (Hooks.roomSeenByLight) and hands each square it
  * finds turned seen to turned (Hooks.squareSeenByLight), and here, in rounds of a rhythm of their
  * own, the game's two calls are made for the squares the first person view sees: every square of
- * each room the eye's picture saw into in the last half second, and every square out of doors on
+ * each room the eye's picture saw into in the last four seconds, and every square out of doors on
  * the chunks the picture draws that its cone takes in (WorldScene.Frame.faces), where it sees
  * the open air. A room is spotted from those of its
  * squares the game has had in the player's sight (IsoGridSquare.isSeen), and a square the light
@@ -80,7 +80,7 @@ final class Spotting {
     private final int playerIndex;
     private boolean passed;
     private long passedNanos;
-    private final RoomSight.Seen shownRooms = new RoomSight.Seen();
+    private final RoomSight.Seen shownLately = new RoomSight.Seen(), shownRooms = new RoomSight.Seen();
     private final List<IsoChunk> shownChunks = new ArrayList<>();
 
     /** The round under way: whether there is one, what it goes over, the units it is made of and how far it has got. */
@@ -114,6 +114,14 @@ final class Spotting {
 
     /** The squares the light has found turned seen since the last round ended, by place (key), and the set a round empties: swapped under this object's lock. */
     private RoomSight.Seen turned = new RoomSight.Seen(), turnedBefore = new RoomSight.Seen();
+    /**
+     * The rooms the picture saw into in the last four seconds (RoomSight.Kept.KEEP_NANOS): the
+     * game may find a square seen a while after the picture has looked away from its room, and a
+     * room glimpsed in passing is still spotted when it does, as the game's level and reach say.
+     * Kept from every frame, not only those that begin a round: the picture keeps a room it saw
+     * into for half a second (WorldScene.roomsShownTo), and a round can take longer.
+     */
+    private final RoomSight.Kept roomsKept = new RoomSight.Kept();
 
     /** Dev only: what the rounds came to since they were last said. */
     private long frames, passes, late, passNanos, longestPassNanos, sliceNanos, longestSliceNanos, longestBeginNanos, longestEndNanos, squaresRead, seenAsked,
@@ -206,6 +214,9 @@ final class Spotting {
         }
         long began = System.nanoTime(), deadline = began + sliceLength;
         IsoCell cell = IsoWorld.instance.currentCell;
+        shownLately.clear();
+        scene.roomsShownTo(shownLately);
+        keepRoomsSeen(shownLately, now);
         int afresh = CHECK ? count(true) : 0, unchanged = CHECK ? count(false) : 0;
         passer = Thread.currentThread();
         boolean finished = false;
@@ -213,7 +224,7 @@ final class Spotting {
             // A round the frames were too slow to finish in its quarter second goes on over the next, and the next round begins once it is done.
             boolean begun = !open && due(now);
             if (begun) {
-                gather(scene, frame, cell);
+                gather(frame, cell, now);
                 begin(cell, shownRooms, IsoWorld.instance.getMetaGrid()::getRoomDefByID, shownChunks, frame::lightFrom, frame::lightTop);
                 if (CHECK) {
                     longestBeginNanos = Math.max(longestBeginNanos, System.nanoTime() - began);
@@ -250,10 +261,9 @@ final class Spotting {
         sayIfDue(now);
     }
 
-    /** What the picture sees now: the rooms it saw into in the last half second, and the chunks it draws that the view faces, where it sees their open air. */
-    private void gather(WorldScene scene, WorldScene.Frame frame, IsoCell cell) {
-        shownRooms.clear();
-        scene.roomsShownTo(shownRooms);
+    /** What the picture sees now: the rooms it saw into in the last four seconds, and the chunks it draws that the view faces, where it sees their open air. */
+    private void gather(WorldScene.Frame frame, IsoCell cell, long now) {
+        roomsInSight(shownRooms, now);
         shownChunks.clear();
         RoomSight.Seen air = frame.roomsSeen;
         List<WorldScene.ChunkMeshes> shown = frame.shownBuilds();
@@ -279,6 +289,18 @@ final class Spotting {
 
     /** How far past a chunk build's box what is built in it may be drawn, in tiles: ChunkBuffers.AIR_SLACK. */
     private static final float AIR_SLACK = 1f;
+
+    /** Keeps the rooms the picture saw into lately for four seconds from a time on System.nanoTime's clock. Called on every frame. */
+    void keepRoomsSeen(RoomSight.Seen lately, long now) {
+        roomsKept.found(lately, now, null);
+    }
+
+    /** Puts into rooms every room kept at a time on System.nanoTime's clock, once those not seen into for four seconds are let go. */
+    void roomsInSight(RoomSight.Seen rooms, long now) {
+        roomsKept.expire(now, null);
+        rooms.clear();
+        roomsKept.copyTo(rooms);
+    }
 
     /** Dev only: the game's count of squares whose light it read afresh, or of those it found unchanged. */
     private static int count(boolean afresh) {
@@ -684,11 +706,13 @@ final class Spotting {
         drawnChunks.clear();
         shownChunks.clear();
         shownRooms.clear();
+        shownLately.clear();
         lightFrom = lightTop = null;
         known.clear();
         knownAt.clear();
         knownSpare.clear();
         knownFreeCount = 0;
+        roomsKept.clear();
     }
 
     /** Whether the round goes over a square: in a room in sight, or out of doors on a chunk drawn, on a level the picture reads light on. */
@@ -746,11 +770,11 @@ final class Spotting {
                 "spotting: player %d, %.1f s, %d frames, %d rounds (%d over their quarter second) in %.3f ms each (longest %.3f), %.4f ms a frame (longest %.3f,"
                         + " beginning a round up to %.3f, ending one up to %.3f);"
                         + " squares read %d, asked whether seen %d (seen and out of sight in %d of %d sampled), light read afresh %d and found unchanged %d,"
-                        + " rooms spotted %d, rooms the light passed over %d; squares found turned seen as a round asked %d and by other reads %d,"
+                        + " rooms spotted %d, rooms the light passed over %d, rooms in sight %d; squares found turned seen as a round asked %d and by other reads %d,"
                         + " marked where the view sees them %d, waiting for the view %d, let go with their chunk %d; chunks known %d",
                 playerIndex + 1, (now - saidNanos) / 1e9, frames, passes, late, passNanos / 1e6 / Math.max(1, passes), longestPassNanos / 1e6,
                 sliceNanos / 1e6 / Math.max(1, frames), longestSliceNanos / 1e6, longestBeginNanos / 1e6, longestEndNanos / 1e6, squaresRead, seenAsked, seenOutOfSight, sampled, readAfresh, readUnchanged,
-                spotted, roomsLeftByLight.sumThenReset(), asked, aside, marked, waiting(), letGo, knownAt.size()));
+                spotted, roomsLeftByLight.sumThenReset(), roomsKept.size(), asked, aside, marked, waiting(), letGo, knownAt.size()));
         saidNanos = now;
         frames = passes = late = passNanos = longestPassNanos = sliceNanos = longestSliceNanos = longestBeginNanos = longestEndNanos = squaresRead = seenAsked = sampled = seenOutOfSight = spotted
                 = marked = letGo = readAfresh = readUnchanged = 0;

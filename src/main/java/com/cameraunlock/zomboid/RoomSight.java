@@ -750,18 +750,20 @@ final class RoomSight {
             return rooms.size();
         }
 
-        /** Keeps every room found now, as found at the time given, and adds to entered those that were not kept. */
+        /** Keeps every room found now, as found at the time given, and adds to entered, where one is given, those that were not kept. */
         void found(Seen now, long nanos, Seen entered) {
             for (int slot = 0; slot < now.slots(); slot++) {
                 long room = now.at(slot);
                 if (room != OUTSIDE && rooms.put(room, nanos)) {
-                    entered.add(room);
+                    if (entered != null) {
+                        entered.add(room);
+                    }
                     changes++;
                 }
             }
         }
 
-        /** Lets go of every room not found for the time it keeps them, and adds them to left. */
+        /** Lets go of every room not found for the time it keeps them, and adds them to left, where one is given. */
         void expire(long nanos, Seen left) {
             spare.clear();
             for (int slot = 0; slot < rooms.slots(); slot++) {
@@ -770,7 +772,9 @@ final class RoomSight {
                     continue;
                 }
                 if (nanos - rooms.valueAt(slot) >= keepNanos) {
-                    left.add(room);
+                    if (left != null) {
+                        left.add(room);
+                    }
                     changes++;
                 } else {
                     spare.put(room, rooms.valueAt(slot));
