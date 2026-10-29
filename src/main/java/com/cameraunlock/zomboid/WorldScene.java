@@ -6069,7 +6069,7 @@ final class WorldScene {
             other.solid.clear();
             other.laid.clear();
             other.layers.none();
-            BuildThreads.runAndWait(besideThread, () -> other.buildInto(chunk, chunkX, chunkY, lowest, into, toldSoFar));
+            buildBeside(other, chunk, chunkX, chunkY, lowest, into, toldSoFar);
             heldBeside(chunk, fresh, into, otherwise(floatsOf(solid), floatsOf(laid), sameSites(sites, other.sites), crownsRead, alike, fresh, other, into));
         }
 
@@ -6086,12 +6086,25 @@ final class WorldScene {
             other.solid.clear();
             other.laid.clear();
             other.layers.none();
-            BuildThreads.runAndWait(besideThread, () -> {
-                SpriteColours.askingFrom(view.index, job.chunkX + CHUNK_TILES / 2f, job.chunkY + CHUNK_TILES / 2f);
-                other.buildInto(job.chunk, job.chunkX, job.chunkY, job.lowest, into, job.toldSoFar);
-                SpriteColours.askingFrom(view.index, Float.NaN, Float.NaN);
-            });
+            buildBeside(other, job.chunk, job.chunkX, job.chunkY, job.lowest, into, job.toldSoFar);
             heldBeside(job.chunk, fresh, into, otherwise(job.solidFloats, job.laidFloats, samePage(fresh, other.sites), job.crowns, fresh.alike, fresh, other, into));
+        }
+
+        /**
+         * Dev only: makes the build of a chunk on another frame, on the build thread beside while this one waits, as
+         * the walk makes one: asked for sprites from the chunk's middle, with the roofs' measures kept.
+         */
+        private void buildBeside(Frame other, IsoChunk chunk, int chunkX, int chunkY, int lowest, ChunkMeshes into, int toldSoFar) {
+            BuildThreads.runAndWait(besideThread, () -> {
+                SpriteColours.askingFrom(view.index, chunkX + CHUNK_TILES / 2f, chunkY + CHUNK_TILES / 2f);
+                Roofs.keepMeasures();
+                try {
+                    other.buildInto(chunk, chunkX, chunkY, lowest, into, toldSoFar);
+                } finally {
+                    Roofs.forgetMeasures();
+                    SpriteColours.askingFrom(view.index, Float.NaN, Float.NaN);
+                }
+            });
         }
 
         /**

@@ -47,9 +47,16 @@ final class SpriteColours {
     private static final ConcurrentHashMap<Texture, float[]> known = new ConcurrentHashMap<>();
     private static final ConcurrentLinkedQueue<Ask> asked = new ConcurrentLinkedQueue<>();
     private static final ArrayList<Ask> waiting = new ArrayList<>();
-    /** Where the build asking for sprites now stands, the middle of its chunk, and whose view it is built for: no place (NaN) outside a chunk's build. Logic thread. */
-    private static volatile int askView;
-    private static volatile float askX = Float.NaN, askY = Float.NaN;
+    /**
+     * Where the build asking for sprites now stands, the middle of its chunk, and whose view it is built for: no
+     * place (NaN) outside a chunk's build. Each thread that builds has its own: the logic thread and the build threads.
+     */
+    private static final ThreadLocal<Place> asking = ThreadLocal.withInitial(Place::new);
+
+    private static final class Place {
+        int view;
+        float x = Float.NaN, y = Float.NaN;
+    }
     /** Where each view's eye was as its last frame was drawn, x then y: no place (NaN) before its first. Render thread. */
     private static final float[] eyes = new float[View.COUNT * 2];
 
@@ -150,7 +157,8 @@ final class SpriteColours {
         float[] colour = known.get(texture);
         if (colour == null) {
             if (known.putIfAbsent(texture, ASKED) == null) {
-                asked.add(new Ask(texture, askView, askX, askY));
+                Place place = asking.get();
+                asked.add(new Ask(texture, place.view, place.x, place.y));
             }
             return null;
         }
@@ -175,14 +183,16 @@ final class SpriteColours {
 
     /** Has the sprite's sheet read on the next frame drawn though its colour is known: for Windows, which measures a sprite from the same copy. */
     static void readAgain(Texture texture) {
-        asked.add(new Ask(texture, askView, askX, askY));
+        Place place = asking.get();
+        asked.add(new Ask(texture, place.view, place.x, place.y));
     }
 
-    /** Says where the build that asks for sprites from now on stands, for the view: NaN for no place. Logic thread. */
+    /** Says where the build that asks for sprites from now on on this thread stands, for the view: NaN for no place. */
     static void askingFrom(int view, float x, float y) {
-        askView = view;
-        askX = x;
-        askY = y;
+        Place place = asking.get();
+        place.view = view;
+        place.x = x;
+        place.y = y;
     }
 
     /**

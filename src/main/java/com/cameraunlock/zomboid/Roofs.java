@@ -8,6 +8,7 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
 import zombie.core.textures.Texture;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
@@ -1224,9 +1225,11 @@ final class Roofs {
      * places has the sprite's pixels in it.
      */
     static RoofFit.Tile measure(SpriteGeometry.Frame frame, Texture texture, int x, int y, int z) {
-        if (measurer != Thread.currentThread()) {
+        Measures measures = Roofs.measures.get();
+        if (!measures.kept) {
             return measureAt(frame, texture, x, y, z);
         }
+        IdentityHashMap<Texture, Measured> measured = measures.measured;
         Measured kept = measured.get(texture);
         while (kept != null && !kept.of(frame)) {
             kept = kept.next;
@@ -1246,31 +1249,41 @@ final class Roofs {
                     || again.fitting != tile.fitting || again.half != tile.half || Float.compare(again.halfEdge, tile.halfEdge) != 0 || again.cutCorner != tile.cutCorner) {
                 throw new IllegalStateException("the roof tile kept for " + texture.getName() + " at " + x + ", " + y + ", level " + z + " is not the one measured again");
             }
-            measuresChecked++;
+            measuresChecked.incrementAndGet();
         }
         return tile;
     }
 
     /**
-     * Logic thread: from now until forgetMeasures, how a roof's sprite lies (measure) is kept for
-     * each texture and frame it is measured in, at its first measuring. A frame is built with
-     * every texture's mask as it is, and a roof wears one sprite over many squares.
+     * From now until forgetMeasures, how a roof's sprite lies (measure) is kept, on this thread,
+     * for each texture and frame it is measured in, at its first measuring: on the logic thread
+     * as a frame is built, and on a build thread as it makes builds. A frame is built with every
+     * texture's mask as it is, and a roof wears one sprite over many squares.
      */
     static void keepMeasures() {
-        if (measurer != null) {
+        Measures measures = Roofs.measures.get();
+        if (measures.kept) {
             throw new IllegalStateException("roof measures are kept already");
         }
-        measurer = Thread.currentThread();
+        measures.kept = true;
     }
 
-    /** Lets go of what keepMeasures kept. */
+    /** Lets go of what keepMeasures kept on this thread. */
     static void forgetMeasures() {
-        measurer = null;
-        measured.clear();
-        if (CHECK_KEPT && measuresChecked >= measuresSaid + CHECKS_SAID_EVERY) {
-            measuresSaid = measuresChecked;
-            Log.info("roof measures check: " + measuresChecked + " kept measures measured again, every one the same");
+        Measures measures = Roofs.measures.get();
+        measures.kept = false;
+        measures.measured.clear();
+        long checked = measuresChecked.get();
+        if (CHECK_KEPT && checked >= measuresSaid + CHECKS_SAID_EVERY) {
+            measuresSaid = checked;
+            Log.info("roof measures check: " + checked + " kept measures measured again, every one the same");
         }
+    }
+
+    /** What keepMeasures keeps on a thread. */
+    private static final class Measures {
+        boolean kept;
+        final IdentityHashMap<Texture, Measured> measured = new IdentityHashMap<>();
     }
 
     /** A roof's sprite as measure read it in one frame of the texture: the tile it gave at the map's origin. */
@@ -1299,12 +1312,12 @@ final class Roofs {
         }
     }
 
-    private static Thread measurer;
-    private static final IdentityHashMap<Texture, Measured> measured = new IdentityHashMap<>();
+    private static final ThreadLocal<Measures> measures = ThreadLocal.withInitial(Measures::new);
     /** Dev only: each measure kept is measured again as it is given, and must be the same. */
     private static final boolean CHECK_KEPT = Boolean.getBoolean("cameraunlock.zomboid.checkKept");
     private static final long CHECKS_SAID_EVERY = 100_000L;
-    private static long measuresChecked, measuresSaid;
+    private static final AtomicLong measuresChecked = new AtomicLong();
+    private static volatile long measuresSaid;
 
     private static RoofFit.Tile measureAt(SpriteGeometry.Frame frame, Texture texture, int x, int y, int z) {
         float northWest = SpriteGeometry.heightDrawnAt(frame, 0f, 0f, frame.top);
