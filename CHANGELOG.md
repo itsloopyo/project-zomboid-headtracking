@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Added
+
+- Every part of the mod can be switched off, on the mod's page of the options screen or in `CameraUnlock.ini`, and each is on until you untick it: first person as a whole (`FirstPersonEnabled`), the torch following your head, hearing from the eye, lightning bolts, shot impacts, far vehicles and zombies, quick ragdolls, hit flinches, the head-led view when down, items as models, finer skins, leaving out the game's screen grey and name tags at heads.
+- `[Rules]` has `ShotsFromVehicleSeats`, `DriveWhileAiming`, `HillsMoveVehicles` and `HandLightOutAtTheWheel`, and `HiddenWallDecorSaved`, which decides apart from `HiddenWallDecor` whether the game's mirrors, clocks and coat racks are added to the save.
+- A `[Fixes]` section, under Game fixes on the options page: `BurntBuildingFreezeFix`, `CentreTheWindow` and `ControllerChoiceFix`.
+- The `[Optimizations]` section has `CachedGameLookups`, `SkipCoveredGameDrawing`, `SkinsComposedWhileWaiting`, `ChunkChangeCounts`, `UnseenRoomZombiesUnmodelled`, `HoldChunkMapCentre`, `GraphicsMemorySteps`, `PrepareWhileLoading` and `SpotBySight`, beside `SpreadLightUpdates`.
+- A row read as the game starts leaves its patches out of the game's code from the next start when it is off, so another Java mod that patches the same methods meets the game's own. `ZombiesSeenAtOnce` and `VehiclesSmashThrough` do the same.
+- Two buttons at the top of the mod's options page: one turns first person and the isometric graphics on or off together, the other turns off everything but head tracking and talking mouths. Each is saved as you press it.
+
 ### Changed
 
 - Driving through open country runs faster in first person, with about a fifth more frames a second on the road out of Muldraugh: working out the ground's heights as the map loads takes far less time.

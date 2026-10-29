@@ -771,6 +771,12 @@ FourthPlayerMicrophone=None
 ```
 <!-- /cameraunlock:config -->
 
+### Switching parts of the mod off
+
+Each part of the mod, each change to the game's rules, each fix of the game and each optimization has a row of its own, on until you untick it on the mod's page of the game's options screen or set it to `false` in `CameraUnlock.ini`. The fixes are under `[Fixes]` and the optimizations under `[Optimizations]`. A row whose comment says it is taken at the next start changes the game's own code, so it takes effect the next time the game starts. Off, its patches are left out of the game, and another Java mod that patches the same methods meets the game's own code.
+
+Two buttons head the mod's page. One turns first person and the isometric graphics on or off together: on, an isometric view at `Low` goes to `Medium`. The other turns off everything but head tracking and talking mouths. Each is saved as you press it.
+
 ## Troubleshooting
 
 - **No tracking** - start the tracker, check its address and port, then press `Delete` in a loaded game.
