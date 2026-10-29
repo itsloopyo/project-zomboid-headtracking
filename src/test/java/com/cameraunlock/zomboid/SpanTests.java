@@ -611,6 +611,7 @@ final class SpanTests {
         drawn.put(Map.key(50, 5, 2), "appliances_com_01_93");
         drawn.put(Map.key(50 + on, 5 + on, 3), "appliances_com_01_88");
         check(!Poles.drawnUp(map, 50 + on, 5 + on, 3, 0) && Poles.standsOn(map, 50, 5, 3, 0) == null, "the foot of a pole over the top of a whole one is no part of it");
+        noLowestLengthIsDrawnUp(drawn);
     }
 
     /**
@@ -659,6 +660,7 @@ final class SpanTests {
         Poles.Floored roof = (x, y, z) -> z <= 1;
         check(Poles.footLevel(roof, 50, 5, 1) == 1, "a pole with a floor under its foot stands on it");
         check(Poles.footLevel((x, y, z) -> false, 50, 5, 2) == 0, "and none stands lower than the ground");
+        noLowestLengthIsDrawnUp(drawn);
     }
 
     /**
@@ -690,6 +692,7 @@ final class SpanTests {
         drawn.put(Map.key(36, 11, 4), "appliances_com_01_88");
         check(Poles.drawnUp(map, 33, 8, 2, 0) && !Poles.drawnUp(map, 36, 11, 4, 0) && "appliances_com_01_88".equals(Poles.standsOn(map, 36, 11, 4, 0)),
                 "a length drawn up is no top for another to be drawn up from either");
+        noLowestLengthIsDrawnUp(drawn);
     }
 
     /**
@@ -717,6 +720,7 @@ final class SpanTests {
         Poles.Loaded fromTwelve = (x, y) -> x >= 12;
         check(Poles.unsettled(map, fromTwelve, 10 + on, 5 + on, 3, 0), "a top with nothing under it may be drawn up from a pole on map not loaded");
         check(!Poles.unsettled(map, all, 10 + on, 5 + on, 3, 0), "and is known once that is loaded");
+        noLowestLengthIsDrawnUp(drawn);
     }
 
     /**
@@ -762,6 +766,26 @@ final class SpanTests {
         for (Poles.Loaded loaded : new Poles.Loaded[] {toTwelve, all}) {
             check(Poles.unsettledPole(map, loaded, 10, 5, 0, 0) == Poles.unsettledPole(map, loaded, 10, 5, 2, 0),
                     "with its arm on its own square the foot asks what the arm's own length asks");
+        }
+        noLowestLengthIsDrawnUp(drawn);
+    }
+
+    /**
+     * Wherever a length of a layout is drawn up (Poles.UP), something stands on the square under it. WireBuilder.shaftOf
+     * walks down the lengths that stand on a square and reads the square it stops on, which the map need not have under a
+     * length drawn up: so it may never stop on one. A length drawn up stands a level down and Spans.LEVEL_SQUARES back
+     * from one drawn, and so every place one may stand is looked at, for the lowest level the tests use and the ground.
+     */
+    private static void noLowestLengthIsDrawnUp(HashMap<Long, String> drawn) {
+        Poles.Drawn map = (x, y, z) -> drawn.get(Map.key(x, y, z));
+        int on = Spans.LEVEL_SQUARES;
+        for (long key : drawn.keySet()) {
+            int x = (int) (key >> 24 & 0xFFFFFF) - on, y = (int) (key & 0xFFFFFF) - on, z = (int) (key >> 48) - 1;
+            for (int lowest = -1; lowest <= 0; lowest++) {
+                if (Poles.drawnFrom(map, x, y, z, lowest) == Poles.UP) {
+                    check(Poles.standsOn(map, x, y, z - 1, lowest) != null, "a length drawn up that stands on " + x + "," + y + "," + z + " has a length standing under it, lowest level " + lowest);
+                }
+            }
         }
     }
 
