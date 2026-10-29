@@ -96,13 +96,13 @@ final class WallObjects {
         }
         // The game gives the height of a cell's seat as where things put on it rest, and of a bunk as its surface.
         // ItemHeight is a mod's to write, and the game's own reading of it leaves anything but 0 to 127 at 0.
-        if (called.equals("Seat") && group.equals("Hanging") && single && properties.getItemHeight() > 0) {
-            float top = properties.getItemHeight() / WorldScene.SURFACE_PIXELS_PER_LEVEL * ViewCamera.LEVEL_HEIGHT;
+        if (called.equals("Seat") && group.equals("Hanging") && single && Surfaces.itemHeight(properties) > 0) {
+            float top = Surfaces.itemHeight(properties) / WorldScene.SURFACE_PIXELS_PER_LEVEL * ViewCamera.LEVEL_HEIGHT;
             Furniture seat = new Furniture(sprite, "cell_seat", turns).stand(0f, 0f, true);
             return seat.raise(top - seat.model.height() * seat.scaleUp);
         }
-        if (called.equals("Bed") && group.equals("Prisoners") && along == 1 && across == 2 && properties.getSurface() > 0) {
-            float top = properties.getSurface() / WorldScene.SURFACE_PIXELS_PER_LEVEL * ViewCamera.LEVEL_HEIGHT;
+        if (called.equals("Bed") && group.equals("Prisoners") && along == 1 && across == 2 && Surfaces.surface(properties) > 0) {
+            float top = Surfaces.surface(properties) / WorldScene.SURFACE_PIXELS_PER_LEVEL * ViewCamera.LEVEL_HEIGHT;
             Furniture bunk = new Furniture(sprite, "cell_bunk", turns).stand(0f, 0f, true);
             return bunk.raise(top - bunk.model.height() * bunk.scaleUp);
         }

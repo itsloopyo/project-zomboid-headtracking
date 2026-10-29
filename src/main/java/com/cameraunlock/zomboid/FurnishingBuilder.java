@@ -1189,7 +1189,7 @@ final class FurnishingBuilder {
         }
         build.dyeFrame.scale = build.frame.scale;
         WorldScene.frameOf(build.dyeFrame, object, texture);
-        float high = board.getProperties().getSurface() / WorldScene.SURFACE_PIXELS_PER_LEVEL;
+        float high = Surfaces.surface(board.getProperties()) / WorldScene.SURFACE_PIXELS_PER_LEVEL;
         if (!texture.isMaskSet(Math.round(SpriteGeometry.frameU(build.dyeFrame, 0.5f, 0.5f)), Math.round(SpriteGeometry.frameV(build.dyeFrame, 0.5f, 0.5f, high)))) {
             return false;
         }

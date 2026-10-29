@@ -40,7 +40,7 @@ final class Indoors {
     static Furniture anyWay(IsoSprite sprite, String name, String called, String group, String holds, PropertyContainer properties,
             IsoDirections facing, boolean blocks) {
         boolean single = sprite.getSpriteGrid() == null;
-        int surface = properties.getSurface();
+        int surface = Surfaces.surface(properties);
         boolean onTable = properties.has("IsTableTop");
         Furniture clinic = Clinic.anyWay(sprite, name, called);
         if (clinic != null) {
@@ -113,7 +113,7 @@ final class Indoors {
     static Furniture facing(IsoSprite sprite, String name, String called, String group, String holds, PropertyContainer properties,
             int turns, int along, int across) {
         boolean single = along == 1 && across == 1, pair = along == 1 && across == 2;
-        int surface = properties.getSurface();
+        int surface = Surfaces.surface(properties);
         float surfaceHigh = surface / WorldScene.SURFACE_PIXELS_PER_LEVEL, surfaceUp = surfaceHigh * ViewCamera.LEVEL_HEIGHT;
         boolean low = properties.has("IsLow"), high = properties.has("IsHigh"), onTable = properties.has("IsTableTop");
         boolean counterHigh = surface >= 30 && surface <= 40;
@@ -122,7 +122,7 @@ final class Indoors {
         if (called.equals("Hood") && single && high) {
             return new Furniture(sprite, "range_hood", turns).meet(0f, 0f, true).raise(HOOD_FOOT);
         }
-        if (called.equals("Counter") && single && group.contains("Steel") && low && properties.isTable() && holds.equals("counter") && counterHigh) {
+        if (called.equals("Counter") && single && group.contains("Steel") && low && Surfaces.table(properties) && holds.equals("counter") && counterHigh) {
             // Steel all over: wood dyed grey keeps its grain.
             boolean corner = group.contains("Corner");
             Furniture counter = new Furniture(sprite, corner ? "steel_counter_corner" : "steel_counter", turns);
@@ -167,7 +167,7 @@ final class Indoors {
         if (called.equals("Drawers") && holds.equals("dresser") && group.contains("Mirror") && single && surface > 0) {
             return new Furniture(sprite, "dresser_mirror", turns).dye(1 << Models.WOOD, surfaceHigh).stand(surfaceUp, CHEST_TOP, true).mirror();
         }
-        if (holds.equals("sidetable") && single && properties.isTable() && surface > 0 && surface <= SIDE_TABLE_HIGHEST && (called.equals("Table") || called.equals("Low Table"))) {
+        if (holds.equals("sidetable") && single && Surfaces.table(properties) && surface > 0 && surface <= SIDE_TABLE_HIGHEST && (called.equals("Table") || called.equals("Low Table"))) {
             Furniture table = new Furniture(sprite, called.equals("Table") ? "side_table" : "media_stand", turns).dye(1 << Models.WOOD, surfaceHigh);
             return table.stand(surfaceUp, table.model.height(), false);
         }
@@ -197,10 +197,10 @@ final class Indoors {
         }
         // Two squares across the way it faces: each square's sprite is half the table, and stood up
         // as half a top over a card it was a cloth folded over its rail on flat legs.
-        if (called.equals("Table") && group.equals("Pool") && along == 1 && across == 2 && properties.isTable() && surface > 0) {
+        if (called.equals("Table") && group.equals("Pool") && along == 1 && across == 2 && Surfaces.table(properties) && surface > 0) {
             return new Furniture(sprite, "pool_table", turns).dye(1 << Models.CLOTH, POOL_DYE).stand(0f, 0f, false).seat(surfaceUp, POOL_CLOTH);
         }
-        if (called.equals("School Bench") && holds.equals("desk") && single && properties.isTable() && surface > 0 && surface <= WorldScene.TABLE_HIGHEST) {
+        if (called.equals("School Bench") && holds.equals("desk") && single && Surfaces.table(properties) && surface > 0 && surface <= WorldScene.TABLE_HIGHEST) {
             return new Furniture(sprite, "school_desk", turns).dye(1 << Models.WOOD, surfaceHigh).stand(surfaceUp, DESK_TOP, false);
         }
         Furniture restaurant = restaurant(sprite, called, group, properties, turns, along, across);
@@ -235,10 +235,10 @@ final class Indoors {
      * shelving behind a bar.
      */
     private static Furniture restaurant(IsoSprite sprite, String called, String group, PropertyContainer properties, int turns, int along, int across) {
-        int surface = properties.getSurface();
+        int surface = Surfaces.surface(properties);
         float surfaceHigh = surface / WorldScene.SURFACE_PIXELS_PER_LEVEL, surfaceUp = surfaceHigh * ViewCamera.LEVEL_HEIGHT;
         boolean single = along == 1 && across == 1;
-        boolean tableHigh = properties.isTable() && surface > 0 && surface <= WorldScene.TABLE_HIGHEST;
+        boolean tableHigh = Surfaces.table(properties) && surface > 0 && surface <= WorldScene.TABLE_HIGHEST;
         // A hospital's curtain rail hung along x or along y, and its curtain drawn along it or bunched at one end: at the west or
         // the east end of a rail along x, at the south or the north end of one along y.
         if (single && group.equals("Blue Hospital") && called.startsWith("Curtain ")) {

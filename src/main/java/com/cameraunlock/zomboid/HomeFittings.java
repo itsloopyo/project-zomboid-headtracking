@@ -77,7 +77,7 @@ final class HomeFittings {
         boolean single = grid == null, pair = along == 1 && across == 2;
         String group = properties.get("GroupName") == null ? "" : properties.get("GroupName");
         String holds = properties.get("container") == null ? "" : properties.get("container");
-        int surface = properties.getSurface();
+        int surface = Surfaces.surface(properties);
         float surfaceUp = surface / WorldScene.SURFACE_PIXELS_PER_LEVEL * ViewCamera.LEVEL_HEIGHT;
         boolean onTable = properties.has("IsTableTop");
         if (called.equals("Cabinet") && group.equals("China") && holds.equals("dishescabinet") && pair && surface > 0) {

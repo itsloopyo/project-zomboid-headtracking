@@ -453,7 +453,7 @@ final class CentreUse {
             }
             // A microwave, a lamp or a plant on a counter is taller than anything put down on it, and a sink let into a
             // counter tops out with the counter, as the game's own top for it (getSurfaceOffsetNoTable) does.
-            int surface = properties == null ? 0 : properties.getSurface();
+            int surface = properties == null ? 0 : Surfaces.surface(properties);
             boolean onAnother = properties != null && properties.has("IsTableTop") || object.getRenderYOffset() > 0f;
             if (onAnother && !hung(properties) && (surface <= 0 || object.getContainer() != null || clickedThoughEmpty(object))) {
                 appliance = true;
@@ -462,7 +462,7 @@ final class CentreUse {
             if (surface <= 0 || hung(properties)) {
                 return Float.POSITIVE_INFINITY;
             }
-            float pixels = surface + object.getRenderYOffset() + properties.getItemHeight();
+            float pixels = surface + object.getRenderYOffset() + Surfaces.itemHeight(properties);
             top = Math.max(top, pixels / WorldScene.SURFACE_PIXELS_PER_LEVEL * ViewCamera.LEVEL_HEIGHT);
         }
         return appliance ? top + APPLIANCE_TALL : top;
@@ -527,7 +527,7 @@ final class CentreUse {
             // A radio or a television that shares its square with a container stands on it: a counter, a cabinet.
             boolean standsOn = properties != null && properties.has("IsTableTop") || object.getRenderYOffset() > 0f || object instanceof IsoWaveSignal;
             if (!standsOn && properties != null) {
-                top = Math.max(top, properties.getSurface());
+                top = Math.max(top, Surfaces.surface(properties));
             }
             if (object instanceof IsoWorldInventoryObject || object.getContainer() == null && (!clickedThoughEmpty(object)
                     || !stoppedOn && above(square, view, floorUp, 0f) > LOW_THING) || !stoppedOn && hung(properties)) {
@@ -575,7 +575,7 @@ final class CentreUse {
             IsoObject object = objects.get(i);
             PropertyContainer properties = object.getProperties();
             if (object != square.getFloor() && object.getType() != IsoObjectType.wall && properties != null && properties.has("CustomName") && !hung(properties)
-                    && passes < properties.getSurface() / WorldScene.SURFACE_PIXELS_PER_LEVEL * ViewCamera.LEVEL_HEIGHT) {
+                    && passes < Surfaces.surface(properties) / WorldScene.SURFACE_PIXELS_PER_LEVEL * ViewCamera.LEVEL_HEIGHT) {
                 return object;
             }
         }

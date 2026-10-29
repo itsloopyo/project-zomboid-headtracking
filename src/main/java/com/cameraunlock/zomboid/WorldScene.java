@@ -9449,7 +9449,7 @@ final class WorldScene {
             // What stands upright on one spot and is no furniture: a column, a porch post, a lamp
             // post, a pole, a timber post with its braces.
             if (!grows && !onTop && overLayer == 0 && !properties.has(IsoFlagType.solid) && !properties.has(IsoFlagType.solidtrans)
-                    && !properties.has(IsoFlagType.bed) && !properties.isTable() && properties.getSurface() <= 0 && !kind.holds
+                    && !properties.has(IsoFlagType.bed) && !Surfaces.table(properties) && Surfaces.surface(properties) <= 0 && !kind.holds
                     && postBuilder.addPost(mesh, object, sprite, texture, x, y, z)) {
                 return;
             }
@@ -9470,12 +9470,12 @@ final class WorldScene {
             // A tall cupboard two squares wide that addFurniture has no model for is the same
             // case as the bed below: each square's sprite is half of it, and the outline of a half
             // is not a box. The game says how high such a thing stands and that it fills its square.
-            if (!grows && properties.has(IsoFlagType.solid) && properties.getSurface() >= TALL_SURFACE) {
+            if (!grows && properties.has(IsoFlagType.solid) && Surfaces.surface(properties) >= TALL_SURFACE) {
                 // Half a square deep, as a wardrobe is, against whichever wall the square has.
                 box[0] = wallWest && !wallNorth ? CUPBOARD_DEEP / 2f : 0.5f;
                 box[1] = wallNorth ? CUPBOARD_DEEP / 2f : 0.5f;
                 box[2] = wallWest && !wallNorth ? CUPBOARD_DEEP / 2f : 0.5f;
-                box[3] = properties.getSurface() / SURFACE_PIXELS_PER_LEVEL;
+                box[3] = Surfaces.surface(properties) / SURFACE_PIXELS_PER_LEVEL;
                 geometry.boxHalfB = wallNorth ? CUPBOARD_DEEP / 2f : 0.5f;
                 geometry.addBox(mesh, frame, x, y, z, box);
                 geometry.boxHalfB = 0f;
@@ -9491,7 +9491,7 @@ final class WorldScene {
                 // The sprite of one square of a bed is a part of the bed, and wrapped on a box it
                 // leaves gaps and torn edges. The square is a block of bedding instead, the colour
                 // the sprite has in the middle of the bed's top, as high as the game says a bed is.
-                float high = properties.getSurface() > 0 ? properties.getSurface() / SURFACE_PIXELS_PER_LEVEL : BED_HEIGHT;
+                float high = Surfaces.surface(properties) > 0 ? Surfaces.surface(properties) / SURFACE_PIXELS_PER_LEVEL : BED_HEIGHT;
                 geometry.addBlock(mesh, frame, x, y, z, high, 0.5f, 0.5f, high);
                 // Over the block, what the sprite shows of the bed's top: the pillow, the fold of the
                 // blanket. Where the sprite stops short the block's own colour carries on.
@@ -9514,7 +9514,7 @@ final class WorldScene {
             // Something low and wide the game says nothing of: a vent on a flat roof, a shower's
             // tray, a hatch. It is a slab, whatever holes its sprite has in it: a fan's blades
             // show the roof between them, and the test above takes that for a chair's legs.
-            if (!grows && !onTop && overLayer == 0 && !properties.isTable() && properties.getSurface() <= 0 && !properties.has(IsoFlagType.bed)
+            if (!grows && !onTop && overLayer == 0 && !Surfaces.table(properties) && Surfaces.surface(properties) <= 0 && !properties.has(IsoFlagType.bed)
                     && SpriteGeometry.boxOf(frame, box) && Flat.isSlab(box[2], box[3])) {
                 addBoxWithinWalls(mesh, x, y, z);
                 boxes++;
@@ -9524,8 +9524,8 @@ final class WorldScene {
             // taking from the sprite what the sprite shows there, round or square as it is painted,
             // and what the sprite shows below the top stands under it as the legs.
             // Only what is table height: a tall cupboard the game also calls a table is not one.
-            if (!grows && properties.isTable() && properties.getSurface() > 0 && properties.getSurface() <= TABLE_HIGHEST) {
-                float top = properties.getSurface() / SURFACE_PIXELS_PER_LEVEL;
+            if (!grows && Surfaces.table(properties) && Surfaces.surface(properties) > 0 && Surfaces.surface(properties) <= TABLE_HIGHEST) {
+                float top = Surfaces.surface(properties) / SURFACE_PIXELS_PER_LEVEL;
                 geometry.addFace(mesh, frame, x, y, z, 0f, 0f, top, 1f, 0f, 0f, 0f, 1f, 0f);
                 float under = (frame.top + frame.height - SpriteGeometry.frameV(frame, 0.5f, 0.5f, top)) / frame.height;
                 if (under > 0.05f) {
@@ -9545,7 +9545,7 @@ final class WorldScene {
                 plantBuilder.addGrown(mesh, sprite, type, texture, x, y, z);
                 return;
             }
-            if (overLayer == 0 && properties.getSurface() <= 0 && !properties.isTable() && postBuilder.addInWallLine(mesh, sprite, texture, x, y, z)) {
+            if (overLayer == 0 && Surfaces.surface(properties) <= 0 && !Surfaces.table(properties) && postBuilder.addInWallLine(mesh, sprite, texture, x, y, z)) {
                 return;
             }
             geometry.addUpright(mesh, frame, x, y, z, 0.5f, 0.5f, 0f, 1f, 0f, true, false);

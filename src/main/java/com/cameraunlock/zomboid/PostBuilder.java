@@ -376,7 +376,7 @@ final class PostBuilder {
         if (shape.kind == SpriteShape.BEAM) {
             PropertyContainer properties = sprite.getProperties();
             if (properties.has(IsoFlagType.solid) || properties.has(IsoFlagType.solidtrans) || properties.has(IsoFlagType.bed)
-                    || properties.isTable() || properties.getSurface() > 0) {
+                    || Surfaces.table(properties) || Surfaces.surface(properties) > 0) {
                 return false;
             }
             build.geometry.addBeam(mesh, build.frame, x, y, z, shape);

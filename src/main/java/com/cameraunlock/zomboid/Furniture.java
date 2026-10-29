@@ -395,7 +395,7 @@ final class Furniture {
         IsoSpriteGrid grid = sprite.getSpriteGrid();
         int width = grid == null ? 1 : grid.getWidth(), height = grid == null ? 1 : grid.getHeight();
         String groupName = properties.get("GroupName");
-        int surface = properties.getSurface();
+        int surface = Surfaces.surface(properties);
         // A piece one square across that the game paints on more than one storey, a flag pole, is a sprite a storey: each stands its own length.
         // An organ's squares are each a piece by itself (Leisure.organ), and a gold cross's (Leisure.glory) and a chandelier's (Leisure.chandelier).
         if (name != null && (grid == null || grid.getLevels() == 1 || width == 1 && height == 1 || Leisure.organPiece(name)
@@ -573,7 +573,7 @@ final class Furniture {
         }
         if (facing == null) {
             // A table for four has no front, and the game gives it none.
-            if (grid == null && name.startsWith("furniture_tables_high") && properties.isTable() && surface > 0 && surface <= WorldScene.TABLE_HIGHEST) {
+            if (grid == null && name.startsWith("furniture_tables_high") && Surfaces.table(properties) && surface > 0 && surface <= WorldScene.TABLE_HIGHEST) {
                 Furniture table = new Furniture(sprite, called.contains("Round") ? "round_table" : "small_table", 0).dye(1 << Models.WOOD, surfaceHigh);
                 return table.stand(surfaceUp, table.model.height(), false);
             }
@@ -583,7 +583,7 @@ final class Furniture {
         boolean alongY = (turns & 1) == 0;
         int along = alongY ? height : width, across = alongY ? width : height;
         boolean single = grid == null, pair = along == 1 && across == 2;
-        boolean tableHigh = properties.isTable() && surface > 0 && surface <= WorldScene.TABLE_HIGHEST;
+        boolean tableHigh = Surfaces.table(properties) && surface > 0 && surface <= WorldScene.TABLE_HIGHEST;
         indoors = Indoors.facing(sprite, name, called, group, holds, properties, turns, along, across);
         if (indoors != null) {
             return indoors;
@@ -631,7 +631,7 @@ final class Furniture {
             return shelf.stand(0f, 0f, true).raise(surfaceUp - shelf.model.height());
         }
         // Low open shelves in a run, each square of them meeting the next as counters do.
-        if (called.equals("Shelves") && single && low && properties.isTable() && counterHigh && holds.equals("shelves")
+        if (called.equals("Shelves") && single && low && Surfaces.table(properties) && counterHigh && holds.equals("shelves")
                 && name.startsWith("furniture_shelving")) {
             Furniture shelves = new Furniture(sprite, "low_shelves", turns).dye(1 << Models.WOOD, surfaceHigh * 0.5f);
             return shelves.meet(surfaceUp, shelves.model.height(), true);
@@ -709,7 +709,7 @@ final class Furniture {
         // A shop's counter open over two shelves, which the game calls shelves. Its sprite paints the shelves on the
         // other of the two sides the game's view sees from the one it says it faces: facing south it is open to the
         // east, facing east to the south.
-        if (called.equals("Shelves") && group.equals("Generic Shop Low") && holds.equals("counter") && single && low && properties.isTable()
+        if (called.equals("Shelves") && group.equals("Generic Shop Low") && holds.equals("counter") && single && low && Surfaces.table(properties)
                 && counterHigh && (facing == IsoDirections.S || facing == IsoDirections.E)) {
             Furniture counter = new Furniture(sprite, "open_counter", facing == IsoDirections.S ? 1 : 2)
                     .dye(1 << Models.WOOD, surfaceHigh * 0.45f).also(1 << Models.WORKTOP, surfaceHigh);
@@ -719,12 +719,12 @@ final class Furniture {
             boolean corner = group.contains("Corner");
             // A shop's counter or a bar: a counter with no doors on the side it is seen from, at
             // whatever height the game gives it.
-            if (low && properties.isTable() && surface >= 30 && surface <= WorldScene.TABLE_HIGHEST && (holds.isEmpty() || holds.equals("counter") && !counterHigh)) {
+            if (low && Surfaces.table(properties) && surface >= 30 && surface <= WorldScene.TABLE_HIGHEST && (holds.isEmpty() || holds.equals("counter") && !counterHigh)) {
                 Furniture counter = new Furniture(sprite, corner ? "counter_corner" : "shop_counter", turns)
                         .dye(1 << Models.WOOD, surfaceHigh * 0.45f).also(1 << Models.WORKTOP, surfaceHigh);
                 return counter.meet(surfaceUp, counter.model.height(), !corner);
             }
-            if (low && properties.isTable() && holds.equals("counter") && counterHigh) {
+            if (low && Surfaces.table(properties) && holds.equals("counter") && counterHigh) {
                 Furniture counter = new Furniture(sprite, corner ? "counter_corner" : "counter", turns)
                         .dye(1 << Models.WOOD, surfaceHigh * 0.45f).also(1 << Models.WORKTOP, surfaceHigh);
                 if (!corner) {

@@ -153,7 +153,7 @@ final class ShopFittings {
         if (called.equals("Wardrobe") && group.equals("Open") && holds.equals("clothingrack") && along == 1 && across == 3) {
             return stocked(new Furniture(sprite, "open_wardrobe", turns).dye(1 << Models.WOOD, 0.5f, 0.5f, WARDROBE_DYE).stand(0f, 0f, true));
         }
-        int surface = properties.getSurface();
+        int surface = Surfaces.surface(properties);
         // A shop's glass counter. The corner of a run of them is another shape, which this is not.
         if (called.equals("Counter") && group.equals("Glass Display") && holds.equals("displaycase") && single && surface > 0) {
             float top = surface / WorldScene.SURFACE_PIXELS_PER_LEVEL * ViewCamera.LEVEL_HEIGHT;

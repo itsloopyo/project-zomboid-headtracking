@@ -39,14 +39,14 @@ final class Clinic {
     static Furniture facing(IsoSprite sprite, String name, String called, String group, String holds, PropertyContainer properties,
             int turns, int along, int across) {
         boolean single = along == 1 && across == 1, long2 = along == 2 && across == 1;
-        float surfaceHigh = properties.getSurface() / WorldScene.SURFACE_PIXELS_PER_LEVEL, surfaceUp = surfaceHigh * ViewCamera.LEVEL_HEIGHT;
+        float surfaceHigh = Surfaces.surface(properties) / WorldScene.SURFACE_PIXELS_PER_LEVEL, surfaceUp = surfaceHigh * ViewCamera.LEVEL_HEIGHT;
         boolean onTable = properties.has("IsTableTop");
         if (name.startsWith(PHONES) && called.equals("Phone") && onTable && single) {
             boolean rotary = group.endsWith("Rotary");
             return new Furniture(sprite, rotary ? "rotary_phone" : "desk_phone", turns).dye(1 << Models.PLASTIC, rotary ? ROTARY_DYE : KEYPAD_DYE)
                     .stand(0f, 0f, false).raise(surfaceUp);
         }
-        if (name.startsWith(OFFICE) && called.equals("Desk") && properties.isTable() && surfaceUp > 0f) {
+        if (name.startsWith(OFFICE) && called.equals("Desk") && Surfaces.table(properties) && surfaceUp > 0f) {
             return switch (group) {
                 case "Office", "Office 2" -> straightDesk(sprite, name, holds, properties, turns, surfaceHigh, surfaceUp);
                 case "Office L", "Office L2" -> lDesk(sprite, name, group, holds, turns, surfaceHigh, surfaceUp);
