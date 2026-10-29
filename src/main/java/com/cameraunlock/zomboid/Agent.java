@@ -203,6 +203,14 @@ public final class Agent {
         itemLookupGuard.loadedBefore(instrumentation.getAllLoadedClasses());
     }
 
+    /** The patches that have WaitingComposites make the clothes' composites while the render thread waits for the frame. */
+    private static PatchTransformer waitingComposites;
+
+    /** Why the composites are made in the draw on this build of the game, or null once every one of those patches is in. */
+    static String waitingCompositesGap() {
+        return waitingComposites.gap();
+    }
+
     private static volatile boolean loaded;
 
     /** The classes loaded when the mod began, which cannot be given new members: see catchUp. */
@@ -431,6 +439,8 @@ public final class Agent {
         add(instrumentation, hearing);
         splitScreen = new PatchTransformer(splitScreenPatches());
         add(instrumentation, splitScreen);
+        waitingComposites = new PatchTransformer(waitingCompositePatches());
+        add(instrumentation, waitingComposites);
         Log.info("the mod's " + transformers.size() + " sets of patches are registered, each to go in as the game loads its class");
         return true;
     }
@@ -1343,6 +1353,43 @@ public final class Agent {
                 new Patch(COMBINER, "releaseTexture before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
                         new CallSite.Method(COMBINER, "releaseTexture", "(" + TEXTURE + ")V"),
                         code -> CallSite.passFirstArgument(code, new CallSite.Method(FINE_SKINS, "released", "(" + TEXTURE + ")V")))));
+    }
+
+    /**
+     * Apart: without them the game makes the clothes' composites in the draw, as it always did,
+     * and nothing else is changed. See WaitingComposites. The render thread waits for a frame in
+     * SpriteRenderer.waitForReadyState, holding the lock on the frames, and runs the callback each
+     * time it wakes without one. The logic thread hands a frame over in pushFrameDown, under the
+     * same lock, and any thread wakes the render thread with notifyRenderStateQueue, under it too.
+     */
+    private static List<Patch> waitingCompositePatches() {
+        String renderer = "zombie/core/SpriteRenderer", state = "zombie/core/sprite/SpriteRenderState", thread = "zombie/core/opengl/RenderThread",
+                draw = "zombie/core/textures/TextureDraw";
+        String composites = "com/cameraunlock/zomboid/WaitingComposites";
+        CallSite.Method pushFrameDown = new CallSite.Method(renderer, "pushFrameDown", "()V");
+        CallSite.Method notify = new CallSite.Method(renderer, "notifyRenderStateQueue", "()V");
+        CallSite.Method callback = new CallSite.Method(thread, "waitForRenderStateCallback", "()Z");
+        return List.of(
+                new Patch(draw, "drawModel before its return", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                        new CallSite.Method(draw, "drawModel", "(L" + draw + ";Lzombie/core/skinnedmodel/ModelManager$ModelSlot;)V"),
+                        code -> CallSite.passFirstStaticArgument(code, new CallSite.Method(composites, "readied", "(L" + draw + ";)V")))),
+                new Patch(renderer, "pushFrameDown at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes, pushFrameDown,
+                        code -> CallSite.invokeStatic(code, new CallSite.Method(composites, "handing", "()V")))),
+                new Patch(renderer, "pushFrameDown after the frame is handed over", classBytes -> CallSite.insertAfter(classBytes, pushFrameDown,
+                        new CallSite.Method("zombie/core/sprite/SpriteRendererStates", "movePopulatingToReady", "()V"),
+                        new CallSite.Method(composites, "handed", "()V"))),
+                new Patch(renderer, "notifyRenderStateQueue at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes, notify,
+                        code -> CallSite.invokeStatic(code, new CallSite.Method(composites, "notifying", "()V")))),
+                new Patch(renderer, "notifyRenderStateQueue after it wakes the render thread", classBytes -> CallSite.insertAfter(classBytes, notify,
+                        new CallSite.Method("java/lang/Object", "notifyAll", "()V"),
+                        new CallSite.Method(composites, "woken", "()V"))),
+                new Patch(state, "clear at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
+                        new CallSite.Method(state, "clear", "()V"),
+                        code -> CallSite.invokeStatic(code, new CallSite.Method(composites, "clearing", "()V")))),
+                new Patch(thread, "waitForRenderStateCallback at its start", classBytes -> CallSite.insertAtStartOfStaticMethod(classBytes, callback,
+                        code -> CallSite.invokeStatic(code, new CallSite.Method(composites, "calling", "()V")))),
+                new Patch(thread, "waitForRenderStateCallback before its return", classBytes -> CallSite.filterReturn(classBytes, callback,
+                        new CallSite.Method(composites, "waiting", "(Z)Z"))));
     }
 
     /** Apart: without it a vehicle's lamps are drawn as paint and the people the game draws itself keep their mouths shut, and nothing else is changed. See VehicleLamps and GameMouths. */

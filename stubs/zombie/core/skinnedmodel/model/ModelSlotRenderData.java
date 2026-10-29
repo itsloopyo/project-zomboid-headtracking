@@ -1,8 +1,9 @@
 package zombie.core.skinnedmodel.model;
 
 import zombie.characters.IsoGameCharacter;
+import zombie.core.textures.TextureDraw;
 
-public final class ModelSlotRenderData {
+public final class ModelSlotRenderData extends TextureDraw.GenericDrawer {
     public IsoGameCharacter character;
     public zombie.iso.IsoMovingObject object;
     public final ModelInstanceRenderDataList modelData = null;
@@ -18,6 +19,9 @@ public final class ModelSlotRenderData {
     public float finalScale;
     public float alpha;
     public final ModelInstance.EffectLight[] effectLights = null;
+    public ModelInstanceTextureCreator textureCreator;
     public boolean canRender() { throw new UnsupportedOperationException("reference stub"); }
     public ModelInstanceRenderDataList getModelData() { throw new UnsupportedOperationException("reference stub"); }
+    @Override
+    public void render() { throw new UnsupportedOperationException("reference stub"); }
 }

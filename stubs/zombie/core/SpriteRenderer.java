@@ -15,4 +15,5 @@ public final class SpriteRenderer {
     public int getRenderingPlayerIndex() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.core.sprite.SpriteRenderState getRenderingState() { throw new UnsupportedOperationException("reference stub"); }
     public int getRenderStateIndex() { throw new UnsupportedOperationException("reference stub"); }
+    public void notifyRenderStateQueue() { throw new UnsupportedOperationException("reference stub"); }
 }
