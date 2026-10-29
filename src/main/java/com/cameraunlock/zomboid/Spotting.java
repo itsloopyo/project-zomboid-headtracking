@@ -51,8 +51,10 @@ import zombie.network.GameClient;
  * lighting engine has changed it since it was last read, and otherwise asks the engine whether
  * it has, over JNI, on every asking (updateFBORenderChunk 0 to 82). A square seen stays seen (the
  * game saves it so: IsoGridSquare.save and load), so a square is asked only until it is found
- * seen, which is the only way a turn there can still come, and a round's askings are spread over
- * as many frames as they take at half a millisecond a frame (SLICE_NANOS).
+ * seen, which is the only way a turn there can still come. Where the game could spot its room from
+ * it, it is asked in every round; where an asking could only find that it has become seen, every
+ * fourth (TURN_ROUNDS). A round's askings are spread over as many frames as they take at half a
+ * millisecond a frame (SLICE_NANOS).
  *
  * Logic thread, where the game's light is read, but for turned.
  */
@@ -101,7 +103,7 @@ final class Spotting {
     private long[] drawnAt = new long[64], units = new long[256];
     /** The rooms' rectangles cut at the chunks' edges, PIECE ints each, so that a unit is never more than a chunk's 64 squares. */
     private int[] pieces = new int[PIECE * 64];
-    private int unitCount, nextUnit, pieceCount;
+    private int unitCount, nextUnit, pieceCount, rounds;
     private long roundNanos;
     private final long sliceLength;
     private ToIntFunction<IsoChunk> lightFrom, lightTop;
@@ -116,10 +118,15 @@ final class Spotting {
     private int[] knownFree = new int[16];
     private int knownFreeCount;
 
-    /** Of a chunk: the squares found seen, and those the light found turned seen that wait for the view to see them, a bit a square on each level. */
+    /**
+     * Of a chunk: the squares found seen, and those the light found turned seen that wait for the
+     * view to see them, a bit a square on each level, and the last round that asked its squares
+     * whether they have become seen (asksForTurns).
+     */
     private static final class Known {
         IsoChunk chunk;
         final long[] seen = new long[LEVELS], waiting = new long[LEVELS];
+        int askedForTurns;
     }
 
     /** The squares the light has found turned seen since the last round ended, by place (key), and the set a round empties: swapped under this object's lock. */
@@ -442,6 +449,7 @@ final class Spotting {
         marks = !GameClient.client;
         unitCount = nextUnit = pieceCount = 0;
         roundNanos = 0L;
+        rounds++;
         inSight.clear();
         roomDefs.clear();
         for (int slot = 0; slot < rooms.slots(); slot++) {
@@ -545,8 +553,8 @@ final class Spotting {
     /**
      * One piece of a room in sight, inside one chunk: the room spotted from each square of it the
      * game has had in the player's sight, where the game could spot it from there now (canSpot).
-     * Where it could not, the game would make nothing of the call, and the squares are asked about
-     * only for their turns, and not at all on a client.
+     * Where it could not, the game would make nothing of the call, and the squares are asked only
+     * whether they have become seen, and not at all on a client.
      */
     private void roomPiece(IsoCell cell, int piece) {
         int p = piece * PIECE, x0 = pieces[p + 1], y0 = pieces[p + 2], x1 = pieces[p + 3], y1 = pieces[p + 4];
@@ -557,6 +565,7 @@ final class Spotting {
             return;
         }
         Known at = null;
+        boolean turns = false;
         for (int y = y0; y < y1; y++) {
             for (int x = x0; x < x1; x++) {
                 IsoGridSquare square = cell.getGridSquare(x, y, z);
@@ -572,13 +581,14 @@ final class Spotting {
                         return;
                     }
                     at = knownOf(chunk);
+                    turns = marks && asksForTurns(at);
                 }
                 squaresRead++;
                 long bit = 1L << ((y & 7) << 3 | x & 7);
                 markIfWaiting(at, z, bit, square);
                 boolean spot = reachable && !def.explored;
                 if ((at.seen[z - LOWEST] & bit) == 0L) {
-                    if (!spot && !marks || !asked(square)) {
+                    if (!spot && !turns || !asked(square)) {
                         continue;
                     }
                     at.seen[z - LOWEST] |= bit;
@@ -591,7 +601,7 @@ final class Spotting {
         }
     }
 
-    /** One level of a chunk drawn: each square of it out of doors that has not been found seen is asked about. */
+    /** One level of a chunk drawn: each square of it out of doors that has not been found seen is asked about, on the chunk's asking rounds (asksForTurns). */
     private void chunkLevel(IsoCell cell, int index, int z) {
         IsoChunk chunk = drawnChunks.get(index);
         long place = drawnAt[index];
@@ -601,6 +611,7 @@ final class Spotting {
             return;
         }
         Known at = knownOf(chunk);
+        boolean turns = asksForTurns(at);
         for (int y = 0; y < WorldScene.CHUNK_TILES; y++) {
             for (int x = 0; x < WorldScene.CHUNK_TILES; x++) {
                 IsoGridSquare square = chunk.getGridSquare(x, y, z);
@@ -610,7 +621,7 @@ final class Spotting {
                 squaresRead++;
                 long bit = 1L << (y << 3 | x);
                 markIfWaiting(at, z, bit, square);
-                if ((at.seen[z - LOWEST] & bit) == 0L && asked(square)) {
+                if (turns && (at.seen[z - LOWEST] & bit) == 0L && asked(square)) {
                     at.seen[z - LOWEST] |= bit;
                 }
             }
@@ -643,8 +654,32 @@ final class Spotting {
         return at;
     }
 
+    /**
+     * Whether this round asks the squares of a chunk not yet found seen whether they have become
+     * seen, where that is all an asking could find, in a room the game could not spot from them
+     * or out of doors: the first round to go over the chunk does, and then every TURN_ROUNDS-th.
+     * A square of a room the game could spot from it is asked in every round.
+     */
+    private boolean asksForTurns(Known at) {
+        if (at.askedForTurns != rounds && rounds - at.askedForTurns < TURN_ROUNDS) {
+            return false;
+        }
+        at.askedForTurns = rounds;
+        return true;
+    }
+
+    /**
+     * The owner's ruling of 29 October 2026: a square the game has not had in sight is asked
+     * whether it has become seen every fourth round, not every round. Such askings were 88% of a
+     * round's and found 1.3% of the turns, the rest coming from the picture's own reads of the
+     * light. A turn only such an asking finds is marked up to four rounds later: about a second
+     * while rounds keep their quarter second, longer where the frames are too slow for them.
+     */
+    private static final int TURN_ROUNDS = 4;
+
     /** Forgets what was found of a chunk, the squares that waited for the view to see them included. */
     private void forget(Known at) {
+        at.askedForTurns = rounds - TURN_ROUNDS;
         Arrays.fill(at.seen, 0L);
         for (int z = 0; z < LEVELS; z++) {
             letGo += Long.bitCount(at.waiting[z]);

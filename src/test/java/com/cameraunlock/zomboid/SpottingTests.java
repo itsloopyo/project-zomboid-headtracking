@@ -44,6 +44,7 @@ public final class SpottingTests {
         Checks.run("theOpenAirOfAChunkDrawnIsMarkedAndItsRoomsAreNot", SpottingTests::theOpenAirOfAChunkDrawnIsMarkedAndItsRoomsAreNot);
         Checks.run("aClientSpotsRoomsAndMarksNothing", SpottingTests::aClientSpotsRoomsAndMarksNothing);
         Checks.run("aSquareFoundSeenIsNotAskedAboutAgain", SpottingTests::aSquareFoundSeenIsNotAskedAboutAgain);
+        Checks.run("aSquareARoomCouldBeSpottedFromIsAskedEveryRoundAndOneThatCouldOnlyTurnEveryFourth", SpottingTests::aSquareARoomCouldBeSpottedFromIsAskedEveryRoundAndOneThatCouldOnlyTurnEveryFourth);
         Checks.run("aChunkLoadedAgainIsAskedAboutAgain", SpottingTests::aChunkLoadedAgainIsAskedAboutAgain);
         Checks.run("aFramesShareOfARoundEndsOnceItsTimeIsUp", SpottingTests::aFramesShareOfARoundEndsOnceItsTimeIsUp);
         Checks.run("aRoomIsGoneOverAChunkAtATime", SpottingTests::aRoomIsGoneOverAChunkAtATime);
@@ -220,7 +221,8 @@ public final class SpottingTests {
             spotting.pass(cell, rooms, defs::get, List.of(), 500.5f, 500.5f, 0f, HOUSE);
         }
         check(roomChecks(ours) == 4 && roomChecks(theirs) == 0, "inside a building, a room of it 20 tiles off is handed to the game to spot, and one of another building is not");
-        check(theirs.squares()[1].seenAsked == 4, "and a square of the other building's room is still asked about, for its turn");
+        check(ours.squares()[1].seenAsked == 4 && theirs.squares()[1].seenAsked == 1,
+                "and a square of the other building's room, which could only become seen, is asked every fourth round");
     }
 
     private static void aRoomOutOfSightIsLeftAlone() {
@@ -420,13 +422,18 @@ public final class SpottingTests {
         check(kitchen.squares()[0].roomChecks == 2, "a room the picture saw into is gone over for a while after, as the game may find its squares seen late");
         frames(spotting, inSight(), frame, cell, defs, 84f, 84f, start + 4_100_000_000L);
         check(kitchen.squares()[0].roomChecks == 2, "and not once four seconds have gone by since the last frame that saw into it");
-        check(here.seenAsked == 3 && ahead.seenAsked == 3, "a square not yet seen is asked about in every round");
+        check(here.seenAsked == 1 && ahead.seenAsked == 1, "a square out of doors not yet seen, which could only turn seen, is not asked about in the two rounds after the first");
+        here.seen(true);
+        spotting.turned(here);
         frame.roomsSeen = new RoomSight.Seen();
         frames(spotting, inSight(), frame, cell, defs, 84f, 84f, start + 5_000_000_000L);
-        check(here.seenAsked == 4 && ahead.seenAsked == 4, "where the picture lists the rooms it sees and sees the open air all round, as from out of doors, the chunks are gone over");
+        check(Meta.instance.told.contains(here),
+                "where the picture lists the rooms it sees and sees the open air all round, as from out of doors, the chunks are gone over, and a square turned seen there is marked");
+        ahead.seen(true);
+        spotting.turned(ahead);
         frame.roomsSeen.airFrom(new RoomSight(), false);
         frames(spotting, inSight(), frame, cell, defs, 84f, 84f, start + 6_000_000_000L);
-        check(here.seenAsked == 4 && ahead.seenAsked == 4, "and where it sees none of the open air, from indoors, they are not");
+        check(!Meta.instance.told.contains(ahead), "and where it sees none of the open air, from indoors, they are not, and a square turned seen there waits");
     }
 
     private static void theLightLeavesRoomsAndMarksToTheRoundsOnlyUnderThePicture() {
@@ -561,15 +568,31 @@ public final class SpottingTests {
         seen.seen(true);
         Spotting spotting = spotting();
         List<IsoChunk> drawn = List.of(drawn(cell, seen));
-        pass(spotting, cell, inSight(), drawn);
-        pass(spotting, cell, inSight(), drawn);
+        for (int round = 0; round < 4; round++) {
+            pass(spotting, cell, inSight(), drawn);
+        }
         check(seen.seenAsked == 1, "a square found seen is not asked about again: a square seen stays seen, so no turn can come there");
-        check(unseen.seenAsked == 2, "one not seen is asked about in every round, as it may yet turn");
+        check(unseen.seenAsked == 1, "one not seen, which could only turn seen, is asked about in the first round to go over its chunk and not in the three after");
         unseen.seen(true);
         unseen.turns(true);
         int told = Meta.instance.told.size();
         pass(spotting, cell, inSight(), drawn);
-        check(Meta.instance.told.size() == told + 1 && Meta.instance.told.get(told) == unseen, "and is marked as the light finds it has turned");
+        check(unseen.seenAsked == 2 && Meta.instance.told.size() == told + 1 && Meta.instance.told.get(told) == unseen,
+                "but in the fourth after that, as it may yet turn, and is marked as the light finds it has turned");
+    }
+
+    private static void aSquareARoomCouldBeSpottedFromIsAskedEveryRoundAndOneThatCouldOnlyTurnEveryFourth() {
+        IsoCell cell = new IsoCell();
+        Room den = Room.of(cell, 49L, 600, 600, 1, 1, 0), study = Room.of(cell, 50L, 602, 600, 1, 1, 0);
+        study.def().explored = true;
+        IsoGridSquare street = cell.square(604, 600, 0);
+        Spotting spotting = spotting();
+        for (int round = 0; round < 5; round++) {
+            pass(spotting, cell, inSight(den, study), List.of(drawn(cell, street)), den, study);
+        }
+        check(den.squares()[0].seenAsked == 5, "a square of a room the game could spot from it is asked about in every round, so rooms fill as they did");
+        check(study.squares()[0].seenAsked == 2 && street.seenAsked == 2,
+                "one that could only turn seen, in an explored room or out of doors, in the first round to go over its chunk and every fourth after: the owner's ruling of 29 October 2026");
     }
 
     private static void aChunkLoadedAgainIsAskedAboutAgain() {
@@ -640,7 +663,7 @@ public final class SpottingTests {
 
     private static void aRoundTheFramesWereTooSlowForGoesOnOverTheNext() {
         IsoCell cell = new IsoCell();
-        // A hall four chunks long, whose squares are asked about in every round: a piece of eight in each chunk.
+        // A hall four chunks long that the game could spot from the player inside, so its squares are asked about in every round: a piece of eight in each chunk.
         Room hall = Room.of(cell, 52L, 200, 200, 32, 1, 0);
         HashMap<Long, RoomDef> defs = defs(hall);
         WorldScene.Frame frame = new WorldScene(null).next();
