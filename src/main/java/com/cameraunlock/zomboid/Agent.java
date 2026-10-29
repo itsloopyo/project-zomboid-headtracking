@@ -884,14 +884,18 @@ public final class Agent {
         String lighting = "zombie/iso/LightingJNI$JNILighting", square = "zombie/iso/IsoGridSquare", meta = "zombie/meta/Meta";
         CallSite.Method roomSeen = new CallSite.Method(square, "checkRoomSeen", "(I)V"), byLight = new CallSite.Method(HOOKS, "roomSeenByLight", "(L" + square + ";I)V");
         CallSite.Method marked = new CallSite.Method(meta, "dealWithSquareSeen", "(L" + square + ";)V");
-        CallSite.Method squareSeen = new CallSite.Method(HOOKS, "squareSeenByLight", "(L" + meta + ";L" + square + ";L" + square + "$ILighting;)V");
+        CallSite.Method squareSeen = new CallSite.Method(HOOKS, "squareSeenByLight", "(L" + meta + ";L" + square + ";I)V");
         CallSite.Method fbo = new CallSite.Method(lighting, "updateFBORenderChunk", "()V"), old = new CallSite.Method(lighting, "update", "()V");
+        Consumer<CodeBuilder> squareSeenForThePlayer = code -> {
+            code.aload(0).getfield(ClassDesc.ofInternalName(lighting), "playerIndex", ClassDesc.ofDescriptor("I"));
+            CallSite.invokeStatic(code, squareSeen);
+        };
         return List.of(new Patch(lighting, "update and updateFBORenderChunk leaving rooms and marks to Spotting under the first person picture", classBytes -> {
             classBytes = CallSite.replaceEach(classBytes, fbo, roomSeen, byLight, 1);
-            classBytes = CallSite.replaceEach(classBytes, fbo, marked, code -> CallSite.passThis(code, squareSeen), 1);
+            classBytes = CallSite.replaceEach(classBytes, fbo, marked, squareSeenForThePlayer, 1);
             // update spots a room from a square seen, and also from an unseen one beside the player.
             classBytes = CallSite.replaceEach(classBytes, old, roomSeen, byLight, 2);
-            return CallSite.replaceEach(classBytes, old, marked, code -> CallSite.passThis(code, squareSeen), 1);
+            return CallSite.replaceEach(classBytes, old, marked, squareSeenForThePlayer, 1);
         }));
     }
 

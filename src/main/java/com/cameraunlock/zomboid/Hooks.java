@@ -335,23 +335,16 @@ public final class Hooks {
     }
 
     /**
-     * In place of the game's marking a square seen this hour as the light it was working out,
-     * which is one player's, finds the square has just turned seen: handed to Spotting while the
-     * first person picture covers that player's view, to be marked once the view sees it, unless
-     * Spotting has handed its turns back to the game.
+     * In place of the game's marking a square seen this hour as it works out the square's light
+     * for a player and finds it has just turned seen: handed to Spotting while the first person
+     * picture covers that player's view, to be marked once the view sees it, unless Spotting has
+     * handed its turns back to the game.
      */
-    public static void squareSeenByLight(Meta meta, IsoGridSquare square, IsoGridSquare.ILighting light) {
-        for (int playerIndex = 0; playerIndex < square.lighting.length; playerIndex++) {
-            if (square.lighting[playerIndex] != light) {
-                continue;
-            }
-            View view = View.of(playerIndex);
-            if (view == null || !view.firstPerson.coversTheGamesView() || view.spotting.turned(square)) {
-                meta.dealWithSquareSeen(square);
-            }
-            return;
+    public static void squareSeenByLight(Meta meta, IsoGridSquare square, int playerIndex) {
+        View view = View.of(playerIndex);
+        if (view == null || !view.firstPerson.coversTheGamesView() || view.spotting.turned(square)) {
+            meta.dealWithSquareSeen(square);
         }
-        throw new IllegalStateException("light worked out for the square at " + square.getX() + ", " + square.getY() + ", " + square.getZ() + " that is none of its players'");
     }
 
     /** In place of the game's reading of where a player's reticle or aim cursor is drawn, across the screen. */
