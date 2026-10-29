@@ -73,7 +73,12 @@ public final class ChunkMarks {
      */
     private static final int[] letGoAt = new int[SIDE * SIDE];
     private static int tellings;
-    /** By view, the chunks it keeps builds of as it last said: west, north and side, a side of 0 for none. */
+    /**
+     * By view, the chunks it keeps builds of as it last said: west, north and side, a side of 0
+     * for none. A view that builds outside what it last said reads what the place of a chunk let
+     * go of reads, which can only have a build made again, and a view gone away goes on keeping
+     * what it last said.
+     */
     private static final int[] keptBy = new int[View.COUNT * 3];
     private static final ArrayList<Told> held = new ArrayList<>();
 
