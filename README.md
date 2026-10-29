@@ -472,6 +472,10 @@ LightMultiplier=default
 ; true: in first person a torch you carry lights where your head is turned, as far as LightMultiplier in [Light]
 ; says. false: it lights the way the view faces, whatever your head does.
 TorchFollowsHead=true
+; true: in first person you hear from the eye: sounds turn with the view, walls between you and a sound muffle it
+; and rooms ring. false: first person is heard as the game's own view hears, facing north-west on the map.
+; Taken at the next start. Off, its patches of the game's code are left out.
+HearFromTheEye=true
 
 [Players]
 ; Player 2's first person graphics mode, as Quality.

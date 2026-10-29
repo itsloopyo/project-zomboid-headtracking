@@ -18,7 +18,10 @@ enum Part {
                     + "until you leave the save."),
     TORCH_FOLLOWS_HEAD("FirstPerson", "TorchFollowsHead", true, false,
             "true: in first person a torch you carry lights where your head is turned, as far as LightMultiplier in [Light]\n"
-                    + "says. false: it lights the way the view faces, whatever your head does.");
+                    + "says. false: it lights the way the view faces, whatever your head does."),
+    HEAR_FROM_THE_EYE("FirstPerson", "HearFromTheEye", false, true,
+            "true: in first person you hear from the eye: sounds turn with the view, walls between you and a sound muffle it\n"
+                    + "and rooms ring. false: first person is heard as the game's own view hears, facing north-west on the map.");
 
     final String section, key, comment;
     /** Whether the row is taken while the game runs, and whether it is read at the start to leave patches out. */

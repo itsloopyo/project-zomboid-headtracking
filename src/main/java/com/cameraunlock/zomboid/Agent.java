@@ -484,16 +484,21 @@ public final class Agent {
                 new PatchSet("window marks", windowMarks, firstPersonOff),
                 new PatchSet("unmarked changes", unmarkedChanges, firstPersonOff),
                 new PatchSet("hushed marks", new PatchTransformer(hushedMarkPatches()), firstPersonOff),
-                new PatchSet("hearing", hearing, firstPersonOff),
+                new PatchSet("hearing", hearing, off(Part.FIRST_PERSON, Part.HEAR_FROM_THE_EYE)),
                 new PatchSet("chunk centre", new PatchTransformer(chunkCentrePatches()), null),
                 new PatchSet("split screen", splitScreen, null),
                 new PatchSet("waiting composites", waitingComposites, firstPersonOff),
                 new PatchSet("spotting", spotting, firstPersonOff));
     }
 
-    /** Why a set that serves only this part is left out at this start, or null when the part was on as the game started. */
-    private static String off(Part part) {
-        return part.atStart() ? null : part.key + " was off as the game started";
+    /** Why a set that serves only these parts, each needing the ones before it, is left out at this start: the first off as the game started, or null. */
+    private static String off(Part... parts) {
+        for (Part part : parts) {
+            if (!part.atStart()) {
+                return part.key + " was off as the game started";
+            }
+        }
+        return null;
     }
 
     /** The patches for the window's place and the log. */
