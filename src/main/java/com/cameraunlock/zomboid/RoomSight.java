@@ -790,6 +790,25 @@ final class RoomSight {
 
     /** Dev only: what the last walk did. */
     int openingsTested, openingsCovering, steps, hiddenByBlocks;
+    /**
+     * Dev only, for the rig: since tolls was last asked, the faces walked, the openings listed by
+     * region and the time that took, each horizon's builds and their time, the states asked and
+     * those read off the map, the rectangles and the hidden answers worked out, and the steps.
+     */
+    private long tollFaces, tollIndexes, tollIndexNanos, tollHorizons, tollHorizonNanos, tollRoundHorizons, tollRoundHorizonNanos;
+    private long tollStatesAsked, tollStatesRead, tollCovers, tollHidden, tollSteps, tollTested;
+
+    /** Dev only: the counts since the last asking, each a frame over the frames given, and begins them again. */
+    String tolls(double frames) {
+        String told = String.format(java.util.Locale.ROOT,
+                "walk a frame (faces %.2f, indexed %.3f times in %.3f ms, picture horizons %.3f in %.3f ms, round horizons %.3f in %.3f ms, states asked %.1f read %.1f,"
+                        + " rectangles %.1f, hidden worked %.1f, steps %.1f, openings tested %.1f)",
+                tollFaces / frames, tollIndexes / frames, tollIndexNanos / 1e6 / frames, tollHorizons / frames, tollHorizonNanos / 1e6 / frames, tollRoundHorizons / frames,
+                tollRoundHorizonNanos / 1e6 / frames, tollStatesAsked / frames, tollStatesRead / frames, tollCovers / frames, tollHidden / frames, tollSteps / frames, tollTested / frames);
+        tollFaces = tollIndexes = tollIndexNanos = tollHorizons = tollHorizonNanos = tollRoundHorizons = tollRoundHorizonNanos = 0;
+        tollStatesAsked = tollStatesRead = tollCovers = tollHidden = tollSteps = tollTested = 0;
+        return told;
+    }
 
     /**
      * Works out the rooms an eye sees into, and adds them to seen.
@@ -891,9 +910,12 @@ final class RoomSight {
     private void prepare(Openings openings, Blocks blocks, float atX, float atY, float atUp, long eyeBuilding, float grow, float shutWithin, int eye) {
         // The blocks seen from the same eye hide the same, and the openings listed once are listed: a walk round the eye after the picture's reuses both.
         if (openings != indexed || openings.filling != indexedFilling) {
+            long began = System.nanoTime();
             index(openings);
             indexed = openings;
             indexedFilling = openings.filling;
+            tollIndexNanos += System.nanoTime() - began;
+            tollIndexes++;
         }
         eyeNow = eye;
         this.blocks = blocks;
@@ -922,6 +944,7 @@ final class RoomSight {
         this.tanUp = tanUp;
         Arrays.fill(worked, 0, openings.count, UNWORKED);
         walks++;
+        tollFaces++;
         liveUsed = 0;
         if (liveFor.length < tableLength * 2) {
             liveFor = new int[tableLength * 2];
@@ -975,18 +998,21 @@ final class RoomSight {
                     openingsTested++;
                     if (worked[opening] == UNWORKED) {
                         worked[opening] = cover(openings, opening) ? COVERS : EMPTY;
+                        tollCovers++;
                     }
                     if (worked[opening] == EMPTY) {
                         continue;
                     }
                     // Whether it is open is asked last but one: it reads the map.
                     int state;
+                    tollStatesAsked++;
                     if (stateFor[opening] == eyeNow) {
                         state = stateWas[opening];
                     } else {
                         state = state(ground, openings, opening);
                         stateFor[opening] = eyeNow;
                         stateWas[opening] = (byte) state;
+                        tollStatesRead++;
                     }
                     if (state != SEE && !(state == SHUT && nearerThan(openings, opening, shutWithin))) {
                         continue;
@@ -1021,6 +1047,8 @@ final class RoomSight {
                 liveCount[slot * 2 + kept] = liveUsed - liveAt;
             }
         }
+        tollSteps += steps;
+        tollTested += openingsTested;
     }
 
     /**
@@ -1067,18 +1095,28 @@ final class RoomSight {
     private boolean hiddenByBlocks(Openings openings, int opening) {
         Horizon from = grow != 0f ? roundHorizon : horizon;
         if (!from.holds(eyeX, eyeY, eyeUp, blocks, eyeBuilding)) {
+            long began = System.nanoTime();
             from.build(eyeX, eyeY, eyeUp, blocks, eyeBuilding);
+            if (grow != 0f) {
+                tollRoundHorizonNanos += System.nanoTime() - began;
+                tollRoundHorizons++;
+            } else {
+                tollHorizonNanos += System.nanoTime() - began;
+                tollHorizons++;
+            }
         }
         if (grow != 0f) {
             if (hiddenGrownFor[opening] != eyeNow) {
                 hiddenGrownFor[opening] = eyeNow;
                 hiddenGrownWas[opening] = hiddenByBlocksNow(openings, opening, from);
+                tollHidden++;
             }
             return hiddenGrownWas[opening];
         }
         if (hiddenFor[opening] != horizon.builds) {
             hiddenFor[opening] = horizon.builds;
             hiddenWas[opening] = hiddenByBlocksNow(openings, opening, horizon);
+            tollHidden++;
         }
         return hiddenWas[opening];
     }

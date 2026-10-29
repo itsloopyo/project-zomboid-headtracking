@@ -1388,6 +1388,14 @@ final class WorldScene {
     private long tollRoomsNanos, tollRoomsWalks;
     private int lastOpenings, lastBlocks, lastSeen, lastHidden;
     /**
+     * Dev only, for the rig: the rooms toll by stage (the chunks in reach read, the openings and
+     * blocks gathered, the picture's walk, its check against lines, a face of each round, and the
+     * rest), how many gatherings and faces there were, what was in reach summed over the frames,
+     * and the time after the toll that tells the chunks of rooms come in.
+     */
+    private long tollRoomsReadNanos, tollRoomsGatherNanos, tollRoomsPictureNanos, tollRoomsCheckNanos, tollRoomsBuiltNanos, tollRoomsMayShowNanos, tollRoomsTellNanos;
+    private long tollRoomsGathers, tollRoomsBuiltFaces, tollRoomsMayShowFaces, tollRoomsChunksSum, tollRoomsOpeningsSum, tollRoomsBlocksSum;
+    /**
      * A step's worth at a walk and what the eye covers in GROW_SECONDS, in tiles: once the eye has
      * gone half of it the walk round it is made again, so each walk finds what any eye within that
      * half could see (RoomSight.walkAllRound).
@@ -1530,6 +1538,16 @@ final class WorldScene {
                 tollRoomsWalks, tollRoomsNanos / 1e6 / Math.max(1, tollRoomsWalks), roomMap.chunksRead, lastOpenings, lastBlocks, lastSeen, roomsBuilt.size(), lastHidden);
         told += String.format(Locale.ROOT, ", horizons built %d", roomWalk.horizonBuilds() - horizonsTold);
         horizonsTold = roomWalk.horizonBuilds();
+        double walks = Math.max(1, tollRoomsWalks);
+        told += String.format(Locale.ROOT, ", rooms by stage ms a frame (read %.3f, gathered %d times in %.3f, picture %.3f, checked %.3f, built round %d faces in %.3f,"
+                        + " may-show round %d faces in %.3f, the rest %.3f; telling after %.3f), in reach a frame (chunks %.1f, openings %.1f, blocks %.1f), %s",
+                tollRoomsReadNanos / 1e6 / walks, tollRoomsGathers, tollRoomsGatherNanos / 1e6 / walks, tollRoomsPictureNanos / 1e6 / walks, tollRoomsCheckNanos / 1e6 / walks,
+                tollRoomsBuiltFaces, tollRoomsBuiltNanos / 1e6 / walks, tollRoomsMayShowFaces, tollRoomsMayShowNanos / 1e6 / walks,
+                (tollRoomsNanos - tollRoomsReadNanos - tollRoomsGatherNanos - tollRoomsPictureNanos - tollRoomsCheckNanos - tollRoomsBuiltNanos - tollRoomsMayShowNanos) / 1e6 / walks,
+                tollRoomsTellNanos / 1e6 / walks, tollRoomsChunksSum / walks, tollRoomsOpeningsSum / walks, tollRoomsBlocksSum / walks, roomWalk.tolls(walks));
+        told += ", " + roomMap.tolls();
+        tollRoomsReadNanos = tollRoomsGatherNanos = tollRoomsPictureNanos = tollRoomsCheckNanos = tollRoomsBuiltNanos = tollRoomsMayShowNanos = tollRoomsTellNanos = 0;
+        tollRoomsGathers = tollRoomsBuiltFaces = tollRoomsMayShowFaces = tollRoomsChunksSum = tollRoomsOpeningsSum = tollRoomsBlocksSum = 0;
         told += ", " + roomDaylight.tolls();
         told += String.format(Locale.ROOT, ", frames with chunks in reach unread %d", tollUnreadFrames);
         tollUnreadFrames = 0;
@@ -4419,6 +4437,7 @@ final class WorldScene {
                 if (chunk == null) {
                     continue;
                 }
+                tollRoomsChunksSum++;
                 IsoChunk north = gridY > 0 ? map.getChunk(gridX, gridY - 1) : null, west = gridX > 0 ? map.getChunk(gridX - 1, gridY) : null;
                 int readings = roomMap.read(chunk, north != null && north.loaded ? north : null, west != null && west.loaded ? west : null, ChunkMarks.live, now,
                         roomMap.mayRead());
@@ -4445,6 +4464,8 @@ final class WorldScene {
                             (now - unreadSince) / 1e9, unreadChunks));
                 }
             }
+            long read = System.nanoTime();
+            tollRoomsReadNanos += read - began;
             if (inReach != openingsReach) {
                 openingsReach = inReach;
                 openingsInReach.clear();
@@ -4457,7 +4478,12 @@ final class WorldScene {
                         }
                     }
                 }
+                tollRoomsGathers++;
             }
+            tollRoomsOpeningsSum += openingsInReach.count;
+            tollRoomsBlocksSum += blocksInReach.count;
+            long gathered = System.nanoTime();
+            tollRoomsGatherNanos += gathered - read;
             int eyeX = (int) Math.floor(camera.eyeX), eyeY = (int) Math.floor(camera.eyeY);
             // On a stair the character's level is the one it set out from while its eye is already over the next floor.
             int eyeLevel = RoomSight.levelOf(roomMap, eyeX, eyeY, level, camera.eyeUp);
@@ -4467,12 +4493,15 @@ final class WorldScene {
             roomsSeen = roomsSeenKept;
             roomsAspect = aspect;
             lastHidden = roomWalk.hiddenByBlocks;
+            long pictured = System.nanoTime();
+            tollRoomsPictureNanos += pictured - gathered;
             if (DevBuild.ON && !unread && (roomLinesRow > 0 || now - roomsCheckedNanos >= ROOMS_CHECKED_EVERY_NANOS)) {
                 if (roomLinesRow == 0) {
                     roomsCheckedNanos = now;
                 }
                 checkRoomsAgainstLines(eyeLevel, eyeX, eyeY, aspect);
             }
+            tollRoomsCheckNanos += System.nanoTime() - pictured;
             float seconds = (now - roundNanos) / 1e9f;
             float moved = (float) Math.hypot(camera.eyeX - roundEyeX, camera.eyeY - roundEyeY);
             float grow = GROW_TILES + eyeSpeed * GROW_SECONDS;
@@ -4518,12 +4547,21 @@ final class WorldScene {
             }
             // Each round's pictures are walked one a frame, the first round's too: walked six in one frame,
             // a round was a hitch of a frame's worth.
-            if (builtRound.walking() && roomWalk.walkFace(roomMap, openingsInReach, blocksInReach, builtRound)) {
-                roomsBuilt.found(roomsFound, now, roomsEntered);
-                roomsBuilt.expire(now, roomsLeft);
+            if (builtRound.walking()) {
+                long faceBegan = System.nanoTime();
+                boolean last = roomWalk.walkFace(roomMap, openingsInReach, blocksInReach, builtRound);
+                tollRoomsBuiltNanos += System.nanoTime() - faceBegan;
+                tollRoomsBuiltFaces++;
+                if (last) {
+                    roomsBuilt.found(roomsFound, now, roomsEntered);
+                    roomsBuilt.expire(now, roomsLeft);
+                }
             }
             if (mayShowRound.walking()) {
+                long faceBegan = System.nanoTime();
                 roomWalk.walkFace(roomMap, openingsInReach, blocksInReach, mayShowRound);
+                tollRoomsMayShowNanos += System.nanoTime() - faceBegan;
+                tollRoomsMayShowFaces++;
             }
             if (roomsMayShowDue && !mayShowRound.walking()) {
                 roomsMayShowDue = false;
@@ -4557,7 +4595,8 @@ final class WorldScene {
                 figuresLeftOut = figuresShown;
                 roomsForModels = modelRooms;
             }
-            tollRoomsNanos += System.nanoTime() - began;
+            long tolled = System.nanoTime();
+            tollRoomsNanos += tolled - began;
             tollRoomsWalks++;
             lastOpenings = openingsInReach.count;
             lastBlocks = blocksInReach.count;
@@ -4601,6 +4640,7 @@ final class WorldScene {
                     }
                 }
             }
+            tollRoomsTellNanos += System.nanoTime() - tolled;
         }
 
         /** Whether a chunk's build was made while a chunk in reach was unread, and holds every room. */

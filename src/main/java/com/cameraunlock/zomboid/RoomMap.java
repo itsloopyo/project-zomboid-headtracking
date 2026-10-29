@@ -64,6 +64,67 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
     private final boolean[] keptUnread = new boolean[SIDE * SIDE];
     /** Dev only: how many chunks were read for their openings since the last asking. */
     int chunksRead;
+    /**
+     * Dev only, for the rig: the reads since the last asking by why they were made: a chunk not
+     * kept, the chunks north or west of it changed, its levels, the land under it alone, the
+     * second without a mark, marked levels read again alone, and marked read whole.
+     */
+    private long readNew, readNeighbours, readLevelsChanged, readLand, readAged, readMarkedLevels, readMarkedWhole;
+    /**
+     * Dev only, for the rig: of the reads for the land alone, those that found the same openings,
+     * blocks and rooms but for their heights; of those for the chunks north or west, those that
+     * found the same in everything. And what they were read again as, to tell.
+     */
+    private long readLandSame, readNeighboursSame;
+    private final RoomSight.Openings wasOpenings = new RoomSight.Openings();
+    private final RoomSight.Blocks wasBlocks = new RoomSight.Blocks();
+    private final RoomSight.Seen wasRooms = new RoomSight.Seen();
+
+    /** Dev only: the reads by why since the last asking, and begins them again. */
+    String tolls() {
+        String told = String.format(java.util.Locale.ROOT,
+                "chunk reads by why (new %d, north or west %d of them the same %d, levels %d, land alone %d of them the same but for heights %d, aged %d, marked levels %d, marked whole %d)",
+                readNew, readNeighbours, readNeighboursSame, readLevelsChanged, readLand, readLandSame, readAged, readMarkedLevels, readMarkedWhole);
+        readNew = readNeighbours = readLevelsChanged = readLand = readAged = readMarkedLevels = readMarkedWhole = readLandSame = readNeighboursSame = 0;
+        return told;
+    }
+
+    /** Dev only: whether a chunk's openings, blocks and rooms read again are what they were, but for heights unless heights is set. */
+    private boolean sameAsWas(int slot, boolean heights) {
+        RoomSight.Openings now = kept[slot];
+        RoomSight.Blocks blocksNow = keptBlocks[slot];
+        if (now.count != wasOpenings.count || blocksNow.count != wasBlocks.count || keptRooms[slot].size() != wasRooms.size()) {
+            return false;
+        }
+        for (int i = 0; i < now.count; i++) {
+            if (now.x[i] != wasOpenings.x[i] || now.y[i] != wasOpenings.y[i] || now.z[i] != wasOpenings.z[i] || now.kind[i] != wasOpenings.kind[i] || now.here[i] != wasOpenings.here[i]
+                    || now.there[i] != wasOpenings.there[i] || now.hereBuilding[i] != wasOpenings.hereBuilding[i] || now.thereBuilding[i] != wasOpenings.thereBuilding[i]) {
+                return false;
+            }
+            for (int k = 0; heights && k < 4; k++) {
+                if (Float.floatToRawIntBits(now.heights[i * 4 + k]) != Float.floatToRawIntBits(wasOpenings.heights[i * 4 + k])) {
+                    return false;
+                }
+            }
+        }
+        for (int i = 0; i < blocksNow.count; i++) {
+            if (blocksNow.building[i] != wasBlocks.building[i]) {
+                return false;
+            }
+            for (int k = 0; k < (heights ? 5 : 4); k++) {
+                if (Float.floatToRawIntBits(blocksNow.box[i * 5 + k]) != Float.floatToRawIntBits(wasBlocks.box[i * 5 + k])) {
+                    return false;
+                }
+            }
+        }
+        for (int at = 0; at < wasRooms.slots(); at++) {
+            long room = wasRooms.at(at);
+            if (room != RoomSight.OUTSIDE && !keptRooms[slot].contains(room)) {
+                return false;
+            }
+        }
+        return true;
+    }
 
     void begin(IsoCell cell, Terrain terrain) {
         Thread now = Thread.currentThread();
@@ -136,9 +197,44 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
             keptMarks[slot] = marks;
             keptNanos[slot] = now;
             keptReadings[slot]++;
+            readMarkedLevels++;
             return keptReadings[slot];
         }
         if (!same || keptMarks[slot] != marks) {
+            int why;
+            if (openings == null || keptChunk[slot] != chunk) {
+                readNew++;
+                why = 0;
+            } else if (keptNorth[slot] != north || keptWest[slot] != west) {
+                readNeighbours++;
+                why = 1;
+            } else if (keptLevels[slot] != levels) {
+                readLevelsChanged++;
+                why = 2;
+            } else if (keptLand[slot] != land) {
+                readLand++;
+                why = keptMarks[slot] == marks && (told || now - keptNanos[slot] < REREAD_UNTOLD_NANOS) ? 3 : 2;
+            } else if (!same) {
+                readAged++;
+                why = 2;
+            } else {
+                readMarkedWhole++;
+                why = 2;
+            }
+            if (why == 1 || why == 3) {
+                wasOpenings.clear();
+                wasOpenings.addAll(openings);
+                wasBlocks.clear();
+                wasBlocks.addAll(blocks);
+                wasRooms.clear();
+                RoomSight.Seen rooms = keptRooms[slot];
+                for (int at = 0; at < rooms.slots(); at++) {
+                    long room = rooms.at(at);
+                    if (room != RoomSight.OUTSIDE) {
+                        wasRooms.add(room);
+                    }
+                }
+            }
             if (openings == null) {
                 openings = kept[slot] = new RoomSight.Openings();
                 blocks = keptBlocks[slot] = new RoomSight.Blocks();
@@ -174,6 +270,11 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
             keptNanos[slot] = now;
             keptReadings[slot]++;
             chunksRead++;
+            if (why == 3 && sameAsWas(slot, false)) {
+                readLandSame++;
+            } else if (why == 1 && sameAsWas(slot, true)) {
+                readNeighboursSame++;
+            }
         }
         return keptReadings[slot];
     }
