@@ -239,7 +239,7 @@ final class Bleeding {
             if (off != null) {
                 off.forEach(chunk.floorBloodSplats::add);
                 // Put back, they lie over the blood laid since they were lifted. The game also saves a chunk it lets go of, off its logic thread, so this counts the mark and leaves the game's own alone.
-                off.forEach(splat -> ChunkMarks.marked(chunk, (int) Math.floor(splat.z), 1L));
+                ChunkMarks.marked(chunk, 1L);
             }
         }
     }
