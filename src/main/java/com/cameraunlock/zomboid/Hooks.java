@@ -155,7 +155,7 @@ public final class Hooks {
      * FineSkins.holdsLoading), each for no longer than one wait from when the map was read.
      */
     public static boolean worldLoaded(boolean streaming) {
-        if (!Part.FIRST_PERSON.running()) {
+        if (!Part.FIRST_PERSON.running() || !Part.PREPARE_WHILE_LOADING.running()) {
             loadingHeld = shadersHeld = false;
             return streaming;
         }

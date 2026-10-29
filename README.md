@@ -627,6 +627,11 @@ HoldChunkMapCentre=true
 ; less drawn in every mode. false: every mode starts as it is. Read as first person first starts in a session.
 ; Either way, when the card has no room for something the mod makes, every mode is drawn a step lower.
 GraphicsMemorySteps=true
+; true: a save starts only once the mod's shaders are compiled and the far land and skins round you are made, so
+; first person does not stutter making them in play. false: the save starts as soon as the game is ready, and
+; first person makes them as you play.
+; Taken at once. Off, its patches of the game's code are left out from the next start.
+PrepareWhileLoading=true
 
 [Content]
 ; true: the game's own weapons, with no picture through the scope. false: the mod's models of the pump shotgun and

@@ -104,7 +104,11 @@ enum Part {
     GRAPHICS_MEMORY_STEPS("Optimizations", "GraphicsMemorySteps", true, false,
             "true: on an NVIDIA graphics card too small for what a graphics mode draws, first person starts the session with\n"
                     + "less drawn in every mode. false: every mode starts as it is. Read as first person first starts in a session.\n"
-                    + "Either way, when the card has no room for something the mod makes, every mode is drawn a step lower.");
+                    + "Either way, when the card has no room for something the mod makes, every mode is drawn a step lower."),
+    PREPARE_WHILE_LOADING("Optimizations", "PrepareWhileLoading", true, true,
+            "true: a save starts only once the mod's shaders are compiled and the far land and skins round you are made, so\n"
+                    + "first person does not stutter making them in play. false: the save starts as soon as the game is ready, and\n"
+                    + "first person makes them as you play.");
 
     final String section, key, comment;
     /** Whether the row is taken while the game runs, and whether it is read at the start to leave patches out. */

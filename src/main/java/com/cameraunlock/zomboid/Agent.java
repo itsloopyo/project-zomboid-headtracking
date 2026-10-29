@@ -481,7 +481,7 @@ public final class Agent {
                 new PatchSet("far vehicles", new PatchTransformer(farVehiclePatches()), firstPersonOff),
                 new PatchSet("live sight", new PatchTransformer(liveSightPatches()), null),
                 new PatchSet("left save", new PatchTransformer(leftSavePatches()), null),
-                new PatchSet("loading", new PatchTransformer(loadingPatches()), firstPersonOff),
+                new PatchSet("loading", new PatchTransformer(loadingPatches()), off(Part.FIRST_PERSON, Part.PREPARE_WHILE_LOADING)),
                 new PatchSet("lua loaded", new PatchTransformer(luaLoadedPatches()), null),
                 new PatchSet("knockdown", new PatchTransformer(knockdownPatches()), null),
                 new PatchSet("car physics", new PatchTransformer(carPhysicsPatches()), off(Part.FIRST_PERSON, Part.HILLS_MOVE_VEHICLES)),
