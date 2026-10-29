@@ -1,6 +1,12 @@
 package com.cameraunlock.zomboid;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.util.ArrayList;
 import java.util.Random;
+import zombie.core.utils.BoundedQueue;
+import zombie.iso.IsoChunk;
+import zombie.iso.IsoFloorBloodSplat;
 
 /** Tests of where Blood lays a splat on a floor, how it cuts it to squares, and the colour and cover it gives blood. */
 final class BloodTests {
@@ -18,6 +24,41 @@ final class BloodTests {
         Checks.run("eachSplatIsAShadeOfItsOwnAndDarkensAsItDries", BloodTests::eachSplatIsAShadeOfItsOwnAndDarkensAsItDries);
         Checks.run("aShadeThatIsNoNumberIsNone", BloodTests::aShadeThatIsNoNumberIsNone);
         Checks.run("aTrailAgesInTheNextSaveThoughItsWorldIsYounger", BloodTests::aTrailAgesInTheNextSaveThoughItsWorldIsYounger);
+        Checks.run("aSavedChunksTrailGoesBackOverTheBloodLaidMeanwhileAndIsMarked", BloodTests::aSavedChunksTrailGoesBackOverTheBloodLaidMeanwhileAndIsMarked);
+    }
+
+    /**
+     * The game writes a chunk to its save with the trail's drops on it lifted off, and they go
+     * back once it has, over any blood laid on it meanwhile: a change to what is on the chunk.
+     */
+    private static void aSavedChunksTrailGoesBackOverTheBloodLaidMeanwhileAndIsMarked() throws ReflectiveOperationException {
+        IsoChunk chunk = new IsoChunk();
+        chunk.wx = 1210;
+        chunk.wy = 1150;
+        chunk.loaded = true;
+        chunk.floorBloodSplats = new BoundedQueue<>();
+        IsoFloorBloodSplat own = new IsoFloorBloodSplat(), first = new IsoFloorBloodSplat(), second = new IsoFloorBloodSplat(), meanwhile = new IsoFloorBloodSplat();
+        chunk.floorBloodSplats.add(own);
+        chunk.floorBloodSplats.add(first);
+        chunk.floorBloodSplats.add(second);
+        Constructor<?> dropped = Class.forName("com.cameraunlock.zomboid.Bleeding$Drop").getDeclaredConstructor(IsoChunk.class, IsoFloorBloodSplat.class, double.class, int.class);
+        dropped.setAccessible(true);
+        Field trail = Bleeding.class.getDeclaredField("trail");
+        trail.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        ArrayList<Object> drops = (ArrayList<Object>) trail.get(null);
+        drops.add(dropped.newInstance(chunk, first, 0.0, 0));
+        drops.add(dropped.newInstance(chunk, second, 0.0, 1));
+        int things = ChunkMarks.thingsAround(1210, 1150), built = ChunkMarks.structuresIn(1210, 1150, 1210, 1150);
+        Bleeding.saving(chunk);
+        check(chunk.floorBloodSplats.size() == 1 && chunk.floorBloodSplats.get(0) == own, "a chunk is saved with the trail's drops on it lifted off, and the game's own blood left on");
+        chunk.floorBloodSplats.add(meanwhile);
+        Bleeding.saved(chunk);
+        check(chunk.floorBloodSplats.size() == 4 && chunk.floorBloodSplats.get(1) == meanwhile && chunk.floorBloodSplats.get(2) == first && chunk.floorBloodSplats.get(3) == second,
+                "once it is saved they go back, over the blood laid on it meanwhile");
+        check(ChunkMarks.thingsAround(1210, 1150) == things + 1, "which is marked once, as a change to what is on the chunk");
+        check(ChunkMarks.structuresIn(1210, 1150, 1210, 1150) == built, "and not as a part of a building");
+        Bleeding.forget();
     }
 
     /**

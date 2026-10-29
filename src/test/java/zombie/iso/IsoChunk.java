@@ -10,6 +10,9 @@ public final class IsoChunk {
     /** The levels it has: see IsoCell.lowest. */
     public int minLevel, maxLevel;
 
+    /** The blood on its floors, none but where a test gives it some: see Bleeding. */
+    public zombie.core.utils.BoundedQueue<IsoFloorBloodSplat> floorBloodSplats;
+
     public int getMinLevel() {
         return minLevel;
     }
