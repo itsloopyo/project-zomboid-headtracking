@@ -68,9 +68,15 @@ final class Spotting {
     private RoomSight.Seen turned = new RoomSight.Seen(), turnedBefore = new RoomSight.Seen();
 
     /** Dev only: what the passes came to since they were last said. */
-    private long frames, passes, passNanos, longestNanos, squaresRead, seenAsked, sampled, seenOutOfSight, spotted, saidNanos;
+    private long frames, passes, passNanos, longestNanos, squaresRead, seenAsked, sampled, seenOutOfSight, spotted, readAfresh, readUnchanged, saidNanos;
     /** Dev only, under this object's lock: the turns found as a pass asked and by other reads of the light, and those marked where the view sees and left elsewhere. */
     private long turnsAsked, turnsAside, turnsMarked, turnsLeft;
+    /**
+     * Dev only: the game's own counts of the squares whose light it read afresh and of those its
+     * engine said were unchanged (LightingJNI.JNILighting.dirty and notDirty), read round each
+     * pass. Any other thread's reads during a pass are counted in with the pass's.
+     */
+    private static java.lang.reflect.Field lightsAfresh, lightsUnchanged;
 
     Spotting(int playerIndex) {
         this.playerIndex = playerIndex;
@@ -140,11 +146,16 @@ final class Spotting {
             }
         }
         IsoMetaGrid grid = IsoWorld.instance.getMetaGrid();
+        int afresh = CHECK ? count(true) : 0, unchanged = CHECK ? count(false) : 0;
         passer = Thread.currentThread();
         try {
             pass(cell, (int) GameTime.getInstance().getWorldAgeHours(), rooms, grid::getRoomDefByID, chunks);
         } finally {
             passer = null;
+        }
+        if (CHECK) {
+            readAfresh += count(true) - afresh;
+            readUnchanged += count(false) - unchanged;
         }
         long took = System.nanoTime() - began;
         passes++;
@@ -159,6 +170,22 @@ final class Spotting {
 
     /** How far past a chunk build's box what is built in it may be drawn, in tiles: ChunkBuffers.AIR_SLACK. */
     private static final float AIR_SLACK = 1f;
+
+    /** Dev only: the game's count of squares whose light it read afresh, or of those it found unchanged. */
+    private static int count(boolean afresh) {
+        try {
+            if (lightsAfresh == null) {
+                Class<?> light = Class.forName("zombie.iso.LightingJNI$JNILighting");
+                lightsAfresh = light.getDeclaredField("dirty");
+                lightsUnchanged = light.getDeclaredField("notDirty");
+                lightsAfresh.setAccessible(true);
+                lightsUnchanged.setAccessible(true);
+            }
+            return (afresh ? lightsAfresh : lightsUnchanged).getInt(null);
+        } catch (ReflectiveOperationException missing) {
+            throw new IllegalStateException("the game's counts of the light it reads are not as they were", missing);
+        }
+    }
 
     /**
      * Whether the game's light leaves spotting to the passes on this build of the game. Where
@@ -327,12 +354,12 @@ final class Spotting {
         }
         Log.info(String.format(Locale.ROOT,
                 "spotting: player %d, %.1f s, %d frames, %d passes in %.3f ms each (longest %.3f, %.4f ms a frame); squares read %d, asked whether seen %d"
-                        + " (seen and out of sight in %d of %d sampled), rooms spotted %d, rooms the light passed over %d;"
+                        + " (seen and out of sight in %d of %d sampled), light read afresh %d and found unchanged %d, rooms spotted %d, rooms the light passed over %d;"
                         + " squares found turned seen as a pass asked %d and by other reads %d, marked where the view sees them %d, left elsewhere %d",
                 playerIndex + 1, (now - saidNanos) / 1e9, frames, passes, passNanos / 1e6 / Math.max(1, passes), longestNanos / 1e6,
-                passNanos / 1e6 / Math.max(1, frames), squaresRead, seenAsked, seenOutOfSight, sampled, spotted,
+                passNanos / 1e6 / Math.max(1, frames), squaresRead, seenAsked, seenOutOfSight, sampled, readAfresh, readUnchanged, spotted,
                 roomsLeftByLight.sumThenReset(), asked, aside, marked, left));
         saidNanos = now;
-        frames = passes = passNanos = longestNanos = squaresRead = seenAsked = sampled = seenOutOfSight = spotted = 0;
+        frames = passes = passNanos = longestNanos = squaresRead = seenAsked = sampled = seenOutOfSight = spotted = readAfresh = readUnchanged = 0;
     }
 }
