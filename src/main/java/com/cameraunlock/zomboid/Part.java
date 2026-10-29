@@ -65,7 +65,10 @@ enum Part {
                     + "can hurt each other, the game's rule holds."),
     HILLS_MOVE_VEHICLES("Rules", "HillsMoveVehicles", true, true,
             "true: offline, driving in first person, the hills pull a vehicle down them and throw it into the air over a crest\n"
-                    + "at speed. false: vehicles move as on the game's level ground. On a server they always do.");
+                    + "at speed. false: vehicles move as on the game's level ground. On a server they always do."),
+    HAND_LIGHT_OUT_AT_THE_WHEEL("Rules", "HandLightOutAtTheWheel", true, false,
+            "true: in first person, a light you carry in your hands is switched off as you take the driver's seat, since\n"
+                    + "your hands are on the wheel. false: it stays as it was.");
 
     final String section, key, comment;
     /** Whether the row is taken while the game runs, and whether it is read at the start to leave patches out. */

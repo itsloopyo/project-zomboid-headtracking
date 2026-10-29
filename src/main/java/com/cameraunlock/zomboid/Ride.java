@@ -216,7 +216,7 @@ final class Ride {
         if (driving) {
             CarPhysics.land(vehicle, ground, air.flying(), vehicle.getCurrentSteering());
         }
-        if (driving && !wasDriving) {
+        if (driving && !wasDriving && Part.HAND_LIGHT_OUT_AT_THE_WHEEL.on()) {
             putOutHandLights(player);
         }
         wasDriving = driving;

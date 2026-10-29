@@ -692,6 +692,9 @@ DriveWhileAiming=true
 ; at speed. false: vehicles move as on the game's level ground. On a server they always do.
 ; Taken at once. Off, its patches of the game's code are left out from the next start.
 HillsMoveVehicles=true
+; true: in first person, a light you carry in your hands is switched off as you take the driver's seat, since
+; your hands are on the wheel. false: it stays as it was.
+HandLightOutAtTheWheel=true
 
 [Voice]
 ; true: your character's mouth moves with what you say into your microphone: the jaw drops for "ah", the lips
