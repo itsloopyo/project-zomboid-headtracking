@@ -13,6 +13,7 @@
 
 ### Changed
 
+- In first person, the chunks a frame has to build again are built on up to four threads of their own at once while the game waits, instead of one after another on the game's own thread, and each shows a frame later. `[Optimizations] BuildOnWorkerThreads=false` builds them on the game's thread as before.
 - Driving through open country runs faster in first person, with about a fifth more frames a second on the road out of Muldraugh: working out the ground's heights as the map loads takes far less time.
 - Containers in places the save has not seen yet are filled with less work: an item the game looks up by name is found once and handed back until its scripts change. What each container gets is unchanged.
 - Fewer stutters when new people come into view: their clothes are put together while the frame waits for the game, and no longer hold up the frame they are drawn in. They look the same as before.
