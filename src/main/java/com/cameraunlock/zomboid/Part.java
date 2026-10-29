@@ -112,7 +112,10 @@ enum Part {
     SPOT_BY_SIGHT("Optimizations", "SpotBySight", true, true,
             "true: under the first person picture the rooms the game fills with zombies, and the squares it counts as seen, go\n"
                     + "by what the view sees, a few times a second. false: they go by where the mod has the game work out light, which\n"
-                    + "can fill a room you have not looked into. Needs SkipCoveredGameDrawing.");
+                    + "can fill a room you have not looked into. Needs SkipCoveredGameDrawing."),
+    BUILD_ON_WORKER_THREADS("Optimizations", "BuildOnWorkerThreads", true, false,
+            "true: the first person view builds the chunks it has to build again on threads of its own, all at once, and shows\n"
+                    + "each a frame later. false: each is built on the game's own thread as the view comes to it, and shows in that frame.");
 
     final String section, key, comment;
     /** Whether the row is taken while the game runs, and whether it is read at the start to leave patches out. */

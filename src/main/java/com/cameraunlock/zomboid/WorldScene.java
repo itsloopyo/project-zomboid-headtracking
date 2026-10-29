@@ -20,6 +20,7 @@ import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongPredicate;
 import org.lwjgl.opengl.GL11;
@@ -746,6 +747,8 @@ final class WorldScene {
     /** The build handed off for each slot of the table and not landed yet, or null. */
     private final Handed[] handedAt = new Handed[TABLE_SIDE * TABLE_SIDE];
     private final ArrayDeque<Handed> spareHanded = new ArrayDeque<>();
+    /** Of the builds handed off, the next for a build thread to make: see Frame.makeHanded. */
+    private final AtomicInteger handedTaken = new AtomicInteger();
     /** What a build takes to make, by a running mean: the frame's time a build of a chunk with none is reckoned to take as it is handed off. */
     private long handedMeanNanos = 1_000_000L;
 
@@ -765,6 +768,8 @@ final class WorldScene {
         float eyeX, eyeY, eyeUp;
         /** What the build wrote down of its crowns, for crown as it lands. */
         Crowns crowns = new Crowns();
+        /** What the build left to the logic thread, done once the frame's builds are all made: see BuildThreads.later. */
+        final BuildThreads.Landing landing = new BuildThreads.Landing();
         long took, grownNanos;
         boolean made, grownMade, dropped;
         /** Dev only: the head the walk set on the build, and what its vertices came out, for the build made again beside (Frame.checkHanded). */
@@ -1710,17 +1715,19 @@ final class WorldScene {
     }
     /** Dev only: every build is made a second time with nothing taken from what is kept, and the two are compared float for float. */
     private static final boolean CHECK_BUILDS = Boolean.getBoolean("cameraunlock.zomboid.checkBuilds");
-    /**
-     * Dev only, until it is a setting: the walk hands each build off, with its frame's state as it stands, and the
-     * builds are made after the walk and landed at the start of the view's next frame (Frame.handOff).
-     */
-    static final boolean HAND_BUILDS = Boolean.getBoolean("cameraunlock.zomboid.handBuilds");
+    /** How many build threads make the builds handed off, at once and each on a frame of its own: two of the machine's threads are left to the game. */
+    private static final int BUILD_THREADS = Math.max(1, Math.min(4, Runtime.getRuntime().availableProcessors() - 2));
+    /** The build threads, made the first time builds are handed off. Logic thread. */
+    private static ExecutorService buildThreads;
     /** Dev only: the build thread the frame beside builds on while the walk waits on it, as a build off the logic thread has to come out the same. */
     private static final ExecutorService besideThread = CHECK_BUILDS ? BuildThreads.one("head tracking build beside") : null;
     /** Dev only: what the build made again beside leaves to the logic thread, let go of, as the build it is held to has left it already. */
     private static final BuildThreads.Landing besideLanding = CHECK_BUILDS ? new BuildThreads.Landing() : null;
-    /** The frame the builds the walk hands off are made on: it takes what the walk had as each was handed off (Handed.taken). */
-    private final Frame maker = HAND_BUILDS ? new Frame(new SpriteGeometry.Layers()) : null;
+    /**
+     * The frames the builds the walk hands off are made on, one for each build thread, made with the threads: each
+     * takes what the walk had as a build was handed off (Handed.taken).
+     */
+    private Frame[] makers;
     /**
      * A far chunk is not built again for heights that moved by less than half a dot of a picture
      * this many dots high, at the field of view it is drawn with: see heightsHeld.
@@ -1964,8 +1971,10 @@ final class WorldScene {
             setDown(job.taken);
         }
         setDown(beside);
-        if (maker != null) {
-            setDown(maker);
+        if (makers != null) {
+            for (Frame maker : makers) {
+                setDown(maker);
+            }
         }
         squareLights.forget();
         roomDaylight.forget();
@@ -3829,9 +3838,10 @@ final class WorldScene {
                 ViewCamera.Pose from, boolean opened) {
             // The textures' masks stand still while a frame is built.
             Roofs.keepMeasures();
+            handing = Part.BUILD_ON_WORKER_THREADS.running();
             try {
                 buildFrame(player, pose, aimed, eyeFromAim, tanHalfFieldOfView, tanHalfSet, from, opened);
-                if (HAND_BUILDS) {
+                if (handing) {
                     makeHanded();
                 }
             } finally {
@@ -4579,7 +4589,7 @@ final class WorldScene {
                         builtBecause[cause]++;
                     }
                     // Dev only: the build of a chunk made again for its age alone is kept until its page has been set against the new one's.
-                    ChunkMeshes replaced = AUDIT_PAGES && !HAND_BUILDS && due && cause == AGED ? current : null;
+                    ChunkMeshes replaced = AUDIT_PAGES && !handing && due && cause == AGED ? current : null;
                     if (replaced != null) {
                         replaced.users++;
                     }
@@ -4642,7 +4652,7 @@ final class WorldScene {
                         fresh.seasonal = false;
                         fresh.stage = stage;
                         chunksBuilt++;
-                        if (HAND_BUILDS) {
+                        if (handing) {
                             if (cause == MOVED) {
                                 if (inBand(current.band, nearest)) {
                                     tollMovedUnsigned++;
@@ -5765,7 +5775,7 @@ final class WorldScene {
         }
 
         /**
-         * Hands the build of the chunk off (HAND_BUILDS), with this frame's state as it stands: it is made after the walk
+         * Hands the build of the chunk off (Part.BUILD_ON_WORKER_THREADS), with this frame's state as it stands: it is made after the walk
          * (makeHanded) from what the walk had here, and landed at the start of the view's next frame (landHanded). The
          * page is set as the walk sets a fresh build's. Returns the frame's time the build is reckoned to take, which the
          * walk counts as spent on building: what the chunk's last build took, or what builds take.
@@ -5803,16 +5813,40 @@ final class WorldScene {
         }
 
         /**
-         * After the walk: makes the builds it handed off on the maker, in walk order. Dev only, each is then made again
-         * beside and held to what it came out (checkHanded).
+         * After the walk: makes the builds it handed off at once on the build threads, each taking the next in walk order
+         * while this one waits and does what they ask of it. Dev only, each is then made again beside and held to what
+         * it came out (checkHanded). Then what each left to the logic thread is done, in walk order.
          */
         private void makeHanded() {
-            for (int i = 0; i < handed.size(); i++) {
-                Handed job = handed.get(i);
-                if (!job.dropped && !job.made) {
-                    maker.make(job);
+            if (handed.isEmpty()) {
+                return;
+            }
+            if (makers == null) {
+                if (buildThreads == null) {
+                    buildThreads = BuildThreads.pool(BUILD_THREADS, "head tracking build");
+                }
+                makers = new Frame[BUILD_THREADS];
+                for (int maker = 0; maker < BUILD_THREADS; maker++) {
+                    makers[maker] = new Frame(new SpriteGeometry.Layers());
                 }
             }
+            handedTaken.set(0);
+            BuildThreads.runOnAll(buildThreads, BUILD_THREADS, thread -> {
+                Frame maker = makers[thread];
+                Roofs.keepMeasures();
+                try {
+                    for (int i = handedTaken.getAndIncrement(); i < handed.size(); i = handedTaken.getAndIncrement()) {
+                        Handed job = handed.get(i);
+                        if (!job.dropped && !job.made) {
+                            BuildThreads.landInto(job.landing);
+                            maker.make(job);
+                        }
+                    }
+                } finally {
+                    BuildThreads.landInto(null);
+                    Roofs.forgetMeasures();
+                }
+            });
             if (CHECK_BUILDS) {
                 for (int i = 0; i < handed.size(); i++) {
                     if (handed.get(i).made) {
@@ -5820,10 +5854,13 @@ final class WorldScene {
                     }
                 }
             }
+            for (int i = 0; i < handed.size(); i++) {
+                handed.get(i).landing.land();
+            }
         }
 
         /**
-         * Makes a build the walk handed off on this frame, the maker, from what the walk had as it handed it off: the
+         * Makes a build the walk handed off on this frame, a maker, from what the walk had as it handed it off: the
          * build and what grows on its ground, as the walk makes them, with the build's page from what it read of the light.
          */
         private void make(Handed job) {
@@ -5942,6 +5979,13 @@ final class WorldScene {
             tollBuiltNanos[job.cause] += job.took;
             handedMeanNanos += (job.took - handedMeanNanos) / 8;
         }
+
+        /**
+         * Whether this frame's walk hands each build off, with its frame's state as it stands, to be made on the build
+         * threads after the walk and landed at the start of the view's next frame (handOff): BuildOnWorkerThreads as the
+         * frame began. Otherwise the walk makes each build as it comes to it.
+         */
+        private boolean handing;
 
         /** How long the last build's squares and its roofs' backs took: see buildInto. */
         private long squaresTook, backsTook;
