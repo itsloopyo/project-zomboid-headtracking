@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -55,9 +56,25 @@ public final class ChunkMarks {
     /**
      * Raised by the mod itself, on the logic thread alone, for a chunk whose builds were told
      * something that is now otherwise and that no reading of the chunk would show: how a roof
-     * was fitted, what a building's walls are finished in.
+     * was fitted, what a building's walls are finished in. Kept by the chunk and not by its
+     * place in the table: a chunk off the map is told too, as a roof left behind is, and one
+     * 64 chunks on from a loaded chunk shares that chunk's place. Each telling has a number
+     * larger than any before it, and a chunk reads the number of the last telling of it.
      */
-    private static final int[] told = new int[SIDE * SIDE];
+    private static final LongTable<Told> told = new LongTable<>();
+    /**
+     * By place in the table, what a chunk there reads once it is let go of, or if it never was
+     * told: no less than the last telling of any chunk let go of in that place. So the number a
+     * chunk reads never falls and rises whenever it is told, which is all a build remembering it
+     * asks, whichever chunks are let go of.
+     */
+    private static final int[] letGoAt = new int[SIDE * SIDE];
+    private static int tellings;
+    /** By view, the chunks it keeps builds of as it last said: west, north and side, a side of 0 for none. */
+    private static final int[] keptBy = new int[View.COUNT * 3];
+    private static final ArrayList<Told> held = new ArrayList<>();
+
+    private record Told(int wx, int wy, int telling) {}
     /** Dev only: how many marks came with each of the game's flags, by the flag's bit. */
     static final boolean COUNTED = Boolean.getBoolean("cameraunlock.zomboid.auditMarks");
     private static final AtomicLongArray byFlag = new AtomicLongArray(17);
@@ -206,16 +223,76 @@ public final class ChunkMarks {
 
     /** Logic thread: the build of the chunk at (wx, wy) is to be made again. */
     static void tell(int wx, int wy) {
-        told[slot(wx, wy)]++;
+        tell(wx, wy, wx, wy);
     }
 
     /** The same for every chunk from (minWx, minWy) to (maxWx, maxWy). */
     static void tell(int minWx, int minWy, int maxWx, int maxWy) {
+        int telling = ++tellings;
         for (int wx = minWx; wx <= maxWx; wx++) {
             for (int wy = minWy; wy <= maxWy; wy++) {
-                told[slot(wx, wy)]++;
+                told.put(chunkKey(wx, wy), new Told(wx, wy, telling));
             }
         }
+    }
+
+    /**
+     * Logic thread: the view keeps builds of the chunks from (west, north), side chunks a side,
+     * and of no others. Lets go of the tellings of every chunk no view keeps. Where that raises
+     * what its place reads, a chunk some view keeps in the same place that read the old number
+     * is first given that number of its own, so that its builds are not made again for it.
+     */
+    static void keepTellings(int view, int west, int north, int side) {
+        if (side > SIDE) {
+            throw new IllegalStateException("a view keeps builds of " + side + " chunks a side, and the table of tellings has " + SIDE + ": two it keeps would share a place");
+        }
+        keptBy[view * 3] = west;
+        keptBy[view * 3 + 1] = north;
+        keptBy[view * 3 + 2] = side;
+        told.addValuesTo(held);
+        told.clear();
+        for (Told each : held) {
+            if (kept(each.wx, each.wy)) {
+                told.put(chunkKey(each.wx, each.wy), each);
+            }
+        }
+        for (Told each : held) {
+            int slot = slot(each.wx, each.wy);
+            if (!kept(each.wx, each.wy) && each.telling - letGoAt[slot] > 0) {
+                holdWhatIsRead(slot);
+                letGoAt[slot] = each.telling;
+            }
+        }
+        held.clear();
+    }
+
+    private static boolean kept(int wx, int wy) {
+        for (int at = 0; at < keptBy.length; at += 3) {
+            int dx = wx - keptBy[at], dy = wy - keptBy[at + 1], side = keptBy[at + 2];
+            if (dx >= 0 && dx < side && dy >= 0 && dy < side) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Gives the chunk each view keeps in the place, if it has none, a telling of its own with the number it reads now. */
+    private static void holdWhatIsRead(int slot) {
+        for (int at = 0; at < keptBy.length; at += 3) {
+            int west = keptBy[at], north = keptBy[at + 1], side = keptBy[at + 2];
+            int dx = slot / SIDE - west & SIDE - 1, dy = slot % SIDE - north & SIDE - 1;
+            if (dx < side && dy < side) {
+                int wx = west + dx, wy = north + dy;
+                long key = chunkKey(wx, wy);
+                if (told.get(key) == null) {
+                    told.put(key, new Told(wx, wy, letGoAt[slot]));
+                }
+            }
+        }
+    }
+
+    private static long chunkKey(int wx, int wy) {
+        return (long) wx << 32 | wy & 0xffffffffL;
     }
 
     /**
@@ -286,9 +363,10 @@ public final class ChunkMarks {
         return sum;
     }
 
-    /** How many times the chunk has been told. */
+    /** The number of the last telling of the chunk, or what its place reads: see letGoAt. */
     static int told(int wx, int wy) {
-        return told[slot(wx, wy)];
+        Told last = told.get(chunkKey(wx, wy));
+        return last == null ? letGoAt[slot(wx, wy)] : last.telling;
     }
 
     /** Dev only: the marks by flag since the last asking. */

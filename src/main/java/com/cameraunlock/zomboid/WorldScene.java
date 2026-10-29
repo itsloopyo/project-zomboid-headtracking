@@ -2311,6 +2311,8 @@ final class WorldScene {
         }
         squareLights.forgetOutside(mapWx, mapWy, mapSide);
         roomDaylight.forgetOutside(mapWx, mapWy, mapSide);
+        // On the map and a step off it, as ChunkBuffers.kept keeps builds.
+        ChunkMarks.keepTellings(view.index, mapWx - 1, mapWy - 1, mapSide + 2);
         solid.clear();
         laid.clear();
         solid.trim();

@@ -13,6 +13,10 @@ final class MarkTests {
         Checks.run("aChunkThatIsToldHasAnotherNumber", MarkTests::aChunkThatIsToldHasAnotherNumber);
         Checks.run("aBoxOfChunksIsToldWhole", MarkTests::aBoxOfChunksIsToldWhole);
         Checks.run("aLightIsMarkedApartFromThings", MarkTests::aLightIsMarkedApartFromThings);
+        Checks.run("aChunkSharingItsPlaceIsNotToldWithAnother", MarkTests::aChunkSharingItsPlaceIsNotToldWithAnother);
+        Checks.run("aChunkLetGoOfIsNeverReadAsUntold", MarkTests::aChunkLetGoOfIsNeverReadAsUntold);
+        Checks.run("aChunkKeptReadsWhatItDidWhenOneInItsPlaceIsLetGoOf", MarkTests::aChunkKeptReadsWhatItDidWhenOneInItsPlaceIsLetGoOf);
+        Checks.run("aChunkAnotherViewKeepsIsNotLetGoOf", MarkTests::aChunkAnotherViewKeepsIsNotLetGoOf);
         Checks.run("aTallyIsCountedIntoAnother", MarkTests::aTallyIsCountedIntoAnother);
         Checks.run("aMethodOfAnObjectHandsItselfOverBeforeAnythingElse", MarkTests::aMethodOfAnObjectHandsItselfOverBeforeAnythingElse);
         Checks.run("aStaticMethodIsRefused", MarkTests::aStaticMethodIsRefused);
@@ -47,8 +51,47 @@ final class MarkTests {
     private static void aBoxOfChunksIsToldWhole() {
         int inside = ChunkMarks.told(900, 902), corner = ChunkMarks.told(901, 899), outside = ChunkMarks.told(902, 900);
         ChunkMarks.tell(899, 899, 901, 902);
-        check(ChunkMarks.told(900, 902) == inside + 1 && ChunkMarks.told(901, 899) == corner + 1, "every chunk of a box that is told is told once");
+        check(ChunkMarks.told(900, 902) != inside && ChunkMarks.told(901, 899) != corner, "every chunk of a box that is told has another number");
         check(ChunkMarks.told(902, 900) == outside, "a chunk beside the box is not told");
+    }
+
+    private static void aChunkSharingItsPlaceIsNotToldWithAnother() {
+        ChunkMarks.tell(500, 700);
+        int at = ChunkMarks.told(500, 700);
+        ChunkMarks.tell(500 + ChunkMarks.SIDE, 700);
+        ChunkMarks.tell(500, 700 - ChunkMarks.SIDE, 500, 700 - ChunkMarks.SIDE);
+        check(ChunkMarks.told(500, 700) == at, "a chunk is not told when the one a table's width on is");
+        check(ChunkMarks.told(500 + ChunkMarks.SIDE, 700) != at && ChunkMarks.told(500 + ChunkMarks.SIDE, 700) != 0, "and that one is");
+    }
+
+    private static void aChunkLetGoOfIsNeverReadAsUntold() {
+        ChunkMarks.tell(400, 400);
+        ChunkMarks.tell(430, 430);
+        int on = ChunkMarks.told(400, 400), off = ChunkMarks.told(430, 430);
+        ChunkMarks.keepTellings(0, 390, 390, 21);
+        check(ChunkMarks.told(400, 400) == on, "a chunk a view keeps keeps its number");
+        check(ChunkMarks.told(430, 430) == off, "one no view keeps is let go of and reads what it read: a build made since it was told is still good");
+        int beside = ChunkMarks.told(430 - ChunkMarks.SIDE, 430);
+        check(beside == off, "a chunk in the same place that never was told reads it too: a place reads no less than the last telling let go of in it");
+        ChunkMarks.tell(430, 430);
+        check(ChunkMarks.told(430, 430) != off, "and told again it has a number it never had");
+    }
+
+    private static void aChunkKeptReadsWhatItDidWhenOneInItsPlaceIsLetGoOf() {
+        int kept = ChunkMarks.told(401, 402);
+        ChunkMarks.tell(401 + ChunkMarks.SIDE, 402);
+        ChunkMarks.keepTellings(0, 390, 390, 21);
+        check(ChunkMarks.told(401, 402) == kept, "a chunk the view keeps reads the number it read before one in its place was let go of");
+        check(ChunkMarks.told(401 + ChunkMarks.SIDE, 402) != kept, "and the one let go of does not read it");
+    }
+
+    private static void aChunkAnotherViewKeepsIsNotLetGoOf() {
+        ChunkMarks.keepTellings(1, 600, 600, 21);
+        ChunkMarks.tell(605, 610);
+        int told = ChunkMarks.told(605, 610), place = ChunkMarks.told(605 + ChunkMarks.SIDE, 610);
+        ChunkMarks.keepTellings(0, 390, 390, 21);
+        check(ChunkMarks.told(605, 610) == told && ChunkMarks.told(605 + ChunkMarks.SIDE, 610) == place,
+                "the second player's chunks keep their tellings when the first player's view lets go of what it does not keep");
     }
 
     private static void aTallyIsCountedIntoAnother() {
