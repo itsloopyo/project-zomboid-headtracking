@@ -164,34 +164,36 @@ final class Screens {
      * Decor here, and tick asks for the rest of its show's.
      */
     static int held(IsoTelevision set, int showing, boolean inGrey) {
-        if (showing == BARS) {
-            return Decor.held(bars()[inGrey ? 1 : 0]);
-        }
-        shows();
-        Object source = source(set.getDeviceData());
-        Integer number = numbers.get(source);
-        long now = System.nanoTime();
-        if (number == null) {
-            number = keys.size();
-            int show = showOf(source);
-            Sources known = sources;
-            Sources grown = number < known.show.length() ? known : new Sources(new AtomicIntegerArray(number * 2), new AtomicLongArray(number * 2));
-            for (int i = 0; grown != known && i < number; i++) {
-                grown.show.set(i, known.show.get(i));
-                grown.drawn.set(i, known.drawn.get(i));
+        synchronized (BuildThreads.SHARED) {
+            if (showing == BARS) {
+                return Decor.held(bars()[inGrey ? 1 : 0]);
             }
-            // The render thread is shown the source with its show and its time on it, so that it never gives back a show it is about to draw.
-            grown.show.set(number, show);
-            grown.drawn.set(number, now);
-            sources = grown;
-            said(source, show);
-            numbers.put(source, number);
-            keys.add(source);
+            shows();
+            Object source = source(set.getDeviceData());
+            Integer number = numbers.get(source);
+            long now = System.nanoTime();
+            if (number == null) {
+                number = keys.size();
+                int show = showOf(source);
+                Sources known = sources;
+                Sources grown = number < known.show.length() ? known : new Sources(new AtomicIntegerArray(number * 2), new AtomicLongArray(number * 2));
+                for (int i = 0; grown != known && i < number; i++) {
+                    grown.show.set(i, known.show.get(i));
+                    grown.drawn.set(i, known.drawn.get(i));
+                }
+                // The render thread is shown the source with its show and its time on it, so that it never gives back a show it is about to draw.
+                grown.show.set(number, show);
+                grown.drawn.set(number, now);
+                sources = grown;
+                said(source, show);
+                numbers.put(source, number);
+                keys.add(source);
+            }
+            // A set in a build is about to be drawn: its source is watched from now.
+            sources.drawn.set(number, now);
+            read(sources.show.get(number), now);
+            return LIVE - number;
         }
-        // A set in a build is about to be drawn: its source is watched from now.
-        sources.drawn.set(number, now);
-        read(sources.show.get(number), now);
-        return LIVE - number;
     }
 
     /** Logic thread: reads the picture a show shows at a time, for the render thread to find read. */

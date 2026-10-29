@@ -1717,8 +1717,8 @@ final class WorldScene {
     static final boolean HAND_BUILDS = Boolean.getBoolean("cameraunlock.zomboid.handBuilds");
     /** Dev only: the build thread the frame beside builds on while the walk waits on it, as a build off the logic thread has to come out the same. */
     private static final ExecutorService besideThread = CHECK_BUILDS ? BuildThreads.one("head tracking build beside") : null;
-    /** Dev only: what the build made again beside tells chunks, let go of, as the build it is held to has told them already. */
-    private static final BuildThreads.Tells besideTells = CHECK_BUILDS ? new BuildThreads.Tells() : null;
+    /** Dev only: what the build made again beside leaves to the logic thread, let go of, as the build it is held to has left it already. */
+    private static final BuildThreads.Landing besideLanding = CHECK_BUILDS ? new BuildThreads.Landing() : null;
     /** The frame the builds the walk hands off are made on: it takes what the walk had as each was handed off (Handed.taken). */
     private final Frame maker = HAND_BUILDS ? new Frame(new SpriteGeometry.Layers()) : null;
     /**
@@ -6097,19 +6097,19 @@ final class WorldScene {
 
         /**
          * Dev only: makes the build of a chunk on another frame, on the build thread beside while this one waits, as
-         * the walk makes one: asked for sprites from the chunk's middle, with the roofs' measures kept. What it tells
-         * chunks is let go of.
+         * the walk makes one: asked for sprites from the chunk's middle, with the roofs' measures kept. What it leaves to
+         * the logic thread is let go of.
          */
         private void buildBeside(Frame other, IsoChunk chunk, int chunkX, int chunkY, int lowest, ChunkMeshes into, int toldSoFar) {
             BuildThreads.runAndWait(besideThread, () -> {
                 SpriteColours.askingFrom(view.index, chunkX + CHUNK_TILES / 2f, chunkY + CHUNK_TILES / 2f);
                 Roofs.keepMeasures();
-                BuildThreads.tellInto(besideTells);
+                BuildThreads.landInto(besideLanding);
                 try {
                     other.buildInto(chunk, chunkX, chunkY, lowest, into, toldSoFar);
                 } finally {
-                    besideTells.forget();
-                    BuildThreads.tellInto(null);
+                    besideLanding.forget();
+                    BuildThreads.landInto(null);
                     Roofs.forgetMeasures();
                     SpriteColours.askingFrom(view.index, Float.NaN, Float.NaN);
                 }

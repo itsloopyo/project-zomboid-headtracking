@@ -1,6 +1,6 @@
 package com.cameraunlock.zomboid;
 
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -23,60 +23,63 @@ final class BuildThreads {
     }
 
     /**
-     * What builds made on a build thread told chunks (ChunkMarks.tell, which is the logic thread's alone), kept in
-     * the order they told it until the logic thread tells it (tell) or it is let go of (forget).
+     * The one lock over what the builds share and change as they go (the roofs, the wall finishes, the heights, room
+     * daylight, the sets' numbers, the game's light): a build thread holds it for each asking. Taken in that order
+     * nowhere else, so there is no other lock to wait on under it, and what the logic thread does for a build thread
+     * as it waits (onLogicThread) never takes it.
      */
-    static final class Tells {
-        private int[] told = new int[64];
-        private int count;
+    static final Object SHARED = new Object();
 
-        private void add(int minWx, int minWy, int maxWx, int maxWy) {
-            if (count + 4 > told.length) {
-                told = Arrays.copyOf(told, told.length * 2);
-            }
-            told[count++] = minWx;
-            told[count++] = minWy;
-            told[count++] = maxWx;
-            told[count++] = maxWy;
-        }
+    /**
+     * What builds made on a build thread did that is the logic thread's to do (a chunk told of, a chunk's light
+     * marked, the heights joined at a chunk's edges), kept in the order they did it until the logic thread does it
+     * (land) or it is let go of (forget).
+     */
+    static final class Landing {
+        private final ArrayList<Runnable> left = new ArrayList<>();
 
-        /** Tells ChunkMarks all that was kept, in order, and lets it go. Logic thread. */
-        void tell() {
-            for (int at = 0; at < count; at += 4) {
-                ChunkMarks.tell(told[at], told[at + 1], told[at + 2], told[at + 3]);
+        /** Does all that was kept, in order, and lets it go. Logic thread. */
+        void land() {
+            for (int i = 0; i < left.size(); i++) {
+                left.get(i).run();
             }
-            count = 0;
+            left.clear();
         }
 
         void forget() {
-            count = 0;
+            left.clear();
         }
     }
 
-    /** Where what the builds a build thread makes tell chunks is kept, from tellInto until it is set again. */
-    private static final ThreadLocal<Tells> tellings = new ThreadLocal<>();
+    /** Where what the builds a build thread makes leave to the logic thread is kept, from landInto until it is set again. */
+    private static final ThreadLocal<Landing> landings = new ThreadLocal<>();
 
-    /** Has what the builds made on this build thread from now on tell chunks kept in tells: null for nowhere, which a telling throws on. */
-    static void tellInto(Tells tells) {
-        tellings.set(tells);
+    /** Has what the builds made on this build thread from now on leave to the logic thread kept in landing: null for nowhere, which leaving anything throws on. */
+    static void landInto(Landing landing) {
+        landings.set(landing);
     }
 
-    /** ChunkMarks.tell from a build: at once on the logic thread, and on a build thread kept where tellInto says. */
+    /** Does what a build leaves to the logic thread: at once on the logic thread, and on a build thread kept where landInto says. */
+    static void later(Runnable effect) {
+        if (!here()) {
+            effect.run();
+            return;
+        }
+        Landing landing = landings.get();
+        if (landing == null) {
+            throw new IllegalStateException("a build on " + Thread.currentThread().getName() + " left work for the logic thread with nowhere to keep it");
+        }
+        landing.left.add(effect);
+    }
+
+    /** ChunkMarks.tell from a build, as later. */
     static void tell(int wx, int wy) {
-        tell(wx, wy, wx, wy);
+        later(() -> ChunkMarks.tell(wx, wy, wx, wy));
     }
 
     /** The same for every chunk from (minWx, minWy) to (maxWx, maxWy). */
     static void tell(int minWx, int minWy, int maxWx, int maxWy) {
-        if (!here()) {
-            ChunkMarks.tell(minWx, minWy, maxWx, maxWy);
-            return;
-        }
-        Tells tells = tellings.get();
-        if (tells == null) {
-            throw new IllegalStateException("a build on " + Thread.currentThread().getName() + " told chunks with nowhere to keep it");
-        }
-        tells.add(minWx, minWy, maxWx, maxWy);
+        later(() -> ChunkMarks.tell(minWx, minWy, maxWx, maxWy));
     }
 
     /** Whether the thread asking is one of the mod's build threads. */

@@ -329,40 +329,42 @@ final class RoomDaylight {
     }
 
     /**
-     * Logic thread: the share of the open ground's light for a square in a room, worked out
+     * The share of the open ground's light for a square in a room, worked out
      * again when the game has marked the room's chunks since, or it is due. The loaded map is
      * the square of tiles from (loadedFromX, loadedFromY), side tiles wide.
      */
     float share(Edges map, IsoGridSquare square, int loadedFromX, int loadedFromY, int side, long now) {
-        long id = square.getRoomID();
-        if (id == RoomSight.OUTSIDE) {
-            return 0f;
-        }
-        Shares shares = rooms.get(id);
-        if (shares != null && shares.looked == now) {
+        synchronized (BuildThreads.SHARED) {
+            long id = square.getRoomID();
+            if (id == RoomSight.OUTSIDE) {
+                return 0f;
+            }
+            Shares shares = rooms.get(id);
+            if (shares != null && shares.looked == now) {
+                return shares.at(square.getX(), square.getY());
+            }
+            if (shares == null || shares.marks != marksOn(shares) || now >= shares.due) {
+                long began = System.nanoTime();
+                Shares made = of(map, boxes, id, square.getZ(), new Loaded(loadedFromX, loadedFromY, loadedFromX + side - 1, loadedFromY + side - 1), scratch, shares);
+                made.marks = marksOn(made);
+                // Each room at its own moment of the period, so that the rooms in sight are not all worked out on one frame.
+                made.due = now + REFRESH_NANOS + (shares == null ? Math.floorMod(id * 0x9E3779B97F4A7C15L, REFRESH_NANOS) : 0L);
+                if (shares != null && !made.sameAs(shares)) {
+                    BuildThreads.later(() -> markLight(made));
+                }
+                rooms.put(id, made);
+                shares = made;
+                long took = System.nanoTime() - began;
+                tollRooms++;
+                tollNanos += took;
+                if (took > tollLongestNanos) {
+                    tollLongestNanos = took;
+                    tollLongestSquares = (long) made.width * made.height;
+                }
+            }
+            shares.looked = now;
             return shares.at(square.getX(), square.getY());
         }
-        if (shares == null || shares.marks != marksOn(shares) || now >= shares.due) {
-            long began = System.nanoTime();
-            Shares made = of(map, boxes, id, square.getZ(), new Loaded(loadedFromX, loadedFromY, loadedFromX + side - 1, loadedFromY + side - 1), scratch, shares);
-            made.marks = marksOn(made);
-            // Each room at its own moment of the period, so that the rooms in sight are not all worked out on one frame.
-            made.due = now + REFRESH_NANOS + (shares == null ? Math.floorMod(id * 0x9E3779B97F4A7C15L, REFRESH_NANOS) : 0L);
-            if (shares != null && !made.sameAs(shares)) {
-                markLight(made);
-            }
-            rooms.put(id, made);
-            shares = made;
-            long took = System.nanoTime() - began;
-            tollRooms++;
-            tollNanos += took;
-            if (took > tollLongestNanos) {
-                tollLongestNanos = took;
-                tollLongestSquares = (long) made.width * made.height;
-            }
-        }
-        shares.looked = now;
-        return shares.at(square.getX(), square.getY());
     }
 
     /** The marks on the chunks a room's box is on and the ring round it, which hold the walls of its south and east edges. */

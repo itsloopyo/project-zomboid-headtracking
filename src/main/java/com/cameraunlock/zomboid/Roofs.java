@@ -340,26 +340,30 @@ final class Roofs {
 
     /** The tile of roof on the square as its whole roof was fitted, or null for a square with no roof tile. */
     static Laid at(IsoCell cell, int x, int y, int z, int now, float scale) {
-        if (now - cleared >= KEPT) {
-            cleared = now;
-            forgetStale(now);
+        synchronized (BuildThreads.SHARED) {
+            if (now - cleared >= KEPT) {
+                cleared = now;
+                forgetStale(now);
+            }
+            long key = RoofFit.key(x, y, z);
+            Laid known = laid.get(key);
+            if (known == null || due(known.roof, now)) {
+                // A tile that has gone from the map is not read back in.
+                laid.remove(key);
+                read(cell, x, y, z, now, scale);
+                known = laid.get(key);
+            }
+            return known == null || known.behind || known.forward ? null : known;
         }
-        long key = RoofFit.key(x, y, z);
-        Laid known = laid.get(key);
-        if (known == null || due(known.roof, now)) {
-            // A tile that has gone from the map is not read back in.
-            laid.remove(key);
-            read(cell, x, y, z, now, scale);
-            known = laid.get(key);
-        }
-        return known == null || known.behind || known.forward ? null : known;
     }
 
     /** Whether the roof sprite on the square is painted forward of where its tile stands, and draws nothing there: see RoofFit.paintedForward. */
     static boolean paintedForward(IsoCell cell, int x, int y, int z, int now, float scale) {
-        at(cell, x, y, z, now, scale);
-        Laid known = laid.get(RoofFit.key(x, y, z));
-        return known != null && known.forward;
+        synchronized (BuildThreads.SHARED) {
+            at(cell, x, y, z, now, scale);
+            Laid known = laid.get(RoofFit.key(x, y, z));
+            return known != null && known.forward;
+        }
     }
 
     private static boolean due(Roof roof, int now) {
@@ -582,25 +586,27 @@ final class Roofs {
         cappedByChunk.computeIfAbsent(chunk, unused -> new ArrayList<>()).add(cap);
     }
 
-    /** The caps of ridges and hips whose middles lie in a chunk, or null for a chunk with none. */
+    /** The caps of ridges and hips whose middles lie in a chunk, a list of the caller's own, or null for a chunk with none. */
     static ArrayList<Capped> cappedIn(IsoCell cell, int chunkX, int chunkY, int now, float scale) {
-        ArrayList<Capped> held = cappedByChunk.get(RoofFit.key(chunkX, chunkY, 0));
-        if (held == null) {
-            return null;
-        }
-        for (int i = 0; i < held.size(); i++) {
-            if (revived(cell, held.get(i).roof, now, scale)) {
-                i = -1;
+        synchronized (BuildThreads.SHARED) {
+            ArrayList<Capped> held = cappedByChunk.get(RoofFit.key(chunkX, chunkY, 0));
+            if (held == null) {
+                return null;
             }
-        }
-        for (int i = held.size() - 1; i >= 0; i--) {
-            Capped cap = held.get(i);
-            if (now - cap.roof.stamp > MADE_KEPT) {
-                held.remove(i);
-                capped.remove(keyOf(cap.cap), cap);
+            for (int i = 0; i < held.size(); i++) {
+                if (revived(cell, held.get(i).roof, now, scale)) {
+                    i = -1;
+                }
             }
+            for (int i = held.size() - 1; i >= 0; i--) {
+                Capped cap = held.get(i);
+                if (now - cap.roof.stamp > MADE_KEPT) {
+                    held.remove(i);
+                    capped.remove(keyOf(cap.cap), cap);
+                }
+            }
+            return new ArrayList<>(held);
         }
-        return held;
     }
 
     /**
@@ -627,35 +633,41 @@ final class Roofs {
 
     /** The tile of a slope the map leaves out that lies on the square, or null. */
     static Laid madeAt(int x, int y, int z, int now) {
-        Laid back = made.get(RoofFit.key(x, y, z));
-        return back == null || now - back.roof.stamp > MADE_KEPT ? null : back;
+        synchronized (BuildThreads.SHARED) {
+            Laid back = made.get(RoofFit.key(x, y, z));
+            return back == null || now - back.roof.stamp > MADE_KEPT ? null : back;
+        }
     }
 
     /** The slope along the axis carried into a valley over the square (RoofFit.valleys), or null. */
     static Laid carriedAt(int x, int y, int z, int axis, int now) {
-        Laid over = made.get(RoofFit.key(x, y, axis << 6 | z));
-        return over == null || now - over.roof.stamp > MADE_KEPT ? null : over;
+        synchronized (BuildThreads.SHARED) {
+            Laid over = made.get(RoofFit.key(x, y, axis << 6 | z));
+            return over == null || now - over.roof.stamp > MADE_KEPT ? null : over;
+        }
     }
 
-    /** The tiles of the slopes the map leaves out that lie in a chunk, or null for a chunk with none. */
+    /** The tiles of the slopes the map leaves out that lie in a chunk, a list of the caller's own, or null for a chunk with none. */
     static ArrayList<Laid> madeIn(IsoCell cell, int chunkX, int chunkY, int now, float scale) {
-        ArrayList<Laid> held = madeByChunk.get(RoofFit.key(chunkX, chunkY, 0));
-        if (held == null) {
-            return null;
-        }
-        for (int i = 0; i < held.size(); i++) {
-            if (revived(cell, held.get(i).roof, now, scale)) {
-                i = -1;
+        synchronized (BuildThreads.SHARED) {
+            ArrayList<Laid> held = madeByChunk.get(RoofFit.key(chunkX, chunkY, 0));
+            if (held == null) {
+                return null;
             }
-        }
-        for (int i = held.size() - 1; i >= 0; i--) {
-            Laid back = held.get(i);
-            if (now - back.roof.stamp > MADE_KEPT) {
-                held.remove(i);
-                made.remove(keyOf(back.tile), back);
+            for (int i = 0; i < held.size(); i++) {
+                if (revived(cell, held.get(i).roof, now, scale)) {
+                    i = -1;
+                }
             }
+            for (int i = held.size() - 1; i >= 0; i--) {
+                Laid back = held.get(i);
+                if (now - back.roof.stamp > MADE_KEPT) {
+                    held.remove(i);
+                    made.remove(keyOf(back.tile), back);
+                }
+            }
+            return new ArrayList<>(held);
         }
-        return held;
     }
 
     /**
@@ -995,14 +1007,16 @@ final class Roofs {
      * the next. A chunk built before its roof's was read kept the sheet as a ledge in the air.
      */
     static void readRoofOver(IsoCell cell, int x, int y, int z, int now, float scale) {
-        for (int step = 1; step <= FOOT_REACH; step++) {
-            for (int side = 0; side < 4; side++) {
-                int ax = x + step * (side == 0 ? -1 : side == 1 ? 1 : 0), ay = y + step * (side == 2 ? -1 : side == 3 ? 1 : 0);
-                for (int level = z; level <= z + 1; level++) {
-                    IsoGridSquare square = cell.getGridSquare(ax, ay, level);
-                    if (square != null && holdsTile(cell, square)) {
-                        at(cell, ax, ay, level, now, scale);
-                        return;
+        synchronized (BuildThreads.SHARED) {
+            for (int step = 1; step <= FOOT_REACH; step++) {
+                for (int side = 0; side < 4; side++) {
+                    int ax = x + step * (side == 0 ? -1 : side == 1 ? 1 : 0), ay = y + step * (side == 2 ? -1 : side == 3 ? 1 : 0);
+                    for (int level = z; level <= z + 1; level++) {
+                        IsoGridSquare square = cell.getGridSquare(ax, ay, level);
+                        if (square != null && holdsTile(cell, square)) {
+                            at(cell, ax, ay, level, now, scale);
+                            return;
+                        }
                     }
                 }
             }
@@ -1036,7 +1050,9 @@ final class Roofs {
 
     /** As roofing, leaving out the trims from the sheets of a roof's accents: they edge a roof and cover nothing. */
     static boolean covered(IsoCell cell, IsoGridSquare square) {
-        return roofing(cell, square, false);
+        synchronized (BuildThreads.SHARED) {
+            return roofing(cell, square, false);
+        }
     }
 
     /**
@@ -1045,7 +1061,9 @@ final class Roofs {
      * known by the game marking them roof.
      */
     static boolean roofing(IsoCell cell, IsoGridSquare square) {
-        return roofing(cell, square, true);
+        synchronized (BuildThreads.SHARED) {
+            return roofing(cell, square, true);
+        }
     }
 
     private static boolean roofing(IsoCell cell, IsoGridSquare square, boolean trims) {
@@ -1162,17 +1180,19 @@ final class Roofs {
      * the cap's own x, and the square back has no tile. The cap's own square is looked at too. The ridge is the slopes'.
      */
     static boolean capOfARidgeBelow(IsoCell cell, RoofFit.Tile tile, float scale) {
-        if (tile.z == 0 || tile.axis != RoofFit.LEVEL || tile.half != 0 || Math.abs(tile.low - tile.z - RoofFit.PITCH) > RoofFit.SAME) {
-            return false;
-        }
-        for (int dx = -1; dx <= 0; dx++) {
-            for (int dy = -1; dy <= 0; dy++) {
-                if (slopeToppingAt(cell, tile.x + dx, tile.y + dy, tile.z - 1, tile.z, scale)) {
-                    return true;
+        synchronized (BuildThreads.SHARED) {
+            if (tile.z == 0 || tile.axis != RoofFit.LEVEL || tile.half != 0 || Math.abs(tile.low - tile.z - RoofFit.PITCH) > RoofFit.SAME) {
+                return false;
+            }
+            for (int dx = -1; dx <= 0; dx++) {
+                for (int dy = -1; dy <= 0; dy++) {
+                    if (slopeToppingAt(cell, tile.x + dx, tile.y + dy, tile.z - 1, tile.z, scale)) {
+                        return true;
+                    }
                 }
             }
+            return false;
         }
-        return false;
     }
 
     /**
@@ -1182,7 +1202,9 @@ final class Roofs {
      * (roofs_02_22 on level 2 over roofs_02_1 and roofs_02_9, which top at 1.667).
      */
     static boolean capFloorOfARidgeBelow(IsoCell cell, int x, int y, int z, float scale) {
-        return slopeToppingAt(cell, x, y, z - 1, z - RoofFit.PITCH, scale);
+        synchronized (BuildThreads.SHARED) {
+            return slopeToppingAt(cell, x, y, z - 1, z - RoofFit.PITCH, scale);
+        }
     }
 
     /** Whether the square holds a roof's slope whose top is at that height. */
@@ -1493,9 +1515,11 @@ final class Roofs {
 
     /** A roof of no tiles, covered in what a sprite shows: for a piece of roof the map lays with no roof of its own over it. */
     static Roof coveredIn(Texture texture) {
-        Roof roof = new Roof();
-        paintedPlace(texture, roof);
-        return roof;
+        synchronized (BuildThreads.SHARED) {
+            Roof roof = new Roof();
+            paintedPlace(texture, roof);
+            return roof;
+        }
     }
 
     /**

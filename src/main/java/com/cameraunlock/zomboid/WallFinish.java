@@ -263,12 +263,14 @@ final class WallFinish {
      * level has none. Null if none is found.
      */
     static Texture outside(IsoCell cell, IsoBuilding building, int z, long room, int frame) {
-        Level level = of(cell, building, z, frame);
-        Facing[] own = level.outsides.get(room);
-        if (own != null) {
-            return (own[NORTH] != null ? own[NORTH] : own[WEST]).texture;
+        synchronized (BuildThreads.SHARED) {
+            Level level = of(cell, building, z, frame);
+            Facing[] own = level.outsides.get(room);
+            if (own != null) {
+                return (own[NORTH] != null ? own[NORTH] : own[WEST]).texture;
+            }
+            return level.outside == null && z != 0 ? of(cell, building, 0, frame).outside : level.outside;
         }
-        return level.outside == null && z != 0 ? of(cell, building, 0, frame).outside : level.outside;
     }
 
     /**
@@ -278,12 +280,14 @@ final class WallFinish {
      * most of its east face, and null if that face has none.
      */
     static Facing facing(IsoCell cell, IsoBuilding building, int z, boolean north, long room, int frame) {
-        Level level = of(cell, building, z, frame);
-        Facing[] own = level.outsides.get(room);
-        if (own != null) {
-            return own[north ? NORTH : WEST];
+        synchronized (BuildThreads.SHARED) {
+            Level level = of(cell, building, z, frame);
+            Facing[] own = level.outsides.get(room);
+            if (own != null) {
+                return own[north ? NORTH : WEST];
+            }
+            return north ? level.south : level.east;
         }
-        return north ? level.south : level.east;
     }
 
     /**
@@ -291,8 +295,10 @@ final class WallFinish {
      * null where it has none on that edge.
      */
     static Facing roomWall(IsoCell cell, IsoBuilding building, int z, long room, boolean north, int frame) {
-        Facing[] walls = of(cell, building, z, frame).roomWalls.get(room);
-        return walls == null ? null : walls[north ? NORTH : WEST];
+        synchronized (BuildThreads.SHARED) {
+            Facing[] walls = of(cell, building, z, frame).roomWalls.get(room);
+            return walls == null ? null : walls[north ? NORTH : WEST];
+        }
     }
 
     /**
@@ -300,12 +306,16 @@ final class WallFinish {
      * view shows, and the room's other walls, which it never shows, are as grimy.
      */
     static boolean grimy(IsoCell cell, IsoBuilding building, int z, long room, int frame) {
-        return of(cell, building, z, frame).grimy.contains(room);
+        synchronized (BuildThreads.SHARED) {
+            return of(cell, building, z, frame).grimy.contains(room);
+        }
     }
 
     /** The sprite the room's walls show, or null. */
     static Texture room(IsoCell cell, IsoBuilding building, int z, long room, int frame) {
-        return of(cell, building, z, frame).rooms.get(room);
+        synchronized (BuildThreads.SHARED) {
+            return of(cell, building, z, frame).rooms.get(room);
+        }
     }
 
     private static Level of(IsoCell cell, IsoBuilding building, int z, int frame) {
