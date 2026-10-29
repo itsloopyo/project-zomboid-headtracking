@@ -9,6 +9,8 @@ public final class IsoChunk {
 
     /** The levels it has: see IsoCell.lowest. */
     public int minLevel, maxLevel;
+    /** The map it is part of, which holds its squares. */
+    IsoCell cell;
 
     /** The blood on its floors, none but where a test gives it some: see Bleeding. */
     public zombie.core.utils.BoundedQueue<IsoFloorBloodSplat> floorBloodSplats;
@@ -19,5 +21,10 @@ public final class IsoChunk {
 
     public int getMaxLevel() {
         return maxLevel;
+    }
+
+    /** The square at a place within the chunk, from its north-west corner. */
+    public IsoGridSquare getGridSquare(int x, int y, int z) {
+        return cell.getGridSquare(wx * 8 + x, wy * 8 + y, z);
     }
 }

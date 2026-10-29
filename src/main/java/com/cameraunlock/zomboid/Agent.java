@@ -220,6 +220,14 @@ public final class Agent {
         return waitingComposites.gap();
     }
 
+    /** The patch that leaves the spotting of rooms and the marking of squares seen to Spotting while the first person picture covers the player's view. */
+    private static PatchTransformer spotting;
+
+    /** Why the game's light still spots rooms and marks squares under the first person picture on this build of the game, or null once it does not. */
+    static String spottingGap() {
+        return spotting.gap();
+    }
+
     private static volatile boolean loaded;
 
     /** The classes loaded when the mod began, which cannot be given new members: see catchUp. */
@@ -452,6 +460,8 @@ public final class Agent {
         add(instrumentation, splitScreen);
         waitingComposites = new PatchTransformer(waitingCompositePatches());
         add(instrumentation, waitingComposites);
+        spotting = new PatchTransformer(spottingPatches());
+        add(instrumentation, spotting);
         Log.info("the mod's " + transformers.size() + " sets of patches are registered, each to go in as the game loads its class");
         return true;
     }
@@ -859,6 +869,24 @@ public final class Agent {
                         new CallSite.Method(PART_DRAW, "RenderCharacter", "(L" + CHARACTER_DRAW + ";)V"),
                         new CallSite.Method(MODEL, "DrawChar", "(L" + CHARACTER_DRAW + ";L" + PART_DRAW + ";)V"),
                         new CallSite.Method(HOOKS, "partDrawn", "(L" + MODEL + ";L" + CHARACTER_DRAW + ";L" + PART_DRAW + ";)V"), 1)));
+    }
+
+    /**
+     * The game spots a room, and marks a square seen this hour, as it works out the square's
+     * light, so under the first person picture both went by where and when the mod read light.
+     * With this they are left to Spotting there, and are as they were everywhere else. One
+     * patch, so that both calls go to the hooks or neither does.
+     */
+    private static List<Patch> spottingPatches() {
+        String lighting = "zombie/iso/LightingJNI$JNILighting", square = "zombie/iso/IsoGridSquare", meta = "zombie/meta/Meta";
+        CallSite.Method update = new CallSite.Method(lighting, "updateFBORenderChunk", "()V");
+        CallSite.Method squareSeen = new CallSite.Method(HOOKS, "squareSeenByLight", "(L" + meta + ";L" + square + ";L" + square + "$ILighting;)V");
+        return List.of(new Patch(lighting, "updateFBORenderChunk leaving rooms and marks to Spotting under the first person picture", classBytes -> {
+            classBytes = CallSite.replaceEach(classBytes, update, new CallSite.Method(square, "checkRoomSeen", "(I)V"),
+                    new CallSite.Method(HOOKS, "roomSeenByLight", "(L" + square + ";I)V"), 1);
+            return CallSite.replaceEach(classBytes, update, new CallSite.Method(meta, "dealWithSquareSeen", "(L" + square + ";)V"),
+                    code -> CallSite.passThis(code, squareSeen), 1);
+        }));
     }
 
     /**

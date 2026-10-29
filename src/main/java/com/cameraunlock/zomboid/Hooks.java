@@ -44,6 +44,7 @@ import zombie.iso.IsoWorld;
 import zombie.iso.Vector2;
 import zombie.iso.Vector3;
 import zombie.iso.weather.ThunderStorm;
+import zombie.meta.Meta;
 import zombie.ui.TextDrawObject;
 import zombie.ui.TextManager;
 import zombie.ui.UIFont;
@@ -279,6 +280,7 @@ public final class Hooks {
             View view = View.of(i);
             if (view != null) {
                 view.firstPerson.leftSave();
+                view.spotting.leftSave();
             }
         }
     }
@@ -314,6 +316,43 @@ public final class Hooks {
     public static boolean coversTheGamesView() {
         View view = drawing();
         return view != null && view.firstPerson.coversTheGamesView();
+    }
+
+    /**
+     * In place of the game's spotting of a square's room as it works out the square's light for
+     * a player, on whichever thread reads it: left to Spotting while the first person picture
+     * covers that player's view.
+     */
+    public static void roomSeenByLight(IsoGridSquare square, int playerIndex) {
+        View view = View.of(playerIndex);
+        if (view != null && view.firstPerson.coversTheGamesView()) {
+            if (Spotting.CHECK) {
+                Spotting.roomsLeftByLight.increment();
+            }
+            return;
+        }
+        square.checkRoomSeen(playerIndex);
+    }
+
+    /**
+     * In place of the game's marking a square seen this hour as the light it was working out,
+     * which is one player's, finds the square has just turned seen: handed to Spotting while the
+     * first person picture covers that player's view, to be marked if the view sees it.
+     */
+    public static void squareSeenByLight(Meta meta, IsoGridSquare square, IsoGridSquare.ILighting light) {
+        for (int playerIndex = 0; playerIndex < square.lighting.length; playerIndex++) {
+            if (square.lighting[playerIndex] != light) {
+                continue;
+            }
+            View view = View.of(playerIndex);
+            if (view != null && view.firstPerson.coversTheGamesView()) {
+                view.spotting.turned(square);
+                return;
+            }
+            meta.dealWithSquareSeen(square);
+            return;
+        }
+        throw new IllegalStateException("light worked out for the square at " + square.getX() + ", " + square.getY() + ", " + square.getZ() + " that is none of its players'");
     }
 
     /** In place of the game's reading of where a player's reticle or aim cursor is drawn, across the screen. */

@@ -684,6 +684,15 @@ final class WorldScene {
         int triangles() {
             return floats / (SpriteGeometry.VERTEX_FLOATS * 3);
         }
+
+        /** Where the chunk it is a build of lies, in chunks. */
+        int wx() {
+            return wx;
+        }
+
+        int wy() {
+            return wy;
+        }
     }
 
     /** A chunk nearer the eye than this falls due every second or third frame, and one within a chunk and a half of the eye every frame: see buildEvery. */
@@ -1453,6 +1462,12 @@ final class WorldScene {
     private final RoomSight.Seen roomsShownChanged = new RoomSight.Seen();
     private final FigureRooms figuresShown = new FigureRooms();
     private static final long SHOWN_KEEP_NANOS = 500_000_000L;
+
+    /** Adds the rooms the eye's picture saw into in the last half second to a set. Logic thread. */
+    void roomsShownTo(RoomSight.Seen into) {
+        roomsShown.copyTo(into);
+    }
+
     /**
      * What the last walk for roomsMayShow was walked from: with every shut door in reach counted
      * open it reads no door, so from the same eye, reach, region and openings it finds the same rooms.
@@ -3007,6 +3022,12 @@ final class WorldScene {
 
         /** The chunk builds this frame draws. */
         private final ArrayList<ChunkMeshes> shown = new ArrayList<>();
+
+        /** The same, until the frame is built again. Logic thread. */
+        List<ChunkMeshes> shownBuilds() {
+            return shown;
+        }
+
         /** The builds this frame made of chunks the view does not face, which the frame hands to the graphics card and does not draw. */
         private final ArrayList<ChunkMeshes> builtAheadOf = new ArrayList<>();
         /** Whether any of them has water on it, and the plane that water lies in round the eye: see WaterMirror. */

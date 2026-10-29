@@ -974,6 +974,9 @@ public final class FirstPerson {
         WorldScene.Frame scene = view.worldScene.next();
         if (landed) {
             scene.build(player, trackedView, aimView, eyeFromAim, view.fieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), null, false);
+            if (coversTheGamesView()) {
+                view.spotting.look(view.worldScene, scene, now);
+            }
             view.hearing.face(trackedView, 0f, 1f);
         } else {
             fly(player, scene, floorUp);

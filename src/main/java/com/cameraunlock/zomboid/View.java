@@ -61,6 +61,7 @@ final class View {
     final WorldScene worldScene = new WorldScene(this);
     final Pipeline pipeline = new Pipeline(this);
     final Characters characters = new Characters(this);
+    final Spotting spotting;
 
     /** What works and draws a model of the mod's own in this view. Render thread. */
     OwnGun ownGun(OwnModel model) {
@@ -78,6 +79,7 @@ final class View {
         torchLess = new TorchLess(index);
         muzzleFlash = new MuzzleFlash(index);
         headTracking = new HeadTracking(index, fieldOfView, headFollowLight);
+        spotting = new Spotting(index);
     }
 
     /** The first player's view. */

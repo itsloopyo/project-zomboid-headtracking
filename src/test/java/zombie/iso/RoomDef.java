@@ -6,6 +6,7 @@ import java.util.ArrayList;
 public final class RoomDef {
     public int level;
     public boolean userDefined;
+    public boolean explored;
     public final ArrayList<RoomRect> rects = new ArrayList<>();
 
     public RoomDef(int level) {

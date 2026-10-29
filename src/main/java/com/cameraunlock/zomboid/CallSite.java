@@ -69,11 +69,16 @@ final class CallSite {
      * no object goes to a hook that takes what it took.
      */
     static byte[] replaceEach(byte[] classBytes, Method within, Method call, Method hook, int expected) {
+        return replaceEach(classBytes, within, call, code -> invokeStatic(code, hook), expected);
+    }
+
+    /** As replaceEach, with {@code replacement} written in place of each call: it takes what the call took and leaves what it returned. */
+    static byte[] replaceEach(byte[] classBytes, Method within, Method call, Consumer<CodeBuilder> replacement, int expected) {
         int[] matches = {0};
         CodeTransform replace = (code, element) -> {
             if (element instanceof InvokeInstruction invoke && isCallTo(invoke, call)) {
                 matches[0]++;
-                invokeStatic(code, hook);
+                replacement.accept(code);
             } else {
                 code.with(element);
             }

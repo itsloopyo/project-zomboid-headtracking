@@ -102,6 +102,7 @@ public final class IsoGridSquare {
         chunk.loaded = !filling;
         chunk.minLevel = cell.lowest();
         chunk.maxLevel = cell.highest();
+        chunk.cell = cell;
         return chunk;
     }
 
@@ -115,5 +116,51 @@ public final class IsoGridSquare {
 
     public int getZ() {
         return z;
+    }
+
+    /** The game hour the game last marked the square seen in. */
+    public int hourLastSeen = -1;
+    private boolean seen, inReach;
+    /** How many times the square was asked whether its player has seen it, and its room checked for being spotted from it. */
+    public int seenAsked, roomChecks;
+
+    /** Whether the game has had the square in its player's sight. */
+    public void seen(boolean seen) {
+        this.seen = seen;
+    }
+
+    /** Whether the square is on its player's level and near enough them for the game to spot its room from it: see checkRoomSeen. */
+    public void inReach(boolean inReach) {
+        this.inReach = inReach;
+    }
+
+    /** What the game's light does as it finds a square has just turned seen, which the tests set: see turns. */
+    public static java.util.function.Consumer<IsoGridSquare> onTurn = square -> {};
+    private boolean turns;
+
+    /** Whether the game's light finds the square has just turned seen the next time it is asked about, and hands it to onTurn. */
+    public void turns(boolean turns) {
+        this.turns = turns;
+    }
+
+    public boolean isSeen(int playerIndex) {
+        seenAsked++;
+        if (turns && seen) {
+            turns = false;
+            onTurn.accept(this);
+        }
+        return seen;
+    }
+
+    public boolean isCouldSee(int playerIndex) {
+        return seen;
+    }
+
+    /** The game's spotting of the square's room, which goes by the room's level and how far it is from the player: here by inReach. */
+    public void checkRoomSeen(int playerIndex) {
+        roomChecks++;
+        if (inReach && room != null) {
+            room.getRoomDef().explored = true;
+        }
     }
 }
