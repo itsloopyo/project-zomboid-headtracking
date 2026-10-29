@@ -652,6 +652,37 @@ final class RoomSight {
             long mixed = id * 0x9E3779B97F4A7C15L;
             return (int) (mixed ^ mixed >>> 32);
         }
+
+        /** Dev only: throws where two walks found other rooms, or the open air through other rectangles, saying what the walk was. */
+        static void check(String walk, Seen found, Seen plain) {
+            String otherwise = found.otherwise(plain);
+            if (otherwise != null) {
+                throw new IllegalStateException("rooms in sight: " + walk + " found otherwise than the walk that shares nothing: " + otherwise);
+            }
+        }
+
+        /** Dev only: a room one of two sets holds and the other does not, or the open air of the two told apart, or null where they are the same. */
+        String otherwise(Seen plain) {
+            for (int slot = 0; slot < ids.length; slot++) {
+                if (stamps[slot] == stamp && !plain.contains(ids[slot])) {
+                    return "room " + ids[slot] + " only in the walk that shares";
+                }
+            }
+            for (int slot = 0; slot < plain.ids.length; slot++) {
+                if (plain.stamps[slot] == plain.stamp && !contains(plain.ids[slot])) {
+                    return "room " + plain.ids[slot] + " only in the walk that shares nothing";
+                }
+            }
+            if (airWhole != plain.airWhole || airCount != plain.airCount) {
+                return "the open air " + (airWhole ? "whole" : airCount + " rectangles") + " against " + (plain.airWhole ? "whole" : plain.airCount + " rectangles");
+            }
+            for (int i = 0; i < airCount * 4; i++) {
+                if (Float.floatToRawIntBits(air[i]) != Float.floatToRawIntBits(plain.air[i])) {
+                    return "the open air's rectangle " + i / 4 + " at " + air[i] + " against " + plain.air[i];
+                }
+            }
+            return null;
+        }
     }
 
     /**

@@ -1290,6 +1290,15 @@ final class WorldScene {
 
     private final RoomSight roomWalk = new RoomSight();
     /**
+     * Dev only: a second walker that shares nothing between its walks, walked beside the
+     * picture's and each round's face, and what it finds: the check throws where the two
+     * find any room otherwise, or the open air through any other rectangle.
+     */
+    private static final boolean CHECK_ROOMS = DevBuild.ON && Boolean.getBoolean("cameraunlock.zomboid.checkRooms");
+    private final RoomSight roomWalkPlain = CHECK_ROOMS ? new RoomSight(false) : null;
+    private final RoomSight.Round builtRoundPlain = new RoomSight.Round(), mayShowRoundPlain = new RoomSight.Round();
+    private final RoomSight.Seen roomsSeenPlain = new RoomSight.Seen(), roomsFoundPlain = new RoomSight.Seen(), roomsMayShowFoundPlain = new RoomSight.Seen();
+    /**
      * The openings and blocks in reach of the eye, and what they were last gathered from: see
      * Frame.seeRooms. Logic thread. Kept here with the walk, not with each frame: four frames
      * took turns handing the walk lists of the same things, and it built its horizon of every
@@ -1690,6 +1699,8 @@ final class WorldScene {
         roundNanos = 0L;
         builtRound.drop();
         mayShowRound.drop();
+        builtRoundPlain.drop();
+        mayShowRoundPlain.drop();
         roomsMayShowDue = false;
         eyeSpeed = 0f;
         if (building(System.nanoTime()) == 0) {
@@ -4488,8 +4499,13 @@ final class WorldScene {
             // On a stair the character's level is the one it set out from while its eye is already over the next floor.
             int eyeLevel = RoomSight.levelOf(roomMap, eyeX, eyeY, level, camera.eyeUp);
             roomsSeenKept.clear();
-            roomWalk.walk(roomMap, openingsInReach, blocksInReach, camera, tanHalfFieldOfView * aspect, tanHalfFieldOfView, roomMap.region(eyeX, eyeY, eyeLevel),
-                    roomMap.building(eyeX, eyeY, eyeLevel), roomsSeenKept);
+            long eyeRegion = roomMap.region(eyeX, eyeY, eyeLevel), eyeBuilding = roomMap.building(eyeX, eyeY, eyeLevel);
+            roomWalk.walk(roomMap, openingsInReach, blocksInReach, camera, tanHalfFieldOfView * aspect, tanHalfFieldOfView, eyeRegion, eyeBuilding, roomsSeenKept);
+            if (CHECK_ROOMS) {
+                roomsSeenPlain.clear();
+                roomWalkPlain.walk(roomMap, openingsInReach, blocksInReach, camera, tanHalfFieldOfView * aspect, tanHalfFieldOfView, eyeRegion, eyeBuilding, roomsSeenPlain);
+                RoomSight.Seen.check("the picture's walk", roomsSeenKept, roomsSeenPlain);
+            }
             roomsSeen = roomsSeenKept;
             roomsAspect = aspect;
             lastHidden = roomWalk.hiddenByBlocks;
@@ -4515,6 +4531,8 @@ final class WorldScene {
                 }
                 builtRound.drop();
                 mayShowRound.drop();
+                builtRoundPlain.drop();
+                mayShowRoundPlain.drop();
             }
             if (!builtRound.walking() && (whole || now - roundNanos >= ROUND_EVERY_NANOS || moved > grow / 2f)) {
                 if (roundNanos != 0L && seconds > 0f) {
@@ -4528,6 +4546,10 @@ final class WorldScene {
                 roomsFound.clear();
                 long region = roomMap.region(eyeX, eyeY, eyeLevel), building = roomMap.building(eyeX, eyeY, eyeLevel);
                 roomWalk.begin(builtRound, camera.eyeX, camera.eyeY, camera.eyeUp, region, building, (GROW_TILES + eyeSpeed * GROW_SECONDS) / 2f, SHUT_WITHIN, roomsFound);
+                if (CHECK_ROOMS) {
+                    roomsFoundPlain.clear();
+                    roomWalkPlain.begin(builtRoundPlain, camera.eyeX, camera.eyeY, camera.eyeUp, region, building, (GROW_TILES + eyeSpeed * GROW_SECONDS) / 2f, SHUT_WITHIN, roomsFoundPlain);
+                }
                 float movedSince = (float) Math.sqrt((camera.eyeX - mayShowEyeX) * (camera.eyeX - mayShowEyeX) + (camera.eyeY - mayShowEyeY) * (camera.eyeY - mayShowEyeY)
                         + (camera.eyeUp - mayShowEyeUp) * (camera.eyeUp - mayShowEyeUp));
                 if (!mayShowRound.walking() && (movedSince > grow / 2f || reach != mayShowReach || region != mayShowRegion || building != mayShowBuilding
@@ -4542,6 +4564,11 @@ final class WorldScene {
                     mayShowBlocks = blocksInReach.filling;
                     roomsMayShowFound.clear();
                     roomWalk.begin(mayShowRound, camera.eyeX, camera.eyeY, camera.eyeUp, region, building, (GROW_TILES + eyeSpeed * GROW_SECONDS) / 2f, reach, roomsMayShowFound);
+                    if (CHECK_ROOMS) {
+                        roomsMayShowFoundPlain.clear();
+                        roomWalkPlain.begin(mayShowRoundPlain, camera.eyeX, camera.eyeY, camera.eyeUp, region, building, (GROW_TILES + eyeSpeed * GROW_SECONDS) / 2f, reach,
+                                roomsMayShowFoundPlain);
+                    }
                 }
                 roomsMayShowDue = true;
             }
@@ -4552,6 +4579,10 @@ final class WorldScene {
                 boolean last = roomWalk.walkFace(roomMap, openingsInReach, blocksInReach, builtRound);
                 tollRoomsBuiltNanos += System.nanoTime() - faceBegan;
                 tollRoomsBuiltFaces++;
+                if (CHECK_ROOMS) {
+                    roomWalkPlain.walkFace(roomMap, openingsInReach, blocksInReach, builtRoundPlain);
+                    RoomSight.Seen.check("the built round's face", roomsFound, roomsFoundPlain);
+                }
                 if (last) {
                     roomsBuilt.found(roomsFound, now, roomsEntered);
                     roomsBuilt.expire(now, roomsLeft);
@@ -4562,6 +4593,10 @@ final class WorldScene {
                 roomWalk.walkFace(roomMap, openingsInReach, blocksInReach, mayShowRound);
                 tollRoomsMayShowNanos += System.nanoTime() - faceBegan;
                 tollRoomsMayShowFaces++;
+                if (CHECK_ROOMS) {
+                    roomWalkPlain.walkFace(roomMap, openingsInReach, blocksInReach, mayShowRoundPlain);
+                    RoomSight.Seen.check("the may-show round's face", roomsMayShowFound, roomsMayShowFoundPlain);
+                }
             }
             if (roomsMayShowDue && !mayShowRound.walking()) {
                 roomsMayShowDue = false;

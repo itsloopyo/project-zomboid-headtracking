@@ -38,6 +38,7 @@ final class RoomSightTests {
         Checks.run("roomsKeptForBuildingGoAfterAWhileUnfound", RoomSightTests::roomsKeptForBuildingGoAfterAWhileUnfound);
         Checks.run("openingsAreFoundInWallsAndNotWhereThereIsNone", RoomSightTests::openingsAreFoundInWallsAndNotWhereThereIsNone);
         Checks.run("noRoomALineReachesIsLeftOutInARandomTown", RoomSightTests::noRoomALineReachesIsLeftOutInARandomTown);
+        Checks.run("walksThatShareFindWhatWalksThatShareNothingFind", RoomSightTests::walksThatShareFindWhatWalksThatShareNothingFind);
         Checks.run("aSetOfRoomsHoldsWhatIsAddedUntilItIsCleared", RoomSightTests::aSetOfRoomsHoldsWhatIsAddedUntilItIsCleared);
         Checks.run("aPictureListsOnlyTheRoomsItSeesInto", RoomSightTests::aPictureListsOnlyTheRoomsItSeesInto);
         Checks.run("aWallsEdgeAndAWindowsBlindAreListedByTheRoomsEitherSide", RoomSightTests::aWallsEdgeAndAWindowsBlindAreListedByTheRoomsEitherSide);
@@ -593,6 +594,160 @@ final class RoomSightTests {
         }
         check(views == 300, "every view was walked");
         check(seenSum * 2 < roomsSum, "and the walk leaves out most rooms of a town from a place in it: " + seenSum + " of " + roomsSum);
+    }
+
+    /** A plan's map that counts the states of openings read off it, by opening. */
+    private static final class Counted implements RoomSight.Ground {
+        private final Plan plan;
+        final Map<Long, Integer> reads = new HashMap<>();
+
+        Counted(Plan plan) {
+            this.plan = plan;
+        }
+
+        private void read(int x, int y, int z, int kind) {
+            reads.merge((((long) (x + 4096) << 40) | ((long) (y + 4096) << 16) | (z + 64)) * 4 + kind, 1, Integer::sum);
+        }
+
+        int total() {
+            int sum = 0;
+            for (int each : reads.values()) {
+                sum += each;
+            }
+            return sum;
+        }
+
+        @Override
+        public long region(int x, int y, int z) {
+            return plan.region(x, y, z);
+        }
+
+        @Override
+        public int edge(int x, int y, int z, boolean north) {
+            read(x, y, z, north ? RoomSight.NORTH : RoomSight.WEST);
+            return plan.edge(x, y, z, north);
+        }
+
+        @Override
+        public boolean floored(int x, int y, int z) {
+            read(x, y, z - 1, RoomSight.UP);
+            return plan.floored(x, y, z);
+        }
+
+        @Override
+        public float floorUp(float x, float y, int z) {
+            return plan.floorUp(x, y, z);
+        }
+
+        @Override
+        public long building(int x, int y, int z) {
+            return plan.building(x, y, z);
+        }
+    }
+
+    /**
+     * A walker that keeps an opening's state through a frame, and a face's rectangles and hidden
+     * answers for the face walked straight after it from the same place, finds what a walker that
+     * shares nothing finds, picture by picture and face by face, as an eye goes round a town
+     * whose doors open and shut between frames; and it reads no opening's state twice in a frame.
+     */
+    private static void walksThatShareFindWhatWalksThatShareNothingFind() {
+        Random random = new Random(7);
+        int frames = 0, faces = 0, readsShared = 0, readsPlain = 0;
+        long seenSum = 0;
+        for (int town = 0; town < 6; town++) {
+            Plan plan = new Plan();
+            long id = 0;
+            java.util.List<int[]> doors = new java.util.ArrayList<>();
+            for (int house = 0; house < 6; house++) {
+                int ox = (house % 3) * 12, oy = (house / 3) * 12;
+                for (int z = 0; z < 2; z++) {
+                    int split = 2 + random.nextInt(5), down = 2 + random.nextInt(5);
+                    plan.room(id++, z, ox, oy, ox + split - 1, oy + down - 1).room(id++, z, ox + split, oy, ox + 7, oy + down - 1)
+                            .room(id++, z, ox, oy + down, ox + split - 1, oy + 7).room(id++, z, ox + split, oy + down, ox + 7, oy + 7);
+                    for (int k = 0; k < 12; k++) {
+                        int[] door = {ox + random.nextInt(9), oy + random.nextInt(9), z, random.nextInt(2)};
+                        plan.opening(door[0], door[1], door[2], door[3] == 1, random.nextBoolean() ? RoomSight.SHUT : RoomSight.SEE);
+                        doors.add(door);
+                    }
+                }
+                if (random.nextBoolean()) {
+                    plan.hole(ox + 1, oy + 1, 1);
+                }
+            }
+            RoomSight.Openings openings = plan.openings();
+            RoomSight.Blocks blocks = plan.blocks();
+            Counted sharedMap = new Counted(plan), plainMap = new Counted(plan);
+            RoomSight shared = new RoomSight(), plain = new RoomSight(false);
+            RoomSight.Round built = new RoomSight.Round(), mayShow = new RoomSight.Round(), builtPlain = new RoomSight.Round(), mayShowPlain = new RoomSight.Round();
+            RoomSight.Seen seen = new RoomSight.Seen(), seenPlain = new RoomSight.Seen(), found = new RoomSight.Seen(), foundPlain = new RoomSight.Seen();
+            RoomSight.Seen mayShowFound = new RoomSight.Seen(), mayShowFoundPlain = new RoomSight.Seen();
+            int z = town % 2;
+            float x = -4f + random.nextFloat() * 38f, y = -4f + random.nextFloat() * 26f, yaw = random.nextFloat() * 360f;
+            ViewCamera.Pose eye = new ViewCamera.Pose();
+            for (int frame = 0; frame < 90; frame++) {
+                if (random.nextInt(3) == 0) {
+                    int[] door = doors.get(random.nextInt(doors.size()));
+                    plan.opening(door[0], door[1], door[2], door[3] == 1, random.nextBoolean() ? RoomSight.SHUT : RoomSight.SEE);
+                }
+                // The eye stands still for a while now and then, and otherwise walks and turns.
+                if (frame % 30 >= 10) {
+                    x = Math.clamp(x + (random.nextFloat() - 0.5f) * 0.8f, -4f, 34f);
+                    y = Math.clamp(y + (random.nextFloat() - 0.5f) * 0.8f, -4f, 22f);
+                    yaw += (random.nextFloat() - 0.5f) * 30f;
+                }
+                float up = z * ViewCamera.LEVEL_HEIGHT + 1.6f;
+                ViewCamera.clean(eye, x, y, up, (float) Math.toRadians(yaw), (float) Math.toRadians(-10f));
+                int squareX = (int) Math.floor(x), squareY = (int) Math.floor(y);
+                long start = plan.region(squareX, squareY, z), building = plan.building(squareX, squareY, z);
+                sharedMap.reads.clear();
+                int plainBefore = plainMap.total();
+                seen.clear();
+                seenPlain.clear();
+                shared.walk(sharedMap, openings, blocks, eye, FOV * ASPECT, FOV, start, building, seen);
+                plain.walk(plainMap, openings, blocks, eye, FOV * ASPECT, FOV, start, building, seenPlain);
+                check(seen.otherwise(seenPlain) == null, "town " + town + ", frame " + frame + ": the picture finds what it finds sharing nothing: " + seen.otherwise(seenPlain));
+                seenSum += seen.size();
+                // The rounds set out together from the same place, as WorldScene sets them out, and now and then the second from another.
+                if (!built.walking() && frame % 8 == 0) {
+                    float grow = 0.75f + random.nextFloat() * 2f, mayShowGrow = random.nextInt(4) == 0 ? grow * 1.5f : grow;
+                    found.clear();
+                    foundPlain.clear();
+                    shared.begin(built, x, y, up, start, building, grow, 10f, found);
+                    plain.begin(builtPlain, x, y, up, start, building, grow, 10f, foundPlain);
+                    if (!mayShow.walking()) {
+                        mayShowFound.clear();
+                        mayShowFoundPlain.clear();
+                        shared.begin(mayShow, x, y, up, start, building, mayShowGrow, 40f, mayShowFound);
+                        plain.begin(mayShowPlain, x, y, up, start, building, mayShowGrow, 40f, mayShowFoundPlain);
+                    }
+                }
+                if (built.walking()) {
+                    shared.walkFace(sharedMap, openings, blocks, built);
+                    plain.walkFace(plainMap, openings, blocks, builtPlain);
+                    check(found.otherwise(foundPlain) == null, "town " + town + ", frame " + frame + ": the built round's face finds what it finds sharing nothing: " + found.otherwise(foundPlain));
+                    faces++;
+                }
+                if (mayShow.walking()) {
+                    shared.walkFace(sharedMap, openings, blocks, mayShow);
+                    plain.walkFace(plainMap, openings, blocks, mayShowPlain);
+                    check(mayShowFound.otherwise(mayShowFoundPlain) == null,
+                            "town " + town + ", frame " + frame + ": the may-show round's face finds what it finds sharing nothing: " + mayShowFound.otherwise(mayShowFoundPlain));
+                    faces++;
+                }
+                int most = 0;
+                for (int each : sharedMap.reads.values()) {
+                    most = Math.max(most, each);
+                }
+                check(most <= 1, "town " + town + ", frame " + frame + ": no opening's state is read twice in a frame by walks that share: " + most);
+                readsShared += sharedMap.total();
+                readsPlain += plainMap.total() - plainBefore;
+                frames++;
+            }
+        }
+        check(frames == 540 && faces > 600, "every frame was walked, and the rounds' faces: " + frames + " frames, " + faces + " faces");
+        check(seenSum > 0, "the pictures saw into rooms: " + seenSum);
+        check(readsShared < readsPlain, "and the walks that share read fewer states than those that share nothing: " + readsShared + " against " + readsPlain);
     }
 
     private static void aSetOfRoomsHoldsWhatIsAddedUntilItIsCleared() {
