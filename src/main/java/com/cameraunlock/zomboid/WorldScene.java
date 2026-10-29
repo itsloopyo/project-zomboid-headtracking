@@ -1012,7 +1012,7 @@ final class WorldScene {
     volatile boolean asTheGameShowsNow, gamesViewNow;
     volatile float roomLitNow, lampLitNow, daylightLitNow;
     private static final int REMAKES_A_FRAME = 12;
-    private static final IdentityHashMap<IsoSprite, Boolean> meshes = new IdentityHashMap<>();
+    private static final Known<IsoSprite, Boolean> meshes = new Known<>();
 
     /**
      * What a build asks of a sprite that is the same at every asking: its properties that go
@@ -1188,11 +1188,11 @@ final class WorldScene {
         }
     }
 
-    private static final IdentityHashMap<IsoSprite, Kind> kinds = new IdentityHashMap<>();
+    private static final Known<IsoSprite, Kind> kinds = new Known<>();
     private static final int MESH_CHANGES = 12;
     private static final float SWITCH_WIDEST = 12f;
     /** For each sprite hung in the air: the wires it shows, see Wires.read. */
-    static final IdentityHashMap<Texture, float[]> wires = new IdentityHashMap<>();
+    static final Known<Texture, float[]> wires = new Known<>();
     private static final long[] NO_CHUNKS = new long[0];
     /** The map the kept builds were read from, and the one everything every view keeps by place or by sprite was. */
     private WeakReference<IsoCell> builtIn = new WeakReference<>(null);
@@ -1251,10 +1251,10 @@ final class WorldScene {
     /** How far in from the edge of a lawn its grass takes to reach its full height, in tiles. */
     private static final float LAWN_EDGE = 0.9f;
     /** What was read off each tree's sprite: how thick its bole is and how tall, in tiles. Empty for a sprite with no bole to read. */
-    static final IdentityHashMap<IsoSprite, float[]> boles = new IdentityHashMap<>();
+    static final Known<IsoSprite, float[]> boles = new Known<>();
     static final float[] NO_BOLE = new float[0];
     /** The outline of the branches each broad-leaved tree's trunk sprite paints: see Flora.woodShape. */
-    static final IdentityHashMap<IsoSprite, float[]> woodShapes = new IdentityHashMap<>();
+    static final Known<IsoSprite, float[]> woodShapes = new Known<>();
     /** How far down the wall of a quay goes from its top: past the water's surface. */
     private static final float QUAY_DEPTH = 0.6f;
     /** How far open ground has to stand over the water beside it for the earth between them to be drawn, in tiles. */
@@ -1284,7 +1284,7 @@ final class WorldScene {
     static final float BOLE = 0.42f;
     /** How far from the eye a lawn's grass stands up, in tiles. */
     private static final float GRASS_REACH = 16f;
-    private static final IdentityHashMap<IsoSprite, int[]> ranks = new IdentityHashMap<>();
+    private static final Known<IsoSprite, int[]> ranks = new Known<>();
     /** A chunk's squares and the ring of squares round them. */
     static final int LIGHT_SPAN = CHUNK_TILES + 2;
     /**
@@ -1334,10 +1334,10 @@ final class WorldScene {
      * its poles, some chunks either way, once: the map does not move its poles. One left
      * unknown at an end for want of map is found again when the map has other chunks loaded.
      */
-    final HashMap<Long, float[]> strung = new HashMap<>();
+    final Known<Long, float[]> strung = new Known<>();
     private int strungWith;
     /** The run each length of a banner strung across a street is part of, as Banners finds it, by the square it hangs on. Kept and dropped as strung is. */
-    private final HashMap<Long, float[]> bannerRuns = new HashMap<>();
+    private final Known<Long, float[]> bannerRuns = new Known<>();
     /** The banner sprites the log has said paint nothing at an end of their square. */
     private static final Set<String> bannersUnpainted = ConcurrentHashMap.newKeySet();
     /** The lighting engine's count of its passes when each chunk's lights were last asked after, and the game's own note on the chunk of when it last took them. */
@@ -1938,8 +1938,8 @@ final class WorldScene {
     private static final long CHANGED_WAITS_NANOS = 500_000_000L;
     /** Within this many tiles of the eye a chunk with no build is built on the frame it is wanted. */
     private static final float BUILT_WHATEVER_IT_TAKES = CHUNK_TILES * 2.5f;
-    /** Where the opening in each wall sprite seen so far is: see openingOf. */
-    static final IdentityHashMap<Texture, float[]> openings = new IdentityHashMap<>();
+    /** Where the opening in each wall sprite seen so far is: see openingOf. Read again into a copy, which is kept in place of what was, and never written after. */
+    static final Known<Texture, float[]> openings = new Known<>();
 
     /**
      * Logic thread, as the picture stops being built. A scene names the map it was last built
@@ -2875,18 +2875,18 @@ final class WorldScene {
     }
 
     /** Where each plant's leaves are painted on its texture: see Flora.leafPlaces. */
-    static final IdentityHashMap<Texture, float[]> leafPlaces = new IdentityHashMap<>();
+    static final Known<Texture, float[]> leafPlaces = new Known<>();
     /** Where on each crop's sprite its stalks take their colour from: see Flora.inside. */
-    static final IdentityHashMap<Texture, float[]> cropColours = new IdentityHashMap<>();
+    static final Known<Texture, float[]> cropColours = new Known<>();
 
     /** Where each sprite the game gives no placing to has its foot: see SpriteShape.foot. Empty for a sprite with nothing painted. */
-    static final IdentityHashMap<IsoSprite, float[]> feet = new IdentityHashMap<>();
+    static final Known<IsoSprite, float[]> feet = new Known<>();
 
     /** What each sprite has been read as by Posts: NO_POST for one that is none. */
-    static final IdentityHashMap<IsoSprite, Object> posts = new IdentityHashMap<>();
+    static final Known<IsoSprite, Object> posts = new Known<>();
 
     /** What each sprite the game gives no placing to has been read as: see SpriteShape. */
-    static final IdentityHashMap<IsoSprite, SpriteShape> shapes = new IdentityHashMap<>();
+    static final Known<IsoSprite, SpriteShape> shapes = new Known<>();
 
     /** Which square of a flight a sprite of this type is: 0 the bottom one, 2 the top, -1 for no stair. */
     static int thirdOf(IsoObjectType type) {
@@ -2905,7 +2905,7 @@ final class WorldScene {
     }
 
     /** How deep the canopy over each square of one is, in tiles, by the square's place: 0 for a floor in the air with no band round it. See CeilingBuilder.canopyDrop. */
-    static final HashMap<Long, CeilingBuilder.Depth> canopies = new HashMap<>();
+    static final Known<Long, CeilingBuilder.Depth> canopies = new Known<>();
 
     /** Whether a square with a floor is roof over open air and no room's floor: nothing is built on it, nor under it on the level below. */
     static boolean isCanopy(IsoGridSquare square, IsoGridSquare below) {
@@ -2913,8 +2913,11 @@ final class WorldScene {
                 && (below == null || below.getRoomID() == -1L && below.getFloor() == null);
     }
 
-    /** For each door sprite on each edge: the frame origin it was read with, then the shares of the edge its leaf starts and ends at. */
-    static final IdentityHashMap<Texture, float[]> doorSpans = new IdentityHashMap<>();
+    /**
+     * For each door sprite on each edge: the frame origin it was read with, then the shares of the edge its leaf starts
+     * and ends at. Read again into a copy, which is kept in place of what was, and never written after.
+     */
+    static final Known<Texture, float[]> doorSpans = new Known<>();
 
     /** Whether a player has seen a room, as RoomsSeen takes it from the room's squares on its own level. Logic thread, where the game's light is read (FigureLights). */
     static boolean roomSeen(IsoCell cell, long room, int playerIndex) {
@@ -3413,7 +3416,7 @@ final class WorldScene {
             Kind kind = kinds.get(sprite);
             if (kind == null) {
                 kind = new Kind(sprite);
-                kinds.put(sprite, kind);
+                kind = kinds.keep(sprite, kind);
             }
             return kind;
         }
@@ -4033,8 +4036,8 @@ final class WorldScene {
             chunkMap = map;
             if (loadedNow != strungWith) {
                 // A span left unknown at an end for want of map is found again now that the map has other chunks loaded.
-                strung.values().removeIf(Spans::wanting);
-                bannerRuns.values().removeIf(Banners::wanting);
+                strung.dropIf(Spans::wanting);
+                bannerRuns.dropIf(Banners::wanting);
                 strungWith = loadedNow;
             }
             int loadedForAll = Rounds.loaded(view.index, loadedNow);
@@ -7824,7 +7827,7 @@ final class WorldScene {
                 String number = name.substring(cut + 1);
                 int row = !number.isEmpty() && number.length() <= 6 && number.chars().allMatch(Character::isDigit) ? Integer.parseInt(number) / 16 : 0;
                 known = new int[] {1 + (name.substring(0, Math.max(cut, 0)).hashCode() & 0xffff) * 64 + (row >= 1 && row <= 3 ? 32 + row : row)};
-                ranks.put(sprite, known);
+                known = ranks.keep(sprite, known);
             }
             return known[0];
         }
@@ -7983,7 +7986,7 @@ final class WorldScene {
                     }
                 }
                 known = changes >= 3 * MESH_CHANGES;
-                meshes.put(sprite, known);
+                known = meshes.keep(sprite, known);
             }
             return known;
         }
@@ -8019,7 +8022,7 @@ final class WorldScene {
                 if (run == null) {
                     hungOn = z;
                     run = Banners.find(bannerMap, x, y, alongX);
-                    bannerRuns.put(key, run);
+                    run = bannerRuns.keep(key, run);
                     if (FirstPerson.TRACE) {
                         Log.info("banner run: " + x + "," + y + "," + z + " " + Arrays.toString(run));
                     }

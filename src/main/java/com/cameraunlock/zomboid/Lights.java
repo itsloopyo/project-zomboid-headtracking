@@ -1,6 +1,5 @@
 package com.cameraunlock.zomboid;
 
-import java.util.IdentityHashMap;
 import zombie.core.properties.PropertyContainer;
 import zombie.iso.sprite.IsoSprite;
 
@@ -100,7 +99,7 @@ final class Lights {
     static final int X = 0, Y = 1, ALONG = 2, HANGS = 3, NUMBERS = 4;
 
     private static final String CALLED = "Lights";
-    private static final IdentityHashMap<IsoSprite, Integer> slices = new IdentityHashMap<>();
+    private static final Known<IsoSprite, Integer> slices = new Known<>();
 
     private Lights() {}
 
@@ -141,7 +140,7 @@ final class Lights {
         if (known == null) {
             PropertyContainer properties = sprite.getProperties();
             known = sliceOf(properties.get("CustomName"), properties.get("GroupName"), properties.get("Facing"), properties.get("SpriteGridPos"));
-            slices.put(sprite, known);
+            known = slices.keep(sprite, known);
         }
         return known;
     }

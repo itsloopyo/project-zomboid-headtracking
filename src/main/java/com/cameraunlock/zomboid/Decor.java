@@ -11,15 +11,15 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.WeakHashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.imageio.ImageIO;
@@ -109,9 +109,9 @@ final class Decor {
     /** What each room name on the map says it is, read the first time a room is asked about. */
     private static volatile Map<String, String> roomNames;
     /** The kind of each room asked about, kept for as long as the game keeps the room. Logic thread. */
-    private static final WeakHashMap<RoomDef, String> roomKinds = new WeakHashMap<>();
+    private static final Map<RoomDef, String> roomKinds = Collections.synchronizedMap(new WeakHashMap<>());
     /** The room names rooms.txt has not, each written to the log once. Logic thread. */
-    private static final Set<String> unknownRooms = new HashSet<>();
+    private static final Set<String> unknownRooms = ConcurrentHashMap.newKeySet();
 
     private static volatile Index index;
     /** The pixels of each picture read and not yet given to the graphics card, and the texture of each that has been. Both under the class's lock. */
@@ -165,7 +165,7 @@ final class Decor {
     record Read(OffHeap.Block memory, int wide, int high) {}
 
     /** Where a model's pane is on it, in its own metres: the least and greatest x, then the least and greatest z. */
-    private static final IdentityHashMap<Models.Model, float[]> panes = new IdentityHashMap<>();
+    private static final Known<Models.Model, float[]> panes = new Known<>();
 
     private Decor() {}
 
@@ -344,7 +344,7 @@ final class Decor {
         return said.equals(OFFICE_LIKE) && offices >= business.get(top) ? OFFICE : top;
     }
 
-    /** The kind of a room of the game's map. Logic thread. */
+    /** The kind of a room of the game's map. Any thread. */
     static String kindOf(RoomDef room) {
         String kind = roomKinds.get(room);
         if (kind == null) {
@@ -771,7 +771,7 @@ final class Decor {
                 pane[2] = Math.min(pane[2], z);
                 pane[3] = Math.max(pane[3], z);
             }
-            panes.put(model, pane);
+            pane = panes.keep(model, pane);
         }
         return pane;
     }

@@ -247,22 +247,27 @@ final class Models {
     /** One of a model's two, as the file holds it. */
     private record Shape(float[] vertices, byte[] surface, float[] reached, int[] corners) {}
 
-    /** Read by the logic thread, which stands the models, and by the render thread, which hands them to the graphics card. */
+    /** Read by the threads that build, which stand the models, and by the render thread, which hands them to the graphics card. */
     private static volatile Map<String, Model> loaded;
 
     private Models() {}
 
-    /** The model of that name, read from the jar the first time one is asked for. */
+    /** The model of that name, read from the jar the first time one is asked for, once whichever threads ask. */
     static Model get(String name) {
         Map<String, Model> models = loaded;
         if (models == null) {
-            try (InputStream packed = Models.class.getResourceAsStream(RESOURCE)) {
-                if (packed == null) {
-                    throw new IllegalStateException("the jar has no " + RESOURCE);
+            synchronized (Models.class) {
+                models = loaded;
+                if (models == null) {
+                    try (InputStream packed = Models.class.getResourceAsStream(RESOURCE)) {
+                        if (packed == null) {
+                            throw new IllegalStateException("the jar has no " + RESOURCE);
+                        }
+                        loaded = models = read(packed);
+                    } catch (IOException e) {
+                        throw new UncheckedIOException(RESOURCE + " could not be read", e);
+                    }
                 }
-                loaded = models = read(packed);
-            } catch (IOException e) {
-                throw new UncheckedIOException(RESOURCE + " could not be read", e);
             }
         }
         Model model = models.get(name);

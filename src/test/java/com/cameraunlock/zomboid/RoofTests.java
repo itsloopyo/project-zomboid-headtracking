@@ -3076,7 +3076,7 @@ final class RoofTests {
      */
     private static void canopyDepthIsFoundAgainOnceItsBandIsTakenDown() throws IllegalAccessException {
         boolean live = ChunkMarks.live;
-        HashMap<Long, CeilingBuilder.Depth> canopies = new HashMap<>(WorldScene.canopies);
+        Known<Long, CeilingBuilder.Depth> canopies = WorldScene.canopies.copy();
         Map<AtomicIntegerArray, int[]> marks = chunkMarks();
         try {
             ChunkMarks.live = true;
@@ -3123,8 +3123,7 @@ final class RoofTests {
             check(ceilings.canopyDrop(600, 900, 2) == deep, "and the band put back is found once WallFinish would read a building again");
         } finally {
             ChunkMarks.live = live;
-            WorldScene.canopies.clear();
-            WorldScene.canopies.putAll(canopies);
+            WorldScene.canopies.keepAll(canopies);
             putBack(marks);
         }
     }

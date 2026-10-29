@@ -52,7 +52,7 @@ final class PostBuilder {
             if (!SpriteShape.foot(texture::isMaskSet, build.frame, foot)) {
                 foot = WorldScene.NO_BOLE;
             }
-            WorldScene.feet.put(sprite, foot);
+            foot = WorldScene.feet.keep(sprite, foot);
         }
         float pixelsPerTile = SpriteGeometry.PIXELS_ACROSS_PER_TILE * build.frame.scale;
         if (foot.length == 0 || build.frame.height < BRACED_TALL * SpriteGeometry.PIXELS_PER_LEVEL * build.frame.scale || build.frame.width < BRACED_LONG * pixelsPerTile
@@ -86,7 +86,7 @@ final class PostBuilder {
             if (post == null) {
                 post = NO_POST;
             }
-            WorldScene.posts.put(sprite, post);
+            post = WorldScene.posts.keep(sprite, post);
         }
         return post == NO_POST ? null : (Posts) post;
     }
@@ -357,7 +357,7 @@ final class PostBuilder {
                 }
                 shape = SpriteShape.withoutShadow(shape, solid, shapeFrame);
             }
-            WorldScene.shapes.put(sprite, shape);
+            shape = WorldScene.shapes.keep(sprite, shape);
         }
         return shape;
     }

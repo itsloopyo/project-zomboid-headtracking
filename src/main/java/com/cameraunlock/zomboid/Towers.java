@@ -3,7 +3,6 @@ package com.cameraunlock.zomboid;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import zombie.iso.IsoCell;
@@ -60,7 +59,7 @@ final class Towers {
 
     private static final Map<String, Part[]> PARTS = new HashMap<>();
     private static final Part[] NONE = new Part[0];
-    private static final IdentityHashMap<IsoSprite, Part[]> known = new IdentityHashMap<>();
+    private static final Known<IsoSprite, Part[]> known = new Known<>();
 
     private Towers() {}
 
@@ -78,7 +77,7 @@ final class Towers {
         Part[] parts = known.get(sprite);
         if (parts == null) {
             parts = sprite.getName() == null ? NONE : of(sprite.getName());
-            known.put(sprite, parts);
+            parts = known.keep(sprite, parts);
         }
         return parts;
     }

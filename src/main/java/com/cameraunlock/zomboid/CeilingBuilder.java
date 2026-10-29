@@ -256,7 +256,7 @@ final class CeilingBuilder {
         // Kept only once every chunk the search reaches is loaded: before that the answer may be short of the truth, and what a
         // chunk is filled with as it loads is not marked. The build is made again once more of the map is loaded.
         if (filled(x, y)) {
-            WorldScene.canopies.put(key, new Depth(drop, marks, world.roundNow));
+            WorldScene.canopies.replace(key, new Depth(drop, marks, world.roundNow));
         } else {
             build.wantsMap = true;
         }

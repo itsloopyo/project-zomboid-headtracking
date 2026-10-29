@@ -1,6 +1,5 @@
 package com.cameraunlock.zomboid;
 
-import java.util.IdentityHashMap;
 import zombie.core.properties.PropertyContainer;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
@@ -36,8 +35,8 @@ final class Hoods {
     /** How many places of a roof sheet one finish of its tiles takes up. */
     private static final int FINISH_PLACES = 32;
 
-    private static final IdentityHashMap<IsoSprite, Integer> eaves = new IdentityHashMap<>();
-    private static final IdentityHashMap<IsoSprite, Boolean> ends = new IdentityHashMap<>();
+    private static final Known<IsoSprite, Integer> eaves = new Known<>();
+    private static final Known<IsoSprite, Boolean> ends = new Known<>();
 
     private Hoods() {}
 
@@ -112,7 +111,7 @@ final class Hoods {
             PropertyContainer properties = sprite.getProperties();
             known = Roofs.isTile(sprite.getType()) ? eaveOf(sprite.getName(), properties.has(IsoFlagType.attachedN), properties.has(IsoFlagType.attachedW),
                     properties.has(IsoFlagType.isEave)) : NONE;
-            eaves.put(sprite, known);
+            known = eaves.keep(sprite, known);
         }
         return known;
     }
@@ -123,7 +122,7 @@ final class Hoods {
         if (known == null) {
             known = Roofs.isTile(sprite.getType()) && sprite.getName() != null && sprite.getName().startsWith("roofs_")
                     && sprite.getProperties().has(IsoFlagType.isEave) && eave(sprite) == NONE;
-            ends.put(sprite, known);
+            known = ends.keep(sprite, known);
         }
         return known;
     }

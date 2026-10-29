@@ -1,6 +1,5 @@
 package com.cameraunlock.zomboid;
 
-import java.util.IdentityHashMap;
 import zombie.core.properties.PropertyContainer;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
@@ -35,7 +34,7 @@ final class Parasols {
 
     private static final String CANOPY = "Canopy", ROUND = "Curved", DOMED = "Curved light";
 
-    private static final IdentityHashMap<IsoSprite, Integer> quarters = new IdentityHashMap<>();
+    private static final Known<IsoSprite, Integer> quarters = new Known<>();
 
     private Parasols() {}
 
@@ -73,7 +72,7 @@ final class Parasols {
         if (known == null) {
             PropertyContainer properties = sprite.getProperties();
             known = quarterOf(properties.get("CustomName"), properties.get("GroupName"), properties.get("Facing"));
-            quarters.put(sprite, known);
+            known = quarters.keep(sprite, known);
         }
         return known;
     }

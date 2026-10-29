@@ -8,7 +8,6 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicIntegerArray;
@@ -75,7 +74,7 @@ final class Screens {
     private static long askedAt = System.nanoTime(), sweptAt = askedAt;
 
     /** Where each set's glass is on its model: the least and greatest x, the least and greatest z, and the y of its front. */
-    private static final IdentityHashMap<Models.Model, float[]> glasses = new IdentityHashMap<>();
+    private static final Known<Models.Model, float[]> glasses = new Known<>();
     /** What Shows.cut fills, one for each thread. */
     private static final float[] built = new float[Shows.CUT_FLOATS], cut = new float[Shows.CUT_FLOATS];
     /** What Shows.cut fills for glow, on the logic thread. */
@@ -389,7 +388,7 @@ final class Screens {
                 glass[3] = Math.max(glass[3], z);
                 glass[4] = Math.min(glass[4], y);
             }
-            glasses.put(model, glass);
+            glass = glasses.keep(model, glass);
         }
         return glass;
     }

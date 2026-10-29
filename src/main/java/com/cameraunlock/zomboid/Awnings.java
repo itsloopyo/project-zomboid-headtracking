@@ -1,6 +1,5 @@
 package com.cameraunlock.zomboid;
 
-import java.util.IdentityHashMap;
 import zombie.core.properties.PropertyContainer;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
@@ -80,7 +79,7 @@ final class Awnings {
     static final float LONG_OUT = 0.5f, LONG_HIGH = 0.905f, SHORT_OUT = 0.2f, SHORT_HIGH = 0.952f, DOME_OUT = 0.3f, DOME_HIGH = 0.97f;
     static final float[] LONG_ALONG_SOUTH_EAST = {0.125f, 0.3125f}, LONG_ALONG_NORTH_WEST = {0.25f, 0.5f}, SHORT_ALONG = {0.07f, 0.32f}, DOME_ALONG = {0.5f, 0.5f};
 
-    private static final IdentityHashMap<IsoSprite, Hung> known = new IdentityHashMap<>();
+    private static final Known<IsoSprite, Hung> known = new Known<>();
 
     private Awnings() {}
 
@@ -91,10 +90,10 @@ final class Awnings {
 
     static Hung of(IsoSprite sprite) {
         Hung hung = known.get(sprite);
-        if (hung == null && !known.containsKey(sprite)) {
+        if (hung == null && !known.has(sprite)) {
             PropertyContainer properties = sprite.getProperties();
             hung = of(sprite.getName(), properties.get("CustomName"), properties.get("GroupName"), properties.get("Facing"));
-            known.put(sprite, hung);
+            hung = known.keep(sprite, hung);
         }
         return hung;
     }

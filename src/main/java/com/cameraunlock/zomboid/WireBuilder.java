@@ -124,7 +124,7 @@ final class WireBuilder {
             float[] pieces = world.strung.get(key);
             if (pieces == null) {
                 pieces = spans.find(x, y, z, x + lines[i], y + lines[i + 1], x + lines[i + 2], y + lines[i + 3]);
-                world.strung.put(key, pieces);
+                pieces = world.strung.keep(key, pieces);
                 if (FirstPerson.TRACE) {
                     Log.info("wire span: " + x + "," + y + "," + z + " " + name + " line " + i / 4 + " " + Arrays.toString(pieces) + " eye "
                             + Math.round(Math.hypot(x - world.lastEyeX, y - world.lastEyeY)));
@@ -157,7 +157,7 @@ final class WireBuilder {
         float[] lines = WorldScene.wires.get(texture);
         if (lines == null) {
             lines = Wires.hangs(name) ? Wires.read(texture::isMaskSet, in) : Wires.NONE;
-            WorldScene.wires.put(texture, lines);
+            lines = WorldScene.wires.keep(texture, lines);
             if (FirstPerson.TRACE) {
                 Log.info("wires read off " + texture.getName() + ": " + Arrays.toString(lines));
             }

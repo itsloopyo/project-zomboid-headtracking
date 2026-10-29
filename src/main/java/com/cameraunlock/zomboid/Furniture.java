@@ -1,6 +1,5 @@
 package com.cameraunlock.zomboid;
 
-import java.util.IdentityHashMap;
 import java.util.Set;
 import zombie.core.properties.PropertyContainer;
 import zombie.iso.IsoDirections;
@@ -42,7 +41,7 @@ final class Furniture {
     private static final float PICNIC_TOP = 0.31f, PICNIC_DYE = 0.75f;
 
     /** What each sprite seen so far is, null for one that is no furniture the mod has a model of. */
-    private static final IdentityHashMap<IsoSprite, Furniture> furniture = new IdentityHashMap<>();
+    private static final Known<IsoSprite, Furniture> furniture = new Known<>();
 
     /** For a map loaded anew: its sprites are not the ones before's. */
     static void forget() {
@@ -376,9 +375,9 @@ final class Furniture {
 
     static Furniture known(IsoSprite sprite) {
         Furniture piece = furniture.get(sprite);
-        if (piece == null && !furniture.containsKey(sprite)) {
+        if (piece == null && !furniture.has(sprite)) {
             piece = recognise(sprite);
-            furniture.put(sprite, piece);
+            piece = furniture.keep(sprite, piece);
         }
         return piece;
     }

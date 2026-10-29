@@ -1,7 +1,6 @@
 package com.cameraunlock.zomboid;
 
 import java.util.ArrayList;
-import java.util.IdentityHashMap;
 import zombie.core.textures.Texture;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.SpriteDetails.IsoObjectType;
@@ -90,7 +89,7 @@ final class PlantBuilder {
     private record Plant(String name, boolean dead, boolean fern, boolean bushy, boolean stems, boolean evergreen, int crop, int treeSprig, int barkedAs, int turnsAs,
             int kind) {}
 
-    private static final IdentityHashMap<IsoSprite, Plant> plants = new IdentityHashMap<>();
+    private static final Known<IsoSprite, Plant> plants = new Known<>();
 
     /** Logic thread, when the world being built is another (WorldScene): its sprites are read afresh. */
     static void forget() {
@@ -108,7 +107,7 @@ final class PlantBuilder {
                 named && (name.startsWith("f_bushes") || name.startsWith("vegetation_foliage") || name.startsWith("vegetation_ornamental") || Flora.leafyWeed(name)),
                 named && Flora.bushStems(name), Flora.evergreen(name), Crops.of(name), named ? Flora.sprigOf(name, false) : Flora.LINDEN, named ? Flora.barkedAs(name) : Flora.BARKED_AS_ANY,
                 named ? Flora.turnsAs(name) : Flora.TURNS_AS_ANY, named ? TreeForm.kindOf(name) : TreeForm.NONE);
-        plants.put(sprite, plant);
+        plants.replace(sprite, plant);
         return plant;
     }
 
@@ -743,7 +742,7 @@ final class PlantBuilder {
             if (places.length < CROWN_LEAST_PLACES * 2) {
                 return false;
             }
-            WorldScene.cropColours.put(texture, places);
+            places = WorldScene.cropColours.keep(texture, places);
         }
         float lowA = Math.max(0.04f, build.room[0] - x), highA = Math.min(0.96f, build.room[1] - x);
         float lowB = Math.max(0.04f, build.room[2] - y), highB = Math.min(0.96f, build.room[3] - y);
@@ -820,7 +819,7 @@ final class PlantBuilder {
             }
             // A texture that shows nothing yet may only not have its outline read yet.
             if (places.length >= CROWN_LEAST_PLACES * 2) {
-                WorldScene.leafPlaces.put(texture, places);
+                places = WorldScene.leafPlaces.keep(texture, places);
             }
         }
         boolean few = places.length < CROWN_LEAST_PLACES * 2;
@@ -957,7 +956,7 @@ final class PlantBuilder {
         float[] bole = WorldScene.boles.get(sprite);
         if (bole == null) {
             bole = measureBole(texture, plant.evergreen());
-            WorldScene.boles.put(sprite, bole);
+            bole = WorldScene.boles.keep(sprite, bole);
             if (bole.length > 0 && !plant.evergreen()) {
                 Trunks.stood(sprite, bole[0]);
             }
@@ -1006,11 +1005,11 @@ final class PlantBuilder {
             if (places.length < CROWN_LEAST_PLACES * 2) {
                 return null;
             }
-            WorldScene.leafPlaces.put(texture, places);
+            places = WorldScene.leafPlaces.keep(texture, places);
         }
         float[] shape = Flora.woodShape(build.frame, places, SpriteGeometry.frameU(build.frame, 0.5f, 0.5f), SpriteGeometry.frameV(build.frame, 0.5f, 0.5f, 0f));
         if (shape != null) {
-            WorldScene.woodShapes.put(sprite, shape);
+            shape = WorldScene.woodShapes.keep(sprite, shape);
         }
         return shape;
     }

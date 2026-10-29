@@ -2281,15 +2281,24 @@ final class WallBuilder {
      */
     private float[] openingOf(Texture texture, float a, float b, float da, float db) {
         int at = da != 0f ? 0 : OPENING_FLOATS;
-        float[] known = WorldScene.openings.get(texture);
-        if (known == null) {
+        float[] was = WorldScene.openings.get(texture);
+        if (was != null && was[at + OPENING_ORIGIN] == build.frame.originU && was[at + OPENING_ORIGIN + 1] == build.frame.originV) {
+            return was;
+        }
+        float[] known;
+        if (was == null) {
             known = new float[2 * OPENING_FLOATS];
             Arrays.fill(known, Float.NaN);
-            WorldScene.openings.put(texture, known);
+        } else {
+            known = was.clone();
         }
-        if (known[at + OPENING_ORIGIN] == build.frame.originU && known[at + OPENING_ORIGIN + 1] == build.frame.originV) {
-            return known;
-        }
+        readOpening(known, at, texture, a, b, da, db);
+        WorldScene.openings.replace(texture, known);
+        return known;
+    }
+
+    /** Reads the opening through a wall's sprite for openingOf into known, at at, for the edge. */
+    private void readOpening(float[] known, int at, Texture texture, float a, float b, float da, float db) {
         known[at + OPENING_ORIGIN] = build.frame.originU;
         known[at + OPENING_ORIGIN + 1] = build.frame.originV;
         known[at + OPENING_START] = -1f;
@@ -2321,7 +2330,7 @@ final class WallBuilder {
             known[at + DOORWAY_END] = (float) runLast / pixels;
         }
         if (gaps != 1) {
-            return known;
+            return;
         }
         float start = (float) first / pixels, end = (float) last / pixels, middle = (start + end) / 2f;
         float perPixel = 1f / (SpriteGeometry.PIXELS_PER_LEVEL * build.frame.scale);
@@ -2344,14 +2353,13 @@ final class WallBuilder {
             float along = (corner & 1) == 0 ? start + inAlong : end - inAlong;
             float up = corner < 2 ? foot + inUp : head - inUp;
             if (paintedOnWall(texture, a, b, da, db, along, up, 0f)) {
-                return known;
+                return;
             }
         }
         known[at + OPENING_START] = start;
         known[at + OPENING_END] = end;
         known[at + OPENING_FOOT] = foot;
         known[at + OPENING_HEAD] = head;
-        return known;
     }
 
     /**

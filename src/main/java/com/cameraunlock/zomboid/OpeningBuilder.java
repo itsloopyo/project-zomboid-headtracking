@@ -172,12 +172,13 @@ final class OpeningBuilder {
     boolean addDoor(SpriteGeometry.Mesh mesh, Texture texture, int x, int y, int z, float a, float b, float da, float db) {
         int at = da != 0f ? 0 : SPAN_FLOATS;
         float[] span = WorldScene.doorSpans.get(texture);
-        if (span == null) {
-            span = new float[2 * SPAN_FLOATS];
-            Arrays.fill(span, Float.NaN);
-            WorldScene.doorSpans.put(texture, span);
-        }
-        if (span[at] != build.frame.originU || span[at + 1] != build.frame.originV) {
+        if (span == null || span[at] != build.frame.originU || span[at + 1] != build.frame.originV) {
+            if (span == null) {
+                span = new float[2 * SPAN_FLOATS];
+                Arrays.fill(span, Float.NaN);
+            } else {
+                span = span.clone();
+            }
             span[at] = build.frame.originU;
             span[at + 1] = build.frame.originV;
             int pixels = Math.round(Math.abs(SpriteGeometry.frameU(build.frame, a + da, b + db) - SpriteGeometry.frameU(build.frame, a, b)));
@@ -190,6 +191,7 @@ final class OpeningBuilder {
             }
             span[at + 2] = first < 0 ? -1f : (float) first / pixels;
             span[at + 3] = (float) last / pixels;
+            WorldScene.doorSpans.replace(texture, span);
         }
         float from = span[at + 2], to = span[at + 3];
         if (from < 0f) {

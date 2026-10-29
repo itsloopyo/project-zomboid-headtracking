@@ -1,6 +1,5 @@
 package com.cameraunlock.zomboid;
 
-import java.util.IdentityHashMap;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.sprite.IsoSprite;
@@ -146,7 +145,7 @@ final class Tents {
         ROPES[38] = Piece.rope(true, 0.72f, 0f, 0.885f, 0.63f, 0.65f);
     }
 
-    private static final IdentityHashMap<IsoSprite, Piece> known = new IdentityHashMap<>(), roped = new IdentityHashMap<>();
+    private static final Known<IsoSprite, Piece> known = new Known<>(), roped = new Known<>();
 
     private Tents() {}
 
@@ -158,18 +157,18 @@ final class Tents {
 
     static Piece of(IsoSprite sprite) {
         Piece piece = known.get(sprite);
-        if (piece == null && !known.containsKey(sprite)) {
+        if (piece == null && !known.has(sprite)) {
             piece = of(sprite.getName());
-            known.put(sprite, piece);
+            piece = known.keep(sprite, piece);
         }
         return piece;
     }
 
     static Piece ropeOf(IsoSprite sprite) {
         Piece rope = roped.get(sprite);
-        if (rope == null && !roped.containsKey(sprite)) {
+        if (rope == null && !roped.has(sprite)) {
             rope = ropeOf(sprite.getName());
-            roped.put(sprite, rope);
+            rope = roped.keep(sprite, rope);
         }
         return rope;
     }
