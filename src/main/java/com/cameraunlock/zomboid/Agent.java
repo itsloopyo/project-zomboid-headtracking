@@ -460,7 +460,7 @@ public final class Agent {
                 new PatchSet("development", new PatchTransformer(DevPatches.list()), null),
                 new PatchSet("fine skins", fineSkins, firstPersonOff),
                 new PatchSet("shot", shot, firstPersonOff),
-                new PatchSet("thunder", thunder, firstPersonOff),
+                new PatchSet("thunder", thunder, off(Part.FIRST_PERSON, Part.LIGHTNING_BOLTS)),
                 new PatchSet("lamps", lamps, null),
                 new PatchSet("impacts", impacts, firstPersonOff == null || shotsBreak ? null
                         : Part.FIRST_PERSON.key + ", ShotsBreakLamps and ShotsBreakGlass were off as the game started"),

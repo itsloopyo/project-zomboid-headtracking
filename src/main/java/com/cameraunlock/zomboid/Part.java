@@ -21,7 +21,10 @@ enum Part {
                     + "says. false: it lights the way the view faces, whatever your head does."),
     HEAR_FROM_THE_EYE("FirstPerson", "HearFromTheEye", false, true,
             "true: in first person you hear from the eye: sounds turn with the view, walls between you and a sound muffle it\n"
-                    + "and rooms ring. false: first person is heard as the game's own view hears, facing north-west on the map.");
+                    + "and rooms ring. false: first person is heard as the game's own view hears, facing north-west on the map."),
+    LIGHTNING_BOLTS("FirstPerson", "LightningBolts", false, true,
+            "true: in first person lightning strikes as a bolt from the cloud to the ground, which lights the world while it\n"
+                    + "is bright. false: lightning is the game's own flash, the whole map brightening for a moment.");
 
     final String section, key, comment;
     /** Whether the row is taken while the game runs, and whether it is read at the start to leave patches out. */

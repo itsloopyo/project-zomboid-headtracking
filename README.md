@@ -476,6 +476,10 @@ TorchFollowsHead=true
 ; and rooms ring. false: first person is heard as the game's own view hears, facing north-west on the map.
 ; Taken at the next start. Off, its patches of the game's code are left out.
 HearFromTheEye=true
+; true: in first person lightning strikes as a bolt from the cloud to the ground, which lights the world while it
+; is bright. false: lightning is the game's own flash, the whole map brightening for a moment.
+; Taken at the next start. Off, its patches of the game's code are left out.
+LightningBolts=true
 
 [Players]
 ; Player 2's first person graphics mode, as Quality.
