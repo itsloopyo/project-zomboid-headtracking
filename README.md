@@ -618,6 +618,11 @@ ChunkChangeCounts=true
 ; true: in first person a zombie in a room no line of sight could reach, even with every door and curtain in reach
 ; open, has no model until you come near enough to see in. false: it keeps its model wherever it stands.
 UnseenRoomZombiesUnmodelled=true
+; true: the game's map of loaded chunks keeps its centre until you are a tile past a chunk line, so turning on the
+; spot on one does not load a column of chunks again every few seconds. false: the centre goes to the chunk you
+; stand in at once, as the game has it.
+; Taken at once. Off, its patches of the game's code are left out from the next start.
+HoldChunkMapCentre=true
 
 [Content]
 ; true: the game's own weapons, with no picture through the scope. false: the mod's models of the pump shotgun and

@@ -37,11 +37,11 @@ public final class ChunkCentre {
 
     /** The centre ProcessChunkPos takes on x, from the one it worked out and the place it worked it out from. Called from the game's code. */
     public static int heldX(int stock, IsoChunkMap map, float x) {
-        return held(map.worldX, stock, x);
+        return Part.HOLD_CHUNK_MAP_CENTRE.running() ? held(map.worldX, stock, x) : stock;
     }
 
     /** The same on y. Called from the game's code. */
     public static int heldY(int stock, IsoChunkMap map, float y) {
-        return held(map.worldY, stock, y);
+        return Part.HOLD_CHUNK_MAP_CENTRE.running() ? held(map.worldY, stock, y) : stock;
     }
 }

@@ -491,7 +491,7 @@ public final class Agent {
                 new PatchSet("unmarked changes", unmarkedChanges, off(Part.FIRST_PERSON, Part.CHUNK_CHANGE_COUNTS)),
                 new PatchSet("hushed marks", new PatchTransformer(hushedMarkPatches()), off(Part.FIRST_PERSON, Part.CHUNK_CHANGE_COUNTS)),
                 new PatchSet("hearing", hearing, off(Part.FIRST_PERSON, Part.HEAR_FROM_THE_EYE)),
-                new PatchSet("chunk centre", new PatchTransformer(chunkCentrePatches()), null),
+                new PatchSet("chunk centre", new PatchTransformer(chunkCentrePatches()), off(Part.HOLD_CHUNK_MAP_CENTRE)),
                 new PatchSet("split screen", splitScreen, null),
                 new PatchSet("waiting composites", waitingComposites, off(Part.FIRST_PERSON, Part.SKINS_COMPOSED_WHILE_WAITING)),
                 new PatchSet("spotting", spotting, off(Part.FIRST_PERSON, Part.SKIP_COVERED_GAME_DRAWING)));

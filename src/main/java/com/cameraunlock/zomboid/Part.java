@@ -96,7 +96,11 @@ enum Part {
                     + "the chunks that changed. The picture is the same. false: the view looks over every chunk it draws for changes."),
     UNSEEN_ROOM_ZOMBIES_UNMODELLED("Optimizations", "UnseenRoomZombiesUnmodelled", true, false,
             "true: in first person a zombie in a room no line of sight could reach, even with every door and curtain in reach\n"
-                    + "open, has no model until you come near enough to see in. false: it keeps its model wherever it stands.");
+                    + "open, has no model until you come near enough to see in. false: it keeps its model wherever it stands."),
+    HOLD_CHUNK_MAP_CENTRE("Optimizations", "HoldChunkMapCentre", true, true,
+            "true: the game's map of loaded chunks keeps its centre until you are a tile past a chunk line, so turning on the\n"
+                    + "spot on one does not load a column of chunks again every few seconds. false: the centre goes to the chunk you\n"
+                    + "stand in at once, as the game has it.");
 
     final String section, key, comment;
     /** Whether the row is taken while the game runs, and whether it is read at the start to leave patches out. */
