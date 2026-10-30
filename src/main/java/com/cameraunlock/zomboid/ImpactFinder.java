@@ -355,7 +355,9 @@ final class ImpactFinder {
                 }
             }
             float along = square == null ? 0f : north ? x - square.getX() : y - square.getY();
-            float levelsUp = (up - terrain.height(x, y)) / ViewCamera.LEVEL_HEIGHT - level;
+            // Measured from the middle of the wall's own square, the average of its corners, which is where WallBuilder stands its holes.
+            float ground = square == null ? terrain.height(x, y) : terrain.height(square.getX() + 0.5f, square.getY() + 0.5f);
+            float levelsUp = (up - ground) / ViewCamera.LEVEL_HEIGHT - level;
             int side = across > 0f ? -1 : 1;
             if (struck != null && size == PELLET && blasts(shooter) && BlastHoles.blastable(struck)) {
                 Blasts.pellet(shooter, struck, north, along, levelsUp, side);

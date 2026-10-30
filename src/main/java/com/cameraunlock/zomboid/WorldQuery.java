@@ -169,7 +169,8 @@ final class WorldQuery {
         float crossed = ShotGlass.crossedAt(lineX, lineY, lineWayX, lineWayY, fromX, fromY, toX, toY);
         float x = lineX + lineWayX * crossed, y = lineY + lineWayY * crossed;
         float along = north ? x - owner.getX() : y - owner.getY();
-        float up = (lineUp + lineWayUp * crossed - lineGround.height(x, y)) / ViewCamera.LEVEL_HEIGHT - level;
+        // Over the middle of the square the hole is on, as ImpactFinder measured it when it made it.
+        float up = (lineUp + lineWayUp * crossed - lineGround.height(owner.getX() + 0.5f, owner.getY() + 0.5f)) / ViewCamera.LEVEL_HEIGHT - level;
         PZArrayList<IsoObject> objects = owner.getObjects();
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
