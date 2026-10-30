@@ -180,9 +180,14 @@ final class SpriteColours {
         readings.incrementAndGet();
     }
 
-    /** Counts the answer for one thing a build may have been left waiting for (ChunkMeshes.waitFor), from any thread, once it is in. */
+    /**
+     * Counts the answer for one thing a build may have been left waiting for (ChunkMeshes.waitFor), from any thread, once it is in.
+     * Marked with the count it is about to make before it is counted: marked after, a walk that read the new count between
+     * the two found the thing not answered and kept the build that waited for it a frame longer than the count alone would.
+     */
     static void answered(Object waitedFor) {
-        answeredAt.put(waitedFor, readings.incrementAndGet());
+        answeredAt.put(waitedFor, readings.get() + 1);
+        readings.incrementAndGet();
     }
 
     /** Whether an answer for the thing has come in since readings stood at the count given. */
@@ -619,10 +624,12 @@ final class SpriteColours {
             }
         } finally {
             // Counted once every sprite of the copy has been read: a build that found one unread began before this count.
-            Integer counted = readings.incrementAndGet();
+            // Each is marked before the count is made, as answered(Object) marks one.
+            Integer counted = readings.get() + 1;
             for (int i = 0; i < copied.size(); i++) {
                 answeredAt.put(copied.get(i).texture(), counted);
             }
+            readings.incrementAndGet();
             copied.clear();
         }
     }
