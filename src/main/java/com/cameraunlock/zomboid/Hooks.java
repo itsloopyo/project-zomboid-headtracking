@@ -1158,7 +1158,8 @@ public final class Hooks {
 
     /** Before ShaderUnit.loadShaderFile returns: the source of one of the game's shaders as it was read from fileName. See VehicleLamps and GameMouths. */
     public static String shaderSource(String code, String fileName) {
-        return GameMouths.source(VehicleLamps.source(code, fileName), fileName);
+        String lamps = Part.FIRST_PERSON.atStart() ? VehicleLamps.source(code, fileName) : code;
+        return Agent.mouthsAtStart() ? GameMouths.source(lamps, fileName) : lamps;
     }
 
     /** In place of the game's starting of a muzzle flash, which it does at the one place a firearm's shot is taken. */

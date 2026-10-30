@@ -706,9 +706,12 @@ public final class CoreTests {
     private static final String FIRST_PERSON_SETS = "torch, first person, ragdolls, item models, fine skins, shot, thunder, name tags, covered, screen grey, far vehicles, loading, car physics, chunk marks, "
             + "window marks, unmarked changes, hushed marks, hearing, waiting composites, spotting";
 
+    /** Those and the sets first person shares with TalkingMouths, which the file has off: FirstPersonEnabled off leaves all of them out. */
+    private static final String FIRST_PERSON_AND_MOUTH_SETS = FIRST_PERSON_SETS.replace("thunder, ", "thunder, lamps, ").replace("covered, ", "covered, part draw, ");
+
     /** Each row read as the game starts, and the sets of patches the next start leaves out with it alone off. */
     private static final String[][] LEFT_OUT_BY = {
-        {"FirstPersonEnabled", FIRST_PERSON_SETS},
+        {"FirstPersonEnabled", FIRST_PERSON_AND_MOUTH_SETS},
         {"HearFromTheEye", "hearing"},
         {"LightningBolts", "thunder"},
         {"ShotImpacts", "none"},
@@ -730,6 +733,7 @@ public final class CoreTests {
         {"SpotBySight", "spotting"},
         {"ZombiesSeenAtOnce", "live sight"},
         {"VehiclesSmashThrough", "knockdown"},
+        {"ShotsThroughWalls", "none"},
     };
 
     private static String leftOutLine(String output) {
@@ -753,8 +757,17 @@ public final class CoreTests {
         edit(saved.replace("FirstPersonEnabled=true", "FirstPersonEnabled=false").replace("ShotsBreakLamps=true", "ShotsBreakLamps=false")
                 .replace("ShotsBreakGlass=true", "ShotsBreakGlass=false"));
         String next = nextStart("first-person-and-breaking-off");
-        check(next.contains("left out: " + FIRST_PERSON_SETS.replace("thunder, ", "thunder, impacts, ") + System.lineSeparator()),
+        check(next.contains("left out: " + FIRST_PERSON_AND_MOUTH_SETS.replace("thunder, lamps, ", "thunder, lamps, impacts, ") + System.lineSeparator()),
                 "with first person off the impacts go too once no shot breaks lamps or glass either: " + leftOutLine(next));
+        edit(saved.replace("FirstPersonEnabled=true", "FirstPersonEnabled=false").replace("ShotsThroughWalls=true", "ShotsThroughWalls=false"));
+        next = nextStart("first-person-and-walls-off");
+        check(next.contains("left out: " + FIRST_PERSON_AND_MOUTH_SETS.replace("item models, ", "item models, shots through walls, ") + System.lineSeparator()),
+                "with first person off the shots through walls go too once ShotsThroughWalls is off: " + leftOutLine(next));
+        check(saved.contains("\r\nTalkingMouths=false\r\n"), "TalkingMouths is a row of the file, off");
+        edit(saved.replace("FirstPersonEnabled=true", "FirstPersonEnabled=false").replace("\r\nTalkingMouths=false\r\n", "\r\nTalkingMouths=true\r\n"));
+        next = nextStart("first-person-off-mouths-on");
+        check(next.contains("left out: " + FIRST_PERSON_SETS + System.lineSeparator()),
+                "with first person off and TalkingMouths on the shaders and the part draw stay in for the mouths: " + leftOutLine(next));
         edit(saved.replace("ShotImpacts=true", "ShotImpacts=false").replace("ShotsBreakLamps=true", "ShotsBreakLamps=false")
                 .replace("ShotsBreakGlass=true", "ShotsBreakGlass=false"));
         next = nextStart("impacts-and-breaking-off");
@@ -763,8 +776,8 @@ public final class CoreTests {
         check(nextStart("parts-on-again").contains("left out: none"), "set back, the next start has every set in again");
     }
 
-    /** The sets of patches every start keeps: head tracking's, talking mouths', and those that only ask a row of [Rules] whether to act. */
-    private static final String KEPT_SETS = "base, frame, shots through walls, world, development, lamps, model head, part draw, left save, lua loaded, split screen";
+    /** The sets of patches every start keeps: head tracking's, its options page's and the development build's. */
+    private static final String KEPT_SETS = "base, frame, development, model head, left save, lua loaded";
 
     private static void theOptionsPagesButtonsAreTakenSavedAndReadAtTheNextStart() throws IOException, InterruptedException {
         String saved = text();
@@ -794,7 +807,7 @@ public final class CoreTests {
                 "and all of it is saved");
         String next = nextStart("everything-off");
         check(next.contains("left out: " + leftOutBut(KEPT_SETS) + System.lineSeparator()),
-                "the next start leaves out every set of patches but head tracking's, talking mouths' and the rules' own: " + leftOutLine(next));
+                "the next start leaves out every set of patches but head tracking's, its options page's and the development build's: " + leftOutLine(next));
 
         Tracking.applyAll(Tracking.firstPersonAndIsometric(true));
         check(Part.FIRST_PERSON.on() && Quality.overheadRow(0) == Quality.LOW && Quality.overheadRow(3) == Quality.LOW,

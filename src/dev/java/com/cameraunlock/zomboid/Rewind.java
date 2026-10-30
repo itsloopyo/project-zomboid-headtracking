@@ -113,9 +113,12 @@ public final class Rewind {
         }
     }
 
+    /** Whether the patches Rewind works through went in, as they do only with its row on as the game starts (DevPatches). */
+    static volatile boolean patched;
+
     /** Called as the game starts a tick of the world: writes out each player whose second has come, and keeps a held death paused. */
     static void tick() {
-        if (!Rules.rewind()) {
+        if (!patched || !Rules.rewind()) {
             // What was kept would be from before the server, should the player be alone again.
             for (int i = 0; i < View.COUNT; i++) {
                 if (held[i] == null && count[i] > 0) {

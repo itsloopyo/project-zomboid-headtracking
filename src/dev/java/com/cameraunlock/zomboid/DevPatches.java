@@ -14,7 +14,7 @@ final class DevPatches {
     private DevPatches() {}
 
     /**
-     * Rewind 30s, which is not ready to ship (see Rewind), the invincible key (see DevKeys.cheatsAllowed),
+     * Rewind 30s while its row is on as the game starts, which is not ready to ship (see Rewind), the invincible key (see DevKeys.cheatsAllowed),
      * the frame recorder's clock and its two places in a frame, the mod's own words on the screen,
      * which the recorder keeps out of a take (see FrameRecorder), the check of the thread a
      * square's light is read on (see LightingThread), and when asked for, the check of the
@@ -39,7 +39,10 @@ final class DevPatches {
                         new CallSite.Method("zombie/ui/TextManager", "DrawStringCentre", "(Lzombie/ui/UIFont;DDLjava/lang/String;DDDD)V"),
                         new CallSite.Method("com/cameraunlock/zomboid/FrameRecorder", "said",
                                 "(Lzombie/ui/TextManager;Lzombie/ui/UIFont;DDLjava/lang/String;DDDD)V"), 1))));
-        patches.addAll(rewind());
+        if ((Rules.rows() & Rules.REWIND) != 0) {
+            patches.addAll(rewind());
+            Rewind.patched = true;
+        }
         String lighting = "zombie/iso/LightingJNI$JNILighting";
         patches.add(new Agent.Patch(lighting, "update checks the thread a square's light is read on", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
                 new CallSite.Method(lighting, "update", "()V"),

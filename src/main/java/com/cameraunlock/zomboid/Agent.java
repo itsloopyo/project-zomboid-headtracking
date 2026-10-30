@@ -114,6 +114,13 @@ public final class Agent {
         return lamps.gap();
     }
 
+    /** Whether TalkingMouths was on as the game started, which decides whether the game's own people are drawn able to open their mouths. */
+    private static volatile boolean mouthsAtStart;
+
+    static boolean mouthsAtStart() {
+        return mouthsAtStart;
+    }
+
     /** The patches that tell ImpactFinder where each shot's tracer ends. */
     private static PatchTransformer impacts;
 
@@ -465,6 +472,16 @@ public final class Agent {
         // A shot breaks lamps and glass where ImpactFinder finds it ends, in either view.
         boolean shotsBreak = (Rules.rows() & (Rules.BREAKS_LAMPS | Rules.BREAKS_GLASS)) != 0;
         String impactsOff = shotsBreak ? null : off(Part.FIRST_PERSON, Part.SHOT_IMPACTS);
+        // First person's aim counts a blast's pellets through the same patches (Hooks.hitThrough).
+        String throughWallsOff = (Rules.rows() & Rules.THROUGH_WALLS) != 0 || firstPersonOff == null ? null
+                : firstPersonOff + ", and so was ShotsThroughWalls";
+        // The shaders and the part draw serve first person's picture and the mouths of the people the game draws.
+        mouthsAtStart = Mouths.on();
+        String mouthsOff = mouthsAtStart || firstPersonOff == null ? null : firstPersonOff + ", and so was TalkingMouths";
+        // Blood trails and flying pieces come only from first person's wounds; the hidden walls and the rewind have rows of their own.
+        String worldOff = firstPersonOff == null || (Rules.rows() & (Rules.HIDDEN_WALLS | Rules.REWIND)) != 0 ? null
+                : firstPersonOff + ", and so " + (DevBuild.ON ? "were HiddenWallDecor and Rewind30s" : "was HiddenWallDecor");
+        String splitScreenOff = SplitScreen.row() != SplitScreen.VERTICAL ? null : "SplitScreen was Vertical, the game's own, as the game started";
         return List.of(
                 new PatchSet("base", new PatchTransformer(basePatches()), null),
                 new PatchSet("window", new PatchTransformer(windowPatches()), off(Part.CENTRE_THE_WINDOW)),
@@ -473,20 +490,20 @@ public final class Agent {
                 new PatchSet("ragdolls", new PatchTransformer(ragdollPatches()), off(Part.FIRST_PERSON, Part.QUICK_RAGDOLLS)),
                 new PatchSet("item models", new PatchTransformer(itemModelPatches()), off(Part.FIRST_PERSON, Part.ITEMS_AS_MODELS)),
                 new PatchSet("frame", new PatchTransformer(framePatches()), null),
-                new PatchSet("shots through walls", new PatchTransformer(throughWallPatches()), null),
-                new PatchSet("world", new PatchTransformer(worldPatches()), null),
+                new PatchSet("shots through walls", new PatchTransformer(throughWallPatches()), throughWallsOff),
+                new PatchSet("world", new PatchTransformer(worldPatches()), worldOff),
                 new PatchSet("development", new PatchTransformer(DevPatches.list()), null),
                 new PatchSet("fine skins", fineSkins, off(Part.FIRST_PERSON, Part.FINER_SKINS)),
                 new PatchSet("shot", shot, firstPersonOff),
                 new PatchSet("thunder", thunder, off(Part.FIRST_PERSON, Part.LIGHTNING_BOLTS)),
-                new PatchSet("lamps", lamps, null),
+                new PatchSet("lamps", lamps, mouthsOff),
                 new PatchSet("impacts", impacts, impactsOff == null ? null : impactsOff + ", and so were ShotsBreakLamps and ShotsBreakGlass"),
                 new PatchSet("model head", modelHead, null),
                 new PatchSet("name tags", nameTags, off(Part.FIRST_PERSON, Part.NAME_TAGS_AT_HEADS)),
                 new PatchSet("cached lookups", new PatchTransformer(gameFixPatches()), off(Part.CACHED_GAME_LOOKUPS)),
                 new PatchSet("hang fix", new PatchTransformer(hangFixPatches()), off(Part.BURNT_BUILDING_FREEZE_FIX)),
                 new PatchSet("covered", new PatchTransformer(coveredPatches()), off(Part.FIRST_PERSON, Part.SKIP_COVERED_GAME_DRAWING)),
-                new PatchSet("part draw", new PatchTransformer(partDrawPatches()), null),
+                new PatchSet("part draw", new PatchTransformer(partDrawPatches()), mouthsOff),
                 new PatchSet("screen grey", new PatchTransformer(screenGreyPatches()), off(Part.FIRST_PERSON, Part.LEAVE_OUT_SCREEN_GREY)),
                 new PatchSet("far vehicles", new PatchTransformer(farVehiclePatches()), firstPersonOff),
                 new PatchSet("live sight", new PatchTransformer(liveSightPatches()), ruleOff(Rules.SEEN_AT_ONCE, "ZombiesSeenAtOnce")),
@@ -502,7 +519,7 @@ public final class Agent {
                 new PatchSet("hushed marks", new PatchTransformer(hushedMarkPatches()), off(Part.FIRST_PERSON, Part.CHUNK_CHANGE_COUNTS)),
                 new PatchSet("hearing", hearing, off(Part.FIRST_PERSON, Part.HEAR_FROM_THE_EYE)),
                 new PatchSet("chunk centre", new PatchTransformer(chunkCentrePatches()), off(Part.HOLD_CHUNK_MAP_CENTRE)),
-                new PatchSet("split screen", splitScreen, null),
+                new PatchSet("split screen", splitScreen, splitScreenOff),
                 new PatchSet("waiting composites", waitingComposites, off(Part.FIRST_PERSON, Part.SKINS_COMPOSED_WHILE_WAITING)),
                 new PatchSet("spotting", spotting, off(Part.FIRST_PERSON, Part.SKIP_COVERED_GAME_DRAWING, Part.SPOT_BY_SIGHT)));
     }

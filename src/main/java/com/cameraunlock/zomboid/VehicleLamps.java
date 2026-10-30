@@ -60,7 +60,7 @@ final class VehicleLamps {
 
     /** Whether a vehicle drawn now writes its lamps, and nothing else, into the second picture. */
     static boolean drawn() {
-        return refused == null && Agent.lampsGap() == null;
+        return refused == null && Part.FIRST_PERSON.atStart() && Agent.lampsGap() == null;
     }
 
     /**

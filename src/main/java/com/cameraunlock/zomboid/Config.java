@@ -191,7 +191,8 @@ final class Config {
                         + "alone, and taking up a torch takes it out of both. Never on a server where players can fight.",
                 writable | live, true);
         splitScreen = core.configLocalEnum("General", "SplitScreen",
-                "How two players at one screen share it: Vertical (side by side) or Horizontal (one above the other).",
+                "How two players at one screen share it: Vertical (side by side) or Horizontal (one above the other).\n"
+                        + "Taken at once. Vertical, its patches of the game's code are left out from the next start.",
                 writable | live, SplitScreen.words(), SplitScreen.VERTICAL);
         describeParts("FirstPerson");
         for (int player = 1; player < View.COUNT; player++) {
@@ -356,7 +357,8 @@ final class Config {
             core.configLocalBool("Rules", "ShotsThroughWalls",
                     "true: your shots go on through stud walls, walls of boards, shut doors and windows, losing damage to each by\n"
                             + "what it is made of. false: they stop it, as the game has it. On a server where players can hurt each other\n"
-                            + "the game's rule holds.",
+                            + "the game's rule holds.\n"
+                            + "Taken at once. Off with FirstPersonEnabled off too, its patches of the game's code are left out from the next start.",
                     writable | live, true),
             core.configLocalBool("Rules", "ShotsBreakLamps",
                     "true: offline, a shot breaks the lamp it passes through and the vehicle lamp it lands on. false: lamps\n"
@@ -397,12 +399,14 @@ final class Config {
                     "true: offline, when you die the game pauses and asks whether to go back to where you were 30 seconds before,\n"
                             + "with what you had then and the wounds you had then. The world goes on as it was, the zombie that killed you\n"
                             + "included, but every zombie within 4 tiles of you is moved out to 4 tiles and every zombie stands still for 2\n"
-                            + "seconds after. false: death is final, as the game has it. On a server the game's rule holds.",
+                            + "seconds after. false: death is final, as the game has it. On a server the game's rule holds.\n"
+                            + Part.LIVE_AND_NEXT_START,
                     writable | live, false),
             core.configLocalBool("Rules", "HiddenWallDecor",
                     "true: in first person the south and east walls of a room, which the isometric view never shows from inside,\n"
                             + "carry pictures that are drawn by the mod and never saved. false: nothing is drawn on them, and nothing is\n"
-                            + "added to them whatever HiddenWallDecorSaved says. On a server the pictures are drawn too.",
+                            + "added to them whatever HiddenWallDecorSaved says. On a server the pictures are drawn too.\n"
+                            + "Taken at once. Off with FirstPersonEnabled off too, its patches of the game's code are left out from the next start.",
                     writable | live, true),
             core.configLocalBool("Rules", "HiddenWallDecorSaved",
                     "true: offline, while HiddenWallDecor is on, those walls also get the game's own mirrors, clocks and coat racks\n"
@@ -417,7 +421,9 @@ final class Config {
                 "true: your character's mouth moves with what you say into your microphone: the jaw drops for \"ah\", the lips\n"
                         + "spread for \"ee\" and round for \"oo\". Online, other players' mouths move while the game's voice chat plays them.\n"
                         + "The sound is measured as it comes in, and nothing is recorded or sent.\n"
-                        + "false: no microphone is opened.",
+                        + "false: no microphone is opened.\n"
+                        + "Taken at once for the first person picture, and at the next start for the people the game draws itself.\n"
+                        + "Off with FirstPersonEnabled off too, its patches of the game's code are left out from the next start.",
                 writable | live, false);
         for (int player = 0; player < microphones.length; player++) {
             microphones[player] = core.configLocalText("Voice", MICROPHONE_ROWS[player],
