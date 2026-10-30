@@ -15,6 +15,7 @@
 - A shotgun blast in first person whose pellets land close together on a wooden door or a board fence blows a ragged hole through it, which you can see and shoot through, and stray pellets leave marks on a door. The holes stay in your save. Offline only, and `[Rules] BlastHoles=false` turns it off.
 - Head tracking turns Project Viewpoint's camera when that mod runs alongside this one: yaw, pitch and roll, not the lean.
 - `[Graphics] Antialiasing` (`Off`, `Low`, `Medium` or `High`) smooths jagged edges in first person from each frame alone, with no blending of frames. `Low` is the quick edge blend the mod has always used. `Medium` and `High` also follow each edge to its ends, so long shallow edges such as roof lines and wall tops come out as an even slope instead of steps, and `High` finds fainter edges too. Every graphics mode uses `Low`, which with the frame blending of Medium and High gives a slightly soft, steady picture; `Medium` and `High` are for a sharper picture, mostly with `FrameBlending=false`.
+- Two more picture styles, `Warm` (golden light and amber shade) and `Cold` (steel blue shade and pale light), after `Bleak` on `F8` and in `Style`. Changing style fades from one to the next over most of a second instead of cutting.
 
 ### Changed
 

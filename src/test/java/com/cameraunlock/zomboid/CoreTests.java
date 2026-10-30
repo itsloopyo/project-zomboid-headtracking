@@ -617,14 +617,14 @@ public final class CoreTests {
         check(Quality.name(0).equals("Medium") && Quality.overheadRow(0) == Quality.LOW && saved("Quality=Medium") && holds("IsometricQuality=Low"),
                 "and on to Medium, the isometric view still in Low");
         Tracking.cycleStyle(0);
-        check(Style.of(0) == Style.VIVID && saved("Style=Vivid"), "the picture style's action goes round to Vivid and saves it");
+        check(Style.of(0) == Style.WARM && saved("Style=Warm"), "the picture style's action goes round to Warm and saves it");
         Tracking.cycleGraphicsMode(2);
         check(Quality.overheadRow(2) == Quality.MEDIUM && Quality.row(2) == Quality.AUTOMATIC && Quality.row(0) == Quality.MEDIUM
                         && saved("ThirdPlayerIsometricQuality=Medium") && holds("ThirdPlayerQuality=Automatic") && holds("Quality=Medium")
                         && holds("SecondPlayerIsometricQuality=Low"),
                 "player 3's graphics action steps the mode of the view they are in and saves it to their own row");
         Tracking.cycleStyle(1);
-        check(Style.of(1) == Style.VIVID && Style.of(0) == Style.VIVID && saved("SecondPlayerStyle=Vivid", "ThirdPlayerStyle=Bleak"),
+        check(Style.of(1) == Style.WARM && Style.of(0) == Style.WARM && saved("SecondPlayerStyle=Warm", "ThirdPlayerStyle=Bleak"),
                 "and player 2's style action steps theirs alone");
         check(!Tracking.firstPersonRemembered(0) && !Tracking.firstPersonRemembered(1) && holds("FirstPerson=false"),
                 "a save loads in the isometric view until the first person key has switched it");
@@ -636,8 +636,9 @@ public final class CoreTests {
         check(!Tracking.firstPersonRemembered(0) && Tracking.firstPersonRemembered(1) && saved("FirstPerson=false", "SecondPlayerFirstPerson=true"),
                 "and player 2's to their own row");
         Tracking.rememberFirstPerson(1, false);
-        Tracking.cycleStyle(1);
-        Tracking.cycleStyle(1);
+        for (int step = 0; step < Style.values().length - 1; step++) {
+            Tracking.cycleStyle(1);
+        }
         Tracking.cycleGraphicsMode(2);
         Tracking.cycleGraphicsMode(2);
         Tracking.cycleGraphicsMode(2);
@@ -706,7 +707,7 @@ public final class CoreTests {
         check(next.contains(Config.FILE_NAME + ": read"), "the saved file is read at the next start");
         check(next.contains("tracking idle mode rotation and position yaw about world up") && next.contains("Aim mode: stock sights"),
                 "which has tracking on again, and the saved modes: " + next);
-        check(next.contains("graphics Medium | style Vivid"), "and the saved graphics mode and picture style");
+        check(next.contains("graphics Medium | style Warm"), "and the saved graphics mode and picture style");
     }
 
     private static void freeLookWithNoMarkerIsReadAsFreeLookWithOne() throws IOException, InterruptedException {
@@ -986,7 +987,7 @@ public final class CoreTests {
         Tracking.watchSettings();
         String saved = text();
         String edited = saved.replace("FieldOfView=65.0", "FieldOfView=90").replace("VanillaWeapons=false", "VanillaWeapons=true")
-                .replace("VanillaPlants=false", "VanillaPlants=true").replace("Quality=Medium", "Quality=High").replace("Style=Vivid", "Style=Natural")
+                .replace("VanillaPlants=false", "VanillaPlants=true").replace("Quality=Medium", "Quality=High").replace("Style=Warm", "Style=Natural")
                 .replace("MuzzleFlash=true", "MuzzleFlash=false").replace("Crosshair=true", "Crosshair=false").replace("RegripTwoHandedWeapons=true", "RegripTwoHandedWeapons=false").replace("SpreadLightUpdates=true", "SpreadLightUpdates=false").replace("SplitScreen=Horizontal", "SplitScreen=Vertical").replace("UdpPort=default", "UdpPort=5555")
                 .replace("HillHeight=1.5", "HillHeight=0.25");
         for (Part part : Part.values()) {
@@ -1010,19 +1011,19 @@ public final class CoreTests {
         check(!PendingLights.spread(), "and the light updates taken up in the frame the game relights them");
         edit(saved.replace("VanillaArms=false", "VanillaArms=true"));
         Tracking.watchSettings();
-        check(FieldOfView.degrees() == 65f && Own.rows() == (Own.ALL & ~Own.ARMS) && Quality.name(0).equals("Medium") && Style.of(0) == Style.VIVID
+        check(FieldOfView.degrees() == 65f && Own.rows() == (Own.ALL & ~Own.ARMS) && Quality.name(0).equals("Medium") && Style.of(0) == Style.WARM
                         && MuzzleFlash.on() && Crosshair.on() && Regrip.on() && PendingLights.spread() && SplitScreen.row() == SplitScreen.HORIZONTAL && HillHeight.asked() == 1.5f
                         && Arrays.stream(Part.values()).allMatch(Part::running),
                 "set back, they are as they were, and the arms row switched on is that row and no other: " + Own.described(Own.rows()));
         Tracking.cycleStyle(0);
-        check(Style.of(0) == Style.NATURAL, "a save after an edit still saves");
-        check(saved("Style=Natural", "VanillaArms=true"), "and leaves the edited row in the file");
+        check(Style.of(0) == Style.COLD, "a save after an edit still saves");
+        check(saved("Style=Cold", "VanillaArms=true"), "and leaves the edited row in the file");
 
         edit(text().replace("FieldOfView=65.0", "FieldOfView=80"));
         Tracking.cycleStyle(0);
-        check(saved("Style=Bleak", "FieldOfView=80", "VanillaArms=true"), "a save made before the watch has looked at an edit leaves the edited row in the file too");
+        check(saved("Style=Vivid", "FieldOfView=80", "VanillaArms=true"), "a save made before the watch has looked at an edit leaves the edited row in the file too");
         Tracking.watchSettings();
-        check(FieldOfView.degrees() == 80f && Style.of(0) == Style.BLEAK, "and the watch still reads the edit: " + FieldOfView.degrees());
+        check(FieldOfView.degrees() == 80f && Style.of(0) == Style.VIVID, "and the watch still reads the edit: " + FieldOfView.degrees());
 
         // As if ticked on the options screen with the saves still queued behind a reload of another row.
         Crosshair.set(false);

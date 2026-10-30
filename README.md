@@ -267,7 +267,7 @@ Centring belongs to your tracker, recenter there.
   - **Stock sights** fades out head turning and leaning while the sights are up, leaving only head tilt, so you see the game's normal sight picture.
 - `F9` cycles the graphics mode of the view you're in: Automatic, Low, Medium, High and Custom in first person, or Low, Medium, High and Custom in the isometric view. The other view keeps its own mode. When you switch views, the screen names the mode of the view you switched to, like `First Person (High)` or `Isometric (Low)`.
 - When a player's first person view is bigger than 2560x1440, every mode except Custom renders it with no more pixels than it would at 2560x1440, then scales it up to fit. In split screen that goes by each player's own part of the screen. Custom renders at its `RenderScale` at any size, and so does the isometric view.
-- `F8` cycles the picture style: Vivid, Natural and Bleak.
+- `F8` cycles the picture style: Vivid, Natural, Bleak, Warm and Cold. Each new style fades in over most of a second.
 - In split screen each player has their own graphics mode and picture style. Tap `F9` or `F8` once for player 1, twice for player 2, three times for player 3 and four times for player 4, or hold it to change everyone. Settings for players 2, 3 and 4 are under `[Players]` in `CameraUnlock.ini` and on the options page.
 
 Every key saves its new setting to `CameraUnlock.ini` as you press it, and `Delete` also saves which view your next load starts in (`FirstPerson`). There's no key to turn head tracking on or off: use the Head tracking tick box at the top of the mod's options page, or `EnableOnStartup` in `CameraUnlock.ini`. There's no recenter key either, so centre the view in your tracker app.
@@ -394,8 +394,9 @@ Quality=Automatic
 ; Graphics mode of the game's isometric view: Low (the game's own picture), Medium, High or Custom, which draws the
 ; [Graphics] rows.
 IsometricQuality=Low
-; Picture style: Vivid (strong contrast and colour), Natural (colours as lit, less contrast) or Bleak (washed out, close
-; to the game's own look).
+; Picture style: Vivid (strong contrast and colour), Natural (colours as lit, less contrast), Bleak (washed out, close
+; to the game's own look), Warm (golden light and amber shade) or Cold (steel blue shade and pale light). A new
+; style fades in over most of a second.
 Style=Bleak
 ; true: saves load in first person. Switching the view with the first person key, or a double tap of Back on a
 ; controller, changes this to match.
@@ -474,9 +475,9 @@ FirstPersonKey=Delete
 ; rows of [Players]. Tap once for player 1, twice for player 2, three times for player 3, four times for player 4,
 ; or hold for every player.
 CycleQualityKey=F9
-; Goes to a player's next picture style: Vivid, Natural, Bleak (Style, and for players 2, 3 and 4 their rows of
-; [Players]). Tap once for player 1, twice for player 2, three times for player 3, four times for player 4, or
-; hold for every player.
+; Goes to a player's next picture style: Vivid, Natural, Bleak, Warm, Cold (Style, and for players 2, 3 and 4
+; their rows of [Players]). Tap once for player 1, twice for player 2, three times for player 3, four times for
+; player 4, or hold for every player.
 CycleStyleKey=F8
 ; With two players at the screen, switches between side by side and one above the other.
 SplitScreenKey=F7

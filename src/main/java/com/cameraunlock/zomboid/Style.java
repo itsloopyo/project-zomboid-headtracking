@@ -18,7 +18,11 @@ enum Style {
     /** The colours as they are lit, with no tint, and less of the lens. */
     NATURAL("Natural", 0.18f, 1f, 0.16f, 0.07f, 0.5f, new float[] {1f, 1f, 1f}, new float[] {1f, 1f, 1f}, 0.9f, 0.3f, 0.14f, 0.5f, 0.2f),
     /** Washed out and flat under a faint drab cast, nearer the colours of the game's own view. */
-    BLEAK("Bleak", 0.08f, 0.72f, 0.24f, 0.05f, 0f, new float[] {0.97f, 1f, 0.96f}, new float[] {1.03f, 1f, 0.94f}, 0.85f, 0.3f, 0.14f, 0.5f, 0.1f);
+    BLEAK("Bleak", 0.08f, 0.72f, 0.24f, 0.05f, 0f, new float[] {0.97f, 1f, 0.96f}, new float[] {1.03f, 1f, 0.94f}, 0.85f, 0.3f, 0.14f, 0.5f, 0.1f),
+    /** Golden light and amber shade, as late on a summer afternoon, with a little more glow. */
+    WARM("Warm", 0.22f, 1.04f, 0.22f, 0.09f, 0.8f, new float[] {1.04f, 0.99f, 0.9f}, new float[] {1.1f, 1.01f, 0.84f}, 0.9f, 0.3f, 0.15f, 0.5f, 0.25f),
+    /** Steel blue shade and pale light, as on a winter morning, with the colours held back. */
+    COLD("Cold", 0.24f, 0.88f, 0.22f, 0.06f, 0.4f, new float[] {0.9f, 0.98f, 1.1f}, new float[] {0.95f, 1f, 1.07f}, 0.9f, 0.3f, 0.16f, 0.5f, 0.15f);
 
     /** The row's word. Its number is its place here: Config describes the row with words(). */
     final String label;
@@ -93,5 +97,65 @@ enum Style {
     /** The style the hotkey goes to from this one. */
     Style next() {
         return values()[(ordinal() + 1) % values().length];
+    }
+
+    /**
+     * A view's style as it is drawn, carried from the one it had to the one asked for over FADE_NANOS
+     * so a change of style eases in rather than cutting. The render thread's alone, one per view.
+     */
+    static final class Fade {
+        private static final long FADE_NANOS = 800_000_000L;
+        float curve, saturation, vignette, bloom, flare, levels, compress, clarity, sharpen, vibrance;
+        final float[] shade = new float[3], sunlit = new float[3];
+        private final float[] from = new float[16], now = new float[16], to = new float[16];
+        private Style toward;
+        private long since;
+
+        Fade toward(Style asked, long nanos) {
+            if (toward == null) {
+                pack(asked, from);
+                since = nanos - FADE_NANOS;
+            } else if (asked != toward) {
+                System.arraycopy(now, 0, from, 0, now.length);
+                since = nanos;
+            }
+            if (asked != toward) {
+                toward = asked;
+                pack(asked, to);
+            }
+            float t = Math.min(1f, Math.max(0f, (nanos - since) / (float) FADE_NANOS));
+            float eased = t * t * (3f - 2f * t);
+            for (int i = 0; i < now.length; i++) {
+                now[i] = from[i] + (to[i] - from[i]) * eased;
+            }
+            curve = now[0];
+            saturation = now[1];
+            vignette = now[2];
+            bloom = now[3];
+            flare = now[4];
+            levels = now[5];
+            compress = now[6];
+            clarity = now[7];
+            sharpen = now[8];
+            vibrance = now[9];
+            System.arraycopy(now, 10, shade, 0, 3);
+            System.arraycopy(now, 13, sunlit, 0, 3);
+            return this;
+        }
+
+        private static void pack(Style style, float[] into) {
+            into[0] = style.curve;
+            into[1] = style.saturation;
+            into[2] = style.vignette;
+            into[3] = style.bloom;
+            into[4] = style.flare;
+            into[5] = style.levels;
+            into[6] = style.compress;
+            into[7] = style.clarity;
+            into[8] = style.sharpen;
+            into[9] = style.vibrance;
+            System.arraycopy(style.shade, 0, into, 10, 3);
+            System.arraycopy(style.sunlit, 0, into, 13, 3);
+        }
     }
 }

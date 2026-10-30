@@ -191,8 +191,9 @@ final class Config {
                         + "[Graphics] rows.",
                 writable | live, Quality.overheadWords(), 0);
         style[0] = localEnum("General", "Style",
-                "Picture style: Vivid (strong contrast and colour), Natural (colours as lit, less contrast) or Bleak (washed out, close\n"
-                        + "to the game's own look).",
+                "Picture style: Vivid (strong contrast and colour), Natural (colours as lit, less contrast), Bleak (washed out, close\n"
+                        + "to the game's own look), Warm (golden light and amber shade) or Cold (steel blue shade and pale light). A new\n"
+                        + "style fades in over most of a second.",
                 writable | live, Style.words(), Style.BLEAK.ordinal());
         firstPerson[0] = localBool("General", "FirstPerson",
                 "true: saves load in first person. Switching the view with the first person key, or a double tap of Back on a\n"
@@ -336,9 +337,9 @@ final class Config {
                         + "or hold for every player.",
                 0, "F9", CYCLE_QUALITY_TAPS, CYCLE_QUALITY_ALL);
         cycleStyleKey = core.configLocalHotkeyTaps("CycleStyleKey",
-                "Goes to a player's next picture style: Vivid, Natural, Bleak (Style, and for players 2, 3 and 4 their rows of\n"
-                        + "[Players]). Tap once for player 1, twice for player 2, three times for player 3, four times for player 4, or\n"
-                        + "hold for every player.",
+                "Goes to a player's next picture style: Vivid, Natural, Bleak, Warm, Cold (Style, and for players 2, 3 and 4\n"
+                        + "their rows of [Players]). Tap once for player 1, twice for player 2, three times for player 3, four times for\n"
+                        + "player 4, or hold for every player.",
                 0, "F8", CYCLE_STYLE_TAPS, CYCLE_STYLE_ALL);
         splitScreenKey = core.configLocalHotkey("SplitScreenKey",
                 "With two players at the screen, switches between side by side and one above the other.", 0, "F7",

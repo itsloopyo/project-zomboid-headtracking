@@ -968,6 +968,7 @@ final class Pipeline {
     private final float[] meterReds = new float[METER_CELLS], meterBlues = new float[METER_CELLS];
     /** What the develop pass makes of the frame's own light: see Develop. Render thread. */
     private final Develop developed = new Develop();
+    private final Style.Fade styleFade = new Style.Fade();
     private final float[] lightShade = new float[3], lightLit = new float[3];
     /** How much of the develop pass's film works on each colour alone, where the picture is the mod's own: see the shader's film. */
     private static final float EACH_COLOUR = 0.33f;
@@ -4926,7 +4927,7 @@ final class Pipeline {
         develop.set("uSize", (float) width, (float) height);
         develop.set("uLow", (float) levelWidth[0], (float) levelHeight[0]);
         develop.set("uExposure", exposure);
-        Style style = Style.of(view.index);
+        Style.Fade style = styleFade.toward(Style.of(view.index), System.nanoTime());
         // The game's own view drawn from overhead, and Low, which is the game's look, are developed as they always were.
         boolean ownTone = !overhead && !Quality.plain(view.index) && !WITHOUT.contains("tone");
         float cover = Math.max(state.coverSeen(), state.rain);
