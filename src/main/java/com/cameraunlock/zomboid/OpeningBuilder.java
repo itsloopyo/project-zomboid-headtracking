@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import java.util.Arrays;
+import java.util.IdentityHashMap;
 import zombie.core.textures.Texture;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.SpriteDetails.IsoObjectType;
@@ -398,9 +399,10 @@ final class OpeningBuilder {
         }
         // Shots break lights counted in the shut leaf's order, which a leaf swung open keeps (Doors.swung): see DoorGlass.
         int broken = build.brokenLights;
+        Doors.Shape shut = null;
         if (build.shutTexture != null) {
             // Open, it is the leaf its shut sprite paints, which stands on the other edge.
-            Doors.Shape shut = Doors.of(build.shutTexture, build.shutFrame, !north);
+            shut = Doors.of(build.shutTexture, build.shutFrame, !north);
             if (shut == null && Doors.unread(build.shutTexture)) {
                 build.building.waitFor(build.shutTexture);
                 return false;
@@ -431,6 +433,8 @@ final class OpeningBuilder {
         boolean ownIsRoom = indoors(build.here) || !indoors(beyond);
         edgeSide = paneSide(ownIsRoom);
 
+        MeshCut cut = blastCut(door, shut, north);
+        IdentityHashMap<SpriteGeometry.Mesh, Integer> ends = cut == null ? null : MeshCut.ends(build.solid, build.laid);
         boolean wooden = door.kind == Doors.PLANKED || wooden(leaf.red, leaf.green, leaf.blue);
         // Kept as finely as a tile's colour (WallSides.FINE): at a fifteenth a channel a dark maroon door rounds to a grey one.
         SpriteGeometry.Mesh wood = build.solid.get(WorldScene.PLAIN, WallSides.laid(leaf.red, leaf.green, leaf.blue, 0f, 0f, 0f, WallSides.FINE));
@@ -586,7 +590,40 @@ final class OpeningBuilder {
         // Shared with other builders, which leave day as they find it.
         wood.day = joint.day = metal.day = glass.day = 0f;
         revealedFrom = revealedTo = Float.NaN;
+        if (cut != null) {
+            cut.since(ends, build.solid, build.laid);
+        }
         return true;
+    }
+
+    /** How far either side of its middle a blast's hole goes through a door's leaf, in tiles: the leaf, and its ledges and panels. */
+    static final float DOOR_REACH = DOOR_HALF + LEDGE_PROUD + 0.006f;
+
+    /**
+     * The holes and marks of the door being added (BlastHoles), laid on its leaf where it stands
+     * (windowX, windowY and windowFoot set): as they were made on the leaf shut, or swung open
+     * with it as Doors.swung lays the shut leaf's lights on the open one, turned end for end where
+     * it is turned. Null where it has none, or stands open with its shut leaf not measured.
+     */
+    private MeshCut blastCut(Doors.Shape door, Doors.Shape shut, boolean north) {
+        float[] entries = build.blastHoles;
+        if (entries == null || build.shutTexture != null && shut == null) {
+            return null;
+        }
+        MeshCut cut = new MeshCut(windowX, windowY, windowAlongX, windowAlongY, DOOR_REACH);
+        float level = ViewCamera.LEVEL_HEIGHT;
+        if (shut == null) {
+            BlastHoles.into(cut, entries, north, 0f, 1f, windowFoot, level, 1);
+        } else {
+            Windows.Shape from = shut.leaf, to = door.leaf;
+            float along = (to.end - to.start) / (from.end - from.start), up = (to.head - to.foot) / (from.head - from.foot);
+            boolean turned = !shut.handleAtEnd;
+            // Swung a quarter turn on its hinges, the leaf's face that looked across its edge one way looks across the other edge
+            // the other way, unless it is turned end for end as well.
+            BlastHoles.into(cut, entries, !north, turned ? to.end + from.start * along : to.start - from.start * along, turned ? -along : along,
+                    windowFoot + level * (to.foot - from.foot * up), level * up, turned ? 1 : -1);
+        }
+        return cut.any() ? cut : null;
     }
 
     /**

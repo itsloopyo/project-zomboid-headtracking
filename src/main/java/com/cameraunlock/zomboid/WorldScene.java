@@ -6951,6 +6951,10 @@ final class WorldScene {
                                 thing = sum(thing, burns(string) ? 6 : 5);
                             }
                             thing = BloodBuilder.onWall(thing, object);
+                            float[] holes = BlastHoles.of(object);
+                            if (holes != null) {
+                                thing = sum(thing, java.util.Arrays.hashCode(holes));
+                            }
                             if (object instanceof IsoDoor door) {
                                 thing = sum(sum(thing, door.IsOpen() ? 2 : 1), DoorGlass.broken(door));
                             } else if (object instanceof IsoThumpable thumpable && thumpable.isDoor()) {
@@ -9769,6 +9773,7 @@ final class WorldScene {
             doorSwung = false;
             shutTexture = null;
             brokenLights = DoorGlass.isDoor(object) ? DoorGlass.broken(object) : 0;
+            blastHoles = BlastHoles.of(object);
             if (object instanceof IsoDoor door) {
                 // A door on hinges stands across its doorway when it is open. A garage door
                 // rolls up in its own plane, and what is left of it showing is still in the wall.
@@ -10494,6 +10499,8 @@ final class WorldScene {
         final SpriteGeometry.Frame shutFrame = new SpriteGeometry.Frame();
         /** Of the door being added, the lights shots have broken: see DoorGlass. */
         int brokenLights;
+        /** Of the door or fence being added, the holes blasts have blown and the marks pellets have left, or null: see BlastHoles. */
+        float[] blastHoles;
         /** Whether the sprite being added is the frame round a doorway. */
         boolean casing;
         /** Whether the sprite being added is a wall a doorway is in. */

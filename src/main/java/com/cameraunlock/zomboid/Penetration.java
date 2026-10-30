@@ -229,6 +229,9 @@ final class Penetration {
                     // The game lets a shot through a shut window's glass for nothing; ShotGlass breaks the light as it breaks a window.
                     return 0f;
                 }
+                if (throughAHole(object, north, along, x, y)) {
+                    return 0f;
+                }
                 String made = materialOf(object);
                 return cost(made != null ? made : doorMaterial(object));
             }
@@ -239,7 +242,16 @@ final class Penetration {
             }
         }
         IsoObject wall = WorldScene.wallOn(square, north);
+        if (wall != null && throughAHole(wall, north, along, x, y)) {
+            return 0f;
+        }
         return wall == null ? STOPS : cost(materialOf(wall));
+    }
+
+    /** Whether a shot crosses a door or a fence in a hole a blast blew through it (BlastHoles), which costs it nothing. */
+    private static boolean throughAHole(IsoObject object, boolean north, float along, float x, float y) {
+        float up = heightAt(x, y);
+        return !Float.isNaN(up) && BlastHoles.through(object, north, along, up);
     }
 
     /** Whether a shot crosses a shut door's leaf in one of its lights of glass, as the picture measured the leaf (Doors). */

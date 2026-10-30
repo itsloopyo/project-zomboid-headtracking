@@ -158,7 +158,7 @@ final class ImpactFinder {
             return;
         }
         if (distance <= reach) {
-            surface(cell, terrain, distance, size);
+            surface(cell, terrain, shooter, distance, size);
             return;
         }
         if (stopped != null) {
@@ -245,7 +245,7 @@ final class ImpactFinder {
             if (world.met != WorldQuery.WALL || distance >= toBody - gone) {
                 break;
             }
-            surface(cell, terrain, distance, size);
+            surface(cell, terrain, shooter, distance, size);
             gone += distance + PAST_WALL;
             line.eyeAt(startX + line.forwardX * gone, startY + line.forwardY * gone, startUp + line.forwardUp * gone);
         }
@@ -291,7 +291,7 @@ final class ImpactFinder {
     }
 
     /** A shot struck what WorldQuery met along the line, distance along it. */
-    private static void surface(IsoCell cell, Terrain terrain, float distance, float size) {
+    private static void surface(IsoCell cell, Terrain terrain, IsoGameCharacter shooter, float distance, float size) {
         float x = line.eyeX + line.forwardX * distance, y = line.eyeY + line.forwardY * distance, up = line.eyeUp + line.forwardUp * distance;
         int level = world.metLevel;
         if (world.met == WorldQuery.WALL) {
@@ -309,16 +309,22 @@ final class ImpactFinder {
             int kind = Impacts.MASONRY;
             boolean hole = false;
             IsoObject door = square == null ? null : doorOn(square, north);
+            IsoObject struck = door;
             if (door != null) {
-                // A door swings: what it is made of flies from it, and it keeps no hole.
+                // A door swings: what it is made of flies from it, and it keeps no hole the picture lays over the world (see BlastHoles).
                 int made = Impacts.ofMaterialType(door.getSprite() == null ? null : door.getSprite().getProperties().get("MaterialType"));
                 kind = made == Impacts.NONE ? Impacts.WOOD : made;
             } else {
                 IsoObject wall = square == null ? null : WorldScene.wallOn(square, north);
+                struck = wall;
                 if (wall != null) {
                     kind = Impacts.of(wall.getSprite(), false);
                     hole = Impacts.holed(kind);
                 }
+            }
+            if (struck != null && size == PELLET && blasts(shooter) && BlastHoles.blastable(struck)) {
+                Blasts.pellet(shooter, struck, north, north ? x - square.getX() : y - square.getY(),
+                        (up - terrain.height(x, y)) / ViewCamera.LEVEL_HEIGHT - level, across > 0f ? -1 : 1);
             }
             add(x, y, up, normalX, normalY, 0f, line.forwardX, line.forwardY, line.forwardUp, Math.min(floor, up), kind, size, hole,
                     north ? 1f : 0f, north ? 0f : 1f, 0f);
@@ -348,6 +354,11 @@ final class ImpactFinder {
             }
         }
         add(x, y, up, 0f, 0f, 1f, line.forwardX, line.forwardY, line.forwardUp, up, kind, size, Impacts.holed(kind), 1f, 0f, 0f);
+    }
+
+    /** Whether a blast by this character blows holes and leaves marks: a player's in first person, where the rule holds. */
+    private static boolean blasts(IsoGameCharacter shooter) {
+        return Rules.breaksGlass() && shooter instanceof IsoPlayer player && View.of(player) != null;
     }
 
     /** The door hung on a square's north or west edge, shut, or null. */

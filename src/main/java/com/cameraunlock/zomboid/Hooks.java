@@ -270,6 +270,8 @@ public final class Hooks {
             FarLand.loadingAfresh();
             FineSkins.leftSave();
             Impacts.forget();
+            Blasts.forget();
+            BlastHoles.forget();
             Fires.forget();
             Pieces.forget();
             Corpses.forget();
@@ -709,10 +711,11 @@ public final class Hooks {
         Bleeding.saved(chunk);
     }
 
-    /** Called as the game has loaded a chunk's squares and put its things in the world, on its logic thread: see HiddenWalls.loaded and DoorGlass.loaded. */
+    /** Called as the game has loaded a chunk's squares and put its things in the world, on its logic thread: see HiddenWalls.loaded, DoorGlass.loaded and BlastHoles.loaded. */
     public static void chunkLoaded(IsoChunk chunk) {
         HiddenWalls.loaded(chunk);
         DoorGlass.loaded(chunk);
+        BlastHoles.loaded(chunk);
     }
 
     /**
@@ -729,6 +732,7 @@ public final class Hooks {
         Pieces.tick();
         Rewind.tick();
         HiddenWalls.tick();
+        Blasts.tick();
     }
 
     /** How often a limb a shot takes off bursts in blood and shards rather than coming off whole. */

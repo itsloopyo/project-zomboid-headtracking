@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import java.util.Arrays;
+import java.util.IdentityHashMap;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import zombie.core.properties.PropertyContainer;
@@ -226,6 +227,26 @@ final class WallBuilder {
      * a wall: a window or a curtain that stops short of the square's edge really does stop there.
      */
     void addEdge(SpriteGeometry.Mesh mesh, Texture texture, boolean wall, boolean door, int x, int y, int z,
+            float layer, float da, float db) {
+        // A door's holes are cut where its leaf is built, which knows where the leaf stands (OpeningBuilder.addBuiltDoor).
+        float[] holes = door ? null : build.blastHoles;
+        if (holes == null) {
+            addWholeEdge(mesh, texture, wall, door, x, y, z, layer, da, db);
+            return;
+        }
+        IdentityHashMap<SpriteGeometry.Mesh, Integer> ends = MeshCut.ends(build.solid, build.laid);
+        addWholeEdge(mesh, texture, wall, door, x, y, z, layer, da, db);
+        float[] lift = build.geometry.lift;
+        float foot = z * ViewCamera.LEVEL_HEIGHT + (lift[0] + lift[1] + lift[2] + lift[3]) / 4f;
+        MeshCut cut = new MeshCut(x, y, da, db, FENCE_REACH);
+        BlastHoles.into(cut, holes, da != 0f, 0f, 1f, foot, ViewCamera.LEVEL_HEIGHT, 1);
+        cut.since(ends, build.solid, build.laid);
+    }
+
+    /** How far either side of its edge a blast's hole goes through a fence, in tiles: its boards, and the battens they are nailed to. */
+    static final float FENCE_REACH = WorldScene.WALL_HALF + 0.04f;
+
+    private void addWholeEdge(SpriteGeometry.Mesh mesh, Texture texture, boolean wall, boolean door, int x, int y, int z,
             float layer, float da, float db) {
         build.building.plain = false;
         boolean onKerbTop = build.standOnKerbTop(z, da != 0f);

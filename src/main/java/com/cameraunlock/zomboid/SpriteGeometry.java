@@ -520,6 +520,48 @@ final class SpriteGeometry {
             System.arraycopy(vertices, from, vertices, floats, VERTEX_FLOATS);
             floats += VERTEX_FLOATS;
         }
+
+        /** Adds a vertex made whole elsewhere, its VERTEX_FLOATS floats as they are: see MeshCut. */
+        void addVertex(float[] vertex) {
+            growing();
+            roomFor(floats + VERTEX_FLOATS);
+            System.arraycopy(vertex, 0, vertices, floats, VERTEX_FLOATS);
+            floats += VERTEX_FLOATS;
+        }
+
+        /**
+         * Puts count floats of made in place of the mesh's floats from `from` on, which were
+         * whole triangles: firstOf[k] is where in made what became of the k-th of them starts,
+         * and one more entry its end. The runs a thing drew (spans) and where the thing being
+         * drawn began that lie past `from` move with their triangles: see MeshCut.
+         */
+        void replaceFrom(int from, float[] made, int count, int[] firstOf) {
+            int triangles = firstOf.length - 1;
+            if (floats - from != triangles * 3 * VERTEX_FLOATS) {
+                throw new IllegalStateException("a mesh's floats from " + from + " are " + (floats - from) + ", not the " + triangles + " triangles cut");
+            }
+            for (int i = 0; i < spans; i++) {
+                spanFrom[i] = moved(spanFrom[i], from, firstOf);
+                spanTo[i] = moved(spanTo[i], from, firstOf);
+            }
+            ownedFrom = moved(ownedFrom, from, firstOf);
+            growing();
+            floats = from;
+            roomFor(from + count);
+            System.arraycopy(made, 0, vertices, from, count);
+            floats = from + count;
+        }
+
+        private static int moved(int at, int from, int[] firstOf) {
+            if (at <= from) {
+                return at;
+            }
+            int past = at - from;
+            if (past % (3 * VERTEX_FLOATS) != 0) {
+                throw new IllegalStateException("a run of a mesh ends at float " + at + ", inside a triangle that is being cut");
+            }
+            return from + firstOf[past / (3 * VERTEX_FLOATS)];
+        }
     }
 
     /**

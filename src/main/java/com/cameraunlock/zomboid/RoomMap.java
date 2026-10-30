@@ -665,12 +665,13 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
                 boolean glazed = seeThrough(each.getSprite());
                 doorShut |= !each.IsOpen();
                 doorGlazed |= glazed;
-                doorBlind |= !each.IsOpen() && (!glazed || each.HasCurtains() != null && !each.isCurtainOpen());
+                // A blast's hole through a door is seen through as its glass is.
+                doorBlind |= !each.IsOpen() && (!glazed && !BlastHoles.holed(each) || each.HasCurtains() != null && !each.isCurtainOpen());
             } else if (object instanceof IsoThumpable thumpable) {
                 if (thumpable.isDoor() && thumpable.getNorth() == north) {
                     door = true;
                     doorShut |= !thumpable.IsOpen();
-                    doorBlind |= !thumpable.IsOpen();
+                    doorBlind |= !thumpable.IsOpen() && !BlastHoles.holed(thumpable);
                 } else if (north ? thumpable.isWindowN() : thumpable.isWindowW()) {
                     window = true;
                     glassShut |= !thumpable.IsOpen();

@@ -156,7 +156,29 @@ final class WorldQuery {
         if (lights && seen == LosUtil.TestResults.ClearThroughClosedDoor && throughALight(from, to, fromX, fromY, toX, toY)) {
             seen = LosUtil.TestResults.ClearThroughWindow;
         }
+        if (lights && (seen == LosUtil.TestResults.Blocked || seen == LosUtil.TestResults.ClearThroughClosedDoor) && throughAHole(from, to, fromX, fromY, toX, toY)) {
+            seen = LosUtil.TestResults.Clear;
+        }
         return lineOfFire.stopsAt(seen);
+    }
+
+    /** Whether the line being traced crosses the shut door or the fence on the edge between two squares in a hole a blast blew through it: see BlastHoles. */
+    private boolean throughAHole(IsoGridSquare from, IsoGridSquare to, int fromX, int fromY, int toX, int toY) {
+        boolean north = fromX == toX;
+        IsoGridSquare owner = north ? (toY < fromY ? from : to) : (toX < fromX ? from : to);
+        float crossed = ShotGlass.crossedAt(lineX, lineY, lineWayX, lineWayY, fromX, fromY, toX, toY);
+        float x = lineX + lineWayX * crossed, y = lineY + lineWayY * crossed;
+        float along = north ? x - owner.getX() : y - owner.getY();
+        float up = (lineUp + lineWayUp * crossed - lineGround.height(x, y)) / ViewCamera.LEVEL_HEIGHT - level;
+        PZArrayList<IsoObject> objects = owner.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoObject object = objects.get(i);
+            if (DoorGlass.shutOn(object, north)) {
+                return !DoorGlass.barricaded(object) && BlastHoles.through(object, north, along, up);
+            }
+        }
+        IsoObject wall = WorldScene.wallOn(owner, north);
+        return wall != null && BlastHoles.through(wall, north, along, up);
     }
 
     /** Whether the line being traced crosses the shut door on the edge between two squares in one of its lights: see DoorGlass. */
