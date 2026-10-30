@@ -28,6 +28,7 @@ public final class Agent {
     private static final String ATLAS = "zombie/core/skinnedmodel/DeadBodyAtlas", BODY_PARAMS = ATLAS + "$BodyParams", RENDER_JOB = ATLAS + "$RenderJob";
     private static final String ANIMATED_MODEL = "zombie/core/skinnedmodel/advancedanimation/AnimatedModel";
     private static final String HOOKS = "com/cameraunlock/zomboid/Hooks";
+    private static final String HOOKS_NOT_RUNNING = "com/cameraunlock/zomboid/NotRunning";
     private static final String HIGHLIGHT = "zombie/iso/fboRenderChunk/FBORenderObjectHighlight";
     private static final String GAME_MOUSE = "zombie/input/Mouse";
     private static final String TORCH = "zombie/characters/IsoGameCharacter$TorchInfo";
@@ -248,6 +249,16 @@ public final class Agent {
     /** The sets this start left out of the game's code, each until the parts and rules it serves are on: see takeIn. */
     private static final List<PatchSet> waiting = new ArrayList<>();
 
+    /** Puts the main menu's line saying why the mod is not running into the game's code, and nothing else. */
+    private static void sayNotRunning(Instrumentation instrumentation, String why) {
+        NotRunning.say(why);
+        String menu = "zombie/gameStates/MainScreenState";
+        PatchTransformer transformer = new PatchTransformer(List.of(after(new CallSite.Method(menu, "render", "()V"),
+                new CallSite.Method("zombie/modding/ActiveMods", "renderUI", "()V"), new CallSite.Method(HOOKS_NOT_RUNNING, "draw", "()V"))));
+        add(instrumentation, transformer);
+        retransform(instrumentation, instrumentation.getAllLoadedClasses(), transformer.owners());
+    }
+
     private static void add(Instrumentation instrumentation, PatchTransformer transformer) {
         // Only a transformer added as able to retransform sees the classes retransformLoaded asks for again.
         instrumentation.addTransformer(transformer, true);
@@ -443,6 +454,7 @@ public final class Agent {
             // Boot asks only whether the agent started and runs the game either way, and
             // nothing else puts the reason in this log: it would end here without one.
             Log.error("the mod could not start", failure);
+            sayNotRunning(instrumentation, "it hit an error as it started");
             throw failure;
         }
     }
@@ -453,6 +465,7 @@ public final class Agent {
             links.unresolved().forEach(missing -> Log.info("not in this build of the game as the mod uses it: " + missing));
             Log.info("the mod stays out of the game: this build lacks " + links.unresolved().size() + " of the "
                     + links.references() + " things of the game's the mod uses");
+            sayNotRunning(instrumentation, "it does not work with this version of the game");
             return false;
         }
         Log.info("all " + links.references() + " things of the game's the mod uses are in this build");
