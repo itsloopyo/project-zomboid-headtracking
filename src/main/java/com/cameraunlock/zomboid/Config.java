@@ -5,6 +5,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.Map;
 import java.util.function.DoubleConsumer;
 
@@ -642,7 +643,30 @@ final class Config {
     CameraUnlock.Config load(Path file, Path defaults) {
         CameraUnlock.Config loaded = core.configLoad(file, defaults);
         Log.info(file + ": " + LOAD_STATUS[loaded.status]);
+        if (loaded.status == CameraUnlock.LOAD_DEFERRED || loaded.status == CameraUnlock.LOAD_LEGACY_REFUSED
+                || loaded.status == CameraUnlock.LOAD_UNREADABLE) {
+            // Core saves nothing after such a load until a reload reads the file.
+            trouble(FILE_NAME + " could not be read, so settings you change are not saved");
+        }
         return loaded;
+    }
+
+    /** What the screen last said about the file, and how many times it has had something to say. */
+    private static volatile String trouble;
+    private static final AtomicInteger troubles = new AtomicInteger();
+
+    /** The file let a change of the player's go unsaved: the screen says so, and the log says why. Any thread. */
+    static void trouble(String what) {
+        trouble = what + ". " + Log.FILE_NAME + " says why";
+        troubles.incrementAndGet();
+    }
+
+    static int troubles() {
+        return troubles.get();
+    }
+
+    static String troubleSaid() {
+        return trouble;
     }
 
     /** What the rows read again while the game runs hold now. */
@@ -850,6 +874,10 @@ final class Config {
 
     private static boolean saved(String what, int status) {
         Log.info(FILE_NAME + ": " + what + " " + SAVE_STATUS[status]);
+        if (status != CameraUnlock.SAVE_SAVED) {
+            trouble(status == CameraUnlock.SAVE_UNCERTAIN ? "A setting you changed may not have been saved to " + FILE_NAME
+                    : "A setting you changed was not saved to " + FILE_NAME);
+        }
         return status == CameraUnlock.SAVE_SAVED;
     }
 }

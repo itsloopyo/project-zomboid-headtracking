@@ -385,6 +385,8 @@ public final class FirstPerson {
      * is switched back on getting out: one the key chose stays.
      */
     private boolean wasInVehicle, switchedForVehicle;
+    /** How many of Config's troubles with CameraUnlock.ini this view has said. */
+    private int troublesSaid;
 
     void toggle() {
         IsoPlayer player = view.player();
@@ -809,6 +811,12 @@ public final class FirstPerson {
             if ((on || gettingReady) != asked) {
                 Tracking.rememberFirstPerson(view.index, !asked);
             }
+        }
+        int troubles = Config.troubles();
+        if (troubles != troublesSaid) {
+            troublesSaid = troubles;
+            said = Config.troubleSaid();
+            saidAt = System.nanoTime();
         }
         int memoryStep = VideoMemory.step();
         if (memoryStep > memoryStepSaid) {

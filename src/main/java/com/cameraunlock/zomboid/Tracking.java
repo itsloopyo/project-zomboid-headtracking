@@ -817,6 +817,7 @@ final class Tracking {
             } catch (RuntimeException failure) {
                 // Nothing is above this on the thread: left uncaught, the reason never reaches the log.
                 Log.error("a changed setting was not saved", failure);
+                Config.trouble("A setting you changed was not saved to " + Config.FILE_NAME);
             }
         });
     }
