@@ -27,6 +27,8 @@ import zombie.ui.UIManager;
 public final class SplitScreen {
     static final int VERTICAL = 0, HORIZONTAL = 1;
     private static final String[] NAMES = {"Vertical", "Horizontal"};
+    /** What the screen and the options page call each row: the file's words read the other way round to a player. */
+    static final String[] LABELS = {"Side by side", "Above and below"};
 
     private static volatile int row = VERTICAL;
     /** Every patch is in the game's code: with only some of them in, parts of the screen would be laid out one way and parts the other. */
@@ -54,9 +56,9 @@ public final class SplitScreen {
         return NAMES[row];
     }
 
-    /** The row's name, and that the screen stays side by side where the patches are known not to be in. */
+    /** What the screen calls the row, and that the screen stays side by side where the patches are known not to be in. */
     static String described() {
-        return asked && !patched && row != VERTICAL ? NAMES[row] + ", but the screen stays side by side: the game's code did not take the change" : NAMES[row];
+        return asked && !patched && row != VERTICAL ? LABELS[row] + " could not be set up, so the screen stays side by side. The log says why" : LABELS[row];
     }
 
     /** The words CameraUnlock.ini holds for the row, in the order of their numbers, with commas between. */
