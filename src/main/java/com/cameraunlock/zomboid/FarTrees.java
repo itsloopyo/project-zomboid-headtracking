@@ -4,10 +4,12 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.file.Files;
+import java.nio.channels.FileChannel;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import zombie.erosion.ErosionRegions;
@@ -104,9 +106,12 @@ final class FarTrees {
 
     /** The far land's thread only: the biome map the far trees ask, so that the game's own is only ever asked by the game. */
     private static BiomeMap biomes;
+    /** The far land's thread only: the lotpacks that could not be read, each said in the log once a map. */
+    private static final HashSet<Path> unread = new HashSet<>();
 
     /** The far land's thread, as the map is let go of. */
     static void forget() {
+        unread.clear();
         if (biomes != null) {
             biomes.Dispose();
             biomes = null;
@@ -123,7 +128,24 @@ final class FarTrees {
         if (biomes == null) {
             biomes = new BiomeMap();
         }
-        int[] squares = FarTreeCells.squares(ByteBuffer.wrap(Files.readAllBytes(lot.pack())), lot.tree(), lot.minLevel(), lot.maxLevel());
+        int[] squares;
+        ArrayList<Lotpack.Malformed> skipped = new ArrayList<>();
+        try (FileChannel channel = FileChannel.open(lot.pack(), StandardOpenOption.READ)) {
+            if (channel.size() > Integer.MAX_VALUE) {
+                throw new IOException("it is " + channel.size() + " bytes, past the most a buffer can map");
+            }
+            squares = FarTreeCells.squares(channel.map(FileChannel.MapMode.READ_ONLY, 0, channel.size()), lot.tree(), lot.minLevel(), lot.maxLevel(), skipped);
+        } catch (IOException | Lotpack.Malformed unreadable) {
+            // The game loads what it cannot read of a cell empty, so the cell stands without its far trees and the rest of the far land is made.
+            if (unread.add(lot.pack())) {
+                Log.error("far trees: " + lot.pack() + " could not be read, so cell " + cellX + ", " + cellY + " has no far trees: " + unreadable);
+            }
+            return ByteBuffer.allocate(0);
+        }
+        if (!skipped.isEmpty() && unread.add(lot.pack())) {
+            Log.error("far trees: " + skipped.size() + " chunks of " + lot.pack() + " could not be read, and cell " + cellX + ", " + cellY
+                    + " has no far trees on them, as the game loads them empty. The first: " + skipped.get(0).getMessage());
+        }
         if (squares.length == 0) {
             return ByteBuffer.allocate(0);
         }

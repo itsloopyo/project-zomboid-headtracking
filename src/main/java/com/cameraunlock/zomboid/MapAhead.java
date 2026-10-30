@@ -9,6 +9,7 @@ import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -346,6 +347,9 @@ final class MapAhead {
         }
     };
 
+    /** The thread's own: the lotpacks a chunk of which could not be read, each said in the log once. */
+    private static final HashSet<Path> unread = new HashSet<>();
+
     private static final ThreadPoolExecutor READER = reader();
 
     private static ThreadPoolExecutor reader() {
@@ -409,6 +413,11 @@ final class MapAhead {
         read.clear();
         Arrays.fill(windowed, false);
         version++;
+        // A mapped lotpack cannot be replaced or deleted. Let go of here, its mapping ends when the collector takes the buffer.
+        READER.execute(() -> {
+            open.clear();
+            unread.clear();
+        });
     }
 
     /**
@@ -491,7 +500,15 @@ final class MapAhead {
                     }
                     Cell cell = job.cell();
                     int cx = job.wx() - Math.floorDiv(job.wx(), CELL_CHUNKS) * CELL_CHUNKS, cy = job.wy() - Math.floorDiv(job.wy(), CELL_CHUNKS) * CELL_CHUNKS;
-                    read.add(read(asOf, mapped(cell.pack()), cell.traits(), cell.minLevel(), cell.maxLevel(), job.wx(), job.wy(), cx, cy));
+                    try {
+                        read.add(read(asOf, mapped(cell.pack()), cell.traits(), cell.minLevel(), cell.maxLevel(), job.wx(), job.wy(), cx, cy));
+                    } catch (IOException | Lotpack.Malformed unreadable) {
+                        // The game loads such a chunk empty, so one map mod's damaged cell costs the read ahead that chunk alone.
+                        if (unread.add(cell.pack())) {
+                            Log.error("map ahead: " + cell.pack() + " was not read at chunk " + job.wx() + ", " + job.wy() + ": " + unreadable
+                                    + ". Its chunks that cannot be read are not read ahead, and this is said once for the file");
+                        }
+                    }
                 }
             } catch (Throwable thrown) {
                 failureCause = thrown;

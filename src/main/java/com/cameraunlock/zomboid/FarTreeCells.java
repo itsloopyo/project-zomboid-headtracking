@@ -42,6 +42,14 @@ final class FarTreeCells {
      * @param maxLevel  the header's highest level
      */
     static int[] squares(ByteBuffer pack, boolean[] tree, int minLevel, int maxLevel) {
+        return squares(pack, tree, minLevel, maxLevel, null);
+    }
+
+    /**
+     * As squares, with a chunk that cannot be read skipped as the game loads it, empty, and what
+     * was wrong with it added to skipped. With skipped null, it is thrown.
+     */
+    static int[] squares(ByteBuffer pack, boolean[] tree, int minLevel, int maxLevel, List<Lotpack.Malformed> skipped) {
         Lotpack in = new Lotpack(pack);
         int from = Math.max(minLevel, Lotpack.LOWEST), to = Math.min(maxLevel, Lotpack.HIGHEST);
         if (from > 0 || to < 0) {
@@ -51,26 +59,40 @@ final class FarTreeCells {
         int count = 0;
         for (int wx = 0; wx < CHUNKS; wx++) {
             for (int wy = 0; wy < CHUNKS; wy++) {
-                in.chunk(wx, wy);
-                for (int z = from; z <= 0; z++) {
-                    for (int x = 0; x < CHUNK; x++) {
-                        for (int y = 0; y < CHUNK; y++) {
-                            int tiles = in.square();
-                            boolean treed = false;
-                            for (int i = 0; i < tiles; i++) {
-                                treed |= tree[in.tile(tree.length)];
-                            }
-                            if (treed && z == 0) {
-                                if (count == found.length) {
-                                    found = Arrays.copyOf(found, count * 2);
-                                }
-                                found[count++] = wx * CHUNK + x + (wy * CHUNK + y) * FarCells.CELL;
-                            }
-                        }
+                if (found.length - count < CHUNK * CHUNK) {
+                    found = Arrays.copyOf(found, found.length * 2);
+                }
+                try {
+                    count = chunk(in, wx, wy, from, tree, found, count);
+                } catch (Lotpack.Malformed unreadable) {
+                    if (skipped == null) {
+                        throw unreadable;
                     }
+                    // The squares found before the fault stay in found past count, and are written over.
+                    skipped.add(unreadable);
                 }
             }
         }
         return Arrays.copyOf(found, count);
+    }
+
+    /** Adds the treed squares of the chunk (wx, wy) to found from count, which has room for the chunk's, and answers the count after them. */
+    private static int chunk(Lotpack in, int wx, int wy, int from, boolean[] tree, int[] found, int count) {
+        in.chunk(wx, wy);
+        for (int z = from; z <= 0; z++) {
+            for (int x = 0; x < CHUNK; x++) {
+                for (int y = 0; y < CHUNK; y++) {
+                    int tiles = in.square();
+                    boolean treed = false;
+                    for (int i = 0; i < tiles; i++) {
+                        treed |= tree[in.tile(tree.length)];
+                    }
+                    if (treed && z == 0) {
+                        found[count++] = wx * CHUNK + x + (wy * CHUNK + y) * FarCells.CELL;
+                    }
+                }
+            }
+        }
+        return count;
     }
 }

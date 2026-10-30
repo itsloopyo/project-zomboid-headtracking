@@ -20,6 +20,10 @@ final class FarTreeTests {
         Checks.run("aTreeUpstairsIsLeftOut", FarTreeTests::aTreeUpstairsIsLeftOut);
         Checks.run("aLotpackWithoutItsWordIsRead", FarTreeTests::aLotpackWithoutItsWordIsRead);
         Checks.run("aTileTheHeaderHasNotIsRefused", FarTreeTests::aTileTheHeaderHasNotIsRefused);
+        Checks.run("aDamagedLotpackIsSaidToBe", FarTreeTests::aDamagedLotpackIsSaidToBe);
+        Checks.run("aLotpackOfAVersionTheGameRefusesIsRefused", FarTreeTests::aLotpackOfAVersionTheGameRefusesIsRefused);
+        Checks.run("theTableIsWhereTheGameSeeksIt", FarTreeTests::theTableIsWhereTheGameSeeksIt);
+        Checks.run("aDamagedChunkCostsThatChunkAlone", FarTreeTests::aDamagedChunkCostsThatChunkAlone);
         Checks.run("theSameCellPlacesTheSameTrees", FarTreeTests::theSameCellPlacesTheSameTrees);
         Checks.run("aChoiceOfNoTreePlacesNone", FarTreeTests::aChoiceOfNoTreePlacesNone);
         Checks.run("aBiomeWithNoTreesKeepsTheMaps", FarTreeTests::aBiomeWithNoTreesKeepsTheMaps);
@@ -275,6 +279,67 @@ final class FarTreeTests {
     private static void aLotpackWithoutItsWordIsRead() {
         int[] found = FarTreeCells.squares(pack(false, 0, 0, new Square(5, 6, 0, 1, 2, 1)), TREE, 0, 0);
         check(Arrays.equals(found, new int[] {at(41, 50)}), "a lotpack of the first version, without LOTP, is read the same: " + Arrays.toString(found));
+    }
+
+    /** What squares throws for a pack, or null when it reads it. */
+    private static String malformed(ByteBuffer pack) {
+        try {
+            FarTreeCells.squares(pack, TREE, 0, 0);
+            return null;
+        } catch (Lotpack.Malformed expected) {
+            return expected.getMessage();
+        }
+    }
+
+    private static void aDamagedLotpackIsSaidToBe() {
+        ByteBuffer whole = pack(true, 0, 0, new Square(5, 6, 0, 1, 2, 1));
+        check(malformed(whole.duplicate()) == null, "the whole pack is read");
+        ByteBuffer cut = whole.duplicate().limit(12 + 1024 * 8 + 6);
+        String said = malformed(cut);
+        check(said != null && said.contains("ends inside chunk 0, 0"), "a pack cut short inside its first chunk is said to be, not read past its end: " + said);
+        said = malformed(whole.duplicate().limit(10));
+        check(said != null && said.contains("ends before chunk"), "a pack cut short inside its table is said to be: " + said);
+        ByteBuffer astray = ByteBuffer.allocate(whole.limit()).order(ByteOrder.LITTLE_ENDIAN).put(whole.duplicate()).flip();
+        astray.putInt(12 + (3 * 32 + 4) * 8, Integer.MAX_VALUE);
+        said = malformed(astray);
+        check(said != null && said.contains("chunk 3, 4 at byte " + Integer.MAX_VALUE), "a chunk placed past the end is said to be: " + said);
+        astray.putInt(12 + (3 * 32 + 4) * 8, -8);
+        said = malformed(astray);
+        check(said != null && said.contains("chunk 3, 4 at byte -8"), "a chunk placed before the start is said to be: " + said);
+    }
+
+    private static void aLotpackOfAVersionTheGameRefusesIsRefused() {
+        ByteBuffer pack = pack(true, 0, 0, new Square(5, 6, 0, 1, 2, 1));
+        for (int version : new int[] {2, -1}) {
+            pack.putInt(4, version);
+            String said = malformed(pack.duplicate());
+            check(said != null && said.contains("version " + version), "IsoLot.load refuses version " + version + ", and so does the mod: " + said);
+        }
+    }
+
+    /** IsoLot.load seeks the table at 4 past a version of 1, and at 4 from the start for a version of 0 with or without the magic. */
+    private static void theTableIsWhereTheGameSeeksIt() {
+        for (int version : new int[] {0, 1}) {
+            ByteBuffer pack = ByteBuffer.allocate(16 << 10).order(ByteOrder.LITTLE_ENDIAN);
+            pack.put(new byte[] {'L', 'O', 'T', 'P'}).putInt(version);
+            int table = version == 1 ? 12 : 4, place = 12000;
+            pack.putInt(table + (3 * 32 + 4) * 8, place);
+            pack.putInt(place, 3).putInt(place + 4, -1).putInt(place + 8, 2).putInt(place + 12, 1);
+            Lotpack in = new Lotpack(pack);
+            in.chunk(3, 4);
+            int tiles = in.square();
+            check(tiles == 2 && in.tile(3) == 2 && in.tile(3) == 1, "version " + version + ": chunk 3, 4 is read from the table at " + table + ": " + tiles + " tiles");
+        }
+    }
+
+    private static void aDamagedChunkCostsThatChunkAlone() {
+        ByteBuffer pack = pack(true, 0, 0, new Square(5, 6, 0, 1, 2, 1), new Square(3, 4, 0, 0, 0, 1));
+        int at = 12 + (3 * 32 + 4) * 8;
+        pack.putInt(at, pack.limit() + 64);
+        List<Lotpack.Malformed> skipped = new ArrayList<>();
+        int[] found = FarTreeCells.squares(pack, TREE, 0, 0, skipped);
+        check(Arrays.equals(found, new int[] {at(41, 50)}), "the tree of the chunk that reads is found: " + Arrays.toString(found));
+        check(skipped.size() == 1 && skipped.get(0).getMessage().contains("chunk 3, 4"), "the chunk placed past the end is skipped and said: " + skipped);
     }
 
     private static void aTileTheHeaderHasNotIsRefused() {
