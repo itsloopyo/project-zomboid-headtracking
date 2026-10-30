@@ -5751,7 +5751,9 @@ final class WorldScene {
             sprites = counted;
             tollStaleAsked++;
             // A build beside may itself be the asking that reads a roof again, which then tells the chunk: that is the signal working.
-            boolean due = ChunkMarks.told(chunk.wx, chunk.wy) != toldNow || signed && sum != standing.signature;
+            // One that waited for what is not read yet and is kept for it is held to its sum when swept, as a signed one is.
+            boolean summed = standing.readingsAtBuild >= 0;
+            boolean due = ChunkMarks.told(chunk.wx, chunk.wy) != toldNow || summed && sum != standing.signature;
             if ((crownsStale || grownStale) && !due) {
                 tollStale++;
                 Log.info(String.format(Locale.ROOT, "stale build: the chunk at %d, %d (%d, %d), %.0f tiles off, band %d, built %.1f s ago, would have other %s now, with its sum, what it was told and its heights the same",
@@ -5765,7 +5767,7 @@ final class WorldScene {
                 tollStale++;
                 Log.info(String.format(Locale.ROOT, "stale build: the chunk at %d, %d (%d, %d), %.0f tiles off, band %d, built %.1f s ago and %.1f s old, would be built otherwise now: its sum %s, told %s, heights %s, map round it %s, plain %b, this build asked for what is not read yet %b",
                         chunk.wx, chunk.wy, chunkX, chunkY, distance, standing.band, (now - standing.builtNanos) / 1e9, (now - standing.bornNanos) / 1e9,
-                        !signed ? "was not taken" : sum == standing.signature ? "the same" : "another", toldNow == standing.told ? "the same" : "another",
+                        !summed ? "was not taken" : sum == standing.signature ? "the same" : "another", toldNow == standing.told ? "the same" : "another",
                         landNow == standing.land ? "the same" : "another", ring == standing.ring ? "the same" : "another", plain, asked));
                 long[] now2 = meshesOf(solid, laid);
                 int said = 0;
