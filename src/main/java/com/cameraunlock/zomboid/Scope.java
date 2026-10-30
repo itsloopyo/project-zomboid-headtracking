@@ -659,19 +659,28 @@ final class Scope {
         }
         power = ScopeOptics.magnification(glass, zoom);
         pictureTan = ScopeOptics.pictureTan(glass, zoom);
-        sees.moveEye(aim.rightX * held[0] + aim.upX * held[1] + aim.forwardX * held[2], aim.rightY * held[0] + aim.upY * held[1] + aim.forwardY * held[2],
-                aim.rightUp * held[0] + aim.upUp * held[1] + aim.forwardUp * held[2]);
-        sees.rightX = aim.rightX * held[3] + aim.upX * held[4] + aim.forwardX * held[5];
-        sees.rightY = aim.rightY * held[3] + aim.upY * held[4] + aim.forwardY * held[5];
-        sees.rightUp = aim.rightUp * held[3] + aim.upUp * held[4] + aim.forwardUp * held[5];
-        sees.upX = aim.rightX * held[6] + aim.upX * held[7] + aim.forwardX * held[8];
-        sees.upY = aim.rightY * held[6] + aim.upY * held[7] + aim.forwardY * held[8];
-        sees.upUp = aim.rightUp * held[6] + aim.upUp * held[7] + aim.forwardUp * held[8];
-        sees.forwardX = aim.rightX * held[9] + aim.upX * held[10] + aim.forwardX * held[11];
-        sees.forwardY = aim.rightY * held[9] + aim.upY * held[10] + aim.forwardY * held[11];
-        sees.forwardUp = aim.rightUp * held[9] + aim.upUp * held[10] + aim.forwardUp * held[11];
+        objective(aim, held, sees);
         pictured = true;
         return true;
+    }
+
+    /**
+     * The pose the eyepiece's picture is drawn from: the objective, held against the aim as
+     * against() measured it, rebuilt whole from the aim every frame.
+     */
+    static void objective(ViewCamera.Pose aim, float[] held, ViewCamera.Pose into) {
+        into.eyeAt(aim.exactX() + aim.rightX * held[0] + aim.upX * held[1] + aim.forwardX * held[2],
+                aim.exactY() + aim.rightY * held[0] + aim.upY * held[1] + aim.forwardY * held[2],
+                aim.exactUp() + aim.rightUp * held[0] + aim.upUp * held[1] + aim.forwardUp * held[2]);
+        into.rightX = aim.rightX * held[3] + aim.upX * held[4] + aim.forwardX * held[5];
+        into.rightY = aim.rightY * held[3] + aim.upY * held[4] + aim.forwardY * held[5];
+        into.rightUp = aim.rightUp * held[3] + aim.upUp * held[4] + aim.forwardUp * held[5];
+        into.upX = aim.rightX * held[6] + aim.upX * held[7] + aim.forwardX * held[8];
+        into.upY = aim.rightY * held[6] + aim.upY * held[7] + aim.forwardY * held[8];
+        into.upUp = aim.rightUp * held[6] + aim.upUp * held[7] + aim.forwardUp * held[8];
+        into.forwardX = aim.rightX * held[9] + aim.upX * held[10] + aim.forwardX * held[11];
+        into.forwardY = aim.rightY * held[9] + aim.upY * held[10] + aim.forwardY * held[11];
+        into.forwardUp = aim.rightUp * held[9] + aim.upUp * held[10] + aim.forwardUp * held[11];
     }
 
     /** The tangent of half the angle this frame's picture for the eyepiece is drawn with. */

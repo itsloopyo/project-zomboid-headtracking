@@ -18,6 +18,7 @@ final class ScopeTests {
         Checks.run("mouseMovesTheScopesPictureAsFarAsTheHipsView", ScopeTests::mouseMovesTheScopesPictureAsFarAsTheHipsView);
         Checks.run("shapeIsWholeAndStandsOnTheRifle", ScopeTests::shapeIsWholeAndStandsOnTheRifle);
         Checks.run("eyeIsHeldOnTheAxisTheReliefBehindTheEyepiece", ScopeTests::eyeIsHeldOnTheAxisTheReliefBehindTheEyepiece);
+        Checks.run("pictureIsDrawnFromTheObjectiveEveryFrame", ScopeTests::pictureIsDrawnFromTheObjectiveEveryFrame);
     }
 
     private static void onlyTheThreeMagnifyingScopesAreKnown() {
@@ -225,6 +226,22 @@ final class ScopeTests {
         check(Math.abs(seen[0]) < 1e-5f && Math.abs(seen[1]) < 1e-5f && Math.abs(seen[2]) < 1e-5f,
                 "the eye is on the exit pupil, not (" + seen[0] + ", " + seen[1] + ", " + seen[2] + ") from it");
         check(sighted[0] < 0f, "the barrel is under the eye");
+    }
+
+    private static void pictureIsDrawnFromTheObjectiveEveryFrame() {
+        ViewCamera.Pose aim = new ViewCamera.Pose();
+        aim.eyeAt(10612.25, 9874.5, 1.75);
+        aim.rightX = 1f;
+        aim.forwardY = 1f;
+        aim.upUp = 1f;
+        float[] held = {0.1f, 0.2f, 0.3f, 1f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f};
+        ViewCamera.Pose sees = new ViewCamera.Pose();
+        for (int frame = 0; frame < 3; frame++) {
+            Scope.objective(aim, held, sees);
+            check(Math.abs(sees.exactX() - (10612.25 + 0.1f)) < 1e-6 && Math.abs(sees.exactY() - (9874.5 + 0.3f)) < 1e-6
+                            && Math.abs(sees.exactUp() - (1.75 + 0.2f)) < 1e-6,
+                    "frame " + frame + ": the picture is drawn from the objective, not from (" + sees.exactX() + ", " + sees.exactY() + ", " + sees.exactUp() + ")");
+        }
     }
 
     private static void check(boolean condition, String what) {
