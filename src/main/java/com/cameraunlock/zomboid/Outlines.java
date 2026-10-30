@@ -114,7 +114,8 @@ final class Outlines {
      * @param interact the key of what the Interact key would act on, or NONE
      */
     static Frame gather(int playerIndex, long interact) {
-        Gathering gathering = new Gathering();
+        Gathering gathering = GATHERING;
+        gathering.count = 0;
         synchronized (HIGHLIGHTS) {
             for (Iterator<IsoObject> each = HIGHLIGHTS.iterator(); each.hasNext(); ) {
                 IsoObject object = each.next();
@@ -122,8 +123,8 @@ final class Outlines {
                     each.remove();
                     continue;
                 }
-                long key = key(object);
-                if (object.isHighlighted(playerIndex) && key != NONE) {
+                long key = object.isHighlighted(playerIndex) ? key(object) : NONE;
+                if (key != NONE) {
                     ColorInfo colour = object.getHighlightColor(playerIndex);
                     gathering.add(key, colour.r, colour.g, colour.b, isFloor(object));
                 }
@@ -148,8 +149,8 @@ final class Outlines {
             }
         }
         for (IsoObject object : Outlines.<HashSet<IsoObject>>read(OUTLINED, Links.OUTLINED, FBORenderObjectOutline.getInstance())) {
-            long key = key(object);
-            if (object.isOutlineHighlight(playerIndex) && key != NONE) {
+            long key = object.isOutlineHighlight(playerIndex) ? key(object) : NONE;
+            if (key != NONE) {
                 int abgr = object.getOutlineHighlightCol(playerIndex);
                 gathering.add(key, Color.getRedChannelFromABGR(abgr), Color.getGreenChannelFromABGR(abgr), Color.getBlueChannelFromABGR(abgr),
                         isFloor(object));
@@ -180,7 +181,9 @@ final class Outlines {
         return square != null && square.getFloor() == object;
     }
 
-    /** What one picture outlines as it is gathered. */
+    /** What one picture outlines as it is gathered: one, filled anew by each gather, on the logic thread. */
+    private static final Gathering GATHERING = new Gathering();
+
     private static final class Gathering {
         long[] keys = new long[8];
         float[] colours = new float[24];
