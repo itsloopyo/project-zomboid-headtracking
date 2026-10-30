@@ -13,7 +13,8 @@ final class BlastTests {
     static void run() {
         Checks.run("aHoleTakesItsOwnAreaOutOfAFace", BlastTests::aHoleTakesItsOwnAreaOutOfAFace);
         Checks.run("nothingIsLeftInsideAHole", BlastTests::nothingIsLeftInsideAHole);
-        Checks.run("aFaceAwayFromTheHoleIsLeftAsItIs", BlastTests::aFaceAwayFromTheHoleIsLeftAsItIs);
+        Checks.run("whatIsLeftOfAFaceHasNoCracks", BlastTests::whatIsLeftOfAFaceHasNoCracks);
+        Checks.run("aFaceAwayFromTheHoleIsLeftAsItIs",BlastTests::aFaceAwayFromTheHoleIsLeftAsItIs);
         Checks.run("aFaceAlongThePlaneIsCutWhereItsLineRunsThroughTheHole", BlastTests::aFaceAlongThePlaneIsCutWhereItsLineRunsThroughTheHole);
         Checks.run("aFaceOutOfReachIsNotCut", BlastTests::aFaceOutOfReachIsNotCut);
         Checks.run("aHoleThroughTwoFacesIsLinedBetweenThem", BlastTests::aHoleThroughTwoFacesIsLinedBetweenThem);
@@ -101,6 +102,89 @@ final class BlastTests {
             }
         }
         check(inside == 0, "no triangle left has its middle in the hole: " + inside + " do");
+    }
+
+    /**
+     * Holes through a face drawn as a grid of quads, and through one large triangle a hole sits
+     * wholly inside: every edge of what is left is either on the face's border or the hole's, or
+     * is the edge of another triangle the other way round, to the bit. An edge with no such twin
+     * off both borders is a crack the world behind shows through.
+     */
+    private static void whatIsLeftOfAFaceHasNoCracks() {
+        float[][] places = {{0.5f, 1f}, {0.37f, 0.61f}, {0.25f, 1.25f}, {0.81f, 0.5f}, {0.6f, 1.4f}};
+        for (int seed = 0; seed < places.length; seed++) {
+            SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+            for (int i = 0; i < 4; i++) {
+                for (int j = 0; j < 8; j++) {
+                    face(mesh, i * 0.25f, (i + 1) * 0.25f, j * 0.25f, (j + 1) * 0.25f, 0f);
+                }
+            }
+            MeshCut cut = new MeshCut(0f, 0f, 1f, 0f, 0.05f);
+            float[] one = MeshCut.outline(places[seed][0], places[seed][1], 0.1f, 0.12f, 0.3f, 18, seed * 77 + 5);
+            float[] two = MeshCut.outline(places[seed][0] + 0.09f, places[seed][1] - 0.05f, 0.06f, 0.07f, 0.3f, 18, seed * 77 + 6);
+            cut.hole(one, places[seed][0], places[seed][1]);
+            cut.hole(two, places[seed][0] + 0.09f, places[seed][1] - 0.05f);
+            cut.cut(mesh, 0);
+            int cracks = cracks(mesh, 0f, 1f, 0f, 2f, one, two);
+            check(cracks == 0, "a grid cut by two holes at " + places[seed][0] + ", " + places[seed][1] + " has no cracks: " + cracks + " edges have no twin");
+        }
+        SpriteGeometry.Mesh big = new SpriteGeometry.Mesh();
+        face(big, 0f, 4f, 0f, 4f, 0f);
+        MeshCut cut = new MeshCut(0f, 0f, 1f, 0f, 0.05f);
+        float[] inner = MeshCut.outline(3f, 1f, 0.1f, 0.12f, 0.3f, 18, 99);
+        cut.hole(inner, 3f, 1f);
+        cut.cut(big, 0);
+        check(Math.abs(areaAcross(big, 0) - (16f - polygonArea(inner))) < 1e-3f, "a hole wholly inside one triangle takes its own area: kept " + areaAcross(big, 0));
+        check(cracks(big, 0f, 4f, 0f, 4f, inner) == 0, "and leaves no cracks");
+    }
+
+    /** The edges of the mesh's triangles that have no twin the other way round and are on neither the face's border nor an outline. */
+    private static int cracks(SpriteGeometry.Mesh mesh, float s0, float s1, float t0, float t1, float[]... outlines) {
+        java.util.HashSet<String> edges = new java.util.HashSet<>();
+        float[] f = mesh.vertices;
+        for (int at = 0; at < mesh.floats; at += 3 * V) {
+            for (int k = 0; k < 3; k++) {
+                edges.add(edgeKey(f, at + k * V, at + (k + 1) % 3 * V));
+            }
+        }
+        int cracks = 0;
+        for (int at = 0; at < mesh.floats; at += 3 * V) {
+            for (int k = 0; k < 3; k++) {
+                int a = at + k * V, b = at + (k + 1) % 3 * V;
+                if (edges.contains(edgeKey(f, b, a))) {
+                    continue;
+                }
+                float s = (f[a] + f[b]) / 2f, t = (f[a + 2] + f[b + 2]) / 2f;
+                boolean border = Math.abs(s - s0) < 1e-5f || Math.abs(s - s1) < 1e-5f || Math.abs(t - t0) < 1e-5f || Math.abs(t - t1) < 1e-5f;
+                boolean rim = false;
+                for (float[] o : outlines) {
+                    rim |= nearOutline(o, s, t);
+                }
+                if (!border && !rim) {
+                    cracks++;
+                }
+            }
+        }
+        return cracks;
+    }
+
+    private static String edgeKey(float[] f, int a, int b) {
+        return Float.floatToRawIntBits(f[a]) + "," + Float.floatToRawIntBits(f[a + 1]) + "," + Float.floatToRawIntBits(f[a + 2]) + ">"
+                + Float.floatToRawIntBits(f[b]) + "," + Float.floatToRawIntBits(f[b + 1]) + "," + Float.floatToRawIntBits(f[b + 2]);
+    }
+
+    private static boolean nearOutline(float[] o, float s, float t) {
+        int points = o.length / 2;
+        for (int i = 0; i < points; i++) {
+            int j = (i + 1) % points;
+            float pS = o[2 * i], pT = o[2 * i + 1], dS = o[2 * j] - pS, dT = o[2 * j + 1] - pT;
+            float share = Math.max(0f, Math.min(1f, ((s - pS) * dS + (t - pT) * dT) / (dS * dS + dT * dT)));
+            float offS = s - (pS + dS * share), offT = t - (pT + dT * share);
+            if (offS * offS + offT * offT < 1e-9f) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void aFaceAwayFromTheHoleIsLeftAsItIs() {

@@ -11,9 +11,8 @@ import java.util.IdentityHashMap;
  * is up. A point of the plane is (s, t): s along it from the origin and t up, in tiles. A hole is a
  * ragged outline in the plane, wound anticlockwise round a middle it is a star about, and it goes
  * through whatever the thing drew within reach of the plane. A face that looks across the plane
- * (a leaf's face, a board's) is cut in the plane: wedge by wedge from the middle, each wedge's
- * share of the hole being the triangle of the middle and the edge, so that what a wedge keeps of
- * a face is the convex part beyond the edge, and the wedges between them cover the plane. A face
+ * (a leaf's face, a board's) is cut in the plane, keeping what lies outside the outline with no
+ * corner on its edges but where the outline crosses them (see cutFace). A face
  * that looks along it (a leaf's edge, a board's side) is cut where its line runs through the
  * outline. Then the sides of the hole are lined from the furthest face cut on one side of the
  * plane to the furthest on the other, in the light of a face that was cut, darker, as the wood
@@ -46,6 +45,8 @@ final class MeshCut {
     static final float MARK_OFF = 0.003f;
     /** A triangle with less area than this seen across the plane, in square tiles, looks along it. */
     private static final float EDGE_ON = 1e-7f;
+    /** A corner of an outline being cut into triangles that turns less than this, in square tiles, is on the line of its neighbours. */
+    private static final float FLAT = 1e-9f;
 
     private final float originX, originY, alongX, alongY, reach;
 
@@ -314,46 +315,271 @@ final class MeshCut {
         return true;
     }
 
-    /** A face across the plane: what of it lies outside the outline, wedge by wedge. */
-    private void cutFace(float[] tri, int at, Hole hole, float sA, float tA, float sB, float tB, float sC, float tC) {
-        float[] o = hole.outline;
-        int points = o.length / 2;
-        boolean outsideAll = true;
-        if (allOutside(hole, sA, tA, sB, tB, sC, tC)) {
-            keep(tri, at);
-            return;
-        }
-        for (int i = 0; i < points; i++) {
-            int j = (i + 1) % points;
-            float pS = o[2 * i], pT = o[2 * i + 1], qS = o[2 * j], qT = o[2 * j + 1];
-            start(sA, tA, sB, tB, sC, tC);
-            // Anticlockwise of the ray to p, clockwise of the ray to q, and beyond the edge pq.
-            clip(-(pT - hole.middleT), pS - hole.middleS, (pT - hole.middleT) * hole.middleS - (pS - hole.middleS) * hole.middleT);
-            clip(qT - hole.middleT, -(qS - hole.middleS), -(qT - hole.middleT) * hole.middleS + (qS - hole.middleS) * hole.middleT);
-            clip(qT - pT, -(qS - pS), -(qT - pT) * pS + (qS - pS) * pT);
-            emit(tri, at);
-            outsideAll = false;
-        }
-        if (outsideAll) {
-            keep(tri, at);
+    /** Where an edge of the outline crosses an edge of a face: its place round each, whether the face's edge runs into the hole there, and the vertex. */
+    private static final class Crossing {
+        final float faceKey, outlineKey;
+        final boolean intoTheHole;
+        final float[] vertex;
+        final float s, t;
+        int facePlace, outlinePlace;
+
+        Crossing(float faceKey, float outlineKey, boolean intoTheHole, float[] vertex, float s, float t) {
+            this.faceKey = faceKey;
+            this.outlineKey = outlineKey;
+            this.intoTheHole = intoTheHole;
+            this.vertex = vertex;
+            this.s = s;
+            this.t = t;
         }
     }
 
-    /** Whether the triangle is wholly clear of the outline: none of its corners in it, none of its edges across it, and the outline not in it. */
-    private static boolean allOutside(Hole hole, float sA, float tA, float sB, float tB, float sC, float tC) {
+    /**
+     * A face across the plane: what of it lies outside the outline, in triangles whose corners are
+     * the face's own, the outline's inside it, and where the outline crosses the face's edges. A
+     * crossing is worked out from the edge's two vertices taken in an order of their own, never the
+     * face's, so the face on the other side of the edge makes the same vertex to the bit, and no
+     * corner is put anywhere else on an edge: what is left meets its neighbours with no crack.
+     */
+    private void cutFace(float[] tri, int at, Hole hole, float sA, float tA, float sB, float tB, float sC, float tC) {
         float[] o = hole.outline;
         int points = o.length / 2;
-        if (inside(o, sA, tA) || inside(o, sB, tB) || inside(o, sC, tC)) {
-            return false;
+        boolean turned = (sB - sA) * (tC - tA) - (sC - sA) * (tB - tA) < 0f;
+        // The face's corners wound anticlockwise in the plane.
+        int[] corner = turned ? new int[] {at, at + 2 * V, at + V} : new int[] {at, at + V, at + 2 * V};
+        float[] cs = new float[3], ct = new float[3];
+        for (int k = 0; k < 3; k++) {
+            cs[k] = s(tri, corner[k]);
+            ct[k] = tri[corner[k] + 2];
         }
-        for (int i = 0; i < points; i++) {
-            int j = (i + 1) % points;
-            float pS = o[2 * i], pT = o[2 * i + 1], qS = o[2 * j], qT = o[2 * j + 1];
-            if (crosses(pS, pT, qS, qT, sA, tA, sB, tB) || crosses(pS, pT, qS, qT, sB, tB, sC, tC) || crosses(pS, pT, qS, qT, sC, tC, sA, tA)) {
-                return false;
+        ArrayList<Crossing> crossings = new ArrayList<>();
+        for (int e = 0; e < 3; e++) {
+            int u = corner[e], v = corner[(e + 1) % 3];
+            boolean uFirst = before(tri, u, v);
+            int first = uFirst ? u : v, second = uFirst ? v : u;
+            float fS = s(tri, first), fT = tri[first + 2], sS = s(tri, second), sT = tri[second + 2];
+            for (int j = 0; j < points; j++) {
+                int jj = (j + 1) % points;
+                float pS = o[2 * j], pT = o[2 * j + 1], qS = o[2 * jj], qT = o[2 * jj + 1];
+                float dFirst = side(pS, pT, qS, qT, fS, fT), dSecond = side(pS, pT, qS, qT, sS, sT);
+                if ((dFirst > 0f) == (dSecond > 0f)) {
+                    continue;
+                }
+                float dP = side(fS, fT, sS, sT, pS, pT), dQ = side(fS, fT, sS, sT, qS, qT);
+                if ((dP > 0f) == (dQ > 0f)) {
+                    continue;
+                }
+                float share = dFirst / (dFirst - dSecond);
+                float[] made = new float[V];
+                for (int i = 0; i < V; i++) {
+                    float x = tri[first + i], y = tri[second + i];
+                    made[i] = CODE[i] ? (share <= 0.5f ? x : y) : x + (y - x) * share;
+                }
+                float along = uFirst ? share : 1f - share;
+                float eS = cs[(e + 1) % 3] - cs[e], eT = ct[(e + 1) % 3] - ct[e];
+                boolean into = (qS - pS) * eT - (qT - pT) * eS > 0f;
+                crossings.add(new Crossing(e + along, j + dP / (dP - dQ), into, made, s(made, 0), made[2]));
             }
         }
-        return !inTriangle(o[0], o[1], sA, tA, sB, tB, sC, tC);
+        polygon.clear();
+        if (crossings.isEmpty()) {
+            if (inside(o, cs[0], ct[0])) {
+                return;
+            }
+            if (!inTriangle(o[0], o[1], cs[0], ct[0], cs[1], ct[1], cs[2], ct[2])) {
+                keep(tri, at);
+                return;
+            }
+            bridged(tri, at, corner, cs, ct, o, sA, tA, sB, tB, sC, tC);
+            triangulate(turned);
+            return;
+        }
+        int n = crossings.size();
+        if (n % 2 != 0) {
+            throw new IllegalStateException("an outline crosses a face's edges " + n + " times, an odd number");
+        }
+        Crossing[] byFace = crossings.toArray(new Crossing[0]), byOutline = crossings.toArray(new Crossing[0]);
+        java.util.Arrays.sort(byFace, (x, y) -> Float.compare(x.faceKey, y.faceKey));
+        java.util.Arrays.sort(byOutline, (x, y) -> Float.compare(x.outlineKey, y.outlineKey));
+        for (int i = 0; i < n; i++) {
+            byFace[i].facePlace = i;
+            byOutline[i].outlinePlace = i;
+        }
+        // Round the face from where its edge comes out of the hole to where it goes back in, then
+        // back round the outline to where the face's edge comes out again.
+        IdentityHashMap<Crossing, Boolean> done = new IdentityHashMap<>();
+        for (Crossing start : byFace) {
+            if (start.intoTheHole || done.containsKey(start)) {
+                continue;
+            }
+            polygon.clear();
+            Crossing out = start;
+            do {
+                done.put(out, true);
+                add(out.vertex, out.s, out.t);
+                Crossing in = byFace[(out.facePlace + 1) % n];
+                if (!in.intoTheHole) {
+                    throw new IllegalStateException("a face's edges come out of a hole twice running");
+                }
+                float span = in.faceKey - out.faceKey;
+                if (span <= 0f) {
+                    span += 3f;
+                }
+                for (int m = (int) Math.floor(out.faceKey) + 1; m - out.faceKey < span; m++) {
+                    int k = m % 3;
+                    add(tri, corner[k], cs[k], ct[k]);
+                }
+                done.put(in, true);
+                add(in.vertex, in.s, in.t);
+                out = byOutline[(in.outlinePlace - 1 + n) % n];
+                if (out.intoTheHole) {
+                    throw new IllegalStateException("an outline runs into a face twice running");
+                }
+                span = in.outlineKey - out.outlineKey;
+                if (span <= 0f) {
+                    span += points;
+                }
+                for (int m = (int) Math.floor(in.outlineKey); in.outlineKey - m < span; m--) {
+                    int k = (m % points + points) % points;
+                    addOutline(tri, at, o[2 * k], o[2 * k + 1], sA, tA, sB, tB, sC, tC);
+                }
+            } while (out != start);
+            triangulate(turned);
+        }
+    }
+
+    /** Whether vertex u comes before vertex v in an order of their own: by their floats in turn. */
+    private static boolean before(float[] tri, int u, int v) {
+        for (int i = 0; i < V; i++) {
+            if (tri[u + i] != tri[v + i]) {
+                return tri[u + i] < tri[v + i];
+            }
+        }
+        return true;
+    }
+
+    /** A face round a hole wholly inside it, as one outline: its corners, over to the nearest point of the hole a corner sees, round the hole the other way and back. */
+    private void bridged(float[] tri, int at, int[] corner, float[] cs, float[] ct, float[] o, float sA, float tA, float sB, float tB, float sC, float tC) {
+        int points = o.length / 2;
+        int fromCorner = -1, toPoint = -1;
+        float best = Float.POSITIVE_INFINITY;
+        for (int k = 0; k < 3; k++) {
+            for (int h = 0; h < points; h++) {
+                float hS = o[2 * h], hT = o[2 * h + 1];
+                float d = (hS - cs[k]) * (hS - cs[k]) + (hT - ct[k]) * (hT - ct[k]);
+                if (d >= best || inside(o, hS + (cs[k] - hS) * 1e-3f, hT + (ct[k] - hT) * 1e-3f)) {
+                    continue;
+                }
+                boolean seen = true;
+                for (int i = 0; i < points && seen; i++) {
+                    int j = (i + 1) % points;
+                    if (i != h && j != h && crosses(cs[k], ct[k], hS, hT, o[2 * i], o[2 * i + 1], o[2 * j], o[2 * j + 1])) {
+                        seen = false;
+                    }
+                }
+                if (seen) {
+                    best = d;
+                    fromCorner = k;
+                    toPoint = h;
+                }
+            }
+        }
+        if (fromCorner < 0) {
+            throw new IllegalStateException("no corner of a face sees the hole inside it");
+        }
+        for (int i = 0; i <= 3; i++) {
+            int k = (fromCorner + i) % 3;
+            add(tri, corner[k], cs[k], ct[k]);
+        }
+        for (int i = 0; i <= points; i++) {
+            int h = ((toPoint - i) % points + points) % points;
+            addOutline(tri, at, o[2 * h], o[2 * h + 1], sA, tA, sB, tB, sC, tC);
+        }
+    }
+
+    // The outline being cut into triangles: its corners in the plane and the vertex at each.
+    private final ArrayList<float[]> polygon = new ArrayList<>();
+    private float[] polygonS = new float[64], polygonT = new float[64];
+
+    private void add(float[] from, int at, float s, float t) {
+        float[] vertex = new float[V];
+        System.arraycopy(from, at, vertex, 0, V);
+        add(vertex, s, t);
+    }
+
+    private void add(float[] vertex, float s, float t) {
+        int k = polygon.size();
+        polygonS = room(polygonS, k + 1);
+        polygonT = room(polygonT, k + 1);
+        polygonS[k] = s;
+        polygonT[k] = t;
+        polygon.add(vertex);
+    }
+
+    /** A point of the outline inside the face at `at`, blended from its corners. */
+    private void addOutline(float[] tri, int at, float s, float t, float sA, float tA, float sB, float tB, float sC, float tC) {
+        float area = (sB - sA) * (tC - tA) - (sC - sA) * (tB - tA);
+        float b = ((s - sA) * (tC - tA) - (sC - sA) * (t - tA)) / area;
+        float c = ((sB - sA) * (t - tA) - (s - sA) * (tB - tA)) / area;
+        float[] vertex = new float[V];
+        blendAt(tri, at, 1f - b - c, b, c, vertex, 0);
+        add(vertex, s, t);
+    }
+
+    /**
+     * Cuts the outline, wound anticlockwise, into triangles by ears, adding no corner, and puts
+     * them in next wound as the face was. A corner on the line of its two neighbours is an ear of
+     * no area: it goes, drawing nothing, only when no ear is left.
+     */
+    private void triangulate(boolean turned) {
+        int n = polygon.size();
+        int[] left = new int[n];
+        for (int i = 0; i < n; i++) {
+            left[i] = i;
+        }
+        while (n >= 3) {
+            int ear = -1, flattest = -1;
+            float flat = Float.POSITIVE_INFINITY;
+            for (int i = 0; i < n && ear < 0; i++) {
+                int a = left[(i + n - 1) % n], b = left[i], c = left[(i + 1) % n];
+                float turn = side(polygonS[a], polygonT[a], polygonS[b], polygonT[b], polygonS[c], polygonT[c]);
+                if (Math.abs(turn) < flat) {
+                    flat = Math.abs(turn);
+                    flattest = i;
+                }
+                if (turn <= 0f) {
+                    continue;
+                }
+                boolean clear = true;
+                for (int m = 0; m < n && clear; m++) {
+                    int x = left[m];
+                    if (x == a || x == b || x == c || same(x, a) || same(x, b) || same(x, c)) {
+                        continue;
+                    }
+                    clear = !inTriangle(polygonS[x], polygonT[x], polygonS[a], polygonT[a], polygonS[b], polygonT[b], polygonS[c], polygonT[c]);
+                }
+                if (clear) {
+                    ear = i;
+                }
+            }
+            if (ear < 0 && flat > FLAT) {
+                throw new IllegalStateException("an outline of " + n + " corners has no ear, and its flattest corner turns " + flat);
+            }
+            int i = ear >= 0 ? ear : flattest;
+            if (ear >= 0) {
+                int a = left[(i + n - 1) % n], b = left[i], c = left[(i + 1) % n];
+                next = room(next, nextFloats + 3 * V);
+                System.arraycopy(polygon.get(a), 0, next, nextFloats, V);
+                System.arraycopy(polygon.get(turned ? c : b), 0, next, nextFloats + V, V);
+                System.arraycopy(polygon.get(turned ? b : c), 0, next, nextFloats + 2 * V, V);
+                nextFloats += 3 * V;
+            }
+            System.arraycopy(left, i + 1, left, i, n - i - 1);
+            n--;
+        }
+    }
+
+    private boolean same(int x, int y) {
+        return polygonS[x] == polygonS[y] && polygonT[x] == polygonT[y];
     }
 
     /** Whether (s, t) is inside the outline, by the crossings of a ray along s. */
