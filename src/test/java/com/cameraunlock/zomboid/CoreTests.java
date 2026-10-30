@@ -103,6 +103,7 @@ public final class CoreTests {
         Checks.run("aFileFromBeforeTheKeysMovedStartsOnTheNavKeys", CoreTests::aFileFromBeforeTheKeysMovedStartsOnTheNavKeys);
         Checks.run("eachPartOffAsTheGameStartsLeavesItsPatchesOut", CoreTests::eachPartOffAsTheGameStartsLeavesItsPatchesOut);
         Checks.run("rowsReadAgainWhileTheGameRuns", CoreTests::rowsReadAgainWhileTheGameRuns);
+        Checks.run("aCollisionMarginInsideTheNearPlaneIsNotTaken", CoreTests::aCollisionMarginInsideTheNearPlaneIsNotTaken);
         Checks.run("settingsOfTheGamesOptionsScreenAreSavedAndTaken", CoreTests::settingsOfTheGamesOptionsScreenAreSavedAndTaken);
         Checks.run("eachPlayersMicrophoneIsChosenAndSavedByItsName", CoreTests::eachPlayersMicrophoneIsChosenAndSavedByItsName);
         Checks.run("aGraphicsRowAppliedOnTheOptionsScreenGoesToCustom", CoreTests::aGraphicsRowAppliedOnTheOptionsScreenGoesToCustom);
@@ -862,6 +863,18 @@ public final class CoreTests {
         check(saved(back.toArray(String[]::new)), "and each ticked back is saved back as it was");
         edit(saved);
         Tracking.watchSettings();
+    }
+
+    private static void aCollisionMarginInsideTheNearPlaneIsNotTaken() throws IOException, InterruptedException {
+        String saved = text();
+        String edited = saved.replaceAll("(?m)^CollisionMargin=.*$", "CollisionMargin=0.05");
+        check(!edited.equals(saved), "the file has a CollisionMargin row");
+        edit(edited);
+        String next = nextStart("collision-margin-too-near");
+        check(next.contains("CollisionMargin=0.05 in " + Config.FILE_NAME + " is not more than " + WorldScene.NEAR_CORNER_DISTANCE)
+                        && next.contains("the row's default of " + Config.COLLISION_MARGIN + " is used"),
+                "a margin nearer than the near plane's corners is said and not taken");
+        edit(saved);
     }
 
     private static void rowsReadAgainWhileTheGameRuns() throws IOException, InterruptedException {

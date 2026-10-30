@@ -170,6 +170,12 @@ final class Tracking {
         config = new Config(core);
         CameraUnlock.Config loaded = config.load(gameDirectory.resolve(Config.FILE_NAME), defaults);
         settings = loaded.settings;
+        // Core's range for the concept starts at 0, and nearer than the near plane's corners the eye would see through the wall it is held off.
+        if (!(settings.collisionMargin > WorldScene.NEAR_CORNER_DISTANCE)) {
+            Log.error("CollisionMargin=" + settings.collisionMargin + " in " + Config.FILE_NAME + " is not more than " + WorldScene.NEAR_CORNER_DISTANCE
+                    + " tiles, the near plane's reach, so a lean would see through a wall: the row's default of " + Config.COLLISION_MARGIN + " is used");
+            settings.collisionMargin = Float.parseFloat(Config.COLLISION_MARGIN);
+        }
         if (settings.aimMode == CameraUnlock.AIM_TRUE_FREE_LOOK) {
             settings.aimMode = CameraUnlock.AIM_FREE_LOOK_MARKER;
         }
