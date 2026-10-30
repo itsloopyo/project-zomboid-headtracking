@@ -30,7 +30,7 @@ Press `Delete` to switch between the isometric view and first person, on foot or
 - **New graphics in both views** - lighting, shadows, models, textures and reflections in Medium and High, plus light beams through fog in first person. High adds sharper shadows and depth on surfaces up close.
 - **Fire** - the game's flames stand upright in the 3D world, and Medium and High add smoke, embers and firelight to burning buildings, Molotovs and campfires.
 - **Sound** - turns with your view, and walls between you and a sound muffle it.
-- **Adjustable** - automatic or manual quality, three picture styles, field of view and hill height, and any of the replacement models or textures can be switched back to the game's own.
+- **Adjustable** - automatic or manual quality, five picture styles, field of view and hill height, and any of the replacement models or textures can be switched back to the game's own.
 
 ### Combat
 
@@ -83,7 +83,7 @@ Zombies, and rooms and vehicles with no other player in them, look the same as t
 
 ### Lopari
 
-Once this mod is available in Lopari, download [Lopari](https://lopari.app), choose **Project Zomboid**, and click **Play with head tracking**.
+Download [Lopari](https://lopari.app), choose **Project Zomboid**, and click **Play with head tracking**.
 
 ### Standalone installer
 
@@ -113,7 +113,7 @@ Both scripts work in the game folder you pick:
 | `ProjectZomboidHeadTracking.log`, `ProjectZomboidHeadTracking.prev.log` | Leaves them alone; the mod writes these when it runs | Removes them |
 | `CameraUnlock.ini` | Keeps your settings; the mod creates this file on first launch if it's missing | Keeps it |
 
-The game's own files and your saves aren't touched. Both scripts also remove `ProjectZomboidHeadTracking.dll` and `CameraUnlockCore.dll` if they find them.
+The game's own files and your saves aren't touched.
 
 **Reinstalling overwrites any changes you've made to `ProjectZomboid64.site.json`.** If there's already a `ProjectZomboid64.site.json` that doesn't mention this mod's jar, the installer leaves it alone and stops. Deleting `ProjectZomboid64.site.json` puts the game back to starting normally.
 
@@ -180,7 +180,7 @@ With the game's file from build 42.21.0, the result starts like this:
 
 Start from your own `ProjectZomboid64.json` rather than copying this, because another build can have other settings. The game reads `ProjectZomboid64.site.json` instead of `ProjectZomboid64.json`, so after every game update, make the site file again from the game's new file (steps 4 and 5). Running the installer again does the same.
 
-To remove a manual install, delete these from the game folder: `ProjectZomboidHeadTracking.jar`, the art jars `ProjectZomboidHeadTracking-*.jar`, `ProjectZomboid64.site.json`, `ProjectZomboidHeadTracking.log` and `ProjectZomboidHeadTracking.prev.log`, plus `.headtracking-state.json`, `ProjectZomboidHeadTracking.dll` and `CameraUnlockCore.dll` if the installer or an older version left them there. `CameraUnlock.ini` holds your settings, so delete it too if you don't want to keep them.
+To remove a manual install, delete these from the game folder: `ProjectZomboidHeadTracking.jar`, the art jars `ProjectZomboidHeadTracking-*.jar`, `ProjectZomboid64.site.json`, `ProjectZomboidHeadTracking.log` and `ProjectZomboidHeadTracking.prev.log`, plus `.headtracking-state.json` if the installer left it there. `CameraUnlock.ini` holds your settings, so delete it too if you don't want to keep them.
 
 ## Setting Up OpenTrack
 
@@ -275,7 +275,7 @@ Every key saves its new setting to `CameraUnlock.ini` as you press it, and `Dele
 
 ### Mouse and keyboard
 
-The mouse turns the view, and the movement keys move you relative to where you're looking. If you walk or sneak in any direction other than straight ahead, diagonals included, your character keeps facing where you look, in the game's aiming stance but at the speed you'd walk or sneak forwards. Jogging and sprinting only go straight ahead: try it in any other direction and you walk. That's how it works offline and on servers without PvP. Set `FacesTheView=false` if you'd rather your character always turned to face the way it's going, as in vanilla. On a PvP server your character only keeps facing where you look when walking sideways or backwards, at the game's slower aiming speed: see [Multiplayer](#multiplayer).
+The mouse turns the view, and the movement keys move you relative to where you're looking. If you walk or sneak in any direction other than straight ahead, diagonals included, your character keeps facing where you look, in the game's aiming stance but at the speed you'd walk or sneak forwards. Jogging and sprinting go straight ahead or on a forward diagonal, at the game's own pace. Try them sideways or backwards and you walk. That's how it works offline and on servers without PvP. Set `FacesTheView=false` if you'd rather your character always turned to face the way it's going, as in vanilla. On a PvP server your character only keeps facing where you look when walking sideways or backwards, at the game's slower aiming speed: see [Multiplayer](#multiplayer).
 
 | Input | Action |
 | --- | --- |
@@ -878,7 +878,7 @@ For help, ask on [Discord](https://discord.com/invite/dxyZdyFNT9) or [report an 
 
 ## Updating
 
-Steam keeps the Workshop version up to date for you. With the standalone installer, run the new release's `install.cmd`, and run it again after every game update too. For a manual install, copy every `.jar` from the new release's `plugins` folder over the old ones, delete `ProjectZomboidHeadTracking.dll` and `CameraUnlockCore.dll` if they're there, and redo steps 4 and 5. Your settings in `CameraUnlock.ini` are kept either way.
+Steam keeps the Workshop version up to date for you. With the standalone installer, run the new release's `install.cmd`, and run it again after every game update too. For a manual install, copy every `.jar` from the new release's `plugins` folder over the old ones and redo steps 4 and 5. Your settings in `CameraUnlock.ini` are kept either way.
 
 ## Uninstalling
 
