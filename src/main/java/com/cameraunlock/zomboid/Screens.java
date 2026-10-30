@@ -128,6 +128,8 @@ final class Screens {
             }
             shots = pictures;
             asked = new AtomicIntegerArray(read.count());
+            // Before any set is known to show anything: the render thread reads the bars of a show with no shots without asking.
+            bars();
             shows = read;
         }
         return read;
