@@ -1114,6 +1114,8 @@ final class WorldScene {
     private float roomShare = -1f, lampLevel = -1f;
     /** When the lights of what the game has given no light were last eased towards their readings: see UNLIT_EASE_SECONDS. */
     private long unlitEasedAt;
+    /** The last frame's TooDark, which a frame between readings takes its block from: the frames take turns, as for unlitEasedAt. */
+    private TooDark lastDark;
     /**
      * Those lights as eased so far, handed to each frame's sky (SkyState.openUnlit, daylight, roomLight
      * and lampLight). Kept here and not in the sky: the frames take turns, four of them, so a sky's own
@@ -4419,7 +4421,8 @@ final class WorldScene {
             roomLitNow = (roomLightEased[0] + roomLightEased[1] + roomLightEased[2]) / 3f;
             lampLitNow = (lampLightEased[0] + lampLightEased[1] + lampLightEased[2]) / 3f;
             daylightLitNow = (daylightEased[0] + daylightEased[1] + daylightEased[2]) / 3f;
-            tooDark.take(view);
+            tooDark.take(view, lastDark);
+            lastDark = tooDark;
 
             // The loaded map is a square of chunks, and it ends in nothing. The picture fades into the
             // sky by the round that just fits inside it, so the edge is never seen. The square is not

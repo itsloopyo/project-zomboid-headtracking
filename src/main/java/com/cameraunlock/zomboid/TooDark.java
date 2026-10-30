@@ -33,7 +33,8 @@ import zombie.iso.IsoWorld;
  *
  * Three levels of a block of SIDE by SIDE squares round the viewer, the viewer's level in the
  * middle, read on the logic thread with the frame every REREAD frames, and read whole by the
- * render thread when that frame is drawn, as Sight is.
+ * render thread when that frame is drawn, as Sight is. The frames take turns, so one between
+ * readings takes a copy of the last frame's: its own is a turn of all of them old.
  */
 final class TooDark {
     static final int SIDE = 64, LEVELS = 3;
@@ -53,6 +54,9 @@ final class TooDark {
     final FloatBuffer lift = ByteBuffer.allocateDirect(SIDE * SIDE * Float.BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
     /** Whether the block has been read once. */
     boolean read;
+    /** Which reading the block holds, the same in each copy of it: the render thread sends a block to the card once a reading. */
+    long reading;
+    private static long readings;
     private int frames;
     private final int[] strongest = new int[SIDE * SIDE], mean = new int[SIDE * SIDE];
     private final int[] scratch = new int[SIDE * SIDE], taken = new int[SIDE * SIDE];
@@ -83,12 +87,23 @@ final class TooDark {
         return Math.min((float) Math.pow(gameMean / drawnMean, 2.2), MOST_RATIO);
     }
 
-    /** Reads the block round the viewer again when it is due. Logic thread. */
-    void take(View view) {
-        if (read && ++frames < REREAD) {
+    /** Reads the block round the viewer again when it is due, or takes last's, the frame before's, while it is not. Logic thread. */
+    void take(View view, TooDark last) {
+        if (last != null && last.read && last.frames + 1 < REREAD) {
+            if (last != this) {
+                x = last.x;
+                y = last.y;
+                level = last.level;
+                reading = last.reading;
+                map.put(0, last.map, 0, map.capacity());
+                lift.put(0, last.lift, 0, lift.capacity());
+                read = true;
+            }
+            frames = last.frames + 1;
             return;
         }
         frames = 0;
+        reading = ++readings;
         IsoPlayer player = view.player();
         IsoCell cell = IsoWorld.instance == null ? null : IsoWorld.instance.currentCell;
         if (player == null || cell == null) {

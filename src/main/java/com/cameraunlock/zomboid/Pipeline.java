@@ -655,6 +655,8 @@ final class Pipeline {
     /** Where the game counts a square too dark round the viewer, or null before the first build: see TooDark. */
     TooDark tooDark;
     private int darkTexture, darkLiftTexture;
+    /** The TooDark reading the two hold. */
+    private long darkSent;
     /** Which air round the eye is in a room, or null before the first build: see RoomAir. */
     RoomAir roomAir;
     private int roomAirTexture;
@@ -3636,6 +3638,8 @@ final class Pipeline {
         GL11.glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
         GL11.glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
         GL11.glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+        boolean sends = darkTexture == 0 || tooDark.reading != darkSent;
+        darkSent = tooDark.reading;
         GL13.glActiveTexture(GL_TEXTURE0 + DEVELOP_DARK_UNIT);
         if (darkTexture == 0) {
             darkTexture = GL11.glGenTextures();
@@ -3644,7 +3648,9 @@ final class Pipeline {
             filter(GL_LINEAR);
         }
         GL11.glBindTexture(GL_TEXTURE_2D, darkTexture);
-        GL11.glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, TooDark.SIDE, TooDark.SIDE * TooDark.LEVELS, GL_RG, GL_FLOAT, tooDark.map);
+        if (sends) {
+            GL11.glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, TooDark.SIDE, TooDark.SIDE * TooDark.LEVELS, GL_RG, GL_FLOAT, tooDark.map);
+        }
         GL13.glActiveTexture(GL_TEXTURE0 + DEVELOP_DARK_LIFT_UNIT);
         if (darkLiftTexture == 0) {
             darkLiftTexture = GL11.glGenTextures();
@@ -3653,7 +3659,9 @@ final class Pipeline {
             filter(GL_NEAREST);
         }
         GL11.glBindTexture(GL_TEXTURE_2D, darkLiftTexture);
-        GL11.glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, TooDark.SIDE, TooDark.SIDE, GL_RED, GL_FLOAT, tooDark.lift);
+        if (sends) {
+            GL11.glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, TooDark.SIDE, TooDark.SIDE, GL_RED, GL_FLOAT, tooDark.lift);
+        }
         GL13.glActiveTexture(GL_TEXTURE0);
         develop.set("uDarkAt", tooDark.x - camera.eyeX, tooDark.y - camera.eyeY, 1f / TooDark.SIDE, 1f);
         develop.set("uDarkLevel", camera.eyeUp, tooDark.level, 1f / ViewCamera.LEVEL_HEIGHT);
