@@ -918,6 +918,32 @@ public final class CoreTests {
         check(saved("Style=Bleak", "FieldOfView=80", "VanillaArms=true"), "a save made before the watch has looked at an edit leaves the edited row in the file too");
         Tracking.watchSettings();
         check(FieldOfView.degrees() == 80f && Style.of(0) == Style.BLEAK, "and the watch still reads the edit: " + FieldOfView.degrees());
+
+        // As if ticked on the options screen with the saves still queued behind a reload of another row.
+        Crosshair.set(false);
+        Own.update(rows -> rows & ~Own.FURNITURE);
+        Rules.update(rows -> rows ^ Rules.WOUNDS);
+        int rules = Rules.rows();
+        edit(text().replace("FieldOfView=80", "FieldOfView=70"));
+        Tracking.watchSettings();
+        check(FieldOfView.degrees() == 70f && !Crosshair.on() && (Own.rows() & Own.FURNITURE) == 0 && Rules.rows() == rules,
+                "a reload takes only the rows the file changed, and leaves what the session changed since: " + Own.described(Own.rows()));
+        Crosshair.set(true);
+        Own.update(rows -> rows | Own.FURNITURE);
+        Rules.update(rows -> rows ^ Rules.WOUNDS);
+
+        Style before = Style.of(0);
+        Tracking.cycleStyle(0);
+        savesMade();
+        edit(text().replace("Style=" + Style.of(0).label, "Style=" + before.label));
+        Tracking.watchSettings();
+        check(Style.of(0) == before, "a row the mod saved and the player then edits back by hand is read: " + Style.of(0).label);
+        boolean firstPerson = Tracking.firstPersonRemembered(0);
+        Tracking.rememberFirstPerson(0, !firstPerson);
+        savesMade();
+        edit(text().replace("\r\nFirstPerson=" + !firstPerson + "\r\n", "\r\nFirstPerson=" + firstPerson + "\r\n"));
+        Tracking.watchSettings();
+        check(Tracking.firstPersonRemembered(0) == firstPerson, "and so is a FirstPerson row the mod saved and the player edits back by hand");
     }
 
     private static int optionNamed(CameraUnlock.Option[] options, String id) {
@@ -1230,6 +1256,20 @@ public final class CoreTests {
         Tracking.watchSettings();
         check(Quality.name(0).equals("Custom") && Quality.sight(0) == 60 && saved("Quality=Custom", "ViewDistance=60"),
                 "and the mode and a row edited together is Custom with the edit");
+        // As if applied on the options screen with its save still queued behind a reload of another row of [Graphics].
+        double[] applied = Config.values(Quality.custom());
+        applied[3] = 84;
+        Quality.custom(Config.picture(applied));
+        java.util.regex.Matcher grass = java.util.regex.Pattern.compile("(?m)^GrassDensity=(\\d+)").matcher(text());
+        check(grass.find(), "the file has a GrassDensity row");
+        int grassWas = Integer.parseInt(grass.group(1)), grassNow = grassWas == 50 ? 100 : 50;
+        edit(text().replace("GrassDensity=" + grassWas, "GrassDensity=" + grassNow));
+        Tracking.watchSettings();
+        check(Quality.custom().viewDistance() == 84 && Quality.custom().grassDensity() == grassNow,
+                "a row of [Graphics] edited in the file is taken and leaves the rows the session changed since: " + Quality.custom());
+        applied = Config.values(Quality.custom());
+        applied[3] = 60;
+        Quality.custom(Config.picture(applied));
     }
 
     private static void theGrassDensityGoesToCustomAsTheOtherRowsDo() throws IOException, InterruptedException {

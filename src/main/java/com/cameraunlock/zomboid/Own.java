@@ -75,6 +75,11 @@ final class Own {
         on = bits;
     }
 
+    /** Changes some bits at once: a reload of the file on the config thread and a tick on the options screen may change them together. */
+    static synchronized void update(java.util.function.IntUnaryOperator change) {
+        on = change.applyAsInt(on);
+    }
+
     static boolean weapons(int view) {
         return (on(view) & WEAPONS) != 0;
     }

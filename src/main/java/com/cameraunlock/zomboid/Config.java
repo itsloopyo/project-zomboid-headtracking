@@ -454,7 +454,7 @@ final class Config {
         for (int i = 0; i < VANILLA_KEYS.length; i++) {
             int bit = 1 << i;
             puts.put(VANILLA_KEYS[i], value -> {
-                Own.set(value != 0 ? Own.rows() & ~bit : Own.rows() | bit);
+                Own.update(rows -> value != 0 ? rows & ~bit : rows | bit);
                 Log.info("the mod's own in first person: " + Own.described(Own.rows()));
             });
         }
@@ -471,7 +471,7 @@ final class Config {
         for (int i = 0; i < RULE_KEYS.length; i++) {
             int bit = 1 << i;
             puts.put(RULE_KEYS[i], value -> {
-                Rules.set(value != 0 ? Rules.rows() | bit : Rules.rows() & ~bit);
+                Rules.update(rows -> value != 0 ? rows | bit : rows & ~bit);
                 Log.info("the mod's rules offline: " + Rules.described(Rules.rows()));
             });
         }

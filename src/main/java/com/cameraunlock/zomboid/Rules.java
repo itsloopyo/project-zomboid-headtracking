@@ -35,6 +35,11 @@ final class Rules {
         on = bits;
     }
 
+    /** Changes some bits at once: a reload of the file on the config thread and a tick on the options screen may change them together. */
+    static synchronized void update(java.util.function.IntUnaryOperator change) {
+        on = change.applyAsInt(on);
+    }
+
     /** Whether a first person shot goes on through thin walls and doors: see Penetration. */
     static boolean throughWalls() {
         return !Online.contested() && (on & THROUGH_WALLS) != 0;

@@ -76,11 +76,6 @@ final class Tracking {
     private static final boolean[] backHeld = new boolean[View.COUNT];
 
     /**
-     * The rows of [Graphics] as the file holds them, as far as the config thread knows: what the
-     * watch tells an edit of them by. Only the config thread has it once the file is read.
-     */
-    private static Quality.Picture customInFile;
-    /**
      * The players whose graphics mode changed other than by its key, a bit each by number: to
      * Custom, or lowered for split screen. The next frame drawn says so on their screens as the key does.
      */
@@ -189,14 +184,12 @@ final class Tracking {
         Part.start(live.parts());
         Own.set(live.own());
         Rules.set(live.rules());
-        customInFile = live.custom();
         Quality.custom(live.custom());
         for (int player = 0; player < View.COUNT; player++) {
             Quality.set(player, live.quality()[player]);
             Quality.setOverhead(player, live.overheadQuality()[player]);
             Style.set(player, live.style()[player]);
         }
-        firstPersonInFile = live.firstPerson();
         firstPersonAtLoad.set(live.firstPerson());
         HillHeight.set(live.hillHeight());
         MuzzleFlash.set(live.muzzleFlash());
@@ -205,7 +198,7 @@ final class Tracking {
         PendingLights.set(live.spreadLightUpdates());
         SplitScreen.set(live.splitScreen());
         FieldOfView.set(live.fieldOfView());
-        talk(live);
+        talk(live.talkingMouths(), live.microphones());
         Log.info("the mod's own in first person: " + Own.described(Own.rows()));
         Log.info("the mod's rules offline: " + Rules.described(Rules.rows()));
         Log.info("the mod's parts: " + Part.described());
@@ -259,9 +252,12 @@ final class Tracking {
     /** FieldOfView, Quality, IsometricQuality, Style, HillHeight, MuzzleFlash, SplitScreen and the rows of [Content] and [Graphics] are the settings read again while the game runs: every other row is read at the start. */
     static void watchSettings() {
         try {
+            // Core's rows as the file last gave them or a save put them, before the reload: a row the reload changes was edited in the file.
+            // A key or the options screen may have changed the session's since, with its save still queued behind this.
+            Config.Live was = config.live();
             Config.Live live = config.reload();
             if (live != null) {
-                take(live);
+                take(was, live);
             }
         } catch (RuntimeException failure) {
             // Nothing is above this on the thread: left uncaught, the reason never reaches the log.
@@ -272,15 +268,20 @@ final class Tracking {
     }
 
     /** Puts the rows read again while the game runs on the mod's running settings. The config thread. */
-    private static void take(Config.Live live) {
-        if (live.fieldOfView() != FieldOfView.degrees()) {
+    private static void take(Config.Live was, Config.Live live) {
+        if (live.fieldOfView() != was.fieldOfView()) {
             FieldOfView.set(live.fieldOfView());
             Log.info(Config.FILE_NAME + " changed: first person field of view set to " + live.fieldOfView() + " degrees vertical");
         }
-        boolean edited = !live.custom().equals(customInFile);
+        boolean edited = !live.custom().equals(was.custom());
         if (edited) {
-            customInFile = live.custom();
-            Quality.custom(live.custom());
+            double[] session = Config.values(Quality.custom()), file = Config.values(live.custom()), before = Config.values(was.custom());
+            for (int row = 0; row < session.length; row++) {
+                if (file[row] != before[row]) {
+                    session[row] = file[row];
+                }
+            }
+            Quality.custom(Config.picture(session));
         }
         // The rows of [Graphics] are the first player's, as the game's options screen, where they are set, is.
         if (edited && live.quality()[0] != Quality.CUSTOM) {
@@ -288,42 +289,65 @@ final class Tracking {
             Quality.set(0, Quality.CUSTOM);
             sayGraphics(1);
             config.saveQuality(0, Quality.CUSTOM);
-        } else {
+        } else if (live.quality()[0] != was.quality()[0]) {
             Quality.set(0, live.quality()[0]);
         }
         for (int player = 0; player < View.COUNT; player++) {
-            if (player > 0) {
+            if (player > 0 && live.quality()[player] != was.quality()[player]) {
                 Quality.set(player, live.quality()[player]);
             }
-            Quality.setOverhead(player, live.overheadQuality()[player]);
-            Style.set(player, live.style()[player]);
+            if (live.overheadQuality()[player] != was.overheadQuality()[player]) {
+                Quality.setOverhead(player, live.overheadQuality()[player]);
+            }
+            if (live.style()[player] != was.style()[player]) {
+                Style.set(player, live.style()[player]);
+            }
         }
         // Only the rows the file changed: a toggle made since the file was read is saved after this reload, and kept.
-        int changed = live.firstPerson() ^ firstPersonInFile;
-        firstPersonInFile = live.firstPerson();
+        int changed = live.firstPerson() ^ was.firstPerson();
         firstPersonAtLoad.updateAndGet(bits -> bits & ~changed | live.firstPerson() & changed);
-        if (live.hillHeight() != HillHeight.asked()) {
+        if (live.hillHeight() != was.hillHeight()) {
             HillHeight.set(live.hillHeight());
             Log.info(Config.FILE_NAME + " changed: hill height set to " + live.hillHeight());
         }
-        MuzzleFlash.set(live.muzzleFlash());
-        Crosshair.set(live.crosshair());
-        Regrip.set(live.regrip());
-        PendingLights.set(live.spreadLightUpdates());
-        SplitScreen.set(live.splitScreen());
-        if (live.own() != Own.rows()) {
-            Own.set(live.own());
-            Log.info(Config.FILE_NAME + " changed: the mod's own in first person: " + Own.described(live.own()));
+        if (live.muzzleFlash() != was.muzzleFlash()) {
+            MuzzleFlash.set(live.muzzleFlash());
         }
-        if (live.rules() != Rules.rows()) {
-            Rules.set(live.rules());
-            Log.info(Config.FILE_NAME + " changed: the mod's rules offline: " + Rules.described(live.rules()));
+        if (live.crosshair() != was.crosshair()) {
+            Crosshair.set(live.crosshair());
         }
-        if (live.talkingMouths() != Mouths.on() || !live.microphones().equals(microphones)) {
-            talk(live);
+        if (live.regrip() != was.regrip()) {
+            Regrip.set(live.regrip());
+        }
+        if (live.spreadLightUpdates() != was.spreadLightUpdates()) {
+            PendingLights.set(live.spreadLightUpdates());
+        }
+        if (live.splitScreen() != was.splitScreen()) {
+            SplitScreen.set(live.splitScreen());
+        }
+        int own = live.own() ^ was.own();
+        if (own != 0) {
+            Own.update(rows -> rows & ~own | live.own() & own);
+            Log.info(Config.FILE_NAME + " changed: the mod's own in first person: " + Own.described(Own.rows()));
+        }
+        int rules = live.rules() ^ was.rules();
+        if (rules != 0) {
+            Rules.update(rows -> rows & ~rules | live.rules() & rules);
+            Log.info(Config.FILE_NAME + " changed: the mod's rules offline: " + Rules.described(Rules.rows()));
+        }
+        boolean mouthsEdited = live.talkingMouths() != was.talkingMouths(), microphonesEdited = false;
+        String[] names = microphones.toArray(String[]::new);
+        for (int player = 0; player < names.length; player++) {
+            if (!live.microphones().get(player).equals(was.microphones().get(player))) {
+                names[player] = live.microphones().get(player);
+                microphonesEdited = true;
+            }
+        }
+        if (mouthsEdited || microphonesEdited) {
+            talk(mouthsEdited ? live.talkingMouths() : Mouths.on(), List.of(names));
         }
         String parts = Part.described();
-        Part.take(live.parts());
+        Part.take(live.parts(), live.parts() ^ was.parts());
         if (!Part.described().equals(parts)) {
             Log.info(Config.FILE_NAME + " changed: the mod's parts: " + Part.described());
         }
@@ -333,11 +357,11 @@ final class Tracking {
     private static volatile List<String> microphones = List.of();
 
     /** Puts TalkingMouths and the microphones on the mouths, opening and closing microphones to match. */
-    private static void talk(Config.Live live) {
-        microphones = live.microphones();
-        Mouths.set(live.talkingMouths());
-        Microphones.set(live.talkingMouths(), microphones.toArray(String[]::new));
-        Log.info("talking mouths " + (live.talkingMouths() ? "on, microphones " + microphones : "off: no microphone is opened"));
+    private static void talk(boolean on, List<String> names) {
+        microphones = names;
+        Mouths.set(on);
+        Microphones.set(on, names.toArray(String[]::new));
+        Log.info("talking mouths " + (on ? "on, microphones " + names : "off: no microphone is opened"));
     }
 
     /** The settings the game's options screen shows. Logic thread, once the file is read. */
@@ -474,10 +498,8 @@ final class Tracking {
             Quality.custom(picture);
             Quality.set(0, Quality.CUSTOM);
             sayGraphics(1);
-            save(() -> {
-                customInFile = picture;
-                config.saveCustom(values);
-            });
+            // The picture the save finds, which holds any row a reload took from the file since.
+            save(() -> config.saveCustom(Config.values(Quality.custom())));
             for (int i = 0; i < options.length; i++) {
                 if (Config.graphicsPart(described[i].id) >= 0) {
                     shown[i] = held[i];
@@ -862,8 +884,6 @@ final class Tracking {
      * One player's bit is changed on the logic thread while a reload of the file sets them all on the config thread.
      */
     private static final AtomicInteger firstPersonAtLoad = new AtomicInteger();
-    /** The config thread's: the FirstPerson rows as the file last held them. */
-    private static int firstPersonInFile;
 
     static boolean firstPersonRemembered(int player) {
         return (firstPersonAtLoad.get() & 1 << player) != 0;

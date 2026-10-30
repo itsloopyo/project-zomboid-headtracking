@@ -174,9 +174,9 @@ enum Part {
     }
 
     /** The parts taken while the game runs as the file holds them now, by their bits. The rest stay as the start found them. */
-    static void take(long bits) {
+    static void take(long bits, long changed) {
         for (Part part : values()) {
-            if (part.live) {
+            if (part.live && (changed & part.bit()) != 0) {
                 part.on = (bits & part.bit()) != 0;
             }
         }
