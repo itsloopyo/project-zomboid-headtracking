@@ -72,7 +72,7 @@ public final class CoreTests {
             Tracking.open(Path.of(arguments[1]), Path.of(arguments[2]));
             System.out.println(started());
             System.out.println(leftOut());
-            System.out.println(keysNamed());
+            System.out.println(OptionsLayout.keysNote());
             return;
         }
         Checks.suite = "core tests";
@@ -156,12 +156,6 @@ public final class CoreTests {
             }
         }
         return names.toString();
-    }
-
-    /** The keys of core's three rows that the options page's Keys note names. */
-    private static String keysNamed() {
-        return "keys: tracking mode " + Tracking.cycleTrackingModeKeys() + " | yaw mode " + Tracking.yawModeKeys() + " | aim mode "
-                + Tracking.aimModeKeys();
     }
 
     private static String java() {
@@ -714,19 +708,22 @@ public final class CoreTests {
         String next = nextStart("keys-from-before");
         check(next.contains(Config.FILE_NAME + ": read"), "a file with the old toggle row and the keys at default is read: " + next);
         check(next.contains("ToggleKey is not a setting this mod reads, so it is ignored"), "and the toggle row is said to be left alone, not acted on");
-        check(next.contains("keys: tracking mode PageUp | yaw mode PageDown | aim mode Insert"),
-                "and the three at default are the game's own nav keys, not Defaults.ini's: " + next);
+        check(next.contains("Next tracking mode: Page Up \n") && next.contains("Switch horizon-relative head turns: Page Down \n")
+                        && next.contains("Next aim mode: Insert <BR>"),
+                "and the options page names the game's own nav keys for the three at default, not Defaults.ini's: " + next);
         edit(saved);
     }
 
     /** The Keys note on the options page names the keys the file holds for core's rows, not the ones the mod comes with. */
     private static void theKeysOfCoresRowsAreTheOnesTheFileNames() throws IOException, InterruptedException {
         String saved = text();
-        edit(saved.replace("CycleTrackingModeKey=PageUp", "CycleTrackingModeKey=F6, Ctrl+Shift+G").replace("YawModeKey=PageDown", "YawModeKey=F4")
-                .replace("TrueFreeLookKey=Insert", "TrueFreeLookKey=F3"));
+        edit(saved.replace("CycleTrackingModeKey=PageUp", "CycleTrackingModeKey=Alpha5, Ctrl+Shift+PageDown").replace("YawModeKey=PageDown", "YawModeKey=keypad5")
+                .replace("TrueFreeLookKey=Insert", "TrueFreeLookKey=0xba"));
         String next = nextStart("keys-named");
-        check(next.contains("keys: tracking mode F6, Ctrl+Shift+G | yaw mode F4 | aim mode F3"),
-                "keys the player wrote in the file are the ones named, a chord with them: " + next);
+        check(next.contains("Next tracking mode: 5 or Ctrl+Shift+Page Down \n") && next.contains("Switch horizon-relative head turns: Keypad 5 \n")
+                        && next.contains("Next aim mode: 0xBA <BR>"),
+                "the options page names the keys the player wrote in the file in words, a number row key by its digit, a chord with them, "
+                        + "and a key with no name by its code: " + next);
         edit(saved);
     }
 

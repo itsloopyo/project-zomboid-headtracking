@@ -151,8 +151,8 @@ final class OptionsPage {
                 }
             }
         }
-        call(section, "addTitle", "Keys");
-        call(section, "addDescription", keysSaid());
+        call(section, "addTitle", OptionsLayout.KEYS);
+        call(section, "addDescription", OptionsLayout.keysNote());
 
         Map<String, Control> ids = new HashMap<>();
         Map<KahluaTable, Control> tables = new IdentityHashMap<>();
@@ -202,32 +202,6 @@ final class OptionsPage {
         Control control = new Control(setting, table, tip);
         write(control);
         return control;
-    }
-
-    /** What the Keys title says: each key as CameraUnlock.ini named it when the game started. */
-    private static String keysSaid() {
-        return "Switch between first person and the isometric view: " + keys(Tracking.firstPersonKeys()) + " \n"
-                + "Next graphics mode of the view you are in: " + keys(Tracking.cycleQualityKeys()) + " \n"
-                + "Next picture style: " + keys(Tracking.cycleStyleKeys()) + " \n"
-                + "Switch the split screen layout: " + keys(Tracking.splitScreenKeys()) + " \n"
-                + "Next tracking mode: " + keys(Tracking.cycleTrackingModeKeys()) + " \n"
-                + "Switch horizon-relative head turns: " + keys(Tracking.yawModeKeys()) + " \n"
-                + "Next aim mode: " + keys(Tracking.aimModeKeys()) + " <BR> "
-                + "Tap the first person, graphics mode or picture style key once for player 1, twice for player 2, three times for player 3 "
-                + "or four times for player 4, or hold it for every player. On a controller, tap Back twice to switch first person. To "
-                + "change a key, edit the Hotkeys section of CameraUnlock.ini in the game's folder: the new key works from the next time "
-                + "the game starts. The same file holds the tracker's UDP ports and how far you can lean.";
-    }
-
-    /** A key list of CameraUnlock.ini as words: "Delete", or "Delete or F6" for a list of two. */
-    private static String keys(String list) {
-        List<String> keys = new ArrayList<>();
-        for (String key : list.split(",")) {
-            if (!key.isBlank()) {
-                keys.add(key.trim());
-            }
-        }
-        return keys.isEmpty() ? "none" : String.join(" or ", keys);
     }
 
     /**
