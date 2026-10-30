@@ -4,61 +4,79 @@
 
 An unofficial head tracking mod for Project Zomboid that moves the view with your head while your mouse or controller keeps aiming, driven by a webcam, phone, or any OpenTrack compatible tracker, with no VR headset required.
 
-It adds a first person view to the game, with a rebuilt world and new graphics. You do not need a head tracker or a microphone, and you choose how much of the mod you see:
+It also adds a first person view to the game, with a rebuilt world and new graphics. You don't need a head tracker or a microphone, and you choose how much of the mod you see:
 
-- **Isometric with new graphics** - the game starts in its own isometric view, with the game's own picture. Set the isometric view to Medium or High in **Options > Mods > Head Tracking** for the mod's lighting, shadows, models and textures there too.
-- **First person with the game's own look** - press `Delete` for first person. Low keeps the game's own look, apart from furniture, windows and doors, which are 3D in every mode. Each of the mod's own weapons, furniture, pictures, plants, textures, buildings, skins, arms, clothes, fire and vehicle interiors can be put back to the game's own on the same options page.
-- **No head tracker needed** - first person plays with a mouse and keyboard or a controller. Without a tracker, nothing follows your head.
-- **No microphone needed** - Talking mouths is off until you tick it, and no microphone is opened until then.
+- **Isometric with new graphics** - the game starts in its usual isometric view, looking just like vanilla. Set the isometric view to Medium or High in **Options > Mods > Head Tracking** to get the mod's lighting, shadows, models and textures there too.
+- **First person with the vanilla look** - press `Delete` for first person, and switch it to Low with `F9` to keep the game's own art. Furniture, windows and doors are 3D in every mode. Any of the mod's weapons, furniture, pictures, plants, textures, buildings, skins, arms, clothes, fire and vehicle interiors can be switched back to the game's own on the same options page.
+- **No head tracker needed** - first person works with mouse and keyboard or a controller. Without a tracker, the view just doesn't follow your head.
+- **No microphone needed** - Talking mouths is off until you tick it, and the mod doesn't open a microphone until you do.
 
-Offline the mod also changes some of the game's rules: shots go through thin walls and doors, break lamps and window glass, blow holes in wooden doors and board fences, cripple zombies' limbs and can take them off; vehicles knock down fences, street lamp posts and road barricades and drive through bushes; in the isometric view zombies show as soon as your character has a clear line to them. Each is on until you untick it in **Options > Mods > Head Tracking**. On a server these stay as the game has them, except that where players cannot hurt each other shots still go through thin walls and doors and past a tree's trunk, and zombies still show at once.
+When you play offline, the mod also changes some of the game's rules. Shots go through thin walls and doors, break lamps and windows, blow holes in wooden doors and board fences, and can cripple zombies or take their limbs off. Vehicles knock down fences, lamp posts and road barricades and drive through bushes. In the isometric view, zombies show up as soon as nothing blocks your character's view of them. Each of these is on by default and can be turned off in **Options > Mods > Head Tracking**. On a server they all stay vanilla, except that on servers without PvP, shots still go through thin walls and doors and past tree trunks, and zombies still show up straight away.
 
 ## Features
 
 - **Decoupled look and aim** - head tracking moves the view, your mouse or controller keeps the aim
 - **6DOF tracking** - yaw, pitch and roll plus positional lean, peek and duck
 - **Works with any OpenTrack compatible tracker** - free options available for PC, iOS and Android
-- **Multiplayer and split screen** - join a server; only you need the mod. Players who have it see each other's heads turn as their trackers do, through the game's own player updates, so the server needs no mod. Players without the mod see your head as the game poses it. Up to four local players can each have their own first person view and head tracker.
+- **Multiplayer and split screen** - join a server without the server or anyone else needing the mod. Players who have it see your head turn as your tracker does, and players who don't see your character as the game normally poses it. Up to four players on one PC can each have their own first person view and head tracker.
 
 ## First person
 
-Press `Delete` to switch between the isometric and first person views, on foot or in a vehicle. A save loads in the view you last switched to, and says on screen which key switches to the other view, then which key changes the graphics quality.
+Press `Delete` to switch between the isometric view and first person, on foot or in a vehicle. Saves load in whichever view you used last, and a hint on screen shows the key that switches views, then the key that changes graphics quality.
 
 ### World and graphics
 
 - **A rebuilt world** - 3D buildings, new textures, detailed plants, rolling hills and distant scenery in Medium and High. Furniture, windows and doors are 3D in every mode.
-- **New graphics in both views** - lighting, shadows, models and textures in Medium and High, with reflections, and light beams through fog in first person. High adds sharper shadows and depth in near surfaces.
-- **Fire** - the game's flames stood up in the world, with smoke, embers and firelight from burning buildings, Molotovs and campfires in Medium and High.
-- **Sound** - follows where you look, muffled by the walls in between.
-- **Adjustable** - automatic or manual quality, three picture styles, field of view, hill height, and each replacement model or texture can be put back to the game's own.
+- **New graphics in both views** - lighting, shadows, models, textures and reflections in Medium and High, plus light beams through fog in first person. High adds sharper shadows and depth on surfaces up close.
+- **Fire** - the game's flames stand upright in the 3D world, and Medium and High add smoke, embers and firelight to burning buildings, Molotovs and campfires.
+- **Sound** - turns with your view, and walls between you and a sound muffle it.
+- **Adjustable** - automatic or manual quality, three picture styles, field of view and hill height, and any of the replacement models or textures can be switched back to the game's own.
 
 ### Combat
 
 - **Weapons** - custom arms and hands, melee swings, recoil, and reloads with working bolts, levers, cylinders and break actions. Medium and High add new shotgun, rifle, pistol and revolver models and magnified scopes.
-- **Hits where you aim** - shots hit the body part under the reticle and jolt zombies along the line of fire. Offline, shot limbs go limp or come off, and a shotgun can take the head off.
+- **Hits where you aim** - shots hit the body part under the reticle and jolt zombies along the line of fire. Offline, shot limbs go limp or come off, and a killing head shot can take the head off, which a shotgun up close usually does.
 - **Impacts** - dust, splinters, sparks, blood and bullet holes in Medium and High.
-- **Shots through walls** - offline and on servers where players cannot hurt each other, rounds pass through plasterboard, wood, doors and glass, losing damage on each. Brick, concrete, metal and barricades stop them. A broad-leaved tree stops them at its trunk, not across its whole tile.
-- **Shoot out lights** - offline, a shot breaks vehicle lamps and table, wall and street lamps.
-- **Shoot out windows** - offline, a shot breaks the glass of every shut window it goes through.
-- **Blast holes** - offline, a shotgun blast in first person whose pellets land close together on a wooden door or a board fence blows a ragged hole through it, which you can see and shoot through. Pellets that miss the hole leave marks on a door. The holes stay in your save.
+- **Shots through walls** - offline and on servers without PvP, shots go through plasterboard, wood, doors and glass, losing damage each time. Brick, concrete, metal and barricades stop them. A broad-leaved tree only stops a shot at its trunk, not across its whole tile.
+- **Shoot out lights** - offline, shots break vehicle lights and table, wall and street lamps.
+- **Shoot out windows** - offline, a shot breaks every closed window it passes through.
+- **Blast holes** - offline, in first person, a shotgun blast that lands tightly grouped on a wooden door or board fence blows a ragged hole through it, which you can see and shoot through. Pellets that miss the hole leave marks on a door. The holes stay in your save.
 
 ### Vehicles
 
-- **Interiors** - dashboards, seats, working dials and mirrors in Medium and High.
-- **Drive-by shooting** - raise a firearm from any seat and shoot through the glass.
-- **Offline driving** - smash through fences, lamp posts and road barricades, drive through bushes, take off over hill crests.
+- **Interiors** - dashboards, seats, working gauges and mirrors in Medium and High.
+- **Drive-by shooting** - raise a gun from any seat and shoot through the glass.
+- **Offline driving** - smash through fences, lamp posts and road barricades, drive through bushes and get air over hill crests.
 
 ### Talking mouths
 
-Off by default. Tick **Talking mouths** in the game's options and your character's mouth follows what you say into your microphone. Nothing is recorded or sent: online, other players who have this mod see only how your head is turned and the shape of your mouth.
+Off by default. Tick **Talking mouths** in the options and your character's mouth moves with what you say into your microphone. Your voice is never recorded or sent anywhere. Online, other players who have this mod only get how your head is turned and the shape of your mouth.
+
+## Multiplayer
+
+On a server without PvP, the mod works the same as offline, except for a few things that stay vanilla on every server, your own co-op host included: shots don't break lamps or windows or blow holes in doors and fences, limb shots work as in vanilla, and vehicles handle as in vanilla, on level ground.
+
+In split screen and on servers without PvP, other players are drawn as far away as zombies, even where the isometric view would leave them out or fade them. An admin the game makes invisible stays invisible.
+
+On a server with PvP on, the mod holds back anything that could decide a fight between players:
+
+- Other players only show up where the game itself would show them, and a shot at a player hits whatever body part the game rolls.
+- With a gun's sights up, sideways lean fades out, so leaning never changes where a shot starts from.
+- Hill height is fixed at 1, all the grass is grown, and zombies and props are drawn at full distance, whatever your settings.
+- Fog is as thick as in the game's own view.
+- Walls, doors and trees stop shots as in vanilla.
+- Walking sideways or backwards in first person, your character keeps facing where you look, in the game's aiming stance and at the slower speed the game gives it, whatever `FacesTheView` says. Other players see it facing the way you look rather than turning its back. Jog or sprint that way and you walk instead. Walking forwards or on a forward diagonal, it turns to face the way it's going, as in vanilla.
+- In a vehicle you can only shoot with your window open or broken, and a driver who raises a rifle or shotgun lets go of the wheel, as in vanilla.
+
+Zombies, and rooms and vehicles with no other player in them, look the same as they do offline.
 
 ## Requirements
 
-- [Project Zomboid on Steam](https://store.steampowered.com/app/108600/Project_Zomboid/), tested on build **42.21.0**. The first line of `version.txt` in your `Zomboid` user folder (`C:\Users\<you>\Zomboid`) shows your build. Other stores have not been tested.
-- For head tracking only: [OpenTrack](https://github.com/opentrack/opentrack) with a tracking source, or an app that sends the OpenTrack UDP protocol
+- [Project Zomboid on Steam](https://store.steampowered.com/app/108600/Project_Zomboid/), tested on build **42.21.0**. Your build is on the first line of `version.txt` in your `Zomboid` user folder (`C:\Users\<you>\Zomboid`). Other stores haven't been tested.
+- For head tracking: [OpenTrack](https://github.com/opentrack/opentrack) with a tracking source, or an app that sends the OpenTrack UDP protocol. First person doesn't need either.
 - Windows 10 or 11, 64-bit
-- For first person: a graphics card and driver that give the game OpenGL 3.3 (compatibility profile) with EXT_texture_array and ARB_shader_texture_lod, reading 27 textures and 2896 uniform components in a fragment shader. Without them first person stays off, the game plays as it does without the mod, and `ProjectZomboidHeadTracking.log` says which is missing
-- For the Steam Workshop copy: [ZombieBuddy](https://github.com/zed-0xff/ZombieBuddy) 2.x, set up once
+- For first person: a graphics card and driver that give the game OpenGL 3.3 (compatibility profile) with EXT_texture_array and ARB_shader_texture_lod, and at least 27 texture units and 2836 uniform components in a fragment shader. Without those, first person stays off, the game looks as it does without the mod, and `ProjectZomboidHeadTracking.log` says what's missing.
+- For the Steam Workshop version: [ZombieBuddy](https://github.com/zed-0xff/ZombieBuddy) 2.x, set up once
 
 ## Installation
 
@@ -69,66 +87,66 @@ Once this mod is available in Lopari, download [Lopari](https://lopari.app), cho
 ### Standalone installer
 
 1. Download `ProjectZomboidHeadTracking-v<version>-installer.zip` from [Releases](https://github.com/itsloopyo/project-zomboid-headtracking/releases).
-2. Close the game if it is running: the installer stops while it is.
+2. Close the game if it's running, or the installer will stop.
 3. Extract the ZIP and double-click `install.cmd`.
-4. Follow [Setting Up OpenTrack](#setting-up-opentrack) below.
+4. Set up your tracker with [Setting Up OpenTrack](#setting-up-opentrack) below.
 5. Launch the game, load a save or join a server, and press `Delete` for first person.
 
-If the installer cannot find the game, it asks for the folder containing `ProjectZomboid64.exe`. You can also give the folder when you run it from a command prompt in the extracted folder:
+If the installer can't find the game, it asks for the folder that has `ProjectZomboid64.exe` in it. You can also give it the folder from a command prompt in the extracted folder:
 
 ```powershell
 .\install.cmd "D:\Games\ProjectZomboid"
 ```
 
-Run it again with another path to install into a second copy. No separate mod loader is required.
+To install into a second copy of the game, run it again with that copy's path. You don't need a separate mod loader.
 
 ### What the scripts change
 
-Both scripts work in the selected game folder:
+Both scripts work in the game folder you pick:
 
 | File | `install.cmd` | `uninstall.cmd` |
 | --- | --- | --- |
-| `ProjectZomboidHeadTracking.jar` and the art jars `ProjectZomboidHeadTracking-*.jar` | Copy from the ZIP, replacing existing copies | Remove |
-| `ProjectZomboid64.site.json` | Write launch settings that load the mod whenever you start the game | Remove if it contains this mod's JAR filename |
-| `.headtracking-state.json` | Record the installed mod version and date | Remove after successful cleanup |
-| `ProjectZomboidHeadTracking.log`, `ProjectZomboidHeadTracking.prev.log` | Leave alone; the mod writes these when it runs | Remove |
-| `CameraUnlock.ini` | Keep your settings; the mod creates this file on first launch if missing | Keep |
+| `ProjectZomboidHeadTracking.jar` and the art jars `ProjectZomboidHeadTracking-*.jar` | Copies them from the ZIP, replacing any already there | Removes them |
+| `ProjectZomboid64.site.json` | Writes launch settings that load the mod every time you start the game | Removes it if it mentions this mod's jar |
+| `.headtracking-state.json` | Records the installed version and date | Removes it once everything else is cleaned up |
+| `ProjectZomboidHeadTracking.log`, `ProjectZomboidHeadTracking.prev.log` | Leaves them alone; the mod writes these when it runs | Removes them |
+| `CameraUnlock.ini` | Keeps your settings; the mod creates this file on first launch if it's missing | Keeps it |
 
-Original game files and saves stay untouched. Both scripts also remove `ProjectZomboidHeadTracking.dll` and `CameraUnlockCore.dll` if present.
+The game's own files and your saves aren't touched. Both scripts also remove `ProjectZomboidHeadTracking.dll` and `CameraUnlockCore.dll` if they find them.
 
-**Reinstalling replaces custom edits to the mod's `.site.json`.** An existing file without this mod's JAR filename is left alone: installation stops. Removing `ProjectZomboid64.site.json` restores normal game startup.
+**Reinstalling overwrites any changes you've made to `ProjectZomboid64.site.json`.** If there's already a `ProjectZomboid64.site.json` that doesn't mention this mod's jar, the installer leaves it alone and stops. Deleting `ProjectZomboid64.site.json` puts the game back to starting normally.
 
-Lopari writes `ProjectZomboid64.site.json` the same way when it installs the mod, and writes it again before a launch when the game's `ProjectZomboid64.json` has changed.
+Lopari writes `ProjectZomboid64.site.json` the same way when it installs the mod, and writes it again before a launch if the game's `ProjectZomboid64.json` has changed.
 
 ### Steam Workshop
 
-The Workshop copy is loaded by [ZombieBuddy](https://github.com/zed-0xff/ZombieBuddy) 2.x, tested with 2.3.4. ZombieBuddy 3.0 is not supported yet.
+The Workshop version is loaded by [ZombieBuddy](https://github.com/zed-0xff/ZombieBuddy) 2.x and has been tested with 2.3.4. ZombieBuddy 3.0 isn't supported yet.
 
 1. Subscribe to [ZombieBuddy](https://steamcommunity.com/sharedfiles/filedetails/?id=3619862853) on the Steam Workshop.
-2. Set ZombieBuddy up once. If you already play another mod that needs it, this is done. Otherwise use one of the two routes on ZombieBuddy's Workshop page:
-   - **Installer:** download `ZombieBuddyInstaller.exe` from [ZombieBuddy's GitHub releases](https://github.com/zed-0xff/ZombieBuddy/releases/tag/windows_installer), run it and choose **Install or update ZombieBuddy**. Pick the launch mode to patch; ZombieBuddy recommends **Both**. It lists every change before making it, and asks you to close Steam if it has to change the launch options.
-   - **By hand:** copy `ZombieBuddy.jar` and `zbNative.dll` from `steamapps\workshop\content\108600\3619862853\mods\ZombieBuddy\libs\` into the game folder, then in Steam open Project Zomboid's **Properties** and set **Launch Options** to `-agentlib:zbNative --`. The `--` at the end is needed.
+2. Set ZombieBuddy up. You only do this once, and if you already play another mod that needs it, it's done. Otherwise use one of the two ways on ZombieBuddy's Workshop page:
+   - **Installer:** download `ZombieBuddyInstaller.exe` from [ZombieBuddy's GitHub releases](https://github.com/zed-0xff/ZombieBuddy/releases/tag/windows_installer), run it and choose **Install or update ZombieBuddy**. Pick which launch mode to patch (ZombieBuddy recommends **Both**). It lists every change before it makes it, and asks you to close Steam if it needs to change the launch options.
+   - **By hand:** copy `ZombieBuddy.jar` and `zbNative.dll` from `steamapps\workshop\content\108600\3619862853\mods\ZombieBuddy\libs\` into the game folder, then in Steam open Project Zomboid's **Properties** and set **Launch Options** to `-agentlib:zbNative --`. You need the `--` at the end.
 3. Subscribe to PZHT - First Person + Graphics & Gameplay Overhaul + Head Tracking on the Steam Workshop.
-4. Start the game, open **Mods** on the main menu, enable ZombieBuddy and PZHT - First Person + Graphics & Gameplay Overhaul + Head Tracking, then quit and start the game again. ZombieBuddy starts Java mods while the game starts, so they only load after that restart.
-5. ZombieBuddy shows a dialog asking whether to load the mod's Java code. Click **Yes**. With ZombieBuddy's default settings it asks again after every update to the mod.
-6. Follow [Setting Up OpenTrack](#setting-up-opentrack) below, load a save and press `Delete` for first person.
+4. Start the game, open **Mods** from the main menu, enable ZombieBuddy and PZHT - First Person + Graphics & Gameplay Overhaul + Head Tracking, then quit and start the game again. ZombieBuddy starts Java mods as the game starts, so they only load after that restart.
+5. ZombieBuddy asks whether to load the mod's Java code. Click **Yes**. With ZombieBuddy's default settings it asks again after every update to the mod.
+6. Set up your tracker with [Setting Up OpenTrack](#setting-up-opentrack) below, then load a save and press `Delete` for first person.
 
-Use the Workshop copy or an installed copy, not both. If `install.cmd` or Lopari has installed the mod in the game folder, that copy runs and the Workshop copy stays out. Run `uninstall.cmd` first to play the Workshop copy.
+Use either the Workshop version or an installed copy, not both. If you've installed the mod in the game folder with `install.cmd` or Lopari, that copy runs and the Workshop version stays out of the way. To play the Workshop version, run `uninstall.cmd` first.
 
-The Workshop copy keeps its settings in `CameraUnlock.ini` and its log in `ProjectZomboidHeadTracking.log`, both in the game folder, the same as an installed copy. ZombieBuddy's own messages are in `console.txt` in your `Zomboid` user folder.
+The Workshop version keeps its settings in `CameraUnlock.ini` and its log in `ProjectZomboidHeadTracking.log`, both in the game folder, just like an installed copy. ZombieBuddy's own messages go to `console.txt` in your `Zomboid` user folder.
 
 ### Manual installation
 
-You can install the mod without running any script. There is no mod manager package, because the launch settings file has to be made from your copy of the game's own.
+You can also install the mod by hand, without running any script. There's no mod manager package, because the launch settings file has to be built from the one in your own copy of the game.
 
 1. Download `ProjectZomboidHeadTracking-v<version>-installer.zip` from [Releases](https://github.com/itsloopyo/project-zomboid-headtracking/releases) and extract it.
-2. Open the game folder: in Steam, right-click Project Zomboid and choose **Manage > Browse local files**. It holds `ProjectZomboid64.exe`. Turn on **View > Show > File name extensions** in File Explorer, so you can tell `ProjectZomboid64.json` from `ProjectZomboid64.exe` and do not end up with a name ending in `.json.json`.
-3. Copy every `.jar` in the ZIP's `plugins` folder into the game folder: `ProjectZomboidHeadTracking.jar` and the art jars named `ProjectZomboidHeadTracking-` and a folder, such as `ProjectZomboidHeadTracking-models.jar`. The mod finds the art jars beside its own jar, and stops with their names in its log if one is missing.
-4. In the game folder, copy `ProjectZomboid64.json` and name the copy `ProjectZomboid64.site.json`, replacing a `ProjectZomboid64.site.json` this mod made before. Leave the original as it is. If a `ProjectZomboid64.site.json` is already there and does not mention `ProjectZomboidHeadTracking.jar`, something else made it. The installer stops rather than replace it. Rename it to set it aside, knowing that whatever made it stops working, and continue.
+2. Open the game folder: in Steam, right-click Project Zomboid and choose **Manage > Browse local files**. It's the folder with `ProjectZomboid64.exe` in it. Turn on **View > Show > File name extensions** in File Explorer, so you can tell `ProjectZomboid64.json` from `ProjectZomboid64.exe` and don't end up with a file called `.json.json`.
+3. Copy every `.jar` from the ZIP's `plugins` folder into the game folder: `ProjectZomboidHeadTracking.jar` and the art jars that start with `ProjectZomboidHeadTracking-`, such as `ProjectZomboidHeadTracking-models.jar`. The mod looks for the art jars next to its own jar, and if one is missing it stops and names it in its log.
+4. In the game folder, make a copy of `ProjectZomboid64.json` called `ProjectZomboid64.site.json`, replacing any `ProjectZomboid64.site.json` this mod made before. Leave the original alone. If there's already a `ProjectZomboid64.site.json` that doesn't mention `ProjectZomboidHeadTracking.jar`, something else made it, and the installer would stop rather than replace it. To go ahead anyway, rename it to get it out of the way, knowing that whatever made it will stop working.
 5. Open `ProjectZomboid64.site.json` in a text editor and make three changes:
-   - Note the value of `"mainClass"`, then replace it with `"com/cameraunlock/core/agent/Boot"`.
-   - Add `"ProjectZomboidHeadTracking.jar"` as the last entry of `"classpath"`.
-   - Put these three entries first in the `"vmArgs"` list that follows `"classpath"`, not the ones under `"windows"`, with the value you noted in place of `<mainClass>`. If any of the three is already further down that list, take the old copy out. In the game's own file that is `--enable-native-access=ALL-UNNAMED`.
+   - Note down the value of `"mainClass"`, then replace it with `"com/cameraunlock/core/agent/Boot"`.
+   - Add `"ProjectZomboidHeadTracking.jar"` as the last entry in `"classpath"`.
+   - Add these three entries at the start of the `"vmArgs"` list that comes after `"classpath"` (not the one under `"windows"`), with the value you noted in place of `<mainClass>`. If any of the three is already further down that list, remove the old one. In the game's own file, that's `--enable-native-access=ALL-UNNAMED`.
 
      ```json
      "-Dcameraunlock.mainClass=<mainClass>",
@@ -136,10 +154,10 @@ You can install the mod without running any script. There is no mod manager pack
      "--enable-native-access=ALL-UNNAMED",
      ```
 
-   Leave everything else, such as the memory and garbage collector settings, as the game set it. Every entry of a list but the last ends with a comma. Save the file as UTF-8 without a BOM, which is what the installer writes.
-6. Follow [Setting Up OpenTrack](#setting-up-opentrack), launch the game and press `Delete` in a loaded game. The mod writes `ProjectZomboidHeadTracking.log` in the game folder when it loads.
+   Leave everything else as the game set it, such as the memory and garbage collector settings. Every entry in a list except the last needs a comma after it. Save the file as UTF-8 without a BOM, which is what the installer writes.
+6. Set up your tracker with [Setting Up OpenTrack](#setting-up-opentrack), launch the game and press `Delete` once a save has loaded. The mod writes `ProjectZomboidHeadTracking.log` in the game folder when it loads.
 
-For the game's file of build 42.21.0, the start of the result reads:
+With the game's file from build 42.21.0, the result starts like this:
 
 ```json
 {
@@ -159,9 +177,9 @@ For the game's file of build 42.21.0, the start of the result reads:
         ...
 ```
 
-Start from your own `ProjectZomboid64.json` rather than copying this, since another build can have other settings. The game reads `ProjectZomboid64.site.json` in place of `ProjectZomboid64.json`, so after every game update, make the site file again from the game's file (steps 4 and 5), as the installer does when you rerun it.
+Start from your own `ProjectZomboid64.json` rather than copying this, because another build can have other settings. The game reads `ProjectZomboid64.site.json` instead of `ProjectZomboid64.json`, so after every game update, make the site file again from the game's new file (steps 4 and 5). Running the installer again does the same.
 
-To remove a manual install, delete these from the game folder: `ProjectZomboidHeadTracking.jar`, the art jars `ProjectZomboidHeadTracking-*.jar`, `ProjectZomboid64.site.json`, `ProjectZomboidHeadTracking.log` and `ProjectZomboidHeadTracking.prev.log`, and `.headtracking-state.json`, `ProjectZomboidHeadTracking.dll` and `CameraUnlockCore.dll` if they are there from the installer or an older version. `CameraUnlock.ini` holds your settings: delete it too if you do not want them kept.
+To remove a manual install, delete these from the game folder: `ProjectZomboidHeadTracking.jar`, the art jars `ProjectZomboidHeadTracking-*.jar`, `ProjectZomboid64.site.json`, `ProjectZomboidHeadTracking.log` and `ProjectZomboidHeadTracking.prev.log`, plus `.headtracking-state.json`, `ProjectZomboidHeadTracking.dll` and `CameraUnlockCore.dll` if the installer or an older version left them there. `CameraUnlock.ini` holds your settings, so delete it too if you don't want to keep them.
 
 ## Setting Up OpenTrack
 
@@ -193,17 +211,17 @@ check yours for an OpenTrack or UDP output option first. [Headcam](https://headc
 sends it, and I wrote it so decent tracking is free for anyone who already owns
 a phone.
 
-Data from another device comes in over your network, so Windows Firewall has to
-let it through. If Windows asks whether to let the game through the firewall,
-allow it on the kind of network your PC is on (Private for most home networks).
-If you said no, or the phone's tracking never arrives, add the rule from a
-command prompt run as administrator:
+Tracking data from another device comes in over your network, so Windows
+Firewall has to let it through. If Windows asks whether to let the game through
+the firewall, allow it on the type of network your PC is on (Private for most
+home networks). If you said no, or nothing ever arrives from your phone, add the
+rule yourself from a command prompt run as administrator:
 
 ```
 netsh advfirewall firewall add rule name="Project Zomboid Head Tracking" dir=in action=allow protocol=UDP localport=4242-4245
 ```
 
-Ports 4243 to 4245 are for players 2 to 4 at the same screen.
+Ports 4243 to 4245 are for players 2 to 4 in split screen.
 
 Sending direct works when the app filters its own signal on the device. The
 mod's smoothing is sized to take the edge off a clean signal rather than to
@@ -237,26 +255,26 @@ Centring belongs to your tracker, recenter there.
 | `Page Up` | Track head rotation and movement, rotation only, or movement only |
 | `Page Down` | Switch between horizon-relative and camera-relative head turns |
 | `Insert` | Change aiming mode |
-| `F9` | Change graphics quality of the view you are in |
+| `F9` | Change graphics quality of the view you're in |
 | `F8` | Change picture style |
 | `F7` | Arrange two-player split screen side by side or top and bottom |
 
-- `Page Up` goes through three modes in turn: rotation and position, rotation only, position only.
-- `Page Down` switches head turns between turning about straight up and turning about the view's own up. It does nothing from a vehicle's seat, where head turns always go about the view's own up.
-- `Insert` goes through three aiming modes in turn:
+- `Page Up` cycles through rotation and position, rotation only, and position only.
+- `Page Down` switches head turns between horizon-relative, which turns the view around the vertical and keeps the horizon level when you look up or down, and camera-relative, which turns it around the view's own up axis. In a vehicle seat head turns are always camera-relative, so the key does nothing there.
+- `Insert` cycles through three aiming modes:
   - **Sights locked** keeps your eye lined up with the sights while you aim.
-  - **Free look with a marker** leaves the weapon pointing where you aim while your head looks around it, and the game's reticle marks where the shot lands.
-  - **Stock sights** eases head turns and leaning out while the sights are up, so you see the game's own sight picture, and keeps only head tilt.
-- `F9` goes through Automatic, Low, Medium, High and Custom in first person, and Low, Medium, High and Custom in the isometric view, and leaves the other view's mode as it is. Switching views names the mode of the view you switch to, as `First Person (High)` or `Isometric (Low)`.
-- Where a player's first person view is larger than 2560x1440, every mode but Custom draws it with the pixels it would use at 2560x1440, and the picture is scaled up to fit. In split screen that goes by each player's own part of the screen. Custom draws at its `RenderScale` at any size, and so does the isometric view.
-- `F8` goes through the picture styles Vivid, Natural and Bleak.
-- In split screen each player has their own graphics mode and picture style. Tap `F9` or `F8` once for player 1, twice for player 2, three times for player 3 and four times for player 4, or hold it for every player. Players 2, 3 and 4 keep theirs in `[Players]` in `CameraUnlock.ini` and in the game's options.
+  - **Free look with a marker** keeps the gun pointing where you aim while your head looks around it, and the game's reticle marks where the shot will land.
+  - **Stock sights** fades out head turning and leaning while the sights are up, leaving only head tilt, so you see the game's normal sight picture.
+- `F9` cycles the graphics mode of the view you're in: Automatic, Low, Medium, High and Custom in first person, or Low, Medium, High and Custom in the isometric view. The other view keeps its own mode. When you switch views, the screen names the mode of the view you switched to, like `First Person (High)` or `Isometric (Low)`.
+- When a player's first person view is bigger than 2560x1440, every mode except Custom renders it with no more pixels than it would at 2560x1440, then scales it up to fit. In split screen that goes by each player's own part of the screen. Custom renders at its `RenderScale` at any size, and so does the isometric view.
+- `F8` cycles the picture style: Vivid, Natural and Bleak.
+- In split screen each player has their own graphics mode and picture style. Tap `F9` or `F8` once for player 1, twice for player 2, three times for player 3 and four times for player 4, or hold it to change everyone. Settings for players 2, 3 and 4 are under `[Players]` in `CameraUnlock.ini` and on the options page.
 
-Every key saves its new setting to `CameraUnlock.ini` as you press it, and `Delete` saves the view your next load starts in (`FirstPerson`). No key turns head tracking on or off: the Head tracking tick box at the top of the mod's options page does, or `EnableOnStartup` in `CameraUnlock.ini`. There is no recenter key: centre the view in your tracker app.
+Every key saves its new setting to `CameraUnlock.ini` as you press it, and `Delete` also saves which view your next load starts in (`FirstPerson`). There's no key to turn head tracking on or off: use the Head tracking tick box at the top of the mod's options page, or `EnableOnStartup` in `CameraUnlock.ini`. There's no recenter key either, so centre the view in your tracker app.
 
 ### Mouse and keyboard
 
-The mouse turns the view. Movement keys follow the direction you face. Walking or sneaking any way but straight ahead, diagonals included, your character keeps facing where you look, in the game's aiming stance at the pace of the walk ahead. Jogging and sprinting are straight ahead only: held any other way, your character walks. Offline and on servers where players cannot hurt each other; `FacesTheView=false` gives the game's own turn every time. On a server where players can hurt each other your character faces where you look only walking sideways or backwards, at the game's own pace: see **PvP** below.
+The mouse turns the view, and the movement keys move you relative to where you're looking. If you walk or sneak in any direction other than straight ahead, diagonals included, your character keeps facing where you look, in the game's aiming stance but at the speed you'd walk or sneak forwards. Jogging and sprinting only go straight ahead: try it in any other direction and you walk. That's how it works offline and on servers without PvP. Set `FacesTheView=false` if you'd rather your character always turned to face the way it's going, as in vanilla. On a PvP server your character only keeps facing where you look when walking sideways or backwards, at the game's slower aiming speed: see [Multiplayer](#multiplayer).
 
 | Input | Action |
 | --- | --- |
@@ -266,38 +284,26 @@ The mouse turns the view. Movement keys follow the direction you face. Walking o
 | `Left Alt` | Jog |
 | `C` (or your crouch key), `Left Ctrl` | Crouch |
 | `E` by default | Interact with the highlighted object |
-| `I` by default | Open or close inventory |
-| Click middle mouse | Show the pointer, until you click it again or press `Esc` |
-| Left-click with the pointer out | Use what the pointer is on, as `E` does |
-| Right-click with the pointer out | Open the menu for what the pointer is on |
+| `I` by default | Open or close the inventory |
+| Middle click | Show the mouse pointer, until you middle click again or press `Esc` |
+| Left click with the pointer out | Use what the pointer is on, the same as `E` |
+| Right click with the pointer out | Open the menu for what the pointer is on |
 
-**Other controls** - reload, shove, weapon selection and flashlight use your existing keys.
+**Other controls** - reload, shove, weapon selection and flashlight use your usual keys.
 
-**Toggle to aim** - if this game option is enabled, aim before attacking.
+**Toggle to aim** - if you have this game option turned on, aim before you attack.
 
-**Interaction** - put the reticle on a door, window, curtain, light switch, container, item on the ground, radio, TV or crafting station and press `E`. A window over a counter or a dresser is under the reticle where the reticle is on its glass, and `E` opens or shuts it, the game first walking your character to it where it finds a way. On an open or broken window, `E` climbs through it where there is a floor on the other side to land on. On a fridge, `E` opens the freezer or the fridge, whichever half the reticle is on. On anything else within reach, such as a sink or a chair, `E` opens the game's own menu for it. You can also bring the pointer out (click middle mouse, or open the inventory) and right-click a thing in the view to open its menu, as a right click does in the isometric view. A left click with the pointer out does what `E` does with the reticle on the same thing, as a left click does in the isometric view.
+**Interaction** - put the reticle on a door, window, curtain, light switch, container, item on the ground, radio, TV or crafting station and press `E`. For a window over a counter or a dresser, put the reticle on its glass: `E` opens or shuts it, and the game walks your character over to it first if it can find a way. On an open or broken window, `E` climbs through if there's a floor on the other side to land on. On a fridge, `E` opens the fridge or the freezer, whichever half the reticle is on. On anything else within reach, like a sink or a chair, `E` opens the game's own menu for it. You can also bring out the mouse pointer (middle click, or open the inventory) and right-click something in the view to open its menu, or left-click it to do what `E` would do, the same as clicking in the isometric view.
 
 ### Controller and split screen
 
-**Controller** - the controllers ticked in the game's Controller options play. While none of the gamepads plugged in is ticked, every one the game recognises is ticked and plays, and pressing **A** on the main menu gives that controller the menu. Player 1 plays on whatever last worked the main menu: the controller that pressed **A**, or the keyboard and mouse once you click or press a key there. Any other controller joins once the game is under way: press **A** on it and choose **Add new player**. A 3Dconnexion SpaceMouse is never taken as a controller. Double-tap **Back** to switch views. The aiming stick turns the view, right trigger attacks and left trigger raises firearm sights.
+**Controller** - the controllers ticked in the game's Controller options are the ones that play. If none of the gamepads plugged in is ticked, every one the game recognises gets ticked and plays, and pressing **A** on the main menu gives that controller the menu. Player 1 plays on whatever last used the main menu: the controller that pressed **A**, or the keyboard and mouse once you click or press a key there. Any other controller can join once you're in the game: press **A** on it and choose **Add new player**. A 3Dconnexion SpaceMouse is never treated as a controller. Double-tap **Back** to switch views. The aiming stick turns the view, the right trigger attacks and the left trigger raises a gun's sights.
 
-**More players** - tap `Delete` twice to switch player 2's view, three times for player 3's and four times for player 4's, or hold it to change everyone at once: if anyone is in the isometric view every player goes to first person, and holding it again puts every player in the isometric view. Players on a controller can double-tap **Back**. Send player 2's tracker to port **4243**, player 3's to **4244** and player 4's to **4245**.
-
-**PvP** - on a server with PvP turned on, the mod holds back anything that could decide a fight between players:
-
-- Other players are shown only as the game shows them, and a shot at a player hits the body part the game rolls.
-- With firearm sights up, a sideways lean eases out, so leaning never moves where a shot starts.
-- Hills stand at height 1 whatever you set, and zombies and props are drawn at full distance.
-- Fog is as thick as in the game's own view.
-- Walls, doors and trees stop shots as in the game.
-- Walking sideways or backwards in first person, your character faces where you look, in the game's aiming stance at the slower pace the game gives that stance, whatever `FacesTheView` says. Other players see it face the way you are looking rather than its back. Jogging or sprinting that way, it walks. Walking ahead or on a forward diagonal it turns to the way it walks, as in the game.
-- From a vehicle seat you shoot only with your window open or broken, and a driver who raises a rifle or shotgun lets go of the wheel, as in the game.
-
-Zombies, rooms and vehicles with no other player in them look as they do offline. In split screen and on a server without PvP, other players are drawn as far off as zombies, where the game's own view from above would leave them out or fade them; an admin the game makes invisible stays invisible. On a server without PvP the mod plays as it does alone, apart from wounds and vehicles: on any server, your own co-op host included, a shot arm or leg leaves a zombie as the game does, and vehicles drive and roll as the game has them, on level ground.
+**More players** - tap `Delete` twice to switch player 2's view, three times for player 3's and four times for player 4's. Hold it to change everyone at once: if anyone is in the isometric view, everyone goes to first person, and holding it again puts everyone in the isometric view. Players on a controller can double-tap **Back** instead. Send player 2's tracker to port **4243**, player 3's to **4244** and player 4's to **4245**.
 
 ## Configuration
 
-Use **Options > Mods > Head Tracking** for head tracking, first person, graphics and the offline rules (see [The options page](#the-options-page)). First person and the isometric view each keep their own graphics quality: first person starts on Automatic and the isometric view on Low, the game's own picture. Switching views shows the quality the new view uses. For the keys, the tracker's UDP ports and how far you can lean, edit `CameraUnlock.ini` beside the game executable.
+Most settings are in the game under **Options > Mods > Head Tracking**: head tracking, first person, graphics and the gameplay tweaks (see [The options page](#the-options-page)). First person and the isometric view each have their own graphics quality. First person starts on Automatic, and the isometric view on Low, which is the game's own look. For the keys, the tracker's UDP ports and how far you can lean, edit `CameraUnlock.ini` in the game folder.
 
 <!-- cameraunlock:config -->
 The mod reads its settings from `CameraUnlock.ini` in the game folder, and creates the file when it starts and finds none. Edit it with any text editor.
@@ -829,51 +835,51 @@ FourthPlayerMicrophone=None
 
 ### The options page
 
-**Options > Mods > Head Tracking** has every setting in `CameraUnlock.ini` except the keys, the tracker's UDP ports, the lean limits (the `PositionLimit` rows), the lean collision rows (the `Collision` rows) and `DataFreshnessMs`. A change on the page takes effect when you apply the options with **APPLY** or **ACCEPT**, and is saved to `CameraUnlock.ini` then. Leaving without applying leaves every setting as it was.
+**Options > Mods > Head Tracking** has every setting from `CameraUnlock.ini` except the keys, the tracker's UDP ports, the lean limits (the `PositionLimit` settings), lean collision (the `Collision` settings) and `DataFreshnessMs`. Changes take effect, and are saved to `CameraUnlock.ini`, when you apply them with **APPLY** or **ACCEPT**. If you leave without applying, nothing changes.
 
-The page has these sections: Quick settings, Head tracking, First person, Graphics, Custom graphics, Mod content, Gameplay tweaks, Game fixes, Optimizations, Split screen, one for each of players 2, 3 and 4, Voice, and Keys, which lists the keys and where to change them.
+The page is split into Quick settings, Head tracking, First person, Graphics, Custom graphics, Mod content, Gameplay tweaks, Game fixes, Optimizations, Split screen, a section for each of players 2, 3 and 4, Voice, and Keys, which lists the keys and where to change them.
 
-Custom graphics shows what player 1's first person graphics mode draws, and choosing another mode shows that mode's settings there. Changing one of them switches player 1's first person graphics to Custom, which draws them for every player set to Custom, in first person or the isometric view.
+Custom graphics shows the settings behind player 1's first person graphics mode, and choosing another mode shows that mode's settings there. Changing any of them switches player 1's first person graphics to Custom. Every player set to Custom uses these settings, in first person or the isometric view.
 
-Each part of the mod, each change to the game's rules, each fix of the game and each optimization has a tick box of its own, on until you untick it. A setting whose description says it takes effect when the game next starts changes the game's own code. With it off, the mod leaves that code unpatched from the next start, so another Java mod that patches the same methods finds the game's own code there.
+Each part of the mod, gameplay tweak, game fix and optimization has its own tick box. Where a setting's description says the mod leaves the game's code unpatched when it's off, turning it off means the mod stops patching that code from the next start, so another Java mod that patches the same methods finds the game's original code there.
 
-Quick settings, at the top of the page, has the head tracking switch and five lists that each switch a class of settings at once:
+**Quick settings**, at the top of the page, has the head tracking switch and five lists that each change a whole group of settings at once:
 
 - **Head tracking** - on or off, saved as `EnableOnStartup`. No key turns it on or off.
-- **Everything** - `On` ticks every box on the page except Talking mouths, Horizon-relative head turns, the Custom graphics rows and each player's Load saves in first person and First person in vehicles. It also turns head tracking on and sets each player's first person graphics to Automatic where they were on Low. `Off` unticks the same boxes, which puts the game's own content back, sets every player's first person and isometric graphics to Low, the game's own picture, and sets the split screen layout to side by side, as in the game. Head tracking and talking mouths stay as they are, so you can switch back on just what you want.
-- **First person** - `On` turns the first person view on and First person in vehicles off for every player, leaving the view each player's saves load in as it is. `In vehicles only` loads every player's saves in the isometric view, switches to first person when they get into a vehicle and back when they get out. `Off` turns the first person view off.
-- **Enhanced graphics** - `On` ticks every box under Graphics and Mod content, and sets each player's first person graphics to Automatic where they were on Low. `Off` unticks them, which puts the game's own content back, and sets every player's first person and isometric graphics to Low, the game's own picture.
-- **Gameplay tweaks** - `On` or `Off` ticks or unticks every box under Gameplay tweaks.
-- **Optimizations** - `On` or `Off` ticks or unticks every box under Optimizations.
+- **Everything** - `On` ticks every box on the page except Talking mouths, Horizon-relative head turns, the Custom graphics settings, and each player's Load saves in first person and First person in vehicles. It also turns head tracking on, and switches any player whose first person graphics are on Low to Automatic. `Off` unticks the same boxes, which brings back the game's own content, sets every player's graphics to Low (the game's own look) in both views, and puts split screen back to side by side, as in vanilla. Head tracking and Talking mouths stay as they are, so you can turn back on just the parts you want.
+- **First person** - `On` turns first person on and First person in vehicles off for every player, without changing which view their saves load in. `In vehicles only` loads every player's saves in the isometric view, then switches to first person when they get into a vehicle and back when they get out. `Off` turns first person off.
+- **Enhanced graphics** - `On` ticks every box under Graphics and Mod content, and switches any player whose first person graphics are on Low to Automatic. `Off` unticks them, which brings back the game's own content, and sets every player's graphics to Low in both views.
+- **Gameplay tweaks** - ticks or unticks every box under Gameplay tweaks.
+- **Optimizations** - ticks or unticks every box under Optimizations.
 
-Choosing a line of a list changes the settings it covers on the page, and you can change any of them again before applying. Each list shows the line your settings match, or `Mixed` when they match none of its lines.
+Picking an option in one of these lists changes the settings it covers on the page, and you can still change any of them before you apply. Each list shows the option your settings match, or `Mixed` if they don't match any.
 
 ### Project Viewpoint
 
-With [Project Viewpoint](https://steamcommunity.com/sharedfiles/filedetails/?id=3809306528) running alongside this mod, head tracking turns Viewpoint's camera too: yaw, pitch and roll. Your lean is not carried into Viewpoint's camera. Head tracking has to be on: the Head tracking tick box at the top of the mod's options page, or `EnableOnStartup`.
+If you run [Project Viewpoint](https://steamcommunity.com/sharedfiles/filedetails/?id=3809306528) alongside this mod, head tracking turns Viewpoint's camera too (yaw, pitch and roll, but not lean). Head tracking has to be on for this: the Head tracking tick box at the top of the mod's options page, or `EnableOnStartup`.
 
 ## Troubleshooting
 
-- **No tracking** - start the tracker, check its address and port, then press `Delete` in a loaded game.
-- **Phone tracking never arrives** - let it through Windows Firewall, as [Phone](#phone) describes.
-- **The game no longer starts** - delete `ProjectZomboid64.site.json` from the game folder to start the game without the mod. After a manual install, check that file for a missing or extra comma, then make it again.
-- **Sights or scope problems** - press `Insert` to select **sights locked**.
-- **First person does not switch on, and the screen says it needs OpenGL 3.3** - the graphics driver does not give what [Requirements](#requirements) lists. `ProjectZomboidHeadTracking.log` names what is missing.
-- **High looks like Medium or Low** - on an NVIDIA graphics card under 6 GB, or when the graphics card runs out of memory, the mod draws every mode with less so the game keeps running, and the screen says so. The log's `video memory:` lines say what the card reported and what was given up.
+- **No tracking** - start your tracker, check its address and port, then press `Delete` once a save has loaded.
+- **Nothing arrives from your phone** - let it through Windows Firewall, as described under [Phone](#phone).
+- **The game won't start** - delete `ProjectZomboid64.site.json` from the game folder and the game starts without the mod. If you installed by hand, make that file again (steps 4 and 5) and check it for a missing or extra comma.
+- **Problems with sights or scopes** - press `Insert` until you're on **Sights locked**.
+- **First person won't turn on, and the screen says it needs OpenGL 3.3** - your graphics driver doesn't provide what's listed under [Requirements](#requirements). `ProjectZomboidHeadTracking.log` says what's missing.
+- **High looks like Medium or Low** - on an NVIDIA graphics card with less than 6 GB, or when the card runs out of memory, the mod scales every mode down so the game keeps running, and tells you so on screen. The `video memory:` lines in the log show what the card reported and what was turned down.
 
-For help, use [Discord](https://discord.com/invite/dxyZdyFNT9) or [report an issue](https://github.com/itsloopyo/project-zomboid-headtracking/issues). Include `ProjectZomboidHeadTracking.log` from the game folder.
+For help, ask on [Discord](https://discord.com/invite/dxyZdyFNT9) or [report an issue](https://github.com/itsloopyo/project-zomboid-headtracking/issues), and include `ProjectZomboidHeadTracking.log` from the game folder.
 
 ## Updating
 
-Steam updates the Workshop copy itself. With the standalone installer, run the new release's `install.cmd`, and rerun it after a game update too. For a manual install, copy every `.jar` in the new release's `plugins` folder over the old ones, delete `ProjectZomboidHeadTracking.dll` and `CameraUnlockCore.dll` if they are there, and redo steps 4 and 5. Your `CameraUnlock.ini` settings stay either way.
+Steam keeps the Workshop version up to date for you. With the standalone installer, run the new release's `install.cmd`, and run it again after every game update too. For a manual install, copy every `.jar` from the new release's `plugins` folder over the old ones, delete `ProjectZomboidHeadTracking.dll` and `CameraUnlockCore.dll` if they're there, and redo steps 4 and 5. Your settings in `CameraUnlock.ini` are kept either way.
 
 ## Uninstalling
 
-For the Workshop copy, disable or unsubscribe from the mod, then restart the game: ZombieBuddy cannot take Java code out of a running game. Otherwise run `uninstall.cmd`, or delete the files listed under [Manual installation](#manual-installation). Your `CameraUnlock.ini` settings stay unless you delete that file too.
+For the Workshop version, disable the mod or unsubscribe, then restart the game, since ZombieBuddy can't take Java code back out of a running game. Otherwise run `uninstall.cmd`, or delete the files listed under [Manual installation](#manual-installation). Your settings in `CameraUnlock.ini` stay unless you delete that file too.
 
 ## Building from source
 
-Prerequisites: [pixi](https://pixi.sh), which brings Java 25 and Node. The first build downloads cameraunlock-core's WebAssembly toolchain, about 620 MB, once per user.
+You need [pixi](https://pixi.sh), which brings Java 25 and Node with it. The first build downloads cameraunlock-core's WebAssembly toolchain (about 620 MB), once per user.
 
 ```powershell
 git clone --recurse-submodules https://github.com/itsloopyo/project-zomboid-headtracking.git
@@ -881,7 +887,7 @@ cd project-zomboid-headtracking
 pixi run package
 ```
 
-`pixi run package` builds, runs the tests and writes the installer ZIP to `release\`.
+`pixi run package` builds the mod, runs the tests and writes the installer ZIP to `release\`.
 
 ## Community & Support
 
@@ -897,7 +903,7 @@ pixi run package
 
 Thanks to [The Indie Stone](https://theindiestone.com) for Project Zomboid, and to [OpenTrack](https://github.com/opentrack/opentrack) for the UDP tracking protocol.
 
-The pictures the mod hangs on walls and shows on televisions are screenshots taken inside Project Zomboid, and its stained glass windows are redrawn from the game's own. Thanks to The Indie Stone for creating Project Zomboid (https://projectzomboid.com/), which made this possible. This is an unofficial fan production for non-commercial purposes made under the [Indie Stone Terms](https://projectzomboid.com/blog/support/terms-conditions/).
+The pictures the mod hangs on walls and shows on TVs are screenshots taken in Project Zomboid, and its stained glass windows are redrawn from the game's own. Thanks to The Indie Stone for creating Project Zomboid (https://projectzomboid.com/), which made this possible. This is an unofficial fan production for non-commercial purposes made under the [Indie Stone Terms](https://projectzomboid.com/blog/support/terms-conditions/).
 
 ## Disclaimer
 
