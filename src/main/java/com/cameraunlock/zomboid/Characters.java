@@ -2646,7 +2646,7 @@ public final class Characters {
     }
 
     /** The characters the eye's last picture drew alive, and the ones its picture drew this frame: see watchDeaths. */
-    private final ArrayList<zombie.characters.IsoGameCharacter> drawnAlive = new ArrayList<>(), drawnAliveNext = new ArrayList<>();
+    private final ArrayList<IsoGameCharacter> drawnAlive = new ArrayList<>(), drawnAliveNext = new ArrayList<>();
     private final IdentityHashMap<Object, Boolean> drawnNow = new IdentityHashMap<>();
 
     /**
@@ -2663,7 +2663,7 @@ public final class Characters {
         drawnNow.clear();
         drawnAliveNext.clear();
         for (int i = 0; i < noted.size(); i++) {
-            zombie.characters.IsoGameCharacter character = noted.get(i).character;
+            IsoGameCharacter character = noted.get(i).character;
             if (character != null && character != viewer && !noted.get(i).inVehicle) {
                 drawnNow.put(character, Boolean.TRUE);
                 if (!character.isDead() && !(character instanceof IsoAnimal)) {
@@ -2672,7 +2672,7 @@ public final class Characters {
             }
         }
         for (int i = 0; i < drawnAlive.size(); i++) {
-            zombie.characters.IsoGameCharacter character = drawnAlive.get(i);
+            IsoGameCharacter character = drawnAlive.get(i);
             if (drawnNow.containsKey(character) || !character.isDead() && !character.isOnDeathDone()) {
                 continue;
             }
@@ -3168,13 +3168,14 @@ public final class Characters {
 
     /** combined = view times placed, with placed counted from where view counts (fromEye, fromMap). */
     private void multiplyPlaced(float[] view, float[] combined) {
-        placed[12] -= fromX;
-        placed[13] -= fromY;
-        placed[14] -= fromUp;
+        float x = placed[12], y = placed[13], up = placed[14];
+        placed[12] = x - fromX;
+        placed[13] = y - fromY;
+        placed[14] = up - fromUp;
         multiply(view, placed, combined);
-        placed[12] += fromX;
-        placed[13] += fromY;
-        placed[14] += fromUp;
+        placed[12] = x;
+        placed[13] = y;
+        placed[14] = up;
     }
 
     /**
