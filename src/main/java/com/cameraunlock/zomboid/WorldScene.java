@@ -4814,6 +4814,8 @@ final class WorldScene {
                         fresh.builtNanos = start;
                         fresh.bornNanos = missing ? start : current.bornNanos;
                         fresh.putOffNanos = 0L;
+                        // A spare build kept the time of the chunk it was made for last; one made in the walk has none (handOff).
+                        fresh.tookNanos = 0L;
                         fresh.signed = summed;
                         fresh.readingsAtBuild = summed ? readings : -1;
                         fresh.waitForNothing();
