@@ -18,6 +18,7 @@ import java.util.Set;
 import java.util.StringJoiner;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 
 public final class Agent {
@@ -239,10 +240,13 @@ public final class Agent {
 
     private static volatile boolean loaded;
 
-    /** The classes loaded when the mod began, which cannot be given new members: see catchUp. */
-    private static final Set<String> loadedBeforeStart = ConcurrentHashMap.newKeySet();
-
     private static final List<PatchTransformer> transformers = new ArrayList<>();
+
+    /** What the mod was started with, which takeIn puts patches into the game's code with. */
+    private static Instrumentation started;
+
+    /** The sets this start left out of the game's code, each until the parts and rules it serves are on: see takeIn. */
+    private static final List<PatchSet> waiting = new ArrayList<>();
 
     private static void add(Instrumentation instrumentation, PatchTransformer transformer) {
         // Only a transformer added as able to retransform sees the classes retransformLoaded asks for again.
@@ -258,8 +262,15 @@ public final class Agent {
     private static void retransformLoaded(Instrumentation instrumentation, Class<?>[] before) {
         Set<String> owners = new java.util.HashSet<>();
         transformers.forEach(transformer -> owners.addAll(transformer.owners()));
+        int[] done = retransform(instrumentation, before, owners);
+        Log.info("patched again " + done[0] + " classes the game had loaded before the mod started"
+                + (done[1] == 0 ? "" : ", " + done[1] + " refused"));
+    }
+
+    /** Has the JVM run each of the loaded classes the owners name through the transformers again, and answers how many it did and how many it refused. */
+    private static int[] retransform(Instrumentation instrumentation, Class<?>[] loadedClasses, Set<String> owners) {
         int done = 0, refused = 0;
-        for (Class<?> loadedClass : before) {
+        for (Class<?> loadedClass : loadedClasses) {
             String name = loadedClass.getName().replace('.', '/');
             if (!owners.contains(name)) {
                 continue;
@@ -273,8 +284,45 @@ public final class Agent {
                 refused++;
             }
         }
-        Log.info("patched again " + done + " classes the game had loaded before the mod started"
-                + (refused == 0 ? "" : ", " + refused + " refused"));
+        return new int[] {done, refused};
+    }
+
+    /**
+     * Puts into the game's code each set this start left out whose parts and rules are on now, so
+     * a part switched on while the game runs works at once: its transformer is added, and the
+     * classes it patches that the game has loaded are patched again. A patch that adds members to
+     * a class already loaded stays out until the next start. Then each part taken while the game
+     * runs that is on is marked as in the game's code. A part switched off keeps its patches until
+     * the next start, which leaves them out. Called once the file or the options screen has set the
+     * parts and rules, on the thread that set them.
+     */
+    static synchronized void takeIn() {
+        List<PatchSet> in = new ArrayList<>();
+        for (PatchSet set : waiting) {
+            if (set.leftOut().get() == null) {
+                in.add(set);
+            }
+        }
+        Part.takenIn();
+        if (in.isEmpty()) {
+            return;
+        }
+        Set<String> owners = new java.util.HashSet<>();
+        StringJoiner names = new StringJoiner(", ");
+        for (PatchSet set : in) {
+            add(started, set.transformer());
+            owners.addAll(set.transformer().owners());
+            names.add(set.name());
+        }
+        int[] done = retransform(started, started.getAllLoadedClasses(), owners);
+        for (PatchSet set : in) {
+            set.transformer().leaveOut(null);
+        }
+        waiting.removeAll(in);
+        // FirstPerson asks for the first person set's gap every frame and is handed the first answer.
+        firstPersonAsked = false;
+        Log.info("put into the game's code now, as what they serve was switched on: " + names + "; patched again " + done[0]
+                + " classes the game had loaded" + (done[1] == 0 ? "" : ", " + done[1] + " refused"));
     }
 
     /** Called where the game has just logged an exception of any kind. */
@@ -303,9 +351,6 @@ public final class Agent {
         // Listed before any transformer is added: a class that loads after this is patched as it
         // loads, so only these need patching again, and only these may not be given new members.
         Class<?>[] before = instrumentation.getAllLoadedClasses();
-        for (Class<?> loadedClass : before) {
-            loadedBeforeStart.add(loadedClass.getName().replace('.', '/'));
-        }
         if (!begin(instrumentation)) {
             return false;
         }
@@ -421,16 +466,19 @@ public final class Agent {
             } else {
                 leftOut.computeIfAbsent(lookupsOff, why -> new StringJoiner(", ")).add("item lookups");
             }
+            started = instrumentation;
             for (PatchSet set : sets()) {
-                if (set.leftOut() == null) {
+                String why = set.leftOut().get();
+                if (why == null) {
                     add(instrumentation, set.transformer());
                 } else {
-                    set.transformer().leaveOut(set.leftOut());
-                    leftOut.computeIfAbsent(set.leftOut(), why -> new StringJoiner(", ")).add(set.name());
+                    set.transformer().leaveOut(why);
+                    waiting.add(set);
+                    leftOut.computeIfAbsent(why, reason -> new StringJoiner(", ")).add(set.name());
                 }
             }
             Log.info("the mod's " + transformers.size() + " sets of patches are registered, each to go in as the game loads its class");
-            leftOut.forEach((why, sets) -> Log.info("left out of the game's code until a start with them on, as " + why + ": " + sets));
+            leftOut.forEach((why, sets) -> Log.info("left out of the game's code until what they serve is switched on, as " + why + ": " + sets));
             return true;
         } catch (RuntimeException | Error failure) {
             // begin says the mod could not start: what it registered stops patching the classes still to load, and its port and watch are let go.
@@ -439,13 +487,14 @@ public final class Agent {
             }
             transformers.forEach(instrumentation::removeTransformer);
             transformers.clear();
+            waiting.clear();
             Tracking.stop();
             throw failure;
         }
     }
 
-    /** A set of patches, its name in the log, and why this start leaves it out of the game's code, or null when it goes in. */
-    record PatchSet(String name, PatchTransformer transformer, String leftOut) {}
+    /** A set of patches, its name in the log, and why it is out of the game's code as the parts and rules are now, or null when it goes in. */
+    record PatchSet(String name, PatchTransformer transformer, Supplier<String> leftOut) {}
 
     /**
      * The mod's sets of patches after the item lookups, in the order they go in, each with why it
@@ -453,7 +502,7 @@ public final class Agent {
      * once Tracking.start has read the file. Gives each set whose gap the mod asks its field.
      */
     static List<PatchSet> sets() {
-        String firstPersonOff = off(Part.FIRST_PERSON);
+        Supplier<String> firstPersonOff = () -> off(Part.FIRST_PERSON);
         firstPerson = new PatchTransformer(firstPersonPatches());
         fineSkins = new PatchTransformer(fineSkinPatches());
         shot = new PatchTransformer(shotPatches());
@@ -470,73 +519,89 @@ public final class Agent {
         waitingComposites = new PatchTransformer(waitingCompositePatches());
         spotting = new PatchTransformer(spottingPatches());
         // A shot breaks lamps and glass where ImpactFinder finds it ends, in either view.
-        boolean shotsBreak = (Rules.rows() & (Rules.BREAKS_LAMPS | Rules.BREAKS_GLASS)) != 0;
-        String impactsOff = shotsBreak ? null : off(Part.FIRST_PERSON, Part.SHOT_IMPACTS);
+        Supplier<String> impactsOff = () -> (Rules.rows() & (Rules.BREAKS_LAMPS | Rules.BREAKS_GLASS)) != 0 ? null
+                : also(off(Part.FIRST_PERSON, Part.SHOT_IMPACTS), "were ShotsBreakLamps and ShotsBreakGlass");
         // First person's aim counts a blast's pellets through the same patches (Hooks.hitThrough).
-        String throughWallsOff = (Rules.rows() & Rules.THROUGH_WALLS) != 0 || firstPersonOff == null ? null
-                : firstPersonOff + ", and so was ShotsThroughWalls";
-        // The shaders and the part draw serve first person's picture and the mouths of the people the game draws.
+        Supplier<String> throughWallsOff = () -> (Rules.rows() & Rules.THROUGH_WALLS) != 0 ? null
+                : also(off(Part.FIRST_PERSON), "was ShotsThroughWalls");
+        // The shaders and the part draw serve first person's picture and the mouths of the people
+        // the game draws, and the game reads its shaders as it starts, so these follow the start alone.
         mouthsAtStart = Mouths.on();
-        String mouthsOff = mouthsAtStart || firstPersonOff == null ? null : firstPersonOff + ", and so was TalkingMouths";
+        String mouthsOff = mouthsAtStart || Part.FIRST_PERSON.atStart() ? null
+                : Part.FIRST_PERSON.key + " was off as the game started, and so was TalkingMouths";
         // Blood trails and flying pieces come only from first person's wounds; the hidden walls and the rewind have rows of their own.
-        String worldOff = firstPersonOff == null || (Rules.rows() & (Rules.HIDDEN_WALLS | Rules.REWIND)) != 0 ? null
-                : firstPersonOff + ", and so " + (DevBuild.ON ? "were HiddenWallDecor and Rewind30s" : "was HiddenWallDecor");
-        String splitScreenOff = SplitScreen.row() != SplitScreen.VERTICAL ? null : "SplitScreen was Vertical, the game's own, as the game started";
+        Supplier<String> worldOff = () -> (Rules.rows() & (Rules.HIDDEN_WALLS | Rules.REWIND)) != 0 ? null
+                : also(off(Part.FIRST_PERSON), DevBuild.ON ? "were HiddenWallDecor and Rewind30s" : "was HiddenWallDecor");
+        Supplier<String> splitScreenOff = () -> SplitScreen.row() != SplitScreen.VERTICAL ? null : "SplitScreen is Vertical, the game's own";
+        Supplier<String> in = () -> null;
         return List.of(
-                new PatchSet("base", new PatchTransformer(basePatches()), null),
-                new PatchSet("window", new PatchTransformer(windowPatches()), off(Part.CENTRE_THE_WINDOW)),
+                new PatchSet("base", new PatchTransformer(basePatches()), in),
+                new PatchSet("window", new PatchTransformer(windowPatches()), offNow(Part.CENTRE_THE_WINDOW)),
                 new PatchSet("torch", new PatchTransformer(torchPatches()), firstPersonOff),
                 new PatchSet("first person", firstPerson, firstPersonOff),
-                new PatchSet("ragdolls", new PatchTransformer(ragdollPatches()), off(Part.FIRST_PERSON, Part.QUICK_RAGDOLLS)),
-                new PatchSet("item models", new PatchTransformer(itemModelPatches()), off(Part.FIRST_PERSON, Part.ITEMS_AS_MODELS)),
-                new PatchSet("frame", new PatchTransformer(framePatches()), null),
+                new PatchSet("ragdolls", new PatchTransformer(ragdollPatches()), offNow(Part.FIRST_PERSON, Part.QUICK_RAGDOLLS)),
+                new PatchSet("item models", new PatchTransformer(itemModelPatches()), offNow(Part.FIRST_PERSON, Part.ITEMS_AS_MODELS)),
+                new PatchSet("frame", new PatchTransformer(framePatches()), in),
                 new PatchSet("shots through walls", new PatchTransformer(throughWallPatches()), throughWallsOff),
                 new PatchSet("world", new PatchTransformer(worldPatches()), worldOff),
-                new PatchSet("development", new PatchTransformer(DevPatches.list()), null),
-                new PatchSet("fine skins", fineSkins, off(Part.FIRST_PERSON, Part.FINER_SKINS)),
+                new PatchSet("development", new PatchTransformer(DevPatches.list()), in),
+                new PatchSet("fine skins", fineSkins, offNow(Part.FIRST_PERSON, Part.FINER_SKINS)),
                 new PatchSet("shot", shot, firstPersonOff),
-                new PatchSet("thunder", thunder, off(Part.FIRST_PERSON, Part.LIGHTNING_BOLTS)),
-                new PatchSet("lamps", lamps, mouthsOff),
-                new PatchSet("impacts", impacts, impactsOff == null ? null : impactsOff + ", and so were ShotsBreakLamps and ShotsBreakGlass"),
-                new PatchSet("model head", modelHead, null),
-                new PatchSet("name tags", nameTags, off(Part.FIRST_PERSON, Part.NAME_TAGS_AT_HEADS)),
-                new PatchSet("cached lookups", new PatchTransformer(gameFixPatches()), off(Part.CACHED_GAME_LOOKUPS)),
-                new PatchSet("hang fix", new PatchTransformer(hangFixPatches()), off(Part.BURNT_BUILDING_FREEZE_FIX)),
-                new PatchSet("covered", new PatchTransformer(coveredPatches()), off(Part.FIRST_PERSON, Part.SKIP_COVERED_GAME_DRAWING)),
-                new PatchSet("part draw", new PatchTransformer(partDrawPatches()), mouthsOff),
-                new PatchSet("screen grey", new PatchTransformer(screenGreyPatches()), off(Part.FIRST_PERSON, Part.LEAVE_OUT_SCREEN_GREY)),
+                new PatchSet("thunder", thunder, offNow(Part.FIRST_PERSON, Part.LIGHTNING_BOLTS)),
+                new PatchSet("lamps", lamps, () -> mouthsOff),
+                new PatchSet("impacts", impacts, impactsOff),
+                new PatchSet("model head", modelHead, in),
+                new PatchSet("name tags", nameTags, offNow(Part.FIRST_PERSON, Part.NAME_TAGS_AT_HEADS)),
+                new PatchSet("cached lookups", new PatchTransformer(gameFixPatches()), offNow(Part.CACHED_GAME_LOOKUPS)),
+                new PatchSet("hang fix", new PatchTransformer(hangFixPatches()), offNow(Part.BURNT_BUILDING_FREEZE_FIX)),
+                new PatchSet("covered", new PatchTransformer(coveredPatches()), offNow(Part.FIRST_PERSON, Part.SKIP_COVERED_GAME_DRAWING)),
+                new PatchSet("part draw", new PatchTransformer(partDrawPatches()), () -> mouthsOff),
+                new PatchSet("screen grey", new PatchTransformer(screenGreyPatches()), offNow(Part.FIRST_PERSON, Part.LEAVE_OUT_SCREEN_GREY)),
                 new PatchSet("far vehicles", new PatchTransformer(farVehiclePatches()), firstPersonOff),
                 new PatchSet("live sight", new PatchTransformer(liveSightPatches()), ruleOff(Rules.SEEN_AT_ONCE, "ZombiesSeenAtOnce")),
-                new PatchSet("left save", new PatchTransformer(leftSavePatches()), null),
-                new PatchSet("loading", new PatchTransformer(loadingPatches()), off(Part.FIRST_PERSON, Part.PREPARE_WHILE_LOADING)),
-                new PatchSet("lua loaded", new PatchTransformer(luaLoadedPatches()), null),
+                new PatchSet("left save", new PatchTransformer(leftSavePatches()), in),
+                new PatchSet("loading", new PatchTransformer(loadingPatches()), offNow(Part.FIRST_PERSON, Part.PREPARE_WHILE_LOADING)),
+                new PatchSet("lua loaded", new PatchTransformer(luaLoadedPatches()), in),
                 new PatchSet("knockdown", new PatchTransformer(knockdownPatches()), ruleOff(Rules.SMASHES_THROUGH, "VehiclesSmashThrough")),
-                new PatchSet("car physics", new PatchTransformer(carPhysicsPatches()), off(Part.FIRST_PERSON, Part.HILLS_MOVE_VEHICLES)),
-                new PatchSet("controller", new PatchTransformer(controllerPatches()), off(Part.CONTROLLER_CHOICE_FIX)),
-                new PatchSet("chunk marks", chunkMarks, off(Part.FIRST_PERSON, Part.CHUNK_CHANGE_COUNTS)),
-                new PatchSet("window marks", windowMarks, off(Part.FIRST_PERSON, Part.CHUNK_CHANGE_COUNTS)),
-                new PatchSet("unmarked changes", unmarkedChanges, off(Part.FIRST_PERSON, Part.CHUNK_CHANGE_COUNTS)),
-                new PatchSet("hushed marks", new PatchTransformer(hushedMarkPatches()), off(Part.FIRST_PERSON, Part.CHUNK_CHANGE_COUNTS)),
-                new PatchSet("hearing", hearing, off(Part.FIRST_PERSON, Part.HEAR_FROM_THE_EYE)),
-                new PatchSet("chunk centre", new PatchTransformer(chunkCentrePatches()), off(Part.HOLD_CHUNK_MAP_CENTRE)),
+                new PatchSet("car physics", new PatchTransformer(carPhysicsPatches()), offNow(Part.FIRST_PERSON, Part.HILLS_MOVE_VEHICLES)),
+                new PatchSet("controller", new PatchTransformer(controllerPatches()), offNow(Part.CONTROLLER_CHOICE_FIX)),
+                new PatchSet("chunk marks", chunkMarks, offNow(Part.FIRST_PERSON, Part.CHUNK_CHANGE_COUNTS)),
+                new PatchSet("window marks", windowMarks, offNow(Part.FIRST_PERSON, Part.CHUNK_CHANGE_COUNTS)),
+                new PatchSet("unmarked changes", unmarkedChanges, offNow(Part.FIRST_PERSON, Part.CHUNK_CHANGE_COUNTS)),
+                new PatchSet("hushed marks", new PatchTransformer(hushedMarkPatches()), offNow(Part.FIRST_PERSON, Part.CHUNK_CHANGE_COUNTS)),
+                new PatchSet("hearing", hearing, offNow(Part.FIRST_PERSON, Part.HEAR_FROM_THE_EYE)),
+                new PatchSet("chunk centre", new PatchTransformer(chunkCentrePatches()), offNow(Part.HOLD_CHUNK_MAP_CENTRE)),
                 new PatchSet("split screen", splitScreen, splitScreenOff),
-                new PatchSet("waiting composites", waitingComposites, off(Part.FIRST_PERSON, Part.SKINS_COMPOSED_WHILE_WAITING)),
-                new PatchSet("spotting", spotting, off(Part.FIRST_PERSON, Part.SKIP_COVERED_GAME_DRAWING, Part.SPOT_BY_SIGHT)));
+                new PatchSet("waiting composites", waitingComposites, offNow(Part.FIRST_PERSON, Part.SKINS_COMPOSED_WHILE_WAITING)),
+                new PatchSet("spotting", spotting, offNow(Part.FIRST_PERSON, Part.SKIP_COVERED_GAME_DRAWING, Part.SPOT_BY_SIGHT)));
     }
 
-    /** Why a set that serves one row of [Rules] alone is left out at this start: that row off as the game started, or null. */
-    private static String ruleOff(int bit, String key) {
-        return (Rules.rows() & bit) != 0 ? null : key + " was off as the game started";
+    /** Why a set that serves one row of [Rules] alone is out of the game's code: that row off, or null. */
+    private static Supplier<String> ruleOff(int bit, String key) {
+        return () -> (Rules.rows() & bit) != 0 ? null : key + " is off";
     }
 
-    /** Why a set that serves only these parts, each needing the ones before it, is left out at this start: the first off as the game started, or null. */
+    /**
+     * Why a set that serves only these parts, each needing the ones before it, is out of the game's
+     * code: the first whose patches are not in and cannot go in now, or null. A part taken while the
+     * game runs can go in once it is on; any other only at a start with it on.
+     */
     private static String off(Part... parts) {
         for (Part part : parts) {
-            if (!part.atStart()) {
-                return part.key + " was off as the game started";
+            if (!part.patched() && !(part.live && part.on())) {
+                return part.key + (part.live ? " is off" : " was off as the game started");
             }
         }
         return null;
+    }
+
+    private static Supplier<String> offNow(Part... parts) {
+        return () -> off(parts);
+    }
+
+    /** Why a set is out that also serves a row that is off: the reason, and the row, or null. */
+    private static String also(String off, String row) {
+        return off == null ? null : off + ", and so " + row;
     }
 
     /** The patches for the window's place: see WindowPlacement. */
@@ -1864,6 +1929,8 @@ public final class Agent {
         private final List<Patch> patches;
         private final Consumer<String> lost;
         private final Set<Patch> applied = ConcurrentHashMap.newKeySet();
+        /** The classes of these patches that loaded with this transformer added, which a patch may give new members as they are transformed again. */
+        private final Set<String> loadedHere = ConcurrentHashMap.newKeySet();
         /** Why the set was left out of the game's code at this start, or null when it went in. */
         private volatile String leftOut;
 
@@ -1949,10 +2016,13 @@ public final class Agent {
                 if (!patch.owner().equals(className)) {
                     continue;
                 }
-                if (redefined != null && patch.addsMembers() && loadedBeforeStart.contains(className)) {
-                    Log.info("left out " + className + "." + patch.what() + ": the game loaded the class before the mod started,"
+                if (redefined != null && patch.addsMembers() && !loadedHere.contains(className)) {
+                    Log.info("left out " + className + "." + patch.what() + ": the game loaded the class before these patches were added,"
                             + " and a loaded class cannot be given new fields or methods");
                     continue;
+                }
+                if (redefined == null) {
+                    loadedHere.add(className);
                 }
                 // The JVM discards whatever a transformer throws and loads the class
                 // unchanged, so this is the only place the failure can be reported.

@@ -142,7 +142,7 @@ public final class CoreTests {
         StringJoiner names = new StringJoiner(", ", "left out: ", "");
         names.setEmptyValue("left out: none");
         for (Agent.PatchSet set : Agent.sets()) {
-            if (set.leftOut() != null) {
+            if (set.leftOut().get() != null) {
                 names.add(set.name());
             }
         }

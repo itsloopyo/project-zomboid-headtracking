@@ -350,6 +350,7 @@ final class Tracking {
         }
         String parts = Part.described();
         Part.take(live.parts(), live.parts() ^ was.parts());
+        Agent.takeIn();
         if (!Part.described().equals(parts)) {
             Log.info(Config.FILE_NAME + " changed: the mod's parts: " + Part.described());
         }

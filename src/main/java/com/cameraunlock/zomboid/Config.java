@@ -458,7 +458,10 @@ final class Config {
         puts.put("Crosshair", value -> Crosshair.set(value != 0));
         puts.put("RegripTwoHandedWeapons", value -> Regrip.set(value != 0));
         puts.put("SpreadLightUpdates", value -> PendingLights.set(value != 0));
-        puts.put("SplitScreen", value -> SplitScreen.set((int) value));
+        puts.put("SplitScreen", value -> {
+            SplitScreen.set((int) value);
+            Agent.takeIn();
+        });
         puts.put(TALKING_MOUTHS, value -> {
             Mouths.set(value != 0);
             Microphones.set(value != 0, Tracking.microphones().toArray(String[]::new));
@@ -475,6 +478,7 @@ final class Config {
             puts.put(part.key, value -> {
                 if (part.live) {
                     part.set(value != 0);
+                    Agent.takeIn();
                     Log.info(part.key + " " + (value != 0) + ": " + Part.described());
                 } else {
                     Log.info(part.key + " " + (value != 0) + ", taken at the next start");
@@ -485,6 +489,7 @@ final class Config {
             int bit = 1 << i;
             puts.put(RULE_KEYS[i], value -> {
                 Rules.update(rows -> value != 0 ? rows | bit : rows & ~bit);
+                Agent.takeIn();
                 Log.info("the mod's rules offline: " + Rules.described(Rules.rows()));
             });
         }

@@ -227,8 +227,8 @@ final class SoundMix {
 
     /** Once a frame, after the first view's world is drawn. */
     static void frame() {
-        // The hearing patches are left out of the game's code with either off at the start, and nothing of the mod's goes into the mix.
-        if (failure != null || !Part.FIRST_PERSON.atStart() || !Part.HEAR_FROM_THE_EYE.atStart()) {
+        // The hearing patches are out of the game's code with either out, and nothing of the mod's goes into the mix.
+        if (failure != null || !Part.FIRST_PERSON.patched() || !Part.HEAR_FROM_THE_EYE.patched()) {
             return;
         }
         try {

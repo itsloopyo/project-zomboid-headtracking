@@ -132,7 +132,7 @@ enum Part {
     final String section, key, comment;
     /** Whether the row is taken while the game runs, and whether it is read at the start to leave patches out. */
     final boolean live, start;
-    private volatile boolean on = true, atStart = true;
+    private volatile boolean on = true, atStart = true, patched = true;
 
     Part(String section, String key, boolean live, boolean start, String comment) {
         this.section = section;
@@ -156,9 +156,23 @@ enum Part {
         return atStart;
     }
 
-    /** Whether the part works now: on, and for a part of patches, on as the game started too, so its patches are in. */
+    /** Whether the part's patches are in the game's code: on as the game started, or switched on since, for a part taken while the game runs. */
+    boolean patched() {
+        return patched;
+    }
+
+    /** Whether the part works now: on, and for a part of patches, with its patches in. */
     boolean running() {
-        return on && (atStart || !start);
+        return on && (patched || !start);
+    }
+
+    /** Marks each part taken while the game runs that is on as in the game's code, once Agent.takeIn has put its patches in. */
+    static void takenIn() {
+        for (Part part : values()) {
+            if (part.live && part.on) {
+                part.patched = true;
+            }
+        }
     }
 
     /** Each part's bit in what Config reads: the part's ordinal. */
@@ -169,7 +183,7 @@ enum Part {
     /** Every part as the file holds it at the start, by its bit. */
     static void start(long bits) {
         for (Part part : values()) {
-            part.atStart = part.on = (bits & part.bit()) != 0;
+            part.atStart = part.on = part.patched = (bits & part.bit()) != 0;
         }
     }
 
@@ -194,7 +208,7 @@ enum Part {
     static String described() {
         StringBuilder off = new StringBuilder();
         for (Part part : values()) {
-            if (!part.on || part.start && !part.atStart) {
+            if (!part.on || part.start && !part.patched) {
                 off.append(off.length() == 0 ? "" : ", ").append(part.key).append(part.on ? " on from the next start" : " off");
             }
         }
