@@ -261,31 +261,63 @@ public final class Hooks {
 
     /** Called as the game leaves a save for its menu. */
     public static void leftSave(Object state) {
-        Tracking.leftSave();
-        mapReadAt = 0;
-        lineShown = -1;
-        lineFaded = 0f;
-        lineDrawnAt = 0;
-        FarLand.loadingAfresh();
-        FineSkins.leftSave();
-        Impacts.forget();
-        Fires.forget();
-        Pieces.forget();
-        Corpses.forget();
-        Dying.forget();
-        Bleeding.forget();
-        LimbDecals.forget();
-        SharedHeads.forget();
-        Rewind.forget();
-        HiddenWalls.forget();
-        Troughs.forget();
-        CarPhysics.forget();
+        try {
+            Tracking.leftSave();
+            mapReadAt = 0;
+            lineShown = -1;
+            lineFaded = 0f;
+            lineDrawnAt = 0;
+            FarLand.loadingAfresh();
+            FineSkins.leftSave();
+            Impacts.forget();
+            Fires.forget();
+            Pieces.forget();
+            Corpses.forget();
+            Dying.forget();
+            Bleeding.forget();
+            LimbDecals.forget();
+            SharedHeads.forget();
+            Rewind.forget();
+            HiddenWalls.forget();
+            Troughs.forget();
+            CarPhysics.forget();
+        } catch (RuntimeException | Error thrown) {
+            // The world build and the card's copy of it are still given back.
+            try {
+                viewsLeftSave();
+            } catch (RuntimeException | Error also) {
+                thrown.addSuppressed(also);
+            }
+            throw thrown;
+        }
+        viewsLeftSave();
+    }
+
+    /** Each view's, every one of them whatever another throws: the first thrown is thrown on once all have run. */
+    private static void viewsLeftSave() {
+        Throwable first = null;
         for (int i = 0; i < View.COUNT; i++) {
             View view = View.of(i);
-            if (view != null) {
-                view.firstPerson.leftSave();
-                view.spotting.leftSave();
+            if (view == null) {
+                continue;
             }
+            for (Runnable leftSave : new Runnable[] {view.firstPerson::leftSave, view.spotting::leftSave}) {
+                try {
+                    leftSave.run();
+                } catch (RuntimeException | Error thrown) {
+                    if (first == null) {
+                        first = thrown;
+                    } else {
+                        first.addSuppressed(thrown);
+                    }
+                }
+            }
+        }
+        if (first instanceof Error error) {
+            throw error;
+        }
+        if (first != null) {
+            throw (RuntimeException) first;
         }
     }
 
