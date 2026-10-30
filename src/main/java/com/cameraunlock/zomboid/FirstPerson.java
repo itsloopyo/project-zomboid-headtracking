@@ -761,13 +761,18 @@ public final class FirstPerson {
     private String failure;
     private final Set<String> thrownAt = new HashSet<>();
 
-    /** Says on screen how to switch to the other view, other, and after it, on a keyboard, how to change the graphics quality. */
+    /**
+     * Says on screen how to switch to the other view, other, and after it, on a keyboard, how to
+     * change the graphics quality. A key list left empty in CameraUnlock.ini has no hint.
+     */
     private void sayHints(IsoPlayer player, String other, String why) {
-        hint = View.onController(player) ? "Double-tap Back for " + other : "Press " + Tracking.firstPersonKeys() + " for " + other;
+        boolean pad = View.onController(player);
+        String switchKeys = Tracking.firstPersonKeys(), qualityKeys = Tracking.cycleQualityKeys();
+        hint = pad ? "Double-tap Back for " + other : switchKeys.isEmpty() ? null : "Press " + OptionsLayout.keys(switchKeys) + " for " + other;
         hintAt = System.nanoTime();
-        Log.info(who() + why + ", and the screen says: " + hint);
-        if (!View.onController(player)) {
-            laterHint = "Press " + Tracking.cycleQualityKeys() + " to change graphics quality. First person and isometric each have their own settings";
+        Log.info(who() + why + (hint == null ? ", and no key switches the view" : ", and the screen says: " + hint));
+        if (!pad && !qualityKeys.isEmpty()) {
+            laterHint = "Press " + OptionsLayout.keys(qualityKeys) + " to change graphics quality. First person and isometric each have their own settings";
             laterHintAt = hintAt + HINT_FOR_NANOS + HINT_GAP_NANOS;
         }
     }
