@@ -35,6 +35,7 @@
 ### Fixed
 
 - In first person, a shot through a light of a glazed door breaks that light, with the sound of breaking glass that zombies hear, as a shot breaks a window. The light is drawn as the shards left round its edge, from both sides, and stays broken in the save. The round goes on through it, and the next shot through the gap lands on what is behind the door instead of on the door.
+- With `Reflections` on, a broken light of a glazed door no longer shows a reflection over the gap as if its glass were still there, whether a shot broke it or the map paints it broken.
 - Letting go of forward while sprinting forward and to one side in first person no longer sends you on ahead at about twice the sprint's speed for most of a second. The sprint now slows to a stop as it does straight ahead, and then you step sideways at the stance's pace.
 - Standing or turning on the spot where two parts of the map meet no longer loads a strip of the map again every few seconds, each time with a small hitch. The far edge of the loaded map now follows you up to a tile later.
 - The slight wobble on edges in first person, worst round door and window frames, is gone: the eye's place is kept finer than before, so near edges no longer step as the head moves.

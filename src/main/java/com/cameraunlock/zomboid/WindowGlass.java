@@ -20,7 +20,8 @@ import zombie.util.list.PZArrayList;
  * The opening is smaller: the picture is laid a hair before the panes and behind the face
  * of the wall, which hides it everywhere but in the opening. A door's glass is noted as the
  * lights in its leaf take up and no more: the leaf's faces stand before the picture between
- * them, and nothing hides the doorway round a leaf that does not fill it.
+ * them, and nothing hides the doorway round a leaf that does not fill it. Where a light is
+ * broken nothing stands before the picture there either, so each whole light is noted alone.
  */
 final class WindowGlass {
     /** The most windows noted. */
@@ -100,10 +101,25 @@ final class WindowGlass {
                         // The window stands on the floor of the room it is in, which on a hill is not the land under the eye.
                         IsoGridSquare room = !square.isOutside() || across == null ? square : across;
                         float foot = z * ViewCamera.LEVEL_HEIGHT + terrain.lift(room.getX() + 0.5f, room.getY() + 0.5f, z);
-                        int at = into.count++ * LookingGlass.FLOATS;
-                        note(north, edge, north ? x : y, foot, Math.signum(off), into.glass, at);
-                        if (leaf != null) {
-                            lights(leaf, north, into.glass, at);
+                        if (leaf == null) {
+                            note(north, edge, north ? x : y, foot, Math.signum(off), into.glass, into.count++ * LookingGlass.FLOATS);
+                            continue;
+                        }
+                        // A broken light has no glass to throw anything back: each whole one is a glass of its own.
+                        float[] panes = DoorGlass.withBroken(leaf.panes, DoorGlass.broken(object));
+                        boolean whole = true;
+                        for (int pane = 0; pane < panes.length; pane += 5) {
+                            whole &= panes[pane + 4] >= 1f;
+                        }
+                        for (int pane = 0; pane < panes.length && into.count < MOST; pane += 5) {
+                            if (whole || panes[pane + 4] >= 1f) {
+                                int at = into.count++ * LookingGlass.FLOATS;
+                                note(north, edge, north ? x : y, foot, Math.signum(off), into.glass, at);
+                                lights(panes, whole ? 0 : pane, whole ? panes.length : pane + 5, north, into.glass, at);
+                            }
+                            if (whole) {
+                                break;
+                            }
                         }
                     }
                 }
@@ -132,14 +148,14 @@ final class WindowGlass {
         return shape == null || shape.leaf.north != north || shape.leaf.panes.length == 0 ? null : shape.leaf;
     }
 
-    /** Narrows a glass noted a tile wide and a level high at at to the lights of a door's leaf. */
-    static void lights(Windows.Shape leaf, boolean north, float[] out, int at) {
+    /** Narrows a glass noted a tile wide and a level high at at to the lights of a door's leaf from `from` to `to` in its panes, five numbers a light. */
+    static void lights(float[] panes, int from, int to, boolean north, float[] out, int at) {
         float start = 1f, end = 0f, foot = 1f, head = 0f;
-        for (int pane = 0; pane < leaf.panes.length; pane += 5) {
-            start = Math.min(start, leaf.panes[pane]);
-            end = Math.max(end, leaf.panes[pane + 1]);
-            foot = Math.min(foot, leaf.panes[pane + 2]);
-            head = Math.max(head, leaf.panes[pane + 3]);
+        for (int pane = from; pane < to; pane += 5) {
+            start = Math.min(start, panes[pane]);
+            end = Math.max(end, panes[pane + 1]);
+            foot = Math.min(foot, panes[pane + 2]);
+            head = Math.max(head, panes[pane + 3]);
         }
         out[at + LookingGlass.CORNER + (north ? 0 : 1)] += start;
         out[at + LookingGlass.CORNER + 2] += foot * ViewCamera.LEVEL_HEIGHT;
