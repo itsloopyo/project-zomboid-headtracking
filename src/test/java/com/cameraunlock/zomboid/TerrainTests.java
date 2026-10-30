@@ -61,6 +61,7 @@ final class TerrainTests {
             Checks.run("aChangeOfHeightReworksTheLandRoundTheEyeAtOnce", TerrainTests::aChangeOfHeightReworksTheLandRoundTheEyeAtOnce);
             Checks.run("streamedChunksShareTheirBorders", TerrainTests::streamedChunksShareTheirBorders);
             Checks.run("aBuildKeepsTheHeightsItWasMadeOn", TerrainTests::aBuildKeepsTheHeightsItWasMadeOn);
+            Checks.run("aBuildGoesByTheHeightsAsItReadThemNotAsTheyAreAsItEnds", TerrainTests::aBuildGoesByTheHeightsAsItReadThemNotAsTheyAreAsItEnds);
             Checks.run("groundReadAheadGivesAChunkTheHeightsItHasOnceLoaded", TerrainTests::groundReadAheadGivesAChunkTheHeightsItHasOnceLoaded);
             Checks.run("groundLoadedOtherwiseThanReadAheadHasItsOwnHeights", TerrainTests::groundLoadedOtherwiseThanReadAheadHasItsOwnHeights);
             Checks.run("theLevelLandHasNoKerbs", TerrainTests::theLevelLandHasNoKerbs);
@@ -125,6 +126,7 @@ final class TerrainTests {
             Terrain.frame(2000);
             Terrain.loaded(1);
             WorldScene.ChunkMeshes built = new WorldScene.ChunkMeshes(0);
+            map.build.readOwnHeights(1, 0);
             map.build.heightsSeen(built, 1, 0);
             check(map.build.heightsHeld(built, 0f), "with nothing loaded since, a build's heights are the heights");
             for (int x = -48; x < 56; x++) {
@@ -146,6 +148,49 @@ final class TerrainTests {
             check(moved > 0f, "water loaded beside the chunk moves its heights: " + moved);
             check(!map.build.heightsHeld(built, moved * 0.5f), "heights that moved by more than allowed are not the build's");
             check(map.build.heightsHeld(built, moved), "heights that moved by no more than allowed are still the build's");
+        } finally {
+            ChunkMarks.live = live;
+            Terrain.forget();
+        }
+    }
+
+    /**
+     * The heights of a chunk can be worked out again, by the walk or another build, while a build handed off is being
+     * made from them: the build notes them as it read them, so that it is held to be made on the heights it was and is
+     * made again, and not on the heights it ends beside.
+     */
+    private static void aBuildGoesByTheHeightsAsItReadThemNotAsTheyAreAsItEnds() {
+        boolean live = ChunkMarks.live;
+        Terrain.forget();
+        Terrain.HILLS.heighten(1f);
+        Country.set(List.of());
+        try {
+            ChunkMarks.live = true;
+            TestMap map = new TestMap();
+            var grass = map.sprite("blends_natural_01_0", zombie.iso.SpriteDetails.IsoObjectType.normal);
+            var water = map.sprite("blends_natural_02_0", zombie.iso.SpriteDetails.IsoObjectType.normal, "water");
+            for (int x = -8; x < 16; x++) {
+                for (int y = -8; y < 16; y++) {
+                    map.cell.square(x, y, 0).floor(grass);
+                }
+            }
+            Terrain.frame(2000);
+            Terrain.loaded(1);
+            map.build.readOwnHeights(1, 0);
+            for (int x = -48; x < 56; x++) {
+                for (int y = -48; y < 56; y++) {
+                    if (x < -8 || x >= 16 || y < -8 || y >= 16) {
+                        map.cell.square(x, y, 0).floor(x >= 16 ? water : grass);
+                    }
+                }
+            }
+            Terrain.frame(2001);
+            Terrain.loaded(2);
+            Terrain.HILLS.fromMap(map.cell, 1, 0);
+            Terrain.HILLS.corners(map.cell, 1, 0);
+            WorldScene.ChunkMeshes built = new WorldScene.ChunkMeshes(0);
+            map.build.heightsSeen(built, 1, 0);
+            check(!map.build.heightsHeld(built, 0f), "heights worked out again after the build read them are not the build's");
         } finally {
             ChunkMarks.live = live;
             Terrain.forget();

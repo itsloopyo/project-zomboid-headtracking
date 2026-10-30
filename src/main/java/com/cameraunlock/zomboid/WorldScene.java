@@ -811,6 +811,19 @@ final class WorldScene {
     private final ChunkMeshes[] latestGrown = new ChunkMeshes[TABLE_SIDE * TABLE_SIDE];
     /** The builds the walk of the view's last frame handed off, in walk order: made as the walk goes on and landed at the start of the next frame (Frame.handOff). */
     private final ArrayList<Handed> handed = new ArrayList<>();
+    /** The heights of the chunks a build took any from, as it first read them: see Frame.heightsRead. */
+    private static final class HeightsRead {
+        int ownVersion;
+        float[] ownHeights, ownWater;
+        long ownKerbSum;
+        /** For the chunks round the build's own, at the bits of Frame.heightsRound. */
+        final int[] roundVersion = new int[9];
+        final float[][] roundHeights = new float[9][];
+        /** For those further off, in the order of Frame.heightsFar. */
+        int[] farVersion = new int[8];
+        float[][] farHeights = new float[8][];
+    }
+
     /** The build handed off for each slot of the table and not landed yet, or null. */
     private final Handed[] handedAt = new Handed[TABLE_SIDE * TABLE_SIDE];
     private final ArrayDeque<Handed> spareHanded = new ArrayDeque<>();
@@ -6271,7 +6284,7 @@ final class WorldScene {
             fresh.heightsRound = heightsRound;
             fresh.heightsFar = heightsFarCount == 0 ? NO_CHUNKS : Arrays.copyOf(heightsFar, heightsFarCount);
             fresh.wantsMap = wantsMap;
-            fresh.land = landOf(chunk.wx, chunk.wy, heightsRound, heightsFar, heightsFarCount, wantsMap);
+            fresh.land = landRead(wantsMap);
             heightsSeen(fresh, chunk.wx, chunk.wy);
             if (fresh.seen == null) {
                 fresh.seen = new OpenLight();
@@ -6518,11 +6531,13 @@ final class WorldScene {
             bodiesLaid = 0;
             // Once for the chunk and not once a level: until the ground round a chunk is all
             // loaded its corners are worked out afresh at every asking.
-            terrain.ground(cell, chunk.wx, chunk.wy, groundRead);
-            float[] ground = groundRead.heights;
-            if (!growing) {
+            if (growing) {
+                terrain.ground(cell, chunk.wx, chunk.wy, groundRead);
+            } else {
+                readOwnHeights(chunk.wx, chunk.wy);
                 building.terrainVersion = groundRead.version;
             }
+            float[] ground = groundRead.heights;
             float[] water = groundRead.water;
             kerbs = groundRead.kerb;
             geometry.lanes = groundRead.lanes;
@@ -8546,6 +8561,14 @@ final class WorldScene {
         private long[] heightsFar = new long[8];
         private int heightsFarCount;
         /**
+         * The heights of each chunk the build took any from, and their version, as it first read them. A build handed
+         * off goes by these and not by what the chunks hold as it ends: the walk, or another build, may have worked a
+         * chunk's heights out again or joined a neighbour's edge into them in between, and the build would then be
+         * marked as made on heights it never read, and not made again.
+         */
+        private final HeightsRead heightsRead = new HeightsRead();
+        private final Terrain.Ground heightsGround = new Terrain.Ground();
+        /**
          * Whether the build has left something unknown because the map is not loaded that far: the span of a wire at an
          * end, a square of a piece of furniture painted on several.
          */
@@ -8563,20 +8586,35 @@ final class WorldScene {
             if (wx == building.wx && wy == building.wy) {
                 return;
             }
-            terrain.corners(cell, wx, wy);
             if (Math.abs(wx - building.wx) <= 1 && Math.abs(wy - building.wy) <= 1) {
-                heightsRound |= 1 << (wx - building.wx + 1) * 3 + wy - building.wy + 1;
+                int bit = (wx - building.wx + 1) * 3 + wy - building.wy + 1;
+                if ((heightsRound >> bit & 1) != 0) {
+                    terrain.corners(cell, wx, wy);
+                    return;
+                }
+                terrain.ground(cell, wx, wy, heightsGround);
+                heightsRead.roundVersion[bit] = heightsGround.version;
+                heightsRead.roundHeights[bit] = heightsGround.heights;
+                heightsRound |= 1 << bit;
                 return;
             }
             long far = (long) wx << 32 | wy & 0xFFFFFFFFL;
             for (int known = 0; known < heightsFarCount; known++) {
                 if (heightsFar[known] == far) {
+                    terrain.corners(cell, wx, wy);
                     return;
                 }
             }
             if (heightsFarCount == heightsFar.length) {
                 heightsFar = Arrays.copyOf(heightsFar, heightsFarCount * 2);
             }
+            if (heightsFarCount == heightsRead.farVersion.length) {
+                heightsRead.farVersion = Arrays.copyOf(heightsRead.farVersion, heightsFarCount * 2);
+                heightsRead.farHeights = Arrays.copyOf(heightsRead.farHeights, heightsFarCount * 2);
+            }
+            terrain.ground(cell, wx, wy, heightsGround);
+            heightsRead.farVersion[heightsFarCount] = heightsGround.version;
+            heightsRead.farHeights[heightsFarCount] = heightsGround.heights;
             heightsFar[heightsFarCount++] = far;
         }
 
@@ -8586,7 +8624,16 @@ final class WorldScene {
             return terrain.land(x, y);
         }
 
-        /** Notes the heights a build was made on, after landOf: its own chunk's and those of the chunks it took heights from. */
+        /** Reads the heights of the chunk being built as its build does as it begins (addSquares), into groundRead, and keeps them as read (heightsRead). */
+        void readOwnHeights(int wx, int wy) {
+            terrain.ground(cell, wx, wy, groundRead);
+            heightsRead.ownVersion = groundRead.version;
+            heightsRead.ownHeights = groundRead.heights;
+            heightsRead.ownWater = groundRead.water;
+            heightsRead.ownKerbSum = groundRead.kerbSum;
+        }
+
+        /** Notes the heights a build was made on, as it first read them (heightsRead): its own chunk's and those of the chunks it took heights from. */
         void heightsSeen(ChunkMeshes fresh, int wx, int wy) {
             int count = 1 + Integer.bitCount(heightsRound) + heightsFarCount;
             if (fresh.heightsSeen.length != count) {
@@ -8596,22 +8643,20 @@ final class WorldScene {
             int at = 0;
             fresh.heightsSeenOf[0] = wx;
             fresh.heightsSeenOf[1] = wy;
-            terrain.ground(cell, wx, wy, groundRead);
-            fresh.heightsSeen[at++] = groundRead.heights;
-            fresh.waterSeen = groundRead.water;
-            fresh.kerbs = groundRead.kerbSum;
+            fresh.heightsSeen[at++] = heightsRead.ownHeights;
+            fresh.waterSeen = heightsRead.ownWater;
+            fresh.kerbs = heightsRead.ownKerbSum;
             for (int bit = 0; bit < 9; bit++) {
                 if ((heightsRound >> bit & 1) != 0) {
                     fresh.heightsSeenOf[at * 2] = wx + bit / 3 - 1;
                     fresh.heightsSeenOf[at * 2 + 1] = wy + bit % 3 - 1;
-                    fresh.heightsSeen[at++] = terrain.corners(cell, wx + bit / 3 - 1, wy + bit % 3 - 1);
+                    fresh.heightsSeen[at++] = heightsRead.roundHeights[bit];
                 }
             }
             for (int known = 0; known < heightsFarCount; known++) {
                 fresh.heightsSeenOf[at * 2] = (int) (heightsFar[known] >> 32);
                 fresh.heightsSeenOf[at * 2 + 1] = (int) heightsFar[known];
-                fresh.heightsSeen[at] = terrain.corners(cell, fresh.heightsSeenOf[at * 2], fresh.heightsSeenOf[at * 2 + 1]);
-                at++;
+                fresh.heightsSeen[at++] = heightsRead.farHeights[known];
             }
         }
 
@@ -8664,6 +8709,20 @@ final class WorldScene {
             for (int known = 0; known < count; known++) {
                 terrain.ground(cell, (int) (far[known] >> 32), (int) far[known], groundRead);
                 land = land * 31 + groundRead.version;
+            }
+            return wantsMap ? land * 31 + loadedNow : land;
+        }
+
+        /** landOf for the build just made, from the versions of the heights as it first read them (heightsRead). */
+        private int landRead(boolean wantsMap) {
+            int land = heightsRead.ownVersion;
+            for (int bit = 0; bit < 9; bit++) {
+                if ((heightsRound >> bit & 1) != 0) {
+                    land = land * 31 + heightsRead.roundVersion[bit];
+                }
+            }
+            for (int known = 0; known < heightsFarCount; known++) {
+                land = land * 31 + heightsRead.farVersion[known];
             }
             return wantsMap ? land * 31 + loadedNow : land;
         }
