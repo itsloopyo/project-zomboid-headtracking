@@ -14,6 +14,7 @@
 
 ### Changed
 
+- A save that loads in first person shows the same hints as one that loads in the isometric view, once first person is ready: which key switches views, then which key changes the graphics quality.
 - In the isometric view the mod's lawn grass reaches the edge of the picture, thinner and broader-bladed past about ten tiles, instead of ending in a ring 15 tiles round your character.
 - In first person, the chunks a frame has to build again, and the grass and plants it grows again as you move, are built on up to four threads of their own, each starting as the view comes to it while the view goes on with the rest of the frame, instead of one after another on the game's own thread, and each shows a frame later. `[Optimizations] BuildOnWorkerThreads=false` builds them on the game's thread as before.
 - Arriving somewhere in first person, a chunk built before some of its sprites or pictures had been read is built again once those have been, instead of every time any sprite anywhere is read: about a third fewer chunk builds over four arrivals in Louisville, half in the busiest, and the picture once everything is read is the same. `[Optimizations] RebuildForOwnSprites=false` builds it again as before.

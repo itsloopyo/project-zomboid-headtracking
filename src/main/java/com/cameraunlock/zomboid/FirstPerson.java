@@ -88,6 +88,8 @@ public final class FirstPerson {
     /** The hint said after the first, and when: HINT_GAP_NANOS after the first goes. */
     private String laterHint;
     private long laterHintAt;
+    /** A save loaded in first person: its hints are said once the view has landed, not under "getting ready". */
+    private boolean hintsOnLanding;
     private static final long HINT_GAP_NANOS = 3_000_000_000L;
     private long saidAt;
     private String said;
@@ -495,6 +497,7 @@ public final class FirstPerson {
      */
     void leftSave() {
         viewAtLoadOwed = true;
+        hintsOnLanding = false;
         wasInVehicle = false;
         switchedForVehicle = false;
         SnowPrints.forget();
@@ -520,6 +523,7 @@ public final class FirstPerson {
             giveBack("player " + (view.index + 1) + " is gone");
         }
         viewAtLoadOwed = true;
+        hintsOnLanding = false;
         wasInVehicle = false;
         switchedForVehicle = false;
         risen = null;
@@ -757,10 +761,22 @@ public final class FirstPerson {
     private String failure;
     private final Set<String> thrownAt = new HashSet<>();
 
+    /** Says on screen how to switch to the other view, other, and after it, on a keyboard, how to change the graphics quality. */
+    private void sayHints(IsoPlayer player, String other, String why) {
+        hint = View.onController(player) ? "Double-tap Back for " + other : "Press " + Tracking.firstPersonKeys() + " for " + other;
+        hintAt = System.nanoTime();
+        Log.info(who() + why + ", and the screen says: " + hint);
+        if (!View.onController(player)) {
+            laterHint = "Press " + Tracking.cycleQualityKeys() + " to change graphics quality. First person and isometric each have their own settings";
+            laterHintAt = hintAt + HINT_FOR_NANOS + HINT_GAP_NANOS;
+        }
+    }
+
     /** @param pressed the actions of Config's bits pressed this frame that are this view's to act on or to say */
     private void frame(int pressed) {
         if ((pressed & Config.FIRST_PERSON) != 0) {
             viewAtLoadOwed = false;
+            hintsOnLanding = false;
             switchedForVehicle = false;
             if (hint != null && laterHint != null) {
                 laterHintAt = Math.min(laterHintAt, System.nanoTime() + HINT_GAP_NANOS);
@@ -803,14 +819,9 @@ public final class FirstPerson {
             if (!on && !gettingReady && Tracking.firstPersonRemembered(view.index)) {
                 Log.info(who() + "first person was on when the view was last switched: asked for again");
                 toggle();
+                hintsOnLanding = on || gettingReady;
             } else if (!on && !gettingReady) {
-                hint = View.onController(player) ? "Double-tap Back for first person" : "Press " + Tracking.firstPersonKeys() + " for first person";
-                hintAt = System.nanoTime();
-                Log.info(who() + "the save loads in the isometric view, and the screen says: " + hint);
-                if (!View.onController(player)) {
-                    laterHint = "Press " + Tracking.cycleQualityKeys() + " to change graphics quality. First person and isometric each have their own settings";
-                    laterHintAt = hintAt + HINT_FOR_NANOS + HINT_GAP_NANOS;
-                }
+                sayHints(player, "first person", "the save loads in the isometric view");
             }
         }
         if (allowed && (player.getVehicle() != null) != wasInVehicle) {
@@ -875,6 +886,10 @@ public final class FirstPerson {
             Log.info(String.format(Locale.ROOT, "first person landed looking %.0f, %s, movement keys (%.2f, %.2f), %s",
                     Math.toDegrees(yaw), facings(player), traceMoveX, traceMoveY, view.headTracking.describe()));
             stride.landed(now);
+            if (hintsOnLanding) {
+                hintsOnLanding = false;
+                sayHints(player, "the isometric view", "the save loaded in first person");
+            }
         } else if (!on) {
             stride.reset();
         }
