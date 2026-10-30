@@ -6939,9 +6939,9 @@ final class WorldScene {
                             }
                             thing = BloodBuilder.onWall(thing, object);
                             if (object instanceof IsoDoor door) {
-                                thing = sum(thing, door.IsOpen() ? 2 : 1);
+                                thing = sum(sum(thing, door.IsOpen() ? 2 : 1), DoorGlass.broken(door));
                             } else if (object instanceof IsoThumpable thumpable && thumpable.isDoor()) {
-                                thing = sum(thing, thumpable.IsOpen() ? 4 : 3);
+                                thing = sum(sum(thing, thumpable.IsOpen() ? 4 : 3), DoorGlass.broken(thumpable));
                             }
                         }
                         ArrayList<IsoMovingObject> bodies = square.getStaticMovingObjects();
@@ -9755,6 +9755,7 @@ final class WorldScene {
             boolean north;
             doorSwung = false;
             shutTexture = null;
+            brokenLights = DoorGlass.isDoor(object) ? DoorGlass.broken(object) : 0;
             if (object instanceof IsoDoor door) {
                 // A door on hinges stands across its doorway when it is open. A garage door
                 // rolls up in its own plane, and what is left of it showing is still in the wall.
@@ -10478,6 +10479,8 @@ final class WorldScene {
         /** For a door that stands open, the texture and frame of the sprite it shows shut, which it is read from: see OpeningBuilder.addBuiltDoor. Null for any other. */
         Texture shutTexture;
         final SpriteGeometry.Frame shutFrame = new SpriteGeometry.Frame();
+        /** Of the door being added, the lights shots have broken: see DoorGlass. */
+        int brokenLights;
         /** Whether the sprite being added is the frame round a doorway. */
         boolean casing;
         /** Whether the sprite being added is a wall a doorway is in. */

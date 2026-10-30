@@ -1532,6 +1532,7 @@ public final class FirstPerson {
         HandWeapon weapon = player.getPrimaryHandItem() instanceof HandWeapon held ? held : null;
         Penetration.Cartridge through = Penetration.applies(player, weapon) ? Penetration.cartridgeOf(weapon) : null;
         world.boles = Penetration.pastTrees(player, weapon);
+        world.lights = Penetration.applies(player, weapon);
         shotDistance = world.shotDistance(aimView, view.worldScene.terrain, player.getZ() * ViewCamera.LEVEL_HEIGHT, reach,
                 scene.characterX, scene.characterY, scene.characterBase, scene.characters, through, player.getX(), player.getY());
         IsoGameCharacter aimedAt = characterAimedAt(scene);

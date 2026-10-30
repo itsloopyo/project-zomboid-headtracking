@@ -396,6 +396,8 @@ final class OpeningBuilder {
             }
             return false;
         }
+        // Shots break lights counted in the shut leaf's order, which a leaf swung open keeps (Doors.swung): see DoorGlass.
+        int broken = build.brokenLights;
         if (build.shutTexture != null) {
             // Open, it is the leaf its shut sprite paints, which stands on the other edge.
             Doors.Shape shut = Doors.of(build.shutTexture, build.shutFrame, !north);
@@ -406,12 +408,16 @@ final class OpeningBuilder {
             if (shut != null) {
                 Doors.tellPair(texture, build.shutTexture);
                 door = Doors.swung(door, shut);
+            } else {
+                broken = 0;
             }
         }
         // A garage door rolls up in its own plane and has no jamb to fill, and a door swung open stands clear of its doorway.
         boolean measured = doorwayX == x && doorwayY == y && doorwayZ == z && doorwayNorth == north;
         boolean inDoorway = !build.doorSwung && !build.garageDoor && measured;
         Windows.Shape leaf = inDoorway ? withinCut(door.leaf, doorwayStart, doorwayEnd) : door.leaf;
+        float[] panes = broken == 0 ? leaf.panes : leaf == door.leaf ? DoorGlass.withBroken(leaf.panes, broken)
+                : clipped(DoorGlass.withBroken(door.leaf.panes, broken), 5, leaf.start, leaf.end);
         float out = build.doorSwung ? SWUNG_OUT + build.wallBuilder.logsProud(x, y, z, da != 0f) : 0f;
         windowX = x + db * out;
         windowY = y + da * out;
@@ -552,13 +558,13 @@ final class OpeningBuilder {
         edgeSide = -1;
         facePane(glass, beyond, false, da, db);
         glass.lightFlat(sideFrames[paneSide]);
-        for (int pane = 0; pane < leaf.panes.length; pane += 5) {
-            float t0 = leaf.panes[pane], t1 = leaf.panes[pane + 1], h0 = leaf.panes[pane + 2], h1 = leaf.panes[pane + 3];
-            if (leaf.panes[pane + 4] >= 1f) {
+        for (int pane = 0; pane < panes.length; pane += 5) {
+            float t0 = panes[pane], t1 = panes[pane + 1], h0 = panes[pane + 2], h1 = panes[pane + 3];
+            if (panes[pane + 4] >= 1f) {
                 addGlass(glass, t0, h0, 0f, 0f, t1, h0, 1f, 0f, t1, h1, 1f, 1f);
                 addGlass(glass, t0, h0, 0f, 0f, t1, h1, 1f, 1f, t0, h1, 0f, 1f);
             } else {
-                addShards(glass, t0, t1, h0, h1, leaf.panes[pane + 4], x * 73856093 ^ y * 19349663 ^ z * 83492791 ^ pane * 2654435);
+                addShards(glass, t0, t1, h0, h1, panes[pane + 4], x * 73856093 ^ y * 19349663 ^ z * 83492791 ^ pane * 2654435);
             }
         }
         // Shared with other builders, which leave day as they find it.

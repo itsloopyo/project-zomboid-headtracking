@@ -9,6 +9,8 @@ public class IsoObject {
     public IsoObject() {}
     public IsoObject(IsoCell cell, IsoGridSquare square, IsoSprite sprite) { throw new UnsupportedOperationException("reference stub"); }
 
+    public se.krka.kahlua.vm.KahluaTable getModData() { throw new UnsupportedOperationException("reference stub"); }
+    public boolean hasModData() { throw new UnsupportedOperationException("reference stub"); }
     public java.util.ArrayList<zombie.iso.sprite.IsoSpriteInstance> getAttachedAnimSprite() { throw new UnsupportedOperationException("reference stub"); }
     public IsoSprite getOverlaySprite() { throw new UnsupportedOperationException("reference stub"); }
     public IsoSprite getSprite() { throw new UnsupportedOperationException("reference stub"); }

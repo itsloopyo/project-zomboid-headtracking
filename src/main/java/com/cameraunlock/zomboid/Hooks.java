@@ -709,9 +709,10 @@ public final class Hooks {
         Bleeding.saved(chunk);
     }
 
-    /** Called as the game has loaded a chunk's squares and put its things in the world, on its logic thread: see HiddenWalls.loaded. */
+    /** Called as the game has loaded a chunk's squares and put its things in the world, on its logic thread: see HiddenWalls.loaded and DoorGlass.loaded. */
     public static void chunkLoaded(IsoChunk chunk) {
         HiddenWalls.loaded(chunk);
+        DoorGlass.loaded(chunk);
     }
 
     /**

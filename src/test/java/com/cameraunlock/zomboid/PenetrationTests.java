@@ -16,6 +16,7 @@ final class PenetrationTests {
         Checks.run("whereTheRoundsGoAsTheOwnerAsked", PenetrationTests::whereTheRoundsGoAsTheOwnerAsked);
         Checks.run("aDoorWithNoMaterialIsToldByItsSound", PenetrationTests::aDoorWithNoMaterialIsToldByItsSound);
         Checks.run("aShotThroughADoorsLightIsTold", PenetrationTests::aShotThroughADoorsLightIsTold);
+        Checks.run("aBrokenLightLosesItsGlass", PenetrationTests::aBrokenLightLosesItsGlass);
     }
 
     private static void check(boolean condition, String what) {
@@ -94,12 +95,25 @@ final class PenetrationTests {
                 "a hunting rifle's round goes through a house's outer wall, two inner walls and a solid door");
     }
 
-    /** A door with one light high in it: the glass lets a shot by, the wood round it and under it does not. */
+    /** A door with a light high in it and one under it: the glass lets a shot by, the wood round it does not, and each light is told by its place. */
     private static void aShotThroughADoorsLightIsTold() {
-        float[] panes = {0.3f, 0.7f, 0.55f, 0.8f, 1f};
-        check(Penetration.inALight(panes, 0.5f, 0.65f), "a shot through the light's middle is in it");
-        check(!Penetration.inALight(panes, 0.5f, 0.4f), "one through the leaf under it is not");
-        check(!Penetration.inALight(panes, 0.2f, 0.65f), "nor one through the stile beside it");
-        check(!Penetration.inALight(new float[0], 0.5f, 0.65f), "and a leaf with no light has no glass to go through");
+        float[] panes = {0.3f, 0.7f, 0.55f, 0.8f, 1f, 0.3f, 0.7f, 0.1f, 0.45f, 1f};
+        check(DoorGlass.lightIn(panes, 0.5f, 0.65f) == 0, "a shot through the upper light's middle is in it");
+        check(DoorGlass.lightIn(panes, 0.5f, 0.3f) == 1, "one through the lower light is in that one");
+        check(DoorGlass.lightIn(panes, 0.5f, 0.5f) == -1, "one through the rail between them is in neither");
+        check(DoorGlass.lightIn(panes, 0.2f, 0.65f) == -1, "nor one through the stile beside them");
+        check(DoorGlass.lightIn(new float[0], 0.5f, 0.65f) == -1, "and a leaf with no light has no glass to go through");
+    }
+
+    /** A broken light is drawn with no glass, and the rest as they were. */
+    private static void aBrokenLightLosesItsGlass() {
+        float[] panes = {0f, 0.5f, 0.5f, 1f, 1f, 0.5f, 1f, 0.5f, 1f, 1f, 0f, 0.5f, 0f, 0.5f, 1f, 0.5f, 1f, 0f, 0.5f, 1f};
+        check(DoorGlass.withBroken(panes, 0) == panes, "a door with no light broken keeps its panes");
+        float[] left = DoorGlass.withBroken(panes, 0b0100);
+        check(left[14] == 0f && left[4] == 1f && left[9] == 1f && left[19] == 1f, "the third light of four is drawn broken, the others whole");
+        check(panes[14] == 1f, "the measured leaf is left as measured");
+        check(!DoorGlass.allBroken(panes, 0b0111), "three of four broken is not all of them");
+        check(DoorGlass.allBroken(panes, 0b1111), "four of four is");
+        check(!DoorGlass.allBroken(new float[0], 0), "a leaf with no light has none broken");
     }
 }

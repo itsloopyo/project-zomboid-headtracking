@@ -226,7 +226,7 @@ final class Penetration {
                     return STOPS;
                 }
                 if (throughALight(object, north, along, x, y)) {
-                    // The game lets a shot through a shut window's glass for nothing, and breaks it; it has no glass in a door to break.
+                    // The game lets a shot through a shut window's glass for nothing; ShotGlass breaks the light as it breaks a window.
                     return 0f;
                 }
                 String made = materialOf(object);
@@ -248,21 +248,7 @@ final class Penetration {
             return false;
         }
         float up = heightAt(x, y);
-        if (Float.isNaN(up)) {
-            return false;
-        }
-        Doors.Shape shape = Doors.known(door.getSprite().getTextureForCurrentFrame(door.getDir()));
-        return shape != null && shape.leaf.north == north && inALight(shape.leaf.panes, along, up);
-    }
-
-    /** Whether (along, up) on a leaf is inside one of its lights: five numbers a light, as Windows.Shape.panes has them. */
-    static boolean inALight(float[] panes, float along, float up) {
-        for (int pane = 0; pane < panes.length; pane += 5) {
-            if (along >= panes[pane] && along <= panes[pane + 1] && up >= panes[pane + 2] && up <= panes[pane + 3]) {
-                return true;
-            }
-        }
-        return false;
+        return !Float.isNaN(up) && DoorGlass.lightAt(door, north, along, up) >= 0;
     }
 
     /**

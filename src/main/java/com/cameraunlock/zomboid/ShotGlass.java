@@ -2,6 +2,7 @@ package com.cameraunlock.zomboid;
 
 import java.util.Locale;
 import zombie.characters.IsoGameCharacter;
+import zombie.inventory.types.HandWeapon;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
@@ -18,6 +19,9 @@ import zombie.util.list.PZArrayList;
  * The game lets a shot through a window's edge at any height on its level, so the glass breaks
  * wherever on that level the shot crosses the edge. A barricade on the shooter's side stops the
  * shot before the glass, and one on the far side stops it after.
+ *
+ * The light of a shut door's leaf the shot crosses breaks too, where Penetration lets the round
+ * through it: the game keeps no glass in a door, so the mod keeps it (DoorGlass).
  */
 final class ShotGlass {
     private ShotGlass() {}
@@ -28,6 +32,8 @@ final class ShotGlass {
     private static Terrain terrain;
     private static IsoGameCharacter shooter;
     private static ViewCamera.Pose line;
+    /** Whether the shot goes through a door's lights, as Penetration lets it, and so breaks them. */
+    private static boolean lightsGive;
 
     /**
      * How far along a line through (eyeX, eyeY) the way (wayX, wayY) it crosses the edge between
@@ -37,7 +43,7 @@ final class ShotGlass {
         return fromX == toX ? (Math.max(fromY, toY) - eyeY) / wayY : (Math.max(fromX, toX) - eyeX) / wayX;
     }
 
-    /** A shot along line, from its eye as far as distance, in the picture's measure: breaks each window it crosses. Logic thread. */
+    /** A shot along line, from its eye as far as distance, in the picture's measure: breaks each window and door light it crosses. Logic thread. */
     static void along(IsoCell on, Terrain land, IsoGameCharacter by, ViewCamera.Pose shot, float distance) {
         if (!Rules.breaksGlass()) {
             return;
@@ -46,6 +52,7 @@ final class ShotGlass {
         terrain = land;
         shooter = by;
         line = shot;
+        lightsGive = Penetration.applies(by, by.getPrimaryHandItem() instanceof HandWeapon held ? held : null);
         trace.firstBlockedEdge(cross, shot.eyeX, shot.eyeY, shot.forwardX, shot.forwardY, distance);
         cell = null;
         terrain = null;
@@ -53,7 +60,7 @@ final class ShotGlass {
         line = null;
     }
 
-    /** Breaks the window on the edge the shot crosses, if there is one, and answers whether a barricade there stops the shot. */
+    /** Breaks the window or door light on the edge the shot crosses, if there is one, and answers whether a barricade there stops the shot. */
     private static boolean crossAt(int fromX, int fromY, int toX, int toY) {
         float s = crossedAt(line.eyeX, line.eyeY, line.forwardX, line.forwardY, fromX, fromY, toX, toY);
         float x = line.eyeX + line.forwardX * s, y = line.eyeY + line.forwardY * s, up = line.eyeUp + line.forwardUp * s;
@@ -61,9 +68,12 @@ final class ShotGlass {
         // An edge is the north or west edge of the square south or east of it, and what stands on it is that square's.
         boolean north = fromX == toX;
         IsoGridSquare owner = level < 0 ? null : cell.getGridSquare(Math.max(fromX, toX), Math.max(fromY, toY), level);
-        IsoWindow window = owner == null ? null : windowOn(owner, north);
-        if (window == null) {
+        if (owner == null) {
             return false;
+        }
+        IsoWindow window = windowOn(owner, north);
+        if (window == null) {
+            return throughADoor(owner, north, north ? x - owner.getX() : y - owner.getY(), (up - terrain.height(x, y)) / ViewCamera.LEVEL_HEIGHT - level);
         }
         if (window.getBarricadeForCharacter(shooter) != null) {
             return true;
@@ -75,6 +85,34 @@ final class ShotGlass {
             }
         }
         return window.getBarricadeOppositeCharacter(shooter) != null;
+    }
+
+    /**
+     * Breaks the light of the shut door on a square's north or west edge that the shot crosses at
+     * `along` the edge and `up` levels over the floor, and answers whether the door stops the
+     * shot: where it is barricaded. A round that goes on through the leaf's wood is Penetration's.
+     */
+    private static boolean throughADoor(IsoGridSquare square, boolean north, float along, float up) {
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoObject object = objects.get(i);
+            if (!DoorGlass.shutOn(object, north)) {
+                continue;
+            }
+            if (DoorGlass.barricaded(object)) {
+                return true;
+            }
+            int light = lightsGive ? DoorGlass.lightAt(object, north, along, up) : -1;
+            if (DevBuild.ON) {
+                Log.info(String.format(Locale.ROOT, "a shot crossed the door at (%d, %d), %s edge, %.3f along and %.3f levels up: %s", square.getX(), square.getY(),
+                        north ? "north" : "west", along, up, !lightsGive ? "the round does not go through door glass" : light >= 0 ? "light " + light : DoorGlass.describe(object, north)));
+            }
+            if (light >= 0) {
+                DoorGlass.breakLight(object, light);
+            }
+            return false;
+        }
+        return false;
     }
 
     private static IsoWindow windowOn(IsoGridSquare square, boolean north) {

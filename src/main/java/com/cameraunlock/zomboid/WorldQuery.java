@@ -3,8 +3,10 @@ package com.cameraunlock.zomboid;
 import java.util.function.Predicate;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
+import zombie.iso.IsoObject;
 import zombie.iso.LosUtil;
 import zombie.iso.SpriteDetails.IsoFlagType;
+import zombie.util.list.PZArrayList;
 
 /**
  * What the loaded map says is in the way of the eye and of a shot. Both
@@ -117,8 +119,16 @@ final class WorldQuery {
      * glass. Set for each line by its drag cursor: see DragAim.onWindows.
      */
     boolean windows;
+    /**
+     * Whether a shut door's lights of glass let the shots traced by, as a window's glass does,
+     * where Penetration lets a round through them. Set for each shot by its shooter.
+     */
+    boolean lights;
     /** The line being traced, from where its trace began, and the nearest it has met a bole along it. */
     private float lineX, lineY, lineWayX, lineWayY, lineFrom, boleMet;
+    /** The height of the line being traced at its eye and the way it climbs, and the ground it is measured over. */
+    private float lineUp, lineWayUp;
+    private Ground lineGround;
 
     /**
      * Whether a shot stops at the edge between two squares, as near as the game's own rule can be
@@ -143,7 +153,28 @@ final class WorldQuery {
             }
             boleMetIn(to, toX, toY);
         }
+        if (lights && seen == LosUtil.TestResults.ClearThroughClosedDoor && throughALight(from, to, fromX, fromY, toX, toY)) {
+            seen = LosUtil.TestResults.ClearThroughWindow;
+        }
         return lineOfFire.stopsAt(seen);
+    }
+
+    /** Whether the line being traced crosses the shut door on the edge between two squares in one of its lights: see DoorGlass. */
+    private boolean throughALight(IsoGridSquare from, IsoGridSquare to, int fromX, int fromY, int toX, int toY) {
+        // An edge is the north or west edge of the square south or east of it, and what stands on it is that square's.
+        boolean north = fromX == toX;
+        IsoGridSquare owner = north ? (toY < fromY ? from : to) : (toX < fromX ? from : to);
+        float crossed = ShotGlass.crossedAt(lineX, lineY, lineWayX, lineWayY, fromX, fromY, toX, toY);
+        float x = lineX + lineWayX * crossed, y = lineY + lineWayY * crossed;
+        float up = (lineUp + lineWayUp * crossed - lineGround.height(x, y)) / ViewCamera.LEVEL_HEIGHT - level;
+        PZArrayList<IsoObject> objects = owner.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoObject object = objects.get(i);
+            if (DoorGlass.shutOn(object, north)) {
+                return !DoorGlass.barricaded(object) && DoorGlass.lightAt(object, north, north ? x - owner.getX() : y - owner.getY(), up) >= 0;
+            }
+        }
+        return false;
     }
 
     /** As solidToAShot, with a window stopping the line too: see windows. */
@@ -361,6 +392,9 @@ final class WorldQuery {
                 lineWayX = aim.forwardX;
                 lineWayY = aim.forwardY;
                 lineFrom = from;
+                lineUp = aim.eyeUp;
+                lineWayUp = aim.forwardUp;
+                lineGround = ground;
                 boleMet = Float.POSITIVE_INFINITY;
                 float startX = aim.eyeX + aim.forwardX * from, startY = aim.eyeY + aim.forwardY * from;
                 if (boles) {
