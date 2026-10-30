@@ -3123,6 +3123,7 @@ final class Pipeline {
                     movers.before[i * 4 + 3]);
         }
         steady.set("uKept", keptAny && !WITHOUT.contains("steady") ? KEPT : 0f);
+        steady.set("uJitter", JITTER_X[jitterAt] * 0.5f, JITTER_Y[jitterAt] * 0.5f);
         steady.set("uOwnWithin", seated ? 3.2f : 0f);
         steady.set("uHeldWithin", seated || outside || overhead ? 0f : HELD_WITHIN);
         quad();

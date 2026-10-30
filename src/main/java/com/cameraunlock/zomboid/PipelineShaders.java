@@ -8288,6 +8288,8 @@ final class PipelineShaders {
             uniform vec4 uMover[16];
             uniform vec4 uMoverBefore[16];
             uniform float uMovers;
+            // Where this frame's picture was drawn from the middle of each pixel, in pixels: see Pipeline.stepAside.
+            uniform vec2 uJitter;
 
             // The picture kept from before, read at a place between its pixels. Read as the
             // mean of the four pixels round the place, each frame of a moving head blurs what
@@ -8426,9 +8428,21 @@ final class PipelineShaders {
                 }
                 vec3 mine = pressed(now.rgb);
                 vec3 sum = vec3(0.0), squares = vec3(0.0), least = mine, most = mine;
+                // This frame's own colour for the pixel, taken from the nine round it each by how
+                // near its sample fell to the pixel's middle. Taken raw, each frame is the picture
+                // a fraction of a pixel aside, and while the head drifts, when little of the last
+                // frame is kept, that step shows as a shimmer: centred, a quarter-pixel drift changed
+                // a fifth as many pixels by 30 a frame in a field of grass. The weights are a
+                // Gaussian standing in for a Blackman-Harris window, as Karis's temporal AA has it.
+                vec3 centred = vec3(0.0);
+                float weights = 0.0;
                 for (int x = -1; x <= 1; x++) {
                     for (int y = -1; y <= 1; y++) {
                         vec3 near = pressed(texture2D(uScene, uv + vec2(float(x), float(y)) * px).rgb);
+                        vec2 off = vec2(float(x), float(y)) + uJitter;
+                        float weight = exp(-2.29 * dot(off, off));
+                        centred += near * weight;
+                        weights += weight;
                         sum += near;
                         squares += near * near;
                         least = min(least, near);
@@ -8462,7 +8476,7 @@ final class PipelineShaders {
                 vec2 between = sin(3.14159265 * fract(moved * uSize));
                 float passes = (1.0 - 0.312 * between.x * between.x) * (1.0 - 0.312 * between.y * between.y);
                 float kept = min(lost ? 0.5 : uKept, 0.2 / (1.0 - 0.8 * passes));
-                gl_FragData[0] = vec4(unpressed(mix(mine, held, kept)), now.a);
+                gl_FragData[0] = vec4(unpressed(mix(centred / weights, held, kept)), now.a);
             }
             """;
 

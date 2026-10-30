@@ -20,6 +20,7 @@
 
 ### Changed
 
+- Frame blending shimmers much less while your head moves: grass, leaves and fine edges hold still instead of crawling, for a slightly softer picture.
 - The mod's options page is sorted into Quick settings, Head tracking, First person, Graphics, Custom graphics, Mod content, Gameplay tweaks, Game fixes, Optimizations, Split screen, each extra player, Voice and Keys, and every setting has a plain name and a description of what it does on and off. Mod content ticks a row for the mod's own and unticks it for the game's own. Keys lists every key the mod listens for, and where to change it.
 - Nothing on the options page takes effect until you apply the options. Then everything you changed takes effect together and is saved to `CameraUnlock.ini`. Leaving without applying leaves every setting as it was.
 - Choosing a first person graphics mode on the options page shows that mode's settings under Custom graphics straight away, and changing one of those switches the mode to Custom straight away, before you apply.

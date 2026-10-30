@@ -2412,4 +2412,8 @@ itself, and each is written here in this project's own shaders.
   along its length to both ends, and the pixel blended across it by its place
   between them. Its contrast thresholds and search steps are those of that
   method's quality presets 12 and 39.
+- Frame blending (the `STEADY` shader of `PipelineShaders.java`) takes each
+  frame's own colour for a pixel from the nine round it, weighted by how far
+  each jittered sample fell from the pixel's middle through exp(-2.29 d^2), as
+  Brian Karis describes in "High Quality Temporal Supersampling" (SIGGRAPH 2014).
 ---
