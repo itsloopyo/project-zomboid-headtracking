@@ -26,6 +26,7 @@ final class BlastTests {
         Checks.run("aShotGoesThroughOnlyWellInsideAHoleOnItsEdge", BlastTests::aShotGoesThroughOnlyWellInsideAHoleOnItsEdge);
         Checks.run("aRoundsHoleIsSmallWhereItWentInAndWideWhereItCameOut", BlastTests::aRoundsHoleIsSmallWhereItWentInAndWideWhereItCameOut);
         Checks.run("anObjectKeepsItsNewestRoundsHolesApartFromTheRest", BlastTests::anObjectKeepsItsNewestRoundsHolesApartFromTheRest);
+        Checks.run("holesOverlappingOnRaggedFacesAlwaysCut", BlastTests::holesOverlappingOnRaggedFacesAlwaysCut);
     }
 
     private static void check(boolean condition, String what) {
@@ -403,6 +404,83 @@ final class BlastTests {
             ends &= onOutline && Math.abs(Math.abs(f[at + 1]) - 0.04f) < 1e-5f;
         }
         check(ends, "the lining runs from the way in on the near skin to the way out on the far one");
+    }
+
+    /**
+     * Blasts, rounds and marks heaped on a fence of irregular faces on a slope, as a shotgun emptied
+     * into one does, cut without an error: among them the ones where an outline grazed a face's
+     * corner or edge and its crossings came out of order, which once threw in a build and turned
+     * first person off. Exact runs lay the seven blasts one fence took in the game, run by run with
+     * other seeds; the rest lay holes of every kind about them.
+     */
+    private static void holesOverlappingOnRaggedFacesAlwaysCut() {
+        float[][] blasts = {{0.877f, 0.503f, 0.05f}, {0.383f, 0.514f, 0.05f}, {0.117f, 0.517f, 0.05f}, {0.164f, 0.523f, 0.05f},
+                {0.290f, 0.424f, 0.072f}, {0.443f, 0.423f, 0.061f}, {0.307f, 0.518f, 0.054f}};
+        int[] exactOnes = {1543, 17853, 36538}, mixedOnes = {95, 100, 186, 509, 741, 774, 16704};
+        int threw = 0;
+        String first = null;
+        for (int pass = 0; pass < 2; pass++) {
+            boolean exact = pass == 0;
+            int[] known = exact ? exactOnes : mixedOnes;
+            for (int i = 0; i < 1500 + known.length; i++) {
+                int run = i < 1500 ? i : known[i - 1500];
+                try {
+                    cutRaggedFence(new java.util.Random(run), blasts, exact);
+                } catch (RuntimeException e) {
+                    threw++;
+                    first = first == null ? (exact ? "exact" : "mixed") + " run " + run + ": " + e.getMessage() : first;
+                }
+            }
+        }
+        check(threw == 0, threw + " runs threw, the first " + first);
+    }
+
+    /** One run of holesOverlappingOnRaggedFacesAlwaysCut. */
+    private static void cutRaggedFence(java.util.Random r, float[][] blasts, boolean exact) {
+        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+        float level = ViewCamera.LEVEL_HEIGHT, foot = 0.7f;
+        for (float across : new float[] {-0.04f, 0.04f}) {
+            int columns = 1 + r.nextInt(6);
+            float[] xs = new float[columns + 1];
+            for (int i = 1; i < columns; i++) {
+                xs[i] = (float) i / columns + (r.nextFloat() - 0.5f) * 0.1f / columns;
+            }
+            xs[columns] = 1f;
+            for (int i = 0; i < columns; i++) {
+                float slope = (r.nextFloat() - 0.5f) * 0.4f;
+                float b0 = foot + slope * xs[i], b1 = foot + slope * xs[i + 1], top = foot + level * (0.7f + r.nextFloat() * 0.3f);
+                mesh.addVertex(vertex(xs[i], across, b0));
+                mesh.addVertex(vertex(xs[i + 1], across, b1));
+                mesh.addVertex(vertex(xs[i + 1], across, top));
+                mesh.addVertex(vertex(xs[i], across, b0));
+                mesh.addVertex(vertex(xs[i + 1], across, top));
+                mesh.addVertex(vertex(xs[i], across, top));
+            }
+        }
+        float[] entries = new float[0];
+        if (exact) {
+            for (float[] b : blasts) {
+                entries = BlastHoles.with(entries, true, b[0], b[1], b[2], r.nextInt(1 << 20), 0);
+            }
+        }
+        int count = exact ? 0 : 3 + r.nextInt(8);
+        for (int h = 0; h < count; h++) {
+            float[] b = blasts[r.nextInt(blasts.length)];
+            float along = b[0] + (r.nextFloat() - 0.5f) * 0.3f, up = b[1] + (r.nextFloat() - 0.5f) * 0.15f;
+            int kind = r.nextInt(3);
+            if (kind == 0) {
+                entries = BlastHoles.with(entries, true, along, up, b[2] * (0.8f + r.nextFloat() * 0.6f), r.nextInt(1 << 20), 0);
+            } else if (kind == 1) {
+                entries = BlastHoles.with(entries, true, along, up, BlastHoles.ROUND_RADIUS * (1f + r.nextFloat() * 2f), r.nextInt(1 << 20),
+                        (r.nextBoolean() ? 1 : -1) * BlastHoles.ROUND);
+            } else {
+                entries = BlastHoles.with(entries, true, along, up, BlastHoles.MARK_RADIUS, r.nextInt(1 << 20), r.nextBoolean() ? 1 : -1);
+            }
+        }
+        MeshCut cut = new MeshCut(0f, 0f, 1f, 0f, 0.08f);
+        BlastHoles.into(cut, entries, true, 0f, 1f, foot, level, 1);
+        cut.cut(mesh, 0);
+        cut.finish();
     }
 
     private static void anObjectKeepsItsNewestRoundsHolesApartFromTheRest() {

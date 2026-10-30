@@ -45,8 +45,6 @@ final class MeshCut {
     static final float MARK_OFF = 0.003f;
     /** A triangle with less area than this seen across the plane, in square tiles, looks along it. */
     private static final float EDGE_ON = 1e-7f;
-    /** A corner of an outline being cut into triangles that turns less than this, in square tiles, is on the line of its neighbours. */
-    private static final float FLAT = 1e-9f;
 
     private final float originX, originY, alongX, alongY, reach;
 
@@ -344,13 +342,16 @@ final class MeshCut {
     /** Where an edge of the outline crosses an edge of a face: its place round each, whether the face's edge runs into the hole there, and the vertex. */
     private static final class Crossing {
         final float faceKey, outlineKey;
+        final int faceEdge, outlineEdge;
         final boolean intoTheHole;
         final float[] vertex;
         final float s, t;
         int facePlace, outlinePlace;
 
-        Crossing(float faceKey, float outlineKey, boolean intoTheHole, float[] vertex, float s, float t) {
+        Crossing(int faceEdge, float faceKey, int outlineEdge, float outlineKey, boolean intoTheHole, float[] vertex, float s, float t) {
+            this.faceEdge = faceEdge;
             this.faceKey = faceKey;
+            this.outlineEdge = outlineEdge;
             this.outlineKey = outlineKey;
             this.intoTheHole = intoTheHole;
             this.vertex = vertex;
@@ -402,7 +403,7 @@ final class MeshCut {
                 float along = uFirst ? share : 1f - share;
                 float eS = cs[(e + 1) % 3] - cs[e], eT = ct[(e + 1) % 3] - ct[e];
                 boolean into = (qS - pS) * eT - (qT - pT) * eS > 0f;
-                crossings.add(new Crossing(e + along, j + dP / (dP - dQ), into, made, s(made, 0), made[2]));
+                crossings.add(new Crossing(e, e + along, j, j + dP / (dP - dQ), into, made, s(made, 0), made[2]));
             }
         }
         polygon.clear();
@@ -424,7 +425,28 @@ final class MeshCut {
         }
         Crossing[] byFace = crossings.toArray(new Crossing[0]), byOutline = crossings.toArray(new Crossing[0]);
         java.util.Arrays.sort(byFace, (x, y) -> Float.compare(x.faceKey, y.faceKey));
-        java.util.Arrays.sort(byOutline, (x, y) -> Float.compare(x.outlineKey, y.outlineKey));
+        // Where a corner of the outline grazes an edge of the face, the edge crosses the two edges of
+        // the outline at that corner at places that can come out the other way round. The piece of
+        // the edge between them is cut off by the corner, so it is in the hole where the outline
+        // turns left there and outside it where it turns right, which settles their order.
+        for (int i = 0; i + 1 < n; i++) {
+            Crossing x = byFace[i], y = byFace[i + 1];
+            int shared = (x.outlineEdge + 1) % points == y.outlineEdge ? y.outlineEdge : (y.outlineEdge + 1) % points == x.outlineEdge ? x.outlineEdge : -1;
+            if (x.faceEdge != y.faceEdge || shared < 0 || x.intoTheHole == y.intoTheHole) {
+                continue;
+            }
+            int before = (shared - 1 + points) % points, after = (shared + 1) % points;
+            boolean convex = side(o[2 * before], o[2 * before + 1], o[2 * shared], o[2 * shared + 1], o[2 * after], o[2 * after + 1]) > 0f;
+            if (x.intoTheHole != convex) {
+                byFace[i] = y;
+                byFace[i + 1] = x;
+            }
+        }
+        // A straight edge of the outline goes into a face and out of it again at most once, so on one
+        // edge where it goes in comes first: their places along it can come out the other way round
+        // where the edge only grazes a corner of the face.
+        java.util.Arrays.sort(byOutline, (x, y) -> x.outlineEdge != y.outlineEdge ? Integer.compare(x.outlineEdge, y.outlineEdge)
+                : x.intoTheHole != y.intoTheHole ? Boolean.compare(x.intoTheHole, y.intoTheHole) : Float.compare(x.outlineKey, y.outlineKey));
         for (int i = 0; i < n; i++) {
             byFace[i].facePlace = i;
             byOutline[i].outlinePlace = i;
@@ -459,11 +481,8 @@ final class MeshCut {
                 if (out.intoTheHole) {
                     throw new IllegalStateException("an outline runs into a face twice running");
                 }
-                span = in.outlineKey - out.outlineKey;
-                if (span <= 0f) {
-                    span += points;
-                }
-                for (int m = (int) Math.floor(in.outlineKey); in.outlineKey - m < span; m--) {
+                span = in.outlinePlace == 0 ? in.outlineKey - out.outlineKey + points : Math.max(in.outlineKey - out.outlineKey, 0f);
+                for (int m = in.outlineEdge; in.outlineKey - m < span; m--) {
                     int k = (m % points + points) % points;
                     addOutline(tri, at, o[2 * k], o[2 * k + 1], sA, tA, sB, tB, sC, tC);
                 }
@@ -552,8 +571,8 @@ final class MeshCut {
 
     /**
      * Cuts the outline, wound anticlockwise, into triangles by ears, adding no corner, and puts
-     * them in next wound as the face was. A corner on the line of its two neighbours is an ear of
-     * no area: it goes, drawing nothing, only when no ear is left.
+     * them in next wound as the face was. A corner within NEAR of the line of its two neighbours
+     * is an ear of no area: it goes, drawing nothing, only when no ear is left.
      */
     private void triangulate(boolean turned) {
         int n = polygon.size();
@@ -564,30 +583,41 @@ final class MeshCut {
         while (n >= 3) {
             int ear = -1, flattest = -1;
             float flat = Float.POSITIVE_INFINITY;
-            for (int i = 0; i < n && ear < 0; i++) {
-                int a = left[(i + n - 1) % n], b = left[i], c = left[(i + 1) % n];
-                float turn = side(polygonS[a], polygonT[a], polygonS[b], polygonT[b], polygonS[c], polygonT[c]);
-                if (Math.abs(turn) < flat) {
-                    flat = Math.abs(turn);
-                    flattest = i;
-                }
-                if (turn <= 0f) {
-                    continue;
-                }
-                boolean clear = true;
-                for (int m = 0; m < n && clear; m++) {
-                    int x = left[m];
-                    if (x == a || x == b || x == c || same(x, a) || same(x, b) || same(x, c)) {
+            // An ear clear of every other corner by NEAR first, and only where none is, one clear of them at all: a sliver has its own corners that close.
+            for (int pass = 0; pass < 2 && ear < 0; pass++) {
+                for (int i = 0; i < n && ear < 0; i++) {
+                    int a = left[(i + n - 1) % n], b = left[i], c = left[(i + 1) % n];
+                    float turn = side(polygonS[a], polygonT[a], polygonS[b], polygonT[b], polygonS[c], polygonT[c]);
+                    float base = (float) Math.hypot(polygonS[c] - polygonS[a], polygonT[c] - polygonT[a]);
+                    float off = base > 0f ? Math.abs(turn) / base : (float) Math.hypot(polygonS[b] - polygonS[a], polygonT[b] - polygonT[a]);
+                    if (off < flat) {
+                        flat = off;
+                        flattest = i;
+                    }
+                    if (turn <= 0f) {
                         continue;
                     }
-                    clear = !inTriangle(polygonS[x], polygonT[x], polygonS[a], polygonT[a], polygonS[b], polygonT[b], polygonS[c], polygonT[c]);
-                }
-                if (clear) {
-                    ear = i;
+                    boolean clear = true;
+                    for (int m = 0; m < n && clear; m++) {
+                        int x = left[m];
+                        if (x == a || x == b || x == c || same(x, a) || same(x, b) || same(x, c)) {
+                            continue;
+                        }
+                        float s = polygonS[x], t = polygonT[x];
+                        clear = pass == 0 ? !nearTriangle(s, t, polygonS[a], polygonT[a], polygonS[b], polygonT[b], polygonS[c], polygonT[c])
+                                : !inTriangle(s, t, polygonS[a], polygonT[a], polygonS[b], polygonT[b], polygonS[c], polygonT[c]);
+                    }
+                    if (clear) {
+                        ear = i;
+                    }
                 }
             }
-            if (ear < 0 && flat > FLAT) {
-                throw new IllegalStateException("an outline of " + n + " corners has no ear, and its flattest corner turns " + flat);
+            if (ear < 0 && flat > NEAR) {
+                StringBuilder at = new StringBuilder();
+                for (int m = 0; m < n; m++) {
+                    at.append(String.format(java.util.Locale.ROOT, " (%.6f, %.6f)", polygonS[left[m]], polygonT[left[m]]));
+                }
+                throw new IllegalStateException("an outline of " + n + " corners has no ear, and its flattest corner is " + flat + " tiles off its neighbours' line:" + at);
             }
             int i = ear >= 0 ? ear : flattest;
             if (ear >= 0) {
@@ -628,6 +658,20 @@ final class MeshCut {
     private static float side(float aS, float aT, float bS, float bT, float pS, float pT) {
         return (bS - aS) * (pT - aT) - (bT - aT) * (pS - aS);
     }
+
+    /**
+     * Whether (s, t) is in the triangle or within NEAR of it. An ear is not cut off past a corner
+     * that close: whether a corner on an edge of the face, or of a hole that touches it, lies a
+     * hair inside or outside comes out one way where the cut decides it and the other here.
+     */
+    private static boolean nearTriangle(float s, float t, float sA, float tA, float sB, float tB, float sC, float tC) {
+        return side(sA, tA, sB, tB, s, t) >= -NEAR * (float) Math.hypot(sB - sA, tB - tA)
+                && side(sB, tB, sC, tC, s, t) >= -NEAR * (float) Math.hypot(sC - sB, tC - tB)
+                && side(sC, tC, sA, tA, s, t) >= -NEAR * (float) Math.hypot(sA - sC, tA - tC);
+    }
+
+    /** How near a corner keeps an ear from being cut off, in tiles. */
+    private static final float NEAR = 1e-5f;
 
     private static boolean inTriangle(float s, float t, float sA, float tA, float sB, float tB, float sC, float tC) {
         float d1 = side(sA, tA, sB, tB, s, t), d2 = side(sB, tB, sC, tC, s, t), d3 = side(sC, tC, sA, tA, s, t);
