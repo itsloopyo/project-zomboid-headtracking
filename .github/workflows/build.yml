@@ -47,6 +47,9 @@ jobs:
       # The JDK comes from the pixi environment, so there is no setup-java step.
       - name: Setup pixi
         uses: prefix-dev/setup-pixi@5185adfbffb4bd703da3010310260805d89ebb11 # v0.9.6
+        with:
+          # Without pixi-version, setup-pixi installs the newest pixi release.
+          pixi-version: v0.81.0
 
       - name: Build, test and package
         shell: pwsh
