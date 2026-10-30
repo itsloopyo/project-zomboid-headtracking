@@ -17,6 +17,10 @@
 - Head tracking turns Project Viewpoint's camera when that mod runs alongside this one: yaw, pitch and roll, not the lean.
 - `[Graphics] Antialiasing` (`Off`, `Low`, `Medium` or `High`) smooths jagged edges in first person from each frame alone, with no blending of frames. `Low` is the quick edge blend the mod has always used. `Medium` and `High` also follow each edge to its ends, so long shallow edges such as roof lines and wall tops come out as an even slope instead of steps, and `High` finds fainter edges too. Every graphics mode uses `Low`, which with the frame blending of Medium and High gives a slightly soft, steady picture; `Medium` and `High` are for a sharper picture, mostly with `FrameBlending=false`.
 - Two more picture styles, `Warm` (golden light and amber shade) and `Cold` (steel blue shade and pale light), after `Bleak` on `F8` and in `Style`. Changing style fades from one to the next over most of a second instead of cutting.
+- When the mod is not running, because it doesn't work with your version of the game or it hit an error as it started, the main menu says so.
+- When `Delete` doesn't turn first person on, the screen says why: first person is turned off on the options page, another mod or a game update changed something it needs, or it stopped after an error and stays off until the game restarts. The moment it stops after an error, the screen says so too.
+- `Page Up` and `Page Down` show the new setting on screen, and `Page Down` in a vehicle seat and `F7` with one player say that they do nothing there.
+- The screen says when `CameraUnlock.ini` couldn't be read as the game started, or a setting you changed couldn't be saved to it.
 
 ### Changed
 
@@ -41,6 +45,7 @@
 - In first person, light follows the game's sooner when it changes, such as a lamp switched on or headlights going by: what you can see is lit again as soon as the game marks its light changed, nearest first, instead of waiting for that part of the world to be built again.
 - Driving past lights stutters less: when the game relights many chunks at once, the mod reads their new light over the frames of the game's lighting pass, nearest first, instead of all in one frame. `SpreadLightUpdates` turns this off.
 - Streets and floors with a lot of spilt blood on them take less work to draw in first person. Blood still darkens and fades over three days in small hourly steps, but each part of the town now takes its step at its own minute of the game hour, where before the ground under the blood was made again every few seconds.
+- Split screen is called side by side and above and below, on screen as on the options page, and the Head tracking tick box under Quick settings is called Head tracking on.
 
 ### Fixed
 
