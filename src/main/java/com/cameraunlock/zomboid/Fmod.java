@@ -41,10 +41,9 @@ final class Fmod {
     private static final ValueLayout.OfFloat FLOAT_LAYOUT = ValueLayout.JAVA_FLOAT;
     private static final AddressLayout PTR = ValueLayout.ADDRESS;
     private static final MethodHandle STUDIO_INSTANCE_VALID, STUDIO_INSTANCE_GROUP, STUDIO_INSTANCE_DESCRIPTION, STUDIO_DESCRIPTION_3D,
-            STUDIO_DESCRIPTION_PATH, STUDIO_INSTANCE_PAUSE, STUDIO_INSTANCE_CALLBACK, STUDIO_BUS_VALID, STUDIO_BUS_LOCK, STUDIO_BUS_GROUP;
-    private static final MethodHandle GROUP_SYSTEM, GROUP_ADD, GROUP_DSP, GROUP_DSPS, SYSTEM_CREATE_DSP, DSP_INFO,
-            DSP_PARAMETERS, DSP_PARAMETER_INFO, DSP_SET_FLOAT, DSP_SET_INT, DSP_DATA, DSP_BYPASS, DSP_METERING,
-            DSP_METERING_INFO, DSP_RELEASE, DSP_DISCONNECT;
+            STUDIO_INSTANCE_PAUSE, STUDIO_INSTANCE_CALLBACK, STUDIO_BUS_VALID, STUDIO_BUS_LOCK, STUDIO_BUS_GROUP;
+    private static final MethodHandle GROUP_SYSTEM, GROUP_ADD, SYSTEM_CREATE_DSP, DSP_INFO,
+            DSP_PARAMETERS, DSP_PARAMETER_INFO, DSP_SET_FLOAT, DSP_SET_INT, DSP_BYPASS, DSP_RELEASE, DSP_DISCONNECT;
     /** Out parameters and names, a block for each thread that calls in: the game's logic thread and, in a dev run, the probe's. */
     private static final ThreadLocal<MemorySegment> SCRATCH = ThreadLocal.withInitial(() -> Arena.global().allocate(1024, 16));
 
@@ -56,7 +55,6 @@ final class Fmod {
         STUDIO_INSTANCE_GROUP = handle(linker, studio, "FMOD_Studio_EventInstance_GetChannelGroup", PTR, PTR);
         STUDIO_INSTANCE_DESCRIPTION = handle(linker, studio, "FMOD_Studio_EventInstance_GetDescription", PTR, PTR);
         STUDIO_DESCRIPTION_3D = handle(linker, studio, "FMOD_Studio_EventDescription_Is3D", PTR, PTR);
-        STUDIO_DESCRIPTION_PATH = handle(linker, studio, "FMOD_Studio_EventDescription_GetPath", PTR, PTR, INT_LAYOUT, PTR);
         STUDIO_INSTANCE_PAUSE = handle(linker, studio, "FMOD_Studio_EventInstance_SetPaused", PTR, INT_LAYOUT);
         STUDIO_INSTANCE_CALLBACK = handle(linker, studio, "FMOD_Studio_EventInstance_SetCallback", PTR, PTR, INT_LAYOUT);
         STUDIO_BUS_VALID = handle(linker, studio, "FMOD_Studio_Bus_IsValid", PTR);
@@ -64,18 +62,13 @@ final class Fmod {
         STUDIO_BUS_GROUP = handle(linker, studio, "FMOD_Studio_Bus_GetChannelGroup", PTR, PTR);
         GROUP_SYSTEM = handle(linker, core, "FMOD_ChannelGroup_GetSystemObject", PTR, PTR);
         GROUP_ADD = handle(linker, core, "FMOD_ChannelGroup_AddDSP", PTR, INT_LAYOUT, PTR);
-        GROUP_DSP = handle(linker, core, "FMOD_ChannelGroup_GetDSP", PTR, INT_LAYOUT, PTR);
-        GROUP_DSPS = handle(linker, core, "FMOD_ChannelGroup_GetNumDSPs", PTR, PTR);
         SYSTEM_CREATE_DSP = handle(linker, core, "FMOD_System_CreateDSPByType", PTR, INT_LAYOUT, PTR);
         DSP_INFO = handle(linker, core, "FMOD_DSP_GetInfo", PTR, PTR, PTR, PTR, PTR, PTR);
         DSP_PARAMETERS = handle(linker, core, "FMOD_DSP_GetNumParameters", PTR, PTR);
         DSP_PARAMETER_INFO = handle(linker, core, "FMOD_DSP_GetParameterInfo", PTR, INT_LAYOUT, PTR);
         DSP_SET_FLOAT = handle(linker, core, "FMOD_DSP_SetParameterFloat", PTR, INT_LAYOUT, FLOAT_LAYOUT);
         DSP_SET_INT = handle(linker, core, "FMOD_DSP_SetParameterInt", PTR, INT_LAYOUT, INT_LAYOUT);
-        DSP_DATA = handle(linker, core, "FMOD_DSP_GetParameterData", PTR, INT_LAYOUT, PTR, PTR, PTR, INT_LAYOUT);
         DSP_BYPASS = handle(linker, core, "FMOD_DSP_SetBypass", PTR, INT_LAYOUT);
-        DSP_METERING = handle(linker, core, "FMOD_DSP_SetMeteringEnabled", PTR, INT_LAYOUT, INT_LAYOUT);
-        DSP_METERING_INFO = handle(linker, core, "FMOD_DSP_GetMeteringInfo", PTR, PTR, PTR);
         DSP_RELEASE = handle(linker, core, "FMOD_DSP_Release", PTR);
         DSP_DISCONNECT = handle(linker, core, "FMOD_DSP_DisconnectAll", PTR, INT_LAYOUT, INT_LAYOUT);
     }
@@ -264,13 +257,6 @@ final class Fmod {
         return scratch.get(INT_LAYOUT, 0) != 0;
     }
 
-    /** An event's path, as event:/..., which needs the strings bank the game loads. */
-    static String descriptionPath(long description) {
-        MemorySegment scratch = SCRATCH.get();
-        check(call(STUDIO_DESCRIPTION_PATH, at(description), scratch.asSlice(16), 512, scratch), "EventDescription_GetPath");
-        return scratch.asSlice(16).getString(0, StandardCharsets.UTF_8);
-    }
-
     static boolean busValid(long bus) {
         return call(STUDIO_BUS_VALID, at(bus)) != 0;
     }
@@ -302,18 +288,6 @@ final class Fmod {
 
     static int addEffect(long group, int index, long dsp) {
         return call(GROUP_ADD, at(group), index, at(dsp));
-    }
-
-    static long groupEffect(long group, int index) {
-        MemorySegment scratch = SCRATCH.get();
-        check(call(GROUP_DSP, at(group), index, scratch), "ChannelGroup_GetDSP");
-        return pointerOut(scratch);
-    }
-
-    static int groupEffects(long group) {
-        MemorySegment scratch = SCRATCH.get();
-        check(call(GROUP_DSPS, at(group), scratch), "ChannelGroup_GetNumDSPs");
-        return scratch.get(INT_LAYOUT, 0);
     }
 
     /** A new effect of an FMOD_DSP_TYPE, or 0 with the FMOD_RESULT in {@code result[0]} where FMOD has no such type. */
@@ -394,34 +368,8 @@ final class Fmod {
         check(call(DSP_SET_INT, at(dsp), index, value), "DSP_SetParameterInt");
     }
 
-    /** A data parameter's bytes as FMOD holds them now, valid until the effect next runs. */
-    static MemorySegment data(long dsp, int index) {
-        MemorySegment scratch = SCRATCH.get();
-        check(call(DSP_DATA, at(dsp), index, scratch, scratch.asSlice(8), MemorySegment.NULL, 0), "DSP_GetParameterData");
-        return MemorySegment.ofAddress(pointerOut(scratch)).reinterpret(scratch.get(INT_LAYOUT, 8));
-    }
-
     static void bypass(long dsp, boolean bypassed) {
         check(call(DSP_BYPASS, at(dsp), bypassed ? 1 : 0), "DSP_SetBypass");
-    }
-
-    static void meter(long dsp) {
-        check(call(DSP_METERING, at(dsp), 0, 1), "DSP_SetMeteringEnabled");
-    }
-
-    /**
-     * The loudest channel's RMS level of what an effect put out in the mix block FMOD last
-     * ran, from FMOD_DSP_METERING_INFO: numsamples, peaklevel[32], rmslevel[32], numchannels.
-     */
-    static float rms(long dsp) {
-        MemorySegment scratch = SCRATCH.get();
-        check(call(DSP_METERING_INFO, at(dsp), MemorySegment.NULL, scratch), "DSP_GetMeteringInfo");
-        int channels = scratch.get(ValueLayout.JAVA_SHORT, 260);
-        float loudest = 0f;
-        for (int i = 0; i < channels; i++) {
-            loudest = Math.max(loudest, scratch.get(FLOAT_LAYOUT, 132 + i * 4));
-        }
-        return loudest;
     }
 
     /** Takes an effect out of whatever mix it is in, if any. */

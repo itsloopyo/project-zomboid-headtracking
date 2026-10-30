@@ -276,12 +276,6 @@ public final class FrameRecorder {
         }
     }
 
-    /** How far into the take the frame being made is, in milliseconds of the film, or -1 with none recording. */
-    public static long filmMillis() {
-        Take recording = take;
-        return recording == null ? -1 : recording.frameCount * 1000L / recording.fps;
-    }
-
     /** Whether a take is recording or still being written. */
     public static boolean busy() {
         return take != null || finishing > 0;

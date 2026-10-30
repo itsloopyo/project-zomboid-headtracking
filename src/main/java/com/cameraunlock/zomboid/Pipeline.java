@@ -134,7 +134,7 @@ final class Pipeline {
     private static final int GL_ALWAYS = 0x0207;
     private static final int GL_ONE = 1;
     private static final int GL_BLEND = 0x0BE2;
-    private static final int GL_DST_ALPHA = 0x0304, GL_ONE_MINUS_DST_ALPHA = 0x0305;
+    private static final int GL_ONE_MINUS_DST_ALPHA = 0x0305;
     private static final int GL_CONSTANT_ALPHA = 0x8003, GL_ONE_MINUS_CONSTANT_ALPHA = 0x8004;
     private static final int GL_ALPHA_TEST = 0x0BC0;
     private static final int GL_SCISSOR_TEST = 0x0C11;
@@ -6188,14 +6188,6 @@ final class Pipeline {
         return unprepared() && shadersMade < SHADERS.size();
     }
 
-    /**
-     * Whether the pictures of the mod's own are on the graphics card. Until they are, a mode
-     * that shows the mod's own is drawn as the one that shows none is: see Own.
-     */
-    boolean contentReady() {
-        return contentReady;
-    }
-
     /** Whether the graphics mode shows the mod's own and its pictures have still to be made. */
     boolean contentWaited() {
         return !Quality.plain(view.index) && !contentReady && !contentRefused && failure() == null;
@@ -6262,11 +6254,6 @@ final class Pipeline {
     /** A colour of nothing, for a sampler whose picture is not made. Render thread. */
     static int none() {
         return noneTexture;
-    }
-
-    /** The clouds' noise, a three-dimensional texture that repeats every NOISE_SIZE cells each way (CloudNoise), made before anything is drawn. */
-    static int noise() {
-        return noiseTexture;
     }
 
     /** Queued on frames that draw no picture while first person is being got ready: hands the graphics card the far land made since the last. */

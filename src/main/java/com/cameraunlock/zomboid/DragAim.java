@@ -200,10 +200,6 @@ final class DragAim {
             return count;
         }
 
-        IsoObject object(int i) {
-            return objects[i];
-        }
-
         /** Whether the piece fits where it is. */
         boolean fits() {
             return fits;

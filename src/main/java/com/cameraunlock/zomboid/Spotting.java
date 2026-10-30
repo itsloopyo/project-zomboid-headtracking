@@ -15,7 +15,6 @@ import zombie.iso.BuildingDef;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoChunk;
 import zombie.iso.IsoGridSquare;
-import zombie.iso.IsoMetaGrid;
 import zombie.iso.IsoWorld;
 import zombie.iso.RoomDef;
 import zombie.meta.Meta;
