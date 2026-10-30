@@ -177,7 +177,7 @@ final class Pipeline {
     private static final int GL_PIXEL_PACK_BUFFER = 0x88EB;
     private static final int GL_PIXEL_PACK_BUFFER_BINDING = 0x88ED;
     private static final int GL_STREAM_READ = 0x88E1;
-    private static final int GL_SYNC_GPU_COMMANDS_COMPLETE = 0x9117, GL_ALREADY_SIGNALED = 0x911A, GL_CONDITION_SATISFIED = 0x911C;
+    private static final int GL_SYNC_GPU_COMMANDS_COMPLETE = 0x9117, GL_ALREADY_SIGNALED = 0x911A, GL_TIMEOUT_EXPIRED = 0x911B, GL_CONDITION_SATISFIED = 0x911C;
     private static final int GL_SAMPLER_BINDING = 0x8919;
     private static final int GL_UNPACK_ALIGNMENT = 0x0CF5;
     private static final int GL_UNPACK_ROW_LENGTH = 0x0CF2;
@@ -4742,6 +4742,10 @@ final class Pipeline {
         long oldest = meterFences[meterAt];
         if (oldest != 0L) {
             int waited = GL32.glClientWaitSync(oldest, 0, 0L);
+            if (waited != GL_TIMEOUT_EXPIRED && waited != GL_ALREADY_SIGNALED && waited != GL_CONDITION_SATISFIED) {
+                // Else the meter's ring stops at this fence and the exposure is never metered again.
+                throw new IllegalStateException(String.format(Locale.ROOT, "waiting for the graphics card to meter the light failed (glClientWaitSync gave 0x%X)", waited));
+            }
             if (waited == GL_ALREADY_SIGNALED || waited == GL_CONDITION_SATISFIED) {
                 GL15.glBindBuffer(GL_PIXEL_PACK_BUFFER, meterBuffers[meterAt]);
                 meterRead.clear();

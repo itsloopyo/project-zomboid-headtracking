@@ -2,6 +2,7 @@ package com.cameraunlock.zomboid;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
+import java.util.Locale;
 import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL15;
@@ -23,7 +24,7 @@ import org.lwjgl.opengl.GLCapabilities;
  */
 final class Uploads {
     private static final int GL_PIXEL_UNPACK_BUFFER = 0x88EC, GL_PIXEL_UNPACK_BUFFER_BINDING = 0x88EF, GL_SYNC_GPU_COMMANDS_COMPLETE = 0x9117;
-    private static final int GL_ALREADY_SIGNALED = 0x911A, GL_CONDITION_SATISFIED = 0x911C;
+    private static final int GL_ALREADY_SIGNALED = 0x911A, GL_TIMEOUT_EXPIRED = 0x911B, GL_CONDITION_SATISFIED = 0x911C;
     private static final int GL_MAP_WRITE_BIT = 0x0002, GL_MAP_PERSISTENT_BIT = 0x0040, GL_MAP_COHERENT_BIT = 0x0080;
     /** Bigger than the most any one frame puts on the card: two sharp rugs and eight as read. */
     static final int SIZE = 32 << 20;
@@ -137,8 +138,13 @@ final class Uploads {
         while (!fenced.isEmpty() && fenced.peek().start() < upTo) {
             Fenced oldest = fenced.peek();
             int waited = GL32.glClientWaitSync(oldest.fence(), 0, 0L);
-            if (waited != GL_ALREADY_SIGNALED && waited != GL_CONDITION_SATISFIED) {
+            if (waited == GL_TIMEOUT_EXPIRED) {
                 return false;
+            }
+            if (waited != GL_ALREADY_SIGNALED && waited != GL_CONDITION_SATISFIED) {
+                // Else the fence is asked after for good, and nothing is uploaded again this session.
+                throw new IllegalStateException(String.format(Locale.ROOT, "waiting for the graphics card to read the upload ring from %d failed (glClientWaitSync gave 0x%X)",
+                        oldest.start(), waited));
             }
             GL32.glDeleteSync(oldest.fence());
             fenced.poll();
