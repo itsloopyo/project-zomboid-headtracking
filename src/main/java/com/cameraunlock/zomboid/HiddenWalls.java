@@ -783,6 +783,7 @@ final class HiddenWalls {
         boolean[] used = null;
         int want = (small ? Math.min(1, shown) : Math.min(MOST_ON_HIDDEN_WALLS, Math.max(1, shown))) - placed.size();
         int mixed = room.getBuilding().getX() * 31 + room.getBuilding().getY() * 17 + room.rects.get(0).x * 7 + room.rects.get(0).y;
+        int drawnCount = 0;
         ArrayList<String> drawn = new ArrayList<>();
         while (want-- > 0) {
             Spot best = null;
@@ -812,12 +813,12 @@ final class HiddenWalls {
                     }
                     used = new boolean[sources.size()];
                 }
-                picture = next(sources, used, taken, mixed + drawn.size());
+                picture = next(sources, used, taken, mixed + drawnCount);
             } else {
                 if (taken == null) {
                     taken = picturesInBuilding(cell, room, new HashSet<>(), new HashSet<>());
                 }
-                picture = unshown(pool, taken, mixed + drawn.size());
+                picture = unshown(pool, taken, mixed + drawnCount);
             }
             if (picture == Decor.NONE) {
                 break;
@@ -835,8 +836,11 @@ final class HiddenWalls {
             DRAWN_BY_CHUNK.computeIfAbsent(key(Math.floorDiv(square.getX(), CHUNK), Math.floorDiv(square.getY(), CHUNK), room.level, 0), unused -> new ArrayList<>())
                     .add(new DrawnOn(square.getX(), square.getY(), at));
             ChunkMarks.tell(Math.floorDiv(square.getX(), CHUNK), Math.floorDiv(square.getY(), CHUNK));
-            drawn.add(String.format(Locale.ROOT, "%s on the %s wall at %d,%d", Decor.nameOf(picture), best.wall() == SOUTH ? "south" : "east",
-                    square.getX(), square.getY()));
+            drawnCount++;
+            if (FirstPerson.TRACE) {
+                drawn.add(String.format(Locale.ROOT, "%s on the %s wall at %d,%d", Decor.nameOf(picture), best.wall() == SOUTH ? "south" : "east",
+                        square.getX(), square.getY()));
+            }
             placed.add(best);
             takeBeside(spots, best);
         }
@@ -1161,7 +1165,7 @@ final class HiddenWalls {
         }
         KahluaTable data = first.getModData();
         data.rawset(DRESSED, Boolean.TRUE);
-        if (!hung.isEmpty()) {
+        if (FirstPerson.TRACE && !hung.isEmpty()) {
             Log.info(String.format(Locale.ROOT, "hung on the hidden walls of the %s at %d,%d,%d (%d hung on its other walls): %s", room.getName(),
                     first.getX(), first.getY(), first.getZ(), shown, String.join(", ", hung)));
         }
