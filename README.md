@@ -813,7 +813,7 @@ For the Workshop copy, disable or unsubscribe from the mod, then restart the gam
 
 ## Building from source
 
-Prerequisites: [pixi](https://pixi.sh), CMake, and Visual Studio with its C++ tools. pixi brings the Java 25 compiler.
+Prerequisites: [pixi](https://pixi.sh), which brings Java 25 and Node. The first build downloads cameraunlock-core's WebAssembly toolchain, about 620 MB, once per user.
 
 ```powershell
 git clone --recurse-submodules https://github.com/itsloopyo/project-zomboid-headtracking.git
