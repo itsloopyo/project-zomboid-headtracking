@@ -1049,6 +1049,8 @@ final class WorldScene {
     boolean crownedToSight;
     /** The share of its plants grass was grown with by the builds standing: Grass.density as the logic thread last read it. */
     float grassGrown = Float.NaN;
+    /** How far from the eye the builds standing grew lawns, in tiles: Quality.grassDistance as the logic thread last read it. */
+    float lawnReach = Float.NaN;
     /** The detail from which the builds standing gave a bare crown twigs, for this view's picture: Flora.twiggedFrom. */
     float twiggedFrom = Float.NaN;
 
@@ -1416,8 +1418,6 @@ final class WorldScene {
     static final float BED_HEIGHT = 0.2f;
     /** How much of a tree's trunk sprite, from the ground up, is its bole. */
     static final float BOLE = 0.42f;
-    /** How far from the eye a lawn's grass stands up, in tiles, but in the game's own view: see Grass.OVERHEAD_KEPT. */
-    private static final float GRASS_REACH = 16f;
     private static final Known<IsoSprite, int[]> ranks = new Known<>();
     /** A chunk's squares and the ring of squares round them. */
     static final int LIGHT_SPAN = CHUNK_TILES + 2;
@@ -2434,8 +2434,12 @@ final class WorldScene {
 
     /** How far the eye may be, in tiles, from where what grows on a chunk was made from before it is made again. */
     private static final float GROWN_HELD_WITHIN = 0.5f;
-    /** How near a chunk's middle is to the eye, in tiles, for anything that grows on its ground to be made by how far off it is: the furthest of the rings and a chunk's reach. */
-    private static final float GROWN_WITHIN = Math.max(Math.max(FERN_REACH, GRASS_REACH), Math.max(FALLEN_REACH, FLOWER_REACH)) + CHUNK_REACH;
+    /**
+     * How near a chunk's middle is to the eye, in tiles, for anything that grows on its ground to
+     * be made by how far off it is: the furthest of the rings and a chunk's reach. A lawn's ring
+     * is lawnReach, which may be further.
+     */
+    private static final float GROWN_WITHIN = Math.max(FERN_REACH, Math.max(FALLEN_REACH, FLOWER_REACH)) + CHUNK_REACH;
 
     /**
      * Where each band of distance from the eye ends, in tiles from the eye to the nearest edge
@@ -3349,6 +3353,11 @@ final class WorldScene {
             return grassGrown;
         }
 
+        /** How far from the eye this build grows lawns, in tiles: see Grass.lawn. */
+        float lawnReach() {
+            return lawnReach;
+        }
+
         /** Where the builds of this frame put their triangles, the solid and the laid, and their light sites: the shared pair (see sharedLayers), or a frame beside's own. */
         final SpriteGeometry.Layers layers;
         final LightSites.Table sites;
@@ -4150,9 +4159,11 @@ final class WorldScene {
                 Terrain.reread();
             }
             float grass = Grass.density(Quality.grassDensity(view.index), Online.contested());
-            if (grass != grassGrown) {
-                // Every build holds the grass it grew.
+            float lawns = Quality.grassDistance(view.index);
+            if (grass != grassGrown || lawns != lawnReach) {
+                // Every build holds the grass it grew, and how far out.
                 grassGrown = grass;
+                lawnReach = lawns;
                 forgetAll();
             }
             if (crownedToSight != Quality.crownsToSight(view.index)) {
@@ -4975,10 +4986,12 @@ final class WorldScene {
                     // as the eye moves while any of it is near enough to be made by how far off it is.
                     ChunkMeshes grown = latestGrown[slot];
                     boolean ungrown = grown == null || grown.wx != chunk.wx || grown.wy != chunk.wy || grown.builtFrame < current.builtFrame;
-                    // A lawn's blades shorten over seven tiles and a half: made from half a tile off they are a fifteenth out.
+                    // A lawn's blades shorten from half its reach to half a square's diagonal short of it, over three tiles at the least: made
+                    // from half a tile off they are under a quarter out at most. From overhead a lawn is grown whatever its reach.
                     float grownFrom = grown == null ? 0f
                             : Math.max(Math.max(Math.abs(grown.eyeX - pose.eyeX), Math.abs(grown.eyeY - pose.eyeY)), Math.abs(grown.eyeUp - pose.eyeUp));
-                    boolean regrown = !ungrown && !rehearsing && distance < GROWN_WITHIN && frames - grown.checkedFrame >= every
+                    float grownWithin = gamesView ? GROWN_WITHIN : Math.max(GROWN_WITHIN, lawnReach + CHUNK_REACH);
+                    boolean regrown = !ungrown && !rehearsing && distance < grownWithin && frames - grown.checkedFrame >= every
                             && grownFrom > Math.max(GROWN_HELD_WITHIN, heldWithin(pose, distance, middleX, middleY));
                     if (!current.grows && grown != null && grown.wx == chunk.wx && grown.wy == chunk.wy) {
                         release(grown);
@@ -6760,7 +6773,7 @@ final class WorldScene {
             if (tanked(square)) {
                 return;
             }
-            if ((gamesView || toX * toX + toY * toY < GRASS_REACH * GRASS_REACH) && !flattened(square)) {
+            if ((gamesView || toX * toX + toY * toY < lawnReach * lawnReach) && !flattened(square)) {
                 plantBuilder.growGrass(x, y, localX, localY);
             }
             plantBuilder.strew(x, y, localX, localY, toX * toX + toY * toY);

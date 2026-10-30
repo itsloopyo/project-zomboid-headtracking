@@ -78,10 +78,10 @@ final class Config {
         "ShotsPastTrees", "ZombiesSeenAtOnce", "Rewind30s", "HiddenWallDecor", "HiddenWallDecorSaved"};
 
     /** The keys of [Graphics], the Custom graphics mode, in the order the options screen shows them. */
-    static final String[] GRAPHICS = {"TreeQuality", "GrassDensity", "RenderScale", "ViewDistance", "ZombiesAndPropsDrawDistance",
+    static final String[] GRAPHICS = {"TreeQuality", "GrassDensity", "GrassDistance", "RenderScale", "ViewDistance", "ZombiesAndPropsDrawDistance",
         "FarTreeDistance", "RainOnGlass", "ShadingAndLight", "Reflections", "ReflectionScale", "FullSizeTextures", "SurfaceDepth", "SharpShadows",
         "WholeFigureShadows", "FrameBlending", "LightDistance", "CorpseModels"};
-    private static final int RENDER_SCALE = 2, REFLECTION_SCALE = 9;
+    private static final int RENDER_SCALE = 3, REFLECTION_SCALE = 10;
     static final float MIN_RENDER_SCALE = 0.5f, MIN_REFLECTION_SCALE = 0.25f;
     static final int MIN_VIEW_DISTANCE = 32, MIN_DRAW_DISTANCE = 16;
 
@@ -249,6 +249,12 @@ final class Config {
                             + "Lower, fewer and broader plants cover the same lawns and long grass, which costs less to build and draw. High\n"
                             + "grows all of it, Medium and Low " + Quality.SOME_GRASS + ". On a server where players can hurt each other it grows all of it.",
                     writable | live, high.grassDensity(), Quality.LEAST_GRASS, Quality.ALL_GRASS),
+            localInt("Graphics", "GrassDistance",
+                    "How far from you lawns are grown blade by blade in first person, in tiles: " + Quality.LEAST_GRASS_DISTANCE + " to "
+                            + Quality.MOST_GRASS_DISTANCE + ". Past that, lawns are flat. Higher\n"
+                            + "costs more to build and draw. Medium and High grow lawns to " + high.grassDistance() + " tiles. Long grass is not affected.\n"
+                            + "With TreeQuality Low the mod grows no grass of its own.",
+                    writable | live, high.grassDistance(), Quality.LEAST_GRASS_DISTANCE, Quality.MOST_GRASS_DISTANCE),
             localFloat("Graphics", "RenderScale",
                     "How much of the window's resolution the first person picture is drawn at, each way: 0.5 to 1.",
                     writable | live, high.renderScale(), MIN_RENDER_SCALE, 1f),
@@ -576,8 +582,8 @@ final class Config {
 
     /** A picture as the options of the rows of [Graphics] hold it, in the order of GRAPHICS. */
     static double[] values(Quality.Picture picture) {
-        return new double[] {picture.treeQuality(), picture.grassDensity(), picture.renderScale(), picture.viewDistance(), picture.drawDistance(),
-            picture.farTreeDistance(), picture.rainOnGlass(), bit(picture.shadingAndLight()), bit(picture.reflections()), picture.reflectionScale(),
+        return new double[] {picture.treeQuality(), picture.grassDensity(), picture.grassDistance(), picture.renderScale(), picture.viewDistance(),
+            picture.drawDistance(), picture.farTreeDistance(), picture.rainOnGlass(), bit(picture.shadingAndLight()), bit(picture.reflections()), picture.reflectionScale(),
             bit(picture.fullSizeTextures()),
             bit(picture.surfaceDepth()), bit(picture.sharpShadows()), bit(picture.wholeFigureShadows()), bit(picture.frameBlending()),
             picture.lightDistance(), bit(picture.corpseModels())};
@@ -585,10 +591,10 @@ final class Config {
 
     /** The picture the options of the rows of [Graphics] hold, in the order of GRAPHICS: Custom always draws what the mod made. */
     static Quality.Picture picture(double[] values) {
-        return new Quality.Picture(false, (int) Math.rint(values[0]), (int) Math.rint(values[1]), (float) values[2], values[12] != 0,
-                (int) Math.rint(values[3]), (int) Math.rint(values[4]), (int) Math.rint(values[5]), (int) Math.rint(values[6]), values[7] != 0,
-                values[8] != 0, values[10] != 0, values[11] != 0, values[13] != 0, values[14] != 0, (int) Math.rint(values[15]), (float) values[9],
-                values[16] != 0);
+        return new Quality.Picture(false, (int) Math.rint(values[0]), (int) Math.rint(values[1]), (int) Math.rint(values[2]), (float) values[3],
+                values[13] != 0, (int) Math.rint(values[4]), (int) Math.rint(values[5]), (int) Math.rint(values[6]), (int) Math.rint(values[7]),
+                values[8] != 0, values[9] != 0, values[11] != 0, values[12] != 0, values[14] != 0, values[15] != 0, (int) Math.rint(values[16]),
+                (float) values[10], values[17] != 0);
     }
 
     private static double bit(boolean on) {

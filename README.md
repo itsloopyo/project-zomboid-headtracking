@@ -569,6 +569,10 @@ TreeQuality=High
 ; Lower, fewer and broader plants cover the same lawns and long grass, which costs less to build and draw. High
 ; grows all of it, Medium and Low 40. On a server where players can hurt each other it grows all of it.
 GrassDensity=100
+; How far from you lawns are grown blade by blade in first person, in tiles: 8 to 48. Past that, lawns are flat. Higher
+; costs more to build and draw. Medium and High grow lawns to 16 tiles. Long grass is not affected.
+; With TreeQuality Low the mod grows no grass of its own.
+GrassDistance=16
 ; How much of the window's resolution the first person picture is drawn at, each way: 0.5 to 1.
 RenderScale=1.0
 ; How far the first person view is drawn, in tiles: 32 to 80, within the map the game has loaded.

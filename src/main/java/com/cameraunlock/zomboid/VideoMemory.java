@@ -70,15 +70,15 @@ final class VideoMemory {
 
     static {
         Quality.Picture high = Quality.HIGH_PICTURE;
-        Quality.Picture coarse = new Quality.Picture(high.stockLook(), high.treeQuality(), high.grassDensity(), high.renderScale(), false,
+        Quality.Picture coarse = new Quality.Picture(high.stockLook(), high.treeQuality(), high.grassDensity(), high.grassDistance(), high.renderScale(), false,
                 high.viewDistance(), high.drawDistance(), high.farTreeDistance(), high.rainOnGlass(), high.shadingAndLight(), high.reflections(),
                 high.fullSizeTextures(), high.surfaceDepth(), high.wholeFigureShadows(), false, high.lightDistance(), high.reflectionScale(),
                 high.corpseModels());
-        Quality.Picture small = new Quality.Picture(coarse.stockLook(), coarse.treeQuality(), coarse.grassDensity(), coarse.renderScale(), false,
+        Quality.Picture small = new Quality.Picture(coarse.stockLook(), coarse.treeQuality(), coarse.grassDensity(), coarse.grassDistance(), coarse.renderScale(), false,
                 coarse.viewDistance(), coarse.drawDistance(), coarse.farTreeDistance(), coarse.rainOnGlass(), coarse.shadingAndLight(), coarse.reflections(),
                 false, coarse.surfaceDepth(), coarse.wholeFigureShadows(), false, coarse.lightDistance(), coarse.reflectionScale(), coarse.corpseModels());
         Quality.Picture medium = Quality.MEDIUM_PICTURE;
-        Quality.Picture mediumUnblended = new Quality.Picture(medium.stockLook(), medium.treeQuality(), medium.grassDensity(), medium.renderScale(),
+        Quality.Picture mediumUnblended = new Quality.Picture(medium.stockLook(), medium.treeQuality(), medium.grassDensity(), medium.grassDistance(), medium.renderScale(),
                 medium.sharpShadows(), medium.viewDistance(), medium.drawDistance(),
                 Math.max(medium.farTreeDistance(), Quality.LOW_PICTURE.farTreeDistance()), medium.rainOnGlass(), medium.shadingAndLight(),
                 medium.reflections(), medium.fullSizeTextures(), medium.surfaceDepth(), medium.wholeFigureShadows(), false, medium.lightDistance(),
@@ -138,7 +138,8 @@ final class VideoMemory {
         }
         Quality.Picture most = CEILINGS[at];
         return new Quality.Picture(picture.stockLook() || most.stockLook(), Math.min(picture.treeQuality(), most.treeQuality()),
-                Math.min(picture.grassDensity(), most.grassDensity()), Math.min(picture.renderScale(), most.renderScale()),
+                Math.min(picture.grassDensity(), most.grassDensity()), Math.min(picture.grassDistance(), most.grassDistance()),
+                Math.min(picture.renderScale(), most.renderScale()),
                 picture.sharpShadows() && most.sharpShadows(), Math.min(picture.viewDistance(), most.viewDistance()),
                 Math.min(picture.drawDistance(), most.drawDistance()), Math.min(picture.farTreeDistance(), most.farTreeDistance()),
                 Math.min(picture.rainOnGlass(), most.rainOnGlass()), picture.shadingAndLight() && most.shadingAndLight(),

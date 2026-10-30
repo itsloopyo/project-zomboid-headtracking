@@ -34,8 +34,14 @@ final class Grass {
     private static final int LAWN_SITES = 11, RANK_SITES = 7;
     /** Within this many tiles of the eye every plant is grown, and past it fewer and broader ones. */
     private static final float FULL_WITHIN = 4f;
-    /** A lawn's grass is shorter from the first of these distances and gone by the second: past it the ground's own picture is the lawn. */
-    static final float LAWN_SHORTENS = 8f, LAWN_ENDS = 15.5f;
+    /** A lawn's grass is shorter from this share of its reach (see lawn), and gone HALF_DIAGONAL short of it: past that the ground's own picture is the lawn. */
+    private static final float LAWN_SHORTENS = 0.5f;
+    /**
+     * The furthest a plant stands from the middle of its square, in tiles. A lawn's squares are
+     * grown by how far their middles are from the eye, so a blade still standing out to the reach
+     * would stand in one square and be missing from the next at the same distance.
+     */
+    private static final float HALF_DIAGONAL = (float) Math.sqrt(0.5);
     /**
      * Seen from overhead as the game's own view, a lawn is grown to the edge of the picture with
      * at least this share of its plants, full height, however far it is from the eye. There every
@@ -112,14 +118,15 @@ final class Grass {
      * Grows the lawn of the square (x, y) into mesh, between lowA and highA across it and lowB
      * and highB down it. The eye is at (eyeX, eyeY) and looks along (lookX, lookY): what is well
      * behind it is not grown, since nothing of it is in the picture. density is the share of its
-     * plants grown (see density): the plants left are broader, as they are far off. overhead: the
-     * frame is the game's own view from overhead (see OVERHEAD_KEPT).
+     * plants grown (see density): the plants left are broader, as they are far off. reach: how
+     * far from the eye a lawn is grown, in tiles, the GrassDistance row. overhead: the frame is
+     * the game's own view from overhead, where a lawn is grown whatever its reach (see OVERHEAD_KEPT).
      */
     static void lawn(SpriteGeometry geometry, SpriteGeometry.Mesh mesh, SpriteGeometry.Frame frame, int x, int y, float eyeX, float eyeY,
-            float lookX, float lookY, float lowA, float highA, float lowB, float highB, Ground ground, float density, boolean overhead) {
+            float lookX, float lookY, float lowA, float highA, float lowB, float highB, Ground ground, float density, float reach, boolean overhead) {
         float toX = x + 0.5f - eyeX, toY = y + 0.5f - eyeY;
         float away2 = toX * toX + toY * toY;
-        if (!overhead && (away2 > LAWN_ENDS * LAWN_ENDS || behind(toX, toY, away2, lookX, lookY, 0.07f))) {
+        if (!overhead && (away2 > reach * reach || behind(toX, toY, away2, lookX, lookY, 0.07f))) {
             return;
         }
         float away = (float) Math.sqrt(away2);
@@ -145,7 +152,7 @@ final class Grass {
                 float plantX = x + a - eyeX, plantY = y + b - eyeY;
                 float far = (float) Math.sqrt(plantX * plantX + plantY * plantY);
                 // A plant about to be left out as the eye draws away sinks into the ground first, and comes up out of it.
-                float grown = Math.min((kept - rank) / (0.25f * kept), 1f) * (1f - shortens * smooth(LAWN_SHORTENS, LAWN_ENDS, far));
+                float grown = Math.min((kept - rank) / (0.25f * kept), 1f) * (1f - shortens * smooth(LAWN_SHORTENS * reach, reach - HALF_DIAGONAL, far));
                 if (grown < 0.05f) {
                     continue;
                 }

@@ -117,6 +117,7 @@ public final class CoreTests {
         Checks.run("aGraphicsRowEditedInTheFileGoesToCustom", CoreTests::aGraphicsRowEditedInTheFileGoesToCustom);
         Checks.run("theDrawDistanceFarTreesAndReflectionsGoToCustomAsTheOtherRowsDo", CoreTests::theDrawDistanceFarTreesAndReflectionsGoToCustomAsTheOtherRowsDo);
         Checks.run("theGrassDensityGoesToCustomAsTheOtherRowsDo", CoreTests::theGrassDensityGoesToCustomAsTheOtherRowsDo);
+        Checks.run("theGrassDistanceGoesToCustomAsTheOtherRowsDo", CoreTests::theGrassDistanceGoesToCustomAsTheOtherRowsDo);
         Checks.run("anApplyThatLeftTheGraphicsRowsAloneKeepsAnEditOfTheFile", CoreTests::anApplyThatLeftTheGraphicsRowsAloneKeepsAnEditOfTheFile);
         Checks.run("aRowChangedInAutomaticStartsCustomFromItsLevelAndNeverFromStock", CoreTests::aRowChangedInAutomaticStartsCustomFromItsLevelAndNeverFromStock);
         Checks.run("theOptionsPagesQuickListsAreTakenSavedAndReadAtTheNextStart", CoreTests::theOptionsPagesQuickListsAreTakenSavedAndReadAtTheNextStart);
@@ -1031,7 +1032,7 @@ public final class CoreTests {
                         + "ShotImpacts FarVehiclesAndZombies QuickRagdolls HitFlinch HeadLedViewWhenDown ItemsAsModels FinerSkins LeaveOutScreenGrey NameTagsAtHeads SecondPlayerQuality "
                         + "SecondPlayerIsometricQuality SecondPlayerStyle SecondPlayerFirstPerson SecondPlayerFirstPersonInVehicles ThirdPlayerQuality ThirdPlayerIsometricQuality "
                         + "ThirdPlayerStyle ThirdPlayerFirstPerson ThirdPlayerFirstPersonInVehicles FourthPlayerQuality FourthPlayerIsometricQuality FourthPlayerStyle FourthPlayerFirstPerson "
-                        + "FourthPlayerFirstPersonInVehicles TreeQuality GrassDensity RenderScale ViewDistance ZombiesAndPropsDrawDistance FarTreeDistance RainOnGlass ShadingAndLight "
+                        + "FourthPlayerFirstPersonInVehicles TreeQuality GrassDensity GrassDistance RenderScale ViewDistance ZombiesAndPropsDrawDistance FarTreeDistance RainOnGlass ShadingAndLight "
                         + "Reflections ReflectionScale FullSizeTextures SurfaceDepth SharpShadows WholeFigureShadows FrameBlending LightDistance CorpseModels SpreadLightUpdates "
                         + "CachedGameLookups SkipCoveredGameDrawing SkinsComposedWhileWaiting ChunkChangeCounts UnseenRoomZombiesUnmodelled HoldChunkMapCentre GraphicsMemorySteps "
                         + "PrepareWhileLoading SpotBySight BuildOnWorkerThreads RebuildForOwnSprites HiddenWallReadsKept BuildingFactsKept VanillaWeapons VanillaFurniture "
@@ -1052,7 +1053,7 @@ public final class CoreTests {
         check(page.toString().equals("[Quick settings] EnableOnStartup [Head tracking] TrackingMode AimMode WorldSpaceYaw LocalSmoothing RemoteSmoothing TorchFollowsHead LightMultiplier "
                         + "[First person] FirstPersonEnabled FirstPerson FirstPersonInVehicles FieldOfView Crosshair HearFromTheEye HeadLedViewWhenDown NameTagsAtHeads "
                         + "QuickRagdolls HitFlinch HillHeight [Graphics] Quality IsometricQuality Style LightningBolts ShotImpacts MuzzleFlash ItemsAsModels FinerSkins "
-                        + "LeaveOutScreenGrey FarVehiclesAndZombies HiddenWallDecor [Custom graphics] TreeQuality GrassDensity RenderScale ViewDistance ZombiesAndPropsDrawDistance "
+                        + "LeaveOutScreenGrey FarVehiclesAndZombies HiddenWallDecor [Custom graphics] TreeQuality GrassDensity GrassDistance RenderScale ViewDistance ZombiesAndPropsDrawDistance "
                         + "FarTreeDistance RainOnGlass ShadingAndLight Reflections ReflectionScale FullSizeTextures SurfaceDepth SharpShadows WholeFigureShadows FrameBlending "
                         + "LightDistance CorpseModels [Mod content] VanillaWeapons VanillaFurniture VanillaPictures VanillaPlants VanillaTextures VanillaBuildings VanillaZombies "
                         + "VanillaPeople VanillaArms VanillaClothes VanillaAnimals VanillaFire VanillaCabins [Gameplay tweaks] ShotsThroughWalls ShotsPastTrees ShotsBreakGlass "
@@ -1485,7 +1486,7 @@ public final class CoreTests {
                 "and the mode and a row edited together is Custom with the edit");
         // As if applied on the options screen with its save still queued behind a reload of another row of [Graphics].
         double[] applied = Config.values(Quality.custom());
-        applied[3] = 84;
+        applied[Config.graphicsPart("ViewDistance")] = 84;
         Quality.custom(Config.picture(applied));
         java.util.regex.Matcher grass = java.util.regex.Pattern.compile("(?m)^GrassDensity=(\\d+)").matcher(text());
         check(grass.find(), "the file has a GrassDensity row");
@@ -1495,7 +1496,7 @@ public final class CoreTests {
         check(Quality.custom().viewDistance() == 84 && Quality.custom().grassDensity() == grassNow,
                 "a row of [Graphics] edited in the file is taken and leaves the rows the session changed since: " + Quality.custom());
         applied = Config.values(Quality.custom());
-        applied[3] = 60;
+        applied[Config.graphicsPart("ViewDistance")] = 60;
         Quality.custom(Config.picture(applied));
     }
 
@@ -1524,6 +1525,24 @@ public final class CoreTests {
         Tracking.watchSettings();
         check(Quality.name(0).equals("Custom") && Quality.grassDensity(0) == 70, "the grass density edited in the file goes to Custom with it");
         check(saved("Quality=Custom", "GrassDensity=70") && said(), "saved, and said");
+    }
+
+    private static void theGrassDistanceGoesToCustomAsTheOtherRowsDo() throws IOException, InterruptedException {
+        inMode("High");
+        said();
+        Screen screen = Screen.opened();
+        CameraUnlock.Option[] options = Tracking.options();
+        CameraUnlock.Option reach = options[optionNamed(options, "GrassDistance")];
+        check(reach.kind == CameraUnlock.OPTION_INT && reach.min == Quality.LEAST_GRASS_DISTANCE && reach.max == Quality.MOST_GRASS_DISTANCE
+                && reach.label.equals("Grass distance"),
+                "the grass distance is a slider of tiles from " + Quality.LEAST_GRASS_DISTANCE + " to " + Quality.MOST_GRASS_DISTANCE);
+        check(screen.shows("GrassDistance") == 16, "High shows its grass distance there, 16 tiles: " + screen.shows("GrassDistance"));
+
+        screen.set("GrassDistance", 32);
+        screen.apply();
+        check(Quality.name(0).equals("Custom") && Quality.grassDistance(0) == 32 && Quality.sight(0) == 80,
+                "a grass distance applied there goes straight to Custom: " + Quality.described(Quality.drawn(0)));
+        check(said() && saved("Quality=Custom", "GrassDistance=32", "ViewDistance=80"), "said, and saved with the rest of Custom's rows");
     }
 
     private static void anApplyThatLeftTheGraphicsRowsAloneKeepsAnEditOfTheFile() throws IOException, InterruptedException {

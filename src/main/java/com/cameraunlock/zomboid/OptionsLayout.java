@@ -96,6 +96,7 @@ final class OptionsLayout {
             Map.entry("HiddenWallDecor", "Pictures on hidden walls"),
             Map.entry("TreeQuality", "Trees"),
             Map.entry("GrassDensity", "Grass density"),
+            Map.entry("GrassDistance", "Grass distance"),
             Map.entry("RenderScale", "Render scale"),
             Map.entry("ViewDistance", "View distance"),
             Map.entry("ZombiesAndPropsDrawDistance", "Zombie and prop distance"),

@@ -660,8 +660,8 @@ final class QualityTests {
         return Quality.plain(0) + " " + Quality.gamesPlants(0) + " " + Quality.scale(0) + " " + Quality.shadowSize(0) + " " + Quality.sight(0) + " "
                 + reaches() + " " + Quality.glassRain(0) + " " + Quality.shadedAndLit(0) + " " + Quality.reflections(0) + " " + Quality.surfacesMirror(0) + " "
                 + Quality.smallerPictures() + " " + Quality.crownsToSight(0) + " " + Quality.relief(0) + " " + Quality.wholeFigureShadows(0) + " " + Quality.sightBehind()
-                + " " + Quality.farTreeDistance(0) + " " + Quality.frameBlending(0) + " " + Quality.grassDensity(0) + " " + Quality.lightDistance(0) + " " + Quality.reflectionScale(0)
-                + " " + Quality.corpseModels(0);
+                + " " + Quality.farTreeDistance(0) + " " + Quality.frameBlending(0) + " " + Quality.grassDensity(0) + " " + Quality.grassDistance(0)
+                + " " + Quality.lightDistance(0) + " " + Quality.reflectionScale(0) + " " + Quality.corpseModels(0);
     }
 
     /**
@@ -698,9 +698,9 @@ final class QualityTests {
 
     private static void customDrawsWhatEachPresetDrewFromItsRows() {
         String[] expected = {
-            "true true 0.62 2048 48 all/all 0 false false false true false false false 48 300 false 40 20 0.5 false",
-            "false false 0.8 2048 60 all/all 1 true true true true false false false 48 150 false 40 30 0.5 false",
-            "false false 1.0 4096 80 all/all 2 true true true false true true true 48 400 false 100 60 0.75 false",
+            "true true 0.62 2048 48 all/all 0 false false false true false false false 48 300 false 40 16 20 0.5 false",
+            "false false 0.8 2048 60 all/all 1 true true true true false false false 48 150 false 40 16 30 0.5 false",
+            "false false 1.0 4096 80 all/all 2 true true true false true true true 48 400 false 100 16 60 0.75 false",
         };
         for (int mode = Quality.LOW; mode <= Quality.HIGH; mode++) {
             Quality.set(0, mode);
@@ -720,25 +720,26 @@ final class QualityTests {
         Quality.custom(Quality.HIGH_PICTURE);
         Quality.set(0, Quality.CUSTOM);
         String high = answers();
-        double[] changed = {Quality.TREES_NEAR, 40, 0.7, 40, 30, 300, 0, 0, 0, 0.5, 0, 0, 0, 0, 1, 25, 1};
+        double[] changed = {Quality.TREES_NEAR, 40, 30, 0.7, 40, 30, 300, 0, 0, 0, 0.5, 0, 0, 0, 0, 1, 25, 1};
         String[] answer = {
-            "false false 1.0 4096 80 all/all 2 true true true false false true true 48 400 false 100 60 0.75 false",
-            "false false 1.0 4096 80 all/all 2 true true true false true true true 48 400 false 40 60 0.75 false",
-            "false false 0.7 4096 80 all/all 2 true true true false true true true 48 400 false 100 60 0.75 false",
-            "false false 1.0 4096 40 all/all 2 true true true false true true true 48 400 false 100 60 0.75 false",
-            "false false 1.0 4096 80 30/all 2 true true true false true true true 48 400 false 100 60 0.75 false",
-            "false false 1.0 4096 80 all/all 2 true true true false true true true 48 300 false 100 60 0.75 false",
-            "false false 1.0 4096 80 all/all 0 true true true false true true true 48 400 false 100 60 0.75 false",
-            "false false 1.0 4096 80 all/all 2 false true false false true true true 48 400 false 100 60 0.75 false",
-            "false false 1.0 4096 80 all/all 2 true false false false true true true 48 400 false 100 60 0.75 false",
-            "false false 1.0 4096 80 all/all 2 true true true false true true true 48 400 false 100 60 0.5 false",
-            "false false 1.0 4096 80 all/all 2 true true true true true true true 48 400 false 100 60 0.75 false",
-            "false false 1.0 4096 80 all/all 2 true true true false true false true 48 400 false 100 60 0.75 false",
-            "false false 1.0 2048 80 all/all 2 true true true false true true true 48 400 false 100 60 0.75 false",
-            "false false 1.0 4096 80 all/all 2 true true true false true true false 48 400 false 100 60 0.75 false",
-            "false false 1.0 4096 80 all/all 2 true true true false true true true 48 400 true 100 60 0.75 false",
-            "false false 1.0 4096 80 all/all 2 true true true false true true true 48 400 false 100 25 0.75 false",
-            "false false 1.0 4096 80 all/all 2 true true true false true true true 48 400 false 100 60 0.75 true",
+            "false false 1.0 4096 80 all/all 2 true true true false false true true 48 400 false 100 16 60 0.75 false",
+            "false false 1.0 4096 80 all/all 2 true true true false true true true 48 400 false 40 16 60 0.75 false",
+            "false false 1.0 4096 80 all/all 2 true true true false true true true 48 400 false 100 30 60 0.75 false",
+            "false false 0.7 4096 80 all/all 2 true true true false true true true 48 400 false 100 16 60 0.75 false",
+            "false false 1.0 4096 40 all/all 2 true true true false true true true 48 400 false 100 16 60 0.75 false",
+            "false false 1.0 4096 80 30/all 2 true true true false true true true 48 400 false 100 16 60 0.75 false",
+            "false false 1.0 4096 80 all/all 2 true true true false true true true 48 300 false 100 16 60 0.75 false",
+            "false false 1.0 4096 80 all/all 0 true true true false true true true 48 400 false 100 16 60 0.75 false",
+            "false false 1.0 4096 80 all/all 2 false true false false true true true 48 400 false 100 16 60 0.75 false",
+            "false false 1.0 4096 80 all/all 2 true false false false true true true 48 400 false 100 16 60 0.75 false",
+            "false false 1.0 4096 80 all/all 2 true true true false true true true 48 400 false 100 16 60 0.5 false",
+            "false false 1.0 4096 80 all/all 2 true true true true true true true 48 400 false 100 16 60 0.75 false",
+            "false false 1.0 4096 80 all/all 2 true true true false true false true 48 400 false 100 16 60 0.75 false",
+            "false false 1.0 2048 80 all/all 2 true true true false true true true 48 400 false 100 16 60 0.75 false",
+            "false false 1.0 4096 80 all/all 2 true true true false true true false 48 400 false 100 16 60 0.75 false",
+            "false false 1.0 4096 80 all/all 2 true true true false true true true 48 400 true 100 16 60 0.75 false",
+            "false false 1.0 4096 80 all/all 2 true true true false true true true 48 400 false 100 16 25 0.75 false",
+            "false false 1.0 4096 80 all/all 2 true true true false true true true 48 400 false 100 16 60 0.75 true",
         };
         for (int part = 0; part < Config.GRAPHICS.length; part++) {
             double[] values = Config.values(Quality.HIGH_PICTURE);

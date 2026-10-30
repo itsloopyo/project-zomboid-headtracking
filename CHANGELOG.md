@@ -11,6 +11,7 @@
 - A row read as the game starts leaves its patches out of the game's code from the next start when it is off, so another Java mod that patches the same methods meets the game's own. `ZombiesSeenAtOnce` and `VehiclesSmashThrough` do the same. A row taken while the game runs that is switched back on puts its patches in at once, with no restart.
 - Quick settings at the top of the mod's options page: a Head tracking tick box, which turns head tracking on and off while you play, and five lists, Everything, First person (`On`, `In vehicles only` or `Off`), Enhanced graphics, Gameplay tweaks and Optimizations. Each list switches a whole class of settings at once and shows which line your settings match, or `Mixed`.
 - Local smoothing, remote smoothing and how far the flashlight follows your head (`LightMultiplier`) are on the options page.
+- A Grass distance slider under Custom graphics (`[Graphics] GrassDistance`): how far from you lawns are grown blade by blade in first person, from 8 to 48 tiles. Medium and High grow them to 16 tiles. Long grass is not affected.
 - Head tracking turns Project Viewpoint's camera when that mod runs alongside this one: yaw, pitch and roll, not the lean.
 
 ### Changed

@@ -3,6 +3,8 @@ package com.cameraunlock.zomboid;
 /** Tests of the grass grown plant by plant: what a strip's vertices carry, and how a lawn thins with distance. */
 final class GrassTests {
     private static final int F = SpriteGeometry.VERTEX_FLOATS;
+    /** How far from the eye a lawn is grown in first person unless a test says otherwise: Medium's and High's grass distance. */
+    private static final float REACH = Quality.HIGH_PICTURE.grassDistance();
 
     private GrassTests() {}
 
@@ -17,6 +19,8 @@ final class GrassTests {
         Checks.run("lowerDensityGrowsFewerPlantsOfTheSameGrass", GrassTests::lowerDensityGrowsFewerPlantsOfTheSameGrass);
         Checks.run("lawnBehindTheEyeIsNotGrown", GrassTests::lawnBehindTheEyeIsNotGrown);
         Checks.run("lawnFromOverheadReachesThePicturesEdge", GrassTests::lawnFromOverheadReachesThePicturesEdge);
+        Checks.run("lawnIsGrownAsFarAsTheGrassDistance", GrassTests::lawnIsGrownAsFarAsTheGrassDistance);
+        Checks.run("lawnBladesEndHalfASquareInsideTheGrassDistance", GrassTests::lawnBladesEndHalfASquareInsideTheGrassDistance);
         Checks.run("lawnKeepsInsideItsBounds", GrassTests::lawnKeepsInsideItsBounds);
         Checks.run("poorGroundGrowsLess", GrassTests::poorGroundGrowsLess);
         Checks.run("spreadGrassIsAsThickAtItsLawnAsTheLawn", GrassTests::spreadGrassIsAsThickAtItsLawnAsTheLawn);
@@ -151,9 +155,46 @@ final class GrassTests {
 
     private static int lawn(float eyeX, float eyeY, float lookX, float lookY, float low, float high, Grass.Ground ground, SpriteGeometry.Mesh mesh, float density,
             boolean overhead) {
+        return lawn(eyeX, eyeY, lookX, lookY, low, high, ground, mesh, density, REACH, overhead);
+    }
+
+    private static int lawn(float eyeX, float eyeY, float lookX, float lookY, float low, float high, Grass.Ground ground, SpriteGeometry.Mesh mesh, float density,
+            float reach, boolean overhead) {
         SpriteGeometry geometry = new SpriteGeometry();
-        Grass.lawn(geometry, mesh, frame(), 10, 20, eyeX, eyeY, lookX, lookY, low, high, low, high, ground, density, overhead);
+        Grass.lawn(geometry, mesh, frame(), 10, 20, eyeX, eyeY, lookX, lookY, low, high, low, high, ground, density, reach, overhead);
         return mesh.triangles();
+    }
+
+    private static void lawnIsGrownAsFarAsTheGrassDistance() {
+        // The lawn grown is the square (10, 20), and the eye looks at it from nine tiles off and from twenty.
+        int nineAt8 = lawn(10.5f, 11.5f, 0f, 1f, 0f, 1f, (a, b) -> 1f, new SpriteGeometry.Mesh(), 1f, 8f, false);
+        int nineAt16 = lawn(10.5f, 11.5f, 0f, 1f, 0f, 1f, (a, b) -> 1f, new SpriteGeometry.Mesh(), 1f, 16f, false);
+        check(nineAt8 == 0 && nineAt16 > 0, "a lawn nine tiles off is grown with a grass distance of 16 and not of 8: " + nineAt16 + " and " + nineAt8);
+        int twentyAt16 = lawn(10.5f, 0.5f, 0f, 1f, 0f, 1f, (a, b) -> 1f, new SpriteGeometry.Mesh(), 1f, 16f, false);
+        int twentyAt32 = lawn(10.5f, 0.5f, 0f, 1f, 0f, 1f, (a, b) -> 1f, new SpriteGeometry.Mesh(), 1f, 32f, false);
+        check(twentyAt16 == 0 && twentyAt32 > 0, "a lawn twenty tiles off is grown with a grass distance of 32 and not of 16: " + twentyAt32 + " and " + twentyAt16);
+        int overhead = lawn(10.5f, 0.5f, 0f, 1f, 0f, 1f, (a, b) -> 1f, new SpriteGeometry.Mesh(), 1f, 8f, true);
+        check(overhead > 0, "from overhead a lawn past the grass distance is grown all the same: " + overhead);
+    }
+
+    private static void lawnBladesEndHalfASquareInsideTheGrassDistance() {
+        // A square is grown while its middle is inside the grass distance, and its plants stand up to half its diagonal further out.
+        float reach = 8f, limit = reach - (float) Math.sqrt(0.5);
+        float furthest = 0f;
+        for (int turn = 0; turn < 16; turn++) {
+            float lookX = (float) Math.cos(turn * Math.PI / 8), lookY = (float) Math.sin(turn * Math.PI / 8);
+            for (float away = reach - 1.5f; away <= reach + 0.75f; away += 0.25f) {
+                float eyeX = 10.5f - lookX * away, eyeY = 20.5f - lookY * away;
+                SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+                lawn(eyeX, eyeY, lookX, lookY, 0f, 1f, (a, b) -> 1f, mesh, 1f, reach, false);
+                for (int at = 0; at < mesh.floats; at += F) {
+                    float x = mesh.vertices[at] + mesh.vertices[at + 12] - eyeX, y = mesh.vertices[at + 1] + mesh.vertices[at + 13] - eyeY;
+                    furthest = Math.max(furthest, (float) Math.sqrt(x * x + y * y));
+                }
+            }
+        }
+        check(furthest < limit && furthest > limit - 1f, "no blade stands within half a square's diagonal of the grass distance, so whether one stands goes by its"
+                + " own distance and not by its square's middle, and the lawn still comes near that: the furthest at " + furthest + " of " + limit);
     }
 
     private static void lawnFromOverheadReachesThePicturesEdge() {
@@ -196,7 +237,7 @@ final class GrassTests {
     private static void lawnFurtherOffIsFewerPlants() {
         int near = lawn(10.5f, 20.5f, 1f, 0f, 0f, 1f, (a, b) -> 1f, new SpriteGeometry.Mesh());
         int mid = lawn(10.5f, 13.5f, 0f, 1f, 0f, 1f, (a, b) -> 1f, new SpriteGeometry.Mesh());
-        int far = lawn(10.5f, 20.5f - Grass.LAWN_ENDS - 1f, 0f, 1f, 0f, 1f, (a, b) -> 1f, new SpriteGeometry.Mesh());
+        int far = lawn(10.5f, 20.5f - REACH - 1f, 0f, 1f, 0f, 1f, (a, b) -> 1f, new SpriteGeometry.Mesh());
         check(near > 3 * mid && mid > 0, "a lawn seven tiles off is far fewer triangles than one underfoot: " + near + " and " + mid);
         check(far == 0, "past where a lawn's grass ends none is grown, got " + far);
     }
