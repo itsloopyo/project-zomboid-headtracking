@@ -129,12 +129,16 @@ final class Tracking {
         String defaults = System.getProperty(Agent.DEFAULTS_PROPERTY);
         int port = open(gameDirectory, defaults == null ? null : Path.of(defaults));
         ports[0] = port;
-        listen(port);
         try {
+            listen(port);
             core.hotkeysStart();
         } catch (RuntimeException failure) {
             // The mod stays out of the game, and its port is let go for whatever else listens on it.
-            core.stop();
+            try {
+                letGo();
+            } catch (RuntimeException also) {
+                failure.addSuppressed(also);
+            }
             throw failure;
         }
         watch = saver.scheduleWithFixedDelay(Tracking::watchSettings, WATCH_MILLISECONDS, WATCH_MILLISECONDS, TimeUnit.MILLISECONDS);
@@ -142,10 +146,16 @@ final class Tracking {
 
     private static ScheduledFuture<?> watch;
 
-    /** Lets go of what start took, for a start that fails after it: the port and the watch on CameraUnlock.ini. */
+    /** Lets go of what start took, for a start that fails after it: the port, the microphones and the watch on CameraUnlock.ini. */
     static void stop() {
         watch.cancel(false);
+        letGo();
+    }
+
+    /** Nothing reads a microphone the open left open once the mod is out of the game, and no options page is there to close it. */
+    private static void letGo() {
         core.stop();
+        Microphones.set(false, new String[View.COUNT]);
     }
 
     /**
