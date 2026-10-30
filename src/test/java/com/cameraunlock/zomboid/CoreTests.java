@@ -199,6 +199,23 @@ public final class CoreTests {
         made.await();
     }
 
+    /**
+     * Holds the config thread till the latch is counted down, as a slow disk holds it: a save asked
+     * for meanwhile is still to be made. Counted down in a finally, or a throw leaves every later
+     * save, and the test that waits on one, waiting for good.
+     */
+    private static CountDownLatch savesHeld() {
+        CountDownLatch held = new CountDownLatch(1);
+        Tracking.saver.execute(() -> {
+            try {
+                held.await();
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        return held;
+    }
+
     /** How many saves the mod has logged a line for, once every save asked for so far is made. */
     private static long savesLogged() throws IOException, InterruptedException {
         savesMade();
@@ -824,7 +841,15 @@ public final class CoreTests {
         check(screen.readsAll().equals("Off Off Off Off Off") && Part.FIRST_PERSON.on() && Rules.rows() != 0,
                 "Everything's Off sets every list on the page to Off, and nothing is taken before the screen is applied: " + screen.readsAll());
         long writesBefore = savesLogged();
-        screen.apply();
+        CountDownLatch held = savesHeld();
+        String reopened;
+        try {
+            screen.apply();
+            reopened = Screen.opened().readsAll();
+        } finally {
+            held.countDown();
+        }
+        check(reopened.equals("Off Off Off Off Off"), "the page opened again before the save is made reads Off in every list: " + reopened);
         check(!Part.FIRST_PERSON.on() && Rules.rows() == 0 && Own.rows() == 0 && Quality.overheadRow(0) == Quality.LOW && !PendingLights.spread()
                         && !MuzzleFlash.on() && !Crosshair.on() && !Regrip.on() && SplitScreen.row() == SplitScreen.VERTICAL,
                 "applied, every part, rule and optimization is off, and the content, isometric view and split screen are the game's: " + Part.described());
@@ -836,8 +861,9 @@ public final class CoreTests {
         }
         check(effectsOff && Quality.row(0) == Quality.LOW && Quality.row(3) == Quality.LOW,
                 "every player's first person graphics mode is Low, so the rows of [Graphics] read Low's picture with every effect off");
-        check(Screen.opened().readsAll().equals("Off Off Off Off Off"), "and the page opened again reads Off in every list");
         check(savesLogged() - writesBefore == 1, "all of it is saved in one write: " + (savesLogged() - writesBefore));
+        reopened = Screen.opened().readsAll();
+        check(reopened.equals("Off Off Off Off Off"), "and opened once the save is made, it still reads Off in every list: " + reopened);
         check(saved("FirstPersonEnabled=false", "TorchFollowsHead=false", "ShotsThroughWalls=false", "HiddenWallDecorSaved=false", "HillsMoveVehicles=false",
                         "BurntBuildingFreezeFix=false", "CachedGameLookups=false", "SpotBySight=false", "SpreadLightUpdates=false", "VanillaWeapons=true",
                         "Quality=Low", "FourthPlayerQuality=Low", "IsometricQuality=Low", "FourthPlayerIsometricQuality=Low", "EnableOnStartup=default"),
@@ -1419,18 +1445,15 @@ public final class CoreTests {
                 "the mode list then set to Low shows Low's picture in the rows, and the change is gone with it");
         screen.set("Quality", Quality.HIGH);
         screen.set("ViewDistance", 56);
-        // The config thread held, as it is when the screen reads the mode back straight after Apply: the saves are still to come.
-        CountDownLatch held = new CountDownLatch(1);
-        Tracking.saver.execute(() -> {
-            try {
-                held.await();
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-            }
-        });
-        screen.apply();
-        boolean readsCustom = Tracking.optionValue(Tracking.optionPlace("Quality")) == Quality.CUSTOM;
-        held.countDown();
+        // As the screen reads the mode back straight after Apply: the saves are still to come.
+        CountDownLatch held = savesHeld();
+        boolean readsCustom;
+        try {
+            screen.apply();
+            readsCustom = Tracking.optionValue(Tracking.optionPlace("Quality")) == Quality.CUSTOM;
+        } finally {
+            held.countDown();
+        }
         check(readsCustom, "the screen's mode list reads Custom as soon as it is applied, before the save is made");
         check(Quality.name(0).equals("Custom") && Quality.sight(0) == 56 && Quality.scale(0) == 1f && Quality.shadowSize(0) == 4096 && Quality.crownsToSight(0),
                 "applied, a graphics row goes to Custom, drawn as High is but for that row: " + Quality.name(0));

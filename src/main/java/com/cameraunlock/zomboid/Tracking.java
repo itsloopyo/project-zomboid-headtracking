@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.StringJoiner;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -388,11 +389,27 @@ final class Tracking {
             LIGHT_MULTIPLIER_OPTION);
 
     /**
+     * The settings applied on the options screen whose save has still to run, by key. Core holds
+     * a value applied there from when its save runs on the config thread, so a screen opened
+     * before then reads it from here.
+     */
+    private static final Map<String, Applied> unsaved = new ConcurrentHashMap<>();
+
+    /** A value one apply gave a setting. It keeps Object's equals, so a save takes off its own apply's values and never an equal one applied since. */
+    private static final class Applied {
+        final double value;
+
+        Applied(double value) {
+            this.value = value;
+        }
+    }
+
+    /**
      * What an option reads as now. The settings the session holds itself read as the session has
-     * them, and so do the graphics modes: core holds a value applied on the options screen only
-     * once its save, which follows on the config thread, is made. A row of [Graphics] reads as the
-     * picture the first player's first person mode draws (Quality.pictureOf), so in Low, Medium,
-     * High and Automatic the screen shows that mode's, and in Custom the row itself.
+     * them, and so do the graphics modes. A row of [Graphics] reads as the picture the first
+     * player's first person mode draws (Quality.pictureOf), so in Low, Medium, High and Automatic
+     * the screen shows that mode's, and in Custom the row itself. Any other reads as core holds
+     * it, or as an apply left it while that apply's save has still to run.
      */
     static double optionValue(int option) {
         String id = config.optionId(option);
@@ -408,8 +425,14 @@ final class Tracking {
             default -> part >= 0 ? Config.values(Quality.pictureOf(Quality.row(0)))[part]
                     : player >= 0 ? Quality.row(player)
                     : overheadPlayer >= 0 ? Quality.overheadRow(overheadPlayer) - Quality.LOW
-                    : config.optionValue(option);
+                    : held(id, option);
         };
+    }
+
+    /** What core holds for an option, or the value an apply gave it while that apply's save has still to run. */
+    private static double held(String id, int option) {
+        Applied applied = unsaved.get(id);
+        return applied != null ? applied.value : config.optionValue(option);
     }
 
     /** The player whose first person graphics mode an option is, or -1 for an option that is none's. */
@@ -500,17 +523,24 @@ final class Tracking {
         Log.info(now.length() == 0 ? "saved from the game's options screen for the next start: " + atStart
                 : "taken from the game's options screen: " + now + (atStart.length() > 0 ? "; saved for the next start: " + atStart : ""));
         boolean savePicture = pictured;
+        Map<String, Applied> applied = new LinkedHashMap<>();
+        taken.forEach((key, value) -> applied.put(key, new Applied(value)));
+        unsaved.putAll(applied);
         save(() -> {
-            Map<String, Double> saving = new LinkedHashMap<>(taken);
-            if (savePicture) {
-                // The picture the save finds, which holds any row a reload took from the file since.
-                double[] values = Config.values(Quality.custom());
-                for (int part = 0; part < values.length; part++) {
-                    saving.put(Config.GRAPHICS[part], values[part]);
+            try {
+                Map<String, Double> saving = new LinkedHashMap<>(taken);
+                if (savePicture) {
+                    // The picture the save finds, which holds any row a reload took from the file since.
+                    double[] values = Config.values(Quality.custom());
+                    for (int part = 0; part < values.length; part++) {
+                        saving.put(Config.GRAPHICS[part], values[part]);
+                    }
+                    saving.put(Config.qualityKey(0), (double) Quality.CUSTOM);
                 }
-                saving.put(Config.qualityKey(0), (double) Quality.CUSTOM);
+                config.saveOptions(saving);
+            } finally {
+                applied.forEach(unsaved::remove);
             }
-            config.saveOptions(saving);
         });
         Set<String> keys = new LinkedHashSet<>(taken.keySet());
         if (pictured) {
