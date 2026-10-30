@@ -96,6 +96,18 @@ final class BuildThreads {
     private static final LinkedBlockingQueue<FutureTask<?>> asked = new LinkedBlockingQueue<>();
     private static final FutureTask<?> DONE = new FutureTask<>(() -> null);
 
+    /**
+     * Set once the logic thread stops waiting on build threads that have not ended (it was interrupted): they may still
+     * be making what they were handed and asking of the logic thread, so nothing is waited on or handed again.
+     */
+    private static IllegalStateException stranded;
+
+    private static void notStranded() {
+        if (stranded != null) {
+            throw new IllegalStateException("build threads were left running when the logic thread stopped waiting on them, so none can be waited on or handed work again", stranded);
+        }
+    }
+
     /** A pool of one build thread, made on first use. */
     static ExecutorService one(String name) {
         return pool(1, name);
@@ -136,6 +148,7 @@ final class BuildThreads {
 
         /** Logic thread: hands a piece on, starting the threads with the first. */
         void hand(T work, ExecutorService pool, int count, IntConsumer thread) {
+            notStranded();
             if (running == null) {
                 handing = true;
                 running = new Future<?>[count];
@@ -173,9 +186,12 @@ final class BuildThreads {
             try {
                 waitOn(running);
             } finally {
-                running = null;
-                waiting.clear();
-                handing = false;
+                // Left as it is if the threads were stranded: they may still be taking from waiting.
+                if (stranded == null) {
+                    running = null;
+                    waiting.clear();
+                    handing = false;
+                }
             }
         }
     }
@@ -191,6 +207,7 @@ final class BuildThreads {
     }
 
     private static void waitOn(Future<?>[] running) {
+        notStranded();
         try {
             for (int left = running.length; left > 0;) {
                 FutureTask<?> ask = asked.take();
@@ -210,7 +227,8 @@ final class BuildThreads {
             throw new IllegalStateException("a build on a build thread threw", e.getCause());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new IllegalStateException("the logic thread was interrupted waiting on a build thread", e);
+            stranded = new IllegalStateException("the logic thread was interrupted waiting on a build thread", e);
+            throw stranded;
         }
     }
 
