@@ -2033,6 +2033,7 @@ final class WorldScene {
         }
         for (int i = 0; i < handed.size(); i++) {
             drop(handed.get(i));
+            handed.get(i).landing.forget();
             spareHanded.push(handed.get(i));
         }
         handed.clear();
@@ -3965,6 +3966,11 @@ final class WorldScene {
                     // No build thread is left waiting for builds that will not be handed.
                     try {
                         making.finish();
+                    } catch (RuntimeException | Error also) {
+                        thrown.addSuppressed(also);
+                    }
+                    try {
+                        landMade();
                     } catch (RuntimeException | Error also) {
                         thrown.addSuppressed(also);
                     }
@@ -6024,7 +6030,16 @@ final class WorldScene {
          * to the logic thread is done, in walk order.
          */
         private void makeHanded() {
-            making.finish();
+            try {
+                making.finish();
+            } catch (RuntimeException | Error thrown) {
+                try {
+                    landMade();
+                } catch (RuntimeException | Error also) {
+                    thrown.addSuppressed(also);
+                }
+                throw thrown;
+            }
             if (CHECK_BUILDS) {
                 for (int i = 0; i < handed.size(); i++) {
                     if (handed.get(i).made) {
@@ -6034,6 +6049,21 @@ final class WorldScene {
             }
             for (int i = 0; i < handed.size(); i++) {
                 handed.get(i).landing.land();
+            }
+        }
+
+        /**
+         * Where the frame's builds were not all made, a build thread or the walk having thrown: what each made build
+         * left to the logic thread is done, in walk order, and what each of the others left is let go of with it.
+         */
+        private void landMade() {
+            for (int i = 0; i < handed.size(); i++) {
+                Handed job = handed.get(i);
+                if (job.made) {
+                    job.landing.land();
+                } else {
+                    job.landing.forget();
+                }
             }
         }
 
@@ -6132,11 +6162,15 @@ final class WorldScene {
         private void landHanded() {
             for (int i = 0; i < handed.size(); i++) {
                 Handed job = handed.get(i);
-                if (!job.dropped) {
+                // One not made was left by a frame that threw: it is let go of as one dropped.
+                if (!job.made) {
+                    drop(job);
+                } else if (!job.dropped) {
                     landBuild(job);
                 }
                 job.chunk = null;
                 job.fresh = job.grown = job.standing = null;
+                job.landing.forget();
                 spareHanded.push(job);
             }
             handed.clear();
