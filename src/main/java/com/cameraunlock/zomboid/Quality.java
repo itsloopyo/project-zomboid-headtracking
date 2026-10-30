@@ -65,10 +65,11 @@ final class Quality {
      * @param lightDistance    see lightDistance
      * @param reflectionScale  see reflectionScale
      * @param corpseModels     see corpseModels
+     * @param antialiasing     see antialiasing
      */
     record Picture(boolean stockLook, int treeQuality, int grassDensity, int grassDistance, float renderScale, boolean sharpShadows, int viewDistance, int drawDistance,
             int farTreeDistance, int rainOnGlass, boolean shadingAndLight, boolean reflections, boolean fullSizeTextures, boolean surfaceDepth,
-            boolean wholeFigureShadows, boolean frameBlending, int lightDistance, float reflectionScale, boolean corpseModels) {}
+            boolean wholeFigureShadows, boolean frameBlending, int lightDistance, float reflectionScale, boolean corpseModels, int antialiasing) {}
 
     /** The TreeQuality row's words by number: the game's sprites, the mod's crowns within Crowns.REACH, the mod's crowns as far as the view goes. */
     static final int TREES_SPRITES = 0, TREES_NEAR = 1, TREES_TO_SIGHT = 2;
@@ -84,12 +85,15 @@ final class Quality {
     static final int MOST_FAR_TREES = (int) FarLand.REACH;
     /** The most pixels a preset draws a view with before its render scale is lowered, 2560 by 1440: see scale. */
     static final long MOST_PRESET_PIXELS = 2560L * 1440L;
+    /** The Antialiasing row's words by number: see antialiasing. */
+    static final int ANTIALIASING_OFF = 0, ANTIALIASING_LOW = 1, ANTIALIASING_MEDIUM = 2, ANTIALIASING_HIGH = 3;
+    static final String ANTIALIASINGS = "Off,Low,Medium,High";
     /** How far from the eye lamps can light the picture themselves, in tiles. */
     static final int MOST_LIGHT_DISTANCE = 80;
 
-    static final Picture LOW_PICTURE = new Picture(true, TREES_SPRITES, SOME_GRASS, 16, 0.62f, false, 48, 48, 300, 0, false, false, false, false, false, false, 20, 0.5f, false);
-    static final Picture MEDIUM_PICTURE = new Picture(false, TREES_NEAR, SOME_GRASS, 16, 0.8f, false, 60, 60, 150, 1, true, true, false, false, false, false, 30, 0.5f, false);
-    static final Picture HIGH_PICTURE = new Picture(false, TREES_TO_SIGHT, ALL_GRASS, 16, 1f, true, 80, 80, 400, 2, true, true, true, true, true, false, 60, 0.75f, false);
+    static final Picture LOW_PICTURE = new Picture(true, TREES_SPRITES, SOME_GRASS, 16, 0.62f, false, 48, 48, 300, 0, false, false, false, false, false, false, 20, 0.5f, false, ANTIALIASING_LOW);
+    static final Picture MEDIUM_PICTURE = new Picture(false, TREES_NEAR, SOME_GRASS, 16, 0.8f, false, 60, 60, 150, 1, true, true, false, false, false, false, 30, 0.5f, false, ANTIALIASING_MEDIUM);
+    static final Picture HIGH_PICTURE = new Picture(false, TREES_TO_SIGHT, ALL_GRASS, 16, 1f, true, 80, 80, 400, 2, true, true, true, true, true, false, 60, 0.75f, false, ANTIALIASING_HIGH);
     /**
      * Automatic's levels, cheapest first. STOCK is the Low mode's picture, the game's own look;
      * the three above it are Low's, Medium's and High's cost, still with everything the mod made.
@@ -417,16 +421,18 @@ final class Quality {
     private static Picture automatic(Picture at) {
         return new Picture(false, Math.max(at.treeQuality, TREES_NEAR), at.grassDensity, at.grassDistance, at.renderScale, at.sharpShadows, at.viewDistance, at.drawDistance,
                 at.farTreeDistance, at.rainOnGlass, at.shadingAndLight, at.reflections, at.fullSizeTextures, at.surfaceDepth, at.wholeFigureShadows,
-                at.frameBlending, at.lightDistance, at.reflectionScale, at.corpseModels);
+                at.frameBlending, at.lightDistance, at.reflectionScale, at.corpseModels, at.antialiasing);
     }
 
     static String described(Picture picture) {
         return String.format(Locale.ROOT, "stock look %b, tree quality %d, grass density %d, grass distance %d, render scale %.2f, sharp shadows %b, view distance %d, "
                         + "zombies and props draw distance %d, far tree distance %d, rain on glass %d, shading and light %b, reflections %b, "
-                        + "full size textures %b, surface depth %b, whole figure shadows %b, frame blending %b, light distance %d, reflection scale %.2f, corpse models %b",
+                        + "full size textures %b, surface depth %b, whole figure shadows %b, frame blending %b, light distance %d, reflection scale %.2f, corpse models %b, "
+                        + "antialiasing %d",
                 picture.stockLook, picture.treeQuality, picture.grassDensity, picture.grassDistance, picture.renderScale, picture.sharpShadows, picture.viewDistance, picture.drawDistance,
                 picture.farTreeDistance, picture.rainOnGlass, picture.shadingAndLight, picture.reflections, picture.fullSizeTextures,
-                picture.surfaceDepth, picture.wholeFigureShadows, picture.frameBlending, picture.lightDistance, picture.reflectionScale, picture.corpseModels);
+                picture.surfaceDepth, picture.wholeFigureShadows, picture.frameBlending, picture.lightDistance, picture.reflectionScale, picture.corpseModels,
+                picture.antialiasing);
     }
 
     /** The mode the hotkey goes to from a player's first person mode: Automatic, Low, Medium, High, Custom and round again. */
@@ -799,6 +805,16 @@ final class Quality {
      */
     static boolean frameBlending(int view) {
         return shown.pictures[view].frameBlending;
+    }
+
+    /**
+     * How the stair-steps along the first person picture's edges are smoothed, from that frame
+     * alone: ANTIALIASING_OFF, not at all; LOW, a blend across each edge from the pixels round it;
+     * MEDIUM, the edge followed along to where it ends, so a long shallow edge is graded along its
+     * whole length; HIGH, followed further, with fainter edges found. See PipelineShaders.SMOOTH_LOW.
+     */
+    static int antialiasing(int view) {
+        return shown.pictures[view].antialiasing;
     }
 
     /**

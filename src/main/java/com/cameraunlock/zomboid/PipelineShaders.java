@@ -8467,11 +8467,12 @@ final class PipelineShaders {
             """;
 
     /**
-     * Smooths the stair-steps of edges, looking along each edge for how far to blend. The blend
-     * is the FXAA pass of glsl-fxaa, used under its BSD and MIT licences: the notices are in
-     * THIRD-PARTY-NOTICES.md. The sharpening after it is this project's own.
+     * Shows the developed picture in the game's own, its edges smoothed by smoothed(uv, px), which
+     * each of SMOOTH_OFF, SMOOTH_LOW, SMOOTH_MEDIUM and SMOOTH_HIGH defines in its own way (see
+     * Quality.antialiasing). Every one works from this frame alone. The sharpening after it is this
+     * project's own.
      */
-    static final String SMOOTH = """
+    private static final String SMOOTH_HEAD = """
             #version 120
             uniform sampler2D uImage;
             uniform vec2 uSize;
@@ -8484,14 +8485,41 @@ final class PipelineShaders {
                 return dot(c, vec3(0.299, 0.587, 0.114));
             }
 
+            float lumaAt(vec2 at) {
+                return luma(texture2D(uImage, at).rgb);
+            }
+            """;
+    private static final String SMOOTH_TAIL = """
             void main() {
                 vec2 px = 1.0 / uSize;
                 vec2 uv = (gl_FragCoord.xy - uOrigin) / uShown;
+                vec3 smoothedHere = smoothed(uv, px);
+                // Sprites drawn larger than they were painted come out soft. A little of the
+                // difference between each pixel and its surroundings is put back.
+                vec3 around = 0.25 * (texture2D(uImage, uv + vec2(px.x, 0.0)).rgb + texture2D(uImage, uv - vec2(px.x, 0.0)).rgb
+                        + texture2D(uImage, uv + vec2(0.0, px.y)).rgb + texture2D(uImage, uv - vec2(0.0, px.y)).rgb);
+                gl_FragColor = vec4(clamp(smoothedHere + (smoothedHere - around) * 0.45, 0.0, 1.0) * uLight, 1.0);
+            }
+            """;
+
+    static final String SMOOTH_OFF = SMOOTH_HEAD + """
+            vec3 smoothed(vec2 uv, vec2 px) {
+                return texture2D(uImage, uv).rgb;
+            }
+            """ + SMOOTH_TAIL;
+
+    /**
+     * Blends across each edge, looking at the four pixels diagonal to this one for which way the
+     * edge runs. The blend is the FXAA pass of glsl-fxaa, used under its BSD and MIT licences: the
+     * notices are in THIRD-PARTY-NOTICES.md.
+     */
+    static final String SMOOTH_LOW = SMOOTH_HEAD + """
+            vec3 smoothed(vec2 uv, vec2 px) {
                 vec3 middle = texture2D(uImage, uv).rgb;
-                float nw = luma(texture2D(uImage, uv + vec2(-1.0, -1.0) * px).rgb);
-                float ne = luma(texture2D(uImage, uv + vec2(1.0, -1.0) * px).rgb);
-                float sw = luma(texture2D(uImage, uv + vec2(-1.0, 1.0) * px).rgb);
-                float se = luma(texture2D(uImage, uv + vec2(1.0, 1.0) * px).rgb);
+                float nw = lumaAt(uv + vec2(-1.0, -1.0) * px);
+                float ne = lumaAt(uv + vec2(1.0, -1.0) * px);
+                float sw = lumaAt(uv + vec2(-1.0, 1.0) * px);
+                float se = lumaAt(uv + vec2(1.0, 1.0) * px);
                 float m = luma(middle);
                 float lowest = min(m, min(min(nw, ne), min(sw, se)));
                 float highest = max(m, max(max(nw, ne), max(sw, se)));
@@ -8501,14 +8529,107 @@ final class PipelineShaders {
                 vec3 a = 0.5 * (texture2D(uImage, uv + dir * (1.0 / 3.0 - 0.5)).rgb + texture2D(uImage, uv + dir * (2.0 / 3.0 - 0.5)).rgb);
                 vec3 b = a * 0.5 + 0.25 * (texture2D(uImage, uv - dir * 0.5).rgb + texture2D(uImage, uv + dir * 0.5).rgb);
                 float lumaB = luma(b);
-                vec3 smoothed = lumaB < lowest || lumaB > highest ? a : b;
-                // Sprites drawn larger than they were painted come out soft. A little of the
-                // difference between each pixel and its surroundings is put back.
-                vec3 around = 0.25 * (texture2D(uImage, uv + vec2(px.x, 0.0)).rgb + texture2D(uImage, uv - vec2(px.x, 0.0)).rgb
-                        + texture2D(uImage, uv + vec2(0.0, px.y)).rgb + texture2D(uImage, uv - vec2(0.0, px.y)).rgb);
-                gl_FragColor = vec4(clamp(smoothed + (smoothed - around) * 0.45, 0.0, 1.0) * uLight, 1.0);
+                return lumaB < lowest || lumaB > highest ? a : b;
+            }
+            """ + SMOOTH_TAIL;
+
+    /**
+     * Follows an edge from this pixel along its length both ways, to where it ends, and takes the
+     * colour from across the edge by how near this pixel is to the nearer end: a long shallow edge,
+     * a roof line or the top of a wall, then comes out as an even ramp along its whole run, where a
+     * blend from the pixels round one alone leaves a step at each jog. A pixel of a line or a speck
+     * thinner than a pixel is blended with its surroundings by SUBPIXEL as well. This is Timothy
+     * Lottes's FXAA 3.11 method, written for this project.
+     *
+     * EDGE_LEAST and EDGE_SHARE are the least contrast round a pixel taken as an edge, alone and as
+     * a share of the brightest there; ALONG holds the steps of the search, in pixels, STEPS of them.
+     */
+    private static final String SMOOTH_ALONG = """
+            vec3 smoothed(vec2 uv, vec2 px) {
+                vec3 middle = texture2D(uImage, uv).rgb;
+                float m = luma(middle);
+                float n = lumaAt(uv + vec2(0.0, px.y));
+                float s = lumaAt(uv - vec2(0.0, px.y));
+                float e = lumaAt(uv + vec2(px.x, 0.0));
+                float w = lumaAt(uv - vec2(px.x, 0.0));
+                float highest = max(m, max(max(n, s), max(e, w)));
+                float range = highest - min(m, min(min(n, s), min(e, w)));
+                if (range < max(EDGE_LEAST, highest * EDGE_SHARE)) {
+                    return middle;
+                }
+                float ne = lumaAt(uv + px);
+                float sw = lumaAt(uv - px);
+                float nw = lumaAt(uv + vec2(-px.x, px.y));
+                float se = lumaAt(uv + vec2(px.x, -px.y));
+                // How sharply the light turns going up and going across, the middle row and
+                // column counted twice: an edge runs the way it turns less.
+                float upward = 2.0 * abs(n + s - 2.0 * m) + abs(ne + se - 2.0 * e) + abs(nw + sw - 2.0 * w);
+                float across = 2.0 * abs(e + w - 2.0 * m) + abs(ne + nw - 2.0 * n) + abs(se + sw - 2.0 * s);
+                bool level = upward >= across;
+                float before = level ? s : w, after = level ? n : e;
+                float toEdge = level ? px.y : px.x;
+                bool beforeSide = abs(before - m) >= abs(after - m);
+                float gradient = max(abs(before - m), abs(after - m));
+                if (beforeSide) {
+                    toEdge = -toEdge;
+                }
+                // The light on the edge itself, half way to the pixel across it.
+                float onEdge = 0.5 * (m + (beforeSide ? before : after));
+
+                vec2 along = level ? vec2(px.x, 0.0) : vec2(0.0, px.y);
+                vec2 edge = uv + (level ? vec2(0.0, toEdge) : vec2(toEdge, 0.0)) * 0.5;
+                vec2 back = edge - along * ALONG[0], ahead = edge + along * ALONG[0];
+                float backEnd = lumaAt(back) - onEdge, aheadEnd = lumaAt(ahead) - onEdge;
+                float ends = 0.25 * gradient;
+                bool backDone = abs(backEnd) >= ends, aheadDone = abs(aheadEnd) >= ends;
+                for (int i = 1; i < STEPS; i++) {
+                    if (backDone && aheadDone) {
+                        break;
+                    }
+                    if (!backDone) {
+                        back -= along * ALONG[i];
+                        backEnd = lumaAt(back) - onEdge;
+                        backDone = abs(backEnd) >= ends;
+                    }
+                    if (!aheadDone) {
+                        ahead += along * ALONG[i];
+                        aheadEnd = lumaAt(ahead) - onEdge;
+                        aheadDone = abs(aheadEnd) >= ends;
+                    }
+                }
+                float toBack = level ? uv.x - back.x : uv.y - back.y;
+                float toAhead = level ? ahead.x - uv.x : ahead.y - uv.y;
+                bool backNearer = toBack < toAhead;
+                // Only the end where the edge turns away from this pixel's side is where its
+                // ramp starts: at the other the pixel is already on the right side of it.
+                bool turns = ((backNearer ? backEnd : aheadEnd) < 0.0) != (m < onEdge);
+                float offset = turns ? 0.5 - min(toBack, toAhead) / (toBack + toAhead) : 0.0;
+
+                float mean = (2.0 * (n + s + e + w) + ne + nw + se + sw) / 12.0;
+                float thin = clamp(abs(mean - m) / range, 0.0, 1.0);
+                thin = (3.0 - 2.0 * thin) * thin * thin;
+                offset = max(offset, thin * thin * SUBPIXEL);
+                return texture2D(uImage, uv + (level ? vec2(0.0, toEdge) : vec2(toEdge, 0.0)) * offset).rgb;
             }
             """;
+
+    /** SMOOTH_ALONG with a short search and the coarser edges alone. */
+    static final String SMOOTH_MEDIUM = SMOOTH_HEAD + """
+            const float EDGE_LEAST = 0.0833;
+            const float EDGE_SHARE = 0.166;
+            const float SUBPIXEL = 0.5;
+            const int STEPS = 5;
+            const float ALONG[5] = float[5](1.0, 1.5, 2.0, 4.0, 12.0);
+            """ + SMOOTH_ALONG + SMOOTH_TAIL;
+
+    /** SMOOTH_ALONG with a longer search, which finds fainter edges. */
+    static final String SMOOTH_HIGH = SMOOTH_HEAD + """
+            const float EDGE_LEAST = 0.0625;
+            const float EDGE_SHARE = 0.125;
+            const float SUBPIXEL = 0.5;
+            const int STEPS = 12;
+            const float ALONG[12] = float[12](1.0, 1.0, 1.0, 1.0, 1.0, 1.5, 2.0, 2.0, 2.0, 2.0, 4.0, 8.0);
+            """ + SMOOTH_ALONG + SMOOTH_TAIL;
     static final String PANE_VERTEX = """
             #version 120
             void main() {

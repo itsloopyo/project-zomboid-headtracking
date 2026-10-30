@@ -2248,10 +2248,10 @@ SOFTWARE.
 
 ### FXAA pass
 
-- **Where:** the edge blend in the `SMOOTH` shader of `PipelineShaders.java`
+- **Where:** the edge blend in the `SMOOTH_LOW` shader of `PipelineShaders.java`
 - **License:** BSD-3-Clause for `fxaa.glsl`, by the notice in its header, and MIT for the glsl-fxaa repository it is taken from, by that repository's `LICENSE.md`. Both notices follow.
 - **Upstream:** https://github.com/mattdesl/glsl-fxaa (`fxaa.glsl`), whose header says it is based on the code on geeks3d.com and comes from https://github.com/mitsuhiko/webgl-meincraft
-- **Usage:** Smooths the stair-steps of edges in the finished first person picture.
+- **Usage:** Smooths the stair-steps of edges in the finished first person picture at `[Graphics] Antialiasing=Low`.
 - **Bundled:** yes, changed: the names are this project's, the constants are written out as numbers, it reads the picture at this project's own coordinates, and the sharpening that follows it is this project's own.
 
 Copyright (c) 2011 by Armin Ronacher.
@@ -2406,4 +2406,10 @@ itself, and each is written here in this project's own shaders.
   and https://iquilezles.org/articles/morenoise/.
 - The glow round bright things is spread by the dual filter Marius Bjorge
   presented in "Bandwidth-Efficient Rendering" (SIGGRAPH 2015).
+- The edge smoothing of `[Graphics] Antialiasing=Medium` and `High`, the
+  `SMOOTH_ALONG` shader of `PipelineShaders.java`, follows the method of Timothy
+  Lottes's FXAA 3.11 (NVIDIA, 2011): an edge found by local contrast, followed
+  along its length to both ends, and the pixel blended across it by its place
+  between them. Its contrast thresholds and search steps are those of that
+  method's quality presets 12 and 39.
 ---

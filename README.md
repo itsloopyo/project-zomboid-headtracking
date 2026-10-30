@@ -606,6 +606,10 @@ SharpShadows=true
 WholeFigureShadows=true
 ; true: each frame is blended with the one before, for smoother edges and leaves and a slightly softer picture.
 FrameBlending=false
+; How jagged edges are smoothed, from each frame alone: Off; Low, a quick blend across each edge; Medium, which also
+; follows each edge to its ends so long shallow edges come out even; High, which follows them further and catches
+; fainter ones too. The Low, Medium and High graphics modes each use the level of the same name.
+Antialiasing=High
 ; How far away lamps light what is around them with light of their own, like the pool of light under a street lamp,
 ; in tiles: 0 (the game's light only) to 80. Past that, lamps light the ground as the game does.
 LightDistance=60

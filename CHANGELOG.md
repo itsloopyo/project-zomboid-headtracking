@@ -13,6 +13,7 @@
 - Local smoothing, remote smoothing and how far the flashlight follows your head (`LightMultiplier`) are on the options page.
 - A Grass distance slider under Custom graphics (`[Graphics] GrassDistance`): how far from you lawns are grown blade by blade in first person, from 8 to 48 tiles. Medium and High grow them to 16 tiles. Long grass is not affected.
 - Head tracking turns Project Viewpoint's camera when that mod runs alongside this one: yaw, pitch and roll, not the lean.
+- `[Graphics] Antialiasing` (`Off`, `Low`, `Medium` or `High`) smooths jagged edges in first person from each frame alone, with no blending of frames. `Low` is the quick edge blend the mod has always used. `Medium` and `High` also follow each edge to its ends, so long shallow edges such as roof lines and wall tops come out as an even slope instead of steps, and `High` finds fainter edges too. The Low, Medium and High graphics modes use the level of the same name.
 
 ### Changed
 

@@ -73,16 +73,16 @@ final class VideoMemory {
         Quality.Picture coarse = new Quality.Picture(high.stockLook(), high.treeQuality(), high.grassDensity(), high.grassDistance(), high.renderScale(), false,
                 high.viewDistance(), high.drawDistance(), high.farTreeDistance(), high.rainOnGlass(), high.shadingAndLight(), high.reflections(),
                 high.fullSizeTextures(), high.surfaceDepth(), high.wholeFigureShadows(), false, high.lightDistance(), high.reflectionScale(),
-                high.corpseModels());
+                high.corpseModels(), high.antialiasing());
         Quality.Picture small = new Quality.Picture(coarse.stockLook(), coarse.treeQuality(), coarse.grassDensity(), coarse.grassDistance(), coarse.renderScale(), false,
                 coarse.viewDistance(), coarse.drawDistance(), coarse.farTreeDistance(), coarse.rainOnGlass(), coarse.shadingAndLight(), coarse.reflections(),
-                false, coarse.surfaceDepth(), coarse.wholeFigureShadows(), false, coarse.lightDistance(), coarse.reflectionScale(), coarse.corpseModels());
+                false, coarse.surfaceDepth(), coarse.wholeFigureShadows(), false, coarse.lightDistance(), coarse.reflectionScale(), coarse.corpseModels(), coarse.antialiasing());
         Quality.Picture medium = Quality.MEDIUM_PICTURE;
         Quality.Picture mediumUnblended = new Quality.Picture(medium.stockLook(), medium.treeQuality(), medium.grassDensity(), medium.grassDistance(), medium.renderScale(),
                 medium.sharpShadows(), medium.viewDistance(), medium.drawDistance(),
                 Math.max(medium.farTreeDistance(), Quality.LOW_PICTURE.farTreeDistance()), medium.rainOnGlass(), medium.shadingAndLight(),
                 medium.reflections(), medium.fullSizeTextures(), medium.surfaceDepth(), medium.wholeFigureShadows(), false, medium.lightDistance(),
-                medium.reflectionScale(), medium.corpseModels());
+                medium.reflectionScale(), medium.corpseModels(), medium.antialiasing());
         CEILINGS = new Quality.Picture[] {high, coarse, small, mediumUnblended, Quality.LOW_PICTURE};
     }
 
@@ -146,7 +146,7 @@ final class VideoMemory {
                 picture.reflections() && most.reflections(), picture.fullSizeTextures() && most.fullSizeTextures(),
                 picture.surfaceDepth() && most.surfaceDepth(), picture.wholeFigureShadows() && most.wholeFigureShadows(),
                 picture.frameBlending() && most.frameBlending(), Math.min(picture.lightDistance(), most.lightDistance()),
-                Math.min(picture.reflectionScale(), most.reflectionScale()), picture.corpseModels());
+                Math.min(picture.reflectionScale(), most.reflectionScale()), picture.corpseModels(), picture.antialiasing());
     }
 
     static Quality.Picture fit(Quality.Picture picture) {

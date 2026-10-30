@@ -347,7 +347,9 @@ final class Pipeline {
     private int jitterAt;
     /** How far to one side this frame is drawn, as the projection takes it: nothing with the frames not mixed. */
     private float asideX, asideY;
-    private static Program world, worldCalm, worldUntinted, worldDepth, grassLit, grassDepth, shadow, solidShadow, figureLight, sky, clouds, skyNear, bolt, occlusion, soften, volume, bloomDown, bloomUp, develop, smooth, meter;
+    private static Program world, worldCalm, worldUntinted, worldDepth, grassLit, grassDepth, shadow, solidShadow, figureLight, sky, clouds, skyNear, bolt, occlusion, soften, volume, bloomDown, bloomUp, develop, meter;
+    /** By Quality.antialiasing, what shows the developed picture with its edges smoothed that much. */
+    private static final Program[] smooth = new Program[4];
     private static Program far, farTree;
     /** What the shaders are told as uBeyond this frame: see PipelineShaders.ENDS. Not 0 where the far land is drawn behind the built world. */
     private float beyond;
@@ -438,6 +440,8 @@ final class Pipeline {
     private float reflectionScale;
     /** Quality.frameBlending as the frame began: the row is read again while the game runs, and what one pass of a frame draws into the next reads. */
     private boolean steadying;
+    /** Quality.antialiasing as the frame began. */
+    private int antialiasing;
 
     /**
      * Pictures that only some frames draw into. Each set is made by the first frame that draws
@@ -1323,6 +1327,7 @@ final class Pipeline {
             reflections = Quality.reflections(view.index);
             reflectionScale = Quality.reflectionScale(view.index);
             steadying = Quality.frameBlending(view.index);
+            antialiasing = Quality.antialiasing(view.index);
             frameColor = sceneColor;
             SpriteColours.read(view.index, camera.eyeX, camera.eyeY);
             Rugs.putOnCard(view.index, camera.eyeX, camera.eyeY, camera.eyeUp);
@@ -2052,13 +2057,14 @@ final class Pipeline {
             GL14.glBlendColor(0f, 0f, 0f, opacity);
             GL11.glBlendFunc(GL_CONSTANT_ALPHA, GL_ONE_MINUS_CONSTANT_ALPHA);
         }
-        smooth.use();
+        Program shows = smooth[antialiasing];
+        shows.use();
         GL11.glBindTexture(GL_TEXTURE_2D, shownColor);
-        smooth.set("uImage", 0);
-        smooth.set("uSize", (float) width, (float) height);
-        smooth.set("uOrigin", (float) viewport[0], (float) viewport[1]);
-        smooth.set("uShown", (float) viewport[2], (float) viewport[3]);
-        smooth.set("uLight", 1f - dark);
+        shows.set("uImage", 0);
+        shows.set("uSize", (float) width, (float) height);
+        shows.set("uOrigin", (float) viewport[0], (float) viewport[1]);
+        shows.set("uShown", (float) viewport[2], (float) viewport[3]);
+        shows.set("uLight", 1f - dark);
         quad();
         GL11.glDisable(GL_BLEND);
     }
@@ -6533,7 +6539,10 @@ final class Pipeline {
                 () -> bloomUp = Program.link("glow up", SCREEN_VERTEX, PipelineShaders.BLOOM_UP, linkProblem),
                 () -> develop = Program.link("develop", SCREEN_VERTEX, PipelineShaders.DEVELOP, linkProblem),
                 () -> meter = Program.link("light meter", SCREEN_VERTEX, PipelineShaders.METER, linkProblem),
-                () -> smooth = Program.link("smooth", SCREEN_VERTEX, PipelineShaders.SMOOTH, linkProblem),
+                () -> smooth[Quality.ANTIALIASING_OFF] = Program.link("smooth off", SCREEN_VERTEX, PipelineShaders.SMOOTH_OFF, linkProblem),
+                () -> smooth[Quality.ANTIALIASING_LOW] = Program.link("smooth low", SCREEN_VERTEX, PipelineShaders.SMOOTH_LOW, linkProblem),
+                () -> smooth[Quality.ANTIALIASING_MEDIUM] = Program.link("smooth medium", SCREEN_VERTEX, PipelineShaders.SMOOTH_MEDIUM, linkProblem),
+                () -> smooth[Quality.ANTIALIASING_HIGH] = Program.link("smooth high", SCREEN_VERTEX, PipelineShaders.SMOOTH_HIGH, linkProblem),
                 () -> steady = Program.link("steady", SCREEN_VERTEX, PipelineShaders.STEADY, linkProblem),
                 () -> grassLit = Program.link("grass", WORLD_VERTEX, GRASS_FRAGMENT, linkProblem, PLACED_ATTRIBUTES, PLACED_NAMES),
                 () -> grassDepth = Program.link("grass depth", WORLD_VERTEX_DEPTH, GRASS_FRAGMENT_DEPTH, linkProblem, PLACED_ATTRIBUTES, PLACED_NAMES));

@@ -80,7 +80,7 @@ final class Config {
     /** The keys of [Graphics], the Custom graphics mode, in the order the options screen shows them. */
     static final String[] GRAPHICS = {"TreeQuality", "GrassDensity", "GrassDistance", "RenderScale", "ViewDistance", "ZombiesAndPropsDrawDistance",
         "FarTreeDistance", "RainOnGlass", "ShadingAndLight", "Reflections", "ReflectionScale", "FullSizeTextures", "SurfaceDepth", "SharpShadows",
-        "WholeFigureShadows", "FrameBlending", "LightDistance", "CorpseModels"};
+        "WholeFigureShadows", "FrameBlending", "Antialiasing", "LightDistance", "CorpseModels"};
     private static final int RENDER_SCALE = 3, REFLECTION_SCALE = 10;
     static final float MIN_RENDER_SCALE = 0.5f, MIN_REFLECTION_SCALE = 0.25f;
     static final int MIN_VIEW_DISTANCE = 32, MIN_DRAW_DISTANCE = 16;
@@ -302,6 +302,11 @@ final class Config {
             localBool("Graphics", "FrameBlending",
                     "true: each frame is blended with the one before, for smoother edges and leaves and a slightly softer picture.",
                     writable | live, high.frameBlending()),
+            localEnum("Graphics", "Antialiasing",
+                    "How jagged edges are smoothed, from each frame alone: Off; Low, a quick blend across each edge; Medium, which also\n"
+                            + "follows each edge to its ends so long shallow edges come out even; High, which follows them further and catches\n"
+                            + "fainter ones too. The Low, Medium and High graphics modes each use the level of the same name.",
+                    writable | live, Quality.ANTIALIASINGS, high.antialiasing()),
             localInt("Graphics", "LightDistance",
                     "How far away lamps light what is around them with light of their own, like the pool of light under a street lamp,\n"
                             + "in tiles: 0 (the game's light only) to " + Quality.MOST_LIGHT_DISTANCE + ". Past that, lamps light the ground as the game does.",
@@ -587,15 +592,15 @@ final class Config {
             picture.drawDistance(), picture.farTreeDistance(), picture.rainOnGlass(), bit(picture.shadingAndLight()), bit(picture.reflections()), picture.reflectionScale(),
             bit(picture.fullSizeTextures()),
             bit(picture.surfaceDepth()), bit(picture.sharpShadows()), bit(picture.wholeFigureShadows()), bit(picture.frameBlending()),
-            picture.lightDistance(), bit(picture.corpseModels())};
+            picture.antialiasing(), picture.lightDistance(), bit(picture.corpseModels())};
     }
 
     /** The picture the options of the rows of [Graphics] hold, in the order of GRAPHICS: Custom always draws what the mod made. */
     static Quality.Picture picture(double[] values) {
         return new Quality.Picture(false, (int) Math.rint(values[0]), (int) Math.rint(values[1]), (int) Math.rint(values[2]), (float) values[3],
                 values[13] != 0, (int) Math.rint(values[4]), (int) Math.rint(values[5]), (int) Math.rint(values[6]), (int) Math.rint(values[7]),
-                values[8] != 0, values[9] != 0, values[11] != 0, values[12] != 0, values[14] != 0, values[15] != 0, (int) Math.rint(values[16]),
-                (float) values[10], values[17] != 0);
+                values[8] != 0, values[9] != 0, values[11] != 0, values[12] != 0, values[14] != 0, values[15] != 0, (int) Math.rint(values[17]),
+                (float) values[10], values[18] != 0, (int) Math.rint(values[16]));
     }
 
     private static double bit(boolean on) {
