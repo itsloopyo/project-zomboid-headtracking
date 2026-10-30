@@ -167,7 +167,7 @@ final class Penetration {
         boolean north = fromX == toX;
         float crossed = north ? (Math.max(fromY, toY) - lineY) / lineWayY : (Math.max(fromX, toX) - lineX) / lineWayX;
         float x = lineX + lineWayX * crossed, y = lineY + lineWayY * crossed;
-        spent += edgeCost(cell, level, boles, fromX, fromY, toX, toY, north ? x - fromX : y - fromY, heightAt(x, y));
+        spent += edgeCost(cell, level, boles, fromX, fromY, toX, toY, north ? x - fromX : y - fromY, x, y);
         if (boles) {
             IsoGridSquare to = cell.getGridSquare(toX, toY, level);
             float bole = to == null ? Float.NaN : Trunks.on(to);
@@ -194,10 +194,9 @@ final class Penetration {
 
     /**
      * What going through the edge between two neighbouring squares costs a round: 0 where the game lets a shot through.
-     * The shot crosses the edge this far along it and this high over the floor (NaN where not known), as a door's leaf is
-     * measured (see Doors).
+     * The shot crosses the edge this far along it, as a door's leaf is measured (see Doors), at (x, y).
      */
-    static float edgeCost(IsoCell cell, int level, boolean pastTrees, int fromX, int fromY, int toX, int toY, float along, float up) {
+    static float edgeCost(IsoCell cell, int level, boolean pastTrees, int fromX, int fromY, int toX, int toY, float along, float x, float y) {
         IsoGridSquare from = cell.getGridSquare(fromX, fromY, level);
         IsoGridSquare to = cell.getGridSquare(toX, toY, level);
         if (from == null || to == null) {
@@ -213,11 +212,11 @@ final class Penetration {
         // An edge is the north or west edge of the square south or east of it, and what stands on it is that square's.
         boolean north = fromX == toX;
         IsoGridSquare owner = north ? (toY < fromY ? from : to) : (toX < fromX ? from : to);
-        return costOn(owner, north, along, up);
+        return costOn(owner, north, along, x, y);
     }
 
     /** What stands on a square's north or west edge costs a round going through it: a shut door, a window, or a wall. */
-    private static float costOn(IsoGridSquare square, boolean north, float along, float up) {
+    private static float costOn(IsoGridSquare square, boolean north, float along, float x, float y) {
         PZArrayList<IsoObject> objects = square.getObjects();
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
@@ -226,7 +225,7 @@ final class Penetration {
                 if (object instanceof IsoDoor door ? door.isBarricaded() : ((IsoThumpable) object).isBarricaded()) {
                     return STOPS;
                 }
-                if (throughALight(object, north, along, up)) {
+                if (throughALight(object, north, along, x, y)) {
                     // The game lets a shot through a shut window's glass for nothing, and breaks it; it has no glass in a door to break.
                     return 0f;
                 }
@@ -244,8 +243,12 @@ final class Penetration {
     }
 
     /** Whether a shot crosses a shut door's leaf in one of its lights of glass, as the picture measured the leaf (Doors). */
-    private static boolean throughALight(IsoObject door, boolean north, float along, float up) {
-        if (Float.isNaN(up) || door.getSprite() == null || !door.getSprite().getProperties().has("doorTrans")) {
+    private static boolean throughALight(IsoObject door, boolean north, float along, float x, float y) {
+        if (door.getSprite() == null || !door.getSprite().getProperties().has("doorTrans")) {
+            return false;
+        }
+        float up = heightAt(x, y);
+        if (Float.isNaN(up)) {
             return false;
         }
         Doors.Shape shape = Doors.known(door.getSprite().getTextureForCurrentFrame(door.getDir()));
