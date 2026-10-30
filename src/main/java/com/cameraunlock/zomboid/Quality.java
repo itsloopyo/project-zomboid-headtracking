@@ -73,7 +73,10 @@ final class Quality {
     /** The TreeQuality row's words by number: the game's sprites, the mod's crowns within Crowns.REACH, the mod's crowns as far as the view goes. */
     static final int TREES_SPRITES = 0, TREES_NEAR = 1, TREES_TO_SIGHT = 2;
     static final String TREE_QUALITIES = "Low,Medium,High";
-    /** The GrassDensity row's range, a percentage of the plants grass grows, and the share Medium and Low grow. */
+    /**
+     * The GrassDensity row's range, a percentage of the plants grass grows, and the share Medium
+     * grows. Low's picture holds it too and grows none: Low draws the game's own plants (Own.on).
+     */
     static final int LEAST_GRASS = 10, ALL_GRASS = 100, SOME_GRASS = 40;
     /** The GrassDistance row's range: how far from the eye lawns are grown blade by blade, in tiles. */
     static final int LEAST_GRASS_DISTANCE = 8, MOST_GRASS_DISTANCE = 48;

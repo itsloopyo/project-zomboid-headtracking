@@ -247,7 +247,8 @@ final class Config {
             localInt("Graphics", "GrassDensity",
                     "How much of the grass the mod grows blade by blade is grown, as a percentage: " + Quality.LEAST_GRASS + " to " + Quality.ALL_GRASS + ".\n"
                             + "Lower, fewer and broader plants cover the same lawns and long grass, which costs less to build and draw. High\n"
-                            + "grows all of it, Medium and Low " + Quality.SOME_GRASS + ". On a server where players can hurt each other it grows all of it.",
+                            + "grows all of it and Medium " + Quality.SOME_GRASS + ". On a server where players can hurt each other it grows all of it.\n"
+                            + "With TreeQuality Low the mod grows no grass of its own.",
                     writable | live, high.grassDensity(), Quality.LEAST_GRASS, Quality.ALL_GRASS),
             localInt("Graphics", "GrassDistance",
                     "How far from you lawns are grown blade by blade in first person, in tiles: " + Quality.LEAST_GRASS_DISTANCE + " to "
