@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import zombie.characters.IsoPlayer;
@@ -136,7 +137,15 @@ final class Tracking {
             core.stop();
             throw failure;
         }
-        saver.scheduleWithFixedDelay(Tracking::watchSettings, WATCH_MILLISECONDS, WATCH_MILLISECONDS, TimeUnit.MILLISECONDS);
+        watch = saver.scheduleWithFixedDelay(Tracking::watchSettings, WATCH_MILLISECONDS, WATCH_MILLISECONDS, TimeUnit.MILLISECONDS);
+    }
+
+    private static ScheduledFuture<?> watch;
+
+    /** Lets go of what start took, for a start that fails after it: the port and the watch on CameraUnlock.ini. */
+    static void stop() {
+        watch.cancel(false);
+        core.stop();
     }
 
     /**

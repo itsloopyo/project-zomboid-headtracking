@@ -406,25 +406,35 @@ public final class Agent {
         Log.info("all " + links.references() + " things of the game's the mod uses are in this build");
 
         Tracking.start(gameDirectory);
-
-        Map<String, StringJoiner> leftOut = new LinkedHashMap<>();
-        String lookupsOff = off(Part.CACHED_GAME_LOOKUPS);
-        if (lookupsOff == null) {
-            addItemLookupTransformers(instrumentation);
-        } else {
-            leftOut.computeIfAbsent(lookupsOff, why -> new StringJoiner(", ")).add("item lookups");
-        }
-        for (PatchSet set : sets()) {
-            if (set.leftOut() == null) {
-                add(instrumentation, set.transformer());
+        try {
+            Map<String, StringJoiner> leftOut = new LinkedHashMap<>();
+            String lookupsOff = off(Part.CACHED_GAME_LOOKUPS);
+            if (lookupsOff == null) {
+                addItemLookupTransformers(instrumentation);
             } else {
-                set.transformer().leaveOut(set.leftOut());
-                leftOut.computeIfAbsent(set.leftOut(), why -> new StringJoiner(", ")).add(set.name());
+                leftOut.computeIfAbsent(lookupsOff, why -> new StringJoiner(", ")).add("item lookups");
             }
+            for (PatchSet set : sets()) {
+                if (set.leftOut() == null) {
+                    add(instrumentation, set.transformer());
+                } else {
+                    set.transformer().leaveOut(set.leftOut());
+                    leftOut.computeIfAbsent(set.leftOut(), why -> new StringJoiner(", ")).add(set.name());
+                }
+            }
+            Log.info("the mod's " + transformers.size() + " sets of patches are registered, each to go in as the game loads its class");
+            leftOut.forEach((why, sets) -> Log.info("left out of the game's code until a start with them on, as " + why + ": " + sets));
+            return true;
+        } catch (RuntimeException | Error failure) {
+            // begin says the mod could not start: what it registered stops patching the classes still to load, and its port and watch are let go.
+            if (itemLookupGuard != null) {
+                instrumentation.removeTransformer(itemLookupGuard);
+            }
+            transformers.forEach(instrumentation::removeTransformer);
+            transformers.clear();
+            Tracking.stop();
+            throw failure;
         }
-        Log.info("the mod's " + transformers.size() + " sets of patches are registered, each to go in as the game loads its class");
-        leftOut.forEach((why, sets) -> Log.info("left out of the game's code until a start with them on, as " + why + ": " + sets));
-        return true;
     }
 
     /** A set of patches, its name in the log, and why this start leaves it out of the game's code, or null when it goes in. */
