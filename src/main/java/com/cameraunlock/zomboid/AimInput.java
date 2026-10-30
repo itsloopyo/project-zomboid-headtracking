@@ -30,7 +30,7 @@ final class AimInput {
     private boolean tailStarted;
     private long tailEnds;
     private boolean aimed, wasDown, owed;
-    private int aimedFrames, aimedUpdates, borneFrames, pressedFrames, physicsUpdates;
+    private int aimedFrames, aimedUpdates, owedFrames, owedBorneFrames, pressedFrames, physicsUpdates;
 
     /**
      * Once a frame of the game's logic.
@@ -41,12 +41,14 @@ final class AimInput {
         aimedFrames = aimed ? aimedFrames + 1 : 0;
         aimedUpdates = aimed ? aimedUpdates + physicsUpdates - this.physicsUpdates : 0;
         this.physicsUpdates = physicsUpdates;
-        borneFrames = borne() ? borneFrames + 1 : 0;
+        // Counted from the click, not from the aim: with the aim long held, a click is owed from the frame it is made.
+        owedFrames = owed ? owedFrames + 1 : 0;
+        owedBorneFrames = owed && borne() ? owedBorneFrames + 1 : 0;
         if (pressedFrames > 0) {
             pressedFrames++;
         }
         // A game that never asked after its attack button in all that time is not taking attacks.
-        if (borneFrames > FRAMES_PRESSED + 1 || aimedFrames > FRAMES_OWED) {
+        if (owedBorneFrames > FRAMES_PRESSED + 1 || owedFrames > FRAMES_OWED) {
             owed = false;
             pressedFrames = 0;
         }
@@ -109,7 +111,8 @@ final class AimInput {
         owed = false;
         aimedFrames = 0;
         aimedUpdates = 0;
-        borneFrames = 0;
+        owedFrames = 0;
+        owedBorneFrames = 0;
         pressedFrames = 0;
     }
 }

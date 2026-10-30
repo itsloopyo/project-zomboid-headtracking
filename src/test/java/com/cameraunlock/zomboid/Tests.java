@@ -2900,6 +2900,20 @@ public final class Tests {
         }
         aim.held(true, true, now);
         check(aim.attack(true, true), "with the aim long held a click is an attack at once");
+        for (int held = 0; held < AimInput.FRAMES_OWED + 5; held++) {
+            aim.frame(++updates);
+            aim.held(true, false, now);
+            aim.attack(false, true);
+        }
+        aim.held(true, true, now);
+        check(aim.attack(true, true), "a quick click with the aim held a second is an attack");
+        for (int i = 1; i < AimInput.FRAMES_PRESSED; i++) {
+            aim.frame(++updates);
+            check(aim.held(true, false, now) && aim.attack(false, true), "and is held down for the frames the game needs, frame " + i);
+        }
+        aim.frame(++updates);
+        aim.held(true, false, now);
+        check(!aim.attack(false, true), "and is then over");
 
         // Not a firearm: the game takes the attack on the frame after the aim went up, and a click of one frame is still passed on.
         aim = new AimInput();
