@@ -15,6 +15,7 @@ build-cache/
 build-core/
 build-native/
 target/
+libs/
 dist/
 release/
 *.class
