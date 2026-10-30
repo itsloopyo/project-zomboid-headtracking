@@ -179,12 +179,15 @@ final class Flora {
      * Sets the frame to make what is stood next throw a shadow and be in no other picture
      * (SHADE), as much shadow as a mass of leaves with that share of its leaves on it throws.
      * The share rides in the vertex's red, which only the sun's pictures read: see
-     * PipelineShaders.SHADOW_VERTEX, carried as it is (LightSites.STATIC). The caller puts the
-     * frame's red and site back after.
+     * PipelineShaders.SHADOW_VERTEX, carried as it is (LightSites.STATIC). Green and blue are
+     * read by no picture and are 0, so that the vertex does not keep the square's light as it was
+     * read when the chunk was built. The caller puts the frame's red, green, blue and site back after.
      */
     static void shadeOnly(SpriteGeometry.Frame frame, float leaves) {
         frame.material = SHADE;
         frame.red = leaves;
+        frame.green = 0f;
+        frame.blue = 0f;
         frame.site = LightSites.STATIC;
     }
     /**

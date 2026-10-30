@@ -651,7 +651,7 @@ final class PlantBuilder {
         float leaf = seasonal ? Seasons.leafOn(treeHash) : 1f;
         // The leaves of a tree and a bush, near enough to be seen as leaves, are a crown of
         // sprigs. The fan then stands only in the sun's own pictures, to throw the shadow.
-        float fanned = build.frame.material, red = build.frame.red;
+        float fanned = build.frame.material, red = build.frame.red, green = build.frame.green, blue = build.frame.blue;
         int site = build.frame.site;
         // A crop's cards stand as tall as the crop, seen from the eye. From overhead they stand as tall as painted, the game's picture of it.
         boolean cropCards = plant.crop() != Crops.NONE && !world.terrain.level;
@@ -697,6 +697,8 @@ final class PlantBuilder {
         }
         build.frame.material = fanned;
         build.frame.red = red;
+        build.frame.green = green;
+        build.frame.blue = blue;
         build.frame.site = site;
         if (bush && !crowned && Own.plants(build.playerIndex) && build.within(WorldScene.BUSH_REACH, false)) {
             // A fan of cards through one line is thin seen along that line, and from
