@@ -81,6 +81,7 @@ public final class FirstPerson {
 
     /** How long the name of a graphics mode, picture style or aim mode just gone to stays on the screen. */
     private static final long SAID_FOR_NANOS = 2_500_000_000L;
+    private static final String FAILED = "First person stopped after an error and stays off until the game restarts. " + Log.FILE_NAME + " says why";
     /** How long a save that loads in the game's own view says which key turns first person on. */
     private static final long HINT_FOR_NANOS = 10_000_000_000L;
     private String hint;
@@ -389,8 +390,8 @@ public final class FirstPerson {
         IsoPlayer player = view.player();
         if (!on && !allowed(player)) {
             Log.info(who() + "first person stays off: " + whyNot(player));
-            if (view.pipeline.failure() != null) {
-                said = cannotBeDrawn();
+            if (player != null) {
+                said = refused();
                 saidAt = System.nanoTime();
             }
             return;
@@ -537,7 +538,21 @@ public final class FirstPerson {
     /** What the screen says when first person cannot be drawn on this PC; the log has the whole of why. */
     private static String cannotBeDrawn() {
         return GlFloor.missing() != null ? "First person needs OpenGL 3.3 with EXT_texture_array and ARB_shader_texture_lod"
-                : "First person cannot be drawn on this PC: the log says why";
+                : "First person cannot be drawn on this PC. " + Log.FILE_NAME + " says why";
+    }
+
+    /** What the screen says when the first person key is refused for a player who is there; the log has the whole of why. */
+    private String refused() {
+        if (!Part.FIRST_PERSON.on()) {
+            return "First person is turned off in the mod's options";
+        }
+        if (failure != null) {
+            return FAILED;
+        }
+        if (Agent.firstPersonGap() != null || Panels.gap() != null || CentreUse.gap() != null || WorldMenu.gap() != null) {
+            return "First person is off: another mod or a game update changed something it needs. " + Log.FILE_NAME + " says what";
+        }
+        return cannotBeDrawn();
     }
 
     /** What a line in the log begins with to say whose view it is of, for any player but the first. */
@@ -723,6 +738,8 @@ public final class FirstPerson {
             }
             if (failure == null) {
                 failure = "building the picture threw " + thrown;
+                said = FAILED;
+                saidAt = System.nanoTime();
             }
             on = false;
             overhead = false;
