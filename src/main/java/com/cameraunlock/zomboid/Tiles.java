@@ -811,6 +811,10 @@ final class Tiles {
                     onJoint += light[courseDot(alongB, c, start, side)];
                     across++;
                 }
+                // A stone too short to have any dots clear of its joints has no colour to read: no courses.
+                if (held == 0) {
+                    return null;
+                }
                 float stoneLight = (float) (lit / held);
                 double off = 0;
                 for (float in = 2.5f; in < wide - 2f; in += 1f) {
@@ -860,6 +864,9 @@ final class Tiles {
             if (onJoints[dot] && dots[dot * 3] >= 0f) {
                 jointLights[listed++] = light[dot];
             }
+        }
+        if (listed == 0) {
+            return null;
         }
         float half = median(jointLights, listed);
         double[] joint = new double[3];
