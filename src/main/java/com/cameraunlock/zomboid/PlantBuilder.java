@@ -193,7 +193,7 @@ final class PlantBuilder {
         build.frameOf(build.groundObject[own], build.groundTexture[own]);
         // Looking no way, as long grass is grown: a lawn left out behind the view was bare when the head turned to it.
         Grass.lawn(build.geometry, build.laid.get(build.groundTexture[own].getID()), build.frame, x, y, build.camera.eyeX, build.camera.eyeY, 0f, 0f,
-                lowA, highA, lowB, highB, build, build.grassDensity());
+                lowA, highA, lowB, highB, build, build.grassDensity(), build.gamesView);
     }
 
     /** Whether the ground of the square at own spreads over the square next to it at, which is not lawn of its own. */
@@ -226,7 +226,7 @@ final class PlantBuilder {
         build.grownUnder = 0.85f;
         build.frameOf(build.groundObject[at], build.groundTexture[at]);
         Grass.lawn(build.geometry, build.laid.get(build.groundTexture[at].getID()), build.frame, x, y, build.camera.eyeX, build.camera.eyeY, 0f, 0f,
-                lowA, highA, lowB, highB, spreadGround, build.grassDensity());
+                lowA, highA, lowB, highB, spreadGround, build.grassDensity(), build.gamesView);
     }
 
     /**

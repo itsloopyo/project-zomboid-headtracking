@@ -36,6 +36,14 @@ final class Grass {
     private static final float FULL_WITHIN = 4f;
     /** A lawn's grass is shorter from the first of these distances and gone by the second: past it the ground's own picture is the lawn. */
     static final float LAWN_SHORTENS = 8f, LAWN_ENDS = 15.5f;
+    /**
+     * Seen from overhead as the game's own view, a lawn is grown to the edge of the picture with
+     * at least this share of its plants, full height, however far it is from the eye. There every
+     * square is drawn the same size, and a lawn that ended where it does in first person was a
+     * ring round the character. Past about ten tiles the share is this whatever the distance, so
+     * a chunk out there grows the same whenever it is made.
+     */
+    private static final float OVERHEAD_KEPT = 0.25f;
     /** Long grass is grown plant by plant as far as the second of these, its plants sinking away from the first: past that it is cards. */
     static final float RANK_THINS = 14f, RANK_ENDS = 24f;
     /** No blade is drawn broader than this many times its own width, however few are left. */
@@ -104,21 +112,23 @@ final class Grass {
      * Grows the lawn of the square (x, y) into mesh, between lowA and highA across it and lowB
      * and highB down it. The eye is at (eyeX, eyeY) and looks along (lookX, lookY): what is well
      * behind it is not grown, since nothing of it is in the picture. density is the share of its
-     * plants grown (see density): the plants left are broader, as they are far off.
+     * plants grown (see density): the plants left are broader, as they are far off. overhead: the
+     * frame is the game's own view from overhead (see OVERHEAD_KEPT).
      */
     static void lawn(SpriteGeometry geometry, SpriteGeometry.Mesh mesh, SpriteGeometry.Frame frame, int x, int y, float eyeX, float eyeY,
-            float lookX, float lookY, float lowA, float highA, float lowB, float highB, Ground ground, float density) {
+            float lookX, float lookY, float lowA, float highA, float lowB, float highB, Ground ground, float density, boolean overhead) {
         float toX = x + 0.5f - eyeX, toY = y + 0.5f - eyeY;
         float away2 = toX * toX + toY * toY;
-        if (away2 > LAWN_ENDS * LAWN_ENDS || behind(toX, toY, away2, lookX, lookY, 0.07f)) {
+        if (!overhead && (away2 > LAWN_ENDS * LAWN_ENDS || behind(toX, toY, away2, lookX, lookY, 0.07f))) {
             return;
         }
         float away = (float) Math.sqrt(away2);
         float coarse = field(x, y, 211), seedy = field(x, y, 223), clovered = field(x, y, 227), mown = field(x, y, 229);
         // The same numbers at the square's four corners, so that a lawn does not change at the lines between squares.
-        float kept00 = keptAt(x - eyeX, y - eyeY), kept10 = keptAt(x + 1 - eyeX, y - eyeY);
-        float kept01 = keptAt(x - eyeX, y + 1 - eyeY), kept11 = keptAt(x + 1 - eyeX, y + 1 - eyeY);
+        float kept00 = keptAt(x - eyeX, y - eyeY, overhead), kept10 = keptAt(x + 1 - eyeX, y - eyeY, overhead);
+        float kept01 = keptAt(x - eyeX, y + 1 - eyeY, overhead), kept11 = keptAt(x + 1 - eyeX, y + 1 - eyeY, overhead);
         int steps = away < 3.6f ? 3 : away < 7f ? 2 : 1;
+        float shortens = overhead ? 0f : 1f;
         for (int i = 0; i < LAWN_SITES; i++) {
             for (int j = 0; j < LAWN_SITES; j++) {
                 int hash = Flora.mix(x * LAWN_SITES + i, y * LAWN_SITES + j, 7);
@@ -135,7 +145,7 @@ final class Grass {
                 float plantX = x + a - eyeX, plantY = y + b - eyeY;
                 float far = (float) Math.sqrt(plantX * plantX + plantY * plantY);
                 // A plant about to be left out as the eye draws away sinks into the ground first, and comes up out of it.
-                float grown = Math.min((kept - rank) / (0.25f * kept), 1f) * (1f - smooth(LAWN_SHORTENS, LAWN_ENDS, far));
+                float grown = Math.min((kept - rank) / (0.25f * kept), 1f) * (1f - shortens * smooth(LAWN_SHORTENS, LAWN_ENDS, far));
                 if (grown < 0.05f) {
                     continue;
                 }
@@ -218,8 +228,9 @@ final class Grass {
         mesh.face(0f, 0f, 1f);
     }
 
-    private static float keptAt(float toX, float toY) {
-        return kept(toX * toX + toY * toY);
+    private static float keptAt(float toX, float toY, boolean overhead) {
+        float kept = kept(toX * toX + toY * toY);
+        return overhead ? Math.max(kept, OVERHEAD_KEPT) : kept;
     }
 
     /**

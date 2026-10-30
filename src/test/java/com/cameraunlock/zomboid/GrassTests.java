@@ -16,6 +16,7 @@ final class GrassTests {
         Checks.run("lawnFurtherOffIsFewerPlants", GrassTests::lawnFurtherOffIsFewerPlants);
         Checks.run("lowerDensityGrowsFewerPlantsOfTheSameGrass", GrassTests::lowerDensityGrowsFewerPlantsOfTheSameGrass);
         Checks.run("lawnBehindTheEyeIsNotGrown", GrassTests::lawnBehindTheEyeIsNotGrown);
+        Checks.run("lawnFromOverheadReachesThePicturesEdge", GrassTests::lawnFromOverheadReachesThePicturesEdge);
         Checks.run("lawnKeepsInsideItsBounds", GrassTests::lawnKeepsInsideItsBounds);
         Checks.run("poorGroundGrowsLess", GrassTests::poorGroundGrowsLess);
         Checks.run("spreadGrassIsAsThickAtItsLawnAsTheLawn", GrassTests::spreadGrassIsAsThickAtItsLawnAsTheLawn);
@@ -145,9 +146,26 @@ final class GrassTests {
     }
 
     private static int lawn(float eyeX, float eyeY, float lookX, float lookY, float low, float high, Grass.Ground ground, SpriteGeometry.Mesh mesh, float density) {
+        return lawn(eyeX, eyeY, lookX, lookY, low, high, ground, mesh, density, false);
+    }
+
+    private static int lawn(float eyeX, float eyeY, float lookX, float lookY, float low, float high, Grass.Ground ground, SpriteGeometry.Mesh mesh, float density,
+            boolean overhead) {
         SpriteGeometry geometry = new SpriteGeometry();
-        Grass.lawn(geometry, mesh, frame(), 10, 20, eyeX, eyeY, lookX, lookY, low, high, low, high, ground, density);
+        Grass.lawn(geometry, mesh, frame(), 10, 20, eyeX, eyeY, lookX, lookY, low, high, low, high, ground, density, overhead);
         return mesh.triangles();
+    }
+
+    private static void lawnFromOverheadReachesThePicturesEdge() {
+        int near = lawn(10.5f, 20.5f, 0f, 1f, 0f, 1f, (a, b) -> 1f, new SpriteGeometry.Mesh(), 1f, true);
+        int fifteen = lawn(10.5f, 5.5f, 0f, -1f, 0f, 1f, (a, b) -> 1f, new SpriteGeometry.Mesh(), 1f, true);
+        int forty = lawn(10.5f, -19.5f, 0f, -1f, 0f, 1f, (a, b) -> 1f, new SpriteGeometry.Mesh(), 1f, true);
+        int behind = lawn(10.5f, -19.5f, 0f, 1f, 0f, 1f, (a, b) -> 1f, new SpriteGeometry.Mesh(), 1f, true);
+        check(forty > 0 && forty == behind, "from overhead a lawn forty tiles off is grown, whichever way the eye looks: " + forty + " and " + behind);
+        check(fifteen == forty, "and from fifteen tiles out it is the same lawn at any distance: " + fifteen + " and " + forty);
+        check(near > 2 * forty, "with fewer plants than underfoot: " + near + " and " + forty);
+        int firstPerson = lawn(10.5f, 5.5f, 0f, -1f, 0f, 1f, (a, b) -> 1f, new SpriteGeometry.Mesh(), 1f, false);
+        check(firstPerson < fifteen, "in first person a lawn fifteen tiles off is nearly gone: " + firstPerson + " against " + fifteen + " from overhead");
     }
 
     private static void lowerDensityGrowsFewerPlantsOfTheSameGrass() {

@@ -1416,7 +1416,7 @@ final class WorldScene {
     static final float BED_HEIGHT = 0.2f;
     /** How much of a tree's trunk sprite, from the ground up, is its bole. */
     static final float BOLE = 0.42f;
-    /** How far from the eye a lawn's grass stands up, in tiles. */
+    /** How far from the eye a lawn's grass stands up, in tiles, but in the game's own view: see Grass.OVERHEAD_KEPT. */
     private static final float GRASS_REACH = 16f;
     private static final Known<IsoSprite, int[]> ranks = new Known<>();
     /** A chunk's squares and the ring of squares round them. */
@@ -6760,7 +6760,7 @@ final class WorldScene {
             if (tanked(square)) {
                 return;
             }
-            if (toX * toX + toY * toY < GRASS_REACH * GRASS_REACH && !flattened(square)) {
+            if ((gamesView || toX * toX + toY * toY < GRASS_REACH * GRASS_REACH) && !flattened(square)) {
                 plantBuilder.growGrass(x, y, localX, localY);
             }
             plantBuilder.strew(x, y, localX, localY, toX * toX + toY * toY);
