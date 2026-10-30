@@ -44,6 +44,7 @@ final class GameFixTests {
         Checks.run("anItemIsHandedBackUntilTheScriptsChange", GameFixTests::anItemIsHandedBackUntilTheScriptsChange);
         Checks.run("whatBeginsWithAMethodEndsWithIt", GameFixTests::whatBeginsWithAMethodEndsWithIt);
         Checks.run("aPatchThatNoLongerFitsIsAGap", GameFixTests::aPatchThatNoLongerFitsIsAGap);
+        Checks.run("aLocalIsFoundByWhatWasStoredInItWhereverItSits", GameFixTests::aLocalIsFoundByWhatWasStoredInItWhereverItSits);
         Checks.run("eachChangeToWhatANameFindsTellsGameFixes", GameFixTests::eachChangeToWhatANameFindsTellsGameFixes);
         Checks.run("theGuardStopsTheKeepingForCodeThatWasNotChecked", GameFixTests::theGuardStopsTheKeepingForCodeThatWasNotChecked);
         Checks.run("aDigestIsOfTheCodeNotOfHowItIsLaidOut", GameFixTests::aDigestIsOfTheCodeNotOfHowItIsLaidOut);
@@ -318,6 +319,70 @@ final class GameFixTests {
         defined.getMethod("turn", int.class).invoke(defined.getConstructor().newInstance(), 3);
         check(turnsTaken == 3 && caughtInside == 2 && endedAsItCaught == 3, "a loop and a try that start at a method's first instruction run as they did, got " + turnsTaken + " turns");
         check(begun == 4 && ended == 4, "and the change begins once as the method is called, not each time round the loop, and ends once");
+    }
+
+    private static final String TARGET = "the target";
+    private static final CallSite.Method MADE = new CallSite.Method("com/cameraunlock/zomboid/GameFixTests", "made", "()Ljava/lang/Object;"),
+            FOUND = new CallSite.Method("com/cameraunlock/zomboid/GameFixTests", "found", "()Z"),
+            KEPT = new CallSite.Method("com/cameraunlock/zomboid/GameFixTests", "kept", "(ZLjava/lang/Object;)Z");
+
+    static Object made() {
+        return TARGET;
+    }
+
+    static boolean found() {
+        return false;
+    }
+
+    static boolean kept(boolean found, Object target) {
+        return found || target == TARGET;
+    }
+
+    /**
+     * A method that keeps {@code before} ints in its first locals, stores what made() returns in
+     * the next and an int in the one after, the way calculateHitInfoList keeps its target and loop
+     * counter, then asks found(). {@code overwritten} stores null over the target before the call.
+     */
+    private static byte[] storingATarget(String name, int before, boolean overwritten) {
+        ClassDesc owner = ClassDesc.of("com.cameraunlock.zomboid." + name);
+        return ClassFile.of().build(owner, type -> type
+                .withFlags(ClassFile.ACC_PUBLIC)
+                .withMethodBody("run", MethodTypeDesc.of(ConstantDescs.CD_boolean), ClassFile.ACC_PUBLIC | ClassFile.ACC_STATIC, code -> {
+                    for (int i = 0; i < before; i++) {
+                        code.iconst_0().istore(i);
+                    }
+                    CallSite.invokeStatic(code, MADE);
+                    code.astore(before).iconst_0().istore(before + 1);
+                    if (overwritten) {
+                        code.aconst_null().astore(before);
+                    }
+                    CallSite.invokeStatic(code, FOUND);
+                    code.ireturn();
+                }));
+    }
+
+    private static void aLocalIsFoundByWhatWasStoredInItWhereverItSits() throws Throwable {
+        for (int before : new int[] {0, 3}) {
+            String name = "SubjectStoringATarget" + before;
+            CallSite.Method within = new CallSite.Method("com/cameraunlock/zomboid/" + name, "run", "()Z");
+            byte[] patched = CallSite.insertAfterEach(storingATarget(name, before, false), within, FOUND, List.of(CallSite.Stored.returnOf(MADE)),
+                    (code, slots) -> {
+                        code.aload(slots[0]);
+                        CallSite.invokeStatic(code, KEPT);
+                    }, 1);
+            check(ClassFile.of().verify(patched).isEmpty(), "with the target in local " + before + " the patched class verifies");
+            Class<?> defined = MethodHandles.lookup().defineClass(patched);
+            check(Boolean.TRUE.equals(defined.getMethod("run").invoke(null)), "and the hook is handed the target from local " + before);
+        }
+        CallSite.Method within = new CallSite.Method("com/cameraunlock/zomboid/SubjectOverwritingATarget", "run", "()Z");
+        String thrown = null;
+        try {
+            CallSite.insertAfterEach(storingATarget("SubjectOverwritingATarget", 1, true), within, FOUND, List.of(CallSite.Stored.returnOf(MADE)),
+                    (code, slots) -> code.aload(slots[0]), 1);
+        } catch (IllegalStateException e) {
+            thrown = e.getMessage();
+        }
+        check(thrown != null && thrown.contains("no local holding"), "a local stored over before the call is not handed on, got " + thrown);
     }
 
     private static void aPatchThatNoLongerFitsIsAGap() {

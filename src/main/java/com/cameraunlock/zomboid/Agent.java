@@ -808,22 +808,26 @@ public final class Agent {
                 new Patch(combat, "calculateHitInfoList at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes, hitInfoList,
                         code -> CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "hitListStarts", "()V")))),
                 new Patch(combat, "calculateHitListWeapon after lineClear", classBytes -> CallSite.insertAfterEach(classBytes, hitListWeapon,
-                        new CallSite.Method("zombie/iso/LosUtil", "lineClear", "(Lzombie/iso/IsoCell;IIIIIIZ)" + testResults), code -> {
+                        new CallSite.Method("zombie/iso/LosUtil", "lineClear", "(Lzombie/iso/IsoCell;IIIIIIZ)" + testResults),
+                        List.of(CallSite.Stored.returnOf(new CallSite.Method("zombie/network/fields/hit/AttackVars", "getWeapon",
+                                        "(Lzombie/characters/IsoLivingCharacter;)Lzombie/inventory/types/HandWeapon;")),
+                                CallSite.Stored.castTo("zombie/iso/IsoMovingObject")), (code, slots) -> {
                             code.aload(1);
-                            code.aload(4);
-                            code.aload(8);
+                            code.aload(slots[0]);
+                            code.aload(slots[1]);
                             CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "lineOfFire", "(" + testResults + character + "Lzombie/inventory/types/HandWeapon;" + moving + ")" + testResults));
                         }, 1)),
-                // Both drop a ranged target the ballistics did not find: calculateHitInfoList has the target in local 14, processBallisticsTargets in 7.
+                // Both drop a ranged target the ballistics did not find: calculateHitInfoList has the target as the hit's object, processBallisticsTargets as that object cast to a character.
                 new Patch(combat, "calculateHitInfoList after isValidTarget", classBytes -> CallSite.insertAfterEach(classBytes, hitInfoList,
-                        validTarget, code -> {
-                            code.aload(14);
+                        validTarget, List.of(CallSite.Stored.returnOf(new CallSite.Method("zombie/network/fields/hit/HitInfo", "getObject", "()" + moving))),
+                        (code, slots) -> {
+                            code.aload(slots[0]);
                             CallSite.invokeStatic(code, keptThrough);
                         }, 2)),
                 new Patch(combat, "processBallisticsTargets after isValidTarget", classBytes -> CallSite.insertAfterEach(classBytes,
                         new CallSite.Method(combat, "processBallisticsTargets", "(" + character + "Lzombie/inventory/types/HandWeapon;Lzombie/util/list/PZArrayList;)V"),
-                        validTarget, code -> {
-                            code.aload(7);
+                        validTarget, List.of(CallSite.Stored.castTo("zombie/characters/IsoGameCharacter")), (code, slots) -> {
+                            code.aload(slots[0]);
                             CallSite.invokeStatic(code, keptThrough);
                         }, 1)),
                 new Patch(combat, "attackCollisionCheck calling Hit", classBytes -> CallSite.replaceEach(classBytes,

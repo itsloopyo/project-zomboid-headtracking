@@ -19,11 +19,15 @@ import java.lang.classfile.instruction.InvokeInstruction;
 import java.lang.classfile.instruction.LoadInstruction;
 import java.lang.classfile.instruction.ReturnInstruction;
 import java.lang.classfile.instruction.StoreInstruction;
+import java.lang.classfile.instruction.TypeCheckInstruction;
 import java.lang.constant.ClassDesc;
 import java.lang.constant.MethodTypeDesc;
 import java.lang.reflect.AccessFlag;
+import java.util.Arrays;
 import java.util.List;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 final class CallSite {
     /** A method named by internal class name, method name and descriptor. */
@@ -56,6 +60,70 @@ final class CallSite {
                 matches[0]++;
                 inserted.accept(code);
             }
+        };
+        byte[] transformed = transform(classBytes, within, insert);
+        if (matches[0] != expected) {
+            throw new IllegalStateException("expected " + expected + " of the call to " + call + " in " + within + ", found " + matches[0]);
+        }
+        return transformed;
+    }
+
+    /**
+     * A local of the method being rewritten, named by the instruction whose value the method
+     * stores in it. Another agent's patch to the same method (ZombieBuddy's advice, which
+     * Viewpoint uses) moves the method's locals to other slots, so a slot number read off the
+     * game's own build loads the wrong value, and one of the wrong kind fails the JVM's check.
+     */
+    record Stored(String what, Predicate<Instruction> producer) {
+        /** The local the method stores what a call to {@code call} returned in. */
+        static Stored returnOf(Method call) {
+            return new Stored("what " + call + " returned",
+                    instruction -> instruction instanceof InvokeInstruction invoke && isCallTo(invoke, call));
+        }
+
+        /** The local the method stores a value cast to the class {@code internalName} in. */
+        static Stored castTo(String internalName) {
+            return new Stored("a cast to " + internalName,
+                    instruction -> instruction instanceof TypeCheckInstruction cast && cast.opcode() == Opcode.CHECKCAST
+                            && cast.type().asInternalName().equals(internalName));
+        }
+    }
+
+    /**
+     * As insertAfterEach, with {@code inserted} handed the slot of each of {@code locals} as it
+     * stands at the call: the last store of what that local's instruction left, so long as
+     * nothing has been stored over it since. A local not found there throws.
+     */
+    static byte[] insertAfterEach(byte[] classBytes, Method within, Method call, List<Stored> locals,
+            BiConsumer<CodeBuilder, int[]> inserted, int expected) {
+        int[] matches = {0};
+        int[] slots = new int[locals.size()];
+        Arrays.fill(slots, -1);
+        Instruction[] previous = {null};
+        CodeTransform insert = (code, element) -> {
+            code.with(element);
+            if (!(element instanceof Instruction instruction)) {
+                return;
+            }
+            if (instruction instanceof StoreInstruction store) {
+                for (int i = 0; i < slots.length; i++) {
+                    if (previous[0] != null && locals.get(i).producer().test(previous[0])) {
+                        slots[i] = store.slot();
+                    } else if (store.slot() == slots[i] || store.typeKind().slotSize() == 2 && store.slot() + 1 == slots[i]) {
+                        slots[i] = -1;
+                    }
+                }
+            }
+            if (instruction instanceof InvokeInstruction invoke && isCallTo(invoke, call)) {
+                matches[0]++;
+                for (int i = 0; i < slots.length; i++) {
+                    if (slots[i] < 0) {
+                        throw new IllegalStateException("no local holding " + locals.get(i).what() + " at the call to " + call + " in " + within);
+                    }
+                }
+                inserted.accept(code, slots.clone());
+            }
+            previous[0] = instruction;
         };
         byte[] transformed = transform(classBytes, within, insert);
         if (matches[0] != expected) {
