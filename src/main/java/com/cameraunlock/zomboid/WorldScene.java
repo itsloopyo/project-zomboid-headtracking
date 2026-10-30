@@ -2098,12 +2098,12 @@ final class WorldScene {
         for (Handed job : spareHanded) {
             job.chunk = null;
             job.fresh = job.grown = job.standing = null;
-            setDown(job.taken);
+            setDownCopy(job.taken);
         }
-        setDown(beside);
+        setDownCopy(beside);
         if (makers != null) {
             for (Frame maker : makers) {
-                setDown(maker);
+                setDownCopy(maker);
             }
         }
         squareLights.forget();
@@ -2155,6 +2155,15 @@ final class WorldScene {
         scene.lampsSortedFrame = -1;
         scene.roomAsked = null;
         scene.keptFrame = -1;
+        Arrays.fill(scene.characterOf, 0, scene.characters, null);
+        scene.characters = 0;
+    }
+
+    /** The same for a frame that took the walk's state, and with it the players it was taken for, which nothing draws. */
+    private static void setDownCopy(Frame frame) {
+        setDown(frame);
+        frame.viewer = null;
+        frame.own = null;
     }
 
     /**
