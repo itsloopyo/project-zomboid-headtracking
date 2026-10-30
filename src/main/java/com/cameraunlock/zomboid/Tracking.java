@@ -2,12 +2,12 @@ package com.cameraunlock.zomboid;
 
 import com.cameraunlock.core.CameraUnlock;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.EnumSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.StringJoiner;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -374,21 +374,42 @@ final class Tracking {
         return config.options();
     }
 
+    /** An option's place in options(), by its key. */
+    static int optionPlace(String id) {
+        return config.optionPlace(id);
+    }
+
+    /** The settings of the options screen the session holds itself, which applyScreen takes in place of a row's put. */
+    static final String TRACKING_MODE_OPTION = "TrackingMode", AIM_MODE_OPTION = "AimMode", ENABLED_OPTION = "EnableOnStartup",
+            YAW_MODE_OPTION = "WorldSpaceYaw", LOCAL_SMOOTHING_OPTION = "LocalSmoothing", REMOTE_SMOOTHING_OPTION = "RemoteSmoothing",
+            LIGHT_MULTIPLIER_OPTION = "LightMultiplier";
+    /** Of those, the ones core's session holds, which it is given whole again (CameraUnlock.configure) when any of them changes. */
+    private static final Set<String> CORE_OPTIONS = Set.of(TRACKING_MODE_OPTION, AIM_MODE_OPTION, LOCAL_SMOOTHING_OPTION, REMOTE_SMOOTHING_OPTION,
+            LIGHT_MULTIPLIER_OPTION);
+
     /**
-     * What an option reads as now. A row of [Graphics] reads as the picture the first player's
-     * first person mode draws, so in Low, Medium, High and Automatic the screen shows that mode's,
-     * and in Custom the row itself. The graphics modes read as the session's: core has the mode an
-     * apply went to only once its save, which follows on the config thread, is made.
+     * What an option reads as now. The settings the session holds itself read as the session has
+     * them, and so do the graphics modes: core holds a value applied on the options screen only
+     * once its save, which follows on the config thread, is made. A row of [Graphics] reads as the
+     * picture the first player's first person mode draws (Quality.pictureOf), so in Low, Medium,
+     * High and Automatic the screen shows that mode's, and in Custom the row itself.
      */
     static double optionValue(int option) {
         String id = config.optionId(option);
         int part = Config.graphicsPart(id), player = qualityPlayer(id), overheadPlayer = overheadQualityPlayer(id);
-        // The row is saved on another thread, and core holds what was saved.
-        return id.equals(ENABLED_OPTION) ? enabled ? 1 : 0
-                : part >= 0 ? Config.values(Quality.firstPersonPicture(0))[part]
-                : player >= 0 ? Quality.row(player)
-                : overheadPlayer >= 0 ? Quality.overheadRow(overheadPlayer) - Quality.LOW
-                : config.optionValue(option);
+        return switch (id) {
+            case TRACKING_MODE_OPTION -> trackingMode;
+            case AIM_MODE_OPTION -> aimMode;
+            case ENABLED_OPTION -> enabled ? 1 : 0;
+            case YAW_MODE_OPTION -> worldYaw ? 1 : 0;
+            case LOCAL_SMOOTHING_OPTION -> settings.localSmoothing;
+            case REMOTE_SMOOTHING_OPTION -> settings.remoteSmoothing;
+            case LIGHT_MULTIPLIER_OPTION -> settings.lightMultiplier;
+            default -> part >= 0 ? Config.values(Quality.pictureOf(Quality.row(0)))[part]
+                    : player >= 0 ? Quality.row(player)
+                    : overheadPlayer >= 0 ? Quality.overheadRow(overheadPlayer) - Quality.LOW
+                    : config.optionValue(option);
+        };
     }
 
     /** The player whose first person graphics mode an option is, or -1 for an option that is none's. */
@@ -417,260 +438,110 @@ final class Tracking {
         return Math.floor(value * perStep + 0.5) / perStep;
     }
 
-    private static final String YAW_MODE_OPTION = "WorldSpaceYaw", ENABLED_OPTION = "EnableOnStartup";
-
-    /** Whether applyOption has somewhere to put an option's value. */
+    /** Whether applyScreen has somewhere to put an option's value. */
     static boolean takes(CameraUnlock.Option described) {
-        return described.source != CameraUnlock.OPTION_ROW || described.id.equals(YAW_MODE_OPTION) || described.id.equals(ENABLED_OPTION)
+        return CORE_OPTIONS.contains(described.id) || described.id.equals(ENABLED_OPTION) || described.id.equals(YAW_MODE_OPTION)
                 || config.takes(described.id);
     }
 
     /**
-     * A setting the player applied on the game's options screen, by its place in options(). As
-     * with a key, the session takes it at once and its save follows on the config thread, each
-     * setting's by itself, so a key pressed a moment later is neither undone nor saved over.
-     * The modes are saved as the session's, which is how their keys save them. Logic thread.
+     * What the player applied on the game's options screen: each setting that changed, by its key,
+     * as its option's number, and the picture of the first player's Custom graphics mode where the
+     * screen changed it, else null. The session takes every one at once, so a key pressed a moment
+     * later is neither undone nor saved over. The patches of the parts switched on go into the
+     * game's code once for the lot, and one save follows on the config thread. With a picture the
+     * first player's first person graphics mode goes to Custom. The modes are saved as the session
+     * has them, which is how their keys save them. Logic thread.
+     *
+     * A setting that cannot be taken is written to the log and left out, and the rest are still
+     * taken: thrown on, it would stop the game from applying and saving its own options.
+     *
+     * @return the keys of the settings taken, with player 1's Quality and the rows of [Graphics]
+     *     where the picture was
      */
-    static void applyOption(int option, CameraUnlock.Option described, double value) {
-        if (described.source == CameraUnlock.OPTION_TRACKING_MODE) {
-            trackingMode = (int) value;
-            // The session has no call that sets this mode alone.
+    static Set<String> applyScreen(Map<String, Double> changed, Quality.Picture custom) {
+        boolean pictured = false;
+        if (custom != null) {
+            // Before player 1's graphics mode, which may be among the settings: Custom comes on drawing this picture, not the one before.
+            try {
+                Quality.custom(custom);
+                Quality.set(0, Quality.CUSTOM);
+                sayGraphics(1);
+                pictured = true;
+            } catch (RuntimeException failure) {
+                Log.error("the Custom graphics settings as applied on the game's options screen were not taken", failure);
+            }
+        }
+        Map<String, Double> taken = new LinkedHashMap<>();
+        boolean configure = false;
+        for (Map.Entry<String, Double> setting : changed.entrySet()) {
+            try {
+                configure |= take(setting.getKey(), setting.getValue());
+                taken.put(setting.getKey(), setting.getValue());
+            } catch (RuntimeException failure) {
+                Log.error(setting.getKey() + " as applied on the game's options screen was not taken", failure);
+            }
+        }
+        if (configure) {
+            // The session has no call that sets the tracking mode or the smoothing alone.
             settings.trackingMode = trackingMode;
             settings.aimMode = aimMode;
             core.configure(settings);
-            Log.info("head tracking mode: " + TRACKING_MODE_LABEL[trackingMode]);
-            save(config::saveTrackingMode);
-        } else if (described.source == CameraUnlock.OPTION_AIM_MODE) {
-            aimMode = (int) value;
-            core.setAimMode(aimMode);
-            Log.info(aimModeLabel());
-            save(config::saveAimMode);
-        } else {
-            if (described.id.equals(YAW_MODE_OPTION)) {
-                worldYaw = value != 0;
-                Log.info("head yaw turns about " + (worldYaw ? "straight up" : "the view's own up"));
-            } else if (described.id.equals(ENABLED_OPTION)) {
-                enabled = value != 0;
-                Agent.takeIn();
-                Log.info("head tracking " + (enabled ? "on" : "off"));
-            } else {
-                config.put(described.id, value);
-            }
-            save(() -> config.saveOption(option, value));
         }
-    }
-
-    /**
-     * What the player applied on the game's options screen: for each of its settings by its place
-     * in options(), what the screen showed as it opened or was last applied and what it holds now.
-     * Each setting that changed is taken as applyOption takes it. If any of the rows of [Graphics]
-     * changed, the first player's first person graphics mode goes to Custom, whatever the Quality setting holds: each row the
-     * player changed takes what the screen holds, and the rest take the picture Custom starts
-     * from (Quality.customFrom). Each setting taken has its shown value set to what it holds.
-     * Logic thread.
-     *
-     * One setting that cannot be taken is written to the log and the rest are still taken: thrown
-     * on, it would stop the game from applying and saving its own options.
-     */
-    static void applyScreen(int[] options, CameraUnlock.Option[] described, double[] shown, double[] held) {
-        boolean custom = false;
-        for (int i = 0; i < options.length; i++) {
-            custom |= Config.graphicsPart(described[i].id) >= 0 && held[i] != shown[i];
+        if (taken.isEmpty() && !pictured) {
+            return taken.keySet();
         }
-        for (int i = 0; i < options.length; i++) {
-            if (held[i] == shown[i] || custom && (Config.graphicsPart(described[i].id) >= 0 || qualityPlayer(described[i].id) == 0)) {
-                continue;
-            }
-            try {
-                applyOption(options[i], described[i], held[i]);
-                shown[i] = held[i];
-            } catch (RuntimeException failure) {
-                Log.error(described[i].id + " as applied on the game's options screen was not taken", failure);
-            }
+        Agent.takeIn();
+        StringJoiner now = new StringJoiner(", "), atStart = new StringJoiner(", ");
+        taken.forEach((key, value) -> (Part.nextStart(key) ? atStart : now).add(key + " " + said(key, value)));
+        if (pictured) {
+            now.add("player 1's Custom graphics");
         }
-        if (!custom) {
-            return;
-        }
-        try {
-            double[] values = Config.values(Quality.customFrom());
-            int found = 0;
-            for (int i = 0; i < options.length; i++) {
-                int part = Config.graphicsPart(described[i].id);
-                if (part >= 0) {
-                    if (held[i] != shown[i]) {
-                        values[part] = held[i];
-                    }
-                    found++;
+        Log.info(now.length() == 0 ? "saved from the game's options screen for the next start: " + atStart
+                : "taken from the game's options screen: " + now + (atStart.length() > 0 ? "; saved for the next start: " + atStart : ""));
+        boolean savePicture = pictured;
+        save(() -> {
+            Map<String, Double> saving = new LinkedHashMap<>(taken);
+            if (savePicture) {
+                // The picture the save finds, which holds any row a reload took from the file since.
+                double[] values = Config.values(Quality.custom());
+                for (int part = 0; part < values.length; part++) {
+                    saving.put(Config.GRAPHICS[part], values[part]);
                 }
+                saving.put(Config.qualityKey(0), (double) Quality.CUSTOM);
             }
-            if (found != Config.GRAPHICS.length) {
-                throw new IllegalStateException("the options screen has " + found + " of the " + Config.GRAPHICS.length + " rows of [Graphics]");
-            }
-            Quality.Picture picture = Config.picture(values);
-            Quality.custom(picture);
-            Quality.set(0, Quality.CUSTOM);
-            sayGraphics(1);
-            // The picture the save finds, which holds any row a reload took from the file since.
-            save(() -> config.saveCustom(Config.values(Quality.custom())));
-            for (int i = 0; i < options.length; i++) {
-                if (Config.graphicsPart(described[i].id) >= 0) {
-                    shown[i] = held[i];
-                }
-            }
-        } catch (RuntimeException failure) {
-            Log.error("the rows of [Graphics] as applied on the game's options screen were not taken", failure);
+            config.saveOptions(saving);
+        });
+        Set<String> keys = new LinkedHashSet<>(taken.keySet());
+        if (pictured) {
+            keys.addAll(List.of(Config.GRAPHICS));
+            keys.add(Config.qualityKey(0));
         }
+        return keys;
     }
 
-    /** How first person is used, as the options page's First person list sets it. */
-    static final int FIRST_PERSON_OFF = 0, FIRST_PERSON_ON = 1, FIRST_PERSON_IN_VEHICLES = 2;
-
-    /** The parts that change how the game looks, which the Enhanced graphics list sets. */
-    private static final Set<Part> GRAPHICS_PARTS = EnumSet.of(Part.LIGHTNING_BOLTS, Part.SHOT_IMPACTS, Part.FAR_VEHICLES_AND_ZOMBIES,
-            Part.ITEMS_AS_MODELS, Part.FINER_SKINS, Part.LEAVE_OUT_SCREEN_GREY);
-
-    /** What the options page's Head tracking list sets: head tracking on or off, now and as the game starts. */
-    static Map<String, Double> headTracking(boolean on) {
-        Map<String, Double> values = new LinkedHashMap<>();
-        values.put(ENABLED_OPTION, on ? 1.0 : 0.0);
-        return values;
+    /** Puts one setting applied on the options screen on the session. Answers whether core's session is to be given its settings again. */
+    private static boolean take(String id, double value) {
+        switch (id) {
+            case TRACKING_MODE_OPTION -> trackingMode = (int) value;
+            case AIM_MODE_OPTION -> aimMode = (int) value;
+            case LOCAL_SMOOTHING_OPTION -> settings.localSmoothing = (float) value;
+            case REMOTE_SMOOTHING_OPTION -> settings.remoteSmoothing = (float) value;
+            case LIGHT_MULTIPLIER_OPTION -> settings.lightMultiplier = (float) value;
+            case ENABLED_OPTION -> enabled = value != 0;
+            case YAW_MODE_OPTION -> worldYaw = value != 0;
+            default -> config.put(id, value);
+        }
+        return CORE_OPTIONS.contains(id);
     }
 
-    /**
-     * What the options page's First person list sets. Off: no first person, and no view goes to it
-     * by itself. On: first person, with the view each player loads in left as it is and no switch
-     * on getting into a vehicle. In vehicles: every view loads isometric and goes to first person
-     * on getting into a vehicle and back on getting out.
-     */
-    static Map<String, Double> firstPersonUse(int use) {
-        Map<String, Double> values = new LinkedHashMap<>();
-        values.put(Part.FIRST_PERSON.key, use == FIRST_PERSON_OFF ? 0.0 : 1.0);
-        for (int player = 0; player < View.COUNT; player++) {
-            if (use != FIRST_PERSON_ON) {
-                values.put(Config.firstPersonRow(player), 0.0);
-            }
-            values.put(Config.firstPersonInVehiclesRow(player), use == FIRST_PERSON_IN_VEHICLES ? 1.0 : 0.0);
+    /** A value an option was given as the log says it, "75" or "0.2", and a list's by the name of its choice. */
+    private static String said(String id, double value) {
+        CameraUnlock.Option option = options()[optionPlace(id)];
+        if (option.kind == CameraUnlock.OPTION_ENUM) {
+            return option.choices[(int) value];
         }
-        return values;
-    }
-
-    /**
-     * What the options page's Enhanced graphics list sets. On: the mod's own content, the parts
-     * that change how the game looks and the muzzle flash, first person's graphics mode at
-     * Automatic and the isometric view at High. Off: the game's own content, those parts off, first
-     * person's graphics mode at Low and the isometric view at Low, the game's own picture.
-     */
-    static Map<String, Double> enhancedGraphics(boolean on) {
-        Map<String, Double> values = new LinkedHashMap<>();
-        double value = on ? 1.0 : 0.0;
-        for (int player = 0; player < View.COUNT; player++) {
-            values.put(Config.qualityKey(player), (double) (on ? Quality.AUTOMATIC : Quality.LOW));
-            values.put(Config.overheadQualityKey(player), (double) (on ? Quality.HIGH - Quality.LOW : 0));
-        }
-        for (String key : Config.VANILLA_KEYS) {
-            values.put(key, 1.0 - value);
-        }
-        for (Part part : GRAPHICS_PARTS) {
-            values.put(part.key, value);
-        }
-        values.put("MuzzleFlash", value);
-        return values;
-    }
-
-    /**
-     * What the options page's Gameplay tweaks list sets: the parts that change how the game plays,
-     * the offline rules but Rewind30s, which is off unless a development build is asked, the game
-     * fixes, the crosshair and the regrip. Off also puts back the game's own split screen.
-     */
-    static Map<String, Double> gameplayTweaks(boolean on) {
-        Map<String, Double> values = new LinkedHashMap<>();
-        double value = on ? 1.0 : 0.0;
-        for (Part part : Part.values()) {
-            if (part != Part.FIRST_PERSON && !part.section.equals("Optimizations") && !GRAPHICS_PARTS.contains(part)) {
-                values.put(part.key, value);
-            }
-        }
-        for (String key : Config.RULE_KEYS) {
-            if (!key.equals("Rewind30s")) {
-                values.put(key, value);
-            }
-        }
-        values.put("Crosshair", value);
-        values.put("RegripTwoHandedWeapons", value);
-        if (!on) {
-            values.put("SplitScreen", (double) SplitScreen.VERTICAL);
-        }
-        return values;
-    }
-
-    /** What the options page's Optimizations list sets: every part under [Optimizations] and SpreadLightUpdates. */
-    static Map<String, Double> optimizations(boolean on) {
-        Map<String, Double> values = new LinkedHashMap<>();
-        double value = on ? 1.0 : 0.0;
-        for (Part part : Part.values()) {
-            if (part.section.equals("Optimizations")) {
-                values.put(part.key, value);
-            }
-        }
-        values.put("SpreadLightUpdates", value);
-        return values;
-    }
-
-    /**
-     * What the options page's Everything list sets: each of the other lists on, with first person
-     * on, or each off. Talking mouths, which opens a microphone, is left as it is.
-     */
-    static Map<String, Double> everything(boolean on) {
-        Map<String, Double> values = new LinkedHashMap<>(headTracking(on));
-        values.putAll(firstPersonUse(on ? FIRST_PERSON_ON : FIRST_PERSON_OFF));
-        values.putAll(enhancedGraphics(on));
-        values.putAll(gameplayTweaks(on));
-        values.putAll(optimizations(on));
-        return values;
-    }
-
-    /** Whether every option the values name holds its value now. Throws for a name that is no option. Logic thread. */
-    static boolean holds(Map<String, Double> values) {
-        CameraUnlock.Option[] options = options();
-        int found = 0;
-        boolean all = true;
-        for (int option = 0; option < options.length; option++) {
-            Double value = values.get(options[option].id);
-            if (value != null) {
-                found++;
-                all &= optionValue(option) == value;
-            }
-        }
-        if (found != values.size()) {
-            throw new IllegalStateException(values.size() - found + " of " + values.keySet() + " are no options of the screen");
-        }
-        return all;
-    }
-
-    /**
-     * Sets each option the values name to its value where it reads otherwise, as applyOption takes
-     * a setting applied on the options screen, and answers the places of those it set. Throws for
-     * a name that is no option. Logic thread.
-     */
-    static List<Integer> applyAll(Map<String, Double> values) {
-        CameraUnlock.Option[] options = options();
-        List<Integer> set = new ArrayList<>();
-        int found = 0;
-        for (int option = 0; option < options.length; option++) {
-            Double value = values.get(options[option].id);
-            if (value == null) {
-                continue;
-            }
-            found++;
-            if (optionValue(option) != value) {
-                applyOption(option, options[option], value);
-                set.add(option);
-            }
-        }
-        if (found != values.size()) {
-            throw new IllegalStateException(values.size() - found + " of " + values.keySet() + " are no options of the screen");
-        }
-        return set;
+        return value == Math.rint(value) ? Long.toString((long) value) : Double.toString(value);
     }
 
     /** Has the next frame drawn say the graphics mode on the screens of the players of the bits. */
@@ -1007,6 +878,16 @@ final class Tracking {
     /** The keys that go to the next graphics mode, as CameraUnlock.ini names them. */
     static String cycleQualityKeys() {
         return config.cycleQualityKeys();
+    }
+
+    /** The keys that go to the next picture style, as CameraUnlock.ini names them. */
+    static String cycleStyleKeys() {
+        return config.cycleStyleKeys();
+    }
+
+    /** The keys that turn the split screen, as CameraUnlock.ini names them. */
+    static String splitScreenKeys() {
+        return config.splitScreenKeys();
     }
 
     /** The view a player switched to, kept for the next load. */

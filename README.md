@@ -251,7 +251,7 @@ Centring belongs to your tracker, recenter there.
 - `F8` goes through the picture styles Vivid, Natural and Bleak.
 - In split screen each player has their own graphics mode and picture style. Tap `F9` or `F8` once for player 1, twice for player 2, three times for player 3 and four times for player 4, or hold it for every player. Players 2, 3 and 4 keep theirs in `[Players]` in `CameraUnlock.ini` and in the game's options.
 
-Every key saves its new setting to `CameraUnlock.ini` as you press it, and `Delete` saves the view your next load starts in (`FirstPerson`). No key turns head tracking on or off: the Head tracking list at the top of the mod's options page does, or `EnableOnStartup` in `CameraUnlock.ini`. There is no recenter key: centre the view in your tracker app.
+Every key saves its new setting to `CameraUnlock.ini` as you press it, and `Delete` saves the view your next load starts in (`FirstPerson`). No key turns head tracking on or off: the Head tracking tick box at the top of the mod's options page does, or `EnableOnStartup` in `CameraUnlock.ini`. There is no recenter key: centre the view in your tracker app.
 
 ### Mouse and keyboard
 
@@ -296,7 +296,7 @@ Zombies, rooms and vehicles with no other player in them look as they do offline
 
 ## Configuration
 
-Use **Options > Mods > Head Tracking** for tracking, graphics and the offline rules. First person and the isometric view each keep their own graphics quality: first person starts on Automatic and the isometric view on Low, the game's own picture. Switching views shows the quality the new view uses. For keys, ports and smoothing, edit `CameraUnlock.ini` beside the game executable.
+Use **Options > Mods > Head Tracking** for head tracking, first person, graphics and the offline rules (see [The options page](#the-options-page)). First person and the isometric view each keep their own graphics quality: first person starts on Automatic and the isometric view on Low, the game's own picture. Switching views shows the quality the new view uses. For the keys, the tracker's UDP ports and how far you can lean, edit `CameraUnlock.ini` beside the game executable.
 
 <!-- cameraunlock:config -->
 The mod reads its settings from `CameraUnlock.ini` in the game folder, and creates the file when it starts and finds none. Edit it with any text editor.
@@ -358,10 +358,13 @@ ThirdPlayerUdpPort=4244
 FourthPlayerUdpPort=4245
 
 [General]
-; true: head tracking is on. false: it is off. Taken at once from the options screen, and as the game starts. No key turns it
-; on or off.
+; true: head tracking is on. Your tracker moves the first person view and turns your character's head in the isometric
+; view. false: it is off. No key turns it on or off. The options screen changes it when you apply, and an edit here
+; takes effect at the next start.
 EnableOnStartup=default
-; true: yaw turns around the world's up axis. false: around the camera's own up axis.
+; true: turning your head left or right turns the view around the vertical, which keeps the horizon level while you look
+; up or down. false: it turns around the view's own up, which tilts the horizon while you look up or down. In a
+; vehicle seat it always turns around the view's own up.
 WorldSpaceYaw=default
 ; true: turning your head turns the view.
 ; Tracking mode at startup, with PositionEnabled. The mode hotkey changes both.
@@ -369,50 +372,53 @@ RotationEnabled=default
 ; Milliseconds a tracker packet stays current. Once the tracker has sent nothing
 ; for this long, the mod stops following it until data arrives again.
 DataFreshnessMs=default
-; true: the mod's first person view. false: there is none, and the isometric view is the game's own whatever
-; IsometricQuality says. The first person key, a controller's double tap of Back and FirstPerson do nothing, and
-; nothing more is made ready for first person while you play or while a save loads; what was already made stays
+; true: the mod's first person view is there to switch to. false: there is no first person view, and the isometric view
+; is the game's own whatever IsometricQuality says. The first person key, a double tap of Back on a controller and
+; FirstPerson then do nothing, and nothing more is made ready for first person, though what is ready already stays
 ; until you leave the save.
-; Taken at once. Off, its patches of the game's code are left out from the next start.
+; Takes effect at once. When off, the mod also leaves the game's code for this unpatched from the next start.
 FirstPersonEnabled=true
 ; Vertical field of view of the first person view, in degrees: 40 to 110.
 FieldOfView=65.0
 ; First person graphics mode: Automatic, Low, Medium, High or Custom. Automatic draws less when the frame rate drops
-; and more again when it recovers. Custom uses the rows of [Graphics]. A view larger than 2560x1440 is drawn in the
-; modes but Custom with no more pixels than 2560x1440.
+; and more again when it recovers. Custom draws the [Graphics] rows. Every mode but Custom draws at most 2560x1440
+; pixels, however large the window.
 Quality=Automatic
-; Graphics mode of the game's isometric view: Low (the game's own picture), Medium, High or Custom.
+; Graphics mode of the game's isometric view: Low (the game's own picture), Medium, High or Custom, which draws the
+; [Graphics] rows.
 IsometricQuality=Low
-; Picture style: Vivid (strong contrast and colour), Natural (colours as lit, less contrast) or Bleak (washed out, near
-; the game's own look).
+; Picture style: Vivid (strong contrast and colour), Natural (colours as lit, less contrast) or Bleak (washed out, close
+; to the game's own look).
 Style=Bleak
-; true: a save loads in first person. The first person key sets it as it switches the view.
+; true: saves load in first person. Switching the view with the first person key, or a double tap of Back on a
+; controller, changes this to match.
 FirstPerson=false
-; true: getting into a vehicle switches to first person and getting out switches back to the game's own view.
-; The first person key still switches the view at any time, and a view it chose is kept on getting out.
+; true: getting into a vehicle switches to first person, and getting out switches back to the isometric view. The first
+; person key still switches the view at any time, and a view it chose is kept when you get out.
 FirstPersonInVehicles=false
-; How high the first person hills stand: 0 is as flat as the game's map, 1 as the mod makes them, up to 2.0.
-; Held at 1 where players can fight.
+; How tall the first person hills are: 0 is as flat as the game's map, 1 is as the mod makes them, up to 2.0.
+; Always 1 where players can fight.
 HillHeight=1.5
-; true: a shot from a firearm flashes at the muzzle and briefly lights what is near. Never in Low.
+; true: firing a gun flashes at the muzzle and briefly lights up what is nearby, in every graphics mode but Low.
 MuzzleFlash=true
-; true: in first person, while the game draws no reticle of its own, a small crosshair with a weapon in hand and a
-; dot without one mark where the shot lands and what the interact key uses. false: neither is drawn.
+; true: in first person, while the game draws no reticle of its own, a small crosshair with a weapon in hand, or a dot
+; without one, shows where the shot lands and what the interact key uses. false: neither is drawn.
 Crosshair=true
-; true: a weapon made for both hands goes back into both when the left hand puts down what it held beside it,
-; a torch say, as the inventory's Equip Two Hands does. A torch switched off beside it is put away for that, and one
-; taken up again leaves the weapon in the right hand. false: the game's way, where the weapon stays in the right hand
-; alone, and taking up a torch takes it out of both. Never on a server where players can fight.
+; true: a two-handed weapon goes back into both hands when your left hand puts down what it held beside it, as the
+; inventory's Equip Two Hands does. A light in your left hand is put away when you switch it off, so the weapon goes
+; back into both hands, and taking up a light leaves the weapon in your right hand. false: as in the game, the weapon
+; stays in your right hand alone, and taking up a light takes it out of your hands. Never on a server where players
+; can fight.
 RegripTwoHandedWeapons=true
-; How two players at one screen share it: Vertical (side by side) or Horizontal (one above the other).
-; Taken at once. Vertical, its patches of the game's code are left out from the next start.
+; How two players share one screen: Vertical (side by side) or Horizontal (one above the other). Takes effect at once.
+; With Vertical, the mod leaves the game's split screen code unpatched from the next start.
 SplitScreen=Vertical
 
 [Smoothing]
-; Smoothing when the tracker runs on this PC. 0 is the least, 1 the most.
+; Smoothing for a tracker on this PC that sends to 127.0.0.1. 0 is the least, 1 the most.
 LocalSmoothing=default
-; Smoothing when the tracker is another device on the network, such as a phone.
-; 0 is the least, 1 the most.
+; Smoothing for every other tracker: one on another device such as a phone, or one on this PC that sends to this PC's
+; network address instead of 127.0.0.1. 0 is the least, 1 the most.
 RemoteSmoothing=default
 
 [Position]
@@ -453,73 +459,74 @@ CycleTrackingModeKey=PageUp
 YawModeKey=PageDown
 ; Cycles the aim mode: sights locked, free look with a marker, stock sights.
 TrueFreeLookKey=Insert
-; Switches between first person and the game's own view. Tap once for player 1, twice for player 2, three times for
-; player 3, four times for player 4, hold for every player.
+; Switches between first person and the isometric view. Tap once for player 1, twice for player 2, three times for
+; player 3, four times for player 4, or hold for every player.
 FirstPersonKey=Delete
 ; Goes to the next graphics mode of the view a player is in: in first person Automatic, Low, Medium, High, Custom
 ; (Quality), in the isometric view Low, Medium, High, Custom (IsometricQuality), and for players 2, 3 and 4 their
 ; rows of [Players]. Tap once for player 1, twice for player 2, three times for player 3, four times for player 4,
-; hold for every player.
+; or hold for every player.
 CycleQualityKey=F9
 ; Goes to a player's next picture style: Vivid, Natural, Bleak (Style, and for players 2, 3 and 4 their rows of
-; [Players]). Tap once for player 1, twice for player 2, three times for player 3, four times for player 4, hold
-; for every player.
+; [Players]). Tap once for player 1, twice for player 2, three times for player 3, four times for player 4, or
+; hold for every player.
 CycleStyleKey=F8
 ; With two players at the screen, switches between side by side and one above the other.
 SplitScreenKey=F7
 
 [Light]
-; How far the light turns for each degree your head turns.
-; 1 matches the view, 0 keeps the light on your aim.
+; How far the flashlight turns for each degree your head turns, while TorchFollowsHead is on. 1 turns it as far as
+; the view, more turns it further, and 0 leaves it where your character faces.
 LightMultiplier=default
 
 [FirstPerson]
-; true: in first person a torch you carry lights where your head is turned, as far as LightMultiplier in [Light]
-; says. false: it lights the way the view faces, whatever your head does.
+; true: in first person, a flashlight you carry points where your head turns, as far as LightMultiplier says.
+; false: it points the way your character faces, whatever your head does.
 TorchFollowsHead=true
-; true: in first person you hear from the eye: sounds turn with the view, walls between you and a sound muffle it
-; and rooms ring. false: first person is heard as the game's own view hears, facing north-west on the map.
-; Taken at the next start. Off, its patches of the game's code are left out.
+; true: in first person you hear from your character's eyes: sounds turn with the view, walls between you and a sound
+; muffle it, and rooms echo. false: you hear as the isometric view does, facing north-west on the map.
+; Takes effect when the game next starts. When off, the mod leaves the game's code for this unpatched.
 HearFromTheEye=true
-; true: in first person lightning strikes as a bolt from the cloud to the ground, which lights the world while it
-; is bright. false: lightning is the game's own flash, the whole map brightening for a moment.
-; Taken at the next start. Off, its patches of the game's code are left out.
+; true: in first person, lightning strikes as a bolt from the clouds to the ground and lights up the world while it
+; flashes. false: the game's own lightning, a flash that brightens the whole map for a moment.
+; Takes effect when the game next starts. When off, the mod leaves the game's code for this unpatched.
 LightningBolts=true
-; true: in first person, in Medium and High, a shot throws up dust, chips, splinters, sparks or blood where it
-; strikes and leaves a hole. false: shots leave no mark, as in the game's own view. A shot still breaks lamps
-; and glass as [Rules] says, and while either does the impacts' patches stay in.
-; Taken at once. Off, its patches of the game's code are left out from the next start.
+; true: in first person, in Medium and High, a shot kicks up dust, chips, splinters, sparks or blood where it hits
+; and leaves a hole. false: shots leave no mark, as in the game's own view. Shots still break lamps and glass
+; when ShotsBreakLamps and ShotsBreakGlass are on, and while either is on the mod keeps the game's code patched
+; for this.
+; Takes effect at once. When off, the mod also leaves the game's code for this unpatched from the next start.
 ShotImpacts=true
-; true: in first person a vehicle, zombie or animal within sight is drawn wherever the game's own screen ends,
-; and so is another player where players cannot fight. false: each is drawn only where the game's own view
-; would show it.
+; true: in first person, vehicles, zombies and animals in sight are drawn even past the edge of the game's own
+; screen, and so are other players where players cannot fight. false: each is drawn only where the game's own
+; view would show it.
 FarVehiclesAndZombies=true
-; true: while anyone plays in first person a body that is hit goes into its ragdoll at once, and a first person
-; shot pushes it along the shot, at the place it went in. false: bodies go into their ragdolls as the game's own
-; blends have them.
-; Taken at the next start. Off, its patches of the game's code are left out.
+; true: while anyone plays in first person, a body that is hit switches to its ragdoll at once, and a first person
+; shot pushes it along the shot from where it went in. false: bodies switch to their ragdolls the way the
+; game blends them in.
+; Takes effect when the game next starts. When off, the mod leaves the game's code for this unpatched.
 QuickRagdolls=true
-; true: a zombie shot in first person that stays up is knocked by the round where it went in: a head snaps back, a
-; shoulder is spun round. false: it plays the game's own stagger alone.
+; true: a zombie shot in first person that stays on its feet reacts where the bullet hit: its head snaps back or
+; its shoulder spins round. false: it plays only the game's own stagger.
 HitFlinch=true
-; true: in first person, knocked over, lying down, getting up and dying, the view is your character's head's.
-; false: the view stays the mouse's while the game's animation has the body, and dead, it is held where it was.
+; true: in first person, when you are knocked over, lie down, get up or die, the view follows your character's
+; head. false: the mouse keeps the view while the game moves the body, and when you die the view stays where it was.
 HeadLedViewWhenDown=true
-; true: in first person, while the game's 3D ground items option is on, items on the ground are built as the
-; game's own models of them. false: each lies flat as its picture.
-; Taken at once. Off, its patches of the game's code are left out from the next start.
+; true: in first person, items on the ground are shown as the game's own 3D models of them, while the game's 3D
+; ground items option is on. false: each lies flat as its picture.
+; Takes effect at once. When off, the mod also leaves the game's code for this unpatched from the next start.
 ItemsAsModels=true
-; true: in first person the people near the eye wear skins finer than the game's, the mod's own and any finer
+; true: in first person, people near you wear more detailed skins than the game's: the mod's own, and any finer
 ; ones in the folder the log names. false: they wear the game's own.
-; Taken at the next start. Off, its patches of the game's code are left out.
+; Takes effect when the game next starts. When off, the mod leaves the game's code for this unpatched.
 FinerSkins=true
-; true: the game's greying of the screen by the season, fog and weather is left off the first person picture,
-; which shows those by its own light. false: the game greys first person's picture as it greys its own view.
-; Taken at the next start. Off, its patches of the game's code are left out.
+; true: the game's grey tint for the season, fog and weather is left off the first person picture, which shows those
+; with its own lighting. false: the game tints the first person picture as it tints its own view.
+; Takes effect when the game next starts. When off, the mod leaves the game's code for this unpatched.
 LeaveOutScreenGrey=true
-; true: on a server, in first person, the names and speech the game writes over people are put over their heads
-; in the picture, and your own are left out. false: the game writes them where its own view has their owners.
-; Taken at the next start. Off, its patches of the game's code are left out.
+; true: on a server, in first person, the names and speech the game shows over people sit over their heads in the
+; picture, and your own are hidden. false: the game shows them where its own view puts them.
+; Takes effect when the game next starts. When off, the mod leaves the game's code for this unpatched.
 NameTagsAtHeads=true
 
 [Players]
@@ -555,15 +562,14 @@ FourthPlayerFirstPerson=false
 FourthPlayerFirstPersonInVehicles=false
 
 [Graphics]
-; Low: the game's plant sprites. Medium: the mod's trees, the game's sprites past 40 tiles.
-; High: the mod's trees as far as you see.
+; Low: the game's plant sprites. Medium: the mod's trees, with the game's sprites past 40 tiles.
+; High: the mod's trees as far as you can see.
 TreeQuality=High
 ; How much of the grass the mod grows blade by blade is grown, as a percentage: 10 to 100.
-; Lower, fewer and broader plants cover the same lawns and long grass, which costs less to
-; build and draw. High grows all of it, Medium and Low 40. On a server where
-; players can hurt each other it grows all of it.
+; Lower, fewer and broader plants cover the same lawns and long grass, which costs less to build and draw. High
+; grows all of it, Medium and Low 40. On a server where players can hurt each other it grows all of it.
 GrassDensity=100
-; Share of the window's resolution the first person picture is drawn at, each way: 0.5 to 1.
+; How much of the window's resolution the first person picture is drawn at, each way: 0.5 to 1.
 RenderScale=1.0
 ; How far the first person view is drawn, in tiles: 32 to 80, within the map the game has loaded.
 ViewDistance=80
@@ -575,93 +581,94 @@ FarTreeDistance=400
 ; Rain on your vehicle's windows: Low (one size of drop), Medium (adds specks and trickles) or High (three sizes and
 ; running drops).
 RainOnGlass=High
-; true: shaded corners, light from what stands near and lit air, and with Reflections, mirroring wet roads, floors,
-; glass and water.
+; true: shaded corners, light from things nearby and lit air, and with Reflections, wet roads, floors, glass and water
+; that mirror the world.
 ShadingAndLight=true
 ; true: mirrors in rooms show the room and you, your vehicle's mirrors show the road behind, and with
 ; ShadingAndLight, wet roads, floors, glass and water mirror the world.
 Reflections=true
-; Share of the first person picture's resolution that wall mirrors and window glass draw their reflection at,
-; each way: 0.25 to 1. High draws 0.75, Medium 0.5. Lower costs less and looks softer.
+; How much of the first person picture's resolution wall mirrors and window glass draw their reflections at, each
+; way: 0.25 to 1. High draws 0.75, Medium 0.5. Lower costs less and looks softer.
 ReflectionScale=0.75
-; true: the mod's surface, wall and skin pictures at full size. false: half size, a quarter of the memory.
+; true: the mod's surface, wall and skin pictures at full size. false: half size, using a quarter of the memory.
 FullSizeTextures=true
-; true: near surfaces are given the depth of what they show. false: they are drawn flat.
+; true: near surfaces get the depth of what they show. false: they are drawn flat.
 SurfaceDepth=true
-; true: shadow maps 4096 texels across. false: 2048, a quarter of the graphics memory.
+; true: shadow maps 4096 pixels across. false: 2048, using a quarter of the graphics memory.
 SharpShadows=true
-; true: what people and zombies wear and carry casts a shadow at any distance. false: past 4 tiles
-; only their bodies do, which costs less in a crowd.
+; true: what people and zombies wear and carry casts a shadow at any distance. false: past 4 tiles only
+; their bodies do, which costs less in a crowd.
 WholeFigureShadows=true
 ; true: each frame is blended with the one before, for smoother edges and leaves and a slightly softer picture.
 FrameBlending=false
-; How far off lamps light what is round them with light of their own, a pool under a street lamp, in tiles:
-; 0 (the game's light only) to 80. Past it, lamps light the ground as the game does.
+; How far away lamps light what is around them with light of their own, like the pool of light under a street lamp,
+; in tiles: 0 (the game's light only) to 80. Past that, lamps light the ground as the game does.
 LightDistance=60
-; true: corpses are drawn as models lying where they fell, as zombies are. false: as the game's flat picture of
-; each, laid on the ground, which costs far less where many lie. Low, Medium and High lay the picture.
+; true: corpses are drawn as models lying where they fell, as zombies are. false: as the game's flat picture of each,
+; laid on the ground, which costs far less where many lie. Low, Medium and High use the flat picture.
 CorpseModels=false
 
 [Optimizations]
-; true: when the game relights many places at once, the first person view takes up their new light over the next few
-; frames, nearest first, so that driving past lights stutters less. false: all of it in the frame the game relights
-; it, so a far light change can show about a tenth of a second sooner, in longer frames.
+; true: when the game relights many places at once, the first person view takes in their new light over the next few
+; frames, nearest first, so driving past lights stutters less. false: all of it in the frame the game relights it,
+; so a far light change can show about a tenth of a second sooner, in longer frames.
 SpreadLightUpdates=true
-; true: the game's lookups of items by name, of a component's class and of a character's state machine are
-; answered from what they found before, and two of its bone updates skip work that changes nothing, in either
-; view. The answers are the same. false: the game works each of them out every time.
-; Taken at the next start. Off, its patches of the game's code are left out.
+; true: the game's lookups of items by name, of component classes and of character state machines are answered from
+; what they found before, and two of its bone updates skip work that changes nothing, in both views. The
+; results are the same. false: the game works each one out every time.
+; Takes effect when the game next starts. When off, the mod leaves the game's code for this unpatched.
 CachedGameLookups=true
-; true: under the first person picture the game leaves out drawing its own view, which the picture covers: its
-; weather, floors, objects, shadows, people and the rest. The picture is the same. false: the game draws its whole
-; view under the picture every frame, as it does with no picture over it.
-; Taken at once. Off, its patches of the game's code are left out from the next start.
+; true: while the first person picture covers the screen, the game skips drawing its own view underneath it: its
+; weather, floors, objects, shadows, people and the rest. What you see is the same. false: the game draws its
+; whole view under the picture every frame.
+; Takes effect at once. When off, the mod also leaves the game's code for this unpatched from the next start.
 SkipCoveredGameDrawing=true
-; true: while the first person picture covers the game's view, what a character wears is composed into its skin
-; while the render thread waits for the next frame. The skins are the same. false: the game composes them in the
-; middle of drawing the frame, as it does.
-; Taken at once. Off, its patches of the game's code are left out from the next start.
+; true: while the first person picture covers the game's view, what characters wear is built into their skins while
+; the render thread waits for the next frame. The skins look the same. false: the game builds them in the
+; middle of drawing the frame.
+; Takes effect at once. When off, the mod also leaves the game's code for this unpatched from the next start.
 SkinsComposedWhileWaiting=true
-; true: the game's changes to each chunk are counted as it makes them, so the first person view builds again only
-; the chunks that changed. The picture is the same. false: the view looks over every chunk it draws for changes.
-; Taken at the next start. Off, its patches of the game's code are left out.
+; true: the game's changes to each chunk are counted as it makes them, so the first person view rebuilds only the
+; chunks that changed. What you see is the same. false: the view checks every chunk it draws for changes.
+; Takes effect when the game next starts. When off, the mod leaves the game's code for this unpatched.
 ChunkChangeCounts=true
-; true: in first person a zombie in a room no line of sight could reach, even with every door and curtain in reach
-; open, has no model until you come near enough to see in. false: it keeps its model wherever it stands.
+; true: in first person, a zombie in a room you could not see into, even with every nearby door and curtain open,
+; has no model until you come close enough to see in. false: it keeps its model wherever it stands.
 UnseenRoomZombiesUnmodelled=true
-; true: the game's map of loaded chunks keeps its centre until you are a tile past a chunk line, so turning on the
-; spot on one does not load a column of chunks again every few seconds. false: the centre goes to the chunk you
-; stand in at once, as the game has it.
-; Taken at once. Off, its patches of the game's code are left out from the next start.
+; true: the game's map of loaded chunks keeps its centre until you are a tile past a chunk edge, so turning on the
+; spot right on an edge does not load a column of chunks again every few seconds. false: as in the game, the
+; centre moves to your chunk at once.
+; Takes effect at once. When off, the mod also leaves the game's code for this unpatched from the next start.
 HoldChunkMapCentre=true
-; true: on an NVIDIA graphics card too small for what a graphics mode draws, first person starts the session with
-; less drawn in every mode. false: every mode starts as it is. Read as first person first starts in a session.
-; Either way, when the card has no room for something the mod makes, every mode is drawn a step lower.
+; true: on an NVIDIA graphics card without enough memory for what a graphics mode draws, first person starts the
+; session drawing less in every mode. false: every mode starts as it is. Checked when first person first
+; starts in a session. Either way, when the card runs out of room for something the mod makes, every mode
+; drops a step.
 GraphicsMemorySteps=true
-; true: a save starts only once the mod's shaders are compiled and the far land and skins round you are made, so
-; first person does not stutter making them in play. false: the save starts as soon as the game is ready, and
-; first person makes them as you play.
-; Taken at once. Off, its patches of the game's code are left out from the next start.
+; true: a save starts only once the mod's shaders are compiled and the distant land and the skins around you are
+; made, so first person does not stutter making them during play. false: the save starts as soon as the game
+; is ready, and first person makes them as you play.
+; Takes effect at once. When off, the mod also leaves the game's code for this unpatched from the next start.
 PrepareWhileLoading=true
-; true: under the first person picture the rooms the game fills with zombies, and the squares it counts as seen, go
-; by what the view sees, a few times a second. false: they go by where the mod has the game work out light, which
-; can fill a room you have not looked into. Needs SkipCoveredGameDrawing.
-; Taken at once. Off, its patches of the game's code are left out from the next start.
+; true: under the first person picture, the rooms the game fills with zombies and the squares it counts as seen
+; follow what the view sees, a few times a second. false: they follow where the mod has the game work out
+; light, which can fill a room you have not looked into. Needs SkipCoveredGameDrawing.
+; Takes effect at once. When off, the mod also leaves the game's code for this unpatched from the next start.
 SpotBySight=true
-; true: the first person view builds the chunks it has to build again on threads of its own, all at once, and shows
-; each a frame later. false: each is built on the game's own thread as the view comes to it, and shows in that frame.
+; true: the first person view rebuilds chunks on threads of its own, all at once, and shows each one a frame
+; later. false: each is rebuilt on the game's own thread as the view reaches it, and shows in that frame.
 BuildOnWorkerThreads=true
-; true: a chunk the first person view built before some of its sprites or pictures had been read is built again
-; once those have been. false: it is built again whenever any sprite or picture has been read, which on arriving
-; somewhere is most frames for the first seconds.
+; true: a chunk the first person view built before some of its sprites or pictures had loaded is rebuilt once
+; those have. false: it is rebuilt whenever any sprite or picture loads, which for the first seconds after
+; arriving somewhere is most frames.
 RebuildForOwnSprites=true
-; true: as chunks load, what HiddenWallDecor reads off a building for each room it dresses is kept, and only the
-; chunks the game has changed since are read again. The rooms come out the same. Needs ChunkChangeCounts.
-; false: the whole building is read again for each chunk that loads, which in a tall building can hitch.
+; true: as chunks load, what HiddenWallDecor reads from a building for each room it decorates is kept, and only
+; the chunks the game has changed since are read again. The rooms come out the same. Needs ChunkChangeCounts.
+; false: the whole building is read again for each chunk that loads, which can hitch in a tall building.
 HiddenWallReadsKept=true
-; true: what a building's room names say, each room's kind of place and whether the building is a home, and what
-; each picture is of, are worked out once and kept. The rooms and their pictures come out the same.
-; false: they are worked out again for each room, which in a tall building can hitch.
+; true: what a building's room names say, what kind of place each room is, whether the building is a home and what
+; each picture shows are worked out once and kept. The rooms and their pictures come out the same.
+; false: they are worked out again for each room, which can hitch in a tall building.
 BuildingFactsKept=true
 
 [Content]
@@ -691,104 +698,106 @@ VanillaZombies=false
 ; living people.
 VanillaPeople=false
 ; true: the game's own arms and hands on a held weapon, for a mod that changes the arms or the weapons. false: the
-; mod's, working its bolt, slide and magazine.
+; mod's arms and hands, which work the bolt, slide and magazine.
 VanillaArms=false
 ; true: the game's own pictures of clothes and hair. false: clothes and hair near you are sharpened, with the weave,
 ; knit, grain or strands of what they are made of.
 VanillaClothes=false
 ; true: the game's own skins for animals. false: the mod's skins for animals near you, with the hair of their coats.
 VanillaAnimals=false
-; true: the game's own flames and smoke, stood up where they burn. false: the game's flames with the mod's smoke,
-; embers and firelight for burning buildings, Molotovs, campfires, fireplaces, wood stoves, burn barrels and
-; cooking pits.
+; true: the game's own flames and smoke, standing upright where they burn. false: the game's flames with the mod's
+; smoke, embers and firelight for burning buildings, Molotovs, campfires, fireplaces, wood stoves, burn barrels
+; and cooking pits.
 VanillaFire=false
-; true: the game's own inside of the vehicle you sit in, with its glass cut away. false: the mod's models of it, its
-; dashboard, instruments, wheel, seats and doors.
+; true: the game's own inside of the vehicle you sit in, with its glass cut away. false: the mod's model of the inside,
+; with its dashboard, instruments, wheel, seats and doors.
 VanillaCabins=false
 
 [Rules]
-; true: your shots go on through stud walls, walls of boards, shut doors and windows, losing damage to each by
-; what it is made of. false: they stop it, as the game has it. On a server where players can hurt each other
-; the game's rule holds.
-; Taken at once. Off with FirstPersonEnabled off too, its patches of the game's code are left out from the next start.
+; true: your shots go on through stud walls, plank walls, shut doors and windows, losing damage to each by what it
+; is made of. false: they stop at them, as in the game. On a server where players can hurt each other the game's
+; rule applies.
+; Takes effect at once. When this and FirstPersonEnabled are both off, the mod leaves the game's code for this
+; unpatched from the next start.
 ShotsThroughWalls=true
-; true: offline, a shot breaks the lamp it passes through and the vehicle lamp it lands on. false: lamps
-; are left lit, as the game has it. On a server the game's rule holds.
+; true: offline, a shot breaks a lamp it passes through and a vehicle light it hits. false: lamps stay lit, as in the
+; game. On a server the game's rule applies.
 ShotsBreakLamps=true
-; true: offline, a shot breaks the glass of every shut window it crosses, whether or not it hits anything behind
-; it. false: only a shot that hits someone through a window breaks it, as the game has it. On a server the game's
-; rule holds.
+; true: offline, a shot breaks the glass of every shut window it crosses, whether or not it hits anything behind it.
+; false: only a shot that hits someone through a window breaks it, as in the game. On a server the game's rule
+; applies.
 ShotsBreakGlass=true
-; true: offline, first person shots to a zombie's legs slow it and drop it to crawl, shots to its arms leave them
-; hanging, enough take the limb off, and a head shot that kills can take the head off or burst it. false: hits
-; are the game's. On a server the game's rule holds.
+; true: offline, first person shots to a zombie's legs slow it and drop it to a crawl, shots to its arms leave them
+; hanging, enough take the limb off, and a killing head shot can take the head off or burst it. false: hits are
+; the game's. On a server the game's rule applies.
 ShotsWoundLimbs=true
-; true: offline, a vehicle faster than a walk knocks down fences, street lamp posts and road barricades, drives through bushes
-; unslowed and keeps its engine's full power off the road. false: the game's rules for all of it. On a server the
-; game's rules hold.
-; Taken at once. Off, its patches of the game's code are left out from the next start.
+; true: offline, a vehicle going faster than walking pace knocks down fences, street lamp posts and road barricades,
+; drives through bushes without slowing and keeps its engine's full power off the road. false: the game's rules
+; for all of it. On a server the game's rules apply.
+; Takes effect at once. When off, the mod also leaves the game's code for this unpatched from the next start.
 VehiclesSmashThrough=true
-; true: walking or sneaking sideways or backwards in first person, your character keeps facing where you look,
-; and jogging or sprinting is straight ahead only. false: it always turns, as the game has it. On a server
-; where players can hurt each other it keeps facing where you look sideways and backwards whether this is
-; true or false, at the slower pace the game gives its aiming stance.
+; true: walking or sneaking sideways or backwards in first person, your character keeps facing where you look, and
+; jogging or sprinting is straight ahead only. false: it always turns, as in the game. On a server where players
+; can hurt each other it keeps facing where you look when going sideways and backwards, on or off, at the slower
+; pace the game gives its aiming stance.
 FacesTheView=true
-; true: a tree stops your shots only where its trunk is drawn, and a shot past the trunk goes on. false: a
-; tree stops every shot across its square, as the game has it. On a server where players can hurt each
-; other the game's rule holds.
+; true: a tree stops your shots only where its trunk is drawn, and a shot past the trunk goes on. false: a tree stops
+; every shot across its square, as in the game. On a server where players can hurt each other the game's rule
+; applies.
 ShotsPastTrees=true
-; true: in the isometric view a zombie shows as soon as nothing stands between your character and it, where
-; your character's sight reaches by the game's rules. false: the game's own sight, which can show a zombie
-; late or only once it is close. On a server where players can hurt each other the game's rule holds.
-; Taken at once. Off, its patches of the game's code are left out from the next start.
+; true: in the isometric view a zombie shows as soon as nothing stands between your character and it, within the
+; reach of your character's sight by the game's rules. false: the game's own sight, which can show a zombie late
+; or only once it is close. On a server where players can hurt each other the game's rule applies.
+; Takes effect at once. When off, the mod also leaves the game's code for this unpatched from the next start.
 ZombiesSeenAtOnce=true
-; true: in first person the south and east walls of a room, which the isometric view never shows from inside,
-; carry pictures that are drawn by the mod and never saved. false: nothing is drawn on them, and nothing is
-; added to them whatever HiddenWallDecorSaved says. On a server the pictures are drawn too.
-; Taken at once. Off with FirstPersonEnabled off too, its patches of the game's code are left out from the next start.
+; true: in first person, the south and east walls of a room, which the isometric view never shows from inside, get
+; pictures drawn by the mod and never saved. false: nothing is drawn on them, and nothing is added to them
+; whatever HiddenWallDecorSaved says. On a server the pictures are drawn too.
+; Takes effect at once. When this and FirstPersonEnabled are both off, the mod leaves the game's code for this
+; unpatched from the next start.
 HiddenWallDecor=true
-; true: offline, while HiddenWallDecor is on, those walls also get the game's own mirrors, clocks and coat racks
-; where the room's other walls say they belong, the first time the room is loaded, and those stay in your save.
+; true: offline, while HiddenWallDecor is on, those walls also get the game's own mirrors, clocks and coat racks where
+; the room's other walls say they belong, the first time the room is loaded, and those stay in your save.
 ; false: nothing is added to the save, and what was added before stays. On a server nothing is added.
 HiddenWallDecorSaved=true
-; true: in first person, seated in a vehicle with a firearm, you can fire through the whole window of your seat,
-; which the shot breaks. false: the window has to be opened or broken first, as the game has it. On a server
-; where players can hurt each other the game's rule holds.
+; true: in first person, sitting in a vehicle with a gun, you can fire through any part of your seat's window, and
+; the shot breaks it. false: as in the game, the window has to be opened or broken first. On a server where
+; players can hurt each other, the game's rule applies.
 ShotsFromVehicleSeats=true
-; true: in first person, driving by keyboard, you keep steering, accelerating and braking with a firearm raised.
-; false: raising a firearm takes the controls, as the game has it. On a controller, and on a server where players
-; can hurt each other, the game's rule holds.
+; true: in first person, driving with the keyboard, you can still steer, accelerate and brake while aiming a gun.
+; false: as in the game, aiming a gun takes over the controls. With a controller, and on a server where
+; players can hurt each other, the game's rule applies.
 DriveWhileAiming=true
-; true: offline, driving in first person, the hills pull a vehicle down them and throw it into the air over a crest
+; true: offline, driving in first person, hills pull a vehicle down them and can throw it into the air over a crest
 ; at speed. false: vehicles move as on the game's level ground. On a server they always do.
-; Taken at once. Off, its patches of the game's code are left out from the next start.
+; Takes effect at once. When off, the mod also leaves the game's code for this unpatched from the next start.
 HillsMoveVehicles=true
-; true: in first person, a light you carry in your hands is switched off as you take the driver's seat, since
-; your hands are on the wheel. false: it stays as it was.
+; true: in first person, a light in your hands is switched off when you take the driver's seat, since your hands
+; are on the wheel. false: it stays as it was.
 HandLightOutAtTheWheel=true
 
 [Fixes]
-; true: the game no longer stops for good as it lays out a burnt-down building whose door or window stands across
-; into a chunk that is not loaded yet. false: the game's own code, which can go round that door for ever.
-; Taken at the next start. Off, its patches of the game's code are left out.
+; true: stops the game freezing for good while it sets up a burnt-down building whose door or window reaches into a
+; chunk that has not loaded yet. false: the game's own code, which can loop on that door forever.
+; Takes effect when the game next starts. When off, the mod leaves the game's code for this unpatched.
 BurntBuildingFreezeFix=true
-; true: the game's window is centred in the part of its monitor the taskbar leaves free. false: the game places
-; it, centred by its inside against the whole of the main monitor, which can leave it partly under the taskbar.
-; Taken at the next start. Off, its patches of the game's code are left out.
+; true: the game's window is centred in the part of the monitor the taskbar leaves free. false: the game centres it
+; on the whole main monitor, which can leave part of it under the taskbar.
+; Takes effect when the game next starts. When off, the mod leaves the game's code for this unpatched.
 CentreTheWindow=true
-; true: the controllers you tick in the game's options stay ticked, a 3Dconnexion 6-axis mouse never plays, and
-; the main menu goes to the controller whose A was pressed. false: the game picks its controllers, which with
-; none ticked is the one at index 0, a SpaceMouse when one is plugged in first.
-; Taken at the next start. Off, its patches of the game's code are left out.
+; true: the controllers you tick in the game's options stay ticked, a 3Dconnexion 6-axis mouse is never used as a
+; controller, and the main menu goes to the controller whose A button was pressed. false: the game picks its
+; controllers, which with none ticked is the first one, a SpaceMouse if one was plugged in first.
+; Takes effect when the game next starts. When off, the mod leaves the game's code for this unpatched.
 ControllerChoiceFix=true
 
 [Voice]
-; true: your character's mouth moves with what you say into your microphone: the jaw drops for "ah", the lips
-; spread for "ee" and round for "oo". Online, other players' mouths move while the game's voice chat plays them.
-; The sound is measured as it comes in, and nothing is recorded or sent.
-; false: no microphone is opened.
-; Taken at once for the first person picture, and at the next start for the people the game draws itself.
-; Off with FirstPersonEnabled off too, its patches of the game's code are left out from the next start.
+; true: your character's mouth moves with what you say into your microphone: the jaw drops for "ah", the lips spread
+; for "ee" and round for "oo". Online, other players' mouths move while the game's voice chat plays them, and
+; other players with this mod see your mouth move. The sound is never recorded or sent. false: no microphone is
+; opened. Takes effect at once, but at the next start for the people the game draws itself, as in the isometric view
+; at Low. When this and FirstPersonEnabled are both off, the mod leaves the game's code for this unpatched from the
+; next start.
 TalkingMouths=false
 ; Your microphone, by the name Windows gives it, Default for Windows' own default, or None.
 Microphone=Default
@@ -801,24 +810,30 @@ FourthPlayerMicrophone=None
 ```
 <!-- /cameraunlock:config -->
 
-### Switching parts of the mod off
+### The options page
 
-Each part of the mod, each change to the game's rules, each fix of the game and each optimization has a row of its own, on until you untick it on the mod's page of the game's options screen or set it to `false` in `CameraUnlock.ini`. The fixes are under `[Fixes]` and the optimizations under `[Optimizations]`. A row whose comment says it is taken at the next start changes the game's own code, so it takes effect the next time the game starts. Off, its patches are left out of the game, and another Java mod that patches the same methods meets the game's own code.
+**Options > Mods > Head Tracking** has every setting in `CameraUnlock.ini` except the keys, the tracker's UDP ports, the lean limits (the `PositionLimit` rows), the lean collision rows (the `Collision` rows) and `DataFreshnessMs`. A change on the page takes effect when you apply the options with **APPLY** or **ACCEPT**, and is saved to `CameraUnlock.ini` then. Leaving without applying leaves every setting as it was.
 
-Six lists head the mod's page, each setting one class of the settings below it at once:
+The page has these sections: Quick settings, Head tracking, First person, Graphics, Custom graphics, Mod content, Gameplay tweaks, Game fixes, Optimizations, Split screen, one for each of players 2, 3 and 4, Voice, and Keys, which lists the keys and where to change them.
 
-- **Everything** - `On` or `Off` sets each of the five lists below to the same. Talking mouths, which listens to your microphone, is left as it is.
-- **Head tracking** - `On` or `Off`. Saved as `EnableOnStartup`.
-- **First person** - `On` turns first person on, leaving the view each player loads in as it is. `In vehicles` loads every player in the isometric view and switches to first person on getting into a vehicle and back on getting out. `Off` turns first person off.
-- **Enhanced graphics** - `On` turns on the mod's own content, lightning bolts, shot impacts, far vehicles and zombies, items as models, finer skins and the muzzle flash, and sets first person's graphics mode to `Automatic` and the isometric view's to `High`. `Off` puts back the game's own content, turns those off, and sets first person's graphics mode to `Low` and the isometric view's to `Low`, the game's own picture.
-- **Gameplay tweaks** - `On` or `Off` for the offline rules but `Rewind30s`, the game fixes, `TorchFollowsHead`, `HearFromTheEye`, `QuickRagdolls`, `HitFlinch`, `HeadLedViewWhenDown`, `NameTagsAtHeads`, the crosshair and `RegripTwoHandedWeapons`. `Off` also puts back the game's own split screen.
-- **Optimizations** - `On` or `Off` for every row under Optimizations.
+Custom graphics shows what player 1's first person graphics mode draws, and choosing another mode shows that mode's settings there. Changing one of them switches player 1's first person graphics to Custom, which draws them for every player set to Custom, in first person or the isometric view.
 
-Each list shows the line your settings match, or `As set below` when they match none. Choosing a line saves at once. A row read only as the game starts follows from the next start.
+Each part of the mod, each change to the game's rules, each fix of the game and each optimization has a tick box of its own, on until you untick it. A setting whose description says it takes effect when the game next starts changes the game's own code. With it off, the mod leaves that code unpatched from the next start, so another Java mod that patches the same methods finds the game's own code there.
+
+Quick settings, at the top of the page, has the head tracking switch and five lists that each switch a class of settings at once:
+
+- **Head tracking** - on or off, saved as `EnableOnStartup`. No key turns it on or off.
+- **Everything** - `On` ticks every box on the page except Talking mouths, Horizon-relative head turns, the Custom graphics rows and each player's Load saves in first person and First person in vehicles. It also turns head tracking on and sets each player's first person graphics to Automatic where they were on Low. `Off` unticks the same boxes, which puts the game's own content back, sets every player's first person and isometric graphics to Low, the game's own picture, and sets the split screen layout to side by side, as in the game. Head tracking and talking mouths stay as they are, so you can switch back on just what you want.
+- **First person** - `On` turns the first person view on and First person in vehicles off for every player, leaving the view each player's saves load in as it is. `In vehicles only` loads every player's saves in the isometric view, switches to first person when they get into a vehicle and back when they get out. `Off` turns the first person view off.
+- **Enhanced graphics** - `On` ticks every box under Graphics and Mod content, and sets each player's first person graphics to Automatic where they were on Low. `Off` unticks them, which puts the game's own content back, and sets every player's first person and isometric graphics to Low, the game's own picture.
+- **Gameplay tweaks** - `On` or `Off` ticks or unticks every box under Gameplay tweaks.
+- **Optimizations** - `On` or `Off` ticks or unticks every box under Optimizations.
+
+Choosing a line of a list changes the settings it covers on the page, and you can change any of them again before applying. Each list shows the line your settings match, or `Mixed` when they match none of its lines.
 
 ### Project Viewpoint
 
-With [Project Viewpoint](https://steamcommunity.com/sharedfiles/filedetails/?id=3809306528) running alongside this mod, head tracking turns Viewpoint's camera too: yaw, pitch and roll. Your lean is not carried into Viewpoint's camera. Head tracking has to be on, in the Head tracking list or as `EnableOnStartup`.
+With [Project Viewpoint](https://steamcommunity.com/sharedfiles/filedetails/?id=3809306528) running alongside this mod, head tracking turns Viewpoint's camera too: yaw, pitch and roll. Your lean is not carried into Viewpoint's camera. Head tracking has to be on: the Head tracking tick box at the top of the mod's options page, or `EnableOnStartup`.
 
 ## Troubleshooting
 

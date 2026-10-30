@@ -15,6 +15,8 @@ import java.nio.file.attribute.FileTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -91,6 +93,7 @@ public final class CoreTests {
         Checks.run("longStackTraceIsLoggedWhole", CoreTests::longStackTraceIsLoggedWhole);
         Checks.run("committedFileIsTheRowsRendered", CoreTests::committedFileIsTheRowsRendered);
         Checks.run("firstStartCreatesTheCommittedFileAndRunsOnItsValues", CoreTests::firstStartCreatesTheCommittedFileAndRunsOnItsValues);
+        Checks.run("aFreshInstallReadsOnInEveryQuickList", CoreTests::aFreshInstallReadsOnInEveryQuickList);
         Checks.run("trackerAxesBecomeThisViews", CoreTests::trackerAxesBecomeThisViews);
         Checks.run("mapsAnswerIsHandedToCoreAsAWall", CoreTests::mapsAnswerIsHandedToCoreAsAWall);
         Checks.run("poseTurnsAndMovesTheView", CoreTests::poseTurnsAndMovesTheView);
@@ -106,6 +109,7 @@ public final class CoreTests {
         Checks.run("rowsReadAgainWhileTheGameRuns", CoreTests::rowsReadAgainWhileTheGameRuns);
         Checks.run("aCollisionMarginInsideTheNearPlaneIsNotTaken", CoreTests::aCollisionMarginInsideTheNearPlaneIsNotTaken);
         Checks.run("settingsOfTheGamesOptionsScreenAreSavedAndTaken", CoreTests::settingsOfTheGamesOptionsScreenAreSavedAndTaken);
+        Checks.run("theOptionsPageSaysEachSettingInPlainWords", CoreTests::theOptionsPageSaysEachSettingInPlainWords);
         Checks.run("eachPlayersMicrophoneIsChosenAndSavedByItsName", CoreTests::eachPlayersMicrophoneIsChosenAndSavedByItsName);
         Checks.run("aGraphicsRowAppliedOnTheOptionsScreenGoesToCustom", CoreTests::aGraphicsRowAppliedOnTheOptionsScreenGoesToCustom);
         Checks.run("customKeepsItsRowsThroughTheOtherModes", CoreTests::customKeepsItsRowsThroughTheOtherModes);
@@ -113,8 +117,9 @@ public final class CoreTests {
         Checks.run("aGraphicsRowEditedInTheFileGoesToCustom", CoreTests::aGraphicsRowEditedInTheFileGoesToCustom);
         Checks.run("theDrawDistanceFarTreesAndReflectionsGoToCustomAsTheOtherRowsDo", CoreTests::theDrawDistanceFarTreesAndReflectionsGoToCustomAsTheOtherRowsDo);
         Checks.run("theGrassDensityGoesToCustomAsTheOtherRowsDo", CoreTests::theGrassDensityGoesToCustomAsTheOtherRowsDo);
+        Checks.run("anApplyThatLeftTheGraphicsRowsAloneKeepsAnEditOfTheFile", CoreTests::anApplyThatLeftTheGraphicsRowsAloneKeepsAnEditOfTheFile);
         Checks.run("aRowChangedInAutomaticStartsCustomFromItsLevelAndNeverFromStock", CoreTests::aRowChangedInAutomaticStartsCustomFromItsLevelAndNeverFromStock);
-        Checks.run("theOptionsPagesButtonsAreTakenSavedAndReadAtTheNextStart", CoreTests::theOptionsPagesButtonsAreTakenSavedAndReadAtTheNextStart);
+        Checks.run("theOptionsPagesQuickListsAreTakenSavedAndReadAtTheNextStart", CoreTests::theOptionsPagesQuickListsAreTakenSavedAndReadAtTheNextStart);
         Checks.run("everyTickBoxTickedOrUntickedIsSavedAndReadAtTheNextStart", CoreTests::everyTickBoxTickedOrUntickedIsSavedAndReadAtTheNextStart);
         Checks.run("theShippedJarStartsThroughBoot", CoreTests::theShippedJarStartsThroughBoot);
         Checks.tally();
@@ -777,85 +782,84 @@ public final class CoreTests {
         check(nextStart("parts-on-again").contains("left out: none"), "set back, the next start has every set in again");
     }
 
-    /** The sets of patches every start keeps: head tracking's, its options page's and the development build's. */
-    private static final String KEPT_SETS = "base, frame, development, model head, left save, lua loaded";
+    /** The sets of patches a start with head tracking on keeps: head tracking's, Project Viewpoint's among them, the options page's and the development build's. */
+    private static final String KEPT_SETS = "base, frame, development, model head, left save, lua loaded, viewpoint";
 
-    private static void theOptionsPagesButtonsAreTakenSavedAndReadAtTheNextStart() throws IOException, InterruptedException {
+    private static void theOptionsPagesQuickListsAreTakenSavedAndReadAtTheNextStart() throws IOException, InterruptedException {
         String saved = text();
-        boolean mouths = Mouths.on();
+        boolean mouths = Mouths.on(), enabled = Tracking.enabled();
         String tracking = Tracking.trackingModeLabel();
-        CameraUnlock.Option[] options = Tracking.options();
-        // Put back by the session at the end: a row read only as the game starts is not read again from the file.
-        Map<String, Double> before = new java.util.LinkedHashMap<>();
-        Set<String> keys = new java.util.LinkedHashSet<>(Tracking.everything(false).keySet());
-        keys.addAll(Tracking.everything(true).keySet());
-        keys.addAll(Tracking.firstPersonUse(Tracking.FIRST_PERSON_IN_VEHICLES).keySet());
-        for (String key : keys) {
-            before.put(key, Tracking.optionValue(optionNamed(options, key)));
+        Screen screen = Screen.opened();
+        // Set back on the page at the end: a row read only as the game starts is not read again from the file.
+        Map<String, Double> before = new LinkedHashMap<>();
+        for (OptionsDraft.Setting setting : screen.draft().settings) {
+            if (!setting.slider() && Config.graphicsPart(setting.described.id) < 0) {
+                before.put(setting.described.id, setting.staged);
+            }
         }
-        Map<String, Double> off = Tracking.everything(false);
-        check(!Tracking.applyAll(off).isEmpty() && Tracking.applyAll(Tracking.everything(false)).isEmpty(),
-                "Everything's Off sets what it names, and chosen again sets nothing");
-        boolean all = true;
-        for (Map.Entry<String, Double> row : off.entrySet()) {
-            all &= Tracking.optionValue(optionNamed(options, row.getKey())) == row.getValue();
-        }
-        check(all && !Part.FIRST_PERSON.on() && Rules.rows() == 0 && Own.rows() == 0 && Quality.overheadRow(0) == Quality.LOW && !PendingLights.spread()
+        screen.choose("Everything", "Off");
+        check(screen.readsAll().equals("Off Off Off Off Off") && Part.FIRST_PERSON.on() && Rules.rows() != 0,
+                "Everything's Off sets every list on the page to Off, and nothing is taken before the screen is applied: " + screen.readsAll());
+        long writesBefore = savesLogged();
+        screen.apply();
+        check(!Part.FIRST_PERSON.on() && Rules.rows() == 0 && Own.rows() == 0 && Quality.overheadRow(0) == Quality.LOW && !PendingLights.spread()
                         && !MuzzleFlash.on() && !Crosshair.on() && !Regrip.on() && SplitScreen.row() == SplitScreen.VERTICAL,
-                "every part, rule and optimization is off, and the content, isometric view and split screen are the game's: " + Part.described());
-        check(!Tracking.enabled() && Mouths.on() == mouths && Tracking.trackingModeLabel().equals(tracking),
-                "head tracking is off, and talking mouths and the tracking mode are as they were");
+                "applied, every part, rule and optimization is off, and the content, isometric view and split screen are the game's: " + Part.described());
+        check(Tracking.enabled() == enabled && Mouths.on() == mouths && Tracking.trackingModeLabel().equals(tracking),
+                "head tracking, talking mouths and the tracking mode are as they were");
         boolean effectsOff = true;
         for (String key : new String[] {"ShadingAndLight", "Reflections", "FullSizeTextures", "SurfaceDepth", "SharpShadows", "WholeFigureShadows"}) {
-            effectsOff &= Tracking.optionValue(optionNamed(options, key)) == 0;
+            effectsOff &= Tracking.optionValue(Tracking.optionPlace(key)) == 0;
         }
-        check(effectsOff && !Tracking.firstPersonRemembered(0) && !Tracking.firstPersonInVehicles(0),
-                "first person's graphics mode is Low, so its rows read Low's picture with every effect off, and no view goes to first person by itself");
-        check(Tracking.holds(off) && !Tracking.holds(Tracking.everything(true)) && Tracking.holds(Tracking.headTracking(false))
-                        && Tracking.holds(Tracking.firstPersonUse(Tracking.FIRST_PERSON_OFF)) && Tracking.holds(Tracking.enhancedGraphics(false))
-                        && Tracking.holds(Tracking.gameplayTweaks(false)) && Tracking.holds(Tracking.optimizations(false)),
-                "every list at the top of the page reads Off");
-        savesMade();
-        check(saved("EnableOnStartup=false", "FirstPersonEnabled=false", "TorchFollowsHead=false", "ShotsThroughWalls=false", "HiddenWallDecorSaved=false", "HillsMoveVehicles=false",
+        check(effectsOff && Quality.row(0) == Quality.LOW && Quality.row(3) == Quality.LOW,
+                "every player's first person graphics mode is Low, so the rows of [Graphics] read Low's picture with every effect off");
+        check(Screen.opened().readsAll().equals("Off Off Off Off Off"), "and the page opened again reads Off in every list");
+        check(savesLogged() - writesBefore == 1, "all of it is saved in one write: " + (savesLogged() - writesBefore));
+        check(saved("FirstPersonEnabled=false", "TorchFollowsHead=false", "ShotsThroughWalls=false", "HiddenWallDecorSaved=false", "HillsMoveVehicles=false",
                         "BurntBuildingFreezeFix=false", "CachedGameLookups=false", "SpotBySight=false", "SpreadLightUpdates=false", "VanillaWeapons=true",
-                        "IsometricQuality=Low", "FourthPlayerIsometricQuality=Low"),
-                "and all of it is saved");
+                        "Quality=Low", "FourthPlayerQuality=Low", "IsometricQuality=Low", "FourthPlayerIsometricQuality=Low", "EnableOnStartup=default"),
+                "as the rows it sets, with head tracking's left as it was");
         String next = nextStart("everything-off");
         check(next.contains("left out: " + leftOutBut(KEPT_SETS) + System.lineSeparator()),
-                "the next start leaves out every set of patches but head tracking's, its options page's and the development build's: " + leftOutLine(next));
+                "the next start leaves out every set of patches but head tracking's, the options page's and the development build's: " + leftOutLine(next));
 
-        Tracking.applyAll(Tracking.firstPersonUse(Tracking.FIRST_PERSON_IN_VEHICLES));
+        Screen vehicles = Screen.opened();
+        vehicles.choose("FirstPersonUse", "In vehicles only");
+        vehicles.apply();
         check(Part.FIRST_PERSON.on() && Tracking.firstPersonInVehicles(0) && Tracking.firstPersonInVehicles(3) && !Tracking.firstPersonRemembered(2)
-                        && Tracking.holds(Tracking.firstPersonUse(Tracking.FIRST_PERSON_IN_VEHICLES))
-                        && !Tracking.holds(Tracking.firstPersonUse(Tracking.FIRST_PERSON_ON)),
-                "First person's In vehicles turns first person on for vehicles alone, every view loading isometric, and the list reads In vehicles");
-        Tracking.applyOption(optionNamed(options, "FirstPerson"), options[optionNamed(options, "FirstPerson")], 1);
-        Tracking.applyAll(Tracking.firstPersonUse(Tracking.FIRST_PERSON_ON));
-        check(Part.FIRST_PERSON.on() && !Tracking.firstPersonInVehicles(0) && Tracking.firstPersonRemembered(0)
-                        && Tracking.holds(Tracking.firstPersonUse(Tracking.FIRST_PERSON_ON)),
+                        && vehicles.reads("FirstPersonUse").equals("In vehicles only") && vehicles.reads("Everything").equals(OptionsLayout.MIXED),
+                "First person's In vehicles only turns first person on for vehicles alone, every view loading isometric, and Everything then reads Mixed");
+        vehicles.set(Config.firstPersonRow(0), 1);
+        check(vehicles.reads("FirstPersonUse").equals(OptionsLayout.MIXED), "a save then set to load in first person is none of First person's lines");
+        vehicles.choose("FirstPersonUse", "On");
+        vehicles.apply();
+        check(Part.FIRST_PERSON.on() && !Tracking.firstPersonInVehicles(0) && Tracking.firstPersonRemembered(0) && vehicles.reads("FirstPersonUse").equals("On"),
                 "On leaves the view each player loads in as it is, and no vehicle switches the view");
-        Tracking.applyAll(Tracking.headTracking(true));
-        check(Tracking.enabled() && Tracking.holds(Tracking.headTracking(true)), "Head tracking's On turns head tracking on at once");
-        savesMade();
-        check(saved("EnableOnStartup=true", "FirstPersonEnabled=true", "FirstPersonInVehicles=false", "FirstPerson=true"), "each line is saved");
+        check(saved("FirstPersonEnabled=true", "FirstPersonInVehicles=false", "FirstPerson=true"), "each line is saved");
 
-        Map<String, Double> on = Tracking.everything(true);
-        check(!Tracking.applyAll(on).isEmpty() && Tracking.applyAll(Tracking.everything(true)).isEmpty(),
-                "Everything's On sets what it names, and chosen again sets nothing");
-        check(Part.FIRST_PERSON.on() && Rules.rows() != 0 && Own.rows() != 0 && PendingLights.spread() && MuzzleFlash.on() && Crosshair.on() && Regrip.on()
-                        && Quality.overheadRow(0) == Quality.HIGH && Tracking.enabled() && Tracking.holds(on) && !Tracking.holds(off),
-                "and turns head tracking and every part, rule and optimization on with the mod's own content and the isometric view at High: " + Part.described());
-        savesMade();
+        Screen on = Screen.opened();
+        on.choose("Everything", "On");
+        check(on.readsAll().equals("On On On On On"), "Everything's On sets every list on the page to On: " + on.readsAll());
+        on.apply();
+        check(Part.FIRST_PERSON.on() && Rules.rows() == (Rules.ALL & ~Rules.REWIND) && Own.rows() == Own.ALL && PendingLights.spread() && MuzzleFlash.on()
+                        && Crosshair.on() && Regrip.on() && Quality.row(0) == Quality.AUTOMATIC && Quality.row(3) == Quality.AUTOMATIC
+                        && Quality.overheadRow(0) == Quality.LOW && Tracking.enabled(),
+                "applied, it turns head tracking and every part, rule and optimization on, with the mod's own content and first person graphics at "
+                        + "Automatic where they were at Low, and leaves the isometric view's as they were: " + Part.described());
         check(saved("FirstPersonEnabled=true", "TorchFollowsHead=true", "ShotsThroughWalls=true", "SpotBySight=true", "VanillaWeapons=false",
                 "Quality=Automatic", "FourthPlayerQuality=Automatic"), "and all of it is saved");
-        Tracking.applyAll(before);
-        savesMade();
-        // Head tracking's row holds default until a list sets it, and is then written as a value: on here, as it was.
-        check(saved.contains("EnableOnStartup=default") && text().equals(saved.replace("EnableOnStartup=default", "EnableOnStartup=true")),
-                "and every row set back as it was, the file is as it was but head tracking's row, written as on");
+
+        Screen back = Screen.opened();
+        before.forEach((id, value) -> {
+            if (back.shows(id) != value) {
+                back.set(id, value);
+            }
+        });
+        back.apply();
+        check(text().equals(saved), "every setting set back as it was there, the file is as it was");
         Tracking.watchSettings();
         check(Part.FIRST_PERSON.on() && Quality.overheadRow(0) == Quality.LOW && (Rules.rows() & Rules.THROUGH_WALLS) != 0,
-                "the file set back is read back");
+                "and the file set back is read back");
     }
 
     /** Every set of patches by name in the order they go in, but those named. */
@@ -872,24 +876,36 @@ public final class CoreTests {
 
     private static void everyTickBoxTickedOrUntickedIsSavedAndReadAtTheNextStart() throws IOException, InterruptedException {
         String saved = text();
-        CameraUnlock.Option[] options = Tracking.options();
+        Screen screen = Screen.opened();
         StringBuilder rows = new StringBuilder();
         List<String> flipped = new ArrayList<>(), back = new ArrayList<>();
-        List<Integer> places = new ArrayList<>();
-        for (int option = 0; option < options.length; option++) {
-            if (options[option].kind != CameraUnlock.OPTION_BOOL || options[option].source != CameraUnlock.OPTION_ROW
-                    || options[option].id.equals(Config.TALKING_MOUTHS) || Config.graphicsPart(options[option].id) >= 0) {
+        Map<String, Double> was = new LinkedHashMap<>();
+        for (OptionsDraft.Setting setting : screen.draft().settings) {
+            CameraUnlock.Option option = setting.described;
+            if (option.kind != CameraUnlock.OPTION_BOOL || option.source != CameraUnlock.OPTION_ROW || option.id.equals(Config.TALKING_MOUTHS)
+                    || Config.graphicsPart(option.id) >= 0) {
                 continue;
             }
-            boolean now = Tracking.optionValue(option) != 0;
-            Tracking.applyOption(option, options[option], now ? 0 : 1);
-            flipped.add(options[option].id + "=" + !now);
-            back.add(options[option].id + "=" + now);
-            places.add(option);
-            rows.append(options[option].id).append(' ');
+            boolean now = setting.staged != 0;
+            was.put(option.id, setting.staged);
+            screen.set(option.id, now ? 0 : 1);
+            flipped.add(option.id + "=" + !now);
+            back.add(option.id + "=" + now);
+            rows.append(option.id).append(' ');
         }
-        savesMade();
-        check(flipped.size() > 50 && saved(flipped.toArray(String[]::new)), "every tick box of the mod's rows, ticked or unticked, is saved as its row: " + rows);
+        Set<String> taken = screen.apply();
+        check(flipped.size() > 50 && taken.size() == flipped.size() && saved(flipped.toArray(String[]::new)),
+                "every tick box of the mod's rows, ticked or unticked and applied together, is taken and saved as its row: " + rows);
+        String logged = Files.readString(game.resolve(Log.FILE_NAME));
+        String line = logged.substring(logged.lastIndexOf("taken from the game's options screen: "));
+        line = line.substring(0, line.indexOf(System.lineSeparator()));
+        int later = line.indexOf("; saved for the next start: ");
+        boolean placed = later > 0;
+        for (Part part : Part.values()) {
+            int at = line.indexOf(" " + part.key + " ");
+            placed &= at > 0 && (part.live ? at < later : at > later);
+        }
+        check(placed, "the log says which of them were taken and which are saved for the next start: " + line);
         String next = nextStart("every-tick-flipped");
         String parts = next.substring(next.indexOf("the mod's parts: "));
         boolean read = true;
@@ -897,10 +913,9 @@ public final class CoreTests {
             read &= parts.contains(part.key + " off");
         }
         check(read, "and the next start reads each of them as it was left: " + parts.substring(0, parts.indexOf(System.lineSeparator())));
-        for (int option : places) {
-            Tracking.applyOption(option, options[option], Tracking.optionValue(option) != 0 ? 0 : 1);
-        }
-        savesMade();
+        Screen again = Screen.opened();
+        was.forEach(again::set);
+        again.apply();
         check(saved(back.toArray(String[]::new)), "and each ticked back is saved back as it was");
         edit(saved);
         Tracking.watchSettings();
@@ -1011,15 +1026,21 @@ public final class CoreTests {
         for (CameraUnlock.Option option : options) {
             ids.append(option.id).append(' ');
         }
-        check(ids.toString().equals("EnableOnStartup WorldSpaceYaw TrackingMode AimMode FirstPersonEnabled FieldOfView Quality IsometricQuality Style FirstPerson FirstPersonInVehicles HillHeight MuzzleFlash Crosshair RegripTwoHandedWeapons SplitScreen TorchFollowsHead HearFromTheEye LightningBolts ShotImpacts FarVehiclesAndZombies QuickRagdolls HitFlinch HeadLedViewWhenDown ItemsAsModels FinerSkins LeaveOutScreenGrey NameTagsAtHeads "
-                        + "SecondPlayerQuality SecondPlayerIsometricQuality SecondPlayerStyle SecondPlayerFirstPerson SecondPlayerFirstPersonInVehicles ThirdPlayerQuality ThirdPlayerIsometricQuality ThirdPlayerStyle "
-                        + "ThirdPlayerFirstPerson ThirdPlayerFirstPersonInVehicles FourthPlayerQuality FourthPlayerIsometricQuality FourthPlayerStyle FourthPlayerFirstPerson FourthPlayerFirstPersonInVehicles TreeQuality "
-                        + "GrassDensity RenderScale ViewDistance ZombiesAndPropsDrawDistance FarTreeDistance RainOnGlass ShadingAndLight Reflections ReflectionScale "
-                        + "FullSizeTextures SurfaceDepth SharpShadows WholeFigureShadows FrameBlending LightDistance CorpseModels SpreadLightUpdates CachedGameLookups SkipCoveredGameDrawing SkinsComposedWhileWaiting ChunkChangeCounts UnseenRoomZombiesUnmodelled HoldChunkMapCentre GraphicsMemorySteps PrepareWhileLoading SpotBySight BuildOnWorkerThreads RebuildForOwnSprites HiddenWallReadsKept BuildingFactsKept VanillaWeapons VanillaFurniture "
+        check(ids.toString().equals("EnableOnStartup WorldSpaceYaw TrackingMode LocalSmoothing RemoteSmoothing AimMode LightMultiplier FirstPersonEnabled FieldOfView Quality IsometricQuality "
+                        + "Style FirstPerson FirstPersonInVehicles HillHeight MuzzleFlash Crosshair RegripTwoHandedWeapons SplitScreen TorchFollowsHead HearFromTheEye LightningBolts "
+                        + "ShotImpacts FarVehiclesAndZombies QuickRagdolls HitFlinch HeadLedViewWhenDown ItemsAsModels FinerSkins LeaveOutScreenGrey NameTagsAtHeads SecondPlayerQuality "
+                        + "SecondPlayerIsometricQuality SecondPlayerStyle SecondPlayerFirstPerson SecondPlayerFirstPersonInVehicles ThirdPlayerQuality ThirdPlayerIsometricQuality "
+                        + "ThirdPlayerStyle ThirdPlayerFirstPerson ThirdPlayerFirstPersonInVehicles FourthPlayerQuality FourthPlayerIsometricQuality FourthPlayerStyle FourthPlayerFirstPerson "
+                        + "FourthPlayerFirstPersonInVehicles TreeQuality GrassDensity RenderScale ViewDistance ZombiesAndPropsDrawDistance FarTreeDistance RainOnGlass ShadingAndLight "
+                        + "Reflections ReflectionScale FullSizeTextures SurfaceDepth SharpShadows WholeFigureShadows FrameBlending LightDistance CorpseModels SpreadLightUpdates "
+                        + "CachedGameLookups SkipCoveredGameDrawing SkinsComposedWhileWaiting ChunkChangeCounts UnseenRoomZombiesUnmodelled HoldChunkMapCentre GraphicsMemorySteps "
+                        + "PrepareWhileLoading SpotBySight BuildOnWorkerThreads RebuildForOwnSprites HiddenWallReadsKept BuildingFactsKept VanillaWeapons VanillaFurniture "
                         + "VanillaPictures VanillaPlants VanillaTextures VanillaBuildings VanillaZombies VanillaPeople VanillaArms VanillaClothes VanillaAnimals VanillaFire "
-                        + "VanillaCabins "
-                        + "ShotsThroughWalls ShotsBreakLamps ShotsBreakGlass ShotsWoundLimbs VehiclesSmashThrough FacesTheView ShotsPastTrees ZombiesSeenAtOnce HiddenWallDecor HiddenWallDecorSaved ShotsFromVehicleSeats DriveWhileAiming HillsMoveVehicles HandLightOutAtTheWheel BurntBuildingFreezeFix CentreTheWindow ControllerChoiceFix TalkingMouths "),
-                "the game's options screen is given the modes, the yaw mode and the mod's own rows, and no key list, port or microphone: " + ids);
+                        + "VanillaCabins ShotsThroughWalls ShotsBreakLamps ShotsBreakGlass ShotsWoundLimbs VehiclesSmashThrough FacesTheView ShotsPastTrees ZombiesSeenAtOnce "
+                        + "HiddenWallDecor HiddenWallDecorSaved ShotsFromVehicleSeats DriveWhileAiming HillsMoveVehicles HandLightOutAtTheWheel BurntBuildingFreezeFix CentreTheWindow "
+                        + "ControllerChoiceFix TalkingMouths "),
+                "the game's options screen is given the modes, the yaw mode, the smoothing, the flashlight's turn and the mod's own rows, and no key list, "
+                        + "port or microphone: " + ids);
         int[][] layout = OptionsLayout.of(OptionsLayout.PAGE, options);
         StringBuilder page = new StringBuilder();
         for (int group = 0; group < layout.length; group++) {
@@ -1028,106 +1049,248 @@ public final class CoreTests {
                 page.append(options[option].id).append(' ');
             }
         }
-        check(page.toString().equals("[Tracking] EnableOnStartup TrackingMode AimMode WorldSpaceYaw [First person] FirstPersonEnabled FirstPerson FirstPersonInVehicles FieldOfView Crosshair HillHeight TorchFollowsHead HearFromTheEye LightningBolts ShotImpacts FarVehiclesAndZombies QuickRagdolls HitFlinch HeadLedViewWhenDown ItemsAsModels FinerSkins LeaveOutScreenGrey NameTagsAtHeads [Weapons] MuzzleFlash RegripTwoHandedWeapons "
-                        + "[Graphics] Quality IsometricQuality Style [Custom graphics] TreeQuality GrassDensity RenderScale ViewDistance ZombiesAndPropsDrawDistance "
+        check(page.toString().equals("[Quick settings] EnableOnStartup [Head tracking] TrackingMode AimMode WorldSpaceYaw LocalSmoothing RemoteSmoothing TorchFollowsHead LightMultiplier "
+                        + "[First person] FirstPersonEnabled FirstPerson FirstPersonInVehicles FieldOfView Crosshair HearFromTheEye HeadLedViewWhenDown NameTagsAtHeads "
+                        + "QuickRagdolls HitFlinch HillHeight [Graphics] Quality IsometricQuality Style LightningBolts ShotImpacts MuzzleFlash ItemsAsModels FinerSkins "
+                        + "LeaveOutScreenGrey FarVehiclesAndZombies HiddenWallDecor [Custom graphics] TreeQuality GrassDensity RenderScale ViewDistance ZombiesAndPropsDrawDistance "
                         + "FarTreeDistance RainOnGlass ShadingAndLight Reflections ReflectionScale FullSizeTextures SurfaceDepth SharpShadows WholeFigureShadows FrameBlending "
-                        + "LightDistance CorpseModels [Optimizations] SpreadLightUpdates CachedGameLookups SkipCoveredGameDrawing SkinsComposedWhileWaiting ChunkChangeCounts UnseenRoomZombiesUnmodelled HoldChunkMapCentre GraphicsMemorySteps PrepareWhileLoading SpotBySight BuildOnWorkerThreads RebuildForOwnSprites HiddenWallReadsKept BuildingFactsKept [Vanilla content] VanillaWeapons VanillaFurniture VanillaPictures VanillaPlants VanillaTextures VanillaBuildings "
-                        + "VanillaZombies VanillaPeople VanillaArms VanillaClothes VanillaAnimals VanillaFire VanillaCabins [Offline rules] ShotsThroughWalls "
-                        + "ShotsBreakLamps ShotsBreakGlass ShotsWoundLimbs VehiclesSmashThrough FacesTheView ShotsPastTrees ZombiesSeenAtOnce HiddenWallDecor HiddenWallDecorSaved ShotsFromVehicleSeats DriveWhileAiming HillsMoveVehicles HandLightOutAtTheWheel [Game fixes] BurntBuildingFreezeFix CentreTheWindow ControllerChoiceFix [Split screen] SplitScreen "
-                        + "SecondPlayerQuality SecondPlayerIsometricQuality SecondPlayerStyle SecondPlayerFirstPerson SecondPlayerFirstPersonInVehicles ThirdPlayerQuality ThirdPlayerIsometricQuality ThirdPlayerStyle "
-                        + "ThirdPlayerFirstPerson ThirdPlayerFirstPersonInVehicles FourthPlayerQuality FourthPlayerIsometricQuality FourthPlayerStyle FourthPlayerFirstPerson FourthPlayerFirstPersonInVehicles [Voice] TalkingMouths "),
-                "the page puts each setting under one title, the tracking mode first: " + page);
+                        + "LightDistance CorpseModels [Mod content] VanillaWeapons VanillaFurniture VanillaPictures VanillaPlants VanillaTextures VanillaBuildings VanillaZombies "
+                        + "VanillaPeople VanillaArms VanillaClothes VanillaAnimals VanillaFire VanillaCabins [Gameplay tweaks] ShotsThroughWalls ShotsPastTrees ShotsBreakGlass "
+                        + "ShotsBreakLamps ShotsWoundLimbs ShotsFromVehicleSeats RegripTwoHandedWeapons FacesTheView DriveWhileAiming HillsMoveVehicles VehiclesSmashThrough "
+                        + "HandLightOutAtTheWheel ZombiesSeenAtOnce HiddenWallDecorSaved [Game fixes] BurntBuildingFreezeFix CentreTheWindow ControllerChoiceFix [Optimizations] "
+                        + "SpreadLightUpdates CachedGameLookups SkipCoveredGameDrawing SkinsComposedWhileWaiting ChunkChangeCounts UnseenRoomZombiesUnmodelled HoldChunkMapCentre "
+                        + "GraphicsMemorySteps PrepareWhileLoading SpotBySight BuildOnWorkerThreads RebuildForOwnSprites HiddenWallReadsKept BuildingFactsKept [Split screen] "
+                        + "SplitScreen [Player 2] SecondPlayerQuality SecondPlayerIsometricQuality SecondPlayerStyle SecondPlayerFirstPerson SecondPlayerFirstPersonInVehicles "
+                        + "[Player 3] ThirdPlayerQuality ThirdPlayerIsometricQuality ThirdPlayerStyle ThirdPlayerFirstPerson ThirdPlayerFirstPersonInVehicles [Player 4] "
+                        + "FourthPlayerQuality FourthPlayerIsometricQuality FourthPlayerStyle FourthPlayerFirstPerson FourthPlayerFirstPersonInVehicles [Voice] TalkingMouths "),
+                "the page puts each setting under one title, head tracking first: " + page);
         CameraUnlock.Option[] unplaced = Arrays.copyOf(options, options.length + 1);
         unplaced[options.length] = new CameraUnlock.Option();
         unplaced[options.length].id = "Unplaced";
         unplaced[options.length].section = "General";
         check(refuses(OptionsLayout.PAGE, unplaced, "Unplaced of [General] is under no title"), "and a setting under no title stops the page from being made");
         OptionsLayout.Group[] twice = Arrays.copyOf(OptionsLayout.PAGE, OptionsLayout.PAGE.length + 1);
-        twice[OptionsLayout.PAGE.length] = new OptionsLayout.Group("Again", null, "FieldOfView");
+        twice[OptionsLayout.PAGE.length] = new OptionsLayout.Group("Again", null, null, "FieldOfView");
         check(refuses(twice, options, "FieldOfView is under both First person and Again"), "and so does a setting under two titles");
         OptionsLayout.Group[] stale = Arrays.copyOf(OptionsLayout.PAGE, OptionsLayout.PAGE.length + 1);
-        stale[OptionsLayout.PAGE.length] = new OptionsLayout.Group("Gone", null, "NoSuchSetting");
+        stale[OptionsLayout.PAGE.length] = new OptionsLayout.Group("Gone", null, null, "NoSuchSetting");
         check(refuses(stale, options, "NoSuchSetting is put under Gone"), "and a title naming a setting there is not");
-        int fov = optionNamed(options, "FieldOfView"), yaw = optionNamed(options, "WorldSpaceYaw"), tracking = optionNamed(options, "TrackingMode"),
-                aim = optionNamed(options, "AimMode"), arms = optionNamed(options, "VanillaArms"), flash = optionNamed(options, "MuzzleFlash");
+        int fov = Tracking.optionPlace("FieldOfView"), yaw = Tracking.optionPlace("WorldSpaceYaw"), tracking = Tracking.optionPlace("TrackingMode"),
+                aim = Tracking.optionPlace("AimMode"), arms = Tracking.optionPlace("VanillaArms"), flash = Tracking.optionPlace("MuzzleFlash");
         boolean taken = true;
         for (CameraUnlock.Option option : options) {
             taken &= Tracking.takes(option);
         }
         check(taken, "the session has somewhere to put each of them");
         check(options[fov].kind == CameraUnlock.OPTION_FLOAT && options[fov].min == 40 && options[fov].max == 110 && options[fov].step == 1
-                        && options[fov].label.equals("Field of view") && options[aim].source == CameraUnlock.OPTION_AIM_MODE,
+                        && OptionsLayout.label(options[fov]).equals("Field of view") && options[aim].source == CameraUnlock.OPTION_AIM_MODE,
                 "the field of view is a slider from 40 to 110 in whole degrees");
         check(Tracking.optionValue(fov) == FieldOfView.degrees() && Tracking.optionValue(aim) == Tracking.aimMode()
-                        && (Tracking.optionValue(yaw) != 0) == Tracking.worldYaw()
-                        && (Tracking.optionValue(flash) != 0) == MuzzleFlash.on() && options[flash].label.equals("Muzzle flash"),
+                        && (Tracking.optionValue(yaw) != 0) == Tracking.worldYaw() && (Tracking.optionValue(flash) != 0) == MuzzleFlash.on()
+                        && OptionsLayout.label(options[flash]).equals("Muzzle flash"),
                 "each reads as the session has it");
-        check(options[arms].kind == CameraUnlock.OPTION_BOOL && options[arms].label.equals("Vanilla arms") && options[arms].comment.contains("held weapon")
-                        && options[arms].comment.contains("mod that changes the arms or the weapons"),
-                "the arms are a tick box whose tooltip says what they are and what they are on for: " + options[arms].label);
+        String armsTip = OptionsLayout.tip(options[arms], options);
+        check(options[arms].kind == CameraUnlock.OPTION_BOOL && OptionsLayout.label(options[arms]).equals("Arms and hands")
+                        && armsTip.equals("On: the mod's arms and hands, which work the bolt, slide and magazine. Off: the game's own arms and hands on a "
+                                + "held weapon, for a mod that changes the arms or the weapons."),
+                "the arms are a tick box ticked for the mod's own, whose tooltip says what each is and what the game's are for: " + armsTip);
         check(Arrays.stream(options).noneMatch(option -> option.id.equals("Rewind30s")) && !Rules.rewind(),
                 "the build that ships has no Rewind 30s, on the options screen or in play");
+        CameraUnlock.Option local = options[Tracking.optionPlace("LocalSmoothing")], light = options[Tracking.optionPlace("LightMultiplier")];
+        check(local.kind == CameraUnlock.OPTION_FLOAT && local.min == 0 && local.max == 1 && local.step == 0.01 && light.kind == CameraUnlock.OPTION_FLOAT
+                        && light.min == 0 && light.step == 0.1,
+                "the smoothing is a slider from 0 to 1 in hundredths, and the flashlight's turn one from 0 in tenths: " + local.step + ", " + light.min
+                        + " to " + light.max + " by " + light.step);
 
-        int overhead = optionNamed(options, "IsometricQuality");
-        check(Tracking.optionValue(overhead) == Quality.overheadRow(0) - Quality.LOW && options[overhead].label.equals("Isometric quality"),
-                "the isometric view's graphics mode reads as the session has it, Low as 0: " + options[overhead].label);
-        Tracking.applyOption(overhead, options[overhead], 2);
+        int overhead = Tracking.optionPlace("IsometricQuality");
+        check(Tracking.optionValue(overhead) == Quality.overheadRow(0) - Quality.LOW && OptionsLayout.label(options[overhead]).equals("Isometric graphics"),
+                "the isometric view's graphics mode reads as the session has it, Low as 0: " + OptionsLayout.label(options[overhead]));
+        int isometric = Quality.overheadRow(0);
+        Screen screen = Screen.opened();
+        screen.set("IsometricQuality", 2);
+        check(Quality.overheadRow(0) == isometric, "set to High there, it is not taken before the screen is applied");
+        screen.apply();
         check(Quality.overheadRow(0) == Quality.HIGH && Tracking.optionValue(overhead) == 2 && saved("IsometricQuality=High"),
-                "set to High there it is taken, saved and read back");
-        Tracking.applyOption(overhead, options[overhead], 0);
+                "applied, it is taken, saved and read back");
+        screen.set("IsometricQuality", 0);
+        screen.apply();
         check(Quality.overheadRow(0) == Quality.LOW && saved("IsometricQuality=Low"), "and set back to Low");
 
+        float localWas = (float) Tracking.optionValue(Tracking.optionPlace("LocalSmoothing")),
+                remoteWas = (float) Tracking.optionValue(Tracking.optionPlace("RemoteSmoothing")), lightWas = Tracking.lightMultiplier();
         boolean world = !Tracking.worldYaw(), flashed = !MuzzleFlash.on(), vanillaArms = (Own.rows() & Own.ARMS) != 0;
-        int[] applied = {fov, yaw, tracking, aim, arms, flash};
-        double[] values = {72, world ? 1 : 0, CameraUnlock.TRACKING_POSITION_ONLY, CameraUnlock.AIM_STOCK_SIGHTS, vanillaArms ? 1 : 0, flashed ? 1 : 0};
-        for (int i = 0; i < applied.length; i++) {
-            Tracking.applyOption(applied[i], options[applied[i]], values[i]);
-        }
-        check(FieldOfView.degrees() == 72f && Tracking.worldYaw() == world && Tracking.aimMode() == CameraUnlock.AIM_STOCK_SIGHTS
-                        && Tracking.trackingModeLabel().equals("position only") && ((Own.rows() & Own.ARMS) == 0) == vanillaArms
-                        && MuzzleFlash.on() == flashed,
-                "what is applied there the session takes at once, before any of it is saved: " + started());
+        int aimTo = Tracking.aimMode() == CameraUnlock.AIM_STOCK_SIGHTS ? CameraUnlock.AIM_SIGHTS_LOCKED : CameraUnlock.AIM_STOCK_SIGHTS;
+        Screen batch = Screen.opened();
+        batch.set("FieldOfView", 72);
+        batch.set("WorldSpaceYaw", world ? 1 : 0);
+        batch.set("TrackingMode", CameraUnlock.TRACKING_POSITION_ONLY);
+        batch.set("AimMode", aimTo);
+        batch.set("VanillaArms", vanillaArms ? 1 : 0);
+        batch.set("MuzzleFlash", flashed ? 1 : 0);
+        batch.set("LocalSmoothing", 0.25);
+        batch.set("RemoteSmoothing", 0.4);
+        batch.set("LightMultiplier", 0.5);
+        Set<String> applied = batch.apply();
+        BooleanSupplier runsOnIt = () -> FieldOfView.degrees() == 72f && Tracking.worldYaw() == world && Tracking.aimMode() == aimTo
+                && Tracking.trackingModeLabel().equals("position only") && ((Own.rows() & Own.ARMS) == 0) == vanillaArms && MuzzleFlash.on() == flashed
+                && (float) Tracking.optionValue(Tracking.optionPlace("LocalSmoothing")) == 0.25f
+                && (float) Tracking.optionValue(Tracking.optionPlace("RemoteSmoothing")) == 0.4f && Tracking.lightMultiplier() == 0.5f;
+        check(applied.equals(Set.of("FieldOfView", "WorldSpaceYaw", "TrackingMode", "AimMode", "VanillaArms", "MuzzleFlash", "LocalSmoothing", "RemoteSmoothing",
+                        "LightMultiplier")) && runsOnIt.getAsBoolean(),
+                "what is applied there the session takes at once, before any of it is saved: " + applied + " " + started());
         Tracking.toggleWorldYaw();
         Tracking.cycleGraphicsMode(0);
         check(Tracking.worldYaw() == !world, "a key pressed straight after is not undone by the saves that follow");
         Tracking.toggleWorldYaw();
-        check(saved("FieldOfView=72.0", "WorldSpaceYaw=" + world, "RotationEnabled=false", "PositionEnabled=true", "StockSights=true",
-                        "VanillaArms=" + vanillaArms, "MuzzleFlash=" + flashed),
+        check(saved("FieldOfView=72.0", "WorldSpaceYaw=" + world, "RotationEnabled=false", "PositionEnabled=true", "TrueFreeLook=false",
+                        "StockSights=" + (aimTo == CameraUnlock.AIM_STOCK_SIGHTS),
+                        "VanillaArms=" + vanillaArms, "MuzzleFlash=" + flashed, "LocalSmoothing=0.25", "RemoteSmoothing=0.4", "LightMultiplier=0.5"),
                 "what is applied there is saved as its row, or the rows of its mode");
-        check(FieldOfView.degrees() == 72f && Tracking.worldYaw() == world && Tracking.aimMode() == CameraUnlock.AIM_STOCK_SIGHTS
-                        && Tracking.trackingModeLabel().equals("position only") && ((Own.rows() & Own.ARMS) == 0) == vanillaArms
-                        && MuzzleFlash.on() == flashed,
-                "and the session still runs on it once the saves are made: " + started());
-        check(Tracking.optionValue(fov) == 72 && Tracking.optionValue(tracking) == CameraUnlock.TRACKING_POSITION_ONLY,
-                "and the screen reads it back when it next opens");
+        check(runsOnIt.getAsBoolean(), "and the session still runs on it once the saves are made: " + started());
+        Screen again = Screen.opened();
+        check(again.shows("FieldOfView") == 72 && again.shows("TrackingMode") == CameraUnlock.TRACKING_POSITION_ONLY && again.shows("RemoteSmoothing") == 0.4
+                        && again.shows("LightMultiplier") == 0.5,
+                "and the screen shows it when it next opens");
         Tracking.cycleMode();
         check(Tracking.trackingModeLabel().equals("rotation and position") && Tracking.optionValue(tracking) == CameraUnlock.TRACKING_ROTATION_AND_POSITION,
                 "a mode the key cycles after that goes on from it, and is what the screen then reads");
+        again = Screen.opened();
+        again.set("LocalSmoothing", localWas);
+        again.set("RemoteSmoothing", remoteWas);
+        again.set("LightMultiplier", lightWas);
+        again.apply();
+        check((float) Tracking.optionValue(Tracking.optionPlace("RemoteSmoothing")) == remoteWas && Tracking.lightMultiplier() == lightWas,
+                "and the smoothing and the flashlight's turn set back are the session's again");
     }
 
-    /** The options screen as it opens: each setting's place, what it is, what it shows, and what it holds, which is what it shows until the player changes it. */
-    private record Screen(int[] options, CameraUnlock.Option[] described, double[] shown, double[] held) {
-        static Screen opened() {
-            CameraUnlock.Option[] described = Tracking.options();
-            int[] options = new int[described.length];
-            double[] shown = new double[described.length];
-            for (int option = 0; option < described.length; option++) {
-                options[option] = option;
-                shown[option] = Tracking.optionValue(option);
+    /** What the quick lists at the top of the options page read on what a first start runs on, and what Everything's Off leaves. */
+    private static void aFreshInstallReadsOnInEveryQuickList() {
+        Screen screen = Screen.opened();
+        check(screen.readsAll().equals("On On On On On"), "as the mod comes, every quick list reads On: " + screen.readsAll());
+        // Talking mouths and the view a save loads in, which no list switches, set on the page first.
+        screen.set(Config.TALKING_MOUTHS, 1);
+        screen.set(Config.firstPersonRow(0), 1);
+        screen.choose("Everything", "Off");
+        List<String> left = new ArrayList<>();
+        for (OptionsDraft.Setting setting : screen.draft().settings) {
+            if (setting.described.kind == CameraUnlock.OPTION_BOOL && Config.graphicsPart(setting.described.id) < 0
+                    && (setting.staged != 0) != OptionsLayout.INVERTED.contains(setting.described.id)) {
+                left.add(setting.described.id);
             }
-            return new Screen(options, described, shown, shown.clone());
+        }
+        check(left.equals(List.of(Tracking.ENABLED_OPTION, Tracking.YAW_MODE_OPTION, Config.firstPersonRow(0), Config.TALKING_MOUTHS)),
+                "Everything's Off unticks every tick box on the page but head tracking, horizon-relative head turns, the view a save loads in, "
+                        + "talking mouths and the Custom graphics: " + left);
+        check(screen.readsAll().equals("Off Off Off Off Off"), "and every list then reads Off: " + screen.readsAll());
+        check(Part.FIRST_PERSON.on() && Rules.rows() == (Rules.ALL & ~Rules.REWIND) && !Mouths.on(), "and nothing chosen on the page is taken until it is applied");
+    }
+
+    private static void theOptionsPageSaysEachSettingInPlainWords() {
+        CameraUnlock.Option[] options = Tracking.options();
+        int[][] layout = OptionsLayout.of(OptionsLayout.PAGE, options);
+        Map<String, String> words = new LinkedHashMap<>();
+        for (CameraUnlock.Option option : options) {
+            words.put(option.id + "'s label", OptionsLayout.label(option));
+            words.put(option.id + "'s tooltip", OptionsLayout.tip(option, options));
+        }
+        for (OptionsLayout.QuickList list : OptionsLayout.quickLists(options, layout)) {
+            words.put(list.id() + "'s label", list.label());
+            words.put(list.id() + "'s tooltip", list.tip());
+        }
+        for (OptionsLayout.Group group : OptionsLayout.PAGE) {
+            words.put(group.title() + "'s title", group.title());
+            if (group.note() != null) {
+                words.put(group.title() + "'s note", group.note());
+            }
+        }
+        // A key or section of the file, a file's true or false, a line break the page would show as a gap, and a dash. A SpaceMouse is a mouse's name.
+        java.util.regex.Pattern unsaid = java.util.regex.Pattern.compile("\\b[A-Z][a-z]+(?:[A-Z][a-z0-9]*)+\\b|\\[\\w+\\]|\\b(?:true|false)\\b|\\n|[\\u2013\\u2014]|Vanilla");
+        List<String> found = new ArrayList<>();
+        words.forEach((what, text) -> {
+            java.util.regex.Matcher in = unsaid.matcher(text);
+            while (in.find()) {
+                if (!in.group().equals("SpaceMouse")) {
+                    found.add(what + " has " + in.group());
+                }
+            }
+        });
+        check(found.isEmpty(), "every label, tooltip, title and note on the page is in words: On and Off, the other settings by their names on the page, "
+                + "and no key or section of the file: " + found);
+        List<String> twice = new ArrayList<>();
+        for (int group = 0; group < layout.length; group++) {
+            Set<String> labels = new HashSet<>();
+            for (int option : layout[group]) {
+                if (!labels.add(OptionsLayout.label(options[option]))) {
+                    twice.add(OptionsLayout.PAGE[group].title() + ": " + OptionsLayout.label(options[option]));
+                }
+            }
+        }
+        check(twice.isEmpty(), "no two settings under one title share a label: " + twice);
+    }
+
+    /**
+     * The options page as the game shows it, driven as a player drives it, with no Lua: the
+     * page's OptionsDraft, each slider holding the notch nearest what it is given, as the game's does.
+     */
+    private record Screen(OptionsDraft draft) {
+        static Screen opened() {
+            CameraUnlock.Option[] options = Tracking.options();
+            OptionsDraft draft = new OptionsDraft(options, OptionsLayout.of(OptionsLayout.PAGE, options));
+            draft.fill();
+            return new Screen(draft);
         }
 
+        /** A setting changed by the player, as its option's number: a slider hands back the notch it is moved to. */
         void set(String id, double value) {
-            held[optionNamed(described, id)] = value;
+            OptionsDraft.Setting setting = draft.setting(id);
+            draft.changed(setting, OptionsDraft.onNotch(setting, value), Screen::holds);
+        }
+
+        /** A line of a quick list chosen, by its words. */
+        void choose(String list, String line) {
+            int at = list(list);
+            int chosen = Arrays.asList(draft.quickLists.get(at).lines()).indexOf(line);
+            if (chosen < 0) {
+                throw new IllegalArgumentException(list + " has no line " + line);
+            }
+            draft.chosen(at, chosen + 1, Screen::holds);
+        }
+
+        /** The words of the line a quick list shows. */
+        String reads(String list) {
+            int at = list(list);
+            int line = draft.lineHeld(at);
+            return line == 0 ? OptionsLayout.MIXED : draft.quickLists.get(at).lines()[line - 1];
+        }
+
+        /** What each quick list reads, in the order of the page. */
+        String readsAll() {
+            StringJoiner all = new StringJoiner(" ");
+            for (OptionsLayout.QuickList list : draft.quickLists) {
+                all.add(reads(list.id()));
+            }
+            return all.toString();
         }
 
         double shows(String id) {
-            return shown[optionNamed(described, id)];
+            return draft.staged(id);
         }
 
-        void apply() {
-            Tracking.applyScreen(options, described, shown, held);
+        Set<String> apply() {
+            return draft.apply(setting -> setting.staged);
+        }
+
+        private int list(String id) {
+            for (int at = 0; at < draft.quickLists.size(); at++) {
+                if (draft.quickLists.get(at).id().equals(id)) {
+                    return at;
+                }
+            }
+            throw new IllegalArgumentException("the page has no quick list " + id);
+        }
+
+        private static double holds(OptionsDraft.Setting setting, double value) {
+            return OptionsDraft.onNotch(setting, value);
         }
     }
 
@@ -1146,15 +1309,18 @@ public final class CoreTests {
             Tracking.applyMicrophone(player, Microphones.NONE);
         }
         CameraUnlock.Option[] options = Tracking.options();
-        int talking = optionNamed(options, Config.TALKING_MOUTHS);
-        check(options[talking].kind == CameraUnlock.OPTION_BOOL && options[talking].label.equals("Talking mouths")
-                        && options[talking].comment.contains("nothing is recorded or sent"),
-                "talking mouths are a tick box whose tooltip says nothing is recorded or sent: " + options[talking].label);
-        Tracking.applyOption(talking, options[talking], 1);
+        CameraUnlock.Option talking = options[Tracking.optionPlace(Config.TALKING_MOUTHS)];
+        String tip = OptionsLayout.tip(talking, options);
+        check(talking.kind == CameraUnlock.OPTION_BOOL && OptionsLayout.label(talking).equals("Talking mouths") && tip.contains("The sound is never recorded or sent."),
+                "talking mouths are a tick box whose tooltip says the sound is never recorded or sent: " + tip);
+        Screen screen = Screen.opened();
+        screen.set(Config.TALKING_MOUTHS, 1);
+        screen.apply();
         check(Mouths.on() && saved("TalkingMouths=true", "Microphone=None", "SecondPlayerMicrophone=None"),
-                "turned on there they are on and saved, with every microphone on none");
+                "turned on there and applied they are on and saved, with every microphone on none");
         check(Microphones.mouth(0) == Mouths.Shape.SHUT && Microphones.mouth(1) == Mouths.Shape.SHUT, "and no mouth opens with no microphone to read");
-        Tracking.applyOption(talking, options[talking], 0);
+        screen.set(Config.TALKING_MOUTHS, 0);
+        screen.apply();
         Tracking.applyMicrophone(0, Microphones.DEFAULT);
         check(!Mouths.on() && saved("TalkingMouths=false", "Microphone=Default"), "and off again, with player 1 back on the default");
     }
@@ -1172,7 +1338,7 @@ public final class CoreTests {
         String mode = Quality.name(0);
         said();
         Screen screen = Screen.opened();
-        CameraUnlock.Option hills = screen.described()[optionNamed(screen.described(), "HillHeight")];
+        CameraUnlock.Option hills = Tracking.options()[optionNamed(Tracking.options(), "HillHeight")];
         check(hills.kind == CameraUnlock.OPTION_FLOAT && hills.min == 0 && hills.max == 2 && hills.step == 0.1
                         && hills.label.equals("Hill height") && hills.comment.contains("0 is as flat"),
                 "the height of the hills is a slider from level to " + HillHeight.MOST + " with its row's comment: " + hills.min + " " + hills.max + " " + hills.step + " " + hills.label);
@@ -1223,7 +1389,13 @@ public final class CoreTests {
                 "a setting that is not a graphics setting applied there leaves the graphics mode as it was");
 
         screen.set("ViewDistance", 56);
+        check(screen.shows("Quality") == Quality.CUSTOM && Quality.name(0).equals("High"),
+                "a graphics row changed there switches the mode list to Custom on the page, and nothing is taken until the screen is applied");
         screen.set("Quality", Quality.LOW);
+        check(screen.shows("ViewDistance") == 48 && screen.shows("SharpShadows") == 0,
+                "the mode list then set to Low shows Low's picture in the rows, and the change is gone with it");
+        screen.set("Quality", Quality.HIGH);
+        screen.set("ViewDistance", 56);
         // The config thread held, as it is when the screen reads the mode back straight after Apply: the saves are still to come.
         CountDownLatch held = new CountDownLatch(1);
         Tracking.saver.execute(() -> {
@@ -1234,16 +1406,15 @@ public final class CoreTests {
             }
         });
         screen.apply();
-        boolean readsCustom = Tracking.optionValue(optionNamed(screen.described(), "Quality")) == Quality.CUSTOM;
+        boolean readsCustom = Tracking.optionValue(Tracking.optionPlace("Quality")) == Quality.CUSTOM;
         held.countDown();
         check(readsCustom, "the screen's mode list reads Custom as soon as it is applied, before the save is made");
         check(Quality.name(0).equals("Custom") && Quality.sight(0) == 56 && Quality.scale(0) == 1f && Quality.shadowSize(0) == 4096 && Quality.crownsToSight(0),
-                "a graphics row changed there goes straight to Custom, drawn as High was but for that row, whatever the mode list was set to: "
-                        + Quality.name(0));
+                "applied, a graphics row goes to Custom, drawn as High is but for that row: " + Quality.name(0));
         check(Tracking.graphicsToTell(true) == 0 && said() && !said(), "the first frame the game's menu is not up says so, once, as the key does");
         check(saved("Quality=Custom", "ViewDistance=56", "RenderScale=1.0", "SharpShadows=true"), "Custom is saved, with the rows as applied");
-        check(Tracking.optionValue(optionNamed(screen.described(), "Quality")) == Quality.CUSTOM && screen.shows("ViewDistance") == 56,
-                "and the screen's mode list now reads Custom");
+        check(Tracking.optionValue(Tracking.optionPlace("Quality")) == Quality.CUSTOM && Screen.opened().shows("ViewDistance") == 56,
+                "and the screen opened again reads Custom, with the row as applied");
 
         inMode("Low");
         Screen fromLow = Screen.opened();
@@ -1257,6 +1428,21 @@ public final class CoreTests {
                 "a row changed in Low is Low's picture with that row, drawn with what the mod made: " + Quality.described(Quality.drawn(0)));
         check(saved("Quality=Custom", "RenderScale=0.7", "ViewDistance=48", "SharpShadows=false", "RainOnGlass=Low"),
                 "and that is what Custom's rows then hold");
+
+        edit(text().replace("RenderScale=0.7", "RenderScale=0.705"));
+        Tracking.watchSettings();
+        Screen offNotch = Screen.opened();
+        double shownScale = offNotch.shows("RenderScale");
+        offNotch.set("ViewDistance", 50);
+        offNotch.apply();
+        check(shownScale != 0.705 && Quality.scale(0) == 0.705f && Quality.sight(0) == 50 && saved("RenderScale=0.705", "ViewDistance=50"),
+                "a row left alone keeps the value the file gave it, which its slider shows as " + shownScale + ": " + Quality.described(Quality.drawn(0)));
+        offNotch.set("ViewDistance", 48);
+        offNotch.apply();
+        edit(text().replace("RenderScale=0.705", "RenderScale=0.7"));
+        Tracking.watchSettings();
+        check(Quality.name(0).equals("Custom") && Quality.scale(0) == 0.7f && Quality.sight(0) == 48 && saved("Quality=Custom", "RenderScale=0.7", "ViewDistance=48"),
+                "and both set back, Custom is as it was");
     }
 
     private static void customKeepsItsRowsThroughTheOtherModes() throws IOException, InterruptedException {
@@ -1317,7 +1503,7 @@ public final class CoreTests {
         inMode("High");
         said();
         Screen screen = Screen.opened();
-        CameraUnlock.Option[] options = screen.described();
+        CameraUnlock.Option[] options = Tracking.options();
         CameraUnlock.Option grass = options[optionNamed(options, "GrassDensity")];
         check(grass.kind == CameraUnlock.OPTION_INT && grass.min == Quality.LEAST_GRASS && grass.max == Quality.ALL_GRASS && grass.label.equals("Grass density"),
                 "the grass density is a slider of percentages from " + Quality.LEAST_GRASS + " to " + Quality.ALL_GRASS);
@@ -1340,11 +1526,31 @@ public final class CoreTests {
         check(saved("Quality=Custom", "GrassDensity=70") && said(), "saved, and said");
     }
 
+    private static void anApplyThatLeftTheGraphicsRowsAloneKeepsAnEditOfTheFile() throws IOException, InterruptedException {
+        inMode("High");
+        Screen first = Screen.opened();
+        first.set("ViewDistance", 56);
+        first.apply();
+        check(Quality.name(0).equals("Custom") && Quality.sight(0) == 56 && saved("ViewDistance=56"), "Custom, with a view distance of 56");
+        Screen screen = Screen.opened();
+        edit(text().replace("ViewDistance=56", "ViewDistance=64"));
+        Tracking.watchSettings();
+        check(Quality.sight(0) == 64, "the file edited while the screen is open is taken");
+        double crosshair = screen.shows("Crosshair");
+        screen.set("Crosshair", crosshair == 0 ? 1 : 0);
+        screen.apply();
+        check(Quality.sight(0) == 64 && saved("Quality=Custom", "ViewDistance=64"),
+                "an apply that left the rows of [Graphics] alone keeps the edit: " + Quality.described(Quality.custom()));
+        Screen again = Screen.opened();
+        again.set("Crosshair", crosshair);
+        again.apply();
+    }
+
     private static void theDrawDistanceFarTreesAndReflectionsGoToCustomAsTheOtherRowsDo() throws IOException, InterruptedException {
         inMode("High");
         said();
         Screen screen = Screen.opened();
-        CameraUnlock.Option[] options = screen.described();
+        CameraUnlock.Option[] options = Tracking.options();
         CameraUnlock.Option props = options[optionNamed(options, "ZombiesAndPropsDrawDistance")];
         CameraUnlock.Option farTrees = options[optionNamed(options, "FarTreeDistance")];
         CameraUnlock.Option reflections = options[optionNamed(options, "Reflections")];

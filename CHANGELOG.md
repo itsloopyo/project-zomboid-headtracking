@@ -9,11 +9,16 @@
 - A `[Fixes]` section, under Game fixes on the options page: `BurntBuildingFreezeFix`, `CentreTheWindow` and `ControllerChoiceFix`.
 - The `[Optimizations]` section has `CachedGameLookups`, `SkipCoveredGameDrawing`, `SkinsComposedWhileWaiting`, `ChunkChangeCounts`, `UnseenRoomZombiesUnmodelled`, `HoldChunkMapCentre`, `GraphicsMemorySteps`, `PrepareWhileLoading` and `SpotBySight`, beside `SpreadLightUpdates`.
 - A row read as the game starts leaves its patches out of the game's code from the next start when it is off, so another Java mod that patches the same methods meets the game's own. `ZombiesSeenAtOnce` and `VehiclesSmashThrough` do the same. A row taken while the game runs that is switched back on puts its patches in at once, with no restart.
-- Six lists at the top of the mod's options page: Everything, Head tracking, First person (`On`, `In vehicles` or `Off`), Enhanced graphics, Gameplay tweaks and Optimizations. Each sets its whole class of settings at once, is saved as it is chosen, and shows which line your settings match. Head tracking can now be turned on and off there while you play.
+- Quick settings at the top of the mod's options page: a Head tracking tick box, which turns head tracking on and off while you play, and five lists, Everything, First person (`On`, `In vehicles only` or `Off`), Enhanced graphics, Gameplay tweaks and Optimizations. Each list switches a whole class of settings at once and shows which line your settings match, or `Mixed`.
+- Local smoothing, remote smoothing and how far the flashlight follows your head (`LightMultiplier`) are on the options page.
 - Head tracking turns Project Viewpoint's camera when that mod runs alongside this one: yaw, pitch and roll, not the lean.
 
 ### Changed
 
+- The mod's options page is sorted into Quick settings, Head tracking, First person, Graphics, Custom graphics, Mod content, Gameplay tweaks, Game fixes, Optimizations, Split screen, each extra player, Voice and Keys, and every setting has a plain name and a description of what it does on and off. Mod content ticks a row for the mod's own and unticks it for the game's own. Keys lists every key and where to change it.
+- Nothing on the options page takes effect until you apply the options. Then everything you changed takes effect together and is saved to `CameraUnlock.ini`. Leaving without applying leaves every setting as it was.
+- Choosing a first person graphics mode on the options page shows that mode's settings under Custom graphics straight away, and changing one of those switches the mode to Custom straight away, before you apply.
+- The comments in `CameraUnlock.ini` say what each setting does, on and off, in plain words.
 - A save that loads in first person shows the same hints as one that loads in the isometric view, once first person is ready: which key switches views, then which key changes the graphics quality.
 - In the isometric view the mod's lawn grass reaches the edge of the picture, thinner and broader-bladed past about ten tiles, instead of ending in a ring 15 tiles round your character.
 - In first person, the chunks a frame has to build again, and the grass and plants it grows again as you move, are built on up to four threads of their own, each starting as the view comes to it while the view goes on with the rest of the frame, instead of one after another on the game's own thread, and each shows a frame later. `[Optimizations] BuildOnWorkerThreads=false` builds them on the game's thread as before.

@@ -390,14 +390,13 @@ final class Quality {
     }
 
     /**
-     * The picture a row of [Graphics] changed on the options screen starts Custom from, the change
-     * then made to it: what the first player's first person mode draws, and in Automatic what the level it is at draws, but
-     * for STOCK, which starts it from the level above, Low's cost with what the mod made. Stock is
-     * how Automatic saves the graphics card, not a look the player chose. The rows of [Graphics]
-     * are the first player's, as the options screen, where they are set, is.
+     * What the options screen's rows of [Graphics] show for a first person mode, which a row
+     * changed there starts Custom from: Custom's rows, the mode's picture, and in Automatic what the
+     * level it is at draws, but for STOCK, which shows the level above, Low's cost with what the mod
+     * made. Stock is how Automatic saves the graphics card, not a look the player chose.
      */
-    static synchronized Picture customFrom() {
-        return rows[0] == AUTOMATIC && level == STOCK ? AUTOMATIC_AT[STOCK + 1] : firstPersonPicture(0);
+    static synchronized Picture pictureOf(int mode) {
+        return mode == CUSTOM ? custom : mode == AUTOMATIC ? AUTOMATIC_AT[level == STOCK ? STOCK + 1 : level] : preset(mode);
     }
 
     static Picture preset(int mode) {

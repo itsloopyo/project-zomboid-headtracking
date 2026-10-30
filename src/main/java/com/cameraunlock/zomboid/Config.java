@@ -2,7 +2,7 @@ package com.cameraunlock.zomboid;
 
 import com.cameraunlock.core.CameraUnlock;
 import java.nio.file.Path;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -54,6 +54,10 @@ final class Config {
     static final String[] MICROPHONE_ROWS = {"Microphone", "SecondPlayerMicrophone", "ThirdPlayerMicrophone", "FourthPlayerMicrophone"};
     static final String TALKING_MOUTHS = "TalkingMouths";
 
+    /** The last line of a row whose patches FirstPersonEnabled also needs, saying when off is taken. */
+    private static final String BOTH_OFF = "Takes effect at once. When this and FirstPersonEnabled are both off, the mod leaves the game's code for this\n"
+            + "unpatched from the next start.";
+
     private static final String[] LOAD_STATUS = {"read", "imported", "created", "deferred", "legacy refused", "unreadable"};
     private static final String[] SAVE_STATUS = {"saved", "not saved", "may not be saved"};
 
@@ -86,7 +90,12 @@ final class Config {
     /** By player, the rows of their first person graphics mode, their isometric view's and their picture style. */
     private final int[] quality = new int[View.COUNT], overheadQuality = new int[View.COUNT], style = new int[View.COUNT];
     private final int[] firstPerson = new int[View.COUNT], firstPersonInVehicles = new int[View.COUNT];
-    private final int firstPersonKey, cycleQualityKey;
+    private final int firstPersonKey, cycleQualityKey, cycleStyleKey, splitScreenKey;
+    /** Each of the mod's own rows the options screen can show, by its key: what saveOptions writes in one go. */
+    private final Map<String, Integer> localRows = new HashMap<>();
+    /** The options as core lists them once the file is read, and each one's place by its key. */
+    private CameraUnlock.Option[] options;
+    private final Map<String, Integer> optionPlaces = new HashMap<>();
     /** The rows of each player's microphone, in the order of MICROPHONE_ROWS. */
     private final int[] microphones = new int[MICROPHONE_ROWS.length];
     /** The rows of the ports of players 2, 3 and 4. */
@@ -105,7 +114,9 @@ final class Config {
 
     /**
      * Describes the rows. The tracking mode pair, WorldSpaceYaw and the three aim mode rows are
-     * writable: their hotkeys save. There is no key that switches head tracking off: the
+     * writable: their hotkeys save. EnableOnStartup, the smoothing pair and LightMultiplier are
+     * writable for the options screen, where a save of one writes its value in place of default,
+     * as a hotkey's save does. There is no key that switches head tracking off: the
      * owner ruled the action out for this game, and the three keys there are are the game's own
      * rows on the nav keys alone (see cameraunlock-core's per_game). FieldOfView, FirstPerson, Quality, IsometricQuality, Style,
      * the rows of [Players], HillHeight, MuzzleFlash, Crosshair, RegripTwoHandedWeapons, SplitScreen and the rows of [Content] and [Rules] are the mod's own, and the ones read
@@ -126,13 +137,21 @@ final class Config {
                     0, SECOND_PLAYER_PORT + i, 1, 65535);
         }
         core.configConcept("EnableOnStartup", writable,
-                "true: head tracking is on. false: it is off. Taken at once from the options screen, and as the game starts. No key turns it\n"
-                        + "on or off.", null);
-        core.configConcept("WorldSpaceYaw", writable, null, null);
+                "true: head tracking is on. Your tracker moves the first person view and turns your character's head in the isometric\n"
+                        + "view. false: it is off. No key turns it on or off. The options screen changes it when you apply, and an edit here\n"
+                        + "takes effect at the next start.", null);
+        core.configConcept("WorldSpaceYaw", writable,
+                "true: turning your head left or right turns the view around the vertical, which keeps the horizon level while you look\n"
+                        + "up or down. false: it turns around the view's own up, which tilts the horizon while you look up or down. In a\n"
+                        + "vehicle seat it always turns around the view's own up.", null);
         core.configConcept("RotationEnabled", writable, null, null);
         core.configConcept("DataFreshnessMs", 0, null, null);
-        core.configConcept("LocalSmoothing", 0, null, null);
-        core.configConcept("RemoteSmoothing", 0, null, null);
+        // A tracker's packets from 127.0.0.0/8 or ::1 are local, from any other address remote: cameraunlock-core's rule.
+        core.configConcept("LocalSmoothing", writable,
+                "Smoothing for a tracker on this PC that sends to 127.0.0.1. 0 is the least, 1 the most.", null);
+        core.configConcept("RemoteSmoothing", writable,
+                "Smoothing for every other tracker: one on another device such as a phone, or one on this PC that sends to this PC's\n"
+                        + "network address instead of 127.0.0.1. 0 is the least, 1 the most.", null);
         core.configConcept("PositionEnabled", writable, null, null);
         core.configConcept("TrueFreeLook", writable,
                 "false: aiming down the sights keeps your eye on the sights when you lean. true: free look, the weapon stays put and your\n"
@@ -154,284 +173,287 @@ final class Config {
         core.configConcept("YawModeKey", perGame, null, "PageDown");
         core.configConcept("TrueFreeLookKey", perGame,
                 "Cycles the aim mode: sights locked, free look with a marker, stock sights.", "Insert");
-        core.configConcept("LightMultiplier", 0, null, null);
+        core.configConcept("LightMultiplier", writable,
+                "How far the flashlight turns for each degree your head turns, while TorchFollowsHead is on. 1 turns it as far as\n"
+                        + "the view, more turns it further, and 0 leaves it where your character faces.", null);
 
         describe(Part.FIRST_PERSON);
-        fieldOfView = core.configLocalFloat("General", "FieldOfView",
+        fieldOfView = localFloat("General", "FieldOfView",
                 "Vertical field of view of the first person view, in degrees: 40 to 110.",
                 writable | live, FieldOfView.DEFAULT_DEGREES, MIN_FIELD_OF_VIEW, MAX_FIELD_OF_VIEW);
-        quality[0] = core.configLocalEnum("General", "Quality",
+        quality[0] = localEnum("General", "Quality",
                 "First person graphics mode: Automatic, Low, Medium, High or Custom. Automatic draws less when the frame rate drops\n"
-                        + "and more again when it recovers. Custom uses the rows of [Graphics]. A view larger than 2560x1440 is drawn in the\n"
-                        + "modes but Custom with no more pixels than 2560x1440.",
+                        + "and more again when it recovers. Custom draws the [Graphics] rows. Every mode but Custom draws at most 2560x1440\n"
+                        + "pixels, however large the window.",
                 writable | live, Quality.words(), Quality.AUTOMATIC);
-        overheadQuality[0] = core.configLocalEnum("General", "IsometricQuality",
-                "Graphics mode of the game's isometric view: Low (the game's own picture), Medium, High or Custom.",
+        overheadQuality[0] = localEnum("General", "IsometricQuality",
+                "Graphics mode of the game's isometric view: Low (the game's own picture), Medium, High or Custom, which draws the\n"
+                        + "[Graphics] rows.",
                 writable | live, Quality.overheadWords(), 0);
-        style[0] = core.configLocalEnum("General", "Style",
-                "Picture style: Vivid (strong contrast and colour), Natural (colours as lit, less contrast) or Bleak (washed out, near\n"
-                        + "the game's own look).",
+        style[0] = localEnum("General", "Style",
+                "Picture style: Vivid (strong contrast and colour), Natural (colours as lit, less contrast) or Bleak (washed out, close\n"
+                        + "to the game's own look).",
                 writable | live, Style.words(), Style.BLEAK.ordinal());
-        firstPerson[0] = core.configLocalBool("General", "FirstPerson",
-                "true: a save loads in first person. The first person key sets it as it switches the view.", writable | live, false);
-        firstPersonInVehicles[0] = core.configLocalBool("General", "FirstPersonInVehicles",
-                "true: getting into a vehicle switches to first person and getting out switches back to the game's own view.\n"
-                        + "The first person key still switches the view at any time, and a view it chose is kept on getting out.",
+        firstPerson[0] = localBool("General", "FirstPerson",
+                "true: saves load in first person. Switching the view with the first person key, or a double tap of Back on a\n"
+                        + "controller, changes this to match.", writable | live, false);
+        firstPersonInVehicles[0] = localBool("General", "FirstPersonInVehicles",
+                "true: getting into a vehicle switches to first person, and getting out switches back to the isometric view. The first\n"
+                        + "person key still switches the view at any time, and a view it chose is kept when you get out.",
                 writable | live, false);
         // Not a row of [Graphics]: it changes what the land looks like and not what the picture costs, in every graphics mode alike.
-        hillHeight = core.configLocalFloat("General", "HillHeight",
-                "How high the first person hills stand: 0 is as flat as the game's map, 1 as the mod makes them, up to " + HillHeight.MOST + ".\n"
-                        + "Held at 1 where players can fight.",
+        hillHeight = localFloat("General", "HillHeight",
+                "How tall the first person hills are: 0 is as flat as the game's map, 1 is as the mod makes them, up to " + HillHeight.MOST
+                        + ".\nAlways 1 where players can fight.",
                 writable | live, HillHeight.DEFAULT, 0f, HillHeight.MOST);
-        muzzleFlash = core.configLocalBool("General", "MuzzleFlash",
-                "true: a shot from a firearm flashes at the muzzle and briefly lights what is near. Never in Low.",
+        muzzleFlash = localBool("General", "MuzzleFlash",
+                "true: firing a gun flashes at the muzzle and briefly lights up what is nearby, in every graphics mode but Low.",
                 writable | live, true);
-        crosshair = core.configLocalBool("General", "Crosshair",
-                "true: in first person, while the game draws no reticle of its own, a small crosshair with a weapon in hand and a\n"
-                        + "dot without one mark where the shot lands and what the interact key uses. false: neither is drawn.",
+        crosshair = localBool("General", "Crosshair",
+                "true: in first person, while the game draws no reticle of its own, a small crosshair with a weapon in hand, or a dot\n"
+                        + "without one, shows where the shot lands and what the interact key uses. false: neither is drawn.",
                 writable | live, true);
-        regrip = core.configLocalBool("General", "RegripTwoHandedWeapons",
-                "true: a weapon made for both hands goes back into both when the left hand puts down what it held beside it,\n"
-                        + "a torch say, as the inventory's Equip Two Hands does. A torch switched off beside it is put away for that, and one\n"
-                        + "taken up again leaves the weapon in the right hand. false: the game's way, where the weapon stays in the right hand\n"
-                        + "alone, and taking up a torch takes it out of both. Never on a server where players can fight.",
+        regrip = localBool("General", "RegripTwoHandedWeapons",
+                "true: a two-handed weapon goes back into both hands when your left hand puts down what it held beside it, as the\n"
+                        + "inventory's Equip Two Hands does. A light in your left hand is put away when you switch it off, so the weapon goes\n"
+                        + "back into both hands, and taking up a light leaves the weapon in your right hand. false: as in the game, the weapon\n"
+                        + "stays in your right hand alone, and taking up a light takes it out of your hands. Never on a server where players\n"
+                        + "can fight.",
                 writable | live, true);
-        splitScreen = core.configLocalEnum("General", "SplitScreen",
-                "How two players at one screen share it: Vertical (side by side) or Horizontal (one above the other).\n"
-                        + "Taken at once. Vertical, its patches of the game's code are left out from the next start.",
+        splitScreen = localEnum("General", "SplitScreen",
+                "How two players share one screen: Vertical (side by side) or Horizontal (one above the other). Takes effect at once.\n"
+                        + "With Vertical, the mod leaves the game's split screen code unpatched from the next start.",
                 writable | live, SplitScreen.words(), SplitScreen.VERTICAL);
         describeParts("FirstPerson");
         for (int player = 1; player < View.COUNT; player++) {
             String whose = "Player " + (player + 1) + "'s ";
-            quality[player] = core.configLocalEnum("Players", qualityKey(player), whose + "first person graphics mode, as Quality.",
+            quality[player] = localEnum("Players", qualityKey(player), whose + "first person graphics mode, as Quality.",
                     writable | live, Quality.words(), Quality.AUTOMATIC);
-            overheadQuality[player] = core.configLocalEnum("Players", overheadQualityKey(player),
+            overheadQuality[player] = localEnum("Players", overheadQualityKey(player),
                     whose + "isometric graphics mode, as IsometricQuality.", writable | live, Quality.overheadWords(), 0);
-            style[player] = core.configLocalEnum("Players", PLAYER_ROW[player] + "Style", whose + "picture style, as Style.", writable | live,
+            style[player] = localEnum("Players", styleKey(player), whose + "picture style, as Style.", writable | live,
                     Style.words(), Style.BLEAK.ordinal());
-            firstPerson[player] = core.configLocalBool("Players", PLAYER_ROW[player] + "FirstPerson", whose + "view at load, as FirstPerson.",
+            firstPerson[player] = localBool("Players", PLAYER_ROW[player] + "FirstPerson", whose + "view at load, as FirstPerson.",
                     writable | live, false);
-            firstPersonInVehicles[player] = core.configLocalBool("Players", PLAYER_ROW[player] + "FirstPersonInVehicles",
+            firstPersonInVehicles[player] = localBool("Players", PLAYER_ROW[player] + "FirstPersonInVehicles",
                     whose + "view in vehicles, as FirstPersonInVehicles.", writable | live, false);
         }
         Quality.Picture high = Quality.HIGH_PICTURE;
         graphics = new int[] {
-            core.configLocalEnum("Graphics", "TreeQuality",
-                    "Low: the game's plant sprites. Medium: the mod's trees, the game's sprites past " + (int) Crowns.REACH + " tiles.\n"
-                            + "High: the mod's trees as far as you see.",
+            localEnum("Graphics", "TreeQuality",
+                    "Low: the game's plant sprites. Medium: the mod's trees, with the game's sprites past " + (int) Crowns.REACH + " tiles.\n"
+                            + "High: the mod's trees as far as you can see.",
                     writable | live, Quality.TREE_QUALITIES, high.treeQuality()),
-            core.configLocalInt("Graphics", "GrassDensity",
+            localInt("Graphics", "GrassDensity",
                     "How much of the grass the mod grows blade by blade is grown, as a percentage: " + Quality.LEAST_GRASS + " to " + Quality.ALL_GRASS + ".\n"
-                            + "Lower, fewer and broader plants cover the same lawns and long grass, which costs less to\n"
-                            + "build and draw. High grows all of it, Medium and Low " + Quality.SOME_GRASS + ". On a server where\n"
-                            + "players can hurt each other it grows all of it.",
+                            + "Lower, fewer and broader plants cover the same lawns and long grass, which costs less to build and draw. High\n"
+                            + "grows all of it, Medium and Low " + Quality.SOME_GRASS + ". On a server where players can hurt each other it grows all of it.",
                     writable | live, high.grassDensity(), Quality.LEAST_GRASS, Quality.ALL_GRASS),
-            core.configLocalFloat("Graphics", "RenderScale",
-                    "Share of the window's resolution the first person picture is drawn at, each way: 0.5 to 1.",
+            localFloat("Graphics", "RenderScale",
+                    "How much of the window's resolution the first person picture is drawn at, each way: 0.5 to 1.",
                     writable | live, high.renderScale(), MIN_RENDER_SCALE, 1f),
-            core.configLocalInt("Graphics", "ViewDistance",
+            localInt("Graphics", "ViewDistance",
                     "How far the first person view is drawn, in tiles: 32 to 80, within the map the game has loaded.",
                     writable | live, high.viewDistance(), MIN_VIEW_DISTANCE, high.viewDistance()),
-            core.configLocalInt("Graphics", "ZombiesAndPropsDrawDistance",
+            localInt("Graphics", "ZombiesAndPropsDrawDistance",
                     "How far zombies, people, vehicles and the mod's furniture are drawn, in tiles: " + MIN_DRAW_DISTANCE + " to " + high.viewDistance()
                             + ", never past\nViewDistance. Where players can fight, everything is drawn.",
                     writable | live, high.drawDistance(), MIN_DRAW_DISTANCE, high.viewDistance()),
-            core.configLocalInt("Graphics", "FarTreeDistance",
+            localInt("Graphics", "FarTreeDistance",
                     "How far past the loaded map trees are drawn, in tiles: 0 (none) to " + Quality.MOST_FAR_TREES + ".",
                     writable | live, high.farTreeDistance(), 0, Quality.MOST_FAR_TREES),
-            core.configLocalEnum("Graphics", "RainOnGlass",
+            localEnum("Graphics", "RainOnGlass",
                     "Rain on your vehicle's windows: Low (one size of drop), Medium (adds specks and trickles) or High (three sizes and\n"
                             + "running drops).",
                     writable | live, "Low,Medium,High", high.rainOnGlass()),
-            core.configLocalBool("Graphics", "ShadingAndLight",
-                    "true: shaded corners, light from what stands near and lit air, and with Reflections, mirroring wet roads, floors,\n"
-                            + "glass and water.",
+            localBool("Graphics", "ShadingAndLight",
+                    "true: shaded corners, light from things nearby and lit air, and with Reflections, wet roads, floors, glass and water\n"
+                            + "that mirror the world.",
                     writable | live, high.shadingAndLight()),
-            core.configLocalBool("Graphics", "Reflections",
+            localBool("Graphics", "Reflections",
                     "true: mirrors in rooms show the room and you, your vehicle's mirrors show the road behind, and with\n"
                             + "ShadingAndLight, wet roads, floors, glass and water mirror the world.",
                     writable | live, high.reflections()),
-            core.configLocalFloat("Graphics", "ReflectionScale",
-                    "Share of the first person picture's resolution that wall mirrors and window glass draw their reflection at,\n"
-                            + "each way: " + MIN_REFLECTION_SCALE + " to 1. High draws " + high.reflectionScale() + ", Medium "
+            localFloat("Graphics", "ReflectionScale",
+                    "How much of the first person picture's resolution wall mirrors and window glass draw their reflections at, each\n"
+                            + "way: " + MIN_REFLECTION_SCALE + " to 1. High draws " + high.reflectionScale() + ", Medium "
                             + Quality.MEDIUM_PICTURE.reflectionScale() + ". Lower costs less and looks softer.",
                     writable | live, high.reflectionScale(), MIN_REFLECTION_SCALE, 1f),
-            core.configLocalBool("Graphics", "FullSizeTextures",
-                    "true: the mod's surface, wall and skin pictures at full size. false: half size, a quarter of the memory.",
+            localBool("Graphics", "FullSizeTextures",
+                    "true: the mod's surface, wall and skin pictures at full size. false: half size, using a quarter of the memory.",
                     writable | live, high.fullSizeTextures()),
-            core.configLocalBool("Graphics", "SurfaceDepth",
-                    "true: near surfaces are given the depth of what they show. false: they are drawn flat.",
+            localBool("Graphics", "SurfaceDepth",
+                    "true: near surfaces get the depth of what they show. false: they are drawn flat.",
                     writable | live, high.surfaceDepth()),
-            core.configLocalBool("Graphics", "SharpShadows",
-                    "true: shadow maps 4096 texels across. false: 2048, a quarter of the graphics memory.",
+            localBool("Graphics", "SharpShadows",
+                    "true: shadow maps 4096 pixels across. false: 2048, using a quarter of the graphics memory.",
                     writable | live, high.sharpShadows()),
-            core.configLocalBool("Graphics", "WholeFigureShadows",
+            localBool("Graphics", "WholeFigureShadows",
                     "true: what people and zombies wear and carry casts a shadow at any distance. false: past " + (int) CharacterDraw.SHADOW_WHOLE_WITHIN
-                            + " tiles\nonly their bodies do, which costs less in a crowd.",
+                            + " tiles only\ntheir bodies do, which costs less in a crowd.",
                     writable | live, high.wholeFigureShadows()),
-            core.configLocalBool("Graphics", "FrameBlending",
+            localBool("Graphics", "FrameBlending",
                     "true: each frame is blended with the one before, for smoother edges and leaves and a slightly softer picture.",
                     writable | live, high.frameBlending()),
-            core.configLocalInt("Graphics", "LightDistance",
-                    "How far off lamps light what is round them with light of their own, a pool under a street lamp, in tiles:\n"
-                            + "0 (the game's light only) to " + Quality.MOST_LIGHT_DISTANCE + ". Past it, lamps light the ground as the game does.",
+            localInt("Graphics", "LightDistance",
+                    "How far away lamps light what is around them with light of their own, like the pool of light under a street lamp,\n"
+                            + "in tiles: 0 (the game's light only) to " + Quality.MOST_LIGHT_DISTANCE + ". Past that, lamps light the ground as the game does.",
                     writable | live, high.lightDistance(), 0, Quality.MOST_LIGHT_DISTANCE),
-            core.configLocalBool("Graphics", "CorpseModels",
-                    "true: corpses are drawn as models lying where they fell, as zombies are. false: as the game's flat picture of\n"
-                            + "each, laid on the ground, which costs far less where many lie. Low, Medium and High lay the picture.",
+            localBool("Graphics", "CorpseModels",
+                    "true: corpses are drawn as models lying where they fell, as zombies are. false: as the game's flat picture of each,\n"
+                            + "laid on the ground, which costs far less where many lie. Low, Medium and High use the flat picture.",
                     writable | live, high.corpseModels()),
         };
-        spreadLightUpdates = core.configLocalBool("Optimizations", "SpreadLightUpdates",
-                "true: when the game relights many places at once, the first person view takes up their new light over the next few\n"
-                        + "frames, nearest first, so that driving past lights stutters less. false: all of it in the frame the game relights\n"
-                        + "it, so a far light change can show about a tenth of a second sooner, in longer frames.",
+        spreadLightUpdates = localBool("Optimizations", "SpreadLightUpdates",
+                "true: when the game relights many places at once, the first person view takes in their new light over the next few\n"
+                        + "frames, nearest first, so driving past lights stutters less. false: all of it in the frame the game relights it,\n"
+                        + "so a far light change can show about a tenth of a second sooner, in longer frames.",
                 writable | live, true);
         describeParts("Optimizations");
 
         firstPersonKey = core.configLocalHotkeyTaps("FirstPersonKey",
-                "Switches between first person and the game's own view. Tap once for player 1, twice for player 2, three times for\n"
-                        + "player 3, four times for player 4, hold for every player.",
+                "Switches between first person and the isometric view. Tap once for player 1, twice for player 2, three times for\n"
+                        + "player 3, four times for player 4, or hold for every player.",
                 0, "Delete", FIRST_PERSON_TAPS, FIRST_PERSON_ALL);
         cycleQualityKey = core.configLocalHotkeyTaps("CycleQualityKey",
                 "Goes to the next graphics mode of the view a player is in: in first person Automatic, Low, Medium, High, Custom\n"
                         + "(Quality), in the isometric view Low, Medium, High, Custom (IsometricQuality), and for players 2, 3 and 4 their\n"
                         + "rows of [Players]. Tap once for player 1, twice for player 2, three times for player 3, four times for player 4,\n"
-                        + "hold for every player.",
+                        + "or hold for every player.",
                 0, "F9", CYCLE_QUALITY_TAPS, CYCLE_QUALITY_ALL);
-        core.configLocalHotkeyTaps("CycleStyleKey",
+        cycleStyleKey = core.configLocalHotkeyTaps("CycleStyleKey",
                 "Goes to a player's next picture style: Vivid, Natural, Bleak (Style, and for players 2, 3 and 4 their rows of\n"
-                        + "[Players]). Tap once for player 1, twice for player 2, three times for player 3, four times for player 4, hold\n"
-                        + "for every player.",
+                        + "[Players]). Tap once for player 1, twice for player 2, three times for player 3, four times for player 4, or\n"
+                        + "hold for every player.",
                 0, "F8", CYCLE_STYLE_TAPS, CYCLE_STYLE_ALL);
-        core.configLocalHotkey("SplitScreenKey",
+        splitScreenKey = core.configLocalHotkey("SplitScreenKey",
                 "With two players at the screen, switches between side by side and one above the other.", 0, "F7",
                 SPLIT_SCREEN);
         own = new int[] {
-            core.configLocalBool("Content", "VanillaWeapons",
+            localBool("Content", "VanillaWeapons",
                     "true: the game's own weapons, with no picture through the scope. false: the mod's models of the pump shotgun and\n"
                             + "its sawn-off, the tactical pump shotgun, the hunting, varmint and tactical rifles, the lever action rifle and\n"
                             + "carbine, the self-loading rifle and carbine, the double barrelled shotgun and its sawn-off, the pistols, the\n"
                             + "revolvers, the toy cap pistol and rifle, the assault rifle, the battle rifle and rifle scopes.",
                     writable | live, false),
-            core.configLocalBool("Content", "VanillaFurniture",
+            localBool("Content", "VanillaFurniture",
                     "true: the game's sprites. false: the mod's models of furniture, appliances, street lamps, clocks, picture frames,\n"
                             + "banners and flags.",
                     writable | live, false),
-            core.configLocalBool("Content", "VanillaPictures",
+            localBool("Content", "VanillaPictures",
                     "true: the game's pictures on walls, and only colour bars on a television. false: the mod's own pictures on walls\n"
                             + "and televisions, where it has one.",
                     writable | live, false),
-            core.configLocalBool("Content", "VanillaPlants",
+            localBool("Content", "VanillaPlants",
                     "true: the game's sprites. false: the mod's trees, bushes, boulders, grass, ferns, flowers, crops, fallen leaves and\n"
                             + "fallen sticks.",
                     writable | live, false),
-            core.configLocalBool("Content", "VanillaTextures",
+            localBool("Content", "VanillaTextures",
                     "true: the colours of the game's sprites, and its own stained glass. false: the mod's textures of ground, wood,\n"
                             + "roofing, paint, carpet, cloth, wallpaper and stained glass, and clean road lines.",
                     writable | live, false),
-            core.configLocalBool("Content", "VanillaBuildings",
+            localBool("Content", "VanillaBuildings",
                     "true: the game's sprites. false: windows, doors, curtains, handrails, chain link fences, open stairs, railway\n"
                             + "track and wall finishes built by the mod.",
                     writable | live, false),
-            core.configLocalBool("Content", "VanillaZombies",
+            localBool("Content", "VanillaZombies",
                     "true: the game's own skins for zombies. false: the mod's skins, with lifelike faces, for zombies near you.",
                     writable | live, false),
-            core.configLocalBool("Content", "VanillaPeople",
+            localBool("Content", "VanillaPeople",
                     "true: the game's own skins for people. false: the mod's skins, with lifelike faces, for your character and other\n"
                             + "living people.",
                     writable | live, false),
-            core.configLocalBool("Content", "VanillaArms",
+            localBool("Content", "VanillaArms",
                     "true: the game's own arms and hands on a held weapon, for a mod that changes the arms or the weapons. false: the\n"
-                            + "mod's, working its bolt, slide and magazine.",
+                            + "mod's arms and hands, which work the bolt, slide and magazine.",
                     writable | live, false),
-            core.configLocalBool("Content", "VanillaClothes",
+            localBool("Content", "VanillaClothes",
                     "true: the game's own pictures of clothes and hair. false: clothes and hair near you are sharpened, with the weave,\n"
                             + "knit, grain or strands of what they are made of.",
                     writable | live, false),
-            core.configLocalBool("Content", "VanillaAnimals",
+            localBool("Content", "VanillaAnimals",
                     "true: the game's own skins for animals. false: the mod's skins for animals near you, with the hair of their coats.",
                     writable | live, false),
-            core.configLocalBool("Content", "VanillaFire",
-                    "true: the game's own flames and smoke, stood up where they burn. false: the game's flames with the mod's smoke,\n"
-                            + "embers and firelight for burning buildings, Molotovs, campfires, fireplaces, wood stoves, burn barrels and\n"
-                            + "cooking pits.",
+            localBool("Content", "VanillaFire",
+                    "true: the game's own flames and smoke, standing upright where they burn. false: the game's flames with the mod's\n"
+                            + "smoke, embers and firelight for burning buildings, Molotovs, campfires, fireplaces, wood stoves, burn barrels\n"
+                            + "and cooking pits.",
                     writable | live, false),
-            core.configLocalBool("Content", "VanillaCabins",
-                    "true: the game's own inside of the vehicle you sit in, with its glass cut away. false: the mod's models of it, its\n"
-                            + "dashboard, instruments, wheel, seats and doors.",
+            localBool("Content", "VanillaCabins",
+                    "true: the game's own inside of the vehicle you sit in, with its glass cut away. false: the mod's model of the inside,\n"
+                            + "with its dashboard, instruments, wheel, seats and doors.",
                     writable | live, false),
         };
         rules = new int[] {
-            core.configLocalBool("Rules", "ShotsThroughWalls",
-                    "true: your shots go on through stud walls, walls of boards, shut doors and windows, losing damage to each by\n"
-                            + "what it is made of. false: they stop it, as the game has it. On a server where players can hurt each other\n"
-                            + "the game's rule holds.\n"
-                            + "Taken at once. Off with FirstPersonEnabled off too, its patches of the game's code are left out from the next start.",
+            localBool("Rules", "ShotsThroughWalls",
+                    "true: your shots go on through stud walls, plank walls, shut doors and windows, losing damage to each by what it\n"
+                            + "is made of. false: they stop at them, as in the game. On a server where players can hurt each other the game's\n"
+                            + "rule applies.\n" + BOTH_OFF,
                     writable | live, true),
-            core.configLocalBool("Rules", "ShotsBreakLamps",
-                    "true: offline, a shot breaks the lamp it passes through and the vehicle lamp it lands on. false: lamps\n"
-                            + "are left lit, as the game has it. On a server the game's rule holds.",
+            localBool("Rules", "ShotsBreakLamps",
+                    "true: offline, a shot breaks a lamp it passes through and a vehicle light it hits. false: lamps stay lit, as in the\n"
+                            + "game. On a server the game's rule applies.",
                     writable | live, true),
-            core.configLocalBool("Rules", "ShotsBreakGlass",
-                    "true: offline, a shot breaks the glass of every shut window it crosses, whether or not it hits anything behind\n"
-                            + "it. false: only a shot that hits someone through a window breaks it, as the game has it. On a server the game's\n"
-                            + "rule holds.",
+            localBool("Rules", "ShotsBreakGlass",
+                    "true: offline, a shot breaks the glass of every shut window it crosses, whether or not it hits anything behind it.\n"
+                            + "false: only a shot that hits someone through a window breaks it, as in the game. On a server the game's rule\n"
+                            + "applies.",
                     writable | live, true),
-            core.configLocalBool("Rules", "ShotsWoundLimbs",
-                    "true: offline, first person shots to a zombie's legs slow it and drop it to crawl, shots to its arms leave them\n"
-                            + "hanging, enough take the limb off, and a head shot that kills can take the head off or burst it. false: hits\n"
-                            + "are the game's. On a server the game's rule holds.",
+            localBool("Rules", "ShotsWoundLimbs",
+                    "true: offline, first person shots to a zombie's legs slow it and drop it to a crawl, shots to its arms leave them\n"
+                            + "hanging, enough take the limb off, and a killing head shot can take the head off or burst it. false: hits are\n"
+                            + "the game's. On a server the game's rule applies.",
                     writable | live, true),
-            core.configLocalBool("Rules", "VehiclesSmashThrough",
-                    "true: offline, a vehicle faster than a walk knocks down fences, street lamp posts and road barricades, drives through bushes\n"
-                            + "unslowed and keeps its engine's full power off the road. false: the game's rules for all of it. On a server the\n"
-                            + "game's rules hold.\n" + Part.LIVE_AND_NEXT_START,
+            localBool("Rules", "VehiclesSmashThrough",
+                    "true: offline, a vehicle going faster than walking pace knocks down fences, street lamp posts and road barricades,\n"
+                            + "drives through bushes without slowing and keeps its engine's full power off the road. false: the game's rules\n"
+                            + "for all of it. On a server the game's rules apply.\n" + Part.LIVE_AND_NEXT_START,
                     writable | live, true),
-            core.configLocalBool("Rules", "FacesTheView",
-                    "true: walking or sneaking sideways or backwards in first person, your character keeps facing where you look,\n"
-                            + "and jogging or sprinting is straight ahead only. false: it always turns, as the game has it. On a server\n"
-                            + "where players can hurt each other it keeps facing where you look sideways and backwards whether this is\n"
-                            + "true or false, at the slower pace the game gives its aiming stance.",
+            localBool("Rules", "FacesTheView",
+                    "true: walking or sneaking sideways or backwards in first person, your character keeps facing where you look, and\n"
+                            + "jogging or sprinting is straight ahead only. false: it always turns, as in the game. On a server where players\n"
+                            + "can hurt each other it keeps facing where you look when going sideways and backwards, on or off, at the slower\n"
+                            + "pace the game gives its aiming stance.",
                     writable | live, true),
-            core.configLocalBool("Rules", "ShotsPastTrees",
-                    "true: a tree stops your shots only where its trunk is drawn, and a shot past the trunk goes on. false: a\n"
-                            + "tree stops every shot across its square, as the game has it. On a server where players can hurt each\n"
-                            + "other the game's rule holds.",
+            localBool("Rules", "ShotsPastTrees",
+                    "true: a tree stops your shots only where its trunk is drawn, and a shot past the trunk goes on. false: a tree stops\n"
+                            + "every shot across its square, as in the game. On a server where players can hurt each other the game's rule\n"
+                            + "applies.",
                     writable | live, true),
-            core.configLocalBool("Rules", "ZombiesSeenAtOnce",
-                    "true: in the isometric view a zombie shows as soon as nothing stands between your character and it, where\n"
-                            + "your character's sight reaches by the game's rules. false: the game's own sight, which can show a zombie\n"
-                            + "late or only once it is close. On a server where players can hurt each other the game's rule holds.\n" + Part.LIVE_AND_NEXT_START,
+            localBool("Rules", "ZombiesSeenAtOnce",
+                    "true: in the isometric view a zombie shows as soon as nothing stands between your character and it, within the\n"
+                            + "reach of your character's sight by the game's rules. false: the game's own sight, which can show a zombie late\n"
+                            + "or only once it is close. On a server where players can hurt each other the game's rule applies.\n"
+                            + Part.LIVE_AND_NEXT_START,
                     writable | live, true),
-            !DevBuild.ON ? NO_ROW : core.configLocalBool("Rules", "Rewind30s",
-                    "true: offline, when you die the game pauses and asks whether to go back to where you were 30 seconds before,\n"
-                            + "with what you had then and the wounds you had then. The world goes on as it was, the zombie that killed you\n"
+            !DevBuild.ON ? NO_ROW : localBool("Rules", "Rewind30s",
+                    "true: offline, when you die the game pauses and asks whether to go back to where you were 30 seconds before, with\n"
+                            + "what you had then and the wounds you had then. The world goes on as it was, the zombie that killed you\n"
                             + "included, but every zombie within 4 tiles of you is moved out to 4 tiles and every zombie stands still for 2\n"
-                            + "seconds after. false: death is final, as the game has it. On a server the game's rule holds.\n"
+                            + "seconds after. false: death is final, as in the game. On a server the game's rule applies.\n"
                             + Part.LIVE_AND_NEXT_START,
                     writable | live, false),
-            core.configLocalBool("Rules", "HiddenWallDecor",
-                    "true: in first person the south and east walls of a room, which the isometric view never shows from inside,\n"
-                            + "carry pictures that are drawn by the mod and never saved. false: nothing is drawn on them, and nothing is\n"
-                            + "added to them whatever HiddenWallDecorSaved says. On a server the pictures are drawn too.\n"
-                            + "Taken at once. Off with FirstPersonEnabled off too, its patches of the game's code are left out from the next start.",
+            localBool("Rules", "HiddenWallDecor",
+                    "true: in first person, the south and east walls of a room, which the isometric view never shows from inside, get\n"
+                            + "pictures drawn by the mod and never saved. false: nothing is drawn on them, and nothing is added to them\n"
+                            + "whatever HiddenWallDecorSaved says. On a server the pictures are drawn too.\n" + BOTH_OFF,
                     writable | live, true),
-            core.configLocalBool("Rules", "HiddenWallDecorSaved",
-                    "true: offline, while HiddenWallDecor is on, those walls also get the game's own mirrors, clocks and coat racks\n"
-                            + "where the room's other walls say they belong, the first time the room is loaded, and those stay in your save.\n"
+            localBool("Rules", "HiddenWallDecorSaved",
+                    "true: offline, while HiddenWallDecor is on, those walls also get the game's own mirrors, clocks and coat racks where\n"
+                            + "the room's other walls say they belong, the first time the room is loaded, and those stay in your save.\n"
                             + "false: nothing is added to the save, and what was added before stays. On a server nothing is added.",
                     writable | live, true),
         };
         describeParts("Rules");
         describeParts("Fixes");
 
-        talkingMouths = core.configLocalBool("Voice", TALKING_MOUTHS,
-                "true: your character's mouth moves with what you say into your microphone: the jaw drops for \"ah\", the lips\n"
-                        + "spread for \"ee\" and round for \"oo\". Online, other players' mouths move while the game's voice chat plays them.\n"
-                        + "The sound is measured as it comes in, and nothing is recorded or sent.\n"
-                        + "false: no microphone is opened.\n"
-                        + "Taken at once for the first person picture, and at the next start for the people the game draws itself.\n"
-                        + "Off with FirstPersonEnabled off too, its patches of the game's code are left out from the next start.",
+        talkingMouths = localBool("Voice", TALKING_MOUTHS,
+                "true: your character's mouth moves with what you say into your microphone: the jaw drops for \"ah\", the lips spread\n"
+                        + "for \"ee\" and round for \"oo\". Online, other players' mouths move while the game's voice chat plays them, and\n"
+                        + "other players with this mod see your mouth move. The sound is never recorded or sent. false: no microphone is\n"
+                        + "opened. Takes effect at once, but at the next start for the people the game draws itself, as in the isometric view\n"
+                        + "at Low. When this and FirstPersonEnabled are both off, the mod leaves the game's code for this unpatched from the\n"
+                        + "next start.",
                 writable | live, false);
         for (int player = 0; player < microphones.length; player++) {
             microphones[player] = core.configLocalText("Voice", MICROPHONE_ROWS[player],
@@ -440,66 +462,47 @@ final class Config {
                     writable | live, player == 0 ? Microphones.DEFAULT : Microphones.NONE);
         }
 
-        puts.put("FieldOfView", value -> {
-            FieldOfView.set((float) value);
-            Log.info("first person field of view set to " + (float) value + " degrees vertical");
-        });
+        // Each put changes the running game alone: Tracking.applyScreen takes the patches in and logs what changed once for the lot.
+        puts.put("FieldOfView", value -> FieldOfView.set((float) value));
         for (int player = 0; player < View.COUNT; player++) {
             int whose = player;
             puts.put(qualityKey(player), value -> Quality.set(whose, (int) value));
             puts.put(overheadQualityKey(player), value -> Quality.setOverhead(whose, (int) value + Quality.LOW));
-            puts.put(PLAYER_ROW[player] + "Style", value -> Style.set(whose, (int) value));
+            puts.put(styleKey(player), value -> Style.set(whose, (int) value));
             puts.put(PLAYER_ROW[player] + "FirstPerson", value -> Tracking.firstPersonAtLoad(whose, value != 0));
             puts.put(PLAYER_ROW[player] + "FirstPersonInVehicles", value -> Tracking.firstPersonInVehicles(whose, value != 0));
         }
-        puts.put("HillHeight", value -> {
-            HillHeight.set((float) value);
-            Log.info("hill height set to " + (float) value);
-        });
+        puts.put("HillHeight", value -> HillHeight.set((float) value));
         puts.put("MuzzleFlash", value -> MuzzleFlash.set(value != 0));
         puts.put("Crosshair", value -> Crosshair.set(value != 0));
         puts.put("RegripTwoHandedWeapons", value -> Regrip.set(value != 0));
         puts.put("SpreadLightUpdates", value -> PendingLights.set(value != 0));
-        puts.put("SplitScreen", value -> {
-            SplitScreen.set((int) value);
-            Agent.takeIn();
-        });
+        puts.put("SplitScreen", value -> SplitScreen.set((int) value));
         puts.put(TALKING_MOUTHS, value -> {
             Mouths.set(value != 0);
             Microphones.set(value != 0, Tracking.microphones().toArray(String[]::new));
-            Log.info("talking mouths " + (value != 0 ? "on" : "off: no microphone is opened"));
         });
         for (int i = 0; i < VANILLA_KEYS.length; i++) {
             int bit = 1 << i;
-            puts.put(VANILLA_KEYS[i], value -> {
-                Own.update(rows -> value != 0 ? rows & ~bit : rows | bit);
-                Log.info("the mod's own in first person: " + Own.described(Own.rows()));
-            });
+            puts.put(VANILLA_KEYS[i], value -> Own.update(rows -> value != 0 ? rows & ~bit : rows | bit));
         }
         for (Part part : Part.values()) {
+            // A part read only as the game starts is saved, and taken then.
             puts.put(part.key, value -> {
                 if (part.live) {
                     part.set(value != 0);
-                    Agent.takeIn();
-                    Log.info(part.key + " " + (value != 0) + ": " + Part.described());
-                } else {
-                    Log.info(part.key + " " + (value != 0) + ", taken at the next start");
                 }
             });
         }
         for (int i = 0; i < RULE_KEYS.length; i++) {
             int bit = 1 << i;
-            puts.put(RULE_KEYS[i], value -> {
-                Rules.update(rows -> value != 0 ? rows | bit : rows & ~bit);
-                Agent.takeIn();
-                Log.info("the mod's rules offline: " + Rules.described(Rules.rows()));
-            });
+            puts.put(RULE_KEYS[i], value -> Rules.update(rows -> value != 0 ? rows | bit : rows & ~bit));
         }
     }
 
     /** A part's row, true unless the player says otherwise: read again while the game runs only where the part is taken then. */
     private void describe(Part part) {
-        parts[part.ordinal()] = core.configLocalBool(part.section, part.key, part.comment,
+        parts[part.ordinal()] = localBool(part.section, part.key, part.comment,
                 CameraUnlock.ROW_WRITABLE | (part.live ? CameraUnlock.ROW_LIVE : 0), true);
     }
 
@@ -512,7 +515,28 @@ final class Config {
         }
     }
 
-    /** The key of a player's first person graphics mode: Quality, SecondPlayerQuality and so on. */
+    private int localBool(String section, String key, String comment, int flags, boolean value) {
+        return kept(key, core.configLocalBool(section, key, comment, flags, value));
+    }
+
+    private int localInt(String section, String key, String comment, int flags, int value, int min, int max) {
+        return kept(key, core.configLocalInt(section, key, comment, flags, value, min, max));
+    }
+
+    private int localFloat(String section, String key, String comment, int flags, float value, float min, float max) {
+        return kept(key, core.configLocalFloat(section, key, comment, flags, value, min, max));
+    }
+
+    private int localEnum(String section, String key, String comment, int flags, String tokens, int value) {
+        return kept(key, core.configLocalEnum(section, key, comment, flags, tokens, value));
+    }
+
+    private int kept(String key, int row) {
+        localRows.put(key, row);
+        return row;
+    }
+
+    /** The key of a player's row of whether their saves load in first person: FirstPerson, SecondPlayerFirstPerson and so on. */
     static String firstPersonRow(int player) {
         return PLAYER_ROW[player] + "FirstPerson";
     }
@@ -521,6 +545,7 @@ final class Config {
         return PLAYER_ROW[player] + "FirstPersonInVehicles";
     }
 
+    /** The key of a player's first person graphics mode: Quality, SecondPlayerQuality and so on. */
     static String qualityKey(int player) {
         return PLAYER_ROW[player] + "Quality";
     }
@@ -528,6 +553,10 @@ final class Config {
     /** The key of a player's isometric graphics mode: IsometricQuality, SecondPlayerIsometricQuality and so on. */
     static String overheadQualityKey(int player) {
         return PLAYER_ROW[player] + "IsometricQuality";
+    }
+
+    static String styleKey(int player) {
+        return PLAYER_ROW[player] + "Style";
     }
 
     /** Whether put has somewhere to put a row's value. The rows of [Graphics] are put by Tracking.applyScreen. */
@@ -652,18 +681,36 @@ final class Config {
         return PLAYER_PORT_ROWS[playerIndex - 1];
     }
 
-    /** The settings the game's options screen shows, in core's order, which is the file's: OptionsLayout sets the order the screen shows them in. */
-    CameraUnlock.Option[] options() {
-        CameraUnlock.Option[] options = new CameraUnlock.Option[core.configOptionCount()];
-        for (int option = 0; option < options.length; option++) {
-            options[option] = core.configOption(option);
+    /**
+     * The settings the game's options screen shows, in core's order, which is the file's:
+     * OptionsLayout sets the order the screen shows them in. Asked of core once, after the file is
+     * read. Nothing changes them.
+     */
+    synchronized CameraUnlock.Option[] options() {
+        if (options == null) {
+            CameraUnlock.Option[] listed = new CameraUnlock.Option[core.configOptionCount()];
+            for (int option = 0; option < listed.length; option++) {
+                listed[option] = core.configOption(option);
+                optionPlaces.put(listed[option].id, option);
+            }
+            options = listed;
         }
         return options;
     }
 
     /** An option's key. */
     String optionId(int option) {
-        return core.configOption(option).id;
+        return options()[option].id;
+    }
+
+    /** An option's place in options(), by its key. */
+    synchronized int optionPlace(String key) {
+        options();
+        Integer place = optionPlaces.get(key);
+        if (place == null) {
+            throw new IllegalArgumentException(key + " is no setting of the options screen");
+        }
+        return place;
     }
 
     /** What core holds for an option now, as one number: the last value the file gave it or a save put there. */
@@ -671,21 +718,41 @@ final class Config {
         return core.configOptionGet(option);
     }
 
-    boolean saveOption(int option, double value) {
-        return saved(core.configOption(option).id + " " + value + " from the game's options screen", core.configOptionSave(option, value));
-    }
-
-    /** Player 1's graphics mode as Custom, with the rows of [Graphics] holding values (in GRAPHICS order), in one write. */
-    boolean saveCustom(double[] values) {
-        int[] rows = Arrays.copyOf(graphics, graphics.length + 1);
-        double[] all = Arrays.copyOf(values, values.length + 1);
-        rows[graphics.length] = quality[0];
-        all[values.length] = Quality.CUSTOM;
-        StringBuilder what = new StringBuilder("player 1's first person graphics mode Custom from the game's options screen, with");
-        for (int part = 0; part < values.length; part++) {
-            what.append(' ').append(GRAPHICS[part]).append(' ').append(values[part]);
+    /**
+     * Settings the game's options screen applied, each as its option's number by key, in as few
+     * writes as core allows: the mod's own rows in one, each of core's rows in one of its own, and
+     * the modes as the session has them. Answers whether the file holds every one.
+     */
+    boolean saveOptions(Map<String, Double> values) {
+        boolean all = true;
+        List<String> mine = new ArrayList<>();
+        for (Map.Entry<String, Double> value : values.entrySet()) {
+            String key = value.getKey();
+            if (localRows.containsKey(key)) {
+                mine.add(key);
+            } else if (key.equals("TrackingMode")) {
+                all &= saveTrackingMode();
+            } else if (key.equals("AimMode")) {
+                all &= saveAimMode();
+            } else if (key.equals("WorldSpaceYaw")) {
+                all &= saveWorldSpaceYaw(value.getValue() != 0);
+            } else {
+                all &= saved(key + " " + value.getValue() + " from the game's options screen", core.configOptionSave(optionPlace(key), value.getValue()));
+            }
         }
-        return saved(what.toString(), core.configSaveRows(rows, all));
+        if (mine.isEmpty()) {
+            return all;
+        }
+        int[] rows = new int[mine.size()];
+        double[] numbers = new double[mine.size()];
+        StringBuilder what = new StringBuilder();
+        for (int i = 0; i < rows.length; i++) {
+            String key = mine.get(i);
+            rows[i] = localRows.get(key);
+            numbers[i] = values.get(key);
+            what.append(i == 0 ? "" : ", ").append(key).append(' ').append(numbers[i]);
+        }
+        return saved(what + " from the game's options screen", core.configSaveRows(rows, numbers)) && all;
     }
 
     /** Each save answers whether the file holds the new value. The session keeps it either way. */
@@ -721,6 +788,14 @@ final class Config {
 
     String cycleQualityKeys() {
         return core.configGetText(cycleQualityKey);
+    }
+
+    String cycleStyleKeys() {
+        return core.configGetText(cycleStyleKey);
+    }
+
+    String splitScreenKeys() {
+        return core.configGetText(splitScreenKey);
     }
 
     boolean saveFirstPerson(int player, boolean on) {

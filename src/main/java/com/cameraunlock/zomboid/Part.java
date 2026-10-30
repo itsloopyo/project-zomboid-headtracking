@@ -12,122 +12,124 @@ package com.cameraunlock.zomboid;
  */
 enum Part {
     FIRST_PERSON("General", "FirstPersonEnabled", true, true,
-            "true: the mod's first person view. false: there is none, and the isometric view is the game's own whatever\n"
-                    + "IsometricQuality says. The first person key, a controller's double tap of Back and FirstPerson do nothing, and\n"
-                    + "nothing more is made ready for first person while you play or while a save loads; what was already made stays\n"
+            "true: the mod's first person view is there to switch to. false: there is no first person view, and the isometric view\n"
+                    + "is the game's own whatever IsometricQuality says. The first person key, a double tap of Back on a controller and\n"
+                    + "FirstPerson then do nothing, and nothing more is made ready for first person, though what is ready already stays\n"
                     + "until you leave the save."),
     TORCH_FOLLOWS_HEAD("FirstPerson", "TorchFollowsHead", true, false,
-            "true: in first person a torch you carry lights where your head is turned, as far as LightMultiplier in [Light]\n"
-                    + "says. false: it lights the way the view faces, whatever your head does."),
+            "true: in first person, a flashlight you carry points where your head turns, as far as LightMultiplier says.\n"
+                    + "false: it points the way your character faces, whatever your head does."),
     HEAR_FROM_THE_EYE("FirstPerson", "HearFromTheEye", false, true,
-            "true: in first person you hear from the eye: sounds turn with the view, walls between you and a sound muffle it\n"
-                    + "and rooms ring. false: first person is heard as the game's own view hears, facing north-west on the map."),
+            "true: in first person you hear from your character's eyes: sounds turn with the view, walls between you and a sound\n"
+                    + "muffle it, and rooms echo. false: you hear as the isometric view does, facing north-west on the map."),
     LIGHTNING_BOLTS("FirstPerson", "LightningBolts", false, true,
-            "true: in first person lightning strikes as a bolt from the cloud to the ground, which lights the world while it\n"
-                    + "is bright. false: lightning is the game's own flash, the whole map brightening for a moment."),
+            "true: in first person, lightning strikes as a bolt from the clouds to the ground and lights up the world while it\n"
+                    + "flashes. false: the game's own lightning, a flash that brightens the whole map for a moment."),
     SHOT_IMPACTS("FirstPerson", "ShotImpacts", true, true,
-            "true: in first person, in Medium and High, a shot throws up dust, chips, splinters, sparks or blood where it\n"
-                    + "strikes and leaves a hole. false: shots leave no mark, as in the game's own view. A shot still breaks lamps\n"
-                    + "and glass as [Rules] says, and while either does the impacts' patches stay in."),
+            "true: in first person, in Medium and High, a shot kicks up dust, chips, splinters, sparks or blood where it hits\n"
+                    + "and leaves a hole. false: shots leave no mark, as in the game's own view. Shots still break lamps and glass\n"
+                    + "when ShotsBreakLamps and ShotsBreakGlass are on, and while either is on the mod keeps the game's code patched\n"
+                    + "for this."),
     FAR_VEHICLES_AND_ZOMBIES("FirstPerson", "FarVehiclesAndZombies", true, false,
-            "true: in first person a vehicle, zombie or animal within sight is drawn wherever the game's own screen ends,\n"
-                    + "and so is another player where players cannot fight. false: each is drawn only where the game's own view\n"
-                    + "would show it."),
+            "true: in first person, vehicles, zombies and animals in sight are drawn even past the edge of the game's own\n"
+                    + "screen, and so are other players where players cannot fight. false: each is drawn only where the game's own\n"
+                    + "view would show it."),
     QUICK_RAGDOLLS("FirstPerson", "QuickRagdolls", false, true,
-            "true: while anyone plays in first person a body that is hit goes into its ragdoll at once, and a first person\n"
-                    + "shot pushes it along the shot, at the place it went in. false: bodies go into their ragdolls as the game's own\n"
-                    + "blends have them."),
+            "true: while anyone plays in first person, a body that is hit switches to its ragdoll at once, and a first person\n"
+                    + "shot pushes it along the shot from where it went in. false: bodies switch to their ragdolls the way the\n"
+                    + "game blends them in."),
     HIT_FLINCH("FirstPerson", "HitFlinch", true, false,
-            "true: a zombie shot in first person that stays up is knocked by the round where it went in: a head snaps back, a\n"
-                    + "shoulder is spun round. false: it plays the game's own stagger alone."),
+            "true: a zombie shot in first person that stays on its feet reacts where the bullet hit: its head snaps back or\n"
+                    + "its shoulder spins round. false: it plays only the game's own stagger."),
     HEAD_LED_VIEW_WHEN_DOWN("FirstPerson", "HeadLedViewWhenDown", true, false,
-            "true: in first person, knocked over, lying down, getting up and dying, the view is your character's head's.\n"
-                    + "false: the view stays the mouse's while the game's animation has the body, and dead, it is held where it was."),
+            "true: in first person, when you are knocked over, lie down, get up or die, the view follows your character's\n"
+                    + "head. false: the mouse keeps the view while the game moves the body, and when you die the view stays where it was."),
     ITEMS_AS_MODELS("FirstPerson", "ItemsAsModels", true, true,
-            "true: in first person, while the game's 3D ground items option is on, items on the ground are built as the\n"
-                    + "game's own models of them. false: each lies flat as its picture."),
+            "true: in first person, items on the ground are shown as the game's own 3D models of them, while the game's 3D\n"
+                    + "ground items option is on. false: each lies flat as its picture."),
     FINER_SKINS("FirstPerson", "FinerSkins", false, true,
-            "true: in first person the people near the eye wear skins finer than the game's, the mod's own and any finer\n"
+            "true: in first person, people near you wear more detailed skins than the game's: the mod's own, and any finer\n"
                     + "ones in the folder the log names. false: they wear the game's own."),
     LEAVE_OUT_SCREEN_GREY("FirstPerson", "LeaveOutScreenGrey", false, true,
-            "true: the game's greying of the screen by the season, fog and weather is left off the first person picture,\n"
-                    + "which shows those by its own light. false: the game greys first person's picture as it greys its own view."),
+            "true: the game's grey tint for the season, fog and weather is left off the first person picture, which shows those\n"
+                    + "with its own lighting. false: the game tints the first person picture as it tints its own view."),
     NAME_TAGS_AT_HEADS("FirstPerson", "NameTagsAtHeads", false, true,
-            "true: on a server, in first person, the names and speech the game writes over people are put over their heads\n"
-                    + "in the picture, and your own are left out. false: the game writes them where its own view has their owners."),
+            "true: on a server, in first person, the names and speech the game shows over people sit over their heads in the\n"
+                    + "picture, and your own are hidden. false: the game shows them where its own view puts them."),
     SHOTS_FROM_VEHICLE_SEATS("Rules", "ShotsFromVehicleSeats", true, false,
-            "true: in first person, seated in a vehicle with a firearm, you can fire through the whole window of your seat,\n"
-                    + "which the shot breaks. false: the window has to be opened or broken first, as the game has it. On a server\n"
-                    + "where players can hurt each other the game's rule holds."),
+            "true: in first person, sitting in a vehicle with a gun, you can fire through any part of your seat's window, and\n"
+                    + "the shot breaks it. false: as in the game, the window has to be opened or broken first. On a server where\n"
+                    + "players can hurt each other, the game's rule applies."),
     DRIVE_WHILE_AIMING("Rules", "DriveWhileAiming", true, false,
-            "true: in first person, driving by keyboard, you keep steering, accelerating and braking with a firearm raised.\n"
-                    + "false: raising a firearm takes the controls, as the game has it. On a controller, and on a server where players\n"
-                    + "can hurt each other, the game's rule holds."),
+            "true: in first person, driving with the keyboard, you can still steer, accelerate and brake while aiming a gun.\n"
+                    + "false: as in the game, aiming a gun takes over the controls. With a controller, and on a server where\n"
+                    + "players can hurt each other, the game's rule applies."),
     HILLS_MOVE_VEHICLES("Rules", "HillsMoveVehicles", true, true,
-            "true: offline, driving in first person, the hills pull a vehicle down them and throw it into the air over a crest\n"
+            "true: offline, driving in first person, hills pull a vehicle down them and can throw it into the air over a crest\n"
                     + "at speed. false: vehicles move as on the game's level ground. On a server they always do."),
     HAND_LIGHT_OUT_AT_THE_WHEEL("Rules", "HandLightOutAtTheWheel", true, false,
-            "true: in first person, a light you carry in your hands is switched off as you take the driver's seat, since\n"
-                    + "your hands are on the wheel. false: it stays as it was."),
+            "true: in first person, a light in your hands is switched off when you take the driver's seat, since your hands\n"
+                    + "are on the wheel. false: it stays as it was."),
     BURNT_BUILDING_FREEZE_FIX("Fixes", "BurntBuildingFreezeFix", false, true,
-            "true: the game no longer stops for good as it lays out a burnt-down building whose door or window stands across\n"
-                    + "into a chunk that is not loaded yet. false: the game's own code, which can go round that door for ever."),
+            "true: stops the game freezing for good while it sets up a burnt-down building whose door or window reaches into a\n"
+                    + "chunk that has not loaded yet. false: the game's own code, which can loop on that door forever."),
     CENTRE_THE_WINDOW("Fixes", "CentreTheWindow", false, true,
-            "true: the game's window is centred in the part of its monitor the taskbar leaves free. false: the game places\n"
-                    + "it, centred by its inside against the whole of the main monitor, which can leave it partly under the taskbar."),
+            "true: the game's window is centred in the part of the monitor the taskbar leaves free. false: the game centres it\n"
+                    + "on the whole main monitor, which can leave part of it under the taskbar."),
     CONTROLLER_CHOICE_FIX("Fixes", "ControllerChoiceFix", false, true,
-            "true: the controllers you tick in the game's options stay ticked, a 3Dconnexion 6-axis mouse never plays, and\n"
-                    + "the main menu goes to the controller whose A was pressed. false: the game picks its controllers, which with\n"
-                    + "none ticked is the one at index 0, a SpaceMouse when one is plugged in first."),
+            "true: the controllers you tick in the game's options stay ticked, a 3Dconnexion 6-axis mouse is never used as a\n"
+                    + "controller, and the main menu goes to the controller whose A button was pressed. false: the game picks its\n"
+                    + "controllers, which with none ticked is the first one, a SpaceMouse if one was plugged in first."),
     CACHED_GAME_LOOKUPS("Optimizations", "CachedGameLookups", false, true,
-            "true: the game's lookups of items by name, of a component's class and of a character's state machine are\n"
-                    + "answered from what they found before, and two of its bone updates skip work that changes nothing, in either\n"
-                    + "view. The answers are the same. false: the game works each of them out every time."),
+            "true: the game's lookups of items by name, of component classes and of character state machines are answered from\n"
+                    + "what they found before, and two of its bone updates skip work that changes nothing, in both views. The\n"
+                    + "results are the same. false: the game works each one out every time."),
     SKIP_COVERED_GAME_DRAWING("Optimizations", "SkipCoveredGameDrawing", true, true,
-            "true: under the first person picture the game leaves out drawing its own view, which the picture covers: its\n"
-                    + "weather, floors, objects, shadows, people and the rest. The picture is the same. false: the game draws its whole\n"
-                    + "view under the picture every frame, as it does with no picture over it."),
+            "true: while the first person picture covers the screen, the game skips drawing its own view underneath it: its\n"
+                    + "weather, floors, objects, shadows, people and the rest. What you see is the same. false: the game draws its\n"
+                    + "whole view under the picture every frame."),
     SKINS_COMPOSED_WHILE_WAITING("Optimizations", "SkinsComposedWhileWaiting", true, true,
-            "true: while the first person picture covers the game's view, what a character wears is composed into its skin\n"
-                    + "while the render thread waits for the next frame. The skins are the same. false: the game composes them in the\n"
-                    + "middle of drawing the frame, as it does."),
+            "true: while the first person picture covers the game's view, what characters wear is built into their skins while\n"
+                    + "the render thread waits for the next frame. The skins look the same. false: the game builds them in the\n"
+                    + "middle of drawing the frame."),
     CHUNK_CHANGE_COUNTS("Optimizations", "ChunkChangeCounts", false, true,
-            "true: the game's changes to each chunk are counted as it makes them, so the first person view builds again only\n"
-                    + "the chunks that changed. The picture is the same. false: the view looks over every chunk it draws for changes."),
+            "true: the game's changes to each chunk are counted as it makes them, so the first person view rebuilds only the\n"
+                    + "chunks that changed. What you see is the same. false: the view checks every chunk it draws for changes."),
     UNSEEN_ROOM_ZOMBIES_UNMODELLED("Optimizations", "UnseenRoomZombiesUnmodelled", true, false,
-            "true: in first person a zombie in a room no line of sight could reach, even with every door and curtain in reach\n"
-                    + "open, has no model until you come near enough to see in. false: it keeps its model wherever it stands."),
+            "true: in first person, a zombie in a room you could not see into, even with every nearby door and curtain open,\n"
+                    + "has no model until you come close enough to see in. false: it keeps its model wherever it stands."),
     HOLD_CHUNK_MAP_CENTRE("Optimizations", "HoldChunkMapCentre", true, true,
-            "true: the game's map of loaded chunks keeps its centre until you are a tile past a chunk line, so turning on the\n"
-                    + "spot on one does not load a column of chunks again every few seconds. false: the centre goes to the chunk you\n"
-                    + "stand in at once, as the game has it."),
+            "true: the game's map of loaded chunks keeps its centre until you are a tile past a chunk edge, so turning on the\n"
+                    + "spot right on an edge does not load a column of chunks again every few seconds. false: as in the game, the\n"
+                    + "centre moves to your chunk at once."),
     GRAPHICS_MEMORY_STEPS("Optimizations", "GraphicsMemorySteps", true, false,
-            "true: on an NVIDIA graphics card too small for what a graphics mode draws, first person starts the session with\n"
-                    + "less drawn in every mode. false: every mode starts as it is. Read as first person first starts in a session.\n"
-                    + "Either way, when the card has no room for something the mod makes, every mode is drawn a step lower."),
+            "true: on an NVIDIA graphics card without enough memory for what a graphics mode draws, first person starts the\n"
+                    + "session drawing less in every mode. false: every mode starts as it is. Checked when first person first\n"
+                    + "starts in a session. Either way, when the card runs out of room for something the mod makes, every mode\n"
+                    + "drops a step."),
     PREPARE_WHILE_LOADING("Optimizations", "PrepareWhileLoading", true, true,
-            "true: a save starts only once the mod's shaders are compiled and the far land and skins round you are made, so\n"
-                    + "first person does not stutter making them in play. false: the save starts as soon as the game is ready, and\n"
-                    + "first person makes them as you play."),
+            "true: a save starts only once the mod's shaders are compiled and the distant land and the skins around you are\n"
+                    + "made, so first person does not stutter making them during play. false: the save starts as soon as the game\n"
+                    + "is ready, and first person makes them as you play."),
     SPOT_BY_SIGHT("Optimizations", "SpotBySight", true, true,
-            "true: under the first person picture the rooms the game fills with zombies, and the squares it counts as seen, go\n"
-                    + "by what the view sees, a few times a second. false: they go by where the mod has the game work out light, which\n"
-                    + "can fill a room you have not looked into. Needs SkipCoveredGameDrawing."),
+            "true: under the first person picture, the rooms the game fills with zombies and the squares it counts as seen\n"
+                    + "follow what the view sees, a few times a second. false: they follow where the mod has the game work out\n"
+                    + "light, which can fill a room you have not looked into. Needs SkipCoveredGameDrawing."),
     BUILD_ON_WORKER_THREADS("Optimizations", "BuildOnWorkerThreads", true, false,
-            "true: the first person view builds the chunks it has to build again on threads of its own, all at once, and shows\n"
-                    + "each a frame later. false: each is built on the game's own thread as the view comes to it, and shows in that frame."),
+            "true: the first person view rebuilds chunks on threads of its own, all at once, and shows each one a frame\n"
+                    + "later. false: each is rebuilt on the game's own thread as the view reaches it, and shows in that frame."),
     REBUILD_FOR_OWN_SPRITES("Optimizations", "RebuildForOwnSprites", true, false,
-            "true: a chunk the first person view built before some of its sprites or pictures had been read is built again\n"
-                    + "once those have been. false: it is built again whenever any sprite or picture has been read, which on arriving\n"
-                    + "somewhere is most frames for the first seconds."),
+            "true: a chunk the first person view built before some of its sprites or pictures had loaded is rebuilt once\n"
+                    + "those have. false: it is rebuilt whenever any sprite or picture loads, which for the first seconds after\n"
+                    + "arriving somewhere is most frames."),
     HIDDEN_WALL_READS_KEPT("Optimizations", "HiddenWallReadsKept", true, false,
-            "true: as chunks load, what HiddenWallDecor reads off a building for each room it dresses is kept, and only the\n"
-                    + "chunks the game has changed since are read again. The rooms come out the same. Needs ChunkChangeCounts.\n"
-                    + "false: the whole building is read again for each chunk that loads, which in a tall building can hitch."),
+            "true: as chunks load, what HiddenWallDecor reads from a building for each room it decorates is kept, and only\n"
+                    + "the chunks the game has changed since are read again. The rooms come out the same. Needs ChunkChangeCounts.\n"
+                    + "false: the whole building is read again for each chunk that loads, which can hitch in a tall building."),
     BUILDING_FACTS_KEPT("Optimizations", "BuildingFactsKept", true, false,
-            "true: what a building's room names say, each room's kind of place and whether the building is a home, and what\n"
-                    + "each picture is of, are worked out once and kept. The rooms and their pictures come out the same.\n"
-                    + "false: they are worked out again for each room, which in a tall building can hitch.");
+            "true: what a building's room names say, what kind of place each room is, whether the building is a home and what\n"
+                    + "each picture shows are worked out once and kept. The rooms and their pictures come out the same.\n"
+                    + "false: they are worked out again for each room, which can hitch in a tall building.");
 
     final String section, key, comment;
     /** Whether the row is taken while the game runs, and whether it is read at the start to leave patches out. */
@@ -143,8 +145,8 @@ enum Part {
     }
 
     /** The last line of the row of a part made of patches, saying when off is taken. */
-    static final String NEXT_START = "Taken at the next start. Off, its patches of the game's code are left out.",
-            LIVE_AND_NEXT_START = "Taken at once. Off, its patches of the game's code are left out from the next start.";
+    static final String NEXT_START = "Takes effect when the game next starts. When off, the mod leaves the game's code for this unpatched.",
+            LIVE_AND_NEXT_START = "Takes effect at once. When off, the mod also leaves the game's code for this unpatched from the next start.";
 
     /** Whether the part is on now: as the start found it, for a part not taken while the game runs. */
     boolean on() {
@@ -164,6 +166,16 @@ enum Part {
     /** Whether the part works now: on, and for a part of patches, with its patches in. */
     boolean running() {
         return on && (patched || !start);
+    }
+
+    /** Whether a row is a part's that is taken only when the game next starts. */
+    static boolean nextStart(String key) {
+        for (Part part : values()) {
+            if (part.key.equals(key)) {
+                return !part.live;
+            }
+        }
+        return false;
     }
 
     /** Marks each part taken while the game runs that is on as in the game's code, once Agent.takeIn has put its patches in. */
