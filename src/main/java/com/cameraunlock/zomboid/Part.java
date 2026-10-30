@@ -123,7 +123,11 @@ enum Part {
     HIDDEN_WALL_READS_KEPT("Optimizations", "HiddenWallReadsKept", true, false,
             "true: as chunks load, what HiddenWallDecor reads off a building for each room it dresses is kept, and only the\n"
                     + "chunks the game has changed since are read again. The rooms come out the same. Needs ChunkChangeCounts.\n"
-                    + "false: the whole building is read again for each chunk that loads, which in a tall building can hitch.");
+                    + "false: the whole building is read again for each chunk that loads, which in a tall building can hitch."),
+    BUILDING_FACTS_KEPT("Optimizations", "BuildingFactsKept", true, false,
+            "true: what a building's room names say, each room's kind of place and whether the building is a home, and what\n"
+                    + "each picture is of, are worked out once and kept. The rooms and their pictures come out the same.\n"
+                    + "false: they are worked out again for each room, which in a tall building can hitch.");
 
     final String section, key, comment;
     /** Whether the row is taken while the game runs, and whether it is read at the start to leave patches out. */

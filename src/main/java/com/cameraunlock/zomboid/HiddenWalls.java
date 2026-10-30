@@ -494,7 +494,8 @@ final class HiddenWalls {
      * pieces is read whole as well, and the two compared; each difference is logged, and a tally
      * every hundred.
      */
-    private static final boolean CHECKED = Boolean.getBoolean("cameraunlock.zomboid.checkHiddenWalls");
+    static final boolean CHECKED = Boolean.getBoolean("cameraunlock.zomboid.checkHiddenWalls");
+    private static int factChecks, factDifferences;
     private static int checks, differences, piecesNone, piecesLoading, piecesNew, piecesChanged, piecesKept, piecesCarried;
     private static long keptNanos, readNanos;
 
@@ -509,6 +510,21 @@ final class HiddenWalls {
             Log.info(String.format(Locale.ROOT, "hidden walls check: %d compared, %d differ; pieces kept %d, read %d (new %d, changed %d, loading %d), off the map %d, carried past a hang %d;"
                     + " buildings read from pieces in %.1f ms, whole in %.1f ms", checks, differences, piecesKept, piecesNew + piecesChanged + piecesLoading,
                     piecesNew, piecesChanged, piecesLoading, piecesNone, piecesCarried, keptNanos / 1e6, readNanos / 1e6));
+        }
+    }
+
+    /**
+     * Dev only, as compared: a fact of a building or a picture kept (BuildingFactsKept) against
+     * the same worked out again. Any thread.
+     */
+    static synchronized void factCompared(boolean same, Supplier<String> how) {
+        factChecks++;
+        if (!same) {
+            factDifferences++;
+            Log.info("hidden walls check: " + how.get());
+        }
+        if (factChecks % 1000 == 0) {
+            Log.info(String.format(Locale.ROOT, "hidden walls check: %d building facts compared, %d differ", factChecks, factDifferences));
         }
     }
 
@@ -590,6 +606,7 @@ final class HiddenWalls {
         PIECES.clear();
         PLANNED.clear();
         WAITING.clear();
+        HOMES.clear();
     }
 
     /** What a room is, by its name on the map. */
@@ -874,8 +891,9 @@ final class HiddenWalls {
             }
         }
         ArrayList<Integer> taste = new ArrayList<>(), family = new ArrayList<>(), landscapes = new ArrayList<>();
+        String[] subjects = Part.BUILDING_FACTS_KEPT.running() ? subjects() : null;
         for (int picture = 0; picture < Decor.count(); picture++) {
-            String name = Decor.nameOf(picture), subject = subjectOf(name);
+            String name = Decor.nameOf(picture), subject = subjects != null ? subjects[picture] : subjectOf(name);
             if (tastes.contains(subject) && !building.contains(picture) && !NAMED.contains(name)) {
                 taste.add(picture);
             }
@@ -893,6 +911,28 @@ final class HiddenWalls {
         }
         return List.of(taste.stream().mapToInt(Integer::intValue).toArray(), family.stream().mapToInt(Integer::intValue).toArray(),
                 landscapes.stream().mapToInt(Integer::intValue).toArray());
+    }
+
+    private static String[] subjects;
+
+    /** subjectOf each picture of Decor's index, by its number, worked out once (BuildingFactsKept): homeSources asked it of every picture, by a pattern. */
+    private static String[] subjects() {
+        if (subjects == null || subjects.length != Decor.count()) {
+            String[] made = new String[Decor.count()];
+            for (int i = 0; i < made.length; i++) {
+                made[i] = subjectOf(Decor.nameOf(i));
+            }
+            subjects = made;
+        }
+        if (CHECKED) {
+            String[] kept = subjects;
+            for (int i = 0; i < kept.length; i++) {
+                int picture = i;
+                factCompared(kept[i].equals(subjectOf(Decor.nameOf(i))), () -> "the subject of " + Decor.nameOf(picture) + ": " + subjectOf(Decor.nameOf(picture))
+                        + " worked out, " + kept[picture] + " kept");
+            }
+        }
+        return subjects;
     }
 
     /**
@@ -1334,7 +1374,23 @@ final class HiddenWalls {
      * nameless says nothing either way.
      */
     private static boolean home(RoomDef room) {
-        ArrayList<RoomDef> rooms = room.getBuilding().rooms;
+        if (!Part.BUILDING_FACTS_KEPT.running()) {
+            return homeRead(room.getBuilding());
+        }
+        boolean home = HOMES.computeIfAbsent(room.getBuilding(), HiddenWalls::homeRead);
+        if (CHECKED) {
+            boolean read = homeRead(room.getBuilding());
+            factCompared(read == home, () -> "whether the building of the " + room.getName() + " at " + room.rects.get(0).x + "," + room.rects.get(0).y + "," + room.level
+                    + " is a home: " + read + " worked out, " + home + " kept");
+        }
+        return home;
+    }
+
+    /** Whether each building is a home, kept for as long as the game keeps the building (BuildingFactsKept): home read every room name of it for every room dressed. Logic thread. */
+    private static final Map<BuildingDef, Boolean> HOMES = new WeakHashMap<>();
+
+    private static boolean homeRead(BuildingDef building) {
+        ArrayList<RoomDef> rooms = building.rooms;
         ArrayList<String> names = new ArrayList<>();
         for (int i = 0; i < rooms.size(); i++) {
             names.add(rooms.get(i).getName());

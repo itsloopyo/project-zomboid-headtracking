@@ -348,19 +348,46 @@ final class Decor {
     static String kindOf(RoomDef room) {
         String kind = roomKinds.get(room);
         if (kind == null) {
-            Set<String> names = new TreeSet<>();
-            for (RoomDef each : room.getBuilding().rooms) {
-                names.add(each.getName().toLowerCase(Locale.ROOT));
+            if (Part.BUILDING_FACTS_KEPT.running()) {
+                String said = said(room.getName());
+                Map<String, String> kinds = buildingKinds.computeIfAbsent(room.getBuilding(), building -> new ConcurrentHashMap<>());
+                kind = kinds.get(said);
+                if (kind == null) {
+                    kind = kind(said, saidIn(room.getBuilding()));
+                    kinds.put(said, kind);
+                }
+                if (HiddenWalls.CHECKED) {
+                    String read = kind(said, saidIn(room.getBuilding())), kept = kind;
+                    HiddenWalls.factCompared(read.equals(kept), () -> "the kind of the " + room.getName() + " at " + room.rects.get(0).x + "," + room.rects.get(0).y + ","
+                            + room.level + ": " + read + " worked out, " + kept + " kept");
+                }
+            } else {
+                kind = kind(said(room.getName()), saidIn(room.getBuilding()));
             }
-            List<String> building = new ArrayList<>(names.size());
-            for (String name : names) {
-                building.add(said(name));
-            }
-            kind = kind(said(room.getName()), building);
             roomKinds.put(room, kind);
         }
         return kind;
     }
+
+    /** What each of the building's room names says, one entry a name, in the names' order. */
+    private static List<String> saidIn(BuildingDef building) {
+        Set<String> names = new TreeSet<>();
+        for (RoomDef each : building.rooms) {
+            names.add(each.getName().toLowerCase(Locale.ROOT));
+        }
+        List<String> said = new ArrayList<>(names.size());
+        for (String name : names) {
+            said.add(said(name));
+        }
+        return said;
+    }
+
+    /**
+     * The kind of a building's room by what its name says, kept for as long as the game keeps
+     * the building (BuildingFactsKept): kindOf of each room read every room name of its building,
+     * which in a tower of a few hundred rooms is most of the time dressing its rooms takes. Any thread.
+     */
+    private static final Map<BuildingDef, Map<String, String>> buildingKinds = Collections.synchronizedMap(new WeakHashMap<>());
 
     /**
      * What a sprite that shows the picture shows hung on that square: the picture itself, but
