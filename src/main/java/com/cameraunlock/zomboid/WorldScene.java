@@ -2374,6 +2374,7 @@ final class WorldScene {
             sharedLaid.clear();
             sharedSolid.trim();
             sharedLaid.trim();
+            trimFramesBeside();
         }
     }
 
@@ -2508,7 +2509,30 @@ final class WorldScene {
         sharedLaid.clear();
         sharedSolid.trim();
         sharedLaid.trim();
+        trimFramesBeside();
         VertexLoans.trim(System.nanoTime());
+    }
+
+    /**
+     * Empties and trims the sets of the frames that make builds beside the walk's (the build threads' makers, and the
+     * dev check's), as the shared pair is: each keeps a mesh for every room, storey and texture of every chunk it has
+     * built until trimmed, and four makers untrimmed held five times the shared pair's meshes, which kept the
+     * collector busy for most of a drive. Between builds: a maker's sets are emptied into its build as it is made.
+     */
+    private void trimFramesBeside() {
+        trimSets(beside);
+        if (makers != null) {
+            for (Frame maker : makers) {
+                trimSets(maker);
+            }
+        }
+    }
+
+    private static void trimSets(Frame frame) {
+        frame.solid.clear();
+        frame.laid.clear();
+        frame.solid.trim();
+        frame.laid.trim();
     }
 
     private static final HashSet<String> movers = new HashSet<>();
