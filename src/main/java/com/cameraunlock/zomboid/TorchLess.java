@@ -459,6 +459,7 @@ final class TorchLess {
      * every chunk under the torch was built again at every step and every turn of the head.
      */
     private void markLight(Taken of, Taken against) {
+        int markedWx = Integer.MIN_VALUE, markedWy = Integer.MIN_VALUE;
         for (int j = 0; j < of.spanY; j++) {
             for (int i = 0; i < of.spanX; i++) {
                 int at = j * of.spanX + i;
@@ -476,7 +477,12 @@ final class TorchLess {
                 }
                 if (!same) {
                     int wx = Math.floorDiv(x, WorldScene.CHUNK_TILES), wy = Math.floorDiv(y, WorldScene.CHUNK_TILES);
-                    BuildThreads.later(() -> ChunkMarks.markLight(wx, wy));
+                    // Squares side by side are mostly of one chunk, which is marked once for them.
+                    if (wx != markedWx || wy != markedWy) {
+                        markedWx = wx;
+                        markedWy = wy;
+                        BuildThreads.later(() -> ChunkMarks.markLight(wx, wy));
+                    }
                 }
             }
         }
