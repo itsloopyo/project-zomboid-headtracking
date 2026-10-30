@@ -111,7 +111,7 @@ final class ShotGlass {
                         north ? "north" : "west", along, up, !lightsGive ? "the round does not go through door glass" : light >= 0 ? "light " + light : DoorGlass.describe(object, north)));
             }
             if (light >= 0 && pellet) {
-                DoorGlass.pellet(object, light);
+                DoorGlass.pellet(object, light, along, up);
             } else if (light >= 0) {
                 DoorGlass.breakLight(object, light);
             }

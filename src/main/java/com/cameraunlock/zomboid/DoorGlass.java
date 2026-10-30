@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import java.lang.ref.WeakReference;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Locale;
 import java.util.Map;
@@ -23,23 +24,34 @@ import zombie.util.list.PZArrayList;
  * picture draws a broken light as the shards left in its bead (OpeningBuilder.addBuiltDoor).
  *
  * A round breaks the light it goes through. A shotgun's blast whose pellets go through a door's
- * lights SMASHING times or more smashes the whole sash: every light and the bars between them,
- * which leaves one opening with shards round its edge.
+ * lights SMASHING times or more smashes the sash: every light breaks, and the bars and beads are
+ * blown out round the middle of the pellets, each splinter of them as far again as the next or
+ * not, so wood is left in ragged ends nearer the stiles and rails (remnants).
  */
 final class DoorGlass {
     private DoorGlass() {}
 
     /** The key a door's mod data keeps its broken lights under. */
     static final String BROKEN = "cameraunlockBrokenLights";
-    /** The bit kept with a door's broken lights where a blast smashed its sash, with every light's bit. */
+    /**
+     * The bit kept where a blast smashed a door's sash. Every light of it is broken, and the bits
+     * under it hold where in the sash the blast's middle was: AT_BITS for the share of its width
+     * from its start, and AT_BITS over them for the share of its height from its foot.
+     */
     static final int SMASHED = 1 << 30;
+    private static final int AT_BITS = 15, AT_MOST = (1 << AT_BITS) - 1;
     /** How many of one blast's pellets through a door's lights smash its sash. */
     static final int SMASHING = 3;
+    /** How far from a blast's middle the wood of a sash is blown out, as a share of the sash's narrower side, and how much further or less each splinter goes, as a share of that. */
+    static final float BLOWN = 0.42f, RAGGED = 0.4f;
+    /** How many splinters a bar or a bead is split into across its width. */
+    static final int SPLINTERS = 4;
 
-    /** The door the last pellet went through a light of, held weakly to let the world go with the save, the world's age then, and how many of that blast's pellets have. */
+    /** The door the last pellet went through a light of, held weakly to let the world go with the save, the world's age then, and how many of that blast's pellets have, and where. */
     private static WeakReference<IsoObject> blasted = new WeakReference<>(null);
     private static double blastedAt;
     private static int pellets;
+    private static float pelletsAlong, pelletsUp;
 
     /** The lights broken of each door loaded, for the builds to read off the logic thread. */
     private static final Map<IsoObject, Integer> broken = Collections.synchronizedMap(new WeakHashMap<>());
@@ -74,7 +86,7 @@ final class DoorGlass {
      * and the noise zombies hear. Nothing where it is broken already. Logic thread.
      */
     static void breakLight(IsoObject door, int light) {
-        if (set(door, broken(door) | 1 << light) && DevBuild.ON) {
+        if ((broken(door) & SMASHED) == 0 && set(door, broken(door) | 1 << light) && DevBuild.ON) {
             Log.info(String.format(Locale.ROOT, "a shot broke light %d of the door at (%d, %d, %d)", light, door.getSquare().getX(), door.getSquare().getY(), door.getSquare().getZ()));
         }
     }
@@ -84,18 +96,92 @@ final class DoorGlass {
      * it is the SMASHING'th of the blast's through the door. A blast's pellets are all fired in
      * one tick of the world, which a world's age tells apart. Logic thread.
      */
-    static void pellet(IsoObject door, int light) {
+    static void pellet(IsoObject door, int light, float along, float up) {
+        if ((broken(door) & SMASHED) != 0) {
+            return;
+        }
         double now = GameTime.getInstance().getWorldAgeHours();
         if (door != blasted.get() || now != blastedAt) {
             blasted = new WeakReference<>(door);
             blastedAt = now;
             pellets = 0;
+            pelletsAlong = pelletsUp = 0f;
         }
-        if (++pellets < SMASHING) {
+        pellets++;
+        pelletsAlong += along;
+        pelletsUp += up;
+        if (pellets < SMASHING) {
             breakLight(door, light);
-        } else if (set(door, SMASHED | SMASHED - 1) && DevBuild.ON) {
-            Log.info(String.format(Locale.ROOT, "a blast smashed the sash of the door at (%d, %d, %d)", door.getSquare().getX(), door.getSquare().getY(), door.getSquare().getZ()));
+            return;
         }
+        float[] sash = sash(leafOf(door).panes);
+        if (set(door, smashedAt(sash, pelletsAlong / pellets, pelletsUp / pellets)) && DevBuild.ON) {
+            Log.info(String.format(Locale.ROOT, "a blast smashed the sash of the door at (%d, %d, %d) round %.3f along and %.3f levels up", door.getSquare().getX(),
+                    door.getSquare().getY(), door.getSquare().getZ(), pelletsAlong / pellets, pelletsUp / pellets));
+        }
+    }
+
+    /** What a door's broken lights are kept as where a blast smashed the sash given round (along, up). */
+    static int smashedAt(float[] sash, float along, float up) {
+        int across = Math.round(Math.clamp((along - sash[0]) / (sash[1] - sash[0]), 0f, 1f) * AT_MOST);
+        int high = Math.round(Math.clamp((up - sash[2]) / (sash[3] - sash[2]), 0f, 1f) * AT_MOST);
+        return SMASHED | high << AT_BITS | across;
+    }
+
+    /** Where the blast that smashed a sash had its middle, along and up in levels, and how far round it the wood went, in tiles. */
+    static float[] blast(float[] sash, int lights) {
+        float across = (lights & AT_MOST) / (float) AT_MOST, high = (lights >> AT_BITS & AT_MOST) / (float) AT_MOST;
+        return new float[] {sash[0] + across * (sash[1] - sash[0]), sash[2] + high * (sash[3] - sash[2]),
+                BLOWN * Math.min(sash[1] - sash[0], (sash[3] - sash[2]) * ViewCamera.LEVEL_HEIGHT)};
+    }
+
+    /**
+     * What a blast leaves of a bar or a bead from along `from` to `to` and from `foot` to `head` in
+     * levels: split into SPLINTERS along its length, each blown out as far round the blast's
+     * middle as its own share of RAGGED says, four numbers a piece left as the bar is given.
+     */
+    static float[] remnants(float from, float to, float foot, float head, float[] blast, int seed) {
+        float level = ViewCamera.LEVEL_HEIGHT;
+        boolean upright = (head - foot) * level > to - from;
+        float s0 = upright ? foot * level : from, s1 = upright ? head * level : to;
+        float w0 = upright ? from : foot * level, w1 = upright ? to : head * level;
+        float middle = upright ? blast[1] * level : blast[0], beside = upright ? blast[0] : blast[1] * level;
+        float[] left = new float[SPLINTERS * 8];
+        int count = 0;
+        for (int splinter = 0; splinter < SPLINTERS; splinter++) {
+            float a = w0 + (w1 - w0) * splinter / SPLINTERS, b = w0 + (w1 - w0) * (splinter + 1) / SPLINTERS;
+            float reach = blast[2] * (1f + RAGGED * (2f * OpeningBuilder.chance(seed + splinter * 7919) - 1f));
+            float off = (a + b) / 2f - beside;
+            float half = Math.abs(off) >= reach ? 0f : (float) Math.sqrt(reach * reach - off * off);
+            float[] ends = half == 0f ? new float[] {s0, s1} : new float[] {s0, Math.min(s1, middle - half), Math.max(s0, middle + half), s1};
+            for (int piece = 0; piece < ends.length; piece += 2) {
+                if (ends[piece + 1] - ends[piece] < 1e-4f) {
+                    continue;
+                }
+                left[count++] = upright ? a : ends[piece];
+                left[count++] = upright ? b : ends[piece + 1];
+                left[count++] = upright ? ends[piece] / level : a / level;
+                left[count++] = upright ? ends[piece + 1] / level : b / level;
+            }
+        }
+        return Arrays.copyOf(left, count);
+    }
+
+    /** Whether a point along and up in levels is within the furthest a blast may have blown a sash's wood out, and the glass with it: see remnants. */
+    static boolean blownOut(float[] blast, float along, float up) {
+        float da = along - blast[0], du = (up - blast[1]) * ViewCamera.LEVEL_HEIGHT, reach = blast[2] * (1f + RAGGED);
+        return da * da + du * du < reach * reach;
+    }
+
+    /** Where in the world a door stands, for the seed its splinters are drawn from, as the picture draws them. */
+    static int seed(int x, int y, int z) {
+        return x * 73856093 ^ y * 19349663 ^ z * 83492791;
+    }
+
+    /** The leaf of a shut door as the picture measured it (Doors), or null. */
+    private static Windows.Shape leafOf(IsoObject door) {
+        Doors.Shape shape = Doors.known(door.getSprite().getTextureForCurrentFrame(door.getDir()));
+        return shape == null ? null : shape.leaf;
     }
 
     /** Keeps a door's broken lights as `now`, with the sound and noise of breaking glass, and answers whether that broke any. */
@@ -116,14 +202,19 @@ final class DoorGlass {
     /**
      * The light of a shut door's leaf a shot crosses at `along` the edge and `up` levels over the
      * floor, as the picture measured the leaf (Doors): -1 where it crosses wood, or the door has
-     * no glass or has not been measured. Where its sash is smashed, anywhere in it is its first light.
+     * no glass or has not been measured. Where its sash is smashed, anywhere in it but what is
+     * left of its bars is its first light.
      */
     static int lightAt(IsoObject door, boolean north, float along, float up) {
         if (door.getSprite() == null || !door.getSprite().getProperties().has("doorTrans")) {
             return -1;
         }
-        Doors.Shape shape = Doors.known(door.getSprite().getTextureForCurrentFrame(door.getDir()));
-        return shape == null || shape.leaf.north != north ? -1 : lightIn(shape.leaf.panes, broken(door), along, up);
+        Windows.Shape leaf = leafOf(door);
+        if (leaf == null || leaf.north != north) {
+            return -1;
+        }
+        IsoGridSquare square = door.getSquare();
+        return lightIn(leaf.panes, OpeningBuilder.barsToRails(leaf), broken(door), seed(square.getX(), square.getY(), square.getZ()), along, up);
     }
 
     /** What the picture measured of a door's leaf, for a log line: why a shot found no light in it. */
@@ -138,17 +229,33 @@ final class DoorGlass {
         if (shape.leaf.north != north) {
             return "its leaf measured on the other edge";
         }
-        return "wood, lights " + java.util.Arrays.toString(shape.leaf.panes);
+        return "wood, lights " + Arrays.toString(shape.leaf.panes);
     }
 
     /**
      * Which light (along, up) on a leaf is inside, five numbers a light as Windows.Shape.panes has
-     * them, with `lights` broken: -1 for none. Where the sash is smashed, anywhere in it is light 0.
+     * them, with `lights` broken: -1 for none. Where the sash is smashed, anywhere in it but in what
+     * the blast left of its bars, four numbers a bar, the splinters drawn from `seed`, is light 0.
      */
-    static int lightIn(float[] panes, int lights, float along, float up) {
+    static int lightIn(float[] panes, float[] bars, int lights, int seed, float along, float up) {
         if ((lights & SMASHED) != 0 && panes.length > 0) {
             float[] sash = sash(panes);
-            return along >= sash[0] && along <= sash[1] && up >= sash[2] && up <= sash[3] ? 0 : -1;
+            if (along < sash[0] || along > sash[1] || up < sash[2] || up > sash[3]) {
+                return -1;
+            }
+            float[] blast = blast(sash, lights);
+            for (int bar = 0; bar < bars.length; bar += 4) {
+                if (!inSash(sash, bars[bar], bars[bar + 1], bars[bar + 2], bars[bar + 3])) {
+                    continue;
+                }
+                float[] left = remnants(bars[bar], bars[bar + 1], bars[bar + 2], bars[bar + 3], blast, seed ^ bar * 2654435);
+                for (int piece = 0; piece < left.length; piece += 4) {
+                    if (along >= left[piece] && along <= left[piece + 1] && up >= left[piece + 2] && up <= left[piece + 3]) {
+                        return -1;
+                    }
+                }
+            }
+            return 0;
         }
         for (int pane = 0; pane < panes.length; pane += 5) {
             if (along >= panes[pane] && along <= panes[pane + 1] && up >= panes[pane + 2] && up <= panes[pane + 3]) {
@@ -181,7 +288,7 @@ final class DoorGlass {
         }
         float[] left = panes.clone();
         for (int light = 0; light * 5 < left.length && light < 30; light++) {
-            if ((lights & 1 << light) != 0) {
+            if ((lights & SMASHED) != 0 || (lights & 1 << light) != 0) {
                 left[light * 5 + 4] = 0f;
             }
         }
@@ -200,7 +307,7 @@ final class DoorGlass {
         return sash;
     }
 
-    /** Whether the middle of a bar or bead from along start to end, foot to head, is inside a sash: it goes when the sash is smashed. */
+    /** Whether the middle of a bar or bead from along start to end, foot to head, is inside a sash: a blast that smashes the sash splinters it. */
     static boolean inSash(float[] sash, float start, float end, float foot, float head) {
         float along = (start + end) / 2f, up = (foot + head) / 2f;
         return along > sash[0] && along < sash[1] && up > sash[2] && up < sash[3];

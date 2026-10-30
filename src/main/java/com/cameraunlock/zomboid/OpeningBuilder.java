@@ -125,7 +125,7 @@ final class OpeningBuilder {
     }
 
     /** A number from 0 to 1 that is the same every time for the same seed. */
-    private static float chance(int seed) {
+    static float chance(int seed) {
         seed = (seed ^ seed >>> 15) * 0x2C1B3C6D;
         seed = (seed ^ seed >>> 12) * 0x297A2D39;
         return ((seed ^ seed >>> 15) >>> 8) / (float) (1 << 24);
@@ -452,10 +452,11 @@ final class OpeningBuilder {
         revealedTo = revealed && leaf.end >= doorwayEnd ? leaf.end : Float.NaN;
         float knob = door.handleAtEnd ? leaf.end - KNOB_IN * wide : leaf.start + KNOB_IN * wide;
         float[] bars = barsToRails(leaf);
-        // A smashed sash keeps no bars and no beads inside it, only a bead round the opening left.
-        boolean smashed = (broken & DoorGlass.SMASHED) != 0 && leaf.panes.length > 0;
-        float[] sash = smashed ? DoorGlass.sash(leaf.panes) : null;
-        float[] beads = smashed ? new float[] {sash[0], sash[1], sash[2], sash[3], 0f} : leaf.panes;
+        // A blast that smashed the sash splintered its bars and beads round where it struck (DoorGlass.remnants).
+        boolean smashed = (broken & DoorGlass.SMASHED) != 0 && door.leaf.panes.length > 0;
+        float[] sash = smashed ? DoorGlass.sash(door.leaf.panes) : null;
+        float[] blast = smashed ? DoorGlass.blast(sash, broken) : null;
+        int seed = DoorGlass.seed(x, y, z);
         for (int side = 0; side < 2; side++) {
             float face = (side == 0 ? 1f : -1f) * DOOR_HALF;
             float r = sideRed[side], g = sideGreen[side], b = sideBlue[side];
@@ -489,8 +490,10 @@ final class OpeningBuilder {
                     addJoinery(wood, inStart, inEnd, leaf.foot, leaf.foot + leaf.footHigh, face, r, g, b);
                 }
                 for (int bar = 0; bar < bars.length; bar += 4) {
-                    if (!smashed || !DoorGlass.inSash(sash, bars[bar], bars[bar + 1], bars[bar + 2], bars[bar + 3])) {
-                        addJoinery(wood, bars[bar], bars[bar + 1], bars[bar + 2], bars[bar + 3], face, r, g, b);
+                    float[] left = !smashed || !DoorGlass.inSash(sash, bars[bar], bars[bar + 1], bars[bar + 2], bars[bar + 3]) ? Arrays.copyOfRange(bars, bar, bar + 4)
+                            : DoorGlass.remnants(bars[bar], bars[bar + 1], bars[bar + 2], bars[bar + 3], blast, seed ^ bar * 2654435);
+                    for (int piece = 0; piece < left.length; piece += 4) {
+                        addJoinery(wood, left[piece], left[piece + 1], left[piece + 2], left[piece + 3], face, r, g, b);
                     }
                 }
             }
@@ -511,10 +514,14 @@ final class OpeningBuilder {
                 }
             }
             // A bead of wood holds the glass in each light, standing a little proud of the face round it.
-            for (int pane = 0; pane < beads.length; pane += 5) {
-                float[] bead = bead(beads[pane], beads[pane + 1], beads[pane + 2], beads[pane + 3], leaf.start, leaf.end, leaf.foot, leaf.head);
+            for (int pane = 0; pane < leaf.panes.length; pane += 5) {
+                float[] bead = bead(leaf.panes[pane], leaf.panes[pane + 1], leaf.panes[pane + 2], leaf.panes[pane + 3], leaf.start, leaf.end, leaf.foot, leaf.head);
                 for (int at = 0; at < bead.length; at += 4) {
-                    addJoinery(wood, bead[at], bead[at + 1], bead[at + 2], bead[at + 3], face + Math.signum(face) * BEAD_PROUD, r, g, b);
+                    float[] left = !smashed ? Arrays.copyOfRange(bead, at, at + 4)
+                            : DoorGlass.remnants(bead[at], bead[at + 1], bead[at + 2], bead[at + 3], blast, seed ^ (pane * 4 + at + 1) * 40503);
+                    for (int piece = 0; piece < left.length; piece += 4) {
+                        addJoinery(wood, left[piece], left[piece + 1], left[piece + 2], left[piece + 3], face + Math.signum(face) * BEAD_PROUD, r, g, b);
+                    }
                 }
             }
             // A garage door is lifted by a handle at its foot and rides in tracks: no knob, no hinges.
@@ -564,19 +571,18 @@ final class OpeningBuilder {
         edgeSide = -1;
         facePane(glass, beyond, false, da, db);
         glass.lightFlat(sideFrames[paneSide]);
-        if (smashed && panes.length > 0) {
-            float[] opening = DoorGlass.sash(panes);
-            panes = new float[] {opening[0], opening[1], opening[2], opening[3], 0f};
-        }
+        // Where the blast took the wood, it took the glass the wood held.
+        shardsBlown = blast;
         for (int pane = 0; pane < panes.length; pane += 5) {
             float t0 = panes[pane], t1 = panes[pane + 1], h0 = panes[pane + 2], h1 = panes[pane + 3];
             if (panes[pane + 4] >= 1f) {
                 addGlass(glass, t0, h0, 0f, 0f, t1, h0, 1f, 0f, t1, h1, 1f, 1f);
                 addGlass(glass, t0, h0, 0f, 0f, t1, h1, 1f, 1f, t0, h1, 0f, 1f);
             } else {
-                addShards(glass, t0, t1, h0, h1, panes[pane + 4], x * 73856093 ^ y * 19349663 ^ z * 83492791 ^ pane * 2654435);
+                addShards(glass, t0, t1, h0, h1, panes[pane + 4], seed ^ pane * 2654435);
             }
         }
+        shardsBlown = null;
         // Shared with other builders, which leave day as they find it.
         wood.day = joint.day = metal.day = glass.day = 0f;
         revealedFrom = revealedTo = Float.NaN;
@@ -1439,6 +1445,9 @@ final class OpeningBuilder {
         mesh.add(c[6], c[7], c[8], u2, v2, r, g, b);
     }
 
+    /** Where a blast blew a sash's wood out, with the shards it held, while a smashed door's glass is added (DoorGlass.blast), or null. */
+    private float[] shardsBlown;
+
     /**
      * What is left of a broken pane: teeth of glass standing in from the bars round it, the
      * longer the more of the pane the game's sprite still shows. Which teeth, and how long, is
@@ -1457,10 +1466,13 @@ final class OpeningBuilder {
                 float tip = Math.clamp(at + base * (SHARD_LEAN * (2f * chance(seed++) - 1f) + 0.5f), 0f, length);
                 float in = reach * (0.06f + 0.94f * long3 * long3 * long3);
                 boolean stands = chance(seed++) < 0.35f + 0.6f * left;
+                // Along the foot, the head, the start and the end of the pane in turn.
+                float a0 = side < 2 ? at / wide : side == 2 ? 0f : 1f, b0 = side < 2 ? (side == 0 ? 0f : 1f) : at / high;
+                float a1 = side < 2 ? (at + base) / wide : a0, b1 = side < 2 ? b0 : (at + base) / high;
+                if (stands && shardsBlown != null) {
+                    stands = !DoorGlass.blownOut(shardsBlown, t0 + (a0 + a1) / 2f * wide, h0 + (b0 + b1) / 2f * (h1 - h0));
+                }
                 if (stands) {
-                    // Along the foot, the head, the start and the end of the pane in turn.
-                    float a0 = side < 2 ? at / wide : side == 2 ? 0f : 1f, b0 = side < 2 ? (side == 0 ? 0f : 1f) : at / high;
-                    float a1 = side < 2 ? (at + base) / wide : a0, b1 = side < 2 ? b0 : (at + base) / high;
                     float a2 = side < 2 ? tip / wide : side == 2 ? in / wide : 1f - in / wide;
                     float b2 = side < 2 ? (side == 0 ? in / high : 1f - in / high) : tip / high;
                     addGlass(mesh, t0 + a0 * wide, h0 + b0 * (h1 - h0), a0, b0, t0 + a1 * wide, h0 + b1 * (h1 - h0), a1, b1,

@@ -17,7 +17,7 @@ final class PenetrationTests {
         Checks.run("aDoorWithNoMaterialIsToldByItsSound", PenetrationTests::aDoorWithNoMaterialIsToldByItsSound);
         Checks.run("aShotThroughADoorsLightIsTold", PenetrationTests::aShotThroughADoorsLightIsTold);
         Checks.run("aBrokenLightLosesItsGlass", PenetrationTests::aBrokenLightLosesItsGlass);
-        Checks.run("aSmashedSashIsOneOpening", PenetrationTests::aSmashedSashIsOneOpening);
+        Checks.run("aSmashedSashIsBlownOutRaggedly", PenetrationTests::aSmashedSashIsBlownOutRaggedly);
     }
 
     private static void check(boolean condition, String what) {
@@ -99,11 +99,11 @@ final class PenetrationTests {
     /** A door with a light high in it and one under it: the glass lets a shot by, the wood round it does not, and each light is told by its place. */
     private static void aShotThroughADoorsLightIsTold() {
         float[] panes = {0.3f, 0.7f, 0.55f, 0.8f, 1f, 0.3f, 0.7f, 0.1f, 0.45f, 1f};
-        check(DoorGlass.lightIn(panes, 0, 0.5f, 0.65f) == 0, "a shot through the upper light's middle is in it");
-        check(DoorGlass.lightIn(panes, 0, 0.5f, 0.3f) == 1, "one through the lower light is in that one");
-        check(DoorGlass.lightIn(panes, 0, 0.5f, 0.5f) == -1, "one through the rail between them is in neither");
-        check(DoorGlass.lightIn(panes, 0, 0.2f, 0.65f) == -1, "nor one through the stile beside them");
-        check(DoorGlass.lightIn(new float[0], 0, 0.5f, 0.65f) == -1, "and a leaf with no light has no glass to go through");
+        check(DoorGlass.lightIn(panes, new float[0], 0, 0, 0.5f, 0.65f) == 0, "a shot through the upper light's middle is in it");
+        check(DoorGlass.lightIn(panes, new float[0], 0, 0, 0.5f, 0.3f) == 1, "one through the lower light is in that one");
+        check(DoorGlass.lightIn(panes, new float[0], 0, 0, 0.5f, 0.5f) == -1, "one through the rail between them is in neither");
+        check(DoorGlass.lightIn(panes, new float[0], 0, 0, 0.2f, 0.65f) == -1, "nor one through the stile beside them");
+        check(DoorGlass.lightIn(new float[0], new float[0], 0, 0, 0.5f, 0.65f) == -1, "and a leaf with no light has no glass to go through");
     }
 
     /** A broken light is drawn with no glass, and the rest as they were. */
@@ -115,20 +115,36 @@ final class PenetrationTests {
         check(panes[14] == 1f, "the measured leaf is left as measured");
     }
 
-    /** A smashed sash is one opening from its first light's start to its last's end, the bars between them gone and the rails round it kept. */
-    private static void aSmashedSashIsOneOpening() {
-        float[] panes = {0.3f, 0.7f, 0.55f, 0.8f, 1f, 0.3f, 0.7f, 0.1f, 0.45f, 1f};
-        int smashed = DoorGlass.SMASHED | DoorGlass.SMASHED - 1;
-        check(DoorGlass.lightIn(panes, smashed, 0.5f, 0.5f) == 0, "a shot through where the rail between the lights stood goes through the opening");
-        check(DoorGlass.lightIn(panes, smashed, 0.2f, 0.5f) == -1, "one through the stile beside it does not");
-        check(DoorGlass.lightIn(panes, smashed, 0.5f, 0.05f) == -1, "nor one through the rail under it");
-        float[] left = DoorGlass.withBroken(panes, smashed);
-        check(left[4] == 0f && left[9] == 0f, "every light of a smashed sash is drawn broken");
+    /**
+     * A smashed sash: every light broken, and the rail between them blown out round the blast's
+     * middle with splinters of it left nearer the stiles, each its own length.
+     */
+    private static void aSmashedSashIsBlownOutRaggedly() {
+        float[] panes = {0.3f, 0.7f, 0.5f, 0.8f, 1f, 0.3f, 0.7f, 0.1f, 0.4f, 1f}, mullion = {0.48f, 0.52f, 0.1f, 0.8f};
         float[] sash = DoorGlass.sash(panes);
         check(sash[0] == 0.3f && sash[1] == 0.7f && sash[2] == 0.1f && sash[3] == 0.8f, "the sash runs round both lights");
-        check(DoorGlass.inSash(sash, 0.3f, 0.7f, 0.45f, 0.55f), "the rail between the lights goes with it");
-        check(DoorGlass.inSash(sash, 0.48f, 0.52f, 0f, 1f), "and a bar carried on to the rails over and under it");
-        check(!DoorGlass.inSash(sash, 0.3f, 0.7f, 0f, 0.1f), "the rail under the lights stays");
-        check(!DoorGlass.inSash(sash, 0.2f, 0.3f, 0f, 1f), "and the stile beside them");
+        int smashed = DoorGlass.smashedAt(sash, 0.5f, 0.45f);
+        float[] blast = DoorGlass.blast(sash, smashed);
+        check(Math.abs(blast[0] - 0.5f) < 1e-4f && Math.abs(blast[1] - 0.45f) < 1e-4f, "the blast's middle is kept where it was");
+        check(Math.abs(blast[2] - DoorGlass.BLOWN * 0.4f) < 1e-5f, "and it blows out a share of the sash's narrower side");
+        float[] left = DoorGlass.withBroken(panes, smashed);
+        check(left[4] == 0f && left[9] == 0f, "every light of a smashed sash is drawn broken");
+        check(DoorGlass.lightIn(panes, mullion, smashed, 7, 0.5f, 0.45f) == 0, "a shot through where the bar stood goes through");
+        check(DoorGlass.lightIn(panes, mullion, smashed, 7, 0.5f, 0.12f) == -1, "one through the end of it left at the rail does not");
+        check(DoorGlass.lightIn(panes, mullion, smashed, 7, 0.2f, 0.45f) == -1, "nor one through the stile");
+        check(DoorGlass.lightIn(panes, mullion, smashed, 7, 0.5f, 0.05f) == -1, "nor one through the rail under the lights");
+        float[] pieces = DoorGlass.remnants(mullion[0], mullion[1], mullion[2], mullion[3], blast, 7);
+        check(pieces.length == DoorGlass.SPLINTERS * 2 * 4, "each splinter of the bar is left at both ends");
+        float least = Float.MAX_VALUE, most = 0f;
+        for (int piece = 0; piece < pieces.length; piece += 4) {
+            float inner = (pieces[piece + 2] == mullion[2] ? 0.45f - pieces[piece + 3] : pieces[piece + 2] - 0.45f) * ViewCamera.LEVEL_HEIGHT;
+            least = Math.min(least, inner);
+            most = Math.max(most, inner);
+            check(inner >= blast[2] * (1f - DoorGlass.RAGGED) * 0.99f && inner <= blast[2] * (1f + DoorGlass.RAGGED) * 1.01f, "a splinter ends as far from the middle as RAGGED lets it");
+        }
+        check(most - least > 0.01f, "and the splinters end raggedly, not in one line");
+        check(DoorGlass.blownOut(blast, 0.5f, 0.45f) && !DoorGlass.blownOut(blast, 0.5f, 0.12f), "the shards in the middle went with the wood, those at the rail did not");
+        check(DoorGlass.inSash(sash, 0.3f, 0.7f, 0.4f, 0.5f), "the rail between the lights is splintered too");
+        check(!DoorGlass.inSash(sash, 0.3f, 0.7f, 0f, 0.1f), "the rail under the lights is not");
     }
 }
