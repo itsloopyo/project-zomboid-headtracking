@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 /**
@@ -21,9 +22,14 @@ final class Known<K, V> {
         return known == NONE ? null : (V) known;
     }
 
-    /** Whether anything is kept for the key, none included. */
-    boolean has(K key) {
-        return kept.containsKey(key);
+    /** What is kept for the key, or what work works out for it, kept (keep), where nothing is kept for it yet: one look where it is. */
+    @SuppressWarnings("unchecked")
+    V get(K key, Function<? super K, ? extends V> work) {
+        Object known = kept.get(key);
+        if (known == null) {
+            return keep(key, work.apply(key));
+        }
+        return known == NONE ? null : (V) known;
     }
 
     /** Keeps what was worked out for the key, unless something was kept for it first, and gives what is kept. */

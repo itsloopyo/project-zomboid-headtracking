@@ -374,12 +374,7 @@ final class Furniture {
     }
 
     static Furniture known(IsoSprite sprite) {
-        Furniture piece = furniture.get(sprite);
-        if (piece == null && !furniture.has(sprite)) {
-            piece = recognise(sprite);
-            piece = furniture.keep(sprite, piece);
-        }
-        return piece;
+        return furniture.get(sprite, Furniture::recognise);
     }
 
     /**

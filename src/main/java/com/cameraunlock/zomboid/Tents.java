@@ -156,21 +156,11 @@ final class Tents {
     }
 
     static Piece of(IsoSprite sprite) {
-        Piece piece = known.get(sprite);
-        if (piece == null && !known.has(sprite)) {
-            piece = of(sprite.getName());
-            piece = known.keep(sprite, piece);
-        }
-        return piece;
+        return known.get(sprite, each -> of(each.getName()));
     }
 
     static Piece ropeOf(IsoSprite sprite) {
-        Piece rope = roped.get(sprite);
-        if (rope == null && !roped.has(sprite)) {
-            rope = ropeOf(sprite.getName());
-            rope = roped.keep(sprite, rope);
-        }
-        return rope;
+        return roped.get(sprite, each -> ropeOf(each.getName()));
     }
 
     /**

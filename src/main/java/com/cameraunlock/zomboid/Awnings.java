@@ -89,13 +89,10 @@ final class Awnings {
     }
 
     static Hung of(IsoSprite sprite) {
-        Hung hung = known.get(sprite);
-        if (hung == null && !known.has(sprite)) {
-            PropertyContainer properties = sprite.getProperties();
-            hung = of(sprite.getName(), properties.get("CustomName"), properties.get("GroupName"), properties.get("Facing"));
-            hung = known.keep(sprite, hung);
-        }
-        return hung;
+        return known.get(sprite, each -> {
+            PropertyContainer properties = each.getProperties();
+            return of(each.getName(), properties.get("CustomName"), properties.get("GroupName"), properties.get("Facing"));
+        });
     }
 
     /** The model of an awning a sprite is a square of and how it hangs, or null for a sprite that is none the mod has a model of. */
