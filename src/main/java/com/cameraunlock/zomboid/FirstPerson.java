@@ -72,6 +72,8 @@ public final class FirstPerson {
 
     FirstPerson(View view) {
         this.view = view;
+        // Player 1's view is made as the first save is drawn, so it says what went wrong with the file since the game started; a player who joins later hears only of what comes after.
+        troublesSaid = view.index == 0 ? 0 : Config.troubles();
         pointersFloor = (x, y) -> pointersLevel * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(x, y, pointersLevel);
     }
 
@@ -725,8 +727,6 @@ public final class FirstPerson {
                 laterHint = null;
                 Log.info(who() + "the screen says: " + hint);
             }
-            shown = gettingReady ? "First person: getting ready" : said != null && now - saidAt < SAID_FOR_NANOS ? said
-                    : hint != null && now - hintAt < HINT_FOR_NANOS ? hint : null;
         } catch (RuntimeException | LinkageError thrown) {
             // Thrown on into the game's frame it comes again every frame, and the game's own
             // picture and panels pay for it. The view goes off for the session instead, the
@@ -753,6 +753,10 @@ public final class FirstPerson {
             view.flight.cut(false);
             view.hearing.rest();
         }
+        // After the catch, so a frame that throws still shows what the screen has to say, its own failure first.
+        long now = System.nanoTime();
+        shown = gettingReady ? "First person: getting ready" : said != null && now - saidAt < SAID_FOR_NANOS ? said
+                : hint != null && now - hintAt < HINT_FOR_NANOS ? hint : null;
         spottingFollowsCover();
         if (TRACE) {
             paceBuiltBytes += Allocation.byThisThread() - before;
@@ -813,7 +817,8 @@ public final class FirstPerson {
             }
         }
         int troubles = Config.troubles();
-        if (troubles != troublesSaid) {
+        // Held while first person gets ready, whose line would cover it.
+        if (troubles != troublesSaid && !gettingReady) {
             troublesSaid = troubles;
             said = Config.troubleSaid();
             saidAt = System.nanoTime();
@@ -905,7 +910,7 @@ public final class FirstPerson {
             Quality.undrawable();
         }
         Quality.inFirstPerson(view.index, on || gettingReady || !view.flight.home());
-        if (wasFirstPerson && !Quality.firstPersonInEffect(view.index)) {
+        if (wasFirstPerson && !Quality.firstPersonInEffect(view.index) && failure == null) {
             // Back in the isometric view, with its own graphics mode: said, so a mode not wanted there is not played on unawares.
             said = Quality.said(view.index);
             saidAt = now;
