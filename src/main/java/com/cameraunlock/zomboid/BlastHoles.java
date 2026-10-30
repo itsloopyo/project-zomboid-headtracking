@@ -14,15 +14,17 @@ import zombie.iso.sprite.IsoSprite;
 import zombie.util.list.PZArrayList;
 
 /**
- * The holes blasts have blown through wooden doors and board fences, and the marks single pellets
- * have left on doors, which the first person picture cuts and lays into what it builds of them
- * (MeshCut). The game keeps no such thing, so the mod keeps them in the object's mod data, where
- * they are saved with it, and reads them back as chunks load.
+ * The holes blasts have blown through wooden doors and board fences, the marks single pellets
+ * have left on doors, and the holes single rounds have gone through doors, walls and fences by,
+ * which the first person picture cuts and lays into what it builds of them (MeshCut). The game
+ * keeps no such thing, so the mod keeps them in the object's mod data, where they are saved with
+ * it, and reads them back as chunks load.
  *
  * Each is six numbers: how far along the edge it is on, in tiles from its square's corner, and
- * how high, in levels over its floor (as DoorGlass measures a door's lights); its radius in tiles;
- * the seed its ragged outline is drawn from; for a mark the side of the edge it was struck from, 1
- * or -1, or 0 for a hole; and 1 where the edge is the square's north one, 0 its west: a fence's
+ * how high, in levels over its floor (as DoorGlass measures a door's lights); its radius in tiles,
+ * a round's where it went in; the seed its ragged outline is drawn from; what it is and the side
+ * of the edge it was struck from, 1 or -1 (SIDE: 0 a blast's hole, the side for a mark, twice the
+ * side for a round's hole); and 1 where the edge is the square's north one, 0 its west: a fence's
  * corner length stands on both. A door's are measured on the leaf as it hangs
  * shut, and laid on the leaf as it stands swung open (OpeningBuilder.addBuiltDoor). A fence's
  * marks are the decals the picture lays over the world (Impacts), as a wall's are.
@@ -33,14 +35,28 @@ final class BlastHoles {
     /** The key an object's mod data keeps its holes and marks under. */
     static final String KEY = "cameraunlockBlastHoles";
     static final int FLOATS = 6, ALONG = 0, UP = 1, RADIUS = 2, SEED = 3, SIDE = 4, NORTH = 5;
-    /** The most holes and marks an object keeps: the oldest go first past them. */
-    static final int MOST_HOLES = 8, MOST_MARKS = 48;
+    /** The most blasts' holes, marks and rounds' holes an object keeps: the oldest of each go first past them. */
+    static final int MOST_HOLES = 8, MOST_MARKS = 48, MOST_ROUNDS = 24;
+    /** SIDE over the side a round came from, for a round's hole. */
+    static final int ROUND = 2;
     /** How many points a hole's outline has, how ragged it is, and how much taller than wide: wood splits along its grain, and a door's and a fence's grain runs up. */
     static final int HOLE_POINTS = 18;
     static final float HOLE_RAGGED = 0.3f, HOLE_TALL = 1.25f;
     /** The same for a mark, and its radius in tiles. */
     static final int MARK_POINTS = 7;
     static final float MARK_RAGGED = 0.35f, MARK_RADIUS = 0.014f;
+    /**
+     * A round's hole: how many points each outline has, how ragged the way in is, and how much
+     * wider, more ragged and taller the way out is, where the wood splinters and the plaster
+     * blows out the back.
+     */
+    static final int ROUND_POINTS = 9;
+    static final float ROUND_RAGGED = 0.2f, EXIT_WIDER = 2.4f, EXIT_RAGGED = 0.45f, EXIT_TALL = 1.2f;
+    /**
+     * A round's hole where it goes in, in tiles, for a handgun's: larger than a round leaves, so
+     * that one a few tiles off is a few pixels across (ImpactDraw draws its mark larger again).
+     */
+    static final float ROUND_RADIUS = 0.011f;
     /** How far into a hole's radius a later shot has to cross to go through it: the outline is ragged, and a round grazing its edge strikes wood. */
     static final float THROUGH = 0.8f;
 
@@ -69,6 +85,23 @@ final class BlastHoles {
         boolean onEdge = Edges.west(properties, sprite.getType()) || Edges.north(properties, sprite.getType());
         boolean picket = properties.has("StopCar") || properties.has("TieSheetRope");
         return Fences.boards(sprite.getName(), properties.get("Material"), properties.get("MaterialType"), properties.get("Material2"), onEdge, picket);
+    }
+
+    /**
+     * Whether a round that goes through an object leaves a hole the picture cuts: a door the picture
+     * builds a leaf for, any but a garage door, or a wall or fence of something a round goes through
+     * that is not glass (Penetration.cost).
+     */
+    static boolean holedByRounds(IsoObject object) {
+        IsoSprite sprite = object.getSprite();
+        if (sprite == null) {
+            return false;
+        }
+        if (DoorGlass.isDoor(object)) {
+            return !sprite.getProperties().has("GarageDoor");
+        }
+        String made = sprite.getProperties().get("MaterialType");
+        return made != null && !made.startsWith("Glass") && Penetration.cost(made) != Penetration.STOPS;
     }
 
     /** Called as the game has loaded a chunk's squares, on its logic thread: the holes and marks of its things, as saved. */
@@ -114,9 +147,9 @@ final class BlastHoles {
     }
 
     /**
-     * Keeps a hole (side 0) or a mark on an object, past the most it keeps of that kind by
-     * letting go of the oldest, saves it in the object's mod data and has the picture build the
-     * object again. Logic thread.
+     * Keeps a blast's hole (side 0), a mark (1 or -1) or a round's hole (twice that) on an
+     * object, past the most it keeps of that kind by letting go of the oldest, saves it in the
+     * object's mod data and has the picture build the object again. Logic thread.
      */
     static void add(IsoObject object, boolean north, float along, float up, float radius, int seed, int side) {
         float[] was = kept.get(object);
@@ -127,8 +160,9 @@ final class BlastHoles {
         ChunkMarks.changed(object);
         if (DevBuild.ON) {
             IsoGridSquare square = object.getSquare();
-            Log.info(String.format(Locale.ROOT, "%s at %.3f along and %.3f levels up, radius %.3f, on the %s on the %s edge of (%d, %d, %d)", side == 0 ? "a blast blew a hole" : "a pellet marked",
-                    along, up, radius, DoorGlass.isDoor(object) ? "door" : "fence", north ? "north" : "west", square.getX(), square.getY(), square.getZ()));
+            Log.info(String.format(Locale.ROOT, "%s at %.3f along and %.3f levels up, radius %.3f, on the %s on the %s edge of (%d, %d, %d)",
+                    side == 0 ? "a blast blew a hole" : Math.abs(side) == ROUND ? "a round went through" : "a pellet marked", along, up, radius,
+                    DoorGlass.isDoor(object) ? "door" : object.getSprite().getName(), north ? "north" : "west", square.getX(), square.getY(), square.getZ()));
         }
     }
 
@@ -136,7 +170,7 @@ final class BlastHoles {
     static float[] with(float[] entries, boolean north, float along, float up, float radius, int seed, int side) {
         int count = entries.length / FLOATS, same = 0, first = -1;
         for (int i = 0; i < count; i++) {
-            if ((entries[i * FLOATS + SIDE] == 0f) == (side == 0)) {
+            if (Math.abs((int) entries[i * FLOATS + SIDE]) == Math.abs(side)) {
                 same++;
                 if (first < 0) {
                     first = i;
@@ -144,7 +178,7 @@ final class BlastHoles {
             }
         }
         float[] base = entries;
-        if (same >= (side == 0 ? MOST_HOLES : MOST_MARKS)) {
+        if (same >= (side == 0 ? MOST_HOLES : Math.abs(side) == ROUND ? MOST_ROUNDS : MOST_MARKS)) {
             base = new float[entries.length - FLOATS];
             System.arraycopy(entries, 0, base, 0, first * FLOATS);
             System.arraycopy(entries, (first + 1) * FLOATS, base, first * FLOATS, entries.length - (first + 1) * FLOATS);
@@ -168,11 +202,12 @@ final class BlastHoles {
 
     static boolean inAHole(float[] entries, boolean north, float along, float up) {
         for (int at = 0; at < entries.length; at += FLOATS) {
-            if (entries[at + SIDE] != 0f || (entries[at + NORTH] != 0f) != north) {
+            if (!isHole(entries[at + SIDE]) || (entries[at + NORTH] != 0f) != north) {
                 continue;
             }
             float r = entries[at + RADIUS] * THROUGH;
-            float da = (along - entries[at + ALONG]) / r, du = (up - entries[at + UP]) * ViewCamera.LEVEL_HEIGHT / (r * HOLE_TALL);
+            float tall = entries[at + SIDE] == 0f ? HOLE_TALL : 1f;
+            float da = (along - entries[at + ALONG]) / r, du = (up - entries[at + UP]) * ViewCamera.LEVEL_HEIGHT / (r * tall);
             if (da * da + du * du <= 1f) {
                 return true;
             }
@@ -180,18 +215,23 @@ final class BlastHoles {
         return false;
     }
 
-    /** Whether an object has a hole: a door with one is seen through, as one with glass is (RoomMap). Logic thread. */
+    /** Whether an object has a hole: a door or a wall with one is seen through, as a door with glass is (RoomMap). Logic thread. */
     static boolean holed(IsoObject object) {
         float[] entries = kept.get(object);
         if (entries == null) {
             return false;
         }
         for (int at = 0; at < entries.length; at += FLOATS) {
-            if (entries[at + SIDE] == 0f) {
+            if (isHole(entries[at + SIDE])) {
                 return true;
             }
         }
         return false;
+    }
+
+    /** Whether an entry of this SIDE is a hole, a blast's or a round's, and not a mark. */
+    private static boolean isHole(float side) {
+        return side == 0f || Math.abs(side) == ROUND;
     }
 
     /**
@@ -211,6 +251,9 @@ final class BlastHoles {
             float rs = r * Math.abs(sBy), rt = r * tBy / ViewCamera.LEVEL_HEIGHT;
             if (side == 0) {
                 cut.hole(MeshCut.outline(s, t, rs, rt * HOLE_TALL, HOLE_RAGGED, HOLE_POINTS, seed), s, t);
+            } else if (Math.abs(side) == ROUND) {
+                cut.hole(MeshCut.outline(s, t, rs, rt, ROUND_RAGGED, ROUND_POINTS, seed),
+                        MeshCut.outline(s, t, rs * EXIT_WIDER, rt * EXIT_WIDER * EXIT_TALL, EXIT_RAGGED, ROUND_POINTS, seed), Integer.signum(side) * sideBy, s, t);
             } else {
                 cut.mark(s, t, MeshCut.outline(s, t, rs, rt, MARK_RAGGED, MARK_POINTS, seed), side * sideBy);
             }

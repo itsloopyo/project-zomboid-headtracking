@@ -28,8 +28,8 @@ enum Part {
     SHOT_IMPACTS("FirstPerson", "ShotImpacts", true, true,
             "true: in first person, in Medium and High, a shot kicks up dust, chips, splinters, sparks or blood where it hits\n"
                     + "and leaves a hole. false: shots leave no mark, as in the game's own view. Shots still break lamps and glass\n"
-                    + "and blow holes in doors and fences when ShotsBreakLamps, ShotsBreakGlass and BlastHoles are on, and while\n"
-                    + "any of them is on the mod keeps the game's code patched for this."),
+                    + "and hole doors, walls and fences when ShotsBreakLamps, ShotsBreakGlass, BlastHoles and BulletHoles are on, and\n"
+                    + "while any of them is on the mod keeps the game's code patched for this."),
     FAR_VEHICLES_AND_ZOMBIES("FirstPerson", "FarVehiclesAndZombies", true, false,
             "true: in first person, vehicles, zombies and animals in sight are drawn even past the edge of the game's own\n"
                     + "screen, and so are other players where players cannot fight. false: each is drawn only where the game's own\n"

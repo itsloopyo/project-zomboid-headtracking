@@ -24,6 +24,8 @@ final class BlastTests {
         Checks.run("pelletsCloseTogetherBlowAHoleAndSpreadOnesDoNot", BlastTests::pelletsCloseTogetherBlowAHoleAndSpreadOnesDoNot);
         Checks.run("anObjectKeepsItsNewestHolesAndMarks", BlastTests::anObjectKeepsItsNewestHolesAndMarks);
         Checks.run("aShotGoesThroughOnlyWellInsideAHoleOnItsEdge", BlastTests::aShotGoesThroughOnlyWellInsideAHoleOnItsEdge);
+        Checks.run("aRoundsHoleIsSmallWhereItWentInAndWideWhereItCameOut", BlastTests::aRoundsHoleIsSmallWhereItWentInAndWideWhereItCameOut);
+        Checks.run("anObjectKeepsItsNewestRoundsHolesApartFromTheRest", BlastTests::anObjectKeepsItsNewestRoundsHolesApartFromTheRest);
     }
 
     private static void check(boolean condition, String what) {
@@ -351,6 +353,69 @@ final class BlastTests {
         float[] back = BlastHoles.parse(BlastHoles.write(entries));
         check(java.util.Arrays.equals(entries, back), "what is saved reads back the same");
         check(BlastHoles.parse("").length == 0, "nothing saved is nothing");
+    }
+
+    /**
+     * A round from the +y side through a wall of two skins of a 2 by 4 grid of quads each: the
+     * skin it went in by loses the way in, the far one the wider way out, neither with a crack,
+     * and the lining runs from the one outline to the other.
+     */
+    private static void aRoundsHoleIsSmallWhereItWentInAndWideWhereItCameOut() {
+        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+        for (float across : new float[] {-0.04f, 0.04f}) {
+            for (int i = 0; i < 2; i++) {
+                for (int j = 0; j < 4; j++) {
+                    face(mesh, i * 0.5f, (i + 1) * 0.5f, j * 0.5f, (j + 1) * 0.5f, across);
+                }
+            }
+        }
+        float[] entries = BlastHoles.with(new float[0], true, 0.47f, 1.1f / ViewCamera.LEVEL_HEIGHT, BlastHoles.ROUND_RADIUS * 3f, 4242, BlastHoles.ROUND);
+        MeshCut cut = new MeshCut(0f, 0f, 1f, 0f, 0.08f);
+        BlastHoles.into(cut, entries, true, 0f, 1f, 0f, ViewCamera.LEVEL_HEIGHT, 1);
+        cut.cut(mesh, 0);
+        int cutFloats = mesh.floats;
+        cut.finish();
+        float r = BlastHoles.ROUND_RADIUS * 3f;
+        float[] in = MeshCut.outline(0.47f, 1.1f, r, r, BlastHoles.ROUND_RAGGED, BlastHoles.ROUND_POINTS, 4242);
+        float[] out = MeshCut.outline(0.47f, 1.1f, r * BlastHoles.EXIT_WIDER, r * BlastHoles.EXIT_WIDER * BlastHoles.EXIT_TALL, BlastHoles.EXIT_RAGGED,
+                BlastHoles.ROUND_POINTS, 4242);
+        check(polygonArea(out) > 3f * polygonArea(in), "the way out is wider than the way in: " + polygonArea(out) + " against " + polygonArea(in));
+        SpriteGeometry.Mesh near = new SpriteGeometry.Mesh(), far = new SpriteGeometry.Mesh();
+        float[] f = mesh.vertices;
+        for (int at = 0; at < cutFloats; at += 3 * V) {
+            SpriteGeometry.Mesh to = f[at + 1] > 0f ? near : far;
+            for (int k = 0; k < 3; k++) {
+                to.addVertex(java.util.Arrays.copyOfRange(f, at + k * V, at + (k + 1) * V));
+            }
+        }
+        check(Math.abs(areaAcross(near, 0) - (2f - polygonArea(in))) < 1e-4f, "the skin on the round's side loses the way in: kept " + areaAcross(near, 0));
+        check(Math.abs(areaAcross(far, 0) - (2f - polygonArea(out))) < 1e-4f, "the far skin loses the way out: kept " + areaAcross(far, 0));
+        check(cracks(near, 0f, 1f, 0f, 2f, in) == 0 && cracks(far, 0f, 1f, 0f, 2f, out) == 0, "and neither has a crack");
+        check(mesh.floats - cutFloats == BlastHoles.ROUND_POINTS * 2 * 3 * V, "the hole's edges are lined with two triangles each");
+        boolean ends = true;
+        for (int at = cutFloats; at < mesh.floats; at += V) {
+            float s = f[at], t = f[at + 2];
+            float[] o = f[at + 1] > 0f ? in : out;
+            boolean onOutline = false;
+            for (int i = 0; i < o.length; i += 2) {
+                onOutline |= Math.abs(o[i] - s) < 1e-5f && Math.abs(o[i + 1] - t) < 1e-5f;
+            }
+            ends &= onOutline && Math.abs(Math.abs(f[at + 1]) - 0.04f) < 1e-5f;
+        }
+        check(ends, "the lining runs from the way in on the near skin to the way out on the far one");
+    }
+
+    private static void anObjectKeepsItsNewestRoundsHolesApartFromTheRest() {
+        float[] entries = BlastHoles.with(new float[0], true, 0.1f, 0.5f, 0.1f, 1, 0);
+        entries = BlastHoles.with(entries, true, 0.2f, 0.5f, BlastHoles.MARK_RADIUS, 2, 1);
+        for (int i = 0; i < BlastHoles.MOST_ROUNDS + 3; i++) {
+            entries = BlastHoles.with(entries, false, i, 0.5f, BlastHoles.ROUND_RADIUS, i, -BlastHoles.ROUND);
+        }
+        check(entries.length == (BlastHoles.MOST_ROUNDS + 2) * BlastHoles.FLOATS, "the most rounds' holes are kept, beside the blast's hole and the mark");
+        check(entries[BlastHoles.SIDE] == 0f && entries[BlastHoles.FLOATS + BlastHoles.SIDE] == 1f, "which stay");
+        check(entries[2 * BlastHoles.FLOATS + BlastHoles.ALONG] == 3f, "and the oldest rounds' holes went first");
+        check(BlastHoles.inAHole(entries, false, 10f, 0.5f), "a later shot goes through a round's hole");
+        check(!BlastHoles.inAHole(entries, false, 10f + BlastHoles.ROUND_RADIUS, 0.5f), "but not past where it went in");
     }
 
     private static void aShotGoesThroughOnlyWellInsideAHoleOnItsEdge() {

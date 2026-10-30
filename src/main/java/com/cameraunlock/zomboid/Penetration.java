@@ -232,8 +232,7 @@ final class Penetration {
                 if (throughAHole(object, north, along, x, y)) {
                     return 0f;
                 }
-                String made = materialOf(object);
-                return cost(made != null ? made : doorMaterial(object));
+                return costOf(object);
             }
             if (object instanceof IsoWindow window && window.getNorth() == north) {
                 // The game stops a shot at a shut window only where a curtain or a barricade is drawn over it. A curtain
@@ -245,7 +244,16 @@ final class Penetration {
         if (wall != null && throughAHole(wall, north, along, x, y)) {
             return 0f;
         }
-        return wall == null ? STOPS : cost(materialOf(wall));
+        return wall == null ? STOPS : costOf(wall);
+    }
+
+    /** What going through a shut door's wood or a wall costs a round, away from any glass or hole in it. */
+    static float costOf(IsoObject object) {
+        if (object instanceof IsoDoor door ? door.isBarricaded() : object instanceof IsoThumpable thumpable && thumpable.isDoor() && thumpable.isBarricaded()) {
+            return STOPS;
+        }
+        String made = materialOf(object);
+        return cost(made != null || !DoorGlass.isDoor(object) ? made : doorMaterial(object));
     }
 
     /** Whether a shot crosses a door or a fence in a hole a blast blew through it (BlastHoles), which costs it nothing. */

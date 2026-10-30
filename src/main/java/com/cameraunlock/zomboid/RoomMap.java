@@ -571,7 +571,8 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
             IsoGridSquare beyond = north ? cell.getGridSquare(x, y - 1, z) : cell.getGridSquare(x - 1, y, z);
             return doorBlind || curtained(square, beyond, north) ? RoomSight.SHUT : RoomSight.SEE;
         }
-        return wall ? RoomSight.SOLID : RoomSight.SEE;
+        // A wall a round has holed is seen through by its holes: the edge is an opening, open while the holes last.
+        return wall && !wallHoled ? RoomSight.SOLID : RoomSight.SEE;
     }
 
     @Override
@@ -646,7 +647,7 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
     }
 
     /** What read last found on an edge. A curtain does not stop sound, and is asked after only for sight. */
-    private boolean door, doorShut, doorGlazed, doorBlind, window, glassShut, wall;
+    private boolean door, doorShut, doorGlazed, doorBlind, window, glassShut, wall, wallHoled;
 
     /** Reads what stands on a square's north edge, or with north false its west edge. */
     private void read(IsoGridSquare square, boolean north) {
@@ -657,6 +658,7 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
         window = false;
         glassShut = false;
         wall = false;
+        wallHoled = false;
         PZArrayList<IsoObject> objects = square.getObjects();
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
@@ -696,6 +698,7 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
             boolean seen = north ? flags.has(IsoFlagType.WallNTrans) || flags.has(IsoFlagType.transparentN) || flags.has(IsoFlagType.HoppableN) || flags.has(IsoFlagType.TallHoppableN)
                     : flags.has(IsoFlagType.WallWTrans) || flags.has(IsoFlagType.transparentW) || flags.has(IsoFlagType.HoppableW) || flags.has(IsoFlagType.TallHoppableW);
             wall |= onEdge && !seen;
+            wallHoled |= onEdge && !seen && BlastHoles.holed(object);
         }
     }
 

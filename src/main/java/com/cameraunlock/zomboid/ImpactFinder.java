@@ -27,7 +27,9 @@ import zombie.vehicles.BaseVehicle;
  * square or so out from where the picture draws a wall, so the line is traced again against
  * the walls and floors the picture builds from the same squares, by the game's own test of
  * what stops a shot (WorldQuery), and the impact is put on the face of the wall the shooter
- * sees. Nothing here changes what the game hits.
+ * sees. A first person round that a wall, a door or a fence does not stop (Penetration) goes
+ * through it by a hole (BlastHoles), throws splinters out of the far side and is followed on to
+ * what it strikes next. Nothing here changes what the game hits.
  */
 final class ImpactFinder {
     /** A character this near the end of a shot's line, in tiles across the map, is the one the game hit. */
@@ -57,6 +59,9 @@ final class ImpactFinder {
     private static final ArrayList<IsoMovingObject> near = new ArrayList<>();
     private static final float[] point = new float[3];
     private static final Vector3f from = new Vector3f(), to = new Vector3f(), entry = new Vector3f();
+    /** What is left of the budget of the round being followed (Penetration.Cartridge): 0 for one that goes through nothing. */
+    private static float roundLeft;
+    private static final java.util.Random seeds = new java.util.Random();
 
     private ImpactFinder() {}
 
@@ -74,6 +79,8 @@ final class ImpactFinder {
         HandWeapon weapon = shooter.getPrimaryHandItem() instanceof HandWeapon held ? held : null;
         world.boles = Penetration.pastTrees(shooter, weapon);
         world.lights = Penetration.applies(shooter, weapon);
+        Penetration.Cartridge cartridge = world.lights && weapon != null && size(weapon) != PELLET ? Penetration.cartridgeOf(weapon) : null;
+        roundLeft = cartridge == null ? 0f : cartridge.budget;
         if (ballistics == null || view == null || cell == null) {
             return;
         }
@@ -158,7 +165,7 @@ final class ImpactFinder {
             return;
         }
         if (distance <= reach) {
-            surface(cell, terrain, shooter, distance, size);
+            onThrough(cell, terrain, shooter, distance, range, size);
             return;
         }
         if (stopped != null) {
@@ -220,6 +227,31 @@ final class ImpactFinder {
         }
         near.clear();
         return nearest;
+    }
+
+    /**
+     * A shot struck what WorldQuery met distance along the line: and while it goes through, on to
+     * what it strikes next, within range of where the line starts, through what the walls and
+     * doors on the way let by of lamps and glass.
+     */
+    private static void onThrough(IsoCell cell, Terrain terrain, IsoGameCharacter shooter, float distance, float range, float size) {
+        float startX = line.eyeX, startY = line.eyeY, startUp = line.eyeUp;
+        float gone = 0f;
+        for (int i = 1; surface(cell, terrain, shooter, distance, size) && i < MOST_WALLS; i++) {
+            gone += distance + PAST_WALL;
+            float left = range - gone;
+            if (left <= 0f) {
+                break;
+            }
+            line.eyeAt(startX + line.forwardX * gone, startY + line.forwardY * gone, startUp + line.forwardUp * gone);
+            distance = world.toSurface(line, terrain::height, shooter.getZ() * ViewCamera.LEVEL_HEIGHT, left);
+            ShotLights.along(cell, terrain, line, Math.min(distance, left));
+            ShotGlass.along(cell, terrain, shooter, line, Math.min(distance, left));
+            if (distance > left) {
+                break;
+            }
+        }
+        line.eyeAt(startX, startY, startUp);
     }
 
     /** The most walls a round is followed through on its way to a character. A round's budget gets through fewer than this. */
@@ -290,8 +322,8 @@ final class ImpactFinder {
         return into == null ? Float.POSITIVE_INFINITY : Math.max(((into.x - startX) * line.forwardX + (into.y - startY) * line.forwardY) / flat - VEHICLE_OFF, 0f);
     }
 
-    /** A shot struck what WorldQuery met along the line, distance along it. */
-    private static void surface(IsoCell cell, Terrain terrain, IsoGameCharacter shooter, float distance, float size) {
+    /** A shot struck what WorldQuery met along the line, distance along it: whether it went on through it. */
+    private static boolean surface(IsoCell cell, Terrain terrain, IsoGameCharacter shooter, float distance, float size) {
         float x = line.eyeX + line.forwardX * distance, y = line.eyeY + line.forwardY * distance, up = line.eyeUp + line.forwardUp * distance;
         int level = world.metLevel;
         if (world.met == WorldQuery.WALL) {
@@ -322,18 +354,36 @@ final class ImpactFinder {
                     hole = Impacts.holed(kind);
                 }
             }
+            float along = square == null ? 0f : north ? x - square.getX() : y - square.getY();
+            float levelsUp = (up - terrain.height(x, y)) / ViewCamera.LEVEL_HEIGHT - level;
+            int side = across > 0f ? -1 : 1;
             if (struck != null && size == PELLET && blasts(shooter) && BlastHoles.blastable(struck)) {
-                Blasts.pellet(shooter, struck, north, north ? x - square.getX() : y - square.getY(),
-                        (up - terrain.height(x, y)) / ViewCamera.LEVEL_HEIGHT - level, across > 0f ? -1 : 1);
+                Blasts.pellet(shooter, struck, north, along, levelsUp, side);
             }
             add(x, y, up, normalX, normalY, 0f, line.forwardX, line.forwardY, line.forwardUp, Math.min(floor, up), kind, size, hole,
                     north ? 1f : 0f, north ? 0f : 1f, 0f);
-            return;
+            float cost = struck == null ? Penetration.STOPS : Penetration.costOf(struck);
+            if (cost >= roundLeft) {
+                roundLeft = 0f;
+                return false;
+            }
+            roundLeft -= cost;
+            if (holes(shooter) && BlastHoles.holedByRounds(struck)) {
+                BlastHoles.add(struck, north, along, levelsUp, BlastHoles.ROUND_RADIUS * size, seeds.nextInt(1 << 20), BlastHoles.ROUND * side);
+            }
+            // Out of the far face, splinters and dust thrown on along the round's way.
+            float out = WorldScene.WALL_HALF / Math.max(Math.abs(across), 0.1f);
+            float outX = line.eyeX + line.forwardX * (distance + out), outY = line.eyeY + line.forwardY * (distance + out);
+            float outUp = line.eyeUp + line.forwardUp * (distance + out);
+            float outFloor = level * ViewCamera.LEVEL_HEIGHT + terrain.height(outX - normalX * FALLS_OUT, outY - normalY * FALLS_OUT);
+            add(outX, outY, outUp, -normalX, -normalY, 0f, line.forwardX, line.forwardY, line.forwardUp, Math.min(outFloor, outUp), kind, size, false,
+                    north ? 1f : 0f, north ? 0f : 1f, 0f);
+            return true;
         }
         if (world.met == WorldQuery.CEILING) {
             float floor = (level - 1) * ViewCamera.LEVEL_HEIGHT + terrain.height(x, y);
             add(x, y, up, 0f, 0f, -1f, line.forwardX, line.forwardY, line.forwardUp, floor, Impacts.MASONRY, size, true, 1f, 0f, 0f);
-            return;
+            return false;
         }
         IsoGridSquare square = cell.getGridSquare((int) Math.floor(x), (int) Math.floor(y), level);
         IsoObject floorObject = square == null ? null : square.getFloor();
@@ -354,11 +404,17 @@ final class ImpactFinder {
             }
         }
         add(x, y, up, 0f, 0f, 1f, line.forwardX, line.forwardY, line.forwardUp, up, kind, size, Impacts.holed(kind), 1f, 0f, 0f);
+        return false;
     }
 
     /** Whether a blast by this character blows holes and leaves marks: a player's in first person, where the rule holds. */
     private static boolean blasts(IsoGameCharacter shooter) {
         return Rules.blastHoles() && shooter instanceof IsoPlayer player && View.of(player) != null;
+    }
+
+    /** Whether a round by this character that goes through a door, a wall or a fence leaves a hole: a player's in first person, where the rule holds. */
+    private static boolean holes(IsoGameCharacter shooter) {
+        return Rules.bulletHoles() && shooter instanceof IsoPlayer player && View.of(player) != null;
     }
 
     /** The door hung on a square's north or west edge, shut, or null. */

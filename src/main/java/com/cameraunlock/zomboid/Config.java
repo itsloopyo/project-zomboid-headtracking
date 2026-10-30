@@ -75,7 +75,7 @@ final class Config {
         "VanillaZombies", "VanillaPeople", "VanillaArms", "VanillaClothes", "VanillaAnimals", "VanillaFire", "VanillaCabins"};
     /** The keys of the rows of [Rules] that are not parts, in the order of Rules' bits. */
     static final String[] RULE_KEYS = {"ShotsThroughWalls", "ShotsBreakLamps", "ShotsBreakGlass", "ShotsWoundLimbs", "VehiclesSmashThrough", "FacesTheView",
-        "ShotsPastTrees", "ZombiesSeenAtOnce", "Rewind30s", "HiddenWallDecor", "HiddenWallDecorSaved", "BlastHoles"};
+        "ShotsPastTrees", "ZombiesSeenAtOnce", "Rewind30s", "HiddenWallDecor", "HiddenWallDecorSaved", "BlastHoles", "BulletHoles"};
 
     /** The keys of [Graphics], the Custom graphics mode, in the order the options screen shows them. */
     static final String[] GRAPHICS = {"TreeQuality", "GrassDensity", "GrassDistance", "RenderScale", "ViewDistance", "ZombiesAndPropsDrawDistance",
@@ -463,6 +463,12 @@ final class Config {
                             + "fence blows a ragged hole through it that you can see and shoot through, and the pellets that miss the hole\n"
                             + "leave marks on a door. The holes stay in your save. false: shots leave doors and fences whole. On a server\n"
                             + "doors and fences stay whole.",
+                    writable | live, true),
+            localBool("Rules", "BulletHoles",
+                    "true: offline, while ShotsThroughWalls is on, a round you fire in first person that goes through a door, a wall\n"
+                            + "or a fence leaves a small hole where it went in and a wider, splintered one where it came out, which you can\n"
+                            + "see through. The holes stay in your save. false: rounds still go through, and leave only a mark. On a server\n"
+                            + "nothing is holed.",
                     writable | live, true),
         };
         describeParts("Rules");

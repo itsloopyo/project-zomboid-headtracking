@@ -47,7 +47,7 @@ final class OptionsLayout {
                 new Group(CUSTOM_GRAPHICS, "These show what player 1's first person graphics mode draws. Changing one switches that mode to Custom, "
                         + "which draws these for every player set to Custom, in first person or the isometric view.", "Graphics"),
                 new Group(CONTENT, "Untick any of these to have the game's own in place of the mod's.", "Content"),
-                new Group(GAMEPLAY, null, "Rules", "ShotsThroughWalls", "ShotsPastTrees", "ShotsBreakGlass", "ShotsBreakLamps", "BlastHoles", "ShotsWoundLimbs",
+                new Group(GAMEPLAY, null, "Rules", "ShotsThroughWalls", "ShotsPastTrees", "ShotsBreakGlass", "ShotsBreakLamps", "BlastHoles", "BulletHoles", "ShotsWoundLimbs",
                         Part.SHOTS_FROM_VEHICLE_SEATS.key, "RegripTwoHandedWeapons", "FacesTheView", Part.DRIVE_WHILE_AIMING.key,
                         Part.HILLS_MOVE_VEHICLES.key, "VehiclesSmashThrough", Part.HAND_LIGHT_OUT_AT_THE_WHEEL.key, "ZombiesSeenAtOnce",
                         "HiddenWallDecorSaved"),
@@ -131,6 +131,7 @@ final class OptionsLayout {
             Map.entry("ShotsBreakGlass", "Bullets break windows"),
             Map.entry("ShotsBreakLamps", "Bullets break lamps"),
             Map.entry("BlastHoles", "Shotguns blow holes in doors and fences"),
+            Map.entry("BulletHoles", "Bullet holes through walls and doors"),
             Map.entry("ShotsWoundLimbs", "Limb damage"),
             Map.entry(Part.SHOTS_FROM_VEHICLE_SEATS.key, "Shoot from vehicle seats"),
             Map.entry("RegripTwoHandedWeapons", "Regrip two-handed weapons"),

@@ -53,25 +53,37 @@ final class MeshCut {
     private final ArrayList<Hole> holes = new ArrayList<>();
     private final ArrayList<Mark> marks = new ArrayList<>();
 
-    /** One hole: its outline as (s, t) pairs, its middle, and what cutting found of the faces it went through. */
+    /**
+     * One hole: its outline as (s, t) pairs where it goes in, and where it comes out, on the side
+     * the round came from (1 or -1) and the other, or the same outline both sides with side 0; its
+     * middle, and what cutting found of the faces it went through.
+     */
     private static final class Hole {
-        final float[] outline;
+        final float[] outline, exit;
+        final int side;
         final float middleS, middleT;
         final float lowS, highS, lowT, highT;
         float nearest = Float.POSITIVE_INFINITY, furthest = Float.NEGATIVE_INFINITY;
         SpriteGeometry.Mesh donorMesh;
         final float[] donor = new float[V];
 
-        Hole(float[] outline, float middleS, float middleT) {
+        Hole(float[] outline, float[] exit, int side, float middleS, float middleT) {
+            if (exit.length != outline.length) {
+                throw new IllegalArgumentException("a hole goes in with " + outline.length / 2 + " points and comes out with " + exit.length / 2);
+            }
             this.outline = outline;
+            this.exit = exit;
+            this.side = side;
             this.middleS = middleS;
             this.middleT = middleT;
             float ls = Float.POSITIVE_INFINITY, hs = Float.NEGATIVE_INFINITY, lt = Float.POSITIVE_INFINITY, ht = Float.NEGATIVE_INFINITY;
-            for (int i = 0; i < outline.length; i += 2) {
-                ls = Math.min(ls, outline[i]);
-                hs = Math.max(hs, outline[i]);
-                lt = Math.min(lt, outline[i + 1]);
-                ht = Math.max(ht, outline[i + 1]);
+            for (float[] o : new float[][] {outline, exit}) {
+                for (int i = 0; i < o.length; i += 2) {
+                    ls = Math.min(ls, o[i]);
+                    hs = Math.max(hs, o[i]);
+                    lt = Math.min(lt, o[i + 1]);
+                    ht = Math.max(ht, o[i + 1]);
+                }
             }
             lowS = ls;
             highS = hs;
@@ -81,6 +93,11 @@ final class MeshCut {
 
         boolean cutSomething() {
             return donorMesh != null && furthest > nearest;
+        }
+
+        /** The outline that cuts a face lying this far across the plane on average: the way in on the round's side, the way out on the other. */
+        float[] outlineAt(float across) {
+            return side == 0 || across * side >= 0f ? outline : exit;
         }
     }
 
@@ -118,7 +135,16 @@ final class MeshCut {
 
     /** A hole: its outline as (s, t) pairs wound anticlockwise, a star about (middleS, middleT). */
     void hole(float[] outline, float middleS, float middleT) {
-        holes.add(new Hole(outline, middleS, middleT));
+        holes.add(new Hole(outline, outline, 0, middleS, middleT));
+    }
+
+    /**
+     * A round's hole: the outline it goes in by on the side of the plane side (1 or -1) is on,
+     * and the one it comes out by on the other, as many points each and both stars about (middleS,
+     * middleT). Its sides are lined from the one to the other, a funnel.
+     */
+    void hole(float[] in, float[] out, int side, float middleS, float middleT) {
+        holes.add(new Hole(in, out, side, middleS, middleT));
     }
 
     /** A mark at (s, t) with the outline given, struck from the side of the plane side (1 or -1) is on. */
@@ -292,7 +318,7 @@ final class MeshCut {
         float area = (sB - sA) * (tC - tA) - (sC - sA) * (tB - tA);
         if (Math.abs(area) > EDGE_ON) {
             int before = nextFloats;
-            cutFace(tri, at, hole, sA, tA, sB, tB, sC, tC);
+            cutFace(tri, at, hole.outlineAt(aA + aB + aC), sA, tA, sB, tB, sC, tC);
             if (nextFloats != before + 3 * V || !sameTriangle(tri, at, next, before)) {
                 if (hole.donorMesh == null) {
                     hole.donorMesh = mesh;
@@ -303,7 +329,7 @@ final class MeshCut {
             }
             return;
         }
-        cutEdgeOn(tri, at, hole, sA, tA, sB, tB, sC, tC, aA, aB, aC);
+        cutEdgeOn(tri, at, hole.exit, sA, tA, sB, tB, sC, tC, aA, aB, aC);
     }
 
     private static boolean sameTriangle(float[] one, int at, float[] other, int otherAt) {
@@ -340,8 +366,7 @@ final class MeshCut {
      * face's, so the face on the other side of the edge makes the same vertex to the bit, and no
      * corner is put anywhere else on an edge: what is left meets its neighbours with no crack.
      */
-    private void cutFace(float[] tri, int at, Hole hole, float sA, float tA, float sB, float tB, float sC, float tC) {
-        float[] o = hole.outline;
+    private void cutFace(float[] tri, int at, float[] o, float sA, float tA, float sB, float tB, float sC, float tC) {
         int points = o.length / 2;
         boolean turned = (sB - sA) * (tC - tA) - (sC - sA) * (tB - tA) < 0f;
         // The face's corners wound anticlockwise in the plane.
@@ -611,7 +636,7 @@ final class MeshCut {
     }
 
     /** A face along the plane, its line in the plane through the outline: what of it lies where the line is outside. */
-    private void cutEdgeOn(float[] tri, int at, Hole hole, float sA, float tA, float sB, float tB, float sC, float tC, float aA, float aB, float aC) {
+    private void cutEdgeOn(float[] tri, int at, float[] o, float sA, float tA, float sB, float tB, float sC, float tC, float aA, float aB, float aC) {
         float dS = sB - sA, dT = tB - tA, eS = sC - sA, eT = tC - tA;
         if (eS * eS + eT * eT > dS * dS + dT * dT) {
             dS = eS;
@@ -630,7 +655,6 @@ final class MeshCut {
             return;
         }
         // Where the line crosses the outline's edges, in w along it.
-        float[] o = hole.outline;
         int points = o.length / 2;
         float[] crossings = new float[points + 2];
         int found = 0;
@@ -796,16 +820,21 @@ final class MeshCut {
 
     private final float[] corner = new float[V];
 
-    /** Lines a hole's sides, from its nearest face to its furthest, an edge of the outline at a time. */
+    /**
+     * Lines a hole's sides, from its nearest face to its furthest, an edge of the outline at a
+     * time: for a round's hole, from the way in at the face furthest towards the round's side to
+     * the way out at the face furthest from it.
+     */
     private void line(Hole hole) {
-        float[] o = hole.outline;
-        int points = o.length / 2;
+        float[] near = hole.side > 0 ? hole.exit : hole.outline, far = hole.side > 0 ? hole.outline : hole.exit;
+        int points = near.length / 2;
         SpriteGeometry.Mesh mesh = hole.donorMesh;
         for (int i = 0; i < points; i++) {
             int j = (i + 1) % points;
-            float pS = o[2 * i], pT = o[2 * i + 1], qS = o[2 * j], qT = o[2 * j + 1];
-            // The lining looks in, towards the middle.
-            float nS = -(qT - pT), nT = qS - pS;
+            float pS = near[2 * i], pT = near[2 * i + 1], qS = near[2 * j], qT = near[2 * j + 1];
+            float fpS = far[2 * i], fpT = far[2 * i + 1], fqS = far[2 * j], fqT = far[2 * j + 1];
+            // The lining looks in, towards the middle, square to its edges at either end.
+            float nS = -(qT - pT) - (fqT - fpT), nT = qS - pS + fqS - fpS;
             if (nS * (hole.middleS - pS) + nT * (hole.middleT - pT) < 0f) {
                 nS = -nS;
                 nT = -nT;
@@ -819,10 +848,10 @@ final class MeshCut {
             int at = mesh.floats;
             lining(mesh, hole.donor, pS, pT, hole.nearest, nS, nT);
             lining(mesh, hole.donor, qS, qT, hole.nearest, nS, nT);
-            lining(mesh, hole.donor, qS, qT, hole.furthest, nS, nT);
+            lining(mesh, hole.donor, fqS, fqT, hole.furthest, nS, nT);
             mesh.again(at);
             mesh.again(at + 2 * V);
-            lining(mesh, hole.donor, pS, pT, hole.furthest, nS, nT);
+            lining(mesh, hole.donor, fpS, fpT, hole.furthest, nS, nT);
         }
     }
 
