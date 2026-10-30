@@ -65,10 +65,12 @@ $coreCommit = (git -C cameraunlock-core rev-parse HEAD).Trim()
 if ($LASTEXITCODE -ne 0) { throw 'git could not read the cameraunlock-core commit' }
 $coreEdits = git -C cameraunlock-core status --porcelain
 if ($LASTEXITCODE -ne 0) { throw 'git could not read whether cameraunlock-core has edits' }
+$coreKey = Get-Key "$coreCommit $(node --version)"
 if ($coreEdits) {
     Invoke-Tool node @('cameraunlock-core/scripts/build-core-jar.mjs', 'build/cameraunlock-core.jar')
+    # The jar of the commit itself stays for the next build without the edits.
+    $script:cachedNow += "cameraunlock-core-$coreKey.jar"
 } else {
-    $coreKey = Get-Key "$coreCommit $(node --version)"
     Use-Cached "build-cache/cameraunlock-core-$coreKey.jar" build/cameraunlock-core.jar {
         param($out) Invoke-Tool node @('cameraunlock-core/scripts/build-core-jar.mjs', $out)
     }
