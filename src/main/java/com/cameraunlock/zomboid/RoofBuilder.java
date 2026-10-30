@@ -429,13 +429,15 @@ final class RoofBuilder {
             if (colour == null) {
                 build.gablesBare++;
                 if (finish != null && SpriteColours.unread(finish)) {
-                    build.building.signed = false;
+                    build.building.waitFor(finish);
                 }
                 return;
             }
             build.gablesPainted++;
             int built = Own.textures(build.playerIndex) ? Masonry.of(finish) : 0;
-            build.building.signed &= !Own.textures(build.playerIndex) || !Masonry.unread(finish);
+            if (Own.textures(build.playerIndex) && Masonry.unread(finish)) {
+                build.building.waitFor(finish);
+            }
             SpriteGeometry.Mesh painted = build.solid.get(WorldScene.PLAIN, built != 0 ? WallSides.over(built) : WallSides.key(colour[0], colour[1], colour[2], WallSides.SIDING));
             painted.open = build.frame.open + 32f * WorldScene.PAINT;
             float foot = z * ViewCamera.LEVEL_HEIGHT + meanLift();
@@ -1013,7 +1015,9 @@ final class RoofBuilder {
      */
     private SpriteGeometry.Mesh roofSheet() {
         float[] colour = roof == null || roof.finish == null ? null : SpriteColours.of(roof.finish);
-        build.building.signed &= roof == null || roof.finish == null || !SpriteColours.unread(roof.finish);
+        if (roof != null && roof.finish != null && SpriteColours.unread(roof.finish)) {
+            build.building.waitFor(roof.finish);
+        }
         SpriteGeometry.Mesh sheet;
         if (colour == null) {
             sheet = build.solid.get(WorldScene.PLAIN);

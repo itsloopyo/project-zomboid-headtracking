@@ -76,7 +76,9 @@ final class StairBuilder {
             // that first meets the sprite has no colour for it yet and is made again.
             float[] colour = SpriteColours.of(texture);
             if (colour == null) {
-                build.building.signed &= !SpriteColours.unread(texture);
+                if (SpriteColours.unread(texture)) {
+                    build.building.waitFor(texture);
+                }
                 return true;
             }
             SpriteGeometry.Mesh plain = build.solid.get(WorldScene.PLAIN, WallSides.key(colour[WallSides.MEAN], colour[WallSides.MEAN + 1], colour[WallSides.MEAN + 2], WallSides.FLAT));
@@ -134,7 +136,9 @@ final class StairBuilder {
     private SpriteGeometry.Mesh treads(Texture texture) {
         float[] colour = SpriteColours.of(texture);
         if (colour == null) {
-            build.building.signed &= !SpriteColours.unread(texture);
+            if (SpriteColours.unread(texture)) {
+                build.building.waitFor(texture);
+            }
             return null;
         }
         SpriteGeometry.Mesh treads = build.solid.get(WorldScene.PLAIN, WallSides.laid(colour[WallSides.MEAN], colour[WallSides.MEAN + 1], colour[WallSides.MEAN + 2], 0f, 0f, 0f, WallSides.FINE));

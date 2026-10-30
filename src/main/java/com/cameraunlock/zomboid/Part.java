@@ -115,7 +115,11 @@ enum Part {
                     + "can fill a room you have not looked into. Needs SkipCoveredGameDrawing."),
     BUILD_ON_WORKER_THREADS("Optimizations", "BuildOnWorkerThreads", true, false,
             "true: the first person view builds the chunks it has to build again on threads of its own, all at once, and shows\n"
-                    + "each a frame later. false: each is built on the game's own thread as the view comes to it, and shows in that frame.");
+                    + "each a frame later. false: each is built on the game's own thread as the view comes to it, and shows in that frame."),
+    REBUILD_FOR_OWN_SPRITES("Optimizations", "RebuildForOwnSprites", true, false,
+            "true: a chunk the first person view built before some of its sprites or pictures had been read is built again\n"
+                    + "once those have been. false: it is built again whenever any sprite or picture has been read, which on arriving\n"
+                    + "somewhere is most frames for the first seconds.");
 
     final String section, key, comment;
     /** Whether the row is taken while the game runs, and whether it is read at the start to leave patches out. */

@@ -247,7 +247,7 @@ final class OpeningBuilder {
         Drapes.Shape shape = Drapes.of(texture, build.frame, north, far);
         if (shape == null) {
             if (Drapes.unread(texture)) {
-                build.building.signed = false;
+                build.building.waitFor(texture);
             }
             return false;
         }
@@ -392,7 +392,7 @@ final class OpeningBuilder {
         Doors.Shape door = Doors.of(texture, build.frame, north);
         if (door == null) {
             if (Doors.unread(texture)) {
-                build.building.signed = false;
+                build.building.waitFor(texture);
             }
             return false;
         }
@@ -400,7 +400,7 @@ final class OpeningBuilder {
             // Open, it is the leaf its shut sprite paints, which stands on the other edge.
             Doors.Shape shut = Doors.of(build.shutTexture, build.shutFrame, !north);
             if (shut == null && Doors.unread(build.shutTexture)) {
-                build.building.signed = false;
+                build.building.waitFor(build.shutTexture);
                 return false;
             }
             if (shut != null) {
@@ -579,7 +579,7 @@ final class OpeningBuilder {
         Windows.Shape casing = Casings.of(texture, build.frame, north);
         if (casing == null) {
             if (Casings.unread(texture)) {
-                build.building.signed = false;
+                build.building.waitFor(texture);
             }
             return false;
         }
@@ -780,7 +780,7 @@ final class OpeningBuilder {
             // The sprite is measured by the next frame drawn. A build that went without is
             // made again when next due, though nothing it read of the map has changed.
             if (Windows.unread(texture, north)) {
-                build.building.signed = false;
+                build.building.waitFor(texture);
             }
             return false;
         }

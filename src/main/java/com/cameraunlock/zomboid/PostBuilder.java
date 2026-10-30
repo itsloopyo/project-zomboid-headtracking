@@ -352,7 +352,7 @@ final class PostBuilder {
                 // Its solid paint is read by the next frame drawn: until then it is the beam its outline makes, and the build is made again.
                 Solids.Outline solid = Solids.of(texture, shapeFrame);
                 if (solid == null) {
-                    build.building.signed = false;
+                    build.building.waitFor(texture);
                     return shape;
                 }
                 shape = SpriteShape.withoutShadow(shape, solid, shapeFrame);

@@ -96,6 +96,11 @@ final class SpriteColours {
      */
     private static final AtomicInteger readings = new AtomicInteger();
     /**
+     * For each sprite, picture or other thing a build can be left waiting for, the count of readings its last answer
+     * was counted as: a build that waited for it is made again only once this has passed the readings it began at.
+     */
+    private static final ConcurrentHashMap<Object, Integer> answeredAt = new ConcurrentHashMap<>();
+    /**
      * Whether the shader that unpacks the part of a sheet read into a target of its own linked
      * (see copying), else whether the graphics card copies back part of a sheet, asked once on
      * the first reading.
@@ -170,9 +175,20 @@ final class SpriteColours {
         return readings.get();
     }
 
-    /** Counts an answer a build may have been left waiting for, from any thread. */
+    /** Counts an answer a build may have been left waiting for, from any thread, when no build can say which it waited for. */
     static void answered() {
         readings.incrementAndGet();
+    }
+
+    /** Counts the answer for one thing a build may have been left waiting for (ChunkMeshes.waitFor), from any thread, once it is in. */
+    static void answered(Object waitedFor) {
+        answeredAt.put(waitedFor, readings.incrementAndGet());
+    }
+
+    /** Whether an answer for the thing has come in since readings stood at the count given. */
+    static boolean answeredSince(Object waitedFor, int since) {
+        Integer at = answeredAt.get(waitedFor);
+        return at != null && at > since;
     }
 
     /** Whether the sprite has still to be read: of() gives null for it, and may not once a frame has been drawn. */
@@ -602,8 +618,12 @@ final class SpriteColours {
                 Flowerbeds.read(texture, page, across, left, top, right, bottom);
             }
         } finally {
+            // Counted once every sprite of the copy has been read: a build that found one unread began before this count.
+            Integer counted = readings.incrementAndGet();
+            for (int i = 0; i < copied.size(); i++) {
+                answeredAt.put(copied.get(i).texture(), counted);
+            }
             copied.clear();
-            readings.incrementAndGet();
         }
     }
 

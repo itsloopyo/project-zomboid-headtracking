@@ -566,7 +566,7 @@ final class PlantBuilder {
         }
         Flowerbeds.Bed bed = Flowerbeds.of(texture);
         if (bed == null) {
-            build.building.signed = false;
+            build.building.waitFor(texture);
             return;
         }
         roomFor(x, y, z);
@@ -872,7 +872,7 @@ final class PlantBuilder {
         if (!painted) {
             float[] leaves = CrownWood.leaves(texture, build.frame, places);
             if (leaves == null) {
-                build.building.signed = false;
+                build.building.waitFor(texture);
             } else if (leaves.length < CROWN_LEAST_PLACES * 2) {
                 return false;
             } else {

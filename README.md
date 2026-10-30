@@ -640,6 +640,10 @@ SpotBySight=true
 ; true: the first person view builds the chunks it has to build again on threads of its own, all at once, and shows
 ; each a frame later. false: each is built on the game's own thread as the view comes to it, and shows in that frame.
 BuildOnWorkerThreads=true
+; true: a chunk the first person view built before some of its sprites or pictures had been read is built again
+; once those have been. false: it is built again whenever any sprite or picture has been read, which on arriving
+; somewhere is most frames for the first seconds.
+RebuildForOwnSprites=true
 
 [Content]
 ; true: the game's own weapons, with no picture through the scope. false: the mod's models of the pump shotgun and

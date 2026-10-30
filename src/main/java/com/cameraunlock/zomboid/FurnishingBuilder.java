@@ -163,7 +163,7 @@ final class FurnishingBuilder {
         }
         if (SpriteColours.of(foot) == null) {
             if (SpriteColours.unread(foot)) {
-                build.building.signed = false;
+                build.building.waitFor(foot);
             }
             return false;
         }
@@ -208,7 +208,7 @@ final class FurnishingBuilder {
         float[] colour = SpriteColours.of(texture);
         if (colour == null) {
             if (SpriteColours.unread(texture)) {
-                build.building.signed = false;
+                build.building.waitFor(texture);
             }
             return false;
         }
@@ -298,7 +298,7 @@ final class FurnishingBuilder {
             // A picture not read yet would be drawn as nothing: the sprite paints the frame until
             // a build made again once it is read.
             Decor.held(picture);
-            build.building.signed = false;
+            build.building.waitFor(Decor.answerFor(picture));
             picture = Decor.NONE;
         }
         if (piece == null || piece.wall == WallHung.NONE || picture == Decor.NONE && (piece.pinned || !Own.furniture())
@@ -401,7 +401,7 @@ final class FurnishingBuilder {
             if (!Decor.ready(picture)) {
                 // Drawn before it is read it would be an empty frame: the build is made again once it is.
                 Decor.held(picture);
-                build.building.signed = false;
+                build.building.waitFor(Decor.answerFor(picture));
                 continue;
             }
             Furniture piece = wall == HiddenWalls.SOUTH ? DRAWN_SOUTH : DRAWN_EAST;
@@ -470,11 +470,11 @@ final class FurnishingBuilder {
             if (!Decor.ready(picture)) {
                 // The sprite paints the notices until a build made again once every sheet is read.
                 Decor.held(picture);
+                build.building.waitFor(Decor.answerFor(picture));
                 ready = false;
             }
         }
         if (!ready) {
-            build.building.signed = false;
             return false;
         }
         float from = build.hungAt[WallHung.FROM], to = build.hungAt[WallHung.TO], bottom = build.hungAt[WallHung.BOTTOM], top = build.hungAt[WallHung.TOP];

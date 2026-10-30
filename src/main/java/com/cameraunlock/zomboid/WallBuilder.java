@@ -598,7 +598,7 @@ final class WallBuilder {
         if (build.overLayer != 0 && Own.textures(build.playerIndex)) {
             Boolean stain = Stains.of(texture);
             if (stain == null) {
-                build.building.signed = false;
+                build.building.waitFor(texture);
                 return;
             }
             if (stain) {
@@ -663,7 +663,7 @@ final class WallBuilder {
         paper = papered ? Papers.of(texture, build.frame, da != 0f) : null;
         // Only a paper that was asked for is ever read, so only then is the build made again once it is.
         if (paper == null && papered && Papers.unread(texture)) {
-            build.building.signed = false;
+            build.building.waitFor(texture);
         }
         // A tiled wall is its tiles, its joints and the strips between its bands, each a face of its own: see WallTiles.
         tiles = paper == null && build.overLayer == 0 && build.tiledSheet != null && Own.textures(build.playerIndex)
@@ -763,7 +763,7 @@ final class WallBuilder {
                 farPaperBy = room;
                 build.frame.texelsOf(build.held);
                 if (farPaper == null && Papers.unread(room.texture)) {
-                    build.building.signed = false;
+                    build.building.waitFor(room.texture);
                 }
             }
             // A low wall in the room, the edge of a rail dock's platform, is no wall to stand whole on this side.
@@ -846,7 +846,9 @@ final class WallBuilder {
         build.geometry.sealLow = build.geometry.sealHigh = build.geometry.sealTop = 0f;
         if (build.overLayer == 0 && opening[at + OPENING_START] >= 0f) {
             float[] nearPaint = SpriteColours.of(texture);
-            build.building.signed &= !SpriteColours.unread(texture);
+            if (SpriteColours.unread(texture)) {
+                build.building.waitFor(texture);
+            }
             addReveals(opening, at, x, y, z, 0f, 0f, da, db, inX, inY, nearPaint, tint != 0 || faced != null ? farColour : nearPaint);
         }
         if (build.overLayer == 0) {
@@ -1441,7 +1443,7 @@ final class WallBuilder {
             if (texture.getName() != null && texture.getName().startsWith("location_")) {
                 int read = Masonry.of(texture);
                 if (Masonry.unread(texture)) {
-                    build.building.signed = false;
+                    build.building.waitFor(texture);
                     build.frame.material = 0f;
                     return mesh;
                 }
@@ -1455,7 +1457,9 @@ final class WallBuilder {
             }
             float[] colour = SpriteColours.of(texture);
             if (colour == null) {
-                build.building.signed &= !SpriteColours.unread(texture);
+                if (SpriteColours.unread(texture)) {
+                    build.building.waitFor(texture);
+                }
                 return mesh;
             }
             return build.solid.get(texture.getID(), WallSides.laid(colour[0], colour[1], colour[2], 0f, 0f, 0f, WallSides.BOARDED));
@@ -1495,17 +1499,25 @@ final class WallBuilder {
                 }
             }
         }
-        boolean unread = false;
+        // A sprite is read by the next frame drawn. A build that went without any it asked
+        // for is made again once it is, though nothing it read of the map has changed:
+        // what was read may lay the wall one way now and the rest another once it is in.
         int how = 0;
         if (finish != null && finish != texture) {
             int built = Masonry.of(finish);
-            unread = Masonry.unread(finish);
+            if (Masonry.unread(finish)) {
+                build.building.waitFor(finish);
+            }
             int read = build.gableSheet ? 0 : Masonry.of(texture);
-            unread |= !build.gableSheet && Masonry.unread(texture);
+            if (!build.gableSheet && Masonry.unread(texture)) {
+                build.building.waitFor(texture);
+            }
             if (built != 0 && !build.gableSheet) {
                 float[] own = SpriteColours.of(texture);
                 WallSides.tint(built, laidTint);
-                unread |= SpriteColours.unread(texture);
+                if (SpriteColours.unread(texture)) {
+                    build.building.waitFor(texture);
+                }
                 // The game paints a wall on a north edge lighter than the same wall on a west
                 // edge, as its own light falls. A wall that reads as the finish does, or as
                 // nothing, is the finish if it is the finish's colour made lighter or darker.
@@ -1516,15 +1528,13 @@ final class WallBuilder {
             how = built != 0 ? built : read;
         } else if (!build.gableSheet) {
             how = Masonry.of(texture);
-            unread |= Masonry.unread(texture);
+            if (Masonry.unread(texture)) {
+                build.building.waitFor(texture);
+            }
             if (how == 0 && north) {
                 how = asWestTwin(texture);
             }
         }
-        // A sprite is read by the next frame drawn. A build that went without any it asked
-        // for is made again when next due, though nothing it read of the map has changed:
-        // what was read may lay the wall one way now and the rest another once it is in.
-        build.building.signed &= !unread;
         if (how == 0) {
             return mesh;
         }
@@ -1552,7 +1562,12 @@ final class WallBuilder {
         Texture west = twin.getTextureForCurrentFrame(IsoDirections.N);
         int read = Masonry.of(west);
         float[] own = SpriteColours.of(texture);
-        build.building.signed &= !Masonry.unread(west) && !SpriteColours.unread(texture);
+        if (Masonry.unread(west)) {
+            build.building.waitFor(west);
+        }
+        if (SpriteColours.unread(texture)) {
+            build.building.waitFor(texture);
+        }
         if (read == 0 || own == null) {
             return 0;
         }
@@ -1934,7 +1949,9 @@ final class WallBuilder {
         boolean north = da != 0f;
         WallTiles.Wall over = WallTiles.of(texture, build.frame, north, true);
         if (over == null) {
-            build.building.signed &= !WallTiles.unread(texture, north, true);
+            if (WallTiles.unread(texture, north, true)) {
+                build.building.waitFor(texture);
+            }
             return false;
         }
         // Its own dots are shown stood square: the sprite stops a few dots short of the wall's end, and there a tile of a figure would show a slit.
@@ -2090,7 +2107,7 @@ final class WallBuilder {
             boolean on = edge == 0 ? north : !north;
             WallTiles.Wall read = WallTiles.of(shows, build.frame, on, false);
             if (read == null && WallTiles.unread(shows, on, false)) {
-                build.building.signed = false;
+                build.building.waitFor(shows);
                 return null;
             }
             if (read != null && read.whole) {
@@ -2124,7 +2141,7 @@ final class WallBuilder {
         boolean north = da != 0f;
         WallTiles.Wall own = WallTiles.of(texture, build.frame, north, false);
         if (own == null && WallTiles.unread(texture, north, false)) {
-            build.building.signed = false;
+            build.building.waitFor(texture);
             return null;
         }
         if (!opens && (own == null || own.whole)) {
@@ -2152,7 +2169,7 @@ final class WallBuilder {
                 WorldScene.frameOf(tileFrame, wall, other);
                 WallTiles.Wall whole = WallTiles.of(other, tileFrame, north, false);
                 if (whole == null && WallTiles.unread(other, north, false)) {
-                    build.building.signed = false;
+                    build.building.waitFor(other);
                     return null;
                 }
                 if (whole != null && whole.whole && WallTiles.agrees(own, whole)) {
@@ -2473,7 +2490,9 @@ final class WallBuilder {
         float[] colour = SpriteColours.of(shows);
         // The picture reads a sprite's colour and how it is laid on the next frame drawn, and tells nobody when it has:
         // a build that went without either is made again when next due.
-        build.building.signed &= !SpriteColours.unread(shows) && (far != -1L || !Masonry.unread(shows));
+        if (SpriteColours.unread(shows) || far == -1L && Masonry.unread(shows)) {
+            build.building.waitFor(shows);
+        }
         if (colour == null) {
             return 0;
         }
@@ -2518,7 +2537,7 @@ final class WallBuilder {
         float[] battens = Battens.of(texture);
         float[] colour = SpriteColours.of(texture);
         if (battens == null || colour == null) {
-            build.building.signed = false;
+            build.building.waitFor(texture);
             return;
         }
         if (battens.length == 0) {

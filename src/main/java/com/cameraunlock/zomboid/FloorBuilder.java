@@ -345,7 +345,7 @@ final class FloorBuilder {
         boolean painted = (build.overLayer > 0 ? build.paintOver : sprite.paint && !isFloor) && build.frame.kind == 0f && Own.paint(build.playerIndex);
         RoadPaint.Shape paint = painted ? RoadPaint.of(texture, build.frame) : null;
         if (painted && paint == null && RoadPaint.unread(texture)) {
-            build.building.signed = false;
+            build.building.waitFor(texture);
         }
         SpriteGeometry.Mesh on = paint != null ? build.laid.get(paint.picture) : build.floorLayer == 0 ? mesh : build.laid.get(texture.getID());
         // Straw is the square's floor in a barn, and laid over the grass outside one.
@@ -368,7 +368,7 @@ final class FloorBuilder {
         if (sprite.flowerbed && rug == 0 && z == 0 && Own.plants(build.playerIndex) && build.within(Flowerbeds.REACH, false)) {
             int earth = Flowerbeds.earth(texture, build.frame);
             if (earth == Flowerbeds.PENDING) {
-                build.building.signed = false;
+                build.building.waitFor(texture);
             } else if (earth != 0) {
                 on = build.laid.get(earth);
                 build.frame.flat = SpriteGeometry.FLAT_FLOOR;
@@ -454,7 +454,7 @@ final class FloorBuilder {
         Tiles.Shape tiles = Tiles.of(texture, build.frame);
         if (tiles == null) {
             if (Tiles.unread(texture)) {
-                build.building.signed = false;
+                build.building.waitFor(texture);
             }
             return false;
         }
@@ -527,7 +527,7 @@ final class FloorBuilder {
         float[] colour = SpriteColours.of(texture);
         if (colour == null) {
             if (SpriteColours.unread(texture)) {
-                build.building.signed = false;
+                build.building.waitFor(texture);
             }
             return false;
         }

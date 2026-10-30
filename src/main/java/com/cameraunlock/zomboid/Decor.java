@@ -511,7 +511,7 @@ final class Decor {
                     } else if (made != null) {
                         waiting[picture] = made;
                     }
-                    SpriteColours.answered();
+                    SpriteColours.answered(answerFor(picture));
                     if (stale && wantedAgain[picture]) {
                         read(picture, false);
                     }
@@ -656,6 +656,13 @@ final class Decor {
             }
         }
         Screens.letGo();
+    }
+
+    /** What a build left waiting for the picture waits for (ChunkMeshes.waitFor), answered once a read of it is done. */
+    record Answer(int picture) {}
+
+    static Answer answerFor(int picture) {
+        return new Answer(picture);
     }
 
     /**

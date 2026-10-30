@@ -185,7 +185,7 @@ final class CeilingBuilder {
             }
             Boolean glass = SeeThrough.of(texture);
             if (glass == null) {
-                build.building.signed = false;
+                build.building.waitFor(texture);
             } else if (glass) {
                 return true;
             }

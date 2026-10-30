@@ -506,7 +506,7 @@ final class WallTiles {
                     }
                     known.get(into).put(texture, wall == null ? NONE : wall);
                     reading.get(into).remove(texture);
-                    SpriteColours.answered();
+                    SpriteColours.answered(texture);
                 } catch (Throwable failed) {
                     asked.get(into).remove(texture);
                     reading.get(into).remove(texture);

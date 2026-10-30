@@ -318,6 +318,13 @@ final class WorldScene {
         boolean signed;
         /** SpriteColours.readings() as the build began, or -1 for one not summed: see where a build is trusted. */
         int readingsAtBuild;
+        /**
+         * What the build found unread and went without, each a sprite's texture or a picture's number, the first
+         * waitCount of them; and whether it went without something no answer names (waitForAnything).
+         */
+        private Object[] waits = new Object[4];
+        private int waitCount;
+        private boolean waitsOnAnything;
         private long signature;
         /** The frame and the time from which the chunk's builds are summed again, after one was found changed with the eye still. */
         private int summedFrom;
@@ -551,6 +558,8 @@ final class WorldScene {
             seasonal = from.seasonal;
             stage = from.stage;
             terrainVersion = from.terrainVersion;
+            waitCount = 0;
+            waitsOnAnything = false;
             System.arraycopy(from.groundLayers, 0, groundLayers, 0, groundLayers.length);
             placed.clear();
             lying.clear();
@@ -559,6 +568,53 @@ final class WorldScene {
                 modelled = Collections.newSetFromMap(new IdentityHashMap<>());
                 pictured = Collections.newSetFromMap(new IdentityHashMap<>());
             }
+        }
+
+        /**
+         * The build went without the thing named, a sprite's texture or a picture's number, as it was not read yet:
+         * it is left unsigned, and made again once that thing has been read (SpriteColours.answered).
+         */
+        void waitFor(Object unread) {
+            signed = false;
+            if (waitCount == waits.length) {
+                waits = Arrays.copyOf(waits, waitCount * 2);
+            }
+            waits[waitCount++] = unread;
+        }
+
+        /** The build went without something no answer names: it is made again once anything at all has been read. */
+        void waitForAnything() {
+            signed = false;
+            waitsOnAnything = true;
+        }
+
+        /** Begins a build's list of what it waited for, as one that has waited for nothing. */
+        void waitForNothing() {
+            Arrays.fill(waits, 0, waitCount, null);
+            waitCount = 0;
+            waitsOnAnything = false;
+        }
+
+        /**
+         * Whether a build left unsigned would come out as it is: nothing it waited for has been read since it began
+         * (Part.REBUILD_FOR_OWN_SPRITES). Else it is made again once anything has been.
+         */
+        private boolean nothingItWaitedForRead(int readingsNow) {
+            if (readingsAtBuild < 0) {
+                return false;
+            }
+            if (readingsAtBuild == readingsNow) {
+                return true;
+            }
+            if (waitsOnAnything || !Part.REBUILD_FOR_OWN_SPRITES.running()) {
+                return false;
+            }
+            for (int i = 0; i < waitCount; i++) {
+                if (SpriteColours.answeredSince(waits[i], readingsAtBuild)) {
+                    return false;
+                }
+            }
+            return true;
         }
 
         /**
@@ -4404,10 +4460,12 @@ final class WorldScene {
                     }
                     boolean stands = !missing && inBand(current.band, nearest);
                     // A build left without a sum for want of a sprite, a rug or a picture not read yet would come out the same
-                    // again until another has been (SpriteColours.readings): until then it is trusted as one with a
+                    // again until one it went without has been read (nothingItWaitedForRead): until then it is trusted as one with a
                     // sum. It was made again every time it fell due, and right by the eye that was every frame: in a tower, walls with
                     // grime over them and tiled floors left a dozen chunks of thirty storeys unsigned, and each was built every frame.
-                    boolean trusted = !missing && (current.signed || current.readingsAtBuild == SpriteColours.readings());
+                    // Arriving somewhere, sprites are read most frames, and a build waiting for any one was made again for each of them:
+                    // 1,254 of 1,669 builds in a 15 s arrival in Louisville.
+                    boolean trusted = !missing && (current.signed || current.nothingItWaitedForRead(SpriteColours.readings()));
                     boolean still = missing ? eyeStill : stands && (eyeStill || trusted);
                     // A build that is held is only read through to see whether its chunk has changed: half as often will do,
                     // and a change twenty tiles off shows a tenth of a second later.
@@ -4658,6 +4716,7 @@ final class WorldScene {
                         fresh.putOffNanos = 0L;
                         fresh.signed = summed;
                         fresh.readingsAtBuild = summed ? readings : -1;
+                        fresh.waitForNothing();
                         fresh.signature = read;
                         fresh.landSum = readLand;
                         fresh.summedFrom = summedFrom;
@@ -5627,7 +5686,8 @@ final class WorldScene {
         private final byte[] auditLayers = new byte[CHUNK_TILES * CHUNK_TILES];
 
         private void auditStale(IsoChunk chunk, int chunkX, int chunkY, int lowest, int slot, ChunkMeshes standing, float distance, long now, int toldNow, int landNow) {
-            boolean signed = standing.signed, plain = standing.plain, grows = standing.grows;
+            boolean signed = standing.signed, plain = standing.plain, grows = standing.grows, waitedOnAnything = standing.waitsOnAnything;
+            int waitsBefore = standing.waitCount;
             int seen = squaresSeen, loaded = squaresLoaded, counted = sprites;
             System.arraycopy(standing.groundLayers, 0, auditLayers, 0, auditLayers.length);
             long sum = signature(chunk, chunkX, chunkY, lowest, null);
@@ -5675,6 +5735,9 @@ final class WorldScene {
             }
             System.arraycopy(auditLayers, 0, standing.groundLayers, 0, auditLayers.length);
             standing.signed = signed;
+            Arrays.fill(standing.waits, waitsBefore, standing.waitCount, null);
+            standing.waitCount = waitsBefore;
+            standing.waitsOnAnything = waitedOnAnything;
             standing.plain = plain;
             standing.grows = grows;
             squaresSeen = seen;
@@ -7849,7 +7912,7 @@ final class WorldScene {
             boolean north = corner || flags.has(IsoFlagType.attachedN), west = corner || flags.has(IsoFlagType.attachedW);
             Trims.Band[] onNorth = north ? Trims.of(texture, frame, true) : null, onWest = west ? Trims.of(texture, frame, false) : null;
             if (north && onNorth == null || west && onWest == null) {
-                building.signed = false;
+                building.waitFor(texture);
                 return false;
             }
             if (north && onNorth.length == 0 || west && onWest.length == 0 || !north && !west) {
@@ -8648,7 +8711,7 @@ final class WorldScene {
                     if (usable(lit)) {
                         texture = lit;
                     } else if (twin != null) {
-                        building.signed = false;
+                        building.waitForAnything();
                     }
                 }
                 if (SightTrace.ON && building.traced != null) {
@@ -10054,7 +10117,7 @@ final class WorldScene {
         int rugOf(Texture texture, int kind, float lifted, int x, int y, int z) {
             int rug = Rugs.of(texture, frame, kind, lifted, x, y, z);
             if (rug == Rugs.PENDING) {
-                building.signed = false;
+                building.waitForAnything();
                 return 0;
             }
             return rug;
@@ -10068,7 +10131,7 @@ final class WorldScene {
         int flatOf(Texture texture, int as, float high, float climbA, float climbB) {
             int flat = Flats.of(texture, frame, as, high, climbA, climbB);
             if (flat == Flats.PENDING) {
-                building.signed = false;
+                building.waitFor(texture);
                 return 0;
             }
             return flat;
@@ -10457,7 +10520,9 @@ final class WorldScene {
                         if (usable(stair) && SpriteColours.of(stair) != null) {
                             return true;
                         }
-                        building.signed &= !usable(stair) || !SpriteColours.unread(stair);
+                        if (usable(stair) && SpriteColours.unread(stair)) {
+                            building.waitFor(stair);
+                        }
                     }
                 }
             }
