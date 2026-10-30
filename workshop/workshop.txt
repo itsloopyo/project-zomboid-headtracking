@@ -1,13 +1,13 @@
 version=1
 id=3823224669
 title=PZHT - First Person + Graphics & Gameplay Overhaul + Head Tracking
-description=[b]I'm working hard on this mod, but haven't been able to test everything yet. If anything doesn't work right, let me know in a comment or on [url=https://discord.com/invite/dxyZdyFNT9]Discord[/url].[/b]
-description=
-description=A graphics and gameplay overhaul for Project Zomboid that adds a first person mode and OpenTrack compatible head tracking with microphone lip syncing. All components are optional.
+description=A graphics and gameplay overhaul for Project Zomboid that adds a first person mode with extensive retexturing and prop modelling, a bunch of gameplay tweaks, and OpenTrack compatible head tracking with microphone lip syncing. All features are optional. Anything that doesn't give an unfair advantage in PVP works online on unmodded servers.
 description=
 description=[b]This Workshop copy needs ZombieBuddy[/b], a separate mod by zed-0xff that loads Java mods into the game. It is not mine and I can't take responsibility for it: read its Workshop page before you install it. To play PZHT without ZombieBuddy, follow the installation instructions in the [url=https://github.com/itsloopyo/project-zomboid-headtracking]source repository[/url].
 description=
-description=Free and open source (MIT) on [url=https://github.com/itsloopyo/project-zomboid-headtracking]GitHub[/url].
+description=It's free and open source (MIT) on [url=https://github.com/itsloopyo/project-zomboid-headtracking]GitHub[/url].
+description=
+description=[b]If you find bugs, things that aren't working quite right, or which you think could be improved, let me know in a comment here or on [url=https://discord.com/invite/dxyZdyFNT9]Discord[/url].[/b]
 description=
 description=[img]https://raw.githubusercontent.com/itsloopyo/project-zomboid-headtracking/main/workshop/gallery/snow-sunset.jpg[/img]
 description=
@@ -18,7 +18,7 @@ description=[*] 3D buildings, furniture, trees, hills and distant scenery, with 
 description=[*] Enhanced rain and snow, with footprints and tyre tracks in the snow, lightning in storms, and trees that turn and drop their leaves in autumn (Medium and High).
 description=[*] Modelled guns that kick and reload (Medium and High).
 description=[*] Shots hit the body part you aim at. In single player, limbs can be shot off and close shotgun blasts can burst a head.
-description=[*] In single player, rounds go through plasterboard, wood, doors and glass, and break lamps, headlights and window glass.
+description=[*] Offline and on servers without PvP, rounds go through plasterboard, wood, doors and glass. In single player they also break lamps, headlights and window glass.
 description=[*] Pools of lamp light, and mirrors and window glass that reflect you (Medium and High).
 description=[*] Bullet holes and impacts that throw dust, splinters, sparks or blood (Medium and High).
 description=[*] The game's original flames, with smoke, embers and firelight (Medium and High).
@@ -57,7 +57,7 @@ description=[*] Talking mouths is off until you tick it, and no microphone is op
 description=[/list]
 description=
 description=[h1]Gameplay overhaul, offline[/h1]
-description=Offline, shots go through thin walls, break lamps and windows, and cripple and take off limbs, vehicles smash through fences, lamp posts, barricades and bushes, and in the isometric view zombies show as soon as your character could see them. Each can be unticked in Options > Mods > Head Tracking. On a server they stay at the game defaults.
+description=Offline, shots go through thin walls, break lamps and windows, and cripple and take off limbs, vehicles smash through fences, lamp posts, barricades and bushes, and in the isometric view zombies show as soon as your character could see them. Each can be unticked in Options > Mods > Head Tracking. On a server they stay at the game defaults, except that on servers without PvP, shots still go through thin walls and doors and past tree trunks, and zombies still show up straight away.
 description=
 description=[h1]Requirements[/h1]
 description=[list]
@@ -84,4 +84,4 @@ description=[b]Credits:[/b] the MakeHuman mesh of MPFB (CC0), Z-Image Turbo, Sta
 description=
 description=The pictures on walls and televisions are screenshots taken inside Project Zomboid, and the stained glass windows are redrawn from the game's own. Thanks to The Indie Stone for creating Project Zomboid (https://projectzomboid.com/), which made this possible. This is an unofficial fan production for non-commercial purposes made under the [url=https://projectzomboid.com/blog/support/terms-conditions/]Indie Stone Terms[/url], not affiliated with or endorsed by The Indie Stone.
 tags=Build 42
-visibility=private
+visibility=public
