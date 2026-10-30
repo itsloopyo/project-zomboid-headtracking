@@ -6298,10 +6298,11 @@ final class WorldScene {
                 if (!growing) {
                     bloodBuilder.read(chunkX, chunkY, z);
                 }
+                long shown = z > topLevel ? cutawaysShow(chunk, z) : -1L;
                 for (int localX = 0; localX < CHUNK_TILES; localX++) {
                     for (int localY = 0; localY < CHUNK_TILES; localY++) {
                         IsoGridSquare square = chunk.getGridSquare(localX, localY, z);
-                        if (square == null || z > topLevel && !BuildThreads.onLogicThread(() -> FBORenderCutaways.getInstance().shouldRenderBuildingSquare(playerIndex, square))) {
+                        if (square == null || (shown >>> localX * CHUNK_TILES + localY & 1L) == 0L) {
                             continue;
                         }
                         if (!growing) {
@@ -8374,6 +8375,27 @@ final class WorldScene {
                 land = land * 31 + groundRead.version;
             }
             return wantsMap ? land * 31 + loadedNow : land;
+        }
+
+        /**
+         * Which squares of a chunk's level above the viewer's the game's cutaways draw, a bit each at localX * CHUNK_TILES
+         * + localY: asked of the logic thread once for the level, as a build thread asking once a square waited on the
+         * logic thread hundreds of times a frame.
+         */
+        private long cutawaysShow(IsoChunk chunk, int z) {
+            return BuildThreads.onLogicThread(() -> {
+                FBORenderCutaways cutaways = FBORenderCutaways.getInstance();
+                long shown = 0L;
+                for (int localX = 0; localX < CHUNK_TILES; localX++) {
+                    for (int localY = 0; localY < CHUNK_TILES; localY++) {
+                        IsoGridSquare square = chunk.getGridSquare(localX, localY, z);
+                        if (square != null && cutaways.shouldRenderBuildingSquare(playerIndex, square)) {
+                            shown |= 1L << localX * CHUNK_TILES + localY;
+                        }
+                    }
+                }
+                return shown;
+            });
         }
 
         /** What Terrain.ground last gave this frame. */
