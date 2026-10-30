@@ -6683,7 +6683,8 @@ final class Pipeline {
         for (int target : new int[] {nearTarget, farTarget, roofTarget}) {
             GL30.glDeleteFramebuffers(target);
         }
-        nearMap = 0;
+        nearMap = farMap = roofMap = 0;
+        nearTarget = farTarget = roofTarget = 0;
         GL11.glDeleteTextures(shelterTexture);
         shelterTexture = 0;
         GL11.glDeleteTextures(sightTexture);
@@ -6874,18 +6875,24 @@ final class Pipeline {
             view.characters.setDown();
             view.worldScene.letGoOfViewers();
             SpriteColours.giveBackIdle();
-            if (width == 0) {
+            // Each on its own: the shadow maps are made before the targets, and a frame refused between them leaves only the maps.
+            boolean sized = width != 0, shadows = nearMap != 0 || farMap != 0 || roofMap != 0;
+            if (!sized && !shadows) {
                 return;
             }
-            giveBackSized();
-            width = 0;
-            height = 0;
-            giveBack(mirrored);
-            giveBack(fired);
-            giveBackShadowMaps();
-            view.scope.giveBackPicture();
+            if (sized) {
+                giveBackSized();
+                width = 0;
+                height = 0;
+                giveBack(mirrored);
+                giveBack(fired);
+                view.scope.giveBackPicture();
+            }
+            if (shadows) {
+                giveBackShadowMaps();
+            }
             heldBytes = 0;
-            Log.info("first person picture set down: its targets and shadow maps are given back to the graphics card");
+            Log.info("first person picture set down: " + (sized ? "its targets" + (shadows ? " and shadow maps" : "") : "its shadow maps") + " given back to the graphics card");
         }
     };
 
