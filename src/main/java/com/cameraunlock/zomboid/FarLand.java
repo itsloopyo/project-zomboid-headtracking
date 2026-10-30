@@ -386,13 +386,17 @@ final class FarLand {
             int treeCount = treesMade.remaining() / FarTrees.TREE_BYTES;
             bytes.put(treesMade);
             made.add(new Made(asked, key(cellX, cellY), block, vertices, treeCount));
-        } catch (IOException | RuntimeException | LinkageError thrown) {
+        } catch (IOException | RuntimeException | Error thrown) {
             if (block != null) {
                 block.free();
             }
             asked.waiting.decrementAndGet();
             asked.failure = "the cell " + cellX + ", " + cellY + " could not be made: " + thrown;
             Log.error("far land: " + asked.failure + ". No more of the land beyond the loaded map is made until the view has next let go of what it holds", thrown);
+            // Counted and said above, an Error still goes on: the loading screen waiting on this cell is not left waiting for it.
+            if (thrown instanceof Error error && !(thrown instanceof LinkageError)) {
+                throw error;
+            }
         }
     }
 
