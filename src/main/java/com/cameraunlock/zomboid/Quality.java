@@ -466,7 +466,7 @@ final class Quality {
         undrawable = true;
     }
 
-    /** What a view's screen says of its mode in effect: "First Person (High)", "First Person (Automatic, Medium)" or "Isometric (Low)". */
+    /** What a view's screen says of its mode in effect: "First person (High)", "First person (Automatic, Medium)" or "Isometric (Low)". */
     static synchronized String said(int view) {
         if (undrawable) {
             return "Isometric (the game's own picture)";
@@ -475,7 +475,7 @@ final class Quality {
             return "Isometric (" + NAMES[overheadRows[view]] + ")";
         }
         int row = rows[view];
-        return "First Person (" + (row == AUTOMATIC && anyIn(AUTOMATIC) ? NAMES[AUTOMATIC] + ", " + LEVELS[level] : NAMES[row]) + ")";
+        return "First person (" + (row == AUTOMATIC && anyIn(AUTOMATIC) ? NAMES[AUTOMATIC] + ", " + LEVELS[level] : NAMES[row]) + ")";
     }
 
     /** A player's first person mode, and in Automatic the level it is at: "Automatic (Medium)". */

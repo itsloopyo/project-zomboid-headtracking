@@ -608,10 +608,10 @@ public final class CoreTests {
         check(Quality.overheadRow(0) == Quality.LOW && saved("IsometricQuality=Low") && holds("Quality=Automatic"),
                 "on through High and Custom, with no Automatic, round to Low");
         Quality.inFirstPerson(0, true);
-        check(Quality.said(0).equals("First Person (Automatic, High)"), "first person names its mode, and in Automatic the level it is at: " + Quality.said(0));
+        check(Quality.said(0).equals("First person (Automatic, High)"), "first person names its mode, and in Automatic the level it is at: " + Quality.said(0));
         Tracking.cycleGraphicsMode(0);
         check(Quality.name(0).equals("Low") && Quality.overheadRow(0) == Quality.LOW && saved("Quality=Low") && holds("IsometricQuality=Low")
-                        && Quality.said(0).equals("First Person (Low)"),
+                        && Quality.said(0).equals("First person (Low)"),
                 "in first person it goes from Automatic to Low, saves it, and leaves the isometric view's: " + Quality.said(0));
         Tracking.cycleGraphicsMode(0);
         check(Quality.name(0).equals("Medium") && Quality.overheadRow(0) == Quality.LOW && saved("Quality=Medium") && holds("IsometricQuality=Low"),

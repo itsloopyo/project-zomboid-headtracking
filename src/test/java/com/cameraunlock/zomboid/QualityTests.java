@@ -551,7 +551,7 @@ final class QualityTests {
             Quality.setOverhead(1, Quality.MEDIUM);
             Quality.inFirstPerson(1, true);
             check(Quality.drawn(0).equals(Quality.HIGH_PICTURE) && Quality.drawn(1).equals(Quality.LOW_PICTURE) && Quality.scale(1) < Quality.scale(0)
-                            && Quality.said(1).equals("First Person (Low)"),
+                            && Quality.said(1).equals("First person (Low)"),
                     "the first player in High and the second in Low each draw their own: " + Quality.said(1));
             check(Quality.plain(1) && !Quality.plain(0) && !Quality.plainEverywhere() && !Quality.gamesPlantsEverywhere(),
                     "the second player's Low is the game's look for them alone, and what the mod made is still shown to the first");
@@ -617,7 +617,7 @@ final class QualityTests {
         check(!Quality.overheadPlain(0) && Quality.drawn(0).equals(Quality.MEDIUM_PICTURE) && Quality.name(0).equals("High"),
                 "in its Medium the isometric view is drawn as Medium, and first person's mode stays High");
         Quality.inFirstPerson(0, true);
-        check(Quality.firstPersonInEffect(0) && Quality.drawn(0).equals(Quality.HIGH_PICTURE) && Quality.said(0).equals("First Person (High)"),
+        check(Quality.firstPersonInEffect(0) && Quality.drawn(0).equals(Quality.HIGH_PICTURE) && Quality.said(0).equals("First person (High)"),
                 "the view going to first person puts first person's mode in effect: " + Quality.said(0));
         Quality.set(0, Quality.LOW);
         check(Quality.plain(0) && Quality.overheadRow(0) == Quality.MEDIUM, "first person's mode set there leaves the isometric view's");

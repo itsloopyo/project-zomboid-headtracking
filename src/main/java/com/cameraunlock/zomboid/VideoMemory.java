@@ -195,7 +195,7 @@ final class VideoMemory {
 
     /** What the screen says once a step is taken: the log has what was given up. */
     static String shown(int at) {
-        return "Graphics drawn with less: the graphics card is short of memory (step " + at + " of " + LAST_STEP + ")";
+        return "Lowering detail: the graphics card's memory is full (step " + at + " of " + LAST_STEP + ")";
     }
 
     /** Render thread, once, before the mod makes anything on the card. First person never asks a card below GlFloor, so nor does this. */

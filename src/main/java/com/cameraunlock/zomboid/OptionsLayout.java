@@ -64,7 +64,7 @@ final class OptionsLayout {
 
     /** What each setting is called on the page, by the key of player 1's: core's words for the key are the file's, not a player's. */
     private static final Map<String, String> LABELS = Map.ofEntries(
-            Map.entry(Tracking.ENABLED_OPTION, "Head tracking"),
+            Map.entry(Tracking.ENABLED_OPTION, "Head tracking on"),
             Map.entry(Tracking.TRACKING_MODE_OPTION, "Tracking mode"),
             Map.entry(Tracking.AIM_MODE_OPTION, "Aim mode"),
             Map.entry(Tracking.YAW_MODE_OPTION, "Horizon-relative head turns"),
@@ -177,11 +177,11 @@ final class OptionsLayout {
                     + "shows where the shot will land. Stock sights: your head's turning and leaning ease out while you aim, so the sight "
                     + "picture is the game's own. Tilting still works.",
             "SplitScreen",
-            "How two players share one screen: side by side, as in the game, or one above the other. Takes effect at once. With side "
-                    + "by side, the mod leaves the game's split screen code unpatched from the next start.");
+            "How two players share one screen: side by side, as in the game, or above and below. Takes effect at once. With side "
+                    + "by side, the game's own split screen is used from the next start.");
 
     /** The lines of a list where core's words for the row's choices are the file's. */
-    private static final Map<String, String[]> LINES = Map.of("SplitScreen", new String[] {"Side by side", "One above the other"});
+    private static final Map<String, String[]> LINES = Map.of("SplitScreen", SplitScreen.LABELS);
 
     /** The rows of [Content], which say whether the game's own is drawn: the page ticks each for the mod's own, so it is ticked for 0. */
     static final Set<String> INVERTED = Set.of(Config.VANILLA_KEYS);
@@ -397,7 +397,7 @@ final class OptionsLayout {
         return List.of(
                 new QuickList("Everything", "Everything",
                         "On: everything the mod does, head tracking included. Off: everything but head tracking and talking mouths, so you can "
-                                + "switch back on only what you want. Talking mouths, which uses your microphone, is left as it is. Some settings "
+                                + "switch back on only what you want. Talking mouths, which uses your microphone, is left as it is, and split screen goes back to side by side. Some settings "
                                 + "take effect only when the game next starts.",
                         new String[] {"On", "Off"},
                         List.of(now -> {
