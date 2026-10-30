@@ -47,6 +47,13 @@ final class Ride {
     private static final long SPRINGS_LOST_NANOS = 500_000_000L;
     private BaseVehicle carried;
     private long followedAt;
+
+    /** Once the view lets go of the map: no vehicle of the save left is held on to. */
+    void letGo() {
+        sat = null;
+        carried = null;
+        followedAt = 0L;
+    }
     /** Whether the viewer is in the driver's seat of it, and how dark the viewer's skin is, as the game numbers its skins. */
     volatile boolean driving;
     volatile int skin;

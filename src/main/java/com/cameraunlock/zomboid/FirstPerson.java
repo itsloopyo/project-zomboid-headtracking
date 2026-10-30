@@ -476,7 +476,7 @@ public final class FirstPerson {
     private void letGo() {
         held = false;
         rehearsed = false;
-        view.ride.sat = null;
+        view.ride.letGo();
         world.look(null, 0);
         view.worldScene.letGo();
     }
