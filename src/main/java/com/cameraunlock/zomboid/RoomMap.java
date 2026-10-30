@@ -243,7 +243,7 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
                 readMarkedWhole++;
                 why = 2;
             }
-            if (why == 1 || why == 3) {
+            if (DevBuild.ON && (why == 1 || why == 3)) {
                 wasOpenings.clear();
                 wasOpenings.addAll(openings);
                 wasBlocks.clear();
@@ -274,9 +274,10 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
                 keptByLevel[slot] = new RoomSight.Openings[count];
                 keptLevelMarks[slot] = new int[count];
             }
+            int loose = ChunkMarks.structuresLoose(chunk.wx - 1, chunk.wy - 1, chunk.wx + 1, chunk.wy + 1);
             for (int z = chunk.getMinLevel(); z <= chunk.getMaxLevel(); z++) {
                 int at = z - chunk.getMinLevel();
-                keptLevelMarks[slot][at] = levelMarks(chunk, z);
+                keptLevelMarks[slot][at] = levelMarks(chunk, z, loose);
                 scanLevel(reading, chunk, z, keptLevel(slot, at), rooms);
                 openings.addAll(keptByLevel[slot][at]);
             }
@@ -284,7 +285,7 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
                 check(chunk, slot, -1L >>> 64 - count, true);
             }
             reading.end();
-            keptLoose[slot] = ChunkMarks.structuresLoose(chunk.wx - 1, chunk.wy - 1, chunk.wx + 1, chunk.wy + 1);
+            keptLoose[slot] = loose;
             keptChunk[slot] = chunk;
             keptNorth[slot] = north;
             keptWest[slot] = west;
@@ -294,9 +295,9 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
             keptNanos[slot] = now;
             keptReadings[slot]++;
             chunksRead++;
-            if (why == 3 && sameAsWas(slot, false)) {
+            if (DevBuild.ON && why == 3 && sameAsWas(slot, false)) {
                 readLandSame++;
-            } else if (why == 1 && sameAsWas(slot, true)) {
+            } else if (DevBuild.ON && why == 1 && sameAsWas(slot, true)) {
                 readNeighboursSame++;
             }
         }
@@ -327,13 +328,13 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
     private boolean readLevels(IsoChunk chunk, int slot) {
         int count = chunk.getMaxLevel() - chunk.getMinLevel() + 1;
         int[] marked = keptLevelMarks[slot];
-        if (marked == null || keptByLevel[slot].length < count
-                || ChunkMarks.structuresLoose(chunk.wx - 1, chunk.wy - 1, chunk.wx + 1, chunk.wy + 1) != keptLoose[slot]) {
+        int loose = ChunkMarks.structuresLoose(chunk.wx - 1, chunk.wy - 1, chunk.wx + 1, chunk.wy + 1);
+        if (marked == null || keptByLevel[slot].length < count || loose != keptLoose[slot]) {
             return false;
         }
         long changed = 0L;
         for (int z = chunk.getMinLevel(); z <= chunk.getMaxLevel(); z++) {
-            int at = z - chunk.getMinLevel(), now = levelMarks(chunk, z);
+            int at = z - chunk.getMinLevel(), now = levelMarks(chunk, z, loose);
             if (now != marked[at]) {
                 marked[at] = now;
                 changed |= 7L << at >> 1;
@@ -359,10 +360,9 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
         return true;
     }
 
-    /** The marks of a level of the chunk and the eight round it, without those marked with no level. */
-    private static int levelMarks(IsoChunk chunk, int z) {
-        return ChunkMarks.structuresIn(chunk.wx - 1, chunk.wy - 1, chunk.wx + 1, chunk.wy + 1, z, z)
-                - ChunkMarks.structuresLoose(chunk.wx - 1, chunk.wy - 1, chunk.wx + 1, chunk.wy + 1);
+    /** The marks of a level of the chunk and the eight round it, less loose, those of them marked with no level. */
+    private static int levelMarks(IsoChunk chunk, int z, int loose) {
+        return ChunkMarks.structuresIn(chunk.wx - 1, chunk.wy - 1, chunk.wx + 1, chunk.wy + 1, z, z) - loose;
     }
 
     /** What is kept of a level of a chunk, by its place from the chunk's lowest. */
