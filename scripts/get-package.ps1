@@ -59,7 +59,13 @@ try {
     # Expand-Archive unpacks into the Workshop folder itself, so the ZIP must hold the one item folder and nothing else.
     $archive = [System.IO.Compression.ZipFile]::OpenRead($zip)
     try {
-        $stray = @($archive.Entries | Where-Object { -not $_.FullName.StartsWith("$modName/") })
+        # The full path is what Expand-Archive writes to, so an entry climbing out with ../ is caught as well.
+        $base = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())
+        $inside = Join-Path $base "$modName\"
+        $stray = @($archive.Entries | Where-Object {
+            -not $_.FullName.StartsWith("$modName/") -or
+            -not [System.IO.Path]::GetFullPath((Join-Path $base $_.FullName)).StartsWith($inside, [System.StringComparison]::OrdinalIgnoreCase)
+        })
         if ($stray.Count -gt 0) { throw "$($pick.Name) holds entries outside $modName/, first $($stray[0].FullName)." }
     } finally {
         $archive.Dispose()
