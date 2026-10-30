@@ -6070,13 +6070,15 @@ final class WorldScene {
                     } else if (type == char.class) {
                         field.setChar(this, field.getChar(from));
                     } else if (type.isArray()) {
-                        // Into the frame's own array, never the walking frame's: a build writes into what it reads.
+                        // Into the frame's own array, never the walking frame's: a build writes into what it reads. Grown
+                        // only, as the four scenes' frames hand off from arrays grown to lengths of their own, and every
+                        // read of their lengths only checks there is room: made again to each length, arrays were made at every hand-off.
                         Object taken = field.get(from), own = field.get(this);
                         if (taken == null) {
                             field.set(this, null);
                         } else {
                             int length = Array.getLength(taken);
-                            if (own == null || Array.getLength(own) != length) {
+                            if (own == null || Array.getLength(own) < length) {
                                 own = Array.newInstance(type.getComponentType(), length);
                                 field.set(this, own);
                             }
