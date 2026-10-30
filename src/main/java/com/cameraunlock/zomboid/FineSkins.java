@@ -1578,7 +1578,8 @@ public final class FineSkins {
             } catch (IOException failure) {
                 into.unreadable = failure;
                 return;
-            } catch (RuntimeException failure) {
+            } catch (RuntimeException | OutOfMemoryError failure) {
+                // A picture whose size passed can still ask the decoder for more than the heap has, in a chunk past its pixels.
                 into.unreadable = new IOException(file + " could not be read as a picture", failure);
                 return;
             }
@@ -1712,8 +1713,9 @@ public final class FineSkins {
         // 256 dots by default. The flag that says so is left off, and the rest kept.
         Texture pack = Texture.getSharedTexture(file.toString(), ModelManager.instance.getTextureFlags() & ~SIZE_HELD);
         if (pack == null) {
-            // The game catches what went wrong and logs it only with its FileIO debug log on.
-            throw new IllegalStateException("the game would not load " + file + ": Texture.getSharedTexture gave none");
+            // The game catches what went wrong and logs it only with its FileIO debug log on. The file is the
+            // player's, so it costs that picture alone, as a file the game reads and fails on does (isFailure).
+            Log.info("the game would not load the fine skin " + file + " (Texture.getSharedTexture gave none): that picture stays the game's own");
         }
         return pack;
     }
