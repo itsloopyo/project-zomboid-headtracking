@@ -55,6 +55,8 @@ final class Tracking {
 
     private static volatile boolean enabled = true;
     private static volatile boolean worldYaw = true;
+    /** Whether the last press of the yaw mode key did nothing, every view being from a vehicle's seat. Logic thread. */
+    private static boolean yawKeyIdle;
     private static volatile int trackingMode = CameraUnlock.TRACKING_ROTATION_AND_POSITION;
     private static volatile int aimMode = CameraUnlock.AIM_SIGHTS_LOCKED;
 
@@ -113,6 +115,12 @@ final class Tracking {
 
     static String trackingModeLabel() {
         return TRACKING_MODE_LABEL[trackingMode];
+    }
+
+    /** What the screen says after the yaw mode key. Logic thread. */
+    static String yawModeSaid() {
+        return yawKeyIdle ? "Horizon-relative head turns are always off in a vehicle seat"
+                : "Horizon-relative head turns: " + (worldYaw ? "on" : "off");
     }
 
     static float lightMultiplier() {
@@ -648,7 +656,6 @@ final class Tracking {
                     if (IsoPlayer.numPlayers == 2) {
                         turnSplitScreen();
                     } else {
-                        pressed &= ~Config.SPLIT_SCREEN;
                         Log.info("the split screen key turns the split of two players and does nothing with " + IsoPlayer.numPlayers + " at the screen");
                     }
                 }
@@ -671,7 +678,7 @@ final class Tracking {
                 told |= graphicsToTell(OptionsPage.menuShown());
             }
             SplitScreen.frame();
-            int said = pressed & (Config.AIM_MODE | Config.SPLIT_SCREEN);
+            int said = pressed & (Config.AIM_MODE | Config.SPLIT_SCREEN | Config.CYCLE_TRACKING_MODE | Config.YAW_MODE);
             // Held, the key puts every player at the screen into one view: first person if any of them is out of it, else the game's own.
             boolean allFirst = false;
             if ((pressed & Config.FIRST_PERSON_ALL) != 0) {
@@ -838,7 +845,8 @@ final class Tracking {
             any |= viewed[i];
             onFoot |= viewed[i] && !seated[i];
         }
-        if (any && !onFoot) {
+        yawKeyIdle = any && !onFoot;
+        if (yawKeyIdle) {
             Log.info("the yaw mode key does nothing from a vehicle's seat, where head yaw turns about the view's own up");
             return;
         }

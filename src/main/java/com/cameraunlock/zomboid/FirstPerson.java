@@ -829,7 +829,15 @@ public final class FirstPerson {
             saidAt = System.nanoTime();
         }
         if ((pressed & Config.SPLIT_SCREEN) != 0) {
-            said = "Split screen: " + SplitScreen.described();
+            said = IsoPlayer.numPlayers == 2 ? "Split screen: " + SplitScreen.described() : "Split screen changes only with two players at the screen";
+            saidAt = System.nanoTime();
+        }
+        if ((pressed & Config.CYCLE_TRACKING_MODE) != 0) {
+            said = "Head tracking: " + Tracking.trackingModeLabel();
+            saidAt = System.nanoTime();
+        }
+        if ((pressed & Config.YAW_MODE) != 0) {
+            said = Tracking.yawModeSaid();
             saidAt = System.nanoTime();
         }
         // The picture draws the game's own view once what it is drawn with is made: until then that view is the game's.
