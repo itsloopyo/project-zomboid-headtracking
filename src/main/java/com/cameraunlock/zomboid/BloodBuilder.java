@@ -75,6 +75,11 @@ final class BloodBuilder {
         // once for each of the nine chunks whose splats reach it.
         double phase = Blood.phase(Math.floorDiv(chunkX, WorldScene.CHUNK_TILES), Math.floorDiv(chunkY, WorldScene.CHUNK_TILES));
         String[] kinds = IsoFloorBloodSplat.FLOOR_BLOOD_TYPES;
+        if (picturesOfKinds.length != kinds.length) {
+            picturesOfKinds = new Texture[kinds.length];
+        } else {
+            Arrays.fill(picturesOfKinds, null);
+        }
         byte[] kept = IsoChunk.renderByIndex[setting - 1];
         for (int c = 0; c < build.around.length; c++) {
             IsoChunk chunk = build.around[c];
@@ -89,7 +94,11 @@ final class BloodBuilder {
                         || (int) Math.floor(splat.z) != z || splat.type < 0 || splat.type >= kinds.length) {
                     continue;
                 }
-                Texture picture = picture(kinds[splat.type]);
+                Texture picture = picturesOfKinds[splat.type];
+                if (picture == null) {
+                    picture = picture(kinds[splat.type]);
+                    picturesOfKinds[splat.type] = picture;
+                }
                 if (!WorldScene.usable(picture)) {
                     continue;
                 }
@@ -167,6 +176,13 @@ final class BloodBuilder {
             }
         }
     }
+
+    /**
+     * The picture of each kind of splat, by its place in IsoFloorBloodSplat.FLOOR_BLOOD_TYPES, as found once in a read:
+     * from a build thread each is asked of the logic thread, and asked once a splat they were asked about
+     * twenty thousand times a second where the streets are bloody.
+     */
+    private Texture[] picturesOfKinds = new Texture[0];
 
     /** The picture of a kind of splat, as the game's view takes it: from the sprites it keeps for them, made as it makes them the first time one is asked for. */
     private static Texture picture(String kind) {
