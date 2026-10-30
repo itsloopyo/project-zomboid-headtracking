@@ -1156,6 +1156,11 @@ public final class Hooks {
         Lightning.leaveTheGamesFlash(storm);
     }
 
+    /** Before Project Viewpoint's ThirdPerson.capture returns, once it has filled the frame's camera shot: see ViewpointCamera. */
+    public static void viewpointShot(Object frame, IsoGameCharacter character) {
+        ViewpointCamera.addHead(frame, character);
+    }
+
     /** Before ShaderUnit.loadShaderFile returns: the source of one of the game's shaders as it was read from fileName. See VehicleLamps and GameMouths. */
     public static String shaderSource(String code, String fileName) {
         String lamps = Part.FIRST_PERSON.atStart() ? VehicleLamps.source(code, fileName) : code;

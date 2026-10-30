@@ -816,6 +816,10 @@ Six lists head the mod's page, each setting one class of the settings below it a
 
 Each list shows the line your settings match, or `As set below` when they match none. Choosing a line saves at once. A row read only as the game starts follows from the next start.
 
+### Project Viewpoint
+
+With [Project Viewpoint](https://steamcommunity.com/sharedfiles/filedetails/?id=3809306528) running alongside this mod, head tracking turns Viewpoint's camera too: yaw, pitch and roll. Your lean is not carried into Viewpoint's camera. Head tracking has to be on, in the Head tracking list or as `EnableOnStartup`.
+
 ## Troubleshooting
 
 - **No tracking** - start the tracker, check its address and port, then press `Delete` in a loaded game.

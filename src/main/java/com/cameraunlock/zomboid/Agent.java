@@ -573,7 +573,8 @@ public final class Agent {
                 new PatchSet("chunk centre", new PatchTransformer(chunkCentrePatches()), offNow(Part.HOLD_CHUNK_MAP_CENTRE)),
                 new PatchSet("split screen", splitScreen, splitScreenOff),
                 new PatchSet("waiting composites", waitingComposites, offNow(Part.FIRST_PERSON, Part.SKINS_COMPOSED_WHILE_WAITING)),
-                new PatchSet("spotting", spotting, offNow(Part.FIRST_PERSON, Part.SKIP_COVERED_GAME_DRAWING, Part.SPOT_BY_SIGHT)));
+                new PatchSet("spotting", spotting, offNow(Part.FIRST_PERSON, Part.SKIP_COVERED_GAME_DRAWING, Part.SPOT_BY_SIGHT)),
+                new PatchSet("viewpoint", new PatchTransformer(viewpointPatches()), () -> Tracking.enabled() ? null : "head tracking is off"));
     }
 
     /** Why a set that serves one row of [Rules] alone is out of the game's code: that row off, or null. */
@@ -602,6 +603,19 @@ public final class Agent {
     /** Why a set is out that also serves a row that is off: the reason, and the row, or null. */
     private static String also(String off, String row) {
         return off == null ? null : off + ", and so " + row;
+    }
+
+    /**
+     * The patch that puts the head's turn into the camera of Project Viewpoint, another mod, as
+     * its ThirdPerson.capture returns: see ViewpointCamera. Its class loads only with that mod in use.
+     */
+    private static List<Patch> viewpointPatches() {
+        return List.of(new Patch("viewpoint/camera/ThirdPerson", "capture with the head's turn added to its camera shot",
+                classBytes -> CallSite.insertBeforeReturns(classBytes,
+                        new CallSite.Method("viewpoint/camera/ThirdPerson", "capture",
+                                "(Lviewpoint/core/Frame;Lzombie/iso/IsoCell;Lzombie/characters/IsoGameCharacter;F)V"),
+                        code -> code.aload(0).aload(2).invokestatic(ClassDesc.ofInternalName(HOOKS), "viewpointShot",
+                                MethodTypeDesc.ofDescriptor("(Ljava/lang/Object;Lzombie/characters/IsoGameCharacter;)V")))));
     }
 
     /** The patches for the window's place: see WindowPlacement. */

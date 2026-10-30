@@ -451,6 +451,7 @@ final class Tracking {
                 Log.info("head yaw turns about " + (worldYaw ? "straight up" : "the view's own up"));
             } else if (described.id.equals(ENABLED_OPTION)) {
                 enabled = value != 0;
+                Agent.takeIn();
                 Log.info("head tracking " + (enabled ? "on" : "off"));
             } else {
                 config.put(described.id, value);
