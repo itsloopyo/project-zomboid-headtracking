@@ -463,6 +463,11 @@ public final class ChunkMarks {
         return sum;
     }
 
+    /** The marks on a chunk for anything but light, as one number that is another once it is marked so again. */
+    static int things(int wx, int wy) {
+        return things.get(slot(wx, wy));
+    }
+
     /** The marks on a chunk and the eight round it for anything but light, as one number that is another once any is marked so again. */
     static int thingsAround(int wx, int wy) {
         return sumAround(things, wx, wy);

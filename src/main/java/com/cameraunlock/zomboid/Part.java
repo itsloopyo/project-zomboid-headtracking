@@ -119,7 +119,11 @@ enum Part {
     REBUILD_FOR_OWN_SPRITES("Optimizations", "RebuildForOwnSprites", true, false,
             "true: a chunk the first person view built before some of its sprites or pictures had been read is built again\n"
                     + "once those have been. false: it is built again whenever any sprite or picture has been read, which on arriving\n"
-                    + "somewhere is most frames for the first seconds.");
+                    + "somewhere is most frames for the first seconds."),
+    HIDDEN_WALL_READS_KEPT("Optimizations", "HiddenWallReadsKept", true, false,
+            "true: as chunks load, what HiddenWallDecor reads off a building for each room it dresses is kept, and only the\n"
+                    + "chunks the game has changed since are read again. The rooms come out the same. Needs ChunkChangeCounts.\n"
+                    + "false: the whole building is read again for each chunk that loads, which in a tall building can hitch.");
 
     final String section, key, comment;
     /** Whether the row is taken while the game runs, and whether it is read at the start to leave patches out. */

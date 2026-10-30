@@ -1,10 +1,12 @@
 package com.cameraunlock.zomboid;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -112,9 +114,11 @@ final class HiddenWalls {
     static void loaded(IsoChunk chunk) {
         boolean dresses = Rules.dressesHiddenWalls(), draws = Rules.drawsHiddenWallPictures();
         if (!dresses && !draws) {
+            PIECES.clear();
             return;
         }
         IsoWorld.instance.getMetaGrid().getRoomsIntersecting(chunk.wx * CHUNK - 1, chunk.wy * CHUNK - 1, CHUNK + 2, CHUNK + 2, ROOMS);
+        letGo(chunk);
         if (allDriving()) {
             WAITING.addAll(ROOMS);
         } else {
@@ -142,6 +146,7 @@ final class HiddenWalls {
         boolean dresses = Rules.dressesHiddenWalls(), draws = Rules.drawsHiddenWallPictures();
         if (!dresses && !draws) {
             WAITING.clear();
+            PIECES.clear();
             return;
         }
         IsoCell cell = IsoWorld.instance.currentCell;
@@ -214,6 +219,273 @@ final class HiddenWalls {
     private static final HashMap<BuildingDef, int[][]> SHOWN = new HashMap<>();
 
     /**
+     * What kindsInBuilding and shownIn read off one level of one chunk of a building: the kinds,
+     * and the pictures of each of the building's rooms that show any there, by the room's place in
+     * its building. Kept while the chunk stays loaded and the game marks nothing on it (keeps): a
+     * tall building's rooms come whole a chunk at a time, and each read the whole building again.
+     * The chunk is the one loaded there when it was read, and marks what ChunkMarks counted on it
+     * then (marksOn).
+     */
+    private record Piece(IsoChunk chunk, long marks, Map<String, Integer> kinds, int[] rooms, int[][] shown) {}
+
+    /** A building's pieces as one read: the kinds summed, each room's pictures one after another. */
+    private record Pieced(Map<String, Integer> kinds, int[][] shown) {}
+
+    /** The chunks and levels a building's rooms stand on, each once, and the piece kept of each, or null. */
+    private static final class Kept {
+        final int[] wx, wy, z;
+        final Piece[] pieces;
+
+        Kept(int[] wx, int[] wy, int[] z) {
+            this.wx = wx;
+            this.wy = wy;
+            this.z = z;
+            pieces = new Piece[wx.length];
+        }
+
+        /** Lets go of the pieces of a chunk on every level. */
+        void letGo(int chunkX, int chunkY) {
+            for (int i = 0; i < pieces.length; i++) {
+                if (wx[i] == chunkX && wy[i] == chunkY) {
+                    pieces[i] = null;
+                }
+            }
+        }
+    }
+
+    private static final int KEPT_BUILDINGS = 256;
+    /** What is kept of the buildings read last, past KEPT_BUILDINGS the one read longest ago let go first. Logic thread. */
+    private static final KeptBuildings PIECES = new KeptBuildings();
+
+    private static final class KeptBuildings extends LinkedHashMap<BuildingDef, Kept> {
+        private static final long serialVersionUID = 1L;
+
+        KeptBuildings() {
+            super(64, 0.75f, true);
+        }
+
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<BuildingDef, Kept> eldest) {
+            return size() > KEPT_BUILDINGS;
+        }
+    }
+
+    private static final int[] NONE_SHOWN = new int[0];
+    private static final int[][] NO_ROOMS_SHOWN = new int[0][];
+
+    /** Where on a chunk's level a picture is drawn, and its key in DRAWN. */
+    private record DrawnOn(int x, int y, long key) {}
+
+    /** The pictures drawn on hidden walls by chunk and level (key with wall 0), for picturesInBuilding to read a building's alone. Logic thread. */
+    private static final HashMap<Long, ArrayList<DrawnOn>> DRAWN_BY_CHUNK = new HashMap<>();
+
+    /**
+     * Whether what is read off a building is kept between chunk loads: the part is on and the
+     * game marks what it changes on each chunk (ChunkMarks.live), which every way a thing on a
+     * square comes, goes or changes its sprite goes through. Else nothing is kept, and a building
+     * is read whole as before.
+     */
+    private static boolean keeps() {
+        if (Part.HIDDEN_WALL_READS_KEPT.running() && ChunkMarks.live) {
+            return true;
+        }
+        PIECES.clear();
+        return false;
+    }
+
+    /**
+     * Lets go of the pieces of a chunk that has just loaded, of every building with a room on it
+     * (ROOMS): the game reuses its chunks, and its marks of a load may come after this hook.
+     */
+    private static void letGo(IsoChunk chunk) {
+        for (int i = 0; i < ROOMS.size(); i++) {
+            Kept kept = PIECES.get(ROOMS.get(i).getBuilding());
+            if (kept != null) {
+                kept.letGo(chunk.wx, chunk.wy);
+            }
+        }
+    }
+
+    /** The marks on a level of a chunk that may change what stands on it: those of a building's parts on the level, and those of anything else on the chunk. */
+    private static long marksOn(int wx, int wy, int z) {
+        return (long) ChunkMarks.structuresIn(wx, wy, wx, wy, z, z) << 32 | ChunkMarks.things(wx, wy) & 0xFFFFFFFFL;
+    }
+
+    /** The chunks and levels the building's rooms stand on, each once. */
+    private static Kept keptOf(BuildingDef building) {
+        ArrayList<int[]> at = new ArrayList<>();
+        HashSet<Long> seen = new HashSet<>();
+        for (RoomDef room : building.rooms) {
+            for (RoomDef.RoomRect rect : room.rects) {
+                for (int cy = Math.floorDiv(rect.y, CHUNK); cy <= Math.floorDiv(rect.y + rect.h - 1, CHUNK); cy++) {
+                    for (int cx = Math.floorDiv(rect.x, CHUNK); cx <= Math.floorDiv(rect.x + rect.w - 1, CHUNK); cx++) {
+                        if (seen.add(key(cx, cy, room.level, 0))) {
+                            at.add(new int[] {cx, cy, room.level});
+                        }
+                    }
+                }
+            }
+        }
+        int[] wx = new int[at.size()], wy = new int[at.size()], z = new int[at.size()];
+        for (int i = 0; i < at.size(); i++) {
+            wx[i] = at.get(i)[0];
+            wy[i] = at.get(i)[1];
+            z[i] = at.get(i)[2];
+        }
+        return new Kept(wx, wy, z);
+    }
+
+    /** What kindsInBuilding and shownIn read off the building, from its pieces, each read again where its chunk has changed. */
+    private static Pieced pieced(IsoCell cell, BuildingDef building) {
+        long began = CHECKED ? System.nanoTime() : 0L;
+        ArrayList<RoomDef> rooms = building.rooms;
+        Kept kept = PIECES.computeIfAbsent(building, HiddenWalls::keptOf);
+        Map<String, Integer> kinds = new HashMap<>();
+        int[] counts = new int[rooms.size()];
+        for (int i = 0; i < kept.pieces.length; i++) {
+            int wx = kept.wx[i], wy = kept.wy[i], z = kept.z[i];
+            // A square is found through its chunk on the map: where the map has none there is no square to read (IsoCell.getGridSquare).
+            IsoChunk chunk = cell.getChunkForGridSquare(wx * CHUNK, wy * CHUNK, z);
+            if (chunk == null) {
+                kept.pieces[i] = null;
+                if (CHECKED) {
+                    piecesNone++;
+                }
+                continue;
+            }
+            // A chunk still loading is marked for nothing that changes on it (ChunkMarks.marked): read it every time.
+            boolean keepable = chunk.loaded;
+            long marks = keepable ? marksOn(wx, wy, z) : 0L;
+            Piece piece = keepable ? kept.pieces[i] : null;
+            if (piece == null || piece.chunk() != chunk || piece.marks() != marks) {
+                if (CHECKED) {
+                    if (!keepable) {
+                        piecesLoading++;
+                    } else if (piece == null) {
+                        piecesNew++;
+                    } else {
+                        piecesChanged++;
+                    }
+                }
+                piece = piece(cell, rooms, wx, wy, z, chunk, marks);
+                kept.pieces[i] = keepable ? piece : null;
+            } else if (CHECKED) {
+                piecesKept++;
+            }
+            piece.kinds().forEach((kind, count) -> kinds.merge(kind, count, Integer::sum));
+            for (int j = 0; j < piece.rooms().length; j++) {
+                counts[piece.rooms()[j]] += piece.shown()[j].length;
+            }
+        }
+        int[][] pictures = new int[rooms.size()][];
+        for (int i = 0; i < rooms.size(); i++) {
+            pictures[i] = counts[i] == 0 ? NONE_SHOWN : new int[counts[i]];
+            counts[i] = 0;
+        }
+        for (int i = 0; i < kept.pieces.length; i++) {
+            Piece piece = kept.pieces[i];
+            for (int j = 0; piece != null && j < piece.rooms().length; j++) {
+                int room = piece.rooms()[j];
+                System.arraycopy(piece.shown()[j], 0, pictures[room], counts[room], piece.shown()[j].length);
+                counts[room] += piece.shown()[j].length;
+            }
+        }
+        if (CHECKED) {
+            long read = System.nanoTime();
+            keptNanos += read - began;
+            Map<String, Integer> readKinds = kindsInBuilding(cell, rooms.get(0));
+            int[][] readShown = shownIn(cell, rooms);
+            readNanos += System.nanoTime() - read;
+            boolean same = readKinds.equals(kinds);
+            for (int i = 0; i < rooms.size() && same; i++) {
+                same = Arrays.equals(sorted(readShown[i]), sorted(pictures[i]));
+            }
+            compared(same, rooms.get(0), "its building's kinds and pictures", () -> readKinds + " " + Arrays.deepToString(readShown) + " read, " + kinds + " "
+                    + Arrays.deepToString(pictures) + " kept");
+        }
+        return new Pieced(kinds, pictures);
+    }
+
+    /** Reads a piece: kindsInBuilding and shownIn on the building's rooms' squares on one level of one chunk. */
+    private static Piece piece(IsoCell cell, ArrayList<RoomDef> rooms, int wx, int wy, int z, IsoChunk chunk, long marks) {
+        Map<String, Integer> kinds = new HashMap<>();
+        ArrayList<Integer> showing = new ArrayList<>();
+        ArrayList<int[]> shown = new ArrayList<>();
+        ArrayList<Integer> room = new ArrayList<>();
+        int fromX = wx * CHUNK, fromY = wy * CHUNK;
+        for (int i = 0; i < rooms.size(); i++) {
+            RoomDef each = rooms.get(i);
+            if (each.level != z) {
+                continue;
+            }
+            room.clear();
+            for (int r = 0; r < each.rects.size(); r++) {
+                RoomDef.RoomRect rect = each.rects.get(r);
+                for (int y = Math.max(rect.y, fromY); y < Math.min(rect.y + rect.h, fromY + CHUNK); y++) {
+                    for (int x = Math.max(rect.x, fromX); x < Math.min(rect.x + rect.w, fromX + CHUNK); x++) {
+                        IsoGridSquare square = cell.getGridSquare(x, y, z);
+                        if (square == null) {
+                            continue;
+                        }
+                        for (int j = 0; j < square.getObjects().size(); j++) {
+                            ArrayList<IsoSprite> sprites = spritesOf(square.getObjects().get(j));
+                            for (int k = 0; k < sprites.size(); k++) {
+                                IsoSprite sprite = sprites.get(k);
+                                PropertyContainer properties = sprite.getProperties();
+                                String called = properties.get("CustomName"), group = properties.get("GroupName");
+                                if ("Mirror".equals(called) || "Clock".equals(called) || trophy(called)) {
+                                    kinds.merge(called + "|" + group, 1, Integer::sum);
+                                }
+                                int picture = Decor.of(sprite.getName(), called, group == null ? "" : group, sprite.getSpriteGrid() != null);
+                                if (picture != Decor.NONE) {
+                                    if (HUNTING.equals(subjectOf(Decor.nameOf(picture)))) {
+                                        kinds.merge(HUNTING + "|", 1, Integer::sum);
+                                    }
+                                    room.add(Decor.inRoom(picture, x, y, z));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if (!room.isEmpty()) {
+                showing.add(i);
+                shown.add(room.stream().mapToInt(Integer::intValue).toArray());
+            }
+        }
+        return new Piece(chunk, marks, kinds, showing.stream().mapToInt(Integer::intValue).toArray(), shown.isEmpty() ? NO_ROOMS_SHOWN : shown.toArray(new int[0][]));
+    }
+
+    /**
+     * Dev only (-Dcameraunlock.zomboid.checkHiddenWalls=true): every building read from its kept
+     * pieces is read whole as well, and the two compared; each difference is logged, and a tally
+     * every hundred.
+     */
+    private static final boolean CHECKED = Boolean.getBoolean("cameraunlock.zomboid.checkHiddenWalls");
+    private static int checks, differences, piecesNone, piecesLoading, piecesNew, piecesChanged, piecesKept;
+    private static long keptNanos, readNanos;
+
+    private static void compared(boolean same, RoomDef room, String what, Supplier<String> how) {
+        checks++;
+        if (!same) {
+            differences++;
+            Log.info(String.format(Locale.ROOT, "hidden walls check: the %s at %d,%d,%d read %s otherwise kept than whole: %s", room.getName(),
+                    room.rects.get(0).x, room.rects.get(0).y, room.level, what, how.get()));
+        }
+        if (checks % 100 == 0) {
+            Log.info(String.format(Locale.ROOT, "hidden walls check: %d compared, %d differ; pieces kept %d, read %d (new %d, changed %d, loading %d), off the map %d;"
+                    + " buildings read from pieces in %.1f ms, whole in %.1f ms", checks, differences, piecesKept, piecesNew + piecesChanged + piecesLoading,
+                    piecesNew, piecesChanged, piecesLoading, piecesNone, keptNanos / 1e6, readNanos / 1e6));
+        }
+    }
+
+    private static int[] sorted(int[] pictures) {
+        int[] copy = pictures.clone();
+        Arrays.sort(copy);
+        return copy;
+    }
+
+    /**
      * A picture the mod draws on a hidden wall in first person and nowhere else: nothing of it is
      * in the world or the save, and it cannot be taken down (owner ruling of 2026-10-26: "purely
      * decorative, we just don't want first person users to see blank walls in literally every
@@ -281,6 +553,8 @@ final class HiddenWalls {
     /** Called as the game leaves a save: the next save's rooms choose their pictures again. */
     static void forget() {
         DRAWN.clear();
+        DRAWN_BY_CHUNK.clear();
+        PIECES.clear();
         PLANNED.clear();
         WAITING.clear();
     }
@@ -506,8 +780,10 @@ final class HiddenWalls {
             float high = wide / wideForHigh / ViewCamera.LEVEL_HEIGHT;
             IsoGridSquare square = best.square();
             float middle = middleOf(run(spots, best, -1), run(spots, best, 1));
-            DRAWN.put(key(square.getX(), square.getY(), room.level, best.wall()),
-                    new Drawn(picture, middle - wide / 2f, middle + wide / 2f, DRAWN_MIDDLE - high / 2f, DRAWN_MIDDLE + high / 2f));
+            long at = key(square.getX(), square.getY(), room.level, best.wall());
+            DRAWN.put(at, new Drawn(picture, middle - wide / 2f, middle + wide / 2f, DRAWN_MIDDLE - high / 2f, DRAWN_MIDDLE + high / 2f));
+            DRAWN_BY_CHUNK.computeIfAbsent(key(Math.floorDiv(square.getX(), CHUNK), Math.floorDiv(square.getY(), CHUNK), room.level, 0), unused -> new ArrayList<>())
+                    .add(new DrawnOn(square.getX(), square.getY(), at));
             ChunkMarks.tell(Math.floorDiv(square.getX(), CHUNK), Math.floorDiv(square.getY(), CHUNK));
             drawn.add(String.format(Locale.ROOT, "%s on the %s wall at %d,%d", Decor.nameOf(picture), best.wall() == SOUTH ? "south" : "east",
                     square.getX(), square.getY()));
@@ -624,9 +900,55 @@ final class HiddenWalls {
      * and those drawn on the hidden walls of its other rooms in drawnElsewhere.
      */
     private static Set<Integer> picturesInBuilding(IsoCell cell, RoomDef room, Set<Integer> inRoom, Set<Integer> drawnElsewhere) {
+        if (!keeps()) {
+            return picturesInBuildingRead(cell, room, inRoom, drawnElsewhere);
+        }
         Set<Integer> pictures = new HashSet<>();
         ArrayList<RoomDef> rooms = room.getBuilding().rooms;
-        int[][] shown = SHOWN.computeIfAbsent(room.getBuilding(), building -> shownIn(cell, rooms));
+        int[][] shown = SHOWN.computeIfAbsent(room.getBuilding(), building -> pieced(cell, building).shown);
+        for (int i = 0; i < rooms.size(); i++) {
+            RoomDef each = rooms.get(i);
+            for (int r = 0; r < each.rects.size(); r++) {
+                RoomDef.RoomRect rect = each.rects.get(r);
+                for (int cy = Math.floorDiv(rect.y, CHUNK); cy <= Math.floorDiv(rect.y + rect.h - 1, CHUNK); cy++) {
+                    for (int cx = Math.floorDiv(rect.x, CHUNK); cx <= Math.floorDiv(rect.x + rect.w - 1, CHUNK); cx++) {
+                        ArrayList<DrawnOn> on = DRAWN_BY_CHUNK.get(key(cx, cy, each.level, 0));
+                        for (int d = 0; on != null && d < on.size(); d++) {
+                            DrawnOn at = on.get(d);
+                            if (at.x() >= rect.x && at.x() < rect.x + rect.w && at.y() >= rect.y && at.y() < rect.y + rect.h) {
+                                int picture = DRAWN.get(at.key()).picture();
+                                pictures.add(picture);
+                                if (each == room) {
+                                    inRoom.add(picture);
+                                } else {
+                                    drawnElsewhere.add(picture);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            for (int picture : shown[i]) {
+                pictures.add(picture);
+                if (each == room) {
+                    inRoom.add(picture);
+                }
+            }
+        }
+        if (CHECKED) {
+            Set<Integer> readIn = new HashSet<>(), readElsewhere = new HashSet<>();
+            Set<Integer> read = picturesInBuildingRead(cell, room, readIn, readElsewhere);
+            compared(read.equals(pictures) && readIn.equals(inRoom) && readElsewhere.equals(drawnElsewhere), room, "the pictures of its building",
+                    () -> read + " " + readIn + " " + readElsewhere + " read, " + pictures + " " + inRoom + " " + drawnElsewhere + " kept");
+        }
+        return pictures;
+    }
+
+    /** picturesInBuilding, read off every square of the building. */
+    private static Set<Integer> picturesInBuildingRead(IsoCell cell, RoomDef room, Set<Integer> inRoom, Set<Integer> drawnElsewhere) {
+        Set<Integer> pictures = new HashSet<>();
+        ArrayList<RoomDef> rooms = room.getBuilding().rooms;
+        int[][] shown = CHECKED && keeps() ? shownIn(cell, rooms) : SHOWN.computeIfAbsent(room.getBuilding(), building -> shownIn(cell, rooms));
         for (int i = 0; i < rooms.size(); i++) {
             RoomDef each = rooms.get(i);
             for (int r = 0; r < each.rects.size(); r++) {
@@ -725,7 +1047,8 @@ final class HiddenWalls {
         ArrayList<Spot> placed = new ArrayList<>();
         ArrayList<String> hung = new ArrayList<>();
         // Read over the whole building only when a spot is found to hang a kind on, which is before anything it counts is hung.
-        Supplier<Map<String, Integer>> kinds = () -> KINDS.computeIfAbsent(room.getBuilding(), building -> kindsInBuilding(cell, room));
+        Supplier<Map<String, Integer>> kinds = () -> KINDS.computeIfAbsent(room.getBuilding(),
+                building -> keeps() ? pieced(cell, building).kinds : kindsInBuilding(cell, room));
         switch (kind) {
             case BATH -> {
                 if (!mirror) {
@@ -1122,6 +1445,10 @@ final class HiddenWalls {
         }
         square.AddTileObject(thing);
         SHOWN.remove(room.getBuilding());
+        Kept kept = PIECES.get(room.getBuilding());
+        if (kept != null) {
+            kept.letGo(Math.floorDiv(square.getX(), CHUNK), Math.floorDiv(square.getY(), CHUNK));
+        }
         Map<String, Integer> kinds = KINDS.get(room.getBuilding());
         if (kinds != null) {
             countKinds(thing, kinds);
