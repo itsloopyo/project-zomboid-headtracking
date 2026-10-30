@@ -72,6 +72,7 @@ public final class CoreTests {
             Tracking.open(Path.of(arguments[1]), Path.of(arguments[2]));
             System.out.println(started());
             System.out.println(leftOut());
+            System.out.println(keysNamed());
             return;
         }
         Checks.suite = "core tests";
@@ -105,6 +106,7 @@ public final class CoreTests {
         Checks.run("nextStartRunsOnWhatWasSaved", CoreTests::nextStartRunsOnWhatWasSaved);
         Checks.run("freeLookWithNoMarkerIsReadAsFreeLookWithOne", CoreTests::freeLookWithNoMarkerIsReadAsFreeLookWithOne);
         Checks.run("aFileFromBeforeTheKeysMovedStartsOnTheNavKeys", CoreTests::aFileFromBeforeTheKeysMovedStartsOnTheNavKeys);
+        Checks.run("theKeysOfCoresRowsAreTheOnesTheFileNames", CoreTests::theKeysOfCoresRowsAreTheOnesTheFileNames);
         Checks.run("eachPartOffAsTheGameStartsLeavesItsPatchesOut", CoreTests::eachPartOffAsTheGameStartsLeavesItsPatchesOut);
         Checks.run("rowsReadAgainWhileTheGameRuns", CoreTests::rowsReadAgainWhileTheGameRuns);
         Checks.run("aCollisionMarginInsideTheNearPlaneIsNotTaken", CoreTests::aCollisionMarginInsideTheNearPlaneIsNotTaken);
@@ -154,6 +156,12 @@ public final class CoreTests {
             }
         }
         return names.toString();
+    }
+
+    /** The keys of core's three rows that the options page's Keys note names. */
+    private static String keysNamed() {
+        return "keys: tracking mode " + Tracking.cycleTrackingModeKeys() + " | yaw mode " + Tracking.yawModeKeys() + " | aim mode "
+                + Tracking.aimModeKeys();
     }
 
     private static String java() {
@@ -706,6 +714,19 @@ public final class CoreTests {
         String next = nextStart("keys-from-before");
         check(next.contains(Config.FILE_NAME + ": read"), "a file with the old toggle row and the keys at default is read: " + next);
         check(next.contains("ToggleKey is not a setting this mod reads, so it is ignored"), "and the toggle row is said to be left alone, not acted on");
+        check(next.contains("keys: tracking mode PageUp | yaw mode PageDown | aim mode Insert"),
+                "and the three at default are the game's own nav keys, not Defaults.ini's: " + next);
+        edit(saved);
+    }
+
+    /** The Keys note on the options page names the keys the file holds for core's rows, not the ones the mod comes with. */
+    private static void theKeysOfCoresRowsAreTheOnesTheFileNames() throws IOException, InterruptedException {
+        String saved = text();
+        edit(saved.replace("CycleTrackingModeKey=PageUp", "CycleTrackingModeKey=F6, Ctrl+Shift+G").replace("YawModeKey=PageDown", "YawModeKey=F4")
+                .replace("TrueFreeLookKey=Insert", "TrueFreeLookKey=F3"));
+        String next = nextStart("keys-named");
+        check(next.contains("keys: tracking mode F6, Ctrl+Shift+G | yaw mode F4 | aim mode F3"),
+                "keys the player wrote in the file are the ones named, a chord with them: " + next);
         edit(saved);
     }
 

@@ -816,6 +816,19 @@ final class Config {
         return core.configGetText(splitScreenKey);
     }
 
+    /** The keys of core's own rows, as the load read them: core listens for these. */
+    String cycleTrackingModeKeys() {
+        return core.configGetConceptKeys("CycleTrackingModeKey");
+    }
+
+    String yawModeKeys() {
+        return core.configGetConceptKeys("YawModeKey");
+    }
+
+    String aimModeKeys() {
+        return core.configGetConceptKeys("TrueFreeLookKey");
+    }
+
     boolean saveFirstPerson(int player, boolean on) {
         return saved("player " + (player + 1) + "'s view at load", core.configSaveInt(firstPerson[player], on ? 1 : 0));
     }

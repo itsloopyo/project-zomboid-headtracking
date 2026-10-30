@@ -890,6 +890,21 @@ final class Tracking {
         return config.splitScreenKeys();
     }
 
+    /** The keys that go to the next tracking mode, as CameraUnlock.ini named them when the game started. */
+    static String cycleTrackingModeKeys() {
+        return config.cycleTrackingModeKeys();
+    }
+
+    /** The keys that switch horizon-relative head turns, as CameraUnlock.ini named them when the game started. */
+    static String yawModeKeys() {
+        return config.yawModeKeys();
+    }
+
+    /** The keys that go to the next aim mode, as CameraUnlock.ini named them when the game started. */
+    static String aimModeKeys() {
+        return config.aimModeKeys();
+    }
+
     /** The view a player switched to, kept for the next load. */
     static void rememberFirstPerson(int player, boolean on) {
         firstPersonAtLoad(player, on);
