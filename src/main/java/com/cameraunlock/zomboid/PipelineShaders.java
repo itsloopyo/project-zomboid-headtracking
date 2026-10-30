@@ -799,14 +799,18 @@ final class PipelineShaders {
                     // feet: what grows within a pace of them is pressed outward and down, the
                     // more the nearer, so a look down shows the grass trodden where one stands
                     // and springing back behind as one walks on.
-                    vec2 from = at.xy - uEye.xy;
+                    // The push is the plant's, worked out at its root, so every vertex of it goes the same
+                    // way: pushed each from where it stood, a rose head near the feet was spread apart
+                    // across the push and the bed round the eye read as a lens. Within the inner 0.12 the
+                    // push grows from nothing at the root, so a plant passed over does not jump across.
+                    vec2 from = gl_Vertex.xy + gl_MultiTexCoord1.xy - uEye.xy;
                     float off = length(from);
                     float under = uEye.z - at.z;
                     // Only the lowest 0.18 of a plant is pressed more the higher it is, and what stands
                     // over that goes with it: pressed by its whole height, a rose bush's top folded
-                    // over itself where the push falls away, and the bed round the eye read as a lens.
+                    // over itself where the push falls away.
                     float trodden = (1.0 - smoothstep(0.12, 0.6, off)) * step(0.8, under) * step(under, 2.3) * min(high, 0.18);
-                    at.xy += from / max(off, 0.02) * (trodden * 1.1);
+                    at.xy += from / max(off, 0.12) * (trodden * 1.1);
                     at.z -= trodden * 0.65;
                 }
                 // Snow lies along the top of a limb, a branch and a twig as a ridge higher than the
