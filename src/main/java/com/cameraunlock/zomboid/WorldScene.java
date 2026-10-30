@@ -20,7 +20,6 @@ import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongPredicate;
 import org.lwjgl.opengl.GL11;
@@ -810,13 +809,13 @@ final class WorldScene {
      * a tenth of the work of a chunk, so it is what is made again as the eye moves.
      */
     private final ChunkMeshes[] latestGrown = new ChunkMeshes[TABLE_SIDE * TABLE_SIDE];
-    /** The builds the walk of the view's last frame handed off, in walk order: made after it and landed at the start of the next (Frame.handOff). */
+    /** The builds the walk of the view's last frame handed off, in walk order: made as the walk goes on and landed at the start of the next frame (Frame.handOff). */
     private final ArrayList<Handed> handed = new ArrayList<>();
     /** The build handed off for each slot of the table and not landed yet, or null. */
     private final Handed[] handedAt = new Handed[TABLE_SIDE * TABLE_SIDE];
     private final ArrayDeque<Handed> spareHanded = new ArrayDeque<>();
-    /** Of the builds handed off, the next for a build thread to make: see Frame.makeHanded. */
-    private final AtomicInteger handedTaken = new AtomicInteger();
+    /** The builds handed off and not yet taken by a build thread to be made, from the first a frame hands off until it has waited on them all: see Frame.handOff. */
+    private final BuildThreads.Handing<Handed> making = new BuildThreads.Handing<>();
     /** What a build takes to make, by a running mean: the frame's time a build of a chunk with none is reckoned to take as it is handed off. */
     private long handedMeanNanos = 1_000_000L;
 
@@ -3780,6 +3779,13 @@ final class WorldScene {
          * always was. What the walk leaves is taken or let go after it, in pullLightsLeft.
          */
         private void pullLights(IsoChunk chunk, int slot, int lowest) {
+            // Under the builds' lock: the asking and the taking bring the game's light of squares up to date, which builds handed off read (handOff).
+            synchronized (BuildThreads.SHARED) {
+                pullLightsUnderLock(chunk, slot, lowest);
+            }
+        }
+
+        private void pullLightsUnderLock(IsoChunk chunk, int slot, int lowest) {
             int pass = LightingJNI.getUpdateCounter(playerIndex);
             // In the viewer's building only the storeys round the eye's are asked for: those over
             // it are held (heldFrom), and those further under are seen, if at all, down a
@@ -3850,7 +3856,9 @@ final class WorldScene {
                 if (chunk == null || !chunk.loaded || chunk.wx != wx || chunk.wy != wy) {
                     pendingLights.letGo(slot);
                 } else {
-                    takeLights(chunk, slot);
+                    synchronized (BuildThreads.SHARED) {
+                        takeLights(chunk, slot);
+                    }
                 }
             }
             pullNanos += System.nanoTime() - began;
@@ -3944,7 +3952,17 @@ final class WorldScene {
             Roofs.keepMeasures();
             handing = Part.BUILD_ON_WORKER_THREADS.running();
             try {
-                buildFrame(player, pose, aimed, eyeFromAim, tanHalfFieldOfView, tanHalfSet, from, opened);
+                try {
+                    buildFrame(player, pose, aimed, eyeFromAim, tanHalfFieldOfView, tanHalfSet, from, opened);
+                } catch (RuntimeException | Error thrown) {
+                    // No build thread is left waiting for builds that will not be handed.
+                    try {
+                        making.finish();
+                    } catch (RuntimeException | Error also) {
+                        thrown.addSuppressed(also);
+                    }
+                    throw thrown;
+                }
                 if (handing) {
                     makeHanded();
                 }
@@ -4853,7 +4871,10 @@ final class WorldScene {
                         }
                     }
                     current.users++;
-                    current.water = Terrain.holdsWater(chunk.wx, chunk.wy);
+                    // Terrain's records are kept under the builds' lock, by builds handed off as well.
+                    synchronized (BuildThreads.SHARED) {
+                        current.water = Terrain.holdsWater(chunk.wx, chunk.wy);
+                    }
                     if (aside) {
                         builtAheadOf.add(current);
                     } else {
@@ -5008,7 +5029,10 @@ final class WorldScene {
             addCharacters(player, pose);
             takeLight(start);
             long gatherBegan = System.nanoTime();
-            tollFigureSquares += figureLights.gather(WorldScene.this, cell, view.index, shown, figuresStood);
+            // The builds handed off may still be being made, and read the game's light under their lock as this does.
+            synchronized (BuildThreads.SHARED) {
+                tollFigureSquares += figureLights.gather(WorldScene.this, cell, view.index, shown, figuresStood);
+            }
             tollFigureLights++;
             tollFigureLightsNanos += System.nanoTime() - gatherBegan;
             if (DepthFights.ON && !fromOutside) {
@@ -5022,8 +5046,10 @@ final class WorldScene {
                 if (sightTrace == null) {
                     sightTrace = new SightTrace(WorldScene.this);
                 }
-                sightTrace.frame(cell, player, pose, forwardX, forwardY, cosCone, tanHalfFieldOfView * drawnAspect, tanHalfFieldOfView, frames, chunksWaiting, nearestWaiting,
-                        asTheGameShows, roomsSeen);
+                synchronized (BuildThreads.SHARED) {
+                    sightTrace.frame(cell, player, pose, forwardX, forwardY, cosCone, tanHalfFieldOfView * drawnAspect, tanHalfFieldOfView, frames, chunksWaiting, nearestWaiting,
+                            asTheGameShows, roomsSeen);
+                }
             }
             buildMillis = (System.nanoTime() - start) / 1e6f;
             tollFrames++;
@@ -5890,10 +5916,11 @@ final class WorldScene {
         }
 
         /**
-         * Hands the build of the chunk off (Part.BUILD_ON_WORKER_THREADS), with this frame's state as it stands: it is made after the walk
-         * (makeHanded) from what the walk had here, and landed at the start of the view's next frame (landHanded). The
-         * page is set as the walk sets a fresh build's. Returns the frame's time the build is reckoned to take, which the
-         * walk counts as spent on building: what the chunk's last build took, or what builds take.
+         * Hands the build of the chunk off (Part.BUILD_ON_WORKER_THREADS), with this frame's state as it stands: a build thread
+         * makes it from what the walk had here while the walk goes on, the frame waits for it after the walk (makeHanded), and it
+         * lands at the start of the view's next frame (landHanded). The page is set as the walk sets a fresh build's. Returns the
+         * frame's time the build is reckoned to take, which the walk counts as spent on building: what the chunk's last build
+         * took, or what builds take.
          */
         private long handOff(IsoChunk chunk, int chunkX, int chunkY, int lowest, ChunkMeshes fresh, int toldSoFar, int slot, int cause, boolean mayWait,
                 ChunkMeshes current, int lit, ViewCamera.Pose pose) {
@@ -5921,21 +5948,15 @@ final class WorldScene {
             fresh.pageFrom = Math.max(lowest, chunk.getMinLevel());
             fresh.pageTo = chunk.getMaxLevel();
             fresh.pageWaitsNanos = 0L;
-            handed.add(job);
-            handedAt[slot] = job;
-            tollHanded++;
+            hand(job);
             return current != null && current.tookNanos > 0L ? current.tookNanos : handedMeanNanos;
         }
 
-        /**
-         * After the walk: makes the builds it handed off at once on the build threads, each taking the next in walk order
-         * while this one waits and does what they ask of it. Dev only, each is then made again beside and held to what
-         * it came out (checkHanded). Then what each left to the logic thread is done, in walk order.
-         */
-        private void makeHanded() {
-            if (handed.isEmpty()) {
-                return;
-            }
+        /** Starts the build threads with the first build a frame hands off, and hands them the job. */
+        private void hand(Handed job) {
+            handed.add(job);
+            handedAt[job.slot] = job;
+            tollHanded++;
             if (makers == null) {
                 if (buildThreads == null) {
                     buildThreads = BuildThreads.pool(BUILD_THREADS, "head tracking build");
@@ -5945,23 +5966,28 @@ final class WorldScene {
                     makers[maker] = new Frame(new SpriteGeometry.Layers());
                 }
             }
-            handedTaken.set(0);
-            BuildThreads.runOnAll(buildThreads, BUILD_THREADS, thread -> {
+            making.hand(job, buildThreads, BUILD_THREADS, thread -> {
                 Frame maker = makers[thread];
                 Roofs.keepMeasures();
                 try {
-                    for (int i = handedTaken.getAndIncrement(); i < handed.size(); i = handedTaken.getAndIncrement()) {
-                        Handed job = handed.get(i);
-                        if (!job.dropped && !job.made) {
-                            BuildThreads.landInto(job.landing);
-                            maker.make(job);
-                        }
+                    for (Handed next = making.next(); next != null; next = making.next()) {
+                        BuildThreads.landInto(next.landing);
+                        maker.make(next);
                     }
                 } finally {
                     BuildThreads.landInto(null);
                     Roofs.forgetMeasures();
                 }
             });
+        }
+
+        /**
+         * After the walk: waits for the builds it handed off to be made on the build threads, doing what they ask of
+         * it. Dev only, each is then made again beside and held to what it came out (checkHanded). Then what each left
+         * to the logic thread is done, in walk order.
+         */
+        private void makeHanded() {
+            making.finish();
             if (CHECK_BUILDS) {
                 for (int i = 0; i < handed.size(); i++) {
                     if (handed.get(i).made) {
@@ -6097,8 +6123,8 @@ final class WorldScene {
 
         /**
          * Whether this frame's walk hands each build off, with its frame's state as it stands, to be made on the build
-         * threads after the walk and landed at the start of the view's next frame (handOff): BuildOnWorkerThreads as the
-         * frame began. Otherwise the walk makes each build as it comes to it.
+         * threads as the walk goes on and landed at the start of the view's next frame (handOff): BuildOnWorkerThreads as
+         * the frame began. Otherwise the walk makes each build as it comes to it.
          */
         private boolean handing;
 
@@ -7426,7 +7452,9 @@ final class WorldScene {
                     System.arraycopy(keptDay, at, lightDay, 0, span);
                 } else if (!keeps) {
                     long reads = System.nanoTime();
-                    readLights(chunkX, chunkY, z);
+                    synchronized (BuildThreads.SHARED) {
+                        readLights(chunkX, chunkY, z);
+                    }
                     relitReadNanos += System.nanoTime() - reads;
                     relitLevels++;
                 }

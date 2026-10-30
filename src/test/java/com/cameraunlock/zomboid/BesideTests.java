@@ -12,6 +12,7 @@ final class BesideTests {
         Checks.run("aBuildBesideComesOutAsTheWalkingFramesBuild", BesideTests::aBuildBesideComesOutAsTheWalkingFramesBuild);
         Checks.run("aBuildThreadIsKnownAndWhatItThrowsIsThrownAgain", BesideTests::aBuildThreadIsKnownAndWhatItThrowsIsThrownAgain);
         Checks.run("whatBuildThreadsAskOfTheLogicThreadIsDoneThereAsItWaits", BesideTests::whatBuildThreadsAskOfTheLogicThreadIsDoneThereAsItWaits);
+        Checks.run("workHandedIsMadeAsTheLogicThreadGoesOnInTheOrderHanded", BesideTests::workHandedIsMadeAsTheLogicThreadGoesOnInTheOrderHanded);
         Checks.run("whatABuildLeavesToTheLogicThreadIsKeptInOrderUntilItLands", BesideTests::whatABuildLeavesToTheLogicThreadIsKeptInOrderUntilItLands);
     }
 
@@ -107,26 +108,90 @@ final class BesideTests {
         try {
             Thread logic = Thread.currentThread();
             Thread[] askedOn = new Thread[3];
+            boolean[] locked = new boolean[3];
             int[] numbers = new int[3];
-            BuildThreads.runOnAll(pool, 3, thread -> {
-                numbers[thread] = BuildThreads.onLogicThread(() -> {
-                    askedOn[thread] = Thread.currentThread();
-                    return thread + 10;
+            BuildThreads.Handing<Integer> handing = new BuildThreads.Handing<>();
+            for (int piece = 0; piece < 3; piece++) {
+                handing.hand(piece, pool, 3, thread -> {
+                    for (Integer each = handing.next(); each != null; each = handing.next()) {
+                        int number = each;
+                        numbers[number] = BuildThreads.onLogicThread(() -> {
+                            askedOn[number] = Thread.currentThread();
+                            locked[number] = Thread.holdsLock(BuildThreads.SHARED);
+                            return number + 10;
+                        });
+                    }
                 });
-            });
+            }
+            check(askedOn[0] == null && askedOn[1] == null && askedOn[2] == null, "nothing asked is done before the logic thread waits on the builds");
+            handing.finish();
             check(askedOn[0] == logic && askedOn[1] == logic && askedOn[2] == logic, "what each build thread asks is done on the thread that waits on them");
+            check(locked[0] && locked[1] && locked[2], "under the builds' lock");
             check(numbers[0] == 10 && numbers[1] == 11 && numbers[2] == 12, "and each is handed back its own answer");
             check(BuildThreads.onLogicThread(() -> Thread.currentThread()) == logic, "on the logic thread itself it is done at once");
+            check(BuildThreads.onLogicThread(() -> Thread.holdsLock(BuildThreads.SHARED)), "under the builds' lock as well, as builds may be being made");
             IllegalArgumentException thrown = new IllegalArgumentException("thrown on the logic thread");
             Throwable caught = null;
+            BuildThreads.Handing<Integer> throwing = new BuildThreads.Handing<>();
             try {
-                BuildThreads.runOnAll(pool, 2, thread -> BuildThreads.onLogicThread(() -> {
-                    throw thrown;
-                }));
+                throwing.hand(0, pool, 2, thread -> {
+                    for (Integer each = throwing.next(); each != null; each = throwing.next()) {
+                        BuildThreads.onLogicThread(() -> {
+                            throw thrown;
+                        });
+                    }
+                });
+                throwing.finish();
             } catch (IllegalStateException e) {
                 caught = e.getCause() == null ? null : e.getCause().getCause();
             }
             check(caught == thrown, "what the asking throws is thrown on the build thread, and again on the thread that waits on it");
+            check(!BuildThreads.handing(), "and the builds are not taken to be being made after it");
+        } finally {
+            pool.shutdown();
+        }
+    }
+
+    private static void workHandedIsMadeAsTheLogicThreadGoesOnInTheOrderHanded() {
+        java.util.concurrent.ExecutorService pool = BuildThreads.pool(2, "tests' build thread");
+        try {
+            BuildThreads.Handing<Integer> handing = new BuildThreads.Handing<>();
+            handing.finish();
+            check(!BuildThreads.handing(), "nothing handed, nothing waited on");
+            java.util.List<Integer> taken = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+            for (int round = 0; round < 2; round++) {
+                taken.clear();
+                java.util.concurrent.CountDownLatch first = new java.util.concurrent.CountDownLatch(1);
+                // One thread takes the pieces in the order handed, and two between them take each once.
+                int threads = round + 1;
+                for (int piece = 0; piece < 50; piece++) {
+                    handing.hand(piece, pool, threads, thread -> {
+                        for (Integer each = handing.next(); each != null; each = handing.next()) {
+                            taken.add(each);
+                            first.countDown();
+                        }
+                    });
+                    check(BuildThreads.handing(), "while pieces are handed the builds are taken to be being made");
+                    if (piece == 0) {
+                        boolean started;
+                        try {
+                            started = first.await(10, java.util.concurrent.TimeUnit.SECONDS);
+                        } catch (InterruptedException e) {
+                            throw new IllegalStateException(e);
+                        }
+                        check(started, "the first piece is made while the logic thread goes on, before it waits");
+                    }
+                }
+                handing.finish();
+                check(!BuildThreads.handing(), "and not once waited on");
+                check(taken.size() == 50, "every piece is made once, on " + threads + " threads: " + taken.size());
+                int inOrder = 0, found = 0;
+                for (int i = 0; i < taken.size(); i++) {
+                    inOrder += taken.get(i) == i ? 1 : 0;
+                    found += taken.contains(i) ? 1 : 0;
+                }
+                check(found == 50 && (threads > 1 || inOrder == 50), "each of them, and on one thread in the order handed");
+            }
         } finally {
             pool.shutdown();
         }

@@ -4,10 +4,10 @@ package com.cameraunlock.zomboid;
  * Dev only: the game brings a square's light and sight up to date from its lighting engine each
  * time either is read (LightingJNI.JNILighting.update), through one scratch array it keeps for
  * every square, so the mod reads them on the logic thread alone (FigureLights), or on one of its
- * build threads holding the builds' lock while the logic thread waits on the builds and reads
- * them only under that lock (BuildThreads.SHARED). A read made from any other thread with the
- * mod's code under it throws here, where it is made, and not frames later where the two threads
- * meet in the game's own code.
+ * build threads holding the builds' lock, which the logic thread then holds for its own reads
+ * while builds are being made (BuildThreads.SHARED, BuildThreads.handing). A read made from any
+ * other thread, or without the lock while it is wanted, with the mod's code under it throws here,
+ * where it is made, and not frames later where the two threads meet in the game's own code.
  */
 public final class LightingThread {
     private LightingThread() {}
@@ -21,6 +21,10 @@ public final class LightingThread {
     /** At the start of every update of a square's light. */
     public static void update() {
         Thread now = Thread.currentThread();
+        if (now == logic && BuildThreads.handing() && !Thread.holdsLock(BuildThreads.SHARED)
+                && WALKER.walk(frames -> frames.anyMatch(frame -> frame.getClassName().startsWith(MOD) && !frame.getClassName().equals(SELF)))) {
+            throw new IllegalStateException("the game's light of a square is read on the logic thread outside the builds' lock while builds are being made, by the mod");
+        }
         if (now == logic || BuildThreads.here() && Thread.holdsLock(BuildThreads.SHARED)) {
             return;
         }

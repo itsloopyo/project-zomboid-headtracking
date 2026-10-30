@@ -12,9 +12,9 @@ import java.util.function.Supplier;
 
 /**
  * The threads chunks are built on off the logic thread. A build reads the game's map, which the
- * game changes on the logic thread, so it runs only while the logic thread waits on it inside the
- * mod's frame, where the game moves nothing on the map. What a build has to have done on the
- * logic thread, the logic thread does as it waits (onLogicThread).
+ * game changes on the logic thread, so it runs only while the logic thread is inside the mod's
+ * frame, where the game moves nothing on the map: building the frame or waiting on the builds.
+ * What a build has to have done on the logic thread, the logic thread does as it waits (onLogicThread).
  */
 final class BuildThreads {
     private BuildThreads() {}
@@ -113,16 +113,71 @@ final class BuildThreads {
     }
 
     /**
-     * Runs work on count threads of the pool at once, each handed its number from 0, and waits for them all, doing
-     * what they ask of the logic thread. What any of them throws is thrown again here once all have ended.
+     * Whether build threads may be making builds while the logic thread goes on with its frame (Handing): the logic
+     * thread then reads the game's light only under SHARED, as they do. Set and read on the logic thread, and read by
+     * the dev check of who reads the light.
      */
-    static void runOnAll(ExecutorService pool, int count, IntConsumer work) {
-        Future<?>[] running = new Future<?>[count];
-        for (int thread = 0; thread < count; thread++) {
-            int number = thread;
-            running[thread] = pool.submit(ended(() -> work.accept(number)));
+    private static volatile boolean handing;
+
+    static boolean handing() {
+        return handing;
+    }
+
+    /**
+     * Work handed to build threads as the logic thread comes to it, while the logic thread goes on: the first piece
+     * starts count threads of the pool, each handed its number from 0, which take the pieces in the order they were
+     * handed (next) until the logic thread says there is no more and waits on them (finish). What they ask of the
+     * logic thread is done there as it waits.
+     */
+    static final class Handing<T> {
+        private static final Object NO_MORE = new Object();
+        private final LinkedBlockingQueue<Object> waiting = new LinkedBlockingQueue<>();
+        private Future<?>[] running;
+
+        /** Logic thread: hands a piece on, starting the threads with the first. */
+        void hand(T work, ExecutorService pool, int count, IntConsumer thread) {
+            if (running == null) {
+                handing = true;
+                running = new Future<?>[count];
+                for (int each = 0; each < count; each++) {
+                    int number = each;
+                    running[each] = pool.submit(ended(() -> thread.accept(number)));
+                }
+            }
+            waiting.add(work);
         }
-        waitOn(running);
+
+        /** On a build thread: the next piece handed, once there is one, or null once there is no more. */
+        @SuppressWarnings("unchecked")
+        T next() {
+            try {
+                Object next = waiting.take();
+                return next == NO_MORE ? null : (T) next;
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException(Thread.currentThread().getName() + " was interrupted waiting for a build to be handed", e);
+            }
+        }
+
+        /**
+         * Logic thread: says there is no more and waits for every piece to be made, doing what the threads ask of it.
+         * What any of them threw is thrown here once all have ended. Nothing to wait for if nothing was handed.
+         */
+        void finish() {
+            if (running == null) {
+                return;
+            }
+            for (int each = 0; each < running.length; each++) {
+                waiting.add(NO_MORE);
+            }
+            try {
+                waitOn(running);
+            } finally {
+                running = null;
+                waiting.clear();
+                handing = false;
+            }
+        }
     }
 
     private static Runnable ended(Runnable work) {
@@ -160,13 +215,16 @@ final class BuildThreads {
     }
 
     /**
-     * What has to be done on the logic thread, done there: at once on the logic thread itself, and from a build
+     * What has to be done on the logic thread, done there: at once on the logic thread itself, under SHARED, and from a build
      * thread by the logic thread as it waits on the build, under SHARED, while this one waits for the answer. A
      * build thread holding SHARED cannot ask, as the logic thread would wait on it for the lock.
      */
     static <T> T onLogicThread(Supplier<T> work) {
         if (!here()) {
-            return work.get();
+            // Under SHARED as when it is asked for, as build threads may be making builds while the logic thread goes on (Handing).
+            synchronized (SHARED) {
+                return work.get();
+            }
         }
         if (Thread.holdsLock(SHARED)) {
             throw new IllegalStateException(Thread.currentThread().getName() + " asked the logic thread for something holding the builds' lock, which it would wait on");
