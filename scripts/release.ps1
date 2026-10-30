@@ -117,7 +117,9 @@ try {
         New-ChangelogFromCommits -ChangelogPath (Join-Path $ProjectRoot 'CHANGELOG.md') -Version $target -ArtifactPaths @(
             'src/',
             'scripts/',
+            'workshop/',
             'pixi.toml',
+            'launcher-manifest.json',
             'cameraunlock-core'
         ) -Maintenance:$Force | Out-Null
     } catch {
