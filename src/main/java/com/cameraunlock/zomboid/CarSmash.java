@@ -92,12 +92,16 @@ final class CarSmash {
         if (kind == null) {
             return false;
         }
-        MET.add(thing);
-        KINDS.add(kind);
-        vehicle.getLinearVelocity(LOCAL);
-        PropertyContainer properties = thing.getProperties();
-        KEPT.add(Knockdown.speedKept(kind, Knockdown.squareness(properties.has(IsoFlagType.collideN), properties.has(IsoFlagType.collideW), LOCAL.x, LOCAL.z)));
-        knockDown(vehicle, localGoingAlong(vehicle), "met");
+        try {
+            MET.add(thing);
+            KINDS.add(kind);
+            vehicle.getLinearVelocity(LOCAL);
+            PropertyContainer properties = thing.getProperties();
+            KEPT.add(Knockdown.speedKept(kind, Knockdown.squareness(properties.has(IsoFlagType.collideN), properties.has(IsoFlagType.collideW), LOCAL.x, LOCAL.z)));
+            knockDown(vehicle, localGoingAlong(vehicle), "met");
+        } finally {
+            forgetMet();
+        }
         return true;
     }
 
@@ -127,35 +131,40 @@ final class CarSmash {
         localOf(vehicle, vehicle.getX() + goingX, vehicle.getY() + goingY);
         float goingAcross = LOCAL.x, goingAlong = LOCAL.z;
         int around = (int) Math.ceil(Math.max(halfAcross, halfAlong) + Math.max(Math.abs(middle.x), Math.abs(middle.z)) + ahead + Knockdown.CLEARANCE) + 1;
-        int x0 = (int) Math.floor(vehicle.getX()), y0 = (int) Math.floor(vehicle.getY()), z = (int) Math.floor(vehicle.getZ());
-        for (int y = y0 - around; y <= y0 + around; y++) {
-            for (int x = x0 - around; x <= x0 + around; x++) {
-                IsoGridSquare square = IsoWorld.instance.currentCell.getGridSquare(x, y, z);
-                if (square == null) {
-                    continue;
-                }
-                for (int i = 0; i < square.getObjects().size(); i++) {
-                    IsoObject thing = square.getObjects().get(i);
-                    Knockdown.Kind kind = knockable(thing);
-                    if (kind == null) {
+        // Held over to the next vehicle, what one met would be pushed against and crashed into again.
+        try {
+            int x0 = (int) Math.floor(vehicle.getX()), y0 = (int) Math.floor(vehicle.getY()), z = (int) Math.floor(vehicle.getZ());
+            for (int y = y0 - around; y <= y0 + around; y++) {
+                for (int x = x0 - around; x <= x0 + around; x++) {
+                    IsoGridSquare square = IsoWorld.instance.currentCell.getGridSquare(x, y, z);
+                    if (square == null) {
                         continue;
                     }
-                    PropertyContainer properties = thing.getProperties();
-                    boolean north = properties.has(IsoFlagType.collideN), west = properties.has(IsoFlagType.collideW);
-                    boolean touched = kind == Knockdown.Kind.BARRICADE ? fills(vehicle, x, y, middle, goingAcross, goingAlong, halfAcross + Knockdown.CLEARANCE, halfAlong, ahead)
-                            : north && touches(vehicle, x, y, true, middle, goingAcross, goingAlong, halfAcross, halfAlong, ahead)
-                            || west && touches(vehicle, x, y, false, middle, goingAcross, goingAlong, halfAcross, halfAlong, ahead)
-                            || !north && !west && met(vehicle, x + 0.5f, y + 0.5f, middle, goingAcross, goingAlong, halfAcross, halfAlong, ahead);
-                    if (touched) {
-                        MET.add(thing);
-                        KINDS.add(kind);
-                        KEPT.add(Knockdown.speedKept(kind, Knockdown.squareness(north, west, goingX, goingY)));
+                    for (int i = 0; i < square.getObjects().size(); i++) {
+                        IsoObject thing = square.getObjects().get(i);
+                        Knockdown.Kind kind = knockable(thing);
+                        if (kind == null) {
+                            continue;
+                        }
+                        PropertyContainer properties = thing.getProperties();
+                        boolean north = properties.has(IsoFlagType.collideN), west = properties.has(IsoFlagType.collideW);
+                        boolean touched = kind == Knockdown.Kind.BARRICADE ? fills(vehicle, x, y, middle, goingAcross, goingAlong, halfAcross + Knockdown.CLEARANCE, halfAlong, ahead)
+                                : north && touches(vehicle, x, y, true, middle, goingAcross, goingAlong, halfAcross, halfAlong, ahead)
+                                || west && touches(vehicle, x, y, false, middle, goingAcross, goingAlong, halfAcross, halfAlong, ahead)
+                                || !north && !west && met(vehicle, x + 0.5f, y + 0.5f, middle, goingAcross, goingAlong, halfAcross, halfAlong, ahead);
+                        if (touched) {
+                            MET.add(thing);
+                            KINDS.add(kind);
+                            KEPT.add(Knockdown.speedKept(kind, Knockdown.squareness(north, west, goingX, goingY)));
+                        }
                     }
                 }
             }
-        }
-        if (!MET.isEmpty()) {
-            knockDown(vehicle, goingAlong, "ahead");
+            if (!MET.isEmpty()) {
+                knockDown(vehicle, goingAlong, "ahead");
+            }
+        } finally {
+            forgetMet();
         }
     }
 
@@ -257,6 +266,9 @@ final class CarSmash {
             Log.info(String.format(Locale.ROOT, "the vehicle keeps %.2f of its speed through %d thing(s), crash %.1f at the %s", kept, MET.size(), crash,
                     Knockdown.front(goingAlong) ? "front" : "back"));
         }
+    }
+
+    private static void forgetMet() {
         MET.clear();
         KINDS.clear();
         KEPT.clear();
