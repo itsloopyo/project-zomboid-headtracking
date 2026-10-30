@@ -35,7 +35,7 @@ import zombie.vehicles.VehiclePart;
  * modifier is held with it, so F2 to F6, its pause and speed keys, cannot be shared with it.
  * A key that does something to the player does it to every player at the screen.
  *
- * F7 takes the nearest vehicle within a few paces: mends it, bulbs included, but for a lamp a
+ * Down arrow takes the nearest vehicle within a few paces: mends it, bulbs included, but for a lamp a
  * shot broke, fills its tank, hot-wires it and sits the player in its first free seat, whatever
  * state it was found in. For looking at vehicles and driving without first finding one that runs.
  *
@@ -77,9 +77,9 @@ import zombie.vehicles.VehiclePart;
  * weakest of the game's three on the first press, the next on each press after, and round
  * again. For looking through each scope without finding one and a screwdriver.
  *
- * Numpad + and Numpad - go to the next and the last of the test scenes: see DevScenes.
+ * Right arrow and Left arrow go to the next and the last of the test scenes: see DevScenes.
  *
- * K puts the graphics mode of the view the player is in at Low, and at High on the
+ * Up arrow puts the graphics mode of the view the player is in at Low, and at High on the
  * next press, and says on the screen which: for comparing the two without stepping F9 round.
  *
  * The slash puts a flashlight in the player's left hand, charged and lit: for
@@ -88,8 +88,8 @@ import zombie.vehicles.VehiclePart;
  */
 public final class DevKeys {
     static final boolean PRESENT = true;
-    /** F7 in the key codes the game's keyboard uses. */
-    private static final int TAKE_VEHICLE_KEY = 65;
+    /** The down arrow. F7 is the mod's split screen key. */
+    private static final int TAKE_VEHICLE_KEY = 208;
     /** Pause: see FrameDump. */
     private static final int FRAME_DUMP_KEY = 197;
     private static final float TAKE_WITHIN = 5f;
@@ -233,8 +233,8 @@ public final class DevKeys {
     private static final int SCOPED_KEY = 26;
     /** The slash, beside the full stop. The right square bracket is the game's own, for its furniture panel. */
     private static final int TORCH_KEY = 53;
-    /** K, which the game's default bindings leave alone. */
-    private static final int LOW_HIGH_KEY = 37;
+    /** The up arrow. K is the game's own frame rate display. */
+    private static final int LOW_HIGH_KEY = 200;
     private static final String TORCH = "Base.HandTorch";
     private static final String RIFLE = "Base.HuntingRifle";
     private static int scope = -1;
@@ -265,7 +265,7 @@ public final class DevKeys {
         String told = null;
         if (!said) {
             said = true;
-            Log.info("development build: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 puts the clock on an hour, Backspace holds the next season of spring, summer, autumn and winter, End holds the next weather of clear, rainy, snowy and stormy, Home starts a fire where the reticle is, ; gives the next of the game's firearms, any gun held never runs dry, [ gives a hunting rifle with the next of the three scopes on it, / gives a lit flashlight, K puts the graphics at Low and High in turn, ' makes you invincible, F7 takes the nearest vehicle, Numpad + and Numpad - go to the next and the last test scene, Pause dumps the frame and the shadow maps");
+            Log.info("development build: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 puts the clock on an hour, Backspace holds the next season of spring, summer, autumn and winter, End holds the next weather of clear, rainy, snowy and stormy, Home starts a fire where the reticle is, ; gives the next of the game's firearms, any gun held never runs dry, [ gives a hunting rifle with the next of the three scopes on it, / gives a lit flashlight, Up arrow puts the graphics at Low and High in turn, ' makes you invincible, Down arrow takes the nearest vehicle, Right arrow and Left arrow go to the next and the last test scene, Pause dumps the frame and the shadow maps");
         }
         if (GameKeyboard.isKeyPressed(FRAME_DUMP_KEY)) {
             FrameDump.ask();
@@ -415,7 +415,7 @@ public final class DevKeys {
                 Tracking.setGraphicsMode(player, firstPerson, mode);
                 told = "Graphics: " + (mode == Quality.LOW ? "Low" : "High");
             }
-            Log.info("K: " + told + " for " + players.size() + " players");
+            Log.info("Up arrow: " + told + " for " + players.size() + " players");
         }
         if (GameKeyboard.isKeyPressed(TAKE_VEHICLE_KEY)) {
             for (IsoPlayer each : players) {

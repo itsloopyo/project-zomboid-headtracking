@@ -11,7 +11,7 @@ import zombie.ui.UIManager;
 
 /**
  * The test scenes of a development build, for stepping through everything a player does before a
- * release: Numpad + goes to the next and Numpad - to the one before, round and round. Each takes
+ * release: the right arrow goes to the next and the left arrow to the one before, round and round. Each takes
  * the first player to a place that has what it tests, waits for the map there to load, clears the
  * zombies round it, holds the hour and a clear sky, makes the player invincible (bar the scenes
  * that test hunger, thirst or tiredness) and able to carry any load (the game's unlimited carry, as
@@ -22,7 +22,7 @@ import zombie.ui.UIManager;
  * each and what to look for is in .lab/GAMEPLAY_DEFECTS/RUNBOOK.md.
  */
 final class DevScenes {
-    private static final int NEXT_KEY = 78, LAST_KEY = 74;
+    private static final int NEXT_KEY = 205, LAST_KEY = 203;
     /** Frames the map round a scene's place is given after its square is loaded, for the rooms and objects round it. */
     private static final int SETTLE_FRAMES = 45;
     private static final long LOAD_WITHIN_NANOS = 15_000_000_000L;
