@@ -11,7 +11,7 @@ It adds a first person view to the game, with a rebuilt world and new graphics. 
 - **No head tracker needed** - first person plays with a mouse and keyboard or a controller. Without a tracker, nothing follows your head.
 - **No microphone needed** - Talking mouths is off until you tick it, and no microphone is opened until then.
 
-Offline the mod also changes some of the game's rules: shots go through thin walls and doors, break lamps and window glass, cripple zombies' limbs and can take them off; vehicles knock down fences, street lamp posts and road barricades and drive through bushes; in the isometric view zombies show as soon as your character has a clear line to them. Each is on until you untick it in **Options > Mods > Head Tracking**. On a server these stay as the game has them, except that where players cannot hurt each other shots still go through thin walls and doors and past a tree's trunk, and zombies still show at once.
+Offline the mod also changes some of the game's rules: shots go through thin walls and doors, break lamps and window glass, blow holes in wooden doors and board fences, cripple zombies' limbs and can take them off; vehicles knock down fences, street lamp posts and road barricades and drive through bushes; in the isometric view zombies show as soon as your character has a clear line to them. Each is on until you untick it in **Options > Mods > Head Tracking**. On a server these stay as the game has them, except that where players cannot hurt each other shots still go through thin walls and doors and past a tree's trunk, and zombies still show at once.
 
 ## Features
 
@@ -40,6 +40,7 @@ Press `Delete` to switch between the isometric and first person views, on foot o
 - **Shots through walls** - offline and on servers where players cannot hurt each other, rounds pass through plasterboard, wood, doors and glass, losing damage on each. Brick, concrete, metal and barricades stop them. A broad-leaved tree stops them at its trunk, not across its whole tile.
 - **Shoot out lights** - offline, a shot breaks vehicle lamps and table, wall and street lamps.
 - **Shoot out windows** - offline, a shot breaks the glass of every shut window it goes through.
+- **Blast holes** - offline, a shotgun blast in first person whose pellets land close together on a wooden door or a board fence blows a ragged hole through it, which you can see and shoot through. Pellets that miss the hole leave marks on a door. The holes stay in your save.
 
 ### Vehicles
 
@@ -493,8 +494,8 @@ HearFromTheEye=true
 LightningBolts=true
 ; true: in first person, in Medium and High, a shot kicks up dust, chips, splinters, sparks or blood where it hits
 ; and leaves a hole. false: shots leave no mark, as in the game's own view. Shots still break lamps and glass
-; when ShotsBreakLamps and ShotsBreakGlass are on, and while either is on the mod keeps the game's code patched
-; for this.
+; and blow holes in doors and fences when ShotsBreakLamps, ShotsBreakGlass and BlastHoles are on, and while
+; any of them is on the mod keeps the game's code patched for this.
 ; Takes effect at once. When off, the mod also leaves the game's code for this unpatched from the next start.
 ShotImpacts=true
 ; true: in first person, vehicles, zombies and animals in sight are drawn even past the edge of the game's own
@@ -769,6 +770,11 @@ HiddenWallDecor=true
 ; the room's other walls say they belong, the first time the room is loaded, and those stay in your save.
 ; false: nothing is added to the save, and what was added before stays. On a server nothing is added.
 HiddenWallDecorSaved=true
+; true: offline, a shotgun blast in first person whose pellets land close together on a wooden door or a board
+; fence blows a ragged hole through it that you can see and shoot through, and the pellets that miss the hole
+; leave marks on a door. The holes stay in your save. false: shots leave doors and fences whole. On a server
+; doors and fences stay whole.
+BlastHoles=true
 ; true: in first person, sitting in a vehicle with a gun, you can fire through any part of your seat's window, and
 ; the shot breaks it. false: as in the game, the window has to be opened or broken first. On a server where
 ; players can hurt each other, the game's rule applies.

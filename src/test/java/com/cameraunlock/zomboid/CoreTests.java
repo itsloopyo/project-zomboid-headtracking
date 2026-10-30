@@ -762,10 +762,10 @@ public final class CoreTests {
             check(!part || next.contains("the mod's parts: switched off: " + row[0] + " off"), "and the log says it is off");
         }
         edit(saved.replace("FirstPersonEnabled=true", "FirstPersonEnabled=false").replace("ShotsBreakLamps=true", "ShotsBreakLamps=false")
-                .replace("ShotsBreakGlass=true", "ShotsBreakGlass=false"));
+                .replace("ShotsBreakGlass=true", "ShotsBreakGlass=false").replace("BlastHoles=true", "BlastHoles=false"));
         String next = nextStart("first-person-and-breaking-off");
         check(next.contains("left out: " + FIRST_PERSON_AND_MOUTH_SETS.replace("thunder, lamps, ", "thunder, lamps, impacts, ") + System.lineSeparator()),
-                "with first person off the impacts go too once no shot breaks lamps or glass either: " + leftOutLine(next));
+                "with first person off the impacts go too once no shot breaks lamps or glass or blows holes either: " + leftOutLine(next));
         edit(saved.replace("FirstPersonEnabled=true", "FirstPersonEnabled=false").replace("ShotsThroughWalls=true", "ShotsThroughWalls=false"));
         next = nextStart("first-person-and-walls-off");
         check(next.contains("left out: " + FIRST_PERSON_AND_MOUTH_SETS.replace("item models, ", "item models, shots through walls, ") + System.lineSeparator()),
@@ -777,8 +777,12 @@ public final class CoreTests {
                 "with first person off and TalkingMouths on the shaders and the part draw stay in for the mouths: " + leftOutLine(next));
         edit(saved.replace("ShotImpacts=true", "ShotImpacts=false").replace("ShotsBreakLamps=true", "ShotsBreakLamps=false")
                 .replace("ShotsBreakGlass=true", "ShotsBreakGlass=false"));
+        next = nextStart("impacts-and-breaking-off-holes-on");
+        check(next.contains("left out: none" + System.lineSeparator()), "with ShotImpacts off the impacts stay in while blasts blow holes: " + leftOutLine(next));
+        edit(saved.replace("ShotImpacts=true", "ShotImpacts=false").replace("ShotsBreakLamps=true", "ShotsBreakLamps=false")
+                .replace("ShotsBreakGlass=true", "ShotsBreakGlass=false").replace("BlastHoles=true", "BlastHoles=false"));
         next = nextStart("impacts-and-breaking-off");
-        check(next.contains("left out: impacts" + System.lineSeparator()), "with ShotImpacts off the impacts go once no shot breaks lamps or glass either: " + leftOutLine(next));
+        check(next.contains("left out: impacts" + System.lineSeparator()), "with ShotImpacts off the impacts go once no shot breaks lamps or glass or blows holes either: " + leftOutLine(next));
         edit(saved);
         check(nextStart("parts-on-again").contains("left out: none"), "set back, the next start has every set in again");
     }
@@ -1038,7 +1042,7 @@ public final class CoreTests {
                         + "PrepareWhileLoading SpotBySight BuildOnWorkerThreads RebuildForOwnSprites HiddenWallReadsKept BuildingFactsKept VanillaWeapons VanillaFurniture "
                         + "VanillaPictures VanillaPlants VanillaTextures VanillaBuildings VanillaZombies VanillaPeople VanillaArms VanillaClothes VanillaAnimals VanillaFire "
                         + "VanillaCabins ShotsThroughWalls ShotsBreakLamps ShotsBreakGlass ShotsWoundLimbs VehiclesSmashThrough FacesTheView ShotsPastTrees ZombiesSeenAtOnce "
-                        + "HiddenWallDecor HiddenWallDecorSaved ShotsFromVehicleSeats DriveWhileAiming HillsMoveVehicles HandLightOutAtTheWheel BurntBuildingFreezeFix CentreTheWindow "
+                        + "HiddenWallDecor HiddenWallDecorSaved BlastHoles ShotsFromVehicleSeats DriveWhileAiming HillsMoveVehicles HandLightOutAtTheWheel BurntBuildingFreezeFix CentreTheWindow "
                         + "ControllerChoiceFix TalkingMouths "),
                 "the game's options screen is given the modes, the yaw mode, the smoothing, the flashlight's turn and the mod's own rows, and no key list, "
                         + "port or microphone: " + ids);
@@ -1057,7 +1061,7 @@ public final class CoreTests {
                         + "FarTreeDistance RainOnGlass ShadingAndLight Reflections ReflectionScale FullSizeTextures SurfaceDepth SharpShadows WholeFigureShadows FrameBlending Antialiasing "
                         + "LightDistance CorpseModels [Mod content] VanillaWeapons VanillaFurniture VanillaPictures VanillaPlants VanillaTextures VanillaBuildings VanillaZombies "
                         + "VanillaPeople VanillaArms VanillaClothes VanillaAnimals VanillaFire VanillaCabins [Gameplay tweaks] ShotsThroughWalls ShotsPastTrees ShotsBreakGlass "
-                        + "ShotsBreakLamps ShotsWoundLimbs ShotsFromVehicleSeats RegripTwoHandedWeapons FacesTheView DriveWhileAiming HillsMoveVehicles VehiclesSmashThrough "
+                        + "ShotsBreakLamps BlastHoles ShotsWoundLimbs ShotsFromVehicleSeats RegripTwoHandedWeapons FacesTheView DriveWhileAiming HillsMoveVehicles VehiclesSmashThrough "
                         + "HandLightOutAtTheWheel ZombiesSeenAtOnce HiddenWallDecorSaved [Game fixes] BurntBuildingFreezeFix CentreTheWindow ControllerChoiceFix [Optimizations] "
                         + "SpreadLightUpdates CachedGameLookups SkipCoveredGameDrawing SkinsComposedWhileWaiting ChunkChangeCounts UnseenRoomZombiesUnmodelled HoldChunkMapCentre "
                         + "GraphicsMemorySteps PrepareWhileLoading SpotBySight BuildOnWorkerThreads RebuildForOwnSprites HiddenWallReadsKept BuildingFactsKept [Split screen] "

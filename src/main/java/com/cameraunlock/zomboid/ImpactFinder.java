@@ -358,7 +358,7 @@ final class ImpactFinder {
 
     /** Whether a blast by this character blows holes and leaves marks: a player's in first person, where the rule holds. */
     private static boolean blasts(IsoGameCharacter shooter) {
-        return Rules.breaksGlass() && shooter instanceof IsoPlayer player && View.of(player) != null;
+        return Rules.blastHoles() && shooter instanceof IsoPlayer player && View.of(player) != null;
     }
 
     /** The door hung on a square's north or west edge, shut, or null. */

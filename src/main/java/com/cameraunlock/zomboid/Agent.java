@@ -518,9 +518,9 @@ public final class Agent {
         splitScreen = new PatchTransformer(splitScreenPatches());
         waitingComposites = new PatchTransformer(waitingCompositePatches());
         spotting = new PatchTransformer(spottingPatches());
-        // A shot breaks lamps and glass where ImpactFinder finds it ends, in either view.
-        Supplier<String> impactsOff = () -> (Rules.rows() & (Rules.BREAKS_LAMPS | Rules.BREAKS_GLASS)) != 0 ? null
-                : also(off(Part.FIRST_PERSON, Part.SHOT_IMPACTS), "were ShotsBreakLamps and ShotsBreakGlass");
+        // A shot breaks lamps and glass, and a blast holes doors and fences, where ImpactFinder finds it ends.
+        Supplier<String> impactsOff = () -> (Rules.rows() & (Rules.BREAKS_LAMPS | Rules.BREAKS_GLASS | Rules.BLAST_HOLES)) != 0 ? null
+                : also(off(Part.FIRST_PERSON, Part.SHOT_IMPACTS), "were ShotsBreakLamps, ShotsBreakGlass and BlastHoles");
         // First person's aim counts a blast's pellets through the same patches (Hooks.hitThrough).
         Supplier<String> throughWallsOff = () -> (Rules.rows() & Rules.THROUGH_WALLS) != 0 ? null
                 : also(off(Part.FIRST_PERSON), "was ShotsThroughWalls");

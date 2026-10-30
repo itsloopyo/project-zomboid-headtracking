@@ -75,7 +75,7 @@ final class Config {
         "VanillaZombies", "VanillaPeople", "VanillaArms", "VanillaClothes", "VanillaAnimals", "VanillaFire", "VanillaCabins"};
     /** The keys of the rows of [Rules] that are not parts, in the order of Rules' bits. */
     static final String[] RULE_KEYS = {"ShotsThroughWalls", "ShotsBreakLamps", "ShotsBreakGlass", "ShotsWoundLimbs", "VehiclesSmashThrough", "FacesTheView",
-        "ShotsPastTrees", "ZombiesSeenAtOnce", "Rewind30s", "HiddenWallDecor", "HiddenWallDecorSaved"};
+        "ShotsPastTrees", "ZombiesSeenAtOnce", "Rewind30s", "HiddenWallDecor", "HiddenWallDecorSaved", "BlastHoles"};
 
     /** The keys of [Graphics], the Custom graphics mode, in the order the options screen shows them. */
     static final String[] GRAPHICS = {"TreeQuality", "GrassDensity", "GrassDistance", "RenderScale", "ViewDistance", "ZombiesAndPropsDrawDistance",
@@ -454,6 +454,12 @@ final class Config {
                     "true: offline, while HiddenWallDecor is on, those walls also get the game's own mirrors, clocks and coat racks where\n"
                             + "the room's other walls say they belong, the first time the room is loaded, and those stay in your save.\n"
                             + "false: nothing is added to the save, and what was added before stays. On a server nothing is added.",
+                    writable | live, true),
+            localBool("Rules", "BlastHoles",
+                    "true: offline, a shotgun blast in first person whose pellets land close together on a wooden door or a board\n"
+                            + "fence blows a ragged hole through it that you can see and shoot through, and the pellets that miss the hole\n"
+                            + "leave marks on a door. The holes stay in your save. false: shots leave doors and fences whole. On a server\n"
+                            + "doors and fences stay whole.",
                     writable | live, true),
         };
         describeParts("Rules");
