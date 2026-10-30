@@ -662,8 +662,9 @@ final class WallBuilder {
         boolean papered = build.overLayer == 0 && build.paperedWall && Own.textures(build.playerIndex);
         paper = papered ? Papers.of(texture, build.frame, da != 0f) : null;
         // Only a paper that was asked for is ever read, so only then is the build made again once it is.
-        if (paper == null && papered && Papers.unread(texture)) {
-            build.building.waitFor(texture);
+        Texture paperAwaited = paper == null && papered ? Papers.awaited(texture) : null;
+        if (paperAwaited != null) {
+            build.building.waitFor(paperAwaited);
         }
         // A tiled wall is its tiles, its joints and the strips between its bands, each a face of its own: see WallTiles.
         tiles = paper == null && build.overLayer == 0 && build.tiledSheet != null && Own.textures(build.playerIndex)
@@ -762,8 +763,9 @@ final class WallBuilder {
                 farPaper = Papers.of(room.texture, build.frame, room == farWall ? da != 0f : da == 0f);
                 farPaperBy = room;
                 build.frame.texelsOf(build.held);
-                if (farPaper == null && Papers.unread(room.texture)) {
-                    build.building.waitFor(room.texture);
+                Texture farAwaited = farPaper == null ? Papers.awaited(room.texture) : null;
+                if (farAwaited != null) {
+                    build.building.waitFor(farAwaited);
                 }
             }
             // A low wall in the room, the edge of a rail dock's platform, is no wall to stand whole on this side.

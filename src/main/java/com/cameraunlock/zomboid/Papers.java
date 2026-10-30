@@ -99,14 +99,17 @@ final class Papers {
         return null;
     }
 
-    /** Whether the sprite has still to be read, or a west paper's north sheetmate has. */
-    static boolean unread(Texture texture) {
+    /**
+     * The sprite still to be read before the paper is known: the sprite itself, or a west paper's north sheetmate, whose
+     * reading is answered under its own name. Null where neither waits.
+     */
+    static Texture awaited(Texture texture) {
         Paper paper = known.get(texture);
         if (paper == null) {
-            return true;
+            return texture;
         }
         Texture mate = paper == NONE || paper.north || paper.figured ? texture : mateOf(texture);
-        return mate != texture && !known.containsKey(mate);
+        return mate != texture && !known.containsKey(mate) ? mate : null;
     }
 
     /** The plain north wall that follows a west wall on its sheet (walls_interior_house_03_16, 03_17), or the texture itself for any other sprite. */
