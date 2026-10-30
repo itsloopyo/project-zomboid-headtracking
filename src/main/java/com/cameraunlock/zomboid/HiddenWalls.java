@@ -253,6 +253,39 @@ final class HiddenWalls {
         }
     }
 
+    /** A piece kept, where it is kept: kept.pieces[at]. */
+    private record Current(Kept kept, int at, Piece piece) {}
+
+    /**
+     * The pieces kept on the square's chunk that are as the chunk is now, but for the level of
+     * its square in the room's building: what hang puts on the square changes no other piece, so
+     * these are kept once it is hung, with the marks the chunk has then. ChunkMarks.things counts
+     * a chunk's every level, so without this one thing hung had every level of the chunk read again.
+     */
+    private static ArrayList<Current> unchangedBy(IsoGridSquare square, RoomDef room) {
+        ArrayList<Current> unchanged = new ArrayList<>();
+        if (PIECES.isEmpty() || !keeps()) {
+            return unchanged;
+        }
+        IsoCell cell = IsoWorld.instance.currentCell;
+        int wx = Math.floorDiv(square.getX(), CHUNK), wy = Math.floorDiv(square.getY(), CHUNK);
+        IsoChunk chunk = cell.getChunkForGridSquare(square.getX(), square.getY(), square.getZ());
+        if (chunk == null || !chunk.loaded) {
+            return unchanged;
+        }
+        Kept own = PIECES.get(room.getBuilding());
+        for (Kept kept : PIECES.values()) {
+            for (int i = 0; i < kept.pieces.length; i++) {
+                Piece piece = kept.pieces[i];
+                if (piece != null && kept.wx[i] == wx && kept.wy[i] == wy && piece.chunk() == chunk && !(kept == own && kept.z[i] == square.getZ())
+                        && piece.marks() == marksOn(wx, wy, kept.z[i])) {
+                    unchanged.add(new Current(kept, i, piece));
+                }
+            }
+        }
+        return unchanged;
+    }
+
     private static final int KEPT_BUILDINGS = 256;
     /** What is kept of the buildings read last, past KEPT_BUILDINGS the one read longest ago let go first. Logic thread. */
     private static final KeptBuildings PIECES = new KeptBuildings();
@@ -462,7 +495,7 @@ final class HiddenWalls {
      * every hundred.
      */
     private static final boolean CHECKED = Boolean.getBoolean("cameraunlock.zomboid.checkHiddenWalls");
-    private static int checks, differences, piecesNone, piecesLoading, piecesNew, piecesChanged, piecesKept;
+    private static int checks, differences, piecesNone, piecesLoading, piecesNew, piecesChanged, piecesKept, piecesCarried;
     private static long keptNanos, readNanos;
 
     private static void compared(boolean same, RoomDef room, String what, Supplier<String> how) {
@@ -473,9 +506,9 @@ final class HiddenWalls {
                     room.rects.get(0).x, room.rects.get(0).y, room.level, what, how.get()));
         }
         if (checks % 100 == 0) {
-            Log.info(String.format(Locale.ROOT, "hidden walls check: %d compared, %d differ; pieces kept %d, read %d (new %d, changed %d, loading %d), off the map %d;"
+            Log.info(String.format(Locale.ROOT, "hidden walls check: %d compared, %d differ; pieces kept %d, read %d (new %d, changed %d, loading %d), off the map %d, carried past a hang %d;"
                     + " buildings read from pieces in %.1f ms, whole in %.1f ms", checks, differences, piecesKept, piecesNew + piecesChanged + piecesLoading,
-                    piecesNew, piecesChanged, piecesLoading, piecesNone, keptNanos / 1e6, readNanos / 1e6));
+                    piecesNew, piecesChanged, piecesLoading, piecesNone, piecesCarried, keptNanos / 1e6, readNanos / 1e6));
         }
     }
 
@@ -1443,11 +1476,21 @@ final class HiddenWalls {
         if (thing.getSprite() == null) {
             throw new IllegalStateException("the game has no sprite " + name + " to hang");
         }
+        int wx = Math.floorDiv(square.getX(), CHUNK), wy = Math.floorDiv(square.getY(), CHUNK);
+        ArrayList<Current> unchanged = unchangedBy(square, room);
         square.AddTileObject(thing);
         SHOWN.remove(room.getBuilding());
         Kept kept = PIECES.get(room.getBuilding());
         if (kept != null) {
-            kept.letGo(Math.floorDiv(square.getX(), CHUNK), Math.floorDiv(square.getY(), CHUNK));
+            kept.letGo(wx, wy);
+        }
+        for (int i = 0; i < unchanged.size(); i++) {
+            Current each = unchanged.get(i);
+            Piece piece = each.piece();
+            each.kept().pieces[each.at()] = new Piece(piece.chunk(), marksOn(wx, wy, each.kept().z[each.at()]), piece.kinds(), piece.rooms(), piece.shown());
+        }
+        if (CHECKED) {
+            piecesCarried += unchanged.size();
         }
         Map<String, Integer> kinds = KINDS.get(room.getBuilding());
         if (kinds != null) {
