@@ -56,8 +56,8 @@ final class Config {
     static final String TALKING_MOUTHS = "TalkingMouths";
 
     /** The last line of a row whose patches FirstPersonEnabled also needs, saying when off is taken. */
-    private static final String BOTH_OFF = "Takes effect at once. When this and FirstPersonEnabled are both off, the mod leaves the game's code for this\n"
-            + "unpatched from the next start.";
+    private static final String BOTH_OFF = "Takes effect at once. With this and FirstPersonEnabled both off, the mod stops changing the game's own code for\n"
+            + "this from the next start.";
 
     private static final String[] LOAD_STATUS = {"read", "imported", "created", "deferred", "legacy refused", "unreadable"};
     private static final String[] SAVE_STATUS = {"saved", "not saved", "may not be saved"};
@@ -482,7 +482,7 @@ final class Config {
                         + "for \"ee\" and round for \"oo\". Online, other players' mouths move while the game's voice chat plays them, and\n"
                         + "other players with this mod see your mouth move. The sound is never recorded or sent. false: no microphone is\n"
                         + "opened. Takes effect at once, but at the next start for the people the game draws itself, as in the isometric view\n"
-                        + "at Low. When this and FirstPersonEnabled are both off, the mod leaves the game's code for this unpatched from the\n"
+                        + "at Low. With this and FirstPersonEnabled both off, the mod stops changing the game's own code for this from the\n"
                         + "next start.",
                 writable | live, false);
         for (int player = 0; player < microphones.length; player++) {

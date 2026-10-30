@@ -29,7 +29,7 @@ enum Part {
             "true: in first person, in Medium and High, a shot kicks up dust, chips, splinters, sparks or blood where it hits\n"
                     + "and leaves a hole. false: shots leave no mark, as in the game's own view. Shots still break lamps and glass\n"
                     + "and hole doors, walls and fences when ShotsBreakLamps, ShotsBreakGlass, BlastHoles and BulletHoles are on, and\n"
-                    + "while any of them is on the mod keeps the game's code patched for this."),
+                    + "while any of them is on, the mod keeps changing the game's code for this."),
     FAR_VEHICLES_AND_ZOMBIES("FirstPerson", "FarVehiclesAndZombies", true, false,
             "true: in first person, vehicles, zombies and animals in sight are drawn even past the edge of the game's own\n"
                     + "screen, and so are other players where players cannot fight. false: each is drawn only where the game's own\n"
@@ -145,8 +145,8 @@ enum Part {
     }
 
     /** The last line of the row of a part made of patches, saying when off is taken. */
-    static final String NEXT_START = "Takes effect when the game next starts. When off, the mod leaves the game's code for this unpatched.",
-            LIVE_AND_NEXT_START = "Takes effect at once. When off, the mod also leaves the game's code for this unpatched from the next start.";
+    static final String NEXT_START = "Takes effect when the game next starts. When off, the mod does not change the game's own code for this.",
+            LIVE_AND_NEXT_START = "Takes effect at once. From the next start, off also stops the mod changing the game's own code for this.";
 
     /** Whether the part is on now: as the start found it, for a part not taken while the game runs. */
     boolean on() {
