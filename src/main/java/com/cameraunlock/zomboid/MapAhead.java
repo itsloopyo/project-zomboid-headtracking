@@ -531,9 +531,10 @@ final class MapAhead {
 
     /** The cell's lotpack and traits, or null where the map has none. Logic thread. */
     private static Cell cell(int cellX, int cellY) {
-        long key = key(cellX, cellY);
-        if (cells.containsKey(key)) {
-            return cells.get(key);
+        Long key = key(cellX, cellY);
+        Cell known = cells.get(key);
+        if (known != null || cells.containsKey(key)) {
+            return known;
         }
         // As FarTrees.lot reads them: the header the game keeps for the cell, and the lotpack its loader opens.
         LotHeader header = IsoLot.getHeader(cellX, cellY);

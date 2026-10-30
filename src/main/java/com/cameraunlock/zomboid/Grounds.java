@@ -98,6 +98,9 @@ final class Grounds {
      * overlap have one footing already, their ruler's (Footings.ruler).
      */
     static void order(float[] grounds, int count) {
+        if (count < 2) {
+            return;
+        }
         float[][] each = new float[count][];
         for (int at = 0; at < count; at++) {
             each[at] = java.util.Arrays.copyOfRange(grounds, at * STRIDE, at * STRIDE + STRIDE);
