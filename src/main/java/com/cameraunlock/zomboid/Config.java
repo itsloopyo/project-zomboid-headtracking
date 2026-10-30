@@ -59,11 +59,11 @@ final class Config {
 
     /**
      * What the rows read again while the game runs hold: the field of view in degrees, Own's bits, Rules' bits,
-     * by player the Quality rows, the IsometricQuality rows as Quality modes and the Style rows, the SpreadLightUpdates row, the FirstPerson rows as a bit a player,
-     * the HillHeight row, the MuzzleFlash row, the Crosshair row, the RegripTwoHandedWeapons row, the SplitScreen row, the rows of [Graphics], the TalkingMouths row
+     * by player the Quality rows, the IsometricQuality rows as Quality modes and the Style rows, the SpreadLightUpdates row, the FirstPerson rows and the FirstPersonInVehicles
+     * rows as a bit a player, the HillHeight row, the MuzzleFlash row, the Crosshair row, the RegripTwoHandedWeapons row, the SplitScreen row, the rows of [Graphics], the TalkingMouths row
      * and each player's microphone.
      */
-    record Live(float fieldOfView, int own, int rules, int[] quality, int[] overheadQuality, int[] style, boolean spreadLightUpdates, int firstPerson, float hillHeight, boolean muzzleFlash, boolean crosshair, boolean regrip, int splitScreen,
+    record Live(float fieldOfView, int own, int rules, int[] quality, int[] overheadQuality, int[] style, boolean spreadLightUpdates, int firstPerson, int firstPersonInVehicles, float hillHeight, boolean muzzleFlash, boolean crosshair, boolean regrip, int splitScreen,
             Quality.Picture custom, boolean talkingMouths, List<String> microphones, long parts) {}
 
     /** The keys of [Content], in the order of Own's bits. */
@@ -85,7 +85,7 @@ final class Config {
     private final int fieldOfView, spreadLightUpdates, hillHeight, muzzleFlash, crosshair, regrip, splitScreen, talkingMouths;
     /** By player, the rows of their first person graphics mode, their isometric view's and their picture style. */
     private final int[] quality = new int[View.COUNT], overheadQuality = new int[View.COUNT], style = new int[View.COUNT];
-    private final int[] firstPerson = new int[View.COUNT];
+    private final int[] firstPerson = new int[View.COUNT], firstPersonInVehicles = new int[View.COUNT];
     private final int firstPersonKey, cycleQualityKey;
     /** The rows of each player's microphone, in the order of MICROPHONE_ROWS. */
     private final int[] microphones = new int[MICROPHONE_ROWS.length];
@@ -172,6 +172,10 @@ final class Config {
                 writable | live, Style.words(), Style.BLEAK.ordinal());
         firstPerson[0] = core.configLocalBool("General", "FirstPerson",
                 "true: a save loads in first person. The first person key sets it as it switches the view.", writable | live, false);
+        firstPersonInVehicles[0] = core.configLocalBool("General", "FirstPersonInVehicles",
+                "true: getting into a vehicle switches to first person and getting out switches back to the game's own view.\n"
+                        + "The first person key still switches the view at any time, and a view it chose is kept on getting out.",
+                writable | live, false);
         // Not a row of [Graphics]: it changes what the land looks like and not what the picture costs, in every graphics mode alike.
         hillHeight = core.configLocalFloat("General", "HillHeight",
                 "How high the first person hills stand: 0 is as flat as the game's map, 1 as the mod makes them, up to " + HillHeight.MOST + ".\n"
@@ -205,6 +209,8 @@ final class Config {
                     Style.words(), Style.BLEAK.ordinal());
             firstPerson[player] = core.configLocalBool("Players", PLAYER_ROW[player] + "FirstPerson", whose + "view at load, as FirstPerson.",
                     writable | live, false);
+            firstPersonInVehicles[player] = core.configLocalBool("Players", PLAYER_ROW[player] + "FirstPersonInVehicles",
+                    whose + "view in vehicles, as FirstPersonInVehicles.", writable | live, false);
         }
         Quality.Picture high = Quality.HIGH_PICTURE;
         graphics = new int[] {
@@ -442,6 +448,7 @@ final class Config {
             puts.put(overheadQualityKey(player), value -> Quality.setOverhead(whose, (int) value + Quality.LOW));
             puts.put(PLAYER_ROW[player] + "Style", value -> Style.set(whose, (int) value));
             puts.put(PLAYER_ROW[player] + "FirstPerson", value -> Tracking.firstPersonAtLoad(whose, value != 0));
+            puts.put(PLAYER_ROW[player] + "FirstPersonInVehicles", value -> Tracking.firstPersonInVehicles(whose, value != 0));
         }
         puts.put("HillHeight", value -> {
             HillHeight.set((float) value);
@@ -582,18 +589,19 @@ final class Config {
             custom[part] = part == RENDER_SCALE || part == REFLECTION_SCALE ? core.configGetFloat(graphics[part]) : core.configGetInt(graphics[part]);
         }
         int[] qualities = new int[View.COUNT], overheadQualities = new int[View.COUNT], styles = new int[View.COUNT];
-        int firstPersons = 0;
+        int firstPersons = 0, inVehicles = 0;
         for (int player = 0; player < View.COUNT; player++) {
             qualities[player] = core.configGetInt(quality[player]);
             overheadQualities[player] = core.configGetInt(overheadQuality[player]) + Quality.LOW;
             styles[player] = core.configGetInt(style[player]);
             firstPersons |= core.configGetInt(firstPerson[player]) << player;
+            inVehicles |= core.configGetInt(firstPersonInVehicles[player]) << player;
         }
         long partsOn = 0;
         for (Part part : Part.values()) {
             partsOn |= core.configGetInt(parts[part.ordinal()]) != 0 ? part.bit() : 0;
         }
-        return new Live(core.configGetFloat(fieldOfView), rows, changed, qualities, overheadQualities, styles, core.configGetInt(spreadLightUpdates) != 0, firstPersons, core.configGetFloat(hillHeight), core.configGetInt(muzzleFlash) != 0, core.configGetInt(crosshair) != 0, core.configGetInt(regrip) != 0, core.configGetInt(splitScreen), picture(custom),
+        return new Live(core.configGetFloat(fieldOfView), rows, changed, qualities, overheadQualities, styles, core.configGetInt(spreadLightUpdates) != 0, firstPersons, inVehicles, core.configGetFloat(hillHeight), core.configGetInt(muzzleFlash) != 0, core.configGetInt(crosshair) != 0, core.configGetInt(regrip) != 0, core.configGetInt(splitScreen), picture(custom),
                 core.configGetInt(talkingMouths) != 0, List.of(microphones()), partsOn);
     }
 

@@ -191,6 +191,7 @@ final class Tracking {
             Style.set(player, live.style()[player]);
         }
         firstPersonAtLoad.set(live.firstPerson());
+        firstPersonInVehicles.set(live.firstPersonInVehicles());
         HillHeight.set(live.hillHeight());
         MuzzleFlash.set(live.muzzleFlash());
         Crosshair.set(live.crosshair());
@@ -306,6 +307,7 @@ final class Tracking {
         // Only the rows the file changed: a toggle made since the file was read is saved after this reload, and kept.
         int changed = live.firstPerson() ^ was.firstPerson();
         firstPersonAtLoad.updateAndGet(bits -> bits & ~changed | live.firstPerson() & changed);
+        firstPersonInVehicles.set(live.firstPersonInVehicles());
         if (live.hillHeight() != was.hillHeight()) {
             HillHeight.set(live.hillHeight());
             Log.info(Config.FILE_NAME + " changed: hill height set to " + live.hillHeight());
@@ -891,6 +893,17 @@ final class Tracking {
 
     static void firstPersonAtLoad(int player, boolean on) {
         firstPersonAtLoad.updateAndGet(bits -> on ? bits | 1 << player : bits & ~(1 << player));
+    }
+
+    /** For each player, by their number's bit, whether getting into a vehicle and out again switches the view: the file's FirstPersonInVehicles rows. */
+    private static final AtomicInteger firstPersonInVehicles = new AtomicInteger();
+
+    static boolean firstPersonInVehicles(int player) {
+        return (firstPersonInVehicles.get() & 1 << player) != 0;
+    }
+
+    static void firstPersonInVehicles(int player, boolean on) {
+        firstPersonInVehicles.updateAndGet(bits -> on ? bits | 1 << player : bits & ~(1 << player));
     }
 
     /** The keys that switch first person, as CameraUnlock.ini names them. */

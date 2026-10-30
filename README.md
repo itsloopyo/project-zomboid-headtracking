@@ -387,6 +387,9 @@ IsometricQuality=Low
 Style=Bleak
 ; true: a save loads in first person. The first person key sets it as it switches the view.
 FirstPerson=false
+; true: getting into a vehicle switches to first person and getting out switches back to the game's own view.
+; The first person key still switches the view at any time, and a view it chose is kept on getting out.
+FirstPersonInVehicles=false
 ; How high the first person hills stand: 0 is as flat as the game's map, 1 as the mod makes them, up to 2.0.
 ; Held at 1 where players can fight.
 HillHeight=1.5
@@ -527,6 +530,8 @@ SecondPlayerIsometricQuality=Low
 SecondPlayerStyle=Bleak
 ; Player 2's view at load, as FirstPerson.
 SecondPlayerFirstPerson=false
+; Player 2's view in vehicles, as FirstPersonInVehicles.
+SecondPlayerFirstPersonInVehicles=false
 ; Player 3's first person graphics mode, as Quality.
 ThirdPlayerQuality=Automatic
 ; Player 3's isometric graphics mode, as IsometricQuality.
@@ -535,6 +540,8 @@ ThirdPlayerIsometricQuality=Low
 ThirdPlayerStyle=Bleak
 ; Player 3's view at load, as FirstPerson.
 ThirdPlayerFirstPerson=false
+; Player 3's view in vehicles, as FirstPersonInVehicles.
+ThirdPlayerFirstPersonInVehicles=false
 ; Player 4's first person graphics mode, as Quality.
 FourthPlayerQuality=Automatic
 ; Player 4's isometric graphics mode, as IsometricQuality.
@@ -543,6 +550,8 @@ FourthPlayerIsometricQuality=Low
 FourthPlayerStyle=Bleak
 ; Player 4's view at load, as FirstPerson.
 FourthPlayerFirstPerson=false
+; Player 4's view in vehicles, as FirstPersonInVehicles.
+FourthPlayerFirstPersonInVehicles=false
 
 [Graphics]
 ; Low: the game's plant sprites. Medium: the mod's trees, the game's sprites past 40 tiles.

@@ -376,6 +376,12 @@ public final class FirstPerson {
      * key is pressed.
      */
     private boolean viewAtLoadOwed = true;
+    /**
+     * Whether the player was in a vehicle at the last frame first person was allowed, and whether
+     * getting in switched the view, for FirstPersonInVehicles. Only a view switched for the vehicle
+     * is switched back on getting out: one the key chose stays.
+     */
+    private boolean wasInVehicle, switchedForVehicle;
 
     void toggle() {
         IsoPlayer player = view.player();
@@ -489,6 +495,8 @@ public final class FirstPerson {
      */
     void leftSave() {
         viewAtLoadOwed = true;
+        wasInVehicle = false;
+        switchedForVehicle = false;
         SnowPrints.forget();
         WallTiles.leftSave();
         view.heldLight.forget();
@@ -512,6 +520,8 @@ public final class FirstPerson {
             giveBack("player " + (view.index + 1) + " is gone");
         }
         viewAtLoadOwed = true;
+        wasInVehicle = false;
+        switchedForVehicle = false;
         risen = null;
         view.modeFade.giveBack("player " + (view.index + 1) + " is gone");
         // After giveBack, whose rest of the head tracking marks the view as one played in.
@@ -751,6 +761,7 @@ public final class FirstPerson {
     private void frame(int pressed) {
         if ((pressed & Config.FIRST_PERSON) != 0) {
             viewAtLoadOwed = false;
+            switchedForVehicle = false;
             if (hint != null && laterHint != null) {
                 laterHintAt = Math.min(laterHintAt, System.nanoTime() + HINT_GAP_NANOS);
             }
@@ -799,6 +810,20 @@ public final class FirstPerson {
                 if (!View.onController(player)) {
                     laterHint = "Press " + Tracking.cycleQualityKeys() + " to change graphics quality. First person and isometric each have their own settings";
                     laterHintAt = hintAt + HINT_FOR_NANOS + HINT_GAP_NANOS;
+                }
+            }
+        }
+        if (allowed && (player.getVehicle() != null) != wasInVehicle) {
+            wasInVehicle = !wasInVehicle;
+            if (wasInVehicle && !on && !gettingReady && Tracking.firstPersonInVehicles(view.index)) {
+                Log.info(who() + "got into a vehicle: first person asked for, as FirstPersonInVehicles says");
+                toggle();
+                switchedForVehicle = on || gettingReady;
+            } else if (!wasInVehicle && switchedForVehicle) {
+                switchedForVehicle = false;
+                if (on || gettingReady) {
+                    Log.info(who() + "got out of the vehicle: back to the game's own view, as FirstPersonInVehicles says");
+                    toggle();
                 }
             }
         }
