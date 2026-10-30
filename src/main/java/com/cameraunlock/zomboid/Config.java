@@ -164,7 +164,9 @@ final class Config {
         core.configConcept("PositionLimitYDown", 0, null, null);
         core.configConcept("PositionLimitZ", 0, null, null);
         core.configConcept("PositionLimitZBack", 0, null, null);
-        core.configConcept("CollisionEnabled", 0, null, null);
+        core.configConcept("CollisionEnabled", 0,
+                "true: leaning your head stops at walls instead of moving the view through them. false: the lean is not held off\n"
+                        + "walls, so leaning into one can put the view through it.", null);
         core.configConcept("CollisionMargin", 0, "How far the view is held off a wall when you lean into it, in map tiles.",
                 COLLISION_MARGIN);
         core.configConcept("CollisionReleaseSmoothing", 0, null, null);
@@ -222,8 +224,8 @@ final class Config {
                         + "can fight.",
                 writable | live, true);
         splitScreen = localEnum("General", "SplitScreen",
-                "How two players share one screen: Vertical (side by side) or Horizontal (one above the other). Takes effect at once.\n"
-                        + "With Vertical, the mod leaves the game's split screen code unpatched from the next start.",
+                "How two players share one screen: Vertical (side by side) or Horizontal (above and below). Takes effect at once.\n"
+                        + "Vertical is the game's own split screen, and from the next start the mod leaves that part of the game alone.",
                 writable | live, SplitScreen.words(), SplitScreen.VERTICAL);
         describeParts("FirstPerson");
         for (int player = 1; player < View.COUNT; player++) {
@@ -307,8 +309,8 @@ final class Config {
             localEnum("Graphics", "Antialiasing",
                     "How jagged edges are smoothed, from each frame alone: Off; Low, a quick blend across each edge; Medium, which also\n"
                             + "follows each edge to its ends so long shallow edges come out even; High, which follows them further and catches\n"
-                            + "fainter ones too. The Low, Medium and High graphics modes use Low, whose slight softening also calms FrameBlending\n"
-                            + "'s shimmer; Medium and High only touch the edges, for a sharper picture.",
+                            + "fainter ones too. The Low, Medium and High graphics modes use Low, whose slight softening also calms the shimmer\n"
+                            + "of FrameBlending; Medium and High only touch the edges, for a sharper picture.",
                     writable | live, Quality.ANTIALIASINGS, high.antialiasing()),
             localInt("Graphics", "LightDistance",
                     "How far away lamps light what is around them with light of their own, like the pool of light under a street lamp,\n"
@@ -342,7 +344,7 @@ final class Config {
                         + "player 4, or hold for every player.",
                 0, "F8", CYCLE_STYLE_TAPS, CYCLE_STYLE_ALL);
         splitScreenKey = core.configLocalHotkey("SplitScreenKey",
-                "With two players at the screen, switches between side by side and one above the other.", 0, "F7",
+                "With two players at the screen, switches between side by side and above and below.", 0, "F7",
                 SPLIT_SCREEN);
         own = new int[] {
             localBool("Content", "VanillaWeapons",
@@ -426,9 +428,9 @@ final class Config {
                     writable | live, true),
             localBool("Rules", "FacesTheView",
                     "true: walking or sneaking sideways or backwards in first person, your character keeps facing where you look, and\n"
-                            + "jogging or sprinting is straight ahead only. false: it always turns, as in the game. On a server where players\n"
-                            + "can hurt each other it keeps facing where you look when going sideways and backwards, on or off, at the slower\n"
-                            + "pace the game gives its aiming stance.",
+                            + "you jog or sprint only straight ahead or on a forward diagonal. false: it always turns, as in the game. On a\n"
+                            + "server where players can hurt each other it keeps facing where you look when going sideways and backwards, on\n"
+                            + "or off, at the slower pace the game gives its aiming stance.",
                     writable | live, true),
             localBool("Rules", "ShotsPastTrees",
                     "true: a tree stops your shots only where its trunk is drawn, and a shot past the trunk goes on. false: a tree stops\n"
