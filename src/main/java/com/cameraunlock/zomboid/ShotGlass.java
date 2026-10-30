@@ -21,7 +21,8 @@ import zombie.util.list.PZArrayList;
  * shot before the glass, and one on the far side stops it after.
  *
  * The light of a shut door's leaf the shot crosses breaks too, where Penetration lets the round
- * through it: the game keeps no glass in a door, so the mod keeps it (DoorGlass).
+ * through it: the game keeps no glass in a door, so the mod keeps it (DoorGlass). Enough of a
+ * shotgun blast's pellets through one door's lights smash its whole sash.
  */
 final class ShotGlass {
     private ShotGlass() {}
@@ -32,8 +33,8 @@ final class ShotGlass {
     private static Terrain terrain;
     private static IsoGameCharacter shooter;
     private static ViewCamera.Pose line;
-    /** Whether the shot goes through a door's lights, as Penetration lets it, and so breaks them. */
-    private static boolean lightsGive;
+    /** Whether the shot goes through a door's lights, as Penetration lets it, and so breaks them, and whether it is a pellet of a blast. */
+    private static boolean lightsGive, pellet;
 
     /**
      * How far along a line through (eyeX, eyeY) the way (wayX, wayY) it crosses the edge between
@@ -52,7 +53,9 @@ final class ShotGlass {
         terrain = land;
         shooter = by;
         line = shot;
-        lightsGive = Penetration.applies(by, by.getPrimaryHandItem() instanceof HandWeapon held ? held : null);
+        HandWeapon weapon = by.getPrimaryHandItem() instanceof HandWeapon held ? held : null;
+        lightsGive = Penetration.applies(by, weapon);
+        pellet = weapon != null && weapon.getProjectileCount() > 1;
         trace.firstBlockedEdge(cross, shot.eyeX, shot.eyeY, shot.forwardX, shot.forwardY, distance);
         cell = null;
         terrain = null;
@@ -107,7 +110,9 @@ final class ShotGlass {
                 Log.info(String.format(Locale.ROOT, "a shot crossed the door at (%d, %d), %s edge, %.3f along and %.3f levels up: %s", square.getX(), square.getY(),
                         north ? "north" : "west", along, up, !lightsGive ? "the round does not go through door glass" : light >= 0 ? "light " + light : DoorGlass.describe(object, north)));
             }
-            if (light >= 0) {
+            if (light >= 0 && pellet) {
+                DoorGlass.pellet(object, light);
+            } else if (light >= 0) {
                 DoorGlass.breakLight(object, light);
             }
             return false;

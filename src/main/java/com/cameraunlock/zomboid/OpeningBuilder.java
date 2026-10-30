@@ -452,6 +452,10 @@ final class OpeningBuilder {
         revealedTo = revealed && leaf.end >= doorwayEnd ? leaf.end : Float.NaN;
         float knob = door.handleAtEnd ? leaf.end - KNOB_IN * wide : leaf.start + KNOB_IN * wide;
         float[] bars = barsToRails(leaf);
+        // A smashed sash keeps no bars and no beads inside it, only a bead round the opening left.
+        boolean smashed = (broken & DoorGlass.SMASHED) != 0 && leaf.panes.length > 0;
+        float[] sash = smashed ? DoorGlass.sash(leaf.panes) : null;
+        float[] beads = smashed ? new float[] {sash[0], sash[1], sash[2], sash[3], 0f} : leaf.panes;
         for (int side = 0; side < 2; side++) {
             float face = (side == 0 ? 1f : -1f) * DOOR_HALF;
             float r = sideRed[side], g = sideGreen[side], b = sideBlue[side];
@@ -485,7 +489,9 @@ final class OpeningBuilder {
                     addJoinery(wood, inStart, inEnd, leaf.foot, leaf.foot + leaf.footHigh, face, r, g, b);
                 }
                 for (int bar = 0; bar < bars.length; bar += 4) {
-                    addJoinery(wood, bars[bar], bars[bar + 1], bars[bar + 2], bars[bar + 3], face, r, g, b);
+                    if (!smashed || !DoorGlass.inSash(sash, bars[bar], bars[bar + 1], bars[bar + 2], bars[bar + 3])) {
+                        addJoinery(wood, bars[bar], bars[bar + 1], bars[bar + 2], bars[bar + 3], face, r, g, b);
+                    }
                 }
             }
             // The jamb is the doorway's, not the leaf's: the line round a door E would open goes round the leaf.
@@ -505,8 +511,8 @@ final class OpeningBuilder {
                 }
             }
             // A bead of wood holds the glass in each light, standing a little proud of the face round it.
-            for (int pane = 0; pane < leaf.panes.length; pane += 5) {
-                float[] bead = bead(leaf.panes[pane], leaf.panes[pane + 1], leaf.panes[pane + 2], leaf.panes[pane + 3], leaf.start, leaf.end, leaf.foot, leaf.head);
+            for (int pane = 0; pane < beads.length; pane += 5) {
+                float[] bead = bead(beads[pane], beads[pane + 1], beads[pane + 2], beads[pane + 3], leaf.start, leaf.end, leaf.foot, leaf.head);
                 for (int at = 0; at < bead.length; at += 4) {
                     addJoinery(wood, bead[at], bead[at + 1], bead[at + 2], bead[at + 3], face + Math.signum(face) * BEAD_PROUD, r, g, b);
                 }
@@ -558,6 +564,10 @@ final class OpeningBuilder {
         edgeSide = -1;
         facePane(glass, beyond, false, da, db);
         glass.lightFlat(sideFrames[paneSide]);
+        if (smashed && panes.length > 0) {
+            float[] opening = DoorGlass.sash(panes);
+            panes = new float[] {opening[0], opening[1], opening[2], opening[3], 0f};
+        }
         for (int pane = 0; pane < panes.length; pane += 5) {
             float t0 = panes[pane], t1 = panes[pane + 1], h0 = panes[pane + 2], h1 = panes[pane + 3];
             if (panes[pane + 4] >= 1f) {
