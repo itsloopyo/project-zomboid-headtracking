@@ -6,9 +6,7 @@ public class IsoLightSwitch extends IsoObject {
     public boolean lightRoom;
     public boolean streetLight;
 
-    public boolean isActivated() {
-        return false;
-    }
+    public boolean isActivated() { throw new UnsupportedOperationException("reference stub"); }
 
     public boolean hasLightBulb() { throw new UnsupportedOperationException("reference stub"); }
     public void setBulbItemRaw(String item) { throw new UnsupportedOperationException("reference stub"); }

@@ -7,8 +7,10 @@ Run headless with Blender 4.4, from the repository root:
 It writes src/main/resources/models/furniture.bin.gz and prints each model's
 triangle count and bounds. Every model is made here from nothing but the
 figures of the gallery's sculpture, which sculpture.py carves into
-sculpture.bin.gz beside this script: no mesh, texture or measurement is read
-from the game.
+sculpture.bin.gz beside this script: no mesh or texture is read from the game.
+Where a model has to stand where the game's sprite of it is drawn, and be as
+big, its sizes were measured off that sprite, and only those numbers are kept
+here.
 
 Every model is made twice. The whole one is what is seen from near. The plain
 one leaves out what is narrower than PLAIN_DETAIL, and the file says how far

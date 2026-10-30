@@ -1,7 +1,7 @@
 # Third-Party Notices
 
-ProjectZomboidHeadTracking.jar holds this project's own classes, four of which
-carry the pieces of shader code listed under Shader code below, and
+ProjectZomboidHeadTracking.jar holds this project's own classes, six of which
+carry the pieces of code listed under Shader code below, and
 cameraunlock-core: its Java classes, and its C++ compiled to WebAssembly and
 from there to Java classes, with the C and C++ runtimes compiled into that and
 the Endive classes it runs on. The release has no native file. The components
@@ -9,8 +9,15 @@ below are what the jar carries, links against at run time, or interoperates
 with. Each remains the property of its authors and is used under
 its own licence.
 
-This repository and its release ZIP contain no Project Zomboid code, no
-extracted assets and no data files. The files under `stubs/` are signature-only
+This repository and its release ZIP contain no Project Zomboid code and none of
+the game's files. Two kinds of picture in them are made from the game, and each
+is listed below with the Indie Stone Terms it is used under: pictures staged and
+shot inside the game (Pictures shot in Project Zomboid, Project Zomboid
+footage), and the stained glass, redrawn from the game's sprites of its church
+windows (Stained glass windows). Where a model of the mod's is sized or placed to
+match the game's model or sprite of the same thing, only those measurements are
+kept, as numbers in the script that builds it, and the model's section says so.
+The files under `stubs/` are signature-only
 stand-ins written for this project: each lists the class and member names the
 agent calls, with the signatures the game's classes and LWJGL's declare, and
 has no body beyond a throw and no value of the game's: a constant the agent
@@ -2157,8 +2164,17 @@ itself. No mesh or texture of Project Zomboid's is read.
 - **Bundled:** yes.
 
 Every model is built from nothing by `tools/models/furniture.py` in this
-repository, a Blender script. No mesh, texture or measurement is read from
-Project Zomboid or from anywhere else.
+repository, a Blender script. No mesh or texture is read from Project Zomboid or
+from anywhere else. So that a model stands where the game's sprite of the same
+thing is drawn, and is as big, the sizes and places of many of them (fences,
+awnings, signs, a lectern, arcade cabinets, sports equipment and others) were
+measured off the game's sprites; only those numbers are kept, in the script.
+A few, among them the vending machine's window, the ice chest's front, the flag,
+the stop and warning signs and the first aid case, are drawn in the game with
+the game's own sprite of the thing laid over them, read from the player's
+installed copy as the game runs. No picture of the game's is in the file or in
+this repository. The gallery's busts and statues are under Gallery sculpture
+above.
 
 ---
 
@@ -2199,8 +2215,8 @@ drawn are in the textures; no font file is bundled.
 
 ## Shader code
 
-The jar's shaders are this project's own, with three exceptions. All three are in
-the jar as shader source text.
+The jar's shaders are this project's own, with four exceptions. All four are in
+the jar as shader source text, and the last is also written out in Java.
 
 ### Hash without Sine
 
@@ -2320,6 +2336,35 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+### Permutation hash of webgl-noise
+
+- **Where:** `cloudPermute` and `cloudGrain` in the `CLOUD_SHADOWS` shader of `PipelineShaders.java`, which are that work's `permute` and its `mod289`, and the same two written out in Java in `SkyState.java`, so that the mod knows where the shader puts the clouds' shadows
+- **License:** MIT
+- **Upstream:** https://github.com/stegu/webgl-noise (first published at https://github.com/ashima/webgl-noise)
+- **Usage:** Gives each cell of the clouds' shadows on the ground a value, which the shader blends from cell to cell.
+- **Bundled:** yes, changed: the names are this project's, and the permutation is used on single numbers as a hash rather than inside that work's noise.
+
+Copyright (C) 2011 by Ashima Arts (Simplex noise)
+Copyright (C) 2011-2016 by Stefan Gustavson (Classic noise and others)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
 
 ### Acknowledgements
 

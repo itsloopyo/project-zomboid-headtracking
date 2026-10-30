@@ -607,7 +607,9 @@ final class SkyState {
     /**
      * A cell's value, 0 to 1, as the shader's cloudGrain: a permutation of whole numbers under 289,
      * each step of which a float holds exactly. The shader's mod is not tested against this on a
-     * graphics card; it may differ where a step lands on a multiple of 289 itself.
+     * graphics card; it may differ where a step lands on a multiple of 289 itself. cloudPermute
+     * and mod289 are those of webgl-noise (https://github.com/stegu/webgl-noise, MIT, Copyright (C)
+     * 2011 Ashima Arts and 2011-2016 Stefan Gustavson): see THIRD-PARTY-NOTICES.md.
      */
     static float cloudGrain(float cellX, float cellY) {
         return cloudPermute(cloudPermute(mod289(cellX)) + mod289(cellY)) / 289f;

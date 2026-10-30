@@ -452,7 +452,7 @@ final class CentreUse {
                 continue;
             }
             // A microwave, a lamp or a plant on a counter is taller than anything put down on it, and a sink let into a
-            // counter tops out with the counter, as the game's own top for it (getSurfaceOffsetNoTable) does.
+            // counter tops out with the counter, at the game's own top for it.
             int surface = properties == null ? 0 : Surfaces.surface(properties);
             boolean onAnother = properties != null && properties.has("IsTableTop") || object.getRenderYOffset() > 0f;
             if (onAnother && !hung(properties) && (surface <= 0 || object.getContainer() != null || clickedThoughEmpty(object))) {
@@ -462,7 +462,7 @@ final class CentreUse {
             if (surface <= 0 || hung(properties)) {
                 return Float.POSITIVE_INFINITY;
             }
-            float pixels = surface + object.getRenderYOffset() + Surfaces.itemHeight(properties);
+            float pixels = Surfaces.topNoTable(object);
             top = Math.max(top, pixels / WorldScene.SURFACE_PIXELS_PER_LEVEL * ViewCamera.LEVEL_HEIGHT);
         }
         return appliance ? top + APPLIANCE_TALL : top;

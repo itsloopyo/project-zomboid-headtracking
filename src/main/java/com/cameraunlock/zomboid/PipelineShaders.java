@@ -98,7 +98,9 @@ final class PipelineShaders {
      * shadow lies over it. A cell's value is a permutation of whole numbers under 289, which the
      * Java side works out too (SkyState.cloudGrain), where the sine of a large number the ground's
      * other noise hashes by turns on how a card rounds it. A card's mod is not exact at a multiple
-     * of 289, so the two may still differ there.
+     * of 289, so the two may still differ there. cloudPermute is the permute of webgl-noise
+     * (https://github.com/stegu/webgl-noise, MIT, Copyright (C) 2011 Ashima Arts and 2011-2016
+     * Stefan Gustavson): see THIRD-PARTY-NOTICES.md.
      */
     static final String CLOUD_SHADOWS = String.format(Locale.ROOT, """
             float cloudPermute(float x) {

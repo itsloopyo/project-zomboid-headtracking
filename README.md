@@ -837,7 +837,7 @@ pixi run package
 
 Thanks to [The Indie Stone](https://theindiestone.com) for Project Zomboid, and to [OpenTrack](https://github.com/opentrack/opentrack) for the UDP tracking protocol.
 
-The pictures the mod hangs on walls and shows on televisions are screenshots taken inside Project Zomboid. Thanks to The Indie Stone for creating Project Zomboid (https://projectzomboid.com/), which made this possible. This is an unofficial fan production for non-commercial purposes made under the [Indie Stone Terms](https://projectzomboid.com/blog/support/terms-conditions/).
+The pictures the mod hangs on walls and shows on televisions are screenshots taken inside Project Zomboid, and its stained glass windows are redrawn from the game's own. Thanks to The Indie Stone for creating Project Zomboid (https://projectzomboid.com/), which made this possible. This is an unofficial fan production for non-commercial purposes made under the [Indie Stone Terms](https://projectzomboid.com/blog/support/terms-conditions/).
 
 ## Disclaimer
 

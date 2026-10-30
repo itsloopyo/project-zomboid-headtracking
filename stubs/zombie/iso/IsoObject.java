@@ -15,6 +15,7 @@ public class IsoObject {
     public static IsoObject getNew(IsoGridSquare square, String spriteName, String name, boolean shareTextureInstance) { throw new UnsupportedOperationException("reference stub"); }
     public IsoDirections getDir() { throw new UnsupportedOperationException("reference stub"); }
     public float getRenderYOffset() { throw new UnsupportedOperationException("reference stub"); }
+    public float getSurfaceOffsetNoTable() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.inventory.ItemContainer getContainer() { throw new UnsupportedOperationException("reference stub"); }
     public int getContainerCount() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.inventory.ItemContainer getContainerByIndex(int index) { throw new UnsupportedOperationException("reference stub"); }

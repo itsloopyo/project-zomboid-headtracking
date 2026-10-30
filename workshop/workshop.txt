@@ -80,8 +80,8 @@ description=[*] Enable both in the game's Mods menu and restart the game.
 description=[*] With ZombieBuddy's default settings, it asks you to approve this mod's Java code the first time and after each update.
 description=[/list]
 description=
-description=[b]Credits:[/b] the MakeHuman mesh of MPFB (CC0), Z-Image Turbo, Stable Diffusion XL, Endive, wasi-libc, LLVM libc++, shaders by David Hoskins, Matt DesLauriers, Armin Ronacher and MJP. [url=https://github.com/itsloopyo/project-zomboid-headtracking/blob/main/THIRD-PARTY-NOTICES.md]Licences[/url]
+description=[b]Credits:[/b] the MakeHuman mesh of MPFB (CC0), Z-Image Turbo, Stable Diffusion XL, Endive, wasi-libc, LLVM libc++, shaders by David Hoskins, Matt DesLauriers, Armin Ronacher, MJP, Ashima Arts and Stefan Gustavson. [url=https://github.com/itsloopyo/project-zomboid-headtracking/blob/main/THIRD-PARTY-NOTICES.md]Licences[/url]
 description=
-description=The pictures on walls and televisions are screenshots taken inside Project Zomboid. Thanks to The Indie Stone for creating Project Zomboid (https://projectzomboid.com/), which made this possible. This is an unofficial fan production for non-commercial purposes made under the [url=https://projectzomboid.com/blog/support/terms-conditions/]Indie Stone Terms[/url], not affiliated with or endorsed by The Indie Stone.
+description=The pictures on walls and televisions are screenshots taken inside Project Zomboid, and the stained glass windows are redrawn from the game's own. Thanks to The Indie Stone for creating Project Zomboid (https://projectzomboid.com/), which made this possible. This is an unofficial fan production for non-commercial purposes made under the [url=https://projectzomboid.com/blog/support/terms-conditions/]Indie Stone Terms[/url], not affiliated with or endorsed by The Indie Stone.
 tags=Build 42
 visibility=private

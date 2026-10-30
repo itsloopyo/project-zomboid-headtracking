@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import zombie.core.properties.PropertyContainer;
+import zombie.iso.IsoObject;
 
 /**
  * The surface a sprite's properties give, asked of the game one build at a time. The game works
@@ -31,6 +32,13 @@ final class Surfaces {
     static int itemHeight(PropertyContainer properties) {
         synchronized (ASKING) {
             return properties.getItemHeight();
+        }
+    }
+
+    /** IsoObject.getSurfaceOffsetNoTable: the top of what an object stands on, in the game's pixels. */
+    static float topNoTable(IsoObject object) {
+        synchronized (ASKING) {
+            return object.getSurfaceOffsetNoTable();
         }
     }
 }
