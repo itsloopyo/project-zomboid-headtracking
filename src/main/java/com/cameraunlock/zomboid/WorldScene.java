@@ -576,6 +576,12 @@ final class WorldScene {
          */
         void waitFor(Object unread) {
             signed = false;
+            // A wall's grime or a road's paint is the same sprite square after square: each is listed once.
+            for (int i = 0; i < waitCount; i++) {
+                if (waits[i].equals(unread)) {
+                    return;
+                }
+            }
             if (waitCount == waits.length) {
                 waits = Arrays.copyOf(waits, waitCount * 2);
             }
