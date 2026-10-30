@@ -663,6 +663,17 @@ public final class FirstPerson {
         view.controls.frame();
         try {
             frame(pressed);
+            // After the frame is built, never between the game's draw of the world and the build: the
+            // development keys take zombies off the map and move the players, and the frame's figures
+            // are the models the game has just drawn, whose light it gathers from the characters the
+            // game holds (FigureLights.gather). A zombie taken off in between is drawn and has none.
+            if (view.hasMouse()) {
+                String told = DevKeys.poll();
+                if (told != null) {
+                    said = told;
+                    saidAt = System.nanoTime();
+                }
+            }
             // Over the world and under what the game draws over it, as the picture before was taken.
             view.modeFade.frame(gettingReady || overheadWaited || on && view.pipeline.contentWaited());
             if (Tracking.graphicsModeOwed(view.index)) {
@@ -759,13 +770,6 @@ public final class FirstPerson {
         if ((pressed & Config.AIM_MODE) != 0) {
             said = Tracking.aimModeLabel();
             saidAt = System.nanoTime();
-        }
-        if (view.hasMouse()) {
-            String told = DevKeys.poll();
-            if (told != null) {
-                said = told;
-                saidAt = System.nanoTime();
-            }
         }
         if ((pressed & Config.CYCLE_QUALITY) != 0) {
             said = view.pipeline.failure() != null ? cannotBeDrawn() : Quality.said(view.index);
