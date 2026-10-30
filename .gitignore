@@ -36,3 +36,4 @@ __pycache__/
 
 # The block-compression encoder tools/textures/compress.py fetches
 tools/textures/.encoder/
+ProjectZomboidHeadTracking*.log
