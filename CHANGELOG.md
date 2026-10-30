@@ -14,7 +14,7 @@
 - A Grass distance slider under Custom graphics (`[Graphics] GrassDistance`): how far from you lawns are grown blade by blade in first person, from 8 to 48 tiles. Medium and High grow them to 16 tiles. Long grass is not affected.
 - A shotgun blast in first person whose pellets land close together on a wooden door or a board fence blows a ragged hole through it, which you can see and shoot through, and stray pellets leave marks on a door. The holes stay in your save. Offline only, and `[Rules] BlastHoles=false` turns it off.
 - Head tracking turns Project Viewpoint's camera when that mod runs alongside this one: yaw, pitch and roll, not the lean.
-- `[Graphics] Antialiasing` (`Off`, `Low`, `Medium` or `High`) smooths jagged edges in first person from each frame alone, with no blending of frames. `Low` is the quick edge blend the mod has always used. `Medium` and `High` also follow each edge to its ends, so long shallow edges such as roof lines and wall tops come out as an even slope instead of steps, and `High` finds fainter edges too. The Low, Medium and High graphics modes use the level of the same name.
+- `[Graphics] Antialiasing` (`Off`, `Low`, `Medium` or `High`) smooths jagged edges in first person from each frame alone, with no blending of frames. `Low` is the quick edge blend the mod has always used. `Medium` and `High` also follow each edge to its ends, so long shallow edges such as roof lines and wall tops come out as an even slope instead of steps, and `High` finds fainter edges too. Every graphics mode uses `Low`, which with the frame blending of Medium and High gives a slightly soft, steady picture; `Medium` and `High` are for a sharper picture, mostly with `FrameBlending=false`.
 
 ### Changed
 
@@ -31,7 +31,6 @@
 - Driving through open country runs faster in first person, with about a fifth more frames a second on the road out of Muldraugh: working out the ground's heights as the map loads takes far less time.
 - Containers in places the save has not seen yet are filled with less work: an item the game looks up by name is found once and handed back until its scripts change. What each container gets is unchanged.
 - Fewer stutters when new people come into view: their clothes are put together while the frame waits for the game, and no longer hold up the frame they are drawn in. They look the same as before.
-- Frame blending is off in every graphics mode: each frame is drawn on its own, without the one before mixed in, and edges are a little harder. `Custom` with `[Graphics] FrameBlending=true` turns it back on.
 - On a server where players cannot hurt each other, your character keeps facing where you look when walking sideways or backwards (`FacesTheView`), and zombies show at once in the isometric view (`ZombiesSeenAtOnce`), as they do offline.
 - On a server where players can hurt each other, walking sideways or backwards in first person keeps your character facing where you look, in the game's aiming stance at that stance's own pace, whatever `FacesTheView` says. Other players see it face the way you are looking, not its back. Jogging or sprinting that way, it walks.
 - On a server where players cannot hurt each other, first person shots go on through thin walls and doors (`ShotsThroughWalls`) and past a tree's trunk (`ShotsPastTrees`), as they do offline.

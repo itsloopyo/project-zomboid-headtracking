@@ -300,12 +300,14 @@ final class Config {
                             + " tiles only\ntheir bodies do, which costs less in a crowd.",
                     writable | live, high.wholeFigureShadows()),
             localBool("Graphics", "FrameBlending",
-                    "true: each frame is blended with the one before, for smoother edges and leaves and a slightly softer picture.",
+                    "true: each frame is blended with the ones before it (temporal anti-aliasing), which smooths grass, leaves and fine\n"
+                            + "edges that Antialiasing alone cannot, for a slightly softer picture. Medium and High use it.",
                     writable | live, high.frameBlending()),
             localEnum("Graphics", "Antialiasing",
                     "How jagged edges are smoothed, from each frame alone: Off; Low, a quick blend across each edge; Medium, which also\n"
                             + "follows each edge to its ends so long shallow edges come out even; High, which follows them further and catches\n"
-                            + "fainter ones too. The Low, Medium and High graphics modes each use the level of the same name.",
+                            + "fainter ones too. The Low, Medium and High graphics modes use Low, whose slight softening also calms FrameBlending\n"
+                            + "'s shimmer; Medium and High only touch the edges, for a sharper picture.",
                     writable | live, Quality.ANTIALIASINGS, high.antialiasing()),
             localInt("Graphics", "LightDistance",
                     "How far away lamps light what is around them with light of their own, like the pool of light under a street lamp,\n"

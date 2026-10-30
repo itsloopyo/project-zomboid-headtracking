@@ -605,12 +605,14 @@ SharpShadows=true
 ; true: what people and zombies wear and carry casts a shadow at any distance. false: past 4 tiles only
 ; their bodies do, which costs less in a crowd.
 WholeFigureShadows=true
-; true: each frame is blended with the one before, for smoother edges and leaves and a slightly softer picture.
-FrameBlending=false
+; true: each frame is blended with the ones before it (temporal anti-aliasing), which smooths grass, leaves and fine
+; edges that Antialiasing alone cannot, for a slightly softer picture. Medium and High use it.
+FrameBlending=true
 ; How jagged edges are smoothed, from each frame alone: Off; Low, a quick blend across each edge; Medium, which also
 ; follows each edge to its ends so long shallow edges come out even; High, which follows them further and catches
-; fainter ones too. The Low, Medium and High graphics modes each use the level of the same name.
-Antialiasing=High
+; fainter ones too. The Low, Medium and High graphics modes use Low, whose slight softening also calms FrameBlending
+; 's shimmer; Medium and High only touch the edges, for a sharper picture.
+Antialiasing=Low
 ; How far away lamps light what is around them with light of their own, like the pool of light under a street lamp,
 ; in tiles: 0 (the game's light only) to 80. Past that, lamps light the ground as the game does.
 LightDistance=60
