@@ -125,7 +125,9 @@ final class Config {
                     "UDP port for player " + (i + 2) + "'s tracker (OpenTrack protocol). Each player needs their own.",
                     0, SECOND_PLAYER_PORT + i, 1, 65535);
         }
-        core.configConcept("EnableOnStartup", 0, "true: head tracking is on when the game starts. false: it is off. No key turns it on or off.", null);
+        core.configConcept("EnableOnStartup", writable,
+                "true: head tracking is on. false: it is off. Taken at once from the options screen, and as the game starts. No key turns it\n"
+                        + "on or off.", null);
         core.configConcept("WorldSpaceYaw", writable, null, null);
         core.configConcept("RotationEnabled", writable, null, null);
         core.configConcept("DataFreshnessMs", 0, null, null);

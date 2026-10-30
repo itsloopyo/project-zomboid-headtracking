@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 import se.krka.kahlua.vm.JavaFunction;
 import se.krka.kahlua.vm.KahluaTable;
 import se.krka.kahlua.vm.LuaCallFrame;
@@ -22,12 +23,10 @@ import zombie.ui.UIManager;
  * Each player's microphone is a name and no option of core's: the page lists the microphones
  * connected as it opens, for each player, below the settings.
  *
- * A list and a button head the page. The list, Everything, turns every switch of the mod on
- * (Tracking.everythingOn) or everything but head tracking and talking mouths off
- * (Tracking.everythingOff) as a line is chosen, and shows which of the two the settings hold, or
- * As set below where they hold neither. The button turns first person on, or off with the
- * isometric view at the game's own picture (Tracking.firstPersonAndIsometric). Each is taken and
- * saved at once.
+ * Six lists head the page, each setting a class of the settings below together as a line is
+ * chosen: Everything, Head tracking, First person, Enhanced graphics, Gameplay tweaks and
+ * Optimizations (Tracking.everything and the rest). Each shows the line the settings hold, or As
+ * set below where they hold none. Each is taken and saved at once.
  *
  * The game saves what its mod page shows in a file of its own, ModOptions.ini, and reads that
  * back when it builds the page. The mod never takes a value from there: the controls are filled
@@ -83,21 +82,49 @@ final class OptionsPage {
     private static final String MICROPHONE_TIP = "Read for Talking mouths alone, and only for how loud it is.";
 
     private static final JavaFunction OPENED = OptionsPage::opened, APPLIED = OptionsPage::applied,
-            BOTH_VIEWS_PRESSED = OptionsPage::bothViewsPressed, EVERYTHING_CHOSEN = OptionsPage::everythingChosen;
+            CLASS_CHOSEN = OptionsPage::classChosen;
 
-    private static final String BOTH_VIEWS_TIP = "On, first person, with the isometric view's graphics mode left as it is. "
-            + "Off, first person off and the isometric view at Low, the game's own picture, for every player. Taken at once and saved.",
-            EVERYTHING_TIP = "On: every part, rule, fix and optimization of the mod on, its own content, and first person's graphics at Automatic. "
-            + "Off: all of those off, with the game's own content, isometric picture and split screen, so only head tracking and talking mouths are left as they are. "
-            + "Taken at once and saved; what is read as the game starts follows from the next start. As set below: the settings hold neither.";
-    /** The Everything list's lines, in order: the settings as they are, everything on, everything but head tracking and talking mouths off. */
-    private static final String[] EVERYTHING_LINES = {"As set below", "On", "Off"};
-    private static final int AS_SET = 1, ALL_ON = 2, ALL_OFF = 3;
+    /** Said under each list at the top of the page. */
+    private static final String TAKEN = " Taken at once and saved; a row read only as the game starts follows from the next start. "
+            + "As set below: the settings below hold none of these.";
 
-    /** The game's Lua table for the button that turns first person and the isometric graphics on or off together. */
-    private static KahluaTable bothViews;
-    /** The game's Lua table for the Everything list. */
-    private static KahluaTable everything;
+    /**
+     * A list at the top of the page: its id and label, its tooltip, and its lines after the first,
+     * As set below, each with the settings it sets.
+     */
+    private record ClassList(String id, String label, String tip, String[] lines, List<Supplier<Map<String, Double>>> sets) {}
+
+    private static final List<ClassList> CLASS_LISTS = List.of(
+            new ClassList("Everything", "Everything",
+                    "On: head tracking, first person, enhanced graphics, gameplay tweaks and optimizations, each on. Off: each off. "
+                            + "Talking mouths, which listens to your microphone, is left as it is." + TAKEN,
+                    new String[] {"On", "Off"}, List.of(() -> Tracking.everything(true), () -> Tracking.everything(false))),
+            new ClassList("HeadTracking", "Head tracking",
+                    "On: your tracker turns the view in first person and your character's head in the isometric view. Off: neither." + TAKEN,
+                    new String[] {"On", "Off"}, List.of(() -> Tracking.headTracking(true), () -> Tracking.headTracking(false))),
+            new ClassList("FirstPersonUse", "First person",
+                    "On: the first person view, with the view each player loads in as set below. "
+                            + "In vehicles: every player loads in the isometric view, and goes to first person on getting into a vehicle and back on getting out. "
+                            + "Off: no first person view." + TAKEN,
+                    new String[] {"On", "In vehicles", "Off"},
+                    List.of(() -> Tracking.firstPersonUse(Tracking.FIRST_PERSON_ON), () -> Tracking.firstPersonUse(Tracking.FIRST_PERSON_IN_VEHICLES),
+                            () -> Tracking.firstPersonUse(Tracking.FIRST_PERSON_OFF))),
+            new ClassList("EnhancedGraphics", "Enhanced graphics",
+                    "On: the mod's own content, lightning, shot impacts, far vehicles and zombies, items as models, finer skins and the muzzle flash, "
+                            + "first person's graphics at Automatic and the isometric view at High. "
+                            + "Off: the game's own content, those off, first person's graphics at Low and the isometric view at Low, the game's own picture." + TAKEN,
+                    new String[] {"On", "Off"}, List.of(() -> Tracking.enhancedGraphics(true), () -> Tracking.enhancedGraphics(false))),
+            new ClassList("GameplayTweaks", "Gameplay tweaks",
+                    "On or off together: the offline rules but Rewind30s, the game fixes, the torch following your head, hearing from your eyes, "
+                            + "quick ragdolls, the hit flinch, the head led view when down, name tags at heads, the crosshair and the regrip. "
+                            + "Off also puts back the game's own split screen." + TAKEN,
+                    new String[] {"On", "Off"}, List.of(() -> Tracking.gameplayTweaks(true), () -> Tracking.gameplayTweaks(false))),
+            new ClassList("OptimizationsAll", "Optimizations",
+                    "On or off together: every row under Optimizations below." + TAKEN,
+                    new String[] {"On", "Off"}, List.of(() -> Tracking.optimizations(true), () -> Tracking.optimizations(false))));
+
+    /** The game's Lua tables for the lists at the top of the page, in CLASS_LISTS order. */
+    private static List<KahluaTable> classTables = List.of();
 
     private static List<Control> controls = List.of();
     private static List<MicrophoneList> microphones = List.of();
@@ -138,13 +165,17 @@ final class OptionsPage {
         }
         int[][] layout = OptionsLayout.of(OptionsLayout.PAGE, options);
         KahluaTable section = (KahluaTable) call(modOptions, "create", SECTION, HEADING);
-        KahluaTable whole = (KahluaTable) call(section, "addComboBox", "Everything", "Everything but head tracking and talking mouths", EVERYTHING_TIP);
-        for (String line : EVERYTHING_LINES) {
-            call(whole, "addItem", line, false);
+        List<KahluaTable> lists = new ArrayList<>();
+        for (ClassList list : CLASS_LISTS) {
+            KahluaTable table = (KahluaTable) call(section, "addComboBox", list.id(), list.label(), list.tip());
+            call(table, "addItem", "As set below", false);
+            for (String line : list.lines()) {
+                call(table, "addItem", line, false);
+            }
+            // The game calls a list's onChange as soon as another line is chosen, before the screen is applied.
+            table.rawset("onChange", CLASS_CHOSEN);
+            lists.add(table);
         }
-        // The game calls a list's onChange as soon as another line is chosen, before the screen is applied.
-        whole.rawset("onChange", EVERYTHING_CHOSEN);
-        KahluaTable both = (KahluaTable) call(section, "addButton", "FirstPersonAndIsometric", bothViewsTitle(), BOTH_VIEWS_TIP, BOTH_VIEWS_PRESSED);
         List<Control> made = new ArrayList<>();
         for (int group = 0; group < OptionsLayout.PAGE.length; group++) {
             call(section, "addTitle", OptionsLayout.PAGE[group].title());
@@ -154,25 +185,24 @@ final class OptionsPage {
                 made.add(control);
             }
         }
-        List<MicrophoneList> lists = new ArrayList<>();
+        List<MicrophoneList> microphoneLists = new ArrayList<>();
         for (int player = 0; player < Config.MICROPHONE_ROWS.length; player++) {
             KahluaTable table = (KahluaTable) call(section, "addComboBox", Config.MICROPHONE_ROWS[player],
                     player == 0 ? "Microphone" : "Player " + (player + 1) + "'s microphone",
                     MICROPHONE_TIP);
             MicrophoneList list = new MicrophoneList(player, table);
             list(list, Tracking.microphones().get(player));
-            lists.add(list);
+            microphoneLists.add(list);
         }
         filled = false;
         section.rawset("apply", APPLIED);
         gameOpens = screen.rawget("toUI");
         screen.rawset("toUI", OPENED);
         controls = made;
-        microphones = lists;
-        bothViews = both;
-        everything = whole;
-        showEverything();
-        Log.info("the game's options screen has " + made.size() + " of the mod's settings and " + lists.size() + " lists of microphones under "
+        microphones = microphoneLists;
+        classTables = lists;
+        showClasses();
+        Log.info("the game's options screen has " + made.size() + " of the mod's settings and " + microphoneLists.size() + " lists of microphones under "
                 + HEADING);
     }
 
@@ -180,7 +210,7 @@ final class OptionsPage {
         double value = Tracking.optionValue(option);
         switch (described.kind) {
             case CameraUnlock.OPTION_BOOL -> {
-                Object table = call(section, "addTickBox", described.id, described.label, value != 0, described.comment);
+                Object table = call(section, "addTickBox", described.id, label(described), value != 0, described.comment);
                 return new Control(option, described, (KahluaTable) table, null);
             }
             case CameraUnlock.OPTION_INT, CameraUnlock.OPTION_FLOAT -> {
@@ -199,6 +229,11 @@ final class OptionsPage {
             }
             default -> throw new IllegalStateException(described.id + " is of kind " + described.kind + ", which the page has no control for");
         }
+    }
+
+    /** A tick box's label: core's, read off the row's key, but for EnableOnStartup, which the page takes at once and not only as the game starts. */
+    private static String label(CameraUnlock.Option described) {
+        return described.id.equals("EnableOnStartup") ? "Head tracking on" : described.label;
     }
 
     private static int[] everyChoice(CameraUnlock.Option described) {
@@ -222,8 +257,7 @@ final class OptionsPage {
             for (MicrophoneList list : microphones) {
                 list(list, Tracking.microphones().get(list.player));
             }
-            title();
-            showEverything();
+            showClasses();
             filled = true;
         } catch (RuntimeException failure) {
             // Thrown on, it would stop the game's options screen from opening.
@@ -235,9 +269,11 @@ final class OptionsPage {
             throw new IllegalStateException("the game's MainOptions.toUI failed: " + Arrays.toString(ran));
         }
         try {
-            KahluaTable tip = LuaManager.platform.newTable();
-            tip.rawset("defaultTooltip", EVERYTHING_TIP);
-            call((KahluaTable) everything.rawget("element"), "setToolTipMap", tip);
+            for (int list = 0; list < CLASS_LISTS.size(); list++) {
+                KahluaTable tip = LuaManager.platform.newTable();
+                tip.rawset("defaultTooltip", CLASS_LISTS.get(list).tip());
+                call((KahluaTable) classTables.get(list).rawget("element"), "setToolTipMap", tip);
+            }
             for (Control control : controls) {
                 KahluaTable element = (KahluaTable) control.table.rawget("element");
                 if (control.values != null) {
@@ -422,62 +458,54 @@ final class OptionsPage {
             }
         }
         try {
-            showEverything();
+            showClasses();
         } catch (RuntimeException failure) {
-            Log.error("the Everything list on the game's options screen was not set to what the settings hold", failure);
+            Log.error("the lists at the top of the game's options screen were not set to what the settings hold", failure);
         }
         return 0;
     }
 
-    /** Sets the Everything list to the line the settings hold now: in the page's own table and in the list on the screen. */
-    private static void showEverything() {
-        int line = Tracking.holds(Tracking.everythingOn()) ? ALL_ON : Tracking.holds(Tracking.everythingOff()) ? ALL_OFF : AS_SET;
-        call(everything, "setValue", line);
-    }
-
-    /** The first button's title: what pressing it does now. */
-    private static String bothViewsTitle() {
-        return Part.FIRST_PERSON.on() ? "Turn first person and the isometric graphics off" : "Turn first person on";
-    }
-
-    /** Gives the first button its title: in the page's own table, which a screen made after this is made from, and on the button on the screen. */
-    private static void title() {
-        bothViews.rawset("name", bothViewsTitle());
-        if (bothViews.rawget("element") instanceof KahluaTable button) {
-            call(button, "setTitle", bothViewsTitle());
+    /** Sets each list at the top of the page to the line the settings hold now, or As set below: in the page's own table and in the list on the screen. */
+    private static void showClasses() {
+        for (int list = 0; list < CLASS_LISTS.size(); list++) {
+            List<Supplier<Map<String, Double>>> sets = CLASS_LISTS.get(list).sets();
+            int line = 1;
+            for (int set = 0; set < sets.size(); set++) {
+                if (Tracking.holds(sets.get(set).get())) {
+                    line = set + 2;
+                    break;
+                }
+            }
+            call(classTables.get(list), "setValue", line);
         }
     }
 
-    /** The first button, pressed: first person goes on if it is off, and first person and the isometric graphics go off together if it is on. */
-    private static int bothViewsPressed(LuaCallFrame frame, int arguments) {
-        boolean on = !Part.FIRST_PERSON.on();
-        pressed(Tracking.firstPersonAndIsometric(on), on ? "first person on" : "first person and the isometric graphics off");
-        return 0;
-    }
-
-    /** A line of the Everything list chosen: On and Off are taken at once, and As set below changes nothing. */
-    private static int everythingChosen(LuaCallFrame frame, int arguments) {
+    /** A line of a list at the top of the page chosen: one but As set below is taken at once, and As set below changes nothing. */
+    private static int classChosen(LuaCallFrame frame, int arguments) {
+        int list = classTables.indexOf((KahluaTable) frame.get(0));
         int line = (int) (double) (Double) frame.get(1);
-        if (line == ALL_ON) {
-            pressed(Tracking.everythingOn(), "everything on");
-        } else if (line == ALL_OFF) {
-            pressed(Tracking.everythingOff(), "everything but head tracking and talking mouths off");
+        if (list < 0) {
+            throw new IllegalStateException("a list the page did not make was handed to its lists' onChange");
+        }
+        ClassList chosen = CLASS_LISTS.get(list);
+        if (line >= 2) {
+            pressed(chosen.sets().get(line - 2).get(), chosen.label() + " " + chosen.lines()[line - 2]);
         } else {
             try {
-                showEverything();
+                showClasses();
             } catch (RuntimeException failure) {
-                Log.error("the Everything list on the game's options screen was not set to what the settings hold", failure);
+                Log.error("the lists at the top of the game's options screen were not set to what the settings hold", failure);
             }
         }
         return 0;
     }
 
     /**
-     * The settings of the button or of a line of the Everything list are taken and saved at once,
-     * as an apply of the screen takes them, and each control that now reads otherwise is set on the
-     * open screen to show it, so an apply after does not take them again: the rows of [Graphics]
-     * among them, which show the picture of a graphics mode that was changed. The button's title
-     * and the Everything list are set to what holds now.
+     * The settings of a line of a list at the top of the page are taken and saved at once, as an
+     * apply of the screen takes them, and each control that now reads otherwise is set on the open
+     * screen to show it, so an apply after does not take them again: the rows of [Graphics] among
+     * them, which show the picture of a graphics mode that was changed. Each list at the top is set
+     * to what holds now.
      */
     private static void pressed(Map<String, Double> values, String what) {
         try {
@@ -489,12 +517,11 @@ final class OptionsPage {
                     put(control, now);
                 }
             }
-            title();
-            showEverything();
-            Log.info("the options screen's button: " + what + ", " + set.size() + " settings changed: " + Part.described());
+            showClasses();
+            Log.info("the options screen's " + what + ", " + set.size() + " settings changed: " + Part.described());
         } catch (RuntimeException failure) {
             // Thrown on, it would stop the game's options screen.
-            Log.error("the options screen's button for " + what + " was not taken whole", failure);
+            Log.error("the options screen's " + what + " was not taken whole", failure);
         }
     }
 

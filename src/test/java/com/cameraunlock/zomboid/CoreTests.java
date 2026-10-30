@@ -17,6 +17,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.StringJoiner;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -786,12 +787,15 @@ public final class CoreTests {
         CameraUnlock.Option[] options = Tracking.options();
         // Put back by the session at the end: a row read only as the game starts is not read again from the file.
         Map<String, Double> before = new java.util.LinkedHashMap<>();
-        for (String key : Tracking.everythingOff().keySet()) {
+        Set<String> keys = new java.util.LinkedHashSet<>(Tracking.everything(false).keySet());
+        keys.addAll(Tracking.everything(true).keySet());
+        keys.addAll(Tracking.firstPersonUse(Tracking.FIRST_PERSON_IN_VEHICLES).keySet());
+        for (String key : keys) {
             before.put(key, Tracking.optionValue(optionNamed(options, key)));
         }
-        Map<String, Double> off = Tracking.everythingOff();
-        check(!Tracking.applyAll(off).isEmpty() && Tracking.applyAll(Tracking.everythingOff()).isEmpty(),
-                "the button that turns everything off sets what it names, and pressed again sets nothing");
+        Map<String, Double> off = Tracking.everything(false);
+        check(!Tracking.applyAll(off).isEmpty() && Tracking.applyAll(Tracking.everything(false)).isEmpty(),
+                "Everything's Off sets what it names, and chosen again sets nothing");
         boolean all = true;
         for (Map.Entry<String, Double> row : off.entrySet()) {
             all &= Tracking.optionValue(optionNamed(options, row.getKey())) == row.getValue();
@@ -799,16 +803,20 @@ public final class CoreTests {
         check(all && !Part.FIRST_PERSON.on() && Rules.rows() == 0 && Own.rows() == 0 && Quality.overheadRow(0) == Quality.LOW && !PendingLights.spread()
                         && !MuzzleFlash.on() && !Crosshair.on() && !Regrip.on() && SplitScreen.row() == SplitScreen.VERTICAL,
                 "every part, rule and optimization is off, and the content, isometric view and split screen are the game's: " + Part.described());
-        check(Mouths.on() == mouths && Tracking.trackingModeLabel().equals(tracking), "and talking mouths and head tracking are as they were");
+        check(!Tracking.enabled() && Mouths.on() == mouths && Tracking.trackingModeLabel().equals(tracking),
+                "head tracking is off, and talking mouths and the tracking mode are as they were");
         boolean effectsOff = true;
         for (String key : new String[] {"ShadingAndLight", "Reflections", "FullSizeTextures", "SurfaceDepth", "SharpShadows", "WholeFigureShadows"}) {
             effectsOff &= Tracking.optionValue(optionNamed(options, key)) == 0;
         }
         check(effectsOff && !Tracking.firstPersonRemembered(0) && !Tracking.firstPersonInVehicles(0),
                 "first person's graphics mode is Low, so its rows read Low's picture with every effect off, and no view goes to first person by itself");
-        check(Tracking.holds(off) && !Tracking.holds(Tracking.everythingOn()), "the Everything list reads Off, not On");
+        check(Tracking.holds(off) && !Tracking.holds(Tracking.everything(true)) && Tracking.holds(Tracking.headTracking(false))
+                        && Tracking.holds(Tracking.firstPersonUse(Tracking.FIRST_PERSON_OFF)) && Tracking.holds(Tracking.enhancedGraphics(false))
+                        && Tracking.holds(Tracking.gameplayTweaks(false)) && Tracking.holds(Tracking.optimizations(false)),
+                "every list at the top of the page reads Off");
         savesMade();
-        check(saved("FirstPersonEnabled=false", "TorchFollowsHead=false", "ShotsThroughWalls=false", "HiddenWallDecorSaved=false", "HillsMoveVehicles=false",
+        check(saved("EnableOnStartup=false", "FirstPersonEnabled=false", "TorchFollowsHead=false", "ShotsThroughWalls=false", "HiddenWallDecorSaved=false", "HillsMoveVehicles=false",
                         "BurntBuildingFreezeFix=false", "CachedGameLookups=false", "SpotBySight=false", "SpreadLightUpdates=false", "VanillaWeapons=true",
                         "IsometricQuality=Low", "FourthPlayerIsometricQuality=Low"),
                 "and all of it is saved");
@@ -816,32 +824,35 @@ public final class CoreTests {
         check(next.contains("left out: " + leftOutBut(KEPT_SETS) + System.lineSeparator()),
                 "the next start leaves out every set of patches but head tracking's, its options page's and the development build's: " + leftOutLine(next));
 
-        Tracking.applyAll(Tracking.firstPersonAndIsometric(true));
-        check(Part.FIRST_PERSON.on() && Quality.overheadRow(0) == Quality.LOW && Quality.overheadRow(3) == Quality.LOW,
-                "the button for both views turns first person on and leaves every isometric view at Low");
-        Tracking.applyOption(optionNamed(options, "IsometricQuality"), options[optionNamed(options, "IsometricQuality")], Quality.HIGH - Quality.LOW);
-        Tracking.applyAll(Tracking.firstPersonAndIsometric(false));
-        check(!Part.FIRST_PERSON.on() && Quality.overheadRow(0) == Quality.LOW && Quality.overheadRow(1) == Quality.LOW,
-                "turns both off together, an isometric view at High too");
-        Tracking.applyOption(optionNamed(options, "IsometricQuality"), options[optionNamed(options, "IsometricQuality")], Quality.HIGH - Quality.LOW);
-        Tracking.applyAll(Tracking.firstPersonAndIsometric(true));
-        check(Part.FIRST_PERSON.on() && Quality.overheadRow(0) == Quality.HIGH && Quality.overheadRow(2) == Quality.LOW,
-                "and on again leaves each isometric view at the mode it has");
+        Tracking.applyAll(Tracking.firstPersonUse(Tracking.FIRST_PERSON_IN_VEHICLES));
+        check(Part.FIRST_PERSON.on() && Tracking.firstPersonInVehicles(0) && Tracking.firstPersonInVehicles(3) && !Tracking.firstPersonRemembered(2)
+                        && Tracking.holds(Tracking.firstPersonUse(Tracking.FIRST_PERSON_IN_VEHICLES))
+                        && !Tracking.holds(Tracking.firstPersonUse(Tracking.FIRST_PERSON_ON)),
+                "First person's In vehicles turns first person on for vehicles alone, every view loading isometric, and the list reads In vehicles");
+        Tracking.applyOption(optionNamed(options, "FirstPerson"), options[optionNamed(options, "FirstPerson")], 1);
+        Tracking.applyAll(Tracking.firstPersonUse(Tracking.FIRST_PERSON_ON));
+        check(Part.FIRST_PERSON.on() && !Tracking.firstPersonInVehicles(0) && Tracking.firstPersonRemembered(0)
+                        && Tracking.holds(Tracking.firstPersonUse(Tracking.FIRST_PERSON_ON)),
+                "On leaves the view each player loads in as it is, and no vehicle switches the view");
+        Tracking.applyAll(Tracking.headTracking(true));
+        check(Tracking.enabled() && Tracking.holds(Tracking.headTracking(true)), "Head tracking's On turns head tracking on at once");
         savesMade();
-        check(saved("FirstPersonEnabled=true", "IsometricQuality=High", "ThirdPlayerIsometricQuality=Low"), "each press is saved");
+        check(saved("EnableOnStartup=true", "FirstPersonEnabled=true", "FirstPersonInVehicles=false", "FirstPerson=true"), "each line is saved");
 
-        Map<String, Double> on = Tracking.everythingOn();
-        check(!Tracking.applyAll(on).isEmpty() && Tracking.applyAll(Tracking.everythingOn()).isEmpty(),
+        Map<String, Double> on = Tracking.everything(true);
+        check(!Tracking.applyAll(on).isEmpty() && Tracking.applyAll(Tracking.everything(true)).isEmpty(),
                 "Everything's On sets what it names, and chosen again sets nothing");
         check(Part.FIRST_PERSON.on() && Rules.rows() != 0 && Own.rows() != 0 && PendingLights.spread() && MuzzleFlash.on() && Crosshair.on() && Regrip.on()
-                        && Quality.overheadRow(0) == Quality.HIGH && Tracking.holds(on) && !Tracking.holds(off),
-                "and turns every part, rule and optimization on with the mod's own content, leaving the isometric mode the player chose: " + Part.described());
+                        && Quality.overheadRow(0) == Quality.HIGH && Tracking.enabled() && Tracking.holds(on) && !Tracking.holds(off),
+                "and turns head tracking and every part, rule and optimization on with the mod's own content and the isometric view at High: " + Part.described());
         savesMade();
         check(saved("FirstPersonEnabled=true", "TorchFollowsHead=true", "ShotsThroughWalls=true", "SpotBySight=true", "VanillaWeapons=false",
                 "Quality=Automatic", "FourthPlayerQuality=Automatic"), "and all of it is saved");
         Tracking.applyAll(before);
         savesMade();
-        check(text().equals(saved), "and every row set back as it was, the file is as it was");
+        // Head tracking's row holds default until a list sets it, and is then written as a value: on here, as it was.
+        check(saved.contains("EnableOnStartup=default") && text().equals(saved.replace("EnableOnStartup=default", "EnableOnStartup=true")),
+                "and every row set back as it was, the file is as it was but head tracking's row, written as on");
         Tracking.watchSettings();
         check(Part.FIRST_PERSON.on() && Quality.overheadRow(0) == Quality.LOW && (Rules.rows() & Rules.THROUGH_WALLS) != 0,
                 "the file set back is read back");
@@ -1000,7 +1011,7 @@ public final class CoreTests {
         for (CameraUnlock.Option option : options) {
             ids.append(option.id).append(' ');
         }
-        check(ids.toString().equals("WorldSpaceYaw TrackingMode AimMode FirstPersonEnabled FieldOfView Quality IsometricQuality Style FirstPerson FirstPersonInVehicles HillHeight MuzzleFlash Crosshair RegripTwoHandedWeapons SplitScreen TorchFollowsHead HearFromTheEye LightningBolts ShotImpacts FarVehiclesAndZombies QuickRagdolls HitFlinch HeadLedViewWhenDown ItemsAsModels FinerSkins LeaveOutScreenGrey NameTagsAtHeads "
+        check(ids.toString().equals("EnableOnStartup WorldSpaceYaw TrackingMode AimMode FirstPersonEnabled FieldOfView Quality IsometricQuality Style FirstPerson FirstPersonInVehicles HillHeight MuzzleFlash Crosshair RegripTwoHandedWeapons SplitScreen TorchFollowsHead HearFromTheEye LightningBolts ShotImpacts FarVehiclesAndZombies QuickRagdolls HitFlinch HeadLedViewWhenDown ItemsAsModels FinerSkins LeaveOutScreenGrey NameTagsAtHeads "
                         + "SecondPlayerQuality SecondPlayerIsometricQuality SecondPlayerStyle SecondPlayerFirstPerson SecondPlayerFirstPersonInVehicles ThirdPlayerQuality ThirdPlayerIsometricQuality ThirdPlayerStyle "
                         + "ThirdPlayerFirstPerson ThirdPlayerFirstPersonInVehicles FourthPlayerQuality FourthPlayerIsometricQuality FourthPlayerStyle FourthPlayerFirstPerson FourthPlayerFirstPersonInVehicles TreeQuality "
                         + "GrassDensity RenderScale ViewDistance ZombiesAndPropsDrawDistance FarTreeDistance RainOnGlass ShadingAndLight Reflections ReflectionScale "
@@ -1017,7 +1028,7 @@ public final class CoreTests {
                 page.append(options[option].id).append(' ');
             }
         }
-        check(page.toString().equals("[Tracking] TrackingMode AimMode WorldSpaceYaw [First person] FirstPersonEnabled FirstPerson FirstPersonInVehicles FieldOfView Crosshair HillHeight TorchFollowsHead HearFromTheEye LightningBolts ShotImpacts FarVehiclesAndZombies QuickRagdolls HitFlinch HeadLedViewWhenDown ItemsAsModels FinerSkins LeaveOutScreenGrey NameTagsAtHeads [Weapons] MuzzleFlash RegripTwoHandedWeapons "
+        check(page.toString().equals("[Tracking] EnableOnStartup TrackingMode AimMode WorldSpaceYaw [First person] FirstPersonEnabled FirstPerson FirstPersonInVehicles FieldOfView Crosshair HillHeight TorchFollowsHead HearFromTheEye LightningBolts ShotImpacts FarVehiclesAndZombies QuickRagdolls HitFlinch HeadLedViewWhenDown ItemsAsModels FinerSkins LeaveOutScreenGrey NameTagsAtHeads [Weapons] MuzzleFlash RegripTwoHandedWeapons "
                         + "[Graphics] Quality IsometricQuality Style [Custom graphics] TreeQuality GrassDensity RenderScale ViewDistance ZombiesAndPropsDrawDistance "
                         + "FarTreeDistance RainOnGlass ShadingAndLight Reflections ReflectionScale FullSizeTextures SurfaceDepth SharpShadows WholeFigureShadows FrameBlending "
                         + "LightDistance CorpseModels [Optimizations] SpreadLightUpdates CachedGameLookups SkipCoveredGameDrawing SkinsComposedWhileWaiting ChunkChangeCounts UnseenRoomZombiesUnmodelled HoldChunkMapCentre GraphicsMemorySteps PrepareWhileLoading SpotBySight BuildOnWorkerThreads RebuildForOwnSprites HiddenWallReadsKept BuildingFactsKept [Vanilla content] VanillaWeapons VanillaFurniture VanillaPictures VanillaPlants VanillaTextures VanillaBuildings "

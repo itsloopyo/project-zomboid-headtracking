@@ -251,7 +251,7 @@ Centring belongs to your tracker, recenter there.
 - `F8` goes through the picture styles Vivid, Natural and Bleak.
 - In split screen each player has their own graphics mode and picture style. Tap `F9` or `F8` once for player 1, twice for player 2, three times for player 3 and four times for player 4, or hold it for every player. Players 2, 3 and 4 keep theirs in `[Players]` in `CameraUnlock.ini` and in the game's options.
 
-Every key saves its new setting to `CameraUnlock.ini` as you press it, and `Delete` saves the view your next load starts in (`FirstPerson`). No key turns head tracking on or off: `EnableOnStartup` in `CameraUnlock.ini` decides that. There is no recenter key: centre the view in your tracker app.
+Every key saves its new setting to `CameraUnlock.ini` as you press it, and `Delete` saves the view your next load starts in (`FirstPerson`). No key turns head tracking on or off: the Head tracking list at the top of the mod's options page does, or `EnableOnStartup` in `CameraUnlock.ini`. There is no recenter key: centre the view in your tracker app.
 
 ### Mouse and keyboard
 
@@ -358,7 +358,8 @@ ThirdPlayerUdpPort=4244
 FourthPlayerUdpPort=4245
 
 [General]
-; true: head tracking is on when the game starts. false: it is off. No key turns it on or off.
+; true: head tracking is on. false: it is off. Taken at once from the options screen, and as the game starts. No key turns it
+; on or off.
 EnableOnStartup=default
 ; true: yaw turns around the world's up axis. false: around the camera's own up axis.
 WorldSpaceYaw=default
@@ -804,7 +805,16 @@ FourthPlayerMicrophone=None
 
 Each part of the mod, each change to the game's rules, each fix of the game and each optimization has a row of its own, on until you untick it on the mod's page of the game's options screen or set it to `false` in `CameraUnlock.ini`. The fixes are under `[Fixes]` and the optimizations under `[Optimizations]`. A row whose comment says it is taken at the next start changes the game's own code, so it takes effect the next time the game starts. Off, its patches are left out of the game, and another Java mod that patches the same methods meets the game's own code.
 
-A list and a button head the mod's page. The list, Everything but head tracking and talking mouths, has three lines. `On` turns every part, rule, fix and optimization of the mod on, with its own content and first person's graphics mode at `Automatic`. `Off` turns all of those off, puts back the game's own content, isometric picture and split screen, and sets first person's graphics mode to `Low`. `As set below` is what the list shows when your settings match neither. The list always shows which of the three your settings match. The button turns first person on, leaving the isometric view's graphics as they are, or turns first person off and sets the isometric view to `Low`, the game's own picture. Choosing a line or pressing the button saves at once.
+Six lists head the mod's page, each setting one class of the settings below it at once:
+
+- **Everything** - `On` or `Off` sets each of the five lists below to the same. Talking mouths, which listens to your microphone, is left as it is.
+- **Head tracking** - `On` or `Off`. Saved as `EnableOnStartup`.
+- **First person** - `On` turns first person on, leaving the view each player loads in as it is. `In vehicles` loads every player in the isometric view and switches to first person on getting into a vehicle and back on getting out. `Off` turns first person off.
+- **Enhanced graphics** - `On` turns on the mod's own content, lightning bolts, shot impacts, far vehicles and zombies, items as models, finer skins and the muzzle flash, and sets first person's graphics mode to `Automatic` and the isometric view's to `High`. `Off` puts back the game's own content, turns those off, and sets first person's graphics mode to `Low` and the isometric view's to `Low`, the game's own picture.
+- **Gameplay tweaks** - `On` or `Off` for the offline rules but `Rewind30s`, the game fixes, `TorchFollowsHead`, `HearFromTheEye`, `QuickRagdolls`, `HitFlinch`, `HeadLedViewWhenDown`, `NameTagsAtHeads`, the crosshair and `RegripTwoHandedWeapons`. `Off` also puts back the game's own split screen.
+- **Optimizations** - `On` or `Off` for every row under Optimizations.
+
+Each list shows the line your settings match, or `As set below` when they match none. Choosing a line saves at once. A row read only as the game starts follows from the next start.
 
 ## Troubleshooting
 

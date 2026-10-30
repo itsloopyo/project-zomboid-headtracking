@@ -15,7 +15,7 @@ final class OptionsLayout {
 
     /** The page from the top. Voice is last: OptionsPage adds the microphone lists after every group, so they show under the last title. */
     static final Group[] PAGE = {
-        new Group("Tracking", null, "TrackingMode", "AimMode", "WorldSpaceYaw"),
+        new Group("Tracking", null, "EnableOnStartup", "TrackingMode", "AimMode", "WorldSpaceYaw"),
         new Group("First person", "FirstPerson", "FirstPersonEnabled", "FirstPerson", "FirstPersonInVehicles", "FieldOfView", "Crosshair", "HillHeight"),
         new Group("Weapons", null, "MuzzleFlash", "RegripTwoHandedWeapons"),
         new Group("Graphics", null, "Quality", "IsometricQuality", "Style"),

@@ -3,9 +3,11 @@ package com.cameraunlock.zomboid;
 import com.cameraunlock.core.CameraUnlock;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -381,7 +383,9 @@ final class Tracking {
     static double optionValue(int option) {
         String id = config.optionId(option);
         int part = Config.graphicsPart(id), player = qualityPlayer(id), overheadPlayer = overheadQualityPlayer(id);
-        return part >= 0 ? Config.values(Quality.firstPersonPicture(0))[part]
+        // The row is saved on another thread, and core holds what was saved.
+        return id.equals(ENABLED_OPTION) ? enabled ? 1 : 0
+                : part >= 0 ? Config.values(Quality.firstPersonPicture(0))[part]
                 : player >= 0 ? Quality.row(player)
                 : overheadPlayer >= 0 ? Quality.overheadRow(overheadPlayer) - Quality.LOW
                 : config.optionValue(option);
@@ -413,11 +417,12 @@ final class Tracking {
         return Math.floor(value * perStep + 0.5) / perStep;
     }
 
-    private static final String YAW_MODE_OPTION = "WorldSpaceYaw";
+    private static final String YAW_MODE_OPTION = "WorldSpaceYaw", ENABLED_OPTION = "EnableOnStartup";
 
     /** Whether applyOption has somewhere to put an option's value. */
     static boolean takes(CameraUnlock.Option described) {
-        return described.source != CameraUnlock.OPTION_ROW || described.id.equals(YAW_MODE_OPTION) || config.takes(described.id);
+        return described.source != CameraUnlock.OPTION_ROW || described.id.equals(YAW_MODE_OPTION) || described.id.equals(ENABLED_OPTION)
+                || config.takes(described.id);
     }
 
     /**
@@ -444,6 +449,9 @@ final class Tracking {
             if (described.id.equals(YAW_MODE_OPTION)) {
                 worldYaw = value != 0;
                 Log.info("head yaw turns about " + (worldYaw ? "straight up" : "the view's own up"));
+            } else if (described.id.equals(ENABLED_OPTION)) {
+                enabled = value != 0;
+                Log.info("head tracking " + (enabled ? "on" : "off"));
             } else {
                 config.put(described.id, value);
             }
@@ -513,72 +521,111 @@ final class Tracking {
         }
     }
 
-    /**
-     * What the options page's first button sets: on, first person, with every player's isometric
-     * view left at the graphics mode it has; off, first person off and every player's isometric
-     * view at Low, the game's own picture.
-     */
-    static Map<String, Double> firstPersonAndIsometric(boolean on) {
+    /** How first person is used, as the options page's First person list sets it. */
+    static final int FIRST_PERSON_OFF = 0, FIRST_PERSON_ON = 1, FIRST_PERSON_IN_VEHICLES = 2;
+
+    /** The parts that change how the game looks, which the Enhanced graphics list sets. */
+    private static final Set<Part> GRAPHICS_PARTS = EnumSet.of(Part.LIGHTNING_BOLTS, Part.SHOT_IMPACTS, Part.FAR_VEHICLES_AND_ZOMBIES,
+            Part.ITEMS_AS_MODELS, Part.FINER_SKINS, Part.LEAVE_OUT_SCREEN_GREY);
+
+    /** What the options page's Head tracking list sets: head tracking on or off, now and as the game starts. */
+    static Map<String, Double> headTracking(boolean on) {
         Map<String, Double> values = new LinkedHashMap<>();
-        values.put(Part.FIRST_PERSON.key, on ? 1.0 : 0.0);
-        if (!on) {
-            for (int player = 0; player < View.COUNT; player++) {
-                values.put(Config.overheadQualityKey(player), 0.0);
+        values.put(ENABLED_OPTION, on ? 1.0 : 0.0);
+        return values;
+    }
+
+    /**
+     * What the options page's First person list sets. Off: no first person, and no view goes to it
+     * by itself. On: first person, with the view each player loads in left as it is and no switch
+     * on getting into a vehicle. In vehicles: every view loads isometric and goes to first person
+     * on getting into a vehicle and back on getting out.
+     */
+    static Map<String, Double> firstPersonUse(int use) {
+        Map<String, Double> values = new LinkedHashMap<>();
+        values.put(Part.FIRST_PERSON.key, use == FIRST_PERSON_OFF ? 0.0 : 1.0);
+        for (int player = 0; player < View.COUNT; player++) {
+            if (use != FIRST_PERSON_ON) {
+                values.put(Config.firstPersonRow(player), 0.0);
             }
+            values.put(Config.firstPersonInVehiclesRow(player), use == FIRST_PERSON_IN_VEHICLES ? 1.0 : 0.0);
         }
         return values;
     }
 
     /**
-     * What the options page's Everything list sets for Off: every part, rule, fix and optimization
-     * of the mod off, the game's own content, isometric picture and split screen, first person's
-     * graphics mode at Low and no view switched to first person by itself, so that what is left is
-     * head tracking and talking mouths, which keep what they have. Rewind30s, off unless a
-     * development build is asked, is left as it is.
+     * What the options page's Enhanced graphics list sets. On: the mod's own content, the parts
+     * that change how the game looks and the muzzle flash, first person's graphics mode at
+     * Automatic and the isometric view at High. Off: the game's own content, those parts off, first
+     * person's graphics mode at Low and the isometric view at Low, the game's own picture.
      */
-    static Map<String, Double> everythingOff() {
-        Map<String, Double> values = new LinkedHashMap<>(firstPersonAndIsometric(false));
-        everySwitch(values, false);
-        for (int player = 0; player < View.COUNT; player++) {
-            values.put(Config.qualityKey(player), (double) Quality.LOW);
-            values.put(Config.firstPersonRow(player), 0.0);
-            values.put(Config.firstPersonInVehiclesRow(player), 0.0);
-        }
-        values.put("SplitScreen", (double) SplitScreen.VERTICAL);
-        return values;
-    }
-
-    /**
-     * What the options page's Everything list sets for On: every part, rule, fix and optimization
-     * of the mod on, its own content in place of the game's, and first person's graphics mode at
-     * Automatic. The isometric graphics mode, the views at load and split screen are the player's
-     * to choose and are left as they are, as are head tracking and talking mouths.
-     */
-    static Map<String, Double> everythingOn() {
+    static Map<String, Double> enhancedGraphics(boolean on) {
         Map<String, Double> values = new LinkedHashMap<>();
-        everySwitch(values, true);
+        double value = on ? 1.0 : 0.0;
         for (int player = 0; player < View.COUNT; player++) {
-            values.put(Config.qualityKey(player), (double) Quality.AUTOMATIC);
+            values.put(Config.qualityKey(player), (double) (on ? Quality.AUTOMATIC : Quality.LOW));
+            values.put(Config.overheadQualityKey(player), (double) (on ? Quality.HIGH - Quality.LOW : 0));
         }
+        for (String key : Config.VANILLA_KEYS) {
+            values.put(key, 1.0 - value);
+        }
+        for (Part part : GRAPHICS_PARTS) {
+            values.put(part.key, value);
+        }
+        values.put("MuzzleFlash", value);
         return values;
     }
 
-    private static void everySwitch(Map<String, Double> values, boolean on) {
+    /**
+     * What the options page's Gameplay tweaks list sets: the parts that change how the game plays,
+     * the offline rules but Rewind30s, which is off unless a development build is asked, the game
+     * fixes, the crosshair and the regrip. Off also puts back the game's own split screen.
+     */
+    static Map<String, Double> gameplayTweaks(boolean on) {
+        Map<String, Double> values = new LinkedHashMap<>();
         double value = on ? 1.0 : 0.0;
         for (Part part : Part.values()) {
-            values.put(part.key, value);
+            if (part != Part.FIRST_PERSON && !part.section.equals("Optimizations") && !GRAPHICS_PARTS.contains(part)) {
+                values.put(part.key, value);
+            }
         }
         for (String key : Config.RULE_KEYS) {
             if (!key.equals("Rewind30s")) {
                 values.put(key, value);
             }
         }
-        for (String key : Config.VANILLA_KEYS) {
-            values.put(key, 1.0 - value);
+        values.put("Crosshair", value);
+        values.put("RegripTwoHandedWeapons", value);
+        if (!on) {
+            values.put("SplitScreen", (double) SplitScreen.VERTICAL);
         }
-        for (String key : new String[] {"SpreadLightUpdates", "MuzzleFlash", "Crosshair", "RegripTwoHandedWeapons"}) {
-            values.put(key, value);
+        return values;
+    }
+
+    /** What the options page's Optimizations list sets: every part under [Optimizations] and SpreadLightUpdates. */
+    static Map<String, Double> optimizations(boolean on) {
+        Map<String, Double> values = new LinkedHashMap<>();
+        double value = on ? 1.0 : 0.0;
+        for (Part part : Part.values()) {
+            if (part.section.equals("Optimizations")) {
+                values.put(part.key, value);
+            }
         }
+        values.put("SpreadLightUpdates", value);
+        return values;
+    }
+
+    /**
+     * What the options page's Everything list sets: each of the other lists on, with first person
+     * on, or each off. Talking mouths, which opens a microphone, is left as it is.
+     */
+    static Map<String, Double> everything(boolean on) {
+        Map<String, Double> values = new LinkedHashMap<>(headTracking(on));
+        values.putAll(firstPersonUse(on ? FIRST_PERSON_ON : FIRST_PERSON_OFF));
+        values.putAll(enhancedGraphics(on));
+        values.putAll(gameplayTweaks(on));
+        values.putAll(optimizations(on));
+        return values;
     }
 
     /** Whether every option the values name holds its value now. Throws for a name that is no option. Logic thread. */
