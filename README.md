@@ -40,7 +40,7 @@ Press `Delete` to switch between the isometric view and first person, on foot or
 - **Shots through walls** - offline and on servers without PvP, shots go through plasterboard, wood, doors and glass, losing damage each time. Brick, concrete, metal and barricades stop them. A broad-leaved tree only stops a shot at its trunk, not across its whole tile.
 - **Shoot out lights** - offline, shots break vehicle lights and table, wall and street lamps.
 - **Shoot out windows** - offline, a shot breaks every closed window it passes through.
-- **Blast holes** - offline, in first person, a shotgun blast that lands tightly grouped on a wooden door or board fence blows a ragged hole through it, which you can see and shoot through. Pellets that miss the hole leave marks on a door. The holes stay in your save.
+- **Blast holes** - offline, in first person, a shotgun blast that lands tightly grouped on a wooden door or a wooden fence, tall or low, blows a ragged hole through it, which you can see and shoot through. Pellets that miss the hole leave marks on a door. The holes stay in your save.
 - **Bullet holes** - offline, in first person, a round that goes through a door, a wall or a wooden fence leaves a small hole where it went in and a wider, splintered one where it came out, which you can see through. The holes stay in your save.
 
 ### Vehicles
@@ -780,7 +780,7 @@ HiddenWallDecor=true
 ; the room's other walls say they belong, the first time the room is loaded, and those stay in your save.
 ; false: nothing is added to the save, and what was added before stays. On a server nothing is added.
 HiddenWallDecorSaved=true
-; true: offline, a shotgun blast in first person whose pellets land close together on a wooden door or a board
+; true: offline, a shotgun blast in first person whose pellets land close together on a wooden door or a wooden
 ; fence blows a ragged hole through it that you can see and shoot through, and the pellets that miss the hole
 ; leave marks on a door. The holes stay in your save. false: shots leave doors and fences whole. On a server
 ; doors and fences stay whole.

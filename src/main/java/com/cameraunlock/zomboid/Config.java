@@ -459,7 +459,7 @@ final class Config {
                             + "false: nothing is added to the save, and what was added before stays. On a server nothing is added.",
                     writable | live, true),
             localBool("Rules", "BlastHoles",
-                    "true: offline, a shotgun blast in first person whose pellets land close together on a wooden door or a board\n"
+                    "true: offline, a shotgun blast in first person whose pellets land close together on a wooden door or a wooden\n"
                             + "fence blows a ragged hole through it that you can see and shoot through, and the pellets that miss the hole\n"
                             + "leave marks on a door. The holes stay in your save. false: shots leave doors and fences whole. On a server\n"
                             + "doors and fences stay whole.",

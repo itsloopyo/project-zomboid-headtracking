@@ -10,6 +10,8 @@ import zombie.core.properties.PropertyContainer;
 import zombie.iso.IsoChunk;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
+import zombie.core.textures.Texture;
+import zombie.iso.SpriteDetails.IsoFlagType;
 import zombie.iso.sprite.IsoSprite;
 import zombie.util.list.PZArrayList;
 
@@ -68,7 +70,12 @@ final class BlastHoles {
         return kept.get(object);
     }
 
-    /** Whether an object is one a blast blows holes in: a wooden door, or a length of board fence. */
+    /**
+     * Whether an object is one a blast blows holes in: a wooden door, or a wooden fence on an edge,
+     * tall or low, the map's or one a player built, whole, broken or burnt. A rail fence strung with
+     * wire is mostly the wire's gaps, and is not one, nor a fence the picture builds from a model of
+     * its own (ModelFences), whose pickets are not cut.
+     */
     static boolean blastable(IsoObject object) {
         IsoSprite sprite = object.getSprite();
         if (sprite == null) {
@@ -82,15 +89,17 @@ final class BlastHoles {
             int made = Impacts.ofMaterialType(properties.get("MaterialType"));
             return made == Impacts.WOOD || made == Impacts.NONE && "Wood".equals(Penetration.doorMaterialBySound(properties.get("DoorSound")));
         }
-        boolean onEdge = Edges.west(properties, sprite.getType()) || Edges.north(properties, sprite.getType());
-        boolean picket = properties.has("StopCar") || properties.has("TieSheetRope");
-        return Fences.boards(sprite.getName(), properties.get("Material"), properties.get("MaterialType"), properties.get("Material2"), onEdge, picket);
+        String name = sprite.getName(), material = properties.get("Material");
+        String made = material != null ? material : properties.get("MaterialType");
+        return name != null && made != null && made.startsWith("Wood") && !"MetalWire".equals(properties.get("Material2"))
+                && (name.startsWith("fencing_") || name.startsWith("carpentry_02_") || name.startsWith("crafted_0")) && ModelFences.of(name) == null
+                && (Edges.west(properties, sprite.getType()) || Edges.north(properties, sprite.getType()));
     }
 
     /**
      * Whether a round that goes through an object leaves a hole the picture cuts: a door the picture
-     * builds a leaf for, any but a garage door, or a wall or fence of something a round goes through
-     * that is not glass (Penetration.cost).
+     * builds a leaf for, any but a garage door, a wooden fence (blastable), or a wall or fence of
+     * something a round goes through that is not glass (Penetration.cost).
      */
     static boolean holedByRounds(IsoObject object) {
         IsoSprite sprite = object.getSprite();
@@ -101,7 +110,43 @@ final class BlastHoles {
             return !sprite.getProperties().has("GarageDoor");
         }
         String made = sprite.getProperties().get("MaterialType");
-        return made != null && !made.startsWith("Glass") && Penetration.cost(made) != Penetration.STOPS;
+        return blastable(object) || made != null && !made.startsWith("Glass") && Penetration.cost(made) != Penetration.STOPS;
+    }
+
+    /** The tops of the low board fences the picture has built, in levels over their ground, by their sprite's picture. */
+    private static final Map<Texture, Float> tops = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** Keeps how high the low board fence the picture built from a sprite's picture stands, in levels. Build threads. */
+    static void measured(Texture texture, float top) {
+        tops.put(texture, top);
+    }
+
+    /**
+     * The low board fence on a square's north or west edge, the game's see-through kind a shot goes on
+     * over, which a shot crossing it under its top holes as it goes through; null where there is none.
+     */
+    static IsoObject lowFenceOn(IsoGridSquare square, boolean north) {
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoObject object = objects.get(i);
+            IsoSprite sprite = object.getSprite();
+            if (sprite == null || DoorGlass.isDoor(object)) {
+                continue;
+            }
+            PropertyContainer properties = sprite.getProperties();
+            boolean sheet = north ? properties.has(IsoFlagType.WallNTrans) && !properties.has(IsoFlagType.WallN)
+                    : properties.has(IsoFlagType.WallWTrans) && !properties.has(IsoFlagType.WallW);
+            if (sheet && blastable(object)) {
+                return object;
+            }
+        }
+        return null;
+    }
+
+    /** How high the picture built a low fence, in levels over its ground, or NaN where it has not built its sprite. */
+    static float topOf(IsoObject fence) {
+        Float top = tops.get(fence.getSprite().getTextureForCurrentFrame(fence.getDir()));
+        return top == null ? Float.NaN : top;
     }
 
     /** Called as the game has loaded a chunk's squares, on its logic thread: the holes and marks of its things, as saved. */

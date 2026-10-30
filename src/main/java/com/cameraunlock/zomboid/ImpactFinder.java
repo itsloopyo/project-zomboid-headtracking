@@ -62,6 +62,13 @@ final class ImpactFinder {
     /** What is left of the budget of the round being followed (Penetration.Cartridge): 0 for one that goes through nothing. */
     private static float roundLeft;
     private static final java.util.Random seeds = new java.util.Random();
+    private static final GridTrace fences = new GridTrace();
+    private static final GridTrace.Edges overFence = ImpactFinder::overFence;
+    /** The shot overFence follows: its world, shooter and size. */
+    private static IsoCell fenceCell;
+    private static Terrain fenceLand;
+    private static IsoGameCharacter fenceShooter;
+    private static float fenceSize;
 
     private ImpactFinder() {}
 
@@ -136,7 +143,9 @@ final class ImpactFinder {
         if (hit != null) {
             float flat = line.forwardX * line.forwardX + line.forwardY * line.forwardY;
             if (flat > 1e-6f) {
-                ShotGlass.along(cell, terrain, shooter, line, Math.max(((hit.getX() - line.eyeX) * line.forwardX + (hit.getY() - line.eyeY) * line.forwardY) / flat, 0f));
+                float toHit = Math.max(((hit.getX() - line.eyeX) * line.forwardX + (hit.getY() - line.eyeY) * line.forwardY) / flat, 0f);
+                ShotGlass.along(cell, terrain, shooter, line, toHit);
+                lowFencesAlong(cell, terrain, shooter, toHit, size);
             }
             if (Penetration.shareOf(hit.getID()) < Penetration.WHOLE) {
                 throughWalls(cell, shooter, terrain, hit, size);
@@ -157,6 +166,7 @@ final class ImpactFinder {
         float body = vehicle == null ? Float.POSITIVE_INFINITY : vehicleSide(vehicle, startX, startY, startZ, Math.max(length, (float) Math.hypot(endX - startX, endY - startY)));
         ShotLights.along(cell, terrain, line, Math.min(body, Math.min(distance, reach)));
         ShotGlass.along(cell, terrain, shooter, line, Math.min(body, Math.min(distance, reach)));
+        lowFencesAlong(cell, terrain, shooter, Math.min(body, Math.min(distance, reach)), size);
         if (body < Math.min(distance, reach)) {
             ShotLights.vehicleHit(vehicle, line.eyeX + line.forwardX * (body + VEHICLE_OFF), line.eyeY + line.forwardY * (body + VEHICLE_OFF));
             float up = line.eyeUp + line.forwardUp * body;
@@ -247,11 +257,68 @@ final class ImpactFinder {
             distance = world.toSurface(line, terrain::height, shooter.getZ() * ViewCamera.LEVEL_HEIGHT, left);
             ShotLights.along(cell, terrain, line, Math.min(distance, left));
             ShotGlass.along(cell, terrain, shooter, line, Math.min(distance, left));
+            lowFencesAlong(cell, terrain, shooter, Math.min(distance, left), size);
             if (distance > left) {
                 break;
             }
         }
         line.eyeAt(startX, startY, startUp);
+    }
+
+    /**
+     * The low board fences a shot crosses under their tops, as far as distance along the line: the
+     * game sends its shots on over them, so each is gone through, holed where it went in and out
+     * as BlastHoles keeps it, and nothing stops the shot there.
+     */
+    private static void lowFencesAlong(IsoCell cell, Terrain terrain, IsoGameCharacter shooter, float distance, float size) {
+        if (distance <= 0f || distance == Float.POSITIVE_INFINITY) {
+            return;
+        }
+        fenceCell = cell;
+        fenceLand = terrain;
+        fenceShooter = shooter;
+        fenceSize = size;
+        fences.firstBlockedEdge(overFence, line.eyeX, line.eyeY, line.forwardX, line.forwardY, distance);
+        fenceCell = null;
+        fenceLand = null;
+        fenceShooter = null;
+    }
+
+    /** Holes the low board fence on the edge the shot crosses where it crosses it under its top. Never stops the trace. */
+    private static boolean overFence(int fromX, int fromY, int toX, int toY) {
+        float crossed = ShotGlass.crossedAt(line.eyeX, line.eyeY, line.forwardX, line.forwardY, fromX, fromY, toX, toY);
+        float x = line.eyeX + line.forwardX * crossed, y = line.eyeY + line.forwardY * crossed, up = line.eyeUp + line.forwardUp * crossed;
+        int level = (int) Math.floor((up - fenceLand.height(x, y)) / ViewCamera.LEVEL_HEIGHT);
+        // An edge is the north or west edge of the square south or east of it, and what stands on it is that square's.
+        boolean north = fromX == toX;
+        IsoGridSquare owner = level < 0 ? null : fenceCell.getGridSquare(Math.max(fromX, toX), Math.max(fromY, toY), level);
+        IsoObject fence = owner == null ? null : BlastHoles.lowFenceOn(owner, north);
+        if (fence == null) {
+            return false;
+        }
+        float levelsUp = (up - fenceLand.height(owner.getX() + 0.5f, owner.getY() + 0.5f)) / ViewCamera.LEVEL_HEIGHT - level;
+        float along = north ? x - owner.getX() : y - owner.getY();
+        if (!(levelsUp > 0f && levelsUp < BlastHoles.topOf(fence)) || BlastHoles.through(fence, north, along, levelsUp)) {
+            return false;
+        }
+        float across = north ? line.forwardY : line.forwardX;
+        float normal = -Math.signum(across), normalX = north ? 0f : normal, normalY = north ? normal : 0f;
+        int side = across > 0f ? -1 : 1;
+        if (fenceSize == PELLET && blasts(fenceShooter)) {
+            Blasts.pellet(fenceShooter, fence, north, along, levelsUp, side);
+        } else if (fenceSize != PELLET && holes(fenceShooter)) {
+            BlastHoles.add(fence, north, along, levelsUp, BlastHoles.ROUND_RADIUS * fenceSize, seeds.nextInt(1 << 20), BlastHoles.ROUND * side);
+        }
+        int kind = Impacts.of(fence.getSprite(), false);
+        float skin = Impacts.toSkin(crossed, across), out = crossed + WorldScene.WALL_HALF / Math.max(Math.abs(across), 0.1f);
+        float floor = level * ViewCamera.LEVEL_HEIGHT + fenceLand.height(x + normalX * FALLS_OUT, y + normalY * FALLS_OUT);
+        float inUp = line.eyeUp + line.forwardUp * skin, outUp = line.eyeUp + line.forwardUp * out;
+        add(line.eyeX + line.forwardX * skin, line.eyeY + line.forwardY * skin, inUp, normalX, normalY, 0f, line.forwardX, line.forwardY, line.forwardUp,
+                Math.min(floor, inUp), kind, fenceSize, Impacts.holed(kind), north ? 1f : 0f, north ? 0f : 1f, 0f);
+        float outFloor = level * ViewCamera.LEVEL_HEIGHT + fenceLand.height(x - normalX * FALLS_OUT, y - normalY * FALLS_OUT);
+        add(line.eyeX + line.forwardX * out, line.eyeY + line.forwardY * out, outUp, -normalX, -normalY, 0f, line.forwardX, line.forwardY, line.forwardUp,
+                Math.min(outFloor, outUp), kind, fenceSize, false, north ? 1f : 0f, north ? 0f : 1f, 0f);
+        return false;
     }
 
     /** The most walls a round is followed through on its way to a character. A round's budget gets through fewer than this. */

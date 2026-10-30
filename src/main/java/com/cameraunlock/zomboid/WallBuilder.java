@@ -230,17 +230,41 @@ final class WallBuilder {
             float layer, float da, float db) {
         // A door's holes are cut where its leaf is built, which knows where the leaf stands (OpeningBuilder.addBuiltDoor).
         float[] holes = door ? null : build.blastHoles;
-        if (holes == null) {
+        boolean measured = !door && build.lowBoards;
+        if (holes == null && !measured) {
             addWholeEdge(mesh, texture, wall, door, x, y, z, layer, da, db);
             return;
         }
         IdentityHashMap<SpriteGeometry.Mesh, Integer> ends = MeshCut.ends(build.solid, build.laid);
         addWholeEdge(mesh, texture, wall, door, x, y, z, layer, da, db);
+        if (measured) {
+            BlastHoles.measured(texture, topSince(ends, x, y, z));
+        }
+        if (holes == null) {
+            return;
+        }
         float[] lift = build.geometry.lift;
         float foot = z * ViewCamera.LEVEL_HEIGHT + (lift[0] + lift[1] + lift[2] + lift[3]) / 4f;
         MeshCut cut = new MeshCut(x, y, da, db, FENCE_REACH);
         BlastHoles.into(cut, holes, da != 0f, 0f, 1f, foot, ViewCamera.LEVEL_HEIGHT, 1);
         cut.since(ends, build.solid, build.laid);
+    }
+
+    /** The top of what the sprite being added built into the sets' meshes since ends were taken, in levels over the ground under it. */
+    private float topSince(IdentityHashMap<SpriteGeometry.Mesh, Integer> ends, int x, int y, int z) {
+        float top = 0f;
+        for (SpriteGeometry.MeshSet set : new SpriteGeometry.MeshSet[] {build.solid, build.laid}) {
+            for (int i = 0; i < set.used.size(); i++) {
+                SpriteGeometry.Mesh mesh = set.used.get(i);
+                Integer end = ends.get(mesh);
+                float[] f = mesh.vertices;
+                for (int at = end == null ? 0 : end; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+                    float ground = z * ViewCamera.LEVEL_HEIGHT + build.geometry.liftAt(f[at] - x, f[at + 1] - y);
+                    top = Math.max(top, (f[at + 2] - ground) / ViewCamera.LEVEL_HEIGHT);
+                }
+            }
+        }
+        return top;
     }
 
     /** How far either side of its edge a blast's hole goes through a fence, in tiles: its boards, and the battens they are nailed to. */

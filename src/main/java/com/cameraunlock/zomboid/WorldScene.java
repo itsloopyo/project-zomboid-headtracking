@@ -9856,6 +9856,7 @@ final class WorldScene {
             doorWall = properties.has(IsoFlagType.DoorWallN) || properties.has(IsoFlagType.DoorWallW);
             // A ModelFences corner length is marked for both edges and as neither one's sheet, as a chain link corner is.
             seeThrough = isSheet(properties) && !kind.thickFence || kind.linkSheet || kind.modelFence != null;
+            lowBoards = isSheet(properties) && !(object instanceof IsoDoor) && BlastHoles.blastable(object);
             linkSheet = kind.linkSheet;
             chainLink = seeThrough && overLayer == 0 && Own.buildings() ? kind.chainLink : null;
             linkPostDue = chainLink != null && chainLink.hasPost();
@@ -10501,6 +10502,8 @@ final class WorldScene {
         int brokenLights;
         /** Of the door or fence being added, the holes blasts have blown and the marks pellets have left, or null: see BlastHoles. */
         float[] blastHoles;
+        /** Whether the sprite being added is a wooden fence low enough for the game to see over: its top is measured for the shots (BlastHoles.topOf). */
+        boolean lowBoards;
         /** Whether the sprite being added is the frame round a doorway. */
         boolean casing;
         /** Whether the sprite being added is a wall a doorway is in. */
