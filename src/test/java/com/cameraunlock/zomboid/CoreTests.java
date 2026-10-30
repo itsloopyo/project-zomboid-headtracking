@@ -800,6 +800,13 @@ public final class CoreTests {
                         && !MuzzleFlash.on() && !Crosshair.on() && !Regrip.on() && SplitScreen.row() == SplitScreen.VERTICAL,
                 "every part, rule and optimization is off, and the content, isometric view and split screen are the game's: " + Part.described());
         check(Mouths.on() == mouths && Tracking.trackingModeLabel().equals(tracking), "and talking mouths and head tracking are as they were");
+        boolean effectsOff = true;
+        for (String key : new String[] {"ShadingAndLight", "Reflections", "FullSizeTextures", "SurfaceDepth", "SharpShadows", "WholeFigureShadows"}) {
+            effectsOff &= Tracking.optionValue(optionNamed(options, key)) == 0;
+        }
+        check(effectsOff && !Tracking.firstPersonRemembered(0) && !Tracking.firstPersonInVehicles(0),
+                "first person's graphics mode is Low, so its rows read Low's picture with every effect off, and no view goes to first person by itself");
+        check(Tracking.holds(off) && !Tracking.holds(Tracking.everythingOn()), "the Everything list reads Off, not On");
         savesMade();
         check(saved("FirstPersonEnabled=false", "TorchFollowsHead=false", "ShotsThroughWalls=false", "HiddenWallDecorSaved=false", "HillsMoveVehicles=false",
                         "BurntBuildingFreezeFix=false", "CachedGameLookups=false", "SpotBySight=false", "SpreadLightUpdates=false", "VanillaWeapons=true",
@@ -822,6 +829,16 @@ public final class CoreTests {
                 "and on again leaves each isometric view at the mode it has");
         savesMade();
         check(saved("FirstPersonEnabled=true", "IsometricQuality=High", "ThirdPlayerIsometricQuality=Low"), "each press is saved");
+
+        Map<String, Double> on = Tracking.everythingOn();
+        check(!Tracking.applyAll(on).isEmpty() && Tracking.applyAll(Tracking.everythingOn()).isEmpty(),
+                "Everything's On sets what it names, and chosen again sets nothing");
+        check(Part.FIRST_PERSON.on() && Rules.rows() != 0 && Own.rows() != 0 && PendingLights.spread() && MuzzleFlash.on() && Crosshair.on() && Regrip.on()
+                        && Quality.overheadRow(0) == Quality.HIGH && Tracking.holds(on) && !Tracking.holds(off),
+                "and turns every part, rule and optimization on with the mod's own content, leaving the isometric mode the player chose: " + Part.described());
+        savesMade();
+        check(saved("FirstPersonEnabled=true", "TorchFollowsHead=true", "ShotsThroughWalls=true", "SpotBySight=true", "VanillaWeapons=false",
+                "Quality=Automatic", "FourthPlayerQuality=Automatic"), "and all of it is saved");
         Tracking.applyAll(before);
         savesMade();
         check(text().equals(saved), "and every row set back as it was, the file is as it was");

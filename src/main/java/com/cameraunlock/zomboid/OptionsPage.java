@@ -22,9 +22,12 @@ import zombie.ui.UIManager;
  * Each player's microphone is a name and no option of core's: the page lists the microphones
  * connected as it opens, for each player, below the settings.
  *
- * Two buttons head the page: one turns first person on, or off with the isometric view at the
- * game's own picture (Tracking.firstPersonAndIsometric), the other everything but head tracking and talking
- * mouths off (Tracking.everythingOff). Each is taken and saved as it is pressed.
+ * A list and a button head the page. The list, Everything, turns every switch of the mod on
+ * (Tracking.everythingOn) or everything but head tracking and talking mouths off
+ * (Tracking.everythingOff) as a line is chosen, and shows which of the two the settings hold, or
+ * As set below where they hold neither. The button turns first person on, or off with the
+ * isometric view at the game's own picture (Tracking.firstPersonAndIsometric). Each is taken and
+ * saved at once.
  *
  * The game saves what its mod page shows in a file of its own, ModOptions.ini, and reads that
  * back when it builds the page. The mod never takes a value from there: the controls are filled
@@ -80,15 +83,21 @@ final class OptionsPage {
     private static final String MICROPHONE_TIP = "Read for Talking mouths alone, and only for how loud it is.";
 
     private static final JavaFunction OPENED = OptionsPage::opened, APPLIED = OptionsPage::applied,
-            BOTH_VIEWS_PRESSED = OptionsPage::bothViewsPressed, EVERYTHING_OFF_PRESSED = OptionsPage::everythingOffPressed;
+            BOTH_VIEWS_PRESSED = OptionsPage::bothViewsPressed, EVERYTHING_CHOSEN = OptionsPage::everythingChosen;
 
     private static final String BOTH_VIEWS_TIP = "On, first person, with the isometric view's graphics mode left as it is. "
             + "Off, first person off and the isometric view at Low, the game's own picture, for every player. Taken at once and saved.",
-            EVERYTHING_OFF_TIP = "Every part, rule, fix and optimization of the mod off, and the game's own content, isometric picture and split screen. "
-            + "Head tracking and talking mouths are left as they are. Taken at once and saved; what is read as the game starts is left out from the next start.";
+            EVERYTHING_TIP = "On: every part, rule, fix and optimization of the mod on, its own content, and first person's graphics at Automatic. "
+            + "Off: all of those off, with the game's own content, isometric picture and split screen, so only head tracking and talking mouths are left as they are. "
+            + "Taken at once and saved; what is read as the game starts follows from the next start. As set below: the settings hold neither.";
+    /** The Everything list's lines, in order: the settings as they are, everything on, everything but head tracking and talking mouths off. */
+    private static final String[] EVERYTHING_LINES = {"As set below", "On", "Off"};
+    private static final int AS_SET = 1, ALL_ON = 2, ALL_OFF = 3;
 
     /** The game's Lua table for the button that turns first person and the isometric graphics on or off together. */
     private static KahluaTable bothViews;
+    /** The game's Lua table for the Everything list. */
+    private static KahluaTable everything;
 
     private static List<Control> controls = List.of();
     private static List<MicrophoneList> microphones = List.of();
@@ -129,8 +138,13 @@ final class OptionsPage {
         }
         int[][] layout = OptionsLayout.of(OptionsLayout.PAGE, options);
         KahluaTable section = (KahluaTable) call(modOptions, "create", SECTION, HEADING);
+        KahluaTable whole = (KahluaTable) call(section, "addComboBox", "Everything", "Everything but head tracking and talking mouths", EVERYTHING_TIP);
+        for (String line : EVERYTHING_LINES) {
+            call(whole, "addItem", line, false);
+        }
+        // The game calls a list's onChange as soon as another line is chosen, before the screen is applied.
+        whole.rawset("onChange", EVERYTHING_CHOSEN);
         KahluaTable both = (KahluaTable) call(section, "addButton", "FirstPersonAndIsometric", bothViewsTitle(), BOTH_VIEWS_TIP, BOTH_VIEWS_PRESSED);
-        call(section, "addButton", "EverythingOff", "Turn off everything but head tracking and talking mouths", EVERYTHING_OFF_TIP, EVERYTHING_OFF_PRESSED);
         List<Control> made = new ArrayList<>();
         for (int group = 0; group < OptionsLayout.PAGE.length; group++) {
             call(section, "addTitle", OptionsLayout.PAGE[group].title());
@@ -156,6 +170,8 @@ final class OptionsPage {
         controls = made;
         microphones = lists;
         bothViews = both;
+        everything = whole;
+        showEverything();
         Log.info("the game's options screen has " + made.size() + " of the mod's settings and " + lists.size() + " lists of microphones under "
                 + HEADING);
     }
@@ -207,6 +223,7 @@ final class OptionsPage {
                 list(list, Tracking.microphones().get(list.player));
             }
             title();
+            showEverything();
             filled = true;
         } catch (RuntimeException failure) {
             // Thrown on, it would stop the game's options screen from opening.
@@ -218,6 +235,9 @@ final class OptionsPage {
             throw new IllegalStateException("the game's MainOptions.toUI failed: " + Arrays.toString(ran));
         }
         try {
+            KahluaTable tip = LuaManager.platform.newTable();
+            tip.rawset("defaultTooltip", EVERYTHING_TIP);
+            call((KahluaTable) everything.rawget("element"), "setToolTipMap", tip);
             for (Control control : controls) {
                 KahluaTable element = (KahluaTable) control.table.rawget("element");
                 if (control.values != null) {
@@ -401,7 +421,18 @@ final class OptionsPage {
                 Log.error(control.described.id + " on the game's options screen was not set to what it is now, and shows what was applied until the screen opens again", failure);
             }
         }
+        try {
+            showEverything();
+        } catch (RuntimeException failure) {
+            Log.error("the Everything list on the game's options screen was not set to what the settings hold", failure);
+        }
         return 0;
+    }
+
+    /** Sets the Everything list to the line the settings hold now: in the page's own table and in the list on the screen. */
+    private static void showEverything() {
+        int line = Tracking.holds(Tracking.everythingOn()) ? ALL_ON : Tracking.holds(Tracking.everythingOff()) ? ALL_OFF : AS_SET;
+        call(everything, "setValue", line);
     }
 
     /** The first button's title: what pressing it does now. */
@@ -424,25 +455,42 @@ final class OptionsPage {
         return 0;
     }
 
-    private static int everythingOffPressed(LuaCallFrame frame, int arguments) {
-        pressed(Tracking.everythingOff(), "everything but head tracking and talking mouths off");
+    /** A line of the Everything list chosen: On and Off are taken at once, and As set below changes nothing. */
+    private static int everythingChosen(LuaCallFrame frame, int arguments) {
+        int line = (int) (double) (Double) frame.get(1);
+        if (line == ALL_ON) {
+            pressed(Tracking.everythingOn(), "everything on");
+        } else if (line == ALL_OFF) {
+            pressed(Tracking.everythingOff(), "everything but head tracking and talking mouths off");
+        } else {
+            try {
+                showEverything();
+            } catch (RuntimeException failure) {
+                Log.error("the Everything list on the game's options screen was not set to what the settings hold", failure);
+            }
+        }
         return 0;
     }
 
     /**
-     * A button's settings are taken and saved at once, as an apply of the screen takes them, and
-     * each control they changed is set on the open screen to show it, so an apply after does not
-     * take them again. The first button's title is set to what it does now.
+     * The settings of the button or of a line of the Everything list are taken and saved at once,
+     * as an apply of the screen takes them, and each control that now reads otherwise is set on the
+     * open screen to show it, so an apply after does not take them again: the rows of [Graphics]
+     * among them, which show the picture of a graphics mode that was changed. The button's title
+     * and the Everything list are set to what holds now.
      */
     private static void pressed(Map<String, Double> values, String what) {
         try {
             List<Integer> set = Tracking.applyAll(values);
             for (Control control : controls) {
-                if (set.contains(control.option)) {
-                    put(control, Tracking.optionValue(control.option));
+                nameLevel(control);
+                double now = Tracking.optionValue(control.option);
+                if (set.contains(control.option) || notch(control, now) != control.shown) {
+                    put(control, now);
                 }
             }
             title();
+            showEverything();
             Log.info("the options screen's button: " + what + ", " + set.size() + " settings changed: " + Part.described());
         } catch (RuntimeException failure) {
             // Thrown on, it would stop the game's options screen.
@@ -468,11 +516,23 @@ final class OptionsPage {
             control.shown = value;
         } else if (control.values == null) {
             call(control.table, "setValue", notch(control, value));
-            control.shown = (Double) call((KahluaTable) control.table.rawget("element"), "getCurrentValue");
+            KahluaTable slider = (KahluaTable) control.table.rawget("element");
+            control.shown = (Double) call(slider, "getCurrentValue");
+            // The game writes the number beside a slider as the screen opens and as the slider is dragged, and not when it is set.
+            call((KahluaTable) slider.rawget("label"), "setName", luaText(control.shown));
         } else {
             call(control.table, "setValue", (double) (lineOf(control, (int) value) + 1));
             control.shown = value;
         }
+    }
+
+    /** A number as the game's Lua writes it, which is how the screen writes it beside a slider as it opens. */
+    private static String luaText(double value) {
+        Object[] ran = LuaManager.caller.pcall(UIManager.getDefaultThread(), LuaManager.env.rawget("tostring"), new Object[] {value});
+        if (!Boolean.TRUE.equals(ran[0])) {
+            throw new IllegalStateException("the game's tostring failed: " + Arrays.toString(ran));
+        }
+        return (String) ran[1];
     }
 
     /** What a control's table holds, as core's value for the option. */

@@ -506,6 +506,14 @@ final class Config {
     }
 
     /** The key of a player's first person graphics mode: Quality, SecondPlayerQuality and so on. */
+    static String firstPersonRow(int player) {
+        return PLAYER_ROW[player] + "FirstPerson";
+    }
+
+    static String firstPersonInVehiclesRow(int player) {
+        return PLAYER_ROW[player] + "FirstPersonInVehicles";
+    }
+
     static String qualityKey(int player) {
         return PLAYER_ROW[player] + "Quality";
     }

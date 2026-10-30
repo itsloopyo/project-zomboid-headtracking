@@ -529,29 +529,73 @@ final class Tracking {
     }
 
     /**
-     * What the options page's second button sets: every part, rule, fix and optimization of the
-     * mod off, the game's own content, isometric picture and split screen, so that what is left
-     * is head tracking and talking mouths, which keep what they have. Rewind30s, off unless a
+     * What the options page's Everything list sets for Off: every part, rule, fix and optimization
+     * of the mod off, the game's own content, isometric picture and split screen, first person's
+     * graphics mode at Low and no view switched to first person by itself, so that what is left is
+     * head tracking and talking mouths, which keep what they have. Rewind30s, off unless a
      * development build is asked, is left as it is.
      */
     static Map<String, Double> everythingOff() {
         Map<String, Double> values = new LinkedHashMap<>(firstPersonAndIsometric(false));
-        for (Part part : Part.values()) {
-            values.put(part.key, 0.0);
-        }
-        for (String key : Config.RULE_KEYS) {
-            if (!key.equals("Rewind30s")) {
-                values.put(key, 0.0);
-            }
-        }
-        for (String key : Config.VANILLA_KEYS) {
-            values.put(key, 1.0);
-        }
-        for (String key : new String[] {"SpreadLightUpdates", "MuzzleFlash", "Crosshair", "RegripTwoHandedWeapons"}) {
-            values.put(key, 0.0);
+        everySwitch(values, false);
+        for (int player = 0; player < View.COUNT; player++) {
+            values.put(Config.qualityKey(player), (double) Quality.LOW);
+            values.put(Config.firstPersonRow(player), 0.0);
+            values.put(Config.firstPersonInVehiclesRow(player), 0.0);
         }
         values.put("SplitScreen", (double) SplitScreen.VERTICAL);
         return values;
+    }
+
+    /**
+     * What the options page's Everything list sets for On: every part, rule, fix and optimization
+     * of the mod on, its own content in place of the game's, and first person's graphics mode at
+     * Automatic. The isometric graphics mode, the views at load and split screen are the player's
+     * to choose and are left as they are, as are head tracking and talking mouths.
+     */
+    static Map<String, Double> everythingOn() {
+        Map<String, Double> values = new LinkedHashMap<>();
+        everySwitch(values, true);
+        for (int player = 0; player < View.COUNT; player++) {
+            values.put(Config.qualityKey(player), (double) Quality.AUTOMATIC);
+        }
+        return values;
+    }
+
+    private static void everySwitch(Map<String, Double> values, boolean on) {
+        double value = on ? 1.0 : 0.0;
+        for (Part part : Part.values()) {
+            values.put(part.key, value);
+        }
+        for (String key : Config.RULE_KEYS) {
+            if (!key.equals("Rewind30s")) {
+                values.put(key, value);
+            }
+        }
+        for (String key : Config.VANILLA_KEYS) {
+            values.put(key, 1.0 - value);
+        }
+        for (String key : new String[] {"SpreadLightUpdates", "MuzzleFlash", "Crosshair", "RegripTwoHandedWeapons"}) {
+            values.put(key, value);
+        }
+    }
+
+    /** Whether every option the values name holds its value now. Throws for a name that is no option. Logic thread. */
+    static boolean holds(Map<String, Double> values) {
+        CameraUnlock.Option[] options = options();
+        int found = 0;
+        boolean all = true;
+        for (int option = 0; option < options.length; option++) {
+            Double value = values.get(options[option].id);
+            if (value != null) {
+                found++;
+                all &= optionValue(option) == value;
+            }
+        }
+        if (found != values.size()) {
+            throw new IllegalStateException(values.size() - found + " of " + values.keySet() + " are no options of the screen");
+        }
+        return all;
     }
 
     /**
