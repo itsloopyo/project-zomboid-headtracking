@@ -283,7 +283,8 @@ final class LightSites {
             if (levelOf(keys[base]) != level) {
                 throw new IllegalStateException("a tint on level " + level + " is laid on site " + describe(base));
             }
-            int site = add(key(TINTED, level, count), slot(key(TINTED, level, count)));
+            long key = key(TINTED, level, count);
+            int site = add(key, slot(key));
             take(frame, records, site * RECORD, 0f, false);
             bases[site] = base;
             places[site] = 0L;

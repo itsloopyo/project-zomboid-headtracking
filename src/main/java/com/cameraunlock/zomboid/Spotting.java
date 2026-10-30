@@ -571,7 +571,7 @@ final class Spotting {
         long from = CHECK ? System.nanoTime() : 0L;
         while (nextUnit < unitCount) {
             long unit = units[nextUnit++];
-            long read = squaresRead, asks = seenAsked, marks = marked;
+            long read = squaresRead, asks = seenAsked, markedBefore = marked;
             int afresh = CHECK ? count(true) : 0;
             if ((unit & ROOM_UNIT) != 0L) {
                 roomPiece(cell, (int) unit);
@@ -585,7 +585,7 @@ final class Spotting {
                     longestUnitRoom = (unit & ROOM_UNIT) != 0L;
                     longestUnitRead = squaresRead - read;
                     longestUnitAsked = seenAsked - asks;
-                    longestUnitMarked = marked - marks;
+                    longestUnitMarked = marked - markedBefore;
                     longestUnitAfresh = count(true) - afresh;
                 }
                 from = at;

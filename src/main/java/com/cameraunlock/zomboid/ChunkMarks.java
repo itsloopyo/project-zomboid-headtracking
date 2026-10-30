@@ -314,7 +314,7 @@ public final class ChunkMarks {
      * away in IsoGridSquare.removeCorpse, as one rises, or as an animal's rots away.
      */
     public static void bodyGone(int x, int y) {
-        things.getAndIncrement(slot(x / WorldScene.CHUNK_TILES, y / WorldScene.CHUNK_TILES));
+        things.getAndIncrement(slot(Math.floorDiv(x, WorldScene.CHUNK_TILES), Math.floorDiv(y, WorldScene.CHUNK_TILES)));
     }
 
     private static void built(int slot, int level) {
