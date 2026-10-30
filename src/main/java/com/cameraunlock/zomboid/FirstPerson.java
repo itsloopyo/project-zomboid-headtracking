@@ -72,7 +72,12 @@ public final class FirstPerson {
 
     FirstPerson(View view) {
         this.view = view;
+        pointersFloor = (x, y) -> pointersLevel * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(x, y, pointersLevel);
     }
+
+    /** The player's level this frame, and the floor of it the homing pointers stand over, kept so a frame makes no new one. */
+    private int pointersLevel;
+    private final Homing.FloorUp pointersFloor;
 
     /** How long the name of a graphics mode, picture style or aim mode just gone to stays on the screen. */
     private static final long SAID_FOR_NANOS = 2_500_000_000L;
@@ -1045,9 +1050,8 @@ public final class FirstPerson {
         }
         // The shape of the picture is not known until a frame has been drawn.
         float drawnAspect = view.worldScene.drawnAspect();
-        int level = (int) Math.floor(player.getZ());
-        view.crosshair.point(drawnAspect == 0f ? null : Homing.pointers(player.getIndex(), trackedView, pictureTanHalf, drawnAspect,
-                (x, y) -> level * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(x, y, level)));
+        pointersLevel = (int) Math.floor(player.getZ());
+        view.crosshair.point(drawnAspect == 0f ? null : Homing.pointers(player.getIndex(), trackedView, pictureTanHalf, drawnAspect, pointersFloor));
 
         if (TRACE) {
             trace(player, scene, zoom);
