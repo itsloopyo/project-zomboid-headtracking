@@ -6138,8 +6138,10 @@ final class WorldScene {
             // The kerbs and the water are Terrain's own arrays, which a build points at as it begins (addSquares): copied
             // into, a chunk on the map would have another's. The frame and pass roomsSeenInReading was filled in stay with
             // the frame's own table, which is not taken: taken, they would pass off another frame's answers as this one's.
+            // What a page is refreshed into is written whole before it is read (relightLevel), and as long as the largest
+            // page: taken, every build handed off would hold a copy of it until its frame is handed off again.
             Set<String> kept = Set.of("crownsRead", "placed", "lying", "building", "shown", "builtAheadOf", "kerbs", "waterCorners", "kerbUnderKerb",
-                    "roomsSeenFrame", "roomsSeenPass");
+                    "roomsSeenFrame", "roomsSeenPass", "refreshed", "refreshedGrown");
             ArrayList<Field> taken = new ArrayList<>();
             for (Field field : Frame.class.getDeclaredFields()) {
                 int modifiers = field.getModifiers();
