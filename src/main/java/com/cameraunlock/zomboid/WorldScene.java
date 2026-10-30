@@ -810,6 +810,49 @@ final class WorldScene {
     private final ChunkMeshes[] latestGrown = new ChunkMeshes[TABLE_SIDE * TABLE_SIDE];
     /** The builds the walk of the view's last frame handed off, in walk order: made as the walk goes on and landed at the start of the next frame (Frame.handOff). */
     private final ArrayList<Handed> handed = new ArrayList<>();
+    /**
+     * The records of a light page on each of its levels, in the order they were put: a tall chunk's page was read
+     * through once for every level as it was refreshed (Frame.relightLevel).
+     */
+    private static final class PageLevels {
+        private int from, levels;
+        private int[] firsts = new int[0], lasts = new int[0];
+        /** The next record on the record's level, or -1. */
+        int[] next = new int[0];
+
+        /** Indexes the records of a build's page on the levels from fromLevel to toLevel. Those on other levels are in no list. */
+        void index(ChunkMeshes page, int fromLevel, int toLevel) {
+            from = fromLevel;
+            levels = Math.max(0, toLevel - fromLevel + 1);
+            if (firsts.length < levels) {
+                firsts = new int[levels];
+                lasts = new int[levels];
+            }
+            Arrays.fill(firsts, 0, levels, -1);
+            if (next.length < page.pageRecords) {
+                next = new int[page.pageRecords];
+            }
+            for (int record = 0; record < page.pageRecords; record++) {
+                int level = LightSites.levelOf(page.pageKeys[record]) - from;
+                if (level < 0 || level >= levels) {
+                    continue;
+                }
+                next[record] = -1;
+                if (firsts[level] < 0) {
+                    firsts[level] = record;
+                } else {
+                    next[lasts[level]] = record;
+                }
+                lasts[level] = record;
+            }
+        }
+
+        /** The first record on level z, or -1. */
+        int first(int z) {
+            return z < from || z - from >= levels ? -1 : firsts[z - from];
+        }
+    }
+
     /** The heights of the chunks a build took any from, as it first read them: see Frame.heightsRead. */
     private static final class HeightsRead {
         int ownVersion;
@@ -7550,6 +7593,8 @@ final class WorldScene {
 
         /** What relightPage works the records of a build's page out into, and those of the build of what grows on its chunk. */
         private float[] refreshed = new float[0], refreshedGrown = new float[0];
+        /** The records of each level of the page relightPage works out, and of the page of what grows on its chunk. */
+        private final PageLevels pageLevels = new PageLevels(), grownLevels = new PageLevels();
         /**
          * For the tolls, of relightPage's last run: the time spent reading the light, the squares
          * whose light that asked of the game, the levels read and the sites no build would put now.
@@ -7606,6 +7651,10 @@ final class WorldScene {
                 tallying = true;
             }
             lampsRound(chunkX, chunkY);
+            pageLevels.index(build, build.pageFrom, build.pageTo);
+            if (grown != null) {
+                grownLevels.index(grown, 0, 0);
+            }
             int relit = 0, grownRelit = 0, span = lightRed.length;
             for (int z = build.pageFrom; z <= build.pageTo; z++) {
                 boolean keeps = fromSum ? (keptLevels >> (z - keptFrom) & 1L) == 0L : holds && (z >= heldFrom || z <= heldUnder);
@@ -7625,10 +7674,10 @@ final class WorldScene {
                     relitReadNanos += System.nanoTime() - reads;
                     relitLevels++;
                 }
-                relit += relightLevel(build, refreshed, z, keeps);
+                relit += relightLevel(build, pageLevels, refreshed, z, keeps);
                 // What grows on a chunk is built on its ground alone.
                 if (grown != null && z == 0) {
-                    grownRelit += relightLevel(grown, refreshedGrown, 0, keeps);
+                    grownRelit += relightLevel(grown, grownLevels, refreshedGrown, 0, keeps);
                 }
             }
             squaresSeen = seenBefore;
@@ -7639,14 +7688,14 @@ final class WorldScene {
             }
         }
 
-        /** relightPage for the sites of a page on level z, whose light readLights read last, into into, or with keeps the records the page has: how many sites the page has on the level. */
-        private int relightLevel(ChunkMeshes build, float[] into, int z, boolean keeps) {
+        /**
+         * relightPage for the sites of a page on level z, as levels has them indexed, whose light readLights read last,
+         * into into, or with keeps the records the page has: how many sites the page has on the level.
+         */
+        private int relightLevel(ChunkMeshes build, PageLevels levels, float[] into, int z, boolean keeps) {
             int count = 0;
-            for (int record = 0; record < build.pageRecords; record++) {
+            for (int record = levels.first(z); record >= 0; record = levels.next[record]) {
                 long key = build.pageKeys[record];
-                if (LightSites.levelOf(key) != z) {
-                    continue;
-                }
                 count++;
                 int at = record * LightSites.RECORD;
                 if (keeps) {
@@ -9913,6 +9962,9 @@ final class WorldScene {
             // the floor, so its outline says nothing of where a box of it would stand: read as
             // one, a computer on a desk against a wall was a box a pace away outside the wall.
             boolean onTop = kind.onTop;
+            // Asked once: the game's answer is asked under a lock every build thread shares (Surfaces). Read only where nothing grows.
+            int surface = grows ? 0 : Surfaces.surface(properties);
+            boolean table = !grows && Surfaces.table(properties);
             // A piece of a sign or a billboard standing in the air, one of a run that meets in the
             // game's picture. Read each on its own, as a post or a panel, every piece took a depth
             // of its own and the board came out in steps.
@@ -9922,7 +9974,7 @@ final class WorldScene {
             // What stands upright on one spot and is no furniture: a column, a porch post, a lamp
             // post, a pole, a timber post with its braces.
             if (!grows && !onTop && overLayer == 0 && !properties.has(IsoFlagType.solid) && !properties.has(IsoFlagType.solidtrans)
-                    && !properties.has(IsoFlagType.bed) && !Surfaces.table(properties) && Surfaces.surface(properties) <= 0 && !kind.holds
+                    && !properties.has(IsoFlagType.bed) && !table && surface <= 0 && !kind.holds
                     && postBuilder.addPost(mesh, object, sprite, texture, x, y, z)) {
                 return;
             }
@@ -9943,12 +9995,12 @@ final class WorldScene {
             // A tall cupboard two squares wide that addFurniture has no model for is the same
             // case as the bed below: each square's sprite is half of it, and the outline of a half
             // is not a box. The game says how high such a thing stands and that it fills its square.
-            if (!grows && properties.has(IsoFlagType.solid) && Surfaces.surface(properties) >= TALL_SURFACE) {
+            if (!grows && properties.has(IsoFlagType.solid) && surface >= TALL_SURFACE) {
                 // Half a square deep, as a wardrobe is, against whichever wall the square has.
                 box[0] = wallWest && !wallNorth ? CUPBOARD_DEEP / 2f : 0.5f;
                 box[1] = wallNorth ? CUPBOARD_DEEP / 2f : 0.5f;
                 box[2] = wallWest && !wallNorth ? CUPBOARD_DEEP / 2f : 0.5f;
-                box[3] = Surfaces.surface(properties) / SURFACE_PIXELS_PER_LEVEL;
+                box[3] = surface / SURFACE_PIXELS_PER_LEVEL;
                 geometry.boxHalfB = wallNorth ? CUPBOARD_DEEP / 2f : 0.5f;
                 geometry.addBox(mesh, frame, x, y, z, box);
                 geometry.boxHalfB = 0f;
@@ -9964,7 +10016,7 @@ final class WorldScene {
                 // The sprite of one square of a bed is a part of the bed, and wrapped on a box it
                 // leaves gaps and torn edges. The square is a block of bedding instead, the colour
                 // the sprite has in the middle of the bed's top, as high as the game says a bed is.
-                float high = Surfaces.surface(properties) > 0 ? Surfaces.surface(properties) / SURFACE_PIXELS_PER_LEVEL : BED_HEIGHT;
+                float high = surface > 0 ? surface / SURFACE_PIXELS_PER_LEVEL : BED_HEIGHT;
                 geometry.addBlock(mesh, frame, x, y, z, high, 0.5f, 0.5f, high);
                 // Over the block, what the sprite shows of the bed's top: the pillow, the fold of the
                 // blanket. Where the sprite stops short the block's own colour carries on.
@@ -9987,7 +10039,7 @@ final class WorldScene {
             // Something low and wide the game says nothing of: a vent on a flat roof, a shower's
             // tray, a hatch. It is a slab, whatever holes its sprite has in it: a fan's blades
             // show the roof between them, and the test above takes that for a chair's legs.
-            if (!grows && !onTop && overLayer == 0 && !Surfaces.table(properties) && Surfaces.surface(properties) <= 0 && !properties.has(IsoFlagType.bed)
+            if (!grows && !onTop && overLayer == 0 && !table && surface <= 0 && !properties.has(IsoFlagType.bed)
                     && SpriteGeometry.boxOf(frame, box) && Flat.isSlab(box[2], box[3])) {
                 addBoxWithinWalls(mesh, x, y, z);
                 boxes++;
@@ -9997,8 +10049,8 @@ final class WorldScene {
             // taking from the sprite what the sprite shows there, round or square as it is painted,
             // and what the sprite shows below the top stands under it as the legs.
             // Only what is table height: a tall cupboard the game also calls a table is not one.
-            if (!grows && Surfaces.table(properties) && Surfaces.surface(properties) > 0 && Surfaces.surface(properties) <= TABLE_HIGHEST) {
-                float top = Surfaces.surface(properties) / SURFACE_PIXELS_PER_LEVEL;
+            if (!grows && table && surface > 0 && surface <= TABLE_HIGHEST) {
+                float top = surface / SURFACE_PIXELS_PER_LEVEL;
                 geometry.addFace(mesh, frame, x, y, z, 0f, 0f, top, 1f, 0f, 0f, 0f, 1f, 0f);
                 float under = (frame.top + frame.height - SpriteGeometry.frameV(frame, 0.5f, 0.5f, top)) / frame.height;
                 if (under > 0.05f) {
@@ -10018,7 +10070,7 @@ final class WorldScene {
                 plantBuilder.addGrown(mesh, sprite, type, texture, x, y, z);
                 return;
             }
-            if (overLayer == 0 && Surfaces.surface(properties) <= 0 && !Surfaces.table(properties) && postBuilder.addInWallLine(mesh, sprite, texture, x, y, z)) {
+            if (overLayer == 0 && surface <= 0 && !table && postBuilder.addInWallLine(mesh, sprite, texture, x, y, z)) {
                 return;
             }
             geometry.addUpright(mesh, frame, x, y, z, 0.5f, 0.5f, 0f, 1f, 0f, true, false);
@@ -10499,7 +10551,11 @@ final class WorldScene {
         final WallJoins.Walls boarded = (wallX, wallY, north) -> {
             IsoGridSquare square = cell.getGridSquare(wallX, wallY, joinLevel);
             IsoObject wall = square == null ? null : wallOn(square, north, false);
-            return wall != null && isSheet(wall.getSprite().getProperties()) && kindOf(wall.getSprite()).asOther == BOARDS && !kindOf(wall.getSprite()).thickFence;
+            if (wall == null || !isSheet(wall.getSprite().getProperties())) {
+                return false;
+            }
+            Kind kind = kindOf(wall.getSprite());
+            return kind.asOther == BOARDS && !kind.thickFence;
         };
         /** Whether the wall being added is a sheet: see isSheet. */
         boolean seeThrough;
