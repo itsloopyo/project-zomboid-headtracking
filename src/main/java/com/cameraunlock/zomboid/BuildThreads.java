@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -92,9 +93,18 @@ final class BuildThreads {
         return Thread.currentThread() instanceof BuildThread;
     }
 
-    /** What the build threads have asked the logic thread to do, and for each piece of work run, its end (DONE). */
+    /** What the build threads have asked the logic thread to do, and for each piece of work run, its end (an End). */
     private static final LinkedBlockingQueue<FutureTask<?>> asked = new LinkedBlockingQueue<>();
-    private static final FutureTask<?> DONE = new FutureTask<>(() -> null);
+
+    /**
+     * The end of a piece of work, one for each wait: a wait begun while another is open (a dev check's build during a
+     * Handing) takes the other's ends off the queue too, and must neither count them nor lose them.
+     */
+    private static final class End extends FutureTask<Object> {
+        End() {
+            super(() -> null);
+        }
+    }
 
     /**
      * Set once the logic thread stops waiting on build threads that have not ended (it was interrupted): they may still
@@ -121,7 +131,8 @@ final class BuildThreads {
 
     /** Runs the build on the pool and waits for it, doing what it asks of the logic thread: what it throws, thrown again here. */
     static void runAndWait(ExecutorService pool, Runnable build) {
-        waitOn(new Future<?>[] {pool.submit(ended(build))});
+        End end = new End();
+        waitOn(new Future<?>[] {pool.submit(ended(build, end))}, end);
     }
 
     /**
@@ -145,6 +156,7 @@ final class BuildThreads {
         private static final Object NO_MORE = new Object();
         private final LinkedBlockingQueue<Object> waiting = new LinkedBlockingQueue<>();
         private Future<?>[] running;
+        private End end;
 
         /** Logic thread: hands a piece on, starting the threads with the first. */
         void hand(T work, ExecutorService pool, int count, IntConsumer thread) {
@@ -152,9 +164,10 @@ final class BuildThreads {
             if (running == null) {
                 handing = true;
                 running = new Future<?>[count];
+                end = new End();
                 for (int each = 0; each < count; each++) {
                     int number = each;
-                    running[each] = pool.submit(ended(() -> thread.accept(number)));
+                    running[each] = pool.submit(ended(() -> thread.accept(number), end));
                 }
             }
             waiting.add(work);
@@ -184,11 +197,12 @@ final class BuildThreads {
                 waiting.add(NO_MORE);
             }
             try {
-                waitOn(running);
+                waitOn(running, end);
             } finally {
                 // Left as it is if the threads were stranded: they may still be taking from waiting.
                 if (stranded == null) {
                     running = null;
+                    end = null;
                     waiting.clear();
                     handing = false;
                 }
@@ -196,23 +210,26 @@ final class BuildThreads {
         }
     }
 
-    private static Runnable ended(Runnable work) {
+    private static Runnable ended(Runnable work, End end) {
         return () -> {
             try {
                 work.run();
             } finally {
-                asked.add(DONE);
+                asked.add(end);
             }
         };
     }
 
-    private static void waitOn(Future<?>[] running) {
+    private static void waitOn(Future<?>[] running, End end) {
         notStranded();
+        List<FutureTask<?>> othersEnds = new ArrayList<>();
         try {
             for (int left = running.length; left > 0;) {
                 FutureTask<?> ask = asked.take();
-                if (ask == DONE) {
+                if (ask == end) {
                     left--;
+                } else if (ask instanceof End) {
+                    othersEnds.add(ask);
                 } else {
                     // Under SHARED, so that the game's light, which what is asked may read, is read by one thread at a time.
                     synchronized (SHARED) {
@@ -220,6 +237,8 @@ final class BuildThreads {
                     }
                 }
             }
+            asked.addAll(othersEnds);
+            othersEnds.clear();
             for (Future<?> each : running) {
                 each.get();
             }

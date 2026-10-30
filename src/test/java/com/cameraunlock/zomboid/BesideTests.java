@@ -14,6 +14,7 @@ final class BesideTests {
         Checks.run("whatBuildThreadsAskOfTheLogicThreadIsDoneThereAsItWaits", BesideTests::whatBuildThreadsAskOfTheLogicThreadIsDoneThereAsItWaits);
         Checks.run("workHandedIsMadeAsTheLogicThreadGoesOnInTheOrderHanded", BesideTests::workHandedIsMadeAsTheLogicThreadGoesOnInTheOrderHanded);
         Checks.run("whatABuildLeavesToTheLogicThreadIsKeptInOrderUntilItLands", BesideTests::whatABuildLeavesToTheLogicThreadIsKeptInOrderUntilItLands);
+        Checks.run("aBuildWaitedOnWhileWorkIsHandedTakesOnlyItsOwnEnd", BesideTests::aBuildWaitedOnWhileWorkIsHandedTakesOnlyItsOwnEnd);
     }
 
     private static void aFrameBesideTakesWhatABuildReads() {
@@ -194,6 +195,44 @@ final class BesideTests {
             }
         } finally {
             pool.shutdown();
+        }
+    }
+
+    /** A dev check's build beside the walk is waited on while the walk's handed threads may already have ended. */
+    private static void aBuildWaitedOnWhileWorkIsHandedTakesOnlyItsOwnEnd() throws InterruptedException {
+        java.util.concurrent.ExecutorService handed = BuildThreads.pool(1, "tests' handed build thread");
+        java.util.concurrent.ExecutorService beside = BuildThreads.one("tests' beside build thread");
+        try {
+            java.util.concurrent.CountDownLatch handedEnded = new java.util.concurrent.CountDownLatch(1);
+            boolean[] answered = {false};
+            Throwable[] thrown = {null};
+            Thread logic = new Thread(() -> {
+                try {
+                    BuildThreads.Handing<Integer> handing = new BuildThreads.Handing<>();
+                    handing.hand(0, handed, 1, thread -> handedEnded.countDown());
+                    BuildThreads.runAndWait(beside, () -> {
+                        try {
+                            handedEnded.await();
+                            // Time for the handed thread's end to be on the queue before the logic thread takes from it.
+                            Thread.sleep(100);
+                        } catch (InterruptedException e) {
+                            throw new IllegalStateException(e);
+                        }
+                        answered[0] = BuildThreads.onLogicThread(() -> true);
+                    });
+                    handing.finish();
+                } catch (Throwable t) {
+                    thrown[0] = t;
+                }
+            }, "tests' logic thread");
+            logic.setDaemon(true);
+            logic.start();
+            logic.join(10_000);
+            check(!logic.isAlive(), "the logic thread neither waits for good on the build beside nor on the handed one");
+            check(thrown[0] == null && answered[0], "and what the build beside asked of it was answered: " + thrown[0]);
+        } finally {
+            handed.shutdownNow();
+            beside.shutdownNow();
         }
     }
 
