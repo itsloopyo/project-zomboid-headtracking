@@ -818,6 +818,8 @@ final class WorldScene {
     private final BuildThreads.Handing<Handed> making = new BuildThreads.Handing<>();
     /** What a build takes to make, by a running mean: the frame's time a build of a chunk with none is reckoned to take as it is handed off. */
     private long handedMeanNanos = 1_000_000L;
+    /** The same for a build of what grows on a chunk's ground alone (Frame.handGrown). */
+    private long handedGrownMeanNanos = 100_000L;
 
     /**
      * A build the walk handed off: the walking frame's state as it was then (taken), what the build is made into,
@@ -829,9 +831,12 @@ final class WorldScene {
         int chunkX, chunkY, lowest, toldSoFar, slot, cause;
         /** For crown: the build was made only because the eye moved or it was old. */
         boolean mayWait;
+        /** Made into for the chunk's build, or null for a build of what grows on its ground alone (handGrown). */
         ChunkMeshes fresh;
         /** Made into for what grows on the chunk's ground, if the chunk has any: taken from spare as the build is handed off. */
         ChunkMeshes grown;
+        /** For a build of what grows alone: the chunk's build standing, which it goes with as one made in the walk does. */
+        ChunkMeshes standing;
         float eyeX, eyeY, eyeUp;
         /** What the build wrote down of its crowns, for crown as it lands. */
         Crowns crowns = new Crowns();
@@ -2034,7 +2039,7 @@ final class WorldScene {
         // Those that take the walk's state hold the map as the scenes do.
         for (Handed job : spareHanded) {
             job.chunk = null;
-            job.fresh = job.grown = null;
+            job.fresh = job.grown = job.standing = null;
             setDown(job.taken);
         }
         setDown(beside);
@@ -2520,7 +2525,9 @@ final class WorldScene {
         }
         job.dropped = true;
         handedAt[job.slot] = null;
-        unmade(job.fresh, job.made);
+        if (job.fresh != null) {
+            unmade(job.fresh, job.made);
+        }
         if (job.grown != null) {
             unmade(job.grown, job.grownMade);
         }
@@ -4908,41 +4915,46 @@ final class WorldScene {
                         if (!missing && !due) {
                             surround(map, chunk, gridX, gridY, side);
                         }
-                        ChunkMeshes fresh = spare.isEmpty() ? new ChunkMeshes(view.index) : spare.pop();
-                        solid.clear();
-                        laid.clear();
-                        fresh.placed.clear();
-                        fresh.lying.clear();
-                        fresh.wx = chunk.wx;
-                        fresh.wy = chunk.wy;
-                        fresh.builtFrame = frames;
-                        fresh.checkedFrame = frames;
-                        fresh.eyeX = pose.eyeX;
-                        fresh.eyeY = pose.eyeY;
-                        fresh.eyeUp = pose.eyeUp;
-                        fresh.grown = true;
-                        fresh.users = 1;
-                        placed = fresh.placed;
-                        lying = fresh.lying;
-                        building = current;
-                        growing = true;
-                        chunksGrown++;
-                        long began = System.nanoTime();
-                        addSquares(chunk, chunkX, chunkY, 0);
-                        growing = false;
-                        kerbBuilder.noKerb();
-                        if (AUDIT_STALE) {
-                            fresh.auditFloats = floatsOf(solid) * 31 + floatsOf(laid);
+                        if (handing) {
+                            // Handed off, it lands with the builds at the start of the next frame, and until then what grew before stands.
+                            handedNanos += handGrown(chunk, chunkX, chunkY, slot, current, pose);
+                        } else {
+                            ChunkMeshes fresh = spare.isEmpty() ? new ChunkMeshes(view.index) : spare.pop();
+                            solid.clear();
+                            laid.clear();
+                            fresh.placed.clear();
+                            fresh.lying.clear();
+                            fresh.wx = chunk.wx;
+                            fresh.wy = chunk.wy;
+                            fresh.builtFrame = frames;
+                            fresh.checkedFrame = frames;
+                            fresh.eyeX = pose.eyeX;
+                            fresh.eyeY = pose.eyeY;
+                            fresh.eyeUp = pose.eyeUp;
+                            fresh.grown = true;
+                            fresh.users = 1;
+                            placed = fresh.placed;
+                            lying = fresh.lying;
+                            building = current;
+                            growing = true;
+                            chunksGrown++;
+                            long began = System.nanoTime();
+                            addSquares(chunk, chunkX, chunkY, 0);
+                            growing = false;
+                            kerbBuilder.noKerb();
+                            if (AUDIT_STALE) {
+                                fresh.auditFloats = floatsOf(solid) * 31 + floatsOf(laid);
+                            }
+                            fresh.fill(solid, laid);
+                            slowed(began);
+                            tollGrown++;
+                            tollGrownNanos += System.nanoTime() - began;
+                            if (grown != null) {
+                                release(grown);
+                            }
+                            latestGrown[slot] = fresh;
+                            grown = fresh;
                         }
-                        fresh.fill(solid, laid);
-                        slowed(began);
-                        tollGrown++;
-                        tollGrownNanos += System.nanoTime() - began;
-                        if (grown != null) {
-                            release(grown);
-                        }
-                        latestGrown[slot] = fresh;
-                        grown = fresh;
                     }
                     if (grown != null && grown.wx == chunk.wx && grown.wy == chunk.wy) {
                         grown.users++;
@@ -5935,6 +5947,7 @@ final class WorldScene {
             job.cause = cause;
             job.mayWait = mayWait;
             job.fresh = fresh;
+            job.standing = null;
             job.grown = !Own.plants(view.index) ? null : spare.isEmpty() ? new ChunkMeshes(view.index) : spare.pop();
             job.eyeX = pose.eyeX;
             job.eyeY = pose.eyeY;
@@ -5950,6 +5963,30 @@ final class WorldScene {
             fresh.pageWaitsNanos = 0L;
             hand(job);
             return current != null && current.tookNanos > 0L ? current.tookNanos : handedMeanNanos;
+        }
+
+        /**
+         * Hands off the build of what grows on a chunk's ground alone, made again only because the eye has moved or it had
+         * none, as the walk would make it here with this frame's state as it stands, beside the chunk's build standing:
+         * made by a build thread as the walk goes on and landed with the others at the start of the view's next frame.
+         * Returns the frame's time it is reckoned to take, as handOff does.
+         */
+        private long handGrown(IsoChunk chunk, int chunkX, int chunkY, int slot, ChunkMeshes standing, ViewCamera.Pose pose) {
+            Handed job = spareHanded.isEmpty() ? new Handed() : spareHanded.pop();
+            job.taken.takeFrom(this);
+            job.chunk = chunk;
+            job.chunkX = chunkX;
+            job.chunkY = chunkY;
+            job.slot = slot;
+            job.fresh = null;
+            job.standing = standing;
+            job.grown = spare.isEmpty() ? new ChunkMeshes(view.index) : spare.pop();
+            job.eyeX = pose.eyeX;
+            job.eyeY = pose.eyeY;
+            job.eyeUp = pose.eyeUp;
+            job.made = job.grownMade = job.dropped = false;
+            hand(job);
+            return handedGrownMeanNanos;
         }
 
         /** Starts the build threads with the first build a frame hands off, and hands them the job. */
@@ -6006,11 +6043,22 @@ final class WorldScene {
          */
         private void make(Handed job) {
             takeFrom(job.taken);
+            SpriteColours.askingFrom(view.index, job.chunkX + CHUNK_TILES / 2f, job.chunkY + CHUNK_TILES / 2f);
+            if (job.fresh == null) {
+                grow(job, job.standing, frames);
+                job.made = true;
+            } else {
+                makeChunk(job);
+            }
+            SpriteColours.askingFrom(view.index, Float.NaN, Float.NaN);
+        }
+
+        /** make for a build of the chunk, and of what grows on it with it. */
+        private void makeChunk(Handed job) {
             ChunkMeshes fresh = job.fresh;
             solid.clear();
             laid.clear();
             layers.none();
-            SpriteColours.askingFrom(view.index, job.chunkX + CHUNK_TILES / 2f, job.chunkY + CHUNK_TILES / 2f);
             long began = System.nanoTime();
             buildInto(job.chunk, job.chunkX, job.chunkY, job.lowest, fresh, job.toldSoFar);
             if (AUDIT_STALE || AUDIT_MARKS) {
@@ -6036,40 +6084,48 @@ final class WorldScene {
             crownsRead = job.crowns;
             job.crowns = made;
             job.made = true;
-            ChunkMeshes grown = job.grown;
-            if (grown != null && fresh.grows) {
-                solid.clear();
-                laid.clear();
-                grown.placed.clear();
-                grown.lying.clear();
-                grown.wx = fresh.wx;
-                grown.wy = fresh.wy;
-                grown.builtFrame = fresh.builtFrame;
-                grown.checkedFrame = fresh.builtFrame;
-                grown.eyeX = job.eyeX;
-                grown.eyeY = job.eyeY;
-                grown.eyeUp = job.eyeUp;
-                grown.grown = true;
-                grown.users = 1;
-                placed = grown.placed;
-                lying = grown.lying;
-                building = fresh;
-                growing = true;
-                long growBegan = System.nanoTime();
-                addSquares(job.chunk, job.chunkX, job.chunkY, 0);
-                growing = false;
-                kerbBuilder.noKerb();
-                if (AUDIT_STALE) {
-                    grown.auditFloats = floatsOf(solid) * 31 + floatsOf(laid);
-                }
-                grown.fill(solid, laid);
-                slowed(growBegan);
-                job.grownNanos = System.nanoTime() - growBegan;
-                job.grownMade = true;
+            if (job.grown != null && fresh.grows) {
+                grow(job, fresh, fresh.builtFrame);
             }
             // As the walk sets a fresh build's page after it and what grows on it.
             fresh.pageDaylit = readDaylit;
-            SpriteColours.askingFrom(view.index, Float.NaN, Float.NaN);
+        }
+
+        /** Makes what grows on the chunk of a job handed off into its grown, as the walk makes it, beside the chunk's build with, made in the frame builtFrame. */
+        private void grow(Handed job, ChunkMeshes with, int builtFrame) {
+            ChunkMeshes grown = job.grown;
+            solid.clear();
+            laid.clear();
+            grown.placed.clear();
+            grown.lying.clear();
+            grown.wx = with.wx;
+            grown.wy = with.wy;
+            grown.builtFrame = builtFrame;
+            grown.checkedFrame = builtFrame;
+            grown.eyeX = job.eyeX;
+            grown.eyeY = job.eyeY;
+            grown.eyeUp = job.eyeUp;
+            grown.grown = true;
+            grown.users = 1;
+            placed = grown.placed;
+            lying = grown.lying;
+            building = with;
+            growing = true;
+            long growBegan = System.nanoTime();
+            addSquares(job.chunk, job.chunkX, job.chunkY, 0);
+            growing = false;
+            kerbBuilder.noKerb();
+            if (AUDIT_STALE) {
+                grown.auditFloats = floatsOf(solid) * 31 + floatsOf(laid);
+            }
+            if (CHECK_BUILDS && job.fresh == null) {
+                job.solidFloats = floatsOf(solid);
+                job.laidFloats = floatsOf(laid);
+            }
+            grown.fill(solid, laid);
+            slowed(growBegan);
+            job.grownNanos = System.nanoTime() - growBegan;
+            job.grownMade = true;
         }
 
         /** As the frame begins: lands the builds the walk of the view's last frame handed off, in walk order. */
@@ -6080,7 +6136,7 @@ final class WorldScene {
                     landBuild(job);
                 }
                 job.chunk = null;
-                job.fresh = job.grown = null;
+                job.fresh = job.grown = job.standing = null;
                 spareHanded.push(job);
             }
             handed.clear();
@@ -6090,6 +6146,10 @@ final class WorldScene {
         private void landBuild(Handed job) {
             int slot = job.slot;
             handedAt[slot] = null;
+            if (job.fresh == null) {
+                landGrown(job);
+                return;
+            }
             ChunkMeshes fresh = job.fresh, standing = latest[slot];
             if (standing != null) {
                 release(standing);
@@ -6119,6 +6179,19 @@ final class WorldScene {
             tollBuildNanos += job.took;
             tollBuiltNanos[job.cause] += job.took;
             handedMeanNanos += (job.took - handedMeanNanos) / 8;
+        }
+
+        /** Lands a build of what grows on a chunk's ground alone (handGrown) as the walk would have kept it. */
+        private void landGrown(Handed job) {
+            ChunkMeshes grown = latestGrown[job.slot];
+            if (grown != null) {
+                release(grown);
+            }
+            latestGrown[job.slot] = job.grown;
+            chunksGrown++;
+            tollGrown++;
+            tollGrownNanos += job.grownNanos;
+            handedGrownMeanNanos += (job.grownNanos - handedGrownMeanNanos) / 8;
         }
 
         /**
@@ -6286,6 +6359,10 @@ final class WorldScene {
          * first was filled, and is held to by what its vertices came out, its page and what it wrote down of its crowns.
          */
         private void checkHanded(Handed job) {
+            if (job.fresh == null) {
+                checkGrownHanded(job);
+                return;
+            }
             Frame other = beside;
             ChunkMeshes into = besideMeshes, fresh = job.fresh;
             other.takeFrom(job.taken);
@@ -6298,17 +6375,59 @@ final class WorldScene {
         }
 
         /**
+         * Dev only: checkHanded for a build of what grows on a chunk alone (handGrown), made again beside the chunk's
+         * build standing as it was, into a build of its own so the one standing is left as the first left it, and held
+         * to what its vertices came out, its page and the models it places.
+         */
+        private void checkGrownHanded(Handed job) {
+            Frame other = beside;
+            ChunkMeshes into = besideMeshes, grown = job.grown;
+            other.takeFrom(job.taken);
+            into.headFrom(job.standing);
+            other.solid.clear();
+            other.laid.clear();
+            other.layers.none();
+            onBeside(job.chunkX, job.chunkY, () -> {
+                other.placed = into.placed;
+                other.lying = into.lying;
+                other.building = into;
+                other.growing = true;
+                try {
+                    other.addSquares(job.chunk, job.chunkX, job.chunkY, 0);
+                } finally {
+                    other.growing = false;
+                }
+                other.kerbBuilder.noKerb();
+            });
+            String differs = job.solidFloats != floatsOf(other.solid) || job.laidFloats != floatsOf(other.laid) ? "in what grows on it, in its vertices"
+                    : !samePage(grown, other.sites) ? "in what grows on it, in its light sites"
+                    : !samePlaced(grown.placed, into.placed) ? "in what grows on it, in the models it places"
+                    : null;
+            other.solid.clear();
+            other.laid.clear();
+            heldBeside(job.chunk, job.standing, into, differs);
+        }
+
+        /**
          * Dev only: makes the build of a chunk on another frame, on the build thread beside while this one waits, as
-         * the walk makes one: asked for sprites from the chunk's middle, with the roofs' measures kept. What it leaves to
-         * the logic thread is let go of.
+         * the walk makes one: see onBeside.
          */
         private void buildBeside(Frame other, IsoChunk chunk, int chunkX, int chunkY, int lowest, ChunkMeshes into, int toldSoFar) {
+            onBeside(chunkX, chunkY, () -> other.buildInto(chunk, chunkX, chunkY, lowest, into, toldSoFar));
+        }
+
+        /**
+         * Dev only: runs a build on the build thread beside while this one waits, as the walk makes one: asked for sprites
+         * from the middle of the chunk at (chunkX, chunkY), with the roofs' measures kept. What it leaves to the logic
+         * thread is let go of.
+         */
+        private void onBeside(int chunkX, int chunkY, Runnable build) {
             BuildThreads.runAndWait(besideThread, () -> {
                 SpriteColours.askingFrom(view.index, chunkX + CHUNK_TILES / 2f, chunkY + CHUNK_TILES / 2f);
                 Roofs.keepMeasures();
                 BuildThreads.landInto(besideLanding);
                 try {
-                    other.buildInto(chunk, chunkX, chunkY, lowest, into, toldSoFar);
+                    build.run();
                 } finally {
                     besideLanding.forget();
                     BuildThreads.landInto(null);
