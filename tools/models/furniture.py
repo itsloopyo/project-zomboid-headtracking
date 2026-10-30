@@ -12851,7 +12851,7 @@ def log_walls():
 
 def shops():
     """What a grocer, a florist or a shop stands out that ShopFittings.java gives a model for, the produce crate and the
-    produce the game paints in it, the length of white picket fence ModelFences.java stands, and the security fence's footing."""
+    produce the game paints in it, the lengths of fence ModelFences.java stands, and the security fence's footing."""
     return [produce_crate(), produce_pile("produce_pile", 61), produce_pile("produce_pile_b", 62), picket_length(), rounded_picket_length(), barbed_wire_length(), fence_kerb(), fence_pier(), fence_foot()]
 
 
