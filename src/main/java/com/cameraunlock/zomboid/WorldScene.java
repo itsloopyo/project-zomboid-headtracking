@@ -414,6 +414,12 @@ final class WorldScene {
         long tookNanos;
         /** Dev only, for auditStale: each mesh of the build as its set, texture and tint in one number, then how many floats it had, then their sum. */
         private long[] auditMeshes;
+        /**
+         * Dev only, for auditStale: the rooms the build left out as the walk round the eye had not found them. A room gone
+         * out is left in a build on purpose until its chunk is built for something else, and drawn only while the eye sees
+         * into it, so the build beside goes by what this one went by.
+         */
+        private Set<Long> auditLeftOut;
         /** Dev only: what the sum was made of, part by part. See audit. */
         private long auditTerrain, auditTrees;
         private long[] auditThings;
@@ -3852,6 +3858,8 @@ final class WorldScene {
         }
         /** Set round the second build of a check: nothing kept is taken. */
         boolean afresh;
+        /** Set round the stale audit's build beside: the rooms it leaves out are those its standing build left out (auditLeftOut). */
+        boolean asStanding;
         private final Models.Instances checkPlaced = new Models.Instances();
         private final ArrayList<Corpses.Lying> checkLying = new ArrayList<>();
         private float buildMillis;
@@ -5708,7 +5716,9 @@ final class WorldScene {
             afresh = true;
             geometry.afresh = true;
             crownsChecked.clear();
+            asStanding = true;
             addSquares(chunk, chunkX, chunkY, lowest);
+            asStanding = false;
             kerbBuilder.noKerb();
             roofBuilder.addBacks(chunk, chunkX, chunkY);
             afresh = false;
@@ -6111,6 +6121,9 @@ final class WorldScene {
             lying = fresh.lying;
             building = fresh;
             growing = false;
+            if (AUDIT_STALE) {
+                fresh.auditLeftOut = new HashSet<>();
+            }
             long began = System.nanoTime();
             addSquares(chunk, chunkX, chunkY, lowest);
             squaresTook = System.nanoTime() - began;
@@ -8679,7 +8692,10 @@ final class WorldScene {
             boolean unexplored = emptied == Sightline.LEFT_OUT;
             // The band is asked only where its answer changes the build: asked of every square, a chunk would be another build in every band.
             boolean empty = unexplored || !buildingBySight && emptied == Sightline.LEFT_OUT_FAR && !within(UNSHOWN_FILLED_WITHIN, false);
-            boolean unsought = buildingBySight && room != RoomSight.OUTSIDE && !builtBySight(room);
+            boolean unsought = asStanding ? building.auditLeftOut.contains(room) : buildingBySight && room != RoomSight.OUTSIDE && !builtBySight(room);
+            if (AUDIT_STALE && unsought && !afresh && !growing) {
+                building.auditLeftOut.add(room);
+            }
             if (buildingBySight && unsought) {
                 building.roomsBySight = true;
             } else if (buildingBySight && emptied == Sightline.LEFT_OUT_FAR) {
