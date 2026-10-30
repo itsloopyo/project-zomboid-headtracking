@@ -180,7 +180,8 @@ final class Tracking {
             Quality.setOverhead(player, live.overheadQuality()[player]);
             Style.set(player, live.style()[player]);
         }
-        firstPersonAtLoad = live.firstPerson();
+        firstPersonInFile = live.firstPerson();
+        firstPersonAtLoad.set(live.firstPerson());
         HillHeight.set(live.hillHeight());
         MuzzleFlash.set(live.muzzleFlash());
         Crosshair.set(live.crosshair());
@@ -281,7 +282,10 @@ final class Tracking {
             Quality.setOverhead(player, live.overheadQuality()[player]);
             Style.set(player, live.style()[player]);
         }
-        firstPersonAtLoad = live.firstPerson();
+        // Only the rows the file changed: a toggle made since the file was read is saved after this reload, and kept.
+        int changed = live.firstPerson() ^ firstPersonInFile;
+        firstPersonInFile = live.firstPerson();
+        firstPersonAtLoad.updateAndGet(bits -> bits & ~changed | live.firstPerson() & changed);
         if (live.hillHeight() != HillHeight.asked()) {
             HillHeight.set(live.hillHeight());
             Log.info(Config.FILE_NAME + " changed: hill height set to " + live.hillHeight());
@@ -837,15 +841,20 @@ final class Tracking {
         save(() -> config.saveStyle(player, next));
     }
 
-    /** For each player, by their number's bit, whether their save is to load in first person: the file's FirstPerson rows. */
-    private static volatile int firstPersonAtLoad;
+    /**
+     * For each player, by their number's bit, whether their save is to load in first person: the file's FirstPerson rows.
+     * One player's bit is changed on the logic thread while a reload of the file sets them all on the config thread.
+     */
+    private static final AtomicInteger firstPersonAtLoad = new AtomicInteger();
+    /** The config thread's: the FirstPerson rows as the file last held them. */
+    private static int firstPersonInFile;
 
     static boolean firstPersonRemembered(int player) {
-        return (firstPersonAtLoad & 1 << player) != 0;
+        return (firstPersonAtLoad.get() & 1 << player) != 0;
     }
 
     static void firstPersonAtLoad(int player, boolean on) {
-        firstPersonAtLoad = on ? firstPersonAtLoad | 1 << player : firstPersonAtLoad & ~(1 << player);
+        firstPersonAtLoad.updateAndGet(bits -> on ? bits | 1 << player : bits & ~(1 << player));
     }
 
     /** The keys that switch first person, as CameraUnlock.ini names them. */
