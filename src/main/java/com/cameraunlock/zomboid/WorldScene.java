@@ -3093,6 +3093,23 @@ final class WorldScene {
         return type == IsoObjectType.stairsBW || type == IsoObjectType.stairsMW || type == IsoObjectType.stairsTW;
     }
 
+    /**
+     * How far above the floor of its level, in levels, something lying on the square lying
+     * rests at (x, y): on that floor, or on a flight lying is on, along that flight as if it ran
+     * on past its sides, on the floor short of its foot and the floor above past its top. A
+     * picture laid round a body reaches a square or so past it, so a flight under that reach
+     * that the body is not on is no part of it: its treads would stand the picture up between
+     * them and the floor as a sheet of stretched texels.
+     */
+    static float restUp(IsoGridSquare lying, float x, float y) {
+        IsoObjectType flight = lying == null ? null : lying.getStairs();
+        int third = thirdOf(flight);
+        if (third < 0) {
+            return 0f;
+        }
+        return Stairs.on(third + 1f + (climbsWest(flight) ? lying.getX() - x : lying.getY() - y));
+    }
+
     static boolean isStair(IsoObjectType type) {
         return type == IsoObjectType.stairsBW || type == IsoObjectType.stairsMW || type == IsoObjectType.stairsTW
                 || type == IsoObjectType.stairsBN || type == IsoObjectType.stairsMN || type == IsoObjectType.stairsTN;
@@ -9354,16 +9371,12 @@ final class WorldScene {
             // A body keeps the height the character died at, which on stairs is part way up a
             // level, and the game draws its picture that far up the screen. Laid flat at that
             // height it hung over the floor beside and under the flight. It lies on the floor of
-            // its level and on the treads of a flight there, and a body on a flight lies along
-            // it: what reaches past the flight's side is held level with the treads beside it.
+            // its level, or along the flight it is on (restUp), and never on a flight beside it.
             IsoGridSquare square = body.getSquare();
             int level = square != null ? square.getZ() : (int) Math.floor(z);
-            IsoObjectType flight = square != null ? square.getStairs() : null;
-            boolean west = climbsWest(flight);
-            float foot = thirdOf(flight) < 0 ? Float.NaN : thirdOf(flight) + 1f + (west ? square.getX() : square.getY());
             // An animal's model is not one CharacterDraw draws: it keeps its picture.
             if (Quality.corpseModels(view.index) && !body.isAnimal()) {
-                lying.add(new Corpses.Lying(body, Corpses.entryOf(body), x, y, restUnder(x, y, level, 0f, west, foot), z, square, Outlines.key(body)));
+                lying.add(new Corpses.Lying(body, Corpses.entryOf(body), x, y, restUnder(x, y, level, 0f, square), z, square, Outlines.key(body)));
                 return;
             }
             SpriteGeometry.Mesh mesh = solid.get(texture.getID());
@@ -9385,7 +9398,7 @@ final class WorldScene {
                     int at = (i * (BODY_CELLS + 1) + j) * 3;
                     bodyGrid[at] = atX;
                     bodyGrid[at + 1] = atY;
-                    bodyGrid[at + 2] = BODY_UP + restUnder(atX, atY, level, reach, west, foot);
+                    bodyGrid[at + 2] = BODY_UP + restUnder(atX, atY, level, reach, square);
                 }
             }
             float u0 = texture.getXStart(), u1 = texture.getXEnd(), v0 = texture.getYStart(), v1 = texture.getYEnd();
@@ -9418,13 +9431,14 @@ final class WorldScene {
             mesh.face(0f, 0f, 1f);
             float side = 2f * laid.half();
             float share = (float) LimbDecals.SLOT / LimbDecals.SIDE, u0 = laid.u0(), v0 = laid.v0();
+            IsoGridSquare lyingOn = cell.getGridSquare((int) Math.floor(laid.x()), (int) Math.floor(laid.y()), laid.z());
             for (int i = 0; i <= BODY_CELLS; i++) {
                 for (int j = 0; j <= BODY_CELLS; j++) {
                     float atX = laid.x() - laid.half() + side * i / BODY_CELLS, atY = laid.y() - laid.half() + side * j / BODY_CELLS;
                     int at = (i * (BODY_CELLS + 1) + j) * 3;
                     bodyGrid[at] = atX;
                     bodyGrid[at + 1] = atY;
-                    bodyGrid[at + 2] = BODY_UP + restUnder(atX, atY, laid.z(), laid.half() / BODY_CELLS, false, Float.NaN);
+                    bodyGrid[at + 2] = BODY_UP + restUnder(atX, atY, laid.z(), laid.half() / BODY_CELLS, lyingOn);
                 }
             }
             layers.lie(SpriteGeometry.LAYERS_UP, 1 + bodiesLaid++ % BODY_LAYERS);
@@ -9443,22 +9457,15 @@ final class WorldScene {
         }
 
         /**
-         * The highest a body on a level lies on at (x, y) and reach along the map either way
-         * from it: the floor of the level, or the treads of a flight on it, over the ground. A
-         * body on a flight lies on it as if the flight ran on past its sides: foot is the map's
-         * x (west) or y where that flight starts, and NaN for a body on no flight.
+         * The highest something lying on the square lying, on a level, rests at (x, y) and reach
+         * along the map either way from it, over the ground: see restUp.
          */
-        private float restUnder(float x, float y, int level, float reach, boolean west, float foot) {
+        private float restUnder(float x, float y, int level, float reach, IsoGridSquare lying) {
             float highest = Float.NEGATIVE_INFINITY;
             for (int k = 0; k < 5; k++) {
                 float atX = x + (k == 1 ? reach : k == 2 ? -reach : 0f), atY = y + (k == 3 ? reach : k == 4 ? -reach : 0f);
                 heightsAt(atX, atY);
-                int tileX = (int) Math.floor(atX), tileY = (int) Math.floor(atY);
-                IsoGridSquare on = cell.getGridSquare(tileX, tileY, level);
-                IsoObjectType type = on == null ? null : on.getStairs();
-                float up = thirdOf(type) >= 0 ? Stairs.over(thirdOf(type) + 1f - (climbsWest(type) ? atX - tileX : atY - tileY))
-                        : Float.isNaN(foot) ? 0f : Stairs.on(foot - (west ? atX : atY));
-                highest = Math.max(highest, (level + up) * ViewCamera.LEVEL_HEIGHT + terrain.lift(atX, atY, level));
+                highest = Math.max(highest, (level + restUp(lying, atX, atY)) * ViewCamera.LEVEL_HEIGHT + terrain.lift(atX, atY, level));
             }
             return highest;
         }

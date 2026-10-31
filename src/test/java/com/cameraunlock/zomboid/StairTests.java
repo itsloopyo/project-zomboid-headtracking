@@ -1,5 +1,12 @@
 package com.cameraunlock.zomboid;
 
+import java.util.Map;
+import zombie.core.properties.PropertyContainer;
+import zombie.iso.IsoCell;
+import zombie.iso.IsoGridSquare;
+import zombie.iso.SpriteDetails.IsoObjectType;
+import zombie.iso.sprite.IsoSprite;
+
 final class StairTests {
     private StairTests() {}
 
@@ -8,6 +15,8 @@ final class StairTests {
         Checks.run("theUndersideStaysUnderEveryTreadAndMeetsTheFloor", StairTests::theUndersideStaysUnderEveryTreadAndMeetsTheFloor);
         Checks.run("whatIsLaidOverAFlightIsOnItsTreadsAndNeverUnderOne", StairTests::whatIsLaidOverAFlightIsOnItsTreadsAndNeverUnderOne);
         Checks.run("onlyBareTimberFlightsAreLaidInBoards", StairTests::onlyBareTimberFlightsAreLaidInBoards);
+        Checks.run("aBodyOnTheFloorBesideAFlightLiesFlatOnTheFloor", StairTests::aBodyOnTheFloorBesideAFlightLiesFlatOnTheFloor);
+        Checks.run("aBodyOnAFlightLiesAlongItsTreadsAndPastItsSides", StairTests::aBodyOnAFlightLiesAlongItsTreadsAndPastItsSides);
     }
 
     private static void check(boolean condition, String what) {
@@ -78,5 +87,62 @@ final class StairTests {
             check(made >= WorldScene.FIRST_BOARDS && made <= WorldScene.LAST_BOARDS, "a flight's treads are boards, made " + made);
             check(made == WorldScene.FIRST_BOARDS + 2 * (Stairs.STEPS - Flats.FEWEST_BOARDS) + (west ? 1 : 0), "a flight climbing " + (west ? "west" : "north") + " runs its boards across the climb");
         }
+    }
+
+    private static IsoSprite stair(IsoObjectType type) {
+        return new IsoSprite("fixtures_stairs_01_0", new PropertyContainer(Map.of()), type, null);
+    }
+
+    /**
+     * A floored room, 0..9 by 0..9 on level 0, with a flight climbing west along row 1 (its foot
+     * on the east side of (6, 1), its top at the west side of (4, 1)) and one climbing north up
+     * column 8 (foot on the south side of (8, 6), top at the north side of (8, 4)).
+     */
+    private static IsoCell room() {
+        IsoCell cell = new IsoCell();
+        for (int x = 0; x < 10; x++) {
+            for (int y = 0; y < 10; y++) {
+                cell.square(x, y, 0);
+            }
+        }
+        cell.getGridSquare(6, 1, 0).add(stair(IsoObjectType.stairsBW));
+        cell.getGridSquare(5, 1, 0).add(stair(IsoObjectType.stairsMW));
+        cell.getGridSquare(4, 1, 0).add(stair(IsoObjectType.stairsTW));
+        cell.getGridSquare(8, 6, 0).add(stair(IsoObjectType.stairsBN));
+        cell.getGridSquare(8, 5, 0).add(stair(IsoObjectType.stairsMN));
+        cell.getGridSquare(8, 4, 0).add(stair(IsoObjectType.stairsTN));
+        return cell;
+    }
+
+    /**
+     * A body's picture is laid as a grid over a square or two round where it lies, much wider
+     * than the body. Lying on the floor beside a flight, the points of it over the flight's
+     * squares took the height of the treads there, up to a level, and the picture between
+     * them and the floor stood up as a wall of stretched texels to the flight's underside.
+     */
+    private static void aBodyOnTheFloorBesideAFlightLiesFlatOnTheFloor() {
+        IsoCell cell = room();
+        for (int[] at : new int[][] {{5, 2}, {7, 1}, {3, 1}, {7, 5}, {9, 5}, {8, 7}}) {
+            IsoGridSquare lying = cell.getGridSquare(at[0], at[1], 0);
+            for (float x = at[0] - 1.5f; x <= at[0] + 2.5f; x += 0.125f) {
+                for (float y = at[1] - 1.5f; y <= at[1] + 2.5f; y += 0.125f) {
+                    float up = WorldScene.restUp(lying, x, y);
+                    check(up == 0f, "a body on the floor at (" + at[0] + ", " + at[1] + ") lies on the floor at (" + x + ", " + y + "), got " + up + " of a level");
+                }
+            }
+        }
+    }
+
+    private static void aBodyOnAFlightLiesAlongItsTreadsAndPastItsSides() {
+        IsoCell cell = room();
+        IsoGridSquare lying = cell.getGridSquare(5, 1, 0);
+        for (float x = 3.5f; x <= 7.5f; x += 0.125f) {
+            float along = 7f - x, expected = along <= 0f ? 0f : Stairs.over(along);
+            for (float y : new float[] {0.2f, 1.5f, 2.8f}) {
+                float up = WorldScene.restUp(lying, x, y);
+                check(near(up, expected), "a body on the middle of the west flight lies on its tread " + expected + " at (" + x + ", " + y + "), its sides included, got " + up);
+            }
+        }
+        check(WorldScene.restUp(lying, 7.5f, 1.5f) == 0f && near(WorldScene.restUp(lying, 3.5f, 1.5f), 1f), "past its foot on the floor, past its top on the floor above");
     }
 }

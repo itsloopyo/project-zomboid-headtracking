@@ -106,6 +106,18 @@ public final class IsoGridSquare {
         return chunk;
     }
 
+    /** The type of the first thing on the square that is a stair, or null where none is. */
+    public zombie.iso.SpriteDetails.IsoObjectType getStairs() {
+        for (int i = 0; i < objects.size(); i++) {
+            IsoSprite sprite = objects.get(i).getSprite();
+            zombie.iso.SpriteDetails.IsoObjectType type = sprite == null ? null : sprite.getType();
+            if (type != null && type.name().startsWith("stairs")) {
+                return type;
+            }
+        }
+        return null;
+    }
+
     public int getX() {
         return x;
     }
