@@ -176,8 +176,12 @@ final class Penetration {
         return spent > 0f && spent >= budget;
     }
 
-    /** How high the shot's line is over the floor at (x, y), in levels: NaN where there is no line to tell. */
-    private static float heightAt(float x, float y) {
+    /**
+     * How high the shot's line is at (x, y) over the floor of the square whose edge it crosses there, in levels, from the
+     * middle of that square, the average of its corners, where the picture stands the edge's door and its holes: NaN where
+     * there is no line to tell.
+     */
+    private static float heightAt(float x, float y, IsoGridSquare owner) {
         if (aimLine == null) {
             return Float.NaN;
         }
@@ -187,7 +191,7 @@ final class Penetration {
         }
         float ahead = ((x - aimLine.eyeX) * aimLine.forwardX + (y - aimLine.eyeY) * aimLine.forwardY) / flat;
         float up = aimLine.eyeUp + aimLine.forwardUp * ahead;
-        return (up - aimTerrain.lift(x, y, level)) / ViewCamera.LEVEL_HEIGHT - level;
+        return (up - aimTerrain.lift(owner.getX() + 0.5f, owner.getY() + 0.5f, level)) / ViewCamera.LEVEL_HEIGHT - level;
     }
 
     /**
@@ -222,11 +226,11 @@ final class Penetration {
                 if (DoorGlass.barricaded(object)) {
                     return STOPS;
                 }
-                if (throughALight(object, north, along, x, y)) {
+                if (throughALight(object, square, north, along, x, y)) {
                     // The game lets a shot through a shut window's glass for nothing; ShotGlass breaks the light as it breaks a window.
                     return 0f;
                 }
-                if (throughAHole(object, north, along, x, y)) {
+                if (throughAHole(object, square, north, along, x, y)) {
                     return 0f;
                 }
                 return costOf(object);
@@ -238,7 +242,7 @@ final class Penetration {
             }
         }
         IsoObject wall = WorldScene.wallOn(square, north);
-        if (wall != null && throughAHole(wall, north, along, x, y)) {
+        if (wall != null && throughAHole(wall, square, north, along, x, y)) {
             return 0f;
         }
         return wall == null ? STOPS : costOf(wall);
@@ -254,17 +258,17 @@ final class Penetration {
     }
 
     /** Whether a shot crosses a door or a fence in a hole a blast blew through it (BlastHoles), which costs it nothing. */
-    private static boolean throughAHole(IsoObject object, boolean north, float along, float x, float y) {
-        float up = heightAt(x, y);
+    private static boolean throughAHole(IsoObject object, IsoGridSquare owner, boolean north, float along, float x, float y) {
+        float up = heightAt(x, y, owner);
         return !Float.isNaN(up) && BlastHoles.through(object, north, along, up);
     }
 
     /** Whether a shot crosses a shut door's leaf in one of its lights of glass, as the picture measured the leaf (Doors). */
-    private static boolean throughALight(IsoObject door, boolean north, float along, float x, float y) {
+    private static boolean throughALight(IsoObject door, IsoGridSquare owner, boolean north, float along, float x, float y) {
         if (door.getSprite() == null || !door.getSprite().getProperties().has("doorTrans")) {
             return false;
         }
-        float up = heightAt(x, y);
+        float up = heightAt(x, y, owner);
         return !Float.isNaN(up) && DoorGlass.lightAt(door, north, along, up) >= 0;
     }
 

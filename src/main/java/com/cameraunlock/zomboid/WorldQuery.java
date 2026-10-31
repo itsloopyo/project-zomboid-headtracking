@@ -185,7 +185,8 @@ final class WorldQuery {
         IsoGridSquare owner = north ? (toY < fromY ? from : to) : (toX < fromX ? from : to);
         float crossed = ShotGlass.crossedAt(lineX, lineY, lineWayX, lineWayY, fromX, fromY, toX, toY);
         float x = lineX + lineWayX * crossed, y = lineY + lineWayY * crossed;
-        float up = (lineUp + lineWayUp * crossed - lineGround.height(x, y)) / ViewCamera.LEVEL_HEIGHT - level;
+        // Over the middle of the square the door is on, where the picture stands its leaf.
+        float up = (lineUp + lineWayUp * crossed - lineGround.height(owner.getX() + 0.5f, owner.getY() + 0.5f)) / ViewCamera.LEVEL_HEIGHT - level;
         IsoObject door = DoorGlass.shutDoorOn(owner, north);
         return door != null && !DoorGlass.barricaded(door) && DoorGlass.lightAt(door, north, north ? x - owner.getX() : y - owner.getY(), up) >= 0;
     }
