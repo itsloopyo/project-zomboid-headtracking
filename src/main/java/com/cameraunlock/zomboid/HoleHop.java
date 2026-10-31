@@ -24,12 +24,18 @@ final class HoleHop {
     private HoleHop() {}
 
     /**
-     * The opening a body needs: half its width along the edge in tiles, and its foot and its head
-     * in levels over the floor, a gap from knee height to over the shoulders 0.5 wide.
+     * The opening a body needs, 0.5 wide and 0.9 m tall: half its width along the edge in tiles,
+     * and in levels its height, from its foot to over the shoulders of a body ducking through,
+     * and the lowest and the highest its foot is looked for at: knee height, which a hole down to
+     * the floor is climbed through from, and waist height, the highest sill a body vaults over.
      */
-    static final float HALF_WIDTH = 0.25f, FOOT = 0.45f / ViewCamera.LEVEL_HEIGHT, HEAD = 1.35f / ViewCamera.LEVEL_HEIGHT;
-    /** How many points across and up the opening is looked at, edges included. */
-    private static final int ACROSS = 6, UP = 9;
+    static final float HALF_WIDTH = 0.25f, TALL = 0.9f / ViewCamera.LEVEL_HEIGHT, LOWEST = 0.45f / ViewCamera.LEVEL_HEIGHT,
+            HIGHEST = 1f / ViewCamera.LEVEL_HEIGHT;
+    /** How many points across the opening it is looked at, edges included, and how far apart its rows are, in levels. */
+    private static final int ACROSS = 6;
+    private static final float ROW = 0.05f / ViewCamera.LEVEL_HEIGHT;
+    /** How many rows over the lowest the foot may be on, and how many over its foot the top is on. */
+    private static final int SILLS = Math.round((HIGHEST - LOWEST) / ROW), BODY = Math.round(TALL / ROW);
     /** How far along the edge from where the reticle meets it the middle of the opening may be, and the steps it is looked for in. */
     private static final float FURTHEST = 0.3f, STEP = 0.025f;
 
@@ -60,13 +66,27 @@ final class HoleHop {
         return Float.NaN;
     }
 
+    /** Whether the opening TALL high is clear across at middle from a foot between LOWEST and HIGHEST. */
     private static boolean clear(Open open, float middle) {
-        for (int i = 0; i <= ACROSS; i++) {
-            float along = middle - HALF_WIDTH + 2f * HALF_WIDTH * i / ACROSS;
-            for (int j = 0; j <= UP; j++) {
-                if (!open.at(along, FOOT + (HEAD - FOOT) * j / UP)) {
-                    return false;
+        int run = 0;
+        for (int row = 0; row <= SILLS + BODY; row++) {
+            if (across(open, middle, LOWEST + row * ROW)) {
+                if (++run > BODY) {
+                    return true;
                 }
+            } else if (row >= SILLS) {
+                return false;
+            } else {
+                run = 0;
+            }
+        }
+        return false;
+    }
+
+    private static boolean across(Open open, float middle, float up) {
+        for (int i = 0; i <= ACROSS; i++) {
+            if (!open.at(middle - HALF_WIDTH + 2f * HALF_WIDTH * i / ACROSS, up)) {
+                return false;
             }
         }
         return true;

@@ -60,6 +60,9 @@ final class BlastTests {
         check(aside > 0.5f && aside < 0.78f && aside + HoleHop.HALF_WIDTH <= 0.8f, "aimed at its side the climb goes through as much of the gap as the body needs: " + aside);
         check(Float.isNaN(HoleHop.opening(gap(0.5f, 1f, 0.3f, 1.6f), 0.1f)), "not a gap further off than the reach along the edge");
         check(Float.isNaN(HoleHop.opening(gap(0.2f, 0.8f, 0f, 1f), 0.5f)), "nor one too low to climb through");
+        check(HoleHop.opening(gap(0.2f, 0.8f, 0.92f, 2f), 0.5f) == 0.5f, "a gap whose foot is at the waist, a window's sill, is climbed through");
+        check(Float.isNaN(HoleHop.opening(gap(0.2f, 0.8f, 1.08f, 2.4f), 0.5f)), "nor one whose foot is over the waist");
+        check(Float.isNaN(HoleHop.opening(gap(0.2f, 0.8f, 0.92f, 1.7f), 0.5f)), "nor one at the waist too short for a body to duck through");
         check(Float.isNaN(HoleHop.opening(gap(0.3f, 0.7f, 0.3f, 1.6f), 0.5f)), "nor one too narrow for the body");
         float end = HoleHop.opening(gap(-1f, 0.6f, 0.3f, 1.6f), 0.05f);
         check(end >= HoleHop.HALF_WIDTH && end < HoleHop.HALF_WIDTH + 0.03f, "and a body goes through the edge it is on, not past its end: " + end);

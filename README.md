@@ -43,7 +43,7 @@ Press `Delete` to switch between the isometric view and first person, on foot or
 - **Shoot out windows** - offline, a shot breaks every closed window it passes through.
 - **Blast holes** - offline, in first person, a shotgun blast that lands tightly grouped on a wooden door, a wooden fence, tall or low, or a wall of boards or plasterboard, blows a ragged hole through it, which you can see and shoot through. Pellets that miss the hole leave marks on a door. The holes stay in your save.
 - **Bullet holes** - offline, in first person, a round that goes through a door, a wall or a wooden fence leaves a small hole where it went in and a wider, splintered one where it came out, which you can see through. The holes stay in your save.
-- **Climbing through holes** - offline, in first person, hold the Interact key with the crosshair on a hole shot through a fence, a wall or a door, standing beside it, and you climb through, where the hole is wide and tall enough for you: about half a metre wide, from knee height to over your shoulders.
+- **Climbing through holes** - offline, in first person, hold the Interact key with the crosshair on a hole shot through a fence, a wall or a door, standing beside it, and you climb through, where the hole is wide and tall enough for you: about half a metre wide and 0.9 m tall, with its bottom no higher than your waist.
 
 ### Vehicles
 
