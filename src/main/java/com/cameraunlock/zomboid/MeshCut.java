@@ -476,10 +476,10 @@ final class MeshCut {
                 if (!in.intoTheHole) {
                     throw new IllegalStateException("a face's edges come out of a hole twice running");
                 }
-                float span = in.faceKey - out.faceKey;
-                if (span <= 0f) {
-                    span += 3f;
-                }
+                // The corners from where the face's edges leave the hole to where they go back in are kept, and only from the last
+                // crossing round to the first does that pass the first corner again. A graze can key two crossings next to each
+                // other the wrong way round: there is nothing between them, not the whole face.
+                float span = in.facePlace == 0 ? Math.min(in.faceKey - out.faceKey + 3f, 3f) : Math.max(in.faceKey - out.faceKey, 0f);
                 for (int m = (int) Math.floor(out.faceKey) + 1; m - out.faceKey < span; m++) {
                     int k = m % 3;
                     add(tri, corner[k], cs[k], ct[k]);

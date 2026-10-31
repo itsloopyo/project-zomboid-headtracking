@@ -28,6 +28,7 @@ final class BlastTests {
         Checks.run("anObjectKeepsItsNewestRoundsHolesApartFromTheRest", BlastTests::anObjectKeepsItsNewestRoundsHolesApartFromTheRest);
         Checks.run("holesOverlappingOnRaggedFacesAlwaysCut", BlastTests::holesOverlappingOnRaggedFacesAlwaysCut);
         Checks.run("aSliverOutOnTheMapIsCutWhereItsFloatsAreCoarse", BlastTests::aSliverOutOnTheMapIsCutWhereItsFloatsAreCoarse);
+        Checks.run("aCornerOfAnOutlineGrazingAFaceEdgeTakesOnlyWhatIsInTheHole", BlastTests::aCornerOfAnOutlineGrazingAFaceEdgeTakesOnlyWhatIsInTheHole);
     }
 
     private static void check(boolean condition, String what) {
@@ -89,6 +90,30 @@ final class BlastTests {
         cut.cut(mesh, 0);
         float left = areaAcross(mesh, 0);
         check(Math.abs(left - (2f - polygonArea(OUTLINE))) < 1e-4f, "a face of 2 square tiles keeps 2 less the hole's " + polygonArea(OUTLINE) + ": kept " + left);
+    }
+
+    /**
+     * An outline whose corner reaches a hair over a face's edge, between two of its points on the
+     * other side: the edge crosses the corner's two sides at the same place. Bent in, the corner
+     * leaves a sliver of the face outside the hole there; bent out, it pokes a sliver of hole in.
+     */
+    private static void aCornerOfAnOutlineGrazingAFaceEdgeTakesOnlyWhatIsInTheHole() {
+        float hair = 1e-9f;
+        float[] bentIn = {0.25f, -0.125f, 0.375f, hair, 0.5f, -0.125f, 0.5f, 0.5f, 0.25f, 0.5f};
+        float[] bentOut = {0.25f, -0.5f, 0.5f, -0.5f, 0.5f, -0.125f, 0.375f, hair, 0.25f, -0.125f};
+        check(polygonArea(bentIn) > 0f && polygonArea(bentOut) > 0f, "both outlines are wound anticlockwise");
+        SpriteGeometry.Mesh in = new SpriteGeometry.Mesh();
+        face(in, 0f, 1f, 0f, 2f, 0f);
+        MeshCut cutIn = new MeshCut(0f, 0f, 1f, 0f, 0.05f);
+        cutIn.hole(bentIn, 0.375f, 0.25f);
+        cutIn.cut(in, 0);
+        check(Math.abs(areaAcross(in, 0) - (2f - 0.125f)) < 1e-4f, "a corner bent in on the face's foot leaves the face less the hole's 0.125 inside it: kept " + areaAcross(in, 0));
+        SpriteGeometry.Mesh out = new SpriteGeometry.Mesh();
+        face(out, 0f, 1f, 0f, 2f, 0f);
+        MeshCut cutOut = new MeshCut(0f, 0f, 1f, 0f, 0.05f);
+        cutOut.hole(bentOut, 0.375f, -0.3f);
+        cutOut.cut(out, 0);
+        check(Math.abs(areaAcross(out, 0) - 2f) < 1e-4f, "a corner bent out over the face's foot takes next to nothing of it: kept " + areaAcross(out, 0));
     }
 
     private static void nothingIsLeftInsideAHole() {
