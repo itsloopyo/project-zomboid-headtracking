@@ -464,7 +464,11 @@ public final class Agent {
             // Boot asks only whether the agent started and runs the game either way, and
             // nothing else puts the reason in this log: it would end here without one.
             Log.error("the mod could not start", failure);
-            sayNotRunning(instrumentation, "it hit an error as it started");
+            try {
+                sayNotRunning(instrumentation, "it hit an error as it started");
+            } catch (RuntimeException | Error saying) {
+                failure.addSuppressed(saying);
+            }
             throw failure;
         }
     }
