@@ -493,15 +493,18 @@ public final class Agent {
             } else {
                 leftOut.computeIfAbsent(lookupsOff, why -> new StringJoiner(", ")).add("item lookups");
             }
-            started = instrumentation;
-            for (PatchSet set : sets()) {
-                String why = set.leftOut().get();
-                if (why == null) {
-                    add(instrumentation, set.transformer());
-                } else {
-                    set.transformer().leaveOut(why);
-                    waiting.add(set);
-                    leftOut.computeIfAbsent(why, reason -> new StringJoiner(", ")).add(set.name());
+            // Under takeIn's lock: the watch on CameraUnlock.ini is running, and a change to it takes in what is waiting.
+            synchronized (Agent.class) {
+                started = instrumentation;
+                for (PatchSet set : sets()) {
+                    String why = set.leftOut().get();
+                    if (why == null) {
+                        add(instrumentation, set.transformer());
+                    } else {
+                        set.transformer().leaveOut(why);
+                        waiting.add(set);
+                        leftOut.computeIfAbsent(why, reason -> new StringJoiner(", ")).add(set.name());
+                    }
                 }
             }
             Log.info("the mod's " + transformers.size() + " sets of patches are registered, each to go in as the game loads its class");
