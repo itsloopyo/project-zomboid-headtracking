@@ -8288,8 +8288,8 @@ final class PipelineShaders {
             uniform vec4 uMover[16];
             uniform vec4 uMoverBefore[16];
             uniform float uMovers;
-            // Where this frame's picture was drawn from the middle of each pixel, in pixels: see Pipeline.stepAside.
-            uniform vec2 uJitter;
+            // How much of each of the nine pixels round a pixel goes into this frame's own colour for it, by column x + 1 and row y + 1: see Pipeline.CENTRING.
+            uniform mat3 uCentring;
 
             // The picture kept from before, read at a place between its pixels. Read as the
             // mean of the four pixels round the place, each frame of a moving head blurs what
@@ -8411,25 +8411,19 @@ final class PipelineShaders {
                 // frame is kept, that step shows as a shimmer: centred, a quarter-pixel drift changed
                 // a fifth as many pixels by 30 a frame in a field of grass. Where nothing of the last
                 // frame is kept, round the vehicle the viewer rides in and where something has just
-                // come out from behind another, the step shows with the head still too. The weights are
-                // a Gaussian standing in for a Blackman-Harris window, as Karis's temporal AA has it.
+                // come out from behind another, the step shows with the head still too.
                 vec3 mine = pressed(now.rgb);
                 vec3 centred = vec3(0.0), sum = vec3(0.0), squares = vec3(0.0), least = mine, most = mine;
-                float weights = 0.0;
                 for (int x = -1; x <= 1; x++) {
                     for (int y = -1; y <= 1; y++) {
                         vec3 near = pressed(texture2D(uScene, uv + vec2(float(x), float(y)) * px).rgb);
-                        vec2 off = vec2(float(x), float(y)) + uJitter;
-                        float weight = exp(-2.29 * dot(off, off));
-                        centred += near * weight;
-                        weights += weight;
+                        centred += near * uCentring[x + 1][y + 1];
                         sum += near;
                         squares += near * near;
                         least = min(least, near);
                         most = max(most, near);
                     }
                 }
-                centred /= weights;
                 // What is drawn of the vehicle the viewer rides in, and of the viewer in it, is
                 // drawn where it is and not aside (Pipeline.RIDDEN): centred, it would step instead.
                 vec3 current = abs(texture2D(uMoves, uv).r - 0.125) < 0.06 ? mine : centred;

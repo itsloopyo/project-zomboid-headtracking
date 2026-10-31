@@ -350,6 +350,28 @@ final class Pipeline {
     /** Where in its pixel each frame of the cycle is drawn, from the middle, in pixels times two: the Halton points of bases 2 and 3. */
     private static final float[] JITTER_X = {0f, -0.5f, 0.5f, -0.75f, 0.25f, -0.25f, 0.75f, -0.875f};
     private static final float[] JITTER_Y = {-0.333f, 0.333f, -0.778f, -0.111f, 0.556f, -0.556f, 0.111f, 0.778f};
+    /**
+     * By the place in the cycle, how much of each of the nine pixels round a pixel goes into the steadied picture's
+     * colour for it from this frame, as a mat3 by columns: element (x + 1) * 3 + y + 1 for the pixel x across and y up.
+     * A Gaussian, exp(-2.29 d^2), of how far that pixel's sample fell from the pixel's middle, standing in for a
+     * Blackman-Harris window as Karis's temporal AA has it, the nine adding up to 1.
+     */
+    private static final float[][] CENTRING = new float[JITTER_X.length][9];
+
+    static {
+        double[] weights = new double[9];
+        for (int at = 0; at < JITTER_X.length; at++) {
+            double sum = 0;
+            for (int i = 0; i < 9; i++) {
+                float offX = i / 3 - 1 + JITTER_X[at] * 0.5f, offY = i % 3 - 1 + JITTER_Y[at] * 0.5f;
+                weights[i] = Math.exp(-2.29 * (offX * offX + offY * offY));
+                sum += weights[i];
+            }
+            for (int i = 0; i < 9; i++) {
+                CENTRING[at][i] = (float) (weights[i] / sum);
+            }
+        }
+    }
     private int jitterAt;
     /** How far to one side this frame is drawn, as the projection takes it: nothing with the frames not mixed. */
     private float asideX, asideY;
@@ -3129,7 +3151,7 @@ final class Pipeline {
                     movers.before[i * 4 + 3]);
         }
         steady.set("uKept", keptAny && !WITHOUT.contains("steady") ? KEPT : 0f);
-        steady.set("uJitter", JITTER_X[jitterAt] * 0.5f, JITTER_Y[jitterAt] * 0.5f);
+        steady.set3x3("uCentring", CENTRING[jitterAt]);
         steady.set("uOwnWithin", seated ? 3.2f : 0f);
         steady.set("uHeldWithin", seated || outside || overhead ? 0f : HELD_WITHIN);
         quad();
