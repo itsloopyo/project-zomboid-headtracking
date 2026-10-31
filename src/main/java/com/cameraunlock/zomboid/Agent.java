@@ -560,9 +560,11 @@ public final class Agent {
         String mouthsOffAtStart = mouthsAtStart || Part.FIRST_PERSON.atStart() ? null
                 : Part.FIRST_PERSON.key + " was off as the game started, and so was TalkingMouths";
         Supplier<String> mouthsOff = () -> mouthsOffAtStart;
-        // Blood trails and flying pieces come only from first person's wounds; the hidden walls and the rewind have rows of their own.
-        Supplier<String> worldOff = () -> (Rules.rows() & (Rules.HIDDEN_WALLS | Rules.REWIND)) != 0 ? null
-                : also(off(Part.FIRST_PERSON), DevBuild.ON ? "were HiddenWallDecor and Rewind30s" : "was HiddenWallDecor");
+        // Blood trails and flying pieces come only from first person's wounds; the hidden walls and the rewind have rows of their own. The
+        // broken door lights and the holes a shot leaves are read as a chunk loads: without, the next shot's save would overwrite those saved.
+        Supplier<String> worldOff = () -> (Rules.rows() & (Rules.HIDDEN_WALLS | Rules.REWIND | Rules.BREAKS_GLASS | Rules.BLAST_HOLES | Rules.BULLET_HOLES)) != 0 ? null
+                : also(off(Part.FIRST_PERSON), DevBuild.ON ? "were HiddenWallDecor, Rewind30s, ShotsBreakGlass, BlastHoles and BulletHoles"
+                        : "were HiddenWallDecor, ShotsBreakGlass, BlastHoles and BulletHoles");
         Supplier<String> splitScreenOff = () -> SplitScreen.row() != SplitScreen.VERTICAL ? null : "SplitScreen is Vertical, the game's own";
         Supplier<String> in = () -> null;
         return List.of(
