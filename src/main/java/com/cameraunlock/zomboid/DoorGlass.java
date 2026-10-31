@@ -303,12 +303,17 @@ final class DoorGlass {
     }
 
     /**
-     * Whether a shot crossing a shut door's edge `along` it meets the leaf and not the frame beside it: anywhere on the
-     * edge until the picture has measured the leaf (Doors).
+     * Whether a shot crossing a shut door's edge `along` it and `up` levels over the floor meets the leaf and not the
+     * doorway's wall beside it or over its head: anywhere on the edge until the picture has measured the leaf (Doors).
      */
-    static boolean onLeaf(IsoObject door, boolean north, float along) {
+    static boolean onLeaf(IsoObject door, boolean north, float along, float up) {
         Windows.Shape leaf = door.getSprite() == null ? null : leafOf(door);
-        return leaf == null || leaf.north != north || along >= leaf.start && along <= leaf.end;
+        return leaf == null || leaf.north != north || onLeaf(leaf, along, up);
+    }
+
+    /** The same on a measured leaf. Where how high the shot is is not known (NaN), the leaf is taken as reaching up the whole edge. */
+    static boolean onLeaf(Windows.Shape leaf, float along, float up) {
+        return along >= leaf.start && along <= leaf.end && !(up > leaf.head);
     }
 
     /** Whether a door is barricaded on either side. */

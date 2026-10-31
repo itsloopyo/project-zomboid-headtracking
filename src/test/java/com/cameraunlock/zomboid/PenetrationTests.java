@@ -16,6 +16,7 @@ final class PenetrationTests {
         Checks.run("whereTheRoundsGoAsTheOwnerAsked", PenetrationTests::whereTheRoundsGoAsTheOwnerAsked);
         Checks.run("aDoorWithNoMaterialIsToldByItsSound", PenetrationTests::aDoorWithNoMaterialIsToldByItsSound);
         Checks.run("aShotThroughADoorsLightIsTold", PenetrationTests::aShotThroughADoorsLightIsTold);
+        Checks.run("aShotBesideOrOverALeafMeetsTheDoorwaysWall", PenetrationTests::aShotBesideOrOverALeafMeetsTheDoorwaysWall);
         Checks.run("aBrokenLightLosesItsGlass", PenetrationTests::aBrokenLightLosesItsGlass);
         Checks.run("aSmashedSashIsBlownOutRaggedly", PenetrationTests::aSmashedSashIsBlownOutRaggedly);
         Checks.run("aHoleIsLookedForWhereTheShotsOwnLineCrossesTheEdge", PenetrationTests::aHoleIsLookedForWhereTheShotsOwnLineCrossesTheEdge);
@@ -97,6 +98,23 @@ final class PenetrationTests {
         check(!through(Penetration.Cartridge.SHOT, "Wood"), "a shotgun's pellets stop in a wooden door");
         check(through(Penetration.Cartridge.RIFLE_308, "Wood", "Plaster", "Plaster", "Wood_Solid"),
                 "a hunting rifle's round goes through a house's outer wall, two inner walls and a solid door");
+    }
+
+    /**
+     * fixtures_doors_01_1 in walls_interior_house_01_11: the leaf from 0.07 to 0.84 along, up to 0.79 of a level. Plaster
+     * over its head was costed and holed as the door, which keeps no hole where the picture has no leaf.
+     */
+    private static void aShotBesideOrOverALeafMeetsTheDoorwaysWall() {
+        Windows.Shape leaf = new Windows.Shape();
+        leaf.start = 0.07f;
+        leaf.end = 0.84f;
+        leaf.head = 0.79f;
+        check(DoorGlass.onLeaf(leaf, 0.5f, 0.5f), "a shot through the middle of the leaf meets the leaf");
+        check(DoorGlass.onLeaf(leaf, 0.5f, 0.79f), "and so does one through its head");
+        check(!DoorGlass.onLeaf(leaf, 0.5f, 0.85f), "one through the plaster over its head meets the wall");
+        check(!DoorGlass.onLeaf(leaf, 0.93f, 0.5f) && !DoorGlass.onLeaf(leaf, 0.03f, 0.5f), "and so does one beside it");
+        check(DoorGlass.onLeaf(leaf, 0.5f, Float.NaN), "where the shot's height is not known the leaf reaches up the whole edge");
+        check(!DoorGlass.onLeaf(leaf, 0.93f, Float.NaN), "but not beside it");
     }
 
     /** A door with a light high in it and one under it: the glass lets a shot by, the wood round it does not, and each light is told by its place. */

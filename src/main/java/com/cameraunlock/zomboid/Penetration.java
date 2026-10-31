@@ -256,15 +256,15 @@ final class Penetration {
             return onGate == Gates.POST ? cost(Gates.postMaterial(gate)) : 0f;
         }
         PZArrayList<IsoObject> objects = square.getObjects();
+        float up = heightAt(x, y, square);
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
-            if (DoorGlass.shutOn(object, north) && DoorGlass.onLeaf(object, north, along)) {
+            if (DoorGlass.shutOn(object, north) && DoorGlass.onLeaf(object, north, along, up)) {
                 if (DoorGlass.barricaded(object)) {
                     return STOPS;
                 }
                 // The game lets a shot through a shut window's glass for nothing; ShotGlass breaks a door's light as it breaks a window.
                 // A hole a blast blew through the door costs nothing either.
-                float up = heightAt(x, y, square);
                 if (!Float.isNaN(up) && (DoorGlass.lightAt(object, north, along, up) >= 0 || BlastHoles.through(object, north, along, up))) {
                     return 0f;
                 }
@@ -277,7 +277,8 @@ final class Penetration {
             }
         }
         IsoObject wall = WorldScene.wallOn(square, north);
-        if (wall != null && throughAHole(wall, square, north, along, x, y)) {
+        // A hole a blast or a round left in the wall costs nothing.
+        if (wall != null && !Float.isNaN(up) && BlastHoles.through(wall, north, along, up)) {
             return 0f;
         }
         return wall == null ? STOPS : costOf(wall);
@@ -302,12 +303,6 @@ final class Penetration {
             return made;
         }
         return DoorGlass.isDoor(object) ? doorMaterial(object) : WallRuns.materialOf(object);
-    }
-
-    /** Whether a shot crosses a wall or a fence in a hole a blast blew through it (BlastHoles), which costs it nothing. */
-    private static boolean throughAHole(IsoObject object, IsoGridSquare owner, boolean north, float along, float x, float y) {
-        float up = heightAt(x, y, owner);
-        return !Float.isNaN(up) && BlastHoles.through(object, north, along, up);
     }
 
     /**

@@ -435,6 +435,9 @@ final class ImpactFinder {
             int kind = Impacts.MASONRY;
             boolean hole = false;
             float along = square == null ? 0f : north ? crossX - square.getX() : crossY - square.getY();
+            // Measured from the middle of the wall's own square, the average of its corners, which is where WallBuilder stands its holes.
+            float ground = square == null ? terrain.height(crossX, crossY) : terrain.height(square.getX() + 0.5f, square.getY() + 0.5f);
+            float levelsUp = (crossUp - ground) / ViewCamera.LEVEL_HEIGHT - level;
             IsoObject gate = square == null ? null : Gates.builtOn(square, north);
             int onGate = gate == null ? Gates.LEAF : Gates.met(gate, north, along);
             if (onGate == Gates.OPEN) {
@@ -443,8 +446,8 @@ final class ImpactFinder {
             }
             String post = onGate == Gates.POST ? Gates.postMaterial(gate) : null;
             IsoObject door = square == null || post != null ? null : DoorGlass.shutDoorOn(square, north);
-            if (door != null && !DoorGlass.onLeaf(door, north, along)) {
-                // Beside the leaf it is the doorway's frame that is struck.
+            if (door != null && !DoorGlass.onLeaf(door, north, along, levelsUp)) {
+                // Beside the leaf or over its head it is the doorway's wall that is struck.
                 door = null;
             }
             IsoObject struck = door;
@@ -467,9 +470,6 @@ final class ImpactFinder {
                     hole = Impacts.holed(kind);
                 }
             }
-            // Measured from the middle of the wall's own square, the average of its corners, which is where WallBuilder stands its holes.
-            float ground = square == null ? terrain.height(crossX, crossY) : terrain.height(square.getX() + 0.5f, square.getY() + 0.5f);
-            float levelsUp = (crossUp - ground) / ViewCamera.LEVEL_HEIGHT - level;
             int side = across > 0f ? -1 : 1;
             float cost = post != null ? Penetration.cost(post) : struck == null ? Penetration.STOPS : Penetration.costOf(struck);
             boolean through = cost < roundLeft;

@@ -124,7 +124,7 @@ final class HoleHop {
         }
         Open open = (a, u) -> {
             for (IsoObject blocker : blockers) {
-                if (DoorGlass.isDoor(blocker) && !DoorGlass.onLeaf(blocker, north, a) || !BlastHoles.through(blocker, north, a, u)) {
+                if (DoorGlass.isDoor(blocker) && !DoorGlass.onLeaf(blocker, north, a, u) || !BlastHoles.through(blocker, north, a, u)) {
                     return false;
                 }
             }
