@@ -435,7 +435,8 @@ final class ImpactFinder {
             if (door != null) {
                 // A door swings: what it is made of flies from it, and it keeps no hole the picture lays over the world (see BlastHoles).
                 int made = Impacts.ofMaterialType(door.getSprite() == null ? null : door.getSprite().getProperties().get("MaterialType"));
-                kind = made == Impacts.NONE ? Impacts.WOOD : made;
+                // A gate of bars, a farm gate's rails or a chain link gate's frame, is steel.
+                kind = made != Impacts.NONE ? made : Penetration.BARS.equals(Penetration.madeOf(door)) ? Impacts.METAL : Impacts.WOOD;
             } else {
                 IsoObject wall = square == null ? null : WorldScene.wallOn(square, north);
                 struck = wall;

@@ -115,8 +115,9 @@ final class BlastHoles {
 
     /**
      * Whether a round that goes through an object leaves a hole the picture cuts: a door the picture
-     * builds a leaf for, any but a garage door, a wooden fence (blastable), or a wall or fence of
-     * something a round goes through that is not glass (Penetration.cost).
+     * builds a leaf for, any but a garage door or a gate of bars, which a round goes on through
+     * between them, a wooden fence (blastable), or a wall or fence of something a round goes
+     * through that is not glass (Penetration.cost).
      */
     static boolean holedByRounds(IsoObject object) {
         IsoSprite sprite = object.getSprite();
@@ -124,7 +125,7 @@ final class BlastHoles {
             return false;
         }
         if (DoorGlass.isDoor(object)) {
-            return !sprite.getProperties().has("GarageDoor");
+            return !sprite.getProperties().has("GarageDoor") && !Penetration.BARS.equals(Penetration.madeOf(object));
         }
         String made = Penetration.materialOf(object);
         return blastable(object) || made != null && !made.startsWith("Glass") && Penetration.cost(made) != Penetration.STOPS;

@@ -253,8 +253,13 @@ final class Penetration {
         if (DoorGlass.isDoor(object) && DoorGlass.barricaded(object)) {
             return STOPS;
         }
+        return cost(madeOf(object));
+    }
+
+    /** What a wall, a door or a gate is made of: what the game names it made of, or for a door it names nothing for, what its sound says. */
+    static String madeOf(IsoObject object) {
         String made = materialOf(object);
-        return cost(made != null || !DoorGlass.isDoor(object) ? made : doorMaterial(object));
+        return made != null || !DoorGlass.isDoor(object) ? made : doorMaterial(object);
     }
 
     /** Whether a shot crosses a wall or a fence in a hole a blast blew through it (BlastHoles), which costs it nothing. */
@@ -266,17 +271,17 @@ final class Penetration {
     /**
      * What a door or gate the game names no material for is made of, by the sound it makes
      * (DoorSound): wood, a garage door's sheet metal, a sliding door's glass, or the bars of a metal
-     * gate. Any other stops a round, as the game has it.
+     * gate, a farm gate's rails among them. Any other stops a round, as the game has it.
      */
     static String doorMaterialBySound(String sound) {
         if (sound == null) {
             return null;
         }
         return switch (sound) {
-            case "WoodDoor", "FarmGate", "WoodGateSmall" -> "Wood";
+            case "WoodDoor", "WoodGateSmall" -> "Wood";
             case "GarageDoor" -> "Metal_Light";
             case "SlidingGlassDoor" -> "Glass_Solid";
-            case "MetalGate", "MetalPoleGate", "MetalPoleGateSmall", "MetalPoleGateDouble" -> BARS;
+            case "MetalGate", "MetalPoleGate", "MetalPoleGateSmall", "MetalPoleGateDouble", "FarmGate" -> BARS;
             default -> null;
         };
     }

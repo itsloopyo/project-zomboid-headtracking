@@ -72,7 +72,8 @@ final class PenetrationTests {
      */
     private static void aDoorWithNoMaterialIsToldByItsSound() {
         check("Wood".equals(Penetration.doorMaterialBySound("WoodDoor")), "a door that sounds wooden is a wooden door");
-        check("Wood".equals(Penetration.doorMaterialBySound("FarmGate")) && "Wood".equals(Penetration.doorMaterialBySound("WoodGateSmall")), "and so are the wooden gates");
+        check("Wood".equals(Penetration.doorMaterialBySound("WoodGateSmall")), "and so is a small wooden gate");
+        check(Penetration.BARS.equals(Penetration.doorMaterialBySound("FarmGate")), "a farm gate is rails of steel tube, which a round mostly goes between");
         check("Metal_Light".equals(Penetration.doorMaterialBySound("GarageDoor")), "a garage door is sheet metal");
         check("Glass_Solid".equals(Penetration.doorMaterialBySound("SlidingGlassDoor")), "a sliding door is glass");
         check(Penetration.BARS.equals(Penetration.doorMaterialBySound("MetalGate")) && Penetration.cost(Penetration.BARS) < Penetration.cost("Plaster"),
