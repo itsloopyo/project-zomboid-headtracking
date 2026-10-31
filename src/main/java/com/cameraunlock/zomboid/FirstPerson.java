@@ -812,16 +812,21 @@ public final class FirstPerson {
         }
     }
 
+    /** The view has switched: the hint to switch it is gone, and the graphics key's own comes on soon after. */
+    private void switchHintDone() {
+        if (hint != null && laterHint != null) {
+            laterHintAt = Math.min(laterHintAt, System.nanoTime() + HINT_GAP_NANOS);
+        }
+        hint = null;
+    }
+
     /** @param pressed the actions of Config's bits pressed this frame that are this view's to act on or to say */
     private void frame(int pressed) {
         if ((pressed & Config.FIRST_PERSON) != 0) {
             viewAtLoadOwed = false;
             hintsOnLanding = false;
             switchedForVehicle = false;
-            if (hint != null && laterHint != null) {
-                laterHintAt = Math.min(laterHintAt, System.nanoTime() + HINT_GAP_NANOS);
-            }
-            hint = null;
+            switchHintDone();
             boolean asked = on || gettingReady;
             if (!asked && !Part.FIRST_PERSON.on()) {
                 Tracking.applyForKey(Map.of(Part.FIRST_PERSON.key, 1.0), "the first person key");
@@ -884,6 +889,7 @@ public final class FirstPerson {
             wasInVehicle = !wasInVehicle;
             if (wasInVehicle && !on && !gettingReady && Tracking.firstPersonInVehicles(view.index)) {
                 Log.info(who() + "got into a vehicle: first person asked for, as FirstPersonInVehicles says");
+                switchHintDone();
                 toggle();
                 switchedForVehicle = on || gettingReady;
             } else if (!wasInVehicle && switchedForVehicle) {
