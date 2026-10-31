@@ -166,11 +166,17 @@ final class BlastHoles {
         // A corner piece is the wall of both its edges, as WorldScene.wallOn takes it.
         if ((onEdge || properties.has(IsoFlagType.WallNW)) && WorldScene.isWall(properties, sprite.getType())) {
             String wall = Penetration.madeOf(object);
-            return PLASTER.equals(wall) || WOOD.equals(wall);
+            if (PLASTER.equals(wall) || WOOD.equals(wall)) {
+                return true;
+            }
         }
-        return name != null && made != null && made.startsWith("Wood") && !"MetalWire".equals(properties.get("Material2"))
-                && (name.startsWith("fencing_") || name.startsWith("carpentry_02_") || name.startsWith("crafted_0")) && ModelFences.of(name) == null
-                && onEdge;
+        // The tall board fence (fencing_01_8) is flagged a wall by the game and names its wood only in Material.
+        return fence(name) && made != null && made.startsWith("Wood") && !"MetalWire".equals(properties.get("Material2"))
+                && ModelFences.of(name) == null && onEdge;
+    }
+
+    private static boolean fence(String name) {
+        return name != null && (name.startsWith("fencing_") || name.startsWith("carpentry_02_") || name.startsWith("crafted_0"));
     }
 
     /** What the game names plasterboard, and a wall of boards (not Wood_Solid, logs). */
@@ -459,7 +465,8 @@ final class BlastHoles {
     /** Whether an object is a fence of boards stood side by side: a wooden fence a blast holes, and not a door or a wall. Any thread. */
     static boolean boards(IsoObject object) {
         IsoSprite sprite = object.getSprite();
-        return sprite != null && !DoorGlass.isDoor(object) && !WorldScene.isWall(sprite.getProperties(), sprite.getType()) && blastable(object);
+        return sprite != null && !DoorGlass.isDoor(object) && (fence(sprite.getName()) || !WorldScene.isWall(sprite.getProperties(), sprite.getType()))
+                && blastable(object);
     }
 
     /** How far, in tiles, a broken piece's corners go out past its squares, give or take PIECE_SKEW. */

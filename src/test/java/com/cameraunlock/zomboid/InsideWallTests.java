@@ -29,6 +29,7 @@ final class InsideWallTests {
             TILED_DOORWAY = "walls_interior_bathroom_01_11|DoorWallN||wall|",
             WOODEN_DOORWAY = "walls_exterior_wooden_01_11|DoorWallN||IsPaintable||wall|",
             WOODEN_WALL = "walls_exterior_wooden_01_1|IsPaintable||MaterialType|Wood|WallN||wall|",
+            TALL_FENCE = "fencing_01_8|CanScrap||Material|Wood|Material2|Nails|MaterialType|Wood_Solid|TallHoppableN||WallN||wall|",
             CRATE = "carpentry_01_16|IsPaintable||PaintingType|crates|MaterialType|Wood|";
 
     private static final String[] GAME = {PLAIN_NORTH, PLAIN_CORNER, DOORWAY, WINDOW, POST, SHAPED_WINDOW, SHAPED_SHEETMATE, DOUBLE_WINDOW, TILED, BLOCK,
@@ -92,6 +93,9 @@ final class InsideWallTests {
         Checks.check(!BlastHoles.blastable(tiled), "but not through tiles over block");
         Checks.check(BlastHoles.blastable(boards) && !BlastHoles.boards(boards) && Penetration.costOf(boards) > Penetration.Cartridge.SHOT.budget,
                 "and through a wall of boards, which stops a pellet, as a sheet and not a fence's boards");
+        IsoObject tallFence = new IsoObject(TileRows.sprite(TALL_FENCE));
+        Checks.check(BlastHoles.blastable(tallFence) && BlastHoles.boards(tallFence),
+                "the tall board fence, which the game flags a wall of Wood_Solid, is blasted and broken up as a fence's boards");
         Checks.check(Penetration.cost("Plaster") < Penetration.Cartridge.SHOT.budget, "a shotgun's pellet goes on through plasterboard, as a blast through it has to");
     }
 }
