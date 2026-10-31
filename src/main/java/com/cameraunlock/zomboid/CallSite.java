@@ -339,7 +339,15 @@ final class CallSite {
      * class is also given a method of its own for each of {@code changers}, which it inherits
      * from {@code parent} and which each take one object and return nothing: each forgets what
      * is kept and then does what the inherited one does, so an answer that could have changed
-     * is worked out afresh. Throws where the class already has the field or any of the methods.
+     * is worked out afresh.
+     * <p>
+     * Bytes that already have the field are the class transformed again: what this made of it
+     * before, or what another agent rebuilt from the loaded class. ZombieBuddy's ByteBuddy
+     * copies the loaded class's fields into the class file it hands on and leaves its added
+     * methods out, and a class that came back without them would fail the JVM's whole batch.
+     * So the field and the methods are made again in place of any there, and a getter that
+     * already reads the field is left as it is. Throws where the class has methods of its own
+     * by those names and no field.
      */
     static byte[] keepInField(byte[] classBytes, Method getter, String field, String parent, List<Method> changers) {
         ClassFile classFile = ClassFile.of();
@@ -350,25 +358,30 @@ final class CallSite {
         if (got.parameterCount() != 0 || kept.isPrimitive()) {
             throw new IllegalStateException(getter + " does not take nothing and return an object");
         }
+        boolean again = false;
         for (FieldModel candidate : model.fields()) {
             if (candidate.fieldName().equalsString(field)) {
-                throw new IllegalStateException(model.thisClass().asInternalName() + " already has a field " + field);
+                if (!candidate.fieldType().equalsString(kept.descriptorString())) {
+                    throw new IllegalStateException(model.thisClass().asInternalName() + " already has a field " + field + " of type " + candidate.fieldType().stringValue());
+                }
+                again = true;
             }
         }
-        boolean[] found = {false};
+        boolean found = false, keepsAlready = false;
         for (MethodModel method : model.methods()) {
             boolean isGetter = method.methodName().equalsString(getter.name()) && method.methodType().equalsString(getter.descriptor());
             if (isGetter && (method.flags().has(AccessFlag.STATIC) || method.flags().has(AccessFlag.ABSTRACT))) {
                 throw new IllegalStateException(getter + " is static or has no body");
             }
-            found[0] |= isGetter;
-            for (Method changer : changers) {
-                if (method.methodName().equalsString(changer.name()) && method.methodType().equalsString(changer.descriptor())) {
-                    throw new IllegalStateException(model.thisClass().asInternalName() + " already has its own " + changer.name() + changer.descriptor());
-                }
+            if (isGetter) {
+                found = true;
+                keepsAlready = again && readsFirst(method, field);
+            }
+            if (!again && isChanger(method, changers)) {
+                throw new IllegalStateException(model.thisClass().asInternalName() + " already has its own " + method.methodName() + method.methodType());
             }
         }
-        if (!found[0]) {
+        if (!found) {
             throw new IllegalStateException("no method " + getter);
         }
         boolean[] begun = {false};
@@ -383,8 +396,11 @@ final class CallSite {
             }
             code.with(element);
         };
-        ClassTransform keeping = ClassTransform.transformingMethodBodies(
-                method -> method.methodName().equalsString(getter.name()) && method.methodType().equalsString(getter.descriptor()), keep);
+        boolean leaveGetter = keepsAlready;
+        ClassTransform keeping = ClassTransform.transformingMethodBodies(method -> !leaveGetter
+                && method.methodName().equalsString(getter.name()) && method.methodType().equalsString(getter.descriptor()), keep);
+        ClassTransform dropping = ClassTransform.dropping(element -> element instanceof FieldModel candidate && candidate.fieldName().equalsString(field)
+                || element instanceof MethodModel method && isChanger(method, changers));
         ClassTransform adding = ClassTransform.endHandler(made -> {
             made.withField(field, kept, ClassFile.ACC_PRIVATE | ClassFile.ACC_TRANSIENT | ClassFile.ACC_SYNTHETIC);
             for (Method changer : changers) {
@@ -395,7 +411,24 @@ final class CallSite {
                         .return_());
             }
         });
-        return classFile.transformClass(model, keeping.andThen(adding));
+        return classFile.transformClass(model, dropping.andThen(keeping).andThen(adding));
+    }
+
+    private static boolean isChanger(MethodModel method, List<Method> changers) {
+        for (Method changer : changers) {
+            if (method.methodName().equalsString(changer.name()) && method.methodType().equalsString(changer.descriptor())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Whether {@code method} starts by reading {@code field} of this, as a getter keepInField has changed does. */
+    private static boolean readsFirst(MethodModel method, String field) {
+        List<Instruction> first = method.code().orElseThrow().elementStream()
+                .filter(element -> element instanceof Instruction).map(element -> (Instruction) element).limit(2).toList();
+        return first.size() == 2 && first.get(0) instanceof LoadInstruction self && self.slot() == 0
+                && first.get(1) instanceof FieldInstruction read && read.opcode() == Opcode.GETFIELD && read.name().equalsString(field);
     }
 
     /** Inserts {@code code} before every return of {@code within}, which has to have at least one. */

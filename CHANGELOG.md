@@ -56,6 +56,7 @@
 
 ### Fixed
 
+- With Project Viewpoint installed alongside this mod, Viewpoint's changes to the game no longer fail to go in. Its setup window now shows, so the mouse works again: until that window is finished, Viewpoint ignores every mouse click.
 - In first person, a shot through a light of a glazed door breaks that light, with the sound of breaking glass that zombies hear, as a shot breaks a window. The light is drawn as the shards left round its edge, from both sides, and stays broken in the save. The round goes on through it, and the next shot through the gap lands on what is behind the door instead of on the door. A shotgun blast with three or more pellets through a door's lights smashes the sash: every light breaks, and the wooden bars between them are blown out round where the blast struck, leaving splintered ends of uneven length nearer the frame.
 - With `Reflections` on, a broken light of a glazed door no longer shows a reflection over the gap as if its glass were still there, whether a shot broke it or the map paints it broken.
 - Letting go of forward while sprinting forward and to one side in first person no longer sends you on ahead at about twice the sprint's speed for most of a second. The sprint now slows to a stop as it does straight ahead, and then you step sideways at the stance's pace.

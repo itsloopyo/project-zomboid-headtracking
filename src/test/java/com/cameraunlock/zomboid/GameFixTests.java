@@ -1,6 +1,8 @@
 package com.cameraunlock.zomboid;
 
 import java.lang.classfile.ClassFile;
+import java.lang.classfile.ClassModel;
+import java.lang.classfile.ClassTransform;
 import java.lang.classfile.CodeBuilder;
 import java.lang.classfile.CodeElement;
 import java.lang.classfile.Instruction;
@@ -135,13 +137,33 @@ final class GameFixTests {
         base.getField("held").set(made, null);
         put.invoke(made, (Object) null);
         check(get.invoke(made) == null, "and what was taken away is not handed back");
+        check(shape(CallSite.keepInField(kept, getter, "kept", "com/cameraunlock/zomboid/SubjectHolding", changers)).equals(shape(kept)),
+                "a class that already keeps it, transformed again, comes back as it was");
+        // What ZombieBuddy's ByteBuddy hands on when it has the loaded class transformed again: the class
+        // file it was given with the loaded class's fields added at the end, and none of its added methods.
+        byte[] rebuilt = ClassFile.of().transformClass(ClassFile.of().parse(asking), ClassTransform.endHandler(end ->
+                end.withField("kept", ConstantDescs.CD_Object, ClassFile.ACC_PRIVATE | ClassFile.ACC_TRANSIENT | ClassFile.ACC_SYNTHETIC)));
+        check(shape(CallSite.keepInField(rebuilt, getter, "kept", "com/cameraunlock/zomboid/SubjectHolding", changers)).equals(shape(kept)),
+                "and so does one another agent rebuilt with the field and without the methods");
+        byte[] owning = ClassFile.of().transformClass(ClassFile.of().parse(asking), ClassTransform.endHandler(end ->
+                end.withMethodBody("put", takesObject, ClassFile.ACC_PUBLIC, code -> code.return_())));
         boolean refused = false;
         try {
-            CallSite.keepInField(kept, getter, "kept", "com/cameraunlock/zomboid/SubjectHolding", changers);
+            CallSite.keepInField(owning, getter, "kept", "com/cameraunlock/zomboid/SubjectHolding", changers);
         } catch (IllegalStateException expected) {
             refused = true;
         }
-        check(refused, "a class that already keeps it is rejected");
+        check(refused, "a class with a changer of its own and no field is rejected");
+    }
+
+    /** A class's fields and methods in order, each with its flags, and each method's instructions. */
+    private static List<String> shape(byte[] classBytes) {
+        List<String> shape = new ArrayList<>();
+        ClassModel model = ClassFile.of().parse(classBytes);
+        model.fields().forEach(field -> shape.add(field.fieldName() + " " + field.fieldType() + " " + field.flags().flagsMask()));
+        model.methods().forEach(method -> shape.add(method.methodName() + method.methodType().stringValue() + " " + method.flags().flagsMask() + " "
+                + method.code().map(code -> code.elementStream().filter(element -> element instanceof Instruction).map(Object::toString).toList()).orElse(List.of())));
+        return shape;
     }
 
     private static final CallSite.Method CONTAINS = new CallSite.Method("zombie/util/list/PZArrayUtil", "contains", "(Ljava/util/List;Ljava/util/function/Predicate;)Z");
