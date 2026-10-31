@@ -498,9 +498,11 @@ final class OpeningBuilder {
                     addJoinery(wood, inStart, inEnd, leaf.foot, leaf.foot + leaf.footHigh, face, r, g, b);
                 }
                 for (int bar = 0; bar < bars.length; bar += 4) {
-                    float[] left = !smashed || !DoorGlass.inSash(sash, bars[bar], bars[bar + 1], bars[bar + 2], bars[bar + 3]) ? Arrays.copyOfRange(bars, bar, bar + 4)
-                            : DoorGlass.remnants(bars[bar], bars[bar + 1], bars[bar + 2], bars[bar + 3], blast, DoorGlass.barSeed(seed, bar));
-                    addPieces(wood, left, face, r, g, b);
+                    if (smashed && DoorGlass.inSash(sash, bars[bar], bars[bar + 1], bars[bar + 2], bars[bar + 3])) {
+                        addPieces(wood, DoorGlass.remnants(bars[bar], bars[bar + 1], bars[bar + 2], bars[bar + 3], blast, DoorGlass.barSeed(seed, bar)), face, r, g, b);
+                    } else {
+                        addJoinery(wood, bars[bar], bars[bar + 1], bars[bar + 2], bars[bar + 3], face, r, g, b);
+                    }
                 }
             }
             // The jamb is the doorway's, not the leaf's: the line round a door E would open goes round the leaf.
@@ -523,9 +525,12 @@ final class OpeningBuilder {
             for (int pane = 0; pane < leaf.panes.length; pane += 5) {
                 float[] bead = bead(leaf.panes[pane], leaf.panes[pane + 1], leaf.panes[pane + 2], leaf.panes[pane + 3], leaf.start, leaf.end, leaf.foot, leaf.head);
                 for (int at = 0; at < bead.length; at += 4) {
-                    float[] left = !smashed ? Arrays.copyOfRange(bead, at, at + 4)
-                            : DoorGlass.remnants(bead[at], bead[at + 1], bead[at + 2], bead[at + 3], blast, seed ^ (pane * 4 + at + 1) * 40503);
-                    addPieces(wood, left, face + Math.signum(face) * BEAD_PROUD, r, g, b);
+                    if (smashed) {
+                        addPieces(wood, DoorGlass.remnants(bead[at], bead[at + 1], bead[at + 2], bead[at + 3], blast, seed ^ (pane * 4 + at + 1) * 40503),
+                                face + Math.signum(face) * BEAD_PROUD, r, g, b);
+                    } else {
+                        addJoinery(wood, bead[at], bead[at + 1], bead[at + 2], bead[at + 3], face + Math.signum(face) * BEAD_PROUD, r, g, b);
+                    }
                 }
             }
             // A garage door is lifted by a handle at its foot and rides in tracks: no knob, no hinges.
