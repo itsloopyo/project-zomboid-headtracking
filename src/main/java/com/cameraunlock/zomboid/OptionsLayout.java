@@ -37,7 +37,7 @@ final class OptionsLayout {
                 new Group(QUICK, "Each list below switches a whole class of settings on or off. A list shows Mixed when your settings match "
                         + "none of its lines.", null, Tracking.ENABLED_OPTION),
                 new Group(FIRST_PERSON, null, "FirstPerson", Part.FIRST_PERSON.key, Config.firstPersonInVehiclesRow(0), Config.firstPersonRow(0),
-                        "FieldOfView", "Crosshair", Part.HEAR_FROM_THE_EYE.key, Part.HEAD_LED_VIEW_WHEN_DOWN.key, Part.NAME_TAGS_AT_HEADS.key,
+                        "FieldOfView", "Crosshair", Part.HIGHLIGHTS.key, Part.HEAR_FROM_THE_EYE.key, Part.HEAD_LED_VIEW_WHEN_DOWN.key, Part.NAME_TAGS_AT_HEADS.key,
                         Part.QUICK_RAGDOLLS.key, Part.HIT_FLINCH.key, "HillHeight"),
                 new Group(HEAD_TRACKING, null, null, Tracking.TRACKING_MODE_OPTION, Tracking.AIM_MODE_OPTION, Tracking.YAW_MODE_OPTION,
                         Tracking.LOCAL_SMOOTHING_OPTION, Tracking.REMOTE_SMOOTHING_OPTION, Part.TORCH_FOLLOWS_HEAD.key, Tracking.LIGHT_MULTIPLIER_OPTION),
@@ -77,6 +77,7 @@ final class OptionsLayout {
             Map.entry("FirstPersonInVehicles", "First person in vehicles"),
             Map.entry("FieldOfView", "Field of view"),
             Map.entry("Crosshair", "Crosshair"),
+            Map.entry(Part.HIGHLIGHTS.key, "Highlights"),
             Map.entry(Part.HEAR_FROM_THE_EYE.key, "First person sound"),
             Map.entry(Part.HEAD_LED_VIEW_WHEN_DOWN.key, "Follow your character's head when down"),
             Map.entry(Part.NAME_TAGS_AT_HEADS.key, "Names over heads"),

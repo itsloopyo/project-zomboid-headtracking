@@ -58,6 +58,10 @@ enum Part {
     NAME_TAGS_AT_HEADS("FirstPerson", "NameTagsAtHeads", false, true,
             "true: on a server, in first person, the names and speech the game shows over people sit over their heads in the\n"
                     + "picture, and your own are hidden. false: the game shows them where its own view puts them."),
+    HIGHLIGHTS("FirstPerson", "Highlights", true, false,
+            "true: in first person, a line is drawn round what the Interact key would act on, and round what the game highlights\n"
+                    + "or marks on the ground for you, such as the container the loot panel shows. false: none of them, for immersion.\n"
+                    + "The piece of furniture you are placing is still outlined."),
     SHOTS_FROM_VEHICLE_SEATS("Rules", "ShotsFromVehicleSeats", true, false,
             "true: in first person, sitting in a vehicle with a gun, you can fire through any part of your seat's window, and\n"
                     + "the shot breaks it. false: as in the game, the window has to be opened or broken first. On a server where\n"

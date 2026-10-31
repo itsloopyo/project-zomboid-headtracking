@@ -114,6 +114,9 @@ final class Outlines {
      * @param interact the key of what the Interact key would act on, or NONE
      */
     static Frame gather(int playerIndex, long interact) {
+        if (!Part.HIGHLIGHTS.on()) {
+            return null;
+        }
         Gathering gathering = GATHERING;
         gathering.count = 0;
         synchronized (HIGHLIGHTS) {

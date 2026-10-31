@@ -543,6 +543,10 @@ LeaveOutScreenGrey=true
 ; picture, and your own are hidden. false: the game shows them where its own view puts them.
 ; Takes effect when the game next starts. When off, the mod does not change the game's own code for this.
 NameTagsAtHeads=true
+; true: in first person, a line is drawn round what the Interact key would act on, and round what the game highlights
+; or marks on the ground for you, such as the container the loot panel shows. false: none of them, for immersion.
+; The piece of furniture you are placing is still outlined.
+Highlights=true
 
 [Players]
 ; Player 2's first person graphics mode, as Quality.
