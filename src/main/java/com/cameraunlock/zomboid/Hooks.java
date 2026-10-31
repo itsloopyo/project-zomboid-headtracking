@@ -395,9 +395,13 @@ public final class Hooks {
         return view == null ? stock : view.firstPerson.reticleY(stock);
     }
 
-    /** Called as the game's window is about to show or hide its cursor: the mouse is the first player's. */
+    /**
+     * Called as the game's window is about to show or hide its cursor: the mouse is the first
+     * player's. The call goes ahead while Project Viewpoint's look holds the mouse, as that is
+     * where Viewpoint lets go of it.
+     */
     public static boolean holdsMouse() {
-        return View.first().firstPerson.holdsMouse();
+        return View.first().firstPerson.holdsMouse() && !ViewpointView.mouseHeld();
     }
 
     /** Called at the end of the game's Mouse.update with the cursor column it read. */
