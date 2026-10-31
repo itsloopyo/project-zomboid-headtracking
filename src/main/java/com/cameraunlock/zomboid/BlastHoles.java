@@ -169,14 +169,39 @@ final class BlastHoles {
                 for (int k = 0; k < objects.size(); k++) {
                     IsoObject object = objects.get(k);
                     if (object.hasModData() && object.getModData().rawget(KEY) instanceof String saved) {
-                        float[] entries = parse(saved);
-                        any = true;
-                        kept.put(object, entries);
+                        keepSaved(object, saved, square);
+                    } else if (any) {
+                        // The game takes the walls and fences of a chunk it let go of for those of the next it loads.
+                        kept.remove(object);
                     }
                 }
             }
         }
     }
+
+    /**
+     * Keeps what a save holds on an object again. A list that cannot be read is said once in the
+     * log and the object keeps nothing, so one bad entry does not stop its chunk loading.
+     */
+    private static void keepSaved(IsoObject object, String saved, IsoGridSquare square) {
+        float[] entries;
+        try {
+            entries = parse(saved);
+        } catch (IllegalArgumentException malformed) {
+            if (!malformedSaid) {
+                malformedSaid = true;
+                Log.error(String.format(Locale.ROOT, "the holes saved on %s at (%d, %d, %d) are left undrawn, and so are any others saved the same way",
+                        object.getSprite() == null ? "a thing" : object.getSprite().getName(), square.getX(), square.getY(), square.getZ()), malformed);
+            }
+            kept.remove(object);
+            return;
+        }
+        any = true;
+        kept.put(object, entries);
+    }
+
+    /** Whether a save's list of holes that could not be read has been said this session. */
+    private static boolean malformedSaid;
 
     static float[] parse(String saved) {
         String[] words = saved.isEmpty() ? new String[0] : saved.split(",");
