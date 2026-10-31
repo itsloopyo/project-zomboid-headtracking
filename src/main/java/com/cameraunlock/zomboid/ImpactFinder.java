@@ -146,7 +146,9 @@ final class ImpactFinder {
             Ride.shotFromSeat(player, line.forwardX, line.forwardY);
         }
 
-        IsoGameCharacter hit = characterAt(cell, shooter, endX, endY, endZ);
+        // Where a square stopped the shot the game hit no one, and it ends the line up to a square past the wall, by whoever
+        // stands pressed against its far side: 0.38 tiles from a zombie 0.2 behind siding (measured), within CHARACTER_NEAR.
+        IsoGameCharacter hit = stopped == null ? characterAt(cell, shooter, endX, endY, endZ) : null;
         if (hit != null) {
             float flat = line.forwardX * line.forwardX + line.forwardY * line.forwardY;
             if (flat > 1e-6f) {
