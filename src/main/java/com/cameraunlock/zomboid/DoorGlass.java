@@ -193,9 +193,14 @@ final class DoorGlass {
 
     /** The leaf of a shut door as the picture measured it (Doors) on the edge the door is on, or null. */
     static Windows.Shape leafOf(IsoObject door) {
-        boolean north = door instanceof IsoDoor hinged ? hinged.getNorth() : ((IsoThumpable) door).getNorth();
-        Doors.Shape shape = Doors.known(door.getSprite().getTextureForCurrentFrame(door.getDir()), north);
+        Doors.Shape shape = shapeOf(door);
         return shape == null ? null : shape.leaf;
+    }
+
+    /** All the picture measured of a shut door (Doors) on the edge the door is on, its leaf and the end its handle is at, or null. */
+    static Doors.Shape shapeOf(IsoObject door) {
+        boolean north = door instanceof IsoDoor hinged ? hinged.getNorth() : ((IsoThumpable) door).getNorth();
+        return Doors.known(door.getSprite().getTextureForCurrentFrame(door.getDir()), north);
     }
 
     /** Keeps a door's broken lights as `now`, with the sound and noise of breaking glass, and answers whether that broke any. */

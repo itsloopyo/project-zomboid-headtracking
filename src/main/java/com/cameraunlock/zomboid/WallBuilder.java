@@ -248,7 +248,7 @@ final class WallBuilder {
         float[] lift = build.geometry.lift;
         float foot = z * ViewCamera.LEVEL_HEIGHT + (lift[0] + lift[1] + lift[2] + lift[3]) / 4f;
         MeshCut cut = new MeshCut(x, y, da, db, FENCE_REACH);
-        BlastHoles.into(cut, holes, BlastHoles.panel(build.blastObject, da != 0f), da != 0f, 0f, 1f, foot, ViewCamera.LEVEL_HEIGHT, 1);
+        BlastHoles.into(cut, holes, BlastHoles.fallen(build.blastObject, da != 0f), da != 0f, 0f, 1f, foot, ViewCamera.LEVEL_HEIGHT, 1);
         cut.since(ends, build.solid, build.laid);
     }
 
@@ -2390,7 +2390,26 @@ final class WallBuilder {
         }
         readOpening(known, at, texture, a, b, da, db);
         WorldScene.openings.replace(texture, known);
+        BlastHoles.openingRead(texture);
         return known;
+    }
+
+    /** No opening through a wall's sprite on an edge: see openingIn. */
+    static final float[] NO_OPENING = new float[0];
+
+    /**
+     * The door or window through a wall's sprite on the north or west edge, as a build read it (openingOf): where it
+     * starts and ends along the wall, and its foot and head in levels; NO_OPENING for none, or for one that is not a
+     * rectangle; null until a build has read it. Any thread.
+     */
+    static float[] openingIn(Texture texture, boolean north) {
+        float[] known = WorldScene.openings.get(texture);
+        int at = north ? 0 : OPENING_FLOATS;
+        if (known == null || Float.isNaN(known[at + OPENING_START])) {
+            return null;
+        }
+        return known[at + OPENING_START] < 0f ? NO_OPENING
+                : new float[] {known[at + OPENING_START], known[at + OPENING_END], known[at + OPENING_FOOT], known[at + OPENING_HEAD]};
     }
 
     /**

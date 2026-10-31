@@ -9933,7 +9933,12 @@ final class WorldScene {
             }
             casing = type == IsoObjectType.doorFrW || type == IsoObjectType.doorFrN;
             if (casing) {
-                blastHoles = BlastHoles.ofCasingOn(cell, x, y, z, type == IsoObjectType.doorFrN);
+                boolean onNorth = type == IsoObjectType.doorFrN;
+                blastHoles = BlastHoles.ofCasingOn(cell, x, y, z, onNorth);
+                // What went of the wall the doorway is in goes of the casing round it: the wall keeps the holes (wallOn).
+                IsoGridSquare on = cell.getGridSquare(x, y, z);
+                IsoObject wall = on == null ? null : wallOn(on, onNorth);
+                blastObject = wall == null ? object : wall;
             }
             wallBuilder.sign = overLayer == 0 && !door && west != north && kind.sign;
             wallBuilder.trim = overLayer == 0 && kind.wallTrim && edgeX == x && edgeY == y && edgeZ == z
@@ -10562,7 +10567,7 @@ final class WorldScene {
         int brokenLights;
         /** Of the door, fence or wall being added, or the wall a casing stands on, the holes blasts and rounds have left and the marks pellets have, or null: see BlastHoles. */
         float[] blastHoles;
-        /** The object blastHoles are of, which says what else went with them (BlastHoles.panel). */
+        /** The object that keeps blastHoles, for a casing the wall it stands on, which says what else went with them (BlastHoles.fallen). */
         IsoObject blastObject;
         /** Whether the sprite being added is a wooden fence low enough for the game to see over: its top is measured for the shots (BlastHoles.topOf). */
         boolean lowBoards;

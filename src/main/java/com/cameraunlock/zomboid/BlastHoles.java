@@ -1,15 +1,19 @@
 package com.cameraunlock.zomboid;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 import java.util.WeakHashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import se.krka.kahlua.vm.KahluaTable;
 import zombie.core.properties.PropertyContainer;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoChunk;
+import zombie.iso.IsoDirections;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.core.textures.Texture;
@@ -236,8 +240,14 @@ final class BlastHoles {
         return top == null ? Float.NaN : top;
     }
 
-    /** Called as the game has loaded a chunk's squares, on its logic thread: the holes and marks of its things, as saved. */
+    /**
+     * Called as the game has loaded a chunk's squares, on its logic thread: the holes and marks of its things, as saved.
+     * A chunk beside it that a holed wall on its edge may run on into is built again: what falls of a run of wall is
+     * worked out along all of it (fallen), and was worked out without this chunk's part.
+     */
     static void loaded(IsoChunk chunk) {
+        int last = WorldScene.CHUNK_TILES - 1;
+        boolean west = false, east = false, north = false, south = false;
         for (int z = chunk.getMinLevel(); z <= chunk.getMaxLevel(); z++) {
             for (int i = 0; i < WorldScene.CHUNK_TILES * WorldScene.CHUNK_TILES; i++) {
                 IsoGridSquare square = chunk.getGridSquare(i % WorldScene.CHUNK_TILES, i / WorldScene.CHUNK_TILES, z);
@@ -249,12 +259,28 @@ final class BlastHoles {
                     IsoObject object = objects.get(k);
                     if (object.hasModData() && object.getModData().rawget(KEY) instanceof String saved) {
                         keepSaved(object, saved, square);
+                        west |= i % WorldScene.CHUNK_TILES == 0;
+                        east |= i % WorldScene.CHUNK_TILES == last;
+                        north |= i / WorldScene.CHUNK_TILES == 0;
+                        south |= i / WorldScene.CHUNK_TILES == last;
                     } else if (any) {
                         // The game takes the walls and fences of a chunk it let go of for those of the next it loads.
                         kept.remove(object);
                     }
                 }
             }
+        }
+        if (west) {
+            ChunkMarks.tell(chunk.wx - 1, chunk.wy);
+        }
+        if (east) {
+            ChunkMarks.tell(chunk.wx + 1, chunk.wy);
+        }
+        if (north) {
+            ChunkMarks.tell(chunk.wx, chunk.wy - 1);
+        }
+        if (south) {
+            ChunkMarks.tell(chunk.wx, chunk.wy + 1);
         }
     }
 
@@ -343,11 +369,31 @@ final class BlastHoles {
         KahluaTable data = object.getModData();
         data.rawset(KEY, write(now));
         ChunkMarks.changed(object);
+        tellRun(object, north);
         if (DevBuild.ON) {
             IsoGridSquare square = object.getSquare();
             Log.info(String.format(Locale.ROOT, "%s at %.3f along and %.3f levels up, radius %.3f, on the %s on the %s edge of (%d, %d, %d)",
                     side == 0 ? "a blast blew a hole" : Math.abs(side) == ROUND ? "a round went through" : "a pellet marked", along, up, radius,
                     DoorGlass.isDoor(object) ? "door" : object.getSprite().getName(), north ? "north" : "west", square.getX(), square.getY(), square.getZ()));
+        }
+    }
+
+    /**
+     * Has the chunks a run of holed wall the object is in reaches into besides its own built again: what falls of each
+     * of the run is worked out along all of it (fallen), and its own chunk the object's new hole has built again. Logic thread.
+     */
+    private static void tellRun(IsoObject object, boolean north) {
+        IsoGridSquare square = object.getSquare();
+        if (square == null || DoorGlass.isDoor(object) || boards(object) || WorldScene.wallOn(square, north) != object) {
+            return;
+        }
+        int wx = Math.floorDiv(square.getX(), WorldScene.CHUNK_TILES), wy = Math.floorDiv(square.getY(), WorldScene.CHUNK_TILES);
+        for (IsoObject piece : runOf(object, square, north)) {
+            IsoGridSquare on = piece.getSquare();
+            int pieceWx = Math.floorDiv(on.getX(), WorldScene.CHUNK_TILES), pieceWy = Math.floorDiv(on.getY(), WorldScene.CHUNK_TILES);
+            if (pieceWx != wx || pieceWy != wy) {
+                ChunkMarks.tell(pieceWx, pieceWy);
+            }
         }
     }
 
@@ -434,32 +480,135 @@ final class BlastHoles {
                 : MeshCut.outline(along, up, r, r, ROUND_RAGGED, ROUND_POINTS, seed);
     }
 
+    /** How many squares along its line either way a run of holed wall is followed (fallen). */
+    private static final int MOST_RUN = 32;
+
     /**
-     * What an object is to Breakage on its north or west edge: a door's leaf as the picture measured
-     * it (null until then), a wooden fence's boards as high as the picture built them (a level until
-     * it has), or a wall's sheet a level high. Any thread.
+     * What goes of an object besides the holes on its north or west edge (Breakage): of a door's leaf, what its
+     * holes cut from the hinges it hangs from (as the picture measured the leaf: nothing until then); of a fence of
+     * boards, what they leave held at neither end of its boards (by its top as the picture built it, a level until
+     * it has); and of a wall, what they cut from its floor, its ceiling and the frames of the doors and windows
+     * through it, worked out along the run of holed wall it stands in (runOf), so that a piece shot free across the
+     * join of two squares falls out of both. Nothing for an object with no hole on that edge. Any thread.
      */
-    static Breakage.Panel panel(IsoObject object, boolean north) {
+    static Breakage.Pieces fallen(IsoObject object, boolean north) {
+        float[] own = of(object);
+        if (own == null || !holedOn(own, north)) {
+            return Breakage.Pieces.NONE;
+        }
         if (DoorGlass.isDoor(object)) {
-            Windows.Shape leaf = object.getSprite() == null ? null : DoorGlass.leafOf(object);
-            return leaf == null ? null : leafPanel(leaf);
+            Doors.Shape shape = object.getSprite() == null ? null : DoorGlass.shapeOf(object);
+            return shape == null ? Breakage.Pieces.NONE : Breakage.of(own, north, leafPanel(shape));
         }
         IsoGridSquare square = object.getSquare();
         if (square == null) {
-            return null;
+            return Breakage.Pieces.NONE;
         }
         int startsAt = north ? square.getX() : square.getY();
         if (boards(object)) {
             float top = topOf(object);
-            return new Breakage.Panel(Breakage.BOARDS, 0f, 1f, 0f, Float.isNaN(top) ? 1f : top, startsAt);
+            return Breakage.of(own, north, new Breakage.Panel(Breakage.BOARDS, 0f, 1f, 0f, Float.isNaN(top) ? 1f : top, startsAt,
+                    Breakage.HELD_ALL, Breakage.NO_FRAMES));
         }
-        return new Breakage.Panel(Breakage.SHEET, 0f, 1f, 0f, 1f, startsAt);
+        if (WorldScene.wallOn(square, north) != object) {
+            // A sheet that is not its edge's wall, a fence of something a round goes through, is held all round on its own.
+            return Breakage.of(own, north, new Breakage.Panel(Breakage.SHEET, 0f, 1f, 0f, 1f, startsAt, Breakage.HELD_ALL, Breakage.NO_FRAMES));
+        }
+        ArrayList<IsoObject> run = runOf(object, square, north);
+        int index = run.indexOf(object);
+        float[][] entries = new float[run.size()][];
+        float[] frames = Breakage.NO_FRAMES;
+        for (int k = 0; k < run.size(); k++) {
+            IsoObject piece = run.get(k);
+            entries[k] = piece == object ? own : of(piece);
+            Texture texture = piece.getSprite().getTextureForCurrentFrame(piece.getDir());
+            float[] opening = WallBuilder.openingIn(texture, north);
+            if (opening == null) {
+                awaitOpening(texture, north, square);
+            } else if (opening.length > 0) {
+                frames = Arrays.copyOf(frames, frames.length + 4);
+                frames[frames.length - 4] = opening[0] + k;
+                frames[frames.length - 3] = opening[1] + k;
+                frames[frames.length - 2] = opening[2];
+                frames[frames.length - 1] = opening[3];
+            }
+        }
+        Breakage.Panel panel = new Breakage.Panel(Breakage.SHEET, 0f, run.size(), 0f, 1f, startsAt - index, Breakage.HELD_ALL, frames);
+        return Breakage.of(entries, north, panel)[index];
     }
 
-    /** A shut door's leaf as Breakage takes it: one sheet. */
-    static Breakage.Panel leafPanel(Windows.Shape leaf) {
-        return new Breakage.Panel(Breakage.SHEET, Math.min(leaf.start, leaf.end), Math.max(leaf.start, leaf.end),
-                Math.min(leaf.foot, leaf.head), Math.max(leaf.foot, leaf.head), 0);
+    /**
+     * The run of holed wall a wall with holes on its square's north or west edge stands in: the walls of that edge on
+     * the squares along its line either way (WorldScene.wallOn, which keeps their holes), up to the first with no hole
+     * there, at most MOST_RUN each way, in order along the edge with the wall itself among them. What it meets at
+     * either end, the next wall whole, a corner or the open end of the wall, holds it there.
+     */
+    private static ArrayList<IsoObject> runOf(IsoObject wall, IsoGridSquare square, boolean north) {
+        ArrayList<IsoObject> run = new ArrayList<>();
+        IsoGridSquare at = square;
+        for (int step = 0; step < MOST_RUN; step++) {
+            at = at.getAdjacentSquare(north ? IsoDirections.W : IsoDirections.N);
+            IsoObject piece = holedWallOn(at, north);
+            if (piece == null) {
+                break;
+            }
+            run.add(0, piece);
+        }
+        run.add(wall);
+        at = square;
+        for (int step = 0; step < MOST_RUN; step++) {
+            at = at.getAdjacentSquare(north ? IsoDirections.E : IsoDirections.S);
+            IsoObject piece = holedWallOn(at, north);
+            if (piece == null) {
+                break;
+            }
+            run.add(piece);
+        }
+        return run;
+    }
+
+    /** The wall on a square's north or west edge with a hole there, which a run of holed wall goes on through; null for none. */
+    private static IsoObject holedWallOn(IsoGridSquare square, boolean north) {
+        IsoObject wall = square == null ? null : WorldScene.wallOn(square, north);
+        float[] entries = wall == null ? null : of(wall);
+        return entries != null && holedOn(entries, north) && !DoorGlass.isDoor(wall) && !boards(wall) ? wall : null;
+    }
+
+    /**
+     * Of each wall's sprite whose opening no build had read for an edge when what goes of a run of wall it stands in
+     * was worked out, the chunks the run was built in, by key: built again once a build has read it (openingRead), when
+     * the frame round the opening holds what it holds. Only builds wait: a shot asks again.
+     */
+    private static final ConcurrentHashMap<Texture, Set<Long>> awaiting = new ConcurrentHashMap<>();
+
+    private static void awaitOpening(Texture texture, boolean north, IsoGridSquare square) {
+        if (!BuildThreads.here()) {
+            return;
+        }
+        long chunk = (long) Math.floorDiv(square.getX(), WorldScene.CHUNK_TILES) << 32 | Math.floorDiv(square.getY(), WorldScene.CHUNK_TILES) & 0xffffffffL;
+        awaiting.computeIfAbsent(texture, any -> ConcurrentHashMap.newKeySet()).add(chunk);
+        // A build on another thread may have read it since this one looked, and found nothing waiting.
+        if (WallBuilder.openingIn(texture, north) != null) {
+            openingRead(texture);
+        }
+    }
+
+    /** Called as a build has read the opening through a wall's sprite: the chunks built while it was not are built again. Any thread. */
+    static void openingRead(Texture texture) {
+        Set<Long> chunks = awaiting.remove(texture);
+        if (chunks != null) {
+            for (long chunk : chunks) {
+                BuildThreads.tell((int) (chunk >> 32), (int) chunk);
+            }
+        }
+    }
+
+    /** A door's leaf as Breakage takes it: one sheet, measured hanging shut, held where it hangs from its hinges, at the end away from its handle. */
+    static Breakage.Panel leafPanel(Doors.Shape door) {
+        Windows.Shape leaf = door.leaf;
+        float from = Math.min(leaf.start, leaf.end), hinged = door.handleAtEnd ? leaf.start : leaf.end;
+        return new Breakage.Panel(Breakage.SHEET, from, Math.max(leaf.start, leaf.end), Math.min(leaf.foot, leaf.head), Math.max(leaf.foot, leaf.head), 0,
+                hinged == from ? Breakage.HELD_START : Breakage.HELD_END, Breakage.NO_FRAMES);
     }
 
     /** Whether an object is a fence of boards stood side by side: a wooden fence a blast holes, and not a door or a wall. Any thread. */
@@ -480,7 +629,7 @@ final class BlastHoles {
     /** Whether (along, up) on an object's north or west edge is inside one of its holes, far enough in for a shot to go through: see THROUGH. Logic thread. */
     static boolean through(IsoObject object, boolean north, float along, float up) {
         float[] entries = of(object);
-        return entries != null && (inAHole(entries, north, along, up) || Breakage.of(entries, north, panel(object, north)).inside(along, up));
+        return entries != null && (inAHole(entries, north, along, up) || fallen(object, north).inside(along, up));
     }
 
     static boolean inAHole(float[] entries, boolean north, float along, float up) {
@@ -501,9 +650,10 @@ final class BlastHoles {
     /** Whether an object has a hole on its north or its west edge: a door or a wall with one is seen through, as a door with glass is (RoomMap). Logic thread. */
     static boolean holed(IsoObject object, boolean north) {
         float[] entries = of(object);
-        if (entries == null) {
-            return false;
-        }
+        return entries != null && holedOn(entries, north);
+    }
+
+    private static boolean holedOn(float[] entries, boolean north) {
         for (int at = 0; at < entries.length; at += FLOATS) {
             if (isHole(entries[at + SIDE]) && (entries[at + NORTH] != 0f) == north) {
                 return true;
@@ -529,11 +679,11 @@ final class BlastHoles {
     /**
      * Puts an object's holes and marks on its north or west edge into a cut: each at s = sFrom +
      * sBy * along on the cut's plane and t = tFrom + tBy * up, in tiles, and a mark's side times
-     * sideBy, as is the way across the edge a round's hole slants along; and what went with them
-     * (Breakage) of the panel the object is, null for none.
+     * sideBy, as is the way across the edge a round's hole slants along; and what went with them,
+     * laid the same way (fallen).
      */
-    static void into(MeshCut cut, float[] entries, Breakage.Panel panel, boolean north, float sFrom, float sBy, float tFrom, float tBy, int sideBy) {
-        float[][] pieces = Breakage.of(entries, north, panel).rectangles;
+    static void into(MeshCut cut, float[] entries, Breakage.Pieces fallen, boolean north, float sFrom, float sBy, float tFrom, float tBy, int sideBy) {
+        float[][] pieces = fallen.rectangles;
         for (int p = 0; p < pieces.length; p++) {
             float[] piece = pieces[p], outline = new float[8];
             float middleS = 0f, middleT = 0f;
@@ -577,6 +727,7 @@ final class BlastHoles {
     /** Forgets every object's: the save is left. */
     static void forget() {
         kept.clear();
+        awaiting.clear();
         any = false;
     }
 }

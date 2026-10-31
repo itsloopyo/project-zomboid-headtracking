@@ -293,6 +293,6 @@ final class FigureWalls {
                 return true;
             }
         }
-        return Breakage.of(entries, north, BlastHoles.panel(object, north)).rectangles.length > 0;
+        return BlastHoles.fallen(object, north).rectangles.length > 0;
     }
 }
