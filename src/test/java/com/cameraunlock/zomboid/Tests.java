@@ -221,6 +221,7 @@ public final class Tests {
         Checks.run("ScreenGreyTests", ScreenGreyTests::run);
         Checks.run("MoonlightTests", MoonlightTests::run);
         Checks.run("FigureSnowTests", FigureSnowTests::run);
+        Checks.run("FigureWallsTests", FigureWallsTests::run);
         Checks.run("HeldLightTests", HeldLightTests::run);
         Checks.run("StairTests", StairTests::run);
         Checks.run("FlightTests", FlightTests::run);

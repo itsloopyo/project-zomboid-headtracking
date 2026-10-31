@@ -30,6 +30,7 @@ Press `Delete` to switch between the isometric view and first person, on foot or
 - **New graphics in both views** - lighting, shadows, models, textures and reflections in Medium and High, plus light beams through fog in first person. High adds sharper shadows and depth on surfaces up close.
 - **Fire** - the game's flames stand upright in the 3D world, and Medium and High add smoke, embers and firelight to burning buildings, Molotovs and campfires.
 - **Sound** - turns with your view, and walls between you and a sound muffle it.
+- **Nothing through walls** - a zombie, person or animal against a wall, a shut door or a fence you can't see through isn't drawn with a hand, shoulder or head poking through it to your side.
 - **Adjustable** - a graphics mode picked for your PC the first time, or chosen yourself, five picture styles, field of view and hill height, and any of the replacement models or textures can be switched back to the game's own.
 
 ### Combat
@@ -561,6 +562,10 @@ NameTagsAtHeads=true
 ; or marks on the ground for you, such as the container the loot panel shows. false: none of them, for immersion.
 ; The piece of furniture you are placing is still outlined.
 Highlights=true
+; true: in first person, a zombie, person or animal against a wall, a shut door or a fence you cannot see through is
+; not drawn reaching, leaning or poking through it to your side. false: they are drawn as the game poses them, so a
+; hand, a shoulder or a head can show through.
+FiguresBehindWalls=true
 
 [Players]
 ; Player 2's first person graphics mode, as Quality.

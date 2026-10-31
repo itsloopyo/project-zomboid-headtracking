@@ -2501,6 +2501,7 @@ final class WorldScene {
             }
             scene.builtAheadOf.clear();
             scene.figureLights.forget();
+            scene.figureWalls.forget();
         }
         forgetAll();
         forgetTheOpened();
@@ -3468,6 +3469,8 @@ final class WorldScene {
         ArrayList<Corpses.Lying> lying;
         /** The light each figure the frame may draw stands in: see FigureLights. */
         final FigureLights figureLights = new FigureLights();
+        /** The solid edges each figure the frame may draw is cut at: see FigureWalls. */
+        final FigureWalls figureWalls = new FigureWalls();
         final SpriteGeometry geometry = new SpriteGeometry();
         final SpriteGeometry.Frame frame = new SpriteGeometry.Frame();
 
@@ -5174,6 +5177,11 @@ final class WorldScene {
             }
             tollFigureLights++;
             tollFigureLightsNanos += System.nanoTime() - gatherBegan;
+            if (Part.FIGURES_BEHIND_WALLS.on()) {
+                figureWalls.gather(cell, pose.eyeX, pose.eyeY);
+            } else {
+                figureWalls.forget();
+            }
             if (DepthFights.ON && !fromOutside) {
                 DepthFights.audit(shown, pose.eyeX, pose.eyeY, pose.eyeUp, cell);
             }
@@ -10981,6 +10989,7 @@ final class WorldScene {
                         view.headTracking.zoomFactor(), near));
             }
             view.characters.lights = figureLights;
+            view.characters.walls = figureWalls;
             view.characters.aim.set(aim);
             System.arraycopy(eyeFromAim, 0, view.characters.eyeFromAim, 0, 3);
             // What the picture does without for an eye thousands of tiles off, it has again once

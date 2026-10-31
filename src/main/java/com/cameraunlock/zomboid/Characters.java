@@ -2440,6 +2440,9 @@ public final class Characters {
         if (!casting) {
             CharacterDraw.snowed(SnowCarried.on(view.index, data.character));
         }
+        if (!casting && Part.FIGURES_BEHIND_WALLS.on()) {
+            cutAtWalls(data, up, viewMatrix);
+        }
         for (int part = 0; part < parts(data).size(); part++) {
             ModelInstanceRenderData model = parts(data).get(part);
             // What hangs on the head, glasses, earrings, a hat, is left out only of the picture
@@ -2875,6 +2878,23 @@ public final class Characters {
      */
     private void lightWhere(ModelSlotRenderData data) {
         lightAt(lights.of(data.character));
+    }
+
+    /**
+     * Render thread: the solid edges by each figure the frame draws, which they are cut at,
+     * gathered on the logic thread as it was built. See FigureWalls.
+     */
+    FigureWalls walls;
+    private final float[] cutPlanes = new float[FigureWalls.MOST * FigureWalls.PLANE_FLOATS], cutFromEye = new float[16];
+
+    /** Says to the picture's draw of a person the cuts at the solid edges they stand against, with FiguresBehindWalls on. */
+    private void cutAtWalls(ModelSlotRenderData data, float up, float[] viewMatrix) {
+        FigureWalls.Cuts cuts = walls.of(data.character);
+        if (cuts != null) {
+            FigureWalls.planes(cuts, data.x, data.y, cutPlanes);
+            FigureWalls.fromEye(viewMatrix, fromX, fromY, fromUp, data.x, data.y, up, cutFromEye);
+            CharacterDraw.cut(cutPlanes, cuts.count, cutFromEye);
+        }
     }
 
     private static void lightAt(FigureLights.Lit lit) {

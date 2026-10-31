@@ -833,6 +833,9 @@ final class CharacterDraw {
             uniform vec2 uStands;
             uniform float uMouthGap;
             uniform float uLips;
+            uniform float uCuts;
+            """ + "uniform vec4 uCut[" + 2 * FigureWalls.MOST + "];\n" + """
+            uniform mat4 uFromEye;
             const float INSIDE_REACH = 0.6, INSIDE_SHADE = 0.15;
             FROM_LAST vec3 vNormal;
             FROM_LAST vec2 vUv;
@@ -869,6 +872,21 @@ final class CharacterDraw {
                 // swollen across the picture and torn at its near plane.
                 if (dot(vEye, vEye) < uNearCut * uNearCut) {
                     discard;
+                }
+                // What of a person is past a solid edge of the square they stand on is left out:
+                // see FigureWalls. Each cut is the side the person keeps, then the run along the edge.
+                if (uCuts > 0.0) {
+                    vec2 here = (uFromEye * vec4(vEye, 1.0)).xy;
+            """ + "for (int i = 0; i < " + FigureWalls.MOST + "; i++) {\n" + """
+                        if (float(i) >= uCuts) {
+                            break;
+                        }
+                        vec4 keeps = uCut[2 * i], runs = uCut[2 * i + 1];
+                        float along = dot(runs.xy, here);
+                        if (dot(keeps.xy, here) + keeps.z < 0.0 && along >= runs.z && along <= runs.w) {
+                            discard;
+                        }
+                    }
                 }
                 // A shadow map keeps no colour: all it asks is whether the texel is there.
                 if (uShadow > 0.5) {
@@ -1319,7 +1337,7 @@ final class CharacterDraw {
     private static final class Skin {
         final int id;
         final int palette, modelView, projection, scale, uvScale, alpha, hue, tint, ambient, fine, bare, shadow, nearCut, inside, texSize, mouth,
-                headBone, mouthGap, lips;
+                headBone, mouthGap, lips, cuts, cut, fromEye;
         final int[] lightWay = new int[LIGHTS], lightColor = new int[LIGHTS];
         /** The person whose settings the program holds (CharacterDraw.peopleBegun): a part of the same person sets only its own. */
         int heldFor = -1;
@@ -1345,6 +1363,9 @@ final class CharacterDraw {
             lips = GL20.glGetUniformLocation(id, "uLips");
             headBone = GL20.glGetUniformLocation(id, "uHeadBone");
             mouthGap = GL20.glGetUniformLocation(id, "uMouthGap");
+            cuts = GL20.glGetUniformLocation(id, "uCuts");
+            cut = GL20.glGetUniformLocation(id, "uCut");
+            fromEye = GL20.glGetUniformLocation(id, "uFromEye");
             for (int light = 0; light < LIGHTS; light++) {
                 lightWay[light] = GL20.glGetUniformLocation(id, "uLightWay[" + light + "]");
                 lightColor[light] = GL20.glGetUniformLocation(id, "uLightColor[" + light + "]");
@@ -1454,6 +1475,9 @@ final class CharacterDraw {
     private static boolean shadow;
     /** How far from the eye the person begun stands, in tiles. */
     private static float away;
+    /** How many cuts the person begun has at solid edges, each as FigureWalls.planes gives it, and the matrix from the eye to where they stand. */
+    private static int cutCount;
+    private static final float[] cutPlanes = new float[FigureWalls.MOST * FigureWalls.PLANE_FLOATS], cutFromEye = new float[16];
     /** The shape of the mouth of the person begun: see Mouths. */
     private static Mouths.Shape mouth = Mouths.Shape.SHUT;
     /** How far from the viewer's eye the person begun stands, in tiles, in every pass alike: see Characters.fromViewer. */
@@ -1522,6 +1546,7 @@ final class CharacterDraw {
         finelySkinned = !casting && !plainly && FINE_SKINS.wears(data.object != null ? data.object : data, fromEye, Pipeline.frame());
         standsIn = -1f;
         snowOn = 0f;
+        cutCount = 0;
         mouth = Mouths.of(data.character);
         if (!off && !bare && !casting) {
             lights(data);
@@ -1541,6 +1566,17 @@ final class CharacterDraw {
     static void stands(float light, boolean outside) {
         standsIn = Math.clamp(light, 0f, 1f);
         standsOut = outside;
+    }
+
+    /**
+     * The cuts of the person begun at the solid edges by them (FigureWalls.planes), count of them,
+     * and the matrix by columns from the eye to where they stand (FigureWalls.fromEye). Said after
+     * begin, or they are drawn whole.
+     */
+    static void cut(float[] planes, int count, float[] fromEye) {
+        cutCount = count;
+        System.arraycopy(planes, 0, cutPlanes, 0, count * FigureWalls.PLANE_FLOATS);
+        System.arraycopy(fromEye, 0, cutFromEye, 0, 16);
     }
 
     /** How much snow has settled on the person begun, 0 to 1: see SnowCarried. Said after begin, or none is drawn on them. */
@@ -2060,6 +2096,11 @@ final class CharacterDraw {
             GL20.glUniform1f(skin.bare, unlit ? 1f : 0f);
             GL20.glUniform1f(skin.shadow, shadow ? 1f : 0f);
             GL20.glUniform1f(skin.nearCut, shadow ? 0f : nearCut);
+            GL20.glUniform1f(skin.cuts, cutCount);
+            if (cutCount > 0) {
+                GL20.glUniform4fv(skin.cut, cutPlanes);
+                GL20.glUniformMatrix4fv(skin.fromEye, false, cutFromEye);
+            }
             GL20.glUniform1f(skin.alpha, person.alpha);
             GL20.glUniform1f(skin.mouth, mouth.open());
             GL20.glUniform1f(skin.lips, mouth.lips());

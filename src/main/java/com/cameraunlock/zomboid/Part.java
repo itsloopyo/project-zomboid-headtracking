@@ -66,6 +66,10 @@ enum Part {
             "true: in first person, a line is drawn round what the Interact key would act on, and round what the game highlights\n"
                     + "or marks on the ground for you, such as the container the loot panel shows. false: none of them, for immersion.\n"
                     + "The piece of furniture you are placing is still outlined."),
+    FIGURES_BEHIND_WALLS("FirstPerson", "FiguresBehindWalls", true, false,
+            "true: in first person, a zombie, person or animal against a wall, a shut door or a fence you cannot see through is\n"
+                    + "not drawn reaching, leaning or poking through it to your side. false: they are drawn as the game poses them, so a\n"
+                    + "hand, a shoulder or a head can show through."),
     SHOTS_FROM_VEHICLE_SEATS("Rules", "ShotsFromVehicleSeats", true, false,
             "true: in first person, sitting in a vehicle with a gun, you can fire through any part of your seat's window, and\n"
                     + "the shot breaks it. false: as in the game, the window has to be opened or broken first. On a server where\n"
