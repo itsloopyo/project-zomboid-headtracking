@@ -220,6 +220,12 @@ final class Penetration {
 
     /** What stands on a square's north or west edge costs a round going through it: a shut door, a window, or a wall. */
     private static float costOn(IsoGridSquare square, boolean north, float along, float x, float y) {
+        IsoObject gate = Gates.builtOn(square, north);
+        int onGate = gate == null ? Gates.LEAF : Gates.met(gate, north, along);
+        if (onGate != Gates.LEAF) {
+            // Beside its leaf a gate is its post, or the rest of its edge, which it leaves open.
+            return onGate == Gates.POST ? cost(Gates.postMaterial(gate)) : 0f;
+        }
         PZArrayList<IsoObject> objects = square.getObjects();
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);

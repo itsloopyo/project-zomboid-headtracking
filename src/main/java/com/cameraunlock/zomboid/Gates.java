@@ -2,6 +2,12 @@ package com.cameraunlock.zomboid;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import zombie.iso.IsoGridSquare;
+import zombie.iso.IsoObject;
+import zombie.iso.objects.IsoDoor;
+import zombie.iso.objects.IsoThumpable;
+import zombie.iso.sprite.IsoSprite;
+import zombie.util.list.PZArrayList;
 
 /**
  * The gates in the map's fences, read off their sprites and built as the fence beside them is.
@@ -48,6 +54,59 @@ final class Gates {
         // Read off the sheet: the small gate of 16 to 19, the double gates of 64 to 79 and the tall one of 128 to 131 are
         // chain link. The game's other MetalGate sprites are branches lashed together (24 to 29, 80 to 95).
         return place >= 16 && place <= 19 || place >= 64 && place <= 79 || place >= 128 && place <= 131 ? LINK : NONE;
+    }
+
+    /** Where along its edge a shot crosses a gate the mod builds: its leaf, its post, or the rest of the edge, which the gate leaves open. */
+    static final int LEAF = 0, POST = 1, OPEN = 2;
+
+    /**
+     * The gate the mod builds on a square's north or west edge, shut or open, or null: none with the mod's buildings
+     * off, and none where a wall of its own stands on the edge as well.
+     */
+    static IsoObject builtOn(IsoGridSquare square, boolean north) {
+        if (!Own.buildings()) {
+            return null;
+        }
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoObject object = objects.get(i);
+            IsoSprite sprite = object.getSprite();
+            if (!DoorGlass.isDoor(object) || sprite == null || (object instanceof IsoDoor door ? door.getNorth() : ((IsoThumpable) object).getNorth()) != north
+                    || of(sprite.getName(), sprite.getProperties().get("DoorSound")) == NONE) {
+                continue;
+            }
+            IsoObject wall = WorldScene.wallOn(square, north);
+            return wall == null || wall == object ? object : null;
+        }
+        return null;
+    }
+
+    /** Where along its edge a shot crossing a gate's edge `along` it meets it: see met(Doors.Shape, boolean, float). */
+    static int met(IsoObject gate, boolean north, float along) {
+        IsoSprite shut = WorldScene.shutSprite(gate);
+        boolean open = gate instanceof IsoDoor door ? door.IsOpen() : ((IsoThumpable) gate).IsOpen();
+        return met(shut == null ? null : Doors.known(shut.getTextureForCurrentFrame(gate.getDir()), north), open, along);
+    }
+
+    /**
+     * Where along its edge a shot crossing it `along` it meets a gate whose shut sprite reads as shut: its post where
+     * the sprite paints one, standing whether the gate is shut or open; its leaf shut; the rest of the edge, open. A
+     * gate not measured yet is its leaf all along the edge shut, as a door is (DoorGlass.onLeaf), and open all along it open.
+     */
+    static int met(Doors.Shape shut, boolean open, float along) {
+        if (shut == null) {
+            return open ? OPEN : LEAF;
+        }
+        if (along >= shut.postStart && along <= shut.postEnd) {
+            return POST;
+        }
+        return !open && along >= shut.leaf.start && along <= shut.leaf.end ? LEAF : OPEN;
+    }
+
+    /** What a gate's post is made of, as Penetration and Impacts name it: a chain link or farm gate's steel, a wooden gate's wood. */
+    static String postMaterial(IsoObject gate) {
+        IsoSprite sprite = gate.getSprite();
+        return of(sprite.getName(), sprite.getProperties().get("DoorSound")) == BOARDS ? "Wood" : "Metal_Light";
     }
 
     /**

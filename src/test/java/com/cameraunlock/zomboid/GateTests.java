@@ -16,6 +16,7 @@ final class GateTests {
         Checks.run("aGatesPartsMoveWithItsLeafWhenItIsStood", GateTests::aGatesPartsMoveWithItsLeafWhenItIsStood);
         Checks.run("aGateSwungOpenKeepsItsSizeItsRailsAndItsPost", GateTests::aGateSwungOpenKeepsItsSizeItsRailsAndItsPost);
         Checks.run("aTubeStoodUprightIsAsRoundAsOneLaidAcross", GateTests::aTubeStoodUprightIsAsRoundAsOneLaidAcross);
+        Checks.run("aShotBesideAGatesLeafMeetsItsPostOrNothing", GateTests::aShotBesideAGatesLeafMeetsItsPostOrNothing);
     }
 
     private static void aGateIsBuiltAsTheFenceItStandsInIs() {
@@ -198,5 +199,20 @@ final class GateTests {
             capped &= Math.abs(Math.abs(tube.vertices[at + 11]) - 1f) < 1e-5f && !Float.isNaN(tube.vertices[at]) && !Float.isNaN(tube.vertices[at + 1]);
         }
         check(capped && tube.floats == sides * 12 * SpriteGeometry.VERTEX_FLOATS, "and its ends are closed facing straight up and down");
+    }
+
+    private static void aShotBesideAGatesLeafMeetsItsPostOrNothing() {
+        Doors.Shape shut = gate(0.15f, 0.9f, 0.3f);
+        shut.postStart = 0.05f;
+        shut.postEnd = 0.15f;
+        check(Gates.met(shut, false, 0.5f) == Gates.LEAF, "a shot across a shut gate's leaf meets the leaf");
+        check(Gates.met(shut, false, 0.1f) == Gates.POST && Gates.met(shut, true, 0.1f) == Gates.POST, "across its post the post, shut or open");
+        check(Gates.met(shut, false, 0.02f) == Gates.OPEN && Gates.met(shut, false, 0.95f) == Gates.OPEN, "and beside both, nothing, for the gate leaves that open");
+        check(Gates.met(shut, true, 0.5f) == Gates.OPEN, "and where its leaf hangs shut, nothing once it is swung open");
+        Doors.Shape postless = gate(0.1f, 0.9f, 0.3f);
+        postless.postStart = postless.postEnd = Float.NaN;
+        check(Gates.met(postless, false, 0.05f) == Gates.OPEN && Gates.met(postless, false, 0.5f) == Gates.LEAF, "a gate with no post is its leaf and nothing");
+        check(Gates.met((Doors.Shape) null, false, 0.02f) == Gates.LEAF && Gates.met((Doors.Shape) null, true, 0.5f) == Gates.OPEN,
+                "and one not measured yet is its leaf all along its edge shut, as a door is, and nothing open");
     }
 }

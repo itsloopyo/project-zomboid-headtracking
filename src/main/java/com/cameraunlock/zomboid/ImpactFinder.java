@@ -426,13 +426,24 @@ final class ImpactFinder {
             int kind = Impacts.MASONRY;
             boolean hole = false;
             float along = square == null ? 0f : north ? crossX - square.getX() : crossY - square.getY();
-            IsoObject door = square == null ? null : DoorGlass.shutDoorOn(square, north);
+            IsoObject gate = square == null ? null : Gates.builtOn(square, north);
+            int onGate = gate == null ? Gates.LEAF : Gates.met(gate, north, along);
+            if (onGate == Gates.OPEN) {
+                // The rest of a gate's edge beside its leaf and its post is open: the round goes on by and strikes nothing there.
+                return true;
+            }
+            String post = onGate == Gates.POST ? Gates.postMaterial(gate) : null;
+            IsoObject door = square == null || post != null ? null : DoorGlass.shutDoorOn(square, north);
             if (door != null && !DoorGlass.onLeaf(door, north, along)) {
                 // Beside the leaf it is the doorway's frame that is struck.
                 door = null;
             }
             IsoObject struck = door;
-            if (door != null) {
+            if (post != null) {
+                // A gate's post is struck as what it is made of, and keeps no hole: holes are laid on the leaf (BlastHoles).
+                struck = gate;
+                kind = Impacts.ofMaterialType(post);
+            } else if (door != null) {
                 // A door swings: what it is made of flies from it, and it keeps no hole the picture lays over the world (see BlastHoles).
                 int made = Impacts.ofMaterialType(door.getSprite() == null ? null : door.getSprite().getProperties().get("MaterialType"));
                 // A gate of bars, a farm gate's rails or a chain link gate's frame, is steel.
@@ -449,10 +460,10 @@ final class ImpactFinder {
             float ground = square == null ? terrain.height(crossX, crossY) : terrain.height(square.getX() + 0.5f, square.getY() + 0.5f);
             float levelsUp = (crossUp - ground) / ViewCamera.LEVEL_HEIGHT - level;
             int side = across > 0f ? -1 : 1;
-            float cost = struck == null ? Penetration.STOPS : Penetration.costOf(struck);
+            float cost = post != null ? Penetration.cost(post) : struck == null ? Penetration.STOPS : Penetration.costOf(struck);
             boolean through = cost < roundLeft;
-            float round = through && holes(shooter) && BlastHoles.holedByRounds(struck) ? BlastHoles.ROUND_RADIUS * size : 0f;
-            if (struck != null && size == PELLET && blasts(shooter) && BlastHoles.blastable(struck)) {
+            float round = post == null && through && holes(shooter) && BlastHoles.holedByRounds(struck) ? BlastHoles.ROUND_RADIUS * size : 0f;
+            if (post == null && struck != null && size == PELLET && blasts(shooter) && BlastHoles.blastable(struck)) {
                 // A blast's pellets are settled together once the tick is over: a hole they blow takes the place of their own.
                 Blasts.pellet(shooter, struck, north, along, levelsUp, side, round);
                 round = 0f;
