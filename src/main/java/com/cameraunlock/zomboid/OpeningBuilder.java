@@ -1174,8 +1174,8 @@ final class OpeningBuilder {
      * skin. The shape itself where nothing is cut back or no cut was measured (a start below 0); otherwise a copy.
      */
     static Windows.Shape withinCut(Windows.Shape shape, float cutStart, float cutEnd) {
-        boolean atStart = cutStart > 0f && shape.start < cutStart, atEnd = cutStart >= 0f && cutEnd < 1f && shape.end > cutEnd;
-        if (!atStart && !atEnd) {
+        float start = startWithinCut(shape.start, cutStart), end = endWithinCut(shape.end, cutStart, cutEnd);
+        if (start == shape.start && end == shape.end) {
             return shape;
         }
         Windows.Shape cut = new Windows.Shape();
@@ -1183,8 +1183,8 @@ final class OpeningBuilder {
         cut.originV = shape.originV;
         cut.scale = shape.scale;
         cut.north = shape.north;
-        cut.start = atStart ? cutStart : shape.start;
-        cut.end = atEnd ? cutEnd : shape.end;
+        cut.start = start;
+        cut.end = end;
         cut.startWide = shape.startWide > 0f ? Math.max(shape.startWide - (cut.start - shape.start), 0f) : 0f;
         cut.endWide = shape.endWide > 0f ? Math.max(shape.endWide - (shape.end - cut.end), 0f) : 0f;
         cut.foot = shape.foot;
@@ -1201,6 +1201,16 @@ final class OpeningBuilder {
         cut.bars = clipped(shape.bars, 4, cut.start, cut.end);
         cut.panes = clipped(shape.panes, 5, cut.start, cut.end);
         return cut;
+    }
+
+    /** Where a shape measured from start runs from within a doorway cut from cutStart: see withinCut. */
+    static float startWithinCut(float start, float cutStart) {
+        return cutStart > 0f && start < cutStart ? cutStart : start;
+    }
+
+    /** Where a shape measured to end runs to within a doorway cut from cutStart to cutEnd: see withinCut. */
+    static float endWithinCut(float end, float cutStart, float cutEnd) {
+        return cutStart >= 0f && cutEnd < 1f && end > cutEnd ? cutEnd : end;
     }
 
     /** The bars or panes, each so many numbers, kept within start to end along the edge; those left with no length go. */

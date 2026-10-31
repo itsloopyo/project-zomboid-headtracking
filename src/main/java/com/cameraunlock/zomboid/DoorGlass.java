@@ -9,6 +9,7 @@ import se.krka.kahlua.vm.KahluaTable;
 import zombie.GameTime;
 import zombie.SoundManager;
 import zombie.WorldSoundManager;
+import zombie.core.textures.Texture;
 import zombie.iso.IsoChunk;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
@@ -304,16 +305,27 @@ final class DoorGlass {
 
     /**
      * Whether a shot crossing a shut door's edge `along` it and `up` levels over the floor meets the leaf and not the
-     * doorway's wall beside it or over its head: anywhere on the edge until the picture has measured the leaf (Doors).
+     * doorway's wall beside it or over its head: anywhere on the edge until the picture has measured the leaf (Doors). The
+     * leaf is taken as OpeningBuilder.addBuiltDoor draws it, cut back to the doorway the wall's sprite is cut with, which a
+     * garage door is not.
      */
     static boolean onLeaf(IsoObject door, boolean north, float along, float up) {
         Windows.Shape leaf = door.getSprite() == null ? null : leafOf(door);
-        return leaf == null || leaf.north != north || onLeaf(leaf, along, up);
+        if (leaf == null || leaf.north != north) {
+            return true;
+        }
+        IsoObject wall = door.getSprite().getProperties().has("GarageDoor") ? null : WorldScene.wallOn(door.getSquare(), north);
+        Texture shown = wall == null ? null : wall.getSprite().getTextureForCurrentFrame(wall.getDir());
+        return shown == null ? onLeaf(leaf, -1f, 0f, along, up) : onLeaf(leaf, WallBuilder.doorwayStart(shown, north), WallBuilder.doorwayEnd(shown, north), along, up);
     }
 
-    /** The same on a measured leaf. Where how high the shot is is not known (NaN), the leaf is taken as reaching up the whole edge. */
-    static boolean onLeaf(Windows.Shape leaf, float along, float up) {
-        return along >= leaf.start && along <= leaf.end && !(up > leaf.head);
+    /**
+     * The same on a measured leaf in a doorway cut from cutStart to cutEnd (a start below 0 for none). Where how high the shot is
+     * is not known (NaN), the leaf is taken as reaching up the whole edge.
+     */
+    static boolean onLeaf(Windows.Shape leaf, float cutStart, float cutEnd, float along, float up) {
+        return along >= OpeningBuilder.startWithinCut(leaf.start, cutStart) && along <= OpeningBuilder.endWithinCut(leaf.end, cutStart, cutEnd)
+                && !(up > leaf.head);
     }
 
     /** Whether a door is barricaded on either side. */

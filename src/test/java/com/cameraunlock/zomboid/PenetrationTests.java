@@ -109,12 +109,20 @@ final class PenetrationTests {
         leaf.start = 0.07f;
         leaf.end = 0.84f;
         leaf.head = 0.79f;
-        check(DoorGlass.onLeaf(leaf, 0.5f, 0.5f), "a shot through the middle of the leaf meets the leaf");
-        check(DoorGlass.onLeaf(leaf, 0.5f, 0.79f), "and so does one through its head");
-        check(!DoorGlass.onLeaf(leaf, 0.5f, 0.85f), "one through the plaster over its head meets the wall");
-        check(!DoorGlass.onLeaf(leaf, 0.93f, 0.5f) && !DoorGlass.onLeaf(leaf, 0.03f, 0.5f), "and so does one beside it");
-        check(DoorGlass.onLeaf(leaf, 0.5f, Float.NaN), "where the shot's height is not known the leaf reaches up the whole edge");
-        check(!DoorGlass.onLeaf(leaf, 0.93f, Float.NaN), "but not beside it");
+        check(DoorGlass.onLeaf(leaf, -1f, 0f, 0.5f, 0.5f), "a shot through the middle of the leaf meets the leaf");
+        check(DoorGlass.onLeaf(leaf, -1f, 0f, 0.5f, 0.79f), "and so does one through its head");
+        check(!DoorGlass.onLeaf(leaf, -1f, 0f, 0.5f, 0.85f), "one through the plaster over its head meets the wall");
+        check(!DoorGlass.onLeaf(leaf, -1f, 0f, 0.93f, 0.5f) && !DoorGlass.onLeaf(leaf, -1f, 0f, 0.03f, 0.5f), "and so does one beside it");
+        check(DoorGlass.onLeaf(leaf, -1f, 0f, 0.5f, Float.NaN), "where the shot's height is not known the leaf reaches up the whole edge");
+        check(!DoorGlass.onLeaf(leaf, -1f, 0f, 0.93f, Float.NaN), "but not beside it");
+        // Louisville, 12785,1664: fixtures_doors_01_5 measured from 0.0625 to 0.84375 in walls_exterior_house_01_15, cut from 0.09375 to 0.84375.
+        Windows.Shape measured = new Windows.Shape();
+        measured.start = 0.0625f;
+        measured.end = 0.84375f;
+        measured.head = 0.79f;
+        check(!DoorGlass.onLeaf(measured, 0.09375f, 0.84375f, 0.07f, 0.5f), "a shot where the measured leaf runs on into the wall meets the wall, where the leaf is drawn cut back");
+        check(DoorGlass.onLeaf(measured, 0.09375f, 0.84375f, 0.1f, 0.5f), "and one inside the cut meets the leaf");
+        check(DoorGlass.onLeaf(measured, -1f, 0f, 0.07f, 0.5f), "with no doorway read the leaf is taken as measured");
     }
 
     /** A door with a light high in it and one under it: the glass lets a shot by, the wood round it does not, and each light is told by its place. */

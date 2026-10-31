@@ -2384,6 +2384,21 @@ final class WallBuilder {
         return known;
     }
 
+    /**
+     * Where the doorway through a wall's sprite on the north or west edge is cut, as openingOf read it for a build: its start
+     * and end along the wall, a start below 0 for none, and -1 until a build has read it.
+     */
+    static float doorwayStart(Texture texture, boolean north) {
+        float[] known = WorldScene.openings.get(texture);
+        float start = known == null ? Float.NaN : known[(north ? 0 : OPENING_FLOATS) + DOORWAY_START];
+        return Float.isNaN(start) ? -1f : start;
+    }
+
+    static float doorwayEnd(Texture texture, boolean north) {
+        float[] known = WorldScene.openings.get(texture);
+        return known == null ? Float.NaN : known[(north ? 0 : OPENING_FLOATS) + DOORWAY_END];
+    }
+
     /** Reads the opening through a wall's sprite for openingOf into known, at at, for the edge. */
     private void readOpening(float[] known, int at, Texture texture, float a, float b, float da, float db) {
         known[at + OPENING_ORIGIN] = build.frame.originU;
