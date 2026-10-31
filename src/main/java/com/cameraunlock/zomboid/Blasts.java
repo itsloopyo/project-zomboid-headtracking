@@ -24,19 +24,20 @@ final class Blasts {
     static final float BITE = 0.03f, SMALLEST = 0.05f, LARGEST = 0.16f;
 
     /**
-     * A pellet that struck a thing: who fired it, where on the thing (as BlastHoles measures it), the side it came from, and the
-     * radius of the round's hole it leaves where it went on through and no blast's hole takes it, 0 for none.
+     * A pellet that struck a thing: who fired it, where on the thing (as BlastHoles measures it), the side it came from, the
+     * radius of the round's hole it leaves where it went on through and no blast's hole takes it, 0 for none, and that hole's
+     * slant along and up (BlastHoles.SLANT_ALONG, SLANT_UP).
      */
-    record Struck(IsoGameCharacter shooter, IsoObject object, boolean north, float along, float up, int side, float round) {}
+    record Struck(IsoGameCharacter shooter, IsoObject object, boolean north, float along, float up, int side, float round, float slantAlong, float slantUp) {}
 
     private static final ArrayList<Struck> struck = new ArrayList<>();
 
     /** A pellet struck a thing BlastHoles.blastable says a blast can blow a hole in: round as Struck has it. */
-    static void pellet(IsoGameCharacter shooter, IsoObject object, boolean north, float along, float up, int side, float round) {
+    static void pellet(IsoGameCharacter shooter, IsoObject object, boolean north, float along, float up, int side, float round, float slantAlong, float slantUp) {
         if (BlastHoles.through(object, north, along, up)) {
             return;
         }
-        struck.add(new Struck(shooter, object, north, along, up, side, round));
+        struck.add(new Struck(shooter, object, north, along, up, side, round, slantAlong, slantUp));
     }
 
     /** Called as a tick of the world starts: the pellets of the last tick's blasts are settled. */
@@ -71,7 +72,7 @@ final class Blasts {
                 continue;
             }
             if (each.round > 0f) {
-                BlastHoles.add(each.object, each.north, each.along, each.up, each.round, BlastHoles.newSeed(), BlastHoles.ROUND * each.side);
+                BlastHoles.add(each.object, each.north, each.along, each.up, each.round, BlastHoles.newSeed(), BlastHoles.ROUND * each.side, each.slantAlong, each.slantUp);
             } else if (door) {
                 BlastHoles.add(each.object, each.north, each.along, each.up, BlastHoles.MARK_RADIUS, BlastHoles.newSeed(), each.side);
             }

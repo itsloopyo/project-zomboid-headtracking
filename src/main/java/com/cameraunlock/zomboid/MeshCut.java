@@ -10,7 +10,10 @@ import java.util.IdentityHashMap;
  * an origin and the way along it on the map: the way across is the other axis of the map, and up
  * is up. A point of the plane is (s, t): s along it from the origin and t up, in tiles. A hole is a
  * ragged outline in the plane, wound anticlockwise round a middle it is a star about, and it goes
- * through whatever the thing drew within reach of the plane. A face that looks across the plane
+ * through whatever the thing drew within reach of the plane, straight across it, or for a round's
+ * hole along the round's line: slanted by so far along and up for each tile across. The cut is
+ * worked in the plane sheared by that slant, where the hole goes straight across, so each face is
+ * cut by the hole where the slanted hole meets it. A face that looks across the plane
  * (a leaf's face, a board's) is cut in the plane, keeping what lies outside the outline with no
  * corner on its edges but where the outline crosses them (see cutFace). A face
  * that looks along it (a leaf's edge, a board's side) is cut where its line runs through the
@@ -62,6 +65,9 @@ final class MeshCut {
         final float[] near, far;
         final int side;
         final float middleS, middleT;
+        /** How far along and up the hole goes for each tile across the plane: 0 straight across. */
+        final float slantS, slantT;
+        /** The box round both outlines, along and up, in the plane sheared by the slant. */
         final float lowS, highS, lowT, highT;
         /**
          * The stretches of the outline's edges that lie on faces across the plane, WOOD floats
@@ -73,7 +79,7 @@ final class MeshCut {
         SpriteGeometry.Mesh donorMesh;
         final float[] donor = new float[V];
 
-        Hole(float[] outline, float[] exit, int side, float middleS, float middleT) {
+        Hole(float[] outline, float[] exit, int side, float middleS, float middleT, float slantS, float slantT) {
             if (exit.length != outline.length) {
                 throw new IllegalArgumentException("a hole goes in with " + outline.length / 2 + " points and comes out with " + exit.length / 2);
             }
@@ -84,6 +90,8 @@ final class MeshCut {
             this.side = side;
             this.middleS = middleS;
             this.middleT = middleT;
+            this.slantS = slantS;
+            this.slantT = slantT;
             float ls = Float.POSITIVE_INFINITY, hs = Float.NEGATIVE_INFINITY, lt = Float.POSITIVE_INFINITY, ht = Float.NEGATIVE_INFINITY;
             for (float[] o : new float[][] {outline, exit}) {
                 for (int i = 0; i < o.length; i += 2) {
@@ -151,38 +159,42 @@ final class MeshCut {
 
     /** A hole: its outline as (s, t) pairs wound anticlockwise, a star about (middleS, middleT). */
     void hole(float[] outline, float middleS, float middleT) {
-        add(new Hole(outline, outline, 0, middleS, middleT));
+        add(new Hole(outline, outline, 0, middleS, middleT, 0f, 0f));
     }
 
     /**
      * A round's hole: the outline it goes in by on the side of the plane side (1 or -1) is on,
      * and the one it comes out by on the other, as many points each and both stars about (middleS,
-     * middleT). Its sides are lined from the one to the other, a funnel.
+     * middleT) where the round crossed the plane, slanted along the round's line by slantS along and
+     * slantT up for each tile across. Its sides are lined from the one to the other, a funnel.
      */
-    void hole(float[] in, float[] out, int side, float middleS, float middleT) {
-        add(new Hole(in, out, side, middleS, middleT));
+    void hole(float[] in, float[] out, int side, float middleS, float middleT, float slantS, float slantT) {
+        add(new Hole(in, out, side, middleS, middleT, slantS, slantT));
     }
 
-    /** The box round every hole, along and up: a triangle outside it is one that every hole keeps as it is (cutOne). */
+    /** The box round every hole, along and up, as far as each slants within reach: a triangle outside it is one that every hole keeps as it is (cutOne). */
     private float holesLowS = Float.POSITIVE_INFINITY, holesHighS = Float.NEGATIVE_INFINITY, holesLowT = Float.POSITIVE_INFINITY, holesHighT = Float.NEGATIVE_INFINITY;
 
     private void add(Hole hole) {
         holes.add(hole);
-        holesLowS = Math.min(holesLowS, hole.lowS);
-        holesHighS = Math.max(holesHighS, hole.highS);
-        holesLowT = Math.min(holesLowT, hole.lowT);
-        holesHighT = Math.max(holesHighT, hole.highT);
+        float slidS = reach * Math.abs(hole.slantS), slidT = reach * Math.abs(hole.slantT);
+        holesLowS = Math.min(holesLowS, hole.lowS - slidS);
+        holesHighS = Math.max(holesHighS, hole.highS + slidS);
+        holesLowT = Math.min(holesLowT, hole.lowT - slidT);
+        holesHighT = Math.max(holesHighT, hole.highT + slidT);
     }
 
     /** Whether a triangle reaches into the box round every hole, as cutOne tests it against one hole's. */
     private boolean nearAHole(float[] tri, int at) {
+        shearS = 0f;
+        shearT = 0f;
         int a = at, b = at + V, c = at + 2 * V;
         float aA = across(tri, a), aB = across(tri, b), aC = across(tri, c);
         if (Math.max(aA, Math.max(aB, aC)) < -reach || Math.min(aA, Math.min(aB, aC)) > reach) {
             return false;
         }
         float sA = s(tri, a), sB = s(tri, b), sC = s(tri, c);
-        float tA = tri[a + 2], tB = tri[b + 2], tC = tri[c + 2];
+        float tA = t(tri, a), tB = t(tri, b), tC = t(tri, c);
         return Math.max(sA, Math.max(sB, sC)) > holesLowS && Math.min(sA, Math.min(sB, sC)) < holesHighS
                 && Math.max(tA, Math.max(tB, tC)) > holesLowT && Math.min(tA, Math.min(tB, tC)) < holesHighT;
     }
@@ -255,8 +267,15 @@ final class MeshCut {
         return (h & 0xFFFFFF) / (float) 0x7FFFFF - 1f;
     }
 
+    /** The slant of the hole being cut, by which s and t shear the plane: 0 for anything else. */
+    private float shearS, shearT;
+
     private float s(float[] f, int at) {
-        return (f[at] - originX) * alongX + (f[at + 1] - originY) * alongY;
+        return (f[at] - originX) * alongX + (f[at + 1] - originY) * alongY - across(f, at) * shearS;
+    }
+
+    private float t(float[] f, int at) {
+        return f[at + 2] - across(f, at) * shearT;
     }
 
     private float across(float[] f, int at) {
@@ -350,6 +369,8 @@ final class MeshCut {
 
     /** Cuts one hole out of the triangle at `at` in tri, putting what is left in next. */
     private void cutOne(SpriteGeometry.Mesh mesh, float[] tri, int at, Hole hole) {
+        shearS = hole.slantS;
+        shearT = hole.slantT;
         int a = at, b = at + V, c = at + 2 * V;
         float aA = across(tri, a), aB = across(tri, b), aC = across(tri, c);
         if (Math.max(aA, Math.max(aB, aC)) < -reach || Math.min(aA, Math.min(aB, aC)) > reach) {
@@ -357,7 +378,7 @@ final class MeshCut {
             return;
         }
         float sA = s(tri, a), sB = s(tri, b), sC = s(tri, c);
-        float tA = tri[a + 2], tB = tri[b + 2], tC = tri[c + 2];
+        float tA = t(tri, a), tB = t(tri, b), tC = t(tri, c);
         if (Math.max(sA, Math.max(sB, sC)) <= hole.lowS || Math.min(sA, Math.min(sB, sC)) >= hole.highS
                 || Math.max(tA, Math.max(tB, tC)) <= hole.lowT || Math.min(tA, Math.min(tB, tC)) >= hole.highT) {
             keep(tri, at);
@@ -461,14 +482,14 @@ final class MeshCut {
         float[] cs = new float[3], ct = new float[3];
         for (int k = 0; k < 3; k++) {
             cs[k] = s(tri, corner[k]);
-            ct[k] = tri[corner[k] + 2];
+            ct[k] = t(tri, corner[k]);
         }
         ArrayList<Crossing> crossings = new ArrayList<>();
         for (int e = 0; e < 3; e++) {
             int u = corner[e], v = corner[(e + 1) % 3];
             boolean uFirst = before(tri, u, v);
             int first = uFirst ? u : v, second = uFirst ? v : u;
-            float fS = s(tri, first), fT = tri[first + 2], sS = s(tri, second), sT = tri[second + 2];
+            float fS = s(tri, first), fT = t(tri, first), sS = s(tri, second), sT = t(tri, second);
             for (int j = 0; j < points; j++) {
                 int jj = (j + 1) % points;
                 float pS = o[2 * j], pT = o[2 * j + 1], qS = o[2 * jj], qT = o[2 * jj + 1];
@@ -934,9 +955,11 @@ final class MeshCut {
 
     /** Notes the face of the triangle at `at`, if it is across the plane and over the mark, where it is the nearest yet to the side the mark was struck from. */
     private void findFace(SpriteGeometry.Mesh mesh, float[] tri, int at, Mark mark) {
+        shearS = 0f;
+        shearT = 0f;
         int a = at, b = at + V, c = at + 2 * V;
         float sA = s(tri, a), sB = s(tri, b), sC = s(tri, c);
-        float tA = tri[a + 2], tB = tri[b + 2], tC = tri[c + 2];
+        float tA = t(tri, a), tB = t(tri, b), tC = t(tri, c);
         float area = (sB - sA) * (tC - tA) - (sC - sA) * (tB - tA);
         if (Math.abs(area) <= EDGE_ON) {
             return;
@@ -1003,9 +1026,28 @@ final class MeshCut {
                 }
             }
             for (Hole other : holes) {
-                if (other != hole) {
+                if (other == hole) {
+                    continue;
+                }
+                // The edge in the plane as the other hole's slant shears it, on each face it lies on.
+                float dS = hole.slantS - other.slantS, dT = hole.slantT - other.slantT;
+                if (dS == 0f && dT == 0f) {
                     crossings(other, pS, pT, qS, qT);
                     crossings(other, fpS, fpT, fqS, fqT);
+                    continue;
+                }
+                for (int w = 0; w < hole.woodFloats; w += WOOD) {
+                    if (hole.wood[w] != i) {
+                        continue;
+                    }
+                    float a = hole.wood[w + 3], byS = a * dS, byT = a * dT;
+                    int ends = (int) hole.wood[w + 4];
+                    if ((ends & 1) != 0) {
+                        crossings(other, pS + byS, pT + byT, qS + byS, qT + byT);
+                    }
+                    if ((ends & 2) != 0) {
+                        crossings(other, fpS + byS, fpT + byT, fqS + byS, fqT + byT);
+                    }
                 }
             }
             java.util.Arrays.sort(breaks, 0, breakCount);
@@ -1073,10 +1115,18 @@ final class MeshCut {
         }
     }
 
-    /** Whether (nS, nT) on the face low across the plane, or (fS, fT) on the face high across it, is in a hole other than hole, by the outline that cut the face. */
+    /**
+     * Whether (nS, nT) on the face low across the plane, or (fS, fT) on the face high across it, both in the plane as hole's
+     * slant shears it, is in a hole other than hole, by the outline that cut the face.
+     */
     private boolean inAnother(Hole hole, float nS, float nT, float low, float fS, float fT, float high) {
         for (Hole other : holes) {
-            if (other != hole && ((inBox(other, nS, nT) && inside(other.outlineAt(low), nS, nT)) || (inBox(other, fS, fT) && inside(other.outlineAt(high), fS, fT)))) {
+            if (other == hole) {
+                continue;
+            }
+            float dS = hole.slantS - other.slantS, dT = hole.slantT - other.slantT;
+            float oS = nS + low * dS, oT = nT + low * dT, gS = fS + high * dS, gT = fT + high * dT;
+            if ((inBox(other, oS, oT) && inside(other.outlineAt(low), oS, oT)) || (inBox(other, gS, gT) && inside(other.outlineAt(high), gS, gT))) {
                 return true;
             }
         }
@@ -1097,20 +1147,22 @@ final class MeshCut {
             float low, float high, float nS, float nT) {
         SpriteGeometry.Mesh mesh = hole.donorMesh;
         int at = mesh.floats;
-        lining(mesh, hole.donor, lerp(pS, qS, from), lerp(pT, qT, from), low, nS, nT);
-        lining(mesh, hole.donor, lerp(pS, qS, to), lerp(pT, qT, to), low, nS, nT);
-        lining(mesh, hole.donor, lerp(fpS, fqS, to), lerp(fpT, fqT, to), high, nS, nT);
+        lining(mesh, hole, lerp(pS, qS, from), lerp(pT, qT, from), low, nS, nT);
+        lining(mesh, hole, lerp(pS, qS, to), lerp(pT, qT, to), low, nS, nT);
+        lining(mesh, hole, lerp(fpS, fqS, to), lerp(fpT, fqT, to), high, nS, nT);
         mesh.again(at);
         mesh.again(at + 2 * V);
-        lining(mesh, hole.donor, lerp(fpS, fqS, from), lerp(fpT, fqT, from), high, nS, nT);
+        lining(mesh, hole, lerp(fpS, fqS, from), lerp(fpT, fqT, from), high, nS, nT);
     }
 
-    private void lining(SpriteGeometry.Mesh mesh, float[] donor, float s, float t, float across, float nS, float nT) {
-        System.arraycopy(donor, 0, corner, 0, V);
-        place(corner, s, t, across);
-        corner[9] = nS * alongX;
-        corner[10] = nS * alongY;
-        corner[11] = nT;
+    /** A corner of a lining at (s, t) in the plane as the hole's slant shears it, across the plane there, looking along (nS, nT) and square to the slant. */
+    private void lining(SpriteGeometry.Mesh mesh, Hole hole, float s, float t, float across, float nS, float nT) {
+        System.arraycopy(hole.donor, 0, corner, 0, V);
+        place(corner, s + across * hole.slantS, t + across * hole.slantT, across);
+        float nA = -(nS * hole.slantS + nT * hole.slantT), length = (float) Math.sqrt(nS * nS + nT * nT + nA * nA);
+        corner[9] = (nS * alongX + nA * alongY) / length;
+        corner[10] = (nS * alongY + nA * alongX) / length;
+        corner[11] = nT / length;
         corner[5] *= LINING_SHADE;
         corner[6] *= LINING_SHADE;
         corner[7] *= LINING_SHADE;

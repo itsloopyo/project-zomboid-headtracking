@@ -316,9 +316,10 @@ final class ImpactFinder {
         float normal = -Math.signum(across), normalX = north ? 0f : normal, normalY = north ? normal : 0f;
         int side = across > 0f ? -1 : 1;
         if (fenceSize == PELLET && blasts(fenceShooter)) {
-            Blasts.pellet(fenceShooter, fence, north, along, levelsUp, side, 0f);
+            Blasts.pellet(fenceShooter, fence, north, along, levelsUp, side, 0f, 0f, 0f);
         } else if (fenceSize != PELLET && holes(fenceShooter)) {
-            BlastHoles.add(fence, north, along, levelsUp, BlastHoles.ROUND_RADIUS * fenceSize, BlastHoles.newSeed(), BlastHoles.ROUND * side);
+            BlastHoles.add(fence, north, along, levelsUp, BlastHoles.ROUND_RADIUS * fenceSize, BlastHoles.newSeed(), BlastHoles.ROUND * side,
+                    BlastHoles.slant(north ? line.forwardX : line.forwardY, across), BlastHoles.slant(line.forwardUp, across));
         }
         int kind = Impacts.of(fence.getSprite(), false);
         float skin = Impacts.toSkin(crossed, across), out = crossed + WorldScene.WALL_HALF / Math.max(Math.abs(across), 0.1f);
@@ -467,12 +468,13 @@ final class ImpactFinder {
                 }
             }
             int side = across > 0f ? -1 : 1;
+            float slantAlong = BlastHoles.slant(north ? line.forwardX : line.forwardY, across), slantUp = BlastHoles.slant(line.forwardUp, across);
             float cost = post != null ? Penetration.cost(post) : struck == null ? Penetration.STOPS : Penetration.costOf(struck);
             boolean through = cost < roundLeft;
             float round = post == null && through && holes(shooter) && BlastHoles.holedByRounds(struck) ? BlastHoles.ROUND_RADIUS * size : 0f;
             if (post == null && struck != null && size == PELLET && blasts(shooter) && BlastHoles.blastable(struck)) {
                 // A blast's pellets are settled together once the tick is over: a hole they blow takes the place of their own.
-                Blasts.pellet(shooter, struck, north, along, levelsUp, side, round);
+                Blasts.pellet(shooter, struck, north, along, levelsUp, side, round, slantAlong, slantUp);
                 round = 0f;
             }
             add(x, y, up, normalX, normalY, 0f, line.forwardX, line.forwardY, line.forwardUp, Math.min(floor, up), kind, size, hole,
@@ -483,7 +485,7 @@ final class ImpactFinder {
             }
             roundLeft -= cost;
             if (round > 0f) {
-                BlastHoles.add(struck, north, along, levelsUp, round, BlastHoles.newSeed(), BlastHoles.ROUND * side);
+                BlastHoles.add(struck, north, along, levelsUp, round, BlastHoles.newSeed(), BlastHoles.ROUND * side, slantAlong, slantUp);
             }
             // Out of the far face, splinters and dust thrown on along the round's way.
             float out = WorldScene.WALL_HALF / Math.max(Math.abs(across), 0.1f);

@@ -24,12 +24,15 @@ import zombie.util.list.PZArrayList;
  * keeps no such thing, so the mod keeps them in the object's mod data, where they are saved with
  * it, and reads them back as chunks load.
  *
- * Each is six numbers: how far along the edge it is on, in tiles from its square's corner, and
+ * Each is eight numbers: how far along the edge it is on, in tiles from its square's corner, and
  * how high, in levels over its floor (as DoorGlass measures a door's lights); its radius in tiles,
  * a round's where it went in; the seed its ragged outline is drawn from; what it is and the side
  * of the edge it was struck from, 1 or -1 (SIDE: 0 a blast's hole, the side for a mark, twice the
- * side for a round's hole); and 1 where the edge is the square's north one, 0 its west: a fence's
- * corner length stands on both. A door's are measured on the leaf as it hangs
+ * side for a round's hole); 1 where the edge is the square's north one, 0 its west: a fence's
+ * corner length stands on both; and, for a round's hole, how far along and up, in tiles, the
+ * round's line goes for each tile it goes across the edge, north to south or west to east, so
+ * that the hole is cut along that line and is seen through from where it was shot (0 for the rest,
+ * and for a round's hole saved before these were kept). A door's are measured on the leaf as it hangs
  * shut, and laid on the leaf as it stands swung open (OpeningBuilder.addBuiltDoor). A fence's
  * marks are the decals the picture lays over the world (Impacts), as a wall's are.
  */
@@ -38,7 +41,12 @@ final class BlastHoles {
 
     /** The key an object's mod data keeps its holes and marks under. */
     private static final String KEY = "cameraunlockBlastHoles";
-    static final int FLOATS = 6, ALONG = 0, UP = 1, RADIUS = 2, SEED = 3, SIDE = 4, NORTH = 5;
+    static final int FLOATS = 8, ALONG = 0, UP = 1, RADIUS = 2, SEED = 3, SIDE = 4, NORTH = 5, SLANT_ALONG = 6, SLANT_UP = 7;
+    /** How many numbers a hole was saved as before a round's slant was kept, and what a save that keeps it starts with. */
+    private static final int OLD_FLOATS = 6;
+    private static final String SLANTED = "8:";
+    /** The least share of its way a round's line is taken to go across an edge, as ImpactFinder throws out what flies from the far face. */
+    static final float LEAST_ACROSS = 0.1f;
     /** Where each hole's and mark's ragged outline is drawn from: below 2^24, so a float in the save holds it whole. */
     private static final Random seeds = new Random();
     /**
@@ -268,24 +276,32 @@ final class BlastHoles {
     /** Whether a save's list of holes that could not be read has been said this session. */
     private static boolean malformedSaid;
 
+    /** What a save holds, FLOATS numbers a hole; one saved before the slant was kept, OLD_FLOATS a hole, is read as cut straight across. */
     static float[] parse(String saved) {
-        String[] words = saved.isEmpty() ? new String[0] : saved.split(",");
-        if (words.length % FLOATS != 0) {
-            throw new IllegalArgumentException("blast holes saved as " + words.length + " numbers, not " + FLOATS + " a hole: " + saved);
+        boolean slanted = saved.startsWith(SLANTED);
+        int each = slanted ? FLOATS : OLD_FLOATS;
+        String list = slanted ? saved.substring(SLANTED.length()) : saved;
+        String[] words = list.isEmpty() ? new String[0] : list.split(",");
+        if (words.length % each != 0) {
+            throw new IllegalArgumentException("blast holes saved as " + words.length + " numbers, not " + each + " a hole: " + saved);
         }
-        if (words.length / FLOATS > MOST_HOLES + MOST_MARKS + MOST_ROUNDS) {
-            throw new IllegalArgumentException("blast holes saved as " + words.length / FLOATS + " holes, more than an object keeps");
+        if (words.length / each > MOST_HOLES + MOST_MARKS + MOST_ROUNDS) {
+            throw new IllegalArgumentException("blast holes saved as " + words.length / each + " holes, more than an object keeps");
         }
-        float[] entries = new float[words.length];
+        float[] entries = new float[words.length / each * FLOATS];
         for (int i = 0; i < words.length; i++) {
-            entries[i] = Float.parseFloat(words[i]);
-            if (!Float.isFinite(entries[i])) {
+            float value = Float.parseFloat(words[i]);
+            if (!Float.isFinite(value)) {
                 throw new IllegalArgumentException("blast holes saved with " + words[i] + " among their numbers: " + saved);
             }
+            entries[i / each * FLOATS + i % each] = value;
         }
         for (int at = 0; at < entries.length; at += FLOATS) {
             float side = entries[at + SIDE], north = entries[at + NORTH], radius = entries[at + RADIUS];
-            if (side != (int) side || Math.abs(side) > ROUND || (north != 0f && north != 1f) || !(radius > 0f && radius <= 1f)) {
+            boolean straight = entries[at + SLANT_ALONG] == 0f && entries[at + SLANT_UP] == 0f;
+            if (side != (int) side || Math.abs(side) > ROUND || (north != 0f && north != 1f) || !(radius > 0f && radius <= 1f)
+                    || !straight && (Math.abs(side) != ROUND || Math.abs(entries[at + SLANT_ALONG]) > 1f / LEAST_ACROSS
+                    || Math.abs(entries[at + SLANT_UP]) > 1f / LEAST_ACROSS)) {
                 throw new IllegalArgumentException("blast holes saved with a hole no shot makes: " + saved);
             }
         }
@@ -293,7 +309,7 @@ final class BlastHoles {
     }
 
     static String write(float[] entries) {
-        StringBuilder out = new StringBuilder();
+        StringBuilder out = new StringBuilder(SLANTED);
         for (int i = 0; i < entries.length; i++) {
             if (i > 0) {
                 out.append(',');
@@ -309,8 +325,13 @@ final class BlastHoles {
      * object's mod data and has the picture build the object again. Logic thread.
      */
     static void add(IsoObject object, boolean north, float along, float up, float radius, int seed, int side) {
+        add(object, north, along, up, radius, seed, side, 0f, 0f);
+    }
+
+    /** The same, for a round's hole cut along the round's line: slantAlong and slantUp as SLANT_ALONG and SLANT_UP keep them (slant). */
+    static void add(IsoObject object, boolean north, float along, float up, float radius, int seed, int side, float slantAlong, float slantUp) {
         float[] was = kept.get(object);
-        float[] now = with(was == null ? new float[0] : was, north, along, up, radius, seed, side);
+        float[] now = with(was == null ? new float[0] : was, north, along, up, radius, seed, side, slantAlong, slantUp);
         any = true;
         kept.put(object, now);
         KahluaTable data = object.getModData();
@@ -326,6 +347,10 @@ final class BlastHoles {
 
     /** The entries with one more, past the most of its kind letting go of one the others cover, or else the oldest. */
     static float[] with(float[] entries, boolean north, float along, float up, float radius, int seed, int side) {
+        return with(entries, north, along, up, radius, seed, side, 0f, 0f);
+    }
+
+    static float[] with(float[] entries, boolean north, float along, float up, float radius, int seed, int side, float slantAlong, float slantUp) {
         int count = entries.length / FLOATS, same = 0, first = -1;
         for (int i = 0; i < count; i++) {
             if (Math.abs((int) entries[i * FLOATS + SIDE]) == Math.abs(side)) {
@@ -357,6 +382,8 @@ final class BlastHoles {
         out[at + SEED] = seed;
         out[at + SIDE] = side;
         out[at + NORTH] = north ? 1f : 0f;
+        out[at + SLANT_ALONG] = slantAlong;
+        out[at + SLANT_UP] = slantUp;
         return out;
     }
 
@@ -478,6 +505,15 @@ final class BlastHoles {
         return false;
     }
 
+    /**
+     * How far a round's line goes along or up an edge for each tile it goes across it, north to south
+     * or west to east (SLANT_ALONG, SLANT_UP): forward the share of its way along or up, in tiles, and
+     * forwardAcross the share across. A line that crosses at less than LEAST_ACROSS is taken as crossing at that.
+     */
+    static float slant(float forward, float forwardAcross) {
+        return forward / Math.copySign(Math.max(Math.abs(forwardAcross), LEAST_ACROSS), forwardAcross);
+    }
+
     /** Whether an entry of this SIDE is a hole, a blast's or a round's, and not a mark. */
     private static boolean isHole(float side) {
         return side == 0f || Math.abs(side) == ROUND;
@@ -486,7 +522,8 @@ final class BlastHoles {
     /**
      * Puts an object's holes and marks on its north or west edge into a cut: each at s = sFrom +
      * sBy * along on the cut's plane and t = tFrom + tBy * up, in tiles, and a mark's side times
-     * sideBy; and what went with them (Breakage) of the panel the object is, null for none.
+     * sideBy, as is the way across the edge a round's hole slants along; and what went with them
+     * (Breakage) of the panel the object is, null for none.
      */
     static void into(MeshCut cut, float[] entries, Breakage.Panel panel, boolean north, float sFrom, float sBy, float tFrom, float tBy, int sideBy) {
         float[][] pieces = Breakage.of(entries, north, panel).rectangles;
@@ -522,7 +559,8 @@ final class BlastHoles {
                 cut.hole(MeshCut.outline(s, t, rs, rt * HOLE_TALL, HOLE_RAGGED, HOLE_POINTS, seed), s, t);
             } else if (Math.abs(side) == ROUND) {
                 cut.hole(MeshCut.outline(s, t, rs, rt, ROUND_RAGGED, ROUND_POINTS, seed),
-                        MeshCut.outline(s, t, rs * EXIT_WIDER, rt * EXIT_WIDER * EXIT_TALL, EXIT_RAGGED, ROUND_POINTS, seed), Integer.signum(side) * sideBy, s, t);
+                        MeshCut.outline(s, t, rs * EXIT_WIDER, rt * EXIT_WIDER * EXIT_TALL, EXIT_RAGGED, ROUND_POINTS, seed), Integer.signum(side) * sideBy, s, t,
+                        sBy * entries[at + SLANT_ALONG] * sideBy, tBy / ViewCamera.LEVEL_HEIGHT * entries[at + SLANT_UP] * sideBy);
             } else {
                 cut.mark(s, t, MeshCut.outline(s, t, rs, rt, MARK_RAGGED, MARK_POINTS, seed), side * sideBy);
             }

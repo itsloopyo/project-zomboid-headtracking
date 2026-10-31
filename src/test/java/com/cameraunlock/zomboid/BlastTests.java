@@ -27,6 +27,8 @@ final class BlastTests {
         Checks.run("anObjectKeepsItsNewestHolesAndMarks", BlastTests::anObjectKeepsItsNewestHolesAndMarks);
         Checks.run("aShotGoesThroughOnlyWellInsideAHoleOnItsEdge", BlastTests::aShotGoesThroughOnlyWellInsideAHoleOnItsEdge);
         Checks.run("aRoundsHoleIsSmallWhereItWentInAndWideWhereItCameOut", BlastTests::aRoundsHoleIsSmallWhereItWentInAndWideWhereItCameOut);
+        Checks.run("aRoundsHoleIsCutAlongTheRoundsLine", BlastTests::aRoundsHoleIsCutAlongTheRoundsLine);
+        Checks.run("aRoundsHoleSavedBeforeItsSlantWasKeptReadsStraightAcross", BlastTests::aRoundsHoleSavedBeforeItsSlantWasKeptReadsStraightAcross);
         Checks.run("anObjectKeepsItsNewestRoundsHolesApartFromTheRest", BlastTests::anObjectKeepsItsNewestRoundsHolesApartFromTheRest);
         Checks.run("holesOverlappingOnRaggedFacesAlwaysCut", BlastTests::holesOverlappingOnRaggedFacesAlwaysCut);
         Checks.run("aSliverOutOnTheMapIsCutWhereItsFloatsAreCoarse", BlastTests::aSliverOutOnTheMapIsCutWhereItsFloatsAreCoarse);
@@ -484,7 +486,7 @@ final class BlastTests {
     }
 
     private static Blasts.Struck at(float along, float up) {
-        return new Blasts.Struck(null, null, true, along, up, 1, 0f);
+        return new Blasts.Struck(null, null, true, along, up, 1, 0f, 0f, 0f);
     }
 
     private static void pelletsCloseTogetherBlowAHoleAndSpreadOnesDoNot() {
@@ -539,6 +541,101 @@ final class BlastTests {
         } catch (IllegalArgumentException expected) {
             return true;
         }
+    }
+
+    /**
+     * A round from the +y side at a slant through a wall of two skins 0.08 apart, laid as on a wall
+     * and as on a door's leaf swung open, whose plane runs the other way along and across: each skin
+     * loses its outline where the round's line crosses it, so the line runs clear through the hole,
+     * neither skin has a crack, and the lining runs from the one outline to the other along the line.
+     * Cut straight across, the way in would have been off that line.
+     */
+    private static void aRoundsHoleIsCutAlongTheRoundsLine() {
+        float along = 0.47f, up = 1.1f, slantAlong = 1.2f, slantUp = -0.45f, r = BlastHoles.ROUND_RADIUS * 3f;
+        float[] straightIn = MeshCut.outline(along, up, r, r, BlastHoles.ROUND_RAGGED, BlastHoles.ROUND_POINTS, 4242);
+        check(!MeshCut.inside(straightIn, along + 0.04f * slantAlong, up + 0.04f * slantUp), "the round's line crosses the near skin outside a hole cut straight across");
+        for (int lay = 0; lay < 2; lay++) {
+            boolean swung = lay == 1;
+            float sFrom = swung ? 1f : 0f, sBy = swung ? -1f : 1f;
+            int sideBy = swung ? -1 : 1;
+            SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+            for (float across : new float[] {-0.04f, 0.04f}) {
+                for (int i = 0; i < 2; i++) {
+                    for (int j = 0; j < 4; j++) {
+                        face(mesh, i * 0.5f, (i + 1) * 0.5f, j * 0.5f, (j + 1) * 0.5f, across);
+                    }
+                }
+            }
+            float[] entries = BlastHoles.with(new float[0], true, along, up / ViewCamera.LEVEL_HEIGHT, r, 4242, BlastHoles.ROUND, slantAlong, slantUp);
+            MeshCut cut = new MeshCut(0f, 0f, 1f, 0f, 0.08f);
+            BlastHoles.into(cut, entries, null, true, sFrom, sBy, 0f, ViewCamera.LEVEL_HEIGHT, sideBy);
+            cut.cut(mesh, 0);
+            int cutFloats = mesh.floats;
+            cut.finish();
+            // Where the round's line crosses the skin across the cut's plane, laid as the leaf is.
+            float s = sFrom + sBy * along;
+            float[] in = new float[0], out = new float[0];
+            float inAcross = 0.04f * sideBy;
+            for (float across : new float[] {-0.04f, 0.04f}) {
+                float acrossEdge = across * sideBy, lineS = s + sBy * slantAlong * acrossEdge, lineT = up + slantUp * acrossEdge;
+                boolean wayIn = across == inAcross;
+                float[] o = wayIn ? MeshCut.outline(lineS, lineT, r, r, BlastHoles.ROUND_RAGGED, BlastHoles.ROUND_POINTS, 4242)
+                        : MeshCut.outline(lineS, lineT, r * BlastHoles.EXIT_WIDER, r * BlastHoles.EXIT_WIDER * BlastHoles.EXIT_TALL, BlastHoles.EXIT_RAGGED,
+                        BlastHoles.ROUND_POINTS, 4242);
+                if (wayIn) {
+                    in = o;
+                } else {
+                    out = o;
+                }
+            }
+            SpriteGeometry.Mesh near = new SpriteGeometry.Mesh(), far = new SpriteGeometry.Mesh();
+            float[] f = mesh.vertices;
+            for (int at = 0; at < cutFloats; at += 3 * V) {
+                SpriteGeometry.Mesh to = f[at + 1] * inAcross > 0f ? near : far;
+                for (int k = 0; k < 3; k++) {
+                    to.addVertex(java.util.Arrays.copyOfRange(f, at + k * V, at + (k + 1) * V));
+                }
+            }
+            String how = swung ? " laid as on a swung leaf" : " laid as on a wall";
+            check(Math.abs(areaAcross(near, 0) - (2f - polygonArea(in))) < 1e-4f, "the skin on the round's side loses the way in where the line crosses it" + how
+                    + ": kept " + areaAcross(near, 0));
+            check(Math.abs(areaAcross(far, 0) - (2f - polygonArea(out))) < 1e-4f, "the far skin loses the way out where the line crosses it" + how
+                    + ": kept " + areaAcross(far, 0));
+            check(cracks(near, 0f, 1f, 0f, 2f, in) == 0 && cracks(far, 0f, 1f, 0f, 2f, out) == 0, "and neither has a crack" + how);
+            check(mesh.floats - cutFloats == BlastHoles.ROUND_POINTS * 2 * 3 * V, "the hole's edges are lined with two triangles each" + how);
+            boolean ends = true, facing = true;
+            for (int at = cutFloats; at < mesh.floats; at += V) {
+                float[] o = f[at + 1] * inAcross > 0f ? in : out;
+                boolean onOutline = false;
+                for (int i = 0; i < o.length; i += 2) {
+                    onOutline |= Math.abs(o[i] - f[at]) < 1e-5f && Math.abs(o[i + 1] - f[at + 2]) < 1e-5f;
+                }
+                ends &= onOutline && Math.abs(Math.abs(f[at + 1]) - 0.04f) < 1e-5f;
+                // Square to the line, which goes (sBy slantAlong, sideBy, slantUp) for each tile across the edge.
+                float lineX = sBy * slantAlong, lineY = sideBy, lineUp = slantUp;
+                facing &= Math.abs(f[at + 9] * lineX + f[at + 10] * lineY + f[at + 11] * lineUp) < 1e-4f
+                        && Math.abs(f[at + 9] * f[at + 9] + f[at + 10] * f[at + 10] + f[at + 11] * f[at + 11] - 1f) < 1e-4f;
+            }
+            check(ends, "the lining runs from the way in on the near skin to the way out on the far one" + how);
+            check(facing, "and looks square to the round's line" + how);
+        }
+    }
+
+    /** A save from before a round's slant was kept reads as holes straight across; one that keeps it reads back the same, and a slant no round makes is refused. */
+    private static void aRoundsHoleSavedBeforeItsSlantWasKeptReadsStraightAcross() {
+        float[] old = BlastHoles.parse("0.5,0.4,0.011,7,2,1,0.2,0.3,0.1,9,0,0");
+        check(old.length == 2 * BlastHoles.FLOATS && old[BlastHoles.SIDE] == 2f && old[BlastHoles.FLOATS + BlastHoles.SEED] == 9f,
+                "an old save's holes are read whole, six numbers each");
+        check(old[BlastHoles.SLANT_ALONG] == 0f && old[BlastHoles.SLANT_UP] == 0f && old[BlastHoles.FLOATS + BlastHoles.SLANT_ALONG] == 0f
+                && old[BlastHoles.FLOATS + BlastHoles.SLANT_UP] == 0f, "and cut straight across");
+        float[] slanted = BlastHoles.with(old, false, 0.3f, 0.6f, BlastHoles.ROUND_RADIUS, 11, -BlastHoles.ROUND, BlastHoles.slant(0.6f, -0.3f),
+                BlastHoles.slant(-0.2f, -0.3f));
+        check(java.util.Arrays.equals(slanted, BlastHoles.parse(BlastHoles.write(slanted))), "a round's slant saved reads back the same");
+        check(Math.abs(slanted[2 * BlastHoles.FLOATS + BlastHoles.SLANT_ALONG] + 2f) < 1e-5f, "a round going 0.6 along for 0.3 back across slants -2 along a tile across");
+        check(Math.abs(BlastHoles.slant(0.9f, 0.01f) - 9f) < 1e-5f, "a line nearly along the edge is taken as crossing it at LEAST_ACROSS");
+        check(refused("8:0.5,0.4,0.1,7,0,1,0.3,0") && refused("8:0.5,0.4,0.014,7,1,1,0,0.3") && refused("8:0.5,0.4,0.011,7,2,1,10.5,0")
+                && !refused("8:0.5,0.4,0.011,7,2,1,0,0") && refused("8:0.5,0.4,0.011,7,2,1,0.1"),
+                "a slanted blast's hole or mark, a slant past what LEAST_ACROSS allows, or a hole short of a number is refused, and a round's hole straight across is not");
     }
 
     /**
