@@ -666,6 +666,8 @@ public final class FirstPerson {
                 Math.toDegrees(Math.atan2(facing.y, facing.x)), Math.toDegrees(Math.atan2(drawn.y, drawn.x)));
     }
 
+    private static final String FIRST_PERSON_OFF = Part.FIRST_PERSON.key + " and every FirstPersonInVehicles row are off in " + Config.FILE_NAME;
+
     private boolean allowed(IsoPlayer player) {
         return whyNot(player) == null;
     }
@@ -675,7 +677,7 @@ public final class FirstPerson {
             return "no player";
         }
         if (!Part.FIRST_PERSON.on()) {
-            return Part.FIRST_PERSON.key + " and every FirstPersonInVehicles row are off in " + Config.FILE_NAME;
+            return FIRST_PERSON_OFF;
         }
         String gap = patchGap();
         if (gap == null) {
@@ -1594,9 +1596,10 @@ public final class FirstPerson {
         IsoPlayer player = view.player();
         float reach = Controls.aimReach(player);
         HandWeapon weapon = player.getPrimaryHandItem() instanceof HandWeapon held ? held : null;
-        Penetration.Cartridge through = Penetration.applies(player, weapon) ? Penetration.cartridgeOf(weapon) : null;
+        boolean penetrates = Penetration.applies(player, weapon);
+        Penetration.Cartridge through = penetrates ? Penetration.cartridgeOf(weapon) : null;
         world.boles = Penetration.pastTrees(player, weapon);
-        world.lights = Penetration.applies(player, weapon);
+        world.lights = penetrates;
         shotDistance = world.shotDistance(aimView, view.worldScene.terrain, player.getZ() * ViewCamera.LEVEL_HEIGHT, reach,
                 scene.characterX, scene.characterY, scene.characterBase, scene.characters, through, player.getX(), player.getY());
         IsoGameCharacter aimedAt = characterAimedAt(scene);
