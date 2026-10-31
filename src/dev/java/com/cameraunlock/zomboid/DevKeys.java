@@ -31,7 +31,7 @@ import zombie.vehicles.VehiclePart;
 /**
  * Keys for whoever is working on the mod, there only in a development build: the jar a
  * player installs is compiled with the empty class of this name in src/shipped in this one's place.
- * Each is on a key the game's default bindings leave alone. The game acts on a key whatever
+ * Each is on a key the game's default bindings leave alone, but for 8. The game acts on a key whatever
  * modifier is held with it, so F2 to F6, its pause and speed keys, cannot be shared with it.
  * A key that does something to the player does it to every player at the screen.
  *
@@ -47,8 +47,10 @@ import zombie.vehicles.VehiclePart;
  * The full stop moves the player to the next of the places worth looking at, round and round,
  * and the comma to the one before.
  *
- * 9 puts the clock on by an hour, into the next day if that is where it ends: for
- * seeing the picture at any hour without waiting for it.
+ * 9 puts the clock on by an hour and 8 puts it back by one, into the next day or the day before
+ * if that is where it ends: for seeing the picture at any hour without waiting for it. 8 is the
+ * game's key for the eighth slot of its hotbar too, so with something in that slot a press uses
+ * that as well.
  *
  * Backspace holds the year at the next of the four seasons, spring, summer, autumn and winter,
  * and round again, for the game's own trees and for what the mod draws alike, and says on the
@@ -154,10 +156,10 @@ public final class DevKeys {
     };
     /** The place the player was last sent to, and none before the first press. */
     private static int place = -1;
-    /** 9 on the number row. */
-    private static final int LATER_KEY = 10;
-    /** How far a press puts the clock on, in hours. */
-    private static final float LATER = 1f;
+    /** 9 and 8 on the number row. */
+    private static final int LATER_KEY = 10, EARLIER_KEY = 9;
+    /** How far a press puts the clock on or back, in hours. */
+    private static final float CLOCK_STEP = 1f;
     /** The hour of the morning the game counts a night survived at. */
     private static final float NIGHT_OVER = 7f;
     /** Backspace: of the keys the game leaves alone, the nearest to 9 on its row. */
@@ -279,7 +281,7 @@ public final class DevKeys {
         String told = null;
         if (!said) {
             said = true;
-            Log.info("development build: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 puts the clock on an hour, Backspace holds the next season of spring, summer, autumn and winter, End holds the next weather of clear, rainy, snowy and stormy, Home starts a fire where the reticle is, ; gives the next of the game's firearms, any gun held never runs dry, [ gives a hunting rifle with the next of the three scopes on it, / gives a lit flashlight, Up arrow puts the graphics at Low and High in turn, ' makes you invincible, Down arrow takes the nearest vehicle, Right arrow and Left arrow give the next and the last of a .44 pistol, a pump shotgun and an automatic rifle, Shift with them goes to the next and the last test scene, Pause dumps the frame and the shadow maps");
+            Log.info("development build: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 puts the clock on an hour and 8 puts it back one, Backspace holds the next season of spring, summer, autumn and winter, End holds the next weather of clear, rainy, snowy and stormy, Home starts a fire where the reticle is, ; gives the next of the game's firearms, any gun held never runs dry, [ gives a hunting rifle with the next of the three scopes on it, / gives a lit flashlight, Up arrow puts the graphics at Low and High in turn, ' makes you invincible, Down arrow takes the nearest vehicle, Right arrow and Left arrow give the next and the last of a .44 pistol, a pump shotgun and an automatic rifle, Shift with them goes to the next and the last test scene, Pause dumps the frame and the shadow maps");
         }
         if (GameKeyboard.isKeyPressed(FRAME_DUMP_KEY)) {
             FrameDump.ask();
@@ -339,19 +341,9 @@ public final class DevKeys {
             }
             Log.info((back ? "," : ".") + ": moved " + moved + " of " + players.size() + " players to " + to.name() + " (" + to.x() + ", " + to.y() + ", level " + to.level() + "), place " + (place + 1) + " of " + PLACES.length);
         }
-        if (GameKeyboard.isKeyPressed(LATER_KEY)) {
-            GameTime time = GameTime.getInstance();
-            float was = time.getTimeOfDay();
-            // Past midnight is left as an hour over 24: the game's clock takes that as the next day.
-            float hour = was + LATER;
-            // The world's age, which the game times food, the weather and the like by, is the nights it
-            // has counted and the hours since 7. It counts a night as its clock goes from 7 or before
-            // to after it, and sees that only within its own step, so a press over 7 is counted here.
-            if (was <= NIGHT_OVER && hour > NIGHT_OVER) {
-                time.setNightsSurvived(time.getNightsSurvived() + 1);
-            }
-            time.setTimeOfDay(hour);
-            Log.info("9: the clock put on to " + hour + ", the world " + time.getWorldAgeHours() + " hours old");
+        boolean earlier = GameKeyboard.isKeyPressed(EARLIER_KEY);
+        if (earlier || GameKeyboard.isKeyPressed(LATER_KEY)) {
+            moveClock(earlier);
         }
         if (GameKeyboard.isKeyPressed(SEASON_KEY)) {
             season = (season + 1) % SEASONS.length;
@@ -467,6 +459,55 @@ public final class DevKeys {
             }
         }
         return told;
+    }
+
+    /**
+     * Puts the clock on an hour, or back one. The world's age, which the game times food, the weather
+     * and the like by, is the nights it has counted and the hours since 7. It counts a night as its
+     * clock goes from 7 or before to after it, and sees that only within its own step, so a press over
+     * 7 counts the night here, or takes it off again going back. A press back that would take the
+     * world's age below 0, past 7 in the morning ahead of the world's first night, does nothing.
+     */
+    private static void moveClock(boolean earlier) {
+        GameTime time = GameTime.getInstance();
+        String key = earlier ? "8" : "9";
+        float was = time.getTimeOfDay();
+        float hour = was + (earlier ? -CLOCK_STEP : CLOCK_STEP);
+        int nights = time.getNightsSurvived();
+        if (was <= NIGHT_OVER && hour > NIGHT_OVER) {
+            nights++;
+        } else if (was > NIGHT_OVER && hour <= NIGHT_OVER) {
+            nights--;
+        }
+        if (nights < 0) {
+            Log.info(key + ": the clock left at " + was + ": an hour back is before 7 in the morning ahead of the world's first night, where its age begins");
+            return;
+        }
+        // Past midnight is left as an hour over 24: the game's clock takes that as the next day. It
+        // never goes back a day, so that is done here.
+        if (hour < 0f) {
+            hour += 24f;
+            dayBefore(time);
+        }
+        time.setNightsSurvived(nights);
+        time.setTimeOfDay(hour);
+        Log.info(key + ": the clock put " + (earlier ? "back" : "on") + " to " + hour + " on day " + (time.getDay() + 1) + " of month " + (time.getMonth() + 1)
+                + ", the world " + time.getWorldAgeHours() + " hours old");
+    }
+
+    /** The game counts the days of a month and the months from 0, as its own step into the next day does. */
+    private static void dayBefore(GameTime time) {
+        if (time.getDay() > 0) {
+            time.setDay(time.getDay() - 1);
+            return;
+        }
+        if (time.getMonth() > 0) {
+            time.setMonth(time.getMonth() - 1);
+        } else {
+            time.setMonth(11);
+            time.setYear(time.getYear() - 1);
+        }
+        time.setDay(time.daysInMonth(time.getYear(), time.getMonth()) - 1);
     }
 
     /**

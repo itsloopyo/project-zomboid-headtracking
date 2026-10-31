@@ -2492,7 +2492,7 @@ public final class Tests {
      * and damage, the game's own cheats, making and removing zombies, moving the player, and
      * taking a vehicle. All but the three of the game's own modes are what the development keys call.
      */
-    private static final String[] CHEATS = {"setTimeOfDay", "setAdminValue", "setEnableAdmin", "setForceSnow", "RestoreToFullHealth",
+    private static final String[] CHEATS = {"setTimeOfDay", "setNightsSurvived", "setAdminValue", "setEnableAdmin", "setForceSnow", "RestoreToFullHealth",
             "setAvoidDamage", "PlayerCheats", "isCheatAllowed", "setGodMod", "setGhostMode", "setInvisible", "createRealZombieNow",
             "removeFromWorld", "removeFromSquare", "teleportTo", "setHotwired", "setContainerContentAmount", "setCurrentAmmoCount"};
 
