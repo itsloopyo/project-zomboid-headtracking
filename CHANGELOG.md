@@ -20,7 +20,7 @@
 - When the mod is not running, because it doesn't work with your version of the game or it hit an error as it started, the main menu says so.
 - When `Delete` doesn't turn first person on, the screen says why: another mod or a game update changed something it needs, or it stopped after an error and stays off until the game restarts. The moment it stops after an error, the screen says so too.
 - First person in vehicles works with First person view unticked, which loads saves in the isometric view and switches to first person only while you are in a vehicle. Both settings are at the top of the options page, under Quick settings, and the First person list's `In vehicles only` sets them that way.
-- `Delete` with first person turned off on the options page ticks First person view again and switches to first person.
+- `Delete`, or a double tap of **Back** on a controller, with first person turned off on the options page ticks First person view again and switches to first person.
 - `F9` past Low with every Mod content box unticked ticks them again, and in the isometric view with first person off it ticks First person view, so Medium and High always look different from Low. Once you press it, its "Press F9" hint is not shown again.
 - `Page Up` and `Page Down` show the new setting on screen, and `Page Down` in a vehicle seat and `F7` with one player say that they do nothing there.
 - The screen says when `CameraUnlock.ini` couldn't be read as the game started, or a setting you changed couldn't be saved to it.
