@@ -827,9 +827,6 @@ final class OpeningBuilder {
         windowFoot = footOf(z);
         lightSides(north, false);
         boolean wooden = wooden(casing.red, casing.green, casing.blue);
-        // A round beside the leaf or over its head leaves its hole in the doorway's wall (BlastHoles.ofCasingOn), cut through the boards as WallBuilder cuts the wall.
-        float[] holes = build.blastHoles;
-        int[][] ends = holes == null ? null : MeshCut.ends(build.solid, build.laid);
         SpriteGeometry.Mesh wood = build.solid.get(WorldScene.PLAIN, WallSides.key(casing.red, casing.green, casing.blue, WallSides.FLAT));
         wood.sway = 0f;
         long thing = build.solid.owner();
@@ -859,11 +856,6 @@ final class OpeningBuilder {
         }
         build.solid.own(thing);
         wood.day = 0f;
-        if (holes != null) {
-            MeshCut cut = new MeshCut(x, y, da, db, CASING_REACH);
-            BlastHoles.into(cut, holes, BlastHoles.panel(build.blastObject, north), north, 0f, 1f, windowFoot, ViewCamera.LEVEL_HEIGHT, 1);
-            cut.since(ends, build.solid, build.laid);
-        }
         return true;
     }
 
@@ -880,8 +872,6 @@ final class OpeningBuilder {
     static final float CASING_PROUD = 0.022f, CASING_BEVEL = 0.009f;
     /** How far a casing's boards run back into the wall behind its skin, so no gap shows between the two at a slant. */
     private static final float CASING_INTO = 0.004f;
-    /** How far either side of its edge a hole goes through a casing, in tiles: the wall's thickness and the boards standing proud of both faces. */
-    private static final float CASING_REACH = WorldScene.WALL_HALF + CASING_PROUD + 0.004f;
     /** How far the lining at a casing's post stands into the doorway from the wall's reveal, as a share of the wall's length: clear of it in depth past 48 tiles. */
     static final float JAMB_PROUD = 0.005f;
     /** How near the doorway's cut a post's inner edge has to be read to be put at it, as a share of the wall's length. */

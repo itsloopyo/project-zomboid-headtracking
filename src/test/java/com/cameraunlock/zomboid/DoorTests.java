@@ -521,7 +521,7 @@ final class DoorTests {
      * on the wall (ImpactFinder). Its post stands from 0.84375 to 0.9375 along, proud of both skins, so a hole on the wall
      * there was cut through the wall's skins behind the boards and showed on neither face. The casing takes the wall's holes.
      */
-    private static void aHoleInTheDoorwaysWallGoesThroughTheCasingOverIt() throws ReflectiveOperationException {
+    private static void aHoleInTheDoorwaysWallGoesThroughTheCasingOverIt() throws Throwable {
         Windows.Shape casing = new Windows.Shape();
         casing.north = true;
         casing.start = -0.046875f;
@@ -535,17 +535,19 @@ final class DoorTests {
         check(post[0] < along - radius && post[1] > along + radius && post[2] < up - radius && post[3] > up + radius,
                 "a hole on the wall beside the leaf is wholly behind the post: " + java.util.Arrays.toString(post));
 
-        Texture frames = new Texture(43, 128, 256);
+        Texture framesTexture = new Texture(43, 128, 256);
         java.util.Map<Texture, Windows.Shape> casings = TestMap.read(null, Casings.class, "known");
         java.util.Map<zombie.iso.IsoObject, float[]> kept = TestMap.read(null, BlastHoles.class, "kept");
         java.lang.reflect.Field anyField = BlastHoles.class.getDeclaredField("any");
         anyField.setAccessible(true);
         boolean anyWas = anyField.getBoolean(null);
-        casings.put(frames, casing);
+        casings.put(framesTexture, casing);
         TestMap map = new TestMap();
         zombie.iso.IsoGridSquare square = map.cell.square(0, 1, 0);
         zombie.iso.IsoObject wall = square.add(map.sprite("walls_interior_house_01_11", zombie.iso.SpriteDetails.IsoObjectType.wall, "WallN", "DoorWallN"));
-        square.add(map.sprite("fixtures_doors_frames_01_1", zombie.iso.SpriteDetails.IsoObjectType.doorFrN, "attachedN"));
+        zombie.iso.IsoObject frames = square.add(map.spriteWith("fixtures_doors_frames_01_1", zombie.iso.SpriteDetails.IsoObjectType.doorFrN, framesTexture, "attachedN", ""));
+        frames.offsetX = 64f;
+        frames.offsetY = 192f;
         float[] holes = BlastHoles.with(new float[0], true, along, up, radius, 7, 0);
         try {
             check(BlastHoles.ofCasingOn(square, true) == null, "a casing on a wall with no hole has none");
@@ -554,9 +556,10 @@ final class DoorTests {
             check(BlastHoles.ofCasingOn(square, true) == holes, "a casing is cut with the holes of the doorway's wall it stands on");
             check(BlastHoles.ofCasingOn(square, false) == null, "and a casing on the west edge, where there is no wall, with none");
             check(casingCovers(map, frames, null, along, up) == 2, "whole, the post covers the place on both faces");
-            check(casingCovers(map, frames, holes, along, up) == 0, "cut with the wall's hole, it covers it on neither");
+            // Cut a second time where its boards were built, the cut's own edges were taken for the face's and MeshCut threw.
+            check(casingCovers(map, frames, holes, along, up) == 0, "cut once with the wall's hole, it covers it on neither");
         } finally {
-            casings.remove(frames);
+            casings.remove(framesTexture);
             kept.remove(wall);
             anyField.setBoolean(null, anyWas);
             WorldScene.sharedSolid.clear();
@@ -564,19 +567,33 @@ final class DoorTests {
         }
     }
 
-    /** How many front faces of the casing built on the north edge of square (0, 1), cut with those holes, have the place along and up on them. */
-    private static int casingCovers(TestMap map, Texture texture, float[] holes, float along, float up) {
+    /**
+     * How many front faces of the casing, built as the build adds it through WallBuilder.addEdge on the north edge of square (0, 1)
+     * with those holes, have the place along and up on them.
+     */
+    private static int casingCovers(TestMap map, zombie.iso.IsoObject frames, float[] holes, float along, float up) throws Throwable {
         WorldScene.sharedSolid.clear();
         WorldScene.sharedLaid.clear();
-        java.util.Arrays.fill(map.build.geometry.lift, 0f);
-        map.build.blastHoles = holes;
-        check(map.build.openingBuilder.addBuiltCasing(texture, 0, 1, 0, 1f, 0f), "the casing is built");
+        WorldScene.Frame build = map.build;
+        Texture texture = frames.getSprite().getTextureForCurrentFrame(frames.getDir());
+        java.util.Arrays.fill(build.geometry.lift, 0f);
+        build.geometry.kerb = null;
+        build.here = map.cell.getGridSquare(0, 1, 0);
+        WorldScene.frameOf(build.frame, frames, texture);
+        build.blastHoles = holes;
+        build.blastObject = frames;
+        build.casing = true;
+        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+        mesh.texture = texture.getID();
+        TestMap.withEverything(() -> build.wallBuilder.addEdge(mesh, texture, false, false, 0, 1, 0, 0f, 1f, 0f));
+        build.casing = false;
+        check(mesh.floats == 0, "the casing is built, not laid as its sprite");
         float front = WorldScene.WALL_HALF + OpeningBuilder.CASING_PROUD, z = up * ViewCamera.LEVEL_HEIGHT;
         int covering = 0;
-        for (SpriteGeometry.Mesh mesh : WorldScene.sharedSolid.used) {
-            float[] f = mesh.vertices;
+        for (SpriteGeometry.Mesh used : WorldScene.sharedSolid.used) {
+            float[] f = used.vertices;
             int v = SpriteGeometry.VERTEX_FLOATS;
-            for (int at = 0; at < mesh.floats; at += 3 * v) {
+            for (int at = 0; at < used.floats; at += 3 * v) {
                 boolean onFront = true;
                 for (int corner = 0; corner < 3; corner++) {
                     onFront &= Math.abs(Math.abs(f[at + corner * v + 1] - 1f) - front) < 1e-4f;

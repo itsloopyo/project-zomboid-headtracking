@@ -228,7 +228,8 @@ final class WallBuilder {
      */
     void addEdge(SpriteGeometry.Mesh mesh, Texture texture, boolean wall, boolean door, int x, int y, int z,
             float layer, float da, float db) {
-        // A door's holes are cut where its leaf is built, which knows where the leaf stands (OpeningBuilder.addBuiltDoor).
+        // A door's holes are cut where its leaf is built, which knows where the leaf stands (OpeningBuilder.addBuiltDoor). A casing's
+        // are those of the wall behind it (BlastHoles.ofCasingOn), cut here once, through its boards built or its sprite laid.
         float[] holes = door ? null : build.blastHoles;
         // A holed fence of boards is measured too: what of its boards the holes leave held goes by its top (Breakage).
         boolean measured = !door && (build.lowBoards || holes != null && BlastHoles.boards(build.blastObject));
@@ -268,7 +269,10 @@ final class WallBuilder {
         return top;
     }
 
-    /** How far either side of its edge a blast's hole goes through a fence, in tiles: its boards, and the battens they are nailed to. */
+    /**
+     * How far either side of its edge a hole goes through a fence, a wall or a door's casing, in tiles: a fence's boards and the
+     * battens they are nailed to, and a casing's boards standing OpeningBuilder.CASING_PROUD out of both skins.
+     */
     private static final float FENCE_REACH = WorldScene.WALL_HALF + 0.04f;
 
     private void addWholeEdge(SpriteGeometry.Mesh mesh, Texture texture, boolean wall, boolean door, int x, int y, int z,
