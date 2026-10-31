@@ -282,6 +282,7 @@ public final class Hooks {
             Rewind.forget();
             HiddenWalls.forget();
             Troughs.forget();
+            SkyState.forget();
             CarPhysics.forget();
         } catch (RuntimeException | Error thrown) {
             // The world build and the card's copy of it are still given back.
