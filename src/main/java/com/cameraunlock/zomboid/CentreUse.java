@@ -474,10 +474,11 @@ final class CentreUse {
     /**
      * Whether a door is drawn on its square's north edge. Open on hinges it stands against the
      * square's other edge, where WorldScene draws it and the game's own view shows it; a garage
-     * door rolls up in its doorway.
+     * door rolls up in its doorway, and a sliding glass door slides in it.
      */
     private static boolean drawnNorth(IsoObject door, boolean north, boolean open) {
-        return north != (open && !door.getSprite().getProperties().has("GarageDoor"));
+        PropertyContainer properties = door.getSprite().getProperties();
+        return north != (open && !properties.has("GarageDoor") && !Doors.sliding(properties));
     }
 
     /**

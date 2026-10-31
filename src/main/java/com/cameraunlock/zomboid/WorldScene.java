@@ -1158,7 +1158,7 @@ final class WorldScene {
     static final class Kind {
         /** What the sprite is made of as the floor of its square, and as anything else. */
         final float asFloor, asOther;
-        final boolean laidWall, gableSheet, lies, wire, roofAccent, roofSheet, stripLamp, garageDoor, cornerTrim, papered, tiledWall, fenceGate,
+        final boolean laidWall, gableSheet, lies, wire, roofAccent, roofSheet, stripLamp, garageDoor, slidingDoor, cornerTrim, papered, tiledWall, fenceGate,
                 boulder, bedding, longGrass, natural, carpet, straw, tiled, grows, gardenPlant, flowerbed, onTop, holds, flightPost, fireEscape, paint, wallTrim, trim, moulded;
         /** What length of handrail the sprite is, or null: see Rails. */
         final Rails.Piece rail;
@@ -1246,6 +1246,7 @@ final class WorldScene {
             asOther = printed(properties, name) ? PRINT : other != 0f ? other : Fences.ironBars(name, madeOf) ? 0f
                     : Fences.boards(name, madeOf, properties.get("MaterialType"), properties.get("Material2"), onEdge, picket) ? BOARDS : materialOf(sprite);
             garageDoor = properties.has("GarageDoor");
+            slidingDoor = Doors.sliding(properties);
             laidWall = laidWall(name, properties);
             masonry = WallSides.madeOf(properties.get("MaterialType"));
             gableSheet = laidWall && name.startsWith("walls_exterior_roofs");
@@ -9092,6 +9093,7 @@ final class WorldScene {
                 laidWall = kind.laidWall;
                 masonry = kind.masonry;
                 garageDoor = kind.garageDoor;
+                slidingDoor = kind.slidingDoor;
                 gableSheet = kind.gableSheet;
                 if (frame.material == PLANKS && isMesh(sprite, texture)) {
                     frame.material = MESH;
@@ -9781,17 +9783,21 @@ final class WorldScene {
             boolean west;
             boolean north;
             doorSwung = false;
+            doorSlid = false;
             shutTexture = null;
             brokenLights = DoorGlass.isDoor(object) ? DoorGlass.broken(object) : 0;
             blastHoles = BlastHoles.of(object);
             if (object instanceof IsoDoor door) {
                 // A door on hinges stands across its doorway when it is open. A garage door
-                // rolls up in its own plane, and what is left of it showing is still in the wall.
-                doorSwung = door.IsOpen() && !kind.garageDoor;
+                // rolls up in its own plane, and what is left of it showing is still in the wall,
+                // and a sliding glass door slides in its own, its open sprite the frame in the doorway.
+                doorSwung = door.IsOpen() && !kind.garageDoor && !kind.slidingDoor;
+                doorSlid = door.IsOpen() && kind.slidingDoor;
                 north = door.north != doorSwung;
                 west = !north;
             } else if (object instanceof IsoThumpable thumpable && thumpable.isDoor()) {
-                doorSwung = thumpable.IsOpen() && !kind.garageDoor;
+                doorSwung = thumpable.IsOpen() && !kind.garageDoor && !kind.slidingDoor;
+                doorSlid = thumpable.IsOpen() && kind.slidingDoor;
                 north = thumpable.north != doorSwung;
                 west = !north;
             } else if (object instanceof IsoWindow window) {
@@ -9883,7 +9889,7 @@ final class WorldScene {
             }
             // A gate in a fence is rails or wire like the fence, and stays the sheet it is.
             doorLeaf = door && !kind.fenceGate;
-            if (doorSwung && doorLeaf) {
+            if ((doorSwung || doorSlid) && doorLeaf) {
                 IsoSprite shut = shutSprite(object);
                 Texture shown = shut == null ? null : shut.getTextureForCurrentFrame(object.getDir());
                 if (usable(shown)) {
@@ -10502,11 +10508,13 @@ final class WorldScene {
         /** How the sprite being added is laid if it is a wall of masonry: see Kind.masonry. */
         int masonry;
 
-        /** Whether the door being added stands open across its doorway, and whether it is a leaf with a thickness. */
-        boolean doorSwung, doorLeaf;
+        /** Whether the door being added stands open across its doorway, slid open in it, and whether it is a leaf with a thickness. */
+        boolean doorSwung, doorSlid, doorLeaf;
         /** Whether the sprite being added is a garage door's, which has no hinges and no knob and is the same door seen from either side. */
         boolean garageDoor;
-        /** For a door that stands open, the texture and frame of the sprite it shows shut, which it is read from: see OpeningBuilder.addBuiltDoor. Null for any other. */
+        /** Whether the sprite being added is a sliding glass door's, which has no hinges (Doors.sliding). */
+        boolean slidingDoor;
+        /** For a door that stands open, swung or slid, the texture and frame of the sprite it shows shut, which it is read from: see OpeningBuilder.addBuiltDoor. Null for any other. */
         Texture shutTexture;
         final SpriteGeometry.Frame shutFrame = new SpriteGeometry.Frame();
         /** Of the door being added, the lights shots have broken: see DoorGlass. */

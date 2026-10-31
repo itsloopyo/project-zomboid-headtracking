@@ -42,6 +42,7 @@ final class DoorTests {
         Checks.run("anOpenLeafStandingIntoItsSquareIsStoodOnItsFloor", DoorTests::anOpenLeafStandingIntoItsSquareIsStoodOnItsFloor);
         Checks.run("aToiletStallsLeafRaggedTopAndBottomIsALeaf", DoorTests::aToiletStallsLeafRaggedTopAndBottomIsALeaf);
         Checks.run("aShacksDoorWithABareCornerIsALeaf", DoorTests::aShacksDoorWithABareCornerIsALeaf);
+        Checks.run("aSlidingDoorSlidOpenIsItsShutFrameWithNoGlass", DoorTests::aSlidingDoorSlidOpenIsItsShutFrameWithNoGlass);
         Checks.run("aDoorDrawnAsItsSpriteIsToldOnceForEachReason", DoorTests::aDoorDrawnAsItsSpriteIsToldOnceForEachReason);
     }
 
@@ -829,6 +830,21 @@ final class DoorTests {
         check(shack != null && shack.panes.length == 0, "and is a leaf of wood all over as a door");
         check(shack != null && Math.abs(shack.start - 8f / across) < 1e-5f && Math.abs(shack.end - 56f / across) < 1e-5f && Math.abs(shack.foot) < 1e-5f,
                 "across its boards, from the floor: " + (shack == null ? "none" : shack.start + ".." + shack.end + " up " + shack.foot));
+    }
+
+    /**
+     * A sliding glass door open (fixtures_doors_01_110) is its frame left in the doorway, the glass slid behind the wall
+     * beside it, so its own sprite is no leaf: it is built as the shut leaf in the doorway with no glass, and the shut
+     * leaf is left as read.
+     */
+    private static void aSlidingDoorSlidOpenIsItsShutFrameWithNoGlass() {
+        Doors.Shape shut = door(0.05f, 0.95f, 0f, 0.8f, Doors.PANELLED, true, 0.6f, new float[] {0.1f, 0.9f, 0.05f, 0.75f, 1f});
+        shut.lever = true;
+        Doors.Shape slid = Doors.slid(shut);
+        check(slid.leaf != shut.leaf && slid.leaf.start == 0.05f && slid.leaf.end == 0.95f && slid.leaf.head == 0.8f, "slid open, it is the shut leaf's outline in the doorway");
+        check(slid.leaf.panes.length == 0, "with no glass in it");
+        check(shut.leaf.panes.length == 5, "and the shut leaf keeps its glass");
+        check(slid.kind == Doors.FLUSH && slid.handleAtEnd && slid.lever, "a flush frame with its handle where the shut one has it");
     }
 
     private static void aDoorDrawnAsItsSpriteIsToldOnceForEachReason() {

@@ -3,6 +3,7 @@ package com.cameraunlock.zomboid;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.concurrent.ConcurrentHashMap;
+import zombie.core.properties.PropertyContainer;
 import zombie.core.textures.Texture;
 
 /**
@@ -77,6 +78,11 @@ final class Doors {
     private static final boolean TRACE = Boolean.getBoolean("cameraunlock.zomboid.trace");
 
     private Doors() {}
+
+    /** Whether a door's sprite is a sliding glass door's, which slides in its own doorway: the game knows one by its sound and nothing else (IsoDoor.canAddCurtain). */
+    static boolean sliding(PropertyContainer properties) {
+        return "SlidingGlassDoor".equalsIgnoreCase(properties.get("DoorSound"));
+    }
 
     /**
      * The door the sprite paints on the north or west edge of its square, or with far the south or east one; swung
@@ -444,6 +450,18 @@ final class Doors {
         made.kind = shut.kind;
         made.board = shut.board * along;
         made.handleAtEnd = true;
+        made.lever = shut.lever;
+        return made;
+    }
+
+    /** A sliding glass door slid open, as its shut sprite shows it: the frame round its doorway, with no glass in it. */
+    static Shape slid(Shape shut) {
+        Windows.Shape leaf = shut.leaf.copy();
+        leaf.panes = new float[0];
+        Shape made = new Shape();
+        made.leaf = leaf;
+        made.kind = FLUSH;
+        made.handleAtEnd = shut.handleAtEnd;
         made.lever = shut.lever;
         return made;
     }

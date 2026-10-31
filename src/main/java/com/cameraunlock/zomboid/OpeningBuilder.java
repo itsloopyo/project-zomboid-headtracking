@@ -409,6 +409,19 @@ final class OpeningBuilder {
                 }
                 return false;
             }
+        } else if (build.doorSlid) {
+            // Slid open, it is its shut sprite's frame in the doorway, the glass slid away behind the pane beside it.
+            door = Doors.of(build.shutTexture, build.shutFrame, north);
+            if (door == null) {
+                if (Doors.unread(build.shutTexture, north, false)) {
+                    build.building.waitFor(build.shutTexture);
+                } else {
+                    unbuilt = "slid open, its shut sprite is no leaf on that edge";
+                }
+                return false;
+            }
+            door = Doors.slid(door);
+            broken = 0;
         } else {
             // Open, it is the leaf its shut sprite paints, which stands on the other edge.
             shut = Doors.of(build.shutTexture, build.shutFrame, !north);
@@ -567,7 +580,7 @@ final class OpeningBuilder {
             metal.open = sideOpen[side] + 32f * HARDWARE;
             metal.day = sideDay[side];
             float[] c = build.reveal;
-            if (side == hingedSide) {
+            if (side == hingedSide && !build.slidingDoor) {
                 float[] hinges = hinges(leaf.start, leaf.end, leaf.foot, leaf.head, door.handleAtEnd);
                 for (int at = 0; at < hinges.length; at += 4) {
                     addJoinery(metal, hinges[at], hinges[at + 1], hinges[at + 2], hinges[at + 3], face + Math.signum(face) * HINGE_OUT, r, g, b);

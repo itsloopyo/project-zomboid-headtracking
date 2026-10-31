@@ -52,7 +52,7 @@ final class Windows {
     static final int BANDS = 16;
 
     /** One window: all places are shares of the wall's length, then heights in levels. */
-    static final class Shape {
+    static final class Shape implements Cloneable {
         /** The frame origin and scale the sprite was read with. */
         float originU, originV, scale;
         boolean north;
@@ -80,6 +80,15 @@ final class Windows {
          * there is glass under it. Null for a window with a level head.
          */
         float[] arch;
+
+        /** The same window, its lists shared: a list is replaced, never written into. */
+        Shape copy() {
+            try {
+                return (Shape) clone();
+            } catch (CloneNotSupportedException impossible) {
+                throw new IllegalStateException(impossible);
+            }
+        }
     }
 
     /** What a sprite is read with: how its frame lies on the wall, and where in the frame its texture is. */
