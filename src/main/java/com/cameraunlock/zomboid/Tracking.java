@@ -300,7 +300,8 @@ final class Tracking {
             Quality.custom(Config.picture(session));
         }
         // The rows of [Graphics] are the first player's, as the game's options screen, where they are set, is.
-        if (edited && live.quality()[0] != Quality.CUSTOM) {
+        // A Quality the same save changed is the player's word: the [Graphics] rows wait under Custom for it.
+        if (edited && live.quality()[0] == was.quality()[0] && live.quality()[0] != Quality.CUSTOM) {
             Log.info(Config.FILE_NAME + " changed: a row of [Graphics] was edited, which goes to the first player's Custom graphics mode");
             Quality.set(0, Quality.CUSTOM);
             sayGraphics(1);

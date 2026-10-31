@@ -1548,6 +1548,13 @@ public final class CoreTests {
         Tracking.watchSettings();
         check(Quality.name(0).equals("Custom") && Quality.sight(0) == 60 && saved("Quality=Custom", "ViewDistance=60"),
                 "and the mode and a row edited together is Custom with the edit");
+        edit(text().replace("Quality=Custom", "Quality=Medium").replace("ViewDistance=60", "ViewDistance=72"));
+        Tracking.watchSettings();
+        check(Quality.name(0).equals("Medium") && Quality.custom().viewDistance() == 72 && saved("Quality=Medium", "ViewDistance=72"),
+                "a preset and a row of [Graphics] edited together is the preset, with the row kept for Custom: " + Quality.name(0));
+        edit(text().replace("Quality=Medium", "Quality=Custom").replace("ViewDistance=72", "ViewDistance=60"));
+        Tracking.watchSettings();
+        check(Quality.name(0).equals("Custom") && Quality.sight(0) == 60, "and back to Custom with the edit");
         // As if applied on the options screen with its save still queued behind a reload of another row of [Graphics].
         double[] applied = Config.values(Quality.custom());
         applied[Config.graphicsPart("ViewDistance")] = 84;
