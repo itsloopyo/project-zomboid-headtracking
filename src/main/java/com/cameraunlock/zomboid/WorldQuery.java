@@ -152,43 +152,38 @@ final class WorldQuery {
             }
             boleMetIn(to, toX, toY);
         }
-        if (lights && seen == LosUtil.TestResults.ClearThroughClosedDoor && throughALight(from, to, fromX, fromY, toX, toY)) {
-            seen = LosUtil.TestResults.ClearThroughWindow;
-        }
-        if (lights && (seen == LosUtil.TestResults.Blocked || seen == LosUtil.TestResults.ClearThroughClosedDoor) && throughAHole(from, to, fromX, fromY, toX, toY)) {
-            seen = LosUtil.TestResults.Clear;
+        if (lights && (seen == LosUtil.TestResults.Blocked || seen == LosUtil.TestResults.ClearThroughClosedDoor)) {
+            seen = throughGlassOrAHole(from, to, fromX, fromY, toX, toY, seen);
         }
         return lineOfFire.stopsAt(seen);
     }
 
-    /** Whether the line being traced crosses the shut door or the fence on the edge between two squares in a hole a blast blew through it: see BlastHoles. */
-    private boolean throughAHole(IsoGridSquare from, IsoGridSquare to, int fromX, int fromY, int toX, int toY) {
-        boolean north = fromX == toX;
-        IsoGridSquare owner = north ? (toY < fromY ? from : to) : (toX < fromX ? from : to);
-        float crossed = ShotGlass.crossedAt(lineX, lineY, lineWayX, lineWayY, fromX, fromY, toX, toY);
-        float x = lineX + lineWayX * crossed, y = lineY + lineWayY * crossed;
-        float along = north ? x - owner.getX() : y - owner.getY();
-        // Over the middle of the square the hole is on, as ImpactFinder measured it when it made it.
-        float up = (lineUp + lineWayUp * crossed - lineGround.height(owner.getX() + 0.5f, owner.getY() + 0.5f)) / ViewCamera.LEVEL_HEIGHT - level;
-        IsoObject door = DoorGlass.shutDoorOn(owner, north);
-        if (door != null) {
-            return !DoorGlass.barricaded(door) && BlastHoles.through(door, north, along, up);
-        }
-        IsoObject wall = WorldScene.wallOn(owner, north);
-        return wall != null && BlastHoles.through(wall, north, along, up);
-    }
-
-    /** Whether the line being traced crosses the shut door on the edge between two squares in one of its lights: see DoorGlass. */
-    private boolean throughALight(IsoGridSquare from, IsoGridSquare to, int fromX, int fromY, int toX, int toY) {
+    /**
+     * What the line being traced finds at the edge between two squares the game says is shut:
+     * through a window where it crosses one of a shut door's lights (DoorGlass), clear where it
+     * crosses a hole a blast blew through the door, the wall or the fence (BlastHoles), and seen as it was otherwise.
+     */
+    private LosUtil.TestResults throughGlassOrAHole(IsoGridSquare from, IsoGridSquare to, int fromX, int fromY, int toX, int toY, LosUtil.TestResults seen) {
         // An edge is the north or west edge of the square south or east of it, and what stands on it is that square's.
         boolean north = fromX == toX;
         IsoGridSquare owner = north ? (toY < fromY ? from : to) : (toX < fromX ? from : to);
         float crossed = ShotGlass.crossedAt(lineX, lineY, lineWayX, lineWayY, fromX, fromY, toX, toY);
         float x = lineX + lineWayX * crossed, y = lineY + lineWayY * crossed;
-        // Over the middle of the square the door is on, where the picture stands its leaf.
+        float along = north ? x - owner.getX() : y - owner.getY();
+        // Over the middle of the square the door or the wall is on, where the picture stands the leaf and the holes, and ImpactFinder measured them.
         float up = (lineUp + lineWayUp * crossed - lineGround.height(owner.getX() + 0.5f, owner.getY() + 0.5f)) / ViewCamera.LEVEL_HEIGHT - level;
         IsoObject door = DoorGlass.shutDoorOn(owner, north);
-        return door != null && !DoorGlass.barricaded(door) && DoorGlass.lightAt(door, north, north ? x - owner.getX() : y - owner.getY(), up) >= 0;
+        if (door != null) {
+            if (DoorGlass.barricaded(door)) {
+                return seen;
+            }
+            if (seen == LosUtil.TestResults.ClearThroughClosedDoor && DoorGlass.lightAt(door, north, along, up) >= 0) {
+                return LosUtil.TestResults.ClearThroughWindow;
+            }
+            return BlastHoles.through(door, north, along, up) ? LosUtil.TestResults.Clear : seen;
+        }
+        IsoObject wall = WorldScene.wallOn(owner, north);
+        return wall != null && BlastHoles.through(wall, north, along, up) ? LosUtil.TestResults.Clear : seen;
     }
 
     /** As solidToAShot, with a window stopping the line too: see windows. */

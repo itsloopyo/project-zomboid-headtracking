@@ -226,11 +226,10 @@ final class Penetration {
                 if (DoorGlass.barricaded(object)) {
                     return STOPS;
                 }
-                if (throughALight(object, square, north, along, x, y)) {
-                    // The game lets a shot through a shut window's glass for nothing; ShotGlass breaks the light as it breaks a window.
-                    return 0f;
-                }
-                if (throughAHole(object, square, north, along, x, y)) {
+                // The game lets a shot through a shut window's glass for nothing; ShotGlass breaks a door's light as it breaks a window.
+                // A hole a blast blew through the door costs nothing either.
+                float up = heightAt(x, y, square);
+                if (!Float.isNaN(up) && (DoorGlass.lightAt(object, north, along, up) >= 0 || BlastHoles.through(object, north, along, up))) {
                     return 0f;
                 }
                 return costOf(object);
@@ -257,19 +256,10 @@ final class Penetration {
         return cost(made != null || !DoorGlass.isDoor(object) ? made : doorMaterial(object));
     }
 
-    /** Whether a shot crosses a door or a fence in a hole a blast blew through it (BlastHoles), which costs it nothing. */
+    /** Whether a shot crosses a wall or a fence in a hole a blast blew through it (BlastHoles), which costs it nothing. */
     private static boolean throughAHole(IsoObject object, IsoGridSquare owner, boolean north, float along, float x, float y) {
         float up = heightAt(x, y, owner);
         return !Float.isNaN(up) && BlastHoles.through(object, north, along, up);
-    }
-
-    /** Whether a shot crosses a shut door's leaf in one of its lights of glass, as the picture measured the leaf (Doors). */
-    private static boolean throughALight(IsoObject door, IsoGridSquare owner, boolean north, float along, float x, float y) {
-        if (door.getSprite() == null || !door.getSprite().getProperties().has("doorTrans")) {
-            return false;
-        }
-        float up = heightAt(x, y, owner);
-        return !Float.isNaN(up) && DoorGlass.lightAt(door, north, along, up) >= 0;
     }
 
     /**
