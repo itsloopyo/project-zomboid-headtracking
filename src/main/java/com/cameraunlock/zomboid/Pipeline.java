@@ -319,11 +319,17 @@ final class Pipeline {
     /** The steadied picture of the last frame and of this one, taking turns. */
     private final int[] keptColor = new int[2], keptAhead = new int[2], keptTarget = new int[2];
     /**
-     * Beside the scene, where what it shows moves by itself: 1 a person, a half a vehicle, nought
-     * anything else. The people's light writes it through movesTarget, which is the scene's
-     * target with this beside its colour. Only with FrameBlending on.
+     * Beside the scene, where what it shows moves by itself: 1 a person, a half a vehicle, RIDDEN
+     * the vehicle sat in, nought anything else. The people's light writes it through movesTarget,
+     * which is the scene's target with this beside its colour. Only with FrameBlending on.
      */
     private int sceneMoves, movesTarget, movesAlone, movesUndepthed;
+    /**
+     * In sceneMoves, what is drawn of the vehicle the viewer sits in and of the viewer in it, which is drawn
+     * where it is and not stepped aside with the world (stepAside): STEADY and CabinDraw's program have the
+     * number too.
+     */
+    private static final float RIDDEN = 0.125f;
     /** The scene's colour with nothing else beside it, for the holes shots leave, which read the scene's depth as they are laid. */
     private int decalTarget;
     /** The scene's depth as it was before the fires' flames were put in it for the window panes, and put back after them. */
@@ -5242,7 +5248,7 @@ final class Pipeline {
             // The viewer's own body before a person is not that person: what it covers goes as the body does.
             GL30.glBindFramebuffer(GL_FRAMEBUFFER, steadying ? movesTarget : sceneTarget);
             figureLight.use();
-            figureLight.set("uMoves", 0f);
+            figureLight.set("uMoves", seated ? RIDDEN : 0f);
             GL13.glActiveTexture(GL_TEXTURE0 + 4);
             GL11.glBindTexture(GL_TEXTURE_2D, cabin.made() ? repaintedColor : noneTexture);
             figureLight.set("uRepainted", 4);
@@ -5399,6 +5405,7 @@ final class Pipeline {
         noLamps();
         figureLight.set("uOwnCabin", 0f);
         figureLight.set("uFigureAmbient", view.characters.ownLight);
+        figureLight.set("uMoves", RIDDEN);
         // What the cabin's pass left set would have the arms taken for its glass, its wheel or its seat.
         figureLight.set("uInside", 0f);
         figureLight.set("uPainted", 0f);

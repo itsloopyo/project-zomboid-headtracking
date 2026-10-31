@@ -8405,10 +8405,38 @@ final class PipelineShaders {
                 float was = dot(from, uForwardBefore);
                 vec2 moved = vec2(dot(from, uRightBefore) / (was * uTan.x), dot(from, uUpBefore) / (was * uTan.y)) * 0.5 + 0.5 - nearest;
                 vec2 before = uv + moved;
+                // This frame's own colour for the pixel, taken from the nine round it each by how
+                // near its sample fell to the pixel's middle. Taken raw, each frame is the picture
+                // a fraction of a pixel aside, and while the head drifts, when little of the last
+                // frame is kept, that step shows as a shimmer: centred, a quarter-pixel drift changed
+                // a fifth as many pixels by 30 a frame in a field of grass. Where nothing of the last
+                // frame is kept, round the vehicle the viewer rides in and where something has just
+                // come out from behind another, the step shows with the head still too. The weights are
+                // a Gaussian standing in for a Blackman-Harris window, as Karis's temporal AA has it.
+                vec3 mine = pressed(now.rgb);
+                vec3 centred = vec3(0.0), sum = vec3(0.0), squares = vec3(0.0), least = mine, most = mine;
+                float weights = 0.0;
+                for (int x = -1; x <= 1; x++) {
+                    for (int y = -1; y <= 1; y++) {
+                        vec3 near = pressed(texture2D(uScene, uv + vec2(float(x), float(y)) * px).rgb);
+                        vec2 off = vec2(float(x), float(y)) + uJitter;
+                        float weight = exp(-2.29 * dot(off, off));
+                        centred += near * weight;
+                        weights += weight;
+                        sum += near;
+                        squares += near * near;
+                        least = min(least, near);
+                        most = max(most, near);
+                    }
+                }
+                centred /= weights;
+                // What is drawn of the vehicle the viewer rides in, and of the viewer in it, is
+                // drawn where it is and not aside (Pipeline.RIDDEN): centred, it would step instead.
+                vec3 current = abs(texture2D(uMoves, uv).r - 0.125) < 0.06 ? mine : centred;
                 // The vehicle the viewer rides in goes with the eye: where it was in the world a
                 // frame ago says nothing of where it was in the picture.
                 if (uKept <= 0.0 || own < uOwnWithin || was <= uNear || before.x < 0.0 || before.x > 1.0 || before.y < 0.0 || before.y > 1.0) {
-                    gl_FragData[0] = now;
+                    gl_FragData[0] = vec4(unpressed(current), now.a);
                     return;
                 }
                 // Whether the last frame showed the same thing there: one of the four pixels
@@ -8423,31 +8451,8 @@ final class PipelineShaders {
                     same = same || abs(then - was) <= allowed;
                 }
                 if (!same) {
-                    gl_FragData[0] = now;
+                    gl_FragData[0] = vec4(unpressed(current), now.a);
                     return;
-                }
-                vec3 mine = pressed(now.rgb);
-                vec3 sum = vec3(0.0), squares = vec3(0.0), least = mine, most = mine;
-                // This frame's own colour for the pixel, taken from the nine round it each by how
-                // near its sample fell to the pixel's middle. Taken raw, each frame is the picture
-                // a fraction of a pixel aside, and while the head drifts, when little of the last
-                // frame is kept, that step shows as a shimmer: centred, a quarter-pixel drift changed
-                // a fifth as many pixels by 30 a frame in a field of grass. The weights are a
-                // Gaussian standing in for a Blackman-Harris window, as Karis's temporal AA has it.
-                vec3 centred = vec3(0.0);
-                float weights = 0.0;
-                for (int x = -1; x <= 1; x++) {
-                    for (int y = -1; y <= 1; y++) {
-                        vec3 near = pressed(texture2D(uScene, uv + vec2(float(x), float(y)) * px).rgb);
-                        vec2 off = vec2(float(x), float(y)) + uJitter;
-                        float weight = exp(-2.29 * dot(off, off));
-                        centred += near * weight;
-                        weights += weight;
-                        sum += near;
-                        squares += near * near;
-                        least = min(least, near);
-                        most = max(most, near);
-                    }
                 }
                 // Held to the colours round the pixel now. What moves by itself also moves
                 // within itself, a leg past a leg, and is held closer: no further from the
@@ -8476,7 +8481,7 @@ final class PipelineShaders {
                 vec2 between = sin(3.14159265 * fract(moved * uSize));
                 float passes = (1.0 - 0.312 * between.x * between.x) * (1.0 - 0.312 * between.y * between.y);
                 float kept = min(lost ? 0.5 : uKept, 0.2 / (1.0 - 0.8 * passes));
-                gl_FragData[0] = vec4(unpressed(mix(centred / weights, held, kept)), now.a);
+                gl_FragData[0] = vec4(unpressed(mix(current, held, kept)), now.a);
             }
             """;
 

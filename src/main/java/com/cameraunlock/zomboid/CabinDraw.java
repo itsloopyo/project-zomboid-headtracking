@@ -235,7 +235,7 @@ final class CabinDraw {
                     vec3 n = normalize(vNormal);
                     float glancing = 0.04 + 0.96 * pow(clamp(1.0 - dot(n, view), 0.0, 1.0), 5.0);
                     gl_FragData[0] = vec4(behindAt(on) * (0.9 + 0.1 * glancing), 1.0);
-                    gl_FragData[1] = vec4(0.0);
+                    gl_FragData[1] = vec4(0.125);
                     return;
                 }
                 vec4 colour, surface;
@@ -327,8 +327,9 @@ final class CabinDraw {
                 // The instruments' markings and needles, lit from behind with the engine running.
                 color += albedo * uGlowColor * (6.0 * glow * uInstruments);
                 gl_FragData[0] = vec4(color, 1.0);
-                // Nothing of the interior moves by itself, for the steadying pass beside the picture.
-                gl_FragData[1] = vec4(0.0);
+                // For the steadying pass beside the picture: the interior rides with the eye, and is drawn
+                // where it is and not stepped aside with the world (Pipeline.RIDDEN).
+                gl_FragData[1] = vec4(0.125);
             }
             """;
 
