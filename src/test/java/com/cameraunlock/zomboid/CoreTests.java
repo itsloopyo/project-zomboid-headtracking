@@ -126,7 +126,7 @@ public final class CoreTests {
         Checks.run("everyTickBoxTickedOrUntickedIsSavedAndReadAtTheNextStart", CoreTests::everyTickBoxTickedOrUntickedIsSavedAndReadAtTheNextStart);
         Checks.run("theShippedJarStartsThroughBoot", CoreTests::theShippedJarStartsThroughBoot);
         // Last: Project Viewpoint, once started, stays started to the end of the process.
-        Checks.run("firstPersonSwitchesOnItsOwnKeysBesideViewpoint", CoreTests::firstPersonSwitchesOnItsOwnKeysBesideViewpoint);
+        Checks.run("firstPersonAndGraphicsModeSwitchOnTheirOwnKeysBesideViewpoint", CoreTests::firstPersonAndGraphicsModeSwitchOnTheirOwnKeysBesideViewpoint);
         Checks.tally();
     }
 
@@ -313,8 +313,10 @@ public final class CoreTests {
                         && Config.FIRST_PERSON_BESIDE_VIEWPOINT_TAPS.length == View.COUNT
                         && Integer.bitCount(Config.CYCLE_TRACKING_MODE | Config.YAW_MODE | Config.AIM_MODE | Config.CYCLE_QUALITY
                                 | Config.CYCLE_STYLE | Config.SPLIT_SCREEN | firstPersonTaps | Config.FIRST_PERSON_ALL
-                                | besideViewpointTaps | Config.FIRST_PERSON_BESIDE_VIEWPOINT_ALL) == 16,
-                "the six actions have a bit each, and the first person key and the one beside Project Viewpoint one for each player tapped and one held");
+                                | besideViewpointTaps | Config.FIRST_PERSON_BESIDE_VIEWPOINT_ALL
+                                | Config.CYCLE_QUALITY_BESIDE_VIEWPOINT | Config.CYCLE_QUALITY_BESIDE_VIEWPOINT_ALL) == 18,
+                "the six actions have a bit each, the first person key and the one beside Project Viewpoint one for each player tapped and"
+                        + " one held, and the graphics mode key beside Viewpoint one tapped and one held");
     }
 
     private static float[] lean(float cleanYaw, float x, float y, float z) {
@@ -940,20 +942,27 @@ public final class CoreTests {
                 "and the file set back is read back");
     }
 
-    /** Every set of patches by name in the order they go in, but those named. */
-    private static void firstPersonSwitchesOnItsOwnKeysBesideViewpoint() throws IOException {
-        int pressed = Config.FIRST_PERSON | Config.FIRST_PERSON_BESIDE_VIEWPOINT_TAPS[0] | Config.AIM_MODE;
-        check(Tracking.firstPersonRow(pressed) == (Config.FIRST_PERSON | Config.AIM_MODE) && Tracking.firstPersonKeys().equals("Delete"),
-                "with no Project Viewpoint first person switches on FirstPersonKey, Delete, and FirstPersonKeyBesideViewpoint's presses do nothing");
+    private static void firstPersonAndGraphicsModeSwitchOnTheirOwnKeysBesideViewpoint() throws IOException {
+        int pressed = Config.FIRST_PERSON | Config.FIRST_PERSON_BESIDE_VIEWPOINT_TAPS[0] | Config.CYCLE_QUALITY
+                | Config.CYCLE_QUALITY_BESIDE_VIEWPOINT | Config.AIM_MODE;
+        check(Tracking.keysNow(pressed) == (Config.FIRST_PERSON | Config.CYCLE_QUALITY | Config.AIM_MODE)
+                        && Tracking.firstPersonKeys().equals("Delete") && Tracking.cycleQualityKeys().equals("F9"),
+                "with no Project Viewpoint first person switches on Delete and the graphics mode on F9, and the rows beside Viewpoint do nothing");
         Tracking.viewpointStarted();
-        check(Tracking.firstPersonRow(Config.FIRST_PERSON | Config.AIM_MODE) == Config.AIM_MODE
-                        && Tracking.firstPersonRow(Config.FIRST_PERSON_BESIDE_VIEWPOINT_TAPS[1]) == Config.FIRST_PERSON_TAPS[1]
-                        && Tracking.firstPersonRow(Config.FIRST_PERSON_BESIDE_VIEWPOINT_ALL) == Config.FIRST_PERSON_ALL,
-                "once Viewpoint starts, FirstPersonKey's presses do nothing and FirstPersonKeyBesideViewpoint's switch first person, tapped and held");
-        check(Tracking.firstPersonKeys().equals("End") && Files.readString(game.resolve(Log.FILE_NAME)).contains("Project Viewpoint is running"),
-                "and the hint and the options page name End, with the log saying why: " + Tracking.firstPersonKeys());
+        check(Tracking.keysNow(Config.FIRST_PERSON | Config.CYCLE_QUALITY | Config.CYCLE_QUALITY_TAPS[1] | Config.AIM_MODE) == Config.AIM_MODE
+                        && Tracking.keysNow(Config.FIRST_PERSON_BESIDE_VIEWPOINT_TAPS[1]) == Config.FIRST_PERSON_TAPS[1]
+                        && Tracking.keysNow(Config.FIRST_PERSON_BESIDE_VIEWPOINT_ALL) == Config.FIRST_PERSON_ALL
+                        && Tracking.keysNow(Config.CYCLE_QUALITY_BESIDE_VIEWPOINT) == Config.CYCLE_QUALITY
+                        && Tracking.keysNow(Config.CYCLE_QUALITY_BESIDE_VIEWPOINT_ALL) == Config.CYCLE_QUALITY_ALL,
+                "once Viewpoint starts, FirstPersonKey's and CycleQualityKey's presses do nothing, and the rows beside Viewpoint stand in for them,"
+                        + " tapped and held");
+        check(Tracking.firstPersonKeys().equals("ScrollLock") && Tracking.cycleQualityKeys().equals("Home")
+                        && Files.readString(game.resolve(Log.FILE_NAME)).contains("Project Viewpoint is running"),
+                "and the hint and the options page name ScrollLock and Home, with the log saying why: " + Tracking.firstPersonKeys() + ", "
+                        + Tracking.cycleQualityKeys());
     }
 
+    /** Every set of patches by name in the order they go in, but those named. */
     private static String leftOutBut(String kept) {
         List<String> keep = List.of(kept.split(", "));
         StringJoiner names = new StringJoiner(", ");
