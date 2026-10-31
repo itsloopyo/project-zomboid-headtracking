@@ -731,9 +731,10 @@ public final class FineSkins {
         // Then every zombie's body, those as far rotted as the zombies seen first, the most seen first: more of them will come.
         LinkedHashSet<String> rots = new LinkedHashSet<>();
         for (String each : order) {
-            int at = each.indexOf("ZedBody0");
-            if (at >= 0) {
-                rots.add(each.substring(at + "ZedBody0".length() + 1, each.length() - 4));
+            // A mod's skin need not be named as the game's are, ZedBody0, a body's digit, then its rot: one ending at ZedBody0 has none.
+            int at = each.indexOf("ZedBody0"), from = at + "ZedBody0".length() + 1, to = each.length() - ".png".length();
+            if (at >= 0 && from <= to) {
+                rots.add(each.substring(from, to));
             }
         }
         rots.addAll(ROTS);
