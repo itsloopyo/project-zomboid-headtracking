@@ -67,6 +67,15 @@ final class Flight {
         shown = at;
     }
 
+    /**
+     * Puts the camera at the eye with the picture still to mix in, over another first-person
+     * picture already on the screen: there is no way down to make.
+     */
+    void atTheEye() {
+        at = 1f;
+        shown = 0f;
+    }
+
     /** Whether the camera is at the eye. */
     boolean landed() {
         return at == 1f;

@@ -216,6 +216,11 @@ public final class FirstPerson {
 
     /** The view the player has asked for. The camera may still be on its way there. */
     private volatile boolean on;
+    /**
+     * First person was asked for while Project Viewpoint's view was on: it is mixed in at the eye
+     * over Viewpoint's picture, and Viewpoint's view is switched off once it covers it.
+     */
+    private boolean overViewpoint;
     /** The camera is at the eye, and the view is played in. */
     private volatile boolean landed;
     /** The last frame was drawn from the eye or as near it as makes no difference: the viewer's own body was drawn as their own. */
@@ -395,7 +400,12 @@ public final class FirstPerson {
 
     void toggle() {
         IsoPlayer player = view.player();
+        if (!on && !gettingReady && ViewpointView.on(player)) {
+            overViewpoint = true;
+            Log.info(who() + "first person asked for over Project Viewpoint's view: mixed in at the eye, and Viewpoint's switched off once it covers it");
+        }
         if (!on && !allowed(player)) {
+            overViewpoint = false;
             Log.info(who() + "first person stays off: " + whyNot(player));
             if (player != null) {
                 say(refused());
@@ -404,6 +414,7 @@ public final class FirstPerson {
         }
         if (gettingReady) {
             gettingReady = false;
+            overViewpoint = false;
             Log.info(who() + "first person no longer asked for");
             return;
         }
@@ -643,6 +654,10 @@ public final class FirstPerson {
         if (on) {
             say(Quality.said(view.index));
         }
+        if (on && overViewpoint) {
+            view.flight.atTheEye();
+        }
+        overViewpoint &= on;
         Log.info(who() + "first person " + (on ? "on, " + facings(player) : "off"));
     }
 
@@ -678,6 +693,9 @@ public final class FirstPerson {
         }
         if (!Part.FIRST_PERSON.on()) {
             return FIRST_PERSON_OFF;
+        }
+        if (!overViewpoint && ViewpointView.on(player)) {
+            return "Project Viewpoint's view is on";
         }
         String gap = patchGap();
         if (gap == null) {
@@ -919,6 +937,7 @@ public final class FirstPerson {
                 Log.info(who() + "first person off: " + whyNot(player));
             }
             on = false;
+            overViewpoint = false;
             view.flight.cut(false);
         }
         long now = System.nanoTime();
@@ -927,7 +946,11 @@ public final class FirstPerson {
         notePace(now, frameNanos);
         lastFrameNanos = now;
         frameSeconds += (Math.min(sinceLastFrame, 0.1f) - frameSeconds) * 0.05f;
-        view.flight.advance(on, sinceLastFrame, !overhead);
+        view.flight.advance(on, sinceLastFrame, !overhead || overViewpoint);
+        if (overViewpoint && view.flight.shown() == 1f) {
+            overViewpoint = false;
+            ViewpointView.leave(player);
+        }
         boolean wasFirstPerson = Quality.firstPersonInEffect(view.index);
         if (view.pipeline.failure() != null) {
             Quality.undrawable();

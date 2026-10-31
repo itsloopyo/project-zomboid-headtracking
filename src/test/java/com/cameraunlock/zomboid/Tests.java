@@ -62,6 +62,7 @@ public final class Tests {
         Checks.run("flightLeavesTheOverheadCameraAndLandsOnTheTrackedView", Tests::flightLeavesTheOverheadCameraAndLandsOnTheTrackedView);
         Checks.run("flightTakesItsTimeWhateverTheFrames", Tests::flightTakesItsTimeWhateverTheFrames);
         Checks.run("flightMixesThePicturesOnlyWhileTheCameraIsStill", Tests::flightMixesThePicturesOnlyWhileTheCameraIsStill);
+        Checks.run("flightOverAnotherFirstPersonPictureMixesInAtTheEye", Tests::flightOverAnotherFirstPersonPictureMixesInAtTheEye);
         Checks.run("projectionAgreesWithTheViewMatrix", Tests::projectionAgreesWithTheViewMatrix);
         Checks.run("reticleStaysCentredUnderRollAndMovesStraightUnderPitch", Tests::reticleStaysCentredUnderRollAndMovesStraightUnderPitch);
         Checks.run("reticleFollowsThePointWhenTheEyeLeans", Tests::reticleFollowsThePointWhenTheEyeLeans);
@@ -2179,6 +2180,22 @@ public final class Tests {
             check(flight.shown() < was && flight.share() == 0f, "and goes out over the game's own picture with the camera still");
             was = flight.shown();
         }
+    }
+
+    private static void flightOverAnotherFirstPersonPictureMixesInAtTheEye() {
+        flight.cut(false);
+        flight.atTheEye();
+        check(flight.landed() && flight.share() == 1f && flight.shown() == 0f, "over another first person picture the camera starts at the eye with nothing of its own shown");
+        float was = 0f;
+        int frames = 0;
+        while (flight.shown() < 1f) {
+            flight.advance(true, 1f / 60f, true);
+            check(flight.shown() > was && flight.landed(), "and its picture mixes in over the other with the camera kept at the eye");
+            was = flight.shown();
+            frames++;
+        }
+        check(Math.abs(frames / 60f - Flight.MIX_SECONDS) < 0.05f, "in the time the mix is given");
+        flight.cut(false);
     }
 
     private static float apart(ViewCamera.Pose a, ViewCamera.Pose b) {

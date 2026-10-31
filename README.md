@@ -881,6 +881,8 @@ If you run [Project Viewpoint](https://steamcommunity.com/sharedfiles/filedetail
 
 Viewpoint opens its settings window on `Delete` and takes a screenshot on `F9`, so while Viewpoint runs this mod switches first person on `Scroll Lock` instead (`FirstPersonKeyBesideViewpoint`) and the graphics mode on `Home` (`CycleQualityKeyBesideViewpoint`), and the hint on screen names those keys. `Home` changes player 1's graphics mode when tapped and every player's when held.
 
+Viewpoint's view and this mod's first person take turns, since each turns the movement keys by its own camera: switching Viewpoint's view on switches first person off, and switching first person on from Viewpoint's first person mixes this mod's picture in over Viewpoint's at the eye, then switches Viewpoint's view off.
+
 ## Troubleshooting
 
 - **No tracking** - start your tracker, check its address and port, then press `Delete` once a save has loaded.

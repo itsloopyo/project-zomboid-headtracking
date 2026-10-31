@@ -382,7 +382,7 @@ public final class Agent {
         // Its Main.main has run already where ZombieBuddy loaded Viewpoint's jar before this one's.
         for (Class<?> loaded : before) {
             if (loaded.getName().equals(VIEWPOINT_MAIN.replace('/', '.'))) {
-                Tracking.viewpointStarted();
+                Hooks.viewpointStarted(loaded);
                 break;
             }
         }
@@ -670,7 +670,8 @@ public final class Agent {
     private static List<Patch> viewpointStartPatches() {
         return List.of(new Patch(VIEWPOINT_MAIN, "main at its start", classBytes -> CallSite.insertAtStartOfStaticMethod(classBytes,
                 new CallSite.Method(VIEWPOINT_MAIN, "main", "([Ljava/lang/String;)V"),
-                code -> CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "viewpointStarted", "()V")))));
+                code -> code.ldc(ClassDesc.ofInternalName(VIEWPOINT_MAIN)).invokestatic(ClassDesc.ofInternalName(HOOKS), "viewpointStarted",
+                        MethodTypeDesc.ofDescriptor("(Ljava/lang/Class;)V")))));
     }
 
     /** The patches for the window's place: see WindowPlacement. */
