@@ -8424,8 +8424,8 @@ final class PipelineShaders {
                         most = max(most, near);
                     }
                 }
-                // What is drawn of the vehicle the viewer rides in, and of the viewer in it, is
-                // drawn where it is and not aside (Pipeline.RIDDEN): centred, it would step instead.
+                // What is drawn of the viewer, and of the vehicle the viewer rides in, is drawn
+                // where it is and not aside (Pipeline.RIDDEN): centred, it would step instead.
                 vec3 current = abs(texture2D(uMoves, uv).r - 0.125) < 0.06 ? mine : centred;
                 // The vehicle the viewer rides in goes with the eye: where it was in the world a
                 // frame ago says nothing of where it was in the picture.
