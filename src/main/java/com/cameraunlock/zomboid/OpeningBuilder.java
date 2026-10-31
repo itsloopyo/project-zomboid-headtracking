@@ -482,7 +482,7 @@ final class OpeningBuilder {
             return true;
         }
         // A gate of boards is boards, whatever lines its sprite draws on them.
-        int worked = build.gate == Gates.BOARDS && leaf.panes.length == 0 ? Doors.PLANKED : door.kind;
+        int worked = build.gate == Gates.BOARDS ? Doors.PLANKED : door.kind;
 
         MeshCut cut = blastCut(door, shut, north);
         int[][] ends = cut == null ? null : MeshCut.ends(build.solid, build.laid);
