@@ -33,7 +33,7 @@ public final class SplitScreen {
     private static volatile int row = VERTICAL;
     /** Every patch is in the game's code: with only some of them in, parts of the screen would be laid out one way and parts the other. */
     private static volatile boolean patched;
-    private static boolean asked;
+    private static volatile boolean asked;
     /** The row the game's panels were last laid out for. */
     private static boolean laidOutStacked;
 
@@ -46,6 +46,11 @@ public final class SplitScreen {
         row = wanted;
         // The screen changes as frame lays it out, and says so there.
         Log.info("split screen row set to " + described());
+    }
+
+    /** Has frame ask again whether the patches are in: Agent.takeIn has put sets in. */
+    static void askAgain() {
+        asked = false;
     }
 
     static int row() {

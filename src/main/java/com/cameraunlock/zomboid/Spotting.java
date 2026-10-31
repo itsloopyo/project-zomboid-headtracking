@@ -452,8 +452,13 @@ final class Spotting {
         return gap == null;
     }
 
-    private static boolean gapAsked;
+    private static volatile boolean gapAsked;
     private static String gap;
+
+    /** Has leftHere ask again: Agent.takeIn has put sets in. */
+    static void askAgain() {
+        gapAsked = false;
+    }
 
     /** A whole round over the rooms given and the squares out of doors on every level of the chunks given, at once, for a player standing at a place, in the building of a def or in none. */
     void pass(IsoCell cell, RoomSight.Seen rooms, LongFunction<RoomDef> defs, List<IsoChunk> drawn, float x, float y, float z, BuildingDef building) {

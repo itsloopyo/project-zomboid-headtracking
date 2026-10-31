@@ -34,7 +34,13 @@ public final class WaitingComposites {
             ModelInstanceTextureCreator::render, () -> SpriteRenderer.instance.notifyRenderStateQueue());
 
     /** Whether the patches are in: told once, on the logic thread, as the first composite is asked for. */
-    private static boolean started, patched;
+    private static volatile boolean started;
+    private static boolean patched;
+
+    /** Has on ask again whether the patches are in: Agent.takeIn has put sets in. */
+    static void askAgain() {
+        started = false;
+    }
 
     /**
      * Called as TextureDraw.drawModel returns, on the logic thread, once a model has gone into the

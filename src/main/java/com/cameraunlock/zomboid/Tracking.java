@@ -1005,6 +1005,8 @@ final class Tracking {
     static void turnSplitScreen() {
         int next = SplitScreen.row() == SplitScreen.VERTICAL ? SplitScreen.HORIZONTAL : SplitScreen.VERTICAL;
         SplitScreen.set(next);
+        // Left out of the game's code while the row was Vertical as the game started.
+        Agent.takeIn();
         save(() -> config.saveSplitScreen(next));
     }
 

@@ -309,8 +309,8 @@ public final class Agent {
      * classes it patches that the game has loaded are patched again. A patch that adds members to
      * a class already loaded stays out until the next start. Then each part taken while the game
      * runs that is on is marked as in the game's code. A part switched off keeps its patches until
-     * the next start, which leaves them out. Called once the file or the options screen has set the
-     * parts and rules, on the thread that set them.
+     * the next start, which leaves them out. Called once the file, the options screen or a key has
+     * set the parts, rules and split screen, on the thread that set them.
      */
     static synchronized void takeIn() {
         List<PatchSet> in = new ArrayList<>();
@@ -319,8 +319,8 @@ public final class Agent {
                 in.add(set);
             }
         }
-        Part.takenIn();
         if (in.isEmpty()) {
+            Part.takenIn();
             return;
         }
         Set<String> owners = new HashSet<>();
@@ -335,8 +335,13 @@ public final class Agent {
             set.transformer().leaveOut(null);
         }
         waiting.removeAll(in);
-        // FirstPerson asks for the first person set's gap every frame and is handed the first answer.
+        // Only now: a part marked as in while its classes were being patched again would have a frame ask for its set's gap and keep the answer.
+        Part.takenIn();
+        // FirstPerson asks for the first person set's gap every frame and is handed the first answer, and these ask once.
         firstPersonAsked = false;
+        SplitScreen.askAgain();
+        Spotting.askAgain();
+        WaitingComposites.askAgain();
         Log.info("put into the game's code now, as what they serve was switched on: " + names + "; patched again " + done[0]
                 + " classes the game had loaded" + refusedSaid(done));
     }
