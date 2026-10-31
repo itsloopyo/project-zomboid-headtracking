@@ -851,11 +851,13 @@ public final class FirstPerson {
             say(Tracking.aimModeLabel());
         }
         if ((pressed & Config.CYCLE_QUALITY) != 0) {
-            // The graphics key's own hint is not said again once its mode's name has gone.
-            if (laterHint != null) {
-                laterHint = null;
-            } else if (hint != null && hintIsLater) {
-                hint = null;
+            // Once the graphics key is pressed its own hint is not said again after the mode's name has gone. A mode that changes by itself leaves it.
+            if (Tracking.graphicsModeOwed(view.index)) {
+                if (laterHint != null) {
+                    laterHint = null;
+                } else if (hint != null && hintIsLater) {
+                    hint = null;
+                }
             }
             say(view.pipeline.failure() != null ? cannotBeDrawn() : Quality.said(view.index));
         }
