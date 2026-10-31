@@ -519,7 +519,9 @@ final class DoorTests {
     /**
      * fixtures_doors_frames_01_1 is an object of its own beside the doorway's wall piece, and a round beside the leaf is kept
      * on the wall (ImpactFinder). Its post stands from 0.84375 to 0.9375 along, proud of both skins, so a hole on the wall
-     * there was cut through the wall's skins behind the boards and showed on neither face. The casing takes the wall's holes.
+     * there was cut through the wall's skins behind the boards and showed on neither face. The casing takes the wall's holes,
+     * and those of the walls on the squares either side within what a post may stand over past the square's end. This one's
+     * posts are built as wide as the narrower, from 0 to 0.09375; one painted from -0.05 to 0.04375 stands over the wall before.
      */
     private static void aHoleInTheDoorwaysWallGoesThroughTheCasingOverIt() throws Throwable {
         Windows.Shape casing = new Windows.Shape();
@@ -548,19 +550,30 @@ final class DoorTests {
         zombie.iso.IsoObject frames = square.add(map.spriteWith("fixtures_doors_frames_01_1", zombie.iso.SpriteDetails.IsoObjectType.doorFrN, framesTexture, "attachedN", ""));
         frames.offsetX = 64f;
         frames.offsetY = 192f;
+        zombie.iso.IsoObject before = map.cell.square(-1, 1, 0).add(map.sprite("walls_interior_house_01_1", zombie.iso.SpriteDetails.IsoObjectType.wall, "WallN"));
         float[] holes = BlastHoles.with(new float[0], true, along, up, radius, 7, 0);
+        float[] beforeHoles = BlastHoles.with(BlastHoles.with(new float[0], true, 0.975f, up, 0.012f, 8, 0), true, 0.5f, up, 0.012f, 9, 0);
         try {
-            check(BlastHoles.ofCasingOn(square, true) == null, "a casing on a wall with no hole has none");
+            check(BlastHoles.ofCasingOn(map.cell, 0, 1, 0, true) == null, "a casing on a wall with no hole has none");
             kept.put(wall, holes);
             anyField.setBoolean(null, true);
-            check(BlastHoles.ofCasingOn(square, true) == holes, "a casing is cut with the holes of the doorway's wall it stands on");
-            check(BlastHoles.ofCasingOn(square, false) == null, "and a casing on the west edge, where there is no wall, with none");
+            check(java.util.Arrays.equals(BlastHoles.ofCasingOn(map.cell, 0, 1, 0, true), holes), "a casing is cut with the holes of the doorway's wall it stands on");
+            check(BlastHoles.ofCasingOn(map.cell, 0, 1, 0, false) == null, "and a casing on the west edge, where there is no wall, with none");
             check(casingCovers(map, frames, null, along, up) == 2, "whole, the post covers the place on both faces");
             // Cut a second time where its boards were built, the cut's own edges were taken for the face's and MeshCut threw.
             check(casingCovers(map, frames, holes, along, up) == 0, "cut once with the wall's hole, it covers it on neither");
+            kept.put(before, beforeHoles);
+            float[] both = BlastHoles.ofCasingOn(map.cell, 0, 1, 0, true);
+            check(both.length == 2 * BlastHoles.FLOATS && both[BlastHoles.FLOATS + BlastHoles.ALONG] == 0.975f - 1f,
+                    "the hole near the end of the wall before is taken a square back, and the one in its middle is not: " + java.util.Arrays.toString(both));
+            casing.startWide = 0.09375f;
+            casing.start = -0.05f;
+            check(casingCovers(map, frames, null, -0.025f, up) == 2, "whole, the post over the square before covers that hole on both faces");
+            check(casingCovers(map, frames, both, -0.025f, up) == 0, "cut, it covers it on neither");
         } finally {
             casings.remove(framesTexture);
             kept.remove(wall);
+            kept.remove(before);
             anyField.setBoolean(null, anyWas);
             WorldScene.sharedSolid.clear();
             WorldScene.sharedLaid.clear();

@@ -8,6 +8,7 @@ import java.util.Random;
 import java.util.WeakHashMap;
 import se.krka.kahlua.vm.KahluaTable;
 import zombie.core.properties.PropertyContainer;
+import zombie.iso.IsoCell;
 import zombie.iso.IsoChunk;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
@@ -83,12 +84,51 @@ final class BlastHoles {
     }
 
     /**
-     * The holes a door's casing on a square's north or west edge is cut with: those of the doorway's wall it stands on,
-     * where ImpactFinder keeps the shots that strike it (WorldScene.wallOn). Null where there are none.
+     * The holes a door's casing on the north or west edge of square (x, y, z) is cut with: those of the doorway's wall it
+     * stands on, where ImpactFinder keeps the shots that strike it (WorldScene.wallOn), and those of the walls on the same
+     * edge of the squares before and after it within OVERHANG, which its posts stand over past the square's ends, moved
+     * along by a square. Null where there are none.
      */
-    static float[] ofCasingOn(IsoGridSquare square, boolean north) {
-        IsoObject wall = WorldScene.wallOn(square, north);
+    static float[] ofCasingOn(IsoCell cell, int x, int y, int z, boolean north) {
+        float[] own = ofWallOn(cell.getGridSquare(x, y, z), north);
+        float[] before = ofWallOn(cell.getGridSquare(north ? x - 1 : x, north ? y : y - 1, z), north);
+        float[] after = ofWallOn(cell.getGridSquare(north ? x + 1 : x, north ? y : y + 1, z), north);
+        if (before == null && after == null) {
+            return own;
+        }
+        float[] all = new float[(own == null ? 0 : own.length) + (before == null ? 0 : before.length) + (after == null ? 0 : after.length)];
+        int count = 0;
+        if (own != null) {
+            System.arraycopy(own, 0, all, 0, own.length);
+            count = own.length;
+        }
+        count = overhung(before, -1f, all, count);
+        count = overhung(after, 1f, all, count);
+        return count == 0 ? null : Arrays.copyOf(all, count);
+    }
+
+    /** How far past either end of its square a casing's post may stand, as a share of the square: a post's width and more. */
+    static final float OVERHANG = 0.25f;
+
+    private static float[] ofWallOn(IsoGridSquare square, boolean north) {
+        IsoObject wall = square == null ? null : WorldScene.wallOn(square, north);
         return wall == null ? null : of(wall);
+    }
+
+    /** Copies into all from count the entries of a wall a square before (-1) or after (1) whose middles are within OVERHANG of the near end, moved along by that square; the count after. */
+    private static int overhung(float[] entries, float by, float[] all, int count) {
+        if (entries == null) {
+            return count;
+        }
+        for (int at = 0; at < entries.length; at += FLOATS) {
+            float along = entries[at + ALONG] + by;
+            if (along > -OVERHANG && along < 1f + OVERHANG) {
+                System.arraycopy(entries, at, all, count, FLOATS);
+                all[count + ALONG] = along;
+                count += FLOATS;
+            }
+        }
+        return count;
     }
 
     /**

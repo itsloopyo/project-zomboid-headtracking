@@ -9925,7 +9925,7 @@ final class WorldScene {
             }
             casing = type == IsoObjectType.doorFrW || type == IsoObjectType.doorFrN;
             if (casing) {
-                blastHoles = BlastHoles.ofCasingOn(cell.getGridSquare(x, y, z), type == IsoObjectType.doorFrN);
+                blastHoles = BlastHoles.ofCasingOn(cell, x, y, z, type == IsoObjectType.doorFrN);
             }
             wallBuilder.sign = overLayer == 0 && !door && west != north && kind.sign;
             wallBuilder.trim = overLayer == 0 && kind.wallTrim && edgeX == x && edgeY == y && edgeZ == z
