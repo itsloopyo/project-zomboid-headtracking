@@ -9858,8 +9858,9 @@ final class WorldScene {
                     || properties.has(IsoFlagType.WindowN) || properties.has(IsoFlagType.WindowW);
             doorWall = properties.has(IsoFlagType.DoorWallN) || properties.has(IsoFlagType.DoorWallW);
             // A ModelFences corner length is marked for both edges and as neither one's sheet, as a chain link corner is.
-            seeThrough = isSheet(properties) && !kind.thickFence || kind.linkSheet || kind.modelFence != null;
-            lowBoards = isSheet(properties) && !(object instanceof IsoDoor) && BlastHoles.blastable(object);
+            boolean sheet = isSheet(properties);
+            seeThrough = sheet && !kind.thickFence || kind.linkSheet || kind.modelFence != null;
+            lowBoards = sheet && !(object instanceof IsoDoor) && BlastHoles.blastable(object);
             linkSheet = kind.linkSheet;
             chainLink = seeThrough && overLayer == 0 && Own.buildings() ? kind.chainLink : null;
             linkPostDue = chainLink != null && chainLink.hasPost();
