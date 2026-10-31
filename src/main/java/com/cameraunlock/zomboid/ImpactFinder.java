@@ -116,12 +116,15 @@ final class ImpactFinder {
             own.controls.aimPoint(point);
             float toX = point[0], toY = point[1], toUp = point[2] * ViewCamera.LEVEL_HEIGHT + terrain.lift(point[0], point[1], point[2]);
             if (pellet) {
+                // Only the pellet's spread off the barrel's way is the pellet's own. The game's line sits at its own muzzle's
+                // height and pitch, not the view's, and taken whole it put every blast's holes at that height, not the reticle's.
                 float wayX = endX - startX, wayY = endY - startY, wayZ = endZ - startZ;
                 float share = (float) Math.sqrt(sq(point[0] - startX) + sq(point[1] - startY) + sq(point[2] - startZ))
                         / Math.max((float) Math.sqrt(wayX * wayX + wayY * wayY + wayZ * wayZ), 1e-6f);
-                toX += startX + wayX * share - point[0];
-                toY += startY + wayY * share - point[1];
-                toUp += (startZ + wayZ * share - point[2]) * ViewCamera.LEVEL_HEIGHT;
+                float onAim = (wayX * aim.x + wayY * aim.y + wayZ * aim.z) / Math.max(aim.x * aim.x + aim.y * aim.y + aim.z * aim.z, 1e-12f);
+                toX += (wayX - aim.x * onAim) * share;
+                toY += (wayY - aim.y * onAim) * share;
+                toUp += (wayZ - aim.z * onAim) * share * ViewCamera.LEVEL_HEIGHT;
             }
             length = along(startX, startY, startUp, toX - startX, toY - startY, toUp - startUp) + AIM_PAST;
         } else if (pellet) {
