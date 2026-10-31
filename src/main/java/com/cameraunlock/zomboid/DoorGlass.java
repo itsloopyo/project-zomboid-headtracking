@@ -264,7 +264,8 @@ final class DoorGlass {
             }
             return 0;
         }
-        for (int pane = 0; pane < panes.length; pane += 5) {
+        // A light past the ones with a bit of their own cannot be broken, and withBroken draws it whole: it is no light to a shot.
+        for (int pane = 0; pane < Math.min(panes.length, MOST_LIGHTS * 5); pane += 5) {
             if (along >= panes[pane] && along <= panes[pane + 1] && up >= panes[pane + 2] && up <= panes[pane + 3]) {
                 return pane / 5;
             }
