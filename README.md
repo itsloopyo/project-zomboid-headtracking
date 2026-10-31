@@ -631,8 +631,8 @@ Antialiasing=Low
 ; in tiles: 0 (the game's light only) to 80. Past that, lamps light the ground as the game does.
 LightDistance=60
 ; true: corpses are drawn as models lying where they fell, as zombies are. false: as the game's flat picture of each,
-; laid on the ground, which costs far less where many lie. Low, Medium and High use the flat picture.
-CorpseModels=false
+; laid on the ground, which costs far less where many lie. Low and Medium use the flat picture, High the models.
+CorpseModels=true
 
 [Optimizations]
 ; true: when the game relights many places at once, the first person view takes in their new light over the next few

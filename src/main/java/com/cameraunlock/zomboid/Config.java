@@ -323,7 +323,7 @@ final class Config {
                     writable | live, high.lightDistance(), 0, Quality.MOST_LIGHT_DISTANCE),
             localBool("Graphics", "CorpseModels",
                     "true: corpses are drawn as models lying where they fell, as zombies are. false: as the game's flat picture of each,\n"
-                            + "laid on the ground, which costs far less where many lie. Low, Medium and High use the flat picture.",
+                            + "laid on the ground, which costs far less where many lie. Low and Medium use the flat picture, High the models.",
                     writable | live, high.corpseModels()),
         };
         spreadLightUpdates = localBool("Optimizations", "SpreadLightUpdates",

@@ -397,14 +397,16 @@ final class OptionsLayout {
         }
         return List.of(
                 new QuickList("Everything", "Everything",
-                        "On: everything the mod does, head tracking included. Off: everything but head tracking and talking mouths, so you can "
+                        "On: everything the mod does, head tracking included, with every player's first person graphics at High. Off: everything but head tracking and talking mouths, so you can "
                                 + "switch back on only what you want. Talking mouths, which uses your microphone, is left as it is, and split screen goes back to side by side. Some settings "
                                 + "take effect only when the game next starts.",
                         new String[] {"On", "Off"},
                         List.of(now -> {
                             Map<String, Double> values = switched(every, true);
                             values.put(Tracking.ENABLED_OPTION, 1.0);
-                            values.putAll(graphicsModesUp(now));
+                            for (int player = 0; player < View.COUNT; player++) {
+                                values.put(Config.qualityKey(player), (double) Quality.HIGH);
+                            }
                             return values;
                         }, now -> {
                             Map<String, Double> values = switched(every, false);

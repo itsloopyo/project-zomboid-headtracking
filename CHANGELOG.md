@@ -9,7 +9,7 @@
 - A `[Fixes]` section, under Game fixes on the options page: `BurntBuildingFreezeFix`, `CentreTheWindow` and `ControllerChoiceFix`.
 - The `[Optimizations]` section has `CachedGameLookups`, `SkipCoveredGameDrawing`, `SkinsComposedWhileWaiting`, `ChunkChangeCounts`, `UnseenRoomZombiesUnmodelled`, `HoldChunkMapCentre`, `GraphicsMemorySteps`, `PrepareWhileLoading` and `SpotBySight`, beside `SpreadLightUpdates`.
 - Turning a setting off stops the mod patching that part of the game from the next start, so another Java mod that changes the same code finds the game's own. `ZombiesSeenAtOnce` and `VehiclesSmashThrough` do the same. A setting changed while the game runs that is switched back on puts its patches in at once, with no restart.
-- Quick settings at the top of the mod's options page: a Head tracking tick box, which turns head tracking on and off while you play, and five lists, Everything, First person (`On`, `In vehicles only` or `Off`), Enhanced graphics, Gameplay tweaks and Optimizations. Each list switches a whole class of settings at once and shows which line your settings match, or `Mixed`.
+- Quick settings at the top of the mod's options page: a Head tracking tick box, which turns head tracking on and off while you play, and five lists, Everything (whose `On` also puts every player's first person graphics at High), First person (`On`, `In vehicles only` or `Off`), Enhanced graphics, Gameplay tweaks and Optimizations. Each list switches a whole class of settings at once and shows which line your settings match, or `Mixed`.
 - Local smoothing, remote smoothing and how far the flashlight follows your head (`LightMultiplier`) are on the options page.
 - A Grass distance slider under Custom graphics (`[Graphics] GrassDistance`): how far from you lawns are grown blade by blade in first person, from 8 to 48 tiles. Medium and High grow them to 16 tiles. Long grass is not affected.
 - A shotgun blast in first person whose pellets land close together on a wooden door or a wooden fence, tall or low, the map's or one you built, blows a ragged hole through it, which you can see and shoot through, and stray pellets leave marks on a door. The holes stay in your save. Offline only, and `[Rules] BlastHoles=false` turns it off.
@@ -28,6 +28,7 @@
 
 ### Changed
 
+- The `High` graphics mode draws corpses as models (`CorpseModels`), as `Custom` could.
 - Frame blending shimmers much less while your head moves: grass, leaves and fine edges hold still instead of crawling, for a slightly softer picture.
 - The mod's options page is sorted into Quick settings, First person, Head tracking, Graphics, Custom graphics, Mod content, Gameplay tweaks, Game fixes, Optimizations, Split screen, each extra player, Voice and Keys, and every setting has a plain name and a description of what it does on and off. Mod content ticks a row for the mod's own and unticks it for the game's own. Keys lists every key the mod listens for, and where to change it.
 - Nothing on the options page takes effect until you apply the options. Then everything you changed takes effect together and is saved to `CameraUnlock.ini`. Leaving without applying leaves every setting as it was.

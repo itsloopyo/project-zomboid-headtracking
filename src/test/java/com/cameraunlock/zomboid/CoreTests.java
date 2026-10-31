@@ -94,7 +94,7 @@ public final class CoreTests {
         Checks.run("longStackTraceIsLoggedWhole", CoreTests::longStackTraceIsLoggedWhole);
         Checks.run("committedFileIsTheRowsRendered", CoreTests::committedFileIsTheRowsRendered);
         Checks.run("firstStartCreatesTheCommittedFileAndRunsOnItsValues", CoreTests::firstStartCreatesTheCommittedFileAndRunsOnItsValues);
-        Checks.run("aFreshInstallReadsOnInEveryQuickList", CoreTests::aFreshInstallReadsOnInEveryQuickList);
+        Checks.run("whatTheQuickListsReadOnAFreshInstall", CoreTests::whatTheQuickListsReadOnAFreshInstall);
         Checks.run("trackerAxesBecomeThisViews", CoreTests::trackerAxesBecomeThisViews);
         Checks.run("mapsAnswerIsHandedToCoreAsAWall", CoreTests::mapsAnswerIsHandedToCoreAsAWall);
         Checks.run("poseTurnsAndMovesTheView", CoreTests::poseTurnsAndMovesTheView);
@@ -920,12 +920,12 @@ public final class CoreTests {
         check(on.readsAll().equals("On On On On On"), "Everything's On sets every list on the page to On: " + on.readsAll());
         on.apply();
         check(Part.FIRST_PERSON.on() && Rules.rows() == (Rules.ALL & ~Rules.REWIND) && Own.rows() == Own.ALL && PendingLights.spread() && MuzzleFlash.on()
-                        && Crosshair.on() && Regrip.on() && Quality.row(0) == Quality.AUTOMATIC && Quality.row(3) == Quality.AUTOMATIC
+                        && Crosshair.on() && Regrip.on() && Quality.row(0) == Quality.HIGH && Quality.row(3) == Quality.HIGH
                         && Quality.overheadRow(0) == Quality.LOW && Tracking.enabled(),
-                "applied, it turns head tracking and every part, rule and optimization on, with the mod's own content and first person graphics at "
-                        + "Automatic where they were at Low, and leaves the isometric view's as they were: " + Part.described());
+                "applied, it turns head tracking and every part, rule and optimization on, with the mod's own content and every player's first person graphics at "
+                        + "High, and leaves the isometric view's as they were: " + Part.described());
         check(saved("FirstPersonEnabled=true", "TorchFollowsHead=true", "ShotsThroughWalls=true", "SpotBySight=true", "VanillaWeapons=false",
-                "Quality=Automatic", "FourthPlayerQuality=Automatic"), "and all of it is saved");
+                "Quality=High", "FourthPlayerQuality=High"), "and all of it is saved");
 
         Screen back = Screen.opened();
         before.forEach((id, value) -> {
@@ -1255,9 +1255,10 @@ public final class CoreTests {
     }
 
     /** What the quick lists at the top of the options page read on what a first start runs on, and what Everything's Off leaves. */
-    private static void aFreshInstallReadsOnInEveryQuickList() {
+    private static void whatTheQuickListsReadOnAFreshInstall() {
         Screen screen = Screen.opened();
-        check(screen.readsAll().equals("On On On On On"), "as the mod comes, every quick list reads On: " + screen.readsAll());
+        // Everything's On puts first person graphics at High, and the mod comes at Automatic.
+        check(screen.readsAll().equals("Mixed On On On On"), "as the mod comes, Everything reads Mixed and every other quick list On: " + screen.readsAll());
         // Talking mouths and the view a save loads in, which no list switches, set on the page first.
         screen.set(Config.TALKING_MOUTHS, 1);
         screen.set(Config.firstPersonRow(0), 1);
