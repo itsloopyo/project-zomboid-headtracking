@@ -27,6 +27,7 @@ final class BlastTests {
         Checks.run("aRoundsHoleIsSmallWhereItWentInAndWideWhereItCameOut", BlastTests::aRoundsHoleIsSmallWhereItWentInAndWideWhereItCameOut);
         Checks.run("anObjectKeepsItsNewestRoundsHolesApartFromTheRest", BlastTests::anObjectKeepsItsNewestRoundsHolesApartFromTheRest);
         Checks.run("holesOverlappingOnRaggedFacesAlwaysCut", BlastTests::holesOverlappingOnRaggedFacesAlwaysCut);
+        Checks.run("aSliverOutOnTheMapIsCutWhereItsFloatsAreCoarse", BlastTests::aSliverOutOnTheMapIsCutWhereItsFloatsAreCoarse);
     }
 
     private static void check(boolean condition, String what) {
@@ -419,16 +420,17 @@ final class BlastTests {
         int[] exactOnes = {1543, 17853, 36538}, mixedOnes = {95, 100, 186, 509, 741, 774, 16704};
         int threw = 0;
         String first = null;
-        for (int pass = 0; pass < 2; pass++) {
-            boolean exact = pass == 0;
+        for (int pass = 0; pass < 4; pass++) {
+            boolean exact = pass % 2 == 0;
+            float out = pass < 2 ? 0f : 12257f;
             int[] known = exact ? exactOnes : mixedOnes;
             for (int i = 0; i < 1500 + known.length; i++) {
                 int run = i < 1500 ? i : known[i - 1500];
                 try {
-                    cutRaggedFence(new java.util.Random(run), blasts, exact);
+                    cutRaggedFence(new java.util.Random(run), blasts, exact, out);
                 } catch (RuntimeException e) {
                     threw++;
-                    first = first == null ? (exact ? "exact" : "mixed") + " run " + run + ": " + e.getMessage() : first;
+                    first = first == null ? (exact ? "exact" : "mixed") + " run " + run + " at " + out + ": " + e.getMessage() : first;
                 }
             }
         }
@@ -436,7 +438,7 @@ final class BlastTests {
     }
 
     /** One run of holesOverlappingOnRaggedFacesAlwaysCut. */
-    private static void cutRaggedFence(java.util.Random r, float[][] blasts, boolean exact) {
+    private static void cutRaggedFence(java.util.Random r, float[][] blasts, boolean exact, float out) {
         SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
         float level = ViewCamera.LEVEL_HEIGHT, foot = 0.7f;
         for (float across : new float[] {-0.04f, 0.04f}) {
@@ -449,12 +451,12 @@ final class BlastTests {
             for (int i = 0; i < columns; i++) {
                 float slope = (r.nextFloat() - 0.5f) * 0.4f;
                 float b0 = foot + slope * xs[i], b1 = foot + slope * xs[i + 1], top = foot + level * (0.7f + r.nextFloat() * 0.3f);
-                mesh.addVertex(vertex(xs[i], across, b0));
-                mesh.addVertex(vertex(xs[i + 1], across, b1));
-                mesh.addVertex(vertex(xs[i + 1], across, top));
-                mesh.addVertex(vertex(xs[i], across, b0));
-                mesh.addVertex(vertex(xs[i + 1], across, top));
-                mesh.addVertex(vertex(xs[i], across, top));
+                mesh.addVertex(vertex(out + xs[i], across, b0));
+                mesh.addVertex(vertex(out + xs[i + 1], across, b1));
+                mesh.addVertex(vertex(out + xs[i + 1], across, top));
+                mesh.addVertex(vertex(out + xs[i], across, b0));
+                mesh.addVertex(vertex(out + xs[i + 1], across, top));
+                mesh.addVertex(vertex(out + xs[i], across, top));
             }
         }
         float[] entries = new float[0];
@@ -477,10 +479,37 @@ final class BlastTests {
                 entries = BlastHoles.with(entries, true, along, up, BlastHoles.MARK_RADIUS, r.nextInt(1 << 20), r.nextBoolean() ? 1 : -1);
             }
         }
-        MeshCut cut = new MeshCut(0f, 0f, 1f, 0f, 0.08f);
+        MeshCut cut = new MeshCut(out, 0f, 1f, 0f, 0.08f);
         BlastHoles.into(cut, entries, true, 0f, 1f, foot, level, 1);
         cut.cut(mesh, 0);
         cut.finish();
+    }
+
+    /**
+     * A thin face of a wall at 12257, 6834 that a blast's hole crosses near its far end, as the
+     * game built it: its corners and the outline are the ones logged when it threw. Out there a
+     * coordinate's floats are a 2048th of a tile apart, and the two crossings of the sliver, taken
+     * off their vertices, came out the wrong way round and left an outline with no ear.
+     */
+    private static void aSliverOutOnTheMapIsCutWhereItsFloatsAreCoarse() {
+        float[] outline = {0.51219875f, 0.95093054f, 0.5149327f, 0.97389555f, 0.50263053f, 1.0070144f, 0.48270097f, 1.0291989f,
+                0.45091352f, 1.0093796f, 0.42838237f, 1.0398346f, 0.40504196f, 1.014316f, 0.3964227f, 0.98264956f, 0.38945898f, 0.96599f,
+                0.37554482f, 0.9357951f, 0.39876086f, 0.92835987f, 0.38326222f, 0.89352685f, 0.40988925f, 0.87234074f, 0.4270366f, 0.8776123f,
+                0.4524555f, 0.85794884f, 0.4705865f, 0.88180804f, 0.4870303f, 0.89890176f, 0.4843071f, 0.9219395f};
+        float x = 12257.01f, y = 6834f;
+        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+        mesh.addVertex(vertex(x, y, -0.046875f));
+        mesh.addVertex(vertex(x, y + 0.54003906f, 1.1519477f));
+        mesh.addVertex(vertex(x, y + 0.5488281f, 1.1719604f));
+        MeshCut cut = new MeshCut(12257f, y, 0f, 1f, 0.08f);
+        cut.hole(outline, 0.45f, 0.95f);
+        String threw = null;
+        try {
+            cut.cut(mesh, 0);
+        } catch (IllegalStateException e) {
+            threw = e.getMessage();
+        }
+        check(threw == null, "the sliver is cut: " + threw);
     }
 
     private static void anObjectKeepsItsNewestRoundsHolesApartFromTheRest() {

@@ -316,7 +316,13 @@ final class MeshCut {
         float area = (sB - sA) * (tC - tA) - (sC - sA) * (tB - tA);
         if (Math.abs(area) > EDGE_ON) {
             int before = nextFloats;
-            cutFace(tri, at, hole.outlineAt(aA + aB + aC), sA, tA, sB, tB, sC, tC);
+            float[] outline = hole.outlineAt(aA + aB + aC);
+            try {
+                cutFace(tri, at, outline, sA, tA, sB, tB, sC, tC);
+            } catch (IllegalStateException e) {
+                throw new IllegalStateException("cutting the face " + sA + " " + tA + " " + sB + " " + tB + " " + sC + " " + tC
+                        + " by the outline " + java.util.Arrays.toString(outline), e);
+            }
             if (nextFloats != before + 3 * V || !sameTriangle(tri, at, next, before)) {
                 if (hole.donorMesh == null) {
                     hole.donorMesh = mesh;
@@ -403,7 +409,10 @@ final class MeshCut {
                 float along = uFirst ? share : 1f - share;
                 float eS = cs[(e + 1) % 3] - cs[e], eT = ct[(e + 1) % 3] - ct[e];
                 boolean into = (qS - pS) * eT - (qT - pT) * eS > 0f;
-                crossings.add(new Crossing(e, e + along, j, j + dP / (dP - dQ), into, made, s(made, 0), made[2]));
+                // Its place in the plane from the edge's own, never read back off the vertex: out on
+                // the map the vertex's floats are a world coordinate, a 2048th of a tile apart or
+                // worse, enough to put the two crossings of a sliver the wrong way round.
+                crossings.add(new Crossing(e, e + along, j, j + dP / (dP - dQ), into, made, fS + (sS - fS) * share, fT + (sT - fT) * share));
             }
         }
         polygon.clear();
