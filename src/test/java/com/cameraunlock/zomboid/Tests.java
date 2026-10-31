@@ -317,6 +317,7 @@ public final class Tests {
         Checks.run("recoilIsOverInAHundredAndFiftyMilliseconds", Tests::recoilIsOverInAHundredAndFiftyMilliseconds);
         Checks.run("stepBobsTheWeaponDownAndAcross", Tests::stepBobsTheWeaponDownAndAcross);
         Checks.run("ridingInASeatIsNoWalk", Tests::ridingInASeatIsNoWalk);
+        Checks.run("theCharacterBeingMadeTurnsItsHeadAsAReflectionWould", Tests::theCharacterBeingMadeTurnsItsHeadAsAReflectionWould);
         Checks.run("flashIsBrightestAtTheShotAndGoneAfterItsTime", Tests::flashIsBrightestAtTheShotAndGoneAfterItsTime);
         Checks.run("plantsStandWhereTheyStoodAndAreNeverTooMany", Tests::plantsStandWhereTheyStoodAndAreNeverTooMany);
         Checks.run("fallenLeavesAreAsDeepFromEitherChunkThatSharesACorner", Tests::fallenLeavesAreAsDeepFromEitherChunkThatSharesACorner);
@@ -911,6 +912,15 @@ public final class Tests {
         check(near(ViewModelMath.walked(0.016f, 0f, 0.01f, 12f, false), 1.6f), "on foot the bob goes at the walk");
         check(ViewModelMath.walked(0.058f, 0f, 0.01f, 12f, true) == 0f, "seated at 21 km/h the weapon has no step to bob with");
         check(ViewModelMath.walked(0.5f, 0f, 0.01f, 12f, false) == 0f, "a teleport is no walk");
+    }
+
+    private static void theCharacterBeingMadeTurnsItsHeadAsAReflectionWould() {
+        float right = (float) Math.toRadians(30), up = (float) Math.toRadians(12), tiltLeft = (float) Math.toRadians(8);
+        float[] turned = new float[3];
+        CustomiseCharacter.mirror(new float[] {right, up, tiltLeft}, turned);
+        check(turned[0] == -right, "a head turned to the player's right turns the character's, which faces them, to its own left");
+        check(turned[1] == up, "a head looking up looks up");
+        check(turned[2] == -tiltLeft, "a head tilted to the player's left tilts the character's to its own right");
     }
 
     private static void flashIsBrightestAtTheShotAndGoneAfterItsTime() {

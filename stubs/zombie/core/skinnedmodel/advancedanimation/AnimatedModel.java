@@ -3,6 +3,9 @@ package zombie.core.skinnedmodel.advancedanimation;
 public final class AnimatedModel {
     public zombie.core.skinnedmodel.animation.AnimationPlayer getAnimationPlayer() { throw new UnsupportedOperationException("reference stub"); }
     public float getScale() { throw new UnsupportedOperationException("reference stub"); }
+    public zombie.characters.IsoGameCharacter getCharacter() { throw new UnsupportedOperationException("reference stub"); }
+    public String getAnimalType() { throw new UnsupportedOperationException("reference stub"); }
+    public void update() { throw new UnsupportedOperationException("reference stub"); }
 
     private final StateInfo[] stateInfos = null;
 

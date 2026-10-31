@@ -238,6 +238,7 @@ final class Config {
                 "How two players share one screen: Vertical (side by side) or Horizontal (above and below). Takes effect at once.\n"
                         + "Vertical is the game's own split screen, and from the next start the mod leaves that part of the game alone.",
                 writable | live, SplitScreen.words(), SplitScreen.VERTICAL);
+        describe(Part.CUSTOMISE_CHARACTER_HEAD);
         describeParts("FirstPerson");
         for (int player = 1; player < View.COUNT; player++) {
             String whose = "Player " + (player + 1) + "'s ";

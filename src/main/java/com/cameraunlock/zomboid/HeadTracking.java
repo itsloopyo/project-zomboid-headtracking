@@ -149,7 +149,16 @@ final class HeadTracking {
         found.distance = room + margin;
     }
 
+    /** When core was last asked for this view's frame, by System.nanoTime. */
+    private long askedAt = Long.MIN_VALUE / 2;
+
+    /** Whether core was asked for this view's frame lately: in a save, the view's own frame asks every frame, and in the menus nothing does. */
+    boolean askedSince(long nanos) {
+        return askedAt - nanos >= 0;
+    }
+
     private void ask(boolean active, int more) {
+        askedAt = System.nanoTime();
         input.flags = CameraUnlock.FRAME_CLOCK | (active ? CameraUnlock.FRAME_ACTIVE : 0) | more;
         input.deltaSeconds = MAX_FRAME_SECONDS;
         input.tanHalfFov = fieldOfView.tanHalfVertical();

@@ -7,4 +7,5 @@ public final class ModelMesh {
     public int modificationCount;
     public String fullPath;
     public boolean isReady() { throw new UnsupportedOperationException("reference stub"); }
+    public void Draw(zombie.core.skinnedmodel.shader.Shader shader) { throw new UnsupportedOperationException("reference stub"); }
 }

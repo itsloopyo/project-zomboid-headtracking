@@ -54,6 +54,10 @@ Press `Delete` to switch between the isometric view and first person, on foot or
 
 Off by default. Tick **Talking mouths** in the options and your character's mouth moves with what you say into your microphone. Your voice is never recorded or sent anywhere. Online, other players who have this mod only get how your head is turned and the shape of your mouth.
 
+### Customise Character
+
+On the game's Customise Character screen, the character you are making turns its head as you turn yours, as your reflection would. If Talking mouths was on when the game started, its mouth moves with what you say into your microphone too. Untick **Head tracking in Customise Character** in the options to leave it as the game poses it.
+
 ## Multiplayer
 
 On a server without PvP, the mod works the same as offline, except for a few things that stay vanilla on every server, your own co-op host included: shots don't break lamps or windows or blow holes in doors and fences, limb shots work as in vanilla, and vehicles handle as in vanilla, on level ground.
@@ -427,6 +431,11 @@ RegripTwoHandedWeapons=true
 ; How two players share one screen: Vertical (side by side) or Horizontal (above and below). Takes effect at once.
 ; Vertical is the game's own split screen, and from the next start the mod leaves that part of the game alone.
 SplitScreen=Vertical
+; true: on the game's Customise Character screen, the character shown turns its head as you turn yours, as your
+; reflection would, and if TalkingMouths was on as the game started, its mouth moves with what you say into your
+; microphone. false: it stands as the game poses it.
+; Takes effect at once. From the next start, off also stops the mod changing the game's own code for this.
+CustomiseCharacterHead=true
 
 [Smoothing]
 ; Smoothing for a tracker on this PC that sends to 127.0.0.1. 0 is the least, 1 the most.

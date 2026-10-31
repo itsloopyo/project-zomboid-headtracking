@@ -28,7 +28,7 @@ import zombie.core.textures.Texture;
 final class GameMouths {
     private GameMouths() {}
 
-    private static final String PROGRAM = "basicEffect";
+    static final String PROGRAM = "basicEffect";
     private static final String SKINNED = "basicEffect.vert", HUNG = "basicEffect_static.vert", FRAGMENT = "basicEffect.frag";
 
     private static final Pattern VERSION = Pattern.compile("#version\\s+(\\d+)");

@@ -617,6 +617,7 @@ public final class Agent {
                 new PatchSet("split screen", splitScreen, splitScreenOff),
                 new PatchSet("waiting composites", waitingComposites, offNow(Part.FIRST_PERSON, Part.SKINS_COMPOSED_WHILE_WAITING)),
                 new PatchSet("spotting", spotting, offNow(Part.FIRST_PERSON, Part.SKIP_COVERED_GAME_DRAWING, Part.SPOT_BY_SIGHT)),
+                new PatchSet("customise character", new PatchTransformer(customiseCharacterPatches()), offNow(Part.CUSTOMISE_CHARACTER_HEAD)),
                 new PatchSet("viewpoint", new PatchTransformer(viewpointPatches()), () -> Tracking.enabled() ? null : "head tracking is off"),
                 new PatchSet("viewpoint start", new PatchTransformer(viewpointStartPatches()), in));
     }
@@ -1123,6 +1124,28 @@ public final class Agent {
                 new Patch(PART_DRAW, "RenderCharacter left out under the first person picture", classBytes -> CallSite.returnAtOnceIf(classBytes,
                         new CallSite.Method(PART_DRAW, "RenderCharacter", "(L" + CHARACTER_DRAW + ";)V"),
                         new CallSite.Method(HOOKS, "gamesOwnDrawIsCovered", "()Z"))));
+    }
+
+    /**
+     * Apart: the character on the game's Customise Character screen turns its head with the
+     * player's and moves its mouth with their microphone (CustomiseCharacter). The panel poses
+     * and draws a model of its own, which nothing else of the mod reaches. Without it that
+     * character stands as the game poses it.
+     */
+    private static List<Patch> customiseCharacterPatches() {
+        String panel = "zombie/ui/UI3DModel", part = ANIMATED_MODEL + "$AnimatedModelInstanceRenderData";
+        String mesh = "zombie/core/skinnedmodel/model/ModelMesh", shader = "zombie/core/skinnedmodel/shader/Shader";
+        return List.of(new Patch(panel, "render poses its model through CustomiseCharacter", classBytes -> CallSite.replaceEach(classBytes,
+                        new CallSite.Method(panel, "render", "()V"), new CallSite.Method(ANIMATED_MODEL, "update", "()V"),
+                        new CallSite.Method(HOOKS, "previewPosed", "(L" + ANIMATED_MODEL + ";)V"), 1)),
+                new Patch(ANIMATED_MODEL, "DrawCharSingular draws its mesh through CustomiseCharacter", classBytes -> CallSite.replaceEach(classBytes,
+                        new CallSite.Method(ANIMATED_MODEL, "DrawCharSingular", "(L" + part + ";)V"), new CallSite.Method(mesh, "Draw", "(L" + shader + ";)V"),
+                        code -> {
+                            code.aload(0);
+                            code.aload(1);
+                            CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "previewMeshDrawn",
+                                    "(L" + mesh + ";L" + shader + ";L" + ANIMATED_MODEL + ";L" + part + ";)V"));
+                        }, 1)));
     }
 
     /**

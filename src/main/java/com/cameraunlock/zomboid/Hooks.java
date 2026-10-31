@@ -31,6 +31,8 @@ import zombie.core.physics.RagdollBodyPart;
 import zombie.core.skinnedmodel.animation.AnimationPlayer;
 import zombie.core.skinnedmodel.model.Model;
 import zombie.core.skinnedmodel.model.ModelInstanceRenderData;
+import zombie.core.skinnedmodel.model.ModelMesh;
+import zombie.core.skinnedmodel.shader.Shader;
 import zombie.core.skinnedmodel.model.ModelSlotRenderData;
 import zombie.input.AimingReticle;
 import zombie.inventory.types.HandWeapon;
@@ -952,6 +954,16 @@ public final class Hooks {
         return view != null && view.characters.gamesOwnDrawIsCovered();
     }
 
+    /** In place of UI3DModel.render's update of the model it shows, which poses it: see CustomiseCharacter. */
+    public static void previewPosed(AnimatedModel model) {
+        CustomiseCharacter.update(model);
+    }
+
+    /** In place of AnimatedModel.DrawCharSingular's draw of a part's mesh: see CustomiseCharacter. */
+    public static void previewMeshDrawn(ModelMesh mesh, Shader shader, AnimatedModel model, AnimatedModel.AnimatedModelInstanceRenderData part) {
+        CustomiseCharacter.draw(mesh, shader, model, part);
+    }
+
     /** In place of the game's draw of one part of a model, once it has taken the part's skin from the model: GameMouths draws it, a talking person's mouth open. */
     public static void partDrawn(Model model, ModelSlotRenderData slot, ModelInstanceRenderData part) {
         View view = drawn();
@@ -1213,6 +1225,7 @@ public final class Hooks {
 
     /** Called from AnimationPlayer.updateAnimation_StandardAnimation once the bones are posed and the spine is twisted. */
     public static void pose(AnimationPlayer animation) {
+        CustomiseCharacter.pose(animation);
         HitFlinch.pose(animation);
         WoundPose.pose(animation, wounds);
         SharedHeads.pose(animation);
@@ -1230,6 +1243,7 @@ public final class Hooks {
         SharedHeads.posed(animation);
         WoundPose.posed(animation);
         HitFlinch.posed(animation);
+        CustomiseCharacter.posed(animation);
         for (int i = 0; i < View.COUNT; i++) {
             View view = View.of(i);
             if (view != null) {
