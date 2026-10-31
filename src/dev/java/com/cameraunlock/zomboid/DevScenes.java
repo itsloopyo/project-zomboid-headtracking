@@ -22,6 +22,7 @@ import zombie.ui.UIManager;
  * each and what to look for is in .lab/GAMEPLAY_DEFECTS/RUNBOOK.md.
  */
 final class DevScenes {
+    /** Shift with the right and the left arrow: the arrows alone are DevKeys' guns. */
     private static final int NEXT_KEY = 205, LAST_KEY = 203;
     /** Frames the map round a scene's place is given after its square is loaded, for the rooms and objects round it. */
     private static final int SETTLE_FRAMES = 45;
@@ -395,8 +396,9 @@ final class DevScenes {
 
     /** Logic thread, once a frame from DevKeys: says what a key or a scene did, for the screen, or null. */
     static String poll(IsoPlayer player) {
-        boolean back = GameKeyboard.isKeyPressed(LAST_KEY);
-        if (back || GameKeyboard.isKeyPressed(NEXT_KEY)) {
+        boolean shift = DevKeys.shiftHeld();
+        boolean back = shift && GameKeyboard.isKeyPressed(LAST_KEY);
+        if (back || shift && GameKeyboard.isKeyPressed(NEXT_KEY)) {
             scene = back ? Math.floorMod(Math.max(scene, 0) - 1, SCENES.length) : (scene + 1) % SCENES.length;
             waiting = SCENES[scene];
             waitingSince = System.nanoTime();

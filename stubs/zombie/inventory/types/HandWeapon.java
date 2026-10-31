@@ -24,4 +24,5 @@ public final class HandWeapon extends InventoryItem {
     public float getMaxRange() { throw new UnsupportedOperationException("reference stub"); }
     public int getProjectileCount() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isRangeFalloff() { throw new UnsupportedOperationException("reference stub"); }
+    public void setFireMode(String fireMode) { throw new UnsupportedOperationException("reference stub"); }
 }

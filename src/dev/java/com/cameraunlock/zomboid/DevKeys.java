@@ -77,7 +77,11 @@ import zombie.vehicles.VehiclePart;
  * weakest of the game's three on the first press, the next on each press after, and round
  * again. For looking through each scope without finding one and a screwdriver.
  *
- * Right arrow and Left arrow go to the next and the last of the test scenes: see DevScenes.
+ * Right arrow and Left arrow put the next and the last of a .44 pistol, a pump shotgun and an
+ * assault rifle set to fire automatic in the player's hands, round and round, from the player's
+ * inventory where one is there and new where not. They are kept loaded as any firearm is.
+ *
+ * Shift with Right arrow and Left arrow goes to the next and the last of the test scenes: see DevScenes.
  *
  * Up arrow puts the graphics mode of the view the player is in at Low, and at High on the
  * next press, and says on the screen which: for comparing the two without stepping F9 round.
@@ -227,6 +231,14 @@ public final class DevKeys {
             "Base.BaseballBat", "Base.BaseballBat_Nails", "Base.Crowbar", "Base.Sledgehammer", "Base.Shovel", "Base.Golfclub",
             "Base.Hammer", "Base.Pan", "Base.LeadPipe", "Base.Nightstick", "Base.SpearCrafted", "Base.SpearLong",
     };
+    /** The right and the left arrow, without Shift, which takes them to DevScenes. */
+    private static final int NEXT_GUN_KEY = 205, LAST_GUN_KEY = 203;
+    private static final int LEFT_SHIFT = 42, RIGHT_SHIFT = 54;
+    /** The guns the arrows go round: the pistol, shotgun and rifle of each kind that do most, the rifle the game's only automatic one. */
+    private static final String[] GUNS = {"Base.Pistol3", "Base.JS3T_Shotgun", "Base.AssaultRifle"};
+    private static final String AUTOMATIC = "Auto";
+    /** The gun of GUNS last handed out, and none before the first press. */
+    private static int gun = -1;
     /** The weapon last handed out, of the firearms and then the melee weapons, and none before the first press. */
     private static int armed = -1;
     /** The left square bracket, which is beside the semicolon and the apostrophe. */
@@ -265,7 +277,7 @@ public final class DevKeys {
         String told = null;
         if (!said) {
             said = true;
-            Log.info("development build: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 puts the clock on an hour, Backspace holds the next season of spring, summer, autumn and winter, End holds the next weather of clear, rainy, snowy and stormy, Home starts a fire where the reticle is, ; gives the next of the game's firearms, any gun held never runs dry, [ gives a hunting rifle with the next of the three scopes on it, / gives a lit flashlight, Up arrow puts the graphics at Low and High in turn, ' makes you invincible, Down arrow takes the nearest vehicle, Right arrow and Left arrow go to the next and the last test scene, Pause dumps the frame and the shadow maps");
+            Log.info("development build: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 puts the clock on an hour, Backspace holds the next season of spring, summer, autumn and winter, End holds the next weather of clear, rainy, snowy and stormy, Home starts a fire where the reticle is, ; gives the next of the game's firearms, any gun held never runs dry, [ gives a hunting rifle with the next of the three scopes on it, / gives a lit flashlight, Up arrow puts the graphics at Low and High in turn, ' makes you invincible, Down arrow takes the nearest vehicle, Right arrow and Left arrow give the next and the last of a .44 pistol, a pump shotgun and an automatic rifle, Shift with them goes to the next and the last test scene, Pause dumps the frame and the shadow maps");
         }
         if (GameKeyboard.isKeyPressed(FRAME_DUMP_KEY)) {
             FrameDump.ask();
@@ -378,6 +390,22 @@ public final class DevKeys {
             Log.info(";: " + name + " in hand for " + players.size() + " players, " + (armed + 1) + " of " + (FIREARMS.length + MELEE.length)
                     + (firearm ? ", kept loaded" : ""));
             told = (firearm ? "Firearm: " : "Melee: ") + name.substring("Base.".length());
+        }
+        boolean lastGun = !shiftHeld() && GameKeyboard.isKeyPressed(LAST_GUN_KEY);
+        if (lastGun || !shiftHeld() && GameKeyboard.isKeyPressed(NEXT_GUN_KEY)) {
+            gun = lastGun ? Math.floorMod(Math.max(gun, 0) - 1, GUNS.length) : (gun + 1) % GUNS.length;
+            String name = GUNS[gun];
+            for (IsoPlayer each : players) {
+                InventoryItem carried = each.getInventory().getFirstType(name);
+                HandWeapon weapon = (HandWeapon) (carried != null ? carried : each.getInventory().AddItem(name));
+                if (name.equals("Base.AssaultRifle")) {
+                    weapon.setFireMode(AUTOMATIC);
+                }
+                each.setPrimaryHandItem(weapon);
+                each.setSecondaryHandItem(weapon);
+            }
+            Log.info((lastGun ? "Left" : "Right") + " arrow: " + name + " in hand for " + players.size() + " players, kept loaded");
+            told = "Gun: " + name.substring("Base.".length());
         }
         if (GameKeyboard.isKeyPressed(SCOPED_KEY)) {
             scope = (scope + 1) % ScopeOptics.KNOWN.length;
@@ -704,5 +732,10 @@ public final class DevKeys {
         }
         boolean seated = nearest.enter(seat, player);
         Log.info("took the vehicle at (" + nearest.getX() + ", " + nearest.getY() + "), player " + (player.getPlayerNum() + 1) + " seated " + seated + " in seat " + seat);
+    }
+
+    /** Whether either Shift is held. */
+    static boolean shiftHeld() {
+        return GameKeyboard.isKeyDown(LEFT_SHIFT) || GameKeyboard.isKeyDown(RIGHT_SHIFT);
     }
 }

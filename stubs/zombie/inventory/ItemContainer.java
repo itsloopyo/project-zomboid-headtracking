@@ -8,4 +8,5 @@ public class ItemContainer {
     public boolean contains(InventoryItem item) { throw new UnsupportedOperationException("reference stub"); }
     public InventoryItem getContainingItem() { throw new UnsupportedOperationException("reference stub"); }
     public void Remove(InventoryItem item) { throw new UnsupportedOperationException("reference stub"); }
+    public InventoryItem getFirstType(String type) { throw new UnsupportedOperationException("reference stub"); }
 }
