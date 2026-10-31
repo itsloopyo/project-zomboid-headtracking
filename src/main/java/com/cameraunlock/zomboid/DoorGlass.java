@@ -58,10 +58,12 @@ final class DoorGlass {
 
     /** The lights broken of each door loaded, for the builds to read off the logic thread. */
     private static final Map<IsoObject, Integer> broken = Collections.synchronizedMap(new WeakHashMap<>());
+    /** Whether a light has been kept broken this session: in most none is, and the builds and the sums ask of every door they meet. */
+    private static volatile boolean any;
 
     /** The lights of a door that are broken, a bit a light. Any thread. */
     static int broken(IsoObject door) {
-        Integer lights = broken.get(door);
+        Integer lights = any ? broken.get(door) : null;
         return lights == null ? 0 : lights;
     }
 
@@ -77,6 +79,7 @@ final class DoorGlass {
                 for (int k = 0; k < objects.size(); k++) {
                     IsoObject object = objects.get(k);
                     if (isDoor(object) && object.hasModData() && object.getModData().rawget(BROKEN) instanceof Double lights) {
+                        any = true;
                         broken.put(object, lights.intValue());
                     }
                 }
@@ -198,6 +201,7 @@ final class DoorGlass {
         if (now == broken(door)) {
             return false;
         }
+        any = true;
         broken.put(door, now);
         KahluaTable data = door.getModData();
         data.rawset(BROKEN, (double) now);

@@ -67,10 +67,15 @@ final class BlastHoles {
 
     /** What each object loaded keeps, for the builds to read off the logic thread. */
     private static final Map<IsoObject, float[]> kept = Collections.synchronizedMap(new WeakHashMap<>());
+    /**
+     * Whether anything has been kept since the save was looked at. In most saves nothing is, and
+     * the builds and the sums, which ask of every object they meet, take no lock to be told so.
+     */
+    private static volatile boolean any;
 
     /** An object's holes and marks, FLOATS numbers each, or null for none. Any thread. */
     static float[] of(IsoObject object) {
-        return kept.get(object);
+        return any ? kept.get(object) : null;
     }
 
     /**
@@ -164,7 +169,9 @@ final class BlastHoles {
                 for (int k = 0; k < objects.size(); k++) {
                     IsoObject object = objects.get(k);
                     if (object.hasModData() && object.getModData().rawget(KEY) instanceof String saved) {
-                        kept.put(object, parse(saved));
+                        float[] entries = parse(saved);
+                        any = true;
+                        kept.put(object, entries);
                     }
                 }
             }
@@ -202,6 +209,7 @@ final class BlastHoles {
     static void add(IsoObject object, boolean north, float along, float up, float radius, int seed, int side) {
         float[] was = kept.get(object);
         float[] now = with(was == null ? new float[0] : was, north, along, up, radius, seed, side);
+        any = true;
         kept.put(object, now);
         KahluaTable data = object.getModData();
         data.rawset(KEY, write(now));
@@ -249,7 +257,7 @@ final class BlastHoles {
 
     /** Whether (along, up) on an object's north or west edge is inside one of its holes, far enough in for a shot to go through: see THROUGH. Logic thread. */
     static boolean through(IsoObject object, boolean north, float along, float up) {
-        float[] entries = kept.get(object);
+        float[] entries = of(object);
         return entries != null && inAHole(entries, north, along, up);
     }
 
@@ -270,7 +278,7 @@ final class BlastHoles {
 
     /** Whether an object has a hole: a door or a wall with one is seen through, as a door with glass is (RoomMap). Logic thread. */
     static boolean holed(IsoObject object) {
-        float[] entries = kept.get(object);
+        float[] entries = of(object);
         if (entries == null) {
             return false;
         }
@@ -316,5 +324,6 @@ final class BlastHoles {
     /** Forgets every object's: the save is left. */
     static void forget() {
         kept.clear();
+        any = false;
     }
 }
