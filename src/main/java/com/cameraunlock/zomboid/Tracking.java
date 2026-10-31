@@ -768,8 +768,7 @@ final class Tracking {
         long now = System.nanoTime();
         for (int i = 0; i < View.COUNT; i++) {
             IsoPlayer player = IsoPlayer.players[i];
-            // With first person switched off the button is the game's alone: its wheel is left up.
-            boolean down = Part.FIRST_PERSON.running() && player != null && View.onController(player) && JoypadButton.Back.isDown(player.getJoypadBind());
+            boolean down = player != null && View.onController(player) && JoypadButton.Back.isDown(player.getJoypadBind());
             if (backTaps[i].press(down, now)) {
                 owed[i] |= Config.FIRST_PERSON;
                 backHeld[i] = true;
