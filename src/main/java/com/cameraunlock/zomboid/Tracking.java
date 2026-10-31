@@ -193,6 +193,7 @@ final class Tracking {
         aimMode = settings.aimMode;
 
         Config.Live live = config.live();
+        inVehicles(live.firstPersonInVehicles());
         Part.start(live.parts());
         Own.set(live.own());
         Rules.set(live.rules());
@@ -203,7 +204,6 @@ final class Tracking {
             Style.set(player, live.style()[player]);
         }
         firstPersonAtLoad.set(live.firstPerson());
-        firstPersonInVehicles.set(live.firstPersonInVehicles());
         HillHeight.set(live.hillHeight());
         MuzzleFlash.set(live.muzzleFlash());
         Crosshair.set(live.crosshair());
@@ -319,7 +319,7 @@ final class Tracking {
         // Only the rows the file changed: a toggle made since the file was read is saved after this reload, and kept.
         int changed = live.firstPerson() ^ was.firstPerson();
         firstPersonAtLoad.updateAndGet(bits -> bits & ~changed | live.firstPerson() & changed);
-        firstPersonInVehicles.set(live.firstPersonInVehicles());
+        inVehicles(live.firstPersonInVehicles());
         if (live.hillHeight() != was.hillHeight()) {
             HillHeight.set(live.hillHeight());
             Log.info(Config.FILE_NAME + " changed: hill height set to " + live.hillHeight());
@@ -491,6 +491,18 @@ final class Tracking {
      *     where the picture was
      */
     static Set<String> applyScreen(Map<String, Double> changed, Quality.Picture custom) {
+        return apply(changed, custom, "the game's options screen");
+    }
+
+    /**
+     * Settings a key needs to show what it was pressed for, taken and saved as applyScreen takes
+     * and saves the options screen's, and logged as taken from the key. Logic thread.
+     */
+    static void applyForKey(Map<String, Double> needed, String key) {
+        apply(needed, null, key);
+    }
+
+    private static Set<String> apply(Map<String, Double> changed, Quality.Picture custom, String from) {
         boolean pictured = false;
         if (custom != null) {
             // Before player 1's graphics mode, which may be among the settings: Custom comes on drawing this picture, not the one before.
@@ -510,7 +522,7 @@ final class Tracking {
                 configure |= take(setting.getKey(), setting.getValue());
                 taken.put(setting.getKey(), setting.getValue());
             } catch (RuntimeException failure) {
-                Log.error(setting.getKey() + " as applied on the game's options screen was not taken", failure);
+                Log.error(setting.getKey() + " as applied from " + from + " was not taken", failure);
             }
         }
         if (configure) {
@@ -528,8 +540,8 @@ final class Tracking {
         if (pictured) {
             now.add("player 1's Custom graphics");
         }
-        Log.info(now.length() == 0 ? "saved from the game's options screen for the next start: " + atStart
-                : "taken from the game's options screen: " + now + (atStart.length() > 0 ? "; saved for the next start: " + atStart : ""));
+        Log.info(now.length() == 0 ? "saved from " + from + " for the next start: " + atStart
+                : "taken from " + from + ": " + now + (atStart.length() > 0 ? "; saved for the next start: " + atStart : ""));
         boolean savePicture = pictured;
         Map<String, Applied> applied = new LinkedHashMap<>();
         taken.forEach((key, value) -> applied.put(key, new Applied(value)));
@@ -875,7 +887,24 @@ final class Tracking {
      */
     static void cycleGraphicsMode(int player) {
         boolean firstPerson = Quality.firstPersonInEffect(player);
-        setGraphicsMode(player, firstPerson, firstPerson ? Quality.next(player) : Quality.nextOverhead(player));
+        int mode = firstPerson ? Quality.next(player) : Quality.nextOverhead(player);
+        setGraphicsMode(player, firstPerson, mode);
+        if (mode == Quality.LOW) {
+            return;
+        }
+        // Past Low a mode is the mod's picture, which shows nothing of Low's difference with every Vanilla row on or with no first person.
+        Map<String, Double> needed = new LinkedHashMap<>();
+        if (Own.rows() == 0) {
+            for (String key : Config.VANILLA_KEYS) {
+                needed.put(key, 0.0);
+            }
+        }
+        if (!Part.FIRST_PERSON.on()) {
+            needed.put(Part.FIRST_PERSON.key, 1.0);
+        }
+        if (!needed.isEmpty()) {
+            applyForKey(needed, "the graphics key, so that " + Quality.said(player) + " looks as it does");
+        }
     }
 
     /** A player's graphics mode of their first person or their isometric view, kept for the next start. */
@@ -919,6 +948,12 @@ final class Tracking {
 
     static void firstPersonInVehicles(int player, boolean on) {
         setBit(firstPersonInVehicles, player, on);
+        Part.firstPersonInVehicles(firstPersonInVehicles.get() != 0);
+    }
+
+    private static void inVehicles(int players) {
+        firstPersonInVehicles.set(players);
+        Part.firstPersonInVehicles(players != 0);
     }
 
     private static void setBit(AtomicInteger bits, int player, boolean on) {

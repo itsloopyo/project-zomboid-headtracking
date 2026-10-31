@@ -2,6 +2,7 @@ package com.cameraunlock.zomboid;
 
 import java.util.HashSet;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import org.joml.Vector3f;
 import se.krka.kahlua.vm.KahluaTable;
@@ -91,6 +92,8 @@ public final class FirstPerson {
     /** The hint said after the first, and when: HINT_GAP_NANOS after the first goes. */
     private String laterHint;
     private long laterHintAt;
+    /** Whether the hint said is the later one. */
+    private boolean hintIsLater;
     /** A save loaded in first person: its hints are said once the view has landed, not under "getting ready". */
     private boolean hintsOnLanding;
     private static final long HINT_GAP_NANOS = 3_000_000_000L;
@@ -672,7 +675,7 @@ public final class FirstPerson {
             return "no player";
         }
         if (!Part.FIRST_PERSON.on()) {
-            return Part.FIRST_PERSON.key + " is off in " + Config.FILE_NAME;
+            return Part.FIRST_PERSON.key + " and every FirstPersonInVehicles row are off in " + Config.FILE_NAME;
         }
         String gap = patchGap();
         if (gap == null) {
@@ -731,6 +734,7 @@ public final class FirstPerson {
             long now = System.nanoTime();
             if (laterHint != null && now >= laterHintAt) {
                 hint = laterHint;
+                hintIsLater = true;
                 hintAt = now;
                 laterHint = null;
                 Log.info(who() + "the screen says: " + hint);
@@ -798,6 +802,7 @@ public final class FirstPerson {
     private void sayHints(IsoPlayer player, String other, String why) {
         boolean pad = View.onController(player);
         String switchKeys = Tracking.firstPersonKeys(), qualityKeys = Tracking.cycleQualityKeys();
+        hintIsLater = false;
         hint = pad ? "Double-tap Back for " + other : switchKeys.isEmpty() ? null : "Press " + OptionsLayout.keys(switchKeys) + " for " + other;
         hintAt = System.nanoTime();
         Log.info(who() + why + (hint == null ? ", and no key switches the view" : ", and the screen says: " + hint));
@@ -818,6 +823,9 @@ public final class FirstPerson {
             }
             hint = null;
             boolean asked = on || gettingReady;
+            if (!asked && !Part.FIRST_PERSON.on()) {
+                Tracking.applyForKey(Map.of(Part.FIRST_PERSON.key, 1.0), "the first person key");
+            }
             toggle();
             if ((on || gettingReady) != asked) {
                 Tracking.rememberFirstPerson(view.index, !asked);
@@ -838,6 +846,12 @@ public final class FirstPerson {
             say(Tracking.aimModeLabel());
         }
         if ((pressed & Config.CYCLE_QUALITY) != 0) {
+            // The graphics key's own hint is not said again once its mode's name has gone.
+            if (laterHint != null) {
+                laterHint = null;
+            } else if (hint != null && hintIsLater) {
+                hint = null;
+            }
             say(view.pipeline.failure() != null ? cannotBeDrawn() : Quality.said(view.index));
         }
         if ((pressed & Config.CYCLE_STYLE) != 0) {
@@ -858,7 +872,7 @@ public final class FirstPerson {
         boolean allowed = allowed(player);
         if (viewAtLoadOwed && allowed) {
             viewAtLoadOwed = false;
-            if (!on && !gettingReady && Tracking.firstPersonRemembered(view.index)) {
+            if (!on && !gettingReady && Part.FIRST_PERSON.row() && Tracking.firstPersonRemembered(view.index)) {
                 Log.info(who() + "first person was on when the view was last switched: asked for again");
                 toggle();
                 hintsOnLanding = on || gettingReady;

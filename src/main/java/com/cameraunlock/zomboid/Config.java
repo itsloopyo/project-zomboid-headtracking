@@ -199,11 +199,12 @@ final class Config {
                         + "style fades in over most of a second.",
                 writable | live, Style.words(), Style.BLEAK.ordinal());
         firstPerson[0] = localBool("General", "FirstPerson",
-                "true: saves load in first person. Switching the view with the first person key, or a double tap of Back on a\n"
-                        + "controller, changes this to match.", writable | live, false);
+                "true: saves load in first person, while FirstPersonEnabled is on. Switching the view with the first person key, or a\n"
+                        + "double tap of Back on a controller, changes this to match.", writable | live, false);
         firstPersonInVehicles[0] = localBool("General", "FirstPersonInVehicles",
-                "true: getting into a vehicle switches to first person, and getting out switches back to the isometric view. The first\n"
-                        + "person key still switches the view at any time, and a view it chose is kept when you get out.",
+                "true: getting into a vehicle switches to first person, and getting out switches back to the isometric view, even\n"
+                        + "with FirstPersonEnabled off. The first person key still switches the view at any time, and a view it chose is kept\n"
+                        + "when you get out.",
                 writable | live, false);
         // Not a row of [Graphics]: it changes what the land looks like and not what the picture costs, in every graphics mode alike.
         hillHeight = localFloat("General", "HillHeight",

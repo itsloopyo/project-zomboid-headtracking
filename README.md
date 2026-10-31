@@ -266,7 +266,7 @@ Centring belongs to your tracker, recenter there.
   - **Sights locked** keeps your eye lined up with the sights while you aim.
   - **Free look with a marker** keeps the gun pointing where you aim while your head looks around it, and the game's reticle marks where the shot will land.
   - **Stock sights** fades out head turning and leaning while the sights are up, leaving only head tilt, so you see the game's normal sight picture.
-- `F9` cycles the graphics mode of the view you're in: Automatic, Low, Medium, High and Custom in first person, or Low, Medium, High and Custom in the isometric view. The other view keeps its own mode. When you switch views, the screen names the mode of the view you switched to, like `First person (High)` or `Isometric (Low)`.
+- `F9` cycles the graphics mode of the view you're in: Automatic, Low, Medium, High and Custom in first person, or Low, Medium, High and Custom in the isometric view. The other view keeps its own mode. Going past Low with every Mod content box unticked ticks them all again, and in the isometric view with first person turned off it ticks First person view, since without them every mode looks like Low. When you switch views, the screen names the mode of the view you switched to, like `First person (High)` or `Isometric (Low)`.
 - When a player's first person view is bigger than 2560x1440, every mode except Custom renders it with no more pixels than it would at 2560x1440, then scales it up to fit. In split screen that goes by each player's own part of the screen. Custom renders at its `RenderScale` at any size, and so does the isometric view.
 - `F8` cycles the picture style: Vivid, Natural, Bleak, Warm and Cold. Each new style fades in over most of a second.
 - In split screen each player has their own graphics mode and picture style. Tap `F9` or `F8` once for player 1, twice for player 2, three times for player 3 and four times for player 4, or hold it to change everyone. Settings for players 2, 3 and 4 are under `[Players]` in `CameraUnlock.ini` and on the options page.
@@ -380,10 +380,12 @@ RotationEnabled=default
 ; Milliseconds a tracker packet stays current. Once the tracker has sent nothing
 ; for this long, the mod stops following it until data arrives again.
 DataFreshnessMs=default
-; true: the mod's first person view is there to switch to. false: there is no first person view, and the isometric view
-; is the game's own whatever IsometricQuality says. The first person key, a double tap of Back on a controller and
-; FirstPerson then do nothing, and nothing more is made ready for first person, though what is ready already stays
-; until you leave the save.
+; true: the mod's first person view is there to switch to. false: saves load in the isometric view whatever FirstPerson
+; says, and with FirstPersonInVehicles on, first person comes on as you get into a vehicle. With both off there is no
+; first person view, the isometric view is the game's own whatever IsometricQuality says, and nothing more is made
+; ready for first person, though what is ready already stays until you leave the save. The first person key, or a
+; double tap of Back on a controller, then turns this on and switches to first person, and the graphics key turns it
+; on to go to an isometric graphics mode other than Low.
 ; Takes effect at once. From the next start, off also stops the mod changing the game's own code for this.
 FirstPersonEnabled=true
 ; Vertical field of view of the first person view, in degrees: 40 to 110.
@@ -399,11 +401,12 @@ IsometricQuality=Low
 ; to the game's own look), Warm (golden light and amber shade) or Cold (steel blue shade and pale light). A new
 ; style fades in over most of a second.
 Style=Bleak
-; true: saves load in first person. Switching the view with the first person key, or a double tap of Back on a
-; controller, changes this to match.
+; true: saves load in first person, while FirstPersonEnabled is on. Switching the view with the first person key, or a
+; double tap of Back on a controller, changes this to match.
 FirstPerson=false
-; true: getting into a vehicle switches to first person, and getting out switches back to the isometric view. The first
-; person key still switches the view at any time, and a view it chose is kept when you get out.
+; true: getting into a vehicle switches to first person, and getting out switches back to the isometric view, even
+; with FirstPersonEnabled off. The first person key still switches the view at any time, and a view it chose is kept
+; when you get out.
 FirstPersonInVehicles=false
 ; How tall the first person hills are: 0 is as flat as the game's map, 1 is as the mod makes them, up to 2.0.
 ; Always 1 where players can fight.
@@ -844,7 +847,7 @@ FourthPlayerMicrophone=None
 
 **Options > Mods > Head Tracking** has every setting from `CameraUnlock.ini` except the keys, the tracker's UDP ports, the lean limits (the `PositionLimit` settings), lean collision (the `Collision` settings) and `DataFreshnessMs`. Changes take effect, and are saved to `CameraUnlock.ini`, when you apply them with **APPLY** or **ACCEPT**. If you leave without applying, nothing changes.
 
-The page is split into Quick settings, Head tracking, First person, Graphics, Custom graphics, Mod content, Gameplay tweaks, Game fixes, Optimizations, Split screen, a section for each of players 2, 3 and 4, Voice, and Keys, which lists the keys and where to change them.
+The page is split into Quick settings, First person, Head tracking, Graphics, Custom graphics, Mod content, Gameplay tweaks, Game fixes, Optimizations, Split screen, a section for each of players 2, 3 and 4, Voice, and Keys, which lists the keys and where to change them.
 
 Custom graphics shows the settings behind player 1's first person graphics mode, and choosing another mode shows that mode's settings there. Changing any of them switches player 1's first person graphics to Custom. Every player set to Custom uses these settings, in first person or the isometric view.
 
@@ -853,8 +856,8 @@ Each part of the mod, gameplay tweak, game fix and optimization has its own tick
 **Quick settings**, at the top of the page, has the head tracking switch and five lists that each change a whole group of settings at once:
 
 - **Head tracking on** - on or off, saved as `EnableOnStartup`. No key turns it on or off.
-- **Everything** - `On` ticks every box on the page except Talking mouths, Horizon-relative head turns, the Custom graphics settings, and each player's Load saves in first person and First person in vehicles. It also turns head tracking on, and switches any player whose first person graphics are on Low to Automatic. `Off` unticks the same boxes, which brings back the game's own content, sets every player's graphics to Low (the game's own look) in both views, and puts split screen back to side by side, as in vanilla. Head tracking and Talking mouths stay as they are, so you can turn back on just the parts you want.
-- **First person** - `On` turns first person on and First person in vehicles off for every player, without changing which view their saves load in. `In vehicles only` loads every player's saves in the isometric view, then switches to first person when they get into a vehicle and back when they get out. `Off` turns first person off.
+- **Everything** - `On` ticks every box on the page except Talking mouths, Horizon-relative head turns, the Custom graphics settings, and each player's Load saves in first person and First person in vehicles. It also turns head tracking on, and switches any player whose first person graphics are on Low to Automatic. `Off` unticks the same boxes and First person in vehicles, which brings back the game's own content, sets every player's graphics to Low (the game's own look) in both views, and puts split screen back to side by side, as in vanilla. Head tracking and Talking mouths stay as they are, so you can turn back on just the parts you want.
+- **First person** - `On` turns first person on and First person in vehicles off for every player, without changing which view their saves load in. `In vehicles only` unticks First person view and ticks First person in vehicles for every player: saves load in the isometric view, getting into a vehicle switches to first person and getting out switches back. `Off` unticks both, so there is no first person view until you press `Delete`, which ticks First person view again.
 - **Enhanced graphics** - `On` ticks every box under Graphics and Mod content, and switches any player whose first person graphics are on Low to Automatic. `Off` unticks them, which brings back the game's own content, and sets every player's graphics to Low in both views.
 - **Gameplay tweaks** - ticks or unticks every box under Gameplay tweaks.
 - **Optimizations** - ticks or unticks every box under Optimizations.
@@ -872,7 +875,7 @@ If you run [Project Viewpoint](https://steamcommunity.com/sharedfiles/filedetail
 - **The game won't start** - delete `ProjectZomboid64.site.json` from the game folder and the game starts without the mod. If you installed by hand, make that file again (steps 4 and 5) and check it for a missing or extra comma.
 - **Problems with sights or scopes** - press `Insert` until you're on **Sights locked**.
 - **The main menu says the mod is not running** - the game version is one the mod doesn't work with, or the mod hit an error as it started. `ProjectZomboidHeadTracking.log` says which. The game runs as it does without the mod.
-- **`Delete` doesn't turn first person on** - the screen says why: it's turned off on the options page, another mod or a game update changed something it needs, or it stopped after an error, in which case it stays off until you restart the game. `ProjectZomboidHeadTracking.log` has the details.
+- **`Delete` doesn't turn first person on** - the screen says why: another mod or a game update changed something it needs, or it stopped after an error, in which case it stays off until you restart the game. `ProjectZomboidHeadTracking.log` has the details.
 - **The screen says a setting was not saved** - the mod couldn't write `CameraUnlock.ini`, or couldn't read it when the game started. The change still applies until you quit. `ProjectZomboidHeadTracking.log` says why.
 - **First person won't turn on, and the screen says it needs OpenGL 3.3** - your graphics driver doesn't provide what's listed under [Requirements](#requirements). `ProjectZomboidHeadTracking.log` says what's missing.
 - **High looks like Medium or Low** - on an NVIDIA graphics card with less than 6 GB, or when the card runs out of memory, the mod scales every mode down so the game keeps running, and tells you so on screen. The `video memory:` lines in the log show what the card reported and what was turned down.

@@ -36,11 +36,11 @@ final class OptionsLayout {
         List<Group> groups = new ArrayList<>(List.of(
                 new Group(QUICK, "Each list below switches a whole class of settings on or off. A list shows Mixed when your settings match "
                         + "none of its lines.", null, Tracking.ENABLED_OPTION),
-                new Group(HEAD_TRACKING, null, null, Tracking.TRACKING_MODE_OPTION, Tracking.AIM_MODE_OPTION, Tracking.YAW_MODE_OPTION,
-                        Tracking.LOCAL_SMOOTHING_OPTION, Tracking.REMOTE_SMOOTHING_OPTION, Part.TORCH_FOLLOWS_HEAD.key, Tracking.LIGHT_MULTIPLIER_OPTION),
-                new Group(FIRST_PERSON, null, "FirstPerson", Part.FIRST_PERSON.key, Config.firstPersonRow(0), Config.firstPersonInVehiclesRow(0),
+                new Group(FIRST_PERSON, null, "FirstPerson", Part.FIRST_PERSON.key, Config.firstPersonInVehiclesRow(0), Config.firstPersonRow(0),
                         "FieldOfView", "Crosshair", Part.HEAR_FROM_THE_EYE.key, Part.HEAD_LED_VIEW_WHEN_DOWN.key, Part.NAME_TAGS_AT_HEADS.key,
                         Part.QUICK_RAGDOLLS.key, Part.HIT_FLINCH.key, "HillHeight"),
+                new Group(HEAD_TRACKING, null, null, Tracking.TRACKING_MODE_OPTION, Tracking.AIM_MODE_OPTION, Tracking.YAW_MODE_OPTION,
+                        Tracking.LOCAL_SMOOTHING_OPTION, Tracking.REMOTE_SMOOTHING_OPTION, Part.TORCH_FOLLOWS_HEAD.key, Tracking.LIGHT_MULTIPLIER_OPTION),
                 new Group(GRAPHICS, null, null, Config.qualityKey(0), Config.overheadQualityKey(0), Config.styleKey(0), Part.LIGHTNING_BOLTS.key,
                         Part.SHOT_IMPACTS.key, "MuzzleFlash", Part.ITEMS_AS_MODELS.key, Part.FINER_SKINS.key, Part.LEAVE_OUT_SCREEN_GREY.key,
                         Part.FAR_VEHICLES_AND_ZOMBIES.key, "HiddenWallDecor"),
@@ -374,7 +374,9 @@ final class OptionsLayout {
      * class of them, and Everything switches every tick box on the page but those of Custom
      * graphics, head tracking off, talking mouths, which opens a microphone, horizon-relative head
      * turns and the view each player loads in and takes in vehicles, which are how a player plays
-     * and not parts of the mod. Rewind30s, offered in a development build, is never switched on.
+     * and not parts of the mod. Its Off still turns first person in vehicles off with
+     * FirstPersonEnabled, since either one alone keeps first person there. Rewind30s, offered in a
+     * development build, is never switched on.
      */
     static List<QuickList> quickLists(CameraUnlock.Option[] options, int[][] layout) {
         List<String> graphics = ticks(options, layout, GRAPHICS), content = ticks(options, layout, CONTENT),
@@ -406,6 +408,7 @@ final class OptionsLayout {
                             return values;
                         }, now -> {
                             Map<String, Double> values = switched(every, false);
+                            values.putAll(firstPersonUse(false, false));
                             values.putAll(graphicsModesLow());
                             values.put("SplitScreen", (double) SplitScreen.VERTICAL);
                             return values;
@@ -413,9 +416,9 @@ final class OptionsLayout {
                 new QuickList("FirstPersonUse", "First person",
                         "On: the first person view is there to switch to with the first person key. In vehicles only: saves load in the "
                                 + "isometric view, getting into a vehicle switches to first person and getting out switches back. Off: no "
-                                + "first person view.",
+                                + "first person view until you press the first person key.",
                         new String[] {"On", "In vehicles only", "Off"},
-                        List.of(now -> firstPersonUse(true, false), now -> firstPersonUse(true, true), now -> firstPersonUse(false, false))),
+                        List.of(now -> firstPersonUse(true, false), now -> firstPersonUse(false, true), now -> firstPersonUse(false, false))),
                 new QuickList("EnhancedGraphics", "Enhanced graphics",
                         "On: the mod's own models, pictures and skins and every tick box under Graphics, with first person graphics at "
                                 + "Automatic where they were at Low. Off: the game's own look, with first person and isometric graphics at "
@@ -495,20 +498,15 @@ final class OptionsLayout {
     }
 
     /**
-     * What the First person list sets. On: first person, with no switch on getting into a
-     * vehicle. In vehicles only: first person, every player loading in the isometric view and
-     * going to first person on getting into a vehicle and back on getting out. Off: no first person.
+     * What the First person list sets: FirstPersonEnabled, and every player's FirstPersonInVehicles.
+     * On: first person, with no switch on getting into a vehicle. In vehicles only: FirstPersonEnabled
+     * off, so every player's save loads in the isometric view, and first person on getting into a
+     * vehicle and off on getting out. Off: neither.
      */
-    private static Map<String, Double> firstPersonUse(boolean on, boolean inVehicles) {
+    private static Map<String, Double> firstPersonUse(boolean enabled, boolean inVehicles) {
         Map<String, Double> values = new LinkedHashMap<>();
-        values.put(Part.FIRST_PERSON.key, on ? 1.0 : 0.0);
-        if (!on) {
-            return values;
-        }
+        values.put(Part.FIRST_PERSON.key, enabled ? 1.0 : 0.0);
         for (int player = 0; player < View.COUNT; player++) {
-            if (inVehicles) {
-                values.put(Config.firstPersonRow(player), 0.0);
-            }
             values.put(Config.firstPersonInVehiclesRow(player), inVehicles ? 1.0 : 0.0);
         }
         return values;

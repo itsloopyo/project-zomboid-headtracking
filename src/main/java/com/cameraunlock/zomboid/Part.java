@@ -12,10 +12,12 @@ package com.cameraunlock.zomboid;
  */
 enum Part {
     FIRST_PERSON("General", "FirstPersonEnabled", true, true,
-            "true: the mod's first person view is there to switch to. false: there is no first person view, and the isometric view\n"
-                    + "is the game's own whatever IsometricQuality says. The first person key, a double tap of Back on a controller and\n"
-                    + "FirstPerson then do nothing, and nothing more is made ready for first person, though what is ready already stays\n"
-                    + "until you leave the save."),
+            "true: the mod's first person view is there to switch to. false: saves load in the isometric view whatever FirstPerson\n"
+                    + "says, and with FirstPersonInVehicles on, first person comes on as you get into a vehicle. With both off there is no\n"
+                    + "first person view, the isometric view is the game's own whatever IsometricQuality says, and nothing more is made\n"
+                    + "ready for first person, though what is ready already stays until you leave the save. The first person key, or a\n"
+                    + "double tap of Back on a controller, then turns this on and switches to first person, and the graphics key turns it\n"
+                    + "on to go to an isometric graphics mode other than Low."),
     TORCH_FOLLOWS_HEAD("FirstPerson", "TorchFollowsHead", true, false,
             "true: in first person, a flashlight you carry points where your head turns, as far as LightMultiplier says.\n"
                     + "false: it points the way your character faces, whatever your head does."),
@@ -135,6 +137,8 @@ enum Part {
     /** Whether the row is taken while the game runs, and whether it is read at the start to leave patches out. */
     final boolean live, start;
     private volatile boolean on = true, atStart = true, patched = true;
+    /** FIRST_PERSON's alone: whether any player's FirstPersonInVehicles row is on, which needs first person whatever FirstPersonEnabled says. */
+    private volatile boolean forVehicles;
 
     Part(String section, String key, boolean live, boolean start, String comment) {
         this.section = section;
@@ -150,7 +154,17 @@ enum Part {
 
     /** Whether the part is on now: as the start found it, for a part not taken while the game runs. */
     boolean on() {
+        return on || forVehicles;
+    }
+
+    /** Whether the part's own row is on: for FIRST_PERSON, FirstPersonEnabled, leaving out FirstPersonInVehicles. */
+    boolean row() {
         return on;
+    }
+
+    /** Whether any player's FirstPersonInVehicles row is on, which puts first person on whatever FirstPersonEnabled says. */
+    static void firstPersonInVehicles(boolean any) {
+        FIRST_PERSON.forVehicles = any;
     }
 
     /** Whether the part was on as the game started, which decides whether its patches are in the game's code. */
@@ -165,7 +179,7 @@ enum Part {
 
     /** Whether the part works now: on, and for a part of patches, with its patches in. */
     boolean running() {
-        return on && (patched || !start);
+        return on() && (patched || !start);
     }
 
     /** Whether a row is a part's that is taken only when the game next starts. */
@@ -181,7 +195,7 @@ enum Part {
     /** Marks each part taken while the game runs that is on as in the game's code, once Agent.takeIn has put its patches in. */
     static void takenIn() {
         for (Part part : values()) {
-            if (part.live && part.on) {
+            if (part.live && part.on()) {
                 part.patched = true;
             }
         }
@@ -192,10 +206,11 @@ enum Part {
         return 1L << ordinal();
     }
 
-    /** Every part as the file holds it at the start, by its bit. */
+    /** Every part as the file holds it at the start, by its bit, once firstPersonInVehicles has been told the file. */
     static void start(long bits) {
         for (Part part : values()) {
-            part.atStart = part.on = part.patched = (bits & part.bit()) != 0;
+            part.on = (bits & part.bit()) != 0;
+            part.atStart = part.patched = part.on();
         }
     }
 
@@ -221,7 +236,8 @@ enum Part {
         StringBuilder off = new StringBuilder();
         for (Part part : values()) {
             if (!part.on || part.start && !part.patched) {
-                off.append(off.length() == 0 ? "" : ", ").append(part.key).append(part.on ? " on from the next start" : " off");
+                off.append(off.length() == 0 ? "" : ", ").append(part.key)
+                        .append(part.on ? " on from the next start" : part.on() ? " off, but on for FirstPersonInVehicles" : " off");
             }
         }
         return off.length() == 0 ? "every part of the mod is on" : "switched off: " + off;

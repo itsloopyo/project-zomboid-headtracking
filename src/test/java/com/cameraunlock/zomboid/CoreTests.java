@@ -873,19 +873,37 @@ public final class CoreTests {
         check(next.contains("left out: " + leftOutBut(KEPT_SETS) + System.lineSeparator()),
                 "the next start leaves out every set of patches but head tracking's, the options page's and the development build's: " + leftOutLine(next));
 
+        check(!Part.FIRST_PERSON.on() && saved("FirstPersonInVehicles=false", "FourthPlayerFirstPersonInVehicles=false"),
+                "Everything's Off takes first person out of vehicles too, which would keep it there alone");
+        Tracking.cycleGraphicsMode(0);
+        check(Own.rows() == Own.ALL && Part.FIRST_PERSON.row() && saved("VanillaWeapons=false", "VanillaCabins=false", "FirstPersonEnabled=true"),
+                "the graphics key past Low with every Vanilla row on and first person off puts back the mod's own and first person, "
+                        + "which that mode needs to look other than Low, and saves them");
+        Tracking.setGraphicsMode(0, true, Quality.LOW);
+        Tracking.setGraphicsMode(0, false, Quality.LOW);
+
         Screen vehicles = Screen.opened();
         vehicles.choose("FirstPersonUse", "In vehicles only");
         vehicles.apply();
-        check(Part.FIRST_PERSON.on() && Tracking.firstPersonInVehicles(0) && Tracking.firstPersonInVehicles(3) && !Tracking.firstPersonRemembered(2)
+        check(!Part.FIRST_PERSON.row() && Part.FIRST_PERSON.on() && Tracking.firstPersonInVehicles(0) && Tracking.firstPersonInVehicles(3)
                         && vehicles.reads("FirstPersonUse").equals("In vehicles only") && vehicles.reads("Everything").equals(OptionsLayout.MIXED),
-                "First person's In vehicles only turns first person on for vehicles alone, every view loading isometric, and Everything then reads Mixed");
-        vehicles.set(Config.firstPersonRow(0), 1);
-        check(vehicles.reads("FirstPersonUse").equals(OptionsLayout.MIXED), "a save then set to load in first person is none of First person's lines");
+                "First person's In vehicles only turns FirstPersonEnabled off and first person in vehicles on, which keeps first person there, "
+                        + "and Everything then reads Mixed");
+        check(saved("FirstPersonEnabled=false", "FirstPersonInVehicles=true", "FourthPlayerFirstPersonInVehicles=true"), "each row is saved");
+        vehicles.set(Config.firstPersonInVehiclesRow(0), 0);
+        vehicles.apply();
+        check(Part.FIRST_PERSON.on() && vehicles.reads("FirstPersonUse").equals(OptionsLayout.MIXED),
+                "with one player still switched in vehicles first person stays, and the list reads Mixed");
+        for (int player = 1; player < View.COUNT; player++) {
+            vehicles.set(Config.firstPersonInVehiclesRow(player), 0);
+        }
+        vehicles.apply();
+        check(!Part.FIRST_PERSON.on() && vehicles.reads("FirstPersonUse").equals("Off"), "with no player's vehicle row on, first person is off");
         vehicles.choose("FirstPersonUse", "On");
         vehicles.apply();
-        check(Part.FIRST_PERSON.on() && !Tracking.firstPersonInVehicles(0) && Tracking.firstPersonRemembered(0) && vehicles.reads("FirstPersonUse").equals("On"),
-                "On leaves the view each player loads in as it is, and no vehicle switches the view");
-        check(saved("FirstPersonEnabled=true", "FirstPersonInVehicles=false", "FirstPerson=true"), "each line is saved");
+        check(Part.FIRST_PERSON.row() && !Tracking.firstPersonInVehicles(0) && vehicles.reads("FirstPersonUse").equals("On"),
+                "On turns first person on, and no vehicle switches the view");
+        check(saved("FirstPersonEnabled=true", "FirstPersonInVehicles=false"), "each line is saved");
 
         Screen on = Screen.opened();
         on.choose("Everything", "On");
@@ -1099,9 +1117,9 @@ public final class CoreTests {
                 page.append(options[option].id).append(' ');
             }
         }
-        check(page.toString().equals("[Quick settings] EnableOnStartup [Head tracking] TrackingMode AimMode WorldSpaceYaw LocalSmoothing RemoteSmoothing TorchFollowsHead LightMultiplier "
-                        + "[First person] FirstPersonEnabled FirstPerson FirstPersonInVehicles FieldOfView Crosshair HearFromTheEye HeadLedViewWhenDown NameTagsAtHeads "
-                        + "QuickRagdolls HitFlinch HillHeight [Graphics] Quality IsometricQuality Style LightningBolts ShotImpacts MuzzleFlash ItemsAsModels FinerSkins "
+        check(page.toString().equals("[Quick settings] EnableOnStartup "
+                        + "[First person] FirstPersonEnabled FirstPersonInVehicles FirstPerson FieldOfView Crosshair HearFromTheEye HeadLedViewWhenDown NameTagsAtHeads "
+                        + "QuickRagdolls HitFlinch HillHeight [Head tracking] TrackingMode AimMode WorldSpaceYaw LocalSmoothing RemoteSmoothing TorchFollowsHead LightMultiplier [Graphics] Quality IsometricQuality Style LightningBolts ShotImpacts MuzzleFlash ItemsAsModels FinerSkins "
                         + "LeaveOutScreenGrey FarVehiclesAndZombies HiddenWallDecor [Custom graphics] TreeQuality GrassDensity GrassDistance RenderScale ViewDistance ZombiesAndPropsDrawDistance "
                         + "FarTreeDistance RainOnGlass ShadingAndLight Reflections ReflectionScale FullSizeTextures SurfaceDepth SharpShadows WholeFigureShadows FrameBlending Antialiasing "
                         + "LightDistance CorpseModels [Mod content] VanillaWeapons VanillaFurniture VanillaPictures VanillaPlants VanillaTextures VanillaBuildings VanillaZombies "
@@ -1228,7 +1246,7 @@ public final class CoreTests {
                 left.add(setting.described.id);
             }
         }
-        check(left.equals(List.of(Tracking.ENABLED_OPTION, Tracking.YAW_MODE_OPTION, Config.firstPersonRow(0), Config.TALKING_MOUTHS)),
+        check(left.equals(List.of(Tracking.ENABLED_OPTION, Config.firstPersonRow(0), Tracking.YAW_MODE_OPTION, Config.TALKING_MOUTHS)),
                 "Everything's Off unticks every tick box on the page but head tracking, horizon-relative head turns, the view a save loads in, "
                         + "talking mouths and the Custom graphics: " + left);
         check(screen.readsAll().equals("Off Off Off Off Off"), "and every list then reads Off: " + screen.readsAll());
