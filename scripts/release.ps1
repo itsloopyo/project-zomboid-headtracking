@@ -9,7 +9,7 @@
 # nothing under .lab tracked, the full test suite, a user-facing commit) each
 # stop the release with a non-zero exit, leaving the tree as it was.
 # THIRD-PARTY-NOTICES.md is re-synced after the tests and goes in the release commit.
-# A nightly re-syncs and commits it before handing over to release-nightly.ps1.
+# A nightly stops when it is stale, before handing over to release-nightly.ps1.
 
 [CmdletBinding()]
 param(
@@ -63,11 +63,14 @@ function Sync-CoreNotices {
 }
 
 if ($Version -eq 'nightly') {
+    # A nightly tags HEAD on GitHub, so a commit made here would be on no remote
+    # and the publisher would refuse it. A stale notices file stops the nightly.
     Sync-CoreNotices
     & git -C $ProjectRoot diff --quiet -- THIRD-PARTY-NOTICES.md
     if ($LASTEXITCODE -ne 0) {
-        & git -C $ProjectRoot commit -q -m 'chore: record the cameraunlock-core commit this build ships' -- THIRD-PARTY-NOTICES.md
-        if ($LASTEXITCODE -ne 0) { throw 'Could not commit the re-synced THIRD-PARTY-NOTICES.md.' }
+        & git -C $ProjectRoot checkout -q -- THIRD-PARTY-NOTICES.md
+        if ($LASTEXITCODE -ne 0) { Write-Host 'Could not put THIRD-PARTY-NOTICES.md back: discard its edit by hand.' -ForegroundColor Red }
+        throw 'THIRD-PARTY-NOTICES.md names another cameraunlock-core commit than the submodule pointer. Run pixi run update-submodule, push, then re-run the nightly.'
     }
     & (Join-Path $PSScriptRoot 'release-nightly.ps1') -AllowDirty:$AllowDirty
     exit $LASTEXITCODE
@@ -145,10 +148,13 @@ try {
         [System.IO.File]::WriteAllText($vfPath, $regex.Replace($vfText, $vf.Replacement), $utf8NoBom)
     }
 
-    # --- 8. Build -----------------------------------------------------------
-    Write-Host 'Building...' -ForegroundColor Cyan
-    pixi run build
-    if ($LASTEXITCODE -ne 0) { throw 'Build failed.' }
+    # --- 8. Package --------------------------------------------------------
+    # The checks on the release ZIPs (MOD_DLLS, versions, line endings, the
+    # manifest, the notices' core commit) live only in packaging, and a tag
+    # pushed past one of them fails in release.yml with the tag already out.
+    Write-Host 'Packaging...' -ForegroundColor Cyan
+    pixi run package
+    if ($LASTEXITCODE -ne 0) { throw 'Packaging failed. The version bump, CHANGELOG and notices edits are left in the tree, uncommitted.' }
 
     # --- 9. Commit, tag, push ----------------------------------------------
     # The subject starts 'Release v' because build.yml skips a commit that
