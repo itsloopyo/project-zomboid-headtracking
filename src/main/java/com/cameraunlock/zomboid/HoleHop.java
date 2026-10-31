@@ -154,7 +154,18 @@ final class HoleHop {
             return null;
         }
         float middle = opening(open, along);
-        if (Float.isNaN(middle) || to == null || !IsoWindow.canClimbThroughHelper(player, from, to, north)) {
+        String edge = String.format(java.util.Locale.ROOT, "the hole at %.2f along the %s edge of (%d, %d, %d)", along, north ? "north" : "west", owner.getX(),
+                owner.getY(), owner.getZ());
+        if (Float.isNaN(middle)) {
+            Log.info("no climb through " + edge + ": it has no gap a body fits through, 0.5 wide and 0.9 m tall with its foot at the waist or lower");
+            return null;
+        }
+        if (to == null) {
+            Log.info("no climb through " + edge + ": there is no square beyond it");
+            return null;
+        }
+        if (!IsoWindow.canClimbThroughHelper(player, from, to, north)) {
+            Log.info("no climb through " + edge + ": the game's window climb would land nobody on the square beyond it, where something stands or there is water");
             return null;
         }
         return new Hop(way, middle);
