@@ -389,21 +389,39 @@ final class OpeningBuilder {
      */
     boolean addBuiltDoor(Texture texture, int x, int y, int z, float da, float db) {
         boolean north = da != 0f;
-        Doors.Shape door = Doors.of(texture, build.frame, north);
-        if (door == null) {
-            if (Doors.unread(texture)) {
-                build.building.waitFor(texture);
-            }
-            return false;
-        }
         // Shots break lights counted in the shut leaf's order, which a leaf swung open keeps (Doors.swung): see DoorGlass.
         int broken = build.brokenLights;
-        Doors.Shape shut = null;
-        if (build.shutTexture != null) {
+        Doors.Shape door, shut = null;
+        // Swung open, a leaf is back against the wall of this edge or of the far one: fixtures_doors_02_46, the open
+        // fixtures_doors_02_44, stands on its square's south edge, the leaf of a west doorway turned the other way.
+        boolean onFarEdge = false;
+        if (build.shutTexture == null) {
+            door = Doors.of(texture, build.frame, north);
+            if (door == null) {
+                if (Doors.unread(texture, north, false)) {
+                    build.building.waitFor(texture);
+                }
+                return false;
+            }
+        } else {
             // Open, it is the leaf its shut sprite paints, which stands on the other edge.
             shut = Doors.of(build.shutTexture, build.shutFrame, !north);
-            if (shut == null && Doors.unread(build.shutTexture)) {
+            Doors.Shape near = Doors.of(texture, build.frame, north, false, true), beyond = Doors.of(texture, build.frame, north, true, true);
+            boolean waiting = false;
+            if (shut == null && Doors.unread(build.shutTexture, !north, false)) {
                 build.building.waitFor(build.shutTexture);
+                waiting = true;
+            }
+            if (near == null && Doors.unread(texture, north, false) || beyond == null && Doors.unread(texture, north, true)) {
+                build.building.waitFor(texture);
+                waiting = true;
+            }
+            if (waiting) {
+                return false;
+            }
+            onFarEdge = near == null;
+            door = onFarEdge ? beyond : near;
+            if (door == null) {
                 return false;
             }
             if (shut != null) {
@@ -419,9 +437,12 @@ final class OpeningBuilder {
         Windows.Shape leaf = inDoorway ? withinCut(door.leaf, doorwayStart, doorwayEnd) : door.leaf;
         float[] panes = broken == 0 ? leaf.panes : leaf == door.leaf ? DoorGlass.withBroken(leaf.panes, broken)
                 : clipped(DoorGlass.withBroken(door.leaf.panes, broken), 5, leaf.start, leaf.end);
-        float out = build.doorSwung ? SWUNG_OUT + build.wallBuilder.logsProud(x, y, z, da != 0f) : 0f;
+        float out = !build.doorSwung ? 0f : onFarEdge ? 1f - SWUNG_OUT - build.wallBuilder.logsProud(x + (north ? 0 : 1), y + (north ? 1 : 0), z, north)
+                : SWUNG_OUT + build.wallBuilder.logsProud(x, y, z, north);
         windowX = x + db * out;
         windowY = y + da * out;
+        // The face away from the wall the leaf is back against has the hinges' knuckles: on the far edge that wall is behind the other face.
+        int hingedSide = onFarEdge ? 1 - HINGED_SIDE : HINGED_SIDE;
         windowAlongX = da;
         windowAlongY = db;
         windowFoot = footOf(z);
@@ -539,7 +560,7 @@ final class OpeningBuilder {
             metal.open = sideOpen[side] + 32f * HARDWARE;
             metal.day = sideDay[side];
             float[] c = build.reveal;
-            if (side == HINGED_SIDE) {
+            if (side == hingedSide) {
                 float[] hinges = hinges(leaf.start, leaf.end, leaf.foot, leaf.head, door.handleAtEnd);
                 for (int at = 0; at < hinges.length; at += 4) {
                     addJoinery(metal, hinges[at], hinges[at + 1], hinges[at + 2], hinges[at + 3], face + Math.signum(face) * HINGE_OUT, r, g, b);

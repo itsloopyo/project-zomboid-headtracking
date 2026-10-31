@@ -144,8 +144,8 @@ final class WindowGlass {
         if (!Own.buildings()) {
             return null;
         }
-        Doors.Shape shape = Doors.known(door.getSprite().getTextureForCurrentFrame(door.getDir()));
-        return shape == null || shape.leaf.north != north || shape.leaf.panes.length == 0 ? null : shape.leaf;
+        Doors.Shape shape = Doors.known(door.getSprite().getTextureForCurrentFrame(door.getDir()), north);
+        return shape == null || shape.leaf.panes.length == 0 ? null : shape.leaf;
     }
 
     /** Narrows a glass noted a tile wide and a level high at at to the lights of a door's leaf from `from` to `to` in its panes, five numbers a light. */

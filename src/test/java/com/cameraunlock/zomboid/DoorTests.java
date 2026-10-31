@@ -38,6 +38,10 @@ final class DoorTests {
         Checks.run("aLeversArmRunsFromItsNeckTowardsTheHinges", DoorTests::aLeversArmRunsFromItsNeckTowardsTheHinges);
         Checks.run("aBeadRunsRoundALightHalfOverItsGlass", DoorTests::aBeadRunsRoundALightHalfOverItsGlass);
         Checks.run("aBarBetweenLightsRunsOnToTheRails", DoorTests::aBarBetweenLightsRunsOnToTheRails);
+        Checks.run("aDoorAskedForOnAnEdgeItDoesNotPaintIsStillReadOnItsOwn", DoorTests::aDoorAskedForOnAnEdgeItDoesNotPaintIsStillReadOnItsOwn);
+        Checks.run("anOpenLeafStandingIntoItsSquareIsStoodOnItsFloor", DoorTests::anOpenLeafStandingIntoItsSquareIsStoodOnItsFloor);
+        Checks.run("aToiletStallsLeafRaggedTopAndBottomIsALeaf", DoorTests::aToiletStallsLeafRaggedTopAndBottomIsALeaf);
+        Checks.run("aShacksDoorWithABareCornerIsALeaf", DoorTests::aShacksDoorWithABareCornerIsALeaf);
     }
 
     private static void capUnderAWallsFootLeavesTheDoorwayFloorBare() {
@@ -698,5 +702,130 @@ final class DoorTests {
             check(edge[at] >= 0.1f && edge[at + 1] <= 0.9f && edge[at + 3] <= 0.8f, "a light with no stile or rail beside it keeps its bead on the leaf: strip " + at / 4);
             check(edge[at] < edge[at + 1] && edge[at + 2] < edge[at + 3], "and every strip of it some length and height: strip " + at / 4);
         }
+    }
+
+    /** A frame at the game's doubled scale, 128 by 256 dots, its square's (0, 0) corner at (64, 192), the whole frame the sprite. */
+    private static SpriteGeometry.Frame doubledFrame() {
+        SpriteGeometry.Frame frame = new SpriteGeometry.Frame();
+        frame.scale = 2f;
+        frame.originU = 64f;
+        frame.originV = 192f;
+        frame.width = 128f;
+        frame.height = 256f;
+        return frame;
+    }
+
+    /**
+     * Paints into a doubled frame's sheet (red, green, blue and cover) a brown leaf on the north or west edge of its
+     * square, or with far the south or east, standing depth of a square into the square from it, from along0 to along1
+     * of the edge and from foot to head of a level.
+     */
+    private static void paintLeaf(java.nio.ByteBuffer sheet, boolean north, boolean far, float depth, float along0, float along1, float foot, float head) {
+        float other = far ? 1f - depth : depth;
+        for (float along = along0; along < along1; along += 1f / 512f) {
+            for (float up = foot; up < head; up += 1f / 1024f) {
+                float a = north ? along : other, b = north ? other : along;
+                int u = (int) Math.floor((a - b) * SpriteGeometry.PIXELS_ACROSS_PER_TILE * 2f + 64f);
+                int v = (int) Math.floor(((a + b) * SpriteGeometry.PIXELS_DOWN_PER_TILE - up * SpriteGeometry.PIXELS_PER_LEVEL) * 2f + 192f);
+                if (u >= 0 && u < 128 && v >= 0 && v < 256) {
+                    int at = (v * 128 + u) * 4;
+                    sheet.put(at, (byte) 120).put(at + 1, (byte) 80).put(at + 2, (byte) 40).put(at + 3, (byte) 255);
+                }
+            }
+        }
+    }
+
+    /**
+     * The owner found the odd door drawn flat as its sprite, a wooden panelled door in an ordinary house among them. A
+     * sprite was read once, on the first edge it was asked for: asked for on an edge it does not paint, as a build that
+     * reads a door open and its sprite still shut does, it was no leaf there and stayed no leaf on its own edge. Each
+     * edge is read apart now.
+     */
+    private static void aDoorAskedForOnAnEdgeItDoesNotPaintIsStillReadOnItsOwn() {
+        Texture texture = new Texture(5101, 128, 256).named("fixtures_doors_01_test");
+        java.nio.ByteBuffer sheet = java.nio.ByteBuffer.allocate(128 * 256 * 4);
+        paintLeaf(sheet, true, false, 0f, 0.1f, 0.9f, 0f, 0.8f);
+        SpriteGeometry.Frame frame = doubledFrame();
+        check(Doors.of(texture, frame, false) == null && Doors.of(texture, frame, true) == null, "nothing is known of a door before a frame of it is read");
+        Doors.read(texture, sheet, 128, 0, 0, 128, 256);
+        check(Doors.of(texture, frame, false) == null && !Doors.unread(texture, false, false), "the door is read as no leaf on the west edge, which it does not paint");
+        Doors.Shape shape = Doors.of(texture, frame, true);
+        check(shape != null, "and is a leaf on its own north edge all the same");
+        check(shape != null && Math.abs(shape.leaf.start - 0.1f) < 0.03f && Math.abs(shape.leaf.end - 0.9f) < 0.03f && shape.leaf.foot < 0.02f && Math.abs(shape.leaf.head - 0.8f) < 0.02f,
+                "where it is painted: " + (shape == null ? "none" : shape.leaf.start + ".." + shape.leaf.end + " up " + shape.leaf.foot + ".." + shape.leaf.head));
+        check(Doors.known(texture, true) == shape && Doors.known(texture, false) == null, "and known on its own edge only");
+    }
+
+    /**
+     * The game paints some leaves open standing clear of the wall they are back against: into the square from the
+     * north edge (fixtures_doors_02_42), whose picture is the leaf on the edge slid back along it and sunk under the
+     * floor, and from the south edge (fixtures_doors_02_55), slid on and raised. Each is stood on its floor where it is
+     * painted along its edge, and the one on the south edge is no leaf on the north, where all that is read of it is
+     * past the square's end.
+     */
+    private static void anOpenLeafStandingIntoItsSquareIsStoodOnItsFloor() {
+        SpriteGeometry.Frame frame = doubledFrame();
+        for (boolean far : new boolean[] {false, true}) {
+            Texture texture = new Texture(far ? 5103 : 5102, 128, 256).named(far ? "fixtures_doors_02_test_far" : "fixtures_doors_02_test_near");
+            java.nio.ByteBuffer sheet = java.nio.ByteBuffer.allocate(128 * 256 * 4);
+            paintLeaf(sheet, true, far, 0.1f, 0.15f, 0.85f, 0f, 0.8f);
+            Doors.of(texture, frame, true, false, true);
+            Doors.of(texture, frame, true, true, true);
+            Doors.read(texture, sheet, 128, 0, 0, 128, 256);
+            Doors.Shape shape = Doors.of(texture, frame, true, far, true), other = Doors.of(texture, frame, true, !far, true);
+            String edge = far ? "south" : "north";
+            check(shape != null, "a leaf standing into its square from the " + edge + " edge is read on that edge");
+            check(shape != null && Math.abs(shape.leaf.start - 0.15f) < 0.04f && Math.abs(shape.leaf.end - 0.85f) < 0.04f,
+                    "from where along the edge it is painted: " + (shape == null ? "none" : shape.leaf.start + ".." + shape.leaf.end));
+            check(shape != null && Math.abs(shape.leaf.foot) < 0.03f && Math.abs(shape.leaf.head - 0.8f) < 0.03f,
+                    "on its floor and as high as it is painted: " + (shape == null ? "none" : shape.leaf.foot + ".." + shape.leaf.head));
+            if (far) {
+                check(other == null, "and the leaf on the south edge is no leaf on the north");
+            }
+        }
+    }
+
+    /** A leaf frame all over from column c0 to before c1 and row r0 to before r1 of a doubled frame laid flat, its first and last rows every other dot. */
+    private static byte[] raggedLeaf(int c0, int c1, int r0, int r1) {
+        int across = Windows.across(2f);
+        byte[] dots = new byte[across * Windows.high(2f)];
+        for (int row = r0; row < r1; row++) {
+            for (int column = c0; column < c1; column++) {
+                boolean ragged = row == r0 || row == r1 - 1;
+                dots[row * across + column] = !ragged || (column - c0) % 2 == 0 ? Windows.FRAME : Windows.EMPTY;
+            }
+        }
+        return dots;
+    }
+
+    /**
+     * A toilet stall's door (fixtures_bathroom_01_48) is wood from rows 54 to 167 of 192, half lines at its top and
+     * bottom: read as head down to the line before its foot's last, it was no leaf and stayed its sprite, open or shut.
+     * A band as ragged and under half a level high, across the head of a garage's opening, is still no leaf.
+     */
+    private static void aToiletStallsLeafRaggedTopAndBottomIsALeaf() {
+        int across = Windows.across(2f), high = Windows.high(2f);
+        Windows.Shape stall = Windows.measure(raggedLeaf(2, 48, 54, 168), across, high, true);
+        check(stall != null, "a stall's door with ragged lines at its top and bottom is a leaf");
+        check(stall != null && stall.panes.length == 0 && stall.bars.length == 4, "of wood all over, with no light");
+        check(stall != null && Math.abs(stall.start - 2f / across) < 1e-5f && Math.abs(stall.end - 48f / across) < 1e-5f, "from its first column to its last");
+        check(Windows.measure(raggedLeaf(2, 62, 0, 40), across, high, true) == null, "a band across a doorway's head, under half a level high, is no leaf");
+    }
+
+    /** A shack's door (carpentry_01_48) is boards with ragged ends, a corner of it bare, and wood all over all the same: it was no leaf and stayed its sprite. */
+    private static void aShacksDoorWithABareCornerIsALeaf() {
+        int across = Windows.across(2f), high = Windows.high(2f);
+        byte[] dots = new byte[across * high];
+        for (int row = 40; row < high; row++) {
+            for (int column = 8; column < 56; column++) {
+                boolean bare = row < 50 && column - 8 < 2 * (50 - row);
+                dots[row * across + column] = bare ? Windows.EMPTY : Windows.FRAME;
+            }
+        }
+        check(Windows.measure(dots, across, high, false) == null, "a frame with a corner bare that far in is no window");
+        Windows.Shape shack = Windows.measure(dots, across, high, true);
+        check(shack != null && shack.panes.length == 0, "and is a leaf of wood all over as a door");
+        check(shack != null && Math.abs(shack.start - 8f / across) < 1e-5f && Math.abs(shack.end - 56f / across) < 1e-5f && Math.abs(shack.foot) < 1e-5f,
+                "across its boards, from the floor: " + (shack == null ? "none" : shack.start + ".." + shack.end + " up " + shack.foot));
     }
 }

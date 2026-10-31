@@ -661,7 +661,7 @@ final class BuildingTests {
         door.kind = Doors.PANELLED;
         Texture leaf = new Texture(33, 128, 256);
         leaf.paint(0, 0, 128, 256);
-        TestMap.<java.util.Map<Texture, Doors.Shape>>read(null, Doors.class, "known").put(leaf, door);
+        TestMap.<java.util.Map<Doors.Edge, Doors.Shape>>read(null, Doors.class, "known").put(new Doors.Edge(leaf, true, false), door);
         Drapes.Shape curtain = new Drapes.Shape();
         curtain.north = true;
         curtain.start = 0.1f;

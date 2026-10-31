@@ -190,9 +190,10 @@ final class DoorGlass {
         return seed ^ bar * 2654435;
     }
 
-    /** The leaf of a shut door as the picture measured it (Doors), or null. */
+    /** The leaf of a shut door as the picture measured it (Doors) on the edge the door is on, or null. */
     private static Windows.Shape leafOf(IsoObject door) {
-        Doors.Shape shape = Doors.known(door.getSprite().getTextureForCurrentFrame(door.getDir()));
+        boolean north = door instanceof IsoDoor hinged ? hinged.getNorth() : ((IsoThumpable) door).getNorth();
+        Doors.Shape shape = Doors.known(door.getSprite().getTextureForCurrentFrame(door.getDir()), north);
         return shape == null ? null : shape.leaf;
     }
 
@@ -238,12 +239,9 @@ final class DoorGlass {
         if (door.getSprite() == null || !door.getSprite().getProperties().has("doorTrans")) {
             return "no glass in its sprite";
         }
-        Doors.Shape shape = Doors.known(door.getSprite().getTextureForCurrentFrame(door.getDir()));
+        Doors.Shape shape = Doors.known(door.getSprite().getTextureForCurrentFrame(door.getDir()), north);
         if (shape == null) {
-            return "its leaf not measured";
-        }
-        if (shape.leaf.north != north) {
-            return "its leaf measured on the other edge";
+            return "its leaf not measured on that edge";
         }
         return "wood, lights " + Arrays.toString(shape.leaf.panes);
     }

@@ -43,6 +43,8 @@ final class Windows {
     static final float NO_GLASS = 0.08f, WHOLE_GLASS = 0.85f;
     /** A dot from this much cover up is painted solid, as a wall is: glass the game darkens stops short of it. */
     private static final int SOLID_COVER = 250;
+    /** How much of a door's outline has to be frame for it to be a solid leaf where a corner of it is bare. */
+    private static final float SOLID_LEAF = 0.9f;
     /** How much of the foot or head of a window has to be painted solid for it to be wall and not darkened glass. */
     private static final float PAINTED_SOLID = 0.5f;
     /** The highest a window's foot is, in levels: the foot of a sill is a few dots, and a band a fifth of the wall high painted short of solid is frosted glass. */
@@ -363,7 +365,10 @@ final class Windows {
                 }
             }
             if (!found) {
-                return corner < 2 && !solidToo ? arched(dots, across, high, c0, c1, r0, r1) : null;
+                // A door of boards with ragged ends, a shack's (carpentry_01_48), has a corner bare and is wood all over all the
+                // same. A band across the head of a garage's opening, an open garage door's sprite, is no leaf.
+                return corner < 2 && !solidToo ? arched(dots, across, high, c0, c1, r0, r1)
+                        : solidToo && 2 * (r1 - r0) >= high && framed(dots, across, c0, c1, r0, r1) >= SOLID_LEAF ? solid(across, high, c0, c1, r0, r1) : null;
             }
         }
         float headHigh = openHead ? 0f : side(dots, across, c0, c1, r0, r1, false, false), footHigh = side(dots, across, c0, c1, r0, r1, false, true);
@@ -375,15 +380,17 @@ final class Windows {
             bandBottom = r1;
         }
         float startWide = side(dots, across, c0, c1, bandTop, bandBottom, true, false), endWide = side(dots, across, c0, c1, bandTop, bandBottom, true, true);
+        // Solid, the head runs down to the foot's last line, or for a leaf half a level high or more the line before, where
+        // the foot's is ragged as well as the head's: a toilet stall's door (fixtures_bathroom_01_48) is half lines top and
+        // bottom and a whole leaf between. The band an open garage door's sprite paints is no leaf.
+        if (solidToo && (headHigh >= r1 - r0 - 1f || Math.ceil(headHigh) >= r1 - r0 - 1 && 2 * (r1 - r0) >= high)) {
+            return solid(across, high, c0, c1, r0, r1);
+        }
         Shape shape = new Shape();
         shape.start = (float) c0 / across;
         shape.end = (float) c1 / across;
         shape.head = 1f - (float) r0 / high;
         shape.foot = 1f - (float) r1 / high;
-        if (solidToo && headHigh >= r1 - r0 - 1f) {
-            shape.bars = with(shape.bars, shape.start, shape.end, shape.foot, shape.head);
-            return shape;
-        }
         // A length of a glazed wall has a head and a foot and may have no stile at either end: it runs on both ways.
         if (!openHead && headHigh < 1f || footHigh < 1f) {
             return null;
@@ -452,6 +459,28 @@ final class Windows {
         shape.bars = bars;
         shape.panes = panes;
         return shape;
+    }
+
+    /** A leaf frame all over from column c0 to before c1 and row r0 to before r1: one bar, and no light. */
+    private static Shape solid(int across, int high, int c0, int c1, int r0, int r1) {
+        Shape shape = new Shape();
+        shape.start = (float) c0 / across;
+        shape.end = (float) c1 / across;
+        shape.head = 1f - (float) r0 / high;
+        shape.foot = 1f - (float) r1 / high;
+        shape.bars = with(shape.bars, shape.start, shape.end, shape.foot, shape.head);
+        return shape;
+    }
+
+    /** How much of the box from column c0 to before c1 and row r0 to before r1 is frame. */
+    private static float framed(byte[] dots, int across, int c0, int c1, int r0, int r1) {
+        int frame = 0;
+        for (int row = r0; row < r1; row++) {
+            for (int column = c0; column < c1; column++) {
+                frame += dots[row * across + column] == FRAME ? 1 : 0;
+            }
+        }
+        return (float) frame / ((c1 - c0) * (r1 - r0));
     }
 
     /**
@@ -578,7 +607,7 @@ final class Windows {
     private static final float RUNS_ON = 1e-4f;
 
     /** The bars or panes, each so many numbers, cut to the square: one that is wholly past an end is dropped. */
-    private static float[] cut(float[] list, int each) {
+    static float[] cut(float[] list, int each) {
         float[] kept = new float[list.length];
         int count = 0;
         for (int at = 0; at < list.length; at += each) {
