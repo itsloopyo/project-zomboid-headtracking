@@ -222,7 +222,7 @@ final class Penetration {
         PZArrayList<IsoObject> objects = square.getObjects();
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
-            if (DoorGlass.shutOn(object, north)) {
+            if (DoorGlass.shutOn(object, north) && DoorGlass.onLeaf(object, north, along)) {
                 if (DoorGlass.barricaded(object)) {
                     return STOPS;
                 }

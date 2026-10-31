@@ -304,6 +304,15 @@ final class DoorGlass {
                 : object instanceof IsoThumpable thumpable && thumpable.isDoor() && thumpable.getNorth() == north && !thumpable.IsOpen();
     }
 
+    /**
+     * Whether a shot crossing a shut door's edge `along` it meets the leaf and not the frame beside it: anywhere on the
+     * edge until the picture has measured the leaf (Doors).
+     */
+    static boolean onLeaf(IsoObject door, boolean north, float along) {
+        Windows.Shape leaf = door.getSprite() == null ? null : leafOf(door);
+        return leaf == null || leaf.north != north || along >= leaf.start && along <= leaf.end;
+    }
+
     /** Whether a door is barricaded on either side. */
     static boolean barricaded(IsoObject door) {
         return door instanceof IsoDoor hinged ? hinged.isBarricaded() : ((IsoThumpable) door).isBarricaded();

@@ -409,17 +409,25 @@ final class ImpactFinder {
             boolean north = !world.metFacesX;
             float across = north ? line.forwardY : line.forwardX;
             float normal = -Math.signum(across);
+            // What it struck and where its hole is are taken where the line crosses the edge, as every test of a hole is
+            // (WorldQuery, Penetration, overFence): the mark goes on the face.
+            float crossX = x, crossY = y, crossUp = up;
             float skin = Impacts.toSkin(distance, across);
             x = line.eyeX + line.forwardX * skin;
             y = line.eyeY + line.forwardY * skin;
             up = line.eyeUp + line.forwardUp * skin;
             float normalX = north ? 0f : normal, normalY = north ? normal : 0f;
-            int edgeX = north ? (int) Math.floor(x) : Math.round(x), edgeY = north ? Math.round(y) : (int) Math.floor(y);
+            int edgeX = north ? (int) Math.floor(crossX) : Math.round(crossX), edgeY = north ? Math.round(crossY) : (int) Math.floor(crossY);
             IsoGridSquare square = cell.getGridSquare(edgeX, edgeY, level);
             float floor = level * ViewCamera.LEVEL_HEIGHT + terrain.height(x + normalX * FALLS_OUT, y + normalY * FALLS_OUT);
             int kind = Impacts.MASONRY;
             boolean hole = false;
+            float along = square == null ? 0f : north ? crossX - square.getX() : crossY - square.getY();
             IsoObject door = square == null ? null : DoorGlass.shutDoorOn(square, north);
+            if (door != null && !DoorGlass.onLeaf(door, north, along)) {
+                // Beside the leaf it is the doorway's frame that is struck.
+                door = null;
+            }
             IsoObject struck = door;
             if (door != null) {
                 // A door swings: what it is made of flies from it, and it keeps no hole the picture lays over the world (see BlastHoles).
@@ -433,10 +441,9 @@ final class ImpactFinder {
                     hole = Impacts.holed(kind);
                 }
             }
-            float along = square == null ? 0f : north ? x - square.getX() : y - square.getY();
             // Measured from the middle of the wall's own square, the average of its corners, which is where WallBuilder stands its holes.
-            float ground = square == null ? terrain.height(x, y) : terrain.height(square.getX() + 0.5f, square.getY() + 0.5f);
-            float levelsUp = (up - ground) / ViewCamera.LEVEL_HEIGHT - level;
+            float ground = square == null ? terrain.height(crossX, crossY) : terrain.height(square.getX() + 0.5f, square.getY() + 0.5f);
+            float levelsUp = (crossUp - ground) / ViewCamera.LEVEL_HEIGHT - level;
             int side = across > 0f ? -1 : 1;
             if (struck != null && size == PELLET && blasts(shooter) && BlastHoles.blastable(struck)) {
                 Blasts.pellet(shooter, struck, north, along, levelsUp, side);
