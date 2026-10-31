@@ -99,7 +99,8 @@ final class ShotGlass {
      */
     private static boolean throughADoor(IsoGridSquare square, boolean north, float along, float up) {
         IsoObject door = DoorGlass.shutDoorOn(square, north);
-        if (door == null) {
+        // Beside the leaf the shot meets the doorway's frame, which Penetration costs as a wall.
+        if (door == null || !DoorGlass.onLeaf(door, north, along)) {
             return false;
         }
         if (DoorGlass.barricaded(door)) {
