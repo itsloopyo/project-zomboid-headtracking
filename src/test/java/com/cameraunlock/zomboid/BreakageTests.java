@@ -202,8 +202,8 @@ final class BreakageTests {
         }
     }
 
-    /** A run's holes, along it from the first square's corner, kept by the square of the run each struck: along each's own square. */
-    private static float[][] struck(float[] run, int squares) {
+    /** A run's holes, along it from the first square's corner, kept by the square of the run each struck alone, along its own square. */
+    private static float[][] keptAlone(float[] run, int squares) {
         float[][] each = new float[squares][0];
         for (int at = 0; at < run.length; at += BlastHoles.FLOATS) {
             int square = (int) Math.floor(run[at + BlastHoles.ALONG]);
@@ -214,11 +214,35 @@ final class BreakageTests {
     }
 
     /**
+     * A run's blasts, along it from the first square's corner, kept by the walls of the run as BlastHoles.add keeps them on
+     * plasterboard: by the square of the run each struck, along its own square, and by the next wall along where it reaches
+     * over the join into it (BlastHoles.reachedOver), moved along by the square.
+     */
+    private static float[][] struck(IsoObject[] walls, float[] run) {
+        float[][] each = new float[walls.length][0];
+        for (int at = 0; at < run.length; at += BlastHoles.FLOATS) {
+            int square = (int) Math.floor(run[at + BlastHoles.ALONG]);
+            float along = run[at + BlastHoles.ALONG] - square, radius = run[at + BlastHoles.RADIUS];
+            each[square] = BlastHoles.with(each[square], true, along, run[at + BlastHoles.UP], radius, (int) run[at + BlastHoles.SEED], 0);
+            for (int by = -1; by <= 1; by += 2) {
+                IsoObject next = BlastHoles.reachedOver(walls[square], true, along, BlastHoles.reachOf(radius, 0, 0f), by);
+                if (next != null) {
+                    int to = Arrays.asList(walls).indexOf(next);
+                    check(to == square + by, "a blast reaches over into the next wall along, not into wall " + to);
+                    each[to] = BlastHoles.with(each[to], true, along - by, run[at + BlastHoles.UP], radius, (int) run[at + BlastHoles.SEED], 0);
+                }
+            }
+        }
+        return each;
+    }
+
+    /**
      * A ring of blasts shot round the join of two squares of plasterboard wall, as on the motel's wall at (7253, 8280)
      * and (7254, 8280): each square keeps the holes that struck it, and what the ring cut free is held by neither
      * square's floor, ceiling nor the ends of the wall, so it falls out of both. Each square alone, held all round,
-     * had it held at the join. A hole is cut in the square it struck alone, as the picture cuts it, so a ring
-     * whose holes at the join all struck the one square leaves a strip of the other's wall standing there, which holds it.
+     * had it held at the join. A blast that reaches over the join is cut out of both squares, which both keep it, so the
+     * ring's piece falls whichever square its holes at the join struck; kept by the square it struck alone, a ring whose
+     * holes at the join all struck the one square left a strip of the other's wall standing there, which held it.
      */
     private static void aPieceShotFreeAcrossTheJoinOfTwoWallsFallsOutOfBoth() throws Throwable {
         TestMap map = new TestMap();
@@ -227,12 +251,20 @@ final class BreakageTests {
             walls[x] = map.cell.square(x, 1, 0).add(map.sprite("walls_interior_house_01_1", IsoObjectType.wall, "WallN"));
         }
         float middleUp = levels(1.2f);
-        float[][] struck = struck(ring(1f, middleUp, 0.25f, 0.08f, 200, 0.5f), 2);
+        float[][] struck = struck(walls, ring(1f, middleUp, 0.25f, 0.08f, 200, 0.5f));
         float[] first = struck[0], second = struck[1];
-        check(first.length > 0 && second.length > 0, "each square keeps the holes that struck it");
+        check(first.length > 0 && second.length > 0 && struck[2].length == 0, "each square keeps the holes that struck it, and the square beyond none");
         Breakage.Panel two = new Breakage.Panel(Breakage.SHEET, 0f, 2f, 0f, 1f, 0, Breakage.HELD_ALL, Breakage.NO_FRAMES);
-        float[][] oneSided = struck(ring(1f, middleUp, 0.25f, 0.08f, 200), 2);
-        check(!Breakage.work(oneSided, true, two)[0].inside(0.95f, middleUp), "a ring whose holes at the join struck one square is held by the other's strip");
+        float[] oneSided = ring(1f, middleUp, 0.25f, 0.08f, 200);
+        check(!Breakage.work(keptAlone(oneSided, 2), true, two)[0].inside(0.95f, middleUp),
+                "a ring whose holes at the join all struck the one square, each kept by the square it struck alone, is held by the other's strip");
+        Breakage.Pieces[] keptByBoth = Breakage.work(struck(walls, oneSided), true, two);
+        check(keptByBoth[0].inside(0.95f, middleUp) && keptByBoth[1].inside(0.05f, middleUp),
+                "a ring whose holes at the join all struck the one square falls out of both, those holes being cut out of both");
+        check(BlastHoles.reachedOver(walls[0], true, 0.9f, 0.08f, 1) == null && BlastHoles.reachedOver(walls[1], true, 0.03f, 0.05f, -1) == walls[0]
+                && BlastHoles.reachedOver(walls[1], true, 0.97f, 0.05f, 1) == walls[2] && BlastHoles.reachedOver(walls[0], true, 0.03f, 0.05f, -1) == null,
+                "a hole reaches into the next wall along only past its own square's end, and only where there is one");
+        check(BlastHoles.reachedOver(walls[1], false, 0.03f, 0.05f, -1) == null, "nor along an edge the wall does not stand on");
         check(!work(first, true, SHEET).inside(0.95f, middleUp) && !work(second, true, SHEET).inside(0.05f, middleUp),
                 "worked out a square alone, the piece is held at the join");
         Map<IsoObject, float[]> kept = TestMap.read(null, BlastHoles.class, "kept");

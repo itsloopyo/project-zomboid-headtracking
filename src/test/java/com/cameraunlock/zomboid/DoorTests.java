@@ -570,6 +570,13 @@ final class DoorTests {
             casing.start = -0.05f;
             check(casingCovers(map, frames, null, -0.025f, up) == 2, "whole, the post over the square before covers that hole on both faces");
             check(casingCovers(map, frames, both, -0.025f, up) == 0, "cut, it covers it on neither");
+            // As BlastHoles.add keeps a hole that reaches over the join: moved along by the square, by the wall it reaches into.
+            kept.put(before, BlastHoles.with(BlastHoles.with(beforeHoles, true, 0.98f, up, 0.03f, 10, 0), true, 0.03f + 1f, up, 0.03f, 11, 0));
+            kept.put(wall, BlastHoles.with(BlastHoles.with(holes, true, 0.98f - 1f, up, 0.03f, 10, 0), true, 0.03f, up, 0.03f, 11, 0));
+            float[] once = BlastHoles.ofCasingOn(map.cell, 0, 1, 0, true);
+            check(once.length == 4 * BlastHoles.FLOATS, "a hole either wall keeps where it reaches over the join into the other is among the casing's holes once: "
+                    + java.util.Arrays.toString(once));
+            check(casingCovers(map, frames, once, -0.02f, up) == 0 && casingCovers(map, frames, once, 0.03f, up) == 0, "and the casing is cut with each once");
         } finally {
             casings.remove(framesTexture);
             kept.remove(wall);

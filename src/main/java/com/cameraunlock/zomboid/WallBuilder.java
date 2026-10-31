@@ -273,7 +273,7 @@ final class WallBuilder {
      * How far either side of its edge a hole goes through a fence, a wall or a door's casing, in tiles: a fence's boards and the
      * battens they are nailed to, and a casing's boards standing OpeningBuilder.CASING_PROUD out of both skins.
      */
-    private static final float FENCE_REACH = WorldScene.WALL_HALF + 0.04f;
+    static final float FENCE_REACH = WorldScene.WALL_HALF + 0.04f;
 
     private void addWholeEdge(SpriteGeometry.Mesh mesh, Texture texture, boolean wall, boolean door, int x, int y, int z,
             float layer, float da, float db) {

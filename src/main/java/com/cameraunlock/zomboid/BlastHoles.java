@@ -99,7 +99,7 @@ final class BlastHoles {
      * The holes a door's casing on the north or west edge of square (x, y, z) is cut with: those of the doorway's wall it
      * stands on, where ImpactFinder keeps the shots that strike it (WorldScene.wallOn), and those of the walls on the same
      * edge of the squares before and after it within OVERHANG, which its posts stand over past the square's ends, moved
-     * along by a square. Null where there are none.
+     * along by a square, but for those the doorway's wall keeps too, reaching over the join (add). Null where there are none.
      */
     static float[] ofCasingOn(IsoCell cell, int x, int y, int z, boolean north) {
         float[] own = ofWallOn(cell.getGridSquare(x, y, z), north);
@@ -114,8 +114,8 @@ final class BlastHoles {
             System.arraycopy(own, 0, all, 0, own.length);
             count = own.length;
         }
-        count = overhung(before, -1f, all, count);
-        count = overhung(after, 1f, all, count);
+        count = overhung(before, -1f, own, all, count);
+        count = overhung(after, 1f, own, all, count);
         return count == 0 ? null : Arrays.copyOf(all, count);
     }
 
@@ -127,20 +127,40 @@ final class BlastHoles {
         return wall == null ? null : of(wall);
     }
 
-    /** Copies into all from count the entries of a wall a square before (-1) or after (1) whose middles are within OVERHANG of the near end, moved along by that square; the count after. */
-    private static int overhung(float[] entries, float by, float[] all, int count) {
+    /**
+     * Copies into all from count the entries of a wall a square before (-1) or after (1) whose middles are within OVERHANG of the
+     * near end, moved along by that square, but for those own already keeps there; the count after.
+     */
+    private static int overhung(float[] entries, float by, float[] own, float[] all, int count) {
         if (entries == null) {
             return count;
         }
         for (int at = 0; at < entries.length; at += FLOATS) {
             float along = entries[at + ALONG] + by;
-            if (along > -OVERHANG && along < 1f + OVERHANG) {
+            if (along > -OVERHANG && along < 1f + OVERHANG && !holds(own, entries, at, along)) {
                 System.arraycopy(entries, at, all, count, FLOATS);
                 all[count + ALONG] = along;
                 count += FLOATS;
             }
         }
         return count;
+    }
+
+    /** How near two places along an edge are to be the one: a place moved along by a square and back is off by its rounding. */
+    private static final float SAME_ALONG = 1e-4f;
+
+    /** Whether entries keep the entry of others at place at, at along: the one hole two walls keep where it reaches over the join of the two (add). */
+    private static boolean holds(float[] entries, float[] others, int at, float along) {
+        if (entries == null) {
+            return false;
+        }
+        for (int o = 0; o < entries.length; o += FLOATS) {
+            if (entries[o + SEED] == others[at + SEED] && entries[o + SIDE] == others[at + SIDE] && entries[o + NORTH] == others[at + NORTH]
+                    && Math.abs(entries[o + ALONG] - along) < SAME_ALONG && entries[o + UP] == others[at + UP]) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -354,7 +374,10 @@ final class BlastHoles {
     /**
      * Keeps a blast's hole (side 0), a mark (1 or -1) or a round's hole (twice that) on an
      * object, past the most it keeps of that kind by letting go of the oldest, saves it in the
-     * object's mod data and has the picture build the object again. Logic thread.
+     * object's mod data and has the picture build the object again. A hole that reaches over
+     * the end of its square into the next wall or fence along (reachedOver), one a hole of its
+     * kind goes through, is kept by that one too, moved along by the square, so that it is cut
+     * out of both and what falls of each is worked out with it (fallen). Logic thread.
      */
     static void add(IsoObject object, boolean north, float along, float up, float radius, int seed, int side) {
         add(object, north, along, up, radius, seed, side, 0f, 0f);
@@ -362,6 +385,31 @@ final class BlastHoles {
 
     /** The same, for a round's hole cut along the round's line: slantAlong and slantUp as SLANT_ALONG and SLANT_UP keep them (slant). */
     static void add(IsoObject object, boolean north, float along, float up, float radius, int seed, int side, float slantAlong, float slantUp) {
+        keep(object, north, along, up, radius, seed, side, slantAlong, slantUp);
+        if (DevBuild.ON) {
+            IsoGridSquare square = object.getSquare();
+            Log.info(String.format(Locale.ROOT, "%s at %.3f along and %.3f levels up, radius %.3f, on the %s on the %s edge of (%d, %d, %d)",
+                    side == 0 ? "a blast blew a hole" : Math.abs(side) == ROUND ? "a round went through" : "a pellet marked", along, up, radius,
+                    DoorGlass.isDoor(object) ? "door" : object.getSprite().getName(), north ? "north" : "west", square.getX(), square.getY(), square.getZ()));
+        }
+        if (isHole(side)) {
+            float reach = reachOf(radius, side, slantAlong);
+            for (int by = -1; by <= 1; by += 2) {
+                IsoObject next = reachedOver(object, north, along, reach, by);
+                if (next != null && (side == 0 ? blastable(next) : holedByRounds(next))) {
+                    keep(next, north, along - by, up, radius, seed, side, slantAlong, slantUp);
+                    if (DevBuild.ON) {
+                        IsoGridSquare on = next.getSquare();
+                        Log.info(String.format(Locale.ROOT, "the hole reaches over the join into the %s on the %s edge of (%d, %d, %d), which keeps it too at %.3f along",
+                                next.getSprite().getName(), north ? "north" : "west", on.getX(), on.getY(), on.getZ(), along - by));
+                    }
+                }
+            }
+        }
+        tellRun(object, north);
+    }
+
+    private static void keep(IsoObject object, boolean north, float along, float up, float radius, int seed, int side, float slantAlong, float slantUp) {
         float[] was = kept.get(object);
         float[] now = with(was == null ? new float[0] : was, north, along, up, radius, seed, side, slantAlong, slantUp);
         any = true;
@@ -369,13 +417,36 @@ final class BlastHoles {
         KahluaTable data = object.getModData();
         data.rawset(KEY, write(now));
         ChunkMarks.changed(object);
-        tellRun(object, north);
-        if (DevBuild.ON) {
-            IsoGridSquare square = object.getSquare();
-            Log.info(String.format(Locale.ROOT, "%s at %.3f along and %.3f levels up, radius %.3f, on the %s on the %s edge of (%d, %d, %d)",
-                    side == 0 ? "a blast blew a hole" : Math.abs(side) == ROUND ? "a round went through" : "a pellet marked", along, up, radius,
-                    DoorGlass.isDoor(object) ? "door" : object.getSprite().getName(), north ? "north" : "west", square.getX(), square.getY(), square.getZ()));
+    }
+
+    /**
+     * How far along its edge from its middle a hole's outline may reach, in tiles: a blast's at its most ragged; a round's
+     * way out, wider and more ragged than its way in, and moved along by the round's slant across as far from the edge as
+     * the picture cuts a wall or fence (WallBuilder.FENCE_REACH).
+     */
+    static float reachOf(float radius, int side, float slantAlong) {
+        return side == 0 ? radius * (1f + HOLE_RAGGED) : radius * EXIT_WIDER * (1f + EXIT_RAGGED) + Math.abs(slantAlong) * WallBuilder.FENCE_REACH;
+    }
+
+    /**
+     * The next wall or low fence along an object's north or west edge, before it (by -1) or after it (1), where a hole on
+     * the object at along that reaches as far as reach either way goes over the end of the object's square into it: the
+     * next square's wall of that edge after the edge's wall (WorldScene.wallOn), its low fence after a low fence
+     * (lowFenceOn). Null where the hole does not reach so far, the object is a door, or there is no such thing there.
+     */
+    static IsoObject reachedOver(IsoObject object, boolean north, float along, float reach, int by) {
+        IsoGridSquare square = object.getSquare();
+        if ((by < 0 ? along - reach >= 0f : along + reach <= 1f) || square == null || DoorGlass.isDoor(object)) {
+            return null;
         }
+        IsoGridSquare next = square.getAdjacentSquare(north ? by < 0 ? IsoDirections.W : IsoDirections.E : by < 0 ? IsoDirections.N : IsoDirections.S);
+        if (next == null) {
+            return null;
+        }
+        if (WorldScene.wallOn(square, north) == object) {
+            return WorldScene.wallOn(next, north);
+        }
+        return lowFenceOn(square, north) == object ? lowFenceOn(next, north) : null;
     }
 
     /**

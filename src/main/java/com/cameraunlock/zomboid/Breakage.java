@@ -13,8 +13,9 @@ import java.util.Arrays;
  * A wall goes on past its square into the next, and what holes cut free of it may be of both, so
  * what goes of a wall is worked out for a run of walls stood end to end along one line at once,
  * each a square long, and given back for each along its own square. Nothing is held where one of
- * the run meets the next: what is cut free of both falls out of both. A hole is in the square it
- * struck alone, as the picture cuts it.
+ * the run meets the next: what is cut free of both falls out of both. Each square's holes are cut
+ * in along its own square alone, as the picture cuts each square by its own, and a hole that
+ * reaches over the join into the next is kept by both (BlastHoles.add).
  *
  * A fence of boards is boards stood side by side, each BOARD_WIDE across at the places along the
  * map where the picture draws their joints (timber in the world's shader), and each held at its foot
