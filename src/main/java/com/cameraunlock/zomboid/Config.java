@@ -784,11 +784,11 @@ final class Config {
             String key = value.getKey();
             if (localRows.containsKey(key)) {
                 mine.add(key);
-            } else if (key.equals("TrackingMode")) {
+            } else if (key.equals(Tracking.TRACKING_MODE_OPTION)) {
                 all &= saveTrackingMode();
-            } else if (key.equals("AimMode")) {
+            } else if (key.equals(Tracking.AIM_MODE_OPTION)) {
                 all &= saveAimMode();
-            } else if (key.equals("WorldSpaceYaw")) {
+            } else if (key.equals(Tracking.YAW_MODE_OPTION)) {
                 all &= saveWorldSpaceYaw(value.getValue() != 0);
             } else {
                 all &= saved(key + " " + value.getValue() + " from the game's options screen", core.configOptionSave(optionPlace(key), value.getValue()));

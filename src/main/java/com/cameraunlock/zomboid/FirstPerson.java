@@ -935,8 +935,7 @@ public final class FirstPerson {
         Quality.inFirstPerson(view.index, on || gettingReady || !view.flight.home());
         if (wasFirstPerson && !Quality.firstPersonInEffect(view.index) && failure == null) {
             // Back in the isometric view, with its own graphics mode: said, so a mode not wanted there is not played on unawares.
-            said = Quality.said(view.index);
-            saidAt = now;
+            say(Quality.said(view.index));
         }
         boolean wasLanded = landed, landing = on && view.flight.landed();
         if (landing && !wasLanded) {
