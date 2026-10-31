@@ -612,6 +612,12 @@ final class MeshCut {
                     if (turn <= 0f) {
                         continue;
                     }
+                    float ab = 0f, bc = 0f, ca = 0f;
+                    if (pass == 0) {
+                        ab = (float) Math.hypot(polygonS[b] - polygonS[a], polygonT[b] - polygonT[a]);
+                        bc = (float) Math.hypot(polygonS[c] - polygonS[b], polygonT[c] - polygonT[b]);
+                        ca = (float) Math.hypot(polygonS[a] - polygonS[c], polygonT[a] - polygonT[c]);
+                    }
                     boolean clear = true;
                     for (int m = 0; m < n && clear; m++) {
                         int x = left[m];
@@ -619,7 +625,7 @@ final class MeshCut {
                             continue;
                         }
                         float s = polygonS[x], t = polygonT[x];
-                        clear = pass == 0 ? !nearTriangle(s, t, polygonS[a], polygonT[a], polygonS[b], polygonT[b], polygonS[c], polygonT[c])
+                        clear = pass == 0 ? !nearTriangle(s, t, polygonS[a], polygonT[a], polygonS[b], polygonT[b], polygonS[c], polygonT[c], ab, bc, ca)
                                 : !inTriangle(s, t, polygonS[a], polygonT[a], polygonS[b], polygonT[b], polygonS[c], polygonT[c]);
                     }
                     if (clear) {
@@ -677,12 +683,11 @@ final class MeshCut {
     /**
      * Whether (s, t) is in the triangle or within NEAR of it. An ear is not cut off past a corner
      * that close: whether a corner on an edge of the face, or of a hole that touches it, lies a
-     * hair inside or outside comes out one way where the cut decides it and the other here.
+     * hair inside or outside comes out one way where the cut decides it and the other here. ab, bc
+     * and ca are the lengths of its sides from A to B, B to C and C to A.
      */
-    private static boolean nearTriangle(float s, float t, float sA, float tA, float sB, float tB, float sC, float tC) {
-        return side(sA, tA, sB, tB, s, t) >= -NEAR * (float) Math.hypot(sB - sA, tB - tA)
-                && side(sB, tB, sC, tC, s, t) >= -NEAR * (float) Math.hypot(sC - sB, tC - tB)
-                && side(sC, tC, sA, tA, s, t) >= -NEAR * (float) Math.hypot(sA - sC, tA - tC);
+    private static boolean nearTriangle(float s, float t, float sA, float tA, float sB, float tB, float sC, float tC, float ab, float bc, float ca) {
+        return side(sA, tA, sB, tB, s, t) >= -NEAR * ab && side(sB, tB, sC, tC, s, t) >= -NEAR * bc && side(sC, tC, sA, tA, s, t) >= -NEAR * ca;
     }
 
     /** How near a corner keeps an ear from being cut off, in tiles. */
