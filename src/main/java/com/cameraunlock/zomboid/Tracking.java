@@ -319,7 +319,11 @@ final class Tracking {
         // Only the rows the file changed: a toggle made since the file was read is saved after this reload, and kept.
         int changed = live.firstPerson() ^ was.firstPerson();
         firstPersonAtLoad.updateAndGet(bits -> bits & ~changed | live.firstPerson() & changed);
-        inVehicles(live.firstPersonInVehicles());
+        int vehiclesChanged = live.firstPersonInVehicles() ^ was.firstPersonInVehicles();
+        if (vehiclesChanged != 0) {
+            int now = firstPersonInVehicles.updateAndGet(bits -> bits & ~vehiclesChanged | live.firstPersonInVehicles() & vehiclesChanged);
+            Part.firstPersonInVehicles(now != 0);
+        }
         if (live.hillHeight() != was.hillHeight()) {
             HillHeight.set(live.hillHeight());
             Log.info(Config.FILE_NAME + " changed: hill height set to " + live.hillHeight());
