@@ -40,8 +40,9 @@ Press `Delete` to switch between the isometric view and first person, on foot or
 - **Shots through walls** - offline and on servers without PvP, shots go through plasterboard, wood, doors and glass, losing damage each time. Brick, concrete, metal and barricades stop them. A broad-leaved tree only stops a shot at its trunk, not across its whole tile.
 - **Shoot out lights** - offline, shots break vehicle lights and table, wall and street lamps.
 - **Shoot out windows** - offline, a shot breaks every closed window it passes through.
-- **Blast holes** - offline, in first person, a shotgun blast that lands tightly grouped on a wooden door or a wooden fence, tall or low, blows a ragged hole through it, which you can see and shoot through. Pellets that miss the hole leave marks on a door. The holes stay in your save.
+- **Blast holes** - offline, in first person, a shotgun blast that lands tightly grouped on a wooden door, a wooden fence, tall or low, or a wall of boards or plasterboard, blows a ragged hole through it, which you can see and shoot through. Pellets that miss the hole leave marks on a door. The holes stay in your save.
 - **Bullet holes** - offline, in first person, a round that goes through a door, a wall or a wooden fence leaves a small hole where it went in and a wider, splintered one where it came out, which you can see through. The holes stay in your save.
+- **Climbing through holes** - offline, in first person, hold the Interact key with the crosshair on a hole shot through a fence, a wall or a door, standing beside it, and you climb through, where the hole is wide and tall enough for you: about half a metre wide, from knee height to over your shoulders.
 
 ### Vehicles
 
@@ -794,16 +795,20 @@ HiddenWallDecor=true
 ; the room's other walls say they belong, the first time the room is loaded, and those stay in your save.
 ; false: nothing is added to the save, and what was added before stays. On a server nothing is added.
 HiddenWallDecorSaved=true
-; true: offline, a shotgun blast in first person whose pellets land close together on a wooden door or a wooden
-; fence blows a ragged hole through it that you can see and shoot through, and the pellets that miss the hole
-; leave marks on a door. The holes stay in your save. false: shots leave doors and fences whole. On a server
-; doors and fences stay whole.
+; true: offline, a shotgun blast in first person whose pellets land close together on a wooden door, a wooden
+; fence or a wall of boards or plasterboard blows a ragged hole through it that you can see and shoot through,
+; and the pellets that miss the hole leave marks on a door. The holes stay in your save. false: shots leave
+; doors, fences and walls whole. On a server they stay whole.
 BlastHoles=true
 ; true: offline, while ShotsThroughWalls is on, a round you fire in first person that goes through a door, a wall
 ; or a fence leaves a small hole where it went in and a wider, splintered one where it came out, which you can
 ; see through. The holes stay in your save. false: rounds still go through, and leave only a mark. On a server
 ; nothing is holed.
 BulletHoles=true
+; true: offline, in first person, holding the Interact key with the crosshair on a hole shot through a fence,
+; a wall or a door, where the hole is wide and tall enough for you to fit through and you stand beside it,
+; climbs you through. false: holes are only to see and shoot through. On a server nothing is climbed through.
+ClimbThroughHoles=true
 ; true: in first person, sitting in a vehicle with a gun, you can fire through any part of your seat's window, and
 ; the shot breaks it. false: as in the game, the window has to be opened or broken first. On a server where
 ; players can hurt each other, the game's rule applies.

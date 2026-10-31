@@ -85,7 +85,8 @@ final class BlastHoles {
     /**
      * Whether an object is one a blast blows holes in: a wooden door, a wooden fence on an edge,
      * tall or low, the map's or one a player built, whole, broken or burnt, or a wall of
-     * plasterboard, which the pellets go on through (Penetration). A rail fence strung with
+     * plasterboard, which the pellets go on through (Penetration), or of boards, siding among them,
+     * which stops them. Logic thread for a wall (Penetration.madeOf). A rail fence strung with
      * wire is mostly the wire's gaps, and is not one, nor a fence the picture builds from a model of
      * its own (ModelFences), whose pickets are not cut.
      */
@@ -106,16 +107,17 @@ final class BlastHoles {
         String made = material != null ? material : properties.get("MaterialType");
         boolean onEdge = Edges.west(properties, sprite.getType()) || Edges.north(properties, sprite.getType());
         // A corner piece is the wall of both its edges, as WorldScene.wallOn takes it.
-        if ((onEdge || properties.has(IsoFlagType.WallNW)) && WorldScene.isWall(properties, sprite.getType()) && PLASTER.equals(Penetration.materialOf(object))) {
-            return true;
+        if ((onEdge || properties.has(IsoFlagType.WallNW)) && WorldScene.isWall(properties, sprite.getType())) {
+            String wall = Penetration.madeOf(object);
+            return PLASTER.equals(wall) || WOOD.equals(wall);
         }
         return name != null && made != null && made.startsWith("Wood") && !"MetalWire".equals(properties.get("Material2"))
                 && (name.startsWith("fencing_") || name.startsWith("carpentry_02_") || name.startsWith("crafted_0")) && ModelFences.of(name) == null
                 && onEdge;
     }
 
-    /** What the game names plasterboard. */
-    private static final String PLASTER = "Plaster";
+    /** What the game names plasterboard, and a wall of boards (not Wood_Solid, logs). */
+    private static final String PLASTER = "Plaster", WOOD = "Wood";
 
     /**
      * Whether a round that goes through an object leaves a hole the picture cuts: a door the picture
@@ -378,9 +380,10 @@ final class BlastHoles {
                 Math.min(leaf.foot, leaf.head), Math.max(leaf.foot, leaf.head), 0);
     }
 
-    /** Whether an object is a fence of boards stood side by side: a wooden fence a blast holes, and not a door or plasterboard. */
+    /** Whether an object is a fence of boards stood side by side: a wooden fence a blast holes, and not a door or a wall. Any thread. */
     static boolean boards(IsoObject object) {
-        return !DoorGlass.isDoor(object) && blastable(object) && !PLASTER.equals(Penetration.materialOf(object));
+        IsoSprite sprite = object.getSprite();
+        return sprite != null && !DoorGlass.isDoor(object) && !WorldScene.isWall(sprite.getProperties(), sprite.getType()) && blastable(object);
     }
 
     /** How far, in tiles, a broken piece's corners go out past its squares, give or take PIECE_SKEW. */

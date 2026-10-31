@@ -89,8 +89,9 @@ final class InsideWallTests {
         Checks.check(BlastHoles.holedByRounds(doorway) && !BlastHoles.holedByRounds(tiled), "a round leaves its hole in the doorway's plasterboard, none in tiles");
         Checks.check(BlastHoles.blastable(doorway) && BlastHoles.blastable(plain) && BlastHoles.blastable(corner),
                 "a blast blows its hole through plasterboard: a doorway's piece, a plain length and a corner");
-        Checks.check(!BlastHoles.blastable(tiled) && !BlastHoles.blastable(boards),
-                "but not through tiles over block, nor a wall of boards, which stops a pellet");
+        Checks.check(!BlastHoles.blastable(tiled), "but not through tiles over block");
+        Checks.check(BlastHoles.blastable(boards) && !BlastHoles.boards(boards) && Penetration.costOf(boards) > Penetration.Cartridge.SHOT.budget,
+                "and through a wall of boards, which stops a pellet, as a sheet and not a fence's boards");
         Checks.check(Penetration.cost("Plaster") < Penetration.Cartridge.SHOT.budget, "a shotgun's pellet goes on through plasterboard, as a blast through it has to");
     }
 }
