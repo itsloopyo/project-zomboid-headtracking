@@ -34,6 +34,7 @@ final class BlastTests {
         Checks.run("aSliverOutOnTheMapIsCutWhereItsFloatsAreCoarse", BlastTests::aSliverOutOnTheMapIsCutWhereItsFloatsAreCoarse);
         Checks.run("aCornerOfAnOutlineGrazingAFaceEdgeTakesOnlyWhatIsInTheHole", BlastTests::aCornerOfAnOutlineGrazingAFaceEdgeTakesOnlyWhatIsInTheHole);
         Checks.run("aBodyClimbsOnlyThroughAnOpeningItFits", BlastTests::aBodyClimbsOnlyThroughAnOpeningItFits);
+        Checks.run("aBodyClimbsThroughAWallShotRoundInARing", BlastTests::aBodyClimbsThroughAWallShotRoundInARing);
     }
 
     /** A gap from along a0 to a1 on the edge and from m0 to m1 metres over its floor. */
@@ -66,6 +67,32 @@ final class BlastTests {
         check(Float.isNaN(HoleHop.opening(gap(0.3f, 0.7f, 0.3f, 1.6f), 0.5f)), "nor one too narrow for the body");
         float end = HoleHop.opening(gap(-1f, 0.6f, 0.3f, 1.6f), 0.05f);
         check(end >= HoleHop.HALF_WIDTH && end < HoleHop.HALF_WIDTH + 0.03f, "and a body goes through the edge it is on, not past its end: " + end);
+    }
+
+    /** A wall shot round in a ring, as a player blows a way through one: the middle falls, and the gap is climbed through. */
+    private static void aBodyClimbsThroughAWallShotRoundInARing() {
+        float[] ring = new float[0];
+        int seed = 1;
+        for (float along = 0.1f; along < 0.91f; along += 0.1f) {
+            ring = BlastHoles.with(ring, true, along, 0.15f, 0.12f, seed++, 0);
+            ring = BlastHoles.with(ring, true, along, 0.72f, 0.12f, seed++, 0);
+        }
+        for (float up = 0.25f; up < 0.65f; up += 0.08f) {
+            ring = BlastHoles.with(ring, true, 0.1f, up, 0.12f, seed++, 0);
+            ring = BlastHoles.with(ring, true, 0.9f, up, 0.12f, seed++, 0);
+        }
+        Breakage.Pieces fallen = Breakage.of(ring, true, new Breakage.Panel(Breakage.SHEET, 0f, 1f, 0f, 1f, 0, Breakage.HELD_ALL, Breakage.NO_FRAMES));
+        check(fallen.inside(0.5f, 0.45f), "the middle of the ring falls");
+        HoleHop.Open cut = HoleHop.cut(BlastHoles.outlinesOn(ring, true), fallen);
+        for (float along = 0.2f; along <= 0.8f; along += 0.01f) {
+            for (float up = 0.22f; up <= 0.62f; up += 0.01f) {
+                if (!cut.at(along, up)) {
+                    check(false, "nothing stands inside the ring where the picture shows none, but (" + along + ", " + up + ") does");
+                    return;
+                }
+            }
+        }
+        check(HoleHop.opening(cut, 0.5f) == 0.5f, "a body climbs through the ring where the crosshair is");
     }
 
     private static void check(boolean condition, String what) {

@@ -703,6 +703,20 @@ final class BlastHoles {
         return entries != null && (inAHole(entries, north, along, up) || fallen(object, north).inside(along, up));
     }
 
+    /** The outlines the holes on the north or west edge are cut by in the picture (outlineOf), along and up in tiles. */
+    static ArrayList<float[]> outlinesOn(float[] entries, boolean north) {
+        ArrayList<float[]> outlines = new ArrayList<>();
+        for (int at = 0; at < entries.length; at += FLOATS) {
+            if ((entries[at + NORTH] != 0f) == north) {
+                float[] outline = outlineOf(entries, at);
+                if (outline != null) {
+                    outlines.add(outline);
+                }
+            }
+        }
+        return outlines;
+    }
+
     static boolean inAHole(float[] entries, boolean north, float along, float up) {
         for (int at = 0; at < entries.length; at += FLOATS) {
             if (!isHole(entries[at + SIDE]) || (entries[at + NORTH] != 0f) != north) {

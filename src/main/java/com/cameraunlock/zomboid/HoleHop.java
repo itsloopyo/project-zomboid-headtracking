@@ -142,9 +142,15 @@ final class HoleHop {
                 return null;
             }
         }
+        Open[] cuts = new Open[blockers.size()];
+        for (int i = 0; i < cuts.length; i++) {
+            IsoObject blocker = blockers.get(i);
+            Open cut = cut(BlastHoles.outlinesOn(BlastHoles.of(blocker), north), BlastHoles.fallen(blocker, north));
+            cuts[i] = DoorGlass.isDoor(blocker) ? (a, u) -> DoorGlass.onLeaf(blocker, north, a, u) && cut.at(a, u) : cut;
+        }
         Open open = (a, u) -> {
-            for (IsoObject blocker : blockers) {
-                if (DoorGlass.isDoor(blocker) && !DoorGlass.onLeaf(blocker, north, a, u) || !BlastHoles.through(blocker, north, a, u)) {
+            for (Open cut : cuts) {
+                if (!cut.at(a, u)) {
                     return false;
                 }
             }
@@ -169,6 +175,26 @@ final class HoleHop {
             return null;
         }
         return new Hop(way, middle);
+    }
+
+    /**
+     * What is cut out of a thing as the picture cuts it: its holes' outlines and what fell from between them. Not
+     * BlastHoles.through, which keeps a shot to well inside each hole, so that the ragged rim of every hole in a
+     * gap blown open by several reads as wall standing in the middle of the gap.
+     */
+    static Open cut(ArrayList<float[]> outlines, Breakage.Pieces fallen) {
+        return (a, u) -> {
+            if (fallen.inside(a, u)) {
+                return true;
+            }
+            float tiles = u * ViewCamera.LEVEL_HEIGHT;
+            for (float[] outline : outlines) {
+                if (MeshCut.inside(outline, a, tiles)) {
+                    return true;
+                }
+            }
+            return false;
+        };
     }
 
     /** What stops a character crossing a square's north or west edge: what collides there, and a shut door. */
