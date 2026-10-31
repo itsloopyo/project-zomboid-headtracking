@@ -65,14 +65,24 @@ final class Blasts {
             return;
         }
         for (Struck each : group) {
-            if (cluster == null || !cluster.members.contains(each)) {
+            if (cluster == null || !cluster.took(each)) {
                 BlastHoles.add(each.object, each.north, each.along, each.up, BlastHoles.MARK_RADIUS, BlastHoles.newSeed(), each.side);
             }
         }
     }
 
     /** Where a blast's pellets on a thing blew a hole: its middle, its radius, and the pellets it took. */
-    record Cluster(IsoObject object, boolean north, float along, float up, float radius, ArrayList<Struck> members) {}
+    record Cluster(IsoObject object, boolean north, float along, float up, float radius, ArrayList<Struck> members) {
+        /** Whether the hole took this very pellet: another that struck the same place is still a pellet of its own. */
+        boolean took(Struck pellet) {
+            for (Struck member : members) {
+                if (member == pellet) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
 
     /**
      * The hole a blast's pellets on one thing blow, or null: the pellets furthest from the middle of
@@ -89,13 +99,13 @@ final class Blasts {
             }
             along /= left.size();
             up /= left.size();
-            Struck furthest = null;
+            int furthest = -1;
             float most = -1f;
-            for (Struck each : left) {
-                float d = distance(each, along, up);
+            for (int i = 0; i < left.size(); i++) {
+                float d = distance(left.get(i), along, up);
                 if (d > most) {
                     most = d;
-                    furthest = each;
+                    furthest = i;
                 }
             }
             if (most <= CLOSE) {
