@@ -79,8 +79,9 @@ public final class Agent {
     static String firstPersonGap() {
         // Asked several times a frame, so the first answer is kept, though it can change later: see PatchTransformer.gap.
         if (!firstPersonAsked) {
-            firstPersonGap = firstPerson.gap();
+            // Marked asked before asking: a takeIn that clears the mark while this asks has it asked again, not kept stale.
             firstPersonAsked = true;
+            firstPersonGap = firstPerson.gap();
         }
         return firstPersonGap;
     }
