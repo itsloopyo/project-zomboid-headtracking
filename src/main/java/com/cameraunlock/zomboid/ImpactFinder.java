@@ -251,7 +251,9 @@ final class ImpactFinder {
                 break;
             }
             line.eyeAt(startX + line.forwardX * gone, startY + line.forwardY * gone, startUp + line.forwardUp * gone);
-            distance = world.toSurface(line, terrain::height, shooter.getZ() * ViewCamera.LEVEL_HEIGHT, left);
+            int level = world.metLevel;
+            world.look(cell, level);
+            distance = world.toSurface(line, terrain::height, footing(shooter, level), left);
             ShotLights.along(cell, terrain, line, Math.min(distance, left));
             ShotGlass.along(cell, terrain, shooter, line, Math.min(distance, left));
             lowFencesAlong(cell, terrain, shooter, Math.min(distance, left), size);
@@ -335,17 +337,30 @@ final class ImpactFinder {
         }
         float startX = line.eyeX, startY = line.eyeY, startUp = line.eyeUp;
         float gone = 0f;
-        world.look(cell, (int) Math.floor(shooter.getZ()));
+        int level = (int) Math.floor(shooter.getZ());
+        world.look(cell, level);
         for (int i = 0; i < MOST_WALLS; i++) {
-            float distance = world.toSurface(line, terrain::height, shooter.getZ() * ViewCamera.LEVEL_HEIGHT, toBody - gone);
+            float distance = world.toSurface(line, terrain::height, footing(shooter, level), toBody - gone);
             if (world.met != WorldQuery.WALL || distance >= toBody - gone) {
                 break;
             }
             surface(cell, terrain, shooter, distance, size);
             gone += distance + PAST_WALL;
             line.eyeAt(startX + line.forwardX * gone, startY + line.forwardY * gone, startUp + line.forwardUp * gone);
+            level = world.metLevel;
+            world.look(cell, level);
         }
         line.eyeAt(startX, startY, startUp);
+    }
+
+    /**
+     * The floor a shot traced on from a level stands on, in tiles over the flat map: the shooter's
+     * own on their level, and each level under it that much lower, as WorldQuery takes a line down
+     * past the edge of a floor. A round that went through a wall it met below the shooter's level
+     * goes on from that wall's level.
+     */
+    private static float footing(IsoGameCharacter shooter, int level) {
+        return (shooter.getZ() - ((int) Math.floor(shooter.getZ()) - level)) * ViewCamera.LEVEL_HEIGHT;
     }
 
     /** A shot went into a character, along the line: blood, unless the game's own blood is switched off. */
