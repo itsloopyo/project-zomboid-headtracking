@@ -230,7 +230,8 @@ final class WallBuilder {
             float layer, float da, float db) {
         // A door's holes are cut where its leaf is built, which knows where the leaf stands (OpeningBuilder.addBuiltDoor).
         float[] holes = door ? null : build.blastHoles;
-        boolean measured = !door && build.lowBoards;
+        // A holed fence of boards is measured too: what of its boards the holes leave held goes by its top (Breakage).
+        boolean measured = !door && (build.lowBoards || holes != null && BlastHoles.boards(build.blastObject));
         if (holes == null && !measured) {
             addWholeEdge(mesh, texture, wall, door, x, y, z, layer, da, db);
             return;
@@ -246,7 +247,7 @@ final class WallBuilder {
         float[] lift = build.geometry.lift;
         float foot = z * ViewCamera.LEVEL_HEIGHT + (lift[0] + lift[1] + lift[2] + lift[3]) / 4f;
         MeshCut cut = new MeshCut(x, y, da, db, FENCE_REACH);
-        BlastHoles.into(cut, holes, da != 0f, 0f, 1f, foot, ViewCamera.LEVEL_HEIGHT, 1);
+        BlastHoles.into(cut, holes, BlastHoles.panel(build.blastObject, da != 0f), da != 0f, 0f, 1f, foot, ViewCamera.LEVEL_HEIGHT, 1);
         cut.since(ends, build.solid, build.laid);
     }
 

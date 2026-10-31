@@ -787,14 +787,14 @@ final class OpeningBuilder {
         MeshCut cut = new MeshCut(windowX, windowY, windowAlongX, windowAlongY, DOOR_REACH);
         float level = ViewCamera.LEVEL_HEIGHT;
         if (shut == null) {
-            BlastHoles.into(cut, entries, north, 0f, 1f, windowFoot, level, 1);
+            BlastHoles.into(cut, entries, BlastHoles.leafPanel(door.leaf), north, 0f, 1f, windowFoot, level, 1);
         } else {
             Windows.Shape from = shut.leaf, to = door.leaf;
             float along = (to.end - to.start) / (from.end - from.start), up = (to.head - to.foot) / (from.head - from.foot);
             boolean turned = !shut.handleAtEnd;
             // Swung a quarter turn on its hinges, the leaf's face that looked across its edge one way looks across the other edge
             // the other way, unless it is turned end for end as well.
-            BlastHoles.into(cut, entries, !north, turned ? to.end + from.start * along : to.start - from.start * along, turned ? -along : along,
+            BlastHoles.into(cut, entries, BlastHoles.leafPanel(from), !north, turned ? to.end + from.start * along : to.start - from.start * along, turned ? -along : along,
                     windowFoot + level * (to.foot - from.foot * up), level * up, turned ? 1 : -1);
         }
         return cut.any() ? cut : null;
@@ -861,7 +861,7 @@ final class OpeningBuilder {
         wood.day = 0f;
         if (holes != null) {
             MeshCut cut = new MeshCut(x, y, da, db, CASING_REACH);
-            BlastHoles.into(cut, holes, north, 0f, 1f, windowFoot, ViewCamera.LEVEL_HEIGHT, 1);
+            BlastHoles.into(cut, holes, BlastHoles.panel(build.blastObject, north), north, 0f, 1f, windowFoot, ViewCamera.LEVEL_HEIGHT, 1);
             cut.since(ends, build.solid, build.laid);
         }
         return true;

@@ -8106,6 +8106,7 @@ final class WorldScene {
                     posterClear = trimClear(wall == WallHung.NORTH, hungAt[WallHung.FROM], hungAt[WallHung.TO], hungAt[WallHung.BOTTOM], hungAt[WallHung.TOP]);
                     // Holed where its wall is, and never a fence's boards to measure: these are otherwise set by the sprite before, which may be another object's.
                     blastHoles = BlastHoles.of(object);
+                    blastObject = object;
                     lowBoards = false;
                     if (wall == WallHung.WEST) {
                         wallBuilder.addEdge(mesh, texture, false, false, x, y, z, westLayer++, 0f, 1f);
@@ -9808,6 +9809,7 @@ final class WorldScene {
             shutTexture = null;
             brokenLights = DoorGlass.isDoor(object) ? DoorGlass.broken(object) : 0;
             blastHoles = BlastHoles.of(object);
+            blastObject = object;
             if (object instanceof IsoDoor door) {
                 // A door on hinges stands across its doorway when it is open. A garage door
                 // rolls up in its own plane, and what is left of it showing is still in the wall,
@@ -10549,6 +10551,8 @@ final class WorldScene {
         int brokenLights;
         /** Of the door or fence being added, the holes blasts have blown and the marks pellets have left, or null: see BlastHoles. */
         float[] blastHoles;
+        /** The object blastHoles are of, which says what else went with them (BlastHoles.panel). */
+        IsoObject blastObject;
         /** Whether the sprite being added is a wooden fence low enough for the game to see over: its top is measured for the shots (BlastHoles.topOf). */
         boolean lowBoards;
         /** Whether the sprite being added is the frame round a doorway. */

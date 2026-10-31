@@ -191,7 +191,7 @@ final class DoorGlass {
     }
 
     /** The leaf of a shut door as the picture measured it (Doors) on the edge the door is on, or null. */
-    private static Windows.Shape leafOf(IsoObject door) {
+    static Windows.Shape leafOf(IsoObject door) {
         boolean north = door instanceof IsoDoor hinged ? hinged.getNorth() : ((IsoThumpable) door).getNorth();
         Doors.Shape shape = Doors.known(door.getSprite().getTextureForCurrentFrame(door.getDir()), north);
         return shape == null ? null : shape.leaf;

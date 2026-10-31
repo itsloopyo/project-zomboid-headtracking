@@ -40,8 +40,12 @@ final class BlastHoles {
     static final int FLOATS = 6, ALONG = 0, UP = 1, RADIUS = 2, SEED = 3, SIDE = 4, NORTH = 5;
     /** Where each hole's and mark's ragged outline is drawn from: below 2^24, so a float in the save holds it whole. */
     private static final Random seeds = new Random();
-    /** The most blasts' holes, marks and rounds' holes an object keeps: the oldest of each go first past them. */
-    static final int MOST_HOLES = 8, MOST_MARKS = 48, MOST_ROUNDS = 24;
+    /**
+     * The most blasts' holes, marks and rounds' holes an object keeps. Past them a hole that the
+     * others of its kind cover goes first, so a thing shot to pieces stays in pieces, and only where
+     * none is covered the oldest of the kind.
+     */
+    static final int MOST_HOLES = 32, MOST_MARKS = 48, MOST_ROUNDS = 24;
     /** SIDE over the side a round came from, for a round's hole. */
     static final int ROUND = 2;
     /** How many points a hole's outline has, how ragged it is, and how much taller than wide: wood splits along its grain, and a door's and a fence's grain runs up. */
@@ -131,10 +135,10 @@ final class BlastHoles {
         return blastable(object) || made != null && !made.startsWith("Glass") && Penetration.cost(made) != Penetration.STOPS;
     }
 
-    /** The tops of the low board fences the picture has built, in levels over their ground, by their sprite's picture. */
+    /** The tops of the board fences the picture has built, low ones and those with holes, in levels over their ground, by their sprite's picture. */
     private static final Map<Texture, Float> tops = new java.util.concurrent.ConcurrentHashMap<>();
 
-    /** Keeps how high the low board fence the picture built from a sprite's picture stands, in levels. Build threads. */
+    /** Keeps how high the board fence the picture built from a sprite's picture stands, in levels. Build threads. */
     static void measured(Texture texture, float top) {
         tops.put(texture, top);
     }
@@ -161,7 +165,7 @@ final class BlastHoles {
         return null;
     }
 
-    /** How high the picture built a low fence, in levels over its ground, or NaN where it has not built its sprite. */
+    /** How high the picture built a board fence, in levels over its ground, or NaN where it has not built its sprite. */
     static float topOf(IsoObject fence) {
         Float top = tops.get(fence.getSprite().getTextureForCurrentFrame(fence.getDir()));
         return top == null ? Float.NaN : top;
@@ -269,7 +273,7 @@ final class BlastHoles {
         }
     }
 
-    /** The entries with one more, the oldest of its kind let go past the most of that kind. */
+    /** The entries with one more, past the most of its kind letting go of one the others cover, or else the oldest. */
     static float[] with(float[] entries, boolean north, float along, float up, float radius, int seed, int side) {
         int count = entries.length / FLOATS, same = 0, first = -1;
         for (int i = 0; i < count; i++) {
@@ -277,6 +281,14 @@ final class BlastHoles {
                 same++;
                 if (first < 0) {
                     first = i;
+                }
+            }
+        }
+        if (isHole(side) && same >= (side == 0 ? MOST_HOLES : MOST_ROUNDS)) {
+            for (int i = 0; i < count; i++) {
+                if (Math.abs((int) entries[i * FLOATS + SIDE]) == Math.abs(side) && coveredByOthers(entries, i)) {
+                    first = i;
+                    break;
                 }
             }
         }
@@ -297,6 +309,83 @@ final class BlastHoles {
         return out;
     }
 
+    /** How far in from its outline a hole is looked at to tell whether the others cover it. */
+    private static final float COVER_IN = 0.8f;
+
+    /** Whether the other holes of its edge together cover the hole at place i: its middle and its outline drawn in by COVER_IN. */
+    static boolean coveredByOthers(float[] entries, int i) {
+        float[] own = outlineOf(entries, i * FLOATS);
+        float middleA = entries[i * FLOATS + ALONG], middleU = entries[i * FLOATS + UP] * ViewCamera.LEVEL_HEIGHT;
+        float north = entries[i * FLOATS + NORTH];
+        for (int k = -1; k < own.length / 2; k++) {
+            float a = k < 0 ? middleA : middleA + (own[2 * k] - middleA) * COVER_IN;
+            float u = k < 0 ? middleU : middleU + (own[2 * k + 1] - middleU) * COVER_IN;
+            boolean in = false;
+            for (int other = 0; other < entries.length / FLOATS && !in; other++) {
+                if (other == i || entries[other * FLOATS + NORTH] != north) {
+                    continue;
+                }
+                float[] outline = outlineOf(entries, other * FLOATS);
+                in = outline != null && MeshCut.inside(outline, a, u);
+            }
+            if (!in) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * The outline a hole is cut by, along and up in tiles, a round's where it goes in; null for a
+     * mark. It is the outline into cuts where the plane is a fence's or a wall's own.
+     */
+    static float[] outlineOf(float[] entries, int at) {
+        float side = entries[at + SIDE];
+        if (!isHole(side)) {
+            return null;
+        }
+        float along = entries[at + ALONG], up = entries[at + UP] * ViewCamera.LEVEL_HEIGHT, r = entries[at + RADIUS];
+        int seed = (int) entries[at + SEED];
+        return side == 0f ? MeshCut.outline(along, up, r, r * HOLE_TALL, HOLE_RAGGED, HOLE_POINTS, seed)
+                : MeshCut.outline(along, up, r, r, ROUND_RAGGED, ROUND_POINTS, seed);
+    }
+
+    /**
+     * What an object is to Breakage on its north or west edge: a door's leaf as the picture measured
+     * it (null until then), a wooden fence's boards as high as the picture built them (a level until
+     * it has), or a wall's sheet a level high. Any thread.
+     */
+    static Breakage.Panel panel(IsoObject object, boolean north) {
+        if (DoorGlass.isDoor(object)) {
+            Windows.Shape leaf = object.getSprite() == null ? null : DoorGlass.leafOf(object);
+            return leaf == null ? null : leafPanel(leaf);
+        }
+        IsoGridSquare square = object.getSquare();
+        if (square == null) {
+            return null;
+        }
+        int startsAt = north ? square.getX() : square.getY();
+        if (boards(object)) {
+            float top = topOf(object);
+            return new Breakage.Panel(Breakage.BOARDS, 0f, 1f, 0f, Float.isNaN(top) ? 1f : top, startsAt);
+        }
+        return new Breakage.Panel(Breakage.SHEET, 0f, 1f, 0f, 1f, startsAt);
+    }
+
+    /** A shut door's leaf as Breakage takes it: one sheet. */
+    static Breakage.Panel leafPanel(Windows.Shape leaf) {
+        return new Breakage.Panel(Breakage.SHEET, Math.min(leaf.start, leaf.end), Math.max(leaf.start, leaf.end),
+                Math.min(leaf.foot, leaf.head), Math.max(leaf.foot, leaf.head), 0);
+    }
+
+    /** Whether an object is a fence of boards stood side by side: a wooden fence a blast holes, and not a door or plasterboard. */
+    static boolean boards(IsoObject object) {
+        return !DoorGlass.isDoor(object) && blastable(object) && !PLASTER.equals(Penetration.materialOf(object));
+    }
+
+    /** How far, in tiles, a broken piece's corners go out past its squares, give or take PIECE_SKEW. */
+    private static final float PIECE_OVER = 0.002f, PIECE_SKEW = 0.001f;
+
     /** A new hole's or mark's SEED. */
     static int newSeed() {
         return seeds.nextInt(1 << 20);
@@ -305,7 +394,7 @@ final class BlastHoles {
     /** Whether (along, up) on an object's north or west edge is inside one of its holes, far enough in for a shot to go through: see THROUGH. Logic thread. */
     static boolean through(IsoObject object, boolean north, float along, float up) {
         float[] entries = of(object);
-        return entries != null && inAHole(entries, north, along, up);
+        return entries != null && (inAHole(entries, north, along, up) || Breakage.of(entries, north, panel(object, north)).inside(along, up));
     }
 
     static boolean inAHole(float[] entries, boolean north, float along, float up) {
@@ -345,9 +434,29 @@ final class BlastHoles {
     /**
      * Puts an object's holes and marks on its north or west edge into a cut: each at s = sFrom +
      * sBy * along on the cut's plane and t = tFrom + tBy * up, in tiles, and a mark's side times
-     * sideBy.
+     * sideBy; and what went with them (Breakage) of the panel the object is, null for none.
      */
-    static void into(MeshCut cut, float[] entries, boolean north, float sFrom, float sBy, float tFrom, float tBy, int sideBy) {
+    static void into(MeshCut cut, float[] entries, Breakage.Panel panel, boolean north, float sFrom, float sBy, float tFrom, float tBy, int sideBy) {
+        float[][] pieces = Breakage.of(entries, north, panel).rectangles;
+        for (int p = 0; p < pieces.length; p++) {
+            float[] piece = pieces[p], outline = new float[8];
+            float middleS = 0f, middleT = 0f;
+            for (int k = 0; k < 4; k++) {
+                // Laid mirrored along, the corners go round the other way: put back anticlockwise.
+                int from = sBy < 0f ? 3 - k : k;
+                outline[2 * k] = sFrom + sBy * piece[2 * from];
+                outline[2 * k + 1] = tFrom + tBy * piece[2 * from + 1];
+                middleS += outline[2 * k] / 4f;
+                middleT += outline[2 * k + 1] / 4f;
+            }
+            // Pieces meet edge to edge, and stand on the panel's edges: an outline along a line a face's
+            // edge lies on cannot be cut. Each corner goes out a little, by its own amount, so no two lines meet exactly.
+            for (int k = 0; k < 4; k++) {
+                outline[2 * k] += Math.signum(outline[2 * k] - middleS) * (PIECE_OVER + PIECE_SKEW * MeshCut.noise(p, 2 * k));
+                outline[2 * k + 1] += Math.signum(outline[2 * k + 1] - middleT) * (PIECE_OVER + PIECE_SKEW * MeshCut.noise(p, 2 * k + 1));
+            }
+            cut.hole(outline, middleS, middleT);
+        }
         for (int at = 0; at < entries.length; at += FLOATS) {
             if ((entries[at + NORTH] != 0f) != north) {
                 continue;

@@ -527,7 +527,7 @@ final class BlastTests {
         }
         float[] entries = BlastHoles.with(new float[0], true, 0.47f, 1.1f / ViewCamera.LEVEL_HEIGHT, BlastHoles.ROUND_RADIUS * 3f, 4242, BlastHoles.ROUND);
         MeshCut cut = new MeshCut(0f, 0f, 1f, 0f, 0.08f);
-        BlastHoles.into(cut, entries, true, 0f, 1f, 0f, ViewCamera.LEVEL_HEIGHT, 1);
+        BlastHoles.into(cut, entries, null, true, 0f, 1f, 0f, ViewCamera.LEVEL_HEIGHT, 1);
         cut.cut(mesh, 0);
         int cutFloats = mesh.floats;
         cut.finish();
@@ -634,7 +634,7 @@ final class BlastTests {
             }
         }
         MeshCut cut = new MeshCut(out, 0f, 1f, 0f, 0.08f);
-        BlastHoles.into(cut, entries, true, 0f, 1f, foot, level, 1);
+        BlastHoles.into(cut, entries, null, true, 0f, 1f, foot, level, 1);
         cut.cut(mesh, 0);
         cut.finish();
     }
