@@ -18,6 +18,7 @@ final class PenetrationTests {
         Checks.run("aShotThroughADoorsLightIsTold", PenetrationTests::aShotThroughADoorsLightIsTold);
         Checks.run("aBrokenLightLosesItsGlass", PenetrationTests::aBrokenLightLosesItsGlass);
         Checks.run("aSmashedSashIsBlownOutRaggedly", PenetrationTests::aSmashedSashIsBlownOutRaggedly);
+        Checks.run("aHoleIsLookedForWhereTheShotsOwnLineCrossesTheEdge", PenetrationTests::aHoleIsLookedForWhereTheShotsOwnLineCrossesTheEdge);
     }
 
     private static void check(boolean condition, String what) {
@@ -147,5 +148,19 @@ final class PenetrationTests {
         check(DoorGlass.blownOut(blast, 0.5f, 0.45f) && !DoorGlass.blownOut(blast, 0.5f, 0.12f), "the shards in the middle went with the wood, those at the rail did not");
         check(DoorGlass.inSash(sash, 0.3f, 0.7f, 0.4f, 0.5f), "the rail between the lights is splintered too");
         check(!DoorGlass.inSash(sash, 0.3f, 0.7f, 0f, 0.1f), "the rail under the lights is not");
+    }
+
+    private static void aHoleIsLookedForWhereTheShotsOwnLineCrossesTheEdge() {
+        // A muzzle at (10.5, 5.2) shooting north east through the north edge of (12, 8), y = 8: it crosses at x 12.3.
+        float along = Penetration.crossesEdge(10.5f, 5.2f, 1.8f, 2.8f, true, 8, 12);
+        check(Math.abs(along - 0.3f) < 1e-4f, "the line crosses the north edge 0.3 along, at " + along);
+        // The target's middle at (12.9, 9.5) puts the shooter-to-target line 0.06 along: a hole cut at 0.3 would be missed by it.
+        float targetLine = 10.5f + (12.9f - 10.5f) * (8f - 5.2f) / (9.5f - 5.2f) - 12f;
+        check(Math.abs(targetLine - along) > 0.1f, "the target's middle is not where the shot crossed");
+        check(Float.isNaN(Penetration.crossesEdge(10.5f, 5.2f, 1.8f, 2.8f, true, 8, 13)), "a line crossing beside the square does not cross its edge");
+        check(Float.isNaN(Penetration.crossesEdge(10.5f, 9.2f, 1.8f, 2.8f, true, 8, 12)), "nor one whose crossing is behind the muzzle");
+        check(Float.isNaN(Penetration.crossesEdge(10.5f, 5.2f, 0f, 1f, false, 12, 5)), "nor one running along a west edge's line");
+        float west = Penetration.crossesEdge(10.5f, 5.2f, 3f, 1f, false, 12, 5);
+        check(Math.abs(west - 0.7f) < 1e-4f, "a west edge is crossed along its y, at " + west);
     }
 }

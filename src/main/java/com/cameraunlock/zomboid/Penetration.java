@@ -2,6 +2,7 @@ package com.cameraunlock.zomboid;
 
 import zombie.characters.IsoGameCharacter;
 import zombie.characters.IsoPlayer;
+import zombie.core.physics.BallisticsController;
 import zombie.inventory.types.HandWeapon;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
@@ -9,6 +10,7 @@ import zombie.iso.IsoMovingObject;
 import zombie.iso.IsoObject;
 import zombie.iso.IsoWorld;
 import zombie.iso.LosUtil;
+import zombie.iso.Vector3;
 import zombie.iso.objects.IsoWindow;
 import zombie.scripting.objects.AmmoType;
 import zombie.util.list.PZArrayList;
@@ -131,9 +133,9 @@ final class Penetration {
      * and 0 where one stops it or the budget runs out. Each edge between squares is the game's own test
      * of what stops a shot (IsoGridSquare.testVisionAdjacent, as LosUtil.lineClear asks it). With no
      * cartridge nothing is gone through; with pastTrees a tree stops it only at its bole (see Trunks).
-     * The aim is the shot's line in the picture, over the terrain, which says how high it crosses
-     * each door; null where the shooter does not look through the first person view, and then a
-     * door's glass is not told from its wood.
+     * The aim is the shot's line, over the terrain, which says where it crosses each door and wall,
+     * and so whether it goes through a light or a hole; null where the shooter does not look through
+     * the first person view, and then a door's glass is not told from its wood, nor a hole from a wall.
      */
     static float share(IsoCell on, int floor, Cartridge cartridge, boolean pastTrees, float fromX, float fromY, float toX, float toY,
             ViewCamera.Pose aim, Terrain terrain) {
@@ -164,9 +166,22 @@ final class Penetration {
     /** Takes what the edge costs out of the round's budget, and answers whether that stops it. */
     private static boolean spendAt(int fromX, int fromY, int toX, int toY) {
         boolean north = fromX == toX;
-        float crossed = north ? (Math.max(fromY, toY) - lineY) / lineWayY : (Math.max(fromX, toX) - lineX) / lineWayX;
-        float x = lineX + lineWayX * crossed, y = lineY + lineWayY * crossed;
-        spent += edgeCost(cell, level, boles, fromX, fromY, toX, toY, north ? x - fromX : y - fromY, x, y);
+        int edge = north ? Math.max(fromY, toY) : Math.max(fromX, toX);
+        // Where the shot's own line crosses this edge, if it does: the target's middle is seldom on it, and a hole or a
+        // light is where that line went through.
+        float along = aimLine == null ? Float.NaN
+                : crossesEdge(aimLine.eyeX, aimLine.eyeY, aimLine.forwardX, aimLine.forwardY, north, edge, north ? fromX : fromY);
+        float x, y;
+        if (Float.isNaN(along)) {
+            float crossed = north ? (edge - lineY) / lineWayY : (edge - lineX) / lineWayX;
+            x = lineX + lineWayX * crossed;
+            y = lineY + lineWayY * crossed;
+            along = north ? x - fromX : y - fromY;
+        } else {
+            x = north ? fromX + along : edge;
+            y = north ? edge : fromY + along;
+        }
+        spent += edgeCost(cell, level, boles, fromX, fromY, toX, toY, along, x, y);
         if (boles) {
             IsoGridSquare to = cell.getGridSquare(toX, toY, level);
             float bole = to == null ? Float.NaN : Trunks.on(to);
@@ -175,6 +190,21 @@ final class Penetration {
             }
         }
         return spent > 0f && spent >= budget;
+    }
+
+    /**
+     * How far along the edge at `edge` (its y for a north edge, its x for a west one) of the square
+     * starting at `start` (its x, or its y) a line from (eyeX, eyeY) along (wayX, wayY) crosses it,
+     * 0 to 1: NaN where it crosses that line behind the eye, beside the square, or runs along it.
+     */
+    static float crossesEdge(float eyeX, float eyeY, float wayX, float wayY, boolean north, int edge, int start) {
+        float way = north ? wayY : wayX;
+        if (Math.abs(way) < 1e-6f) {
+            return Float.NaN;
+        }
+        float ahead = (edge - (north ? eyeY : eyeX)) / way;
+        float along = (north ? eyeX + wayX * ahead : eyeY + wayY * ahead) - start;
+        return ahead > 0f && along >= 0f && along <= 1f ? along : Float.NaN;
     }
 
     /**
@@ -323,12 +353,42 @@ final class Penetration {
         }
         View view = View.of((IsoPlayer) shooter);
         float share = share(on, floor, cartridge, pastTrees, shooter.getX(), shooter.getY(), target.getX(), target.getY(),
-                view.firstPerson.lookCaptured() ? view.firstPerson.aimView() : null, view.worldScene.terrain);
+                roundLine(view, shooter), view.worldScene.terrain);
         if (share <= 0f) {
             return seen;
         }
         through.put(target.getID(), share);
         return LosUtil.TestResults.Clear;
+    }
+
+    private static final ViewCamera.Pose round = new ViewCamera.Pose();
+    private static final float[] aimPoint = new float[3];
+
+    /**
+     * The line a first person shot flies along: from the muzzle, as Controls.muzzle sets it, to the
+     * reticle's point. ImpactFinder cuts a round's hole where this line crosses a wall, so a later
+     * shot along it goes through the same hole. Null where the look is not the first person view's.
+     */
+    private static ViewCamera.Pose roundLine(View view, IsoGameCharacter shooter) {
+        BallisticsController ballistics = shooter.getBallisticsController();
+        if (!view.firstPerson.lookCaptured() || ballistics == null) {
+            return null;
+        }
+        Terrain terrain = view.worldScene.terrain;
+        Vector3 muzzle = ballistics.getMuzzlePosition();
+        view.controls.aimPoint(aimPoint);
+        float fromUp = muzzle.z * ViewCamera.LEVEL_HEIGHT + terrain.lift(muzzle.x, muzzle.y, muzzle.z);
+        float wayX = aimPoint[0] - muzzle.x, wayY = aimPoint[1] - muzzle.y;
+        float wayUp = aimPoint[2] * ViewCamera.LEVEL_HEIGHT + terrain.lift(aimPoint[0], aimPoint[1], aimPoint[2]) - fromUp;
+        float length = (float) Math.sqrt(wayX * wayX + wayY * wayY + wayUp * wayUp);
+        if (length < 1e-6f) {
+            return null;
+        }
+        round.eyeAt(muzzle.x, muzzle.y, fromUp);
+        round.forwardX = wayX / length;
+        round.forwardY = wayY / length;
+        round.forwardUp = wayUp / length;
+        return round;
     }
 
     /** The game starts working out who an attack can reach (CombatManager.calculateHitInfoList): what was worked out for the last one goes. */
