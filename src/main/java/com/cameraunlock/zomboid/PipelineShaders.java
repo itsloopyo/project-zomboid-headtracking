@@ -918,7 +918,7 @@ final class PipelineShaders {
      * facHash is hash12 of David Hoskins's Hash without Sine, used under its MIT licence: the
      * notice is in THIRD-PARTY-NOTICES.md.
      */
-    static final String WORLD_FRAGMENT_PARTS = ("#version 120\n#extension GL_EXT_texture_array : require\n#extension GL_ARB_shader_texture_lod : require\n"
+    static final String WORLD_FRAGMENT_PARTS = ("#version 130\n#extension GL_EXT_texture_array : require\n"
             + CanopyWindow.GLSL
             + Sky.ATMOSPHERE + ENDS + AUTUMN + """
             uniform sampler2D uTexture;
@@ -1004,26 +1004,26 @@ final class PipelineShaders {
             uniform float uPlain;
             // How much of its distance from the eye a pixel of this picture takes in, up and down.
             uniform float uPixel;
-            varying vec2 vUv;
-            varying vec4 vColor;
-            varying vec3 vNormal;
-            varying vec3 vWorld;
-            varying float vCover;
-            varying float vKind;
-            varying float vMaterial;
+            in vec2 vUv;
+            in vec4 vColor;
+            in vec3 vNormal;
+            in vec3 vWorld;
+            in float vCover;
+            in float vKind;
+            in float vMaterial;
             // For a floor of boards the picture lays: how many to a tile, and 1 where they run along y. 0 for anything else.
             // For parquet: vBlocks blocks a side, vBoards slats to a tile, and 1 where those of its even blocks run along y.
-            varying float vBoards;
-            varying float vLie;
-            varying float vBlocks;
-            varying float vHung;
+            in float vBoards;
+            in float vLie;
+            in float vBlocks;
+            in float vHung;
             // How far, and which way, a vertex lies off the surface it is laid on: see faced.
-            varying vec3 vLies;
+            in vec3 vLies;
             // 1 or -1 for a face seen only from where its normal looks or looks away from, 0 for one seen from both: see SpriteGeometry.SEEN_ALONG.
-            varying float vSeen;
+            in float vSeen;
             // 1 where the vertex's square is above the ground's level, a roof or a floor up a storey: see SpriteGeometry.MeshSet.aloft.
-            varying float vAloft;
-            varying vec2 vRoot;
+            in float vAloft;
+            in vec2 vRoot;
             uniform vec4 uCutBox;
             uniform vec3 uCutNear;
             uniform float uLid;
@@ -1041,9 +1041,9 @@ final class PipelineShaders {
             // The trees the game draws see-through in its window, by square, and how much of each it draws.
             uniform vec3 uFaded[CANOPY_TREES];
             uniform int uFadedCount;
-            varying vec3 vPlace;
-            varying vec4 vBlade;
-            varying float vClouds;
+            in vec3 vPlace;
+            in vec4 vBlade;
+            in float vClouds;
 
             // How far round a pixel's spiral of samples of a sun map is turned: see uSunTaps.
             float sunTurn() {
@@ -1249,7 +1249,7 @@ final class PipelineShaders {
             // whose card lies in flatOf, the picture running over it as atX and atY take r1 and
             // r2 to the world; through is how much light the leaf lets pass there.
             vec3 leafFaced(vec3 flatOf, vec3 r1, vec3 r2, vec2 at, vec2 atX, vec2 atY, out float through) {
-                vec3 shape = texture2DGradARB(uSprigForm, at, atX, atY).rgb;
+                vec3 shape = textureGrad(uSprigForm, at, atX, atY).rgb;
                 vec3 right = r1 * atX.x + r2 * atY.x, down = r1 * atX.y + r2 * atY.y;
                 vec2 tip = shape.rg * 2.0 - 1.0;
                 through = shape.b;
@@ -1283,7 +1283,7 @@ final class PipelineShaders {
                 float strip = mod(floor(grain.y - cut), strips);
                 vec2 own = fract(sin(vec2(strip * 12.9898 + 4.1, strip * 78.233 + 1.7)) * 43758.5453);
                 grain.x = (own.y > 0.5 ? -grain.x : grain.x) + own.x;
-                vec4 seen = texture2DGradARB(picture, upright ? grain.yx : grain, across, down);
+                vec4 seen = textureGrad(picture, upright ? grain.yx : grain, across, down);
                 return vec2(dot(seen.rgb, vec3(0.299, 0.587, 0.114)) * (1.0 + shades * (fract(own.x * 5.0) - 0.5)), seen.a);
             }
 
@@ -1312,10 +1312,10 @@ final class PipelineShaders {
             vec2 groundRise(sampler2D picture, vec2 one, vec2 oneAcross, vec2 oneDown, vec2 two, vec2 twoAcross, vec2 twoDown, float which) {
                 vec2 oneX = oneAcross * 2.0, oneY = oneDown * 2.0, twoX = twoAcross * 2.0, twoY = twoDown * 2.0;
                 float oneStep = max(length(oneAcross), length(oneDown)) + 1e-6, twoStep = max(length(twoAcross), length(twoDown)) + 1e-6;
-                vec2 oneRise = vec2(texture2DGradARB(picture, one + vec2(oneStep, 0.0), oneX, oneY).a - texture2DGradARB(picture, one - vec2(oneStep, 0.0), oneX, oneY).a,
-                        texture2DGradARB(picture, one + vec2(0.0, oneStep), oneX, oneY).a - texture2DGradARB(picture, one - vec2(0.0, oneStep), oneX, oneY).a) / (2.0 * oneStep);
-                vec2 twoRise = vec2(texture2DGradARB(picture, two + vec2(twoStep, 0.0), twoX, twoY).a - texture2DGradARB(picture, two - vec2(twoStep, 0.0), twoX, twoY).a,
-                        texture2DGradARB(picture, two + vec2(0.0, twoStep), twoX, twoY).a - texture2DGradARB(picture, two - vec2(0.0, twoStep), twoX, twoY).a) / (2.0 * twoStep);
+                vec2 oneRise = vec2(textureGrad(picture, one + vec2(oneStep, 0.0), oneX, oneY).a - textureGrad(picture, one - vec2(oneStep, 0.0), oneX, oneY).a,
+                        textureGrad(picture, one + vec2(0.0, oneStep), oneX, oneY).a - textureGrad(picture, one - vec2(0.0, oneStep), oneX, oneY).a) / (2.0 * oneStep);
+                vec2 twoRise = vec2(textureGrad(picture, two + vec2(twoStep, 0.0), twoX, twoY).a - textureGrad(picture, two - vec2(twoStep, 0.0), twoX, twoY).a,
+                        textureGrad(picture, two + vec2(0.0, twoStep), twoX, twoY).a - textureGrad(picture, two - vec2(0.0, twoStep), twoX, twoY).a) / (2.0 * twoStep);
                 return mix(vec2(dot(oneRise, oneAcross), dot(oneRise, oneDown)), vec2(dot(twoRise, twoAcross), dot(twoRise, twoDown)), which);
             }
 
@@ -1773,7 +1773,7 @@ final class PipelineShaders {
                 vec3 own = fract(sin(vec3(board * 78.233 + piece * 39.346 + 1.7, board * 11.135 + piece * 83.155 + 5.9, board * 37.719 + piece * 27.431 + 3.3)) * 43758.5453);
                 vec2 band = own.z > 0.5 ? vec2(0.46, 0.16) : vec2(0.662, 0.12);
                 vec2 on = vec2(run.x * 0.5 + own.x, band.x + band.y * (own.y > 0.5 ? within : 1.0 - within));
-                vec4 seen = texture2DGradARB(uWood, on, vec2(runAcross.x * 0.5, runAcross.y * count * band.y), vec2(runDown.x * 0.5, runDown.y * count * band.y));
+                vec4 seen = textureGrad(uWood, on, vec2(runAcross.x * 0.5, runAcross.y * count * band.y), vec2(runDown.x * 0.5, runDown.y * count * band.y));
                 // How fast the place changes over the screen across the boards and along them, each on its own:
                 // seen end on, the joints between boards stay sharp far past where the ends blur.
                 float fineAcross = length(vec2(runAcross.y, runDown.y)), fineAlong = length(vec2(runAcross.x, runDown.x));
@@ -1916,7 +1916,7 @@ final class PipelineShaders {
                 vec4 light = vec4(0.0), dark = vec4(1.0), darker = vec4(1.0);
                 float summed = 0.0, counted = 0.0;
                 for (int i = 0; i < 17; i++) {
-                    vec4 read = texture2DGradARB(uTexture, uv + perUp * (foot + SLAT_HIGH * (-1.1 + 0.2 * float(i))), uvX, uvY);
+                    vec4 read = textureGrad(uTexture, uv + perUp * (foot + SLAT_HIGH * (-1.1 + 0.2 * float(i))), uvX, uvY);
                     float shade = dot(read.rgb / max(read.a, 1.0 / 255.0), vec3(0.299, 0.587, 0.114));
                     vec4 window = vec4(i <= 4 ? 1.0 : 0.0, i >= 4 && i <= 8 ? 1.0 : 0.0, i >= 8 && i <= 12 ? 1.0 : 0.0, i >= 12 ? 1.0 : 0.0) * step(0.5, read.a);
                     light = mix(light, max(light, vec4(shade)), window);
@@ -1934,9 +1934,9 @@ final class PipelineShaders {
             // edge of a stain does not.
             float slatStands(vec2 uv, vec2 perRun, vec2 uvX, vec2 uvY) {
                 vec3 tone = vec3(0.299, 0.587, 0.114);
-                vec4 at = texture2DGradARB(uTexture, uv, uvX, uvY);
-                vec4 left = texture2DGradARB(uTexture, uv - perRun * SLAT_ALONG, uvX, uvY);
-                vec4 right = texture2DGradARB(uTexture, uv + perRun * SLAT_ALONG, uvX, uvY);
+                vec4 at = textureGrad(uTexture, uv, uvX, uvY);
+                vec4 left = textureGrad(uTexture, uv - perRun * SLAT_ALONG, uvX, uvY);
+                vec4 right = textureGrad(uTexture, uv + perRun * SLAT_ALONG, uvX, uvY);
                 float here = dot(at.rgb, tone);
                 float leftOff = left.a > 0.5 ? abs(here - dot(left.rgb, tone)) : 1.0;
                 float rightOff = right.a > 0.5 ? abs(here - dot(right.rgb, tone)) : 1.0;
@@ -2340,7 +2340,7 @@ final class PipelineShaders {
                     vec3 summed = vec3(0.0);
                     float counted = 0.0;
                     for (int i = 0; i < 10; i++) {
-                        vec4 read = texture2DGradARB(uTexture, vUv + perUp * (slatFoot + SLAT_HIGH * (0.05 + 0.1 * float(i))), uvX, uvY);
+                        vec4 read = textureGrad(uTexture, vUv + perUp * (slatFoot + SLAT_HIGH * (0.05 + 0.1 * float(i))), uvX, uvY);
                         reads[i] = read.rgb;
                         shades[i] = dot(read.rgb / max(read.a, 1.0 / 255.0), tone);
                         float painted = step(0.5, read.a);
@@ -2496,11 +2496,11 @@ final class PipelineShaders {
                             * (which == SHRUB_SPRIG || which == HOLLY_SPRIG ? SMALL_LEAVES : 1.0);
                     vec2 one = vec2(0.25, 0.5);
                     vec2 kindAt = vec2(mod(which, 4.0), floor(which / 4.0));
-                    vec4 sprig = texture2DGradARB(uSprigs, (kindAt + 0.03 + 0.94 * fract(lies)) * one, dFdx(lies) * one, dFdy(lies) * one);
+                    vec4 sprig = textureGrad(uSprigs, (kindAt + 0.03 + 0.94 * fract(lies)) * one, dFdx(lies) * one, dFdy(lies) * one);
                     // A sprig's picture is a spray with nothing round it, and laid side by side its
                     // edges would rule the crown in squares: a second lot lies over the gaps of the first.
                     vec2 over = lies.yx * 1.37 + 0.41;
-                    vec4 behind = texture2DGradARB(uSprigs, (kindAt + 0.03 + 0.94 * fract(over)) * one, dFdx(over) * one, dFdy(over) * one);
+                    vec4 behind = textureGrad(uSprigs, (kindAt + 0.03 + 0.94 * fract(over)) * one, dFdx(over) * one, dFdy(over) * one);
                     // Looked up into from under the tree it is the undersides of leaves with the light
                     // between them, not a lid: where neither lot has a leaf it is open, and the steeper
                     // the look up the more of the second lot goes too. Its far side, seen from within,
@@ -2588,9 +2588,9 @@ final class PipelineShaders {
                     smallAtY = turn * dFdy(spread) * vec2(0.25, 0.5);
                     // A bush's flowers keep the picture whole: halved, their colour ran into the leaves'.
                     sprigSmall = (which == SHRUB_SPRIG || which == HOLLY_SPRIG) && !bloom ? 1.0 - smoothstep(SMALL_LEAVES_FROM, SMALL_LEAVES_TO, fine) : 0.0;
-                    vec4 sprig = texture2DGradARB(uSprigs, sprigAt, sprigAtX, sprigAtY);
+                    vec4 sprig = textureGrad(uSprigs, sprigAt, sprigAtX, sprigAtY);
                     if (sprigSmall > 0.0) {
-                        sprig = mix(sprig, texture2DGradARB(uSprigs, smallAt, smallAtX, smallAtY), sprigSmall);
+                        sprig = mix(sprig, textureGrad(uSprigs, smallAt, smallAtX, smallAtY), sprigSmall);
                     }
                     // A bush, or a young tree, seen along the game's own view, from overhead: it is a few
                     // leaves across and the game paints each of them, so the sprig is painted with what
@@ -3852,15 +3852,15 @@ final class PipelineShaders {
                     vec4 asphalt = vec4(0.0), gravel = vec4(0.0), soil = vec4(0.0);
                     vec2 rise = vec2(0.0);
                     if (dark != 0.0) {
-                        asphalt = mix(texture2DGradARB(uAsphalt, one, oneAcross, oneDown), texture2DGradARB(uAsphalt, two, twoAcross, twoDown), which);
+                        asphalt = mix(textureGrad(uAsphalt, one, oneAcross, oneDown), textureGrad(uAsphalt, two, twoAcross, twoDown), which);
                         rise += raisedGround > 0.0 ? dark * TARMAC_DEPTH_SHARE * groundRise(uAsphalt, one, oneAcross, oneDown, two, twoAcross, twoDown, which) : vec2(0.0);
                     }
                     if (loose != 0.0) {
-                        gravel = mix(texture2DGradARB(uGravel, one, oneAcross, oneDown), texture2DGradARB(uGravel, two, twoAcross, twoDown), which);
+                        gravel = mix(textureGrad(uGravel, one, oneAcross, oneDown), textureGrad(uGravel, two, twoAcross, twoDown), which);
                         rise += raisedGround > 0.0 ? loose * groundRise(uGravel, one, oneAcross, oneDown, two, twoAcross, twoDown, which) : vec2(0.0);
                     }
                     if (earth != 0.0) {
-                        soil = mix(texture2DGradARB(uSoil, one, oneAcross, oneDown), texture2DGradARB(uSoil, two, twoAcross, twoDown), which);
+                        soil = mix(textureGrad(uSoil, one, oneAcross, oneDown), textureGrad(uSoil, two, twoAcross, twoDown), which);
                         rise += raisedGround > 0.0 ? earth * EARTH_DEPTH_SHARE * groundRise(uSoil, one, oneAcross, oneDown, two, twoAcross, twoDown, which) : vec2(0.0);
                     }
                     // Stones stand up out of a drive and clods out of earth, a finger deep, and tarmac is pitted a seventh as
@@ -3875,7 +3875,7 @@ final class PipelineShaders {
                     }
                     vec3 lawn = vec3(0.0);
                     if (green != 0.0) {
-                        lawn = mix(texture2DGradARB(uLawn, one, oneAcross, oneDown).rgb, texture2DGradARB(uLawn, two, twoAcross, twoDown).rgb, which);
+                        lawn = mix(textureGrad(uLawn, one, oneAcross, oneDown).rgb, textureGrad(uLawn, two, twoAcross, twoDown).rgb, which);
                     }
                     vec3 grain3 = dark * uMaterialGain.x * asphalt.rgb
                             + loose * uMaterialGain.y * gravel.rgb
@@ -7570,7 +7570,7 @@ final class PipelineShaders {
             }
             """;
 
-    static final String DEVELOP = "#version 120\n#extension GL_ARB_shader_texture_lod : require\n" + Sky.ATMOSPHERE + ENDS + TORCH + """
+    static final String DEVELOP = "#version 130\n" + Sky.ATMOSPHERE + ENDS + TORCH + """
             uniform sampler2D uScene;
             uniform sampler2D uBloom;
             uniform sampler2D uDepth;

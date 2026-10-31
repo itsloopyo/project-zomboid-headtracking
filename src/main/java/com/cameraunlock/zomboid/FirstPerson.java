@@ -551,7 +551,7 @@ public final class FirstPerson {
 
     /** What the screen says when first person cannot be drawn on this PC; the log has the whole of why. */
     private static String cannotBeDrawn() {
-        return GlFloor.missing() != null ? "First person needs OpenGL 3.3 with EXT_texture_array and ARB_shader_texture_lod"
+        return GlFloor.missing() != null ? "First person needs OpenGL 3.3 with EXT_texture_array"
                 : "First person cannot be drawn on this PC. " + Log.FILE_NAME + " says why";
     }
 

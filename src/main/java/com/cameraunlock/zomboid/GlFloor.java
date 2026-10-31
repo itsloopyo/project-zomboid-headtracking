@@ -7,7 +7,7 @@ import org.lwjglx.opengl.Display;
 /**
  * What the graphics card's OpenGL must have for first person to be drawn at all: version 3.3
  * (framebuffers, vertex arrays, instancing, fences, sampler objects, attribute divisors) with
- * EXT_texture_array and ARB_shader_texture_lod, which the #version 120 world shaders require.
+ * EXT_texture_array, which the world shaders read their arrays through.
  * Everything newer the mod uses is asked for where it is used, with a way round it.
  *
  * Below this first person stays off and the game plays as it does without the mod. Nothing above
@@ -44,7 +44,7 @@ final class GlFloor {
         if (card == null) {
             throw new IllegalStateException("the floor was asked for before the game made its OpenGL context: org.lwjglx.opengl.Display.capabilities is not set");
         }
-        missing = shortOf(card.OpenGL33, card.GL_EXT_texture_array, card.GL_ARB_shader_texture_lod);
+        missing = shortOf(card.OpenGL33, card.GL_EXT_texture_array);
         if (missing != null) {
             Log.info(missing);
         }
@@ -52,13 +52,11 @@ final class GlFloor {
     }
 
     /** Why a context with these is below the floor, or null. */
-    static String shortOf(boolean version33, boolean textureArray, boolean textureLod) {
-        String lacks = !textureArray && !textureLod ? "EXT_texture_array or ARB_shader_texture_lod"
-                : !textureArray ? "EXT_texture_array" : !textureLod ? "ARB_shader_texture_lod" : null;
-        if (version33 && lacks == null) {
+    static String shortOf(boolean version33, boolean textureArray) {
+        if (version33 && textureArray) {
             return null;
         }
-        String shortOf = !version33 ? "is older than 3.3" + (lacks != null ? " and has no " + lacks : "") : "has no " + lacks;
+        String shortOf = !version33 ? "is older than 3.3" + (!textureArray ? " and has no EXT_texture_array" : "") : "has no EXT_texture_array";
         return "the graphics card's OpenGL " + shortOf + ", which first person needs, so the game is drawn as it is without the mod";
     }
 

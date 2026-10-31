@@ -99,7 +99,7 @@ final class Scope {
             }
             """;
 
-    private static final String FRAGMENT = "#version 120\n#extension GL_ARB_shader_texture_lod : require\n" + Sky.ATMOSPHERE + MuzzleFlash.GLSL + Fires.GLSL + PipelineShaders.BEAMS + String.format(Locale.ROOT, """
+    private static final String FRAGMENT = "#version 130\n" + Sky.ATMOSPHERE + MuzzleFlash.GLSL + Fires.GLSL + PipelineShaders.BEAMS + String.format(Locale.ROOT, """
             const float RELIEF = %f;
             const float EYE_LENS = %f;
             const float FIELD = %f;
@@ -150,10 +150,10 @@ final class Scope {
             // Whether the frame drew a picture for the eyepiece, and whether the reticle has ranging dots.
             uniform float uPictured;
             uniform float uDots;
-            varying vec3 vSeen;
-            varying vec3 vNormal;
-            varying vec4 vFinish;
-            varying vec2 vGrip;
+            in vec3 vSeen;
+            in vec3 vNormal;
+            in vec4 vFinish;
+            in vec2 vGrip;
 
             const float PI = 3.14159265;
 

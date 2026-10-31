@@ -259,14 +259,14 @@ final class ShaderTests {
             int test = main.indexOf("if (" + read[0] + " != 0.0) {");
             int end = test < 0 ? -1 : main.indexOf("}", test);
             String body = end < 0 ? "" : main.substring(test, end);
-            Checks.check(taken >= 0 && test > taken && body.contains("texture2DGradARB(" + read[1] + ", one, oneAcross, oneDown)")
-                    && body.contains("texture2DGradARB(" + read[1] + ", two, twoAcross, twoDown)") && !body.contains("texture2D(") && !body.contains("dFd"),
+            Checks.check(taken >= 0 && test > taken && body.contains("textureGrad(" + read[1] + ", one, oneAcross, oneDown)")
+                    && body.contains("textureGrad(" + read[1] + ", two, twoAcross, twoDown)") && !body.contains("texture2D(") && !body.contains("dFd"),
                     "the " + read[1] + " picture read where there is " + read[0] + " is not told derivatives taken before the test");
         }
         // The ground's bump leans by reads of its pictures, told the same derivatives: a dFdx of what was read sparkles under motion.
         String rise = PipelineShaders.WORLD_FRAGMENT_PARTS.substring(Math.max(0, PipelineShaders.WORLD_FRAGMENT_PARTS.indexOf("vec2 groundRise(")));
         rise = rise.substring(0, Math.max(0, rise.indexOf("return mix(")));
-        Checks.check(rise.startsWith("vec2 groundRise(") && rise.contains("texture2DGradARB(picture, one + vec2(oneStep, 0.0), oneX, oneY)")
+        Checks.check(rise.startsWith("vec2 groundRise(") && rise.contains("textureGrad(picture, one + vec2(oneStep, 0.0), oneX, oneY)")
                 && !rise.contains("texture2D(") && !rise.contains("dFd") && !PipelineShaders.WORLD_FRAGMENT_MAIN_GROUND.contains("dFdx(high)"),
                 "the ground's bump does not lean by reads of its pictures told derivatives taken before the tests");
     }

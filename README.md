@@ -76,7 +76,7 @@ Zombies, and rooms and vehicles with no other player in them, look the same as t
 - [Project Zomboid on Steam](https://store.steampowered.com/app/108600/Project_Zomboid/), tested on build **42.21.0**. Your build is on the first line of `version.txt` in your `Zomboid` user folder (`C:\Users\<you>\Zomboid`). Other stores haven't been tested.
 - For head tracking: [OpenTrack](https://github.com/opentrack/opentrack) with a tracking source, or an app that sends the OpenTrack UDP protocol. First person doesn't need either.
 - Windows 10 or 11, 64-bit
-- For first person: a graphics card and driver that give the game OpenGL 3.3 (compatibility profile) with EXT_texture_array and ARB_shader_texture_lod, and at least 27 texture units and 2836 uniform components in a fragment shader. Without those, first person stays off, the game looks as it does without the mod, and `ProjectZomboidHeadTracking.log` says what's missing.
+- For first person: a graphics card and driver that give the game OpenGL 3.3 (compatibility profile) with EXT_texture_array, and at least 27 texture units and 2836 uniform components in a fragment shader. Without those, first person stays off, the game looks as it does without the mod, and `ProjectZomboidHeadTracking.log` says what's missing.
 - For the Steam Workshop version: [ZombieBuddy](https://github.com/zed-0xff/ZombieBuddy) 2.x, set up once
 
 ## Installation
