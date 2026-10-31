@@ -491,11 +491,12 @@ final class SkyState {
         return new float[] {toX, toY};
     }
 
-    /** As the game leaves a save: the next one starts dry, with its own moon and snow taken as they are. */
+    /** As the game leaves a save: the next one starts dry, with no snow on its trunks, and its own moon and snow taken as they are. */
     static void forget() {
         wetness = 0f;
         moonShown = -1f;
         snowShown = -1f;
+        plasteredX = plasteredY = 0f;
         lastNanos = 0;
     }
 
