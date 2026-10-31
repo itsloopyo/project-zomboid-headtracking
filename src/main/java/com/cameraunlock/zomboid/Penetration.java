@@ -17,8 +17,9 @@ import zombie.util.list.PZArrayList;
  * How far a firearm's round goes on through what the game says stops it: a stud wall of
  * plasterboard, a wall of boards, a shut door, the glass and curtain of a window. A round carries
  * a budget by its cartridge, and each wall or door it passes spends from it by what the game says
- * the wall is made of (the sprite's MaterialType, the word the game picks the sound of a hit by).
- * Brick, block, concrete, stone, tile, metal plate, sandbags and anything the game names no
+ * the wall is made of (the sprite's MaterialType, the word the game picks the sound of a hit by,
+ * and for the pieces of an inside wall round its doorways and windows, which it names nothing
+ * for, the plain wall's: see InsideWalls). Brick, block, concrete, stone, tile, metal plate, sandbags and anything the game names no
  * material for stop every round, as the game stops them all. A door the game names no material for
  * is told by its sound. A shut door's light of glass is gone through as a window's glass is, where
  * the shot crosses the leaf in it. What is left of the budget when the
@@ -284,8 +285,9 @@ final class Penetration {
         return door.getSprite() == null ? null : doorMaterialBySound(door.getSprite().getProperties().get("DoorSound"));
     }
 
-    private static String materialOf(IsoObject object) {
-        return object.getSprite() == null ? null : object.getSprite().getProperties().get("MaterialType");
+    /** What the game names an object made of, an inside wall's piece round a doorway or a window by its sheet (InsideWalls). */
+    static String materialOf(IsoObject object) {
+        return object.getSprite() == null ? null : InsideWalls.materialOf(object.getSprite());
     }
 
     /** The share of the game's damage each target of the shot being worked out gets, by the target's id, while it is kept. */

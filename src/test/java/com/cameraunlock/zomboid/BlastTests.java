@@ -454,7 +454,7 @@ final class BlastTests {
     }
 
     private static Blasts.Struck at(float along, float up) {
-        return new Blasts.Struck(null, null, true, along, up, 1);
+        return new Blasts.Struck(null, null, true, along, up, 1, 0f);
     }
 
     private static void pelletsCloseTogetherBlowAHoleAndSpreadOnesDoNot() {

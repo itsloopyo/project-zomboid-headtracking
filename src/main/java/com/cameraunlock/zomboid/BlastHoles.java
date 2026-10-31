@@ -79,8 +79,9 @@ final class BlastHoles {
     }
 
     /**
-     * Whether an object is one a blast blows holes in: a wooden door, or a wooden fence on an edge,
-     * tall or low, the map's or one a player built, whole, broken or burnt. A rail fence strung with
+     * Whether an object is one a blast blows holes in: a wooden door, a wooden fence on an edge,
+     * tall or low, the map's or one a player built, whole, broken or burnt, or a wall of
+     * plasterboard, which the pellets go on through (Penetration). A rail fence strung with
      * wire is mostly the wire's gaps, and is not one, nor a fence the picture builds from a model of
      * its own (ModelFences), whose pickets are not cut.
      */
@@ -99,10 +100,18 @@ final class BlastHoles {
         }
         String name = sprite.getName(), material = properties.get("Material");
         String made = material != null ? material : properties.get("MaterialType");
+        boolean onEdge = Edges.west(properties, sprite.getType()) || Edges.north(properties, sprite.getType());
+        // A corner piece is the wall of both its edges, as WorldScene.wallOn takes it.
+        if ((onEdge || properties.has(IsoFlagType.WallNW)) && WorldScene.isWall(properties, sprite.getType()) && PLASTER.equals(Penetration.materialOf(object))) {
+            return true;
+        }
         return name != null && made != null && made.startsWith("Wood") && !"MetalWire".equals(properties.get("Material2"))
                 && (name.startsWith("fencing_") || name.startsWith("carpentry_02_") || name.startsWith("crafted_0")) && ModelFences.of(name) == null
-                && (Edges.west(properties, sprite.getType()) || Edges.north(properties, sprite.getType()));
+                && onEdge;
     }
+
+    /** What the game names plasterboard. */
+    private static final String PLASTER = "Plaster";
 
     /**
      * Whether a round that goes through an object leaves a hole the picture cuts: a door the picture
@@ -117,7 +126,7 @@ final class BlastHoles {
         if (DoorGlass.isDoor(object)) {
             return !sprite.getProperties().has("GarageDoor");
         }
-        String made = sprite.getProperties().get("MaterialType");
+        String made = Penetration.materialOf(object);
         return blastable(object) || made != null && !made.startsWith("Glass") && Penetration.cost(made) != Penetration.STOPS;
     }
 
