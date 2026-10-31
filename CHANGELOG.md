@@ -29,7 +29,8 @@
 
 ### Changed
 
-- The `High` graphics mode draws corpses as models (`CorpseModels`), as `Custom` could.
+- `Automatic` no longer switches the graphics mode while you play. The first time first person shows, it starts at `High`, steps down while the frame rate is under 45, then saves the mode that holds (`Low`, `Medium` or `High`) to `CameraUnlock.ini` and leaves it there. A `Quality=Automatic` you already have is measured the same way the next time first person shows. `F9` and the options page no longer offer `Automatic`, and `Enhanced graphics` `On` now raises `Low` to `High`.
+- The `High` graphics mode draws corpses as models (`CorpseModels`), as `Custom` could. On a graphics card short of memory, the steps that lower detail to Medium's or Low's go back to the flat corpse pictures too.
 - Frame blending shimmers much less while your head moves: grass, leaves and fine edges hold still instead of crawling, for a slightly softer picture.
 - The mod's options page is sorted into Quick settings, First person, Head tracking, Graphics, Custom graphics, Mod content, Gameplay tweaks, Game fixes, Optimizations, Split screen, each extra player, Voice and Keys, and every setting has a plain name and a description of what it does on and off. Mod content ticks a row for the mod's own and unticks it for the game's own. Keys lists every key the mod listens for, and where to change it.
 - Nothing on the options page takes effect until you apply the options. Then everything you changed takes effect together and is saved to `CameraUnlock.ini`. Leaving without applying leaves every setting as it was.

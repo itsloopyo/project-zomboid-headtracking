@@ -129,8 +129,6 @@ final class VideoMemory {
 
     /**
      * What a mode that would draw picture draws at the step: nothing dearer than the step's ceiling.
-     * Corpse models are left as the picture has them: no preset draws them, and a player who sets
-     * them in Custom asked for the cost.
      */
     static Quality.Picture fit(Quality.Picture picture, int at) {
         if (at == 0) {
@@ -146,7 +144,7 @@ final class VideoMemory {
                 picture.reflections() && most.reflections(), picture.fullSizeTextures() && most.fullSizeTextures(),
                 picture.surfaceDepth() && most.surfaceDepth(), picture.wholeFigureShadows() && most.wholeFigureShadows(),
                 picture.frameBlending() && most.frameBlending(), Math.min(picture.lightDistance(), most.lightDistance()),
-                Math.min(picture.reflectionScale(), most.reflectionScale()), picture.corpseModels(), picture.antialiasing());
+                Math.min(picture.reflectionScale(), most.reflectionScale()), picture.corpseModels() && most.corpseModels(), picture.antialiasing());
     }
 
     static Quality.Picture fit(Quality.Picture picture) {
