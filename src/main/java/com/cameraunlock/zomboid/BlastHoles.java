@@ -83,6 +83,15 @@ final class BlastHoles {
     }
 
     /**
+     * The holes a door's casing on a square's north or west edge is cut with: those of the doorway's wall it stands on,
+     * where ImpactFinder keeps the shots that strike it (WorldScene.wallOn). Null where there are none.
+     */
+    static float[] ofCasingOn(IsoGridSquare square, boolean north) {
+        IsoObject wall = WorldScene.wallOn(square, north);
+        return wall == null ? null : of(wall);
+    }
+
+    /**
      * Whether an object is one a blast blows holes in: a wooden door, a wooden fence on an edge,
      * tall or low, the map's or one a player built, whole, broken or burnt, or a wall of
      * plasterboard, which the pellets go on through (Penetration), or of boards, siding among them,

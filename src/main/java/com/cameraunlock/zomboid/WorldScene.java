@@ -9924,6 +9924,9 @@ final class WorldScene {
                 }
             }
             casing = type == IsoObjectType.doorFrW || type == IsoObjectType.doorFrN;
+            if (casing) {
+                blastHoles = BlastHoles.ofCasingOn(cell.getGridSquare(x, y, z), type == IsoObjectType.doorFrN);
+            }
             wallBuilder.sign = overLayer == 0 && !door && west != north && kind.sign;
             wallBuilder.trim = overLayer == 0 && kind.wallTrim && edgeX == x && edgeY == y && edgeZ == z
                     && postBuilder.shapeOf(object, sprite, texture).kind != SpriteShape.BEAM;
@@ -10549,7 +10552,7 @@ final class WorldScene {
         final SpriteGeometry.Frame shutFrame = new SpriteGeometry.Frame();
         /** Of the door being added, the lights shots have broken: see DoorGlass. */
         int brokenLights;
-        /** Of the door or fence being added, the holes blasts have blown and the marks pellets have left, or null: see BlastHoles. */
+        /** Of the door, fence or wall being added, or the wall a casing stands on, the holes blasts and rounds have left and the marks pellets have, or null: see BlastHoles. */
         float[] blastHoles;
         /** The object blastHoles are of, which says what else went with them (BlastHoles.panel). */
         IsoObject blastObject;

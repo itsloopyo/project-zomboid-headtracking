@@ -827,7 +827,7 @@ final class OpeningBuilder {
         windowFoot = footOf(z);
         lightSides(north, false);
         boolean wooden = wooden(casing.red, casing.green, casing.blue);
-        // The casing is the doorway's wall: a round beside the leaf leaves its hole in it (BlastHoles), cut through the boards as WallBuilder cuts a wall.
+        // A round beside the leaf or over its head leaves its hole in the doorway's wall (BlastHoles.ofCasingOn), cut through the boards as WallBuilder cuts the wall.
         float[] holes = build.blastHoles;
         int[][] ends = holes == null ? null : MeshCut.ends(build.solid, build.laid);
         SpriteGeometry.Mesh wood = build.solid.get(WorldScene.PLAIN, WallSides.key(casing.red, casing.green, casing.blue, WallSides.FLAT));
