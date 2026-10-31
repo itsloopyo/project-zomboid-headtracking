@@ -19,6 +19,7 @@ final class PenetrationTests {
         Checks.run("aBrokenLightLosesItsGlass", PenetrationTests::aBrokenLightLosesItsGlass);
         Checks.run("aSmashedSashIsBlownOutRaggedly", PenetrationTests::aSmashedSashIsBlownOutRaggedly);
         Checks.run("aHoleIsLookedForWhereTheShotsOwnLineCrossesTheEdge", PenetrationTests::aHoleIsLookedForWhereTheShotsOwnLineCrossesTheEdge);
+        Checks.run("aPieceRoundAWindowIsTheWallItStandsIn", PenetrationTests::aPieceRoundAWindowIsTheWallItStandsIn);
     }
 
     private static void check(boolean condition, String what) {
@@ -162,5 +163,13 @@ final class PenetrationTests {
         check(Float.isNaN(Penetration.crossesEdge(10.5f, 5.2f, 0f, 1f, false, 12, 5)), "nor one running along a west edge's line");
         float west = Penetration.crossesEdge(10.5f, 5.2f, 3f, 1f, false, 12, 5);
         check(Math.abs(west - 0.7f) < 1e-4f, "a west edge is crossed along its y, at " + west);
+    }
+
+    private static void aPieceRoundAWindowIsTheWallItStandsIn() {
+        check("Wood".equals(WallRuns.nearer("Wood", 1, null, 0)), "siding on one side only is the piece's");
+        check("Brick".equals(WallRuns.nearer("Wood", 3, "Brick", 1)), "the nearer of two runs is the piece's");
+        check("Brick".equals(WallRuns.nearer("Wood", 2, "Brick", 2)), "at the same reach the one that stops a round more");
+        check(WallRuns.nearer(null, 0, null, 0) == null, "with no named wall in reach the piece keeps no material, and stops a round");
+        check(through(Penetration.Cartridge.PISTOL_9MM, WallRuns.nearer("Wood", 1, "Wood", 2)), "a handgun's round goes through siding round a window");
     }
 }

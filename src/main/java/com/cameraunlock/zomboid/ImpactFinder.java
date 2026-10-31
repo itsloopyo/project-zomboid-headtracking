@@ -452,7 +452,9 @@ final class ImpactFinder {
                 IsoObject wall = square == null ? null : WorldScene.wallOn(square, north);
                 struck = wall;
                 if (wall != null) {
-                    kind = Impacts.of(wall.getSprite(), false);
+                    // A piece round a window is struck as the wall it stands in, which is what the round goes through (Penetration.madeOf).
+                    int named = Impacts.ofMaterialType(Penetration.madeOf(wall));
+                    kind = named != Impacts.NONE ? named : Impacts.of(wall.getSprite(), false);
                     hole = Impacts.holed(kind);
                 }
             }

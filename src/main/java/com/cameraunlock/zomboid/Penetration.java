@@ -21,8 +21,9 @@ import zombie.util.list.PZArrayList;
  * a budget by its cartridge, and each wall or door it passes spends from it by what the game says
  * the wall is made of (the sprite's MaterialType, the word the game picks the sound of a hit by,
  * and for the pieces of an inside wall round its doorways and windows, which it names nothing
- * for, the plain wall's: see InsideWalls). Brick, block, concrete, stone, tile, metal plate, sandbags and anything the game names no
- * material for stop every round, as the game stops them all. A door the game names no material for
+ * for, the plain wall's: see InsideWalls; for those of an outside wall, the wall they stand in:
+ * see WallRuns). Brick, block, concrete, stone, tile, metal plate, sandbags and anything else the
+ * game names no material for stop every round, as the game stops them all. A door the game names no material for
  * is told by its sound. A shut door's light of glass is gone through as a window's glass is, where
  * the shot crosses the leaf in it. What is left of the budget when the
  * round reaches a target is the share of the game's damage it does.
@@ -292,10 +293,17 @@ final class Penetration {
         return cost(madeOf(object));
     }
 
-    /** What a wall, a door or a gate is made of: what the game names it made of, or for a door it names nothing for, what its sound says. */
+    /**
+     * What a wall, a door or a gate is made of: what the game names it made of, for a door it names
+     * nothing for what its sound says, and for a piece of wall it names nothing for what the wall
+     * it stands in is made of (WallRuns). Logic thread.
+     */
     static String madeOf(IsoObject object) {
         String made = materialOf(object);
-        return made != null || !DoorGlass.isDoor(object) ? made : doorMaterial(object);
+        if (made != null) {
+            return made;
+        }
+        return DoorGlass.isDoor(object) ? doorMaterial(object) : WallRuns.materialOf(object);
     }
 
     /** Whether a shot crosses a wall or a fence in a hole a blast blew through it (BlastHoles), which costs it nothing. */
