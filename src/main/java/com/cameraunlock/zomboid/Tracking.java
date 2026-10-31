@@ -265,6 +265,9 @@ final class Tracking {
     /** FieldOfView, Quality, IsometricQuality, Style, HillHeight, MuzzleFlash, SplitScreen and the rows of [Content] and [Graphics] are the settings read again while the game runs: every other row is read at the start. */
     static void watchSettings() {
         try {
+            if (!config.changed()) {
+                return;
+            }
             // Core's rows as the file last gave them or a save put them, before the reload: a row the reload changes was edited in the file.
             // A key or the options screen may have changed the session's since, with its save still queued behind this.
             Config.Live was = config.live();

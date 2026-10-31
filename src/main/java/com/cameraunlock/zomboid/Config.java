@@ -725,6 +725,11 @@ final class Config {
         return core.configReload() == CameraUnlock.RELOAD_APPLIED ? live() : null;
     }
 
+    /** False when reload would find nothing changed: the two files' write times are the ones core recorded. */
+    boolean changed() {
+        return core.configChanged();
+    }
+
     /** The UDP port the tracker of the player at a number, 1 to 3, is listened for on. */
     int playerPort(int playerIndex) {
         return core.configGetInt(playerPorts[playerIndex - 1]);
