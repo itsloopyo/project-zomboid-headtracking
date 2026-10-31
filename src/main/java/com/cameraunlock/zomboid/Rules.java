@@ -20,9 +20,10 @@ import zombie.network.GameServer;
 final class Rules {
     /** The bits of the rows that are on, in the order Config describes the rows of [Rules]. */
     static final int THROUGH_WALLS = 1, BREAKS_LAMPS = 2, BREAKS_GLASS = 4, WOUNDS = 8, SMASHES_THROUGH = 16, FACES_THE_VIEW = 32, PAST_TREES = 64,
-            SEEN_AT_ONCE = 128, REWIND = 256, HIDDEN_WALLS = 512, HIDDEN_WALLS_SAVED = 1024, BLAST_HOLES = 2048, BULLET_HOLES = 4096;
+            SEEN_AT_ONCE = 128, REWIND = 256, HIDDEN_WALLS = 512, HIDDEN_WALLS_SAVED = 1024, BLAST_HOLES = 2048, BULLET_HOLES = 4096,
+            CLIMB_HOLES = 8192;
     static final int ALL = THROUGH_WALLS | BREAKS_LAMPS | BREAKS_GLASS | WOUNDS | SMASHES_THROUGH | FACES_THE_VIEW | PAST_TREES | SEEN_AT_ONCE | REWIND
-            | HIDDEN_WALLS | HIDDEN_WALLS_SAVED | BLAST_HOLES | BULLET_HOLES;
+            | HIDDEN_WALLS | HIDDEN_WALLS_SAVED | BLAST_HOLES | BULLET_HOLES | CLIMB_HOLES;
 
     private static volatile int on = ALL & ~REWIND;
 
@@ -64,6 +65,15 @@ final class Rules {
     /** Whether a first person round that goes through a door, a wall or a fence leaves a hole in it: see ImpactFinder. */
     static boolean bulletHoles() {
         return !Online.joined() && (on & BULLET_HOLES) != 0;
+    }
+
+    /**
+     * Whether holding the Interact key on a hole in a fence, a wall or a door that a body fits
+     * through climbs through it: see HoleHop. The holes are this game's alone, so on a server the
+     * edge is as solid as the server keeps it.
+     */
+    static boolean climbThroughHoles() {
+        return !Online.joined() && (on & CLIMB_HOLES) != 0;
     }
 
     /** Whether first person shots wound a zombie's limbs, can take them off and can take off or burst its head: see Online.woundsTell. */
@@ -165,6 +175,7 @@ final class Rules {
                 + ", faces the view walking aside " + ((bits & FACES_THE_VIEW) != 0) + ", shots past trees " + ((bits & PAST_TREES) != 0)
                 + ", zombies seen at once " + ((bits & SEEN_AT_ONCE) != 0) + (DevBuild.ON ? ", rewind 30s " + ((bits & REWIND) != 0) : "")
                 + ", hidden wall decor " + ((bits & HIDDEN_WALLS) != 0) + ", hidden wall decor saved " + ((bits & HIDDEN_WALLS_SAVED) != 0)
-                + ", blast holes " + ((bits & BLAST_HOLES) != 0) + ", bullet holes " + ((bits & BULLET_HOLES) != 0);
+                + ", blast holes " + ((bits & BLAST_HOLES) != 0) + ", bullet holes " + ((bits & BULLET_HOLES) != 0)
+                + ", climb through holes " + ((bits & CLIMB_HOLES) != 0);
     }
 }

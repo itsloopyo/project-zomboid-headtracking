@@ -82,7 +82,8 @@ final class Config {
         "VanillaZombies", "VanillaPeople", "VanillaArms", "VanillaClothes", "VanillaAnimals", "VanillaFire", "VanillaCabins"};
     /** The keys of the rows of [Rules] that are not parts, in the order of Rules' bits. */
     static final String[] RULE_KEYS = {"ShotsThroughWalls", "ShotsBreakLamps", "ShotsBreakGlass", "ShotsWoundLimbs", "VehiclesSmashThrough", "FacesTheView",
-        "ShotsPastTrees", "ZombiesSeenAtOnce", "Rewind30s", "HiddenWallDecor", "HiddenWallDecorSaved", "BlastHoles", "BulletHoles"};
+        "ShotsPastTrees", "ZombiesSeenAtOnce", "Rewind30s", "HiddenWallDecor", "HiddenWallDecorSaved", "BlastHoles", "BulletHoles",
+        "ClimbThroughHoles"};
 
     /** The keys of [Graphics], the Custom graphics mode, in the order the options screen shows them. */
     static final String[] GRAPHICS = {"TreeQuality", "GrassDensity", "GrassDistance", "RenderScale", "ViewDistance", "ZombiesAndPropsDrawDistance",
@@ -490,6 +491,11 @@ final class Config {
                             + "or a fence leaves a small hole where it went in and a wider, splintered one where it came out, which you can\n"
                             + "see through. The holes stay in your save. false: rounds still go through, and leave only a mark. On a server\n"
                             + "nothing is holed.",
+                    writable | live, true),
+            localBool("Rules", "ClimbThroughHoles",
+                    "true: offline, in first person, holding the Interact key with the crosshair on a hole shot through a fence,\n"
+                            + "a wall or a door, where the hole is wide and tall enough for you to fit through and you stand beside it,\n"
+                            + "climbs you through. false: holes are only to see and shoot through. On a server nothing is climbed through.",
                     writable | live, true),
         };
         describeParts("Rules");

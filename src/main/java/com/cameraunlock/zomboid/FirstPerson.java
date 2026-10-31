@@ -1953,21 +1953,43 @@ public final class FirstPerson {
         }
     }
 
-    /** Whether the reticle is on a window the character can climb through, for which the key waits to see if it is held. */
+    /**
+     * Whether the reticle is on a window the character can climb through, or a hole shot through
+     * something it fits through, for which the key waits to see if it is held.
+     */
     boolean climbableAtCentre() {
         IsoPlayer player = view.player();
-        return player.getVehicle() == null && reticleOnScreen && view.centreUse.climbableAt(reticleLine, floorUp(player), player, IsoWorld.instance.currentCell);
+        return player.getVehicle() == null && reticleOnScreen
+                && (view.centreUse.climbableAt(reticleLine, floorUp(player), player, IsoWorld.instance.currentCell) || hopAtCentre() != null);
+    }
+
+    /** The climb through a hole the reticle is on, or null: see HoleHop. */
+    private HoleHop.Hop hopAtCentre() {
+        IsoPlayer player = view.player();
+        if (!Rules.climbThroughHoles() || player.getVehicle() != null || !reticleOnScreen || player.isAiming()
+                || player.getCurrentState() == ClimbOverFenceState.instance()) {
+            return null;
+        }
+        return HoleHop.find(reticleLine, view.worldScene.terrain, player);
     }
 
     /**
      * Called as the Interact key goes down with the mouse turning the view: acts on what the
-     * last picture drew under the reticle, and says whether anything was there for it. In a
-     * vehicle the key is the game's, which gets out with it.
+     * last picture drew under the reticle, and says whether anything was there for it. Held
+     * (climb), it climbs through the window or the hole the reticle is on. In a vehicle the key
+     * is the game's, which gets out with it.
      */
     boolean useAtCentre(boolean climb) {
         IsoPlayer player = view.player();
         if (player.getVehicle() != null || !reticleOnScreen) {
             return false;
+        }
+        if (climb && !view.centreUse.climbableAt(reticleLine, floorUp(player), player, IsoWorld.instance.currentCell)) {
+            HoleHop.Hop hop = hopAtCentre();
+            if (hop != null) {
+                HoleHop.go(player, hop);
+                return true;
+            }
         }
         CentreUse.Outcome outcome = view.centreUse.press(reticleLine, floorUp(player), player, IsoWorld.instance.currentCell, view.onMouse(), climb);
         if (outcome == CentreUse.Outcome.CONTAINER) {

@@ -325,7 +325,8 @@ public final class Controls {
         if (!interactDown) {
             interactDown = true;
             interactSince = System.nanoTime();
-            // On a window that can be climbed through, a tap opens or shuts it and holding the key climbs, as in the game's own view.
+            // On a window that can be climbed through, a tap opens or shuts it and holding the key climbs, as in the game's own view;
+            // on a hole shot through something that a body fits through holding the key climbs through it.
             windowHeld = view.firstPerson.lookCaptured() && view.firstPerson.climbableAtCentre();
             interactTaken = windowHeld || view.firstPerson.lookCaptured() && view.firstPerson.useAtCentre(false);
         } else if (windowHeld && System.nanoTime() - interactSince >= CLIMB_HOLD_NANOS) {

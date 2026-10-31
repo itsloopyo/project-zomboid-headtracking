@@ -31,6 +31,36 @@ final class BlastTests {
         Checks.run("holesOverlappingOnRaggedFacesAlwaysCut", BlastTests::holesOverlappingOnRaggedFacesAlwaysCut);
         Checks.run("aSliverOutOnTheMapIsCutWhereItsFloatsAreCoarse", BlastTests::aSliverOutOnTheMapIsCutWhereItsFloatsAreCoarse);
         Checks.run("aCornerOfAnOutlineGrazingAFaceEdgeTakesOnlyWhatIsInTheHole", BlastTests::aCornerOfAnOutlineGrazingAFaceEdgeTakesOnlyWhatIsInTheHole);
+        Checks.run("aBodyClimbsOnlyThroughAnOpeningItFits", BlastTests::aBodyClimbsOnlyThroughAnOpeningItFits);
+    }
+
+    /** A gap from along a0 to a1 on the edge and from m0 to m1 metres over its floor. */
+    private static HoleHop.Open gap(float a0, float a1, float m0, float m1) {
+        return (a, u) -> a >= a0 && a <= a1 && u * ViewCamera.LEVEL_HEIGHT >= m0 && u * ViewCamera.LEVEL_HEIGHT <= m1;
+    }
+
+    private static void aBodyClimbsOnlyThroughAnOpeningItFits() {
+        float[] one = BlastHoles.with(new float[0], true, 0.5f, 0.9f / ViewCamera.LEVEL_HEIGHT, 0.15f, 1, 0);
+        check(Float.isNaN(HoleHop.opening((a, u) -> BlastHoles.inAHole(one, true, a, u), 0.5f)), "one blast's hole is too small to climb through");
+        float[] many = new float[0];
+        int seed = 1;
+        for (float along = 0.2f; along < 0.81f; along += 0.15f) {
+            for (float m = 0.3f; m < 1.56f; m += 0.25f) {
+                many = BlastHoles.with(many, true, along, m / ViewCamera.LEVEL_HEIGHT, 0.25f, seed++, 0);
+            }
+        }
+        float[] shot = many;
+        float through = HoleHop.opening((a, u) -> BlastHoles.inAHole(shot, true, a, u), 0.5f);
+        check(Math.abs(through - 0.5f) < 1e-4f, "blasts close together from the knee to over the shoulder open a gap climbed through where the crosshair is: " + through);
+        HoleHop.Open wide = gap(0.2f, 0.8f, 0.3f, 1.6f);
+        check(HoleHop.opening(wide, 0.5f) == 0.5f, "a gap wide and tall enough is climbed through where the crosshair is");
+        float aside = HoleHop.opening(wide, 0.78f);
+        check(aside > 0.5f && aside < 0.78f && aside + HoleHop.HALF_WIDTH <= 0.8f, "aimed at its side the climb goes through as much of the gap as the body needs: " + aside);
+        check(Float.isNaN(HoleHop.opening(gap(0.5f, 1f, 0.3f, 1.6f), 0.1f)), "not a gap further off than the reach along the edge");
+        check(Float.isNaN(HoleHop.opening(gap(0.2f, 0.8f, 0f, 1f), 0.5f)), "nor one too low to climb through");
+        check(Float.isNaN(HoleHop.opening(gap(0.3f, 0.7f, 0.3f, 1.6f), 0.5f)), "nor one too narrow for the body");
+        float end = HoleHop.opening(gap(-1f, 0.6f, 0.3f, 1.6f), 0.05f);
+        check(end >= HoleHop.HALF_WIDTH && end < HoleHop.HALF_WIDTH + 0.03f, "and a body goes through the edge it is on, not past its end: " + end);
     }
 
     private static void check(boolean condition, String what) {
