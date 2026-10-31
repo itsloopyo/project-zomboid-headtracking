@@ -576,9 +576,6 @@ final class WallBuilder {
             if (material == WorldScene.GLASS) {
                 faceIntoRoom(x, y, z, da != 0f);
             }
-            if (door && build.doorLeaf && build.overLayer != 0) {
-                Doors.drawnAsSprite(texture, x, y, z, da != 0f, "laid over a door as a layer of it");
-            }
             if (door && build.doorLeaf && build.overLayer == 0) {
                 // A leaf hangs in the middle of the wall's thickness: a built one where the wall is, the sprite's own with the edge's layers.
                 build.layers.none();
