@@ -91,13 +91,21 @@ final class Doors {
      * leaf with four straight sides on that edge.
      */
     static Shape of(Texture texture, SpriteGeometry.Frame frame, boolean north, boolean far, boolean swung) {
+        if (!(frame.scale > 0f)) {
+            throw new IllegalArgumentException("door " + texture.getName() + " asked for with a frame of scale " + frame.scale + ": read at that scale it is no leaf on any edge");
+        }
         Edge edge = new Edge(texture, north, far);
         Shape shape = known.get(edge);
         if (shape != null && (shape == NONE || shape.leaf.originU == frame.originU && shape.leaf.originV == frame.originV && shape.leaf.scale == frame.scale)) {
             return shape == NONE ? null : shape;
         }
         Asked wanted = new Asked(swung, frame.originU, frame.originV, frame.scale, frame.left, frame.top, frame.width, frame.height);
-        if (!wanted.equals(asked.put(edge, wanted))) {
+        Asked was = asked.put(edge, wanted);
+        if (!wanted.equals(was)) {
+            if (TRACE && was != null) {
+                Log.info("door " + texture.getName() + " " + edgeName(north, far) + " asked again: was " + was + ", now " + wanted + ", read " + (shape == null ? "nothing" : shape == NONE ? "no leaf"
+                        : "origin " + shape.leaf.originU + "," + shape.leaf.originV + " scale " + shape.leaf.scale));
+            }
             known.remove(edge);
             SpriteColours.readAgain(texture);
         }

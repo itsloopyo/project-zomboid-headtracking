@@ -9895,6 +9895,7 @@ final class WorldScene {
                 if (usable(shown)) {
                     shutTexture = shown;
                     WorldScene.frameOf(shutFrame, object, shown);
+                    shutFrame.scale = frame.scale;
                 }
             }
             casing = type == IsoObjectType.doorFrW || type == IsoObjectType.doorFrN;

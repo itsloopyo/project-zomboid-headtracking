@@ -757,6 +757,18 @@ final class DoorTests {
                 "where it is painted: " + (shape == null ? "none" : shape.leaf.start + ".." + shape.leaf.end + " up " + shape.leaf.foot + ".." + shape.leaf.head));
         check(Doors.known(texture, true) == shape && Doors.known(texture, false) == null, "and known on its own edge only");
         check(Doors.leafEdges(texture).equals("north"), "a log line says where it is a leaf: " + Doors.leafEdges(texture));
+        // An open door asked for its shut sprite with a frame whose scale was never set, read at scale 0 as no leaf, and every
+        // door of that sprite shut was drawn flat after it once one of them was seen open (fixtures_doors_01_1 at 6185,5369).
+        SpriteGeometry.Frame unscaled = doubledFrame();
+        unscaled.scale = 0f;
+        boolean refused = false;
+        try {
+            Doors.of(texture, unscaled, true);
+        } catch (IllegalArgumentException expected) {
+            refused = true;
+        }
+        check(refused, "a door asked for with a frame of no scale is refused, not read as no leaf");
+        check(Doors.of(texture, frame, true) == shape, "and its reading is left as it was");
     }
 
     /**
