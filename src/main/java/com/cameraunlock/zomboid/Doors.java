@@ -295,12 +295,13 @@ final class Doors {
     private static final java.util.Set<String> drawnAsSpriteTold = ConcurrentHashMap.newKeySet();
 
     /**
-     * Says that a door's leaf is drawn as its sprite and not built, so shots leave no hole in it: once a sprite and
-     * reason, which stays put, with the square and edge of the first door it was seen at.
+     * Says that a door's leaf is drawn as something else (its sprite, or the wall the game marks it) and not built, so
+     * shots leave no hole in it: once a sprite and reason, which stays put, with the square and edge of the first door it
+     * was seen at.
      */
-    static void drawnAsSprite(Texture texture, int x, int y, int z, boolean north, String why) {
+    static void drawnAsSprite(Texture texture, int x, int y, int z, boolean north, String drawnAs, String why) {
         if (drawnAsSpriteTold.add(texture.getName() + ": " + why)) {
-            Log.info("door " + texture.getName() + " at (" + x + ", " + y + ", " + z + ") on its " + edgeName(north, false) + " edge is drawn as its sprite, not built: " + why
+            Log.info("door " + texture.getName() + " at (" + x + ", " + y + ", " + z + ") on its " + edgeName(north, false) + " edge is drawn as " + drawnAs + ", not built: " + why
                     + " (read as a leaf on: " + leafEdges(texture) + ")");
         }
     }

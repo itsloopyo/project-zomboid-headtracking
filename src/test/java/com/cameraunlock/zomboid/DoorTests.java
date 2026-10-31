@@ -863,10 +863,10 @@ final class DoorTests {
         java.util.Set<String> told = TestMap.read(null, Doors.class, "drawnAsSpriteTold");
         Texture texture = new Texture(5104, 128, 256).named("fixtures_doors_01_told");
         int before = told.size();
-        Doors.drawnAsSprite(texture, 10, 20, 0, true, "its sprite is no leaf on that edge");
-        Doors.drawnAsSprite(texture, 11, 20, 0, true, "its sprite is no leaf on that edge");
+        Doors.drawnAsSprite(texture, 10, 20, 0, true, "its sprite", "its sprite is no leaf on that edge");
+        Doors.drawnAsSprite(texture, 11, 20, 0, true, "its sprite", "its sprite is no leaf on that edge");
         check(told.size() == before + 1, "a door drawn as its sprite is told once for a sprite and reason, wherever it stands");
-        Doors.drawnAsSprite(texture, 10, 20, 0, false, "open, its sprite is no leaf on that edge nor on the east edge");
+        Doors.drawnAsSprite(texture, 10, 20, 0, false, "its sprite", "open, its sprite is no leaf on that edge nor on the east edge");
         check(told.size() == before + 2, "and again for another reason");
     }
 }

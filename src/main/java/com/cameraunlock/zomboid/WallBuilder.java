@@ -540,13 +540,13 @@ final class WallBuilder {
     }
 
     /** Builds the leaf of the door being added (OpeningBuilder.addBuiltDoor), or says why it is drawn as its sprite: whether it was built. */
-    private boolean addLeaf(Texture texture, int x, int y, int z, float way, float layer, float da, float db) {
+    private boolean addLeaf(Texture texture, int x, int y, int z, float way, float layer, float da, float db, String otherwise) {
         build.layers.none();
         boolean built = Own.buildings() && build.openingBuilder.addBuiltDoor(texture, x, y, z, da, db);
         build.layers.lie(way, layer);
         String why = built ? null : !Own.buildings() ? "the mod's buildings are off (OwnBuildings)" : build.openingBuilder.unbuilt;
         if (why != null) {
-            Doors.drawnAsSprite(texture, x, y, z, da != 0f, why);
+            Doors.drawnAsSprite(texture, x, y, z, da != 0f, otherwise, why);
         }
         return built;
     }
@@ -557,7 +557,7 @@ final class WallBuilder {
         // The game marks a chain link gate a wall: a leaf where the picture builds one, and the wall it was where it does not.
         if (wall && door && build.gate != Gates.NONE && build.overLayer == 0) {
             int site = build.frame.site;
-            if (addLeaf(texture, x, y, z, way, layer, da, db)) {
+            if (addLeaf(texture, x, y, z, way, layer, da, db, "the wall the game marks it")) {
                 build.frame.site = site;
                 return;
             }
@@ -599,7 +599,7 @@ final class WallBuilder {
             if (door && build.doorLeaf && build.overLayer == 0) {
                 // A leaf hangs in the middle of the wall's thickness: a built one where the wall is, the sprite's own with the edge's layers.
                 // A gate the picture could not build stays the sheet it was before it was built.
-                if (addLeaf(texture, x, y, z, way, layer, da, db) || build.gate == Gates.NONE && build.openingBuilder.addDoor(mesh, texture, x, y, z, 0f, 0f, da, db)) {
+                if (addLeaf(texture, x, y, z, way, layer, da, db, "its sprite") || build.gate == Gates.NONE && build.openingBuilder.addDoor(mesh, texture, x, y, z, 0f, 0f, da, db)) {
                     build.geometry.shownA = build.geometry.shownB = 0f;
                     build.frame.site = site;
                     return;
