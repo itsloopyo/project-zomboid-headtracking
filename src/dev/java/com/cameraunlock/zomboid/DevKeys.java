@@ -158,6 +158,8 @@ public final class DevKeys {
     private static final int LATER_KEY = 10;
     /** How far a press puts the clock on, in hours. */
     private static final float LATER = 1f;
+    /** The hour of the morning the game counts a night survived at. */
+    private static final float NIGHT_OVER = 7f;
     /** Backspace: of the keys the game leaves alone, the nearest to 9 on its row. */
     private static final int SEASON_KEY = 14;
 
@@ -338,10 +340,18 @@ public final class DevKeys {
             Log.info((back ? "," : ".") + ": moved " + moved + " of " + players.size() + " players to " + to.name() + " (" + to.x() + ", " + to.y() + ", level " + to.level() + "), place " + (place + 1) + " of " + PLACES.length);
         }
         if (GameKeyboard.isKeyPressed(LATER_KEY)) {
+            GameTime time = GameTime.getInstance();
+            float was = time.getTimeOfDay();
             // Past midnight is left as an hour over 24: the game's clock takes that as the next day.
-            float hour = GameTime.getInstance().getTimeOfDay() + LATER;
-            GameTime.getInstance().setTimeOfDay(hour);
-            Log.info("9: the clock put on to " + hour);
+            float hour = was + LATER;
+            // The world's age, which the game times food, the weather and the like by, is the nights it
+            // has counted and the hours since 7. It counts a night as its clock goes from 7 or before
+            // to after it, and sees that only within its own step, so a press over 7 is counted here.
+            if (was <= NIGHT_OVER && hour > NIGHT_OVER) {
+                time.setNightsSurvived(time.getNightsSurvived() + 1);
+            }
+            time.setTimeOfDay(hour);
+            Log.info("9: the clock put on to " + hour + ", the world " + time.getWorldAgeHours() + " hours old");
         }
         if (GameKeyboard.isKeyPressed(SEASON_KEY)) {
             season = (season + 1) % SEASONS.length;
