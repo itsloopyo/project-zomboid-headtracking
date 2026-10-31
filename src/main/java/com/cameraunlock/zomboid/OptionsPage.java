@@ -166,10 +166,7 @@ final class OptionsPage {
         byTable = tables;
         quickTables = listTables;
         microphones = microphoneLists;
-        List<String> present = Microphones.present();
-        for (MicrophoneList list : microphones) {
-            list(list, Tracking.microphones().get(list.player), present);
-        }
+        listMicrophones();
         showQuickLists();
         filled = false;
         section.rawset("apply", APPLIED);
@@ -218,21 +215,15 @@ final class OptionsPage {
                 nameLevel(control);
                 write(control);
             }
-            List<String> present = Microphones.present();
-            for (MicrophoneList list : microphones) {
-                list(list, Tracking.microphones().get(list.player), present);
-            }
+            listMicrophones();
             showQuickLists();
             filled = true;
         } catch (RuntimeException failure) {
             // Thrown on, it would stop the game's options screen from opening.
             Log.error("the game's options screen was not given the mod's settings as they are, and what is applied there until it opens again is not taken", failure);
         }
-        Object[] ran = LuaManager.caller.pcall(UIManager.getDefaultThread(), gameOpens, new Object[] {frame.get(0)});
-        if (!Boolean.TRUE.equals(ran[0])) {
-            // The game's own fault, or another mod's: it goes on to whoever opened the screen, as it would without this in between.
-            throw new IllegalStateException("the game's MainOptions.toUI failed: " + Arrays.toString(ran));
-        }
+        // The game's own fault, or another mod's, goes on to whoever opened the screen, as it would without this in between.
+        ran("MainOptions.toUI", gameOpens, frame.get(0));
         try {
             for (Control control : controls) {
                 KahluaTable element = (KahluaTable) control.table.rawget("element");
@@ -291,6 +282,14 @@ final class OptionsPage {
             }
         }
         throw new IllegalStateException("the game's options screen does not hold " + control.setting.described.id + "'s slider where it was put");
+    }
+
+    /** Fills each player's list of microphones with those connected now and the one they have chosen. */
+    private static void listMicrophones() {
+        List<String> present = Microphones.present();
+        for (MicrophoneList list : microphones) {
+            list(list, Tracking.microphones().get(list.player), present);
+        }
     }
 
     /**
@@ -369,9 +368,8 @@ final class OptionsPage {
             }
             OptionsDraft.Setting setting = control.setting;
             Object value = frame.get(1);
-            draft.changed(setting, setting.described.kind == CameraUnlock.OPTION_BOOL
-                    ? (Boolean.TRUE.equals(value) != OptionsLayout.INVERTED.contains(setting.described.id) ? 1 : 0)
-                    : setting.values != null ? setting.values[(int) (double) (Double) value - 1] : (Double) value, OptionsPage::put);
+            draft.changed(setting, setting.described.kind == CameraUnlock.OPTION_BOOL ? unticked(setting, value)
+                    : setting.values != null ? setting.values[line(value)] : (Double) value, OptionsPage::put);
             showQuickLists();
         } catch (RuntimeException failure) {
             // Thrown on, it would stop the game's options screen.
@@ -394,7 +392,7 @@ final class OptionsPage {
                 throw new IllegalStateException("a list the page did not make was handed to its quick lists' onChange");
             }
             // The game's lines count from 1, and the first is Mixed.
-            draft.chosen(list, (int) (double) (Double) frame.get(1) - 1, OptionsPage::put);
+            draft.chosen(list, line(frame.get(1)), OptionsPage::put);
             showQuickLists();
         } catch (RuntimeException failure) {
             // Thrown on, it would stop the game's options screen.
@@ -426,7 +424,7 @@ final class OptionsPage {
         }
         for (MicrophoneList list : microphones) {
             try {
-                String chosen = list.names.get((int) (double) (Double) list.table.rawget("selected") - 1);
+                String chosen = list.names.get(line(list.table.rawget("selected")));
                 if (!chosen.equals(list.shown)) {
                     Tracking.applyMicrophone(list.player, chosen);
                     list.shown = chosen;
@@ -477,23 +475,29 @@ final class OptionsPage {
 
     /** A number as the game's Lua writes it, which is how the screen writes it beside a slider as it opens. */
     private static String luaText(double value) {
-        Object[] ran = LuaManager.caller.pcall(UIManager.getDefaultThread(), LuaManager.env.rawget("tostring"), new Object[] {value});
-        if (!Boolean.TRUE.equals(ran[0])) {
-            throw new IllegalStateException("the game's tostring failed: " + Arrays.toString(ran));
-        }
-        return (String) ran[1];
+        return (String) ran("tostring", LuaManager.env.rawget("tostring"), value)[1];
     }
 
     /** What a setting's control table holds, as core's value for the option. */
     private static double held(OptionsDraft.Setting setting) {
         KahluaTable table = byId.get(setting.described.id).table;
         if (setting.described.kind == CameraUnlock.OPTION_BOOL) {
-            return Boolean.TRUE.equals(table.rawget("value")) != OptionsLayout.INVERTED.contains(setting.described.id) ? 1 : 0;
+            return unticked(setting, table.rawget("value"));
         }
         if (setting.values == null) {
             return (Double) table.rawget("value");
         }
-        return setting.values[(int) (double) (Double) table.rawget("selected") - 1];
+        return setting.values[line(table.rawget("selected"))];
+    }
+
+    /** Core's value for a tick box the game hands back ticked or not: the inverse of ticked. */
+    private static double unticked(OptionsDraft.Setting setting, Object ticked) {
+        return Boolean.TRUE.equals(ticked) != OptionsLayout.INVERTED.contains(setting.described.id) ? 1 : 0;
+    }
+
+    /** The place from 0 of a list's line the game's Lua names, which counts from 1. */
+    private static int line(Object luaLine) {
+        return (int) (double) (Double) luaLine - 1;
     }
 
     /** Calls a method of a Lua object and answers what it returned first. Throws when the game's Lua has no such method or it fails. */
@@ -508,10 +512,16 @@ final class OptionsPage {
             // Every number of the game's Lua is a double.
             passed[i + 1] = arguments[i] instanceof Number number ? (Object) number.doubleValue() : arguments[i];
         }
+        Object[] ran = ran(method, function, passed);
+        return ran.length > 1 ? ran[1] : null;
+    }
+
+    /** Runs a function of the game's Lua by name and answers what pcall hands back, its success first. Throws when it fails. */
+    private static Object[] ran(String name, Object function, Object... passed) {
         Object[] ran = LuaManager.caller.pcall(UIManager.getDefaultThread(), function, passed);
         if (!Boolean.TRUE.equals(ran[0])) {
-            throw new IllegalStateException("the game's " + method + " failed: " + Arrays.toString(ran));
+            throw new IllegalStateException("the game's " + name + " failed: " + Arrays.toString(ran));
         }
-        return ran.length > 1 ? ran[1] : null;
+        return ran;
     }
 }

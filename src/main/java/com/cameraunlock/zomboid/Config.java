@@ -46,7 +46,7 @@ final class Config {
     static final int[] CYCLE_STYLE_TAPS = {CYCLE_STYLE, CameraUnlock.HOTKEY_LOCAL << 12, CameraUnlock.HOTKEY_LOCAL << 13,
         CameraUnlock.HOTKEY_LOCAL << 14};
     /** What the keys of a player's own rows begin with, by player: the first player's rows are Quality, IsometricQuality and Style. */
-    private static final String[] PLAYER_ROW = {"", "SecondPlayer", "ThirdPlayer", "FourthPlayer"};
+    static final String[] PLAYER_ROW = {"", "SecondPlayer", "ThirdPlayer", "FourthPlayer"};
 
     /** Player 2's port; each player after them has the next. */
     private static final int SECOND_PLAYER_PORT = 4243;
@@ -237,9 +237,9 @@ final class Config {
                     whose + "isometric graphics mode, as IsometricQuality.", writable | live, Quality.overheadWords(), 0);
             style[player] = localEnum("Players", styleKey(player), whose + "picture style, as Style.", writable | live,
                     Style.words(), Style.BLEAK.ordinal());
-            firstPerson[player] = localBool("Players", PLAYER_ROW[player] + "FirstPerson", whose + "view at load, as FirstPerson.",
+            firstPerson[player] = localBool("Players", firstPersonRow(player), whose + "view at load, as FirstPerson.",
                     writable | live, false);
-            firstPersonInVehicles[player] = localBool("Players", PLAYER_ROW[player] + "FirstPersonInVehicles",
+            firstPersonInVehicles[player] = localBool("Players", firstPersonInVehiclesRow(player),
                     whose + "view in vehicles, as FirstPersonInVehicles.", writable | live, false);
         }
         Quality.Picture high = Quality.HIGH_PICTURE;
@@ -499,8 +499,8 @@ final class Config {
             puts.put(qualityKey(player), value -> Quality.set(whose, (int) value));
             puts.put(overheadQualityKey(player), value -> Quality.setOverhead(whose, (int) value + Quality.LOW));
             puts.put(styleKey(player), value -> Style.set(whose, (int) value));
-            puts.put(PLAYER_ROW[player] + "FirstPerson", value -> Tracking.firstPersonAtLoad(whose, value != 0));
-            puts.put(PLAYER_ROW[player] + "FirstPersonInVehicles", value -> Tracking.firstPersonInVehicles(whose, value != 0));
+            puts.put(firstPersonRow(player), value -> Tracking.firstPersonAtLoad(whose, value != 0));
+            puts.put(firstPersonInVehiclesRow(player), value -> Tracking.firstPersonInVehicles(whose, value != 0));
         }
         puts.put("HillHeight", value -> HillHeight.set((float) value));
         puts.put("MuzzleFlash", value -> MuzzleFlash.set(value != 0));

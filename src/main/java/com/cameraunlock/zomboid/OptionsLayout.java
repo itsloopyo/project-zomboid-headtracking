@@ -186,14 +186,12 @@ final class OptionsLayout {
     /** The rows of [Content], which say whether the game's own is drawn: the page ticks each for the mod's own, so it is ticked for 0. */
     static final Set<String> INVERTED = Set.of(Config.VANILLA_KEYS);
 
-    /** What the keys of players 2, 3 and 4's rows begin with. */
-    private static final String[] PLAYER_PREFIXES = {"SecondPlayer", "ThirdPlayer", "FourthPlayer"};
-
     private OptionsLayout() {}
 
     /** The key of player 1's row a row of [Players] is the same as: SecondPlayerQuality is Quality. */
     static String basis(String id) {
-        for (String prefix : PLAYER_PREFIXES) {
+        for (int player = 1; player < Config.PLAYER_ROW.length; player++) {
+            String prefix = Config.PLAYER_ROW[player];
             if (id.startsWith(prefix)) {
                 return id.substring(prefix.length());
             }
@@ -382,9 +380,10 @@ final class OptionsLayout {
         List<String> graphics = ticks(options, layout, GRAPHICS), content = ticks(options, layout, CONTENT),
                 gameplay = ticks(options, layout, GAMEPLAY), optimizations = ticks(options, layout, OPTIMIZATIONS), every = new ArrayList<>();
         Set<String> leftOut = Set.of(Tracking.ENABLED_OPTION, Config.TALKING_MOUTHS, Tracking.YAW_MODE_OPTION);
+        int customGraphics = group(CUSTOM_GRAPHICS);
         for (int group = 0; group < layout.length; group++) {
             // The rows of Custom graphics are a picture, which a tick of one would switch player 1 to.
-            if (PAGE[group].title.equals(CUSTOM_GRAPHICS)) {
+            if (group == customGraphics) {
                 continue;
             }
             for (int option : layout[group]) {
@@ -459,15 +458,20 @@ final class OptionsLayout {
 
     /** The tick boxes under a title, by key. */
     private static List<String> ticks(CameraUnlock.Option[] options, int[][] layout, String title) {
+        List<String> ids = new ArrayList<>();
+        for (int option : layout[group(title)]) {
+            if (options[option].kind == CameraUnlock.OPTION_BOOL) {
+                ids.add(options[option].id);
+            }
+        }
+        return ids;
+    }
+
+    /** The place in PAGE of the group under a title. */
+    private static int group(String title) {
         for (int group = 0; group < PAGE.length; group++) {
             if (PAGE[group].title.equals(title)) {
-                List<String> ids = new ArrayList<>();
-                for (int option : layout[group]) {
-                    if (options[option].kind == CameraUnlock.OPTION_BOOL) {
-                        ids.add(options[option].id);
-                    }
-                }
-                return ids;
+                return group;
             }
         }
         throw new IllegalStateException("the options screen has no title " + title);

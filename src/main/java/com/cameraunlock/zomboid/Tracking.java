@@ -14,6 +14,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.IntFunction;
 import zombie.characters.IsoPlayer;
 import zombie.input.JoypadButton;
 
@@ -445,18 +446,17 @@ final class Tracking {
 
     /** The player whose first person graphics mode an option is, or -1 for an option that is none's. */
     static int qualityPlayer(String id) {
-        for (int player = 0; player < View.COUNT; player++) {
-            if (id.equals(Config.qualityKey(player))) {
-                return player;
-            }
-        }
-        return -1;
+        return playerOf(id, Config::qualityKey);
     }
 
     /** The player whose isometric graphics mode an option is, or -1 for an option that is none's. */
     static int overheadQualityPlayer(String id) {
+        return playerOf(id, Config::overheadQualityKey);
+    }
+
+    private static int playerOf(String id, IntFunction<String> keyOf) {
         for (int player = 0; player < View.COUNT; player++) {
-            if (id.equals(Config.overheadQualityKey(player))) {
+            if (id.equals(keyOf.apply(player))) {
                 return player;
             }
         }
@@ -638,14 +638,8 @@ final class Tracking {
      */
     static int pressedFor(int playerIndex, boolean first) {
         if (first) {
-            int pressed = 0, told = graphicsModeOwed;
             boolean enteringSave = outOfSave;
-            graphicsModeOwed = 0;
-            for (int i = 0; i < View.COUNT; i++) {
-                if ((told & 1 << i) != 0) {
-                    cycleGraphicsMode(i);
-                }
-            }
+            int pressed = 0, told = cycleOwedGraphicsModes();
             // The hotkeys are heard whatever the game is doing with the keyboard, so a key that goes into one of its text boxes is not an action as well.
             if (outOfSave || zombie.core.Core.getInstance().isDoingTextEntry()) {
                 outOfSave = false;
@@ -660,17 +654,7 @@ final class Tracking {
                     }
                 }
             }
-            int lowered = Quality.players(IsoPlayer.numPlayers);
-            for (int i = 0; i < View.COUNT; i++) {
-                if ((lowered & 1 << i) != 0) {
-                    int player = i, firstQuality = Quality.row(i), overhead = Quality.overheadRow(i);
-                    save(() -> {
-                        config.saveQuality(player, firstQuality);
-                        config.saveIsometricQuality(player, overhead);
-                    });
-                }
-            }
-            sayGraphics(lowered);
+            sayGraphics(saveLowered(Quality.players(IsoPlayer.numPlayers)));
             if (enteringSave) {
                 graphicsToSay.set(0);
                 Quality.stepSaid();
@@ -678,42 +662,7 @@ final class Tracking {
                 told |= graphicsToTell(OptionsPage.menuShown());
             }
             SplitScreen.frame();
-            int said = pressed & (Config.AIM_MODE | Config.SPLIT_SCREEN | Config.CYCLE_TRACKING_MODE | Config.YAW_MODE);
-            // Held, the key puts every player at the screen into one view: first person if any of them is out of it, else the game's own.
-            boolean allFirst = false;
-            if ((pressed & Config.FIRST_PERSON_ALL) != 0) {
-                for (int i = 0; i < View.COUNT; i++) {
-                    View view = View.of(i);
-                    allFirst |= atScreen(i) && (view == null || !view.firstPerson.wanted());
-                }
-                Log.info("the first person key was held: every player to " + (allFirst ? "first person" : "the isometric view"));
-            }
-            for (int i = 0; i < View.COUNT; i++) {
-                owed[i] = said | ((told & 1 << i) != 0 ? Config.CYCLE_QUALITY : 0);
-                if ((pressed & Config.FIRST_PERSON_ALL) != 0) {
-                    View view = View.of(i);
-                    if (atScreen(i) && (view == null ? allFirst : view.firstPerson.wanted() != allFirst)) {
-                        owed[i] |= Config.FIRST_PERSON;
-                    }
-                } else if (theirs(pressed, i, Config.FIRST_PERSON_TAPS, 0, "first person")) {
-                    owed[i] |= Config.FIRST_PERSON;
-                }
-                if (theirs(pressed, i, Config.CYCLE_QUALITY_TAPS, Config.CYCLE_QUALITY_ALL, "graphics")) {
-                    View view = View.of(i);
-                    if (view != null && view.pipeline.failure() != null) {
-                        // Every graphics mode but the game's own is drawn by first person: the key says why there are none.
-                        owed[i] |= Config.CYCLE_QUALITY;
-                        Log.info("player " + (i + 1) + "'s graphics key changes nothing: " + view.pipeline.failure());
-                    } else {
-                        // Changed on the next frame: this one's picture is the view's picture before (ModeFade).
-                        graphicsModeOwed |= 1 << i;
-                    }
-                }
-                if (theirs(pressed, i, Config.CYCLE_STYLE_TAPS, Config.CYCLE_STYLE_ALL, "style")) {
-                    cycleStyle(i);
-                    owed[i] |= Config.CYCLE_STYLE;
-                }
-            }
+            owe(pressed, told);
             backButtons();
         }
         if (playerIndex >= View.COUNT) {
@@ -722,6 +671,63 @@ final class Tracking {
         int mine = owed[playerIndex];
         owed[playerIndex] = 0;
         return mine;
+    }
+
+    /** Keeps for the next start the graphics modes of the players split screen lowered, a bit each, and hands the bits back. */
+    private static int saveLowered(int lowered) {
+        for (int i = 0; i < View.COUNT; i++) {
+            if ((lowered & 1 << i) != 0) {
+                int player = i, firstQuality = Quality.row(i), overhead = Quality.overheadRow(i);
+                save(() -> {
+                    config.saveQuality(player, firstQuality);
+                    config.saveIsometricQuality(player, overhead);
+                });
+            }
+        }
+        return lowered;
+    }
+
+    /**
+     * What each player's view is owed of this frame's presses: what every view says, the
+     * graphics mode said where told has their bit, and the player keys that are theirs.
+     */
+    private static void owe(int pressed, int told) {
+        int said = pressed & (Config.AIM_MODE | Config.SPLIT_SCREEN | Config.CYCLE_TRACKING_MODE | Config.YAW_MODE);
+        // Held, the key puts every player at the screen into one view: first person if any of them is out of it, else the game's own.
+        boolean allFirst = false;
+        if ((pressed & Config.FIRST_PERSON_ALL) != 0) {
+            for (int i = 0; i < View.COUNT; i++) {
+                View view = View.of(i);
+                allFirst |= atScreen(i) && (view == null || !view.firstPerson.wanted());
+            }
+            Log.info("the first person key was held: every player to " + (allFirst ? "first person" : "the isometric view"));
+        }
+        for (int i = 0; i < View.COUNT; i++) {
+            owed[i] = said | ((told & 1 << i) != 0 ? Config.CYCLE_QUALITY : 0);
+            if ((pressed & Config.FIRST_PERSON_ALL) != 0) {
+                View view = View.of(i);
+                if (atScreen(i) && (view == null ? allFirst : view.firstPerson.wanted() != allFirst)) {
+                    owed[i] |= Config.FIRST_PERSON;
+                }
+            } else if (theirs(pressed, i, Config.FIRST_PERSON_TAPS, 0, "first person")) {
+                owed[i] |= Config.FIRST_PERSON;
+            }
+            if (theirs(pressed, i, Config.CYCLE_QUALITY_TAPS, Config.CYCLE_QUALITY_ALL, "graphics")) {
+                View view = View.of(i);
+                if (view != null && view.pipeline.failure() != null) {
+                    // Every graphics mode but the game's own is drawn by first person: the key says why there are none.
+                    owed[i] |= Config.CYCLE_QUALITY;
+                    Log.info("player " + (i + 1) + "'s graphics key changes nothing: " + view.pipeline.failure());
+                } else {
+                    // Changed on the next frame: this one's picture is the view's picture before (ModeFade).
+                    graphicsModeOwed |= 1 << i;
+                }
+            }
+            if (theirs(pressed, i, Config.CYCLE_STYLE_TAPS, Config.CYCLE_STYLE_ALL, "style")) {
+                cycleStyle(i);
+                owed[i] |= Config.CYCLE_STYLE;
+            }
+        }
     }
 
     /**
@@ -768,6 +774,11 @@ final class Tracking {
     static void leftSave() {
         outOfSave = true;
         Quality.players(0);
+        cycleOwedGraphicsModes();
+    }
+
+    /** Steps the graphics mode of each player whose key was pressed in the frame before, and answers which those were, a bit each. */
+    private static int cycleOwedGraphicsModes() {
         int owedNow = graphicsModeOwed;
         graphicsModeOwed = 0;
         for (int i = 0; i < View.COUNT; i++) {
@@ -775,6 +786,7 @@ final class Tracking {
                 cycleGraphicsMode(i);
             }
         }
+        return owedNow;
     }
 
     /** Acts on the head tracking actions among the bits, and hands them all back. */
@@ -895,7 +907,7 @@ final class Tracking {
     }
 
     static void firstPersonAtLoad(int player, boolean on) {
-        firstPersonAtLoad.updateAndGet(bits -> on ? bits | 1 << player : bits & ~(1 << player));
+        setBit(firstPersonAtLoad, player, on);
     }
 
     /** For each player, by their number's bit, whether getting into a vehicle and out again switches the view: the file's FirstPersonInVehicles rows. */
@@ -906,7 +918,11 @@ final class Tracking {
     }
 
     static void firstPersonInVehicles(int player, boolean on) {
-        firstPersonInVehicles.updateAndGet(bits -> on ? bits | 1 << player : bits & ~(1 << player));
+        setBit(firstPersonInVehicles, player, on);
+    }
+
+    private static void setBit(AtomicInteger bits, int player, boolean on) {
+        bits.updateAndGet(was -> on ? was | 1 << player : was & ~(1 << player));
     }
 
     /** The keys that switch first person, as CameraUnlock.ini names them. */
