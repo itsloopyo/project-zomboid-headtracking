@@ -1,6 +1,5 @@
 package com.cameraunlock.zomboid;
 
-import java.lang.ref.WeakReference;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Locale;
@@ -49,11 +48,13 @@ final class DoorGlass {
     /** How many splinters a bar or a bead is split into across its width. */
     static final int SPLINTERS = 4;
 
-    /** The door the last pellet went through a light of, held weakly to let the world go with the save, the world's age then, and how many of that blast's pellets have, and where. */
-    private static WeakReference<IsoObject> blasted = new WeakReference<>(null);
+    /**
+     * Each door a pellet of the last blast went through a light of, held weakly to let the world go
+     * with the save: how many of that blast's pellets have, and the sums of where along and up. The
+     * world's age the blast was fired at tells it from the next. Logic thread.
+     */
+    private static final Map<IsoObject, float[]> blasted = new WeakHashMap<>();
     private static double blastedAt;
-    private static int pellets;
-    private static float pelletsAlong, pelletsUp;
 
     /** The lights broken of each door loaded, for the builds to read off the logic thread. */
     private static final Map<IsoObject, Integer> broken = Collections.synchronizedMap(new WeakHashMap<>());
@@ -103,23 +104,24 @@ final class DoorGlass {
             return;
         }
         double now = GameTime.getInstance().getWorldAgeHours();
-        if (door != blasted.get() || now != blastedAt) {
-            blasted = new WeakReference<>(door);
+        if (now != blastedAt) {
+            blasted.clear();
             blastedAt = now;
-            pellets = 0;
-            pelletsAlong = pelletsUp = 0f;
         }
-        pellets++;
-        pelletsAlong += along;
-        pelletsUp += up;
-        if (pellets < SMASHING) {
+        // A blast's pellets each go through every door on their own line before the next is fired, so two doors' counts run at once.
+        float[] through = blasted.computeIfAbsent(door, first -> new float[3]);
+        through[0]++;
+        through[1] += along;
+        through[2] += up;
+        if (through[0] < SMASHING) {
             breakLight(door, light);
             return;
         }
         float[] sash = sash(leafOf(door).panes);
-        if (set(door, smashedAt(sash, pelletsAlong / pellets, pelletsUp / pellets)) && DevBuild.ON) {
+        float middleAlong = through[1] / through[0], middleUp = through[2] / through[0];
+        if (set(door, smashedAt(sash, middleAlong, middleUp)) && DevBuild.ON) {
             Log.info(String.format(Locale.ROOT, "a blast smashed the sash of the door at (%d, %d, %d) round %.3f along and %.3f levels up", door.getSquare().getX(),
-                    door.getSquare().getY(), door.getSquare().getZ(), pelletsAlong / pellets, pelletsUp / pellets));
+                    door.getSquare().getY(), door.getSquare().getZ(), middleAlong, middleUp));
         }
     }
 
