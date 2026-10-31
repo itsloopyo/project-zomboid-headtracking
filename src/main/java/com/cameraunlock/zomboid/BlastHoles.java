@@ -167,9 +167,9 @@ final class BlastHoles {
      * Whether an object is one a blast blows holes in: a wooden door, a wooden fence on an edge,
      * tall or low, the map's or one a player built, whole, broken or burnt, or a wall of
      * plasterboard, which the pellets go on through (Penetration), or of boards, siding among them,
-     * which stops them. Logic thread for a wall (Penetration.madeOf). A rail fence strung with
-     * wire is mostly the wire's gaps, and is not one, nor a fence the picture builds from a model of
-     * its own (ModelFences), whose pickets are not cut.
+     * which stops them. A rail fence strung with wire is mostly the wire's gaps, and is not one,
+     * nor a fence the picture builds from a model of its own (ModelFences), whose pickets are not
+     * cut. Any thread.
      */
     static boolean blastable(IsoObject object) {
         IsoSprite sprite = object.getSprite();

@@ -295,7 +295,7 @@ final class Penetration {
     /**
      * What a wall, a door or a gate is made of: what the game names it made of, for a door it names
      * nothing for what its sound says, and for a piece of wall it names nothing for what the wall
-     * it stands in is made of (WallRuns). Logic thread.
+     * it stands in is made of (WallRuns). Any thread.
      */
     static String madeOf(IsoObject object) {
         String made = materialOf(object);

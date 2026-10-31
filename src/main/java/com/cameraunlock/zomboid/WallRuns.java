@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.WeakHashMap;
 import zombie.core.properties.PropertyContainer;
@@ -20,7 +21,7 @@ import zombie.iso.sprite.IsoSprite;
  * either way, past any other unnamed pieces and with wall on every edge between: siding round a
  * window is siding, brick round a doorway brick. Where the nearest each way are as near and differ,
  * the one that stops a round more is taken. A piece with no named wall in reach keeps no material.
- * Logic thread.
+ * Any thread: the builds ask it of a fence's piece too (BlastHoles.boards).
  */
 final class WallRuns {
     private WallRuns() {}
@@ -29,7 +30,7 @@ final class WallRuns {
     static final int REACH = 6;
 
     /** What each piece was found made of, "" for nothing: a wall's run does not change while it is loaded. */
-    private static final Map<IsoObject, String> found = new WeakHashMap<>();
+    private static final Map<IsoObject, String> found = Collections.synchronizedMap(new WeakHashMap<>());
 
     /** What a wall piece the game names no material for is made of by its run, or null for none. */
     static String materialOf(IsoObject piece) {
