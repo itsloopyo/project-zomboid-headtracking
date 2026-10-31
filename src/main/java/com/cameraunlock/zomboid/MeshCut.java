@@ -155,26 +155,32 @@ final class MeshCut {
     }
 
     /** Where each mesh the sets have handed out ends now: what a thing adds to it from here on is the thing's. */
-    static IdentityHashMap<SpriteGeometry.Mesh, Integer> ends(SpriteGeometry.MeshSet... sets) {
-        IdentityHashMap<SpriteGeometry.Mesh, Integer> ends = new IdentityHashMap<>();
-        for (SpriteGeometry.MeshSet set : sets) {
-            for (SpriteGeometry.Mesh mesh : set.used) {
-                ends.put(mesh, mesh.floats);
+    static int[][] ends(SpriteGeometry.MeshSet... sets) {
+        int[][] ends = new int[sets.length][];
+        for (int k = 0; k < sets.length; k++) {
+            ArrayList<SpriteGeometry.Mesh> used = sets[k].used;
+            ends[k] = new int[used.size()];
+            for (int i = 0; i < ends[k].length; i++) {
+                ends[k][i] = used.get(i).floats;
             }
         }
         return ends;
     }
 
+    /** How many floats the mesh at place i of set k's used held as ends were taken: 0 for one first asked for since, which used puts after them. */
+    static int endOf(int[][] ends, int k, int i) {
+        return i < ends[k].length ? ends[k][i] : 0;
+    }
+
     /** Cuts what the thing added to the sets' meshes since ends were taken, then lines the holes and lays the marks. */
-    void since(IdentityHashMap<SpriteGeometry.Mesh, Integer> ends, SpriteGeometry.MeshSet... sets) {
+    void since(int[][] ends, SpriteGeometry.MeshSet... sets) {
         if (!any()) {
             return;
         }
-        for (SpriteGeometry.MeshSet set : sets) {
-            for (int i = 0; i < set.used.size(); i++) {
-                SpriteGeometry.Mesh mesh = set.used.get(i);
-                Integer end = ends.get(mesh);
-                cut(mesh, end == null ? 0 : end);
+        for (int k = 0; k < sets.length; k++) {
+            ArrayList<SpriteGeometry.Mesh> used = sets[k].used;
+            for (int i = 0; i < used.size(); i++) {
+                cut(used.get(i), endOf(ends, k, i));
             }
         }
         finish();

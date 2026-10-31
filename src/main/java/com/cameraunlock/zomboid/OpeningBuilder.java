@@ -1,7 +1,6 @@
 package com.cameraunlock.zomboid;
 
 import java.util.Arrays;
-import java.util.IdentityHashMap;
 import zombie.core.textures.Texture;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.SpriteDetails.IsoObjectType;
@@ -434,7 +433,7 @@ final class OpeningBuilder {
         edgeSide = paneSide(ownIsRoom);
 
         MeshCut cut = blastCut(door, shut, north);
-        IdentityHashMap<SpriteGeometry.Mesh, Integer> ends = cut == null ? null : MeshCut.ends(build.solid, build.laid);
+        int[][] ends = cut == null ? null : MeshCut.ends(build.solid, build.laid);
         boolean wooden = door.kind == Doors.PLANKED || wooden(leaf.red, leaf.green, leaf.blue);
         // Kept as finely as a tile's colour (WallSides.FINE): at a fifteenth a channel a dark maroon door rounds to a grey one.
         SpriteGeometry.Mesh wood = build.solid.get(WorldScene.PLAIN, WallSides.laid(leaf.red, leaf.green, leaf.blue, 0f, 0f, 0f, WallSides.FINE));

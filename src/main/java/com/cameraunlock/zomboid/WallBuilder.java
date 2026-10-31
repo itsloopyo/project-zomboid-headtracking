@@ -1,7 +1,7 @@
 package com.cameraunlock.zomboid;
 
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.IdentityHashMap;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import zombie.core.properties.PropertyContainer;
@@ -235,7 +235,7 @@ final class WallBuilder {
             addWholeEdge(mesh, texture, wall, door, x, y, z, layer, da, db);
             return;
         }
-        IdentityHashMap<SpriteGeometry.Mesh, Integer> ends = MeshCut.ends(build.solid, build.laid);
+        int[][] ends = MeshCut.ends(build.solid, build.laid);
         addWholeEdge(mesh, texture, wall, door, x, y, z, layer, da, db);
         if (measured) {
             BlastHoles.measured(texture, topSince(ends, x, y, z));
@@ -251,14 +251,14 @@ final class WallBuilder {
     }
 
     /** The top of what the sprite being added built into the sets' meshes since ends were taken, in levels over the ground under it. */
-    private float topSince(IdentityHashMap<SpriteGeometry.Mesh, Integer> ends, int x, int y, int z) {
+    private float topSince(int[][] ends, int x, int y, int z) {
         float top = 0f;
-        for (SpriteGeometry.MeshSet set : new SpriteGeometry.MeshSet[] {build.solid, build.laid}) {
-            for (int i = 0; i < set.used.size(); i++) {
-                SpriteGeometry.Mesh mesh = set.used.get(i);
-                Integer end = ends.get(mesh);
+        for (int k = 0; k < 2; k++) {
+            ArrayList<SpriteGeometry.Mesh> used = (k == 0 ? build.solid : build.laid).used;
+            for (int i = 0; i < used.size(); i++) {
+                SpriteGeometry.Mesh mesh = used.get(i);
                 float[] f = mesh.vertices;
-                for (int at = end == null ? 0 : end; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+                for (int at = MeshCut.endOf(ends, k, i); at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
                     float ground = z * ViewCamera.LEVEL_HEIGHT + build.geometry.liftAt(f[at] - x, f[at + 1] - y);
                     top = Math.max(top, (f[at + 2] - ground) / ViewCamera.LEVEL_HEIGHT);
                 }

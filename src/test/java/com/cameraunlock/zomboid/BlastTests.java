@@ -1,7 +1,6 @@
 package com.cameraunlock.zomboid;
 
 import java.util.ArrayList;
-import java.util.IdentityHashMap;
 
 /**
  * Blast holes: what a blast's pellets on a door or a fence come to (Blasts), how the holes are
@@ -305,7 +304,7 @@ final class BlastTests {
         SpriteGeometry.MeshSet set = new SpriteGeometry.MeshSet();
         face(set.get(1), 5f, 6f, 0f, 2f, 0f);
         set.own(42L);
-        IdentityHashMap<SpriteGeometry.Mesh, Integer> ends = MeshCut.ends(set);
+        int[][] ends = MeshCut.ends(set);
         SpriteGeometry.Mesh mesh = set.get(1);
         face(mesh, 0f, 1f, 0f, 2f, 0f);
         set.own(43L);
