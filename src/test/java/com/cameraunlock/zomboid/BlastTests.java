@@ -496,6 +496,10 @@ final class BlastTests {
         check(java.util.Arrays.equals(entries, back), "what is saved reads back the same");
         check(BlastHoles.parse("").length == 0, "nothing saved is nothing");
         check(refused("0.5,0.5,NaN,7,0,1") && refused("0.5,Infinity,0.1,7,0,1") && refused("0.5,0.5,0.1,7,0"), "a list with a number that is not finite, or one short, is refused");
+        check(refused("0.5,0.5,1e30,7,0,1") && refused("0.5,0.5,0,7,0,1") && refused("0.5,0.5,0.1,7,3,1") && refused("0.5,0.5,0.1,7,0.5,1")
+                && refused("0.5,0.5,0.1,7,0,2"), "and so is one with a hole no shot makes: a radius past a tile or none, a side or an edge that is no side or edge");
+        String many = String.join(",", java.util.Collections.nCopies(BlastHoles.MOST_HOLES + BlastHoles.MOST_MARKS + BlastHoles.MOST_ROUNDS + 1, "0.5,0.5,0.1,7,0,1"));
+        check(refused(many), "and one with more holes than an object keeps");
     }
 
     private static boolean refused(String saved) {

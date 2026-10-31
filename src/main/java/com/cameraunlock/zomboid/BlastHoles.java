@@ -208,11 +208,20 @@ final class BlastHoles {
         if (words.length % FLOATS != 0) {
             throw new IllegalArgumentException("blast holes saved as " + words.length + " numbers, not " + FLOATS + " a hole: " + saved);
         }
+        if (words.length / FLOATS > MOST_HOLES + MOST_MARKS + MOST_ROUNDS) {
+            throw new IllegalArgumentException("blast holes saved as " + words.length / FLOATS + " holes, more than an object keeps");
+        }
         float[] entries = new float[words.length];
         for (int i = 0; i < words.length; i++) {
             entries[i] = Float.parseFloat(words[i]);
             if (!Float.isFinite(entries[i])) {
                 throw new IllegalArgumentException("blast holes saved with " + words[i] + " among their numbers: " + saved);
+            }
+        }
+        for (int at = 0; at < entries.length; at += FLOATS) {
+            float side = entries[at + SIDE], north = entries[at + NORTH], radius = entries[at + RADIUS];
+            if (side != (int) side || Math.abs(side) > ROUND || (north != 0f && north != 1f) || !(radius > 0f && radius <= 1f)) {
+                throw new IllegalArgumentException("blast holes saved with a hole no shot makes: " + saved);
             }
         }
         return entries;
