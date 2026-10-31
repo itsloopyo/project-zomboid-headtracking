@@ -297,6 +297,16 @@ final class DoorGlass {
         return null;
     }
 
+    /**
+     * The shut door on a square's north or west edge whose leaf a shot crossing it `along` the edge and `up` levels over the
+     * floor strikes, as ImpactFinder takes it, or null: beside the leaf or over its head it is the doorway's wall that is
+     * struck (WorldScene.wallOn).
+     */
+    static IsoObject leafStruck(IsoGridSquare square, boolean north, float along, float up) {
+        IsoObject door = shutDoorOn(square, north);
+        return door != null && onLeaf(door, north, along, up) ? door : null;
+    }
+
     /** Whether a thing is a door shut on its square's north edge, or its west one. */
     static boolean shutOn(IsoObject object, boolean north) {
         return object instanceof IsoDoor door ? door.getNorth() == north && !door.IsOpen()

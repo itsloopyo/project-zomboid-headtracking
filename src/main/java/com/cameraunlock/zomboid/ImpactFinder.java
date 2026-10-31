@@ -445,11 +445,7 @@ final class ImpactFinder {
                 return true;
             }
             String post = onGate == Gates.POST ? Gates.postMaterial(gate) : null;
-            IsoObject door = square == null || post != null ? null : DoorGlass.shutDoorOn(square, north);
-            if (door != null && !DoorGlass.onLeaf(door, north, along, levelsUp)) {
-                // Beside the leaf or over its head it is the doorway's wall that is struck.
-                door = null;
-            }
+            IsoObject door = square == null || post != null ? null : DoorGlass.leafStruck(square, north, along, levelsUp);
             IsoObject struck = door;
             if (post != null) {
                 // A gate's post is struck as what it is made of, and keeps no hole: holes are laid on the leaf (BlastHoles).

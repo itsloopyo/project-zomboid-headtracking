@@ -29,6 +29,13 @@ public final class IsoGridSquare {
         return object;
     }
 
+    /** Puts a thing made elsewhere on the square, after what is on it already: a door. */
+    public <T extends IsoObject> T add(T object) {
+        object.square = this;
+        objects.add(object);
+        return object;
+    }
+
     /** The square beside it that way, if the map has it. */
     public IsoGridSquare getAdjacentSquare(IsoDirections direction) {
         return switch (direction) {

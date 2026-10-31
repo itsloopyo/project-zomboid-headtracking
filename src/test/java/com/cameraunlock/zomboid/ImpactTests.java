@@ -25,6 +25,7 @@ final class ImpactTests {
         Checks.run("aShotIntoOpenGroundUnderSnowThrowsUpSnow", ImpactTests::aShotIntoOpenGroundUnderSnowThrowsUpSnow);
         Checks.run("onlyWhatKeepsAMarkIsHoled", ImpactTests::onlyWhatKeepsAMarkIsHoled);
         Checks.run("aShotStrikesTheNearFaceOfAWall", ImpactTests::aShotStrikesTheNearFaceOfAWall);
+        Checks.run("aShotBesideOrOverAShutLeafStrikesTheDoorwaysWall", ImpactTests::aShotBesideOrOverAShutLeafStrikesTheDoorwaysWall);
         Checks.run("everyKindHasWhatFliesFromItWithinItsVertices", ImpactTests::everyKindHasWhatFliesFromItWithinItsVertices);
         Checks.run("piecesFallToTheFloorUnderAWallAndStayNearIt", ImpactTests::piecesFallToTheFloorUnderAWallAndStayNearIt);
         Checks.run("theShaderMovesWhatFliesAsTheseTestsDo", ImpactTests::theShaderMovesWhatFliesAsTheseTestsDo);
@@ -97,6 +98,51 @@ final class ImpactTests {
         for (int kind = 0; kind < Impacts.KINDS; kind++) {
             boolean keeps = kind == Impacts.MASONRY || kind == Impacts.WOOD || kind == Impacts.METAL || kind == Impacts.SOFT;
             check(Impacts.holed(kind) == keeps, "kind " + kind + (keeps ? " keeps a hole" : " keeps none"));
+        }
+    }
+
+    /**
+     * fixtures_doors_01_5 shut in walls_exterior_house_01_15 (Louisville, 12785,1664): the leaf measured from 0.0625 to
+     * 0.84375 and up to 0.79 of a level, drawn cut back to the doorway the wall is cut with from 0.09375. ImpactFinder
+     * (DoorGlass.leafStruck) keeps a shot on the leaf only where the leaf is drawn: beside it, over its head or where the measured leaf ran on
+     * into the wall, the doorway's wall is struck, and its hole is cut there.
+     */
+    private static void aShotBesideOrOverAShutLeafStrikesTheDoorwaysWall() throws Throwable {
+        TestMap map = new TestMap();
+        zombie.core.textures.Texture wallTexture = new zombie.core.textures.Texture(45, 128, 256), doorTexture = new zombie.core.textures.Texture(46, 128, 256);
+        zombie.iso.IsoGridSquare square = map.cell.square(0, 1, 0);
+        zombie.iso.IsoObject wall = square.add(map.spriteWith("walls_exterior_house_01_15", zombie.iso.SpriteDetails.IsoObjectType.wall, wallTexture,
+                "WallN", "", "DoorWallN", ""));
+        zombie.iso.objects.IsoDoor door = square.add(new zombie.iso.objects.IsoDoor(map.spriteWith("fixtures_doors_01_5",
+                zombie.iso.SpriteDetails.IsoObjectType.doorN, doorTexture, "doorN", "")));
+        door.north = true;
+        Doors.Shape shape = new Doors.Shape();
+        shape.leaf = new Windows.Shape();
+        shape.leaf.north = true;
+        shape.leaf.start = 0.0625f;
+        shape.leaf.end = 0.84375f;
+        shape.leaf.head = 0.79f;
+        Map<Doors.Edge, Doors.Shape> doors = TestMap.read(null, Doors.class, "known");
+        Doors.Edge edge = new Doors.Edge(doorTexture, true, false);
+        doors.put(edge, shape);
+        try {
+            check(DoorGlass.leafStruck(square, true, 0.5f, 0.4f) == door, "a shot through the middle of the leaf strikes the door");
+            check(DoorGlass.leafStruck(square, true, 0.5f, 0.85f) == null && WorldScene.wallOn(square, true) == wall,
+                    "one over its head strikes the doorway's wall");
+            check(DoorGlass.leafStruck(square, true, 0.9f, 0.4f) == null, "and so does one beside it");
+            check(DoorGlass.leafStruck(square, true, 0.07f, 0.4f) == door, "with the wall's doorway not read yet, the leaf is as measured");
+            float[] opening = new float[18];
+            java.util.Arrays.fill(opening, Float.NaN);
+            // The north edge's DOORWAY_START and DOORWAY_END in what WallBuilder.openingOf keeps.
+            opening[7] = 0.09375f;
+            opening[8] = 0.84375f;
+            WorldScene.openings.replace(wallTexture, opening);
+            check(WallBuilder.doorwayStart(wallTexture, true) == 0.09375f && WallBuilder.doorwayEnd(wallTexture, true) == 0.84375f, "the doorway is read as kept");
+            check(DoorGlass.leafStruck(square, true, 0.07f, 0.4f) == null, "read, a shot where the measured leaf ran on into the wall strikes the wall");
+            check(DoorGlass.leafStruck(square, true, 0.1f, 0.4f) == door, "and one inside the cut the door");
+        } finally {
+            doors.remove(edge);
+            WorldScene.openings.replace(wallTexture, null);
         }
     }
 
