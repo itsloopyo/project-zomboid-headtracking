@@ -22,9 +22,12 @@ import java.util.Locale;
  * in a room or on a vehicle shows anything. A vehicle's mirror shows Low's picture in every mode
  * where it shows one.
  * A first start is in Automatic in first person and in Low in the isometric view, which has no
- * Automatic: its frames are not counted. Automatic is one level for every player in it, since it
- * judges the frames of the whole screen. It begins at High, steps down while the picture is drawn too slowly and back up while it
- * is drawn with room to spare: see frame. It judges the picture by the frames the player sees
+ * Automatic: its frames are not counted. Automatic is not a mode to stay in but the measure that
+ * picks one: it is one level for every player in it, since it judges the frames of the whole
+ * screen. It begins at High and steps down while the picture is drawn too slowly, never back up,
+ * and once a level has held for DECIDES_AFTER_NANOS it is that player's mode, Low, Medium or High,
+ * which Tracking saves (see decided). The graphics key and the options screen never go to it: a
+ * player is in it only until their first person has been measured once. It judges the picture by the frames the player sees
  * in a stretch of time, frames over wall time, with one thing cut out: a single unbroken run
  * of stalled frames in the stretch that is a save or a load and not the picture: a frame or
  * two of hitch, however long, and stalled frames of 2 s at most, and no other run cut in the
@@ -103,20 +106,14 @@ final class Quality {
     private static final Picture[] AUTOMATIC_AT = {LOW_PICTURE, automatic(LOW_PICTURE), automatic(MEDIUM_PICTURE), HIGH_PICTURE};
 
     /**
-     * Automatic steps down when the picture has been drawn slower than SLOWEST frames a second,
-     * and up when it has been drawn at RISES_AT or faster for RISES_AFTER_NANOS. Under a frame limit
-     * the game was set to, the two are at most SLOWEST_OF_LIMIT and RISES_AT_OF_LIMIT of the limit.
+     * Automatic steps down when the picture has been drawn slower than SLOWEST frames a second.
+     * Under a frame limit the game was set to, that is at most SLOWEST_OF_LIMIT of the limit.
      */
-    private static final float SLOWEST = 45f, RISES_AT = 57f, SLOWEST_OF_LIMIT = 0.8f, RISES_AT_OF_LIMIT = 0.95f;
-    /** How long the frame rate is counted for before it is judged, and how long after a step down or up before counting begins again. */
-    private static final long JUDGED_OVER_NANOS = 3_000_000_000L, SETTLES_IN_NANOS = 2_000_000_000L, SETTLES_UP_NANOS = 5_000_000_000L;
-    private static final long RISES_AFTER_NANOS = 15_000_000_000L;
-    /**
-     * A level stepped down from is not stepped up into again for BARRED_NANOS, doubled for each time
-     * a step up into it had to be taken back within TRIAL_NANOS, at most MOST_DOUBLINGS times.
-     */
-    private static final long BARRED_NANOS = 120_000_000_000L, TRIAL_NANOS = 60_000_000_000L;
-    private static final int MOST_DOUBLINGS = 4;
+    private static final float SLOWEST = 45f, SLOWEST_OF_LIMIT = 0.8f;
+    /** How long the frame rate is counted for before it is judged, and how long after a step down before counting begins again. */
+    private static final long JUDGED_OVER_NANOS = 3_000_000_000L, SETTLES_IN_NANOS = 2_000_000_000L;
+    /** How long of judged frames a level has to hold, none of them too slow, to be the mode Automatic picks. */
+    static final long DECIDES_AFTER_NANOS = 12_000_000_000L;
 
     /**
      * By player: their first person mode, and their isometric view's, which is never AUTOMATIC.
@@ -174,11 +171,10 @@ final class Quality {
     private static boolean inRun, hitched;
     /** When the last run cut out of a count began, 0 for none since the mode was set. */
     private static long lastCut;
-    /** How long the frame rate has been judged at RISES_AT or over without a break. */
-    private static long fastFor;
-    /** By level: when it may be stepped up into again, when it was last stepped up into (0 for never), and how many of those steps were taken back. */
-    private static final long[] barredUntil = new long[LEVELS.length], cameUpAt = new long[LEVELS.length];
-    private static final int[] failures = new int[LEVELS.length];
+    /** How long of judged frames the level has held since Automatic began or last stepped down. */
+    private static long heldFor;
+    /** The players whose mode Automatic picked and Tracking has not yet saved, a bit each by number. */
+    private static int decidedUnsaved;
     /** Whether Automatic has stepped since the screen last said so. */
     private static boolean stepUnsaid;
     /** The views whose frames are being counted. The count is one for all of them: see frame. */
@@ -271,10 +267,7 @@ final class Quality {
         countedSince = 0L;
         settlesAt = 0L;
         lastCut = 0L;
-        fastFor = 0L;
-        Arrays.fill(barredUntil, 0L);
-        Arrays.fill(cameUpAt, 0L);
-        Arrays.fill(failures, 0);
+        heldFor = 0L;
     }
 
     /** Whether a player at the screen has their first person mode at mode. */
@@ -435,9 +428,10 @@ final class Quality {
                 picture.antialiasing);
     }
 
-    /** The mode the hotkey goes to from a player's first person mode: Automatic, Low, Medium, High, Custom and round again. */
+    /** The mode the hotkey goes to from a player's first person mode: Low, Medium, High, Custom and round again, and Low from Automatic. */
     static int next(int player) {
-        return (rows[player] + 1) % NAMES.length;
+        int row = rows[player];
+        return row == CUSTOM || row == AUTOMATIC ? LOW : row + 1;
     }
 
     /** The mode the hotkey goes to from a player's isometric mode: Low, Medium, High, Custom and round again. */
@@ -448,6 +442,14 @@ final class Quality {
 
     static int row(int player) {
         return rows[player];
+    }
+
+    /**
+     * The modes the options screen lists for a player's first person: Low, Medium, High and
+     * Custom, and Automatic first while it has not yet picked theirs, which no list goes back to.
+     */
+    static int[] choices(int player) {
+        return rows[player] == AUTOMATIC ? new int[] {AUTOMATIC, LOW, MEDIUM, HIGH, CUSTOM} : new int[] {LOW, MEDIUM, HIGH, CUSTOM};
     }
 
     static int overheadRow(int player) {
@@ -544,10 +546,8 @@ final class Quality {
      * player in Automatic, frames are counted until JUDGED_OVER_NANOS have passed, less a run of stalled
      * frames cut out (see CUT_MOST_NANOS), and the count is judged by its rate: its frames over
      * its time, both without the run cut out, against the frame limit it was counted under. A count under SLOWEST frames a second takes the
-     * picture down a level, to STOCK at the bottom. Counts at RISES_AT or over, one after another
-     * for RISES_AFTER_NANOS of their time, take it up a level, unless the level above was stepped
-     * down from too lately: see BARRED_NANOS. A count under RISES_AT, or with a hitch in it, cut
-     * out or not, begins that time again: a picture that hitches has no room to spare.
+     * picture down a level, to STOCK at the bottom. Once the level has held through DECIDES_AFTER_NANOS
+     * of counts, or reached STOCK, it is the mode of every player at the screen in Automatic: see decide.
      *
      * The game's frame is counted once however many views are drawn in it: the first of the
      * views being counted counts for all.
@@ -616,49 +616,57 @@ final class Quality {
         runHitchNanos = runStallNanos = 0L;
         inRun = hitched = false;
         float slowest = countLimit > 0f ? Math.min(SLOWEST, countLimit * SLOWEST_OF_LIMIT) : SLOWEST;
-        float risesAt = countLimit > 0f ? Math.min(RISES_AT, countLimit * RISES_AT_OF_LIMIT) : RISES_AT;
-        if (rate < slowest) {
-            fastFor = 0L;
-            if (level > STOCK) {
-                stepDown(now, rate);
-            }
-        } else if (hitch || rate < risesAt) {
-            fastFor = 0L;
-        } else if (level < HIGH) {
-            fastFor += time;
-            if (fastFor >= RISES_AFTER_NANOS && now >= barredUntil[level + 1]) {
-                stepUp(now, rate, risesAt);
-            }
+        if (rate < slowest && level > STOCK) {
+            stepDown(now, rate);
+            return;
+        }
+        heldFor += time;
+        if (heldFor >= DECIDES_AFTER_NANOS || level == STOCK) {
+            decide(rate);
         }
     }
 
-    private static void stepDown(long now, float rate) {
-        if (cameUpAt[level] != 0L && now - cameUpAt[level] < TRIAL_NANOS) {
-            failures[level]++;
+    /**
+     * Automatic has found the level the picture holds: each player at the screen in it goes to
+     * the mode of that level, Low at STOCK or Low, Medium or High, and never to one above what the
+     * graphics card's memory lets every mode draw (VideoMemory.step): its last step is Low's
+     * ceiling, and the one before it Medium's.
+     */
+    private static void decide(float rate) {
+        int step = VideoMemory.step(), memory = step >= VideoMemory.LAST_STEP ? LOW : step >= VideoMemory.LAST_STEP - 1 ? MEDIUM : HIGH;
+        int mode = Math.min(Math.max(level, LOW), memory);
+        int[] next = rows.clone();
+        int players = 0;
+        for (int view = 0; view < next.length; view++) {
+            if (present[view] && next[view] == AUTOMATIC) {
+                next[view] = mode;
+                players |= 1 << view;
+            }
         }
-        long barred = BARRED_NANOS << Math.min(failures[level], MOST_DOUBLINGS);
-        barredUntil[level] = now + barred;
-        int left = level;
+        rows = next;
+        decidedUnsaved |= players;
+        stepUnsaid = false;
+        refresh();
+        Log.info(String.format(Locale.ROOT, "first person graphics mode picked by Automatic: %s, the picture drawn %.0f times a second at %s, "
+                + "with the graphics card's memory at step %d; the players it is picked for, a bit each: %s", NAMES[mode], rate, LEVELS[level], step,
+                Integer.toBinaryString(players)));
+    }
+
+    /** The players whose mode Automatic picked since the last ask, a bit each by number, for Tracking to save and say. Logic thread. */
+    static synchronized int decided() {
+        int players = decidedUnsaved;
+        decidedUnsaved = 0;
+        return players;
+    }
+
+    private static void stepDown(long now, float rate) {
         level--;
         refresh();
         countedSince = 0L;
         settlesAt = now + SETTLES_IN_NANOS;
-        fastFor = 0L;
+        heldFor = 0L;
         stepUnsaid = true;
-        Log.info(String.format(Locale.ROOT, "first person picture quality: Automatic goes down to %s, the picture was drawn %.0f times a second; "
-                + "it is not stepped up to %s again for %d minutes", LEVELS[level], rate, LEVELS[left], barred / 60_000_000_000L));
-    }
-
-    private static void stepUp(long now, float rate, float risesAt) {
-        level++;
-        cameUpAt[level] = now;
-        refresh();
-        countedSince = 0L;
-        settlesAt = now + SETTLES_UP_NANOS;
-        fastFor = 0L;
-        stepUnsaid = true;
-        Log.info(String.format(Locale.ROOT, "first person picture quality: Automatic goes up to %s, the picture was drawn %.0f times a second, and %.0f or more for %d seconds",
-                LEVELS[level], rate, risesAt, RISES_AFTER_NANOS / 1_000_000_000L));
+        Log.info(String.format(Locale.ROOT, "first person picture quality: Automatic goes down to %s, the picture was drawn %.0f times a second", LEVELS[level], rate));
     }
 
     /**
@@ -674,7 +682,6 @@ final class Quality {
             }
         }
         countedSince = 0L;
-        fastFor = 0L;
     }
 
     /** How many of the picture's pixels there are to each of the window's, each way. */

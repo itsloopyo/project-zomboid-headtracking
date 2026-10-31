@@ -1537,10 +1537,8 @@ public final class CoreTests {
     private static void customKeepsItsRowsThroughTheOtherModes() throws IOException, InterruptedException {
         Quality.Picture mine = Quality.custom();
         Tracking.cycleGraphicsMode(0);
-        check(Quality.name(0).equals("Automatic (High)") && Quality.sight(0) == 80 && saved("Quality=Automatic", "RenderScale=0.7"),
-                "the key goes from Custom to Automatic and saves it, and Custom's rows stay");
-        Tracking.cycleGraphicsMode(0);
-        check(Quality.name(0).equals("Low") && Quality.sight(0) == 48 && saved("Quality=Low", "RenderScale=0.7"), "then to Low");
+        check(Quality.name(0).equals("Low") && Quality.sight(0) == 48 && saved("Quality=Low", "RenderScale=0.7"),
+                "the key goes from Custom to Low and saves it, and Custom's rows stay");
         Tracking.cycleGraphicsMode(0);
         Tracking.cycleGraphicsMode(0);
         check(Quality.name(0).equals("High") && Quality.scale(0) == 1f && saved("Quality=High", "RenderScale=0.7"),
@@ -1552,9 +1550,7 @@ public final class CoreTests {
 
     private static void aGraphicsRowEditedInTheFileGoesToCustom() throws IOException, InterruptedException {
         Tracking.cycleGraphicsMode(0);
-        check(Quality.name(0).equals("Automatic (High)"), "the key goes round to Automatic");
-        Tracking.cycleGraphicsMode(0);
-        check(Quality.name(0).equals("Low"), "and to Low");
+        check(Quality.name(0).equals("Low"), "the key goes round to Low");
         said();
         edit(text().replace("ViewDistance=48", "ViewDistance=72"));
         Tracking.watchSettings();
@@ -1715,7 +1711,8 @@ public final class CoreTests {
     }
 
     private static void aRowChangedInAutomaticStartsCustomFromItsLevelAndNeverFromStock() throws IOException, InterruptedException {
-        inMode("Automatic (High)");
+        // The key never goes to Automatic: a file not yet measured holds it.
+        Tracking.setGraphicsMode(0, true, Quality.AUTOMATIC);
         slowUntil("Automatic (Stock)");
         said();
         Screen screen = Screen.opened();
@@ -1728,7 +1725,7 @@ public final class CoreTests {
                 "a row changed at Stock starts Custom from the level above it, Low's cost with what the mod made, and the change: " + Quality.described(Quality.drawn(0)));
         check(saved("Quality=Custom", "TreeQuality=Medium", "ViewDistance=40"), "and that is what Custom's rows hold");
 
-        inMode("Automatic (High)");
+        Tracking.setGraphicsMode(0, true, Quality.AUTOMATIC);
         slowUntil("Automatic (Medium)");
         said();
         screen = Screen.opened();

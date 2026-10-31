@@ -30,7 +30,7 @@ Press `Delete` to switch between the isometric view and first person, on foot or
 - **New graphics in both views** - lighting, shadows, models, textures and reflections in Medium and High, plus light beams through fog in first person. High adds sharper shadows and depth on surfaces up close.
 - **Fire** - the game's flames stand upright in the 3D world, and Medium and High add smoke, embers and firelight to burning buildings, Molotovs and campfires.
 - **Sound** - turns with your view, and walls between you and a sound muffle it.
-- **Adjustable** - automatic or manual quality, five picture styles, field of view and hill height, and any of the replacement models or textures can be switched back to the game's own.
+- **Adjustable** - a graphics mode picked for your PC the first time, or chosen yourself, five picture styles, field of view and hill height, and any of the replacement models or textures can be switched back to the game's own.
 
 ### Combat
 
@@ -266,7 +266,7 @@ Centring belongs to your tracker, recenter there.
   - **Sights locked** keeps your eye lined up with the sights while you aim.
   - **Free look with a marker** keeps the gun pointing where you aim while your head looks around it, and the game's reticle marks where the shot will land.
   - **Stock sights** fades out head turning and leaning while the sights are up, leaving only head tilt, so you see the game's normal sight picture.
-- `F9` cycles the graphics mode of the view you're in: Automatic, Low, Medium, High and Custom in first person, or Low, Medium, High and Custom in the isometric view. The other view keeps its own mode. Going past Low with every Mod content box unticked ticks them all again, and in the isometric view with first person turned off it ticks First person view, since without them every mode looks like Low. When you switch views, the screen names the mode of the view you switched to, like `First person (High)` or `Isometric (Low)`.
+- `F9` cycles the graphics mode of the view you're in: Low, Medium, High and Custom in first person, or Low, Medium, High and Custom in the isometric view. The other view keeps its own mode. Going past Low with every Mod content box unticked ticks them all again, and in the isometric view with first person turned off it ticks First person view, since without them every mode looks like Low. When you switch views, the screen names the mode of the view you switched to, like `First person (High)` or `Isometric (Low)`.
 - When a player's first person view is bigger than 2560x1440, every mode except Custom renders it with no more pixels than it would at 2560x1440, then scales it up to fit. In split screen that goes by each player's own part of the screen. Custom renders at its `RenderScale` at any size, and so does the isometric view.
 - `F8` cycles the picture style: Vivid, Natural, Bleak, Warm and Cold. Each new style fades in over most of a second.
 - In split screen each player has their own graphics mode and picture style. Tap `F9` or `F8` once for player 1, twice for player 2, three times for player 3 and four times for player 4, or hold it to change everyone. Settings for players 2, 3 and 4 are under `[Players]` in `CameraUnlock.ini` and on the options page.
@@ -304,7 +304,7 @@ The mouse turns the view, and the movement keys move you relative to where you'r
 
 ## Configuration
 
-Most settings are in the game under **Options > Mods > Head Tracking**: head tracking, first person, graphics and the gameplay tweaks (see [The options page](#the-options-page)). First person and the isometric view each have their own graphics quality. First person starts on Automatic, and the isometric view on Low, which is the game's own look. For the keys, the tracker's UDP ports and how far you can lean, edit `CameraUnlock.ini` in the game folder.
+Most settings are in the game under **Options > Mods > Head Tracking**: head tracking, first person, graphics and the gameplay tweaks (see [The options page](#the-options-page)). First person and the isometric view each have their own graphics quality. The first time first person shows, the mod starts it at High and steps down to Medium or Low while the frame rate is under 45, then keeps the mode that holds about 12 seconds and saves it, and never changes it after that. The isometric view starts on Low, which is the game's own look. For the keys, the tracker's UDP ports and how far you can lean, edit `CameraUnlock.ini` in the game folder.
 
 <!-- cameraunlock:config -->
 The mod reads its settings from `CameraUnlock.ini` in the game folder, and creates the file when it starts and finds none. Edit it with any text editor.
@@ -390,9 +390,10 @@ DataFreshnessMs=default
 FirstPersonEnabled=true
 ; Vertical field of view of the first person view, in degrees: 40 to 110.
 FieldOfView=65.0
-; First person graphics mode: Automatic, Low, Medium, High or Custom. Automatic draws less when the frame rate drops
-; and more again when it recovers. Custom draws the [Graphics] rows. Every mode but Custom draws at most 2560x1440
-; pixels, however large the window.
+; First person graphics mode: Low, Medium, High or Custom. Custom draws the [Graphics] rows. Every mode but Custom
+; draws at most 2560x1440 pixels, however large the window. Automatic, as the file comes, measures your PC once:
+; the first time first person shows, it starts at High, steps down while the picture is drawn fewer than 45 times
+; a second, and saves the mode that holds here. It never changes the mode after that.
 Quality=Automatic
 ; Graphics mode of the game's isometric view: Low (the game's own picture), Medium, High or Custom, which draws the
 ; [Graphics] rows.
@@ -477,7 +478,7 @@ FirstPersonKey=Delete
 ; Switches between first person and the isometric view in place of FirstPersonKey while Project Viewpoint, another
 ; mod, runs, as Viewpoint opens its settings window on Delete. Tapped and held as FirstPersonKey is.
 FirstPersonKeyBesideViewpoint=End
-; Goes to the next graphics mode of the view a player is in: in first person Automatic, Low, Medium, High, Custom
+; Goes to the next graphics mode of the view a player is in: in first person Low, Medium, High, Custom
 ; (Quality), in the isometric view Low, Medium, High, Custom (IsometricQuality), and for players 2, 3 and 4 their
 ; rows of [Players]. Tap once for player 1, twice for player 2, three times for player 3, four times for player 4,
 ; or hold for every player.
@@ -865,7 +866,7 @@ Each part of the mod, gameplay tweak, game fix and optimization has its own tick
 - **Head tracking on** - on or off, saved as `EnableOnStartup`. No key turns it on or off.
 - **Everything** - `On` ticks every box on the page except Talking mouths, Horizon-relative head turns, the Custom graphics settings, and each player's Load saves in first person and First person in vehicles. It also turns head tracking on, and sets every player's first person graphics to High. `Off` unticks the same boxes and First person in vehicles, which brings back the game's own content, sets every player's graphics to Low (the game's own look) in both views, and puts split screen back to side by side, as in vanilla. Head tracking and Talking mouths stay as they are, so you can turn back on just the parts you want.
 - **First person** - `On` turns first person on and First person in vehicles off for every player, without changing which view their saves load in. `In vehicles only` unticks First person view and ticks First person in vehicles for every player: saves load in the isometric view, getting into a vehicle switches to first person and getting out switches back. `Off` unticks both, so there is no first person view until you press `Delete`, which ticks First person view again.
-- **Enhanced graphics** - `On` ticks every box under Graphics and Mod content, and switches any player whose first person graphics are on Low to Automatic. `Off` unticks them, which brings back the game's own content, and sets every player's graphics to Low in both views.
+- **Enhanced graphics** - `On` ticks every box under Graphics and Mod content, and switches any player whose first person graphics are on Low to High. `Off` unticks them, which brings back the game's own content, and sets every player's graphics to Low in both views.
 - **Gameplay tweaks** - ticks or unticks every box under Gameplay tweaks.
 - **Optimizations** - ticks or unticks every box under Optimizations.
 

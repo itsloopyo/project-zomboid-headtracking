@@ -34,7 +34,8 @@ final class OptionsDraft {
             this.option = option;
             this.described = described;
             values = described.kind != CameraUnlock.OPTION_ENUM ? null
-                    : described.source == CameraUnlock.OPTION_AIM_MODE ? Tracking.AIM_MODES : everyChoice(described);
+                    : described.source == CameraUnlock.OPTION_AIM_MODE ? Tracking.AIM_MODES
+                    : Tracking.qualityPlayer(described.id) >= 0 ? Quality.choices(Tracking.qualityPlayer(described.id)) : everyChoice(described);
         }
 
         private static int[] everyChoice(CameraUnlock.Option described) {

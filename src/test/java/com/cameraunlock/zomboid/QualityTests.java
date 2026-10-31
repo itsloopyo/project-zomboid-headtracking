@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.function.Predicate;
 
@@ -17,16 +18,14 @@ final class QualityTests {
         Checks.run("splitScreenLowersHighOnce", QualityTests::splitScreenLowersHighOnce);
         Checks.run("aLevelAskedForIsKept", QualityTests::aLevelAskedForIsKept);
         Checks.run("automaticStepsDownWhileThePictureIsSlow", QualityTests::automaticStepsDownWhileThePictureIsSlow);
-        Checks.run("automaticStaysWhereThePictureKeepsUp", QualityTests::automaticStaysWhereThePictureKeepsUp);
+        Checks.run("automaticPicksTheLevelThatHoldsAndNeverStepsAgain", QualityTests::automaticPicksTheLevelThatHoldsAndNeverStepsAgain);
         Checks.run("everyPatternTheReviewsNamedDoesWhatItShould", QualityTests::everyPatternTheReviewsNamedDoesWhatItShould);
-        Checks.run("aStepUpSettlesThoughTheCountRestsWhileTheContentIsMade", QualityTests::aStepUpSettlesThoughTheCountRestsWhileTheContentIsMade);
-        Checks.run("automaticStepsBackUpWithRoomToSpare", QualityTests::automaticStepsBackUpWithRoomToSpare);
-        Checks.run("aSceneSlowAtOneLevelAndFastAtTheNextSettles", QualityTests::aSceneSlowAtOneLevelAndFastAtTheNextSettles);
-        Checks.run("automaticsFloorIsTheStockLookAndItComesBackUp", QualityTests::automaticsFloorIsTheStockLookAndItComesBackUp);
+        Checks.run("automaticSaysItsStepsAndLeavesItsPickToBeSaid", QualityTests::automaticSaysItsStepsAndLeavesItsPickToBeSaid);
+        Checks.run("automaticsFloorIsTheStockLookAndItPicksLow", QualityTests::automaticsFloorIsTheStockLookAndItPicksLow);
         Checks.run("theGamesFrameLimitIsNotASlowPicture", QualityTests::theGamesFrameLimitIsNotASlowPicture);
         Checks.run("aModeThePlayerChoseIsNeverStepped", QualityTests::aModeThePlayerChoseIsNeverStepped);
         Checks.run("twoViewsAreCountedAsOnePicture", QualityTests::twoViewsAreCountedAsOnePicture);
-        Checks.run("theKeyGoesAutomaticLowMediumHighCustomAndRound", QualityTests::theKeyGoesAutomaticLowMediumHighCustomAndRound);
+        Checks.run("theKeyGoesLowMediumHighCustomAndRound", QualityTests::theKeyGoesLowMediumHighCustomAndRound);
         Checks.run("eachViewKeepsAModeOfItsOwn", QualityTests::eachViewKeepsAModeOfItsOwn);
         Checks.run("eachPlayerHasModesOfTheirOwn", QualityTests::eachPlayerHasModesOfTheirOwn);
         Checks.run("theInstallerNamesTheModesInTheKeysOrder", QualityTests::theInstallerNamesTheModesInTheKeysOrder);
@@ -146,8 +145,10 @@ final class QualityTests {
         now = frames(now, 30f, 5.5f);
         check(Quality.plain(0) && Quality.drawn(0).equals(Quality.LOW_PICTURE) && Quality.name(0).equals("Automatic (Stock)"),
                 "and still slow, to the Low mode's own look: " + Quality.name(0));
+        Quality.decided();
         frames(now, 5f, 30f);
-        check(Quality.plain(0) && Quality.name(0).equals("Automatic (Stock)"), "below which there is nothing");
+        check(Quality.plain(0) && Quality.row(0) == Quality.LOW && Quality.decided() == 1,
+                "below which there is nothing, and there it picks Low, the game's own look, for the player to keep: " + Quality.name(0));
     }
 
     private static void twoViewsAreCountedAsOnePicture() {
@@ -176,21 +177,32 @@ final class QualityTests {
         Quality.rest(0);
     }
 
-    private static void automaticStaysWhereThePictureKeepsUp() {
+    private static void automaticPicksTheLevelThatHoldsAndNeverStepsAgain() {
         Quality.set(0, Quality.HIGH);
         Quality.set(0, Quality.AUTOMATIC);
-        long now = frames(SECOND, 60f, 30f);
-        check(Quality.scale(0) == 1f, "at sixty frames a second the picture stays whole");
+        Quality.decided();
+        long now = frames(SECOND, 60f, 11f);
+        check(Quality.name(0).equals("Automatic (High)") && Quality.decided() == 0, "at sixty frames a second it is still measuring after eleven seconds");
+        now = frames(now, 60f, 2f);
+        check(Quality.row(0) == Quality.HIGH && Quality.decided() == 1, "and once High has held twelve seconds it picks High: " + Quality.name(0));
+        now = frames(now, 20f, 30f);
+        check(Quality.row(0) == Quality.HIGH && !Quality.stepToSay() && Quality.decided() == 0, "and never steps the mode it picked, however slow the frames");
+        Quality.set(0, Quality.AUTOMATIC);
+        now = frames(now + 60 * SECOND, 30f, 3.5f);
+        check(Quality.name(0).equals("Automatic (Medium)"), "slow, it goes down to Medium");
+        now = frames(now, 100f, 20f);
+        check(Quality.row(0) == Quality.MEDIUM && Quality.decided() == 1, "and picks Medium there, however fast the frames then are: " + Quality.name(0));
+        Quality.set(0, Quality.AUTOMATIC);
+        now = frames(now + 60 * SECOND, 60f, 5f);
         Quality.rest(0);
-        now = frames(now + 60 * SECOND, 60f, 10f);
-        check(Quality.scale(0) == 1f, "and a minute with the view off is not a minute of slow frames");
-        now = frames(now, 30f, 3.2f);
-        check(Quality.scale(0) == 0.8f, "slow frames later on are still acted on");
-        Quality.set(0, Quality.HIGH);
+        now = frames(now + 60 * SECOND, 60f, 2f);
+        check(Quality.name(0).equals("Automatic (High)"), "a minute with the view off is not a minute held");
         Quality.set(0, Quality.AUTOMATIC);
         now = frames(now + 60 * SECOND, 100f, 2f);
-        now = frames(now + 6 * SECOND, 100f, 2f);
-        check(Quality.scale(0) == 1f, "one frame of six seconds among fast ones is a hitch and takes nothing down");
+        frames(now + 6 * SECOND, 100f, 2f);
+        check(Quality.name(0).equals("Automatic (High)"), "one frame of six seconds among fast ones is a hitch and takes nothing down");
+        Quality.set(0, Quality.HIGH);
+        Quality.decided();
     }
 
     /** How long the next frame takes, by the mode's name ("Automatic (High)") and the nanoseconds since the pattern began. */
@@ -256,11 +268,16 @@ final class QualityTests {
     }
 
     private static boolean staysAtHigh(List<String> steps) {
-        return steps.isEmpty();
+        return steps.size() == 1 && steps.get(0).endsWith("picked High");
     }
 
     private static boolean downToStock(List<String> steps) {
-        return steps.size() == 3 && steps.get(0).endsWith("Medium") && seconds(steps.get(0)) <= 4 && steps.get(2).endsWith("Stock");
+        return steps.size() == 4 && steps.get(0).endsWith("Medium") && seconds(steps.get(0)) <= 4 && steps.get(2).endsWith("Stock")
+                && steps.get(3).endsWith("picked Low");
+    }
+
+    private static boolean picksMedium(List<String> steps) {
+        return steps.size() == 2 && steps.get(0).endsWith("Medium") && steps.get(1).endsWith("picked Medium");
     }
 
     private static long seconds(String step) {
@@ -270,72 +287,77 @@ final class QualityTests {
     /** Every pattern, each played from Automatic at High. */
     static List<Pattern> patterns() {
         List<Pattern> all = new ArrayList<>();
-        all.add(new Pattern("steady 100, no limit", held(0f), 120f, steady(100), "stays at High", QualityTests::staysAtHigh));
-        all.add(new Pattern("steady 29.5, limit 30", held(30f), 120f, steady(29.5), "stays at High", QualityTests::staysAtHigh));
-        all.add(new Pattern("steady 59.5, limit 60", held(60f), 120f, steady(59.5), "stays at High", QualityTests::staysAtHigh));
+        all.add(new Pattern("steady 100, no limit", held(0f), 120f, steady(100), "picks High", QualityTests::staysAtHigh));
+        all.add(new Pattern("steady 29.5, limit 30", held(30f), 120f, steady(29.5), "picks High", QualityTests::staysAtHigh));
+        all.add(new Pattern("steady 59.5, limit 60", held(60f), 120f, steady(59.5), "picks High", QualityTests::staysAtHigh));
         for (double rate : new double[] {40, 20, 8, 5, 3}) {
-            all.add(new Pattern("steady " + (int) rate, held(0f), 60f, steady(rate), "down a level within 4 s, on to Stock", QualityTests::downToStock));
+            all.add(new Pattern("steady " + (int) rate, held(0f), 60f, steady(rate), "down a level within 4 s, on to Stock, picks Low", QualityTests::downToStock));
         }
-        all.add(new Pattern("100 with a 6 s frame after every 5 s", held(0f), 120f, runs(100, 5 * SECOND, 0, 0, 6 * SECOND), "stays at High", QualityTests::staysAtHigh));
+        all.add(new Pattern("100 with a 6 s frame after every 5 s", held(0f), 120f, runs(100, 5 * SECOND, 0, 0, 6 * SECOND), "picks High", QualityTests::staysAtHigh));
         all.add(new Pattern("60 with a save every 12 s: ten 150 ms frames in a row", held(0f), 300f, runs(60, 12 * SECOND, 10, SECOND * 15 / 100, 0),
-                "stays at High", QualityTests::staysAtHigh));
+                "picks High", QualityTests::staysAtHigh));
         all.add(new Pattern("60 with a save every 12 s: ten 150 ms frames, then a 0.5 s hitch", held(0f), 300f,
-                runs(60, 12 * SECOND, 10, SECOND * 15 / 100, SECOND / 2), "stays at High", QualityTests::staysAtHigh));
+                runs(60, 12 * SECOND, 10, SECOND * 15 / 100, SECOND / 2), "picks High", QualityTests::staysAtHigh));
         all.add(new Pattern("60 with one 150 ms frame in every five (23 real)", held(0f), 60f, everyNth(60, 5, SECOND * 15 / 100),
-                "down a level within 4 s, on to Stock", QualityTests::downToStock));
+                "down a level within 4 s, on to Stock, picks Low", QualityTests::downToStock));
         all.add(new Pattern("60 with one 250 ms frame in every five (15.8 real)", held(0f), 60f, everyNth(60, 5, SECOND / 4),
-                "down a level within 4 s, on to Stock", QualityTests::downToStock));
+                "down a level within 4 s, on to Stock, picks Low", QualityTests::downToStock));
         all.add(new Pattern("200 and 300 ms frames by turns", held(0f), 60f, everyNth(1e9 / 200e6, 2, SECOND * 3 / 10),
-                "down a level within 4 s, on to Stock", QualityTests::downToStock));
+                "down a level within 4 s, on to Stock, picks Low", QualityTests::downToStock));
         all.add(new Pattern("4 s at 20, then 59.5, limit 60, a 110 ms frame every 10 s", held(60f), 400f,
-                fromMedium(runs(59.5, 10 * SECOND, 1, SECOND * 11 / 100, 0)), "down to Medium, back up to High by 200 s, and stays",
-                steps -> steps.size() == 2 && steps.get(0).endsWith("Medium") && steps.get(1).endsWith("High") && seconds(steps.get(1)) <= 200));
+                fromMedium(runs(59.5, 10 * SECOND, 1, SECOND * 11 / 100, 0)), "down to Medium, picks it", QualityTests::picksMedium));
         for (double rate : new double[] {46, 50, 56}) {
-            all.add(new Pattern("steady " + (int) rate, held(0f), 300f, steady(rate), "stays at High", QualityTests::staysAtHigh));
-            all.add(new Pattern("4 s at 20, then steady " + (int) rate, held(0f), 600f, fromMedium(steady(rate)), "down to Medium and stays",
-                    steps -> steps.size() == 1 && steps.get(0).endsWith("Medium")));
+            all.add(new Pattern("steady " + (int) rate, held(0f), 300f, steady(rate), "picks High", QualityTests::staysAtHigh));
+            all.add(new Pattern("4 s at 20, then steady " + (int) rate, held(0f), 600f, fromMedium(steady(rate)), "down to Medium, picks it",
+                    QualityTests::picksMedium));
         }
         all.add(new Pattern("4 s at 20, then 100 with a 0.3 s stall every second", held(0f), 600f, fromMedium(runs(100, SECOND, 1, SECOND * 3 / 10, 0)),
-                "down to Medium and stays: a hitch in every count is no room to spare", steps -> steps.size() == 1 && steps.get(0).endsWith("Medium")));
+                "down to Medium, picks it", QualityTests::picksMedium));
         all.add(new Pattern("29.5, limit 30, raised to 60 at 2 s, then 59.5", at -> at < 2 * SECOND ? 30f : 60f, 120f,
-                (level, at) -> (long) (SECOND / (at < 2 * SECOND ? 29.5 : 59.5)), "stays at High", QualityTests::staysAtHigh));
+                (level, at) -> (long) (SECOND / (at < 2 * SECOND ? 29.5 : 59.5)), "picks High", QualityTests::staysAtHigh));
         all.add(new Pattern("100 with a 6 s freeze and a 120 ms frame after every 5 s", held(0f), 120f,
-                runs(100, 5 * SECOND, 1, SECOND * 12 / 100, 6 * SECOND, true), "stays at High", QualityTests::staysAtHigh));
+                runs(100, 5 * SECOND, 1, SECOND * 12 / 100, 6 * SECOND, true), "picks High", QualityTests::staysAtHigh));
         all.add(new Pattern("60 with a save every 12 s: ten 150 ms frames, then a 0.51 s hitch", held(0f), 300f,
-                runs(60, 12 * SECOND, 10, SECOND * 15 / 100, SECOND * 51 / 100, false), "stays at High", QualityTests::staysAtHigh));
+                runs(60, 12 * SECOND, 10, SECOND * 15 / 100, SECOND * 51 / 100, false), "picks High", QualityTests::staysAtHigh));
         all.add(new Pattern("3.5 s at 60, then 1.9 s at 9, by turns (42 real)", held(0f), 60f,
-                (level, at) -> at % (SECOND * 54 / 10) < SECOND * 35 / 10 ? SECOND / 60 : SECOND / 9, "down a level, on to Stock",
-                steps -> steps.size() == 3 && steps.get(2).endsWith("Stock")));
+                (level, at) -> at % (SECOND * 54 / 10) < SECOND * 35 / 10 ? SECOND / 60 : SECOND / 9, "down a level, on to Stock, picks Low",
+                steps -> steps.stream().anyMatch(step -> step.endsWith("Stock")) && steps.get(steps.size() - 1).endsWith("picked Low")));
         for (float limit : new float[] {0f, 60f}) {
-            all.add(new Pattern("44 at High, 60 at Medium" + (limit > 0f ? ", limit 60 (59.9 at Medium)" : "") + ", 2 hours", held(limit), 7200f,
+            all.add(new Pattern("44 at High, 60 at Medium" + (limit > 0f ? ", limit 60 (59.9 at Medium)" : "") + "", held(limit), 120f,
                     (level, at) -> (long) (SECOND / (level.endsWith("(High)") ? 44.0 : level.endsWith("(Medium)") ? (limit > 0f ? 59.9 : 60.0) : 90.0)),
-                    "Medium within 10 s, never below it, High tried 7 times at most, ends at Medium", steps -> {
-                        long tries = steps.stream().filter(step -> step.endsWith("High")).count();
-                        boolean below = steps.stream().anyMatch(step -> step.endsWith("Low") || step.endsWith("Stock"));
-                        return !steps.isEmpty() && steps.get(0).endsWith("Medium") && seconds(steps.get(0)) < 10 && !below && tries <= 7
-                                && steps.get(steps.size() - 1).endsWith("Medium");
-                    }));
+                    "Medium within 10 s, picks it", steps -> picksMedium(steps) && seconds(steps.get(0)) < 10));
         }
         return all;
     }
 
-    /** Plays a pattern from Automatic at High: the steps it took. */
+    /** Plays a pattern from Automatic at High until it picks a mode: the steps it took, and the pick as "<seconds> picked <mode>". */
     static List<String> played(Pattern pattern) {
         Quality.set(0, Quality.HIGH);
         Quality.set(0, Quality.AUTOMATIC);
         List<String> steps = new ArrayList<>();
         String level = Quality.name(0);
         long from = SECOND, now = from;
-        while (now - from < (long) (pattern.seconds() * SECOND)) {
+        while (now - from < (long) (pattern.seconds() * SECOND) && step(steps, level, now - from)) {
             now += pattern.times().next(level, now - from);
             Quality.frame(0, now, pattern.limit().at(now - from));
-            String after = Quality.name(0);
-            if (!after.equals(level)) {
-                level = after;
-                steps.add((now - from) / SECOND + " " + after.substring("Automatic (".length(), after.length() - 1));
-            }
+            level = Quality.name(0);
         }
+        Quality.decided();
         return steps;
+    }
+
+    /** Notes a step or the pick in steps when the mode's name has changed from the last noted: whether Automatic is still measuring. */
+    private static boolean step(List<String> steps, String name, long at) {
+        String was = steps.isEmpty() ? "High" : steps.get(steps.size() - 1).substring(steps.get(steps.size() - 1).indexOf(' ') + 1);
+        if (!name.startsWith("Automatic (")) {
+            steps.add(at / SECOND + " picked " + name);
+            return false;
+        }
+        String level = name.substring("Automatic (".length(), name.length() - 1);
+        if (!level.equals(was)) {
+            steps.add(at / SECOND + " " + level);
+        }
+        return true;
     }
 
     /** What each pattern did, a line each: ok or FAIL, the pattern, what it should do, the steps it took. */
@@ -356,161 +378,76 @@ final class QualityTests {
         }
     }
 
-    /**
-     * The count rests while the content is made after a step (FirstPerson.notePace), which is
-     * on every step up from Medium to High: the five seconds a step up settles in still run.
-     */
-    private static void aStepUpSettlesThoughTheCountRestsWhileTheContentIsMade() {
-        Quality.set(0, Quality.HIGH);
-        Quality.set(0, Quality.AUTOMATIC);
-        long now = frames(SECOND, 30f, 3.5f);
-        check(Quality.name(0).equals("Automatic (Medium)"), "slow, to Medium");
-        while (!Quality.name(0).equals("Automatic (High)") && now < 400 * SECOND) {
-            now += SECOND / 100;
-            Quality.frame(0, now, 0f);
-        }
-        check(Quality.name(0).equals("Automatic (High)"), "fast, back up to High once it may be: " + Quality.name(0));
-        Quality.rest(0);
-        now = frames(now + SECOND / 2, 40f, 4f);
-        check(Quality.name(0).equals("Automatic (High)"), "forty frames a second in the five seconds after the step are not judged, the count rested or not: " + Quality.name(0));
-        frames(now, 40f, 4.5f);
-        check(Quality.name(0).equals("Automatic (Medium)"), "after them forty is slow: " + Quality.name(0));
-    }
 
-    /** Each step Automatic took, as "<seconds> <level>", from the frames of a scene drawn at a rate that depends on the level alone. */
+    /** Each step Automatic took, and its pick, as played does, from the frames of a scene drawn at a rate that depends on the level alone. */
     private static List<String> playedFor(long from, float seconds, java.util.function.ToDoubleFunction<String> rateAt) {
         List<String> steps = new ArrayList<>();
         String level = Quality.name(0);
         long now = from;
-        while (now - from < (long) (seconds * SECOND)) {
+        while (now - from < (long) (seconds * SECOND) && step(steps, level, now - from)) {
             now += (long) (SECOND / rateAt.applyAsDouble(level));
             Quality.frame(0, now, limit);
-            String after = Quality.name(0);
-            if (!after.equals(level)) {
-                level = after;
-                steps.add((now - from) / SECOND + " " + after.substring("Automatic (".length(), after.length() - 1));
-            }
+            level = Quality.name(0);
         }
         return steps;
     }
 
-    private static void automaticStepsBackUpWithRoomToSpare() {
+    private static void automaticSaysItsStepsAndLeavesItsPickToBeSaid() {
         Quality.set(0, Quality.HIGH);
         Quality.set(0, Quality.AUTOMATIC);
+        Quality.decided();
         check(!Quality.stepToSay(), "nothing to say before a step");
+        check(Arrays.equals(Quality.choices(0), new int[] {Quality.AUTOMATIC, Quality.LOW, Quality.MEDIUM, Quality.HIGH, Quality.CUSTOM}),
+                "while it measures, the options screen lists Automatic with the other modes");
         long now = frames(SECOND, 30f, 3.5f);
         check(Quality.name(0).equals("Automatic (Medium)") && Quality.stepToSay(), "slow, it goes down to Medium and has that to say: " + Quality.name(0));
         Quality.stepSaid();
         check(!Quality.stepToSay(), "and once said, nothing more");
         check(Quality.choice(Quality.AUTOMATIC).equals("Automatic (Medium)") && Quality.choice(Quality.HIGH).equals("High"),
                 "the options screen names Automatic with its level, and the other modes as they are");
-        now = frames(now, 50f, 300f);
-        check(Quality.name(0).equals("Automatic (Medium)"), "fifty frames a second, between the two rates, keep it where it is for five minutes");
-        now = frames(now, 60f, 10f);
-        now = frames(now + SECOND / 2, 60f, 10f);
-        check(Quality.name(0).equals("Automatic (Medium)"), "sixty frames a second broken by a hitch are not fifteen seconds of them");
-        now = frames(now, 60f, 18f);
-        check(Quality.name(0).equals("Automatic (High)") && Quality.stepToSay(), "fifteen seconds of sixty take it back up to High, which it says: " + Quality.name(0));
-        Quality.stepSaid();
-        frames(now, 60f, 600f);
-        check(Quality.name(0).equals("Automatic (High)") && !Quality.stepToSay(), "where it stays while the picture keeps up");
+        frames(now, 50f, 20f);
+        check(Quality.row(0) == Quality.MEDIUM && Quality.decided() == 1 && Quality.decided() == 0 && !Quality.stepToSay(),
+                "fifty frames a second hold Medium, which it picks, for Tracking to save and say once");
+        check(Arrays.equals(Quality.choices(0), new int[] {Quality.LOW, Quality.MEDIUM, Quality.HIGH, Quality.CUSTOM}) && Quality.choice(Quality.AUTOMATIC).equals("Automatic"),
+                "and from then on the options screen lists no Automatic to go back to");
         Quality.set(0, Quality.HIGH);
-        check(Quality.choice(Quality.AUTOMATIC).equals("Automatic"), "out of Automatic the screen names it without a level");
     }
 
-    private static void automaticStaysBarredForTheFirstTwoMinutes(long now) {
-        // Stepped down at `now`: High is not tried again for two minutes, however fast Medium is.
-        now = frames(now, 120f, 110f);
-        check(Quality.name(0).equals("Automatic (Medium)"), "a level stepped down from is not stepped up into again within two minutes: " + Quality.name(0));
-        frames(now, 120f, 20f);
-        check(Quality.name(0).equals("Automatic (High)"), "after which it is: " + Quality.name(0));
-    }
 
-    /**
-     * The scene the owner named: 44 frames a second at High and 60 at Medium. It must settle at
-     * Medium, trying High again ever more seldom, and never be thrown further down by the tries.
-     */
-    private static void aSceneSlowAtOneLevelAndFastAtTheNextSettles() {
-        for (float held : new float[] {0f, 60f}) {
-            limit = held;
-            Quality.set(0, Quality.HIGH);
-            Quality.set(0, Quality.AUTOMATIC);
-            List<String> steps = playedFor(SECOND, 2 * 3600f,
-                    level -> level.endsWith("(High)") ? 44.0 : level.endsWith("(Medium)") ? Math.min(60.0, held > 0f ? held - 0.1 : 60.0) : 90.0);
-            String limited = held > 0f ? ", the game held to 60 frames a second: " : ": ";
-            List<Long> tries = new ArrayList<>();
-            boolean belowMedium = false;
-            for (String step : steps) {
-                belowMedium |= step.endsWith("Low") || step.endsWith("Stock");
-                if (step.endsWith("High")) {
-                    tries.add(Long.parseLong(step.substring(0, step.indexOf(' '))));
-                }
-            }
-            check(!steps.isEmpty() && steps.get(0).endsWith("Medium") && Long.parseLong(steps.get(0).substring(0, steps.get(0).indexOf(' '))) < 10,
-                    "it goes down to Medium in its first seconds" + limited + steps);
-            check(!belowMedium, "a try at High is never what takes it below Medium" + limited + steps);
-            check(tries.size() <= 7, "in two hours High is tried at most seven times" + limited + steps);
-            boolean wider = true;
-            long gap = 0;
-            for (int i = 1; i < tries.size(); i++) {
-                long next = tries.get(i) - tries.get(i - 1);
-                wider &= next + 10 >= gap && next >= 120;
-                gap = next;
-            }
-            check(wider && gap >= 32 * 60, "each try is at least as long after the last as that one was after the one before, and the last ones half an hour apart"
-                    + limited + tries);
-            check(Quality.name(0).equals("Automatic (Medium)"), "and two hours on it is at Medium" + limited + Quality.name(0));
-            limit = 0f;
-            Quality.set(0, Quality.HIGH);
-            Quality.set(0, Quality.AUTOMATIC);
-            steps = playedFor(SECOND, 3600f, level -> level.endsWith("(High)") ? 44.0 : 52.0);
-            check(steps.size() == 1 && steps.get(0).endsWith("Medium"), "a scene at 52 at Medium never tries High at all: " + steps);
-        }
-        limit = 0f;
+
+    private static void automaticsFloorIsTheStockLookAndItPicksLow() {
         Quality.set(0, Quality.HIGH);
         Quality.set(0, Quality.AUTOMATIC);
-        long now = frames(SECOND, 30f, 3.5f);
-        check(Quality.name(0).equals("Automatic (Medium)"), "slow, to Medium");
-        automaticStaysBarredForTheFirstTwoMinutes(now);
-    }
-
-    private static void automaticsFloorIsTheStockLookAndItComesBackUp() {
-        Quality.set(0, Quality.HIGH);
-        Quality.set(0, Quality.AUTOMATIC);
+        Quality.decided();
         List<String> down = playedFor(SECOND, 30f, level -> 20.0);
-        check(down.equals(List.of("3 Medium", "8 Low", "13 Stock")), "at twenty frames a second it steps down a level every five seconds to Stock: " + down);
-        check(Quality.plain(0) && Quality.gamesPlants(0) && Quality.drawn(0).equals(Quality.preset(Quality.LOW)),
+        check(down.equals(List.of("3 Medium", "8 Low", "13 Stock", "18 picked Low")),
+                "at twenty frames a second it steps down a level every five seconds to Stock, and picks Low there: " + down);
+        check(Quality.plain(0) && Quality.gamesPlants(0) && Quality.drawn(0).equals(Quality.preset(Quality.LOW)) && Quality.decided() == 1,
                 "where it draws what the Low mode draws, the game's own look");
-        List<String> up = playedFor(31 * SECOND, 600f, level -> 100.0);
-        check(up.size() == 3 && up.get(0).endsWith("Low") && up.get(1).endsWith("Medium") && up.get(2).endsWith("High"),
-                "with room to spare it comes back up, a level at a time, to High: " + up);
-        check(Quality.drawn(0).equals(Quality.HIGH_PICTURE), "and draws High's picture");
         Quality.set(0, Quality.HIGH);
-        Quality.set(0, Quality.AUTOMATIC);
-        playedFor(SECOND, 15f, level -> 20.0);
-        check(Quality.name(0).equals("Automatic (Stock)"), "down again");
-        long from = 16 * SECOND;
-        List<String> fromStock = playedFor(from, 130f, level -> 100.0);
-        check(fromStock.size() == 1 && fromStock.get(0).endsWith("Low") && !Quality.plain(0) && !Quality.gamesPlants(0),
-                "the first step up from Stock is to Low's cost with the mod's own look, its plants among it: " + fromStock);
     }
 
     private static void theGamesFrameLimitIsNotASlowPicture() {
         limit = 30f;
         Quality.set(0, Quality.HIGH);
         Quality.set(0, Quality.AUTOMATIC);
-        long now = frames(SECOND, 29.5f, 120f);
-        check(Quality.name(0).equals("Automatic (High)"), "a game held to thirty frames a second that draws 29.5 stays at High: " + Quality.name(0));
-        now = frames(now, 20f, 7f);
+        long now = frames(SECOND, 29.5f, 15f);
+        check(Quality.row(0) == Quality.HIGH, "a game held to thirty frames a second that draws 29.5 picks High: " + Quality.name(0));
+        Quality.set(0, Quality.AUTOMATIC);
+        now = frames(now, 20f, 3.5f);
         check(Quality.name(0).equals("Automatic (Medium)"), "and twenty under that limit is slow: " + Quality.name(0));
         limit = 60f;
         Quality.set(0, Quality.HIGH);
         Quality.set(0, Quality.AUTOMATIC);
         now = frames(now, 40f, 3.5f);
         check(Quality.name(0).equals("Automatic (Medium)"), "under a limit of sixty, forty is slow: " + Quality.name(0));
-        frames(now, 59.5f, 140f);
-        check(Quality.name(0).equals("Automatic (High)"), "and 59.5, as near sixty as such a game gets, is room to spare: " + Quality.name(0));
+        Quality.set(0, Quality.HIGH);
+        Quality.set(0, Quality.AUTOMATIC);
+        frames(now, 59.5f, 15f);
+        check(Quality.row(0) == Quality.HIGH, "and 59.5, as near sixty as such a game gets, holds High, which it picks: " + Quality.name(0));
         limit = 0f;
+        Quality.set(0, Quality.HIGH);
+        Quality.decided();
     }
 
     private static void aModeThePlayerChoseIsNeverStepped() {
@@ -524,7 +461,7 @@ final class QualityTests {
         }
     }
 
-    private static void theKeyGoesAutomaticLowMediumHighCustomAndRound() {
+    private static void theKeyGoesLowMediumHighCustomAndRound() {
         Quality.set(0, Quality.AUTOMATIC);
         check(Quality.next(0) == Quality.LOW, "the key goes from Automatic to Low");
         Quality.set(0, Quality.LOW);
@@ -534,8 +471,8 @@ final class QualityTests {
         Quality.set(0, Quality.HIGH);
         check(Quality.next(0) == Quality.CUSTOM, "from High to Custom");
         Quality.set(0, Quality.CUSTOM);
-        check(Quality.next(0) == Quality.AUTOMATIC && Quality.name(0).equals("Custom"), "and from Custom round to Automatic");
-        check(Quality.words().equals("Automatic,Low,Medium,High,Custom"), "and the row's words are in that order: " + Quality.words());
+        check(Quality.next(0) == Quality.LOW && Quality.name(0).equals("Custom"), "and from Custom round to Low, never to Automatic");
+        check(Quality.words().equals("Automatic,Low,Medium,High,Custom"), "and the row's words are in that order, Automatic as a file not yet measured holds: " + Quality.words());
     }
 
     /**

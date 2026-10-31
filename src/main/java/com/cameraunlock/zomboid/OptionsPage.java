@@ -346,9 +346,10 @@ final class OptionsPage {
     /**
      * The graphics mode's list names the level Automatic is at, which changes as it steps: in the
      * page's own list, which a screen made after this is made from, and in the list on the screen.
+     * A list shows Automatic only while its player's mode has not yet been picked (Quality.choices).
      */
     private static void nameLevel(Control control) {
-        if (Tracking.qualityPlayer(control.setting.described.id) < 0) {
+        if (Tracking.qualityPlayer(control.setting.described.id) < 0 || control.setting.values[0] != Quality.AUTOMATIC) {
             return;
         }
         Double line = (double) (control.setting.lineOf(Quality.AUTOMATIC) + 1);

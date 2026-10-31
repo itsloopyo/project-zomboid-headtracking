@@ -680,6 +680,7 @@ final class Tracking {
                 }
             }
             sayGraphics(saveLowered(Quality.players(IsoPlayer.numPlayers)));
+            sayGraphics(savePicked(Quality.decided()));
             if (enteringSave) {
                 graphicsToSay.set(0);
                 Quality.stepSaid();
@@ -710,6 +711,17 @@ final class Tracking {
             }
         }
         return lowered;
+    }
+
+    /** Saves the first person mode Automatic picked for each player of the bits, which is theirs from then on. */
+    private static int savePicked(int picked) {
+        for (int i = 0; i < View.COUNT; i++) {
+            if ((picked & 1 << i) != 0) {
+                int player = i, mode = Quality.row(i);
+                save(() -> config.saveQuality(player, mode));
+            }
+        }
+        return picked;
     }
 
     /**

@@ -424,7 +424,7 @@ final class OptionsLayout {
                         List.of(now -> firstPersonUse(true, false), now -> firstPersonUse(false, true), now -> firstPersonUse(false, false))),
                 new QuickList("EnhancedGraphics", "Enhanced graphics",
                         "On: the mod's own models, pictures and skins and every tick box under Graphics, with first person graphics at "
-                                + "Automatic where they were at Low. Off: the game's own look, with first person and isometric graphics at "
+                                + "High where they were at Low. Off: the game's own look, with first person and isometric graphics at "
                                 + "Low. Some settings take effect only when the game next starts.",
                         new String[] {"On", "Off"},
                         List.of(now -> {
@@ -515,12 +515,12 @@ final class OptionsLayout {
         return values;
     }
 
-    /** Each player's first person graphics mode at Automatic where it is at Low, and left as it is where it is not. */
+    /** Each player's first person graphics mode at High where it is at Low, and left as it is where it is not. */
     private static Map<String, Double> graphicsModesUp(ToDoubleFunction<String> now) {
         Map<String, Double> values = new LinkedHashMap<>();
         for (int player = 0; player < View.COUNT; player++) {
             String key = Config.qualityKey(player);
-            values.put(key, now.applyAsDouble(key) == Quality.LOW ? Quality.AUTOMATIC : now.applyAsDouble(key));
+            values.put(key, now.applyAsDouble(key) == Quality.LOW ? Quality.HIGH : now.applyAsDouble(key));
         }
         return values;
     }

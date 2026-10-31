@@ -188,9 +188,10 @@ final class Config {
                 "Vertical field of view of the first person view, in degrees: 40 to 110.",
                 writable | live, FieldOfView.DEFAULT_DEGREES, MIN_FIELD_OF_VIEW, MAX_FIELD_OF_VIEW);
         quality[0] = localEnum("General", "Quality",
-                "First person graphics mode: Automatic, Low, Medium, High or Custom. Automatic draws less when the frame rate drops\n"
-                        + "and more again when it recovers. Custom draws the [Graphics] rows. Every mode but Custom draws at most 2560x1440\n"
-                        + "pixels, however large the window.",
+                "First person graphics mode: Low, Medium, High or Custom. Custom draws the [Graphics] rows. Every mode but Custom\n"
+                        + "draws at most 2560x1440 pixels, however large the window. Automatic, as the file comes, measures your PC once:\n"
+                        + "the first time first person shows, it starts at High, steps down while the picture is drawn fewer than 45 times\n"
+                        + "a second, and saves the mode that holds here. It never changes the mode after that.",
                 writable | live, Quality.words(), Quality.AUTOMATIC);
         overheadQuality[0] = localEnum("General", "IsometricQuality",
                 "Graphics mode of the game's isometric view: Low (the game's own picture), Medium, High or Custom, which draws the\n"
@@ -342,7 +343,7 @@ final class Config {
                         + "mod, runs, as Viewpoint opens its settings window on Delete. Tapped and held as FirstPersonKey is.",
                 0, "End", FIRST_PERSON_BESIDE_VIEWPOINT_TAPS, FIRST_PERSON_BESIDE_VIEWPOINT_ALL);
         cycleQualityKey = core.configLocalHotkeyTaps("CycleQualityKey",
-                "Goes to the next graphics mode of the view a player is in: in first person Automatic, Low, Medium, High, Custom\n"
+                "Goes to the next graphics mode of the view a player is in: in first person Low, Medium, High, Custom\n"
                         + "(Quality), in the isometric view Low, Medium, High, Custom (IsometricQuality), and for players 2, 3 and 4 their\n"
                         + "rows of [Players]. Tap once for player 1, twice for player 2, three times for player 3, four times for player 4,\n"
                         + "or hold for every player.",
