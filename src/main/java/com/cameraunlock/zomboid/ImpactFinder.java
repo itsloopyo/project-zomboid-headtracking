@@ -320,7 +320,7 @@ final class ImpactFinder {
         return false;
     }
 
-    /** The most walls a round is followed through on its way to a character. A round's budget gets through fewer than this. */
+    /** The most walls a round is followed through, to what it ends in or to a character. A round's budget gets through fewer than this. */
     private static final int MOST_WALLS = 6;
     /** How far past a wall's face the line is taken on from, in tiles: through the wall's skin. */
     private static final float PAST_WALL = 0.1f;
