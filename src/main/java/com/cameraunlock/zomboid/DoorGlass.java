@@ -227,7 +227,10 @@ final class DoorGlass {
             return -1;
         }
         IsoGridSquare square = door.getSquare();
-        return lightIn(leaf.panes, OpeningBuilder.barsToRails(leaf), broken(door), seed(square.getX(), square.getY(), square.getZ()), along, up);
+        int lights = broken(door);
+        // The aim asks this every frame it crosses a glazed door: only a smashed sash's bars are read.
+        float[] bars = (lights & SMASHED) != 0 ? OpeningBuilder.barsToRails(leaf) : leaf.bars;
+        return lightIn(leaf.panes, bars, lights, seed(square.getX(), square.getY(), square.getZ()), along, up);
     }
 
     /** What the picture measured of a door's leaf, for a log line: why a shot found no light in it. */
