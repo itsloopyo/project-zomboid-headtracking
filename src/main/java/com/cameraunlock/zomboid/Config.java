@@ -37,7 +37,7 @@ final class Config {
             FIRST_PERSON = CameraUnlock.HOTKEY_LOCAL, CYCLE_QUALITY = CameraUnlock.HOTKEY_LOCAL << 1,
             CYCLE_STYLE = CameraUnlock.HOTKEY_LOCAL << 2, SPLIT_SCREEN = CameraUnlock.HOTKEY_LOCAL << 4,
             FIRST_PERSON_ALL = CameraUnlock.HOTKEY_LOCAL << 5, CYCLE_QUALITY_ALL = CameraUnlock.HOTKEY_LOCAL << 11,
-            CYCLE_STYLE_ALL = CameraUnlock.HOTKEY_LOCAL << 15;
+            CYCLE_STYLE_ALL = CameraUnlock.HOTKEY_LOCAL << 15, FIRST_PERSON_BESIDE_VIEWPOINT_ALL = CameraUnlock.HOTKEY_LOCAL << 20;
     /** Each of those keys' bits by how many times it was tapped: one tap is the first player's, and each is a player's, by number. */
     static final int[] FIRST_PERSON_TAPS = {FIRST_PERSON, CameraUnlock.HOTKEY_LOCAL << 3, CameraUnlock.HOTKEY_LOCAL << 6,
         CameraUnlock.HOTKEY_LOCAL << 7};
@@ -45,6 +45,9 @@ final class Config {
         CameraUnlock.HOTKEY_LOCAL << 10};
     static final int[] CYCLE_STYLE_TAPS = {CYCLE_STYLE, CameraUnlock.HOTKEY_LOCAL << 12, CameraUnlock.HOTKEY_LOCAL << 13,
         CameraUnlock.HOTKEY_LOCAL << 14};
+    /** FirstPersonKeyBesideViewpoint's, which Tracking hands on as the first person key's while Project Viewpoint runs. */
+    static final int[] FIRST_PERSON_BESIDE_VIEWPOINT_TAPS = {CameraUnlock.HOTKEY_LOCAL << 16, CameraUnlock.HOTKEY_LOCAL << 17,
+        CameraUnlock.HOTKEY_LOCAL << 18, CameraUnlock.HOTKEY_LOCAL << 19};
     /** What the keys of a player's own rows begin with, by player: the first player's rows are Quality, IsometricQuality and Style. */
     static final String[] PLAYER_ROW = {"", "SecondPlayer", "ThirdPlayer", "FourthPlayer"};
 
@@ -91,7 +94,7 @@ final class Config {
     /** By player, the rows of their first person graphics mode, their isometric view's and their picture style. */
     private final int[] quality = new int[View.COUNT], overheadQuality = new int[View.COUNT], style = new int[View.COUNT];
     private final int[] firstPerson = new int[View.COUNT], firstPersonInVehicles = new int[View.COUNT];
-    private final int firstPersonKey, cycleQualityKey, cycleStyleKey, splitScreenKey;
+    private final int firstPersonKey, firstPersonKeyBesideViewpoint, cycleQualityKey, cycleStyleKey, splitScreenKey;
     /** Each of the mod's own rows the options screen can show, by its key: what saveOptions writes in one go. */
     private final Map<String, Integer> localRows = new HashMap<>();
     /** The options as core lists them once the file is read, and each one's place by its key. */
@@ -124,8 +127,8 @@ final class Config {
      * again while the game runs, and so are the rows of [Graphics], which are what the Custom
      * graphics mode draws, and the rows of [Voice]. They are writable too, and a writable row that is not a key
      * list or a microphone's name is a setting on the game's options screen (OptionsPage), which shows the
-     * microphones as lists of its own. SecondPlayerUdpPort, ThirdPlayerUdpPort, FourthPlayerUdpPort, FirstPersonKey, CycleQualityKey,
-     * CycleStyleKey and SplitScreenKey are the mod's own too, and read at the start.
+     * microphones as lists of its own. SecondPlayerUdpPort, ThirdPlayerUdpPort, FourthPlayerUdpPort, FirstPersonKey,
+     * FirstPersonKeyBesideViewpoint, CycleQualityKey, CycleStyleKey and SplitScreenKey are the mod's own too, and read at the start.
      */
     Config(CameraUnlock core) {
         this.core = core;
@@ -334,6 +337,10 @@ final class Config {
                 "Switches between first person and the isometric view. Tap once for player 1, twice for player 2, three times for\n"
                         + "player 3, four times for player 4, or hold for every player.",
                 0, "Delete", FIRST_PERSON_TAPS, FIRST_PERSON_ALL);
+        firstPersonKeyBesideViewpoint = core.configLocalHotkeyTaps("FirstPersonKeyBesideViewpoint",
+                "Switches between first person and the isometric view in place of FirstPersonKey while Project Viewpoint, another\n"
+                        + "mod, runs, as Viewpoint opens its settings window on Delete. Tapped and held as FirstPersonKey is.",
+                0, "End", FIRST_PERSON_BESIDE_VIEWPOINT_TAPS, FIRST_PERSON_BESIDE_VIEWPOINT_ALL);
         cycleQualityKey = core.configLocalHotkeyTaps("CycleQualityKey",
                 "Goes to the next graphics mode of the view a player is in: in first person Automatic, Low, Medium, High, Custom\n"
                         + "(Quality), in the isometric view Low, Medium, High, Custom (IsometricQuality), and for players 2, 3 and 4 their\n"
@@ -844,6 +851,11 @@ final class Config {
     /** The keys that switch first person, as the file names them. */
     String firstPersonKeys() {
         return core.configGetText(firstPersonKey);
+    }
+
+    /** The keys that switch first person while Project Viewpoint runs, as the file names them. */
+    String firstPersonKeysBesideViewpoint() {
+        return core.configGetText(firstPersonKeyBesideViewpoint);
     }
 
     String cycleQualityKeys() {

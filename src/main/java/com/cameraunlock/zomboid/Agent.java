@@ -30,6 +30,8 @@ public final class Agent {
     private static final String ANIMATED_MODEL = "zombie/core/skinnedmodel/advancedanimation/AnimatedModel";
     private static final String HOOKS = "com/cameraunlock/zomboid/Hooks";
     private static final String NOT_RUNNING = "com/cameraunlock/zomboid/NotRunning";
+    /** Project Viewpoint's entry class, another mod's. */
+    private static final String VIEWPOINT_MAIN = "viewpoint/Main";
     private static final String HIGHLIGHT = "zombie/iso/fboRenderChunk/FBORenderObjectHighlight";
     private static final String GAME_MOUSE = "zombie/input/Mouse";
     private static final String TORCH = "zombie/characters/IsoGameCharacter$TorchInfo";
@@ -377,6 +379,13 @@ public final class Agent {
             return false;
         }
         retransformLoaded(instrumentation, before);
+        // Its Main.main has run already where ZombieBuddy loaded Viewpoint's jar before this one's.
+        for (Class<?> loaded : before) {
+            if (loaded.getName().equals(VIEWPOINT_MAIN.replace('/', '.'))) {
+                Tracking.viewpointStarted();
+                break;
+            }
+        }
         return true;
     }
 
@@ -608,7 +617,8 @@ public final class Agent {
                 new PatchSet("split screen", splitScreen, splitScreenOff),
                 new PatchSet("waiting composites", waitingComposites, offNow(Part.FIRST_PERSON, Part.SKINS_COMPOSED_WHILE_WAITING)),
                 new PatchSet("spotting", spotting, offNow(Part.FIRST_PERSON, Part.SKIP_COVERED_GAME_DRAWING, Part.SPOT_BY_SIGHT)),
-                new PatchSet("viewpoint", new PatchTransformer(viewpointPatches()), () -> Tracking.enabled() ? null : "head tracking is off"));
+                new PatchSet("viewpoint", new PatchTransformer(viewpointPatches()), () -> Tracking.enabled() ? null : "head tracking is off"),
+                new PatchSet("viewpoint start", new PatchTransformer(viewpointStartPatches()), in));
     }
 
     /** Why a set that serves one row of [Rules] alone is out of the game's code: that row off, or null. */
@@ -650,6 +660,17 @@ public final class Agent {
                                 "(Lviewpoint/core/Frame;Lzombie/iso/IsoCell;Lzombie/characters/IsoGameCharacter;F)V"),
                         code -> code.aload(0).aload(2).invokestatic(ClassDesc.ofInternalName(HOOKS), "viewpointShot",
                                 MethodTypeDesc.ofDescriptor("(Ljava/lang/Object;Lzombie/characters/IsoGameCharacter;)V")))));
+    }
+
+    /**
+     * The patch that tells Tracking Project Viewpoint is running, whose keys then switch first
+     * person: ZombieBuddy calls Viewpoint's Main.main once it has loaded that mod's jar. In from the
+     * start whatever the file says, as the jar can load before a part is switched on, and once.
+     */
+    private static List<Patch> viewpointStartPatches() {
+        return List.of(new Patch(VIEWPOINT_MAIN, "main at its start", classBytes -> CallSite.insertAtStartOfStaticMethod(classBytes,
+                new CallSite.Method(VIEWPOINT_MAIN, "main", "([Ljava/lang/String;)V"),
+                code -> CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "viewpointStarted", "()V")))));
     }
 
     /** The patches for the window's place: see WindowPlacement. */

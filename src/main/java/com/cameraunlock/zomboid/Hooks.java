@@ -1162,6 +1162,11 @@ public final class Hooks {
         Lightning.leaveTheGamesFlash(storm);
     }
 
+    /** As Project Viewpoint's Main.main starts: see Tracking.viewpointStarted. */
+    public static void viewpointStarted() {
+        Tracking.viewpointStarted();
+    }
+
     /** Before Project Viewpoint's ThirdPerson.capture returns, once it has filled the frame's camera shot: see ViewpointCamera. */
     public static void viewpointShot(Object frame, IsoGameCharacter character) {
         ViewpointCamera.addHead(frame, character);

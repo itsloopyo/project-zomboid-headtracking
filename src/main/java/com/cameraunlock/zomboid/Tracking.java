@@ -39,6 +39,11 @@ final class Tracking {
     static final int[] AIM_MODES = {CameraUnlock.AIM_SIGHTS_LOCKED, CameraUnlock.AIM_FREE_LOOK_MARKER, CameraUnlock.AIM_STOCK_SIGHTS};
 
     private static final long WATCH_MILLISECONDS = 1000;
+    /** Every bit of FirstPersonKey's presses, and of FirstPersonKeyBesideViewpoint's. */
+    private static final int FIRST_PERSON_BITS = bits(Config.FIRST_PERSON_TAPS, Config.FIRST_PERSON_ALL),
+            FIRST_PERSON_BESIDE_VIEWPOINT_BITS = bits(Config.FIRST_PERSON_BESIDE_VIEWPOINT_TAPS, Config.FIRST_PERSON_BESIDE_VIEWPOINT_ALL);
+    /** Set once Project Viewpoint has started: see viewpointStarted. */
+    private static volatile boolean viewpoint;
 
     private static CameraUnlock core;
     private static Config config;
@@ -665,7 +670,7 @@ final class Tracking {
                 outOfSave = false;
                 core.hotkeysDrop();
             } else {
-                pressed = act(core.hotkeysTake());
+                pressed = act(firstPersonRow(core.hotkeysTake()));
                 if ((pressed & Config.SPLIT_SCREEN) != 0) {
                     if (IsoPlayer.numPlayers == 2) {
                         turnSplitScreen();
@@ -967,9 +972,44 @@ final class Tracking {
         bits.updateAndGet(was -> on ? was | 1 << player : was & ~(1 << player));
     }
 
-    /** The keys that switch first person, as CameraUnlock.ini names them. */
+    /** The keys that switch first person now, as CameraUnlock.ini names them: FirstPersonKeyBesideViewpoint's while Project Viewpoint runs. */
     static String firstPersonKeys() {
-        return config.firstPersonKeys();
+        return viewpoint ? config.firstPersonKeysBesideViewpoint() : config.firstPersonKeys();
+    }
+
+    /**
+     * Project Viewpoint, another mod, has started in this process, and opens its settings window on
+     * Delete, FirstPersonKey's default: from now on first person switches on
+     * FirstPersonKeyBesideViewpoint's keys in place of FirstPersonKey's. A mod's jar stays loaded
+     * to the end of the process.
+     */
+    static void viewpointStarted() {
+        if (!viewpoint) {
+            viewpoint = true;
+            Log.info("Project Viewpoint is running: first person switches on the keys of FirstPersonKeyBesideViewpoint in place of FirstPersonKey's");
+        }
+    }
+
+    /** The presses with the first person key's bits from the row that switches it now: FirstPersonKeyBesideViewpoint's while Project Viewpoint runs. */
+    static int firstPersonRow(int pressed) {
+        if (!viewpoint) {
+            return pressed & ~FIRST_PERSON_BESIDE_VIEWPOINT_BITS;
+        }
+        int row = pressed & ~(FIRST_PERSON_BITS | FIRST_PERSON_BESIDE_VIEWPOINT_BITS);
+        for (int taps = 0; taps < Config.FIRST_PERSON_TAPS.length; taps++) {
+            if ((pressed & Config.FIRST_PERSON_BESIDE_VIEWPOINT_TAPS[taps]) != 0) {
+                row |= Config.FIRST_PERSON_TAPS[taps];
+            }
+        }
+        return (pressed & Config.FIRST_PERSON_BESIDE_VIEWPOINT_ALL) != 0 ? row | Config.FIRST_PERSON_ALL : row;
+    }
+
+    private static int bits(int[] taps, int held) {
+        int all = held;
+        for (int bit : taps) {
+            all |= bit;
+        }
+        return all;
     }
 
     /** The keys that go to the next graphics mode, as CameraUnlock.ini names them. */

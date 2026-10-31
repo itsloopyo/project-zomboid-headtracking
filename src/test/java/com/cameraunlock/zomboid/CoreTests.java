@@ -125,6 +125,8 @@ public final class CoreTests {
         Checks.run("theOptionsPagesQuickListsAreTakenSavedAndReadAtTheNextStart", CoreTests::theOptionsPagesQuickListsAreTakenSavedAndReadAtTheNextStart);
         Checks.run("everyTickBoxTickedOrUntickedIsSavedAndReadAtTheNextStart", CoreTests::everyTickBoxTickedOrUntickedIsSavedAndReadAtTheNextStart);
         Checks.run("theShippedJarStartsThroughBoot", CoreTests::theShippedJarStartsThroughBoot);
+        // Last: Project Viewpoint, once started, stays started to the end of the process.
+        Checks.run("firstPersonSwitchesOnItsOwnKeysBesideViewpoint", CoreTests::firstPersonSwitchesOnItsOwnKeysBesideViewpoint);
         Checks.tally();
     }
 
@@ -300,14 +302,19 @@ public final class CoreTests {
                         && holds("Microphone=Default") && holds("SecondPlayerMicrophone=None") && holds("FourthPlayerMicrophone=None"),
                 "and talking mouths off, so no microphone is opened, with player 1 on Windows' default microphone and the others on none: "
                         + Tracking.microphones());
-        int firstPersonTaps = 0;
+        int firstPersonTaps = 0, besideViewpointTaps = 0;
         for (int bit : Config.FIRST_PERSON_TAPS) {
             firstPersonTaps |= bit;
         }
+        for (int bit : Config.FIRST_PERSON_BESIDE_VIEWPOINT_TAPS) {
+            besideViewpointTaps |= bit;
+        }
         check(Config.FIRST_PERSON_TAPS.length == View.COUNT && Config.FIRST_PERSON_TAPS[0] == Config.FIRST_PERSON
+                        && Config.FIRST_PERSON_BESIDE_VIEWPOINT_TAPS.length == View.COUNT
                         && Integer.bitCount(Config.CYCLE_TRACKING_MODE | Config.YAW_MODE | Config.AIM_MODE | Config.CYCLE_QUALITY
-                                | Config.CYCLE_STYLE | Config.SPLIT_SCREEN | firstPersonTaps | Config.FIRST_PERSON_ALL) == 11,
-                "the six actions have a bit each, and the first person key one for each player tapped and one held");
+                                | Config.CYCLE_STYLE | Config.SPLIT_SCREEN | firstPersonTaps | Config.FIRST_PERSON_ALL
+                                | besideViewpointTaps | Config.FIRST_PERSON_BESIDE_VIEWPOINT_ALL) == 16,
+                "the six actions have a bit each, and the first person key and the one beside Project Viewpoint one for each player tapped and one held");
     }
 
     private static float[] lean(float cleanYaw, float x, float y, float z) {
@@ -823,8 +830,11 @@ public final class CoreTests {
         check(nextStart("parts-on-again").contains("left out: none"), "set back, the next start has every set in again");
     }
 
-    /** The sets of patches a start with head tracking on keeps: head tracking's, Project Viewpoint's among them, the options page's and the development build's. */
-    private static final String KEPT_SETS = "base, frame, development, model head, left save, lua loaded, viewpoint";
+    /**
+     * The sets of patches a start with head tracking on keeps: head tracking's, Project Viewpoint's
+     * among them, the options page's, the development build's and the one that hears Viewpoint start.
+     */
+    private static final String KEPT_SETS = "base, frame, development, model head, left save, lua loaded, viewpoint, viewpoint start";
 
     private static void theOptionsPagesQuickListsAreTakenSavedAndReadAtTheNextStart() throws IOException, InterruptedException {
         String saved = text();
@@ -931,6 +941,19 @@ public final class CoreTests {
     }
 
     /** Every set of patches by name in the order they go in, but those named. */
+    private static void firstPersonSwitchesOnItsOwnKeysBesideViewpoint() throws IOException {
+        int pressed = Config.FIRST_PERSON | Config.FIRST_PERSON_BESIDE_VIEWPOINT_TAPS[0] | Config.AIM_MODE;
+        check(Tracking.firstPersonRow(pressed) == (Config.FIRST_PERSON | Config.AIM_MODE) && Tracking.firstPersonKeys().equals("Delete"),
+                "with no Project Viewpoint first person switches on FirstPersonKey, Delete, and FirstPersonKeyBesideViewpoint's presses do nothing");
+        Tracking.viewpointStarted();
+        check(Tracking.firstPersonRow(Config.FIRST_PERSON | Config.AIM_MODE) == Config.AIM_MODE
+                        && Tracking.firstPersonRow(Config.FIRST_PERSON_BESIDE_VIEWPOINT_TAPS[1]) == Config.FIRST_PERSON_TAPS[1]
+                        && Tracking.firstPersonRow(Config.FIRST_PERSON_BESIDE_VIEWPOINT_ALL) == Config.FIRST_PERSON_ALL,
+                "once Viewpoint starts, FirstPersonKey's presses do nothing and FirstPersonKeyBesideViewpoint's switch first person, tapped and held");
+        check(Tracking.firstPersonKeys().equals("End") && Files.readString(game.resolve(Log.FILE_NAME)).contains("Project Viewpoint is running"),
+                "and the hint and the options page name End, with the log saying why: " + Tracking.firstPersonKeys());
+    }
+
     private static String leftOutBut(String kept) {
         List<String> keep = List.of(kept.split(", "));
         StringJoiner names = new StringJoiner(", ");
