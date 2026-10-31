@@ -668,12 +668,12 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
                 doorShut |= !each.IsOpen();
                 doorGlazed |= glazed;
                 // A blast's hole through a door is seen through as its glass is.
-                doorBlind |= !each.IsOpen() && (!glazed && !BlastHoles.holed(each) || each.HasCurtains() != null && !each.isCurtainOpen());
+                doorBlind |= !each.IsOpen() && (!glazed && !BlastHoles.holed(each, north) || each.HasCurtains() != null && !each.isCurtainOpen());
             } else if (object instanceof IsoThumpable thumpable) {
                 if (thumpable.isDoor() && thumpable.getNorth() == north) {
                     door = true;
                     doorShut |= !thumpable.IsOpen();
-                    doorBlind |= !thumpable.IsOpen() && !BlastHoles.holed(thumpable);
+                    doorBlind |= !thumpable.IsOpen() && !BlastHoles.holed(thumpable, north);
                 } else if (north ? thumpable.isWindowN() : thumpable.isWindowW()) {
                     window = true;
                     glassShut |= !thumpable.IsOpen();
@@ -698,7 +698,7 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
             boolean seen = north ? flags.has(IsoFlagType.WallNTrans) || flags.has(IsoFlagType.transparentN) || flags.has(IsoFlagType.HoppableN) || flags.has(IsoFlagType.TallHoppableN)
                     : flags.has(IsoFlagType.WallWTrans) || flags.has(IsoFlagType.transparentW) || flags.has(IsoFlagType.HoppableW) || flags.has(IsoFlagType.TallHoppableW);
             wall |= onEdge && !seen;
-            wallHoled |= onEdge && !seen && BlastHoles.holed(object);
+            wallHoled |= onEdge && !seen && BlastHoles.holed(object, north);
         }
     }
 

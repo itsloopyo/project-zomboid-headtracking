@@ -301,14 +301,14 @@ final class BlastHoles {
         return false;
     }
 
-    /** Whether an object has a hole: a door or a wall with one is seen through, as a door with glass is (RoomMap). Logic thread. */
-    static boolean holed(IsoObject object) {
+    /** Whether an object has a hole on its north or its west edge: a door or a wall with one is seen through, as a door with glass is (RoomMap). Logic thread. */
+    static boolean holed(IsoObject object, boolean north) {
         float[] entries = of(object);
         if (entries == null) {
             return false;
         }
         for (int at = 0; at < entries.length; at += FLOATS) {
-            if (isHole(entries[at + SIDE])) {
+            if (isHole(entries[at + SIDE]) && (entries[at + NORTH] != 0f) == north) {
                 return true;
             }
         }
