@@ -837,6 +837,17 @@ public final class Characters {
                 return true;
             }
         }
+        if (DevBuild.ON && sat != null && System.nanoTime() - ownVehicleMissingSaidNanos > 5_000_000_000L) {
+            ownVehicleMissingSaidNanos = System.nanoTime();
+            int vehicles = 0;
+            for (int i = 0; i < noted.size(); i++) {
+                if (noted.get(i).character == null && noted.get(i).object instanceof BaseVehicle) {
+                    vehicles++;
+                }
+            }
+            Log.info(String.format(Locale.ROOT, "the vehicle sat in, id %d, is not among the frame's %d models (%d of them vehicles), seen %.2f by player %d",
+                    sat.getId(), noted.size(), vehicles, sat.getAlpha(view.index), view.index + 1));
+        }
         return false;
     }
 
@@ -2185,6 +2196,7 @@ public final class Characters {
     private static final float WHEEL_SETTLES = -0.015f;
 
     private boolean fromSeat;
+    private long ownVehicleMissingSaidNanos;
     /** The vehicle the viewer sits in, as its body was last drawn from the seat. */
     final VehicleMeshes.Seated cabin = new VehicleMeshes.Seated();
 
