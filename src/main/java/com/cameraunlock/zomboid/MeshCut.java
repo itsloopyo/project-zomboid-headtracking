@@ -14,9 +14,9 @@ import java.util.IdentityHashMap;
  * (a leaf's face, a board's) is cut in the plane, keeping what lies outside the outline with no
  * corner on its edges but where the outline crosses them (see cutFace). A face
  * that looks along it (a leaf's edge, a board's side) is cut where its line runs through the
- * outline. Then the sides of the hole are lined from the furthest face cut on one side of the
- * plane to the furthest on the other, in the light of a face that was cut, darker, as the wood
- * inside a hole is.
+ * outline. Then the sides of the hole are lined wherever its outline lies on wood both sides of
+ * the plane and in no other hole, from the furthest face it lies on on one side to the furthest
+ * on the other, in the light of a face that was cut, darker, as the wood inside a hole is.
  *
  * A mark is a small ragged spot laid just off the face nearest the side it was struck from, in
  * that face's light, darker: where one pellet struck a door, which keeps no mark the picture lays
@@ -58,10 +58,18 @@ final class MeshCut {
      */
     private static final class Hole {
         final float[] outline, exit;
+        /** The outline the lining runs from, at the face furthest down across the plane, and the one it runs to, at the face furthest up: see line. */
+        final float[] near, far;
         final int side;
         final float middleS, middleT;
         final float lowS, highS, lowT, highT;
-        float nearest = Float.POSITIVE_INFINITY, furthest = Float.NEGATIVE_INFINITY;
+        /**
+         * The stretches of the outline's edges that lie on faces across the plane, WOOD floats
+         * each: the edge, where along it the stretch starts and ends as shares of the edge, how
+         * far across the face is there, and whether it is a stretch of near (1), of far (2) or of both (3).
+         */
+        float[] wood = new float[WOOD * 32];
+        int woodFloats;
         SpriteGeometry.Mesh donorMesh;
         final float[] donor = new float[V];
 
@@ -71,6 +79,8 @@ final class MeshCut {
             }
             this.outline = outline;
             this.exit = exit;
+            near = side > 0 ? exit : outline;
+            far = side > 0 ? outline : exit;
             this.side = side;
             this.middleS = middleS;
             this.middleT = middleT;
@@ -89,15 +99,23 @@ final class MeshCut {
             highT = ht;
         }
 
-        boolean cutSomething() {
-            return donorMesh != null && furthest > nearest;
-        }
-
         /** The outline that cuts a face lying this far across the plane on average: the way in on the round's side, the way out on the other. */
         float[] outlineAt(float across) {
             return side == 0 || across * side >= 0f ? outline : exit;
         }
+
+        void wood(int edge, float from, float to, float across, int ends) {
+            wood = room(wood, woodFloats + WOOD);
+            wood[woodFloats] = edge;
+            wood[woodFloats + 1] = from;
+            wood[woodFloats + 2] = to;
+            wood[woodFloats + 3] = across;
+            wood[woodFloats + 4] = ends;
+            woodFloats += WOOD;
+        }
     }
+
+    private static final int WOOD = 5;
 
     /** One mark: where, how big, its outline, the side it was struck from, and the face found for it. */
     private static final class Mark {
@@ -301,7 +319,7 @@ final class MeshCut {
     /** Adds the linings of the holes that went through something, and the marks that found a face: once every mesh is cut. */
     void finish() {
         for (Hole hole : holes) {
-            if (hole.cutSomething()) {
+            if (hole.woodFloats > 0) {
                 line(hole);
             }
         }
@@ -360,12 +378,42 @@ final class MeshCut {
                     hole.donorMesh = mesh;
                     System.arraycopy(tri, at, hole.donor, 0, V);
                 }
-                hole.nearest = Math.min(hole.nearest, Math.min(aA, Math.min(aB, aC)));
-                hole.furthest = Math.max(hole.furthest, Math.max(aA, Math.max(aB, aC)));
+                woodUnder(hole, outline, sA, tA, sB, tB, sC, tC, aA, aB, aC);
             }
             return;
         }
         cutEdgeOn(tri, at, hole.exit, sA, tA, sB, tB, sC, tC, aA, aB, aC);
+    }
+
+    /** Notes the stretch of each edge of the outline o that lies on the face, a triangle across the plane, and how far across it is there. */
+    private static void woodUnder(Hole hole, float[] o, float sA, float tA, float sB, float tB, float sC, float tC, float aA, float aB, float aC) {
+        float area = (sB - sA) * (tC - tA) - (sC - sA) * (tB - tA);
+        // The face's corners wound anticlockwise in the plane, so what is inside is left of each edge.
+        float[] cs = area > 0f ? new float[] {sA, sB, sC} : new float[] {sA, sC, sB};
+        float[] ct = area > 0f ? new float[] {tA, tB, tC} : new float[] {tA, tC, tB};
+        int ends = (o == hole.near ? 1 : 0) | (o == hole.far ? 2 : 0);
+        int points = o.length / 2;
+        for (int i = 0; i < points; i++) {
+            int j = (i + 1) % points;
+            float pS = o[2 * i], pT = o[2 * i + 1], qS = o[2 * j], qT = o[2 * j + 1];
+            float from = 0f, to = 1f;
+            for (int k = 0; k < 3; k++) {
+                int m = (k + 1) % 3;
+                float dP = side(cs[k], ct[k], cs[m], ct[m], pS, pT), dQ = side(cs[k], ct[k], cs[m], ct[m], qS, qT);
+                if (dP < 0f) {
+                    from = dQ < 0f ? 1f : Math.max(from, dP / (dP - dQ));
+                } else if (dQ < 0f) {
+                    to = Math.min(to, dP / (dP - dQ));
+                }
+            }
+            if (to <= from) {
+                continue;
+            }
+            float half = (from + to) / 2f, mS = pS + (qS - pS) * half, mT = pT + (qT - pT) * half;
+            float b = ((mS - sA) * (tC - tA) - (sC - sA) * (mT - tA)) / area;
+            float c = ((sB - sA) * (mT - tA) - (mS - sA) * (tB - tA)) / area;
+            hole.wood(i, from, to, aA + b * (aB - aA) + c * (aC - aA), ends);
+        }
     }
 
     private static boolean sameTriangle(float[] one, int at, float[] other, int otherAt) {
@@ -910,15 +958,25 @@ final class MeshCut {
 
     private final float[] corner = new float[V];
 
+    // The places along an edge of an outline being lined where what it lies on may change.
+    private float[] breaks = new float[64];
+    private int breakCount;
+
+    /** A stretch of an edge being lined shorter than this, in tiles, is no stretch: where two faces meet, each one's stretch can end a hair short of the other's or past it. */
+    private static final float SEAM = 1e-5f;
+
     /**
-     * Lines a hole's sides, from its nearest face to its furthest, an edge of the outline at a
-     * time: for a round's hole, from the way in at the face furthest towards the round's side to
-     * the way out at the face furthest from it.
+     * Lines a hole's sides, an edge of the outline at a time: from the outline near, on the face
+     * the edge lies on furthest down across the plane, to the outline far, on the one it lies on
+     * furthest up. For a round's hole near and far are the way in and the way out, so the lining
+     * runs from the way in at the face furthest towards the round's side to the way out at the
+     * face furthest from it. An edge is lined only along the stretches of it that lie on wood on
+     * both sides, and are in no other hole, which took the wood there away: off a leaf's edge, over
+     * a fence's top, and across the opening of another hole there is none.
      */
     private void line(Hole hole) {
-        float[] near = hole.side > 0 ? hole.exit : hole.outline, far = hole.side > 0 ? hole.outline : hole.exit;
+        float[] near = hole.near, far = hole.far;
         int points = near.length / 2;
-        SpriteGeometry.Mesh mesh = hole.donorMesh;
         for (int i = 0; i < points; i++) {
             int j = (i + 1) % points;
             float pS = near[2 * i], pT = near[2 * i + 1], qS = near[2 * j], qT = near[2 * j + 1];
@@ -935,14 +993,116 @@ final class MeshCut {
             }
             nS /= length;
             nT /= length;
-            int at = mesh.floats;
-            lining(mesh, hole.donor, pS, pT, hole.nearest, nS, nT);
-            lining(mesh, hole.donor, qS, qT, hole.nearest, nS, nT);
-            lining(mesh, hole.donor, fqS, fqT, hole.furthest, nS, nT);
-            mesh.again(at);
-            mesh.again(at + 2 * V);
-            lining(mesh, hole.donor, fpS, fpT, hole.furthest, nS, nT);
+            breakCount = 0;
+            addBreak(0f);
+            addBreak(1f);
+            for (int w = 0; w < hole.woodFloats; w += WOOD) {
+                if (hole.wood[w] == i) {
+                    addBreak(hole.wood[w + 1]);
+                    addBreak(hole.wood[w + 2]);
+                }
+            }
+            for (Hole other : holes) {
+                if (other != hole) {
+                    crossings(other, pS, pT, qS, qT);
+                    crossings(other, fpS, fpT, fqS, fqT);
+                }
+            }
+            java.util.Arrays.sort(breaks, 0, breakCount);
+            float longest = Math.max((float) Math.hypot(qS - pS, qT - pT), (float) Math.hypot(fqS - fpS, fqT - fpT));
+            // Stretches lined between the same two faces join into one strip: a face is many triangles.
+            boolean running = false;
+            float runFrom = 0f, runTo = 0f, runLow = 0f, runHigh = 0f;
+            for (int k = 0; k + 1 < breakCount; k++) {
+                float a = breaks[k], b = breaks[k + 1];
+                if ((b - a) * longest < SEAM) {
+                    continue;
+                }
+                float half = (a + b) / 2f, low = Float.POSITIVE_INFINITY, high = Float.NEGATIVE_INFINITY;
+                for (int w = 0; w < hole.woodFloats; w += WOOD) {
+                    if (hole.wood[w] == i && hole.wood[w + 1] <= half && hole.wood[w + 2] >= half) {
+                        int ends = (int) hole.wood[w + 4];
+                        if ((ends & 1) != 0) {
+                            low = Math.min(low, hole.wood[w + 3]);
+                        }
+                        if ((ends & 2) != 0) {
+                            high = Math.max(high, hole.wood[w + 3]);
+                        }
+                    }
+                }
+                boolean lined = high > low && !inAnother(hole, lerp(pS, qS, half), lerp(pT, qT, half), low, lerp(fpS, fqS, half), lerp(fpT, fqT, half), high);
+                if (lined && running && low == runLow && high == runHigh) {
+                    runTo = b;
+                    continue;
+                }
+                if (running) {
+                    strip(hole, pS, pT, qS, qT, fpS, fpT, fqS, fqT, runFrom, runTo, runLow, runHigh, nS, nT);
+                }
+                running = lined;
+                runFrom = a;
+                runTo = b;
+                runLow = low;
+                runHigh = high;
+            }
+            if (running) {
+                strip(hole, pS, pT, qS, qT, fpS, fpT, fqS, fqT, runFrom, runTo, runLow, runHigh, nS, nT);
+            }
         }
+    }
+
+    private void addBreak(float at) {
+        breaks = room(breaks, breakCount + 1);
+        breaks[breakCount++] = at;
+    }
+
+    /** Adds as breaks where the edge from p to q crosses the outlines of the hole other, as shares of the edge. */
+    private void crossings(Hole other, float pS, float pT, float qS, float qT) {
+        if (Math.max(pS, qS) < other.lowS || Math.min(pS, qS) > other.highS || Math.max(pT, qT) < other.lowT || Math.min(pT, qT) > other.highT) {
+            return;
+        }
+        for (float[] o : other.outline == other.exit ? new float[][] {other.outline} : new float[][] {other.outline, other.exit}) {
+            int points = o.length / 2;
+            for (int k = 0; k < points; k++) {
+                int m = (k + 1) % points;
+                float dP = side(o[2 * k], o[2 * k + 1], o[2 * m], o[2 * m + 1], pS, pT), dQ = side(o[2 * k], o[2 * k + 1], o[2 * m], o[2 * m + 1], qS, qT);
+                if ((dP > 0f) == (dQ > 0f) || (side(pS, pT, qS, qT, o[2 * k], o[2 * k + 1]) > 0f) == (side(pS, pT, qS, qT, o[2 * m], o[2 * m + 1]) > 0f)) {
+                    continue;
+                }
+                addBreak(dP / (dP - dQ));
+            }
+        }
+    }
+
+    /** Whether (nS, nT) on the face low across the plane, or (fS, fT) on the face high across it, is in a hole other than hole, by the outline that cut the face. */
+    private boolean inAnother(Hole hole, float nS, float nT, float low, float fS, float fT, float high) {
+        for (Hole other : holes) {
+            if (other != hole && ((inBox(other, nS, nT) && inside(other.outlineAt(low), nS, nT)) || (inBox(other, fS, fT) && inside(other.outlineAt(high), fS, fT)))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean inBox(Hole hole, float s, float t) {
+        return s >= hole.lowS && s <= hole.highS && t >= hole.lowT && t <= hole.highT;
+    }
+
+    /** From a to b by share, a and b to the bit at shares 0 and 1. */
+    private static float lerp(float a, float b, float share) {
+        return a * (1f - share) + b * share;
+    }
+
+    /** The lining of the run of an edge from share from to share to, from the outline near at low across the plane to the outline far at high. */
+    private void strip(Hole hole, float pS, float pT, float qS, float qT, float fpS, float fpT, float fqS, float fqT, float from, float to,
+            float low, float high, float nS, float nT) {
+        SpriteGeometry.Mesh mesh = hole.donorMesh;
+        int at = mesh.floats;
+        lining(mesh, hole.donor, lerp(pS, qS, from), lerp(pT, qT, from), low, nS, nT);
+        lining(mesh, hole.donor, lerp(pS, qS, to), lerp(pT, qT, to), low, nS, nT);
+        lining(mesh, hole.donor, lerp(fpS, fqS, to), lerp(fpT, fqT, to), high, nS, nT);
+        mesh.again(at);
+        mesh.again(at + 2 * V);
+        lining(mesh, hole.donor, lerp(fpS, fqS, from), lerp(fpT, fqT, from), high, nS, nT);
     }
 
     private void lining(SpriteGeometry.Mesh mesh, float[] donor, float s, float t, float across, float nS, float nT) {

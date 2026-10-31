@@ -17,6 +17,9 @@ final class BlastTests {
         Checks.run("aFaceAlongThePlaneIsCutWhereItsLineRunsThroughTheHole", BlastTests::aFaceAlongThePlaneIsCutWhereItsLineRunsThroughTheHole);
         Checks.run("aFaceOutOfReachIsNotCut", BlastTests::aFaceOutOfReachIsNotCut);
         Checks.run("aHoleThroughTwoFacesIsLinedBetweenThem", BlastTests::aHoleThroughTwoFacesIsLinedBetweenThem);
+        Checks.run("aHoleOffTheLeafsEdgeIsLinedOnlyOverTheLeaf", BlastTests::aHoleOffTheLeafsEdgeIsLinedOnlyOverTheLeaf);
+        Checks.run("holesOverOneAnotherAreLinedOnlyRoundTheWoodLeft", BlastTests::holesOverOneAnotherAreLinedOnlyRoundTheWoodLeft);
+        Checks.run("aHoleIsLinedThroughABattenOnlyWhereTheBattenIs", BlastTests::aHoleIsLinedThroughABattenOnlyWhereTheBattenIs);
         Checks.run("whatACutVertexCarriesIsBlendedAndItsCodesKept", BlastTests::whatACutVertexCarriesIsBlendedAndItsCodesKept);
         Checks.run("theRunsAThingDrewMoveWithItsTriangles", BlastTests::theRunsAThingDrewMoveWithItsTriangles);
         Checks.run("aMarkLiesOnTheFaceNearestWhereItWasStruckFrom", BlastTests::aMarkLiesOnTheFaceNearestWhereItWasStruckFrom);
@@ -279,6 +282,119 @@ final class BlastTests {
         }
         check(between, "the lining runs from one face to the other");
         check(shaded, "and is the face's light, darker");
+    }
+
+    /**
+     * The lining's strips from `from` on, two triangles each, as finish adds them: for each, where
+     * it starts and ends along the outline at the face it runs from, and how far across it runs
+     * from and to.
+     */
+    private static ArrayList<float[]> strips(SpriteGeometry.Mesh mesh, int from) {
+        ArrayList<float[]> strips = new ArrayList<>();
+        float[] f = mesh.vertices;
+        for (int at = from; at < mesh.floats; at += 6 * V) {
+            float low = Float.POSITIVE_INFINITY, high = Float.NEGATIVE_INFINITY;
+            for (int k = 0; k < 6; k++) {
+                low = Math.min(low, f[at + k * V + 1]);
+                high = Math.max(high, f[at + k * V + 1]);
+            }
+            strips.add(new float[] {f[at], f[at + 2], f[at + V], f[at + V + 2], low, high});
+        }
+        return strips;
+    }
+
+    /** How long the strips run along the outline, at the face they run from. */
+    private static float linedLength(ArrayList<float[]> strips) {
+        float sum = 0f;
+        for (float[] strip : strips) {
+            sum += (float) Math.hypot(strip[2] - strip[0], strip[3] - strip[1]);
+        }
+        return sum;
+    }
+
+    /** How long the outline is where `kept` holds, measured a thousandth of an edge at a time. */
+    private static float lengthWhere(float[] o, java.util.function.BiPredicate<Float, Float> kept) {
+        float sum = 0f;
+        int points = o.length / 2, steps = 1000;
+        for (int i = 0; i < points; i++) {
+            int j = (i + 1) % points;
+            float dS = (o[2 * j] - o[2 * i]) / steps, dT = (o[2 * j + 1] - o[2 * i + 1]) / steps;
+            for (int k = 0; k < steps; k++) {
+                if (kept.test(o[2 * i] + dS * (k + 0.5f), o[2 * i + 1] + dT * (k + 0.5f))) {
+                    sum += (float) Math.hypot(dS, dT);
+                }
+            }
+        }
+        return sum;
+    }
+
+    /** A hole whose middle is on a leaf's edge, as a blast at a door's edge leaves: no lining stands past the leaf, where there is no wood. */
+    private static void aHoleOffTheLeafsEdgeIsLinedOnlyOverTheLeaf() {
+        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+        face(mesh, 0f, 0.5f, 0f, 2f, -0.02f);
+        face(mesh, 0f, 0.5f, 0f, 2f, 0.02f);
+        MeshCut cut = new MeshCut(0f, 0f, 1f, 0f, 0.05f);
+        cut.hole(OUTLINE, 0.5f, 1f);
+        cut.cut(mesh, 0);
+        int cutFloats = mesh.floats;
+        cut.finish();
+        float furthestAlong = Float.NEGATIVE_INFINITY;
+        for (int at = cutFloats; at < mesh.floats; at += V) {
+            furthestAlong = Math.max(furthestAlong, mesh.vertices[at]);
+        }
+        check(furthestAlong <= 0.5f + 1e-6f, "no lining stands past the leaf's edge at 0.5: it reaches " + furthestAlong);
+        float lined = linedLength(strips(mesh, cutFloats)), over = lengthWhere(OUTLINE, (s, t) -> s < 0.5f);
+        check(Math.abs(lined - over) < 1e-3f, "the outline is lined all the way round where it is over the leaf: " + lined + " of " + over);
+    }
+
+    /** A second blast's hole over the first's: each is lined where it cuts the wood left, and neither's lining crosses the other's opening. */
+    private static void holesOverOneAnotherAreLinedOnlyRoundTheWoodLeft() {
+        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+        face(mesh, 0f, 1f, 0f, 2f, -0.02f);
+        face(mesh, 0f, 1f, 0f, 2f, 0.02f);
+        float[] two = MeshCut.outline(0.62f, 1.05f, 0.08f, 0.1f, 0.3f, 18, 4321);
+        MeshCut cut = new MeshCut(0f, 0f, 1f, 0f, 0.05f);
+        cut.hole(OUTLINE, 0.5f, 1f);
+        cut.hole(two, 0.62f, 1.05f);
+        cut.cut(mesh, 0);
+        int cutFloats = mesh.floats;
+        cut.finish();
+        ArrayList<float[]> strips = strips(mesh, cutFloats);
+        int across = 0;
+        for (float[] strip : strips) {
+            float s = (strip[0] + strip[2]) / 2f, t = (strip[1] + strip[3]) / 2f;
+            if (MeshCut.inside(nearOutline(OUTLINE, s, t) ? two : OUTLINE, s, t)) {
+                across++;
+            }
+        }
+        check(across == 0, "no strip of either hole's lining lies in the other's opening: " + across + " of " + strips.size() + " do");
+        float left = lengthWhere(OUTLINE, (s, t) -> !MeshCut.inside(two, s, t)) + lengthWhere(two, (s, t) -> !MeshCut.inside(OUTLINE, s, t));
+        check(Math.abs(linedLength(strips) - left) < 1e-3f, "the two are lined all the way round what is left: " + linedLength(strips) + " of " + left);
+    }
+
+    /** A hole through boards and the batten across them: the lining is as deep as the batten only where the batten is, and as the boards elsewhere. */
+    private static void aHoleIsLinedThroughABattenOnlyWhereTheBattenIs() {
+        SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+        face(mesh, 0f, 1f, 0f, 2f, -0.04f);
+        face(mesh, 0f, 1f, 0f, 2f, 0.04f);
+        face(mesh, 0f, 1f, 0.9f, 1f, 0.062f);
+        MeshCut cut = new MeshCut(0f, 0f, 1f, 0f, 0.08f);
+        cut.hole(OUTLINE, 0.5f, 1f);
+        cut.cut(mesh, 0);
+        int cutFloats = mesh.floats;
+        cut.finish();
+        ArrayList<float[]> strips = strips(mesh, cutFloats);
+        int wrong = 0;
+        for (float[] strip : strips) {
+            float t = (strip[1] + strip[3]) / 2f;
+            float deep = t > 0.9f && t < 1f ? 0.062f : 0.04f;
+            if (Math.abs(strip[4] + 0.04f) > 1e-6f || Math.abs(strip[5] - deep) > 1e-6f) {
+                wrong++;
+            }
+        }
+        check(wrong == 0, "every strip runs from the boards' face at -0.04 to the batten's face where it crosses the batten, and to the boards' other face elsewhere: "
+                + wrong + " of " + strips.size() + " do not");
+        check(Math.abs(linedLength(strips) - lengthWhere(OUTLINE, (s, t) -> true)) < 1e-3f, "and the hole is lined all the way round");
     }
 
     private static void whatACutVertexCarriesIsBlendedAndItsCodesKept() {
