@@ -177,7 +177,7 @@ final class Pipeline {
     private static final int GL_PIXEL_PACK_BUFFER = 0x88EB;
     private static final int GL_PIXEL_PACK_BUFFER_BINDING = 0x88ED;
     private static final int GL_STREAM_READ = 0x88E1;
-    private static final int GL_SYNC_GPU_COMMANDS_COMPLETE = 0x9117, GL_ALREADY_SIGNALED = 0x911A, GL_TIMEOUT_EXPIRED = 0x911B, GL_CONDITION_SATISFIED = 0x911C;
+    private static final int GL_SYNC_GPU_COMMANDS_COMPLETE = 0x9117;
     private static final int GL_SAMPLER_BINDING = 0x8919;
     private static final int GL_UNPACK_ALIGNMENT = 0x0CF5;
     private static final int GL_UNPACK_ROW_LENGTH = 0x0CF2;
@@ -349,7 +349,7 @@ final class Pipeline {
     private float asideX, asideY;
     private static Program world, worldCalm, worldUntinted, worldDepth, grassLit, grassDepth, shadow, solidShadow, figureLight, sky, clouds, skyNear, bolt, occlusion, soften, volume, bloomDown, bloomUp, develop, meter;
     /** By Quality.antialiasing, what shows the developed picture with its edges smoothed that much. */
-    private static final Program[] smooth = new Program[4];
+    private static final Program[] smooth = new Program[Quality.ANTIALIASING_HIGH + 1];
     private static Program far, farTree;
     /** What the shaders are told as uBeyond this frame: see PipelineShaders.ENDS. Not 0 where the far land is drawn behind the built world. */
     private float beyond;
@@ -4749,12 +4749,8 @@ final class Pipeline {
         }
         long oldest = meterFences[meterAt];
         if (oldest != 0L) {
-            int waited = GL32.glClientWaitSync(oldest, 0, 0L);
-            if (waited != GL_TIMEOUT_EXPIRED && waited != GL_ALREADY_SIGNALED && waited != GL_CONDITION_SATISFIED) {
-                // Else the meter's ring stops at this fence and the exposure is never metered again.
-                throw new IllegalStateException(String.format(Locale.ROOT, "waiting for the graphics card to meter the light failed (glClientWaitSync gave 0x%X)", waited));
-            }
-            if (waited == GL_ALREADY_SIGNALED || waited == GL_CONDITION_SATISFIED) {
+            // Thrown, else the meter's ring stops at this fence and the exposure is never metered again.
+            if (Uploads.signalled(oldest, () -> "waiting for the graphics card to meter the light")) {
                 GL15.glBindBuffer(GL_PIXEL_PACK_BUFFER, meterBuffers[meterAt]);
                 meterRead.clear();
                 GL15.glGetBufferSubData(GL_PIXEL_PACK_BUFFER, 0L, meterRead);

@@ -238,7 +238,6 @@ final class BuildThreads {
                 }
             }
             asked.addAll(othersEnds);
-            othersEnds.clear();
             for (Future<?> each : running) {
                 each.get();
             }

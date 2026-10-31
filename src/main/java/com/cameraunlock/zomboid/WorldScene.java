@@ -6953,7 +6953,7 @@ final class WorldScene {
                             thing = BloodBuilder.onWall(thing, object);
                             float[] holes = BlastHoles.of(object);
                             if (holes != null) {
-                                thing = sum(thing, java.util.Arrays.hashCode(holes));
+                                thing = sum(thing, Arrays.hashCode(holes));
                             }
                             if (object instanceof IsoDoor door) {
                                 thing = sum(sum(thing, door.IsOpen() ? 2 : 1), DoorGlass.broken(door));

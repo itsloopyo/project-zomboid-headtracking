@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import java.util.function.IntUnaryOperator;
 import zombie.network.GameServer;
 
 /**
@@ -36,7 +37,7 @@ final class Rules {
     }
 
     /** Changes some bits at once: a reload of the file on the config thread and a tick on the options screen may change them together. */
-    static synchronized void update(java.util.function.IntUnaryOperator change) {
+    static synchronized void update(IntUnaryOperator change) {
         on = change.applyAsInt(on);
     }
 

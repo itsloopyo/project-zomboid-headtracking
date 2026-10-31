@@ -11,6 +11,7 @@ import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
 import java.security.ProtectionDomain;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,7 +29,7 @@ public final class Agent {
     private static final String ATLAS = "zombie/core/skinnedmodel/DeadBodyAtlas", BODY_PARAMS = ATLAS + "$BodyParams", RENDER_JOB = ATLAS + "$RenderJob";
     private static final String ANIMATED_MODEL = "zombie/core/skinnedmodel/advancedanimation/AnimatedModel";
     private static final String HOOKS = "com/cameraunlock/zomboid/Hooks";
-    private static final String HOOKS_NOT_RUNNING = "com/cameraunlock/zomboid/NotRunning";
+    private static final String NOT_RUNNING = "com/cameraunlock/zomboid/NotRunning";
     private static final String HIGHLIGHT = "zombie/iso/fboRenderChunk/FBORenderObjectHighlight";
     private static final String GAME_MOUSE = "zombie/input/Mouse";
     private static final String TORCH = "zombie/characters/IsoGameCharacter$TorchInfo";
@@ -254,7 +255,7 @@ public final class Agent {
         NotRunning.say(why);
         String menu = "zombie/gameStates/MainScreenState";
         PatchTransformer transformer = new PatchTransformer(List.of(after(new CallSite.Method(menu, "render", "()V"),
-                new CallSite.Method("zombie/modding/ActiveMods", "renderUI", "()V"), new CallSite.Method(HOOKS_NOT_RUNNING, "draw", "()V"))));
+                new CallSite.Method("zombie/modding/ActiveMods", "renderUI", "()V"), new CallSite.Method(NOT_RUNNING, "draw", "()V"))));
         add(instrumentation, transformer);
         retransform(instrumentation, instrumentation.getAllLoadedClasses(), transformer.owners());
     }
@@ -271,11 +272,15 @@ public final class Agent {
      * method bodies only, so PatchTransformer leaves out each patch that adds members.
      */
     private static void retransformLoaded(Instrumentation instrumentation, Class<?>[] before) {
-        Set<String> owners = new java.util.HashSet<>();
+        Set<String> owners = new HashSet<>();
         transformers.forEach(transformer -> owners.addAll(transformer.owners()));
         int[] done = retransform(instrumentation, before, owners);
-        Log.info("patched again " + done[0] + " classes the game had loaded before the mod started"
-                + (done[1] == 0 ? "" : ", " + done[1] + " refused"));
+        Log.info("patched again " + done[0] + " classes the game had loaded before the mod started" + refusedSaid(done));
+    }
+
+    /** How many classes a retransform refused, as the log says it after how many it patched: nothing where none was. */
+    private static String refusedSaid(int[] done) {
+        return done[1] == 0 ? "" : ", " + done[1] + " refused";
     }
 
     /** Has the JVM run each of the loaded classes the owners name through the transformers again, and answers how many it did and how many it refused. */
@@ -318,7 +323,7 @@ public final class Agent {
         if (in.isEmpty()) {
             return;
         }
-        Set<String> owners = new java.util.HashSet<>();
+        Set<String> owners = new HashSet<>();
         StringJoiner names = new StringJoiner(", ");
         for (PatchSet set : in) {
             add(started, set.transformer());
@@ -333,7 +338,7 @@ public final class Agent {
         // FirstPerson asks for the first person set's gap every frame and is handed the first answer.
         firstPersonAsked = false;
         Log.info("put into the game's code now, as what they serve was switched on: " + names + "; patched again " + done[0]
-                + " classes the game had loaded" + (done[1] == 0 ? "" : ", " + done[1] + " refused"));
+                + " classes the game had loaded" + refusedSaid(done));
     }
 
     /** Called where the game has just logged an exception of any kind. */
@@ -515,7 +520,7 @@ public final class Agent {
      * once Tracking.start has read the file. Gives each set whose gap the mod asks its field.
      */
     static List<PatchSet> sets() {
-        Supplier<String> firstPersonOff = () -> off(Part.FIRST_PERSON);
+        Supplier<String> firstPersonOff = offNow(Part.FIRST_PERSON);
         firstPerson = new PatchTransformer(firstPersonPatches());
         fineSkins = new PatchTransformer(fineSkinPatches());
         shot = new PatchTransformer(shotPatches());
@@ -540,8 +545,9 @@ public final class Agent {
         // The shaders and the part draw serve first person's picture and the mouths of the people
         // the game draws, and the game reads its shaders as it starts, so these follow the start alone.
         mouthsAtStart = Mouths.on();
-        String mouthsOff = mouthsAtStart || Part.FIRST_PERSON.atStart() ? null
+        String mouthsOffAtStart = mouthsAtStart || Part.FIRST_PERSON.atStart() ? null
                 : Part.FIRST_PERSON.key + " was off as the game started, and so was TalkingMouths";
+        Supplier<String> mouthsOff = () -> mouthsOffAtStart;
         // Blood trails and flying pieces come only from first person's wounds; the hidden walls and the rewind have rows of their own.
         Supplier<String> worldOff = () -> (Rules.rows() & (Rules.HIDDEN_WALLS | Rules.REWIND)) != 0 ? null
                 : also(off(Part.FIRST_PERSON), DevBuild.ON ? "were HiddenWallDecor and Rewind30s" : "was HiddenWallDecor");
@@ -561,14 +567,14 @@ public final class Agent {
                 new PatchSet("fine skins", fineSkins, offNow(Part.FIRST_PERSON, Part.FINER_SKINS)),
                 new PatchSet("shot", shot, firstPersonOff),
                 new PatchSet("thunder", thunder, offNow(Part.FIRST_PERSON, Part.LIGHTNING_BOLTS)),
-                new PatchSet("lamps", lamps, () -> mouthsOff),
+                new PatchSet("lamps", lamps, mouthsOff),
                 new PatchSet("impacts", impacts, impactsOff),
                 new PatchSet("model head", modelHead, in),
                 new PatchSet("name tags", nameTags, offNow(Part.FIRST_PERSON, Part.NAME_TAGS_AT_HEADS)),
                 new PatchSet("cached lookups", new PatchTransformer(gameFixPatches()), offNow(Part.CACHED_GAME_LOOKUPS)),
                 new PatchSet("hang fix", new PatchTransformer(hangFixPatches()), offNow(Part.BURNT_BUILDING_FREEZE_FIX)),
                 new PatchSet("covered", new PatchTransformer(coveredPatches()), offNow(Part.FIRST_PERSON, Part.SKIP_COVERED_GAME_DRAWING)),
-                new PatchSet("part draw", new PatchTransformer(partDrawPatches()), () -> mouthsOff),
+                new PatchSet("part draw", new PatchTransformer(partDrawPatches()), mouthsOff),
                 new PatchSet("screen grey", new PatchTransformer(screenGreyPatches()), offNow(Part.FIRST_PERSON, Part.LEAVE_OUT_SCREEN_GREY)),
                 new PatchSet("far vehicles", new PatchTransformer(farVehiclePatches()), firstPersonOff),
                 new PatchSet("live sight", new PatchTransformer(liveSightPatches()), ruleOff(Rules.SEEN_AT_ONCE, "ZombiesSeenAtOnce")),
@@ -1972,7 +1978,7 @@ public final class Agent {
         }
 
         Set<String> owners() {
-            Set<String> owners = new java.util.HashSet<>();
+            Set<String> owners = new HashSet<>();
             patches.forEach(patch -> owners.add(patch.owner()));
             return owners;
         }

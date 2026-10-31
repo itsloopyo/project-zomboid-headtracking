@@ -3,6 +3,7 @@ package com.cameraunlock.zomboid;
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.Locale;
+import java.util.function.Supplier;
 import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL15;
@@ -133,18 +134,28 @@ final class Uploads {
         frameStart = -1;
     }
 
+    /**
+     * Whether the card has passed a fence, asked without waiting: false while it has not, and
+     * thrown for any other answer, said as waiting names what was waited for.
+     */
+    static boolean signalled(long fence, Supplier<String> waiting) {
+        int waited = GL32.glClientWaitSync(fence, 0, 0L);
+        if (waited == GL_TIMEOUT_EXPIRED) {
+            return false;
+        }
+        if (waited != GL_ALREADY_SIGNALED && waited != GL_CONDITION_SATISFIED) {
+            throw new IllegalStateException(String.format(Locale.ROOT, "%s failed (glClientWaitSync gave 0x%X)", waiting.get(), waited));
+        }
+        return true;
+    }
+
     /** Whether the card has read everything written in the ring before upTo. */
     private static boolean passed(long upTo) {
         while (!fenced.isEmpty() && fenced.peek().start() < upTo) {
             Fenced oldest = fenced.peek();
-            int waited = GL32.glClientWaitSync(oldest.fence(), 0, 0L);
-            if (waited == GL_TIMEOUT_EXPIRED) {
+            // Thrown, else the fence is asked after for good, and nothing is uploaded again this session.
+            if (!signalled(oldest.fence(), () -> "waiting for the graphics card to read the upload ring from " + oldest.start())) {
                 return false;
-            }
-            if (waited != GL_ALREADY_SIGNALED && waited != GL_CONDITION_SATISFIED) {
-                // Else the fence is asked after for good, and nothing is uploaded again this session.
-                throw new IllegalStateException(String.format(Locale.ROOT, "waiting for the graphics card to read the upload ring from %d failed (glClientWaitSync gave 0x%X)",
-                        oldest.start(), waited));
             }
             GL32.glDeleteSync(oldest.fence());
             fenced.poll();

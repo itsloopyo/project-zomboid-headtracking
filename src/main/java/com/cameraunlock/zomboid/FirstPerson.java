@@ -395,8 +395,7 @@ public final class FirstPerson {
         if (!on && !allowed(player)) {
             Log.info(who() + "first person stays off: " + whyNot(player));
             if (player != null) {
-                said = refused();
-                saidAt = System.nanoTime();
+                say(refused());
             }
             return;
         }
@@ -501,10 +500,7 @@ public final class FirstPerson {
      * the look still holding it, by a server that stops or drops the player.
      */
     void leftSave() {
-        viewAtLoadOwed = true;
-        hintsOnLanding = false;
-        wasInVehicle = false;
-        switchedForVehicle = false;
+        owedAgain();
         SnowPrints.forget();
         WallTiles.leftSave();
         view.heldLight.forget();
@@ -512,6 +508,20 @@ public final class FirstPerson {
         view.modeFade.giveBack("the save was left");
         giveBack("the save was left");
         coveredLastFrame = false;
+    }
+
+    /** The view at load is owed again, and nothing is left of the vehicle the player was in or the hints of their landing. */
+    private void owedAgain() {
+        viewAtLoadOwed = true;
+        hintsOnLanding = false;
+        wasInVehicle = false;
+        switchedForVehicle = false;
+    }
+
+    /** What the screen says, from now. */
+    private void say(String line) {
+        said = line;
+        saidAt = System.nanoTime();
     }
 
     /**
@@ -527,10 +537,7 @@ public final class FirstPerson {
         } else if (on || held || pictureUp || !view.flight.home()) {
             giveBack("player " + (view.index + 1) + " is gone");
         }
-        viewAtLoadOwed = true;
-        hintsOnLanding = false;
-        wasInVehicle = false;
-        switchedForVehicle = false;
+        owedAgain();
         risen = null;
         view.modeFade.giveBack("player " + (view.index + 1) + " is gone");
         // After giveBack, whose rest of the head tracking marks the view as one played in.
@@ -553,7 +560,7 @@ public final class FirstPerson {
         if (failure != null) {
             return FAILED;
         }
-        if (Agent.firstPersonGap() != null || Panels.gap() != null || CentreUse.gap() != null || WorldMenu.gap() != null) {
+        if (patchGap() != null) {
             return "First person is off: another mod or a game update changed something it needs. " + Log.FILE_NAME + " says what";
         }
         return cannotBeDrawn();
@@ -631,10 +638,21 @@ public final class FirstPerson {
             stride.begin(traceMoveX, traceMoveY, yaw);
         }
         if (on) {
-            said = Quality.said(view.index);
-            saidAt = System.nanoTime();
+            say(Quality.said(view.index));
         }
         Log.info(who() + "first person " + (on ? "on, " + facings(player) : "off"));
+    }
+
+    /** The first patch first person needs that the game's code did not take, as the log says it, or null. */
+    private static String patchGap() {
+        String gap = Agent.firstPersonGap();
+        if (gap == null) {
+            gap = Panels.gap();
+        }
+        if (gap == null) {
+            gap = CentreUse.gap();
+        }
+        return gap != null ? gap : WorldMenu.gap();
     }
 
     /** The ways the game has of saying which way a character faces, in degrees on the map: a landing that looks wrong is read off these. */
@@ -656,16 +674,7 @@ public final class FirstPerson {
         if (!Part.FIRST_PERSON.on()) {
             return Part.FIRST_PERSON.key + " is off in " + Config.FILE_NAME;
         }
-        String gap = Agent.firstPersonGap();
-        if (gap == null) {
-            gap = Panels.gap();
-        }
-        if (gap == null) {
-            gap = CentreUse.gap();
-        }
-        if (gap == null) {
-            gap = WorldMenu.gap();
-        }
+        String gap = patchGap();
         if (gap == null) {
             gap = failure;
         }
@@ -703,8 +712,7 @@ public final class FirstPerson {
             if (view.hasMouse()) {
                 String told = DevKeys.poll();
                 if (told != null) {
-                    said = told;
-                    saidAt = System.nanoTime();
+                    say(told);
                 }
             }
             // Over the world and under what the game draws over it, as the picture before was taken.
@@ -740,8 +748,7 @@ public final class FirstPerson {
             }
             if (failure == null) {
                 failure = "building the picture threw " + thrown;
-                said = FAILED;
-                saidAt = System.nanoTime();
+                say(FAILED);
             }
             on = false;
             overhead = false;
@@ -820,38 +827,30 @@ public final class FirstPerson {
         // Held while first person gets ready, whose line would cover it.
         if (troubles != troublesSaid && !gettingReady) {
             troublesSaid = troubles;
-            said = Config.troubleSaid();
-            saidAt = System.nanoTime();
+            say(Config.troubleSaid());
         }
         int memoryStep = VideoMemory.step();
         if (memoryStep > memoryStepSaid) {
             memoryStepSaid = memoryStep;
-            said = VideoMemory.shown(memoryStep);
-            saidAt = System.nanoTime();
+            say(VideoMemory.shown(memoryStep));
         }
         if ((pressed & Config.AIM_MODE) != 0) {
-            said = Tracking.aimModeLabel();
-            saidAt = System.nanoTime();
+            say(Tracking.aimModeLabel());
         }
         if ((pressed & Config.CYCLE_QUALITY) != 0) {
-            said = view.pipeline.failure() != null ? cannotBeDrawn() : Quality.said(view.index);
-            saidAt = System.nanoTime();
+            say(view.pipeline.failure() != null ? cannotBeDrawn() : Quality.said(view.index));
         }
         if ((pressed & Config.CYCLE_STYLE) != 0) {
-            said = "Style: " + Style.of(view.index).label;
-            saidAt = System.nanoTime();
+            say("Style: " + Style.of(view.index).label);
         }
         if ((pressed & Config.SPLIT_SCREEN) != 0) {
-            said = IsoPlayer.numPlayers == 2 ? "Split screen: " + SplitScreen.described() : "Split screen changes only with two players at the screen";
-            saidAt = System.nanoTime();
+            say(IsoPlayer.numPlayers == 2 ? "Split screen: " + SplitScreen.described() : "Split screen changes only with two players at the screen");
         }
         if ((pressed & Config.CYCLE_TRACKING_MODE) != 0) {
-            said = "Head tracking: " + Tracking.trackingModeLabel();
-            saidAt = System.nanoTime();
+            say("Head tracking: " + Tracking.trackingModeLabel());
         }
         if ((pressed & Config.YAW_MODE) != 0) {
-            said = Tracking.yawModeSaid();
-            saidAt = System.nanoTime();
+            say(Tracking.yawModeSaid());
         }
         // The picture draws the game's own view once what it is drawn with is made: until then that view is the game's.
         IsoPlayer player = view.player();
