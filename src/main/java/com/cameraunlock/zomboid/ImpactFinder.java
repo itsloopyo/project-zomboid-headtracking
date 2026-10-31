@@ -13,9 +13,7 @@ import zombie.iso.IsoMovingObject;
 import zombie.iso.IsoObject;
 import zombie.iso.IsoWorld;
 import zombie.iso.Vector3;
-import zombie.iso.objects.IsoDoor;
 import zombie.iso.sprite.IsoSprite;
-import zombie.util.list.PZArrayList;
 import zombie.vehicles.BaseVehicle;
 
 /**
@@ -406,7 +404,7 @@ final class ImpactFinder {
             float floor = level * ViewCamera.LEVEL_HEIGHT + terrain.height(x + normalX * FALLS_OUT, y + normalY * FALLS_OUT);
             int kind = Impacts.MASONRY;
             boolean hole = false;
-            IsoObject door = square == null ? null : doorOn(square, north);
+            IsoObject door = square == null ? null : DoorGlass.shutDoorOn(square, north);
             IsoObject struck = door;
             if (door != null) {
                 // A door swings: what it is made of flies from it, and it keeps no hole the picture lays over the world (see BlastHoles).
@@ -483,17 +481,6 @@ final class ImpactFinder {
     /** Whether a round by this character that goes through a door, a wall or a fence leaves a hole: a player's in first person, where the rule holds. */
     private static boolean holes(IsoGameCharacter shooter) {
         return Rules.bulletHoles() && shooter instanceof IsoPlayer player && View.of(player) != null;
-    }
-
-    /** The door hung on a square's north or west edge, shut, or null. */
-    private static IsoObject doorOn(IsoGridSquare square, boolean north) {
-        PZArrayList<IsoObject> objects = square.getObjects();
-        for (int i = 0; i < objects.size(); i++) {
-            if (objects.get(i) instanceof IsoDoor door && door.getNorth() == north && !door.IsOpen()) {
-                return door;
-            }
-        }
-        return null;
     }
 
     private static void add(float x, float y, float up, float normalX, float normalY, float normalUp, float wayX, float wayY, float wayUp,

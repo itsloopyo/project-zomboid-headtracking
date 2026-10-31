@@ -9,8 +9,6 @@ import zombie.iso.IsoMovingObject;
 import zombie.iso.IsoObject;
 import zombie.iso.IsoWorld;
 import zombie.iso.LosUtil;
-import zombie.iso.objects.IsoDoor;
-import zombie.iso.objects.IsoThumpable;
 import zombie.iso.objects.IsoWindow;
 import zombie.scripting.objects.AmmoType;
 import zombie.util.list.PZArrayList;
@@ -220,9 +218,8 @@ final class Penetration {
         PZArrayList<IsoObject> objects = square.getObjects();
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
-            if (object instanceof IsoDoor door && door.getNorth() == north && !door.IsOpen()
-                    || object instanceof IsoThumpable thumpable && thumpable.isDoor() && thumpable.getNorth() == north && !thumpable.IsOpen()) {
-                if (object instanceof IsoDoor door ? door.isBarricaded() : ((IsoThumpable) object).isBarricaded()) {
+            if (DoorGlass.shutOn(object, north)) {
+                if (DoorGlass.barricaded(object)) {
                     return STOPS;
                 }
                 if (throughALight(object, north, along, x, y)) {
@@ -249,7 +246,7 @@ final class Penetration {
 
     /** What going through a shut door's wood or a wall costs a round, away from any glass or hole in it. */
     static float costOf(IsoObject object) {
-        if (object instanceof IsoDoor door ? door.isBarricaded() : object instanceof IsoThumpable thumpable && thumpable.isDoor() && thumpable.isBarricaded()) {
+        if (DoorGlass.isDoor(object) && DoorGlass.barricaded(object)) {
             return STOPS;
         }
         String made = materialOf(object);
