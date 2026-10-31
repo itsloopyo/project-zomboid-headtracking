@@ -379,6 +379,16 @@ final class BlastTests {
         float[] back = BlastHoles.parse(BlastHoles.write(entries));
         check(java.util.Arrays.equals(entries, back), "what is saved reads back the same");
         check(BlastHoles.parse("").length == 0, "nothing saved is nothing");
+        check(refused("0.5,0.5,NaN,7,0,1") && refused("0.5,Infinity,0.1,7,0,1") && refused("0.5,0.5,0.1,7,0"), "a list with a number that is not finite, or one short, is refused");
+    }
+
+    private static boolean refused(String saved) {
+        try {
+            BlastHoles.parse(saved);
+            return false;
+        } catch (IllegalArgumentException expected) {
+            return true;
+        }
     }
 
     /**

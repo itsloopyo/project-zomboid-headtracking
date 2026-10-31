@@ -211,6 +211,9 @@ final class BlastHoles {
         float[] entries = new float[words.length];
         for (int i = 0; i < words.length; i++) {
             entries[i] = Float.parseFloat(words[i]);
+            if (!Float.isFinite(entries[i])) {
+                throw new IllegalArgumentException("blast holes saved with " + words[i] + " among their numbers: " + saved);
+            }
         }
         return entries;
     }
