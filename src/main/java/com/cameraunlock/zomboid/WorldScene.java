@@ -8065,6 +8065,9 @@ final class WorldScene {
                     overSheet = kindOf(over).tiledSheet;
                     WallHung.extent(frame, wall, hungAt);
                     posterClear = trimClear(wall == WallHung.NORTH, hungAt[WallHung.FROM], hungAt[WallHung.TO], hungAt[WallHung.BOTTOM], hungAt[WallHung.TOP]);
+                    // Holed where its wall is, and never a fence's boards to measure: these are otherwise set by the sprite before, which may be another object's.
+                    blastHoles = BlastHoles.of(object);
+                    lowBoards = false;
                     if (wall == WallHung.WEST) {
                         wallBuilder.addEdge(mesh, texture, false, false, x, y, z, westLayer++, 0f, 1f);
                     } else {
