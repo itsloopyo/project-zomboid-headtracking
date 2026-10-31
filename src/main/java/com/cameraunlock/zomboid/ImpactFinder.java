@@ -61,7 +61,6 @@ final class ImpactFinder {
     private static final Vector3f from = new Vector3f(), to = new Vector3f(), entry = new Vector3f();
     /** What is left of the budget of the round being followed (Penetration.Cartridge): 0 for one that goes through nothing. */
     private static float roundLeft;
-    private static final java.util.Random seeds = new java.util.Random();
     private static final GridTrace fences = new GridTrace();
     private static final GridTrace.Edges overFence = ImpactFinder::overFence;
     /** The shot overFence follows: its world, shooter and size. */
@@ -307,7 +306,7 @@ final class ImpactFinder {
         if (fenceSize == PELLET && blasts(fenceShooter)) {
             Blasts.pellet(fenceShooter, fence, north, along, levelsUp, side);
         } else if (fenceSize != PELLET && holes(fenceShooter)) {
-            BlastHoles.add(fence, north, along, levelsUp, BlastHoles.ROUND_RADIUS * fenceSize, seeds.nextInt(1 << 20), BlastHoles.ROUND * side);
+            BlastHoles.add(fence, north, along, levelsUp, BlastHoles.ROUND_RADIUS * fenceSize, BlastHoles.newSeed(), BlastHoles.ROUND * side);
         }
         int kind = Impacts.of(fence.getSprite(), false);
         float skin = Impacts.toSkin(crossed, across), out = crossed + WorldScene.WALL_HALF / Math.max(Math.abs(across), 0.1f);
@@ -438,7 +437,7 @@ final class ImpactFinder {
             }
             roundLeft -= cost;
             if (holes(shooter) && BlastHoles.holedByRounds(struck)) {
-                BlastHoles.add(struck, north, along, levelsUp, BlastHoles.ROUND_RADIUS * size, seeds.nextInt(1 << 20), BlastHoles.ROUND * side);
+                BlastHoles.add(struck, north, along, levelsUp, BlastHoles.ROUND_RADIUS * size, BlastHoles.newSeed(), BlastHoles.ROUND * side);
             }
             // Out of the far face, splinters and dust thrown on along the round's way.
             float out = WorldScene.WALL_HALF / Math.max(Math.abs(across), 0.1f);

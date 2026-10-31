@@ -6,7 +6,6 @@ import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.LosUtil;
 import zombie.iso.SpriteDetails.IsoFlagType;
-import zombie.util.list.PZArrayList;
 
 /**
  * What the loaded map says is in the way of the eye and of a shot. Both
@@ -171,12 +170,9 @@ final class WorldQuery {
         float along = north ? x - owner.getX() : y - owner.getY();
         // Over the middle of the square the hole is on, as ImpactFinder measured it when it made it.
         float up = (lineUp + lineWayUp * crossed - lineGround.height(owner.getX() + 0.5f, owner.getY() + 0.5f)) / ViewCamera.LEVEL_HEIGHT - level;
-        PZArrayList<IsoObject> objects = owner.getObjects();
-        for (int i = 0; i < objects.size(); i++) {
-            IsoObject object = objects.get(i);
-            if (DoorGlass.shutOn(object, north)) {
-                return !DoorGlass.barricaded(object) && BlastHoles.through(object, north, along, up);
-            }
+        IsoObject door = DoorGlass.shutDoorOn(owner, north);
+        if (door != null) {
+            return !DoorGlass.barricaded(door) && BlastHoles.through(door, north, along, up);
         }
         IsoObject wall = WorldScene.wallOn(owner, north);
         return wall != null && BlastHoles.through(wall, north, along, up);
@@ -190,14 +186,8 @@ final class WorldQuery {
         float crossed = ShotGlass.crossedAt(lineX, lineY, lineWayX, lineWayY, fromX, fromY, toX, toY);
         float x = lineX + lineWayX * crossed, y = lineY + lineWayY * crossed;
         float up = (lineUp + lineWayUp * crossed - lineGround.height(x, y)) / ViewCamera.LEVEL_HEIGHT - level;
-        PZArrayList<IsoObject> objects = owner.getObjects();
-        for (int i = 0; i < objects.size(); i++) {
-            IsoObject object = objects.get(i);
-            if (DoorGlass.shutOn(object, north)) {
-                return !DoorGlass.barricaded(object) && DoorGlass.lightAt(object, north, north ? x - owner.getX() : y - owner.getY(), up) >= 0;
-            }
-        }
-        return false;
+        IsoObject door = DoorGlass.shutDoorOn(owner, north);
+        return door != null && !DoorGlass.barricaded(door) && DoorGlass.lightAt(door, north, north ? x - owner.getX() : y - owner.getY(), up) >= 0;
     }
 
     /** As solidToAShot, with a window stopping the line too: see windows. */

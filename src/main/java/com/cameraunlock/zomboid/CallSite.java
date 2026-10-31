@@ -53,19 +53,7 @@ final class CallSite {
 
     /** Inserts {@code code} straight after each of the {@code expected} calls to {@code call} inside {@code within}. */
     static byte[] insertAfterEach(byte[] classBytes, Method within, Method call, Consumer<CodeBuilder> inserted, int expected) {
-        int[] matches = {0};
-        CodeTransform insert = (code, element) -> {
-            code.with(element);
-            if (element instanceof InvokeInstruction invoke && isCallTo(invoke, call)) {
-                matches[0]++;
-                inserted.accept(code);
-            }
-        };
-        byte[] transformed = transform(classBytes, within, insert);
-        if (matches[0] != expected) {
-            throw new IllegalStateException("expected " + expected + " of the call to " + call + " in " + within + ", found " + matches[0]);
-        }
-        return transformed;
+        return insertAfterEach(classBytes, within, call, List.of(), (code, slots) -> inserted.accept(code), expected);
     }
 
     /**

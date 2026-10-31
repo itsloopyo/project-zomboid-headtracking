@@ -268,7 +268,7 @@ final class WallBuilder {
     }
 
     /** How far either side of its edge a blast's hole goes through a fence, in tiles: its boards, and the battens they are nailed to. */
-    static final float FENCE_REACH = WorldScene.WALL_HALF + 0.04f;
+    private static final float FENCE_REACH = WorldScene.WALL_HALF + 0.04f;
 
     private void addWholeEdge(SpriteGeometry.Mesh mesh, Texture texture, boolean wall, boolean door, int x, int y, int z,
             float layer, float da, float db) {

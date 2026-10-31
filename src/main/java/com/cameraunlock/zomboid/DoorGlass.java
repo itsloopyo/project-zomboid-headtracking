@@ -32,16 +32,18 @@ final class DoorGlass {
     private DoorGlass() {}
 
     /** The key a door's mod data keeps its broken lights under. */
-    static final String BROKEN = "cameraunlockBrokenLights";
+    private static final String BROKEN = "cameraunlockBrokenLights";
+    /** How many lights of a leaf have a bit of their own for their glass broken. */
+    private static final int MOST_LIGHTS = 30;
     /**
      * The bit kept where a blast smashed a door's sash. Every light of it is broken, and the bits
      * under it hold where in the sash the blast's middle was: AT_BITS for the share of its width
      * from its start, and AT_BITS over them for the share of its height from its foot.
      */
-    static final int SMASHED = 1 << 30;
+    static final int SMASHED = 1 << MOST_LIGHTS;
     private static final int AT_BITS = 15, AT_MOST = (1 << AT_BITS) - 1;
     /** How many of one blast's pellets through a door's lights smash its sash. */
-    static final int SMASHING = 3;
+    private static final int SMASHING = 3;
     /** How far from a blast's middle the wood of a sash is blown out, as a share of the sash's narrower side, and how much further or less each splinter goes, as a share of that. */
     static final float BLOWN = 0.42f, RAGGED = 0.4f;
     /** How many splinters a bar or a bead is split into across its width. */
@@ -178,6 +180,11 @@ final class DoorGlass {
         return x * 73856093 ^ y * 19349663 ^ z * 83492791;
     }
 
+    /** Where a smashed sash's bar breaks from: OpeningBuilder draws it from the same seed the shots go through it by. */
+    static int barSeed(int seed, int bar) {
+        return seed ^ bar * 2654435;
+    }
+
     /** The leaf of a shut door as the picture measured it (Doors), or null. */
     private static Windows.Shape leafOf(IsoObject door) {
         Doors.Shape shape = Doors.known(door.getSprite().getTextureForCurrentFrame(door.getDir()));
@@ -248,7 +255,7 @@ final class DoorGlass {
                 if (!inSash(sash, bars[bar], bars[bar + 1], bars[bar + 2], bars[bar + 3])) {
                     continue;
                 }
-                float[] left = remnants(bars[bar], bars[bar + 1], bars[bar + 2], bars[bar + 3], blast, seed ^ bar * 2654435);
+                float[] left = remnants(bars[bar], bars[bar + 1], bars[bar + 2], bars[bar + 3], blast, barSeed(seed, bar));
                 for (int piece = 0; piece < left.length; piece += 4) {
                     if (along >= left[piece] && along <= left[piece + 1] && up >= left[piece + 2] && up <= left[piece + 3]) {
                         return -1;
@@ -270,6 +277,17 @@ final class DoorGlass {
         return object instanceof IsoDoor || object instanceof IsoThumpable thumpable && thumpable.isDoor();
     }
 
+    /** The first door shut on a square's north or west edge, or null. */
+    static IsoObject shutDoorOn(IsoGridSquare square, boolean north) {
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            if (shutOn(objects.get(i), north)) {
+                return objects.get(i);
+            }
+        }
+        return null;
+    }
+
     /** Whether a thing is a door shut on its square's north edge, or its west one. */
     static boolean shutOn(IsoObject object, boolean north) {
         return object instanceof IsoDoor door ? door.getNorth() == north && !door.IsOpen()
@@ -287,7 +305,7 @@ final class DoorGlass {
             return panes;
         }
         float[] left = panes.clone();
-        for (int light = 0; light * 5 < left.length && light < 30; light++) {
+        for (int light = 0; light * 5 < left.length && light < MOST_LIGHTS; light++) {
             if ((lights & SMASHED) != 0 || (lights & 1 << light) != 0) {
                 left[light * 5 + 4] = 0f;
             }

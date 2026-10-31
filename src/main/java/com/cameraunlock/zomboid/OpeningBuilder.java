@@ -495,10 +495,8 @@ final class OpeningBuilder {
                 }
                 for (int bar = 0; bar < bars.length; bar += 4) {
                     float[] left = !smashed || !DoorGlass.inSash(sash, bars[bar], bars[bar + 1], bars[bar + 2], bars[bar + 3]) ? Arrays.copyOfRange(bars, bar, bar + 4)
-                            : DoorGlass.remnants(bars[bar], bars[bar + 1], bars[bar + 2], bars[bar + 3], blast, seed ^ bar * 2654435);
-                    for (int piece = 0; piece < left.length; piece += 4) {
-                        addJoinery(wood, left[piece], left[piece + 1], left[piece + 2], left[piece + 3], face, r, g, b);
-                    }
+                            : DoorGlass.remnants(bars[bar], bars[bar + 1], bars[bar + 2], bars[bar + 3], blast, DoorGlass.barSeed(seed, bar));
+                    addPieces(wood, left, face, r, g, b);
                 }
             }
             // The jamb is the doorway's, not the leaf's: the line round a door E would open goes round the leaf.
@@ -523,9 +521,7 @@ final class OpeningBuilder {
                 for (int at = 0; at < bead.length; at += 4) {
                     float[] left = !smashed ? Arrays.copyOfRange(bead, at, at + 4)
                             : DoorGlass.remnants(bead[at], bead[at + 1], bead[at + 2], bead[at + 3], blast, seed ^ (pane * 4 + at + 1) * 40503);
-                    for (int piece = 0; piece < left.length; piece += 4) {
-                        addJoinery(wood, left[piece], left[piece + 1], left[piece + 2], left[piece + 3], face + Math.signum(face) * BEAD_PROUD, r, g, b);
-                    }
+                    addPieces(wood, left, face + Math.signum(face) * BEAD_PROUD, r, g, b);
                 }
             }
             // A garage door is lifted by a handle at its foot and rides in tracks: no knob, no hinges.
@@ -597,7 +593,7 @@ final class OpeningBuilder {
     }
 
     /** How far either side of its middle a blast's hole goes through a door's leaf, in tiles: the leaf, and its ledges and panels. */
-    static final float DOOR_REACH = DOOR_HALF + LEDGE_PROUD + 0.006f;
+    private static final float DOOR_REACH = DOOR_HALF + LEDGE_PROUD + 0.006f;
 
     /**
      * The holes and marks of the door being added (BlastHoles), laid on its leaf where it stands
@@ -1284,6 +1280,13 @@ final class OpeningBuilder {
     private void windowPoint(float[] c, int i, float along, float up, float across) {
         WorldScene.set(c, i, windowX + windowAlongX * along + windowAlongY * across, windowY + windowAlongY * along + windowAlongX * across,
                 windowFoot + up * ViewCamera.LEVEL_HEIGHT);
+    }
+
+    /** Pieces of wood four numbers each, start, end, foot and head, as remnants hands them back. */
+    private void addPieces(SpriteGeometry.Mesh wood, float[] pieces, float face, float r, float g, float b) {
+        for (int piece = 0; piece < pieces.length; piece += 4) {
+            addJoinery(wood, pieces[piece], pieces[piece + 1], pieces[piece + 2], pieces[piece + 3], face, r, g, b);
+        }
     }
 
     /**

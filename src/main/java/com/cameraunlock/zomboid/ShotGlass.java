@@ -55,7 +55,7 @@ final class ShotGlass {
         line = shot;
         HandWeapon weapon = by.getPrimaryHandItem() instanceof HandWeapon held ? held : null;
         lightsGive = Penetration.applies(by, weapon);
-        pellet = weapon != null && weapon.getProjectileCount() > 1;
+        pellet = ImpactFinder.size(weapon) == ImpactFinder.PELLET;
         trace.firstBlockedEdge(cross, shot.eyeX, shot.eyeY, shot.forwardX, shot.forwardY, distance);
         cell = null;
         terrain = null;
@@ -96,26 +96,22 @@ final class ShotGlass {
      * shot: where it is barricaded. A round that goes on through the leaf's wood is Penetration's.
      */
     private static boolean throughADoor(IsoGridSquare square, boolean north, float along, float up) {
-        PZArrayList<IsoObject> objects = square.getObjects();
-        for (int i = 0; i < objects.size(); i++) {
-            IsoObject object = objects.get(i);
-            if (!DoorGlass.shutOn(object, north)) {
-                continue;
-            }
-            if (DoorGlass.barricaded(object)) {
-                return true;
-            }
-            int light = lightsGive ? DoorGlass.lightAt(object, north, along, up) : -1;
-            if (DevBuild.ON) {
-                Log.info(String.format(Locale.ROOT, "a shot crossed the door at (%d, %d), %s edge, %.3f along and %.3f levels up: %s", square.getX(), square.getY(),
-                        north ? "north" : "west", along, up, !lightsGive ? "the round does not go through door glass" : light >= 0 ? "light " + light : DoorGlass.describe(object, north)));
-            }
-            if (light >= 0 && pellet) {
-                DoorGlass.pellet(object, light, along, up);
-            } else if (light >= 0) {
-                DoorGlass.breakLight(object, light);
-            }
+        IsoObject door = DoorGlass.shutDoorOn(square, north);
+        if (door == null) {
             return false;
+        }
+        if (DoorGlass.barricaded(door)) {
+            return true;
+        }
+        int light = lightsGive ? DoorGlass.lightAt(door, north, along, up) : -1;
+        if (DevBuild.ON) {
+            Log.info(String.format(Locale.ROOT, "a shot crossed the door at (%d, %d), %s edge, %.3f along and %.3f levels up: %s", square.getX(), square.getY(),
+                    north ? "north" : "west", along, up, !lightsGive ? "the round does not go through door glass" : light >= 0 ? "light " + light : DoorGlass.describe(door, north)));
+        }
+        if (light >= 0 && pellet) {
+            DoorGlass.pellet(door, light, along, up);
+        } else if (light >= 0) {
+            DoorGlass.breakLight(door, light);
         }
         return false;
     }

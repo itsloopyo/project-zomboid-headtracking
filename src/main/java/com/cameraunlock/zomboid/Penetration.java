@@ -196,7 +196,7 @@ final class Penetration {
      * What going through the edge between two neighbouring squares costs a round: 0 where the game lets a shot through.
      * The shot crosses the edge this far along it, as a door's leaf is measured (see Doors), at (x, y).
      */
-    static float edgeCost(IsoCell cell, int level, boolean pastTrees, int fromX, int fromY, int toX, int toY, float along, float x, float y) {
+    private static float edgeCost(IsoCell cell, int level, boolean pastTrees, int fromX, int fromY, int toX, int toY, float along, float x, float y) {
         IsoGridSquare from = cell.getGridSquare(fromX, fromY, level);
         IsoGridSquare to = cell.getGridSquare(toX, toY, level);
         if (from == null || to == null) {

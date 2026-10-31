@@ -4,6 +4,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Random;
 import java.util.WeakHashMap;
 import se.krka.kahlua.vm.KahluaTable;
 import zombie.core.properties.PropertyContainer;
@@ -35,17 +36,19 @@ final class BlastHoles {
     private BlastHoles() {}
 
     /** The key an object's mod data keeps its holes and marks under. */
-    static final String KEY = "cameraunlockBlastHoles";
+    private static final String KEY = "cameraunlockBlastHoles";
     static final int FLOATS = 6, ALONG = 0, UP = 1, RADIUS = 2, SEED = 3, SIDE = 4, NORTH = 5;
+    /** Where each hole's and mark's ragged outline is drawn from: below 2^24, so a float in the save holds it whole. */
+    private static final Random seeds = new Random();
     /** The most blasts' holes, marks and rounds' holes an object keeps: the oldest of each go first past them. */
     static final int MOST_HOLES = 8, MOST_MARKS = 48, MOST_ROUNDS = 24;
     /** SIDE over the side a round came from, for a round's hole. */
     static final int ROUND = 2;
     /** How many points a hole's outline has, how ragged it is, and how much taller than wide: wood splits along its grain, and a door's and a fence's grain runs up. */
-    static final int HOLE_POINTS = 18;
-    static final float HOLE_RAGGED = 0.3f, HOLE_TALL = 1.25f;
+    private static final int HOLE_POINTS = 18;
+    private static final float HOLE_RAGGED = 0.3f, HOLE_TALL = 1.25f;
     /** The same for a mark, and its radius in tiles. */
-    static final int MARK_POINTS = 7;
+    private static final int MARK_POINTS = 7;
     static final float MARK_RAGGED = 0.35f, MARK_RADIUS = 0.014f;
     /**
      * A round's hole: how many points each outline has, how ragged the way in is, and how much
@@ -60,7 +63,7 @@ final class BlastHoles {
      */
     static final float ROUND_RADIUS = 0.011f;
     /** How far into a hole's radius a later shot has to cross to go through it: the outline is ragged, and a round grazing its edge strikes wood. */
-    static final float THROUGH = 0.8f;
+    private static final float THROUGH = 0.8f;
 
     /** What each object loaded keeps, for the builds to read off the logic thread. */
     private static final Map<IsoObject, float[]> kept = Collections.synchronizedMap(new WeakHashMap<>());
@@ -237,6 +240,11 @@ final class BlastHoles {
         out[at + SIDE] = side;
         out[at + NORTH] = north ? 1f : 0f;
         return out;
+    }
+
+    /** A new hole's or mark's SEED. */
+    static int newSeed() {
+        return seeds.nextInt(1 << 20);
     }
 
     /** Whether (along, up) on an object's north or west edge is inside one of its holes, far enough in for a shot to go through: see THROUGH. Logic thread. */

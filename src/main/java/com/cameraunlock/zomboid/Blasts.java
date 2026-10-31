@@ -17,8 +17,8 @@ final class Blasts {
     private Blasts() {}
 
     /** The fewest pellets that blow a hole, and how far from their middle each may have struck, in tiles. */
-    static final int FEWEST = 3;
-    static final float CLOSE = 0.12f;
+    private static final int FEWEST = 3;
+    private static final float CLOSE = 0.12f;
     /** How much past the furthest pellet of a hole's the hole reaches, and the least and most its radius is, in tiles. */
     static final float BITE = 0.03f, SMALLEST = 0.05f, LARGEST = 0.16f;
 
@@ -26,13 +26,10 @@ final class Blasts {
     record Struck(IsoGameCharacter shooter, IsoObject object, boolean north, float along, float up, int side) {}
 
     private static final ArrayList<Struck> struck = new ArrayList<>();
-    /** Where each hole's and mark's ragged outline is drawn from: below 2^24, so a float in the save holds it whole. */
-    private static final java.util.Random seeds = new java.util.Random();
 
     /** A pellet struck a thing BlastHoles.blastable says a blast can blow a hole in. */
     static void pellet(IsoGameCharacter shooter, IsoObject object, boolean north, float along, float up, int side) {
-        float[] holes = BlastHoles.of(object);
-        if (holes != null && BlastHoles.inAHole(holes, north, along, up)) {
+        if (BlastHoles.through(object, north, along, up)) {
             return;
         }
         struck.add(new Struck(shooter, object, north, along, up, side));
@@ -62,14 +59,14 @@ final class Blasts {
     private static void settle(ArrayList<Struck> group) {
         Cluster cluster = cluster(group);
         if (cluster != null) {
-            BlastHoles.add(cluster.object, cluster.north, cluster.along, cluster.up, cluster.radius, seeds.nextInt(1 << 20), 0);
+            BlastHoles.add(cluster.object, cluster.north, cluster.along, cluster.up, cluster.radius, BlastHoles.newSeed(), 0);
         }
         if (!DoorGlass.isDoor(group.getFirst().object)) {
             return;
         }
         for (Struck each : group) {
             if (cluster == null || !cluster.members.contains(each)) {
-                BlastHoles.add(each.object, each.north, each.along, each.up, BlastHoles.MARK_RADIUS, seeds.nextInt(1 << 20), each.side);
+                BlastHoles.add(each.object, each.north, each.along, each.up, BlastHoles.MARK_RADIUS, BlastHoles.newSeed(), each.side);
             }
         }
     }
