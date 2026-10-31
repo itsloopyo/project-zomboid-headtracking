@@ -9911,6 +9911,7 @@ final class WorldScene {
             // A gate in a fence the picture builds (Gates) is a leaf as a door is; any other stays the sheet it is.
             gate = Own.buildings() ? kind.gate : Gates.NONE;
             doorLeaf = door && (!kind.fenceGate || gate != Gates.NONE);
+            doubleGate = gate == Gates.NONE ? -1 : IsoDoor.getDoubleDoorIndex(object);
             if ((doorSwung || doorSlid) && doorLeaf) {
                 IsoSprite shut = shutSprite(object);
                 Texture shown = shut == null ? null : shut.getTextureForCurrentFrame(object.getDir());
@@ -10539,6 +10540,8 @@ final class WorldScene {
         boolean slidingDoor;
         /** The kind of gate the door being added is, built as Gates says, or Gates.NONE. */
         int gate;
+        /** Which of the four pieces of a double gate the gate being added is, 1 to 4 as the game numbers them (its sprite's DoubleDoor), or -1 for a single gate or a door. */
+        int doubleGate;
         /** For a door that stands open, swung or slid, the texture and frame of the sprite it shows shut, which it is read from: see OpeningBuilder.addBuiltDoor. Null for any other. */
         Texture shutTexture;
         final SpriteGeometry.Frame shutFrame = new SpriteGeometry.Frame();

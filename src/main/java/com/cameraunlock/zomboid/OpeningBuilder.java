@@ -588,6 +588,10 @@ final class OpeningBuilder {
             if (build.garageDoor) {
                 continue;
             }
+            if (build.gate == Gates.BOARDS) {
+                addGateIron(door, leaf, face, side, side == hingedSide, r, g, b);
+                continue;
+            }
             metal.open = sideOpen[side] + 32f * HARDWARE;
             metal.day = sideDay[side];
             float[] c = build.reveal;
@@ -1563,6 +1567,39 @@ final class OpeningBuilder {
                 from, t0 + half, h0 + up, h1 - up,
                 t1 - half, to, h0 + up, h1 - up};
     }
+
+    /**
+     * A gate of boards' iron, as the game's sprites paint it: no knob and no butt hinges, but a strap hinge along its top
+     * and its bottom ledge from the end it hangs from, on the face a door's knuckles are (hinged), and a latch on the
+     * top ledge at the other end, on both faces. A double gate has its hinges on the pieces at the double's ends and its
+     * latches on the two where its leaves meet. It is black, as the sprites paint it, lit as the leaf's face is from side.
+     */
+    private void addGateIron(Doors.Shape door, Windows.Shape leaf, float face, int side, boolean hinged, float r, float g, float b) {
+        SpriteGeometry.Mesh metal = build.solid.get(WorldScene.PLAIN, WallSides.laid(IRON, IRON, IRON, 0f, 0f, 0f, WallSides.FINE));
+        metal.sway = 0f;
+        metal.open = sideOpen[side] + 32f * WorldScene.PAINT;
+        metal.day = sideDay[side];
+        float level = ViewCamera.LEVEL_HEIGHT, wide = leaf.end - leaf.start, out = Math.signum(face);
+        int piece = build.doubleGate;
+        float ledge = face + out * LEDGE_PROUD, top = leaf.foot + (leaf.head - leaf.foot) * LEDGES_AT[LEDGES_AT.length - 1];
+        if (hinged && piece != 2 && piece != 3) {
+            float half = STRAP_HIGH / (2f * level), from = door.handleAtEnd ? leaf.start : leaf.end - STRAP_LONG * wide;
+            for (float at : new float[] {LEDGES_AT[0], LEDGES_AT[LEDGES_AT.length - 1]}) {
+                float middle = leaf.foot + (leaf.head - leaf.foot) * at;
+                addBlock(metal, from, from + STRAP_LONG * wide, middle - half, middle + half, ledge, ledge + out * HINGE_OUT, r, g, b);
+            }
+        }
+        if (piece != 1 && piece != 4) {
+            float half = LATCH_HIGH / (2f * level), latch = door.handleAtEnd ? leaf.end - KNOB_IN * wide : leaf.start + KNOB_IN * wide;
+            addBlock(metal, latch - LATCH_LONG / 2f, latch + LATCH_LONG / 2f, top - half, top + half, ledge, ledge + out * LATCH_OUT, r, g, b);
+        }
+        metal.day = 0f;
+    }
+
+    /** A gate's strap hinge, as a share of its leaf's length and how high in tiles; its latch, how long, how high and how far off its ledge in tiles. */
+    private static final float STRAP_LONG = 0.3f, STRAP_HIGH = 0.03f, LATCH_LONG = 0.07f, LATCH_HIGH = 0.025f, LATCH_OUT = 0.014f;
+    /** The colour of a gate's black iron, each channel. */
+    private static final float IRON = 0.08f;
 
     /** A lever's arm: along from, along to, foot and head in levels, from the neck at along knob towards the hinges, at the end away from the handle. */
     static float[] lever(float knob, boolean handleAtEnd) {
