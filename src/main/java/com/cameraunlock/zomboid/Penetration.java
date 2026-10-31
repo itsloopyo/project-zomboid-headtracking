@@ -2,7 +2,6 @@ package com.cameraunlock.zomboid;
 
 import zombie.characters.IsoGameCharacter;
 import zombie.characters.IsoPlayer;
-import zombie.core.physics.BallisticsController;
 import zombie.inventory.types.HandWeapon;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
@@ -10,7 +9,6 @@ import zombie.iso.IsoMovingObject;
 import zombie.iso.IsoObject;
 import zombie.iso.IsoWorld;
 import zombie.iso.LosUtil;
-import zombie.iso.Vector3;
 import zombie.iso.objects.IsoWindow;
 import zombie.scripting.objects.AmmoType;
 import zombie.util.list.PZArrayList;
@@ -361,7 +359,7 @@ final class Penetration {
         }
         View view = View.of((IsoPlayer) shooter);
         float share = share(on, floor, cartridge, pastTrees, shooter.getX(), shooter.getY(), target.getX(), target.getY(),
-                roundLine(view, shooter), view.worldScene.terrain);
+                roundLine(view), view.worldScene.terrain);
         if (share <= 0f) {
             return seen;
         }
@@ -373,26 +371,25 @@ final class Penetration {
     private static final float[] aimPoint = new float[3];
 
     /**
-     * The line a first person shot flies along: from the muzzle, as Controls.muzzle sets it, to the
-     * reticle's point. ImpactFinder cuts a round's hole where this line crosses a wall, so a later
+     * The line a first person shot flies along: from the eye the aim is traced from (FirstPerson.aimView)
+     * to the reticle's point. ImpactFinder cuts a round's hole where this line crosses a wall, so a later
      * shot along it goes through the same hole. Null where the look is not the first person view's.
      */
-    private static ViewCamera.Pose roundLine(View view, IsoGameCharacter shooter) {
-        BallisticsController ballistics = shooter.getBallisticsController();
-        if (!view.firstPerson.lookCaptured() || ballistics == null) {
+    private static ViewCamera.Pose roundLine(View view) {
+        if (!view.firstPerson.lookCaptured()) {
             return null;
         }
         Terrain terrain = view.worldScene.terrain;
-        Vector3 muzzle = ballistics.getMuzzlePosition();
+        ViewCamera.Pose eye = view.firstPerson.aimView();
         view.controls.aimPoint(aimPoint);
-        float fromUp = muzzle.z * ViewCamera.LEVEL_HEIGHT + terrain.lift(muzzle.x, muzzle.y, muzzle.z);
-        float wayX = aimPoint[0] - muzzle.x, wayY = aimPoint[1] - muzzle.y;
+        float fromUp = eye.eyeUp;
+        float wayX = aimPoint[0] - eye.eyeX, wayY = aimPoint[1] - eye.eyeY;
         float wayUp = aimPoint[2] * ViewCamera.LEVEL_HEIGHT + terrain.lift(aimPoint[0], aimPoint[1], aimPoint[2]) - fromUp;
         float length = (float) Math.sqrt(wayX * wayX + wayY * wayY + wayUp * wayUp);
         if (length < 1e-6f) {
             return null;
         }
-        round.eyeAt(muzzle.x, muzzle.y, fromUp);
+        round.eyeAt(eye.eyeX, eye.eyeY, fromUp);
         round.forwardX = wayX / length;
         round.forwardY = wayY / length;
         round.forwardUp = wayUp / length;

@@ -126,6 +126,13 @@ final class ImpactFinder {
                 toY += (wayY - aim.y * onAim) * share;
                 toUp += (wayZ - aim.z * onAim) * share * ViewCamera.LEVEL_HEIGHT;
             }
+            // From the eye the aim is traced from, as the reticle's point is (FirstPerson.placeReticle), not the game's muzzle:
+            // at the hip that is down by the knee, and a round climbing from there through a wall had its hole cut above its mark.
+            ViewCamera.Pose eye = own.firstPerson.aimView();
+            startX = eye.eyeX;
+            startY = eye.eyeY;
+            startUp = eye.eyeUp;
+            startZ = (startUp - terrain.lift(startX, startY, shooter.getZ())) / ViewCamera.LEVEL_HEIGHT;
             length = along(startX, startY, startUp, toX - startX, toY - startY, toUp - startUp) + AIM_PAST;
         } else if (pellet) {
             length = along(startX, startY, startUp, endX - startX, endY - startY, endUp - startUp);
