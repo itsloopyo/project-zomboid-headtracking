@@ -131,7 +131,12 @@ final class Doors {
 
     /** The shut door the sprite was read as on the north or west edge: null for one not read yet there or that is no leaf with four straight sides. */
     static Shape known(Texture texture, boolean north) {
-        Shape shape = known.get(new Edge(texture, north, false));
+        return known(texture, north, false);
+    }
+
+    /** As known, with far the door read on the south or east edge. */
+    static Shape known(Texture texture, boolean north, boolean far) {
+        Shape shape = known.get(new Edge(texture, north, far));
         return shape == NONE ? null : shape;
     }
 

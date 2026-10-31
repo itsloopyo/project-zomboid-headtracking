@@ -1274,9 +1274,18 @@ final class WallBuilder {
         return name != null && (name.startsWith("walls_burnt_") || name.startsWith("walls_exterior_roofs_30_burnt_"));
     }
 
+    /** As logsProud, for a square of the map read off the build threads: 0 for none. */
+    static float logsProud(IsoGridSquare square, boolean onNorth) {
+        return Own.buildings() && square != null && logsAlong(square.getObjects(), onNorth) ? LogWalls.RADIUS - WorldScene.WALL_HALF : 0f;
+    }
+
     /** Whether square (sx, sy) has a length of log wall on its north edge, or its west. */
     private boolean logsOn(int sx, int sy, int z, boolean onNorth) {
-        PZArrayList<IsoObject> objects = objectsOn(sx, sy, z);
+        return logsAlong(objectsOn(sx, sy, z), onNorth);
+    }
+
+    /** Whether a square's things, null for none, hold a length of log wall on its north edge, or its west. */
+    private static boolean logsAlong(PZArrayList<IsoObject> objects, boolean onNorth) {
         for (int i = 0; objects != null && i < objects.size(); i++) {
             IsoSprite sprite = objects.get(i).getSprite();
             if (sprite != null && LogWalls.is(sprite.getName())

@@ -13,6 +13,7 @@ final class WindowGlassTests {
         Checks.run("windowsAndMirrorsAreNeverOneGlass", WindowGlassTests::windowsAndMirrorsAreNeverOneGlass);
         Checks.run("aGlazedDoorsGlassIsItsLightsAndNoMore", WindowGlassTests::aGlazedDoorsGlassIsItsLightsAndNoMore);
         Checks.run("aWindowThrowsBackTheSideTheEyeStandsOn", WindowGlassTests::aWindowThrowsBackTheSideTheEyeStandsOn);
+        Checks.run("aDoorSwungOpenHasItsGlassWhereItsLeafStands", WindowGlassTests::aDoorSwungOpenHasItsGlassWhereItsLeafStands);
     }
 
     private static float[] window(boolean north, int edge, int along, float side) {
@@ -131,6 +132,29 @@ final class WindowGlassTests {
         WindowGlass.lights(leaf.panes, 5, 10, true, right, 0);
         check(close(right[LookingGlass.CORNER], 20.5f) && close(right[LookingGlass.ACROSS], 0.15f) && close(right[LookingGlass.CORNER + 2], 0.55f * ViewCamera.LEVEL_HEIGHT)
                 && close(right[LookingGlass.UP + 2], 0.35f * ViewCamera.LEVEL_HEIGHT), "one light alone is a glass over that light and no more");
+    }
+
+    private static void aDoorSwungOpenHasItsGlassWhereItsLeafStands() {
+        // A north door at (20, 30) swung open stands on its square's west edge, clear of the wall it is back against.
+        float near = WindowGlass.swungEdge(false, 20, 30, false, 0f), far = WindowGlass.swungEdge(false, 20, 30, true, 0f);
+        check(close(near, 20f + OpeningBuilder.SWUNG_OUT) && close(far, 21f - OpeningBuilder.SWUNG_OUT), "a leaf swung open has its glass as far into its square as the leaf stands: " + near + ", " + far);
+        float proud = LogWalls.RADIUS - WorldScene.WALL_HALF;
+        check(close(WindowGlass.swungEdge(true, 20, 30, false, proud), 30f + OpeningBuilder.SWUNG_OUT + proud), "and further out past a log wall's logs");
+        Windows.Shape leaf = new Windows.Shape();
+        leaf.panes = new float[] {0.3f, 0.7f, 0.5f, 0.85f, 1f};
+        float eyeX = 21.6f, eyeY = 30.5f;
+        float[] glass = new float[LookingGlass.FLOATS];
+        WindowGlass.note(false, near, 30, 0f, Math.signum(eyeX - near), glass, 0);
+        WindowGlass.lights(leaf.panes, 0, leaf.panes.length, false, glass, 0);
+        check(close(glass[LookingGlass.CORNER], near) && close(glass[LookingGlass.CORNER + 1], 30.3f) && glass[LookingGlass.FACING] == 1f, "the light is noted in the leaf's plane, facing the eye beside it");
+        LookingGlass looking = new LookingGlass();
+        looking.begin();
+        looking.consider(glass, 0, true, eye(eyeX, eyeY, toward(eyeX, eyeY, near, 30.5f)), TAN, ASPECT, NEAR);
+        check(looking.end() == 1 && looking.planes[0].window, "the eye beside the open leaf sees its glass");
+        float[] plane = looking.planes[0].plane;
+        // As Pipeline.drawPanes packs a window's plane for the world shader, which lays the picture on panes within 0.02 of it.
+        float packed = plane[0] != 0f ? plane[3] * plane[0] : -plane[3] * plane[1];
+        check(Math.abs(packed - near) < 0.001f, "and the world shader is told the plane the leaf's panes are in: " + packed);
     }
 
     private static boolean close(float a, float b) {

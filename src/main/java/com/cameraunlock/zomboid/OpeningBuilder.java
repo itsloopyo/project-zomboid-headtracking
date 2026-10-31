@@ -54,6 +54,14 @@ final class OpeningBuilder {
     private static final float ROSE_ROUND = 0.03f, ROSE_OUT = 0.004f, ROSE_CLEAR = 0.003f;
     /** How far a door swung open stands into its square from the wall it is back against, to the leaf's middle, in tiles. */
     static final float SWUNG_OUT = WorldScene.WALL_HALF + WorldScene.HUNG_CLEAR + DOOR_HALF;
+
+    /**
+     * How far into its square from the edge it is drawn on a leaf swung open stands, to its middle, in tiles: back
+     * against that edge's wall, or with onFarEdge the far edge's, whose logs stand proud of it by proud.
+     */
+    static float swungOut(boolean onFarEdge, float proud) {
+        return onFarEdge ? 1f - SWUNG_OUT - proud : SWUNG_OUT + proud;
+    }
     /**
      * How far inside the wall's skins the wood filling a doorway's jamb to a shut leaf stands, in tiles. The leaf is
      * measured off its own sprite and the doorway off the wall's, and the two need not meet: what is between them is
@@ -461,8 +469,8 @@ final class OpeningBuilder {
         Windows.Shape leaf = inDoorway ? withinCut(door.leaf, doorwayStart, doorwayEnd) : door.leaf;
         float[] panes = broken == 0 ? leaf.panes : leaf == door.leaf ? DoorGlass.withBroken(leaf.panes, broken)
                 : clipped(DoorGlass.withBroken(door.leaf.panes, broken), 5, leaf.start, leaf.end);
-        float out = !build.doorSwung ? 0f : onFarEdge ? 1f - SWUNG_OUT - build.wallBuilder.logsProud(x + (north ? 0 : 1), y + (north ? 1 : 0), z, north)
-                : SWUNG_OUT + build.wallBuilder.logsProud(x, y, z, north);
+        float out = !build.doorSwung ? 0f : swungOut(onFarEdge, onFarEdge ? build.wallBuilder.logsProud(x + (north ? 0 : 1), y + (north ? 1 : 0), z, north)
+                : build.wallBuilder.logsProud(x, y, z, north));
         windowX = x + db * out;
         windowY = y + da * out;
         // The face away from the wall the leaf is back against has the hinges' knuckles: on the far edge that wall is behind the other face.

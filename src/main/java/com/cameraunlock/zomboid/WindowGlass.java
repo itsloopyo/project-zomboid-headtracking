@@ -1,12 +1,14 @@
 package com.cameraunlock.zomboid;
 
 import zombie.characters.IsoPlayer;
+import zombie.core.textures.Texture;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.objects.IsoDoor;
 import zombie.iso.objects.IsoThumpable;
 import zombie.iso.objects.IsoWindow;
+import zombie.iso.sprite.IsoSprite;
 import zombie.util.list.PZArrayList;
 
 /**
@@ -22,6 +24,7 @@ import zombie.util.list.PZArrayList;
  * lights in its leaf take up and no more: the leaf's faces stand before the picture between
  * them, and nothing hides the doorway round a leaf that does not fill it. Where a light is
  * broken nothing stands before the picture there either, so each whole light is noted alone.
+ * A door swung open has its glass where the picture stands its leaf, across its doorway.
  */
 final class WindowGlass {
     /** The most windows noted. */
@@ -52,9 +55,9 @@ final class WindowGlass {
     }
 
     /**
-     * Logic thread: the shut, whole windows and the shut doors the mod built with glass in them
-     * (Doors) within REACH that the eye sees from a side it stands on (see throwsBack), each
-     * facing the eye. From a room only its own floor's, which is all a room shows; from the
+     * Logic thread: the shut, whole windows and the doors the mod built with glass in them
+     * (Doors), shut or swung open, within REACH that the eye sees from a side it stands on (see
+     * throwsBack), each facing the eye. From a room only its own floor's, which is all a room shows; from the
      * street the floors over and under it too, whose windows look onto the same street.
      */
     static void find(IsoCell cell, IsoPlayer player, Terrain terrain, ViewCamera.Pose view, Panes into) {
@@ -76,37 +79,46 @@ final class WindowGlass {
                     for (int i = 0; i < objects.size() && into.count < MOST; i++) {
                         IsoObject object = objects.get(i);
                         Windows.Shape leaf = null;
-                        boolean north;
+                        boolean north, swung = false;
+                        float edge;
                         if (object instanceof IsoWindow window && !window.isSmashed() && !window.isGlassRemoved() && !window.IsOpen()) {
                             north = window.getNorth();
-                        } else if (object instanceof IsoDoor door && !door.IsOpen()) {
-                            north = door.north;
-                            leaf = glazedLeaf(object, north);
-                        } else if (object instanceof IsoThumpable thumpable && thumpable.isDoor() && !thumpable.IsOpen()) {
-                            north = thumpable.north;
-                            leaf = glazedLeaf(object, north);
+                            edge = north ? y : x;
+                        } else if (DoorGlass.isDoor(object)) {
+                            boolean doorNorth = object instanceof IsoDoor door ? door.north : ((IsoThumpable) object).north;
+                            swung = object instanceof IsoDoor door ? door.IsOpen() : ((IsoThumpable) object).IsOpen();
+                            // Swung open, the leaf stands across its doorway, on its square's other edge.
+                            north = doorNorth != swung;
+                            if (!swung) {
+                                edge = north ? y : x;
+                                leaf = glazedLeaf(object, north);
+                            } else {
+                                leaf = swungLeaf(object, north);
+                                edge = swungEdge(north, x, y, swungOnFarEdge,
+                                        WallBuilder.logsProud(swungOnFarEdge ? cell.getGridSquare(x + (north ? 0 : 1), y + (north ? 1 : 0), z) : square, north));
+                            }
+                            if (leaf == null) {
+                                continue;
+                            }
                         } else {
                             continue;
                         }
-                        if (!(object instanceof IsoWindow) && leaf == null) {
-                            continue;
-                        }
-                        int edge = north ? y : x;
                         float off = (north ? view.eyeY : view.eyeX) - edge;
                         IsoGridSquare across = north ? cell.getGridSquare(x, y - 1, z) : cell.getGridSquare(x - 1, y, z);
-                        IsoGridSquare eyesSide = off < 0f ? across : square;
+                        // A leaf swung open stands in its own square, which is on both its faces.
+                        IsoGridSquare eyesSide = swung || off >= 0f ? square : across;
                         if (eyesSide == null || !throwsBack(eyeOutside, eyesSide.isOutside())) {
                             continue;
                         }
                         // The window stands on the floor of the room it is in, which on a hill is not the land under the eye.
-                        IsoGridSquare room = !square.isOutside() || across == null ? square : across;
+                        IsoGridSquare room = swung || !square.isOutside() || across == null ? square : across;
                         float foot = z * ViewCamera.LEVEL_HEIGHT + terrain.lift(room.getX() + 0.5f, room.getY() + 0.5f, z);
                         if (leaf == null) {
                             note(north, edge, north ? x : y, foot, Math.signum(off), into.glass, into.count++ * LookingGlass.FLOATS);
                             continue;
                         }
                         // A broken light has no glass to throw anything back: each whole one is a glass of its own.
-                        float[] panes = DoorGlass.withBroken(leaf.panes, DoorGlass.broken(object));
+                        float[] panes = DoorGlass.withBroken(leaf.panes, swung && !swungFromShut ? 0 : DoorGlass.broken(object));
                         boolean whole = true;
                         for (int pane = 0; pane < panes.length; pane += 5) {
                             whole &= panes[pane + 4] >= 1f;
@@ -148,6 +160,44 @@ final class WindowGlass {
         return shape == null || shape.leaf.panes.length == 0 ? null : shape.leaf;
     }
 
+    /** Whether the leaf swungLeaf last gave stands on its square's far edge, and whether it was laid out from its shut sprite. */
+    private static boolean swungOnFarEdge, swungFromShut;
+
+    /**
+     * The leaf of a door swung open, standing on the edge north says, where the mod builds it with glass in
+     * it, as OpeningBuilder.addBuiltDoor lays it: its shut sprite's leaf, where that has been read, laid on the
+     * outline its open sprite paints on that edge, or failing that the far one. Null for a door that slides or
+     * rolls up, whose glass is in its doorway or gone, and for one not read yet.
+     */
+    private static Windows.Shape swungLeaf(IsoObject door, boolean north) {
+        IsoSprite sprite = door.getSprite();
+        if (!Own.buildings() || sprite.getProperties().has("GarageDoor") || Doors.sliding(sprite.getProperties())) {
+            return null;
+        }
+        Texture open = sprite.getTextureForCurrentFrame(door.getDir());
+        if (Doors.unread(open, north, false)) {
+            return null;
+        }
+        Doors.Shape shape = Doors.known(open, north, false);
+        swungOnFarEdge = shape == null;
+        if (swungOnFarEdge) {
+            shape = Doors.known(open, north, true);
+        }
+        IsoSprite shutSprite = WorldScene.shutSprite(door);
+        Texture shutTexture = shutSprite == null ? null : shutSprite.getTextureForCurrentFrame(door.getDir());
+        Doors.Shape shut = WorldScene.usable(shutTexture) ? Doors.known(shutTexture, !north) : null;
+        swungFromShut = shut != null;
+        if (shape != null && swungFromShut) {
+            shape = Doors.swung(shape, shut, false);
+        }
+        return shape == null || shape.leaf.panes.length == 0 ? null : shape.leaf;
+    }
+
+    /** Where along the map the glass of a leaf swung open on the north or west edge of square (x, y) stands: see OpeningBuilder.swungOut. */
+    static float swungEdge(boolean north, int x, int y, boolean onFarEdge, float logsProud) {
+        return (north ? y : x) + OpeningBuilder.swungOut(onFarEdge, logsProud);
+    }
+
     /** Narrows a glass noted a tile wide and a level high at at to the lights of a door's leaf from `from` to `to` in its panes, five numbers a light. */
     static void lights(float[] panes, int from, int to, boolean north, float[] out, int at) {
         float start = 1f, end = 0f, foot = 1f, head = 0f;
@@ -163,8 +213,8 @@ final class WindowGlass {
         out[at + LookingGlass.UP + 2] = (head - foot) * ViewCamera.LEVEL_HEIGHT;
     }
 
-    /** A window's glass, on the edge of constant y (north) or x, a tile from along, facing the side given, into out from at. */
-    static void note(boolean north, int edge, int along, float foot, float side, float[] out, int at) {
+    /** A window's glass, in the plane of constant y (north) or x at edge, a tile from along, facing the side given, into out from at. */
+    static void note(boolean north, float edge, int along, float foot, float side, float[] out, int at) {
         out[at + LookingGlass.CORNER] = north ? along : edge;
         out[at + LookingGlass.CORNER + 1] = north ? edge : along;
         out[at + LookingGlass.CORNER + 2] = foot;
