@@ -2333,9 +2333,10 @@ final class SpriteGeometry {
         ax /= length;
         ay /= length;
         az /= length;
-        // Across it, level, and then square to both.
+        // Across it, level, and then square to both. A tube standing upright has every level way across it: x is taken.
         float flat = (float) Math.sqrt(ax * ax + ay * ay);
-        float sx = -ay / flat, sy = ax / flat;
+        boolean upright = flat < 1e-4f;
+        float sx = upright ? 1f : -ay / flat, sy = upright ? 0f : ax / flat;
         float tx = -az * sy, ty = az * sx, tz = ax * sy - ay * sx;
         float[] cosAround = ROUND_COS[sides], sinAround = ROUND_SIN[sides];
         for (int side = 0; side < sides; side++) {

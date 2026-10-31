@@ -685,7 +685,7 @@ final class OpeningBuilder {
             for (int at = 0; at < door.stiles.length; at += 2) {
                 float r = Math.clamp((door.stiles[at + 1] - door.stiles[at]) / 2f, TUBE_THINNEST, TUBE_THICKEST);
                 float middle = (door.stiles[at] + door.stiles[at + 1]) / 2f;
-                addUpright(steel, middle, leaf.foot, leaf.head, r, red, green, blue);
+                addTube(steel, middle, leaf.foot, middle, leaf.head, r, red, green, blue);
             }
             return;
         }
@@ -693,8 +693,8 @@ final class OpeningBuilder {
         float start = leaf.start + r, end = leaf.end - r, foot = leaf.foot + rise, head = leaf.head - rise;
         addTube(steel, start - r, foot, end + r, foot, r, red, green, blue);
         addTube(steel, start - r, head, end + r, head, r, red, green, blue);
-        addUpright(steel, start, foot, head, r, red, green, blue);
-        addUpright(steel, end, foot, head, r, red, green, blue);
+        addTube(steel, start, foot, start, head, r, red, green, blue);
+        addTube(steel, end, foot, end, head, r, red, green, blue);
         for (int at = 0; at < door.rails.length; at += 2) {
             float middle = (door.rails[at] + door.rails[at + 1]) / 2f;
             if (middle - foot > 3f * rise && head - middle > 3f * rise) {
@@ -716,12 +716,6 @@ final class OpeningBuilder {
         windowPoint(tubeFrom, 0, along0, up0, 0f);
         windowPoint(tubeTo, 0, along1, up1, 0f);
         SpriteGeometry.addTube(mesh, tubeFrom, tubeTo, r, TUBE_SIDES, red, green, blue);
-    }
-
-    /** An upright tube of radius r at along on the leaf where windowPoint stands it, from foot to head in levels: SpriteGeometry.addTube lays none upright. */
-    private void addUpright(SpriteGeometry.Mesh mesh, float along, float foot, float head, float r, float red, float green, float blue) {
-        windowPoint(tubeFrom, 0, along, foot, 0f);
-        SpriteGeometry.addRound(mesh, tubeFrom[0], tubeFrom[1], tubeFrom[2], tubeFrom[2] + (head - foot) * ViewCamera.LEVEL_HEIGHT, r, r, TUBE_SIDES, 0f, 0f, red, green, blue);
     }
 
     /**

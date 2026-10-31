@@ -15,6 +15,7 @@ final class GateTests {
         Checks.run("aPostWithNoLeafBesideItIsNoGate", GateTests::aPostWithNoLeafBesideItIsNoGate);
         Checks.run("aGatesPartsMoveWithItsLeafWhenItIsStood", GateTests::aGatesPartsMoveWithItsLeafWhenItIsStood);
         Checks.run("aGateSwungOpenKeepsItsSizeItsRailsAndItsPost", GateTests::aGateSwungOpenKeepsItsSizeItsRailsAndItsPost);
+        Checks.run("aTubeStoodUprightIsAsRoundAsOneLaidAcross", GateTests::aTubeStoodUprightIsAsRoundAsOneLaidAcross);
     }
 
     private static void aGateIsBuiltAsTheFenceItStandsInIs() {
@@ -175,5 +176,27 @@ final class GateTests {
         check(swung.postStart == 0f && swung.postEnd == 0.1f && swung.postTop == 0.4f, "and its post where the shut sprite paints it, which does not swing");
         Doors.Shape door = Doors.swung(open, shut, false);
         check(Math.abs(door.leaf.head - 0.36f) < 1e-5f && door.leaf.start == 0.05f && door.leaf.end == 0.45f, "a door is where its open sprite paints it");
+    }
+
+    /** A farm gate's uprights and a chain link gate's ends are tubes standing straight up, which have no one level way across them. */
+    private static void aTubeStoodUprightIsAsRoundAsOneLaidAcross() {
+        int sides = 8;
+        float radius = 0.03f;
+        SpriteGeometry.Mesh tube = new SpriteGeometry.Mesh();
+        LightSiteTests.constant(tube);
+        SpriteGeometry.addTube(tube, new float[] {1.5f, 2.5f, 0.1f}, new float[] {1.5f, 2.5f, 0.9f}, radius, sides, 1f, 1f, 1f);
+        boolean round = true;
+        for (int at = 0; at < sides * 6 * SpriteGeometry.VERTEX_FLOATS; at += SpriteGeometry.VERTEX_FLOATS) {
+            float ox = tube.vertices[at] - 1.5f, oy = tube.vertices[at + 1] - 2.5f, up = tube.vertices[at + 2];
+            float nx = tube.vertices[at + 9], ny = tube.vertices[at + 10], nz = tube.vertices[at + 11];
+            round &= Math.abs((float) Math.sqrt(ox * ox + oy * oy) - radius) < 1e-5f && (Math.abs(up - 0.1f) < 1e-5f || Math.abs(up - 0.9f) < 1e-5f)
+                    && Math.abs(nz) < 1e-5f && Math.abs(nx * nx + ny * ny - 1f) < 1e-5f && nx * ox + ny * oy > 0f;
+        }
+        check(round, "an upright tube's side stands its radius out from its axis, from its foot to its head, and faces straight out");
+        boolean capped = true;
+        for (int at = sides * 6 * SpriteGeometry.VERTEX_FLOATS; at < tube.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+            capped &= Math.abs(Math.abs(tube.vertices[at + 11]) - 1f) < 1e-5f && !Float.isNaN(tube.vertices[at]) && !Float.isNaN(tube.vertices[at + 1]);
+        }
+        check(capped && tube.floats == sides * 12 * SpriteGeometry.VERTEX_FLOATS, "and its ends are closed facing straight up and down");
     }
 }
