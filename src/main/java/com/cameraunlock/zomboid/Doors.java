@@ -114,6 +114,18 @@ final class Doors {
         return !known.containsKey(new Edge(texture, north, far));
     }
 
+    /** The edges the sprite has been read as a leaf on, for a log line: "north", "south west" and so on, or "none". */
+    static String leafEdges(Texture texture) {
+        StringBuilder edges = new StringBuilder();
+        for (int at = 0; at < 4; at++) {
+            Shape shape = known.get(new Edge(texture, at % 2 == 0, at >= 2));
+            if (shape != null && shape != NONE) {
+                edges.append(edges.length() == 0 ? "" : " ").append(edgeName(at % 2 == 0, at >= 2));
+            }
+        }
+        return edges.length() == 0 ? "none" : edges.toString();
+    }
+
     static String edgeName(boolean north, boolean far) {
         return north ? far ? "south" : "north" : far ? "east" : "west";
     }
@@ -228,6 +240,19 @@ final class Doors {
         leaf.bars = Windows.cut(leaf.bars, 4);
         leaf.panes = Windows.cut(leaf.panes, 5);
         return true;
+    }
+
+    private static final java.util.Set<String> drawnAsSpriteTold = ConcurrentHashMap.newKeySet();
+
+    /**
+     * Says that a door's leaf is drawn as its sprite and not built, so shots leave no hole in it: once a sprite and
+     * reason, which stays put, with the square and edge of the first door it was seen at.
+     */
+    static void drawnAsSprite(Texture texture, int x, int y, int z, boolean north, String why) {
+        if (drawnAsSpriteTold.add(texture.getName() + ": " + why)) {
+            Log.info("door " + texture.getName() + " at (" + x + ", " + y + ", " + z + ") on its " + edgeName(north, false) + " edge is drawn as its sprite, not built: " + why
+                    + " (read as a leaf on: " + leafEdges(texture) + ")");
+        }
     }
 
     private static final java.util.Set<Texture> pairsTold = ConcurrentHashMap.newKeySet();

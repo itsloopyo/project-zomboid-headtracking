@@ -576,11 +576,18 @@ final class WallBuilder {
             if (material == WorldScene.GLASS) {
                 faceIntoRoom(x, y, z, da != 0f);
             }
+            if (door && build.doorLeaf && build.overLayer != 0) {
+                Doors.drawnAsSprite(texture, x, y, z, da != 0f, "laid over a door as a layer of it");
+            }
             if (door && build.doorLeaf && build.overLayer == 0) {
                 // A leaf hangs in the middle of the wall's thickness: a built one where the wall is, the sprite's own with the edge's layers.
                 build.layers.none();
                 boolean built = Own.buildings() && build.openingBuilder.addBuiltDoor(texture, x, y, z, da, db);
                 build.layers.lie(way, layer);
+                String why = built ? null : !Own.buildings() ? "the mod's buildings are off (OwnBuildings)" : build.openingBuilder.unbuilt;
+                if (why != null) {
+                    Doors.drawnAsSprite(texture, x, y, z, da != 0f, why);
+                }
                 if (built || build.openingBuilder.addDoor(mesh, texture, x, y, z, 0f, 0f, da, db)) {
                     build.geometry.shownA = build.geometry.shownB = 0f;
                     build.frame.site = site;

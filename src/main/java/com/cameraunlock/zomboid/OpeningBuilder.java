@@ -152,6 +152,8 @@ final class OpeningBuilder {
      * room as a bright line round the leaf and its panes.
      */
     private int joinerySide, edgeSide = -1;
+    /** Why the last door addBuiltDoor was asked for was not built, for the log line WallBuilder writes as it draws the sprite: null where it was, or waits for a frame drawn. */
+    String unbuilt;
     /**
      * Where along the wall a shut leaf ends at a doorway's revealed cut, or NaN: no joinery closes its end there. The
      * wall's reveal is in that plane across the whole thickness, and the leaf's end laid in it too took turns with it
@@ -385,10 +387,12 @@ final class OpeningBuilder {
      * a rose on each face and three hinges. Bare wood is joinery, its grain running up the
      * leaf; anything else is painted. Its outline, its lights and how it is worked are measured
      * off the sprite: see Doors. False, adding nothing, for a sprite not measured yet or one
-     * that is no leaf with four straight sides.
+     * that is no leaf with four straight sides, with unbuilt saying why where it is not for want of
+     * a frame drawn.
      */
     boolean addBuiltDoor(Texture texture, int x, int y, int z, float da, float db) {
         boolean north = da != 0f;
+        unbuilt = null;
         // Shots break lights counted in the shut leaf's order, which a leaf swung open keeps (Doors.swung): see DoorGlass.
         int broken = build.brokenLights;
         Doors.Shape door, shut = null;
@@ -400,6 +404,8 @@ final class OpeningBuilder {
             if (door == null) {
                 if (Doors.unread(texture, north, false)) {
                     build.building.waitFor(texture);
+                } else {
+                    unbuilt = "its sprite is no leaf on that edge";
                 }
                 return false;
             }
@@ -422,6 +428,7 @@ final class OpeningBuilder {
             onFarEdge = near == null;
             door = onFarEdge ? beyond : near;
             if (door == null) {
+                unbuilt = "open, its sprite is no leaf on that edge nor on the " + Doors.edgeName(north, true);
                 return false;
             }
             if (shut != null) {

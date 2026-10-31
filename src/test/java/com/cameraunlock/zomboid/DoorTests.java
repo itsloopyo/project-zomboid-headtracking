@@ -42,6 +42,7 @@ final class DoorTests {
         Checks.run("anOpenLeafStandingIntoItsSquareIsStoodOnItsFloor", DoorTests::anOpenLeafStandingIntoItsSquareIsStoodOnItsFloor);
         Checks.run("aToiletStallsLeafRaggedTopAndBottomIsALeaf", DoorTests::aToiletStallsLeafRaggedTopAndBottomIsALeaf);
         Checks.run("aShacksDoorWithABareCornerIsALeaf", DoorTests::aShacksDoorWithABareCornerIsALeaf);
+        Checks.run("aDoorDrawnAsItsSpriteIsToldOnceForEachReason", DoorTests::aDoorDrawnAsItsSpriteIsToldOnceForEachReason);
     }
 
     private static void capUnderAWallsFootLeavesTheDoorwayFloorBare() {
@@ -754,6 +755,7 @@ final class DoorTests {
         check(shape != null && Math.abs(shape.leaf.start - 0.1f) < 0.03f && Math.abs(shape.leaf.end - 0.9f) < 0.03f && shape.leaf.foot < 0.02f && Math.abs(shape.leaf.head - 0.8f) < 0.02f,
                 "where it is painted: " + (shape == null ? "none" : shape.leaf.start + ".." + shape.leaf.end + " up " + shape.leaf.foot + ".." + shape.leaf.head));
         check(Doors.known(texture, true) == shape && Doors.known(texture, false) == null, "and known on its own edge only");
+        check(Doors.leafEdges(texture).equals("north"), "a log line says where it is a leaf: " + Doors.leafEdges(texture));
     }
 
     /**
@@ -827,5 +829,16 @@ final class DoorTests {
         check(shack != null && shack.panes.length == 0, "and is a leaf of wood all over as a door");
         check(shack != null && Math.abs(shack.start - 8f / across) < 1e-5f && Math.abs(shack.end - 56f / across) < 1e-5f && Math.abs(shack.foot) < 1e-5f,
                 "across its boards, from the floor: " + (shack == null ? "none" : shack.start + ".." + shack.end + " up " + shack.foot));
+    }
+
+    private static void aDoorDrawnAsItsSpriteIsToldOnceForEachReason() {
+        java.util.Set<String> told = TestMap.read(null, Doors.class, "drawnAsSpriteTold");
+        Texture texture = new Texture(5104, 128, 256).named("fixtures_doors_01_told");
+        int before = told.size();
+        Doors.drawnAsSprite(texture, 10, 20, 0, true, "its sprite is no leaf on that edge");
+        Doors.drawnAsSprite(texture, 11, 20, 0, true, "its sprite is no leaf on that edge");
+        check(told.size() == before + 1, "a door drawn as its sprite is told once for a sprite and reason, wherever it stands");
+        Doors.drawnAsSprite(texture, 10, 20, 0, false, "open, its sprite is no leaf on that edge nor on the east edge");
+        check(told.size() == before + 2, "and again for another reason");
     }
 }
