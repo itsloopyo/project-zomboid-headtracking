@@ -133,7 +133,7 @@ final class MeshCut {
 
     /** A hole: its outline as (s, t) pairs wound anticlockwise, a star about (middleS, middleT). */
     void hole(float[] outline, float middleS, float middleT) {
-        holes.add(new Hole(outline, outline, 0, middleS, middleT));
+        add(new Hole(outline, outline, 0, middleS, middleT));
     }
 
     /**
@@ -142,7 +142,31 @@ final class MeshCut {
      * middleT). Its sides are lined from the one to the other, a funnel.
      */
     void hole(float[] in, float[] out, int side, float middleS, float middleT) {
-        holes.add(new Hole(in, out, side, middleS, middleT));
+        add(new Hole(in, out, side, middleS, middleT));
+    }
+
+    /** The box round every hole, along and up: a triangle outside it is one that every hole keeps as it is (cutOne). */
+    private float holesLowS = Float.POSITIVE_INFINITY, holesHighS = Float.NEGATIVE_INFINITY, holesLowT = Float.POSITIVE_INFINITY, holesHighT = Float.NEGATIVE_INFINITY;
+
+    private void add(Hole hole) {
+        holes.add(hole);
+        holesLowS = Math.min(holesLowS, hole.lowS);
+        holesHighS = Math.max(holesHighS, hole.highS);
+        holesLowT = Math.min(holesLowT, hole.lowT);
+        holesHighT = Math.max(holesHighT, hole.highT);
+    }
+
+    /** Whether a triangle reaches into the box round every hole, as cutOne tests it against one hole's. */
+    private boolean nearAHole(float[] tri, int at) {
+        int a = at, b = at + V, c = at + 2 * V;
+        float aA = across(tri, a), aB = across(tri, b), aC = across(tri, c);
+        if (Math.max(aA, Math.max(aB, aC)) < -reach || Math.min(aA, Math.min(aB, aC)) > reach) {
+            return false;
+        }
+        float sA = s(tri, a), sB = s(tri, b), sC = s(tri, c);
+        float tA = tri[a + 2], tB = tri[b + 2], tC = tri[c + 2];
+        return Math.max(sA, Math.max(sB, sC)) > holesLowS && Math.min(sA, Math.min(sB, sC)) < holesHighS
+                && Math.max(tA, Math.max(tB, tC)) > holesLowT && Math.min(tA, Math.min(tB, tC)) < holesHighT;
     }
 
     /** A mark at (s, t) with the outline given, struck from the side of the plane side (1 or -1) is on. */
@@ -249,15 +273,17 @@ final class MeshCut {
             work = room(work, 3 * V);
             System.arraycopy(mesh.vertices, from + triangle * 3 * V, work, 0, 3 * V);
             workFloats = 3 * V;
-            for (Hole hole : holes) {
-                nextFloats = 0;
-                for (int at = 0; at < workFloats; at += 3 * V) {
-                    cutOne(mesh, work, at, hole);
+            if (nearAHole(work, 0)) {
+                for (Hole hole : holes) {
+                    nextFloats = 0;
+                    for (int at = 0; at < workFloats; at += 3 * V) {
+                        cutOne(mesh, work, at, hole);
+                    }
+                    float[] swap = work;
+                    work = next;
+                    next = swap;
+                    workFloats = nextFloats;
                 }
-                float[] swap = work;
-                work = next;
-                next = swap;
-                workFloats = nextFloats;
             }
             out = room(out, outFloats + workFloats);
             System.arraycopy(work, 0, out, outFloats, workFloats);
