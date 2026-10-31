@@ -115,9 +115,14 @@ public final class Rewind {
 
     /** Whether the patches Rewind works through went in, as they do only with its row on as the game starts (DevPatches). */
     static volatile boolean patched;
+    private static boolean saidUnpatched;
 
     /** Called as the game starts a tick of the world: writes out each player whose second has come, and keeps a held death paused. */
     static void tick() {
+        if (!patched && Rules.rewind() && !saidUnpatched) {
+            saidUnpatched = true;
+            Log.info("Rewind30s is on, but was off as the game started, so the game's code it works through is not patched: it takes effect when the game next starts");
+        }
         if (!patched || !Rules.rewind()) {
             // What was kept would be from before the server, should the player be alone again.
             for (int i = 0; i < View.COUNT; i++) {

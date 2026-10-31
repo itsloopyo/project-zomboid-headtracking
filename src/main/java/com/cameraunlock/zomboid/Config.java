@@ -450,7 +450,8 @@ final class Config {
                             + "what you had then and the wounds you had then. The world goes on as it was, the zombie that killed you\n"
                             + "included, but every zombie within 4 tiles of you is moved out to 4 tiles and every zombie stands still for 2\n"
                             + "seconds after. false: death is final, as in the game. On a server the game's rule applies.\n"
-                            + Part.LIVE_AND_NEXT_START,
+                            + "Off takes effect at once. On takes effect at once if it was on as the game started, and otherwise when the\n"
+                            + "game next starts.",
                     writable | live, false),
             localBool("Rules", "HiddenWallDecor",
                     "true: in first person, the south and east walls of a room, which the isometric view never shows from inside, get\n"
