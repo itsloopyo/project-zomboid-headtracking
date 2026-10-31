@@ -173,7 +173,8 @@ final class WorldQuery {
         // Over the middle of the square the door or the wall is on, where the picture stands the leaf and the holes, and ImpactFinder measured them.
         float up = (lineUp + lineWayUp * crossed - lineGround.height(owner.getX() + 0.5f, owner.getY() + 0.5f)) / ViewCamera.LEVEL_HEIGHT - level;
         IsoObject door = DoorGlass.shutDoorOn(owner, north);
-        if (door != null) {
+        // Beside the leaf it is the doorway's frame the line meets, as ImpactFinder and Penetration take it.
+        if (door != null && DoorGlass.onLeaf(door, north, along)) {
             if (DoorGlass.barricaded(door)) {
                 return seen;
             }
