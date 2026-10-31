@@ -50,9 +50,16 @@ final class Doors {
         boolean lever;
         /** The handle as it was measured: its longest row, how many rows high, its usual row, in dots. */
         int[] handle;
+        /**
+         * For a gate (Gates): the post its sprite paints at an end of the leaf, from postStart to postEnd along the edge
+         * and postTop levels high in its colour, postStart NaN for none; and its rails, foot and head in levels, and its
+         * uprights, start and end along the edge, two numbers each.
+         */
+        float postStart = Float.NaN, postEnd, postTop, postRed, postGreen, postBlue;
+        float[] rails = new float[0], stiles = new float[0];
     }
 
-    private record Asked(boolean swung, float originU, float originV, float scale, float left, float top, float width, float height) {}
+    private record Asked(boolean swung, boolean gate, float originU, float originV, float scale, float left, float top, float width, float height) {}
 
     /**
      * A sprite on one edge of its square: the north or the west, or with far the south or the east. A sprite is read
@@ -88,9 +95,9 @@ final class Doors {
      * The door the sprite paints on the north or west edge of its square, or with far the south or east one; swung
      * for a leaf standing open, which is read past the ends of the edge and below its floor and stood where it is
      * painted (standing). Null until a frame has been drawn since it was first asked for, and for a sprite that is no
-     * leaf with four straight sides on that edge.
+     * leaf with four straight sides on that edge. A gate is read as Gates reads one, its post apart from its leaf.
      */
-    static Shape of(Texture texture, SpriteGeometry.Frame frame, boolean north, boolean far, boolean swung) {
+    static Shape of(Texture texture, SpriteGeometry.Frame frame, boolean north, boolean far, boolean swung, boolean gate) {
         if (!(frame.scale > 0f)) {
             throw new IllegalArgumentException("door " + texture.getName() + " asked for with a frame of scale " + frame.scale + ": read at that scale it is no leaf on any edge");
         }
@@ -99,7 +106,7 @@ final class Doors {
         if (shape != null && (shape == NONE || shape.leaf.originU == frame.originU && shape.leaf.originV == frame.originV && shape.leaf.scale == frame.scale)) {
             return shape == NONE ? null : shape;
         }
-        Asked wanted = new Asked(swung, frame.originU, frame.originV, frame.scale, frame.left, frame.top, frame.width, frame.height);
+        Asked wanted = new Asked(swung, gate, frame.originU, frame.originV, frame.scale, frame.left, frame.top, frame.width, frame.height);
         Asked was = asked.put(edge, wanted);
         if (!wanted.equals(was)) {
             if (TRACE && was != null) {
@@ -114,7 +121,12 @@ final class Doors {
 
     /** A shut door the sprite paints on the north or west edge of its square: see of. */
     static Shape of(Texture texture, SpriteGeometry.Frame frame, boolean north) {
-        return of(texture, frame, north, false, false);
+        return of(texture, frame, north, false, false, false);
+    }
+
+    /** As of, for a door and not a gate. */
+    static Shape of(Texture texture, SpriteGeometry.Frame frame, boolean north, boolean far, boolean swung) {
+        return of(texture, frame, north, far, swung, false);
     }
 
     /** The shut door the sprite was read as on the north or west edge: null for one not read yet there or that is no leaf with four straight sides. */
@@ -165,7 +177,8 @@ final class Doors {
         // on the south or east edge stands into its square over the floor (standing), and is read to the top of the level.
         byte[] dots = Windows.laid(sheet, width, left, top, right, bottom, edge.north(), edge.far(), wanted.originU, wanted.originV + below, wanted.scale,
                 wanted.left, wanted.top, wanted.width, wanted.height, margin, at);
-        Windows.Shape leaf = Windows.measure(dots, wide, high, true);
+        Shape parts = new Shape();
+        Windows.Shape leaf = wanted.gate ? Gates.measure(sheet, dots, at, wide, high, across, parts) : Windows.measure(dots, wide, high, true);
         if (TRACE) {
             StringBuilder seen = new StringBuilder("door " + texture.getName() + " " + edgeName(edge.north(), edge.far()) + (wanted.swung ? " open" : "") + " origin " + wanted.originU + "," + wanted.originV
                     + " frame " + wanted.left + "," + wanted.top + " " + wanted.width + "x" + wanted.height + (leaf == null ? " is no leaf" : " leaf " + leaf.start + ".." + leaf.end + " high " + leaf.foot + ".." + leaf.head));
@@ -188,6 +201,18 @@ final class Doors {
                     ? (299 * (sheet.get(at[i]) & 0xff) + 587 * (sheet.get(at[i] + 1) & 0xff) + 114 * (sheet.get(at[i] + 2) & 0xff)) / 255000f : -1f;
         }
         Shape shape = worked(leaf, bright, wide, high);
+        shape.postStart = parts.postStart;
+        shape.postEnd = parts.postEnd;
+        shape.postTop = parts.postTop;
+        shape.postRed = parts.postRed;
+        shape.postGreen = parts.postGreen;
+        shape.postBlue = parts.postBlue;
+        shape.rails = parts.rails;
+        shape.stiles = parts.stiles;
+        if (!Float.isNaN(parts.postStart)) {
+            // A gate hangs on its post, and its latch is at the other end.
+            shape.handleAtEnd = parts.postStart < leaf.start;
+        }
         if (wanted.swung && !standing(shape, across, high, margin, below, edge.far())) {
             known.put(edge, NONE);
             return;
@@ -253,6 +278,17 @@ final class Doors {
         }
         leaf.bars = Windows.cut(leaf.bars, 4);
         leaf.panes = Windows.cut(leaf.panes, 5);
+        shape.postStart = shape.postStart * wide - before + along;
+        shape.postEnd = shape.postEnd * wide - before + along;
+        shape.postTop += up;
+        shape.rails = shape.rails.clone();
+        for (int at = 0; at < shape.rails.length; at++) {
+            shape.rails[at] += up;
+        }
+        shape.stiles = shape.stiles.clone();
+        for (int at = 0; at < shape.stiles.length; at++) {
+            shape.stiles[at] = Math.clamp(shape.stiles[at] * wide - before + along, leaf.start, leaf.end);
+        }
         return true;
     }
 
@@ -430,35 +466,55 @@ final class Doors {
      * sprite it shows shut, and laid on the outline of the open one, which is where the leaf
      * stands. A leaf turns on hinges at the doorway's corner, so open it has them at its start
      * (the end at that corner) and its handle at its end; the shut leaf's working is turned end
-     * for end where its handle was read at its start.
+     * for end where its handle was read at its start. A gate keeps the length and height its
+     * shut sprite paints, which its open one, painting it end on, cuts short and overstates: open,
+     * it runs from as far from the shut edge's line as it hung from its corner. Its rails and
+     * uprights are laid on the open leaf as a door's panels are, and its post, which does not
+     * swing, stays where the shut sprite paints it, along the shut leaf's edge.
      */
-    static Shape swung(Shape open, Shape shut) {
+    static Shape swung(Shape open, Shape shut, boolean gate) {
         Windows.Shape from = shut.leaf, to = open.leaf, leaf = new Windows.Shape();
         leaf.north = to.north;
         leaf.originU = to.originU;
         leaf.originV = to.originV;
         leaf.scale = to.scale;
-        leaf.start = to.start;
-        leaf.end = to.end;
+        boolean turned = !shut.handleAtEnd;
+        leaf.start = !gate ? to.start : turned ? 1f - from.end : from.start;
+        leaf.end = !gate ? to.end : leaf.start + from.end - from.start;
         leaf.foot = to.foot;
-        leaf.head = to.head;
+        leaf.head = gate ? to.foot + from.head - from.foot : to.head;
         leaf.red = from.red;
         leaf.green = from.green;
         leaf.blue = from.blue;
-        float along = (to.end - to.start) / (from.end - from.start), up = (to.head - to.foot) / (from.head - from.foot);
-        boolean turned = !shut.handleAtEnd;
+        float along = (leaf.end - leaf.start) / (from.end - from.start), up = (leaf.head - leaf.foot) / (from.head - from.foot);
         leaf.startWide = (turned ? from.endWide : from.startWide) * along;
         leaf.endWide = (turned ? from.startWide : from.endWide) * along;
         leaf.footHigh = from.footHigh * up;
         leaf.headHigh = from.headHigh * up;
-        leaf.bars = laidOn(from.bars, 4, from, to, along, up, turned);
-        leaf.panes = laidOn(from.panes, 5, from, to, along, up, turned);
+        leaf.bars = laidOn(from.bars, 4, from, leaf, along, up, turned);
+        leaf.panes = laidOn(from.panes, 5, from, leaf, along, up, turned);
         Shape made = new Shape();
         made.leaf = leaf;
         made.kind = shut.kind;
         made.board = shut.board * along;
         made.handleAtEnd = true;
         made.lever = shut.lever;
+        made.postStart = shut.postStart;
+        made.postEnd = shut.postEnd;
+        made.postTop = shut.postTop;
+        made.postRed = shut.postRed;
+        made.postGreen = shut.postGreen;
+        made.postBlue = shut.postBlue;
+        made.rails = shut.rails.clone();
+        for (int at = 0; at < made.rails.length; at++) {
+            made.rails[at] = leaf.foot + (shut.rails[at] - from.foot) * up;
+        }
+        made.stiles = shut.stiles.clone();
+        for (int at = 0; at < made.stiles.length; at += 2) {
+            float a = (shut.stiles[at] - from.start) * along, b = (shut.stiles[at + 1] - from.start) * along;
+            made.stiles[at] = turned ? leaf.end - b : leaf.start + a;
+            made.stiles[at + 1] = turned ? leaf.end - a : leaf.start + b;
+        }
         return made;
     }
 

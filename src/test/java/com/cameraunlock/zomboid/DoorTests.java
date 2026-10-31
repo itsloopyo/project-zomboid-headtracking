@@ -605,7 +605,7 @@ final class DoorTests {
         Doors.Shape open = door(0.05f, 0.45f, 0f, 0.8f, Doors.FLUSH, false, 0.9f, new float[0]);
         Doors.Shape shut = door(0.1f, 0.9f, 0f, 0.8f, Doors.PANELLED, true, 0.3f, new float[] {0.3f, 0.7f, 0.4f, 0.7f, 1f});
         shut.lever = true;
-        Doors.Shape swung = Doors.swung(open, shut);
+        Doors.Shape swung = Doors.swung(open, shut, false);
         check(swung.kind == Doors.PANELLED, "an open door keeps its panels");
         check(swung.leaf.red == 0.3f, "and its colour");
         check(swung.lever, "and its kind of handle");
@@ -620,7 +620,7 @@ final class DoorTests {
     private static void aShutLeafReadWithItsHandleAtItsStartIsTurnedEndForEnd() {
         Doors.Shape open = door(0.05f, 0.45f, 0f, 0.8f, Doors.FLUSH, true, 0.9f, new float[0]);
         Doors.Shape shut = door(0.1f, 0.9f, 0f, 0.8f, Doors.PANELLED, false, 0.3f, new float[] {0.2f, 0.4f, 0.4f, 0.7f, 1f});
-        Doors.Shape swung = Doors.swung(open, shut);
+        Doors.Shape swung = Doors.swung(open, shut, false);
         // The light was 0.1..0.3 of the leaf from its start, beside its handle: open, the handle is at the end.
         float t0 = swung.leaf.panes[0], t1 = swung.leaf.panes[1];
         check(Math.abs(t0 - 0.3f) < 1e-5f && Math.abs(t1 - 0.4f) < 1e-5f, "a light beside the handle stays beside it: " + t0 + ".." + t1);

@@ -539,9 +539,29 @@ final class WallBuilder {
         build.frame.cornersFrom(build.heldRed, build.heldGreen, build.heldBlue, build.heldUnlit);
     }
 
+    /** Builds the leaf of the door being added (OpeningBuilder.addBuiltDoor), or says why it is drawn as its sprite: whether it was built. */
+    private boolean addLeaf(Texture texture, int x, int y, int z, float way, float layer, float da, float db) {
+        build.layers.none();
+        boolean built = Own.buildings() && build.openingBuilder.addBuiltDoor(texture, x, y, z, da, db);
+        build.layers.lie(way, layer);
+        String why = built ? null : !Own.buildings() ? "the mod's buildings are off (OwnBuildings)" : build.openingBuilder.unbuilt;
+        if (why != null) {
+            Doors.drawnAsSprite(texture, x, y, z, da != 0f, why);
+        }
+        return built;
+    }
+
     private void standEdge(SpriteGeometry.Mesh mesh, Texture texture, boolean wall, boolean door, int x, int y, int z,
             float way, float layer, float da, float db) {
         float inX = db * WorldScene.WALL_HALF, inY = da * WorldScene.WALL_HALF;
+        // The game marks a chain link gate a wall: a leaf where the picture builds one, and the wall it was where it does not.
+        if (wall && door && build.gate != Gates.NONE && build.overLayer == 0) {
+            int site = build.frame.site;
+            if (addLeaf(texture, x, y, z, way, layer, da, db)) {
+                build.frame.site = site;
+                return;
+            }
+        }
         if ((wall || build.linkSheet) && build.seeThrough) {
             // A fence of wire or of rails is one sheet on the line between its squares. As two
             // skins a wall's thickness apart, the eye saw one lattice through the other and
@@ -578,14 +598,8 @@ final class WallBuilder {
             }
             if (door && build.doorLeaf && build.overLayer == 0) {
                 // A leaf hangs in the middle of the wall's thickness: a built one where the wall is, the sprite's own with the edge's layers.
-                build.layers.none();
-                boolean built = Own.buildings() && build.openingBuilder.addBuiltDoor(texture, x, y, z, da, db);
-                build.layers.lie(way, layer);
-                String why = built ? null : !Own.buildings() ? "the mod's buildings are off (OwnBuildings)" : build.openingBuilder.unbuilt;
-                if (why != null) {
-                    Doors.drawnAsSprite(texture, x, y, z, da != 0f, why);
-                }
-                if (built || build.openingBuilder.addDoor(mesh, texture, x, y, z, 0f, 0f, da, db)) {
+                // A gate the picture could not build stays the sheet it was before it was built.
+                if (addLeaf(texture, x, y, z, way, layer, da, db) || build.gate == Gates.NONE && build.openingBuilder.addDoor(mesh, texture, x, y, z, 0f, 0f, da, db)) {
                     build.geometry.shownA = build.geometry.shownB = 0f;
                     build.frame.site = site;
                     return;

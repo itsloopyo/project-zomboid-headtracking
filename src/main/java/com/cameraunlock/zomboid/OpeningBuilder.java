@@ -391,7 +391,7 @@ final class OpeningBuilder {
      * a frame drawn.
      */
     boolean addBuiltDoor(Texture texture, int x, int y, int z, float da, float db) {
-        boolean north = da != 0f;
+        boolean north = da != 0f, gated = build.gate != Gates.NONE;
         unbuilt = null;
         // Shots break lights counted in the shut leaf's order, which a leaf swung open keeps (Doors.swung): see DoorGlass.
         int broken = build.brokenLights;
@@ -400,7 +400,7 @@ final class OpeningBuilder {
         // fixtures_doors_02_44, stands on its square's south edge, the leaf of a west doorway turned the other way.
         boolean onFarEdge = false;
         if (build.shutTexture == null) {
-            door = Doors.of(texture, build.frame, north);
+            door = Doors.of(texture, build.frame, north, false, false, gated);
             if (door == null) {
                 if (Doors.unread(texture, north, false)) {
                     build.building.waitFor(texture);
@@ -411,7 +411,7 @@ final class OpeningBuilder {
             }
         } else if (build.doorSlid) {
             // Slid open, it is its shut sprite's frame in the doorway, the glass slid away behind the pane beside it.
-            door = Doors.of(build.shutTexture, build.shutFrame, north);
+            door = Doors.of(build.shutTexture, build.shutFrame, north, false, false, gated);
             if (door == null) {
                 if (Doors.unread(build.shutTexture, north, false)) {
                     build.building.waitFor(build.shutTexture);
@@ -424,8 +424,8 @@ final class OpeningBuilder {
             broken = 0;
         } else {
             // Open, it is the leaf its shut sprite paints, which stands on the other edge.
-            shut = Doors.of(build.shutTexture, build.shutFrame, !north);
-            Doors.Shape near = Doors.of(texture, build.frame, north, false, true), beyond = Doors.of(texture, build.frame, north, true, true);
+            shut = Doors.of(build.shutTexture, build.shutFrame, !north, false, false, gated);
+            Doors.Shape near = Doors.of(texture, build.frame, north, false, true, gated), beyond = Doors.of(texture, build.frame, north, true, true, gated);
             boolean waiting = false;
             if (shut == null && Doors.unread(build.shutTexture, !north, false)) {
                 build.building.waitFor(build.shutTexture);
@@ -446,7 +446,11 @@ final class OpeningBuilder {
             }
             if (shut != null) {
                 Doors.tellPair(texture, build.shutTexture);
-                door = Doors.swung(door, shut);
+                door = Doors.swung(door, shut, gated);
+            } else if (gated) {
+                // What a gate's open sprite paints of its rails and post, seen end on, is no gate.
+                unbuilt = "open, its shut sprite is no gate on the " + Doors.edgeName(!north, false);
+                return false;
             } else {
                 broken = 0;
             }
@@ -472,10 +476,17 @@ final class OpeningBuilder {
         IsoGridSquare beyond = build.doorSwung ? build.here : beyondEdge(north, x, y, z);
         boolean ownIsRoom = indoors(build.here) || !indoors(beyond);
         edgeSide = paneSide(ownIsRoom);
+        if (build.gate == Gates.LINK || build.gate == Gates.PIPES) {
+            addTubeGate(door, leaf);
+            addGatePost(door, texture, x, y);
+            return true;
+        }
+        // A gate of boards is boards, whatever lines its sprite draws on them.
+        int worked = build.gate == Gates.BOARDS && leaf.panes.length == 0 ? Doors.PLANKED : door.kind;
 
         MeshCut cut = blastCut(door, shut, north);
         int[][] ends = cut == null ? null : MeshCut.ends(build.solid, build.laid);
-        boolean wooden = door.kind == Doors.PLANKED || wooden(leaf.red, leaf.green, leaf.blue);
+        boolean wooden = worked == Doors.PLANKED || wooden(leaf.red, leaf.green, leaf.blue);
         // Kept as finely as a tile's colour (WallSides.FINE): at a fifteenth a channel a dark maroon door rounds to a grey one.
         SpriteGeometry.Mesh wood = build.solid.get(WorldScene.PLAIN, WallSides.laid(leaf.red, leaf.green, leaf.blue, 0f, 0f, 0f, WallSides.FINE));
         SpriteGeometry.Mesh joint = build.solid.get(WorldScene.PLAIN,
@@ -511,7 +522,7 @@ final class OpeningBuilder {
             joinerySide = side;
             wood.open = joint.open = sideOpen[side] + 32f * (wooden ? JOINERY : WorldScene.PAINT);
             wood.day = joint.day = sideDay[side];
-            if (door.kind == Doors.PLANKED) {
+            if (worked == Doors.PLANKED) {
                 // Boards side by side with an open joint between each two, on a back a little behind them.
                 float board = door.board > 0.08f ? door.board : BOARD_USUAL;
                 int boards = Math.max(2, Math.round(wide / board));
@@ -552,7 +563,7 @@ final class OpeningBuilder {
                 addJoinery(wood, jambs[jamb], jambs[jamb + 1], leaf.foot, leaf.head, Math.signum(face) * (WorldScene.WALL_HALF - JAMB_IN), r, g, b);
             }
             build.solid.own(thing);
-            if (door.kind == Doors.PANELLED && panelled - leaf.foot > 0.15f) {
+            if (worked == Doors.PANELLED && panelled - leaf.foot > 0.15f) {
                 float high = panelled - leaf.foot;
                 for (int column = 0; column < PANELS_ACROSS.length; column += 2) {
                     float from = leaf.start + wide * PANELS_ACROSS[column], to = leaf.start + wide * PANELS_ACROSS[column + 1];
@@ -589,7 +600,7 @@ final class OpeningBuilder {
             // The knob: a rose on the leaf, then a neck and a head, each of eight sides. The rose
             // keeps clear of a panel beside it. A lever has the rose and the neck, and an arm
             // along the leaf from the neck towards the hinges in place of the head.
-            float rose = rose(door.kind == Doors.PANELLED, wide);
+            float rose = rose(worked == Doors.PANELLED, wide);
             if (door.lever) {
                 float[] arm = lever(knob, door.handleAtEnd);
                 addBlock(metal, arm[0], arm[1], arm[2], arm[3], face + Math.signum(face) * LEVER_NEAR, face + Math.signum(face) * KNOB_OUT, r, g, b);
@@ -638,7 +649,127 @@ final class OpeningBuilder {
         if (cut != null) {
             cut.since(ends, build.solid, build.laid);
         }
+        addGatePost(door, texture, x, y);
         return true;
+    }
+
+    /** The thickest and thinnest a farm gate's tube is built, in tiles: 60 mm and 24 mm across. */
+    static final float TUBE_THICKEST = 0.03f, TUBE_THINNEST = 0.012f;
+    /** Half the side of a gate's square wooden post, at most, in tiles: a 100 mm post. */
+    static final float POST_HALF = 0.05f;
+    private static final int TUBE_SIDES = 8;
+    private final float[] tubeFrom = new float[3], tubeTo = new float[3];
+
+    /**
+     * A gate of tube on the leaf where windowPoint stands it: a chain link gate's wire across the leaf in a frame of
+     * the chain link fence's rail all round it, with the rails its sprite paints across inside the frame, in the
+     * fence's galvanised steel; a farm gate's rails and uprights as its sprite paints them, each as thick as it is
+     * painted, in the sprite's colour. The game paints chain link's wire as upright strokes, which read as uprights:
+     * a chain link gate has none but its frame's.
+     */
+    private void addTubeGate(Doors.Shape door, Windows.Shape leaf) {
+        boolean link = build.gate == Gates.LINK;
+        float level = ViewCamera.LEVEL_HEIGHT;
+        SpriteGeometry.Mesh steel = build.solid.get(WorldScene.PLAIN, link ? WallSides.key(ChainLink.RED, ChainLink.GREEN, ChainLink.BLUE, WallSides.FLAT)
+                : WallSides.laid(leaf.red, leaf.green, leaf.blue, 0f, 0f, 0f, WallSides.FINE));
+        steel.sway = 0f;
+        steel.lightFlat(build.frame);
+        float red = build.frame.red, green = build.frame.green, blue = build.frame.blue;
+        steel.open = build.frame.open;
+        if (!link) {
+            for (int at = 0; at < door.rails.length; at += 2) {
+                float r = Math.clamp((door.rails[at + 1] - door.rails[at]) * level / 2f, TUBE_THINNEST, TUBE_THICKEST);
+                float middle = (door.rails[at] + door.rails[at + 1]) / 2f;
+                addTube(steel, leaf.start, middle, leaf.end, middle, r, red, green, blue);
+            }
+            for (int at = 0; at < door.stiles.length; at += 2) {
+                float r = Math.clamp((door.stiles[at + 1] - door.stiles[at]) / 2f, TUBE_THINNEST, TUBE_THICKEST);
+                float middle = (door.stiles[at] + door.stiles[at + 1]) / 2f;
+                addUpright(steel, middle, leaf.foot, leaf.head, r, red, green, blue);
+            }
+            return;
+        }
+        float r = ChainLink.RAIL_RADIUS, rise = r / level;
+        float start = leaf.start + r, end = leaf.end - r, foot = leaf.foot + rise, head = leaf.head - rise;
+        addTube(steel, start - r, foot, end + r, foot, r, red, green, blue);
+        addTube(steel, start - r, head, end + r, head, r, red, green, blue);
+        addUpright(steel, start, foot, head, r, red, green, blue);
+        addUpright(steel, end, foot, head, r, red, green, blue);
+        for (int at = 0; at < door.rails.length; at += 2) {
+            float middle = (door.rails[at] + door.rails[at + 1]) / 2f;
+            if (middle - foot > 3f * rise && head - middle > 3f * rise) {
+                addTube(steel, start, middle, end, middle, r, red, green, blue);
+            }
+        }
+        steel.open = build.frame.open + 32f * ChainLink.FABRIC;
+        float[] c = build.reveal;
+        windowPoint(c, 0, start, foot, 0f);
+        windowPoint(c, 1, end, foot, 0f);
+        windowPoint(c, 2, end, head, 0f);
+        windowPoint(c, 3, start, head, 0f);
+        SpriteGeometry.addPlainQuad(steel, c, red, green, blue);
+        steel.open = build.frame.open;
+    }
+
+    /** A tube of radius r from (along0, up0) to (along1, up1) on the leaf where windowPoint stands it, in the middle of its thickness. */
+    private void addTube(SpriteGeometry.Mesh mesh, float along0, float up0, float along1, float up1, float r, float red, float green, float blue) {
+        windowPoint(tubeFrom, 0, along0, up0, 0f);
+        windowPoint(tubeTo, 0, along1, up1, 0f);
+        SpriteGeometry.addTube(mesh, tubeFrom, tubeTo, r, TUBE_SIDES, red, green, blue);
+    }
+
+    /** An upright tube of radius r at along on the leaf where windowPoint stands it, from foot to head in levels: SpriteGeometry.addTube lays none upright. */
+    private void addUpright(SpriteGeometry.Mesh mesh, float along, float foot, float head, float r, float red, float green, float blue) {
+        windowPoint(tubeFrom, 0, along, foot, 0f);
+        SpriteGeometry.addRound(mesh, tubeFrom[0], tubeFrom[1], tubeFrom[2], tubeFrom[2] + (head - foot) * ViewCamera.LEVEL_HEIGHT, r, r, TUBE_SIDES, 0f, 0f, red, green, blue);
+    }
+
+    /**
+     * The post a gate's shut sprite paints at an end of its leaf (Doors.Shape.postStart), on the line of the edge the gate
+     * shuts on, where it stands open too: on a chain link gate a post of the chain link fence's on the square's corner at
+     * that end, which the fence stands itself beside the small and the tall gate (Gates.fencePosts); on any other a
+     * square wooden one in the sprite's colour, against the leaf's end. Nothing for a gate whose sprite paints none, or
+     * for a door.
+     */
+    private void addGatePost(Doors.Shape door, Texture texture, int x, int y) {
+        if (build.gate == Gates.NONE || Float.isNaN(door.postStart) || build.gate == Gates.LINK && Gates.fencePosts(texture.getName())) {
+            return;
+        }
+        boolean before = door.postStart + door.postEnd < 1f;
+        float leafX = windowX, leafY = windowY, alongX = windowAlongX, alongY = windowAlongY;
+        windowX = x;
+        windowY = y;
+        if (build.doorSwung) {
+            windowAlongX = alongY;
+            windowAlongY = alongX;
+        }
+        if (build.gate == Gates.LINK) {
+            SpriteGeometry.Mesh steel = build.solid.get(WorldScene.PLAIN, WallSides.key(ChainLink.RED, ChainLink.GREEN, ChainLink.BLUE, WallSides.FLAT));
+            steel.sway = 0f;
+            steel.open = build.frame.open;
+            steel.lightFlat(build.frame);
+            float corner = before ? 0f : 1f;
+            windowPoint(tubeFrom, 0, corner, 0f, 0f);
+            SpriteGeometry.addRound(steel, tubeFrom[0], tubeFrom[1], tubeFrom[2], tubeFrom[2] + door.postTop * ViewCamera.LEVEL_HEIGHT, ChainLink.POST_RADIUS,
+                    ChainLink.POST_RADIUS, ChainLink.POST_SIDES, 0f, 0f, build.frame.red, build.frame.green, build.frame.blue);
+        } else {
+            float half = Math.min((door.postEnd - door.postStart) / 2f, POST_HALF);
+            float middle = before ? door.postEnd - half : door.postStart + half;
+            boolean wooden = wooden(door.postRed, door.postGreen, door.postBlue);
+            SpriteGeometry.Mesh wood = build.solid.get(WorldScene.PLAIN, WallSides.laid(door.postRed, door.postGreen, door.postBlue, 0f, 0f, 0f, WallSides.FINE));
+            wood.sway = 0f;
+            for (int side = 0; side < 2; side++) {
+                joinerySide = side;
+                wood.open = sideOpen[side] + 32f * (wooden ? JOINERY : WorldScene.PAINT);
+                wood.day = sideDay[side];
+                addJoinery(wood, middle - half, middle + half, 0f, door.postTop, (side == 0 ? 1f : -1f) * half, sideRed[side], sideGreen[side], sideBlue[side]);
+            }
+            wood.day = 0f;
+        }
+        windowX = leafX;
+        windowY = leafY;
+        windowAlongX = alongX;
+        windowAlongY = alongY;
     }
 
     /** How far either side of its middle a blast's hole goes through a door's leaf, in tiles: the leaf, and its ledges and panels. */

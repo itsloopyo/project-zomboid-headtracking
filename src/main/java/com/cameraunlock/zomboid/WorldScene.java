@@ -1160,6 +1160,8 @@ final class WorldScene {
         final float asFloor, asOther;
         final boolean laidWall, gableSheet, lies, wire, roofAccent, roofSheet, stripLamp, garageDoor, slidingDoor, cornerTrim, papered, tiledWall, fenceGate,
                 boulder, bedding, longGrass, natural, carpet, straw, tiled, grows, gardenPlant, flowerbed, onTop, holds, flightPost, fireEscape, paint, wallTrim, trim, moulded;
+        /** The kind of gate in a fence the sprite is, Gates.NONE for any other. */
+        final int gate;
         /** What length of handrail the sprite is, or null: see Rails. */
         final Rails.Piece rail;
         /** What piece of railway track the sprite is, or null: see Track. */
@@ -1263,6 +1265,7 @@ final class WorldScene {
             wallTrim = name != null && name.startsWith("walls_detailing_") && !Edges.west(properties, type) && !onNorthEdge(properties)
                     && !properties.has(IsoFlagType.attachedE) && !properties.has(IsoFlagType.attachedS);
             fenceGate = name != null && name.startsWith("fixtures_doors_fences");
+            gate = Gates.of(name, properties.get("DoorSound"));
             trim = Trims.is(name);
             moulded = Trims.moulded(name);
             cornerTrim = trim && (properties.has(IsoFlagType.attachedNW) || properties.has(IsoFlagType.attachedSE));
@@ -9887,8 +9890,9 @@ final class WorldScene {
             if (seeThrough && overLayer == 0 && Own.buildings() && kind.brokenLink != 0f) {
                 frame.material = kind.brokenLink;
             }
-            // A gate in a fence is rails or wire like the fence, and stays the sheet it is.
-            doorLeaf = door && !kind.fenceGate;
+            // A gate in a fence the picture builds (Gates) is a leaf as a door is; any other stays the sheet it is.
+            gate = Own.buildings() ? kind.gate : Gates.NONE;
+            doorLeaf = door && (!kind.fenceGate || gate != Gates.NONE);
             if ((doorSwung || doorSlid) && doorLeaf) {
                 IsoSprite shut = shutSprite(object);
                 Texture shown = shut == null ? null : shut.getTextureForCurrentFrame(object.getDir());
@@ -10515,6 +10519,8 @@ final class WorldScene {
         boolean garageDoor;
         /** Whether the sprite being added is a sliding glass door's, which has no hinges (Doors.sliding). */
         boolean slidingDoor;
+        /** The kind of gate the door being added is, built as Gates says, or Gates.NONE. */
+        int gate;
         /** For a door that stands open, swung or slid, the texture and frame of the sprite it shows shut, which it is read from: see OpeningBuilder.addBuiltDoor. Null for any other. */
         Texture shutTexture;
         final SpriteGeometry.Frame shutFrame = new SpriteGeometry.Frame();
