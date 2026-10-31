@@ -2739,14 +2739,32 @@ final class WorldScene {
     }
 
     private static java.lang.reflect.Field doorShut, thumpableShut;
+    private static int[] doubleNorthOpens, doubleWestOpens;
 
     /**
      * The sprite a door shows shut. The game keeps it beside the open one, two places before
-     * it on the sheet (four for a double door, eight for a garage door), and shows the open
-     * one while the door is open: that one is drawn half turned and reads as a flush leaf.
+     * it on the sheet (eight for a garage door), and shows the open one while the door is open:
+     * that one is drawn half turned and reads as a flush leaf. A piece of a double door open is
+     * as far past its shut sprite as IsoDoor.toggleDoubleDoorObject turned it, by its place in the
+     * double: the game makes a piece it moves to another square anew as a single door, which then
+     * keeps the sprite two before the open one as its shut sprite, a piece of another double.
      */
     static IsoSprite shutSprite(IsoObject door) {
         try {
+            // The piece of a double, 1 to 4, open or shut.
+            int piece = IsoDoor.getDoubleDoorIndex(door);
+            boolean open = door instanceof IsoDoor hinged ? hinged.IsOpen() : ((IsoThumpable) door).IsOpen();
+            if (piece > 0 && open) {
+                if (doubleNorthOpens == null) {
+                    java.lang.reflect.Field north = IsoDoor.class.getDeclaredField(Links.DOUBLE_NORTH_OPENS.name()), west = IsoDoor.class.getDeclaredField(Links.DOUBLE_WEST_OPENS.name());
+                    north.setAccessible(true);
+                    west.setAccessible(true);
+                    doubleWestOpens = (int[]) west.get(null);
+                    doubleNorthOpens = (int[]) north.get(null);
+                }
+                boolean north = door instanceof IsoDoor hinged ? hinged.getNorth() : ((IsoThumpable) door).getNorth();
+                return IsoSprite.getSprite(IsoSpriteManager.instance, door.getSprite().getName(), -(north ? doubleNorthOpens : doubleWestOpens)[piece - 1]);
+            }
             if (door instanceof IsoDoor) {
                 if (doorShut == null) {
                     doorShut = IsoDoor.class.getDeclaredField(Links.DOOR_SHUT.name());

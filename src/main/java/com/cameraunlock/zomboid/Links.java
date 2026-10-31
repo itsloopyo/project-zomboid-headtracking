@@ -49,8 +49,12 @@ import java.util.stream.Stream;
  * as bytes, so no class of the game is in the JVM before its patches are registered.
  */
 final class Links {
-    /** A field, by internal class name, name and descriptor. */
-    record Field(String owner, String name, String descriptor) {}
+    /** A field, by internal class name, name and descriptor, and whether it is the class's own (static) or each object's. */
+    record Field(String owner, String name, String descriptor, boolean isStatic) {
+        Field(String owner, String name, String descriptor) {
+            this(owner, name, descriptor, false);
+        }
+    }
 
     /** How many distinct things of the game were looked up, and what was said of each that was not found as used. */
     record Result(int references, List<String> unresolved) {}
@@ -59,7 +63,7 @@ final class Links {
     private static final String VERTEX_BUFFER_HANDLE = VERTEX_BUFFER + "$Vbo";
     /**
      * The fields read by name, which no instruction of the mod's names: the vertex buffer's, the body's picture and its entry,
-     * the parts of a posed body, the outlined things, the game's marks on the ground and its homing points, the layer an animation node is in the item renderer's and a door's shut sprite.
+     * the parts of a posed body, the outlined things, the game's marks on the ground and its homing points, the layer an animation node is in the item renderer's, a door's shut sprite, and how far the game turns each piece of a double door open.
      */
     static final Field BUFFER_HANDLE = new Field(VERTEX_BUFFER, "handle", "L" + VERTEX_BUFFER_HANDLE + ";");
     static final Field BUFFER_ELEMENTS = new Field(VERTEX_BUFFER, "elements", "[I");
@@ -95,9 +99,12 @@ final class Links {
     /** The sprite a door shows shut, which an open door is read from: see WorldScene.shutSprite. */
     static final Field DOOR_SHUT = new Field("zombie/iso/objects/IsoDoor", "closedSprite", "Lzombie/iso/sprite/IsoSprite;");
     static final Field THUMPABLE_SHUT = new Field("zombie/iso/objects/IsoThumpable", "closedSprite", "Lzombie/iso/sprite/IsoSprite;");
+    /** How far past a double door's shut sprite on the sheet the game turns each of its four pieces open, on a north and a west edge. */
+    static final Field DOUBLE_NORTH_OPENS = new Field("zombie/iso/objects/IsoDoor", "DoubleDoorNorthSpriteOffset", "[I", true);
+    static final Field DOUBLE_WEST_OPENS = new Field("zombie/iso/objects/IsoDoor", "DoubleDoorWestSpriteOffset", "[I", true);
     static final List<Field> REFLECTED = List.of(BUFFER_HANDLE, BUFFER_ELEMENTS, BUFFER_FORMAT, HANDLE_BUFFER, HANDLE_STRIDE, BODY_PICTURE, OUTLINED, GROUND_MARKERS, HOMING_POINTS, NODE_LAYER,
             ITEM_MODEL, ITEM_TRANSFORM, ITEM_TINT_R, ITEM_TINT_G, ITEM_TINT_B, ITEM_TINT_MASK,
-            DOOR_SHUT, THUMPABLE_SHUT, BODY_PICTURE_ENTRY, POSED_STATES, POSED_PARTS);
+            DOOR_SHUT, THUMPABLE_SHUT, DOUBLE_NORTH_OPENS, DOUBLE_WEST_OPENS, BODY_PICTURE_ENTRY, POSED_STATES, POSED_PARTS);
 
     private final Function<String, byte[]> classBytes;
     private final Map<String, Optional<ClassModel>> models = new HashMap<>();
@@ -366,7 +373,7 @@ final class Links {
         fail(what, "no such field");
     }
 
-    /** A field read by name off one object: the class named declares it, of that type, and it is not static. */
+    /** A field read by name, off one object or off its class: the class named declares it, of that type, static or not as it is read. */
     private void declared(Field field) {
         String what = field.owner() + "." + field.name() + ":" + field.descriptor();
         if (!seen.add("declared " + what)) {
@@ -381,8 +388,8 @@ final class Links {
             if (candidate.fieldName().equalsString(field.name())) {
                 if (!candidate.fieldType().equalsString(field.descriptor())) {
                     fail(what, "the field is now " + candidate.fieldType().stringValue());
-                } else if (candidate.flags().has(AccessFlag.STATIC)) {
-                    fail(what, "the field is now static");
+                } else if (candidate.flags().has(AccessFlag.STATIC) != field.isStatic()) {
+                    fail(what, field.isStatic() ? "the field is no longer static" : "the field is now static");
                 }
                 return;
             }

@@ -241,6 +241,9 @@ final class LinkTests {
         refused("a field read by name and gone", "no such field", check(nothingUsed, hidden, base(), thing(THING_AS_USED)));
         refused("a field read by name of another type", "the field is now J", check(nothingUsed, hidden, base(), thing(field("hidden", LONG, 0))));
         refused("a field read by name made static", "the field is now static", check(nothingUsed, hidden, base(), thing(field("hidden", INT, STATIC))));
+        List<Links.Field> shared = List.of(new Links.Field("game/Thing", "hidden", "I", true));
+        accepted("a static field read by name off its class is found", check(nothingUsed, shared, base(), thing(field("hidden", INT, ClassFile.ACC_PRIVATE | STATIC))));
+        refused("a static field read by name made each object's", "the field is no longer static", check(nothingUsed, shared, base(), thing(field("hidden", INT, ClassFile.ACC_PRIVATE))));
         // getDeclaredField does not look above the class it is asked of.
         refused("a field read by name moved to the parent", "no such field",
                 check(nothingUsed, List.of(new Links.Field("game/Thing", "count", "I")), base(), thing(THING_AS_USED)));

@@ -9,6 +9,7 @@ public final class IsoSprite {
     public IsoSpriteInstance def;
     public IsoAnim currentAnim;
     public static IsoSprite CreateSprite(IsoSpriteManager manager) { throw new UnsupportedOperationException("reference stub"); }
+    public static IsoSprite getSprite(IsoSpriteManager manager, String name, int offset) { throw new UnsupportedOperationException("reference stub"); }
     public Texture LoadSingleTexture(String name) { throw new UnsupportedOperationException("reference stub"); }
     public PropertyContainer getProperties() { throw new UnsupportedOperationException("reference stub"); }
     public Texture getTextureForCurrentFrame(IsoDirections direction) { throw new UnsupportedOperationException("reference stub"); }
