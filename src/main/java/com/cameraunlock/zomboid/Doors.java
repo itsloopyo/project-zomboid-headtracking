@@ -209,9 +209,16 @@ final class Doors {
         shape.postBlue = parts.postBlue;
         shape.rails = parts.rails;
         shape.stiles = parts.stiles;
-        if (!Float.isNaN(parts.postStart)) {
-            // A gate hangs on its post, and its latch is at the other end.
-            shape.handleAtEnd = parts.postStart < leaf.start;
+        if (wanted.gate && !wanted.swung) {
+            int hung = Gates.hung(texture.getName(), parts.postStart, leaf.start);
+            if (hung == Gates.HUNG_UNTOLD) {
+                if (TRACE) {
+                    Log.info("door " + texture.getName() + " " + edgeName(edge.north(), edge.far()) + " is a gate with no post and no place in a double: hung from neither end");
+                }
+                known.put(edge, NONE);
+                return;
+            }
+            shape.handleAtEnd = hung == Gates.HUNG_START;
         }
         if (wanted.swung && !standing(shape, across, high, margin, below, edge.far())) {
             known.put(edge, NONE);
@@ -225,7 +232,7 @@ final class Doors {
             Log.info("door " + texture.getName() + " reads as " + (shape.kind == PANELLED ? "panelled" : shape.kind == PLANKED ? "planked" : "flush")
                     + ", handle at its " + (shape.handleAtEnd ? "end" : "start") + ", a " + (shape.lever ? "lever" : "knob")
                     + (shape.handle == null ? "" : " (longest row " + shape.handle[0] + ", " + shape.handle[1] + " rows, usual row " + shape.handle[2] + ")")
-                    + ", " + leaf.panes.length / 5 + " lights");
+                    + ", " + leaf.panes.length / 5 + " lights" + (Float.isNaN(shape.postStart) ? "" : ", a post " + shape.postStart + ".." + shape.postEnd));
         }
         known.put(edge, shape);
     }

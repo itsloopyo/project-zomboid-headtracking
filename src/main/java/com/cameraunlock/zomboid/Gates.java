@@ -56,6 +56,25 @@ final class Gates {
         return place >= 16 && place <= 19 || place >= 64 && place <= 79 || place >= 128 && place <= 131 ? LINK : NONE;
     }
 
+    /** Which end of its edge a gate's shut sprite hangs it from: see hung. */
+    static final int HUNG_UNTOLD = 0, HUNG_START = 1, HUNG_END = 2;
+
+    /**
+     * Which end of its edge a gate's shut sprite hangs it from, its latch at the other end. A gate hangs on the post its
+     * sprite paints. A piece of a double gate may paint none, the two in the middle never do: the game numbers a
+     * double's pieces 1 to 4 along a north edge and back along a west one (the sprite's DoubleDoor), and turns the leaf
+     * of pieces 1 and 2 open from piece 1's outer end and that of 3 and 4 from piece 4's (IsoDoor.toggleDoubleDoorObject).
+     * On the sheet that puts the pieces hung from the start of their edge in the first eight of each sixteen from 32,
+     * shut and open, and those hung from the end in the second eight. A single gate that paints no post is untold.
+     */
+    static int hung(String name, float postStart, float leafStart) {
+        if (!Float.isNaN(postStart)) {
+            return postStart < leafStart ? HUNG_START : HUNG_END;
+        }
+        int place = name == null ? -1 : Sheets.place(name, SHEET);
+        return place < 32 || place > 127 ? HUNG_UNTOLD : place % 16 < 8 ? HUNG_START : HUNG_END;
+    }
+
     /** Where along its edge a shot crosses a gate the mod builds: its leaf, its post, or the rest of the edge, which the gate leaves open. */
     static final int LEAF = 0, POST = 1, OPEN = 2;
 

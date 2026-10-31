@@ -17,6 +17,7 @@ final class GateTests {
         Checks.run("aGateSwungOpenKeepsItsSizeItsRailsAndItsPost", GateTests::aGateSwungOpenKeepsItsSizeItsRailsAndItsPost);
         Checks.run("aTubeStoodUprightIsAsRoundAsOneLaidAcross", GateTests::aTubeStoodUprightIsAsRoundAsOneLaidAcross);
         Checks.run("aShotBesideAGatesLeafMeetsItsPostOrNothing", GateTests::aShotBesideAGatesLeafMeetsItsPostOrNothing);
+        Checks.run("aGateHangsFromItsPostOrFromItsEndOfADouble", GateTests::aGateHangsFromItsPostOrFromItsEndOfADouble);
     }
 
     private static void aGateIsBuiltAsTheFenceItStandsInIs() {
@@ -214,5 +215,23 @@ final class GateTests {
         check(Gates.met(postless, false, 0.05f) == Gates.OPEN && Gates.met(postless, false, 0.5f) == Gates.LEAF, "a gate with no post is its leaf and nothing");
         check(Gates.met((Doors.Shape) null, false, 0.02f) == Gates.LEAF && Gates.met((Doors.Shape) null, true, 0.5f) == Gates.OPEN,
                 "and one not measured yet is its leaf all along its edge shut, as a door is, and nothing open");
+    }
+
+    private static void aGateHangsFromItsPostOrFromItsEndOfADouble() {
+        check(Gates.hung("fixtures_doors_fences_01_5", 0f, 0.1f) == Gates.HUNG_START && Gates.hung("fixtures_doors_fences_01_5", 0.9f, 0.1f) == Gates.HUNG_END,
+                "a gate hangs on its post, at whichever end it stands");
+        check(Gates.hung("fixtures_doors_fences_01_120", 0f, 0.1f) == Gates.HUNG_START, "a piece of a double with a post hangs on it too");
+        // A farm gate's north double is 114, 115, 122 and 123 and its west double 120, 121, 112 and 113 (the sprites' DoubleDoor 1 to 4).
+        check(Gates.hung("fixtures_doors_fences_01_114", Float.NaN, 0f) == Gates.HUNG_START && Gates.hung("fixtures_doors_fences_01_115", Float.NaN, 0f) == Gates.HUNG_START,
+                "the first leaf of a north double hangs from the west end, the start of its edge");
+        check(Gates.hung("fixtures_doors_fences_01_122", Float.NaN, 0f) == Gates.HUNG_END && Gates.hung("fixtures_doors_fences_01_123", Float.NaN, 0f) == Gates.HUNG_END,
+                "and the second from the east end");
+        check(Gates.hung("fixtures_doors_fences_01_120", Float.NaN, 0f) == Gates.HUNG_END && Gates.hung("fixtures_doors_fences_01_121", Float.NaN, 0f) == Gates.HUNG_END,
+                "the first leaf of a west double, numbered from the south, from the south end, the end of its edge");
+        check(Gates.hung("fixtures_doors_fences_01_112", Float.NaN, 0f) == Gates.HUNG_START && Gates.hung("fixtures_doors_fences_01_113", Float.NaN, 0f) == Gates.HUNG_START,
+                "and the second from the north end");
+        check(Gates.hung("fixtures_doors_fences_01_58", Float.NaN, 0f) == Gates.HUNG_END && Gates.hung("fixtures_doors_fences_01_66", Float.NaN, 0f) == Gates.HUNG_START,
+                "as the wooden and chain link doubles are laid out on the sheet");
+        check(Gates.hung("fixtures_doors_fences_01_4", Float.NaN, 0f) == Gates.HUNG_UNTOLD, "a single gate with no post hangs from no end that can be told");
     }
 }
