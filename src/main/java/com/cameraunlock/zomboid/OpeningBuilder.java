@@ -460,6 +460,10 @@ final class OpeningBuilder {
         boolean smashed = (broken & DoorGlass.SMASHED) != 0 && door.leaf.panes.length > 0;
         float[] sash = smashed ? DoorGlass.sash(door.leaf.panes) : null;
         float[] blast = smashed ? DoorGlass.blast(sash, broken) : null;
+        if (smashed && shut != null && !shut.handleAtEnd) {
+            // The blast's middle was kept from the shut sash's start, which a leaf swung open turned end for end has at its end (Doors.swung).
+            blast[0] = sash[0] + sash[1] - blast[0];
+        }
         int seed = DoorGlass.seed(x, y, z);
         for (int side = 0; side < 2; side++) {
             float face = (side == 0 ? 1f : -1f) * DOOR_HALF;
