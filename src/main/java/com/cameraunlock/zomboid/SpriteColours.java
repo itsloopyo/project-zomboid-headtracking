@@ -616,6 +616,7 @@ final class SpriteColours {
                 Trims.read(texture, page, across, left, top, right, bottom);
                 RoadPaint.read(texture, page, across, left, top, right, bottom);
                 Masonry.read(texture, page, across, left, top, right, bottom);
+                HearthFacings.read(texture, page, across, left, top, right, bottom);
                 Battens.read(texture, page, across, left, top, right, bottom);
                 Stains.read(texture, page, across, left, top, right, bottom);
                 CrownWood.read(texture, page, across, left, top, right, bottom);

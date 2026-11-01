@@ -86,6 +86,8 @@ final class Furniture {
     boolean pictured;
     /** Whether its pane is a mirror's glass, which shows the room: see LookingGlass. */
     boolean mirror;
+    /** Whether it is the stone or brick faced on a fireplace's chimney breast, whose face the picture lays as masonry: see HearthFacings. */
+    boolean faced;
     /** See ownSize. */
     boolean ownSize;
     /** See stretched. */
@@ -416,7 +418,8 @@ final class Furniture {
         }
         // A fireplace's plain surround, its wooden mantel shelf and the stone or brick faced on its chimney breast are laid on
         // the wall as runs of three sprites, the end ones painting only the part of their square next to the middle: which
-        // wall and which piece go by their place on the sheet. A facing shows its sprite.
+        // wall and which piece go by their place on the sheet. A facing shows its sprite, laid as masonry where the mod's
+        // textures are on: see FurnishingBuilder.layFacing.
         int hearth = name == null || called != null || grid != null ? -1 : Sheets.place(name, FIREPLACES);
         if (hearth >= 0 && hearth < MANTELS.length && MANTELS[hearth] != null) {
             boolean north = hearth < 23 || hearth >= 43;
@@ -425,7 +428,11 @@ final class Furniture {
             boolean board = model.startsWith("mantel_board"), facing = model.startsWith("hearth_facing");
             Furniture piece = new Furniture(sprite, model, turnsOf(away)).hang(WallHung.behind(away), facing).ownSize()
                     .alongWall(MANTEL_ALONG[hearth]);
-            return facing ? piece : board ? piece.raise(MANTEL_BOARD_FOOT).dye(1 << Models.WOOD, MANTEL_BOARD_DYE)
+            if (facing) {
+                piece.faced = true;
+                return piece;
+            }
+            return board ? piece.raise(MANTEL_BOARD_FOOT).dye(1 << Models.WOOD, MANTEL_BOARD_DYE)
                     : piece.raise(model.equals("surround_header") ? SURROUND_HEADER_FOOT : 0f).dye(1 << Models.PAINT, model.equals("surround_header") ? SURROUND_HEADER_DYE : SURROUND_PILASTER_DYE);
         }
         // The boards nailed across a window have no name, no facing and no wall of their own: which wall and how many go by

@@ -377,8 +377,11 @@ final class FurnishingBuilder {
             standHung(piece, model, x, y, z, clear, texture.getID(), piece.dyed, SpriteGeometry.textureU(build.frame, dyeA, dyeB),
                     SpriteGeometry.textureV(build.frame, dyeA, dyeB, high));
         } else {
-            standHung(piece, model, x, y, z, clear, !piece.pictured ? WorldScene.PLAIN : picture != Decor.NONE ? Decor.held(picture) : texture.getID(),
+            float front = standHung(piece, model, x, y, z, clear, !piece.pictured ? WorldScene.PLAIN : picture != Decor.NONE ? Decor.held(picture) : texture.getID(),
                     piece.pictured ? 1 << Models.PANE : 0, 0f, 0f);
+            if (piece.faced && Own.textures(build.playerIndex)) {
+                layFacing(texture, x, y, z, piece.wall == WallHung.NORTH, front);
+            }
         }
         if (piece.mirror) {
             build.placed.glass(model);
@@ -462,8 +465,9 @@ final class FurnishingBuilder {
     /**
      * Stands a model placeHung has just placed, with hungPlace as it left it, on its wall: its back clear of the wall's
      * skin by standOut, and its dye, dyed surfaces and the place on the dye they take their colour as Models.Instances.add takes them.
+     * Returns how far its front stands out from the line of the wall's edge.
      */
-    private void standHung(Furniture piece, Models.Model model, int x, int y, int z, float standOut, int dye, int dyedSurfaces, float dyeAtU, float dyeAtV) {
+    private float standHung(Furniture piece, Models.Model model, int x, int y, int z, float standOut, int dye, int dyedSurfaces, float dyeAtU, float dyeAtV) {
         float along = hungPlace[ALONG], foot = hungPlace[FOOT], scale = hungPlace[SCALE], scaleUp = hungPlace[SCALE_UP];
         // Its back clear of the wall's skin, which stands that far inside the square's edge.
         Models.turn(piece.turns, 0f, -1f, build.hungWay);
@@ -482,7 +486,32 @@ final class FurnishingBuilder {
         build.placed.add(model, build.frame, x, y, x + a + build.hungWay[0] * out, y + b + build.hungWay[1] * out,
                 z * ViewCamera.LEVEL_HEIGHT + (lift[0] + lift[1] + lift[2] + lift[3]) / 4f + rise + foot, piece.turns, scale, scaleUp,
                 dye, dyedSurfaces, dyeAtU, dyeAtV, 0, 0f, 0f);
+        return out + model.depth() * scale / 2f;
     }
+
+    /**
+     * Lays the stone or brick a fireplace's facing paints as the masonry of a wall is laid, over the front of the facing's
+     * slab, front out from the line of its north or west wall: the sprite's colours on the slab were a few dots to a stone.
+     * A facing whose colours are not read yet keeps them until a build made again once they are.
+     */
+    private void layFacing(Texture texture, int x, int y, int z, boolean north, float front) {
+        Integer laid = HearthFacings.of(texture);
+        if (laid == null) {
+            build.building.waitFor(texture);
+            return;
+        }
+        if (laid == 0) {
+            return;
+        }
+        float out = front + FACING_CLEAR;
+        build.geometry.shownA = north ? 0f : out;
+        build.geometry.shownB = north ? out : 0f;
+        build.geometry.addFace(build.solid.get(texture.getID(), laid), build.frame, x, y, z, 0f, 0f, 0f, north ? 1f : 0f, north ? 0f : 1f, 0f, 0f, 0f, 1f);
+        build.geometry.shownA = build.geometry.shownB = 0f;
+    }
+
+    /** How far the masonry laid over a facing stands proud of the slab's front, which shows the sprite under it. */
+    private static final float FACING_CLEAR = 0.002f;
 
     /**
      * Hangs a sheaf of notices as the mod's sheets of it, each where its share of the place the sprite paints says and
