@@ -540,7 +540,7 @@ final class CentreUse {
             if (above >= 0f && above <= ViewCamera.LEVEL_HEIGHT) {
                 // What stands on an edge belongs to the square it is the north or the west edge of.
                 boolean ownerIsTo = crossX ? toX > tileX : toY > tileY;
-                IsoObject edge = onEdge(ownerIsTo ? to : from, ownerIsTo ? from : to, !crossX);
+                IsoObject edge = onEdge(ownerIsTo ? to : from, ownerIsTo ? from : to, !crossX, above);
                 if (edge != null) {
                     return edge;
                 }
@@ -583,13 +583,15 @@ final class CentreUse {
 
     /**
      * A door, a drawn curtain, a window or an open curtain on the edge between two squares, in
-     * that order: a drawn curtain is what is seen of its window.
+     * that order: a drawn curtain is what is seen of its window. Not a window or its curtain
+     * where the view meets the wall above the window's top, where a cabinet may hang.
      *
      * @param owner the square the edge is the north or west edge of
      * @param other the square on the far side of it
      * @param north whether it is the owner's north edge
+     * @param above how high over the floor the view meets the edge, in tiles
      */
-    private IsoObject onEdge(IsoGridSquare owner, IsoGridSquare other, boolean north) {
+    private IsoObject onEdge(IsoGridSquare owner, IsoGridSquare other, boolean north, float above) {
         IsoObject window = null;
         IsoCurtain curtain = null;
         PZArrayList<IsoObject> objects = owner.getObjects();
@@ -612,10 +614,27 @@ final class CentreUse {
                 curtain = hung;
             }
         }
+        if ((window != null || curtain != null) && overWindow(owner, north, above)) {
+            return null;
+        }
         if (curtain != null && !curtain.IsOpen()) {
             return curtain;
         }
         return window != null ? window : curtain;
+    }
+
+    /**
+     * Whether a height over the floor, in tiles, is above the top of the opening through the wall
+     * on a square's north or west edge, as a build of the picture measured it from the wall's
+     * sprite (WallBuilder.openingIn). Not until a build has measured it.
+     */
+    private static boolean overWindow(IsoGridSquare owner, boolean north, float above) {
+        IsoObject wall = WorldScene.wallOn(owner, north);
+        if (wall == null) {
+            return false;
+        }
+        float[] opening = WallBuilder.openingIn(wall.getSprite().getTextureForCurrentFrame(wall.getDir()), north);
+        return opening != null && opening.length > 0 && above > opening[3] * ViewCamera.LEVEL_HEIGHT;
     }
 
     /**
@@ -646,7 +665,7 @@ final class CentreUse {
             return null;
         }
         boolean ownerIsTo = crossX ? toX > x : toY > y;
-        IsoObject edge = onEdge(ownerIsTo ? to : square, ownerIsTo ? square : to, !crossX);
+        IsoObject edge = onEdge(ownerIsTo ? to : square, ownerIsTo ? square : to, !crossX, atExit);
         if (edge != null || atExit <= LOW_THING) {
             return edge;
         }
