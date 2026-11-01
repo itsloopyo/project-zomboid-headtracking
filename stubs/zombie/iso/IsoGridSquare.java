@@ -77,4 +77,5 @@ public final class IsoGridSquare {
     public zombie.iso.objects.IsoFire getFire() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.inventory.InventoryItem AddWorldInventoryItem(zombie.inventory.InventoryItem item, float x, float y, float z) { throw new UnsupportedOperationException("reference stub"); }
     public void removeWorldObject(zombie.iso.objects.IsoWorldInventoryObject object) { throw new UnsupportedOperationException("reference stub"); }
+    public boolean isWindowBlockedTo(IsoGridSquare other) { throw new UnsupportedOperationException("reference stub"); }
 }

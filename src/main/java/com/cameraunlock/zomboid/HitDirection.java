@@ -17,6 +17,7 @@ import zombie.characters.IsoZombie;
 import zombie.characters.animals.IsoAnimal;
 import zombie.iso.IsoCamera;
 import zombie.iso.IsoCell;
+import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoMovingObject;
 import zombie.iso.IsoWorld;
 import zombie.iso.LosUtil;
@@ -313,12 +314,40 @@ final class HitDirection {
 
     /**
      * Whether something between the player and a zombie stands in its way: a wall, a shut door,
-     * which the game's own attack also stops at (AttackState), or a shut window, which it does not.
+     * which the game's own attack also stops at (AttackState), or a window that is shut and
+     * whole, or barricaded. The game's line test says only that a window is on the way, open,
+     * shut or broken alike (IsoWindow.TestVision), so the squares along the line are walked, one
+     * edge at a time, and each window asked whether it is shut (IsoWindow.isBlocked).
      */
     private static boolean blocked(IsoCell cell, IsoPlayer player, IsoZombie zombie) {
-        LosUtil.TestResults line = LosUtil.lineClear(cell, (int) Math.floor(zombie.getX()), (int) Math.floor(zombie.getY()), (int) Math.floor(zombie.getZ()),
-                (int) Math.floor(player.getX()), (int) Math.floor(player.getY()), (int) Math.floor(player.getZ()), false);
-        return line == LosUtil.TestResults.Blocked || line == LosUtil.TestResults.ClearThroughClosedDoor || line == LosUtil.TestResults.ClearThroughWindow;
+        int fromX = (int) Math.floor(zombie.getX()), fromY = (int) Math.floor(zombie.getY()), floor = (int) Math.floor(zombie.getZ());
+        int toX = (int) Math.floor(player.getX()), toY = (int) Math.floor(player.getY());
+        LosUtil.TestResults line = LosUtil.lineClear(cell, fromX, fromY, floor, toX, toY, (int) Math.floor(player.getZ()), false);
+        if (line == LosUtil.TestResults.Blocked || line == LosUtil.TestResults.ClearThroughClosedDoor) {
+            return true;
+        }
+        if (line != LosUtil.TestResults.ClearThroughWindow) {
+            return false;
+        }
+        float startX = zombie.getX(), startY = zombie.getY(), alongX = player.getX() - startX, alongY = player.getY() - startY;
+        int x = fromX, y = fromY, stepX = toX > x ? 1 : -1, stepY = toY > y ? 1 : -1;
+        IsoGridSquare at = cell.getGridSquare(x, y, floor);
+        for (int steps = Math.abs(toX - fromX) + Math.abs(toY - fromY); steps > 0; steps--) {
+            // The next edge the line crosses: the nearer of the next column's and the next row's, as a share of the way along.
+            float acrossX = x == toX ? Float.MAX_VALUE : (x + (stepX > 0 ? 1 : 0) - startX) / alongX;
+            float acrossY = y == toY ? Float.MAX_VALUE : (y + (stepY > 0 ? 1 : 0) - startY) / alongY;
+            if (acrossX < acrossY) {
+                x += stepX;
+            } else {
+                y += stepY;
+            }
+            IsoGridSquare next = cell.getGridSquare(x, y, floor);
+            if (at != null && next != null && at.isWindowBlockedTo(next)) {
+                return true;
+            }
+            at = next;
+        }
+        return false;
     }
 
     private boolean hotbarTroubleSaid;
