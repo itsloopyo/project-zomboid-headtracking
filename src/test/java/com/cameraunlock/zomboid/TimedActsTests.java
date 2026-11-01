@@ -4,6 +4,10 @@ import static com.cameraunlock.zomboid.Checks.check;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
 import java.util.Locale;
 
 final class TimedActsTests {
@@ -21,26 +25,16 @@ final class TimedActsTests {
         Checks.run("armsReachEveryHandAtEveryMomentWithWristsAsWristsGo", () -> armsReachEveryHandAtEveryMomentWithWristsAsWristsGo(model));
     }
 
-    /** The names the game gives the animations of its timed actions: its timed action scripts, its Lua, and CharacterActionAnims. */
-    static final String[] ANIMATIONS = {"ApplyAlcohol", "BlowGlass", "BlowTorch", "BlowTorchFloor", "Build", "BuildLow", "Chisel_Surface", "ChoppingBlock_Hammer",
-        "Craft_PotteryWheel", "Craft_UseLoom", "CraftArmourPiece", "CraftKnifeSpear", "CraftWeapon1H", "CraftWeapon2H", "CutWire", "Disassemble",
-        "disassembleElectrical", "HammerSmashSurface", "Knitting", "Loot", "MakeChum", "MakeWithBrick", "MakeWithBrick_Low", "Making", "Making_Surface",
-        "MakingElectrical", "MakingHammer_Surface", "MakingJewellery", "MixingBowl", "MixingBucket", "MixingMortarPestle", "OpenAmmoBox", "OpenBeerBottle",
-        "OpenChampagne", "OpenPopCan", "OpenTinCan", "OpenTinCanWithKnife", "PackingBox", "PackingBox_Small", "PackSack", "Paint", "PlaceAmmoInBox", "Pour",
-        "PutInSmallBag", "PutSeedsInPacket", "RipSheets", "RollDice", "SawLog", "SawOffShotgun", "SawSmallItemMetal", "ScrubClothWithSoap", "SewingCloth",
-        "SharpenBlade", "SharpenStake", "SlicingFood", "SlicingFood_Surface", "SmithingHammer", "Take_Off_Rack_Mid", "TanLeatherBarrel", "Threshing",
-        "Tying_High", "Tying_Low", "Tying_Medium", "UncorkBottle", "UnPackBox", "UnPackBox_Small", "UnPackSack", "UnPackSmallBag", "Untie_High", "Untie_Low",
-        "Untie_Mid", "Use_Ripple_Comb", "UseBandsaw", "UseGrindingSlab", "UseGrindingStone", "UseHandPress", "UseLathe", "UseSpinningWheel",
-        "UseStandingDrill", "UseStoneQuern", "Welding", "Welding_Surface", "VehicleWorkOnMid", "WearClothing", "fill_container_tap", "changeBait",
-        "VehicleWorkOnTire", "VehicleTrailer", "TransferItemOnSelf", "ScrubWall_ToiletBrush", "ScrubWall_Mop", "RemoveBush", "refuelgascan", "LightFire_KnotchedPlank",
-        "DetachItem", "DestroyFloor", "AttachItem", "WashFace", "VehicleWash", "TakeGasFromVehicle", "TakeGasFromPump", "ScrubWall", "Scrubwall",
-        "ScrubFloor_ToiletBrush", "ScrubFloor_Mop", "ScrubFloor", "RemoveGrass", "RemoveCurtain", "RemoveBushLongBlade", "RemoveBushKnife", "RemoveBushAxe",
-        "RemoveBarricade", "MixFluids", "MedicalCheck", "LightFire_KnotchedPlank_Stood", "HammerOre", "Forage", "ExamineVehicle", "drink_tap",
-        "AnimalLureLow", "AnimalLureHigh", "AnimalLure", "scything", "Drink", "Read", "Chop_tree", "Dig", "DigShovel", "DigHoe", "DigPickAxe", "DigTrowel",
-        "Craft", "Bandage", "TakePills", "Destroy", "Shave", "InsertBullets", "RemoveBullets", "Eat"};
+    /** The names the game gives the animations of its timed actions, as src/test/data/timed-action-anims.txt lists them. */
+    static List<String> animations() throws IOException {
+        List<String> names = Files.readAllLines(Path.of("src", "test", "data", "timed-action-anims.txt"), StandardCharsets.UTF_8).stream()
+                .map(String::strip).filter(line -> !line.isEmpty() && !line.startsWith("#")).toList();
+        check(names.size() > 100, "the list of the game's timed action animations is read: " + names.size());
+        return names;
+    }
 
-    private static void everyAnimationOfTheGamesIsAWayOfWorking() {
-        for (String anim : ANIMATIONS) {
+    private static void everyAnimationOfTheGamesIsAWayOfWorking() throws IOException {
+        for (String anim : animations()) {
             check(TimedActs.kind(anim) != TimedActs.NONE, "the hands do something at " + anim);
         }
         for (String anim : new String[] {"Reload", "EquipItem", "UnequipItem", "DropWhileMoving", ""}) {
@@ -49,14 +43,20 @@ final class TimedActsTests {
         String[][] named = {{"Eat", "MOUTH"}, {"TakePills", "MOUTH"}, {"Drink", "DRINK"}, {"Read", "READ"}, {"Bandage", "WRAP"}, {"Craft", "WORK"},
             {"Making", "WORK"}, {"SewingCloth", "WORK"}, {"OpenTinCan", "CRANK"}, {"OpenTinCanWithKnife", "CRANK"}, {"Build", "HAMMER"},
             {"BuildLow", "HAMMER"}, {"SmithingHammer", "HAMMER"}, {"SawLog", "SAW"}, {"Loot", "RUMMAGE"}, {"Forage", "RUMMAGE"}, {"ScrubWall", "SCRUB"},
-            {"Pour", "POUR"}, {"Chop_tree", "SWING"}, {"DigShovel", "SWING"}, {"BlowTorch", "WELD"}, {"WashFace", "FACE"}};
+            {"Pour", "POUR"}, {"Chop_tree", "SWING"}, {"DigShovel", "SWING"}, {"BlowTorch", "WELD"}, {"WashFace", "FACE"},
+            {"Rake", "SCRUB"}, {"Untie_Low", "WORK"}, {"AnimalLure", "RUMMAGE"}, {"RemoveCurtain", "WORK"}, {"Shave", "FACE"}, {"InsertBullets", "WORK"}};
         String[] kinds = {"NONE", "MOUTH", "DRINK", "READ", "WORK", "CRANK", "WRAP", "HAMMER", "SAW", "RUMMAGE", "SCRUB", "POUR", "SWING", "WELD", "FACE"};
         for (String[] pair : named) {
             check(kinds[TimedActs.kind(pair[0])].equals(pair[1]), pair[0] + " is " + pair[1] + ", not " + kinds[TimedActs.kind(pair[0])]);
         }
-        check(TimedActs.low("BuildLow") && TimedActs.low("ScrubFloor_Mop") && TimedActs.low("Forage") && TimedActs.low("BlowTorchFloor") && TimedActs.low("Tying_Low")
-                && !TimedActs.low("Build") && !TimedActs.low("Eat") && !TimedActs.low("BlowTorch") && !TimedActs.low("BlowGlass"),
+        check(TimedActs.low("BuildLow", null) && TimedActs.low("ScrubFloor_Mop", null) && TimedActs.low("Forage", null) && TimedActs.low("BlowTorchFloor", null)
+                && TimedActs.low("Tying_Low", null) && TimedActs.low("Rake", null)
+                && !TimedActs.low("Build", null) && !TimedActs.low("Eat", null) && !TimedActs.low("BlowTorch", null) && !TimedActs.low("BlowGlass", null),
                 "work on the floor is low, and work before the body is not");
+        check(TimedActs.low("Loot", "Low") && !TimedActs.low("Loot", "Mid") && !TimedActs.low("Loot", "High") && !TimedActs.low("Loot", null) && !TimedActs.low("Loot", ""),
+                "a search reaches down where the game says what is searched is low, and before the body where it is higher or unsaid");
+        check(!TimedActs.low("Eat", "Low") && !TimedActs.low("Build", "Low"),
+                "how high a search is, as a variable the game may leave set, lowers nothing but a search");
     }
 
     /** The tangent of half the height of the picture, and its width against its height, as the arm tests take them. */

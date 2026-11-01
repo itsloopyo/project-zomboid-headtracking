@@ -57,7 +57,7 @@ final class TimedActs {
         if (a.contains("saw")) {
             return SAW;
         }
-        if (a.startsWith("scrub") || a.equals("paint") || a.equals("vehiclewash")) {
+        if (a.startsWith("scrub") || a.equals("paint") || a.equals("vehiclewash") || a.equals("rake")) {
             return SCRUB;
         }
         if (a.startsWith("blowtorch") || a.startsWith("welding")) {
@@ -80,10 +80,16 @@ final class TimedActs {
         return WORK;
     }
 
-    /** Whether the animation works at something on the floor. */
-    static boolean low(String anim) {
+    /**
+     * Whether the animation works at something on the floor.
+     *
+     * @param lootPosition the game's animation variable LootPosition, or null: how high what is searched is, which the
+     *                     game sets for its Loot animation (Low, Mid or High)
+     */
+    static boolean low(String anim, String lootPosition) {
         String a = anim.toLowerCase(Locale.ROOT);
-        return a.endsWith("low") || a.contains("_low") || a.contains("floor") || a.equals("forage") || a.contains("tire");
+        return a.endsWith("low") || a.contains("_low") || a.contains("floor") || a.equals("forage") || a.contains("tire") || a.equals("rake")
+                || a.equals("loot") && "low".equalsIgnoreCase(lootPosition);
     }
 
     /** A hand: where the middle of what it holds is, the way its fingers run, the way out of its palm, and its pose. */

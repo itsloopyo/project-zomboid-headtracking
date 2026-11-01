@@ -543,19 +543,20 @@ public final class ViewModel {
                 && !isSet(player, "isUnloading") && !isSet(player, "isRacking") ? player.GetVariable("PerformingAction") : null;
         int kind = anim == null ? TimedActs.NONE : TimedActs.kind(anim);
         if (kind != TimedActs.NONE) {
-            if (!anim.equals(taskAnim)) {
+            boolean low = TimedActs.low(anim, player.GetVariable("LootPosition"));
+            if (!anim.equals(taskAnim) || low != taskLow) {
                 // One action straight after another: the hands drop part of the way and come up to the next.
                 if (taskAnim != null && kind != taskKind) {
                     taskUp = Math.min(taskUp, TASK_BETWEEN);
                 }
                 if (animsSaid.add(anim)) {
                     if (DevBuild.ON) {
-                        Log.info("hands at a timed action, first time this session: " + anim + " (way of working " + kind + (TimedActs.low(anim) ? ", on the floor" : "") + ")");
+                        Log.info("hands at a timed action, first time this session: " + anim + " (way of working " + kind + (low ? ", on the floor" : "") + ")");
                     }
                 }
                 taskAnim = anim;
                 taskKind = kind;
-                taskLow = TimedActs.low(anim);
+                taskLow = low;
                 taskTime = 0f;
             } else {
                 taskTime += seconds;
