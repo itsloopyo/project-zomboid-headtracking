@@ -132,9 +132,12 @@ class Graph:
         self.put(node.inputs["Detail"], detail)
         return node.outputs["Fac"]
 
-    def image(self, path, vector):
+    def image(self, path, vector, data=False):
+        """data is for a mask, whose values are shares and not sRGB colours."""
         node = self.nodes.new("ShaderNodeTexImage")
         node.image = bpy.data.images.load(path, check_existing=True)
+        if data:
+            node.image.colorspace_settings.name = "Non-Color"
         node.extension = "CLIP"
         self.put(node.inputs[0], vector)
         return node.outputs["Color"], node.outputs["Alpha"]
@@ -284,7 +287,7 @@ def make(name, pictures):
         w = g.add(0.5, g.times(g.math("SUBTRACT", g.z, centre.z), 0.5 / half_h))
         place = g.combine(u, w, 0.0)
         colour, _ = g.image(os.path.join(PICTURES_DIR[0], picture + ".png"), place)
-        glow, _ = g.image(os.path.join(PICTURES_DIR[0], picture + "-glow.png"), place)
+        glow, _ = g.image(os.path.join(PICTURES_DIR[0], picture + "-glow.png"), place, data=True)
         lit = g.math("MAXIMUM", g.split(glow)[0], 0.0)
         return g.finish(colour, 0.32, 0.0, 0.0, glow=lit)
     if name == "gauge":
