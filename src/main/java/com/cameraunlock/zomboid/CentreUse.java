@@ -61,6 +61,8 @@ final class CentreUse {
     private static final float REACH = 2.5f;
     /** How far along a line through the pointer the world menu looks, in tiles: the game walks the player to what it is for. */
     private static final float MENU_REACH = WorldScene.REACH;
+    /** How far from the eye to the middle of its square something standing may be for the key to open its menu (standingFor), in tiles: the key's reach and half a square's diagonal. */
+    private static final float STANDING_REACH = REACH + 0.71f;
     /** How near the view's line has to pass to something lying on the ground or on a table. */
     private static final float ITEM_RADIUS = 0.3f;
     /** The view runs this far on past the floor it meets, so a thing lying where it lands is in reach of it. */
@@ -95,7 +97,7 @@ final class CentreUse {
 
     /** What the key would act on along the view, or null. */
     IsoObject under(ViewCamera.Pose view, float floorUp, IsoPlayer player, IsoCell cell) {
-        return find(view, floorUp, cell, (int) Math.floor(player.getZ()), false);
+        return find(view, floorUp, cell, (int) Math.floor(player.getZ()), false, REACH);
     }
 
     /** What the game's Lua lacks for the key to work, or null. */
@@ -354,7 +356,7 @@ final class CentreUse {
      * game's own is for what its view has under the pointer.
      */
     IsoObject forMenu(ViewCamera.Pose line, float floorUp, IsoPlayer player, IsoCell cell) {
-        return find(line, floorUp, cell, (int) Math.floor(player.getZ()), true);
+        return find(line, floorUp, cell, (int) Math.floor(player.getZ()), true, MENU_REACH);
     }
 
     /**
@@ -363,13 +365,16 @@ final class CentreUse {
      * offers for it. Null for anything else, which leaves the key to the game.
      */
     IsoObject standingFor(ViewCamera.Pose line, float floorUp, IsoPlayer player, IsoCell cell) {
-        IsoObject found = forMenu(line, floorUp, player, cell);
+        // The line enters a square at most half its diagonal nearer than the square's middle, so nothing past this is near enough.
+        float across = (float) Math.hypot(line.forwardX, line.forwardY);
+        float reach = across == 0f ? MENU_REACH : Math.min(MENU_REACH, (STANDING_REACH + 0.71f) / across);
+        IsoObject found = find(line, floorUp, cell, (int) Math.floor(player.getZ()), true, reach);
         IsoGridSquare square = found == null ? null : found.getSquare();
         if (square == null || found == square.getFloor() || keyActsOn(found) || found.getType() == IsoObjectType.wall) {
             return null;
         }
         float toX = square.getX() + 0.5f - line.eyeX, toY = square.getY() + 0.5f - line.eyeY;
-        return toX * toX + toY * toY <= (REACH + 0.71f) * (REACH + 0.71f) ? found : null;
+        return toX * toX + toY * toY <= STANDING_REACH * STANDING_REACH ? found : null;
     }
 
     /** Whether found (under) is a window the player can climb through, which a tap of the key opens or shuts and holding it climbs. */
@@ -414,9 +419,9 @@ final class CentreUse {
      * crosses an edge, and everything else on the square it stands on.
      *
      * @param menu whether it is for the world menu, which is for anything the view meets
+     * @param reach how far along the view to look, in tiles
      */
-    private IsoObject find(ViewCamera.Pose view, float floorUp, IsoCell cell, int level, boolean menu) {
-        float reach = menu ? MENU_REACH : REACH;
+    private IsoObject find(ViewCamera.Pose view, float floorUp, IsoCell cell, int level, boolean menu, float reach) {
         float down = view.forwardUp < 0f ? (floorUp - view.eyeUp) / view.forwardUp : Float.POSITIVE_INFINITY;
         reach = Math.min(reach, down + PAST_THE_FLOOR);
         int tileX = (int) Math.floor(view.eyeX), tileY = (int) Math.floor(view.eyeY);
