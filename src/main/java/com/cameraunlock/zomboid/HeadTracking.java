@@ -259,6 +259,46 @@ final class HeadTracking {
             return;
         }
 
+        holdOffWalls(clean.eyeX, clean.eyeY, world);
+        out.moveEye(lean.camera[0] + lean.rig[0], lean.camera[1] + lean.rig[1], lean.camera[2] + lean.rig[2]);
+    }
+
+    /**
+     * Project Viewpoint's camera, another mod's, which the mod's own view is not drawn from: the
+     * head's turn is kept up as follow keeps it, and the lean is asked for as well, following where
+     * Viewpoint's camera looks and held off walls from where it is. eyeAlone has the lean, for
+     * ViewpointCamera to put into that camera. Nothing is aimed from it, so no part of the lean
+     * goes with a weapon.
+     *
+     * @param inGameplay the game is running and the character is alive
+     * @param lookYaw    where Viewpoint's camera looks, measured as the mod's own yaw is
+     * @param eyeX       where Viewpoint's camera is across, before the lean, with eyeY
+     * @param cut        Viewpoint's camera cut since it was last asked about: no lean is asked for, so no wall from before the cut holds the next one
+     * @param world      the map on the camera's level
+     */
+    void beside(boolean inGameplay, float lookYaw, float eyeX, float eyeY, boolean cut, WorldQuery world) {
+        ride(false);
+        input.forwardStop = Float.POSITIVE_INFINITY;
+        input.aimForward[0] = (float) Math.cos(lookYaw);
+        input.aimForward[1] = (float) Math.sin(lookYaw);
+        input.aimForward[2] = 0f;
+        trackerToWorld(lookYaw, null, input.trackerToWorld);
+        ask(inGameplay && Tracking.enabled(), cut ? 0 : CameraUnlock.FRAME_LEAN);
+        if ((frame.flags & CameraUnlock.STATE_POSE) == 0) {
+            atRest();
+            return;
+        }
+        applied = false;
+        takeTheTurn(null);
+        if ((frame.flags & CameraUnlock.STATE_LEAN) == 0) {
+            noLean();
+            return;
+        }
+        holdOffWalls(eyeX, eyeY, world);
+    }
+
+    /** Core's lean for the frame just asked for, held off the walls the map has round an eye at (eyeX, eyeY). */
+    private void holdOffWalls(float eyeX, float eyeY, WorldQuery world) {
         // With no map to ask, the query could not run, and core is told so: it passes the lean
         // unheld and says it did.
         found.queried = false;
@@ -266,11 +306,10 @@ final class HeadTracking {
         if ((frame.flags & CameraUnlock.STATE_LEAN_QUERY) != 0 && world.mapped()) {
             float margin = Tracking.settings().collisionMargin;
             float reach = frame.queryReach - margin;
-            report(world.roomForTheEye(clean.eyeX, clean.eyeY, frame.queryDirection[0], frame.queryDirection[1], reach, margin),
+            report(world.roomForTheEye(eyeX, eyeY, frame.queryDirection[0], frame.queryDirection[1], reach, margin),
                     reach, margin, found);
         }
         Tracking.lean(index, found, lean);
-        out.moveEye(lean.camera[0] + lean.rig[0], lean.camera[1] + lean.rig[1], lean.camera[2] + lean.rig[2]);
 
         boolean unmeasured = (lean.flags & CameraUnlock.LEAN_QUERY_FAILED) != 0;
         if (unmeasured != unmeasuredLogged) {
@@ -286,7 +325,7 @@ final class HeadTracking {
             Log.info(String.format(Locale.ROOT, contact
                     ? "lean held off a wall: asked for %.3f, room for %.3f, eye at (%.2f, %.2f)"
                     : "lean clear of the wall again: asked for %.3f, given %.3f, eye at (%.2f, %.2f)",
-                    lean.asked, lean.given, clean.eyeX, clean.eyeY));
+                    lean.asked, lean.given, eyeX, eyeY));
         }
     }
 

@@ -651,16 +651,22 @@ public final class Agent {
     }
 
     /**
-     * The patch that puts the head's turn into the camera of Project Viewpoint, another mod, as
-     * its ThirdPerson.capture returns: see ViewpointCamera. Its class loads only with that mod in use.
+     * The patches that put the head's turn and lean into the camera of Project Viewpoint, another
+     * mod, as its ThirdPerson.capture returns, and the lean into the eye its Camera.eye draws from:
+     * see ViewpointCamera. Their classes load only with that mod in use.
      */
     private static List<Patch> viewpointPatches() {
-        return List.of(new Patch("viewpoint/camera/ThirdPerson", "capture with the head's turn added to its camera shot",
+        return List.of(new Patch("viewpoint/camera/ThirdPerson", "capture with the head's turn and lean added to its camera shot",
                 classBytes -> CallSite.insertBeforeReturns(classBytes,
                         new CallSite.Method("viewpoint/camera/ThirdPerson", "capture",
                                 "(Lviewpoint/core/Frame;Lzombie/iso/IsoCell;Lzombie/characters/IsoGameCharacter;F)V"),
                         code -> code.aload(0).aload(2).invokestatic(ClassDesc.ofInternalName(HOOKS), "viewpointShot",
-                                MethodTypeDesc.ofDescriptor("(Ljava/lang/Object;Lzombie/characters/IsoGameCharacter;)V")))));
+                                MethodTypeDesc.ofDescriptor("(Ljava/lang/Object;Lzombie/characters/IsoGameCharacter;)V")))),
+                new Patch("viewpoint/input/Camera", "eye with the lean added to the eye it gives",
+                        classBytes -> CallSite.insertBeforeReturns(classBytes,
+                                new CallSite.Method("viewpoint/input/Camera", "eye", "(Lviewpoint/core/Frame;F[F)V"),
+                                code -> code.aload(2).invokestatic(ClassDesc.ofInternalName(HOOKS), "viewpointEye",
+                                        MethodTypeDesc.ofDescriptor("([F)V")))));
     }
 
     /**

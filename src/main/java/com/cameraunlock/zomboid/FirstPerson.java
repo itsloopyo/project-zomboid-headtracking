@@ -1025,7 +1025,10 @@ public final class FirstPerson {
             lastX = Float.NaN;
             jumpedAt = 0;
             view.fieldOfView.rest();
-            view.headTracking.follow(player != null && !GameTime.isGamePaused() && !player.isDead());
+            boolean inGameplay = player != null && !GameTime.isGamePaused() && !player.isDead();
+            if (player == null || !ViewpointCamera.follow(player, view.headTracking, inGameplay)) {
+                view.headTracking.follow(inGameplay);
+            }
             view.viewModel.rest();
             view.crosshair.hide();
             view.crosshair.hideBobber();

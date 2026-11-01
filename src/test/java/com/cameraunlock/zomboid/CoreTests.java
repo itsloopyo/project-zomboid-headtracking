@@ -96,6 +96,7 @@ public final class CoreTests {
         Checks.run("firstStartCreatesTheCommittedFileAndRunsOnItsValues", CoreTests::firstStartCreatesTheCommittedFileAndRunsOnItsValues);
         Checks.run("whatTheQuickListsReadOnAFreshInstall", CoreTests::whatTheQuickListsReadOnAFreshInstall);
         Checks.run("trackerAxesBecomeThisViews", CoreTests::trackerAxesBecomeThisViews);
+        Checks.run("leanGoesIntoViewpointsCameraTheWayTheHeadMoves", CoreTests::leanGoesIntoViewpointsCameraTheWayTheHeadMoves);
         Checks.run("mapsAnswerIsHandedToCoreAsAWall", CoreTests::mapsAnswerIsHandedToCoreAsAWall);
         Checks.run("poseTurnsAndMovesTheView", CoreTests::poseTurnsAndMovesTheView);
         Checks.run("repeatedJumpIsNotFollowed", CoreTests::repeatedJumpIsNotFollowed);
@@ -362,6 +363,24 @@ public final class CoreTests {
         turned.set(clean);
         HeadTracking.turn(turned, 20f, 0f, 0f, true);
         check(turned.forwardX * clean.rightX + turned.forwardY * clean.rightY > 0.3f, "a positive yaw turns the view to its right");
+    }
+
+    /** Viewpoint's camera takes a lean in its own terms: behind the character right, up and back, at the eye in axes that run against the world's. */
+    private static void leanGoesIntoViewpointsCameraTheWayTheHeadMoves() {
+        float[] boom = new float[3];
+        for (float degrees : new float[] {0f, 90f, 200f, -35f}) {
+            ViewpointCamera.alongTheBoom(radians(degrees), lean(radians(degrees), -0.1f, 0f, 0f), boom);
+            check(near(boom[0], 0.1f) && near(boom[1], 0f) && near(boom[2], 0f),
+                    "looking " + degrees + " degrees, a head 10 cm to its right moves the camera behind 10 cm to its right and nothing else");
+            ViewpointCamera.alongTheBoom(radians(degrees), lean(radians(degrees), 0f, 0f, -0.4f), boom);
+            check(near(boom[0], 0f) && near(boom[1], 0f) && near(boom[2], -0.4f), "and a lean in of 40 cm takes 40 cm off the camera's way back");
+            ViewpointCamera.alongTheBoom(radians(degrees), lean(radians(degrees), 0f, 0.05f, 0f), boom);
+            check(near(boom[0], 0f) && near(boom[1], 0.05f) && near(boom[2], 0f), "and a head 5 cm up raises it 5 cm");
+        }
+        float[] eye = new float[3];
+        ViewpointCamera.atTheEye(new float[] {0.1f, -0.2f, 0.05f}, eye);
+        check(near(eye[0], -0.1f) && near(eye[1], 0.05f) && near(eye[2], 0.2f),
+                "at the eye, Viewpoint's x and z are the world's x and y measured back from its camera, and its y is up");
     }
 
     private static void mapsAnswerIsHandedToCoreAsAWall() {

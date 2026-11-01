@@ -1230,6 +1230,11 @@ public final class Hooks {
         ViewpointCamera.addHead(frame, character);
     }
 
+    /** Before Project Viewpoint's Camera.eye returns the eye it draws from at the character's eye: see ViewpointCamera. */
+    public static void viewpointEye(float[] eye) {
+        ViewpointCamera.leanTheEye(eye);
+    }
+
     /** Before ShaderUnit.loadShaderFile returns: the source of one of the game's shaders as it was read from fileName. See VehicleLamps and GameMouths. */
     public static String shaderSource(String code, String fileName) {
         String lamps = Part.FIRST_PERSON.atStart() ? VehicleLamps.source(code, fileName) : code;

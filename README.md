@@ -921,7 +921,7 @@ Picking an option in one of these lists changes the settings it covers on the pa
 
 ### Project Viewpoint
 
-If you run [Project Viewpoint](https://steamcommunity.com/sharedfiles/filedetails/?id=3809306528) alongside this mod, head tracking turns Viewpoint's camera too (yaw, pitch and roll, but not lean). Head tracking has to be on for this: the Head tracking on tick box at the top of the mod's options page, or `EnableOnStartup`.
+If you run [Project Viewpoint](https://steamcommunity.com/sharedfiles/filedetails/?id=3809306528) alongside this mod, head tracking moves Viewpoint's camera too: yaw, pitch, roll and lean, with the lean held off walls as it is in first person. Head tracking has to be on for this: the Head tracking on tick box at the top of the mod's options page, or `EnableOnStartup`.
 
 Viewpoint opens its settings window on `Delete` and takes a screenshot on `F9`, so while Viewpoint runs this mod switches first person on `Scroll Lock` instead (`FirstPersonKeyBesideViewpoint`) and the graphics mode on `Home` (`CycleQualityKeyBesideViewpoint`), and the hint on screen names those keys. `Home` changes player 1's graphics mode when tapped and every player's when held.
 
