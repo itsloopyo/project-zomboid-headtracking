@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.IdentityHashMap;
 import java.util.Locale;
 import org.lwjgl.opengl.GL11;
@@ -76,6 +77,8 @@ final class HitDirection {
     /** Logic thread: who hit the player and when. */
     private final IsoGameCharacter[] attackers = new IsoGameCharacter[MOST];
     private final long[] hitAt = new long[MOST];
+    /** Whether each zombie among them was in the cell's list of zombies this frame, or hit the player since the list was looked through. */
+    private final boolean[] listed = new boolean[MOST];
     private int count;
     /** The zombies attacking the player as last seen and now, so an attack is marked as it begins. */
     private IdentityHashMap<IsoZombie, Boolean> attacking = new IdentityHashMap<>(), attackingNow = new IdentityHashMap<>();
@@ -91,6 +94,7 @@ final class HitDirection {
         for (int i = 0; i < count; i++) {
             if (attackers[i] == attacker) {
                 hitAt[i] = now;
+                listed[i] = true;
                 said(attacker, "hit by");
                 return;
             }
@@ -105,6 +109,7 @@ final class HitDirection {
             drop(oldest);
         }
         attackers[count] = attacker;
+        listed[count] = true;
         hitAt[count++] = now;
         said(attacker, "hit by");
     }
@@ -131,7 +136,19 @@ final class HitDirection {
         count--;
         attackers[at] = attackers[count];
         hitAt[at] = hitAt[count];
+        listed[at] = listed[count];
         attackers[count] = null;
+    }
+
+    /** Logic thread: the game is making a zombie it held into another (IsoZombie.resetForReuse), which is no longer whoever hit the player. */
+    void forget(IsoZombie zombie) {
+        for (int i = count - 1; i >= 0; i--) {
+            if (attackers[i] == zombie) {
+                drop(i);
+            }
+        }
+        attacking.remove(zombie);
+        glowing.remove(zombie);
     }
 
     /**
@@ -151,9 +168,13 @@ final class HitDirection {
         IsoCell cell = IsoWorld.instance.currentCell;
         int floor = (int) Math.floor(player.getZ());
         glows = 0;
+        Arrays.fill(listed, false);
         ArrayList<IsoZombie> zombies = cell.getZombieList();
         for (int i = 0; i < zombies.size(); i++) {
             IsoZombie zombie = zombies.get(i);
+            for (int j = 0; j < count; j++) {
+                listed[j] |= attackers[j] == zombie;
+            }
             float toX = zombie.getX() - eye.eyeX, toY = zombie.getY() - eye.eyeY;
             if (Math.abs(toX) > ATTACK_REACH || Math.abs(toY) > ATTACK_REACH || zombie.isDead()) {
                 continue;
@@ -202,11 +223,11 @@ final class HitDirection {
         int marks = 0;
         for (int i = count - 1; i >= 0; i--) {
             float fade = HitArcs.fade((now - hitAt[i]) / 1e9f);
-            if (fade <= 0f) {
+            IsoGameCharacter attacker = attackers[i];
+            if (fade <= 0f || attacker.isDead() || (attacker instanceof IsoZombie ? !listed[i] : !cell.getObjectList().contains(attacker))) {
                 drop(i);
                 continue;
             }
-            IsoGameCharacter attacker = attackers[i];
             if (attacker instanceof IsoPlayer other && !(attacker instanceof IsoAnimal)
                     && (other.isInvisible() || contested && other.getAlpha(index) <= SHOWN_ALPHA)) {
                 continue;

@@ -825,6 +825,12 @@ public final class Hooks {
         wounds.forget(zombie);
         Bleeding.reused(zombie);
         Pieces.reused(zombie);
+        for (int i = 0; i < View.COUNT; i++) {
+            View view = View.of(i);
+            if (view != null) {
+                view.hitDirection.forget(zombie);
+            }
+        }
     }
 
     /** Which of {@link Wounds}' limbs a part of the game's is on, or -1. */
