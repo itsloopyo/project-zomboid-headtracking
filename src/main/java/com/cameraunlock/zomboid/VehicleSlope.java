@@ -10,8 +10,8 @@ package com.cameraunlock.zomboid;
  *
  * A wheel stands on as much ground as it touches, not a point: the picture's kerbs are steps,
  * and a point at each corner had the whole vehicle jump the frame one crossed. And a vehicle
- * someone rides in is carried on its springs (follow), so a wheel taking a kerb rocks it rather
- * than snapping it to the new slope.
+ * someone rides in is carried on a spring at each wheel (Suspension), so a wheel taking a kerb
+ * rocks its own end of it rather than snapping the whole of it to the new slope.
  */
 final class VehicleSlope {
     /** How far round a wheel's middle the ground under it is read, in tiles: a road wheel's reach on the ground as it rolls onto a step. */
@@ -23,6 +23,10 @@ final class VehicleSlope {
     float groundUp;
     /** The plane's up, a unit vector. */
     private float upX, upY, upUp = 1f;
+    /** The height under each wheel it was laid on: front left, front right, back left, back right. */
+    final float[] corners = new float[4];
+    /** The way it faces on the map, a unit vector, and how far apart its wheels are along it and across. */
+    float facingX = 1f, facingY, length = 1f, width = 1f;
 
     VehicleSlope() {
         up(0f, 0f, 1f);
@@ -55,6 +59,14 @@ final class VehicleSlope {
      * vector along the map; right of it is (fy, -fx).
      */
     void on(float frontLeft, float frontRight, float backLeft, float backRight, float fx, float fy, float length, float width) {
+        corners[0] = frontLeft;
+        corners[1] = frontRight;
+        corners[2] = backLeft;
+        corners[3] = backRight;
+        facingX = fx;
+        facingY = fy;
+        this.length = length;
+        this.width = width;
         groundUp = (frontLeft + frontRight + backLeft + backRight) / 4f;
         float along = (frontLeft + frontRight - backLeft - backRight) / (2f * length);
         float across = (frontRight + backRight - frontLeft - backLeft) / (2f * width);
@@ -64,24 +76,14 @@ final class VehicleSlope {
         up(-riseX / normal, -riseY / normal, 1f / normal);
     }
 
-    /**
-     * Carries this, the vehicle's lie a moment ago, the given share of the way to where the ground
-     * now has it, as a vehicle's springs carry it: a wheel going up a kerb rocks it over a few
-     * frames. The first time, or after a jump the springs would not take, it is where the ground is.
-     */
-    void follow(VehicleSlope ground, float share, boolean jumped) {
-        if (jumped) {
-            share = 1f;
-        }
-        groundUp += (ground.groundUp - groundUp) * share;
-        float x = upX + (ground.upX - upX) * share, y = upY + (ground.upY - upY) * share, up = upUp + (ground.upUp - upUp) * share;
-        float length = (float) Math.sqrt(x * x + y * y + up * up);
-        up(x / length, y / length, up / length);
-    }
-
     /** Makes this lie as other does. */
     void copy(VehicleSlope other) {
         groundUp = other.groundUp;
+        System.arraycopy(other.corners, 0, corners, 0, corners.length);
+        facingX = other.facingX;
+        facingY = other.facingY;
+        length = other.length;
+        width = other.width;
         up(other.upX, other.upY, other.upUp);
     }
 

@@ -41,8 +41,8 @@ final class Ride {
     private final Airtime air = new Airtime();
     /** How long the vehicle had been in the air, and how far over the land it has been at most, for the dev build's line on landing. */
     private float wasAloft, highest;
-    /** How long the springs take to carry the vehicle most of the way to a new lie of the ground: seconds. */
-    private static final float SPRUNG_FOR = 0.08f;
+    /** The springs the vehicle rides on over the land. */
+    private final Suspension springs = new Suspension();
     /** A gap between frames longer than this, or another vehicle, puts the vehicle straight where the ground has it. */
     private static final long SPRINGS_LOST_NANOS = 500_000_000L;
     private BaseVehicle carried;
@@ -167,10 +167,13 @@ final class Ride {
         boolean jumped = vehicle != carried || now - followedAt > SPRINGS_LOST_NANOS;
         float seconds = (now - followedAt) / 1e9f;
         held.copy(slope);
-        slope.follow(ground, 1f - (float) Math.exp(-seconds / SPRUNG_FOR), jumped);
+        springs.carry(ground, seconds, jumped || air.airborne, slope);
         // On a server the vehicle keeps to the land: there the game's level ground is what moves it.
         // On the ground it goes where its springs carry it; in the air it comes down on the land itself.
         air.step(air.airborne ? ground.groundUp : slope.groundUp, seconds, jumped || Online.joined());
+        if (air.landedAt > 0f) {
+            springs.land(air.landedAt);
+        }
         slope.groundUp = air.height;
         if (air.airborne) {
             // In the air nothing holds it to the land: it keeps the lie it left the ground with.
