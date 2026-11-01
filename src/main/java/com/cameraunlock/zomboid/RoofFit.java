@@ -1224,6 +1224,7 @@ final class RoofFit {
                 strips.merge(key(side.x, side.y, 0), side, (was, now) -> was.near + was.far <= now.near + now.far ? was : now);
             }
         }
+        hiddenHips(tiles, at, roofed, built, site, alongX, alongY);
         gambrels(tiles, at, roofed, built, site, alongX, alongY);
         // A crown's edge that no slope climbs to, map's or made, stands on the wall there: the hip
         // climbs from the wall to it, as the map's own slopes do on the sides it draws. Left out, the
@@ -1289,6 +1290,69 @@ final class RoofFit {
             }
         }
         return made;
+    }
+
+    /**
+     * The hip at the north or west end of a roof gabled at its other end. The map cuts the near face's tiles along the hip to
+     * triangles at their north-west corner, and nothing of the hip's face, which falls away from the game's view. On a roof hipped
+     * at both ends that face is the far side of the hip the map does show, across the ridge; gabled there, no row is carried over
+     * to it, and the squares inside the hip stood open with the far face run on to the end wall as if gabled. From each
+     * such cut tile the hip's face climbs from its end wall at the near face's pitch, as high along it as the near face is across
+     * the cut, over the squares of the building the map leaves bare, from the wall to the cut tile's row and as far out each side
+     * as the tile's row climbs. Where the far face lies there too the two meet in a hip (fromEaves). A roof whose near face meets a
+     * face of the map falling away from the hip, further along, has its hip made from that face already.
+     */
+    private static void hiddenHips(List<Tile> tiles, HashMap<Long, Tile> at, HashMap<Long, Tile> roofed, HashMap<Long, Boolean> built, Site site,
+            HashMap<Long, Side> alongX, HashMap<Long, Side> alongY) {
+        // Hips along y, over the north end of a near face along x, and hips along x, over the west end of one along y.
+        HashMap<Long, Side> hipY = new HashMap<>(), hipX = new HashMap<>();
+        for (Tile cut : tiles) {
+            float rise = Math.abs(cut.fitHigh - cut.fitLow);
+            if (cut.cutCorner != 0 || cut.shaped || !cut.slopes() || cut.up() != -1 || Math.abs(rise - PITCH) > PITCH_SLACK) {
+                continue;
+            }
+            boolean isAlongX = cut.fitAxis == ALONG_X;
+            int dx = isAlongX ? -1 : 0, dy = isAlongX ? 0 : -1;
+            int climbed = 1;
+            Tile lowest = cut;
+            for (Tile lower = cut; (lower = below(at, lower, dx, dy, -1)) != null; ) {
+                lowest = lower;
+                climbed++;
+            }
+            float eave = Math.min(lowest.fitLow, lowest.fitHigh), top = Math.max(cut.fitLow, cut.fitHigh);
+            // Along the hip's axis t, from its end wall; across it s, along the near face's.
+            int t0 = isAlongX ? cut.y : cut.x, s0 = isAlongX ? cut.x : cut.y, wall = t0 - (climbed - 1);
+            int floor = (int) Math.floor(eave + LEAST_RISE);
+            boolean madeElsewhere = false;
+            for (int s = s0 - climbed; s <= s0 + climbed && !madeElsewhere; s++) {
+                for (int t = t0 + 1; t <= t0 + WIDEST_TOP; t++) {
+                    Tile on = roofed.get(isAlongX ? key(s, t, 0) : key(t, s, 0));
+                    if (on == null) {
+                        break;
+                    }
+                    if (on.slopes() && on.fitAxis != cut.fitAxis && on.up() == -1) {
+                        madeElsewhere = true;
+                        break;
+                    }
+                }
+            }
+            if (madeElsewhere) {
+                continue;
+            }
+            for (int t = wall; t <= t0; t++) {
+                float near = eave + (t - wall) * rise;
+                for (int s = s0 - climbed; s <= s0 + climbed; s++) {
+                    int x = isAlongX ? s : t, y = isAlongX ? t : s;
+                    if (roofed.containsKey(key(x, y, 0)) || !stands(built, site, x, y, floor)) {
+                        continue;
+                    }
+                    Side face = new Side(x, y, near, near + rise, true, false, eave, rise, top, 1);
+                    (isAlongX ? hipY : hipX).merge(key(x, y, 0), face, (was, now) -> was.top >= now.top ? was : now);
+                }
+            }
+        }
+        hipY.forEach(alongY::putIfAbsent);
+        hipX.forEach(alongX::putIfAbsent);
     }
 
     /**

@@ -73,6 +73,7 @@ final class RoofTests {
         Checks.run("rowAtTheEndOfAHipHasNoFarSide", RoofTests::rowAtTheEndOfAHipHasNoFarSide);
         Checks.run("hipRoofWithCutHipsGetsItsFarFacesAsAHip", RoofTests::hipRoofWithCutHipsGetsItsFarFacesAsAHip);
         Checks.run("roofHippedAtOneEndAndGabledAtTheOtherGetsItsFarFaces", RoofTests::roofHippedAtOneEndAndGabledAtTheOtherGetsItsFarFaces);
+        Checks.run("hipTheMapDoesNotShowIsMadeOnARoofGabledAtItsOtherEnd", RoofTests::hipTheMapDoesNotShowIsMadeOnARoofGabledAtItsOtherEnd);
         Checks.run("wingsSideBySideUnderACrossRidgeLeaveNoPit", RoofTests::wingsSideBySideUnderACrossRidgeLeaveNoPit);
         Checks.run("dormerOnASlopeGetsItsRidgeAndItsFarFace", RoofTests::dormerOnASlopeGetsItsRidgeAndItsFarFace);
         Checks.run("roomSquareFlooredWithARoofSheetHasNoCeiling", RoofTests::roomSquareFlooredWithARoofSheetHasNoCeiling);
@@ -2886,6 +2887,48 @@ final class RoofTests {
         for (int x = 0; x <= 5; x++) {
             for (int y = 0; y <= 8; y++) {
                 check(over.containsKey(RoofFit.key(x, y, 0)), "the hip roof is closed over " + x + ", " + y);
+            }
+        }
+    }
+
+    /**
+     * The roof of hipRoofWithCutHipsGetsItsFarFacesAsAHip hipped at its north end and gabled at its south end, and the same roof
+     * turned over its diagonal, hipped at its west end and gabled at its east end. The map holds the near face alone, its tiles
+     * along the hip cut to triangles, and no face of the hip, which falls away from the game's view: every made corner lies at a
+     * third of a level a square in from the hipped end or the far eave, up to the ridge at 2, and every square is roofed.
+     */
+    private static void hipTheMapDoesNotShowIsMadeOnARoofGabledAtItsOtherEnd() {
+        String[] map = {
+            "3 2 1 2 1.667 0", "3 3 1 2 1.667 -1", "3 4 1 2 1.667 -1", "3 5 1 2 1.667 -1", "3 6 1 2 1.667 -1", "3 7 1 2 1.667 -1", "3 8 1 2 1.667 -1",
+            "4 1 1 1.51 1 -1", "4 2 1 1.667 1.333 -1", "4 3 1 1.667 1.333 -1", "4 4 1 1.667 1.333 -1", "4 5 1 1.667 1.333 -1", "4 6 1 1.667 1.333 -1",
+            "4 7 1 1.667 1.333 -1", "4 8 1 1.667 1.333 -1", "5 0 1 1.333 1 0", "5 1 1 1.333 1 -1", "5 2 1 1.333 1 -1", "5 3 1 1.333 1 -1",
+            "5 4 1 1.333 1 -1", "5 5 1 1.333 1 -1", "5 6 1 1.333 1 -1", "5 7 1 1.333 1 -1", "5 8 1 1.333 1 -1"};
+        for (boolean turned : new boolean[] {false, true}) {
+            List<RoofFit.Tile> roof = new ArrayList<>();
+            for (String one : map) {
+                String[] f = one.split(" ");
+                int x = Integer.parseInt(f[0]), y = Integer.parseInt(f[1]), axis = Integer.parseInt(f[2]);
+                RoofFit.Tile tile = new RoofFit.Tile(turned ? y : x, turned ? x : y, 1, turned ? 3 - axis : axis, true, Float.parseFloat(f[3]), Float.parseFloat(f[4]));
+                tile.cutCorner = Integer.parseInt(f[5]);
+                roof.add(tile);
+            }
+            RoofFit.fit(roof);
+            List<RoofFit.Tile> made = RoofFit.backs(roof, standing((x, y) -> (turned ? y : x) >= 0 && (turned ? y : x) <= 5 && (turned ? x : y) >= 0 && (turned ? x : y) <= 8));
+            String roofIs = turned ? "hipped west, gabled east" : "hipped north, gabled south";
+            for (RoofFit.Tile tile : made) {
+                for (int corner = 0; corner < 4; corner++) {
+                    int x = tile.x + (int) RoofFit.cornerX(corner), y = tile.y + (int) RoofFit.cornerY(corner);
+                    int across = turned ? y : x, along = turned ? x : y;
+                    float hip = Math.min(2f, 1f + Math.min(Math.min(across, 6 - across), along) * THIRD);
+                    check(near(tile.corners[corner], hip), roofIs + ": the made roof lies on the hip at " + x + ", " + y + ": " + said(tile));
+                }
+            }
+            HashMap<Long, RoofFit.Tile> over = bySquare(roof, made);
+            for (int across = 0; across <= 5; across++) {
+                for (int along = 0; along <= 8; along++) {
+                    int x = turned ? along : across, y = turned ? across : along;
+                    check(over.containsKey(RoofFit.key(x, y, 0)), roofIs + ": the roof is closed over " + x + ", " + y);
+                }
             }
         }
     }
