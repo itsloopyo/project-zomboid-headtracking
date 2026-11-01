@@ -1186,7 +1186,7 @@ public final class FirstPerson {
         float drawnAspect = view.worldScene.drawnAspect();
         pointersLevel = (int) Math.floor(player.getZ());
         view.crosshair.point(drawnAspect == 0f ? null : Homing.pointers(player.getIndex(), trackedView, pictureTanHalf, drawnAspect, pointersFloor));
-        if (drawnAspect == 0f) {
+        if (drawnAspect == 0f || !landed) {
             view.hitDirection.hide();
         } else {
             view.hitDirection.look(player, trackedView, pictureTanHalf * drawnAspect, now);
