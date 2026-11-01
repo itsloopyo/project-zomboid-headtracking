@@ -675,6 +675,28 @@ public final class CoreTests {
         check(SplitScreen.row() == SplitScreen.VERTICAL && holds("SplitScreen=Vertical") && holds("SplitScreenKey=F7"), "two players start side by side, with F7 to turn them");
         Tracking.turnSplitScreen();
         check(SplitScreen.row() == SplitScreen.HORIZONTAL && saved("SplitScreen=Horizontal"), "the split screen's action goes to one above the other and saves it");
+        Style styleWas = Style.of(0);
+        CountDownLatch held = savesHeld();
+        boolean readsAsTheKeysLeftThem;
+        try {
+            Tracking.cycleStyle(0);
+            Tracking.rememberFirstPerson(0, true);
+            Tracking.turnSplitScreen();
+            readsAsTheKeysLeftThem = Tracking.optionValue(Tracking.optionPlace(Config.styleKey(0))) == Style.of(0).ordinal() && Style.of(0) != styleWas
+                    && Tracking.optionValue(Tracking.optionPlace(Config.firstPersonRow(0))) == 1
+                    && Tracking.optionValue(Tracking.optionPlace("SplitScreen")) == SplitScreen.VERTICAL;
+        } finally {
+            held.countDown();
+        }
+        check(readsAsTheKeysLeftThem, "the style, the view at load and the split screen a key changes read on the options screen as the key left them, before their saves are made");
+        for (int step = 0; step < Style.values().length - 1; step++) {
+            Tracking.cycleStyle(0);
+        }
+        Tracking.rememberFirstPerson(0, false);
+        Tracking.turnSplitScreen();
+        check(Style.of(0) == styleWas && !Tracking.firstPersonRemembered(0) && SplitScreen.row() == SplitScreen.HORIZONTAL
+                        && saved("Style=" + styleWas.label, "FirstPerson=false", "SplitScreen=Horizontal"),
+                "and set back by the keys, they are saved as they were");
         check(holds("UdpPort=default") && holds("CycleTrackingModeKey=PageUp") && holds("YawModeKey=PageDown") && holds("TrueFreeLookKey=Insert") && !text().contains("ToggleKey") && holds("FirstPersonKey=Delete"), "and rows no action saves are as they were");
     }
 

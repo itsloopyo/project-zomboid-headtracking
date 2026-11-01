@@ -431,7 +431,7 @@ final class Tracking {
     /** The settings of the options screen the session holds itself, which applyScreen takes in place of a row's put. */
     static final String TRACKING_MODE_OPTION = "TrackingMode", AIM_MODE_OPTION = "AimMode", ENABLED_OPTION = "EnableOnStartup",
             YAW_MODE_OPTION = "WorldSpaceYaw", LOCAL_SMOOTHING_OPTION = "LocalSmoothing", REMOTE_SMOOTHING_OPTION = "RemoteSmoothing",
-            LIGHT_MULTIPLIER_OPTION = "LightMultiplier";
+            LIGHT_MULTIPLIER_OPTION = "LightMultiplier", SPLIT_SCREEN_OPTION = "SplitScreen";
     /** Of those, the ones core's session holds, which it is given whole again (CameraUnlock.configure) when any of them changes. */
     private static final Set<String> CORE_OPTIONS = Set.of(TRACKING_MODE_OPTION, AIM_MODE_OPTION, LOCAL_SMOOTHING_OPTION, REMOTE_SMOOTHING_OPTION,
             LIGHT_MULTIPLIER_OPTION);
@@ -454,7 +454,8 @@ final class Tracking {
 
     /**
      * What an option reads as now. The settings the session holds itself read as the session has
-     * them, and so do the graphics modes. A row of [Graphics] reads as the picture the first
+     * them, and so do the graphics modes and the rows a key changes, which core holds only once
+     * the key's save has run. A row of [Graphics] reads as the picture the first
      * player's first person mode draws (Quality.pictureOf), so in Low, Medium, High and Automatic
      * the screen shows that mode's, and in Custom the row itself. Any other reads as core holds
      * it, or as an apply left it while that apply's save has still to run.
@@ -462,6 +463,7 @@ final class Tracking {
     static double optionValue(int option) {
         String id = config.optionId(option);
         int part = Config.graphicsPart(id), player = qualityPlayer(id), overheadPlayer = overheadQualityPlayer(id);
+        int stylePlayer = playerOf(id, Config::styleKey), viewPlayer = playerOf(id, Config::firstPersonRow);
         return switch (id) {
             case TRACKING_MODE_OPTION -> trackingMode;
             case AIM_MODE_OPTION -> aimMode;
@@ -473,6 +475,9 @@ final class Tracking {
             default -> part >= 0 ? Config.values(Quality.pictureOf(Quality.row(0)))[part]
                     : player >= 0 ? Quality.row(player)
                     : overheadPlayer >= 0 ? Quality.overheadRow(overheadPlayer) - Quality.LOW
+                    : stylePlayer >= 0 ? Style.of(stylePlayer).ordinal()
+                    : viewPlayer >= 0 ? firstPersonRemembered(viewPlayer) ? 1 : 0
+                    : id.equals(SPLIT_SCREEN_OPTION) ? SplitScreen.row()
                     : held(id, option);
         };
     }
