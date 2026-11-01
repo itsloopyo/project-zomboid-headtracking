@@ -712,10 +712,10 @@ final class WallBuilder {
         float pixels = Math.abs(SpriteGeometry.frameU(build.frame, da, db) - SpriteGeometry.frameU(build.frame, 0f, 0f));
         boolean startPainted = paintedOnWall(texture, 0f, 0f, da, db, (fromStart + 1.5f) / pixels, SEAL_HEIGHT, 0f);
         boolean endPainted = paintedOnWall(texture, 0f, 0f, da, db, 1f - (fromEnd + 1.5f) / pixels, SEAL_HEIGHT, 0f);
-        int startJoin = 0, endJoin = 0, covered = 0;
+        int startJoin = 0, endJoin = 0, covered = 0, joins = 0;
         if (build.overLayer == 0) {
             build.joinLevel = z;
-            int joins = WallJoins.of(build.standing, x, y, da != 0f);
+            joins = WallJoins.of(build.standing, x, y, da != 0f);
             startJoin = startPainted ? joins & 7 : 0;
             endJoin = endPainted ? joins >> 3 : 0;
             covered = WallJoins.covered(build.boarded, x, y, da != 0f);
@@ -926,7 +926,9 @@ final class WallBuilder {
             }
             addReveals(opening, at, x, y, z, 0f, 0f, da, db, inX, inY, nearPaint, tint != 0 || faced != null ? farColour : nearPaint);
         }
-        if (build.overLayer == 0) {
+        if (build.overLayer == 0 && build.raggedFence) {
+            addRaggedCaps(mesh, texture, (joins & WallJoins.OPEN) != 0, (joins >> 3 & WallJoins.OPEN) != 0, covered, x, y, z, da, db, inX, inY);
+        } else if (build.overLayer == 0) {
             addCaps(mesh, texture, opening[at + OPENING_TOP], (startJoin & WallJoins.OPEN) != 0, (endJoin & WallJoins.OPEN) != 0, covered,
                     startPainted && endPainted, underFoot(opening[at + OPENING_START], opening[at + OPENING_END], opening[at + OPENING_FOOT]),
                     x, y, z, 0f, 0f, da, db, inX, inY);
@@ -1761,6 +1763,94 @@ final class WallBuilder {
         for (int span = 0; underFoot && span < footSpans.length; span += 2) {
             capAlong(mesh, c, u, v, footSpans[span], footSpans[span + 1], 0f, x0, y0, foot0, foot1, da, db, inX, inY);
         }
+    }
+
+    /**
+     * Closes a ragged low board fence (Fences.ragged) between its two skins where its sprite stops, column by column of the
+     * sprite along it: over each board at the board's own height and under what of a board hangs over a gap, up the side of
+     * a board where the column beside it stops lower or is gone, and across an end nothing meets. Each face takes the
+     * sprite's colour where it closes it, charred on a burnt fence.
+     */
+    private void addRaggedCaps(SpriteGeometry.Mesh mesh, Texture texture, boolean openStart, boolean openEnd, int covered, int x, int y, int z,
+            float da, float db, float inX, float inY) {
+        int columns = Math.round(Math.abs(SpriteGeometry.frameU(build.frame, da, db) - SpriteGeometry.frameU(build.frame, 0f, 0f)));
+        int rows = Math.round(SpriteGeometry.PIXELS_PER_LEVEL * build.frame.scale);
+        int[][] outline = Fences.outline((column, row) -> paintedOnWall(texture, 0f, 0f, da, db, (column + 0.5f) / columns, (row + 0.5f) / rows, 0f),
+                columns, rows);
+        mesh.open = build.frame.open + 32f * build.frame.material;
+        mesh.sway = 0f;
+        float foot0 = z * ViewCamera.LEVEL_HEIGHT + build.geometry.liftAt(0f, 0f), foot1 = z * ViewCamera.LEVEL_HEIGHT + build.geometry.liftAt(da, db);
+        float perRow = ViewCamera.LEVEL_HEIGHT / rows;
+        float[] c = build.reveal;
+        if (openStart) {
+            raggedSide(mesh, outline[0], NO_ROWS, rows, 0, 0, columns, covered & 7, x, y, foot0, foot1, da, db, inX, inY);
+        }
+        int from = 0;
+        for (int column = 1; column <= columns; column++) {
+            if (column < columns && Arrays.equals(outline[column], outline[from])) {
+                continue;
+            }
+            int[] runs = outline[from];
+            float along = (from + column) / 2f / columns;
+            float u = SpriteGeometry.textureU(build.frame, da * along, db * along);
+            for (int run = 0; run < runs.length; run += 2) {
+                int top = runs[run + 1], bottom = runs[run];
+                capAlong(mesh, c, u, SpriteGeometry.textureV(build.frame, da * along, db * along, (top - 0.5f) / rows), (float) from / columns,
+                        (float) column / columns, top * perRow, x, y, foot0, foot1, da, db, inX, inY);
+                if (bottom > 0 || z > 0) {
+                    capAlong(mesh, c, u, SpriteGeometry.textureV(build.frame, da * along, db * along, (bottom + 0.5f) / rows), (float) from / columns,
+                            (float) column / columns, bottom * perRow, x, y, foot0, foot1, da, db, inX, inY);
+                }
+            }
+            if (column < columns) {
+                raggedSide(mesh, runs, outline[column], rows, column - 1, column, columns, 0, x, y, foot0, foot1, da, db, inX, inY);
+            } else if (openEnd) {
+                raggedSide(mesh, runs, NO_ROWS, rows, column - 1, column, columns, covered >> 3, x, y, foot0, foot1, da, db, inX, inY);
+            }
+            from = column;
+        }
+    }
+
+    private static final int[] NO_ROWS = {};
+
+    /**
+     * The side of a ragged fence's boards between two columns of its sprite, at the line between them, where one is painted
+     * and the other not: before and after are the columns' runs (Fences.outline), each face coloured from the column that is
+     * painted there. halves, as WallJoins.covered gives them for an end, says which halves of the thickness a sheet covers.
+     */
+    private void raggedSide(SpriteGeometry.Mesh mesh, int[] before, int[] after, int rows, int beforeColumn, int line, int columns,
+            int halves, int x, int y, float foot0, float foot1, float da, float db, float inX, float inY) {
+        float from = (halves & WallJoins.FAR) != 0 ? 0f : -1f, to = (halves & WallJoins.NEAR) != 0 ? 0f : 1f;
+        if (from >= to) {
+            return;
+        }
+        int[] sides = Fences.differ(before, after, rows);
+        float along = (float) line / columns, foot = foot0 + (foot1 - foot0) * along, perRow = ViewCamera.LEVEL_HEIGHT / rows;
+        float ex = x + da * along, ey = y + db * along;
+        float[] c = build.reveal;
+        for (int side = 0; side < sides.length; side += 2) {
+            int low = sides[side], high = sides[side + 1];
+            // Coloured from the column that is painted over these rows: the one before the line, or the one after it.
+            boolean fromBefore = paints(before, low);
+            float at = ((fromBefore ? beforeColumn : beforeColumn + 1) + 0.5f) / columns;
+            float u = SpriteGeometry.textureU(build.frame, da * at, db * at), v = SpriteGeometry.textureV(build.frame, da * at, db * at, (low + high) / 2f / rows);
+            WorldScene.set(c, 0, ex + inX * from, ey + inY * from, foot + low * perRow);
+            WorldScene.set(c, 1, ex + inX * to, ey + inY * to, foot + low * perRow);
+            WorldScene.set(c, 2, ex + inX * to, ey + inY * to, foot + high * perRow);
+            WorldScene.set(c, 3, ex + inX * from, ey + inY * from, foot + high * perRow);
+            mesh.lightFlat(build.frame);
+            SpriteGeometry.addQuad(mesh, c, u, v, build.frame.red, build.frame.green, build.frame.blue);
+        }
+    }
+
+    /** Whether a column's runs (Fences.outline) paint a row. */
+    private static boolean paints(int[] runs, int row) {
+        for (int run = 0; run < runs.length; run += 2) {
+            if (row >= runs[run] && row < runs[run + 1]) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** A cap across the wall's thickness from one share of its length to another, up above its foot. */
@@ -2671,7 +2761,9 @@ final class WallBuilder {
         for (int i = 0; i < battens.length; i += 2) {
             float low = battens[i] * ViewCamera.LEVEL_HEIGHT, high = battens[i + 1] * ViewCamera.LEVEL_HEIGHT;
             boolean crossed = openFrom >= 0f && opening[at + OPENING_FOOT] * ViewCamera.LEVEL_HEIGHT < high && opening[at + OPENING_HEAD] * ViewCamera.LEVEL_HEIGHT > low;
-            float[] spans = crossed ? new float[] {0f, openFrom, openTo, 1f} : new float[] {0f, 1f};
+            // A ragged fence's batten is broken where its boards are: as long as the sprite paints it, halfway up it.
+            float[] spans = crossed ? new float[] {0f, openFrom, openTo, 1f}
+                    : build.raggedFence ? paintedAlong(texture, da, db, (battens[i] + battens[i + 1]) / 2f) : new float[] {0f, 1f};
             for (int s = 0; s < spans.length; s += 2) {
                 if (spans[s + 1] - spans[s] > 0.02f) {
                     Courses.board(batten, x + spans[s] * da, y + spans[s] * db, base0 + (base1 - base0) * spans[s],
@@ -2680,6 +2772,22 @@ final class WallBuilder {
                 }
             }
         }
+    }
+
+    /** The shares of the wall's length over which the sprite is painted up levels high, in pairs of where each run starts and ends. */
+    private float[] paintedAlong(Texture texture, float da, float db, float up) {
+        int columns = Math.round(Math.abs(SpriteGeometry.frameU(build.frame, da, db) - SpriteGeometry.frameU(build.frame, 0f, 0f)));
+        float[] runs = new float[columns + 1];
+        int count = 0;
+        boolean inside = false;
+        for (int column = 0; column <= columns; column++) {
+            boolean here = column < columns && paintedOnWall(texture, 0f, 0f, da, db, (column + 0.5f) / columns, up, 0f);
+            if (here != inside) {
+                runs[count++] = (float) column / columns;
+                inside = here;
+            }
+        }
+        return Arrays.copyOf(runs, count);
     }
 
     /**

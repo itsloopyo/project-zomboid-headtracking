@@ -1178,8 +1178,10 @@ final class WorldScene {
         final int flatWall;
         /** Whether it is a broken length of fence the game marks for no wall: see BrokenFences. */
         final boolean brokenFence;
-        /** Whether it is built with a wall's thickness though the game marks it a sheet: see Fences.thick and Rails.panelled. */
+        /** Whether it is built with a wall's thickness though the game marks it a sheet: see Fences.thick, Fences.ragged and Rails.panelled. */
         final boolean thickFence;
+        /** Whether it is a length of low board fence with boards broken, gone or burnt: see Fences.ragged. */
+        final boolean raggedFence;
         /** The length of chain link fencing it is, or null: see ChainLink. */
         final ChainLink.Run chainLink;
         /** As a torn or burnt length of chain link, the material its sprite is drawn with, or 0: see ChainLink.brokenMaterial. */
@@ -1297,7 +1299,8 @@ final class WorldScene {
             edge = name == null ? Overhead.ANY_EDGE : Overhead.edgeOf(name);
             flatWall = WallObjects.flatOn(name, properties, sprite.getFacing());
             brokenFence = BrokenFences.is(name);
-            thickFence = Fences.thick(name) || Rails.panelled(name);
+            raggedFence = Fences.ragged(name);
+            thickFence = Fences.thick(name) || raggedFence || Rails.panelled(name);
             chainLink = ChainLink.of(name);
             brokenLink = ChainLink.brokenMaterial(name, madeOf, onEdge);
             linkSheet = ChainLink.sheet(name, properties, type);
@@ -9917,6 +9920,7 @@ final class WorldScene {
             // A ModelFences corner length is marked for both edges and as neither one's sheet, as a chain link corner is.
             boolean sheet = isSheet(properties);
             seeThrough = sheet && !kind.thickFence || kind.linkSheet || kind.modelFence != null;
+            raggedFence = sheet && kind.raggedFence;
             lowBoards = sheet && !(object instanceof IsoDoor) && BlastHoles.blastable(object);
             linkSheet = kind.linkSheet;
             chainLink = seeThrough && overLayer == 0 && Own.buildings() ? kind.chainLink : null;
@@ -10584,6 +10588,8 @@ final class WorldScene {
         IsoObject blastObject;
         /** Whether the sprite being added is a wooden fence low enough for the game to see over: its top is measured for the shots (BlastHoles.topOf). */
         boolean lowBoards;
+        /** Whether the sprite being added is a ragged low board fence, closed where its boards stop (WallBuilder.addRaggedCaps). */
+        boolean raggedFence;
         /** Whether the sprite being added is the frame round a doorway. */
         boolean casing;
         /** Whether the sprite being added is a wall a doorway is in. */

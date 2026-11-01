@@ -1,5 +1,7 @@
 package com.cameraunlock.zomboid;
 
+import java.util.Arrays;
+
 /** What the game's fences are made of, by their sheet and the properties the game gives them. */
 final class Fences {
     private Fences() {}
@@ -20,8 +22,7 @@ final class Fences {
     /**
      * Whether a sprite is a whole length of low board fence with a level top, which the game
      * marks as a sheet because it can be seen over and which is built with a board fence's
-     * thickness and a top. A broken, burnt, notched or pointed one stays a sheet: a top laid at
-     * its highest board would float over its gaps.
+     * thickness and a top. A broken, burnt or notched one is ragged.
      */
     static boolean thick(String name) {
         if (name == null) {
@@ -29,6 +30,83 @@ final class Fences {
         }
         int low = Sheets.place(name, "fencing_01_"), built = Sheets.place(name, "carpentry_02_");
         return low >= 32 && low <= 35 || built >= 44 && built <= 49;
+    }
+
+    /**
+     * Whether a sprite is a length of low board fence on one edge with boards broken off, gone or burnt, or with gaps between
+     * them: the damaged and burnt sprites the game gives the low board fences thick has, and the first a player builds
+     * (carpentry_02_40 and 41). It is built with a board fence's thickness as thick ones are, closed over each board at the
+     * board's own height and up its sides where the sprite stops (WallBuilder.addRaggedCaps): one top at the height of its
+     * boards floated over its gaps. Corner pieces stay sheets, as thick ones' do.
+     */
+    static boolean ragged(String name) {
+        if (name == null) {
+            return false;
+        }
+        return listed(Sheets.place(name, "carpentry_02_"), RAGGED_BUILT) || listed(Sheets.place(name, "fencing_damaged_01_"), RAGGED_DAMAGED)
+                || listed(Sheets.place(name, "fencing_damaged_03_"), RAGGED_DAMAGED_03) || listed(Sheets.place(name, "fencing_burnt_01_"), RAGGED_BURNT);
+    }
+
+    private static final int[] RAGGED_BUILT = {40, 41};
+    private static final int[] RAGGED_DAMAGED = {48, 50, 51, 53, 56, 58, 59, 61, 144, 146, 147, 149, 152, 154, 155, 157, 160, 162, 163, 165};
+    private static final int[] RAGGED_DAMAGED_03 = {24, 25, 26, 27, 28, 29, 32, 33, 34, 35, 36, 37, 136, 138, 139, 141, 144, 146, 147, 149, 152, 154, 155, 157};
+    private static final int[] RAGGED_BURNT = {0, 1, 40, 41, 42, 43};
+
+    /** Whether a fence's sprite is painted at a column along the fence and a row up it, counted from its start and its foot. */
+    interface Painted {
+        boolean at(int column, int row);
+    }
+
+    /** For each column of a fence's sprite, its painted runs of rows from the foot up: pairs of a run's first row and the row past its last. */
+    static int[][] outline(Painted painted, int columns, int rows) {
+        int[][] outline = new int[columns][];
+        int[] runs = new int[rows + 1];
+        for (int column = 0; column < columns; column++) {
+            int count = 0;
+            boolean inside = false;
+            for (int row = 0; row <= rows; row++) {
+                boolean here = row < rows && painted.at(column, row);
+                if (here != inside) {
+                    runs[count++] = row;
+                    inside = here;
+                }
+            }
+            outline[column] = Arrays.copyOf(runs, count);
+        }
+        return outline;
+    }
+
+    /** The rows painted in one of two columns of outline and not in the other, as pairs as outline gives them; rows is how many the sprite has. */
+    static int[] differ(int[] one, int[] other, int rows) {
+        boolean[] inOne = new boolean[rows], inOther = new boolean[rows];
+        mark(one, inOne);
+        mark(other, inOther);
+        int[] runs = new int[rows + 1];
+        int count = 0;
+        boolean inside = false;
+        for (int row = 0; row <= rows; row++) {
+            boolean here = row < rows && inOne[row] != inOther[row];
+            if (here != inside) {
+                runs[count++] = row;
+                inside = here;
+            }
+        }
+        return Arrays.copyOf(runs, count);
+    }
+
+    private static void mark(int[] runs, boolean[] rows) {
+        for (int at = 0; at < runs.length; at += 2) {
+            Arrays.fill(rows, runs[at], runs[at + 1], true);
+        }
+    }
+
+    private static boolean listed(int place, int[] places) {
+        for (int each : places) {
+            if (each == place) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Whether a sprite is a fence of iron bars: the iron the game paints, which its many bars would otherwise have taken for wire. */

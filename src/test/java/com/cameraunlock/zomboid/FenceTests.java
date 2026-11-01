@@ -14,6 +14,7 @@ final class FenceTests {
         Checks.run("chainLinkIsLaidAsASheetWhereverItStandsOnAnEdge", FenceTests::chainLinkIsLaidAsASheetWhereverItStandsOnAnEdge);
         Checks.run("boardFencesAreWoodOnAnEdgeAndNoPickets", FenceTests::boardFencesAreWoodOnAnEdgeAndNoPickets);
         Checks.run("lowBoardFencesWithALevelTopAreThick", FenceTests::lowBoardFencesWithALevelTopAreThick);
+        Checks.run("raggedLowBoardFencesAreClosedWhereTheirBoardsStop", FenceTests::raggedLowBoardFencesAreClosedWhereTheirBoardsStop);
         Checks.run("ironBarFencesAreTheirOwnIron", FenceTests::ironBarFencesAreTheirOwnIron);
         Checks.run("theGamesFloorMarkByNameStaysOffEdgesAndWalls", FenceTests::theGamesFloorMarkByNameStaysOffEdgesAndWalls);
         Checks.run("noTwoWorldMaterialsShareANumber", FenceTests::noTwoWorldMaterialsShareANumber);
@@ -196,6 +197,32 @@ final class FenceTests {
                 "the burnt tall board fence is boards by its MaterialType");
         Checks.check(!Fences.boards("fencing_burnt_01_0", null, null, null, true, false), "a burnt picket, of no material the game names, is not");
         Checks.check(!Fences.boards("fencing_01_56", null, "Metal", null, true, false), "a MaterialType of another stuff is not");
+    }
+
+    private static void raggedLowBoardFencesAreClosedWhereTheirBoardsStop() {
+        Checks.check(Fences.ragged("carpentry_02_40") && Fences.ragged("carpentry_02_41"), "the gappy board fence a player builds first");
+        Checks.check(Fences.ragged("fencing_damaged_01_48") && Fences.ragged("fencing_damaged_01_165") && Fences.ragged("fencing_damaged_03_24")
+                && Fences.ragged("fencing_damaged_03_157") && Fences.ragged("fencing_burnt_01_0") && Fences.ragged("fencing_burnt_01_43"),
+                "the broken and burnt low board fences");
+        Checks.check(!Fences.ragged("fencing_damaged_01_54") && !Fences.ragged("fencing_damaged_03_30") && !Fences.ragged("fencing_burnt_01_44")
+                && !Fences.ragged("carpentry_02_42"), "a corner piece is not");
+        Checks.check(!Fences.ragged("fencing_damaged_01_49") && !Fences.ragged("fencing_damaged_01_8") && !Fences.ragged("fencing_damaged_03_0")
+                && !Fences.ragged("fencing_01_32") && !Fences.ragged("carpentry_02_44") && !Fences.ragged("fencing_damaged_03_9"),
+                "nor a fence knocked flat, a broken picket fence, a whole one or a tall one");
+        // Four columns: a whole board, a board broken low, a gap, and a board with a hole through it.
+        boolean[][] painted = {
+            {true, true, true, true},
+            {true, true, false, false},
+            {false, false, false, false},
+            {true, false, true, true},
+        };
+        int[][] outline = Fences.outline((column, row) -> painted[column][row], 4, 4);
+        Checks.check(Arrays.equals(outline[0], new int[] {0, 4}) && Arrays.equals(outline[1], new int[] {0, 2}) && outline[2].length == 0
+                && Arrays.equals(outline[3], new int[] {0, 1, 2, 4}), "each column is its painted runs from the foot: " + Arrays.deepToString(outline));
+        Checks.check(Arrays.equals(Fences.differ(outline[0], outline[1], 4), new int[] {2, 4}), "the side between a whole board and a broken one is over the break");
+        Checks.check(Arrays.equals(Fences.differ(outline[1], outline[2], 4), new int[] {0, 2}), "and between a board and a gap, the board's height");
+        Checks.check(Arrays.equals(Fences.differ(outline[3], outline[0], 4), new int[] {1, 2}), "and between a holed board and a whole one, the hole");
+        Checks.check(Fences.differ(outline[0], outline[0], 4).length == 0, "two columns alike have no side between them");
     }
 
     private static void lowBoardFencesWithALevelTopAreThick() {
