@@ -61,12 +61,15 @@ final class OwnArms {
             uniform mat4 uProjection;
             // 0 for a man's arm, 1 for a woman's.
             uniform float uFemale;
+            uniform vec3 uUpSeen;
             varying vec3 vNormal;
             varying vec3 vTangent;
             varying float vWay;
             varying vec2 vUv;
             varying vec3 vRest;
             varying float vAlong;
+            varying vec3 vSeen;
+            varying vec3 vDown;
 
             void main() {
                 vec3 rest = aPlace + aFemale * uFemale;
@@ -79,6 +82,9 @@ final class OwnArms {
                 vUv = aUv;
                 vRest = rest;
                 vAlong = aAlong;
+                vSeen = seen.xyz;
+                // The world's down in the arm's own axes, where its water runs.
+                vDown = normalize(transpose(mat3(bent)) * -uUpSeen);
                 gl_Position = uProjection * seen;
             }
             """;
@@ -87,7 +93,7 @@ final class OwnArms {
      * chance and chance3 are hash12 and hash13 of David Hoskins's Hash without Sine, used under
      * its MIT licence: the notice is in THIRD-PARTY-NOTICES.md.
      */
-    private static final String FRAGMENT = "#version 120\n" + CharacterDraw.KEPT + SnowShader.ON_PEOPLE + """
+    private static final String FRAGMENT = "#version 120\n" + CharacterDraw.KEPT + SnowShader.ON_PEOPLE + Soaked.GLSL + """
             uniform sampler2D uColour;
             uniform sampler2D uSurface;
             // What is drawn: 0 for skin, and for what is worn what CharacterDraw calls it, a weave, a knit or leather.
@@ -112,6 +118,8 @@ final class OwnArms {
             varying vec2 vUv;
             varying vec3 vRest;
             varying float vAlong;
+            varying vec3 vSeen;
+            varying vec3 vDown;
 
             float chance(vec2 p) {
                 vec3 q = fract(vec3(p.xyx) * 0.1031);
@@ -208,6 +216,16 @@ final class OwnArms {
                     paint = mix(paint, SNOW_WHITE, snowLies);
                     facing = normalize(facing + uUpSeen * snowLies);
                     finish = mix(finish, vec2(0.0, 0.9), step(0.5, snowLies));
+                    // Rain on the viewer (Soaked): cloth darkens and its nap lies flat, leather shines,
+                    // and water stands in beads on leather and steel, less on a knit, least on a weave.
+                    if (uWet.y > 0.0) {
+                        float bare = 1.0 - step(0.5, snowLies);
+                        paint *= 1.0 - (uWear > 5.5 ? 0.0 : uWear > 4.5 ? 0.2 : 0.4) * uWet.y * bare;
+                        finish = vec2(max(finish.x, (uWear > 4.5 ? 0.7 : 0.25) * uWet.x * bare), finish.y * (1.0 - 0.8 * uWet.y * bare));
+                        float water = waterOn(vRest, vDown, dot(n, uUpSeen)) * (uWear > 4.5 ? 1.0 : uWear > 3.5 ? 0.6 : 0.3) * bare;
+                        facing = wetFacing(facing, vSeen, vRest, water);
+                        finish.x = max(finish.x, 0.95 * smoothstep(0.0, 0.3, water));
+                    }
                     vec2 kept = floor(folded(facing) * 255.0 + 0.5) / 255.0;
                     float what = 128.0 + 64.0 + (uOutside > 0.5 ? 16.0 : 0.0) + floor(finish.y * 15.0 + 0.5);
                     gl_FragData[0] = vec4(clamp(paint, 0.0, 1.0), stood);
@@ -233,6 +251,14 @@ final class OwnArms {
                 facing = normalize(facing + uUpSeen * snowLies);
                 float snowy = step(0.5, snowLies);
                 gloss *= 1.0 - snowy;
+                // Rain on the viewer (Soaked): wet skin is a little darker and shines, and water beads on the back of the hand.
+                if (uWet.y > 0.0) {
+                    paint *= 1.0 - 0.1 * uWet.y * (1.0 - snowy);
+                    gloss = max(gloss, 0.5 * uWet.x * (1.0 - snowy));
+                    float water = waterOn(vRest, vDown, dot(n, uUpSeen)) * (1.0 - snowy);
+                    facing = wetFacing(facing, vSeen, vRest, water);
+                    gloss = max(gloss, 0.95 * smoothstep(0.0, 0.3, water));
+                }
                 vec2 kept = floor(folded(facing) * 255.0 + 0.5) / 255.0;
                 float what = 128.0 + 32.0 + 32.0 * snowy + (uOutside > 0.5 ? 16.0 : 0.0) + floor(mix(thin, 0.9, snowy) * 15.0 + 0.5);
                 gl_FragData[0] = vec4(clamp(paint, 0.0, 1.0), stood);
@@ -243,9 +269,11 @@ final class OwnArms {
     private static boolean tried;
     private static ArmModel model;
     private static int program, vertices, indices, colour, surface;
-    private static int projectionAt, femaleAt, toneAt, outsideAt, stoodAt, handedAt, wearAt, clothAt, spanAt, bloodAt, dirtAt, snowAt, upAt;
+    private static int projectionAt, femaleAt, toneAt, outsideAt, stoodAt, handedAt, wearAt, clothAt, spanAt, bloodAt, dirtAt, snowAt, upAt, wetAt, wetClockAt;
     /** How much snow has settled on the viewer, 0 to 1: see SnowCarried. */
     private static float snowOn;
+    /** How wet the viewer is, by Soaked's WATER, SOAK and CLOCK. */
+    private static float[] wetOn = new float[Soaked.FLOATS];
     /** The first of uBones: the rest follow it, so one call sets them all. */
     private static int bonesAt;
     private static final FloatBuffer loaded = ByteBuffer.allocateDirect(MOST_BONES * 16 * Float.BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
@@ -373,6 +401,8 @@ final class OwnArms {
             dirtAt = GL20.glGetUniformLocation(id, "uDirt");
             snowAt = GL20.glGetUniformLocation(id, "uSnowOn");
             upAt = GL20.glGetUniformLocation(id, "uUpSeen");
+            wetAt = GL20.glGetUniformLocation(id, "uWet");
+            wetClockAt = GL20.glGetUniformLocation(id, "uWetClock");
             Program.useOther(id);
             GL20.glUniform1i(GL20.glGetUniformLocation(id, "uColour"), COLOUR_UNIT);
             GL20.glUniform1i(GL20.glGetUniformLocation(id, "uSurface"), SURFACE_UNIT);
@@ -501,11 +531,18 @@ final class OwnArms {
         snowOn = dust;
     }
 
-    /** Tells the program in use how much snow is on the viewer, and the world's up as the eye of the view sees it. */
+    /** How wet the viewer whose arms are drawn next is, as Soaked.on has it: not changed here. */
+    static void wetted(float[] wet) {
+        wetOn = wet;
+    }
+
+    /** Tells the program in use how much snow is on the viewer and how wet they are, and the world's up as the eye of the view sees it. */
     private static void snowed() {
         float[] up = CharacterDraw.upSeen();
         GL20.glUniform1f(snowAt, snowOn);
         GL20.glUniform3f(upAt, up[0], up[1], up[2]);
+        GL20.glUniform2f(wetAt, wetOn[Soaked.WATER], wetOn[Soaked.SOAK]);
+        GL20.glUniform1f(wetClockAt, wetOn[Soaked.CLOCK]);
     }
 
     /**

@@ -70,6 +70,11 @@ enum Part {
     LEAVE_OUT_SCREEN_GREY("FirstPerson", "LeaveOutScreenGrey", false, true,
             "true: the game's grey tint for the season, fog and weather is left off the first person picture, which shows those\n"
                     + "with its own lighting. false: the game tints the first person picture as it tints its own view."),
+    WET_ON_THE_PLAYER("FirstPerson", "WetOnThePlayer", true, false,
+            "true: in first person, in Medium and High, rain wets your hands, your sleeves and what you hold over about a minute:\n"
+                    + "cloth and skin darken, metal and wood shine, and drops bead on them and run down the weapon. Snow that melts\n"
+                    + "on you indoors wets them too. Out of the rain, indoors, under a roof or in a vehicle they dry over a few minutes,\n"
+                    + "and clothes the game has soaked stay dark until the game dries them. false: they stay dry whatever the weather."),
     NAME_TAGS_AT_HEADS("FirstPerson", "NameTagsAtHeads", false, true,
             "true: on a server, in first person, the names and speech the game shows over people sit over their heads in the\n"
                     + "picture, and your own are hidden. false: the game shows them where its own view puts them."),

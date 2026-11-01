@@ -12,4 +12,6 @@ public final class BodyPart {
     public void setBiteTime(float time) { throw new UnsupportedOperationException("reference stub"); }
     public void setStitchTime(float time) { throw new UnsupportedOperationException("reference stub"); }
     public void setDeepWoundTime(float time) { throw new UnsupportedOperationException("reference stub"); }
+    public float getWetness() { throw new UnsupportedOperationException("reference stub"); }
+    public BodyPartType getType() { throw new UnsupportedOperationException("reference stub"); }
 }

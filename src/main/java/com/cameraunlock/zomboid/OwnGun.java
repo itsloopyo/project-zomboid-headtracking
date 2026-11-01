@@ -64,6 +64,8 @@ abstract class OwnGun {
             varying vec3 vTangent;
             varying vec3 vOther;
             varying vec2 vUv;
+            varying vec3 vOwn;
+            varying vec3 vDown;
 
             vec3 inWorld(vec3 v) {
                 return uRight * v.x + uUp * v.y - uForward * v.z;
@@ -85,11 +87,14 @@ abstract class OwnGun {
                 vTangent = inWorld(t);
                 vOther = inWorld(cross(n, t)) * (aWay * uHanded);
                 vUv = aUv;
+                vOwn = aPlace;
+                // The world's down in the part's own axes, where the rain on it runs.
+                vDown = normalize(transpose(mat3(uModel) * mat3(uPart)) * vec3(-uRight.z, -uUp.z, uForward.z));
                 gl_Position = uProjection * seen;
             }
             """;
 
-    private static final String FRAGMENT = "#version 120\n" + Sky.ATMOSPHERE + MuzzleFlash.GLSL + Fires.GLSL + PipelineShaders.BEAMS + """
+    private static final String FRAGMENT = "#version 120\n" + Sky.ATMOSPHERE + MuzzleFlash.GLSL + Fires.GLSL + PipelineShaders.BEAMS + Soaked.GLSL + """
             uniform sampler2D uColour;
             uniform sampler2D uSurface;
             uniform sampler2DShadow uShadowNear;
@@ -134,6 +139,8 @@ abstract class OwnGun {
             varying vec3 vTangent;
             varying vec3 vOther;
             varying vec2 vUv;
+            varying vec3 vOwn;
+            varying vec3 vDown;
 
             const float PI = 3.14159265;
 
@@ -194,12 +201,22 @@ abstract class OwnGun {
                 vec3 n = normalize(vTangent * bend.x + vOther * bend.y + normalize(vNormal) * sqrt(max(1.0 - dot(bend, bend), 0.0)));
                 vec3 at = uEye + uRight * vSeen.x + uUp * vSeen.y - uForward * vSeen.z;
                 vec3 view = normalize(uEye - at);
+                // Rain on the viewer (Soaked): water beads on what faces up and runs down the steep faces.
+                float water = 0.0;
+                if (uWet.x > 0.0) {
+                    water = waterOn(vOwn, vDown, n.z);
+                    n = wetFacing(n, at, vOwn, water);
+                }
+                float beaded = smoothstep(0.0, 0.3, water);
                 // A surface that the bend of its normal turns away from the eye is seen edge on.
                 float nv = max(dot(n, view), 0.02);
                 float rough = clamp(surface.b, 0.07, 1.0);
                 float metal = surface.a;
+                // A wet finish is a smoother one, and a bead is as smooth as water.
+                rough = mix(mix(rough, min(rough, 0.25), uWet.x), 0.06, beaded);
                 float reached = tint.a;
-                vec3 dull = tint.rgb * (1.0 - metal);
+                // Wood and polymer darken as they wet.
+                vec3 dull = tint.rgb * (1.0 - metal) * (1.0 - 0.35 * uWet.y);
                 vec3 mirror = mix(vec3(0.04), tint.rgb, metal);
 
                 vec4 from = vec4(at + uLight * 0.12, 1.0);
@@ -246,12 +263,12 @@ abstract class OwnGun {
                 vec4 fit = rough * vec4(-1.0, -0.0275, -0.572, 0.022) + vec4(1.0, 0.0425, 1.04, -0.04);
                 // Oiled wood seen along its length does not turn into a mirror of the sky as a
                 // polished thing would: its grain throws most of that light back the way it came.
-                float glance = mix(max(nv, uGrain), nv, metal);
+                float glance = mix(max(nv, uGrain), nv, max(metal, beaded));
                 float edge = min(fit.x * fit.x, exp2(-9.28 * glance)) * fit.x + fit.y;
                 vec2 share = vec2(-1.04, 1.04) * edge + fit.zw;
                 // What stands close round a point keeps the light off it, and out of its mirror more as it is rough.
                 float mirrored = mix(1.0, reached, 0.4 + 0.6 * rough);
-                color += dull * soft * reached + (mirror * share.x + share.y) * shown * (mirrored * mix(uVarnish, 1.0, metal));
+                color += dull * soft * reached + (mirror * share.x + share.y) * shown * (mirrored * mix(mix(uVarnish, 1.0, max(0.6 * uWet.x, beaded)), 1.0, metal));
                 color += (dull + mirror * 0.6) * (flashLight(at, n) + fireLight(at, n) + beams(at, n, 0.0));
 
                 // Drawn aside with the world, and steadied with it: see HeldDepth.
@@ -460,6 +477,9 @@ abstract class OwnGun {
         program.set("uVarnish", varnish);
         program.set("uGrain", grain);
         program.set("uHeadShade", headShade);
+        float[] wet = Soaked.shown(view.index);
+        program.set("uWet", wet[Soaked.WATER], wet[Soaked.SOAK]);
+        program.set("uWetClock", wet[Soaked.CLOCK]);
         program.set("uColour", COLOUR_UNIT);
         program.set("uSurface", SURFACE_UNIT);
         program.set("uShadowNear", SHADOW_NEAR_UNIT);

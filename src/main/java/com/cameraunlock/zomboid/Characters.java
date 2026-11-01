@@ -790,6 +790,8 @@ public final class Characters {
         // Under the vehicle's roof no snow falls on them, and no square's light is said of them: the pass
         // that lights them gives them the sky's through the cabin's windows (uCabinAround).
         OwnArms.snowed(0f);
+        // The rain does not reach them here, and what it left on them dries.
+        OwnArms.wetted(Soaked.on(view.index, viewer, SnowCarried.on(view.index, viewer)));
         // A hand that holds a weapon up is on the weapon, and not on the wheel as well.
         if (rightOnWheel()) {
             OwnArms.draw(projection, skins[0], false, viewer.isFemale(), view.ride.skin, -1f, false, worn, stains);
@@ -1892,6 +1894,7 @@ public final class Characters {
         }
         if (ownArms) {
             OwnArms.snowed(SnowCarried.on(view.index, data.character));
+            OwnArms.wetted(Soaked.on(view.index, data.character, SnowCarried.on(view.index, data.character)));
             OwnArms.Worn worn = wornOnArms();
             float[] stains = view.ride.dress.stains;
             OwnArms.draw(projection, armSkins[0], false, armFemale, armSkin, ownLight, outside, worn, stains);
@@ -1916,6 +1919,7 @@ public final class Characters {
         CharacterDraw.begin(data, handViews[0], projection, false, 0f, Float.POSITIVE_INFINITY);
         CharacterDraw.stands(ownLight, ownOutside);
         CharacterDraw.snowed(SnowCarried.on(view.index, data.character));
+        CharacterDraw.wetted(Soaked.on(view.index, data.character, SnowCarried.on(view.index, data.character)));
         for (int part = 0; part < parts(data).size(); part++) {
             ModelInstanceRenderData model = parts(data).get(part);
             if (model.model == null || !model.model.isStatic) {
@@ -1926,6 +1930,7 @@ public final class Characters {
             CharacterDraw.begin(data, handViews[1], projection, false, 0f, Float.POSITIVE_INFINITY);
             CharacterDraw.stands(ownLight, ownOutside);
             CharacterDraw.snowed(SnowCarried.on(view.index, data.character));
+            CharacterDraw.wetted(Soaked.on(view.index, data.character, SnowCarried.on(view.index, data.character)));
             for (int part = 0; part < parts(data).size(); part++) {
                 ModelInstanceRenderData model = parts(data).get(part);
                 if (model.model == null || !model.model.isStatic) {
@@ -2130,6 +2135,7 @@ public final class Characters {
             EYE.End();
         }
         OwnArms.snowed(SnowCarried.on(view.index, data.character));
+        OwnArms.wetted(Soaked.on(view.index, data.character, SnowCarried.on(view.index, data.character)));
         OwnArms.Worn worn = wornOnArms();
         float[] stains = view.ride.dress.stains;
         OwnArms.draw(projection, armSkins[0], false, armFemale, armSkin, ownLight, outside, worn, stains);
@@ -2503,6 +2509,9 @@ public final class Characters {
         }
         if (!casting) {
             CharacterDraw.snowed(SnowCarried.on(view.index, data.character));
+        }
+        if (own && !casting) {
+            CharacterDraw.wetted(Soaked.on(view.index, data.character, SnowCarried.on(view.index, data.character)));
         }
         if (!casting && Part.FIGURES_BEHIND_WALLS.on()) {
             cutAtWalls(data, up, viewMatrix);

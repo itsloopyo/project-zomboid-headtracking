@@ -831,6 +831,8 @@ final class CharacterDraw {
             uniform float uWear;
             uniform float uShell;
             uniform vec2 uStands;
+            // How wet the viewer is, as Soaked's GLSL has it: nought for anyone else.
+            uniform vec2 uWet;
             uniform float uMouthGap;
             uniform float uLips;
             uniform float uCuts;
@@ -1132,6 +1134,13 @@ final class CharacterDraw {
                         gloss = 0.0;
                         low = 0.9;
                     }
+                }
+                // The viewer in rain (Soaked): skin and what is worn darken and shine as they wet, and
+                // the nap of cloth lies flat, where no snow lies thick.
+                if (uWet.y > 0.0 && !hair && snowLies <= 0.5) {
+                    paint *= 1.0 - (kind < 1.5 ? 0.1 : uWear > 5.5 ? 0.0 : uWear > 4.5 ? 0.2 : 0.4) * uWet.y;
+                    gloss = max(gloss, kind < 1.5 ? 0.5 * uWet.x : uWear > 4.5 ? 0.7 * uWet.x : 0.25 * uWet.x);
+                    low *= kind < 1.5 ? 1.0 : 1.0 - 0.8 * uWet.y;
                 }
                 vec2 kept = floor(folded(facing) * 255.0 + 0.5) / 255.0;
                 if (hair) {
@@ -1498,6 +1507,9 @@ final class CharacterDraw {
     /** How much snow has settled on the person begun, and the world's up as the view they are drawn through sees it. */
     private static float snowOn;
     private static final float[] upSeen = {0f, 1f, 0f};
+    /** How wet the person begun is, by Soaked's WATER, SOAK and CLOCK: only the viewer is ever said to be. */
+    private static final float[] NOT_WET = new float[Soaked.FLOATS];
+    private static float[] wetOn = NOT_WET;
     private static final boolean TRACE = Boolean.getBoolean("cameraunlock.zomboid.trace");
     /** For each program, by its number, where its settings for what a part is made of live. */
     private static int[][] dressing = new int[0][];
@@ -1546,6 +1558,7 @@ final class CharacterDraw {
         finelySkinned = !casting && !plainly && FINE_SKINS.wears(data.object != null ? data.object : data, fromEye, Pipeline.frame());
         standsIn = -1f;
         snowOn = 0f;
+        wetOn = NOT_WET;
         cutCount = 0;
         mouth = Mouths.of(data.character);
         if (!off && !bare && !casting) {
@@ -1582,6 +1595,11 @@ final class CharacterDraw {
     /** How much snow has settled on the person begun, 0 to 1: see SnowCarried. Said after begin, or none is drawn on them. */
     static void snowed(float dust) {
         snowOn = dust;
+    }
+
+    /** How wet the person begun is, as Soaked.on has it for the viewer: said after begin, or they are drawn dry. Not changed here. */
+    static void wetted(float[] wet) {
+        wetOn = wet;
     }
 
     /** The view the people are drawn through from here on, by columns: the world's up as it sees it is what snow settles on. */
@@ -1662,7 +1680,7 @@ final class CharacterDraw {
         if (dressing[program] == null) {
             dressing[program] = new int[] {GL20.glGetUniformLocation(program, "uWear"), GL20.glGetUniformLocation(program, "uThread"),
                 GL20.glGetUniformLocation(program, "uStands"), GL20.glGetUniformLocation(program, "uShell"), GL20.glGetUniformLocation(program, "uLift"),
-                GL20.glGetUniformLocation(program, "uSnowOn"), GL20.glGetUniformLocation(program, "uUpSeen")};
+                GL20.glGetUniformLocation(program, "uSnowOn"), GL20.glGetUniformLocation(program, "uUpSeen"), GL20.glGetUniformLocation(program, "uWet")};
         }
         return dressing[program];
     }
@@ -1675,6 +1693,7 @@ final class CharacterDraw {
         GL20.glUniform2f(at[2], standsIn, standsOut ? 1f : 0f);
         GL20.glUniform1f(at[5], snowOn);
         GL20.glUniform3f(at[6], upSeen[0], upSeen[1], upSeen[2]);
+        GL20.glUniform2f(at[7], wetOn[Soaked.WATER], wetOn[Soaked.SOAK]);
     }
 
     /** Tells the program in use which layer of a part is about to be drawn: nought is the part itself, the rest its fringe, outermost last. */
