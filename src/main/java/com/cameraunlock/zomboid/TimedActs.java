@@ -256,7 +256,7 @@ final class TimedActs {
      * stands in facing ahead (x to the right, y up, z towards the viewer): WATCH_FAR off,
      * WATCH_DOWN below the level and WATCH_ASIDE to the side of the wrist.
      */
-    static final float WATCH_FAR = 0.34f, WATCH_DOWN = (float) Math.toRadians(38), WATCH_ASIDE = (float) Math.toRadians(12);
+    static final float WATCH_FAR = 0.34f, WATCH_DOWN = (float) Math.toRadians(34), WATCH_ASIDE = (float) Math.toRadians(9);
     static final float[] WATCH_AT = watchAt();
     /** How far along the fingers from the watch the middle of the hand is, metres. */
     static final float WATCH_TO_HAND = 0.095f;

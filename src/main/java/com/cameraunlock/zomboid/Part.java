@@ -120,10 +120,10 @@ enum Part {
                     + "Reflections on and ReflectionScale at 0.75 or more. false: they mirror only what is on the screen, and the sky where\n"
                     + "that runs out."),
     WATCH_GLANCE("FirstPerson", "WatchGlance", true, false,
-            "true: in first person, with a watch on a wrist and that hand free, standing still, looking down and then to that\n"
-                    + "side, by head tracking or the mouse, raises the arm and turns the wrist so you can read the watch: the time as the\n"
-                    + "game's clock shows it, in figures on a digital watch and as hands on any other. With a watch on each wrist, the one\n"
-                    + "you turn to. Not while aiming or attacking. false: the arm stays down."),
+            "true: in first person, with a watch on a wrist and that hand free, looking down and then to that side, by head\n"
+                    + "tracking or the mouse, standing or walking, raises the arm and turns the wrist so you can read the watch: the time as\n"
+                    + "the game's clock shows it, in figures on a digital watch and as hands on any other. With a watch on each wrist, the\n"
+                    + "one you turn to. Not while aiming or attacking. false: the arm stays down."),
     HELD_MAP("FirstPerson", "HeldMap", true, true,
             "true: in first person, the map key holds the game's map up in both hands, the place round you on it, and you can walk\n"
                     + "and run with it. The map key again puts it down and opens the game's map over the screen, as the game opens it, to\n"

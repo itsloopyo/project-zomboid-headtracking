@@ -678,8 +678,7 @@ public final class ViewModel {
 
     /**
      * Follows a glance at the watch on a wrist (WatchGlance), and returns whether the arm is up
-     * for one. It comes up only with the hand of that wrist empty, standing still, not while
-     * aiming or attacking, and with the mod's own arms to raise: a weapon in the other hand goes
+     * for one. It comes up only with the hand of that wrist empty, not while aiming or attacking, and with the mod's own arms to raise: a weapon in the other hand goes
      * down under the picture with it and comes up again after, as it does for a timed action.
      * With a watch on each wrist the glance is at the one the look turns towards.
      *
@@ -689,6 +688,13 @@ public final class ViewModel {
         // What is worn changes seldom, and the list is gone through to find it.
         if ((watchAsked++ & 15) == 0) {
             findWatches(player);
+            if (DevBuild.ON) {
+                String worn = (watchTypes[1] == null ? "none" : watchTypes[1]) + " on the left wrist, " + (watchTypes[0] == null ? "none" : watchTypes[0]) + " on the right";
+                if (!worn.equals(wornSaid)) {
+                    wornSaid = worn;
+                    Log.info("watch: " + worn);
+                }
+            }
         }
         float[] head = view.headTracking.headTurn();
         float lookPitch = pitch + (head == null ? 0f : head[1]), lookYaw = yaw + (head == null ? 0f : head[0]);
@@ -699,10 +705,15 @@ public final class ViewModel {
         }
         int wrist = glanceLeft ? 1 : 0;
         InventoryItem hand = glanceLeft ? player.getSecondaryHandItem() : player.getPrimaryHandItem();
+        // Walked any way but straight ahead the character is held in the game's aiming stance (Controls.turnedToTheView): that is no aim.
+        boolean aiming = player.isAiming() && !view.controls.turnedOnly();
         boolean allowed = may && Part.WATCH_GLANCE.on() && Own.arms() && CharacterDraw.cutsSeen() && watchTypes[wrist] != null && hand == null
-                && player.getVehicle() == null && !player.isAiming() && !GameAttack.attacking(player) && !view.firstPerson.walkingAhead()
-                && !view.firstPerson.movingAside();
-        float up = glance.step(lookPitch, glanceLeft ? -right : right, allowed, seconds);
+                && player.getVehicle() == null && !aiming && !GameAttack.attacking(player);
+        float toWrist = glanceLeft ? -right : right;
+        float up = glance.step(lookPitch, toWrist, allowed, seconds);
+        if (DevBuild.ON) {
+            sayGlance(player, lookPitch, toWrist, wrist, hand, aiming, may, allowed, up);
+        }
         if (up == 0f) {
             return false;
         }
@@ -722,6 +733,58 @@ public final class ViewModel {
         }
         task = new Task(TimedActs.WATCH, false, 0f, 0f, up, GLANCE, player.getHumanVisual().getSkinTextureIndex(), player.isFemale(), watch, pitch);
         return true;
+    }
+
+    private String wornSaid;
+    private boolean glanceDownSaid, glanceUpSaid;
+    private long glanceSaidAt;
+
+    /**
+     * Says in the log, in a development build, when the look goes down past where a glance
+     * begins, how far it is turned to the wrist and what keeps the arm down, and when a glance
+     * begins and ends.
+     */
+    private void sayGlance(IsoPlayer player, float lookPitch, float toWrist, int wrist, InventoryItem hand, boolean aiming, boolean may, boolean allowed, float up) {
+        boolean down = lookPitch < WatchGlance.DOWN_FROM;
+        long now = System.nanoTime();
+        if (down && !glanceDownSaid && now - glanceSaidAt > 250_000_000L) {
+            glanceSaidAt = now;
+            StringBuilder why = new StringBuilder();
+            if (!may) {
+                why.append(", the hands are at an action");
+            }
+            if (!Part.WATCH_GLANCE.on()) {
+                why.append(", WatchGlance is off");
+            }
+            if (!Own.arms() || !CharacterDraw.cutsSeen()) {
+                why.append(", the mod's own arms are not drawn");
+            }
+            if (watchTypes[wrist] == null) {
+                why.append(", no watch on that wrist");
+            }
+            if (hand != null) {
+                why.append(", that hand holds ").append(hand.getFullType());
+            }
+            if (player.getVehicle() != null) {
+                why.append(", in a vehicle");
+            }
+            if (aiming) {
+                why.append(", aiming");
+            }
+            if (GameAttack.attacking(player)) {
+                why.append(", attacking");
+            }
+            if (toWrist <= WatchGlance.ASIDE_FROM) {
+                why.append(String.format(Locale.ROOT, ", not turned %.0f degrees to the wrist", Math.toDegrees(WatchGlance.ASIDE_FROM)));
+            }
+            Log.info(String.format(Locale.ROOT, "watch: the look goes down to %.0f degrees, turned %.0f degrees to the %s wrist%s", Math.toDegrees(lookPitch),
+                    Math.toDegrees(toWrist), wrist == 1 ? "left" : "right", allowed && why.length() == 0 ? ": the arm comes up" : ": the arm stays down" + why));
+        }
+        glanceDownSaid = down;
+        if (up > 0f != glanceUpSaid) {
+            glanceUpSaid = up > 0f;
+            Log.info("watch: a glance at the " + (wrist == 1 ? "left" : "right") + " wrist " + (glanceUpSaid ? "begins" : "ends"));
+        }
     }
 
     /** What a glance at the watch is called where an animation's name would be. */
@@ -747,6 +810,7 @@ public final class ViewModel {
     void rest() {
         putAway();
         glance.rest();
+        wornSaid = null;
         task = null;
         taskAnim = null;
         taskUp = 0f;
