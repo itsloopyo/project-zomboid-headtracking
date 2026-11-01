@@ -2,6 +2,7 @@ package com.cameraunlock.zomboid;
 
 import java.util.Arrays;
 import java.util.Locale;
+import java.util.function.UnaryOperator;
 
 /**
  * How much the picture costs to draw, for each player at the screen: the Quality row of
@@ -385,6 +386,11 @@ final class Quality {
 
     static Picture custom() {
         return custom;
+    }
+
+    /** Takes what Custom draws worked out from what it draws now, with no other change of Custom taken between the two. */
+    static synchronized void updateCustom(UnaryOperator<Picture> change) {
+        custom(change.apply(custom));
     }
 
     /** What a view's mode in effect draws now: Custom's rows in Custom, and in the other modes the mode's picture, or that of the level Automatic is at. */

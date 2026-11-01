@@ -533,10 +533,7 @@ final class Config {
         puts.put("RegripTwoHandedWeapons", value -> Regrip.set(value != 0));
         puts.put("SpreadLightUpdates", value -> PendingLights.set(value != 0));
         puts.put("SplitScreen", value -> SplitScreen.set((int) value));
-        puts.put(TALKING_MOUTHS, value -> {
-            Mouths.set(value != 0);
-            Microphones.set(value != 0, Tracking.microphones().toArray(String[]::new));
-        });
+        puts.put(TALKING_MOUTHS, value -> Tracking.talkingMouths(value != 0));
         for (int i = 0; i < VANILLA_KEYS.length; i++) {
             int bit = 1 << i;
             puts.put(VANILLA_KEYS[i], value -> Own.update(rows -> value != 0 ? rows & ~bit : rows | bit));

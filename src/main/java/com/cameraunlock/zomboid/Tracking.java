@@ -302,13 +302,16 @@ final class Tracking {
         }
         boolean edited = !live.custom().equals(was.custom());
         if (edited) {
-            double[] session = Config.values(Quality.custom()), file = Config.values(live.custom()), before = Config.values(was.custom());
-            for (int row = 0; row < session.length; row++) {
-                if (file[row] != before[row]) {
-                    session[row] = file[row];
+            double[] file = Config.values(live.custom()), before = Config.values(was.custom());
+            Quality.updateCustom(custom -> {
+                double[] session = Config.values(custom);
+                for (int row = 0; row < session.length; row++) {
+                    if (file[row] != before[row]) {
+                        session[row] = file[row];
+                    }
                 }
-            }
-            Quality.custom(Config.picture(session));
+                return Config.picture(session);
+            });
         }
         // The rows of [Graphics] are the first player's, as the game's options screen, where they are set, is.
         // A Quality the same save changed is the player's word: the [Graphics] rows wait under Custom for it.
@@ -368,16 +371,18 @@ final class Tracking {
             Rules.update(rows -> rows & ~rules | live.rules() & rules);
             Log.info(Config.FILE_NAME + " changed: the mod's rules offline: " + Rules.described(Rules.rows()));
         }
-        boolean mouthsEdited = live.talkingMouths() != was.talkingMouths(), microphonesEdited = false;
-        String[] names = microphones.toArray(String[]::new);
-        for (int player = 0; player < names.length; player++) {
-            if (!live.microphones().get(player).equals(was.microphones().get(player))) {
-                names[player] = live.microphones().get(player);
-                microphonesEdited = true;
+        synchronized (VOICE) {
+            boolean mouthsEdited = live.talkingMouths() != was.talkingMouths(), microphonesEdited = false;
+            String[] names = microphones.toArray(String[]::new);
+            for (int player = 0; player < names.length; player++) {
+                if (!live.microphones().get(player).equals(was.microphones().get(player))) {
+                    names[player] = live.microphones().get(player);
+                    microphonesEdited = true;
+                }
             }
-        }
-        if (mouthsEdited || microphonesEdited) {
-            talk(mouthsEdited ? live.talkingMouths() : Mouths.on(), List.of(names));
+            if (mouthsEdited || microphonesEdited) {
+                talk(mouthsEdited ? live.talkingMouths() : Mouths.on(), List.of(names));
+            }
         }
         String parts = Part.described();
         Part.take(live.parts(), live.parts() ^ was.parts());
@@ -389,6 +394,21 @@ final class Tracking {
 
     /** Each player's microphone as last taken from the file or the game's options screen. */
     private static volatile List<String> microphones = List.of();
+
+    /**
+     * Held over each change of TalkingMouths or the microphones: the reload on the config thread and the
+     * options screen on the logic thread each read what the other writes, and one landing between the
+     * other's read and write would be lost from the session.
+     */
+    private static final Object VOICE = new Object();
+
+    /** TalkingMouths as the options screen gave it, on the mouths and the microphones. Logic thread. */
+    static void talkingMouths(boolean on) {
+        synchronized (VOICE) {
+            Mouths.set(on);
+            Microphones.set(on, microphones.toArray(String[]::new));
+        }
+    }
 
     /** Puts TalkingMouths and the microphones on the mouths, opening and closing microphones to match. */
     private static void talk(boolean on, List<String> names) {
@@ -855,10 +875,12 @@ final class Tracking {
      * session takes it at once and its save follows on the config thread. Logic thread.
      */
     static void applyMicrophone(int player, String name) {
-        String[] names = microphones.toArray(String[]::new);
-        names[player] = name;
-        microphones = List.of(names);
-        Microphones.set(Mouths.on(), names);
+        synchronized (VOICE) {
+            String[] names = microphones.toArray(String[]::new);
+            names[player] = name;
+            microphones = List.of(names);
+            Microphones.set(Mouths.on(), names);
+        }
         Log.info("player " + (player + 1) + "'s microphone set to \"" + name + "\"");
         save(() -> config.saveMicrophone(player, name));
     }
