@@ -485,9 +485,8 @@ final class ImpactFinder {
             int kind = Impacts.MASONRY;
             boolean hole = false;
             float along = square == null ? 0f : north ? crossX - square.getX() : crossY - square.getY();
-            // Measured from the middle of the wall's own square, the average of its corners, which is where WallBuilder stands its holes.
-            float ground = square == null ? terrain.height(crossX, crossY) : terrain.height(square.getX() + 0.5f, square.getY() + 0.5f);
-            float levelsUp = (crossUp - ground) / ViewCamera.LEVEL_HEIGHT - level;
+            // With no square there is nothing on the edge to measure a leaf or a hole on.
+            float levelsUp = square == null ? Float.NaN : WorldQuery.overEdgeFloor(crossUp, square, level, terrain::height);
             IsoObject gate = square == null ? null : Gates.builtOn(square, north);
             int onGate = gate == null ? Gates.LEAF : Gates.met(gate, north, along);
             if (onGate == Gates.OPEN) {

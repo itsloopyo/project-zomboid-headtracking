@@ -170,8 +170,7 @@ final class WorldQuery {
         float crossed = ShotGlass.crossedAt(lineX, lineY, lineWayX, lineWayY, fromX, fromY, toX, toY);
         float x = lineX + lineWayX * crossed, y = lineY + lineWayY * crossed;
         float along = north ? x - owner.getX() : y - owner.getY();
-        // Over the middle of the square the door or the wall is on, where the picture stands the leaf and the holes, and ImpactFinder measured them.
-        float up = (lineUp + lineWayUp * crossed - lineGround.height(owner.getX() + 0.5f, owner.getY() + 0.5f)) / ViewCamera.LEVEL_HEIGHT - level;
+        float up = overEdgeFloor(lineUp + lineWayUp * crossed, owner, level, lineGround);
         IsoObject door = DoorGlass.shutDoorOn(owner, north);
         // Beside the leaf or over its head it is the doorway's wall the line meets, as ImpactFinder and Penetration take it.
         if (door != null && DoorGlass.onLeaf(door, north, along, up)) {
@@ -449,6 +448,16 @@ final class WorldQuery {
     /** The height of the ground the picture draws over the flat map at a place, in tiles: Terrain.height. */
     interface Ground {
         float height(float x, float y);
+    }
+
+    /**
+     * How high up, in tiles over the flat map, is over the floor of a level on the square whose north or west edge a line
+     * crosses, in levels: over the middle of that square, the average of its corners, where the picture stands the edge's
+     * door, its lights and its holes. Every test of where a shot crosses a door's leaf, its lights or a thing's holes, and
+     * the cutting of a hole, measures it so, that on a slope they agree.
+     */
+    static float overEdgeFloor(float up, IsoGridSquare owner, int level, Ground ground) {
+        return (up - ground.height(owner.getX() + 0.5f, owner.getY() + 0.5f)) / ViewCamera.LEVEL_HEIGHT - level;
     }
 
     /**

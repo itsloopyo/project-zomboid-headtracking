@@ -221,7 +221,7 @@ final class Penetration {
         }
         float ahead = ((x - aimLine.eyeX) * aimLine.forwardX + (y - aimLine.eyeY) * aimLine.forwardY) / flat;
         float up = aimLine.eyeUp + aimLine.forwardUp * ahead;
-        return (up - aimTerrain.lift(owner.getX() + 0.5f, owner.getY() + 0.5f, level)) / ViewCamera.LEVEL_HEIGHT - level;
+        return WorldQuery.overEdgeFloor(up, owner, level, (a, b) -> aimTerrain.lift(a, b, level));
     }
 
     /**

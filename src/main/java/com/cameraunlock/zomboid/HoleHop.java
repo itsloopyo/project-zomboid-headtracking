@@ -134,7 +134,7 @@ final class HoleHop {
         }
         float along = north ? line.eyeX + line.forwardX * t - owner.getX() : line.eyeY + line.forwardY * t - owner.getY();
         int level = owner.getZ();
-        float up = (line.eyeUp + line.forwardUp * t - terrain.lift(owner.getX() + 0.5f, owner.getY() + 0.5f, level)) / ViewCamera.LEVEL_HEIGHT - level;
+        float up = WorldQuery.overEdgeFloor(line.eyeUp + line.forwardUp * t, owner, level, (a, b) -> terrain.lift(a, b, level));
         if (!holed(owner, north)) {
             return null;
         }

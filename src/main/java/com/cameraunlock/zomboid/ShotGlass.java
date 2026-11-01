@@ -76,8 +76,7 @@ final class ShotGlass {
         }
         IsoWindow window = windowOn(owner, north);
         if (window == null) {
-            // Over the middle of the square the door is on, where the picture stands its leaf, as Penetration measures it.
-            float overLeaf = (up - terrain.height(owner.getX() + 0.5f, owner.getY() + 0.5f)) / ViewCamera.LEVEL_HEIGHT - level;
+            float overLeaf = WorldQuery.overEdgeFloor(up, owner, level, terrain::height);
             return throughADoor(owner, north, north ? x - owner.getX() : y - owner.getY(), overLeaf);
         }
         if (window.getBarricadeForCharacter(shooter) != null) {
