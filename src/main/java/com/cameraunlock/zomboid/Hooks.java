@@ -281,6 +281,7 @@ public final class Hooks {
             BlastHoles.forget();
             Fires.forget();
             Pieces.forget();
+            Debris.forget();
             Corpses.forget();
             Dying.forget();
             Bleeding.forget();

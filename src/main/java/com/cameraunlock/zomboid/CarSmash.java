@@ -5,6 +5,7 @@ import java.util.Locale;
 import org.joml.Vector3f;
 import zombie.core.properties.IsoPropertyType;
 import zombie.core.properties.PropertyContainer;
+import zombie.core.textures.Texture;
 import zombie.iso.BentFences;
 import zombie.iso.BrokenFences;
 import zombie.iso.IsoGridSquare;
@@ -35,8 +36,9 @@ import zombie.vehicles.BaseVehicle;
  * lamp post is taken away with the street lamp on the level above it, whose light goes with it
  * (IsoLightSwitch.removeFromWorld). What is met at once slows the vehicle once, against the way
  * it goes, by as much as it was met square on, and is one crash of the game's (BaseVehicle.crash)
- * where the game would count that loss of speed as one. On a server the world is the server's,
- * and the game's own rules stand.
+ * where the game would count that loss of speed as one. The first person picture throws pieces
+ * of each thing on with the vehicle (Debris). On a server the world is the server's, and the
+ * game's own rules stand.
  */
 final class CarSmash {
     private CarSmash() {}
@@ -56,6 +58,8 @@ final class CarSmash {
     private static final ArrayList<Knockdown.Kind> KINDS = new ArrayList<>();
     private static final ArrayList<Float> KEPT = new ArrayList<>();
     private static final Vector3f LOCAL = new Vector3f(), ORIGIN = new Vector3f();
+    private static final float[] PAINT = new float[3];
+    private static final float NO_LAMP = -1f;
 
     /** True while knockDown slows the vehicle through the game's plant push, which plants giving way would otherwise pass over. Logic thread. */
     static boolean slowing;
@@ -221,6 +225,8 @@ final class CarSmash {
     /** Knocks down everything in MET at once: one slowing against the way the vehicle goes, then each thing, then one crash where the game would have one. */
     private static void knockDown(BaseVehicle vehicle, float goingAlong, String how) {
         float kmh = kmh(vehicle);
+        vehicle.getLinearVelocity(LOCAL);
+        float goX = LOCAL.x, goY = LOCAL.z;
         float kept = Knockdown.speedKept(KEPT), crash = Knockdown.crash(vehicle.getSpeed2D() * (1f - kept));
         // Taken while the first thing still stands where it was hit: the game takes its place from its square.
         slowing = true;
@@ -239,24 +245,42 @@ final class CarSmash {
             if (square == null || !square.getObjects().contains(thing)) {
                 continue;
             }
-            String what = thing.getSprite().getName();
+            IsoSprite sprite = thing.getSprite();
+            String what = sprite.getName();
             PropertyContainer properties = thing.getProperties();
+            boolean north = properties.has(IsoFlagType.collideN), west = properties.has(IsoFlagType.collideW);
+            // Read before the game changes the thing: a fence it breaks takes its broken sprite.
+            Texture texture = sprite.getTextureForCurrentFrame(thing.getDir());
+            float high = texture == null ? 0f : Debris.paintedHigh(texture, north || west);
+            boolean metal = Impacts.of(sprite, false) == Impacts.METAL;
+            if (texture != null) {
+                Debris.paint(sprite, texture, PAINT);
+            }
             // The game's own sound of a vehicle hitting a thing, and the noise of it zombies hear. Nothing of the thing is changed by a hit of no strength.
             thing.HitByVehicle(vehicle, 0f);
-            int lamps = 0;
+            float lampHigh = NO_LAMP;
+            Debris.Shape shape;
             if (kind == Knockdown.Kind.FENCE && broken.isBreakableObject(thing)) {
-                broken.destroyFence(thing, Knockdown.breakTowards(properties.has(IsoFlagType.collideN), vehicle.getX(), vehicle.getY(), thing.getX(), thing.getY()));
+                broken.destroyFence(thing, Knockdown.breakTowards(north, vehicle.getX(), vehicle.getY(), thing.getX(), thing.getY()));
+                shape = Debris.Shape.FRAGMENTS;
             } else if (kind == Knockdown.Kind.FENCE && bent.isBendableFence(thing)) {
-                bent.smashFence(thing, Knockdown.breakTowards(properties.has(IsoFlagType.collideN), vehicle.getX(), vehicle.getY(), thing.getX(), thing.getY()));
+                bent.smashFence(thing, Knockdown.breakTowards(north, vehicle.getX(), vehicle.getY(), thing.getX(), thing.getY()));
+                shape = Debris.Shape.FRAGMENTS;
             } else {
                 square.transmitRemoveItemFromSquare(thing);
                 if (kind == Knockdown.Kind.POST) {
-                    lamps = takeLampAbove(square);
+                    lampHigh = takeLampAbove(square);
                 }
+                shape = kind == Knockdown.Kind.POST ? Debris.Shape.POLE : kind == Knockdown.Kind.BARRICADE ? Debris.Shape.FRAME : Debris.Shape.SPAN;
+            }
+            // A thing with no picture of its own was never drawn, and nothing of it is thrown.
+            if (texture != null) {
+                Debris.knockedDown(shape, square.getX(), square.getY(), square.getZ(), north, west, lampHigh != NO_LAMP ? ViewCamera.LEVEL_HEIGHT + lampHigh : high, metal,
+                        goX, goY, PAINT);
             }
             if (DevBuild.ON) {
                 Log.info(String.format(Locale.ROOT, "a vehicle at %.1f km/h knocked down %s at %d,%d,%d, %s%s", kmh, what, square.getX(), square.getY(), square.getZ(),
-                        how, lamps > 0 ? ", and the street lamp over it" : ""));
+                        how, lampHigh != NO_LAMP ? ", and the street lamp over it" : ""));
             }
         }
         if (crash > 0f) {
@@ -274,21 +298,22 @@ final class CarSmash {
         KEPT.clear();
     }
 
-    /** Takes away the street lamp on the level over a post, and says how many things that was. */
-    private static int takeLampAbove(IsoGridSquare post) {
+    /** Takes away the street lamp on the level over a post, and says how high the tallest taken was painted over that level, in tiles: NO_LAMP for none. */
+    private static float takeLampAbove(IsoGridSquare post) {
         IsoGridSquare above = IsoWorld.instance.currentCell.getGridSquare(post.getX(), post.getY(), post.getZ() + 1);
         if (above == null) {
-            return 0;
+            return NO_LAMP;
         }
-        int taken = 0;
+        float highest = NO_LAMP;
         for (int i = above.getObjects().size() - 1; i >= 0; i--) {
             IsoObject each = above.getObjects().get(i);
             IsoSprite sprite = each.getSprite();
             if (sprite != null && Knockdown.streetLamp(sprite.getName(), each.getProperties().get(IsoPropertyType.CUSTOM_NAME))) {
+                Texture texture = sprite.getTextureForCurrentFrame(each.getDir());
+                highest = Math.max(highest, texture == null ? 0f : Debris.paintedHigh(texture, false));
                 above.transmitRemoveItemFromSquare(each);
-                taken++;
             }
         }
-        return taken;
+        return highest;
     }
 }

@@ -37,6 +37,11 @@ enum Part {
                     + "leave no mark and knock no leaves loose, as in the game's own view. Shots still break lamps and glass\n"
                     + "and hole doors, walls and fences when ShotsBreakLamps, ShotsBreakGlass, BlastHoles and BulletHoles are on, and\n"
                     + "while any of them is on, the mod keeps changing the game's code for this."),
+    FALLING_DEBRIS("FirstPerson", "FallingDebris", true, false,
+            "true: in first person, a fence, lamp post or road barricade a vehicle knocks down throws pieces of itself, and\n"
+                    + "what shots cut out of a fence, a wall or a door drops out of it: the pieces bounce, lie a few seconds and sink into the\n"
+                    + "ground. They are only in the picture and nothing touches them. false: no pieces: what is knocked down or shot\n"
+                    + "out goes from the picture at once."),
     FAR_VEHICLES_AND_ZOMBIES("FirstPerson", "FarVehiclesAndZombies", true, false,
             "true: in first person, vehicles, zombies and animals in sight are drawn even past the edge of the game's own\n"
                     + "screen, and so are other players where players cannot fight. false: each is drawn only where the game's own\n"

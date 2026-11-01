@@ -85,7 +85,7 @@ final class Blasts {
         Cluster cluster = cluster(group);
         if (cluster != null) {
             Breakage.Pieces before = BlastHoles.fallen(cluster.object, cluster.north);
-            BlastHoles.add(cluster.object, cluster.north, cluster.along, cluster.up, cluster.radius, BlastHoles.newSeed(), 0);
+            BlastHoles.blast(cluster.object, cluster.north, cluster.along, cluster.up, cluster.radius, BlastHoles.newSeed(), group.getFirst().side);
             for (Struck member : cluster.members) {
                 Impacts.add(member.out);
             }

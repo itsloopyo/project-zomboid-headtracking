@@ -5674,6 +5674,87 @@ final class PipelineShaders {
             }
             """;
 
+    /**
+     * A face of a falling piece (Debris, DebrisDraw): a vertex is a corner where it is in the
+     * world, its normal the way the face looks and its colour the piece's. The eye's place is
+     * taken off before the matrix turns it, as the world's is.
+     */
+    static final String DEBRIS_VERTEX = """
+            #version 120
+            uniform vec3 uEye;
+            varying vec3 vWorld;
+            varying vec3 vNormal;
+            varying vec3 vPainted;
+
+            void main() {
+                vWorld = gl_Vertex.xyz;
+                vNormal = gl_Normal;
+                vPainted = gl_Color.rgb;
+                gl_Position = gl_ModelViewProjectionMatrix * vec4(gl_Vertex.xyz - uEye, 1.0);
+            }
+            """;
+
+    /**
+     * A falling piece, lit as a leaf is (LEAF_FRAGMENT) but solid: the open sky's light, most on
+     * a face turned up, the sun or the moon where the shadow maps let it through, and a torch or
+     * headlights, faded into the fog.
+     */
+    static final String DEBRIS_FRAGMENT = """
+            #version 120
+            uniform sampler2DShadow uShadowNear;
+            uniform sampler2DShadow uShadowFar;
+            uniform mat4 uNearMatrix;
+            uniform mat4 uFarMatrix;
+            uniform vec3 uEye;
+            uniform vec3 uLight;
+            uniform vec3 uLightColor;
+            uniform vec3 uOpenLight;
+            uniform float uDaylightKept;
+            uniform vec2 uFog;
+            uniform float uSeated;
+            varying vec3 vWorld;
+            varying vec3 vNormal;
+            varying vec3 vPainted;
+            """ + BEAMS + """
+
+            bool inside(vec3 c) {
+                return c.x > 0.01 && c.x < 0.99 && c.y > 0.01 && c.y < 0.99 && c.z < 1.0;
+            }
+            """ + SUN_IN_AIR + """
+
+            void main() {
+                // The vehicle the viewer sits in has a roof and sides nothing else here knows of.
+                if (uSeated > 0.5 && distance(vWorld.xy, uEye.xy) < 0.9 && vWorld.z < uEye.z + 0.3) {
+                    discard;
+                }
+                vec3 n = normalize(vNormal);
+                vec3 sunColor = pow(uLightColor, vec3(2.2));
+                // Asked a little off the face, so a face does not shade itself in the map.
+                float sun = sunInAir(vWorld + n * 0.02, 1.0) * step(0.0, uLight.z);
+                float on = max(dot(n, uLight), 0.0);
+                vec3 albedo = pow(vPainted, vec3(2.2));
+                vec3 sky = pow(uOpenLight, vec3(2.2)) * uDaylightKept * vec3(0.62, 0.69, 0.82) * (0.6 + 0.4 * max(n.z, 0.0));
+                vec3 lit = albedo * (sky + sunColor * (2.1 * sun * on));
+                vec3 dir;
+                float beamed = 0.0;
+                // A face lit by a beam as much as it is turned to it.
+                for (int i = 0; i < 2; i++) {
+                    if (uBeamAt[i].w > 0.0) {
+                        float given = beamAt(i, vWorld, dir);
+                        beamed += given * max(-dot(n, dir), 0.0);
+                    }
+                }
+                if (uTorchAt.w > 0.0) {
+                    float given = TORCH_GIVES * torchAt(vWorld, dir);
+                    beamed += given * max(-dot(n, dir), 0.0);
+                }
+                lit += albedo * vec3(1.0, 0.92, 0.76) * beamed;
+                float a = 1.0 - smoothstep(uFog.x, max(uFog.y, uFog.x + 1e-3), distance(uEye, vWorld));
+                gl_FragData[0] = vec4(lit * a, a);
+                gl_FragData[1] = vec4(a);
+            }
+            """;
+
     /** A quad over the whole picture at the far plane: with the depth test on, only pixels nothing was drawn to pass. */
     static final String SCREEN_VERTEX = """
             #version 120

@@ -4199,6 +4199,7 @@ final class WorldScene {
             Lamps.gather(sky, cell, terrain, pose.eyeX, pose.eyeY, Quality.lightDistance(view.index));
             roomLamps.gather(sky, cell, terrain, view.torchLess, playerIndex, pose.eyeX, pose.eyeY, (int) Math.floor(player.getZ()), Quality.lightDistance(view.index));
             leafTrees.gather(sky, cell, terrain, roundNow, Core.tileScale, pose.eyeX, pose.eyeY, start);
+            Debris.gather(sky, terrain, pose.eyeX, pose.eyeY, start);
             roofBuilder.newBuild();
             if (Own.taken(view.index)) {
                 // A row of [Content] was switched: every build holds what the rows were, and so does every roof read and every square's ground, which leave a parasol out by its row.

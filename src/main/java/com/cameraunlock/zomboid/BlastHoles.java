@@ -500,14 +500,43 @@ final class BlastHoles {
      * object's mod data and has the picture build the object again. A hole that reaches over
      * the end of its square into the next wall or fence along (reachedOver), one a hole of its
      * kind goes through, is kept by that one too, moved along by the square, so that it is cut
-     * out of both and what falls of each is worked out with it (fallen). Logic thread.
+     * out of both and what falls of each is worked out with it (fallen). What the hole cuts free
+     * of each falls out in the picture (Debris.shotLoose), here and only here: a load or a build
+     * reads the holes kept and throws nothing. Logic thread.
      */
     static void add(IsoObject object, boolean north, float along, float up, float radius, int seed, int side) {
-        add(object, north, along, up, radius, seed, side, 0f, 0f);
+        add(object, north, along, up, radius, seed, side, 0f, 0f, (int) Math.signum(side));
     }
 
     /** The same, for a round's hole cut along the round's line: slantAlong and slantUp as SLANT_ALONG and SLANT_UP keep them (slant). */
     static void add(IsoObject object, boolean north, float along, float up, float radius, int seed, int side, float slantAlong, float slantUp) {
+        add(object, north, along, up, radius, seed, side, slantAlong, slantUp, (int) Math.signum(side));
+    }
+
+    /** A blast's hole, its pellets fired from the side of the edge shotFrom says (SIDE's sign), which what it blows free is thrown away from. */
+    static void blast(IsoObject object, boolean north, float along, float up, float radius, int seed, int shotFrom) {
+        add(object, north, along, up, radius, seed, 0, 0f, 0f, shotFrom);
+    }
+
+    private static void add(IsoObject object, boolean north, float along, float up, float radius, int seed, int side, float slantAlong, float slantUp,
+            int shotFrom) {
+        boolean hole = isHole(side);
+        IsoObject before = null, after = null;
+        if (hole) {
+            float reach = reachOf(radius, side, slantAlong);
+            before = reachedOver(object, north, along, reach, -1);
+            after = reachedOver(object, north, along, reach, 1);
+            if (before != null && !(side == 0 ? blastable(before) : holedByRounds(before))) {
+                before = null;
+            }
+            if (after != null && !(side == 0 ? blastable(after) : holedByRounds(after))) {
+                after = null;
+            }
+        }
+        // What went of each before this hole, for what it cuts free to be told apart from what had gone already.
+        boolean dropping = hole && Part.FALLING_DEBRIS.on();
+        Breakage.Pieces fell = dropping ? fallen(object, north) : null, fellBefore = dropping && before != null ? fallen(before, north) : null,
+                fellAfter = dropping && after != null ? fallen(after, north) : null;
         keep(object, north, along, up, radius, seed, side, slantAlong, slantUp);
         if (DevBuild.ON) {
             IsoGridSquare square = object.getSquare();
@@ -515,21 +544,27 @@ final class BlastHoles {
                     side == 0 ? "a blast blew a hole" : Math.abs(side) == ROUND ? "a round went through" : "a pellet marked", along, up, radius,
                     DoorGlass.isDoor(object) ? "door" : object.getSprite().getName(), north ? "north" : "west", square.getX(), square.getY(), square.getZ()));
         }
-        if (isHole(side)) {
-            float reach = reachOf(radius, side, slantAlong);
-            for (int by = -1; by <= 1; by += 2) {
-                IsoObject next = reachedOver(object, north, along, reach, by);
-                if (next != null && (side == 0 ? blastable(next) : holedByRounds(next))) {
-                    keep(next, north, along - by, up, radius, seed, side, slantAlong, slantUp);
-                    if (DevBuild.ON) {
-                        IsoGridSquare on = next.getSquare();
-                        Log.info(String.format(Locale.ROOT, "the hole reaches over the join into the %s on the %s edge of (%d, %d, %d), which keeps it too at %.3f along",
-                                next.getSprite().getName(), north ? "north" : "west", on.getX(), on.getY(), on.getZ(), along - by));
-                    }
+        for (int by = -1; by <= 1; by += 2) {
+            IsoObject next = by < 0 ? before : after;
+            if (next != null) {
+                keep(next, north, along - by, up, radius, seed, side, slantAlong, slantUp);
+                if (DevBuild.ON) {
+                    IsoGridSquare on = next.getSquare();
+                    Log.info(String.format(Locale.ROOT, "the hole reaches over the join into the %s on the %s edge of (%d, %d, %d), which keeps it too at %.3f along",
+                            next.getSprite().getName(), north ? "north" : "west", on.getX(), on.getY(), on.getZ(), along - by));
                 }
             }
         }
         tellRun(object, north);
+        if (dropping) {
+            Debris.shotLoose(object, north, fell, fallen(object, north), side == 0, shotFrom, slantAlong, slantUp);
+            if (before != null) {
+                Debris.shotLoose(before, north, fellBefore, fallen(before, north), side == 0, shotFrom, slantAlong, slantUp);
+            }
+            if (after != null) {
+                Debris.shotLoose(after, north, fellAfter, fallen(after, north), side == 0, shotFrom, slantAlong, slantUp);
+            }
+        }
     }
 
     private static void keep(IsoObject object, boolean north, float along, float up, float radius, int seed, int side, float slantAlong, float slantUp) {

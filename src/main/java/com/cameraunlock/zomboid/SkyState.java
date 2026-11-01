@@ -185,6 +185,9 @@ final class SkyState {
     /** The leaves falling and lying round the eye, the first leafCount records of leaves: see LeafFall. */
     final float[] leaves = new float[LeafFall.MOST * LeafFall.FLOATS];
     int leafCount;
+    /** The pieces of what is knocked down or shot out round the eye, the first debrisCount records of debris: see Debris. */
+    final float[] debris = new float[Debris.MOST * Debris.FLOATS];
+    int debrisCount;
 
     private static double driftedX, driftedY;
     private static double cloudsDriftedX, cloudsDriftedY;

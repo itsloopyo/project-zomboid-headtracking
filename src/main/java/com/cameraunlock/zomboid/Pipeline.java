@@ -315,6 +315,7 @@ final class Pipeline {
     private static Program snow;
     private static Program dust;
     private static Program leaf;
+    private static Program fallingDebris;
     private static Program steady;
     /** The steadied picture of the last frame and of this one, taking turns. */
     private final int[] keptColor = new int[2], keptAhead = new int[2], keptTarget = new int[2];
@@ -336,6 +337,7 @@ final class Pipeline {
     private int keptDepth, keptDepthTarget;
     private final ImpactDraw impacts = new ImpactDraw();
     private final LeafDraw leaves = new LeafDraw();
+    private final DebrisDraw debrisDraw = new DebrisDraw();
     /** Whether this frame's picture shows where shots struck. */
     private boolean struck;
     private static final String[] MOVER_AT = new String[Movers.MOST], MOVER_BEFORE = new String[Movers.MOST];
@@ -1496,6 +1498,9 @@ final class Pipeline {
             }
             if (state.leafCount > 0 && !overhead) {
                 drawLeaves(steadying ? movesTarget : sceneTarget, camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
+            }
+            if (state.debrisCount > 0 && !overhead) {
+                drawFallingDebris(steadying ? movesTarget : sceneTarget, camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
             }
             stage(STAGE_SKY);
             // After the rain, which falls beyond and before a fire alike, and before any glass, which is before it.
@@ -3301,6 +3306,51 @@ final class Pipeline {
         GL11.glDisable(GL_DEPTH_TEST);
         cardArrayOff();
         GL11.glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+        GL11.glDisableClientState(GL_NORMAL_ARRAY);
+        GL11.glDisableClientState(GL_VERTEX_ARRAY);
+    }
+
+    /**
+     * The pieces of what is knocked down or shot out (Debris), into the target after the sky, as
+     * the leaves are. They are solid: each writes the depth, so what is drawn after them is
+     * behind them where it is, and a piece's own faces need no order.
+     */
+    private void drawFallingDebris(int target, ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect, float near, float far,
+            float fogStart, float fogEnd) {
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, target);
+        GL11.glViewport(0, 0, width, height);
+        lookFrom(camera, tanHalfFieldOfView, aspect, near, far, asideX, asideY);
+        arrays();
+        cardArrayOff();
+        debrisDraw.point(state.debris, state.debrisCount);
+        GL11.glEnable(GL_DEPTH_TEST);
+        GL11.glDepthFunc(GL_LEQUAL);
+        GL11.glDepthMask(true);
+        GL11.glDisable(GL_CULL_FACE);
+        GL11.glEnable(GL_BLEND);
+        // Faded into the fog over what is behind, already multiplied by how much shows, as a leaf is.
+        GL14.glBlendFuncSeparate(GL_ONE, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
+        GL33.glBindSampler(1, 0);
+        GL33.glBindSampler(2, 0);
+        bindSunMaps();
+        fallingDebris.use();
+        fallingDebris.set("uShadowNear", 1);
+        fallingDebris.set("uShadowFar", 2);
+        fallingDebris.set("uNearMatrix", nearMatrix);
+        fallingDebris.set("uFarMatrix", farMatrix);
+        fallingDebris.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
+        fallingDebris.set("uLight", state.lightX, state.lightY, state.lightUp);
+        fallingDebris.set("uLightColor", state.lightRed, state.lightGreen, state.lightBlue);
+        fallingDebris.set("uOpenLight", state.openRed, state.openGreen, state.openBlue);
+        fallingDebris.set("uDaylightKept", (float) Math.pow(state.daylightKept, 2.2));
+        fallingDebris.set("uFog", fogStart, fogEnd);
+        fallingDebris.set("uSeated", seated ? 1f : 0f);
+        setBeams(fallingDebris, TORCH_UNIT);
+        debrisDraw.draw(state.debrisCount);
+        GL11.glDisable(GL_BLEND);
+        GL11.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        GL11.glDisable(GL_DEPTH_TEST);
+        GL11.glDisableClientState(GL_COLOR_ARRAY);
         GL11.glDisableClientState(GL_NORMAL_ARRAY);
         GL11.glDisableClientState(GL_VERTEX_ARRAY);
     }
@@ -6563,6 +6613,7 @@ final class Pipeline {
                 () -> snow = Program.link("snow", PipelineShaders.SNOW_VERTEX, PipelineShaders.SNOW_FRAGMENT, linkProblem),
                 () -> dust = Program.link("dust", PipelineShaders.DUST_VERTEX, PipelineShaders.DUST_FRAGMENT, linkProblem),
                 () -> leaf = Program.link("falling leaves", PipelineShaders.LEAF_VERTEX, PipelineShaders.LEAF_FRAGMENT, linkProblem),
+                () -> fallingDebris = Program.link("falling debris", PipelineShaders.DEBRIS_VERTEX, PipelineShaders.DEBRIS_FRAGMENT, linkProblem),
                 () -> sky = Program.link("sky", SCREEN_VERTEX, Sky.FRAGMENT, linkProblem),
                 () -> clouds = Program.link("clouds", SCREEN_VERTEX, Sky.CLOUDS, linkProblem),
                 () -> skyNear = Program.link("sky near", SCREEN_VERTEX, Sky.SKY_NEAR, linkProblem),
@@ -6961,6 +7012,7 @@ final class Pipeline {
             view.characters.movers.forget();
             view.kerbSteps.forget();
             leaves.letGo();
+            debrisDraw.letGo();
             SpriteColours.giveBackIdle();
             cabinDraw.forget();
             for (int other = 0; other < View.COUNT; other++) {
