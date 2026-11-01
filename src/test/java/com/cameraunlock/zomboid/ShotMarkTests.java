@@ -212,6 +212,7 @@ final class ShotMarkTests {
     private static void card(WorldScene.Frame build, boolean north, float off) {
         int[][] ends = build.openingBuilder.cardEnds();
         SpriteGeometry.Mesh mesh = build.solid.get(WorldScene.PLAIN);
+        mesh.lightStatic();
         float da = north ? 1f : 0f, db = north ? 0f : 1f, high = ViewCamera.LEVEL_HEIGHT;
         for (int side = -1; side <= 1; side += 2) {
             float across = off + side * H, x = db * across, y = 1f + da * across;
