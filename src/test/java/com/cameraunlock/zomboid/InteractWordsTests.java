@@ -10,7 +10,7 @@ final class InteractWordsTests {
         Checks.run("eachActionIsTheGamesOwnWords", InteractWordsTests::eachActionIsTheGamesOwnWords);
         Checks.run("anActionOnAThingNamesIt", InteractWordsTests::anActionOnAThingNamesIt);
         Checks.run("theLineNamesTheKeyAndWhatHoldingItDoes", InteractWordsTests::theLineNamesTheKeyAndWhatHoldingItDoes);
-        Checks.run("theLabelHoldsAcrossAGapAndThenFades", InteractWordsTests::theLabelHoldsAcrossAGapAndThenFades);
+        Checks.run("theLabelComesBackWholeOnlyOnTheSameThing", InteractWordsTests::theLabelComesBackWholeOnlyOnTheSameThing);
         Checks.run("theLabelFadesInQuicklyAndTakesNewWordsAtOnce", InteractWordsTests::theLabelFadesInQuicklyAndTakesNewWordsAtOnce);
         Checks.run("aStallDoesNotJumpTheFade", InteractWordsTests::aStallDoesNotJumpTheFade);
     }
@@ -54,29 +54,43 @@ final class InteractWordsTests {
         check(InteractWords.line("E", null, null) == null, "nothing to do is no label");
     }
 
-    private static void theLabelHoldsAcrossAGapAndThenFades() {
+    private static void theLabelComesBackWholeOnlyOnTheSameThing() {
         InteractWords.Fade fade = new InteractWords.Fade();
         long now = 0;
         for (int i = 0; i < 20; i++, now += 16 * MS) {
-            fade.update("[E] Open Door", now);
+            fade.update("[E] Open Door", true, now);
         }
         check(fade.alpha() == 1f, "on something for a while, it shows whole: " + fade.alpha());
-        long seenAt = now - 16 * MS;
-        for (; now - seenAt <= InteractWords.Fade.HOLD_NANOS; now += 16 * MS) {
-            fade.update(null, now);
-            check(fade.alpha() == 1f && "[E] Open Door".equals(fade.text()), "a gap no longer than the hold leaves it as it was, at " + (now - seenAt) / MS + " ms");
+        fade.update(null, false, now);
+        check(fade.alpha() < 1f && "[E] Open Door".equals(fade.text()), "off it, it starts to fade at once: " + fade.alpha());
+        now += 16 * MS;
+        fade.update(null, false, now);
+        now += 16 * MS;
+        fade.update("[E] Open Door", true, now);
+        check(fade.alpha() == 1f, "back on the same door across a gap, it is whole again at once: " + fade.alpha());
+        for (int i = 0; i < 4; i++) {
+            now += 16 * MS;
+            fade.update(null, false, now);
         }
-        fade.update("[E] Open Door", now);
-        check(fade.alpha() == 1f, "back on the door it never flickered");
-        long gapFrom = now;
+        float left = fade.alpha();
+        now += 16 * MS;
+        fade.update("[E] Open Door", false, now);
+        check(left < 1f && fade.alpha() < 1f, "on another door with the same words it fades in from where it was, not whole at once: " + fade.alpha());
+        for (int i = 0; i < 20; i++) {
+            now += 16 * MS;
+            fade.update("[E] Open Door", true, now);
+        }
+        long leftAt = now;
         boolean faded = false;
-        for (; now - gapFrom < InteractWords.Fade.HOLD_NANOS + InteractWords.Fade.OUT_NANOS + 100 * MS; now += 16 * MS) {
-            fade.update(null, now);
+        for (; now - leftAt < InteractWords.Fade.OUT_NANOS + 32 * MS; now += 16 * MS) {
+            fade.update(null, false, now);
             faded |= fade.alpha() > 0f && fade.alpha() < 1f;
         }
-        check(faded, "past the hold it fades rather than vanishing");
-        check(fade.text() == null && fade.alpha() == 0f, "and then is gone");
-        fade.update("[E] Open Door", now);
+        check(faded, "it fades rather than vanishing");
+        check(fade.text() == null && fade.alpha() == 0f, "and is gone within the fade out");
+        now += InteractWords.Fade.HOLD_NANOS;
+        fade.update("[E] Open Door", true, now);
+        check(fade.alpha() < 1f, "back on the same door long after, it fades in again: " + fade.alpha());
         fade.clear();
         check(fade.text() == null && fade.alpha() == 0f, "cleared, it is gone at once");
     }
@@ -84,16 +98,16 @@ final class InteractWordsTests {
     private static void theLabelFadesInQuicklyAndTakesNewWordsAtOnce() {
         InteractWords.Fade fade = new InteractWords.Fade();
         long now = 0;
-        fade.update("[E] Open Door", now);
+        fade.update("[E] Open Door", false, now);
         check("[E] Open Door".equals(fade.text()) && fade.alpha() < 1f, "it fades in, not at once");
         int frames = 0;
         while (fade.alpha() < 1f) {
             now += 16 * MS;
-            fade.update("[E] Open Door", now);
+            fade.update("[E] Open Door", true, now);
             frames++;
         }
         check(frames * 16 * MS <= InteractWords.Fade.IN_NANOS + 16 * MS, "and is whole within the fade in: " + frames + " frames");
-        fade.update("[E] Close Window", now + 16 * MS);
+        fade.update("[E] Close Window", false, now + 16 * MS);
         check("[E] Close Window".equals(fade.text()) && fade.alpha() == 1f, "moved straight onto something else it says that at once");
     }
 
@@ -101,13 +115,11 @@ final class InteractWordsTests {
         InteractWords.Fade fade = new InteractWords.Fade();
         long now = 0;
         for (int i = 0; i < 20; i++, now += 16 * MS) {
-            fade.update("[E] Open Door", now);
+            fade.update("[E] Open Door", true, now);
         }
-        fade.update(null, now);
-        now += InteractWords.Fade.HOLD_NANOS + MS;
-        fade.update(null, now);
+        fade.update(null, false, now);
         now += 2_000 * MS;
-        fade.update(null, now);
-        check(fade.alpha() > 0f, "a two second frame past the hold is one step of the fade, not the whole of it: " + fade.alpha());
+        fade.update(null, false, now);
+        check(fade.alpha() > 0f, "a two second frame is one step of the fade, not the whole of it: " + fade.alpha());
     }
 }

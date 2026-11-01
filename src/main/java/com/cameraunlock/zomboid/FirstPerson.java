@@ -2055,9 +2055,14 @@ public final class FirstPerson {
     /**
      * Gives the label under the reticle what a tap and a hold of the key would do now, with the
      * reticle on found, the same decision useAtCentre takes. Nothing while the character aims or
-     * is busy with a timed action.
+     * is busy with a timed action, and none at all while the game is paused or takes no
+     * Interact key from the player.
      */
     private void label(IsoPlayer player, IsoObject found, long now) {
+        if (GameTime.isGamePaused() || player.isIgnoreContextKey()) {
+            view.interactLabel.hide();
+            return;
+        }
         if (!Part.INTERACT_LABEL.on() || player.isAiming() || !player.getCharacterActions().isEmpty()) {
             view.interactLabel.update(null, null, player, now);
             return;

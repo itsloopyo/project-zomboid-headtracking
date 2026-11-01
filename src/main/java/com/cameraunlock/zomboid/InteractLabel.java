@@ -50,8 +50,13 @@ final class InteractLabel {
      * Logic thread.
      */
     void update(CentreUse.Use tap, CentreUse.Use hold, IsoPlayer player, long now) {
-        String key = tap == null && hold == null ? null : key(player);
-        if (!same(tap, wordedTap) || !same(hold, wordedHold) || !Objects.equals(key, wordedKey)) {
+        if (tap == null && hold == null) {
+            fade.update(null, false, now);
+            return;
+        }
+        String key = key(player);
+        boolean again = same(tap, wordedTap) && same(hold, wordedHold) && Objects.equals(key, wordedKey);
+        if (!again) {
             wordedTap = tap;
             wordedHold = hold;
             wordedKey = key;
@@ -60,7 +65,7 @@ final class InteractLabel {
                 Log.info("interact label: " + worded);
             }
         }
-        fade.update(worded, now);
+        fade.update(worded, again, now);
     }
 
     /** Gone at once: the pointer is out, or first person is not drawing. */
@@ -68,6 +73,7 @@ final class InteractLabel {
         fade.clear();
         wordedTap = null;
         wordedHold = null;
+        wordedKey = null;
         worded = null;
     }
 

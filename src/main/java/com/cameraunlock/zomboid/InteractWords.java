@@ -90,9 +90,9 @@ final class InteractWords {
     }
 
     /**
-     * How the label comes and goes. Crossing a gap between two things the key acts on does not
-     * take it away: it stays as it was for HOLD_NANOS, then fades. It fades in as quickly, and
-     * takes new words at once.
+     * How the label comes and goes. Off what the key acts on, it starts to fade at once. Back on
+     * the same thing within HOLD_NANOS, as across a gap the reticle crosses on it, it is as it was
+     * then. It fades in as quickly, and takes new words at once.
      */
     static final class Fade {
         static final long HOLD_NANOS = 150_000_000L, IN_NANOS = 80_000_000L, OUT_NANOS = 120_000_000L;
@@ -100,25 +100,33 @@ final class InteractWords {
         private static final long MOST_STEP_NANOS = 50_000_000L;
 
         private String text;
-        private float alpha;
+        private float alpha, wantedAlpha;
         private long wantedAt, steppedAt;
         private boolean stepped;
 
-        /** Takes this frame's words, or null for none. */
-        void update(String wanted, long now) {
+        /**
+         * Takes this frame's words, or null for none.
+         *
+         * @param again whether they are for the same thing the label was last worded for
+         */
+        void update(String wanted, boolean again, long now) {
             float step = stepped ? Math.min(now - steppedAt, MOST_STEP_NANOS) : 0f;
             stepped = true;
             steppedAt = now;
-            if (wanted != null) {
-                text = wanted;
-                wantedAt = now;
-                alpha = Math.min(1f, alpha + step / IN_NANOS);
-            } else if (text != null && now - wantedAt > HOLD_NANOS) {
+            if (wanted == null) {
                 alpha = Math.max(0f, alpha - step / OUT_NANOS);
                 if (alpha == 0f) {
                     text = null;
                 }
+                return;
             }
+            if (again && now - wantedAt <= HOLD_NANOS) {
+                alpha = Math.max(alpha, wantedAlpha);
+            }
+            text = wanted;
+            alpha = Math.min(1f, alpha + step / IN_NANOS);
+            wantedAlpha = alpha;
+            wantedAt = now;
         }
 
         /** Gone at once, as when the pointer comes out. */
