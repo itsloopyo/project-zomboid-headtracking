@@ -8,6 +8,7 @@ import zombie.core.skinnedmodel.advancedanimation.AdvancedAnimator;
 import zombie.core.skinnedmodel.advancedanimation.AnimEvent;
 import zombie.core.skinnedmodel.advancedanimation.LiveAnimNode;
 import zombie.core.skinnedmodel.animation.AnimationTrack;
+import zombie.inventory.types.HandWeapon;
 import zombie.inventory.types.WeaponType;
 
 /** What the game says of an attack with what is held, which way it hits, how far through it is and when it lands, and how far through racking a firearm it is. Logic thread. */
@@ -97,6 +98,9 @@ final class GameAttack {
     static int way(IsoPlayer player) {
         if (player.isDoShove()) {
             return ViewModelMath.SHOVED;
+        }
+        if (player.getPrimaryHandItem() instanceof HandWeapon weapon && weapon.getPhysicsObject() != null) {
+            return ViewModelMath.THROWN;
         }
         if ("true".equalsIgnoreCase(player.GetVariable("AimFloorAnim"))) {
             return ViewModelMath.FLOORED;

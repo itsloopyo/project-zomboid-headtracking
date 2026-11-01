@@ -435,9 +435,10 @@ final class ViewModelMath {
     /**
      * The ways something held is hit with: swung across from the right shoulder, brought down from over the head, brought up from by
      * the right hip, brought down on what lies on the ground, thrust straight ahead, shoved out with both arms, stabbed point down
-     * into what lies on the ground, and driven in low and level with both hands on a shaft, as a spear is.
+     * into what lies on the ground, driven in low and level with both hands on a shaft, as a spear is, and thrown overarm: drawn
+     * back by the right of the head and brought over and out ahead, where it leaves the hand.
      */
-    static final int SWUNG = 0, CHOPPED = 1, RAISED = 2, FLOORED = 3, THRUST = 4, SHOVED = 5, STABBED = 6, LUNGED = 7;
+    static final int SWUNG = 0, CHOPPED = 1, RAISED = 2, FLOORED = 3, THRUST = 4, SHOVED = 5, STABBED = 6, LUNGED = 7, THROWN = 8;
     /**
      * What a hold is given by: how far the far end is raised, swung to the right and the top tipped to the left, in radians as `turn`
      * takes them, where the grip is to the right, up and ahead of the eye, in tiles, and how far the body is turned to the right behind it.
@@ -515,6 +516,8 @@ final class ViewModelMath {
             key(-80, -4, 0, 0.09f, -0.29f, 0.38f, 10), key(-74, -4, 0, 0.10f, -0.22f, 0.37f, 6)},
         {key(9, -6, 0, 0.16f, -0.29f, 0.18f, 12), key(7, -6, 0, 0.14f, -0.29f, 0.30f, 2), key(5, -6, 0, 0.12f, -0.29f, 0.42f, -12),
             key(5, -6, 0, 0.12f, -0.29f, 0.43f, -13), key(6, -6, 0, 0.13f, -0.29f, 0.36f, -8)},
+        {key(100, 20, -15, 0.20f, 0.03f, 0.20f, 20), key(80, 5, -5, 0.16f, 0.03f, 0.30f, 8), key(50, -5, 0, 0.10f, -0.06f, 0.42f, -8),
+            key(5, -20, 10, 0.02f, -0.28f, 0.34f, -20), key(5, -20, 10, 0.02f, -0.28f, 0.34f, -20)},
     };
 
     /** 0 to 1 as its argument goes 0 to 1, leaving and arriving without a jerk. */

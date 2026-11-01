@@ -151,7 +151,7 @@ final class MeleeTests {
     private static void theTurnAboutTheHandleComesAndGoesWithTheBlow() {
         MeleeHold.Shape pan = new MeleeHold.Shape(0f, 0.26f, 0.7071f, -0.7071f);
         float[] top = new float[3];
-        for (int way = ViewModelMath.SWUNG; way <= ViewModelMath.LUNGED; way++) {
+        for (int way = ViewModelMath.SWUNG; way <= ViewModelMath.THROWN; way++) {
             MeleeHold.top(pan, way, MeleeHold.share(0f, 0f, false), top);
             check(top[0] == 0f && top[2] == 1f, "at rest it stands in the hand as the game's art has it, its top the mesh's z, way " + way);
             check(MeleeHold.share(1f, 0f, false) == 1f, "as it lands it is turned all the way, way " + way);
@@ -302,7 +302,7 @@ final class MeleeTests {
     }
 
     private static void aLongWeaponLandsOnWhatItHits() {
-        for (int way = ViewModelMath.SWUNG; way <= ViewModelMath.LUNGED; way++) {
+        for (int way = ViewModelMath.SWUNG; way <= ViewModelMath.THROWN; way++) {
             for (float reach = 0.1f; reach <= MeleeHold.BAT_REACH; reach += 0.05f) {
                 check(MeleeHold.aimed(way, reach) == 0f, "nothing as long as a bat or shorter is turned, way " + way + " reaching " + reach);
             }

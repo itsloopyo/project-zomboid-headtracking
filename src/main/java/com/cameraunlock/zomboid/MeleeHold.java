@@ -330,7 +330,7 @@ final class MeleeHold {
      */
     static Fit fit(int kind, Shape shape, float perUnit, float tilesPerUnit, boolean trueHands, float tan) {
         float hand = hand(kind, shape, perUnit), reach = (shape.tip() - hand) * tilesPerUnit;
-        float[] rest = new float[ViewModelMath.HOLD], aimed = new float[ViewModelMath.LUNGED + 1];
+        float[] rest = new float[ViewModelMath.HOLD], aimed = new float[ViewModelMath.THROWN + 1];
         rest(kind, reach, trueHands, tan, rest);
         for (int way = 0; way < aimed.length; way++) {
             aimed[way] = aimed(way, reach);
@@ -414,7 +414,7 @@ final class MeleeHold {
      * the blow as it lands, as `top` turns it: worked out from where ViewModelMath.attack carries the far end
      * just before it lands and as it lands. A thrust and a stab lead with the point and a shove with the shaft, and are not turned.
      */
-    static final float[] LEADS = new float[ViewModelMath.LUNGED + 1];
+    static final float[] LEADS = new float[ViewModelMath.THROWN + 1];
     static {
         for (int way = ViewModelMath.SWUNG; way <= ViewModelMath.FLOORED; way++) {
             LEADS[way] = lead(way);
