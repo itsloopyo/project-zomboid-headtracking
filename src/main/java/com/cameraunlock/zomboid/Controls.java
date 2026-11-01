@@ -104,6 +104,7 @@ public final class Controls {
             attackDown = false;
             filteredAim = false;
             turnedOnly = false;
+            runsAslant = false;
             if (FirstPerson.TRACE && wasFiltered) {
                 Log.info("controls " + describe());
             }
@@ -121,7 +122,12 @@ public final class Controls {
         if (FirstPerson.TRACE && (filteredAim != wasFiltered || attackDown != wasAttack)) {
             Log.info("controls " + describe());
         }
-        turnedOnly = !filteredAim && turnedToTheView(player);
+        if (filteredAim) {
+            turnedOnly = false;
+            runsAslant = false;
+        } else {
+            turnedOnly = turnedToTheView(player);
+        }
         return filteredAim || turnedOnly;
     }
 
