@@ -146,6 +146,11 @@ public final class Hooks {
             // Thrown on, it would stop the game inside its own loading of its Lua.
             Log.error("the mod's settings are not on the game's options screen", failure);
         }
+        try {
+            FishingAim.register();
+        } catch (RuntimeException failure) {
+            Log.error("a fishing rod is aimed from the first person view at the square under the hidden pointer", failure);
+        }
     }
 
     /**
