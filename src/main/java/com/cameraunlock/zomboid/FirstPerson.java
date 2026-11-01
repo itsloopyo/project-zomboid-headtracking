@@ -2019,6 +2019,14 @@ public final class FirstPerson {
             pointer.menuShut();
             pointClick = false;
         }
+        // A map held up is put down by Esc or a middle click, and the press is for nothing else.
+        if ((escapeKey || pointClick) && !menuShut && HeldMap.putDown(view.index, escapeKey ? "Esc was pressed" : "the middle mouse button was clicked")) {
+            if (escapeKey) {
+                GameKeyboard.eatKeyPress(ESCAPE_KEY);
+            }
+            escapeKey = false;
+            pointClick = false;
+        }
         // With a drag cursor up the game's own Esc puts it away, and the pointer stays as it is.
         boolean escape = escapeKey && !menuShut && DragAim.of(view.index) == null;
         if (escape && pointer.escapeTakes()) {

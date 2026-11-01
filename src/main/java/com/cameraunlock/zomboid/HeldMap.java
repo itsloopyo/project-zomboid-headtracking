@@ -10,6 +10,10 @@ import se.krka.kahlua.vm.JavaFunction;
 import se.krka.kahlua.vm.KahluaTable;
 import se.krka.kahlua.vm.LuaCallFrame;
 import zombie.Lua.LuaManager;
+import java.util.Set;
+import java.util.Stack;
+import zombie.characters.CharacterTimedActions.BaseAction;
+import zombie.characters.CharacterTimedActions.LuaTimedActionNew;
 import zombie.characters.IsoPlayer;
 import zombie.core.Core;
 import zombie.core.SpriteRenderer;
@@ -207,16 +211,54 @@ final class HeldMap {
         if (Online.contested()) {
             holding |= MapHold.PLAYERS_CAN_FIGHT;
         }
-        if (player.isAiming()) {
+        // Walked any way but straight ahead the character is held in the game's aiming stance (Controls.turnedToTheView): that is no aim.
+        if (player.isAiming() && !view.controls.turnedOnly()) {
             holding |= MapHold.AIMING;
         }
         if (GameAttack.attacking(player)) {
             holding |= MapHold.ATTACKING;
         }
-        if (held && !player.getCharacterActions().isEmpty()) {
+        if (held && (doing = actionTaken(player)) != null) {
             holding |= MapHold.DOING_SOMETHING_ELSE;
         }
         return holding;
+    }
+
+    /** The action under way that last put a map down, for its line in the log. */
+    private static String doing;
+
+    /** Timed actions the game queues for a walk to somewhere: walking does not put the map down. */
+    private static final Set<String> WALKS = Set.of("ISWalkToTimedAction", "ISPathFindAction");
+
+    /** The name of the timed action the player has under way that puts a held map down, or null for none. */
+    private static String actionTaken(IsoPlayer player) {
+        Stack<BaseAction> actions = player.getCharacterActions();
+        if (actions.isEmpty()) {
+            return null;
+        }
+        BaseAction action = actions.get(0);
+        if (action.pathfinding) {
+            return null;
+        }
+        if (action instanceof LuaTimedActionNew lua) {
+            String type = lua.getMetaType();
+            return WALKS.contains(type) || "ISReadWorldMap".equals(type) ? null : type;
+        }
+        return action.getClass().getSimpleName();
+    }
+
+    /**
+     * Puts a player's map down if it is up, for a press that is for nothing else then: Esc or a
+     * middle click. Main thread.
+     *
+     * @return whether a map was up
+     */
+    static boolean putDown(int player, String why) {
+        if (!held[player]) {
+            return false;
+        }
+        lower(player, why);
+        return true;
     }
 
     /** As the game loads its Lua: nobody holds a map, and the mod's Lua goes into the game's on the next frame among its UI drawing. */
@@ -283,8 +325,12 @@ final class HeldMap {
     static void settle() {
         for (int player = 0; player < View.COUNT; player++) {
             if (reading[player] || held[player]) {
-                String why = MapHold.down(holding(player, held[player]));
+                int holding = holding(player, held[player]);
+                String why = MapHold.down(holding);
                 if (why != null) {
+                    if (Integer.lowestOneBit(holding) == MapHold.DOING_SOMETHING_ELSE) {
+                        why += ": " + doing;
+                    }
                     if (reading[player]) {
                         reading[player] = false;
                         Log.info("player " + (player + 1) + "'s map is read without holding it up: " + why);

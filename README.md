@@ -322,7 +322,7 @@ A short line under the crosshair says what `E` will do to what it is on, such as
 
 **Your watch** - with a watch on a wrist and that hand empty, stand still, look down, then turn your view or your head towards that wrist: the arm comes up and turns the watch to you, showing the time as the game's clock shows it, as figures on a digital watch and as hands on the others. With a watch on each wrist, you see the one you turn towards. Look away and it goes back down. It doesn't come up while you aim or attack. `WatchGlance=false` turns it off.
 
-**The map** - the map key brings the world map up in both hands, showing the area around you, and you can walk with it up. Press the map key again to put it down and open the game's own map over the screen, where you pan, zoom and add marks. It opens as the game opens it, so where the game says it's too dark to read the map, it says so here too. Aiming, attacking, doing anything else or leaving first person puts the map down. On a PvP server the map key opens the game's map as it does without the mod. `HeldMap=false` does the same everywhere.
+**The map** - the map key brings the world map up in both hands, showing the area around you, and you can walk and run with it up. Esc or a middle click puts it down, and does nothing else. Press the map key again to put it down and open the game's own map over the screen, where you pan, zoom and add marks. It opens as the game opens it, so where the game says it's too dark to read the map, it says so here too. Aiming, attacking, starting anything else or leaving first person also puts the map down. On a PvP server the map key opens the game's map as it does without the mod. `HeldMap=false` does the same everywhere.
 
 ### Controller and split screen
 
@@ -610,10 +610,10 @@ FishingRod=true
 ; you turn to. Not while aiming or attacking. false: the arm stays down.
 WatchGlance=true
 ; true: in first person, the map key holds the game's map up in both hands, the place round you on it, and you can walk
-; with it. The map key again puts it down and opens the game's map over the screen, as the game opens it, to pan,
-; zoom and mark. Aiming, attacking, anything else you do, or leaving first person puts it down. On a server where
-; players can fight, the game's map opens as it does without the mod. false: the map key opens the game's map over
-; the screen, as without the mod.
+; and run with it. The map key again puts it down and opens the game's map over the screen, as the game opens it, to
+; pan, zoom and mark. Esc or a middle click puts it down and does nothing else. Aiming, attacking, starting anything
+; else, or leaving first person also puts it down. On a server where players can fight, the game's map opens as it
+; does without the mod. false: the map key opens the game's map over the screen, as without the mod.
 ; Takes effect at once. From the next start, off also stops the mod changing the game's own code for this.
 HeldMap=true
 
