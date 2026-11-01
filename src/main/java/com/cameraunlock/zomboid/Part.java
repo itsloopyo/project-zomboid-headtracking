@@ -83,8 +83,8 @@ enum Part {
                     + "overarm. false: it is swung as a one-handed weapon is."),
     FISHING_ROD("FirstPerson", "FishingRod", true, false,
             "true: in first person, a fishing rod out over water is held with your left hand on its reel, swung back and out to\n"
-                    + "cast, lifted while you reel in, and its line runs from its tip to the bobber, which is drawn where it floats.\n"
-                    + "false: the rod is held as a swung weapon is, and neither its line nor the bobber is drawn."),
+                    + "cast, lifted while you reel in, and its line runs from its tip to the bobber. false: the rod is held as a swung\n"
+                    + "weapon is, and no line is drawn. The bobber is drawn where it floats either way."),
     SHOTS_FROM_VEHICLE_SEATS("Rules", "ShotsFromVehicleSeats", true, false,
             "true: in first person, sitting in a vehicle with a gun, you can fire through any part of your seat's window, and\n"
                     + "the shot breaks it. false: as in the game, the window has to be opened or broken first. On a server where\n"

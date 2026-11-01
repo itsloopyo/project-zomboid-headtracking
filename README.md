@@ -585,8 +585,8 @@ FiguresBehindWalls=true
 ; overarm. false: it is swung as a one-handed weapon is.
 OverarmThrow=true
 ; true: in first person, a fishing rod out over water is held with your left hand on its reel, swung back and out to
-; cast, lifted while you reel in, and its line runs from its tip to the bobber, which is drawn where it floats.
-; false: the rod is held as a swung weapon is, and neither its line nor the bobber is drawn.
+; cast, lifted while you reel in, and its line runs from its tip to the bobber. false: the rod is held as a swung
+; weapon is, and no line is drawn. The bobber is drawn where it floats either way.
 FishingRod=true
 
 [Players]
