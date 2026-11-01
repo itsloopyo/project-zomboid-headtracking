@@ -15,4 +15,5 @@ public class IsoThumpable extends IsoObject {
     public boolean isBarricaded() { throw new UnsupportedOperationException("reference stub"); }
     public IsoBarricade getBarricadeOnSameSquare() { throw new UnsupportedOperationException("reference stub"); }
     public IsoBarricade getBarricadeOnOppositeSquare() { throw new UnsupportedOperationException("reference stub"); }
+    public boolean isLockedToCharacter(zombie.characters.IsoGameCharacter character) { throw new UnsupportedOperationException("reference stub"); }
 }

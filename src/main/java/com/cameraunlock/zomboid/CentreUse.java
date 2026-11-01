@@ -17,8 +17,10 @@ import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoMovingObject;
 import zombie.iso.IsoObject;
+import zombie.iso.IsoWorld;
 import zombie.iso.SpriteDetails.IsoFlagType;
 import zombie.iso.SpriteDetails.IsoObjectType;
+import zombie.iso.areas.SafeHouse;
 import zombie.iso.objects.IsoCurtain;
 import zombie.iso.objects.IsoDoor;
 import zombie.iso.objects.IsoLightSwitch;
@@ -26,7 +28,7 @@ import zombie.iso.objects.IsoThumpable;
 import zombie.iso.objects.IsoWaveSignal;
 import zombie.iso.objects.IsoWindow;
 import zombie.iso.objects.IsoWorldInventoryObject;
-import zombie.iso.IsoWorld;
+import zombie.network.GameClient;
 import zombie.ui.SpeedControls;
 import zombie.ui.UIManager;
 import zombie.util.list.PZArrayList;
@@ -161,12 +163,14 @@ final class CentreUse {
         WINDOW_MENU,
         /** The game's click on a door, a window, a curtain or a light switch, and for a door the world menu's Open or Close where the click is not taken. */
         CLICK,
-        /** The game's click on a radio, a television or a workstation, which opens its window when the character is near enough. */
-        PANEL,
+        /**
+         * The game's click on anything else: a radio's, a television's or a workstation's window
+         * where the character is near enough, a walk to a container a few squares off, or
+         * nothing, where its tests fail.
+         */
+        RELEASE,
         /** The game's click on a container within its reach, which puts it in the loot panel. */
         CONTAINER,
-        /** The game's click on a container further off, which walks the character to it where it is near enough and the player has the game's option for that on. */
-        WALK_TO,
         /** A climb through a hole (HoleHop). */
         HOLE,
         /** The world menu for something standing within reach (standingFor), opened at the reticle. */
@@ -216,21 +220,29 @@ final class CentreUse {
             // controller's own key opens what its player stands at, so the key is left to the game.
             return null;
         }
+        // The game's click (ISObjectClickHandler.doClick), its tests in its order. Where they fail it takes the click
+        // and does nothing.
         IsoGridSquare from = player.getCurrentSquare();
+        IsoGridSquare at = found instanceof IsoMovingObject body ? body.getCurrentSquare() : found.getSquare();
+        if (at == null || !at.isSeen(0)) {
+            return Use.of(Route.RELEASE, found, null);
+        }
         // A radio, a television or a workstation: the game's click opens its window, when the character is near enough.
         InteractWords.Does panel = panel(found, player, from);
         if (panel != null) {
-            return Use.of(Route.PANEL, found, panel);
+            return Use.of(Route.RELEASE, found, panel);
         }
-        if (found.getContainer() == null) {
-            return Use.of(Route.PANEL, found, null);
+        if (GameClient.client && !SafeHouse.isSafehouseAllowLoot(at, player) || found.getContainer() == null
+                || found instanceof IsoThumpable thumpable && thumpable.isLockedToCharacter(player)) {
+            return Use.of(Route.RELEASE, found, null);
         }
-        IsoGridSquare at = found instanceof IsoMovingObject body ? body.getCurrentSquare() : found.getSquare();
-        // The game's own test for a container near enough to open. One further off it walks to.
-        boolean inReach = at != null && from != null && Math.abs(from.getX() - at.getX()) <= 1 && Math.abs(from.getY() - at.getY()) <= 1
-                && from.getZ() == at.getZ() && !from.isBlockedTo(at);
+        // The game's own test for a container near enough to open. One further off it may walk to.
+        IsoGridSquare parent = found.getSquare();
+        boolean inReach = parent != null && from != null && Math.abs(from.getX() - parent.getX()) <= 1 && Math.abs(from.getY() - parent.getY()) <= 1
+                && from.getZ() == parent.getZ() && !from.isBlockedTo(parent);
         if (!inReach) {
-            return walks(found, from, player) ? new Use(Route.WALK_TO, found, InteractWords.Does.WALK_TO, found.getContainer(), null) : Use.of(Route.WALK_TO, found, null);
+            return walks(found, from, player) ? new Use(Route.RELEASE, found, InteractWords.Does.WALK_TO, found.getContainer(), null)
+                    : Use.of(Route.RELEASE, found, null);
         }
         // The game's click opens a fridge's freezer for the upper half of its picture, measured in the picture the game
         // would have drawn, and the fridge for anything else, though the panel may keep the freezer it last showed. The
@@ -403,7 +415,7 @@ final class CentreUse {
                 // door first where it is not beside it.
                 return call(WORLD_MENU, DOOR, null, found, index) == null ? Outcome.NOTHING : Outcome.USED;
             }
-            case PANEL, WALK_TO -> {
+            case RELEASE -> {
                 return call(CLICK_HANDLER, RELEASE, found, Double.valueOf(0), Double.valueOf(0)) == null ? Outcome.NOTHING : Outcome.USED;
             }
             case CONTAINER -> {
