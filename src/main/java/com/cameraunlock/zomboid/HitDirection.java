@@ -340,7 +340,6 @@ final class HitDirection {
             float at = bearing + along * half;
             float ends = 1f - along * along;
             float x = width / 2f * (1f + REACH * HitArcs.across(at)), y = height / 2f * (1f + REACH * HitArcs.up(at));
-            // Inwards in pixels, toward the middle of the picture.
             float inX = width / 2f - x, inY = height / 2f - y, length = (float) Math.hypot(inX, inY);
             inX *= thick / length;
             inY *= thick / length;
