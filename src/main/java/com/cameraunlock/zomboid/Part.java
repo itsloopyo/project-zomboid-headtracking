@@ -71,6 +71,9 @@ enum Part {
             "true: in first person, a line is drawn round what the Interact key would act on, and round what the game highlights\n"
                     + "or marks on the ground for you, such as the container the loot panel shows. false: none of them, for immersion.\n"
                     + "The piece of furniture you are placing is still outlined."),
+    INTERACT_LABEL("FirstPerson", "InteractLabel", true, false,
+            "true: in first person, a short line under the crosshair says what the Interact key would do to what it is on, such\n"
+                    + "as Open Door or Grab and the item's name, and what holding the key does where that is different. false: no line."),
     FIGURES_BEHIND_WALLS("FirstPerson", "FiguresBehindWalls", true, false,
             "true: in first person, a zombie, person or animal against a wall, a shut door or a fence you cannot see through is\n"
                     + "not drawn reaching, leaning or poking through it to your side. false: they are drawn as the game poses them, so a\n"

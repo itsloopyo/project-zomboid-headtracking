@@ -711,6 +711,9 @@ public final class FirstPerson {
      * width times the game's zoom, so a middle worked out there is off to one side at any zoom but 1.
      */
     void afterWorldText(int index) {
+        if (lookCaptured() && reticleOnScreen) {
+            view.interactLabel.draw(reticleX, reticleY, IsoCamera.getScreenHeight(index));
+        }
         if (shown != null) {
             TextManager.instance.DrawStringCentre(UIFont.Medium, IsoCamera.getScreenWidth(index) / 2.0, IsoCamera.getScreenHeight(index) * 0.12,
                     shown, 1.0, 1.0, 1.0, 1.0);
@@ -1163,9 +1166,12 @@ public final class FirstPerson {
         aimDrag(player, scene);
         // Outlined in the next picture: this one was gathered before the reticle was placed.
         if (lookCaptured && vehicle == null && !bodyLeads && reticleOnScreen) {
-            view.centreUse.mark(reticleLine, floorUp, player, IsoWorld.instance.currentCell);
+            IsoObject found = view.centreUse.under(reticleLine, floorUp, player, IsoWorld.instance.currentCell);
+            view.centreUse.mark(found);
+            label(player, found, now);
         } else {
             view.centreUse.marked = Outlines.NONE;
+            view.interactLabel.hide();
         }
         if (Online.joined()) {
             view.nameTags.look(cleanView, IsoWorld.instance.currentCell, player);
@@ -1966,8 +1972,16 @@ public final class FirstPerson {
      */
     boolean climbableAtCentre() {
         IsoPlayer player = view.player();
-        return player.getVehicle() == null && reticleOnScreen
-                && (view.centreUse.climbableAt(reticleLine, floorUp(player), player, IsoWorld.instance.currentCell) || hopAtCentre() != null);
+        return player.getVehicle() == null && reticleOnScreen && climbableAt(player, centre(player));
+    }
+
+    private boolean climbableAt(IsoPlayer player, IsoObject found) {
+        return CentreUse.climbable(found, player) || hopAtCentre() != null;
+    }
+
+    /** What the key would act on at the reticle, or null (CentreUse.under). */
+    private IsoObject centre(IsoPlayer player) {
+        return view.centreUse.under(reticleLine, floorUp(player), player, IsoWorld.instance.currentCell);
     }
 
     /** The climb through a hole the reticle is on, or null: see HoleHop. */
@@ -1981,6 +1995,31 @@ public final class FirstPerson {
     }
 
     /**
+     * What a press of the Interact key would do with the reticle on found (centre), tapped or held
+     * (climb), before the world menu: the one decision both the key and the label under the
+     * reticle (InteractLabel) take. Null where the key is left to the game.
+     */
+    private CentreUse.Use keyUse(IsoPlayer player, IsoObject found, boolean climb) {
+        if (climb && !CentreUse.climbable(found, player)) {
+            HoleHop.Hop hop = hopAtCentre();
+            if (hop != null) {
+                return new CentreUse.Use(CentreUse.Route.HOLE, null, InteractWords.Does.CLIMB_THROUGH, null, hop);
+            }
+        }
+        return view.centreUse.decide(found, reticleLine, floorUp(player), player, view.onMouse(), climb);
+    }
+
+    /** The world menu the key opens where it acts on nothing else, or null. */
+    private CentreUse.Use menuUse(IsoPlayer player) {
+        if (!view.onMouse()) {
+            return null;
+        }
+        // A sink or a table: the game's own key does nothing for it in this view, and its menu is what a player wants of it.
+        IsoObject standing = view.centreUse.standingFor(reticleLine, floorUp(player), player, IsoWorld.instance.currentCell);
+        return standing == null ? null : CentreUse.Use.of(CentreUse.Route.MENU, standing, InteractWords.Does.MENU);
+    }
+
+    /**
      * Called as the Interact key goes down with the mouse turning the view: acts on what the
      * last picture drew under the reticle, and says whether anything was there for it. Held
      * (climb), it climbs through the window or the hole the reticle is on. In a vehicle the key
@@ -1991,23 +2030,20 @@ public final class FirstPerson {
         if (player.getVehicle() != null || !reticleOnScreen) {
             return false;
         }
-        if (climb && !view.centreUse.climbableAt(reticleLine, floorUp(player), player, IsoWorld.instance.currentCell)) {
-            HoleHop.Hop hop = hopAtCentre();
-            if (hop != null) {
-                HoleHop.go(player, hop);
-                return true;
-            }
+        CentreUse.Use use = keyUse(player, centre(player), climb);
+        if (use != null && use.route() == CentreUse.Route.HOLE) {
+            HoleHop.go(player, use.hop());
+            return true;
         }
-        CentreUse.Outcome outcome = view.centreUse.press(reticleLine, floorUp(player), player, IsoWorld.instance.currentCell, view.onMouse(), climb);
+        CentreUse.Outcome outcome = use == null ? CentreUse.Outcome.NOTHING : view.centreUse.act(use, player);
         if (outcome == CentreUse.Outcome.CONTAINER) {
             pointer.open();
         }
-        if (outcome == CentreUse.Outcome.NOTHING && view.onMouse()) {
-            // A sink or a table: the game's own key does nothing for it in this view, and its menu is what a player wants of it.
-            IsoObject standing = view.centreUse.standingFor(reticleLine, floorUp(player), player, IsoWorld.instance.currentCell);
-            if (standing != null && view.worldMenu.openFor(standing, IsoCamera.getScreenLeft(view.index) + reticleX, IsoCamera.getScreenTop(view.index) + reticleY)) {
+        if (outcome == CentreUse.Outcome.NOTHING) {
+            CentreUse.Use menu = menuUse(player);
+            if (menu != null && view.worldMenu.openFor(menu.object(), IsoCamera.getScreenLeft(view.index) + reticleX, IsoCamera.getScreenTop(view.index) + reticleY)) {
                 if (TRACE) {
-                    Log.info("interact at the reticle: the world menu for " + standing);
+                    Log.info("interact at the reticle: the world menu for " + menu.object());
                 }
                 return true;
             }
@@ -2016,6 +2052,23 @@ public final class FirstPerson {
             Log.info("interact at the reticle: " + outcome + " on " + Thread.currentThread().getName());
         }
         return outcome != CentreUse.Outcome.NOTHING;
+    }
+
+    /**
+     * Gives the label under the reticle what a tap and a hold of the key would do now, with the
+     * reticle on found, the same decision useAtCentre takes. Nothing while the character aims or
+     * is busy with a timed action.
+     */
+    private void label(IsoPlayer player, IsoObject found, long now) {
+        if (!Part.INTERACT_LABEL.on() || player.isAiming() || !player.getCharacterActions().isEmpty()) {
+            view.interactLabel.update(null, null, player, now);
+            return;
+        }
+        CentreUse.Use tap = keyUse(player, found, false);
+        if (tap == null) {
+            tap = menuUse(player);
+        }
+        view.interactLabel.update(tap, climbableAt(player, found) ? keyUse(player, found, true) : null, player, now);
     }
 
     /** The height of the floor a player stands on, in tiles above level 0. */

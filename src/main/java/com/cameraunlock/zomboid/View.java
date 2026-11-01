@@ -36,6 +36,7 @@ final class View {
     final TorchLess torchLess;
     final Crosshair crosshair = new Crosshair();
     final HitDirection hitDirection = new HitDirection();
+    final InteractLabel interactLabel = new InteractLabel();
     final Ride ride = new Ride();
     final KerbSteps kerbSteps = new KerbSteps();
     final BodyLed bodyLed = new BodyLed();

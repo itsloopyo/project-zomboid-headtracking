@@ -9,4 +9,7 @@ public class ItemContainer {
     public InventoryItem getContainingItem() { throw new UnsupportedOperationException("reference stub"); }
     public void Remove(InventoryItem item) { throw new UnsupportedOperationException("reference stub"); }
     public InventoryItem getFirstType(String type) { throw new UnsupportedOperationException("reference stub"); }
+    public String getType() { throw new UnsupportedOperationException("reference stub"); }
+    public String getDisplayType() { throw new UnsupportedOperationException("reference stub"); }
+    public String getCustomName() { throw new UnsupportedOperationException("reference stub"); }
 }

@@ -2,6 +2,7 @@ package com.cameraunlock.zomboid;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import org.lwjglx.input.Keyboard;
 import se.krka.kahlua.vm.KahluaTable;
 import zombie.Lua.LuaManager;
 import zombie.characters.IsoPlayer;
@@ -9,6 +10,8 @@ import zombie.core.properties.PropertyContainer;
 import zombie.entity.ComponentType;
 import zombie.entity.components.spriteconfig.SpriteConfig;
 import zombie.entity.components.ui.UiConfig;
+import zombie.input.GameKeyboard;
+import zombie.inventory.ItemContainer;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoMovingObject;
@@ -85,10 +88,14 @@ final class CentreUse {
      */
     volatile long marked = Outlines.NONE;
 
-    /** Notes what the key would act on with the view as it is, or that there is nothing. */
-    void mark(ViewCamera.Pose view, float floorUp, IsoPlayer player, IsoCell cell) {
-        IsoObject found = find(view, floorUp, cell, (int) Math.floor(player.getZ()), false);
+    /** Notes what the key would act on with the view as it is (under), or that there is nothing. */
+    void mark(IsoObject found) {
         marked = found == null ? Outlines.NONE : Outlines.key(found);
+    }
+
+    /** What the key would act on along the view, or null. */
+    IsoObject under(ViewCamera.Pose view, float floorUp, IsoPlayer player, IsoCell cell) {
+        return find(view, floorUp, cell, (int) Math.floor(player.getZ()), false);
     }
 
     /** What the game's Lua lacks for the key to work, or null. */
@@ -117,6 +124,146 @@ final class CentreUse {
                 ? null : "the game's Lua has no " + table + "." + function;
     }
 
+    /** How a press reaches the game. */
+    enum Route {
+        /** The world menu's Grab, for something lying on the ground. */
+        GRAB,
+        /** The world menu's Climb through, for a window the key is held on. */
+        CLIMB,
+        /** The world menu's Open or Close, for a window the character does not stand at. */
+        WINDOW_MENU,
+        /** The game's click on a door, a window, a curtain or a light switch, and for a door the world menu's Open or Close where the click is not taken. */
+        CLICK,
+        /** The game's click on a radio, a television or a workstation, which opens its window when the character is near enough. */
+        PANEL,
+        /** The game's click on a container within its reach, which puts it in the loot panel. */
+        CONTAINER,
+        /** The game's click on a container further off, which walks the character towards it. */
+        WALK_TO,
+        /** A climb through a hole (HoleHop). */
+        HOLE,
+        /** The world menu for something standing within reach (standingFor), opened at the reticle. */
+        MENU
+    }
+
+    /**
+     * What a press of the key would do: the way it goes to the game, what it acts on, and what it
+     * comes to as the label under the reticle names it, null where the game would take the press
+     * and do nothing. The label names nothing a press does not do.
+     *
+     * @param container for a container, the one of its containers a press shows
+     * @param hop       for a climb through a hole, where
+     */
+    record Use(Route route, IsoObject object, InteractWords.Does does, ItemContainer container, HoleHop.Hop hop) {
+        static Use of(Route route, IsoObject object, InteractWords.Does does) {
+            return new Use(route, object, does, null, null);
+        }
+    }
+
+    /**
+     * What a press would do with the reticle on found (under): what act then does.
+     *
+     * @param pointer whether the player has a pointer to work a container's panels with
+     * @param climb   whether the key is held, which climbs through a window that can be climbed through instead of opening or shutting it
+     * @return null where the key is left to the game
+     */
+    Use decide(IsoObject found, ViewCamera.Pose view, float floorUp, IsoPlayer player, boolean pointer, boolean climb) {
+        if (found == null) {
+            return null;
+        }
+        if (found instanceof IsoWorldInventoryObject) {
+            return Use.of(Route.GRAB, found, InteractWords.Does.GRAB);
+        }
+        if (climb && climbable(found, player)) {
+            return Use.of(Route.CLIMB, found, InteractWords.Does.CLIMB_THROUGH);
+        }
+        if (found instanceof IsoWindow pane && !pane.isSmashed() && !pane.isInvincible() && pane.getBarricadeForCharacter(player) == null
+                && player.getCurrentSquare() != pane.getSquare() && player.getCurrentSquare() != pane.getOppositeSquare()) {
+            return Use.of(Route.WINDOW_MENU, pane, pane.IsOpen() ? InteractWords.Does.CLOSE_WINDOW : InteractWords.Does.OPEN_WINDOW);
+        }
+        if (keyActsOn(found)) {
+            return Use.of(Route.CLICK, found, clicked(found, player));
+        }
+        if (!pointer) {
+            // The game's click on a container is the first player's, whoever asks, and its panels are a pointer's. A
+            // controller's own key opens what its player stands at, so the key is left to the game.
+            return null;
+        }
+        IsoGridSquare from = player.getCurrentSquare();
+        if (found.getContainer() == null) {
+            // A radio, a television or a workstation: the game's click opens its window, when the character is near enough.
+            return Use.of(Route.PANEL, found, panel(found, player, from));
+        }
+        IsoGridSquare at = found instanceof IsoMovingObject body ? body.getCurrentSquare() : found.getSquare();
+        // The game's own test for a container near enough to open. One further off it walks to.
+        boolean inReach = at != null && from != null && Math.abs(from.getX() - at.getX()) <= 1 && Math.abs(from.getY() - at.getY()) <= 1
+                && from.getZ() == at.getZ() && !from.isBlockedTo(at);
+        if (!inReach) {
+            return Use.of(Route.WALK_TO, found, null);
+        }
+        // The game's click opens a fridge's freezer for the upper half of its picture, measured in the picture the game
+        // would have drawn, and the fridge for anything else, though the panel may keep the freezer it last showed. The
+        // half the view is on is the one shown.
+        ItemContainer shown = found.getContainerCount() >= 2
+                ? found.getContainerByIndex(above(at, view, floorUp, 0f) > ViewCamera.LEVEL_HEIGHT / 2f ? 1 : 0) : found.getContainer();
+        return new Use(Route.CONTAINER, found, InteractWords.Does.LOOT, shown, null);
+    }
+
+    /**
+     * What the game's click on a door, a window, a curtain or a light switch does, by the game's
+     * own tests in ISObjectClickHandler.doClickSpecificObject, or null where it takes the click and
+     * does nothing. A door the click is not for is opened or shut through the world menu.
+     */
+    private static InteractWords.Does clicked(IsoObject found, IsoPlayer player) {
+        if (found instanceof IsoDoor door) {
+            return door.IsOpen() ? InteractWords.Does.CLOSE_DOOR : InteractWords.Does.OPEN_DOOR;
+        }
+        if (found instanceof IsoThumpable door) {
+            return door.IsOpen() ? InteractWords.Does.CLOSE_DOOR : InteractWords.Does.OPEN_DOOR;
+        }
+        if (found instanceof IsoCurtain curtain) {
+            return curtain(curtain, player);
+        }
+        IsoGridSquare from = player.getCurrentSquare();
+        if (found instanceof IsoLightSwitch light) {
+            return from == null || light.getSquare().DistToProper(player) >= 2f || from.isWallTo(light.getSquare()) ? null
+                    : light.isActivated() ? InteractWords.Does.TURN_OFF : InteractWords.Does.TURN_ON;
+        }
+        IsoWindow pane = (IsoWindow) found;
+        if (GameKeyboard.isKeyDown(Keyboard.KEY_LSHIFT)) {
+            // With Shift held the game's click is for the window's curtains.
+            IsoCurtain curtain = pane.HasCurtains();
+            return curtain == null ? null : curtain(curtain, player);
+        }
+        if (pane.isInvincible() || from != pane.getSquare() && from != pane.getOppositeSquare() || pane.getBarricadeForCharacter(player) != null) {
+            return null;
+        }
+        if (pane.isDestroyed()) {
+            return pane.isBarricaded() ? null : InteractWords.Does.CLIMB_THROUGH;
+        }
+        return pane.IsOpen() ? InteractWords.Does.CLOSE_WINDOW : InteractWords.Does.OPEN_WINDOW;
+    }
+
+    private static InteractWords.Does curtain(IsoCurtain curtain, IsoPlayer player) {
+        return !curtain.canInteractWith(player) ? null : curtain.IsOpen() ? InteractWords.Does.CLOSE_CURTAINS : InteractWords.Does.OPEN_CURTAINS;
+    }
+
+    /**
+     * What the game's click on a thing that holds nothing does, by ISObjectClickHandler.doClick's
+     * own tests: a radio's or a television's window within 1.5 tiles of its middle, a
+     * workstation's within 2.45 of its main square's, with nothing between. Null further off.
+     */
+    private static InteractWords.Does panel(IsoObject found, IsoPlayer player, IsoGridSquare from) {
+        boolean radio = found instanceof IsoWaveSignal;
+        IsoObject object = radio ? found : found.getSpriteConfig().getMultiSquareMaster();
+        IsoGridSquare square = object.getSquare();
+        float near = radio ? 1.5f * 1.5f : 1.5f * 4f;
+        if (from == null || square == null || player.DistToSquared(square.getX() + 0.5f, square.getY() + 0.5f) >= near || from.isSomethingTo(square)) {
+            return null;
+        }
+        return radio ? InteractWords.Does.DEVICE_OPTIONS : InteractWords.Does.OPEN_NAMED;
+    }
+
     /**
      * Acts on what is under the reticle.
      *
@@ -126,74 +273,63 @@ final class CentreUse {
      * @param climb   whether the key was held, which climbs through a window that can be climbed through instead of opening or shutting it
      */
     Outcome press(ViewCamera.Pose view, float floorUp, IsoPlayer player, IsoCell cell, boolean pointer, boolean climb) {
-        IsoObject found = find(view, floorUp, cell, (int) Math.floor(player.getZ()), false);
-        if (found == null) {
-            return Outcome.NOTHING;
-        }
-        if (found instanceof IsoWorldInventoryObject item) {
-            return call(WORLD_MENU, GRAB, null, item, Double.valueOf(player.getIndex())) == null ? Outcome.NOTHING : Outcome.USED;
-        }
-        if (climb && climbable(found, player)) {
-            // The game's click shuts an open window, and climbs through a smashed one only from a square beside it, answering
-            // that it took the click from further off. The key climbs through either from within its reach, where there is a
-            // floor beyond to land on, the way the game's click climbs: up first, then over, walking to the window first.
-            Object climbing = ((KahluaTable) LuaManager.env.rawget(WORLD_MENU)).rawget(CLIMB);
-            return call(WORLD_MENU, GET_UP, player, climbing, null, (IsoWindow) found, Double.valueOf(player.getIndex())) == null ? Outcome.NOTHING : Outcome.USED;
-        }
-        if (found instanceof IsoWindow pane && !pane.isSmashed() && !pane.isInvincible() && pane.getBarricadeForCharacter(player) == null
-                && player.getCurrentSquare() != pane.getSquare() && player.getCurrentSquare() != pane.getOppositeSquare()) {
-            // The game's click on a window is for a character standing at it, and takes any other click without acting.
-            // One over a counter or a dresser has no square in front of it to stand on, so the key is the world menu's
-            // Open or Close, which walks the character to it first where the game can find a way.
-            return call(WORLD_MENU, WINDOW, null, pane, Double.valueOf(player.getIndex())) == null ? Outcome.NOTHING : Outcome.USED;
-        }
-        if (keyActsOn(found)) {
-            // False when the game will not have it: too far off, the wrong side of a wall, aiming.
-            Object[] answered = call(CLICK_HANDLER, PRESS, found, Double.valueOf(player.getIndex()), player);
-            if (answered != null && answered.length > 1 && Boolean.TRUE.equals(answered[1])) {
-                return Outcome.USED;
+        Use use = decide(under(view, floorUp, player, cell), view, floorUp, player, pointer, climb);
+        return use == null ? Outcome.NOTHING : act(use, player);
+    }
+
+    /** Does what decide said a press would. Not for a hole or the world menu, which FirstPerson opens. */
+    Outcome act(Use use, IsoPlayer player) {
+        IsoObject found = use.object();
+        Double index = Double.valueOf(player.getIndex());
+        switch (use.route()) {
+            case GRAB -> {
+                return call(WORLD_MENU, GRAB, null, found, index) == null ? Outcome.NOTHING : Outcome.USED;
             }
-            if (!isDoor(found)) {
-                return Outcome.NOTHING;
+            case CLIMB -> {
+                // The game's click shuts an open window, and climbs through a smashed one only from a square beside it, answering
+                // that it took the click from further off. The key climbs through either from within its reach, where there is a
+                // floor beyond to land on, the way the game's click climbs: up first, then over, walking to the window first.
+                Object climbing = ((KahluaTable) LuaManager.env.rawget(WORLD_MENU)).rawget(CLIMB);
+                return call(WORLD_MENU, GET_UP, player, climbing, null, (IsoWindow) found, index) == null ? Outcome.NOTHING : Outcome.USED;
             }
-            // The click is for a door beside the character and not for one aimed at. The key is for the door under the
-            // reticle wherever it stands within reach, so it is the world menu's Open or Close: the character walks to the
-            // door first where it is not beside it.
-            return call(WORLD_MENU, DOOR, null, found, Double.valueOf(player.getIndex())) == null ? Outcome.NOTHING : Outcome.USED;
-        }
-        if (!pointer) {
-            // The game's click on a container is the first player's, whoever asks, and its panels are a pointer's. A
-            // controller's own key opens what its player stands at, so the key is left to the game.
-            return Outcome.NOTHING;
-        }
-        if (found.getContainer() == null) {
-            // A radio, a television or a workstation: the game's click opens its window, when the character is near enough.
-            return call(CLICK_HANDLER, RELEASE, found, Double.valueOf(0), Double.valueOf(0)) == null ? Outcome.NOTHING : Outcome.USED;
-        }
-        IsoGridSquare at = found instanceof IsoMovingObject body ? body.getCurrentSquare() : found.getSquare();
-        IsoGridSquare from = player.getCurrentSquare();
-        // The game's own test for a container near enough to open. One further off it walks to.
-        boolean inReach = at != null && from != null && Math.abs(from.getX() - at.getX()) <= 1 && Math.abs(from.getY() - at.getY()) <= 1
-                && from.getZ() == at.getZ() && !from.isBlockedTo(at);
-        if (inReach) {
-            // Unfolded first: the click handler then puts the container in the loot panel.
-            Panels.showInventory(player.getIndex(), true);
-        }
-        if (call(CLICK_HANDLER, RELEASE, found, Double.valueOf(0), Double.valueOf(0)) == null) {
-            // The panels are up already where it was in reach, and the pointer is wanted for them.
-            return inReach ? Outcome.CONTAINER : Outcome.NOTHING;
-        }
-        if (inReach && found.getContainerCount() >= 2) {
-            // The game's click opens a fridge's freezer for the upper half of its picture, measured in the picture the
-            // game would have drawn, and the fridge for anything else, though the panel may keep the freezer it last
-            // showed. The half the view is on is selected in the loot panel the click has just put up.
-            Object[] loot = call(null, "getPlayerLoot", Double.valueOf(0));
-            if (loot != null && loot.length > 1) {
-                int half = above(at, view, floorUp, 0f) > ViewCamera.LEVEL_HEIGHT / 2f ? 1 : 0;
-                call(INVENTORY_PAGE, "selectButtonForContainer", loot[1], found.getContainerByIndex(half));
+            case WINDOW_MENU -> {
+                // The game's click on a window is for a character standing at it, and takes any other click without acting.
+                // One over a counter or a dresser has no square in front of it to stand on, so the key is the world menu's
+                // Open or Close, which walks the character to it first where the game can find a way.
+                return call(WORLD_MENU, WINDOW, null, found, index) == null ? Outcome.NOTHING : Outcome.USED;
             }
+            case CLICK -> {
+                // False when the game will not have it: too far off, the wrong side of a wall, aiming.
+                Object[] answered = call(CLICK_HANDLER, PRESS, found, index, player);
+                if (answered != null && answered.length > 1 && Boolean.TRUE.equals(answered[1])) {
+                    return Outcome.USED;
+                }
+                if (!isDoor(found)) {
+                    return Outcome.NOTHING;
+                }
+                // The click is for a door beside the character and not for one aimed at. The key is for the door under the
+                // reticle wherever it stands within reach, so it is the world menu's Open or Close: the character walks to the
+                // door first where it is not beside it.
+                return call(WORLD_MENU, DOOR, null, found, index) == null ? Outcome.NOTHING : Outcome.USED;
+            }
+            case PANEL, WALK_TO -> {
+                return call(CLICK_HANDLER, RELEASE, found, Double.valueOf(0), Double.valueOf(0)) == null ? Outcome.NOTHING : Outcome.USED;
+            }
+            case CONTAINER -> {
+                // Unfolded first: the click handler then puts the container in the loot panel.
+                Panels.showInventory(player.getIndex(), true);
+                if (call(CLICK_HANDLER, RELEASE, found, Double.valueOf(0), Double.valueOf(0)) != null && found.getContainerCount() >= 2) {
+                    // The half the view is on is selected in the loot panel the click has just put up.
+                    Object[] loot = call(null, "getPlayerLoot", Double.valueOf(0));
+                    if (loot != null && loot.length > 1) {
+                        call(INVENTORY_PAGE, "selectButtonForContainer", loot[1], use.container());
+                    }
+                }
+                // The panels are up whether or not the click took, and the pointer is wanted for them.
+                return Outcome.CONTAINER;
+            }
+            default -> throw new IllegalArgumentException("CentreUse does not act on " + use.route());
         }
-        return inReach ? Outcome.CONTAINER : Outcome.USED;
     }
 
     /**
@@ -236,12 +372,8 @@ final class CentreUse {
         return toX * toX + toY * toY <= (REACH + 0.71f) * (REACH + 0.71f) ? found : null;
     }
 
-    /** Whether the reticle is on a window the player can climb through, which a tap of the key opens or shuts and holding it climbs. */
-    boolean climbableAt(ViewCamera.Pose view, float floorUp, IsoPlayer player, IsoCell cell) {
-        return climbable(find(view, floorUp, cell, (int) Math.floor(player.getZ()), false), player);
-    }
-
-    private static boolean climbable(IsoObject found, IsoPlayer player) {
+    /** Whether found (under) is a window the player can climb through, which a tap of the key opens or shuts and holding it climbs. */
+    static boolean climbable(IsoObject found, IsoPlayer player) {
         return found instanceof IsoWindow pane && (pane.IsOpen() || pane.isSmashed()) && !player.isAiming() && pane.canClimbThrough(player)
                 && landsOnAFloor(pane, player);
     }

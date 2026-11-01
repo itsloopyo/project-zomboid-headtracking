@@ -303,6 +303,7 @@ public final class Tests {
         Checks.run("SplitScreenTests", SplitScreenTests::run);
         Checks.run("ChunkCentreTests", ChunkCentreTests::run);
         Checks.run("DoubleTapTests", DoubleTapTests::run);
+        Checks.run("InteractWordsTests", InteractWordsTests::run);
         Checks.run("WoundsTests", WoundsTests::run);
         Checks.run("PieceMotionTests", PieceMotionTests::run);
         Checks.run("LimbDecalsTests", LimbDecalsTests::run);

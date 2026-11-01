@@ -304,6 +304,8 @@ The mouse turns the view, and the movement keys move you relative to where you'r
 
 **Interaction** - put the reticle on a door, window, curtain, light switch, container, item on the ground, radio, TV or crafting station and press `E`. For a window over a counter or a dresser, put the reticle on its glass: `E` opens or shuts it, and the game walks your character over to it first if it can find a way. On an open or broken window, `E` climbs through if there's a floor on the other side to land on. On a fridge, `E` opens the fridge or the freezer, whichever half the reticle is on. On anything else within reach, like a sink or a chair, `E` opens the game's own menu for it. You can also bring out the mouse pointer (middle click, or open the inventory) and right-click something in the view to open its menu, or left-click it to do what `E` would do, the same as clicking in the isometric view.
 
+A short line under the crosshair says what `E` will do to what it is on, such as Open Door, Close Window, Turn on, Loot Fridge, or Grab and the item's name. The actions and the names are the game's own, in the language you play in. Where holding `E` does something else, such as climbing through an open window, the line says that too. It names `E` as you have the Interact key bound, or your controller's button. It shows only while the crosshair is on something `E` acts on, and not while the pointer is out, while you aim or while your character is busy with something. Untick **What Interact does** on the options page (`[FirstPerson] InteractLabel`) to turn it off.
+
 ### Controller and split screen
 
 **Controller** - the controllers ticked in the game's Controller options are the ones that play. If none of the gamepads plugged in is ticked, every one the game recognises gets ticked and plays, and pressing **A** on the main menu gives that controller the menu. Player 1 plays on whatever last used the main menu: the controller that pressed **A**, or the keyboard and mouse once you click or press a key there. Any other controller can join once you're in the game: press **A** on it and choose **Add new player**. A 3Dconnexion SpaceMouse is never treated as a controller. Double-tap **Back** to switch views. The aiming stick turns the view, the right trigger attacks and the left trigger raises a gun's sights.
@@ -569,6 +571,9 @@ NameTagsAtHeads=true
 ; or marks on the ground for you, such as the container the loot panel shows. false: none of them, for immersion.
 ; The piece of furniture you are placing is still outlined.
 Highlights=true
+; true: in first person, a short line under the crosshair says what the Interact key would do to what it is on, such
+; as Open Door or Grab and the item's name, and what holding the key does where that is different. false: no line.
+InteractLabel=true
 ; true: in first person, a zombie, person or animal against a wall, a shut door or a fence you cannot see through is
 ; not drawn reaching, leaning or poking through it to your side. false: they are drawn as the game poses them, so a
 ; hand, a shoulder or a head can show through.
