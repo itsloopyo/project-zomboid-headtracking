@@ -60,6 +60,19 @@ final class KerbBuilder {
         return 0f;
     }
 
+    /** For a square of the ground where no kerb runs, as on all the level land: only the lane it is in. */
+    float unkerbed(int localX, int localY) {
+        noKerb();
+        build.geometry.laneAt = laneAt(localX, localY);
+        return 0f;
+    }
+
+    private int laneAt(int localX, int localY) {
+        float[] lanes = build.geometry.lanes;
+        int lane = (localX * Terrain.CHUNK_TILES + localY) * Lanes.FLOATS;
+        return lanes != null && lanes[lane + Lanes.AXIS] != Lanes.NONE ? lane : -1;
+    }
+
     /**
      * How far a square of the ground lies below its corners, which is by a kerb where it is on
      * the street's side of one. A kerb does not keep to the edges of the squares, so a square
@@ -68,9 +81,7 @@ final class KerbBuilder {
      * or higher.
      */
     float kerbOver(byte kind, int localX, int localY) {
-        float[] lanes = build.geometry.lanes;
-        int lane = (localX * Terrain.CHUNK_TILES + localY) * Lanes.FLOATS;
-        build.geometry.laneAt = lanes != null && lanes[lane + Lanes.AXIS] != Lanes.NONE ? lane : -1;
+        build.geometry.laneAt = laneAt(localX, localY);
         boolean street = false, land = false, onLine = false;
         float beyondX = 0f, beyondY = 0f;
         int beyond = 0;

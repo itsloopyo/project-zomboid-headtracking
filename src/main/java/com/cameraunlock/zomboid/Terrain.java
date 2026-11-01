@@ -130,7 +130,7 @@ final class Terrain {
         final float[] heights = new float[CORNERS * CORNERS];
         /** The height of water at each corner, which where a quay meets it is not the land's. */
         final float[] water = new float[CORNERS * CORNERS];
-        /** Where the kerbs of the chunk's streets run, as Kerbs keeps it. Null where it has no street. */
+        /** Where the kerbs of the chunk's streets run, as Kerbs keeps it. Null where it has no street, and on the level land. */
         float[] kerb;
         /** The lanes of the chunk's roads, as Lanes keeps them. Null where none of its squares is in one. */
         float[] lanes;
@@ -979,9 +979,7 @@ final class Terrain {
                     Log.info("terrain: cached interior heights changed with identical inputs at " + wx + ", " + wy);
                 }
             }
-            if (!level) {
-                kerbs(cell, fresh, known ? grid : null);
-            }
+            kerbs(cell, fresh, known ? grid : null, level);
             join(fresh);
             boolean same = known && fresh.kerbSum == grid.kerbSum && Arrays.equals(fresh.heights, grid.heights) && Arrays.equals(fresh.water, grid.water);
             fresh.version = same ? grid.version : ++versions;
@@ -1070,11 +1068,12 @@ final class Terrain {
     }
 
     /**
-     * Works out where the kerbs of a chunk run. After fill. The line of a kerb is shaped by
-     * the squares a long way along it, so it is only worked out anew when one of those has
-     * changed since it last was.
+     * Works out where the kerbs and the lanes of a chunk run. After fill. The line of a kerb is
+     * shaped by the squares a long way along it, so it is only worked out anew when one of those
+     * has changed since it last was. The level land has no kerbs (see level), and its roads are
+     * worn in lanes as the hills' are.
      */
-    private static void kerbs(IsoCell cell, Grid fresh, Grid last) {
+    private static void kerbs(IsoCell cell, Grid fresh, Grid last, boolean level) {
         boolean street = false;
         for (int i = AROUND - 1; i <= AROUND + CHUNK_TILES && !street; i++) {
             for (int j = AROUND - 1; j <= AROUND + CHUNK_TILES && !street; j++) {
@@ -1107,7 +1106,7 @@ final class Terrain {
             fresh.kerbSum = last.kerbSum;
             return;
         }
-        fresh.kerb = Kerbs.field(kerbKinds, kerbHard, fresh.wx * CHUNK_TILES, fresh.wy * CHUNK_TILES);
+        fresh.kerb = level ? null : Kerbs.field(kerbKinds, kerbHard, fresh.wx * CHUNK_TILES, fresh.wy * CHUNK_TILES);
         fresh.lanes = Lanes.of(kerbKinds, kerbFootway, kerbMarks, fresh.wx * CHUNK_TILES, fresh.wy * CHUNK_TILES);
         fresh.kerbSum = kerbSum(fresh.kerb, fresh.lanes);
     }

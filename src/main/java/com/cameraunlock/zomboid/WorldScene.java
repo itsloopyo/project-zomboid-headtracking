@@ -6743,7 +6743,8 @@ final class WorldScene {
                         // Water lies at its own height, and a street below its kerb.
                         byte kind = z == 0 ? groundKind[(localX + 1) * LIGHT_SPAN + localY + 1] : Terrain.MADE;
                         float[] heights = kind == Terrain.WATER ? water : ground;
-                        float drop = z == 0 && kind != Terrain.WATER && kerbs != null ? kerbBuilder.kerbOver(kind, localX, localY) : kerbBuilder.noKerb();
+                        float drop = z != 0 || kind == Terrain.WATER ? kerbBuilder.noKerb()
+                                : kerbs != null ? kerbBuilder.kerbOver(kind, localX, localY) : kerbBuilder.unkerbed(localX, localY);
                         geometry.lift[0] = heights[corner] - drop;
                         geometry.lift[1] = heights[corner + Terrain.CORNERS] - drop;
                         geometry.lift[2] = heights[corner + Terrain.CORNERS + 1] - drop;
