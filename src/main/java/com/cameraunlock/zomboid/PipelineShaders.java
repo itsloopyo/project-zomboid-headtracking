@@ -7703,7 +7703,7 @@ final class PipelineShaders {
             }
             """;
 
-    static final String DEVELOP = "#version 130\n" + Sky.ATMOSPHERE + ENDS + TORCH + """
+    static final String DEVELOP = "#version 130\n" + Sky.ATMOSPHERE + ENDS + TORCH + Surroundings.GLSL + """
             uniform sampler2D uScene;
             uniform sampler2D uBloom;
             uniform sampler2D uDepth;
@@ -7882,12 +7882,25 @@ final class PipelineShaders {
                 return dot(seen - p, facing) < 0.01 + 0.002 * seen.z ? 0.0 : q.z - seen.z;
             }
 
+            // What the mirror at p shows where the walk finds nothing for a ray thrown the way
+            // thrown, shown its share: what the picture of the surroundings has that way, by as
+            // much of it as is shown, or the sky the world's shader gave it. What the walk finds
+            // near the screen's edge fades into this, and the edge is not seen in the mirror.
+            vec3 missedBy(vec4 scene, vec3 p, vec3 thrown, float shown) {
+                if (uSurroundingsAt.w <= 0.0) {
+                    return scene.rgb;
+                }
+                vec3 way = normalize(uAcross * thrown.x + uUpward * thrown.y + uAhead * thrown.z);
+                return mix(scene.rgb, surroundingsSeen(uAcross * p.x + uUpward * p.y + uAhead * p.z, way), shown * uSurroundingsAt.w);
+            }
+
             // What a wet or watery surface shows of the world. The world's own shader has put
             // the sky in it already. Here a ray is sent from the surface the way a mirror would
             // throw the eye's line, and walked through the picture's own depth: where it goes
             // behind something the picture shows, that thing is what the mirror shows there.
             // A ray that leaves the picture, or passes behind something too far to be sure of,
-            // finds nothing and the sky stays. p is where the pixel is.
+            // finds nothing there, and shows what the picture of the surroundings has that way
+            // (Surroundings), or where that is not drawn, keeps the sky. p is where the pixel is.
             vec3 walked(vec2 uv, vec4 scene, vec3 p) {
                 float mirror = 1.0 - scene.a;
                 if (mirror < 0.02) {
@@ -7924,6 +7937,7 @@ final class PipelineShaders {
                 }
                 vec3 thrown = reflect(line, facing);
                 float glance = 0.04 + 0.96 * pow(1.0 - clamp(dot(-line, facing), 0.0, 1.0), 5.0);
+                float shown = min(1.0, glance * 1.6) * mirror;
                 // Each step goes as far along the ray as moves it a pixel and a half across the
                 // picture where it starts, and a little further each step after. Stepped in tiles,
                 // the first step near the eye was dozens of pixels: a baluster a few pixels wide
@@ -7986,7 +8000,8 @@ final class PipelineShaders {
                             // the water's own coarse depth it has gone behind, and it goes on.
                             if (found.a >= 0.5) {
                                 float sure = smoothstep(0.0, 0.08, edge);
-                                return mix(scene.rgb, found.rgb, min(1.0, glance * 1.6) * mirror * sure);
+                                vec3 met = mix(scene.rgb, found.rgb, shown);
+                                return sure >= 1.0 ? met : mix(missedBy(scene, p, thrown, shown), met, sure);
                             }
                         } else if (behind >= 0.6 + reach * 1.5) {
                             // A ray that goes far behind what the picture shows passes behind it
@@ -8001,7 +8016,8 @@ final class PipelineShaders {
                 }
                 // A ray that met nothing after it went behind something near by was stopped
                 // there, as far as the picture can tell, and what it would have shown is not in
-                // the picture: the mirror keeps what the world gave it. Sent on to the sky, a
+                // the picture: the mirror keeps what the world gave it, or shows what the picture
+                // of the surroundings has that way. Sent on to the sky, a
                 // puddle showed a house with squares of sky cut out of it. Far off it has not been
                 // stopped: over far water the depth is in coarse steps, and a ray counted as
                 // stopped at each step left the far shore's reflection full of holes.
@@ -8023,10 +8039,12 @@ final class PipelineShaders {
                         // world's far edge in the next. There the water keeps the sky the
                         // world's shader worked out for it, which has no such edge in it.
                         float clear = smoothstep(0.02, 0.07, dot(thrown, uUp));
-                        return mix(scene.rgb, texture2D(uScene, sky).rgb, min(1.0, glance * 1.6) * mirror * smoothstep(0.0, 0.08, edge) * clear);
+                        float sure = smoothstep(0.0, 0.08, edge) * clear;
+                        vec3 met = mix(scene.rgb, texture2D(uScene, sky).rgb, shown);
+                        return sure >= 1.0 ? met : mix(missedBy(scene, p, thrown, shown), met, sure);
                     }
                 }
-                return scene.rgb;
+                return missedBy(scene, p, thrown, shown);
             }
 
             // Far water is a pixel or two a tile, and a ray walked from it lands behind

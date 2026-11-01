@@ -295,6 +295,7 @@ public final class Tests {
         Checks.run("OnlineTests", OnlineTests::run);
         Checks.run("KnockdownTests", KnockdownTests::run);
         Checks.run("DebrisTests", DebrisTests::run);
+        Checks.run("SurroundingsTests", SurroundingsTests::run);
         Checks.run("ShotLightsTests", ShotLightsTests::run);
         Checks.run("ShotGlassTests", ShotGlassTests::run);
         Checks.run("EyesightTests", EyesightTests::run);

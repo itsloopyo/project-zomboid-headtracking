@@ -105,6 +105,12 @@ enum Part {
             "true: in first person, a fishing rod out over water is held with your left hand on its reel, swung back and out to\n"
                     + "cast, lifted while you reel in, and its line runs from its tip to the bobber. false: the rod is held as a swung\n"
                     + "weapon is, and no line is drawn. The bobber is drawn where it floats either way."),
+    SURROUNDINGS_IN_REFLECTIONS("FirstPerson", "SurroundingsInReflections", true, false,
+            "true: in first person, in High, wet roads, puddles, polished floors and window glass also mirror the buildings,\n"
+                    + "ground and trees round you that are off the edge of the screen or behind something nearer, from a small picture of\n"
+                    + "your surroundings kept up as you move. People and vehicles are not in it. In Custom it needs ShadingAndLight and\n"
+                    + "Reflections on and ReflectionScale at 0.75 or more. false: they mirror only what is on the screen, and the sky where\n"
+                    + "that runs out."),
     SHOTS_FROM_VEHICLE_SEATS("Rules", "ShotsFromVehicleSeats", true, false,
             "true: in first person, sitting in a vehicle with a gun, you can fire through any part of your seat's window, and\n"
                     + "the shot breaks it. false: as in the game, the window has to be opened or broken first. On a server where\n"

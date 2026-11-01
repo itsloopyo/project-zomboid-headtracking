@@ -415,7 +415,7 @@ final class Pipeline {
     static final float OVERHEAD_CONTRAST = 1.15f, OVERHEAD_PIVOT = 0.40f, OVERHEAD_BLUE = 0.98f;
     /** The unit the develop pass reads it on, and how bright fog is against the sky it hangs under. */
     private static final int DEVELOP_SHELTER_UNIT = 5, DEVELOP_OUTLINES_UNIT = 6, DEVELOP_SIGHT_UNIT = 8, DEVELOP_OUTLINE_DEPTH_UNIT = 9, DEVELOP_SIGHT_LIT_UNIT = 10;
-    private static final int DEVELOP_DARK_UNIT = 11, DEVELOP_DARK_LIFT_UNIT = 12, DEVELOP_TORCH_UNIT = 13;
+    private static final int DEVELOP_DARK_UNIT = 11, DEVELOP_DARK_LIFT_UNIT = 12, DEVELOP_TORCH_UNIT = 13, DEVELOP_SURROUNDINGS_UNIT = 14;
     private static final float FOG_BRIGHT = 1.1f;
     /** The drops, on the graphics card: they are the same every frame. */
     private static int rainDrops;
@@ -521,6 +521,14 @@ final class Pipeline {
     private final Lent mirrored = new Lent("mirror's pictures", this::makeMirror);
     /** What water shows, at a third of the picture's size: only in High, in first person, with water in sight. */
     private final Lent watered = new Lent("picture of what water shows", this::makeWatered);
+    /** What is all round the eye, for what mirrors where the eye's own picture does not show it: only in High, with something in sight that mirrors (Surroundings). */
+    private final Lent surrounded = new Lent("picture of the surroundings", this::makeSurroundings);
+    private final Surroundings surroundings = new Surroundings();
+    private final ViewCamera.Pose surroundingsPose = new ViewCamera.Pose();
+    /** While set, the world is drawn into a face of that picture. */
+    private boolean inSurroundings;
+    /** Whether this frame's reflections may take what is off the screen from that picture. */
+    private boolean surroundingsShown;
     private final LookingGlass lookingGlass = new LookingGlass();
     /** What the glass of each of the frame's planes shows, at a share of the picture's size (ReflectionScale): only with such glass in sight. */
     private final Looked[] looks = new Looked[LookingGlass.PLANES];
@@ -532,7 +540,7 @@ final class Pipeline {
     }
 
     private final Lent[] SIZED = sized(whole, steadied, cabin, shaded, watered);
-    private final Lent[] UNSIZED = {beamed, torched, fired, glassed, mirrored};
+    private final Lent[] UNSIZED = {beamed, torched, fired, glassed, mirrored, surrounded};
     private static final long LENT_FOR_NANOS = 10_000_000_000L;
 
     /** The sets at the picture's size: those given, and each plane's picture of what its glass shows. */
@@ -728,9 +736,9 @@ final class Pipeline {
     private static final float SCALE = Float.parseFloat(System.getProperty("cameraunlock.zomboid.renderScale", "1"));
     /** Dev only: passes left out of the picture, to find which of them a fault is in. Any of steady, occlusion, air, glow, relief, and depth for the solid world and what grows drawn once with no pass for their depth first. */
     private static final String WITHOUT = System.getProperty("cameraunlock.zomboid.without", "");
-    private static final String[] STAGE_NAMES = {"load", "shadows", "world", "clouds", "sky", "occlusion", "air", "glow", "develop", "figures", "smooth", "depth", "solid", "laid", "mirror", "farland", "fartrees", "water", "glass", "scope", "fire", "grassdepth", "grasslit"};
+    private static final String[] STAGE_NAMES = {"load", "shadows", "world", "clouds", "sky", "occlusion", "air", "glow", "develop", "figures", "smooth", "depth", "solid", "laid", "mirror", "farland", "fartrees", "water", "glass", "scope", "fire", "grassdepth", "grasslit", "surroundings"};
     private static final int STAGE_LOAD = 0, STAGE_SHADOWS = 1, STAGE_WORLD = 2, STAGE_CLOUDS = 3, STAGE_SKY = 4, STAGE_OCCLUSION = 5,
-            STAGE_AIR = 6, STAGE_GLOW = 7, STAGE_DEVELOP = 8, STAGE_FIGURES = 9, STAGE_SMOOTH = 10, STAGE_DEPTH = 11, STAGE_SOLID = 12, STAGE_LAID = 13, STAGE_MIRROR = 14, STAGE_FAR_LAND = 15, STAGE_FAR_TREES = 16, STAGE_WATER = 17, STAGE_GLASS = 18, STAGE_SCOPE = 19, STAGE_FIRE = 20, STAGE_GRASS_DEPTH = 21, STAGE_GRASS_LIT = 22;
+            STAGE_AIR = 6, STAGE_GLOW = 7, STAGE_DEVELOP = 8, STAGE_FIGURES = 9, STAGE_SMOOTH = 10, STAGE_DEPTH = 11, STAGE_SOLID = 12, STAGE_LAID = 13, STAGE_MIRROR = 14, STAGE_FAR_LAND = 15, STAGE_FAR_TREES = 16, STAGE_WATER = 17, STAGE_GLASS = 18, STAGE_SCOPE = 19, STAGE_FIRE = 20, STAGE_GRASS_DEPTH = 21, STAGE_GRASS_LIT = 22, STAGE_SURROUNDINGS = 23;
     private final long[] stageNanos = new long[STAGE_NAMES.length];
     private int stageFrames;
     private final int[] downTarget = new int[BLOOM_LEVELS], downColor = new int[BLOOM_LEVELS];
@@ -1445,6 +1453,15 @@ final class Pipeline {
                     stage(STAGE_GLASS);
                 }
             }
+            surroundingsShown = !overhead && !outside && Surroundings.wanted(view.index) && surroundings.drawable();
+            if (!surrounded.made()) {
+                surroundings.schedule.forget();
+            }
+            if (surroundingsShown && surroundings.shineSeen(gameFrame)
+                    && surroundings.schedule.next(camera.exactX(), camera.exactY(), camera.exactUp(), gameFrame)) {
+                drawSurroundings(state, fogStart, fogEnd);
+                stage(STAGE_SURROUNDINGS);
+            }
             stage(STAGE_WORLD);
             drawWorld(camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
             if (waterInView) {
@@ -1563,6 +1580,9 @@ final class Pipeline {
                 frameColor = aimBlur.draw(view, frameColor, sceneDepth, width, height, tanHalfFieldOfView, near, far, frameNanos);
                 meter();
             }
+            if (surroundingsShown) {
+                surroundings.askShine(frameColor, meterTarget, METER_WIDE, METER_HIGH);
+            }
             drawBloom(exposure);
             stage(STAGE_GLOW);
             outlinesDrawn = !overhead && state.outlined != null;
@@ -1666,6 +1686,25 @@ final class Pipeline {
         // after sunset, while the land and the fog the eye looks through still have the day's light.
         drawSkyInto(mirrorTarget, mirrorDepth, MIRROR_WIDTH, MIRROR_HEIGHT, false, null, behind, state, MIRROR_TAN,
                 (float) MIRROR_WIDTH / MIRROR_HEIGHT, MIRROR_NEAR, far);
+    }
+
+    /**
+     * One face of the picture of the surroundings, the one its schedule says, from where it says:
+     * the world as the vehicle's mirror draws it, with its fog brought in to end at
+     * Surroundings.SIGHT, then the sky, then how far off what each texel shows is.
+     */
+    private void drawSurroundings(SkyState state, float fogStart, float fogEnd) {
+        float sight = Math.min(fogEnd, Surroundings.SIGHT);
+        fogStart *= sight / fogEnd;
+        fogEnd = sight;
+        lend(surrounded);
+        surroundings.face(surroundingsPose);
+        inSurroundings = true;
+        drawWorld(surroundingsPose, state, 1f, 1f, Surroundings.NEAR, sight, fogStart, fogEnd);
+        inSurroundings = false;
+        drawSkyInto(surroundings.target(), surroundings.depth(), Surroundings.SIDE, Surroundings.SIDE, false, null, surroundingsPose, state, 1f, 1f,
+                Surroundings.NEAR, sight);
+        surroundings.distances(Surroundings.NEAR, sight);
     }
 
     /**
@@ -2350,7 +2389,7 @@ final class Pipeline {
         RoomSight.Seen rooms = within != null && eyesOwn() ? roomsSeen : null;
         boolean bounded = within != null && !inMirror;
         for (int chunk = 0; chunk < drawn.size(); chunk++) {
-            if ((inMirror && shownBehind == behindListed || inWater || inLookingGlass) && leftOut[chunk]) {
+            if ((inMirror && shownBehind == behindListed || inWater || inLookingGlass || inSurroundings) && leftOut[chunk]) {
                 continue;
             }
             Models.Instances placed = drawn.get(chunk).placed;
@@ -3191,7 +3230,7 @@ final class Pipeline {
 
     /** Whether the picture being drawn is the eye's own, and not a scope's, a mirror's or the one of what water shows. */
     private boolean eyesOwn() {
-        return !inMirror && !inScope && !inWater && !inLookingGlass;
+        return !inMirror && !inScope && !inWater && !inLookingGlass && !inSurroundings;
     }
 
     /** Whether a ball, its middle and how far it reaches, lies wholly behind the glass whose picture is being drawn. */
@@ -3922,8 +3961,8 @@ final class Pipeline {
 
     private void drawWorld(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect,
             float near, float far, float fogStart, float fogEnd) {
-        GL30.glBindFramebuffer(GL_FRAMEBUFFER, inScope ? view.scope.pictureTarget : inMirror ? mirrorTarget : inWater ? waterTarget : inLookingGlass ? lookingIn.target : sceneTarget);
-        GL11.glViewport(0, 0, inScope ? Scope.PICTURE : inMirror ? MIRROR_WIDTH : inWater ? waterWidth : inLookingGlass ? lookingIn.wide : width, drawnHigh());
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, inSurroundings ? surroundings.target() : inScope ? view.scope.pictureTarget : inMirror ? mirrorTarget : inWater ? waterTarget : inLookingGlass ? lookingIn.target : sceneTarget);
+        GL11.glViewport(0, 0, inSurroundings ? Surroundings.SIDE : inScope ? Scope.PICTURE : inMirror ? MIRROR_WIDTH : inWater ? waterWidth : inLookingGlass ? lookingIn.wide : width, drawnHigh());
         // The pass leaves the arrays and the sprite sampler unbound when it ends, and it may
         // run three times in a frame: for the mirror, for a scope and for the eye.
         arrays();
@@ -3949,7 +3988,7 @@ final class Pipeline {
         }
         ChunkBuffers.Listing listed = inMirror ? shownBehind : seenBy(camera, state);
         // The picture of what water shows is mostly far off, where little hides anything else, and is drawn once.
-        boolean grassFirst = !WITHOUT.contains("depth") && !inWater;
+        boolean grassFirst = !WITHOUT.contains("depth") && !inWater && !inSurroundings;
         // So is the solid world in the mirror, whose picture is too small for what the first drawing saves to pay for the second.
         boolean depthFirst = grassFirst && !inMirror;
         // Read once for both drawings of the world: read for each, a mark the logic thread added between them would be in one and not the other.
@@ -4081,7 +4120,7 @@ final class Pipeline {
         GL11.glDisable(GL_BLEND);
         GL11.glDepthMask(true);
         leaveWorld();
-        if (beyond > 0f && !inMirror && !inLookingGlass) {
+        if (beyond > 0f && !inMirror && !inLookingGlass && !inSurroundings) {
             drawFar(camera, state, fogStart, fogEnd);
         }
     }
@@ -4454,7 +4493,7 @@ final class Pipeline {
         to.set("uFogEnd", fogEnd);
         to.set("uLoaded", loadedX - camera.eyeX, loadedY - camera.eyeY, loadedWithin);
         // A scope's picture is not mixed with the one before it: there the built world is thinned out by the same pixels every frame.
-        to.set("uBeyond", inMirror || inLookingGlass ? 0f : inScope || inWater ? Math.min(beyond, 1f) : beyond);
+        to.set("uBeyond", inMirror || inLookingGlass || inSurroundings ? 0f : inScope || inWater ? Math.min(beyond, 1f) : beyond);
         // The picture drawn from under the water has nothing in it that lies under the water's plane, nor the water.
         if (inWater) {
             to.set("uUnder", water[0], water[1], water[2], water[3]);
@@ -4570,8 +4609,8 @@ final class Pipeline {
         to.set("uNatureGain", natureGain[0], natureGain[1]);
         to.set("uSprigs", SPRIG_UNIT);
         to.set("uSprigForm", SPRIG_FORM_UNIT);
-        to.set("uRelief", WITHOUT.contains("relief") || !Own.textures(view.index) || !Quality.relief(view.index) || inMirror || inWater ? 0f : 1f);
-        to.set("uMirrors", surfacesMirror && !inWater ? 1f : 0f);
+        to.set("uRelief", WITHOUT.contains("relief") || !Own.textures(view.index) || !Quality.relief(view.index) || inMirror || inWater || inSurroundings ? 0f : 1f);
+        to.set("uMirrors", surfacesMirror && !inWater && !inSurroundings ? 1f : 0f);
         to.set("uCornersShaded", shadedAndLit && !WITHOUT.contains("occlusion") ? 1f : 0f);
         to.set("uOwnTextures", Own.textures(view.index) ? 1f : 0f);
     }
@@ -5170,6 +5209,10 @@ final class Pipeline {
         GL13.glActiveTexture(GL_TEXTURE0 + DEVELOP_OUTLINE_DEPTH_UNIT);
         GL11.glBindTexture(GL_TEXTURE_2D, outlinesDrawn ? outlineDepth : whiteTexture);
         GL13.glActiveTexture(GL_TEXTURE0);
+        SurroundingsSchedule taken = surroundings.schedule;
+        boolean around = surroundingsShown && surrounded.made() && taken.shown();
+        surroundings.tellDevelop(develop, DEVELOP_SURROUNDINGS_UNIT, around, around ? taken.weight(camera.exactX(), camera.exactY(), camera.exactUp()) : 0f,
+                (float) (taken.shownX() - camera.exactX()), (float) (taken.shownY() - camera.exactY()), (float) (taken.shownUp() - camera.exactUp()));
         // Seen from far overhead the fog is a sheet over the ground: see the develop shader. It
         // thins away as the camera comes down to the eye, where the lit air is the fog, and is
         // gone before the camera is near enough to stop being overhead or looks level enough
@@ -5212,7 +5255,9 @@ final class Pipeline {
         } else {
             develop.set("uRayColor", 0f, 0f, 0f);
         }
+        Surroundings.seamless(around);
         quad();
+        Surroundings.seamless(false);
     }
 
     /**
@@ -6758,7 +6803,7 @@ final class Pipeline {
         pieces.add(new Piece(CabinDraw::link));
         pieces.add(new Piece(CharacterDraw::link));
         for (Supplier<SmallProgram> small : List.<Supplier<SmallProgram>>of(() -> Crosshair.flat, () -> Crosshair.seen, () -> HitDirection.program, () -> FireCards.program, () -> FireDraw.program,
-                () -> ImpactDraw.debris, () -> ImpactDraw.holeProgram, () -> ModeFade.program, () -> MuzzleFlash.burst, () -> SpriteColours.unpack)) {
+                () -> ImpactDraw.debris, () -> ImpactDraw.holeProgram, () -> ModeFade.program, () -> MuzzleFlash.burst, () -> SpriteColours.unpack, () -> Surroundings.distance, () -> Surroundings.shine)) {
             pieces.add(new Piece(() -> {
                 small.get().make();
                 return null;
@@ -7014,6 +7059,11 @@ final class Pipeline {
         aimBlur.takeBack(frameNanos - LENT_FOR_NANOS);
     }
 
+    private String makeSurroundings() {
+        surrounded.bytes = Surroundings.BYTES;
+        return surroundings.make(surrounded.textures, surrounded.targets);
+    }
+
     private String makeMirror() {
         mirrorColor = texture(GL_RGBA16F, MIRROR_WIDTH, MIRROR_HEIGHT, GL_RGBA, GL_FLOAT, GL_LINEAR);
         mirrorDepth = texture(GL_DEPTH_COMPONENT24, MIRROR_WIDTH, MIRROR_HEIGHT, GL_DEPTH_COMPONENT, GL_FLOAT, GL_NEAREST);
@@ -7095,6 +7145,7 @@ final class Pipeline {
                 height = 0;
                 giveBack(mirrored);
                 giveBack(fired);
+                giveBack(surrounded);
                 view.scope.giveBackPicture();
             }
             if (shadows) {
@@ -7348,7 +7399,7 @@ final class Pipeline {
 
     /** How many pixels high the picture being drawn into is. */
     private int drawnHigh() {
-        return inScope ? Scope.PICTURE : inMirror ? MIRROR_HEIGHT : inWater ? waterHeight : inLookingGlass ? lookingIn.high : height;
+        return inSurroundings ? Surroundings.SIDE : inScope ? Scope.PICTURE : inMirror ? MIRROR_HEIGHT : inWater ? waterHeight : inLookingGlass ? lookingIn.high : height;
     }
 
     /** The shade of what stands near and the lit air, at half the picture's size: only in High. */
