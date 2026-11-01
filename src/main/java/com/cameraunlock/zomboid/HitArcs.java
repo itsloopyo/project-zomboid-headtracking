@@ -22,26 +22,34 @@ final class HitArcs {
     static final int TOP = 0, RIGHT = 1, BOTTOM = 2, LEFT = 3;
     static final String[] EDGE_NAMES = {"top", "right", "bottom", "left"};
 
-    /** Below this squared length of the view's facing laid on the map, the view looks too near straight up or down to face a way by it. */
-    static final float STEEP = 0.04f;
+    /**
+     * From this far above or below level the view faces, in radians, the top of the picture
+     * comes in to say which way is ahead, all the way by straight up or down.
+     */
+    static final double STEEP_FROM = Math.toRadians(60);
 
     /**
      * The bearing of a place from the eye, in radians from minus to plus a half turn. Ahead is
      * the way the view faces laid on the map, and the right a quarter turn clockwise from it on
-     * the map, so a roll or a pitch of the head does not skew it. A view that looks nearly
-     * straight up or down, lying on the back or face down, faces no way on the map: ahead is
-     * then the way the top of the picture points and the right the way the picture's right does,
-     * which with the facing that steep both lie along the map. Facing, up and right are at right
-     * angles, so where the facing is too steep to use, the other two are long enough.
+     * the map, so a roll or a pitch of the head does not skew it. Past STEEP_FROM the facing laid
+     * on the map shrinks to nothing, and the top of the picture laid on the map is eased in: as
+     * it points when looking down, and turned round when looking up, where it points back. So
+     * ahead is the way the view would face if it were tipped back level about its right, which
+     * changes smoothly however far the view pitches; lying on the back looking up, the feet are
+     * ahead. Near straight up or down, a roll of the head turns the view on the map as a turn
+     * would, and so the bearings with it.
      *
-     * @param forwardX the way the view faces, the top of the picture points and the picture's right points, on the map
+     * @param forwardX the way the view faces, on the map and upward
+     * @param upX      the way the top of the picture points, on the map
      * @param toX      the place less the eye, on the map
      */
-    static float bearing(float forwardX, float forwardY, float upX, float upY, float rightX, float rightY, float toX, float toY) {
-        boolean steep = forwardX * forwardX + forwardY * forwardY < STEEP;
-        float aheadX = steep ? upX : forwardX, aheadY = steep ? upY : forwardY;
-        float acrossX = steep ? rightX : -forwardY, acrossY = steep ? rightY : forwardX;
-        return (float) Math.atan2(toX * acrossX + toY * acrossY, toX * aheadX + toY * aheadY);
+    static float bearing(float forwardX, float forwardY, float forwardUp, float upX, float upY, float toX, float toY) {
+        // A unit vector's part read back as a float can be a hair over one.
+        double steep = Math.asin(Math.min(1f, Math.abs(forwardUp)));
+        double t = Math.max(0.0, (steep - STEEP_FROM) / (Math.PI / 2 - STEEP_FROM));
+        float top = (float) (t * t * (3 - 2 * t)) * (forwardUp > 0f ? -1f : 1f);
+        float aheadX = forwardX + top * upX, aheadY = forwardY + top * upY;
+        return (float) Math.atan2(-toX * aheadY + toY * aheadX, toX * aheadX + toY * aheadY);
     }
 
     /** Across and up the picture, -1 to 1, the way a bearing points from its middle. */

@@ -163,7 +163,7 @@ final class HitDirection {
         if (!DevBuild.ON || saidFrom == null) {
             return;
         }
-        float bearing = HitArcs.bearing(saidFrom.forwardX, saidFrom.forwardY, saidFrom.upX, saidFrom.upY, saidFrom.rightX, saidFrom.rightY,
+        float bearing = HitArcs.bearing(saidFrom.forwardX, saidFrom.forwardY, saidFrom.forwardUp, saidFrom.upX, saidFrom.upY,
                 attacker.getX() - saidFrom.eyeX, attacker.getY() - saidFrom.eyeY);
         Log.info(String.format(Locale.ROOT, "hit direction, player %d: %s %s %d, %.2f tiles off, bearing %.0f degrees, the %s edge",
                 saidFor.getIndex() + 1, what, kind(attacker), attacker.getID(), (float) Math.hypot(attacker.getX() - saidFrom.eyeX, attacker.getY() - saidFrom.eyeY),
@@ -244,7 +244,7 @@ final class HitDirection {
             if (tiles > HitArcs.NEAR_TILES || (int) Math.floor(zombie.getZ()) != floor || zombie.isFakeDead() || zombie.getAlpha(index) <= SHOWN_ALPHA) {
                 continue;
             }
-            float bearing = HitArcs.bearing(eye.forwardX, eye.forwardY, eye.upX, eye.upY, eye.rightX, eye.rightY, toX, toY);
+            float bearing = HitArcs.bearing(eye.forwardX, eye.forwardY, eye.forwardUp, eye.upX, eye.upY, toX, toY);
             float strength = HitArcs.near(tiles, bearing, tanHalfWide);
             if (strength <= 0f || glows == MOST_GLOWS || blocked(cell, player, zombie)) {
                 continue;
@@ -385,7 +385,7 @@ final class HitDirection {
         float unit = (float) height / DESIGN_HEIGHT;
         float below = Math.min(REACH, 1f - 2f * (marks.hotbar + HOTBAR_GAP / DESIGN_HEIGHT));
         for (int i = marks.count - 1; i >= 0; i--) {
-            float bearing = HitArcs.bearing(eye.forwardX, eye.forwardY, eye.upX, eye.upY, eye.rightX, eye.rightY, marks.x[i] - eye.eyeX, marks.y[i] - eye.eyeY);
+            float bearing = HitArcs.bearing(eye.forwardX, eye.forwardY, eye.forwardUp, eye.upX, eye.upY, marks.x[i] - eye.eyeX, marks.y[i] - eye.eyeY);
             if (i < marks.hits) {
                 GL20.glUniform4f(color, 0.9f, 0.06f, 0.04f, 0.85f * marks.strengths[i]);
                 arc(bearing, ARC_HALF, ARC_THICK * unit, false, below, width, height);

@@ -10,7 +10,8 @@ final class HitArcsTests {
         Checks.run("anAttackerIsMarkedOnTheEdgeOnItsSide", HitArcsTests::anAttackerIsMarkedOnTheEdgeOnItsSide);
         Checks.run("theBearingTurnsWithTheView", HitArcsTests::theBearingTurnsWithTheView);
         Checks.run("aPitchedAndRolledViewKeepsItsBearings", HitArcsTests::aPitchedAndRolledViewKeepsItsBearings);
-        Checks.run("aViewLyingDownTakesTheTopOfThePictureAsAhead", HitArcsTests::aViewLyingDownTakesTheTopOfThePictureAsAhead);
+        Checks.run("aViewStraightUpOrDownFacesTheWayItWouldTippedLevel", HitArcsTests::aViewStraightUpOrDownFacesTheWayItWouldTippedLevel);
+        Checks.run("aBearingMovesSmoothlyAsTheHeadPitchesAndRolls", HitArcsTests::aBearingMovesSmoothlyAsTheHeadPitchesAndRolls);
         Checks.run("aMarkIsNamedForTheEdgeItIsDrawnNearest", HitArcsTests::aMarkIsNamedForTheEdgeItIsDrawnNearest);
         Checks.run("aHitFadesOutOverASecondAndAHalf", HitArcsTests::aHitFadesOutOverASecondAndAHalf);
         Checks.run("aCloseZombieGlowsOnlyOutOfViewAndNear", HitArcsTests::aCloseZombieGlowsOnlyOutOfViewAndNear);
@@ -19,7 +20,7 @@ final class HitArcsTests {
 
     /** A level view facing +x on the map, its right +y. */
     private static float facingX(float toX, float toY) {
-        return HitArcs.bearing(1f, 0f, 0f, 0f, 0f, 1f, toX, toY);
+        return HitArcs.bearing(1f, 0f, 0f, 0f, 0f, toX, toY);
     }
 
     private static boolean near(float a, float b) {
@@ -38,26 +39,25 @@ final class HitArcsTests {
     private static void theBearingTurnsWithTheView() {
         // The attacker stands still to the view's left; the view turns a quarter left to face it, then on to have it on the right.
         float toX = 0f, toY = -2f;
-        check(near(HitArcs.bearing(1f, 0f, 0f, 0f, 0f, 1f, toX, toY), -(float) Math.PI / 2f), "a quarter turn left before the view turns");
-        check(near(HitArcs.bearing(0f, -1f, 0f, 0f, 1f, 0f, toX, toY), 0f), "ahead once the view faces it");
-        check(near(HitArcs.bearing(-1f, 0f, 0f, 0f, 0f, -1f, toX, toY), (float) Math.PI / 2f), "to the right once the view has turned on past it");
+        check(near(HitArcs.bearing(1f, 0f, 0f, 0f, 0f, toX, toY), -(float) Math.PI / 2f), "a quarter turn left before the view turns");
+        check(near(HitArcs.bearing(0f, -1f, 0f, 0f, 0f, toX, toY), 0f), "ahead once the view faces it");
+        check(near(HitArcs.bearing(-1f, 0f, 0f, 0f, 0f, toX, toY), (float) Math.PI / 2f), "to the right once the view has turned on past it");
     }
 
-    /** The facing, up and right of a view facing +x on the map, tipped by a pitch (down negative) and then rolled about its facing, in the map's axes x, y and height. */
+    /** The facing on the map and upward, and the top of the picture on the map, of a view facing +x on the map with its right +y, tipped by a pitch (down negative) and then rolled about its facing. */
     private static float[] tipped(float pitchDegrees, float rollDegrees) {
         double pitch = Math.toRadians(pitchDegrees), roll = Math.toRadians(rollDegrees);
         float[] forward = {(float) Math.cos(pitch), 0f, (float) Math.sin(pitch)};
         float[] level = {(float) -Math.sin(pitch), 0f, (float) Math.cos(pitch)}, right = {0f, 1f, 0f};
-        float[] up = new float[3], across = new float[3];
+        float[] up = new float[3];
         for (int i = 0; i < 3; i++) {
             up[i] = (float) (level[i] * Math.cos(roll) + right[i] * Math.sin(roll));
-            across[i] = (float) (right[i] * Math.cos(roll) - level[i] * Math.sin(roll));
         }
-        return new float[] {forward[0], forward[1], up[0], up[1], across[0], across[1]};
+        return new float[] {forward[0], forward[1], forward[2], up[0], up[1]};
     }
 
     private static float bearingTipped(float[] view, float toX, float toY) {
-        return HitArcs.bearing(view[0], view[1], view[2], view[3], view[4], view[5], toX, toY);
+        return HitArcs.bearing(view[0], view[1], view[2], view[3], view[4], toX, toY);
     }
 
     private static void aPitchedAndRolledViewKeepsItsBearings() {
@@ -70,17 +70,46 @@ final class HitArcsTests {
                 "looking up and rolled, behind and the right are as when level");
     }
 
-    private static void aViewLyingDownTakesTheTopOfThePictureAsAhead() {
-        // On the back, looking straight up with the top of the picture toward -x: past the head is ahead, the feet behind.
+    private static void aViewStraightUpOrDownFacesTheWayItWouldTippedLevel() {
+        // On the back, looking straight up with the top of the picture toward -x: tipped level about its right, the view faces the feet, +x.
         float[] onTheBack = tipped(90f, 0f);
-        check(near(bearingTipped(onTheBack, -1f, 0f), 0f), "past the head reads ahead: " + Math.toDegrees(bearingTipped(onTheBack, -1f, 0f)));
-        check(near(Math.abs(bearingTipped(onTheBack, 1f, 0f)), (float) Math.PI), "the feet read behind");
+        check(near(bearingTipped(onTheBack, 1f, 0f), 0f), "the feet read ahead: " + Math.toDegrees(bearingTipped(onTheBack, 1f, 0f)));
+        check(near(Math.abs(bearingTipped(onTheBack, -1f, 0f)), (float) Math.PI), "past the head reads behind");
         check(near(bearingTipped(onTheBack, 0f, 1f), (float) Math.PI / 2f), "and what is on the picture's right reads the right: "
                 + Math.toDegrees(bearingTipped(onTheBack, 0f, 1f)));
         float[] nearlyUp = tipped(85f, 90f), onTheSide = tipped(0f, 90f);
         check(!Float.isNaN(bearingTipped(nearlyUp, 1f, 1f)), "nearly straight up and rolled on the side still has a bearing");
         check(near(Math.abs(bearingTipped(onTheSide, -1f, 0f)), (float) Math.PI), "lying on the side looking level, behind reads 180");
-        check(!Float.isNaN(bearingTipped(tipped(-90f, 0f), 0f, -1f)) && near(bearingTipped(tipped(-90f, 0f), 1f, 0f), 0f), "face down, the top of the picture is ahead");
+        check(near(bearingTipped(tipped(-90f, 0f), 1f, 0f), 0f) && near(bearingTipped(tipped(-90f, 0f), 0f, 1f), (float) Math.PI / 2f),
+                "face down, the top of the picture is ahead and the right the right");
+    }
+
+    private static float turned(float from, float to) {
+        float by = Math.abs(to - from);
+        return by > Math.PI ? (float) (2 * Math.PI) - by : by;
+    }
+
+    private static void aBearingMovesSmoothlyAsTheHeadPitchesAndRolls() {
+        float most = 0f;
+        String where = "";
+        for (int place = 0; place < 8; place++) {
+            float toX = (float) Math.cos(place * Math.PI / 4), toY = (float) Math.sin(place * Math.PI / 4);
+            for (int roll = -60; roll <= 60; roll++) {
+                for (int pitch = -89; pitch <= 89; pitch++) {
+                    float here = bearingTipped(tipped(pitch, roll), toX, toY);
+                    check(!Float.isNaN(here), "a bearing at pitch " + pitch + " roll " + roll);
+                    float[] steps = {pitch < 89 ? turned(here, bearingTipped(tipped(pitch + 1, roll), toX, toY)) : 0f,
+                            roll < 60 ? turned(here, bearingTipped(tipped(pitch, roll + 1), toX, toY)) : 0f};
+                    for (float step : steps) {
+                        if (step > most) {
+                            most = step;
+                            where = "place " + place + ", pitch " + pitch + ", roll " + roll;
+                        }
+                    }
+                }
+            }
+        }
+        check(Math.toDegrees(most) < 4.0, "a degree of pitch or roll turns a bearing by at most " + Math.toDegrees(most) + " degrees, at " + where);
     }
 
     private static void aMarkIsNamedForTheEdgeItIsDrawnNearest() {
