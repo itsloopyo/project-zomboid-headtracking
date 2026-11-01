@@ -204,7 +204,7 @@ final class ShaderTests {
         WallSides.tint(WallSides.SLATS, tint);
         String main = PipelineShaders.WORLD_FRAGMENT_MAIN;
         Checks.check(main.contains("bool slatTint = abs(uTint.a - " + (int) tint[3] + ".0) < 0.5;"), "the world is not told a roller door's slats as WallSides tells them");
-        Checks.check(main.contains("if (uTint.a > 3.5 && !boarded && !fineTint && !tiledTint && !stainTint && !slatTint) {"), "a roller door would be laid as masonry too");
+        Checks.check(main.contains("if (uTint.a > 3.5 && !boarded && !fineTint && !tiledTint && !stainTint && !slatTint && !floorStainTint) {"), "a roller door would be laid as masonry too");
         Checks.check(fragment(programs, "world").contains("vec3 facSlats("), "the world's program has no slats to lay");
     }
 
@@ -444,7 +444,7 @@ final class ShaderTests {
         Checks.check(!(!world.contains("if (roofed) { c = (uNearMatrix * vec4(sunAsked(from.xyz, soft, uSunTexelUp.x, beneath), 1.0)).xyz * 0.5 + 0.5; inNear = inside(c); }"
                 + " if (inNear) { reached = shadowAt(uShadowNear, c, soft); if (open < 0.5 && reached > 0.0) {"
                 + " vec3 lower = (uNearMatrix * vec4(sunAsked(from.xyz, soft, uSunTexelUp.x, beneath) - vec3(0.0, 0.0, SUN_BAND), 1.0)).xyz * 0.5 + 0.5;"
-                + " reached = min(reached, shadowAt(uShadowNear, lower, soft)); } } }")
+                + " reached = min(reached, shadowAt(uShadowNear, lower, soft)); } if (reached > 0.0) { sunTint = sunThroughGlass(c); } } }")
                 || !world.contains("if (!inNear) { if (roofed) { from.xyz = sunAsked(from.xyz, 1.6, uSunTexelUp.y, beneath); }"
                         + " c = (uFarMatrix * from).xyz * 0.5 + 0.5; reached = inside(c) ? shadowAt(uShadowFar, c, 1.6) : 1.0; }")
                 || count(world, "shadowAt(uShadow") != 3), "the world's fragment stage asks a sun map about what is roofed from where the map cannot tell it from its roof,"
@@ -453,7 +453,7 @@ final class ShaderTests {
                 + "return vec3(from.xy, min(from.z, top - (uSlopeOffset + 1.0 + texels) * texelUp - under));"), "sunAsked does not lower a point under what is over it by the map's offset and the lookup's spread,"
                     + " or lowers one with nothing over it");
         String caster = fragment(programs, "shadow").replaceAll("//[^\n]*", "").replaceAll("\\s+", " ");
-        Checks.check(caster.contains("if (vSolid < 0.5 && texture2D(uTexture, vUv).a < 0.5) { discard; }"), "the shadow maps let the sun through the clear pixels of a floor or a ceiling's sprite");
+        Checks.check(caster.contains("if (vSolid < 0.5 && texture2D(uTexture, vUv).a < 0.5 + uGlassCut) { discard; }"), "the shadow maps let the sun through the clear pixels of a floor or a ceiling's sprite");
         String casterVertex = vertex(programs, "shadow").replaceAll("//[^\n]*", "").replaceAll("\\s+", " ");
         String pipeline;
         try {
@@ -492,9 +492,9 @@ final class ShaderTests {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-        Checks.check(pipeline.contains("offsetHeldTo(map == 0 ? NEAR_RANGE : FAR_RANGE); castHeld(map == 0 ? nearMatrix : farMatrix,")
+        Checks.check(pipeline.contains("offsetHeldTo(map == 0 ? NEAR_RANGE : FAR_RANGE); ChunkBuffers.Listing held = castHeld(map == 0 ? nearMatrix : farMatrix,")
                 && pipeline.contains("float most = MOST_HELD_BEHIND / (2f * range);")
-                && pipeline.contains("map == 0 ? NEAR_MAP : FAR_MAP); } GL11.glPolygonOffset(SLOPE_OFFSET, 6f); if (figures) {"),
+                && pipeline.contains("map == 0 ? NEAR_MAP : FAR_MAP); if (map == 0) { nearHeld = held; } } GL11.glPolygonOffset(SLOPE_OFFSET, 6f); if (figures) {"),
                 "the sun maps are not each cast with the slope's offset held to MOST_HELD_BEHIND along the light, or the unheld offset is not put back after them");
         Checks.check(Pipeline.MOST_HELD_BEHIND > 0f && Pipeline.MOST_HELD_BEHIND < 2f * WorldScene.WALL_HALF,
                 "the sun maps may hold a wall further behind itself than a wall is thick");
