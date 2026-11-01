@@ -1,11 +1,11 @@
 package com.cameraunlock.zomboid;
 
 import java.util.Objects;
-import org.lwjglx.input.Keyboard;
 import zombie.characters.CharacterJoypadButtonBinding;
 import zombie.characters.IsoPlayer;
 import zombie.core.Core;
 import zombie.core.Translator;
+import zombie.core.input.Input;
 import zombie.entity.GameEntity;
 import zombie.input.JoypadButton;
 import zombie.inventory.ItemContainer;
@@ -139,6 +139,15 @@ final class InteractLabel {
         }
         Core.KeyBinding binding = Core.getInstance().getKeyBinding(BINDING);
         int code = binding.keyValue() != 0 ? binding.keyValue() : binding.altKey();
-        return code == 0 ? null : Keyboard.getKeyName(code);
+        return code == 0 ? null : keyName(binding, code);
+    }
+
+    /**
+     * A key as the game's key binding options write it (MainOptions.getKeyPrefix and getKeyName):
+     * its modifiers, then the key's own name, which the game translates and which covers the mouse
+     * buttons a key can be bound to as well as the keyboard's keys.
+     */
+    private static String keyName(Core.KeyBinding binding, int code) {
+        return (binding.shift() ? "SHIFT + " : "") + (binding.ctrl() ? "CTRL + " : "") + (binding.alt() ? "ALT + " : "") + Input.getKeyName(code);
     }
 }
