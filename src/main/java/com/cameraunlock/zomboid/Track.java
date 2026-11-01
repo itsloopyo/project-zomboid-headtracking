@@ -1158,7 +1158,7 @@ final class Track {
                 for (double r = most / half; r >= ROUTE_TIGHTEST; r -= ROUTE_STEP) {
                     double reach = r * half;
                     if ((far - atTwo) * sense <= reach + 1) {
-                        return;
+                        continue;
                     }
                     double t1x = px - h1x * reach, t1y = py - h1y * reach;
                     double cx = t1x - turn * h1y * r, cy = t1y + turn * h1x * r;
