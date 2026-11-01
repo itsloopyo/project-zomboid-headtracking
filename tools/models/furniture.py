@@ -9979,11 +9979,12 @@ def worktop(name, sink=False, corner=False):
     low, high = 0.0, WORKTOP_THICK
     tops = bmesh.new()
     if sink:
-        x0, x1, y0, y1 = -0.27, 0.27, front + clear + 0.12, back - 0.14
+        # The hole is the basin's with its 14 mm rim and 2 mm round that, on all four sides.
+        x0, x1, y0, y1 = -0.27 - 0.016, 0.27 + 0.016, front + clear + 0.12 - 0.016, back - 0.14 + 0.016
         cuboid(tops, -0.5 - clear - cx, x0 - cx, front - cy, back + clear - cy, low, high)
         cuboid(tops, x1 - cx, 0.5 + clear - cx, front - cy, back + clear - cy, low, high)
-        cuboid(tops, x0 - cx, x1 - cx, front - cy, y0 - 0.016 - cy, low, high)
-        cuboid(tops, x0 - cx, x1 - cx, y1 + 0.016 - cy, back + clear - cy, low, high)
+        cuboid(tops, x0 - cx, x1 - cx, front - cy, y0 - cy, low, high)
+        cuboid(tops, x0 - cx, x1 - cx, y1 - cy, back + clear - cy, low, high)
     else:
         cuboid(tops, (side - clear if corner else -0.5 - clear) - cx, 0.5 + clear - cx, front - cy, back + clear - cy, low, high)
         if corner:
