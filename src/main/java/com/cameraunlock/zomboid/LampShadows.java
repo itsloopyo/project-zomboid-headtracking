@@ -83,12 +83,22 @@ final class LampShadows {
     }
 
     /**
-     * How many people may stand in a lamp's reach for them to be drawn into its maps: High and
-     * Medium. Past it, a crowd under the lamp casts no shadow from it, and the lamp's maps keep
-     * the world's shadows alone: every person drawn is the game's own draw of them once more.
+     * How many people in a lamp's reach are drawn into its maps every frame, High and Medium.
+     * Every person drawn is the game's own draw of them once more, so a bigger crowd is drawn
+     * every second frame up to twice this, every third up to three times, and so on to every
+     * CROWD_SLOWEST: the people's shadows are held between, and lag the crowd a little more as it
+     * grows, rather than all going at once.
      */
-    static int crowdMost(int view) {
+    static int crowdStep(int view) {
         return Quality.sharpShadows(view) ? 12 : 6;
+    }
+
+    /** The fewest frames apart a crowd's shadows are drawn again: about 13 cm behind a zombie shambling a metre a second, at 60 frames a second. */
+    static final int CROWD_SLOWEST = 8;
+
+    /** How many frames apart the people round a lamp are drawn into its maps, for count of them in its reach. */
+    static int crowdEvery(int count, int step) {
+        return step <= 0 ? 1 : Math.clamp((count + step - 1) / step, 1, CROWD_SLOWEST);
     }
 
     /** The lamps offered this frame: where each is and how far its faces would see, its kind and place in its list, its weight, and a ceiling light's rectangle. */
@@ -111,14 +121,17 @@ final class LampShadows {
     /** For each slot, the rectangle of floor of a ceiling light with its maps drawn, all 0 for any other: the shader's uLampRect. */
     final float[] rect = new float[MOST * 4];
     /**
-     * By slot: whether anyone stands within peopleReach of its lamp this frame, and no more than
-     * crowdMost, which the frame says; whether they are drawn into its copy this frame (choosePeople); and whether the copy
-     * the world reads holds someone drawn into it.
+     * By slot: whether anyone stands within peopleReach of its lamp this frame, and how many, which
+     * the frame says; whether they are drawn into its copy this frame (choosePeople); whether the
+     * copy the world reads holds people drawn into it, and is held as it is this frame for a
+     * crowd not due (crowdEvery); and how many frames ago its people were drawn.
      */
-    final boolean[] peopleNear = new boolean[MOST], peopled = new boolean[MOST];
+    final boolean[] peopleNear = new boolean[MOST], peopled = new boolean[MOST], holding = new boolean[MOST];
+    final int[] crowd = new int[MOST];
     private final boolean[] liveHoldsPeople = new boolean[MOST];
-    /** How many slots the people are drawn into at most this frame, and how many people a slot's lamp may have in reach: peopleSlots and crowdMost for the view taken. */
-    int peopleMost, crowdMost;
+    private final int[] sincePeople = new int[MOST];
+    /** How many slots the people are drawn into at most this frame, and crowdStep: peopleSlots and crowdStep for the view taken. */
+    int peopleMost, crowdStep;
 
     private final boolean[] kept = new boolean[MOST], taken = new boolean[CANDIDATES];
     private final float[] held = new float[CANDIDATES];
@@ -159,7 +172,7 @@ final class LampShadows {
         }
         assign(drawn, ++frame, nanos, on ? slots(view) : 0, faceSize(view));
         peopleMost = peopleSlots(view);
-        crowdMost = crowdMost(view);
+        crowdStep = crowdStep(view);
         if (DevBuild.ON) {
             say();
         }
@@ -199,6 +212,10 @@ final class LampShadows {
     /** Of the slots with people near (peopleNear), has the up to peopleMost whose lamps are nearest the eye at (x, y, up) drawn with them. */
     void choosePeople(float x, float y, float up) {
         Arrays.fill(peopled, false);
+        Arrays.fill(holding, false);
+        for (int slot = 0; slot < MOST; slot++) {
+            sincePeople[slot]++;
+        }
         for (int k = 0; k < peopleMost; k++) {
             int nearest = -1;
             float nearestFar = Float.MAX_VALUE;
@@ -211,9 +228,16 @@ final class LampShadows {
                 }
             }
             if (nearest < 0) {
-                return;
+                break;
             }
             peopled[nearest] = true;
+        }
+        // A crowd not due keeps the copy with its people as they were drawn, unless the world under it was drawn again.
+        for (int slot = 0; slot < slotCount; slot++) {
+            if (peopled[slot] && liveHoldsPeople[slot] && !listed(slot) && sincePeople[slot] < crowdEvery(crowd[slot], crowdStep)) {
+                peopled[slot] = false;
+                holding[slot] = true;
+            }
         }
     }
 
@@ -379,12 +403,15 @@ final class LampShadows {
      * the copy before and has to go.
      */
     boolean copyDue(int slot) {
-        return ready(slot) && (listed(slot) || peopled[slot] || liveHoldsPeople[slot]);
+        return ready(slot) && (listed(slot) || peopled[slot] || liveHoldsPeople[slot] && !holding[slot]);
     }
 
     /** Said of a slot whose copy was made again this frame, with its people drawn into it when peopled. */
     void copied(int slot) {
         liveHoldsPeople[slot] = peopled[slot];
+        if (peopled[slot]) {
+            sincePeople[slot] = 0;
+        }
     }
 
     /**

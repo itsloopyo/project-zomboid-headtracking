@@ -3122,9 +3122,11 @@ final class Pipeline {
         }
         for (int slot = 0; slot < slots; slot++) {
             int near = figures && shadows.ready(slot)
-                    ? view.characters.countWithin(shadows.from[slot * 4], shadows.from[slot * 4 + 1], shadows.from[slot * 4 + 2], shadows.peopleReach(slot), shadows.crowdMost)
+                    ? view.characters.countWithin(shadows.from[slot * 4], shadows.from[slot * 4 + 1], shadows.from[slot * 4 + 2], shadows.peopleReach(slot),
+                            shadows.crowdStep * LampShadows.CROWD_SLOWEST)
                     : 0;
-            shadows.peopleNear[slot] = near > 0 && near <= shadows.crowdMost;
+            shadows.crowd[slot] = near;
+            shadows.peopleNear[slot] = near > 0;
         }
         shadows.choosePeople(focusX, focusY, focusUp);
         boolean drewPeople = false;

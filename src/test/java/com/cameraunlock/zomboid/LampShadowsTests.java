@@ -14,6 +14,7 @@ final class LampShadowsTests {
     private LampShadowsTests() {}
 
     static void run() {
+        Checks.run("aBiggerCrowdIsDrawnLessOftenInSteps", LampShadowsTests::aBiggerCrowdIsDrawnLessOftenInSteps);
         Checks.run("theStrongestNearestLampsTakeTheSlots", LampShadowsTests::theStrongestNearestLampsTakeTheSlots);
         Checks.run("aLampKeepsItsSlotUntilAnotherFarOutweighsIt", LampShadowsTests::aLampKeepsItsSlotUntilAnotherFarOutweighsIt);
         Checks.run("theSlotsAreDrawnInTurn", LampShadowsTests::theSlotsAreDrawnInTurn);
@@ -196,6 +197,34 @@ final class LampShadowsTests {
         three.choosePeople(0f, 0f, 1.6f);
         check(!three.peopled[(int) three.lampSlot[1]] && three.peopled[(int) three.lampSlot[0]], "and not into one nobody is near");
         check(three.peopleReach(0) == LampShadows.PEOPLE_WITHIN, "nor from further off its lamp than PEOPLE_WITHIN");
+    }
+
+    private static void aBiggerCrowdIsDrawnLessOftenInSteps() {
+        check(LampShadows.crowdEvery(1, 12) == 1 && LampShadows.crowdEvery(12, 12) == 1, "up to a step's worth of people are drawn every frame");
+        check(LampShadows.crowdEvery(13, 12) == 2 && LampShadows.crowdEvery(24, 12) == 2 && LampShadows.crowdEvery(25, 12) == 3,
+                "then every second frame up to two steps, every third up to three");
+        check(LampShadows.crowdEvery(500, 12) == LampShadows.CROWD_SLOWEST, "and never further apart than CROWD_SLOWEST");
+        LampShadows shadows = new LampShadows();
+        shadows.peopleMost = 1;
+        shadows.crowdStep = 12;
+        int drawn = 0;
+        for (int frame = 0; frame < 12; frame++) {
+            shadows.offers = 0;
+            outdoor(shadows, 0, 0f, 1f);
+            shadows.assign(NONE_BUILT, frame + 1, (frame + 1) * FRAME, 1, 256);
+            shadows.peopleNear[0] = true;
+            shadows.crowd[0] = 30;
+            shadows.choosePeople(0f, 0f, 1.6f);
+            boolean due = shadows.copyDue(0);
+            check(due == shadows.peopled[0] || frame == 0, "a held crowd's copy is kept as it is: frame " + frame);
+            if (shadows.peopled[0]) {
+                drawn++;
+            }
+            if (due) {
+                shadows.copied(0);
+            }
+        }
+        check(drawn == 4, "thirty people round a lamp are drawn every third frame: " + drawn + " of 12");
     }
 
     private static void aLampLightsThePictureUnlessItsLightIsWhollyPastAnEdge() {
