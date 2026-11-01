@@ -26,7 +26,7 @@ import zombie.ui.UIManager;
  * The world map held up in both hands in first person. The map key reads the map as the game
  * has it, with its animation of reading, and then, in place of the game's panel over the whole
  * screen, the map stays up in the hands: the game's own map of the place round the player,
- * drawn by its own renderer with the player's marker and the player's own marks on it, onto a
+ * drawn by its own renderer with the player's own marks on it and a pointer where they are, onto a
  * sheet before the eye. The player can walk with it up. The map key again puts it down and
  * reads it again as the game does, for the game's panel, where it is panned, zoomed and marked.
  * What puts it down is MapHold's, looked at after each frame's world is drawn whatever the view
@@ -125,7 +125,7 @@ final class HeldMap {
                 ISWorldMap.initDataAndStyle(map)
                 map.mapAPI:setBoolean("HideUnvisited", map.hideUnvisitedAreas)
                 map.mapAPI:setBoolean("Isometric", false)
-                map.mapAPI:setBoolean("Players", true)
+                map.mapAPI:setBoolean("Players", false)
                 map.mapAPI:setBoolean("Symbols", true)
                 map.side, map.tall = side, tall
                 return map

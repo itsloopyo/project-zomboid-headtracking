@@ -108,6 +108,15 @@ final class OwnArms {
             uniform vec3 uTone;
             // For a sheet of paper (uWear PAPER), whether uColour holds its picture.
             uniform float uPictured;
+            // The way the viewer faces on the sheet's map, across it and up it, and the sheet's width and height, metres.
+            uniform vec4 uMarker;
+
+            // Whether a place on the sheet, metres from its middle, is inside the pointer at the viewer's place, grown by grow.
+            bool pointer(vec2 at, float grow) {
+                float ahead = dot(at, uMarker.xy), aside = abs(dot(at, vec2(-uMarker.y, uMarker.x)));
+                float tip = 0.016 * grow, back = 0.010 * grow, wide = 0.011 * grow;
+                return ahead < tip && ahead > -back && aside < wide * (tip - ahead) / (tip + back);
+            }
             // Whether the viewer stands out of doors, and the light where they stand, less than nought
             // where none is said: written beside the colour, as CharacterDraw writes it of a person.
             uniform float uOutside;
@@ -192,6 +201,15 @@ final class OwnArms {
                 float stood = (uStood < 0.0 ? 255.0 : 128.0 + floor(clamp(uStood, 0.0, 1.0) * 126.0 + 0.5)) / 255.0;
                 if (uWear > 6.5) {
                     vec3 paint = uPictured > 0.5 ? texture2D(uColour, vUv).rgb : uCloth;
+                    // Where the viewer is, in the middle of the map, a pointer the way they face: filled, with a dark edge.
+                    if (uPictured > 0.5) {
+                        vec2 fromMiddle = (vUv - 0.5) * uMarker.zw;
+                        if (pointer(fromMiddle, 1.0)) {
+                            paint = vec3(0.95, 0.22, 0.06);
+                        } else if (pointer(fromMiddle, 1.4)) {
+                            paint = vec3(0.06, 0.05, 0.04);
+                        }
+                    }
                     // The sheet was folded in four, and the folds still show.
                     vec2 fold = abs(vUv - 0.5);
                     paint *= 1.0 - 0.07 * exp(-fold.x * fold.x * 4000.0) - 0.05 * exp(-fold.y * fold.y * 4000.0);
@@ -288,7 +306,7 @@ final class OwnArms {
     private static boolean tried;
     private static ArmModel model;
     private static int program, vertices, indices, colour, surface;
-    private static int projectionAt, femaleAt, toneAt, outsideAt, stoodAt, handedAt, wearAt, clothAt, spanAt, bloodAt, dirtAt, snowAt, upAt, wetAt, wetClockAt, picturedAt;
+    private static int projectionAt, femaleAt, toneAt, outsideAt, stoodAt, handedAt, wearAt, clothAt, spanAt, bloodAt, dirtAt, snowAt, upAt, wetAt, wetClockAt, picturedAt, markerAt;
     /** How much snow has settled on the viewer, 0 to 1: see SnowCarried. */
     private static float snowOn;
     /** How wet the viewer is, by Soaked's WATER, SOAK and CLOCK. */
@@ -423,6 +441,7 @@ final class OwnArms {
             wetAt = GL20.glGetUniformLocation(id, "uWet");
             wetClockAt = GL20.glGetUniformLocation(id, "uWetClock");
             picturedAt = GL20.glGetUniformLocation(id, "uPictured");
+            markerAt = GL20.glGetUniformLocation(id, "uMarker");
             Program.useOther(id);
             GL20.glUniform1i(GL20.glGetUniformLocation(id, "uColour"), COLOUR_UNIT);
             GL20.glUniform1i(GL20.glGetUniformLocation(id, "uSurface"), SURFACE_UNIT);
@@ -692,13 +711,15 @@ final class OwnArms {
      *
      * @param at      the matrix from a square of side one, across x and up y, facing +z, to the view
      * @param picture the texture of the picture on it, or nought for blank paper
+     * @param east    with north, the way the viewer faces on the map, drawn as a pointer in its middle
      */
-    static void sheet(float[] projection, float[] at, int picture, float light, boolean outside) {
+    static void sheet(float[] projection, float[] at, int picture, float east, float north, float light, boolean outside) {
         beginProps(projection, light, outside);
         bone(at, 0);
         GL20.glUniform1f(wearAt, PAPER);
         GL20.glUniform3f(clothAt, 0.86f, 0.82f, 0.71f);
         GL20.glUniform1f(picturedAt, picture != 0 ? 1f : 0f);
+        GL20.glUniform4f(markerAt, east, north, TimedActs.SHEET_WIDE, TimedActs.SHEET_TALL);
         GL13.glActiveTexture(GL_TEXTURE0 + COLOUR_UNIT);
         GL11.glBindTexture(GL_TEXTURE_2D, picture);
         GL13.glActiveTexture(GL_TEXTURE0);

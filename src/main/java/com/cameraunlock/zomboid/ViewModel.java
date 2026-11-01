@@ -152,7 +152,7 @@ public final class ViewModel {
      * @param watch  the watch glanced at, for a glance (TimedActs.WATCH), and null for anything else
      * @param pitch  the clean view's pitch, radians: a glance raises the arm in the body's axes
      */
-    record Task(int kind, boolean low, float time, float done, float up, String anim, int skin, boolean female, Watch watch, float pitch) {}
+    record Task(int kind, boolean low, float time, float done, float up, String anim, int skin, boolean female, Watch watch, float pitch, float yaw) {}
 
     /**
      * A watch on a wrist as it is glanced at.
@@ -672,7 +672,7 @@ public final class ViewModel {
         if ((taskWearAsked++ & 31) == 0) {
             Cabins.noteWear(player, view.ride.dress);
         }
-        task = new Task(taskKind, taskLow, taskTime, taskDone, taskUp, taskAnim, player.getHumanVisual().getSkinTextureIndex(), player.isFemale(), null, pitch);
+        task = new Task(taskKind, taskLow, taskTime, taskDone, taskUp, taskAnim, player.getHumanVisual().getSkinTextureIndex(), player.isFemale(), null, pitch, yaw);
         return true;
     }
 
@@ -731,7 +731,7 @@ public final class ViewModel {
         if ((taskWearAsked++ & 31) == 0) {
             Cabins.noteWear(player, view.ride.dress);
         }
-        task = new Task(TimedActs.WATCH, false, 0f, 0f, up, GLANCE, player.getHumanVisual().getSkinTextureIndex(), player.isFemale(), watch, pitch);
+        task = new Task(TimedActs.WATCH, false, 0f, 0f, up, GLANCE, player.getHumanVisual().getSkinTextureIndex(), player.isFemale(), watch, pitch, yaw);
         return true;
     }
 

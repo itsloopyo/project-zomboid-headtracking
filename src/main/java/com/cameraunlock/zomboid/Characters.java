@@ -1022,6 +1022,9 @@ public final class Characters {
             }
             ArmPose.multiply(fromAim, 0, sheetInAim, 0, sheetView, 0);
             sheetShown = true;
+            // The map is drawn north up, and the game's y runs south.
+            facingEast = (float) Math.cos(task.yaw());
+            facingNorth = (float) -Math.sin(task.yaw());
         }
         armHands = null;
         armFemale = task.female();
@@ -1177,6 +1180,8 @@ public final class Characters {
      * whether the held map is drawn, and where: from a square of side one to the view. Render thread.
      */
     private boolean taskCarries, sheetShown;
+    /** The way the viewer faces on the held map, east and north. */
+    private float facingEast, facingNorth;
     private ViewModel.Watch taskWatch;
     private final float[] sheetInAim = new float[16], sheetView = new float[16];
 
@@ -2176,7 +2181,7 @@ public final class Characters {
             OwnArms.watch(projection, armSkins[taskWatch.left() ? 1 : 0], taskWatch, armFemale, worn, ownLight, outside);
         }
         if (sheetShown) {
-            OwnArms.sheet(projection, sheetView, HeldMap.picture(view.index), ownLight, outside);
+            OwnArms.sheet(projection, sheetView, HeldMap.picture(view.index), facingEast, facingNorth, ownLight, outside);
         }
         data.ambientR = red;
         data.ambientG = green;
