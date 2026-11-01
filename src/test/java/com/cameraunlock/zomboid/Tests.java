@@ -51,6 +51,7 @@ public final class Tests {
         Checks.run("cameraLooksAlongItsYaw", Tests::cameraLooksAlongItsYaw);
         Checks.run("keysAheadAreToldFromKeysAside", Tests::keysAheadAreToldFromKeysAside);
         Checks.run("cameraFollowsTheAnimatedHead", Tests::cameraFollowsTheAnimatedHead);
+        Checks.run("anIdleSwayOfTheHeadLeavesTheEyeWhereItIs", Tests::anIdleSwayOfTheHeadLeavesTheEyeWhereItIs);
         Checks.run("cameraPutsPlusYOnTheRightWhenFacingPlusX", Tests::cameraPutsPlusYOnTheRightWhenFacingPlusX);
         Checks.run("cameraPutsHigherPointsHigher", Tests::cameraPutsHigherPointsHigher);
         Checks.run("cameraPitchLooksUp", Tests::cameraPitchLooksUp);
@@ -2534,6 +2535,29 @@ public final class Tests {
         ViewCamera.eyeOffset(0f, 0.41f, -0.186f, (float) (Math.PI / 2), (float) (Math.PI / 2), turned);
         check(near(turned[0], -crouching[1]) && near(turned[1], crouching[0]) && near(turned[2], crouching[2]),
                 "turning the body and look together rotates the eye offset without changing its height");
+    }
+
+    private static void anIdleSwayOfTheHeadLeavesTheEyeWhereItIs() {
+        // Standing idle the eased joint sways over 0.001 of the model's measure (0.0015 tiles), as logged at Louisville.
+        float held = 0.825f;
+        for (int frame = 0; frame < 600; frame++) {
+            held = ModelHead.held(held, 0.825f + 0.0005f * (float) Math.sin(frame * 0.05));
+            check(held == 0.825f, "an idle sway leaves the eye still, " + held);
+        }
+        // Crouching, the eased joint goes down 0.4 in half a second, and back up.
+        float steady = 0.825f, most = 0f;
+        for (int frame = 0; frame < 120; frame++) {
+            float was = held;
+            steady = frame < 60 ? 0.825f - 0.4f * Math.min(1f, frame / 30f) : 0.425f + 0.4f * Math.min(1f, (frame - 60) / 30f);
+            held = ModelHead.held(held, steady);
+            most = Math.max(most, Math.abs(held - was));
+            check(Math.abs(held - steady) <= ModelHead.HELD + 1e-6f, "the eye keeps within HELD of the joint, " + held + " for " + steady);
+            if (frame == 59) {
+                check(held - 0.425f < ModelHead.HELD + 1e-6f && held > 0.425f, "a crouch takes the eye down with it, " + held);
+            }
+        }
+        check(most <= 0.4f / 30f + 1e-6f, "the eye moves no further in a frame than the joint does, " + most);
+        check(held < 0.825f && 0.825f - held <= ModelHead.HELD + 1e-6f, "and up again as the character stands, " + held);
     }
 
     private static void keysAheadAreToldFromKeysAside() {

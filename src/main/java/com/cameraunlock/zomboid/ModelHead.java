@@ -74,8 +74,8 @@ public final class ModelHead {
     /**
      * Where the eye is from the feet, in the world, into out, as the game's animation has the
      * head's joint, followed through two eases in the body's own axes, so the bob and sway of
-     * each step are taken out and a crouch or a sit still moves the eye. False where the
-     * character is not posed.
+     * each step are taken out and a crouch or a sit still moves the eye, and held where it is
+     * while the eased joint stays within HELD of it. False where the character is not posed.
      */
     boolean eyeOffset(IsoPlayer player, float yaw, float seconds, float[] out) {
         AnimationPlayer animation = player.getAnimationPlayer();
@@ -93,7 +93,7 @@ public final class ModelHead {
         steady(0, cameraJoint.x, follow, seconds);
         steady(1, cameraJoint.y, follow, seconds);
         steady(2, cameraJoint.z, follow, seconds);
-        ViewCamera.eyeOffset(steadyJoint[0], steadyJoint[1], steadyJoint[2], animation.getRenderedAngle(), yaw, out);
+        ViewCamera.eyeOffset(heldJoint[0], heldJoint[1], heldJoint[2], animation.getRenderedAngle(), yaw, out);
         return true;
     }
 
@@ -101,16 +101,32 @@ public final class ModelHead {
      * The time constant of each of the two eases the joint is followed through. A walk bobs the head about twice a second, which two of these leave a seventh of.
      */
     private static final float STEADY_SECONDS = 0.2f;
-    private final float[] steadyNear = new float[3], steadyJoint = new float[3];
+    /**
+     * How far the eased joint moves from where the eye holds it before the eye goes with it, in
+     * the model's measure: 0.003 tiles in the world. Standing idle the animation sways the head
+     * over about 0.0015 tiles, which is no movement anyone sees and only made the ground at the
+     * feet shimmer by a fraction of a dot; a crouch or a sit moves it a hundred times as far and
+     * more. A tracker's head moves the eye on its own, and nothing of the animation's sway is put
+     * to it.
+     */
+    static final float HELD = 0.003f / Characters.CHARACTER_SCALE;
+    private final float[] steadyNear = new float[3], steadyJoint = new float[3], heldJoint = new float[3];
 
     private void steady(int axis, float joint, boolean follow, float seconds) {
         if (follow) {
             steadyNear[axis] = joint;
             steadyJoint[axis] = joint;
+            heldJoint[axis] = joint;
         } else {
             steadyNear[axis] = ViewModelMath.ease(steadyNear[axis], joint, seconds, STEADY_SECONDS);
             steadyJoint[axis] = ViewModelMath.ease(steadyJoint[axis], steadyNear[axis], seconds, STEADY_SECONDS);
+            heldJoint[axis] = held(heldJoint[axis], steadyJoint[axis]);
         }
+    }
+
+    /** Where the eye holds the joint once it has eased to steady: still while steady is within HELD of held, and then HELD behind it. */
+    static float held(float held, float steady) {
+        return Math.clamp(held, steady - HELD, steady + HELD);
     }
     private IsoPlayer steadyFor;
 
