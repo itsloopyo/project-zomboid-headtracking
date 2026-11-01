@@ -173,7 +173,7 @@ final class ImpactFinder {
         // The game ended the line on a vehicle it hit. The reticle's point is past it, on what the vehicle stands in front of.
         IsoGridSquare under = cell.getGridSquare((int) Math.floor(endX), (int) Math.floor(endY), (int) Math.floor(endZ));
         BaseVehicle vehicle = under == null ? null : under.getVehicleContainer();
-        float body = vehicle == null ? Float.POSITIVE_INFINITY : vehicleSide(vehicle, startX, startY, startZ, Math.max(length, (float) Math.hypot(endX - startX, endY - startY)));
+        float body = vehicle == null ? Float.POSITIVE_INFINITY : vehicleSide(vehicle, terrain, startX, startY, startZ, Math.max(length, (float) Math.hypot(endX - startX, endY - startY)));
         ShotLights.along(cell, terrain, line, Math.min(body, Math.min(distance, reach)));
         ShotGlass.along(cell, terrain, shooter, line, Math.min(body, Math.min(distance, reach)));
         lowFencesAlong(cell, terrain, shooter, Math.min(body, Math.min(distance, reach)), size);
@@ -420,23 +420,47 @@ final class ImpactFinder {
     }
 
     /**
-     * How far along the line it goes into the box the game gives a vehicle, which the game works out
-     * across the map alone, less VEHICLE_OFF so that what flies starts outside it; infinity where it misses.
+     * How far along the line it goes into a vehicle, less VEHICLE_OFF so that what flies starts outside it; infinity where it
+     * misses. The game's box (getIntersectPoint) is tested across the map alone, as getLocalPos drops the height, so it is
+     * handed only the stretch of the line between the ground under the vehicle's middle and its roof, as tall as its script
+     * says, which is how the picture stands it (Characters.noteCar): a round over the roof goes on by.
      */
-    private static float vehicleSide(BaseVehicle vehicle, float startX, float startY, float startZ, float length) {
+    private static float vehicleSide(BaseVehicle vehicle, Terrain terrain, float startX, float startY, float startZ, float length) {
         float flat = line.forwardX * line.forwardX + line.forwardY * line.forwardY;
         if (flat < 1e-6f) {
             return Float.POSITIVE_INFINITY;
         }
-        float past = length + VEHICLE_PAST;
-        from.x = startX;
-        from.y = startY;
+        float ground = vehicle.getZ() * ViewCamera.LEVEL_HEIGHT + terrain.lift(vehicle.getX(), vehicle.getY(), vehicle.getZ());
+        float roof = ground + vehicle.getScript().getExtents().y;
+        float enters = firstBetween(line.eyeUp, line.forwardUp, ground, roof);
+        float leaves = Math.min(lastBetween(line.eyeUp, line.forwardUp, ground, roof), length + VEHICLE_PAST);
+        if (!(enters < leaves)) {
+            return Float.POSITIVE_INFINITY;
+        }
+        from.x = startX + line.forwardX * enters;
+        from.y = startY + line.forwardY * enters;
         from.z = startZ;
-        to.x = startX + line.forwardX * past;
-        to.y = startY + line.forwardY * past;
+        to.x = startX + line.forwardX * leaves;
+        to.y = startY + line.forwardY * leaves;
         to.z = startZ;
+        // Where the stretch starts inside the box, through the roof or the floor, the game gives back its start.
         Vector3f into = vehicle.getIntersectPoint(from, to, entry);
         return into == null ? Float.POSITIVE_INFINITY : Math.max(((into.x - startX) * line.forwardX + (into.y - startY) * line.forwardY) / flat - VEHICLE_OFF, 0f);
+    }
+
+    /** How far along a line from up, climbing wayUp a tile of its length, it is first between low and high: infinity where it never is. */
+    static float firstBetween(float up, float wayUp, float low, float high) {
+        if (wayUp == 0f) {
+            return up >= low && up <= high ? 0f : Float.POSITIVE_INFINITY;
+        }
+        float a = (low - up) / wayUp, b = (high - up) / wayUp;
+        float enters = Math.max(Math.min(a, b), 0f), leaves = Math.max(a, b);
+        return enters <= leaves ? enters : Float.POSITIVE_INFINITY;
+    }
+
+    /** How far along the same line it is last between low and high: infinity where it stays between them. */
+    static float lastBetween(float up, float wayUp, float low, float high) {
+        return wayUp == 0f ? Float.POSITIVE_INFINITY : Math.max((low - up) / wayUp, (high - up) / wayUp);
     }
 
     /** A shot struck what WorldQuery met along the line, distance along it: whether it went on through it. */

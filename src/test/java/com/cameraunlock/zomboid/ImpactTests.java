@@ -33,6 +33,7 @@ final class ImpactTests {
         Checks.run("leavingTheSaveForgetsItsHoles", ImpactTests::leavingTheSaveForgetsItsHoles);
         Checks.run("theGamesOwnLookShowsNoImpacts", ImpactTests::theGamesOwnLookShowsNoImpacts);
         Checks.run("withShotImpactsOffAShotLeavesNoMark", ImpactTests::withShotImpactsOffAShotLeavesNoMark);
+        Checks.run("aShotOverAVehiclesRoofGoesOnBy", ImpactTests::aShotOverAVehiclesRoofGoesOnBy);
     }
 
     /** The game's MaterialType words, every one of zombie.iso.enums.MaterialType. */
@@ -341,5 +342,19 @@ final class ImpactTests {
             Impacts.forget();
             Impacts.take();
         }
+    }
+
+    /** A vehicle is struck only where the line is between the ground under it and its roof (ImpactFinder.vehicleSide). */
+    private static void aShotOverAVehiclesRoofGoesOnBy() {
+        float ground = 0f, roof = 1.18f;
+        check(ImpactFinder.firstBetween(0.8f * ViewCamera.LEVEL_HEIGHT, 0f, ground, roof) == Float.POSITIVE_INFINITY,
+                "a level round 0.8 levels up passes over a car's roof");
+        check(ImpactFinder.firstBetween(1f, 0f, ground, roof) == 0f && ImpactFinder.lastBetween(1f, 0f, ground, roof) == Float.POSITIVE_INFINITY,
+                "a level round under the roof is beside the car all the way");
+        float enters = ImpactFinder.firstBetween(2f, -0.1f, ground, roof), leaves = ImpactFinder.lastBetween(2f, -0.1f, ground, roof);
+        check(Math.abs(enters - 8.2f) < 1e-4f && Math.abs(leaves - 20f) < 1e-4f, "a round coming down comes under the roof and goes into the ground: " + enters + ", " + leaves);
+        check(ImpactFinder.firstBetween(0.5f, 0.1f, ground, roof) == 0f && Math.abs(ImpactFinder.lastBetween(0.5f, 0.1f, ground, roof) - 6.8f) < 1e-4f,
+                "a round climbing from beside the car leaves it at the roof");
+        check(ImpactFinder.firstBetween(2f, 0.1f, ground, roof) == Float.POSITIVE_INFINITY, "and one climbing from over the roof never comes down to it");
     }
 }
