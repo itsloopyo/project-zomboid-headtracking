@@ -177,10 +177,12 @@ final class InteractLabel {
 
     /**
      * A key as the game's key binding options write it (MainOptions.getKeyPrefix and getKeyName):
-     * its modifiers, then the key's own name, which the game translates and which covers the mouse
-     * buttons a key can be bound to as well as the keyboard's keys.
+     * one modifier, Alt over Ctrl over Shift where several are set, then the key's own name, which
+     * the game translates and which covers the mouse buttons a key can be bound to as well as the
+     * keyboard's keys.
      */
     private static String keyName(Core.KeyBinding binding, int code) {
-        return (binding.shift() ? "SHIFT + " : "") + (binding.ctrl() ? "CTRL + " : "") + (binding.alt() ? "ALT + " : "") + Input.getKeyName(code);
+        String prefix = binding.alt() ? "ALT + " : binding.ctrl() ? "CTRL + " : binding.shift() ? "SHIFT + " : "";
+        return prefix + Input.getKeyName(code);
     }
 }
