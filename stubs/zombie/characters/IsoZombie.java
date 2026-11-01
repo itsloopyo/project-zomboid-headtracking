@@ -6,6 +6,8 @@ public final class IsoZombie extends IsoGameCharacter {
     public boolean isReanimatedPlayer() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isCrawling() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.iso.IsoMovingObject getTarget() { throw new UnsupportedOperationException("reference stub"); }
+    public boolean isFakeDead() { throw new UnsupportedOperationException("reference stub"); }
+    public String getAttackOutcome() { throw new UnsupportedOperationException("reference stub"); }
     public void setBecomeCrawler(boolean becomeCrawler) { throw new UnsupportedOperationException("reference stub"); }
     public void knockDown(boolean fromBehind) { throw new UnsupportedOperationException("reference stub"); }
     public void doShambler() { throw new UnsupportedOperationException("reference stub"); }

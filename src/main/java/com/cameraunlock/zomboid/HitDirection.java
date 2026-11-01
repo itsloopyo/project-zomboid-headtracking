@@ -166,7 +166,7 @@ final class HitDirection {
                 }
             }
             float tiles = (float) Math.hypot(toX, toY);
-            if (tiles > HitArcs.NEAR_TILES || (int) Math.floor(zombie.getZ()) != floor) {
+            if (tiles > HitArcs.NEAR_TILES || (int) Math.floor(zombie.getZ()) != floor || zombie.isFakeDead()) {
                 continue;
             }
             float bearing = HitArcs.bearing(eye.forwardX, eye.forwardY, eye.upX, eye.upY, eye.rightX, eye.rightY, toX, toY);
