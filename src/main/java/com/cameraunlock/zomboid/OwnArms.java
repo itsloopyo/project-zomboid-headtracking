@@ -111,11 +111,12 @@ final class OwnArms {
             // The way the viewer faces on the sheet's map, across it and up it, and the sheet's width and height, metres.
             uniform vec4 uMarker;
 
-            // Whether a place on the sheet, metres from its middle, is inside the pointer at the viewer's place, grown by grow.
+            // Whether a place on the sheet, metres from its middle, is inside the pointer at the viewer's place, grown by grow:
+            // an arrowhead twice as long as it is wide, with a notch in its back, so that no turn of it reads as another way.
             bool pointer(vec2 at, float grow) {
                 float ahead = dot(at, uMarker.xy), aside = abs(dot(at, vec2(-uMarker.y, uMarker.x)));
-                float tip = 0.016 * grow, back = 0.010 * grow, wide = 0.011 * grow;
-                return ahead < tip && ahead > -back && aside < wide * (tip - ahead) / (tip + back);
+                float tip = 0.0065 * grow, back = 0.0035 * grow, wide = 0.0026 * grow, notch = 0.002 * grow;
+                return ahead < tip && aside < wide * (tip - ahead) / (tip + back) && ahead > -back + notch * (1.0 - aside / wide);
             }
             // Whether the viewer stands out of doors, and the light where they stand, less than nought
             // where none is said: written beside the colour, as CharacterDraw writes it of a person.
@@ -206,7 +207,7 @@ final class OwnArms {
                         vec2 fromMiddle = (vUv - 0.5) * uMarker.zw;
                         if (pointer(fromMiddle, 1.0)) {
                             paint = vec3(0.95, 0.22, 0.06);
-                        } else if (pointer(fromMiddle, 1.4)) {
+                        } else if (pointer(fromMiddle, 1.6)) {
                             paint = vec3(0.06, 0.05, 0.04);
                         }
                     }
