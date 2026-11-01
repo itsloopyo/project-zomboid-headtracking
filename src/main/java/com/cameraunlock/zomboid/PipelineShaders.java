@@ -4323,6 +4323,8 @@ final class PipelineShaders {
                 }
                 float sun = 0.0;
                 float reached = 0.0;
+                // The colour the sun is here past stained glass it came through (SunGlass).
+                vec3 sunTint = vec3(1.0);
                 if (facing > 0.0) {
                     // The cards of a tree's fan stand in each other's shade and move in the wind,
                     // and their shadows on one another would flicker all over the tree. A card
@@ -4377,6 +4379,9 @@ final class PipelineShaders {
                                 // housing): see SUN_BAND.
                                 vec3 lower = (uNearMatrix * vec4(sunAsked(from.xyz, soft, uSunTexelUp.x, beneath) - vec3(0.0, 0.0, SUN_BAND), 1.0)).xyz * 0.5 + 0.5;
                                 reached = min(reached, shadowAt(uShadowNear, lower, soft));
+                            }
+                            if (reached > 0.0) {
+                                sunTint = sunThroughGlass(c);
                             }
                         }
                     }
@@ -4529,7 +4534,7 @@ final class PipelineShaders {
                 if (any(greaterThan(fromLamp, vec3(0.0)))) {
                     ambient += fromLamp * (1.0 - streetLampsCover(vWorld));
                 }
-                vec3 lightHere = ambient + held + uLightLinear * (2.1 * sun);
+                vec3 lightHere = ambient + held + uLightLinear * sunTint * (2.1 * sun);
                 // Lightning lights all the sky, and what is under the open sky by it.
                 lightHere += uFlashSky * (open * skyOver * (0.6 + 0.4 * max(n.z, 0.0)));
                 // The ground in the sun throws its light back up at whatever stands on it. A
@@ -4757,7 +4762,7 @@ final class PipelineShaders {
                     rough = mix(rough, 0.82, snowed);
                     rough = mix(rough, 0.18, shine);
                     if (reached > 0.0) {
-                        color += uLightLinear * (2.1 * reached * glossed(n, view, uLight, rough, mirrors));
+                        color += uLightLinear * sunTint * (2.1 * reached * glossed(n, view, uLight, rough, mirrors));
                         if (snowed > 0.0 && uLight.z > 0.0 && uOwnTextures > 0.5) {
                             // And it glitters: see snowGlints.
                             color += uLightLinear * (SNOW_GLINT * snowed * reached * snowGlints(vPlace.xy, n, view, uLight, sqrt(length(dFdx(vPlace.xy)) * length(dFdy(vPlace.xy)))));
@@ -5110,8 +5115,11 @@ final class PipelineShaders {
             // The size of a texel of the texture drawn: see Pipeline.castHeld.
             uniform vec2 uTexel;
             varying float vStroke;
+            // How much more than a half covered the stained glass the sun comes through is, 0 for every
+            // other draw: see SunGlass.CUT and Pipeline.castHeld.
+            uniform float uGlassCut;
             void main() {
-                if (vSolid < 0.5 && texture2D(uTexture, vUv).a < 0.5) {
+                if (vSolid < 0.5 && texture2D(uTexture, vUv).a < 0.5 + uGlassCut) {
                     discard;
                 }
                 // A torn or burnt length of chain link casts its posts and bent rails, what its sprite
@@ -6085,7 +6093,9 @@ final class PipelineShaders {
             uniform vec3 uUpBefore;
             uniform vec3 uForwardBefore;
             uniform float uStepsFrom;
-            """ + BEAMS + """
+            // 1 while stained glass in the near sun map colours the sun (SunGlass), else 0.
+            uniform float uGlassLit;
+            """ + BEAMS + SunGlass.GLSL + """
 
             const int STEPS = 24;
             const float REACH = 48.0;
@@ -6113,7 +6123,7 @@ final class PipelineShaders {
                 vec3 ray = uForward + uRight * (ndc.x * uTan.x) + uUp * (ndc.y * uTan.y);
                 float stride = ahead / float(STEPS);
                 float start = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))) + uStepsFrom);
-                float lit = 0.0;
+                vec3 lit = vec3(0.0);
                 float beamed = 0.0;
                 float along = length(ray);
                 for (int i = 0; i < STEPS; i++) {
@@ -6122,8 +6132,16 @@ final class PipelineShaders {
                     vec4 p = vec4(uEye + ray * at, 1.0);
                     bool roofed = underRoof(p.xyz);
                     float sun = sunInAir(p.xyz, roofed, 1.0);
+                    // Past a stained glass window the sun in the air is the glass's colours.
+                    vec3 tint = vec3(1.0);
+                    if (uGlassLit > 0.5 && sun > 0.0) {
+                        vec3 c = (uNearMatrix * p).xyz * 0.5 + 0.5;
+                        if (inside(c)) {
+                            tint = sunThroughGlass(c);
+                        }
+                    }
                     // The air thins with height, and there is none to speak of under the ground.
-                    lit += sun * exp(-max(p.z, 0.0) * 0.12) * through * (roofed && inRoom(p.xyz) ? uMist + uRoomAir : uMist);
+                    lit += tint * (sun * exp(-max(p.z, 0.0) * 0.12) * through * (roofed && inRoom(p.xyz) ? uMist + uRoomAir : uMist));
                     for (int b = 0; b < 2; b++) {
                         if (uBeamAt[b].w > 0.0) {
                             beamed += beamInAir(b, p.xyz) * through;

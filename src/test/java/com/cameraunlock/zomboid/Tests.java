@@ -208,6 +208,7 @@ public final class Tests {
         Checks.run("TorchBeamTests", TorchBeamTests::run);
         Checks.run("ShadowCastTests", ShadowCastTests::run);
         Checks.run("FiresTests", FiresTests::run);
+        Checks.run("SunGlassTests", SunGlassTests::run);
         Checks.run("RoomLampsTests", RoomLampsTests::run);
         Checks.run("LightningTests", LightningTests::run);
         Checks.run("RainTests", RainTests::run);

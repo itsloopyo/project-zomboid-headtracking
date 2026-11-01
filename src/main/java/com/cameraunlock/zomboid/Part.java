@@ -42,6 +42,10 @@ enum Part {
                     + "what shots cut out of a fence, a wall or a door drops out of it: the pieces bounce, lie a few seconds and sink into the\n"
                     + "ground. They are only in the picture and nothing touches them. false: no pieces: what is knocked down or shot\n"
                     + "out goes from the picture at once."),
+    COLOURED_GLASS_LIGHT("FirstPerson", "ColouredGlassLight", true, false,
+            "true: in first person, in Medium and High, sunlight through a stained glass window takes the colours of its\n"
+                    + "glass onto whatever it falls on behind it, and into the air of the room. false: a stained glass window lets no\n"
+                    + "sunlight through in those modes."),
     FAR_VEHICLES_AND_ZOMBIES("FirstPerson", "FarVehiclesAndZombies", true, false,
             "true: in first person, vehicles, zombies and animals in sight are drawn even past the edge of the game's own\n"
                     + "screen, and so are other players where players cannot fight. false: each is drawn only where the game's own\n"

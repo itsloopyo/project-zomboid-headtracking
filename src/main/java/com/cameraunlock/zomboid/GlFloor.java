@@ -16,7 +16,7 @@ import org.lwjglx.opengl.Display;
  */
 final class GlFloor {
     /** The most samplers one fragment stage reads (the world's), checked against GL_MAX_TEXTURE_IMAGE_UNITS. ShaderTests holds every program to it. */
-    static final int FRAGMENT_SAMPLERS = 27;
+    static final int FRAGMENT_SAMPLERS = 28;
     /** The most uniform components one fragment stage holds (the world's, a vec4 to each uniform), checked against GL_MAX_FRAGMENT_UNIFORM_COMPONENTS. ShaderTests holds every program to it. */
     static final int FRAGMENT_UNIFORM_COMPONENTS = 2836;
 

@@ -186,8 +186,10 @@ final class Pipeline {
     private static final int GL_ERROR_FLAGS = 8;
     /** The texture units the frame's own textures take, each of which the game may have left a sampler object on. */
     private static final int UNITS = 32;
-    /** The units the frame sets the game's samplers aside on: its own, and the light pages' after them (LightPages.UNIT). */
-    private static final int SAMPLED_UNITS = LightPages.UNIT + 1;
+    /** The unit the picture of the sun's colour past stained glass stays bound to through the frame, for every program that reads it (SunGlass). */
+    private static final int SUN_GLASS_UNIT = LightPages.UNIT + 1;
+    /** The units the frame sets the game's samplers aside on: its own, the light pages' after them (LightPages.UNIT), and the sun's colour's. */
+    private static final int SAMPLED_UNITS = SUN_GLASS_UNIT + 1;
     /** The texture unit the headlights' shadow map stays bound to through the frame. */
     private static final int BEAM_UNIT = 20;
     /**
@@ -206,7 +208,7 @@ final class Pipeline {
     private static final String SHADOW_VERTEX = PipelineShaders.SHADOW_VERTEX;
     private static final String SHADOW_FRAGMENT = PipelineShaders.SHADOW_FRAGMENT;
     private static final String SCREEN_VERTEX = PipelineShaders.SCREEN_VERTEX;
-    private static final String WORLD_FRAGMENT = PipelineShaders.WORLD_FRAGMENT_PARTS.concat(PipelineShaders.WORLD_FRAGMENT_RELIEF).concat(SnowShader.GLSL).concat(RoadPaint.GLSL).concat(Litter.GLSL).concat(Cutaways.GLSL).concat(PipelineShaders.WORLD_FRAGMENT_MAIN);
+    private static final String WORLD_FRAGMENT = PipelineShaders.WORLD_FRAGMENT_PARTS.concat(PipelineShaders.WORLD_FRAGMENT_RELIEF).concat(SnowShader.GLSL).concat(RoadPaint.GLSL).concat(Litter.GLSL).concat(Cutaways.GLSL).concat(SunGlass.GLSL).concat(PipelineShaders.WORLD_FRAGMENT_MAIN);
     /**
      * The same program told at compile time that only depth is wanted, so the driver leaves out
      * every sum that only colours a pixel: see drawWorld.
@@ -378,6 +380,8 @@ final class Pipeline {
     /** How far to one side this frame is drawn, as the projection takes it: nothing with the frames not mixed. */
     private float asideX, asideY;
     private static Program world, worldCalm, worldUntinted, worldDepth, grassLit, grassDepth, shadow, solidShadow, figureLight, sky, clouds, skyNear, bolt, occlusion, soften, volume, bloomDown, bloomUp, develop, meter;
+    /** What draws stained glass into the picture of the sun's colour past it (SunGlass). */
+    private static Program glassCast;
     /** By Quality.antialiasing, what shows the developed picture with its edges smoothed that much. */
     private static final Program[] smooth = new Program[Quality.ANTIALIASING_HIGH + 1];
     private static Program far, farTree;
@@ -508,6 +512,11 @@ final class Pipeline {
     private final Lent torched = new Lent("torch's shadow map", this::makeTorched);
     /** The fires' shadow maps, for the frames in which a fire of the picture's own lights the world. */
     private final Lent fired = new Lent("fires' shadow maps", this::makeFired);
+    /** The sun's colour past stained glass, for the frames in which such a window is in the near sun map (SunGlass). */
+    private final Lent glassed = new Lent("picture of the sun's colour past stained glass", this::makeGlassed);
+    private int glassColor, glassTarget;
+    /** Whether this frame's near sun map lets the mod's own stained glass through, and whether its colours were drawn into glassed. */
+    private boolean glassThrough, glassLit;
     /** What a vehicle's mirror shows and the people in it, at the mirror's size. */
     private final Lent mirrored = new Lent("mirror's pictures", this::makeMirror);
     /** What water shows, at a third of the picture's size: only in High, in first person, with water in sight. */
@@ -523,7 +532,7 @@ final class Pipeline {
     }
 
     private final Lent[] SIZED = sized(whole, steadied, cabin, shaded, watered);
-    private final Lent[] UNSIZED = {beamed, torched, fired, mirrored};
+    private final Lent[] UNSIZED = {beamed, torched, fired, glassed, mirrored};
     private static final long LENT_FOR_NANOS = 10_000_000_000L;
 
     /** The sets at the picture's size: those given, and each plane's picture of what its glass shows. */
@@ -2705,17 +2714,9 @@ final class Pipeline {
         GL11.glEnable(GL_POLYGON_OFFSET_FILL);
         GL11.glPolygonOffset(SLOPE_OFFSET, 6f);
         GL11.glViewport(0, 0, shadowSize, shadowSize);
+        glassThrough = SunGlass.runs(Part.COLOURED_GLASS_LIGHT.on(), Quality.shadedAndLit(view.index), StainedGlass.texture());
         shadow.use();
-        shadow.set("uTexture", 0);
-        shadow.set("uWind", state.windX, state.windY, state.seconds);
-        shadow.set("uGust", state.gustX, state.gustY, state.flutter);
-        shadow.set("uPlantSnow", state.snowOnPlants(view.index));
-        shadow.set("uSnowLying", state.snowLying);
-        shadow.set("uFaced", state.facedX, state.facedY);
-        shadow.set("uLayerFrom", state.layersFromX, state.layersFromY, state.layersFromUp);
-        shadow.set("uLayer", WorldScene.STAND_OFF, WorldScene.STAND_OFF_PER_TILE_SQUARED, WorldScene.CARD_LAYER);
-        shadow.set("uAcross", state.acrossX, state.acrossY);
-        shadow.set("uSunWay", state.lightX, state.lightY, state.lightUp);
+        tellCast(shadow, state);
         // The game magnifies its sprites pixel by pixel, which up close is a wall of squares.
         // This frame reads them through a sampler of its own that blends between pixels, and
         // leaves the textures' own settings as the game set them.
@@ -2735,6 +2736,23 @@ final class Pipeline {
         heldOf = drawn.size();
         GL11.glDisable(GL_POLYGON_OFFSET_FILL);
         GL11.glColorMask(true, true, true, true);
+        GL13.glActiveTexture(GL_TEXTURE0 + SUN_GLASS_UNIT);
+        GL11.glBindTexture(GL_TEXTURE_2D, glassLit ? glassColor : whiteTexture);
+        GL13.glActiveTexture(GL_TEXTURE0);
+    }
+
+    /** Tells a program that casts with SHADOW_VERTEX the sprite unit, the weather and the sun's way, as the sun maps are cast. */
+    private void tellCast(Program to, SkyState state) {
+        to.set("uTexture", 0);
+        to.set("uWind", state.windX, state.windY, state.seconds);
+        to.set("uGust", state.gustX, state.gustY, state.flutter);
+        to.set("uPlantSnow", state.snowOnPlants(view.index));
+        to.set("uSnowLying", state.snowLying);
+        to.set("uFaced", state.facedX, state.facedY);
+        to.set("uLayerFrom", state.layersFromX, state.layersFromY, state.layersFromUp);
+        to.set("uLayer", WorldScene.STAND_OFF, WorldScene.STAND_OFF_PER_TILE_SQUARED, WorldScene.CARD_LAYER);
+        to.set("uAcross", state.acrossX, state.acrossY);
+        to.set("uSunWay", state.lightX, state.lightY, state.lightUp);
     }
 
     /**
@@ -2767,13 +2785,17 @@ final class Pipeline {
 
     /** The near and the far shadow map, along the light. */
     private void castSun(SkyState state, boolean figures) {
+        ChunkBuffers.Listing nearHeld = null;
         for (int map = 0; map < (castFar ? 2 : 1); map++) {
             GL30.glBindFramebuffer(GL_FRAMEBUFFER, map == 0 ? nearTarget : farTarget);
             GL11.glClearDepth(1.0);
             GL11.glClear(GL_DEPTH_BUFFER_BIT);
             castAlong(shadow, map == 0 ? nearMatrix : farMatrix);
             offsetHeldTo(map == 0 ? NEAR_RANGE : FAR_RANGE);
-            castHeld(map == 0 ? nearMatrix : farMatrix, state, map == 0 ? nearListed : farListed, map == 0 ? NEAR_MAP : FAR_MAP);
+            ChunkBuffers.Listing held = castHeld(map == 0 ? nearMatrix : farMatrix, state, map == 0 ? nearListed : farListed, map == 0 ? NEAR_MAP : FAR_MAP);
+            if (map == 0) {
+                nearHeld = held;
+            }
         }
         GL11.glPolygonOffset(SLOPE_OFFSET, 6f);
         if (figures) {
@@ -2789,6 +2811,74 @@ final class Pipeline {
             }
             resumeCasting();
         }
+        castGlass(state, nearHeld);
+    }
+
+    /**
+     * The mod's own stained glass in the near sun map, drawn into the picture of the sun's colour past it
+     * against the map's depth, the people's included: see SunGlass. Nothing where no such window is in
+     * the map, and the picture is made only once one is.
+     */
+    private void castGlass(SkyState state, ChunkBuffers.Listing held) {
+        glassLit = false;
+        if (!glassThrough) {
+            return;
+        }
+        int atlas = StainedGlass.texture(), first = -1;
+        for (int i = 0; i < held.solidRanges() && first < 0; i++) {
+            if (held.texture(i) == atlas && held.tint(i) != WallSides.PANES && held.tint(i) != WallSides.BLOOD) {
+                first = i;
+            }
+        }
+        if (first < 0) {
+            return;
+        }
+        lend(glassed);
+        int size = SunGlass.size(shadowSize);
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, glassTarget);
+        GL11.glViewport(0, 0, size, size);
+        GL11.glColorMask(true, true, true, true);
+        GL11.glClearColor(1f, 1f, 1f, 1f);
+        GL11.glClear(GL_COLOR_BUFFER_BIT);
+        GL11.glDisable(GL_DEPTH_TEST);
+        GL11.glDepthMask(false);
+        GL11.glDisable(GL_POLYGON_OFFSET_FILL);
+        GL11.glEnable(GL_BLEND);
+        GL14.glBlendFuncSeparate(SunGlass.GL_DST_COLOR, GL_ZERO, GL_ONE, GL_ONE);
+        GL20.glBlendEquationSeparate(GL_FUNC_ADD, SunGlass.GL_MIN);
+        GL13.glActiveTexture(GL_TEXTURE0 + 1);
+        GL11.glBindTexture(GL_TEXTURE_2D, nearMap);
+        GL33.glBindSampler(1, depthSampler);
+        GL13.glActiveTexture(GL_TEXTURE0);
+        glassCast.use();
+        tellCast(glassCast, state);
+        castAlong(glassCast, nearMatrix);
+        glassCast.set("uSolid", 1);
+        glassCast.set("uTexel", 1f / size);
+        GL11.glBindTexture(GL_TEXTURE_2D, atlas);
+        for (int i = first; i < held.solidRanges(); i++) {
+            if (held.texture(i) == atlas && held.tint(i) != WallSides.PANES && held.tint(i) != WallSides.BLOOD) {
+                held.draw(i);
+            }
+        }
+        GL20.glBlendEquationSeparate(GL_FUNC_ADD, GL_FUNC_ADD);
+        GL11.glDisable(GL_BLEND);
+        GL33.glBindSampler(1, 0);
+        GL11.glEnable(GL_POLYGON_OFFSET_FILL);
+        GL11.glDepthMask(true);
+        GL11.glEnable(GL_DEPTH_TEST);
+        GL11.glColorMask(false, false, false, false);
+        GL11.glViewport(0, 0, shadowSize, shadowSize);
+        shadow.use();
+        glassLit = true;
+    }
+
+    /** The picture of the sun's colour past stained glass: SunGlass.size of the sun maps across, a half float each of colour and depth, 32 MB at its largest. */
+    private String makeGlassed() {
+        int size = SunGlass.size(shadowSize);
+        glassColor = texture(GL_RGBA16F, size, size, GL_RGBA, GL_FLOAT, GL_LINEAR);
+        glassTarget = target(glassColor);
+        return complete("sun's colour past stained glass");
     }
 
     private void castBeams(SkyState state, boolean figures) {
@@ -2986,11 +3076,16 @@ final class Pipeline {
         GL13.glActiveTexture(GL_TEXTURE0);
     }
 
-    /** Casts the frame's solid chunks and furniture that a map drawn with the matrix can hold into the map bound. */
-    private void castHeld(float[] matrix, SkyState state, ChunkBuffers.Listing own, int map) {
+    /**
+     * Casts the frame's solid chunks and furniture that a map drawn with the matrix can hold into the map bound, and
+     * gives back those chunks as draws. The near sun map lets the mod's own stained glass through while it colours
+     * the sun (SunGlass).
+     */
+    private ChunkBuffers.Listing castHeld(float[] matrix, SkyState state, ChunkBuffers.Listing own, int map) {
         ChunkBuffers.Listing held = heldBy(matrix, state, own, map);
         // The shadow's program reads a texel's size where a torn length of chain link casts its posts alone: see SHADOW_FRAGMENT.
         int texel = shadow.at("uTexel");
+        int glass = glassThrough && map == NEAR_MAP ? StainedGlass.texture() : 0;
         for (int i = 0; i < held.solidRanges(); i++) {
             if (held.tint(i) == WallSides.PANES || held.tint(i) == WallSides.BLOOD) {
                 continue;
@@ -2998,10 +3093,12 @@ final class Pipeline {
             int texture = held.texture(i) == 0 ? whiteTexture : held.texture(i);
             GL11.glBindTexture(GL_TEXTURE_2D, texture);
             tellTexel(texel, texture);
+            shadow.set("uGlassCut", texture == glass ? SunGlass.CUT : 0f);
             held.draw(i);
         }
         listModels(false, null, 0f, 0f, Outlines.NONE);
         castModels(matrix);
+        return held;
     }
 
     /**
@@ -4243,6 +4340,7 @@ final class Pipeline {
         GL33.glBindSampler(UNITS - 2, depthSampler);
         GL13.glActiveTexture(GL_TEXTURE0);
         to.set("uShadowDepth", UNITS - 2);
+        to.set("uSunGlass", SUN_GLASS_UNIT);
         GL13.glActiveTexture(GL_TEXTURE0 + UNITS - 1);
         GL11.glBindTexture(GL_TEXTURE_2D, roofMap);
         GL33.glBindSampler(UNITS - 1, depthSampler);
@@ -4754,6 +4852,8 @@ final class Pipeline {
         volume.set("uDepth", 0);
         volume.set("uShadowNear", 1);
         volume.set("uShadowFar", 2);
+        volume.set("uSunGlass", SUN_GLASS_UNIT);
+        volume.set("uGlassLit", glassLit ? 1f : 0f);
         bindSunMaps();
         GL11.glBindTexture(GL_TEXTURE_2D, sceneDepth);
         volume.set("uNearMatrix", nearMatrix);
@@ -6615,6 +6715,7 @@ final class Pipeline {
                 () -> partKind = Program.link("cabin parts", PipelineShaders.PANE_VERTEX, PipelineShaders.PART_FRAGMENT, linkProblem),
                 () -> shadow = Program.link("shadow", SHADOW_VERTEX, SHADOW_FRAGMENT, linkProblem, SHADOW_PLACES_FROM, "aPlace", "aFoot", "aTurn"),
                 () -> solidShadow = Program.link("solid shadow", SHADOW_VERTEX, PipelineShaders.SOLID_SHADOW_FRAGMENT, linkProblem, SHADOW_PLACES_FROM, "aPlace", "aFoot", "aTurn"),
+                () -> glassCast = Program.link("sun through glass", SHADOW_VERTEX, SunGlass.CAST_FRAGMENT, linkProblem, SHADOW_PLACES_FROM, "aPlace", "aFoot", "aTurn"),
                 () -> rain = Program.link("rain", PipelineShaders.RAIN_VERTEX, PipelineShaders.RAIN_FRAGMENT, linkProblem),
                 () -> snow = Program.link("snow", PipelineShaders.SNOW_VERTEX, PipelineShaders.SNOW_FRAGMENT, linkProblem),
                 () -> dust = Program.link("dust", PipelineShaders.DUST_VERTEX, PipelineShaders.DUST_FRAGMENT, linkProblem),
@@ -6805,6 +6906,7 @@ final class Pipeline {
         roomAirTexture = 0;
         giveBack(beamed);
         giveBack(torched);
+        giveBack(glassed);
     }
 
     /** The three shadow maps every frame draws: near, far and overhead. Null, or what the driver refused. */
