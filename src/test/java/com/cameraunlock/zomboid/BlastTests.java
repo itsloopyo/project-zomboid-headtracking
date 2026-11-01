@@ -28,6 +28,7 @@ final class BlastTests {
         Checks.run("pelletsCloseTogetherBlowAHoleAndSpreadOnesDoNot", BlastTests::pelletsCloseTogetherBlowAHoleAndSpreadOnesDoNot);
         Checks.run("anObjectKeepsItsNewestHolesAndMarks", BlastTests::anObjectKeepsItsNewestHolesAndMarks);
         Checks.run("aShotGoesThroughOnlyWellInsideAHoleOnItsEdge", BlastTests::aShotGoesThroughOnlyWellInsideAHoleOnItsEdge);
+        Checks.run("aShotGoesThroughAWallBlownOpenByManyBlastsWhereThePictureShowsTheGap", BlastTests::aShotGoesThroughAWallBlownOpenByManyBlastsWhereThePictureShowsTheGap);
         Checks.run("aRoundsHoleIsSmallWhereItWentInAndWideWhereItCameOut", BlastTests::aRoundsHoleIsSmallWhereItWentInAndWideWhereItCameOut);
         Checks.run("aRoundsHoleIsCutAlongTheRoundsLine", BlastTests::aRoundsHoleIsCutAlongTheRoundsLine);
         Checks.run("aRoundsHoleSavedBeforeItsSlantWasKeptReadsStraightAcross", BlastTests::aRoundsHoleSavedBeforeItsSlantWasKeptReadsStraightAcross);
@@ -46,7 +47,7 @@ final class BlastTests {
 
     private static void aBodyClimbsOnlyThroughAnOpeningItFits() {
         float[] one = BlastHoles.with(new float[0], true, 0.5f, 0.9f / ViewCamera.LEVEL_HEIGHT, 0.15f, 1, 0);
-        check(Float.isNaN(HoleHop.opening((a, u) -> BlastHoles.inAHole(one, true, a, u), 0.5f)), "one blast's hole is too small to climb through");
+        check(Float.isNaN(HoleHop.opening(HoleHop.cut(BlastHoles.outlinesOn(one, true), Breakage.Pieces.NONE), 0.5f)), "one blast's hole is too small to climb through");
         float[] many = new float[0];
         int seed = 1;
         for (float along = 0.2f; along < 0.81f; along += 0.15f) {
@@ -55,7 +56,7 @@ final class BlastTests {
             }
         }
         float[] shot = many;
-        float through = HoleHop.opening((a, u) -> BlastHoles.inAHole(shot, true, a, u), 0.5f);
+        float through = HoleHop.opening(HoleHop.cut(BlastHoles.outlinesOn(shot, true), Breakage.Pieces.NONE), 0.5f);
         check(Math.abs(through - 0.5f) < 1e-4f, "blasts close together from the knee to over the shoulder open a gap climbed through where the crosshair is: " + through);
         HoleHop.Open wide = gap(0.2f, 0.8f, 0.3f, 1.6f);
         check(HoleHop.opening(wide, 0.5f) == 0.5f, "a gap wide and tall enough is climbed through where the crosshair is");
@@ -902,16 +903,86 @@ final class BlastTests {
         check(entries.length == (BlastHoles.MOST_ROUNDS + 2) * BlastHoles.FLOATS, "the most rounds' holes are kept, beside the blast's hole and the mark");
         check(entries[BlastHoles.SIDE] == 0f && entries[BlastHoles.FLOATS + BlastHoles.SIDE] == 1f, "which stay");
         check(entries[2 * BlastHoles.FLOATS + BlastHoles.ALONG] == 3f, "and the oldest rounds' holes went first");
-        check(BlastHoles.inAHole(entries, false, 10f, 0.5f), "a later shot goes through a round's hole");
-        check(!BlastHoles.inAHole(entries, false, 10f + BlastHoles.ROUND_RADIUS, 0.5f), "but not past where it went in");
+        check(BlastHoles.opening(entries, false, 10f, 0.5f, Breakage.Pieces.NONE), "a later shot goes through a round's hole");
+        check(!BlastHoles.opening(entries, false, 10f + 1.1f * BlastHoles.ROUND_RADIUS, 0.5f, Breakage.Pieces.NONE), "but not past where it went in");
+    }
+
+    /**
+     * A wall blown open by blasts 1.5 radii apart, where each one's ragged outline runs into the next. A shot goes
+     * through wherever the picture shows the opening with GRAZE of a radius all round, and never where it shows wood:
+     * the rim of each blast inside the opening, which the others cut away, stops nothing.
+     */
+    private static void aShotGoesThroughAWallBlownOpenByManyBlastsWhereThePictureShowsTheGap() {
+        float r = 0.1f, apart = 0.15f;
+        float[] field = new float[0];
+        int seed = 7;
+        for (int i = 0; i < 5; i++) {
+            for (int j = 0; j < 5; j++) {
+                field = BlastHoles.with(field, true, 0.2f + i * apart, (0.3f + j * apart) / ViewCamera.LEVEL_HEIGHT, r, seed++, 0);
+            }
+        }
+        ArrayList<float[]> outlines = BlastHoles.outlinesOn(field, true);
+        float graze = r * BlastHoles.GRAZE;
+        int open = 0, onceStopped = 0;
+        for (int i = 0; i <= 80; i++) {
+            float along = 0.1f + i * 0.01f;
+            for (int j = 0; j <= 80; j++) {
+                float up = (0.2f + j * 0.01f) / ViewCamera.LEVEL_HEIGHT, tiles = up * ViewCamera.LEVEL_HEIGHT;
+                boolean through = BlastHoles.opening(field, true, along, up, Breakage.Pieces.NONE);
+                boolean drawn = inAnyOutline(outlines, along, tiles);
+                if (through && !drawn) {
+                    check(false, "a shot goes through only where the picture shows the opening, but goes through wood at (" + along + ", " + tiles + ")");
+                    return;
+                }
+                boolean roomRound = drawn;
+                for (int k = 0; k < 32 && roomRound; k++) {
+                    double angle = 2 * Math.PI * k / 32;
+                    roomRound = inAnyOutline(outlines, along + graze * (float) Math.cos(angle), tiles + graze * (float) Math.sin(angle));
+                }
+                if (roomRound && !through) {
+                    check(false, "a shot goes through where the picture shows the opening all round it, but is stopped at (" + along + ", " + tiles + ")");
+                    return;
+                }
+                if (roomRound) {
+                    open++;
+                    if (pastEveryInnerPart(field, along, tiles)) {
+                        onceStopped++;
+                    }
+                }
+            }
+        }
+        check(open > 0 && onceStopped > 0, "and among those places are some past four fifths of every blast's radius, which once stopped a shot: "
+                + onceStopped + " of " + open);
+    }
+
+    private static boolean inAnyOutline(ArrayList<float[]> outlines, float along, float tiles) {
+        for (float[] outline : outlines) {
+            if (MeshCut.inside(outline, along, tiles)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Whether (along, tiles up) is past four fifths of the radius of every blast's hole of entries, as tall as each is. */
+    private static boolean pastEveryInnerPart(float[] entries, float along, float tiles) {
+        for (int at = 0; at < entries.length; at += BlastHoles.FLOATS) {
+            float inner = entries[at + BlastHoles.RADIUS] * 0.8f;
+            float da = (along - entries[at + BlastHoles.ALONG]) / inner, du = (tiles - entries[at + BlastHoles.UP] * ViewCamera.LEVEL_HEIGHT) / (inner * 1.25f);
+            if (da * da + du * du <= 1f) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static void aShotGoesThroughOnlyWellInsideAHoleOnItsEdge() {
         float[] entries = BlastHoles.with(new float[0], true, 0.5f, 0.4f, 0.1f, 1, 0);
-        check(BlastHoles.inAHole(entries, true, 0.5f, 0.4f), "a shot through the middle goes through");
-        check(!BlastHoles.inAHole(entries, false, 0.5f, 0.4f), "but not on the other edge of the square");
-        check(!BlastHoles.inAHole(entries, true, 0.5f + 0.095f, 0.4f), "nor grazing its rim");
+        check(BlastHoles.opening(entries, true, 0.5f, 0.4f, Breakage.Pieces.NONE), "a shot through the middle goes through");
+        check(BlastHoles.opening(entries, true, 0.5f + 0.045f, 0.4f, Breakage.Pieces.NONE), "and through well inside its outline, however ragged");
+        check(!BlastHoles.opening(entries, false, 0.5f, 0.4f, Breakage.Pieces.NONE), "but not on the other edge of the square");
+        check(!BlastHoles.opening(entries, true, 0.5f + 0.115f, 0.4f, Breakage.Pieces.NONE), "nor grazing its rim");
         float[] marked = BlastHoles.with(new float[0], true, 0.5f, 0.4f, 0.1f, 1, 1);
-        check(!BlastHoles.inAHole(marked, true, 0.5f, 0.4f), "a mark is no hole");
+        check(!BlastHoles.opening(marked, true, 0.5f, 0.4f, Breakage.Pieces.NONE), "a mark is no hole");
     }
 }

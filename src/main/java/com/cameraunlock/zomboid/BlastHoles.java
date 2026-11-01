@@ -79,8 +79,18 @@ final class BlastHoles {
      * that one a few tiles off is a few pixels across (ImpactDraw draws its mark larger again).
      */
     static final float ROUND_RADIUS = 0.011f;
-    /** How far into a hole's radius a later shot has to cross to go through it: the outline is ragged, and a round grazing its edge strikes wood. */
-    private static final float THROUGH = 0.8f;
+    /** How far in from the edge of the opening its holes cut a later shot has to cross to go through, as a share of the hole's radius: a round grazing the edge strikes wood. */
+    static final float GRAZE = 0.2f;
+
+    /** The key an object's mod data keeps the rims round its holes under, and what the list starts with: the numbers a rim is kept as. */
+    private static final String RIMS_KEY = "cameraunlockShotRims", RIMS = "11:";
+    /**
+     * A rim is where Impacts draws it, the way its surface faces there, what the surface is made of,
+     * how big the round was, and the way the surface's grain runs: all of a hole the picture draws.
+     */
+    static final int RIM_FLOATS = 11;
+    /** The most rims an object keeps, the oldest given up past them: a fence shot to pieces by a few blasts of a shotgun's nine pellets. */
+    static final int MOST_RIMS = 128;
 
     /** What each object loaded keeps, for the builds to read off the logic thread. */
     private static final Map<IsoObject, float[]> kept = Collections.synchronizedMap(new WeakHashMap<>());
@@ -697,10 +707,71 @@ final class BlastHoles {
         return seeds.nextInt(1 << 20);
     }
 
-    /** Whether (along, up) on an object's north or west edge is inside one of its holes, far enough in for a shot to go through: see THROUGH. Logic thread. */
+    /** Whether (along, up) on an object's north or west edge is far enough into the opening its holes cut for a shot to go through (opening). Logic thread. */
     static boolean through(IsoObject object, boolean north, float along, float up) {
         float[] entries = of(object);
-        return entries != null && (inAHole(entries, north, along, up) || fallen(object, north).inside(along, up));
+        return entries != null && opening(entries, north, along, up, fallen(object, north));
+    }
+
+    /**
+     * Whether (along, up), up in levels, is in the opening the holes on the north or west edge and the pieces fallen from
+     * between them cut in the picture (HoleHop.cut), far enough in for a shot to go through: in a fallen piece, or inside a
+     * hole's outline with the ring GRAZE of the widest such hole's radius round it in the opening too. A round grazing the
+     * opening's edge strikes wood, and inside an opening blown by many holes the rim of each, which the others cut away, stops nothing.
+     */
+    static boolean opening(float[] entries, boolean north, float along, float up, Breakage.Pieces fallen) {
+        if (fallen.inside(along, up)) {
+            return true;
+        }
+        float tiles = up * ViewCamera.LEVEL_HEIGHT, widest = 0f;
+        for (int at = 0; at < entries.length; at += FLOATS) {
+            if (inOutline(entries, at, north, along, tiles)) {
+                widest = Math.max(widest, entries[at + RADIUS]);
+            }
+        }
+        if (widest == 0f) {
+            return false;
+        }
+        float graze = widest * GRAZE;
+        for (int k = 0; k < RING_COS.length; k++) {
+            float a = along + graze * RING_COS[k], t = tiles + graze * RING_SIN[k];
+            if (!fallen.inside(a, t / ViewCamera.LEVEL_HEIGHT) && !inAnOutline(entries, north, a, t)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** The ways round a point opening looks GRAZE out from it. */
+    private static final float[] RING_COS = new float[8], RING_SIN = new float[8];
+
+    static {
+        for (int k = 0; k < RING_COS.length; k++) {
+            RING_COS[k] = (float) Math.cos(2 * Math.PI * k / RING_COS.length);
+            RING_SIN[k] = (float) Math.sin(2 * Math.PI * k / RING_COS.length);
+        }
+    }
+
+    private static boolean inAnOutline(float[] entries, boolean north, float along, float tiles) {
+        for (int at = 0; at < entries.length; at += FLOATS) {
+            if (inOutline(entries, at, north, along, tiles)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Whether (along, tiles up) is inside the outline the hole at place at is cut by (outlineOf), where that hole is on the north or west edge. */
+    private static boolean inOutline(float[] entries, int at, boolean north, float along, float tiles) {
+        if (!isHole(entries[at + SIDE]) || (entries[at + NORTH] != 0f) != north) {
+            return false;
+        }
+        // No outline reaches further from its middle than a blast's at its most ragged, and as tall.
+        float reach = entries[at + RADIUS] * (1f + HOLE_RAGGED) * HOLE_TALL;
+        if (Math.abs(along - entries[at + ALONG]) > reach || Math.abs(tiles - entries[at + UP] * ViewCamera.LEVEL_HEIGHT) > reach) {
+            return false;
+        }
+        return MeshCut.inside(outlineOf(entries, at), along, tiles);
     }
 
     /** The outlines the holes on the north or west edge are cut by in the picture (outlineOf), along and up in tiles. */
@@ -715,21 +786,6 @@ final class BlastHoles {
             }
         }
         return outlines;
-    }
-
-    static boolean inAHole(float[] entries, boolean north, float along, float up) {
-        for (int at = 0; at < entries.length; at += FLOATS) {
-            if (!isHole(entries[at + SIDE]) || (entries[at + NORTH] != 0f) != north) {
-                continue;
-            }
-            float r = entries[at + RADIUS] * THROUGH;
-            float tall = entries[at + SIDE] == 0f ? HOLE_TALL : 1f;
-            float da = (along - entries[at + ALONG]) / r, du = (up - entries[at + UP]) * ViewCamera.LEVEL_HEIGHT / (r * tall);
-            if (da * da + du * du <= 1f) {
-                return true;
-            }
-        }
-        return false;
     }
 
     /** Whether an object has a hole on its north or its west edge: a door or a wall with one is seen through, as a door with glass is (RoomMap). Logic thread. */

@@ -193,9 +193,8 @@ final class HoleHop {
     }
 
     /**
-     * What is cut out of a thing as the picture cuts it: its holes' outlines and what fell from between them. Not
-     * BlastHoles.through, which keeps a shot to well inside each hole, so that the ragged rim of every hole in a
-     * gap blown open by several reads as wall standing in the middle of the gap.
+     * What is cut out of a thing as the picture cuts it: its holes' outlines and what fell from between them, to their
+     * edge. BlastHoles.through keeps a shot a little in from that edge.
      */
     static Open cut(ArrayList<float[]> outlines, Breakage.Pieces fallen) {
         return (a, u) -> {

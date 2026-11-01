@@ -94,7 +94,7 @@ final class BreakageTests {
         Breakage.Pieces pieces = work(entries, true, FENCE);
         boolean across = true;
         for (float along = 0.451f; along < 0.6f; along += 0.005f) {
-            across &= pieces.inside(along, up) || BlastHoles.inAHole(entries, true, along, up);
+            across &= HoleHop.cut(BlastHoles.outlinesOn(entries, true), pieces).at(along, up);
         }
         check(across && pieces.inside(0.452f, up), "the board the hole took most of breaks right across beside it");
         check(!pieces.inside(0.40f, up) && !pieces.inside(0.65f, up), "the boards either side, which the hole did not reach, stand");
