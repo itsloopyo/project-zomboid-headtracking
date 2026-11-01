@@ -205,30 +205,37 @@ final class ShotLights {
         }
     }
 
-    /** Breaks each street lamp on the squares round (column, row) whose light the shot passes. */
+    /**
+     * Breaks each street lamp standing on the squares round (column, row) whose light the shot passes, where its head stands:
+     * a head drawn a level off the post it tops stands on the post (StreetLampPlaces), so a lamp is looked for a level over
+     * and Spans.LEVEL_SQUARES on along x and y, and a level under and as far back, from each square too.
+     */
     private static void streetLampsRound(IsoCell cell, Terrain terrain, ViewCamera.Pose line, float distance, int column, int row) {
         for (int x = column - HEAD_OUT; x <= column + HEAD_OUT; x++) {
             for (int y = row - HEAD_OUT; y <= row + HEAD_OUT; y++) {
                 for (int z = 0; z < LAMP_LEVELS; z++) {
-                    IsoGridSquare square = cell.getGridSquare(x, y, z);
-                    if (square == null) {
-                        continue;
-                    }
-                    PZArrayList<IsoObject> objects = square.getObjects();
-                    for (int i = 0; i < objects.size(); i++) {
-                        if (!(objects.get(i) instanceof IsoLightSwitch lamp) || !lamp.hasLightBulb()) {
+                    float floor = z * ViewCamera.LEVEL_HEIGHT + terrain.height(x + 0.5f, y + 0.5f);
+                    for (int shift = -1; shift <= 1; shift++) {
+                        int on = Spans.LEVEL_SQUARES * shift, drawnX = x - on, drawnY = y - on, drawnZ = z - shift;
+                        IsoGridSquare square = drawnZ < 0 ? null : cell.getGridSquare(drawnX, drawnY, drawnZ);
+                        if (square == null) {
                             continue;
                         }
-                        float[] lights = lightsOf(streetLampOf(lamp));
-                        if (lights == null) {
-                            continue;
-                        }
-                        float floor = z * ViewCamera.LEVEL_HEIGHT + terrain.height(x + 0.5f, y + 0.5f);
-                        for (int k = 0; k < lights.length; k += 3) {
-                            if (passesBy(line.eyeX, line.eyeY, line.eyeUp, line.forwardX, line.forwardY, line.forwardUp, distance,
-                                    x + 0.5f + lights[k], y + 0.5f + lights[k + 1], floor + lights[k + 2])) {
-                                breakLamp(lamp, square, " street");
-                                break;
+                        PZArrayList<IsoObject> objects = square.getObjects();
+                        for (int i = 0; i < objects.size(); i++) {
+                            if (!(objects.get(i) instanceof IsoLightSwitch lamp) || !lamp.hasLightBulb()) {
+                                continue;
+                            }
+                            float[] lights = lightsOf(streetLampOf(lamp));
+                            if (lights == null || StreetLampPlaces.headShift(cell, drawnX, drawnY, drawnZ) != shift) {
+                                continue;
+                            }
+                            for (int k = 0; k < lights.length; k += 3) {
+                                if (passesBy(line.eyeX, line.eyeY, line.eyeUp, line.forwardX, line.forwardY, line.forwardUp, distance,
+                                        x + 0.5f + lights[k], y + 0.5f + lights[k + 1], floor + lights[k + 2])) {
+                                    breakLamp(lamp, square, " street");
+                                    break;
+                                }
                             }
                         }
                     }

@@ -25,6 +25,7 @@ final class OutdoorTests {
         Checks.run("aWarningSignsPlateShowsItsSpriteFacingTheWayItIsPainted", OutdoorTests::aWarningSignsPlateShowsItsSpriteFacingTheWayItIsPainted);
         Checks.run("aBurntFencesPostStandsWhereItsSpritePaintsItsFoot", OutdoorTests::aBurntFencesPostStandsWhereItsSpritePaintsItsFoot);
         Checks.run("aCrossingSignalFacesTheWayItsSpriteSaysAndStandsOnItsPost", OutdoorTests::aCrossingSignalFacesTheWayItsSpriteSaysAndStandsOnItsPost);
+        Checks.run("aStreetLampDrawnInTwoPiecesApartStandsWhole", OutdoorTests::aStreetLampDrawnInTwoPiecesApartStandsWhole);
         Checks.run("aFlagPolesTopStandsOnItsLowerLength", OutdoorTests::aFlagPolesTopStandsOnItsLowerLength);
         Checks.run("aCarParkBarrierIsColouredFromItsBooth", OutdoorTests::aCarParkBarrierIsColouredFromItsBooth);
         Checks.run("aParkingMeterStandsWhereItsSpritePaintsItsPost", OutdoorTests::aParkingMeterStandsWhereItsSpritePaintsItsPost);
@@ -736,5 +737,66 @@ final class OutdoorTests {
         Models.Model model = Models.get("slatted_bin");
         Checks.check(model.width() < 0.8f && model.height() > 0.85f && model.height() < 0.95f, "it is about as wide and as high as the game paints it: " + model.width() + ", " + model.height());
         Checks.check(Outdoors.of("trashcontainers_01_21", "Public Garbage Bin", null, Outdoors.NONE, 2, 1, 0) == null, "one laid on two squares is none");
+    }
+
+    /**
+     * Street lamps the shipped map draws in two pieces apart (StreetLampPlaces): a head a level up and three squares on from
+     * its post (557, 9892), a head over a lower length one square back (391, 9805), a lower length drawn a level up in the air
+     * three squares on from under its head (11336, 6762) and a head drawn on the ground three squares back from its post (12587, 3824).
+     */
+    private static void aStreetLampDrawnInTwoPiecesApartStandsWhole() {
+        java.util.HashMap<String, Integer> drawn = new java.util.HashMap<>();
+        StreetLampPlaces.Drawn map = (x, y, z) -> drawn.getOrDefault(x + "," + y + "," + z, 0);
+        java.util.HashSet<String> floors = new java.util.HashSet<>();
+        Poles.Floored floored = (x, y, z) -> z == 0 || floors.contains(x + "," + y + "," + z);
+        int on = Spans.LEVEL_SQUARES;
+        int[] at = new int[3];
+        // An ordinary lamp: each piece where it is drawn.
+        drawn.put("10,10,0", StreetLampPlaces.LOWER);
+        drawn.put("10,10,1", StreetLampPlaces.HEAD);
+        Checks.check(StreetLampPlaces.headShift(map, floored, 10, 10, 1) == 0 && StreetLampPlaces.lowerStands(map, floored, 10, 10, 0) == StreetLampPlaces.SAME,
+                "a head over its post and the post stand where they are drawn");
+        Checks.check(StreetLampPlaces.headOver(map, floored, 10, 10, 0, at) && at[0] == 10 && at[1] == 10 && at[2] == 1, "and the post meets the head over it");
+        // 557, 9892, 2 over 554, 9889, 0.
+        drawn.put("30,10,0", StreetLampPlaces.LOWER);
+        drawn.put((30 + on) + "," + (10 + on) + ",2", StreetLampPlaces.HEAD);
+        Checks.check(StreetLampPlaces.headShift(map, floored, 30 + on, 10 + on, 2) == -1, "a head drawn a level up and three squares on stands a level down on its post");
+        Checks.check(StreetLampPlaces.lowerStands(map, floored, 30, 10, 0) == StreetLampPlaces.SAME, "which stands where it is drawn");
+        Checks.check(StreetLampPlaces.headOver(map, floored, 30, 10, 0, at) && at[0] == 30 + on && at[1] == 10 + on && at[2] == 2,
+                "and meets the head where that is drawn: " + java.util.Arrays.toString(at));
+        // 391, 9805, 1 over 390, 9804, 0.
+        drawn.put("50,10,0", StreetLampPlaces.LOWER);
+        drawn.put("51,11,1", StreetLampPlaces.HEAD);
+        Checks.check(StreetLampPlaces.lowerStands(map, floored, 50, 10, 0) == StreetLampPlaces.BACK, "a post one square back from the head it holds up stands under it");
+        Checks.check(StreetLampPlaces.headShift(map, floored, 51, 11, 1) == 0, "and the head stands where it is drawn");
+        Checks.check(StreetLampPlaces.headOver(map, floored, 51, 11, 0, at) && at[0] == 51 && at[1] == 11 && at[2] == 1, "the post stood under it meets it");
+        // 11339, 6765, 1 under 11336, 6762, 1, in the air.
+        drawn.put((70 + on) + "," + (10 + on) + ",1", StreetLampPlaces.LOWER);
+        drawn.put("70,10,1", StreetLampPlaces.HEAD);
+        Checks.check(StreetLampPlaces.lowerStands(map, floored, 70 + on, 10 + on, 1) == StreetLampPlaces.UP, "a post drawn a level up in the air stands a level down under its head");
+        Checks.check(StreetLampPlaces.headShift(map, floored, 70, 10, 1) == 0, "and the head stands where it is drawn");
+        Checks.check(StreetLampPlaces.headOver(map, floored, 70, 10, 0, at) && at[0] == 70 && at[1] == 10 && at[2] == 1, "the post stood a level down meets it");
+        // 12587, 3824, 0 and its post 12590, 3827, 0, on the ground.
+        drawn.put((90 + on) + "," + (10 + on) + ",0", StreetLampPlaces.LOWER);
+        drawn.put("90,10,0", StreetLampPlaces.HEAD);
+        Checks.check(StreetLampPlaces.headShift(map, floored, 90, 10, 0) == 1, "a head drawn on the ground three squares back from its post stands on it a level up");
+        Checks.check(StreetLampPlaces.lowerStands(map, floored, 90 + on, 10 + on, 0) == StreetLampPlaces.SAME, "and the post stands where it is drawn");
+        Checks.check(StreetLampPlaces.headOver(map, floored, 90 + on, 10 + on, 0, at) && at[0] == 90 && at[1] == 10 && at[2] == 0, "and meets the head where that is drawn");
+        // A head with no post anywhere stays where it is drawn.
+        drawn.put("110,10,1", StreetLampPlaces.HEAD);
+        Checks.check(StreetLampPlaces.headShift(map, floored, 110, 10, 1) == 0, "a head with no post near stands where it is drawn");
+        // A post with a head of its own takes no other: a head drawn up three squares on from a post that has one stays.
+        drawn.put("130,10,0", StreetLampPlaces.LOWER);
+        drawn.put("130,10,1", StreetLampPlaces.HEAD);
+        drawn.put((130 + on) + "," + (10 + on) + ",2", StreetLampPlaces.HEAD);
+        Checks.check(StreetLampPlaces.headShift(map, floored, 130 + on, 10 + on, 2) == 0, "a post that has its own head takes no head drawn up from it");
+        Poles.Loaded all = (x, y) -> true, butOn = (x, y) -> !(x == 51 && y == 11);
+        Checks.check(!StreetLampPlaces.unsettled(map, all, 50, 10, 0) && StreetLampPlaces.unsettled(map, butOn, 50, 10, 0),
+                "whether a post alone stands under a head one square on waits on that square's map");
+        Checks.check(!StreetLampPlaces.unsettled(map, (x, y) -> false, 10, 10, 1), "a head over its own post waits on nothing");
+        Checks.check(StreetLampPlaces.kindOf(TileRows.sprite("lighting_outdoor_01_16")) == StreetLampPlaces.LOWER
+                && StreetLampPlaces.kindOf(TileRows.sprite("lighting_outdoor_01_10")) == StreetLampPlaces.HEAD
+                && StreetLampPlaces.kindOf(TileRows.sprite("lighting_outdoor_01_on_18")) == StreetLampPlaces.HEAD
+                && StreetLampPlaces.kindOf(TileRows.sprite("lighting_outdoor_01_1")) == 0, "the sheet's lower lengths and heads are known by their place on it");
     }
 }

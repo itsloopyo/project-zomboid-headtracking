@@ -998,6 +998,15 @@ final class FurnishingBuilder {
         int chunkX = x - build.waterLocalX, chunkY = y - build.waterLocalY;
         x += readyOrigin[0];
         y += readyOrigin[1];
+        // A street lamp's head drawn a level off the post it tops stands on the post: see StreetLampPlaces.
+        if (piece.postFoot > 0f) {
+            build.wantsMap |= StreetLampPlaces.unsettled(build.cell, x, y, z);
+            int shift = StreetLampPlaces.headShift(build.cell, x, y, z);
+            x += LINE_OF_SIGHT * shift;
+            y += LINE_OF_SIGHT * shift;
+            z += shift;
+            foot += shift * ViewCamera.LEVEL_HEIGHT;
+        }
         if (piece.onRoof) {
             int down = storeysDown(piece, x, y, z);
             x -= LINE_OF_SIGHT * down;

@@ -239,9 +239,11 @@ final class Lamps {
                 continue;
             }
             int lenses = lights.length / 3;
-            to[0] = lamp.x + 0.5f;
-            to[1] = lamp.y + 0.5f;
-            to[2] = 0f;
+            // A head drawn a level off the post it tops is lit where it stands on the post (StreetLampPlaces).
+            int shift = StreetLampPlaces.headShift(cell, lamp.x, lamp.y, lamp.z);
+            to[0] = lamp.x + 0.5f + Spans.LEVEL_SQUARES * shift;
+            to[1] = lamp.y + 0.5f + Spans.LEVEL_SQUARES * shift;
+            to[2] = shift * ViewCamera.LEVEL_HEIGHT;
             for (int k = 0; k < lights.length; k += 3) {
                 to[0] += lights[k] / lenses;
                 to[1] += lights[k + 1] / lenses;

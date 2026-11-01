@@ -155,9 +155,28 @@ final class PostBuilder {
             a = below.a;
             b = below.b;
         }
+        // A street lamp's lower length drawn off the head it holds up stands under the head: see StreetLampPlaces.
+        boolean lamp = StreetLampPlaces.kindOf(sprite) == StreetLampPlaces.LOWER;
+        int standX = x, standY = y, standZ = z;
+        if (lamp) {
+            build.wantsMap |= StreetLampPlaces.unsettled(build.cell, x, y, z);
+            switch (StreetLampPlaces.lowerStands(build.cell, x, y, z)) {
+                case StreetLampPlaces.BACK -> {
+                    standX++;
+                    standY++;
+                }
+                case StreetLampPlaces.UP -> {
+                    standX -= Spans.LEVEL_SQUARES;
+                    standY -= Spans.LEVEL_SQUARES;
+                    standZ--;
+                }
+                default -> {
+                }
+            }
+        }
         // Read each off its own sprite, a lower length and the model of the upper one on it met
         // a hand to one side and a step thinner or thicker: the lower length is stood to the model.
-        Furniture upper = sprite.getName() != null && sprite.getName().startsWith(Furniture.STREET_LAMPS) ? upperLengthOn(x, y, z + 1) : null;
+        Furniture upper = lamp && StreetLampPlaces.headOver(build.cell, standX, standY, standZ, headAt) ? upperLengthOn(headAt[0], headAt[1], headAt[2]) : null;
         if (upper != null) {
             a = upper.centreX;
             b = upper.centreY;
@@ -170,12 +189,14 @@ final class PostBuilder {
         // Braces lie along the wall or the fence their post stands against, where there is one.
         boolean bracesAlongX = build.edgeWest && a < IN_WALL_LINE && !(build.edgeNorth && b < a) ? false
                 : build.edgeNorth && b < IN_WALL_LINE ? true : post.armsAlongX();
-        build.geometry.standPost(mesh, build.frame, x, y, z, post, a, b, wooden && post.kind == Posts.SQUARE, bracesAlongX,
-                postAt(x, y, z + 1, a, b) == null);
+        build.geometry.standPost(mesh, build.frame, standX, standY, standZ, post, a, b, wooden && post.kind == Posts.SQUARE, bracesAlongX,
+                postAt(standX, standY, standZ + 1, a, b) == null);
         build.boxes++;
         return true;
     }
 
+    /** The square whose head stands over the street lamp's lower length being stood: see StreetLampPlaces.headOver. */
+    private final int[] headAt = new int[3];
     private final float[] run = new float[2], face = new float[2], next = new float[2], walked = new float[2], ownLift = new float[4];
     private float runDepth, runLand;
     private final SpriteGeometry.Frame runFrame = new SpriteGeometry.Frame();
