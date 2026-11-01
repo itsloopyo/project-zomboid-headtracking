@@ -39,6 +39,13 @@ final class Lanes {
      * with no kerb to end it, is a lot or a yard beside the road, and the road ends at that line.
      */
     static final float WIDEST_LANE = 6f;
+    /**
+     * How far either side of a lane's middle its two wheel tracks are worn, in tiles: half the
+     * track of the game's cars, whose wheels are 1.3 tiles apart across (read off a car's wheel
+     * places in the game, as SnowPrints lays its ruts). A car keeps to the middle of its lane,
+     * which is half a lane from the centre line.
+     */
+    static final float WHEELS = 0.65f;
     /** How far apart the lines of one centre may lie: the two of a double line are 0.16 apart. */
     private static final float ONE_CENTRE = 0.5f;
     /** How many white lines one side of a road can hold within its window. */

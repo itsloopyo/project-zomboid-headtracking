@@ -1,6 +1,8 @@
 package com.cameraunlock.zomboid;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 /** Tests of where the lanes of a road run: what Lanes reads off the game's lines and the road's edges, and how a face carries it. */
 final class LanesTests {
@@ -25,6 +27,7 @@ final class LanesTests {
         Checks.run("chunksAgreeOnASquareTheyBothSee", LanesTests::chunksAgreeOnASquareTheyBothSee);
         Checks.run("oneCarriagewayOfADividedRoadHasNoLanes", LanesTests::oneCarriagewayOfADividedRoadHasNoLanes);
         Checks.run("onlyTheGroundOfALaneCarriesIt", LanesTests::onlyTheGroundOfALaneCarriesIt);
+        Checks.run("eachLaneIsWornByACarDrivingInItsMiddle", LanesTests::eachLaneIsWornByACarDrivingInItsMiddle);
         Checks.run("kerbsAndLanesAreWorkedOutAgainWhenALineChanges", LanesTests::kerbsAndLanesAreWorkedOutAgainWhenALineChanges);
     }
 
@@ -210,8 +213,8 @@ final class LanesTests {
         check(lanes(ground, lines, 0, 0) == null, "a yellow line along a carriageway's edge is no centre");
     }
 
-    private static void onlyTheGroundOfALaneCarriesIt() {
-        SpriteGeometry geometry = new SpriteGeometry();
+    /** A frame of the ground for a face laid on it to take its texture from. */
+    private static SpriteGeometry.Frame groundFrame() {
         SpriteGeometry.Frame frame = new SpriteGeometry.Frame();
         frame.scale = 1f;
         frame.originU = SpriteGeometry.PIXELS_ACROSS_PER_TILE;
@@ -222,7 +225,18 @@ final class LanesTests {
         frame.uEnd = 1f;
         frame.vEnd = 1f;
         frame.light(1f, 1f, 1f);
-        LightSiteTests.sited(frame);
+        return LightSiteTests.sited(frame);
+    }
+
+    /** How far from the middle of its lane the shader takes a vertex of a lane's ground to be: see PipelineShaders.WORLD_FRAGMENT_MAIN_GROUND. */
+    private static float fromMiddle(float rootY) {
+        float quarters = (float) Math.floor(rootY / SpriteGeometry.LANE_STEP);
+        return rootY - quarters * SpriteGeometry.LANE_STEP - SpriteGeometry.LANE_BIAS - quarters / SpriteGeometry.LANE_QUARTERS * 0.5f;
+    }
+
+    private static void onlyTheGroundOfALaneCarriesIt() {
+        SpriteGeometry geometry = new SpriteGeometry();
+        SpriteGeometry.Frame frame = groundFrame();
         geometry.lanes = lanes((x, y) -> x >= 0 && x < 8 ? TARMAC : MADE, (x, y) -> twoLane(x, y) | (x == 6 ? bit(SHEET + 8) : 0), 0, 0);
         geometry.laneAt = at(7, 3);
         SpriteGeometry.Mesh ground = new SpriteGeometry.Mesh(), top = new SpriteGeometry.Mesh();
@@ -243,6 +257,74 @@ final class LanesTests {
         }
         for (int at = 0; at < top.floats; at += SpriteGeometry.VERTEX_FLOATS) {
             check(top.vertices[at + SpriteGeometry.ROOT_AT] == SpriteGeometry.NO_ROOT, "the top of a crate on the road is no part of its lane");
+        }
+    }
+
+    /**
+     * Where across a road its ground is worn, for the squares from to to across it, at along: each place where the
+     * shader takes the ground to be by from its lane's middle (fromMiddle), low to high. acrossX for a road along y.
+     */
+    private static List<Float> worn(Squares ground, Squares lines, boolean acrossX, int along, int from, int to, float by) {
+        SpriteGeometry geometry = new SpriteGeometry();
+        SpriteGeometry.Frame frame = groundFrame();
+        List<Float> places = new ArrayList<>();
+        for (int across = from; across < to; across++) {
+            int x = acrossX ? across : along, y = acrossX ? along : across;
+            int originX = Math.floorDiv(x, TILES) * TILES, originY = Math.floorDiv(y, TILES) * TILES;
+            geometry.lanes = lanes(ground, lines, originX, originY);
+            geometry.laneAt = at(x - originX, y - originY);
+            check(geometry.lanes != null && geometry.lanes[geometry.laneAt + Lanes.AXIS] == (acrossX ? Lanes.ACROSS_X : Lanes.ACROSS_Y), x + ", " + y + " is in a lane");
+            SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+            geometry.addFace(mesh, frame, x, y, 0, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
+            float least = Float.MAX_VALUE, most = -Float.MAX_VALUE, near = Float.NaN, far = Float.NaN;
+            for (int at = 0; at < mesh.floats; at += SpriteGeometry.VERTEX_FLOATS) {
+                float place = mesh.vertices[at + (acrossX ? 0 : 1)], middle = fromMiddle(mesh.vertices[at + SpriteGeometry.ROOT_AT + 1]);
+                if (place < least) {
+                    least = place;
+                    near = middle;
+                }
+                if (place > most) {
+                    most = place;
+                    far = middle;
+                }
+            }
+            check(most > least, "the ground of " + x + ", " + y + " is built");
+            if ((near - by) * (far - by) < 0f) {
+                places.add(least + (by - near) / (far - near) * (most - least));
+            }
+        }
+        return places;
+    }
+
+    private static void eachLaneIsWornByACarDrivingInItsMiddle() {
+        // Two lanes as the map lays them south of Muldraugh, each three tiles from the double yellow line to the verge: a road
+        // along y on x 10292 to 10297, its line 20 on x 10294 and 16 on x 10295, and a road along x on y 8863 to 8868, its
+        // line 22 on y 8865 and 18 on y 8866. Traffic keeps to the right, so each lane is driven one way, by cars in its middle.
+        Squares alongY = (x, y) -> x >= 10292 && x < 10298 ? TARMAC : MADE, alongYLines = (x, y) -> x == 10294 ? bit(SHEET + 20) : x == 10295 ? bit(SHEET + 16) : 0;
+        Squares alongX = (x, y) -> y >= 8863 && y < 8869 ? TARMAC : MADE, alongXLines = (x, y) -> y == 8865 ? bit(SHEET + 22) : y == 8866 ? bit(SHEET + 18) : 0;
+        float half = 1.5f, wheels = Lanes.WHEELS;
+        for (boolean acrossX : new boolean[] {true, false}) {
+            String road = acrossX ? "the road along y" : "the road along x";
+            Squares ground = acrossX ? alongY : alongX, lines = acrossX ? alongYLines : alongXLines;
+            int along = acrossX ? 8810 : 10316, from = acrossX ? 10292 : 8863, to = from + 6;
+            float[] own = lanes(ground, lines, Math.floorDiv(acrossX ? 10294 : along, TILES) * TILES, Math.floorDiv(acrossX ? along : 8865, TILES) * TILES);
+            float centre = own[at(acrossX ? 10294 % TILES : along % TILES, acrossX ? along % TILES : 8865 % TILES) + Lanes.CENTRE];
+            check(Math.abs(centre - (acrossX ? 10295f : 8866f)) < 0.01f, road + " is driven either side of its middle, " + centre);
+            List<Float> oil = worn(ground, lines, acrossX, along, from, to, 0f);
+            List<Float> tracks = new ArrayList<>(worn(ground, lines, acrossX, along, from, to, wheels));
+            tracks.addAll(worn(ground, lines, acrossX, along, from, to, -wheels));
+            tracks.sort(null);
+            float[] oilAt = {centre - half, centre + half};
+            float[] tracksAt = {centre - half - wheels, centre - half + wheels, centre + half - wheels, centre + half + wheels};
+            check(oil.size() == 2 && tracks.size() == 4, road + " has an oil band and two wheel tracks a lane, " + oil + " " + tracks);
+            for (int k = 0; k < 2; k++) {
+                check(Math.abs(oil.get(k) - oilAt[k]) < 0.02f, road + ": the oil down a lane's middle, half a lane from the centre line, " + oil.get(k) + " for " + oilAt[k]);
+            }
+            for (int k = 0; k < 4; k++) {
+                check(Math.abs(tracks.get(k) - tracksAt[k]) < 0.02f, road + ": a wheel track " + wheels + " from its lane's middle, " + tracks.get(k) + " for " + tracksAt[k]);
+            }
+            check(tracks.get(2) - tracks.get(1) > 2f * wheels, road + ": the inner tracks of the two lanes are further apart than one car's wheels, so no car drives astride the line, "
+                    + tracks);
         }
     }
 

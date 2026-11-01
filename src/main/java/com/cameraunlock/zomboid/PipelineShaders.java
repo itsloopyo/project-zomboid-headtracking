@@ -3672,7 +3672,7 @@ final class PipelineShaders {
     /** What the picture reads lane wear by: see SpriteGeometry.LANE. */
     static final String LANE_WEAR = "const float LANE = " + SpriteGeometry.LANE + ", LANE_ALONG_X = " + SpriteGeometry.LANE_ALONG_X
             + ", LANE_STEP = " + SpriteGeometry.LANE_STEP + ", LANE_QUARTERS = " + SpriteGeometry.LANE_QUARTERS + ", LANE_BIAS = " + SpriteGeometry.LANE_BIAS
-            + ", LANE_NARROWEST = " + Lanes.NARROWEST + ";\n";
+            + ", LANE_NARROWEST = " + Lanes.NARROWEST + ", LANE_WHEELS = " + Lanes.WHEELS + ";\n";
 
     /** Main from the eye's line to the open ground's grain: the whole of it in one constant is longer than a class file can hold. */
     static final String WORLD_FRAGMENT_MAIN_GROUND = LANE_WEAR + """
@@ -3950,7 +3950,7 @@ final class PipelineShaders {
                             float fromMiddle = vRoot.y - quarters * LANE_STEP - LANE_BIAS - laneWidth * 0.5;
                             float worn = clamp(LANE - (alongX ? LANE_ALONG_X : 0.0) - vRoot.x, 0.0, 1.0) * step(LANE_NARROWEST, laneWidth)
                                     * (0.55 + 0.45 * patches(run * vec2(0.08, 0.5) + 41.0));
-                            float wheels = (abs(fromMiddle) - 0.8) / 0.24;
+                            float wheels = (abs(fromMiddle) - LANE_WHEELS) / 0.24;
                             shade *= 1.0 - 0.24 * worn * exp(-fromMiddle * fromMiddle / 0.1) * (0.55 + 0.45 * patches(p * 1.3 + 23.0));
                             shade *= 1.0 + 0.1 * worn * exp(-wheels * wheels) * smoothstep(1.8, 2.6, laneWidth);
                         }
