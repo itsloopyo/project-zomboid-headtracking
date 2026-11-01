@@ -66,7 +66,7 @@ final class DevScenes {
 
     private static final Scene[] SCENES = {
             new Scene("Door", "E opens it, E again closes it", true, 13f, STREET_X, STREET_Y, DOOR),
-            new Scene("Window", "E opens it, E on the open window climbs through", true, 13f, STREET_X, STREET_Y, WINDOW),
+            new Scene("Window", "E opens it, E held on the open window climbs through", true, 13f, STREET_X, STREET_Y, WINDOW),
             new Scene("Light switch", "E switches the room's light", true, 20f, STREET_X, STREET_Y, """
                     local s,sq=DS.near(function(o,q) return instanceof(o,"IsoLightSwitch") and q:getRoom()~=nil end, 30)
                     if not s then error("no light switch in a room within 30 tiles") end
