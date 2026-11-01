@@ -20,9 +20,9 @@ import zombie.iso.LosUtil;
  * What the isometric view shows all round the player and first person leaves out: who hit them,
  * and a zombie close behind. A hit, or a zombie's attack on the player begun, is marked by a red
  * arc at the edge of the picture on the side the attacker is, which follows them as the view
- * turns and fades out over HitArcs.FADE_SECONDS. A zombie within HitArcs.NEAR_TILES out of view,
- * with nothing between it and the player that would stop it reaching them, puts a faint glow on
- * that edge, stronger the nearer it is and the further round behind.
+ * turns and fades out over HitArcs.FADE_SECONDS. A zombie within HitArcs.NEAR_TILES out of view
+ * that the game shows the player, with nothing between them in its way, puts a faint glow on that
+ * edge, stronger the nearer it is and the further round behind.
  *
  * Where players can fight, another player who hit the viewer is marked only while the game
  * itself shows them to the viewer (Online), as it would draw them in its own view.
@@ -40,7 +40,7 @@ final class HitDirection {
     /** How far out the ellipse they lie on reaches, as a share of half the picture each way. */
     private static final float REACH = 0.94f;
     private static final int SIDES = 24, DESIGN_HEIGHT = 1080;
-    /** Who the game shows another player to: the share of them drawn (WorldScene, CHARACTER_SHOWN_ALPHA). */
+    /** Whether the game shows a character to the viewer: the share of them it draws (WorldScene, CHARACTER_SHOWN_ALPHA). */
     private static final float SHOWN_ALPHA = 0.5f;
 
     private static final String VERTEX = """
@@ -166,7 +166,8 @@ final class HitDirection {
                 }
             }
             float tiles = (float) Math.hypot(toX, toY);
-            if (tiles > HitArcs.NEAR_TILES || (int) Math.floor(zombie.getZ()) != floor || zombie.isFakeDead()) {
+            // The game's own view shows the player no more than this: a zombie it has faded out, in the dark or out of its sight, gives no glow.
+            if (tiles > HitArcs.NEAR_TILES || (int) Math.floor(zombie.getZ()) != floor || zombie.isFakeDead() || zombie.getAlpha(index) <= SHOWN_ALPHA) {
                 continue;
             }
             float bearing = HitArcs.bearing(eye.forwardX, eye.forwardY, eye.upX, eye.upY, eye.rightX, eye.rightY, toX, toY);
