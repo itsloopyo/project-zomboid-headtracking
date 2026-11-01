@@ -104,7 +104,10 @@ final class TimedActsTests {
                             }
                         }
                     }
-                    check(working[0] > 0, "the right hand is at work in every way of working: kind " + kind);
+                    // A drink the game puts in the left hand alone is drunk from the left.
+                    boolean leftDrinks = kind == TimedActs.DRINK && items == 2;
+                    check(leftDrinks ? working[1] > 0 && working[0] == 0 : working[0] > 0,
+                            "the right hand is at work in every way of working, the left alone for a drink in the left: kind " + kind + " items " + items);
                     for (int side = 0; side < 2; side++) {
                         check(working[side] == 0 || seen[side] >= working[side] * 0.6f,
                                 String.format(Locale.ROOT, "kind %d items %d low %d: the %s hand at work is in the picture most of the time: %d of %d", kind, items, low,

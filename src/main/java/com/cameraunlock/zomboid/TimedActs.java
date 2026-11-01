@@ -123,10 +123,14 @@ final class TimedActs {
                 }
             }
             case DRINK -> {
-                // Up to the mouth and tipped, and kept there gulping.
+                // Up to the mouth and tipped, and kept there gulping, in the hand the game puts the drink in: the left, from
+                // a bottle (ISDrinkFluidAction), with nothing in the right.
                 float lift = smooth(t / 0.6f);
-                set(right, lerp(new float[] {0.11f, -0.16f, -0.37f}, new float[] {0.03f, -0.10f, -0.22f}, lift), HANDSHAKE_FINGERS, HANDSHAKE_PALM, GRIP);
-                tip(right, X, lift * (float) Math.toRadians(55 + 8 * Math.sin(2 * Math.PI * t / 1.1)));
+                boolean inLeft = leftItem && !rightItem;
+                Hand drinking = inLeft ? left : right;
+                float[] at = lerp(new float[] {0.11f, -0.16f, -0.37f}, new float[] {0.03f, -0.10f, -0.22f}, lift);
+                set(drinking, inLeft ? mirror(at) : at, inLeft ? mirror(HANDSHAKE_FINGERS) : HANDSHAKE_FINGERS, inLeft ? mirror(HANDSHAKE_PALM) : HANDSHAKE_PALM, GRIP);
+                tip(drinking, X, lift * (float) Math.toRadians(55 + 8 * Math.sin(2 * Math.PI * t / 1.1)));
             }
             case READ -> {
                 // The book open in both hands, and a page turned by the right every 6 s.
