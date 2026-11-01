@@ -335,7 +335,8 @@ final class CentreUse {
     /** Whether the first player has the game's dismantling cursor up, which a click on a workstation is for. */
     private static boolean dismantling() {
         KahluaTable drag = IsoWorld.instance.currentCell.getDrag(0);
-        return drag != null && "ISDestroyCursor".equals(drag.rawget("Type"));
+        // A cursor's Type is its class's (ISBaseObject:derive), met through the metatable as the game's own drag.Type is.
+        return drag != null && "ISDestroyCursor".equals(UIManager.getDefaultThread().tableget(drag, "Type"));
     }
 
     private boolean opensWindow(IsoObject master, IsoGridSquare from, IsoPlayer player) {
