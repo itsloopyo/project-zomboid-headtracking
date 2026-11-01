@@ -299,6 +299,56 @@ final class WireBuilder {
     }
 
     /**
+     * The length of a traffic signal's arm over a piece's square, and the signal the piece
+     * carries: see MastArms. Every piece stands on the land under the post's axis, so the
+     * lengths of one arm meet however the land lies under them.
+     */
+    void addMastArm(MastArms.Piece piece, int x, int y, int z) {
+        float level = ViewCamera.LEVEL_HEIGHT;
+        float axisX = x - piece.alongX() * piece.out() + MastArms.POST_A, axisY = y - piece.alongY() * piece.out() + MastArms.POST_B;
+        float floor = z * level + build.landAt(axisX, axisY);
+        SpriteGeometry.Mesh iron = build.solid.get(WorldScene.PLAIN, WallSides.key(MAST_PAINT, MAST_PAINT, MAST_PAINT, WallSides.FLAT));
+        iron.open = build.frame.open;
+        iron.sway = 0f;
+        iron.lightFlat(build.frame);
+        float red = build.frame.red, green = build.frame.green, blue = build.frame.blue;
+        for (float out = piece.from(); out < piece.to() - 1e-4f; ) {
+            float next = Math.min(piece.to(), (float) Math.floor(out / MastArms.KNOT + 1e-4f) * MastArms.KNOT + MastArms.KNOT);
+            WorldScene.set(poleFrom, 0, axisX + piece.alongX() * out, axisY + piece.alongY() * out, floor + MastArms.high(out) * level);
+            WorldScene.set(poleTo, 0, axisX + piece.alongX() * next, axisY + piece.alongY() * next, floor + MastArms.high(next) * level);
+            build.geometry.addStrut(iron, poleFrom, poleTo, MastArms.ARM_HALF, 0f, 0f, red, green, blue);
+            out = next;
+        }
+        build.boxes++;
+        float signal = piece.signal();
+        if (Float.isNaN(signal)) {
+            return;
+        }
+        float facesX = piece.facesX(), facesY = piece.facesY();
+        float middleX = axisX + piece.alongX() * signal + facesX * MastArms.HOUSING_PROUD, middleY = axisY + piece.alongY() * signal + facesY * MastArms.HOUSING_PROUD;
+        float foot = floor + MastArms.HOUSING_FOOT * level, top = floor + MastArms.HOUSING_TOP * level;
+        WorldScene.set(poleFrom, 0, middleX, middleY, foot);
+        WorldScene.set(poleTo, 0, middleX, middleY, top);
+        build.geometry.addStrut(iron, poleFrom, poleTo, MastArms.HOUSING_HALF, 0f, 0f, red, green, blue);
+        float face = MastArms.HOUSING_HALF, proud = face + MastArms.LENS_PROUD;
+        for (int lens = 0; lens < LENSES.length; lens++) {
+            SpriteGeometry.Mesh glass = build.solid.get(WorldScene.PLAIN, WallSides.key(LENSES[lens][0], LENSES[lens][1], LENSES[lens][2], WallSides.FLAT));
+            glass.open = build.frame.open;
+            glass.sway = 0f;
+            glass.lightFlat(build.frame);
+            float up = top - (top - foot) * (2 * lens + 1) / (2f * LENSES.length);
+            WorldScene.set(poleFrom, 0, middleX + facesX * face, middleY + facesY * face, up);
+            WorldScene.set(poleTo, 0, middleX + facesX * proud, middleY + facesY * proud, up);
+            build.geometry.addStrut(glass, poleFrom, poleTo, MastArms.LENS_HALF, 0f, 0f, red, green, blue);
+        }
+    }
+
+    /** The grey of a signal's arm and housing, as the game paints them. */
+    private static final float MAST_PAINT = 0.13f;
+    /** The unlit lenses of a signal, top to bottom: red, amber and green glass. */
+    private static final float[][] LENSES = {{0.36f, 0.07f, 0.05f}, {0.42f, 0.28f, 0.05f}, {0.07f, 0.3f, 0.18f}};
+
+    /**
      * A wire from one point to another: two strips crossed, so that it has a width from below
      * as from the side. A wire has no texel, and where a texel's place is each vertex carries
      * what the picture moves it by as it draws, see wireOff in PipelineShaders: the way

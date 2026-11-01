@@ -9703,6 +9703,12 @@ final class WorldScene {
                 return;
             }
 
+            MastArms.Piece mastArm = Own.furniture() ? MastArms.of(sprite.getName()) : null;
+            if (mastArm != null) {
+                wireBuilder.addMastArm(mastArm, x, y, z);
+                return;
+            }
+
             // Overhead wires. The game hangs them as sprites on squares of air two floors up, each
             // the lengths of wire that cross its square, painted as its view sees them.
             if (z > 0 && hangsInAir && kind.wire && wireBuilder.addWires(texture, sprite.getName(), x, y, z)) {

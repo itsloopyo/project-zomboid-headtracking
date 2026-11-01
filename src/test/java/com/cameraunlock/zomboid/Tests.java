@@ -268,6 +268,7 @@ public final class Tests {
         Checks.run("BrokenFenceTests", BrokenFenceTests::run);
         Checks.run("FenceTests", FenceTests::run);
         Checks.run("PylonWireTests", PylonWireTests::run);
+        Checks.run("MastArmTests", MastArmTests::run);
         Checks.run("QualityTests", QualityTests::run);
         Checks.run("GlFloorTests", GlFloorTests::run);
         Checks.run("DrawDistanceTests", DrawDistanceTests::run);
