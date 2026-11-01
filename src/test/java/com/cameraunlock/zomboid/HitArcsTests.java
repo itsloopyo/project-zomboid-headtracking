@@ -15,6 +15,7 @@ final class HitArcsTests {
         Checks.run("lyingDownTheTopOfThePictureIsAhead", HitArcsTests::lyingDownTheTopOfThePictureIsAhead);
         Checks.run("lyingDownTheTopAndBottomChangePlacesOnceAndOtherwiseMoveSmoothly", HitArcsTests::lyingDownTheTopAndBottomChangePlacesOnceAndOtherwiseMoveSmoothly);
         Checks.run("aMarkIsNamedForTheEdgeItIsDrawnNearest", HitArcsTests::aMarkIsNamedForTheEdgeItIsDrawnNearest);
+        Checks.run("aLineOfSightGoesSquareBySquareAsTheGamesDoes", HitArcsTests::aLineOfSightGoesSquareBySquareAsTheGamesDoes);
         Checks.run("aHitFadesOutOverASecondAndAHalf", HitArcsTests::aHitFadesOutOverASecondAndAHalf);
         Checks.run("aCloseZombieGlowsOnlyOutOfViewAndNear", HitArcsTests::aCloseZombieGlowsOnlyOutOfViewAndNear);
         Checks.run("aCloseZombieGlowsMostBehindAndNear", HitArcsTests::aCloseZombieGlowsMostBehindAndNear);
@@ -192,6 +193,35 @@ final class HitArcsTests {
         }
         check(HitArcs.edge((float) Math.toRadians(150)) == HitArcs.BOTTOM && HitArcs.edge((float) Math.toRadians(120)) == HitArcs.RIGHT,
                 "behind and to the right is drawn at the bottom, more to the right than behind at the right");
+    }
+
+    private static String squares(int fromX, int fromY, int toX, int toY) {
+        int[] xs = new int[8], ys = new int[8];
+        StringBuilder line = new StringBuilder();
+        for (int i = 0, count = HitArcs.lineSquares(fromX, fromY, toX, toY, xs, ys); i < count; i++) {
+            line.append(i == 0 ? "" : " ").append(xs[i]).append(',').append(ys[i]);
+        }
+        return line.toString();
+    }
+
+    private static void aLineOfSightGoesSquareBySquareAsTheGamesDoes() {
+        check(squares(0, 0, 3, 0).equals("1,0 2,0 3,0"), "straight along x: " + squares(0, 0, 3, 0));
+        check(squares(0, 0, 2, 1).equals("1,1 2,1"), "two along and one across goes across the corner first, from the middle of the square: " + squares(0, 0, 2, 1));
+        check(squares(0, 0, 1, 2).equals("1,1 1,2"), "and the same along y: " + squares(0, 0, 1, 2));
+        check(squares(0, 0, -2, -2).equals("-1,-1 -2,-2"), "as far each way goes along y, corner to corner: " + squares(0, 0, -2, -2));
+        check(squares(5, 5, 5, 5).isEmpty(), "on one square, no edge is crossed");
+        for (int toX = -3; toX <= 3; toX++) {
+            for (int toY = -3; toY <= 3; toY++) {
+                int[] xs = new int[8], ys = new int[8];
+                int count = HitArcs.lineSquares(10, 20, 10 + toX, 20 + toY, xs, ys);
+                boolean steps = count == Math.max(Math.abs(toX), Math.abs(toY));
+                for (int i = 0, x = 10, y = 20; i < count; x = xs[i], y = ys[i], i++) {
+                    steps &= Math.abs(xs[i] - x) <= 1 && Math.abs(ys[i] - y) <= 1 && (xs[i] != x || ys[i] != y);
+                }
+                check(steps && (count == 0 || xs[count - 1] == 10 + toX && ys[count - 1] == 20 + toY),
+                        "to " + toX + "," + toY + " each step goes to a square next to the last, and the last is the end");
+            }
+        }
     }
 
     private static void aHitFadesOutOverASecondAndAHalf() {

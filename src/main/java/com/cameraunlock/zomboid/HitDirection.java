@@ -317,42 +317,46 @@ final class HitDirection {
         filling = (filling + 1) % buffers.length;
     }
 
+    /** The squares of a line between a zombie and the player, from HitArcs.lineSquares: the glow reaches two tiles, so a few. */
+    private static final int[] LINE_X = new int[8], LINE_Y = new int[8];
+
     /**
      * Whether something between the player and a zombie stands in its way: a wall, a shut door,
      * which the game's own attack also stops at (AttackState), or a window that is shut and
-     * whole, or barricaded. The game's line test says only that a window is on the way, open,
-     * shut or broken alike (IsoWindow.TestVision), so the squares along the line are walked, one
-     * edge at a time, and each window asked whether it is shut (IsoWindow.isBlocked).
+     * whole, or barricaded. Each edge the game's line of sight crosses is asked on its own
+     * (IsoGridSquare.testVisionAdjacent, as LosUtil.lineClear asks it): lineClear keeps the first
+     * window it meets as its answer and so passes a shut door beyond it, and its answer for a
+     * window is the same open, shut or broken (IsoWindow.TestVision).
      */
     private static boolean blocked(IsoCell cell, IsoPlayer player, IsoZombie zombie) {
         int fromX = (int) Math.floor(zombie.getX()), fromY = (int) Math.floor(zombie.getY()), floor = (int) Math.floor(zombie.getZ());
-        int toX = (int) Math.floor(player.getX()), toY = (int) Math.floor(player.getY());
-        LosUtil.TestResults line = LosUtil.lineClear(cell, fromX, fromY, floor, toX, toY, (int) Math.floor(player.getZ()), false);
-        if (line == LosUtil.TestResults.Blocked || line == LosUtil.TestResults.ClearThroughClosedDoor) {
-            return true;
-        }
-        if (line != LosUtil.TestResults.ClearThroughWindow) {
-            return false;
-        }
-        float startX = zombie.getX(), startY = zombie.getY(), alongX = player.getX() - startX, alongY = player.getY() - startY;
-        int x = fromX, y = fromY, stepX = toX > x ? 1 : -1, stepY = toY > y ? 1 : -1;
-        IsoGridSquare at = cell.getGridSquare(x, y, floor);
-        for (int steps = Math.abs(toX - fromX) + Math.abs(toY - fromY); steps > 0; steps--) {
-            // The next edge the line crosses: the nearer of the next column's and the next row's, as a share of the way along.
-            float acrossX = x == toX ? Float.MAX_VALUE : (x + (stepX > 0 ? 1 : 0) - startX) / alongX;
-            float acrossY = y == toY ? Float.MAX_VALUE : (y + (stepY > 0 ? 1 : 0) - startY) / alongY;
-            if (acrossX < acrossY) {
-                x += stepX;
-            } else {
-                y += stepY;
-            }
-            IsoGridSquare next = cell.getGridSquare(x, y, floor);
-            if (at != null && next != null && at.isWindowBlockedTo(next)) {
-                return true;
+        int squares = HitArcs.lineSquares(fromX, fromY, (int) Math.floor(player.getX()), (int) Math.floor(player.getY()), LINE_X, LINE_Y);
+        IsoGridSquare at = cell.getGridSquare(fromX, fromY, floor);
+        for (int i = 0; i < squares; i++) {
+            IsoGridSquare next = cell.getGridSquare(LINE_X[i], LINE_Y[i], floor);
+            if (at != null && next != null) {
+                LosUtil.TestResults edge = next.testVisionAdjacent(at.getX() - next.getX(), at.getY() - next.getY(), 0, true, false);
+                if (edge == LosUtil.TestResults.Blocked || edge == LosUtil.TestResults.ClearThroughClosedDoor
+                        || edge == LosUtil.TestResults.ClearThroughWindow && shutWindowBetween(cell, at, next)) {
+                    return true;
+                }
             }
             at = next;
         }
         return false;
+    }
+
+    /**
+     * Whether a window between two squares next to each other is shut and whole, or barricaded
+     * (IsoWindow.isBlocked). A step across a corner may pass a window either way round it, and
+     * isWindowBlockedTo asks only squares that share an edge, so both ways are asked.
+     */
+    private static boolean shutWindowBetween(IsoCell cell, IsoGridSquare from, IsoGridSquare to) {
+        if (from.getX() == to.getX() || from.getY() == to.getY()) {
+            return from.isWindowBlockedTo(to);
+        }
+        IsoGridSquare a = cell.getGridSquare(from.getX(), to.getY(), from.getZ()), b = cell.getGridSquare(to.getX(), from.getY(), from.getZ());
+        return a != null && (from.isWindowBlockedTo(a) || a.isWindowBlockedTo(to)) || b != null && (from.isWindowBlockedTo(b) || b.isWindowBlockedTo(to));
     }
 
     /** How often the hotbar is looked up through the game's Lua while arcs show, in nanoseconds: the game moves it only as it lays the screen out again. */

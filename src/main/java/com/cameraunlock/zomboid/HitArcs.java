@@ -89,6 +89,38 @@ final class HitArcs {
         return (bearing >= 0f ? (float) Math.PI : (float) -Math.PI) - bearing;
     }
 
+    /**
+     * The squares a line of sight on one floor passes into after its first, as the game's
+     * LosUtil.lineClear walks it: from the middle of the first square, one square at a time along
+     * the axis it runs further on, y where both are as far, with the other axis taken from where
+     * the line has got to, so a step can go diagonally across a corner. Written to xs and ys.
+     *
+     * @return how many
+     */
+    static int lineSquares(int fromX, int fromY, int toX, int toY, int[] xs, int[] ys) {
+        int alongX = toX - fromX, alongY = toY - fromY, count = 0;
+        if (Math.abs(alongX) > Math.abs(alongY)) {
+            int step = alongX > 0 ? 1 : -1;
+            float slope = (float) alongY / alongX * step, y = 0.5f + fromY;
+            for (int x = fromX; x != toX; count++) {
+                x += step;
+                y += slope;
+                xs[count] = x;
+                ys[count] = (int) Math.floor(y);
+            }
+        } else if (alongY != 0) {
+            int step = alongY > 0 ? 1 : -1;
+            float slope = (float) alongX / alongY * step, x = 0.5f + fromX;
+            for (int y = fromY; y != toY; count++) {
+                y += step;
+                x += slope;
+                xs[count] = (int) Math.floor(x);
+                ys[count] = y;
+            }
+        }
+        return count;
+    }
+
     /** Across and up the picture, -1 to 1, the way a bearing points from its middle. */
     static float across(float bearing) {
         return (float) Math.sin(bearing);
