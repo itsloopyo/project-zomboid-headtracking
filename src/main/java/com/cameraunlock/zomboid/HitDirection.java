@@ -117,7 +117,7 @@ final class HitDirection {
         if (!DevBuild.ON || saidFrom == null) {
             return;
         }
-        float bearing = HitArcs.bearing(saidFrom.forwardX, saidFrom.forwardY, saidFrom.rightX, saidFrom.rightY,
+        float bearing = HitArcs.bearing(saidFrom.forwardX, saidFrom.forwardY, saidFrom.upX, saidFrom.upY, saidFrom.rightX, saidFrom.rightY,
                 attacker.getX() - saidFrom.eyeX, attacker.getY() - saidFrom.eyeY);
         Log.info(String.format(Locale.ROOT, "hit direction, player %d: %s %s %d, %.2f tiles off, bearing %.0f degrees, the %s edge",
                 saidFor.getIndex() + 1, what, kind(attacker), attacker.getID(), (float) Math.hypot(attacker.getX() - saidFrom.eyeX, attacker.getY() - saidFrom.eyeY),
@@ -171,7 +171,7 @@ final class HitDirection {
             if (tiles > HitArcs.NEAR_TILES || (int) Math.floor(zombie.getZ()) != floor) {
                 continue;
             }
-            float bearing = HitArcs.bearing(eye.forwardX, eye.forwardY, eye.rightX, eye.rightY, toX, toY);
+            float bearing = HitArcs.bearing(eye.forwardX, eye.forwardY, eye.upX, eye.upY, eye.rightX, eye.rightY, toX, toY);
             float strength = HitArcs.near(tiles, bearing, tanHalfWide);
             if (strength <= 0f || glows == MOST_GLOWS || blocked(cell, player, zombie)) {
                 continue;
@@ -212,11 +212,9 @@ final class HitDirection {
                     && (other.isInvisible() || contested && other.getAlpha(index) <= SHOWN_ALPHA)) {
                 continue;
             }
-            float bearing = HitArcs.bearing(eye.forwardX, eye.forwardY, eye.rightX, eye.rightY, attacker.getX() - eye.eyeX, attacker.getY() - eye.eyeY);
-            if (!Float.isNaN(bearing)) {
-                bearings[marks] = bearing;
-                strengths[marks++] = fade;
-            }
+            float bearing = HitArcs.bearing(eye.forwardX, eye.forwardY, eye.upX, eye.upY, eye.rightX, eye.rightY, attacker.getX() - eye.eyeX, attacker.getY() - eye.eyeY);
+            bearings[marks] = bearing;
+            strengths[marks++] = fade;
         }
         int hits = marks;
         System.arraycopy(glowBearings, 0, bearings, marks, glows);

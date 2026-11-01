@@ -22,20 +22,26 @@ final class HitArcs {
     static final int TOP = 0, RIGHT = 1, BOTTOM = 2, LEFT = 3;
     static final String[] EDGE_NAMES = {"top", "right", "bottom", "left"};
 
+    /** Below this squared length of the view's facing laid on the map, the view looks too near straight up or down to face a way by it. */
+    static final float STEEP = 0.04f;
+
     /**
-     * The bearing of a place from the eye, in radians from minus to plus a half turn, or not a
-     * number when the view looks straight up or down and faces no way on the map.
+     * The bearing of a place from the eye, in radians from minus to plus a half turn. Ahead is
+     * the way the view faces laid on the map, and the right a quarter turn clockwise from it on
+     * the map, so a roll or a pitch of the head does not skew it. A view that looks nearly
+     * straight up or down, lying on the back or face down, faces no way on the map: ahead is
+     * then the way the top of the picture points and the right the way the picture's right does,
+     * which with the facing that steep both lie along the map. Facing, up and right are at right
+     * angles, so where the facing is too steep to use, the other two are long enough.
      *
-     * @param forwardX the way the view faces and the way the picture's right is, on the map
+     * @param forwardX the way the view faces, the top of the picture points and the picture's right points, on the map
      * @param toX      the place less the eye, on the map
      */
-    static float bearing(float forwardX, float forwardY, float rightX, float rightY, float toX, float toY) {
-        float forward = (float) Math.hypot(forwardX, forwardY), right = (float) Math.hypot(rightX, rightY);
-        if (forward < 1e-4f || right < 1e-4f) {
-            return Float.NaN;
-        }
-        float ahead = (toX * forwardX + toY * forwardY) / forward, across = (toX * rightX + toY * rightY) / right;
-        return (float) Math.atan2(across, ahead);
+    static float bearing(float forwardX, float forwardY, float upX, float upY, float rightX, float rightY, float toX, float toY) {
+        boolean steep = forwardX * forwardX + forwardY * forwardY < STEEP;
+        float aheadX = steep ? upX : forwardX, aheadY = steep ? upY : forwardY;
+        float acrossX = steep ? rightX : -forwardY, acrossY = steep ? rightY : forwardX;
+        return (float) Math.atan2(toX * acrossX + toY * acrossY, toX * aheadX + toY * aheadY);
     }
 
     /** Across and up the picture, -1 to 1, the way a bearing points from its middle. */
