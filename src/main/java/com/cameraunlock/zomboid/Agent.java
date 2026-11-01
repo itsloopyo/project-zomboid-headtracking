@@ -256,6 +256,11 @@ public final class Agent {
     /** Puts the main menu's line saying why the mod is not running into the game's code, and nothing else. */
     private static void sayNotRunning(Instrumentation instrumentation, String why) {
         NotRunning.say(why);
+        putMenuLineIn(instrumentation);
+    }
+
+    /** Puts the call that draws NotRunning's line on the main menu into the game's code. */
+    private static void putMenuLineIn(Instrumentation instrumentation) {
         String menu = "zombie/gameStates/MainScreenState";
         PatchTransformer transformer = new PatchTransformer(List.of(after(new CallSite.Method(menu, "render", "()V"),
                 new CallSite.Method("zombie/modding/ActiveMods", "renderUI", "()V"), new CallSite.Method(NOT_RUNNING, "draw", "()V"))));
@@ -475,13 +480,21 @@ public final class Agent {
             // nothing else puts the reason in this log: it would end here without one.
             Log.error("the mod could not start", failure);
             try {
-                sayNotRunning(instrumentation, "it hit an error as it started");
+                if (patchesLeftIn == 0) {
+                    NotRunning.say("it hit an error as it started");
+                } else {
+                    NotRunning.stoppedPartWay(patchesLeftIn);
+                }
+                putMenuLineIn(instrumentation);
             } catch (RuntimeException | Error saying) {
                 failure.addSuppressed(saying);
             }
             throw failure;
         }
     }
+
+    /** How many patches were in the game's code when a start that failed let go of its transformers: see begin. */
+    private static int patchesLeftIn;
 
     private static boolean start(Path gameDirectory, Instrumentation instrumentation) throws IOException {
         Links.Result links = Links.check();
@@ -524,6 +537,13 @@ public final class Agent {
             // begin says the mod could not start: what it registered stops patching the classes still to load, and its port and watch are let go.
             if (itemLookupGuard != null) {
                 instrumentation.removeTransformer(itemLookupGuard);
+            }
+            // A class the game loaded on another thread meanwhile keeps the patches it was given: removing a transformer takes nothing out.
+            for (PatchTransformer transformer : transformers) {
+                patchesLeftIn += transformer.appliedCount();
+            }
+            if (patchesLeftIn > 0) {
+                Log.info(patchesLeftIn + " of the mod's patches went into the game's code before it stopped, and stay there until the game is closed");
             }
             transformers.forEach(instrumentation::removeTransformer);
             transformers.clear();
@@ -2074,6 +2094,11 @@ public final class Agent {
 
         void leaveOut(String why) {
             leftOut = why;
+        }
+
+        /** How many of these patches are in the game's code. */
+        int appliedCount() {
+            return applied.size();
         }
 
         /** Marks the patches of a class the JVM refused to take back as not in the game's code. */

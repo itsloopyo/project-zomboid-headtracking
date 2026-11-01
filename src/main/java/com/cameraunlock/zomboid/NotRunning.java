@@ -7,7 +7,8 @@ import zombie.ui.UIFont;
 /**
  * The line the main menu shows when the mod stayed out of the game, so a player whose mod does
  * nothing is told why without reading the log. The only patch in the game's code then is the
- * one that calls draw.
+ * one that calls draw, but for those a start that failed part way had already put in, which
+ * the line says.
  */
 public final class NotRunning {
     private static volatile String said;
@@ -17,6 +18,11 @@ public final class NotRunning {
 
     static void say(String why) {
         said = "Project Zomboid Head Tracking is not running: " + why + ". " + Log.FILE_NAME + " says more";
+    }
+
+    static void stoppedPartWay(int patches) {
+        said = "Project Zomboid Head Tracking hit an error as it started and stopped, with " + patches + " of its patches already in the game's code. "
+                + Log.FILE_NAME + " says more";
     }
 
     /** Called from MainScreenState.render after the game has drawn its mods' UI. */
