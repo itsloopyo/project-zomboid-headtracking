@@ -119,6 +119,15 @@ enum Part {
                     + "your surroundings kept up as you move. People and vehicles are not in it. In Custom it needs ShadingAndLight and\n"
                     + "Reflections on and ReflectionScale at 0.75 or more. false: they mirror only what is on the screen, and the sky where\n"
                     + "that runs out."),
+    WATCH_GLANCE("FirstPerson", "WatchGlance", true, false,
+            "true: in first person, with a watch on a wrist and that hand free, standing still, looking down and then to that\n"
+                    + "side, by head tracking or the mouse, raises the arm and turns the wrist so you can read the watch: the game's time,\n"
+                    + "in figures on a digital watch and as hands on any other. Not while aiming or attacking. false: the arm stays down."),
+    HELD_MAP("FirstPerson", "HeldMap", true, true,
+            "true: in first person, the map key holds the game's map up in both hands, the place round you on it, and you can walk\n"
+                    + "with it. The map key again puts it down and opens the game's map over the screen, to pan, zoom and mark. Aiming,\n"
+                    + "attacking or anything else you do puts it down. On a server where players can fight, the game's map opens as it\n"
+                    + "does without the mod. false: the map key opens the game's map at once, as without the mod."),
     SHOTS_FROM_VEHICLE_SEATS("Rules", "ShotsFromVehicleSeats", true, false,
             "true: in first person, sitting in a vehicle with a gun, you can fire through any part of your seat's window, and\n"
                     + "the shot breaks it. false: as in the game, the window has to be opened or broken first. On a server where\n"

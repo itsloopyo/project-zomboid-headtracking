@@ -151,6 +151,16 @@ public final class Hooks {
         } catch (RuntimeException failure) {
             Log.error("a fishing rod is aimed from the first person view at the square under the hidden pointer", failure);
         }
+        try {
+            HeldMap.register();
+        } catch (RuntimeException failure) {
+            Log.error("the map is not held up in first person", failure);
+        }
+    }
+
+    /** Called among the game's UI drawing, before any of it: see HeldMap. */
+    public static void beforeUi() {
+        HeldMap.beforeUi();
     }
 
     /**

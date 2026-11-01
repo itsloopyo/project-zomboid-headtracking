@@ -45,6 +45,25 @@ final class ArmModel {
     /** The shoulder, the elbow and the wrist as the arm rests. */
     final float[] shoulder = new float[3], elbow = new float[3], hand = new float[3];
     final float upperLength, foreLength;
+    /** How far back up the forearm from the wrist a watch is worn, metres. */
+    static final float WATCH_BACK = 0.04f;
+    /** How far round the wrist from its back towards the thumb a watch's face sits, radians. */
+    static final float WATCH_ROUND = (float) Math.toRadians(30);
+    /** How far along the forearm either way the arm is measured round where a watch sits. */
+    private static final float WATCH_SPAN = 0.006f;
+    /**
+     * Where a watch sits on the arm at rest: by columns, the way along the forearm to the hand,
+     * the way out of the back of the wrist, the way across, and the point on the forearm's line
+     * under the watch's face, as WatchFace lays a watch out.
+     */
+    final float[] watchRest = new float[16];
+    /**
+     * How far the back and the side of each part of the mesh are from that point, a man's then
+     * a woman's, for each part in turn: nought where the part does not reach the watch.
+     */
+    final float[] watchRadii = new float[PARTS.length * 4];
+    /** How far along the arm a watch sits, as the mesh counts along it. */
+    final float watchAlong;
 
     ArmModel(InputStream packed) throws IOException {
         ByteArrayOutputStream whole = new ByteArrayOutputStream();
@@ -150,6 +169,56 @@ final class ArmModel {
         head(wrist, hand);
         upperLength = ArmPose.apart(shoulder, elbow);
         foreLength = ArmPose.apart(elbow, hand);
+        watchAlong = measureWatch();
+    }
+
+    /** Fills watchRest and watchRadii from the mesh, and answers watchAlong. */
+    private float measureWatch() throws IOException {
+        float[] a = new float[3], d = new float[3], e = new float[3], c = new float[3];
+        ArmPose.unit(hand[0] - elbow[0], hand[1] - elbow[1], hand[2] - elbow[2], a);
+        float o = ArmPose.dot(out, a);
+        // The back of the wrist is the other side from the palm, and the face sits a little round from it towards the thumb.
+        float[] back = new float[3], thumb = new float[3];
+        ArmPose.unit(-(out[0] - a[0] * o), -(out[1] - a[1] * o), -(out[2] - a[2] * o), back);
+        float ta = ArmPose.dot(across, a), tb = ArmPose.dot(across, back);
+        ArmPose.unit(across[0] - a[0] * ta - back[0] * tb, across[1] - a[1] * ta - back[1] * tb, across[2] - a[2] * ta - back[2] * tb, thumb);
+        float rc = (float) Math.cos(WATCH_ROUND), rs = (float) Math.sin(WATCH_ROUND);
+        ArmPose.unit(back[0] * rc + thumb[0] * rs, back[1] * rc + thumb[1] * rs, back[2] * rc + thumb[2] * rs, d);
+        ArmPose.cross(a, d, e);
+        for (int axis = 0; axis < 3; axis++) {
+            c[axis] = hand[axis] - a[axis] * WATCH_BACK;
+            watchRest[axis] = a[axis];
+            watchRest[4 + axis] = d[axis];
+            watchRest[8 + axis] = e[axis];
+            watchRest[12 + axis] = c[axis];
+        }
+        watchRest[15] = 1f;
+        float along = 0f;
+        int near = 0;
+        for (int part = 0; part < PARTS.length; part++) {
+            for (int index = partFirst[part]; index < partFirst[part] + partCount[part]; index++) {
+                int at = indices.getInt(index * Integer.BYTES) * VERTEX_BYTES;
+                for (int sex = 0; sex < 2; sex++) {
+                    float x = vertices.getFloat(at) + sex * vertices.getFloat(at + FEMALE_AT) - c[0];
+                    float y = vertices.getFloat(at + 4) + sex * vertices.getFloat(at + FEMALE_AT + 4) - c[1];
+                    float z = vertices.getFloat(at + 8) + sex * vertices.getFloat(at + FEMALE_AT + 8) - c[2];
+                    if (Math.abs(x * a[0] + y * a[1] + z * a[2]) > WATCH_SPAN) {
+                        continue;
+                    }
+                    int radii = part * 4 + sex * 2;
+                    watchRadii[radii] = Math.max(watchRadii[radii], x * d[0] + y * d[1] + z * d[2]);
+                    watchRadii[radii + 1] = Math.max(watchRadii[radii + 1], Math.abs(x * e[0] + y * e[1] + z * e[2]));
+                    if (part == ARM && sex == 0) {
+                        along += vertices.getFloat(at + ALONG_AT);
+                        near++;
+                    }
+                }
+            }
+        }
+        if (near == 0 || watchRadii[ARM * 4] <= 0f || watchRadii[ARM * 4 + 1] <= 0f) {
+            throw new IOException("the arms file's forearm has no surface " + WATCH_BACK + " m back from the wrist, where a watch is worn");
+        }
+        return along / near;
     }
 
     private static String name(ByteBuffer file) throws IOException {

@@ -7428,6 +7428,7 @@ final class Pipeline {
                 }
             }
             OwnArms.letGo();
+            HeldMap.letGo();
             // The surfaces and the arms are made again by the pieces of the core that made them, and their reading begun again with them.
             preparing = Math.min(preparing, CORE.size() - CORE_GIVEN_BACK);
             prepared = false;

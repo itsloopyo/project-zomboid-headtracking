@@ -5,6 +5,7 @@ public class InventoryItem {
     public String getFullType() { throw new UnsupportedOperationException("reference stub"); }
     public String getDisplayName() { throw new UnsupportedOperationException("reference stub"); }
     public int getID() { throw new UnsupportedOperationException("reference stub"); }
+    public zombie.scripting.objects.ItemBodyLocation getBodyLocation() { throw new UnsupportedOperationException("reference stub"); }
     public String getSwingAnim() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.core.textures.Texture getTex() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.scripting.objects.Item getScriptItem() { throw new UnsupportedOperationException("reference stub"); }

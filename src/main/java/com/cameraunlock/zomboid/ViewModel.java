@@ -5,12 +5,18 @@ import java.util.HashSet;
 import java.util.Locale;
 import java.util.Stack;
 import org.joml.Vector3f;
+import zombie.GameTime;
 import zombie.characters.CharacterTimedActions.BaseAction;
 import zombie.characters.IsoPlayer;
+import zombie.characters.WornItems.WornItems;
+import zombie.core.Core;
 import zombie.core.skinnedmodel.model.ModelInstance;
 import zombie.inventory.InventoryItem;
+import zombie.inventory.types.AlarmClockClothing;
 import zombie.inventory.types.HandWeapon;
 import zombie.inventory.types.WeaponType;
+import zombie.iso.Vector2;
+import zombie.scripting.objects.ItemBodyLocation;
 import zombie.scripting.objects.ModelAttachment;
 import zombie.scripting.ScriptManager;
 import zombie.scripting.objects.ModelScript;
@@ -142,8 +148,27 @@ public final class ViewModel {
      * @param anim   the game's name for its animation of it
      * @param skin   which of the game's skins the body wears, 0 the palest
      * @param female whether the body is a woman's
+     * @param watch  the watch glanced at, for a glance (TimedActs.WATCH), and null for anything else
      */
-    record Task(int kind, boolean low, float time, float done, float up, String anim, int skin, boolean female) {}
+    record Task(int kind, boolean low, float time, float done, float up, String anim, int skin, boolean female, Watch watch) {}
+
+    /**
+     * A watch on a wrist as it is glanced at.
+     *
+     * @param left       whether it is on the left wrist
+     * @param digital    whether it shows the time in figures, as the game's clock does for it
+     * @param type       the game's name for it, which says what it looks like
+     * @param timeOfDay  the game's time of day, hours
+     * @param twentyFour whether the game's clock is set to show 24 hours
+     * @param pitch      the clean view's pitch, radians: the arm is raised in the body's axes
+     */
+    record Watch(boolean left, boolean digital, String type, float timeOfDay, boolean twentyFour, float pitch) {}
+
+    private final WatchGlance glance = new WatchGlance();
+    /** The watch worn, as last looked for: its name, null with none on a wrist, whether it is on the left wrist and whether it is digital. */
+    private String watchType;
+    private boolean watchLeft, watchDigital;
+    private int watchAsked;
 
     /** The timed action the hands are busy with, or null. While there is one, nothing is held up. */
     volatile Task task;
@@ -318,7 +343,7 @@ public final class ViewModel {
      */
     void update(IsoPlayer player, float yaw, float pitch, float frame, boolean paused, boolean sightsUp, float aimedAt) {
         float seconds = paused ? 0f : frame;
-        if (busy(player, seconds)) {
+        if (busy(player, yaw, pitch, seconds)) {
             return;
         }
         // Seated, a firearm is in view only while its sights are up out of a seat the game lets
@@ -579,7 +604,7 @@ public final class ViewModel {
      * starts and go down after it ends; while they are up the weapon is put away, and it comes
      * up again from under the picture once they are down.
      */
-    private boolean busy(IsoPlayer player, float seconds) {
+    private boolean busy(IsoPlayer player, float yaw, float pitch, float seconds) {
         String anim = player.getVehicle() == null && isSet(player, "IsPerformingAnAction") && !isSet(player, "isLoading")
                 && !isSet(player, "isUnloading") && !isSet(player, "isRacking") ? player.GetVariable("PerformingAction") : null;
         // Sorted only as the animation changes: the names are lowered to sort them, which makes a string.
@@ -590,8 +615,20 @@ public final class ViewModel {
             sortedLowAlone = TimedActs.low(anim, null);
         }
         int kind = anim == null ? TimedActs.NONE : sortedKind;
+        // The game reads the world map with its animation of reading a newspaper: here the map comes up in the hands.
+        if (kind == TimedActs.READ && HeldMap.reading(view.index)) {
+            kind = TimedActs.MAP;
+        }
+        if (HeldMap.held(view.index)) {
+            if (kind != TimedActs.NONE || player.getVehicle() != null || player.isAiming() || GameAttack.attacking(player) || player.isDead()) {
+                HeldMap.lower(view.index);
+            } else {
+                kind = TimedActs.MAP;
+                anim = HeldMap.HELD;
+            }
+        }
         if (kind != TimedActs.NONE) {
-            boolean low = sortedLowAlone || sortedLow && "low".equalsIgnoreCase(player.GetVariable("LootPosition"));
+            boolean low = kind != TimedActs.MAP && (sortedLowAlone || sortedLow && "low".equalsIgnoreCase(player.GetVariable("LootPosition")));
             if (!anim.equals(taskAnim) || low != taskLow) {
                 // One action straight after another: the hands drop part of the way and come up to the next.
                 if (taskAnim != null && kind != taskKind) {
@@ -622,20 +659,73 @@ public final class ViewModel {
         }
         if (taskUp == 0f) {
             task = null;
-            return false;
+            return glancing(player, yaw, pitch, seconds);
         }
+        glance.rest();
         putAway();
         // What the arms wear changes seldom, and asking makes a list for every garment.
         if ((taskWearAsked++ & 31) == 0) {
             Cabins.noteWear(player, view.ride.dress);
         }
-        task = new Task(taskKind, taskLow, taskTime, taskDone, taskUp, taskAnim, player.getHumanVisual().getSkinTextureIndex(), player.isFemale());
+        task = new Task(taskKind, taskLow, taskTime, taskDone, taskUp, taskAnim, player.getHumanVisual().getSkinTextureIndex(), player.isFemale(), null);
         return true;
+    }
+
+    /**
+     * Follows a glance at the watch on a wrist (WatchGlance), and returns whether the arm is up
+     * for one. It comes up only with the hand of that wrist empty, standing still, and not while aiming
+     * or attacking: a weapon in the other hand goes down under the picture with it and comes up
+     * again after, as it does for a timed action.
+     */
+    private boolean glancing(IsoPlayer player, float yaw, float pitch, float seconds) {
+        // What is worn changes seldom, and the list is gone through to find it.
+        if ((watchAsked++ & 15) == 0) {
+            findWatch(player);
+        }
+        float[] head = view.headTracking.headTurn();
+        float lookPitch = pitch + (head == null ? 0f : head[1]), lookYaw = yaw + (head == null ? 0f : head[0]);
+        Vector2 facing = player.getForwardDirection();
+        float aside = glance.aside(lookPitch, lookYaw, (float) Math.atan2(facing.y, facing.x), watchLeft);
+        InventoryItem hand = watchLeft ? player.getSecondaryHandItem() : player.getPrimaryHandItem();
+        boolean allowed = Part.WATCH_GLANCE.on() && watchType != null && hand == null && player.getVehicle() == null && !player.isAiming()
+                && !GameAttack.attacking(player) && !view.firstPerson.walkingAhead() && !view.firstPerson.movingAside();
+        float up = glance.step(lookPitch, aside, allowed, seconds);
+        if (up == 0f) {
+            return false;
+        }
+        putAway();
+        if ((taskWearAsked++ & 31) == 0) {
+            Cabins.noteWear(player, view.ride.dress);
+        }
+        task = new Task(TimedActs.WATCH, false, 0f, 0f, up, GLANCE, player.getHumanVisual().getSkinTextureIndex(), player.isFemale(),
+                new Watch(watchLeft, watchDigital, watchType, GameTime.getInstance().getTimeOfDay(), Core.getInstance().getOptionClock24Hour(), pitch));
+        return true;
+    }
+
+    /** What a glance at the watch is called where an animation's name would be. */
+    static final String GLANCE = "a glance at the watch";
+
+    /** Looks for a watch the player wears on a wrist, as the game looks for one to show its clock: the first found. */
+    private void findWatch(IsoPlayer player) {
+        watchType = null;
+        WornItems worn = player.getWornItems();
+        for (int i = 0; i < worn.size(); i++) {
+            if (worn.getItemByIndex(i) instanceof AlarmClockClothing watch) {
+                ItemBodyLocation on = watch.getBodyLocation();
+                if (on == ItemBodyLocation.LEFT_WRIST || on == ItemBodyLocation.RIGHT_WRIST) {
+                    watchType = watch.getFullType();
+                    watchLeft = on == ItemBodyLocation.LEFT_WRIST;
+                    watchDigital = watch.isDigital();
+                    return;
+                }
+            }
+        }
     }
 
     /** Nothing is held up, no attack is under way and the hands are at nothing: the next weapon starts from the hip, still. */
     void rest() {
         putAway();
+        glance.rest();
         task = null;
         taskAnim = null;
         taskUp = 0f;

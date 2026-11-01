@@ -15,6 +15,11 @@ import zombie.inventory.types.WeaponType;
 final class GameAttack {
     private GameAttack() {}
 
+    /** Whether the player is in the state the game makes attacks in. */
+    static boolean attacking(IsoPlayer player) {
+        return player.isCurrentState(SwipeStatePlayer.instance());
+    }
+
     /** The game's name for the moment of its animation at which an attack lands. */
     private static final String LANDS = "AttackCollisionCheck";
 
@@ -30,7 +35,7 @@ final class GameAttack {
      * @return false while the game plays no attack
      */
     static boolean progress(IsoPlayer player, float[] out) {
-        if (!player.isCurrentState(SwipeStatePlayer.instance())) {
+        if (!attacking(player)) {
             return false;
         }
         AdvancedAnimator animator = player.getAdvancedAnimator();

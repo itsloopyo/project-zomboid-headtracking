@@ -648,6 +648,7 @@ public final class Agent {
                 new PatchSet("split screen", splitScreen, splitScreenOff),
                 new PatchSet("waiting composites", waitingComposites, offNow(Part.FIRST_PERSON, Part.SKINS_COMPOSED_WHILE_WAITING)),
                 new PatchSet("spotting", spotting, offNow(Part.FIRST_PERSON, Part.SKIP_COVERED_GAME_DRAWING, Part.SPOT_BY_SIGHT)),
+                new PatchSet("held map", new PatchTransformer(heldMapPatches()), offNow(Part.FIRST_PERSON, Part.HELD_MAP)),
                 new PatchSet("customise character", new PatchTransformer(customiseCharacterPatches()), offNow(Part.CUSTOMISE_CHARACTER_HEAD)),
                 new PatchSet("viewpoint", new PatchTransformer(viewpointPatches()), () -> Tracking.enabled() ? null : "head tracking is off"),
                 new PatchSet("viewpoint start", new PatchTransformer(viewpointStartPatches()), in));
@@ -1009,6 +1010,17 @@ public final class Agent {
                 after(new CallSite.Method("zombie/gameStates/IngameState", "renderFrameTextInternal", "(I)V"),
                         new CallSite.Method("zombie/chat/ChatElement", "RenderBatch", "(I)V"),
                         new CallSite.Method(HOOKS, "afterWorldText", "()V")));
+    }
+
+    /**
+     * First person's held map: the hook among the game's UI drawing, before any of it, where the
+     * game's map is drawn into the picture the sheet in the hands shows (HeldMap). Without it the
+     * map key opens the game's map as it does without the mod.
+     */
+    private static List<Patch> heldMapPatches() {
+        return List.of(after(new CallSite.Method("zombie/gameStates/IngameState", "renderFrameUI", "()V"),
+                new CallSite.Method("zombie/ui/TextManager", "DrawTextFromGameWorld", "()V"),
+                new CallSite.Method(HOOKS, "beforeUi", "()V")));
     }
 
     /**

@@ -106,6 +106,8 @@ final class OwnArms {
             uniform vec3 uBlood;
             uniform vec3 uDirt;
             uniform vec3 uTone;
+            // For a sheet of paper (uWear PAPER), where its picture lies in uColour: from its corner, and across, nought for none.
+            uniform vec4 uRegion;
             // Whether the viewer stands out of doors, and the light where they stand, less than nought
             // where none is said: written beside the colour, as CharacterDraw writes it of a person.
             uniform float uOutside;
@@ -188,6 +190,17 @@ final class OwnArms {
                     discard;
                 }
                 float stood = (uStood < 0.0 ? 255.0 : 128.0 + floor(clamp(uStood, 0.0, 1.0) * 126.0 + 0.5)) / 255.0;
+                if (uWear > 6.5) {
+                    vec3 paint = uRegion.z > 0.0 ? texture2D(uColour, uRegion.xy + vUv * uRegion.zw).rgb : uCloth;
+                    // The sheet was folded in four, and the folds still show.
+                    vec2 fold = abs(vUv - 0.5);
+                    paint *= 1.0 - 0.07 * exp(-fold.x * fold.x * 4000.0) - 0.05 * exp(-fold.y * fold.y * 4000.0);
+                    vec2 kept = floor(folded(normalize(vNormal)) * 255.0 + 0.5) / 255.0;
+                    float what = 128.0 + 64.0 + (uOutside > 0.5 ? 16.0 : 0.0) + 6.0;
+                    gl_FragData[0] = vec4(clamp(paint, 0.0, 1.0), stood);
+                    gl_FragData[1] = vec4(kept, 0.04, what / 255.0);
+                    return;
+                }
                 vec2 stain = stained();
                 vec3 gore = vec3(0.34, 0.025, 0.02), grime = vec3(0.23, 0.18, 0.12);
                 vec3 n = normalize(vNormal);
@@ -269,7 +282,7 @@ final class OwnArms {
     private static boolean tried;
     private static ArmModel model;
     private static int program, vertices, indices, colour, surface;
-    private static int projectionAt, femaleAt, toneAt, outsideAt, stoodAt, handedAt, wearAt, clothAt, spanAt, bloodAt, dirtAt, snowAt, upAt, wetAt, wetClockAt;
+    private static int projectionAt, femaleAt, toneAt, outsideAt, stoodAt, handedAt, wearAt, clothAt, spanAt, bloodAt, dirtAt, snowAt, upAt, wetAt, wetClockAt, regionAt;
     /** How much snow has settled on the viewer, 0 to 1: see SnowCarried. */
     private static float snowOn;
     /** How wet the viewer is, by Soaked's WATER, SOAK and CLOCK. */
@@ -403,6 +416,7 @@ final class OwnArms {
             upAt = GL20.glGetUniformLocation(id, "uUpSeen");
             wetAt = GL20.glGetUniformLocation(id, "uWet");
             wetClockAt = GL20.glGetUniformLocation(id, "uWetClock");
+            regionAt = GL20.glGetUniformLocation(id, "uRegion");
             Program.useOther(id);
             GL20.glUniform1i(GL20.glGetUniformLocation(id, "uColour"), COLOUR_UNIT);
             GL20.glUniform1i(GL20.glGetUniformLocation(id, "uSurface"), SURFACE_UNIT);
@@ -432,7 +446,11 @@ final class OwnArms {
      * head, and a cartridge a brass case with a copper bullet in it.
      */
     private static int props, propIndices;
-    private static final int[] pieceFirst = new int[5], pieceCount = new int[5];
+    private static final int[] pieceFirst = new int[8], pieceCount = new int[8];
+    /** The pieces a watch and a sheet are made of: a box of side one, a disc of radius one and one thick, and a square of side one facing +z. */
+    private static final int BOX = 5, DISC = 6, SQUARE = 7;
+    /** What a sheet of paper is drawn as, past what CharacterDraw names. */
+    private static final int PAPER = 7;
     private static final int[][] PIECES = {{}, {0}, {1, 2}, {3, 4}};
     private static final float[][] PIECE_COLOUR = {{0.07f, 0.07f, 0.08f}, {0.5f, 0.07f, 0.06f}, {0.62f, 0.47f, 0.2f}, {0.62f, 0.47f, 0.2f}, {0.6f, 0.35f, 0.2f}};
     private static final int ROUND_SIDES = 16;
@@ -502,6 +520,50 @@ final class OwnArms {
             }
             pieceCount[piece + 1] = triangles.position() / Integer.BYTES - pieceFirst[piece + 1];
         }
+        pieceFirst[BOX] = triangles.position() / Integer.BYTES;
+        for (float[] n : faces) {
+            float[] u = {n[1], n[2], n[0]}, v = {n[2], n[0], n[1]};
+            int first = count[0];
+            for (int corner = 0; corner < 4; corner++) {
+                float a = corner == 0 || corner == 3 ? -1f : 1f, b = corner < 2 ? -1f : 1f;
+                corner(corners, count, (n[0] + u[0] * a + v[0] * b) / 2f, (n[1] + u[1] * a + v[1] * b) / 2f, (n[2] + u[2] * a + v[2] * b) / 2f, n[0], n[1], n[2]);
+            }
+            triangles.putInt(first).putInt(first + 1).putInt(first + 2).putInt(first).putInt(first + 2).putInt(first + 3);
+        }
+        pieceCount[BOX] = triangles.position() / Integer.BYTES - pieceFirst[BOX];
+        pieceFirst[DISC] = triangles.position() / Integer.BYTES;
+        int sides = 2 * ROUND_SIDES, rim = count[0];
+        for (int side = 0; side <= sides; side++) {
+            double round = 2 * Math.PI * side / sides;
+            float cos = (float) Math.cos(round), sin = (float) Math.sin(round);
+            corner(corners, count, cos, -0.5f, sin, cos, 0f, sin);
+            corner(corners, count, cos, 0.5f, sin, cos, 0f, sin);
+        }
+        for (int side = 0; side < sides; side++) {
+            int at = rim + side * 2;
+            triangles.putInt(at).putInt(at + 1).putInt(at + 2).putInt(at + 2).putInt(at + 1).putInt(at + 3);
+        }
+        for (int end = 0; end < 2; end++) {
+            float y = end == 0 ? -0.5f : 0.5f, ny = end == 0 ? -1f : 1f;
+            int middle = count[0];
+            corner(corners, count, 0f, y, 0f, 0f, ny, 0f);
+            for (int side = 0; side <= sides; side++) {
+                double round = 2 * Math.PI * side / sides;
+                corner(corners, count, (float) Math.cos(round), y, (float) Math.sin(round), 0f, ny, 0f);
+            }
+            for (int side = 0; side < sides; side++) {
+                triangles.putInt(middle).putInt(middle + 1 + side).putInt(middle + 2 + side);
+            }
+        }
+        pieceCount[DISC] = triangles.position() / Integer.BYTES - pieceFirst[DISC];
+        pieceFirst[SQUARE] = triangles.position() / Integer.BYTES;
+        int square = count[0];
+        for (int corner = 0; corner < 4; corner++) {
+            float u = corner == 1 || corner == 2 ? 1f : 0f, v = corner >= 2 ? 1f : 0f;
+            corner(corners, count, u - 0.5f, v - 0.5f, 0f, 0f, 0f, 1f, u, v);
+        }
+        triangles.putInt(square).putInt(square + 1).putInt(square + 2).putInt(square).putInt(square + 2).putInt(square + 3);
+        pieceCount[SQUARE] = triangles.position() / Integer.BYTES - pieceFirst[SQUARE];
         corners.flip();
         triangles.flip();
         props = GL15.glGenBuffers();
@@ -516,11 +578,16 @@ final class OwnArms {
 
     /** One corner in the arm's own layout, hung whole on the first bone. */
     private static void corner(ByteBuffer corners, int[] count, float x, float y, float z, float nx, float ny, float nz) {
+        corner(corners, count, x, y, z, nx, ny, nz, 0f, 0f);
+    }
+
+    /** One corner with a place on a picture. */
+    private static void corner(ByteBuffer corners, int[] count, float x, float y, float z, float nx, float ny, float nz, float u, float v) {
         float length = (float) Math.sqrt(nx * nx + ny * ny + nz * nz);
         corners.putFloat(x).putFloat(y).putFloat(z).putFloat(nx / length).putFloat(ny / length).putFloat(nz / length);
         // Along the texture: any line in the surface will do for what has no weave.
         corners.putFloat(ny / length).putFloat(nz / length).putFloat(nx / length).putFloat(1f);
-        corners.putFloat(0f).putFloat(0f).putFloat(0f).putFloat(0f).putFloat(0f);
+        corners.putFloat(u).putFloat(v).putFloat(0f).putFloat(0f).putFloat(0f);
         corners.put((byte) 0).put((byte) 0).put((byte) 0).put((byte) 0).put((byte) 255).put((byte) 0).put((byte) 0).put((byte) 0);
         corners.putFloat(0f);
         count[0]++;
@@ -556,6 +623,95 @@ final class OwnArms {
         if (what == ArmHolds.NOTHING) {
             return;
         }
+        beginProps(projection, light, outside);
+        bone(at, 0);
+        for (int piece : PIECES[what]) {
+            GL20.glUniform3f(clothAt, PIECE_COLOUR[piece][0], PIECE_COLOUR[piece][1], PIECE_COLOUR[piece][2]);
+            GL11.glDrawElements(GL_TRIANGLES, pieceCount[piece], GL_UNSIGNED_INT, (long) pieceFirst[piece] * Integer.BYTES);
+        }
+        endProps();
+    }
+
+    /** The watch as last laid out, and what it was laid out for: its look, the minute of the day it shows, the wrist it is on and how thick that is. */
+    private static final WatchFace.Pieces watchPieces = new WatchFace.Pieces();
+    private static String watchType;
+    private static boolean watchLeft, watchDigital, watchTwentyFour;
+    private static int watchMinute = -1;
+    private static float watchUp, watchAround;
+    private static final float[] watchAt = new float[16], pieceAt = new float[16];
+
+    /**
+     * Draws the watch on the wrist of an arm drawn with skins, over whatever is worn there.
+     *
+     * @param skins as draw takes them, for the arm the watch is on
+     */
+    static void watch(float[] projection, float[] skins, ViewModel.Watch watch, boolean female, Worn worn, float light, boolean outside) {
+        float up = 0f, around = 0f;
+        for (int part = ArmModel.ARM; part <= ArmModel.GLOVE; part++) {
+            boolean covers = part == ArmModel.ARM || part == ArmModel.SLEEVE && worn.sleeve() && worn.sleeveTo() >= model.watchAlong
+                    || part == ArmModel.GLOVE && worn.glove() && GLOVE_FROM <= model.watchAlong;
+            if (covers) {
+                up = Math.max(up, model.watchRadii[part * 4 + (female ? 2 : 0)]);
+                around = Math.max(around, model.watchRadii[part * 4 + (female ? 3 : 1)]);
+            }
+        }
+        int minute = (int) Math.floor(watch.timeOfDay() * 60f);
+        if (minute != watchMinute || !watch.type().equals(watchType) || watch.left() != watchLeft || watch.digital() != watchDigital
+                || watch.twentyFour() != watchTwentyFour || up != watchUp || around != watchAround) {
+            WatchFace.lay(WatchFace.look(watch.type(), watch.digital()), watch.digital(), watch.left(), minute / 60f, watch.twentyFour(), up, around, watchPieces);
+            watchMinute = minute;
+            watchType = watch.type();
+            watchLeft = watch.left();
+            watchDigital = watch.digital();
+            watchTwentyFour = watch.twentyFour();
+            watchUp = up;
+            watchAround = around;
+        }
+        ArmPose.multiply(skins, model.foreTwist * 16, model.watchRest, 0, watchAt, 0);
+        beginProps(projection, light, outside);
+        for (int piece = 0; piece < watchPieces.count; piece++) {
+            ArmPose.multiply(watchAt, 0, watchPieces.matrices, piece * 16, pieceAt, 0);
+            bone(pieceAt, 0);
+            float[] colour = watchPieces.colour[piece];
+            GL20.glUniform3f(clothAt, colour[0], colour[1], colour[2]);
+            GL20.glUniform1f(wearAt, watchPieces.wear[piece]);
+            int shape = watchPieces.kind[piece] == WatchFace.BOX ? BOX : DISC;
+            GL11.glDrawElements(GL_TRIANGLES, pieceCount[shape], GL_UNSIGNED_INT, (long) pieceFirst[shape] * Integer.BYTES);
+        }
+        endProps();
+    }
+
+    /**
+     * Draws a sheet of paper with a picture on it.
+     *
+     * @param at      the matrix from a square of side one, across x and up y, facing +z, to the view
+     * @param picture the texture the picture is in, or nought for blank paper
+     * @param region  where the picture lies in it: from its corner, and across, nought across for none
+     */
+    static void sheet(float[] projection, float[] at, int picture, float[] region, float light, boolean outside) {
+        beginProps(projection, light, outside);
+        bone(at, 0);
+        GL20.glUniform1f(wearAt, PAPER);
+        GL20.glUniform3f(clothAt, 0.86f, 0.82f, 0.71f);
+        boolean shown = picture != 0 && region[2] > 0f;
+        GL20.glUniform4f(regionAt, region[0], region[1], shown ? region[2] : 0f, region[3]);
+        GL13.glActiveTexture(GL_TEXTURE0 + COLOUR_UNIT);
+        GL11.glBindTexture(GL_TEXTURE_2D, shown ? picture : 0);
+        GL13.glActiveTexture(GL_TEXTURE0);
+        GL11.glDrawElements(GL_TRIANGLES, pieceCount[SQUARE], GL_UNSIGNED_INT, (long) pieceFirst[SQUARE] * Integer.BYTES);
+        GL20.glUniform4f(regionAt, 0f, 0f, 0f, 0f);
+        endProps();
+    }
+
+    /** Sets the first bone, which every corner of a prop hangs on, to a matrix. */
+    private static void bone(float[] matrix, int at) {
+        loaded.clear();
+        loaded.put(matrix, at, 16).flip();
+        GL20.glUniformMatrix4fv(bonesAt, false, loaded);
+    }
+
+    /** Readies the program to draw props, in what SLEEK is unless a piece says otherwise. */
+    private static void beginProps(float[] projection, float light, boolean outside) {
         GL11.glDisable(GL_CULL_FACE);
         GL11.glEnable(GL_DEPTH_TEST);
         GL11.glDepthFunc(GL_LESS);
@@ -563,9 +719,6 @@ final class OwnArms {
         GL11.glDisable(GL_BLEND);
         Program.useOther(program);
         GL20.glUniformMatrix4fv(projectionAt, false, projection);
-        loaded.clear();
-        loaded.put(at, 0, 16).flip();
-        GL20.glUniformMatrix4fv(bonesAt, false, loaded);
         GL20.glUniform1f(femaleAt, 0f);
         GL20.glUniform1f(outsideAt, outside ? 1f : 0f);
         GL20.glUniform1f(stoodAt, light);
@@ -583,10 +736,9 @@ final class OwnArms {
             GL20.glEnableVertexAttribArray(attribute);
         }
         GL15.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, propIndices);
-        for (int piece : PIECES[what]) {
-            GL20.glUniform3f(clothAt, PIECE_COLOUR[piece][0], PIECE_COLOUR[piece][1], PIECE_COLOUR[piece][2]);
-            GL11.glDrawElements(GL_TRIANGLES, pieceCount[piece], GL_UNSIGNED_INT, (long) pieceFirst[piece] * Integer.BYTES);
-        }
+    }
+
+    private static void endProps() {
         GL20.glDrawBuffers(FIRST);
         for (int attribute = 0; attribute < ATTRIBUTES.length; attribute++) {
             GL20.glDisableVertexAttribArray(attribute);

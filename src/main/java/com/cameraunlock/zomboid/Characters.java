@@ -740,6 +740,9 @@ public final class Characters {
         holding = null;
         carrying = false;
         leftCarried = false;
+        taskCarries = true;
+        taskWatch = null;
+        sheetShown = false;
         ownLight = held[HeldLight.LIGHT];
         ownOutside = held[HeldLight.OUTSIDE] > 0.5f;
         System.arraycopy(held, HeldLight.CABIN, ownAmbient, 0, 3);
@@ -963,8 +966,17 @@ public final class Characters {
             return;
         }
         ViewCamera.between(aim, camera, eyeFromAim, fromAim);
-        ModelInstanceRenderData right = weaponOf(data), left = leftOf(data);
-        TimedActs.hands(task.kind(), task.low(), task.time(), right != null, left != null, task.up(), taskHands[0], taskHands[1]);
+        // The map is held up in both hands, with whatever else they held put away for it.
+        boolean carries = task.kind() != TimedActs.MAP;
+        ModelInstanceRenderData right = carries ? weaponOf(data) : null, left = carries ? leftOf(data) : null;
+        ViewModel.Watch watch = task.watch();
+        if (watch != null) {
+            TimedActs.watch(watch.left(), watch.pitch(), task.up(), taskHands[0], taskHands[1]);
+        } else if (!carries) {
+            TimedActs.map(task.up(), taskHands[0], taskHands[1]);
+        } else {
+            TimedActs.hands(task.kind(), task.low(), task.time(), right != null, left != null, task.up(), taskHands[0], taskHands[1]);
+        }
         float scale = ARM_SCALE * data.finalScale;
         for (int side = 0; side < 2; side++) {
             TimedActs.Hand from = taskHands[side], to = seenHands[side];
@@ -999,6 +1011,16 @@ public final class Characters {
         }
         holding = data;
         carrying = true;
+        taskCarries = carries;
+        taskWatch = watch;
+        if (!carries) {
+            TimedActs.sheet(task.up(), sheetInAim);
+            for (int i = 0; i < 15; i++) {
+                sheetInAim[i] *= scale;
+            }
+            ArmPose.multiply(fromAim, 0, sheetInAim, 0, sheetView, 0);
+            sheetShown = true;
+        }
         armHands = null;
         armFemale = task.female();
         armSkin = task.skin();
@@ -1148,6 +1170,13 @@ public final class Characters {
     private final float[] turn = new float[16];
     /** Whether the left hand is on the weapon held up, with the right. */
     private boolean heldBoth;
+    /**
+     * At a timed action: whether what the game has in the hands is drawn in them, the watch glanced at, or null, and
+     * whether the held map is drawn, and where: from a square of side one to the view. Render thread.
+     */
+    private boolean taskCarries, sheetShown;
+    private ViewModel.Watch taskWatch;
+    private final float[] sheetInAim = new float[16], sheetView = new float[16];
 
     /** Whether the driver's right hand is on the wheel this frame: not while it holds a weapon up. Read after drawViewer. */
     boolean rightOnWheel() {
@@ -2117,7 +2146,7 @@ public final class Characters {
         data.ambientG = 1f;
         data.ambientB = 1f;
         boolean outside = ownOutside;
-        for (int part = 0; part < parts(data).size(); part++) {
+        for (int part = 0; part < (taskCarries ? parts(data).size() : 0); part++) {
             ModelInstanceRenderData model = parts(data).get(part);
             if (model.model == null || !model.model.isStatic) {
                 continue;
@@ -2141,6 +2170,12 @@ public final class Characters {
         float[] stains = view.ride.dress.stains;
         OwnArms.draw(projection, armSkins[0], false, armFemale, armSkin, ownLight, outside, worn, stains);
         OwnArms.draw(projection, armSkins[1], true, armFemale, armSkin, ownLight, outside, worn, stains);
+        if (taskWatch != null) {
+            OwnArms.watch(projection, armSkins[taskWatch.left() ? 1 : 0], taskWatch, armFemale, worn, ownLight, outside);
+        }
+        if (sheetShown) {
+            HeldMap.drawSheet(projection, sheetView, ownLight, outside);
+        }
         data.ambientR = red;
         data.ambientG = green;
         data.ambientB = blue;

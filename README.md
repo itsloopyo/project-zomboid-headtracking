@@ -320,6 +320,10 @@ The mouse turns the view, and the movement keys move you relative to where you'r
 
 A short line under the crosshair says what `E` will do to what it is on, such as Open Door, Close Window, Turn on, Loot Fridge, or Grab and the item's name. The actions and the names are the game's own, in the language you play in. Where holding `E` does something else, such as climbing through an open window, the line says that too. It names `E` as you have the Interact key bound, or your controller's button. It shows only while the crosshair is on something `E` acts on, and not while the pointer is out, while you aim or while your character is busy with something. Untick **What Interact does** on the options page (`[FirstPerson] InteractLabel`) to turn it off.
 
+**Your watch** - with a watch on a wrist and that hand empty, stand still, look down, then turn your view or your head towards that wrist: the arm comes up and turns the watch to you, showing the game's time, as figures on a digital watch and as hands on the others. Look away and it goes back down. It doesn't come up while you aim or attack. `WatchGlance=false` turns it off.
+
+**The map** - the map key brings the world map up in both hands, showing the area around you, and you can walk with it up. Press the map key again to put it down and open the game's own map over the screen, where you pan, zoom and add marks. Aiming, attacking or doing anything else puts the map down. On a PvP server the map key opens the game's map straight away. `HeldMap=false` does the same everywhere.
+
 ### Controller and split screen
 
 **Controller** - the controllers ticked in the game's Controller options are the ones that play. If none of the gamepads plugged in is ticked, every one the game recognises gets ticked and plays, and pressing **A** on the main menu gives that controller the menu. Player 1 plays on whatever last used the main menu: the controller that pressed **A**, or the keyboard and mouse once you click or press a key there. Any other controller can join once you're in the game: press **A** on it and choose **Add new player**. A 3Dconnexion SpaceMouse is never treated as a controller. Double-tap **Back** to switch views. The aiming stick turns the view, the right trigger attacks and the left trigger raises a gun's sights.
@@ -600,6 +604,16 @@ OverarmThrow=true
 ; cast, lifted while you reel in, and its line runs from its tip to the bobber. false: the rod is held as a swung
 ; weapon is, and no line is drawn. The bobber is drawn where it floats either way.
 FishingRod=true
+; true: in first person, with a watch on a wrist and that hand free, standing still, looking down and then to that
+; side, by head tracking or the mouse, raises the arm and turns the wrist so you can read the watch: the game's time,
+; in figures on a digital watch and as hands on any other. Not while aiming or attacking. false: the arm stays down.
+WatchGlance=true
+; true: in first person, the map key holds the game's map up in both hands, the place round you on it, and you can walk
+; with it. The map key again puts it down and opens the game's map over the screen, to pan, zoom and mark. Aiming,
+; attacking or anything else you do puts it down. On a server where players can fight, the game's map opens as it
+; does without the mod. false: the map key opens the game's map at once, as without the mod.
+; Takes effect at once. From the next start, off also stops the mod changing the game's own code for this.
+HeldMap=true
 
 [Players]
 ; Player 2's first person graphics mode, as Quality.

@@ -10,4 +10,5 @@ public class UIElement implements UIElementInterface {
     public boolean isWantKeyEvents() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isForceCursorVisible() { throw new UnsupportedOperationException("reference stub"); }
     public se.krka.kahlua.vm.KahluaTable getTable() { throw new UnsupportedOperationException("reference stub"); }
+    public void render() { throw new UnsupportedOperationException("reference stub"); }
 }

@@ -2,6 +2,7 @@ package zombie.core;
 
 public final class Core {
     public static int tileScale;
+    public static int width, height;
     public static boolean exiting;
     public final zombie.core.opengl.MatrixStack projectionMatrixStack = null;
     public final zombie.core.opengl.MatrixStack modelViewMatrixStack = null;
@@ -17,6 +18,7 @@ public final class Core {
     public void setForceSnow(boolean forced) { throw new UnsupportedOperationException("reference stub"); }
     public int getOptionBloodDecals() { throw new UnsupportedOperationException("reference stub"); }
     public boolean getOptionDisableLightningDuringStorms() { throw new UnsupportedOperationException("reference stub"); }
+    public boolean getOptionClock24Hour() { throw new UnsupportedOperationException("reference stub"); }
 
     public record KeyBinding(String name, int keyValue, int altKey, boolean shift, boolean ctrl, boolean alt) {}
     public String getGameMode() { throw new UnsupportedOperationException("reference stub"); }

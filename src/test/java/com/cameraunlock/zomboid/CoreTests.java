@@ -799,7 +799,7 @@ public final class CoreTests {
 
     /** The sets of patches first person alone uses, which FirstPersonEnabled off leaves out while lamps and glass still break. */
     private static final String FIRST_PERSON_SETS = "torch, first person, ragdolls, item models, fine skins, shot, thunder, name tags, covered, screen grey, far vehicles, loading, car physics, chunk marks, "
-            + "window marks, unmarked changes, hushed marks, hearing, waiting composites, spotting";
+            + "window marks, unmarked changes, hushed marks, hearing, waiting composites, spotting, held map";
 
     /** Those and the sets first person shares with TalkingMouths, which the file has off: FirstPersonEnabled off leaves all of them out. */
     private static final String FIRST_PERSON_AND_MOUTH_SETS = FIRST_PERSON_SETS.replace("thunder, ", "thunder, lamps, ").replace("covered, ", "covered, part draw, ");
@@ -830,6 +830,7 @@ public final class CoreTests {
         {"ZombiesSeenAtOnce", "live sight"},
         {"VehiclesSmashThrough", "knockdown"},
         {"ShotsThroughWalls", "none"},
+        {"HeldMap", "held map"},
     };
 
     private static String leftOutLine(String output) {
@@ -1172,7 +1173,7 @@ public final class CoreTests {
         }
         check(ids.toString().equals("EnableOnStartup WorldSpaceYaw TrackingMode LocalSmoothing RemoteSmoothing AimMode LightMultiplier FirstPersonEnabled FieldOfView Quality IsometricQuality "
                         + "Style FirstPerson FirstPersonInVehicles HillHeight MuzzleFlash Crosshair RegripTwoHandedWeapons SplitScreen CustomiseCharacterHead TorchFollowsHead HearFromTheEye LightningBolts "
-                        + "ShotImpacts FallingDebris LampShadows ColouredGlassLight FarVehiclesAndZombies QuickRagdolls HitFlinch HitDirection HeadLedViewWhenDown ItemsAsModels FinerSkins LeaveOutScreenGrey WetOnThePlayer AimBlur GranTurismoToneMapping NameTagsAtHeads Highlights InteractLabel FiguresBehindWalls OverarmThrow FishingRod SurroundingsInReflections SecondPlayerQuality "
+                        + "ShotImpacts FallingDebris LampShadows ColouredGlassLight FarVehiclesAndZombies QuickRagdolls HitFlinch HitDirection HeadLedViewWhenDown ItemsAsModels FinerSkins LeaveOutScreenGrey WetOnThePlayer AimBlur GranTurismoToneMapping NameTagsAtHeads Highlights InteractLabel FiguresBehindWalls OverarmThrow FishingRod SurroundingsInReflections WatchGlance HeldMap SecondPlayerQuality "
                         + "SecondPlayerIsometricQuality SecondPlayerStyle SecondPlayerFirstPerson SecondPlayerFirstPersonInVehicles ThirdPlayerQuality ThirdPlayerIsometricQuality "
                         + "ThirdPlayerStyle ThirdPlayerFirstPerson ThirdPlayerFirstPersonInVehicles FourthPlayerQuality FourthPlayerIsometricQuality FourthPlayerStyle FourthPlayerFirstPerson "
                         + "FourthPlayerFirstPersonInVehicles TreeQuality GrassDensity GrassDistance RenderScale ViewDistance ZombiesAndPropsDrawDistance FarTreeDistance RainOnGlass ShadingAndLight "
@@ -1195,7 +1196,7 @@ public final class CoreTests {
         }
         check(page.toString().equals("[Quick settings] EnableOnStartup "
                         + "[First person] FirstPersonEnabled FirstPersonInVehicles FirstPerson FieldOfView Crosshair HitDirection Highlights InteractLabel HearFromTheEye HeadLedViewWhenDown NameTagsAtHeads "
-                        + "QuickRagdolls HitFlinch FiguresBehindWalls OverarmThrow FishingRod HillHeight [Head tracking] TrackingMode AimMode WorldSpaceYaw LocalSmoothing RemoteSmoothing TorchFollowsHead LightMultiplier CustomiseCharacterHead [Graphics] Quality IsometricQuality Style LightningBolts ShotImpacts FallingDebris LampShadows ColouredGlassLight MuzzleFlash WetOnThePlayer AimBlur GranTurismoToneMapping ItemsAsModels FinerSkins "
+                        + "QuickRagdolls HitFlinch FiguresBehindWalls OverarmThrow FishingRod WatchGlance HeldMap HillHeight [Head tracking] TrackingMode AimMode WorldSpaceYaw LocalSmoothing RemoteSmoothing TorchFollowsHead LightMultiplier CustomiseCharacterHead [Graphics] Quality IsometricQuality Style LightningBolts ShotImpacts FallingDebris LampShadows ColouredGlassLight MuzzleFlash WetOnThePlayer AimBlur GranTurismoToneMapping ItemsAsModels FinerSkins "
                         + "LeaveOutScreenGrey SurroundingsInReflections FarVehiclesAndZombies HiddenWallDecor [Custom graphics] TreeQuality GrassDensity GrassDistance RenderScale ViewDistance ZombiesAndPropsDrawDistance "
                         + "FarTreeDistance RainOnGlass ShadingAndLight Reflections ReflectionScale FullSizeTextures SurfaceDepth SharpShadows WholeFigureShadows FrameBlending Antialiasing "
                         + "LightDistance CorpseModels [Mod content] VanillaWeapons VanillaFurniture VanillaPictures VanillaPlants VanillaTextures VanillaBuildings VanillaZombies "
