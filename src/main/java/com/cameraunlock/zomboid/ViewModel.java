@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Locale;
@@ -12,6 +13,7 @@ import zombie.characters.WornItems.WornItems;
 import zombie.core.Core;
 import zombie.core.skinnedmodel.model.ModelInstance;
 import zombie.inventory.InventoryItem;
+import zombie.inventory.types.AlarmClock;
 import zombie.inventory.types.AlarmClockClothing;
 import zombie.inventory.types.HandWeapon;
 import zombie.inventory.types.WeaponType;
@@ -688,13 +690,6 @@ public final class ViewModel {
         // What is worn changes seldom, and the list is gone through to find it.
         if ((watchAsked++ & 15) == 0) {
             findWatches(player);
-            if (DevBuild.ON) {
-                String worn = (watchTypes[1] == null ? "none" : watchTypes[1]) + " on the left wrist, " + (watchTypes[0] == null ? "none" : watchTypes[0]) + " on the right";
-                if (!worn.equals(wornSaid)) {
-                    wornSaid = worn;
-                    Log.info("watch: " + worn);
-                }
-            }
         }
         float[] head = view.headTracking.headTurn();
         float lookPitch = pitch + (head == null ? 0f : head[1]), lookYaw = yaw + (head == null ? 0f : head[0]);
@@ -734,7 +729,8 @@ public final class ViewModel {
         return true;
     }
 
-    private String wornSaid;
+    /** What the player wore and carried as last said in the log, as a sum of the game's ids; 0 for nothing said since first person was entered. */
+    private long wornSaid;
     private boolean glanceDownSaid, glanceUpSaid;
     private long glanceSaidAt;
 
@@ -789,27 +785,90 @@ public final class ViewModel {
     /** What a glance at the watch is called where an animation's name would be. */
     static final String GLANCE = "a glance at the watch";
 
-    /** Looks for the watch the player wears on each wrist, as the game looks for one to show its clock: the first found on each. */
+    /**
+     * Looks for the watch the player wears on each wrist: the first found on each. The game shows
+     * its clock for any watch or clock worn (zombie.ui.Clock), and each of its watches is worn at
+     * LeftWrist or RightWrist; the wrist is read from where the game has it worn (WatchGlance.wristOf).
+     * What is worn and carried is said in the log as it changes.
+     */
     private void findWatches(IsoPlayer player) {
         watchTypes[0] = watchTypes[1] = null;
         WornItems worn = player.getWornItems();
+        long seen = 1;
         for (int i = 0; i < worn.size(); i++) {
-            if (worn.getItemByIndex(i) instanceof AlarmClockClothing item) {
-                ItemBodyLocation on = item.getBodyLocation();
-                int wrist = on == ItemBodyLocation.LEFT_WRIST ? 1 : on == ItemBodyLocation.RIGHT_WRIST ? 0 : -1;
-                if (wrist >= 0 && watchTypes[wrist] == null) {
-                    watchTypes[wrist] = item.getFullType();
-                    watchDigital[wrist] = item.isDigital();
+            InventoryItem item = worn.getItemByIndex(i);
+            seen = seen * 31 + item.getID();
+            if (item instanceof AlarmClockClothing clock) {
+                ItemBodyLocation on = worn.getLocation(item);
+                int wrist = WatchGlance.wristOf(on == null ? null : on.toString());
+                if (watchTypes[wrist] == null) {
+                    watchTypes[wrist] = clock.getFullType();
+                    watchDigital[wrist] = clock.isDigital();
                 }
             }
         }
+        ArrayList<InventoryItem> carried = player.getInventory().getItems();
+        for (int i = 0; i < carried.size(); i++) {
+            InventoryItem item = carried.get(i);
+            if (item instanceof AlarmClock || item instanceof AlarmClockClothing) {
+                seen = seen * 31 + item.getID() * 2L + (item.isEquipped() ? 1 : 0);
+            }
+        }
+        if (seen != wornSaid) {
+            wornSaid = seen;
+            sayWorn(player);
+        }
+    }
+
+    /**
+     * Says in the log each thing worn and where, the watch found on each wrist, and whether the
+     * game shows its clock and for what, by the game's own test: anything worn that is a watch or a
+     * clock, or else one carried that is worn or held in a hand.
+     */
+    private void sayWorn(IsoPlayer player) {
+        StringBuilder said = new StringBuilder("watch: ").append(watchTypes[1] == null ? "none" : watchTypes[1]).append(" on the left wrist, ")
+                .append(watchTypes[0] == null ? "none" : watchTypes[0]).append(" on the right; worn:");
+        String clockFor = null;
+        WornItems worn = player.getWornItems();
+        for (int i = 0; i < worn.size(); i++) {
+            InventoryItem item = worn.getItemByIndex(i);
+            said.append(' ').append(item.getFullType()).append(" at ").append(worn.getLocation(item)).append(',');
+            if (clockFor == null && (item instanceof AlarmClock || item instanceof AlarmClockClothing)) {
+                clockFor = "worn " + item.getFullType();
+            }
+        }
+        if (worn.size() == 0) {
+            said.append(" nothing,");
+        }
+        ArrayList<InventoryItem> carried = player.getInventory().getItems();
+        StringBuilder unworn = new StringBuilder();
+        for (int i = 0; i < carried.size(); i++) {
+            InventoryItem item = carried.get(i);
+            if (item instanceof AlarmClock || item instanceof AlarmClockClothing) {
+                if (clockFor == null && (item.isWorn() || item.isEquipped())) {
+                    clockFor = item.getFullType() + (item.isEquipped() ? " held in a hand" : " worn");
+                }
+                if (!item.isWorn()) {
+                    unworn.append(unworn.length() == 0 ? "" : ", ").append(item.getFullType());
+                }
+            }
+        }
+        said.append(clockFor == null ? " the game shows no clock" : " the game shows its clock for " + clockFor);
+        if (unworn.length() > 0) {
+            said.append("; a watch in the inventory, not worn: ").append(unworn).append(" (wear it on a wrist to glance at it)");
+        }
+        Log.info(said.toString());
+    }
+
+    /** First person was left: what is worn is said again when it is next entered. */
+    void leftFirstPerson() {
+        wornSaid = 0;
     }
 
     /** Nothing is held up, no attack is under way and the hands are at nothing: the next weapon starts from the hip, still. */
     void rest() {
         putAway();
         glance.rest();
-        wornSaid = null;
         task = null;
         taskAnim = null;
         taskUp = 0f;

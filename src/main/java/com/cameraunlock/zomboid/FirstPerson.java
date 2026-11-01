@@ -627,6 +627,7 @@ public final class FirstPerson {
             }
             view.headTracking.rest();
             view.viewModel.rest();
+            view.viewModel.leftFirstPerson();
             view.crosshair.hide();
             view.crosshair.hideSquare();
             view.crosshair.point(null);

@@ -3,6 +3,8 @@ package zombie.inventory;
 public class InventoryItem {
     public zombie.scripting.objects.AmmoType getAmmoType() { throw new UnsupportedOperationException("reference stub"); }
     public String getFullType() { throw new UnsupportedOperationException("reference stub"); }
+    public boolean isWorn() { throw new UnsupportedOperationException("reference stub"); }
+    public boolean isEquipped() { throw new UnsupportedOperationException("reference stub"); }
     public String getDisplayName() { throw new UnsupportedOperationException("reference stub"); }
     public int getID() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.scripting.objects.ItemBodyLocation getBodyLocation() { throw new UnsupportedOperationException("reference stub"); }

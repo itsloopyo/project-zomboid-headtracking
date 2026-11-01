@@ -20,6 +20,7 @@ final class WatchTests {
         Checks.run("glanceIsTheSameAtAnyFrameRate", WatchTests::glanceIsTheSameAtAnyFrameRate);
         Checks.run("glanceIsMeasuredFromWhereTheBodyFacedAsTheLookWentDown", WatchTests::glanceIsMeasuredFromWhereTheBodyFacedAsTheLookWentDown);
         Checks.run("turnFromTheBodyIsTheShortWayRound", WatchTests::turnFromTheBodyIsTheShortWayRound);
+        Checks.run("wristIsReadFromWhereTheWatchIsWorn", WatchTests::wristIsReadFromWhereTheWatchIsWorn);
         Checks.run("glanceIsAtTheWristTheLookTurnsTowards", WatchTests::glanceIsAtTheWristTheLookTurnsTowards);
         Checks.run("watchShowsTheTimeToTheTenMinutesAsTheGamesClockDoes", WatchTests::watchShowsTheTimeToTheTenMinutesAsTheGamesClockDoes);
         Checks.run("heldMapComesDownForEachReasonAndSaysTheFirst", WatchTests::heldMapComesDownForEachReasonAndSaysTheFirst);
@@ -120,6 +121,13 @@ final class WatchTests {
         check(Math.abs(WatchGlance.turned(3f, -3f) - (float) (6 - 2 * Math.PI)) < 1e-5f, "a view just past the half turn is a little the other way");
         check(Math.abs(WatchGlance.turned(0.5f, 0.2f) - 0.3f) < 1e-6f, "a view turned right of the body is turned right");
         check(Math.abs(WatchGlance.turned(-0.2f, 0.2f) + 0.4f) < 1e-6f, "and left is left");
+    }
+
+    private static void wristIsReadFromWhereTheWatchIsWorn() {
+        check(WatchGlance.wristOf("base:leftwrist") == 1, "a watch worn at LeftWrist is on the left wrist");
+        check(WatchGlance.wristOf("base:rightwrist") == 0, "at RightWrist, on the right");
+        check(WatchGlance.wristOf("Base:RightWrist") == 0, "whatever the case of the name");
+        check(WatchGlance.wristOf("base:wrist") == 1 && WatchGlance.wristOf(null) == 1, "anywhere else, or nowhere named, on the left");
     }
 
     private static void glanceIsAtTheWristTheLookTurnsTowards() {

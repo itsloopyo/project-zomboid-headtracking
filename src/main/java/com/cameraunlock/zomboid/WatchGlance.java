@@ -86,6 +86,15 @@ final class WatchGlance {
     }
 
     /**
+     * The wrist a watch worn at a place the game names is on: 0 the right, 1 the left. The game's
+     * watches are worn at LeftWrist or RightWrist, and a watch anywhere else is taken for the left,
+     * the one a watch is worn on most.
+     */
+    static int wristOf(String location) {
+        return location != null && location.toLowerCase(java.util.Locale.ROOT).contains("right") ? 0 : 1;
+    }
+
+    /**
      * Whether a glance is at the left wrist: the only one with a watch on it, or with one on each,
      * the one the look is turned towards.
      *
