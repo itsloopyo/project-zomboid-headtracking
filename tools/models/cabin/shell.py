@@ -237,6 +237,21 @@ def pillars(house, dash="padded"):
         b.sweep(path, section, ups=ups, scales=scales)
         part = b.finish("a pillar" + (" driver" if driver else " passenger"), "trim", SHELL, subdivide=1, texels=1.2)
         out.append(part)
+        # A body whose windscreen is narrower than the cabin at its side glass has a broad pillar between the two, which
+        # the trim above, standing at the side glass, does not reach: the slot between it and the windscreen's edge would
+        # show the world past the glass. A web of trim closes it, across from just under the windscreen's edge to the
+        # pillar's back, along the line where the windscreen and the side glass both end.
+        web = []
+        for r in range(13):
+            up = r / 12
+            z = lerp(house.screen["foot"][2], house.screen["top"][2], up)
+            edge_half = lerp(house.screen["foot"][3], house.screen["top"][3], up)
+            web.append((z, edge_half, house.glass_out(min(z, s["top_z"])) - 0.012))
+        if max(back - edge_half for _, edge_half, back in web) > 0.004:
+            b = Builder()
+            b.loft([[v(house.a_pillar_x(z) - 0.004, house.y(across, driver), z) for across in (edge_half - 0.004, max(back, edge_half + 0.004))]
+                    for z, edge_half, back in web], closed=False, caps=False)
+            out.append(b.finish("a pillar web" + (" driver" if driver else " passenger"), "trim", SHELL, solidify=0.006, texels=0.6))
         if not flat and not house.spec.get("race") and house.spec.get("pillar_cap", True):
             # The dash's end cap cupping the trim's foot, so the trim's end never shows standing on the dash.
             b = Builder()
