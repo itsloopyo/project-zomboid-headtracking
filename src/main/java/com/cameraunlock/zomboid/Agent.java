@@ -831,6 +831,14 @@ public final class Agent {
                             code.iload(3);
                             CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "playerHit", "(L" + PLAYER + ";" + character + "Z)V"));
                         })),
+                // Where a zombie's bite or scratch reaches a character: on foot (AttackState), at a car
+                // window (AttackVehicleState), rising from fake dead, or as a server says (Bite).
+                new Patch("zombie/characters/BodyDamage/BodyDamage", "AddRandomDamageFromZombie at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
+                        new CallSite.Method("zombie/characters/BodyDamage/BodyDamage", "AddRandomDamageFromZombie", "(Lzombie/characters/IsoZombie;Ljava/lang/String;I)Z"), code -> {
+                            code.aload(0);
+                            code.aload(1);
+                            CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "zombieDamage", "(Lzombie/characters/BodyDamage/BodyDamage;Lzombie/characters/IsoZombie;)V"));
+                        })),
                 // The game forgets a highlighted object it draws into a chunk's texture once it has
                 // drawn it there, and keeps only the object's flag: Outlines keeps its own list.
                 new Patch(HIGHLIGHT, "registerObject and unregisterObject at their starts", classBytes -> {

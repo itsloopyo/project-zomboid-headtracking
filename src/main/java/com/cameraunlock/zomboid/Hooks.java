@@ -588,6 +588,17 @@ public final class Hooks {
         }
     }
 
+    /** Called as BodyDamage.AddRandomDamageFromZombie begins: a zombie's bite or scratch has reached a character. */
+    public static void zombieDamage(zombie.characters.BodyDamage.BodyDamage body, IsoZombie zombie) {
+        if (!(body.getParentChar() instanceof IsoPlayer victim) || !Part.HIT_DIRECTION.on()) {
+            return;
+        }
+        View view = View.of(victim);
+        if (view != null && view.firstPerson.isOn()) {
+            view.hitDirection.hitBy(zombie, System.nanoTime(), "bitten or scratched by");
+        }
+    }
+
     /** What first person shots have done to zombies' limbs. */
     static final Wounds wounds = new Wounds();
 
