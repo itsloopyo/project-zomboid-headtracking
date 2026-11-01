@@ -75,7 +75,7 @@ final class InteractWords {
      * @param key  the name of the key, or null where it has none to show
      * @param tap  what a tap does, or null for nothing
      * @param hold what holding the key does, or null where holding does nothing more
-     * @return null where the key does nothing
+     * @return null where there is nothing to name, and the key is left to the game
      */
     static String line(String key, String tap, String hold) {
         if (hold != null && hold.equals(tap)) {
