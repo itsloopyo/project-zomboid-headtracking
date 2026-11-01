@@ -31,9 +31,11 @@ import zombie.core.textures.TextureDraw;
  * picture is made of. Into the game's cache folder, framedump/<time>: the frame before the
  * game's interface (clean.png) and with it (hud.png), each player's sun shadow maps (near,
  * far, roof, and the torch's when it is lit) as 16 bit pictures stretched over the depths they
- * hold and as raw little endian floats, the pictures the frame is made through (the world before
- * the lit air, the lit air as marched, kept and softened, the shading, the clouds) each stretched
- * by its own brightest value, and state.txt with what the frame was drawn at.
+ * hold and as raw little endian floats, the eye's own depth the same way (where it is under 1
+ * the sky was not drawn: a pixel of black sky reads there how far off what took it lies), the
+ * pictures the frame is made through (the world before the lit air, the lit air as marched, kept
+ * and softened, the shading, the clouds) each stretched by its own brightest value, and state.txt
+ * with what the frame was drawn at.
  */
 final class FrameDump {
     /** GL_DEPTH_COMPONENT, GL_FLOAT, GL_RGB, GL_UNSIGNED_BYTE, GL_TEXTURE_2D, its binding and GL_TEXTURE_WIDTH. */
@@ -145,6 +147,7 @@ final class FrameDump {
                                 maps.add(Depths.read("player" + (i + 1) + "-" + map, texture));
                             }
                         }
+                        maps.add(Depths.read("player" + (i + 1) + "-sceneDepth", intField(view.pipeline, "sceneDepth")));
                         int[] kept = (int[]) field(view.pipeline, "airKept");
                         for (int k = 0; k < kept.length; k++) {
                             pictures.add(Colours.read("player" + (i + 1) + "-airKept" + k, kept[k]));
@@ -190,7 +193,7 @@ final class FrameDump {
                 if (state != null) {
                     Files.writeString(folder.resolve("state.txt"), state + torches + said);
                 }
-                Log.info("frame dump: " + name + " written to " + folder + (maps.isEmpty() ? "" : ", " + maps.size() + " shadow maps"));
+                Log.info("frame dump: " + name + " written to " + folder + (maps.isEmpty() ? "" : ", " + maps.size() + " depth maps"));
                 if (state != null) {
                     told = "Frame dumped to " + folder;
                 }
@@ -282,15 +285,15 @@ final class FrameDump {
     }
 
     /** One depth texture read back whole. */
-    private record Depths(String name, int size, FloatBuffer depths) {
+    private record Depths(String name, int width, int height, FloatBuffer depths) {
         /** Render thread. */
         static Depths read(String name, int texture) {
             GL11.glBindTexture(TEXTURE_2D, texture);
-            int size = GL11.glGetTexLevelParameteri(TEXTURE_2D, 0, TEXTURE_WIDTH);
-            ByteBuffer bytes = ByteBuffer.allocateDirect(size * size * 4).order(ByteOrder.nativeOrder());
+            int width = GL11.glGetTexLevelParameteri(TEXTURE_2D, 0, TEXTURE_WIDTH), height = GL11.glGetTexLevelParameteri(TEXTURE_2D, 0, TEXTURE_HEIGHT);
+            ByteBuffer bytes = ByteBuffer.allocateDirect(width * height * 4).order(ByteOrder.nativeOrder());
             GL11.glPixelStorei(PACK_ALIGNMENT, 4);
             GL11.glGetTexImage(TEXTURE_2D, 0, DEPTH_COMPONENT, FLOAT, bytes);
-            return new Depths(name, size, bytes.asFloatBuffer());
+            return new Depths(name, width, height, bytes.asFloatBuffer());
         }
 
         /**
@@ -300,7 +303,7 @@ final class FrameDump {
         String write(Path folder) throws IOException {
             float least = Float.MAX_VALUE, most = -Float.MAX_VALUE;
             int drawn = 0;
-            for (int i = 0; i < size * size; i++) {
+            for (int i = 0; i < width * height; i++) {
                 float depth = depths.get(i);
                 if (depth < 1f) {
                     least = Math.min(least, depth);
@@ -309,21 +312,21 @@ final class FrameDump {
                 }
             }
             float span = most > least ? most - least : 1f;
-            BufferedImage picture = new BufferedImage(size, size, BufferedImage.TYPE_USHORT_GRAY);
+            BufferedImage picture = new BufferedImage(width, height, BufferedImage.TYPE_USHORT_GRAY);
             short[] into = ((DataBufferUShort) picture.getRaster().getDataBuffer()).getData();
-            ByteBuffer raw = ByteBuffer.allocate(size * size * 4).order(ByteOrder.LITTLE_ENDIAN);
-            for (int y = 0; y < size; y++) {
-                for (int x = 0; x < size; x++) {
-                    float depth = depths.get((size - 1 - y) * size + x);
-                    into[y * size + x] = (short) (depth >= 1f ? 65535 : Math.round(Math.max(0f, (depth - least) / span) * 65535f));
+            ByteBuffer raw = ByteBuffer.allocate(width * height * 4).order(ByteOrder.LITTLE_ENDIAN);
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) {
+                    float depth = depths.get((height - 1 - y) * width + x);
+                    into[y * width + x] = (short) (depth >= 1f ? 65535 : Math.round(Math.max(0f, (depth - least) / span) * 65535f));
                 }
             }
-            for (int i = 0; i < size * size; i++) {
+            for (int i = 0; i < width * height; i++) {
                 raw.putFloat(depths.get(i));
             }
             ImageIO.write(picture, "png", folder.resolve(name + ".png").toFile());
             Files.write(folder.resolve(name + ".f32"), raw.array());
-            return String.format(Locale.ROOT, "%s: %dx%d, %d texels drawn, depths %.7f to %.7f (raw .f32 bottom row first)", name, size, size, drawn,
+            return String.format(Locale.ROOT, "%s: %dx%d, %d texels drawn, depths %.7f to %.7f (raw .f32 bottom row first)", name, width, height, drawn,
                     drawn == 0 ? 1f : least, drawn == 0 ? 1f : most);
         }
     }
