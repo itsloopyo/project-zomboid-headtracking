@@ -858,17 +858,14 @@ public final class ViewModel {
     final float[] still = new float[16];
     /** The way the top of the weapon last placed faces in the view and the way it points, each of length one, and where its grip is. */
     final float[] over = new float[3], pointing = new float[3], gripSeen = new float[3];
-    /** Where the tip of the fishing rod last placed for fishing is in the view, and when it was placed there. Render thread. */
+    /** Where the tip of the fishing rod last placed for fishing is in the view. Render thread. */
     private final float[] rodTip = new float[3];
-    private long rodTipNanos;
-    /** A rod tip placed longer ago than this was not placed this frame. */
-    private static final long ROD_TIP_NANOS = 100_000_000L;
-    /** Whether the weapon last placed is a fishing rod held for fishing. Render thread. */
+    /** Whether the weapon placed in this drawing of the viewer is a fishing rod held for fishing. Render thread. */
     boolean rodPlaced;
 
     /** Where the tip of a fishing rod out over water is in the view, placed this frame, or null. Render thread. */
     float[] rodTip() {
-        return System.nanoTime() - rodTipNanos < ROD_TIP_NANOS ? rodTip : null;
+        return rodPlaced ? rodTip : null;
     }
 
     /** Where the muzzle of the weapon last placed is in the view, and whether it has one. */
@@ -1126,7 +1123,6 @@ public final class ViewModel {
         if (rodPlaced) {
             float tip = swungShape.tip() * finalScale;
             ViewModelMath.place(out, weapon[3] * finalScale + forward[0] * tip, weapon[7] * finalScale + forward[1] * tip, weapon[11] * finalScale + forward[2] * tip, rodTip);
-            rodTipNanos = System.nanoTime();
         }
         if (hasMuzzle) {
             ViewModelMath.place(out, end[0], end[1], end[2], muzzle);

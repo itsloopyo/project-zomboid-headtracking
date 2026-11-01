@@ -5230,6 +5230,8 @@ final class Pipeline {
         smoothSkins(seated);
         // What of the body the picture draws itself is drawn unlit, as everyone else is.
         CharacterDraw.bare = !seated;
+        // The fishing line is drawn from the rod's tip only when the rod was placed in this drawing of the viewer.
+        view.viewModel.rodPlaced = false;
         boolean own = !outside && view.characters.drawViewer(camera, state.held, tanHalfFieldOfView, aspect, OWN_NEAR, far);
         CharacterDraw.bare = false;
         smoothSkins(false);

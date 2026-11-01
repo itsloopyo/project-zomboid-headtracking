@@ -931,6 +931,7 @@ public final class Characters {
                     }
                     if (!view.viewModel.place(weapon.xfrm.get(weaponPlace), data.finalScale, weapon.modelInstance, hands, CHARACTER_SCALE, false, hand, swung, fromAim, heldView)) {
                         holding = null;
+                        view.viewModel.rodPlaced = false;
                         return;
                     }
                 }
