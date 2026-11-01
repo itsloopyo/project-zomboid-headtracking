@@ -19,6 +19,7 @@ public abstract class IsoGameCharacter extends IsoMovingObject {
     public void setForwardDirection(Vector2 direction) { throw new UnsupportedOperationException("reference stub"); }
     public boolean isAiming() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isAlive() { throw new UnsupportedOperationException("reference stub"); }
+    public boolean isPerformingGrappleAnimation() { throw new UnsupportedOperationException("reference stub"); }
     public float getAimOriginPosX() { throw new UnsupportedOperationException("reference stub"); }
     public float getAimOriginPosY() { throw new UnsupportedOperationException("reference stub"); }
     public float getAimOriginPosZ() { throw new UnsupportedOperationException("reference stub"); }
