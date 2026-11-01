@@ -72,9 +72,7 @@ final class Surroundings {
             }
             """;
 
-    /** Writes how far off each texel's thing is into the alpha of a face just drawn, from the face's depth. */
-    static final SmallProgram distance = new SmallProgram("surroundings' distances", "reflections show nothing off the screen",
-            SmallProgram.FLAT_VERTEX, """
+    private static final String DISTANCE_FRAGMENT = """
             #version 120
             uniform sampler2D uDepth;
             uniform vec2 uSize;
@@ -91,14 +89,9 @@ final class Surroundings {
                 float ahead = 2.0 * uNear * uFar / (uFar + uNear - (depth * 2.0 - 1.0) * (uFar - uNear));
                 gl_FragColor = vec4(0.0, 0.0, 0.0, ahead * length(vec3(uv * 2.0 - 1.0, 1.0)));
             }
-            """);
+            """;
 
-    /**
-     * Passes where any of sixteen places of the picture under a pixel mirrors, as the develop
-     * pass's walk counts it (alpha under 0.98), and nowhere else: drawn under a query, it says
-     * whether anything on the screen mirrors.
-     */
-    static final SmallProgram shine = new SmallProgram("check for shine", "reflections show nothing off the screen", SmallProgram.FLAT_VERTEX, """
+    private static final String SHINE_FRAGMENT = """
             #version 120
             uniform sampler2D uScene;
             uniform vec2 uSize;
@@ -114,7 +107,18 @@ final class Surroundings {
                 }
                 gl_FragColor = vec4(0.0);
             }
-            """);
+            """;
+
+    /** Writes how far off each texel's thing is into the alpha of a face just drawn, from the face's depth. */
+    static final SmallProgram distance = new SmallProgram("surroundings' distances", "reflections show nothing off the screen",
+            SmallProgram.FLAT_VERTEX, DISTANCE_FRAGMENT);
+
+    /**
+     * Passes where any of sixteen places of the picture under a pixel mirrors, as the develop
+     * pass's walk counts it (alpha under 0.98), and nowhere else: drawn under a query, it says
+     * whether anything on the screen mirrors.
+     */
+    static final SmallProgram shine = new SmallProgram("check for shine", "reflections show nothing off the screen", SmallProgram.FLAT_VERTEX, SHINE_FRAGMENT);
 
     final SurroundingsSchedule schedule = new SurroundingsSchedule();
     private final SightQuery shineQuery = new SightQuery();
