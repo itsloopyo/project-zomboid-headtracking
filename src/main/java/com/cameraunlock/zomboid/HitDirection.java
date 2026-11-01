@@ -111,7 +111,6 @@ final class HitDirection {
 
     private IsoPlayer saidFor;
     private ViewCamera.Pose saidFrom;
-    private float saidAspect;
 
     private void said(IsoGameCharacter attacker, String what) {
         if (!DevBuild.ON || saidFrom == null) {
@@ -121,7 +120,7 @@ final class HitDirection {
                 attacker.getX() - saidFrom.eyeX, attacker.getY() - saidFrom.eyeY);
         Log.info(String.format(Locale.ROOT, "hit direction, player %d: %s %s %d, %.2f tiles off, bearing %.0f degrees, the %s edge",
                 saidFor.getIndex() + 1, what, kind(attacker), attacker.getID(), (float) Math.hypot(attacker.getX() - saidFrom.eyeX, attacker.getY() - saidFrom.eyeY),
-                Math.toDegrees(bearing), HitArcs.EDGE_NAMES[HitArcs.edge(bearing, saidAspect)]));
+                Math.toDegrees(bearing), HitArcs.EDGE_NAMES[HitArcs.edge(bearing)]));
     }
 
     private static String kind(IsoGameCharacter character) {
@@ -141,14 +140,13 @@ final class HitDirection {
      *
      * @param tanHalfWide the tangent of half the picture's width
      */
-    void look(IsoPlayer player, ViewCamera.Pose eye, float tanHalfWide, float aspect, long now) {
+    void look(IsoPlayer player, ViewCamera.Pose eye, float tanHalfWide, long now) {
         if (!Part.HIT_DIRECTION.on()) {
             hide();
             return;
         }
         saidFor = player;
         saidFrom = eye;
-        saidAspect = aspect;
         int index = player.getIndex();
         IsoCell cell = IsoWorld.instance.currentCell;
         int floor = (int) Math.floor(player.getZ());

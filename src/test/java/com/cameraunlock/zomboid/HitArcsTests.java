@@ -11,7 +11,7 @@ final class HitArcsTests {
         Checks.run("theBearingTurnsWithTheView", HitArcsTests::theBearingTurnsWithTheView);
         Checks.run("aPitchedAndRolledViewKeepsItsBearings", HitArcsTests::aPitchedAndRolledViewKeepsItsBearings);
         Checks.run("aViewLyingDownTakesTheTopOfThePictureAsAhead", HitArcsTests::aViewLyingDownTakesTheTopOfThePictureAsAhead);
-        Checks.run("aCornerOfAWidePictureIsOnItsSide", HitArcsTests::aCornerOfAWidePictureIsOnItsSide);
+        Checks.run("aMarkIsNamedForTheEdgeItIsDrawnNearest", HitArcsTests::aMarkIsNamedForTheEdgeItIsDrawnNearest);
         Checks.run("aHitFadesOutOverASecondAndAHalf", HitArcsTests::aHitFadesOutOverASecondAndAHalf);
         Checks.run("aCloseZombieGlowsOnlyOutOfViewAndNear", HitArcsTests::aCloseZombieGlowsOnlyOutOfViewAndNear);
         Checks.run("aCloseZombieGlowsMostBehindAndNear", HitArcsTests::aCloseZombieGlowsMostBehindAndNear);
@@ -27,11 +27,10 @@ final class HitArcsTests {
     }
 
     private static void anAttackerIsMarkedOnTheEdgeOnItsSide() {
-        float aspect = 16f / 9f;
-        check(near(facingX(3f, 0f), 0f) && HitArcs.edge(facingX(3f, 0f), aspect) == HitArcs.TOP, "ahead is the top edge: " + facingX(3f, 0f));
-        check(near(facingX(0f, 2f), (float) Math.PI / 2f) && HitArcs.edge(facingX(0f, 2f), aspect) == HitArcs.RIGHT, "to the right is the right edge");
-        check(near(facingX(0f, -2f), -(float) Math.PI / 2f) && HitArcs.edge(facingX(0f, -2f), aspect) == HitArcs.LEFT, "to the left is the left edge");
-        check(near(Math.abs(facingX(-1f, 0f)), (float) Math.PI) && HitArcs.edge(facingX(-1f, 0f), aspect) == HitArcs.BOTTOM, "behind is the bottom edge");
+        check(near(facingX(3f, 0f), 0f) && HitArcs.edge(facingX(3f, 0f)) == HitArcs.TOP, "ahead is the top edge: " + facingX(3f, 0f));
+        check(near(facingX(0f, 2f), (float) Math.PI / 2f) && HitArcs.edge(facingX(0f, 2f)) == HitArcs.RIGHT, "to the right is the right edge");
+        check(near(facingX(0f, -2f), -(float) Math.PI / 2f) && HitArcs.edge(facingX(0f, -2f)) == HitArcs.LEFT, "to the left is the left edge");
+        check(near(Math.abs(facingX(-1f, 0f)), (float) Math.PI) && HitArcs.edge(facingX(-1f, 0f)) == HitArcs.BOTTOM, "behind is the bottom edge");
         check(HitArcs.up(facingX(-1f, 0f)) < -0.999f && Math.abs(HitArcs.across(facingX(-1f, 0f))) < 1e-3f, "and is drawn at the middle of the bottom");
         check(HitArcs.across(facingX(0f, -2f)) < -0.999f, "the left is drawn at the left");
     }
@@ -84,10 +83,22 @@ final class HitArcsTests {
         check(!Float.isNaN(bearingTipped(tipped(-90f, 0f), 0f, -1f)) && near(bearingTipped(tipped(-90f, 0f), 1f, 0f), 0f), "face down, the top of the picture is ahead");
     }
 
-    private static void aCornerOfAWidePictureIsOnItsSide() {
-        float bearing = (float) Math.toRadians(135);
-        check(HitArcs.edge(bearing, 16f / 9f) == HitArcs.BOTTOM, "behind and right meets the bottom of a wide picture short of its corner");
-        check(HitArcs.edge(bearing, 0.5f) == HitArcs.RIGHT, "and the right side of a tall one");
+    private static void aMarkIsNamedForTheEdgeItIsDrawnNearest() {
+        for (int degrees = -180; degrees < 180; degrees += 5) {
+            float bearing = (float) Math.toRadians(degrees), x = HitArcs.across(bearing), y = HitArcs.up(bearing);
+            // How far in from each edge the mark is drawn, as a share of half the picture: the edge named is the nearest.
+            float[] inFrom = {1f - y, 1f - x, 1f + y, 1f + x};
+            int nearest = 0;
+            for (int edge = 1; edge < 4; edge++) {
+                if (inFrom[edge] < inFrom[nearest]) {
+                    nearest = edge;
+                }
+            }
+            check(inFrom[HitArcs.edge(bearing)] <= inFrom[nearest] + 1e-6f, "at " + degrees + " degrees the edge named is " + HitArcs.EDGE_NAMES[HitArcs.edge(bearing)]
+                    + ", drawn nearest the " + HitArcs.EDGE_NAMES[nearest]);
+        }
+        check(HitArcs.edge((float) Math.toRadians(150)) == HitArcs.BOTTOM && HitArcs.edge((float) Math.toRadians(120)) == HitArcs.RIGHT,
+                "behind and to the right is drawn at the bottom, more to the right than behind at the right");
     }
 
     private static void aHitFadesOutOverASecondAndAHalf() {

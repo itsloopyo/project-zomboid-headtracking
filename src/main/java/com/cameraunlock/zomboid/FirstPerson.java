@@ -1189,7 +1189,7 @@ public final class FirstPerson {
         if (drawnAspect == 0f) {
             view.hitDirection.hide();
         } else {
-            view.hitDirection.look(player, trackedView, pictureTanHalf * drawnAspect, drawnAspect, now);
+            view.hitDirection.look(player, trackedView, pictureTanHalf * drawnAspect, now);
         }
 
         if (TRACE) {

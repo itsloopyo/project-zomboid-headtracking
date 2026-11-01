@@ -53,9 +53,13 @@ final class HitArcs {
         return (float) Math.cos(bearing);
     }
 
-    /** Which edge of a picture this wide for its height a line from its middle the way of a bearing meets. */
-    static int edge(float bearing, float aspect) {
-        float x = across(bearing) / aspect, y = up(bearing);
+    /**
+     * Which edge of the picture a bearing's mark is drawn nearest: it is drawn at across and up
+     * the picture, each a share of half the picture's width and height, so the side wins where
+     * it is the further across of the two.
+     */
+    static int edge(float bearing) {
+        float x = across(bearing), y = up(bearing);
         if (Math.abs(x) >= Math.abs(y)) {
             return x >= 0f ? RIGHT : LEFT;
         }
