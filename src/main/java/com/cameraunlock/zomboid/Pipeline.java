@@ -1552,7 +1552,7 @@ final class Pipeline {
             drawDeveloped(camera, state, tanHalfFieldOfView, aspect, exposure, near, far, fogStart, fogEnd);
             stage(STAGE_DEVELOP);
             showSmoothed(drawTarget, viewport);
-            view.crosshair.draw(viewport[2], viewport[3]);
+            view.crosshair.draw(viewport[0], viewport[1], viewport[2], viewport[3], view.viewModel.rodTip(), sceneDepth, near, far);
             view.hitDirection.draw(camera, viewport[2], viewport[3]);
             stage(STAGE_SMOOTH);
             reportStages();
@@ -6588,7 +6588,7 @@ final class Pipeline {
         pieces.add(new Piece(OwnArms::linkProgram));
         pieces.add(new Piece(CabinDraw::link));
         pieces.add(new Piece(CharacterDraw::link));
-        for (Supplier<SmallProgram> small : List.<Supplier<SmallProgram>>of(() -> Crosshair.flat, () -> HitDirection.program, () -> FireCards.program, () -> FireDraw.program,
+        for (Supplier<SmallProgram> small : List.<Supplier<SmallProgram>>of(() -> Crosshair.flat, () -> Crosshair.seen, () -> HitDirection.program, () -> FireCards.program, () -> FireDraw.program,
                 () -> ImpactDraw.debris, () -> ImpactDraw.holeProgram, () -> ModeFade.program, () -> MuzzleFlash.burst, () -> SpriteColours.unpack)) {
             pieces.add(new Piece(() -> {
                 small.get().make();

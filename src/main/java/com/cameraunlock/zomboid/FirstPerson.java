@@ -1212,7 +1212,8 @@ public final class FirstPerson {
 
     /**
      * The game draws a fishing line's bobber only in its own view, where the player cannot see
-     * it under this picture. It is drawn over the picture where it floats, nearer looking bigger.
+     * it under this picture. It is drawn over the picture where it floats, nearer looking bigger,
+     * with the line from the rod's tip to it.
      */
     private void showBobber(IsoPlayer player, WorldScene.Frame scene, float aspect) {
         if (aspect == 0f || !FishingAim.bobber(player, bobberAt)) {
@@ -1227,7 +1228,9 @@ public final class FirstPerson {
         }
         float dx = (float) (x - trackedView.exactX()), dy = (float) (y - trackedView.exactY()), du = (float) (up - trackedView.exactUp());
         float ahead = dx * trackedView.forwardX + dy * trackedView.forwardY + du * trackedView.forwardUp;
-        view.crosshair.showBobber(bobberNdc[0], bobberNdc[1], BOBBER_RADIUS / (ahead * tanHalf) * 540f);
+        float right = dx * trackedView.rightX + dy * trackedView.rightY + du * trackedView.rightUp, over = dx * trackedView.upX + dy * trackedView.upY + du * trackedView.upUp;
+        view.crosshair.showBobber(bobberNdc[0], bobberNdc[1], BOBBER_RADIUS / (ahead * tanHalf) * 540f, right, over, -ahead,
+                -trackedView.rightUp, -trackedView.upUp, trackedView.forwardUp, tanHalf, aspect);
     }
 
     /** Tiles the player can move in one frame before it is a jump across the map, after which the game loads its map round them afresh: more than a car at 250 km/h covers in a second-long frame. */

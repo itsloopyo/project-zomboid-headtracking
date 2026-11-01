@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL20;
 
 /**
@@ -40,6 +41,41 @@ final class Crosshair {
 
     static final SmallProgram flat = new SmallProgram("crosshair", SmallProgram.FLAT_VERTEX, FRAGMENT);
 
+    /**
+     * A fishing line and its bobber, each vertex given as x and y in the picture and how far ahead of the eye it is, in
+     * tiles: drawn only where nothing in the picture is nearer, so a wall, a post, the rod or a hand hides them.
+     */
+    private static final String SEEN_VERTEX = """
+            #version 120
+            varying float vAhead;
+
+            void main() {
+                vAhead = gl_Vertex.z;
+                gl_Position = vec4(gl_Vertex.xy, 0.0, 1.0);
+            }
+            """;
+    private static final String SEEN_FRAGMENT = """
+            #version 120
+            uniform vec4 uColor;
+            uniform sampler2D uDepth;
+            uniform vec2 uOrigin;
+            uniform vec2 uShown;
+            uniform float uNear;
+            uniform float uFar;
+            varying float vAhead;
+
+            void main() {
+                float z = texture2D(uDepth, (gl_FragCoord.xy - uOrigin) / uShown).r * 2.0 - 1.0;
+                float sceneAhead = 2.0 * uNear * uFar / (uFar + uNear - z * (uFar - uNear));
+                if (sceneAhead < vAhead) {
+                    discard;
+                }
+                gl_FragColor = uColor;
+            }
+            """;
+    static final SmallProgram seen = new SmallProgram("fishing line", SEEN_VERTEX, SEEN_FRAGMENT);
+    private static final int GL_TEXTURE_2D = 0x0DE1, GL_TEXTURE0 = 0x84C0;
+
     /** Where it is, -1 to 1 across the picture and up it, how spread, and whether it is the dot alone. */
     private record Mark(float x, float y, float spread, boolean dot) {
     }
@@ -57,15 +93,36 @@ final class Crosshair {
     /** How far in from the edges of the screen, as a share of half of it across and up, a pointer to a place out of view stands. */
     private static final float EDGE_ACROSS = 0.88f, EDGE_UP = 0.82f;
 
-    /** Where a bobber is, -1 to 1 across the picture and up it, and its radius in pixels on a screen 1080 high. */
-    private record Bobber(float x, float y, float radius) {
-    }
+    /**
+     * Where a bobber is, -1 to 1 across the picture and up it, and its radius in pixels on a screen 1080 high; where it is
+     * in the view, in tiles to the right, up and back; the way down in the view; and the picture's tangent of half its
+     * height and its width over its height, which the line to it is drawn with.
+     */
+    private static final int BOBBER_X = 0, BOBBER_Y = 1, BOBBER_RADIUS = 2, VIEW_X = 3, VIEW_Y = 4, VIEW_Z = 5, DOWN_X = 6, DOWN_Y = 7, DOWN_Z = 8,
+            TAN_HALF = 9, ASPECT = 10, BOBBER_FLOATS = 11;
+    /** Three, so the logic thread fills one while the render thread may still be drawing either of the last two it was handed. */
+    private final float[][] bobbers = new float[3][BOBBER_FLOATS];
+    private int bobberFilling;
+    /**
+     * A bobber drawn the size it is would hide in the water in front of it: it is taken to be nearer by its drawn radius
+     * in tiles, times this and this more for each tile it is off, as the water before it rises more steeply in the picture.
+     */
+    private static final float BOBBER_LIFTED = 1f, BOBBER_LIFTED_AHEAD = 0.7f;
+
+    /** The line from the rod's tip to the bobber is drawn in this many pieces, and hangs this much of how long it is below the straight line at its middle. */
+    private static final int LINE_PIECES = 24;
+    private static final float LINE_SAGS = 0.04f;
+    /** In pixels on a screen 1080 high: the width of the line, and of the dark edge round it. */
+    private static final float LINE_WIDE = 1.5f, LINE_EDGE = 0.75f;
+    /** Nearer the eye than this, in tiles, a piece of the line is not drawn. */
+    private static final float LINE_NEAREST = 0.02f;
+    private final float[] linePieces = new float[6 * LINE_PIECES];
 
     /** A bobber is drawn no smaller than this, in pixels on a screen 1080 high, so one far out can still be watched. */
     private static final float BOBBER_LEAST = 3f;
 
     /** Null while no bobber is out in view. */
-    private volatile Bobber bobber;
+    private volatile float[] bobber;
 
     /** Null when the game points the player nowhere. */
     private volatile Pointer[] pointers;
@@ -133,8 +190,21 @@ final class Crosshair {
         square = null;
     }
 
-    void showBobber(float x, float y, float radius) {
-        bobber = new Bobber(x, y, Math.max(radius, BOBBER_LEAST));
+    void showBobber(float x, float y, float radius, float viewX, float viewY, float viewZ, float downX, float downY, float downZ, float tanHalf, float aspect) {
+        float[] filled = bobbers[bobberFilling];
+        filled[BOBBER_X] = x;
+        filled[BOBBER_Y] = y;
+        filled[BOBBER_RADIUS] = Math.max(radius, BOBBER_LEAST);
+        filled[VIEW_X] = viewX;
+        filled[VIEW_Y] = viewY;
+        filled[VIEW_Z] = viewZ;
+        filled[DOWN_X] = downX;
+        filled[DOWN_Y] = downY;
+        filled[DOWN_Z] = downZ;
+        filled[TAN_HALF] = tanHalf;
+        filled[ASPECT] = aspect;
+        bobber = filled;
+        bobberFilling = (bobberFilling + 1) % bobbers.length;
     }
 
     void hideBobber() {
@@ -146,21 +216,41 @@ final class Crosshair {
         pointers = toShow;
     }
 
-    /** Draws it into the picture bound, whose viewport is the whole of a picture this many pixels each way. */
-    void draw(int width, int height) {
+    /**
+     * Draws it into the picture bound, whose viewport is a picture this many pixels each way, from x and y.
+     *
+     * @param rodTip where the tip of a fishing rod out over water is in the view, placed this frame, or null
+     * @param depth  the depth of the first person picture, between near and far, which a fishing line and its bobber are
+     *               hidden behind
+     */
+    void draw(int x, int y, int width, int height, float[] rodTip, int depth, float near, float far) {
         Mark where = on ? shown : null;
         Square outlined = square;
         Pointer[] pointing = pointers;
-        Bobber floating = bobber;
-        if (where == null && outlined == null && pointing == null && floating == null || !flat.use()) {
+        float[] floating = bobber;
+        if (where == null && outlined == null && pointing == null && floating == null) {
             return;
         }
         GL11.glDisable(GL_DEPTH_TEST);
         GL11.glDisable(GL_CULL_FACE);
         GL11.glEnable(GL_BLEND);
         GL11.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        if (floating != null) {
+        if (floating != null && seen.use()) {
+            GL13.glActiveTexture(GL_TEXTURE0);
+            GL11.glBindTexture(GL_TEXTURE_2D, depth);
+            GL20.glUniform1i(seen.at("uDepth"), 0);
+            GL20.glUniform2f(seen.at("uOrigin"), x, y);
+            GL20.glUniform2f(seen.at("uShown"), width, height);
+            GL20.glUniform1f(seen.at("uNear"), near);
+            GL20.glUniform1f(seen.at("uFar"), far);
+            if (rodTip != null) {
+                drawLine(floating, rodTip, width, height);
+            }
             drawBobber(floating, width, height);
+        }
+        if (!flat.use()) {
+            GL11.glDisable(GL_BLEND);
+            return;
         }
         if (outlined != null) {
             drawSquare(outlined, width, height);
@@ -214,21 +304,91 @@ final class Crosshair {
         }
     }
 
+    /** The line from the rod's tip to the bobber, hanging a little between them, thin and pale over a dark edge. */
+    private void drawLine(float[] floating, float[] tip, int width, int height) {
+        int floats = 0;
+        float fromX = 0f, fromY = 0f, fromAhead = 0f;
+        boolean from = false;
+        float bobX = floating[VIEW_X], bobY = floating[VIEW_Y], bobZ = floating[VIEW_Z];
+        float long3 = (float) Math.sqrt((bobX - tip[0]) * (bobX - tip[0]) + (bobY - tip[1]) * (bobY - tip[1]) + (bobZ - tip[2]) * (bobZ - tip[2]));
+        for (int i = 0; i <= LINE_PIECES; i++) {
+            float t = (float) i / LINE_PIECES, sag = LINE_SAGS * long3 * 4f * t * (1f - t);
+            float x = tip[0] + (bobX - tip[0]) * t + floating[DOWN_X] * sag;
+            float y = tip[1] + (bobY - tip[1]) * t + floating[DOWN_Y] * sag;
+            float ahead = -(tip[2] + (bobZ - tip[2]) * t + floating[DOWN_Z] * sag);
+            if (ahead < LINE_NEAREST) {
+                from = false;
+                continue;
+            }
+            float toX = x / (ahead * floating[TAN_HALF] * floating[ASPECT]), toY = y / (ahead * floating[TAN_HALF]);
+            if (from) {
+                linePieces[floats++] = fromX;
+                linePieces[floats++] = fromY;
+                linePieces[floats++] = fromAhead;
+                linePieces[floats++] = toX;
+                linePieces[floats++] = toY;
+                linePieces[floats++] = ahead;
+            }
+            fromX = toX;
+            fromY = toY;
+            fromAhead = ahead;
+            from = true;
+        }
+        int color = seen.at("uColor");
+        float unit = (float) height / DESIGN_HEIGHT;
+        GL20.glUniform4f(color, 0f, 0f, 0f, 0.35f);
+        seenPieces(linePieces, floats, (LINE_WIDE / 2f + LINE_EDGE) * unit, width, height);
+        GL20.glUniform4f(color, 0.9f, 0.9f, 0.85f, 0.85f);
+        seenPieces(linePieces, floats, LINE_WIDE / 2f * unit, width, height);
+    }
+
+    /** Pieces from x, y, ahead to x, y, ahead, each as a band this many pixels each side of its line, as `pieces` draws them. */
+    private static void seenPieces(float[] pieces, int floats, float half, int width, int height) {
+        for (int i = 0; i + 5 < floats; i += 6) {
+            float fromX = (pieces[i] * 0.5f + 0.5f) * width, fromY = (pieces[i + 1] * 0.5f + 0.5f) * height, fromAhead = pieces[i + 2];
+            float toX = (pieces[i + 3] * 0.5f + 0.5f) * width, toY = (pieces[i + 4] * 0.5f + 0.5f) * height, toAhead = pieces[i + 5];
+            float length = (float) Math.hypot(toX - fromX, toY - fromY);
+            if (length == 0f) {
+                continue;
+            }
+            float alongX = (toX - fromX) / length * half, alongY = (toY - fromY) / length * half;
+            float acrossX = -alongY, acrossY = alongX;
+            GL11.glBegin(GL_TRIANGLE_STRIP);
+            GL11.glVertex3f((fromX - alongX + acrossX) * 2f / width - 1f, (fromY - alongY + acrossY) * 2f / height - 1f, fromAhead);
+            GL11.glVertex3f((fromX - alongX - acrossX) * 2f / width - 1f, (fromY - alongY - acrossY) * 2f / height - 1f, fromAhead);
+            GL11.glVertex3f((toX + alongX + acrossX) * 2f / width - 1f, (toY + alongY + acrossY) * 2f / height - 1f, toAhead);
+            GL11.glVertex3f((toX + alongX - acrossX) * 2f / width - 1f, (toY + alongY - acrossY) * 2f / height - 1f, toAhead);
+            GL11.glEnd();
+        }
+    }
+
     /** A bobber as it floats: red over white, with a dark rim so it reads against bright water. */
-    private static void drawBobber(Bobber floating, int width, int height) {
-        int color = flat.at("uColor");
-        float radius = floating.radius * height / DESIGN_HEIGHT;
-        int middleX = Math.round((floating.x * 0.5f + 0.5f) * width), middleY = Math.round((floating.y * 0.5f + 0.5f) * height);
+    private static void drawBobber(float[] floating, int width, int height) {
+        int color = seen.at("uColor");
+        float radius = floating[BOBBER_RADIUS] * height / DESIGN_HEIGHT;
+        float middleX = (floating[BOBBER_X] * 0.5f + 0.5f) * width, middleY = (floating[BOBBER_Y] * 0.5f + 0.5f) * height;
+        float ahead = -floating[VIEW_Z], across = radius / height * 2f * ahead * floating[TAN_HALF];
+        float shown = ahead - across * (BOBBER_LIFTED + BOBBER_LIFTED_AHEAD * ahead);
         GL20.glUniform4f(color, 0f, 0f, 0f, 0.5f);
-        disc(middleX, middleY, radius + Math.max(1f, radius / 5f), width, height);
+        seenDisc(middleX, middleY, radius + Math.max(1f, radius / 5f), shown, width, height);
         GL20.glUniform4f(color, 0.95f, 0.95f, 0.92f, 1f);
-        disc(middleX, middleY, radius, width, height);
+        seenDisc(middleX, middleY, radius, shown, width, height);
         GL20.glUniform4f(color, 0.85f, 0.1f, 0.08f, 1f);
         GL11.glBegin(GL_TRIANGLE_FAN);
-        GL11.glVertex2f(middleX * 2f / width - 1f, middleY * 2f / height - 1f);
+        GL11.glVertex3f(middleX * 2f / width - 1f, middleY * 2f / height - 1f, shown);
         for (int i = 0; i <= DOT_SIDES / 2; i++) {
             double way = Math.PI * i / (DOT_SIDES / 2);
-            GL11.glVertex2f((middleX + radius * (float) Math.cos(way)) * 2f / width - 1f, (middleY + radius * (float) Math.sin(way)) * 2f / height - 1f);
+            GL11.glVertex3f((middleX + radius * (float) Math.cos(way)) * 2f / width - 1f, (middleY + radius * (float) Math.sin(way)) * 2f / height - 1f, shown);
+        }
+        GL11.glEnd();
+    }
+
+    private static void seenDisc(float middleX, float middleY, float radius, float ahead, int width, int height) {
+        GL11.glBegin(GL_TRIANGLE_FAN);
+        GL11.glVertex3f(middleX * 2f / width - 1f, middleY * 2f / height - 1f, ahead);
+        for (int i = 0; i <= DOT_SIDES; i++) {
+            double way = 2 * Math.PI * i / DOT_SIDES;
+            GL11.glVertex3f((middleX + radius * (float) Math.cos(way)) * 2f / width - 1f, (middleY + radius * (float) Math.sin(way)) * 2f / height - 1f, ahead);
         }
         GL11.glEnd();
     }
