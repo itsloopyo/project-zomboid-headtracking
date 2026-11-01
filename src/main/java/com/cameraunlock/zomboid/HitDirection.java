@@ -221,11 +221,14 @@ final class HitDirection {
         shown = marks == 0 ? null : new Marks(bearings, strengths, hits, marks);
     }
 
-    /** Whether something between the player and a zombie stops it reaching them, as the game's own attack asks (AttackState). */
+    /**
+     * Whether something between the player and a zombie stands in its way: a wall, a shut door,
+     * which the game's own attack also stops at (AttackState), or a shut window, which it does not.
+     */
     private static boolean blocked(IsoCell cell, IsoPlayer player, IsoZombie zombie) {
         LosUtil.TestResults line = LosUtil.lineClear(cell, (int) Math.floor(zombie.getX()), (int) Math.floor(zombie.getY()), (int) Math.floor(zombie.getZ()),
                 (int) Math.floor(player.getX()), (int) Math.floor(player.getY()), (int) Math.floor(player.getZ()), false);
-        return line == LosUtil.TestResults.Blocked || line == LosUtil.TestResults.ClearThroughClosedDoor;
+        return line == LosUtil.TestResults.Blocked || line == LosUtil.TestResults.ClearThroughClosedDoor || line == LosUtil.TestResults.ClearThroughWindow;
     }
 
     /** Nothing marked: the view is not first person, or the part is off. Who hit the player is forgotten. */
