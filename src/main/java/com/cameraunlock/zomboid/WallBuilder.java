@@ -645,7 +645,10 @@ final class WallBuilder {
             // A door's top is a straight line, and its sprite has it as a staircase of pixels
             // on the slant. The face stops at the door's top, so the line is the face's own edge.
             build.geometry.exactAcross = build.casing;
+            // A door or a gate the picture builds no leaf for is its sprite, which its holes go through as a built leaf's do.
+            int[][] cardEnds = door ? build.openingBuilder.cardEnds() : null;
             build.geometry.addFace(trim && !door ? inRoom(stoodSquare(mesh, texture, da != 0f), mesh.room) : mesh, build.frame, x, y, z, from * da, from * db, foot, length * da, length * db, 0f, 0f, 0f, up);
+            build.openingBuilder.cutCard(cardEnds, x, y, z, da, db, da != 0f ? build.geometry.shownB : build.geometry.shownA);
             build.frame.flat = 0;
             if (build.casing && build.overLayer == 0) {
                 // A door's frame goes round the doorway on both sides of the wall. The game

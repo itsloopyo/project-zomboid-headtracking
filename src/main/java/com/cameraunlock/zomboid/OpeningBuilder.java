@@ -178,8 +178,19 @@ final class OpeningBuilder {
      * top closed in the colour of its stile. Shut, it hangs in the middle of the wall's
      * thickness, behind the doorway's reveals. Open, it stands clear of the wall it has swung
      * back against. False, adding nothing, for a sprite with no door painted across the edge.
+     * Its holes and marks are cut through it (cutCard).
      */
     boolean addDoor(SpriteGeometry.Mesh mesh, Texture texture, int x, int y, int z, float a, float b, float da, float db) {
+        float out = build.doorSwung ? SWUNG_OUT + build.wallBuilder.logsProud(x, y, z, da != 0f) : 0f;
+        int[][] ends = cardEnds();
+        if (!addCard(mesh, texture, x, y, z, a, b, da, db, out)) {
+            return false;
+        }
+        cutCard(ends, x + a, y + b, z, da, db, out);
+        return true;
+    }
+
+    private boolean addCard(SpriteGeometry.Mesh mesh, Texture texture, int x, int y, int z, float a, float b, float da, float db, float out) {
         int at = da != 0f ? 0 : SPAN_FLOATS;
         float[] span = WorldScene.doorSpans.get(texture);
         if (span == null || span[at] != build.frame.originU || span[at + 1] != build.frame.originV) {
@@ -208,7 +219,6 @@ final class OpeningBuilder {
             return false;
         }
         float top = build.wallBuilder.doorTop(texture, a, b, da, db);
-        float out = build.doorSwung ? SWUNG_OUT + build.wallBuilder.logsProud(x, y, z, da != 0f) : 0f;
         for (int side = -1; side <= 1; side += 2) {
             build.geometry.shownA = db * (out + side * DOOR_HALF);
             build.geometry.shownB = da * (out + side * DOOR_HALF);
@@ -780,6 +790,30 @@ final class OpeningBuilder {
 
     /** How far either side of its middle a blast's hole goes through a door's leaf, in tiles: the leaf, and its ledges and panels. */
     private static final float DOOR_REACH = DOOR_HALF + LEDGE_PROUD + 0.006f;
+
+    /** Where the meshes end before a door being added is drawn as its sprite, for cutCard; null where it has no holes or marks to cut. */
+    int[][] cardEnds() {
+        return build.blastHoles == null ? null : MeshCut.ends(build.solid, build.laid);
+    }
+
+    /**
+     * Cuts the holes and marks of the door being added (BlastHoles) through what was drawn of it as its sprite since ends
+     * were taken (cardEnds): a card (addDoor) or a sheet (WallBuilder), standing on the edge from (x, y) along (da, db),
+     * off tiles across from the edge's line. Shut, or slid in its doorway, it is where its leaf was struck. Swung open, its
+     * sprite is the leaf back against the square's other edge from the hinge at the corner the shut edge starts from: a
+     * hole that far from the hinge on the shut leaf is that far along this edge, and the face that looked one way across
+     * the shut edge looks the other way across this one, as blastCut lays a leaf swung open that is not turned end for end.
+     */
+    void cutCard(int[][] ends, float x, float y, int z, float da, float db, float off) {
+        if (ends == null) {
+            return;
+        }
+        boolean north = da != 0f, struckOn = build.doorSwung != north;
+        MeshCut cut = new MeshCut(x + db * off, y + da * off, da, db, DOOR_REACH);
+        BlastHoles.into(cut, build.blastHoles, BlastHoles.fallen(build.blastObject, struckOn), struckOn, 0f, 1f, footOf(z), ViewCamera.LEVEL_HEIGHT,
+                build.doorSwung ? -1 : 1);
+        cut.since(ends, build.solid, build.laid);
+    }
 
     /**
      * The holes and marks of the door being added (BlastHoles), laid on its leaf where it stands
