@@ -78,6 +78,7 @@ public final class Hooks {
 
     /** Called from IngameState.renderFrameInternal straight after the game has drawn a player's world. */
     public static void afterWorldRender() {
+        HeldMap.settle();
         IsoPlayer player = IsoPlayer.getInstance();
         if (player == null) {
             return;

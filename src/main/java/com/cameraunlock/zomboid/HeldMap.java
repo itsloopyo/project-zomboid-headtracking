@@ -25,11 +25,14 @@ import zombie.ui.UIManager;
  * drawn by its own renderer with the player's marker and the player's own marks on it, onto a
  * sheet before the eye. The player can walk with it up. The map key again puts it down and
  * reads it again as the game does, for the game's panel, where it is panned, zoomed and marked.
- * What puts it down is MapHold's, looked at every frame whatever the view.
+ * What puts it down is MapHold's, looked at after each frame's world is drawn whatever the view
+ * (settle).
  *
  * Each player's map is drawn into a square picture of its own, among the game's own UI drawing,
  * by a UI element in the lower left corner of the screen, which the picture covers: the renderer
- * sets its viewport from the screen's size. The sheet shows the picture on the next frame.
+ * sets its viewport from the screen's size. The sheet shows the picture on the next frame. The
+ * game leaves its UI drawing out of the frames past its UI frame rate and while its Lua debugger
+ * is up, and the picture is drawn again only on the frames it draws it.
  *
  * On a server where players can fight, the game's own panel is shown as it is: a map that
  * leaves the hands and the view free while it is read is more than the game gives anyone.
@@ -142,6 +145,11 @@ final class HeldMap {
     static final double ZOOM = 17.5;
 
     private static final boolean[] reading = new boolean[View.COUNT], held = new boolean[View.COUNT], made = new boolean[View.COUNT];
+    private static final Double[] PLAYER_NUMBERS = new Double[View.COUNT];
+    private static final Double ZOOM_ASKED = ZOOM;
+    /** The side and the height of the corner the maps are placed in, as they were last asked for, and as the Lua is handed them. */
+    private static int placedSide, placedHeight;
+    private static Double sideAsked, cornerAsked;
     private static Object place;
     /** Set as the game loads its Lua: the mod's goes into it on the next frame, among the game's UI drawing. */
     private static boolean pending;
@@ -177,6 +185,9 @@ final class HeldMap {
         int holding = 0;
         if (!Part.FIRST_PERSON.running() || !Part.HELD_MAP.running()) {
             holding |= MapHold.OFF;
+        }
+        if (refused) {
+            holding |= MapHold.NO_PICTURE;
         }
         if (!view.firstPerson.active()) {
             holding |= MapHold.NOT_FIRST_PERSON;
@@ -268,16 +279,8 @@ final class HeldMap {
         }
     }
 
-    /**
-     * Among the game's UI drawing, before any of it, every frame whatever the view: puts down
-     * each map MapHold says is down, and draws each one still up into its player's picture.
-     */
-    static void beforeUi() {
-        if (pending) {
-            pending = false;
-            register();
-        }
-        int side = Math.min(MOST_SIDE, Math.min(Core.width, Core.height));
+    /** After each frame's world is drawn, whatever the view: puts down each map MapHold says is down. Main thread. */
+    static void settle() {
         for (int player = 0; player < View.COUNT; player++) {
             if (reading[player] || held[player]) {
                 String why = MapHold.down(holding(player, held[player]));
@@ -289,14 +292,38 @@ final class HeldMap {
                     lower(player, why);
                 }
             }
+        }
+    }
+
+    /**
+     * Among the game's UI drawing, before any of it, on the frames the game draws its UI: draws
+     * each map still up into its player's picture, and gives back the picture of a map once the
+     * hands that held it are down.
+     */
+    static void beforeUi() {
+        if (pending) {
+            pending = false;
+            register();
+        }
+        int side = Math.min(MOST_SIDE, Math.min(Core.width, Core.height));
+        if (side != placedSide || Core.height != placedHeight) {
+            placedSide = side;
+            placedHeight = Core.height;
+            sideAsked = (double) side;
+            cornerAsked = (double) (Core.height - side);
+        }
+        for (int player = 0; player < View.COUNT; player++) {
             if (!reading[player] && !held[player]) {
-                if (made[player]) {
+                if (made[player] && handsDown(player)) {
                     made[player] = false;
                     SpriteRenderer.instance.drawGeneric(FREE[player]);
                 }
                 continue;
             }
-            Object[] ran = LuaManager.caller.pcall(UIManager.getDefaultThread(), place, (double) player, (double) side, ZOOM, (double) (Core.height - side));
+            if (PLAYER_NUMBERS[player] == null) {
+                PLAYER_NUMBERS[player] = (double) player;
+            }
+            Object[] ran = LuaManager.caller.pcall(UIManager.getDefaultThread(), place, PLAYER_NUMBERS[player], sideAsked, ZOOM_ASKED, cornerAsked);
             if (!Boolean.TRUE.equals(ran[0]) || ran.length < 2 || !(ran[1] instanceof UIElement map)) {
                 Log.error("player " + (player + 1) + "'s map is put down: the game's Lua would not place it: " + Arrays.toString(ran));
                 reading[player] = false;
@@ -308,9 +335,19 @@ final class HeldMap {
             drawnWidth = Core.width;
             drawnHeight = Core.height;
             SpriteRenderer.instance.drawGeneric(BIND[player]);
-            map.render();
-            SpriteRenderer.instance.drawGeneric(UNBIND[player]);
+            try {
+                map.render();
+            } finally {
+                SpriteRenderer.instance.drawGeneric(UNBIND[player]);
+            }
         }
+    }
+
+    /** Whether the hands that held a player's map are down: until then the sheet in them still shows its picture. */
+    private static boolean handsDown(int player) {
+        View view = View.of(player);
+        ViewModel.Task task = view == null ? null : view.viewModel.task;
+        return task == null || task.kind() != TimedActs.MAP;
     }
 
     /** The side of the maps drawn and the screen's size they are drawn at, for the render thread. */
@@ -318,10 +355,12 @@ final class HeldMap {
 
     private static final int[] texture = new int[View.COUNT], target = new int[View.COUNT], sides = new int[View.COUNT];
     private static int savedDraw, savedRead;
-    /** Set once the driver refuses a picture: every map is drawn into nothing from then on, and the sheets are blank. */
-    private static boolean refused;
+    /** Set once the driver refuses a picture: from then on the map is read as the game reads it (MapHold.NO_PICTURE). */
+    private static volatile boolean refused;
     /** Whether the map being drawn goes into its picture: else, with pictures refused, it goes nowhere. */
     private static boolean bound;
+    /** The player whose map's drawing is begun and not yet ended, or -1: see bind. */
+    private static int drawing = -1;
 
     private static final TextureDraw.GenericDrawer[] BIND = new TextureDraw.GenericDrawer[View.COUNT], UNBIND = new TextureDraw.GenericDrawer[View.COUNT],
             FREE = new TextureDraw.GenericDrawer[View.COUNT];
@@ -357,7 +396,13 @@ final class HeldMap {
      * what is drawn inside it.
      */
     private static void bind(int player, int side, int width, int height) {
+        // Between this and unbind the game's own renderer draws the map, and a throw in it leaves unbind undone.
+        if (drawing >= 0) {
+            Log.error("player " + (drawing + 1) + "'s held map was not finished drawing: what it was drawn on is put back now");
+            unbind(drawing);
+        }
         GL11.glPushAttrib(GL_COLOR_BUFFER_BIT | GL_VIEWPORT_BIT | GL_SCISSOR_BIT);
+        drawing = player;
         bound = !refused;
         if (bound && (texture[player] == 0 || sides[player] != side)) {
             free(player);
@@ -366,7 +411,7 @@ final class HeldMap {
                 refused = true;
                 bound = false;
                 free(player);
-                Log.error("the held map is drawn blank: " + why);
+                Log.error("the map is read as the game reads it from now on, not held up: " + why);
             }
         }
         if (!bound) {
@@ -386,6 +431,7 @@ final class HeldMap {
     }
 
     private static void unbind(int player) {
+        drawing = -1;
         if (!bound) {
             GL11.glPopAttrib();
             return;

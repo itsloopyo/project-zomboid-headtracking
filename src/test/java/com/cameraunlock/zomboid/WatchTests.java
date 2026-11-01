@@ -138,7 +138,7 @@ final class WatchTests {
 
     private static void heldMapComesDownForEachReasonAndSaysTheFirst() {
         check(MapHold.down(0) == null, "with nothing in the way the map stays up");
-        int[] each = {MapHold.GONE, MapHold.OFF, MapHold.NOT_FIRST_PERSON, MapHold.NO_OWN_ARMS, MapHold.BODY_LEADS, MapHold.DEAD, MapHold.IN_A_VEHICLE,
+        int[] each = {MapHold.GONE, MapHold.OFF, MapHold.NO_PICTURE, MapHold.NOT_FIRST_PERSON, MapHold.NO_OWN_ARMS, MapHold.BODY_LEADS, MapHold.DEAD, MapHold.IN_A_VEHICLE,
             MapHold.PLAYERS_CAN_FIGHT, MapHold.AIMING, MapHold.ATTACKING, MapHold.DOING_SOMETHING_ELSE};
         java.util.Set<String> said = new java.util.HashSet<>();
         for (int reason : each) {
