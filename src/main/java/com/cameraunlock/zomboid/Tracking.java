@@ -890,6 +890,16 @@ final class Tracking {
         save(() -> config.saveMicrophone(player, name));
     }
 
+    /** A key list row's keys as CameraUnlock.ini names them now, by the row's key. */
+    static String keys(String row) {
+        return config.keys(row);
+    }
+
+    /** Keys the game's options screen applied for a row: core saves them and listens for them in place of the old ones. */
+    static void applyKeys(String row, String keys) {
+        save(() -> config.saveKeys(row, keys));
+    }
+
     /** The new value is already applied. A save that fails leaves the session on it, and the log says why. */
     private static void save(Runnable save) {
         saver.execute(() -> {
@@ -1074,31 +1084,6 @@ final class Tracking {
     /** The keys that go to the next graphics mode now, as CameraUnlock.ini names them: CycleQualityKeyBesideViewpoint's while Project Viewpoint runs. */
     static String cycleQualityKeys() {
         return viewpoint ? config.cycleQualityKeysBesideViewpoint() : config.cycleQualityKeys();
-    }
-
-    /** The keys that go to the next picture style, as CameraUnlock.ini names them. */
-    static String cycleStyleKeys() {
-        return config.cycleStyleKeys();
-    }
-
-    /** The keys that turn the split screen, as CameraUnlock.ini names them. */
-    static String splitScreenKeys() {
-        return config.splitScreenKeys();
-    }
-
-    /** The keys that go to the next tracking mode, as the game started with them. */
-    static String cycleTrackingModeKeys() {
-        return config.cycleTrackingModeKeys();
-    }
-
-    /** The keys that switch horizon-relative head turns, as the game started with them. */
-    static String yawModeKeys() {
-        return config.yawModeKeys();
-    }
-
-    /** The keys that go to the next aim mode, as the game started with them. */
-    static String aimModeKeys() {
-        return config.aimModeKeys();
     }
 
     /** The view a player switched to, kept for the next load. */

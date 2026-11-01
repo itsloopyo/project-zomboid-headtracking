@@ -289,6 +289,8 @@ Centring belongs to your tracker, recenter there.
 - `F8` cycles the picture style: Vivid, Natural, Bleak, Warm and Cold. Each new style fades in over most of a second.
 - In split screen each player has their own graphics mode and picture style. Tap `F9` or `F8` once for player 1, twice for player 2, three times for player 3 and four times for player 4, or hold it to change everyone. Settings for players 2, 3 and 4 are under `[Players]` in `CameraUnlock.ini` and on the options page.
 
+To change any of these keys, open the mod's options page and go to Keys at the bottom: click a key, then press the new one, with Shift, Ctrl or Alt if you like. The mod listens for the new key as soon as you apply.
+
 Every key saves its new setting to `CameraUnlock.ini` as you press it, and `Delete` also saves which view your next load starts in (`FirstPerson`). There's no key to turn head tracking on or off: use the Head tracking on tick box at the top of the mod's options page, or `EnableOnStartup` in `CameraUnlock.ini`. There's no recenter key either, so centre the view in your tracker app.
 
 ### Mouse and keyboard

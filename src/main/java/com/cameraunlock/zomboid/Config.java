@@ -99,6 +99,13 @@ final class Config {
     private final int[] quality = new int[View.COUNT], overheadQuality = new int[View.COUNT], style = new int[View.COUNT];
     private final int[] firstPerson = new int[View.COUNT], firstPersonInVehicles = new int[View.COUNT];
     private final int firstPersonKey, firstPersonKeyBesideViewpoint, cycleQualityKey, cycleQualityKeyBesideViewpoint, cycleStyleKey, splitScreenKey;
+    /** The keys each key list row comes with, by the row's key: core's three are the game's own per_game rows of cameraunlock-core. */
+    static final Map<String, String> DEFAULT_KEYS = Map.of("CycleTrackingModeKey", "PageUp", "YawModeKey", "PageDown", "TrueFreeLookKey", "Insert",
+            "FirstPersonKey", "Delete", "FirstPersonKeyBesideViewpoint", "ScrollLock", "CycleQualityKey", "F9", "CycleQualityKeyBesideViewpoint", "Home",
+            "CycleStyleKey", "F8", "SplitScreenKey", "F7");
+    /** The mod's own key list rows, by key. Core's three, CycleTrackingModeKey, YawModeKey and TrueFreeLookKey, are saved by their names. */
+    private final Map<String, Integer> keyRows = new HashMap<>();
+    private static final List<String> CORE_KEY_ROWS = List.of("CycleTrackingModeKey", "YawModeKey", "TrueFreeLookKey");
     /** Each of the mod's own rows the options screen can show, by its key: what saveOptions writes in one go. */
     private final Map<String, Integer> localRows = new HashMap<>();
     /** The options as core lists them once the file is read, and each one's place by its key. */
@@ -122,7 +129,8 @@ final class Config {
 
     /**
      * Describes the rows. The tracking mode pair, WorldSpaceYaw and the three aim mode rows are
-     * writable: their hotkeys save. EnableOnStartup, the smoothing pair and LightMultiplier are
+     * writable: their hotkeys save. Every key list row is writable too, for the keys the game's
+     * options screen lets the player choose (OptionsPage). EnableOnStartup, the smoothing pair and LightMultiplier are
      * writable for the options screen, where a save of one writes its value in place of default,
      * as a hotkey's save does. There is no key that switches head tracking off: the
      * owner ruled the action out for this game, and the three keys there are are the game's own
@@ -180,10 +188,10 @@ final class Config {
                 COLLISION_MARGIN);
         core.configConcept("CollisionReleaseSmoothing", 0, null, null);
         int perGame = CameraUnlock.ROW_PER_GAME;
-        core.configConcept("CycleTrackingModeKey", perGame, null, "PageUp");
-        core.configConcept("YawModeKey", perGame, null, "PageDown");
-        core.configConcept("TrueFreeLookKey", perGame,
-                "Cycles the aim mode: sights locked, free look with a marker, stock sights.", "Insert");
+        core.configConcept("CycleTrackingModeKey", perGame | writable, null, DEFAULT_KEYS.get("CycleTrackingModeKey"));
+        core.configConcept("YawModeKey", perGame | writable, null, DEFAULT_KEYS.get("YawModeKey"));
+        core.configConcept("TrueFreeLookKey", perGame | writable,
+                "Cycles the aim mode: sights locked, free look with a marker, stock sights.", DEFAULT_KEYS.get("TrueFreeLookKey"));
         core.configConcept("LightMultiplier", writable,
                 "How far the flashlight turns for each degree your head turns, while TorchFollowsHead is on. 1 turns it as far as\n"
                         + "the view, more turns it further, and 0 leaves it where your character faces.", null);
@@ -343,29 +351,35 @@ final class Config {
         firstPersonKey = core.configLocalHotkeyTaps("FirstPersonKey",
                 "Switches between first person and the isometric view. Tap once for player 1, twice for player 2, three times for\n"
                         + "player 3, four times for player 4, or hold for every player.",
-                0, "Delete", FIRST_PERSON_TAPS, FIRST_PERSON_ALL);
+                writable, DEFAULT_KEYS.get("FirstPersonKey"), FIRST_PERSON_TAPS, FIRST_PERSON_ALL);
         firstPersonKeyBesideViewpoint = core.configLocalHotkeyTaps("FirstPersonKeyBesideViewpoint",
                 "Switches between first person and the isometric view in place of FirstPersonKey while Project Viewpoint, another\n"
                         + "mod, runs, as Viewpoint opens its settings window on Delete. Tapped and held as FirstPersonKey is.",
-                0, "ScrollLock", FIRST_PERSON_BESIDE_VIEWPOINT_TAPS, FIRST_PERSON_BESIDE_VIEWPOINT_ALL);
+                writable, DEFAULT_KEYS.get("FirstPersonKeyBesideViewpoint"), FIRST_PERSON_BESIDE_VIEWPOINT_TAPS, FIRST_PERSON_BESIDE_VIEWPOINT_ALL);
         cycleQualityKey = core.configLocalHotkeyTaps("CycleQualityKey",
                 "Goes to the next graphics mode of the view a player is in: in first person Low, Medium, High, Custom\n"
                         + "(Quality), in the isometric view Low, Medium, High, Custom (IsometricQuality), and for players 2, 3 and 4 their\n"
                         + "rows of [Players]. Tap once for player 1, twice for player 2, three times for player 3, four times for player 4,\n"
                         + "or hold for every player.",
-                0, "F9", CYCLE_QUALITY_TAPS, CYCLE_QUALITY_ALL);
+                writable, DEFAULT_KEYS.get("CycleQualityKey"), CYCLE_QUALITY_TAPS, CYCLE_QUALITY_ALL);
         cycleQualityKeyBesideViewpoint = core.configLocalHotkeyHeld("CycleQualityKeyBesideViewpoint",
                 "Goes to the next graphics mode in place of CycleQualityKey while Project Viewpoint, another mod, runs, as\n"
                         + "Viewpoint takes a screenshot on F9. Tap for player 1, or hold for every player.",
-                0, "Home", CYCLE_QUALITY_BESIDE_VIEWPOINT, CYCLE_QUALITY_BESIDE_VIEWPOINT_ALL);
+                writable, DEFAULT_KEYS.get("CycleQualityKeyBesideViewpoint"), CYCLE_QUALITY_BESIDE_VIEWPOINT, CYCLE_QUALITY_BESIDE_VIEWPOINT_ALL);
         cycleStyleKey = core.configLocalHotkeyTaps("CycleStyleKey",
                 "Goes to a player's next picture style: Vivid, Natural, Bleak, Warm, Cold (Style, and for players 2, 3 and 4\n"
                         + "their rows of [Players]). Tap once for player 1, twice for player 2, three times for player 3, four times for\n"
                         + "player 4, or hold for every player.",
-                0, "F8", CYCLE_STYLE_TAPS, CYCLE_STYLE_ALL);
+                writable, DEFAULT_KEYS.get("CycleStyleKey"), CYCLE_STYLE_TAPS, CYCLE_STYLE_ALL);
         splitScreenKey = core.configLocalHotkey("SplitScreenKey",
-                "With two players at the screen, switches between side by side and above and below.", 0, "F7",
-                SPLIT_SCREEN);
+                "With two players at the screen, switches between side by side and above and below.", writable,
+                DEFAULT_KEYS.get("SplitScreenKey"), SPLIT_SCREEN);
+        keyRows.put("FirstPersonKey", firstPersonKey);
+        keyRows.put("FirstPersonKeyBesideViewpoint", firstPersonKeyBesideViewpoint);
+        keyRows.put("CycleQualityKey", cycleQualityKey);
+        keyRows.put("CycleQualityKeyBesideViewpoint", cycleQualityKeyBesideViewpoint);
+        keyRows.put("CycleStyleKey", cycleStyleKey);
+        keyRows.put("SplitScreenKey", splitScreenKey);
         own = new int[] {
             localBool("Content", "VanillaWeapons",
                     "true: the game's own weapons, with no picture through the scope. false: the mod's models of the pump shotgun and\n"
@@ -882,25 +896,30 @@ final class Config {
         return core.configGetText(cycleQualityKeyBesideViewpoint);
     }
 
-    String cycleStyleKeys() {
-        return core.configGetText(cycleStyleKey);
+    /** A key list row's keys now, as the file names them, by the row's key: the load's, or the last the options screen saved. */
+    String keys(String row) {
+        Integer local = keyRows.get(row);
+        if (local != null) {
+            return core.configGetText(local);
+        }
+        if (!CORE_KEY_ROWS.contains(row)) {
+            throw new IllegalArgumentException(row + " is no key list row");
+        }
+        return core.configGetConceptKeys(row);
     }
 
-    String splitScreenKeys() {
-        return core.configGetText(splitScreenKey);
-    }
-
-    /** The keys of core's own rows, as the load read them: core listens for these. */
-    String cycleTrackingModeKeys() {
-        return core.configGetConceptKeys("CycleTrackingModeKey");
-    }
-
-    String yawModeKeys() {
-        return core.configGetConceptKeys("YawModeKey");
-    }
-
-    String aimModeKeys() {
-        return core.configGetConceptKeys("TrueFreeLookKey");
+    /**
+     * A key list the game's options screen applied, saved to its row by the row's key. Core listens
+     * for the new keys from then on, and no longer for the old, whether or not the file took them.
+     */
+    boolean saveKeys(String row, String keys) {
+        Integer local = keyRows.get(row);
+        if (local == null && !CORE_KEY_ROWS.contains(row)) {
+            throw new IllegalArgumentException(row + " is no key list row");
+        }
+        int status = local != null ? core.configSaveKeys(local, keys) : core.configSaveConceptKeys(row, keys);
+        Log.info("the mod listens for " + row + " on " + (keys.isEmpty() ? "no key" : keys) + " from now on");
+        return saved(row + " \"" + keys + "\" from the game's options screen", status);
     }
 
     boolean saveFirstPerson(int player, boolean on) {

@@ -27,7 +27,11 @@ import zombie.ui.UIManager;
  *
  * Each player's microphone is a name and no option of core's: the page lists the microphones
  * connected as it opens, for each player, under Voice. The keys, which are no options either, are
- * said under the last title, with where to change them.
+ * the game's own key controls under the last title (OptionsLayout.KEY_ROWS). Choosing one opens the
+ * game's own dialog, which waits for a key and says when another of the game's keys or the mods'
+ * has it. Esc there cancels, and a key a row of [Hotkeys] cannot name is refused with the dialog
+ * left open (KeyNames). A key list of several keys shows its first, and its tooltip says what the
+ * file holds.
  *
  * What the page holds until the screen is applied, and what follows on it from a change, is
  * OptionsDraft's. Nothing is taken until then: the session takes every setting that changed
@@ -66,8 +70,23 @@ final class OptionsPage {
     private static final String MICROPHONE_TIP = "Used only to move your character's mouth with what you say, while Talking mouths is on. "
             + "The sound is never recorded or sent.";
 
+    /** One key row's control: `table` is the game's Lua table for it, and `shown` the key it was given as the screen opened or was last applied. */
+    private static final class KeyControl {
+        final OptionsLayout.KeyRow row;
+        final KahluaTable table;
+        KeyNames.Binding shown;
+
+        KeyControl(OptionsLayout.KeyRow row, KahluaTable table, KeyNames.Binding shown) {
+            this.row = row;
+            this.table = table;
+            this.shown = shown;
+        }
+    }
+
+    private static final String REFUSED_KEY = "The mod cannot listen for that key.\nPress another, or Esc to cancel.";
+
     private static final JavaFunction OPENED = OptionsPage::opened, APPLIED = OptionsPage::applied, CHANGED = OptionsPage::changed,
-            QUICK_CHOSEN = OptionsPage::quickChosen;
+            QUICK_CHOSEN = OptionsPage::quickChosen, KEY_PRESSED = OptionsPage::keyPressed;
 
     private static OptionsDraft draft;
     private static List<Control> controls = List.of();
@@ -76,6 +95,10 @@ final class OptionsPage {
     /** The game's Lua tables for the quick lists, in the order of the draft's. */
     private static List<KahluaTable> quickTables = List.of();
     private static List<MicrophoneList> microphones = List.of();
+    private static List<KeyControl> keyControls = List.of();
+    /** MainOptions as the game's Lua has it, and its keyPressHandler, which its key dialog hands each key to. */
+    private static KahluaTable mainOptions;
+    private static Object gameTakesKey;
     /** Whether the controls hold what the session gave them as the screen last opened: until they do, what they hold is the game's own file's. */
     private static boolean filled;
     /** MainOptions.toUI as the game's Lua has it, which fills the screen's controls as it opens. */
@@ -94,6 +117,10 @@ final class OptionsPage {
         }
         if (!(LuaManager.env.rawget("MainOptions") instanceof KahluaTable screen) || screen.rawget("toUI") == null) {
             Log.info("the mod's settings are not on the game's options screen: the game's Lua has no MainOptions.toUI");
+            return;
+        }
+        if (screen.rawget("keyPressHandler") == null) {
+            Log.info("the mod's settings are not on the game's options screen: the game's Lua has no MainOptions.keyPressHandler");
             return;
         }
         if (screen.rawget("toUI") == OPENED) {
@@ -153,6 +180,14 @@ final class OptionsPage {
         }
         call(section, "addTitle", OptionsLayout.KEYS);
         call(section, "addDescription", OptionsLayout.keysNote());
+        List<KeyControl> keys = new ArrayList<>();
+        for (OptionsLayout.KeyRow row : OptionsLayout.KEY_ROWS) {
+            KeyNames.Binding shown = KeyNames.shown(Tracking.keys(row.id()));
+            KahluaTable table = (KahluaTable) call(section, "addKeyBind", row.id(), row.label(), shown.code(), row.tip());
+            // What the game's key dialog sets for Default, which addKeyBind takes from the key it was handed.
+            table.rawset("defaultkey", (double) KeyNames.shown(Config.DEFAULT_KEYS.get(row.id())).code());
+            keys.add(new KeyControl(row, table, shown));
+        }
 
         Map<String, Control> ids = new HashMap<>();
         Map<KahluaTable, Control> tables = new IdentityHashMap<>();
@@ -166,14 +201,18 @@ final class OptionsPage {
         byTable = tables;
         quickTables = listTables;
         microphones = microphoneLists;
+        keyControls = keys;
         listMicrophones();
         showQuickLists();
         filled = false;
         section.rawset("apply", APPLIED);
         gameOpens = screen.rawget("toUI");
         screen.rawset("toUI", OPENED);
-        Log.info("the game's options screen has " + made.size() + " of the mod's settings, " + drafted.quickLists.size() + " quick lists and "
-                + microphoneLists.size() + " lists of microphones under " + HEADING);
+        mainOptions = screen;
+        gameTakesKey = screen.rawget("keyPressHandler");
+        screen.rawset("keyPressHandler", KEY_PRESSED);
+        Log.info("the game's options screen has " + made.size() + " of the mod's settings, " + drafted.quickLists.size() + " quick lists, "
+                + microphoneLists.size() + " lists of microphones and " + keys.size() + " keys under " + HEADING);
     }
 
     private static Control control(KahluaTable section, OptionsDraft.Setting setting, String tip) {
@@ -217,6 +256,9 @@ final class OptionsPage {
             }
             listMicrophones();
             showQuickLists();
+            for (KeyControl key : keyControls) {
+                showKeys(key);
+            }
             filled = true;
         } catch (RuntimeException failure) {
             // Thrown on, it would stop the game's options screen from opening.
@@ -435,6 +477,22 @@ final class OptionsPage {
                 Log.error(Config.MICROPHONE_ROWS[list.player] + " as applied on the game's options screen was not read, and is not taken", failure);
             }
         }
+        for (KeyControl key : keyControls) {
+            try {
+                KahluaTable element = (KahluaTable) key.table.rawget("element");
+                KeyNames.Binding chosen = new KeyNames.Binding((int) (double) (Double) element.rawget("keyCode"), Boolean.TRUE.equals(element.rawget("shift")),
+                        Boolean.TRUE.equals(element.rawget("ctrl")), Boolean.TRUE.equals(element.rawget("alt")));
+                if (!chosen.equals(key.shown)) {
+                    String keys = KeyNames.text(chosen);
+                    Tracking.applyKeys(key.row.id(), keys);
+                    key.shown = chosen;
+                    call((KahluaTable) element.rawget("btn"), "setTooltip", OptionsLayout.keyTip(key.row, keys));
+                }
+            } catch (RuntimeException failure) {
+                // Thrown on, it would stop the game from applying and saving its own options.
+                Log.error(key.row.id() + " as applied on the game's options screen was not read, and is not taken", failure);
+            }
+        }
         try {
             for (Control control : controls) {
                 nameLevel(control);
@@ -444,6 +502,80 @@ final class OptionsPage {
             Log.error("the graphics modes and quick lists of the game's options screen were not set to what is applied", failure);
         }
         return 0;
+    }
+
+    /**
+     * Gives a key control the key its row holds now, with its modifier, which the game's toUI then
+     * writes on its button, and its tooltip, which says what the file holds where the button cannot
+     * show all of it.
+     */
+    private static void showKeys(KeyControl key) {
+        String held = Tracking.keys(key.row.id());
+        KeyNames.Binding shown = KeyNames.shown(held);
+        if (!(key.table.rawget("element") instanceof KahluaTable element)) {
+            throw new IllegalStateException("the game's options screen made no control for " + key.row.id());
+        }
+        element.rawset("keyCode", (double) shown.code());
+        element.rawset("shift", shown.shift());
+        element.rawset("ctrl", shown.ctrl());
+        element.rawset("alt", shown.alt());
+        key.table.rawset("key", (double) shown.code());
+        call((KahluaTable) element.rawget("btn"), "setTooltip", OptionsLayout.keyTip(key.row, held));
+        key.shown = shown;
+    }
+
+    /**
+     * In place of MainOptions.keyPressHandler, which the game's key dialog hands the key it
+     * waited for: for one of the mod's keys, Esc closes the dialog with nothing changed, and a key
+     * a row of [Hotkeys] cannot name leaves it open and says so. Every other key, and every key of
+     * a dialog that is not the mod's, goes on to the game's own.
+     */
+    private static int keyPressed(LuaCallFrame frame, int arguments) {
+        Object[] passed = new Object[arguments];
+        for (int i = 0; i < arguments; i++) {
+            passed[i] = frame.get(i);
+        }
+        try {
+            if (mainOptions.rawget("setKeybindDialog") instanceof KahluaTable dialog && Boolean.TRUE.equals(dialog.rawget("isModBind"))
+                    && ourKey(dialog.rawget("keybindName")) && passed.length > 0 && passed[0] instanceof Double pressed && pressed > 0) {
+                int code = (int) (double) pressed;
+                if (code == KeyNames.ESCAPE) {
+                    call(dialog, "destroy");
+                    return 0;
+                }
+                if (!KeyNames.usable(code)) {
+                    say(dialog, REFUSED_KEY);
+                    return 0;
+                }
+            }
+        } catch (RuntimeException failure) {
+            // Thrown on, it would stop the game's key dialog; the key goes on to the game's own as it would without this in between.
+            Log.error("a key pressed in the game's key dialog was not looked at for the mod's keys", failure);
+        }
+        ran("MainOptions.keyPressHandler", gameTakesKey, passed);
+        return 0;
+    }
+
+    /** Whether a key dialog's name is one of the mod's key rows', which the game names it by: the row's label. */
+    private static boolean ourKey(Object name) {
+        for (KeyControl key : keyControls) {
+            if (key.row.label().equals(name)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Puts a line of the mod's in place of what the game's key dialog says. */
+    private static void say(KahluaTable dialog, String text) {
+        KahluaTable inOrder = (KahluaTable) dialog.rawget("childrenInOrder");
+        for (int at = 1; at <= inOrder.len(); at++) {
+            if (inOrder.rawget(at) instanceof KahluaTable child && "ISLabel".equals(UIManager.tableget(child, "Type"))) {
+                call(child, "setName", text);
+                return;
+            }
+        }
+        throw new IllegalStateException("the game's key dialog has no label to say why a key is refused");
     }
 
     /** Whether the game's menu is up, the one Esc brings up in a save, which the options screen is opened from there. Logic thread. */

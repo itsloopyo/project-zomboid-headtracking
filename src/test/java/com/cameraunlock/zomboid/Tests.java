@@ -119,6 +119,7 @@ public final class Tests {
         Checks.run("theOverheadViewIsLitAsTheEyeIs", Tests::theOverheadViewIsLitAsTheEyeIs);
         Checks.run("fieldOfViewEasesToTheAimedZoomAndBack", Tests::fieldOfViewEasesToTheAimedZoomAndBack);
         Checks.run("firstPersonKeysReplaceTheStockOnes", Tests::firstPersonKeysReplaceTheStockOnes);
+        Checks.run("aKeyChosenOnTheOptionsScreenIsWrittenAsTheFileSpellsIt", Tests::aKeyChosenOnTheOptionsScreenIsWrittenAsTheFileSpellsIt);
         Checks.run("pointerComesOutForTheInventoryKeyAPanelAndAClickedButton", Tests::pointerComesOutForTheInventoryKeyAPanelAndAClickedButton);
         Checks.run("transformerHasNoGapOnceEveryPatchIsIn", Tests::transformerHasNoGapOnceEveryPatchIsIn);
         Checks.run("exceptionTheGameCaughtFromTheModIsWrittenOnce", Tests::exceptionTheGameCaughtFromTheModIsWrittenOnce);
@@ -3104,6 +3105,34 @@ public final class Tests {
         fieldOfView.ease(true, 0.016f);
         fieldOfView.rest();
         check(fieldOfView.zoom() == 1f, "with no picture drawn it is unzoomed at once");
+    }
+
+    private static void aKeyChosenOnTheOptionsScreenIsWrittenAsTheFileSpellsIt() {
+        int pageUp = 201, f6 = 64, two = 3, keypad5 = 76, backslash = 43, leftShift = 42, minus = 12, keypadEnter = 156;
+        check(KeyNames.text(new KeyNames.Binding(pageUp, false, false, false)).equals("PageUp")
+                        && KeyNames.text(new KeyNames.Binding(f6, false, true, false)).equals("Ctrl+F6")
+                        && KeyNames.text(new KeyNames.Binding(two, true, false, false)).equals("Shift+Alpha2")
+                        && KeyNames.text(new KeyNames.Binding(keypad5, false, false, true)).equals("Alt+Keypad5"),
+                "a key and its modifier are written as CameraUnlock.ini spells them");
+        check(KeyNames.text(new KeyNames.Binding(0, false, false, false)).isEmpty(), "and no key as an empty list");
+        check(!KeyNames.usable(backslash) && !KeyNames.usable(minus) && !KeyNames.usable(leftShift) && !KeyNames.usable(keypadEnter)
+                        && !KeyNames.usable(KeyNames.ESCAPE) && !KeyNames.usable(10001) && KeyNames.usable(pageUp),
+                "punctuation, a modifier on its own, Enter on the keypad, Esc and the mouse buttons are not keys a row can name");
+        check(KeyNames.shown("PageUp").equals(new KeyNames.Binding(pageUp, false, false, false))
+                        && KeyNames.shown("Ctrl+F6").equals(new KeyNames.Binding(f6, false, true, false))
+                        && KeyNames.shown("").equals(new KeyNames.Binding(0, false, false, false)),
+                "a key list of one key shows as that key, and an empty one as none");
+        check(KeyNames.shown("Ctrl+Shift+G, 0xBA, F6").equals(new KeyNames.Binding(f6, false, false, false)) && !KeyNames.shownWhole("Ctrl+Shift+G, 0xBA, F6")
+                        && KeyNames.shownWhole("Alt+Keypad5") && KeyNames.shownWhole(""),
+                "a list the game's control cannot show whole shows the first of it that it can, and is said not to be shown whole");
+        check(KeyNames.shown("Ctrl+Shift+G").equals(new KeyNames.Binding(0, false, false, false)), "and one with no key the control can show shows none");
+        for (String defaults : Config.DEFAULT_KEYS.values()) {
+            check(KeyNames.shownWhole(defaults), "the keys a row comes with, " + defaults + ", show whole on the options screen");
+        }
+        for (OptionsLayout.KeyRow row : OptionsLayout.KEY_ROWS) {
+            check(Config.DEFAULT_KEYS.containsKey(row.id()), row.id() + " on the options screen is a key list row with keys it comes with");
+        }
+        check(OptionsLayout.KEY_ROWS.length == Config.DEFAULT_KEYS.size(), "and every key list row is on the options screen");
     }
 
     private static void firstPersonKeysReplaceTheStockOnes() {

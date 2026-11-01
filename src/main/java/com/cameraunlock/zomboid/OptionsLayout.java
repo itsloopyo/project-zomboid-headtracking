@@ -284,19 +284,44 @@ final class OptionsLayout {
         return out.toString();
     }
 
-    /** What the page says under Keys: each key the mod listens for, as the game started with it, and where to change it. */
+    /** A key list row the page lets the player change: its key in the file, what the page calls it and its tooltip. */
+    record KeyRow(String id, String label, String tip) {}
+
+    /** The rows of [Hotkeys] under Keys, in the order the page shows them. */
+    static final KeyRow[] KEY_ROWS = {
+        new KeyRow("FirstPersonKey", "Switch first person",
+                "Switches between first person and the isometric view. Tap once for player 1, twice for player 2, three times for player 3, "
+                        + "four times for player 4, or hold for every player."),
+        new KeyRow("CycleQualityKey", "Next graphics mode",
+                "Goes to the next graphics mode of the view you are in. Tapped and held as the first person key is."),
+        new KeyRow("CycleStyleKey", "Next picture style", "Goes to the next picture style. Tapped and held as the first person key is."),
+        new KeyRow("SplitScreenKey", "Switch split screen layout",
+                "With two players at the screen, switches between side by side and above and below."),
+        new KeyRow("CycleTrackingModeKey", "Next tracking mode", "Goes to the next tracking mode: rotation and position, rotation only, position only."),
+        new KeyRow("YawModeKey", "Switch horizon-relative head turns", "Switches horizon-relative head turns on or off."),
+        new KeyRow("TrueFreeLookKey", "Next aim mode", "Goes to the next aim mode: sights locked, free look with a marker, stock sights."),
+        new KeyRow("FirstPersonKeyBesideViewpoint", "Switch first person beside Viewpoint",
+                "Used in place of the first person key while Project Viewpoint, another mod, runs, as Viewpoint opens its settings "
+                        + "window on Delete."),
+        new KeyRow("CycleQualityKeyBesideViewpoint", "Next graphics mode beside Viewpoint",
+                "Used in place of the graphics mode key while Project Viewpoint, another mod, runs, as Viewpoint takes a screenshot on "
+                        + "F9. Tap for player 1, or hold for every player."),
+    };
+
+    /** What the page says under Keys, above the keys themselves. */
     static String keysNote() {
-        return "Switch between first person and the isometric view: " + keys(Tracking.firstPersonKeys()) + " \n"
-                + "Next graphics mode of the view you are in: " + keys(Tracking.cycleQualityKeys()) + " \n"
-                + "Next picture style: " + keys(Tracking.cycleStyleKeys()) + " \n"
-                + "Switch the split screen layout: " + keys(Tracking.splitScreenKeys()) + " \n"
-                + "Next tracking mode: " + keys(Tracking.cycleTrackingModeKeys()) + " \n"
-                + "Switch horizon-relative head turns: " + keys(Tracking.yawModeKeys()) + " \n"
-                + "Next aim mode: " + keys(Tracking.aimModeKeys()) + " <BR> "
-                + "Tap the first person, graphics mode or picture style key once for player 1, twice for player 2, three times for player 3 "
-                + "or four times for player 4, or hold it for every player. On a controller, tap Back twice to switch first person. To "
-                + "change a key, edit the Hotkeys section of CameraUnlock.ini in the game's folder: the new key works from the next time "
-                + "the game starts. The same file holds the tracker's UDP ports and how far you can lean.";
+        return "Click a key to change it, then press the new key, with Shift, Ctrl or Alt if you like. Esc cancels. The mod listens for "
+                + "the new key as soon as you apply. On a controller, tap Back twice to switch first person. CameraUnlock.ini in the "
+                + "game's folder holds the tracker's UDP ports and how far you can lean.";
+    }
+
+    /**
+     * A key row's tooltip: what the key does, and where the file holds more than the one key the
+     * page shows, what it holds, which a key chosen on the page replaces.
+     */
+    static String keyTip(KeyRow row, String held) {
+        return KeyNames.shownWhole(held) ? row.tip
+                : row.tip + " CameraUnlock.ini holds " + keys(held) + ", and a key chosen here takes the place of all of it.";
     }
 
     /**
