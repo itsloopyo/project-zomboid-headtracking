@@ -348,6 +348,18 @@ final class FloorBuilder {
             build.building.waitFor(texture);
         }
         SpriteGeometry.Mesh on = paint != null ? build.laid.get(paint.picture) : build.floorLayer == 0 ? mesh : build.laid.get(texture.getID());
+        // The game's grime over a floor is laid as a haze of the picture's own, as grimy as the game's is over each part
+        // of the square: see WallSides.floorStain.
+        Stains.FloorGrime grime = null;
+        if (!isFloor && build.floorLayer > 0 && Own.textures(build.playerIndex) && Stains.floorGrime(texture.getName())) {
+            grime = Stains.floorGrime(texture);
+            if (grime == null) {
+                build.building.waitFor(texture);
+            } else {
+                on = build.laid.get(texture.getID(), WallSides.floorStain(grime.red(), grime.green(), grime.blue()));
+                Stains.floorCover(grime, build.frame, coverGrid);
+            }
+        }
         // Straw is the square's floor in a barn, and laid over the grass outside one.
         if (sprite.straw && build.frame.kind == 0f && build.geometry.kerb == null && Own.textures(build.playerIndex)) {
             build.frame.flat = 0;
@@ -417,6 +429,11 @@ final class FloorBuilder {
         layFloor(isFloor && build.frame.kind == 0f);
         if (paint != null) {
             RoadPaint.lay(build.geometry, on, build.frame, paint, x, y, z);
+        } else if (grime != null) {
+            build.geometry.cover = coverGrid;
+            for (int quarter = 0; quarter < 4; quarter++) {
+                build.geometry.addFace(on, build.frame, x, y, z, (quarter & 1) * 0.5f, (quarter >> 1) * 0.5f, 0f, 0.5f, 0f, 0f, 0f, 0.5f, 0f);
+            }
         } else {
             build.geometry.addFace(on, build.frame, x, y, z, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f, 0f);
         }

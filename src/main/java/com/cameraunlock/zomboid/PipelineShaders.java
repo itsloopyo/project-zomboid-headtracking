@@ -2036,6 +2036,18 @@ final class PipelineShaders {
                     grime = min(grime, GRIME_MOST);
                     texel = vec4(vec3(0.16, 0.14, 0.11) * grime, grime);
                 }
+                // The game's grime over a floor (uTint.a 18, WallSides.floorStain) is the same mist of dots as its
+                // grime over a wall, and near the eye the same dark worms. It says only how much of each part of its
+                // square is grimy, carried at the places of a three by three grid (Stains.floorCover), and the grime
+                // is our own: a haze in slow clouds over the floor, in the colour the game paints it (uTint.rgb), as
+                // dark over a square as the game's.
+                bool floorStainTint = abs(uTint.a - 18.0) < 0.5;
+                float floorGrime = 0.0;
+                if (floorStainTint) {
+                    float clouds = smoothstep(0.2, 0.8, 0.65 * patches(vWorld.xy * 1.3 + 3.0) + 0.35 * patches(vWorld.xy * 4.1 + 11.0));
+                    floorGrime = min(vCover * (0.5 + clouds), 0.7);
+                    texel = vec4(uTint.rgb * floorGrime, floorGrime);
+                }
                 // The game keeps its sheets with each colour already multiplied by how much of the
                 // dot is covered. A dot half covered, kept whole or mixed in by its cover again,
                 // was half as light: the pale wear on white siding came out a black smear.
@@ -2237,7 +2249,7 @@ final class PipelineShaders {
                 float walledNear = 0.0;
                 bool boarded = uTint.a > 7.5 && uTint.a < 8.5;
                 bool slatTint = abs(uTint.a - 17.0) < 0.5;
-                if (uTint.a > 3.5 && !boarded && !fineTint && !tiledTint && !stainTint && !slatTint) {
+                if (uTint.a > 3.5 && !boarded && !fineTint && !tiledTint && !stainTint && !slatTint && !floorStainTint) {
                     vec3 facing = normalize(vNormal);
                     float run = dot(vPlace.xy, vec2(facing.y, -facing.x));
                     vec2 turned;
@@ -3586,7 +3598,7 @@ final class PipelineShaders {
                         }
                     }
                     texel = vec4(own, 1.0);
-                } else if (!model && (stainTint ? !stainOnWall : cover < (upright ? min(uCut, 0.1) : uCut))) {
+                } else if (!model && (stainTint ? !stainOnWall : floorStainTint ? floorGrime < 0.004 : cover < (upright ? min(uCut, 0.1) : uCut))) {
                     discard;
                 }
                 // A tree is drawn as the game draws it in its own view: inside the game's window
@@ -3700,7 +3712,7 @@ final class PipelineShaders {
                 // over a band, grass over bare ground read as paint. The crumbs are left out
                 // where a pixel covers more than one.
                 float shown = 1.0;
-                if (uLaid > 0.5 && !grass && !stainTint && vMaterial < 56.5 && laidCover < 0.999) {
+                if (uLaid > 0.5 && !grass && !stainTint && !floorStainTint && vMaterial < 56.5 && laidCover < 0.999) {
                     float ragged = patches(vWorld.xy * 1.9) * 0.6 + patches(vWorld.xy * 6.1 + 17.0) * 0.4 - 0.5;
                     float crumbs = (patches(vWorld.xy * 17.0 + 5.0) * 0.6 + patches(vWorld.xy * 43.0 + 29.0) * 0.4 - 0.5)
                             * (1.0 - smoothstep(0.012, 0.04, length(fwidth(vWorld.xy))));

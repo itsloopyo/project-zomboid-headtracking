@@ -24,6 +24,8 @@ final class FacadeTests {
         Checks.run("wallInAnotherLightIsTheSamePaint", FacadeTests::wallInAnotherLightIsTheSamePaint);
         Checks.run("paintedWallIsLeftAsPainted", FacadeTests::paintedWallIsLeftAsPainted);
         Checks.run("thinPaintOverAWallIsAStain", FacadeTests::thinPaintOverAWallIsAStain);
+        Checks.run("fireplaceFacingIsLaidAsItsSheetPlaceSays", FacadeTests::fireplaceFacingIsLaidAsItsSheetPlaceSays);
+        Checks.run("floorGrimeIsItsColourAndHowMuchOfEachPartItCovers", FacadeTests::floorGrimeIsItsColourAndHowMuchOfEachPartItCovers);
         Checks.run("onlyOutsideWallsAreLaid", FacadeTests::onlyOutsideWallsAreLaid);
         Checks.run("wireIsReadAsItsTwoEndsOverTheSquare", FacadeTests::wireIsReadAsItsTwoEndsOverTheSquare);
         Checks.run("brokenLineIsOneWire", FacadeTests::brokenLineIsOneWire);
@@ -61,6 +63,62 @@ final class FacadeTests {
         check(!Stains.measure(covered(new int[] {255, 255, 255, 0}), 2, 0, 0, 2, 2), "solid paint is no stain");
         check(!Stains.measure(covered(new int[] {255, 255, 255, 100}), 2, 0, 0, 2, 2), "a solid sprite with a soft edge is no stain");
         check(!Stains.measure(covered(new int[] {0, 0, 0, 0}), 2, 0, 0, 2, 2), "an empty sprite is no stain");
+    }
+
+    /**
+     * A fireplace's facing is stone or brick by its place on the sheet. Its faces are the colour most of it is painted, and
+     * its joints the dots lighter than that for brick and darker for stone; one with no joint is shown as painted.
+     */
+    private static void fireplaceFacingIsLaidAsItsSheetPlaceSays() {
+        check(HearthFacings.way(9) == WallSides.STONE && HearthFacings.way(28) == WallSides.STONE, "the pale facings are stone");
+        check(HearthFacings.way(12) == WallSides.BRICK && HearthFacings.way(17) == WallSides.BRICK && HearthFacings.way(25) == WallSides.BRICK
+                && HearthFacings.way(36) == WallSides.BRICK, "the red and the grey ones brick");
+        check(HearthFacings.way(15) == 0 && HearthFacings.way(20) == 0 && HearthFacings.way(7) == 0 && HearthFacings.way(38) == 0, "a shelf and a surround are no facing");
+        Wall courses = (along, row) -> row % 6 == 0 ? 0xd0c8b0 : 0x8a3a20;
+        int brick = HearthFacings.measure(sprite(courses, HIGH), WIDE, 0, 0, WIDE, HIGH, WallSides.BRICK);
+        float[] colour = new float[4];
+        WallSides.tint(brick, colour);
+        check((brick & 15) == WallSides.BRICK && colour[0] > colour[2] + 0.2f, "brick is laid in the bricks' red");
+        WallSides.joint(brick, colour);
+        check(colour[0] > 0.7f && colour[2] > 0.6f, "with the mortar's pale");
+        Wall stones = (along, row) -> row % 12 == 0 ? 0x4a4038 : 0xc8bea0;
+        int stone = HearthFacings.measure(sprite(stones, HIGH), WIDE, 0, 0, WIDE, HIGH, WallSides.STONE);
+        WallSides.joint(stone, colour);
+        check((stone & 15) == WallSides.STONE && colour[0] < 0.4f, "stone's joints are its dark lines");
+        check(HearthFacings.measure(sprite((along, row) -> 0x8a3a20, HIGH), WIDE, 0, 0, WIDE, HIGH, WallSides.BRICK) == 0, "a facing of one colour is shown as painted");
+    }
+
+    /**
+     * Grime over a floor is read as its dots' own colour, which the sheet holds multiplied by their cover, and as how much
+     * of each part of the square it covers: a sprite painted over the half of the square towards its east corner covers
+     * that corner and none of the west one.
+     */
+    private static void floorGrimeIsItsColourAndHowMuchOfEachPartItCovers() {
+        check(Stains.floorGrime("overlay_grime_floor_01_12") && !Stains.floorGrime("overlay_grime_wall_01_12") && !Stains.floorGrime((String) null),
+                "the grime laid over floors is told by its sheet");
+        int wide = 128, high = 64;
+        ByteBuffer sheet = ByteBuffer.allocate(wide * high * 4);
+        for (int y = 0; y < high; y++) {
+            for (int x = 0; x < wide; x++) {
+                int cover = x >= wide / 2 ? 128 : 0;
+                sheet.put((byte) (0x40 * cover / 255)).put((byte) (0x30 * cover / 255)).put((byte) (0x20 * cover / 255)).put((byte) cover);
+            }
+        }
+        Stains.FloorGrime grime = Stains.measureFloor(sheet, wide, 0, 0, wide, high);
+        check(Math.abs(grime.red() - 0x40 / 255f) < 0.01f && Math.abs(grime.blue() - 0x20 / 255f) < 0.01f, "its colour is its dots' own, not darkened by their cover");
+        SpriteGeometry.Frame frame = new SpriteGeometry.Frame();
+        frame.scale = 2f;
+        frame.originU = 64f;
+        frame.originV = 192f;
+        frame.left = 0f;
+        frame.top = 192f;
+        frame.width = wide;
+        frame.height = high;
+        float[] grid = new float[SpriteGeometry.GRID_COVER];
+        Stains.floorCover(grime, frame, grid);
+        check(Math.abs(grid[2] - 128f / 255f) < 0.01f, "the east corner is as covered as the sprite paints it");
+        check(grid[6] == 0f, "the west corner is clean");
+        check(grid[4] > 0.15f && grid[4] < 0.35f, "and the middle is between");
     }
 
     /** Dots of grey, each covered as given. */

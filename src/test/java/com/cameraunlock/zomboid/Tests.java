@@ -1845,6 +1845,16 @@ public final class Tests {
         WallSides.joint(mortared, tint);
         check(tint[0] == plainJoint[0] && tint[1] == plainJoint[1] && tint[2] == plainJoint[2] && plainJoint[0] > 0.7f, "and with their mortar's colour");
         check(mortared != stones && mortared != WallSides.STAIN && mortared != WallSides.SLATS, "stones on mortar are a key of their own");
+        int floorGrime = WallSides.floorStain(0.2f, 0.3f, 0.4f);
+        WallSides.tint(floorGrime, tint);
+        check(Math.abs(tint[0] - 0.2f) < 0.003f && Math.abs(tint[1] - 0.3f) < 0.003f && Math.abs(tint[2] - 0.4f) < 0.003f && tint[3] == 18f,
+                "grime over a floor is told in its colour as 18, which no other way of painting is");
+        WallSides.joint(floorGrime, tint);
+        check(tint[0] == 0f && tint[1] == 0f && tint[2] == 0f, "and it has no joints");
+        check(WallSides.floorStained(floorGrime) && WallSides.floorStained(WallSides.floorStain(0f, 0f, 0f)), "a floor's grime is told as one whatever its colour");
+        check(!WallSides.floorStained(WallSides.STAIN) && !WallSides.floorStained(WallSides.SLATS) && !WallSides.floorStained(mortared)
+                && !WallSides.floorStained(WallSides.multiplied(0.2f, 0.3f, 0.4f)) && !WallSides.floorStained(stones) && !WallSides.floorStained(0),
+                "and no other key is");
         check(WallSides.rollerDoor("walls_garage_01_48") && WallSides.rollerDoor("walls_garage_01_53") && WallSides.rollerDoor("walls_garage_01_16")
                 && WallSides.rollerDoor("walls_garage_01_21") && WallSides.rollerDoor("walls_garage_02_0") && WallSides.rollerDoor("walls_garage_02_5")
                 && WallSides.rollerDoor("industry_trucks_01_32") && WallSides.rollerDoor("industry_trucks_01_37"),

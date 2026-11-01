@@ -639,7 +639,7 @@ final class ShaderTests {
      */
     private static void spreadGroundThatDoesNotShowHidesNothing(List<Linked> programs) {
         String world = fragment(programs, "world").replaceAll("//[^\n]*", "").replaceAll("\\s+", " ");
-        String spread = "float shown = 1.0; if (uLaid > 0.5 && !grass && !stainTint && vMaterial < 56.5 && laidCover < 0.999) {"
+        String spread = "float shown = 1.0; if (uLaid > 0.5 && !grass && !stainTint && !floorStainTint && vMaterial < 56.5 && laidCover < 0.999) {"
                 + " float ragged = patches(vWorld.xy * 1.9) * 0.6 + patches(vWorld.xy * 6.1 + 17.0) * 0.4 - 0.5;"
                 + " float crumbs = (patches(vWorld.xy * 17.0 + 5.0) * 0.6 + patches(vWorld.xy * 43.0 + 29.0) * 0.4 - 0.5)"
                 + " * (1.0 - smoothstep(0.012, 0.04, length(fwidth(vWorld.xy))));"

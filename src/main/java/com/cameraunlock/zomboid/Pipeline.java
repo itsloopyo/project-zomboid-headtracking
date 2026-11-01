@@ -727,6 +727,8 @@ final class Pipeline {
     private final int[] levelWidth = new int[BLOOM_LEVELS], levelHeight = new int[BLOOM_LEVELS];
 
     private final float[] tint = new float[4];
+    /** What drawStains tells grime over a floor, apart from tint, which holds what it tells grime over a wall. */
+    private final float[] floorTint = new float[4];
     /** The chunk builds the frame draws, for the furniture standing on each. */
     private ArrayList<WorldScene.ChunkMeshes> drawn;
 
@@ -2241,7 +2243,7 @@ final class Pipeline {
     private void drawRanges(ChunkBuffers.Listing listed, int from, int to) {
         for (int i = from; i < to; i++) {
             int key = listed.tint(i);
-            if (key == WallSides.PANES || key == WallSides.BLOOD || key == WallSides.STAIN) {
+            if (key == WallSides.PANES || key == WallSides.BLOOD || key == WallSides.STAIN || WallSides.floorStained(key)) {
                 continue;
             }
             GL11.glBindTexture(GL_TEXTURE_2D, listed.texture(i) == 0 ? whiteTexture : listed.texture(i));
@@ -3943,7 +3945,8 @@ final class Pipeline {
     }
 
     /**
-     * Grime over walls, told it is grime, so the picture draws grime of its own there: see WallSides.STAIN.
+     * Grime over walls and floors, told it is grime, so the picture draws grime of its own there: see WallSides.STAIN and
+     * WallSides.floorStain.
      */
     private void drawStains(ChunkBuffers.Listing listed, Program lit) {
         int painted = lit.at("uTint");
@@ -3954,6 +3957,11 @@ final class Pipeline {
                 // Grime has no colour of its own, and is told in its place the size of a texel of its wall's sprite.
                 int slot = texelSlot(listed.texture(i));
                 GL20.glUniform4f(painted, 1f / texelWide[slot], 1f / texelHigh[slot], 0f, tint[3]);
+                listed.draw(i);
+            } else if (WallSides.floorStained(listed.tint(i))) {
+                GL11.glBindTexture(GL_TEXTURE_2D, listed.texture(i));
+                WallSides.tint(listed.tint(i), floorTint);
+                GL20.glUniform4f(painted, floorTint[0], floorTint[1], floorTint[2], floorTint[3]);
                 listed.draw(i);
             }
         }

@@ -101,6 +101,8 @@ final class WallSides {
      * told 17 for how it is painted. No key packs to this, as to STAIN.
      */
     static final int SLATS = MULTIPLIED | 2;
+    /** The low four bits of a floorStain key. */
+    private static final int FLOOR_STAINED = 3;
 
     private static final int LEVELS = 15;
     private static final int BANDS = 32;
@@ -235,6 +237,20 @@ final class WallSides {
         return tiled | MULTIPLIED;
     }
 
+    /**
+     * In place of a colour: the triangles are the game's grime over a floor, the same mist of dots as its grime over a wall,
+     * so the picture draws grime of its own there in the colour the game's is painted, each channel from 0 to 1, and is told
+     * 18 after it for how it is painted: see Stains.floorGrime. No other key is multiplied with these low four bits.
+     */
+    static int floorStain(float red, float green, float blue) {
+        return MULTIPLIED | part(red, 255) << 20 | part(green, 255) << 12 | part(blue, 255) << 4 | FLOOR_STAINED;
+    }
+
+    /** Whether a key is one floorStain gives. */
+    static boolean floorStained(int key) {
+        return (key & MULTIPLIED) != 0 && (key & 15) == FLOOR_STAINED;
+    }
+
     /** The key of a sprite drawn multiplied by a colour, each channel from 0 to 1: 0, no key, for white, which leaves the sprite as it is. */
     static int multiplied(float red, float green, float blue) {
         int packed = part(red, 255) << 20 | part(green, 255) << 12 | part(blue, 255) << 4;
@@ -315,7 +331,7 @@ final class WallSides {
      * What the picture is told for a range of triangles: into out the colour, then FLAT or
      * SIDING. All 0 for a key of 0, which is no colour, -1 after the colour for one that
      * multiplies its sprite, 16 after no colour for grime (STAIN), 17 for a shut roller door's
-     * (SLATS), and MORTARED after the colour of stones on mortar.
+     * (SLATS), 18 after the grime's colour for grime over a floor (floorStain), and MORTARED after the colour of stones on mortar.
      */
     static void tint(int key, float[] out) {
         if (key == 0) {
@@ -325,6 +341,13 @@ final class WallSides {
         if (key == STAIN || key == SLATS) {
             out[0] = out[1] = out[2] = 0f;
             out[3] = key == STAIN ? 16f : 17f;
+            return;
+        }
+        if (floorStained(key)) {
+            out[0] = (key >> 20 & 255) / 255f;
+            out[1] = (key >> 12 & 255) / 255f;
+            out[2] = (key >> 4 & 255) / 255f;
+            out[3] = 18f;
             return;
         }
         if ((key & MULTIPLIED) != 0 && (key & 15) == TILED) {
