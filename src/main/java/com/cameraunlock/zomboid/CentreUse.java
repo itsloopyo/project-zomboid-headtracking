@@ -646,7 +646,12 @@ final class CentreUse {
             return null;
         }
         boolean ownerIsTo = crossX ? toX > x : toY > y;
-        return onEdge(ownerIsTo ? to : square, ownerIsTo ? square : to, !crossX);
+        IsoObject edge = onEdge(ownerIsTo ? to : square, ownerIsTo ? square : to, !crossX);
+        if (edge != null || atExit <= LOW_THING) {
+            return edge;
+        }
+        // A cabinet hung on the wall the view comes to over the counter.
+        return hungOn(square, crossX ? (view.forwardX > 0f ? "W" : "E") : (view.forwardY > 0f ? "N" : "S"));
     }
 
     /**
@@ -661,11 +666,13 @@ final class CentreUse {
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
             PropertyContainer properties = object.getProperties();
-            if (object == floor || object.getType() == IsoObjectType.wall || keyActsOn(object) || object instanceof IsoWorldInventoryObject) {
+            // A cabinet hung on a wall is met where the view comes to that wall (hungOn), not over the whole square: a window
+            // can share the wall with it under it.
+            if (object == floor || object.getType() == IsoObjectType.wall || keyActsOn(object) || object instanceof IsoWorldInventoryObject || hung(properties)) {
                 continue;
             }
             boolean stands = object.getContainer() != null || clickedThoughEmpty(object) || properties != null
-                    && (properties.has(IsoFlagType.solid) || properties.has(IsoFlagType.solidtrans) || properties.has("IsTableTop") || hung(properties))
+                    && (properties.has(IsoFlagType.solid) || properties.has(IsoFlagType.solidtrans) || properties.has("IsTableTop"))
                     || object.getRenderYOffset() > 0f;
             if (!stands) {
                 continue;
@@ -674,11 +681,11 @@ final class CentreUse {
             // counter tops out with the counter, at the game's own top for it.
             int surface = properties == null ? 0 : Surfaces.surface(properties);
             boolean onAnother = properties != null && properties.has("IsTableTop") || object.getRenderYOffset() > 0f;
-            if (onAnother && !hung(properties) && (surface <= 0 || object.getContainer() != null || clickedThoughEmpty(object))) {
+            if (onAnother && (surface <= 0 || object.getContainer() != null || clickedThoughEmpty(object))) {
                 appliance = true;
                 continue;
             }
-            if (surface <= 0 || hung(properties)) {
+            if (surface <= 0) {
                 return Float.POSITIVE_INFINITY;
             }
             float pixels = Surfaces.topNoTable(object);
