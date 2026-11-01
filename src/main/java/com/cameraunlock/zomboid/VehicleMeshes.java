@@ -66,12 +66,15 @@ final class VehicleMeshes {
         final float[] measures;
         /** For each triangle of the body, whether it is a pane of the front of the glasshouse. */
         final boolean[] front;
+        /** The texture place of the middle of each triangle of the bonnet, u then v, each brought into 0..1. */
+        final float[] bonnetUv;
 
-        Parts(FloatBuffer triangles, boolean seats, float[] measures, boolean[] front) {
+        Parts(FloatBuffer triangles, boolean seats, float[] measures, boolean[] front, float[] bonnetUv) {
             this.triangles = triangles;
             this.seats = seats;
             this.measures = measures;
             this.front = front;
+            this.bonnetUv = bonnetUv;
         }
     }
 
@@ -214,7 +217,17 @@ final class VehicleMeshes {
             seated.rearPanes = rearPanes.get(read);
         }
         seated.parts = parts.get(read);
-        paint(instance.painColor.x, Math.clamp(instance.painColor.y, 0f, 1f), Math.clamp(instance.painColor.z, 0f, 1f), seated.paint);
+        // A body drawn with the game's norandom shader is the colours of its skin, whatever paint the vehicle was given:
+        // a police car's livery, not the hue the game rolled for it.
+        float[] skin = body.modelInstance.model.effect.getName().startsWith(SKIN_COLOURED) ? skinColour(read, instance.tex, seated.parts, script) : NONE;
+        if (skin == null) {
+            return;
+        }
+        if (skin == NONE) {
+            paint(instance.painColor.x, Math.clamp(instance.painColor.y, 0f, 1f), Math.clamp(instance.painColor.z, 0f, 1f), seated.paint);
+        } else {
+            System.arraycopy(skin, 0, seated.paint, 0, 3);
+        }
         if (middle == NONE) {
             return;
         }
@@ -257,6 +270,68 @@ final class VehicleMeshes {
             float turn = (hue * 6f + (channel == 0 ? 0f : channel == 1 ? 4f : 2f)) % 6f;
             float ramp = Math.clamp(Math.abs(turn - 3f) - 1f, 0f, 1f);
             out[channel] = light * (1f - strength + strength * ramp);
+        }
+    }
+
+    /** The prefix of the game's vehicle shaders that draw a body in its skin's own colours and take no paint. */
+    private static final String SKIN_COLOURED = "vehicle_norandom";
+
+    private record Skinned(Body body, Texture skin) {}
+
+    private static final HashMap<Skinned, float[]> skinColours = new HashMap<>();
+
+    /**
+     * The colour of a body that is its skin's own: the skin's mean over the bonnet, which is what
+     * of the paint is seen from the seat, or over the whole skin for a body whose parts are not
+     * told. Null while the skin is not loaded; NONE for a skin that cannot be read back, said once.
+     */
+    private static float[] skinColour(Body body, Texture skin, Parts parts, String script) {
+        Skinned key = new Skinned(body, skin);
+        float[] known = skinColours.get(key);
+        if (known != null) {
+            return known;
+        }
+        if (!skin.isReady() || skin.getID() <= 0) {
+            return null;
+        }
+        float[] colour = parts == null || parts.bonnetUv.length == 0 ? meanOf(skin) : meanAt(skin, parts.bonnetUv);
+        if (colour == null) {
+            Log.info("the skin of " + script + " cannot be read back for its colour: its bonnet is drawn in the paint the game gave the vehicle");
+            colour = NONE;
+        } else if (DevBuild.ON) {
+            Log.info(String.format(Locale.ROOT, "%s is drawn in its skin's own colours: its bonnet (%d triangles) is %.2f, %.2f, %.2f",
+                    script, parts == null ? 0 : parts.bonnetUv.length / 2, colour[0], colour[1], colour[2]));
+        }
+        skinColours.put(key, colour);
+        return colour;
+    }
+
+    /** The mean colour of a picture at the texture places given, u then v, read back from the graphics card. Null for one too big to read. */
+    private static float[] meanAt(Texture picture, float[] uv) {
+        int was = GL11.glGetInteger(GL_TEXTURE_BINDING_2D);
+        GL11.glBindTexture(GL_TEXTURE_2D, picture.getID());
+        int width = GL11.glGetTexLevelParameteri(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH), height = GL11.glGetTexLevelParameteri(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT);
+        if (width <= 0 || height <= 0 || (long) width * height > MOST_TEXELS) {
+            GL11.glBindTexture(GL_TEXTURE_2D, was);
+            return null;
+        }
+        OffHeap.Block read = OffHeap.take(width * height * 4);
+        try {
+            GL11.glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, read.bytes);
+            GL11.glBindTexture(GL_TEXTURE_2D, was);
+            float[] mean = new float[3];
+            int places = uv.length / 2;
+            for (int i = 0; i < places; i++) {
+                // Laid against the texture place the same way up as the mask is: see glassBy.
+                int x = Math.min((int) (uv[i * 2] * width), width - 1), y = Math.min((int) (uv[i * 2 + 1] * height), height - 1);
+                int texel = (y * width + x) * 4;
+                for (int channel = 0; channel < 3; channel++) {
+                    mean[channel] += (read.bytes.get(texel + channel) & 0xff) / (255f * places);
+                }
+            }
+            return mean;
+        } finally {
+            read.free();
         }
     }
 
@@ -500,9 +575,26 @@ final class VehicleMeshes {
         }
         float[] seats = CabinParts.seats(scriptSeats, frame[3], frame[7], middle[1]);
         CabinParts.Found found = CabinParts.classify(at, facing, elements, glass, middle, seats);
+        int bonnets = 0;
+        for (int kind : found.kinds) {
+            bonnets += kind == CabinParts.BONNET ? 1 : 0;
+        }
+        float[] bonnetUv = new float[bonnets * 2];
+        for (int t = 0, b = 0; t < found.kinds.length; t++) {
+            if (found.kinds[t] == CabinParts.BONNET) {
+                float u = 0f, v = 0f;
+                for (int corner = 0; corner < 3; corner++) {
+                    int uv = elements[t * 3 + corner] * stride + 24;
+                    u += raw.getFloat(uv) / 3f;
+                    v += raw.getFloat(uv + 4) / 3f;
+                }
+                bonnetUv[b++] = u - (float) Math.floor(u);
+                bonnetUv[b++] = v - (float) Math.floor(v);
+            }
+        }
         Parts made = new Parts(ByteBuffer.allocateDirect(elements.length * 3 * Float.BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer(), found.seatPieces > 0,
                 new float[] {found.footAlong - middle[0], found.footUp - middle[2], found.sillUp - middle[2], found.glassOut - Math.abs(middle[1] - found.middleAcross),
-                    found.middleAcross - middle[1], found.dashTop - middle[2], found.dashBack - middle[0]}, found.front);
+                    found.middleAcross - middle[1], found.dashTop - middle[2], found.dashBack - middle[0]}, found.front, bonnetUv);
         for (int kind = 0; kind < CabinParts.KINDS; kind++) {
             made.first[kind] = made.triangles.position() / 3;
             for (int t = 0; t < found.kinds.length; t++) {
@@ -578,6 +670,7 @@ final class VehicleMeshes {
         rearPanes.clear();
         parts.clear();
         means.clear();
+        skinColours.clear();
     }
 
     private static float[] meanOver(ByteBuffer texels, Texture picture, int width, int height) {
