@@ -828,7 +828,8 @@ public final class Agent {
                         new CallSite.Method(PLAYER, "hitConsequences", "(Lzombie/inventory/types/HandWeapon;" + character + "ZFZ)V"), code -> {
                             code.aload(0);
                             code.aload(2);
-                            CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "playerHit", "(L" + PLAYER + ";" + character + ")V"));
+                            code.iload(3);
+                            CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "playerHit", "(L" + PLAYER + ";" + character + "Z)V"));
                         })),
                 // The game forgets a highlighted object it draws into a chunk's texture once it has
                 // drawn it there, and keeps only the object's flag: Outlines keeps its own list.

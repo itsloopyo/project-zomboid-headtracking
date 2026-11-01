@@ -14,8 +14,11 @@ import zombie.characters.IsoPlayer;
 import zombie.characters.IsoZombie;
 import zombie.characters.animals.IsoAnimal;
 import zombie.iso.IsoCell;
+import zombie.iso.IsoMovingObject;
 import zombie.iso.IsoWorld;
 import zombie.iso.LosUtil;
+import zombie.vehicles.AttackVehicleState;
+import zombie.vehicles.BaseVehicle;
 
 /**
  * What the isometric view shows all round the player and first person leaves out: who hit them,
@@ -34,8 +37,8 @@ final class HitDirection {
 
     /** The most attackers whose arcs show at once: the oldest gives way to a new one. */
     private static final int MOST = 8;
-    /** How far off a zombie can be and still be attacking the player, in tiles. */
-    private static final float ATTACK_REACH = 3f;
+    /** How far off a zombie can be and still be attacking the player, in tiles, on foot and at the vehicle they sit in, which reaches further from the seat. */
+    private static final float ATTACK_REACH = 3f, VEHICLE_ATTACK_REACH = 6f;
     /** The arc's half width, in radians, and its thickness and the glow's, in pixels on a screen 1080 high. */
     private static final float ARC_HALF = (float) Math.toRadians(22), ARC_THICK = 12f, GLOW_HALF = (float) Math.toRadians(35), GLOW_THICK = 70f;
     /** How far out the ellipse they lie on reaches, as a share of half the picture each way. */
@@ -80,8 +83,11 @@ final class HitDirection {
     /** Whether each zombie among them was in the cell's list of zombies this frame, or hit the player since the list was looked through. */
     private final boolean[] listed = new boolean[MOST];
     private int count;
-    /** The zombies attacking the player as last seen and now, so an attack is marked as it begins. */
-    private IdentityHashMap<IsoZombie, Boolean> attacking = new IdentityHashMap<>(), attackingNow = new IdentityHashMap<>();
+    /** The zombies attacking the player last frame and this one, each with how the game had its swing, so each swing is marked as it begins. */
+    private IdentityHashMap<IsoZombie, String> attacking = new IdentityHashMap<>(), attackingNow = new IdentityHashMap<>();
+    private static final String SWING_STARTS = "start";
+    /** The zombies the game has attack as a server says (AttackNetworkState), last frame and this one, for the development build's line as one starts. */
+    private IdentityHashMap<IsoZombie, Boolean> network = new IdentityHashMap<>(), networkNow = new IdentityHashMap<>();
     /** The zombies glowing last frame and this one, for the development build's line as one starts. */
     private IdentityHashMap<IsoZombie, Boolean> glowing = new IdentityHashMap<>(), glowingNow = new IdentityHashMap<>();
     /** The most close zombies glowing at once: a crowd round the player glows as much with these. */
@@ -89,13 +95,27 @@ final class HitDirection {
     private final float[] glowBearings = new float[MOST_GLOWS], glowStrengths = new float[MOST_GLOWS];
     private int glows;
 
-    /** Logic thread: the player was hit by someone. A second hit by the same attacker starts their arc again. */
-    void hitBy(IsoGameCharacter attacker, long now) {
+    /**
+     * Whether a zombie is attacking the player: going for them (AttackState, the AttackNetworkState
+     * a server's zombie is in, or rising from lying fake dead), or at the vehicle they sit in
+     * (AttackVehicleState, whose target is someone in it).
+     */
+    private static boolean attacks(IsoZombie zombie, IsoPlayer player, BaseVehicle seat) {
+        IsoMovingObject target = zombie.getTarget();
+        if (target == player) {
+            return zombie.isCurrentState(AttackState.instance()) || zombie.isCurrentState(AttackNetworkState.instance())
+                    || zombie.isCurrentState(FakeDeadAttackState.instance());
+        }
+        return seat != null && target instanceof IsoGameCharacter inside && inside.getVehicle() == seat && zombie.isCurrentState(AttackVehicleState.instance());
+    }
+
+    /** Logic thread: the player was hit by someone, or a zombie swung at them. Another by the same attacker starts their arc again. */
+    void hitBy(IsoGameCharacter attacker, long now, String what) {
         for (int i = 0; i < count; i++) {
             if (attackers[i] == attacker) {
                 hitAt[i] = now;
                 listed[i] = true;
-                said(attacker, "hit by");
+                said(attacker, what);
                 return;
             }
         }
@@ -111,7 +131,7 @@ final class HitDirection {
         attackers[count] = attacker;
         listed[count] = true;
         hitAt[count++] = now;
-        said(attacker, "hit by");
+        said(attacker, what);
     }
 
     private IsoPlayer saidFor;
@@ -148,6 +168,7 @@ final class HitDirection {
             }
         }
         attacking.remove(zombie);
+        network.remove(zombie);
         glowing.remove(zombie);
     }
 
@@ -169,6 +190,8 @@ final class HitDirection {
         int floor = (int) Math.floor(player.getZ());
         glows = 0;
         Arrays.fill(listed, false);
+        BaseVehicle seat = player.getVehicle();
+        float reach = seat == null ? ATTACK_REACH : VEHICLE_ATTACK_REACH;
         ArrayList<IsoZombie> zombies = cell.getZombieList();
         for (int i = 0; i < zombies.size(); i++) {
             IsoZombie zombie = zombies.get(i);
@@ -176,14 +199,22 @@ final class HitDirection {
                 listed[j] |= attackers[j] == zombie;
             }
             float toX = zombie.getX() - eye.eyeX, toY = zombie.getY() - eye.eyeY;
-            if (Math.abs(toX) > ATTACK_REACH || Math.abs(toY) > ATTACK_REACH || zombie.isDead()) {
+            if (Math.abs(toX) > reach || Math.abs(toY) > reach || zombie.isDead()) {
                 continue;
             }
-            if (zombie.getTarget() == player && (zombie.isCurrentState(AttackState.instance()) || zombie.isCurrentState(AttackNetworkState.instance())
-                    || zombie.isCurrentState(FakeDeadAttackState.instance()))) {
-                attackingNow.put(zombie, Boolean.TRUE);
-                if (!attacking.containsKey(zombie)) {
-                    hitBy(zombie, now);
+            if (attacks(zombie, player, seat)) {
+                // The game sets the outcome to "start" as each swing begins (AttackState.enter, AttackNetworkState.enter) and to how it ended once it lands.
+                String outcome = zombie.getAttackOutcome(), before = attacking.get(zombie);
+                attackingNow.put(zombie, String.valueOf(outcome));
+                if (!attacking.containsKey(zombie) || SWING_STARTS.equals(outcome) && !SWING_STARTS.equals(before)) {
+                    hitBy(zombie, now, "attacked by");
+                }
+            }
+            if (DevBuild.ON && zombie.isCurrentState(AttackNetworkState.instance())) {
+                networkNow.put(zombie, Boolean.TRUE);
+                if (!network.containsKey(zombie)) {
+                    Log.info(String.format(Locale.ROOT, "hit direction, player %d: zombie %d attacks as the server says (AttackNetworkState), its target %s",
+                            index + 1, zombie.getID(), zombie.getTarget() == player ? "this player" : String.valueOf(zombie.getTarget())));
                 }
             }
             float tiles = (float) Math.hypot(toX, toY);
@@ -205,10 +236,14 @@ final class HitDirection {
                 }
             }
         }
-        IdentityHashMap<IsoZombie, Boolean> swap = attacking;
+        IdentityHashMap<IsoZombie, String> swings = attacking;
         attacking = attackingNow;
-        attackingNow = swap;
+        attackingNow = swings;
         attackingNow.clear();
+        IdentityHashMap<IsoZombie, Boolean> swap = network;
+        network = networkNow;
+        networkNow = swap;
+        networkNow.clear();
         swap = glowing;
         glowing = glowingNow;
         glowingNow = swap;
@@ -256,12 +291,13 @@ final class HitDirection {
     /** Nothing marked: the view is not first person, or the part is off. Who hit the player is forgotten. */
     void hide() {
         shown = null;
-        if (count > 0 || !attacking.isEmpty() || !glowing.isEmpty()) {
+        if (count > 0 || !attacking.isEmpty() || !network.isEmpty() || !glowing.isEmpty()) {
             for (int i = 0; i < count; i++) {
                 attackers[i] = null;
             }
             count = 0;
             attacking.clear();
+            network.clear();
             glowing.clear();
         }
         saidFrom = null;

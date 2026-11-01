@@ -577,14 +577,14 @@ public final class Hooks {
         return aimedPart != HitPart.NONE ? aimedPart : ballistics.getCachedTargetedBodyPart(id);
     }
 
-    /** Called as IsoPlayer.hitConsequences begins: a player has been hit by another character, a player or an animal. */
-    public static void playerHit(IsoPlayer victim, IsoGameCharacter attacker) {
-        if (attacker == null || attacker == victim || !Part.HIT_DIRECTION.on()) {
+    /** Called as IsoPlayer.hitConsequences begins: a player has been hit by another character, a player or an animal. A hit the game deals with its damage left out (bIgnoreDamage) is not marked. */
+    public static void playerHit(IsoPlayer victim, IsoGameCharacter attacker, boolean ignoreDamage) {
+        if (ignoreDamage || attacker == null || attacker == victim || !Part.HIT_DIRECTION.on()) {
             return;
         }
         View view = View.of(victim);
         if (view != null && view.firstPerson.isOn()) {
-            view.hitDirection.hitBy(attacker, System.nanoTime());
+            view.hitDirection.hitBy(attacker, System.nanoTime(), "hit by");
         }
     }
 
