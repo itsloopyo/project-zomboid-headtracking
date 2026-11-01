@@ -307,7 +307,7 @@ final class HitDirection {
         }
         filled.hits = hits;
         filled.count = marks;
-        filled.hotbar = hotbar(index);
+        filled.hotbar = hotbar(index, now);
         shown = filled;
         filling = (filling + 1) % buffers.length;
     }
@@ -350,29 +350,50 @@ final class HitDirection {
         return false;
     }
 
-    private boolean hotbarTroubleSaid;
+    /** How often the hotbar is looked up through the game's Lua while arcs show, in nanoseconds: the game moves it only as it lays the screen out again. */
+    private static final long HOTBAR_EVERY = 250_000_000L;
+    private boolean hotbarRead;
+    private long hotbarReadAt;
+    private float hotbarShare;
+    private boolean hotbarCallFailedSaid, hotbarNotAPanelSaid;
     private float hotbarSaid = -1f;
+
+    /** Logic thread: the hotbar's share of the picture, as last looked up, and looked up again once HOTBAR_EVERY has gone. */
+    private float hotbar(int index, long now) {
+        if (!hotbarRead || now - hotbarReadAt >= HOTBAR_EVERY) {
+            hotbarRead = true;
+            hotbarReadAt = now;
+            hotbarShare = lookUpHotbar(index);
+        }
+        return hotbarShare;
+    }
 
     /**
      * Logic thread, the one the game's Lua runs on: the share of the player's part of the screen
-     * that the game's hotbar covers along its bottom, 0 while it is not shown. The game puts it at
-     * the bottom of that part (ISHotbar.setSizeAndPosition), and the picture fills the part.
+     * that the game's hotbar covers along its bottom, 0 while it is not shown or the game has its
+     * whole interface hidden (UIManager.setVisibleAllUI). The game puts the hotbar at the bottom
+     * of that part (ISHotbar.setSizeAndPosition), and the picture fills the part.
      */
-    private float hotbar(int index) {
-        Object[] found = LuaManager.caller.pcall(UIManager.getDefaultThread(), LuaManager.env.rawget(HOTBAR), Double.valueOf(index));
-        Object bar = found.length > 1 ? found[1] : null;
-        UIElementInterface shown = bar instanceof KahluaTable table && table.rawget("javaObject") instanceof UIElementInterface element ? element : null;
-        if (found.length == 0 || !Boolean.TRUE.equals(found[0]) || bar != null && shown == null) {
-            if (!hotbarTroubleSaid) {
-                hotbarTroubleSaid = true;
-                Log.info("the game's " + HOTBAR + "(" + index + ") gave no hotbar to keep the hit arcs above: " + Arrays.toString(found));
-            }
-            return 0f;
-        }
+    private float lookUpHotbar(int index) {
         float covered = 0f;
-        if (shown != null && shown.isVisible()) {
-            float high = IsoCamera.getScreenHeight(index);
-            covered = Math.max(0f, (float) ((IsoCamera.getScreenTop(index) + high - shown.getY()) / high));
+        if (UIManager.visibleAllUi) {
+            Object[] found = LuaManager.caller.pcall(UIManager.getDefaultThread(), LuaManager.env.rawget(HOTBAR), Double.valueOf(index));
+            Object bar = found.length > 1 ? found[1] : null;
+            UIElementInterface shown = bar instanceof KahluaTable table && table.rawget("javaObject") instanceof UIElementInterface element ? element : null;
+            if (found.length == 0 || !Boolean.TRUE.equals(found[0])) {
+                if (!hotbarCallFailedSaid) {
+                    hotbarCallFailedSaid = true;
+                    Log.info("the game's " + HOTBAR + "(" + index + ") failed, so the hit arcs are not kept above the hotbar: " + Arrays.toString(found));
+                }
+            } else if (bar != null && shown == null) {
+                if (!hotbarNotAPanelSaid) {
+                    hotbarNotAPanelSaid = true;
+                    Log.info("the game's " + HOTBAR + "(" + index + ") gave something that is not a panel, so the hit arcs are not kept above the hotbar: " + bar);
+                }
+            } else if (shown != null && shown.isVisible()) {
+                float high = IsoCamera.getScreenHeight(index);
+                covered = Math.max(0f, (float) ((IsoCamera.getScreenTop(index) + high - shown.getY()) / high));
+            }
         }
         if (DevBuild.ON && Math.abs(covered - hotbarSaid) > 0.002f) {
             hotbarSaid = covered;
@@ -384,6 +405,7 @@ final class HitDirection {
     /** Nothing marked: the view is not first person, or the part is off. Who hit the player is forgotten. */
     void hide() {
         shown = null;
+        hotbarRead = false;
         if (count > 0 || !attacking.isEmpty() || !network.isEmpty() || !glowing.isEmpty()) {
             for (int i = 0; i < count; i++) {
                 attackers[i] = null;
