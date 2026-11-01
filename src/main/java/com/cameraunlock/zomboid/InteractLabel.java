@@ -9,6 +9,7 @@ import zombie.core.input.Input;
 import zombie.entity.GameEntity;
 import zombie.input.JoypadButton;
 import zombie.inventory.ItemContainer;
+import zombie.iso.IsoObject;
 import zombie.iso.objects.IsoWorldInventoryObject;
 import zombie.ui.TextManager;
 import zombie.ui.UIFont;
@@ -115,8 +116,10 @@ final class InteractLabel {
 
     /** What the game's loot panel calls a container (ISInventoryPage): its own name, else its kind's title, else its kind. */
     private static String title(ItemContainer container) {
-        if (container.getCustomName() != null) {
-            return container.getCustomName();
+        // ItemContainer.getCustomName reads the name from its thing's mod data, which getModData makes where there is none.
+        IsoObject parent = container.getParent();
+        if (parent != null && parent.hasModData() && parent.getModData().rawget(container.getType() + "_customContainerName") instanceof String name) {
+            return name;
         }
         String title = Translator.getTextOrNull("IGUI_ContainerTitle_" + container.getType());
         if (title == null) {
