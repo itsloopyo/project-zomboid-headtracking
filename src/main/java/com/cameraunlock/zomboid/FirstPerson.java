@@ -1972,7 +1972,7 @@ public final class FirstPerson {
      */
     boolean climbableAtCentre() {
         IsoPlayer player = view.player();
-        return player.getVehicle() == null && reticleOnScreen && (CentreUse.climbable(centre(player), player) || hopAtCentre(true) != null);
+        return !keyRefused(player) && player.getVehicle() == null && reticleOnScreen && (CentreUse.climbable(centre(player), player) || hopAtCentre(true) != null);
     }
 
     /** What the key would act on at the reticle, or null (CentreUse.under). */
@@ -2024,7 +2024,7 @@ public final class FirstPerson {
      */
     boolean useAtCentre(boolean climb) {
         IsoPlayer player = view.player();
-        if (player.getVehicle() != null || !reticleOnScreen) {
+        if (keyRefused(player) || player.getVehicle() != null || !reticleOnScreen) {
             return false;
         }
         IsoObject found = centre(player);
@@ -2059,7 +2059,7 @@ public final class FirstPerson {
      * Interact key from the player.
      */
     private void label(IsoPlayer player, IsoObject found, long now) {
-        if (GameTime.isGamePaused() || player.isIgnoreContextKey()) {
+        if (keyRefused(player)) {
             view.interactLabel.hide();
             return;
         }
@@ -2074,6 +2074,15 @@ public final class FirstPerson {
         boolean window = CentreUse.climbable(found, player);
         HoleHop.Hop hop = window ? null : hopAtCentre(false);
         view.interactLabel.update(tap, window || hop != null ? keyUse(player, found, true, hop) : null, player, now);
+    }
+
+    /**
+     * Whether the game takes no Interact key from the player now: paused, or busy with what sets
+     * its ignore-context-key flag. The key path asks too: a window press held into a pause still
+     * reaches the climb when its hold runs out, and the flag does not stop the key reaching the mod.
+     */
+    private static boolean keyRefused(IsoPlayer player) {
+        return GameTime.isGamePaused() || player.isIgnoreContextKey();
     }
 
     /** The height of the floor a player stands on, in tiles above level 0. */
