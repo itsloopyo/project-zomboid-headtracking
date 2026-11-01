@@ -1000,6 +1000,8 @@ final class Pipeline {
     private final float[] meterReds = new float[METER_CELLS], meterBlues = new float[METER_CELLS];
     /** What the develop pass makes of the frame's own light: see Develop. Render thread. */
     private final Develop developed = new Develop();
+    /** The background softened while aiming: see AimBlur. Render thread. */
+    private final AimBlur aimBlur = new AimBlur();
     private final Style.Fade styleFade = new Style.Fade();
     private final float[] lightShade = new float[3], lightLit = new float[3];
     /** How much of the develop pass's film works on each colour alone, where the picture is the mod's own: see the shader's film. */
@@ -1145,7 +1147,7 @@ final class Pipeline {
         for (Lent set : UNSIZED) {
             bytes += set.bytes;
         }
-        return bytes + view.scope.pictureBytes() + view.heldDepth.bytes();
+        return bytes + view.scope.pictureBytes() + view.heldDepth.bytes() + aimBlur.bytes();
     }
 
     /** A gain of one for each: what a surface is multiplied by while its picture is not made, which is plain white. */
@@ -1548,6 +1550,8 @@ final class Pipeline {
             }
             stage(STAGE_AIR);
             if (!overhead) {
+                // After the steadying, so what is kept from frame to frame stays sharp; before the meter and the glow, which read it.
+                frameColor = aimBlur.draw(view, frameColor, sceneDepth, width, height, tanHalfFieldOfView, near, far, frameNanos);
                 meter();
             }
             drawBloom(exposure);
@@ -6082,7 +6086,7 @@ final class Pipeline {
     /** How near the eye the held weapon is still drawn, in tiles. */
     private static final float HELD_NEAR = 0.08f;
 
-    private static void quad() {
+    static void quad() {
         GL11.glBegin(GL_TRIANGLE_STRIP);
         GL11.glVertex2f(-1f, -1f);
         GL11.glVertex2f(1f, -1f);
@@ -6648,6 +6652,7 @@ final class Pipeline {
         }
         pieces.add(new Piece(Scope::prepare));
         pieces.add(new Piece(OwnGun::link));
+        pieces.add(new Piece(AimBlur::link));
         pieces.add(new Piece(OwnArms::linkProgram));
         pieces.add(new Piece(CabinDraw::link));
         pieces.add(new Piece(CharacterDraw::link));
@@ -6768,6 +6773,7 @@ final class Pipeline {
         }
         view.scope.takeBackPicture(Long.MAX_VALUE);
         view.heldDepth.takeBack(Long.MAX_VALUE);
+        aimBlur.takeBack(Long.MAX_VALUE);
         // A step that shows the mod's own content to nobody gives it back now, not a minute on as a plain mode does.
         if (room == VideoMemory.Room.STEPPED && Quality.plainEverywhere() && contentBegun) {
             contentRefused = true;
@@ -6903,6 +6909,7 @@ final class Pipeline {
         }
         view.scope.takeBackPicture(frameNanos - LENT_FOR_NANOS);
         view.heldDepth.takeBack(frameNanos - LENT_FOR_NANOS);
+        aimBlur.takeBack(frameNanos - LENT_FOR_NANOS);
     }
 
     private String makeMirror() {

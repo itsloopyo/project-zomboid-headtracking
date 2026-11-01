@@ -75,6 +75,11 @@ enum Part {
                     + "cloth and skin darken, metal and wood shine, and drops bead on them and run down the weapon. Snow that melts\n"
                     + "on you indoors wets them too. Out of the rain, indoors, under a roof or in a vehicle they dry over a few minutes,\n"
                     + "and clothes the game has soaked stay dark until the game dries them. false: they stay dry whatever the weather."),
+    AIM_BLUR("FirstPerson", "AimBlur", true, false,
+            "true: in first person, in Medium and High, with a gun's sights up the background beyond what you aim at softens a\n"
+                    + "little, and the nearest parts of the gun a little less, eased in and out as the sights come up and go down. A\n"
+                    + "target close by softens the background more than one far off. Never through a scope. false: the picture stays\n"
+                    + "sharp from the gun to the horizon."),
     NAME_TAGS_AT_HEADS("FirstPerson", "NameTagsAtHeads", false, true,
             "true: on a server, in first person, the names and speech the game shows over people sit over their heads in the\n"
                     + "picture, and your own are hidden. false: the game shows them where its own view puts them."),
