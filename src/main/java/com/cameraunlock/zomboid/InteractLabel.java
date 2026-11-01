@@ -107,7 +107,7 @@ final class InteractLabel {
             case GRAB -> ((IsoWorldInventoryObject) use.object()).getItem().getDisplayName();
             case LOOT, WALK_TO -> title(use.container());
             case OPEN_NAMED -> workstation(use);
-            case MENU -> use.object().getTileName();
+            case MENU -> Translator.getMoveableDisplayName(use.object());
             default -> throw new IllegalStateException(does + " names nothing");
         };
         return InteractWords.action(does, said, name);
