@@ -44,27 +44,49 @@ final class HitArcs {
      * @param toX      the place less the eye, on the map
      */
     static float bearing(float forwardX, float forwardY, float forwardUp, float upX, float upY, float toX, float toY) {
-        // A unit vector's part read back as a float can be a hair over one.
-        double steep = Math.asin(Math.min(1f, Math.abs(forwardUp)));
-        double t = Math.max(0.0, (steep - STEEP_FROM) / (Math.PI / 2 - STEEP_FROM));
-        float top = (float) (t * t * (3 - 2 * t)) * (forwardUp > 0f ? -1f : 1f);
-        float aheadX = forwardX + top * upX, aheadY = forwardY + top * upY;
+        float top = topShare(forwardUp), aheadX = forwardX + top * upX, aheadY = forwardY + top * upY;
         return (float) Math.atan2(-toX * aheadY + toY * aheadX, toX * aheadX + toY * aheadY);
     }
 
+    /** How much of the top of the picture is eased into ahead, turned round when looking up: see bearing. */
+    private static float topShare(float forwardUp) {
+        // A unit vector's part read back as a float can be a hair over one.
+        double steep = Math.asin(Math.min(1f, Math.abs(forwardUp)));
+        double t = Math.max(0.0, (steep - STEEP_FROM) / (Math.PI / 2 - STEEP_FROM));
+        return (float) (t * t * (3 - 2 * t)) * (forwardUp > 0f ? -1f : 1f);
+    }
+
     /**
-     * The bearing of a place from the eye while the character lies on the ground and the view
-     * follows its head, taken from the picture rather than from a facing: the place's way on the
-     * map against the way the top of the picture and its right point on the map, so a place past
-     * the head of a character on its back is marked at the top, as the picture shows it. A view
-     * rolled onto its side, whose right points up, has its facing added in, so that what is
-     * ahead is marked at the top and what is behind at the bottom.
-     *
-     * @param forwardX the way the view faces, the top of the picture points and its right points, on the map
-     * @param toX      the place less the eye, on the map
+     * While the character lies on the ground and the view follows its head, the arcs follow the
+     * picture: where the top of the picture points back against ahead (on the back, looking up),
+     * what is past the head is marked at the top and the feet at the bottom, the right staying the
+     * right. The picture there is the world seen from below, the mirror of it seen from above, so
+     * no frame turns smoothly from the one to the other: the top and the bottom change places at
+     * once, and only once the top of the picture has turned this far back on the map, or as far
+     * forward again to change them back, so a small movement of the head about the turn does not
+     * swap them to and fro.
      */
-    static float bearingLying(float forwardX, float forwardY, float upX, float upY, float rightX, float rightY, float toX, float toY) {
-        return (float) Math.atan2(toX * rightX + toY * rightY, toX * (upX + forwardX) + toY * (upY + forwardY));
+    static final float TOP_TURNS = 0.35f;
+
+    /**
+     * How far the top of the picture points along ahead, laid on the map: 1 the same way, -1 back,
+     * 0 across it or straight up, as on a level view. Ahead as bearing takes it.
+     */
+    static float topAlong(float forwardX, float forwardY, float forwardUp, float upX, float upY) {
+        float top = topShare(forwardUp), aheadX = forwardX + top * upX, aheadY = forwardY + top * upY;
+        float length = (float) Math.hypot(aheadX, aheadY);
+        // Only a view upside down and straight up or down has no ahead: it holds what it had.
+        return length == 0f ? 0f : (upX * aheadX + upY * aheadY) / length;
+    }
+
+    /** Whether the top of the picture now points back, from whether it did and topAlong: see TOP_TURNS. */
+    static boolean topPointsBack(boolean did, float along) {
+        return did ? along < TOP_TURNS : along < -TOP_TURNS;
+    }
+
+    /** A bearing with the top and the bottom changed places, the right and the left kept. */
+    static float turnedOver(float bearing) {
+        return (bearing >= 0f ? (float) Math.PI : (float) -Math.PI) - bearing;
     }
 
     /** Across and up the picture, -1 to 1, the way a bearing points from its middle. */

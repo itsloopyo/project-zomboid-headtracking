@@ -93,8 +93,8 @@ final class HitDirection {
         int hits, count;
         /** The share of the picture's height the game's hotbar covers along its bottom, 0 while it is not shown. */
         float hotbar;
-        /** Whether the character lies on the ground with the view following its head: see HitArcs.bearingLying. */
-        boolean lying;
+        /** Whether the top and the bottom change places: see HitArcs.TOP_TURNS. */
+        boolean topBack;
     }
 
     /** Three, so the logic thread fills one while the render thread may still be drawing either of the last two it was handed. */
@@ -161,13 +161,14 @@ final class HitDirection {
 
     private IsoPlayer saidFor;
     private ViewCamera.Pose saidFrom;
-    private boolean saidLying;
+    /** Logic thread: whether the top of the picture points back, while the character lies down: see HitArcs.TOP_TURNS. */
+    private boolean topBack;
 
     private void said(IsoGameCharacter attacker, String what) {
         if (!DevBuild.ON || saidFrom == null) {
             return;
         }
-        float bearing = bearing(saidFrom, saidLying, attacker.getX() - saidFrom.eyeX, attacker.getY() - saidFrom.eyeY);
+        float bearing = bearing(saidFrom, topBack, attacker.getX() - saidFrom.eyeX, attacker.getY() - saidFrom.eyeY);
         Log.info(String.format(Locale.ROOT, "hit direction, player %d: %s %s %d, %.2f tiles off, bearing %.0f degrees, the %s edge",
                 saidFor.getIndex() + 1, what, kind(attacker), attacker.getID(), (float) Math.hypot(attacker.getX() - saidFrom.eyeX, attacker.getY() - saidFrom.eyeY),
                 Math.toDegrees(bearing), HitArcs.EDGE_NAMES[HitArcs.edge(bearing)]));
@@ -210,7 +211,7 @@ final class HitDirection {
         }
         saidFor = player;
         saidFrom = eye;
-        saidLying = lying;
+        topBack = lying && HitArcs.topPointsBack(topBack, HitArcs.topAlong(eye.forwardX, eye.forwardY, eye.forwardUp, eye.upX, eye.upY));
         int index = player.getIndex();
         IsoCell cell = IsoWorld.instance.currentCell;
         int floor = (int) Math.floor(player.getZ());
@@ -248,7 +249,7 @@ final class HitDirection {
             if (tiles > HitArcs.NEAR_TILES || (int) Math.floor(zombie.getZ()) != floor || zombie.isFakeDead() || zombie.getAlpha(index) <= SHOWN_ALPHA) {
                 continue;
             }
-            float bearing = bearing(eye, lying, toX, toY);
+            float bearing = bearing(eye, topBack, toX, toY);
             float strength = HitArcs.near(tiles, bearing, tanHalfWide);
             if (strength <= 0f || glows == MOST_GLOWS || blocked(cell, player, zombie)) {
                 continue;
@@ -311,7 +312,7 @@ final class HitDirection {
         filled.hits = hits;
         filled.count = marks;
         filled.hotbar = hotbar(index, now);
-        filled.lying = lying;
+        filled.topBack = topBack;
         shown = filled;
         filling = (filling + 1) % buffers.length;
     }
@@ -362,9 +363,9 @@ final class HitDirection {
     private boolean hotbarCallFailedSaid, hotbarNotAPanelSaid;
     private float hotbarSaid = -1f;
 
-    private static float bearing(ViewCamera.Pose eye, boolean lying, float toX, float toY) {
-        return lying ? HitArcs.bearingLying(eye.forwardX, eye.forwardY, eye.upX, eye.upY, eye.rightX, eye.rightY, toX, toY)
-                : HitArcs.bearing(eye.forwardX, eye.forwardY, eye.forwardUp, eye.upX, eye.upY, toX, toY);
+    private static float bearing(ViewCamera.Pose eye, boolean topBack, float toX, float toY) {
+        float bearing = HitArcs.bearing(eye.forwardX, eye.forwardY, eye.forwardUp, eye.upX, eye.upY, toX, toY);
+        return topBack ? HitArcs.turnedOver(bearing) : bearing;
     }
 
     /** Logic thread: the hotbar's share of the picture, as last looked up, and looked up again once HOTBAR_EVERY has gone. */
@@ -414,6 +415,7 @@ final class HitDirection {
     /** Nothing marked: the view is not first person, or the part is off. Who hit the player is forgotten. */
     void hide() {
         shown = null;
+        topBack = false;
         hotbarRead = false;
         if (count > 0 || !attacking.isEmpty() || !network.isEmpty() || !glowing.isEmpty()) {
             for (int i = 0; i < count; i++) {
@@ -445,7 +447,7 @@ final class HitDirection {
         float unit = (float) height / DESIGN_HEIGHT;
         float below = Math.min(REACH, 1f - 2f * (marks.hotbar + HOTBAR_GAP / DESIGN_HEIGHT));
         for (int i = marks.count - 1; i >= 0; i--) {
-            float bearing = bearing(eye, marks.lying, marks.x[i] - eye.eyeX, marks.y[i] - eye.eyeY);
+            float bearing = bearing(eye, marks.topBack, marks.x[i] - eye.eyeX, marks.y[i] - eye.eyeY);
             if (i < marks.hits) {
                 GL20.glUniform4f(color, 0.9f, 0.06f, 0.04f, 0.85f * marks.strengths[i]);
                 arc(bearing, ARC_HALF, ARC_THICK * unit, false, below, width, height);

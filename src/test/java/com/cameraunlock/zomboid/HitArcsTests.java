@@ -13,6 +13,7 @@ final class HitArcsTests {
         Checks.run("aViewStraightUpOrDownFacesTheWayItWouldTippedLevel", HitArcsTests::aViewStraightUpOrDownFacesTheWayItWouldTippedLevel);
         Checks.run("aBearingMovesSmoothlyAsTheHeadPitchesAndRolls", HitArcsTests::aBearingMovesSmoothlyAsTheHeadPitchesAndRolls);
         Checks.run("lyingDownTheTopOfThePictureIsAhead", HitArcsTests::lyingDownTheTopOfThePictureIsAhead);
+        Checks.run("lyingDownTheTopAndBottomChangePlacesOnceAndOtherwiseMoveSmoothly", HitArcsTests::lyingDownTheTopAndBottomChangePlacesOnceAndOtherwiseMoveSmoothly);
         Checks.run("aMarkIsNamedForTheEdgeItIsDrawnNearest", HitArcsTests::aMarkIsNamedForTheEdgeItIsDrawnNearest);
         Checks.run("aHitFadesOutOverASecondAndAHalf", HitArcsTests::aHitFadesOutOverASecondAndAHalf);
         Checks.run("aCloseZombieGlowsOnlyOutOfViewAndNear", HitArcsTests::aCloseZombieGlowsOnlyOutOfViewAndNear);
@@ -85,34 +86,66 @@ final class HitArcsTests {
                 "face down, the top of the picture is ahead and the right the right");
     }
 
-    /** The facing, the top of the picture and its right, on the map, of tipped's view. */
-    private static float[] tippedWithRight(float pitchDegrees, float rollDegrees) {
-        double pitch = Math.toRadians(pitchDegrees), roll = Math.toRadians(rollDegrees);
-        float[] view = tipped(pitchDegrees, rollDegrees);
-        float rightX = (float) (Math.sin(pitch) * Math.sin(roll)), rightY = (float) Math.cos(roll);
-        return new float[] {view[0], view[1], view[3], view[4], rightX, rightY};
+    /** The bearing lying down, with the top and bottom changed places as they are. */
+    private static float lying(float[] view, boolean topBack, float toX, float toY) {
+        float bearing = bearingTipped(view, toX, toY);
+        return topBack ? HitArcs.turnedOver(bearing) : bearing;
     }
 
-    private static float lying(float[] view, float toX, float toY) {
-        return HitArcs.bearingLying(view[0], view[1], view[2], view[3], view[4], view[5], toX, toY);
+    private static boolean topBack(boolean did, float[] view) {
+        return HitArcs.topPointsBack(did, HitArcs.topAlong(view[0], view[1], view[2], view[3], view[4]));
     }
 
     private static void lyingDownTheTopOfThePictureIsAhead() {
         // On the back, looking straight up with the top of the picture toward -x, past the head, and its right +y.
-        float[] onTheBack = tippedWithRight(90f, 0f);
-        check(near(lying(onTheBack, -1f, 0f), 0f) && HitArcs.edge(lying(onTheBack, -1f, 0f)) == HitArcs.TOP,
-                "past the head is at the top: " + Math.toDegrees(lying(onTheBack, -1f, 0f)));
-        check(near(Math.abs(lying(onTheBack, 1f, 0f)), (float) Math.PI), "the feet at the bottom");
-        check(near(lying(onTheBack, 0f, 1f), (float) Math.PI / 2f), "and what is on the picture's right at the right");
-        check(near(lying(onTheBack, 0f, -1f), -(float) Math.PI / 2f), "and its left at the left");
-        float[] faceDown = tippedWithRight(-90f, 0f);
-        check(near(lying(faceDown, 1f, 0f), 0f) && near(lying(faceDown, 0f, 1f), (float) Math.PI / 2f), "face down, past the head is at the top and the right at the right");
-        float[] level = tippedWithRight(0f, 0f);
-        check(near(lying(level, 1f, 0f), 0f) && near(Math.abs(lying(level, -1f, 0f)), (float) Math.PI) && near(lying(level, 0f, 1f), (float) Math.PI / 2f),
-                "a level view down on the ground still has ahead at the top, behind at the bottom and the right at the right");
-        float[] onTheSide = tippedWithRight(0f, 90f);
-        check(near(lying(onTheSide, 1f, 0f), 0f) && near(Math.abs(lying(onTheSide, -1f, 0f)), (float) Math.PI),
-                "on the side, what is ahead is at the top and what is behind at the bottom");
+        float[] onTheBack = tipped(90f, 0f);
+        boolean back = topBack(false, onTheBack);
+        check(back, "on the back the top of the picture points back");
+        check(near(lying(onTheBack, back, -1f, 0f), 0f) && HitArcs.edge(lying(onTheBack, back, -1f, 0f)) == HitArcs.TOP,
+                "past the head is at the top: " + Math.toDegrees(lying(onTheBack, back, -1f, 0f)));
+        check(near(Math.abs(lying(onTheBack, back, 1f, 0f)), (float) Math.PI), "the feet at the bottom");
+        check(near(lying(onTheBack, back, 0f, 1f), (float) Math.PI / 2f), "what is on the picture's right at the right");
+        check(near(lying(onTheBack, back, 0f, -1f), -(float) Math.PI / 2f), "and its left at the left");
+        float[] faceDown = tipped(-90f, 0f);
+        check(!topBack(true, faceDown) && near(lying(faceDown, false, 1f, 0f), 0f) && near(lying(faceDown, false, 0f, 1f), (float) Math.PI / 2f),
+                "face down, the top of the picture points ahead, past the head is at the top and the right at the right");
+        check(topBack(true, tipped(0f, 90f)) && !topBack(false, tipped(0f, 90f)) && topBack(true, tipped(0f, 0f)) && !topBack(false, tipped(0f, 0f)),
+                "a level view, on the side or not, keeps whichever way it had");
+    }
+
+    private static void lyingDownTheTopAndBottomChangePlacesOnceAndOtherwiseMoveSmoothly() {
+        float most = 0f;
+        String where = "";
+        for (int roll = -60; roll <= 60; roll += 5) {
+            for (int sweep = 0; sweep < 2; sweep++) {
+                boolean back = sweep == 1;
+                int changes = 0;
+                for (int step = 0; step < 179; step++) {
+                    int pitch = sweep == 0 ? -89 + step : 89 - step, next = sweep == 0 ? pitch + 1 : pitch - 1;
+                    boolean then = topBack(back, tipped(next, roll));
+                    if (then != back) {
+                        changes++;
+                    } else {
+                        for (int place = 0; place < 8; place++) {
+                            float toX = (float) Math.cos(place * Math.PI / 4), toY = (float) Math.sin(place * Math.PI / 4);
+                            float by = turned(lying(tipped(pitch, roll), back, toX, toY), lying(tipped(next, roll), back, toX, toY));
+                            if (by > most) {
+                                most = by;
+                                where = "place " + place + ", pitch " + pitch + ", roll " + roll;
+                            }
+                        }
+                    }
+                    back = then;
+                }
+                check(changes == 1, "the top and bottom change places once from face down to on the back and once back again, roll " + roll + ": " + changes);
+            }
+        }
+        check(Math.toDegrees(most) < 4.0, "between the changes a degree of pitch moves a bearing by at most " + Math.toDegrees(most) + " degrees, at " + where);
+        boolean back = true;
+        for (int wobble = 0; wobble < 20; wobble++) {
+            back = topBack(back, tipped(wobble % 2 == 0 ? 18f : 22f, 0f));
+        }
+        check(back, "a head nodding a few degrees either side of where they changed places does not change them back");
     }
 
     private static float turned(float from, float to) {
