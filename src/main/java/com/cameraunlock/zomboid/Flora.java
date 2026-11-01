@@ -18,6 +18,12 @@ final class Flora {
      * those of the mod's furniture, which end at 51. The world shader has the same numbers.
      */
     static final float LITTER = 56f, TRUNK = 57f, IVY = 58f, ROCK = 59f, FROND = 60f, LEAF = 61f, FLOWER = 62f, BUSH = 63f;
+    /**
+     * A garden plant whose sprite paints flowers among its leaves (paintsFlowers): leaves to everything
+     * that asks, and the world shader keeps the painted flowers where it lays its leaf picture over the rest.
+     * The world vertex program reads it as WorldScene.LEAVES with vFlowers set.
+     */
+    static final float IN_FLOWER = 126f;
 
     /**
      * Which leaf a LEAF card is. The card's texture coordinate across carries it in the twos
@@ -1422,6 +1428,17 @@ final class Flora {
      */
     static boolean gardenPlant(String name) {
         return name != null && (name.startsWith("vegetation_gardening_") || name.startsWith("vegetation_farming_"));
+    }
+
+    /**
+     * Whether a garden plant's sprite paints flowers among its leaves: a sunflower's heads
+     * (vegetation_farming_01b_52, 53) and an onion gone to flower (vegetation_farming_01_125, 126).
+     * The withered sunflower after them (01b_54, 55) is leaves alone, though its colours are a flower's.
+     */
+    static boolean paintsFlowers(String name) {
+        int sunflower = name == null ? -1 : Sheets.place(name, "vegetation_farming_01b_");
+        int onion = name == null ? -1 : Sheets.place(name, "vegetation_farming_01_");
+        return sunflower == 52 || sunflower == 53 || onion == 125 || onion == 126;
     }
 
     /** Whether a sprite, by its name, is one of the ferns the game paints among its wild plants. */

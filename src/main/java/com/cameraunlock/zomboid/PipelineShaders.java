@@ -556,6 +556,8 @@ final class PipelineShaders {
             varying float vLie;
             varying float vBlocks;
             varying float vHung;
+            // 1 for a garden plant's leaves among which its sprite paints flowers (Flora.IN_FLOWER), whose vMaterial is then LEAVES.
+            varying float vFlowers;
             // How far, and which way, a vertex lies off the surface it is laid on: see faced.
             varying vec3 vLies;
             // 1 or -1 for a face seen only from where its normal looks or looks away from, 0 for one seen from both: see SpriteGeometry.SEEN_ALONG.
@@ -777,6 +779,8 @@ final class PipelineShaders {
                 vBoards = boarded ? 3.0 + floor((vMaterial - 16.0) / 2.0) : parquet ? (2.0 + mod(floor(parquetAs / 2.0), 3.0)) * vBlocks : 0.0;
                 vLie = boarded ? mod(vMaterial - 16.0, 2.0) : parquet ? mod(parquetAs, 2.0) : 0.0;
                 vMaterial = boarded || parquet ? 3.0 : vMaterial;
+                vFlowers = uModel < 0.5 && vMaterial > 125.5 && vMaterial < 126.5 ? 1.0 : 0.0;
+                vMaterial = vFlowers > 0.5 ? 5.0 : vMaterial;
                 // What stands only to throw a crown's shadow is in no picture but the sun's.
                 if (vMaterial > 79.5 && vMaterial < 80.5) {
                     gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
@@ -1017,6 +1021,8 @@ final class PipelineShaders {
             in float vLie;
             in float vBlocks;
             in float vHung;
+            // 1 for a garden plant's leaves among which its sprite paints flowers (Flora.IN_FLOWER), whose vMaterial is then LEAVES.
+            in float vFlowers;
             // How far, and which way, a vertex lies off the surface it is laid on: see faced.
             in vec3 vLies;
             // 1 or -1 for a face seen only from where its normal looks or looks away from, 0 for one seen from both: see SpriteGeometry.SEEN_ALONG.
@@ -2702,15 +2708,23 @@ final class PipelineShaders {
                     // and a far crown cut out leaf by leaf is a crawl of dots. As the leaves
                     // shrink towards a pixel the cut goes, and the crown is the game's outline.
                     float cut = 0.5 * (1.0 - smoothstep(0.012, 0.04, max(spread.x, spread.y)));
-                    if (broad.a < 0.35 || leaf.a < cut) {
-                        discard;
+                    // A garden plant in flower keeps its painted flowers as painted: laid with the leaf picture a
+                    // sunflower's head was a crumpled yellow leaf. Of such a plant's sprite, what is not painted
+                    // green is its flowers, the head's dark heart among them. Only these sprites are asked
+                    // (Flora.paintsFlowers): of every crop, a withered sunflower and a brown crop would be flowers too.
+                    if (vFlowers > 0.5 && texel.a > 0.5 && texel.g < 1.05 * max(texel.r, texel.b)) {
+                        texel.a = 1.0;
+                    } else {
+                        if (broad.a < 0.35 || leaf.a < cut) {
+                            discard;
+                        }
+                        float shade = dot(leaf.rgb, vec3(0.299, 0.587, 0.114)) * uLeafGain;
+                        // Each leaf has its own light and dark, and the leaf picture's own greens show
+                        // through the tree's colour, so a crown is leaves and not a tinted cloud.
+                        vec3 season = broad.rgb / max(broad.a, 0.001);
+                        vec3 own = leaf.rgb * uLeafGain * dot(season, vec3(0.333)) * 1.6;
+                        texel = vec4(mix(season * mix(0.4, 1.45, clamp(shade * 0.7, 0.0, 1.0)), own * season / max(dot(season, vec3(0.333)), 0.05), 0.35), 1.0);
                     }
-                    float shade = dot(leaf.rgb, vec3(0.299, 0.587, 0.114)) * uLeafGain;
-                    // Each leaf has its own light and dark, and the leaf picture's own greens show
-                    // through the tree's colour, so a crown is leaves and not a tinted cloud.
-                    vec3 season = broad.rgb / max(broad.a, 0.001);
-                    vec3 own = leaf.rgb * uLeafGain * dot(season, vec3(0.333)) * 1.6;
-                    texel = vec4(mix(season * mix(0.4, 1.45, clamp(shade * 0.7, 0.0, 1.0)), own * season / max(dot(season, vec3(0.333)), 0.05), 0.35), 1.0);
                     small = false;
                 }
                 // What a blade of grass is like where the pixel is, for the light on it further down:
@@ -5013,7 +5027,7 @@ final class PipelineShaders {
                 // Above the materials, the light a square takes: see WorldScene.LIT_STEP.
                 float material = floor((mod(gl_Color.a, 4096.0) + 0.5) / 32.0);
                 // How much of a mass of leaves is there to throw a shadow: a crown's shadow fan says, in its colour, how much of its crown is on the tree.
-                vLeaves = material > 79.5 && material < 80.5 ? clamp(gl_Color.r, 0.0, 1.0) : material > 4.5 && material < 5.5 || material > 62.5 && material < 63.5 ? 1.0 : 0.0;
+                vLeaves = material > 79.5 && material < 80.5 ? clamp(gl_Color.r, 0.0, 1.0) : material > 4.5 && material < 5.5 || material > 62.5 && material < 63.5 || material > 125.5 && material < 126.5 ? 1.0 : 0.0;
                 // A floor or a ceiling is whole however many clear pixels its sprite has: see SpriteGeometry.SHEET.
                 vSolid = gl_MultiTexCoord1.z > 5.5 && gl_MultiTexCoord1.z < 6.5 ? 1.0 : 0.0;
                 // A crown's sprigs take their colour from the sprite and are no part of its outline: the fan that stands with them throws the shadow.

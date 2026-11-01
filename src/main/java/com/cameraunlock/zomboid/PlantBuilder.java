@@ -80,13 +80,13 @@ final class PlantBuilder {
 
     /**
      * What a plant's sprite's name says of it, read once a sprite and not at every build of every
-     * square it stands on: whether it is a dead tree, a fern, a bush or a leafy weed, an evergreen,
+     * square it stands on: whether it is a dead tree, a fern, a bush or a leafy weed, an evergreen, a garden plant in flower,
      * a crop (Crops.of), the sprig a tree of it bears, its bark (Flora.barkedAs), the colours it
      * turns (Flora.turnsAs) and its species (TreeForm.kindOf). A sprite with no name is none of
      * these, and bears what an unnamed tree would, which nothing asks of it.
      */
-    private record Plant(String name, boolean dead, boolean fern, boolean bushy, boolean stems, boolean evergreen, int crop, int treeSprig, int barkedAs, int turnsAs,
-            int kind) {}
+    private record Plant(String name, boolean dead, boolean fern, boolean bushy, boolean stems, boolean evergreen, boolean flowers, int crop, int treeSprig, int barkedAs,
+            int turnsAs, int kind) {}
 
     private static final Known<IsoSprite, Plant> plants = new Known<>();
 
@@ -104,7 +104,7 @@ final class PlantBuilder {
         boolean named = name != null;
         plant = new Plant(name, Flora.deadTree(name), Flora.fernSprite(name),
                 named && (name.startsWith("f_bushes") || name.startsWith("vegetation_foliage") || name.startsWith("vegetation_ornamental") || Flora.leafyWeed(name)),
-                named && Flora.bushStems(name), Flora.evergreen(name), Crops.of(name), named ? Flora.sprigOf(name, false) : Flora.LINDEN, named ? Flora.barkedAs(name) : Flora.BARKED_AS_ANY,
+                named && Flora.bushStems(name), Flora.evergreen(name), Flora.paintsFlowers(name), Crops.of(name), named ? Flora.sprigOf(name, false) : Flora.LINDEN, named ? Flora.barkedAs(name) : Flora.BARKED_AS_ANY,
                 named ? Flora.turnsAs(name) : Flora.TURNS_AS_ANY, named ? TreeForm.kindOf(name) : TreeForm.NONE);
         plants.replace(sprite, plant);
         return plant;
@@ -640,7 +640,7 @@ final class PlantBuilder {
         // So is every other plant the game paints with a dark line round each leaf: the
         // line is what makes it a drawing. A tree's trunk is left as it is, and a dead tree is bark.
         if (grown != null && type != IsoObjectType.tree && Own.plants(build.playerIndex)) {
-            build.frame.material = dead ? WorldScene.BARK : bush ? Flora.BUSH : WorldScene.LEAVES;
+            build.frame.material = dead ? WorldScene.BARK : bush ? Flora.BUSH : plant.flowers() ? Flora.IN_FLOWER : WorldScene.LEAVES;
         }
         // A deciduous tree's leaves go through autumn and come back through spring, each tree
         // on days of its own (Seasons). One the season has bare never gets here: see bareBySeason.

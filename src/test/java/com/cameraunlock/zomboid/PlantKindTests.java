@@ -21,6 +21,7 @@ final class PlantKindTests {
         Checks.run("aBareCrownHasLimbsWhateverItsDistance", PlantKindTests::aBareCrownHasLimbsWhateverItsDistance);
         Checks.run("leafyWeedsAndFernsAreToldByName", PlantKindTests::leafyWeedsAndFernsAreToldByName);
         Checks.run("gardenPlantsAreToldByName", PlantKindTests::gardenPlantsAreToldByName);
+        Checks.run("gardenPlantsInFlowerAreToldByName", PlantKindTests::gardenPlantsInFlowerAreToldByName);
         Checks.run("fallenSticksAreToldByName", PlantKindTests::fallenSticksAreToldByName);
         Checks.run("fallenSticksLieOnTheirSquaresGround", PlantKindTests::fallenSticksLieOnTheirSquaresGround);
         Checks.run("ivyOnTheGroundLiesRoundTheBoleAndKeepsToItsBounds", PlantKindTests::ivyOnTheGroundLiesRoundTheBoleAndKeepsToItsBounds);
@@ -145,6 +146,16 @@ final class PlantKindTests {
         }
         for (String name : new String[] {"vegetation_farm_01_33", "vegetation_ornamental_01_16", "vegetation_foliage_01_0", null}) {
             check(!Flora.gardenPlant(name), name + " is no garden's plant");
+        }
+    }
+
+    private static void gardenPlantsInFlowerAreToldByName() {
+        for (String name : new String[] {"vegetation_farming_01b_52", "vegetation_farming_01b_53", "vegetation_farming_01_125", "vegetation_farming_01_126"}) {
+            check(Flora.paintsFlowers(name), name + " paints flowers among its leaves");
+        }
+        for (String name : new String[] {"vegetation_farming_01b_51", "vegetation_farming_01b_54", "vegetation_farming_01b_55", "vegetation_farming_01_52",
+                "vegetation_farming_01_124", "vegetation_farming_01b_125", "vegetation_farming_unhealthy_01b_52", "vegetation_farming_01b_520", null}) {
+            check(!Flora.paintsFlowers(name), name + " paints leaves alone");
         }
     }
 
