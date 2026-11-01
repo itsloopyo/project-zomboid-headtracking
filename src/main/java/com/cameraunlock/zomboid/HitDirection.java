@@ -77,8 +77,14 @@ final class HitDirection {
      * glows. Null when nothing is marked. Each bearing is taken as it is drawn, from the eye that
      * picture was built from, which can be another frame's than the one the marks were made in.
      */
-    private record Marks(float[] x, float[] y, float[] strengths, int hits, int count) {}
+    private static final class Marks {
+        final float[] x = new float[MOST + MOST_GLOWS], y = new float[MOST + MOST_GLOWS], strengths = new float[MOST + MOST_GLOWS];
+        int hits, count;
+    }
 
+    /** Three, so the logic thread fills one while the render thread may still be drawing either of the last two it was handed. */
+    private final Marks[] buffers = {new Marks(), new Marks(), new Marks()};
+    private int filling;
     private volatile Marks shown;
 
     /** Logic thread: who hit the player and when. */
@@ -259,7 +265,8 @@ final class HitDirection {
             return;
         }
         boolean contested = Online.contested();
-        float[] x = new float[count + glows], y = new float[x.length], strengths = new float[x.length];
+        Marks filled = buffers[filling];
+        float[] x = filled.x, y = filled.y, strengths = filled.strengths;
         int marks = 0;
         for (int i = count - 1; i >= 0; i--) {
             float fade = HitArcs.fade((now - hitAt[i]) / 1e9f);
@@ -281,7 +288,14 @@ final class HitDirection {
         System.arraycopy(glowY, 0, y, marks, glows);
         System.arraycopy(glowStrengths, 0, strengths, marks, glows);
         marks += glows;
-        shown = marks == 0 ? null : new Marks(x, y, strengths, hits, marks);
+        if (marks == 0) {
+            shown = null;
+            return;
+        }
+        filled.hits = hits;
+        filled.count = marks;
+        shown = filled;
+        filling = (filling + 1) % buffers.length;
     }
 
     /**
