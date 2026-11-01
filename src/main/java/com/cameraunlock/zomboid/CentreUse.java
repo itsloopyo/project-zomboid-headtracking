@@ -93,14 +93,23 @@ final class CentreUse {
     /** How far from a container, in squares each way, the game's click walks the character to it (ISObjectClickHandler.doClick). */
     private static final int WALK_REACH = 3;
 
-    /** Whether the game's click would walk the character from walkFrom to the container walkTo, asked of its Lua once for each. */
+    /**
+     * How often the game's Lua is asked again whether its click would walk to a container or open
+     * a workstation's window for the same thing from the same square: a square beside it can fill
+     * and the world map can come up.
+     */
+    private static final long ASK_AGAIN_NANOS = 250_000_000L;
+
+    /** Whether the game's click would walk the character from walkFrom to the container walkTo, asked of its Lua at walkAsked. */
     private IsoObject walkTo;
     private IsoGridSquare walkFrom;
     private boolean walks;
-    /** Whether the game would open workstation's window for the character at openFrom, asked of its Lua once for each. */
+    private long walkAsked;
+    /** Whether the game would open workstation's window for the character at openFrom, asked of its Lua at openAsked. */
     private IsoObject workstation;
     private IsoGridSquare openFrom;
     private boolean opens;
+    private long openAsked;
 
     /**
      * The key (Outlines.key) of what the key would act on this frame, for the picture to
@@ -260,9 +269,11 @@ final class CentreUse {
         if (acrossX * acrossX + acrossY * acrossY > WALK_REACH * WALK_REACH) {
             return false;
         }
-        if (container != walkTo || from != walkFrom) {
+        long now = System.nanoTime();
+        if (container != walkTo || from != walkFrom || now - walkAsked > ASK_AGAIN_NANOS) {
             walkTo = container;
             walkFrom = from;
+            walkAsked = now;
             Object[] beside = call(FREE_TILE, BESIDE, from, parent);
             Object[] free = beside == null || Boolean.TRUE.equals(beside.length > 1 ? beside[1] : null) ? null : call(FREE_TILE, FIND_FREE, parent, player);
             walks = free != null && free.length > 1 && free[1] != null;
@@ -340,9 +351,11 @@ final class CentreUse {
     }
 
     private boolean opensWindow(IsoObject master, IsoGridSquare from, IsoPlayer player) {
-        if (master != workstation || from != openFrom) {
+        long now = System.nanoTime();
+        if (master != workstation || from != openFrom || now - openAsked > ASK_AGAIN_NANOS) {
             workstation = master;
             openFrom = from;
+            openAsked = now;
             Object[] answered = call(ENTITY_UI, CAN_OPEN, player, master);
             opens = answered != null && answered.length > 1 && Boolean.TRUE.equals(answered[1]);
         }
