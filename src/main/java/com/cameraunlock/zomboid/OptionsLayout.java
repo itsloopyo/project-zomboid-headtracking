@@ -76,7 +76,7 @@ final class OptionsLayout {
             Map.entry(Part.CUSTOMISE_CHARACTER_HEAD.key, "Head tracking in Customise Character"),
             Map.entry(Part.FIRST_PERSON.key, "First person view"),
             Map.entry("FirstPerson", "Load saves in first person"),
-            Map.entry("FirstPersonInVehicles", "First person in vehicles"),
+            Map.entry("FirstPersonInVehicles", "Switch to first person in vehicles"),
             Map.entry("FieldOfView", "Field of view"),
             Map.entry("Crosshair", "Crosshair"),
             Map.entry(Part.HIT_DIRECTION.key, "Hit direction"),
