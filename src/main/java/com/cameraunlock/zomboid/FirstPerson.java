@@ -617,6 +617,7 @@ public final class FirstPerson {
             view.crosshair.hideSquare();
             view.crosshair.point(null);
             view.hitDirection.hide();
+            view.crosshair.hideBobber();
             view.dragAim.aimed.forget();
             view.dragAim.ghost.clear();
             reticleOnScreen = false;
@@ -1027,6 +1028,7 @@ public final class FirstPerson {
             view.headTracking.follow(player != null && !GameTime.isGamePaused() && !player.isDead());
             view.viewModel.rest();
             view.crosshair.hide();
+            view.crosshair.hideBobber();
             view.crosshair.point(null);
             view.hitDirection.hide();
             reticleOnScreen = false;
