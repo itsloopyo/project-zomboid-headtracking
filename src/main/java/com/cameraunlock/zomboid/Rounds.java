@@ -11,11 +11,11 @@ package com.cameraunlock.zomboid;
  * when a view that has had its turn in it comes for another. One view alone ends a round at
  * each turn, which is the count it kept for itself.
  *
- * Each is one thread's.
+ * Counted on the logic thread.
  */
 final class Rounds {
-    /** The rounds of the views' builds, on the logic thread, and of the drawing of their pictures, on the render thread. */
-    static final Rounds BUILDS = new Rounds(), DRAWS = new Rounds();
+    /** The rounds of the views' builds. */
+    static final Rounds BUILDS = new Rounds();
 
     private int now;
     /** The views that have had their turn in this round, a bit each. Every bit from the start, so the first turn begins the first round. */

@@ -255,8 +255,10 @@ final class SpriteColours {
     /**
      * Reads the sprites asked for since the last frame. The game keeps many sprites on one
      * sheet, and every sprite waiting on one sheet is read from one copy of the part of it that
-     * holds them all. One sheet a frame. A frame in which two players' pictures are drawn is
-     * still one, and the sheet is read for the first of them.
+     * holds them all. One sheet a picture drawn: with the screen split each player's picture
+     * reads one. Read once a frame for all of them, four players who arrived in four places at
+     * once on High still had a bus shelter's glass unread half a minute later, and every window
+     * that waited on it stood as the sprite's film till then.
      *
      * @param view the number of the player whose picture is about to be drawn
      * @param eyeX where that player's eye is, across the map
@@ -265,9 +267,6 @@ final class SpriteColours {
     static synchronized void read(int view, float eyeX, float eyeY) {
         eyes[view * 2] = eyeX;
         eyes[view * 2 + 1] = eyeY;
-        if (!Rounds.DRAWS.begin(view)) {
-            return;
-        }
         letGo = false;
         for (Ask ask = asked.poll(); ask != null; ask = asked.poll()) {
             waiting.add(ask);
