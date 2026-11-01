@@ -535,8 +535,10 @@ final class CentreUse {
         while (from != null) {
             IsoObject here = onSquare(from, view, reach, floorUp, false);
             if (here != null && !(here instanceof IsoWorldInventoryObject) && !(here instanceof IsoMovingObject)) {
-                IsoObject beyond = overTheTop(from, view, floorUp, cell, level, entered, reach);
-                here = beyond != null ? beyond : here;
+                Over beyond = overTheTop(from, view, floorUp, cell, level, entered, reach);
+                if (beyond != null) {
+                    return beyond.met();
+                }
             }
             if (here == null && menu) {
                 here = lowOn(from, view, floorUp);
@@ -558,26 +560,32 @@ final class CentreUse {
             if (above >= 0f && above <= ViewCamera.LEVEL_HEIGHT) {
                 // What stands on an edge belongs to the square it is the north or the west edge of.
                 boolean ownerIsTo = crossX ? toX > tileX : toY > tileY;
-                IsoObject edge = onEdge(ownerIsTo ? to : from, ownerIsTo ? from : to, !crossX, above);
-                if (edge != null) {
+                IsoGridSquare owner = ownerIsTo ? to : from;
+                IsoObject edge = onEdge(owner, ownerIsTo ? from : to, !crossX);
+                // The wall over a window stops the view, though the window may stand open or smashed below it.
+                boolean overOpening = (edge instanceof IsoWindow || edge instanceof IsoCurtain) && overWindow(owner, !crossX, above);
+                if (edge != null && !overOpening) {
                     return edge;
                 }
                 IsoObject hung = above > LOW_THING ? hungOn(from, crossX ? (stepX > 0 ? "W" : "E") : (stepY > 0 ? "N" : "S")) : null;
                 if (hung != null) {
                     return hung;
                 }
-                if (menu && from.isBlockedTo(to)) {
+                if (menu && (overOpening || from.isBlockedTo(to))) {
                     IsoObject wall = switchOn(from);
-                    return wall != null ? wall : (ownerIsTo ? to : from).getWall(!crossX);
+                    return wall != null ? wall : owner.getWall(!crossX);
+                }
+                if (overOpening) {
+                    return switchOn(from);
                 }
             }
             if (from.isBlockedTo(to)) {
                 return switchOn(from);
             }
             if (to.isSolid() || to.isSolidTrans()) {
-                IsoObject beyond = overTheTop(to, view, floorUp, cell, level, distance, reach);
+                Over beyond = overTheTop(to, view, floorUp, cell, level, distance, reach);
                 if (beyond != null) {
-                    return beyond;
+                    return beyond.met();
                 }
                 // A counter, a fridge, a shelf unit: the view stops on it, and it is what is looked at.
                 IsoObject there = onSquare(to, view, Float.POSITIVE_INFINITY, floorUp, true);
@@ -601,15 +609,13 @@ final class CentreUse {
 
     /**
      * A door, a drawn curtain, a window or an open curtain on the edge between two squares, in
-     * that order: a drawn curtain is what is seen of its window. Not a window or its curtain
-     * where the view meets the wall above the window's top, where a cabinet may hang.
+     * that order: a drawn curtain is what is seen of its window.
      *
      * @param owner the square the edge is the north or west edge of
      * @param other the square on the far side of it
      * @param north whether it is the owner's north edge
-     * @param above how high over the floor the view meets the edge, in tiles
      */
-    private IsoObject onEdge(IsoGridSquare owner, IsoGridSquare other, boolean north, float above) {
+    private IsoObject onEdge(IsoGridSquare owner, IsoGridSquare other, boolean north) {
         IsoObject window = null;
         IsoCurtain curtain = null;
         PZArrayList<IsoObject> objects = owner.getObjects();
@@ -631,9 +637,6 @@ final class CentreUse {
             if (objects.get(i) instanceof IsoCurtain hung && hung.getType() == (north ? IsoObjectType.curtainS : IsoObjectType.curtainE)) {
                 curtain = hung;
             }
-        }
-        if ((window != null || curtain != null) && overWindow(owner, north, above)) {
-            return null;
         }
         if (curtain != null && !curtain.IsOpen()) {
             return curtain;
@@ -659,11 +662,12 @@ final class CentreUse {
      * A door, a window or a curtain on the edge the view leaves a square by, where the view crosses the whole square
      * over the top of what stands on it: the window over a counter or a dresser under it. Null where the view comes
      * down onto what stands there first, or there is nothing on that edge. A window on a room's south or east wall
-     * belongs to the square outside, so it is met past the square in front of it, never on it.
+     * belongs to the square outside, so it is met past the square in front of it, never on it. Over the top of a
+     * window's opening the wall stops the view: a cabinet hung there, else a light switch on the square, else nothing.
      *
      * @param entered how far along the view it comes onto the square, in tiles
      */
-    private IsoObject overTheTop(IsoGridSquare square, ViewCamera.Pose view, float floorUp, IsoCell cell, int level, float entered, float reach) {
+    private Over overTheTop(IsoGridSquare square, ViewCamera.Pose view, float floorUp, IsoCell cell, int level, float entered, float reach) {
         int x = square.getX(), y = square.getY();
         float outX = view.forwardX == 0f ? Float.POSITIVE_INFINITY : ((view.forwardX > 0f ? x + 1 : x) - view.eyeX) / view.forwardX;
         float outY = view.forwardY == 0f ? Float.POSITIVE_INFINITY : ((view.forwardY > 0f ? y + 1 : y) - view.eyeY) / view.forwardY;
@@ -683,12 +687,25 @@ final class CentreUse {
             return null;
         }
         boolean ownerIsTo = crossX ? toX > x : toY > y;
-        IsoObject edge = onEdge(ownerIsTo ? to : square, ownerIsTo ? square : to, !crossX, atExit);
-        if (edge != null || atExit <= LOW_THING) {
-            return edge;
+        IsoGridSquare owner = ownerIsTo ? to : square;
+        IsoObject edge = onEdge(owner, ownerIsTo ? square : to, !crossX);
+        boolean overOpening = (edge instanceof IsoWindow || edge instanceof IsoCurtain) && overWindow(owner, !crossX, atExit);
+        if (edge != null && !overOpening) {
+            return new Over(edge);
+        }
+        if (atExit <= LOW_THING) {
+            return null;
         }
         // A cabinet hung on the wall the view comes to over the counter.
-        return hungOn(square, crossX ? (view.forwardX > 0f ? "W" : "E") : (view.forwardY > 0f ? "N" : "S"));
+        IsoObject hung = hungOn(square, crossX ? (view.forwardX > 0f ? "W" : "E") : (view.forwardY > 0f ? "N" : "S"));
+        if (hung != null) {
+            return new Over(hung);
+        }
+        return overOpening ? new Over(switchOn(square)) : null;
+    }
+
+    /** Where the view goes over the top of what stands on a square: what it meets past it, null for nothing. */
+    private record Over(IsoObject met) {
     }
 
     /**
