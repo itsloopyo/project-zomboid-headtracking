@@ -78,6 +78,8 @@ On a server with PvP on, the mod holds back anything that could decide a fight b
 - Walking sideways or backwards in first person, your character keeps facing where you look, in the game's aiming stance and at the slower speed the game gives it, whatever `FacesTheView` says. Other players see it facing the way you look rather than turning its back. Jog or sprint that way and you walk instead. Walking forwards or on a forward diagonal, it turns to face the way it's going, as in vanilla.
 - In a vehicle you can only shoot with your window open or broken, and a driver who raises a rifle or shotgun lets go of the wheel, as in vanilla.
 
+Scopes still magnify and the crosshair still marks where your shot lands, since neither shows a player the game would hide.
+
 Zombies, and rooms and vehicles with no other player in them, look the same as they do offline.
 
 ## Requirements

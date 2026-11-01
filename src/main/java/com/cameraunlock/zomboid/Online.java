@@ -13,6 +13,10 @@ import zombie.network.ServerOptions;
  * That is how other players are seen and how the aim lands; zombies, vehicles with no
  * other player in them, rooms and the land are shown as they are alone. Among friends on a
  * server without PvP nothing is held back.
+ *
+ * A scope's magnified picture and the crosshair at the hip stay where players can fight: the
+ * scope draws only the characters the game drew that frame, so it shows no player the game
+ * hides, and the crosshair marks where the shot lands, as the game's own aim cursor does.
  */
 final class Online {
     private Online() {}
