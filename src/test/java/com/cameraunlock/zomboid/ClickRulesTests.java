@@ -34,7 +34,9 @@ final class ClickRulesTests {
         check(ClickRules.window(false, null, true, true, false, false, false, false) == null, "one that cannot be broken, nothing");
         check(ClickRules.window(false, null, false, true, false, true, false, false) == Does.CLIMB_THROUGH, "a smashed one is climbed through");
         check(ClickRules.window(false, null, false, true, false, true, true, false) == null, "unless it is barricaded on the far side");
-        check(ClickRules.window(true, Does.CLOSE_CURTAINS, false, false, true, false, false, false) == Does.CLOSE_CURTAINS, "with Shift it is the curtains, from anywhere");
+        check(ClickRules.window(true, Does.CLOSE_CURTAINS, false, true, false, false, false, false) == Does.CLOSE_CURTAINS, "with Shift it is the curtains");
+        check(ClickRules.window(true, Does.CLOSE_CURTAINS, false, false, false, true, false, false) == Does.CLOSE_CURTAINS,
+                "from afar too, on a smashed one the world menu does not open");
         check(ClickRules.window(true, null, false, true, false, false, false, false) == null, "and with no curtains to work, nothing");
     }
 

@@ -27,7 +27,9 @@ final class ClickRules {
     /**
      * A window (doClickWindow): with Shift held, its curtains; nothing for a window that cannot
      * be broken, one the character does not stand at or one barricaded against them; through a
-     * smashed one that is not barricaded; else it is opened or shut.
+     * smashed one that is not barricaded; else it is opened or shut. The key clicks only a window
+     * the character stands at, or one that is smashed, cannot be broken or is barricaded against
+     * them: any other goes to the world menu's Open or Close first (CentreUse.decide), Shift or not.
      *
      * @param curtains   what the click does to its curtains, or null for nothing
      * @param atIt       whether the character stands on its square or the one opposite
