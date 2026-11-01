@@ -139,7 +139,38 @@ final class FurnishingBuilder {
 
     FurnishingBuilder(WorldScene.Frame build) {
         this.build = build;
-        squares = (x, y, z, sprite) -> Towers.holds(build.cell, x, y, z, sprite);
+        squares = (x, y, z, sprite) -> {
+            Boolean holds = Towers.holds(build.cell, x, y, z, sprite);
+            if (holds == Boolean.TRUE) {
+                return holds;
+            }
+            IsoObject ghost = build.ghostOn(x, y, z);
+            return ghost != null && ghost.getSprite() != null && sprite.equals(ghost.getSprite().getName()) ? Boolean.TRUE : holds;
+        };
+    }
+
+    /**
+     * The object on the square (x, y, z) whose sprite is sprite, or null: of what the map has there, or else of the piece
+     * a drag would put down (WorldScene.Frame.ghostOn). A piece of several squares is stood as its model only where all of
+     * them are found, and a ghost found nowhere but on its own square was the game's sprite while placed, and the model once built.
+     */
+    private IsoObject holdingOrGhost(int x, int y, int z, IsoSprite sprite) {
+        IsoObject held = holding(build.cell.getGridSquare(x, y, z), sprite);
+        if (held != null) {
+            return held;
+        }
+        IsoObject ghost = build.ghostOn(x, y, z);
+        return ghost != null && ghost.getSprite() == sprite ? ghost : null;
+    }
+
+    /** The object on the square (x, y, z) whose sprite is called name, of the map or else of the piece a drag would put down, or null. */
+    private IsoObject namedOrGhost(int x, int y, int z, String name) {
+        IsoObject held = named(build.cell.getGridSquare(x, y, z), name);
+        if (held != null) {
+            return held;
+        }
+        IsoObject ghost = build.ghostOn(x, y, z);
+        return ghost != null && ghost.getSprite() != null && name.equals(ghost.getSprite().getName()) ? ghost : null;
     }
 
     /**
@@ -655,8 +686,8 @@ final class FurnishingBuilder {
      */
     private boolean ready(IsoObject object, Furniture piece, int x, int y, int z) {
         // A square of a row takes its colour from the one of the row that gives it, as the others do.
-        IsoObject self = piece.rowDyer < 0 ? object : named(build.cell.getGridSquare(x + piece.rowX[piece.rowDyer], y + piece.rowY[piece.rowDyer], z), piece.row[piece.rowDyer]);
-        IsoObject dyer = whole(piece, self, (dx, dy, sprite) -> holding(build.cell.getGridSquare(x + dx, y + dy, z), sprite), readyOrigin);
+        IsoObject self = piece.rowDyer < 0 ? object : namedOrGhost(x + piece.rowX[piece.rowDyer], y + piece.rowY[piece.rowDyer], z, piece.row[piece.rowDyer]);
+        IsoObject dyer = whole(piece, self, (dx, dy, sprite) -> holdingOrGhost(x + dx, y + dy, z, sprite), readyOrigin);
         if (dyer == null) {
             return false;
         }

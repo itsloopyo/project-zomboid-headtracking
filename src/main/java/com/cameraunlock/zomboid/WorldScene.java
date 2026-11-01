@@ -3413,6 +3413,12 @@ final class WorldScene {
         final PostBuilder postBuilder = new PostBuilder(this);
         private final StairBuilder stairBuilder = new StairBuilder(this);
         private final FurnishingBuilder furnishingBuilder = new FurnishingBuilder(this);
+
+        /** The piece a drag would put down on the square (x, y, z), built as if it were there, or null: see DragAim.Ghost. */
+        IsoObject ghostOn(int x, int y, int z) {
+            return view.dragAim.ghost.on(x, y, z);
+        }
+
         private final BloodBuilder bloodBuilder = new BloodBuilder(this);
         final CeilingBuilder ceilingBuilder = new CeilingBuilder(WorldScene.this, this);
         final RoofBuilder roofBuilder = new RoofBuilder(WorldScene.this, this);
