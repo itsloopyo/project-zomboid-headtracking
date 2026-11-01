@@ -26,6 +26,7 @@ final class DoorTests {
         Checks.run("woodIsToldFromPaintByColourNotDarkness", DoorTests::woodIsToldFromPaintByColourNotDarkness);
         Checks.run("casingsPostsMeetTheDoorwaysCutUnderTheHead", DoorTests::casingsPostsMeetTheDoorwaysCutUnderTheHead);
         Checks.run("casingSharesNoPlaneWithTheRevealOrTheSkirting", DoorTests::casingSharesNoPlaneWithTheRevealOrTheSkirting);
+        Checks.run("aCasingLinesItsDoorwaysJambsAndHeadInWood", DoorTests::aCasingLinesItsDoorwaysJambsAndHeadInWood);
         Checks.run("aHoleInTheDoorwaysWallGoesThroughTheCasingOverIt", DoorTests::aHoleInTheDoorwaysWallGoesThroughTheCasingOverIt);
         Checks.run("whatIsDrawnBetweenOwningNoThingIsNoPartOfTheThing", DoorTests::whatIsDrawnBetweenOwningNoThingIsNoPartOfTheThing);
         Checks.run("paneWithARoomOnBothSidesHasNoStreetSide", DoorTests::paneWithARoomOnBothSidesHasNoStreetSide);
@@ -514,6 +515,45 @@ final class DoorTests {
         check(DepthFights.nearestFight(OpeningBuilder.CASING_PROUD - Trims.BOARD, 0, 0) > 48f,
                 "a skirting run on behind a post's foot is told from the post's front from within 48 tiles");
         check(DepthFights.nearestFight(OpeningBuilder.JAMB_PROUD, 0, 0) > 48f, "the lining at a post is told from the wall's reveal behind it from within 48 tiles");
+    }
+
+    /**
+     * Irvington 1917,14430: the casing's posts were lined at the cut, but the lintel over the doorway was left in the
+     * wall's concrete, and the post's side stood at the cut while its lining stood JAMB_PROUD into the doorway.
+     */
+    private static void aCasingLinesItsDoorwaysJambsAndHeadInWood() {
+        Windows.Shape casing = new Windows.Shape();
+        casing.start = -0.046875f;
+        casing.startWide = 0.140625f;
+        casing.end = 0.9375f;
+        casing.endWide = 0.09375f;
+        casing.head = 0.8489583f;
+        casing.headHigh = 0.067708336f;
+        float headFoot = casing.head - casing.headHigh, lintel = 0.8f, proud = OpeningBuilder.JAMB_PROUD;
+        float[] members = OpeningBuilder.casingMembers(casing, 0.09375f, 0.84375f);
+        float[] lining = OpeningBuilder.casingLining(members, 0.09375f, 0.84375f, lintel);
+        int each = OpeningBuilder.LINING;
+        check(lining.length == 3 * each, "two jambs and the head: " + lining.length / each);
+        check(lining[0] == lining[1] && Math.abs(lining[0] - (0.09375f + proud)) < 1e-6f, "the start jamb stands where the post's side is stood, into the doorway: " + lining[0]);
+        check(lining[each] == lining[each + 1] && Math.abs(lining[each] - (0.84375f - proud)) < 1e-6f, "and the end jamb: " + lining[each]);
+        check(lining[3] == lintel && lining[each + 3] == lintel, "a jamb is lined up to a lintel above the casing's head: " + lining[3]);
+        check(lining[2 * each] == lining[0] && lining[2 * each + 1] == lining[each], "the head is lined between the jambs' linings");
+        check(lining[2 * each + 2] == lining[2 * each + 3] && Math.abs(lining[2 * each + 2] - (lintel - proud / ViewCamera.LEVEL_HEIGHT)) < 1e-6f,
+                "JAMB_PROUD under the lintel: " + lining[2 * each + 2]);
+        float[] low = OpeningBuilder.casingLining(members, 0.09375f, 0.84375f, 0.6f);
+        check(low[3] == headFoot, "a jamb under a lower lintel is lined up to the post's top");
+        float[] open = OpeningBuilder.casingLining(members, 0.09375f, 0.84375f, 1f);
+        check(open.length == 2 * each && open[3] == 1f, "no head is lined where the doorway runs to the wall's top, and the jambs run up to it");
+        float[] far = OpeningBuilder.casingMembers(casing, 0.2f, 0.6f);
+        check(OpeningBuilder.casingLining(far, 0.2f, 0.6f, lintel).length == 0, "posts left where they are painted line nothing");
+        Windows.Shape lone = new Windows.Shape();
+        lone.start = 0.05f;
+        lone.startWide = 0.09f;
+        lone.end = 1f;
+        lone.head = 0.85f;
+        lone.headHigh = 0.07f;
+        float[] half = OpeningBuilder.casingLining(OpeningBuilder.casingMembers(lone, 0.14f, 1f), 0.14f, 1f, lintel);
+        check(half.length == 2 * each && half[each + 1] == 1f, "half of a pair's head is lined on to the cut's end: " + half[each + 1]);
     }
 
     /**

@@ -354,16 +354,17 @@ final class OpeningBuilder {
     /** The doorway or window opening the wall on the square's north or west edge was last measured with: see doorwayIn. */
     private int doorwayX, doorwayY, doorwayZ = Integer.MIN_VALUE;
     private boolean doorwayNorth;
-    private float doorwayStart = -1f, doorwayEnd;
+    private float doorwayStart = -1f, doorwayEnd, doorwayHead;
     private boolean doorwayRevealed;
     private final float[] jambs = new float[4];
 
     /**
      * The clear run across the sprite of the wall a doorway or a window is in on a square's edge, as shares of its
-     * length, or a start below 0 for none measured, and whether the wall has its reveals at the cut. The wall is added
-     * before the door that hangs in it or the window that stands in it.
+     * length, or a start below 0 for none measured, and whether the wall has its reveals at the cut, the lintel's
+     * underside at head levels up where it has. The wall is added before the door that hangs in it or the window that
+     * stands in it.
      */
-    void doorwayIn(int x, int y, int z, boolean north, float start, float end, boolean revealed) {
+    void doorwayIn(int x, int y, int z, boolean north, float start, float end, boolean revealed, float head) {
         doorwayX = x;
         doorwayY = y;
         doorwayZ = z;
@@ -371,6 +372,7 @@ final class OpeningBuilder {
         doorwayStart = start;
         doorwayEnd = end;
         doorwayRevealed = revealed;
+        doorwayHead = head;
     }
 
     /**
@@ -873,27 +875,28 @@ final class OpeningBuilder {
         wood.sway = 0f;
         long thing = build.solid.owner();
         build.solid.own(Outlines.NONE);
+        float[] lining = doorwayRevealed && measured ? casingLining(members, doorwayStart, doorwayEnd, doorwayHead) : NO_LINING;
         for (int side = 0; side < 2; side++) {
             float out = side == 0 ? 1f : -1f;
             wood.day = sideDay[side];
             wood.lightFlat(sideFrames[side]);
             for (int at = 0; at < members.length; at += CASING_MEMBER) {
                 wood.open = sideOpen[side] + 32f * casingMaterial(wooden, (int) members[at + 4]);
-                addBoard(wood, members[at], members[at + 1], members[at + 2], members[at + 3], out * (WorldScene.WALL_HALF - CASING_INTO),
-                        out * (WorldScene.WALL_HALF + CASING_PROUD), (int) members[at + 4], doorwayRevealed ? (int) members[at + 5] : NO_EDGE,
+                int atCut = doorwayRevealed ? (int) members[at + 5] : NO_EDGE;
+                addBoard(wood, members[at] - (atCut == AT_FROM ? JAMB_PROUD : 0f), members[at + 1] + (atCut == AT_TO ? JAMB_PROUD : 0f), members[at + 2],
+                        members[at + 3], out * (WorldScene.WALL_HALF - CASING_INTO), out * (WorldScene.WALL_HALF + CASING_PROUD), (int) members[at + 4], atCut,
                         sideRed[side], sideGreen[side], sideBlue[side]);
-                // A post at the cut is lined back to the middle of the wall in its own wood, over the wall's reveal,
-                // JAMB_PROUD into the doorway off the reveal's plane.
-                int atCut = (int) members[at + 5];
-                if (doorwayRevealed && atCut != NO_EDGE) {
-                    float edge = atCut == AT_TO ? members[at + 1] + JAMB_PROUD : members[at] - JAMB_PROUD;
-                    float[] c = build.reveal;
-                    edgePoint(c, 0, true, edge, members[at + 2], 0f);
-                    edgePoint(c, 1, true, edge, members[at + 2], out * WorldScene.WALL_HALF);
-                    edgePoint(c, 2, true, edge, members[at + 3], out * WorldScene.WALL_HALF);
-                    edgePoint(c, 3, true, edge, members[at + 3], 0f);
-                    SpriteGeometry.addPlainQuad(wood, c, sideRed[side], sideGreen[side], sideBlue[side]);
-                }
+            }
+            float[] c = build.reveal;
+            for (int at = 0; at < lining.length; at += LINING) {
+                boolean upright = lining[at] == lining[at + 1];
+                wood.open = sideOpen[side] + 32f * casingMaterial(wooden, upright ? AT_FROM : AT_HEAD);
+                float fixed = upright ? lining[at] : lining[at + 2], at0 = upright ? lining[at + 2] : lining[at], at1 = upright ? lining[at + 3] : lining[at + 1];
+                edgePoint(c, 0, upright, fixed, at0, 0f);
+                edgePoint(c, 1, upright, fixed, at0, out * WorldScene.WALL_HALF);
+                edgePoint(c, 2, upright, fixed, at1, out * WorldScene.WALL_HALF);
+                edgePoint(c, 3, upright, fixed, at1, 0f);
+                SpriteGeometry.addPlainQuad(wood, c, sideRed[side], sideGreen[side], sideBlue[side]);
             }
         }
         build.solid.own(thing);
@@ -914,8 +917,55 @@ final class OpeningBuilder {
     static final float CASING_PROUD = 0.022f, CASING_BEVEL = 0.009f;
     /** How far a casing's boards run back into the wall behind its skin, so no gap shows between the two at a slant. */
     private static final float CASING_INTO = 0.004f;
-    /** How far the lining at a casing's post stands into the doorway from the wall's reveal, as a share of the wall's length: clear of it in depth past 48 tiles. */
+    /**
+     * How far a casing's post at the cut, and the lining behind it, stand into the doorway from the wall's reveal, as a share
+     * of the wall's length: clear of it in depth past 48 tiles. The post's side stands there with the lining, so the two are
+     * one plane with no step at the skin.
+     */
     static final float JAMB_PROUD = 0.005f;
+    /**
+     * The wood a casing lines its doorway's reveal with, LINING floats each: along from, along to, foot and head in levels,
+     * each run from the wall's middle out to the skin. A post at the cut, members as casingMembers makes them, is lined
+     * from its foot to the lintel (or to its own top, where that is higher), at its inner edge, which addBuiltCasing stands
+     * JAMB_PROUD into the doorway so that the board's side and the lining are the one plane: from = to. The lintel over
+     * the doorway cut from cutStart to cutEnd, head levels up (1 or more for none), is lined JAMB_PROUD under it between
+     * the posts' linings, or the cut where a post is not at it: foot = head. NO_LINING with no post at the cut.
+     */
+    static float[] casingLining(float[] members, float cutStart, float cutEnd, float head) {
+        float[] made = new float[LINING * 3];
+        int count = 0;
+        float from = cutStart, to = cutEnd;
+        for (int at = 0; at < members.length; at += CASING_MEMBER) {
+            int atCut = (int) members[at + 5];
+            if (atCut == NO_EDGE) {
+                continue;
+            }
+            float edge = atCut == AT_TO ? members[at + 1] + JAMB_PROUD : members[at] - JAMB_PROUD;
+            if (atCut == AT_TO) {
+                from = edge;
+            } else {
+                to = edge;
+            }
+            made[count] = made[count + 1] = edge;
+            made[count + 2] = members[at + 2];
+            made[count + 3] = Math.max(members[at + 3], Math.min(head, 1f));
+            count += LINING;
+        }
+        if (count == 0) {
+            return NO_LINING;
+        }
+        if (head < 1f) {
+            made[count] = from;
+            made[count + 1] = to;
+            made[count + 2] = made[count + 3] = head - JAMB_PROUD / ViewCamera.LEVEL_HEIGHT;
+            count += LINING;
+        }
+        return Arrays.copyOf(made, count);
+    }
+
+    static final int LINING = 4;
+    private static final float[] NO_LINING = new float[0];
+
     /** How near the doorway's cut a post's inner edge has to be read to be put at it, as a share of the wall's length. */
     static final float CASING_SNAP = 0.05f;
     /**
@@ -971,8 +1021,9 @@ final class OpeningBuilder {
      * A board from along from to along to and foot to head in levels, between across back and front
      * tiles into the square: its front, its four edges, and a bevel CASING_BEVEL wide and deep along
      * the edge bevelled, numbered as in CASING_MEMBER. The two edges beside the bevel are cut back
-     * with it. The edge atCut runs back only to the skin: behind it is the wall's reveal, in the
-     * same plane, and the two fought down the doorway's side of every post.
+     * with it. The edge atCut runs back only to the skin, where the casing's lining carries it on
+     * in the same plane (casingLining): run on into the wall it was the reveal's plane, and the two
+     * fought down the doorway's side of every post.
      */
     private void addBoard(SpriteGeometry.Mesh mesh, float from, float to, float foot, float head, float back, float front, int bevelled, int atCut,
             float red, float green, float blue) {

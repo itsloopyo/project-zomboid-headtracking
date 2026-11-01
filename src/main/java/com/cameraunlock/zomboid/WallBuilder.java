@@ -705,7 +705,7 @@ final class WallBuilder {
         int at = da != 0f ? 0 : OPENING_FLOATS;
         if (build.overLayer == 0 && (build.doorWall || build.wallOpens && !build.glazedWall)) {
             build.openingBuilder.doorwayIn(x, y, z, da != 0f, opening[at + DOORWAY_START], opening[at + DOORWAY_END],
-                    opening[at + OPENING_START] >= 0f);
+                    opening[at + OPENING_START] >= 0f, opening[at + OPENING_HEAD]);
         }
         // Where the wall's own sprite is painted to its end, the end is the wall's: a corner
         // post's sprite is a sliver at one end of its square and nothing at the other.
