@@ -18,4 +18,6 @@ public class IsoDoor extends IsoObject {
     public boolean isBarricaded() { throw new UnsupportedOperationException("reference stub"); }
     public IsoBarricade getBarricadeOnSameSquare() { throw new UnsupportedOperationException("reference stub"); }
     public IsoBarricade getBarricadeOnOppositeSquare() { throw new UnsupportedOperationException("reference stub"); }
+    public zombie.iso.IsoGridSquare getSheetSquare() { throw new UnsupportedOperationException("reference stub"); }
+    public boolean isAdjacentToSquare(zombie.iso.IsoGridSquare square) { throw new UnsupportedOperationException("reference stub"); }
 }

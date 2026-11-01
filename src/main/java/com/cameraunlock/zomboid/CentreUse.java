@@ -258,6 +258,13 @@ final class CentreUse {
      */
     private static InteractWords.Does clicked(IsoObject found, IsoPlayer player) {
         if (found instanceof IsoDoor door) {
+            IsoGridSquare from = player.getCurrentSquare(), square = door.getSquare();
+            // The game's click on a door is for its curtains with Shift held, from the side they hang on, where the click is
+            // taken at all (doClickDoor). A click not taken is the world menu's Open or Close (act).
+            if (GameKeyboard.isKeyDown(Keyboard.KEY_LSHIFT) && !player.isWalking() && door.HasCurtains() != null && from != null && from == door.getSheetSquare()
+                    && !(from.isWallTo(square) && !from.isDoorTo(square)) && square.getZ() == from.getZ() && door.isAdjacentToSquare(from)) {
+                return door.isCurtainOpen() ? InteractWords.Does.CLOSE_CURTAINS : InteractWords.Does.OPEN_CURTAINS;
+            }
             return door.IsOpen() ? InteractWords.Does.CLOSE_DOOR : InteractWords.Does.OPEN_DOOR;
         }
         if (found instanceof IsoThumpable door) {

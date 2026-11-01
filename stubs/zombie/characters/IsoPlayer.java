@@ -31,4 +31,6 @@ public class IsoPlayer extends IsoLivingCharacter {
     public void save(java.nio.ByteBuffer output, boolean net) throws java.io.IOException { throw new UnsupportedOperationException("reference stub"); }
     public void load(java.nio.ByteBuffer input, int worldVersion, boolean debugSave) throws java.io.IOException { throw new UnsupportedOperationException("reference stub"); }
     public java.util.ArrayList<String> getAlreadyReadBook() { throw new UnsupportedOperationException("reference stub"); }
+    public boolean isWalking() { throw new UnsupportedOperationException("reference stub"); }
+    public boolean isIgnoreContextKey() { throw new UnsupportedOperationException("reference stub"); }
 }
