@@ -887,6 +887,8 @@ final class PlantBuilder {
         if (!bush && sprig != Flora.BARE) {
             seenForFar(texture, places, x, y, footU, footV, boled ? boleThick : BOLE_THINNEST);
             seenForLeafFall(places, x, y, footU, footV);
+        } else if (bush && !bloom) {
+            seenBushForLeafFall(plant.name(), places, footU, footV);
         }
         if (build.crownsInline) {
             boolean limbed = boled && Crowns.limbed(away, sprig, leaf);
@@ -927,6 +929,14 @@ final class PlantBuilder {
     private void seenForLeafFall(float[] places, int x, int y, float footU, float footV) {
         String tile = treeX == x && treeY == y ? treeTile : null;
         if (tile != null && LeafFall.sheds(tile) && LeafTrees.crownWanted(tile) && Flora.measure(build.frame, places, footU, footV, true, crownLeft, crownRight, crownCounts, crownSizes)) {
+            LeafTrees.crownSeen(tile, crownSizes);
+        }
+    }
+
+    /** Notes the crown of the leaves of one of the erosion's bushes, by the tile of its leaves, the first time one is built: what a round passing through it knocks leaves out of. */
+    private void seenBushForLeafFall(String tile, float[] places, float footU, float footV) {
+        if (tile != null && tile.startsWith(LeafTrees.BUSH) && LeafTrees.crownWanted(tile)
+                && Flora.measure(build.frame, places, footU, footV, false, crownLeft, crownRight, crownCounts, crownSizes)) {
             LeafTrees.crownSeen(tile, crownSizes);
         }
     }

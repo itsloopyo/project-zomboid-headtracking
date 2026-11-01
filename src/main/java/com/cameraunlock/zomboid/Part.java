@@ -33,7 +33,8 @@ enum Part {
                     + "flashes. false: the game's own lightning, a flash that brightens the whole map for a moment."),
     SHOT_IMPACTS("FirstPerson", "ShotImpacts", true, true,
             "true: in first person, in Medium and High, a shot kicks up dust, chips, splinters, sparks or blood where it hits\n"
-                    + "and leaves a hole. false: shots leave no mark, as in the game's own view. Shots still break lamps and glass\n"
+                    + "and leaves a hole, and in autumn knocks leaves loose from the trees and bushes it passes through. false: shots\n"
+                    + "leave no mark and knock no leaves loose, as in the game's own view. Shots still break lamps and glass\n"
                     + "and hole doors, walls and fences when ShotsBreakLamps, ShotsBreakGlass, BlastHoles and BulletHoles are on, and\n"
                     + "while any of them is on, the mod keeps changing the game's code for this."),
     FAR_VEHICLES_AND_ZOMBIES("FirstPerson", "FarVehiclesAndZombies", true, false,

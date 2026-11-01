@@ -35,6 +35,10 @@ final class LeafFallTests {
         Checks.run("nothingMovesWhileThePictureWaits", LeafFallTests::nothingMovesWhileThePictureWaits);
         Checks.run("forgottenTreesShedNothingAndTheirLeavesFallOn", LeafFallTests::forgottenTreesShedNothingAndTheirLeavesFallOn);
         Checks.run("aLeafIsDrawnAsAQuadAboutItsMiddle", LeafFallTests::aLeafIsDrawnAsAQuadAboutItsMiddle);
+        Checks.run("aRoundThroughATurnedCrownKnocksLeavesLooseByHowFarItGoesThrough", LeafFallTests::aRoundThroughATurnedCrownKnocksLeavesLooseByHowFarItGoesThrough);
+        Checks.run("greenLeavesHoldOnAndNoRoundKnocksAnyOutsideAutumn", LeafFallTests::greenLeavesHoldOnAndNoRoundKnocksAnyOutsideAutumn);
+        Checks.run("aBushShedsNothingOfItselfAndARoundKnocksItsLeavesLooseInItsColour", LeafFallTests::aBushShedsNothingOfItselfAndARoundKnocksItsLeavesLooseInItsColour);
+        Checks.run("aPaintedColourComesBackAsTheLeafShaderReadsIt", LeafFallTests::aPaintedColourComesBackAsTheLeafShaderReadsIt);
     }
 
     private static final float PEAK_AUTUMN = 0.45f;
@@ -709,5 +713,130 @@ final class LeafFallTests {
         Checks.check(Arrays.equals(Arrays.copyOfRange(into, corner, corner + LeafDraw.FLOATS_A_CORNER), expected),
                 "a corner is the middle, the way out to it, where it is on the leaf, the colour and turn, the face and the layers: "
                         + Arrays.toString(Arrays.copyOfRange(into, corner, corner + LeafDraw.FLOATS_A_CORNER)));
+    }
+
+    /**
+     * A tree's square hash and a share of autumn at which its crown is full and its leaves either
+     * turned as far as they get before it drops them (loose) or still green.
+     */
+    private static float[] crownAt(boolean turned) {
+        for (int hash = 0; hash < 1000; hash++) {
+            for (int day = 0; day <= 200; day++) {
+                float p = day / 200f, step = Seasons.stepped(Seasons.AUTUMN, p);
+                float on = Seasons.leafOn(Seasons.AUTUMN, step, hash), turn = Seasons.turned(Seasons.AUTUMN, step, hash);
+                if (on == 1f && (turned ? turn >= 0.95f * Seasons.TURNED_AS_IT_DROPS : turn == 0f)) {
+                    return new float[] {hash, p};
+                }
+            }
+        }
+        throw new AssertionError("no tree of the first 1000 has a full crown " + (turned ? "turned" : "green") + " on any day of autumn");
+    }
+
+    /** The mean count of leaves knocked loose by rounds level along x through a maple's crown at (0.5, 0.5) from x = -10, clearing them between rounds. */
+    private static float meanKnocked(int hash, float progression, int season, float fromUp, float length, int rounds) {
+        return meanKnocked(hash, progression, season, fromUp, length, 1f, rounds);
+    }
+
+    private static float meanKnocked(int hash, float progression, int season, float fromUp, float length, float size, int rounds) {
+        LeafFall fall = new LeafFall();
+        fall.beginTrees(0f, 0f);
+        fall.offer(0.5f, 0.5f, 0f, MAPLE, hash, true, LOW, HIGH, OUT);
+        fall.endTrees();
+        long knocked = 0;
+        for (int i = 0; i < rounds; i++) {
+            knocked += fall.struck(-10f, 0.5f, fromUp, 1f, 0f, 0f, length, size, season, progression, OPEN);
+            fall.clear();
+        }
+        Checks.check(fall.struck == knocked, "what struck counts is what it gave: " + fall.struck + " against " + knocked);
+        return knocked / (float) rounds;
+    }
+
+    /**
+     * A round through the middle of a crown of turned leaves, 2 * OUT tiles of it, knocks a few
+     * loose, as STRUCK_PER_TILE and the cut twigs make it; one through its top fewer; one that
+     * stops short of it, or passes over it, none. They show at once, where the round went.
+     */
+    private static void aRoundThroughATurnedCrownKnocksLeavesLooseByHowFarItGoesThrough() {
+        float[] at = crownAt(true);
+        int hash = (int) at[0];
+        float middle = (LOW + HIGH) / 2f, through = 2f * OUT;
+        float expected = through * (LeafFall.STRUCK_PER_TILE + LeafFall.TWIG_PER_TILE * (LeafFall.TWIG_LEAST + LeafFall.TWIG_MOST) / 2f);
+        float mean = meanKnocked(hash, at[1], Seasons.AUTUMN, middle, 20f, 2000);
+        Checks.check(Math.abs(mean - expected) < 0.15f * expected, "a round through the middle knocks " + expected + " loose on average: " + mean);
+        float top = meanKnocked(hash, at[1], Seasons.AUTUMN, HIGH - 0.2f, 20f, 2000);
+        Checks.check(top > 0f && top < 0.6f * mean, "one through the top of the crown fewer: " + top + " against " + mean);
+        Checks.check(meanKnocked(hash, at[1], Seasons.AUTUMN, middle, 10f - OUT - 0.4f, 500) == 0f, "one stopped short of the crown knocks none");
+        Checks.check(meanKnocked(hash, at[1], Seasons.AUTUMN, HIGH + 0.3f, 20f, 500) == 0f, "one over the crown knocks none");
+        float pellet = meanKnocked(hash, at[1], Seasons.AUTUMN, middle, 20f, ImpactFinder.PELLET, 2000), rifle = meanKnocked(hash, at[1], Seasons.AUTUMN, middle, 20f, ImpactFinder.RIFLE, 2000);
+        Checks.check(Math.abs(pellet - ImpactFinder.PELLET * mean) < 0.15f * ImpactFinder.PELLET * mean && Math.abs(rifle - ImpactFinder.RIFLE * mean) < 0.15f * ImpactFinder.RIFLE * mean,
+                "a shotgun's pellet knocks fewer loose than a handgun's round, a rifle's more: " + pellet + ", " + mean + ", " + rifle);
+
+        LeafFall fall = new LeafFall();
+        fall.beginTrees(0f, 0f);
+        fall.offer(0.5f, 0.5f, 0f, MAPLE, hash, true, LOW, HIGH, OUT);
+        fall.endTrees();
+        int knocked = 0;
+        for (int i = 0; i < 20; i++) {
+            knocked += fall.struck(-10f, 0.5f, middle, 1f, 0f, 0f, 20f, 1f, Seasons.AUTUMN, at[1], OPEN);
+        }
+        float[] into = new float[LeafFall.MOST * LeafFall.FLOATS];
+        int written = fall.write(into, 0f, 0f);
+        Checks.check(knocked > 20 && written == knocked, "every leaf knocked loose is drawn: " + written + " of " + knocked);
+        for (int i = 0; i < written; i++) {
+            int r = i * LeafFall.FLOATS;
+            float x = into[r + LeafFall.X], y = into[r + LeafFall.Y], up = into[r + LeafFall.UP];
+            Checks.check(into[r + LeafFall.SHOWN] > 0.99f, "a leaf knocked loose shows at once: " + into[r + LeafFall.SHOWN]);
+            Checks.check(x > 0.5f - OUT - 0.6f && x < 0.5f + OUT + 0.6f && Math.abs(y - 0.5f) < 0.6f && Math.abs(up - middle) < 0.6f,
+                    "it starts where the round went through the crown: (" + x + ", " + y + ", " + up + ")");
+            Checks.check(into[r + LeafFall.HUE] == Flora.autumnHue(MAPLE, hash), "in its tree's colour: " + into[r + LeafFall.HUE]);
+        }
+    }
+
+    /** Leaves still green hold on far better than turned ones; outside autumn a round knocks none loose. */
+    private static void greenLeavesHoldOnAndNoRoundKnocksAnyOutsideAutumn() {
+        float[] green = crownAt(false), turned = crownAt(true);
+        float middle = (LOW + HIGH) / 2f;
+        float held = meanKnocked((int) green[0], green[1], Seasons.AUTUMN, middle, 20f, 2000);
+        float loose = meanKnocked((int) turned[0], turned[1], Seasons.AUTUMN, middle, 20f, 2000);
+        Checks.check(held > 0f && held < 0.3f * loose, "a green crown gives up a few: " + held + " against " + loose + " turned");
+        for (int season : new int[] {Seasons.SPRING, Seasons.SUMMER, Seasons.SUMMER2, Seasons.WINTER}) {
+            Checks.check(meanKnocked((int) turned[0], 0.5f, season, middle, 20f, 200) == 0f, "season " + season + " gives up none");
+        }
+    }
+
+    /** A bush lets nothing go of itself, and a round through it knocks its leaves loose in the colour its picture is painted. */
+    private static void aBushShedsNothingOfItselfAndARoundKnocksItsLeavesLooseInItsColour() {
+        float[] at = crownAt(true);
+        int painted = LeafFall.painted(0.8f, 0.3f, 0.1f);
+        LeafFall fall = new LeafFall();
+        fall.beginTrees(0f, 0f);
+        fall.offerBush(1.5f, 0.5f, 0f, (int) at[0], 0.1f, 1.1f, 0.6f, painted);
+        fall.endTrees();
+        run(fall, 30f, 1f / 60f, 2f, 0f, 0.6f, Seasons.AUTUMN, at[1]);
+        Checks.check(fall.spawned == 0 && fall.count() == 0, "a bush in a gale lets go of nothing of itself: " + fall.spawned);
+        int knocked = 0;
+        for (int i = 0; i < 40; i++) {
+            knocked += fall.struck(-5f, 0.5f, 0.6f, 1f, 0f, 0f, 20f, 1f, Seasons.AUTUMN, at[1], OPEN);
+        }
+        float[] into = new float[LeafFall.MOST * LeafFall.FLOATS];
+        int written = fall.write(into, 0f, 0f);
+        Checks.check(knocked > 10 && written == knocked, "rounds through the bush knock its leaves loose: " + knocked);
+        for (int i = 0; i < written; i++) {
+            Checks.check(into[i * LeafFall.FLOATS + LeafFall.HUE] == LeafFall.PAINTED + painted, "in the colour the bush is painted: " + into[i * LeafFall.FLOATS + LeafFall.HUE]);
+        }
+    }
+
+    /** The leaf shader's reading of a painted colour, done in Java: what LEAF_FRAGMENT does with a hue over PAINTED. */
+    private static void aPaintedColourComesBackAsTheLeafShaderReadsIt() {
+        for (int i = 0; i <= 20; i++) {
+            float r = i / 20f, g = (float) Math.sqrt(i / 20f), b = 1f - i / 20f;
+            float hue = LeafFall.PAINTED + LeafFall.painted(r, g, b);
+            double code = Math.floor(hue - 64.0 + 0.5);
+            float red = (float) Math.floor(code / 4096.0) / 63f, green = (float) (Math.floor(code / 64.0) % 64.0) / 63f, blue = (float) (code % 64.0) / 63f;
+            Checks.check(Math.abs(red - r) <= 0.51f / 63f && Math.abs(green - g) <= 0.51f / 63f && Math.abs(blue - b) <= 0.51f / 63f,
+                    "(" + r + ", " + g + ", " + b + ") comes back as (" + red + ", " + green + ", " + blue + ")");
+        }
+        Checks.check(LeafFall.PAINTED == 64f && PipelineShaders.LEAF_FRAGMENT.contains("vLeaf.x > 63.5") && PipelineShaders.LEAF_FRAGMENT.contains("floor(vLeaf.x - 64.0 + 0.5)"),
+                "the shader reads a painted colour from PAINTED on");
     }
 }

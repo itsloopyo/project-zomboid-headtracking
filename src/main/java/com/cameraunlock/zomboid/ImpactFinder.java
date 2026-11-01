@@ -155,6 +155,7 @@ final class ImpactFinder {
                 float toHit = Math.max(((hit.getX() - line.eyeX) * line.forwardX + (hit.getY() - line.eyeY) * line.forwardY) / flat, 0f);
                 ShotGlass.along(cell, terrain, shooter, line, toHit);
                 lowFencesAlong(cell, terrain, shooter, toHit, size);
+                throughLeaves(toHit, size);
             }
             if (Penetration.shareOf(hit.getID()) < Penetration.WHOLE) {
                 throughWalls(cell, shooter, terrain, hit, size);
@@ -176,6 +177,7 @@ final class ImpactFinder {
         ShotLights.along(cell, terrain, line, Math.min(body, Math.min(distance, reach)));
         ShotGlass.along(cell, terrain, shooter, line, Math.min(body, Math.min(distance, reach)));
         lowFencesAlong(cell, terrain, shooter, Math.min(body, Math.min(distance, reach)), size);
+        throughLeaves(Math.min(body, Math.min(distance, reach)), size);
         if (body < Math.min(distance, reach)) {
             ShotLights.vehicleHit(vehicle, line.eyeX + line.forwardX * (body + VEHICLE_OFF), line.eyeY + line.forwardY * (body + VEHICLE_OFF));
             float up = line.eyeUp + line.forwardUp * body;
@@ -269,11 +271,31 @@ final class ImpactFinder {
             ShotLights.along(cell, terrain, line, Math.min(distance, left));
             ShotGlass.along(cell, terrain, shooter, line, Math.min(distance, left));
             lowFencesAlong(cell, terrain, shooter, Math.min(distance, left), size);
+            throughLeaves(Math.min(distance, left), size);
             if (distance > left) {
                 break;
             }
         }
         line.eyeAt(startX, startY, startUp);
+    }
+
+    /**
+     * The leaves a round of that size knocks loose from the crowns of the trees and bushes it
+     * passes through, as far as distance along the line, in each view drawing the leaves round its eye.
+     */
+    private static void throughLeaves(float distance, float size) {
+        if (!Part.SHOT_IMPACTS.on() || !(distance > 0f) || distance == Float.POSITIVE_INFINITY) {
+            return;
+        }
+        long now = System.nanoTime();
+        for (int i = 0; i < View.COUNT; i++) {
+            View view = View.of(i);
+            int knocked = view == null ? 0 : view.worldScene.leafTrees.struck(line.eyeX, line.eyeY, line.eyeUp, line.forwardX, line.forwardY, line.forwardUp, distance, size, now);
+            if (knocked > 0 && FirstPerson.TRACE) {
+                Log.info(String.format(java.util.Locale.ROOT, "shot through leaves: %d knocked loose in view %d along %.2f tiles from (%.2f, %.2f, %.2f)",
+                        knocked, i, distance, line.eyeX, line.eyeY, line.eyeUp));
+            }
+        }
     }
 
     /**

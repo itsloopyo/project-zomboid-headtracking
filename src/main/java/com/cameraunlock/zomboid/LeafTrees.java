@@ -3,27 +3,34 @@ package com.cameraunlock.zomboid;
 import java.util.ArrayList;
 import java.util.concurrent.ConcurrentHashMap;
 import zombie.GameTime;
+import zombie.core.textures.Texture;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.SpriteDetails.IsoObjectType;
+import zombie.iso.sprite.IsoSprite;
 import zombie.iso.sprite.IsoSpriteInstance;
 import zombie.util.list.PZArrayList;
 
 /**
- * The game's side of LeafFall for one view, on the logic thread: reads the trees within
- * LeafFall.REACH of the eye a few rows of squares a frame, moves the leaves on, and hands the
- * frame's sky what it is to draw.
+ * The game's side of LeafFall for one view, on the logic thread: reads the trees and the bushes
+ * within LeafFall.REACH of the eye a few rows of squares a frame, moves the leaves on, hands the
+ * frame's sky what it is to draw, and has the rounds that pass through them knock leaves loose.
  */
 final class LeafTrees implements LeafFall.Ground {
     /** Rows of squares read a frame: the square round the eye is read through in a dozen frames. */
     private static final int ROWS = 6;
+    /** A round is taken through the leaves only while they were moved on this lately, in nanoseconds: while the view is drawn. */
+    private static final long FRESH = 500_000_000L;
+    /** The prefix of the names of the bushes the map's erosion grows, every one of which drops its leaves for the winter and hangs the season's leaves on its stems. */
+    static final String BUSH = "f_bushes";
     private static final int SIDE = 2 * (int) LeafFall.REACH + 1;
     /**
      * Each tree tile's crown as the built world first measured it (Flora.measure): its lowest and
      * highest leaves over the tree's foot and how far out they reach, in tiles. A tile names the
      * species, the size and the erosion's stage, so a young tree's crown is a young tree's, and
-     * its picture is the same each time a tree of it is built: one measure of it is kept.
+     * its picture is the same each time a tree of it is built: one measure of it is kept. A
+     * bush's leaves are kept by the tile of its leaves in the same way.
      */
     private static final ConcurrentHashMap<String, float[]> CROWNS = new ConcurrentHashMap<>();
 
@@ -33,6 +40,7 @@ final class LeafTrees implements LeafFall.Ground {
     private long lastNanos;
     private IsoCell cell;
     private Terrain terrain;
+    private long movedAt;
     private int round;
     private float scale;
 
@@ -79,6 +87,7 @@ final class LeafTrees implements LeafFall.Ground {
         this.terrain = terrain;
         this.round = round;
         this.scale = scale;
+        movedAt = now;
         long season = Seasons.now();
         // No tree sheds outside autumn (LeafFall.shedding), so the trees are not read then; leaves still falling go on.
         if (Seasons.seasonOf(season) == Seasons.AUTUMN) {
@@ -91,6 +100,19 @@ final class LeafTrees implements LeafFall.Ground {
         sky.leafCount = fall.write(sky.leaves, eyeX, eyeY);
     }
 
+    /**
+     * A round of that size has passed from (fromX, fromY, fromUp) along the unit way (wayX, wayY,
+     * wayUp) for length tiles: it knocks loose leaves out of the crowns it went through
+     * (LeafFall.struck), while the leaves are being drawn. Gives how many.
+     */
+    int struck(float fromX, float fromY, float fromUp, float wayX, float wayY, float wayUp, float length, float size, long now) {
+        if (cell == null || now - movedAt > FRESH || !Own.plants(scene.view.index)) {
+            return 0;
+        }
+        long season = Seasons.now();
+        return fall.struck(fromX, fromY, fromUp, wayX, wayY, wayUp, length, size, Seasons.seasonOf(season), Seasons.progressionOf(season), this);
+    }
+
     private void read(float eyeX, float eyeY) {
         if (row == 0) {
             fromX = (int) Math.floor(eyeX) - (int) LeafFall.REACH;
@@ -101,7 +123,11 @@ final class LeafTrees implements LeafFall.Ground {
             int y = fromY + row;
             for (int x = fromX; x < fromX + SIDE; x++) {
                 IsoGridSquare square = cell.getGridSquare(x, y, 0);
-                if (square == null || !square.HasTree()) {
+                if (square == null) {
+                    continue;
+                }
+                if (!square.HasTree()) {
+                    readBushes(square, x, y);
                     continue;
                 }
                 IsoObject tree = treeOn(square);
@@ -117,6 +143,34 @@ final class LeafTrees implements LeafFall.Ground {
         if (row == SIDE) {
             fall.endTrees();
             row = 0;
+        }
+    }
+
+    /** Offers the bushes on the square at (x, y) that are in leaf, with a crown measured and a colour read. */
+    private void readBushes(IsoGridSquare square, int x, int y) {
+        PZArrayList<IsoObject> objects = square.getObjects();
+        for (int i = 0; i < objects.size(); i++) {
+            IsoObject object = objects.get(i);
+            IsoSprite sprite = object.getSprite();
+            String name = sprite == null ? null : sprite.getName();
+            if (name == null || !name.startsWith(BUSH)) {
+                continue;
+            }
+            // Its leaves are the season's, hung on its stems, or the bush's own sprite where that is not its bare stems.
+            IsoSprite leaves = Flora.bushStems(name) ? null : sprite;
+            ArrayList<IsoSpriteInstance> attached = object.getAttachedAnimSprite();
+            float[] crown = leaves == null ? null : CROWNS.get(name);
+            for (int k = 0; crown == null && attached != null && k < attached.size(); k++) {
+                IsoSprite on = attached.get(k).parentSprite;
+                crown = on == null || on.getName() == null ? null : CROWNS.get(on.getName());
+                leaves = crown == null ? null : on;
+            }
+            Texture texture = crown == null ? null : leaves.getTextureForCurrentFrame(object.getDir());
+            float[] colour = texture == null || !WorldScene.usable(texture) ? null : SpriteColours.of(texture);
+            if (colour != null) {
+                fall.offerBush(x + 0.5f, y + 0.5f, terrain.lift(x + 0.5f, y + 0.5f, 0), Seasons.treeHash(x, y), crown[0], crown[1], crown[2],
+                        LeafFall.painted(colour[0], colour[1], colour[2]));
+            }
         }
     }
 

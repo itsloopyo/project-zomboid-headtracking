@@ -5567,7 +5567,8 @@ final class PipelineShaders {
     /**
      * A leaf, lit as the world is: the open sky's light as the game has it, the sun or the moon
      * where the shadow maps let it through, on the leaf and through it from behind, and a torch
-     * or headlights. Its colour is its tree's autumn colour, going brown.
+     * or headlights. Its colour is its tree's autumn colour, or for a leaf off a bush the colour
+     * the bush is painted, going brown.
      */
     static final String LEAF_FRAGMENT = """
             #version 120
@@ -5607,7 +5608,14 @@ final class PipelineShaders {
                     discard;
                 }
                 float turned = vLeaf.y;
-                vec3 painted = mix(vec3(0.30, 0.40, 0.12), autumnHue(vLeaf.x) * 0.85, smoothstep(0.0, 0.45, turned));
+                vec3 painted;
+                if (vLeaf.x > 63.5) {
+                    // A bush's leaf, in the colour its bush's picture paints it, six bits a channel (LeafFall.painted).
+                    float code = floor(vLeaf.x - 64.0 + 0.5);
+                    painted = vec3(floor(code / 4096.0), mod(floor(code / 64.0), 64.0), mod(code, 64.0)) / 63.0;
+                } else {
+                    painted = mix(vec3(0.30, 0.40, 0.12), autumnHue(vLeaf.x) * 0.85, smoothstep(0.0, 0.45, turned));
+                }
                 painted = mix(painted, vec3(0.38, 0.25, 0.13), smoothstep(0.6, 1.0, turned));
                 // A rib down the middle and veins off it.
                 painted *= (0.78 + 0.22 * smoothstep(0.0, 0.08, off)) * (0.92 + 0.08 * sin((vIn.y - off * 0.35) * 40.0));

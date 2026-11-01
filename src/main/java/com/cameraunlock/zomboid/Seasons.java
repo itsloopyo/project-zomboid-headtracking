@@ -22,6 +22,8 @@ final class Seasons {
     private static final float LITTER_SUMMER = 0.12f;
     /** How much of autumn before a tree starts to drop its leaves they start to turn. */
     private static final float TURN_LEADS = 0.35f;
+    /** How far a tree's leaves have turned (turned) when it starts to drop them: as far as a crown still full of leaf gets. */
+    static final float TURNED_AS_IT_DROPS = TURN_LEADS / (TURN_LEADS + FALL_TAKES);
     /**
      * How many steps a season is taken in by what a build holds: leafOn and turned of a tree
      * now, and stage. A build is kept while what it was made from is the same to the bit, and a

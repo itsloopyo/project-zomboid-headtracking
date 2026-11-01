@@ -529,7 +529,8 @@ HearFromTheEye=true
 ; Takes effect when the game next starts. When off, the mod does not change the game's own code for this.
 LightningBolts=true
 ; true: in first person, in Medium and High, a shot kicks up dust, chips, splinters, sparks or blood where it hits
-; and leaves a hole. false: shots leave no mark, as in the game's own view. Shots still break lamps and glass
+; and leaves a hole, and in autumn knocks leaves loose from the trees and bushes it passes through. false: shots
+; leave no mark and knock no leaves loose, as in the game's own view. Shots still break lamps and glass
 ; and hole doors, walls and fences when ShotsBreakLamps, ShotsBreakGlass, BlastHoles and BulletHoles are on, and
 ; while any of them is on, the mod keeps changing the game's code for this.
 ; Takes effect at once. From the next start, off also stops the mod changing the game's own code for this.

@@ -2544,7 +2544,7 @@ final class WorldScene {
      */
     volatile Terrain terrain = Terrain.HILLS;
     /** The leaves falling round this view's eye. */
-    private final LeafTrees leafTrees = new LeafTrees(this);
+    final LeafTrees leafTrees = new LeafTrees(this);
     /** The height of the hills the far land was last asked for at: see HillHeight. Logic thread. */
     private float farHills = HillHeight.DEFAULT;
 

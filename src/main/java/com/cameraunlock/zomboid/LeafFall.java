@@ -51,6 +51,24 @@ final class LeafFall {
     private static final float SHOWING = 0.5f;
     /** An eye that moves further than this between two steps has jumped: its leaves are let go. */
     private static final float JUMPED = 40f;
+    /**
+     * Leaves a round knocks loose a tile of crown it passes through, where every leaf has turned
+     * and hangs by a stalk ready to let go: most leaves it meets it only holes, and some it cuts
+     * off or shakes free. A leaf still green holds on GREEN_HOLDS as well as that.
+     */
+    static final float STRUCK_PER_TILE = 0.7f, GREEN_HOLDS = 0.2f;
+    /** The chance a tile of a loose crown's twigs is cut through, which brings its leaves down together, the least and the most of them. */
+    static final float TWIG_PER_TILE = 0.08f;
+    static final int TWIG_LEAST = 2, TWIG_MOST = 5;
+    /** How far from a round's line a leaf it knocks loose hangs, and from a cut twig's middle each of its leaves, in tiles. */
+    private static final float STRUCK_OFF = 0.06f, TWIG_OFF = 0.1f;
+    /** How fast the round's push sends a leaf it knocks loose along its way, the least and the most, in tiles a second: a leaf is light and the round goes through it. */
+    private static final float PUSH_LEAST = 0.15f, PUSH_MOST = 0.6f;
+    /** A crown no taller than this, in tiles, is taken as this tall, so a flat measure still has room in it. */
+    private static final float CROWN_LEAST_TALL = 0.2f;
+    /** What is added to a leaf's colour as painted packs it, for one that takes the colour of its plant's own picture, as the picture reads it: more than any hue. */
+    static final float PAINTED = 64f;
+    static final int NONE = -1;
 
     /** The ground under the leaves and what stands on it. */
     interface Ground {
@@ -76,12 +94,16 @@ final class LeafFall {
     private final float[] treeLow = new float[MOST_TREES], treeHigh = new float[MOST_TREES], treeReach = new float[MOST_TREES];
     private final int[] treeHash = new int[MOST_TREES], released = new int[MOST_TREES];
     private final byte[] treeHue = new byte[MOST_TREES];
+    // A bush is in the list only for the rounds that pass through it (struck), in the colour its own picture paints its leaves (see painted).
+    private final boolean[] treeBush = new boolean[MOST_TREES];
+    private final int[] treeColour = new int[MOST_TREES];
     private int trees;
     // The trees offered since beginTrees, and the eye they are offered round.
     private final float[] offeredX = new float[CANDIDATES], offeredY = new float[CANDIDATES], offeredGround = new float[CANDIDATES];
     private final float[] offeredLow = new float[CANDIDATES], offeredHigh = new float[CANDIDATES], offeredReach = new float[CANDIDATES];
-    private final int[] offeredHash = new int[CANDIDATES];
+    private final int[] offeredHash = new int[CANDIDATES], offeredColour = new int[CANDIDATES];
     private final byte[] offeredHue = new byte[CANDIDATES];
+    private final boolean[] offeredBush = new boolean[CANDIDATES];
     private final long[] nearest = new long[CANDIDATES];
     private int offered;
     private float offeredFromX, offeredFromY;
@@ -93,6 +115,8 @@ final class LeafFall {
     private final float[] fall = new float[MOST], swing = new float[MOST], rate = new float[MOST], phase = new float[MOST], way = new float[MOST];
     private final float[] spin = new float[MOST], turn = new float[MOST], tumble = new float[MOST], half = new float[MOST], turned = new float[MOST];
     private final byte[] hue = new byte[MOST];
+    /** The colour of a leaf off a bush (see painted), or NONE for a tree's, which is its hue. */
+    private final int[] colour = new int[MOST];
     private final int[] square = new int[MOST];
     // Lying: how far its length and its breadth rise across what it lies on, how far its middle stands over that so no corner is under it, and the layers it lies over.
     private final float[] alongUp = new float[MOST], acrossUp = new float[MOST], lift = new float[MOST], layers = new float[MOST];
@@ -105,6 +129,8 @@ final class LeafFall {
     private int refused;
     private int random = 0x2545F491;
     private float lastEyeX = Float.NaN, lastEyeY = Float.NaN;
+    /** How windy the last step was (see step) and how the air drifted the leaves then, for the leaves a round knocks loose before the next. */
+    private float lastWindy, lastDriftX, lastDriftY;
     /**
      * Counted since the sim was made: leaves let go of by trees, leaves landed, and leaves gone
      * from one step to the next that showed more than SHOWING before it. A leaf that fades, or is
@@ -115,6 +141,8 @@ final class LeafFall {
     long spawned, landings, vanished;
     /** Leaves caught against a wall or a roof, counted since the sim was made. */
     long caughts;
+    /** Leaves rounds have knocked loose, counted since the sim was made. */
+    long struck;
 
     /** Starts a list of the trees round the eye at (eyeX, eyeY), offered one by one, which endTrees makes the trees that shed. */
     void beginTrees(float eyeX, float eyeY) {
@@ -135,6 +163,24 @@ final class LeafFall {
         if (!gameLeaves || high <= 0f || !sheds(name)) {
             return;
         }
+        keep(x, y, ground, hash, low, high, reach, false, Flora.autumnHue(name, hash), NONE, dx * dx + dy * dy);
+    }
+
+    /**
+     * A bush in leaf standing at (x, y) on ground at that height, its square hashing to hash
+     * (Seasons.treeHash), its leaves from low to high over the ground and reaching that far out,
+     * in tiles, and painted the colour given as painted packs it. It sheds nothing of itself:
+     * it is there for the rounds that pass through it.
+     */
+    void offerBush(float x, float y, float ground, int hash, float low, float high, float reach, int painted) {
+        float dx = x - offeredFromX, dy = y - offeredFromY;
+        if (high <= 0f) {
+            return;
+        }
+        keep(x, y, ground, hash, low, high, reach, true, 0, painted, dx * dx + dy * dy);
+    }
+
+    private void keep(float x, float y, float ground, int hash, float low, float high, float reach, boolean bush, int hueOf, int painted, float away) {
         int k = offered++;
         offeredX[k] = x;
         offeredY[k] = y;
@@ -143,9 +189,20 @@ final class LeafFall {
         offeredHigh[k] = high;
         offeredReach[k] = reach;
         offeredHash[k] = hash;
-        offeredHue[k] = (byte) Flora.autumnHue(name, hash);
+        offeredHue[k] = (byte) hueOf;
+        offeredBush[k] = bush;
+        offeredColour[k] = painted;
         // The distance's bits order as the distance does, with the tree's place in the low half.
-        nearest[k] = (long) Float.floatToIntBits(dx * dx + dy * dy) << 32 | k;
+        nearest[k] = (long) Float.floatToIntBits(away) << 32 | k;
+    }
+
+    /** A colour of red, green and blue from 0 to 1 packed as a leaf's colour carries it to the picture, six bits each: see PAINTED. */
+    static int painted(float red, float green, float blue) {
+        return channel(red) << 12 | channel(green) << 6 | channel(blue);
+    }
+
+    private static int channel(float value) {
+        return Math.round(Math.clamp(value, 0f, 1f) * 63f);
     }
 
     /** Makes the MOST_TREES nearest of the trees offered the trees that shed, nearest first, so where there is not room for every leaf the nearest have it. */
@@ -162,6 +219,8 @@ final class LeafFall {
             treeReach[t] = offeredReach[k];
             treeHash[t] = offeredHash[k];
             treeHue[t] = offeredHue[k];
+            treeBush[t] = offeredBush[k];
+            treeColour[t] = offeredColour[k];
             released[t] = 0;
             // A start of its own between nothing and one leaf owed, so a tree sheds as often as it should whenever the list is made again.
             owed[t] = next();
@@ -304,9 +363,12 @@ final class LeafFall {
             }
         }
         float windy = Math.clamp(intensity / 0.5f, 0f, 1f), more = letGo(intensity);
+        lastWindy = windy;
+        lastDriftX = driftX;
+        lastDriftY = driftY;
         for (int t = 0; t < trees; t++) {
             float dx = treeX[t] - eyeX, dy = treeY[t] - eyeY;
-            if (dx * dx + dy * dy > REACH * REACH) {
+            if (treeBush[t] || dx * dx + dy * dy > REACH * REACH) {
                 continue;
             }
             // A tree near the eye sheds all it would; one further off a share of that, so in a wood the room goes to the leaves that can be seen as leaves.
@@ -458,6 +520,7 @@ final class LeafFall {
         half[i] = half[last];
         turned[i] = turned[last];
         hue[i] = hue[last];
+        colour[i] = colour[last];
         square[i] = square[last];
         caught[i] = caught[last];
         alongUp[i] = alongUp[last];
@@ -477,14 +540,26 @@ final class LeafFall {
         float out = OUT_MOST * treeReach[t] * (float) Math.sqrt(0.3f + 0.7f * next());
         float fromX = treeX[t] + out * (float) Math.cos(angle), fromY = treeY[t] + out * (float) Math.sin(angle);
         float fromUp = treeGround[t] + treeLow[t] + (treeHigh[t] - treeLow[t]) * next();
+        release(t, fromX, fromY, fromUp, driftX * 0.3f, driftY * 0.3f, 0f, season, progression, windy, on);
+    }
+
+    /**
+     * Lets a leaf of tree t go at (fromX, fromY, fromUp), drifting at (startX, startY), that
+     * many seconds old: one a round knocks loose was hanging there in plain sight, and shows at once.
+     */
+    private void release(int t, float fromX, float fromY, float fromUp, float startX, float startY, float old, int season, float progression, float windy, Ground on) {
+        if (count == MOST) {
+            refused++;
+            return;
+        }
         int i = count;
         x[i] = fromX;
         y[i] = fromY;
         up[i] = fromUp;
         ground[i] = treeGround[t];
-        vx[i] = driftX * 0.3f;
-        vy[i] = driftY * 0.3f;
-        age[i] = 0f;
+        vx[i] = startX;
+        vy[i] = startY;
+        age[i] = old;
         landed[i] = -1f;
         lies[i] = LIES_LEAST + (LIES_MOST - LIES_LEAST) * next();
         // The wind sets more of them tumbling over and over, which fall faster and swing less.
@@ -499,6 +574,7 @@ final class LeafFall {
         tumble[i] = tumbles ? (next() < 0.5f ? -1f : 1f) * (6f + 8f * next()) : 0f;
         half[i] = HALF_LEAST + (HALF_MOST - HALF_LEAST) * next();
         hue[i] = treeHue[t];
+        colour[i] = treeColour[t];
         turned[i] = Math.clamp(Seasons.turned(season, Seasons.stepped(season, progression), treeHash[t]) + 0.35f * (next() - 0.4f), 0f, 1f);
         caught[i] = false;
         // A crown that reaches over a house has no leaves inside its rooms to let go of: the slot is left for the next.
@@ -514,6 +590,86 @@ final class LeafFall {
     }
 
     /**
+     * How readily a round knocks leaves out of tree t's crown, 0 to 1: not at all outside autumn,
+     * as much as the crown has leaves left on it, and the further they have turned the more
+     * readily, the stalks of turned leaves being ready to let go: wholly by the time the tree
+     * starts to drop them.
+     */
+    float looseness(int t, int season, float progression) {
+        if (season != Seasons.AUTUMN) {
+            return 0f;
+        }
+        float step = Seasons.stepped(season, progression);
+        float on = treeBush[t] ? 1f : Seasons.leafOn(season, step, treeHash[t]);
+        return on * (GREEN_HOLDS + (1f - GREEN_HOLDS) * smooth(Seasons.turned(season, step, treeHash[t]) / Seasons.TURNED_AS_IT_DROPS));
+    }
+
+    /**
+     * A round of that size (ImpactFinder.size: 1 a handgun's, more a rifle's, less a shotgun's
+     * pellet) has passed from (fromX, fromY, fromUp) along the unit way (wayX, wayY, wayUp) for
+     * length tiles, with the year at season and progression: it knocks leaves out of the crowns of
+     * the trees and bushes it passes through, by how far it goes through each, taken as the
+     * ball its leaves fill, how loose they are (looseness) and its size. Gives how many it knocked loose.
+     */
+    int struck(float fromX, float fromY, float fromUp, float wayX, float wayY, float wayUp, float length, float size, int season, float progression, Ground on) {
+        if (season != Seasons.AUTUMN || length <= 0f) {
+            return 0;
+        }
+        float flat = (float) Math.hypot(wayX, wayY);
+        float pushX = flat > 1e-4f ? wayX / flat : 0f, pushY = flat > 1e-4f ? wayY / flat : 0f;
+        int knocked = 0;
+        for (int t = 0; t < trees; t++) {
+            float reach = Math.max(treeReach[t], 1e-3f), tall = Math.max(treeHigh[t] - treeLow[t], CROWN_LEAST_TALL) / 2f;
+            float px = (fromX - treeX[t]) / reach, py = (fromY - treeY[t]) / reach, pz = (fromUp - treeGround[t] - (treeLow[t] + treeHigh[t]) / 2f) / tall;
+            float dx = wayX / reach, dy = wayY / reach, dz = wayUp / tall;
+            float a = dx * dx + dy * dy + dz * dz, b = px * dx + py * dy + pz * dz, c = px * px + py * py + pz * pz - 1f;
+            float disc = b * b - a * c;
+            if (disc <= 0f) {
+                continue;
+            }
+            float root = (float) Math.sqrt(disc);
+            float enters = Math.max((-b - root) / a, 0f), leaves = Math.min((-b + root) / a, length);
+            float loose = leaves > enters ? looseness(t, season, progression) * size : 0f;
+            if (loose <= 0f) {
+                continue;
+            }
+            float through = leaves - enters;
+            for (int k = poisson(STRUCK_PER_TILE * through * loose); k > 0; k--) {
+                knocked += knock(t, fromX, fromY, fromUp, wayX, wayY, wayUp, enters + through * next(), STRUCK_OFF, pushX, pushY, season, progression, on);
+            }
+            if (next() < TWIG_PER_TILE * through * loose) {
+                float at = enters + through * next();
+                for (int k = TWIG_LEAST + (int) ((TWIG_MOST - TWIG_LEAST + 1) * next()); k > 0; k--) {
+                    knocked += knock(t, fromX, fromY, fromUp, wayX, wayY, wayUp, at, TWIG_OFF, pushX, pushY, season, progression, on);
+                }
+            }
+        }
+        struck += knocked;
+        return knocked;
+    }
+
+    /** Knocks a leaf of tree t loose within off of the place along tiles down the round's line: 1 if it is let go, 0 where there is no room or a house is there. */
+    private int knock(int t, float fromX, float fromY, float fromUp, float wayX, float wayY, float wayUp, float along, float off, float pushX, float pushY,
+            int season, float progression, Ground on) {
+        int before = count;
+        float push = PUSH_LEAST + (PUSH_MOST - PUSH_LEAST) * next();
+        release(t, fromX + wayX * along + off * (2f * next() - 1f), fromY + wayY * along + off * (2f * next() - 1f), fromUp + wayUp * along + off * (2f * next() - 1f),
+                lastDriftX * 0.3f + pushX * push, lastDriftY * 0.3f + pushY * push, 0.2f, season, progression, lastWindy, on);
+        return count - before;
+    }
+
+    /** A count drawn from the Poisson spread with that mean, from the xorshift kept here. */
+    private int poisson(float mean) {
+        double limit = Math.exp(-mean), product = next();
+        int drawn = 0;
+        while (product > limit) {
+            drawn++;
+            product *= next();
+        }
+        return drawn;
+    }
+
+    /**
      * Writes the leaves within KEPT of the eye as the picture takes them (see FLOATS) into
      * into, which holds MOST, and gives how many.
      */
@@ -526,7 +682,7 @@ final class LeafFall {
             }
             int at = written++ * FLOATS;
             pose(i, into, at);
-            into[at + HUE] = hue[i];
+            into[at + HUE] = colour[i] == NONE ? hue[i] : PAINTED + colour[i];
             into[at + TURNED] = turned[i];
             into[at + SHOWN] = shown;
             into[at + LAYERS] = landed[i] >= 0f && !caught[i] ? layers[i] : 0f;
