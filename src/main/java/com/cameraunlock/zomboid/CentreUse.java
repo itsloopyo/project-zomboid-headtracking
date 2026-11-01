@@ -240,9 +240,10 @@ final class CentreUse {
         IsoGridSquare parent = found.getSquare();
         boolean inReach = parent != null && from != null && Math.abs(from.getX() - parent.getX()) <= 1 && Math.abs(from.getY() - parent.getY()) <= 1
                 && from.getZ() == parent.getZ() && !from.isBlockedTo(parent);
-        InteractWords.Does does = ClickRules.click(seen, panel, seen && GameClient.client && !SafeHouse.isSafehouseAllowLoot(at, player), container,
+        boolean aiming = player.isAiming();
+        InteractWords.Does does = ClickRules.click(seen, panel, seen && GameClient.client && !SafeHouse.isSafehouseAllowLoot(at, player), container, aiming,
                 found instanceof IsoThumpable thumpable && thumpable.isLockedToCharacter(player), inReach,
-                seen && panel == null && container && !inReach && walks(found, from, player));
+                seen && panel == null && container && !aiming && !inReach && walks(found, from, player));
         if (does == null) {
             // The game's click takes it and does nothing, so the key is left to the game as the label says.
             return null;

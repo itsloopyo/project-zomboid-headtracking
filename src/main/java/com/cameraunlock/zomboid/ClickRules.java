@@ -51,20 +51,21 @@ final class ClickRules {
     /**
      * Anything else (doClick), in its order: nothing on a square the first player has not seen;
      * a radio's, a television's or a workstation's window where the click opens one; nothing where
-     * a safehouse bars looting, there is no container or a crate is locked to the character; the
+     * a safehouse bars looting, there is no container, the character aims or a crate is locked to
+     * the character; the
      * loot panel within reach; further off, a walk to it where the game would walk; else nothing.
      *
      * @param panel the window the click opens for a radio, a television or a workstation, or null
      * @param walks whether the game would walk the character to the container (CentreUse.walks)
      */
-    static Does click(boolean seen, Does panel, boolean lootBarred, boolean container, boolean locked, boolean inReach, boolean walks) {
+    static Does click(boolean seen, Does panel, boolean lootBarred, boolean container, boolean aiming, boolean locked, boolean inReach, boolean walks) {
         if (!seen) {
             return null;
         }
         if (panel != null) {
             return panel;
         }
-        if (lootBarred || !container || locked) {
+        if (lootBarred || !container || aiming || locked) {
             return null;
         }
         return inReach ? Does.LOOT : walks ? Does.WALK_TO : null;

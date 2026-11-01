@@ -41,13 +41,14 @@ final class ClickRulesTests {
     }
 
     private static void aContainerClickFollowsTheGamesOrder() {
-        check(ClickRules.click(true, null, false, true, false, true, false) == Does.LOOT, "a container within reach is looted");
-        check(ClickRules.click(false, Does.DEVICE_OPTIONS, false, true, false, true, false) == null, "on a square the player has not seen, nothing at all");
-        check(ClickRules.click(true, Does.OPEN_NAMED, false, true, false, true, false) == Does.OPEN_NAMED, "a workstation's window comes before its container");
-        check(ClickRules.click(true, null, true, true, false, true, false) == null, "a safehouse that bars looting, nothing");
-        check(ClickRules.click(true, null, false, true, true, true, false) == null, "a crate locked to the character, nothing");
-        check(ClickRules.click(true, null, false, false, false, true, false) == null, "no container, nothing");
-        check(ClickRules.click(true, null, false, true, false, false, true) == Does.WALK_TO, "further off, a walk to it where the game would walk");
-        check(ClickRules.click(true, null, false, true, false, false, false) == null, "and nothing where it would not");
+        check(ClickRules.click(true, null, false, true, false, false, true, false) == Does.LOOT, "a container within reach is looted");
+        check(ClickRules.click(false, Does.DEVICE_OPTIONS, false, true, false, false, true, false) == null, "on a square the player has not seen, nothing at all");
+        check(ClickRules.click(true, Does.OPEN_NAMED, false, true, false, false, true, false) == Does.OPEN_NAMED, "a workstation's window comes before its container");
+        check(ClickRules.click(true, null, true, true, false, false, true, false) == null, "a safehouse that bars looting, nothing");
+        check(ClickRules.click(true, null, false, true, false, true, true, false) == null, "a crate locked to the character, nothing");
+        check(ClickRules.click(true, null, false, true, true, false, true, false) == null, "a container while the character aims, nothing");
+        check(ClickRules.click(true, null, false, false, false, false, true, false) == null, "no container, nothing");
+        check(ClickRules.click(true, null, false, true, false, false, false, true) == Does.WALK_TO, "further off, a walk to it where the game would walk");
+        check(ClickRules.click(true, null, false, true, false, false, false, false) == null, "and nothing where it would not");
     }
 }
