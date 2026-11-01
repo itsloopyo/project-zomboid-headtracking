@@ -32,8 +32,9 @@ import zombie.ui.UIManager;
  * What puts it down is MapHold's, looked at after each frame's world is drawn whatever the view
  * (settle).
  *
- * Each player's map is drawn into a square picture of its own, among the game's own UI drawing,
- * by a UI element in the lower left corner of the screen, which the picture covers: the renderer
+ * Each player's map is drawn into a picture of its own, of the sheet's shape, among the game's
+ * own UI drawing, by a UI element in the lower left corner of the screen, which the picture
+ * covers, so the map fills the sheet edge to edge: the renderer
  * sets its viewport from the screen's size. The sheet shows the picture on the next frame. The
  * game leaves its UI drawing out of the frames past its UI frame rate and while its Lua debugger
  * is up, and the picture is drawn again only on the frames it draws it.
@@ -46,7 +47,7 @@ final class HeldMap {
 
     /** What holding the map up is called where an animation's name would be. */
     static final String HELD = "the map held up";
-    /** The most pixels a side of the map's picture has. */
+    /** The most pixels across the map's picture has. It is as tall as the sheet is for its width. */
     static final int MOST_SIDE = 1024;
 
     private static final int GL_TEXTURE_2D = 0x0DE1, GL_RGBA = 0x1908, GL_RGBA8 = 0x8058, GL_UNSIGNED_BYTE = 0x1401;
@@ -113,27 +114,27 @@ final class HeldMap {
                 toggle(playerNum)
             end
 
-            local function make(side)
-                local map = ISUIElement:new(0, 0, side, side)
+            local function make(side, tall)
+                local map = ISUIElement:new(0, 0, side, tall)
                 map.javaObject = UIWorldMap.new(map)
                 map.mapAPI = map.javaObject:getAPIv3()
                 map.mapAPI:setMapItem(MapItem.getSingleton())
                 map.javaObject:setX(0)
                 map.javaObject:setWidth(side)
-                map.javaObject:setHeight(side)
+                map.javaObject:setHeight(tall)
                 ISWorldMap.initDataAndStyle(map)
                 map.mapAPI:setBoolean("HideUnvisited", map.hideUnvisitedAreas)
                 map.mapAPI:setBoolean("Isometric", false)
                 map.mapAPI:setBoolean("Players", true)
                 map.mapAPI:setBoolean("Symbols", true)
-                map.side = side
+                map.side, map.tall = side, tall
                 return map
             end
 
-            return function(playerNum, side, zoom, y)
+            return function(playerNum, side, tall, zoom, y)
                 local map = maps[playerNum]
-                if map == nil or map.side ~= side then
-                    map = make(side)
+                if map == nil or map.side ~= side or map.tall ~= tall then
+                    map = make(side, tall)
                     maps[playerNum] = map
                 end
                 map.javaObject:setY(y)
@@ -153,7 +154,7 @@ final class HeldMap {
     private static final Double ZOOM_ASKED = ZOOM;
     /** The side and the height of the corner the maps are placed in, as they were last asked for, and as the Lua is handed them. */
     private static int placedSide, placedHeight;
-    private static Double sideAsked, cornerAsked;
+    private static Double sideAsked, tallAsked, cornerAsked;
     private static Object place;
     /** Set as the game loads its Lua: the mod's goes into it on the next frame, among the game's UI drawing. */
     private static boolean pending;
@@ -351,12 +352,14 @@ final class HeldMap {
             pending = false;
             register();
         }
-        int side = Math.min(MOST_SIDE, Math.min(Core.width, Core.height));
+        int side = Math.min(MOST_SIDE, Math.min(Core.width, Math.round(Core.height * TimedActs.SHEET_WIDE / TimedActs.SHEET_TALL)));
+        int tall = Math.round(side * TimedActs.SHEET_TALL / TimedActs.SHEET_WIDE);
         if (side != placedSide || Core.height != placedHeight) {
             placedSide = side;
             placedHeight = Core.height;
             sideAsked = (double) side;
-            cornerAsked = (double) (Core.height - side);
+            tallAsked = (double) tall;
+            cornerAsked = (double) (Core.height - tall);
         }
         for (int player = 0; player < View.COUNT; player++) {
             if (!reading[player] && !held[player]) {
@@ -369,7 +372,7 @@ final class HeldMap {
             if (PLAYER_NUMBERS[player] == null) {
                 PLAYER_NUMBERS[player] = (double) player;
             }
-            Object[] ran = LuaManager.caller.pcall(UIManager.getDefaultThread(), place, PLAYER_NUMBERS[player], sideAsked, ZOOM_ASKED, cornerAsked);
+            Object[] ran = LuaManager.caller.pcall(UIManager.getDefaultThread(), place, PLAYER_NUMBERS[player], sideAsked, tallAsked, ZOOM_ASKED, cornerAsked);
             if (!Boolean.TRUE.equals(ran[0]) || ran.length < 2 || !(ran[1] instanceof UIElement map)) {
                 Log.error("player " + (player + 1) + "'s map is put down: the game's Lua would not place it: " + Arrays.toString(ran));
                 reading[player] = false;
@@ -378,6 +381,7 @@ final class HeldMap {
             }
             made[player] = true;
             drawnSide = side;
+            drawnTall = tall;
             drawnWidth = Core.width;
             drawnHeight = Core.height;
             SpriteRenderer.instance.drawGeneric(BIND[player]);
@@ -396,10 +400,10 @@ final class HeldMap {
         return task == null || task.kind() != TimedActs.MAP;
     }
 
-    /** The side of the maps drawn and the screen's size they are drawn at, for the render thread. */
-    private static volatile int drawnSide, drawnWidth, drawnHeight;
+    /** The width and height of the maps drawn and the screen's size they are drawn at, for the render thread. */
+    private static volatile int drawnSide, drawnTall, drawnWidth, drawnHeight;
 
-    private static final int[] texture = new int[View.COUNT], target = new int[View.COUNT], sides = new int[View.COUNT];
+    private static final int[] texture = new int[View.COUNT], target = new int[View.COUNT], sides = new int[View.COUNT], talls = new int[View.COUNT];
     private static int savedDraw, savedRead;
     /** Set once the driver refuses a picture: from then on the map is read as the game reads it (MapHold.NO_PICTURE). */
     private static volatile boolean refused;
@@ -417,7 +421,7 @@ final class HeldMap {
             BIND[player] = new TextureDraw.GenericDrawer() {
                 @Override
                 public void render() {
-                    bind(index, drawnSide, drawnWidth, drawnHeight);
+                    bind(index, drawnSide, drawnTall, drawnWidth, drawnHeight);
                 }
             };
             UNBIND[player] = new TextureDraw.GenericDrawer() {
@@ -441,7 +445,7 @@ final class HeldMap {
      * to be put back then. The picture covers the screen's lower left corner, and the scissor keeps
      * what is drawn inside it.
      */
-    private static void bind(int player, int side, int width, int height) {
+    private static void bind(int player, int side, int tall, int width, int height) {
         // Between this and unbind the game's own renderer draws the map, and a throw in it leaves unbind undone.
         if (drawing >= 0) {
             Log.error("player " + (drawing + 1) + "'s held map was not finished drawing: what it was drawn on is put back now");
@@ -450,9 +454,9 @@ final class HeldMap {
         GL11.glPushAttrib(GL_COLOR_BUFFER_BIT | GL_VIEWPORT_BIT | GL_SCISSOR_BIT);
         drawing = player;
         bound = !refused;
-        if (bound && (texture[player] == 0 || sides[player] != side)) {
+        if (bound && (texture[player] == 0 || sides[player] != side || talls[player] != tall)) {
             free(player);
-            String why = make(player, side);
+            String why = make(player, side, tall);
             if (why != null) {
                 refused = true;
                 bound = false;
@@ -473,7 +477,7 @@ final class HeldMap {
         GL11.glClearColor(0.86f, 0.82f, 0.71f, 1f);
         GL11.glClear(GL_COLOR_BUFFER_BIT);
         GL11.glEnable(GL_SCISSOR_TEST);
-        GL11.glScissor(0, 0, side, side);
+        GL11.glScissor(0, 0, side, tall);
     }
 
     private static void unbind(int player) {
@@ -493,10 +497,10 @@ final class HeldMap {
         GL11.glBindTexture(GL_TEXTURE_2D, remembered);
     }
 
-    private static String make(int player, int side) {
+    private static String make(int player, int side, int tall) {
         texture[player] = GL11.glGenTextures();
         GL11.glBindTexture(GL_TEXTURE_2D, texture[player]);
-        GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, side, side, 0, GL_RGBA, GL_UNSIGNED_BYTE, (ByteBuffer) null);
+        GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, side, tall, 0, GL_RGBA, GL_UNSIGNED_BYTE, (ByteBuffer) null);
         GL30.glGenerateMipmap(GL_TEXTURE_2D);
         GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
         GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -511,10 +515,11 @@ final class HeldMap {
         GL30.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, drawTo);
         GL30.glBindFramebuffer(GL_READ_FRAMEBUFFER, readFrom);
         sides[player] = side;
+        talls[player] = tall;
         if (status != GL_FRAMEBUFFER_COMPLETE) {
             return "the driver would not make the picture it is drawn into (status 0x" + Integer.toHexString(status) + ")";
         }
-        Log.info("player " + (player + 1) + "'s held map picture is made, " + side + "x" + side);
+        Log.info("player " + (player + 1) + "'s held map picture is made, " + side + "x" + tall);
         return null;
     }
 
@@ -524,7 +529,7 @@ final class HeldMap {
         }
         GL30.glDeleteFramebuffers(target[player]);
         GL11.glDeleteTextures(texture[player]);
-        texture[player] = target[player] = sides[player] = 0;
+        texture[player] = target[player] = sides[player] = talls[player] = 0;
         Log.info("player " + (player + 1) + "'s held map picture is given back to the graphics card");
     }
 
