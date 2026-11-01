@@ -47,6 +47,10 @@ final class Tracking {
     /** Set once Project Viewpoint has started: see viewpointStarted. */
     private static volatile boolean viewpoint;
 
+    static boolean viewpointRunning() {
+        return viewpoint;
+    }
+
     private static CameraUnlock core;
     private static Config config;
     private static CameraUnlock.Settings settings;

@@ -61,7 +61,8 @@ import zombie.vehicles.VehiclePart;
  *
  * Home starts a fire where the reticle is, or a few paces ahead of a player not in first
  * person: for seeing the flames, their light and smoke without finding a stove left on. It
- * burns and spreads as any fire in the game does.
+ * burns and spreads as any fire in the game does. While Project Viewpoint runs Home starts
+ * nothing, as it is CycleQualityKeyBesideViewpoint's default.
  *
  * End holds the weather at the next of clear, rainy, snowy and stormy, and round
  * again, over whatever the season key holds. Snowy lays snow over the whole ground. Stormy is
@@ -281,7 +282,7 @@ public final class DevKeys {
         String told = null;
         if (!said) {
             said = true;
-            Log.info("development build: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 puts the clock on an hour and 8 puts it back one, Backspace holds the next season of spring, summer, autumn and winter, End holds the next weather of clear, rainy, snowy and stormy, Home starts a fire where the reticle is, ; gives the next of the game's firearms, any gun held never runs dry, [ gives a hunting rifle with the next of the three scopes on it, / gives a lit flashlight, Up arrow puts the graphics at Low and High in turn, ' makes you invincible, Down arrow takes the nearest vehicle, Right arrow and Left arrow give the next and the last of a .44 pistol, a pump shotgun and an automatic rifle, Shift with them goes to the next and the last test scene, Pause dumps the frame and the shadow maps");
+            Log.info("development build: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 puts the clock on an hour and 8 puts it back one, Backspace holds the next season of spring, summer, autumn and winter, End holds the next weather of clear, rainy, snowy and stormy, Home starts a fire where the reticle is unless Project Viewpoint runs, ; gives the next of the game's firearms, any gun held never runs dry, [ gives a hunting rifle with the next of the three scopes on it, / gives a lit flashlight, Up arrow puts the graphics at Low and High in turn, ' makes you invincible, Down arrow takes the nearest vehicle, Right arrow and Left arrow give the next and the last of a .44 pistol, a pump shotgun and an automatic rifle, Shift with them goes to the next and the last test scene, Pause dumps the frame and the shadow maps");
         }
         if (GameKeyboard.isKeyPressed(FRAME_DUMP_KEY)) {
             FrameDump.ask();
@@ -362,7 +363,7 @@ public final class DevKeys {
             lie(lying());
             told = "Weather: " + WEATHERS[weather].name();
         }
-        if (GameKeyboard.isKeyPressed(FIRE_KEY)) {
+        if (GameKeyboard.isKeyPressed(FIRE_KEY) && !Tracking.viewpointRunning()) {
             for (IsoPlayer each : players) {
                 startFire(each);
             }
