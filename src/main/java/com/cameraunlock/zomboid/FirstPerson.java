@@ -616,6 +616,7 @@ public final class FirstPerson {
             view.crosshair.hide();
             view.crosshair.hideSquare();
             view.crosshair.point(null);
+            view.hitDirection.hide();
             view.dragAim.aimed.forget();
             view.dragAim.ghost.clear();
             reticleOnScreen = false;
@@ -1024,6 +1025,7 @@ public final class FirstPerson {
             view.viewModel.rest();
             view.crosshair.hide();
             view.crosshair.point(null);
+            view.hitDirection.hide();
             reticleOnScreen = false;
             view.nameTags.lookAway();
             view.hearing.rest();
@@ -1184,6 +1186,11 @@ public final class FirstPerson {
         float drawnAspect = view.worldScene.drawnAspect();
         pointersLevel = (int) Math.floor(player.getZ());
         view.crosshair.point(drawnAspect == 0f ? null : Homing.pointers(player.getIndex(), trackedView, pictureTanHalf, drawnAspect, pointersFloor));
+        if (drawnAspect == 0f) {
+            view.hitDirection.hide();
+        } else {
+            view.hitDirection.look(player, trackedView, pictureTanHalf * drawnAspect, drawnAspect, now);
+        }
 
         if (TRACE) {
             trace(player, scene, zoom);

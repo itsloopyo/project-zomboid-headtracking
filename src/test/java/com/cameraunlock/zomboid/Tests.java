@@ -295,6 +295,7 @@ public final class Tests {
         Checks.run("CapsuleTests", CapsuleTests::run);
         Checks.run("RagdollTests", RagdollTests::run);
         Checks.run("KickTests", KickTests::run);
+        Checks.run("HitArcsTests", HitArcsTests::run);
         Checks.run("SelfLoaderTests", SelfLoaderTests::run);
         Checks.run("MeleeFeelTests", MeleeFeelTests::run);
         Checks.run("BodyLedTests", BodyLedTests::run);

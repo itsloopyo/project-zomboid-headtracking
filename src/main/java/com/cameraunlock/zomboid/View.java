@@ -35,6 +35,7 @@ final class View {
     final Headlights headlights = new Headlights();
     final TorchLess torchLess;
     final Crosshair crosshair = new Crosshair();
+    final HitDirection hitDirection = new HitDirection();
     final Ride ride = new Ride();
     final KerbSteps kerbSteps = new KerbSteps();
     final BodyLed bodyLed = new BodyLed();

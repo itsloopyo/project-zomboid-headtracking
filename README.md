@@ -38,6 +38,7 @@ Press `Delete` to switch between the isometric view and first person, on foot or
 - **Weapons** - custom arms and hands, melee swings, recoil, and reloads with working bolts, levers, cylinders and break actions. Medium and High add new shotgun, rifle, pistol and revolver models and magnified scopes.
 - **Hits where you aim** - shots hit the body part under the reticle and jolt zombies along the line of fire. Offline, shot limbs go limp or come off, and a killing head shot can take the head off, which a shotgun up close usually does.
 - **Impacts** - dust, splinters, sparks, blood and bullet holes in Medium and High.
+- **Hit direction** - in first person, when something hits you or a zombie goes for you, a red arc at the edge of the view points to where it is, and follows it as you turn while it fades. A zombie within two tiles that you can't see puts a faint red glow on that edge, strongest when it's right behind you. Untick **Hit direction** in the options to turn both off.
 - **Shots through walls** - offline and on servers without PvP, shots go through plasterboard, wood, doors and glass, losing damage each time. Brick, concrete, metal and barricades stop them. A broad-leaved tree only stops a shot at its trunk, not across its whole tile.
 - **Shoot out lights** - offline, shots break vehicle lights and table, wall and street lamps.
 - **Shoot out windows** - offline, a shot breaks every closed window it passes through.
@@ -68,6 +69,7 @@ In split screen and on servers without PvP, other players are drawn as far away 
 On a server with PvP on, the mod holds back anything that could decide a fight between players:
 
 - Other players only show up where the game itself would show them, and a shot at a player hits whatever body part the game rolls.
+- A player who hits you is only pointed to by the hit direction arc while the game itself shows you that player. Zombies are pointed to as usual.
 - With a gun's sights up, sideways lean fades out, so leaning never changes where a shot starts from.
 - Hill height is fixed at 1, all the grass is grown, and zombies and props are drawn at full distance, whatever your settings.
 - Fog is as thick as in the game's own view.
@@ -539,6 +541,11 @@ QuickRagdolls=true
 ; true: a zombie shot in first person that stays on its feet reacts where the bullet hit: its head snaps back or
 ; its shoulder spins round. false: it plays only the game's own stagger.
 HitFlinch=true
+; true: in first person, a red arc at the edge of the view points to whoever hits you or a zombie that goes for you, and
+; follows them as you turn while it fades, and a zombie within two tiles that you cannot see puts a faint red glow
+; on the edge it is on. Where players can hurt each other, a player who hits you is pointed to only while the game
+; shows you that player. false: neither.
+HitDirection=true
 ; true: in first person, when you are knocked over, lie down, get up or die, the view follows your character's
 ; head. false: the mouse keeps the view while the game moves the body, and when you die the view stays where it was.
 HeadLedViewWhenDown=true

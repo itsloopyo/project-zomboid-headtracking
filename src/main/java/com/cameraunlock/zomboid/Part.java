@@ -47,6 +47,11 @@ enum Part {
     HIT_FLINCH("FirstPerson", "HitFlinch", true, false,
             "true: a zombie shot in first person that stays on its feet reacts where the bullet hit: its head snaps back or\n"
                     + "its shoulder spins round. false: it plays only the game's own stagger."),
+    HIT_DIRECTION("FirstPerson", "HitDirection", true, false,
+            "true: in first person, a red arc at the edge of the view points to whoever hits you or a zombie that goes for you, and\n"
+                    + "follows them as you turn while it fades, and a zombie within two tiles that you cannot see puts a faint red glow\n"
+                    + "on the edge it is on. Where players can hurt each other, a player who hits you is pointed to only while the game\n"
+                    + "shows you that player. false: neither."),
     HEAD_LED_VIEW_WHEN_DOWN("FirstPerson", "HeadLedViewWhenDown", true, false,
             "true: in first person, when you are knocked over, lie down, get up or die, the view follows your character's\n"
                     + "head. false: the mouse keeps the view while the game moves the body, and when you die the view stays where it was."),

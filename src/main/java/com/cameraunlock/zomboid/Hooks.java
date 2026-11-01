@@ -577,6 +577,17 @@ public final class Hooks {
         return aimedPart != HitPart.NONE ? aimedPart : ballistics.getCachedTargetedBodyPart(id);
     }
 
+    /** Called as IsoPlayer.hitConsequences begins: a player has been hit by another character, a player or an animal. */
+    public static void playerHit(IsoPlayer victim, IsoGameCharacter attacker) {
+        if (attacker == null || attacker == victim || !Part.HIT_DIRECTION.on()) {
+            return;
+        }
+        View view = View.of(victim);
+        if (view != null && view.firstPerson.isOn()) {
+            view.hitDirection.hitBy(attacker, System.nanoTime());
+        }
+    }
+
     /** What first person shots have done to zombies' limbs. */
     static final Wounds wounds = new Wounds();
 

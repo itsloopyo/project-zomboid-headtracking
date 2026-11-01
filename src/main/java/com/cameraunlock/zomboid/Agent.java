@@ -823,6 +823,13 @@ public final class Agent {
                             code.iload(5);
                             CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "zombieHit", "(L" + zombie + ";Lzombie/inventory/types/HandWeapon;" + character + "FZ)V"));
                         })),
+                // Where a player takes a hit from another character, a player's or an animal's, local or sent by a server.
+                new Patch(PLAYER, "hitConsequences at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
+                        new CallSite.Method(PLAYER, "hitConsequences", "(Lzombie/inventory/types/HandWeapon;" + character + "ZFZ)V"), code -> {
+                            code.aload(0);
+                            code.aload(2);
+                            CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "playerHit", "(L" + PLAYER + ";" + character + ")V"));
+                        })),
                 // The game forgets a highlighted object it draws into a chunk's texture once it has
                 // drawn it there, and keeps only the object's flag: Outlines keeps its own list.
                 new Patch(HIGHLIGHT, "registerObject and unregisterObject at their starts", classBytes -> {
