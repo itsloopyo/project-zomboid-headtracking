@@ -39,13 +39,18 @@ final class InteractLabel {
     /** What the line was last worded from, so it is worded again only when that changes. */
     private CentreUse.Use wordedTap, wordedHold;
     private String wordedKey, worded;
+    /** What the key's name was last made from: the player's binding, or the controller's button. */
+    private boolean keyOnController;
+    private Core.KeyBinding keyBinding;
+    private JoypadButton keyButton;
+    private String keyText;
 
     /**
      * Takes what a tap and a hold of the key would do this frame, either null for nothing.
      * Logic thread.
      */
     void update(CentreUse.Use tap, CentreUse.Use hold, IsoPlayer player, long now) {
-        String key = tap == null && hold == null ? null : keyName(player);
+        String key = tap == null && hold == null ? null : key(player);
         if (!same(tap, wordedTap) || !same(hold, wordedHold) || !Objects.equals(key, wordedKey)) {
             wordedTap = tap;
             wordedHold = hold;
@@ -138,15 +143,30 @@ final class InteractLabel {
         return name == null || name.equals(GameEntity.getDefaultEntityDisplayName()) ? Translator.getTextOrNull("Entity_Open_Window") : name;
     }
 
-    /** The Interact key as the player has it bound, or the controller's button for it, or null where it is bound to neither. */
-    private static String keyName(IsoPlayer player) {
+    /**
+     * The Interact key as the player has it bound, or the controller's button for it, or null
+     * where it is bound to neither. Named again only when the binding changes.
+     */
+    private String key(IsoPlayer player) {
         if (View.onController(player)) {
             JoypadButton button = CharacterJoypadButtonBinding.Interact.getJoypadButton();
-            return button == null ? null : Translator.getText(button.getNameTranslationKey());
+            if (!keyOnController || button != keyButton) {
+                keyOnController = true;
+                keyButton = button;
+                keyBinding = null;
+                keyText = button == null ? null : Translator.getText(button.getNameTranslationKey());
+            }
+            return keyText;
         }
         Core.KeyBinding binding = Core.getInstance().getKeyBinding(BINDING);
-        int code = binding.keyValue() != 0 ? binding.keyValue() : binding.altKey();
-        return code == 0 ? null : keyName(binding, code);
+        if (keyOnController || !binding.equals(keyBinding)) {
+            keyOnController = false;
+            keyButton = null;
+            keyBinding = binding;
+            int code = binding.keyValue() != 0 ? binding.keyValue() : binding.altKey();
+            keyText = code == 0 ? null : keyName(binding, code);
+        }
+        return keyText;
     }
 
     /**
