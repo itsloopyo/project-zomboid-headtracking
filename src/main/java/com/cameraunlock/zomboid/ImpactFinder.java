@@ -65,7 +65,7 @@ final class ImpactFinder {
     private static IsoCell fenceCell;
     private static Terrain fenceLand;
     private static IsoGameCharacter fenceShooter;
-    private static float fenceSize;
+    private static float fenceSize, fenceDistance;
 
     private ImpactFinder() {}
 
@@ -311,6 +311,7 @@ final class ImpactFinder {
         fenceLand = terrain;
         fenceShooter = shooter;
         fenceSize = size;
+        fenceDistance = distance;
         fences.firstBlockedEdge(overFence, line.eyeX, line.eyeY, line.forwardX, line.forwardY, distance);
         fenceCell = null;
         fenceLand = null;
@@ -327,9 +328,13 @@ final class ImpactFinder {
         IsoGridSquare owner = level < 0 ? null : fenceCell.getGridSquare(Math.max(fromX, toX), Math.max(fromY, toY), level);
         IsoObject fence = owner == null ? null : BlastHoles.lowFenceOn(owner, north);
         if (fence == null) {
+            IsoObject pickets = owner == null ? null : ModelFences.picketsOn(owner, north);
+            if (pickets != null) {
+                pickets(pickets, owner, north, level);
+            }
             return false;
         }
-        float levelsUp = (up - fenceLand.height(owner.getX() + 0.5f, owner.getY() + 0.5f)) / ViewCamera.LEVEL_HEIGHT - level;
+        float levelsUp = WorldQuery.overEdgeFloor(up, owner, level, fenceLand::height);
         float along = north ? x - owner.getX() : y - owner.getY();
         if (!(levelsUp > 0f && levelsUp < BlastHoles.topOf(fence)) || BlastHoles.through(fence, north, along, levelsUp)) {
             return false;
@@ -351,11 +356,49 @@ final class ImpactFinder {
                     BlastHoles.slant(north ? line.forwardX : line.forwardY, across), BlastHoles.slant(line.forwardUp, across));
             Blasts.fellOut(fence, north, before, outOf(outX, outY, outUp, normalX, normalY, outFloor, kind, north), along, levelsUp);
         }
-        add(line.eyeX + line.forwardX * skin, line.eyeY + line.forwardY * skin, inUp, normalX, normalY, 0f, line.forwardX, line.forwardY, line.forwardUp,
-                Math.min(floor, inUp), kind, fenceSize, Impacts.holed(kind), north ? 1f : 0f, north ? 0f : 1f, 0f);
+        Impacts.Struck rim = add(line.eyeX + line.forwardX * skin, line.eyeY + line.forwardY * skin, inUp, normalX, normalY, 0f, line.forwardX, line.forwardY,
+                line.forwardUp, Math.min(floor, inUp), kind, fenceSize, Impacts.holed(kind), north ? 1f : 0f, north ? 0f : 1f, 0f);
+        if (fenceSize == PELLET ? blasts(fenceShooter) : holes(fenceShooter)) {
+            BlastHoles.rim(fence, rim);
+        }
         add(outX, outY, outUp, -normalX, -normalY, 0f, line.forwardX, line.forwardY, line.forwardUp,
                 Math.min(outFloor, outUp), kind, fenceSize, false, north ? 1f : 0f, north ? 0f : 1f, 0f);
         return false;
+    }
+
+    private static final float[] picketHit = new float[ModelFences.HIT_FLOATS];
+
+    /**
+     * A shot crossed the edge a picket fence the picture stands as a model stands on (ModelFences): where its line meets
+     * a picket or a rail before the end of the stretch lowFencesAlong follows, it leaves its mark on the near face and on
+     * the far one, and throws splinters off both; through a gap between pickets it meets nothing. The game sends shots on
+     * over such a fence, and it stops none of them. The picture does not cut the model, so the marks stand for the hole:
+     * those of the viewer's own shots are kept with the fence, as a round's hole would be (BlastHoles.rim).
+     */
+    private static void pickets(IsoObject fence, IsoGridSquare owner, boolean north, int level) {
+        ModelFences.Fence shape = ModelFences.of(fence.getSprite().getName());
+        float raised = fence.getRenderYOffset() / WorldScene.SURFACE_PIXELS_PER_LEVEL;
+        float foot = ModelFences.foot(fenceLand, owner.getX(), owner.getY(), level, raised, north);
+        if (!ModelFences.struck(shape, owner.getX(), owner.getY(), north, foot, line, fenceDistance, picketHit)) {
+            return;
+        }
+        boolean kept = fenceSize == PELLET ? blasts(fenceShooter) : holes(fenceShooter);
+        float[] h = picketHit;
+        if (DevBuild.ON) {
+            Log.info(String.format(java.util.Locale.ROOT, "a shot met the pickets of the %s on the %s edge of (%d, %d, %d) at (%.3f, %.3f, %.3f), out at (%.3f, %.3f, %.3f), kept %b",
+                    fence.getSprite().getName(), north ? "north" : "west", owner.getX(), owner.getY(), level, h[0], h[1], h[2],
+                    h[ModelFences.FACE_FLOATS], h[ModelFences.FACE_FLOATS + 1], h[ModelFences.FACE_FLOATS + 2], kept));
+        }
+        for (int face = 0; face < 2; face++) {
+            int at = face * ModelFences.FACE_FLOATS;
+            float x = h[at], y = h[at + 1], up = h[at + 2];
+            float floor = level * ViewCamera.LEVEL_HEIGHT + fenceLand.height(x + h[at + 3] * FALLS_OUT, y + h[at + 4] * FALLS_OUT);
+            Impacts.Struck rim = add(x, y, up, h[at + 3], h[at + 4], h[at + 5], line.forwardX, line.forwardY, line.forwardUp, Math.min(floor, up),
+                    Impacts.WOOD, fenceSize, true, h[ModelFences.GRAIN], h[ModelFences.GRAIN + 1], h[ModelFences.GRAIN + 2]);
+            if (kept) {
+                BlastHoles.rim(fence, rim);
+            }
+        }
     }
 
     /** The most walls a round is followed through, to what it ends in or to a character. A round's budget gets through fewer than this. */
@@ -525,13 +568,19 @@ final class ImpactFinder {
             float outX = line.eyeX + line.forwardX * (distance + out), outY = line.eyeY + line.forwardY * (distance + out);
             float outUp = line.eyeUp + line.forwardUp * (distance + out);
             float outFloor = level * ViewCamera.LEVEL_HEIGHT + terrain.height(outX - normalX * FALLS_OUT, outY - normalY * FALLS_OUT);
+            // The rim round where it struck is kept with what it leaves there, a hole or a pellet's part in a blast (BlastHoles.rim).
+            boolean kept = round > 0f;
             if (post == null && struck != null && size == PELLET && blasts(shooter) && BlastHoles.blastable(struck)) {
                 // A blast's pellets are settled together once the tick is over: a hole they blow takes the place of their own.
                 Blasts.pellet(shooter, struck, north, along, levelsUp, side, round, slantAlong, slantUp, outOf(outX, outY, outUp, normalX, normalY, outFloor, kind, north));
                 round = 0f;
+                kept = true;
             }
-            add(x, y, up, normalX, normalY, 0f, line.forwardX, line.forwardY, line.forwardUp, Math.min(floor, up), kind, size, hole,
+            Impacts.Struck rim = add(x, y, up, normalX, normalY, 0f, line.forwardX, line.forwardY, line.forwardUp, Math.min(floor, up), kind, size, hole,
                     north ? 1f : 0f, north ? 0f : 1f, 0f);
+            if (kept) {
+                BlastHoles.rim(struck, rim);
+            }
             if (!through) {
                 roundLeft = 0f;
                 return false;
@@ -594,12 +643,14 @@ final class ImpactFinder {
                 north ? 1f : 0f, north ? 0f : 1f, 0f);
     }
 
-    private static void add(float x, float y, float up, float normalX, float normalY, float normalUp, float wayX, float wayY, float wayUp,
+    private static Impacts.Struck add(float x, float y, float up, float normalX, float normalY, float normalUp, float wayX, float wayY, float wayUp,
             float floor, int kind, float size, boolean hole, float grainX, float grainY, float grainUp) {
-        Impacts.add(new Impacts.Struck(x, y, up, normalX, normalY, normalUp, wayX, wayY, wayUp, floor, kind, size, hole, grainX, grainY, grainUp));
+        Impacts.Struck struck = new Impacts.Struck(x, y, up, normalX, normalY, normalUp, wayX, wayY, wayUp, floor, kind, size, hole, grainX, grainY, grainUp);
+        Impacts.add(struck);
         if (FirstPerson.TRACE) {
             Log.info(String.format(java.util.Locale.ROOT, "impact: kind %d at (%.2f, %.2f, %.2f) facing (%.2f, %.2f, %.2f) floor %.2f size %.2f hole %b",
                     kind, x, y, up, normalX, normalY, normalUp, floor, size, hole));
         }
+        return struck;
     }
 }

@@ -39,6 +39,10 @@ import zombie.util.list.PZArrayList;
  * and for a round's hole saved before these were kept). A door's are measured on the leaf as it hangs
  * shut, and laid on the leaf as it stands swung open (OpeningBuilder.addBuiltDoor). A fence's
  * marks are the decals the picture lays over the world (Impacts), as a wall's are.
+ *
+ * The dark rims Impacts lays round where a round or a blast's pellets struck what they holed or
+ * marked are kept the same way, under their own key (rim), and laid again as the chunk loads,
+ * so that a hole read back from a save has the rim it was shot with.
  */
 final class BlastHoles {
     private BlastHoles() {}
@@ -287,6 +291,9 @@ final class BlastHoles {
                 PZArrayList<IsoObject> objects = square.getObjects();
                 for (int k = 0; k < objects.size(); k++) {
                     IsoObject object = objects.get(k);
+                    if (object.hasModData() && object.getModData().rawget(RIMS_KEY) instanceof String rims) {
+                        restoreRims(object, rims, square);
+                    }
                     if (object.hasModData() && object.getModData().rawget(KEY) instanceof String saved) {
                         keepSaved(object, saved, square);
                         west |= i % WorldScene.CHUNK_TILES == 0;
@@ -337,6 +344,112 @@ final class BlastHoles {
 
     /** Whether a save's list of holes that could not be read has been said this session. */
     private static boolean malformedSaid;
+
+    /**
+     * Lays again the rims a save holds on an object (Impacts.restore). A list that cannot be read is
+     * said once in the log and laid not at all, as a list of holes is (keepSaved).
+     */
+    private static void restoreRims(IsoObject object, String saved, IsoGridSquare square) {
+        float[] rims;
+        try {
+            rims = parseRims(saved);
+        } catch (IllegalArgumentException malformed) {
+            if (!malformedRimsSaid) {
+                malformedRimsSaid = true;
+                Log.error(String.format(Locale.ROOT, "the rims round the holes saved on %s at (%d, %d, %d) are left undrawn, and so are any others saved the same way",
+                        object.getSprite() == null ? "a thing" : object.getSprite().getName(), square.getX(), square.getY(), square.getZ()), malformed);
+            }
+            return;
+        }
+        for (int at = 0; at < rims.length; at += RIM_FLOATS) {
+            Impacts.restore(rimAt(rims, at));
+        }
+        if (DevBuild.ON) {
+            Log.info(String.format(Locale.ROOT, "handed Impacts the %d rims saved on %s at (%d, %d, %d) to lay again", rims.length / RIM_FLOATS,
+                    object.getSprite() == null ? "a thing" : object.getSprite().getName(), square.getX(), square.getY(), square.getZ()));
+        }
+    }
+
+    private static boolean malformedRimsSaid;
+
+    /** The hole Impacts draws for the rim at place at of a list. */
+    static Impacts.Struck rimAt(float[] rims, int at) {
+        float x = rims[at], y = rims[at + 1], up = rims[at + 2];
+        return new Impacts.Struck(x, y, up, rims[at + 3], rims[at + 4], rims[at + 5], 0f, 0f, 0f, up, (int) rims[at + 6], rims[at + 7], true,
+                rims[at + 8], rims[at + 9], rims[at + 10]);
+    }
+
+    /**
+     * Keeps the rim Impacts lays where a shot struck an object it holed or marked (a hole it drew),
+     * past MOST_RIMS letting go of the oldest, in the object's mod data. Nothing while ShotImpacts is
+     * off, which lays none. Logic thread.
+     */
+    static void rim(IsoObject object, Impacts.Struck struck) {
+        if (!struck.hole() || !Part.SHOT_IMPACTS.on()) {
+            return;
+        }
+        KahluaTable data = object.getModData();
+        float[] was = new float[0];
+        if (data.rawget(RIMS_KEY) instanceof String saved) {
+            try {
+                was = parseRims(saved);
+            } catch (IllegalArgumentException malformed) {
+                // Said as its chunk loaded (restoreRims), and drawn not at all: the new rim starts the list again.
+            }
+        }
+        data.rawset(RIMS_KEY, writeRims(withRim(was, struck)));
+    }
+
+    /** The rims with one more, the oldest given up past MOST_RIMS. */
+    static float[] withRim(float[] rims, Impacts.Struck struck) {
+        int keep = Math.min(rims.length, (MOST_RIMS - 1) * RIM_FLOATS);
+        float[] out = new float[keep + RIM_FLOATS];
+        System.arraycopy(rims, rims.length - keep, out, 0, keep);
+        float[] rim = {struck.x(), struck.y(), struck.up(), struck.normalX(), struck.normalY(), struck.normalUp(), struck.kind(), struck.size(),
+                struck.grainX(), struck.grainY(), struck.grainUp()};
+        System.arraycopy(rim, 0, out, keep, RIM_FLOATS);
+        return out;
+    }
+
+    static String writeRims(float[] rims) {
+        StringBuilder out = new StringBuilder(RIMS);
+        for (int i = 0; i < rims.length; i++) {
+            if (i > 0) {
+                out.append(',');
+            }
+            out.append(rims[i]);
+        }
+        return out.toString();
+    }
+
+    /** What a save holds of the rims, RIM_FLOATS numbers a rim. */
+    static float[] parseRims(String saved) {
+        if (!saved.startsWith(RIMS)) {
+            throw new IllegalArgumentException("rims saved without the " + RIMS + " they start with: " + saved);
+        }
+        String list = saved.substring(RIMS.length());
+        String[] words = list.isEmpty() ? new String[0] : list.split(",");
+        if (words.length % RIM_FLOATS != 0) {
+            throw new IllegalArgumentException("rims saved as " + words.length + " numbers, not " + RIM_FLOATS + " a rim: " + saved);
+        }
+        if (words.length / RIM_FLOATS > MOST_RIMS) {
+            throw new IllegalArgumentException("rims saved as " + words.length / RIM_FLOATS + " rims, more than an object keeps");
+        }
+        float[] rims = new float[words.length];
+        for (int i = 0; i < words.length; i++) {
+            rims[i] = Float.parseFloat(words[i]);
+            if (!Float.isFinite(rims[i])) {
+                throw new IllegalArgumentException("rims saved with " + words[i] + " among their numbers: " + saved);
+            }
+        }
+        for (int at = 0; at < rims.length; at += RIM_FLOATS) {
+            float kind = rims[at + 6], size = rims[at + 7];
+            if (kind != (int) kind || kind < 0f || kind >= Impacts.KINDS || !(size > 0f && size <= 2f)) {
+                throw new IllegalArgumentException("rims saved with one no shot lays: " + saved);
+            }
+        }
+        return rims;
+    }
 
     /** What a save holds, FLOATS numbers a hole; one saved before the slant was kept, OLD_FLOATS a hole, is read as cut straight across. */
     static float[] parse(String saved) {

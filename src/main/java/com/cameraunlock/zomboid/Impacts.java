@@ -2,6 +2,7 @@ package com.cameraunlock.zomboid;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import zombie.core.properties.PropertyContainer;
 import zombie.iso.SpriteDetails.IsoFlagType;
 import zombie.iso.sprite.IsoSprite;
@@ -16,7 +17,9 @@ import zombie.iso.sprite.IsoSprite;
  * frame: what flies is worked out on the graphics card from how long ago the shot struck. A shot
  * fired while no frame takes them, as in the game's own view, has thrown up what it will by its
  * own clock and not the frame's, and first person shows what is left of it, its hole at least.
- * Holes are kept for as long as the save is played, the oldest given up past MOST_HOLES.
+ * Holes are kept for as long as the save is played, the oldest given up past MOST_HOLES. Those
+ * round what BlastHoles keeps of a shot are saved with it, and are laid again as their chunk
+ * loads (restore).
  */
 final class Impacts {
     /** What a surface is made of, as far as what a shot knocks out of it goes. */
@@ -39,8 +42,20 @@ final class Impacts {
     record Struck(float x, float y, float up, float normalX, float normalY, float normalUp, float wayX, float wayY, float wayUp,
             float floor, int kind, float size, boolean hole, float grainX, float grainY, float grainUp) {}
 
-    /** A shot that struck and when, by System.nanoTime. */
-    private record Added(Struck struck, long at) {}
+    /** A shot that struck and when, by System.nanoTime; restored for a hole laid again from a save, which throws up nothing. */
+    private record Added(Struck struck, long at, boolean restored) {}
+
+    /** What of a hole the picture draws (ImpactDraw.makeHoles): the same for a hole saved and read back as for the one shot. */
+    private record Drawn(float x, float y, float up, float normalX, float normalY, float normalUp, int kind, float size, float grainX, float grainY,
+            float grainUp) {
+        static Drawn of(Struck struck) {
+            return new Drawn(struck.x(), struck.y(), struck.up(), struck.normalX(), struck.normalY(), struck.normalUp(), struck.kind(), struck.size(),
+                    struck.grainX(), struck.grainY(), struck.grainUp());
+        }
+    }
+
+    /** What of each hole in the ring is drawn, so that one its chunk lays again as it loads once more is not laid twice. Render thread. */
+    private static final HashSet<Drawn> inRing = new HashSet<>();
 
     private static final ArrayList<Added> added = new ArrayList<>();
 
@@ -64,6 +79,21 @@ final class Impacts {
      * more are held than there are places for holes, and none while ShotImpacts is off.
      */
     static void add(Struck struck) {
+        queue(struck, false);
+    }
+
+    /**
+     * A hole saved round a shot's hole (BlastHoles.rim), laid again as its chunk has loaded: kept
+     * as a hole, unless the ring holds it already, and throwing up nothing. Any thread.
+     */
+    static void restore(Struck struck) {
+        if (!struck.hole()) {
+            throw new IllegalArgumentException("only a hole is laid again from a save: " + struck);
+        }
+        queue(struck, true);
+    }
+
+    private static void queue(Struck struck, boolean restored) {
         if (!Part.SHOT_IMPACTS.on()) {
             return;
         }
@@ -72,7 +102,7 @@ final class Impacts {
             if (added.size() == MOST_HOLES) {
                 added.removeFirst();
             }
-            added.add(new Added(struck, at));
+            added.add(new Added(struck, at, restored));
         }
     }
 
@@ -85,14 +115,15 @@ final class Impacts {
             boolean on = Part.SHOT_IMPACTS.on();
             // Switched off, the holes go too, as the game's own view has none, and do not come back when it is on again.
             if (marking && !on) {
+                added.clear();
                 forgotten = true;
             }
             marking = on;
             if (forgotten) {
                 forgotten = false;
-                added.clear();
                 Arrays.fill(held, null);
                 Arrays.fill(holes, null);
+                inRing.clear();
                 holeCount = 0;
                 nextHole = 0;
                 holesChanged++;
@@ -100,27 +131,50 @@ final class Impacts {
             for (int i = 0; i < added.size(); i++) {
                 Added each = added.get(i);
                 Struck struck = each.struck();
+                if (each.restored()) {
+                    if (!inRing.contains(Drawn.of(struck))) {
+                        ring(struck);
+                    }
+                    continue;
+                }
                 held[next] = struck;
                 born[next] = each.at();
                 serial[next] = ++numbered;
                 next = (next + 1) % MOST;
                 if (struck.hole()) {
-                    holes[nextHole] = struck;
-                    nextHole = (nextHole + 1) % MOST_HOLES;
-                    holeCount = Math.min(holeCount + 1, MOST_HOLES);
-                    holesChanged++;
+                    ring(struck);
                 }
             }
             added.clear();
         }
     }
 
+    /** Keeps a hole in the ring, past MOST_HOLES in place of the oldest. Render thread. */
+    private static void ring(Struck hole) {
+        Struck gone = holes[nextHole];
+        if (gone != null) {
+            inRing.remove(Drawn.of(gone));
+        }
+        holes[nextHole] = hole;
+        inRing.add(Drawn.of(hole));
+        nextHole = (nextHole + 1) % MOST_HOLES;
+        holeCount = Math.min(holeCount + 1, MOST_HOLES);
+        holesChanged++;
+    }
+
     /** Set when the save the impacts and holes were in has been left, for the render thread to forget them. */
     private static volatile boolean forgotten;
 
-    /** The save has been left: what struck in it is forgotten before the next frame is drawn. Any thread. */
+    /**
+     * The save has been left: what struck in it is forgotten before the next frame is drawn, and
+     * what was shot and not yet taken goes now, so the holes the next save's chunks lay again as
+     * they load before that frame are kept. Any thread.
+     */
     static void forget() {
-        forgotten = true;
+        synchronized (added) {
+            added.clear();
+            forgotten = true;
+        }
     }
 
     private static boolean gapSaid;

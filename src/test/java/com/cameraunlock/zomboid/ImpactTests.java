@@ -283,8 +283,9 @@ final class ImpactTests {
         Impacts.add(struck(1f, true));
         Impacts.take();
         check(Impacts.holeCount > 0, "a hole is kept");
-        Impacts.forget();
+        // Shot as the save was left, and not yet taken by a frame.
         Impacts.add(struck(2f, true));
+        Impacts.forget();
         Impacts.take();
         check(Impacts.holeCount == 0, "a save left takes its holes and what was shot as it was left: " + Impacts.holeCount);
         for (int slot = 0; slot < Impacts.MOST; slot++) {
