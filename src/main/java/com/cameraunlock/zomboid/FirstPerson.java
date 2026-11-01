@@ -1687,7 +1687,7 @@ public final class FirstPerson {
         }
         float level = player.getZ();
         float aimedLevel = (aimedUp - view.worldScene.terrain.lift(aimedX, aimedY, level)) / ViewCamera.LEVEL_HEIGHT;
-        view.controls.aimAt(aimedX, aimedY, aimedLevel);
+        view.controls.aimAt(aimedX, aimedY, aimedLevel, shotDistance != Float.POSITIVE_INFINITY);
         // The game takes the square an attack is made at from what its own view has under the
         // pointer, and under this picture that is nothing. A shot that hits nobody is told
         // to the server by that square, and one with no square is thrown away there: nobody

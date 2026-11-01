@@ -23,7 +23,6 @@ import zombie.iso.IsoUtils;
 import zombie.iso.IsoWorld;
 import zombie.iso.Vector2;
 import zombie.iso.Vector3;
-import zombie.network.GameServer;
 import zombie.scripting.objects.PhysicsHitReactionScript;
 
 /**
@@ -55,6 +54,8 @@ public final class Controls {
 
     /** Where the clean aim meets the world, in the game's own axes: tiles and floor levels. */
     private float aimPointX, aimPointY, aimPointLevel;
+    /** Whether the aim met anything in reach when it was last placed: with nothing, the aim point is as far along the view as it reaches. */
+    private boolean aimPointMet;
     private final HitPart hitPart = new HitPart();
 
     /** A binding the game holds and what first person answers with in its place. */
@@ -381,10 +382,11 @@ public final class Controls {
      *
      * @param level the game's own height: floor levels above level 0
      */
-    void aimAt(float x, float y, float level) {
+    void aimAt(float x, float y, float level, boolean met) {
         aimPointX = x;
         aimPointY = y;
         aimPointLevel = level;
+        aimPointMet = met;
     }
 
     /**
@@ -393,14 +395,23 @@ public final class Controls {
      * a speed that carries the throw past that corner (Throws.carry), so the
      * square is the one whose corner lies that much short of the aim point.
      * Left to itself the game would throw at the square under the hidden pointer.
+     * With the aim on nothing in reach, at the sky, it is thrown as far as it
+     * goes the way the view faces: the aim point is then on the view's line,
+     * nearer the feet the higher the view looks.
      */
     void throwing(IsoPlayer player, HandWeapon weapon) {
         if (!view.firstPerson.lookCaptured() || player.getJoypadBind() != -1) {
             return;
         }
-        float carry = Throws.carry(GameServer.server ? 10 : PerformanceSettings.getLockFPS());
+        float carry = Throws.carry(PerformanceSettings.getLockFPS());
         float range = weapon.getMaxRange();
-        int x = Throws.square(player.getX(), aimPointX, range, carry), y = Throws.square(player.getY(), aimPointY, range, carry);
+        float aimedX = aimPointX, aimedY = aimPointY;
+        if (!aimPointMet) {
+            float yaw = view.firstPerson.yaw();
+            aimedX = player.getX() + (float) Math.cos(yaw) * range * carry;
+            aimedY = player.getY() + (float) Math.sin(yaw) * range * carry;
+        }
+        int x = Throws.square(player.getX(), aimedX, range, carry), y = Throws.square(player.getY(), aimedY, range, carry);
         IsoGridSquare square = null;
         for (int z = (int) Math.floor(player.getZ()); square == null && z >= 0; z--) {
             square = IsoWorld.instance.currentCell.getGridSquare(x, y, z);
@@ -409,7 +420,8 @@ public final class Controls {
             throw new IllegalStateException("no square at " + x + "," + y + " under level " + player.getZ() + " to throw at, within reach of the thrower");
         }
         player.setAttackTargetSquare(square);
-        Log.info("throw of " + weapon.getFullType() + " from " + player.getX() + "," + player.getY() + " aimed at " + aimPointX + "," + aimPointY
+        Log.info("throw of " + weapon.getFullType() + " from " + player.getX() + "," + player.getY() + " aimed at " + aimedX + "," + aimedY
+                + (aimPointMet ? "" : " (the aim on nothing in reach: as far as it goes)")
                 + ": square " + x + "," + y + "," + square.getZ() + " with a carry of " + carry);
     }
 
