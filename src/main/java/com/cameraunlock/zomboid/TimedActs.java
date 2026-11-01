@@ -123,10 +123,11 @@ final class TimedActs {
                 }
             }
             case DRINK -> {
-                // Up to the mouth and tipped, and kept there gulping, in the hand the game puts the drink in: the left, from
-                // a bottle (ISDrinkFluidAction), with nothing in the right.
+                // Up to the mouth and tipped, and kept there gulping, in the hand the game puts the drink in: the left whenever
+                // it has one there, from a bottle (ISDrinkFluidAction) and from a can, with a spoon or a fork in the right
+                // (ISEatFoodAction).
                 float lift = smooth(t / 0.6f);
-                boolean inLeft = leftItem && !rightItem;
+                boolean inLeft = leftItem;
                 Hand drinking = inLeft ? left : right;
                 float[] at = lerp(new float[] {0.11f, -0.16f, -0.37f}, new float[] {0.03f, -0.10f, -0.22f}, lift);
                 set(drinking, inLeft ? mirror(at) : at, inLeft ? mirror(HANDSHAKE_FINGERS) : HANDSHAKE_FINGERS, inLeft ? mirror(HANDSHAKE_PALM) : HANDSHAKE_PALM, GRIP);

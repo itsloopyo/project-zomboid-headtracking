@@ -104,8 +104,8 @@ final class TimedActsTests {
                             }
                         }
                     }
-                    // A drink the game puts in the left hand alone is drunk from the left.
-                    boolean leftDrinks = kind == TimedActs.DRINK && items == 2;
+                    // A drink the game puts in the left hand is drunk from the left.
+                    boolean leftDrinks = kind == TimedActs.DRINK && (items & 2) != 0;
                     check(leftDrinks ? working[1] > 0 && working[0] == 0 : working[0] > 0,
                             "the right hand is at work in every way of working, the left alone for a drink in the left: kind " + kind + " items " + items);
                     for (int side = 0; side < 2; side++) {
