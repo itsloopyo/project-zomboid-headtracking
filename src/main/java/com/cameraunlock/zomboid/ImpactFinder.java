@@ -315,20 +315,23 @@ final class ImpactFinder {
         float across = north ? line.forwardY : line.forwardX;
         float normal = -Math.signum(across), normalX = north ? 0f : normal, normalY = north ? normal : 0f;
         int side = across > 0f ? -1 : 1;
-        if (fenceSize == PELLET && blasts(fenceShooter)) {
-            Blasts.pellet(fenceShooter, fence, north, along, levelsUp, side, 0f, 0f, 0f);
-        } else if (fenceSize != PELLET && holes(fenceShooter)) {
-            BlastHoles.add(fence, north, along, levelsUp, BlastHoles.ROUND_RADIUS * fenceSize, BlastHoles.newSeed(), BlastHoles.ROUND * side,
-                    BlastHoles.slant(north ? line.forwardX : line.forwardY, across), BlastHoles.slant(line.forwardUp, across));
-        }
         int kind = Impacts.of(fence.getSprite(), false);
         float skin = Impacts.toSkin(crossed, across), out = crossed + WorldScene.WALL_HALF / Math.max(Math.abs(across), 0.1f);
         float floor = level * ViewCamera.LEVEL_HEIGHT + fenceLand.height(x + normalX * FALLS_OUT, y + normalY * FALLS_OUT);
         float inUp = line.eyeUp + line.forwardUp * skin, outUp = line.eyeUp + line.forwardUp * out;
+        float outFloor = level * ViewCamera.LEVEL_HEIGHT + fenceLand.height(x - normalX * FALLS_OUT, y - normalY * FALLS_OUT);
+        float outX = line.eyeX + line.forwardX * out, outY = line.eyeY + line.forwardY * out;
+        if (fenceSize == PELLET && blasts(fenceShooter)) {
+            Blasts.pellet(fenceShooter, fence, north, along, levelsUp, side, 0f, 0f, 0f, outOf(outX, outY, outUp, normalX, normalY, outFloor, kind, north));
+        } else if (fenceSize != PELLET && holes(fenceShooter)) {
+            Breakage.Pieces before = BlastHoles.fallen(fence, north);
+            BlastHoles.add(fence, north, along, levelsUp, BlastHoles.ROUND_RADIUS * fenceSize, BlastHoles.newSeed(), BlastHoles.ROUND * side,
+                    BlastHoles.slant(north ? line.forwardX : line.forwardY, across), BlastHoles.slant(line.forwardUp, across));
+            Blasts.fellOut(fence, north, before, outOf(outX, outY, outUp, normalX, normalY, outFloor, kind, north), along, levelsUp);
+        }
         add(line.eyeX + line.forwardX * skin, line.eyeY + line.forwardY * skin, inUp, normalX, normalY, 0f, line.forwardX, line.forwardY, line.forwardUp,
                 Math.min(floor, inUp), kind, fenceSize, Impacts.holed(kind), north ? 1f : 0f, north ? 0f : 1f, 0f);
-        float outFloor = level * ViewCamera.LEVEL_HEIGHT + fenceLand.height(x - normalX * FALLS_OUT, y - normalY * FALLS_OUT);
-        add(line.eyeX + line.forwardX * out, line.eyeY + line.forwardY * out, outUp, -normalX, -normalY, 0f, line.forwardX, line.forwardY, line.forwardUp,
+        add(outX, outY, outUp, -normalX, -normalY, 0f, line.forwardX, line.forwardY, line.forwardUp,
                 Math.min(outFloor, outUp), kind, fenceSize, false, north ? 1f : 0f, north ? 0f : 1f, 0f);
         return false;
     }
@@ -472,9 +475,14 @@ final class ImpactFinder {
             float cost = post != null ? Penetration.cost(post) : struck == null ? Penetration.STOPS : Penetration.costOf(struck);
             boolean through = cost < roundLeft;
             float round = post == null && through && holes(shooter) && BlastHoles.holedByRounds(struck) ? BlastHoles.ROUND_RADIUS * size : 0f;
+            // The far face, where what the round knocks through flies out along its way.
+            float out = WorldScene.WALL_HALF / Math.max(Math.abs(across), 0.1f);
+            float outX = line.eyeX + line.forwardX * (distance + out), outY = line.eyeY + line.forwardY * (distance + out);
+            float outUp = line.eyeUp + line.forwardUp * (distance + out);
+            float outFloor = level * ViewCamera.LEVEL_HEIGHT + terrain.height(outX - normalX * FALLS_OUT, outY - normalY * FALLS_OUT);
             if (post == null && struck != null && size == PELLET && blasts(shooter) && BlastHoles.blastable(struck)) {
                 // A blast's pellets are settled together once the tick is over: a hole they blow takes the place of their own.
-                Blasts.pellet(shooter, struck, north, along, levelsUp, side, round, slantAlong, slantUp);
+                Blasts.pellet(shooter, struck, north, along, levelsUp, side, round, slantAlong, slantUp, outOf(outX, outY, outUp, normalX, normalY, outFloor, kind, north));
                 round = 0f;
             }
             add(x, y, up, normalX, normalY, 0f, line.forwardX, line.forwardY, line.forwardUp, Math.min(floor, up), kind, size, hole,
@@ -485,13 +493,11 @@ final class ImpactFinder {
             }
             roundLeft -= cost;
             if (round > 0f) {
+                Breakage.Pieces before = BlastHoles.fallen(struck, north);
                 BlastHoles.add(struck, north, along, levelsUp, round, BlastHoles.newSeed(), BlastHoles.ROUND * side, slantAlong, slantUp);
+                Blasts.fellOut(struck, north, before, outOf(outX, outY, outUp, normalX, normalY, outFloor, kind, north), along, levelsUp);
             }
             // Out of the far face, splinters and dust thrown on along the round's way.
-            float out = WorldScene.WALL_HALF / Math.max(Math.abs(across), 0.1f);
-            float outX = line.eyeX + line.forwardX * (distance + out), outY = line.eyeY + line.forwardY * (distance + out);
-            float outUp = line.eyeUp + line.forwardUp * (distance + out);
-            float outFloor = level * ViewCamera.LEVEL_HEIGHT + terrain.height(outX - normalX * FALLS_OUT, outY - normalY * FALLS_OUT);
             add(outX, outY, outUp, -normalX, -normalY, 0f, line.forwardX, line.forwardY, line.forwardUp, Math.min(outFloor, outUp), kind, size, false,
                     north ? 1f : 0f, north ? 0f : 1f, 0f);
             return true;
@@ -531,6 +537,16 @@ final class ImpactFinder {
     /** Whether a round by this character that goes through a door, a wall or a fence leaves a hole: a player's in first person, where the rule holds. */
     private static boolean holes(IsoGameCharacter shooter) {
         return Rules.bulletHoles() && shooter instanceof IsoPlayer player && View.of(player) != null;
+    }
+
+    /**
+     * What a hole blown through a wall or fence on a north or west edge throws out of its far face,
+     * its near face facing (normalX, normalY), where the shot came out at (x, y, up) over that floor:
+     * the surface's pieces and dust, Blasts.BLOWN_OUT in size, along the line's way.
+     */
+    private static Impacts.Struck outOf(float x, float y, float up, float normalX, float normalY, float floor, int kind, boolean north) {
+        return new Impacts.Struck(x, y, up, -normalX, -normalY, 0f, line.forwardX, line.forwardY, line.forwardUp, Math.min(floor, up), kind, Blasts.BLOWN_OUT, false,
+                north ? 1f : 0f, north ? 0f : 1f, 0f);
     }
 
     private static void add(float x, float y, float up, float normalX, float normalY, float normalUp, float wayX, float wayY, float wayUp,

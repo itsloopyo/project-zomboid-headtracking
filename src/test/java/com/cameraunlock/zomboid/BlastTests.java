@@ -11,6 +11,7 @@ final class BlastTests {
 
     static void run() {
         Checks.run("aHoleTakesItsOwnAreaOutOfAFace", BlastTests::aHoleTakesItsOwnAreaOutOfAFace);
+        Checks.run("aPieceCutFreeBurstsOutOfTheFarFaceAcrossItselfAndWhatHadGoneDoesNot", BlastTests::aPieceCutFreeBurstsOutOfTheFarFaceAcrossItselfAndWhatHadGoneDoesNot);
         Checks.run("nothingIsLeftInsideAHole", BlastTests::nothingIsLeftInsideAHole);
         Checks.run("whatIsLeftOfAFaceHasNoCracks", BlastTests::whatIsLeftOfAFaceHasNoCracks);
         Checks.run("aFaceAwayFromTheHoleIsLeftAsItIs",BlastTests::aFaceAwayFromTheHoleIsLeftAsItIs);
@@ -549,7 +550,43 @@ final class BlastTests {
     }
 
     private static Blasts.Struck at(float along, float up) {
-        return new Blasts.Struck(null, null, true, along, up, 1, 0f, 0f, 0f);
+        return new Blasts.Struck(null, null, true, along, up, 1, 0f, 0f, 0f, null);
+    }
+
+    /** A rectangle of a thing's plane, as Breakage.Pieces keeps them: from along a0 to a1 in tiles and up u0 to u1 in levels. */
+    private static float[] piece(float a0, float u0, float a1, float u1) {
+        return new float[] {a0, u0, a1, u0, a1, u1, a0, u1};
+    }
+
+    /**
+     * A board of a fence on a north edge, 0.1 tiles wide and 0.4 levels tall, cut free by a shot
+     * that came out of the far face at (10.5, 20.02, 1.0) facing -y, 0.5 along and 0.3 levels up:
+     * it throws bursts from across the board's own place, out of that face, along the shot, bigger
+     * than a round's, more for a bigger piece and never more than MOST_BURSTS. What had gone before
+     * the hole throws nothing, and nor does a hole that cut nothing free.
+     */
+    private static void aPieceCutFreeBurstsOutOfTheFarFaceAcrossItselfAndWhatHadGoneDoesNot() {
+        Impacts.Struck at = new Impacts.Struck(10.5f, 20.02f, 1f, 0f, -1f, 0f, 0f, -1f, 0f, 0.2f, Impacts.WOOD, Blasts.BLOWN_OUT, false, 1f, 0f, 0f);
+        java.util.Random random = new java.util.Random(7);
+        float[] board = piece(0.6f, 0.1f, 0.7f, 0.5f), old = piece(0.1f, 0.1f, 0.2f, 0.5f);
+        ArrayList<Impacts.Struck> bursts = Blasts.burstsOf(new float[][] {old, board}, new Breakage.Pieces(new float[][] {old}), true, at, 0.5f, 0.3f, random);
+        float area = 0.1f * 0.4f * ViewCamera.LEVEL_HEIGHT;
+        check(bursts.size() == Math.clamp(Math.round(area / Blasts.PIECE_AREA), 1, Blasts.MOST_BURSTS), "as many bursts as the board's area says: " + bursts.size());
+        for (Impacts.Struck burst : bursts) {
+            check(burst.x() >= 10.6f - 1e-4f && burst.x() <= 10.7f + 1e-4f && burst.y() == at.y(), "from across the board, on the far face: " + burst.x() + ", " + burst.y());
+            float up = at.up() + (0.1f - 0.3f) * ViewCamera.LEVEL_HEIGHT, top = at.up() + (0.5f - 0.3f) * ViewCamera.LEVEL_HEIGHT;
+            check(burst.up() >= up - 1e-4f && burst.up() <= top + 1e-4f, "as high as the board stood: " + burst.up());
+            check(burst.normalY() == -1f && burst.wayY() == -1f && burst.kind() == Impacts.WOOD && !burst.hole(), "out of the far face, along the shot, of the board's wood, and leaving no hole");
+            check(burst.size() > 1f && burst.size() <= Blasts.PIECE_LARGEST, "bigger than a round's: " + burst.size());
+            check(burst.floor() <= burst.up(), "coming to rest at or under where it starts");
+        }
+        ArrayList<Impacts.Struck> big = Blasts.burstsOf(new float[][] {piece(0f, 0f, 1f, 1f)}, Breakage.Pieces.NONE, false, at, 0.5f, 0.3f, random);
+        check(big.size() == Blasts.MOST_BURSTS && big.getFirst().size() == Blasts.PIECE_LARGEST, "a whole square of wall throws the most, of the largest: " + big.size());
+        for (Impacts.Struck burst : big) {
+            check(burst.x() == at.x() && burst.y() >= at.y() - 0.5f - 1e-4f && burst.y() <= at.y() + 0.5f + 1e-4f, "on a west edge it runs along y: " + burst.y());
+        }
+        check(Blasts.burstsOf(new float[][] {old}, new Breakage.Pieces(new float[][] {old}), true, at, 0.5f, 0.3f, random).isEmpty(), "what had gone throws nothing");
+        check(Blasts.burstsOf(new float[0][], Breakage.Pieces.NONE, true, at, 0.5f, 0.3f, random).isEmpty(), "a hole that cut nothing free throws nothing");
     }
 
     private static void pelletsCloseTogetherBlowAHoleAndSpreadOnesDoNot() {
