@@ -2194,9 +2194,7 @@ final class RoofTests {
         map.cell.square(2, 0, 0).building(barn);
         map.cell.square(2, 0, 1).floor(map.sprite("roofs_02_22", IsoObjectType.normal, "solidfloor"));
         map.roofSprite(2, 0, 1, "roofs_02_0");
-        java.lang.reflect.Method made = Roofs.class.getDeclaredMethod("site", zombie.iso.IsoCell.class, int.class, java.util.HashSet.class);
-        made.setAccessible(true);
-        RoofFit.Site site = (RoofFit.Site) made.invoke(null, map.cell, 1, new java.util.HashSet<Long>());
+        RoofFit.Site site = site(map, 1, Map.of());
         check(!site.taken(0, 0, 1, 1f), "a roof's sheet laid as a floor where the far slope comes down to it is the slope's foot, and no terrace");
         check(site.taken(0, 0, 1, 1f + THIRD), "the same sheet under a slope that would stand a third of a level over it is a flat roof, which the slope does not cover");
         check(site.taken(1, 0, 1, 1f), "a terrace of the floors' own sheets stays one");
