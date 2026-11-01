@@ -252,6 +252,12 @@ public final class ViewModel {
     private int fishStage = FishingHold.NOT;
     private float fishSince, fishing, crank;
     private final float[] fishTarget = new float[ViewModelMath.HOLD], fishHold = new float[ViewModelMath.HOLD];
+    /**
+     * The fishing holds handed to the render thread in a Held, taken in turn: it draws from a Held
+     * a frame or two after it is made, by when the hold it carries must not have been written over.
+     */
+    private final float[][] fishHeld = new float[4][ViewModelMath.HOLD];
+    private int fishHeldNext;
     /** The rod comes to be held for fishing, or goes back, to within a twentieth, in three of these; and follows its hold, in a cast. */
     private static final float FISHING_SECONDS = 0.12f, FISH_HOLD_SECONDS = 0.1f, CAST_HOLD_SECONDS = 0.03f;
 
@@ -523,6 +529,12 @@ public final class ViewModel {
         if (stage == FishingHold.NOT && fishing < 0.01f) {
             fishing = 0f;
         }
+        float[] fished = null;
+        if (fishing > 0f) {
+            fished = fishHeld[fishHeldNext];
+            fishHeldNext = (fishHeldNext + 1) % fishHeld.length;
+            System.arraycopy(fishHold, 0, fished, 0, ViewModelMath.HOLD);
+        }
         // A driver keeps the left hand on the wheel and holds the firearm in the right alone.
         boolean steering = Ride.inDriversSeat(player);
         held = new Held(item.getFullType(), item.getID(), firearm, !steering && item == player.getSecondaryHandItem(),
@@ -532,7 +544,7 @@ public final class ViewModel {
                 firearm ? OwnModel.of(view.index, item.getFullType()) : null, paused, shots, firearm && weapon.isRoundChambered(),
                 firearm ? weapon.getWeaponSprite() : null,
                 firearm ? Kick.backMost(weapon.getRecoilDelay(), weapon.getMaxDamage(), Kick.braced(weapon.getFullType(), 1f)) + (pump ? PUMP_PULLS_AIMED : 0f) : 0f,
-                fishing > 0f ? fishHold.clone() : null, fishing, fishing > 0f ? crank : Float.NaN);
+                fished, fishing, fishing > 0f ? crank : Float.NaN);
     }
 
     /**
