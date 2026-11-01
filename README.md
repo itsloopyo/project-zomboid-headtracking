@@ -581,6 +581,13 @@ InteractLabel=true
 ; not drawn reaching, leaning or poking through it to your side. false: they are drawn as the game poses them, so a
 ; hand, a shoulder or a head can show through.
 FiguresBehindWalls=true
+; true: in first person, a Molotov, a pipe bomb or anything else you throw is drawn back over your shoulder and thrown
+; overarm. false: it is swung as a one-handed weapon is.
+OverarmThrow=true
+; true: in first person, a fishing rod out over water is held with your left hand on its reel, swung back and out to
+; cast, lifted while you reel in, and its line runs from its tip to the bobber, which is drawn where it floats.
+; false: the rod is held as a swung weapon is, and neither its line nor the bobber is drawn.
+FishingRod=true
 
 [Players]
 ; Player 2's first person graphics mode, as Quality.

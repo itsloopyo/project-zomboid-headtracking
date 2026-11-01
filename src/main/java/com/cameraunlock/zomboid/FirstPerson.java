@@ -1216,7 +1216,7 @@ public final class FirstPerson {
      * with the line from the rod's tip to it.
      */
     private void showBobber(IsoPlayer player, WorldScene.Frame scene, float aspect) {
-        if (aspect == 0f || !FishingAim.bobber(player, bobberAt)) {
+        if (aspect == 0f || !Part.FISHING_ROD.running() || !FishingAim.bobber(player, bobberAt)) {
             view.crosshair.hideBobber();
             return;
         }

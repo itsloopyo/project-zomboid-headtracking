@@ -509,7 +509,7 @@ public final class ViewModel {
         }
         round = ArmActs.round(round, doing == ArmActs.LOADING, rounds > roundsBefore, seconds, roundTakes);
         roundsBefore = rounds;
-        int stage = !firearm ? FishingAim.stage(player) : FishingHold.NOT;
+        int stage = !firearm && Part.FISHING_ROD.running() ? FishingAim.stage(player) : FishingHold.NOT;
         if (stage != FishingHold.NOT) {
             fishSince = stage == fishStage ? fishSince + seconds : 0f;
             FishingHold.pose(stage, fishSince, fishTarget);

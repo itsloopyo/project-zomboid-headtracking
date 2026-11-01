@@ -100,7 +100,7 @@ final class GameAttack {
             return ViewModelMath.SHOVED;
         }
         // A grab is not a throw, with whatever is in hand.
-        if (!player.isPerformingGrappleAnimation() && player.getPrimaryHandItem() instanceof HandWeapon weapon && weapon.getPhysicsObject() != null) {
+        if (Part.OVERARM_THROW.running() && !player.isPerformingGrappleAnimation() && player.getPrimaryHandItem() instanceof HandWeapon weapon && weapon.getPhysicsObject() != null) {
             return ViewModelMath.THROWN;
         }
         if ("true".equalsIgnoreCase(player.GetVariable("AimFloorAnim"))) {

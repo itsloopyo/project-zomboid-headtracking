@@ -78,6 +78,13 @@ enum Part {
             "true: in first person, a zombie, person or animal against a wall, a shut door or a fence you cannot see through is\n"
                     + "not drawn reaching, leaning or poking through it to your side. false: they are drawn as the game poses them, so a\n"
                     + "hand, a shoulder or a head can show through."),
+    OVERARM_THROW("FirstPerson", "OverarmThrow", true, false,
+            "true: in first person, a Molotov, a pipe bomb or anything else you throw is drawn back over your shoulder and thrown\n"
+                    + "overarm. false: it is swung as a one-handed weapon is."),
+    FISHING_ROD("FirstPerson", "FishingRod", true, false,
+            "true: in first person, a fishing rod out over water is held with your left hand on its reel, swung back and out to\n"
+                    + "cast, lifted while you reel in, and its line runs from its tip to the bobber, which is drawn where it floats.\n"
+                    + "false: the rod is held as a swung weapon is, and neither its line nor the bobber is drawn."),
     SHOTS_FROM_VEHICLE_SEATS("Rules", "ShotsFromVehicleSeats", true, false,
             "true: in first person, sitting in a vehicle with a gun, you can fire through any part of your seat's window, and\n"
                     + "the shot breaks it. false: as in the game, the window has to be opened or broken first. On a server where\n"
