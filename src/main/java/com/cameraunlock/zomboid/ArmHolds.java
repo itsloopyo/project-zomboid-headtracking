@@ -137,11 +137,12 @@ final class ArmHolds {
      * swung in both hands how far along it from the right fist the left one is, in metres: less
      * than nought nearer the end the hands hold. Whether it is a spear, whose left arm comes to its
      * shaft from under the picture in every way it is held: see SPEAR_SHOULDER. For a fishing rod
-     * out over water, how far round its reel's handle is, in radians, where the left hand is, or NaN.
+     * out over water, how far round its reel's handle is, in radians, where the left hand is, or NaN, and how far
+     * the left hand has come from the handle to the reel, 0 to 1.
      */
-    record Weapon(boolean firearm, boolean handgun, float[] grip, float[] pointing, float[] over, Placed placed, float second, boolean spear, float crank) {
+    record Weapon(boolean firearm, boolean handgun, float[] grip, float[] pointing, float[] over, Placed placed, float second, boolean spear, float crank, float onReel) {
         Weapon(boolean firearm, boolean handgun, float[] grip, float[] pointing, float[] over, Placed placed) {
-            this(firearm, handgun, grip, pointing, over, placed, -LOWER_FIST, false, Float.NaN);
+            this(firearm, handgun, grip, pointing, over, placed, -LOWER_FIST, false, Float.NaN, 0f);
         }
     }
 
@@ -822,6 +823,20 @@ final class ArmHolds {
         hold.towards(onHandle, on);
     }
 
+    /** Something swung in both hands: the left fist on the handle under the right, the same way round. */
+    private static Hold onHandle(ArmModel model, Weapon weapon, Axes axes, Doing doing, float[] fromAim) {
+        float slant = slant(weapon, axes, axes.at(weapon.second(), 0f, 0f), 1, doing.turned(), fromAim);
+        float cos = (float) Math.cos(slant), sin = (float) Math.sin(slant);
+        float[] fingers = new float[3], slanted = new float[3];
+        ArmPose.cross(axes.ahead, axes.right, fingers);
+        for (int axis = 0; axis < 3; axis++) {
+            slanted[axis] = fingers[axis] * cos + axes.ahead[axis] * sin;
+        }
+        Hold fist = new Hold(model).set(axes.at(weapon.second(), 0f, 0f), axes.right, slanted, true, model.pose("handle"));
+        fist.round = true;
+        return fist;
+    }
+
     /** The left hand, or null when it is not on the weapon nor busy with it. */
     private static Hold left(ArmModel model, Weapon weapon, Axes axes, Doing doing, float[] fromAim) {
         Hold hold = null;
@@ -830,20 +845,17 @@ final class ArmHolds {
             float a = REEL_AHEAD + REEL_HANDLE * (float) Math.cos(weapon.crank()), u = -REEL_UNDER + REEL_HANDLE * (float) Math.sin(weapon.crank());
             Hold knob = new Hold(model).set(axes.at(a, u, -REEL_LEFT), axes.right, axes.way(0.2f, -1f, 0f), true, model.pose("handle"));
             knob.round = true;
-            return knob;
+            // It comes there from the handle, and goes back, as the rod comes to be held for fishing and goes back to being held as a weapon.
+            if (weapon.onReel() >= 1f) {
+                return knob;
+            }
+            if (!doing.both()) {
+                return weapon.onReel() >= 0.5f ? knob : null;
+            }
+            return onHandle(model, weapon, axes, doing, fromAim).towards(knob, weapon.onReel());
         }
         if (doing.both() && !weapon.firearm()) {
-            // Something swung in both hands: the left fist is on the handle under the right, the same way round.
-            float slant = slant(weapon, axes, axes.at(weapon.second(), 0f, 0f), 1, doing.turned(), fromAim);
-            float cos = (float) Math.cos(slant), sin = (float) Math.sin(slant);
-            float[] fingers = new float[3], slanted = new float[3];
-            ArmPose.cross(axes.ahead, axes.right, fingers);
-            for (int axis = 0; axis < 3; axis++) {
-                slanted[axis] = fingers[axis] * cos + axes.ahead[axis] * sin;
-            }
-            Hold fist = new Hold(model).set(axes.at(weapon.second(), 0f, 0f), axes.right, slanted, true, model.pose("handle"));
-            fist.round = true;
-            return fist;
+            return onHandle(model, weapon, axes, doing, fromAim);
         }
         if (!weapon.firearm()) {
             return null;

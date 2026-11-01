@@ -532,7 +532,7 @@ public final class ViewModel {
                 firearm ? OwnModel.of(view.index, item.getFullType()) : null, paused, shots, firearm && weapon.isRoundChambered(),
                 firearm ? weapon.getWeaponSprite() : null,
                 firearm ? Kick.backMost(weapon.getRecoilDelay(), weapon.getMaxDamage(), Kick.braced(weapon.getFullType(), 1f)) + (pump ? PUMP_PULLS_AIMED : 0f) : 0f,
-                fishing > 0f ? fishHold.clone() : null, fishing, stage != FishingHold.NOT ? crank : Float.NaN);
+                fishing > 0f ? fishHold.clone() : null, fishing, fishing > 0f ? crank : Float.NaN);
     }
 
     /**

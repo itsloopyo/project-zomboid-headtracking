@@ -63,7 +63,7 @@ final class OwnArmTests {
                 ViewModelMath.turned(matrix, top, over);
                 ArmPose.unit(pointing[0], pointing[1], pointing[2], pointing);
                 ArmPose.unit(over[0], over[1], over[2], over);
-                ArmHolds.Weapon held = new ArmHolds.Weapon(false, false, grip, pointing, over, null, fit.second(), false, crank);
+                ArmHolds.Weapon held = new ArmHolds.Weapon(false, false, grip, pointing, over, null, fit.second(), false, crank, 1f);
                 ArmHolds.Doing doing = new ArmHolds.Doing(0f, true, ArmActs.NO_ACTION, -1f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, false, -1f, -1f, 2f, 0f);
                 float[][] skins = new float[2][model.bones.length * 16], said = new float[2][ArmPose.SAYS];
                 int arms = ArmHolds.place(model, SCALE, held, doing, SAME, skins, said, new ArmHolds.Carried(), new ArmHolds.Settled());
@@ -792,7 +792,7 @@ final class OwnArmTests {
                     ViewModelMath.turned(matrix, top, over);
                     ArmPose.unit(pointing[0], pointing[1], pointing[2], pointing);
                     ArmPose.unit(over[0], over[1], over[2], over);
-                    ArmHolds.Weapon held = new ArmHolds.Weapon(false, false, grip, pointing, over, null, fit.second(), kind == MeleeHold.SPEAR, Float.NaN);
+                    ArmHolds.Weapon held = new ArmHolds.Weapon(false, false, grip, pointing, over, null, fit.second(), kind == MeleeHold.SPEAR, Float.NaN, 0f);
                     ArmHolds.Doing doing = new ArmHolds.Doing(0f, both, ArmActs.NO_ACTION, -1f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, false, -1f, -1f, 2f, pose[6]);
                     float[][] skins = new float[2][model.bones.length * 16], said = new float[2][ArmPose.SAYS];
                     int arms = ArmHolds.place(model, SCALE, held, doing, SAME, skins, said, new ArmHolds.Carried(), new ArmHolds.Settled());
@@ -828,7 +828,7 @@ final class OwnArmTests {
         ViewModelMath.turned(matrix, top, over);
         ArmPose.unit(pointing[0], pointing[1], pointing[2], pointing);
         ArmPose.unit(over[0], over[1], over[2], over);
-        ArmHolds.Weapon held = new ArmHolds.Weapon(false, false, grip, pointing, over, null, fit.second(), kind == MeleeHold.SPEAR, Float.NaN);
+        ArmHolds.Weapon held = new ArmHolds.Weapon(false, false, grip, pointing, over, null, fit.second(), kind == MeleeHold.SPEAR, Float.NaN, 0f);
         ArmHolds.Doing doing = new ArmHolds.Doing(0f, both, ArmActs.NO_ACTION, -1f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, false, -1f, -1f, 2f, pose[6]);
         float[][] skins = new float[2][model.bones.length * 16];
         return ArmHolds.place(model, SCALE, held, doing, SAME, skins, said, new ArmHolds.Carried(), new ArmHolds.Settled());

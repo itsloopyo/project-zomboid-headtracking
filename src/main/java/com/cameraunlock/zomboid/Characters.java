@@ -1392,7 +1392,8 @@ public final class Characters {
             // the game's hand has it on a mesh that says nothing.
             grip = view.viewModel.gripSeen;
         }
-        ArmHolds.Weapon weapon = new ArmHolds.Weapon(hands.firearm(), handgun, grip, view.viewModel.pointing, view.viewModel.over, placed, view.viewModel.secondFist, !hands.firearm() && view.viewModel.spearHeld, hands.crank());
+        ArmHolds.Weapon weapon = new ArmHolds.Weapon(hands.firearm(), handgun, grip, view.viewModel.pointing, view.viewModel.over, placed, view.viewModel.secondFist, !hands.firearm() && view.viewModel.spearHeld, hands.crank(),
+                ViewModelMath.smooth(hands.fishing()));
         ArmHolds.Doing doing = new ArmHolds.Doing(hands.aim(), heldBoth, hands.action(), hands.cycled(), hands.doing(), hands.done(), hands.round(), hands.pace(), hands.seated(), hands.clip(), hands.out(), hands.fetching(), hands.fetchTakes(), view.viewModel.turned);
         long now = System.nanoTime();
         armSettled.seconds = Math.min((now - armsAsOf) / 1e9f, 0.1f);
@@ -1870,7 +1871,7 @@ public final class Characters {
             if (own != null) {
                 drawOnOwn(model, data, own, muzzleOut() / own.muzzleFar);
             } else if (ownArms && view.viewModel.rodPlaced && model.modelInstance.attachmentNameParent == null) {
-                drawRodMirrored(model, data);
+                drawRodMirrored(model, data, ViewModelMath.smooth(armHands.fishing()));
             } else {
                 unshifted(model.modelInstance);
                 GL11.glDepthMask(true);
@@ -2044,33 +2045,36 @@ public final class Characters {
     /**
      * Draws a fishing rod held for fishing mirrored across its mesh's x. The game's rod has the
      * handle of its reel on the right of the rod, and the mod's left hand turns it, as a right
-     * handed angler's spinning reel has it: on the left, under the rod.
+     * handed angler's spinning reel has it: on the left, under the rod. The reel goes over as
+     * the rod comes to be held for fishing, `share` of the way: squeezed flat across the rod at
+     * half way, and mirrored whole at 1.
      */
-    private void drawRodMirrored(ModelInstanceRenderData model, ModelSlotRenderData data) {
+    private void drawRodMirrored(ModelInstanceRenderData model, ModelSlotRenderData data, float share) {
         float[] w = weaponPlace;
         float scale = data.finalScale, length = (float) Math.sqrt(w[0] * w[0] + w[4] * w[4] + w[8] * w[8]);
         float nx = w[0] / length, ny = w[4] / length, nz = w[8] / length, d = (nx * w[3] + ny * w[7] + nz * w[11]) * scale;
+        float k = 2f * share;
         float[] r = rodMirror;
-        r[0] = 1f - 2f * nx * nx;
-        r[1] = -2f * nx * ny;
-        r[2] = -2f * nx * nz;
+        r[0] = 1f - k * nx * nx;
+        r[1] = -k * nx * ny;
+        r[2] = -k * nx * nz;
         r[4] = r[1];
-        r[5] = 1f - 2f * ny * ny;
-        r[6] = -2f * ny * nz;
+        r[5] = 1f - k * ny * ny;
+        r[6] = -k * ny * nz;
         r[8] = r[2];
         r[9] = r[6];
-        r[10] = 1f - 2f * nz * nz;
-        r[12] = 2f * nx * d;
-        r[13] = 2f * ny * d;
-        r[14] = 2f * nz * d;
+        r[10] = 1f - k * nz * nz;
+        r[12] = k * nx * d;
+        r[13] = k * ny * d;
+        r[14] = k * nz * d;
         r[15] = 1f;
         EYE.End();
         multiply(heldView, r, combined);
         EYE.Begin();
         unshifted(model.modelInstance);
         GL11.glDepthMask(true);
-        // The mirror turns every triangle round, and the game culls by its winding.
-        GL11.glFrontFace(GL_CW);
+        // Past half way the mirror turns every triangle round, and the game culls by its winding.
+        GL11.glFrontFace(k > 1f ? GL_CW : GL_CCW);
         try {
             drawPart(model, data);
         } finally {
