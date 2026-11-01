@@ -12,6 +12,7 @@ final class HitArcsTests {
         Checks.run("aPitchedAndRolledViewKeepsItsBearings", HitArcsTests::aPitchedAndRolledViewKeepsItsBearings);
         Checks.run("aViewStraightUpOrDownFacesTheWayItWouldTippedLevel", HitArcsTests::aViewStraightUpOrDownFacesTheWayItWouldTippedLevel);
         Checks.run("aBearingMovesSmoothlyAsTheHeadPitchesAndRolls", HitArcsTests::aBearingMovesSmoothlyAsTheHeadPitchesAndRolls);
+        Checks.run("lyingDownTheTopOfThePictureIsAhead", HitArcsTests::lyingDownTheTopOfThePictureIsAhead);
         Checks.run("aMarkIsNamedForTheEdgeItIsDrawnNearest", HitArcsTests::aMarkIsNamedForTheEdgeItIsDrawnNearest);
         Checks.run("aHitFadesOutOverASecondAndAHalf", HitArcsTests::aHitFadesOutOverASecondAndAHalf);
         Checks.run("aCloseZombieGlowsOnlyOutOfViewAndNear", HitArcsTests::aCloseZombieGlowsOnlyOutOfViewAndNear);
@@ -82,6 +83,36 @@ final class HitArcsTests {
         check(near(Math.abs(bearingTipped(onTheSide, -1f, 0f)), (float) Math.PI), "lying on the side looking level, behind reads 180");
         check(near(bearingTipped(tipped(-90f, 0f), 1f, 0f), 0f) && near(bearingTipped(tipped(-90f, 0f), 0f, 1f), (float) Math.PI / 2f),
                 "face down, the top of the picture is ahead and the right the right");
+    }
+
+    /** The facing, the top of the picture and its right, on the map, of tipped's view. */
+    private static float[] tippedWithRight(float pitchDegrees, float rollDegrees) {
+        double pitch = Math.toRadians(pitchDegrees), roll = Math.toRadians(rollDegrees);
+        float[] view = tipped(pitchDegrees, rollDegrees);
+        float rightX = (float) (Math.sin(pitch) * Math.sin(roll)), rightY = (float) Math.cos(roll);
+        return new float[] {view[0], view[1], view[3], view[4], rightX, rightY};
+    }
+
+    private static float lying(float[] view, float toX, float toY) {
+        return HitArcs.bearingLying(view[0], view[1], view[2], view[3], view[4], view[5], toX, toY);
+    }
+
+    private static void lyingDownTheTopOfThePictureIsAhead() {
+        // On the back, looking straight up with the top of the picture toward -x, past the head, and its right +y.
+        float[] onTheBack = tippedWithRight(90f, 0f);
+        check(near(lying(onTheBack, -1f, 0f), 0f) && HitArcs.edge(lying(onTheBack, -1f, 0f)) == HitArcs.TOP,
+                "past the head is at the top: " + Math.toDegrees(lying(onTheBack, -1f, 0f)));
+        check(near(Math.abs(lying(onTheBack, 1f, 0f)), (float) Math.PI), "the feet at the bottom");
+        check(near(lying(onTheBack, 0f, 1f), (float) Math.PI / 2f), "and what is on the picture's right at the right");
+        check(near(lying(onTheBack, 0f, -1f), -(float) Math.PI / 2f), "and its left at the left");
+        float[] faceDown = tippedWithRight(-90f, 0f);
+        check(near(lying(faceDown, 1f, 0f), 0f) && near(lying(faceDown, 0f, 1f), (float) Math.PI / 2f), "face down, past the head is at the top and the right at the right");
+        float[] level = tippedWithRight(0f, 0f);
+        check(near(lying(level, 1f, 0f), 0f) && near(Math.abs(lying(level, -1f, 0f)), (float) Math.PI) && near(lying(level, 0f, 1f), (float) Math.PI / 2f),
+                "a level view down on the ground still has ahead at the top, behind at the bottom and the right at the right");
+        float[] onTheSide = tippedWithRight(0f, 90f);
+        check(near(lying(onTheSide, 1f, 0f), 0f) && near(Math.abs(lying(onTheSide, -1f, 0f)), (float) Math.PI),
+                "on the side, what is ahead is at the top and what is behind at the bottom");
     }
 
     private static float turned(float from, float to) {

@@ -52,6 +52,21 @@ final class HitArcs {
         return (float) Math.atan2(-toX * aheadY + toY * aheadX, toX * aheadX + toY * aheadY);
     }
 
+    /**
+     * The bearing of a place from the eye while the character lies on the ground and the view
+     * follows its head, taken from the picture rather than from a facing: the place's way on the
+     * map against the way the top of the picture and its right point on the map, so a place past
+     * the head of a character on its back is marked at the top, as the picture shows it. A view
+     * rolled onto its side, whose right points up, has its facing added in, so that what is
+     * ahead is marked at the top and what is behind at the bottom.
+     *
+     * @param forwardX the way the view faces, the top of the picture points and its right points, on the map
+     * @param toX      the place less the eye, on the map
+     */
+    static float bearingLying(float forwardX, float forwardY, float upX, float upY, float rightX, float rightY, float toX, float toY) {
+        return (float) Math.atan2(toX * rightX + toY * rightY, toX * (upX + forwardX) + toY * (upY + forwardY));
+    }
+
     /** Across and up the picture, -1 to 1, the way a bearing points from its middle. */
     static float across(float bearing) {
         return (float) Math.sin(bearing);
