@@ -325,6 +325,11 @@ final class Leisure {
      * the bowl, and the rim of the widest tier on its left.
      */
     static final float BOWL_GOLD_B = 0.714f, BOWL_GOLD_UP = 2.26f, TIERS_GOLD_B = 0.668f, TIERS_GOLD_UP = 1.208f;
+    /**
+     * How high over the floor in metres the crystal strings take their colour, a few pixels under each gold place, where the
+     * sprites paint crystal. The strings are a lamp's shade (Models.SHADE), which glows in that colour while the chandelier is lit.
+     */
+    static final float BOWL_CRYSTAL_UP = 2.0f, TIERS_CRYSTAL_UP = 1.058f;
 
     /**
      * A crystal chandelier, which the game paints in halves on two squares corner to corner, the left half on the square west and
@@ -335,9 +340,11 @@ final class Leisure {
     private static Outdoors.Piece chandelier(int place) {
         return switch (place) {
             case 0 -> new Outdoors.Piece("chandelier_bowl", Outdoors.EAST).each().at(CHANDELIER_A, CHANDELIER_B).pairedWith(CHANDELIERS + 1, 1, -1)
-                    .dye(METAL, CHANDELIER_A, BOWL_GOLD_B, (BOWL_GOLD_UP - CHANDELIER_BOWL_FOOT) / LEVEL).raise(CHANDELIER_BOWL_FOOT / LEVEL);
+                    .dye(METAL, CHANDELIER_A, BOWL_GOLD_B, (BOWL_GOLD_UP - CHANDELIER_BOWL_FOOT) / LEVEL)
+                    .alsoAt(SHADE, CHANDELIER_A, BOWL_GOLD_B, (BOWL_CRYSTAL_UP - CHANDELIER_BOWL_FOOT) / LEVEL).raise(CHANDELIER_BOWL_FOOT / LEVEL);
             case 2 -> new Outdoors.Piece("chandelier_tiers", Outdoors.EAST).each().at(CHANDELIER_A, CHANDELIER_B).pairedWith(CHANDELIERS + 3, 1, -1)
-                    .dye(METAL, CHANDELIER_A, TIERS_GOLD_B, (TIERS_GOLD_UP - CHANDELIER_TIERS_FOOT) / LEVEL).raise(CHANDELIER_TIERS_FOOT / LEVEL);
+                    .dye(METAL, CHANDELIER_A, TIERS_GOLD_B, (TIERS_GOLD_UP - CHANDELIER_TIERS_FOOT) / LEVEL)
+                    .alsoAt(SHADE, CHANDELIER_A, TIERS_GOLD_B, (TIERS_CRYSTAL_UP - CHANDELIER_TIERS_FOOT) / LEVEL).raise(CHANDELIER_TIERS_FOOT / LEVEL);
             case 1, 3 -> following(new Outdoors.Piece(null, Outdoors.EAST).each().pairedWith(CHANDELIERS + (place - 1), -1, 1));
             default -> null;
         };

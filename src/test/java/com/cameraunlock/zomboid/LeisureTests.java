@@ -520,6 +520,11 @@ final class LeisureTests {
                 "both hang on one rod at the corner the two squares share");
         Checks.check(bowl != null && tiers != null && bowl.dyed == 1 << Models.METAL && tiers.dyed == 1 << Models.METAL,
                 "their gold takes its colour from where the sprites paint gold");
+        Checks.check(bowl != null && tiers != null && bowl.alsoDyed == 1 << Models.SHADE && tiers.alsoDyed == 1 << Models.SHADE
+                && bowl.alsoB == bowl.dyeB && tiers.alsoB == tiers.dyeB && bowl.alsoHigh < bowl.dyeHigh && tiers.alsoHigh < tiers.dyeHigh,
+                "their crystal, which glows while they are lit, takes its colour a little under the gold");
+        Checks.check(bowl != null && tiers != null && Math.abs(bowl.alsoHigh * ViewCamera.LEVEL_HEIGHT - Leisure.BOWL_CRYSTAL_UP) < 0.001f
+                && Math.abs(tiers.alsoHigh * ViewCamera.LEVEL_HEIGHT - Leisure.TIERS_CRYSTAL_UP) < 0.001f, "at the height over its floor the sprites paint it");
         for (int place : new int[] {1, 3}) {
             Outdoors.Piece half = Outdoors.of(sheet + place, "Chandelier", "Grey", Outdoors.EAST, 2, 2, 0);
             Checks.check(half != null && half.follows && half.model == null && (sheet + (place - 1)).equals(half.partner) && half.partnerX == -1

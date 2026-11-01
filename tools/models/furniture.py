@@ -13298,15 +13298,16 @@ CHANDELIER_STOREY = 2.45
 def chandelier_bowl():
     """The bowl of a crystal chandelier: crystal strings hung in a deep bowl under a gold ring 1.68 m across, held by six arms
     from a hub on the rod, which goes up to the ceiling of its storey, and drops under it. Its foot, the drop at the bottom,
-    is 1.2 m over the floor. The origin is the rod."""
+    is 1.2 m over the floor. The strings are a lamp's shade, which glows while the chandelier is lit, and the drops china.
+    The origin is the rod."""
     model = Model("chandelier_bowl", hung=True)
-    gold, crystal = bmesh.new(), bmesh.new()
+    gold, crystal, drops = bmesh.new(), bmesh.new(), bmesh.new()
     fluted(crystal, [(0.8, 2.33), (0.79, 2.16), (0.7, 1.93), (0.57, 1.74), (0.46, 1.56), (0.38, 1.43), (0.28, 1.335), (0.12, 1.295),
                      (0.0, 1.285)], 48, 0.07)
     for i in range(16):
         a = 2 * math.pi * (i + 0.5) / 16
-        drop(crystal, 0.3 * math.cos(a), 0.3 * math.sin(a), 1.34, 0.02)
-    drop(crystal, 0.0, 0.0, 1.29, 0.03)
+        drop(drops, 0.3 * math.cos(a), 0.3 * math.sin(a), 1.34, 0.02)
+    drop(drops, 0.0, 0.0, 1.29, 0.03)
     torus(gold, 0.0, 0.0, CHANDELIER_RING_UP, CHANDELIER_RING, 0.025, segments=40, steps=6)
     for i in range(6):
         a = math.pi / 3 * i
@@ -13314,16 +13315,18 @@ def chandelier_bowl():
             0.01, segments=6)
     lathe(gold, [(0.0, 2.2), (0.05, 2.22), (0.06, 2.3), (0.03, 2.36), (0.016, 2.37), (0.016, CHANDELIER_STOREY)], segments=12)
     model.turned(gold, "metal", sharp=50.0)
-    model.turned(crystal, "ceramic", sharp=20.0)
+    model.turned(crystal, "shade", sharp=20.0)
+    model.turned(drops, "ceramic", sharp=20.0)
     return model
 
 
 def chandelier_tiers():
     """The tiers of a crystal chandelier over its bowl, on the storey above the bowl's: four drums of crystal strings in gold
     rims, narrowing up the rod, drops round the foot of each, and the rod up to the ceiling with a rose there. Its foot, the
-    drops under the widest tier, is 0.138 m under the floor of its storey. The origin is the rod."""
+    drops under the widest tier, is 0.138 m under the floor of its storey. The strings are a lamp's shade, which glows while
+    the chandelier is lit, and the drops china. The origin is the rod."""
     model = Model("chandelier_tiers", hung=True)
-    gold, crystal = bmesh.new(), bmesh.new()
+    gold, crystal, drops = bmesh.new(), bmesh.new(), bmesh.new()
     down = -CHANDELIER_STOREY
     for radius, foot, top, sides in CHANDELIER_TIERS:
         fluted(crystal, [(radius, foot + down), (radius, top + down)], sides, 0.08)
@@ -13331,12 +13334,13 @@ def chandelier_tiers():
         torus(gold, 0.0, 0.0, foot + down + 0.01, radius + 0.01, 0.012, segments=sides, steps=4)
         for i in range(sides // 2):
             a = 2 * math.pi * (2 * i + 0.5) / sides
-            drop(crystal, (radius + 0.004) * math.cos(a), (radius + 0.004) * math.sin(a), foot + down, 0.016)
+            drop(drops, (radius + 0.004) * math.cos(a), (radius + 0.004) * math.sin(a), foot + down, 0.016)
     ceiling = CHANDELIER_STOREY
     lathe(gold, [(0.0, CHANDELIER_TIERS[0][1] + down), (0.016, CHANDELIER_TIERS[0][1] + down), (0.016, ceiling - 0.08), (0.05, ceiling - 0.06),
                  (0.11, ceiling - 0.02), (0.11, ceiling), (0.0, ceiling)], segments=12)
     model.turned(gold, "metal", sharp=50.0)
-    model.turned(crystal, "ceramic", sharp=20.0)
+    model.turned(crystal, "shade", sharp=20.0)
+    model.turned(drops, "ceramic", sharp=20.0)
     return model
 
 
