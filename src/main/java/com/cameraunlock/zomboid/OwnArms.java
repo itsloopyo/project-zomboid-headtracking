@@ -106,8 +106,8 @@ final class OwnArms {
             uniform vec3 uBlood;
             uniform vec3 uDirt;
             uniform vec3 uTone;
-            // For a sheet of paper (uWear PAPER), where its picture lies in uColour: from its corner, and across, nought for none.
-            uniform vec4 uRegion;
+            // For a sheet of paper (uWear PAPER), whether uColour holds its picture.
+            uniform float uPictured;
             // Whether the viewer stands out of doors, and the light where they stand, less than nought
             // where none is said: written beside the colour, as CharacterDraw writes it of a person.
             uniform float uOutside;
@@ -191,11 +191,17 @@ final class OwnArms {
                 }
                 float stood = (uStood < 0.0 ? 255.0 : 128.0 + floor(clamp(uStood, 0.0, 1.0) * 126.0 + 0.5)) / 255.0;
                 if (uWear > 6.5) {
-                    vec3 paint = uRegion.z > 0.0 ? texture2D(uColour, uRegion.xy + vUv * uRegion.zw).rgb : uCloth;
+                    vec3 paint = uPictured > 0.5 ? texture2D(uColour, vUv).rgb : uCloth;
                     // The sheet was folded in four, and the folds still show.
                     vec2 fold = abs(vUv - 0.5);
                     paint *= 1.0 - 0.07 * exp(-fold.x * fold.x * 4000.0) - 0.05 * exp(-fold.y * fold.y * 4000.0);
-                    vec2 kept = floor(folded(normalize(vNormal)) * 255.0 + 0.5) / 255.0;
+                    // Held by its sides it curls a little, and the halves either side of each fold lie a little apart, so the light falls unevenly over it.
+                    vec3 n = normalize(vNormal);
+                    vec3 up = normalize(vTangent - n * dot(n, vTangent));
+                    vec3 side = cross(up, n);
+                    vec2 off = vUv - 0.5;
+                    vec3 facing = normalize(n + side * (off.x * 0.7 + sign(off.x) * 0.08) + up * sign(off.y) * 0.05);
+                    vec2 kept = floor(folded(facing) * 255.0 + 0.5) / 255.0;
                     float what = 128.0 + 64.0 + (uOutside > 0.5 ? 16.0 : 0.0) + 6.0;
                     gl_FragData[0] = vec4(clamp(paint, 0.0, 1.0), stood);
                     gl_FragData[1] = vec4(kept, 0.04, what / 255.0);
@@ -282,7 +288,7 @@ final class OwnArms {
     private static boolean tried;
     private static ArmModel model;
     private static int program, vertices, indices, colour, surface;
-    private static int projectionAt, femaleAt, toneAt, outsideAt, stoodAt, handedAt, wearAt, clothAt, spanAt, bloodAt, dirtAt, snowAt, upAt, wetAt, wetClockAt, regionAt;
+    private static int projectionAt, femaleAt, toneAt, outsideAt, stoodAt, handedAt, wearAt, clothAt, spanAt, bloodAt, dirtAt, snowAt, upAt, wetAt, wetClockAt, picturedAt;
     /** How much snow has settled on the viewer, 0 to 1: see SnowCarried. */
     private static float snowOn;
     /** How wet the viewer is, by Soaked's WATER, SOAK and CLOCK. */
@@ -416,7 +422,7 @@ final class OwnArms {
             upAt = GL20.glGetUniformLocation(id, "uUpSeen");
             wetAt = GL20.glGetUniformLocation(id, "uWet");
             wetClockAt = GL20.glGetUniformLocation(id, "uWetClock");
-            regionAt = GL20.glGetUniformLocation(id, "uRegion");
+            picturedAt = GL20.glGetUniformLocation(id, "uPictured");
             Program.useOther(id);
             GL20.glUniform1i(GL20.glGetUniformLocation(id, "uColour"), COLOUR_UNIT);
             GL20.glUniform1i(GL20.glGetUniformLocation(id, "uSurface"), SURFACE_UNIT);
@@ -685,21 +691,19 @@ final class OwnArms {
      * Draws a sheet of paper with a picture on it.
      *
      * @param at      the matrix from a square of side one, across x and up y, facing +z, to the view
-     * @param picture the texture the picture is in, or nought for blank paper
-     * @param region  where the picture lies in it: from its corner, and across, nought across for none
+     * @param picture the texture of the picture on it, or nought for blank paper
      */
-    static void sheet(float[] projection, float[] at, int picture, float[] region, float light, boolean outside) {
+    static void sheet(float[] projection, float[] at, int picture, float light, boolean outside) {
         beginProps(projection, light, outside);
         bone(at, 0);
         GL20.glUniform1f(wearAt, PAPER);
         GL20.glUniform3f(clothAt, 0.86f, 0.82f, 0.71f);
-        boolean shown = picture != 0 && region[2] > 0f;
-        GL20.glUniform4f(regionAt, region[0], region[1], shown ? region[2] : 0f, region[3]);
+        GL20.glUniform1f(picturedAt, picture != 0 ? 1f : 0f);
         GL13.glActiveTexture(GL_TEXTURE0 + COLOUR_UNIT);
-        GL11.glBindTexture(GL_TEXTURE_2D, shown ? picture : 0);
+        GL11.glBindTexture(GL_TEXTURE_2D, picture);
         GL13.glActiveTexture(GL_TEXTURE0);
         GL11.glDrawElements(GL_TRIANGLES, pieceCount[SQUARE], GL_UNSIGNED_INT, (long) pieceFirst[SQUARE] * Integer.BYTES);
-        GL20.glUniform4f(regionAt, 0f, 0f, 0f, 0f);
+        GL20.glUniform1f(picturedAt, 0f);
         endProps();
     }
 

@@ -364,6 +364,11 @@ public final class FirstPerson {
         return lookCaptured && System.nanoTime() - lastFrameNanos < CAPTURE_LASTS_NANOS;
     }
 
+    /** Whether the game's animation has the body this frame, as the view last found. */
+    boolean ledByBody() {
+        return bodyLeads;
+    }
+
     /** Whether the first person view is being played in, with the mouse turning the view or out as a pointer. */
     boolean active() {
         return active && System.nanoTime() - lastFrameNanos < CAPTURE_LASTS_NANOS;

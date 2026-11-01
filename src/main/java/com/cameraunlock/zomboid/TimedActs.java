@@ -23,6 +23,9 @@ final class TimedActs {
     /** The hand poses of the mod's own arms a hand takes here, by their names in the arm model. */
     static final int OPEN = 0, GRIP = 1, PINCH = 2, HANDLE = 3;
     static final String[] POSE_NAMES = {"open", "grip", "pinch", "handle"};
+    /** Not one of the model's: a hand hanging loose, the fingers a little curled, part open and part grip. */
+    static final int RELAXED = 4;
+    static final float RELAXED_GRIP = 0.35f;
 
     /** Where a hand that has nothing to do is: below the picture, the right's then the left's. */
     static final float[][] AWAY = {{0.20f, -0.52f, -0.30f}, {-0.20f, -0.52f, -0.30f}};
@@ -98,6 +101,9 @@ final class TimedActs {
     static final class Hand {
         final float[] at = new float[3], fingers = new float[3], out = new float[3];
         int pose;
+        /** Whether the forearm comes from `from`, in the aim's axes, and not from where ArmHolds has forearms come from. */
+        boolean comesFrom;
+        final float[] from = new float[3];
     }
 
     /**
@@ -248,30 +254,37 @@ final class TimedActs {
     /**
      * Where the eye looks at a watch on its left wrist, in the body's axes, the level ones the body
      * stands in facing ahead (x to the right, y up, z towards the viewer): WATCH_FAR off,
-     * WATCH_DOWN below the level and WATCH_ASIDE to the side of the wrist. A forearm held so,
-     * across the body, has the back of the wrist turned up to the eye.
+     * WATCH_DOWN below the level and WATCH_ASIDE to the side of the wrist.
      */
-    static final float WATCH_FAR = 0.32f, WATCH_DOWN = (float) Math.toRadians(40), WATCH_ASIDE = (float) Math.toRadians(12);
+    static final float WATCH_FAR = 0.34f, WATCH_DOWN = (float) Math.toRadians(38), WATCH_ASIDE = (float) Math.toRadians(12);
     static final float[] WATCH_AT = watchAt();
     /** How far along the fingers from the watch the middle of the hand is, metres. */
     static final float WATCH_TO_HAND = 0.095f;
     /**
      * How far the fingers drop below the level of the glance's picture, and how far the palm turns
-     * about them, radians. Held level and square the forearm would have to twist past its limit to
-     * turn the face up; dropped and turned so, the wrist stays inside its twist and the face is
-     * within 25 degrees of square to the eye.
+     * about them, radians.
      */
     static final float WATCH_FINGERS_DROP = (float) Math.toRadians(15), WATCH_PALM_TURN = (float) Math.toRadians(-30);
+    /**
+     * Where the forearm of a glance at the watch on the left wrist comes from, in the body's axes:
+     * out to the side at about the wrist's height, so the elbow is bent and the forearm lies across
+     * the chest.
+     */
+    static final float[] WATCH_ELBOW = {-0.42f, -0.25f, -0.10f};
 
     private static float[] watchAt() {
         return new float[] {(float) (-WATCH_FAR * Math.sin(WATCH_ASIDE) * Math.cos(WATCH_DOWN)), (float) (-WATCH_FAR * Math.sin(WATCH_DOWN)),
             (float) (-WATCH_FAR * Math.cos(WATCH_ASIDE) * Math.cos(WATCH_DOWN))};
     }
 
+    private static final float[] watchPlace = new float[3], watchPalm = new float[3], watchUp = new float[3], watchAcross = new float[3],
+            watchFingers = new float[3], watchHand = new float[3], watchIn = new float[3], watchHeld = new float[3], watchFrom = new float[3];
+
     /**
-     * Both hands as the viewer glances at the watch on a wrist: that hand up before the chest with
-     * the back of its wrist to the eye, the other below the picture. The place is the body's, so a
-     * view pitched down by the mouse looks down at the same wrist as a head turned down does.
+     * Both hands as the viewer glances at the watch on a wrist: that arm bent, its forearm across
+     * the chest and the wrist turned up before the face with the back of it to the eye, the hand
+     * hanging loose; the other below the picture. The place is the body's, so a view pitched down
+     * by the mouse looks down at the same wrist as a head turned down does.
      *
      * @param left  whether the watch is on the left wrist
      * @param pitch the clean view's pitch, radians, up positive: the aim's axes are the body's turned by it
@@ -283,35 +296,51 @@ final class TimedActs {
         Hand hand = left ? leftHand : right;
         int side = left ? 1 : 0;
         float sign = left ? 1f : -1f;
-        float[] watch = {WATCH_AT[0] * sign, WATCH_AT[1], WATCH_AT[2]};
+        float[] watch = watchPlace, palm = watchPalm, upSeen = watchUp, across = watchAcross, fingers = watchFingers;
+        watch[0] = WATCH_AT[0] * sign;
+        watch[1] = WATCH_AT[1];
+        watch[2] = WATCH_AT[2];
         // The palm faces away from the eye, so the back of the wrist faces it, and the forearm lies across the picture of the
         // glance, the hand a little lower than the wrist, on the other side of the watch from the wrist's own.
-        float[] palm = new float[3], upSeen = new float[3], across = new float[3];
         ArmPose.unit(watch[0], watch[1], watch[2], palm);
         ArmPose.unit(-palm[0] * palm[1], 1f - palm[1] * palm[1], -palm[2] * palm[1], upSeen);
         ArmPose.cross(palm, upSeen, across);
         float c = (float) Math.cos(WATCH_FINGERS_DROP), s = (float) Math.sin(WATCH_FINGERS_DROP);
-        float[] fingers = {across[0] * sign * c - upSeen[0] * s, across[1] * sign * c - upSeen[1] * s, across[2] * sign * c - upSeen[2] * s};
-        float[] at = {watch[0] + fingers[0] * WATCH_TO_HAND, watch[1] + fingers[1] * WATCH_TO_HAND, watch[2] + fingers[2] * WATCH_TO_HAND};
-        float[] turnedIn = new float[3];
-        ArmPose.cross(fingers, palm, turnedIn);
+        for (int axis = 0; axis < 3; axis++) {
+            fingers[axis] = across[axis] * sign * c - upSeen[axis] * s;
+            watchHand[axis] = watch[axis] + fingers[axis] * WATCH_TO_HAND;
+        }
+        ArmPose.cross(fingers, palm, watchIn);
         float tc = (float) Math.cos(WATCH_PALM_TURN * sign), ts = (float) Math.sin(WATCH_PALM_TURN * sign);
-        float[] held = {palm[0] * tc + turnedIn[0] * ts, palm[1] * tc + turnedIn[1] * ts, palm[2] * tc + turnedIn[2] * ts};
-        set(hand, fromBody(at, pitch), fromBody(fingers, pitch), fromBody(held, pitch), OPEN);
+        for (int axis = 0; axis < 3; axis++) {
+            watchHeld[axis] = palm[axis] * tc + watchIn[axis] * ts;
+        }
+        watchFrom[0] = WATCH_ELBOW[0] * sign;
+        watchFrom[1] = WATCH_ELBOW[1];
+        watchFrom[2] = WATCH_ELBOW[2];
+        set(hand, fromBody(watchHand, pitch, watchHand), fromBody(fingers, pitch, fingers), fromBody(watchHeld, pitch, watchHeld), RELAXED);
+        hand.comesFrom = true;
+        fromBody(watchFrom, pitch, hand.from);
         rise(hand, side, up);
     }
 
-    /** A place or a way in the body's axes in the aim's, the aim pitched up by pitch radians. */
-    static float[] fromBody(float[] v, float pitch) {
+    /** A place or a way in the body's axes in the aim's, the aim pitched up by pitch radians, into out, which may be v. */
+    static float[] fromBody(float[] v, float pitch, float[] out) {
         float c = (float) Math.cos(pitch), s = (float) Math.sin(pitch);
-        return new float[] {v[0], v[1] * c + v[2] * s, -v[1] * s + v[2] * c};
+        float y = v[1] * c + v[2] * s, z = -v[1] * s + v[2] * c;
+        out[0] = v[0];
+        out[1] = y;
+        out[2] = z;
+        return out;
     }
 
     /** The world map held up in both hands: its middle, how wide and tall it is, metres, and how far its top leans away from the eye, radians. */
     static final float[] SHEET_AT = {0f, -0.07f, -0.42f};
     static final float SHEET_WIDE = 0.40f, SHEET_TALL = 0.29f, SHEET_LEANS = (float) Math.toRadians(25);
     /** Where a hand holds the sheet's side, from its middle down, as a share of its height. */
-    private static final float HELD_LOW = 0.18f;
+    private static final float HELD_LOW = 0.28f;
+    /** How far out past the sheet's side the middle of a hand holding it is, and how far behind its face, metres. */
+    private static final float HELD_OUT = 0.012f, HELD_BEHIND = 0.018f;
 
     /**
      * The sheet of the held map before the eye, in the aim's axes: a matrix from a square of side
@@ -321,36 +350,45 @@ final class TimedActs {
      */
     static void sheet(float up, float[] out) {
         float c = (float) Math.cos(SHEET_LEANS), s = (float) Math.sin(SHEET_LEANS);
-        float[] across = {1f, 0f, 0f}, upIt = {0f, c, -s}, face = {0f, s, c};
-        float[] middle = {SHEET_AT[0], SHEET_AT[1] + (AWAY[0][1] - SHEET_AT[1]) * (1f - up), SHEET_AT[2] + (AWAY[0][2] - SHEET_AT[2]) * (1f - up)};
         for (int axis = 0; axis < 3; axis++) {
-            out[axis] = across[axis] * SHEET_WIDE;
-            out[4 + axis] = upIt[axis] * SHEET_TALL;
-            out[8 + axis] = face[axis];
-            out[12 + axis] = middle[axis];
+            out[axis] = axis == 0 ? SHEET_WIDE : 0f;
+            out[4 + axis] = (axis == 1 ? c : axis == 2 ? -s : 0f) * SHEET_TALL;
+            out[8 + axis] = axis == 1 ? s : axis == 2 ? c : 0f;
         }
+        out[12] = SHEET_AT[0];
+        out[13] = SHEET_AT[1] + (AWAY[0][1] - SHEET_AT[1]) * (1f - up);
+        out[14] = SHEET_AT[2] + (AWAY[0][2] - SHEET_AT[2]) * (1f - up);
         out[3] = 0f;
         out[7] = 0f;
         out[11] = 0f;
         out[15] = 1f;
     }
 
-    /** Both hands holding the map up by its sides, the thumbs on its face and the fingers behind. */
+    private static final float[] mapSheet = new float[16], mapAt = new float[3], mapFingers = new float[3], mapPalm = new float[3];
+
+    /**
+     * Both hands holding the map up by the lower part of its sides, as a sheet is held: each
+     * side's edge between the thumb, on its face, and the fingers, behind it, the palms facing in.
+     */
     static void map(float up, Hand right, Hand left) {
-        float[] sheet = new float[16];
-        sheet(up, sheet);
+        sheet(up, mapSheet);
+        float[] sheet = mapSheet;
         for (int side = 0; side < 2; side++) {
             Hand hand = side == 0 ? right : left;
-            float x = side == 0 ? 0.5f : -0.5f, y = -HELD_LOW;
-            float[] at = {sheet[0] * x + sheet[4] * y + sheet[12], sheet[1] * x + sheet[5] * y + sheet[13], sheet[2] * x + sheet[6] * y + sheet[14]};
-            // The fingers run up the sheet's side and in over it a little; the palm faces in across it, towards the eye a little.
-            float[] fingers = {-x * 0.5f, sheet[5] / SHEET_TALL, sheet[6] / SHEET_TALL};
-            float[] palm = {-x * 2f, sheet[9] * 0.35f, sheet[10] * 0.35f};
-            set(hand, at, fingers, palm, PINCH);
+            float out = side == 0 ? 1f : -1f, x = 0.5f * out + HELD_OUT * out / SHEET_WIDE, y = -HELD_LOW;
+            for (int axis = 0; axis < 3; axis++) {
+                mapAt[axis] = sheet[axis] * x + sheet[4 + axis] * y + sheet[12 + axis] - sheet[8 + axis] * HELD_BEHIND;
+                // The fingers run up the sheet's side, curling in behind it; the palm faces in across it, towards the eye a little.
+                mapFingers[axis] = sheet[4 + axis] / SHEET_TALL - sheet[axis] / SHEET_WIDE * out * 0.35f;
+                mapPalm[axis] = -sheet[axis] / SHEET_WIDE * out + sheet[8 + axis] * 0.3f;
+            }
+            set(hand, mapAt, mapFingers, mapPalm, RELAXED);
         }
         alongTheForearm(right, 0);
         alongTheForearm(left, 1);
     }
+
+    private static final float[] forearmLine = new float[3], forearmAxis = new float[3], forearmTurn = new float[9];
 
     /** How far a hand's fingers run off the line its forearm comes up along, at the most, in radians: a wrist bends about 32 degrees before the forearm has to follow. */
     static final float OFF_THE_FOREARM = (float) Math.toRadians(25);
@@ -361,13 +399,13 @@ final class TimedActs {
      * its palm with them.
      */
     private static void alongTheForearm(Hand hand, int side) {
-        float[] line = new float[3], from = ArmHolds.FROM[side];
+        float[] line = forearmLine, from = ArmHolds.FROM[side];
         ArmPose.unit(hand.at[0] - from[0], hand.at[1] - from[1], hand.at[2] - from[2], line);
         float off = (float) Math.acos(Math.clamp(ArmPose.dot(line, hand.fingers), -1f, 1f));
         if (off <= OFF_THE_FOREARM) {
             return;
         }
-        float[] axis = new float[3], turn = new float[9];
+        float[] axis = forearmAxis, turn = forearmTurn;
         ArmPose.cross(hand.fingers, line, axis);
         if (!ArmPose.unit(axis[0], axis[1], axis[2], axis)) {
             ArmPose.cross(hand.out, line, axis);
@@ -419,6 +457,7 @@ final class TimedActs {
     }
 
     private static void set(Hand hand, float[] at, float[] fingers, float[] palm, int pose) {
+        hand.comesFrom = false;
         System.arraycopy(at, 0, hand.at, 0, 3);
         ArmPose.unit(palm[0], palm[1], palm[2], hand.out);
         float along = ArmPose.dot(fingers, hand.out);

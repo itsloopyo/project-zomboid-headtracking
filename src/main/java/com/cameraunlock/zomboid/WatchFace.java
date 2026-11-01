@@ -32,6 +32,15 @@ final class WatchFace {
     /** Seven segments, a the top then clockwise round to f, and g the bar across the middle: which are lit for each figure. */
     static final int[] FIGURES = {0b0111111, 0b0000110, 0b1011011, 0b1001111, 0b1100110, 0b1101101, 0b1111101, 0b0000111, 0b1111111, 0b1101111};
 
+    /**
+     * The time of day a watch shows at a time of day, hours: as the game's clock shows it, to the
+     * ten minutes before.
+     */
+    static float shown(float timeOfDay) {
+        float hours = (float) Math.floor(timeOfDay);
+        return hours + (float) Math.floor((timeOfDay - hours) * 6f) / 6f;
+    }
+
     /** The hour hand's angle, clockwise from twelve, radians, at a time of day in hours. */
     static float hourAngle(float timeOfDay) {
         float hours = floorMod(timeOfDay, 12f);

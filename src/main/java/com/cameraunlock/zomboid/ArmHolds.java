@@ -651,7 +651,12 @@ final class ArmHolds {
         for (int side = 0; side < 2; side++) {
             TimedActs.Hand hand = hands[side];
             float[] weights = new float[model.poses.length];
-            weights[model.pose(TimedActs.POSE_NAMES[hand.pose])] = 1f;
+            if (hand.pose == TimedActs.RELAXED) {
+                weights[model.pose("open")] = 1f - TimedActs.RELAXED_GRIP;
+                weights[model.pose("grip")] = TimedActs.RELAXED_GRIP;
+            } else {
+                weights[model.pose(TimedActs.POSE_NAMES[hand.pose])] = 1f;
+            }
             // The thumb's side is square to the fingers and the palm, on the side that hand has its thumb.
             if (side == 1) {
                 ArmPose.cross(hand.out, hand.fingers, across);
@@ -659,6 +664,9 @@ final class ArmHolds {
                 ArmPose.cross(hand.fingers, hand.out, across);
             }
             starts(false, side, scale, 0f, 0f, fromAim, shoulder, from);
+            if (hand.comesFrom) {
+                turnedPlace(hand.from, 0f, scale, fromAim, from);
+            }
             if (!ArmPose.solve(model, scale, weights, hand.at, across, hand.out, shoulder, from, side == 1, false, skins[side], said[side])) {
                 return false;
             }

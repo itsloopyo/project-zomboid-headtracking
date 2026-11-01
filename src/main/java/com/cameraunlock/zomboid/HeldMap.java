@@ -2,6 +2,7 @@ package com.cameraunlock.zomboid;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
 import se.krka.kahlua.luaj.compiler.LuaCompiler;
@@ -9,6 +10,7 @@ import se.krka.kahlua.vm.JavaFunction;
 import se.krka.kahlua.vm.KahluaTable;
 import se.krka.kahlua.vm.LuaCallFrame;
 import zombie.Lua.LuaManager;
+import zombie.characters.IsoPlayer;
 import zombie.core.Core;
 import zombie.core.SpriteRenderer;
 import zombie.core.textures.Texture;
@@ -22,12 +24,12 @@ import zombie.ui.UIManager;
  * screen, the map stays up in the hands: the game's own map of the place round the player,
  * drawn by its own renderer with the player's marker and the player's own marks on it, onto a
  * sheet before the eye. The player can walk with it up. The map key again puts it down and
- * opens the game's panel, where it is panned, zoomed and marked; aiming, attacking, any other
- * action, a vehicle or death puts it down.
+ * reads it again as the game does, for the game's panel, where it is panned, zoomed and marked.
+ * What puts it down is MapHold's, looked at every frame whatever the view.
  *
- * The game's map is drawn into a picture of the screen's size, in the corner a UI element at
- * nought draws into, among the game's own UI drawing: the renderer sets its viewport from the
- * screen's size. The sheet reads that corner on the next frame.
+ * Each player's map is drawn into a square picture of its own, among the game's own UI drawing,
+ * by a UI element in the lower left corner of the screen, which the picture covers: the renderer
+ * sets its viewport from the screen's size. The sheet shows the picture on the next frame.
  *
  * On a server where players can fight, the game's own panel is shown as it is: a map that
  * leaves the hands and the view free while it is read is more than the game gives anyone.
@@ -50,19 +52,25 @@ final class HeldMap {
 
     /**
      * The Lua that holds the map: the game's reading of it made to hold it in the hands, the map
-     * key made to open the panel from there, and a map of the game's own kind, with the same
-     * data, style and paper as its panel, made for each player the first time it is drawn.
-     * Handed the mod's functions, it answers the one that places a player's map and hands back
-     * the map's Java element.
+     * key made to read it again for the game's panel from there, and a map of the game's own kind,
+     * with the same data, style and paper as its panel, made for each player the first time it is
+     * drawn. Handed the mod's functions, it answers the one that places a player's map and hands
+     * back the map's Java element.
      */
     private static final String LUA = """
             local Mod = ...
-            local maps = {}
-            local start, stop, perform, toggle = ISReadWorldMap.start, ISReadWorldMap.stop, ISReadWorldMap.perform, ISWorldMap.ToggleWorldMap
+            local maps, toPanel = {}, {}
+            local new, start, stop, perform, toggle = ISReadWorldMap.new, ISReadWorldMap.start, ISReadWorldMap.stop, ISReadWorldMap.perform, ISWorldMap.ToggleWorldMap
+
+            function ISReadWorldMap:new(character, centerX, centerY, zoom)
+                local o = new(self, character, centerX, centerY, zoom)
+                o.toPanel = toPanel[o.playerNum]
+                return o
+            end
 
             function ISReadWorldMap:start()
                 start(self)
-                if self.centerX == nil and Mod.wanted(self.playerNum) then
+                if self.centerX == nil and not self.toPanel and Mod.wanted(self.playerNum) then
                     self.heldInHands = true
                     Mod.reading(self.playerNum, true)
                 end
@@ -90,7 +98,9 @@ final class HeldMap {
             ISWorldMap.ToggleWorldMap = function(playerNum)
                 if Mod.held(playerNum) then
                     Mod.lower(playerNum)
-                    ISWorldMap.ShowWorldMap(playerNum)
+                    toPanel[playerNum] = true
+                    toggle(playerNum)
+                    toPanel[playerNum] = nil
                     return
                 end
                 toggle(playerNum)
@@ -102,7 +112,6 @@ final class HeldMap {
                 map.mapAPI = map.javaObject:getAPIv3()
                 map.mapAPI:setMapItem(MapItem.getSingleton())
                 map.javaObject:setX(0)
-                map.javaObject:setY(0)
                 map.javaObject:setWidth(side)
                 map.javaObject:setHeight(side)
                 ISWorldMap.initDataAndStyle(map)
@@ -114,15 +123,15 @@ final class HeldMap {
                 return map
             end
 
-            return function(playerNum, side, zoom)
+            return function(playerNum, side, zoom, y)
                 local map = maps[playerNum]
                 if map == nil or map.side ~= side then
                     map = make(side)
                     maps[playerNum] = map
                 end
+                map.javaObject:setY(y)
                 local player = getSpecificPlayer(playerNum)
-                local vehicle = player:getVehicle()
-                local at = vehicle or player
+                local at = player:getVehicle() or player
                 map.mapAPI:centerOn(at:getX(), at:getY())
                 map.mapAPI:setZoom(zoom)
                 return map.javaObject
@@ -132,12 +141,12 @@ final class HeldMap {
     /** How far in the held map is drawn, as the game counts its map's zoom: a few streets round the player. */
     static final double ZOOM = 17.5;
 
-    // Logic thread.
-    private static final boolean[] reading = new boolean[View.COUNT], held = new boolean[View.COUNT];
+    private static final boolean[] reading = new boolean[View.COUNT], held = new boolean[View.COUNT], made = new boolean[View.COUNT];
     private static Object place;
-    private static boolean placeRefused;
+    /** Set as the game loads its Lua: the mod's goes into it on the next frame, among the game's UI drawing. */
+    private static boolean pending;
 
-    private static final JavaFunction WANTED = (frame, arguments) -> frame.push(wanted(player(frame))),
+    private static final JavaFunction WANTED = (frame, arguments) -> frame.push(MapHold.wanted(holding(player(frame), false))),
             READING = (frame, arguments) -> {
                 reading[player(frame)] = Boolean.TRUE.equals(frame.get(1));
                 return 0;
@@ -150,7 +159,7 @@ final class HeldMap {
             },
             IS_HELD = (frame, arguments) -> frame.push(held[player(frame)]),
             LOWER = (frame, arguments) -> {
-                lower(player(frame));
+                lower(player(frame), "the map key was pressed again");
                 return 0;
             };
 
@@ -158,19 +167,61 @@ final class HeldMap {
         return (int) (double) (Double) frame.get(0);
     }
 
-    /** Whether the map read by a player now goes up in their hands. */
-    private static boolean wanted(int player) {
-        View view = View.of(player);
-        return Part.FIRST_PERSON.running() && Part.HELD_MAP.running() && view != null && view.firstPerson.active() && Own.arms() && !Online.contested();
+    /** What of MapHold's holds of a player now. With `held`, the map is up already, and any action under way is something else. */
+    private static int holding(int index, boolean held) {
+        IsoPlayer player = IsoPlayer.players[index];
+        View view = View.of(index);
+        if (player == null || view == null) {
+            return MapHold.GONE;
+        }
+        int holding = 0;
+        if (!Part.FIRST_PERSON.running() || !Part.HELD_MAP.running()) {
+            holding |= MapHold.OFF;
+        }
+        if (!view.firstPerson.active()) {
+            holding |= MapHold.NOT_FIRST_PERSON;
+        }
+        if (!Own.arms() || !CharacterDraw.cutsSeen()) {
+            holding |= MapHold.NO_OWN_ARMS;
+        }
+        if (view.firstPerson.ledByBody()) {
+            holding |= MapHold.BODY_LEADS;
+        }
+        if (player.isDead()) {
+            holding |= MapHold.DEAD;
+        }
+        if (player.getVehicle() != null) {
+            holding |= MapHold.IN_A_VEHICLE;
+        }
+        if (Online.contested()) {
+            holding |= MapHold.PLAYERS_CAN_FIGHT;
+        }
+        if (player.isAiming()) {
+            holding |= MapHold.AIMING;
+        }
+        if (GameAttack.attacking(player)) {
+            holding |= MapHold.ATTACKING;
+        }
+        if (held && !player.getCharacterActions().isEmpty()) {
+            holding |= MapHold.DOING_SOMETHING_ELSE;
+        }
+        return holding;
     }
 
-    /** Puts the game's reading of its map in the hands, each time the game loads its Lua. */
-    static void register() {
-        for (int i = 0; i < View.COUNT; i++) {
-            reading[i] = held[i] = false;
-        }
-        place = null;
+    /** As the game loads its Lua: nobody holds a map, and the mod's Lua goes into the game's on the next frame among its UI drawing. */
+    static void luaLoaded() {
+        Arrays.fill(reading, false);
+        Arrays.fill(held, false);
+        pending = true;
+    }
+
+    /**
+     * Puts the game's reading of its map in the hands, in the game's Lua as it was last loaded. A
+     * failure is said, and leaves the map key as the game has it.
+     */
+    private static void register() {
         if (!(LuaManager.env.rawget("ISReadWorldMap") instanceof KahluaTable read) || !(LuaManager.env.rawget("ISWorldMap") instanceof KahluaTable)) {
+            place = null;
             Log.info("the map is not held up in first person: the game's Lua has no ISReadWorldMap or ISWorldMap");
             return;
         }
@@ -188,109 +239,134 @@ final class HeldMap {
         try {
             chunk = LuaCompiler.loadstring(LUA, "the mod's held map", LuaManager.env);
         } catch (IOException refused) {
-            throw new IllegalStateException("the game's Lua would not compile the mod's held map: " + refused.getMessage(), refused);
+            Log.error("the map is not held up in first person: the game's Lua would not compile the mod's", refused);
+            return;
         }
         Object[] ran = LuaManager.caller.pcall(UIManager.getDefaultThread(), chunk, mod);
         if (!Boolean.TRUE.equals(ran[0]) || ran.length < 2 || ran[1] == null) {
-            throw new IllegalStateException("the mod's held map failed in the game's Lua: " + java.util.Arrays.toString(ran));
+            Log.error("the map is not held up in first person: the mod's Lua failed in the game's: " + Arrays.toString(ran));
+            return;
         }
         place = ran[1];
-        placeRefused = false;
         Log.info("the world map read in first person is held up in the hands");
     }
 
-    /** Whether a player is reading the map, with the game's animation of it, to hold it up. Logic thread. */
+    /** Whether a player is reading the map, with the game's animation of it, to hold it up. */
     static boolean reading(int player) {
         return reading[player];
     }
 
-    /** Whether a player holds the map up. Logic thread. */
+    /** Whether a player holds the map up. */
     static boolean held(int player) {
         return held[player];
     }
 
-    /** Puts the map down. Logic thread. */
-    static void lower(int player) {
+    private static void lower(int player, String why) {
         if (held[player]) {
             held[player] = false;
-            Log.info("player " + (player + 1) + " has put the map down");
+            Log.info("player " + (player + 1) + " has put the map down: " + why);
         }
     }
 
     /**
-     * Draws the game's map of the place round the first player who has one up into the map's
-     * picture, among the game's UI drawing and before any of it. Logic thread.
+     * Among the game's UI drawing, before any of it, every frame whatever the view: puts down
+     * each map MapHold says is down, and draws each one still up into its player's picture.
      */
     static void beforeUi() {
-        if (place == null || placeRefused) {
-            return;
+        if (pending) {
+            pending = false;
+            register();
         }
+        int side = Math.min(MOST_SIDE, Math.min(Core.width, Core.height));
         for (int player = 0; player < View.COUNT; player++) {
+            if (reading[player] || held[player]) {
+                String why = MapHold.down(holding(player, held[player]));
+                if (why != null) {
+                    if (reading[player]) {
+                        reading[player] = false;
+                        Log.info("player " + (player + 1) + "'s map is read without holding it up: " + why);
+                    }
+                    lower(player, why);
+                }
+            }
             if (!reading[player] && !held[player]) {
+                if (made[player]) {
+                    made[player] = false;
+                    SpriteRenderer.instance.drawGeneric(FREE[player]);
+                }
                 continue;
             }
-            int side = Math.min(MOST_SIDE, Math.min(Core.width, Core.height));
-            if (side <= 0) {
-                return;
-            }
-            Object[] ran = LuaManager.caller.pcall(UIManager.getDefaultThread(), place, (double) player, (double) side, ZOOM);
+            Object[] ran = LuaManager.caller.pcall(UIManager.getDefaultThread(), place, (double) player, (double) side, ZOOM, (double) (Core.height - side));
             if (!Boolean.TRUE.equals(ran[0]) || ran.length < 2 || !(ran[1] instanceof UIElement map)) {
-                placeRefused = true;
-                Log.info("the held map is drawn blank from now on: the game's Lua would not place it: " + java.util.Arrays.toString(ran));
-                return;
+                Log.error("player " + (player + 1) + "'s map is put down: the game's Lua would not place it: " + Arrays.toString(ran));
+                reading[player] = false;
+                lower(player, "it could not be drawn");
+                continue;
             }
+            made[player] = true;
             drawnSide = side;
             drawnWidth = Core.width;
             drawnHeight = Core.height;
-            SpriteRenderer.instance.drawGeneric(BIND);
+            SpriteRenderer.instance.drawGeneric(BIND[player]);
             map.render();
-            SpriteRenderer.instance.drawGeneric(UNBIND);
-            return;
+            SpriteRenderer.instance.drawGeneric(UNBIND[player]);
         }
     }
 
-    /** The side of the map drawn and the screen's size it is drawn at, for the render thread. */
+    /** The side of the maps drawn and the screen's size they are drawn at, for the render thread. */
     private static volatile int drawnSide, drawnWidth, drawnHeight;
 
-    // Render thread.
-    private static int texture, target, wide, high, savedDraw, savedRead;
-    /** Where the map lies in the picture, as u and v from its corner and across: nought across while none is drawn. */
-    private static final float[] region = new float[4];
+    private static final int[] texture = new int[View.COUNT], target = new int[View.COUNT], sides = new int[View.COUNT];
+    private static int savedDraw, savedRead;
+    /** Set once the driver refuses a picture: every map is drawn into nothing from then on, and the sheets are blank. */
     private static boolean refused;
-
-    private static final TextureDraw.GenericDrawer BIND = new TextureDraw.GenericDrawer() {
-        @Override
-        public void render() {
-            bind(drawnSide, drawnWidth, drawnHeight);
-        }
-    };
-
-    private static final TextureDraw.GenericDrawer UNBIND = new TextureDraw.GenericDrawer() {
-        @Override
-        public void render() {
-            unbind();
-        }
-    };
-
-    /** Whether the map's drawing goes into its picture: else, with the picture refused, it goes nowhere. */
+    /** Whether the map being drawn goes into its picture: else, with pictures refused, it goes nowhere. */
     private static boolean bound;
 
+    private static final TextureDraw.GenericDrawer[] BIND = new TextureDraw.GenericDrawer[View.COUNT], UNBIND = new TextureDraw.GenericDrawer[View.COUNT],
+            FREE = new TextureDraw.GenericDrawer[View.COUNT];
+
+    static {
+        for (int player = 0; player < View.COUNT; player++) {
+            int index = player;
+            BIND[player] = new TextureDraw.GenericDrawer() {
+                @Override
+                public void render() {
+                    bind(index, drawnSide, drawnWidth, drawnHeight);
+                }
+            };
+            UNBIND[player] = new TextureDraw.GenericDrawer() {
+                @Override
+                public void render() {
+                    unbind(index);
+                }
+            };
+            FREE[player] = new TextureDraw.GenericDrawer() {
+                @Override
+                public void render() {
+                    free(index);
+                }
+            };
+        }
+    }
+
     /**
-     * Turns what the game's UI draws next into the map's picture, or, where the driver refused
-     * the picture, into nothing, until unbind: the viewport, the scissor and the colour mask are
-     * kept to be put back then.
+     * Turns what the game's UI draws next into a player's picture, or, where the driver refused
+     * pictures, into nothing, until unbind: the viewport, the scissor and the colour mask are kept
+     * to be put back then. The picture covers the screen's lower left corner, and the scissor keeps
+     * what is drawn inside it.
      */
-    private static void bind(int side, int width, int height) {
+    private static void bind(int player, int side, int width, int height) {
         GL11.glPushAttrib(GL_COLOR_BUFFER_BIT | GL_VIEWPORT_BIT | GL_SCISSOR_BIT);
         bound = !refused;
-        if (bound && (texture == 0 || wide != width || high != height)) {
-            letGo();
-            String why = make(width, height);
+        if (bound && (texture[player] == 0 || sides[player] != side)) {
+            free(player);
+            String why = make(player, side);
             if (why != null) {
                 refused = true;
                 bound = false;
-                letGo();
-                Log.info("the held map is drawn blank: " + why);
+                free(player);
+                Log.error("the held map is drawn blank: " + why);
             }
         }
         if (!bound) {
@@ -299,39 +375,36 @@ final class HeldMap {
         }
         savedDraw = GL11.glGetInteger(GL_DRAW_FRAMEBUFFER_BINDING);
         savedRead = GL11.glGetInteger(GL_READ_FRAMEBUFFER_BINDING);
-        GL30.glBindFramebuffer(GL_FRAMEBUFFER, target);
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, target[player]);
         GL11.glViewport(0, 0, width, height);
-        GL11.glEnable(GL_SCISSOR_TEST);
-        GL11.glScissor(0, height - side, side, side);
         GL11.glColorMask(true, true, true, true);
+        GL11.glDisable(GL_SCISSOR_TEST);
         GL11.glClearColor(0.86f, 0.82f, 0.71f, 1f);
         GL11.glClear(GL_COLOR_BUFFER_BIT);
-        GL11.glDisable(GL_SCISSOR_TEST);
-        region[0] = 0f;
-        region[1] = (height - side) / (float) height;
-        region[2] = side / (float) width;
-        region[3] = side / (float) height;
-        bound = true;
+        GL11.glEnable(GL_SCISSOR_TEST);
+        GL11.glScissor(0, 0, side, side);
     }
 
-    private static void unbind() {
-        GL11.glPopAttrib();
+    private static void unbind(int player) {
         if (!bound) {
+            GL11.glPopAttrib();
             return;
         }
         bound = false;
+        // What was pushed holds the draw buffers of the framebuffer bound then: popped onto the picture's, they are GL_INVALID_OPERATION.
         GL30.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, savedDraw);
         GL30.glBindFramebuffer(GL_READ_FRAMEBUFFER, savedRead);
+        GL11.glPopAttrib();
         int remembered = Texture.lastTextureID;
-        GL11.glBindTexture(GL_TEXTURE_2D, texture);
+        GL11.glBindTexture(GL_TEXTURE_2D, texture[player]);
         GL30.glGenerateMipmap(GL_TEXTURE_2D);
         GL11.glBindTexture(GL_TEXTURE_2D, remembered);
     }
 
-    private static String make(int width, int height) {
-        texture = GL11.glGenTextures();
-        GL11.glBindTexture(GL_TEXTURE_2D, texture);
-        GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, (ByteBuffer) null);
+    private static String make(int player, int side) {
+        texture[player] = GL11.glGenTextures();
+        GL11.glBindTexture(GL_TEXTURE_2D, texture[player]);
+        GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, side, side, 0, GL_RGBA, GL_UNSIGNED_BYTE, (ByteBuffer) null);
         GL30.glGenerateMipmap(GL_TEXTURE_2D);
         GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
         GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -339,39 +412,39 @@ final class HeldMap {
         GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         GL11.glBindTexture(GL_TEXTURE_2D, Texture.lastTextureID);
         int drawTo = GL11.glGetInteger(GL_DRAW_FRAMEBUFFER_BINDING), readFrom = GL11.glGetInteger(GL_READ_FRAMEBUFFER_BINDING);
-        target = GL30.glGenFramebuffers();
-        GL30.glBindFramebuffer(GL_FRAMEBUFFER, target);
-        GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
+        target[player] = GL30.glGenFramebuffers();
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, target[player]);
+        GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture[player], 0);
         int status = GL30.glCheckFramebufferStatus(GL_FRAMEBUFFER);
         GL30.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, drawTo);
         GL30.glBindFramebuffer(GL_READ_FRAMEBUFFER, readFrom);
-        wide = width;
-        high = height;
+        sides[player] = side;
         if (status != GL_FRAMEBUFFER_COMPLETE) {
             return "the driver would not make the picture it is drawn into (status 0x" + Integer.toHexString(status) + ")";
         }
-        Log.info("the held map's picture is made, " + width + "x" + height);
+        Log.info("player " + (player + 1) + "'s held map picture is made, " + side + "x" + side);
         return null;
     }
 
-    /** Gives the map's picture back to the graphics card. Render thread. */
-    static void letGo() {
-        region[2] = 0f;
-        if (texture == 0) {
+    private static void free(int player) {
+        if (texture[player] == 0) {
             return;
         }
-        GL30.glDeleteFramebuffers(target);
-        GL11.glDeleteTextures(texture);
-        texture = target = wide = high = 0;
-        Log.info("the held map's picture is given back to the graphics card");
+        GL30.glDeleteFramebuffers(target[player]);
+        GL11.glDeleteTextures(texture[player]);
+        texture[player] = target[player] = sides[player] = 0;
+        Log.info("player " + (player + 1) + "'s held map picture is given back to the graphics card");
     }
 
-    /**
-     * Draws the sheet the map is on, as the arms are drawn.
-     *
-     * @param at the matrix from a square of side one, across x and up y, facing +z, to the view
-     */
-    static void drawSheet(float[] projection, float[] at, float light, boolean outside) {
-        OwnArms.sheet(projection, at, texture, region, light, outside);
+    /** Gives every player's map picture back to the graphics card. Render thread. */
+    static void letGo() {
+        for (int player = 0; player < View.COUNT; player++) {
+            free(player);
+        }
+    }
+
+    /** The texture a player's map is drawn in, or nought for none. Render thread. */
+    static int picture(int player) {
+        return texture[player];
     }
 }

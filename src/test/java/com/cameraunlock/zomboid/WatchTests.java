@@ -20,6 +20,10 @@ final class WatchTests {
         Checks.run("glanceIsTheSameAtAnyFrameRate", WatchTests::glanceIsTheSameAtAnyFrameRate);
         Checks.run("glanceIsMeasuredFromWhereTheBodyFacedAsTheLookWentDown", WatchTests::glanceIsMeasuredFromWhereTheBodyFacedAsTheLookWentDown);
         Checks.run("turnFromTheBodyIsTheShortWayRound", WatchTests::turnFromTheBodyIsTheShortWayRound);
+        Checks.run("glanceIsAtTheWristTheLookTurnsTowards", WatchTests::glanceIsAtTheWristTheLookTurnsTowards);
+        Checks.run("watchShowsTheTimeToTheTenMinutesAsTheGamesClockDoes", WatchTests::watchShowsTheTimeToTheTenMinutesAsTheGamesClockDoes);
+        Checks.run("heldMapComesDownForEachReasonAndSaysTheFirst", WatchTests::heldMapComesDownForEachReasonAndSaysTheFirst);
+        Checks.run("heldMapIsNeverWantedWherePlayersCanFight", WatchTests::heldMapIsNeverWantedWherePlayersCanFight);
         Checks.run("handsStandAtTheTimesAngles", WatchTests::handsStandAtTheTimesAngles);
         Checks.run("figuresAreTheGamesClocks", WatchTests::figuresAreTheGamesClocks);
         Checks.run("segmentsLieInsideTheirFigureAndFiguresApart", WatchTests::segmentsLieInsideTheirFigureAndFiguresApart);
@@ -118,6 +122,46 @@ final class WatchTests {
         check(Math.abs(WatchGlance.turned(-0.2f, 0.2f) + 0.4f) < 1e-6f, "and left is left");
     }
 
+    private static void glanceIsAtTheWristTheLookTurnsTowards() {
+        check(WatchGlance.atLeft(false, true, 0.3f), "a watch on the left wrist alone is glanced at however the look turns");
+        check(!WatchGlance.atLeft(true, false, -0.3f), "and one on the right alone");
+        check(WatchGlance.atLeft(true, true, -0.3f) && !WatchGlance.atLeft(true, true, 0.3f), "with one on each, the one the look turns towards");
+    }
+
+    private static void watchShowsTheTimeToTheTenMinutesAsTheGamesClockDoes() {
+        float[][] times = {{10.1f, 10f}, {15.75f, 15f + 40f / 60f}, {23.99f, 23f + 50f / 60f}, {0.05f, 0f}, {7.5f, 7.5f}};
+        for (float[] time : times) {
+            check(Math.abs(WatchFace.shown(time[0]) - time[1]) < 1e-4f, "at " + time[0] + " hours a watch shows " + time[1] + ", not " + WatchFace.shown(time[0]));
+        }
+        check(Arrays.equals(WatchFace.figures(WatchFace.shown(10.1f), true), new int[] {1, 0, 0, 0}), "10:06 reads 10:00, as the game's clock reads it");
+    }
+
+    private static void heldMapComesDownForEachReasonAndSaysTheFirst() {
+        check(MapHold.down(0) == null, "with nothing in the way the map stays up");
+        int[] each = {MapHold.GONE, MapHold.OFF, MapHold.NOT_FIRST_PERSON, MapHold.NO_OWN_ARMS, MapHold.BODY_LEADS, MapHold.DEAD, MapHold.IN_A_VEHICLE,
+            MapHold.PLAYERS_CAN_FIGHT, MapHold.AIMING, MapHold.ATTACKING, MapHold.DOING_SOMETHING_ELSE};
+        java.util.Set<String> said = new java.util.HashSet<>();
+        for (int reason : each) {
+            String why = MapHold.down(reason);
+            check(why != null && said.add(why), "each reason puts the map down and says why in its own words: " + why);
+            check(why.equals(MapHold.down(reason | MapHold.DOING_SOMETHING_ELSE)), "the first reason is the one said: " + why);
+        }
+        check(MapHold.down(MapHold.NOT_FIRST_PERSON | MapHold.DEAD).equals(MapHold.down(MapHold.NOT_FIRST_PERSON)), "out of first person and dead, it says the view");
+        check(!MapHold.wanted(MapHold.BODY_LEADS) && !MapHold.wanted(MapHold.NOT_FIRST_PERSON) && !MapHold.wanted(MapHold.OFF),
+                "a map read with the body led, out of first person or switched off is not held up");
+        check(MapHold.wanted(MapHold.DOING_SOMETHING_ELSE), "the reading of the map is not something else in the way of holding it up");
+    }
+
+    private static void heldMapIsNeverWantedWherePlayersCanFight() {
+        check(MapHold.down(MapHold.PLAYERS_CAN_FIGHT) != null, "where players can fight a map up comes down");
+        for (int others = 0; others < MapHold.DOING_SOMETHING_ELSE << 1; others++) {
+            if (MapHold.wanted(others | MapHold.PLAYERS_CAN_FIGHT)) {
+                check(false, "where players can fight the map is read as the game reads it, whatever else holds: " + others);
+                return;
+            }
+        }
+    }
+
     private static void handsStandAtTheTimesAngles() {
         float[][] times = {{0f, 0f, 0f}, {3f, 90f, 0f}, {15.5f, 105f, 180f}, {10.25f, 307.5f, 90f}, {23.75f, 352.5f, 270f}, {12f, 0f, 0f}};
         for (float[] time : times) {
@@ -200,6 +244,8 @@ final class WatchTests {
             System.arraycopy(both[side].fingers, 0, seen[side].fingers, 0, 3);
             System.arraycopy(both[side].out, 0, seen[side].out, 0, 3);
             seen[side].pose = both[side].pose;
+            seen[side].comesFrom = both[side].comesFrom;
+            System.arraycopy(both[side].from, 0, seen[side].from, 0, 3);
         }
         return ArmHolds.placeTask(model, SCALE, seen, SAME, skins, SAID);
     }
@@ -229,8 +275,8 @@ final class WatchTests {
                     // The display of a digital watch, the dial of the other.
                     ArmPose.multiply(watchAt, 0, pieces.matrices, (WatchFace.STRAP_PIECES + 1) * 16, faceAt, 0);
                     // In the body's axes, and seen by an eye looking at the watch, by the head, the mouse or both.
-                    float[] three = TimedActs.fromBody(column(faceAt, 0), -pitch), normal = TimedActs.fromBody(column(faceAt, 1), -pitch);
-                    float[] twelve = TimedActs.fromBody(column(faceAt, 2), -pitch), middle = TimedActs.fromBody(column(faceAt, 3), -pitch);
+                    float[] three = TimedActs.fromBody(column(faceAt, 0), -pitch, new float[3]), normal = TimedActs.fromBody(column(faceAt, 1), -pitch, new float[3]);
+                    float[] twelve = TimedActs.fromBody(column(faceAt, 2), -pitch, new float[3]), middle = TimedActs.fromBody(column(faceAt, 3), -pitch, new float[3]);
                     float[] look = new float[3], up = new float[3], across = new float[3];
                     ArmPose.unit(TimedActs.WATCH_AT[0] * (wrist == 1 ? 1f : -1f), TimedActs.WATCH_AT[1], TimedActs.WATCH_AT[2], look);
                     ArmPose.unit(-look[0] * look[1], 1f - look[1] * look[1], -look[2] * look[1], up);
@@ -239,7 +285,7 @@ final class WatchTests {
                     ArmPose.unit(-middle[0], -middle[1], -middle[2], seenFrom);
                     ArmPose.unit(normal[0], normal[1], normal[2], facing);
                     float turned = (float) Math.toDegrees(Math.acos(ArmPose.dot(seenFrom, facing)));
-                    check(turned < 40f, "the face is turned to the eye: " + at + ", " + turned + " degrees off");
+                    check(turned < 30f, "the face is turned to the eye: " + at + ", " + turned + " degrees off");
                     ArmPose.cross(three, twelve, upright);
                     check(ArmPose.dot(upright, normal) > 0f, "three is to the right of twelve as the face is seen, not mirrored: " + at);
                     ArmPose.unit(twelve[0], twelve[1], twelve[2], twelveWay);
@@ -248,7 +294,15 @@ final class WatchTests {
                     check(ahead > 0f && Math.abs(x) < PICTURE * WIDE * 0.5f && Math.abs(y) < PICTURE * 0.5f,
                             String.format(Locale.ROOT, "the face is well inside the picture of a glance at it: %s, at %.2f, %.2f", at, x, y));
                     float far = (float) Math.sqrt(ArmPose.dot(middle, middle)) / SCALE;
-                    check(far > 0.2f && far < 0.4f, "the watch is held as near as a watch is read: " + at + ", " + far + " m");
+                    float[] said = SAID[wrist], elbow = TimedActs.fromBody(new float[] {said[ArmPose.ELBOW], said[ArmPose.ELBOW + 1], said[ArmPose.ELBOW + 2]}, -pitch, new float[3]);
+                    float[] wristAt = TimedActs.fromBody(new float[] {said[ArmPose.WRIST], said[ArmPose.WRIST + 1], said[ArmPose.WRIST + 2]}, -pitch, new float[3]);
+                    float fx = ArmPose.dot(wristAt, across) / ArmPose.dot(wristAt, look) - ArmPose.dot(elbow, across) / ArmPose.dot(elbow, look);
+                    float fy = ArmPose.dot(wristAt, up) / ArmPose.dot(wristAt, look) - ArmPose.dot(elbow, up) / ArmPose.dot(elbow, look);
+                    float ex = ArmPose.dot(elbow, across) / ArmPose.dot(elbow, look), ey = ArmPose.dot(elbow, up) / ArmPose.dot(elbow, look);
+                    float slope = (float) Math.toDegrees(Math.atan2(Math.abs(fy), Math.abs(fx)));
+                    check(slope < 25f && ex * (wrist == 1 ? -1f : 1f) > 0.6f && Math.abs(ey) < PICTURE * 0.5f,
+                            String.format(Locale.ROOT, "the elbow is bent out to the wrist's side and the forearm lies across the picture: %s, the forearm %.0f degrees off level, the elbow at %.2f, %.2f", at, slope, ex, ey));
+                    check(far > 0.25f && far < 0.35f, "the watch is held as near as a watch is read: " + at + ", " + far + " m");
                 }
             }
         }

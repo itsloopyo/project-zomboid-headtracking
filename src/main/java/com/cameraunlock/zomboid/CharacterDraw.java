@@ -1704,10 +1704,17 @@ final class CharacterDraw {
         GL20.glUniform1f(at[4], out * FRINGE * scale);
     }
 
-    /** Whether the viewer's body can be drawn in two pieces on this machine. */
+    /** Whether the viewer's body can be drawn in two pieces on this machine. Render thread. */
     static boolean cuts() {
         link();
         return !off && cut != null;
+    }
+
+    private static volatile boolean cutsSeen;
+
+    /** What cuts answers, for the logic thread: false until the render thread has linked the programs. */
+    static boolean cutsSeen() {
+        return cutsSeen;
     }
 
     /**
@@ -2253,6 +2260,7 @@ final class CharacterDraw {
 
     private static void refuse(String why) {
         off = true;
+        cutsSeen = false;
         Log.info("characters are drawn by the game's own draw, as flat-sided as it makes them: " + why);
     }
 
@@ -2316,6 +2324,7 @@ final class CharacterDraw {
             Log.info("the weapon in hand is drawn where the game holds it: " + cutProblem);
         } else {
             cut = new Skin(pieces);
+            cutsSeen = !off;
             cutArm = GL20.glGetUniformLocation(pieces, "uArm");
             cutKeep = GL20.glGetUniformLocation(pieces, "uKeepArms");
             sleeve = arm;

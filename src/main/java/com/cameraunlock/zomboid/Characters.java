@@ -971,7 +971,7 @@ public final class Characters {
         ModelInstanceRenderData right = carries ? weaponOf(data) : null, left = carries ? leftOf(data) : null;
         ViewModel.Watch watch = task.watch();
         if (watch != null) {
-            TimedActs.watch(watch.left(), watch.pitch(), task.up(), taskHands[0], taskHands[1]);
+            TimedActs.watch(watch.left(), task.pitch(), task.up(), taskHands[0], taskHands[1]);
         } else if (!carries) {
             TimedActs.map(task.up(), taskHands[0], taskHands[1]);
         } else {
@@ -984,6 +984,8 @@ public final class Characters {
             ViewModelMath.turned(fromAim, from.fingers, to.fingers);
             ViewModelMath.turned(fromAim, from.out, to.out);
             to.pose = from.pose;
+            to.comesFrom = from.comesFrom;
+            System.arraycopy(from.from, 0, to.from, 0, 3);
         }
         if (right != null && !inTheHand(data, 0, right, seenHands[0], scale, heldView) || left != null && !inTheHand(data, 1, left, seenHands[1], scale, leftView)) {
             if (!taskCarryRefused) {
@@ -2174,7 +2176,7 @@ public final class Characters {
             OwnArms.watch(projection, armSkins[taskWatch.left() ? 1 : 0], taskWatch, armFemale, worn, ownLight, outside);
         }
         if (sheetShown) {
-            HeldMap.drawSheet(projection, sheetView, ownLight, outside);
+            OwnArms.sheet(projection, sheetView, HeldMap.picture(view.index), ownLight, outside);
         }
         data.ambientR = red;
         data.ambientG = green;

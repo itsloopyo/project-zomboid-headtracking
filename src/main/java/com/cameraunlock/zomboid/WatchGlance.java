@@ -72,12 +72,27 @@ final class WatchGlance {
         return up;
     }
 
+    /** How far the arm is up, 0 to 1, as the last step left it. */
+    float up() {
+        return up;
+    }
+
     /** The arm goes down at once and the next glance waits its moment again. */
     void rest() {
         looking = false;
         wasDown = false;
         held = 0f;
         up = 0f;
+    }
+
+    /**
+     * Whether a glance is at the left wrist: the only one with a watch on it, or with one on each,
+     * the one the look is turned towards.
+     *
+     * @param turned how far the look is turned from the body, right positive
+     */
+    static boolean atLeft(boolean rightWorn, boolean leftWorn, float turned) {
+        return leftWorn && (!rightWorn || turned < 0f);
     }
 
     /** How far a view turned to yaw is from a body facing bodyYaw, radians, right positive, from -pi to pi. */
