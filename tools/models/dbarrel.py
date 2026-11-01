@@ -452,6 +452,34 @@ def variant(gun, keep):
     return copy
 
 
+def apart(gun):
+    """What the light is baked from, so that neither gun shades what only the other has: the sawn-off's grip lies inside
+    the full gun's stock. The full gun stays where it is; the sawn-off's own parts are moved a metre along x, beside a
+    copy of the sawn-off's other parts that shades them there and is not baked. Returns the object to bake and the copy."""
+    away = Vector((1.0, 0.0, 0.0))
+    lit = gun.copy()
+    lit.data = gun.data.copy()
+    bpy.context.scene.collection.objects.link(lit)
+    beside = variant(gun, SAWN)
+    beside.location = away
+    for obj, move in ((lit, True), (beside, False)):
+        mesh = obj.data
+        part = [0] * len(mesh.polygons)
+        mesh.attributes["part"].data.foreach_get("value", part)
+        bm = bmesh.new()
+        bm.from_mesh(mesh)
+        bm.faces.ensure_lookup_table()
+        own = [face for face, which in zip(bm.faces, part) if ONLY.get(G.PART_NAMES[which]) == SAWN]
+        if move:
+            for vert in {vert for face in own for vert in face.verts}:
+                vert.co += away
+        else:
+            bmesh.ops.delete(bm, geom=own, context="FACES")
+        bm.to_mesh(mesh)
+        bm.free()
+    return lit, beside
+
+
 def pack(gun, colour, surface):
     # The mod holds a weapon up as the game's own are made, the mirror image in x of how it is laid out here.
     mirror = Vector((-1.0, 1.0, 1.0))
@@ -516,7 +544,10 @@ def main():
     if "--mesh" in args:
         pack(gun, None, None)
         return
-    colour, surface = G.pictures_of(G.bake(gun))
+    lit, beside = apart(gun)
+    colour, surface = G.pictures_of(G.bake(gun, lit))
+    bpy.data.objects.remove(lit)
+    bpy.data.objects.remove(beside)
     if "--no-pack" not in args:
         pack(gun, colour, surface)
     if "--renders" in args:

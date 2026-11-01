@@ -833,8 +833,10 @@ def stats(gun, layout):
         print("%-18s %5.2f%% of the texture, box %.3f %.3f to %.3f %.3f" % (name, areas[part == n].sum() * 100, *mine.min(axis=0), *mine.max(axis=0)))
 
 
-def bake(gun):
-    """Bakes what the materials work out into pictures laid out as the texture is: each a float array, rows from the bottom."""
+def bake(gun, lit=None):
+    """Bakes what the materials work out into pictures laid out as the texture is: each a float array, rows from the bottom.
+
+    lit, if given, is an object with gun's layout that the light is baked from in gun's place, gun hidden meanwhile."""
     scene = bpy.context.scene
     scene.render.engine = "CYCLES"
     use_card(scene)
@@ -868,7 +870,13 @@ def bake(gun):
     out["normal"] = taken()
     print("baked normal", flush=True)
     scene.cycles.samples = 192
+    if lit is not None:
+        gun.hide_render = True
+        select(lit)
     bpy.ops.object.bake(type="AO")
+    if lit is not None:
+        gun.hide_render = False
+        select(gun)
     out["light"] = taken()
     print("baked light", flush=True)
     return out
