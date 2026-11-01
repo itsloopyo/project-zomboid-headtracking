@@ -606,6 +606,8 @@ final class WallBuilder {
                 // A gate the picture could not build stays the sheet it was before it was built.
                 if (addLeaf(texture, x, y, z, way, layer, da, db, "its sprite") || build.gate == Gates.NONE && build.openingBuilder.addDoor(mesh, texture, x, y, z, 0f, 0f, da, db)) {
                     build.geometry.shownA = build.geometry.shownB = 0f;
+                    build.geometry.turned = false;
+                    build.frame.material = material;
                     build.frame.site = site;
                     return;
                 }
