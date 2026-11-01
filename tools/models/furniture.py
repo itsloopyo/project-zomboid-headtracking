@@ -5950,9 +5950,10 @@ def girder():
 
 def felt_rolls(name, end):
     """A square's length of a bundle of roofing felt lying along y, two rolls and one on them. The game lays the bundle
-    over three squares in a row: at an end, the rolls stop a quarter in from -y, where their cores show and a band ties
-    them, and run on to the square's edge at +y; in the middle they cross the whole square."""
-    model = Model(name)
+    over three squares in a row: at an end, the rolls stop a quarter in from +y, where their cores show and a band ties
+    them, and run on to the square's edge at -y; in the middle they cross the whole square. The origin is the square's
+    middle, so that an end's rolls meet the middle's."""
+    model = Model(name, centred=False)
     radius = 0.085
     start = -0.25 if end else -0.5
     rolls, cores = bmesh.new(), bmesh.new()
