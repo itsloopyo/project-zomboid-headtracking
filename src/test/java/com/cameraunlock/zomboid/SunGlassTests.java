@@ -41,7 +41,7 @@ final class SunGlassTests {
     }
 
     private static void theGlassPassesWhatTheWorldShowsOfIt() {
-        String world = PipelineShaders.WORLD_FRAGMENT_MAIN;
+        String world = PipelineShaders.WORLD_FRAGMENT_PARTS;
         check(world.contains("STAINED_OWN_GAIN = " + SunGlass.GAIN) && world.contains("STAINED_OWN_THICK = " + SunGlass.THICK),
                 "the sun past the glass takes the gain and depth of colour the world shows the glass with");
         check(SunGlass.CAST_FRAGMENT.contains("texel.a >= 0.5 + CUT"), "the picture takes only what the sun maps let through");
