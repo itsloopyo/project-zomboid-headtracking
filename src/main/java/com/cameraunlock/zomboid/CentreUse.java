@@ -6,6 +6,7 @@ import org.lwjglx.input.Keyboard;
 import se.krka.kahlua.vm.KahluaTable;
 import zombie.Lua.LuaManager;
 import zombie.characters.IsoPlayer;
+import zombie.core.Core;
 import zombie.core.properties.PropertyContainer;
 import zombie.entity.ComponentType;
 import zombie.entity.components.spriteconfig.SpriteConfig;
@@ -83,6 +84,14 @@ final class CentreUse {
     private static final String CLICK_HANDLER = "ISObjectClickHandler", WORLD_MENU = "ISWorldObjectContextMenu", INVENTORY_PAGE = "ISInventoryPage";
     private static final String PRESS = "doClickSpecificObject", RELEASE = "doClick", GRAB = "onGrabWItem", DOOR = "onOpenCloseDoor",
             CLIMB = "onClimbThroughWindow", GET_UP = "getUpAndThen", WINDOW = "onOpenCloseWindow";
+    private static final String FREE_TILE = "AdjacentFreeTileFinder", BESIDE = "isTileOrAdjacent", FIND_FREE = "Find";
+    /** How far from a container, in squares each way, the game's click walks the character to it (ISObjectClickHandler.doClick). */
+    private static final int WALK_REACH = 3;
+
+    /** Whether the game's click would walk the character from walkFrom to the container walkTo, asked of its Lua once for each. */
+    private IsoObject walkTo;
+    private IsoGridSquare walkFrom;
+    private boolean walks;
 
     /**
      * The key (Outlines.key) of what the key would act on this frame, for the picture to
@@ -118,6 +127,12 @@ final class CentreUse {
         if (gap == null) {
             gap = gap(WORLD_MENU, WINDOW);
         }
+        if (gap == null) {
+            gap = gap(FREE_TILE, BESIDE);
+        }
+        if (gap == null) {
+            gap = gap(FREE_TILE, FIND_FREE);
+        }
         return gap != null ? gap : gap(WORLD_MENU, GET_UP);
     }
 
@@ -140,7 +155,7 @@ final class CentreUse {
         PANEL,
         /** The game's click on a container within its reach, which puts it in the loot panel. */
         CONTAINER,
-        /** The game's click on a container further off, which walks the character towards it. */
+        /** The game's click on a container further off, which walks the character to it where it is near enough and the player has the game's option for that on. */
         WALK_TO,
         /** A climb through a hole (HoleHop). */
         HOLE,
@@ -201,7 +216,7 @@ final class CentreUse {
         boolean inReach = at != null && from != null && Math.abs(from.getX() - at.getX()) <= 1 && Math.abs(from.getY() - at.getY()) <= 1
                 && from.getZ() == at.getZ() && !from.isBlockedTo(at);
         if (!inReach) {
-            return Use.of(Route.WALK_TO, found, null);
+            return walks(found, from, player) ? new Use(Route.WALK_TO, found, InteractWords.Does.WALK_TO, found.getContainer(), null) : Use.of(Route.WALK_TO, found, null);
         }
         // The game's click opens a fridge's freezer for the upper half of its picture, measured in the picture the game
         // would have drawn, and the fridge for anything else, though the panel may keep the freezer it last showed. The
@@ -209,6 +224,31 @@ final class CentreUse {
         ItemContainer shown = found.getContainerCount() >= 2
                 ? found.getContainerByIndex(above(at, view, floorUp, 0f) > ViewCamera.LEVEL_HEIGHT / 2f ? 1 : 0) : found.getContainer();
         return new Use(Route.CONTAINER, found, InteractWords.Does.LOOT, shown, null);
+    }
+
+    /**
+     * Whether the game's click on a container out of reach walks the character to it, by
+     * ISObjectClickHandler.doClick's own tests: the player has the game's option to walk to a
+     * container on, it is within three squares each way, the character is not already on its
+     * square or beside it, and the game finds a free square beside it to walk to.
+     */
+    private boolean walks(IsoObject container, IsoGridSquare from, IsoPlayer player) {
+        IsoGridSquare parent = container.getSquare();
+        if (parent == null || from == null || !Core.getInstance().getOptionAutoWalkContainer()) {
+            return false;
+        }
+        int acrossX = parent.getX() - from.getX(), acrossY = parent.getY() - from.getY();
+        if (acrossX * acrossX + acrossY * acrossY > WALK_REACH * WALK_REACH) {
+            return false;
+        }
+        if (container != walkTo || from != walkFrom) {
+            walkTo = container;
+            walkFrom = from;
+            Object[] beside = call(FREE_TILE, BESIDE, from, parent);
+            Object[] free = beside == null || Boolean.TRUE.equals(beside.length > 1 ? beside[1] : null) ? null : call(FREE_TILE, FIND_FREE, parent, player);
+            walks = free != null && free.length > 1 && free[1] != null;
+        }
+        return walks;
     }
 
     /**

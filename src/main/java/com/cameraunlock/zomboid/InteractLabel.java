@@ -105,7 +105,7 @@ final class InteractLabel {
         String said = does.key == null ? null : Translator.getText(does.key);
         String name = !does.named ? null : switch (does) {
             case GRAB -> ((IsoWorldInventoryObject) use.object()).getItem().getDisplayName();
-            case LOOT -> title(use.container());
+            case LOOT, WALK_TO -> title(use.container());
             case OPEN_NAMED -> workstation(use);
             case MENU -> use.object().getTileName();
             default -> throw new IllegalStateException(does + " names nothing");

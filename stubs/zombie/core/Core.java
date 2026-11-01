@@ -19,4 +19,6 @@ public final class Core {
     public boolean getOptionDisableLightningDuringStorms() { throw new UnsupportedOperationException("reference stub"); }
 
     public record KeyBinding(String name, int keyValue, int altKey, boolean shift, boolean ctrl, boolean alt) {}
+    public String getGameMode() { throw new UnsupportedOperationException("reference stub"); }
+    public boolean getOptionAutoWalkContainer() { throw new UnsupportedOperationException("reference stub"); }
 }

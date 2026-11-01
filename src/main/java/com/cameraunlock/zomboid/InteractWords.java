@@ -20,6 +20,8 @@ final class InteractWords {
         CLOSE_CURTAINS("ContextMenu_Close_curtains", false),
         TURN_ON("ContextMenu_Turn_On", false),
         TURN_OFF("ContextMenu_Turn_Off", false),
+        /** A walk to a container further off, by the title the loot panel gives it. */
+        WALK_TO("ContextMenu_Walk_to", true),
         /** The loot panel, on a container by the title the panel gives it. */
         LOOT("IGUI_Controller_Loot", true),
         /** A radio's or a television's window. */
