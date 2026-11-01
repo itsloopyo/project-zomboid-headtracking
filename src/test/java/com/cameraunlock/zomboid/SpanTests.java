@@ -27,6 +27,7 @@ final class SpanTests {
         Checks.run("runWithASquareLeftOutIsFollowedOverIt", SpanTests::runWithASquareLeftOutIsFollowedOverIt);
         Checks.run("aPoleAtTheEdgeOfTheLoadedMapIsReadFromItsOwnSquare", SpanTests::aPoleAtTheEdgeOfTheLoadedMapIsReadFromItsOwnSquare);
         Checks.run("poleLengthsDrawnOffTheirFootStandOnIt", SpanTests::poleLengthsDrawnOffTheirFootStandOnIt);
+        Checks.run("aSecondDrawingOfAPoleNearStandsNowhere", SpanTests::aSecondDrawingOfAPoleNearStandsNowhere);
         Checks.run("aPoleOnARoofThreeSquaresOnFromASetBackFootStandsOnTheRoof", SpanTests::aPoleOnARoofThreeSquaresOnFromASetBackFootStandsOnTheRoof);
         Checks.run("aRunHangsFromAPoleTheMapMayYetShowMoreOf", SpanTests::aRunHangsFromAPoleTheMapMayYetShowMoreOf);
         Checks.run("aTallPoleWhoseTopMayBeDrawnUpOntoMapNotLoadedWantsTheMap", SpanTests::aTallPoleWhoseTopMayBeDrawnUpOntoMapNotLoadedWantsTheMap);
@@ -660,6 +661,41 @@ final class SpanTests {
         Poles.Floored roof = (x, y, z) -> z <= 1;
         check(Poles.footLevel(roof, 50, 5, 1) == 1, "a pole with a floor under its foot stands on it");
         check(Poles.footLevel((x, y, z) -> false, 50, 5, 2) == 0, "and none stands lower than the ground");
+        noLowestLengthIsDrawnUp(drawn);
+    }
+
+    /**
+     * The map's second drawings of a pole that stands near: a bare length one square back from the foot of a whole pole at
+     * (479, 9680), a top on the ground drawn on the top of the pole two levels up and six squares on at (575, 9799), and one
+     * drawn a square beside that place at (927, 9659). None stands anywhere; the poles they copy stand whole.
+     */
+    private static void aSecondDrawingOfAPoleNearStandsNowhere() {
+        HashMap<Long, String> drawn = new HashMap<>();
+        Poles.Drawn map = (x, y, z) -> drawn.get(Map.key(x, y, z));
+        int on = Spans.LEVEL_SQUARES;
+        drawn.put(Map.key(10, 5, 0), "appliances_com_01_88");
+        drawn.put(Map.key(11, 6, 0), "appliances_com_01_88");
+        drawn.put(Map.key(11, 6, 1), "appliances_com_01_89");
+        drawn.put(Map.key(11, 6, 2), "appliances_com_01_93");
+        check(Poles.stray(map, 10, 5, 0, 0) && Poles.standsOn(map, 10, 5, 0, 0) == null, "a stub one square back from a whole pole's foot stands nowhere");
+        for (int z = 0; z <= 2; z++) {
+            check(!Poles.stray(map, 11, 6, z, 0) && drawn.get(Map.key(11, 6, z)).equals(Poles.standsOn(map, 11, 6, z, 0)), "and the pole stands whole, level " + z);
+        }
+        drawn.put(Map.key(30 + 2 * on, 5 + 2 * on, 0), "appliances_com_01_88");
+        drawn.put(Map.key(30 + 2 * on, 5 + 2 * on, 1), "appliances_com_01_89");
+        drawn.put(Map.key(30 + 2 * on, 5 + 2 * on, 2), "appliances_com_01_92");
+        drawn.put(Map.key(30, 5, 0), "appliances_com_01_92");
+        check(Poles.stray(map, 30, 5, 0, 0) && Poles.standsOn(map, 30, 5, 0, 0) == null, "a top on the ground drawn where a pole's top two levels up is drawn stands nowhere");
+        check("appliances_com_01_92".equals(Poles.standsOn(map, 30 + 2 * on, 5 + 2 * on, 2, 0)), "and that pole keeps its top");
+        drawn.put(Map.key(50 + 2 * on - 1, 5 + 2 * on + 1, 0), "appliances_com_01_88");
+        drawn.put(Map.key(50 + 2 * on - 1, 5 + 2 * on + 1, 1), "appliances_com_01_89");
+        drawn.put(Map.key(50 + 2 * on - 1, 5 + 2 * on + 1, 2), "appliances_com_01_93");
+        drawn.put(Map.key(50, 5, 0), "appliances_com_01_93");
+        check(Poles.stray(map, 50, 5, 0, 0), "and one drawn a square beside it");
+        drawn.put(Map.key(70, 5, 0), "appliances_com_01_93");
+        check(!Poles.stray(map, 70, 5, 0, 0) && "appliances_com_01_93".equals(Poles.standsOn(map, 70, 5, 0, 0)), "a top alone with no pole near stands where it is drawn");
+        Poles.Loaded all = (x, y) -> true, notFar = (x, y) -> x < 70 + on;
+        check(!Poles.unsettled(map, all, 70, 5, 0, 0) && Poles.unsettled(map, notFar, 70, 5, 0, 0), "whether it is a second drawing waits on the map where it would be drawn");
         noLowestLengthIsDrawnUp(drawn);
     }
 

@@ -238,6 +238,10 @@ final class WireBuilder {
         if (drawnUp(x, y, z)) {
             return shaftOf(x - Spans.LEVEL_SQUARES, y - Spans.LEVEL_SQUARES, z - 1) != null;
         }
+        // A second drawing of a pole that stands near adds nothing.
+        if (Poles.stray(drawn, x, y, z, build.lowestLevel)) {
+            return true;
+        }
         if (Poles.setBack(drawn, x, y, z)) {
             x++;
             y++;

@@ -119,7 +119,38 @@ final class Poles {
         if (setBack(map, x - 1, y - 1, z)) {
             return BACK;
         }
-        return map.on(x, y, z) == null || drawnUp(map, x, y, z, lowest) || setBack(map, x, y, z) ? NONE : SAME;
+        return map.on(x, y, z) == null || drawnUp(map, x, y, z, lowest) || setBack(map, x, y, z) || stray(map, x, y, z, lowest) ? NONE : SAME;
+    }
+
+    /**
+     * Whether the length of pole drawn on a square, alone on it with nothing over or under it, is a second drawing of a
+     * pole that stands near, and stands nowhere itself: a bare length one square back along x and y from the foot of a
+     * whole pole, which the game's view draws over that foot, as at (479, 9680); or a top whose arm the view draws on the
+     * top of another pole Spans.LEVEL_SQUARES on along x and y for each level up, or a square beside it, as on the
+     * ground at (575, 9799) and (927, 9659). Each stood as a pole of its own, a stub by the pole, or a cross-arm on the ground.
+     */
+    static boolean stray(Drawn map, int x, int y, int z, int lowest) {
+        String here = map.on(x, y, z);
+        if (here == null || z - 1 >= lowest && map.on(x, y, z - 1) != null || map.on(x, y, z + 1) != null || drawnUp(map, x, y, z, lowest)) {
+            return false;
+        }
+        if (arm(here) == null) {
+            return map.on(x + 1, y + 1, z) != null && map.on(x + 1, y + 1, z + 1) != null;
+        }
+        if (z - 1 >= lowest && map.on(x - 1, y - 1, z - 1) != null) {
+            return false;
+        }
+        int on = Spans.LEVEL_SQUARES;
+        for (int up = 1; up <= POLE_LEVELS; up++) {
+            for (int dx = -1; dx <= 1; dx++) {
+                for (int dy = -1; dy <= 1; dy++) {
+                    if (arm(map.on(x + on * up + dx, y + on * up + dy, z + up)) != null) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     static final int NONE = -1, SAME = 0, UP = 1, BACK = 2;
@@ -154,7 +185,7 @@ final class Poles {
      * back under a length one square on; and an empty square may have a length over it set
      * back from one square back, or the top of a length under it drawn up Spans.LEVEL_SQUARES on,
      * each on map not loaded. And a top drawn up stands only on a length that stands where it is
-     * drawn, which may itself change so.
+     * drawn, which may itself change so; and a top alone on its square may be a stray drawing of one on map not loaded.
      */
     static boolean unsettled(Drawn map, Loaded loaded, int x, int y, int z, int lowest) {
         int other = Spans.LEVEL_SQUARES;
@@ -176,7 +207,13 @@ final class Poles {
         }
         boolean footBack = bottom - 2 >= lowest && (!loaded.at(x - other, y - other)
                 || map.on(x - other, y - other, bottom - 2) != null && unsettled(map, loaded, x - other, y - other, bottom - 2, lowest));
-        return footBack || !under && z - 1 >= lowest && !loaded.at(x - 1, y - 1)
+        // A top alone on its square may be a second drawing of the top of a pole on map not loaded (stray).
+        boolean strayTop = false;
+        for (int up = 1; bottom == top && arm(here) != null && up <= POLE_LEVELS; up++) {
+            int atX = x + other * up, atY = y + other * up;
+            strayTop |= !loaded.at(atX - 1, atY - 1) || !loaded.at(atX + 1, atY - 1) || !loaded.at(atX - 1, atY + 1) || !loaded.at(atX + 1, atY + 1);
+        }
+        return footBack || strayTop || !under && z - 1 >= lowest && !loaded.at(x - 1, y - 1)
                 || arm(map.on(x, y, top)) == null && !loaded.at(x + 1, y + 1);
     }
 
