@@ -9,10 +9,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.LongFunction;
 import zombie.core.textures.Texture;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
+import zombie.iso.IsoWorld;
 import zombie.iso.RoomDef;
 import zombie.iso.SpriteDetails.IsoFlagType;
 import zombie.iso.SpriteDetails.IsoObjectType;
@@ -472,7 +474,7 @@ final class Roofs {
             tiles.removeAll(twice);
         }
         // A piece painted forward of where it stands is fitted where it stands, and made there.
-        Map<RoofFit.Tile, RoofFit.Tile> forward = RoofFit.paintedForward(tiles, site(cell, 0, new HashSet<>()));
+        Map<RoofFit.Tile, RoofFit.Tile> forward = RoofFit.paintedForward(tiles, site(cell, 0, new HashSet<>(), MAP_ROOMS));
         if (!forward.isEmpty()) {
             reading.replaceAll(one -> forward.containsKey(one.tile) ? new Laid(one.tile, one.texture, roof, false, true) : one);
             tiles.removeAll(forward.keySet());
@@ -535,7 +537,7 @@ final class Roofs {
             for (RoofFit.Tile sheet : behind) {
                 behindKeys.add(RoofFit.key(sheet.x, sheet.y, sheet.z));
             }
-            List<RoofFit.Tile> backs = RoofFit.backs(tiles, site(cell, highest, behindKeys));
+            List<RoofFit.Tile> backs = RoofFit.backs(tiles, site(cell, highest, behindKeys, MAP_ROOMS));
             RoofFit.peaks(tiles, backs);
             for (RoofFit.Tile back : backs) {
                 keep(new Laid(back, null, roof));
@@ -829,11 +831,18 @@ final class Roofs {
     }
 
     /**
+     * A room's rectangles are read from the map by its id, never through IsoGridSquare.getRoom: a square of a chunk being let go
+     * keeps its room id after IsoGridSquare.softClear has dropped its room, and getRoom then gives null.
+     */
+    private static final LongFunction<RoomDef> MAP_ROOMS = id -> IsoWorld.instance.getMetaGrid().getRoomDefByID(id);
+
+    /**
      * The building under a roof, as RoofFit.backs asks of it. behind holds the squares of the
      * sheets behind a ridge (RoofFit.behindRidges): the far slope is made over them, so they are
-     * no roofing of the game's that a made slope would stand over.
+     * no roofing of the game's that a made slope would stand over. rooms gives a room id's place on
+     * the map: see MAP_ROOMS.
      */
-    private static RoofFit.Site site(IsoCell cell, int highest, HashSet<Long> behind) {
+    private static RoofFit.Site site(IsoCell cell, int highest, HashSet<Long> behind, LongFunction<RoomDef> rooms) {
         return new RoofFit.Site() {
             private boolean roofed(IsoGridSquare square, int x, int y, int z) {
                 return covered(cell, square) && !behind.contains(RoofFit.key(x, y, z));
@@ -909,7 +918,7 @@ final class Roofs {
             // squares of both gable ends and the walls showed through (7950..7951, 11741 and 11751).
             private boolean roofVoid(IsoGridSquare square, int z) {
                 return voids.computeIfAbsent(square.getRoomID(), id -> {
-                    for (RoomDef.RoomRect rect : square.getRoom().getRoomDef().rects) {
+                    for (RoomDef.RoomRect rect : rooms.apply(id).rects) {
                         for (int x = rect.x; x < rect.x + rect.w; x++) {
                             for (int y = rect.y; y < rect.y + rect.h; y++) {
                                 IsoGridSquare in = cell.getGridSquare(x, y, z);
@@ -925,7 +934,7 @@ final class Roofs {
 
             private boolean underSheets(IsoGridSquare under, int z) {
                 return sheeted.computeIfAbsent(under.getRoomID(), id -> {
-                    for (RoomDef.RoomRect rect : under.getRoom().getRoomDef().rects) {
+                    for (RoomDef.RoomRect rect : rooms.apply(id).rects) {
                         for (int x = rect.x; x < rect.x + rect.w; x++) {
                             for (int y = rect.y; y < rect.y + rect.h; y++) {
                                 IsoGridSquare over = cell.getGridSquare(x, y, z);

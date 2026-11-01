@@ -2207,15 +2207,15 @@ final class RoofTests {
      * The tool shed at 7948..7956 x 11741..11752: its loft on level 1, over x 0..1 and rows 0..2 here, is a room with no
      * floor, and only the squares at its two gable ends, where its walls stand, are on the map. The far slope made over the
      * loft lies on them too. A room with floors is a storey, and the one square of it without a floor, a stairwell, is
-     * still taken.
+     * still taken. The loft's squares hold its room id and no room, as a square of a chunk being let go does once the game
+     * has dropped its room (IsoGridSquare.softClear): the rooms are read from the map by id.
      */
     private static void roomWithNoFloorUnderTheRoofIsNoStorey() throws Exception {
         TestMap map = new TestMap();
         zombie.iso.RoomDef loftDef = new zombie.iso.RoomDef(1);
         loftDef.rects.add(new zombie.iso.RoomDef.RoomRect(0, 0, 2, 3));
-        zombie.iso.areas.IsoRoom loft = new zombie.iso.areas.IsoRoom(loftDef);
         for (int y = 0; y <= 2; y += 2) {
-            map.cell.square(0, y, 1).room(loft, 7L);
+            map.cell.square(0, y, 1).setRoomID(7L);
             map.wall(0, y, 1, true);
         }
         zombie.iso.RoomDef storeyDef = new zombie.iso.RoomDef(1);
@@ -2224,9 +2224,7 @@ final class RoofTests {
         map.cell.square(4, 0, 1).room(storey, 8L);
         map.cell.square(4, 0, 1).floor(map.sprite("floors_interior_tilesandwood_01_0", IsoObjectType.normal, "solidfloor"));
         map.cell.square(5, 0, 1).room(storey, 8L);
-        java.lang.reflect.Method made = Roofs.class.getDeclaredMethod("site", zombie.iso.IsoCell.class, int.class, java.util.HashSet.class);
-        made.setAccessible(true);
-        RoofFit.Site site = (RoofFit.Site) made.invoke(null, map.cell, 1, new java.util.HashSet<Long>());
+        RoofFit.Site site = site(map, 1, Map.of(7L, loftDef, 8L, storeyDef));
         check(!site.taken(0, 0, 1, 1f + 2 * THIRD) && !site.taken(0, 2, 1, 1f + 2 * THIRD), "the loft's gable end squares are under the made slope, no storey");
         check(site.taken(4, 0, 1, 1f + 2 * THIRD), "a room with a floor is a storey the slope stops at");
         check(site.taken(5, 0, 1, 1f + 2 * THIRD), "and so is its stairwell, the one square of it with no floor");
@@ -2246,12 +2244,24 @@ final class RoofTests {
             map.cell.square(x, 0, 1).floor(map.sprite("floors_interior_tilesandwood_01_0", IsoObjectType.normal, "solidfloor"));
         }
         map.cell.square(1, 0, 2).floor(map.sprite("floors_interior_tilesandwood_01_0", IsoObjectType.normal, "solidfloor"));
-        java.lang.reflect.Method made = Roofs.class.getDeclaredMethod("site", zombie.iso.IsoCell.class, int.class, java.util.HashSet.class);
-        made.setAccessible(true);
-        RoofFit.Site site = (RoofFit.Site) made.invoke(null, map.cell, 1, new java.util.HashSet<Long>());
+        RoofFit.Site site = site(map, 1, Map.of(9L, atticDef));
         check(!site.taken(0, 0, 1, 2f + THIRD), "a slope a level over the attic passes over it");
         check(site.taken(0, 0, 1, 1f + 2 * THIRD), "a slope that comes down into the attic stops at it");
         check(site.taken(1, 0, 1, 2f + THIRD), "a slope over the attic still stops at a floor on the level above");
+    }
+
+    /** Roofs.site over the map's cell, reading each room's place on the map from rooms by its id. */
+    private static RoofFit.Site site(TestMap map, int highest, Map<Long, zombie.iso.RoomDef> rooms) throws Exception {
+        java.lang.reflect.Method made = Roofs.class.getDeclaredMethod("site", zombie.iso.IsoCell.class, int.class, java.util.HashSet.class, java.util.function.LongFunction.class);
+        made.setAccessible(true);
+        java.util.function.LongFunction<zombie.iso.RoomDef> byId = id -> {
+            zombie.iso.RoomDef def = rooms.get(id);
+            if (def == null) {
+                throw new IllegalStateException("room " + id + " is not on the test's map");
+            }
+            return def;
+        };
+        return (RoofFit.Site) made.invoke(null, map.cell, highest, new java.util.HashSet<Long>(), byId);
     }
 
     private static void levelSheetPaintedOverItsFloorIsAFlatTop() {
