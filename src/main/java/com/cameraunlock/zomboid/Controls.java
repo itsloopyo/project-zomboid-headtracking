@@ -13,13 +13,17 @@ import zombie.characters.IsoPlayer;
 import zombie.characters.IsoZombie;
 import zombie.characters.animals.IsoAnimal;
 import zombie.core.Core;
+import zombie.core.PerformanceSettings;
 import zombie.core.physics.BallisticsController;
 import zombie.core.physics.RagdollBodyPart;
 import zombie.core.physics.WorldSimulation;
 import zombie.inventory.types.HandWeapon;
+import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoUtils;
+import zombie.iso.IsoWorld;
 import zombie.iso.Vector2;
 import zombie.iso.Vector3;
+import zombie.network.GameServer;
 import zombie.scripting.objects.PhysicsHitReactionScript;
 
 /**
@@ -381,6 +385,32 @@ public final class Controls {
         aimPointX = x;
         aimPointY = y;
         aimPointLevel = level;
+    }
+
+    /**
+     * Gives a throw from the first person view the square that lands it where
+     * the aim is. The game throws at the corner of the square it is given, with
+     * a speed that carries the throw past that corner (Throws.carry), so the
+     * square is the one whose corner lies that much short of the aim point.
+     * Left to itself the game would throw at the square under the hidden pointer.
+     */
+    void throwing(IsoPlayer player, HandWeapon weapon) {
+        if (!view.firstPerson.lookCaptured() || player.getJoypadBind() != -1) {
+            return;
+        }
+        float carry = Throws.carry(GameServer.server ? 10 : PerformanceSettings.getLockFPS());
+        float range = weapon.getMaxRange();
+        int x = Throws.square(player.getX(), aimPointX, range, carry), y = Throws.square(player.getY(), aimPointY, range, carry);
+        IsoGridSquare square = null;
+        for (int z = (int) Math.floor(player.getZ()); square == null && z >= 0; z--) {
+            square = IsoWorld.instance.currentCell.getGridSquare(x, y, z);
+        }
+        if (square == null) {
+            throw new IllegalStateException("no square at " + x + "," + y + " under level " + player.getZ() + " to throw at, within reach of the thrower");
+        }
+        player.setAttackTargetSquare(square);
+        Log.info("throw of " + weapon.getFullType() + " from " + player.getX() + "," + player.getY() + " aimed at " + aimPointX + "," + aimPointY
+                + ": square " + x + "," + y + "," + square.getZ() + " with a carry of " + carry);
     }
 
     /** Where the clean aim met the world when it was last placed, in the game's measure: x, y and floor levels, into out. */

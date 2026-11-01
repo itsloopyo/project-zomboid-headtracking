@@ -808,6 +808,12 @@ public final class Agent {
                     code.aload(3);
                     CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "shotAt", "(Lzombie/inventory/types/HandWeapon;" + character + character + ")V"));
                 })),
+                new Patch("zombie/characters/IsoGameCharacter", "Throw at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
+                        new CallSite.Method("zombie/characters/IsoGameCharacter", "Throw", "(Lzombie/inventory/types/HandWeapon;)V"), code -> {
+                            code.aload(0);
+                            code.aload(1);
+                            CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "throwing", "(" + character + "Lzombie/inventory/types/HandWeapon;)V"));
+                        })),
                 new Patch(processHit.owner(), "processHit calling isCameraTarget", classBytes -> CallSite.replaceEach(classBytes, processHit,
                         new CallSite.Method(ballistics.owner(), "isCameraTarget", "(I)Z"),
                         new CallSite.Method(HOOKS, "cameraTarget", "(L" + ballistics.owner() + ";I)Z"), 1)),

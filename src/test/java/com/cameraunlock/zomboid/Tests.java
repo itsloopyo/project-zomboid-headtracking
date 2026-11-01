@@ -92,6 +92,7 @@ public final class Tests {
         Checks.run("RevolverTests", RevolverTests::run);
         Checks.run("DoubleTests", DoubleTests::run);
         Checks.run("TimedActsTests", TimedActsTests::run);
+        Checks.run("ThrowTests", ThrowTests::run);
         Checks.run("MeleeTests", MeleeTests::run);
         Checks.run("BufferTests", BufferTests::run);
         Checks.run("LightSiteTests", LightSiteTests::run);

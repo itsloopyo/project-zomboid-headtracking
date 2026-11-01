@@ -535,6 +535,14 @@ public final class Hooks {
         aimedEnd = aimedPart != HitPart.NONE && view.controls.aimedEnd();
     }
 
+    /** Called as a character throws what it holds (IsoGameCharacter.Throw), before the game reads the square it is thrown at. */
+    public static void throwing(IsoGameCharacter thrower, HandWeapon weapon) {
+        View view = thrower instanceof IsoPlayer player ? View.of(player) : null;
+        if (view != null) {
+            view.controls.throwing((IsoPlayer) thrower, weapon);
+        }
+    }
+
     /** Called as the game starts working out which targets an attack can reach (CombatManager.calculateHitInfoList). */
     public static void hitListStarts() {
         Penetration.listStarts();
