@@ -7838,6 +7838,24 @@ final class PipelineShaders {
                 return abs(thereIs - hereIs) * step(it - OUTLINE_IN_FRONT * it - 0.02, notIt);
             }
 
+            // How many line widths from a pixel that is not the outlined thing the thing is looked for
+            // each way: a gap it closes round within that is a hole through it.
+            const int HOLE_REACH = 4;
+
+            // Whether the outlined thing lies within HOLE_REACH line widths of uv to its right, its left,
+            // above and below: a hole a shot made through a shut door. Lined, the holes were yellow dots.
+            bool holeThrough(vec2 uv, vec2 apart) {
+                bool right = false, left = false, up = false, down = false;
+                for (int k = 1; k <= HOLE_REACH; k++) {
+                    vec2 by = apart * float(k);
+                    right = right || outlinedAt(uv + vec2(by.x, 0.0)).a > 0.5;
+                    left = left || outlinedAt(uv - vec2(by.x, 0.0)).a > 0.5;
+                    up = up || outlinedAt(uv + vec2(0.0, by.y)).a > 0.5;
+                    down = down || outlinedAt(uv - vec2(0.0, by.y)).a > 0.5;
+                }
+                return right && left && up && down;
+            }
+
             // How far the point q of a ray thrown from the mirror at p, which faces facing, is behind
             // what the picture shows at seen there. The mirror's own surface stops nothing: walked
             // in steps a pixel or two long, the ray was behind the floor it left from the first
@@ -8347,6 +8365,14 @@ final class PipelineShaders {
                             outlineEdge(here.a, hereAhead, left.a, outlineAhead(uv - vec2(apart.x, 0.0)))),
                             max(outlineEdge(here.a, hereAhead, up.a, outlineAhead(uv + vec2(0.0, apart.y))),
                             outlineEdge(here.a, hereAhead, down.a, outlineAhead(uv - vec2(0.0, apart.y)))));
+                    if (edge > 0.0) {
+                        // The side that is not it: here, or the first neighbour that is not.
+                        vec2 gap = here.a < 0.5 ? uv : right.a < 0.5 ? uv + vec2(apart.x, 0.0) : left.a < 0.5 ? uv - vec2(apart.x, 0.0)
+                                : up.a < 0.5 ? uv + vec2(0.0, apart.y) : uv - vec2(0.0, apart.y);
+                        if (holeThrough(gap, apart)) {
+                            edge = 0.0;
+                        }
+                    }
                     // Outside the thing the line takes the colour of the side that is it.
                     vec3 line = here.a > 0.5 ? here.rgb : (right.rgb * right.a + left.rgb * left.a + up.rgb * up.a + down.rgb * down.a)
                             / max(right.a + left.a + up.a + down.a, 1.0);
