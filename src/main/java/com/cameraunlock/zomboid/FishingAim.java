@@ -6,6 +6,7 @@ import se.krka.kahlua.vm.KahluaTable;
 import se.krka.kahlua.vm.LuaCallFrame;
 import zombie.Lua.LuaManager;
 import zombie.characters.IsoPlayer;
+import zombie.network.GameClient;
 
 /**
  * Where a fishing rod is aimed from the first person view. The game's
@@ -29,6 +30,25 @@ final class FishingAim {
         }
         stock = utils.rawget("getAimCoords");
         utils.rawset("getAimCoords", AIM);
+    }
+
+    /**
+     * Where a player's bobber floats, x and y into out, or false while they have none out. The
+     * game keeps it in its Lua (Fishing.ManagerInstances, by the player's number, or their
+     * name online) and draws it only in its own view. Logic thread.
+     */
+    static boolean bobber(IsoPlayer player, float[] out) {
+        if (!(LuaManager.env.rawget("Fishing") instanceof KahluaTable fishing) || !(fishing.rawget("ManagerInstances") instanceof KahluaTable managers)) {
+            return false;
+        }
+        Object key = GameClient.client ? player.getUsername() : (Object) (double) player.getPlayerNum();
+        if (!(managers.rawget(key) instanceof KahluaTable manager) || !(manager.rawget("fishingRod") instanceof KahluaTable rod)
+                || !(rod.rawget("bobber") instanceof KahluaTable bobber)) {
+            return false;
+        }
+        out[0] = ((Double) bobber.rawget("x")).floatValue();
+        out[1] = ((Double) bobber.rawget("y")).floatValue();
+        return true;
     }
 
     private static int aim(LuaCallFrame frame, int arguments) {

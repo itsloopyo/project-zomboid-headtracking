@@ -57,6 +57,16 @@ final class Crosshair {
     /** How far in from the edges of the screen, as a share of half of it across and up, a pointer to a place out of view stands. */
     private static final float EDGE_ACROSS = 0.88f, EDGE_UP = 0.82f;
 
+    /** Where a bobber is, -1 to 1 across the picture and up it, and its radius in pixels on a screen 1080 high. */
+    private record Bobber(float x, float y, float radius) {
+    }
+
+    /** A bobber is drawn no smaller than this, in pixels on a screen 1080 high, so one far out can still be watched. */
+    private static final float BOBBER_LEAST = 3f;
+
+    /** Null while no bobber is out in view. */
+    private volatile Bobber bobber;
+
     /** Null when the game points the player nowhere. */
     private volatile Pointer[] pointers;
 
@@ -123,6 +133,14 @@ final class Crosshair {
         square = null;
     }
 
+    void showBobber(float x, float y, float radius) {
+        bobber = new Bobber(x, y, Math.max(radius, BOBBER_LEAST));
+    }
+
+    void hideBobber() {
+        bobber = null;
+    }
+
     /** The pointers to show, or null for none. Logic thread. */
     void point(Pointer[] toShow) {
         pointers = toShow;
@@ -133,13 +151,17 @@ final class Crosshair {
         Mark where = on ? shown : null;
         Square outlined = square;
         Pointer[] pointing = pointers;
-        if (where == null && outlined == null && pointing == null || !flat.use()) {
+        Bobber floating = bobber;
+        if (where == null && outlined == null && pointing == null && floating == null || !flat.use()) {
             return;
         }
         GL11.glDisable(GL_DEPTH_TEST);
         GL11.glDisable(GL_CULL_FACE);
         GL11.glEnable(GL_BLEND);
         GL11.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        if (floating != null) {
+            drawBobber(floating, width, height);
+        }
         if (outlined != null) {
             drawSquare(outlined, width, height);
         }
@@ -190,6 +212,25 @@ final class Crosshair {
             vertex(baseX + wayY * half, baseY - wayX * half, width, height);
             GL11.glEnd();
         }
+    }
+
+    /** A bobber as it floats: red over white, with a dark rim so it reads against bright water. */
+    private static void drawBobber(Bobber floating, int width, int height) {
+        int color = flat.at("uColor");
+        float radius = floating.radius * height / DESIGN_HEIGHT;
+        int middleX = Math.round((floating.x * 0.5f + 0.5f) * width), middleY = Math.round((floating.y * 0.5f + 0.5f) * height);
+        GL20.glUniform4f(color, 0f, 0f, 0f, 0.5f);
+        disc(middleX, middleY, radius + Math.max(1f, radius / 5f), width, height);
+        GL20.glUniform4f(color, 0.95f, 0.95f, 0.92f, 1f);
+        disc(middleX, middleY, radius, width, height);
+        GL20.glUniform4f(color, 0.85f, 0.1f, 0.08f, 1f);
+        GL11.glBegin(GL_TRIANGLE_FAN);
+        GL11.glVertex2f(middleX * 2f / width - 1f, middleY * 2f / height - 1f);
+        for (int i = 0; i <= DOT_SIDES / 2; i++) {
+            double way = Math.PI * i / (DOT_SIDES / 2);
+            GL11.glVertex2f((middleX + radius * (float) Math.cos(way)) * 2f / width - 1f, (middleY + radius * (float) Math.sin(way)) * 2f / height - 1f);
+        }
+        GL11.glEnd();
     }
 
     private static void drawSquare(Square outlined, int width, int height) {

@@ -1190,6 +1190,7 @@ public final class FirstPerson {
         }
         // The shape of the picture is not known until a frame has been drawn.
         float drawnAspect = view.worldScene.drawnAspect();
+        showBobber(player, scene, drawnAspect);
         pointersLevel = (int) Math.floor(player.getZ());
         view.crosshair.point(drawnAspect == 0f ? null : Homing.pointers(player.getIndex(), trackedView, pictureTanHalf, drawnAspect, pointersFloor));
         if (drawnAspect == 0f || !landed) {
@@ -1201,6 +1202,30 @@ public final class FirstPerson {
         if (TRACE) {
             trace(player, scene, zoom);
         }
+    }
+
+    /** How wide a bobber is drawn, in tiles, and how far over the water its middle floats. */
+    private static final float BOBBER_RADIUS = 0.035f, BOBBER_FLOATS = 0.02f;
+    private final float[] bobberAt = new float[2], bobberNdc = new float[2];
+
+    /**
+     * The game draws a fishing line's bobber only in its own view, where the player cannot see
+     * it under this picture. It is drawn over the picture where it floats, nearer looking bigger.
+     */
+    private void showBobber(IsoPlayer player, WorldScene.Frame scene, float aspect) {
+        if (aspect == 0f || !FishingAim.bobber(player, bobberAt)) {
+            view.crosshair.hideBobber();
+            return;
+        }
+        float x = bobberAt[0], y = bobberAt[1], up = view.worldScene.terrain.lift(x, y, 0f) + BOBBER_FLOATS;
+        float tanHalf = scene.tanHalfFieldOfView();
+        if (!ViewCamera.project(trackedView, tanHalf, aspect, x, y, up, bobberNdc)) {
+            view.crosshair.hideBobber();
+            return;
+        }
+        float dx = (float) (x - trackedView.exactX()), dy = (float) (y - trackedView.exactY()), du = (float) (up - trackedView.exactUp());
+        float ahead = dx * trackedView.forwardX + dy * trackedView.forwardY + du * trackedView.forwardUp;
+        view.crosshair.showBobber(bobberNdc[0], bobberNdc[1], BOBBER_RADIUS / (ahead * tanHalf) * 540f);
     }
 
     /** Tiles the player can move in one frame before it is a jump across the map, after which the game loads its map round them afresh: more than a car at 250 km/h covers in a second-long frame. */
