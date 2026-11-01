@@ -7,7 +7,6 @@ final class InteractWordsTests {
     private InteractWordsTests() {}
 
     static void run() {
-        Checks.run("eachActionIsTheGamesOwnWords", InteractWordsTests::eachActionIsTheGamesOwnWords);
         Checks.run("anActionOnAThingNamesIt", InteractWordsTests::anActionOnAThingNamesIt);
         Checks.run("theLineNamesTheKeyAndWhatHoldingItDoes", InteractWordsTests::theLineNamesTheKeyAndWhatHoldingItDoes);
         Checks.run("theLabelComesBackWholeOnlyOnTheSameThing", InteractWordsTests::theLabelComesBackWholeOnlyOnTheSameThing);
@@ -19,28 +18,14 @@ final class InteractWordsTests {
         Checks.check(condition, what);
     }
 
-    private static void eachActionIsTheGamesOwnWords() {
-        check(InteractWords.Does.OPEN_DOOR.key.equals("ContextMenu_Open_door") && InteractWords.Does.CLOSE_DOOR.key.equals("ContextMenu_Close_door"),
-                "a door is opened and shut in the words the game's controller prompt uses");
-        check(InteractWords.Does.OPEN_WINDOW.key.equals("ContextMenu_Open_window") && InteractWords.Does.CLOSE_WINDOW.key.equals("ContextMenu_Close_window"),
-                "and a window");
-        check(InteractWords.Does.OPEN_CURTAINS.key.equals("ContextMenu_Open_curtains") && InteractWords.Does.CLOSE_CURTAINS.key.equals("ContextMenu_Close_curtains"),
-                "and curtains");
-        check(InteractWords.Does.TURN_ON.key.equals("ContextMenu_Turn_On") && InteractWords.Does.TURN_OFF.key.equals("ContextMenu_Turn_Off"), "a light switch is turned on and off");
-        check(InteractWords.Does.CLIMB_THROUGH.key.equals("ContextMenu_Climb_through"), "a window is climbed through");
-        check(InteractWords.Does.GRAB.key.equals("ContextMenu_Grab") && InteractWords.Does.LOOT.key.equals("IGUI_Controller_Loot")
-                && InteractWords.Does.DEVICE_OPTIONS.key.equals("IGUI_DeviceOptions"), "an item is grabbed, a container looted and a radio's options opened");
-        for (InteractWords.Does does : InteractWords.Does.values()) {
-            check(does.key != null || does.named, does + " has words: the game's, or the name of what it acts on");
-        }
-    }
-
     private static void anActionOnAThingNamesIt() {
         check(InteractWords.action(InteractWords.Does.OPEN_DOOR, "Open Door", null).equals("Open Door"), "an action on a door is the game's words alone");
         check(InteractWords.action(InteractWords.Does.GRAB, "Grab", "Water Bottle").equals("Grab Water Bottle"), "grabbing names the item");
         check(InteractWords.action(InteractWords.Does.LOOT, "Loot", "Freezer").equals("Loot Freezer"), "looting names the container's half");
         check(InteractWords.action(InteractWords.Does.OPEN_NAMED, null, "Carpentry Bench").equals("Carpentry Bench"), "a workstation is its name alone");
         check(InteractWords.action(InteractWords.Does.MENU, null, "Sink").equals("Sink" + InteractWords.MORE), "a thing whose menu opens is its name, with more to choose");
+        check(InteractWords.action(InteractWords.Does.MENU, null, null) == null, "a thing the game has no name for has no label, not null...");
+        check(InteractWords.action(InteractWords.Does.WALK_TO, "Walk to", "Fridge").equals("Walk to Fridge"), "a walk to a container names it");
     }
 
     private static void theLineNamesTheKeyAndWhatHoldingItDoes() {

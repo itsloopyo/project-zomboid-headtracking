@@ -220,29 +220,22 @@ final class CentreUse {
             // controller's own key opens what its player stands at, so the key is left to the game.
             return null;
         }
-        // The game's click (ISObjectClickHandler.doClick), its tests in its order. Where they fail it takes the click
-        // and does nothing.
+        // The game's click (ISObjectClickHandler.doClick). Where its tests fail it takes the click and does nothing.
         IsoGridSquare from = player.getCurrentSquare();
         IsoGridSquare at = found instanceof IsoMovingObject body ? body.getCurrentSquare() : found.getSquare();
-        if (at == null || !at.isSeen(0)) {
-            return Use.of(Route.RELEASE, found, null);
-        }
+        boolean seen = at != null && at.isSeen(0);
         // A radio, a television or a workstation: the game's click opens its window, when the character is near enough.
-        InteractWords.Does panel = panel(found, player, from);
-        if (panel != null) {
-            return Use.of(Route.RELEASE, found, panel);
-        }
-        if (GameClient.client && !SafeHouse.isSafehouseAllowLoot(at, player) || found.getContainer() == null
-                || found instanceof IsoThumpable thumpable && thumpable.isLockedToCharacter(player)) {
-            return Use.of(Route.RELEASE, found, null);
-        }
+        InteractWords.Does panel = seen ? panel(found, player, from) : null;
+        boolean container = found.getContainer() != null;
         // The game's own test for a container near enough to open. One further off it may walk to.
         IsoGridSquare parent = found.getSquare();
         boolean inReach = parent != null && from != null && Math.abs(from.getX() - parent.getX()) <= 1 && Math.abs(from.getY() - parent.getY()) <= 1
                 && from.getZ() == parent.getZ() && !from.isBlockedTo(parent);
-        if (!inReach) {
-            return walks(found, from, player) ? new Use(Route.RELEASE, found, InteractWords.Does.WALK_TO, found.getContainer(), null)
-                    : Use.of(Route.RELEASE, found, null);
+        InteractWords.Does does = ClickRules.click(seen, panel, seen && GameClient.client && !SafeHouse.isSafehouseAllowLoot(at, player), container,
+                found instanceof IsoThumpable thumpable && thumpable.isLockedToCharacter(player), inReach,
+                seen && panel == null && container && !inReach && walks(found, from, player));
+        if (does != InteractWords.Does.LOOT) {
+            return new Use(Route.RELEASE, found, does, does == InteractWords.Does.WALK_TO ? found.getContainer() : null, null);
         }
         // The game's click opens a fridge's freezer for the upper half of its picture, measured in the picture the game
         // would have drawn, and the fridge for anything else, though the panel may keep the freezer it last showed. The
@@ -285,13 +278,9 @@ final class CentreUse {
     private static InteractWords.Does clicked(IsoObject found, IsoPlayer player) {
         if (found instanceof IsoDoor door) {
             IsoGridSquare from = player.getCurrentSquare(), square = door.getSquare();
-            // The game's click on a door is for its curtains with Shift held, from the side they hang on, where the click is
-            // taken at all (doClickDoor). A click not taken is the world menu's Open or Close (act).
-            if (GameKeyboard.isKeyDown(Keyboard.KEY_LSHIFT) && !player.isWalking() && door.HasCurtains() != null && from != null && from == door.getSheetSquare()
-                    && !(from.isWallTo(square) && !from.isDoorTo(square)) && square.getZ() == from.getZ() && door.isAdjacentToSquare(from)) {
-                return door.isCurtainOpen() ? InteractWords.Does.CLOSE_CURTAINS : InteractWords.Does.OPEN_CURTAINS;
-            }
-            return door.IsOpen() ? InteractWords.Does.CLOSE_DOOR : InteractWords.Does.OPEN_DOOR;
+            boolean taken = from != null && !(from.isWallTo(square) && !from.isDoorTo(square)) && square.getZ() == from.getZ() && door.isAdjacentToSquare(from);
+            return ClickRules.door(door.IsOpen(), GameKeyboard.isKeyDown(Keyboard.KEY_LSHIFT), player.isWalking(), door.HasCurtains() != null,
+                    from != null && from == door.getSheetSquare(), taken, door.isCurtainOpen());
         }
         if (found instanceof IsoThumpable door) {
             return door.IsOpen() ? InteractWords.Does.CLOSE_DOOR : InteractWords.Does.OPEN_DOOR;
@@ -305,18 +294,10 @@ final class CentreUse {
                     : light.isActivated() ? InteractWords.Does.TURN_OFF : InteractWords.Does.TURN_ON;
         }
         IsoWindow pane = (IsoWindow) found;
-        if (GameKeyboard.isKeyDown(Keyboard.KEY_LSHIFT)) {
-            // With Shift held the game's click is for the window's curtains.
-            IsoCurtain curtain = pane.HasCurtains();
-            return curtain == null ? null : curtain(curtain, player);
-        }
-        if (pane.isInvincible() || from != pane.getSquare() && from != pane.getOppositeSquare() || pane.getBarricadeForCharacter(player) != null) {
-            return null;
-        }
-        if (pane.isDestroyed()) {
-            return pane.isBarricaded() ? null : InteractWords.Does.CLIMB_THROUGH;
-        }
-        return pane.IsOpen() ? InteractWords.Does.CLOSE_WINDOW : InteractWords.Does.OPEN_WINDOW;
+        boolean shift = GameKeyboard.isKeyDown(Keyboard.KEY_LSHIFT);
+        IsoCurtain curtain = shift ? pane.HasCurtains() : null;
+        return ClickRules.window(shift, curtain == null ? null : curtain(curtain, player), pane.isInvincible(), from == pane.getSquare() || from == pane.getOppositeSquare(),
+                pane.getBarricadeForCharacter(player) != null, pane.isDestroyed(), pane.isBarricaded(), pane.IsOpen());
     }
 
     private static InteractWords.Does curtain(IsoCurtain curtain, IsoPlayer player) {
