@@ -12,11 +12,11 @@ final class FishingHold {
     /** What the game's fishing is doing, by its states: none, ready to cast, casting, waiting, reeling in, letting line out, landing the catch. */
     static final int NOT = 0, READY = 1, CAST = 2, WAITING = 3, REELING = 4, LETTING_OUT = 5, LANDING = 6;
 
-    private static final float[] READY_HOLD = key(32, -12, -6, 0.15f, -0.14f, 0.40f),
-            WAITING_HOLD = key(24, -10, -4, 0.15f, -0.15f, 0.42f),
-            REELING_HOLD = key(42, -8, -4, 0.14f, -0.13f, 0.37f),
-            LETTING_OUT_HOLD = key(12, -10, -4, 0.15f, -0.16f, 0.44f),
-            LANDING_HOLD = key(58, -18, -10, 0.13f, -0.11f, 0.33f),
+    private static final float[] READY_HOLD = key(28, -12, -6, 0.13f, -0.10f, 0.40f),
+            WAITING_HOLD = key(20, -10, -4, 0.13f, -0.11f, 0.42f),
+            REELING_HOLD = key(38, -8, -4, 0.12f, -0.09f, 0.37f),
+            LETTING_OUT_HOLD = key(10, -10, -4, 0.13f, -0.12f, 0.44f),
+            LANDING_HOLD = key(54, -18, -10, 0.11f, -0.08f, 0.33f),
             DRAWN_BACK = key(100, 6, 6, 0.17f, -0.05f, 0.25f),
             CAST_OUT = key(4, -10, -4, 0.13f, -0.17f, 0.48f);
     /**
