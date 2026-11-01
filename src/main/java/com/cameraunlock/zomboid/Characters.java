@@ -980,6 +980,16 @@ public final class Characters {
             }
             return;
         }
+        if (right != null && task.kind() == TimedActs.HAMMER) {
+            // The hammer's handle runs out of the thumb's side of the fist, and its head's face, at the less far end of
+            // the game's mesh along z, the way the fingers point.
+            TimedActs.Hand fist = seenHands[0];
+            ArmPose.cross(fist.fingers, fist.out, fistAlong);
+            for (int axis = 0; axis < 3; axis++) {
+                fistAcross[axis] = -fist.fingers[axis];
+            }
+            inTheFist(right, fist, fistAlong, fistAcross, heldView);
+        }
         if (!ArmHolds.placeTask(OwnArms.model(), scale, seenHands, fromAim, armSkins, armSaid)) {
             if (!taskRefused) {
                 taskRefused = true;
@@ -1406,7 +1416,8 @@ public final class Characters {
         ModelInstanceRenderData carried = arms > 0 && !heldBoth ? leftOf(data) : null;
         if (carried != null) {
             if (ArmHolds.carry(OwnArms.model(), scale, fromAim, carryWay(armSettled.seconds), armSkins, armSaid, seenHands[1], armSettled) && inTheHand(data, 1, carried, seenHands[1], scale, leftView)) {
-                inTheFist(carried, seenHands[1]);
+                ArmHolds.carried(seenHands[1], fistAlong, fistAcross);
+                inTheFist(carried, seenHands[1], fistAlong, fistAcross, leftView);
                 arms = 2;
                 leftCarried = true;
                 armCarries.what = ArmHolds.NOTHING;
@@ -1947,13 +1958,18 @@ public final class Characters {
     }
 
     /**
-     * Lays what the left hand carries in the mod's fist by its own mesh: its longest axis along
-     * the way ArmHolds.carried says, out of the fist the way it reaches furthest from the point the
-     * game hangs it by, and that point in the middle of the fist. The matrix inTheHand made from
-     * the game's hand says only how big it is drawn and which way round: the game's hand is
-     * where the game's animation has it, which moves as it shoots and aims.
+     * Lays what a hand carries in the mod's fist by its own mesh: its longest axis along `along`,
+     * out of the fist the way it reaches furthest from the point the game hangs it by, its next
+     * longest along `across`, and that point in the middle of the fist. The matrix inTheHand made
+     * into `view` from the game's hand says only how big it is drawn and which way round: the
+     * game's hand is where the game's animation has it, which moves as it shoots and aims, and
+     * holds a hammer by the end of its handle with the head below the fist. The laid matrix is
+     * left in `view`.
+     *
+     * @param along  unit, in the view; turned round here when the mesh reaches furthest the other way
+     * @param across unit, in the view, square to `along`
      */
-    private void inTheFist(ModelInstanceRenderData item, TimedActs.Hand hand) {
+    private void inTheFist(ModelInstanceRenderData item, TimedActs.Hand hand, float[] along, float[] across, float[] view) {
         // The game's draw takes the part's matrix by rows, the picture's by columns.
         float[] part = item.xfrm.get(itemPlace), turn = fistTurn, drawn = fistDrawn;
         for (int row = 0; row < 3; row++) {
@@ -1963,7 +1979,7 @@ public final class Characters {
         }
         for (int row = 0; row < 3; row++) {
             for (int column = 0; column < 3; column++) {
-                drawn[column * 3 + row] = leftView[row] * turn[column * 3] + leftView[4 + row] * turn[column * 3 + 1] + leftView[8 + row] * turn[column * 3 + 2];
+                drawn[column * 3 + row] = view[row] * turn[column * 3] + view[4 + row] * turn[column * 3 + 1] + view[8 + row] * turn[column * 3 + 2];
             }
         }
         float size = determinant(drawn), big = (float) Math.cbrt(Math.abs(size));
@@ -1971,8 +1987,7 @@ public final class Characters {
         float extentX = high.x - low.x, extentY = high.y - low.y, extentZ = high.z - low.z;
         int length = extentX >= extentY && extentX >= extentZ ? 0 : extentY >= extentZ ? 1 : 2, second = (length + 1) % 3, third = (length + 2) % 3;
         float lowest = length == 0 ? low.x : length == 1 ? low.y : low.z, highest = length == 0 ? high.x : length == 1 ? high.y : high.z;
-        float[] along = fistAlong, across = fistAcross, square = fistSquare;
-        ArmHolds.carried(hand, along, across);
+        float[] square = fistSquare;
         if (-lowest > highest) {
             for (int axis = 0; axis < 3; axis++) {
                 along[axis] = -along[axis];
@@ -1995,9 +2010,9 @@ public final class Characters {
                     float from = column < 3 ? back[column * 3 + k] : -(back[k] * part[3] + back[3 + k] * part[7] + back[6 + k] * part[11]);
                     value += laid[k * 3 + row] * from;
                 }
-                leftView[column * 4 + row] = value + (column == 3 ? hand.at[row] : 0f);
+                view[column * 4 + row] = value + (column == 3 ? hand.at[row] : 0f);
             }
-            leftView[column * 4 + 3] = column == 3 ? 1f : 0f;
+            view[column * 4 + 3] = column == 3 ? 1f : 0f;
         }
     }
 

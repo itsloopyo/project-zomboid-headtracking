@@ -156,13 +156,22 @@ final class TimedActs {
                 set(right, new float[] {-0.04f + 0.015f * c, -0.17f + 0.04f * s, -0.38f + 0.03f * c}, new float[] {-1f, 0.2f, -0.3f}, new float[] {-0.5f, -0.75f, -0.3f}, PINCH);
             }
             case HAMMER -> {
-                // Drawn back for 0.4 s, struck in 0.1, and on the work until the next.
+                // The fist at the end of the handle with the forearm behind it, the handle up and to the left across the
+                // picture and the head at the top of it, its face the way the forearm points. Drawn back on the wrist and
+                // up for 0.4 s, struck in 0.1 so the head lands ahead under the reticle, and on the work until the next.
                 float p = phase(t, 0.8f), raised = p < 0.5f ? smooth(p / 0.5f) : 1f - smooth((p - 0.5f) / 0.12f);
-                float[] struck = lowered(new float[] {0.09f, -0.19f, -0.50f}, low), drawn = lowered(new float[] {0.15f, -0.06f, -0.36f}, low);
-                set(right, lerp(struck, drawn, raised), HANDSHAKE_FINGERS, HANDSHAKE_PALM, HANDLE);
-                tip(right, X, (float) Math.toRadians(-70 + 85 * raised));
-                // The left holds what is struck where it goes: a nail, a board.
-                set(left, new float[] {struck[0] - 0.13f, struck[1] + 0.02f, struck[2] - 0.02f}, new float[] {0f, 1f, 0f}, new float[] {0.2f, 0f, -1f}, PINCH);
+                float[] fist = lerp(HAMMER_STRUCK, HAMMER_DRAWN, raised);
+                float[] face = new float[3], palm = new float[3], cock = new float[9];
+                ArmPose.unit(fist[0] - ArmHolds.FROM[0][0], fist[1] - ArmHolds.FROM[0][1], fist[2] - ArmHolds.FROM[0][2], face);
+                ArmPose.cross(square(lerp(HAMMER_STRUCK_HANDLE, HAMMER_DRAWN_HANDLE, raised), face), face, palm);
+                set(right, fist, face, palm, HANDLE);
+                // Turned on the wrist past square to the forearm: the head ahead as it strikes, and further over and down at
+                // work on the floor, from the same fist: reached for lower and further, the elbow would rise over the wrist and
+                // the fist leave the picture.
+                ArmPose.about(right.out, (float) Math.toRadians((low ? 25 : 10) - 15 * raised), cock);
+                ArmPose.turned(cock, right.fingers, right.fingers);
+                // The left holds what is struck where it goes, a nail or a board, beside where the head lands.
+                set(left, lowered(new float[] {-0.18f, -0.07f, -0.50f}, low), new float[] {0f, 1f, 0f}, new float[] {0.2f, 0f, -1f}, PINCH);
             }
             case SAW -> {
                 float stroke = (float) Math.sin(2 * Math.PI * t / 0.75);
@@ -263,6 +272,14 @@ final class TimedActs {
     /** The right hand held as for a handshake, thumb up: fingers forward, up and in, palm to the left. */
     private static final float[] HANDSHAKE_FINGERS = {-0.25f, 0.35f, -0.9f}, HANDSHAKE_PALM = {-1f, 0f, -0.1f};
     private static final float[] MOUTH_AT = {0.02f, -0.12f, -0.21f};
+    /**
+     * Where the fist holding a hammer is as the head strikes and drawn back, and the way the
+     * handle runs from it as near as square to the forearm lets: the head lands just left of the
+     * reticle and about half a metre ahead (Characters lays the game's hammer in the fist by its
+     * mesh, the end of its handle in the fist).
+     */
+    private static final float[] HAMMER_STRUCK = {0.20f, -0.30f, -0.56f}, HAMMER_DRAWN = {0.21f, -0.22f, -0.48f},
+            HAMMER_STRUCK_HANDLE = {-0.65f, 0.76f, 0f}, HAMMER_DRAWN_HANDLE = {-0.42f, 0.88f, 0.15f};
     private static final int X = 0, Z = 2;
     private static final float[] X_AXIS = {1f, 0f, 0f}, Z_AXIS = {0f, 0f, 1f};
 
