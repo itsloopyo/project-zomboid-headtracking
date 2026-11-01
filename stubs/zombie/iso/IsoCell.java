@@ -1,6 +1,8 @@
 package zombie.iso;
 
 public final class IsoCell {
+    public final java.util.ArrayList<IsoRoomLight> roomLights = null;
+
     public IsoGridSquare getGridSquare(int x, int y, int z) { throw new UnsupportedOperationException("reference stub"); }
     public IsoChunk getChunkForGridSquare(int x, int y, int z) { throw new UnsupportedOperationException("reference stub"); }
     public java.util.Stack<IsoLightSource> getLamppostPositions() { throw new UnsupportedOperationException("reference stub"); }

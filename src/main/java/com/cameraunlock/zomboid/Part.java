@@ -42,6 +42,10 @@ enum Part {
                     + "what shots cut out of a fence, a wall or a door drops out of it: the pieces bounce, lie a few seconds and sink into the\n"
                     + "ground. They are only in the picture and nothing touches them. false: no pieces: what is knocked down or shot\n"
                     + "out goes from the picture at once."),
+    LAMP_SHADOWS("FirstPerson", "LampShadows", true, false,
+            "true: in first person, in Medium and High, the street lamps, lamps and ceiling lights nearest you that are on at\n"
+                    + "night cast shadows of what stands in their light: fences, furniture, people and zombies. High has more of them\n"
+                    + "cast shadows, and sharper. false: what stands under a lamp casts no shadow from it."),
     COLOURED_GLASS_LIGHT("FirstPerson", "ColouredGlassLight", true, false,
             "true: in first person, in Medium and High, sunlight through a stained glass window takes the colours of its\n"
                     + "glass onto whatever it falls on behind it, and into the air of the room. false: a stained glass window lets no\n"

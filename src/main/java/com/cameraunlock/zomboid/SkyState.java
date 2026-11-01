@@ -182,6 +182,9 @@ final class SkyState {
     final float[] roomLamps = new float[RoomLamps.LIGHTS * RoomLamps.FLOATS];
     final float[] roomLampRows = new float[RoomLamps.LIGHTS * RoomLamps.ROW_VECTORS * 4];
     int roomLampCount;
+    /** The ceiling lights on round the eye, for their shadows: the first ceilingCount records of ceilings (see CeilingLights). */
+    final float[] ceilings = new float[CeilingLights.MOST * CeilingLights.FLOATS];
+    int ceilingCount;
     /** The leaves falling and lying round the eye, the first leafCount records of leaves: see LeafFall. */
     final float[] leaves = new float[LeafFall.MOST * LeafFall.FLOATS];
     int leafCount;

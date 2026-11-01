@@ -1202,7 +1202,7 @@ final class PipelineShaders {
             // lies between an eye in a room and that room's walls. Sun through a window into the
             // room's own air is the volume pass's.
             uniform float uEyeOutdoors;
-            """ + BEAMS + MuzzleFlash.GLSL + Fires.GLSL + FireShadows.GLSL + Lamps.GLSL + RoomLamps.GLSL + """
+            """ + BEAMS + MuzzleFlash.GLSL + Fires.GLSL + FireShadows.GLSL + LampShadows.GLSL + Lamps.GLSL + RoomLamps.GLSL + """
             uniform sampler2D uAsphalt;
             uniform sampler2D uGravel;
             uniform sampler2D uSoil;
@@ -4454,6 +4454,8 @@ final class PipelineShaders {
                 }
                 // Interpolated corner-light differences can round below zero at a dark corner.
                 vec3 given = pow(max(vColor.rgb, vec3(0.0)), vec3(2.2));
+                // A ceiling light with shadow maps is hidden by what stands under it (LampShadows).
+                given = ceilingShaded(vWorld, n, face, given);
                 // A lamp in a room and a set that is on light what is round them (RoomLamps), and the game's
                 // flat light from them comes out of the room at night.
                 vec3 roomLit = roomLampsLight(vWorld, n, face, given);

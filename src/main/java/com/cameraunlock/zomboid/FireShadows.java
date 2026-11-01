@@ -149,7 +149,12 @@ final class FireShadows {
      * filling of it, as one number that is another once any of them is filled again, comes or goes.
      */
     private long builds(int slot, ArrayList<WorldScene.ChunkMeshes> drawn) {
-        float x = from[slot * 4], y = from[slot * 4 + 1], up = from[slot * 4 + 2], far = from[slot * 4 + 3] + BUILD_MARGIN;
+        return builds(from[slot * 4], from[slot * 4 + 1], from[slot * 4 + 2], from[slot * 4 + 3], drawn);
+    }
+
+    /** The same for a map drawn from (x, y, up) that sees reach tiles: a lamp's (LampShadows) too. */
+    static long builds(float x, float y, float up, float reach, ArrayList<WorldScene.ChunkMeshes> drawn) {
+        float far = reach + BUILD_MARGIN;
         long sum = 0L;
         for (int i = 0; i < drawn.size(); i++) {
             WorldScene.ChunkMeshes build = drawn.get(i);
@@ -247,9 +252,10 @@ final class FireShadows {
             uniform vec2 uFireFace;
             uniform float uFireNear;
 
-            float fireShadow(float slot, vec3 p, vec3 n) {
-                vec4 from = uFireFrom[int(slot)];
-                vec3 d = p + n * 0.04 - from.xyz;
+            // Where a point d from a light lies in the faces of the light's slot of a texture of
+            // such slots, slots of them, each face across texels and seeing from near to far:
+            // the place in the texture, and its depth there.
+            vec3 cubeFaceAt(vec3 d, float slot, float slots, float across, float near, float far) {
                 vec3 a = abs(d);
                 vec3 forward;
                 vec3 right;
@@ -273,13 +279,17 @@ final class FireShadows {
                 }
                 float ahead = dot(d, forward);
                 vec2 ndc = vec2(dot(d, right), dot(d, up)) / ahead;
-                float far = from.w;
-                float z = (far + uFireNear) / (far - uFireNear) - 2.0 * far * uFireNear / ((far - uFireNear) * ahead);
+                float z = (far + near) / (far - near) - 2.0 * far * near / ((far - near) * ahead);
                 vec2 tile = vec2(mod(face, 3.0), floor(face / 3.0) + slot * 2.0);
                 // Within the face's drawn texels, half a texel in, so a blend of four never takes the cleared edge round it.
-                vec2 inFace = clamp(1.0 + (ndc * 0.5 + 0.5) * (uFireFace.x - 2.0), 1.5, uFireFace.x - 1.5);
-                vec2 uv = (tile * uFireFace.x + inFace) / vec2(3.0 * uFireFace.x, 2.0 * uFireFace.y * uFireFace.x);
-                return shadow2D(uFireShadow, vec3(uv, z * 0.5 + 0.5)).r;
+                vec2 inFace = clamp(1.0 + (ndc * 0.5 + 0.5) * (across - 2.0), 1.5, across - 1.5);
+                vec2 uv = (tile * across + inFace) / vec2(3.0 * across, 2.0 * slots * across);
+                return vec3(uv, z * 0.5 + 0.5);
+            }
+
+            float fireShadow(float slot, vec3 p, vec3 n) {
+                vec4 from = uFireFrom[int(slot)];
+                return shadow2D(uFireShadow, cubeFaceAt(p + n * 0.04 - from.xyz, slot, uFireFace.y, uFireFace.x, uFireNear, from.w)).r;
             }
 
             // The fires' light at p facing n, shadowed where a fire has a slot; a fire with none

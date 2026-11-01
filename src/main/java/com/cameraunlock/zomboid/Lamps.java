@@ -57,12 +57,13 @@ final class Lamps {
      * under it takes all of its light, what is 40 degrees off a third, and what is level with it a
      * twentieth: a lens five tiles up lit by distance alone gave the ground at the foot of its
      * post one and a half times what it gave six squares off, and no pool. Then how much of the
-     * game's own light from a street lamp is taken off, by how far in it is (see COMES_IN).
+     * game's own light from a street lamp is taken off, by how far in it is (see COMES_IN), and the
+     * slot of the lamp's shadow maps, or -1 for one that throws none (LampShadows).
      */
     static final String GLSL = """
             uniform vec4 uLampAt[16];
             uniform vec4 uLampHue[16];
-            uniform float uLampCover[16];
+            uniform vec2 uLampCover[16];
             // How many of them are listed: the rest are dark.
             uniform float uLampCount;
 
@@ -92,7 +93,11 @@ final class Lamps {
                     float far = sqrt(far2);
                     float down = max(dir.z, 0.0) * max(dir.z, 0.0);
                     float lens = uLampHue[i].w < 0.0 ? 0.05 + 0.95 * down * down : 1.0;
-                    sum += uLampHue[i].rgb * (at.w * lens * max(dot(n, dir), 0.0) * (1.0 - smoothstep(reach * 0.55, reach, far)) / (1.0 + 0.6 * far2));
+                    float faced = max(dot(n, dir), 0.0);
+                    if (faced > 0.0 && uLampCover[i].y >= 0.0) {
+                        faced *= lampShadow(uLampCover[i].y, p, n);
+                    }
+                    sum += uLampHue[i].rgb * (at.w * lens * faced * (1.0 - smoothstep(reach * 0.55, reach, far)) / (1.0 + 0.6 * far2));
                 }
                 return sum * lit;
             }
@@ -105,8 +110,8 @@ final class Lamps {
                         break;
                     }
                     float reach = -uLampHue[i].w;
-                    if (uLampCover[i] > 0.0 && reach > 0.0) {
-                        cover = max(cover, uLampCover[i] * (1.0 - smoothstep(reach * 0.55, reach, length(uLampAt[i].xy - p.xy))));
+                    if (uLampCover[i].x > 0.0 && reach > 0.0) {
+                        cover = max(cover, uLampCover[i].x * (1.0 - smoothstep(reach * 0.55, reach, length(uLampAt[i].xy - p.xy))));
                     }
                 }
                 return cover;

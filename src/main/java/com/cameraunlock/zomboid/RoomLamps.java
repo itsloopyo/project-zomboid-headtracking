@@ -277,7 +277,7 @@ final class RoomLamps {
         to[at + WAY + 1] = light.y;
         to[at + GAME] = Math.min(2f * Math.max(light.r, Math.max(light.g, light.b)), 1f);
         to[at + GAME + 1] = Math.max(light.radius, 1);
-        to[at + GAME + 3] = 0f;
+        to[at + GAME + 3] = -1f;
         if (set == null) {
             to[at] = x;
             to[at + 1] = y;
@@ -354,7 +354,8 @@ final class RoomLamps {
      * height of its level's floor; uRoomLampWay its square, the way its light leaves (ALL_ROUND
      * for a lamp) and 1 for a set; uRoomLampGame
      * how bright the game lights squares with it, its colour's greatest part doubled and stopped
-     * at 1, its radius, and how far it has come in (COMES_IN).
+     * at 1, its radius, how far it has come in (COMES_IN), and the slot of its shadow maps, or -1
+     * for one that throws none: the scene gives -1, and the frame the slot (LampShadows).
      * uRoomLampRows has ROW_VECTORS vec4 a light, one row of the squares round its own in each
      * float, bit k for the square k - REACH east of it.
      */
@@ -391,6 +392,8 @@ final class RoomLamps {
             // falling off straight over its radius, makes of it, so light from elsewhere stays.
             vec3 roomLampsLight(vec3 p, vec3 n, vec3 face, inout vec3 given) {
                 vec3 sum = vec3(0.0);
+                // The same with nothing in the way, which says how far the light is raised below.
+                vec3 unhidden = vec3(0.0);
                 vec3 least = given;
                 float taken = 0.0;
                 float most = max(max(given.r, max(given.g, given.b)), 0.0001);
@@ -423,13 +426,18 @@ final class RoomLamps {
                         vec2 front = vec2(cos(way.z), sin(way.z));
                         strength *= 0.12 + 0.88 * smoothstep(-0.3, 0.5, dot(front, -dir.xy) / max(length(dir.xy), 0.001));
                     }
+                    unhidden += hue.rgb * strength;
+                    if (game.w >= 0.0 && strength > 0.0) {
+                        strength *= lampShadow(game.w, p, n);
+                    }
                     sum += hue.rgb * strength;
                 }
                 vec3 takenOut = given - mix(given, least, taken * uDark);
                 given -= takenOut;
                 vec3 lit = sum * mix(0.25, 1.0, uDark);
                 float wanted = dot(takenOut, vec3(0.2126, 0.7152, 0.0722));
-                float had = dot(lit, vec3(0.2126, 0.7152, 0.0722));
+                // Raised as it would be with nothing in its way, so its shadows stay as dark beside the light round them.
+                float had = dot(unhidden * mix(0.25, 1.0, uDark), vec3(0.2126, 0.7152, 0.0722));
                 if (had < wanted) {
                     lit = had > 0.00001 ? lit * (wanted / had) : takenOut;
                 }

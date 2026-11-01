@@ -2232,6 +2232,28 @@ public final class Characters {
         notingRoots = false;
     }
 
+    /**
+     * How many people the frame draws stand within reach tiles of a lamp at (x, y, up), counted
+     * no further than most + 1: how many castCharacters would draw into its map.
+     */
+    int countWithin(float x, float y, float up, float reach, int most) {
+        float within = reach + PERSON_REACH;
+        int count = 0;
+        for (int i = 0; i < noted.size(); i++) {
+            ModelSlotRenderData data = noted.get(i);
+            if (data.character == null) {
+                continue;
+            }
+            float dx = data.x - x, dy = data.y - y, du = data.z * ViewCamera.LEVEL_HEIGHT - up;
+            if (dx * dx + dy * dy + du * du < within * within) {
+                if (++count > most) {
+                    return count;
+                }
+            }
+        }
+        return count;
+    }
+
     /** Where the people and vehicles the eye's picture draws stand, and stood a frame ago. */
     final Movers movers = new Movers();
 

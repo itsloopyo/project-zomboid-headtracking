@@ -4205,6 +4205,8 @@ final class WorldScene {
             Fires.gather(sky, terrain, player.getIndex(), pose.eyeX, pose.eyeY);
             Lamps.gather(sky, cell, terrain, pose.eyeX, pose.eyeY, Quality.lightDistance(view.index));
             roomLamps.gather(sky, cell, terrain, view.torchLess, playerIndex, pose.eyeX, pose.eyeY, (int) Math.floor(player.getZ()), Quality.lightDistance(view.index));
+            CeilingLights.gather(sky, cell, terrain, playerIndex, pose.eyeX, pose.eyeY, (int) Math.floor(player.getZ()),
+                    LampShadows.on(view.index) ? Quality.lightDistance(view.index) : 0f);
             leafTrees.gather(sky, cell, terrain, roundNow, Core.tileScale, pose.eyeX, pose.eyeY, start);
             Debris.gather(sky, terrain, pose.eyeX, pose.eyeY, start);
             roofBuilder.newBuild();

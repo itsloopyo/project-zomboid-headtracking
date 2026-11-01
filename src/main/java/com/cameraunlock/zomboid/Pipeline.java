@@ -517,6 +517,8 @@ final class Pipeline {
     private int glassColor, glassTarget;
     /** Whether this frame's near sun map lets the mod's own stained glass through, and whether its colours were drawn into glassed. */
     private boolean glassThrough, glassLit;
+    /** The lamps' shadow maps, for the frames in which a lamp near the eye throws a shadow (LampShadows). */
+    private final Lent lamped = new Lent("lamps' shadow maps", this::makeLamped);
     /** What a vehicle's mirror shows and the people in it, at the mirror's size. */
     private final Lent mirrored = new Lent("mirror's pictures", this::makeMirror);
     /** What water shows, at a third of the picture's size: only in High, in first person, with water in sight. */
@@ -540,7 +542,7 @@ final class Pipeline {
     }
 
     private final Lent[] SIZED = sized(whole, steadied, cabin, shaded, watered);
-    private final Lent[] UNSIZED = {beamed, torched, fired, glassed, mirrored, surrounded};
+    private final Lent[] UNSIZED = {beamed, torched, fired, lamped, glassed, mirrored, surrounded};
     private static final long LENT_FOR_NANOS = 10_000_000_000L;
 
     /** The sets at the picture's size: those given, and each plane's picture of what its glass shows. */
@@ -770,7 +772,7 @@ final class Pipeline {
     /** For each shadow map, the chunks it can hold as draws, when those are not all of them. */
     private final ChunkBuffers.Listing nearListed = new ChunkBuffers.Listing(), farListed = new ChunkBuffers.Listing(),
             beamListed = new ChunkBuffers.Listing(), roofListed = new ChunkBuffers.Listing(), torchListed = new ChunkBuffers.Listing(),
-            fireListed = new ChunkBuffers.Listing();
+            fireListed = new ChunkBuffers.Listing(), lampListed = new ChunkBuffers.Listing();
     /** The chunks a vehicle's mirror can show as draws, and the listing its picture is drawn from: every chunk's when none is out of it. */
     private final ChunkBuffers.Listing behindListed = new ChunkBuffers.Listing();
     private ChunkBuffers.Listing shownBehind = all;
@@ -810,8 +812,8 @@ final class Pipeline {
     private static final int TEXEL_KEPT_FRAMES = 256;
     private int frameNumber;
     /** How many chunks the last frame drew into the near, far, headlight, roof and torch maps, and how many it had, for the log. */
-    private static final int NEAR_MAP = 0, FAR_MAP = 1, BEAM_MAP = 2, ROOF_MAP = 3, TORCH_MAP = 4, FIRE_MAP = 5;
-    private final int[] heldChunks = new int[6];
+    private static final int NEAR_MAP = 0, FAR_MAP = 1, BEAM_MAP = 2, ROOF_MAP = 3, TORCH_MAP = 4, FIRE_MAP = 5, LAMP_MAP = 6;
+    private final int[] heldChunks = new int[7];
     /** Written after heldChunks, and read before it by the logic thread. */
     private volatile int heldOf;
     /** What this view's own pictures and shadow maps take on the graphics card, as its last frame left them. Read by the logic thread. */
@@ -994,6 +996,13 @@ final class Pipeline {
     private final ViewCamera.Pose fireFace6 = new ViewCamera.Pose();
     /** The texture unit the fires' shadow maps are bound to for the world's program: one none of its own samplers is on. */
     private static final int FIRE_SHADOW_UNIT = 19;
+    /** Which lamps throw shadows. Their maps are two textures of LampShadows' slots: the world from each lamp, kept, and its copy with the people in it, which the world reads. */
+    private final LampShadows lampShadows = new LampShadows();
+    private int lampWorldTarget, lampMap, lampTarget, lampFace, lampSlots;
+    private final float[] lampMatrix = new float[16];
+    private final ViewCamera.Pose lampFace6 = new ViewCamera.Pose();
+    /** The texture unit the lamps' shadow maps are bound to for the world's program: one none of its own samplers is on. */
+    private static final int LAMP_SHADOW_UNIT = 17;
     private final float[] sunNdc = new float[2];
     private final int[] samplers = new int[SAMPLED_UNITS];
     /** Where the driver puts an answer: see bound. As long as the longest answer OpenGL gives to one question. */
@@ -1398,6 +1407,7 @@ final class Pipeline {
             all.of(chunks, null, true, null, Integer.MAX_VALUE, SpriteGeometry.NO_BUILDING);
             arrays();
             fires.take(state, chunks, eyesOwn() ? roomsSeen : null, camera, frameNanos);
+            lampShadows.take(state, camera, tanHalfFieldOfView, aspect, chunks, frameNanos, view.index);
             stage(STAGE_LOAD);
             boolean figures = view.characters.ready();
             glazed = false;
@@ -2767,6 +2777,7 @@ final class Pipeline {
         GL13.glActiveTexture(GL_TEXTURE0);
         castTorch(state, figures);
         castFires(state);
+        castLamps(state, figures);
         if (castRoof) {
             castRoof(state);
             GL11.glViewport(0, 0, shadowSize, shadowSize);
@@ -3060,6 +3071,129 @@ final class Pipeline {
         fired.targets.add(target);
         fired.bytes = 4L * 3 * fireFace * 2 * fireSlots * fireFace;
         return complete("fires' shadow maps");
+    }
+
+    /**
+     * The lamps' shadow maps due this frame (LampShadows): the world and its furniture from each
+     * slot drawn again, six ways as a fire's, into the kept texture; then, for each slot whose copy
+     * is due, the kept slot copied into the texture the world reads and the people within the
+     * lamp's reach drawn over it.
+     */
+    private void castLamps(SkyState state, boolean figures) {
+        LampShadows shadows = lampShadows;
+        heldChunks[LAMP_MAP] = 0;
+        if (!shadows.any()) {
+            return;
+        }
+        int face = shadows.face, slots = shadows.slotCount;
+        if (lamped.made() && (lampFace != face || lampSlots != slots)) {
+            giveBack(lamped);
+        }
+        lampFace = face;
+        lampSlots = slots;
+        boolean fresh = !lamped.made();
+        lend(lamped);
+        GL11.glDisable(GL_SCISSOR_TEST);
+        if (fresh) {
+            // A slot this frame does not draw reads as no shadow until it is drawn, not as what the new textures hold.
+            GL11.glClearDepth(1.0);
+            for (int target : new int[] {lampWorldTarget, lampTarget}) {
+                GL30.glBindFramebuffer(GL_FRAMEBUFFER, target);
+                GL11.glClear(GL_DEPTH_BUFFER_BIT);
+            }
+            shadows.atlasMade();
+        }
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, lampWorldTarget);
+        shadow.use();
+        shadow.set("uSunWay", 0f, 0f, 1f);
+        GL13.glActiveTexture(GL_TEXTURE0);
+        for (int k = 0; k < shadows.toDraw; k++) {
+            int slot = shadows.draw[k];
+            GL11.glEnable(GL_SCISSOR_TEST);
+            GL11.glScissor(0, slot * 2 * face, 3 * face, 2 * face);
+            GL11.glClearDepth(1.0);
+            GL11.glClear(GL_DEPTH_BUFFER_BIT);
+            GL11.glDisable(GL_SCISSOR_TEST);
+            for (int side = 0; side < LampShadows.FACES; side++) {
+                lampFaceMatrix(shadows, slot, side, face);
+                castAlong(shadow, lampMatrix);
+                castHeld(lampMatrix, state, lampListed, LAMP_MAP);
+            }
+        }
+        for (int slot = 0; slot < slots; slot++) {
+            int near = figures && shadows.ready(slot)
+                    ? view.characters.countWithin(shadows.from[slot * 4], shadows.from[slot * 4 + 1], shadows.from[slot * 4 + 2], shadows.peopleReach(slot), shadows.crowdMost)
+                    : 0;
+            shadows.peopleNear[slot] = near > 0 && near <= shadows.crowdMost;
+        }
+        shadows.choosePeople(focusX, focusY, focusUp);
+        boolean drewPeople = false;
+        for (int slot = 0; slot < slots; slot++) {
+            if (!shadows.copyDue(slot)) {
+                continue;
+            }
+            int bottom = slot * 2 * face;
+            GL11.glDisable(GL_SCISSOR_TEST);
+            GL30.glBindFramebuffer(GL_READ_FRAMEBUFFER, lampWorldTarget);
+            GL30.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, lampTarget);
+            GL30.glBlitFramebuffer(0, bottom, 3 * face, bottom + 2 * face, 0, bottom, 3 * face, bottom + 2 * face, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+            if (shadows.peopled[slot]) {
+                GL30.glBindFramebuffer(GL_FRAMEBUFFER, lampTarget);
+                for (int side = 0; side < LampShadows.FACES; side++) {
+                    lampFaceMatrix(shadows, slot, side, face);
+                    view.characters.castCharacters(lampMatrix, viewed, 1f, shadows.peopleReach(slot));
+                }
+                drewPeople = true;
+            }
+            shadows.copied(slot);
+        }
+        if (drewPeople) {
+            resumeCasting();
+        }
+        GL11.glViewport(0, 0, shadowSize, shadowSize);
+    }
+
+    /** Leaves in lampMatrix, and the face's view in viewed, the matrix of one face of a lamp's slot, with the viewport on its texels but the edge round them. */
+    private void lampFaceMatrix(LampShadows shadows, int slot, int side, int face) {
+        ViewCamera.projection(1f, 1f, LampShadows.NEAR, shadows.from[slot * 4 + 3], projection);
+        FireShadows.face(side, shadows.from[slot * 4], shadows.from[slot * 4 + 1], shadows.from[slot * 4 + 2], lampFace6);
+        ViewCamera.view(lampFace6, viewed);
+        ViewCamera.multiply(projection, viewed, lampMatrix);
+        GL11.glViewport((side % 3) * face + 1, (side / 3 + slot * 2) * face + 1, face - 2, face - 2);
+    }
+
+    /**
+     * The lamps' two textures of LampShadows.slots slots of six faces, each LampShadows.faceSize
+     * across: the world from each lamp, and the copy of it the world's program reads, with the
+     * people drawn in.
+     */
+    private String makeLamped() {
+        String problem = null;
+        for (int copy = 0; copy < 2; copy++) {
+            int map = GL11.glGenTextures();
+            GL11.glBindTexture(GL_TEXTURE_2D, map);
+            GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, 3 * lampFace, 2 * lampSlots * lampFace, 0, GL_DEPTH_COMPONENT, GL_FLOAT, (ByteBuffer) null);
+            filter(GL_LINEAR);
+            GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
+            GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
+            int target = GL30.glGenFramebuffers();
+            GL30.glBindFramebuffer(GL_FRAMEBUFFER, target);
+            GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, map, 0);
+            GL11.glDrawBuffer(GL_NONE);
+            GL11.glReadBuffer(GL_NONE);
+            lamped.textures.add(map);
+            lamped.targets.add(target);
+            if (copy == 0) {
+                lampWorldTarget = target;
+            } else {
+                lampMap = map;
+                lampTarget = target;
+            }
+            String made = complete("lamps' shadow maps");
+            problem = problem == null ? made : problem;
+        }
+        lamped.bytes = 2 * 4L * 3 * lampFace * 2 * lampSlots * lampFace;
+        return problem;
     }
 
     /** Drawn whatever the weather: the rain is kept off by it, and the light of the sky is traced against it. */
@@ -4452,6 +4586,11 @@ final class Pipeline {
         GL11.glBindTexture(GL_TEXTURE_2D, fired.made() ? fireMap : farDepth);
         GL13.glActiveTexture(GL_TEXTURE0);
         fires.lightWorld(to, FIRE_SHADOW_UNIT);
+        GL13.glActiveTexture(GL_TEXTURE0 + LAMP_SHADOW_UNIT);
+        GL33.glBindSampler(LAMP_SHADOW_UNIT, 0);
+        GL11.glBindTexture(GL_TEXTURE_2D, lamped.made() ? lampMap : farDepth);
+        GL13.glActiveTexture(GL_TEXTURE0);
+        lampShadows.lightWorld(to, LAMP_SHADOW_UNIT);
         // The game's own look (Quality.plain) has the game's light alone round its lamps.
         float[] lamps = state.lamps;
         int lampsLighting = Quality.plain(view.index) ? 0 : state.lampCount;
@@ -4460,7 +4599,7 @@ final class Pipeline {
             int at = i * Lamps.RECORD;
             to.set(LAMP_AT[i], lamps[at], lamps[at + 1], lamps[at + 2], burns ? lamps[at + 3] : 0f);
             to.set(LAMP_HUE[i], lamps[at + 4], lamps[at + 5], lamps[at + 6], lamps[at + 7]);
-            to.set(LAMP_COVER[i], burns ? lamps[at + 8] : 0f);
+            to.set(LAMP_COVER[i], burns ? lamps[at + 8] : 0f, burns ? lampShadows.lampSlot[i] : -1f);
         }
         to.set("uLampCount", (float) lampsLighting);
         // So do lamps in rooms and sets that are on.
@@ -4472,7 +4611,8 @@ final class Pipeline {
             to.set(ROOM_LAMP_HUE[i], roomLamps[at + RoomLamps.HUE], roomLamps[at + RoomLamps.HUE + 1], roomLamps[at + RoomLamps.HUE + 2], roomLamps[at + RoomLamps.HUE + 3]);
             to.set(ROOM_LAMP_BASE[i], roomLamps[at + RoomLamps.BASE], roomLamps[at + RoomLamps.BASE + 1], roomLamps[at + RoomLamps.BASE + 2], roomLamps[at + RoomLamps.BASE + 3]);
             to.set(ROOM_LAMP_WAY[i], roomLamps[at + RoomLamps.WAY], roomLamps[at + RoomLamps.WAY + 1], roomLamps[at + RoomLamps.WAY + 2], roomLamps[at + RoomLamps.WAY + 3]);
-            to.set(ROOM_LAMP_GAME[i], roomLamps[at + RoomLamps.GAME], roomLamps[at + RoomLamps.GAME + 1], roomLamps[at + RoomLamps.GAME + 2], roomLamps[at + RoomLamps.GAME + 3]);
+            to.set(ROOM_LAMP_GAME[i], roomLamps[at + RoomLamps.GAME], roomLamps[at + RoomLamps.GAME + 1], roomLamps[at + RoomLamps.GAME + 2],
+                    i < roomLampsLighting ? lampShadows.roomLampSlot[i] : -1f);
         }
         if (roomLampsLighting > 0) {
             to.setEach4("uRoomLampRows", state.roomLampRows);
@@ -7145,6 +7285,7 @@ final class Pipeline {
                 height = 0;
                 giveBack(mirrored);
                 giveBack(fired);
+                giveBack(lamped);
                 giveBack(surrounded);
                 view.scope.giveBackPicture();
             }
