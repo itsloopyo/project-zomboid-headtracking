@@ -136,13 +136,23 @@ final class ArmHolds {
      * way its top faces, each of length one, for a firearm where its mesh is, and for something
      * swung in both hands how far along it from the right fist the left one is, in metres: less
      * than nought nearer the end the hands hold. Whether it is a spear, whose left arm comes to its
-     * shaft from under the picture in every way it is held: see SPEAR_SHOULDER.
+     * shaft from under the picture in every way it is held: see SPEAR_SHOULDER. For a fishing rod
+     * out over water, how far round its reel's handle is, in radians, where the left hand is, or NaN.
      */
-    record Weapon(boolean firearm, boolean handgun, float[] grip, float[] pointing, float[] over, Placed placed, float second, boolean spear) {
+    record Weapon(boolean firearm, boolean handgun, float[] grip, float[] pointing, float[] over, Placed placed, float second, boolean spear, float crank) {
         Weapon(boolean firearm, boolean handgun, float[] grip, float[] pointing, float[] over, Placed placed) {
-            this(firearm, handgun, grip, pointing, over, placed, -LOWER_FIST, false);
+            this(firearm, handgun, grip, pointing, over, placed, -LOWER_FIST, false, Float.NaN);
         }
     }
+
+    /**
+     * The knob of the handle of a fishing rod's reel, from the right fist on the rod, in metres:
+     * this far ahead (behind it), under the rod and out to the left, as the game's rod has it
+     * drawn mirrored (Characters.drawRodMirrored), with the fist where MeleeHold.hand puts it. The
+     * knob is part of the rod's mesh and does not go round: the hand turning it circles this far
+     * about it, a turn of the wrist.
+     */
+    static final float REEL_AHEAD = -0.06f, REEL_UNDER = 0.11f, REEL_LEFT = 0.09f, REEL_HANDLE = 0.012f;
 
     /**
      * A firearm's mesh where the view has it. Whoever places the arms each frame keeps one and
@@ -815,6 +825,13 @@ final class ArmHolds {
     /** The left hand, or null when it is not on the weapon nor busy with it. */
     private static Hold left(ArmModel model, Weapon weapon, Axes axes, Doing doing, float[] fromAim) {
         Hold hold = null;
+        if (!weapon.firearm() && !Float.isNaN(weapon.crank())) {
+            // On the knob of the reel's handle, which goes round square to the rod on its left: the palm towards the reel, the fingers down.
+            float a = REEL_AHEAD + REEL_HANDLE * (float) Math.cos(weapon.crank()), u = -REEL_UNDER + REEL_HANDLE * (float) Math.sin(weapon.crank());
+            Hold knob = new Hold(model).set(axes.at(a, u, -REEL_LEFT), axes.right, axes.way(0.2f, -1f, 0f), true, model.pose("handle"));
+            knob.round = true;
+            return knob;
+        }
         if (doing.both() && !weapon.firearm()) {
             // Something swung in both hands: the left fist is on the handle under the right, the same way round.
             float slant = slant(weapon, axes, axes.at(weapon.second(), 0f, 0f), 1, doing.turned(), fromAim);

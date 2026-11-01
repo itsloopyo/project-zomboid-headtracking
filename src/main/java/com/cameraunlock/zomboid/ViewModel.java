@@ -90,13 +90,16 @@ public final class ViewModel {
      * @param gunModel  for a firearm, the name of the game's model of it as the item has it, which a model it draws while the gun is worked may stand in for
      * @param backAimed for a firearm, how far its shots throw it back toward the eye at the most with the sights up, in tiles (Kick.backMost), and a
      *                  pump's pull
+     * @param fished    for a fishing rod the game's fishing has out, how it is held for that, as ViewModelMath.attack gives a hold, or null
+     * @param fishing   how far the rod has come from where it is held as a weapon to `fished`, 0 to 1
+     * @param crank     how far round the handle of the rod's reel is, in radians, while the left hand is on it, or NaN
      */
     record Held(String item, int itemId, boolean firearm, boolean bothHands, int attack, float reached, float past, boolean struck, float aim, float nearness, float lowered,
             float swayYaw, float swayPitch, float bobX, float bobY, float recoil, float kickPitch, float kickYaw, float kickRoll, float kickUp, float kickBack,
             float dip, int skin, boolean female,
             int action, float cycled, int doing, float done, int rounds, int spent, float round, float handled, float pace, float seated, float drawn, float worked,
             boolean clip, float out, float fetching, float fetchTakes, boolean leftFree, int swungAs, OwnModel own, boolean paused, int shots, boolean chambered,
-            String gunModel, float backAimed) {
+            String gunModel, float backAimed, float[] fished, float fishing, float crank) {
         /**
          * The mod's own model drawn for it: decided once, as this was made, so that where it is
          * held, the hands on it and what is drawn agree on the frame a model comes onto the
@@ -244,6 +247,13 @@ public final class ViewModel {
     private static final float PUT_AWAY = 0.95f;
     private static final float WORK_SECONDS = 0.07f;
     private InventoryItem inHand;
+
+    /** What the game's fishing was doing last frame, how long it has been doing it, and the rod's hold for it, eased. */
+    private int fishStage = FishingHold.NOT;
+    private float fishSince, fishing, crank;
+    private final float[] fishTarget = new float[ViewModelMath.HOLD], fishHold = new float[ViewModelMath.HOLD];
+    /** The rod comes to be held for fishing, or goes back, to within a twentieth, in three of these; and follows its hold, in a cast. */
+    private static final float FISHING_SECONDS = 0.12f, FISH_HOLD_SECONDS = 0.1f, CAST_HOLD_SECONDS = 0.03f;
 
     private boolean isSet(IsoPlayer player, String variable) {
         return "true".equalsIgnoreCase(player.GetVariable(variable));
@@ -499,6 +509,20 @@ public final class ViewModel {
         }
         round = ArmActs.round(round, doing == ArmActs.LOADING, rounds > roundsBefore, seconds, roundTakes);
         roundsBefore = rounds;
+        int stage = !firearm ? FishingAim.stage(player) : FishingHold.NOT;
+        if (stage != FishingHold.NOT) {
+            fishSince = stage == fishStage ? fishSince + seconds : 0f;
+            FishingHold.pose(stage, fishSince, fishTarget);
+            for (int i = 0; i < ViewModelMath.HOLD; i++) {
+                fishHold[i] = fishing == 0f ? fishTarget[i] : ViewModelMath.ease(fishHold[i], fishTarget[i], seconds, stage == FishingHold.CAST ? CAST_HOLD_SECONDS : FISH_HOLD_SECONDS);
+            }
+            crank = FishingHold.crank(crank, stage, seconds);
+        }
+        fishStage = stage;
+        fishing = ViewModelMath.ease(fishing, stage != FishingHold.NOT ? 1f : 0f, seconds, FISHING_SECONDS);
+        if (stage == FishingHold.NOT && fishing < 0.01f) {
+            fishing = 0f;
+        }
         // A driver keeps the left hand on the wheel and holds the firearm in the right alone.
         boolean steering = Ride.inDriversSeat(player);
         held = new Held(item.getFullType(), item.getID(), firearm, !steering && item == player.getSecondaryHandItem(),
@@ -507,7 +531,8 @@ public final class ViewModel {
                 player.getHumanVisual().getSkinTextureIndex(), player.isFemale(), action, cycled, doing, done, rounds, firearm ? weapon.getSpentRoundCount() : 0, round, handled, took[action][doing], seated, drawn, worked, clip, out, fetching, fetchTakes[action], !steering && player.getSecondaryHandItem() == null, firearm ? MeleeHold.ONE_HANDED : swungAs(weapon, item == player.getSecondaryHandItem()),
                 firearm ? OwnModel.of(view.index, item.getFullType()) : null, paused, shots, firearm && weapon.isRoundChambered(),
                 firearm ? weapon.getWeaponSprite() : null,
-                firearm ? Kick.backMost(weapon.getRecoilDelay(), weapon.getMaxDamage(), Kick.braced(weapon.getFullType(), 1f)) + (pump ? PUMP_PULLS_AIMED : 0f) : 0f);
+                firearm ? Kick.backMost(weapon.getRecoilDelay(), weapon.getMaxDamage(), Kick.braced(weapon.getFullType(), 1f)) + (pump ? PUMP_PULLS_AIMED : 0f) : 0f,
+                fishing > 0f ? fishHold.clone() : null, fishing, stage != FishingHold.NOT ? crank : Float.NaN);
     }
 
     /**
@@ -643,6 +668,8 @@ public final class ViewModel {
         dipTo = 0f;
         dip = 0f;
         kicks = 0;
+        fishStage = FishingHold.NOT;
+        fishing = 0f;
     }
 
     /** For the trace. */
@@ -819,6 +846,8 @@ public final class ViewModel {
     final float[] still = new float[16];
     /** The way the top of the weapon last placed faces in the view and the way it points, each of length one, and where its grip is. */
     final float[] over = new float[3], pointing = new float[3], gripSeen = new float[3];
+    /** Whether the weapon last placed is a fishing rod held for fishing. Render thread. */
+    boolean rodPlaced;
     /** Where the muzzle of the weapon last placed is in the view, and whether it has one. */
     final float[] muzzle = new float[3];
     boolean hasMuzzle;
@@ -1021,6 +1050,12 @@ public final class ViewModel {
                 secondFist = -ArmHolds.LOWER_FIST;
                 ViewModelMath.attack(way, how.reached, how.past, how.struck, trueHands ? MeleeHold.UPRIGHT_HELD_IN_HAND : MeleeHold.UPRIGHT_HELD, swung);
             }
+            if (how.fished != null) {
+                float toRod = ViewModelMath.smooth(how.fishing);
+                for (int i = 0; i < ViewModelMath.HOLD; i++) {
+                    swung[i] += (how.fished[i] - swung[i]) * toRod;
+                }
+            }
             pitch += swung[0];
             yaw += swung[1];
             roll = swung[2];
@@ -1064,6 +1099,7 @@ public final class ViewModel {
             pointing[axis] /= far;
         }
         ViewModelMath.place(out, origin[0], origin[1], origin[2], gripSeen);
+        rodPlaced = how.fished != null && swungShape != null;
         if (hasMuzzle) {
             ViewModelMath.place(out, end[0], end[1], end[2], muzzle);
             // The mod's own pump gun says where its fore-end is and how far it slides.

@@ -38,6 +38,56 @@ final class OwnArmTests {
         Checks.run("everyMeleeClassKeepsItsWristsThroughEveryBlow", () -> everyMeleeClassKeepsItsWristsThroughEveryBlow(model));
         Checks.run("aSpearsLeftArmStaysUnderThePictureThroughAThrust", () -> aSpearsLeftArmStaysUnderThePictureThroughAThrust(model));
         Checks.run("aTwoHandedSwingGoesThroughWithTheLeftWristEasy", () -> aTwoHandedSwingGoesThroughWithTheLeftWristEasy(model));
+        Checks.run("aFishingRodHasTheLeftHandOnItsReelThroughACastAndTheReeling", () -> aFishingRodHasTheLeftHandOnItsReelThroughACastAndTheReeling(model));
+    }
+
+    /**
+     * A fishing rod, the game's mesh of it (-0.098 to 0.6 along y, as its log line reads it) held as ViewModel holds one out over water, through a cast and while its
+     * line is reeled in with the reel's handle going round: both arms are on it, the left hand on the handle's knob, and
+     * no wrist bent past 45 degrees.
+     */
+    private static void aFishingRodHasTheLeftHandOnItsReelThroughACastAndTheReeling(ArmModel model) {
+        MeleeHold.Shape rod = new MeleeHold.Shape(-0.098f, 0.6f, 0f, -1f);
+        MeleeHold.Fit fit = MeleeHold.fit(MeleeHold.TWO_HANDED, rod, 1f / Characters.PER_METRE, 1.5f, true, PICTURE);
+        float worst = 0f;
+        for (int stage = FishingHold.READY; stage <= FishingHold.LANDING; stage++) {
+            for (int frame = 0; frame <= 24; frame++) {
+                float since = frame / 16f, crank = (float) (2 * Math.PI * frame / 24f);
+                float[] pose = new float[ViewModelMath.HOLD], top = {0f, 0f, 1f}, matrix = new float[16];
+                FishingHold.pose(stage, since, pose);
+                ViewModelMath.hold(new float[] {0f, fit.hand(), 0f}, new float[] {0f, 1f, 0f}, top, null, 1.5f, pose[3], pose[4], pose[5], matrix);
+                ViewModelMath.turn(matrix, pose[0], pose[1], pose[2], pose[3], pose[4], -pose[5], 0f, 0f, 0f);
+                float[] grip = new float[3], pointing = new float[3], over = new float[3];
+                ViewModelMath.place(matrix, 0f, fit.hand(), 0f, grip);
+                ViewModelMath.turned(matrix, new float[] {0f, 1f, 0f}, pointing);
+                ViewModelMath.turned(matrix, top, over);
+                ArmPose.unit(pointing[0], pointing[1], pointing[2], pointing);
+                ArmPose.unit(over[0], over[1], over[2], over);
+                ArmHolds.Weapon held = new ArmHolds.Weapon(false, false, grip, pointing, over, null, fit.second(), false, crank);
+                ArmHolds.Doing doing = new ArmHolds.Doing(0f, true, ArmActs.NO_ACTION, -1f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, false, -1f, -1f, 2f, 0f);
+                float[][] skins = new float[2][model.bones.length * 16], said = new float[2][ArmPose.SAYS];
+                int arms = ArmHolds.place(model, SCALE, held, doing, SAME, skins, said, new ArmHolds.Carried(), new ArmHolds.Settled());
+                check(arms == 2, "stage " + stage + " frame " + frame + " has both arms on the rod");
+                for (int side = 0; side < arms; side++) {
+                    float bent = (float) Math.toDegrees(said[side][ArmPose.BENT]);
+                    worst = Math.max(worst, bent);
+                    check(bent <= 45.5f, "stage " + stage + " frame " + frame + (side == 0 ? " right" : " left") + " wrist bent " + bent);
+                }
+                if (arms == 2) {
+                    float[] palm = placed(skins[1], model.wrist, model.holds[model.pose("handle")]);
+                    float a = ArmHolds.REEL_AHEAD + ArmHolds.REEL_HANDLE * (float) Math.cos(crank), u = -ArmHolds.REEL_UNDER + ArmHolds.REEL_HANDLE * (float) Math.sin(crank);
+                    float[] up = new float[3], right = new float[3], knob = new float[3];
+                    float tipped = ArmPose.dot(over, pointing);
+                    ArmPose.unit(over[0] - pointing[0] * tipped, over[1] - pointing[1] * tipped, over[2] - pointing[2] * tipped, up);
+                    ArmPose.cross(pointing, up, right);
+                    for (int axis = 0; axis < 3; axis++) {
+                        knob[axis] = grip[axis] + (pointing[axis] * a + up[axis] * u - right[axis] * ArmHolds.REEL_LEFT) * SCALE;
+                    }
+                    check(ArmPose.apart(palm, knob) < 0.03f * SCALE, "stage " + stage + " frame " + frame + " the left hand is on the reel's knob, off by " + ArmPose.apart(palm, knob) / SCALE);
+                }
+            }
+        }
+        check(worst > 10f, "and the wrists were measured: " + worst);
     }
 
     private static final float SCALE = 0.74f;
@@ -742,7 +792,7 @@ final class OwnArmTests {
                     ViewModelMath.turned(matrix, top, over);
                     ArmPose.unit(pointing[0], pointing[1], pointing[2], pointing);
                     ArmPose.unit(over[0], over[1], over[2], over);
-                    ArmHolds.Weapon held = new ArmHolds.Weapon(false, false, grip, pointing, over, null, fit.second(), kind == MeleeHold.SPEAR);
+                    ArmHolds.Weapon held = new ArmHolds.Weapon(false, false, grip, pointing, over, null, fit.second(), kind == MeleeHold.SPEAR, Float.NaN);
                     ArmHolds.Doing doing = new ArmHolds.Doing(0f, both, ArmActs.NO_ACTION, -1f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, false, -1f, -1f, 2f, pose[6]);
                     float[][] skins = new float[2][model.bones.length * 16], said = new float[2][ArmPose.SAYS];
                     int arms = ArmHolds.place(model, SCALE, held, doing, SAME, skins, said, new ArmHolds.Carried(), new ArmHolds.Settled());
@@ -778,7 +828,7 @@ final class OwnArmTests {
         ViewModelMath.turned(matrix, top, over);
         ArmPose.unit(pointing[0], pointing[1], pointing[2], pointing);
         ArmPose.unit(over[0], over[1], over[2], over);
-        ArmHolds.Weapon held = new ArmHolds.Weapon(false, false, grip, pointing, over, null, fit.second(), kind == MeleeHold.SPEAR);
+        ArmHolds.Weapon held = new ArmHolds.Weapon(false, false, grip, pointing, over, null, fit.second(), kind == MeleeHold.SPEAR, Float.NaN);
         ArmHolds.Doing doing = new ArmHolds.Doing(0f, both, ArmActs.NO_ACTION, -1f, ArmActs.HOLDING, 0f, 0f, 1f, -1f, false, -1f, -1f, 2f, pose[6]);
         float[][] skins = new float[2][model.bones.length * 16];
         return ArmHolds.place(model, SCALE, held, doing, SAME, skins, said, new ArmHolds.Carried(), new ArmHolds.Settled());

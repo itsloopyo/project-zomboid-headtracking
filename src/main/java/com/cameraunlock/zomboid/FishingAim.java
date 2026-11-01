@@ -51,6 +51,26 @@ final class FishingAim {
         return true;
     }
 
+    /** The game's names of its fishing states, by FishingHold's stages, NOT's left out. */
+    private static final String[] STATES = {null, "Idle", "Cast", "Wait", "ReelIn", "ReelOut", "PickupFish"};
+
+    /**
+     * What a player is doing with a fishing rod, as the game's fishing manager has it: one of
+     * FishingHold's stages, NOT with no rod out over water. Logic thread.
+     */
+    static int stage(IsoPlayer player) {
+        if (!(manager(player) instanceof KahluaTable manager) || !(manager.rawget("states") instanceof KahluaTable states)) {
+            return FishingHold.NOT;
+        }
+        Object state = manager.rawget("state");
+        for (int stage = 1; stage < STATES.length; stage++) {
+            if (state != null && state == states.rawget(STATES[stage])) {
+                return stage;
+            }
+        }
+        return FishingHold.NOT;
+    }
+
     /** The game's fishing manager of a player, by their number, or their name online, or null while they have none. */
     private static Object manager(IsoPlayer player) {
         if (!(LuaManager.env.rawget("Fishing") instanceof KahluaTable fishing) || !(fishing.rawget("ManagerInstances") instanceof KahluaTable managers)) {
