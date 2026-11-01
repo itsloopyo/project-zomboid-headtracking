@@ -156,6 +156,10 @@ public final class ViewModel {
     private static final float TASK_BETWEEN = 0.4f;
     private int taskKind;
     private boolean taskLow;
+    /** The last animation busy sorted, its kind, and whether it is low with the Loot animation's LootPosition Low, and with none. */
+    private String sortedAnim;
+    private int sortedKind;
+    private boolean sortedLow, sortedLowAlone;
     private float taskTime, taskUp, taskDone;
 
     /** The muzzle's attachment in the game's model scripts. Its own z axis runs along the barrel. */
@@ -541,9 +545,16 @@ public final class ViewModel {
     private boolean busy(IsoPlayer player, float seconds) {
         String anim = player.getVehicle() == null && isSet(player, "IsPerformingAnAction") && !isSet(player, "isLoading")
                 && !isSet(player, "isUnloading") && !isSet(player, "isRacking") ? player.GetVariable("PerformingAction") : null;
-        int kind = anim == null ? TimedActs.NONE : TimedActs.kind(anim);
+        // Sorted only as the animation changes: the names are lowered to sort them, which makes a string.
+        if (anim != null && !anim.equals(sortedAnim)) {
+            sortedAnim = anim;
+            sortedKind = TimedActs.kind(anim);
+            sortedLow = TimedActs.low(anim, "Low");
+            sortedLowAlone = TimedActs.low(anim, null);
+        }
+        int kind = anim == null ? TimedActs.NONE : sortedKind;
         if (kind != TimedActs.NONE) {
-            boolean low = TimedActs.low(anim, player.GetVariable("LootPosition"));
+            boolean low = sortedLowAlone || sortedLow && "low".equalsIgnoreCase(player.GetVariable("LootPosition"));
             if (!anim.equals(taskAnim) || low != taskLow) {
                 // One action straight after another: the hands drop part of the way and come up to the next.
                 if (taskAnim != null && kind != taskKind) {

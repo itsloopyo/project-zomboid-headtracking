@@ -19,6 +19,10 @@ import zombie.network.GameClient;
 final class FishingAim {
     private static final JavaFunction AIM = FishingAim::aim;
     private static Object stock;
+    /** The players' numbers as the game's Lua keys its fishing managers by them, made once: asked every frame. */
+    private static final Double[] NUMBERS = {0.0, 1.0, 2.0, 3.0};
+    /** Where the aim is, for the game's Lua, which asks on its own thread alone. */
+    private static final float[] AIMED = new float[3];
 
     private FishingAim() {}
 
@@ -38,11 +42,7 @@ final class FishingAim {
      * name online) and draws it only in its own view. Logic thread.
      */
     static boolean bobber(IsoPlayer player, float[] out) {
-        if (!(LuaManager.env.rawget("Fishing") instanceof KahluaTable fishing) || !(fishing.rawget("ManagerInstances") instanceof KahluaTable managers)) {
-            return false;
-        }
-        Object key = GameClient.client ? player.getUsername() : (Object) (double) player.getPlayerNum();
-        if (!(managers.rawget(key) instanceof KahluaTable manager) || !(manager.rawget("fishingRod") instanceof KahluaTable rod)
+        if (!(manager(player) instanceof KahluaTable manager) || !(manager.rawget("fishingRod") instanceof KahluaTable rod)
                 || !(rod.rawget("bobber") instanceof KahluaTable bobber)) {
             return false;
         }
@@ -51,13 +51,20 @@ final class FishingAim {
         return true;
     }
 
+    /** The game's fishing manager of a player, by their number, or their name online, or null while they have none. */
+    private static Object manager(IsoPlayer player) {
+        if (!(LuaManager.env.rawget("Fishing") instanceof KahluaTable fishing) || !(fishing.rawget("ManagerInstances") instanceof KahluaTable managers)) {
+            return null;
+        }
+        return managers.rawget(GameClient.client ? player.getUsername() : NUMBERS[player.getPlayerNum()]);
+    }
+
     private static int aim(LuaCallFrame frame, int arguments) {
         Object who = frame.get(0);
         View view = who instanceof IsoPlayer player && player.getJoypadBind() == -1 ? View.of(player) : null;
         if (view != null && view.firstPerson.lookCaptured()) {
-            float[] at = new float[3];
-            view.controls.aimPoint(at);
-            return frame.push((double) at[0], (double) at[1]);
+            view.controls.aimPoint(AIMED);
+            return frame.push((double) AIMED[0], (double) AIMED[1]);
         }
         Object[] ran = LuaManager.caller.pcall(frame.getThread(), stock, who);
         if (!Boolean.TRUE.equals(ran[0])) {
