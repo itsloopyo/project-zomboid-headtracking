@@ -27,20 +27,32 @@ import java.util.IdentityHashMap;
  *
  * Every vertex made carries what the triangle it was cut from carried there: what is the same at
  * all three corners as it is, a code (the light's mode, how it lies, the tree, the light's record)
- * as the nearest corner has it, and the rest blended.
+ * as the nearest corner has it, and the rest blended. Grime over a wall carries where on the wall
+ * it is in the tree's place (SpriteGeometry.grimed), and the picture lays the grime by it, so that
+ * is blended: a cut vertex half way up the wall given its nearest corner's would have the grime of
+ * the wall's foot or top, and the triangles from a hole to the floor the dark band along the floor.
  */
 final class MeshCut {
     private static final int V = SpriteGeometry.VERTEX_FLOATS;
     /** The floats of a vertex that are codes, never blended: see SpriteGeometry.VERTEX_FLOATS. */
-    private static final boolean[] CODE = new boolean[V];
+    private static final boolean[] CODE = new boolean[V], GRIME_CODE = new boolean[V];
 
     static {
         CODE[8] = true;
         CODE[SpriteGeometry.WAY_AT] = true;
+        CODE[SpriteGeometry.RECORD_AT] = true;
+        System.arraycopy(CODE, 0, GRIME_CODE, 0, V);
         CODE[SpriteGeometry.ROOT_AT] = true;
         CODE[SpriteGeometry.ROOT_AT + 1] = true;
-        CODE[SpriteGeometry.RECORD_AT] = true;
     }
+
+    /** Which floats of a vertex of the mesh are codes. */
+    static boolean[] codesOf(SpriteGeometry.Mesh mesh) {
+        return mesh.tint == WallSides.STAIN ? GRIME_CODE : CODE;
+    }
+
+    /** The codes of the mesh being cut. */
+    private boolean[] codes = CODE;
 
     /** How much darker the wood lining a hole is than the face it was cut from, and a mark than the face it is on. */
     static final float LINING_SHADE = 0.55f, MARK_SHADE = 0.22f;
@@ -302,6 +314,7 @@ final class MeshCut {
             throw new IllegalStateException("a mesh's floats from " + from + " are " + count + ", not whole triangles");
         }
         int triangles = count / (3 * V);
+        codes = codesOf(mesh);
         int[] firstOf = new int[triangles + 1];
         outFloats = 0;
         for (int triangle = 0; triangle < triangles; triangle++) {
@@ -505,7 +518,7 @@ final class MeshCut {
                 float[] made = new float[V];
                 for (int i = 0; i < V; i++) {
                     float x = tri[first + i], y = tri[second + i];
-                    made[i] = CODE[i] ? (share <= 0.5f ? x : y) : x + (y - x) * share;
+                    made[i] = codes[i] ? (share <= 0.5f ? x : y) : x + (y - x) * share;
                 }
                 float along = uFirst ? share : 1f - share;
                 float eS = cs[(e + 1) % 3] - cs[e], eT = ct[(e + 1) % 3] - ct[e];
@@ -675,7 +688,7 @@ final class MeshCut {
         float b = ((s - sA) * (tC - tA) - (sC - sA) * (t - tA)) / area;
         float c = ((sB - sA) * (t - tA) - (s - sA) * (tB - tA)) / area;
         float[] vertex = new float[V];
-        blendAt(tri, at, 1f - b - c, b, c, vertex, 0);
+        blendAt(tri, at, 1f - b - c, b, c, vertex, 0, codes);
         add(vertex, s, t);
     }
 
@@ -936,16 +949,16 @@ final class MeshCut {
 
     /** The vertex at the polygon's corner k, blended from the triangle at `at`, into to at toAt. */
     private void blend(float[] tri, int at, int k, float[] to, int toAt) {
-        blendAt(tri, at, w0[k], w1[k], w2[k], to, toAt);
+        blendAt(tri, at, w0[k], w1[k], w2[k], to, toAt, codes);
     }
 
-    static void blendAt(float[] tri, int at, float a, float b, float c, float[] to, int toAt) {
+    static void blendAt(float[] tri, int at, float a, float b, float c, float[] to, int toAt, boolean[] codes) {
         int nearest = a >= b && a >= c ? 0 : b >= c ? 1 : 2;
         for (int i = 0; i < V; i++) {
             float x = tri[at + i], y = tri[at + V + i], z = tri[at + 2 * V + i];
             if (Float.floatToRawIntBits(x) == Float.floatToRawIntBits(y) && Float.floatToRawIntBits(y) == Float.floatToRawIntBits(z)) {
                 to[toAt + i] = x;
-            } else if (CODE[i]) {
+            } else if (codes[i]) {
                 to[toAt + i] = tri[at + nearest * V + i];
             } else {
                 to[toAt + i] = a * x + b * y + c * z;
@@ -976,7 +989,7 @@ final class MeshCut {
         }
         mark.mesh = mesh;
         mark.across = across;
-        blendAt(tri, at, l0, l1, l2, mark.vertex, 0);
+        blendAt(tri, at, l0, l1, l2, mark.vertex, 0, codesOf(mesh));
     }
 
     private final float[] corner = new float[V];

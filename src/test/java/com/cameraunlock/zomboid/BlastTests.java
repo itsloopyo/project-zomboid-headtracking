@@ -21,6 +21,7 @@ final class BlastTests {
         Checks.run("holesOverOneAnotherAreLinedOnlyRoundTheWoodLeft", BlastTests::holesOverOneAnotherAreLinedOnlyRoundTheWoodLeft);
         Checks.run("aHoleIsLinedThroughABattenOnlyWhereTheBattenIs", BlastTests::aHoleIsLinedThroughABattenOnlyWhereTheBattenIs);
         Checks.run("whatACutVertexCarriesIsBlendedAndItsCodesKept", BlastTests::whatACutVertexCarriesIsBlendedAndItsCodesKept);
+        Checks.run("grimeCutByHolesKeepsWhereOnTheWallItIs", BlastTests::grimeCutByHolesKeepsWhereOnTheWallItIs);
         Checks.run("theRunsAThingDrewMoveWithItsTriangles", BlastTests::theRunsAThingDrewMoveWithItsTriangles);
         Checks.run("aMarkLiesOnTheFaceNearestWhereItWasStruckFrom", BlastTests::aMarkLiesOnTheFaceNearestWhereItWasStruckFrom);
         Checks.run("pelletsCloseTogetherBlowAHoleAndSpreadOnesDoNot", BlastTests::pelletsCloseTogetherBlowAHoleAndSpreadOnesDoNot);
@@ -472,10 +473,42 @@ final class BlastTests {
         System.arraycopy(b, 0, tri, V, V);
         System.arraycopy(c, 0, tri, 2 * V, V);
         float[] out = new float[V];
-        MeshCut.blendAt(tri, 0, 0.6f, 0.3f, 0.1f, out, 0);
+        MeshCut.blendAt(tri, 0, 0.6f, 0.3f, 0.1f, out, 0, MeshCut.codesOf(new SpriteGeometry.Mesh()));
         check(Math.abs(out[3] - 0.3f) < 1e-6f, "a texture coordinate is blended");
         check(out[8] == 3f, "what is the same at all three corners is kept as it is");
         check(out[SpriteGeometry.RECORD_AT] == 7f, "a code is the nearest corner's, never a blend");
+    }
+
+    /**
+     * Grime over a wall carries how high up the wall each corner is in the tree's place (SpriteGeometry.grimed): a vertex the
+     * cut makes carries its own height there, or a triangle from a hole to the floor draws the band of grime along the floor.
+     */
+    private static void grimeCutByHolesKeepsWhereOnTheWallItIs() {
+        float rest = SpriteGeometry.GRIME_FLOORED + SpriteGeometry.GRIME_CEILED;
+        for (boolean grime : new boolean[] {true, false}) {
+            SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+            mesh.tint = grime ? WallSides.STAIN : 0;
+            face(mesh, 0f, 1f, 0f, 2f, 0f);
+            for (int at = 0; at < mesh.floats; at += V) {
+                mesh.vertices[at + SpriteGeometry.ROOT_AT] = SpriteGeometry.GRIME_NO_CORNER;
+                mesh.vertices[at + SpriteGeometry.ROOT_AT + 1] = rest + mesh.vertices[at + 2];
+            }
+            MeshCut cut = new MeshCut(0f, 0f, 1f, 0f, 0.05f);
+            for (int h = 0; h < 6; h++) {
+                cut.hole(MeshCut.outline(0.15f + 0.14f * h, 0.9f + 0.05f * h, 0.03f, 0.03f, 0.3f, 18, 50 + h), 0.15f + 0.14f * h, 0.9f + 0.05f * h);
+            }
+            cut.cut(mesh, 0);
+            float worst = 0f;
+            for (int at = 0; at < mesh.floats; at += V) {
+                worst = Math.max(worst, Math.abs(mesh.vertices[at + SpriteGeometry.ROOT_AT + 1] - rest - mesh.vertices[at + 2]));
+                check(mesh.vertices[at + SpriteGeometry.ROOT_AT] == SpriteGeometry.GRIME_NO_CORNER, "what the corners all carry is kept as it is");
+            }
+            if (grime) {
+                check(worst < 1e-5f, "every vertex of grime cut by holes carries its own height up the wall: off by " + worst);
+            } else {
+                check(worst > 0.5f, "a tree's square on anything else stays a code, the nearest corner's: off by at most " + worst);
+            }
+        }
     }
 
     private static void theRunsAThingDrewMoveWithItsTriangles() {
