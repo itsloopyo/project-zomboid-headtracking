@@ -1553,7 +1553,7 @@ final class Pipeline {
             stage(STAGE_DEVELOP);
             showSmoothed(drawTarget, viewport);
             view.crosshair.draw(viewport[2], viewport[3]);
-            view.hitDirection.draw(viewport[2], viewport[3]);
+            view.hitDirection.draw(camera, viewport[2], viewport[3]);
             stage(STAGE_SMOOTH);
             reportStages();
             takeBackLent();

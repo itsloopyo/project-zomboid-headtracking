@@ -72,8 +72,12 @@ final class HitDirection {
     private static final int GL_BLEND = 0x0BE2, GL_SRC_ALPHA = 0x0302, GL_ONE_MINUS_SRC_ALPHA = 0x0303;
     private static final int GL_DEPTH_TEST = 0x0B71, GL_CULL_FACE = 0x0B44, GL_TRIANGLE_STRIP = 0x0005;
 
-    /** What is drawn: each mark's bearing and strength, hits first, then glows. Null when nothing is marked. */
-    private record Marks(float[] bearings, float[] strengths, int hits, int count) {}
+    /**
+     * What is drawn: where on the map each mark's character is and its strength, hits first, then
+     * glows. Null when nothing is marked. Each bearing is taken as it is drawn, from the eye that
+     * picture was built from, which can be another frame's than the one the marks were made in.
+     */
+    private record Marks(float[] x, float[] y, float[] strengths, int hits, int count) {}
 
     private volatile Marks shown;
 
@@ -92,7 +96,7 @@ final class HitDirection {
     private IdentityHashMap<IsoZombie, Boolean> glowing = new IdentityHashMap<>(), glowingNow = new IdentityHashMap<>();
     /** The most close zombies glowing at once: a crowd round the player glows as much with these. */
     private static final int MOST_GLOWS = 16;
-    private final float[] glowBearings = new float[MOST_GLOWS], glowStrengths = new float[MOST_GLOWS];
+    private final float[] glowX = new float[MOST_GLOWS], glowY = new float[MOST_GLOWS], glowStrengths = new float[MOST_GLOWS];
     private int glows;
 
     /**
@@ -227,7 +231,8 @@ final class HitDirection {
             if (strength <= 0f || glows == MOST_GLOWS || blocked(cell, player, zombie)) {
                 continue;
             }
-            glowBearings[glows] = bearing;
+            glowX[glows] = zombie.getX();
+            glowY[glows] = zombie.getY();
             glowStrengths[glows++] = strength;
             if (DevBuild.ON) {
                 glowingNow.put(zombie, Boolean.TRUE);
@@ -254,7 +259,7 @@ final class HitDirection {
             return;
         }
         boolean contested = Online.contested();
-        float[] bearings = new float[count + glows], strengths = new float[bearings.length];
+        float[] x = new float[count + glows], y = new float[x.length], strengths = new float[x.length];
         int marks = 0;
         for (int i = count - 1; i >= 0; i--) {
             float fade = HitArcs.fade((now - hitAt[i]) / 1e9f);
@@ -267,15 +272,16 @@ final class HitDirection {
                     && (other.isInvisible() || contested && other.getAlpha(index) <= SHOWN_ALPHA)) {
                 continue;
             }
-            float bearing = HitArcs.bearing(eye.forwardX, eye.forwardY, eye.upX, eye.upY, eye.rightX, eye.rightY, attacker.getX() - eye.eyeX, attacker.getY() - eye.eyeY);
-            bearings[marks] = bearing;
+            x[marks] = attacker.getX();
+            y[marks] = attacker.getY();
             strengths[marks++] = fade;
         }
         int hits = marks;
-        System.arraycopy(glowBearings, 0, bearings, marks, glows);
+        System.arraycopy(glowX, 0, x, marks, glows);
+        System.arraycopy(glowY, 0, y, marks, glows);
         System.arraycopy(glowStrengths, 0, strengths, marks, glows);
         marks += glows;
-        shown = marks == 0 ? null : new Marks(bearings, strengths, hits, marks);
+        shown = marks == 0 ? null : new Marks(x, y, strengths, hits, marks);
     }
 
     /**
@@ -304,8 +310,11 @@ final class HitDirection {
         saidFor = null;
     }
 
-    /** Draws the marks into the picture bound, whose viewport is the whole of a picture this many pixels each way. Render thread. */
-    void draw(int width, int height) {
+    /**
+     * Draws the marks into the picture bound, whose viewport is the whole of a picture this many
+     * pixels each way, seen from this eye. Render thread.
+     */
+    void draw(ViewCamera.Pose eye, int width, int height) {
         Marks marks = shown;
         if (marks == null || !program.use()) {
             return;
@@ -317,13 +326,13 @@ final class HitDirection {
         int color = program.at("uColor");
         float unit = (float) height / DESIGN_HEIGHT;
         for (int i = marks.count - 1; i >= 0; i--) {
-            boolean hit = i < marks.hits;
-            if (hit) {
+            float bearing = HitArcs.bearing(eye.forwardX, eye.forwardY, eye.upX, eye.upY, eye.rightX, eye.rightY, marks.x[i] - eye.eyeX, marks.y[i] - eye.eyeY);
+            if (i < marks.hits) {
                 GL20.glUniform4f(color, 0.9f, 0.06f, 0.04f, 0.85f * marks.strengths[i]);
-                arc(marks.bearings[i], ARC_HALF, ARC_THICK * unit, false, width, height);
+                arc(bearing, ARC_HALF, ARC_THICK * unit, false, width, height);
             } else {
                 GL20.glUniform4f(color, 0.85f, 0.12f, 0.06f, 0.6f * marks.strengths[i]);
-                arc(marks.bearings[i], GLOW_HALF, GLOW_THICK * unit, true, width, height);
+                arc(bearing, GLOW_HALF, GLOW_THICK * unit, true, width, height);
             }
         }
         GL11.glDisable(GL_BLEND);
