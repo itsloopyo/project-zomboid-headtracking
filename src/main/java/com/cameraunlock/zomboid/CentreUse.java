@@ -188,8 +188,7 @@ final class CentreUse {
 
     /**
      * What a press of the key would do: the way it goes to the game, what it acts on, and what it
-     * comes to as the label under the reticle names it, null where the game would take the press
-     * and do nothing. The label names nothing a press does not do.
+     * comes to as the label under the reticle names it. The label names nothing a press does not do.
      *
      * @param container for a container, the one of its containers a press shows
      * @param hop       for a climb through a hole, where
@@ -222,7 +221,9 @@ final class CentreUse {
             return Use.of(Route.WINDOW_MENU, pane, pane.IsOpen() ? InteractWords.Does.CLOSE_WINDOW : InteractWords.Does.OPEN_WINDOW);
         }
         if (keyActsOn(found)) {
-            return Use.of(Route.CLICK, found, clicked(found, player));
+            InteractWords.Does clicked = clicked(found, player);
+            // Where the game's click would take it and do nothing, the key is left to the game, as the label names nothing.
+            return clicked == null ? null : Use.of(Route.CLICK, found, clicked);
         }
         if (!pointer) {
             // The game's click on a container is the first player's, whoever asks, and its panels are a pointer's. A
