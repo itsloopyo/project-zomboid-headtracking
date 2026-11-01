@@ -227,7 +227,7 @@ def crease(bm, verts, amount):
 class Model:
     def __init__(self, name, centred=True, hung=False):
         self.name = name
-        # What hangs high on a wall has no floor under it to shade its underside.
+        # What hangs high on a wall, or stands on the length of a post or a mast under it, has no floor under it to shade it.
         self.hung = hung
         # A piece made to meet its neighbours, the corner of a run of counters, is placed by
         # the square it fills and keeps the origin it was built round.
@@ -2573,7 +2573,7 @@ def lantern(casing, light, foot, size=1.0):
 def cobra_head():
     """The upper length of a road lamp the game has in two sprites: the top of the post, the arm out over the
     road towards the front, and the head at its end with its lens underneath. The origin is the post's axis."""
-    model = Model("cobra_head", centred=False)
+    model = Model("cobra_head", centred=False, hung=True)
     shaft = bmesh.new()
     lathe(shaft, [(0.0, 0.0), (0.05, 0.0), (0.043, 2.2), (0.058, 2.22), (0.058, 2.38), (0.0, 2.4)], segments=12)
     model.turned(shaft, "paint", sharp=40.0)
@@ -2594,7 +2594,7 @@ def cobra_head():
 def traffic_light(name="traffic_light", side=-1):
     """The upper length of a traffic signal's post, the game's second sprite of it: the post's top, two arms out along X, to
     the side side says, and on them a dark housing with three lenses under hoods facing -Y. The origin is the post's axis."""
-    model = Model(name, centred=False)
+    model = Model(name, centred=False, hung=True)
     post = bmesh.new()
     lathe(post, [(0.0, 0.0), (0.075, 0.0), (0.075, 2.56), (0.06, 2.6), (0.0, 2.61)], segments=14)
     for z in (1.45, 2.2):
@@ -5920,7 +5920,7 @@ def farm_and_garden():
 def twin_head():
     """The upper length of a car park's lamp the game has in two sprites: the top of the post and two flat heads on a
     short arm, one to the front and one to the back, each with its lens underneath. The origin is the post's axis."""
-    model = Model("twin_head", centred=False)
+    model = Model("twin_head", centred=False, hung=True)
     shaft = bmesh.new()
     lathe(shaft, [(0.0, 0.0), (0.045, 0.0), (0.045, 1.84), (0.0, 1.84)], segments=10)
     model.turned(shaft, "paint", sharp=40.0)
@@ -6100,7 +6100,7 @@ def flag_pole():
 def flag_top():
     """A flag pole's top length with its ball, and the flag hung limp from it along -X as the sprite paints it, which shows the
     sprite's own painting of the flag. The origin is the pole's axis at the foot of this length."""
-    model = Model("flag_top", centred=False)
+    model = Model("flag_top", centred=False, hung=True)
     pole = bmesh.new()
     lathe(pole, [(0.0, 0.0), (0.04, 0.0), (0.04, 1.12), (0.0, 1.12)], segments=14)
     lathe(pole, [(0.0, 1.1)] + [(0.065 * math.sin(math.radians(a)), 1.165 - 0.065 * math.cos(math.radians(a))) for a in range(30, 180, 30)]
@@ -6612,7 +6612,7 @@ def acorn(casing, glass, foot, cx=0.0):
 def acorn_head():
     """The upper length of a lamp post the game has in two sprites, one a level above the other: the top of the post with
     its two collars and the acorn lantern on it. It stands on the floor of the upper level, over the post below."""
-    model = Model("acorn_head", centred=False)
+    model = Model("acorn_head", centred=False, hung=True)
     shaft = bmesh.new()
     lathe(shaft, [(0.0, 0.0), (0.066, 0.0), (0.066, 1.23), (0.088, 1.25), (0.088, 1.31), (0.066, 1.33), (0.066, 1.42), (0.088, 1.44),
                   (0.088, 1.52), (0.06, 1.55), (0.04, 1.57), (0.0, 1.57)], segments=14)
@@ -6628,7 +6628,7 @@ def twin_acorn_head():
     """The upper length of a lamp post with two acorn lanterns, the game's second sprite of it: the top of the post with a
     collar and a finial, and an arm out to each side along x, held up by a scroll, with a lantern on its end. Each lantern's
     cup ends in a spike underneath. The origin is the post's axis."""
-    model = Model("twin_acorn_head", centred=False)
+    model = Model("twin_acorn_head", centred=False, hung=True)
     shaft = bmesh.new()
     lathe(shaft, [(0.0, 0.0), (0.066, 0.0), (0.066, 1.66), (0.088, 1.69), (0.088, 1.86), (0.07, 1.88), (0.05, 1.92), (0.045, 1.96), (0.06, 2.0),
                   (0.05, 2.05), (0.02, 2.1), (0.0, 2.14)], segments=14)
@@ -6923,7 +6923,7 @@ def lattice_base():
 def lattice_storey(name, surface):
     """One storey of a square lattice mast, MAST_HALF from its axis to each corner leg: a belt half way up and at the
     top, and a cross of braces on each face of each half. Its foot belt is the top of whatever it stands on."""
-    model = Model(name, centred=False)
+    model = Model(name, centred=False, hung=True)
     corners = ((-1, -1), (1, -1), (1, 1), (-1, 1))
     steel = bmesh.new()
     for sx, sy in corners:
@@ -7003,7 +7003,7 @@ def insulator(name, strings):
 def lattice_post(name, footed, surface="steel"):
     """One storey of a narrow square lattice column, as a substation's gantry is built of: four corner angles 0.54 m
     apart, belts half way and at the top, a cross on each face of each half. The lowest storey stands on a concrete pad."""
-    model = Model(name)
+    model = Model(name, hung=not footed)
     half = 0.27
     corners = ((-1, -1), (1, -1), (1, 1), (-1, 1))
     low = 0.16 if footed else 0.0
@@ -7115,7 +7115,7 @@ def storage_tank():
 def silo_storey():
     """One storey of a steel silo 1.8 m across, standing on the one under it: the shell, a seam at its foot, and a lid
     over its top that the storey above covers."""
-    model = Model("silo_storey", centred=False)
+    model = Model("silo_storey", centred=False, hung=True)
     r = 0.91
     body = bmesh.new()
     lathe(body, [(0.0, 0.0), (r, 0.0), (r, STOREY - 0.04), (r - 0.04, STOREY), (0.0, STOREY)], segments=32)
