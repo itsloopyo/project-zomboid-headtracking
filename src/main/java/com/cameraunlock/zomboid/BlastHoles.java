@@ -183,7 +183,7 @@ final class BlastHoles {
      * plasterboard, which the pellets go on through (Penetration), or of boards, siding among them,
      * which stops them. A rail fence strung with wire is mostly the wire's gaps, and is not one,
      * nor a fence the picture builds from a model of its own (ModelFences), whose pickets are not
-     * cut. Any thread.
+     * cut but broken out (ShotPickets). Any thread.
      */
     static boolean blastable(IsoObject object) {
         IsoSprite sprite = object.getSprite();
@@ -275,7 +275,8 @@ final class BlastHoles {
     }
 
     /**
-     * Called as the game has loaded a chunk's squares, on its logic thread: the holes and marks of its things, as saved.
+     * Called as the game has loaded a chunk's squares, on its logic thread: the holes and marks of its things, and the
+     * pickets shots broke out of its picket fences (ShotPickets.loaded), as saved.
      * A chunk beside it that a holed wall on its edge may run on into is built again: what falls of a run of wall is
      * worked out along all of it (fallen), and was worked out without this chunk's part.
      */
@@ -294,6 +295,7 @@ final class BlastHoles {
                     if (object.hasModData() && object.getModData().rawget(RIMS_KEY) instanceof String rims) {
                         restoreRims(object, rims, square);
                     }
+                    ShotPickets.loaded(object, square);
                     if (object.hasModData() && object.getModData().rawget(KEY) instanceof String saved) {
                         keepSaved(object, saved, square);
                         west |= i % WorldScene.CHUNK_TILES == 0;
@@ -398,6 +400,40 @@ final class BlastHoles {
             }
         }
         data.rawset(RIMS_KEY, writeRims(withRim(was, struck)));
+    }
+
+    /**
+     * Lets go of the rims an object keeps whose places are in box (Impacts.within): what they were on has
+     * broken off it (ShotPickets). Logic thread.
+     */
+    static void rimsGone(IsoObject object, float[] box) {
+        if (!object.hasModData() || !(object.getModData().rawget(RIMS_KEY) instanceof String saved)) {
+            return;
+        }
+        float[] rims;
+        try {
+            rims = parseRims(saved);
+        } catch (IllegalArgumentException malformed) {
+            // Said as its chunk loaded (restoreRims), and drawn not at all.
+            return;
+        }
+        float[] left = withoutRimsIn(rims, box);
+        if (left.length != rims.length) {
+            object.getModData().rawset(RIMS_KEY, writeRims(left));
+        }
+    }
+
+    /** The rims but those whose places are in box. */
+    static float[] withoutRimsIn(float[] rims, float[] box) {
+        float[] left = new float[rims.length];
+        int count = 0;
+        for (int at = 0; at < rims.length; at += RIM_FLOATS) {
+            if (!Impacts.within(box, rims[at], rims[at + 1], rims[at + 2])) {
+                System.arraycopy(rims, at, left, count, RIM_FLOATS);
+                count += RIM_FLOATS;
+            }
+        }
+        return Arrays.copyOf(left, count);
     }
 
     /** The rims with one more, the oldest given up past MOST_RIMS. */

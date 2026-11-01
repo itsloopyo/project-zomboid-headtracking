@@ -7019,6 +7019,10 @@ final class WorldScene {
                             if (holes != null) {
                                 thing = sum(thing, Arrays.hashCode(holes));
                             }
+                            long[] pickets = ShotPickets.of(object);
+                            if (pickets != null) {
+                                thing = sum(thing, Arrays.hashCode(pickets));
+                            }
                             if (object instanceof IsoDoor door) {
                                 thing = sum(sum(thing, door.IsOpen() ? 2 : 1), DoorGlass.broken(door));
                             } else if (object instanceof IsoThumpable thumpable && thumpable.isDoor()) {

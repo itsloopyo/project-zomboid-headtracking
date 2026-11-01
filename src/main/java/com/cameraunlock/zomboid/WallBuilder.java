@@ -977,7 +977,7 @@ final class WallBuilder {
      * from the edge's line, a picket fence's pickets with their faces into the square, the side the game's view paints
      * them from, and once for the sprite the post it paints near the square's north-west corner, where no lone post
      * stands. The paint is the sprite's. A length stands on the lower of its ends, so on a slope its foot goes into the
-     * ground at the higher.
+     * ground at the higher. A picket fence is drawn with the pickets shots broke out of it gone or broken (ShotPickets).
      */
     private void addModelFence(Texture texture, int x, int y, int z, float da, float db) {
         ModelFences.Fence fence = build.modelFence;
@@ -988,6 +988,10 @@ final class WallBuilder {
         float u = SpriteGeometry.textureU(build.frame, a, b), v = SpriteGeometry.textureV(build.frame, a, b, ModelFences.DYE_HIGH);
         build.placed.add(Models.get(fence.model()), build.frame, x, y, x + da * 0.5f + db * fence.in(), y + db * 0.5f + da * fence.in(),
                 foot + fence.lift(), north ? 2 : 1, 1f, 1f, texture.getID(), fence.dyes(), u, v, 0, 0f, 0f);
+        long broken = ShotPickets.on(build.blastObject, north);
+        if (broken != 0L) {
+            build.placed.pickets(broken);
+        }
         if (build.fencePostDue && !lonePostOn(x, y, z, fence.lonePost())) {
             float postA = north ? fence.postAlong() : fence.postIn(), postB = north ? fence.postIn() : fence.postAlong();
             build.placed.add(Models.get(fence.post()), build.frame, x, y, x + postA, y + postB, base + build.geometry.liftAt(postA, postB), 0, 1f, 1f,

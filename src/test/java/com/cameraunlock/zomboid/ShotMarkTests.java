@@ -126,7 +126,7 @@ final class ShotMarkTests {
         line.forwardX = north ? 0f : 1f;
         line.forwardY = north ? 1f : 0f;
         line.forwardUp = 0f;
-        if (!ModelFences.struck(fence, 10, 20, north, 0f, line, 2f, hit)) {
+        if (!ModelFences.struck(fence, 10, 20, north, 0f, line, 2f, 0L, hit)) {
             return false;
         }
         int out = ModelFences.FACE_FLOATS;

@@ -77,31 +77,37 @@ final class ModelFences {
         return (level + raised) * ViewCamera.LEVEL_HEIGHT + Math.min(start, end);
     }
 
-    /** What struck writes: each face met, where (x, y, up) and the way it faces (x, y, up), the face gone in by first; then the way the grain runs. */
-    static final int FACE_FLOATS = 6, GRAIN = 2 * FACE_FLOATS, HIT_FLOATS = GRAIN + 3;
+    /**
+     * What struck writes: each face met, where (x, y, up) and the way it faces (x, y, up), the face gone in by first;
+     * then the way the grain runs; then the picket gone into, counted from 1, or 0 for a rail, and how high in the
+     * model, in its metres, it was gone into.
+     */
+    static final int FACE_FLOATS = 6, GRAIN = 2 * FACE_FLOATS, PICKET = GRAIN + 3, MODEL_UP = PICKET + 1, HIT_FLOATS = MODEL_UP + 1;
     /** How far past where it goes into a picket or a rail a line is taken to come out of the same one, in tiles: a picket's thickness and more. */
     private static final float THROUGH_WITHIN = 0.1f;
 
     /**
      * Whether the line from the eye of a pose along its forward way meets, within reach tiles of the eye, the model of a
      * length of fence as WallBuilder.addModelFence stands it on the north or west edge of square (x, y) with its foot at
-     * foot (in tiles over the flat map): its pickets and its rails, which the model has, and not the gaps between them.
-     * Where it does, into hit as FACE_FLOATS and GRAIN say: where it goes in, facing back along the line, and where it
-     * comes out of the same piece, facing on along it; and the way the grain of the face gone in by runs, its longest side.
+     * foot (in tiles over the flat map): its pickets and its rails, which the model has, and not the gaps between them,
+     * nor what of its pickets the mask broken says shots broke out (ShotPickets: 0 for none, and for a fence with no pickets).
+     * Where it does, into hit as HIT_FLOATS says: where it goes in, facing back along the line, and where it comes out of
+     * the same piece, facing on along it; the way the grain of the face gone in by runs, its longest side; and the picket gone into.
      */
-    static boolean struck(Fence fence, int x, int y, boolean north, float foot, ViewCamera.Pose line, float reach, float[] hit) {
+    static boolean struck(Fence fence, int x, int y, boolean north, float foot, ViewCamera.Pose line, float reach, long broken, float[] hit) {
         Models.Model model = Models.get(fence.model());
+        ShotPickets.Layout layout = broken == 0L ? null : ShotPickets.layout(model);
         float da = north ? 1f : 0f, db = north ? 0f : 1f;
         // Worked from the square's corner and the fence's foot, where a float holds a place finely out on the map too.
         float centreA = da * 0.5f + db * fence.in(), centreB = db * 0.5f + da * fence.in(), base = fence.lift();
         float ox = line.eyeX - x, oy = line.eyeY - y, ou = line.eyeUp - foot;
         float fx = line.forwardX, fy = line.forwardY, fu = line.forwardUp;
         int turns = north ? 2 : 1;
-        float[] turned = new float[2], corner = new float[9];
+        float[] place = new float[3], turned = new float[2], corner = new float[9];
         float nearest = Float.POSITIVE_INFINITY;
         int nearestAt = -1, triangles = model.corners.length;
         for (int t = 0; t < triangles; t += 3) {
-            cornersOf(model, t, turns, centreA, centreB, base, turned, corner);
+            cornersOf(model, t, turns, centreA, centreB, base, layout, broken, place, turned, corner);
             float along = alongTo(corner, ox, oy, ou, fx, fy, fu);
             if (along >= 0f && along <= reach && along < nearest) {
                 nearest = along;
@@ -115,7 +121,7 @@ final class ModelFences {
         float furthest = nearest;
         int furthestAt = nearestAt;
         for (int t = 0; t < triangles; t += 3) {
-            cornersOf(model, t, turns, centreA, centreB, base, turned, corner);
+            cornersOf(model, t, turns, centreA, centreB, base, layout, broken, place, turned, corner);
             float along = alongTo(corner, ox, oy, ou, fx, fy, fu);
             if (along > furthest && along <= nearest + THROUGH_WITHIN) {
                 furthest = along;
@@ -124,7 +130,7 @@ final class ModelFences {
         }
         for (int face = 0; face < 2; face++) {
             float along = face == 0 ? nearest : furthest;
-            cornersOf(model, face == 0 ? nearestAt : furthestAt, turns, centreA, centreB, base, turned, corner);
+            cornersOf(model, face == 0 ? nearestAt : furthestAt, turns, centreA, centreB, base, layout, broken, place, turned, corner);
             int at = face * FACE_FLOATS;
             hit[at] = x + ox + fx * along;
             hit[at + 1] = y + oy + fy * along;
@@ -142,17 +148,26 @@ final class ModelFences {
                 grain(corner, hit);
             }
         }
+        hit[PICKET] = model.piece[model.corners[nearestAt]];
+        hit[MODEL_UP] = ou + fu * nearest - base;
         return true;
     }
 
-    /** The corners of the triangle from place t in the model's list, stood as struck stands them, into corner. */
-    private static void cornersOf(Models.Model model, int t, int turns, float centreA, float centreB, float base, float[] turned, float[] corner) {
+    /** The corners of the triangle from place t in the model's list, stood as struck stands them and broken as broken says (layout null for nothing broken), into corner. */
+    private static void cornersOf(Models.Model model, int t, int turns, float centreA, float centreB, float base, ShotPickets.Layout layout, long broken,
+            float[] place, float[] turned, float[] corner) {
         for (int k = 0; k < 3; k++) {
-            int at = model.corners[t + k] * Models.VERTEX_FLOATS;
-            Models.turn(turns, model.vertices[at], model.vertices[at + 1], turned);
+            int vertex = model.corners[t + k], at = vertex * Models.VERTEX_FLOATS;
+            place[0] = model.vertices[at];
+            place[1] = model.vertices[at + 1];
+            place[2] = model.vertices[at + 2];
+            if (layout != null) {
+                ShotPickets.collapse(layout, broken, model.piece[vertex], place);
+            }
+            Models.turn(turns, place[0], place[1], turned);
             corner[3 * k] = centreA + turned[0];
             corner[3 * k + 1] = centreB + turned[1];
-            corner[3 * k + 2] = base + model.vertices[at + 2];
+            corner[3 * k + 2] = base + place[2];
         }
     }
 

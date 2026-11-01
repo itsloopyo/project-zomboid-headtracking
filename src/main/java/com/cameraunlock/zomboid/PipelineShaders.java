@@ -327,7 +327,7 @@ final class PipelineShaders {
             vec3 over(vec3 at) {
                 return vec3(aFoot.xy + turned(at.xy) * aPlace.z, aFoot.z + at.z * aPlace.w);
             }
-            """;
+            """ + ShotPickets.GLSL;
 
     /**
      * The wind in grass. A blade is stiff at its root and limp at its tip, so it is pushed
@@ -611,7 +611,8 @@ final class PipelineShaders {
             // kind plus 1, or 0, is aFoot's w: see Models.Instances.UNLIT.
             attribute vec4 aUnlit;
             // How many squares along x and y the light above is spread over from the square aPlace names: see Models.Instances.span.
-            attribute vec2 aSpan;
+            // Its z and w are the pickets shots broke out of a length of picket fence: see Models.Instances.pickets.
+            attribute vec4 aSpan;
             // The model's openness to the sky, the surfaces dyed from each of the two places on the sprite, and 1 for one
             // laid as a wall's own face, 2 for one run on past its wall's end: see Models.Instances.wall and wallEnd.
             uniform vec4 uSurfaces;
@@ -694,13 +695,13 @@ final class PipelineShaders {
                     // carries a texel. It is made here into what a vertex of the frame's own
                     // arrays is: stood on the map, lit by where over its square it is, and
                     // marked with its surface, which a dyed one adds 19 more to.
-                    vec3 on = over(gl_Vertex.xyz);
+                    // The surface comes with the piece of it the vertex is on, 32 to a piece: see Models.PIECE_STEP.
+                    float coded = floor(gl_MultiTexCoord0.x + 0.5);
+                    vec3 on = over(shotPickets(gl_Vertex.xyz, floor(coded / 32.0), aSpan.zw));
                     stands = vec4(aPlace.xy + on.xy, on.z, 1.0);
                     fromEye = vec3((aPlace.xy - uEye.xy) + on.xy, on.z - uEye.z);
                     looks = vec3(turned(gl_Normal.xy), gl_Normal.z);
-                    vec2 share = clamp(on.xy / aSpan, 0.0, 1.0);
-                    // The surface comes with the piece of it the vertex is on, 32 to a piece: see Models.PIECE_STEP.
-                    float coded = floor(gl_MultiTexCoord0.x + 0.5);
+                    vec2 share = clamp(on.xy / aSpan.xy, 0.0, 1.0);
                     float surface = mod(coded, 32.0);
                     piece = floor(coded / 32.0) + mod(aPlace.x * 7.0 + aPlace.y * 13.0, 997.0);
                     bool dyed = has(uSurfaces.y, surface), also = has(uSurfaces.z, surface);
@@ -5024,6 +5025,8 @@ final class PipelineShaders {
             // 1 while the map drawn is the one read as what stands over the ground and keeps the sky off it.
             uniform float uFromAbove;
             uniform float uSnowLying;
+            // The pickets shots broke out of a length of picket fence: see Models.Instances.pickets.
+            attribute vec2 aBroken;
             """ + GRASS_WIND + MODEL_STANDS + FACED + SnowShader.COVER + SnowShader.RIDGE + """
             vec4 castAt(vec3 from) {
                 return uMatrix * vec4(from, 0.0) + uCastOrigin;
@@ -5033,8 +5036,9 @@ final class PipelineShaders {
                 if (uModel > 0.5) {
                     // A model is solid all over and nothing of it blows about. It is drawn with
                     // the white texture, of which any place will do.
-                    vec2 turned = vec2(dot(aTurn.xy, gl_Vertex.xy), dot(aTurn.zw, gl_Vertex.xy));
-                    vec3 on = vec3(aFoot.xy + turned * aPlace.z, aFoot.z + gl_Vertex.z * aPlace.w);
+                    vec3 at = shotPickets(gl_Vertex.xyz, floor(floor(gl_MultiTexCoord0.x + 0.5) / 32.0), aBroken);
+                    vec2 turned = vec2(dot(aTurn.xy, at.xy), dot(aTurn.zw, at.xy));
+                    vec3 on = vec3(aFoot.xy + turned * aPlace.z, aFoot.z + at.z * aPlace.w);
                     vUv = vec2(0.0);
                     vLeaves = 0.0;
                     vSolid = 1.0;

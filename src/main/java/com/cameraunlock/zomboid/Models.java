@@ -121,7 +121,8 @@ final class Models {
          * Which piece of the model each vertex is on, for the surfaces whose pieces differ from each other: the books on
          * a shelf are each a colour of their own. A piece is the triangles that meet at their corners, a book's six
          * faces, and is known by where its lowest corner is, so the plain model's books are the whole one's. 0 for
-         * every other surface.
+         * every other surface. Of a length of picket fence, which picket each vertex is on, counted from 1, and 0 on
+         * a rail: see ShotPickets.numbered.
          */
         final int[] piece;
 
@@ -154,7 +155,7 @@ final class Models {
             for (int i = 1; i <= SURFACES; i++) {
                 first[i] = Math.max(first[i], first[i - 1]);
             }
-            piece = pieces(vertices, corners, first[BOOKS], first[BOOKS + 1]);
+            piece = ShotPickets.numbers(name) ? ShotPickets.numbered(name, vertices, corners) : pieces(vertices, corners, first[BOOKS], first[BOOKS + 1]);
         }
 
         int triangles() {
@@ -232,7 +233,7 @@ final class Models {
         return false;
     }
 
-    private static int root(int[] joined, int i) {
+    static int root(int[] joined, int i) {
         while (joined[i] != i) {
             joined[i] = joined[joined[i]];
             i = joined[i];
@@ -240,7 +241,7 @@ final class Models {
         return i;
     }
 
-    private static void join(int[] joined, int a, int b) {
+    static void join(int[] joined, int a, int b) {
         joined[root(joined, a)] = root(joined, b);
     }
 
@@ -503,7 +504,9 @@ final class Models {
         static final int WALL = 48;
         /** How many squares along x and along y the light at LIGHT is spread over from the square at PLACE: see span. */
         static final int SPAN = 49;
-        static final int FLOATS = 51;
+        /** Of a length of picket fence, the pickets shots broke out of it, as the graphics card is told them: see pickets. */
+        static final int PICKETS = 51;
+        static final int FLOATS = 53;
         /**
          * The model's first corner in the list of every model's and how many it has, the same of
          * its plain one, the texture that dyes the piece or 0, and 1 for a piece that is part of
@@ -634,6 +637,7 @@ final class Models {
             to[at + APART] = model.apart * Math.max(scale, scaleUp);
             to[at + WALL] = 0f;
             to[at + SPAN] = to[at + SPAN + 1] = 1f;
+            to[at + PICKETS] = to[at + PICKETS + 1] = 0f;
             ints[whole + FIRST] = model.from;
             ints[whole + COUNT] = model.corners.length;
             ints[whole + PLAIN_FIRST] = model.plain.from;
@@ -715,6 +719,13 @@ final class Models {
             int at = (count - 1) * FLOATS;
             floats[at + SPAN] = across;
             floats[at + SPAN + 1] = down;
+        }
+
+        /** Has the length of picket fence last added drawn with the pickets mask says shots broke out of it: see ShotPickets. */
+        void pickets(long mask) {
+            int at = (count - 1) * FLOATS;
+            floats[at + PICKETS] = ShotPickets.low(mask);
+            floats[at + PICKETS + 1] = ShotPickets.high(mask);
         }
 
         /** Has the pane of the piece last added, of this model, be a mirror's glass: see LookingGlass. */

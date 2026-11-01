@@ -42,8 +42,11 @@ final class Impacts {
     record Struck(float x, float y, float up, float normalX, float normalY, float normalUp, float wayX, float wayY, float wayUp,
             float floor, int kind, float size, boolean hole, float grainX, float grainY, float grainUp) {}
 
-    /** A shot that struck and when, by System.nanoTime; restored for a hole laid again from a save, which throws up nothing. */
-    private record Added(Struck struck, long at, boolean restored) {}
+    /**
+     * A shot that struck and when, by System.nanoTime; restored for a hole laid again from a save, which throws up nothing;
+     * or, with struck null, a box the holes in which are let go of (withdraw).
+     */
+    private record Added(Struck struck, long at, boolean restored, float[] box) {}
 
     /** What of a hole the picture draws (ImpactDraw.makeHoles): the same for a hole saved and read back as for the one shot. */
     private record Drawn(float x, float y, float up, float normalX, float normalY, float normalUp, int kind, float size, float grainX, float grainY,
@@ -102,8 +105,29 @@ final class Impacts {
             if (added.size() == MOST_HOLES) {
                 added.removeFirst();
             }
-            added.add(new Added(struck, at, restored));
+            added.add(new Added(struck, at, restored, null));
         }
+    }
+
+    /**
+     * Lets go of the holes whose places are in a box (within): what they were on has broken off (ShotPickets).
+     * Taken in turn with the shots, so a hole shot before is let go of and one after is kept. Any thread.
+     */
+    static void withdraw(float[] box) {
+        if (!Part.SHOT_IMPACTS.on()) {
+            return;
+        }
+        synchronized (added) {
+            if (added.size() == MOST_HOLES) {
+                added.removeFirst();
+            }
+            added.add(new Added(null, 0L, false, box.clone()));
+        }
+    }
+
+    /** Whether (x, y, up) is in a box: least x, y and up, then most. */
+    static boolean within(float[] box, float x, float y, float up) {
+        return x >= box[0] && y >= box[1] && up >= box[2] && x <= box[3] && y <= box[4] && up <= box[5];
     }
 
     /** Whether ShotImpacts was on at the last frame. Render thread. */
@@ -131,6 +155,10 @@ final class Impacts {
             for (int i = 0; i < added.size(); i++) {
                 Added each = added.get(i);
                 Struck struck = each.struck();
+                if (struck == null) {
+                    unring(each.box());
+                    continue;
+                }
                 if (each.restored()) {
                     if (!inRing.contains(Drawn.of(struck))) {
                         ring(struck);
@@ -159,6 +187,28 @@ final class Impacts {
         inRing.add(Drawn.of(hole));
         nextHole = (nextHole + 1) % MOST_HOLES;
         holeCount = Math.min(holeCount + 1, MOST_HOLES);
+        holesChanged++;
+    }
+
+    /** Lets go of the holes in the ring whose places are in box, the rest kept oldest first. Render thread. */
+    private static void unring(float[] box) {
+        int oldest = holeCount < MOST_HOLES ? 0 : nextHole, kept = 0;
+        Struck[] left = new Struck[holeCount];
+        for (int k = 0; k < holeCount; k++) {
+            Struck hole = holes[(oldest + k) % MOST_HOLES];
+            if (within(box, hole.x(), hole.y(), hole.up())) {
+                inRing.remove(Drawn.of(hole));
+            } else {
+                left[kept++] = hole;
+            }
+        }
+        if (kept == holeCount) {
+            return;
+        }
+        Arrays.fill(holes, null);
+        System.arraycopy(left, 0, holes, 0, kept);
+        holeCount = kept;
+        nextHole = kept;
         holesChanged++;
     }
 

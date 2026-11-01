@@ -2488,7 +2488,7 @@ final class Pipeline {
             int light = at + Models.Instances.LIGHT, day = at + Models.Instances.DAY, unlit = at + Models.Instances.UNLIT;
             placedRows.put(f, at + Models.Instances.PLACE, 4).put(f, at + Models.Instances.FOOT, 3).put(f[unlit + 4]).put(f, at + Models.Instances.TURN, 4)
                     .put(f, light, 3).put(f[day]).put(f, light + 3, 3).put(f[day + 1]).put(f, light + 6, 3).put(f[day + 2]).put(f, light + 9, 3).put(f[day + 3])
-                    .put(f, unlit, 4).put(f, at + Models.Instances.SPAN, 2);
+                    .put(f, unlit, 4).put(f, at + Models.Instances.SPAN, 2).put(f, at + Models.Instances.PICKETS, 2);
         }
         placedRows.flip();
         if (placedBuffer == 0) {
@@ -2529,6 +2529,7 @@ final class Pipeline {
             // A number below zero is one of the mod's own pictures: see Decor.held. A set showing a
             // programme is told its own shot, so it is a run of one.
             boolean live = shaded && named < 0 && Screens.live(named);
+            tellPickets(program, whole[ints + (plain ? Models.Instances.PLAIN_FIRST : Models.Instances.FIRST)]);
             to = from + 1;
             if (!live) {
                 while (to < modelsListed && placedOrder[to] >>> 20 == placedOrder[from] >>> 20
@@ -2615,25 +2616,25 @@ final class Pipeline {
     private static final long LISTED_BITS = (1L << 20) - 1;
     private FloatBuffer placedRows;
     private int placedBuffer;
-    private static final int PLACED_FLOATS = 34, PLACED_STRIDE = PLACED_FLOATS * Float.BYTES;
+    private static final int PLACED_FLOATS = 36, PLACED_STRIDE = PLACED_FLOATS * Float.BYTES;
     /**
      * Where the world programs' aPlace, aFoot, aTurn, aLit, aLitAlong, aLitDown, aLitAcross,
-     * aUnlit and aSpan are bound, in the order of a row of placedRows: the first three where the
+     * aUnlit and aSpan (with the pickets shot out of a picket fence) are bound, in the order of a row of placedRows: the first three where the
      * shadow programs have theirs, and the rest at places no built-in attribute the programs read
      * shares on NVIDIA (see SHADOW_PLACES_FROM): 4 is the secondary colour's, 12 to 15 the
      * texture coordinates of units 4 to 7, and 1 the vertex weight's, which GLSL has no name for.
      * PLACED_SIZES holds how many floats of the row each takes.
      */
     private static final int[] PLACED_ATTRIBUTES = {5, 6, 7, 4, 12, 13, 14, 15, 1};
-    private static final int[] PLACED_SIZES = {4, 4, 4, 4, 4, 4, 4, 4, 2};
+    private static final int[] PLACED_SIZES = {4, 4, 4, 4, 4, 4, 4, 4, 4};
     private static final String[] PLACED_NAMES = {"aPlace", "aFoot", "aTurn", "aLit", "aLitAlong", "aLitDown", "aLitAcross", "aUnlit", "aSpan"};
 
     /** The order castModels casts the pieces listed in, model by model: each as its model's first corner, then its place in the list. */
     private long[] castOrder = new long[256];
-    /** Where each piece castModels casts stands, as the shadow programs' aPlace, aFoot and aTurn take it, and the buffer it is given in. */
+    /** Where each piece castModels casts stands, as the shadow programs' aPlace, aFoot, aTurn and aBroken take it, and the buffer it is given in. */
     private FloatBuffer castPlaces;
     private int castBuffer;
-    private static final int CAST_FLOATS = 11, CAST_STRIDE = CAST_FLOATS * Float.BYTES;
+    private static final int CAST_FLOATS = 13, CAST_STRIDE = CAST_FLOATS * Float.BYTES;
     /**
      * Where both shadow programs' aPlace, aFoot and aTurn are bound, in that order. Some drivers
      * share a generic attribute's place with a built-in one (NVIDIA's gl_Vertex is 0, gl_Normal 2,
@@ -2641,6 +2642,20 @@ final class Pipeline {
      * are the fog coordinate's and two no built-in has, and the program reads none of them.
      */
     private static final int SHADOW_PLACES_FROM = 5;
+    /**
+     * Where the shadow programs' aPlace, aFoot and aTurn are bound, from SHADOW_PLACES_FROM, and aBroken: at 1, the vertex
+     * weight's, which no built-in attribute the programs read shares (see PLACED_ATTRIBUTES).
+     */
+    private static final int[] SHADOW_PLACES = {SHADOW_PLACES_FROM, SHADOW_PLACES_FROM + 1, SHADOW_PLACES_FROM + 2, 1};
+    private static final String[] SHADOW_NAMES = {"aPlace", "aFoot", "aTurn", "aBroken"};
+
+    /** Tells a program drawing a run of the model whose first corner is first the layout of its pickets, where it is a length of picket fence (ShotPickets). */
+    private static void tellPickets(Program program, int first) {
+        ShotPickets.Layout layout = ShotPickets.layoutAt(first);
+        if (layout != null) {
+            program.set("uPickets", layout.foot(), layout.railTop(), layout.top());
+        }
+    }
     private static final int GL_STREAM_DRAW = 0x88E0;
 
     /**
@@ -2668,7 +2683,8 @@ final class Pipeline {
             int listed = (int) castOrder[i];
             float[] f = drawn.get(modelChunk[listed]).placed.floats;
             int at = (modelPiece[listed] >> 1) * Models.Instances.FLOATS;
-            castPlaces.put(f, at + Models.Instances.PLACE, 4).put(f, at + Models.Instances.FOOT, 3).put(f, at + Models.Instances.TURN, 4);
+            castPlaces.put(f, at + Models.Instances.PLACE, 4).put(f, at + Models.Instances.FOOT, 3).put(f, at + Models.Instances.TURN, 4)
+                    .put(f, at + Models.Instances.PICKETS, 2);
         }
         castPlaces.flip();
         if (castBuffer == 0) {
@@ -2682,12 +2698,15 @@ final class Pipeline {
         GL15.glBindBuffer(GL_ARRAY_BUFFER, castBuffer);
         GL15.glBufferData(GL_ARRAY_BUFFER, castPlaces, GL_STREAM_DRAW);
         int place = solidShadow.attribute("aPlace"), foot = solidShadow.attribute("aFoot"), turn = solidShadow.attribute("aTurn");
+        int broken = solidShadow.attribute("aBroken");
         GL20.glEnableVertexAttribArray(place);
         GL20.glEnableVertexAttribArray(foot);
         GL20.glEnableVertexAttribArray(turn);
+        GL20.glEnableVertexAttribArray(broken);
         GL33.glVertexAttribDivisor(place, 1);
         GL33.glVertexAttribDivisor(foot, 1);
         GL33.glVertexAttribDivisor(turn, 1);
+        GL33.glVertexAttribDivisor(broken, 1);
         for (int from = 0, to; from < modelsListed; from = to) {
             to = from + 1;
             while (to < modelsListed && castOrder[to] >>> 32 == castOrder[from] >>> 32) {
@@ -2700,15 +2719,19 @@ final class Pipeline {
             GL20.glVertexAttribPointer(place, 4, GL_FLOAT, false, CAST_STRIDE, row);
             GL20.glVertexAttribPointer(foot, 3, GL_FLOAT, false, CAST_STRIDE, row + 4L * Float.BYTES);
             GL20.glVertexAttribPointer(turn, 4, GL_FLOAT, false, CAST_STRIDE, row + 7L * Float.BYTES);
+            GL20.glVertexAttribPointer(broken, 2, GL_FLOAT, false, CAST_STRIDE, row + 11L * Float.BYTES);
+            tellPickets(solidShadow, whole[ints + Models.Instances.PLAIN_FIRST]);
             GL31.glDrawElementsInstanced(GL_TRIANGLES, whole[ints + Models.Instances.PLAIN_COUNT], GL_UNSIGNED_INT,
                     (long) whole[ints + Models.Instances.PLAIN_FIRST] * Integer.BYTES, to - from);
         }
         GL33.glVertexAttribDivisor(place, 0);
         GL33.glVertexAttribDivisor(foot, 0);
         GL33.glVertexAttribDivisor(turn, 0);
+        GL33.glVertexAttribDivisor(broken, 0);
         GL20.glDisableVertexAttribArray(place);
         GL20.glDisableVertexAttribArray(foot);
         GL20.glDisableVertexAttribArray(turn);
+        GL20.glDisableVertexAttribArray(broken);
         GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
         GL15.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
         solidShadow.set("uModel", 0f);
@@ -6900,9 +6923,9 @@ final class Pipeline {
                 () -> glassShown = Program.link("mirror's glass", LookingGlass.VERTEX, LookingGlass.SHOWN, linkProblem),
                 () -> windowShown = Program.link("window's glass", LookingGlass.VERTEX, LookingGlass.THROWN, linkProblem),
                 () -> partKind = Program.link("cabin parts", PipelineShaders.PANE_VERTEX, PipelineShaders.PART_FRAGMENT, linkProblem),
-                () -> shadow = Program.link("shadow", SHADOW_VERTEX, SHADOW_FRAGMENT, linkProblem, SHADOW_PLACES_FROM, "aPlace", "aFoot", "aTurn"),
-                () -> solidShadow = Program.link("solid shadow", SHADOW_VERTEX, PipelineShaders.SOLID_SHADOW_FRAGMENT, linkProblem, SHADOW_PLACES_FROM, "aPlace", "aFoot", "aTurn"),
-                () -> glassCast = Program.link("sun through glass", SHADOW_VERTEX, SunGlass.CAST_FRAGMENT, linkProblem, SHADOW_PLACES_FROM, "aPlace", "aFoot", "aTurn"),
+                () -> shadow = Program.link("shadow", SHADOW_VERTEX, SHADOW_FRAGMENT, linkProblem, SHADOW_PLACES, SHADOW_NAMES),
+                () -> solidShadow = Program.link("solid shadow", SHADOW_VERTEX, PipelineShaders.SOLID_SHADOW_FRAGMENT, linkProblem, SHADOW_PLACES, SHADOW_NAMES),
+                () -> glassCast = Program.link("sun through glass", SHADOW_VERTEX, SunGlass.CAST_FRAGMENT, linkProblem, SHADOW_PLACES, SHADOW_NAMES),
                 () -> rain = Program.link("rain", PipelineShaders.RAIN_VERTEX, PipelineShaders.RAIN_FRAGMENT, linkProblem),
                 () -> snow = Program.link("snow", PipelineShaders.SNOW_VERTEX, PipelineShaders.SNOW_FRAGMENT, linkProblem),
                 () -> dust = Program.link("dust", PipelineShaders.DUST_VERTEX, PipelineShaders.DUST_FRAGMENT, linkProblem),

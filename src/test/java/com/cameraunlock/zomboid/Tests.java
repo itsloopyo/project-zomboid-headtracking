@@ -241,6 +241,7 @@ public final class Tests {
         Checks.run("BlastTests", BlastTests::run);
         Checks.run("BreakageTests", BreakageTests::run);
         Checks.run("ShotMarkTests", ShotMarkTests::run);
+        Checks.run("ShotPicketTests", ShotPicketTests::run);
         Checks.run("InsideWallTests", InsideWallTests::run);
         Checks.run("TrunksTests", TrunksTests::run);
         Checks.run("SightRuleTests", SightRuleTests::run);

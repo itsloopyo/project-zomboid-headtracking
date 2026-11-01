@@ -484,14 +484,16 @@ final class Config {
             localBool("Rules", "BlastHoles",
                     "true: offline, a shotgun blast in first person whose pellets land close together on a wooden door, a wooden\n"
                             + "fence or a wall of boards or plasterboard blows a ragged hole through it that you can see and shoot through,\n"
-                            + "and the pellets that miss the hole leave marks on a door. The holes stay in your save. false: shots leave\n"
-                            + "doors, fences and walls whole. On a server they stay whole.",
+                            + "the pellets that miss the hole leave marks on a door, and each pellet that strikes a picket of a picket fence\n"
+                            + "breaks it. The holes and the broken pickets stay in your save. false: shots leave doors, fences and walls\n"
+                            + "whole. On a server they stay whole.",
                     writable | live, true),
             localBool("Rules", "BulletHoles",
                     "true: offline, while ShotsThroughWalls is on, a round you fire in first person that goes through a door, a wall\n"
                             + "or a fence leaves a small hole where it went in and a wider, splintered one where it came out, which you can\n"
-                            + "see through. The holes stay in your save. false: rounds still go through, and leave only a mark. On a server\n"
-                            + "nothing is holed.",
+                            + "see through, and one that strikes a picket of a picket fence breaks it: struck between its rails it falls out\n"
+                            + "whole, above or below them it breaks off there. The holes and the broken pickets stay in your save. false:\n"
+                            + "rounds still go through, and leave only a mark. On a server nothing is holed or broken.",
                     writable | live, true),
             localBool("Rules", "ClimbThroughHoles",
                     "true: offline, in first person, holding the Interact key with the crosshair on a hole shot through a fence,\n"

@@ -370,32 +370,36 @@ final class ImpactFinder {
 
     /**
      * A shot crossed the edge a picket fence the picture stands as a model stands on (ModelFences): where its line meets
-     * a picket or a rail before the end of the stretch lowFencesAlong follows, it leaves its mark on the near face and on
-     * the far one, and throws splinters off both; through a gap between pickets it meets nothing. The game sends shots on
-     * over such a fence, and it stops none of them. The picture does not cut the model, so the marks stand for the hole:
-     * those of the viewer's own shots are kept with the fence, as a round's hole would be (BlastHoles.rim).
+     * a picket or a rail before the end of the stretch lowFencesAlong follows, it throws splinters off the near face and
+     * the far one; through a gap between pickets, or one shots have broken, it meets nothing. The game sends shots on
+     * over such a fence, and it stops none of them. A round or a pellet of the viewer's breaks the picket it meets, kept
+     * with the fence as a hole would be (ShotPickets.shoot), and what it struck goes with what broke off. Where nothing
+     * breaks, on a rail or by another's shot, it leaves its mark on both faces, and the viewer's are kept with the fence
+     * as a round's hole would be (BlastHoles.rim).
      */
     private static void pickets(IsoObject fence, IsoGridSquare owner, boolean north, int level) {
         ModelFences.Fence shape = ModelFences.of(fence.getSprite().getName());
         float raised = fence.getRenderYOffset() / WorldScene.SURFACE_PIXELS_PER_LEVEL;
         float foot = ModelFences.foot(fenceLand, owner.getX(), owner.getY(), level, raised, north);
-        if (!ModelFences.struck(shape, owner.getX(), owner.getY(), north, foot, line, fenceDistance, picketHit)) {
+        if (!ModelFences.struck(shape, owner.getX(), owner.getY(), north, foot, line, fenceDistance, ShotPickets.on(fence, north), picketHit)) {
             return;
         }
         boolean kept = fenceSize == PELLET ? blasts(fenceShooter) : holes(fenceShooter);
         float[] h = picketHit;
+        int picket = (int) h[ModelFences.PICKET];
+        boolean broke = kept && picket > 0 && ShotPickets.shoot(fence, north, picket - 1, h[ModelFences.MODEL_UP], foot, raised, fenceSize == PELLET, line);
         if (DevBuild.ON) {
-            Log.info(String.format(java.util.Locale.ROOT, "a shot met the pickets of the %s on the %s edge of (%d, %d, %d) at (%.3f, %.3f, %.3f), out at (%.3f, %.3f, %.3f), kept %b",
-                    fence.getSprite().getName(), north ? "north" : "west", owner.getX(), owner.getY(), level, h[0], h[1], h[2],
-                    h[ModelFences.FACE_FLOATS], h[ModelFences.FACE_FLOATS + 1], h[ModelFences.FACE_FLOATS + 2], kept));
+            Log.info(String.format(java.util.Locale.ROOT, "a shot met the %s of the %s on the %s edge of (%d, %d, %d) at (%.3f, %.3f, %.3f), out at (%.3f, %.3f, %.3f), kept %b, broke %b",
+                    picket > 0 ? "picket " + picket : "rails", fence.getSprite().getName(), north ? "north" : "west", owner.getX(), owner.getY(), level, h[0], h[1], h[2],
+                    h[ModelFences.FACE_FLOATS], h[ModelFences.FACE_FLOATS + 1], h[ModelFences.FACE_FLOATS + 2], kept, broke));
         }
         for (int face = 0; face < 2; face++) {
             int at = face * ModelFences.FACE_FLOATS;
             float x = h[at], y = h[at + 1], up = h[at + 2];
             float floor = level * ViewCamera.LEVEL_HEIGHT + fenceLand.height(x + h[at + 3] * FALLS_OUT, y + h[at + 4] * FALLS_OUT);
             Impacts.Struck rim = add(x, y, up, h[at + 3], h[at + 4], h[at + 5], line.forwardX, line.forwardY, line.forwardUp, Math.min(floor, up),
-                    Impacts.WOOD, fenceSize, true, h[ModelFences.GRAIN], h[ModelFences.GRAIN + 1], h[ModelFences.GRAIN + 2]);
-            if (kept) {
+                    Impacts.WOOD, fenceSize, !broke, h[ModelFences.GRAIN], h[ModelFences.GRAIN + 1], h[ModelFences.GRAIN + 2]);
+            if (kept && !broke) {
                 BlastHoles.rim(fence, rim);
             }
         }
