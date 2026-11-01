@@ -18,9 +18,9 @@ import java.util.Locale;
  * is the whole picture. Medium and Low draw it with fewer pixels, cheaper trees, smaller
  * shadow maps, fewer and broader grass plants, shorter sight and without depth in surfaces, for a
  * graphics card that cannot keep up with the whole of it. Low also leaves out the passes that shade
- * corners, light the air and mirror, with shorter sight still and nothing mirrored at all: no mirror
- * in a room or on a vehicle shows anything. A vehicle's mirror shows Low's picture in every mode
- * where it shows one.
+ * corners and light the air, with shorter sight still, so its roads, floors and glass mirror only
+ * what the game's own look does, while mirrors in rooms and on vehicles show what they face as in
+ * the other modes. A vehicle's mirror shows Low's picture in every mode where it shows one.
  * A first start is in Automatic in first person and in Low in the isometric view, which has no
  * Automatic: its frames are not counted. Automatic is not a mode to stay in but the measure that
  * picks one: it is one level for every player in it, since it judges the frames of the whole
@@ -94,7 +94,7 @@ final class Quality {
     /** How far from the eye lamps can light the picture themselves, in tiles. */
     static final int MOST_LIGHT_DISTANCE = 80;
 
-    static final Picture LOW_PICTURE = new Picture(true, TREES_SPRITES, SOME_GRASS, 16, 0.62f, false, 48, 48, 300, 0, false, false, false, false, false, false, 20, 0.5f, false, ANTIALIASING_LOW);
+    static final Picture LOW_PICTURE = new Picture(true, TREES_SPRITES, SOME_GRASS, 16, 0.62f, false, 48, 48, 300, 0, false, true, false, false, false, false, 20, 0.5f, false, ANTIALIASING_LOW);
     static final Picture MEDIUM_PICTURE = new Picture(false, TREES_NEAR, SOME_GRASS, 16, 0.8f, false, 60, 60, 150, 1, true, true, false, false, false, true, 30, 0.5f, false, ANTIALIASING_LOW);
     static final Picture HIGH_PICTURE = new Picture(false, TREES_TO_SIGHT, ALL_GRASS, 16, 1f, true, 80, 80, 400, 2, true, true, true, true, true, true, 60, 0.75f, true, ANTIALIASING_LOW);
     /**

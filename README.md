@@ -27,7 +27,7 @@ Press `Delete` to switch between the isometric view and first person, on foot or
 ### World and graphics
 
 - **A rebuilt world** - 3D buildings, new textures, detailed plants, rolling hills and distant scenery in Medium and High. Furniture, windows and doors are 3D in every mode.
-- **New graphics in both views** - lighting, shadows, models, textures and reflections in Medium and High, plus light beams through fog in first person. High adds sharper shadows and depth on surfaces up close.
+- **New graphics in both views** - lighting, shadows, models, textures and reflections in Medium and High, plus light beams through fog in first person. Mirrors in rooms show the room and you in Low too, until you untick Reflections. High adds sharper shadows and depth on surfaces up close.
 - **Fire** - the game's flames stand upright in the 3D world, and Medium and High add smoke, embers and firelight to burning buildings, Molotovs and campfires.
 - **Sound** - turns with your view, and walls between you and a sound muffle it.
 - **Nothing through walls** - a zombie, person or animal against a wall, a shut door or a fence you can't see through isn't drawn with a hand, shoulder or head poking through it to your side.

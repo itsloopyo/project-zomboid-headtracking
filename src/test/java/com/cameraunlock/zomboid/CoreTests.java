@@ -870,11 +870,11 @@ public final class CoreTests {
         check(Tracking.enabled() == enabled && Mouths.on() == mouths && Tracking.trackingModeLabel().equals(tracking),
                 "head tracking, talking mouths and the tracking mode are as they were");
         boolean effectsOff = true;
-        for (String key : new String[] {"ShadingAndLight", "Reflections", "FullSizeTextures", "SurfaceDepth", "SharpShadows", "WholeFigureShadows"}) {
+        for (String key : new String[] {"ShadingAndLight", "FullSizeTextures", "SurfaceDepth", "SharpShadows", "WholeFigureShadows"}) {
             effectsOff &= Tracking.optionValue(Tracking.optionPlace(key)) == 0;
         }
-        check(effectsOff && Quality.row(0) == Quality.LOW && Quality.row(3) == Quality.LOW,
-                "every player's first person graphics mode is Low, so the rows of [Graphics] read Low's picture with every effect off");
+        check(effectsOff && Tracking.optionValue(Tracking.optionPlace("Reflections")) == 1 && Quality.row(0) == Quality.LOW && Quality.row(3) == Quality.LOW,
+                "every player's first person graphics mode is Low, so the rows of [Graphics] read Low's picture: every effect off but its mirrors");
         check(savesLogged() - writesBefore == 1, "all of it is saved in one write: " + (savesLogged() - writesBefore));
         reopened = Screen.opened().readsAll();
         check(reopened.equals("Off Off Off Off Off"), "and opened once the save is made, it still reads Off in every list: " + reopened);
