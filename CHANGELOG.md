@@ -1,5 +1,49 @@
 # Changelog
 
+## [0.2.1] - 2026-11-01
+
+### Added
+
+- model the gates in wooden, chain link and farm fences in first person, shut and open, in place of the gate's flat sprite
+- give wooden gates black strap hinges and a latch as their sprites paint them, in place of a house door's knob, rose and butt hinges
+- hand a .44 pistol, a pump shotgun and an automatic assault rifle in turn on Right and Left arrow in the dev build, and move the test scenes to Shift with the arrows
+- let shot-up fences, walls and doors come apart, so a piece ringed by holes falls out and boards shot most of the way through snap
+- climb through a hole shot through a fence, a wall or a door by holding Interact on it, where the hole is big enough for a body
+- let a shotgun blast blow holes in wooden walls, siding included, as it does in plasterboard
+- turn the head of the character on the Customise Character screen with the player's, and move its mouth with the microphone
+- put the clock back an hour on 8 in the dev build, into the day before when that is where it ends
+- draw mirrors in rooms and vehicles in the Low graphics mode too, unless Reflections is unticked
+
+### Fixed
+
+- treat a farm gate as steel bars, so rounds go on between its rails, leave no hole and strike it as metal
+- let SpriteGeometry.addTube lay a tube standing straight up, which came out NaN, and build gate uprights with it
+- log a gate the game marks a wall, and that is not built, as drawn as that wall rather than as its sprite
+- let shots beside a gate's leaf strike its post as wood or steel and pass the rest of its edge, where they stopped dead in masonry dust
+- read an open piece of a double door from the sprite the game shuts it to, so the leaves of a fully opened double gate are built
+- hang a gate from its post, or from its double's end by the piece's place on the sheet, in place of guessing from where a door knob would be
+- test for a hole in a fence or wall where the round's own line crosses it, so later shots through the hole lose nothing
+- let rounds through the window and door pieces of outside walls as the wall they stand in, so siding houses and trailers no longer stop every shot
+- trace first person shots' holes and marks from the eye the aim is traced from, not the game's hip muzzle down by the knee
+- hole a fence or wall a blast stops on even with a zombie close behind it, instead of taking the zombie as hit
+- count the night when the dev build's 9 key puts the clock past 7 in the morning, so the world's age goes on an hour and not back 23
+- cost and hole a shot over a shut door's leaf as the doorway's wall, not as the door
+- cut a door's casing with the holes in the doorway's wall behind it
+- cut a door's casing once, in WallBuilder.addEdge, not again in addBuiltCasing
+- cut a door casing's post that stands past its square with the holes in the next square's wall
+- take a shot as on a shut door's leaf only where the leaf is drawn, cut back to its doorway
+- let the glass of a door swung open reflect as it does shut, from the plane the open leaf stands in
+- stop zombies, people and animals pressed against a wall, a shut door or a solid fence from being drawn poking through it in first person
+- cut a round's hole through a fence, wall or door along the round's line, so it is seen through and lit through from where it was shot
+- let a shotgun blast hole the tall board fence again, which the game flags as a wall of Wood_Solid and the wooden wall rule turned away
+- work out what falls of a shot wall along its whole run, so a piece shot free across the join of two squares drops, and hang a door's leaf from its hinges only
+- cut a hole that reaches over the join of two walls or fences out of both, so a ring shot round the join never hangs on a sliver
+- let chunk builds ask what an unnamed wall piece is made of without racing the logic thread's cache
+- climb through a shot hole whose bottom is at waist height, like a window, not only one that reaches down to the knee
+- look for a gap to climb through in the holes as the picture cuts them, so a wall blown open by many blasts is not read as full of standing slivers
+- keep the arms where the animation has them when the neck takes part of a head turn
+- blend where on the wall a cut vertex of wall grime sits, so the triangles from a shot hole to the floor do not draw the dark grime band of the wall's foot
+
 ## [0.2.0] - 2026-10-31
 
 ### Added
