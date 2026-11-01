@@ -97,7 +97,7 @@ final class InteractLabel {
         }
         float unit = (float) height / DESIGN_HEIGHT;
         double top = y + BELOW * unit, edge = Math.max(1f, EDGE * unit);
-        // Dark round light, so it reads over a pale wall and a dark night alike.
+        // The words drawn dark a pixel off each way under the white, so they read on a pale wall as well as at night.
         for (int i = 0; i < 4; i++) {
             TextManager.instance.DrawStringCentre(UIFont.Small, x + (i % 2 == 0 ? -edge : edge), top + (i < 2 ? -edge : edge), text, 0.0, 0.0, 0.0, 0.75 * alpha);
         }
