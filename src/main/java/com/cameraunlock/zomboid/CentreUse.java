@@ -174,8 +174,8 @@ final class CentreUse {
         CLICK,
         /**
          * The game's click on anything else: a radio's, a television's or a workstation's window
-         * where the character is near enough, a walk to a container a few squares off, or
-         * nothing, where its tests fail.
+         * where the character is near enough, or a walk to a container a few squares off. Where
+         * its tests fail it would take the click and do nothing, so the key is left to the game.
          */
         RELEASE,
         /** The game's click on a container within its reach, which puts it in the loot panel. */
@@ -243,6 +243,10 @@ final class CentreUse {
         InteractWords.Does does = ClickRules.click(seen, panel, seen && GameClient.client && !SafeHouse.isSafehouseAllowLoot(at, player), container,
                 found instanceof IsoThumpable thumpable && thumpable.isLockedToCharacter(player), inReach,
                 seen && panel == null && container && !inReach && walks(found, from, player));
+        if (does == null) {
+            // The game's click takes it and does nothing, so the key is left to the game as the label says.
+            return null;
+        }
         if (does != InteractWords.Does.LOOT) {
             return new Use(Route.RELEASE, found, does, does == InteractWords.Does.WALK_TO ? found.getContainer() : null, null);
         }
