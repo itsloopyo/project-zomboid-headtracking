@@ -1972,11 +1972,7 @@ public final class FirstPerson {
      */
     boolean climbableAtCentre() {
         IsoPlayer player = view.player();
-        return player.getVehicle() == null && reticleOnScreen && climbableAt(player, centre(player));
-    }
-
-    private boolean climbableAt(IsoPlayer player, IsoObject found) {
-        return CentreUse.climbable(found, player) || hopAtCentre() != null;
+        return player.getVehicle() == null && reticleOnScreen && (CentreUse.climbable(centre(player), player) || hopAtCentre(true) != null);
     }
 
     /** What the key would act on at the reticle, or null (CentreUse.under). */
@@ -1984,24 +1980,25 @@ public final class FirstPerson {
         return view.centreUse.under(reticleLine, floorUp(player), player, IsoWorld.instance.currentCell);
     }
 
-    /** The climb through a hole the reticle is on, or null: see HoleHop. */
-    private HoleHop.Hop hopAtCentre() {
+    /** The climb through a hole the reticle is on, or null: see HoleHop, which says why not where say. */
+    private HoleHop.Hop hopAtCentre(boolean say) {
         IsoPlayer player = view.player();
         if (!Rules.climbThroughHoles() || player.getVehicle() != null || !reticleOnScreen || player.isAiming()
                 || player.getCurrentState() == ClimbOverFenceState.instance()) {
             return null;
         }
-        return HoleHop.find(reticleLine, view.worldScene.terrain, player);
+        return HoleHop.find(reticleLine, view.worldScene.terrain, player, say);
     }
 
     /**
      * What a press of the Interact key would do with the reticle on found (centre), tapped or held
      * (climb), before the world menu: the one decision both the key and the label under the
-     * reticle (InteractLabel) take. Null where the key is left to the game.
+     * reticle (InteractLabel) take. Null where the key is left to the game. hop is the climb
+     * through a hole there (hopAtCentre), asked for only where it is held and no window is in
+     * the way.
      */
-    private CentreUse.Use keyUse(IsoPlayer player, IsoObject found, boolean climb) {
+    private CentreUse.Use keyUse(IsoPlayer player, IsoObject found, boolean climb, HoleHop.Hop hop) {
         if (climb && !CentreUse.climbable(found, player)) {
-            HoleHop.Hop hop = hopAtCentre();
             if (hop != null) {
                 return new CentreUse.Use(CentreUse.Route.HOLE, null, InteractWords.Does.CLIMB_THROUGH, null, hop);
             }
@@ -2030,7 +2027,8 @@ public final class FirstPerson {
         if (player.getVehicle() != null || !reticleOnScreen) {
             return false;
         }
-        CentreUse.Use use = keyUse(player, centre(player), climb);
+        IsoObject found = centre(player);
+        CentreUse.Use use = keyUse(player, found, climb, climb && !CentreUse.climbable(found, player) ? hopAtCentre(true) : null);
         if (use != null && use.route() == CentreUse.Route.HOLE) {
             HoleHop.go(player, use.hop());
             return true;
@@ -2064,11 +2062,13 @@ public final class FirstPerson {
             view.interactLabel.update(null, null, player, now);
             return;
         }
-        CentreUse.Use tap = keyUse(player, found, false);
+        CentreUse.Use tap = keyUse(player, found, false, null);
         if (tap == null) {
             tap = menuUse(player);
         }
-        view.interactLabel.update(tap, climbableAt(player, found) ? keyUse(player, found, true) : null, player, now);
+        boolean window = CentreUse.climbable(found, player);
+        HoleHop.Hop hop = window ? null : hopAtCentre(false);
+        view.interactLabel.update(tap, window || hop != null ? keyUse(player, found, true, hop) : null, player, now);
     }
 
     /** The height of the floor a player stands on, in tiles above level 0. */

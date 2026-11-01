@@ -95,9 +95,11 @@ final class HoleHop {
     /**
      * The climb the reticle's line asks for: through the edge of the character's square it leaves
      * the square by, where it meets that edge in a hole and a body fits through there, onto a square
-     * the game would let a character climb through a window onto. Null for none.
+     * the game would let a character climb through a window onto. Null for none. Said (say) logs
+     * why a hole the reticle is in does not take a body: for a press of the key, not for the label
+     * under the reticle, which asks every frame.
      */
-    static Hop find(ViewCamera.Pose line, Terrain terrain, IsoPlayer player) {
+    static Hop find(ViewCamera.Pose line, Terrain terrain, IsoPlayer player, boolean say) {
         IsoGridSquare from = player.getCurrentSquare();
         if (from == null) {
             return null;
@@ -133,15 +135,10 @@ final class HoleHop {
         float along = north ? line.eyeX + line.forwardX * t - owner.getX() : line.eyeY + line.forwardY * t - owner.getY();
         int level = owner.getZ();
         float up = (line.eyeUp + line.forwardUp * t - terrain.lift(owner.getX() + 0.5f, owner.getY() + 0.5f, level)) / ViewCamera.LEVEL_HEIGHT - level;
-        ArrayList<IsoObject> blockers = blockers(owner, north);
-        if (blockers.isEmpty()) {
+        if (!holed(owner, north)) {
             return null;
         }
-        for (IsoObject blocker : blockers) {
-            if (BlastHoles.of(blocker) == null || DoorGlass.isDoor(blocker) && DoorGlass.barricaded(blocker)) {
-                return null;
-            }
-        }
+        ArrayList<IsoObject> blockers = blockers(owner, north);
         Open[] cuts = new Open[blockers.size()];
         for (int i = 0; i < cuts.length; i++) {
             IsoObject blocker = blockers.get(i);
@@ -160,21 +157,39 @@ final class HoleHop {
             return null;
         }
         float middle = opening(open, along);
-        String edge = String.format(java.util.Locale.ROOT, "the hole at %.2f along the %s edge of (%d, %d, %d)", along, north ? "north" : "west", owner.getX(),
-                owner.getY(), owner.getZ());
-        if (Float.isNaN(middle)) {
-            Log.info("no climb through " + edge + ": it has no gap a body fits through, 0.5 wide and 0.9 m tall with its foot at the waist or lower");
-            return null;
+        String no = Float.isNaN(middle) ? "it has no gap a body fits through, 0.5 wide and 0.9 m tall with its foot at the waist or lower"
+                : to == null ? "there is no square beyond it"
+                : !IsoWindow.canClimbThroughHelper(player, from, to, north) ? "the game's window climb would land nobody on the square beyond it, where something stands or there is water"
+                : null;
+        if (no == null) {
+            return new Hop(way, middle);
         }
-        if (to == null) {
-            Log.info("no climb through " + edge + ": there is no square beyond it");
-            return null;
+        if (say) {
+            Log.info("no climb through " + String.format(java.util.Locale.ROOT, "the hole at %.2f along the %s edge of (%d, %d, %d)", along, north ? "north" : "west",
+                    owner.getX(), owner.getY(), owner.getZ()) + ": " + no);
         }
-        if (!IsoWindow.canClimbThroughHelper(player, from, to, north)) {
-            Log.info("no climb through " + edge + ": the game's window climb would land nobody on the square beyond it, where something stands or there is water");
-            return null;
+        return null;
+    }
+
+    /**
+     * Whether something stops a character crossing the edge and everything that does has holes
+     * in it, none of it a barricaded door: the only edges a climb can go through. Asks without
+     * building anything, as the label under the reticle asks every frame and nearly every edge
+     * has no holes.
+     */
+    private static boolean holed(IsoGridSquare owner, boolean north) {
+        PZArrayList<IsoObject> objects = owner.getObjects();
+        boolean any = false;
+        for (int i = 0; i < objects.size(); i++) {
+            IsoObject object = objects.get(i);
+            if (blocks(object, north)) {
+                if (BlastHoles.of(object) == null || DoorGlass.isDoor(object) && DoorGlass.barricaded(object)) {
+                    return false;
+                }
+                any = true;
+            }
         }
-        return new Hop(way, middle);
+        return any;
     }
 
     /**
@@ -203,12 +218,16 @@ final class HoleHop {
         PZArrayList<IsoObject> objects = owner.getObjects();
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
-            PropertyContainer properties = object.getSprite() == null ? null : object.getSprite().getProperties();
-            if (DoorGlass.shutOn(object, north) || properties != null && properties.has(north ? IsoFlagType.collideN : IsoFlagType.collideW)) {
+            if (blocks(object, north)) {
                 found.add(object);
             }
         }
         return found;
+    }
+
+    private static boolean blocks(IsoObject object, boolean north) {
+        PropertyContainer properties = object.getSprite() == null ? null : object.getSprite().getProperties();
+        return DoorGlass.shutOn(object, north) || properties != null && properties.has(north ? IsoFlagType.collideN : IsoFlagType.collideW);
     }
 
     /** Starts the climb: the character moved along the edge to where the body goes through, and the game's vault set going. */
