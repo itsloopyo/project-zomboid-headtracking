@@ -258,6 +258,15 @@ public final class FirstPerson {
     private long paceWait = PACE_FIRST_NANOS;
     private long paceSince, paceWorst;
     private int paceFrames;
+    /**
+     * How the game keeps up from a vehicle's seat, said in whichever view it is driven in, the
+     * mod's first person, the isometric view or Project Viewpoint's, so a drive in each can be
+     * set side by side. Every ten seconds of play in the seat.
+     */
+    private static final long RIDE_PACE_NANOS = 10_000_000_000L;
+    private long rideSince, rideWorst;
+    private int rideFrames;
+    private float rideFastest;
     /** With tracing on, the memory the logic thread took for the picture since the last pace line. */
     private long paceBuiltBytes;
     private WorldScene.Frame paceScene;
@@ -949,6 +958,7 @@ public final class FirstPerson {
         long frameNanos = now - lastFrameNanos;
         float sinceLastFrame = Math.min(frameNanos / 1e9f, MAX_FRAME_SECONDS);
         notePace(now, frameNanos);
+        noteRide(player, now, frameNanos);
         lastFrameNanos = now;
         frameSeconds += (Math.min(sinceLastFrame, 0.1f) - frameSeconds) * 0.05f;
         view.flight.advance(on, sinceLastFrame, !overhead || overViewpoint);
@@ -1462,6 +1472,32 @@ public final class FirstPerson {
             paceSince = now;
             paceFrames = 0;
             paceWorst = 0;
+        }
+    }
+
+    private void noteRide(IsoPlayer player, long now, long frameNanos) {
+        BaseVehicle vehicle = player == null ? null : player.getVehicle();
+        if (vehicle == null || GameTime.isGamePaused()) {
+            rideSince = now;
+            rideFrames = 0;
+            rideWorst = 0;
+            rideFastest = 0f;
+            return;
+        }
+        rideFrames++;
+        rideWorst = Math.max(rideWorst, frameNanos);
+        rideFastest = Math.max(rideFastest, Math.abs(vehicle.getCurrentSpeedKmHour()));
+        if (now - rideSince > RIDE_PACE_NANOS) {
+            double frameMs = (now - rideSince) / 1e6 / rideFrames;
+            PerformanceSettings performance = PerformanceSettings.instance;
+            Log.info(String.format(Locale.ROOT, "%sin a vehicle's seat: %.1f ms a frame (%.0f fps), worst %.1f, up to %.0f km/h, %s, frame rate %s",
+                    who(), frameMs, 1000.0 / frameMs, rideWorst / 1e6, rideFastest,
+                    ViewpointView.on(player) ? "in Project Viewpoint's view" : "in " + Quality.said(view.index),
+                    performance.isFramerateUncapped() ? "uncapped" : "capped at " + performance.getFramerate()));
+            rideSince = now;
+            rideFrames = 0;
+            rideWorst = 0;
+            rideFastest = 0f;
         }
     }
 
