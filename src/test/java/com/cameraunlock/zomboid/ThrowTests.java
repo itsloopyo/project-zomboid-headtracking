@@ -2,9 +2,14 @@ package com.cameraunlock.zomboid;
 
 /**
  * A throw from the first person view lands where the aim is. The flight here is
- * the game's, step by step (IsoGameCharacter.Throw and IsoPhysicsObject.update,
- * as IsoMolotovCocktail sets it up), without the random push the game adds to
- * every throw.
+ * the game's, step by step, without the random push the game adds to every
+ * throw: IsoGameCharacter.Throw starts it 0.6 of a level up with a speed of 0.4
+ * times the way to the square; IsoMolotovCocktail leaves its rise at nought and
+ * sets its fastest fall to 0.02 (IsoPhysicsObject's own is 0.05); and each step
+ * of IsoPhysicsObject.update, s being 30 over the locked frame rate, takes 0.1 s
+ * of its speed off, adds 0.005 s to its fall, moves it 0.3 s of its speed across
+ * and 0.4 s of its fall down, and lands it once it drops below the level it was
+ * thrown on. Those are the game's figures as its classes have them.
  */
 final class ThrowTests {
     private ThrowTests() {}
