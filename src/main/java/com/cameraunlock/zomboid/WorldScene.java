@@ -1789,7 +1789,11 @@ final class WorldScene {
     /** Dev only, for the same: the eye's picture draws every room its chunks were built with, whether it sees into it or not. */
     private volatile boolean withoutCulling;
 
-    /** Dev only, for the rig: names what is turned off ("marks", "kept", "thread", "bands", "sightline", "culling", or several with commas), and everything else is on. */
+    /**
+     * Dev only, for the rig: names what is turned off ("marks", "kept", "thread", "bands", "sightline", "culling", "forms",
+     * "fineshadow", "twiglets", "pieces", "twigcount", or several with commas), and everything else is on. The rig's probe
+     * calls it by reflection, so nothing in the mod does.
+     */
     void without(String what) {
         List<String> off = Arrays.asList(what.split(","));
         withoutMarks = off.contains("marks");
