@@ -28,6 +28,11 @@ Press `Delete` to switch between the isometric view and first person, on foot or
 
 - **A rebuilt world** - 3D buildings, new textures, detailed plants, rolling hills and distant scenery in Medium and High. Furniture, windows and doors are 3D in every mode.
 - **New graphics in both views** - lighting, shadows, models, textures and reflections in Medium and High, plus light beams through fog in first person. Mirrors in rooms show the room and you in Low too, until you untick Reflections. High adds sharper shadows and depth on surfaces up close.
+- **Lamp shadows** - at night in first person, in Medium and High, the street lamps, lamps and ceiling lights nearest you cast shadows of fences, furniture, people and zombies, with more lamps and sharper shadows in High. Under a lamp with a crowd, the crowd's shadows are redrawn less often the bigger it is.
+- **Surroundings in reflections** - in first person, in High, wet roads, puddles, polished floors and window glass also show the buildings, ground and trees off the edge of the screen or behind something nearer. People and vehicles are not in them.
+- **Stained glass** - in first person, in Medium and High, sunlight through a stained glass window takes the colours of its glass onto what it falls on and into the room's air.
+- **Rain on you** - in first person, in Medium and High, rain wets your hands, sleeves and what you hold: cloth and skin darken, metal and wood shine, and drops bead and run down the weapon. Out of the rain they dry over a few minutes.
+- **Worn roads** - in Medium and High, in first person and the isometric view, each lane of a road with a centre line is worn, with oil darkening its middle and two paler wheel tracks.
 - **Fire** - the game's flames stand upright in the 3D world, and Medium and High add smoke, embers and firelight to burning buildings, Molotovs and campfires.
 - **Sound** - turns with your view, and walls between you and a sound muffle it.
 - **Nothing through walls** - a zombie, person or animal against a wall, a shut door or a fence you can't see through isn't drawn with a hand, shoulder or head poking through it to your side.
@@ -36,6 +41,7 @@ Press `Delete` to switch between the isometric view and first person, on foot or
 ### Combat
 
 - **Weapons** - custom arms and hands, melee swings, recoil, and reloads with working bolts, levers, cylinders and break actions. Medium and High add new shotgun, rifle, pistol and revolver models and magnified scopes.
+- **Aiming blur** - in first person, in Medium and High, the background beyond what you aim at softens a little while a gun's sights are up, more for a near target than a far one. Never through a scope.
 - **Hits where you aim** - shots hit the body part under the reticle and jolt zombies along the line of fire. Offline, shot limbs go limp or come off, and a killing head shot can take the head off, which a shotgun up close usually does.
 - **Impacts** - dust, splinters, sparks, blood and bullet holes in Medium and High.
 - **Hit direction** - in first person, when something hits you or a zombie goes for you, a red arc at the edge of the view points to where it is, and follows it as you turn while it fades. A zombie within two tiles that is out of your view, and that the game would show you in its own view, puts a faint red glow on that edge, strongest when it's right behind you. Untick **Hit direction** in the options to turn both off.
@@ -50,6 +56,7 @@ Press `Delete` to switch between the isometric view and first person, on foot or
 ### Vehicles
 
 - **Interiors** - dashboards, seats, working gauges and mirrors in Medium and High.
+- **Suspension** - over the first person hills, the vehicle you ride in sits on a spring at each wheel, so its front lifts and settles onto a hill before its back, and ground rising under one side rolls it on its own.
 - **Drive-by shooting** - raise a gun from any seat and shoot through the glass.
 - **Offline driving** - smash through fences, lamp posts and road barricades, drive through bushes and get air over hill crests. In first person, what you knock down throws pieces of itself that bounce, lie a few seconds and sink into the ground.
 
