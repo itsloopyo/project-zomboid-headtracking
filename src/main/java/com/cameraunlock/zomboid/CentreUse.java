@@ -665,7 +665,9 @@ final class CentreUse {
      * over the top of what stands on it: the window over a counter or a dresser under it. Null where the view comes
      * down onto what stands there first, or there is nothing on that edge. A window on a room's south or east wall
      * belongs to the square outside, so it is met past the square in front of it, never on it. Over the top of a
-     * window's opening the wall stops the view: a cabinet hung there, else a light switch on the square, else nothing.
+     * window's opening, or where the wall
+     * stops the view over a box or a counter with nothing on that edge, a cabinet hung there, else a light switch on
+     * the square, else nothing.
      *
      * @param entered how far along the view it comes onto the square, in tiles
      */
@@ -703,7 +705,7 @@ final class CentreUse {
         if (hung != null) {
             return new Over(hung);
         }
-        return overOpening ? new Over(switchOn(square)) : null;
+        return overOpening || edge == null && square.isBlockedTo(to) ? new Over(switchOn(square)) : null;
     }
 
     /** Where the view goes over the top of what stands on a square: what it meets past it, null for nothing. */
