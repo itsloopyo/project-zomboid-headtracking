@@ -204,6 +204,8 @@ def band(width, height, below, radius, sweep, marks, label, colour_of=lambda k: 
     return face, (wide, high)
 
 
+# The saloon's wide faces at the sizes tools/models/cabin/sedan.py builds them (SPEEDO, FUEL, HEAT), each the face's
+# own width so nothing is squeezed onto it, and the scale over the sweep its needle turns through.
 def speedometer_band():
     """The saloon's speedometer: 0 to 85 miles an hour along an arc across a wide face, its needle pivoted below it."""
     marks = [(mph / 85.0, str(mph) if mph % 10 == 0 else "", mph % 10 == 0) for mph in range(0, 86, 5)]
@@ -212,12 +214,12 @@ def speedometer_band():
 
 def fuel_band():
     marks = [(k / 4.0, "E" if k == 0 else "F" if k == 4 else "", k % 2 == 0) for k in range(5)]
-    return band(0.085, 0.055, 0.02, 0.06, 40.0, marks, "FUEL", lambda share: RED if share == 0 else WHITE, 110)
+    return band(0.07, 0.055, 0.02, 0.06, 30.0, marks, "FUEL", lambda share: RED if share == 0 else WHITE, 134)
 
 
 def heat_band():
     marks = [(k / 4.0, "C" if k == 0 else "H" if k == 4 else "", k % 2 == 0) for k in range(5)]
-    return band(0.085, 0.055, 0.02, 0.06, 40.0, marks, "TEMP", lambda share: RED if share == 1 else WHITE, 110)
+    return band(0.07, 0.055, 0.02, 0.06, 30.0, marks, "TEMP", lambda share: RED if share == 1 else WHITE, 134)
 
 
 def lamps():

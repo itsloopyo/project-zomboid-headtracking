@@ -236,10 +236,13 @@ def vent(centre, across, width, height):
 
 # The saloon's cluster: a wide speedometer before the driver, the fuel gauge to its left and the heat to its right,
 # each a face with its needle turning about a pivot below it, hidden behind the lip under the faces. Each: its middle,
-# width, height, how far below its lower edge the pivot is, the scale's radius, and its sweep.
-SPEEDO = (v(0.553, 0.0, -0.252), 0.24, 0.085, 0.05, 0.11)
-FUEL = (v(0.553, 0.155, -0.262), 0.07, 0.055, 0.02, 0.06)
-HEAT = (v(0.553, -0.155, -0.262), 0.07, 0.055, 0.02, 0.06)
+# width, height, how far below its lower edge the pivot is, the scale's radius, and its sweep either side of up in
+# degrees, at whose ends the scale's first and last ticks are drawn and the needle stops. cabin_pictures.py draws
+# each face to these numbers (speedometer_band, fuel_band, heat_band). The small faces' scales end 30 degrees out, so
+# their ticks and the needle's tip stay clear of the faces' sides.
+SPEEDO = (v(0.553, 0.0, -0.252), 0.24, 0.085, 0.05, 0.11, 50.0)
+FUEL = (v(0.553, 0.155, -0.262), 0.07, 0.055, 0.02, 0.06, 30.0)
+HEAT = (v(0.553, -0.155, -0.262), 0.07, 0.055, 0.02, 0.06, 30.0)
 
 
 def instrument(name, centre, radius, picture, ring=True):
@@ -287,10 +290,8 @@ def needle(group, pivot, radius, length):
 # and its sweep (see info).
 def sedan_needles():
     table = []
-    for group, (c, w, h, below, radius), sweep in ((NEEDLE_SPEED, SPEEDO, (math.radians(-50), math.radians(50), SPEED_SWEEP[2])),
-                                                   (NEEDLE_FUEL, FUEL, (math.radians(-40), math.radians(40), 1.0)),
-                                                   (NEEDLE_HEAT, HEAT, (math.radians(-40), math.radians(40), 1.0))):
-        table.append((group, c - v(0, 0, h / 2 + below), radius, 0.94, sweep))
+    for group, (c, w, h, below, radius, ends), full in ((NEEDLE_SPEED, SPEEDO, SPEED_SWEEP[2]), (NEEDLE_FUEL, FUEL, 1.0), (NEEDLE_HEAT, HEAT, 1.0)):
+        table.append((group, c - v(0, 0, h / 2 + below), radius, 0.94, (math.radians(-ends), math.radians(ends), full)))
     return table
 
 
@@ -309,7 +310,7 @@ def gauges():
     """The instruments: the speedometer and the fuel and heat gauges, their needles, which the mod turns, the lip that
     hides the needles' pivots, and the gear indicator on it."""
     parts = []
-    for name, (c, w, h, _, _), picture in (("speedometer", SPEEDO, "speedometer-band"), ("fuel", FUEL, "fuel-band"), ("heat", HEAT, "heat-band")):
+    for name, (c, w, h, _, _, _), picture in (("speedometer", SPEEDO, "speedometer-band"), ("fuel", FUEL, "fuel-band"), ("heat", HEAT, "heat-band")):
         parts += band_instrument(name, c, w, h, picture)
     for group, pivot, radius, length, _ in sedan_needles():
         parts += needle(group, pivot, radius, length)

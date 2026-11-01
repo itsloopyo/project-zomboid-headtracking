@@ -29,6 +29,29 @@ final class CabinTests {
         Checks.run("everyInteriorsMirrorIsInSightAndItsWipersClearTheScreen", CabinTests::everyInteriorsMirrorIsInSightAndItsWipersClearTheScreen);
         Checks.run("anInteriorsPicturesAreReadAheadAgainAfterTheyAreLetGo", CabinTests::anInteriorsPicturesAreReadAheadAgainAfterTheyAreLetGo);
         Checks.run("bodyBesideTheSeatIsLitFromItsDepthReadWide", CabinTests::bodyBesideTheSeatIsLitFromItsDepthReadWide);
+        Checks.run("saloonsFuelAndHeatNeedlesStopAtTheEndTicksOnTheirFaces", CabinTests::saloonsFuelAndHeatNeedlesStopAtTheEndTicksOnTheirFaces);
+    }
+
+    /**
+     * The saloon's small faces as tools/models/cabin/sedan.py builds them (FUEL, HEAT) and tools/models/cabin_pictures.py
+     * draws them (fuel_band, heat_band): the face's half width, the rim's lip over its edge, the needle's length from its
+     * pivot (0.94 of the scale's 0.06 radius), and how far either side of up the end ticks are drawn.
+     */
+    private static final double SMALL_FACE_HALF = 0.035, RIM_LIP = 0.003, SMALL_NEEDLE = 0.94 * 0.06, SMALL_TICKS = 30.0;
+
+    private static void saloonsFuelAndHeatNeedlesStopAtTheEndTicksOnTheirFaces() throws java.io.IOException {
+        for (String name : new String[] {"carnormal", "carstationwagon"}) {
+            float[] needles = CabinModel.named(name).needles;
+            for (int group : new int[] {CabinModel.NEEDLE_FUEL, CabinModel.NEEDLE_HEAT}) {
+                int at = (group - CabinModel.NEEDLE_SPEED) * 9;
+                double nought = Math.toDegrees(needles[at + 6]), full = Math.toDegrees(needles[at + 7]);
+                String which = name + "'s " + (group == CabinModel.NEEDLE_FUEL ? "fuel" : "heat") + " needle";
+                check(Math.abs(nought + SMALL_TICKS) < 0.01 && Math.abs(full - SMALL_TICKS) < 0.01,
+                        which + " stops at " + nought + " and " + full + " degrees, where its face's end ticks are at -" + SMALL_TICKS + " and " + SMALL_TICKS);
+                double reach = SMALL_NEEDLE * Math.sin(Math.toRadians(Math.max(Math.abs(nought), Math.abs(full))));
+                check(reach < SMALL_FACE_HALF - RIM_LIP, which + "'s tip reaches " + reach + " aside at its stops, past its face's side at " + (SMALL_FACE_HALF - RIM_LIP));
+            }
+        }
     }
 
     private static void anInteriorsPicturesAreReadAheadAgainAfterTheyAreLetGo() throws Exception {
