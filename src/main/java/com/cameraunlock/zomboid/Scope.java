@@ -358,7 +358,7 @@ final class Scope {
                 }
                 gl_FragDepth = clamp(0.5 + 0.5 * (uFar + uWriteNear - 2.0 * uWriteNear * uFar / ahead) / (uFar - uWriteNear), 0.0, 1.0);
                 if (uDepthOnly > 0.5) {
-                    gl_FragColor = vec4(0.0);
+                    gl_FragData[0] = vec4(0.0);
                     return;
                 }
                 vec3 at = uEye + inWorld(vSeen);
@@ -366,7 +366,9 @@ final class Scope {
                 vec3 color = uGlass < 0.5 ? body(at, view)
                         : uGlass < 1.5 ? eyepiece(at, view)
                         : vec3(0.002, 0.004, 0.003) + thrownBack(at, view, 1.0, 0.3, 0.05);
-                gl_FragColor = vec4(color, 1.0);
+                // Drawn aside with the world, and steadied with it: see HeldDepth.
+                gl_FragData[0] = vec4(color, 1.0);
+                gl_FragData[1] = vec4(0.0);
             }
             """;
 

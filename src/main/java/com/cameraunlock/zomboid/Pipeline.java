@@ -5981,8 +5981,10 @@ final class Pipeline {
         GL11.glDisable(GL_CULL_FACE);
         GL11.glDisable(GL_BLEND);
         GL11.glDisable(GL_ALPHA_TEST);
-        GL30.glBindFramebuffer(GL_FRAMEBUFFER, sceneTarget);
+        // The hands and the game's weapon are drawn where they are, as the body is, and not aside with the world.
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, steadying ? movesTarget : sceneTarget);
         figureLight.use();
+        figureLight.set("uMoves", RIDDEN);
         noLamps();
         if (seated) {
             // The cabin's pass before this one cuts away glass, pillars and roof near the eye,
@@ -6012,7 +6014,7 @@ final class Pipeline {
             ownWaits |= gun != null && gun.waiting();
         }
         if (ownWaits) {
-            view.heldDepth.begin(sceneColor, width, height, frameNanos);
+            view.heldDepth.begin(sceneColor, steadying ? sceneMoves : 0, width, height, frameNanos);
         }
         for (OwnGun gun : view.ownGuns) {
             if (gun != null) {

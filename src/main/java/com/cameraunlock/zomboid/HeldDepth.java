@@ -2,6 +2,7 @@ package com.cameraunlock.zomboid;
 
 import java.nio.ByteBuffer;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
 
 /**
@@ -11,7 +12,9 @@ import org.lwjgl.opengl.GL30;
  * the back of a receiver is nearer the eye than that: measured in it, every part of them is
  * as near as every other, and whichever triangle is drawn last shows. What is drawn here is
  * sorted against itself, and each of its shaders leaves out what the hands' depth says is
- * behind a hand.
+ * behind a hand. With frame blending on, the picture's moves are beside its colour, and what
+ * is drawn here writes there that it is drawn aside with the world: over the cabin of a car
+ * sat in, it would otherwise keep the cabin's mark (Pipeline.RIDDEN) and be taken unsteadied.
  *
  * Render thread only.
  */
@@ -22,7 +25,11 @@ final class HeldDepth {
     private static final int GL_FRAMEBUFFER = 0x8D40, GL_COLOR_ATTACHMENT0 = 0x8CE0, GL_DEPTH_ATTACHMENT = 0x8D00, GL_FRAMEBUFFER_COMPLETE = 0x8CD5;
     private static final int GL_DEPTH_BUFFER_BIT = 0x0100;
 
+    private static final int[] FIRST = {GL_COLOR_ATTACHMENT0}, BOTH = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT0 + 1};
+
     private int target, color, depth, wide, high;
+    /** The moves attached beside the colour, 0 for none, or -1 where none has been attached to this target yet. */
+    private int moves = -1;
     private long usedNanos;
 
     /**
@@ -48,9 +55,10 @@ final class HeldDepth {
      * Makes the target ready for a frame's held things, its depth cleared.
      *
      * @param sceneColor the picture's colour, sceneWide by sceneHigh
+     * @param sceneMoves the picture's moves beside its colour, or 0 with frame blending off
      * @param now        when the frame began
      */
-    void begin(int sceneColor, int sceneWide, int sceneHigh, long now) {
+    void begin(int sceneColor, int sceneMoves, int sceneWide, int sceneHigh, long now) {
         usedNanos = now;
         if (sceneColor != color || sceneWide != wide || sceneHigh != high) {
             if (target == 0) {
@@ -72,8 +80,14 @@ final class HeldDepth {
             color = sceneColor;
             wide = sceneWide;
             high = sceneHigh;
+            moves = -1;
         }
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, target);
+        if (sceneMoves != moves) {
+            GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + 1, GL_TEXTURE_2D, sceneMoves, 0);
+            GL20.glDrawBuffers(sceneMoves == 0 ? FIRST : BOTH);
+            moves = sceneMoves;
+        }
         GL11.glDepthMask(true);
         GL11.glClearDepth(1.0);
         GL11.glClear(GL_DEPTH_BUFFER_BIT);

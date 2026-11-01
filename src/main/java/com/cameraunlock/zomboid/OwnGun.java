@@ -183,7 +183,8 @@ abstract class OwnGun {
                 // Where the cut goes through a part its inside shows, which is drawn as the cut end
                 // of what the part is made of, in shade, and not as a lit surface seen from behind.
                 if (gl_FrontFacing != (uHanded < 0.0)) {
-                    gl_FragColor = vec4(texture2D(uColour, vUv).rgb * (0.45 * pow(uStood, vec3(2.2))), 1.0);
+                    gl_FragData[0] = vec4(texture2D(uColour, vUv).rgb * (0.45 * pow(uStood, vec3(2.2))), 1.0);
+                    gl_FragData[1] = vec4(0.0);
                     gl_FragDepth = depthWritten(ahead);
                     return;
                 }
@@ -253,7 +254,9 @@ abstract class OwnGun {
                 color += dull * soft * reached + (mirror * share.x + share.y) * shown * (mirrored * mix(uVarnish, 1.0, metal));
                 color += (dull + mirror * 0.6) * (flashLight(at, n) + fireLight(at, n) + beams(at, n, 0.0));
 
-                gl_FragColor = vec4(color, 1.0);
+                // Drawn aside with the world, and steadied with it: see HeldDepth.
+                gl_FragData[0] = vec4(color, 1.0);
+                gl_FragData[1] = vec4(0.0);
                 gl_FragDepth = depthWritten(ahead);
             }
             """;
