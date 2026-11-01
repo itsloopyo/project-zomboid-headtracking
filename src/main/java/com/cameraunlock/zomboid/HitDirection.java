@@ -6,6 +6,8 @@ import java.util.IdentityHashMap;
 import java.util.Locale;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL20;
+import se.krka.kahlua.vm.KahluaTable;
+import zombie.Lua.LuaManager;
 import zombie.ai.states.AttackNetworkState;
 import zombie.ai.states.AttackState;
 import zombie.ai.states.FakeDeadAttackState;
@@ -13,10 +15,13 @@ import zombie.characters.IsoGameCharacter;
 import zombie.characters.IsoPlayer;
 import zombie.characters.IsoZombie;
 import zombie.characters.animals.IsoAnimal;
+import zombie.iso.IsoCamera;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoMovingObject;
 import zombie.iso.IsoWorld;
 import zombie.iso.LosUtil;
+import zombie.ui.UIElementInterface;
+import zombie.ui.UIManager;
 import zombie.vehicles.AttackVehicleState;
 import zombie.vehicles.BaseVehicle;
 
@@ -41,8 +46,13 @@ final class HitDirection {
     private static final float ATTACK_REACH = 3f, VEHICLE_ATTACK_REACH = 6f;
     /** The arc's half width, in radians, and its thickness and the glow's, in pixels on a screen 1080 high. */
     private static final float ARC_HALF = (float) Math.toRadians(22), ARC_THICK = 12f, GLOW_HALF = (float) Math.toRadians(35), GLOW_THICK = 70f;
-    /** How far out the ellipse they lie on reaches, as a share of half the picture each way. */
-    private static final float REACH = 0.94f;
+    /**
+     * How far out the ellipse they lie on reaches, as a share of half the picture each way. Its
+     * lower half stops short of the game's hotbar, which is drawn over the picture, by HOTBAR_GAP
+     * pixels on a screen 1080 high.
+     */
+    private static final float REACH = 0.94f, HOTBAR_GAP = 8f;
+    private static final String HOTBAR = "getPlayerHotbar";
     private static final int SIDES = 24, DESIGN_HEIGHT = 1080;
     /** Whether the game shows a character to the viewer: the share of them it draws (WorldScene, CHARACTER_SHOWN_ALPHA). */
     private static final float SHOWN_ALPHA = 0.5f;
@@ -80,6 +90,8 @@ final class HitDirection {
     private static final class Marks {
         final float[] x = new float[MOST + MOST_GLOWS], y = new float[MOST + MOST_GLOWS], strengths = new float[MOST + MOST_GLOWS];
         int hits, count;
+        /** The share of the picture's height the game's hotbar covers along its bottom, 0 while it is not shown. */
+        float hotbar;
     }
 
     /** Three, so the logic thread fills one while the render thread may still be drawing either of the last two it was handed. */
@@ -294,6 +306,7 @@ final class HitDirection {
         }
         filled.hits = hits;
         filled.count = marks;
+        filled.hotbar = hotbar(index);
         shown = filled;
         filling = (filling + 1) % buffers.length;
     }
@@ -306,6 +319,37 @@ final class HitDirection {
         LosUtil.TestResults line = LosUtil.lineClear(cell, (int) Math.floor(zombie.getX()), (int) Math.floor(zombie.getY()), (int) Math.floor(zombie.getZ()),
                 (int) Math.floor(player.getX()), (int) Math.floor(player.getY()), (int) Math.floor(player.getZ()), false);
         return line == LosUtil.TestResults.Blocked || line == LosUtil.TestResults.ClearThroughClosedDoor || line == LosUtil.TestResults.ClearThroughWindow;
+    }
+
+    private boolean hotbarTroubleSaid;
+    private float hotbarSaid = -1f;
+
+    /**
+     * Logic thread, the one the game's Lua runs on: the share of the player's part of the screen
+     * that the game's hotbar covers along its bottom, 0 while it is not shown. The game puts it at
+     * the bottom of that part (ISHotbar.setSizeAndPosition), and the picture fills the part.
+     */
+    private float hotbar(int index) {
+        Object[] found = LuaManager.caller.pcall(UIManager.getDefaultThread(), LuaManager.env.rawget(HOTBAR), Double.valueOf(index));
+        Object bar = found.length > 1 ? found[1] : null;
+        UIElementInterface shown = bar instanceof KahluaTable table && table.rawget("javaObject") instanceof UIElementInterface element ? element : null;
+        if (found.length == 0 || !Boolean.TRUE.equals(found[0]) || bar != null && shown == null) {
+            if (!hotbarTroubleSaid) {
+                hotbarTroubleSaid = true;
+                Log.info("the game's " + HOTBAR + "(" + index + ") gave no hotbar to keep the hit arcs above: " + Arrays.toString(found));
+            }
+            return 0f;
+        }
+        float covered = 0f;
+        if (shown != null && shown.isVisible()) {
+            float high = IsoCamera.getScreenHeight(index);
+            covered = Math.max(0f, (float) ((IsoCamera.getScreenTop(index) + high - shown.getY()) / high));
+        }
+        if (DevBuild.ON && Math.abs(covered - hotbarSaid) > 0.002f) {
+            hotbarSaid = covered;
+            Log.info(String.format(Locale.ROOT, "hit direction, player %d: the game's hotbar covers the bottom %.3f of the picture", index + 1, covered));
+        }
+        return covered;
     }
 
     /** Nothing marked: the view is not first person, or the part is off. Who hit the player is forgotten. */
@@ -339,14 +383,15 @@ final class HitDirection {
         GL11.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         int color = program.at("uColor");
         float unit = (float) height / DESIGN_HEIGHT;
+        float below = Math.min(REACH, 1f - 2f * (marks.hotbar + HOTBAR_GAP / DESIGN_HEIGHT));
         for (int i = marks.count - 1; i >= 0; i--) {
             float bearing = HitArcs.bearing(eye.forwardX, eye.forwardY, eye.upX, eye.upY, eye.rightX, eye.rightY, marks.x[i] - eye.eyeX, marks.y[i] - eye.eyeY);
             if (i < marks.hits) {
                 GL20.glUniform4f(color, 0.9f, 0.06f, 0.04f, 0.85f * marks.strengths[i]);
-                arc(bearing, ARC_HALF, ARC_THICK * unit, false, width, height);
+                arc(bearing, ARC_HALF, ARC_THICK * unit, false, below, width, height);
             } else {
                 GL20.glUniform4f(color, 0.85f, 0.12f, 0.06f, 0.6f * marks.strengths[i]);
-                arc(bearing, GLOW_HALF, GLOW_THICK * unit, true, width, height);
+                arc(bearing, GLOW_HALF, GLOW_THICK * unit, true, below, width, height);
             }
         }
         GL11.glDisable(GL_BLEND);
@@ -354,15 +399,16 @@ final class HitDirection {
 
     /**
      * A band along the ellipse just inside the edge of the picture, centred on a bearing, fading
-     * to nothing at its ends; a glow fades inwards too, from its outer side.
+     * to nothing at its ends; a glow fades inwards too, from its outer side. Below the middle the
+     * ellipse reaches down only as far as below.
      */
-    private static void arc(float bearing, float half, float thick, boolean glow, int width, int height) {
+    private static void arc(float bearing, float half, float thick, boolean glow, float below, int width, int height) {
         GL11.glBegin(GL_TRIANGLE_STRIP);
         for (int i = 0; i <= SIDES; i++) {
             float along = -1f + 2f * i / SIDES;
             float at = bearing + along * half;
             float ends = 1f - along * along;
-            float x = width / 2f * (1f + REACH * HitArcs.across(at)), y = height / 2f * (1f + REACH * HitArcs.up(at));
+            float x = width / 2f * (1f + REACH * HitArcs.across(at)), up = HitArcs.up(at), y = height / 2f * (1f + (up < 0f ? below : REACH) * up);
             float inX = width / 2f - x, inY = height / 2f - y, length = (float) Math.hypot(inX, inY);
             inX *= thick / length;
             inY *= thick / length;
