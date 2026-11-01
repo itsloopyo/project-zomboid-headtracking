@@ -44,6 +44,7 @@ Press `Delete` to switch between the isometric view and first person, on foot or
 - **Shoot out windows** - offline, a shot breaks every closed window it passes through.
 - **Blast holes** - offline, in first person, a shotgun blast that lands tightly grouped on a wooden door, a wooden fence, tall or low, or a wall of boards or plasterboard, blows a ragged hole through it, which you can see and shoot through. Pellets that miss the hole leave marks on a door. The holes stay in your save.
 - **Bullet holes** - offline, in first person, a round that goes through a door, a wall or a wooden fence leaves a small hole where it went in and a wider, splintered one where it came out, which you can see through. The holes stay in your save.
+- **Throwing** - Molotovs, pipe bombs and other thrown weapons are thrown overarm and land where the reticle is, to within about a tile: the game adds a random spread to every throw and aims it at whole squares. A Molotov still needs a lighter in the other hand, as in the isometric view.
 - **Climbing through holes** - offline, in first person, hold the Interact key with the crosshair on a hole shot through a fence, a wall or a door, standing beside it, and you climb through, where the hole is wide and tall enough for you: about half a metre wide and 0.9 m tall, with its bottom no higher than your waist.
 
 ### Vehicles
@@ -301,6 +302,8 @@ The mouse turns the view, and the movement keys move you relative to where you'r
 **Other controls** - reload, shove, weapon selection and flashlight use your usual keys.
 
 **Toggle to aim** - if you have this game option turned on, aim before you attack.
+
+**Fishing** - hold right click with a rod and put the reticle on the water: the cast goes where the reticle is, within the game's reach. Let go of right click once the line is out, or it pays out more line. The bobber is drawn where it floats.
 
 **Interaction** - put the reticle on a door, window, curtain, light switch, container, item on the ground, radio, TV or crafting station and press `E`. For a window over a counter or a dresser, put the reticle on its glass: `E` opens or shuts it, and the game walks your character over to it first if it can find a way. On an open or broken window, `E` climbs through if there's a floor on the other side to land on. On a fridge, `E` opens the fridge or the freezer, whichever half the reticle is on. On anything else within reach, like a sink or a chair, `E` opens the game's own menu for it. You can also bring out the mouse pointer (middle click, or open the inventory) and right-click something in the view to open its menu, or left-click it to do what `E` would do, the same as clicking in the isometric view.
 
