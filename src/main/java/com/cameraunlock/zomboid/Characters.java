@@ -743,6 +743,7 @@ public final class Characters {
         taskCarries = true;
         taskWatch = null;
         sheetShown = false;
+        oneHanded = false;
         ownLight = held[HeldLight.LIGHT];
         ownOutside = held[HeldLight.OUTSIDE] > 0.5f;
         System.arraycopy(held, HeldLight.CABIN, ownAmbient, 0, 3);
@@ -757,6 +758,8 @@ public final class Characters {
                     break;
                 }
             }
+            // The map is held in one hand, and the hand is the mod's own: nothing of the body's model is needed for it.
+            settleTheTask(null, camera);
             return drawOwnVehicle(camera, tanHalfFieldOfView, aspect, nearFrom, far);
         }
         for (int i = 0; i < noted.size(); i++) {
@@ -958,13 +961,17 @@ public final class Characters {
     /**
      * Whether the hands can be brought up to the timed action under way is settled before the
      * body is drawn, as for a weapon. Only the mod's own arms are brought up: with the game's
-     * own, its animation of the action is drawn as it is.
+     * own, its animation of the action is drawn as it is. In a vehicle seat the only one is the
+     * map, held in the right hand (TimedActs.seatMap): the driver's left stays on the wheel.
+     *
+     * @param data the viewer's model, or null in a seat
      */
     private void settleTheTask(ModelSlotRenderData data, ViewCamera.Pose camera) {
         ViewModel.Task task = view.viewModel.task;
-        if (task == null || holding != null || !CharacterDraw.cuts() || !Own.arms() || OwnArms.model() == null) {
+        if (task == null || holding != null || !CharacterDraw.cuts() || !Own.arms() || OwnArms.model() == null || task.seated() != (data == null)) {
             return;
         }
+        boolean seated = task.seated();
         ViewCamera.between(aim, camera, eyeFromAim, fromAim);
         // The map is held up in both hands, with whatever else they held put away for it.
         boolean carries = task.kind() != TimedActs.MAP;
@@ -972,12 +979,14 @@ public final class Characters {
         ViewModel.Watch watch = task.watch();
         if (watch != null) {
             TimedActs.watch(watch.left(), task.pitch(), task.up(), taskHands[0], taskHands[1]);
+        } else if (seated) {
+            TimedActs.seatMap(task.up(), taskHands[0], taskHands[1]);
         } else if (!carries) {
             TimedActs.map(task.up(), taskHands[0], taskHands[1]);
         } else {
             TimedActs.hands(task.kind(), task.low(), task.time(), right != null, left != null, task.up(), taskHands[0], taskHands[1]);
         }
-        float scale = ARM_SCALE * data.finalScale;
+        float scale = seated ? viewerArmScale() : ARM_SCALE * data.finalScale;
         for (int side = 0; side < 2; side++) {
             TimedActs.Hand from = taskHands[side], to = seenHands[side];
             ViewModelMath.place(fromAim, from.at[0] * scale, from.at[1] * scale, from.at[2] * scale, to.at);
@@ -1013,18 +1022,24 @@ public final class Characters {
         }
         holding = data;
         carrying = true;
+        oneHanded = seated;
         taskCarries = carries;
         taskWatch = watch;
         if (!carries) {
-            TimedActs.sheet(task.up(), sheetInAim);
+            if (seated) {
+                TimedActs.seatSheet(task.up(), sheetInAim);
+            } else {
+                TimedActs.sheet(task.up(), sheetInAim);
+            }
             for (int i = 0; i < 15; i++) {
                 sheetInAim[i] *= scale;
             }
             ArmPose.multiply(fromAim, 0, sheetInAim, 0, sheetView, 0);
             sheetShown = true;
-            // The map is drawn north up, and the game's y runs south.
-            facingEast = (float) Math.cos(task.yaw());
-            facingNorth = (float) -Math.sin(task.yaw());
+            // The map is drawn north up, and the game's y runs south: the way the clean view looks, level.
+            float level = (float) Math.hypot(aim.forwardX, aim.forwardY);
+            facingEast = aim.forwardX / level;
+            facingNorth = -aim.forwardY / level;
         }
         armHands = null;
         armFemale = task.female();
@@ -1180,6 +1195,8 @@ public final class Characters {
      * whether the held map is drawn, and where: from a square of side one to the view. Render thread.
      */
     private boolean taskCarries, sheetShown;
+    /** Whether the map is held in the right hand alone, in a vehicle seat, with no model of the body's under it. */
+    private boolean oneHanded;
     /** The way the viewer faces on the held map, east and north. */
     private float facingEast, facingNorth;
     private ViewModel.Watch taskWatch;
@@ -1187,7 +1204,7 @@ public final class Characters {
 
     /** Whether the driver's right hand is on the wheel this frame: not while it holds a weapon up. Read after drawViewer. */
     boolean rightOnWheel() {
-        return holding == null;
+        return holding == null && !oneHanded;
     }
 
     /** Whether the driver's left hand is on the wheel this frame: not while it is on the weapon too. Read after drawViewer. */
@@ -1781,7 +1798,7 @@ public final class Characters {
 
     /** Whether drawViewer left the weapon and the arms that hold it for drawHeld. */
     boolean holding() {
-        return holding != null;
+        return holding != null || oneHanded;
     }
 
     private final float[] gameHand = new float[3];
@@ -2146,8 +2163,16 @@ public final class Characters {
 
     /** Draws the hands at a timed action, or in a shove or a stamp, and what the game has in them, as drawHeld does the weapon. */
     private void drawTask(float tanHalfFieldOfView, float aspect, float nearFrom, float far) {
-        ModelSlotRenderData data = holding;
         ViewCamera.projection(tanHalfFieldOfView, aspect, nearFrom, far, projection);
+        if (oneHanded) {
+            // In a seat, under the vehicle's roof: no snow falls on the arm.
+            OwnArms.snowed(0f);
+            OwnArms.Worn worn = wornOnArms();
+            OwnArms.draw(projection, armSkins[0], false, armFemale, armSkin, ownLight, ownOutside, worn, view.ride.dress.stains);
+            OwnArms.sheet(projection, sheetView, HeldMap.picture(view.index), facingEast, facingNorth, ownLight, ownOutside);
+            return;
+        }
+        ModelSlotRenderData data = holding;
         float red = data.ambientR, green = data.ambientG, blue = data.ambientB;
         data.ambientR = 1f;
         data.ambientG = 1f;

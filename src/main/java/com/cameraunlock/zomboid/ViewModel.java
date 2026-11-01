@@ -153,8 +153,9 @@ public final class ViewModel {
      * @param female whether the body is a woman's
      * @param watch  the watch glanced at, for a glance (TimedActs.WATCH), and null for anything else
      * @param pitch  the clean view's pitch, radians: a glance raises the arm in the body's axes
+     * @param seated whether the player is in a vehicle seat, where the map is held in one hand
      */
-    record Task(int kind, boolean low, float time, float done, float up, String anim, int skin, boolean female, Watch watch, float pitch, float yaw) {}
+    record Task(int kind, boolean low, float time, float done, float up, String anim, int skin, boolean female, Watch watch, float pitch, boolean seated) {}
 
     /**
      * A watch on a wrist as it is glanced at.
@@ -622,8 +623,10 @@ public final class ViewModel {
         }
         int kind = anim == null ? TimedActs.NONE : sortedKind;
         // The game reads the world map with its animation of reading a newspaper: here the map comes up in the hands.
-        if (kind == TimedActs.READ && HeldMap.reading(view.index)) {
+        // In a seat the game plays no animation of it that the mod reads, and the map comes up as it is read all the same.
+        if (HeldMap.reading(view.index) && (kind == TimedActs.READ || player.getVehicle() != null)) {
             kind = TimedActs.MAP;
+            anim = anim == null ? HeldMap.HELD : anim;
         }
         // While anything else is under way the map is put down, as HeldMap says, from the next frame.
         if (kind == TimedActs.NONE && HeldMap.held(view.index)) {
@@ -674,7 +677,7 @@ public final class ViewModel {
         if ((taskWearAsked++ & 31) == 0) {
             Cabins.noteWear(player, view.ride.dress);
         }
-        task = new Task(taskKind, taskLow, taskTime, taskDone, taskUp, taskAnim, player.getHumanVisual().getSkinTextureIndex(), player.isFemale(), null, pitch, yaw);
+        task = new Task(taskKind, taskLow, taskTime, taskDone, taskUp, taskAnim, player.getHumanVisual().getSkinTextureIndex(), player.isFemale(), null, pitch, player.getVehicle() != null);
         return true;
     }
 
@@ -725,7 +728,7 @@ public final class ViewModel {
         if ((taskWearAsked++ & 31) == 0) {
             Cabins.noteWear(player, view.ride.dress);
         }
-        task = new Task(TimedActs.WATCH, false, 0f, 0f, up, GLANCE, player.getHumanVisual().getSkinTextureIndex(), player.isFemale(), watch, pitch, yaw);
+        task = new Task(TimedActs.WATCH, false, 0f, 0f, up, GLANCE, player.getHumanVisual().getSkinTextureIndex(), player.isFemale(), watch, pitch, false);
         return true;
     }
 

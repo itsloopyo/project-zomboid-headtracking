@@ -21,6 +21,7 @@ import zombie.core.textures.Texture;
 import zombie.core.textures.TextureDraw;
 import zombie.ui.UIElement;
 import zombie.ui.UIManager;
+import zombie.vehicles.BaseVehicle;
 
 /**
  * The world map held up in both hands in first person. The map key reads the map as the game
@@ -150,6 +151,8 @@ final class HeldMap {
     static final double ZOOM = 17.5;
 
     private static final boolean[] reading = new boolean[View.COUNT], held = new boolean[View.COUNT], made = new boolean[View.COUNT];
+    /** The vehicle seat each player read the map from (seatOf). */
+    private static final int[] seats = new int[View.COUNT];
     private static final Double[] PLAYER_NUMBERS = new Double[View.COUNT];
     private static final Double ZOOM_ASKED = ZOOM;
     /** The side and the height of the corner the maps are placed in, as they were last asked for, and as the Lua is handed them. */
@@ -161,7 +164,11 @@ final class HeldMap {
 
     private static final JavaFunction WANTED = (frame, arguments) -> frame.push(MapHold.wanted(holding(player(frame), false))),
             READING = (frame, arguments) -> {
-                reading[player(frame)] = Boolean.TRUE.equals(frame.get(1));
+                int player = player(frame);
+                reading[player] = Boolean.TRUE.equals(frame.get(1));
+                if (reading[player]) {
+                    seats[player] = seatOf(IsoPlayer.players[player]);
+                }
                 return 0;
             },
             HOLD = (frame, arguments) -> {
@@ -206,8 +213,8 @@ final class HeldMap {
         if (player.isDead()) {
             holding |= MapHold.DEAD;
         }
-        if (player.getVehicle() != null) {
-            holding |= MapHold.IN_A_VEHICLE;
+        if ((reading[index] || HeldMap.held[index]) && seatOf(player) != seats[index]) {
+            holding |= MapHold.SEAT_CHANGED;
         }
         if (Online.contested()) {
             holding |= MapHold.PLAYERS_CAN_FIGHT;
@@ -222,6 +229,17 @@ final class HeldMap {
             holding |= MapHold.DOING_SOMETHING_ELSE;
         }
         return holding;
+    }
+
+    /** The vehicle and the seat in it a player sits in, as one number, or -1 on foot. */
+    private static int seatOf(IsoPlayer player) {
+        BaseVehicle vehicle = player.getVehicle();
+        return vehicle == null ? -1 : vehicle.getId() * 64 + vehicle.getSeat(player);
+    }
+
+    /** Whether a player holds the map in a vehicle seat, in one hand: see Characters.settleTheTask. */
+    static boolean seated(int player) {
+        return (reading[player] || held[player]) && seats[player] >= 0;
     }
 
     /** The action under way that last put a map down, for its line in the log. */

@@ -126,9 +126,10 @@ enum Part {
                     + "one you turn to. Not while aiming or attacking. false: the arm stays down."),
     HELD_MAP("FirstPerson", "HeldMap", true, true,
             "true: in first person, the map key holds the game's map up in both hands, the place round you on it, and you can walk\n"
-                    + "and run with it. The map key again puts it down and opens the game's map over the screen, as the game opens it, to\n"
-                    + "pan, zoom and mark. Esc or a middle click puts it down and does nothing else. Aiming, attacking, starting anything\n"
-                    + "else, or leaving first person also puts it down. On a server where players can fight, the game's map opens as it\n"
+                    + "and run with it. In a vehicle seat it is held low in the right hand, and a driver keeps the left on the wheel. The map\n"
+                    + "key again puts it down and opens the game's map over the screen, as the game opens it, to pan, zoom and mark. Esc or\n"
+                    + "a middle click puts it down and does nothing else. Aiming, attacking, starting anything else, getting into or out of\n"
+                    + "a seat, or leaving first person also puts it down. On a server where players can fight, the game's map opens as it\n"
                     + "does without the mod. false: the map key opens the game's map over the screen, as without the mod."),
     SHOTS_FROM_VEHICLE_SEATS("Rules", "ShotsFromVehicleSeats", true, false,
             "true: in first person, sitting in a vehicle with a gun, you can fire through any part of your seat's window, and\n"

@@ -32,6 +32,7 @@ final class WatchTests {
         Checks.run("armIsMeasuredWhereTheWatchIsWorn", () -> armIsMeasuredWhereTheWatchIsWorn(model));
         Checks.run("watchFaceIsTurnedToTheEyeAndReadsTheRightWayOnEitherWrist", () -> watchFaceIsTurnedToTheEyeAndReadsTheRightWayOnEitherWrist(model));
         Checks.run("mapIsHeldUpInThePictureByBothHands", () -> mapIsHeldUpInThePictureByBothHands(model));
+        Checks.run("mapInASeatIsHeldInTheRightHandLowAndRightOfTheRoad", () -> mapInASeatIsHeldInTheRightHandLowAndRightOfTheRoad(model));
     }
 
     private static final float FRAME = 1f / 60f;
@@ -146,7 +147,7 @@ final class WatchTests {
 
     private static void heldMapComesDownForEachReasonAndSaysTheFirst() {
         check(MapHold.down(0) == null, "with nothing in the way the map stays up");
-        int[] each = {MapHold.GONE, MapHold.OFF, MapHold.NO_PICTURE, MapHold.NOT_FIRST_PERSON, MapHold.NO_OWN_ARMS, MapHold.BODY_LEADS, MapHold.DEAD, MapHold.IN_A_VEHICLE,
+        int[] each = {MapHold.GONE, MapHold.OFF, MapHold.NO_PICTURE, MapHold.NOT_FIRST_PERSON, MapHold.NO_OWN_ARMS, MapHold.BODY_LEADS, MapHold.DEAD, MapHold.SEAT_CHANGED,
             MapHold.PLAYERS_CAN_FIGHT, MapHold.AIMING, MapHold.ATTACKING, MapHold.DOING_SOMETHING_ELSE};
         java.util.Set<String> said = new java.util.HashSet<>();
         for (int reason : each) {
@@ -335,5 +336,31 @@ final class WatchTests {
         check(-ArmPose.dot(middle, face) > 0f, "the map's face is turned to the eye");
         TimedActs.sheet(0f, sheet);
         check(sheet[13] / -sheet[14] < -PICTURE, "down, the map is under the picture");
+    }
+
+    private static void mapInASeatIsHeldInTheRightHandLowAndRightOfTheRoad(ArmModel model) {
+        TimedActs.Hand right = new TimedActs.Hand(), left = new TimedActs.Hand();
+        float[][] skins = new float[2][model.bones.length * 16];
+        float[] sheet = new float[16];
+        for (float up = 0f; up <= 1f; up += 0.125f) {
+            TimedActs.seatMap(up, right, left);
+            check(place(model, right, left, skins), "the right arm is placed on the map in a seat, " + up + " of the way up");
+        }
+        TimedActs.seatMap(1f, right, left);
+        check(right.at[0] > 0.2f && left.at[1] < -0.4f, "the right hand holds it by its right side and the left is down, where the wheel has it");
+        TimedActs.seatSheet(1f, sheet);
+        for (float[] corner : new float[][] {{-0.5f, -0.5f}, {0.5f, -0.5f}, {-0.5f, 0.5f}, {0.5f, 0.5f}}) {
+            float x = sheet[0] * corner[0] + sheet[4] * corner[1] + sheet[12], y = sheet[1] * corner[0] + sheet[5] * corner[1] + sheet[13],
+                    z = sheet[2] * corner[0] + sheet[6] * corner[1] + sheet[14];
+            float across = x / -z, upward = y / -z;
+            check(z < 0f && Math.abs(across) < PICTURE * WIDE && Math.abs(upward) < PICTURE,
+                    String.format(Locale.ROOT, "the seated map's corner %s is in the picture: %.2f, %.2f", Arrays.toString(corner), across, upward));
+            check(upward < 0.05f && across > -0.1f,
+                    String.format(Locale.ROOT, "the seated map's corner %s is no higher than the horizon and right of the middle, off the road ahead: %.2f, %.2f", Arrays.toString(corner), across, upward));
+        }
+        float[] middle = column(sheet, 3), face = column(sheet, 2);
+        check(-ArmPose.dot(middle, face) > 0f, "the seated map's face is turned to the eye");
+        TimedActs.seatSheet(0f, sheet);
+        check(sheet[13] / -sheet[14] < -PICTURE, "down, the seated map is under the picture");
     }
 }

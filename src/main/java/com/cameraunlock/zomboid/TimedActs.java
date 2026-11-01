@@ -388,6 +388,60 @@ final class TimedActs {
         alongTheForearm(left, 1);
     }
 
+    /**
+     * The world map held in one hand in a vehicle seat: its middle, low and to the right of the
+     * eye, its top at the horizon, so that the road ahead stays in view; how far its top leans
+     * away and how far it is turned to face the eye, radians; and its size against the sheet held
+     * in both hands, folded smaller to be held in one.
+     */
+    static final float[] SEAT_SHEET_AT = {0.15f, -0.10f, -0.46f};
+    static final float SEAT_SHEET_LEANS = (float) Math.toRadians(20), SEAT_SHEET_TURNS = (float) Math.toRadians(10), SEAT_SHEET_SIZE = 0.85f;
+    /** Where the right hand holds the seated sheet's right side, from its middle down, as a share of its height: by the lower corner. */
+    private static final float SEAT_HELD_LOW = 0.34f;
+
+    /**
+     * The sheet of the map held in one hand in a seat, in the aim's axes, as sheet makes it: it
+     * comes up from where the right hand waits below the picture.
+     */
+    static void seatSheet(float up, float[] out) {
+        float c = (float) Math.cos(SEAT_SHEET_LEANS), s = (float) Math.sin(SEAT_SHEET_LEANS);
+        // Turned about the upright so that its face, which looks back at the eye, looks to the left, where the eye is.
+        float ct = (float) Math.cos(SEAT_SHEET_TURNS), st = (float) Math.sin(SEAT_SHEET_TURNS);
+        float[][] axes = {{1f, 0f, 0f}, {0f, c, -s}, {0f, s, c}};
+        float[] size = {SHEET_WIDE * SEAT_SHEET_SIZE, SHEET_TALL * SEAT_SHEET_SIZE, 1f};
+        for (int i = 0; i < 3; i++) {
+            float x = axes[i][0], y = axes[i][1], z = axes[i][2];
+            out[i * 4] = (x * ct - z * st) * size[i];
+            out[i * 4 + 1] = y * size[i];
+            out[i * 4 + 2] = (x * st + z * ct) * size[i];
+            out[i * 4 + 3] = 0f;
+        }
+        for (int axis = 0; axis < 3; axis++) {
+            out[12 + axis] = SEAT_SHEET_AT[axis] + (AWAY[0][axis] - SEAT_SHEET_AT[axis]) * (1f - up);
+        }
+        out[15] = 1f;
+    }
+
+    /**
+     * The map held in the right hand in a seat, by its right side near the lower corner, as the
+     * right hand holds the sheet held in both: the thumb on its face, the fingers behind it. The
+     * left hand is left below the picture, which in the driver's seat is where the wheel has it.
+     */
+    static void seatMap(float up, Hand right, Hand left) {
+        seatSheet(up, mapSheet);
+        float[] sheet = mapSheet;
+        float wide = SHEET_WIDE * SEAT_SHEET_SIZE, tall = SHEET_TALL * SEAT_SHEET_SIZE;
+        float x = 0.5f + HELD_OUT / wide, y = -SEAT_HELD_LOW;
+        for (int axis = 0; axis < 3; axis++) {
+            mapAt[axis] = sheet[axis] * x + sheet[4 + axis] * y + sheet[12 + axis] - sheet[8 + axis] * HELD_BEHIND;
+            mapFingers[axis] = sheet[4 + axis] / tall - sheet[axis] / wide * 0.35f;
+            mapPalm[axis] = -sheet[axis] / wide + sheet[8 + axis] * 0.3f;
+        }
+        set(right, mapAt, mapFingers, mapPalm, RELAXED);
+        alongTheForearm(right, 0);
+        away(left, 1);
+    }
+
     private static final float[] forearmLine = new float[3], forearmAxis = new float[3], forearmTurn = new float[9];
 
     /** How far a hand's fingers run off the line its forearm comes up along, at the most, in radians: a wrist bends about 32 degrees before the forearm has to follow. */
