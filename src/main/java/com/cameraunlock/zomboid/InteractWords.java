@@ -49,12 +49,16 @@ final class InteractWords {
     private static final String APART = "   ";
 
     /**
-     * The words for one action.
+     * The words for one action, or null where an action that names what it acts on has no name
+     * for it.
      *
      * @param said the game's words for it, or null where it has none
-     * @param name the name of what it acts on, or null where none is named
+     * @param name the name of what it acts on, or null where the game has none
      */
     static String action(Does does, String said, String name) {
+        if (does.named && name == null) {
+            return null;
+        }
         if (does == Does.MENU) {
             return name + MORE;
         }

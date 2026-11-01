@@ -26,6 +26,8 @@ import zombie.iso.objects.IsoThumpable;
 import zombie.iso.objects.IsoWaveSignal;
 import zombie.iso.objects.IsoWindow;
 import zombie.iso.objects.IsoWorldInventoryObject;
+import zombie.iso.IsoWorld;
+import zombie.ui.SpeedControls;
 import zombie.ui.UIManager;
 import zombie.util.list.PZArrayList;
 
@@ -85,6 +87,7 @@ final class CentreUse {
     private static final String PRESS = "doClickSpecificObject", RELEASE = "doClick", GRAB = "onGrabWItem", DOOR = "onOpenCloseDoor",
             CLIMB = "onClimbThroughWindow", GET_UP = "getUpAndThen", WINDOW = "onOpenCloseWindow";
     private static final String FREE_TILE = "AdjacentFreeTileFinder", BESIDE = "isTileOrAdjacent", FIND_FREE = "Find";
+    private static final String ENTITY_UI = "ISEntityUI", CAN_OPEN = "CanOpenWindowFor";
     /** How far from a container, in squares each way, the game's click walks the character to it (ISObjectClickHandler.doClick). */
     private static final int WALK_REACH = 3;
 
@@ -92,6 +95,10 @@ final class CentreUse {
     private IsoObject walkTo;
     private IsoGridSquare walkFrom;
     private boolean walks;
+    /** Whether the game would open workstation's window for the character at openFrom, asked of its Lua once for each. */
+    private IsoObject workstation;
+    private IsoGridSquare openFrom;
+    private boolean opens;
 
     /**
      * The key (Outlines.key) of what the key would act on this frame, for the picture to
@@ -132,6 +139,9 @@ final class CentreUse {
         }
         if (gap == null) {
             gap = gap(FREE_TILE, FIND_FREE);
+        }
+        if (gap == null) {
+            gap = gap(ENTITY_UI, CAN_OPEN);
         }
         return gap != null ? gap : gap(WORLD_MENU, GET_UP);
     }
@@ -207,9 +217,13 @@ final class CentreUse {
             return null;
         }
         IsoGridSquare from = player.getCurrentSquare();
+        // A radio, a television or a workstation: the game's click opens its window, when the character is near enough.
+        InteractWords.Does panel = panel(found, player, from);
+        if (panel != null) {
+            return Use.of(Route.PANEL, found, panel);
+        }
         if (found.getContainer() == null) {
-            // A radio, a television or a workstation: the game's click opens its window, when the character is near enough.
-            return Use.of(Route.PANEL, found, panel(found, player, from));
+            return Use.of(Route.PANEL, found, null);
         }
         IsoGridSquare at = found instanceof IsoMovingObject body ? body.getCurrentSquare() : found.getSquare();
         // The game's own test for a container near enough to open. One further off it walks to.
@@ -298,19 +312,47 @@ final class CentreUse {
     }
 
     /**
-     * What the game's click on a thing that holds nothing does, by ISObjectClickHandler.doClick's
-     * own tests: a radio's or a television's window within 1.5 tiles of its middle, a
-     * workstation's within 2.45 of its main square's, with nothing between. Null further off.
+     * The window the game's click opens for a radio, a television or a workstation, by
+     * ISObjectClickHandler.doClick's own tests: a radio's or a television's within 1.5 tiles of
+     * its middle, a workstation's within 2.45 of its main square's, with nothing between, outside
+     * the tutorial, unpaused, the character alive and not aiming, and for a workstation no
+     * dismantling under way and the game's ISEntityUI.CanOpenWindowFor. Null for none.
      */
-    private static InteractWords.Does panel(IsoObject found, IsoPlayer player, IsoGridSquare from) {
-        boolean radio = found instanceof IsoWaveSignal;
-        IsoObject object = radio ? found : found.getSpriteConfig().getMultiSquareMaster();
-        IsoGridSquare square = object.getSquare();
-        float near = radio ? 1.5f * 1.5f : 1.5f * 4f;
-        if (from == null || square == null || player.DistToSquared(square.getX() + 0.5f, square.getY() + 0.5f) >= near || from.isSomethingTo(square)) {
-            return null;
+    private InteractWords.Does panel(IsoObject found, IsoPlayer player, IsoGridSquare from) {
+        if (found instanceof IsoWaveSignal && near(found, 1.5f * 1.5f, player, from)) {
+            return InteractWords.Does.DEVICE_OPTIONS;
         }
-        return radio ? InteractWords.Does.DEVICE_OPTIONS : InteractWords.Does.OPEN_NAMED;
+        SpriteConfig config = found.getSpriteConfig();
+        IsoObject master = config == null ? null : config.getMultiSquareMaster();
+        return master != null && near(master, 1.5f * 4f, player, from) && !dismantling() && opensWindow(master, from, player) ? InteractWords.Does.OPEN_NAMED : null;
+    }
+
+    private static boolean near(IsoObject object, float within, IsoPlayer player, IsoGridSquare from) {
+        IsoGridSquare square = object.getSquare();
+        return !"Tutorial".equals(Core.getInstance().getGameMode()) && !paused() && player.isAlive() && !player.isAiming() && from != null && square != null
+                && player.DistToSquared(square.getX() + 0.5f, square.getY() + 0.5f) < within && !from.isSomethingTo(square);
+    }
+
+    /** Whether the game is paused as its click handler reads it: its speed set to nothing. */
+    private static boolean paused() {
+        SpeedControls speed = UIManager.getSpeedControls();
+        return speed != null && speed.getCurrentGameSpeed() == 0;
+    }
+
+    /** Whether the first player has the game's dismantling cursor up, which a click on a workstation is for. */
+    private static boolean dismantling() {
+        KahluaTable drag = IsoWorld.instance.currentCell.getDrag(0);
+        return drag != null && "ISDestroyCursor".equals(drag.rawget("Type"));
+    }
+
+    private boolean opensWindow(IsoObject master, IsoGridSquare from, IsoPlayer player) {
+        if (master != workstation || from != openFrom) {
+            workstation = master;
+            openFrom = from;
+            Object[] answered = call(ENTITY_UI, CAN_OPEN, player, master);
+            opens = answered != null && answered.length > 1 && Boolean.TRUE.equals(answered[1]);
+        }
+        return opens;
     }
 
     /**

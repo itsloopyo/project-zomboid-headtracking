@@ -125,10 +125,14 @@ final class InteractLabel {
         return title != null ? title : container.getType();
     }
 
-    /** What the game's controller prompt calls a workstation's window (ISButtonPrompt): the workstation's own name, else its tile's. */
+    /**
+     * What the game's controller prompt calls a workstation's window (ISButtonPrompt): the
+     * workstation's own name, else the game's words for opening its window, or null where the
+     * game's translation has none.
+     */
     private static String workstation(CentreUse.Use use) {
         String name = use.object().getSpriteConfig().getMultiSquareMaster().getEntityDisplayName();
-        return name == null || name.equals(GameEntity.getDefaultEntityDisplayName()) ? use.object().getTileName() : name;
+        return name == null || name.equals(GameEntity.getDefaultEntityDisplayName()) ? Translator.getTextOrNull("Entity_Open_Window") : name;
     }
 
     /** The Interact key as the player has it bound, or the controller's button for it, or null where it is bound to neither. */
