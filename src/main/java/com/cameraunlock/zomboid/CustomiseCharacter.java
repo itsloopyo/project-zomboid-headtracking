@@ -1,8 +1,6 @@
 package com.cameraunlock.zomboid;
 
 import java.util.Locale;
-import org.lwjgl.util.vector.Quaternion;
-import org.lwjgl.util.vector.Vector3f;
 import zombie.core.opengl.ShaderProgram;
 import zombie.core.skinnedmodel.advancedanimation.AnimatedModel;
 import zombie.core.skinnedmodel.animation.AnimationPlayer;
@@ -47,14 +45,9 @@ final class CustomiseCharacter {
 
     /** The game's types the turn is worked in, made the first time a head is turned: mirror is used where the game is not there. */
     private static final class Bones {
-        static final BoneTurn TURN = new BoneTurn();
-        static final Vector3f NECK_PLACE = new Vector3f(), NECK_SCALE = new Vector3f(), TOP_PLACE = new Vector3f(), TOP_SCALE = new Vector3f();
-        static final Quaternion NECK_TURN = new Quaternion(), TOP_TURN = new Quaternion();
+        static final HeadTurn TURN = new HeadTurn();
     }
 
-    /** The skeleton whose neck and head are turned and not yet put back, between pose and posed. */
-    private static AnimationPlayer turnedIn;
-    private static int neckIndex, topIndex;
     private static boolean bonesSaid;
     private static long headSaid, mouthSaid;
 
@@ -110,13 +103,8 @@ final class CustomiseCharacter {
             }
             return;
         }
-        animation.getBoneTransformAt(neck.index).getPRS(Bones.NECK_PLACE, Bones.NECK_TURN, Bones.NECK_SCALE);
-        animation.getBoneTransformAt(top.index).getPRS(Bones.TOP_PLACE, Bones.TOP_TURN, Bones.TOP_SCALE);
-        neckIndex = neck.index;
-        topIndex = top.index;
-        turnedIn = animation;
         mirror(head, mirrored);
-        ModelHead.turnHead(Bones.TURN, animation, neck, top, mirrored[0], mirrored[1], mirrored[2], ModelHead.NECK_SHARE);
+        Bones.TURN.turn(animation, neck, top, mirrored[0], mirrored[1], mirrored[2], ModelHead.NECK_SHARE);
         if (DevBuild.ON && System.nanoTime() - headSaid > SAID_EVERY_NANOS) {
             headSaid = System.nanoTime();
             Log.info(String.format(Locale.ROOT, "the character on the Customise Character screen turns its head by yaw %.1f, pitch %.1f, roll %.1f degrees",
@@ -124,14 +112,9 @@ final class CustomiseCharacter {
         }
     }
 
-    /** Called from AnimationPlayer.updateAnimation_StandardAnimation once the matrices the model is drawn with are made: puts the two bones back as the animations had them. */
+    /** Called from AnimationPlayer.updateAnimation_StandardAnimation once the matrices the model is drawn with are made: puts the bones back as the animations had them. */
     static void posed(AnimationPlayer animation) {
-        if (turnedIn != animation) {
-            return;
-        }
-        turnedIn = null;
-        animation.getBoneTransformAt(neckIndex).set(Bones.NECK_PLACE, Bones.NECK_TURN, Bones.NECK_SCALE);
-        animation.getBoneTransformAt(topIndex).set(Bones.TOP_PLACE, Bones.TOP_TURN, Bones.TOP_SCALE);
+        Bones.TURN.putBack(animation);
     }
 
     /**

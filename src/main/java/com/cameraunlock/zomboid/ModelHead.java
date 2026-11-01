@@ -48,15 +48,11 @@ public final class ModelHead {
     private static final float MOST_YAW = (float) Math.toRadians(80), MOST_UP = (float) Math.toRadians(50),
             MOST_DOWN = (float) Math.toRadians(45), MOST_ROLL = (float) Math.toRadians(35);
 
-    private final BoneTurn boneTurn = new BoneTurn();
+    private final HeadTurn headTurn = new HeadTurn();
     private final Matrix4f inModel = new Matrix4f();
     private final Vector3f joint = new Vector3f();
-    private final Vector3f neckPlace = new Vector3f(), neckScale = new Vector3f(), topPlace = new Vector3f(),
-            topScale = new Vector3f();
-    private final Quaternion neckTurn = new Quaternion(), topTurn = new Quaternion();
-    /** The skeleton whose neck and head are turned and not yet put back, between pose and posed. */
-    private AnimationPlayer turnedIn;
-    private int neckIndex, topIndex;
+    private final Vector3f tracedPlace = new Vector3f(), tracedScale = new Vector3f();
+    private final Quaternion tracedTurn = new Quaternion();
     /**
      * For the trace: the least and the most each bone was turned in its parent as the game
      * left it, since the last line. The animations hold both within a few degrees. A turn
@@ -218,19 +214,17 @@ public final class ModelHead {
         float[] head = view.headTracking.headTurn();
         if (head != null && !player.isDead()) {
             float neckShare = view.firstPerson.seenFromTheEye() ? 0f : NECK_SHARE;
-            animation.getBoneTransformAt(neck.index).getPRS(neckPlace, neckTurn, neckScale);
-            animation.getBoneTransformAt(top.index).getPRS(topPlace, topTurn, topScale);
-            neckIndex = neck.index;
-            topIndex = top.index;
-            turnedIn = animation;
             if (FirstPerson.TRACE) {
-                float neckAngle = angle(neckTurn), topAngle = angle(topTurn);
+                animation.getBoneTransformAt(neck.index).getPRS(tracedPlace, tracedTurn, tracedScale);
+                float neckAngle = angle(tracedTurn);
+                animation.getBoneTransformAt(top.index).getPRS(tracedPlace, tracedTurn, tracedScale);
+                float topAngle = angle(tracedTurn);
                 neckLeast = Math.min(neckLeast, neckAngle);
                 neckMost = Math.max(neckMost, neckAngle);
                 topLeast = Math.min(topLeast, topAngle);
                 topMost = Math.max(topMost, topAngle);
             }
-            turnHead(boneTurn, animation, neck, top, head[0], head[1], head[2], neckShare);
+            headTurn.turn(animation, neck, top, head[0], head[1], head[2], neckShare);
         }
         animation.getBoneModelTransform(top.index, inModel);
         HelperFunctions.getPosition(inModel, joint);
@@ -253,12 +247,7 @@ public final class ModelHead {
 
     /** Called from AnimationPlayer.updateAnimation_StandardAnimation once the matrices the model is drawn with are made. */
     public void posed(AnimationPlayer animation) {
-        if (turnedIn != animation) {
-            return;
-        }
-        turnedIn = null;
-        animation.getBoneTransformAt(neckIndex).set(neckPlace, neckTurn, neckScale);
-        animation.getBoneTransformAt(topIndex).set(topPlace, topTurn, topScale);
+        headTurn.putBack(animation);
     }
 
     /** Says once why the head is not turned on this build of the game, if it is not. */

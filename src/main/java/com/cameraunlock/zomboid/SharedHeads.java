@@ -3,8 +3,6 @@ package com.cameraunlock.zomboid;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
-import org.lwjgl.util.vector.Quaternion;
-import org.lwjgl.util.vector.Vector3f;
 import zombie.characters.IsoPlayer;
 import zombie.core.skinnedmodel.animation.AnimationPlayer;
 import zombie.core.skinnedmodel.model.SkinningBone;
@@ -166,15 +164,11 @@ final class SharedHeads {
         final float[] wanted = new float[5], head = new float[3];
         long at;
         volatile float open = Float.NaN, lips;
-        AnimationPlayer turnedIn;
-        int neck, top;
-        final Vector3f neckPlace = new Vector3f(), neckScale = new Vector3f(), topPlace = new Vector3f(), topScale = new Vector3f();
-        final Quaternion neckTurn = new Quaternion(), topTurn = new Quaternion();
+        final HeadTurn turned = new HeadTurn();
     }
 
     /** By the player's online number. Characters are posed on more than one thread. */
     private static final ConcurrentHashMap<Short, Seen> seen = new ConcurrentHashMap<>();
-    private static final ThreadLocal<BoneTurn> boneTurn = ThreadLocal.withInitial(BoneTurn::new);
     private static boolean malformedSaid;
 
     /** Called once the bones of a skeleton are posed and the spine is twisted: turns another player's head as theirs is. */
@@ -223,12 +217,7 @@ final class SharedHeads {
             if (neck == null || top == null || neck.parent == null) {
                 return;
             }
-            animation.getBoneTransformAt(neck.index).getPRS(s.neckPlace, s.neckTurn, s.neckScale);
-            animation.getBoneTransformAt(top.index).getPRS(s.topPlace, s.topTurn, s.topScale);
-            s.neck = neck.index;
-            s.top = top.index;
-            s.turnedIn = animation;
-            ModelHead.turnHead(boneTurn.get(), animation, neck, top, s.head[0], s.head[1], s.head[2], ModelHead.NECK_SHARE);
+            s.turned.turn(animation, neck, top, s.head[0], s.head[1], s.head[2], ModelHead.NECK_SHARE);
         }
     }
 
@@ -242,12 +231,7 @@ final class SharedHeads {
             return;
         }
         synchronized (s) {
-            if (s.turnedIn != animation) {
-                return;
-            }
-            s.turnedIn = null;
-            animation.getBoneTransformAt(s.neck).set(s.neckPlace, s.neckTurn, s.neckScale);
-            animation.getBoneTransformAt(s.top).set(s.topPlace, s.topTurn, s.topScale);
+            s.turned.putBack(animation);
         }
     }
 
