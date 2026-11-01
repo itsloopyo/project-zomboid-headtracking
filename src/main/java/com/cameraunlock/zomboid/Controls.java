@@ -275,6 +275,15 @@ public final class Controls {
     }
 
     /**
+     * Whether the player aims, by their own aim input. The game's isAiming is no measure of it
+     * in first person: it is true in the aiming stance held to face the view (turnedOnly), and
+     * stays true for a frame after that stance is let go, as the player stops.
+     */
+    boolean playerAims(IsoPlayer player) {
+        return stockAim || togglesAim(player) && player.isAiming() && !turnedOnly;
+    }
+
+    /**
      * Called with what the game's attack button reads. A firearm's shot is held back until
      * the game has had the aim long enough to find what the shot is on: see AimInput.
      */

@@ -705,8 +705,7 @@ public final class ViewModel {
         }
         int wrist = glanceLeft ? 1 : 0;
         InventoryItem hand = glanceLeft ? player.getSecondaryHandItem() : player.getPrimaryHandItem();
-        // Walked any way but straight ahead the character is held in the game's aiming stance (Controls.turnedToTheView): that is no aim.
-        boolean aiming = player.isAiming() && !view.controls.turnedOnly();
+        boolean aiming = view.controls.playerAims(player);
         boolean allowed = may && Part.WATCH_GLANCE.on() && Own.arms() && CharacterDraw.cutsSeen() && watchTypes[wrist] != null && hand == null
                 && player.getVehicle() == null && !aiming && !GameAttack.attacking(player);
         float toWrist = glanceLeft ? -right : right;

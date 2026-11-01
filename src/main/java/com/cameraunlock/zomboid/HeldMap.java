@@ -212,8 +212,7 @@ final class HeldMap {
         if (Online.contested()) {
             holding |= MapHold.PLAYERS_CAN_FIGHT;
         }
-        // Walked any way but straight ahead the character is held in the game's aiming stance (Controls.turnedToTheView): that is no aim.
-        if (player.isAiming() && !view.controls.turnedOnly()) {
+        if (view.controls.playerAims(player)) {
             holding |= MapHold.AIMING;
         }
         if (GameAttack.attacking(player)) {
