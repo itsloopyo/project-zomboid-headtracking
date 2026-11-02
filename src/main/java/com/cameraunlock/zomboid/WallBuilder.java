@@ -981,6 +981,8 @@ final class WallBuilder {
      */
     private void addModelFence(Texture texture, int x, int y, int z, float da, float db) {
         ModelFences.Fence fence = build.modelFence;
+        // Asked now, the sprite's colour is in before a shot or a vehicle breaks the fence, whose pieces are painted it (Debris.paint).
+        SpriteColours.of(texture);
         boolean north = da != 0f;
         float base = (z + build.geometry.raised) * ViewCamera.LEVEL_HEIGHT;
         float foot = base + Math.min(build.geometry.liftAt(0f, 0f), build.geometry.liftAt(da, db));
