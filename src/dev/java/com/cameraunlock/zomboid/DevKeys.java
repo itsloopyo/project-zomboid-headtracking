@@ -10,12 +10,14 @@ import zombie.VirtualZombieManager;
 import zombie.characters.IsoGameCharacter;
 import zombie.characters.IsoPlayer;
 import zombie.characters.IsoZombie;
+import zombie.characters.WornItems.WornItems;
 import zombie.core.Core;
 import zombie.erosion.ErosionMain;
 import zombie.erosion.season.ErosionSeason;
 import zombie.input.GameKeyboard;
 import zombie.inventory.InventoryItem;
 import zombie.inventory.InventoryItemFactory;
+import zombie.inventory.types.AlarmClockClothing;
 import zombie.inventory.types.HandWeapon;
 import zombie.inventory.types.WeaponPart;
 import zombie.iso.IsoChunk;
@@ -38,6 +40,7 @@ import zombie.vehicles.VehiclePart;
  * Down arrow takes the nearest vehicle within a few paces: mends it, bulbs included, but for a lamp a
  * shot broke, fills its tank, hot-wires it and sits the player in its first free seat, whatever
  * state it was found in. For looking at vehicles and driving without first finding one that runs.
+ * It also puts a digital watch on the left wrist of a player who wears none, for the watch glance.
  *
  * The apostrophe makes the player invincible, and vulnerable again on the next press.
  *
@@ -97,6 +100,7 @@ public final class DevKeys {
     static final boolean PRESENT = true;
     /** The down arrow. F7 is the mod's split screen key. */
     private static final int TAKE_VEHICLE_KEY = 208;
+    private static final String WATCH = "Base.WristWatch_Left_DigitalBlack";
     /** Pause: see FrameDump. */
     private static final int FRAME_DUMP_KEY = 197;
     private static final float TAKE_WITHIN = 5f;
@@ -450,6 +454,7 @@ public final class DevKeys {
         }
         if (GameKeyboard.isKeyPressed(TAKE_VEHICLE_KEY)) {
             for (IsoPlayer each : players) {
+                wearWatch(each);
                 takeNearestVehicle(each);
             }
         }
@@ -737,6 +742,18 @@ public final class DevKeys {
             }
         }
         Log.info("0: " + made + " zombies put back round the player");
+    }
+
+    private static void wearWatch(IsoPlayer player) {
+        WornItems worn = player.getWornItems();
+        for (int i = 0; i < worn.size(); i++) {
+            if (worn.getItemByIndex(i) instanceof AlarmClockClothing) {
+                return;
+            }
+        }
+        InventoryItem watch = player.getInventory().AddItem(WATCH);
+        player.setWornItem(watch.getBodyLocation(), watch);
+        Log.info("put a " + WATCH + " on player " + (player.getPlayerNum() + 1) + " at " + watch.getBodyLocation());
     }
 
     private static void takeNearestVehicle(IsoPlayer player) {
