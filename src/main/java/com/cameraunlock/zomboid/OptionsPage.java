@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import com.cameraunlock.core.CameraUnlock;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -11,6 +12,7 @@ import se.krka.kahlua.vm.JavaFunction;
 import se.krka.kahlua.vm.KahluaTable;
 import se.krka.kahlua.vm.LuaCallFrame;
 import zombie.Lua.LuaManager;
+import zombie.core.Translator;
 import zombie.ui.UIElement;
 import zombie.ui.UIManager;
 
@@ -98,6 +100,8 @@ final class OptionsPage {
     private static List<KeyControl> keyControls = List.of();
     /** MainOptions as the game's Lua has it, and its keyPressHandler, which its key dialog hands each key to. */
     private static KahluaTable mainOptions;
+    /** The game's table of the translations of UI_ keys (Translator.ui). */
+    private static Map<String, String> uiTranslations;
     private static Object gameTakesKey;
     /** Whether the controls hold what the session gave them as the screen last opened: until they do, what they hold is the game's own file's. */
     private static boolean filled;
@@ -258,6 +262,7 @@ final class OptionsPage {
             showQuickLists();
             for (KeyControl key : keyControls) {
                 showKeys(key);
+                nameForClashes(key);
             }
             filled = true;
         } catch (RuntimeException failure) {
@@ -525,6 +530,29 @@ final class OptionsPage {
     }
 
     /**
+     * The game's dialog for a key two rows share names the other row by its translation,
+     * UI_optionscreen_binding_ and the row's label (ISDuplicateKeybindDialog), and a row of the
+     * mod's has none: the dialog showed the raw key. Each is given its label as the screen opens.
+     */
+    private static void nameForClashes(KeyControl key) {
+        translations().putIfAbsent("UI_optionscreen_binding_" + key.row.label(), key.row.label());
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, String> translations() {
+        if (uiTranslations == null) {
+            try {
+                Field field = Translator.class.getDeclaredField("ui");
+                field.setAccessible(true);
+                uiTranslations = (Map<String, String>) field.get(null);
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalStateException("the game's translations have changed: " + e, e);
+            }
+        }
+        return uiTranslations;
+    }
+
+    /**
      * In place of MainOptions.keyPressHandler, which the game's key dialog hands the key it
      * waited for: for one of the mod's keys, Esc closes the dialog with nothing changed, and a key
      * a row of [Hotkeys] cannot name leaves it open and says so. Every other key, and every key of
@@ -576,6 +604,12 @@ final class OptionsPage {
             }
         }
         throw new IllegalStateException("the game's key dialog has no label to say why a key is refused");
+    }
+
+    /** Whether the game's options screen is up, where a key pressed is one being chosen, not an action. Logic thread. */
+    static boolean optionsShown() {
+        return mainOptions != null && mainOptions.rawget("instance") instanceof KahluaTable instance
+                && instance.rawget("javaObject") instanceof UIElement element && element.isVisible();
     }
 
     /** Whether the game's menu is up, the one Esc brings up in a save, which the options screen is opened from there. Logic thread. */
