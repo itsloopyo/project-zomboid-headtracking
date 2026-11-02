@@ -4562,7 +4562,6 @@ final class Pipeline {
         to.set("uSunTexelUp", 2f * NEAR_EXTENT / shadowSize * across, 2f * FAR_EXTENT / shadowSize * across);
         to.set("uSlopeOffset", SLOPE_OFFSET);
         to.set("uRoofDeep", 2f * ROOF_RANGE);
-        to.set("uRoofPitch", RoofFit.PITCH * ViewCamera.LEVEL_HEIGHT);
         to.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
         to.set("uGameView", gameView());
         // How much of its distance from the eye a pixel of this picture takes in, up and down.

@@ -924,6 +924,8 @@ final class PipelineShaders {
      * notice is in THIRD-PARTY-NOTICES.md.
      */
     static final String WORLD_FRAGMENT_PARTS = ("#version 130\n#extension GL_EXT_texture_array : require\n"
+            // How far the game's pitched roofs rise over a tile, in tiles: a constant, where a uniform took room the stage has little of.
+            + "const float ROOF_PITCH = " + RoofFit.PITCH * ViewCamera.LEVEL_HEIGHT + ";\n"
             + CanopyWindow.GLSL
             + Sky.ATMOSPHERE + ENDS + AUTUMN + """
             uniform sampler2D uTexture;
@@ -944,12 +946,10 @@ final class PipelineShaders {
             uniform vec2 uSunTaps;
             // For sunAsked: how much height a texel of the near sun map and of the far one spans under a
             // level sheet, which is a texel times the cosine of the sun's elevation; how many texels of its
-            // slope every map holds a surface behind itself; twice the depth of the map from above, in tiles;
-            // and how far the game's pitched roofs rise over a tile.
+            // slope every map holds a surface behind itself; and twice the depth of the map from above, in tiles.
             uniform vec2 uSunTexelUp;
             uniform float uSlopeOffset;
             uniform float uRoofDeep;
-            uniform float uRoofPitch;
             uniform vec3 uEye;
             uniform float uRangeFrom;
             uniform float uCutAbove;
@@ -4343,7 +4343,7 @@ final class PipelineShaders {
                     // by pixel. Seen from overhead a building the game has opened has no roof in the maps, and
                     // its walls are asked as they stand too.
                     bool roofed = (open < 0.5 || abs(normalize(vNormal).z) < 0.5 && !card) && !water && uCutMarked.z <= 0.0;
-                    float beneath = open < 0.5 ? 0.16 * uRoofPitch : 0.0;
+                    float beneath = open < 0.5 ? 0.16 * ROOF_PITCH : 0.0;
                     vec3 c = (uNearMatrix * from).xyz * 0.5 + 0.5;
                     bool inNear = inside(c);
                     if (inNear) {

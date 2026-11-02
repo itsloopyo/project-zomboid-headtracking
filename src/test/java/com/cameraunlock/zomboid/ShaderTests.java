@@ -440,7 +440,7 @@ final class ShaderTests {
     private static void wallsAskTheSunFromUnderTheirRoof(List<Linked> programs) {
         String world = fragment(programs, "world").replaceAll("//[^\n]*", "").replaceAll("\\s+", " ");
         Checks.check(world.contains("bool roofed = (open < 0.5 || abs(normalize(vNormal).z) < 0.5 && !card) && !water && uCutMarked.z <= 0.0;"), "the world's fragment stage does not say what is roofed before it asks the sun maps");
-        Checks.check(world.contains("float beneath = open < 0.5 ? 0.16 * uRoofPitch : 0.0;"), "a point in a room is not asked from under the ceiling of a pitched roof, or one out of doors is");
+        Checks.check(world.contains("float beneath = open < 0.5 ? 0.16 * ROOF_PITCH : 0.0;"), "a point in a room is not asked from under the ceiling of a pitched roof, or one out of doors is");
         Checks.check(!(!world.contains("if (roofed) { c = (uNearMatrix * vec4(sunAsked(from.xyz, soft, uSunTexelUp.x, beneath), 1.0)).xyz * 0.5 + 0.5; inNear = inside(c); }"
                 + " if (inNear) { reached = shadowAt(uShadowNear, c, soft); if (open < 0.5 && reached > 0.0) {"
                 + " vec3 lower = (uNearMatrix * vec4(sunAsked(from.xyz, soft, uSunTexelUp.x, beneath) - vec3(0.0, 0.0, SUN_BAND), 1.0)).xyz * 0.5 + 0.5;"
@@ -474,8 +474,7 @@ final class ShaderTests {
                 || count(pipeline, "(SLOPE_OFFSET, 6f, most);") != 2
                 || !pipeline.contains("float across = (float) Math.hypot(state.lightX, state.lightY); "
                         + "to.set(\"uSunTexelUp\", 2f * NEAR_EXTENT / shadowSize * across, 2f * FAR_EXTENT / shadowSize * across); "
-                        + "to.set(\"uSlopeOffset\", SLOPE_OFFSET); to.set(\"uRoofDeep\", 2f * ROOF_RANGE);"
-                        + " to.set(\"uRoofPitch\", RoofFit.PITCH * ViewCamera.LEVEL_HEIGHT);")), "the world's program is not told the offset the sun maps are drawn with,"
+                        + "to.set(\"uSlopeOffset\", SLOPE_OFFSET); to.set(\"uRoofDeep\", 2f * ROOF_RANGE);")), "the world's program is not told the offset the sun maps are drawn with,"
                     + " a texel of each map as the light lies, or the depth of the map from above");
     }
 
