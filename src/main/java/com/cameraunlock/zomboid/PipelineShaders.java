@@ -7862,15 +7862,23 @@ final class PipelineShaders {
                 return abs(thereIs - hereIs) * step(it - OUTLINE_IN_FRONT * it - 0.02, notIt);
             }
 
-            // How many line widths from a pixel that is not the outlined thing the thing is looked for
-            // each way: a gap it closes round within that is a hole through it.
-            const int HOLE_REACH = 4;
+            // How far across, in tiles, a hole a round or a pellet leaves is at the most (BlastHoles'
+            // ROUND_RADIUS and MARK_RADIUS, with their ragged edge), and the fewest and most line widths
+            // from a pixel that is not the outlined thing the thing is looked for each way: a gap it
+            // closes round within that is a hole through it. A blast's hole is larger, and lined.
+            const float HOLE_ACROSS = 0.04;
+            const int HOLE_REACH_LEAST = 4, HOLE_REACH_MOST = 32;
 
-            // Whether the outlined thing lies within HOLE_REACH line widths of uv to its right, its left,
-            // above and below: a hole a shot made through a shut door. Lined, the holes were yellow dots.
-            bool holeThrough(vec2 uv, vec2 apart) {
+            // Whether the outlined thing, ahead tiles off, lies within a small hole's width of uv to its
+            // right, its left, above and below: a hole a shot made through a shut door. Lined, the holes
+            // were yellow dots, and up close a hole is many line widths across.
+            bool holeThrough(vec2 uv, vec2 apart, float ahead) {
+                float reach = clamp(HOLE_ACROSS / (2.0 * max(ahead, 0.01) * uTan.y * apart.y), float(HOLE_REACH_LEAST), float(HOLE_REACH_MOST));
                 bool right = false, left = false, up = false, down = false;
-                for (int k = 1; k <= HOLE_REACH; k++) {
+                for (int k = 1; k <= HOLE_REACH_MOST; k++) {
+                    if (float(k) > reach) {
+                        break;
+                    }
                     vec2 by = apart * float(k);
                     right = right || outlinedAt(uv + vec2(by.x, 0.0)).a > 0.5;
                     left = left || outlinedAt(uv - vec2(by.x, 0.0)).a > 0.5;
@@ -8411,7 +8419,9 @@ final class PipelineShaders {
                         // The side that is not it: here, or the first neighbour that is not.
                         vec2 gap = here.a < 0.5 ? uv : right.a < 0.5 ? uv + vec2(apart.x, 0.0) : left.a < 0.5 ? uv - vec2(apart.x, 0.0)
                                 : up.a < 0.5 ? uv + vec2(0.0, apart.y) : uv - vec2(0.0, apart.y);
-                        if (holeThrough(gap, apart)) {
+                        vec2 into = here.a > 0.5 ? uv : right.a > 0.5 ? uv + vec2(apart.x, 0.0) : left.a > 0.5 ? uv - vec2(apart.x, 0.0)
+                                : up.a > 0.5 ? uv + vec2(0.0, apart.y) : uv - vec2(0.0, apart.y);
+                        if (holeThrough(gap, apart, outlineAhead(into))) {
                             edge = 0.0;
                         }
                     }
