@@ -45,6 +45,8 @@ final class Ride {
     private final Suspension springs = new Suspension();
     /** A gap between frames longer than this, or another vehicle, puts the vehicle straight where the ground has it. */
     private static final long SPRINGS_LOST_NANOS = 500_000_000L;
+    /** Under this speed, km/h, a vehicle that is where it was has stopped, and its springs go on settling. */
+    private static final float STILL_KMH = 1f;
     private BaseVehicle carried;
     private long followedAt;
 
@@ -165,35 +167,14 @@ final class Ride {
         ground.lie(terrain, vehicle.getX(), vehicle.getY(), vehicle.getZ(), facing.x, facing.z, extents.z, extents.x);
         long now = System.nanoTime();
         boolean jumped = vehicle != carried || now - followedAt > SPRINGS_LOST_NANOS;
-        float seconds = (now - followedAt) / 1e9f;
-        held.copy(slope);
-        springs.carry(ground, seconds, jumped || air.airborne, slope);
-        // On a server the vehicle keeps to the land: there the game's level ground is what moves it.
-        // On the ground it goes where its springs carry it; in the air it comes down on the land itself.
-        air.step(air.airborne ? ground.groundUp : slope.groundUp, seconds, jumped || Online.joined());
-        if (air.landedAt > 0f) {
-            springs.land(air.landedAt);
+        // The game moves a vehicle in its own steps, and a frame can come round before the next: a
+        // vehicle on the move that is where it was has not been moved yet, and its time is carried on
+        // to the step that moves it. Taken as a step, the land under it stood still while it climbed,
+        // and it would leave the ground for that frame and drop its springs.
+        boolean waiting = !jumped && vehicle.getX() == atX && vehicle.getY() == atY && Math.abs(vehicle.getCurrentSpeedKmHour()) > STILL_KMH;
+        if (!waiting) {
+            follow(vehicle, now, jumped);
         }
-        slope.groundUp = air.height;
-        if (air.airborne) {
-            // In the air nothing holds it to the land: it keeps the lie it left the ground with.
-            slope.copy(held);
-            slope.groundUp = air.height;
-            highest = Math.max(highest, air.height - ground.groundUp);
-        }
-        if (DevBuild.ON && air.landedAt > 0f && wasAloft >= Airtime.FLYING_AFTER) {
-            Log.info(String.format(Locale.ROOT, "a %s at %.1f km/h landed at %.1f, %.1f after %.2f s in the air, up to %.2f over the land, falling at %.1f m/s",
-                    vehicle.getScriptName(), Math.abs(vehicle.getCurrentSpeedKmHour()), vehicle.getX(), vehicle.getY(), wasAloft, highest, air.landedAt));
-        }
-        if (!air.airborne) {
-            highest = 0f;
-        }
-        wasAloft = air.aloft;
-        carried = vehicle;
-        followedAt = now;
-        atX = vehicle.getX();
-        atY = vehicle.getY();
-        groundUp = slope.groundUp;
         System.arraycopy(slope.turn, 0, turn, 0, turn.length);
         roadSpeed = Math.abs(vehicle.getCurrentSpeedKmHour()) / SPEEDOMETER_FULL;
         engineSpeed = vehicle.isEngineRunning() ? (float) vehicle.getEngineSpeed() / REV_COUNTER_FULL : 0f;
@@ -239,6 +220,39 @@ final class Ride {
         if (seat >= 0) {
             seatTheEye(vehicle, seat, floorUp, eye);
         }
+    }
+
+    /** Carries the vehicle's springs and its flight on to now, from where the last step left them. */
+    private void follow(BaseVehicle vehicle, long now, boolean jumped) {
+        float seconds = (now - followedAt) / 1e9f;
+        held.copy(slope);
+        springs.carry(ground, seconds, jumped || air.airborne, slope);
+        // On a server the vehicle keeps to the land: there the game's level ground is what moves it.
+        // On the ground it goes where its springs carry it; in the air it comes down on the land itself.
+        air.step(air.airborne ? ground.groundUp : slope.groundUp, seconds, jumped || Online.joined());
+        if (air.landedAt > 0f) {
+            springs.land(air.landedAt);
+        }
+        slope.groundUp = air.height;
+        if (air.airborne) {
+            // In the air nothing holds it to the land: it keeps the lie it left the ground with.
+            slope.copy(held);
+            slope.groundUp = air.height;
+            highest = Math.max(highest, air.height - ground.groundUp);
+        }
+        if (DevBuild.ON && air.landedAt > 0f && wasAloft >= Airtime.FLYING_AFTER) {
+            Log.info(String.format(Locale.ROOT, "a %s at %.1f km/h landed at %.1f, %.1f after %.2f s in the air, up to %.2f over the land, falling at %.1f m/s",
+                    vehicle.getScriptName(), Math.abs(vehicle.getCurrentSpeedKmHour()), vehicle.getX(), vehicle.getY(), wasAloft, highest, air.landedAt));
+        }
+        if (!air.airborne) {
+            highest = 0f;
+        }
+        wasAloft = air.aloft;
+        carried = vehicle;
+        followedAt = now;
+        atX = vehicle.getX();
+        atY = vehicle.getY();
+        groundUp = slope.groundUp;
     }
 
     /** How the vehicle the viewer sits in lies, on its springs or in the air, as the last note had it. Logic thread. */
