@@ -8,6 +8,7 @@ import zombie.Lua.LuaManager;
 import zombie.characters.IsoPlayer;
 import zombie.core.Core;
 import zombie.core.properties.PropertyContainer;
+import zombie.core.textures.Texture;
 import zombie.entity.ComponentType;
 import zombie.entity.components.spriteconfig.SpriteConfig;
 import zombie.entity.components.ui.UiConfig;
@@ -713,8 +714,9 @@ final class CentreUse {
     }
 
     /**
-     * How high over its floor, in tiles, what stands on a square reaches: the highest of their tops (Surface), or
-     * no height at all where something there that stops the view or holds things has no top to put things on.
+     * How high over its floor, in tiles, what stands on a square reaches: the highest of their tops (Surface), and
+     * of a box or a crate with none as high as its sprite paints it; no height at all where something else there that
+     * stops the view has no top to put things on.
      */
     private static float topOf(IsoGridSquare square) {
         float top = 0f;
@@ -744,7 +746,14 @@ final class CentreUse {
                 continue;
             }
             if (surface <= 0) {
-                return Float.POSITIVE_INFINITY;
+                // A box or a crate holds things and has no top to put them on: it reaches as high as its sprite paints it.
+                Texture painted = object.getContainer() == null || object.getSprite() == null ? null
+                        : object.getSprite().getTextureForCurrentFrame(object.getDir());
+                if (painted == null) {
+                    return Float.POSITIVE_INFINITY;
+                }
+                top = Math.max(top, Debris.paintedHigh(painted, false));
+                continue;
             }
             float pixels = Surfaces.topNoTable(object);
             top = Math.max(top, pixels / WorldScene.SURFACE_PIXELS_PER_LEVEL * ViewCamera.LEVEL_HEIGHT);
