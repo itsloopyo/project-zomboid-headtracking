@@ -226,7 +226,10 @@ final class Ride {
     private void follow(BaseVehicle vehicle, long now, boolean jumped) {
         float seconds = (now - followedAt) / 1e9f;
         held.copy(slope);
-        springs.carry(ground, seconds, jumped || air.airborne, slope);
+        // A hop shorter than FLYING_AFTER is mostly the game moving the car in uneven steps, which
+        // reads as a climb that throws it; resting the springs for it laid the body flat on the land
+        // each time it came down, and the car shook on a hill.
+        springs.carry(ground, seconds, jumped || air.flying(), slope);
         // On a server the vehicle keeps to the land: there the game's level ground is what moves it.
         // On the ground it goes where its springs carry it; in the air it comes down on the land itself.
         air.step(air.airborne ? ground.groundUp : slope.groundUp, seconds, jumped || Online.joined());
@@ -234,10 +237,12 @@ final class Ride {
             springs.land(air.landedAt);
         }
         slope.groundUp = air.height;
-        if (air.airborne) {
+        if (air.flying()) {
             // In the air nothing holds it to the land: it keeps the lie it left the ground with.
             slope.copy(held);
             slope.groundUp = air.height;
+        }
+        if (air.airborne) {
             highest = Math.max(highest, air.height - ground.groundUp);
         }
         if (DevBuild.ON && air.landedAt > 0f && wasAloft >= Airtime.FLYING_AFTER) {
