@@ -88,6 +88,8 @@ final class Furniture {
     boolean mirror;
     /** Whether it is the stone or brick faced on a fireplace's chimney breast, whose face the picture lays as masonry: see HearthFacings. */
     boolean faced;
+    /** Of a facing, where along its wall the sprite paints it from and to, in tiles from the corner the wall starts at. */
+    float facedFrom, facedTo;
     /** See ownSize. */
     boolean ownSize;
     /** See stretched. */
@@ -430,6 +432,8 @@ final class Furniture {
                     .alongWall(MANTEL_ALONG[hearth]);
             if (facing) {
                 piece.faced = true;
+                piece.facedFrom = FACING_FROM[hearth];
+                piece.facedTo = FACING_TO[hearth];
                 return piece;
             }
             return board ? piece.raise(MANTEL_BOARD_FOOT).dye(1 << Models.WOOD, MANTEL_BOARD_DYE)
@@ -989,7 +993,7 @@ final class Furniture {
      * long as its sprite paints it, its pieces meeting, and stands where it is painted: its model stands half its depth
      * further along than it is told, as anything that stands out of a north or a west wall does.
      */
-    private static final float[] MANTEL_ALONG = new float[46];
+    private static final float[] MANTEL_ALONG = new float[46], FACING_FROM = new float[46], FACING_TO = new float[46];
     private static final float FACING_PROUD = 0.0625f / 2f;
     /** How high a mantel shelf's board and a surround's frieze stand off the floor, in metres, as furniture.py builds them. */
     private static final float MANTEL_BOARD_FOOT = 1.30f, SURROUND_HEADER_FOOT = 0.72f;
@@ -1034,6 +1038,8 @@ final class Furniture {
     /** A facing painted between from and to along its wall, on the model furniture.py names by that length. */
     private static void facing(int place, float from, float to) {
         mantel(place, "hearth_facing_" + Math.round((to - from) * 1000f), (from + to) / 2f - FACING_PROUD);
+        FACING_FROM[place] = from;
+        FACING_TO[place] = to;
     }
 
     /** The sheet of the boards nailed across a window: one to four on a west and a north wall from 8, on an east and a south one from 0. */

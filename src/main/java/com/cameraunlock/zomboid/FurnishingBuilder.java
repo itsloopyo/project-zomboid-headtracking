@@ -381,7 +381,7 @@ final class FurnishingBuilder {
             float front = standHung(piece, model, x, y, z, clear, !piece.pictured ? WorldScene.PLAIN : picture != Decor.NONE ? Decor.held(picture) : texture.getID(),
                     piece.pictured ? 1 << Models.PANE : 0, 0f, 0f);
             if (piece.faced && Own.textures(build.playerIndex)) {
-                layFacing(texture, x, y, z, piece.wall == WallHung.NORTH, front);
+                layFacing(texture, piece, x, y, z, front);
             }
         }
         if (piece.mirror) {
@@ -496,9 +496,11 @@ final class FurnishingBuilder {
     /**
      * Lays the stone or brick a fireplace's facing paints as the masonry of a wall is laid, over the front of the facing's
      * slab, front out from the line of its north or west wall: the sprite's colours on the slab were a few dots to a stone.
+     * It is laid over the run the sprite paints, which the game sets a few pixels off the squares: laid over the square,
+     * the slab's first 6 cm showed its stretched sprite as a pale band between two lengths of masonry.
      * A facing whose colours are not read yet keeps them until a build made again once they are.
      */
-    private void layFacing(Texture texture, int x, int y, int z, boolean north, float front) {
+    private void layFacing(Texture texture, Furniture piece, int x, int y, int z, float front) {
         Integer laid = HearthFacings.of(texture);
         if (laid == null) {
             build.building.waitFor(texture);
@@ -507,10 +509,13 @@ final class FurnishingBuilder {
         if (laid == 0) {
             return;
         }
+        boolean north = piece.wall == WallHung.NORTH;
+        float from = piece.facedFrom, along = piece.facedTo - piece.facedFrom;
         float out = front + FACING_CLEAR;
         build.geometry.shownA = north ? 0f : out;
         build.geometry.shownB = north ? out : 0f;
-        build.geometry.addFace(build.solid.get(texture.getID(), laid), build.frame, x, y, z, 0f, 0f, 0f, north ? 1f : 0f, north ? 0f : 1f, 0f, 0f, 0f, 1f);
+        build.geometry.addFace(build.solid.get(texture.getID(), laid), build.frame, x, y, z, north ? from : 0f, north ? 0f : from, 0f,
+                north ? along : 0f, north ? 0f : along, 0f, 0f, 0f, 1f);
         build.geometry.shownA = build.geometry.shownB = 0f;
     }
 
