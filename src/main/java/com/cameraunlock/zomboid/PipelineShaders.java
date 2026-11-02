@@ -5912,12 +5912,21 @@ final class PipelineShaders {
 
             void main() {
                 vec2 uv = gl_FragCoord.xy / uSize;
-                // Before any pixel leaves: a slope across the screen is taken from the pixel's
-                // neighbours, which must all have got this far.
                 vec2 middle = (floor(uv * uFull) + 0.5) / uFull;
                 float depth = texture2D(uDepth, middle).r;
                 vec3 p = placeOf(middle, depth);
-                vec3 n = normalize(cross(dFdx(p), dFdy(p)));
+                // The surface's slope is taken towards whichever neighbour on each side is nearer
+                // in depth. Taken across a step, where two pieces of a wall meet a hair apart, the
+                // surface came out tilted, the samples beside it on the flat wall read as standing
+                // in front of it, and a dashed line of shade ran down the wall along the join.
+                vec2 texel = 1.0 / uFull;
+                vec3 right = placeAt(middle + vec2(texel.x, 0.0)) - p;
+                vec3 left = p - placeAt(middle - vec2(texel.x, 0.0));
+                vec3 up = placeAt(middle + vec2(0.0, texel.y)) - p;
+                vec3 down = p - placeAt(middle - vec2(0.0, texel.y));
+                vec3 across = abs(right.z) < abs(left.z) ? right : left;
+                vec3 rise = abs(up.z) < abs(down.z) ? up : down;
+                vec3 n = normalize(cross(across, rise));
                 if (depth >= 0.9999995) {
                     gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
                     return;
