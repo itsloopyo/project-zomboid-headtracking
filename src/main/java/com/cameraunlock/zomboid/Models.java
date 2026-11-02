@@ -506,7 +506,12 @@ final class Models {
         static final int SPAN = 49;
         /** Of a length of picket fence, the pickets shots broke out of it, as the graphics card is told them: see pickets. */
         static final int PICKETS = 51;
-        static final int FLOATS = 53;
+        /**
+         * Of a lamp the game switches, 2 while it burns and 1 while it is out, which its shade glows by
+         * (see lamp), or 0 for a piece that is no such lamp.
+         */
+        static final int LAMP = 53;
+        static final int FLOATS = 54;
         /**
          * The model's first corner in the list of every model's and how many it has, the same of
          * its plain one, the texture that dyes the piece or 0, and 1 for a piece that is part of
@@ -638,6 +643,7 @@ final class Models {
             to[at + WALL] = 0f;
             to[at + SPAN] = to[at + SPAN + 1] = 1f;
             to[at + PICKETS] = to[at + PICKETS + 1] = 0f;
+            to[at + LAMP] = 0f;
             ints[whole + FIRST] = model.from;
             ints[whole + COUNT] = model.corners.length;
             ints[whole + PLAIN_FIRST] = model.plain.from;
@@ -726,6 +732,15 @@ final class Models {
             int at = (count - 1) * FLOATS;
             floats[at + PICKETS] = ShotPickets.low(mask);
             floats[at + PICKETS + 1] = ShotPickets.high(mask);
+        }
+
+        /**
+         * Has the piece last added be a lamp the game switches, burning or out. Its shade glows by that, where
+         * a piece that is no lamp is told lit by how brightly the game lights its square: in a church lit by
+         * other lights a chandelier that was switched off glowed.
+         */
+        void lamp(boolean burning) {
+            floats[(count - 1) * FLOATS + LAMP] = burning ? 2f : 1f;
         }
 
         /** Has the pane of the piece last added, of this model, be a mirror's glass: see LookingGlass. */

@@ -1613,6 +1613,14 @@ public final class Tests {
         f = pieces.floats;
         int at = Models.Instances.FLOATS;
         check(f[at + Models.Instances.SPAN] == 2f && f[at + Models.Instances.SPAN + 1] == 1f, "a piece over a block of squares carries how many along each way");
+        check(f[Models.Instances.LAMP] == 0f && f[at + Models.Instances.LAMP] == 0f, "a piece is no switched lamp unless told it is");
+        pieces.add(wedge(), light, 0, 0, 0.5f, 0.5f, 0f, 0, 0.2f, 0.2f, 0, 0, 0f, 0f, 0, 0f, 0f);
+        pieces.lamp(false);
+        pieces.add(wedge(), light, 0, 0, 0.5f, 0.5f, 0f, 0, 0.2f, 0.2f, 0, 0, 0f, 0f, 0, 0f, 0f);
+        pieces.lamp(true);
+        f = pieces.floats;
+        check(f[2 * Models.Instances.FLOATS + Models.Instances.LAMP] == 1f && f[3 * Models.Instances.FLOATS + Models.Instances.LAMP] == 2f,
+                "a switched lamp carries whether it burns, which its shade glows by, whatever light the game gives its square");
     }
 
     private static void blockIsLitAtItsOuterCorners() {

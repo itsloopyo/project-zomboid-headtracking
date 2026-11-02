@@ -2502,9 +2502,10 @@ final class Pipeline {
             GL20.glEnableVertexAttribArray(attribute);
             GL33.glVertexAttribDivisor(attribute, 1);
         }
-        int surfacesAt = program.at("uSurfaces"), dyeAt = 0, pictureAt = 0, texelAt = 0, tubeAt = 0;
+        int surfacesAt = program.at("uSurfaces"), dyeAt = 0, pictureAt = 0, texelAt = 0, tubeAt = 0, lampAt = 0;
         if (shaded) {
             dyeAt = program.at("uDye");
+            lampAt = program.at("uLamp");
             pictureAt = program.at("uPicture");
             texelAt = program.at("uTexel");
             tubeAt = program.at("uTube");
@@ -2547,6 +2548,7 @@ final class Pipeline {
             } else {
                 int surfaces = at + Models.Instances.SURFACES, dye = at + Models.Instances.DYE, picture = at + Models.Instances.PICTURE;
                 GL20.glUniform4f(surfacesAt, f[surfaces], f[surfaces + 1], f[surfaces + 2], f[at + Models.Instances.WALL]);
+                GL20.glUniform1f(lampAt, f[at + Models.Instances.LAMP]);
                 if (live) {
                     // The glass of a set showing a programme: which shot it shows and what part of the shot is
                     // worked out now, and the picture is laid so that the part fills the glass.
@@ -2589,7 +2591,8 @@ final class Pipeline {
 
     /**
      * Whether the piece listed at other is drawn in the run of the piece whose floats start at at
-     * in f: the same picture, laid as a wall's face or not as it is, and with shaded the same surfaces, dye and picture laid on it.
+     * in f: the same picture, laid as a wall's face or not as it is, and with shaded the same surfaces, dye and picture laid on it
+     * and lit or out as a lamp as it is.
      * Their model is the same, which the order the run is in has said.
      */
     private boolean sameRun(float[] f, int at, int named, int other, boolean shaded) {
@@ -2608,7 +2611,8 @@ final class Pipeline {
         }
         return !differ(g, to + Models.Instances.SURFACES, f, at + Models.Instances.SURFACES, 3)
                 && !differ(g, to + Models.Instances.DYE, f, at + Models.Instances.DYE, 4)
-                && !differ(g, to + Models.Instances.PICTURE, f, at + Models.Instances.PICTURE, 4);
+                && !differ(g, to + Models.Instances.PICTURE, f, at + Models.Instances.PICTURE, 4)
+                && g[to + Models.Instances.LAMP] == f[at + Models.Instances.LAMP];
     }
 
     /** The order drawListed draws the pieces listed in, by model, picture and place in the list, and where each stands and how it is lit, as the world programs' instance attributes take it. */

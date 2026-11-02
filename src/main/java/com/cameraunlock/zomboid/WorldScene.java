@@ -7010,8 +7010,10 @@ final class WorldScene {
                                 level = sum(level, showing == Screens.PROGRAMME ? Screens.PROGRAMME + Screens.from(set) : showing);
                             }
                             if (object instanceof IsoLightSwitch string && object.getSprite() != null
-                                    && (Lights.slice(object.getSprite()) != Lights.NONE || kindOf(object.getSprite()).litTwin != null)) {
+                                    && (Lights.slice(object.getSprite()) != Lights.NONE || kindOf(object.getSprite()).litTwin != null
+                                    || Furniture.known(object.getSprite()) != null)) {
                                 // A string of lights that goes on or off: its bulbs are built burning or out. A lit sprite is laid or not.
+                                // A lamp the mod has a model of is built with its shade glowing or not (Models.Instances.lamp).
                                 thing = sum(thing, burns(string) ? 6 : 5);
                             }
                             thing = BloodBuilder.onWall(thing, object);
@@ -8912,7 +8914,7 @@ final class WorldScene {
          * asks that the viewer has seen the string's square, and a string behind a fence it hangs
          * on has not been seen from the far side of that fence.
          */
-        private boolean burns(IsoLightSwitch string) {
+        boolean burns(IsoLightSwitch string) {
             return string.isActivated() && (mainsOn || string.getSquare().haveElectricity());
         }
 

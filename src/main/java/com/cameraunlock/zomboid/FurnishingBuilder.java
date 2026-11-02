@@ -9,6 +9,7 @@ import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.objects.IsoBarbecue;
 import zombie.iso.objects.IsoFireplace;
+import zombie.iso.objects.IsoLightSwitch;
 import zombie.iso.objects.IsoTelevision;
 import zombie.iso.sprite.IsoSprite;
 import zombie.iso.sprite.IsoSpriteManager;
@@ -385,6 +386,9 @@ final class FurnishingBuilder {
         }
         if (piece.mirror) {
             build.placed.glass(model);
+        }
+        if (object instanceof IsoLightSwitch lamp) {
+            build.placed.lamp(build.burns(lamp));
         }
         if (picture != Decor.NONE && piece.grid == null) {
             float[] pane = Decor.pane(model);
@@ -1101,6 +1105,9 @@ final class FurnishingBuilder {
         }
         if (piece.mirror) {
             build.placed.glass(model);
+        }
+        if (object instanceof IsoLightSwitch lamp) {
+            build.placed.lamp(build.burns(lamp));
         }
         float[] fire = burning ? Fires.hearth(model.name) : null;
         if (fire != null) {

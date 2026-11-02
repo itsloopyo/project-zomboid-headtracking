@@ -1193,6 +1193,8 @@ final class PipelineShaders {
             // furniture are mid-toned on the whole.
             const float ROOM_THROWN = 0.35;
             uniform float uDark;
+            // Of a model that is a lamp the game switches, 2 while it burns and 1 while it is out; 0 for the rest: see Models.Instances.LAMP.
+            uniform float uLamp;
             uniform vec4 uLantern;
             uniform vec3 uOpenLinear;
             uniform float uDaylightKept;
@@ -4813,9 +4815,11 @@ final class PipelineShaders {
                 // square a burning lamp stands on strongly, and in the dark that is how a lamp
                 // that is on is told: its pale parts, the shade and the glass, then give light
                 // of their own, enough to bloom.
-                // The shade of the mod's own lamp is such a pale part.
-                if ((vMaterial > 13.5 && vMaterial < 14.5 || surface > 12.5 && surface < 13.5) && uDark > 0.0) {
-                    float lit = smoothstep(0.55, 0.95, max(vColor.r, max(vColor.g, vColor.b)));
+                // The shade of the mod's own lamp is such a pale part, and a lamp the game switches is told lit by its switch:
+                // other lights keep the square bright round a lamp that is out.
+                bool lampShade = surface > 12.5 && surface < 13.5;
+                if ((vMaterial > 13.5 && vMaterial < 14.5 || lampShade) && uDark > 0.0) {
+                    float lit = lampShade && uLamp > 0.5 ? uLamp - 1.0 : smoothstep(0.55, 0.95, max(vColor.r, max(vColor.g, vColor.b)));
                     float pale = smoothstep(0.45, 0.85, max(texel.r, max(texel.g, texel.b)));
                     color += pow(texel.rgb, vec3(2.2)) * vec3(1.0, 0.86, 0.62) * (9.0 * lit * pale * uDark);
                 }
