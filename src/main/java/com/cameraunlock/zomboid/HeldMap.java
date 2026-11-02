@@ -28,8 +28,11 @@ import zombie.vehicles.BaseVehicle;
  * has it, with its animation of reading, and then, in place of the game's panel over the whole
  * screen, the map stays up in the hands: the game's own map of the place round the player,
  * drawn by its own renderer with the player's own marks on it and a pointer where they are, onto a
- * sheet before the eye. The player can walk with it up. The map key again puts it down and
- * reads it again as the game does, for the game's panel, where it is panned, zoomed and marked.
+ * sheet before the eye. The player can walk with it up. A tap of the map key puts it down, and
+ * a press while it is coming up or going down is let be. Holding the map key, or anything else
+ * that opens the game's map (its side bar, its map menu, a pad), reads it as the game does, for
+ * the game's panel, where it is panned, zoomed and marked. Each press of the key is taken on its
+ * way down, once.
  * What puts it down is MapHold's, looked at after each frame's world is drawn whatever the view
  * (settle).
  *
@@ -61,15 +64,17 @@ final class HeldMap {
 
     /**
      * The Lua that holds the map: the game's reading of it made to hold it in the hands, the map
-     * key made to read it again for the game's panel from there, and a map of the game's own kind,
+     * key made to lift and lower it with a tap and to open the game's panel when held, everything
+     * else that opens the game's map made to open the panel, and a map of the game's own kind,
      * with the same data, style and paper as its panel, made for each player the first time it is
      * drawn. Handed the mod's functions, it answers the one that places a player's map and hands
      * back the map's Java element.
      */
     private static final String LUA = """
-            local Mod = ...
-            local maps, toPanel = {}, {}
+            local Mod, HOLD_MS = ...
+            local maps, toPanel, key = {}, {}, {}
             local new, start, stop, perform, toggle = ISReadWorldMap.new, ISReadWorldMap.start, ISReadWorldMap.stop, ISReadWorldMap.perform, ISWorldMap.ToggleWorldMap
+            local down, keep, up = ISWorldMap.onKeyStartPressed, ISWorldMap.onKeyKeepPressed, ISWorldMap.onKeyReleased
 
             function ISReadWorldMap:new(character, centerX, centerY, zoom)
                 local o = new(self, character, centerX, centerY, zoom)
@@ -96,7 +101,7 @@ final class HeldMap {
                 if self.heldInHands then
                     Mod.reading(self.playerNum, false)
                     if Mod.wanted(self.playerNum) then
-                        Mod.hold(self.playerNum)
+                        Mod.hold(self.playerNum, self.maxTime)
                         ISBaseTimedAction.perform(self)
                         return
                     end
@@ -104,16 +109,60 @@ final class HeldMap {
                 perform(self)
             end
 
-            ISWorldMap.ToggleWorldMap = function(playerNum)
-                if Mod.held(playerNum) then
-                    Mod.lower(playerNum)
-                    toPanel[playerNum] = true
-                    toggle(playerNum)
-                    toPanel[playerNum] = nil
-                    return
-                end
+            local function panel(playerNum)
+                toPanel[playerNum] = true
                 toggle(playerNum)
+                toPanel[playerNum] = nil
             end
+
+            ISWorldMap.ToggleWorldMap = function(playerNum)
+                Mod.lower(playerNum, "the game's map was opened")
+                panel(playerNum)
+            end
+
+            local function isMapKey(k)
+                return getCore():isKey(KeybindId.MAP, k)
+            end
+
+            Events.OnKeyStartPressed.Remove(down)
+            Events.OnKeyKeepPressed.Remove(keep)
+            Events.OnKeyPressed.Remove(up)
+
+            Events.OnKeyStartPressed.Add(function(k)
+                if not isMapKey(k) then return end
+                local usable, open = ISWorldMap.checkKey(k), ISWorldMap_instance and ISWorldMap_instance:isVisible()
+                key.mine = usable and not open and (Mod.held(0) or Mod.moving(0) or Mod.wanted(0))
+                if not key.mine then
+                    if usable then Mod.passed(0, open == true) end
+                    return down(k)
+                end
+                key.at, key.opened = getTimestampMs(), false
+                if Mod.moving(0) then
+                    Mod.press(0, "the map is coming up or going down, and the press is let be")
+                elseif Mod.held(0) then
+                    Mod.lower(0, "the map key was tapped")
+                else
+                    Mod.press(0, "the map comes up")
+                    toggle(0)
+                end
+            end)
+
+            Events.OnKeyKeepPressed.Add(function(k)
+                if not isMapKey(k) then return end
+                if not key.mine then return keep(k) end
+                if not key.opened and getTimestampMs() - key.at >= HOLD_MS then
+                    key.opened = true
+                    Mod.press(0, "held, for the game's map over the screen")
+                    Mod.lower(0, "the map key was held for the game's map")
+                    panel(0)
+                end
+            end)
+
+            Events.OnKeyPressed.Add(function(k)
+                if not isMapKey(k) then return end
+                if not key.mine then return up(k) end
+                key.mine = false
+            end)
 
             local function make(side, tall)
                 local map = ISUIElement:new(0, 0, side, tall)
@@ -147,12 +196,17 @@ final class HeldMap {
             end
             """;
 
+    /** How long the map key is held down for the game's map over the screen in place of the held one: under the game's own 500 ms for its map menu. */
+    static final double HOLD_MS = 400;
+
     /** How far in the held map is drawn, as the game counts its map's zoom: a few streets round the player. */
     static final double ZOOM = 17.5;
 
     private static final boolean[] reading = new boolean[View.COUNT], held = new boolean[View.COUNT], made = new boolean[View.COUNT];
     /** The vehicle seat each player read the map from (seatOf). */
     private static final int[] seats = new int[View.COUNT];
+    /** When each player began reading the map, in System.nanoTime. */
+    private static final long[] readSince = new long[View.COUNT];
     private static final Double[] PLAYER_NUMBERS = new Double[View.COUNT];
     private static final Double ZOOM_ASKED = ZOOM;
     /** The side and the height of the corner the maps are placed in, as they were last asked for, and as the Lua is handed them. */
@@ -168,18 +222,34 @@ final class HeldMap {
                 reading[player] = Boolean.TRUE.equals(frame.get(1));
                 if (reading[player]) {
                     seats[player] = seatOf(IsoPlayer.players[player]);
+                    readSince[player] = System.nanoTime();
                 }
                 return 0;
             },
             HOLD = (frame, arguments) -> {
                 int player = player(frame);
                 held[player] = true;
-                Log.info("player " + (player + 1) + " holds the map up in their hands: the map key again opens the game's map");
+                Log.info(String.format("player %d holds the map up in their hands, %.2f s after reading began (the game's reading of it is %s of its ticks):"
+                        + " a tap of the map key puts it down, holding it opens the game's map", player + 1, (System.nanoTime() - readSince[player]) / 1e9, frame.get(1)));
                 return 0;
             },
             IS_HELD = (frame, arguments) -> frame.push(held[player(frame)]),
+            MOVING = (frame, arguments) -> {
+                int player = player(frame);
+                return frame.push(reading[player] || !held[player] && !handsDown(player));
+            },
+            PRESS = (frame, arguments) -> {
+                Log.info("player " + (player(frame) + 1) + "'s map key: " + frame.get(1));
+                return 0;
+            },
+            PASSED = (frame, arguments) -> {
+                int player = player(frame);
+                Log.info("player " + (player + 1) + "'s map key is the game's: "
+                        + (Boolean.TRUE.equals(frame.get(1)) ? "its map is open over the screen" : MapHold.down(holding(player, false))));
+                return 0;
+            },
             LOWER = (frame, arguments) -> {
-                lower(player(frame), "the map key was pressed again");
+                lower(player(frame), (String) frame.get(1));
                 return 0;
             };
 
@@ -305,6 +375,9 @@ final class HeldMap {
         mod.rawset("reading", READING);
         mod.rawset("hold", HOLD);
         mod.rawset("held", IS_HELD);
+        mod.rawset("moving", MOVING);
+        mod.rawset("press", PRESS);
+        mod.rawset("passed", PASSED);
         mod.rawset("lower", LOWER);
         Object chunk;
         try {
@@ -313,7 +386,7 @@ final class HeldMap {
             Log.error("the map is not held up in first person: the game's Lua would not compile the mod's", refused);
             return;
         }
-        Object[] ran = LuaManager.caller.pcall(UIManager.getDefaultThread(), chunk, mod);
+        Object[] ran = LuaManager.caller.pcall(UIManager.getDefaultThread(), chunk, mod, HOLD_MS);
         if (!Boolean.TRUE.equals(ran[0]) || ran.length < 2 || ran[1] == null) {
             Log.error("the map is not held up in first person: the mod's Lua failed in the game's: " + Arrays.toString(ran));
             return;
