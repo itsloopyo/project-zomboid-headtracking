@@ -698,13 +698,14 @@ final class CentreUse {
         if (edge != null && !overOpening) {
             return new Over(edge);
         }
-        if (atExit <= LOW_THING) {
-            return null;
-        }
-        // A cabinet hung on the wall the view comes to over the counter.
-        IsoObject hung = hungOn(square, crossX ? (view.forwardX > 0f ? "W" : "E") : (view.forwardY > 0f ? "N" : "S"));
-        if (hung != null) {
-            return new Over(hung);
+        // A cabinet hung on the wall the view comes to over the counter. A light switch is lower
+        // than any such cabinet, about where the view meets the wall over a box, so it is not held
+        // to the same height.
+        if (atExit > LOW_THING) {
+            IsoObject hung = hungOn(square, crossX ? (view.forwardX > 0f ? "W" : "E") : (view.forwardY > 0f ? "N" : "S"));
+            if (hung != null) {
+                return new Over(hung);
+            }
         }
         return overOpening || edge == null && square.isBlockedTo(to) ? new Over(switchOn(square)) : null;
     }
