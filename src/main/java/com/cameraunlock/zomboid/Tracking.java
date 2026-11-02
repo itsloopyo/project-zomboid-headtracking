@@ -696,8 +696,9 @@ final class Tracking {
         if (first) {
             boolean enteringSave = outOfSave;
             int pressed = 0, told = cycleOwedGraphicsModes();
-            // The hotkeys are heard whatever the game is doing with the keyboard, so a key that goes into one of its text boxes is not an action as well.
-            if (outOfSave || zombie.core.Core.getInstance().isDoingTextEntry()) {
+            // The hotkeys are heard whatever the game is doing with the keyboard, so a key that goes into one of its text boxes, or
+            // one pressed on the options screen to choose it for a key row, is not an action as well.
+            if (outOfSave || zombie.core.Core.getInstance().isDoingTextEntry() || OptionsPage.optionsShown()) {
                 outOfSave = false;
                 core.hotkeysDrop();
             } else {
