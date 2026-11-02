@@ -5961,16 +5961,13 @@ final class PipelineShaders {
                 float small = min(p.z / 1.4, 1.0);
                 float reach = RADIUS * small / (p.z * uTan.y) * 0.5;
                 float blocked = 0.0;
-                // Each sample's share fades out towards the edge of its reach, here and in the two
-                // sums below: cut off at once, a wall just past the reach of some samples and not of
-                // the next pixel's left a dashed line down a wall beside a corner.
                 for (int i = 0; i < SAMPLES; i++) {
                     float along = (float(i) + spread) / float(SAMPLES);
                     float a = turn + along * 15.1;
                     vec2 off = vec2(cos(a) * uTan.y / uTan.x, sin(a)) * (along * reach);
                     vec3 v = (placeAt(uv + off) - p) / small;
                     float far2 = dot(v, v);
-                    blocked += max(dot(v, n) - 0.04, 0.0) / (far2 + 0.03) * (1.0 - smoothstep(0.5 * RADIUS * RADIUS * 3.0, RADIUS * RADIUS * 3.0, far2)) * shown(uv + off);
+                    blocked += max(dot(v, n) - 0.04, 0.0) / (far2 + 0.03) * step(far2, RADIUS * RADIUS * 3.0) * shown(uv + off);
                 }
                 float open = clamp(1.0 - blocked * (1.5 / float(SAMPLES)), 0.0, 1.0);
                 // The same again over the width of a room: the corner where two walls and a
@@ -5984,7 +5981,7 @@ final class PipelineShaders {
                     vec2 off = vec2(cos(a) * uTan.y / uTan.x, sin(a)) * (sqrt(along) * roomy);
                     vec3 v = (placeAt(uv + off) - p) / small;
                     float far2 = dot(v, v);
-                    broad += max(dot(v, n) - 0.05, 0.0) / (far2 + 0.15) * (1.0 - smoothstep(0.5 * ROOM_RADIUS * ROOM_RADIUS * 2.0, ROOM_RADIUS * ROOM_RADIUS * 2.0, far2)) * shown(uv + off);
+                    broad += max(dot(v, n) - 0.05, 0.0) / (far2 + 0.15) * step(far2, ROOM_RADIUS * ROOM_RADIUS * 2.0) * shown(uv + off);
                 }
                 open *= clamp(1.0 - broad * (2.0 / float(ROOM_SAMPLES)), 0.4, 1.0);
                 // Light does not stop at the first thing it falls on. A sunlit lawn throws
@@ -6000,7 +5997,7 @@ final class PipelineShaders {
                     vec3 v = (placeAt(at) - p) / small;
                     float far2 = dot(v, v);
                     float faces = max(dot(v, n), 0.0) / sqrt(far2 + 0.0001) * shown(at);
-                    lent += min(texture2D(uScene, at).rgb, vec3(4.0)) * (faces * (1.0 - smoothstep(0.5 * BOUNCE_RADIUS * BOUNCE_RADIUS * 4.0, BOUNCE_RADIUS * BOUNCE_RADIUS * 4.0, far2)) / (1.0 + far2));
+                    lent += min(texture2D(uScene, at).rgb, vec3(4.0)) * (faces * step(far2, BOUNCE_RADIUS * BOUNCE_RADIUS * 4.0) / (1.0 + far2));
                 }
                 lent *= 1.6 / float(BOUNCE_SAMPLES) * (1.0 - smoothstep(25.0, 50.0, p.z));
                 // The shadow maps cannot hold what is small and close: the shade a blade of grass
