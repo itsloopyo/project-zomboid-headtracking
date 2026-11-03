@@ -8,6 +8,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -61,7 +63,9 @@ final class Log {
      * there are no more of them than there are lines of the mod that can throw.
      */
     static void caughtByTheGame(Throwable thrown) {
-        for (Throwable each = thrown; each != null; each = each.getCause()) {
+        // A cause can be set to one of its own causes, which would loop.
+        Set<Throwable> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (Throwable each = thrown; each != null && seen.add(each); each = each.getCause()) {
             for (StackTraceElement frame : each.getStackTrace()) {
                 if (frame.getClassName().startsWith(MOD_PACKAGE)) {
                     if (CAUGHT.add(each.getClass().getName() + " at " + frame)) {

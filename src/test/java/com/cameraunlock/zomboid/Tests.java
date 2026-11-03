@@ -20,6 +20,9 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import java.util.zip.GZIPOutputStream;
 
@@ -124,6 +127,7 @@ public final class Tests {
         Checks.run("pointerComesOutForTheInventoryKeyAPanelAndAClickedButton", Tests::pointerComesOutForTheInventoryKeyAPanelAndAClickedButton);
         Checks.run("transformerHasNoGapOnceEveryPatchIsIn", Tests::transformerHasNoGapOnceEveryPatchIsIn);
         Checks.run("exceptionTheGameCaughtFromTheModIsWrittenOnce", Tests::exceptionTheGameCaughtFromTheModIsWrittenOnce);
+        Checks.run("exceptionWhoseCausesLoopIsLookedThroughOnce", Tests::exceptionWhoseCausesLoopIsLookedThroughOnce);
         Checks.run("hookIsGivenAStaticMethodsFirstArgument", Tests::hookIsGivenAStaticMethodsFirstArgument);
         Checks.run("transformerLeavesAClassItCannotPatchAloneAndNamesTheGap", Tests::transformerLeavesAClassItCannotPatchAloneAndNamesTheGap);
         Checks.run("transformerNamesAClassTheGameDoesNotHave", Tests::transformerNamesAClassTheGameDoesNotHave);
@@ -3332,6 +3336,23 @@ public final class Tests {
         check(!written.contains("the game's own"), "an exception none of which came through the mod is left to the game's log");
         check(written.split("the game caught this from the mod", -1).length == 2, "a fault that comes every frame is written once, got: " + written);
         check(written.contains("thrown in a hook") && written.contains("FirstPerson.afterWorldRender"), "it is written with its cause and where in the mod it was thrown");
+    }
+
+    private static void exceptionWhoseCausesLoopIsLookedThroughOnce() {
+        RuntimeException outer = new RuntimeException("the game's wrapper");
+        RuntimeException inner = new RuntimeException("its cause", outer);
+        outer.initCause(inner);
+        for (RuntimeException each : new RuntimeException[] {outer, inner}) {
+            each.setStackTrace(new StackTraceElement[] {new StackTraceElement("zombie.gameStates.IngameState", "render", "IngameState.java", 1)});
+        }
+        ExecutorService looking = Executors.newSingleThreadExecutor();
+        try {
+            looking.submit(() -> Log.caughtByTheGame(outer)).get(10, TimeUnit.SECONDS);
+        } catch (Exception failed) {
+            throw new AssertionError("an exception whose causes loop is looked through and left, got: " + failed, failed);
+        } finally {
+            looking.shutdownNow();
+        }
     }
 
     private static String takenByTheHook;
