@@ -3345,7 +3345,12 @@ public final class Tests {
         for (RuntimeException each : new RuntimeException[] {outer, inner}) {
             each.setStackTrace(new StackTraceElement[] {new StackTraceElement("zombie.gameStates.IngameState", "render", "IngameState.java", 1)});
         }
-        ExecutorService looking = Executors.newSingleThreadExecutor();
+        // A daemon, so that one looping for ever fails the check and the run still ends.
+        ExecutorService looking = Executors.newSingleThreadExecutor(task -> {
+            Thread thread = new Thread(task, "cause loop check");
+            thread.setDaemon(true);
+            return thread;
+        });
         try {
             looking.submit(() -> Log.caughtByTheGame(outer)).get(10, TimeUnit.SECONDS);
         } catch (Exception failed) {

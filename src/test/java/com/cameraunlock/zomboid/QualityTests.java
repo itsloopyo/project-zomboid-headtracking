@@ -658,6 +658,7 @@ final class QualityTests {
     private static void theInstallerNamesTheModesInTheKeysOrder() throws IOException {
         String text = new String(Files.readAllBytes(Path.of("scripts", "install.cmd")), StandardCharsets.US_ASCII);
         StringJoiner firstPerson = new StringJoiner(", ");
+        int was = Quality.row(0);
         int start = Quality.LOW;
         int mode = start;
         for (int steps = 0; steps <= Quality.CUSTOM && (steps == 0 || mode != start); steps++) {
@@ -665,7 +666,7 @@ final class QualityTests {
             Quality.set(0, mode);
             mode = Quality.next(0);
         }
-        Quality.set(0, Quality.HIGH);
+        Quality.set(0, was);
         String modes = firstPerson + " in first person; " + String.join(", ", Quality.overheadWords().split(",")) + " in the isometric view";
         check(text.contains("F9        Cycle graphics mode: " + modes + "&echo"), "install.cmd's controls name F9's modes as " + modes);
         check(text.replace("\r\n", "").indexOf('\n') < 0, "every line of install.cmd ends in CR LF");

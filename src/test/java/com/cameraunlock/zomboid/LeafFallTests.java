@@ -35,7 +35,7 @@ final class LeafFallTests {
         Checks.run("nothingMovesWhileThePictureWaits", LeafFallTests::nothingMovesWhileThePictureWaits);
         Checks.run("forgottenTreesShedNothingAndTheirLeavesFallOn", LeafFallTests::forgottenTreesShedNothingAndTheirLeavesFallOn);
         Checks.run("settingDownLetsGoOfTheLeavesAndTheTrees", LeafFallTests::settingDownLetsGoOfTheLeavesAndTheTrees);
-        Checks.run("aLeafIsDrawnAsAQuadAboutItsMiddle",LeafFallTests::aLeafIsDrawnAsAQuadAboutItsMiddle);
+        Checks.run("aLeafIsDrawnAsAQuadAboutItsMiddle", LeafFallTests::aLeafIsDrawnAsAQuadAboutItsMiddle);
         Checks.run("aRoundThroughATurnedCrownKnocksLeavesLooseByHowFarItGoesThrough", LeafFallTests::aRoundThroughATurnedCrownKnocksLeavesLooseByHowFarItGoesThrough);
         Checks.run("greenLeavesHoldOnAndNoRoundKnocksAnyOutsideAutumn", LeafFallTests::greenLeavesHoldOnAndNoRoundKnocksAnyOutsideAutumn);
         Checks.run("aBushShedsNothingOfItselfAndARoundKnocksItsLeavesLooseInItsColour", LeafFallTests::aBushShedsNothingOfItselfAndARoundKnocksItsLeavesLooseInItsColour);
