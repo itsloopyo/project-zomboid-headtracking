@@ -33,6 +33,7 @@ final class QualityTests {
         Checks.run("eachRowOfCustomReachesItsOwnAnswer", () -> inFirstPerson(QualityTests::eachRowOfCustomReachesItsOwnAnswer));
         Checks.run("thePresetsLeaveCustomAsItWas", QualityTests::thePresetsLeaveCustomAsItWas);
         Checks.run("aPresetDrawsALargeViewAtTheMostPixelsAndCustomAtItsRow", QualityTests::aPresetDrawsALargeViewAtTheMostPixelsAndCustomAtItsRow);
+        Checks.run("aPictureThePCCannotDrawStepsTheModeDownAndTheKeyPassesIt", QualityTests::aPictureThePCCannotDrawStepsTheModeDownAndTheKeyPassesIt);
         Quality.custom(Quality.HIGH_PICTURE);
         Quality.set(0, Quality.HIGH);
     }
@@ -71,6 +72,75 @@ final class QualityTests {
         check(Quality.scale(1, 3840, 2160) == 1f, "and in Custom is not");
         Quality.set(1, Quality.HIGH);
         Quality.inFirstPerson(1, false);
+    }
+
+    /**
+     * A picture whose frames end with an OpenGL error goes to the mode below, down to Low, and is
+     * passed over by the graphics key; only with Low gone too can first person not be drawn.
+     */
+    private static void aPictureThePCCannotDrawStepsTheModeDownAndTheKeyPassesIt() {
+        // Low's rows as Custom: a picture of its own, which none of the presets draws.
+        Quality.custom(Config.picture(Config.values(Quality.LOW_PICTURE)));
+        Quality.inFirstPerson(0, true);
+        try {
+            Quality.set(0, Quality.HIGH);
+            Quality.set(0, Quality.AUTOMATIC);
+            Quality.Picture high = Quality.drawn(0);
+            long now = frames(SECOND, 30f, 3.5f);
+            check(Quality.name(0).equals("Automatic (Medium)"), "slow, Automatic goes down to Medium: " + Quality.name(0));
+            check(Quality.cannotDraw(0, high, now, "a test") && Quality.name(0).equals("Automatic (Medium)"),
+                    "an error in High's picture, found once Automatic has left it, changes nothing: " + Quality.name(0));
+            Quality.stepSaid();
+            check(cannotDraw(now) && Quality.name(0).equals("Automatic (Low)") && Quality.stepToSay() && Quality.stepped() == 0,
+                    "Medium it cannot draw goes to Low's cost, said as a step and not saved, Automatic having picked nothing: " + Quality.name(0));
+            now = frames(now, 50f, 1.5f);
+            check(Quality.name(0).equals("Automatic (Low)"), "and its frames are not judged until the step has settled");
+            frames(now, 50f, 20f);
+            check(Quality.row(0) == Quality.LOW && Quality.decided() == 1, "where it holds and picks Low: " + Quality.name(0));
+            Quality.drawableAgain();
+
+            Quality.set(0, Quality.HIGH);
+            check(cannotDraw(now) && Quality.row(0) == Quality.MEDIUM && Quality.stepped() == 1 && Quality.stepped() == 0,
+                    "High the player chose and the PC cannot draw goes to Medium, for Tracking to save and say once: " + Quality.name(0));
+            check(Quality.next(0) == Quality.CUSTOM, "the key passes over High: " + Quality.next(0));
+            Quality.set(0, Quality.AUTOMATIC);
+            check(Quality.name(0).equals("Automatic (Medium)"), "and Automatic begun again begins below it: " + Quality.name(0));
+            Quality.set(0, Quality.MEDIUM);
+            check(cannotDraw(now) && Quality.row(0) == Quality.LOW && Quality.next(0) == Quality.CUSTOM,
+                    "Medium goes to Low, and the key from there passes over both: " + Quality.name(0));
+            Quality.set(0, Quality.CUSTOM);
+            check(cannotDraw(now) && Quality.row(0) == Quality.LOW && Quality.next(0) == Quality.LOW,
+                    "Custom it cannot draw goes past High and Medium to Low, the only mode the key has left: " + Quality.name(0));
+            check(!cannotDraw(now), "and with Low gone too there is nothing left: first person cannot be drawn");
+            Quality.stepped();
+            Quality.drawableAgain();
+
+            Quality.set(0, Quality.HIGH);
+            Quality.inFirstPerson(0, false);
+            check(cannotDraw(now) && Quality.row(0) == Quality.MEDIUM && Quality.overheadRow(0) == Quality.LOW,
+                    "out of first person with the isometric view in Low, the picture drawn is first person's, and it is first person's mode that goes down");
+            Quality.stepped();
+            Quality.setOverhead(0, Quality.HIGH);
+            Quality.set(0, Quality.HIGH);
+            check(cannotDraw(now) && Quality.overheadRow(0) == Quality.MEDIUM && Quality.row(0) == Quality.HIGH && Quality.stepped() == 1,
+                    "the isometric view's High goes to its Medium, and first person's mode is left as it was");
+            check(Quality.next(0) == Quality.CUSTOM, "with first person's High still on the key");
+            check(cannotDraw(now) && Quality.overheadRow(0) == Quality.LOW && Quality.nextOverhead(0) == Quality.CUSTOM,
+                    "and its Medium to Low, the game's own picture, from where the key passes over High and Medium");
+            Quality.stepped();
+        } finally {
+            Quality.drawableAgain();
+            Quality.custom(Quality.HIGH_PICTURE);
+            Quality.inFirstPerson(0, false);
+            Quality.setOverhead(0, Quality.LOW);
+            Quality.set(0, Quality.HIGH);
+            Quality.decided();
+        }
+    }
+
+    /** The picture the first view draws now cannot be drawn. */
+    private static boolean cannotDraw(long now) {
+        return Quality.cannotDraw(0, Quality.drawn(0), now, "a test");
     }
 
     private static void splitScreenLowersHighOnce() {

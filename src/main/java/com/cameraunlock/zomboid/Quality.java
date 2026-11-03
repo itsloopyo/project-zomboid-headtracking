@@ -1,7 +1,9 @@
 package com.cameraunlock.zomboid;
 
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Locale;
+import java.util.Set;
 import java.util.function.UnaryOperator;
 
 /**
@@ -178,6 +180,14 @@ final class Quality {
     private static int decidedUnsaved;
     /** Whether Automatic has stepped since the screen last said so. */
     private static boolean stepUnsaid;
+    /**
+     * The pictures of first person and of the isometric view that this PC cannot draw (see
+     * cannotDraw). The graphics key passes over a mode that draws one, and Automatic over a level.
+     * Kept for the session: a driver that refuses a picture refuses it again.
+     */
+    private static final Set<Picture> undrawnFirst = new HashSet<>(), undrawnOverhead = new HashSet<>();
+    /** The players whose mode cannotDraw stepped down and Tracking has not yet saved and said, a bit each by number. */
+    private static int steppedUnsaved;
     /** The views whose frames are being counted. The count is one for all of them: see frame. */
     private static final boolean[] counting = new boolean[View.COUNT];
 
@@ -265,6 +275,9 @@ final class Quality {
 
     private static void beginAutomatic() {
         level = HIGH;
+        while (level > STOCK && undrawnFirst.contains(AUTOMATIC_AT[level])) {
+            level--;
+        }
         countedSince = 0L;
         settlesAt = 0L;
         lastCut = 0L;
@@ -435,15 +448,22 @@ final class Quality {
     }
 
     /** The mode the hotkey goes to from a player's first person mode: Low, Medium, High, Custom and round again, and Low from Automatic. */
-    static int next(int player) {
-        int row = rows[player];
-        return row == CUSTOM || row == AUTOMATIC ? LOW : row + 1;
+    static synchronized int next(int player) {
+        int row = rows[player], mode = row == CUSTOM || row == AUTOMATIC ? LOW : row + 1;
+        for (int passed = 0; passed < CUSTOM - LOW && undrawnFirst.contains(pictureOf(mode)); passed++) {
+            mode = mode == CUSTOM ? LOW : mode + 1;
+        }
+        return mode;
     }
 
     /** The mode the hotkey goes to from a player's isometric mode: Low, Medium, High, Custom and round again. */
-    static int nextOverhead(int player) {
-        int row = overheadRows[player];
-        return row == CUSTOM ? LOW : row + 1;
+    static synchronized int nextOverhead(int player) {
+        int mode = overheadRows[player] == CUSTOM ? LOW : overheadRows[player] + 1;
+        // Low is the game's own picture, which the mod does not draw.
+        while (mode != LOW && undrawnOverhead.contains(pictureOf(mode))) {
+            mode = mode == CUSTOM ? LOW : mode + 1;
+        }
+        return mode;
     }
 
     static int row(int player) {
@@ -465,6 +485,76 @@ final class Quality {
     /** The words CameraUnlock.ini holds for the isometric view's row, which numbers them from 0 for LOW. */
     static String overheadWords() {
         return String.join(",", Arrays.copyOfRange(NAMES, LOW, NAMES.length));
+    }
+
+    /**
+     * The picture erred, which a view drew, cannot be drawn on this PC: it is not drawn again this
+     * session, and the view's mode in effect goes down to the next it can draw. Automatic goes down
+     * a level, a first person mode to the mode below it (Custom to High), and an isometric mode as
+     * far as Low, the game's own picture. A mode stepped down is saved, as Automatic's pick is. A
+     * view whose picture has changed since it drew erred (a step of Automatic, a switch of view,
+     * the graphics key) is left as it is: what it draws now has not failed. Render thread.
+     *
+     * @param now as System.nanoTime, the clock frame is given
+     * @return whether the view has a picture to draw: with none, first person cannot be drawn
+     */
+    static synchronized boolean cannotDraw(int view, Picture erred, long now, String why) {
+        if (!shown.pictures[view].equals(erred)) {
+            return true;
+        }
+        // Which of the view's modes drew it, as refresh decides: first person's in the isometric view's Low too.
+        boolean firstPerson = inFirstPerson[view] || overheadRows[view] == LOW;
+        int row = firstPerson ? rows[view] : overheadRows[view];
+        Set<Picture> undrawn = firstPerson ? undrawnFirst : undrawnOverhead;
+        undrawn.add(firstPerson ? firstPersonPicture(view) : row == CUSTOM ? custom : preset(row));
+        String was = said(view);
+        if (firstPerson && row == AUTOMATIC) {
+            int to = level - 1;
+            while (to >= STOCK && undrawn.contains(AUTOMATIC_AT[to])) {
+                to--;
+            }
+            if (to < STOCK) {
+                return false;
+            }
+            level = to;
+            countedSince = 0L;
+            settlesAt = now + SETTLES_IN_NANOS;
+            heldFor = 0L;
+            stepUnsaid = true;
+        } else {
+            int to = row == CUSTOM ? HIGH : row - 1;
+            while (to > LOW && undrawn.contains(preset(to))) {
+                to--;
+            }
+            if (to < LOW || firstPerson && undrawn.contains(preset(to))) {
+                return false;
+            }
+            int[] next = (firstPerson ? rows : overheadRows).clone();
+            next[view] = to;
+            if (firstPerson) {
+                rows = next;
+            } else {
+                overheadRows = next;
+            }
+            steppedUnsaved |= 1 << view;
+        }
+        refresh();
+        Log.info("player " + (view + 1) + "'s " + was + " cannot be drawn on this PC (" + why + "): " + said(view) + " in its place");
+        return true;
+    }
+
+    /** The players whose mode cannotDraw stepped down since the last ask, a bit each by number, for Tracking to save and say. Logic thread. */
+    static synchronized int stepped() {
+        int players = steppedUnsaved;
+        steppedUnsaved = 0;
+        return players;
+    }
+
+    /** Tests only: every picture can be drawn again. */
+    static synchronized void drawableAgain() {
+        undrawnFirst.clear();
+        undrawnOverhead.clear();
+        steppedUnsaved = 0;
     }
 
     /** Set once first person cannot be drawn on this PC: no mode is drawn but the game's own picture. Logic thread. */
@@ -641,6 +731,9 @@ final class Quality {
     private static void decide(float rate) {
         int step = VideoMemory.step(), memory = step >= VideoMemory.LAST_STEP ? LOW : step >= VideoMemory.LAST_STEP - 1 ? MEDIUM : HIGH;
         int mode = Math.min(Math.max(level, LOW), memory);
+        while (mode > LOW && undrawnFirst.contains(preset(mode))) {
+            mode--;
+        }
         int[] next = rows.clone();
         int players = 0;
         for (int view = 0; view < next.length; view++) {

@@ -713,6 +713,7 @@ final class Tracking {
             }
             sayGraphics(saveLowered(Quality.players(IsoPlayer.numPlayers)));
             sayGraphics(savePicked(Quality.decided()));
+            sayGraphics(saveLowered(Quality.stepped()));
             if (enteringSave) {
                 graphicsToSay.set(0);
                 Quality.stepSaid();
@@ -731,7 +732,7 @@ final class Tracking {
         return mine;
     }
 
-    /** Keeps for the next start the graphics modes of the players split screen lowered, a bit each, and hands the bits back. */
+    /** Keeps for the next start the graphics modes of the players split screen or a picture this PC cannot draw lowered, a bit each, and hands the bits back. */
     private static int saveLowered(int lowered) {
         for (int i = 0; i < View.COUNT; i++) {
             if ((lowered & 1 << i) != 0) {

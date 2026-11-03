@@ -303,6 +303,18 @@ final class Pipeline {
      */
     private volatile String failure;
     /**
+     * The picture a frame of which ended with an OpenGL error less than ERRORS_APART_NANOS ago, or
+     * null. While a view draws that picture the error flags are read at the end of each stage, so a
+     * second error names the stage that raised it, and steps the view's mode down
+     * (Quality.cannotDraw). One error alone may be a driver's passing fault, and reading the flags
+     * waits for a driver that runs on a thread of its own, so it is not done for long. Render thread.
+     */
+    private Quality.Picture erredAt;
+    private long erredNanos;
+    private static final long ERRORS_APART_NANOS = 5_000_000_000L;
+    /** In a frame drawn after an error: the first error a stage left, or 0, and the stage. */
+    private int stageError, stageErredIn;
+    /**
      * Whether this view has asked for a piece or drawn a frame since it last let go. What every
      * view is drawn with is given back once none has.
      */
@@ -1377,6 +1389,10 @@ final class Pipeline {
         }
         if (failure == null) {
             float aspect = (float) viewport[2] / viewport[3];
+            if (erredAt != null && (!erredAt.equals(Quality.drawn(view.index)) || System.nanoTime() - erredNanos > ERRORS_APART_NANOS)) {
+                erredAt = null;
+            }
+            stageError = 0;
             if (TIMES) {
                 beginStages();
             }
@@ -1608,9 +1624,9 @@ final class Pipeline {
             reportStages();
             takeBackLent();
             heldBytes = held();
-            int error = drained();
+            int left = drained(), error = stageError != 0 ? stageError : left;
             if (error != 0) {
-                failure = "OpenGL error 0x" + Integer.toHexString(error) + " drawing the picture";
+                erred(error);
             } else if (roomShort) {
                 makeRoom("what the picture was drawn with");
             }
@@ -1645,6 +1661,28 @@ final class Pipeline {
             cutAt = 0;
         }
         dark = outside && landing == 0f ? 0f : Math.max(0f, dark - seconds / CLEARS_SECONDS);
+    }
+
+    /**
+     * A frame ended with an OpenGL error. The first at a picture is said, and the frames after it
+     * are checked stage by stage; the second goes to the mode below, and with none below, first
+     * person cannot be drawn.
+     */
+    private void erred(int error) {
+        String what = "OpenGL error 0x" + Integer.toHexString(error) + " drawing the picture"
+                + (stageError != 0 ? " in its " + STAGE_NAMES[stageErredIn] + " stage" : erredAt != null ? " after its last stage" : "");
+        if (erredAt == null) {
+            erredAt = Quality.drawn(view.index);
+            erredNanos = System.nanoTime();
+            Log.info(what + " in " + Quality.said(view.index) + ": the error flags are read after each stage while it is drawn, and another error within "
+                    + ERRORS_APART_NANOS / 1_000_000_000L + " s steps the mode down");
+        } else {
+            Quality.Picture erred = erredAt;
+            erredAt = null;
+            if (!Quality.cannotDraw(view.index, erred, System.nanoTime(), what)) {
+                failure = what;
+            }
+        }
     }
 
     private void sayFailure() {
@@ -4925,6 +4963,10 @@ final class Pipeline {
 
     /** Charges what the graphics card has done since the last stage ended to this one. */
     private void stage(int stage) {
+        if (erredAt != null && stageError == 0) {
+            stageError = drained();
+            stageErredIn = stage;
+        }
         if (!TIMES || !stageOpen) {
             return;
         }
