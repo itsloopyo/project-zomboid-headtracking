@@ -114,7 +114,12 @@ $assetRows = foreach ($jar in $artJars) {
         $stream.Dispose()
     }
     $assetName = $jar.BaseName + '-' + $hash.Substring(0, 12) + '.jar'
-    Copy-Item -LiteralPath $jar.FullName -Destination (Join-Path $assetsDir $assetName)
+    $asset = Join-Path $assetsDir $assetName
+    Copy-Item -LiteralPath $jar.FullName -Destination $asset
+    # The build hard links an unchanged art jar to its copy in build-cache, so the copy keeps the
+    # time that art was first built, and the nightly publish refuses a release asset older than
+    # its build. This copy is the asset this package made: it carries the time it was made.
+    (Get-Item -LiteralPath $asset).LastWriteTime = Get-Date
     Copy-Item -LiteralPath $jar.FullName -Destination $pluginsDir
     Write-Host ("  plugins/$($jar.Name), assets/$assetName ({0:N1} MB)" -f ($jar.Length / 1MB)) -ForegroundColor Green
     '    { "release_asset": { "name": "' + $assetName + '", "sha256": "' + $hash + '", "size": ' + $jar.Length + ' }, "target": "' + $jar.Name + '" }'
