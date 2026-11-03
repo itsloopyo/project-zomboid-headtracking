@@ -43,7 +43,7 @@ final class OptionsLayout {
                         Tracking.LOCAL_SMOOTHING_OPTION, Tracking.REMOTE_SMOOTHING_OPTION, Part.TORCH_FOLLOWS_HEAD.key, Tracking.LIGHT_MULTIPLIER_OPTION,
                         Part.CUSTOMISE_CHARACTER_HEAD.key),
                 new Group(GRAPHICS, null, null, Config.qualityKey(0), Config.overheadQualityKey(0), Config.styleKey(0), Part.LIGHTNING_BOLTS.key,
-                        Part.SHOT_IMPACTS.key, Part.FALLING_DEBRIS.key, Part.LAMP_SHADOWS.key, Part.COLOURED_GLASS_LIGHT.key, "MuzzleFlash", Part.WET_ON_THE_PLAYER.key, Part.AIM_BLUR.key, Part.ITEMS_AS_MODELS.key, Part.FINER_SKINS.key, Part.LEAVE_OUT_SCREEN_GREY.key,
+                        Part.SHOT_IMPACTS.key, Part.FALLING_DEBRIS.key, Part.LAMP_SHADOWS.key, Part.COLOURED_GLASS_LIGHT.key, "MuzzleFlash", Part.WET_ON_THE_PLAYER.key, Part.AIM_BLUR.key, Part.GRAN_TURISMO_TONE_MAPPING.key, Part.ITEMS_AS_MODELS.key, Part.FINER_SKINS.key, Part.LEAVE_OUT_SCREEN_GREY.key,
                         Part.SURROUNDINGS_IN_REFLECTIONS.key, Part.FAR_VEHICLES_AND_ZOMBIES.key, "HiddenWallDecor"),
                 new Group(CUSTOM_GRAPHICS, "These show what player 1's first person graphics mode draws. Changing one switches that mode to Custom, "
                         + "which draws these for every player set to Custom, in first person or the isometric view.", "Graphics"),
@@ -102,6 +102,7 @@ final class OptionsLayout {
             Map.entry("MuzzleFlash", "Muzzle flash"),
             Map.entry(Part.WET_ON_THE_PLAYER.key, "Rain on hands and weapon"),
             Map.entry(Part.AIM_BLUR.key, "Background blur while aiming"),
+            Map.entry(Part.GRAN_TURISMO_TONE_MAPPING.key, "Gran Turismo 7 tone mapping"),
             Map.entry(Part.ITEMS_AS_MODELS.key, "Ground items as 3D models"),
             Map.entry(Part.FINER_SKINS.key, "Detailed skins"),
             Map.entry(Part.LEAVE_OUT_SCREEN_GREY.key, "Leave out the grey weather tint"),

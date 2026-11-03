@@ -70,7 +70,7 @@ final class DevelopTests {
         long now = SECOND;
         for (int i = 0; i < 600; i++) {
             now += SECOND / 60;
-            d.settle(exposure, strength, night, fog, indoors, now);
+            d.settle(exposure, strength, night, fog, indoors, false, now);
         }
     }
 
@@ -143,8 +143,8 @@ final class DevelopTests {
         Develop d = new Develop();
         float exposure = 4f;
         d.read(even(log2(0.06f / exposure), log2(0.35f / exposure)), filled(1f), CELLS);
-        d.settle(exposure, 1f, 0f, 0f, 0f, SECOND);
-        d.settle(exposure, 1f, 0f, 0f, 0f, SECOND + SECOND / 60);
+        d.settle(exposure, 1f, 0f, 0f, 0f, false, SECOND);
+        d.settle(exposure, 1f, 0f, 0f, 0f, false, SECOND + SECOND / 60);
         float early = d.gain();
         settleLong(d, exposure, 1f, 0f, 0f, 0f);
         check(early > 1f && early < d.gain() - 0.01f, "the gain eases towards what the frame asks for, not jumps: " + early + " then " + d.gain());
@@ -211,7 +211,7 @@ final class DevelopTests {
         long now = 11 * SECOND;
         for (int i = 0; i < 15; i++) {
             now += SECOND / 60;
-            d.settle(exposure, 1f, 0f, 0f, 0f, now);
+            d.settle(exposure, 1f, 0f, 0f, 0f, false, now);
         }
         float darkLight = exposure * (float) Math.pow(2.0, d.dark()), middleLight = exposure * (float) Math.pow(2.0, d.middle());
         check(d.takenAt(exposure) < 0.15f * middleLight,
@@ -234,10 +234,10 @@ final class DevelopTests {
         }
         d.read(coat, filled(1f), CELLS);
         long now = 11 * SECOND + SECOND / 60;
-        d.settle(exposure, 1f, 0f, 0f, 0f, now);
+        d.settle(exposure, 1f, 0f, 0f, 0f, false, now);
         float dipped = d.takenAt(exposure);
         d.read(hazy, filled(1f), CELLS);
-        d.settle(exposure, 1f, 0f, 0f, 0f, now + SECOND / 60);
+        d.settle(exposure, 1f, 0f, 0f, 0f, false, now + SECOND / 60);
         float after = d.takenAt(exposure);
         check(dipped < 0.8f * settled, "the frame with the coat takes less away at once: " + dipped + " of " + settled);
         check(after < dipped + 0.1f * (settled - dipped),
@@ -257,7 +257,7 @@ final class DevelopTests {
             d.read(lights, filled(1f), CELLS);
             d.readCast(lights, filled(-0.3f), filled(-0.3f), CELLS);
             now += SECOND / 60;
-            d.settle(4f, 1f, 0f, 0f, 1f, now);
+            d.settle(4f, 1f, 0f, 0f, 1f, false, now);
             if (frame > 300) {
                 lowest = Math.min(lowest, d.balanceRed());
                 highest = Math.max(highest, d.balanceRed());

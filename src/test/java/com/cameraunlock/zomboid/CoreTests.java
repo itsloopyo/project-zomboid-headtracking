@@ -1172,7 +1172,7 @@ public final class CoreTests {
         }
         check(ids.toString().equals("EnableOnStartup WorldSpaceYaw TrackingMode LocalSmoothing RemoteSmoothing AimMode LightMultiplier FirstPersonEnabled FieldOfView Quality IsometricQuality "
                         + "Style FirstPerson FirstPersonInVehicles HillHeight MuzzleFlash Crosshair RegripTwoHandedWeapons SplitScreen CustomiseCharacterHead TorchFollowsHead HearFromTheEye LightningBolts "
-                        + "ShotImpacts FallingDebris LampShadows ColouredGlassLight FarVehiclesAndZombies QuickRagdolls HitFlinch HitDirection HeadLedViewWhenDown ItemsAsModels FinerSkins LeaveOutScreenGrey WetOnThePlayer AimBlur NameTagsAtHeads Highlights InteractLabel FiguresBehindWalls OverarmThrow FishingRod SurroundingsInReflections SecondPlayerQuality "
+                        + "ShotImpacts FallingDebris LampShadows ColouredGlassLight FarVehiclesAndZombies QuickRagdolls HitFlinch HitDirection HeadLedViewWhenDown ItemsAsModels FinerSkins LeaveOutScreenGrey WetOnThePlayer AimBlur GranTurismoToneMapping NameTagsAtHeads Highlights InteractLabel FiguresBehindWalls OverarmThrow FishingRod SurroundingsInReflections SecondPlayerQuality "
                         + "SecondPlayerIsometricQuality SecondPlayerStyle SecondPlayerFirstPerson SecondPlayerFirstPersonInVehicles ThirdPlayerQuality ThirdPlayerIsometricQuality "
                         + "ThirdPlayerStyle ThirdPlayerFirstPerson ThirdPlayerFirstPersonInVehicles FourthPlayerQuality FourthPlayerIsometricQuality FourthPlayerStyle FourthPlayerFirstPerson "
                         + "FourthPlayerFirstPersonInVehicles TreeQuality GrassDensity GrassDistance RenderScale ViewDistance ZombiesAndPropsDrawDistance FarTreeDistance RainOnGlass ShadingAndLight "
@@ -1195,7 +1195,7 @@ public final class CoreTests {
         }
         check(page.toString().equals("[Quick settings] EnableOnStartup "
                         + "[First person] FirstPersonEnabled FirstPersonInVehicles FirstPerson FieldOfView Crosshair HitDirection Highlights InteractLabel HearFromTheEye HeadLedViewWhenDown NameTagsAtHeads "
-                        + "QuickRagdolls HitFlinch FiguresBehindWalls OverarmThrow FishingRod HillHeight [Head tracking] TrackingMode AimMode WorldSpaceYaw LocalSmoothing RemoteSmoothing TorchFollowsHead LightMultiplier CustomiseCharacterHead [Graphics] Quality IsometricQuality Style LightningBolts ShotImpacts FallingDebris LampShadows ColouredGlassLight MuzzleFlash WetOnThePlayer AimBlur ItemsAsModels FinerSkins "
+                        + "QuickRagdolls HitFlinch FiguresBehindWalls OverarmThrow FishingRod HillHeight [Head tracking] TrackingMode AimMode WorldSpaceYaw LocalSmoothing RemoteSmoothing TorchFollowsHead LightMultiplier CustomiseCharacterHead [Graphics] Quality IsometricQuality Style LightningBolts ShotImpacts FallingDebris LampShadows ColouredGlassLight MuzzleFlash WetOnThePlayer AimBlur GranTurismoToneMapping ItemsAsModels FinerSkins "
                         + "LeaveOutScreenGrey SurroundingsInReflections FarVehiclesAndZombies HiddenWallDecor [Custom graphics] TreeQuality GrassDensity GrassDistance RenderScale ViewDistance ZombiesAndPropsDrawDistance "
                         + "FarTreeDistance RainOnGlass ShadingAndLight Reflections ReflectionScale FullSizeTextures SurfaceDepth SharpShadows WholeFigureShadows FrameBlending Antialiasing "
                         + "LightDistance CorpseModels [Mod content] VanillaWeapons VanillaFurniture VanillaPictures VanillaPlants VanillaTextures VanillaBuildings VanillaZombies "

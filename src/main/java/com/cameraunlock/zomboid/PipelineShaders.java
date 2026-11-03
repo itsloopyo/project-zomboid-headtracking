@@ -7789,6 +7789,8 @@ final class PipelineShaders {
             uniform vec2 uBalance;
             // How much of the film works on each colour alone: see film.
             uniform float uEachColour;
+            // 1 to develop through Polyphony's GT7 operator (GranTurismoTone) in place of film.
+            uniform float uGranTurismo;
             // How the game's own view darkens each square round the viewer (Sight): uSightAt.xy is
             // where its block starts, counted from the eye, z one over its side, and w how much
             // of the darkening is laid on, 0 for none.
@@ -7817,7 +7819,7 @@ final class PipelineShaders {
             // The game's own view's colours (Pipeline.OVERHEAD_CONTRAST): x how far each colour is
             // set apart from y, z what blue is multiplied by, w how much of it is done.
             uniform vec4 uOverhead;
-            """ + SHELTERED + """
+            """ + SHELTERED + GranTurismoTone.GLSL + """
 
             // How far a place is into the dark the game counts too dark to see by, and what its light is multiplied by to be the game's.
             vec2 tooDark(vec3 fromEye) {
@@ -8371,7 +8373,7 @@ final class PipelineShaders {
                     float kept = 0.5 * (a + b + sqrt((a - b) * (a - b) + 0.0001 * uLevels.x * uLevels.x));
                     c *= kept / max(light, 1e-6);
                 }
-                c = film(c * uLevels.y);
+                c = uGranTurismo > 0.5 ? granTurismo(c * uLevels.y) : film(c * uLevels.y);
                 c = pow(c, vec3(1.0 / 2.2));
                 // Where the game counts a room's square too dark to see by, the eye opens no further
                 // than to show it as a room in the game's whole light is shown, dimmed by the game's

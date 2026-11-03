@@ -5367,14 +5367,16 @@ final class Pipeline {
         Style.Fade style = styleFade.toward(Style.of(view.index), System.nanoTime());
         // The game's own view drawn from overhead, and Low, which is the game's look, are developed as they always were.
         boolean ownTone = !overhead && !Quality.plain(view.index) && !WITHOUT.contains("tone");
+        boolean granTurismo = ownTone && Part.GRAN_TURISMO_TONE_MAPPING.on();
         float cover = Math.max(state.coverSeen(), state.rain);
-        developed.settle(exposure, ownTone ? style.levels : 0f, state.night, state.fog, ownTone && !WITHOUT.contains("balance") ? 1f - state.outdoors : 0f, System.nanoTime());
+        developed.settle(exposure, ownTone ? style.levels : 0f, state.night, state.fog, ownTone && !WITHOUT.contains("balance") ? 1f - state.outdoors : 0f, granTurismo, System.nanoTime());
         develop.set("uBalance", ownTone ? developed.balanceRed() : 1f, ownTone ? developed.balanceBlue() : 1f);
         float middle = developed.middle();
         boolean local = ownTone && !Float.isNaN(middle);
         develop.set("uLevels", ownTone ? developed.takenAt(exposure) : 0f, ownTone ? developed.gain() : 1f, local ? middle : 0f);
         develop.set("uLocal", local && !WITHOUT.contains("localtone") ? style.compress : 0f, local && !WITHOUT.contains("localtone") ? style.clarity : 0f, ownTone ? style.sharpen : 0f);
         develop.set("uEachColour", ownTone && !WITHOUT.contains("filmcolours") ? EACH_COLOUR : 0f);
+        develop.set("uGranTurismo", granTurismo ? 1f : 0f);
         develop.set("uVibrance", ownTone && !WITHOUT.contains("vibrance") ? style.vibrance : 0f);
         develop.set("uMeter", DEVELOP_METER_UNIT);
         develop.set("uMeterTexel", 1f / METER_WIDE, 1f / METER_HIGH);

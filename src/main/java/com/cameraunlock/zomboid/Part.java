@@ -88,6 +88,10 @@ enum Part {
                     + "little, and the nearest parts of the gun a little less, eased in and out as the sights come up and go down. A\n"
                     + "target close by softens the background more than one far off. Never through a scope. false: the picture stays\n"
                     + "sharp from the gun to the horizon."),
+    GRAN_TURISMO_TONE_MAPPING("FirstPerson", "GranTurismoToneMapping", true, false,
+            "true: in first person, in every graphics mode but Low, light is brought into the screen's range as Gran Turismo 7\n"
+                    + "does it, with Polyphony Digital's tone mapping: deeper shadows, brighter middle tones, and bright light reaching\n"
+                    + "white sooner. false: the mod's own film curve, softer at both ends."),
     NAME_TAGS_AT_HEADS("FirstPerson", "NameTagsAtHeads", false, true,
             "true: on a server, in first person, the names and speech the game shows over people sit over their heads in the\n"
                     + "picture, and your own are hidden. false: the game shows them where its own view puts them."),

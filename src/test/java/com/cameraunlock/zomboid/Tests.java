@@ -324,6 +324,7 @@ public final class Tests {
         Checks.run("TailorTests", TailorTests::run);
         Checks.run("SoakedTests", SoakedTests::run);
         Checks.run("AimBlurTests", AimBlurTests::run);
+        Checks.run("GranTurismoToneTests", GranTurismoToneTests::run);
         Checks.run("usualColourIsWhatMostOfTheSpriteIsPaintedIn", Tests::usualColourIsWhatMostOfTheSpriteIsPaintedIn);
         Checks.run("theBuildThatShipsHasNoDevelopmentKeys", Tests::theBuildThatShipsHasNoDevelopmentKeys);
         Checks.run("heldWeaponPointsAheadWithItsBarrelOnTheLineAsked", Tests::heldWeaponPointsAheadWithItsBarrelOnTheLineAsked);

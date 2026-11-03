@@ -1,6 +1,6 @@
 # Third-Party Notices
 
-ProjectZomboidHeadTracking.jar holds this project's own classes, six of which
+ProjectZomboidHeadTracking.jar holds this project's own classes, seven of which
 carry the pieces of code listed under Shader code below, and
 cameraunlock-core: its Java classes, and its C++ compiled to WebAssembly and
 from there to Java classes, with the C and C++ runtimes compiled into that and
@@ -2215,8 +2215,8 @@ drawn are in the textures; no font file is bundled.
 
 ## Shader code
 
-The jar's shaders are this project's own, with four exceptions. All four are in
-the jar as shader source text, and the last is also written out in Java.
+The jar's shaders are this project's own, with five exceptions. All five are in
+the jar as shader source text, and the fourth and fifth are also written out in Java.
 
 ### Hash without Sine
 
@@ -2365,6 +2365,34 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
+
+### GT7 Tone Mapping
+
+- **Where:** `GranTurismoTone.java`: the `granTurismo` function it writes into the develop shader of `PipelineShaders.java`, and the same operator in Java, which the tests check against the sample's output
+- **License:** MIT
+- **Upstream:** `gt7_tone_mapping.cpp` 1.0 (2025-08-10), the sample implementation published with Polyphony Digital's SIGGRAPH 2025 talk "Driving Toward Reality: Physically Based Tone Mapping and Perceptual Fidelity in Gran Turismo 7", https://blog.selfshadow.com/publications/s2025-shading-course/
+- **Usage:** Brings the first person picture's light into the screen's range when `[FirstPerson] GranTurismoToneMapping` is on.
+- **Bundled:** yes, changed: its SDR path with ICtCp only, written in GLSL and Java with this project's names, taking linear Rec.709 light scaled by this project's exposure and turning it into Rec.2020 and back with the ITU-R BT.2087 matrices.
+
+Copyright (c) 2025 Polyphony Digital Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 ### Acknowledgements
 

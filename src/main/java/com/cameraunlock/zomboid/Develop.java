@@ -145,15 +145,18 @@ final class Develop {
      * Moves the dark taken away and the gain towards what this frame asks for at this exposure.
      * strength is the style's (Style.levels), night 0 by day to 1 by night, fog how thick the air is:
      * fog is meant to be pale, and a night is meant to be dark, so both are let be more.
+     * granTurismo is whether the picture is developed through GranTurismoTone rather than the film,
+     * whose dark and bright the levels aim at instead.
      */
-    void settle(float exposure, float strength, float night, float fog, float indoors, long now) {
+    void settle(float exposure, float strength, float night, float fog, float indoors, boolean granTurismo, long now) {
         float elapsed = settledAt == 0L ? 1f : Math.min((now - settledAt) / 1e9f, 1f);
         settledAt = now;
         float wantTaken = 0f, wantGain = 1f;
         if (!Float.isNaN(dark) && strength > 0f) {
             float darkLight = exposure * (float) Math.pow(2.0, dark);
             float brightLight = exposure * (float) Math.pow(2.0, bright);
-            float darkWanted = (float) Math.pow(DARK_SHOWN, 2.2);
+            float darkShown = (float) Math.pow(DARK_SHOWN, 2.2);
+            float darkWanted = granTurismo ? GranTurismoTone.greyInverse(darkShown) : darkShown;
             float taking = Math.clamp(1f - darkWanted / Math.max(darkLight, 1e-6f), 0f, MOST_TAKEN);
             taking *= strength * (1f - 0.6f * Math.clamp(fog, 0f, 1f));
             wantTaken = taking;
@@ -161,7 +164,8 @@ final class Develop {
             float dark = Math.clamp(night, 0f, 1f);
             float most = MOST_GAIN + (MOST_GAIN_AT_NIGHT - MOST_GAIN) * dark;
             float least = LEAST_GAIN + (1f - LEAST_GAIN) * dark;
-            float fits = filmInverse((float) Math.pow(BRIGHT_SHOWN, 2.2)) / Math.max(rest, 1e-6f);
+            float brightShown = (float) Math.pow(BRIGHT_SHOWN, 2.2);
+            float fits = (granTurismo ? GranTurismoTone.greyInverse(brightShown) : filmInverse(brightShown)) / Math.max(rest, 1e-6f);
             wantGain = 1f + (Math.clamp(fits, least, most) - 1f) * strength;
             wantTaken = taking * darkLight / exposure;
         }
