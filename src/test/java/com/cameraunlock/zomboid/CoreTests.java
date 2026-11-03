@@ -1043,13 +1043,13 @@ public final class CoreTests {
         String logged = Files.readString(game.resolve(Log.FILE_NAME));
         String line = logged.substring(logged.lastIndexOf("taken from the game's options screen: "));
         line = line.substring(0, line.indexOf(System.lineSeparator()));
-        int later = line.indexOf("; saved for the next start: ");
+        int later = line.indexOf("; to be saved for the next start: ");
         boolean placed = later > 0;
         for (Part part : Part.values()) {
             int at = line.indexOf(" " + part.key + " ");
             placed &= at > 0 && (part.live ? at < later : at > later);
         }
-        check(placed, "the log says which of them were taken and which are saved for the next start: " + line);
+        check(placed, "the log says which of them were taken and which are to be saved for the next start, before the save: " + line);
         String next = nextStart("every-tick-flipped");
         String parts = next.substring(next.indexOf("the mod's parts: "));
         boolean read = true;

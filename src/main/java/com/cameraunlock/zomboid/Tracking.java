@@ -584,8 +584,9 @@ final class Tracking {
         if (pictured) {
             now.add("player 1's Custom graphics");
         }
-        Log.info(now.length() == 0 ? "saved from " + from + " for the next start: " + atStart
-                : "taken from " + from + ": " + now + (atStart.length() > 0 ? "; saved for the next start: " + atStart : ""));
+        // The save follows on the config thread, and Config.saved logs whether the file took it.
+        Log.info(now.length() == 0 ? "to be saved from " + from + " for the next start: " + atStart
+                : "taken from " + from + ": " + now + (atStart.length() > 0 ? "; to be saved for the next start: " + atStart : ""));
         boolean savePicture = pictured;
         Map<String, Applied> applied = new LinkedHashMap<>();
         taken.forEach((key, value) -> applied.put(key, new Applied(value)));
