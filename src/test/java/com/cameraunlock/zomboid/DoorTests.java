@@ -901,19 +901,19 @@ final class DoorTests {
     private static void aDoorReadForAnOldScaleIsReadAgain() {
         Texture texture = new Texture(5102, 128, 256).named("fixtures_doors_01_scaled");
         SpriteGeometry.Frame frame = doubledFrame();
-        java.util.Map<Object, Object> asked = TestMap.read(null, Doors.class, "asked");
-        java.util.Map<Object, Object> known = TestMap.read(null, Doors.class, "known");
+        java.util.List<java.util.Map<Texture, Object>> asked = TestMap.read(null, Doors.class, "asked");
+        java.util.List<java.util.Map<Texture, Doors.Shape>> known = TestMap.read(null, Doors.class, "known");
         try {
             check(Doors.of(texture, frame, true) == null && Doors.unread(texture, true, false), "a door not read yet has no shape");
-            Object edge = asked.keySet().stream().filter(key -> TestMap.read(key, "texture") == texture).findFirst().orElseThrow();
+            check(asked.get(0).containsKey(texture), "it is asked for on the north edge");
             Doors.Shape stale = new Doors.Shape();
             stale.leaf = new Windows.Shape();
             stale.leaf.scale = frame.scale / 2f;
-            known.put(edge, stale);
+            known.get(0).put(texture, stale);
             check(Doors.of(texture, frame, true) == null && Doors.unread(texture, true, false), "a door read at the old scale is let go, to be read at the new");
         } finally {
-            asked.keySet().removeIf(key -> TestMap.read(key, "texture") == texture);
-            known.keySet().removeIf(key -> TestMap.read(key, "texture") == texture);
+            asked.forEach(map -> map.remove(texture));
+            known.forEach(map -> map.remove(texture));
         }
     }
 

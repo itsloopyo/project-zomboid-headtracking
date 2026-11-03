@@ -123,9 +123,8 @@ final class ImpactTests {
         shape.leaf.start = 0.0625f;
         shape.leaf.end = 0.84375f;
         shape.leaf.head = 0.79f;
-        Map<Doors.Edge, Doors.Shape> doors = TestMap.read(null, Doors.class, "known");
-        Doors.Edge edge = new Doors.Edge(doorTexture, true, false);
-        doors.put(edge, shape);
+        Map<zombie.core.textures.Texture, Doors.Shape> doors = TestMap.<java.util.List<Map<zombie.core.textures.Texture, Doors.Shape>>>read(null, Doors.class, "known").get(0);
+        doors.put(doorTexture, shape);
         try {
             check(DoorGlass.leafStruck(square, true, 0.5f, 0.4f) == door, "a shot through the middle of the leaf strikes the door");
             check(DoorGlass.leafStruck(square, true, 0.5f, 0.85f) == null && WorldScene.wallOn(square, true) == wall,

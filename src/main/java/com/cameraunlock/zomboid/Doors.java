@@ -2,6 +2,7 @@ package com.cameraunlock.zomboid;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import zombie.core.properties.PropertyContainer;
 import zombie.core.textures.Texture;
@@ -62,15 +63,19 @@ final class Doors {
     private record Asked(boolean swung, boolean gate, float originU, float originV, float scale, float left, float top, float width, float height) {}
 
     /**
-     * A sprite on one edge of its square: the north or the west, or with far the south or the east. A sprite is read
-     * on each edge it is asked for on, apart: a door asked for on an edge it does not paint, as a build that read a
-     * door open and its sprite still shut does, has no leaf there and its own edge's reading is left as it was.
+     * Which of asked's and known's maps a sprite on one edge of its square is in: the north or the west, or with far the
+     * south or the east. A sprite is read on each edge it is asked for on, apart: a door asked for on an edge it does
+     * not paint, as a build that read a door open and its sprite still shut does, has no leaf there and its own edge's
+     * reading is left as it was.
      */
-    record Edge(Texture texture, boolean north, boolean far) {}
+    private static int edge(boolean north, boolean far) {
+        return (north ? 0 : 1) | (far ? 2 : 0);
+    }
 
     private static final Shape NONE = new Shape();
-    private static final ConcurrentHashMap<Edge, Asked> asked = new ConcurrentHashMap<>();
-    private static final ConcurrentHashMap<Edge, Shape> known = new ConcurrentHashMap<>();
+    /** A map for each edge (see edge), by sprite: keyed by sprite and edge together, every lookup made a key, and line-of-fire traces look every frame. */
+    private static final List<ConcurrentHashMap<Texture, Asked>> asked = List.of(new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>());
+    private static final List<ConcurrentHashMap<Texture, Shape>> known = List.of(new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>());
     /**
      * How many dots past each end of its edge, and below its floor, at the game's smallest tiles, an open leaf is read.
      * The game paints one standing clear of the wall it is back against, as far as a quarter of a square into its
@@ -101,13 +106,13 @@ final class Doors {
         if (!(frame.scale > 0f)) {
             throw new IllegalArgumentException("door " + texture.getName() + " asked for with a frame of scale " + frame.scale + ": read at that scale it is no leaf on any edge");
         }
-        Edge edge = new Edge(texture, north, far);
-        Shape shape = known.get(edge);
+        ConcurrentHashMap<Texture, Shape> knownOn = known.get(edge(north, far));
+        Shape shape = knownOn.get(texture);
         if (shape != null && (shape == NONE || shape.leaf.originU == frame.originU && shape.leaf.originV == frame.originV && shape.leaf.scale == frame.scale)) {
             return shape == NONE ? null : shape;
         }
         Asked wanted = new Asked(swung, gate, frame.originU, frame.originV, frame.scale, frame.left, frame.top, frame.width, frame.height);
-        Asked was = asked.put(edge, wanted);
+        Asked was = asked.get(edge(north, far)).put(texture, wanted);
         // A shape for another frame goes even where this frame was asked for already: a read that
         // took the old ask can finish after the new one was put, and leave its shape behind.
         if (!wanted.equals(was) || shape != null) {
@@ -116,9 +121,9 @@ final class Doors {
                         : "origin " + shape.leaf.originU + "," + shape.leaf.originV + " scale " + shape.leaf.scale));
             }
             if (shape != null) {
-                known.remove(edge, shape);
+                knownOn.remove(texture, shape);
             } else {
-                known.remove(edge);
+                knownOn.remove(texture);
             }
             SpriteColours.readAgain(texture);
         }
@@ -142,20 +147,20 @@ final class Doors {
 
     /** As known, with far the door read on the south or east edge. */
     static Shape known(Texture texture, boolean north, boolean far) {
-        Shape shape = known.get(new Edge(texture, north, far));
+        Shape shape = known.get(edge(north, far)).get(texture);
         return shape == NONE ? null : shape;
     }
 
     /** Whether the sprite has still to be read on that edge: of gives null for it, and will not once a frame has been drawn. */
     static boolean unread(Texture texture, boolean north, boolean far) {
-        return !known.containsKey(new Edge(texture, north, far));
+        return !known.get(edge(north, far)).containsKey(texture);
     }
 
     /** The edges the sprite has been read as a leaf on, for a log line: "north", "south west" and so on, or "none". */
     static String leafEdges(Texture texture) {
         StringBuilder edges = new StringBuilder();
         for (int at = 0; at < 4; at++) {
-            Shape shape = known.get(new Edge(texture, at % 2 == 0, at >= 2));
+            Shape shape = known.get(at).get(texture);
             if (shape != null && shape != NONE) {
                 edges.append(edges.length() == 0 ? "" : " ").append(edgeName(at % 2 == 0, at >= 2));
             }
@@ -170,28 +175,29 @@ final class Doors {
     /** Reads the sprite on each edge it was asked for on: see Windows.read. */
     static void read(Texture texture, ByteBuffer sheet, int width, int left, int top, int right, int bottom) {
         for (int at = 0; at < 4; at++) {
-            read(new Edge(texture, at % 2 == 0, at >= 2), sheet, width, left, top, right, bottom);
+            read(texture, at, sheet, width, left, top, right, bottom);
         }
     }
 
-    private static void read(Edge edge, ByteBuffer sheet, int width, int left, int top, int right, int bottom) {
-        Asked wanted = asked.get(edge);
-        if (wanted == null || known.containsKey(edge)) {
+    private static void read(Texture texture, int edge, ByteBuffer sheet, int width, int left, int top, int right, int bottom) {
+        Asked wanted = asked.get(edge).get(texture);
+        ConcurrentHashMap<Texture, Shape> knownOn = known.get(edge);
+        if (wanted == null || knownOn.containsKey(texture)) {
             return;
         }
-        Texture texture = edge.texture();
+        boolean north = (edge & 1) == 0, far = (edge & 2) != 0;
         int across = Windows.across(wanted.scale), high = Windows.high(wanted.scale);
-        int margin = wanted.swung ? Math.round(SWUNG_SPILL * wanted.scale) : 0, below = wanted.swung && !edge.far() ? Math.round(SWUNG_BELOW * wanted.scale) : 0;
+        int margin = wanted.swung ? Math.round(SWUNG_SPILL * wanted.scale) : 0, below = wanted.swung && !far ? Math.round(SWUNG_BELOW * wanted.scale) : 0;
         int wide = across + 2 * margin;
         int[] at = new int[wide * high];
         // Read below the floor, the edge is laid as many dots lower in the picture: a dot of a level is a dot of the sprite. A leaf
         // on the south or east edge stands into its square over the floor (standing), and is read to the top of the level.
-        byte[] dots = Windows.laid(sheet, width, left, top, right, bottom, edge.north(), edge.far(), wanted.originU, wanted.originV + below, wanted.scale,
+        byte[] dots = Windows.laid(sheet, width, left, top, right, bottom, north, far, wanted.originU, wanted.originV + below, wanted.scale,
                 wanted.left, wanted.top, wanted.width, wanted.height, margin, at);
         Shape parts = new Shape();
         Windows.Shape leaf = wanted.gate ? Gates.measure(sheet, dots, at, wide, high, across, parts) : Windows.measure(dots, wide, high, true);
         if (TRACE) {
-            StringBuilder seen = new StringBuilder("door " + texture.getName() + " " + edgeName(edge.north(), edge.far()) + (wanted.swung ? " open" : "") + " origin " + wanted.originU + "," + wanted.originV
+            StringBuilder seen = new StringBuilder("door " + texture.getName() + " " + edgeName(north, far) + (wanted.swung ? " open" : "") + " origin " + wanted.originU + "," + wanted.originV
                     + " frame " + wanted.left + "," + wanted.top + " " + wanted.width + "x" + wanted.height + (leaf == null ? " is no leaf" : " leaf " + leaf.start + ".." + leaf.end + " high " + leaf.foot + ".." + leaf.head));
             for (int row = 0; row < high; row += 8) {
                 seen.append((char) 10);
@@ -202,7 +208,7 @@ final class Doors {
             Log.info(seen.toString());
         }
         if (leaf == null) {
-            known.put(edge, NONE);
+            knownOn.put(texture, NONE);
             return;
         }
         Windows.colour(sheet, dots, at, leaf);
@@ -224,18 +230,18 @@ final class Doors {
             int hung = Gates.hung(texture.getName(), parts.postStart, leaf.start);
             if (hung == Gates.HUNG_UNTOLD) {
                 if (TRACE) {
-                    Log.info("door " + texture.getName() + " " + edgeName(edge.north(), edge.far()) + " is a gate with no post and no place in a double: hung from neither end");
+                    Log.info("door " + texture.getName() + " " + edgeName(north, far) + " is a gate with no post and no place in a double: hung from neither end");
                 }
-                known.put(edge, NONE);
+                knownOn.put(texture, NONE);
                 return;
             }
             shape.handleAtEnd = hung == Gates.HUNG_START;
         }
-        if (wanted.swung && !standing(shape, across, high, margin, below, edge.far())) {
-            known.put(edge, NONE);
+        if (wanted.swung && !standing(shape, across, high, margin, below, far)) {
+            knownOn.put(texture, NONE);
             return;
         }
-        leaf.north = edge.north();
+        leaf.north = north;
         leaf.originU = wanted.originU;
         leaf.originV = wanted.originV;
         leaf.scale = wanted.scale;
@@ -245,7 +251,7 @@ final class Doors {
                     + (shape.handle == null ? "" : " (longest row " + shape.handle[0] + ", " + shape.handle[1] + " rows, usual row " + shape.handle[2] + ")")
                     + ", " + leaf.panes.length / 5 + " lights" + (Float.isNaN(shape.postStart) ? "" : ", a post " + shape.postStart + ".." + shape.postEnd));
         }
-        known.put(edge, shape);
+        knownOn.put(texture, shape);
     }
 
     /**
