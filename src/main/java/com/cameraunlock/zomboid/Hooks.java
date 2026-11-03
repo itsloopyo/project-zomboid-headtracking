@@ -281,6 +281,7 @@ public final class Hooks {
             BlastHoles.forget();
             ShotPickets.forget();
             WallRuns.forget();
+            InsideWalls.forget();
             Fires.forget();
             Pieces.forget();
             Debris.forget();

@@ -62,21 +62,29 @@ final class InsideWalls {
         return place < 0 ? name : name.substring(0, place);
     }
 
-    /** The game's sprites, read once the first time a shot asks what a wall is made of: they are all read as the game starts. */
-    private static final class Game {
-        static final InsideWalls READ = read(IsoSpriteManager.instance.namedMap.values());
-
-        static {
-            if (DevBuild.ON) {
-                Log.info(READ.material == null
-                        ? String.format(Locale.ROOT, "inside walls: the %d sheets of painted wall pieces name no one material for their plain walls, and their pieces with none stop a round", READ.painted.size())
-                        : String.format(Locale.ROOT, "inside walls: the wall pieces with no material on the %d sheets of painted wall pieces are %s", READ.painted.size(), READ.material));
-            }
-        }
-    }
+    /**
+     * The game's sprites, read the first time a shot of a save asks what a wall is made of: they are all read as the save
+     * loads (IsoWorld.init reads them afresh), and the next save may load other sheets with other mods.
+     */
+    private static volatile InsideWalls game;
 
     /** What a sprite is made of, as of() says, by the game's own sprites. */
     static String materialOf(IsoSprite sprite) {
-        return Game.READ.of(sprite);
+        InsideWalls read = game;
+        if (read == null) {
+            read = read(IsoSpriteManager.instance.namedMap.values());
+            if (DevBuild.ON) {
+                Log.info(read.material == null
+                        ? String.format(Locale.ROOT, "inside walls: the %d sheets of painted wall pieces name no one material for their plain walls, and their pieces with none stop a round", read.painted.size())
+                        : String.format(Locale.ROOT, "inside walls: the wall pieces with no material on the %d sheets of painted wall pieces are %s", read.painted.size(), read.material));
+            }
+            game = read;
+        }
+        return read.of(sprite);
+    }
+
+    /** Forgets the game's sprites as they were read: the save is left. */
+    static void forget() {
+        game = null;
     }
 }

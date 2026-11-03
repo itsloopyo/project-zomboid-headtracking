@@ -41,6 +41,7 @@ final class InsideWallTests {
         Checks.run("roundsAndBlastsGoThroughAnInsideWallsDoorwayPiece", InsideWallTests::roundsAndBlastsGoThroughAnInsideWallsDoorwayPiece);
         Checks.run("aPieceReadBesideMapNotLoadedIsReadAgain", InsideWallTests::aPieceReadBesideMapNotLoadedIsReadAgain);
         Checks.run("aPieceTheGameHandsOutAgainElsewhereIsReadAgain", InsideWallTests::aPieceTheGameHandsOutAgainElsewhereIsReadAgain);
+        Checks.run("theNextSavesSheetsAreReadAfresh", InsideWallTests::theNextSavesSheetsAreReadAfresh);
     }
 
     private static List<IsoSprite> sprites(String... rows) {
@@ -139,6 +140,31 @@ final class InsideWallTests {
             Checks.check("Brick".equals(WallRuns.materialOf(piece)), "handed out again beside brick it is brick: " + WallRuns.materialOf(piece));
         } finally {
             zombie.iso.IsoWorld.instance.currentCell = null;
+        }
+    }
+
+    /** A save loads the game's sheets afresh, and with other mods they can be others: what was read for the last is forgotten as it is left. */
+    private static void theNextSavesSheetsAreReadAfresh() {
+        java.util.Map<String, IsoSprite> named = IsoSpriteManager.instance.namedMap;
+        java.util.Map<String, IsoSprite> kept = new java.util.HashMap<>(named);
+        IsoSprite doorway = TileRows.sprite(DOORWAY);
+        try {
+            named.clear();
+            for (IsoSprite sprite : sprites(GAME)) {
+                named.put(sprite.getName(), sprite);
+            }
+            InsideWalls.forget();
+            Checks.check("Plaster".equals(InsideWalls.materialOf(doorway)), "in one save the doorway's piece is plasterboard: " + InsideWalls.materialOf(doorway));
+            named.clear();
+            for (IsoSprite sprite : sprites(DOORWAY, "walls_interior_house_01_1|IsPaintable||MaterialType|Wood|PaintingType|wall|WallN||WallType|wall|wall|")) {
+                named.put(sprite.getName(), sprite);
+            }
+            InsideWalls.forget();
+            Checks.check("Wood".equals(InsideWalls.materialOf(doorway)), "in the next, whose painted walls are boards, it is boards: " + InsideWalls.materialOf(doorway));
+        } finally {
+            named.clear();
+            named.putAll(kept);
+            InsideWalls.forget();
         }
     }
 }
