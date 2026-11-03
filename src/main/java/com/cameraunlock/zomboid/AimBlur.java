@@ -206,7 +206,8 @@ final class AimBlur {
         focus = Float.isNaN(focus) ? held.nearness() : pulled(focus, held.nearness(), seconds);
         pulledAt = now;
         usedNanos = now;
-        if (wide != this.wide || high != this.high || result == 0) {
+        // By the last target: a making the driver refused part way has made the ones before it.
+        if (wide != this.wide || high != this.high || resultTarget == 0) {
             make(wide, high);
         }
         int halfWide = Math.max(1, wide / 2), halfHigh = Math.max(1, high / 2);
@@ -291,6 +292,6 @@ final class AimBlur {
 
     /** What the two pictures take on the graphics card. */
     long bytes() {
-        return result == 0 ? 0L : 8L * ((long) wide * high + (long) Math.max(1, wide / 2) * Math.max(1, high / 2));
+        return gathered == 0 ? 0L : 8L * ((long) wide * high + (long) Math.max(1, wide / 2) * Math.max(1, high / 2));
     }
 }
