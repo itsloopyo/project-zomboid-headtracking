@@ -445,13 +445,18 @@ final class Breakage {
             }
             take[at] = true;
             int i = at % across, j = at / across;
-            for (int n : new int[] {i > 0 ? at - 1 : -1, i < across - 1 ? at + 1 : -1, j > 0 ? at - across : -1, j < rows - 1 ? at + across : -1}) {
-                if (n >= 0 && grid[n] == HOLE) {
-                    take[n] = true;
-                }
-            }
+            takeHole(grid, take, i > 0 ? at - 1 : -1);
+            takeHole(grid, take, i < across - 1 ? at + 1 : -1);
+            takeHole(grid, take, j > 0 ? at - across : -1);
+            takeHole(grid, take, j < rows - 1 ? at + across : -1);
         }
         return take;
+    }
+
+    private static void takeHole(byte[] grid, boolean[] take, int at) {
+        if (at >= 0 && grid[at] == HOLE) {
+            take[at] = true;
+        }
     }
 
     /**
