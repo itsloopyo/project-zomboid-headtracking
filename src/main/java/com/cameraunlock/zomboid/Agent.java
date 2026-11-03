@@ -936,6 +936,9 @@ public final class Agent {
                             code.getfield(ClassDesc.ofInternalName(RENDER_JOB), "animPlayerAngle", java.lang.constant.ConstantDescs.CD_float);
                             CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "bodyBaked", "(L" + ANIMATED_MODEL + ";Ljava/lang/Object;F)V"));
                         }, 1)),
+                new Patch(ATLAS, "Reset at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
+                        new CallSite.Method(ATLAS, "Reset", "()V"),
+                        code -> CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "bodyAtlasReset", "()V")))),
                 new Patch("zombie/core/textures/SmartTexture", "destroy at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
                         new CallSite.Method("zombie/core/textures/SmartTexture", "destroy", "()V"), code -> {
                             code.aload(0);

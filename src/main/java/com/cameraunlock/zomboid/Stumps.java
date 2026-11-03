@@ -1,15 +1,14 @@
 package com.cameraunlock.zomboid;
 
-import java.util.Collections;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import org.lwjgl.util.vector.Matrix4f;
 import zombie.characterTextures.BloodBodyPartType;
 import zombie.characters.IsoGameCharacter;
 import zombie.characters.IsoZombie;
+import zombie.core.skinnedmodel.advancedanimation.AnimatedModel;
 import zombie.core.skinnedmodel.animation.AnimationPlayer;
 import zombie.core.skinnedmodel.model.SkinningBone;
 import zombie.core.skinnedmodel.model.SkinningData;
@@ -77,24 +76,48 @@ final class Stumps {
     }
 
     /**
-     * The skeletons the game is posing to draw a picture of a body with its limbs cut, and where:
-     * a body's picture is drawn from a model of its own, which no character owns.
+     * The models the game is posing to draw a picture of a body with its limbs cut, each with the
+     * skeleton it posed and where: a body's picture is drawn from a model of its own, which no
+     * character owns. The game keeps the model for the next picture and hands its skeleton back
+     * to a pool when that body's model differs, so each is let go of once its picture is made or
+     * the game lets go of its pictures, never left to press the limbs of whatever takes the
+     * skeleton next.
      */
-    private static final Map<AnimationPlayer, Integer> baking = Collections.synchronizedMap(new WeakHashMap<>());
-    private static volatile boolean anyBaking;
+    private static final Map<AnimatedModel, Bake> baking = new ConcurrentHashMap<>();
 
-    /** Says where the limbs of the body a skeleton is posed for a picture of are cut, {@link Wounds#cuts} zero for none. */
-    static void baking(AnimationPlayer animation, int cuts) {
+    private record Bake(AnimationPlayer animation, int cuts) {}
+
+    /** Says where the limbs of the body a model is posed for a picture of are cut, {@link Wounds#cuts} zero for none. */
+    static void baking(AnimatedModel model, int cuts) {
         if (cuts == 0) {
-            baking.remove(animation);
+            baking.remove(model);
         } else {
-            baking.put(animation, cuts);
-            anyBaking = true;
+            baking.put(model, new Bake(model.getAnimationPlayer(), cuts));
         }
+    }
+
+    /** As the picture of a body has been made from a model. */
+    static void baked(AnimatedModel model) {
+        baking.remove(model);
+    }
+
+    /** As the game lets go of every body's picture, with the jobs still drawing one. */
+    static void bakesDropped() {
+        baking.clear();
+    }
+
+    private static int bakingCuts(AnimationPlayer animation) {
+        for (Bake bake : baking.values()) {
+            if (bake.animation == animation) {
+                return bake.cuts;
+            }
+        }
+        return 0;
     }
 
     /** Called from AnimationPlayer as the matrices of the bones in the model are made, before the ones the model is drawn with. */
     static void cut(AnimationPlayer animation, Wounds wounds) {
+        boolean anyBaking = !baking.isEmpty();
         if (!wounds.anyoneCut() && !anyBaking) {
             return;
         }
@@ -103,8 +126,7 @@ final class Stumps {
         if (character instanceof IsoZombie) {
             cuts = wounds.anyoneCut() ? wounds.cuts(character) : 0;
         } else if (character == null && anyBaking) {
-            Integer baked = baking.get(animation);
-            cuts = baked == null ? 0 : baked;
+            cuts = bakingCuts(animation);
         } else {
             return;
         }

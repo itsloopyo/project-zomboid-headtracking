@@ -743,7 +743,12 @@ public final class Hooks {
     /** Called as the game has set up the model a body's picture is drawn from, before it is posed. */
     public static void bodyBaking(DeadBodyAtlas.BodyParams params, AnimatedModel model) {
         String cuts = params.variables.get(BODY_CUTS);
-        Stumps.baking(model.getAnimationPlayer(), cuts == null ? 0 : Integer.parseInt(cuts));
+        Stumps.baking(model, cuts == null ? 0 : Integer.parseInt(cuts));
+    }
+
+    /** Called as the game lets go of every body's picture and every job drawing one, finished or not. */
+    public static void bodyAtlasReset() {
+        Stumps.bakesDropped();
     }
 
     /**
@@ -751,6 +756,7 @@ public final class Hooks {
      * the game's entry for the picture and the way the model was turned: see Corpses.baked.
      */
     public static void bodyBaked(AnimatedModel model, Object entry, float angle) {
+        Stumps.baked(model);
         if (Quality.corpseModelsAnywhere()) {
             Corpses.baked(model, entry, angle);
         }
