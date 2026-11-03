@@ -116,6 +116,7 @@ final class VehicleMeshes {
     }
 
     private static final HashSet<String> turnedSaid = new HashSet<>();
+    private static final HashSet<String> skinlessSaid = new HashSet<>();
     private static int tipSaid;
     /** What turns a vertex of the body into tiles along the vehicle, across it and up from the ground: three rows of four. */
     private static final float[] frame = new float[12];
@@ -221,7 +222,11 @@ final class VehicleMeshes {
         // a police car's livery, not the hue the game rolled for it.
         // Either may be null, as the characters' draw takes them: a modded vehicle whose script's skin did not resolve has no texture of its own.
         Texture skinned = instance.tex != null ? instance.tex : body.modelInstance.model.tex;
-        boolean skinColoured = body.modelInstance.model.effect != null && body.modelInstance.model.effect.getName().startsWith(SKIN_COLOURED) && skinned != null;
+        boolean skinShader = body.modelInstance.model.effect != null && body.modelInstance.model.effect.getName().startsWith(SKIN_COLOURED);
+        if (skinShader && skinned == null && skinlessSaid.add(script)) {
+            Log.error("the body of " + script + " is drawn with the game's " + SKIN_COLOURED + " shader and has no skin texture: its cabin is the vehicle's paint, not its livery");
+        }
+        boolean skinColoured = skinShader && skinned != null;
         float[] skin = skinColoured ? skinColour(read, skinned, seated.parts, script) : NONE;
         // A skin still loading is painted for now: the wheel is measured all the same, or the eye is not placed by it.
         if (skin == null || skin == NONE) {
