@@ -183,14 +183,21 @@ final class WindowGlass {
         if (swungOnFarEdge) {
             shape = Doors.known(open, north, true);
         }
+        if (shape == null) {
+            return null;
+        }
         IsoSprite shutSprite = WorldScene.shutSprite(door);
         Texture shutTexture = shutSprite == null ? null : shutSprite.getTextureForCurrentFrame(door.getDir());
         Doors.Shape shut = WorldScene.usable(shutTexture) ? Doors.known(shutTexture, !north) : null;
         swungFromShut = shut != null;
-        if (shape != null && swungFromShut) {
+        if (swungFromShut) {
+            // Swung, the leaf has the shut one's lights and no others: a wooden door is not laid out again each frame for none.
+            if (shut.leaf.panes.length == 0) {
+                return null;
+            }
             shape = Doors.swung(shape, shut, false);
         }
-        return shape == null || shape.leaf.panes.length == 0 ? null : shape.leaf;
+        return shape.leaf.panes.length == 0 ? null : shape.leaf;
     }
 
     /** Where along the map the glass of a leaf swung open on the north or west edge of square (x, y) stands: see OpeningBuilder.swungOut. */
