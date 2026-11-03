@@ -4,6 +4,7 @@ import java.util.Arrays;
 import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 import org.joml.Vector3f;
+import zombie.GameTime;
 import zombie.Lua.LuaManager;
 import zombie.characters.IsoPlayer;
 import zombie.inventory.InventoryItem;
@@ -172,7 +173,10 @@ final class Ride {
         // to the step that moves it. Taken as a step, the land under it stood still while it climbed,
         // and it would leave the ground for that frame and drop its springs.
         boolean waiting = !jumped && vehicle.getX() == atX && vehicle.getY() == atY && Math.abs(vehicle.getCurrentSpeedKmHour()) > STILL_KMH;
-        if (!waiting) {
+        // Paused, the springs and the flight hold as they are: a pause counted as waiting rested the springs and landed a car in the air.
+        if (!jumped && GameTime.isGamePaused()) {
+            followedAt = now;
+        } else if (!waiting) {
             follow(vehicle, now, jumped);
         }
         System.arraycopy(slope.turn, 0, turn, 0, turn.length);
