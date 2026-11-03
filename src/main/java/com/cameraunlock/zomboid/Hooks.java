@@ -875,6 +875,7 @@ public final class Hooks {
         wounds.forget(zombie);
         Bleeding.reused(zombie);
         Pieces.reused(zombie);
+        SnowCarried.reused(zombie);
         for (int i = 0; i < View.COUNT; i++) {
             View view = View.of(i);
             if (view != null) {

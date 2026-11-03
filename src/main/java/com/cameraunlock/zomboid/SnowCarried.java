@@ -1,9 +1,12 @@
 package com.cameraunlock.zomboid;
 
+import java.util.Collections;
+import java.util.Map;
 import java.util.WeakHashMap;
 import zombie.GameTime;
 import zombie.characters.IsoGameCharacter;
 import zombie.characters.IsoPlayer;
+import zombie.characters.IsoZombie;
 import zombie.characters.animals.IsoAnimal;
 import zombie.iso.IsoGridSquare;
 import zombie.vehicles.BaseVehicle;
@@ -12,8 +15,9 @@ import zombie.vehicles.BaseVehicle;
  * The snow each vehicle and each person the picture draws carries, kept from frame to frame
  * by the game's hours: see FigureSnow. Asked on the render thread as each is drawn, in every
  * view and pass alike, and moved on by the game hours since it was last asked, so a second ask
- * in the same moment changes nothing. What the game unloads is let go with it. Nothing in Low,
- * which draws vehicles and people as the game does.
+ * in the same moment changes nothing. What the game unloads is let go with it, and a zombie the
+ * game makes into another (which it holds on to, so it is never let go) is let go of then, on
+ * the logic thread. Nothing in Low, which draws vehicles and people as the game does.
  */
 final class SnowCarried {
     private SnowCarried() {}
@@ -25,7 +29,7 @@ final class SnowCarried {
     }
 
     private static final WeakHashMap<BaseVehicle, Kept> cars = new WeakHashMap<>();
-    private static final WeakHashMap<IsoGameCharacter, Kept> people = new WeakHashMap<>();
+    private static final Map<IsoGameCharacter, Kept> people = Collections.synchronizedMap(new WeakHashMap<>());
     private static final float[] NONE = new float[FigureSnow.FLOATS];
 
     /** What the vehicle carries as a view draws it, by FigureSnow's ROOF, BONNET and SCREEN: not to be changed by the caller. */
@@ -65,5 +69,10 @@ final class SnowCarried {
             kept.at = now;
         }
         return Quality.plain(view) ? 0f : kept.dust;
+    }
+
+    /** As the game starts making a new zombie of one it kept: the new one is first seen with no snow of the old one's. */
+    static void reused(IsoZombie zombie) {
+        people.remove(zombie);
     }
 }
