@@ -711,10 +711,24 @@ public final class Hooks {
     /** Called as the game has read what to draw a picture of a body from, from the body. */
     public static void bodyParams(DeadBodyAtlas.BodyParams params, IsoDeadBody body) {
         params.variables.remove(BODY_CUTS);
-        if (body.hasModData() && body.getModData().rawget(BODY_CUTS) instanceof Double cuts) {
-            params.variables.put(BODY_CUTS, Integer.toString(cuts.intValue()));
+        if (body.hasModData() && body.getModData().rawget(BODY_CUTS) instanceof Double saved) {
+            int cuts;
+            try {
+                cuts = Wounds.savedCuts(saved);
+            } catch (IllegalArgumentException malformed) {
+                if (!malformedCutsSaid) {
+                    malformedCutsSaid = true;
+                    Log.error(String.format(Locale.ROOT, "the body at (%.1f, %.1f, %.1f) is drawn whole, and so is any other whose limb cuts are saved the same way",
+                            body.getX(), body.getY(), body.getZ()), malformed);
+                }
+                return;
+            }
+            params.variables.put(BODY_CUTS, Integer.toString(cuts));
         }
     }
+
+    /** Whether a body's limb cuts that could not be read have been said this session. */
+    private static boolean malformedCutsSaid;
 
     /** Called with the name the game files a body's picture under: a body with a limb cut is not the picture of one without. */
     public static String bodyKey(String key, DeadBodyAtlas.BodyParams params) {

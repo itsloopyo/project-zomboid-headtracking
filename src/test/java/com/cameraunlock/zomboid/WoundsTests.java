@@ -19,6 +19,7 @@ final class WoundsTests {
         Checks.run("theLurchFollowsTheWoundedFoot", WoundsTests::theLurchFollowsTheWoundedFoot);
         Checks.run("aKillingShotTakesALimbOffOnlyPastAWholeZombiesShareAndARoll", WoundsTests::aKillingShotTakesALimbOffOnlyPastAWholeZombiesShareAndARoll);
         Checks.run("aZombieKilledByABlastLosesEveryLimbItCutsOnOneRoll", WoundsTests::aZombieKilledByABlastLosesEveryLimbItCutsOnOneRoll);
+        Checks.run("aBodysSavedCutsAreReadOnlyWhereEachPartIsCutSomewhere", WoundsTests::aBodysSavedCutsAreReadOnlyWhereEachPartIsCutSomewhere);
     }
 
     /** A shot through a forearm or calf. */
@@ -178,6 +179,27 @@ final class WoundsTests {
                 && Wounds.cutIn(cuts, Wounds.LEFT_LEG) == Wounds.UPPER && Wounds.cutIn(cuts, Wounds.RIGHT_LEG) == Wounds.LOWER
                 && Wounds.cutIn(cuts, Wounds.HEAD) == Wounds.UPPER, "each part reads back as it was cut, the head burst: " + cuts);
         check(wounds.anyoneCut(), "and the zombie is cut");
+    }
+
+    /** A body keeps its cuts in its mod data, which a save or a server can hand back as any number. */
+    private static void aBodysSavedCutsAreReadOnlyWhereEachPartIsCutSomewhere() {
+        Wounds wounds = new Wounds();
+        Object zombie = new Object();
+        shot(wounds, zombie, Wounds.RIGHT_ARM, 4f, 1f, Wounds.END);
+        wounds.burst(zombie);
+        int cuts = wounds.cuts(zombie);
+        check(Wounds.savedCuts((double) cuts) == cuts, "the cuts a body was saved with read back the same: " + cuts);
+        check(Wounds.savedCuts(0d) == 0 && Wounds.savedCuts(Wounds.MOST_CUTS - 1) == Wounds.MOST_CUTS - 1, "from none cut to every part cut at its top");
+        for (double saved : new double[] {-1d, -1024d, Wounds.MOST_CUTS, 1e12, 2.5, Double.NaN, Double.POSITIVE_INFINITY}) {
+            boolean refused;
+            try {
+                Wounds.savedCuts(saved);
+                refused = false;
+            } catch (IllegalArgumentException expected) {
+                refused = true;
+            }
+            check(refused, "cuts saved as " + saved + " are refused: a negative one reads back as a cut at no joint, " + Wounds.cutIn((int) saved, 0));
+        }
     }
 
     private static void theLurchFollowsTheWoundedFoot() {

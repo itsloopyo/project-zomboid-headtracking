@@ -137,6 +137,21 @@ final class Wounds {
         return code;
     }
 
+    /**
+     * The number {@link #cuts} made, as a body's mod data saved it (Hooks.BODY_CUTS). A save or a server can hold anything
+     * there: one that is not a whole number with a digit for each part is refused, as a negative one would pose a stump at
+     * no joint.
+     */
+    static int savedCuts(double saved) {
+        if (!(saved >= 0d && saved < MOST_CUTS) || saved != Math.rint(saved)) {
+            throw new IllegalArgumentException("limb cuts saved as " + saved + ", not a whole number from 0 to " + (MOST_CUTS - 1));
+        }
+        return (int) saved;
+    }
+
+    /** One past the largest number {@link #cuts} makes: CUTS to the power of PARTS. */
+    static final int MOST_CUTS = (int) Math.pow(CUTS, PARTS);
+
     /** Where a limb is cut in a number {@link #cuts} made. */
     static int cutIn(int cuts, int limb) {
         for (int i = 0; i < limb; i++) {
