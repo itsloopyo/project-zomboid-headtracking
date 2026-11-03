@@ -29,7 +29,6 @@ import zombie.core.skinnedmodel.model.VertexBufferObject;
 import zombie.core.textures.Texture;
 import zombie.scripting.objects.ModelAttachment;
 import zombie.scripting.objects.ModelScript;
-import zombie.iso.IsoGridSquare;
 import zombie.vehicles.BaseVehicle;
 
 /**
@@ -515,9 +514,8 @@ public final class Characters {
 
     /** While the eye's picture or a scope's is drawn, who it leaves out by the room they stand in, or null: see FigureRooms. */
     private FigureRooms byRoom;
-    private static boolean outdoors(zombie.iso.IsoMovingObject character) {
-        IsoGridSquare square = character.getCurrentSquare();
-        return square != null && square.getRoomID() == RoomSight.OUTSIDE;
+    private static boolean outdoors(FigureLights.Lit lit) {
+        return lit.key != FigureLights.NOWHERE && lit.room == RoomSight.OUTSIDE;
     }
 
     /** While the eye's picture is drawn, where in it the open air is seen, which someone out of doors is left out of where it is not: see RoomSight.Seen.airSees. */
@@ -2383,7 +2381,7 @@ public final class Characters {
                             || seenWithin > 0f && -past[0] > seenWithin + round) {
                         continue;
                     }
-                    if (airSeen != null && stands && (playersByRoom || !(data.character instanceof IsoPlayer)) && outdoors(data.character)
+                    if (airSeen != null && stands && (playersByRoom || !(data.character instanceof IsoPlayer)) && outdoors(lights.of(data.character))
                             && !airSeen.airSees(x - round, y - round, up - round, x + round, y + round, up + round)) {
                         leftOutByRoom++;
                         continue;
@@ -2394,11 +2392,14 @@ public final class Characters {
             }
             if (!WITHOUT_CULL && (kind == BY_EYE || kind == BY_SCOPE) && byRoom != null && data.character != null && !data.inVehicle
                     && (playersByRoom || !(data.character instanceof IsoPlayer))) {
-                IsoGridSquare square = data.character.getCurrentSquare();
-                boolean leftOut = square != null && byRoom.leftOut(square.getRoomID(), square.getX(), square.getY(), square.getZ());
-                if (FIGURE_ROOMS && figureRoomsLine != null && square != null) {
-                    figureRoomsLine.append(String.format(Locale.ROOT, " (%d,%d,%d room %d %s)", square.getX(), square.getY(), square.getZ(), square.getRoomID(),
-                            leftOut ? "LEFT OUT" : square.getRoomID() == RoomSight.OUTSIDE ? "outdoors" : byRoom.built(square.getRoomID()) ? "drawn, room built" : "drawn, beside an opening"));
+                // The square as the frame gathered it: the game's own object may be another place's by now.
+                FigureLights.Lit stood = lights.of(data.character);
+                long square = stood.key;
+                boolean leftOut = square != FigureLights.NOWHERE
+                        && byRoom.leftOut(stood.room, FigureLights.x(square), FigureLights.y(square), FigureLights.z(square));
+                if (FIGURE_ROOMS && figureRoomsLine != null && square != FigureLights.NOWHERE) {
+                    figureRoomsLine.append(String.format(Locale.ROOT, " (%d,%d,%d room %d %s)", FigureLights.x(square), FigureLights.y(square), FigureLights.z(square), stood.room,
+                            leftOut ? "LEFT OUT" : stood.room == RoomSight.OUTSIDE ? "outdoors" : byRoom.built(stood.room) ? "drawn, room built" : "drawn, beside an opening"));
                 }
                 if (leftOut) {
                     leftOutByRoom++;
