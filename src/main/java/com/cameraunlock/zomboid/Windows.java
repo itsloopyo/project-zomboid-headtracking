@@ -116,8 +116,14 @@ final class Windows {
             return shape == NONE ? null : shape;
         }
         Asked wanted = new Asked(north, frame.originU, frame.originV, frame.scale, frame.left, frame.top, frame.width, frame.height);
-        if (!wanted.equals(asked.put(edge, wanted))) {
-            known.remove(edge);
+        // A shape for another frame goes even where this frame was asked for already: a read that
+        // took the old ask can finish after the new one was put, and leave its shape behind.
+        if (!wanted.equals(asked.put(edge, wanted)) || shape != null) {
+            if (shape != null) {
+                known.remove(edge, shape);
+            } else {
+                known.remove(edge);
+            }
             SpriteColours.readAgain(texture);
         }
         return null;

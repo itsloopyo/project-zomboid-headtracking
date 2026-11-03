@@ -52,6 +52,7 @@ final class WindowTests {
         Checks.run("doorWithOneSmallLightIsALeafWithItsLight", WindowTests::doorWithOneSmallLightIsALeafWithItsLight);
         Checks.run("closerOnADoorsHeadIsNoPartOfItsLeaf", WindowTests::closerOnADoorsHeadIsNoPartOfItsLeaf);
         Checks.run("narrowArchKeepsItsCrown", WindowTests::narrowArchKeepsItsCrown);
+        Checks.run("aShapeReadForAnOldScaleIsReadAgain", WindowTests::aShapeReadForAnOldScaleIsReadAgain);
     }
 
     /** A flush door with a small light high in it, as the commercial doors are: a leaf with stiles as wide as the light's sides, and the light glass. */
@@ -101,6 +102,31 @@ final class WindowTests {
      * bare for CORNER dots, so its crown stands CORNER dots or more from either end and is never
      * the lump at one end of a head that a door's closer is.
      */
+    /**
+     * A read that took what was asked before the frame's scale changed, and finished after the
+     * new scale was asked for, leaves a shape of the old scale: it is let go and read again.
+     */
+    private static void aShapeReadForAnOldScaleIsReadAgain() {
+        zombie.core.textures.Texture texture = new zombie.core.textures.Texture(9001, 64, 128);
+        SpriteGeometry.Frame frame = new SpriteGeometry.Frame();
+        frame.scale = 2f;
+        frame.width = 128f;
+        frame.height = 256f;
+        java.util.Map<Object, Object> asked = TestMap.read(null, Windows.class, "asked");
+        java.util.Map<Object, Object> known = TestMap.read(null, Windows.class, "known");
+        check(Windows.of(texture, frame, true) == null && Windows.unread(texture, true), "a sprite not read yet has no shape");
+        Object edge = asked.keySet().stream().filter(key -> TestMap.read(key, "texture") == texture).findFirst().orElseThrow();
+        try {
+            Windows.Shape stale = new Windows.Shape();
+            stale.scale = 1f;
+            known.put(edge, stale);
+            check(Windows.of(texture, frame, true) == null && Windows.unread(texture, true), "a shape read at the old scale is let go, to be read at the new");
+        } finally {
+            asked.remove(edge);
+            known.remove(edge);
+        }
+    }
+
     private static void narrowArchKeepsItsCrown() {
         Windows.Shape shape = measured(
                 "    ###    ",
