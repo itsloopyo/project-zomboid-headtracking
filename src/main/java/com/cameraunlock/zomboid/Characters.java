@@ -2501,10 +2501,14 @@ public final class Characters {
     /**
      * The height a person standing in the picture stands at: see KerbSteps. The viewer's own is
      * stepped with the eye, on the logic thread, so the body seen from the eye goes up a kerb
-     * with it.
+     * with it. A zombie the game has reused stands straight on the ground for every frame drawn
+     * just after, as frames built before the reuse still draw it where it was.
      */
     private float standsUp(ModelSlotRenderData data, long now) {
         Terrain terrain = view.worldScene.terrain;
+        if (data.character != viewer && movers.madeAnew(data.character)) {
+            view.kerbSteps.lose(data.character);
+        }
         return data.character == viewer ? view.kerbSteps.up(terrain, data.character, data.x, data.y, data.z)
                 : view.kerbSteps.step(terrain, data.character, data.x, data.y, data.z, now);
     }
