@@ -31,45 +31,53 @@ final class WallRuns {
     static final int REACH = 6;
 
     /**
-     * What each piece was found made of, "" for nothing, with the sprite and the place it was found
-     * for: a wall's run does not change while it is loaded. The game hands a piece of a chunk it
-     * lets go back out for another thing of another chunk (IsoChunk.doReuseGridsquares,
-     * IsoObject.getNew), so an answer for another sprite or place is looked for again. An answer
-     * read while the map along the run was not loaded yet is not kept, as the wall that names the
-     * piece may be in the chunk still to load.
+     * What a piece was found made of, "" for nothing, on the square at a place (FigureLights.key) as the sprite it had: a
+     * wall's run does not change while it is loaded. The game hands a plain object it let go of out again for any square
+     * (IsoObject.reset, IsoChunk.doReuseGridsquares), and a build may still ask of it as that happens, so what was found
+     * holds only for the same place and sprite. An answer read while the map along the run was not loaded yet is not
+     * kept, as the wall that names the piece may be in the chunk still to load.
      */
-    private static final Map<IsoObject, Found> found = Collections.synchronizedMap(new WeakHashMap<>());
+    record Found(long place, IsoSprite sprite, String material) {
+        boolean holds(long at, IsoSprite as) {
+            return place == at && sprite == as;
+        }
+    }
 
-    private record Found(String sprite, int x, int y, int z, String material) {}
+    private static final Map<IsoObject, Found> found = Collections.synchronizedMap(new WeakHashMap<>());
 
     /** What a wall piece the game names no material for is made of by its run, or null for none. */
     static String materialOf(IsoObject piece) {
-        IsoSprite sprite = piece.getSprite();
-        String name = sprite == null ? null : sprite.getName();
         IsoGridSquare square = piece.getSquare();
+        if (square == null) {
+            return null;
+        }
+        long place = FigureLights.key(square.getX(), square.getY(), square.getZ());
+        IsoSprite sprite = piece.getSprite();
         Found known = found.get(piece);
-        if (known == null || square == null || !java.util.Objects.equals(known.sprite, name) || known.x != square.getX() || known.y != square.getY()
-                || known.z != square.getZ()) {
+        if (known == null || !known.holds(place, sprite)) {
             boolean[] unloaded = new boolean[1];
-            String looked = look(piece, unloaded);
-            if (unloaded[0] || square == null) {
+            String looked = look(sprite, square, unloaded);
+            if (unloaded[0]) {
                 return looked;
             }
-            known = new Found(name, square.getX(), square.getY(), square.getZ(), looked == null ? "" : looked);
+            known = new Found(place, sprite, looked == null ? "" : looked);
             found.put(piece, known);
         }
-        return known.material.isEmpty() ? null : known.material;
+        return known.material().isEmpty() ? null : known.material();
     }
 
-    /** Forgets what every piece was found made of: the save is left, and the next may be another map. */
+    /** Forgets what an object was found made of: the game resets it to hand it out again. Its world reuser thread. */
+    static void forget(IsoObject object) {
+        found.remove(object);
+    }
+
+    /** Forgets every piece's: the save is left, and the next may be another map. */
     static void forget() {
         found.clear();
     }
 
-    private static String look(IsoObject piece, boolean[] unloaded) {
-        IsoSprite sprite = piece.getSprite();
-        IsoGridSquare square = piece.getSquare();
-        if (sprite == null || square == null) {
+    private static String look(IsoSprite sprite, IsoGridSquare square, boolean[] unloaded) {
+        if (sprite == null) {
             return null;
         }
         IsoCell cell = IsoWorld.instance.currentCell;

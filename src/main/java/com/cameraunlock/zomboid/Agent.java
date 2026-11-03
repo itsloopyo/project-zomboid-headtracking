@@ -1077,7 +1077,11 @@ public final class Agent {
                         })),
                 new Patch("zombie/iso/IsoWorld", "update at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
                         new CallSite.Method("zombie/iso/IsoWorld", "update", "()V"),
-                        code -> CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "worldUpdate", "()V")))));
+                        code -> CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "worldUpdate", "()V")))),
+                // The game hands a plain object or tree it resets out again for any square, under the same object.
+                new Patch("zombie/iso/IsoObject", "reset at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
+                        new CallSite.Method("zombie/iso/IsoObject", "reset", "()V"),
+                        code -> CallSite.passThis(code, new CallSite.Method(HOOKS, "objectReset", "(Lzombie/iso/IsoObject;)V")))));
     }
 
     /** How much the game's screen shader greys a player's view, through ScreenGrey. */

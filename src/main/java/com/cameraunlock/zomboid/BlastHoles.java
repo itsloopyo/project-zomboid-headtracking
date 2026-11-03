@@ -1049,6 +1049,13 @@ final class BlastHoles {
         }
     }
 
+    /** Forgets what an object kept: the game resets it to hand it out again for any square. Its world reuser thread. */
+    static void reused(IsoObject object) {
+        if (any) {
+            kept.remove(object);
+        }
+    }
+
     /** Forgets every object's: the save is left. */
     static void forget() {
         kept.clear();

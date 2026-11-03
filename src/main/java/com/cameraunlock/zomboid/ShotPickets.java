@@ -426,6 +426,13 @@ final class ShotPickets {
         return true;
     }
 
+    /** Forgets what an object kept: the game resets it to hand it out again for any square. Its world reuser thread. */
+    static void reused(IsoObject object) {
+        if (any) {
+            kept.remove(object);
+        }
+    }
+
     /** Forgets every fence's: the save is left. */
     static void forget() {
         kept.clear();

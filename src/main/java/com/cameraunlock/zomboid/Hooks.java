@@ -870,6 +870,16 @@ public final class Hooks {
         Outlines.unhighlighted(object);
     }
 
+    /**
+     * Called as the game resets a plain object or tree to hand it out again for any square: as its world reuser thread
+     * pools the things of a chunk let go of, or as a square deletes one.
+     */
+    public static void objectReset(IsoObject object) {
+        WallRuns.forget(object);
+        BlastHoles.reused(object);
+        ShotPickets.reused(object);
+    }
+
     /** Called as the game starts making a new zombie of an object it kept from one that left the world. */
     public static void zombieReused(IsoZombie zombie) {
         wounds.forget(zombie);
