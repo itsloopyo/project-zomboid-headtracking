@@ -13,6 +13,7 @@ final class HiddenWallsTests {
         Checks.run("aKindTheGameDrawsFacingOutOnlyIsPassedOver", HiddenWallsTests::aKindTheGameDrawsFacingOutOnlyIsPassedOver);
         Checks.run("aHuntersHouseTakesATrophy", HiddenWallsTests::aHuntersHouseTakesATrophy);
         Checks.run("aHomesPicturesAreOfTheHouse", HiddenWallsTests::aHomesPicturesAreOfTheHouse);
+        Checks.run("aRoomOfAChunkStillLoadingShowsItsOwnPictures", HiddenWallsTests::aRoomOfAChunkStillLoadingShowsItsOwnPictures);
     }
 
     private static void aHomesPicturesAreOfTheHouse() {
@@ -146,5 +147,30 @@ final class HiddenWallsTests {
     private static void aKindTheGameDrawsFacingOutOnlyIsPassedOver() {
         Checks.check(HiddenWalls.preferred(Map.of("Mirror|Small Wide", 9, "Mirror|Tall", 1), "Mirror", "Large").equals("Tall"),
                 "a mirror two squares wide, which is not hung here, does not decide the kind");
+    }
+
+    /** A building over two chunks, one of them still loading: each room's pictures are the ones hung in it, the loading chunk's read afresh. */
+    private static void aRoomOfAChunkStillLoadingShowsItsOwnPictures() throws ReflectiveOperationException {
+        zombie.iso.IsoCell cell = new zombie.iso.IsoCell();
+        zombie.iso.BuildingDef building = new zombie.iso.BuildingDef(31L, 0, 0, 16, 8);
+        zombie.iso.sprite.IsoSprite basketball = new zombie.iso.sprite.IsoSprite("walls_decoration_02_48",
+                new zombie.core.properties.PropertyContainer(Map.of()), zombie.iso.SpriteDetails.IsoObjectType.wall, null);
+        for (int x : new int[] {1, 9}) {
+            zombie.iso.RoomDef room = new zombie.iso.RoomDef(0);
+            room.rects.add(new zombie.iso.RoomDef.RoomRect(x, 1, 2, 2));
+            room.building = building;
+            building.rooms.add(room);
+            cell.square(x, 1, 0).add(basketball);
+        }
+        cell.getChunkForGridSquare(9, 1, 0).loaded = false;
+        java.lang.reflect.Method pieced = HiddenWalls.class.getDeclaredMethod("pieced", zombie.iso.IsoCell.class, zombie.iso.BuildingDef.class);
+        pieced.setAccessible(true);
+        Object read = pieced.invoke(null, cell, building);
+        java.lang.reflect.Method shownOf = read.getClass().getDeclaredMethod("shown");
+        shownOf.setAccessible(true);
+        int[][] shown = (int[][]) shownOf.invoke(read);
+        int picture = Decor.named("basketball-0");
+        Checks.check(shown[0].length == 1 && shown[0][0] == picture, "the room on the loaded chunk shows its basketball: " + java.util.Arrays.toString(shown[0]));
+        Checks.check(shown[1].length == 1 && shown[1][0] == picture, "and the room on the chunk still loading shows its own, not picture 0: " + java.util.Arrays.toString(shown[1]));
     }
 }

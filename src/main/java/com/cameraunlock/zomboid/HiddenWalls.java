@@ -375,6 +375,8 @@ final class HiddenWalls {
         Kept kept = PIECES.computeIfAbsent(building, HiddenWalls::keptOf);
         Map<String, Integer> kinds = new HashMap<>();
         int[] counts = new int[rooms.size()];
+        // What each chunk gave this time: a piece of a chunk still loading is read but not kept.
+        Piece[] given = new Piece[kept.pieces.length];
         for (int i = 0; i < kept.pieces.length; i++) {
             int wx = kept.wx[i], wy = kept.wy[i], z = kept.z[i];
             // A square is found through its chunk on the map: where the map has none there is no square to read (IsoCell.getGridSquare).
@@ -405,6 +407,7 @@ final class HiddenWalls {
             } else if (CHECKED) {
                 piecesKept++;
             }
+            given[i] = piece;
             piece.kinds().forEach((kind, count) -> kinds.merge(kind, count, Integer::sum));
             for (int j = 0; j < piece.rooms().length; j++) {
                 counts[piece.rooms()[j]] += piece.shown()[j].length;
@@ -415,8 +418,8 @@ final class HiddenWalls {
             pictures[i] = counts[i] == 0 ? NONE_SHOWN : new int[counts[i]];
             counts[i] = 0;
         }
-        for (int i = 0; i < kept.pieces.length; i++) {
-            Piece piece = kept.pieces[i];
+        for (int i = 0; i < given.length; i++) {
+            Piece piece = given[i];
             for (int j = 0; piece != null && j < piece.rooms().length; j++) {
                 int room = piece.rooms()[j];
                 System.arraycopy(piece.shown()[j], 0, pictures[room], counts[room], piece.shown()[j].length);

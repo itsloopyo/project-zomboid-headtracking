@@ -1,8 +1,11 @@
 package zombie.iso;
 
-/** The tests' stand-in for a building's place on the map: its box. See zombie.core.properties.PropertyContainer. */
+import java.util.ArrayList;
+
+/** The tests' stand-in for a building's place on the map: its box and its rooms. See zombie.core.properties.PropertyContainer. */
 public final class BuildingDef {
     public long id;
+    public final ArrayList<RoomDef> rooms = new ArrayList<>();
     private final int x, y, w, h;
 
     public BuildingDef(long id, int x, int y, int w, int h) {
