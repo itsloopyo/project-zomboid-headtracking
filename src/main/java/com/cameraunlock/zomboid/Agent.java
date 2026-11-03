@@ -939,6 +939,10 @@ public final class Agent {
                 new Patch(ATLAS, "Reset at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
                         new CallSite.Method(ATLAS, "Reset", "()V"),
                         code -> CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "bodyAtlasReset", "()V")))),
+                // A skeleton goes back to the game's pool from a body's model whose picture was never made, as well as from one whose was.
+                new Patch("zombie/core/skinnedmodel/animation/AnimationPlayer", "onReleased at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
+                        new CallSite.Method("zombie/core/skinnedmodel/animation/AnimationPlayer", "onReleased", "()V"),
+                        code -> CallSite.passThis(code, new CallSite.Method(HOOKS, "skeletonReleased", "(Lzombie/core/skinnedmodel/animation/AnimationPlayer;)V")))),
                 new Patch("zombie/core/textures/SmartTexture", "destroy at its start", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
                         new CallSite.Method("zombie/core/textures/SmartTexture", "destroy", "()V"), code -> {
                             code.aload(0);

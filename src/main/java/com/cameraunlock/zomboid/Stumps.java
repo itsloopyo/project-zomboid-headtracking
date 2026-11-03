@@ -101,6 +101,13 @@ final class Stumps {
         baking.remove(model);
     }
 
+    /** As the game puts a skeleton back in its pool: no picture still to be made is posed with it. */
+    static void released(AnimationPlayer animation) {
+        if (!baking.isEmpty()) {
+            baking.values().removeIf(bake -> bake.animation == animation);
+        }
+    }
+
     /** As the game lets go of every body's picture, with the jobs still drawing one. */
     static void bakesDropped() {
         baking.clear();

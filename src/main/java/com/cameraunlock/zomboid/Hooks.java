@@ -751,6 +751,11 @@ public final class Hooks {
         Stumps.bakesDropped();
     }
 
+    /** Called as the game puts a skeleton back in its pool, to be handed to any model next. */
+    public static void skeletonReleased(AnimationPlayer animation) {
+        Stumps.released(animation);
+    }
+
     /**
      * Called as the game has made the picture of a body from the model it posed for it, with
      * the game's entry for the picture and the way the model was turned: see Corpses.baked.
