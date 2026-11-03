@@ -169,6 +169,12 @@ final class ViewpointCamera {
         return true;
     }
 
+    /** A save was left: its player and its map are let go, not held through the menus and the next load. */
+    static void forget() {
+        capturedFor = null;
+        world.look(null, 0);
+    }
+
     /** As Viewpoint's Camera.eye returns the eye it draws from at the character's own eye: the lean added. */
     static void leanTheEye(float[] eye) {
         eye[0] += leanX;

@@ -120,6 +120,7 @@ public final class Tests {
         Checks.run("fieldOfViewEasesToTheAimedZoomAndBack", Tests::fieldOfViewEasesToTheAimedZoomAndBack);
         Checks.run("firstPersonKeysReplaceTheStockOnes", Tests::firstPersonKeysReplaceTheStockOnes);
         Checks.run("aKeyChosenOnTheOptionsScreenIsWrittenAsTheFileSpellsIt", Tests::aKeyChosenOnTheOptionsScreenIsWrittenAsTheFileSpellsIt);
+        Checks.run("viewpointsCameraLetsGoOfASaveLeft", Tests::viewpointsCameraLetsGoOfASaveLeft);
         Checks.run("pointerComesOutForTheInventoryKeyAPanelAndAClickedButton", Tests::pointerComesOutForTheInventoryKeyAPanelAndAClickedButton);
         Checks.run("transformerHasNoGapOnceEveryPatchIsIn", Tests::transformerHasNoGapOnceEveryPatchIsIn);
         Checks.run("exceptionTheGameCaughtFromTheModIsWrittenOnce", Tests::exceptionTheGameCaughtFromTheModIsWrittenOnce);
@@ -3114,6 +3115,18 @@ public final class Tests {
         fieldOfView.ease(true, 0.016f);
         fieldOfView.rest();
         check(fieldOfView.zoom() == 1f, "with no picture drawn it is unzoomed at once");
+    }
+
+    private static void viewpointsCameraLetsGoOfASaveLeft() throws ReflectiveOperationException {
+        java.lang.reflect.Field world = ViewpointCamera.class.getDeclaredField("world"), player = ViewpointCamera.class.getDeclaredField("capturedFor");
+        world.setAccessible(true);
+        player.setAccessible(true);
+        WorldQuery map = (WorldQuery) world.get(null);
+        map.look(new zombie.iso.IsoCell(), 0);
+        player.set(null, new zombie.characters.IsoPlayer() {});
+        ViewpointCamera.forget();
+        check(!map.mapped() && player.get(null) == null,
+                "a save left, Project Viewpoint's camera holds neither the map nor the player it was last drawn for into the next");
     }
 
     private static void aKeyChosenOnTheOptionsScreenIsWrittenAsTheFileSpellsIt() {
