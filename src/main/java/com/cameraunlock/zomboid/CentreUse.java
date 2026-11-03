@@ -650,15 +650,14 @@ final class CentreUse {
     /**
      * Whether a height over the floor, in tiles, is above the top of the opening through the wall
      * on a square's north or west edge, as a build of the picture measured it from the wall's
-     * sprite (WallBuilder.openingIn). Not until a build has measured it.
+     * sprite (WallBuilder.openingHead). Not until a build has measured it.
      */
     private static boolean overWindow(IsoGridSquare owner, boolean north, float above) {
         IsoObject wall = WorldScene.wallOn(owner, north);
         if (wall == null) {
             return false;
         }
-        float[] opening = WallBuilder.openingIn(wall.getSprite().getTextureForCurrentFrame(wall.getDir()), north);
-        return opening != null && opening.length > 0 && above > opening[3] * ViewCamera.LEVEL_HEIGHT;
+        return above > WallBuilder.openingHead(wall.getSprite().getTextureForCurrentFrame(wall.getDir()), north) * ViewCamera.LEVEL_HEIGHT;
     }
 
     /**

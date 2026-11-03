@@ -2513,6 +2513,13 @@ final class WallBuilder {
                 : new float[] {known[at + OPENING_START], known[at + OPENING_END], known[at + OPENING_FOOT], known[at + OPENING_HEAD]};
     }
 
+    /** The head of the opening openingIn gives, in levels, with nothing made: NaN for none, or until a build has read it. Any thread. */
+    static float openingHead(Texture texture, boolean north) {
+        float[] known = WorldScene.openings.get(texture);
+        int at = north ? 0 : OPENING_FLOATS;
+        return known == null || !(known[at + OPENING_START] >= 0f) ? Float.NaN : known[at + OPENING_HEAD];
+    }
+
     /**
      * Where the doorway through a wall's sprite on the north or west edge is cut, as openingOf read it for a build: its start
      * and end along the wall, a start below 0 for none, and -1 until a build has read it.

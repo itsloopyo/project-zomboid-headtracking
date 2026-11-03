@@ -140,8 +140,17 @@ final class ImpactTests {
             check(WallBuilder.doorwayStart(wallTexture, true) == 0.09375f && WallBuilder.doorwayEnd(wallTexture, true) == 0.84375f, "the doorway is read as kept");
             check(DoorGlass.leafStruck(square, true, 0.07f, 0.4f) == null, "read, a shot where the measured leaf ran on into the wall strikes the wall");
             check(DoorGlass.leafStruck(square, true, 0.1f, 0.4f) == door, "and one inside the cut the door");
+            check(WallBuilder.openingIn(wallTexture, true) == null && Float.isNaN(WallBuilder.openingHead(wallTexture, true)), "an opening not read yet has no head");
+            // The north edge's OPENING_START, OPENING_END, OPENING_FOOT and OPENING_HEAD.
+            opening[2] = 0.1f;
+            opening[3] = 0.9f;
+            opening[4] = 0f;
+            opening[5] = 0.8f;
+            check(WallBuilder.openingHead(wallTexture, true) == 0.8f && WallBuilder.openingIn(wallTexture, true)[3] == 0.8f, "a read opening's head is the one openingIn gives");
+            opening[2] = -1f;
+            check(WallBuilder.openingIn(wallTexture, true).length == 0 && Float.isNaN(WallBuilder.openingHead(wallTexture, true)), "and none read has none");
         } finally {
-            doors.remove(edge);
+            doors.remove(doorTexture);
             WorldScene.openings.replace(wallTexture, null);
         }
     }
