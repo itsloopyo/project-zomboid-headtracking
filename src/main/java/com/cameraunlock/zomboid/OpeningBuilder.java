@@ -1677,7 +1677,7 @@ final class OpeningBuilder {
         float ledge = face + out * LEDGE_PROUD, top = leaf.foot + (leaf.head - leaf.foot) * LEDGES_AT[LEDGES_AT.length - 1];
         if (hinged && piece != 2 && piece != 3) {
             float half = STRAP_HIGH / (2f * level), from = door.handleAtEnd ? leaf.start : leaf.end - STRAP_LONG * wide;
-            for (float at : new float[] {LEDGES_AT[0], LEDGES_AT[LEDGES_AT.length - 1]}) {
+            for (float at : STRAPS_AT) {
                 float middle = leaf.foot + (leaf.head - leaf.foot) * at;
                 addBlock(metal, from, from + STRAP_LONG * wide, middle - half, middle + half, ledge, ledge + out * HINGE_OUT, r, g, b);
             }
@@ -1691,6 +1691,8 @@ final class OpeningBuilder {
 
     /** A gate's strap hinge, as a share of its leaf's length and how high in tiles; its latch, how long, how high and how far off its ledge in tiles. */
     private static final float STRAP_LONG = 0.3f, STRAP_HIGH = 0.03f, LATCH_LONG = 0.07f, LATCH_HIGH = 0.025f, LATCH_OUT = 0.014f;
+    /** The ledges a gate's strap hinges run along: its bottom and its top. */
+    private static final float[] STRAPS_AT = {LEDGES_AT[0], LEDGES_AT[LEDGES_AT.length - 1]};
     /** The colour of a gate's black iron, each channel. */
     private static final float IRON = 0.08f;
 
