@@ -7,6 +7,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.StringJoiner;
 import java.util.function.Predicate;
 
 final class QualityTests {
@@ -656,8 +657,16 @@ final class QualityTests {
     /** What the installer says F9 does is the order the key goes in, and the file keeps the line ends cmd.exe reads. */
     private static void theInstallerNamesTheModesInTheKeysOrder() throws IOException {
         String text = new String(Files.readAllBytes(Path.of("scripts", "install.cmd")), StandardCharsets.US_ASCII);
-        String modes = String.join(", ", Quality.words().split(",")) + " in first person; " + String.join(", ", Quality.overheadWords().split(","))
-                + " in the isometric view";
+        StringJoiner firstPerson = new StringJoiner(", ");
+        int start = Quality.LOW;
+        int mode = start;
+        for (int steps = 0; steps <= Quality.CUSTOM && (steps == 0 || mode != start); steps++) {
+            firstPerson.add(Quality.choice(mode));
+            Quality.set(0, mode);
+            mode = Quality.next(0);
+        }
+        Quality.set(0, Quality.HIGH);
+        String modes = firstPerson + " in first person; " + String.join(", ", Quality.overheadWords().split(",")) + " in the isometric view";
         check(text.contains("F9        Cycle graphics mode: " + modes + "&echo"), "install.cmd's controls name F9's modes as " + modes);
         check(text.replace("\r\n", "").indexOf('\n') < 0, "every line of install.cmd ends in CR LF");
     }
