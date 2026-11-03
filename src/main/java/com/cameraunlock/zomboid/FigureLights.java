@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.function.LongConsumer;
 import java.util.function.LongPredicate;
 import zombie.characters.IsoGameCharacter;
 import zombie.core.textures.ColorInfo;
@@ -35,6 +36,10 @@ import zombie.vehicles.BaseVehicle;
  * the frames that are drawn before one gathered after them have those squares from the characters.
  * A figure asked after that was not gathered is a fault in the gathering, and is thrown.
  *
+ * A corpse and a held figure keep their square by its place (key), never as the game's object:
+ * once its chunk is let go of the game hands the object to a square loaded elsewhere, which moves
+ * its x, y and z between the gathering and the draw.
+ *
  * Each frame has its own, filled on the logic thread as it is built and read on the render
  * thread as it is drawn: the frame is filled again only once the render thread has drawn it.
  */
@@ -42,8 +47,8 @@ final class FigureLights {
 
     /** The light on one square. */
     static final class Lit {
-        /** The square, or null where there is none: nothing is said of a figure's light there. */
-        IsoGridSquare square;
+        /** The square's place (key) and its room as gathered, or NOWHERE where there is none: nothing is said of a figure's light there. */
+        long key = NOWHERE, room;
         /** How bright the world draws the square (WorldScene.drawnLight), or NaN where it says nothing. */
         float light;
         boolean outside;
@@ -55,6 +60,9 @@ final class FigureLights {
         boolean torched;
         float withRed, withGreen, withBlue, withoutRed, withoutGreen, withoutBlue;
     }
+
+    /** The place of no square: key never makes it. */
+    static final long NOWHERE = Long.MIN_VALUE;
 
     /** No square: nothing is said. */
     static final Lit NONE = new Lit();
@@ -101,7 +109,14 @@ final class FigureLights {
     private int litsTaken, carLitsTaken;
     private final ColorInfo given = new ColorInfo(), withoutTorch = new ColorInfo();
     private final LongTable<Boolean> roomsSeen = new LongTable<>();
-    private final List<IsoGridSquare> held = new ArrayList<>();
+    private long[] held = new long[8];
+    private int heldCount;
+    private final LongConsumer heldInto = key -> {
+        if (heldCount == held.length) {
+            held = Arrays.copyOf(held, held.length * 2);
+        }
+        held[heldCount++] = key;
+    };
     private int playerIndex;
     private IsoCell cell;
     private WorldScene scene;
@@ -117,6 +132,18 @@ final class FigureLights {
     /** A square's place as one number: x in the top half, y in the next three bytes, the level in the last. */
     static long key(int x, int y, int z) {
         return (long) x << 32 | (y & 0xFFFFFFL) << 8 | z & 0xFFL;
+    }
+
+    static int x(long key) {
+        return (int) (key >> 32);
+    }
+
+    static int y(long key) {
+        return (int) (key >>> 8 & 0xFFFFFFL);
+    }
+
+    static int z(long key) {
+        return (byte) key;
     }
 
     /**
@@ -156,7 +183,10 @@ final class FigureLights {
         for (int i = 0; i < shown.size(); i++) {
             List<Corpses.Lying> lying = shown.get(i).lying;
             for (int j = 0; j < lying.size(); j++) {
-                at(lying.get(j).square());
+                long square = lying.get(j).square();
+                if (square != NOWHERE) {
+                    at(square);
+                }
             }
         }
         List<Pieces.Piece> pieces = Pieces.all();
@@ -164,11 +194,11 @@ final class FigureLights {
             Pieces.Piece piece = pieces.get(i);
             at(key((int) Math.floor(piece.x), (int) Math.floor(piece.y), (int) Math.floor(piece.z)));
         }
-        Dying.squares(held);
-        for (int i = 0; i < held.size(); i++) {
-            at(held.get(i));
+        heldCount = 0;
+        Dying.squares(heldInto);
+        for (int i = 0; i < heldCount; i++) {
+            at(held[i]);
         }
-        held.clear();
         for (int frame = 0; frame < stood.keys.length; frame++) {
             long[] keys = stood.keys[frame];
             for (int i = 0; i < stood.counts[frame]; i++) {
@@ -186,9 +216,6 @@ final class FigureLights {
         people.clear();
         cars.clear();
         squares.clear();
-        for (int i = 0; i < lits.size(); i++) {
-            lits.get(i).square = null;
-        }
     }
 
     private Lit at(IsoGridSquare square) {
@@ -202,7 +229,7 @@ final class FigureLights {
 
     private void at(long key) {
         if (squares.get(key) == null) {
-            read(key, cell.getGridSquare((int) (key >> 32), (int) (key >>> 8 & 0xFFFFFFL), (byte) key));
+            read(key, cell.getGridSquare(x(key), y(key), z(key)));
         }
     }
 
@@ -211,11 +238,14 @@ final class FigureLights {
             lits.add(new Lit());
         }
         Lit lit = lits.get(litsTaken++);
-        lit.square = square;
         if (square == null) {
+            lit.key = NOWHERE;
+            lit.room = 0L;
             lit.light = Float.NaN;
             lit.outside = true;
         } else {
+            lit.key = key;
+            lit.room = square.getRoomID();
             lit.light = scene.drawnLight(square, given, roomSeen);
             lit.outside = square.isOutside();
         }
@@ -257,9 +287,9 @@ final class FigureLights {
         return lit;
     }
 
-    /** Render thread: the light on a square a corpse lies on, or a held figure stands on, gathered as the frame was built. */
-    Lit at(IsoGridSquare square, String what) {
-        return square == null ? NONE : gathered(key(square.getX(), square.getY(), square.getZ()), what);
+    /** Render thread: the light on the square at a place (key, or NOWHERE) a corpse lies on or a held figure stands on, gathered as the frame was built. */
+    Lit at(long square, String what) {
+        return square == NOWHERE ? NONE : gathered(square, what);
     }
 
     /** Render thread: the light on the square at (x, y, z), gathered as the frame was built. */
@@ -270,7 +300,7 @@ final class FigureLights {
     private Lit gathered(long key, String what) {
         Lit lit = squares.get(key);
         if (lit == null) {
-            throw new IllegalStateException("the frame draws " + what + " on the square at " + (int) (key >> 32) + ", " + (int) (key >>> 8 & 0xFFFFFFL) + ", " + (byte) key
+            throw new IllegalStateException("the frame draws " + what + " on the square at " + x(key) + ", " + y(key) + ", " + z(key)
                     + ", whose light was not gathered as it was built");
         }
         return lit;

@@ -51,6 +51,7 @@ public final class Tests {
         Quality.set(0, Quality.HIGH);
         // And of a game in which the pictures the mod's own is drawn from have been made, which a test has no graphics card to make.
         Own.picturesMade(true);
+        Checks.run("aSquaresPlaceComesBackFromItsKey", Tests::aSquaresPlaceComesBackFromItsKey);
         Checks.run("cameraLooksAlongItsYaw", Tests::cameraLooksAlongItsYaw);
         Checks.run("keysAheadAreToldFromKeysAside", Tests::keysAheadAreToldFromKeysAside);
         Checks.run("cameraFollowsTheAnimatedHead", Tests::cameraFollowsTheAnimatedHead);
@@ -2591,6 +2592,15 @@ public final class Tests {
         check(Stride.aside(0f, 1.95f), "back is aside");
         check(Stride.aside(1.38f, 1.38f), "back with a sideways key is aside");
         check(!Stride.aside(0f, 0f), "no key is no walk at all");
+    }
+
+    private static void aSquaresPlaceComesBackFromItsKey() {
+        int[][] places = {{0, 0, 0}, {10688, 10343, 0}, {19999, 15999, 7}, {12000, 9000, -32}, {1, 2, -1}};
+        for (int[] at : places) {
+            long key = FigureLights.key(at[0], at[1], at[2]);
+            check(key != FigureLights.NOWHERE && FigureLights.x(key) == at[0] && FigureLights.y(key) == at[1] && FigureLights.z(key) == at[2],
+                    "the square at " + at[0] + ", " + at[1] + ", " + at[2] + " is given back by its key, not " + FigureLights.x(key) + ", " + FigureLights.y(key) + ", " + FigureLights.z(key));
+        }
     }
 
     private static void cameraLooksAlongItsYaw() {

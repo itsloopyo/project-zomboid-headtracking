@@ -2686,9 +2686,9 @@ public final class Characters {
                         continue;
                     }
                 }
-                IsoGridSquare square = body.square();
-                if (!WITHOUT_CULL && (kind == BY_EYE || kind == BY_SCOPE) && byRoom != null && square != null
-                        && byRoom.leftOut(square.getRoomID(), square.getX(), square.getY(), square.getZ())) {
+                long square = body.square();
+                if (!WITHOUT_CULL && (kind == BY_EYE || kind == BY_SCOPE) && byRoom != null && square != FigureLights.NOWHERE
+                        && byRoom.leftOut(body.room(), FigureLights.x(square), FigureLights.y(square), FigureLights.z(square))) {
                     continue;
                 }
                 place(x, y, up, kept.angle, CHARACTER_SCALE);
@@ -2756,7 +2756,7 @@ public final class Characters {
             }
         }
         held.goneAt = 0L;
-        Dying.keep(held, data, parts(data), up, lights.of(data.character).square);
+        Dying.keep(held, data, parts(data), up, lights.of(data.character));
     }
 
     /** The characters the eye's last picture drew alive, and the ones its picture drew this frame: see watchDeaths. */
@@ -2873,9 +2873,9 @@ public final class Characters {
                     continue;
                 }
             }
-            IsoGridSquare square = held.square;
-            if (!WITHOUT_CULL && (kind == BY_EYE || kind == BY_SCOPE) && byRoom != null && square != null
-                    && byRoom.leftOut(square.getRoomID(), square.getX(), square.getY(), square.getZ())) {
+            long square = held.square;
+            if (!WITHOUT_CULL && (kind == BY_EYE || kind == BY_SCOPE) && byRoom != null && square != FigureLights.NOWHERE
+                    && byRoom.leftOut(held.room, FigureLights.x(square), FigureLights.y(square), FigureLights.z(square))) {
                 continue;
             }
             place(x, y, held.up, held.angle, CHARACTER_SCALE);
@@ -2997,7 +2997,7 @@ public final class Characters {
     }
 
     private static void lightAt(FigureLights.Lit lit) {
-        if (lit.square != null && !Float.isNaN(lit.light)) {
+        if (lit.key != FigureLights.NOWHERE && !Float.isNaN(lit.light)) {
             CharacterDraw.stands(lit.light, lit.outside);
         }
     }

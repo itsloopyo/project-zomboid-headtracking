@@ -8,13 +8,13 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.LongConsumer;
 import zombie.characters.IsoGameCharacter;
 import zombie.core.opengl.RenderThread;
 import zombie.core.skinnedmodel.model.ModelInstance;
 import zombie.core.skinnedmodel.model.ModelInstanceRenderData;
 import zombie.core.skinnedmodel.model.ModelSlotRenderData;
 import zombie.core.textures.Texture;
-import zombie.iso.IsoGridSquare;
 import zombie.iso.objects.IsoDeadBody;
 
 /**
@@ -49,8 +49,8 @@ final class Dying {
         /** The corpses lying as models near it as it was first held: none of them is its own. */
         final List<IsoDeadBody> lyingBefore = new ArrayList<>();
         float x, y, z, up, angle;
-        /** Set under the lock of all, for the logic thread to read there. */
-        IsoGridSquare square;
+        /** The place of the square it stands on (FigureLights.key, or FigureLights.NOWHERE) and that square's room, set under the lock of all, for the logic thread to read there. */
+        long square = FigureLights.NOWHERE, room;
         /** When a draw first found the game no longer drawing it, or 0 while it does. */
         long goneAt;
         /** Set once the game leaves the save: the skins it is drawn with may be gone. */
@@ -106,9 +106,10 @@ final class Dying {
      * where it stands and the way it faces, and the square it stands on as the frame gathered its
      * character's light (FigureLights), whose light it is drawn by from then on.
      */
-    static void keep(Held held, ModelSlotRenderData data, List<ModelInstanceRenderData> parts, float up, IsoGridSquare square) {
+    static void keep(Held held, ModelSlotRenderData data, List<ModelInstanceRenderData> parts, float up, FigureLights.Lit lit) {
         synchronized (all) {
-            held.square = square;
+            held.square = lit.key;
+            held.room = lit.room;
             int at = 0;
             for (int i = 0; i < parts.size(); i++) {
                 ModelInstanceRenderData part = parts.get(i);
@@ -197,11 +198,14 @@ final class Dying {
                 held.goneAt == 0L ? "the game still drew it" : "drawn by the mod for " + (now - held.goneAt) / 1_000_000L + " ms after the game stopped drawing it"));
     }
 
-    /** Logic thread: the square each figure held by any view stands on, into into, or null for one on none: see FigureLights. */
-    static void squares(List<IsoGridSquare> into) {
+    /** Logic thread: the place of the square each figure held by any view stands on, into into, for one on a square: see FigureLights. */
+    static void squares(LongConsumer into) {
         synchronized (all) {
             for (int i = 0; i < all.size(); i++) {
-                into.add(all.get(i).square);
+                long square = all.get(i).square;
+                if (square != FigureLights.NOWHERE) {
+                    into.accept(square);
+                }
             }
         }
     }

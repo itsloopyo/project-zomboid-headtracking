@@ -9434,7 +9434,8 @@ final class WorldScene {
             int level = square != null ? square.getZ() : (int) Math.floor(z);
             // An animal's model is not one CharacterDraw draws: it keeps its picture.
             if (Quality.corpseModels(view.index) && !body.isAnimal()) {
-                lying.add(new Corpses.Lying(body, Corpses.entryOf(body), x, y, restUnder(x, y, level, 0f, square), z, square, Outlines.key(body)));
+                lying.add(new Corpses.Lying(body, Corpses.entryOf(body), x, y, restUnder(x, y, level, 0f, square), z,
+                        square == null ? FigureLights.NOWHERE : FigureLights.key(square.getX(), square.getY(), square.getZ()), square == null ? 0L : square.getRoomID(), Outlines.key(body)));
                 return;
             }
             SpriteGeometry.Mesh mesh = solid.get(texture.getID());

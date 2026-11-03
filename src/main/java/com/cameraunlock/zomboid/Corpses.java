@@ -20,7 +20,6 @@ import zombie.core.skinnedmodel.model.ModelInstanceRenderData;
 import zombie.core.skinnedmodel.model.ModelSlotRenderData;
 import zombie.core.textures.SmartTexture;
 import zombie.core.textures.Texture;
-import zombie.iso.IsoGridSquare;
 import zombie.iso.objects.IsoDeadBody;
 
 /**
@@ -53,11 +52,13 @@ final class Corpses {
 
     /**
      * A corpse as a build of its chunk found it: the body, the game's entry for its picture,
-     * where it lies and the height it lies at (WorldScene.restUnder), the square that lights it,
-     * and its key for the outline round it (Outlines.key). Made on the logic thread, read on the
-     * render thread.
+     * where it lies and the height it lies at (WorldScene.restUnder), the place of the square that
+     * lights it (FigureLights.key, or FigureLights.NOWHERE) and that square's room, and its key for
+     * the outline round it (Outlines.key). Made as its chunk is built, read on the render thread.
+     * The square is held by its place and not as the game's object: the game reuses a square's
+     * object for another place once its chunk is let go of, while the build may still be drawn.
      */
-    record Lying(IsoDeadBody body, Object entry, float x, float y, float up, float z, IsoGridSquare square, long outline) {}
+    record Lying(IsoDeadBody body, Object entry, float x, float y, float up, float z, long square, long room, long outline) {}
 
     /** A corpse's parts as the game posed them, each with its own bones, and the way the model was turned. */
     static final class Kept {
