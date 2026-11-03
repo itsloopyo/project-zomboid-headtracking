@@ -4427,7 +4427,7 @@ final class Pipeline {
 
     /** The far trees' mesh near the eye and further off (FarTrees.mesh), and how many vertices each has. */
     private static final int[] treeMeshes = new int[2], treeVertices = new int[2];
-    /** Each kind of far tree's row (FarTreeLooks), the kinds it was written for and the frame it was. */
+    /** Each kind of far tree's row (FarTreeLooks), the kinds it was written for and the game's frame it was (gameFrame: every view writes the one texture). */
     private static int kindsTexture;
     private static FarTreeKinds kindsFor;
     private static int kindsWritten;
@@ -4465,7 +4465,7 @@ final class Pipeline {
         } else {
             GL11.glBindTexture(GL_TEXTURE_2D, kindsTexture);
         }
-        if (kinds != kindsFor || frameNumber - kindsWritten >= KINDS_EVERY) {
+        if (kinds != kindsFor || gameFrame - kindsWritten >= KINDS_EVERY) {
             int bytes = rows * FarTreeLooks.ROW * 4 * Float.BYTES;
             if (kindsBytes == null || kindsBytes.capacity() < bytes) {
                 kindsBytes = ByteBuffer.allocateDirect(bytes).order(ByteOrder.nativeOrder());
@@ -4475,7 +4475,7 @@ final class Pipeline {
             kindsBytes.flip();
             GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, FarTreeLooks.ROW, rows, 0, GL_RGBA, GL_FLOAT, kindsBytes);
             kindsFor = kinds;
-            kindsWritten = frameNumber;
+            kindsWritten = gameFrame;
         }
         // Every pass of the picture draws with culling off: the world's own drawing before this does too.
         GL11.glDisable(GL_CULL_FACE);
