@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.StringJoiner;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -167,7 +168,18 @@ final class Tracking {
     /** Lets go of what start took, for a start that fails after it: the port, the microphones and the watch on CameraUnlock.ini. */
     static void stop() {
         watch.cancel(false);
-        letGo();
+        // On the watch's own thread, after a reload already running there, which could open the microphones again.
+        try {
+            saver.submit(Tracking::letGo).get();
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("interrupted while letting the port and microphones go", interrupted);
+        } catch (ExecutionException failed) {
+            if (failed.getCause() instanceof RuntimeException thrown) {
+                throw thrown;
+            }
+            throw new IllegalStateException("letting the port and microphones go failed", failed.getCause());
+        }
     }
 
     /** Nothing reads a microphone the open left open once the mod is out of the game, and no options page is there to close it. */
