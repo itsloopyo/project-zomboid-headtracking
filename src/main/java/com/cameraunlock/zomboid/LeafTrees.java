@@ -48,10 +48,17 @@ final class LeafTrees implements LeafFall.Ground {
         this.scene = scene;
     }
 
-    /** Logic thread, as the picture stops being built: the map read last is let go of, as WorldScene.setDown lets go of its own. */
+    /**
+     * Logic thread, as the picture stops being built: the map read last is let go of, as WorldScene.setDown lets go of its own,
+     * and with it its leaves and trees, which the next save's eye may stand among.
+     */
     void setDown() {
         cell = null;
         terrain = null;
+        fall.clear();
+        fall.forgetTrees();
+        row = 0;
+        lastNanos = 0L;
     }
 
     /** Whether the game hangs leaves on a tree: one its erosion has bare has none, and its crown is drawn bare. */

@@ -34,7 +34,8 @@ final class LeafFallTests {
         Checks.run("treesAreReadRoundTheEyeWhereverItIs", LeafFallTests::treesAreReadRoundTheEyeWhereverItIs);
         Checks.run("nothingMovesWhileThePictureWaits", LeafFallTests::nothingMovesWhileThePictureWaits);
         Checks.run("forgottenTreesShedNothingAndTheirLeavesFallOn", LeafFallTests::forgottenTreesShedNothingAndTheirLeavesFallOn);
-        Checks.run("aLeafIsDrawnAsAQuadAboutItsMiddle", LeafFallTests::aLeafIsDrawnAsAQuadAboutItsMiddle);
+        Checks.run("settingDownLetsGoOfTheLeavesAndTheTrees", LeafFallTests::settingDownLetsGoOfTheLeavesAndTheTrees);
+        Checks.run("aLeafIsDrawnAsAQuadAboutItsMiddle",LeafFallTests::aLeafIsDrawnAsAQuadAboutItsMiddle);
         Checks.run("aRoundThroughATurnedCrownKnocksLeavesLooseByHowFarItGoesThrough", LeafFallTests::aRoundThroughATurnedCrownKnocksLeavesLooseByHowFarItGoesThrough);
         Checks.run("greenLeavesHoldOnAndNoRoundKnocksAnyOutsideAutumn", LeafFallTests::greenLeavesHoldOnAndNoRoundKnocksAnyOutsideAutumn);
         Checks.run("aBushShedsNothingOfItselfAndARoundKnocksItsLeavesLooseInItsColour", LeafFallTests::aBushShedsNothingOfItselfAndARoundKnocksItsLeavesLooseInItsColour);
@@ -691,6 +692,22 @@ final class LeafFallTests {
         run(fall, 10f, 1f / 30f, 0f, 0f, 0.3f, Seasons.AUTUMN, PEAK_AUTUMN);
         Checks.check(airborne > 0 && fall.spawned == let, "no tree is left to let go: " + airborne + " in the air, " + (fall.spawned - let) + " more let go");
         Checks.check(fall.landings > landed, "the leaves already falling land: " + (fall.landings - landed));
+    }
+
+    /** Set down as a save is left: the next save's eye may stand where this one's trees stood. */
+    private static void settingDownLetsGoOfTheLeavesAndTheTrees() {
+        LeafTrees trees = new LeafTrees(null);
+        LeafFall fall = trees.fall;
+        fall.beginTrees(0f, 0f);
+        fall.offer(0.5f, 0.5f, 0f, MAPLE, shedding(1f), true, LOW, HIGH, OUT);
+        fall.endTrees();
+        run(fall, 2f, 1f / 30f, 0f, 0f, 0f, Seasons.AUTUMN, PEAK_AUTUMN);
+        int before = fall.count();
+        trees.setDown();
+        long let = fall.spawned;
+        run(fall, 2f, 1f / 30f, 0f, 0f, 0f, Seasons.AUTUMN, PEAK_AUTUMN);
+        Checks.check(before > 0 && fall.count() == 0 && fall.spawned == let,
+                "a view set down keeps no leaf and no tree: " + before + " before, " + fall.count() + " after, " + (fall.spawned - let) + " let go since");
     }
 
     private static void aLeafIsDrawnAsAQuadAboutItsMiddle() {
