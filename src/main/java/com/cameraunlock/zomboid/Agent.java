@@ -555,7 +555,11 @@ public final class Agent {
                 transformers.clear();
                 waiting.clear();
             }
-            Tracking.stop();
+            try {
+                Tracking.stop();
+            } catch (RuntimeException also) {
+                failure.addSuppressed(also);
+            }
             throw failure;
         }
     }
