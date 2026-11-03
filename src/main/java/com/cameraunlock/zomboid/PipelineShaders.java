@@ -5914,6 +5914,10 @@ final class PipelineShaders {
                 vec2 uv = gl_FragCoord.xy / uSize;
                 vec2 middle = (floor(uv * uFull) + 0.5) / uFull;
                 float depth = texture2D(uDepth, middle).r;
+                if (depth >= 0.9999995) {
+                    gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+                    return;
+                }
                 vec3 p = placeOf(middle, depth);
                 // The surface's slope is taken towards whichever neighbour on each side is nearer
                 // in depth. Taken across a step, where two pieces of a wall meet a hair apart, the
@@ -5927,10 +5931,6 @@ final class PipelineShaders {
                 vec3 across = abs(right.z) < abs(left.z) ? right : left;
                 vec3 rise = abs(up.z) < abs(down.z) ? up : down;
                 vec3 n = normalize(cross(across, rise));
-                if (depth >= 0.9999995) {
-                    gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
-                    return;
-                }
                 // Turned to face the eye, which is not the same as turned to point back along
                 // the way the eye looks: a ceiling or a side wall looked along has next to no
                 // part along that way, and which sign it had went by the last digit. It
