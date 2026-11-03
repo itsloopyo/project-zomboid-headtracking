@@ -129,15 +129,12 @@ final class HoleHop {
         IsoGridSquare to = from.getAdjacentSquare(way);
         // An edge is the north or west edge of the square south or east of it, and what stands on it is that square's.
         IsoGridSquare owner = way == IsoDirections.N || way == IsoDirections.W ? from : to;
-        if (owner == null) {
+        if (owner == null || !holed(owner, north)) {
             return null;
         }
         float along = north ? line.eyeX + line.forwardX * t - owner.getX() : line.eyeY + line.forwardY * t - owner.getY();
         int level = owner.getZ();
         float up = WorldQuery.overEdgeFloor(line.eyeUp + line.forwardUp * t, owner, level, (a, b) -> terrain.lift(a, b, level));
-        if (!holed(owner, north)) {
-            return null;
-        }
         ArrayList<IsoObject> blockers = blockers(owner, north);
         Open[] cuts = new Open[blockers.size()];
         for (int i = 0; i < cuts.length; i++) {
