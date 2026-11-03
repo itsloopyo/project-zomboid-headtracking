@@ -2746,8 +2746,9 @@ final class WorldScene {
         return true;
     }
 
-    private static java.lang.reflect.Field doorShut, thumpableShut;
-    private static int[] doubleNorthOpens, doubleWestOpens;
+    /** Read on the build threads at once: each is published only once it can be read (accessible, or filled). */
+    private static volatile java.lang.reflect.Field doorShut, thumpableShut;
+    private static volatile int[] doubleNorthOpens, doubleWestOpens;
 
     /**
      * The sprite a door shows shut. The game keeps it beside the open one, two places before
@@ -2775,14 +2776,16 @@ final class WorldScene {
             }
             if (door instanceof IsoDoor) {
                 if (doorShut == null) {
-                    doorShut = IsoDoor.class.getDeclaredField(Links.DOOR_SHUT.name());
-                    doorShut.setAccessible(true);
+                    java.lang.reflect.Field shut = IsoDoor.class.getDeclaredField(Links.DOOR_SHUT.name());
+                    shut.setAccessible(true);
+                    doorShut = shut;
                 }
                 return (IsoSprite) doorShut.get(door);
             }
             if (thumpableShut == null) {
-                thumpableShut = IsoThumpable.class.getDeclaredField(Links.THUMPABLE_SHUT.name());
-                thumpableShut.setAccessible(true);
+                java.lang.reflect.Field shut = IsoThumpable.class.getDeclaredField(Links.THUMPABLE_SHUT.name());
+                shut.setAccessible(true);
+                thumpableShut = shut;
             }
             return (IsoSprite) thumpableShut.get(door);
         } catch (ReflectiveOperationException failure) {
