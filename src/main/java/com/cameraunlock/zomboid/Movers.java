@@ -27,15 +27,25 @@ final class Movers {
     /** Zombies the game has reused, from the logic thread, and for each the frames still to be drawn as first seen. */
     private final ConcurrentLinkedQueue<Object> reusedNow = new ConcurrentLinkedQueue<>();
     private final IdentityHashMap<Object, int[]> madeAnew = new IdentityHashMap<>();
+    /** Whether this view's pictures are being drawn, so reusedNow is drained: none are kept for a view that is not. */
+    private volatile boolean drawing;
 
     /** Logic thread: the game has reused a zombie, which the frames to come may draw anywhere. */
     void reused(Object who) {
-        reusedNow.add(who);
+        if (drawing) {
+            reusedNow.add(who);
+        }
+    }
+
+    /** Whether the game has reused this mover for the frames still to be drawn as first seen. */
+    boolean madeAnew(Object who) {
+        return madeAnew.containsKey(who);
     }
 
     /** As a frame's people and vehicles begin to be drawn. */
     void begin(boolean wanted) {
         this.wanted = wanted;
+        drawing = true;
         found = 0;
         for (Object who = reusedNow.poll(); who != null; who = reusedNow.poll()) {
             madeAnew.put(who, new int[] {WorldScene.SCENES});
@@ -87,6 +97,8 @@ final class Movers {
 
     /** With the view off: nobody of the last frame drawn is held on to, nor the map they stood on. */
     void forget() {
+        drawing = false;
+        reusedNow.clear();
         last.clear();
         seen.clear();
         madeAnew.clear();
