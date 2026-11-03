@@ -122,7 +122,7 @@ final class Outlines {
         synchronized (HIGHLIGHTS) {
             for (Iterator<IsoObject> each = HIGHLIGHTS.iterator(); each.hasNext(); ) {
                 IsoObject object = each.next();
-                if (!object.isHighlighted() || object.getSquare() == null) {
+                if (!object.isHighlighted() || !onItsSquare(object)) {
                     each.remove();
                     continue;
                 }
@@ -177,6 +177,20 @@ final class Outlines {
         synchronized (HIGHLIGHTS) {
             HIGHLIGHTS.remove(object);
         }
+    }
+
+    /**
+     * Whether a thing is still on a square of the map: the game lets go of what a chunk held without letting go of
+     * its highlight, and a door, a body or anything else it does not reset keeps its square object, which the game
+     * hands out again for a square loaded elsewhere.
+     */
+    private static boolean onItsSquare(IsoObject object) {
+        if (object instanceof IsoMovingObject body) {
+            IsoGridSquare square = body.getCurrentSquare();
+            return square != null && square.getChunk() != null && square.getStaticMovingObjects().indexOf(body) >= 0;
+        }
+        IsoGridSquare square = object.getSquare();
+        return square != null && square.getChunk() != null && square.getObjects().indexOf(object) >= 0;
     }
 
     private static boolean isFloor(IsoObject object) {
