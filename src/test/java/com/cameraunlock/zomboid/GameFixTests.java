@@ -202,11 +202,13 @@ final class GameFixTests {
         Class<?> defined = MethodHandles.lookup().defineClass(patched);
         Object made = defined.getConstructor().newInstance();
         Method has = defined.getMethod("has", int.class);
+        int calls = zombie.util.list.PZArrayUtil.calls;
         check(Boolean.FALSE.equals(has.invoke(made, 3)), "with nothing in the list the answer is no");
+        check(zombie.util.list.PZArrayUtil.calls == calls, "and it is given without looking through the list");
         @SuppressWarnings("unchecked")
         ArrayList<Object> held = (ArrayList<Object>) defined.getField("held").get(made);
         held.add("a bone");
-        check(Boolean.TRUE.equals(has.invoke(made, 3)), "with something in it the method does what it did");
+        check(Boolean.TRUE.equals(has.invoke(made, 3)) && zombie.util.list.PZArrayUtil.calls == calls + 1, "with something in it the method does what it did");
         check(refusesFalseAtOnce(subject, within, "missing"), "a class without the list is rejected");
         CallSite.Method asksMore = new CallSite.Method("com/cameraunlock/zomboid/SubjectAskingMore", "has", "(I)Z");
         check(refusesFalseAtOnce(holdingAList("SubjectAskingMore", true), asksMore, "held"), "a method that asks something besides the list is rejected");
