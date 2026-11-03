@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.WeakHashMap;
 import zombie.core.properties.PropertyContainer;
 import zombie.iso.IsoCell;
+import zombie.iso.IsoChunk;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.IsoWorld;
@@ -29,21 +30,29 @@ final class WallRuns {
     /** How many squares along its edge line a piece looks for a named wall. */
     static final int REACH = 6;
 
-    /** What each piece was found made of, "" for nothing: a wall's run does not change while it is loaded. */
+    /**
+     * What each piece was found made of, "" for nothing: a wall's run does not change while it is
+     * loaded. An answer read while the map along the run was not loaded yet is not kept, as the
+     * wall that names the piece may be in the chunk still to load.
+     */
     private static final Map<IsoObject, String> found = Collections.synchronizedMap(new WeakHashMap<>());
 
     /** What a wall piece the game names no material for is made of by its run, or null for none. */
     static String materialOf(IsoObject piece) {
         String known = found.get(piece);
         if (known == null) {
-            String looked = look(piece);
+            boolean[] unloaded = new boolean[1];
+            String looked = look(piece, unloaded);
+            if (unloaded[0]) {
+                return looked;
+            }
             known = looked == null ? "" : looked;
             found.put(piece, known);
         }
         return known.isEmpty() ? null : known;
     }
 
-    private static String look(IsoObject piece) {
+    private static String look(IsoObject piece, boolean[] unloaded) {
         IsoSprite sprite = piece.getSprite();
         IsoGridSquare square = piece.getSquare();
         if (sprite == null || square == null) {
@@ -61,22 +70,30 @@ final class WallRuns {
         boolean corner = properties.has(IsoFlagType.WallNW);
         String made = null;
         if (corner || Edges.north(properties, type)) {
-            made = alongLine(cell, square, true);
+            made = alongLine(cell, square, true, unloaded);
         }
         if (made == null && (corner || Edges.west(properties, type))) {
-            made = alongLine(cell, square, false);
+            made = alongLine(cell, square, false, unloaded);
         }
         return made;
     }
 
-    /** The material of the nearest named wall along a square's north or west edge line, each way. */
-    private static String alongLine(IsoCell cell, IsoGridSquare square, boolean north) {
+    /**
+     * The material of the nearest named wall along a square's north or west edge line, each way.
+     * A way that comes to a square of a chunk not loaded before it finds a named wall sets unloaded.
+     */
+    private static String alongLine(IsoCell cell, IsoGridSquare square, boolean north, boolean[] unloaded) {
         int beforeAt = 0, afterAt = 0;
         String before = null, after = null;
         for (int way = -1; way <= 1; way += 2) {
             for (int step = 1; step <= REACH; step++) {
                 int x = square.getX() + (north ? way * step : 0), y = square.getY() + (north ? 0 : way * step);
                 IsoGridSquare next = cell.getGridSquare(x, y, square.getZ());
+                IsoChunk chunk = next != null ? next.getChunk() : cell.getChunkForGridSquare(x, y, square.getZ());
+                if (chunk == null || !chunk.loaded) {
+                    unloaded[0] = true;
+                    break;
+                }
                 IsoObject wall = next == null ? null : WorldScene.wallOn(next, north, false);
                 if (wall == null) {
                     break;

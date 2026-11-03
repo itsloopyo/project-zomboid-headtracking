@@ -39,6 +39,7 @@ final class InsideWallTests {
         Checks.run("aDoorwayOrAWindowInAnInsideWallIsPlasterboard", InsideWallTests::aDoorwayOrAWindowInAnInsideWallIsPlasterboard);
         Checks.run("aWallTheGameNamesNoMaterialForStillStops", InsideWallTests::aWallTheGameNamesNoMaterialForStillStops);
         Checks.run("roundsAndBlastsGoThroughAnInsideWallsDoorwayPiece", InsideWallTests::roundsAndBlastsGoThroughAnInsideWallsDoorwayPiece);
+        Checks.run("aPieceReadBesideMapNotLoadedIsReadAgain", InsideWallTests::aPieceReadBesideMapNotLoadedIsReadAgain);
     }
 
     private static List<IsoSprite> sprites(String... rows) {
@@ -97,5 +98,26 @@ final class InsideWallTests {
         Checks.check(BlastHoles.blastable(tallFence) && BlastHoles.boards(tallFence),
                 "the tall board fence, which the game flags a wall of Wood_Solid, is blasted and broken up as a fence's boards");
         Checks.check(Penetration.cost("Plaster") < Penetration.Cartridge.SHOT.budget, "a shotgun's pellet goes on through plasterboard, as a blast through it has to");
+    }
+
+    /**
+     * A window's piece read while the chunk beside it is still filling is read again once it has
+     * loaded. It runs after the tests above, as reading a wall's material reads the game's sprites
+     * into InsideWalls for good.
+     */
+    private static void aPieceReadBesideMapNotLoadedIsReadAgain() {
+        TestMap map = new TestMap();
+        zombie.iso.IsoWorld.instance.currentCell = map.cell;
+        try {
+            zombie.iso.IsoObject piece = map.cell.square(8, 1, 0).add(map.sprite("walls_exterior_house_03_8", zombie.iso.SpriteDetails.IsoObjectType.wall, "WallN"));
+            zombie.iso.IsoGridSquare beside = map.cell.square(7, 1, 0);
+            beside.filling(true);
+            Checks.check(WallRuns.materialOf(piece) == null, "while the chunk beside it is filling and has no wall on it yet the piece has no material");
+            beside.add(map.spriteWith("walls_exterior_house_01_1", zombie.iso.SpriteDetails.IsoObjectType.wall, map.painted, "WallN", "", "MaterialType", "Wood"));
+            beside.filling(false);
+            Checks.check("Wood".equals(WallRuns.materialOf(piece)), "once the siding beside it has loaded the piece is siding: " + WallRuns.materialOf(piece));
+        } finally {
+            zombie.iso.IsoWorld.instance.currentCell = null;
+        }
     }
 }
