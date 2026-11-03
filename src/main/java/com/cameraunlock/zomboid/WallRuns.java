@@ -31,25 +31,39 @@ final class WallRuns {
     static final int REACH = 6;
 
     /**
-     * What each piece was found made of, "" for nothing: a wall's run does not change while it is
-     * loaded. An answer read while the map along the run was not loaded yet is not kept, as the
-     * wall that names the piece may be in the chunk still to load.
+     * What each piece was found made of, "" for nothing, with the sprite and the place it was found
+     * for: a wall's run does not change while it is loaded. The game hands a piece of a chunk it
+     * lets go back out for another thing of another chunk (IsoChunk.doReuseGridsquares,
+     * IsoObject.getNew), so an answer for another sprite or place is looked for again. An answer
+     * read while the map along the run was not loaded yet is not kept, as the wall that names the
+     * piece may be in the chunk still to load.
      */
-    private static final Map<IsoObject, String> found = Collections.synchronizedMap(new WeakHashMap<>());
+    private static final Map<IsoObject, Found> found = Collections.synchronizedMap(new WeakHashMap<>());
+
+    private record Found(String sprite, int x, int y, int z, String material) {}
 
     /** What a wall piece the game names no material for is made of by its run, or null for none. */
     static String materialOf(IsoObject piece) {
-        String known = found.get(piece);
-        if (known == null) {
+        IsoSprite sprite = piece.getSprite();
+        String name = sprite == null ? null : sprite.getName();
+        IsoGridSquare square = piece.getSquare();
+        Found known = found.get(piece);
+        if (known == null || square == null || !java.util.Objects.equals(known.sprite, name) || known.x != square.getX() || known.y != square.getY()
+                || known.z != square.getZ()) {
             boolean[] unloaded = new boolean[1];
             String looked = look(piece, unloaded);
-            if (unloaded[0]) {
+            if (unloaded[0] || square == null) {
                 return looked;
             }
-            known = looked == null ? "" : looked;
+            known = new Found(name, square.getX(), square.getY(), square.getZ(), looked == null ? "" : looked);
             found.put(piece, known);
         }
-        return known.isEmpty() ? null : known;
+        return known.material.isEmpty() ? null : known.material;
+    }
+
+    /** Forgets what every piece was found made of: the save is left, and the next may be another map. */
+    static void forget() {
+        found.clear();
     }
 
     private static String look(IsoObject piece, boolean[] unloaded) {

@@ -40,6 +40,7 @@ final class InsideWallTests {
         Checks.run("aWallTheGameNamesNoMaterialForStillStops", InsideWallTests::aWallTheGameNamesNoMaterialForStillStops);
         Checks.run("roundsAndBlastsGoThroughAnInsideWallsDoorwayPiece", InsideWallTests::roundsAndBlastsGoThroughAnInsideWallsDoorwayPiece);
         Checks.run("aPieceReadBesideMapNotLoadedIsReadAgain", InsideWallTests::aPieceReadBesideMapNotLoadedIsReadAgain);
+        Checks.run("aPieceTheGameHandsOutAgainElsewhereIsReadAgain", InsideWallTests::aPieceTheGameHandsOutAgainElsewhereIsReadAgain);
     }
 
     private static List<IsoSprite> sprites(String... rows) {
@@ -116,6 +117,26 @@ final class InsideWallTests {
             beside.add(map.spriteWith("walls_exterior_house_01_1", zombie.iso.SpriteDetails.IsoObjectType.wall, map.painted, "WallN", "", "MaterialType", "Wood"));
             beside.filling(false);
             Checks.check("Wood".equals(WallRuns.materialOf(piece)), "once the siding beside it has loaded the piece is siding: " + WallRuns.materialOf(piece));
+        } finally {
+            zombie.iso.IsoWorld.instance.currentCell = null;
+        }
+    }
+
+    /**
+     * The game hands the things of a chunk it lets go back out for the things of the next one it
+     * loads (IsoChunk.doReuseGridsquares, IsoObject.getNew): a piece found siding by the siding
+     * beside it, put down again by brick, is brick.
+     */
+    private static void aPieceTheGameHandsOutAgainElsewhereIsReadAgain() {
+        TestMap map = new TestMap();
+        zombie.iso.IsoWorld.instance.currentCell = map.cell;
+        try {
+            zombie.iso.IsoObject piece = map.cell.square(8, 1, 0).add(map.sprite("walls_exterior_house_03_8", zombie.iso.SpriteDetails.IsoObjectType.wall, "WallN"));
+            map.cell.square(7, 1, 0).add(map.spriteWith("walls_exterior_house_01_1", zombie.iso.SpriteDetails.IsoObjectType.wall, map.painted, "WallN", "", "MaterialType", "Wood"));
+            Checks.check("Wood".equals(WallRuns.materialOf(piece)), "the piece beside siding is siding: " + WallRuns.materialOf(piece));
+            map.cell.square(7, 5, 0).add(map.spriteWith("walls_exterior_house_02_1", zombie.iso.SpriteDetails.IsoObjectType.wall, map.painted, "WallN", "", "MaterialType", "Brick"));
+            map.cell.square(8, 5, 0).add(piece);
+            Checks.check("Brick".equals(WallRuns.materialOf(piece)), "handed out again beside brick it is brick: " + WallRuns.materialOf(piece));
         } finally {
             zombie.iso.IsoWorld.instance.currentCell = null;
         }
