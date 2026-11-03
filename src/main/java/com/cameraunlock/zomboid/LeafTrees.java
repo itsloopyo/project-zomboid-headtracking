@@ -153,7 +153,7 @@ final class LeafTrees implements LeafFall.Ground {
         }
     }
 
-    /** Offers the bushes on the square at (x, y) that are in leaf, with a crown measured and a colour read. */
+    /** Offers the first bush on the square at (x, y) that is in leaf, with a crown measured and a colour read. */
     private void readBushes(IsoGridSquare square, int x, int y) {
         PZArrayList<IsoObject> objects = square.getObjects();
         for (int i = 0; i < objects.size(); i++) {
@@ -177,6 +177,8 @@ final class LeafTrees implements LeafFall.Ground {
             if (colour != null) {
                 fall.offerBush(x + 0.5f, y + 0.5f, terrain.lift(x + 0.5f, y + 0.5f, 0), Seasons.treeHash(x, y), crown[0], crown[1], crown[2],
                         LeafFall.painted(colour[0], colour[1], colour[2]));
+                // One offer a square, as LeafFall.CANDIDATES is sized: a map can stack bushes on a square.
+                return;
             }
         }
     }
