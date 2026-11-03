@@ -237,19 +237,21 @@ final class Breakage {
     }
 
     private static void breakBoards(byte[] grid, int across, int rows, Panel panel) {
+        // One for every board: each board's search keeps to its own columns, so none sees another's marks.
+        boolean[] held = new boolean[grid.length];
         int first = 0;
         while (first < across) {
             int board = boardOf(panel, first), last = first;
             while (last + 1 < across && boardOf(panel, last + 1) == board) {
                 last++;
             }
-            breakBoard(grid, across, rows, first, last, board);
+            breakBoard(grid, across, rows, first, last, board, held);
             first = last + 1;
         }
     }
 
     /** Breaks one board, the columns first to last, across where it is shot most of the way through, splits it, and lets fall what is held at neither end. */
-    private static void breakBoard(byte[] grid, int across, int rows, int first, int last, int board) {
+    private static void breakBoard(byte[] grid, int across, int rows, int first, int last, int board, boolean[] held) {
         int wide = last - first + 1, top = -1, foot = -1;
         boolean[] snapped = new boolean[rows];
         for (int j = 0; j < rows; j++) {
@@ -279,7 +281,7 @@ final class Breakage {
             }
             splinter(grid, across, rows, first, last, j, end, board);
         }
-        fallFromEnds(grid, across, rows, first, last);
+        fallFromEnds(grid, across, rows, first, last, held);
     }
 
     /** Breaks the board right across over the rows from to to, each splinter of it running on a little further up and down. */
@@ -331,18 +333,12 @@ final class Breakage {
     }
 
     /** Lets fall what of the board is joined to neither its foot nor its top. */
-    private static void fallFromEnds(byte[] grid, int across, int rows, int first, int last) {
-        boolean[] held = new boolean[grid.length];
+    private static void fallFromEnds(byte[] grid, int across, int rows, int first, int last, boolean[] held) {
         int[] queue = new int[(last - first + 1) * rows];
         int head = 0, tail = 0;
         for (int i = first; i <= last; i++) {
-            for (int j : new int[] {0, rows - 1}) {
-                int at = j * across + i;
-                if (grid[at] == SOLID && !held[at]) {
-                    held[at] = true;
-                    queue[tail++] = at;
-                }
-            }
+            tail = reach(grid, held, queue, tail, i);
+            tail = reach(grid, held, queue, tail, (rows - 1) * across + i);
         }
         while (head < tail) {
             int at = queue[head++], i = at % across, j = at / across;
