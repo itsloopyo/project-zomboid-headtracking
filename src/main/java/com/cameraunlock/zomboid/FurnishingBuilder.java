@@ -142,11 +142,7 @@ final class FurnishingBuilder {
         this.build = build;
         squares = (x, y, z, sprite) -> {
             Boolean holds = Towers.holds(build.cell, x, y, z, sprite);
-            if (holds == Boolean.TRUE) {
-                return holds;
-            }
-            IsoObject ghost = build.ghostOn(x, y, z);
-            return ghost != null && ghost.getSprite() != null && sprite.equals(ghost.getSprite().getName()) ? Boolean.TRUE : holds;
+            return holds == Boolean.TRUE || ghostNamed(x, y, z, sprite) == null ? holds : Boolean.TRUE;
         };
     }
 
@@ -167,9 +163,11 @@ final class FurnishingBuilder {
     /** The object on the square (x, y, z) whose sprite is called name, of the map or else of the piece a drag would put down, or null. */
     private IsoObject namedOrGhost(int x, int y, int z, String name) {
         IsoObject held = named(build.cell.getGridSquare(x, y, z), name);
-        if (held != null) {
-            return held;
-        }
+        return held != null ? held : ghostNamed(x, y, z, name);
+    }
+
+    /** The piece a drag would put down on the square (x, y, z) where its sprite is called name, or null. */
+    private IsoObject ghostNamed(int x, int y, int z, String name) {
         IsoObject ghost = build.ghostOn(x, y, z);
         return ghost != null && ghost.getSprite() != null && name.equals(ghost.getSprite().getName()) ? ghost : null;
     }
