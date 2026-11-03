@@ -294,6 +294,7 @@ public final class Hooks {
             HiddenWalls.forget();
             Troughs.forget();
             SkyState.forget();
+            Soaked.forget();
             CarPhysics.forget();
             ViewpointCamera.forget();
         } catch (RuntimeException | Error thrown) {

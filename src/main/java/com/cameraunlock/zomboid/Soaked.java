@@ -73,6 +73,14 @@ final class Soaked {
      * be changed by the caller. dust is the snow on them as SnowCarried has it this frame.
      */
     static float[] on(int view, IsoGameCharacter viewer, float dust) {
+        if (forgotten) {
+            forgotten = false;
+            for (int i = 0; i < View.COUNT; i++) {
+                java.util.Arrays.fill(kept[i], 0f);
+                dustBefore[i] = 0f;
+                takenIn[i] = Integer.MIN_VALUE;
+            }
+        }
         float[] record = kept[view];
         int frame = Pipeline.frame();
         if (takenIn[view] != frame) {
@@ -95,6 +103,14 @@ final class Soaked {
         }
         System.arraycopy(record, 0, shown[view], 0, FLOATS);
         return shown[view];
+    }
+
+    /** Set when the save has been left, for the render thread to start the next save's viewers dry. */
+    private static volatile boolean forgotten;
+
+    /** The save has been left: the viewers of the next start dry, with no snow on them to melt. Any thread. */
+    static void forget() {
+        forgotten = true;
     }
 
     /** What on last returned for a view: for what is drawn after the viewer in the same frame, the weapon. */
