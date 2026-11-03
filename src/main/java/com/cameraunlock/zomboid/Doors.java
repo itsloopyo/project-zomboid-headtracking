@@ -108,12 +108,18 @@ final class Doors {
         }
         Asked wanted = new Asked(swung, gate, frame.originU, frame.originV, frame.scale, frame.left, frame.top, frame.width, frame.height);
         Asked was = asked.put(edge, wanted);
-        if (!wanted.equals(was)) {
+        // A shape for another frame goes even where this frame was asked for already: a read that
+        // took the old ask can finish after the new one was put, and leave its shape behind.
+        if (!wanted.equals(was) || shape != null) {
             if (TRACE && was != null) {
                 Log.info("door " + texture.getName() + " " + edgeName(north, far) + " asked again: was " + was + ", now " + wanted + ", read " + (shape == null ? "nothing" : shape == NONE ? "no leaf"
                         : "origin " + shape.leaf.originU + "," + shape.leaf.originV + " scale " + shape.leaf.scale));
             }
-            known.remove(edge);
+            if (shape != null) {
+                known.remove(edge, shape);
+            } else {
+                known.remove(edge);
+            }
             SpriteColours.readAgain(texture);
         }
         return null;

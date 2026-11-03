@@ -46,6 +46,7 @@ final class DoorTests {
         Checks.run("aShacksDoorWithABareCornerIsALeaf", DoorTests::aShacksDoorWithABareCornerIsALeaf);
         Checks.run("aSlidingDoorSlidOpenIsItsShutFrameWithNoGlass", DoorTests::aSlidingDoorSlidOpenIsItsShutFrameWithNoGlass);
         Checks.run("aDoorDrawnAsItsSpriteIsToldOnceForEachReason", DoorTests::aDoorDrawnAsItsSpriteIsToldOnceForEachReason);
+        Checks.run("aDoorReadForAnOldScaleIsReadAgain", DoorTests::aDoorReadForAnOldScaleIsReadAgain);
     }
 
     private static void capUnderAWallsFootLeavesTheDoorwayFloorBare() {
@@ -890,6 +891,29 @@ final class DoorTests {
                     sheet.put(at, (byte) 120).put(at + 1, (byte) 80).put(at + 2, (byte) 40).put(at + 3, (byte) 255);
                 }
             }
+        }
+    }
+
+    /**
+     * A read that took what was asked before the frame's scale changed, and finished after the
+     * new scale was asked for, leaves a door of the old scale: it is let go and read again.
+     */
+    private static void aDoorReadForAnOldScaleIsReadAgain() {
+        Texture texture = new Texture(5102, 128, 256).named("fixtures_doors_01_scaled");
+        SpriteGeometry.Frame frame = doubledFrame();
+        java.util.Map<Object, Object> asked = TestMap.read(null, Doors.class, "asked");
+        java.util.Map<Object, Object> known = TestMap.read(null, Doors.class, "known");
+        try {
+            check(Doors.of(texture, frame, true) == null && Doors.unread(texture, true, false), "a door not read yet has no shape");
+            Object edge = asked.keySet().stream().filter(key -> TestMap.read(key, "texture") == texture).findFirst().orElseThrow();
+            Doors.Shape stale = new Doors.Shape();
+            stale.leaf = new Windows.Shape();
+            stale.leaf.scale = frame.scale / 2f;
+            known.put(edge, stale);
+            check(Doors.of(texture, frame, true) == null && Doors.unread(texture, true, false), "a door read at the old scale is let go, to be read at the new");
+        } finally {
+            asked.keySet().removeIf(key -> TestMap.read(key, "texture") == texture);
+            known.keySet().removeIf(key -> TestMap.read(key, "texture") == texture);
         }
     }
 
