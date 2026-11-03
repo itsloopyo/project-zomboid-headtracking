@@ -57,8 +57,11 @@ final class Doors {
          * uprights, start and end along the edge, two numbers each.
          */
         float postStart = Float.NaN, postEnd, postTop, postRed, postGreen, postBlue;
-        float[] rails = new float[0], stiles = new float[0];
+        float[] rails = NO_PARTS, stiles = NO_PARTS;
     }
+
+    /** No rails or uprights: a list is replaced, never written into, so every shape without them shares this one. */
+    private static final float[] NO_PARTS = new float[0];
 
     private record Asked(boolean swung, boolean gate, float originU, float originV, float scale, float left, float top, float width, float height) {}
 
