@@ -426,9 +426,11 @@ public final class Controls {
             throw new IllegalStateException("no square at " + x + "," + y + " under level " + player.getZ() + " to throw at, within reach of the thrower");
         }
         player.setAttackTargetSquare(square);
-        Log.info("throw of " + weapon.getFullType() + " from " + player.getX() + "," + player.getY() + " aimed at " + aimedX + "," + aimedY
-                + (aimPointMet ? "" : " (the aim on nothing in reach: as far as it goes)")
-                + ": square " + x + "," + y + "," + square.getZ() + " with a carry of " + carry);
+        if (DevBuild.ON) {
+            Log.info("throw of " + weapon.getFullType() + " from " + player.getX() + "," + player.getY() + " aimed at " + aimedX + "," + aimedY
+                    + (aimPointMet ? "" : " (the aim on nothing in reach: as far as it goes)")
+                    + ": square " + x + "," + y + "," + square.getZ() + " with a carry of " + carry);
+        }
     }
 
     /** Where the clean aim met the world when it was last placed, in the game's measure: x, y and floor levels, into out. */
