@@ -3326,6 +3326,9 @@ final class Pipeline {
         // The shadow's program reads a texel's size where a torn length of chain link casts its posts alone: see SHADOW_FRAGMENT.
         int texel = shadow.at("uTexel");
         int glass = glassThrough && map == NEAR_MAP ? StainedGlass.texture() : 0;
+        if (glass == 0) {
+            shadow.set("uGlassCut", 0f);
+        }
         for (int i = 0; i < held.solidRanges(); i++) {
             if (held.tint(i) == WallSides.PANES || held.tint(i) == WallSides.BLOOD) {
                 continue;
@@ -3333,7 +3336,9 @@ final class Pipeline {
             int texture = held.texture(i) == 0 ? whiteTexture : held.texture(i);
             GL11.glBindTexture(GL_TEXTURE_2D, texture);
             tellTexel(texel, texture);
-            shadow.set("uGlassCut", texture == glass ? SunGlass.CUT : 0f);
+            if (glass != 0) {
+                shadow.set("uGlassCut", texture == glass ? SunGlass.CUT : 0f);
+            }
             held.draw(i);
         }
         listModels(false, null, 0f, 0f, Outlines.NONE);
