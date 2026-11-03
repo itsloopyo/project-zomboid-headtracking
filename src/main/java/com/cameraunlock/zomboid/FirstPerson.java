@@ -261,7 +261,7 @@ public final class FirstPerson {
     /**
      * How the game keeps up from a vehicle's seat, said in whichever view it is driven in, the
      * mod's first person, the isometric view or Project Viewpoint's, so a drive in each can be
-     * set side by side. Every ten seconds of play in the seat.
+     * set side by side. Every ten seconds of play in the seat, in a development build only.
      */
     private static final long RIDE_PACE_NANOS = 10_000_000_000L;
     private long rideSince, rideWorst;
@@ -1476,6 +1476,9 @@ public final class FirstPerson {
     }
 
     private void noteRide(IsoPlayer player, long now, long frameNanos) {
+        if (!DevBuild.ON) {
+            return;
+        }
         BaseVehicle vehicle = player == null ? null : player.getVehicle();
         if (vehicle == null || GameTime.isGamePaused()) {
             rideSince = now;
