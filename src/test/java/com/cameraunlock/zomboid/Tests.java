@@ -3128,9 +3128,15 @@ public final class Tests {
         WorldQuery map = (WorldQuery) world.get(null);
         map.look(new zombie.iso.IsoCell(), 0);
         player.set(null, new zombie.characters.IsoPlayer() {});
+        java.lang.reflect.Field lean = ViewpointCamera.class.getDeclaredField("leanX");
+        lean.setAccessible(true);
+        lean.setFloat(null, 0.3f);
         ViewpointCamera.forget();
         check(!map.mapped() && player.get(null) == null,
                 "a save left, Project Viewpoint's camera holds neither the map nor the player it was last drawn for into the next");
+        float[] eye = new float[3];
+        ViewpointCamera.leanTheEye(eye);
+        check(eye[0] == 0f && eye[1] == 0f && eye[2] == 0f, "nor the lean it last added at the eye");
     }
 
     private static void aKeyChosenOnTheOptionsScreenIsWrittenAsTheFileSpellsIt() {

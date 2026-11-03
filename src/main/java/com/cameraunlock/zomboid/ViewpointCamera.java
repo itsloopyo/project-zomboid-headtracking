@@ -169,9 +169,10 @@ final class ViewpointCamera {
         return true;
     }
 
-    /** A save was left: its player and its map are let go, not held through the menus and the next load. */
+    /** A save was left: its player, its map and the lean at the eye are let go, not held through the menus and the next load. */
     static void forget() {
         capturedFor = null;
+        leanX = leanUp = leanZ = 0f;
         world.look(null, 0);
     }
 
