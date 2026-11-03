@@ -219,7 +219,10 @@ final class VehicleMeshes {
         seated.parts = parts.get(read);
         // A body drawn with the game's norandom shader is the colours of its skin, whatever paint the vehicle was given:
         // a police car's livery, not the hue the game rolled for it.
-        float[] skin = body.modelInstance.model.effect.getName().startsWith(SKIN_COLOURED) ? skinColour(read, instance.tex, seated.parts, script) : NONE;
+        // Either may be null, as the characters' draw takes them: a modded vehicle whose script's skin did not resolve has no texture of its own.
+        Texture skinned = instance.tex != null ? instance.tex : body.modelInstance.model.tex;
+        boolean skinColoured = body.modelInstance.model.effect != null && body.modelInstance.model.effect.getName().startsWith(SKIN_COLOURED) && skinned != null;
+        float[] skin = skinColoured ? skinColour(read, skinned, seated.parts, script) : NONE;
         if (skin == null) {
             return;
         }
