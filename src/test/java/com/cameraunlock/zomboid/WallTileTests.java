@@ -877,7 +877,12 @@ final class WallTileTests {
             handOver(texture);
             check(within(() -> !WallTiles.unread(texture, true, false) && !WallTiles.unread(texture, true, true)), "both ways are read");
             handOver(texture);
-            check(readings.get() == 2, "once each, however often the sheet is read: " + readings.get());
+            // The reader reads in the order handed it: once a sprite handed over after is known, whatever this hand-over queued has been read.
+            Texture after = new Texture(403, 64, 128);
+            WallTiles.of(after, new SpriteGeometry.Frame(), true, false);
+            handOver(after);
+            check(within(() -> !WallTiles.unread(after, true, false)), "a sprite handed over after is read");
+            check(readings.get() == 3, "once each, however often the sheet is read, and the one after once: " + readings.get());
             check(WallTiles.unread(texture, false, false), "and a way not asked for is not read");
         } finally {
             WallTiles.analysis = WallTiles::read;
