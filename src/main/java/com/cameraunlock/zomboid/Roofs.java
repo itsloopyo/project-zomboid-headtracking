@@ -451,7 +451,9 @@ final class Roofs {
             RoofFit.Tile tile = reading.get(next).tile;
             for (int side = 0; side < 4; side++) {
                 int dx = side == 0 ? -1 : side == 1 ? 1 : 0, dy = side == 2 ? -1 : side == 3 ? 1 : 0;
-                roof.whole &= cell.getGridSquare(tile.x + dx, tile.y + dy, 0) != null;
+                // The ground beside is loaded once its square is on the map and its chunk has finished filling.
+                IsoGridSquare ground = cell.getGridSquare(tile.x + dx, tile.y + dy, 0);
+                roof.whole &= ground != null && ground.getChunk().loaded;
                 for (int dz = -1; dz <= 1; dz++) {
                     take(cell, tile.x + dx, tile.y + dy, tile.z + dz, roof, seen);
                 }

@@ -104,6 +104,32 @@ final class RoofTests {
         Checks.run("gabledCanopyHasItsFarSideOverOpenGround", RoofTests::gabledCanopyHasItsFarSideOverOpenGround);
         Checks.run("endRowMeetsAWingAtItsFootInAValley", RoofTests::endRowMeetsAWingAtItsFootInAValley);
         Checks.run("canopyDepthIsFoundAgainOnceItsBandIsTakenDown", RoofTests::canopyDepthIsFoundAgainOnceItsBandIsTakenDown);
+        Checks.run("aRoofOverAChunkStillFillingIsNotReadWhole", RoofTests::aRoofOverAChunkStillFillingIsNotReadWhole);
+    }
+
+    /** A roof read while the ground beside one of its tiles is on a chunk still filling is not whole: the map has more of it to give. */
+    private static void aRoofOverAChunkStillFillingIsNotReadWhole() throws ReflectiveOperationException {
+        for (boolean filling : new boolean[] {false, true}) {
+            TestMap map = new TestMap();
+            Texture slope = new Texture(11, 128, 160);
+            slope.paint(0, 20, 128, 140);
+            for (int x = 2; x <= 4; x++) {
+                for (int y = 3; y <= 5; y++) {
+                    map.cell.square(x, y, 0);
+                }
+            }
+            map.cell.square(4, 4, 0).filling(filling);
+            map.cell.square(3, 4, 1).add(new zombie.iso.sprite.IsoSprite("roofs_01_3", new zombie.core.properties.PropertyContainer(java.util.Map.of()),
+                    zombie.iso.SpriteDetails.IsoObjectType.WestRoofB, slope));
+            Roofs.Laid laid = Roofs.at(map.cell, 3, 4, 1, 0, 1f);
+            check(laid != null, "the roof tile is read" + (filling ? " beside a chunk still filling" : ""));
+            if (laid == null) {
+                continue;
+            }
+            java.lang.reflect.Field whole = Roofs.Roof.class.getDeclaredField("whole");
+            whole.setAccessible(true);
+            check(whole.getBoolean(laid.roof) == !filling, filling ? "beside a chunk still filling the roof is not read whole" : "with the ground round it loaded the roof is whole");
+        }
     }
 
     private static void hippedCornerAtTheEaveCarriesTheEaveRowOn() {
