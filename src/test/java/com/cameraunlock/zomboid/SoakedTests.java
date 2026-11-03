@@ -100,9 +100,10 @@ final class SoakedTests {
         check(people.contains("if(uWet.y>0.0&&!hair&&snowLies<=0.5){"), "the game's hands and the viewer's body darken and shine, hair and snow aside");
         check(people.contains("wetOn=NOT_WET;"), "and nobody else does: each person begun is dry until said otherwise");
         String drawing = source("Characters.java").replaceAll("\\s+", "");
-        check(count(drawing, "OwnArms.wetted(Soaked.on(view.index,data.character,SnowCarried.on(view.index,data.character)));") == 2,
+        check(drawing.contains("float[]wet=Soaked.on(view.index,data.character,dust);if(ownArms){OwnArms.snowed(dust);OwnArms.wetted(wet);")
+                && drawing.contains("OwnArms.snowed(dust);OwnArms.wetted(Soaked.on(view.index,data.character,dust));"),
                 "the viewer's arms with a weapon and at a task are wet");
-        check(drawing.contains("if(own&&!casting){CharacterDraw.wetted(Soaked.on(view.index,data.character,SnowCarried.on(view.index,data.character)));}"),
+        check(drawing.contains("CharacterDraw.snowed(dust);if(own){CharacterDraw.wetted(Soaked.on(view.index,data.character,dust));}}"),
                 "the viewer's body, and no one else's");
     }
 

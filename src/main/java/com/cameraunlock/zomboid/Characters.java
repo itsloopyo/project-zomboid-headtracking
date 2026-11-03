@@ -1892,9 +1892,11 @@ public final class Characters {
                 drawPart(model, data);
             }
         }
+        float dust = SnowCarried.on(view.index, data.character);
+        float[] wet = Soaked.on(view.index, data.character, dust);
         if (ownArms) {
-            OwnArms.snowed(SnowCarried.on(view.index, data.character));
-            OwnArms.wetted(Soaked.on(view.index, data.character, SnowCarried.on(view.index, data.character)));
+            OwnArms.snowed(dust);
+            OwnArms.wetted(wet);
             OwnArms.Worn worn = wornOnArms();
             float[] stains = view.ride.dress.stains;
             OwnArms.draw(projection, armSkins[0], false, armFemale, armSkin, ownLight, outside, worn, stains);
@@ -1918,8 +1920,8 @@ public final class Characters {
         CharacterDraw.release();
         CharacterDraw.begin(data, handViews[0], projection, false, 0f, Float.POSITIVE_INFINITY);
         CharacterDraw.stands(ownLight, ownOutside);
-        CharacterDraw.snowed(SnowCarried.on(view.index, data.character));
-        CharacterDraw.wetted(Soaked.on(view.index, data.character, SnowCarried.on(view.index, data.character)));
+        CharacterDraw.snowed(dust);
+        CharacterDraw.wetted(wet);
         for (int part = 0; part < parts(data).size(); part++) {
             ModelInstanceRenderData model = parts(data).get(part);
             if (model.model == null || !model.model.isStatic) {
@@ -1929,8 +1931,8 @@ public final class Characters {
         if (heldBoth) {
             CharacterDraw.begin(data, handViews[1], projection, false, 0f, Float.POSITIVE_INFINITY);
             CharacterDraw.stands(ownLight, ownOutside);
-            CharacterDraw.snowed(SnowCarried.on(view.index, data.character));
-            CharacterDraw.wetted(Soaked.on(view.index, data.character, SnowCarried.on(view.index, data.character)));
+            CharacterDraw.snowed(dust);
+            CharacterDraw.wetted(wet);
             for (int part = 0; part < parts(data).size(); part++) {
                 ModelInstanceRenderData model = parts(data).get(part);
                 if (model.model == null || !model.model.isStatic) {
@@ -2134,8 +2136,9 @@ public final class Characters {
             drawPart(model, data);
             EYE.End();
         }
-        OwnArms.snowed(SnowCarried.on(view.index, data.character));
-        OwnArms.wetted(Soaked.on(view.index, data.character, SnowCarried.on(view.index, data.character)));
+        float dust = SnowCarried.on(view.index, data.character);
+        OwnArms.snowed(dust);
+        OwnArms.wetted(Soaked.on(view.index, data.character, dust));
         OwnArms.Worn worn = wornOnArms();
         float[] stains = view.ride.dress.stains;
         OwnArms.draw(projection, armSkins[0], false, armFemale, armSkin, ownLight, outside, worn, stains);
@@ -2530,10 +2533,11 @@ public final class Characters {
             lightWhere(data);
         }
         if (!casting) {
-            CharacterDraw.snowed(SnowCarried.on(view.index, data.character));
-        }
-        if (own && !casting) {
-            CharacterDraw.wetted(Soaked.on(view.index, data.character, SnowCarried.on(view.index, data.character)));
+            float dust = SnowCarried.on(view.index, data.character);
+            CharacterDraw.snowed(dust);
+            if (own) {
+                CharacterDraw.wetted(Soaked.on(view.index, data.character, dust));
+            }
         }
         if (!casting && Part.FIGURES_BEHIND_WALLS.on()) {
             cutAtWalls(data, up, viewMatrix);

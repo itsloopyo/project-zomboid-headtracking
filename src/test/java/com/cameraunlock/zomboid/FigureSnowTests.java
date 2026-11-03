@@ -154,8 +154,8 @@ final class FigureSnowTests {
         String arms = source("OwnArms.java").replaceAll("\\s+", "");
         check(count(arms, "floatsnowLies=snowOnPerson(dot(n,uUpSeen),vRest.xz);") == 2, "the mod's own arms take it on sleeve and on skin");
         String drawing = source("Characters.java").replaceAll("\\s+", "");
-        check(drawing.contains("if(!casting){CharacterDraw.snowed(SnowCarried.on(view.index,data.character));}"), "everyone drawn into a picture is told what they carry, and no shadow");
-        check(count(drawing, "OwnArms.snowed(SnowCarried.on(view.index,data.character));") == 2, "so are the viewer's own arms, with a weapon and at a task");
+        check(drawing.contains("if(!casting){floatdust=SnowCarried.on(view.index,data.character);CharacterDraw.snowed(dust);"), "everyone drawn into a picture is told what they carry, and no shadow");
+        check(count(drawing, "floatdust=SnowCarried.on(view.index,data.character);") == 3 && count(drawing, "OwnArms.snowed(dust);") == 2, "so are the viewer's own arms, with a weapon and at a task");
         check(count(drawing, "CharacterDraw.looking(eyeView);") == 6, "every view people are drawn through says which way is up");
     }
 
