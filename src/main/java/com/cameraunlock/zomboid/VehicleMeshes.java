@@ -223,10 +223,8 @@ final class VehicleMeshes {
         Texture skinned = instance.tex != null ? instance.tex : body.modelInstance.model.tex;
         boolean skinColoured = body.modelInstance.model.effect != null && body.modelInstance.model.effect.getName().startsWith(SKIN_COLOURED) && skinned != null;
         float[] skin = skinColoured ? skinColour(read, skinned, seated.parts, script) : NONE;
-        if (skin == null) {
-            return;
-        }
-        if (skin == NONE) {
+        // A skin still loading is painted for now: the wheel is measured all the same, or the eye is not placed by it.
+        if (skin == null || skin == NONE) {
             paint(instance.painColor.x, Math.clamp(instance.painColor.y, 0f, 1f), Math.clamp(instance.painColor.z, 0f, 1f), seated.paint);
         } else {
             System.arraycopy(skin, 0, seated.paint, 0, 3);
