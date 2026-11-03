@@ -17,6 +17,7 @@ final class WallFinishTests {
     static void run() {
         Checks.run("aRoomShowsItsOwnWallOnEachEdge", WallFinishTests::aRoomShowsItsOwnWallOnEachEdge);
         Checks.run("aRoomIsGrimyWhereMostOfItsWallsAre", WallFinishTests::aRoomIsGrimyWhereMostOfItsWallsAre);
+        Checks.run("anUpperLevelOverAChunkStillFillingIsNotWhole", WallFinishTests::anUpperLevelOverAChunkStillFillingIsNotWhole);
     }
 
     private static final String NORTH = "walls_interior_house_01_1", WEST = "walls_interior_house_01_0";
@@ -68,5 +69,22 @@ final class WallFinishTests {
         check(WallFinish.grimy(half.cell, room(half, 2), 0, 1L, 0), "half its walls grimy makes it grimy");
         TestMap all = new TestMap();
         check(WallFinish.grimy(all.cell, room(all, 4), 0, 1L, 0), "as do all of them");
+    }
+
+    /** A square missing above the ground is air only once the chunk its ground square is on has loaded: until then the level is not read whole. */
+    private static void anUpperLevelOverAChunkStillFillingIsNotWhole() throws ReflectiveOperationException {
+        TestMap map = new TestMap();
+        IsoBuilding building = new IsoBuilding(new BuildingDef(2L, 0, 0, 1, 1));
+        map.cell.square(0, 0, 0).building(building);
+        map.cell.square(0, 0, 0).filling(true);
+        java.lang.reflect.Method read = WallFinish.class.getDeclaredMethod("read", zombie.iso.IsoCell.class, IsoBuilding.class, int.class);
+        read.setAccessible(true);
+        Object level = read.invoke(null, map.cell, building, 1);
+        java.lang.reflect.Field whole = level.getClass().getDeclaredField("whole");
+        whole.setAccessible(true);
+        check(!whole.getBoolean(level), "the floor over a ground square whose chunk is filling is not read whole");
+        map.cell.square(0, 0, 0).filling(false);
+        level = read.invoke(null, map.cell, building, 1);
+        check(whole.getBoolean(level), "and once that chunk has loaded the square missing over it is air, and the level whole");
     }
 }

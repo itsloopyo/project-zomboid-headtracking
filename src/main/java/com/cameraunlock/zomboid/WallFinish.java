@@ -387,8 +387,8 @@ final class WallFinish {
             for (int y = def.getY(); y < def.getY() + def.getH(); y++) {
                 IsoGridSquare square = cell.getGridSquare(x, y, z);
                 if (square == null) {
-                    // Above the ground a square of air is no square. On the ground it is map not loaded yet.
-                    level.whole &= cell.getGridSquare(x, y, 0) != null;
+                    // Above the ground a square of air is no square, once its ground square's chunk has loaded. On the ground it is map not loaded yet.
+                    level.whole &= filled(cell.getGridSquare(x, y, 0)) != null;
                     continue;
                 }
                 // A chunk the map is still filling has squares with no room yet and walls not all hung: read as it
