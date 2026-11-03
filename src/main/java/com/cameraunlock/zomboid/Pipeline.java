@@ -7358,6 +7358,7 @@ final class Pipeline {
                 giveBack(lamped);
                 giveBack(surrounded);
                 view.scope.giveBackPicture();
+                aimBlur.takeBack(Long.MAX_VALUE);
             }
             if (shadows) {
                 giveBackShadowMaps();
