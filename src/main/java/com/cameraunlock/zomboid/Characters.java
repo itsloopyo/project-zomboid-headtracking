@@ -2393,13 +2393,13 @@ public final class Characters {
             if (!WITHOUT_CULL && (kind == BY_EYE || kind == BY_SCOPE) && byRoom != null && data.character != null && !data.inVehicle
                     && (playersByRoom || !(data.character instanceof IsoPlayer))) {
                 // The square as the frame gathered it: the game's own object may be another place's by now.
-                FigureLights.Lit stood = lights.of(data.character);
-                long square = stood.key;
+                FigureLights.Lit gathered = lights.of(data.character);
+                long square = gathered.key;
                 boolean leftOut = square != FigureLights.NOWHERE
-                        && byRoom.leftOut(stood.room, FigureLights.x(square), FigureLights.y(square), FigureLights.z(square));
+                        && byRoom.leftOut(gathered.room, FigureLights.x(square), FigureLights.y(square), FigureLights.z(square));
                 if (FIGURE_ROOMS && figureRoomsLine != null && square != FigureLights.NOWHERE) {
-                    figureRoomsLine.append(String.format(Locale.ROOT, " (%d,%d,%d room %d %s)", FigureLights.x(square), FigureLights.y(square), FigureLights.z(square), stood.room,
-                            leftOut ? "LEFT OUT" : stood.room == RoomSight.OUTSIDE ? "outdoors" : byRoom.built(stood.room) ? "drawn, room built" : "drawn, beside an opening"));
+                    figureRoomsLine.append(String.format(Locale.ROOT, " (%d,%d,%d room %d %s)", FigureLights.x(square), FigureLights.y(square), FigureLights.z(square), gathered.room,
+                            leftOut ? "LEFT OUT" : gathered.room == RoomSight.OUTSIDE ? "outdoors" : byRoom.built(gathered.room) ? "drawn, room built" : "drawn, beside an opening"));
                 }
                 if (leftOut) {
                     leftOutByRoom++;

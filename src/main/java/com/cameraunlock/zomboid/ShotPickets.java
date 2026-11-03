@@ -426,7 +426,7 @@ final class ShotPickets {
         return true;
     }
 
-    /** Forgets what an object kept: the game resets it to hand it out again for any square. Its world reuser thread. */
+    /** Forgets what an object kept: the game resets it to hand it out again for any square. On whatever thread the game resets it: its world reuser, the chunk loader, a save or the logic thread. */
     static void reused(IsoObject object) {
         if (any) {
             kept.remove(object);

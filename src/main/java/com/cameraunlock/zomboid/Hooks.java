@@ -871,8 +871,8 @@ public final class Hooks {
     }
 
     /**
-     * Called as the game resets a plain object or tree to hand it out again for any square: as its world reuser thread
-     * pools the things of a chunk let go of, or as a square deletes one.
+     * Called as the game resets a plain object or tree to hand it out again for any square: as its world reuser thread,
+     * a save or the chunk loader pools the things of a chunk, or as a square deletes one. Any of those threads.
      */
     public static void objectReset(IsoObject object) {
         WallRuns.forget(object);

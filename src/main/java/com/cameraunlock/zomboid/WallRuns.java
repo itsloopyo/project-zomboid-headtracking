@@ -66,7 +66,7 @@ final class WallRuns {
         return known.material().isEmpty() ? null : known.material();
     }
 
-    /** Forgets what an object was found made of: the game resets it to hand it out again. Its world reuser thread. */
+    /** Forgets what an object was found made of: the game resets it to hand it out again. On whatever thread the game resets it: its world reuser, the chunk loader, a save or the logic thread. */
     static void forget(IsoObject object) {
         found.remove(object);
     }
