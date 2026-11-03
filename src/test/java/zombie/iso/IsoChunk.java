@@ -15,6 +15,8 @@ public final class IsoChunk {
     /** The blood on its floors, none but where a test gives it some: see Bleeding. */
     public zombie.core.utils.BoundedQueue<IsoFloorBloodSplat> floorBloodSplats;
 
+    public void invalidateRenderChunkLevel(int level, long flags) {}
+
     public int getMinLevel() {
         return minLevel;
     }

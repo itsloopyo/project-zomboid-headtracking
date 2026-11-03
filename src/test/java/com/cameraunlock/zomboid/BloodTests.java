@@ -29,6 +29,7 @@ final class BloodTests {
         Checks.run("aShadeThatIsNoNumberIsNone", BloodTests::aShadeThatIsNoNumberIsNone);
         Checks.run("aTrailAgesInTheNextSaveThoughItsWorldIsYounger", BloodTests::aTrailAgesInTheNextSaveThoughItsWorldIsYounger);
         Checks.run("aSavedChunksTrailGoesBackOverTheBloodLaidMeanwhileAndIsMarked", BloodTests::aSavedChunksTrailGoesBackOverTheBloodLaidMeanwhileAndIsMarked);
+        Checks.run("aDropWhoseChunkHasLeftTheMapIsForgottenWithoutTouchingIt", BloodTests::aDropWhoseChunkHasLeftTheMapIsForgottenWithoutTouchingIt);
     }
 
     /**
@@ -45,14 +46,14 @@ final class BloodTests {
         chunk.floorBloodSplats.add(own);
         chunk.floorBloodSplats.add(first);
         chunk.floorBloodSplats.add(second);
-        Constructor<?> dropped = Class.forName("com.cameraunlock.zomboid.Bleeding$Drop").getDeclaredConstructor(IsoChunk.class, IsoFloorBloodSplat.class, double.class, int.class);
+        Constructor<?> dropped = Class.forName("com.cameraunlock.zomboid.Bleeding$Drop").getDeclaredConstructor(IsoChunk.class, int.class, int.class, IsoFloorBloodSplat.class, double.class, int.class);
         dropped.setAccessible(true);
         Field trail = Bleeding.class.getDeclaredField("trail");
         trail.setAccessible(true);
         @SuppressWarnings("unchecked")
         ArrayList<Object> drops = (ArrayList<Object>) trail.get(null);
-        drops.add(dropped.newInstance(chunk, first, 0.0, 0));
-        drops.add(dropped.newInstance(chunk, second, 0.0, 1));
+        drops.add(dropped.newInstance(chunk, 1210, 1150, first, 0.0, 0));
+        drops.add(dropped.newInstance(chunk, 1210, 1150, second, 0.0, 1));
         int things = ChunkMarks.thingsAround(1210, 1150), built = ChunkMarks.structuresIn(1210, 1150, 1210, 1150);
         Bleeding.saving(chunk);
         check(chunk.floorBloodSplats.size() == 1 && chunk.floorBloodSplats.get(0) == own, "a chunk is saved with the trail's drops on it lifted off, and the game's own blood left on");
@@ -62,6 +63,36 @@ final class BloodTests {
                 "once it is saved they go back, over the blood laid on it meanwhile");
         check(ChunkMarks.thingsAround(1210, 1150) == things + 1, "which is marked once, as a change to what is on the chunk");
         check(ChunkMarks.structuresIn(1210, 1150, 1210, 1150) == built, "and not as a part of a building");
+        Bleeding.forget();
+    }
+
+    /**
+     * The game lets a chunk go and keeps it loaded until its reuser thread empties it, so a drop is
+     * taken up only from the chunk still on the map at its place, and one on a chunk let go of is
+     * forgotten with the chunk left as it is.
+     */
+    private static void aDropWhoseChunkHasLeftTheMapIsForgottenWithoutTouchingIt() throws ReflectiveOperationException {
+        zombie.iso.IsoCell cell = new zombie.iso.IsoCell();
+        IsoChunk kept = cell.getChunkForGridSquare(800, 800, 0), gone = cell.getChunkForGridSquare(880, 800, 0);
+        kept.floorBloodSplats = new BoundedQueue<>();
+        gone.floorBloodSplats = new BoundedQueue<>();
+        IsoFloorBloodSplat onKept = new IsoFloorBloodSplat(), onGone = new IsoFloorBloodSplat();
+        kept.floorBloodSplats.add(onKept);
+        gone.floorBloodSplats.add(onGone);
+        cell.reload(880, 800);
+        check(gone.loaded && cell.getChunk(gone.wx, gone.wy) != gone, "the chunk let go of is still loaded and no longer the one on the map");
+        Constructor<?> dropped = Class.forName("com.cameraunlock.zomboid.Bleeding$Drop").getDeclaredConstructor(IsoChunk.class, int.class, int.class, IsoFloorBloodSplat.class, double.class, int.class);
+        dropped.setAccessible(true);
+        Field trail = Bleeding.class.getDeclaredField("trail");
+        trail.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        ArrayList<Object> drops = (ArrayList<Object>) trail.get(null);
+        drops.add(dropped.newInstance(kept, kept.wx, kept.wy, onKept, 0.0, 0));
+        drops.add(dropped.newInstance(gone, gone.wx, gone.wy, onGone, 0.0, 0));
+        Bleeding.dry(Bleeding.TRAIL_GOES, cell);
+        check(drops.isEmpty(), "both drops are gone from the trail, not " + drops.size());
+        check(kept.floorBloodSplats.size() == 0, "the drop on the chunk on the map is taken up off its floor");
+        check(gone.floorBloodSplats.size() == 1 && gone.floorBloodSplats.get(0) == onGone, "the chunk let go of is left as it is");
         Bleeding.forget();
     }
 

@@ -49,6 +49,11 @@ public final class IsoCell {
         return chunk;
     }
 
+    /** The chunk on the map at a chunk's place, or null where none has been loaded. */
+    public IsoChunk getChunk(int wx, int wy) {
+        return chunks.get(key(wx, wy, 0));
+    }
+
     /** Has the chunk at a place let go of and loaded again, as another chunk. */
     public void reload(int x, int y) {
         chunks.remove(key(Math.floorDiv(x, 8), Math.floorDiv(y, 8), 0));

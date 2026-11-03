@@ -11,6 +11,7 @@ import java.util.WeakHashMap;
 import zombie.GameTime;
 import zombie.characters.IsoZombie;
 import zombie.core.utils.BoundedQueue;
+import zombie.iso.IsoCell;
 import zombie.iso.IsoChunk;
 import zombie.iso.IsoFloorBloodSplat;
 import zombie.iso.IsoGridSquare;
@@ -43,7 +44,12 @@ final class Bleeding {
     /** The game's floor blood pictures: eight small, eight medium, four large. */
     private static final int SMALL = 0, MEDIUM = 8, LARGE = 16;
 
-    private record Drop(IsoChunk chunk, IsoFloorBloodSplat splat, double born, int level) {}
+    /**
+     * A drop of the trail, with the chunk it lies on and that chunk's place. The chunk is touched
+     * only while it is still the one on the map at that place: IsoChunk.loaded stays true after
+     * the game lets a chunk go, until its own reuser thread empties the chunk for another place.
+     */
+    private record Drop(IsoChunk chunk, int wx, int wy, IsoFloorBloodSplat splat, double born, int level) {}
 
     /** Where each cut zombie last dropped blood. */
     private static final Map<IsoZombie, float[]> lastDrop = new WeakHashMap<>();
@@ -129,7 +135,7 @@ final class Bleeding {
             }
         }
         synchronized (trail) {
-            age(now);
+            age(now, zombie.iso.IsoWorld.instance.currentCell);
         }
     }
 
@@ -151,7 +157,7 @@ final class Bleeding {
     }
 
     /** Ages the trail and takes up what has gone. Under the trail's lock. */
-    private static void age(double now) {
+    private static void age(double now, IsoCell cell) {
         // Aged by the game hour: each step dries the trail by as much as the game's blood dries in hours, which is when both views draw it again.
         if (FirstPerson.TRACE && !trail.isEmpty() && System.nanoTime() - said > 1_000_000_000L) {
             said = System.nanoTime();
@@ -162,25 +168,31 @@ final class Bleeding {
         }
         aged = now;
         int before = trail.size();
+        dry(now, cell);
+        if (FirstPerson.TRACE && trail.size() != before) {
+            Log.info(String.format(Locale.ROOT, "bleeding: %d drops of trail taken up, %d left", before - trail.size(), trail.size()));
+        }
+    }
+
+    /** Dries each drop of the trail to its age, and takes up those that have gone or whose chunk has left the map. Under the trail's lock. */
+    static void dry(double now, IsoCell cell) {
         for (Iterator<Drop> it = trail.iterator(); it.hasNext(); ) {
             Drop drop = it.next();
             double age = now - drop.born;
-            if (age >= TRAIL_GOES || !drop.chunk.loaded) {
-                if (drop.chunk.loaded) {
+            boolean onMap = cell.getChunk(drop.wx, drop.wy) == drop.chunk;
+            if (age >= TRAIL_GOES || !onMap) {
+                if (onMap) {
                     take(drop);
                 }
                 it.remove();
                 continue;
             }
             float worldAge = (float) (drop.born - GAME_DRIES * Math.min(1.0, age / TRAIL_DRIES));
-            double phase = Blood.phase(drop.chunk.wx, drop.chunk.wy);
+            double phase = Blood.phase(drop.wx, drop.wy);
             if (Math.floor(worldAge + phase) != Math.floor(drop.splat.worldAge + phase)) {
                 drop.splat.worldAge = worldAge;
                 drop.chunk.invalidateRenderChunkLevel(drop.level, 1L);
             }
-        }
-        if (FirstPerson.TRACE && trail.size() != before) {
-            Log.info(String.format(Locale.ROOT, "bleeding: %d drops of trail taken up, %d left", before - trail.size(), trail.size()));
         }
     }
 
@@ -197,7 +209,7 @@ final class Bleeding {
         IsoFloorBloodSplat laid = splats.size() == 0 ? null : splats.get(splats.size() - 1);
         if (fades && laid != null && laid != last) {
             synchronized (trail) {
-                trail.add(new Drop(chunk, laid, laid.worldAge, square.getZ()));
+                trail.add(new Drop(chunk, chunk.wx, chunk.wy, laid, laid.worldAge, square.getZ()));
             }
         }
     }
