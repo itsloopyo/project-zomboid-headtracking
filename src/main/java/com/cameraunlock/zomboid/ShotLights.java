@@ -214,7 +214,6 @@ final class ShotLights {
         for (int x = column - HEAD_OUT; x <= column + HEAD_OUT; x++) {
             for (int y = row - HEAD_OUT; y <= row + HEAD_OUT; y++) {
                 for (int z = 0; z < LAMP_LEVELS; z++) {
-                    float floor = z * ViewCamera.LEVEL_HEIGHT + terrain.height(x + 0.5f, y + 0.5f);
                     for (int shift = -1; shift <= 1; shift++) {
                         int on = Spans.LEVEL_SQUARES * shift, drawnX = x - on, drawnY = y - on, drawnZ = z - shift;
                         IsoGridSquare square = drawnZ < 0 ? null : cell.getGridSquare(drawnX, drawnY, drawnZ);
@@ -230,6 +229,7 @@ final class ShotLights {
                             if (lights == null || StreetLampPlaces.headShift(cell, drawnX, drawnY, drawnZ) != shift) {
                                 continue;
                             }
+                            float floor = z * ViewCamera.LEVEL_HEIGHT + terrain.height(x + 0.5f, y + 0.5f);
                             for (int k = 0; k < lights.length; k += 3) {
                                 if (passesBy(line.eyeX, line.eyeY, line.eyeUp, line.forwardX, line.forwardY, line.forwardUp, distance,
                                         x + 0.5f + lights[k], y + 0.5f + lights[k + 1], floor + lights[k + 2])) {
