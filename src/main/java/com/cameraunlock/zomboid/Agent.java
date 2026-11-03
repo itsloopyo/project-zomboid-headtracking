@@ -280,9 +280,13 @@ public final class Agent {
      * method bodies only, so PatchTransformer leaves out each patch that adds members.
      */
     private static void retransformLoaded(Instrumentation instrumentation, Class<?>[] before) {
-        Set<String> owners = new HashSet<>();
-        transformers.forEach(transformer -> owners.addAll(transformer.owners()));
-        int[] done = retransform(instrumentation, before, owners);
+        int[] done;
+        // Under takeIn's lock: the watch on CameraUnlock.ini is running, and a takeIn would add to transformers while they are walked.
+        synchronized (Agent.class) {
+            Set<String> owners = new HashSet<>();
+            transformers.forEach(transformer -> owners.addAll(transformer.owners()));
+            done = retransform(instrumentation, before, owners);
+        }
         Log.info("patched again " + done[0] + " classes the game had loaded before the mod started" + refusedSaid(done));
     }
 
@@ -538,16 +542,19 @@ public final class Agent {
             if (itemLookupGuard != null) {
                 instrumentation.removeTransformer(itemLookupGuard);
             }
-            // A class the game loaded on another thread meanwhile keeps the patches it was given: removing a transformer takes nothing out.
-            for (PatchTransformer transformer : transformers) {
-                patchesLeftIn += transformer.appliedCount();
+            // Under takeIn's lock, which the watch may be in: a set it took in after this would go into the game's code.
+            synchronized (Agent.class) {
+                // A class the game loaded on another thread meanwhile keeps the patches it was given: removing a transformer takes nothing out.
+                for (PatchTransformer transformer : transformers) {
+                    patchesLeftIn += transformer.appliedCount();
+                }
+                if (patchesLeftIn > 0) {
+                    Log.info(patchesLeftIn + " of the mod's patches went into the game's code before it stopped, and stay there until the game is closed");
+                }
+                transformers.forEach(instrumentation::removeTransformer);
+                transformers.clear();
+                waiting.clear();
             }
-            if (patchesLeftIn > 0) {
-                Log.info(patchesLeftIn + " of the mod's patches went into the game's code before it stopped, and stay there until the game is closed");
-            }
-            transformers.forEach(instrumentation::removeTransformer);
-            transformers.clear();
-            waiting.clear();
             Tracking.stop();
             throw failure;
         }
