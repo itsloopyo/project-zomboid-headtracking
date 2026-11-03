@@ -52,6 +52,9 @@ final class GranTurismoTone {
      */
     static final float SCALE = bisect(x -> curve(0.18f * x) / PEAK, Develop.film(0.18f), 0f, 64f);
 
+    /** The light the develop pass shows as Develop.DARK_SHOWN and as Develop.BRIGHT_SHOWN while the operator is on: Develop.settle's aims. */
+    static final float DARK_LIGHT = greyInverse((float) Math.pow(Develop.DARK_SHOWN, 2.2)), BRIGHT_LIGHT = greyInverse((float) Math.pow(Develop.BRIGHT_SHOWN, 2.2));
+
     static float curve(float x) {
         if (x < 0f) {
             return 0f;

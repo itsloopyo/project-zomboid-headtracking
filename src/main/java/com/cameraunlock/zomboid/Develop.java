@@ -141,6 +141,9 @@ final class Develop {
         return 0.5f * (low + high);
     }
 
+    /** The light the film shows as DARK_SHOWN and as BRIGHT_SHOWN, which the levels aim the frame's dark and bright at. */
+    static final float DARK_LIGHT = (float) Math.pow(DARK_SHOWN, 2.2), BRIGHT_LIGHT = filmInverse((float) Math.pow(BRIGHT_SHOWN, 2.2));
+
     /**
      * Moves the dark taken away and the gain towards what this frame asks for at this exposure.
      * strength is the style's (Style.levels), night 0 by day to 1 by night, fog how thick the air is:
@@ -155,8 +158,7 @@ final class Develop {
         if (!Float.isNaN(dark) && strength > 0f) {
             float darkLight = exposure * (float) Math.pow(2.0, dark);
             float brightLight = exposure * (float) Math.pow(2.0, bright);
-            float darkShown = (float) Math.pow(DARK_SHOWN, 2.2);
-            float darkWanted = granTurismo ? GranTurismoTone.greyInverse(darkShown) : darkShown;
+            float darkWanted = granTurismo ? GranTurismoTone.DARK_LIGHT : DARK_LIGHT;
             float taking = Math.clamp(1f - darkWanted / Math.max(darkLight, 1e-6f), 0f, MOST_TAKEN);
             taking *= strength * (1f - 0.6f * Math.clamp(fog, 0f, 1f));
             wantTaken = taking;
@@ -164,8 +166,7 @@ final class Develop {
             float dark = Math.clamp(night, 0f, 1f);
             float most = MOST_GAIN + (MOST_GAIN_AT_NIGHT - MOST_GAIN) * dark;
             float least = LEAST_GAIN + (1f - LEAST_GAIN) * dark;
-            float brightShown = (float) Math.pow(BRIGHT_SHOWN, 2.2);
-            float fits = (granTurismo ? GranTurismoTone.greyInverse(brightShown) : filmInverse(brightShown)) / Math.max(rest, 1e-6f);
+            float fits = (granTurismo ? GranTurismoTone.BRIGHT_LIGHT : BRIGHT_LIGHT) / Math.max(rest, 1e-6f);
             wantGain = 1f + (Math.clamp(fits, least, most) - 1f) * strength;
             wantTaken = taking * darkLight / exposure;
         }
