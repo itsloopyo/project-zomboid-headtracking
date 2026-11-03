@@ -11,6 +11,7 @@ final class MoversTests {
         Checks.run("theNearestSixteenAreKept", MoversTests::theNearestSixteenAreKept);
         Checks.run("nobodyIsNotedForAPictureThatIsNotSteadied", MoversTests::nobodyIsNotedForAPictureThatIsNotSteadied);
         Checks.run("nobodyIsHeldOnToOnceForgotten", MoversTests::nobodyIsHeldOnToOnceForgotten);
+        Checks.run("aReusedZombieIsFirstSeenForTheFramesStillToBeDrawn", MoversTests::aReusedZombieIsFirstSeenForTheFramesStillToBeDrawn);
     }
 
     private static void nobodyIsHeldOnToOnceForgotten() {
@@ -23,6 +24,29 @@ final class MoversTests {
         movers.begin(true);
         movers.note(walker, 11f, 20f, 0.5f, 1f, 4f);
         check(movers.found == 1 && movers.before[0] == 11f, "a mover noted again after the view was let go of is first seen: where it stood before is not kept");
+    }
+
+    private static void aReusedZombieIsFirstSeenForTheFramesStillToBeDrawn() {
+        Movers movers = new Movers();
+        Object zombie = new Object(), walker = new Object();
+        movers.begin(true);
+        movers.note(zombie, 10f, 20f, 0f, 1f, 1f);
+        movers.note(walker, 30f, 20f, 0f, 1f, 2f);
+        movers.end();
+        movers.reused(zombie);
+        for (int frame = 0; frame < WorldScene.SCENES; frame++) {
+            float x = frame % 2 == 0 ? 80f : 10f;
+            movers.begin(true);
+            movers.note(zombie, x, 20f, 0f, 1f, 1f);
+            movers.note(walker, 30f + frame + 1f, 20f, 0f, 1f, 2f);
+            movers.end();
+            check(movers.before[0] == x, "a reused zombie stood where it stands, " + (frame + 1) + " frames after its reuse, not at " + movers.before[0]);
+            check(movers.before[4] == 30f + frame, "another mover still walked from where it stood");
+        }
+        movers.begin(true);
+        movers.note(zombie, 81f, 20f, 0f, 1f, 1f);
+        movers.end();
+        check(movers.before[0] == (WorldScene.SCENES % 2 == 1 ? 80f : 10f), "once those frames are drawn it moves from where it stood again, not from " + movers.before[0]);
     }
 
     private static void aMoverStoodWhereItWasNotedTheFrameBefore() {

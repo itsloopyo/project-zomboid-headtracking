@@ -891,6 +891,7 @@ public final class Hooks {
             if (view != null) {
                 view.hitDirection.forget(zombie);
                 view.kerbSteps.lose(zombie);
+                view.characters.movers.reused(zombie);
             }
         }
     }

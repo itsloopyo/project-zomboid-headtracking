@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import java.util.IdentityHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  * Where the people and vehicles of the picture stand this frame and where each stood the frame
@@ -8,9 +9,11 @@ import java.util.IdentityHashMap;
  * it then was, and not where the ground under it was.
  *
  * A mover is where it stands and the angle it is turned by. The nearest MOST to the eye are
- * kept. One seen for the first time stood, as far as this knows, where it stands.
+ * kept. One seen for the first time stood, as far as this knows, where it stands, and so does a
+ * zombie the game has reused (made into a new one, which can stand anywhere) for the frames
+ * drawn after: those built before the reuse may still be drawn with it where it was.
  *
- * Render thread only.
+ * Render thread only, but for reused.
  */
 final class Movers {
     static final int MOST = 16;
@@ -21,11 +24,22 @@ final class Movers {
     boolean wanted;
     private final float[] away = new float[MOST];
     private IdentityHashMap<Object, float[]> last = new IdentityHashMap<>(), seen = new IdentityHashMap<>();
+    /** Zombies the game has reused, from the logic thread, and for each the frames still to be drawn as first seen. */
+    private final ConcurrentLinkedQueue<Object> reusedNow = new ConcurrentLinkedQueue<>();
+    private final IdentityHashMap<Object, int[]> madeAnew = new IdentityHashMap<>();
+
+    /** Logic thread: the game has reused a zombie, which the frames to come may draw anywhere. */
+    void reused(Object who) {
+        reusedNow.add(who);
+    }
 
     /** As a frame's people and vehicles begin to be drawn. */
     void begin(boolean wanted) {
         this.wanted = wanted;
         found = 0;
+        for (Object who = reusedNow.poll(); who != null; who = reusedNow.poll()) {
+            madeAnew.put(who, new int[] {WorldScene.SCENES});
+        }
     }
 
     /**
@@ -36,8 +50,9 @@ final class Movers {
         if (!wanted) {
             return;
         }
-        float[] stood = last.get(who);
-        float[] stands = stood != null ? stood : new float[4];
+        float[] kept = last.get(who);
+        float[] stands = kept != null ? kept : new float[4];
+        float[] stood = madeAnew.containsKey(who) ? null : kept;
         int at = found;
         if (found == MOST) {
             at = 0;
@@ -74,6 +89,7 @@ final class Movers {
     void forget() {
         last.clear();
         seen.clear();
+        madeAnew.clear();
         found = 0;
     }
 
@@ -83,5 +99,6 @@ final class Movers {
         last = seen;
         seen = gone;
         seen.clear();
+        madeAnew.values().removeIf(left -> --left[0] <= 0);
     }
 }
