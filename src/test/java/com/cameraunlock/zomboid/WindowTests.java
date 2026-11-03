@@ -98,11 +98,6 @@ final class WindowTests {
     }
 
     /**
-     * The narrowest arch measure takes keeps its crown. An arch is told by its head's corners,
-     * bare for CORNER dots, so its crown stands CORNER dots or more from either end and is never
-     * the lump at one end of a head that a door's closer is.
-     */
-    /**
      * A read that took what was asked before the frame's scale changed, and finished after the
      * new scale was asked for, leaves a shape of the old scale: it is let go and read again.
      */
@@ -127,6 +122,11 @@ final class WindowTests {
         }
     }
 
+    /**
+     * The narrowest arch measure takes keeps its crown. An arch is told by its head's corners,
+     * bare for CORNER dots, so its crown stands CORNER dots or more from either end and is never
+     * the lump at one end of a head that a door's closer is.
+     */
     private static void narrowArchKeepsItsCrown() {
         Windows.Shape shape = measured(
                 "    ###    ",
