@@ -117,7 +117,7 @@ final class Corpses {
      * Asks the game to pose again the bodies draws found nothing kept of, ASKED_A_ROUND at most,
      * and none asked within ASKED_AGAIN_NANOS, which is most likely being posed for the asking. A
      * body whose picture is another by now is left to the build that finds it, and so is one no
-     * longer on the square its build found it on: the game lights the picture by the body's square,
+     * longer on the square its build found it on, where its build found it on one: the game lights the picture by the body's square,
      * and keeps a body's square object after its chunk is let go of, when it reuses that object for
      * a square loaded elsewhere. Logic thread,
      * while a frame is handed to the render thread, where the game asks for its own pictures.
@@ -136,7 +136,8 @@ final class Corpses {
             IsoGridSquare square = body.getSquare();
             Long before = wanted.get(entry);
             if (kept.containsKey(entry) || before != null && now - before < ASKED_AGAIN_NANOS || square == null || square.getChunk() == null
-                    || !FigureLights.at(each.getValue().square(), square.getX(), square.getY(), square.getZ()) || entryOf(body) != entry) {
+                    || each.getValue().square() != FigureLights.NOWHERE && !FigureLights.at(each.getValue().square(), square.getX(), square.getY(), square.getZ())
+                    || entryOf(body) != entry) {
                 continue;
             }
             wanted.put(entry, now);
