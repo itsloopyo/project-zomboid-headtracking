@@ -270,6 +270,7 @@ final class AimBlur {
         GL30.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
         int status = GL30.glCheckFramebufferStatus(GL_FRAMEBUFFER);
         if (status != GL_FRAMEBUFFER_COMPLETE) {
+            GL30.glDeleteFramebuffers(made);
             throw new IllegalStateException("the driver would not make " + what + " (status 0x" + Integer.toHexString(status) + ")");
         }
         return made;
@@ -277,7 +278,8 @@ final class AimBlur {
 
     /** Gives the two pictures back if nothing has been blurred since before. */
     void takeBack(long before) {
-        if (result != 0 && usedNanos < before) {
+        // By the first texture: a making the driver refused part way has that one and not the rest.
+        if (gathered != 0 && usedNanos < before) {
             GL30.glDeleteFramebuffers(gatheredTarget);
             GL30.glDeleteFramebuffers(resultTarget);
             GL11.glDeleteTextures(gathered);
