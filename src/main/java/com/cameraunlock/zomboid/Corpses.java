@@ -20,6 +20,7 @@ import zombie.core.skinnedmodel.model.ModelInstanceRenderData;
 import zombie.core.skinnedmodel.model.ModelSlotRenderData;
 import zombie.core.textures.SmartTexture;
 import zombie.core.textures.Texture;
+import zombie.iso.IsoGridSquare;
 import zombie.iso.objects.IsoDeadBody;
 
 /**
@@ -80,8 +81,8 @@ final class Corpses {
     private static final Map<Object, Kept> kept = new ConcurrentHashMap<>();
     /** The entries whose posing is kept when the game next poses one, each with when the game was asked to. */
     private static final Map<Object, Long> wanted = new ConcurrentHashMap<>();
-    /** The bodies a draw found nothing kept of, by entry, to be posed again. */
-    private static final Map<Object, IsoDeadBody> missing = new ConcurrentHashMap<>();
+    /** The bodies a draw found nothing kept of, by entry, to be posed again, each as its build found it. */
+    private static final Map<Object, Lying> missing = new ConcurrentHashMap<>();
     /** How many kept corpses are drawn with each skin, and the skins the game asked to destroy meanwhile. */
     private static final Map<Texture, Integer> held = new IdentityHashMap<>();
     private static final Map<Texture, Boolean> letGo = new IdentityHashMap<>();
@@ -109,13 +110,16 @@ final class Corpses {
 
     /** A draw found nothing kept of a body: it is to be posed again. Render thread. */
     static void missed(Lying body) {
-        missing.putIfAbsent(body.entry(), body.body());
+        missing.putIfAbsent(body.entry(), body);
     }
 
     /**
      * Asks the game to pose again the bodies draws found nothing kept of, ASKED_A_ROUND at most,
      * and none asked within ASKED_AGAIN_NANOS, which is most likely being posed for the asking. A
-     * body whose picture is another by now is left to the build that finds it. Logic thread,
+     * body whose picture is another by now is left to the build that finds it, and so is one no
+     * longer on the square its build found it on: the game lights the picture by the body's square,
+     * and keeps a body's square object after its chunk is let go of, when it reuses that object for
+     * a square loaded elsewhere. Logic thread,
      * while a frame is handed to the render thread, where the game asks for its own pictures.
      */
     static void askAgain() {
@@ -124,13 +128,15 @@ final class Corpses {
         }
         long now = System.nanoTime();
         int asked = 0;
-        for (Iterator<Map.Entry<Object, IsoDeadBody>> it = missing.entrySet().iterator(); it.hasNext() && asked < ASKED_A_ROUND; ) {
-            Map.Entry<Object, IsoDeadBody> each = it.next();
+        for (Iterator<Map.Entry<Object, Lying>> it = missing.entrySet().iterator(); it.hasNext() && asked < ASKED_A_ROUND; ) {
+            Map.Entry<Object, Lying> each = it.next();
             it.remove();
             Object entry = each.getKey();
-            IsoDeadBody body = each.getValue();
+            IsoDeadBody body = each.getValue().body();
+            IsoGridSquare square = body.getSquare();
             Long before = wanted.get(entry);
-            if (kept.containsKey(entry) || before != null && now - before < ASKED_AGAIN_NANOS || entryOf(body) != entry) {
+            if (kept.containsKey(entry) || before != null && now - before < ASKED_AGAIN_NANOS || square == null || square.getChunk() == null
+                    || !FigureLights.at(each.getValue().square(), square.getX(), square.getY(), square.getZ()) || entryOf(body) != entry) {
                 continue;
             }
             wanted.put(entry, now);

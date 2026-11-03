@@ -10,8 +10,9 @@ import zombie.iso.SpriteDetails.IsoObjectType;
 import zombie.iso.sprite.IsoSprite;
 
 /**
- * The game hands a plain object it reset out again for any square, under the same object: nothing
- * the mod found or kept of it outlives that.
+ * The game hands a plain object it reset out again for any square, under the same object, and keeps
+ * a body's square object after its chunk is let go of, handing it out for a square loaded elsewhere:
+ * nothing the mod found or kept of a thing outlives either.
  */
 final class ReusedObjectTests {
     private ReusedObjectTests() {}
@@ -19,6 +20,7 @@ final class ReusedObjectTests {
     static void run() {
         Checks.run("aResetObjectKeepsNoHolesNorBrokenPickets", ReusedObjectTests::aResetObjectKeepsNoHolesNorBrokenPickets);
         Checks.run("aWallPiecesMaterialHoldsOnlyWhereAndAsItWasFound", ReusedObjectTests::aWallPiecesMaterialHoldsOnlyWhereAndAsItWasFound);
+        Checks.run("aCorpseIsPosedAgainOnlyOnTheSquareItsBuildFound", ReusedObjectTests::aCorpseIsPosedAgainOnlyOnTheSquareItsBuildFound);
     }
 
     private static void aResetObjectKeepsNoHolesNorBrokenPickets() throws Throwable {
@@ -74,5 +76,15 @@ final class ReusedObjectTests {
         } finally {
             found.remove(piece);
         }
+    }
+
+    private static void aCorpseIsPosedAgainOnlyOnTheSquareItsBuildFound() {
+        long key = FigureLights.key(10_712, 9_843, 2);
+        check(FigureLights.at(key, 10_712, 9_843, 2), "a body still on the square its build found it on is posed again");
+        check(!FigureLights.at(key, 10_713, 9_843, 2) && !FigureLights.at(key, 10_712, 9_844, 2) && !FigureLights.at(key, 10_712, 9_843, 1),
+                "not one whose square object the game handed out for another place");
+        long nowhere = FigureLights.NOWHERE;
+        check(!FigureLights.at(nowhere, FigureLights.x(nowhere), FigureLights.y(nowhere), FigureLights.z(nowhere)),
+                "nor one its build found on no square");
     }
 }

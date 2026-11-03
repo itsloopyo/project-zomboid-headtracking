@@ -146,6 +146,11 @@ final class FigureLights {
         return (byte) key;
     }
 
+    /** Whether a place (key, or NOWHERE) is the square at x, y, z. */
+    static boolean at(long key, int x, int y, int z) {
+        return key != NOWHERE && x(key) == x && y(key) == y && z(key) == z;
+    }
+
     /**
      * Logic thread, as a frame is built, once its builds are chosen: gathers the light of every
      * figure the frame may draw.
