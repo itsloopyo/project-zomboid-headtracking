@@ -332,7 +332,7 @@ A short line under the crosshair says what `E` will do to what it is on, such as
 
 ## Configuration
 
-Most settings are in the game under **Options > Mods > Head Tracking**: head tracking, first person, graphics and the gameplay tweaks (see [The options page](#the-options-page)). First person and the isometric view each have their own graphics quality. The first time first person shows, the mod starts it at High and steps down to Medium or Low while the frame rate is under 45, then keeps the mode that holds about 12 seconds and saves it, and never changes it after that. The isometric view starts on Low, which is the game's own look. For the keys, the tracker's UDP ports and how far you can lean, edit `CameraUnlock.ini` in the game folder.
+Most settings are in the game under **Options > Mods > Head Tracking**: head tracking, first person, graphics and the gameplay tweaks (see [The options page](#the-options-page)). First person and the isometric view each have their own graphics quality. The first time first person shows, the mod starts it at High and steps down to Medium or Low while the frame rate is under 45, then keeps the mode that holds about 12 seconds and saves it, and never changes it after that. The isometric view starts on Low, which is the game's own look. The keys are under Keys at the bottom of the same page. For the tracker's UDP ports and how far you can lean, edit `CameraUnlock.ini` in the game folder.
 
 <!-- cameraunlock:config -->
 The mod reads its settings from `CameraUnlock.ini` in the game folder, and creates the file when it starts and finds none. Edit it with any text editor.
@@ -929,7 +929,7 @@ FourthPlayerMicrophone=None
 
 ### The options page
 
-**Options > Mods > Head Tracking** has every setting from `CameraUnlock.ini` except the keys, the tracker's UDP ports, the lean limits (the `PositionLimit` settings), lean collision (the `Collision` settings) and `DataFreshnessMs`. Changes take effect, and are saved to `CameraUnlock.ini`, when you apply them with **APPLY** or **ACCEPT**. If you leave without applying, nothing changes.
+**Options > Mods > Head Tracking** has every setting from `CameraUnlock.ini`, the keys included, except the tracker's UDP ports, the lean limits (the `PositionLimit` settings), lean collision (the `Collision` settings) and `DataFreshnessMs`. Changes take effect, and are saved to `CameraUnlock.ini`, when you apply them with **APPLY** or **ACCEPT**. If you leave without applying, nothing changes.
 
 The page is split into Quick settings, First person, Head tracking, Graphics, Custom graphics, Mod content, Gameplay tweaks, Game fixes, Optimizations, Split screen, a section for each of players 2, 3 and 4, Voice, and Keys, which lists the keys and where to change them.
 
