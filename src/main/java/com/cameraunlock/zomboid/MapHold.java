@@ -23,7 +23,7 @@ final class MapHold {
         return WHY[Integer.numberOfTrailingZeros(holding)];
     }
 
-    /** Whether reading the map now puts it in the hands, with these holding: the reading is itself something done. */
+    /** Whether the map key now puts the map in the hands, with these holding: an action under way is let go as it is lifted. */
     static boolean wanted(int holding) {
         return down(holding & ~DOING_SOMETHING_ELSE) == null;
     }

@@ -158,7 +158,7 @@ final class WatchTests {
         check(MapHold.down(MapHold.NOT_FIRST_PERSON | MapHold.DEAD).equals(MapHold.down(MapHold.NOT_FIRST_PERSON)), "out of first person and dead, it says the view");
         check(!MapHold.wanted(MapHold.BODY_LEADS) && !MapHold.wanted(MapHold.NOT_FIRST_PERSON) && !MapHold.wanted(MapHold.OFF),
                 "a map read with the body led, out of first person or switched off is not held up");
-        check(MapHold.wanted(MapHold.DOING_SOMETHING_ELSE), "the reading of the map is not something else in the way of holding it up");
+        check(MapHold.wanted(MapHold.DOING_SOMETHING_ELSE), "an action under way is not in the way of lifting the map, which clears the game's queue of them");
     }
 
     private static void heldMapIsNeverWantedWherePlayersCanFight() {

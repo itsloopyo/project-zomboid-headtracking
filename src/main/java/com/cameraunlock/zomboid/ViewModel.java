@@ -624,12 +624,6 @@ public final class ViewModel {
             sortedLowAlone = TimedActs.low(anim, null);
         }
         int kind = anim == null ? TimedActs.NONE : sortedKind;
-        // The game reads the world map with its animation of reading a newspaper: here the map comes up in the hands.
-        // In a seat the game plays no animation of it that the mod reads, and the map comes up as it is read all the same.
-        if (HeldMap.reading(view.index) && (kind == TimedActs.READ || player.getVehicle() != null)) {
-            kind = TimedActs.MAP;
-            anim = anim == null ? HeldMap.HELD : anim;
-        }
         // While anything else is under way the map is put down, as HeldMap says, from the next frame.
         if (kind == TimedActs.NONE && HeldMap.held(view.index)) {
             kind = TimedActs.MAP;

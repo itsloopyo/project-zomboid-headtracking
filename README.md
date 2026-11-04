@@ -322,7 +322,7 @@ A short line under the crosshair says what `E` will do to what it is on, such as
 
 **Your watch** - with a watch on a wrist and that hand empty, standing or walking, look down, then turn towards that wrist: the arm comes up and turns the watch to you, showing the time as the game's clock shows it, as figures on a digital watch and as hands on the others. With a watch on each wrist, you see the one you turn towards. Look away and it goes back down. While head tracking is on, only your head's look raises it, never the mouse; with tracking off, the mouse's look does. It doesn't come up while you aim or attack. It is off unless you turn it on, with `WatchGlance=true` or in the mod's options.
 
-**The map** - a tap of the map key brings the world map up in both hands, showing the area around you with a red pointer where you stand, the way you face, and you can walk and run with it up. In a vehicle seat it's held low in your right hand, off the road ahead, and a driver keeps the left hand on the wheel and can steer, speed up and brake with it up. Tap the map key again, press Esc or click the middle mouse button to put it down; a tap while it's still coming up or going down does nothing. Hold the map key, or click the map button on the side bar, to open the game's own map over the screen, where you pan, zoom and add marks. It opens as the game opens it, so where the game says it's too dark to read the map, it says so here too. Aiming, attacking, starting anything else, getting into or out of a seat or leaving first person also puts the map down. On a PvP server the map key opens the game's map as it does without the mod. `HeldMap=false` does the same everywhere.
+**The map** - a tap of the map key puts the world map in both hands straight away, whether you're standing, walking or running, showing the area around you with a red pointer where you stand, the way you face, and it stays up until you put it down. In a vehicle seat it's held low in your right hand, off the road ahead, and a driver keeps the left hand on the wheel and can steer, speed up and brake with it up. Tap the map key again, press Esc or click the middle mouse button to put it down. Hold the map key, or click the map button on the side bar, to open the game's own map over the screen, where you pan, zoom and add marks. Where the game says it's too dark to read the map, it doesn't come up into your hands either. Opening or shutting a door leaves it up. Aiming, attacking, starting anything else, getting into or out of a seat or leaving first person puts the map down. On a PvP server the map key opens the game's map as it does without the mod. `HeldMap=false` does the same everywhere.
 
 ### Controller and split screen
 
@@ -610,13 +610,14 @@ FishingRod=true
 ; never raises it; with it off, the mouse's look does. With a watch on each wrist, the one you turn to. Not while
 ; aiming or attacking. false: the arm stays down.
 WatchGlance=false
-; true: in first person, a tap of the map key holds the game's map up in both hands, the place round you on it, and you
-; can walk and run with it. In a vehicle seat it is held low in the right hand, and a driver keeps the left on the wheel.
-; Another tap puts it down; a tap while it is coming up or going down does nothing. Holding the map key, or the map
-; button on the side bar, opens the game's map over the screen, to pan, zoom and mark. Esc or a middle click puts it
-; down and does nothing else. Aiming, attacking, starting anything else, getting into or out of a seat, or leaving
-; first person also puts it down. On a server where players can fight, the game's map opens as it does without the
-; mod. false: the map key opens the game's map over the screen, as without the mod.
+; true: in first person, a tap of the map key puts the game's map in both hands at once, standing, walking or running,
+; the place round you on it, and it stays up until you put it down. In a vehicle seat it is held low in the right hand,
+; and a driver keeps the left on the wheel. Another tap puts it down. Holding the map key, or the map button on the side
+; bar, opens the game's map over the screen, to pan, zoom and mark. Esc or a middle click puts it down and does nothing
+; else. Where the game says it is too dark to read the map, it does not come up. Opening or shutting a door leaves it up.
+; Aiming, attacking, starting anything else, getting into or out of a seat, or leaving first person puts it down.
+; On a server where players can fight, the game's map opens as it does without the mod. false: the map key opens the
+; game's map over the screen, as without the mod.
 ; Takes effect at once. From the next start, off also stops the mod changing the game's own code for this.
 HeldMap=true
 

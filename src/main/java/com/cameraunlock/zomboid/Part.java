@@ -126,13 +126,14 @@ enum Part {
                     + "never raises it; with it off, the mouse's look does. With a watch on each wrist, the one you turn to. Not while\n"
                     + "aiming or attacking. false: the arm stays down."),
     HELD_MAP("FirstPerson", "HeldMap", true, true,
-            "true: in first person, a tap of the map key holds the game's map up in both hands, the place round you on it, and you\n"
-                    + "can walk and run with it. In a vehicle seat it is held low in the right hand, and a driver keeps the left on the wheel.\n"
-                    + "Another tap puts it down; a tap while it is coming up or going down does nothing. Holding the map key, or the map\n"
-                    + "button on the side bar, opens the game's map over the screen, to pan, zoom and mark. Esc or a middle click puts it\n"
-                    + "down and does nothing else. Aiming, attacking, starting anything else, getting into or out of a seat, or leaving\n"
-                    + "first person also puts it down. On a server where players can fight, the game's map opens as it does without the\n"
-                    + "mod. false: the map key opens the game's map over the screen, as without the mod."),
+            "true: in first person, a tap of the map key puts the game's map in both hands at once, standing, walking or running,\n"
+                    + "the place round you on it, and it stays up until you put it down. In a vehicle seat it is held low in the right hand,\n"
+                    + "and a driver keeps the left on the wheel. Another tap puts it down. Holding the map key, or the map button on the side\n"
+                    + "bar, opens the game's map over the screen, to pan, zoom and mark. Esc or a middle click puts it down and does nothing\n"
+                    + "else. Where the game says it is too dark to read the map, it does not come up. Opening or shutting a door leaves it up.\n"
+                    + "Aiming, attacking, starting anything else, getting into or out of a seat, or leaving first person puts it down.\n"
+                    + "On a server where players can fight, the game's map opens as it does without the mod. false: the map key opens the\n"
+                    + "game's map over the screen, as without the mod."),
     SHOTS_FROM_VEHICLE_SEATS("Rules", "ShotsFromVehicleSeats", true, false,
             "true: in first person, sitting in a vehicle with a gun, you can fire through any part of your seat's window, and\n"
                     + "the shot breaks it. false: as in the game, the window has to be opened or broken first. On a server where\n"

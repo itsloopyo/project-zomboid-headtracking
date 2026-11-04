@@ -24,15 +24,15 @@ import zombie.ui.UIManager;
 import zombie.vehicles.BaseVehicle;
 
 /**
- * The world map held up in both hands in first person. The map key reads the map as the game
- * has it, with its animation of reading, and then, in place of the game's panel over the whole
- * screen, the map stays up in the hands: the game's own map of the place round the player,
- * drawn by its own renderer with the player's own marks on it and a pointer where they are, onto a
- * sheet before the eye. The player can walk with it up. A tap of the map key puts it down, and
- * a press while it is coming up or going down is let be. Holding the map key, or anything else
- * that opens the game's map (its side bar, its map menu, a pad), reads it as the game does, for
- * the game's panel, where it is panned, zoomed and marked. Each press of the key is taken on its
- * way down, once.
+ * The world map held up in both hands in first person. A press of the map key lifts it into the
+ * hands at once, standing, walking or running, in place of the game's reading of it, a timed
+ * action that walking stops, and its panel over the whole screen: the game's own map of the
+ * place round the player, drawn by its own renderer with the player's own marks on it and a
+ * pointer where they are, onto a sheet before the eye. The next press puts it down. Holding the
+ * map key, or anything else that opens the game's map (its side bar, its map menu, a pad), reads
+ * it as the game does, for the game's panel, where it is panned, zoomed and marked. Each press of
+ * the key is taken on its way down, once. Where the game would not let the map be read for the
+ * dark, it is not lifted either.
  * What puts it down is MapHold's, looked at after each frame's world is drawn whatever the view
  * (settle).
  *
@@ -63,65 +63,54 @@ final class HeldMap {
     private static final int GL_SCISSOR_TEST = 0x0C11, GL_COLOR_BUFFER_BIT = 0x4000, GL_VIEWPORT_BIT = 0x0800, GL_SCISSOR_BIT = 0x00080000;
 
     /**
-     * The Lua that holds the map: the game's reading of it made to hold it in the hands, the map
-     * key made to lift and lower it with a tap and to open the game's panel when held, everything
-     * else that opens the game's map made to open the panel, and a map of the game's own kind,
+     * The Lua that holds the map: the map key made to lift and lower it with a tap and to open the
+     * game's panel when held, everything else that opens the game's map made to put it down first,
+     * and a map of the game's own kind,
      * with the same data, style and paper as its panel, made for each player the first time it is
      * drawn. Handed the mod's functions, it answers the one that places a player's map and hands
      * back the map's Java element.
      */
     private static final String LUA = """
             local Mod, HOLD_MS = ...
-            local maps, toPanel, key = {}, {}, {}
-            local new, start, stop, perform, toggle = ISReadWorldMap.new, ISReadWorldMap.start, ISReadWorldMap.stop, ISReadWorldMap.perform, ISWorldMap.ToggleWorldMap
+            local maps, key = {}, {}
+            local toggle = ISWorldMap.ToggleWorldMap
             local down, keep, up = ISWorldMap.onKeyStartPressed, ISWorldMap.onKeyKeepPressed, ISWorldMap.onKeyReleased
-
-            function ISReadWorldMap:new(character, centerX, centerY, zoom)
-                local o = new(self, character, centerX, centerY, zoom)
-                o.toPanel = toPanel[o.playerNum]
-                return o
-            end
-
-            function ISReadWorldMap:start()
-                start(self)
-                if self.centerX == nil and not self.toPanel and Mod.wanted(self.playerNum) then
-                    self.heldInHands = true
-                    Mod.reading(self.playerNum, true)
-                end
-            end
-
-            function ISReadWorldMap:stop()
-                if self.heldInHands then
-                    Mod.reading(self.playerNum, false)
-                end
-                stop(self)
-            end
-
-            function ISReadWorldMap:perform()
-                if self.heldInHands then
-                    Mod.reading(self.playerNum, false)
-                    if Mod.wanted(self.playerNum) then
-                        Mod.hold(self.playerNum, self.maxTime)
-                        ISBaseTimedAction.perform(self)
-                        return
-                    end
-                end
-                perform(self)
-            end
-
-            local function panel(playerNum)
-                toPanel[playerNum] = true
-                toggle(playerNum)
-                toPanel[playerNum] = nil
-            end
 
             ISWorldMap.ToggleWorldMap = function(playerNum)
                 Mod.lower(playerNum, "the game's map was opened")
-                panel(playerNum)
+                toggle(playerNum)
             end
 
             local function isMapKey(k)
                 return getCore():isKey(KeybindId.MAP, k)
+            end
+
+            -- The game's own rule for reading its map in the dark, as ISWorldMap.ToggleWorldMap reads it.
+            local function tooDark(player)
+                if not ISWorldMap.NeedsLight() or getCore():getDebug() or isAdmin() then return false end
+                local vehicle = player:getVehicle()
+                if vehicle and (vehicle:hasLiveBattery() or vehicle:getBatteryCharge() > 0 or player:getTorchStrength() > 0) then return false end
+                return player:tooDarkToRead()
+            end
+
+            -- Lifted at once, with no timed action of reading it: walking stops a timed action, and the map is held walking.
+            local function lift(playerNum)
+                local player = getSpecificPlayer(playerNum)
+                if ISPostDeathUI and ISPostDeathUI.instance and #ISPostDeathUI.instance > 0 then
+                    Mod.press(playerNum, "a player is dead on the split screen, and the game shows no map then")
+                    return
+                end
+                if tooDark(player) then
+                    HaloTextHelper.addBadText(player, getText("ContextMenu_TooDark"))
+                    Mod.press(playerNum, "too dark to read the map, as the game has it")
+                    return
+                end
+                -- A walk under way is kept: the map is held walking. Anything else is let go, as the game does reading its map.
+                if Mod.busy(playerNum) then
+                    ISTimedActionQueue.clear(player)
+                end
+                player:playSoundLocal("MapOpen")
+                Mod.hold(playerNum)
             end
 
             Events.OnKeyStartPressed.Remove(down)
@@ -131,19 +120,17 @@ final class HeldMap {
             Events.OnKeyStartPressed.Add(function(k)
                 if not isMapKey(k) then return end
                 local usable, open = ISWorldMap.checkKey(k), ISWorldMap_instance and ISWorldMap_instance:isVisible()
-                key.mine = usable and not open and (Mod.held(0) or Mod.moving(0) or Mod.wanted(0))
+                key.mine = usable and not open and (Mod.held(0) or Mod.wanted(0))
                 if not key.mine then
                     if usable then Mod.passed(0, open == true) end
                     return down(k)
                 end
                 key.at, key.opened = getTimestampMs(), false
-                if Mod.moving(0) then
-                    Mod.press(0, "the map is coming up or going down, and the press is let be")
-                elseif Mod.held(0) then
+                if Mod.held(0) then
                     Mod.lower(0, "the map key was tapped")
                 else
                     Mod.press(0, "the map comes up")
-                    toggle(0)
+                    lift(0)
                 end
             end)
 
@@ -154,7 +141,7 @@ final class HeldMap {
                     key.opened = true
                     Mod.press(0, "held, for the game's map over the screen")
                     Mod.lower(0, "the map key was held for the game's map")
-                    panel(0)
+                    toggle(0)
                 end
             end)
 
@@ -202,11 +189,9 @@ final class HeldMap {
     /** How far in the held map is drawn, as the game counts its map's zoom: a few streets round the player. */
     static final double ZOOM = 17.5;
 
-    private static final boolean[] reading = new boolean[View.COUNT], held = new boolean[View.COUNT], made = new boolean[View.COUNT];
-    /** The vehicle seat each player read the map from (seatOf). */
+    private static final boolean[] held = new boolean[View.COUNT], made = new boolean[View.COUNT];
+    /** The vehicle seat each player lifted the map in (seatOf). */
     private static final int[] seats = new int[View.COUNT];
-    /** When each player began reading the map, in System.nanoTime. */
-    private static final long[] readSince = new long[View.COUNT];
     private static final Double[] PLAYER_NUMBERS = new Double[View.COUNT];
     private static final Double ZOOM_ASKED = ZOOM;
     /** The side and the height of the corner the maps are placed in, as they were last asked for, and as the Lua is handed them. */
@@ -217,26 +202,17 @@ final class HeldMap {
     private static boolean pending;
 
     private static final JavaFunction WANTED = (frame, arguments) -> frame.push(MapHold.wanted(holding(player(frame), false))),
-            READING = (frame, arguments) -> {
-                int player = player(frame);
-                reading[player] = Boolean.TRUE.equals(frame.get(1));
-                if (reading[player]) {
-                    seats[player] = seatOf(IsoPlayer.players[player]);
-                    readSince[player] = System.nanoTime();
-                }
-                return 0;
-            },
             HOLD = (frame, arguments) -> {
                 int player = player(frame);
+                seats[player] = seatOf(IsoPlayer.players[player]);
                 held[player] = true;
-                Log.info(String.format("player %d holds the map up in their hands, %.2f s after reading began (the game's reading of it is %s of its ticks):"
-                        + " a tap of the map key puts it down, holding it opens the game's map", player + 1, (System.nanoTime() - readSince[player]) / 1e9, frame.get(1)));
+                Log.info("player " + (player + 1) + " holds the map up in their hands: a tap of the map key puts it down, holding it opens the game's map");
                 return 0;
             },
             IS_HELD = (frame, arguments) -> frame.push(held[player(frame)]),
-            MOVING = (frame, arguments) -> {
-                int player = player(frame);
-                return frame.push(reading[player] || !held[player] && !handsDown(player));
+            BUSY = (frame, arguments) -> {
+                IsoPlayer player = IsoPlayer.players[player(frame)];
+                return frame.push(player != null && actionTaken(player) != null);
             },
             PRESS = (frame, arguments) -> {
                 Log.info("player " + (player(frame) + 1) + "'s map key: " + frame.get(1));
@@ -283,7 +259,7 @@ final class HeldMap {
         if (player.isDead()) {
             holding |= MapHold.DEAD;
         }
-        if ((reading[index] || HeldMap.held[index]) && seatOf(player) != seats[index]) {
+        if (HeldMap.held[index] && seatOf(player) != seats[index]) {
             holding |= MapHold.SEAT_CHANGED;
         }
         if (Online.contested()) {
@@ -307,16 +283,11 @@ final class HeldMap {
         return vehicle == null ? -1 : vehicle.getId() * 64 + vehicle.getSeat(player);
     }
 
-    /** Whether a player holds the map in a vehicle seat, in one hand: see Characters.settleTheTask. */
-    static boolean seated(int player) {
-        return (reading[player] || held[player]) && seats[player] >= 0;
-    }
-
     /** The action under way that last put a map down, for its line in the log. */
     private static String doing;
 
-    /** Timed actions the game queues for a walk to somewhere: walking does not put the map down. */
-    private static final Set<String> WALKS = Set.of("ISWalkToTimedAction", "ISPathFindAction");
+    /** Timed actions that leave the map up: a walk to somewhere, and a door opened or shut, which the game plays no animation of. */
+    private static final Set<String> WALKS = Set.of("ISWalkToTimedAction", "ISPathFindAction", "ISOpenCloseDoor");
 
     /** The name of the timed action the player has under way that puts a held map down, or null for none. */
     private static String actionTaken(IsoPlayer player) {
@@ -330,7 +301,7 @@ final class HeldMap {
         }
         if (action instanceof LuaTimedActionNew lua) {
             String type = lua.getMetaType();
-            return WALKS.contains(type) || "ISReadWorldMap".equals(type) ? null : type;
+            return WALKS.contains(type) ? null : type;
         }
         return action.getClass().getSimpleName();
     }
@@ -351,7 +322,6 @@ final class HeldMap {
 
     /** As the game loads its Lua: nobody holds a map, and the mod's Lua goes into the game's on the next frame among its UI drawing. */
     static void luaLoaded() {
-        Arrays.fill(reading, false);
         Arrays.fill(held, false);
         pending = true;
     }
@@ -361,21 +331,20 @@ final class HeldMap {
      * failure is said, and leaves the map key as the game has it.
      */
     private static void register() {
-        if (!(LuaManager.env.rawget("ISReadWorldMap") instanceof KahluaTable read) || !(LuaManager.env.rawget("ISWorldMap") instanceof KahluaTable)) {
+        if (!(LuaManager.env.rawget("ISWorldMap") instanceof KahluaTable map)) {
             place = null;
-            Log.info("the map is not held up in first person: the game's Lua has no ISReadWorldMap or ISWorldMap");
+            Log.info("the map is not held up in first person: the game's Lua has no ISWorldMap");
             return;
         }
-        if (read.rawget("heldInHands") != null) {
+        if (map.rawget("heldInHands") != null) {
             return;
         }
-        read.rawset("heldInHands", false);
+        map.rawset("heldInHands", true);
         KahluaTable mod = LuaManager.platform.newTable();
         mod.rawset("wanted", WANTED);
-        mod.rawset("reading", READING);
         mod.rawset("hold", HOLD);
         mod.rawset("held", IS_HELD);
-        mod.rawset("moving", MOVING);
+        mod.rawset("busy", BUSY);
         mod.rawset("press", PRESS);
         mod.rawset("passed", PASSED);
         mod.rawset("lower", LOWER);
@@ -395,11 +364,6 @@ final class HeldMap {
         Log.info("the world map read in first person is held up in the hands");
     }
 
-    /** Whether a player is reading the map, with the game's animation of it, to hold it up. */
-    static boolean reading(int player) {
-        return reading[player];
-    }
-
     /** Whether a player holds the map up. */
     static boolean held(int player) {
         return held[player];
@@ -415,16 +379,12 @@ final class HeldMap {
     /** After each frame's world is drawn, whatever the view: puts down each map MapHold says is down. Main thread. */
     static void settle() {
         for (int player = 0; player < View.COUNT; player++) {
-            if (reading[player] || held[player]) {
-                int holding = holding(player, held[player]);
+            if (held[player]) {
+                int holding = holding(player, true);
                 String why = MapHold.down(holding);
                 if (why != null) {
                     if (Integer.lowestOneBit(holding) == MapHold.DOING_SOMETHING_ELSE) {
                         why += ": " + doing;
-                    }
-                    if (reading[player]) {
-                        reading[player] = false;
-                        Log.info("player " + (player + 1) + "'s map is read without holding it up: " + why);
                     }
                     lower(player, why);
                 }
@@ -452,7 +412,7 @@ final class HeldMap {
             cornerAsked = (double) (Core.height - tall);
         }
         for (int player = 0; player < View.COUNT; player++) {
-            if (!reading[player] && !held[player]) {
+            if (!held[player]) {
                 if (made[player] && handsDown(player)) {
                     made[player] = false;
                     SpriteRenderer.instance.drawGeneric(FREE[player]);
@@ -465,7 +425,6 @@ final class HeldMap {
             Object[] ran = LuaManager.caller.pcall(UIManager.getDefaultThread(), place, PLAYER_NUMBERS[player], sideAsked, tallAsked, ZOOM_ASKED, cornerAsked);
             if (!Boolean.TRUE.equals(ran[0]) || ran.length < 2 || !(ran[1] instanceof UIElement map)) {
                 Log.error("player " + (player + 1) + "'s map is put down: the game's Lua would not place it: " + Arrays.toString(ran));
-                reading[player] = false;
                 lower(player, "it could not be drawn");
                 continue;
             }
