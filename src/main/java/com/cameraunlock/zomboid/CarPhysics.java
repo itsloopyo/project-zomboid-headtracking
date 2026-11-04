@@ -20,7 +20,8 @@ import zombie.vehicles.VehiclesDB2;
  * vehicle down them and throw it into the air over a crest at speed, where it has no drive or
  * brakes and its steering stays where it was until it lands (Airtime); a vehicle thrown hard
  * enough across rolls over (Rollover) and one left on its roof burns out (Wreck), both shelved:
- * only with -Dcameraunlock.zomboid.rollovers=true. On a server
+ * only with -Dcameraunlock.zomboid.rollovers=true. A vehicle turned hard stays on its wheels
+ * (TurnRoll) while VehiclesStayUprightInTurns is on. On a server
  * the game's level ground moves every vehicle as everyone else in the game sees it move, and
  * none of this is done.
  *
@@ -45,8 +46,11 @@ final class CarPhysics {
         long updatedAt;
         final Wreck wreck = new Wreck();
         final Rollover rollover = new Rollover();
+        final TurnRoll turnRoll = new TurnRoll();
         /** How hard it is thrown across before it tips (see Rollover.tipsAt), and whether it has an engine to catch fire. */
         float tipsAt;
+        /** How high its middle is over the bottom of its wheels (see Rollover), and its script's rollInfluence and gripsBelow: see TurnRoll. */
+        float middleHigh, rollInfluence, gripsBelow;
         boolean hasEngine;
         /** The roll to give it each physics step until the next update, per kilogram, about rollAbout, its forward axis. */
         float roll;
@@ -56,23 +60,46 @@ final class CarPhysics {
         boolean stood;
     }
 
-    /**
-     * How hard a vehicle of the script is thrown across before it tips, from where its wheels
-     * are: their widest from its middle across, and the deepest of their bottoms below it. A
-     * vehicle with no wheels never tips.
-     */
-    private static float tipsAt(VehicleScript script) {
-        float halfTrack = 0f, height = 0f;
+    /** How far the widest of a script's wheels is out from its middle, metres. */
+    private static float halfTrack(VehicleScript script) {
+        float halfTrack = 0f;
+        for (int i = 0; i < script.getWheelCount(); i++) {
+            halfTrack = Math.max(halfTrack, Math.abs(script.getWheel(i).getOffset().x));
+        }
+        return halfTrack;
+    }
+
+    /** How high a script's middle is over the deepest of its wheels' bottoms, metres: 0 for a vehicle with no wheels. */
+    private static float middleHigh(VehicleScript script) {
+        float height = 0f;
         for (int i = 0; i < script.getWheelCount(); i++) {
             VehicleScript.Wheel wheel = script.getWheel(i);
-            halfTrack = Math.max(halfTrack, Math.abs(wheel.getOffset().x));
             height = Math.max(height, wheel.radius - wheel.getOffset().y);
         }
-        return halfTrack > 0f && height > 0f ? Rollover.tipsAt(halfTrack, height) : Float.MAX_VALUE;
+        return height;
+    }
+
+    /**
+     * How far under the vehicle's place the deepest of its wheels meets the ground at rest, metres:
+     * the game hands the physics each wheel at its offset and the model's (VehicleScript.toBullet),
+     * not from its centre of mass, and the physics turns the vehicle about that place. 0.33 for a
+     * Base.CarNormal. Taken from its middle, as middleHigh is, the roll against a turn was two and
+     * a half times too strong and leaned a CarNormal into the turn, 4.6 degrees at 77 km/h where
+     * the game's own turn leaned it 3 the other way.
+     */
+    private static float gripsBelow(VehicleScript script) {
+        float below = 0f;
+        for (int i = 0; i < script.getWheelCount(); i++) {
+            VehicleScript.Wheel wheel = script.getWheel(i);
+            below = Math.max(below, wheel.radius - wheel.getOffset().y - script.getModelOffset().y);
+        }
+        return below;
     }
 
     /** By physics id, which the game gives as a short. */
     private static final Kept[] KEPT = new Kept[1 << 16];
+    /** The least roll given, per kilogram. */
+    private static final float LEAST_ROLL = 0.5f;
     /** Rollovers and burning wrecks are held back for a later release. */
     private static final boolean ROLLOVERS = Boolean.getBoolean("cameraunlock.zomboid.rollovers");
     /** How long what the picture said of the land holds: longer, first person is off or the vehicle out of its view, and the land is level. */
@@ -91,7 +118,13 @@ final class CarPhysics {
         if (kept == null || kept.vehicle != vehicle) {
             kept = new Kept();
             kept.vehicle = vehicle;
-            kept.tipsAt = tipsAt(vehicle.getScript());
+            VehicleScript script = vehicle.getScript();
+            float halfTrack = halfTrack(script);
+            kept.middleHigh = middleHigh(script);
+            // A vehicle with no wheels never tips.
+            kept.tipsAt = halfTrack > 0f && kept.middleHigh > 0f ? Rollover.tipsAt(halfTrack, kept.middleHigh) : Float.MAX_VALUE;
+            kept.rollInfluence = script.getRollInfluence();
+            kept.gripsBelow = gripsBelow(script);
             kept.hasEngine = vehicle.getPartById("Engine") != null;
             KEPT[id] = kept;
         }
@@ -172,17 +205,30 @@ final class CarPhysics {
         kept.updatedAt = now;
         kept.roll = 0f;
         if (seconds <= 0f) {
+            // Its speed now against its speed before the gap is no throw across.
+            kept.rollover.restart();
+            kept.turnRoll.restart();
             return;
         }
         vehicle.getForwardVector(FORWARD);
         vehicle.getUpVector(UP);
         vehicle.getLinearVelocity(GOING);
-        kept.roll = ROLLOVERS ? kept.rollover.step(FORWARD.x, FORWARD.z, UP.y, GOING.x, GOING.z, seconds, kept.tipsAt) : 0f;
+        float tipped = ROLLOVERS ? kept.rollover.step(FORWARD.x, FORWARD.z, UP.y, GOING.x, GOING.z, seconds, kept.tipsAt) : 0f;
+        // Stepped with the row off too, so it knows how the vehicle goes the moment the row is ticked.
+        float steadied = kept.turnRoll.step(FORWARD.x, FORWARD.z, UP.y, GOING.x, GOING.z, seconds, kept.rollInfluence, kept.gripsBelow);
+        if (!Rules.uprightInTurns()) {
+            steadied = 0f;
+        }
+        kept.roll = tipped + steadied;
+        // A standing vehicle's speed wavers a little: under this, a torque each physics step would do nothing but wake it.
+        if (Math.abs(kept.roll) < LEAST_ROLL) {
+            kept.roll = 0f;
+        }
         kept.rollAbout.set(FORWARD.x, FORWARD.y, FORWARD.z);
-        if (DevBuild.ON && kept.roll != 0f && now - kept.rollSaidAt > 250_000_000L) {
+        if (DevBuild.ON && Math.abs(kept.roll) > 1f && now - kept.rollSaidAt > 250_000_000L) {
             kept.rollSaidAt = now;
-            Log.info(String.format(Locale.ROOT, "a %s at %.1f km/h thrown across harder than the %.1f m/s/s that tips it is rolled by %.1f a kilogram, its up at %.2f",
-                    vehicle.getScriptName(), Math.abs(vehicle.getCurrentSpeedKmHour()), kept.tipsAt, kept.roll, UP.y));
+            Log.info(String.format(Locale.ROOT, "a %s at %.1f km/h thrown across at %.1f m/s/s is rolled by %.1f a kilogram to tip it and %.1f against the turn, its up at %.3f",
+                    vehicle.getScriptName(), Math.abs(vehicle.getCurrentSpeedKmHour()), kept.turnRoll.across(), tipped, steadied, UP.y));
         }
         // The game leaves some of its wrecks on their roofs where it spawns them: only a
         // vehicle that has stood on its wheels since it was met, and has an engine to catch, burns.
@@ -199,7 +245,7 @@ final class CarPhysics {
         }
     }
 
-    /** Called before each physics step for each vehicle (BaseVehicle.applyAllImpulsesFromProneCharacters): the pull down the slope and the roll. */
+    /** Called before each physics step for each vehicle (BaseVehicle.applyAllImpulsesFromProneCharacters): the pull down the slope, the roll and the roll against a turn. */
     static void step(BaseVehicle vehicle) {
         if (Online.joined()) {
             return;

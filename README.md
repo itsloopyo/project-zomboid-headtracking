@@ -11,7 +11,7 @@ It also adds a first person view to the game, with a rebuilt world and new graph
 - **No head tracker needed** - first person works with mouse and keyboard or a controller. Without a tracker, the view just doesn't follow your head.
 - **No microphone needed** - Talking mouths is off until you tick it, and the mod doesn't open a microphone until you do.
 
-When you play offline, the mod also changes some of the game's rules. Shots go through thin walls and doors, break lamps and windows, blow holes in wooden doors and board fences, and can cripple zombies or take their limbs off. Vehicles knock down fences, lamp posts and road barricades and drive through bushes. In the isometric view, zombies show up as soon as nothing blocks your character's view of them. Each of these is on by default and can be turned off in **Options > Mods > Head Tracking**. On a server they all stay vanilla, except that on servers without PvP, shots still go through thin walls and doors and past tree trunks, and zombies still show up straight away.
+When you play offline, the mod also changes some of the game's rules. Shots go through thin walls and doors, break lamps and windows, blow holes in wooden doors and board fences, and can cripple zombies or take their limbs off. Vehicles knock down fences, lamp posts and road barricades, drive through bushes, and stay on their wheels in a hard turn. In the isometric view, zombies show up as soon as nothing blocks your character's view of them. Each of these is on by default and can be turned off in **Options > Mods > Head Tracking**. On a server they all stay vanilla, except that on servers without PvP, shots still go through thin walls and doors and past tree trunks, and zombies still show up straight away.
 
 ## Features
 
@@ -70,7 +70,7 @@ Third person puts the camera behind and a little above your character, so you se
 - **Interiors** - dashboards, seats, working gauges and mirrors in Medium and High.
 - **Suspension** - over the first person hills, the vehicle you ride in sits on a spring at each wheel, so its front lifts and settles onto a hill before its back, and ground rising under one side rolls it on its own.
 - **Drive-by shooting** - raise a gun from any seat and shoot through the glass.
-- **Offline driving** - smash through fences, lamp posts and road barricades, drive through bushes and get air over hill crests. In first person, what you knock down throws pieces of itself that bounce, lie a few seconds and sink into the ground.
+- **Offline driving** - smash through fences, lamp posts and road barricades, drive through bushes and get air over hill crests. A hard turn or a slide round with the brakes on leans the car only a little. In first person, what you knock down throws pieces of itself that bounce, lie a few seconds and sink into the ground: boards from a wooden fence, wire and bars from a metal one.
 
 ### Talking mouths
 
@@ -984,6 +984,11 @@ BulletHoles=true
 ; a wall or a door, where the hole is wide and tall enough for you to fit through and you stand beside it,
 ; climbs you through. false: holes are only to see and shoot through. On a server nothing is climbed through.
 ClimbThroughHoles=true
+; true: offline, a vehicle turned hard, or slid round with the brakes on, leans only a little and keeps its four
+; wheels on the road. false: it leans as far as the game's physics has it. On a server the game's physics
+; applies.
+; Takes effect at once. From the next start, off also stops the mod changing the game's own code for this.
+VehiclesStayUprightInTurns=true
 ; true: in first person, sitting in a vehicle with a gun, you can fire through any part of your seat's window, and
 ; the shot breaks it. false: as in the game, the window has to be opened or broken first. On a server where
 ; players can hurt each other, the game's rule applies.

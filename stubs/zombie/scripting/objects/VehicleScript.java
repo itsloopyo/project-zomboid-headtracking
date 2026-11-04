@@ -10,6 +10,8 @@ public final class VehicleScript {
     public Passenger getPassenger(int index) { throw new UnsupportedOperationException("reference stub"); }
     public int getWheelCount() { throw new UnsupportedOperationException("reference stub"); }
     public Wheel getWheel(int index) { throw new UnsupportedOperationException("reference stub"); }
+    public float getRollInfluence() { throw new UnsupportedOperationException("reference stub"); }
+    public org.joml.Vector3f getModelOffset() { throw new UnsupportedOperationException("reference stub"); }
 
     public static final class Passenger {
         public Position getPositionById(String id) { throw new UnsupportedOperationException("reference stub"); }

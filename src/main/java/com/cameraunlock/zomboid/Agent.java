@@ -631,6 +631,8 @@ public final class Agent {
                     : Part.NAME_TAGS_AT_HEADS.key + " and " + Part.CAPTIONS_OVER_SETS.key + " were off as the game started";
         };
         Supplier<String> in = () -> null;
+        Supplier<String> hillsOff = offNow(Part.FIRST_PERSON, Part.HILLS_MOVE_VEHICLES);
+        Supplier<String> carPhysicsOff = () -> (Rules.rows() & Rules.UPRIGHT_IN_TURNS) != 0 ? null : also(hillsOff.get(), "was VehiclesStayUprightInTurns");
         return List.of(
                 new PatchSet("base", new PatchTransformer(basePatches()), in),
                 new PatchSet("window", new PatchTransformer(windowPatches()), offNow(Part.CENTRE_THE_WINDOW)),
@@ -662,7 +664,7 @@ public final class Agent {
                 new PatchSet("loading", new PatchTransformer(loadingPatches()), offNow(Part.FIRST_PERSON, Part.PREPARE_WHILE_LOADING)),
                 new PatchSet("lua loaded", new PatchTransformer(luaLoadedPatches()), in),
                 new PatchSet("knockdown", new PatchTransformer(knockdownPatches()), ruleOff(Rules.SMASHES_THROUGH, "VehiclesSmashThrough")),
-                new PatchSet("car physics", new PatchTransformer(carPhysicsPatches()), offNow(Part.FIRST_PERSON, Part.HILLS_MOVE_VEHICLES)),
+                new PatchSet("car physics", new PatchTransformer(carPhysicsPatches()), carPhysicsOff),
                 new PatchSet("controller", new PatchTransformer(controllerPatches()), offNow(Part.CONTROLLER_CHOICE_FIX)),
                 new PatchSet("chunk marks", chunkMarks, offNow(Part.FIRST_PERSON, Part.CHUNK_CHANGE_COUNTS)),
                 new PatchSet("window marks", windowMarks, offNow(Part.FIRST_PERSON, Part.CHUNK_CHANGE_COUNTS)),

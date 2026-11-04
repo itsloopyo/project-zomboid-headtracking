@@ -823,7 +823,7 @@ public final class CoreTests {
     }
 
     /** The sets of patches first person alone uses, which FirstPersonEnabled off leaves out while lamps and glass still break. */
-    private static final String FIRST_PERSON_SETS = "torch, first person, ragdolls, item models, fine skins, shot, thunder, name tags, speech, set captions, covered, screen grey, far vehicles, loading, car physics, chunk marks, "
+    private static final String FIRST_PERSON_SETS = "torch, first person, ragdolls, item models, fine skins, shot, thunder, name tags, speech, set captions, covered, screen grey, far vehicles, loading, chunk marks, "
             + "window marks, unmarked changes, hushed marks, hearing, waiting composites, spotting, quick loot, held map";
 
     /** Those and the sets first person shares with TalkingMouths, which the file has off: FirstPersonEnabled off leaves all of them out. */
@@ -841,7 +841,8 @@ public final class CoreTests {
         {"LeaveOutScreenGrey", "screen grey"},
         {"NameTagsAtHeads", "name tags"},
         {"CaptionsOverSets", "set captions"},
-        {"HillsMoveVehicles", "car physics"},
+        {"HillsMoveVehicles", "none"},
+        {"VehiclesStayUprightInTurns", "none"},
         {"BurntBuildingFreezeFix", "hang fix"},
         {"CentreTheWindow", "window"},
         {"ControllerChoiceFix", "controller"},
@@ -894,6 +895,10 @@ public final class CoreTests {
         String next = nextStart("first-person-and-breaking-off");
         check(next.contains("left out: " + FIRST_PERSON_AND_MOUTH_SETS.replace("thunder, lamps, ", "thunder, lamps, impacts, ") + System.lineSeparator()),
                 "with first person off the impacts go too once no shot breaks lamps or glass or blows holes either: " + leftOutLine(next));
+        edit(saved.replace("HillsMoveVehicles=true", "HillsMoveVehicles=false").replace("VehiclesStayUprightInTurns=true", "VehiclesStayUprightInTurns=false"));
+        next = nextStart("hills-and-upright-off");
+        check(next.contains("left out: car physics" + System.lineSeparator()),
+                "the car physics go once neither hills nor staying upright in turns needs them: " + leftOutLine(next));
         edit(saved.replace("FirstPersonEnabled=true", "FirstPersonEnabled=false").replace("ShotsThroughWalls=true", "ShotsThroughWalls=false"));
         next = nextStart("first-person-and-walls-off");
         check(next.contains("left out: " + FIRST_PERSON_AND_MOUTH_SETS.replace("item models, ", "item models, shots through walls, ") + System.lineSeparator()),
@@ -1218,7 +1223,7 @@ public final class CoreTests {
                         + "PrepareWhileLoading SpotBySight BuildOnWorkerThreads RebuildForOwnSprites HiddenWallReadsKept BuildingFactsKept VanillaWeapons VanillaFurniture "
                         + "VanillaPictures VanillaPlants VanillaTextures VanillaBuildings VanillaZombies VanillaPeople VanillaArms VanillaClothes VanillaAnimals VanillaFire "
                         + "VanillaCabins FurnitureDecor ShotsThroughWalls ShotsBreakLamps ShotsBreakGlass ShotsWoundLimbs VehiclesSmashThrough FacesTheView ShotsPastTrees ZombiesSeenAtOnce "
-                        + "HiddenWallDecor HiddenWallDecorSaved BlastHoles BulletHoles ClimbThroughHoles ShotsFromVehicleSeats DriveWhileAiming HillsMoveVehicles HandLightOutAtTheWheel BurntBuildingFreezeFix CentreTheWindow "
+                        + "HiddenWallDecor HiddenWallDecorSaved BlastHoles BulletHoles ClimbThroughHoles VehiclesStayUprightInTurns ShotsFromVehicleSeats DriveWhileAiming HillsMoveVehicles HandLightOutAtTheWheel BurntBuildingFreezeFix CentreTheWindow "
                         + "ControllerChoiceFix TalkingMouths "),
                 "the game's options screen is given the modes, the yaw mode, the smoothing, the flashlight's turn and the mod's own rows, and no key list, "
                         + "port or microphone: " + ids);
@@ -1237,7 +1242,7 @@ public final class CoreTests {
                         + "FarTreeDistance RainOnGlass ShadingAndLight Reflections ReflectionScale FullSizeTextures SurfaceDepth SharpShadows WholeFigureShadows FrameBlending Antialiasing Upscaling "
                         + "LightDistance CorpseModels [Mod content] VanillaWeapons VanillaFurniture VanillaPictures VanillaPlants VanillaTextures VanillaBuildings VanillaZombies "
                         + "VanillaPeople VanillaArms VanillaClothes VanillaAnimals VanillaFire VanillaCabins FurnitureDecor [Gameplay tweaks] ShotsThroughWalls ShotsPastTrees ShotsBreakGlass "
-                        + "ShotsBreakLamps BlastHoles BulletHoles ClimbThroughHoles ShotsWoundLimbs ShotsFromVehicleSeats RegripTwoHandedWeapons FacesTheView DriveWhileAiming HillsMoveVehicles VehiclesSmashThrough "
+                        + "ShotsBreakLamps BlastHoles BulletHoles ClimbThroughHoles ShotsWoundLimbs ShotsFromVehicleSeats RegripTwoHandedWeapons FacesTheView DriveWhileAiming HillsMoveVehicles VehiclesSmashThrough VehiclesStayUprightInTurns "
                         + "HandLightOutAtTheWheel ZombiesSeenAtOnce HiddenWallDecorSaved [Game fixes] BurntBuildingFreezeFix CentreTheWindow ControllerChoiceFix [Optimizations] "
                         + "SpreadLightUpdates CachedGameLookups SkipCoveredGameDrawing SkinsComposedWhileWaiting ChunkChangeCounts UnseenRoomZombiesUnmodelled HoldChunkMapCentre "
                         + "GraphicsMemorySteps PrepareWhileLoading SpotBySight BuildOnWorkerThreads RebuildForOwnSprites HiddenWallReadsKept BuildingFactsKept [Split screen] "

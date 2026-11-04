@@ -77,7 +77,7 @@ final class Config {
     /** The keys of the rows of [Rules] that are not parts, in the order of Rules' bits. */
     static final String[] RULE_KEYS = {"ShotsThroughWalls", "ShotsBreakLamps", "ShotsBreakGlass", "ShotsWoundLimbs", "VehiclesSmashThrough", "FacesTheView",
         "ShotsPastTrees", "ZombiesSeenAtOnce", "Rewind30s", "HiddenWallDecor", "HiddenWallDecorSaved", "BlastHoles", "BulletHoles",
-        "ClimbThroughHoles"};
+        "ClimbThroughHoles", "VehiclesStayUprightInTurns"};
 
     /** The keys of [Graphics], the Custom graphics mode, in the order the options screen shows them. */
     static final String[] GRAPHICS = {"TreeQuality", "GrassDensity", "GrassDistance", "RenderScale", "ViewDistance", "ZombiesAndPropsDrawDistance",
@@ -521,6 +521,11 @@ final class Config {
                     "true: offline, in first person, holding the Interact key with the crosshair on a hole shot through a fence,\n"
                             + "a wall or a door, where the hole is wide and tall enough for you to fit through and you stand beside it,\n"
                             + "climbs you through. false: holes are only to see and shoot through. On a server nothing is climbed through.",
+                    writable | live, true),
+            localBool("Rules", "VehiclesStayUprightInTurns",
+                    "true: offline, a vehicle turned hard, or slid round with the brakes on, leans only a little and keeps its four\n"
+                            + "wheels on the road. false: it leans as far as the game's physics has it. On a server the game's physics\n"
+                            + "applies.\n" + Part.LIVE_AND_NEXT_START,
                     writable | live, true),
         };
         describeParts("Rules");

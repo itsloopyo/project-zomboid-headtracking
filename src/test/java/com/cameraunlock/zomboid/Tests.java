@@ -315,6 +315,7 @@ public final class Tests {
         Checks.run("VideoMemoryTests", VideoMemoryTests::run);
         Checks.run("WreckTests", WreckTests::run);
         Checks.run("RolloverTests", RolloverTests::run);
+        Checks.run("TurnRollTests", TurnRollTests::run);
         Checks.run("OnlineTests", OnlineTests::run);
         Checks.run("KnockdownTests", KnockdownTests::run);
         Checks.run("DebrisTests", DebrisTests::run);

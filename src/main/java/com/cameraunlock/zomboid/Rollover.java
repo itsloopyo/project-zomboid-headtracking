@@ -23,17 +23,9 @@ final class Rollover {
      * on its roof.
      */
     static final float ROLL_PER = 2f;
-    /** The most it is thrown across that is counted: a crash the physics flings a vehicle in is not a turn to roll a hundred times over. */
-    static final float MOST = 60f;
     /** Tipped this far, its own up this low, the physics carries the roll on by the vehicle's weight, or brings it back: nothing more is given. */
     static final float TIPPED = 0.5f;
-    /**
-     * Going sideways faster than this, metres a second, a vehicle is sliding: a throw across the
-     * same way as it slides is something else pushing it (another vehicle, a wall it scrapes),
-     * not its wheels, and is not counted. Its wheels only ever push against its slide.
-     */
-    static final float SLIDING = 0.5f;
-    /** How long the throw across is averaged over, seconds: the physics' speed steps from one update to the next. */
+    /** How long the throw across is averaged over, seconds. */
     static final float AVERAGED_OVER = 0.1f;
 
     /** How hard a vehicle whose wheels are halfTrack out from its middle, which is height above the ground, is thrown across before it tips, m/s/s. */
@@ -41,8 +33,12 @@ final class Rollover {
         return Airtime.GRAVITY * halfTrack / height * HELD_BEYOND;
     }
 
-    private float lastX, lastY, across;
-    private boolean known;
+    private final ThrownAcross thrown = new ThrownAcross(AVERAGED_OVER, Float.MAX_VALUE);
+
+    /** Knows nothing again of how the vehicle goes: after a gap in its updates. */
+    void restart() {
+        thrown.restart();
+    }
 
     /**
      * Moves the vehicle on by seconds, facing (forwardX, forwardY) on the map, its own up's
@@ -52,27 +48,12 @@ final class Rollover {
      * on the map, the way it was measured.
      */
     float step(float forwardX, float forwardY, float upUp, float goingX, float goingY, float seconds, float tipsAt) {
-        if (!known) {
-            known = true;
-            lastX = goingX;
-            lastY = goingY;
-            return 0f;
-        }
-        float flat = (float) Math.hypot(forwardX, forwardY);
-        float thrownX = (goingX - lastX) / seconds, thrownY = (goingY - lastY) / seconds;
-        lastX = goingX;
-        lastY = goingY;
-        if (flat < 1e-3f) {
-            return 0f;
-        }
         // Thrown towards (forwardY, -forwardX) by its wheels, they are pulled that way and its top
         // goes the other: so a vehicle knocked aside rolls as it is tripped by its wheels after the knock.
-        float side = (thrownX * forwardY - thrownY * forwardX) / flat;
-        float sliding = (goingX * forwardY - goingY * forwardX) / flat;
-        if (side * sliding > 0f && Math.abs(sliding) > SLIDING) {
-            side = 0f;
+        if (!thrown.step(forwardX, forwardY, goingX, goingY, seconds)) {
+            return 0f;
         }
-        across += (Math.max(-MOST, Math.min(MOST, side)) - across) * Math.min(1f, seconds / AVERAGED_OVER);
+        float across = thrown.across();
         if (upUp < TIPPED || Math.abs(across) <= tipsAt) {
             return 0f;
         }

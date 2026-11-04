@@ -21,9 +21,9 @@ final class Rules {
     /** The bits of the rows that are on, in the order Config describes the rows of [Rules]. */
     static final int THROUGH_WALLS = 1, BREAKS_LAMPS = 2, BREAKS_GLASS = 4, WOUNDS = 8, SMASHES_THROUGH = 16, FACES_THE_VIEW = 32, PAST_TREES = 64,
             SEEN_AT_ONCE = 128, REWIND = 256, HIDDEN_WALLS = 512, HIDDEN_WALLS_SAVED = 1024, BLAST_HOLES = 2048, BULLET_HOLES = 4096,
-            CLIMB_HOLES = 8192;
+            CLIMB_HOLES = 8192, UPRIGHT_IN_TURNS = 16384;
     static final int ALL = THROUGH_WALLS | BREAKS_LAMPS | BREAKS_GLASS | WOUNDS | SMASHES_THROUGH | FACES_THE_VIEW | PAST_TREES | SEEN_AT_ONCE | REWIND
-            | HIDDEN_WALLS | HIDDEN_WALLS_SAVED | BLAST_HOLES | BULLET_HOLES | CLIMB_HOLES;
+            | HIDDEN_WALLS | HIDDEN_WALLS_SAVED | BLAST_HOLES | BULLET_HOLES | CLIMB_HOLES | UPRIGHT_IN_TURNS;
 
     private static volatile int on = ALL & ~REWIND;
 
@@ -74,6 +74,11 @@ final class Rules {
      */
     static boolean climbThroughHoles() {
         return !Online.joined() && (on & CLIMB_HOLES) != 0;
+    }
+
+    /** Whether a vehicle turned hard stays on its wheels: see TurnRoll. On a server its physics are as everyone else sees them. */
+    static boolean uprightInTurns() {
+        return !Online.joined() && (on & UPRIGHT_IN_TURNS) != 0;
     }
 
     /** Whether first person shots wound a zombie's limbs, can take them off and can take off or burst its head: see Online.woundsTell. */
@@ -176,6 +181,6 @@ final class Rules {
                 + ", zombies seen at once " + ((bits & SEEN_AT_ONCE) != 0) + (DevBuild.ON ? ", rewind 30s " + ((bits & REWIND) != 0) : "")
                 + ", hidden wall decor " + ((bits & HIDDEN_WALLS) != 0) + ", hidden wall decor saved " + ((bits & HIDDEN_WALLS_SAVED) != 0)
                 + ", blast holes " + ((bits & BLAST_HOLES) != 0) + ", bullet holes " + ((bits & BULLET_HOLES) != 0)
-                + ", climb through holes " + ((bits & CLIMB_HOLES) != 0);
+                + ", climb through holes " + ((bits & CLIMB_HOLES) != 0) + ", vehicles stay upright in turns " + ((bits & UPRIGHT_IN_TURNS) != 0);
     }
 }

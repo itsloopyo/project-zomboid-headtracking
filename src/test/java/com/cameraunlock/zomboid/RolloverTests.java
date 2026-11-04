@@ -52,7 +52,7 @@ final class RolloverTests {
         float other = thrownSideways(-(SALOON + 2f), 1f, new Rollover());
         check(Math.abs(other + some) < 1e-3f, "thrown the other way, the same the other way: " + other);
         float flung = thrownSideways(500f, 1f, new Rollover());
-        check(Math.abs(flung - (Rollover.MOST - SALOON) * Rollover.ROLL_PER) < 0.05f, "a fling is counted only up to MOST: " + flung);
+        check(Math.abs(flung - (ThrownAcross.MOST - SALOON) * Rollover.ROLL_PER) < 0.05f, "a fling is counted only up to MOST: " + flung);
     }
 
     private static void tippedFarItIsLeftToItsWeight() {
