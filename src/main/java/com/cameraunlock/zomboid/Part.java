@@ -119,7 +119,7 @@ enum Part {
                     + "your surroundings kept up as you move. People and vehicles are not in it. In Custom it needs ShadingAndLight and\n"
                     + "Reflections on and ReflectionScale at 0.75 or more. false: they mirror only what is on the screen, and the sky where\n"
                     + "that runs out."),
-    WATCH_GLANCE("FirstPerson", "WatchGlance", true, false,
+    WATCH_GLANCE("FirstPerson", "WatchGlance", true, false, true,
             "true: in first person, with a watch on a wrist and that hand free, looking down and then to that side, by head\n"
                     + "tracking or the mouse, standing or walking, raises the arm and turns the wrist so you can read the watch: the time as\n"
                     + "the game's clock shows it, in figures on a digital watch and as hands on any other. With a watch on each wrist, the\n"
@@ -210,21 +210,34 @@ enum Part {
     final String section, key, comment;
     /** Whether the row is taken while the game runs, and whether it is read at the start to leave patches out. */
     final boolean live, start;
+    /** Whether the part is in a development build only: the build that ships has no row for it and keeps it off. */
+    final boolean dev;
     private volatile boolean on = true, atStart = true, patched = true;
     /** FIRST_PERSON's alone: whether any player's FirstPersonInVehicles row is on, which needs first person whatever FirstPersonEnabled says. */
     private volatile boolean forVehicles;
 
     Part(String section, String key, boolean live, boolean start, String comment) {
+        this(section, key, live, start, false, comment);
+    }
+
+    Part(String section, String key, boolean live, boolean start, boolean dev, String comment) {
         this.section = section;
         this.key = key;
         this.live = live;
         this.start = start;
+        this.dev = dev;
+        on = atStart = patched = offered();
         this.comment = start ? comment + "\n" + (live ? LIVE_AND_NEXT_START : NEXT_START) : comment;
     }
 
     /** The last line of the row of a part made of patches, saying when off is taken. */
     static final String NEXT_START = "Takes effect when the game next starts. When off, the mod does not change the game's own code for this.",
             LIVE_AND_NEXT_START = "Takes effect at once. From the next start, off also stops the mod changing the game's own code for this.";
+
+    /** Whether this build has the part's row: every part's but a development part's in the build that ships. */
+    boolean offered() {
+        return !dev || DevBuild.ON;
+    }
 
     /** Whether the part is on now: as the start found it, for a part not taken while the game runs. */
     boolean on() {
@@ -309,7 +322,7 @@ enum Part {
     static String described() {
         StringBuilder off = new StringBuilder();
         for (Part part : values()) {
-            if (!part.on || part.start && !part.patched) {
+            if (part.offered() && (!part.on || part.start && !part.patched)) {
                 off.append(off.length() == 0 ? "" : ", ").append(part.key)
                         .append(part.on ? " on from the next start" : part.on() ? " off, but on for FirstPersonInVehicles" : " off");
             }

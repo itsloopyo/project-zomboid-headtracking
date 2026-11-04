@@ -690,6 +690,9 @@ public final class ViewModel {
      * @param may whether the arm may come up: else one up goes down
      */
     private boolean glancing(IsoPlayer player, float yaw, float pitch, float seconds, boolean may) {
+        if (!Part.WATCH_GLANCE.offered()) {
+            return false;
+        }
         // What is worn changes seldom, and the list is gone through to find it.
         if ((watchAsked++ & 15) == 0) {
             findWatches(player);

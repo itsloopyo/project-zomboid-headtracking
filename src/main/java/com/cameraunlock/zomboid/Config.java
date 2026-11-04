@@ -122,7 +122,7 @@ final class Config {
     private static final int NO_ROW = -1;
     /** The rows of [Graphics], in the order of GRAPHICS. */
     private final int[] graphics;
-    /** The row of each Part, by its ordinal. */
+    /** The row of each Part, by its ordinal, NO_ROW for a development part outside a development build. */
     private final int[] parts = new int[Part.values().length];
     /** For each of the mod's own rows the game's options screen shows, by its key: what puts a value applied there on the running game. */
     private final Map<String, DoubleConsumer> puts = new HashMap<>();
@@ -555,6 +555,9 @@ final class Config {
             puts.put(VANILLA_KEYS[i], value -> Own.update(rows -> value != 0 ? rows & ~bit : rows | bit));
         }
         for (Part part : Part.values()) {
+            if (!part.offered()) {
+                continue;
+            }
             // A part read only as the game starts is saved, and taken then.
             puts.put(part.key, value -> {
                 if (part.live) {
@@ -570,6 +573,10 @@ final class Config {
 
     /** A part's row, true unless the player says otherwise: read again while the game runs only where the part is taken then. */
     private void describe(Part part) {
+        if (!part.offered()) {
+            parts[part.ordinal()] = NO_ROW;
+            return;
+        }
         parts[part.ordinal()] = localBool(part.section, part.key, part.comment,
                 CameraUnlock.ROW_WRITABLE | (part.live ? CameraUnlock.ROW_LIVE : 0), true);
     }
@@ -734,7 +741,8 @@ final class Config {
         }
         long partsOn = 0;
         for (Part part : Part.values()) {
-            partsOn |= core.configGetInt(parts[part.ordinal()]) != 0 ? part.bit() : 0;
+            int row = parts[part.ordinal()];
+            partsOn |= row != NO_ROW && core.configGetInt(row) != 0 ? part.bit() : 0;
         }
         return new Live(core.configGetFloat(fieldOfView), rows, changed, qualities, overheadQualities, styles, core.configGetInt(spreadLightUpdates) != 0, firstPersons, inVehicles, core.configGetFloat(hillHeight), core.configGetInt(muzzleFlash) != 0, core.configGetInt(crosshair) != 0, core.configGetInt(regrip) != 0, core.configGetInt(splitScreen), picture(custom),
                 core.configGetInt(talkingMouths) != 0, List.of(microphones()), partsOn);

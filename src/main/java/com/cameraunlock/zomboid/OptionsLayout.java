@@ -21,7 +21,8 @@ final class OptionsLayout {
     /**
      * A title on the page, what is said under it or null, and the settings under it: those named
      * in ids, in that order, then those of the file's section, if one is named, that no group names,
-     * in core's order.
+     * in core's order. A null among the ids is a development part's place in the build that ships,
+     * which has no row for it.
      */
     record Group(String title, String note, String section, String... ids) {}
 
@@ -38,8 +39,8 @@ final class OptionsLayout {
                         + "none of its lines.", null, Tracking.ENABLED_OPTION),
                 new Group(FIRST_PERSON, null, "FirstPerson", Part.FIRST_PERSON.key, Config.firstPersonInVehiclesRow(0), Config.firstPersonRow(0),
                         "FieldOfView", "Crosshair", Part.HIT_DIRECTION.key, Part.HIGHLIGHTS.key, Part.INTERACT_LABEL.key, Part.HEAR_FROM_THE_EYE.key, Part.HEAD_LED_VIEW_WHEN_DOWN.key, Part.NAME_TAGS_AT_HEADS.key,
-                        Part.QUICK_RAGDOLLS.key, Part.HIT_FLINCH.key, Part.FIGURES_BEHIND_WALLS.key, Part.OVERARM_THROW.key, Part.FISHING_ROD.key, Part.WATCH_GLANCE.key,
-                        Part.HELD_MAP.key, "HillHeight"),
+                        Part.QUICK_RAGDOLLS.key, Part.HIT_FLINCH.key, Part.FIGURES_BEHIND_WALLS.key, Part.OVERARM_THROW.key, Part.FISHING_ROD.key,
+                        Part.WATCH_GLANCE.offered() ? Part.WATCH_GLANCE.key : null, Part.HELD_MAP.key, "HillHeight"),
                 new Group(HEAD_TRACKING, null, null, Tracking.TRACKING_MODE_OPTION, Tracking.AIM_MODE_OPTION, Tracking.YAW_MODE_OPTION,
                         Tracking.LOCAL_SMOOTHING_OPTION, Tracking.REMOTE_SMOOTHING_OPTION, Part.TORCH_FOLLOWS_HEAD.key, Tracking.LIGHT_MULTIPLIER_OPTION,
                         Part.CUSTOMISE_CHARACTER_HEAD.key),
@@ -370,6 +371,9 @@ final class OptionsLayout {
         }
         for (int group = 0; group < page.length; group++) {
             for (String id : page[group].ids) {
+                if (id == null) {
+                    continue;
+                }
                 Integer option = places.get(id);
                 if (option == null) {
                     throw new IllegalStateException(id + " is put under " + page[group].title + " on the options screen and is no setting there");
@@ -384,7 +388,9 @@ final class OptionsLayout {
         for (int group = 0; group < page.length; group++) {
             List<Integer> under = new ArrayList<>();
             for (String id : page[group].ids) {
-                under.add(places.get(id));
+                if (id != null) {
+                    under.add(places.get(id));
+                }
             }
             for (int option = 0; option < options.length; option++) {
                 if (groupOf[option] < 0 && options[option].section.equals(page[group].section)) {
