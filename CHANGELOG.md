@@ -1,5 +1,222 @@
 # Changelog
 
+## [0.3.0] - 2026-11-04
+
+### Added
+
+- point to whoever hits you with a red arc at the edge of the first person view, and glow on the edge a zombie close behind is on
+- say under the first person crosshair what the Interact key would do, such as Open Door or Grab and the item's name
+- hold a fishing rod for fishing in first person, swung back and out to cast, lifted to reel in, with the left hand turning the reel
+- add OverarmThrow and FishingRod switches for the overarm throw and the fishing rod's hold, line and bobber
+- throw debris out of the far side of walls, fences and doors where a blast blows a hole or a shot cuts a piece free
+- let rounds and pellets knock leaves loose from autumn trees and bushes they pass through
+- lean Project Viewpoint's camera with the head, held off walls by core's lean clamp from Viewpoint's own eye
+- call the FirstPersonInVehicles option "Switch to first person in vehicles" on the options page
+- log the frame time every ten seconds in a vehicle's seat, in whichever view it is driven
+- save the dark rims round bullet and blast holes with them, and leave marks on picket fences where a round meets a picket
+- carry the car you ride in on a spring at each wheel over the first person hills, so the front lifts and settles onto a hill before the back and one side rolls on its own
+- throw pieces of the fences, barricades and lamp posts a car knocks down, and drop what shots cut free of a fence, wall or door, instead of making them vanish in a frame
+- make the chandelier's crystal glow in the sprite's colour when it is lit
+- wear the roads in lanes in the overhead view too
+- wet the viewer's hands, sleeves and the mod's guns in the rain, with beads and running drops, drying over a few minutes out of it
+- soften the background beyond the aim point while a gun's sights are up, at half resolution after the frame blending
+- colour the sun through the mod's stained glass windows onto the floor and into the room's air
+- show buildings and trees that are off the screen or hidden in wet roads, puddles, polished floors and window glass, from a small cube map of the surroundings redrawn a face a frame round the eye (High)
+- cast shadows from the street lamps, lamps and ceiling lights nearest the player at night, in Medium and High, with a Lamp shadows switch
+- draw a crowd under a lamp into its shadows less often as the crowd grows, holding their shadows between, instead of dropping them past a limit
+- knock out the picket a round or a shotgun pellet hits in a picket fence, or break off the part above or below its rails, so the gap can be seen and shot through, saved with the fence
+- let the player choose the mod's keys on its options page, with the game's own key dialog, and listen for a new key as soon as it is applied
+- develop the first person picture through Polyphony's Gran Turismo 7 tone mapping, behind a new GranTurismoToneMapping switch
+- raise the arm to read a worn watch, and hold the world map up in both hands, in first person
+- mark where you stand on the held map with a filled pointer the way you face, in place of the game's small red square
+- hold the map up in the right hand in a vehicle seat, low and right of the road, with the driver's left hand kept on the wheel
+- put a digital watch on the left wrist with the down arrow dev key, for a player who wears none, so the watch glance can be tried without finding one
+- keep the watch glance to development builds, so the shipped build has no WatchGlance row, options entry or README paragraph and never raises the arm
+- ship the WatchGlance option, off by default, so the arm comes up for a watch only for a player who turns it on
+
+### Changed
+
+- fill the hit arcs handed to the render thread into three buffers made once, instead of new arrays every frame while any arc shows
+- look along the reticle's line only as far as the key's reach for something standing to open the world menu on, not the menu's 30 squares, since the label asks every frame
+- name the Interact key or controller button for the label once and again only when its binding changes, not with a translation lookup every frame
+- stop allocating every frame in the fishing aim and in sorting the timed-action animation
+- reuse the fishing hold handed to the render thread instead of copying it every frame
+- make the roof pitch a constant of the world's fragment stage instead of a uniform, so the lamp's switch fits under the GlFloor uniform floor of 2888 components
+- ask HoleHop.find whether the edge has holes before making the ground lambda, since the reticle label asks every frame and nearly every edge has none
+- skip laying out an open door's leaf in WindowGlass each frame when its shut leaf has no glass, or when no open outline was read
+- read the terrain height for a street lamp only once a lamp with lights is found, not for every square and level round each square a shot crosses
+- read the viewer's snow once per draw of the hands and the body and hand it to Soaked, instead of asking SnowCarried again for each of snow and wet
+- log the vehicle seat pace line every ten seconds only in a development build, not in the jar players install
+- log each first person throw's aim and square only in a development build, not on every throw in the shipped jar
+- share one held grid across a fence's boards when working out what a shot breaks, instead of a whole-run grid for each holed board
+- check the four squares beside each broken square of a shot panel directly, instead of making a small array for each
+- return early for sky pixels in the occlusion pass before reading the four neighbours' depth for the surface slope
+- set the shadow program's uGlassCut once per map in castHeld, not per range, for every map but the near sun map with stained glass in it
+- work out the light the develop pass aims its dark and bright at once, as constants, instead of two bisections of the film or the GT7 curve every frame
+- keep a door sprite map for each edge in Doors so known and unread make no Edge key on every lookup
+- share one empty rails and uprights list among door shapes instead of making two empty arrays for every Doors.Shape
+- read only the opening's head in CentreUse.overWindow through WallBuilder.openingHead instead of a new float[4] from openingIn every frame
+- keep the two ledges a gate's strap hinges run along in a constant instead of making the array for every gate built
+
+### Fixed
+
+- take a hit arc's bearing from the view's facing laid on the map, so a pitched or rolled head does not skew it, and from the top of the picture when lying on the back or face down
+- name a hit arc's edge by where it is drawn, not by where a line from the middle of a wide picture would meet its edge
+- give a zombie lying fake dead no glow at the edge of the first person view
+- give a zombie behind a shut window no glow at the edge of the first person view
+- glow only for a close zombie the game itself shows the viewer, so the edge of the first person view gives away nothing the isometric view would not
+- drop a hit arc once its attacker is dead, gone from the cell or remade by the game into another zombie
+- point a hit arc at a zombie attacking the vehicle the player sits in and at each new swing, and not at a hit the game deals with no damage
+- draw no hit arcs or glow while the camera flies down into first person, only once it has landed at the eye
+- take each hit arc's bearing on the render thread from the eye the picture was built from, so an arc does not sit a frame behind a turning head
+- keep the hit arcs at the bottom of the first person view above the game's hotbar while it shows, for each player in split screen
+- ease the top of the picture into a hit arc's bearing as the view steepens, so looking up past a steep angle no longer swaps the arcs at the top and bottom
+- let a close zombie behind an open or broken window glow at the edge of the first person view, and keep it dark only behind a window that is shut and whole or barricaded
+- point a hit arc at a zombie each time its bite or scratch reaches the player, so a zombie biting through a car window is marked on every bite
+- look the game's hotbar up four times a second while hit arcs show instead of every frame, take a hidden interface as no hotbar, and log each kind of failed lookup once
+- while the character lies on the ground and the view follows its head, mark hits by where the picture shows them, so a zombie past the head of a player on their back is marked at the top
+- lying down, swap the hit arcs' top and bottom once as the top of the picture turns back, instead of piling them on a side edge with the head tipped halfway
+- keep a close zombie's glow dark behind a shut door that lies past an open window, by asking each edge of the line of sight on its own
+- name the Interact key through the game's Input.getKeyName so a key bound to a mouse button no longer throws every frame, and show its Shift, Ctrl or Alt
+- ask for a climb through a hole once a frame for the label under the reticle, quietly, and log why a hole takes no body only when the Interact key is pressed
+- say Walk to and the container's name under the reticle where Interact walks the character to a container a few squares off, by the game's own tests for that walk
+- say Open or Close Curtains under the reticle with Shift held on a door from the side its curtains hang on, which is what the game's click does then
+- name a workstation's window under the reticle only where the game's click opens it, by its checks for the tutorial, a pause, the dismantling cursor and ISEntityUI.CanOpenWindowFor, and fall back to the game's Entity_Open_Window words, never the tile's name
+- decide a click on a container under the reticle by the game's own early returns and in its order: a square the player has not seen, a safehouse that bars looting on a server and a locked crate do nothing, and a workstation's window comes before its container
+- name a sink or a table under the reticle by the game's Translator.getMoveableDisplayName, as its world menu does, and show no label where the game has no name for it instead of null...
+- read a container's own name for the label from its thing's mod data only where it has some, since ItemContainer.getCustomName makes mod data on every container the reticle passes
+- start fading the Interact label as soon as the reticle leaves what the key acts on, bring it back whole only on the same thing, and hide it while the game is paused or takes no Interact key
+- let Interact reach a window over a kitchen counter that has a wall cabinet hung above it, which made the counter count as reaching the ceiling and the key loot the counter
+- let the Interact key reach a wall cabinet hung above a window, by leaving out a window or its curtain where the view meets the wall above the window's top as the picture measured it
+- read the dismantling cursor's Type through its class's metatable, as the game's drag.Type does, so a workstation's window is not named while dismantling
+- ask the game's Lua again four times a second whether its click would walk to a container or open a workstation's window, as a free square can fill or the world map come up with the reticle still
+- make the Interact key do nothing at the reticle while the game is paused or ignores the player's context key, as the label already shows nothing then
+- leave the Interact key to the game on a container the game's click would take and do nothing with (unseen, too far to walk to, loot barred or locked), instead of swallowing the press with no label shown
+- name the Interact key's modifier in the label as the game's key binding options do, showing only Alt, else Ctrl, else Shift where several are set
+- stop the view at the wall above a window, open or smashed or not, so the reticle there names a cabinet hung on it, a light switch or nothing, instead of reaching through into the room or looting the counter below
+- leave a container alone at the reticle while the character aims, as the game's click does, instead of unfolding the loot panels and putting the pointer out
+- leave the Interact key to the game on a door, window, curtain or light switch whose click the game would take and do nothing with, as the label already names nothing there
+- lower the hands for raking ashes and for searching a container on the floor, and test the timed-action sorting against every animation name the game's actions set
+- land a throw from the first person view where the reticle is, not past the square under the hidden mouse pointer
+- aim a fishing rod from the first person view at the point the reticle is on
+- throw Molotovs, pipe bombs and other thrown weapons overarm in first person instead of swinging them like a bat
+- draw the fishing bobber in first person where it floats
+- stop drawing the fishing bobber when first person stops or the view is not flown
+- throw at full range the way the player faces when the reticle is on the sky, not short towards their feet
+- do not draw a grab as an overarm throw when a throwable weapon is in hand
+- draw the fishing line from the rod's tip to the bobber, and hide both behind whatever stands in front of them
+- raise the left hand to drink from a bottle in first person, the hand the game puts the bottle in
+- hold the fishing rod a little higher and nearer the middle in first person, so the reel and the left hand on it are in view
+- ease the reel over and the left hand onto it as a fishing rod comes to be held for fishing, and back off it after, instead of snapping at the change
+- raise the left hand to drink from a can in first person when a spoon or fork is in the right, as the game puts the can in the left
+- draw the fishing line only in a frame the rod was placed in, not for a tenth of a second after it was last placed
+- draw the fishing bobber in first person whether or not FishingRod is on, as without it the player cannot see where the cast landed
+- hold a hammer by the end of its handle at a timed action, head up in view and its face striking ahead under the reticle, with the left hand on the work beside it
+- let E in first person reach a light switch on the wall behind a box or a counter, not the box under it
+- stop the dev build's Home key starting a fire while Project Viewpoint runs, as Home changes the graphics mode there
+- let a round over a parked car's roof go on by, testing the game's flat vehicle box only along the part of the shot between the ground under the car and its roof
+- let rounds and the line of sight through every part of a wall blown open by many blasts that the picture shows open, keeping the margin only at the opening's outer edge
+- cut shot and blast holes through doors and gates drawn as their sprite, shut and swung open
+- make the hip at a roof's north or west end when the roof is gabled at its other end, so the squares inside it are roofed
+- read a sprite sheet for every split-screen player's picture, so windows four players arrive at are built within seconds instead of drawn as their sprite
+- draw the first person build ghost of a piece over several squares as the model it is built as, so a wooden table looks the same placed and built
+- build the traffic signal arms over the Riverside crossing (lighting_outdoor_01_58..87) as arms with their signal heads, not loose cards
+- keep the painted flowers of a sunflower and an onion in flower as painted instead of laying the leaf picture over them
+- lay the stone and brick of fireplace facings as masonry instead of the stretched sprite
+- draw floor grime as a soft haze of our own, shaped by how much of each part of the square the game's grime covers
+- paint the bonnet of a police car, and any vehicle in a fixed livery, in its skin's colour instead of the random paint the game ignores for it
+- try the next smaller arc for a turnout's route when the far track is too short for a wider one, instead of giving up
+- read a room's rectangles under a roof from the map by its id, since a square of a chunk being unloaded keeps the id after the game drops its room
+- put back the turned face and material a glass door's leaf set before WallBuilder returns
+- stop drawing the player turned to the view as a diagonal run while aiming or dragging
+- keep a graphics, microphone or talking mouths change from the options screen when the config file is reloaded at the same moment
+- say on the main menu when a start that failed left some of the mod's patches in the game's code
+- show the style, view at load and split screen a key just changed on the options screen before its save has run
+- draw no outline round the small holes shots leave in a highlighted door
+- steady a gun held out of a car window with the world instead of taking the cabin's unsteadied mark
+- stand a street lamp's head on its post where the map draws the two a level or a square apart
+- draw no pole where the map paints a second drawing of a nearby pole's stub or cross-arm top
+- build broken, burnt and notched low board fences with the wall's thickness, closed where their boards stop
+- line the lintel over a cased doorway in the casing's wood and stand the post's side in the plane of its lining
+- wear each lane's two wheel tracks a car's track apart (1.3 tiles) around the lane's middle, so no worn pair runs astride the centre line
+- hold the eye still through the idle animation's sway of the head, which only made the ground at the feet shimmer
+- draw the sedan's fuel and heat dials at their faces' 0.07 m width and stop the needles on the end ticks, 30 degrees out, so the tip stays on the face
+- carry a moving vehicle's frame time on to the game's next step of it, instead of taking a frame it was not moved in as a jump off the ground that drops its springs
+- paint the pieces shot or knocked out of a white picket fence white, by asking its sprite's colour when the fence is built
+- look as far as a bullet hole is wide on screen for the door round it, so a highlighted door's hole seen up close has no yellow ring
+- let a key pressed on the options screen go only to the screen, so choosing F9 for a row no longer also changes the graphics mode
+- name the mod's key rows in the game's dialog for a key two rows share, which showed UI_optionscreen_binding_ and the label
+- let the view go over a box or crate with no top to the light switch on the wall behind it, taking the box as high as its sprite paints it
+- glow a modelled lamp's shade by its own switch and power, not by how brightly the game lights its square, so a chandelier switched off in a church lit by other lights goes dark
+- lay a fireplace facing's masonry over the run its sprite paints, a few pixels off the square, so the slab's stretched sprite no longer shows as a pale band between two lengths of stone
+- fade each ambient occlusion and bounce sample out towards the edge of its reach instead of cutting it off, which drew a dashed line down a wall beside a corner
+- take the ambient occlusion's surface slope towards the nearer neighbour in depth, so a step where two wall pieces meet no longer tilts it and draws a dashed line of shade down the wall
+- rest a vehicle's springs and hold its body only once it has been off the ground long enough to fly, not on the one-frame hops uneven steps up a hill read as, which laid the body flat on the land each time and shook the car
+- reach a light switch on the wall behind a box at the height the view meets it, which is lower than the half storey a cabinet hung over a counter is looked for at
+- step the graphics mode down when its picture keeps raising an OpenGL error, instead of turning first person off for the session
+- stamp each release asset with the time the package wrote it, so a nightly does not refuse an art jar the build took from its cache
+- read a window or door piece's wall material again when the chunk along its run had not loaded, instead of keeping no material for it for good
+- read a window sprite again when a read that began before the tile scale changed leaves a shape of the old scale, instead of building no frame or glass for it until the scale changes back
+- give back the aiming blur's two pictures when first person is set down, which kept up to 83 MB on the graphics card for as long as it stayed off
+- time the far trees' kind rows by the game's frame, not one view's, so a split screen view that joined later goes on writing the season into them
+- list the pictures of a room on a chunk still loading as the ones hung in it, not as picture 0, when planning a building's hidden walls
+- take a missing square over a ground square whose chunk is still filling as map not loaded, not air, so a storey read then is read again for its wall finish
+- publish the reflected fields of a door's shut sprite only once they can be read, as the build threads ask for them at once
+- read a door sprite again when a read that began before the tile scale changed leaves a leaf of the old scale, as windows now are
+- read a roof as short of map when the ground beside one of its tiles is on a chunk still filling, so it is read again once that chunk has loaded
+- refuse limb cuts a body's mod data holds as a negative or out-of-range number, which posed a stump at a joint index below zero
+- look again for what a wall piece is made of once the game hands the same IsoObject out for another sprite or square
+- let go of the player and the map Project Viewpoint's camera was last drawn for when a save is left, instead of holding them through the menus and the next load
+- log settings applied for the next start as to be saved, since their save has not run yet when the line is written
+- hold the patch sets' lock while a failed start removes its transformers and while the classes loaded before the start are patched again, as the watch on CameraUnlock.ini can take a set in meanwhile
+- stop Log.caughtByTheGame looping for ever on an exception whose causes lead back to one already looked at
+- let the tracker port and microphones go on the config watch's thread when the start fails, so a reload running there cannot open the microphones again afterwards
+- read the game's inside wall sheets again for each save, which can load other tile sheets with other mods
+- start the next save's viewer dry, as the water and snow Soaked kept on them were carried over from the save left
+- take a vehicle body with no shader or no skin texture of its own as painted when the seat is measured, instead of throwing on the render thread every frame the viewer sits in it
+- measure the wheel of a vehicle whose skin is still loading, painting it for those frames, instead of leaving the eye unplaced until the skin can be read
+- hold a vehicle's springs and flight while the game is paused, instead of counting the pause as a car that has not been moved, which laid the body flat and dropped a car in the air every half second
+- let go of the falling leaves and the trees read for them as first person is set down, so the next save does not start with the last one's leaves round the eye
+- offer one bush a square to the falling leaves, whose list of trees and bushes holds one a square and overflowed where a map stacks bushes
+- give back the aiming blur's half-size picture and the target the driver refused when its making fails part way, which takeBack missed while the full-size picture was never made
+- name F9's first person modes in install.cmd as the key steps through them, Low to Custom, without Automatic, which the key never goes back to
+- make the aiming blur's targets again when the last of them was refused, instead of drawing into the screen's own framebuffer with the texture made before it
+- keep the reason the mod could not start when letting the port and microphones go also fails, adding that failure to it as suppressed
+- log once a vehicle body drawn with the skin colour shader that has no skin texture, whose cabin then takes the paint and not the livery
+- drop the lean Project Viewpoint's camera adds at the eye when a save is left, so the next load does not start from it
+- keep a corpse's square by its place, not as the game's square object, so first person no longer turns off when the game reuses that object for a square loaded elsewhere
+- leave out figures by the room of the square the frame gathered for them, not by reading the game's square on the render thread while the game may be reusing it
+- take a blood drop off its chunk only while that chunk is still the one on the map at its place, not while the game's reuser thread may be emptying it
+- key the cut limbs of a body's atlas picture by the model it is posed from and drop them once the picture is made, so a pooled skeleton handed on to a UI avatar or character creation no longer comes with limbs pressed off
+- clear the snow a zombie carried when the game reuses it, so a reused zombie no longer spawns wearing the old one's snow
+- forget a zombie's kerb step when the game reuses it, so one respawned elsewhere stands on the ground there instead of easing off the old one's step
+- forget a wall piece's material, its shot holes and its broken pickets when the game resets the object to reuse it for another square
+- pose a corpse again only while it lies on the square its build found it on, so its picture is not lit by a square the game has reused elsewhere
+- drop a highlighted object from the outline list once it is no longer on its square, instead of holding it after its chunk is let go of
+- draw a zombie the game has reused as first seen in the frame steadying pass for the frames still to be drawn, so one respawned elsewhere no longer smears across the screen
+- forget the cut limbs posed with a skeleton when the game puts it back in its pool, so a body picture that was never made cannot leave them on whatever model takes it next
+- keep no reused zombies queued for a view that is not drawing, and drop the queue when the view lets go of its world, so an old save's zombies are not held
+- stand a reused zombie straight on the ground in every frame drawn just after the reuse, on the render thread, so frames built before it cannot step it from where it was
+- pose a corpse again when its build found it on no square, as before the check that it still lies where its build found it
+- put the held map down whenever first person or the rules stop allowing it, and bend the arm for a watch check
+- decide when the held map comes down after each frame's world is drawn, and keep its picture until the hands are down
+- keep the held map up while walking, and put it down with Esc or a middle click
+- let the watch glance come up while walking and say in a development build why it does not
+- draw the held map at the sheet's shape so it fills the page edge to edge instead of being squashed from a square
+- read a real aim from the player's own aim input for the held map and the watch, as the game's isAiming stays true for a frame after a sidestep or backward walk stops
+- find a worn watch by where the game has it worn, and log what is worn and why the game shows its clock only when that changes, not every few frames
+- draw the held map's player pointer as a small notched arrowhead about a street wide, so it is a third of the size and no turn of it reads as another direction
+- tap the map key to lift and lower the held map and hold it for the game's full-screen map, so a second press can no longer open the full-screen map by accident
+- raise the arm for a watch from the head's look alone while the tracker's poses arrive, so looking down and to the side with the mouse no longer raises it
+- put the held map in the hands as soon as the map key is tapped, even while walking, and keep it there until it is put down
+- bring the held map and the hands forward with the head when leaning in, so a forward lean can no longer put the eye through the map
+- make the hit arcs and the close zombie glow in first person about half as thick, narrower and fainter
+
+### Other
+
+- revert: take back the faded ambient occlusion reach, which did not remove the dashed wall line it was meant to
+- Revert "feat: keep the watch glance to development builds, so the shipped build has no WatchGlance row, options entry or README paragraph and never raises the arm"
+
 ## [0.2.1] - 2026-11-01
 
 ### Added
