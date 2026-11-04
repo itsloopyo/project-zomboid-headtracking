@@ -2,15 +2,15 @@ package com.cameraunlock.zomboid;
 
 /**
  * Whether the viewer is glancing at the watch on a wrist, and how far the arm is up for it: the
- * view pitched well down and turned towards that wrist's side of the body, by the head, the
- * mouse or both, and held there a moment. Looking at the floor ahead while walking is pitched
+ * view pitched well down and turned towards that wrist's side of the body, by the head while
+ * head tracking turns the view and else by the mouse, and held there a moment. Looking at the floor ahead while walking is pitched
  * down and not turned, and a look round to the side is turned and not pitched down: neither
  * raises the arm. The way out is wider than the way in, so a look held at the edge does not
  * make the arm flicker.
  *
- * The turn is measured from where the body faced as the look went down. Standing still, the
- * body turns with the mouse, so a player without head tracking glances by looking down and then
- * turning the view to the wrist's side; with head tracking the head turns and the body stays.
+ * Without head tracking the turn is measured from where the body faced as the look went down.
+ * Standing still, the body turns with the mouse, so such a player glances by looking down and
+ * then turning the view to the wrist's side. With head tracking the head's own turn is the turn.
  *
  * Logic thread.
  */
@@ -55,7 +55,7 @@ final class WatchGlance {
     /**
      * Steps the glance over a frame.
      *
-     * @param pitch   the view's pitch, radians, up positive: the mouse's and the head's together
+     * @param pitch   the look's pitch, radians, up positive: the head's while head tracking has the glance, else the mouse's
      * @param aside   how far the view is turned from where the body faces towards the wrist's side, radians
      * @param allowed whether the arm may come up at all this frame: a watch on that wrist, that hand free, nothing else under way
      * @return how far the arm is up, 0 to 1

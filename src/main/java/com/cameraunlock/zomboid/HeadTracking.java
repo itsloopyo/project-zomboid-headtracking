@@ -59,6 +59,8 @@ final class HeadTracking {
     /** The head's yaw, pitch and roll this frame in radians, in the tracker's senses, while headTurned. */
     private final float[] headTurn = new float[3];
     private boolean headTurned;
+    /** Whether the head's turn is the tracker's own this frame: poses arriving, not a last one easing out after they stopped. */
+    private boolean headLooks;
     private volatile float zoomFactor = 1f;
 
 
@@ -73,6 +75,11 @@ final class HeadTracking {
      */
     float[] headTurn() {
         return headTurned ? headTurn : null;
+    }
+
+    /** The head's turn as headTurn has it, only while the tracker's poses are arriving: else null. */
+    float[] headLook() {
+        return headLooks ? headTurn : null;
     }
 
     /**
@@ -187,6 +194,7 @@ final class HeadTracking {
     /** The head's turn as the character's head and the carried light take it, from the frame core answered. */
     private void takeTheTurn(ViewCamera.Pose clean) {
         headTurned = (frame.flags & CameraUnlock.STATE_ROTATION) != 0;
+        headLooks = headTurned && (frame.flags & CameraUnlock.STATE_FRESH) != 0;
         if (!headTurned) {
             light.release();
             return;
@@ -343,6 +351,7 @@ final class HeadTracking {
     private void atRest() {
         applied = false;
         headTurned = false;
+        headLooks = false;
         contactLogged = false;
         light.release();
         noLean();

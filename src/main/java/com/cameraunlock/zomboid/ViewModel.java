@@ -169,6 +169,8 @@ public final class ViewModel {
     record Watch(boolean left, boolean digital, String type, float timeOfDay, boolean twentyFour) {}
 
     private final WatchGlance glance = new WatchGlance();
+    /** Whether the last glance was looked for by the head: see glancing. */
+    private boolean glanceByHead;
     /** The watch worn on each wrist, the right's then the left's, as last looked for: its name, null with none, and whether it is digital. */
     private final String[] watchTypes = new String[2];
     private final boolean[] watchDigital = new boolean[2];
@@ -694,10 +696,17 @@ public final class ViewModel {
         if ((watchAsked++ & 15) == 0) {
             findWatches(player);
         }
-        float[] head = view.headTracking.headTurn();
-        float lookPitch = pitch + (head == null ? 0f : head[1]), lookYaw = yaw + (head == null ? 0f : head[0]);
+        // While the tracker's poses arrive, a glance is the head's alone, measured from the view the mouse has: the mouse looking
+        // down and round is looking at the floor, not at a wrist. A look begun one way is not carried on the other, whose turn is
+        // measured from another place.
+        float[] head = view.headTracking.headLook();
+        if (head != null != glanceByHead) {
+            glanceByHead = head != null;
+            glance.rest();
+        }
         Vector2 facing = player.getForwardDirection();
-        float right = glance.aside(lookPitch, lookYaw, (float) Math.atan2(facing.y, facing.x), false);
+        float lookPitch = head != null ? head[1] : pitch;
+        float right = head != null ? glance.aside(lookPitch, head[0], 0f, false) : glance.aside(lookPitch, yaw, (float) Math.atan2(facing.y, facing.x), false);
         if (glance.up() == 0f) {
             glanceLeft = WatchGlance.atLeft(watchTypes[0] != null, watchTypes[1] != null, right);
         }
@@ -709,7 +718,7 @@ public final class ViewModel {
         float toWrist = glanceLeft ? -right : right;
         float up = glance.step(lookPitch, toWrist, allowed, seconds);
         if (DevBuild.ON) {
-            sayGlance(player, lookPitch, toWrist, wrist, hand, aiming, may, allowed, up);
+            sayGlance(player, lookPitch, toWrist, wrist, hand, aiming, may, allowed, up, head != null);
         }
         if (up == 0f) {
             return false;
@@ -742,7 +751,7 @@ public final class ViewModel {
      * begins, how far it is turned to the wrist and what keeps the arm down, and when a glance
      * begins and ends.
      */
-    private void sayGlance(IsoPlayer player, float lookPitch, float toWrist, int wrist, InventoryItem hand, boolean aiming, boolean may, boolean allowed, float up) {
+    private void sayGlance(IsoPlayer player, float lookPitch, float toWrist, int wrist, InventoryItem hand, boolean aiming, boolean may, boolean allowed, float up, boolean byHead) {
         boolean down = lookPitch < WatchGlance.DOWN_FROM;
         long now = System.nanoTime();
         if (down && !glanceDownSaid && now - glanceSaidAt > 250_000_000L) {
@@ -775,8 +784,8 @@ public final class ViewModel {
             if (toWrist <= WatchGlance.ASIDE_FROM) {
                 why.append(String.format(Locale.ROOT, ", not turned %.0f degrees to the wrist", Math.toDegrees(WatchGlance.ASIDE_FROM)));
             }
-            Log.info(String.format(Locale.ROOT, "watch: the look goes down to %.0f degrees, turned %.0f degrees to the %s wrist%s", Math.toDegrees(lookPitch),
-                    Math.toDegrees(toWrist), wrist == 1 ? "left" : "right", allowed && why.length() == 0 ? ": the arm comes up" : ": the arm stays down" + why));
+            Log.info(String.format(Locale.ROOT, "watch: the %s's look goes down to %.0f degrees, turned %.0f degrees to the %s wrist%s", byHead ? "head" : "mouse",
+                    Math.toDegrees(lookPitch), Math.toDegrees(toWrist), wrist == 1 ? "left" : "right", allowed && why.length() == 0 ? ": the arm comes up" : ": the arm stays down" + why));
         }
         glanceDownSaid = down;
         if (up > 0f != glanceUpSaid) {
