@@ -46,7 +46,7 @@ final class HitDirection {
     /** How far off a zombie can be and still be attacking the player, in tiles, on foot and at the vehicle they sit in, which reaches further from the seat. */
     private static final float ATTACK_REACH = 3f, VEHICLE_ATTACK_REACH = 6f;
     /** The arc's half width, in radians, and its thickness and the glow's, in pixels on a screen 1080 high. */
-    private static final float ARC_HALF = (float) Math.toRadians(22), ARC_THICK = 12f, GLOW_HALF = (float) Math.toRadians(35), GLOW_THICK = 70f;
+    private static final float ARC_HALF = (float) Math.toRadians(14), ARC_THICK = 6f, GLOW_HALF = (float) Math.toRadians(24), GLOW_THICK = 40f;
     /**
      * How far out the ellipse they lie on reaches, as a share of half the picture each way. Its
      * lower half stops short of the game's hotbar, which is drawn over the picture, by HOTBAR_GAP
@@ -453,10 +453,10 @@ final class HitDirection {
         for (int i = marks.count - 1; i >= 0; i--) {
             float bearing = bearing(eye, marks.topBack, marks.x[i] - eye.eyeX, marks.y[i] - eye.eyeY);
             if (i < marks.hits) {
-                GL20.glUniform4f(color, 0.9f, 0.06f, 0.04f, 0.85f * marks.strengths[i]);
+                GL20.glUniform4f(color, 0.9f, 0.06f, 0.04f, 0.6f * marks.strengths[i]);
                 arc(bearing, ARC_HALF, ARC_THICK * unit, false, below, width, height);
             } else {
-                GL20.glUniform4f(color, 0.85f, 0.12f, 0.06f, 0.6f * marks.strengths[i]);
+                GL20.glUniform4f(color, 0.85f, 0.12f, 0.06f, 0.35f * marks.strengths[i]);
                 arc(bearing, GLOW_HALF, GLOW_THICK * unit, true, below, width, height);
             }
         }
