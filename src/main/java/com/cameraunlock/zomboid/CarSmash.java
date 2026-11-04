@@ -252,8 +252,13 @@ final class CarSmash {
             // Read before the game changes the thing: a fence it breaks takes its broken sprite.
             Texture texture = sprite.getTextureForCurrentFrame(thing.getDir());
             float high = texture == null ? 0f : Debris.paintedHigh(texture, north || west);
-            boolean metal = Impacts.of(sprite, false) == Impacts.METAL;
-            if (texture != null) {
+            String made = properties.get(IsoPropertyType.MATERIAL);
+            boolean metal = Knockdown.metal(made, Impacts.of(sprite, false) == Impacts.METAL);
+            if (Knockdown.wire(made)) {
+                PAINT[0] = ChainLink.RED;
+                PAINT[1] = ChainLink.GREEN;
+                PAINT[2] = ChainLink.BLUE;
+            } else if (texture != null) {
                 Debris.paint(sprite, texture, PAINT);
             }
             // The game's own sound of a vehicle hitting a thing, and the noise of it zombies hear. Nothing of the thing is changed by a hit of no strength.

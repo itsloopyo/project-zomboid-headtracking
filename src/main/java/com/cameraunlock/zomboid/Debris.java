@@ -11,7 +11,8 @@ import zombie.iso.sprite.IsoSprite;
 
 /**
  * Pieces of what is knocked down or shot out, falling in the first person picture: a fence a
- * vehicle drives through throws boards, rails and pickets, a lamp post falls over whole or in
+ * vehicle drives through throws boards, rails and pickets, or the wire and bars of a metal one, a
+ * lamp post falls over whole or in
  * two, a road barricade comes apart into its boards and legs, and what shots cut free of a fence
  * or a wall (Breakage) drops out of it. Each piece is a box the size of what it is a piece of,
  * in that thing's colour, thrown, spinning, falling under gravity onto the ground of its level,

@@ -106,6 +106,21 @@ final class Knockdown {
         return known && sprite.startsWith("lighting_outdoor_01_") ? Kind.POST : null;
     }
 
+    /**
+     * Whether what a vehicle knocks down is of metal, so its pieces are wires and bars and not
+     * boards: its tile names a metal Material (chain link and wire are MetalWire, railings
+     * MetalBars, sheeting MetalPlates, MetalScrap or SmallMetalPlates), or a metal MaterialType
+     * (metalType). Every fence sprite is drawn as planks, so the drawn material says wood.
+     */
+    static boolean metal(String material, boolean metalType) {
+        return metalType || material != null && (material.startsWith("Metal") || material.equals("SmallMetalPlates"));
+    }
+
+    /** Whether what a vehicle knocks down is wire fencing, whose pieces take the galvanised steel the picture draws its wire in (ChainLink). */
+    static boolean wire(String material) {
+        return "MetalWire".equals(material);
+    }
+
     /** Whether a thing on the level over a post is the post's street lamp: the street lamp sheet has no CustomName, its wall lamps, signs and floodlights do. */
     static boolean streetLamp(String sprite, String customName) {
         return sprite != null && sprite.startsWith("lighting_outdoor_01_") && customName == null;

@@ -17,10 +17,20 @@ public final class KnockdownTests {
         Checks.run("aFenceFallsAwayFromTheVehicleAndTheEndThatHitIsDamaged", KnockdownTests::aFenceFallsAwayFromTheVehicleAndTheEndThatHitIsDamaged);
         Checks.run("onlyTheStreetLampOverAPostGoesWithIt", KnockdownTests::onlyTheStreetLampOverAPostGoesWithIt);
         Checks.run("aloneBushesDoNotSlowACarAndTheEngineIsWholeOffTheRoad", KnockdownTests::aloneBushesDoNotSlowACarAndTheEngineIsWholeOffTheRoad);
+        Checks.run("wireAndBarFencesComeApartAsMetalAndWoodAsBoards", KnockdownTests::wireAndBarFencesComeApartAsMetalAndWoodAsBoards);
     }
 
     private static void check(boolean condition, String what) {
         Checks.check(condition, what);
+    }
+
+    private static void wireAndBarFencesComeApartAsMetalAndWoodAsBoards() {
+        for (String metal : new String[] {"MetalWire", "MetalBars", "MetalPlates", "MetalScrap", "SmallMetalPlates"}) {
+            check(Knockdown.metal(metal, false), metal + " comes apart as metal");
+        }
+        check(!Knockdown.metal("Wood", false) && !Knockdown.metal(null, false) && !Knockdown.metal("Stone", false), "wood, stone and a tile that names nothing are not metal");
+        check(Knockdown.metal(null, true), "a tile whose MaterialType is metal is metal");
+        check(Knockdown.wire("MetalWire") && !Knockdown.wire("MetalBars") && !Knockdown.wire(null), "only wire takes the wire's galvanised steel");
     }
 
     private static void aloneBushesDoNotSlowACarAndTheEngineIsWholeOffTheRoad() {
