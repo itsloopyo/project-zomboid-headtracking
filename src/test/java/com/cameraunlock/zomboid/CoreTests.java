@@ -1047,9 +1047,6 @@ public final class CoreTests {
         int later = line.indexOf("; to be saved for the next start: ");
         boolean placed = later > 0;
         for (Part part : Part.values()) {
-            if (!part.offered()) {
-                continue;
-            }
             int at = line.indexOf(" " + part.key + " ");
             placed &= at > 0 && (part.live ? at < later : at > later);
         }
@@ -1058,7 +1055,7 @@ public final class CoreTests {
         String parts = next.substring(next.indexOf("the mod's parts: "));
         boolean read = true;
         for (Part part : Part.values()) {
-            read &= !part.offered() || parts.contains(part.key + " off");
+            read &= parts.contains(part.key + " off");
         }
         check(read, "and the next start reads each of them as it was left: " + parts.substring(0, parts.indexOf(System.lineSeparator())));
         Screen again = Screen.opened();
@@ -1095,9 +1092,6 @@ public final class CoreTests {
         Tracking.watchSettings();
         check(FieldOfView.degrees() == 90f, "an edited field of view is read while the game runs");
         for (Part part : Part.values()) {
-            if (!part.offered()) {
-                continue;
-            }
             check(part.live ? !part.on() && !part.running() && part.atStart() : part.on() && part.running(),
                     part.key + " off in the file is " + (part.live ? "off at once, its patches, if it has any, still in until the next start"
                             : "read only as the game starts, so the part is as the start found it") + ": " + Part.described());
@@ -1114,7 +1108,7 @@ public final class CoreTests {
         Tracking.watchSettings();
         check(FieldOfView.degrees() == 65f && Own.rows() == (Own.ALL & ~Own.ARMS) && Quality.name(0).equals("Medium") && Style.of(0) == Style.WARM
                         && MuzzleFlash.on() && Crosshair.on() && Regrip.on() && PendingLights.spread() && SplitScreen.row() == SplitScreen.HORIZONTAL && HillHeight.asked() == 1.5f
-                        && Arrays.stream(Part.values()).filter(Part::offered).allMatch(Part::running),
+                        && Arrays.stream(Part.values()).allMatch(Part::running),
                 "set back, they are as they were, and the arms row switched on is that row and no other: " + Own.described(Own.rows()));
         Tracking.cycleStyle(0);
         check(Style.of(0) == Style.COLD, "a save after an edit still saves");
@@ -1179,7 +1173,7 @@ public final class CoreTests {
         }
         check(ids.toString().equals("EnableOnStartup WorldSpaceYaw TrackingMode LocalSmoothing RemoteSmoothing AimMode LightMultiplier FirstPersonEnabled FieldOfView Quality IsometricQuality "
                         + "Style FirstPerson FirstPersonInVehicles HillHeight MuzzleFlash Crosshair RegripTwoHandedWeapons SplitScreen CustomiseCharacterHead TorchFollowsHead HearFromTheEye LightningBolts "
-                        + "ShotImpacts FallingDebris LampShadows ColouredGlassLight FarVehiclesAndZombies QuickRagdolls HitFlinch HitDirection HeadLedViewWhenDown ItemsAsModels FinerSkins LeaveOutScreenGrey WetOnThePlayer AimBlur GranTurismoToneMapping NameTagsAtHeads Highlights InteractLabel FiguresBehindWalls OverarmThrow FishingRod SurroundingsInReflections HeldMap SecondPlayerQuality "
+                        + "ShotImpacts FallingDebris LampShadows ColouredGlassLight FarVehiclesAndZombies QuickRagdolls HitFlinch HitDirection HeadLedViewWhenDown ItemsAsModels FinerSkins LeaveOutScreenGrey WetOnThePlayer AimBlur GranTurismoToneMapping NameTagsAtHeads Highlights InteractLabel FiguresBehindWalls OverarmThrow FishingRod SurroundingsInReflections WatchGlance HeldMap SecondPlayerQuality "
                         + "SecondPlayerIsometricQuality SecondPlayerStyle SecondPlayerFirstPerson SecondPlayerFirstPersonInVehicles ThirdPlayerQuality ThirdPlayerIsometricQuality "
                         + "ThirdPlayerStyle ThirdPlayerFirstPerson ThirdPlayerFirstPersonInVehicles FourthPlayerQuality FourthPlayerIsometricQuality FourthPlayerStyle FourthPlayerFirstPerson "
                         + "FourthPlayerFirstPersonInVehicles TreeQuality GrassDensity GrassDistance RenderScale ViewDistance ZombiesAndPropsDrawDistance FarTreeDistance RainOnGlass ShadingAndLight "
@@ -1202,7 +1196,7 @@ public final class CoreTests {
         }
         check(page.toString().equals("[Quick settings] EnableOnStartup "
                         + "[First person] FirstPersonEnabled FirstPersonInVehicles FirstPerson FieldOfView Crosshair HitDirection Highlights InteractLabel HearFromTheEye HeadLedViewWhenDown NameTagsAtHeads "
-                        + "QuickRagdolls HitFlinch FiguresBehindWalls OverarmThrow FishingRod HeldMap HillHeight [Head tracking] TrackingMode AimMode WorldSpaceYaw LocalSmoothing RemoteSmoothing TorchFollowsHead LightMultiplier CustomiseCharacterHead [Graphics] Quality IsometricQuality Style LightningBolts ShotImpacts FallingDebris LampShadows ColouredGlassLight MuzzleFlash WetOnThePlayer AimBlur GranTurismoToneMapping ItemsAsModels FinerSkins "
+                        + "QuickRagdolls HitFlinch FiguresBehindWalls OverarmThrow FishingRod WatchGlance HeldMap HillHeight [Head tracking] TrackingMode AimMode WorldSpaceYaw LocalSmoothing RemoteSmoothing TorchFollowsHead LightMultiplier CustomiseCharacterHead [Graphics] Quality IsometricQuality Style LightningBolts ShotImpacts FallingDebris LampShadows ColouredGlassLight MuzzleFlash WetOnThePlayer AimBlur GranTurismoToneMapping ItemsAsModels FinerSkins "
                         + "LeaveOutScreenGrey SurroundingsInReflections FarVehiclesAndZombies HiddenWallDecor [Custom graphics] TreeQuality GrassDensity GrassDistance RenderScale ViewDistance ZombiesAndPropsDrawDistance "
                         + "FarTreeDistance RainOnGlass ShadingAndLight Reflections ReflectionScale FullSizeTextures SurfaceDepth SharpShadows WholeFigureShadows FrameBlending Antialiasing "
                         + "LightDistance CorpseModels [Mod content] VanillaWeapons VanillaFurniture VanillaPictures VanillaPlants VanillaTextures VanillaBuildings VanillaZombies "
@@ -1247,9 +1241,6 @@ public final class CoreTests {
                 "the arms are a tick box ticked for the mod's own, whose tooltip says what each is and what the game's are for: " + armsTip);
         check(Arrays.stream(options).noneMatch(option -> option.id.equals("Rewind30s")) && !Rules.rewind(),
                 "the build that ships has no Rewind 30s, on the options screen or in play");
-        check(Arrays.stream(options).noneMatch(option -> option.id.equals(Part.WATCH_GLANCE.key)) && !Part.WATCH_GLANCE.on()
-                        && !Part.described().contains(Part.WATCH_GLANCE.key),
-                "the build that ships has no glance at the watch, on the options screen, in play or in the log");
         CameraUnlock.Option local = options[Tracking.optionPlace("LocalSmoothing")], light = options[Tracking.optionPlace("LightMultiplier")];
         check(local.kind == CameraUnlock.OPTION_FLOAT && local.min == 0 && local.max == 1 && local.step == 0.01 && light.kind == CameraUnlock.OPTION_FLOAT
                         && light.min == 0 && light.step == 0.1,
