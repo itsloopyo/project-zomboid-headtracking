@@ -988,6 +988,10 @@ public final class Characters {
         ViewCamera.between(aim, camera, eyeFromAim, fromAim);
         // The map is held up in both hands, with whatever else they held put away for it.
         boolean carries = task.kind() != TimedActs.MAP;
+        float scale = seated ? viewerArmScale() : ARM_SCALE * data.finalScale;
+        if (!carries) {
+            mapLeanedTo = keepTheMapAhead(seated ? TimedActs.SEAT_SHEET_AT : TimedActs.SHEET_AT, scale);
+        }
         ModelInstanceRenderData right = carries ? weaponOf(data) : null, left = carries ? leftOf(data) : null;
         ViewModel.Watch watch = task.watch();
         if (watch != null) {
@@ -999,7 +1003,6 @@ public final class Characters {
         } else {
             TimedActs.hands(task.kind(), task.low(), task.time(), right != null, left != null, task.up(), taskHands[0], taskHands[1]);
         }
-        float scale = seated ? viewerArmScale() : ARM_SCALE * data.finalScale;
         for (int side = 0; side < 2; side++) {
             TimedActs.Hand from = taskHands[side], to = seenHands[side];
             ViewModelMath.place(fromAim, from.at[0] * scale, from.at[1] * scale, from.at[2] * scale, to.at);
@@ -1052,7 +1055,7 @@ public final class Characters {
             }
             ArmPose.multiply(fromAim, 0, sheetInAim, 0, sheetView, 0);
             sheetShown = true;
-            HeldMap.shown(view.index);
+            HeldMap.shown(view.index, mapLeanedTo, mapHeldAt);
             // The map is drawn north up, and the game's y runs south: the way the clean view looks, level.
             float level = (float) Math.hypot(aim.forwardX, aim.forwardY);
             facingEast = aim.forwardX / level;
@@ -2177,6 +2180,34 @@ public final class Characters {
     }
 
     private final float[] rodMirror = new float[16];
+
+    /** How near the eye a lean brings the held map, as a share of how far ahead of the eye it is held with no lean. */
+    private static final float MAP_NEAREST = 0.6f;
+
+    /**
+     * A lean towards the held map brings it nearer, and no nearer than MAP_NEAREST of where it
+     * is held: past that the hands and the map come forward with the head, as the shoulders do
+     * leaning in. A forward lean is longer than the arms hold the map out, and the eye would be
+     * through the map and behind the hands.
+     *
+     * @param at    where the map's middle is held, in the aim's space, before scale
+     * @param scale what the hands' places are scaled by
+     * @return how far ahead of the eye the lean put the map's middle, before it was kept ahead, with the scale taken off
+     */
+    private float keepTheMapAhead(float[] at, float scale) {
+        float x = at[0] * scale, y = at[1] * scale, z = at[2] * scale;
+        float unleaned = -(fromAim[2] * x + fromAim[6] * y + fromAim[10] * z);
+        float ahead = unleaned - fromAim[14];
+        float least = MAP_NEAREST * unleaned;
+        mapHeldAt = unleaned / scale;
+        if (ahead < least) {
+            fromAim[14] -= least - ahead;
+        }
+        return ahead / scale;
+    }
+
+    /** Where the lean put the held map's middle ahead of the eye, and where it is held with no lean, as keepTheMapAhead found them. */
+    private float mapLeanedTo, mapHeldAt;
 
     /** Draws the hands at a timed action, or in a shove or a stamp, and what the game has in them, as drawHeld does the weapon. */
     private void drawTask(float tanHalfFieldOfView, float aspect, float nearFrom, float far) {

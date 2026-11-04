@@ -379,10 +379,16 @@ final class HeldMap {
         return held[player];
     }
 
-    /** Render thread: a player's held map is drawn in the hands this frame. */
-    static void shown(int player) {
+    /**
+     * Render thread: a player's held map is drawn in the hands this frame.
+     *
+     * @param leaned how far ahead of the eye the head's lean put the map's middle, before it was kept ahead, as the hands' places are measured
+     * @param held   how far ahead of the eye it is held with no lean
+     */
+    static void shown(int player, float leaned, float held) {
         if (unshown.getAndSet(player, null) != null) {
-            Log.info("player " + (player + 1) + "'s held map is drawn in their hands");
+            Log.info(String.format("player %d's held map is drawn in their hands: the head's lean put its middle %.2f ahead of the eye, of %.2f with no lean",
+                    player + 1, leaned, held));
         }
     }
 
