@@ -12,16 +12,84 @@ final class TurnRollTests {
         Checks.run("aKnockIsNotCountedAndTheCatchAfterItIs", TurnRollTests::aKnockIsNotCountedAndTheCatchAfterItIs);
         Checks.run("afterAGapItStartsAgain", TurnRollTests::afterAGapItStartsAgain);
         Checks.run("aCrashIntoAWallIsNotCounted", TurnRollTests::aCrashIntoAWallIsNotCounted);
+        Checks.run("unevenUpdatesReadAHardTurnSteadily", TurnRollTests::unevenUpdatesReadAHardTurnSteadily);
+        Checks.run("theHillsPullIsNotTheWheelsGrip", TurnRollTests::theHillsPullIsNotTheWheelsGrip);
+    }
+
+    /**
+     * A van at full lock thrown across at 18 m/s/s, just short of GRIP_MOST, updated 12 and 21 ms
+     * apart in turn while the physics steps every Stepped.PHYSICS_STEP: an update holds 1 to 3
+     * steps. Measured over the steps counted (Stepped) the throw is 18 on every update. Measured
+     * over the time between updates it reads 30 on a 12 ms update that held two steps, and is
+     * dropped as a crash.
+     */
+    private static void unevenUpdatesReadAHardTurnSteadily() {
+        float thrown = 18f, speed = 20f, heading = 0f, owed = 0f;
+        float wanted = -(1f - TurnRoll.KEPT) * INFLUENCE * HIGH * thrown;
+        TurnRoll bySteps = new TurnRoll(), byTime = new TurnRoll();
+        Stepped stepped = new Stepped();
+        bySteps.step(1f, 0f, 1f, speed, 0f, 0f, 0f, Stepped.PHYSICS_STEP, INFLUENCE, HIGH);
+        byTime.step(1f, 0f, 1f, speed, 0f, 0f, 0f, Stepped.PHYSICS_STEP, INFLUENCE, HIGH);
+        boolean timeDropped = false;
+        for (int update = 0; update < 120; update++) {
+            float seconds = update % 2 == 0 ? 0.012f : 0.021f;
+            owed += seconds;
+            while (owed >= Stepped.PHYSICS_STEP) {
+                owed -= Stepped.PHYSICS_STEP;
+                heading -= thrown / speed * Stepped.PHYSICS_STEP;
+                stepped.step(0f, 0f);
+            }
+            if (!stepped.take()) {
+                continue;
+            }
+            float fx = (float) Math.cos(heading), fy = (float) Math.sin(heading);
+            float given = bySteps.step(fx, fy, 1f, speed * fx, speed * fy, stepped.pushedX(), stepped.pushedY(), stepped.seconds(), INFLUENCE, HIGH);
+            float timed = byTime.step(fx, fy, 1f, speed * fx, speed * fy, 0f, 0f, seconds, INFLUENCE, HIGH);
+            if (update >= 10) {
+                check(Math.abs(given - wanted) < 0.05f, "a hard turn updated unevenly is rolled against steadily, update " + update + ": " + given + " for " + wanted);
+                timeDropped |= Math.abs(timed - wanted) > 0.5f;
+            }
+        }
+        check(timeDropped, "measured over the time between updates the same turn is rolled against unsteadily, dropped as a crash where it reads past GRIP_MOST");
+    }
+
+    /**
+     * Facing +x at 20 m/s, the hills pull it towards (0, -1) at 3 m/s/s, two physics steps an
+     * update. Slid that way by the pull alone its wheels give nothing; held straight by its
+     * wheels they push 3 m/s/s the other way, and that is rolled against.
+     */
+    private static void theHillsPullIsNotTheWheelsGrip() {
+        float pull = 3f;
+        TurnRoll slid = new TurnRoll(), held = new TurnRoll();
+        Stepped slidSteps = new Stepped(), heldSteps = new Stepped();
+        float vy = 0f, heldGiven = 0f;
+        slid.step(1f, 0f, 1f, 20f, vy, 0f, 0f, Stepped.PHYSICS_STEP, INFLUENCE, HIGH);
+        held.step(1f, 0f, 1f, 20f, 0f, 0f, 0f, Stepped.PHYSICS_STEP, INFLUENCE, HIGH);
+        for (int update = 0; update < 50; update++) {
+            for (int step = 0; step < 2; step++) {
+                vy -= pull * Stepped.PHYSICS_STEP;
+                slidSteps.step(0f, -pull);
+                heldSteps.step(0f, -pull);
+            }
+            slidSteps.take();
+            heldSteps.take();
+            float slidGiven = slid.step(1f, 0f, 1f, 20f, vy, slidSteps.pushedX(), slidSteps.pushedY(), slidSteps.seconds(), INFLUENCE, HIGH);
+            check(Math.abs(slidGiven) < 1e-3f, "slid across by the hills' pull alone, its wheels give no roll: " + slidGiven);
+            heldGiven = held.step(1f, 0f, 1f, 20f, 0f, heldSteps.pushedX(), heldSteps.pushedY(), heldSteps.seconds(), INFLUENCE, HIGH);
+        }
+        float wanted = (1f - TurnRoll.KEPT) * INFLUENCE * HIGH * pull;
+        check(Math.abs(heldGiven - wanted) < 0.05f, "held against the pull by its wheels, their push is rolled against: " + heldGiven + " for " + wanted);
+        check(!slidSteps.take() && slidSteps.seconds() == 0f && slidSteps.pushedY() == 0f, "a take with no step since holds nothing");
     }
 
     private static void aCrashIntoAWallIsNotCounted() {
         // Sliding sideways at 6 m/s into a wall, stopped in a tenth of a second: 60 m/s/s against its slide.
         TurnRoll roll = new TurnRoll();
         float vy = -6f;
-        roll.step(1f, 0f, 1f, 0f, vy, STEP, INFLUENCE, HIGH);
+        roll.step(1f, 0f, 1f, 0f, vy, 0f, 0f, STEP, INFLUENCE, HIGH);
         for (int i = 0; i < 6; i++) {
             vy = Math.min(0f, vy + 60f * STEP);
-            float given = roll.step(1f, 0f, 1f, 0f, vy, STEP, INFLUENCE, HIGH);
+            float given = roll.step(1f, 0f, 1f, 0f, vy, 0f, 0f, STEP, INFLUENCE, HIGH);
             check(given == 0f, "a car struck harder than its wheels grip is left to the game: " + given);
         }
     }
@@ -33,11 +101,11 @@ final class TurnRollTests {
     /** Drives round a bend at 20 m/s, thrown towards (forwardY, -forwardX) at thrown m/s/s, for a second, and gives the last roll. */
     private static float turned(float thrown, float upUp, TurnRoll roll) {
         float heading = 0f, given = 0f;
-        roll.step(1f, 0f, upUp, 20f, 0f, STEP, INFLUENCE, HIGH);
+        roll.step(1f, 0f, upUp, 20f, 0f, 0f, 0f, STEP, INFLUENCE, HIGH);
         for (int i = 0; i < 60; i++) {
             heading -= thrown / 20f * STEP;
             float fx = (float) Math.cos(heading), fy = (float) Math.sin(heading);
-            given = roll.step(fx, fy, upUp, 20f * fx, 20f * fy, STEP, INFLUENCE, HIGH);
+            given = roll.step(fx, fy, upUp, 20f * fx, 20f * fy, 0f, 0f, STEP, INFLUENCE, HIGH);
         }
         return given;
     }
@@ -48,18 +116,18 @@ final class TurnRollTests {
         check(Math.abs(given - wanted) < 0.05f, "a turn at 14 m/s/s is rolled against by all but KEPT of what the wheels' grip gives: " + given + " for " + wanted);
         check(Math.abs(turned(-14f, 1f, new TurnRoll()) + given) < 1e-3f, "the other way round, the same the other way");
         check(Math.signum(given) == -Math.signum(throwRolls(14f)), "against the way a throw that tips it is rolled");
-        check(new TurnRoll().step(1f, 0f, 1f, 20f, 0f, STEP, INFLUENCE, HIGH) == 0f, "nothing on the first step, with nothing to measure the throw from");
+        check(new TurnRoll().step(1f, 0f, 1f, 20f, 0f, 0f, 0f, STEP, INFLUENCE, HIGH) == 0f, "nothing on the first step, with nothing to measure the throw from");
     }
 
     /** What Rollover gives the same turn, thrown well past what tips it. */
     private static float throwRolls(float thrown) {
         Rollover rollover = new Rollover();
         float heading = 0f, given = 0f;
-        rollover.step(1f, 0f, 1f, 20f, 0f, STEP, 1f);
+        rollover.step(1f, 0f, 1f, 20f, 0f, 0f, 0f, STEP, 1f);
         for (int i = 0; i < 60; i++) {
             heading -= thrown / 20f * STEP;
             float fx = (float) Math.cos(heading), fy = (float) Math.sin(heading);
-            given = rollover.step(fx, fy, 1f, 20f * fx, 20f * fy, STEP, 1f);
+            given = rollover.step(fx, fy, 1f, 20f * fx, 20f * fy, 0f, 0f, STEP, 1f);
         }
         return given;
     }
@@ -73,10 +141,10 @@ final class TurnRollTests {
         // Facing +x, its side (0, -1): knocked that way at 15 m/s/s, short of GRIP_MOST, then its wheels catch and stop the slide.
         TurnRoll roll = new TurnRoll();
         float vy = 0f, caught = 0f, last = Float.MAX_VALUE;
-        roll.step(1f, 0f, 1f, 20f, vy, STEP, INFLUENCE, HIGH);
+        roll.step(1f, 0f, 1f, 20f, vy, 0f, 0f, STEP, INFLUENCE, HIGH);
         for (int i = 0; i < 12; i++) {
             vy -= 15f * STEP;
-            float knocked = Math.abs(roll.step(1f, 0f, 1f, 20f, vy, STEP, INFLUENCE, HIGH));
+            float knocked = Math.abs(roll.step(1f, 0f, 1f, 20f, vy, 0f, 0f, STEP, INFLUENCE, HIGH));
             // Until it slides faster than ThrownAcross.SLIDING a push cannot be told from its wheels' grip.
             if (-vy > ThrownAcross.SLIDING) {
                 check(knocked < last || knocked == 0f, "pushed aside by something else while it slides, nothing more is given: " + knocked + " after " + last);
@@ -85,16 +153,16 @@ final class TurnRollTests {
         }
         while (vy < -0.1f) {
             vy += 12f * STEP;
-            caught = Math.max(caught, roll.step(1f, 0f, 1f, 20f, vy, STEP, INFLUENCE, HIGH));
+            caught = Math.max(caught, roll.step(1f, 0f, 1f, 20f, vy, 0f, 0f, STEP, INFLUENCE, HIGH));
         }
         check(caught > 0f, "as its wheels catch the slide it is rolled against the trip over them: " + caught);
     }
 
     private static void afterAGapItStartsAgain() {
         TurnRoll roll = new TurnRoll();
-        roll.step(1f, 0f, 1f, 20f, 0f, STEP, INFLUENCE, HIGH);
+        roll.step(1f, 0f, 1f, 20f, 0f, 0f, 0f, STEP, INFLUENCE, HIGH);
         roll.restart();
-        check(roll.step(1f, 0f, 1f, 0f, -20f, STEP, INFLUENCE, HIGH) == 0f && roll.across() == 0f,
+        check(roll.step(1f, 0f, 1f, 0f, -20f, 0f, 0f, STEP, INFLUENCE, HIGH) == 0f && roll.across() == 0f,
                 "a speed met after a gap is no throw across");
     }
 }

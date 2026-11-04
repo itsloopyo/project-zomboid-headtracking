@@ -24,12 +24,12 @@ final class RolloverTests {
      */
     private static float thrownSideways(float thrown, float upUp, Rollover rollover) {
         float heading = 0f, roll = 0f;
-        rollover.step(1f, 0f, upUp, 20f, 0f, STEP, SALOON);
+        rollover.step(1f, 0f, upUp, 20f, 0f, 0f, 0f, STEP, SALOON);
         for (int i = 0; i < 60; i++) {
             // Turning that way the heading goes clockwise, the velocity with it.
             heading -= thrown / 20f * STEP;
             float fx = (float) Math.cos(heading), fy = (float) Math.sin(heading);
-            roll = rollover.step(fx, fy, upUp, 20f * fx, 20f * fy, STEP, SALOON);
+            roll = rollover.step(fx, fy, upUp, 20f * fx, 20f * fy, 0f, 0f, STEP, SALOON);
         }
         return roll;
     }
@@ -42,7 +42,7 @@ final class RolloverTests {
     private static void goingStraightOrTurningGentlyRollsNothing() {
         check(thrownSideways(0f, 1f, new Rollover()) == 0f, "going straight nothing rolls it");
         check(thrownSideways(SALOON - 1f, 1f, new Rollover()) == 0f, "thrown across short of what tips it nothing rolls it");
-        check(new Rollover().step(1f, 0f, 1f, 20f, 0f, STEP, SALOON) == 0f, "nothing on the first step, with nothing to measure the throw from");
+        check(new Rollover().step(1f, 0f, 1f, 20f, 0f, 0f, 0f, STEP, SALOON) == 0f, "nothing on the first step, with nothing to measure the throw from");
     }
 
     private static void thrownHardItRollsAwayFromTheThrowAndMoreForHarder() {
@@ -63,15 +63,15 @@ final class RolloverTests {
         // Facing +x, its side (0, -1): knocked that way at 30 m/s/s for a fifth of a second, then its wheels catch and stop the slide.
         Rollover rollover = new Rollover();
         float vy = 0f, knocked = 0f, tripped = 0f;
-        rollover.step(1f, 0f, 1f, 20f, vy, STEP, SALOON);
+        rollover.step(1f, 0f, 1f, 20f, vy, 0f, 0f, STEP, SALOON);
         for (int i = 0; i < 12; i++) {
             vy -= 30f * STEP;
-            knocked = rollover.step(1f, 0f, 1f, 20f, vy, STEP, SALOON);
+            knocked = rollover.step(1f, 0f, 1f, 20f, vy, 0f, 0f, STEP, SALOON);
             check(knocked == 0f, "pushed aside by something else, its wheels throw it by nothing: " + knocked);
         }
         while (vy < -0.1f) {
             vy += 30f * STEP;
-            tripped = Math.min(tripped, rollover.step(1f, 0f, 1f, 20f, vy, STEP, SALOON));
+            tripped = Math.min(tripped, rollover.step(1f, 0f, 1f, 20f, vy, 0f, 0f, STEP, SALOON));
         }
         check(tripped < 0f, "as its wheels catch the slide it is rolled on over them, top towards where it slid: " + tripped);
     }

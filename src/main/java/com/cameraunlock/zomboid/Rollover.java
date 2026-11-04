@@ -41,16 +41,17 @@ final class Rollover {
     }
 
     /**
-     * Moves the vehicle on by seconds, facing (forwardX, forwardY) on the map, its own up's
-     * height in the world upUp, going at (goingX, goingY), tipping when thrown across harder than
-     * tipsAt. Returns the roll to give it this step about its own forward axis, per kilogram, as
+     * Moves the vehicle on by seconds of physics stepped, facing (forwardX, forwardY) on the map,
+     * its own up's height in the world upUp, going at (goingX, goingY), its speed changed by
+     * (pushedX, pushedY) by pushes that are not its wheels' (ThrownAcross), tipping when thrown
+     * across harder than tipsAt. Returns the roll to give it this step about its own forward axis, per kilogram, as
      * the game's physics takes a torque: positive turns its top away from (forwardY, -forwardX)
      * on the map, the way it was measured.
      */
-    float step(float forwardX, float forwardY, float upUp, float goingX, float goingY, float seconds, float tipsAt) {
+    float step(float forwardX, float forwardY, float upUp, float goingX, float goingY, float pushedX, float pushedY, float seconds, float tipsAt) {
         // Thrown towards (forwardY, -forwardX) by its wheels, they are pulled that way and its top
         // goes the other: so a vehicle knocked aside rolls as it is tripped by its wheels after the knock.
-        if (!thrown.step(forwardX, forwardY, goingX, goingY, seconds)) {
+        if (!thrown.step(forwardX, forwardY, goingX, goingY, pushedX, pushedY, seconds)) {
             return 0f;
         }
         float across = thrown.across();
