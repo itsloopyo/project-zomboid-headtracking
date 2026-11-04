@@ -3,6 +3,7 @@ package com.cameraunlock.zomboid;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicReferenceArray;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
 import se.krka.kahlua.luaj.compiler.LuaCompiler;
@@ -192,6 +193,12 @@ final class HeldMap {
     private static final boolean[] held = new boolean[View.COUNT], made = new boolean[View.COUNT];
     /** The vehicle seat each player lifted the map in (seatOf). */
     private static final int[] seats = new int[View.COUNT];
+    /** When each player last lifted the map, in System.nanoTime, and whether a map not drawn since has been told of. Main thread. */
+    private static final long[] liftedAt = new long[View.COUNT];
+    private static final boolean[] toldUnshown = new boolean[View.COUNT];
+    /** Why each player's held map has not been drawn in the hands since it was lifted, or null once it has. Written by the render thread. */
+    private static final AtomicReferenceArray<String> unshown = new AtomicReferenceArray<>(View.COUNT);
+    private static final String NOT_DRAWN = "the viewer's hands were not drawn at all";
     private static final Double[] PLAYER_NUMBERS = new Double[View.COUNT];
     private static final Double ZOOM_ASKED = ZOOM;
     /** The side and the height of the corner the maps are placed in, as they were last asked for, and as the Lua is handed them. */
@@ -205,6 +212,9 @@ final class HeldMap {
             HOLD = (frame, arguments) -> {
                 int player = player(frame);
                 seats[player] = seatOf(IsoPlayer.players[player]);
+                liftedAt[player] = System.nanoTime();
+                toldUnshown[player] = false;
+                unshown.set(player, NOT_DRAWN);
                 held[player] = true;
                 Log.info("player " + (player + 1) + " holds the map up in their hands: a tap of the map key puts it down, holding it opens the game's map");
                 return 0;
@@ -369,6 +379,20 @@ final class HeldMap {
         return held[player];
     }
 
+    /** Render thread: a player's held map is drawn in the hands this frame. */
+    static void shown(int player) {
+        if (unshown.getAndSet(player, null) != null) {
+            Log.info("player " + (player + 1) + "'s held map is drawn in their hands");
+        }
+    }
+
+    /** Render thread: a player's held map could not be drawn in the hands this frame, for this reason. */
+    static void unshown(int player, String why) {
+        if (unshown.get(player) != null) {
+            unshown.set(player, why);
+        }
+    }
+
     private static void lower(int player, String why) {
         if (held[player]) {
             held[player] = false;
@@ -379,6 +403,13 @@ final class HeldMap {
     /** After each frame's world is drawn, whatever the view: puts down each map MapHold says is down. Main thread. */
     static void settle() {
         for (int player = 0; player < View.COUNT; player++) {
+            if (held[player] && !toldUnshown[player] && System.nanoTime() - liftedAt[player] > 1_000_000_000L) {
+                String why = unshown.get(player);
+                if (why != null) {
+                    toldUnshown[player] = true;
+                    Log.info("player " + (player + 1) + "'s held map is not in their hands a second after it was lifted: " + why);
+                }
+            }
             if (held[player]) {
                 int holding = holding(player, true);
                 String why = MapHold.down(holding);

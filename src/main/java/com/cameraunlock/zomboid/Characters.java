@@ -968,7 +968,20 @@ public final class Characters {
      */
     private void settleTheTask(ModelSlotRenderData data, ViewCamera.Pose camera) {
         ViewModel.Task task = view.viewModel.task;
-        if (task == null || holding != null || !CharacterDraw.cuts() || !Own.arms() || OwnArms.model() == null || task.seated() != (data == null)) {
+        if (task == null || task.kind() != TimedActs.MAP) {
+            if (HeldMap.held(view.index)) {
+                HeldMap.unshown(view.index, task == null ? "the hands had nothing to do" : "the hands were at " + task.anim());
+            }
+            if (task == null) {
+                return;
+            }
+        }
+        if (holding != null || !CharacterDraw.cuts() || !Own.arms() || OwnArms.model() == null || task.seated() != (data == null)) {
+            if (task.kind() == TimedActs.MAP) {
+                HeldMap.unshown(view.index, holding != null ? "something else was drawn in the hands"
+                        : !CharacterDraw.cuts() ? "the viewer's model is drawn whole" : !Own.arms() ? "the game's own arms are drawn"
+                        : OwnArms.model() == null ? "the mod's arms are not loaded" : "the hands were settled for a seat they are not in");
+            }
             return;
         }
         boolean seated = task.seated();
@@ -1014,6 +1027,9 @@ public final class Characters {
             inTheFist(right, fist, fistAlong, fistAcross, heldView);
         }
         if (!ArmHolds.placeTask(OwnArms.model(), scale, seenHands, fromAim, armSkins, armSaid)) {
+            if (!carries) {
+                HeldMap.unshown(view.index, "the mod's arms could not be placed at it");
+            }
             if (!taskRefused) {
                 taskRefused = true;
                 Log.info("the mod's own arms could not be placed at " + task.anim() + ": the game's own animation of it is drawn, as often as that happens");
@@ -1036,6 +1052,7 @@ public final class Characters {
             }
             ArmPose.multiply(fromAim, 0, sheetInAim, 0, sheetView, 0);
             sheetShown = true;
+            HeldMap.shown(view.index);
             // The map is drawn north up, and the game's y runs south: the way the clean view looks, level.
             float level = (float) Math.hypot(aim.forwardX, aim.forwardY);
             facingEast = aim.forwardX / level;
