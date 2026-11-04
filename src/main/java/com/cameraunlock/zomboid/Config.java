@@ -568,10 +568,10 @@ final class Config {
         }
     }
 
-    /** A part's row, true unless the player says otherwise: read again while the game runs only where the part is taken then. */
+    /** A part's row, its default unless the player says otherwise: read again while the game runs only where the part is taken then. */
     private void describe(Part part) {
         parts[part.ordinal()] = localBool(part.section, part.key, part.comment,
-                CameraUnlock.ROW_WRITABLE | (part.live ? CameraUnlock.ROW_LIVE : 0), true);
+                CameraUnlock.ROW_WRITABLE | (part.live ? CameraUnlock.ROW_LIVE : 0), part.byDefault);
     }
 
     /** The rows of every part of a section of its own, in the order Part lists them. */

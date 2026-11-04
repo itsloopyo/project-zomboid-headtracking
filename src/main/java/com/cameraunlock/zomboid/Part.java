@@ -119,11 +119,12 @@ enum Part {
                     + "your surroundings kept up as you move. People and vehicles are not in it. In Custom it needs ShadingAndLight and\n"
                     + "Reflections on and ReflectionScale at 0.75 or more. false: they mirror only what is on the screen, and the sky where\n"
                     + "that runs out."),
-    WATCH_GLANCE("FirstPerson", "WatchGlance", true, false,
-            "true: in first person, with a watch on a wrist and that hand free, looking down and then to that side, by head\n"
-                    + "tracking or the mouse, standing or walking, raises the arm and turns the wrist so you can read the watch: the time as\n"
-                    + "the game's clock shows it, in figures on a digital watch and as hands on any other. With a watch on each wrist, the\n"
-                    + "one you turn to. Not while aiming or attacking. false: the arm stays down."),
+    WATCH_GLANCE("FirstPerson", "WatchGlance", true, false, false,
+            "true: in first person, with a watch on a wrist and that hand free, looking down and then to that side raises the arm\n"
+                    + "and turns the wrist so you can read the watch, standing or walking: the time as the game's clock shows it, in figures\n"
+                    + "on a digital watch and as hands on any other. While head tracking is on only your head's look counts, and the mouse\n"
+                    + "never raises it; with it off, the mouse's look does. With a watch on each wrist, the one you turn to. Not while\n"
+                    + "aiming or attacking. false: the arm stays down."),
     HELD_MAP("FirstPerson", "HeldMap", true, true,
             "true: in first person, a tap of the map key holds the game's map up in both hands, the place round you on it, and you\n"
                     + "can walk and run with it. In a vehicle seat it is held low in the right hand, and a driver keeps the left on the wheel.\n"
@@ -210,15 +211,23 @@ enum Part {
     final String section, key, comment;
     /** Whether the row is taken while the game runs, and whether it is read at the start to leave patches out. */
     final boolean live, start;
-    private volatile boolean on = true, atStart = true, patched = true;
+    /** What the row is when the player has not set it. */
+    final boolean byDefault;
+    private volatile boolean on, atStart, patched;
     /** FIRST_PERSON's alone: whether any player's FirstPersonInVehicles row is on, which needs first person whatever FirstPersonEnabled says. */
     private volatile boolean forVehicles;
 
     Part(String section, String key, boolean live, boolean start, String comment) {
+        this(section, key, live, start, true, comment);
+    }
+
+    Part(String section, String key, boolean live, boolean start, boolean byDefault, String comment) {
         this.section = section;
         this.key = key;
         this.live = live;
         this.start = start;
+        this.byDefault = byDefault;
+        on = atStart = patched = byDefault;
         this.comment = start ? comment + "\n" + (live ? LIVE_AND_NEXT_START : NEXT_START) : comment;
     }
 

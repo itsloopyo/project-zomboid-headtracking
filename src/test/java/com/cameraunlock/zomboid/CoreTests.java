@@ -833,6 +833,13 @@ public final class CoreTests {
         {"HeldMap", "held map"},
     };
 
+    /** The parts a start's log says are switched off, each as "Key off" and the like. */
+    private static List<String> switchedOff(String output) {
+        String head = "the mod's parts: switched off: ";
+        int at = output.indexOf(head);
+        return at < 0 ? List.of() : List.of(output.substring(at + head.length(), output.indexOf(System.lineSeparator(), at)).split(", "));
+    }
+
     private static String leftOutLine(String output) {
         int at = output.indexOf("left out: ");
         return at < 0 ? "no line of what was left out" : output.substring(at, output.indexOf(System.lineSeparator(), at));
@@ -849,7 +856,7 @@ public final class CoreTests {
             check(next.contains("left out: " + row[1] + System.lineSeparator()),
                     row[0] + " off as the game starts leaves out " + row[1] + " and keeps every other set: " + leftOutLine(next));
             boolean part = Arrays.stream(Part.values()).anyMatch(each -> each.key.equals(row[0]));
-            check(!part || next.contains("the mod's parts: switched off: " + row[0] + " off"), "and the log says it is off");
+            check(!part || switchedOff(next).contains(row[0] + " off"), "and the log says it is off");
         }
         edit(saved.replace("FirstPersonEnabled=true", "FirstPersonEnabled=false").replace("ShotsBreakLamps=true", "ShotsBreakLamps=false")
                 .replace("ShotsBreakGlass=true", "ShotsBreakGlass=false").replace("BlastHoles=true", "BlastHoles=false").replace("BulletHoles=true", "BulletHoles=false"));
@@ -1055,7 +1062,7 @@ public final class CoreTests {
         String parts = next.substring(next.indexOf("the mod's parts: "));
         boolean read = true;
         for (Part part : Part.values()) {
-            read &= parts.contains(part.key + " off");
+            read &= parts.contains(part.key + " off") == part.byDefault;
         }
         check(read, "and the next start reads each of them as it was left: " + parts.substring(0, parts.indexOf(System.lineSeparator())));
         Screen again = Screen.opened();
@@ -1092,7 +1099,7 @@ public final class CoreTests {
         Tracking.watchSettings();
         check(FieldOfView.degrees() == 90f, "an edited field of view is read while the game runs");
         for (Part part : Part.values()) {
-            check(part.live ? !part.on() && !part.running() && part.atStart() : part.on() && part.running(),
+            check(part.live ? !part.on() && !part.running() && part.atStart() == part.byDefault : part.on() && part.running(),
                     part.key + " off in the file is " + (part.live ? "off at once, its patches, if it has any, still in until the next start"
                             : "read only as the game starts, so the part is as the start found it") + ": " + Part.described());
         }
@@ -1108,7 +1115,7 @@ public final class CoreTests {
         Tracking.watchSettings();
         check(FieldOfView.degrees() == 65f && Own.rows() == (Own.ALL & ~Own.ARMS) && Quality.name(0).equals("Medium") && Style.of(0) == Style.WARM
                         && MuzzleFlash.on() && Crosshair.on() && Regrip.on() && PendingLights.spread() && SplitScreen.row() == SplitScreen.HORIZONTAL && HillHeight.asked() == 1.5f
-                        && Arrays.stream(Part.values()).allMatch(Part::running),
+                        && Arrays.stream(Part.values()).allMatch(part -> part.running() == part.byDefault),
                 "set back, they are as they were, and the arms row switched on is that row and no other: " + Own.described(Own.rows()));
         Tracking.cycleStyle(0);
         check(Style.of(0) == Style.COLD, "a save after an edit still saves");
