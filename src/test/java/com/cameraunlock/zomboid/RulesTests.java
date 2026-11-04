@@ -23,6 +23,7 @@ final class RulesTests {
                 "alone with every row on, every rule is the mod's"));
         Servers.in(Servers.Where.ALONE, () -> check(Rules.rewind(), "and a death can be rewound"));
         Servers.in(Servers.Where.ALONE, () -> check(Rules.dressesHiddenWalls(), "and rooms' hidden walls are hung"));
+        Servers.in(Servers.Where.ALONE, () -> check(Rules.uprightInTurns(), "and a vehicle turned hard stays on its wheels"));
     }
 
     private static void eachRowOffGivesBackThatRuleAndNoOther() {
@@ -64,6 +65,11 @@ final class RulesTests {
             Rules.set(Rules.ALL & ~Rules.HIDDEN_WALLS_SAVED);
             check(Rules.throughWalls() && Rules.seenAtOnce() && Rules.rewind() && !Rules.dressesHiddenWalls() && Rules.drawsHiddenWallPictures(),
                     "HiddenWallDecorSaved off adds nothing to the save, and the pictures are still drawn");
+            Rules.set(Rules.ALL & ~Rules.UPRIGHT_IN_TURNS);
+            check(Rules.throughWalls() && Rules.breaksLamps() && Rules.breaksGlass() && Rules.wounds() && !Rules.vehiclesStock() && Rules.facing() == Rules.Facing.FACES_THE_VIEW_AT_THE_PACE_AHEAD && Rules.pastTrees()
+                    && Rules.seenAtOnce() && Rules.rewind() && Rules.dressesHiddenWalls() && Rules.drawsHiddenWallPictures() && Rules.blastHoles() && Rules.bulletHoles()
+                    && Rules.climbThroughHoles() && !Rules.uprightInTurns(),
+                    "VehiclesStayUprightInTurns off leaves a vehicle's lean in a turn to the game and changes nothing else");
         });
     }
 
@@ -71,7 +77,7 @@ final class RulesTests {
         Rules.set(Rules.ALL);
         for (Servers.Where where : new Servers.Where[] {Servers.Where.FRIENDLY, Servers.Where.CONTESTED}) {
             Servers.in(where, () -> check(!Rules.breaksLamps() && !Rules.breaksGlass() && !Rules.wounds() && Rules.vehiclesStock()
-                    && !Rules.rewind() && !Rules.dressesHiddenWalls(),
+                    && !Rules.rewind() && !Rules.dressesHiddenWalls() && !Rules.uprightInTurns(),
                     "on a server (" + where + ") every rule the server keeps is the game's with every row on"));
             Servers.in(where, () -> check(Rules.drawsHiddenWallPictures(), "and on a server (" + where + ") hidden walls still carry drawn pictures"));
         }
