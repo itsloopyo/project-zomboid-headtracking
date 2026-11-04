@@ -11,13 +11,12 @@ import zombie.iso.sprite.IsoSprite;
 
 /**
  * Pieces of what is knocked down or shot out, falling in the first person picture: a fence a
- * vehicle drives through throws boards, rails and pickets, or the wire and bars of a metal one, a
- * lamp post falls over whole or in
- * two, a road barricade comes apart into its boards and legs, and what shots cut free of a fence
- * or a wall (Breakage) drops out of it. Each piece is a box the size of what it is a piece of,
- * in that thing's colour, thrown, spinning, falling under gravity onto the ground of its level,
- * bouncing once or twice, sliding to a stop and toppling onto its broadest face. It lies a few
- * seconds and sinks into the ground, and is gone.
+ * vehicle drives through throws boards, rails and pickets, or the wire and bars of a metal one,
+ * a lamp post falls over whole or in two, a road barricade comes apart into its boards and legs,
+ * and what shots cut free of a fence or a wall (Breakage) drops out of it. Each piece is a box
+ * the size of what it is a piece of, in that thing's colour, thrown, spinning, falling under
+ * gravity onto the ground of its level, bouncing once or twice, sliding to a stop and toppling
+ * onto its broadest face. It lies a few seconds and sinks into the ground, and is gone.
  *
  * Only the picture. Nothing here is in the game's world: a piece meets nothing but the ground,
  * not walls, people or vehicles, and the game never hears of it. It is thrown only where the

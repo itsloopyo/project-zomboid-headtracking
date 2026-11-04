@@ -109,8 +109,10 @@ final class Knockdown {
     /**
      * Whether what a vehicle knocks down is of metal, so its pieces are wires and bars and not
      * boards: its tile names a metal Material (chain link and wire are MetalWire, railings
-     * MetalBars, sheeting MetalPlates, MetalScrap or SmallMetalPlates), or a metal MaterialType
-     * (metalType). Every fence sprite is drawn as planks, so the drawn material says wood.
+     * MetalBars, sheeting MetalPlates, MetalScrap or SmallMetalPlates), or metalType. The caller
+     * passes metalType as Impacts.of(sprite, false) == Impacts.METAL: the sprite's MaterialType,
+     * or where it has none the material it is drawn in, which keeps lamp posts metal. Every
+     * fence sprite is drawn as planks, so for a fence the drawn material says wood.
      */
     static boolean metal(String material, boolean metalType) {
         return metalType || material != null && (material.startsWith("Metal") || material.equals("SmallMetalPlates"));
