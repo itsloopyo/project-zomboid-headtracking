@@ -126,7 +126,7 @@ final class HeldMap {
                     if usable then Mod.passed(0, open == true) end
                     return down(k)
                 end
-                key.at, key.opened = getTimestampMs(), false
+                key.at, key.held, key.opened = getTimestampMs(), 0, false
                 if Mod.held(0) then
                     Mod.lower(0, "the map key was tapped")
                 else
@@ -138,7 +138,11 @@ final class HeldMap {
             Events.OnKeyKeepPressed.Add(function(k)
                 if not isMapKey(k) then return end
                 if not key.mine then return keep(k) end
-                if not key.opened and getTimestampMs() - key.at >= HOLD_MS then
+                -- A frame is counted for at most a tenth of a second: the first lift makes the map's picture, which can
+                -- hold one frame past HOLD_MS, and a tap across it is still a tap.
+                local now = getTimestampMs()
+                key.held, key.at = key.held + math.min(now - key.at, 100), now
+                if not key.opened and key.held >= HOLD_MS then
                     key.opened = true
                     Mod.press(0, "held, for the game's map over the screen")
                     Mod.lower(0, "the map key was held for the game's map")
