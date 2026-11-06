@@ -23,6 +23,21 @@ final class TimedActsTests {
         Checks.run("handsComeUpFromUnderThePicture", TimedActsTests::handsComeUpFromUnderThePicture);
         Checks.run("whatTheGamesHandHoldsIsCarriedToTheHandBeforeTheEyeAsAWeaponIs", TimedActsTests::whatTheGamesHandHoldsIsCarriedToTheHandBeforeTheEyeAsAWeaponIs);
         Checks.run("armsReachEveryHandAtEveryMomentWithWristsAsWristsGo", () -> armsReachEveryHandAtEveryMomentWithWristsAsWristsGo(model));
+        Checks.run("theShaderBendsTheHeldMapAsTheHandsHoldIt", TimedActsTests::theShaderBendsTheHeldMapAsTheHandsHoldIt);
+    }
+
+    /** The hands are placed on the sheet by TimedActs.bend and the sheet is drawn bent by the shader's copy of it: they must agree everywhere. */
+    private static void theShaderBendsTheHeldMapAsTheHandsHoldIt() {
+        GlslFunctions shader = new GlslFunctions(TimedActs.SHEET_BENT);
+        float worst = 0f;
+        for (float u = -0.5f; u <= 0.5f; u += 1f / 48f) {
+            for (float v = -0.5f; v <= 0.5f; v += 1f / 32f) {
+                worst = Math.max(worst, Math.abs(TimedActs.bend(u, v) - shader.call("sheetStill", u, v)));
+            }
+        }
+        check(worst < 1e-6f, "the shader's bend of the held map is TimedActs.bend's, at most " + worst + " m apart");
+        float bowed = TimedActs.bend(0f, 0.2f);
+        check(bowed < -0.005f, "and the sheet bows away from the eye between the hands: " + bowed);
     }
 
     /** The names the game gives the animations of its timed actions, as src/test/data/timed-action-anims.txt lists them. */

@@ -5633,6 +5633,7 @@ final class Pipeline {
             lightFigures(pass, drawn, camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
         }
 
+        OwnArms.sun(state.sunX, state.sunY, state.sunUp, state.sunRed);
         if (seated) {
             lend(cabin);
             GL30.glBindFramebuffer(GL_FRAMEBUFFER, repaintedTarget);

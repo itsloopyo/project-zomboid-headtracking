@@ -1055,6 +1055,7 @@ public final class Characters {
             }
             ArmPose.multiply(fromAim, 0, sheetInAim, 0, sheetView, 0);
             sheetShown = true;
+            sheetTask = task;
             HeldMap.shown(view.index, mapLeanedTo, mapHeldAt);
             // The map is drawn north up, and the game's y runs south: the way the clean view looks, level.
             float level = (float) Math.hypot(aim.forwardX, aim.forwardY);
@@ -1219,6 +1220,8 @@ public final class Characters {
     private boolean oneHanded;
     /** The way the viewer faces on the held map, east and north. */
     private float facingEast, facingNorth;
+    /** The task the held map's sheet was last placed for, which says what is drawn on it. */
+    private ViewModel.Task sheetTask;
     private ViewModel.Watch taskWatch;
     private final float[] sheetInAim = new float[16], sheetView = new float[16];
 
@@ -2217,7 +2220,7 @@ public final class Characters {
             OwnArms.snowed(0f);
             OwnArms.Worn worn = wornOnArms();
             OwnArms.draw(projection, armSkins[0], false, armFemale, armSkin, ownLight, ownOutside, worn, view.ride.dress.stains);
-            OwnArms.sheet(projection, sheetView, HeldMap.picture(view.index), facingEast, facingNorth, ownLight, ownOutside);
+            OwnArms.sheet(projection, sheetView, HeldMap.picture(view.index), facingEast, facingNorth, sheetTask, ownLight, ownOutside);
             return;
         }
         ModelSlotRenderData data = holding;
@@ -2254,7 +2257,7 @@ public final class Characters {
             OwnArms.watch(projection, armSkins[taskWatch.left() ? 1 : 0], taskWatch, armFemale, worn, ownLight, outside);
         }
         if (sheetShown) {
-            OwnArms.sheet(projection, sheetView, HeldMap.picture(view.index), facingEast, facingNorth, ownLight, outside);
+            OwnArms.sheet(projection, sheetView, HeldMap.picture(view.index), facingEast, facingNorth, sheetTask, ownLight, outside);
         }
         data.ambientR = red;
         data.ambientG = green;

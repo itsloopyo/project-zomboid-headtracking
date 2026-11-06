@@ -39,7 +39,9 @@ import zombie.vehicles.BaseVehicle;
  *
  * Each player's map is drawn into a picture of its own, of the sheet's shape, among the game's
  * own UI drawing, by a UI element in the lower left corner of the screen, which the picture
- * covers, so the map fills the sheet edge to edge: the renderer
+ * covers. The element is the print, inside the paper's margin (TimedActs.SHEET_MARGIN), and is
+ * laid round the player when the map is lifted and again at each refold, not every frame: the
+ * player's place on it is handed to the sheet's pointer. The renderer
  * sets its viewport from the screen's size. The sheet shows the picture on the next frame. The
  * game leaves its UI drawing out of the frames past its UI frame rate and while its Lua debugger
  * is up, and the picture is drawn again only on the frames it draws it.
@@ -69,7 +71,8 @@ final class HeldMap {
      * and a map of the game's own kind,
      * with the same data, style and paper as its panel, made for each player the first time it is
      * drawn. Handed the mod's functions, it answers the one that places a player's map and hands
-     * back the map's Java element.
+     * back the map's Java element, the player's place on it in its pixels across and down, and how
+     * many tiles its width covers.
      */
     private static final String LUA = """
             local Mod, HOLD_MS = ...
@@ -161,7 +164,6 @@ final class HeldMap {
                 map.javaObject = UIWorldMap.new(map)
                 map.mapAPI = map.javaObject:getAPIv3()
                 map.mapAPI:setMapItem(MapItem.getSingleton())
-                map.javaObject:setX(0)
                 map.javaObject:setWidth(side)
                 map.javaObject:setHeight(tall)
                 ISWorldMap.initDataAndStyle(map)
@@ -173,18 +175,25 @@ final class HeldMap {
                 return map
             end
 
-            return function(playerNum, side, tall, zoom, y)
+            -- The print stays where it was laid on the paper: the player's place is found on it, and it is
+            -- laid again round them only when asked (refold), as a map is refolded to the next panel.
+            return function(playerNum, side, tall, zoom, x, y, refold)
                 local map = maps[playerNum]
                 if map == nil or map.side ~= side or map.tall ~= tall then
                     map = make(side, tall)
                     maps[playerNum] = map
                 end
+                map.javaObject:setX(x)
                 map.javaObject:setY(y)
                 local player = getSpecificPlayer(playerNum)
                 local at = player:getVehicle() or player
-                map.mapAPI:centerOn(at:getX(), at:getY())
+                if refold or map.laidX == nil then
+                    map.laidX, map.laidY = at:getX(), at:getY()
+                end
+                map.mapAPI:centerOn(map.laidX, map.laidY)
                 map.mapAPI:setZoom(zoom)
-                return map.javaObject
+                local across = map.mapAPI:uiToWorldX(side, 0) - map.mapAPI:uiToWorldX(0, 0)
+                return map.javaObject, map.mapAPI:worldToUIX(at:getX(), at:getY()), map.mapAPI:worldToUIY(at:getX(), at:getY()), across
             end
             """;
 
@@ -195,6 +204,9 @@ final class HeldMap {
     static final double ZOOM = 17.5;
 
     private static final boolean[] held = new boolean[View.COUNT], made = new boolean[View.COUNT];
+    /** Main thread: whether each player's print is laid round them on its next drawing, when a refold began (nought for none) and whether it has been laid. */
+    private static final boolean[] laidAgain = new boolean[View.COUNT], refoldLaid = new boolean[View.COUNT];
+    private static final long[] refoldFrom = new long[View.COUNT];
     /** The vehicle seat each player lifted the map in (seatOf). */
     private static final int[] seats = new int[View.COUNT];
     /** When each player last lifted the map, in System.nanoTime, and whether a map not drawn since has been told of. Main thread. */
@@ -207,7 +219,9 @@ final class HeldMap {
     private static final Double ZOOM_ASKED = ZOOM;
     /** The side and the height of the corner the maps are placed in, as they were last asked for, and as the Lua is handed them. */
     private static int placedSide, placedHeight;
-    private static Double sideAsked, tallAsked, cornerAsked;
+    private static Double sideAsked, tallAsked, leftAsked, cornerAsked;
+    /** Where on the picture the print is drawn, pixels: its left and top margins, its width and height. */
+    private static int printLeft, printTop, printWide, printTall;
     private static Object place;
     /** Set as the game loads its Lua: the mod's goes into it on the next frame, among the game's UI drawing. */
     private static boolean pending;
@@ -217,6 +231,8 @@ final class HeldMap {
                 int player = player(frame);
                 seats[player] = seatOf(IsoPlayer.players[player]);
                 liftedAt[player] = System.nanoTime();
+                laidAgain[player] = true;
+                refoldFrom[player] = 0L;
                 toldUnshown[player] = false;
                 unshown.set(player, NOT_DRAWN);
                 held[player] = true;
@@ -448,9 +464,14 @@ final class HeldMap {
         if (side != placedSide || Core.height != placedHeight) {
             placedSide = side;
             placedHeight = Core.height;
-            sideAsked = (double) side;
-            tallAsked = (double) tall;
-            cornerAsked = (double) (Core.height - tall);
+            printLeft = Math.round(side * TimedActs.SHEET_MARGIN / TimedActs.SHEET_WIDE);
+            printTop = Math.round(tall * TimedActs.SHEET_MARGIN / TimedActs.SHEET_TALL);
+            printWide = side - 2 * printLeft;
+            printTall = tall - printTop - Math.round(tall * TimedActs.SHEET_FOOT / TimedActs.SHEET_TALL);
+            sideAsked = (double) printWide;
+            tallAsked = (double) printTall;
+            leftAsked = (double) printLeft;
+            cornerAsked = (double) (Core.height - tall + printTop);
         }
         for (int player = 0; player < View.COUNT; player++) {
             if (!held[player]) {
@@ -463,15 +484,39 @@ final class HeldMap {
             if (PLAYER_NUMBERS[player] == null) {
                 PLAYER_NUMBERS[player] = (double) player;
             }
-            Object[] ran = LuaManager.caller.pcall(UIManager.getDefaultThread(), place, PLAYER_NUMBERS[player], sideAsked, tallAsked, ZOOM_ASKED, cornerAsked);
-            if (!Boolean.TRUE.equals(ran[0]) || ran.length < 2 || !(ran[1] instanceof UIElement map)) {
+            boolean laid = laidAgain[player];
+            // Laid at the refold's lowest, or on the first UI frame after it where the game draws none then.
+            if (refoldFrom[player] != 0L && !laid && !refoldLaid[player] && System.nanoTime() - refoldFrom[player] >= REFOLD_NANOS / 2) {
+                laid = true;
+                refoldLaid[player] = true;
+            }
+            if (refoldFrom[player] != 0L && refoldLaid[player] && System.nanoTime() - refoldFrom[player] >= REFOLD_NANOS) {
+                refoldFrom[player] = 0L;
+            }
+            Object[] ran = LuaManager.caller.pcall(UIManager.getDefaultThread(), place, PLAYER_NUMBERS[player], sideAsked, tallAsked, ZOOM_ASKED, leftAsked, cornerAsked, laid);
+            if (!Boolean.TRUE.equals(ran[0]) || ran.length < 5 || !(ran[1] instanceof UIElement map) || !(ran[2] instanceof Double x)
+                    || !(ran[3] instanceof Double y) || !(ran[4] instanceof Double across)) {
                 Log.error("player " + (player + 1) + "'s map is put down: the game's Lua would not place it: " + Arrays.toString(ran));
                 lower(player, "it could not be drawn");
                 continue;
             }
+            laidAgain[player] = false;
+            float acrossPrint = (float) (x / printWide), downPrint = (float) (y / printTall);
+            pointerU[player] = (printLeft + x.floatValue()) / side;
+            pointerV[player] = 1f - (printTop + y.floatValue()) / tall;
+            tilesAcross[player] = across.floatValue() * side / printWide;
+            if (refoldFrom[player] == 0L && (Math.min(acrossPrint, downPrint) < REFOLD_WITHIN || Math.max(acrossPrint, downPrint) > 1f - REFOLD_WITHIN)) {
+                refoldFrom[player] = System.nanoTime();
+                refoldLaid[player] = false;
+                Log.info(String.format("player %d's map is refolded round them: they came to %.2f across and %.2f down the print", player + 1, acrossPrint, downPrint));
+            }
             made[player] = true;
             drawnSide = side;
             drawnTall = tall;
+            drawnLeft = printLeft;
+            drawnFoot = tall - printTop - printTall;
+            drawnWide = printWide;
+            drawnPrintTall = printTall;
             drawnWidth = Core.width;
             drawnHeight = Core.height;
             SpriteRenderer.instance.drawGeneric(BIND[player]);
@@ -483,6 +528,43 @@ final class HeldMap {
         }
     }
 
+    /** How long a refold takes, the sheet dipping and coming up again with the print laid round the player at its lowest. */
+    private static final long REFOLD_NANOS = 700_000_000L;
+    /** How near an edge of the print, as a share of its width or height, the player's place comes before it is refolded round them. */
+    private static final float REFOLD_WITHIN = 0.14f;
+    /** How far a refold dips the sheet at its lowest, as a share of how far it is held up. */
+    private static final float REFOLD_DIP = 0.45f;
+    /** Main thread: where the player is on each sheet, across it and up it from its lower left corner as shares, and how many tiles the sheet's width covers. */
+    private static final float[] pointerU = new float[View.COUNT], pointerV = new float[View.COUNT], tilesAcross = new float[View.COUNT];
+
+    /** Main thread: how much a player's held map is let down for a refold now, nought for none, and how far down it is then. */
+    static float lowered(int player) {
+        long from = refoldFrom[player];
+        if (from == 0L) {
+            return 0f;
+        }
+        long past = System.nanoTime() - from;
+        if (past >= REFOLD_NANOS) {
+            return 0f;
+        }
+        return REFOLD_DIP * (float) Math.sin(Math.PI * past / REFOLD_NANOS);
+    }
+
+    /** Main thread: where the player is on their held map's sheet, across it as a share of its width. */
+    static float pointerU(int player) {
+        return pointerU[player];
+    }
+
+    /** Main thread: where the player is on their held map's sheet, up it from its foot as a share of its height. */
+    static float pointerV(int player) {
+        return pointerV[player];
+    }
+
+    /** Main thread: how many tiles the width of a player's held map covers. */
+    static float tilesAcross(int player) {
+        return tilesAcross[player];
+    }
+
     /** Whether the hands that held a player's map are down: until then the sheet in them still shows its picture. */
     private static boolean handsDown(int player) {
         View view = View.of(player);
@@ -492,6 +574,8 @@ final class HeldMap {
 
     /** The width and height of the maps drawn and the screen's size they are drawn at, for the render thread. */
     private static volatile int drawnSide, drawnTall, drawnWidth, drawnHeight;
+    /** Where the print is in the picture, pixels from its lower left corner: its left, its foot, its width and its height. */
+    private static volatile int drawnLeft, drawnFoot, drawnWide, drawnPrintTall;
 
     private static final int[] texture = new int[View.COUNT], target = new int[View.COUNT], sides = new int[View.COUNT], talls = new int[View.COUNT];
     private static int savedDraw, savedRead;
@@ -533,7 +617,7 @@ final class HeldMap {
      * Turns what the game's UI draws next into a player's picture, or, where the driver refused
      * pictures, into nothing, until unbind: the viewport, the scissor and the colour mask are kept
      * to be put back then. The picture covers the screen's lower left corner, and the scissor keeps
-     * what is drawn inside it.
+     * what is drawn inside its print.
      */
     private static void bind(int player, int side, int tall, int width, int height) {
         // Between this and unbind the game's own renderer draws the map, and a throw in it leaves unbind undone.
@@ -564,10 +648,11 @@ final class HeldMap {
         GL11.glViewport(0, 0, width, height);
         GL11.glColorMask(true, true, true, true);
         GL11.glDisable(GL_SCISSOR_TEST);
-        GL11.glClearColor(0.86f, 0.82f, 0.71f, 1f);
+        GL11.glClearColor(TimedActs.PAPER[0], TimedActs.PAPER[1], TimedActs.PAPER[2], 1f);
         GL11.glClear(GL_COLOR_BUFFER_BIT);
         GL11.glEnable(GL_SCISSOR_TEST);
-        GL11.glScissor(0, 0, side, tall);
+        // The game's map clips itself with the stencil, which the picture has none of: the scissor keeps it to the print.
+        GL11.glScissor(drawnLeft, drawnFoot, drawnWide, drawnPrintTall);
     }
 
     private static void unbind(int player) {

@@ -337,8 +337,55 @@ final class TimedActs {
     /** The world map held up in both hands: its middle, how wide and tall it is, metres, and how far its top leans away from the eye, radians. */
     static final float[] SHEET_AT = {0f, -0.07f, -0.42f};
     static final float SHEET_WIDE = 0.40f, SHEET_TALL = 0.29f, SHEET_LEANS = (float) Math.toRadians(25);
+    /** The colour of the paper the map is printed on. */
+    static final float[] PAPER = {0.86f, 0.82f, 0.71f};
+    /** The paper round the print on the sheet, metres: at its sides and top, and the wider foot that carries the scale bar and the north arrow. */
+    static final float SHEET_MARGIN = 0.014f, SHEET_FOOT = 0.03f;
     /** Where a hand holds the sheet's side, from its middle down, as a share of its height. */
     private static final float HELD_LOW = 0.28f;
+
+    /**
+     * How far a point of the sheet stands off its flat square towards the eye, metres, at (u, v)
+     * across and up it from its middle, each -0.5 to 0.5. A sheet held by its sides is bowed a
+     * little away in the middle, so that it does not flop; the map was folded in four panels
+     * across, like an accordion, and once along, and the creases hold; the top between the
+     * hands, which nothing holds, sags back; and two corners are dog-eared towards the eye.
+     * Nothing of it moves the sides where the hands hold, but the fold along does, which the
+     * hands follow. SHEET_BENT's sheetStill is the same for the shader, which adds the stir of a
+     * walk, and a test holds the two to each other.
+     */
+    static float bend(float u, float v) {
+        float creased = Math.abs((u + 0.5f) * 4f - 2f * (float) Math.floor((u + 0.5f) * 2f + 0.5f));
+        float sags = Math.clamp((v + 0.1f) / 0.6f, 0f, 1f);
+        float corner = Math.max(u + v - 0.88f, 0f), other = Math.max(-u - v - 0.92f, 0f);
+        return -BOW * (0.25f - u * u) + ACCORDION * creased - ALONG * (0.5f - Math.abs(v)) - SAG * sags * sags * (1f - 4f * u * u)
+                + DOG_EAR * corner * corner + SOFT_EAR * other * other;
+    }
+
+    private static final float BOW = 0.06f, ACCORDION = 0.006f, ALONG = 0.008f, SAG = 0.012f, DOG_EAR = 0.9f, SOFT_EAR = 0.6f;
+
+    /**
+     * bend in GLSL, with uStir the walk's stir (0 standing, 1 at a walk) fluttering the top
+     * between the hands at uClock seconds.
+     */
+    static final String SHEET_BENT = String.format(java.util.Locale.ROOT, """
+            uniform float uStir;
+            uniform float uClock;
+            float sheetCreased(float u) {
+                return abs((u + 0.5) * 4.0 - 2.0 * floor((u + 0.5) * 2.0 + 0.5));
+            }
+            float sheetSags(float v) {
+                return clamp((v + 0.1) / 0.6, 0.0, 1.0);
+            }
+            float sheetStill(float u, float v) {
+                return -%1$s * (0.25 - u * u) + %2$s * sheetCreased(u) - %3$s * (0.5 - abs(v)) - %4$s * sheetSags(v) * sheetSags(v) * (1.0 - 4.0 * u * u)
+                        + %5$s * max(u + v - 0.88, 0.0) * max(u + v - 0.88, 0.0) + %6$s * max(-u - v - 0.92, 0.0) * max(-u - v - 0.92, 0.0);
+            }
+            float sheetBend(vec2 at) {
+                return sheetStill(at.x, at.y)
+                        + uStir * 0.004 * sin(uClock * (6.0 + 3.0 * uStir) + at.x * 9.0) * sheetSags(at.y) * sheetSags(at.y) * (1.0 - 4.0 * at.x * at.x);
+            }
+            """, BOW, ACCORDION, ALONG, SAG, DOG_EAR, SOFT_EAR);
     /** How far out past the sheet's side the middle of a hand holding it is, and how far behind its face, metres. */
     private static final float HELD_OUT = 0.012f, HELD_BEHIND = 0.018f;
 
@@ -377,7 +424,7 @@ final class TimedActs {
             Hand hand = side == 0 ? right : left;
             float out = side == 0 ? 1f : -1f, x = 0.5f * out + HELD_OUT * out / SHEET_WIDE, y = -HELD_LOW;
             for (int axis = 0; axis < 3; axis++) {
-                mapAt[axis] = sheet[axis] * x + sheet[4 + axis] * y + sheet[12 + axis] - sheet[8 + axis] * HELD_BEHIND;
+                mapAt[axis] = sheet[axis] * x + sheet[4 + axis] * y + sheet[12 + axis] + sheet[8 + axis] * (bend(0.5f * out, y) - HELD_BEHIND);
                 // The fingers run up the sheet's side, curling in behind it; the palm faces in across it, towards the eye a little.
                 mapFingers[axis] = sheet[4 + axis] / SHEET_TALL - sheet[axis] / SHEET_WIDE * out * 0.35f;
                 mapPalm[axis] = -sheet[axis] / SHEET_WIDE * out + sheet[8 + axis] * 0.3f;
@@ -433,7 +480,7 @@ final class TimedActs {
         float wide = SHEET_WIDE * SEAT_SHEET_SIZE, tall = SHEET_TALL * SEAT_SHEET_SIZE;
         float x = 0.5f + HELD_OUT / wide, y = -SEAT_HELD_LOW;
         for (int axis = 0; axis < 3; axis++) {
-            mapAt[axis] = sheet[axis] * x + sheet[4 + axis] * y + sheet[12 + axis] - sheet[8 + axis] * HELD_BEHIND;
+            mapAt[axis] = sheet[axis] * x + sheet[4 + axis] * y + sheet[12 + axis] + sheet[8 + axis] * (bend(0.5f, y) - HELD_BEHIND);
             mapFingers[axis] = sheet[4 + axis] / tall - sheet[axis] / wide * 0.35f;
             mapPalm[axis] = -sheet[axis] / wide + sheet[8 + axis] * 0.3f;
         }

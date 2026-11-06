@@ -78,7 +78,7 @@ final class GlslFunctions {
         }
 
         private void skip() {
-            while (at < text.length() && text.charAt(at) == ' ') {
+            while (at < text.length() && Character.isWhitespace(text.charAt(at))) {
                 at++;
             }
         }
@@ -163,6 +163,7 @@ final class GlslFunctions {
             }
             return switch (name) {
                 case "abs" -> Math.abs(a[0]);
+                case "floor" -> (float) Math.floor(a[0]);
                 case "clamp" -> Math.min(Math.max(a[0], a[1]), a[2]);
                 case "step" -> a[1] < a[0] ? 0f : 1f;
                 case "min" -> Math.min(a[0], a[1]);

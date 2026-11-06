@@ -1607,7 +1607,17 @@ final class CharacterDraw {
         upSeen[0] = view[8];
         upSeen[1] = view[9];
         upSeen[2] = view[10];
+        for (int column = 0; column < 3; column++) {
+            System.arraycopy(view, column * 4, axesSeen, column * 3, 3);
+        }
     }
+
+    /** The world's x, y and up as the eye of the view people are drawn through sees them, three numbers each: see looking. */
+    static float[] axesSeen() {
+        return axesSeen;
+    }
+
+    private static final float[] axesSeen = {1f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f};
 
     /** The world's up as the eye of the view people are drawn through sees it: see looking. */
     static float[] upSeen() {

@@ -47,8 +47,7 @@ final class OwnArms {
     private static final float[][] TONES = {{0.98f, 0.886f, 0.725f}, {0.937f, 0.788f, 0.553f}, {0.812f, 0.659f, 0.467f}, {0.522f, 0.369f, 0.239f},
         {0.349f, 0.255f, 0.141f}};
 
-    private static final String VERTEX = """
-            #version 120
+    private static final String VERTEX = "#version 120\n" + TimedActs.SHEET_BENT + """
             attribute vec3 aPlace;
             attribute vec3 aNormal;
             attribute vec4 aTangent;
@@ -62,6 +61,8 @@ final class OwnArms {
             // 0 for a man's arm, 1 for a woman's.
             uniform float uFemale;
             uniform vec3 uUpSeen;
+            // 1 for the held map's sheet, which is bent as TimedActs.bend has it.
+            uniform float uSheet;
             varying vec3 vNormal;
             varying vec3 vTangent;
             varying float vWay;
@@ -70,9 +71,16 @@ final class OwnArms {
             varying float vAlong;
             varying vec3 vSeen;
             varying vec3 vDown;
+            // The sheet's axes as seen: across it, up it and out of its face, by its own measure.
+            varying vec3 vAcross;
+            varying vec3 vUpSheet;
+            varying vec3 vOut;
 
             void main() {
                 vec3 rest = aPlace + aFemale * uFemale;
+                if (uSheet > 0.5) {
+                    rest.z = sheetBend(aUv - 0.5);
+                }
                 mat4 bent = uBones[int(aBones.x + 0.5)] * aWeights.x + uBones[int(aBones.y + 0.5)] * aWeights.y
                         + uBones[int(aBones.z + 0.5)] * aWeights.z + uBones[int(aBones.w + 0.5)] * aWeights.w;
                 vec4 seen = bent * vec4(rest, 1.0);
@@ -85,15 +93,161 @@ final class OwnArms {
                 vSeen = seen.xyz;
                 // The world's down in the arm's own axes, where its water runs.
                 vDown = normalize(transpose(mat3(bent)) * -uUpSeen);
+                vAcross = mat3(bent) * vec3(1.0, 0.0, 0.0);
+                vUpSheet = mat3(bent) * vec3(0.0, 1.0, 0.0);
+                vOut = mat3(bent) * vec3(0.0, 0.0, 1.0);
                 gl_Position = uProjection * seen;
             }
             """;
 
     /**
+     * How the held map's sheet looks: printed paper. The game's map is printed inside a margin,
+     * its colours multiplied onto the paper, a little soft and faded, and worn off along the
+     * creases; a ruled border, a scale bar and a north arrow are printed round it. The paper is
+     * mottled, yellowed at its edges and where the folds cross, and its corners are round. The
+     * back carries the cover on its last panel. Held against the sun, out of doors, the paper
+     * glows and what is printed on the other side shows through.
+     */
+    private static final String PAPER_GLSL = """
+            // The sun as the eye sees it, as long as it is strong: nought when it gives no light.
+            uniform vec3 uSunSeen;
+            // How long the scale bar is, metres of the sheet, or nought for none.
+            uniform float uScaleBar;
+            const vec2 SHEET = vec2(%1$s, %2$s);
+            // Where the print is on the sheet, metres from its lower left corner: its left, foot, right and top.
+            const vec4 PRINT = vec4(%3$s, %4$s, %1$s - %3$s, %2$s - %3$s);
+            const float CORNER = 0.0025;
+            const vec3 INK = vec3(0.13, 0.11, 0.09);
+
+            bool onSheet(vec2 uv) {
+                vec2 m = uv * SHEET;
+                return length(m - clamp(m, vec2(CORNER), SHEET - CORNER)) <= CORNER;
+            }
+
+            bool inPrint(vec2 uv) {
+                vec2 m = uv * SHEET;
+                return all(greaterThan(m, PRINT.xy)) && all(lessThan(m, PRINT.zw));
+            }
+
+            // How near a crease uv is, 1 on one, and in crossing how near a place where two cross.
+            // The sheet was folded in four panels across and once along: see TimedActs.bend.
+            float creaseNear(vec2 uv, out float crossing) {
+                float across = abs(fract(uv.x * 4.0 + 0.5) - 0.5) * 0.25 * SHEET.x, along = abs(uv.y - 0.5) * SHEET.y;
+                crossing = exp(-(across * across + along * along) / 0.00005);
+                return max(exp(-across * across / 0.0000015), exp(-along * along / 0.0000015));
+            }
+
+            vec3 paperTone(vec2 uv) {
+                vec2 m = uv * SHEET;
+                float mottle = cloud(vec3(m * 60.0, 3.0)), grain = cloud(vec3(m * 500.0, 9.0));
+                vec2 rim = min(m, SHEET - m);
+                float edge = 1.0 - smoothstep(0.0, 0.025, min(rim.x, rim.y));
+                float crossing;
+                float crease = creaseNear(uv, crossing);
+                float aged = clamp(0.55 * edge * (0.6 + 0.8 * mottle) + 0.45 * crossing + 0.12 * crease, 0.0, 1.0);
+                vec3 tone = uCloth * (0.955 + 0.05 * mottle + 0.03 * grain) * (1.0 - 0.12 * crease);
+                return tone * mix(vec3(1.0), vec3(0.9, 0.82, 0.64), aged);
+            }
+
+            // What the print lets of the paper through at uv, 1 where nothing is printed.
+            vec3 printed(vec2 uv) {
+                vec3 ink = clamp(texture2D(uColour, uv, 0.7).rgb / uCloth, 0.0, 1.0);
+                ink = mix(vec3(dot(ink, vec3(0.299, 0.587, 0.114))), ink, 0.85);
+                float crossing;
+                float crease = creaseNear(uv, crossing);
+                float worn = clamp(0.5 * crease + 0.6 * crossing, 0.0, 1.0) * (0.5 + 0.5 * cloud(vec3(uv * SHEET * 500.0, 9.0)));
+                return mix(ink, vec3(1.0), worn * 0.55);
+            }
+
+            float ruled(float d, float wide) {
+                float soft = fwidth(d);
+                return 1.0 - smoothstep(wide * 0.5 - soft, wide * 0.5 + soft, abs(d));
+            }
+
+            float stroke(vec2 p, vec2 a, vec2 b) {
+                vec2 pa = p - a, ba = b - a;
+                return length(pa - ba * clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0));
+            }
+
+            // How much dark ink the border, the scale bar and the north arrow lay at uv, 0 to 1.
+            float furniture(vec2 uv) {
+                vec2 m = uv * SHEET;
+                vec2 off = abs(m - (PRINT.xy + PRINT.zw) * 0.5) - (PRINT.zw - PRINT.xy) * 0.5;
+                float box = max(off.x, off.y);
+                float ink = max(ruled(box, 0.0004), ruled(box - 0.0035, 0.0009));
+                float middle = PRINT.y * 0.5;
+                if (uScaleBar > 0.0) {
+                    vec2 barOff = abs(m - vec2(PRINT.x + uScaleBar * 0.5, middle)) - vec2(uScaleBar * 0.5, 0.0011);
+                    float bar = max(barOff.x, barOff.y);
+                    ink = max(ink, ruled(bar, 0.0003));
+                    if (bar < 0.0 && mod(floor((m.x - PRINT.x) / (uScaleBar * 0.25)), 2.0) < 0.5) {
+                        ink = 1.0;
+                    }
+                }
+                // The arrow: its left half filled and its right half drawn round, the N beside it.
+                vec2 a = m - vec2(PRINT.z - 0.006, middle - 0.0045);
+                float edges = min(min(stroke(a, vec2(-0.0022, 0.0), vec2(0.0, 0.009)), stroke(a, vec2(0.0022, 0.0), vec2(0.0, 0.009))),
+                        stroke(a, vec2(-0.0022, 0.0), vec2(0.0022, 0.0)));
+                ink = max(ink, ruled(edges, 0.0003));
+                if (a.x <= 0.0 && a.y >= 0.0 && -a.x < 0.0022 * (1.0 - a.y / 0.009)) {
+                    ink = 1.0;
+                }
+                vec2 letter = m - vec2(PRINT.z - 0.0145, middle - 0.002);
+                float n = min(min(stroke(letter, vec2(0.0), vec2(0.0, 0.004)), stroke(letter, vec2(0.003, 0.0), vec2(0.003, 0.004))),
+                        stroke(letter, vec2(0.0, 0.004), vec2(0.003, 0.0)));
+                return max(ink, ruled(n, 0.0005));
+            }
+
+            // What the cover on the back's last panel lets of the paper through at uv, 1 where nothing is printed.
+            vec3 cover(vec2 uv) {
+                vec2 m = uv * SHEET;
+                float from = SHEET.x * 0.75;
+                vec2 off = abs(m - vec2((from + SHEET.x) * 0.5, SHEET.y * 0.5)) - vec2(SHEET.x * 0.125 - 0.004, SHEET.y * 0.5 - 0.004);
+                // Ruled before anything is left out: fwidth needs every pixel of the four beside each other to come this far.
+                vec3 ink = mix(vec3(1.0), INK / uCloth, ruled(max(off.x, off.y), 0.0006));
+                if (m.x < from) {
+                    return vec3(1.0);
+                }
+                bool within = m.x > from + 0.007 && m.x < SHEET.x - 0.007;
+                if (within && m.y > SHEET.y * 0.45 && m.y < SHEET.y - 0.008 && (m.y < SHEET.y * 0.62 || m.y > SHEET.y * 0.66)) {
+                    ink = vec3(0.22, 0.32, 0.55) / uCloth;
+                } else if (within && m.y > SHEET.y * 0.4 && m.y < SHEET.y * 0.42) {
+                    ink = vec3(0.7, 0.18, 0.12) / uCloth;
+                }
+                return ink;
+            }
+
+            // How much sun comes through the paper from behind a side facing the eye as n faces, out of doors.
+            float backlit(vec3 n) {
+                float strength = length(uSunSeen);
+                return uOutside < 0.5 || strength < 0.001 ? 0.0 : strength * smoothstep(0.0, 0.6, -dot(n, uSunSeen / strength));
+            }
+
+            // The colour of the paper at uv seen from its front or its back, n the way the side the eye sees faces.
+            vec3 paperShown(vec2 uv, bool back, bool pictured, vec3 n) {
+                vec3 front = (pictured ? printed(uv) : vec3(1.0)) * mix(vec3(1.0), INK / uCloth, furniture(uv));
+                vec3 behind = cover(uv);
+                float through = backlit(n);
+                vec3 seen = back ? behind * mix(vec3(1.0), front, 0.06 + 0.22 * through) : front * mix(vec3(1.0), behind, 0.08 * through);
+                return paperTone(uv) * seen * (1.0 + 0.3 * through);
+            }
+
+            // The paper's fibre in the way it faces, where it is fine enough to be seen.
+            vec3 paperFacing(vec3 n, vec3 up, vec2 uv) {
+                vec2 m = uv * SHEET * 400.0;
+                float shown = 1.0 - smoothstep(0.4, 0.9, max(length(dFdx(m)), length(dFdy(m))));
+                float here = cloud(vec3(m, 5.0));
+                vec3 side = normalize(cross(up, n)), upward = cross(n, side);
+                vec3 tilt = side * (cloud(vec3(m + vec2(0.3, 0.0), 5.0)) - here) + upward * (cloud(vec3(m + vec2(0.0, 0.3), 5.0)) - here);
+                return normalize(n - tilt * (0.25 * shown));
+            }
+            """.formatted(TimedActs.SHEET_WIDE, TimedActs.SHEET_TALL, TimedActs.SHEET_MARGIN, TimedActs.SHEET_FOOT);
+
+    /**
      * chance and chance3 are hash12 and hash13 of David Hoskins's Hash without Sine, used under
      * its MIT licence: the notice is in THIRD-PARTY-NOTICES.md.
      */
-    private static final String FRAGMENT = "#version 120\n" + CharacterDraw.KEPT + SnowShader.ON_PEOPLE + Soaked.GLSL + """
+    private static final String FRAGMENT = "#version 120\n" + CharacterDraw.KEPT + SnowShader.ON_PEOPLE + Soaked.GLSL + TimedActs.SHEET_BENT + """
             uniform sampler2D uColour;
             uniform sampler2D uSurface;
             // What is drawn: 0 for skin, and for what is worn what CharacterDraw calls it, a weave, a knit or leather.
@@ -110,8 +264,10 @@ final class OwnArms {
             uniform float uPictured;
             // The way the viewer faces on the sheet's map, across it and up it, and the sheet's width and height, metres.
             uniform vec4 uMarker;
+            // Where the viewer is on the sheet, across it and up it from its lower left corner as shares.
+            uniform vec2 uPointerAt;
 
-            // Whether a place on the sheet, metres from its middle, is inside the pointer at the viewer's place, grown by grow:
+            // Whether a place on the sheet, metres from the viewer's place, is inside the pointer there, grown by grow:
             // an arrowhead twice as long as it is wide, with a notch in its back, so that no turn of it reads as another way.
             bool pointer(vec2 at, float grow) {
                 float ahead = dot(at, uMarker.xy), aside = abs(dot(at, vec2(-uMarker.y, uMarker.x)));
@@ -132,6 +288,9 @@ final class OwnArms {
             varying float vAlong;
             varying vec3 vSeen;
             varying vec3 vDown;
+            varying vec3 vAcross;
+            varying vec3 vUpSheet;
+            varying vec3 vOut;
 
             float chance(vec2 p) {
                 vec3 q = fract(vec3(p.xyx) * 0.1031);
@@ -195,31 +354,37 @@ final class OwnArms {
                         dirt * smoothstep(0.75 - 0.6 * dirt, 0.95 - 0.5 * dirt, smear));
             }
 
+""" + PAPER_GLSL + """
             void main() {
                 if (vAlong < uSpan.x || vAlong > uSpan.y) {
                     discard;
                 }
                 float stood = (uStood < 0.0 ? 255.0 : 128.0 + floor(clamp(uStood, 0.0, 1.0) * 126.0 + 0.5)) / 255.0;
                 if (uWear > 6.5) {
-                    vec3 paint = uPictured > 0.5 ? texture2D(uColour, vUv).rgb : uCloth;
-                    // Where the viewer is, in the middle of the map, a pointer the way they face: filled, with a dark edge.
-                    if (uPictured > 0.5) {
-                        vec2 fromMiddle = (vUv - 0.5) * uMarker.zw;
-                        if (pointer(fromMiddle, 1.0)) {
-                            paint = vec3(0.95, 0.22, 0.06);
-                        } else if (pointer(fromMiddle, 1.6)) {
-                            paint = vec3(0.06, 0.05, 0.04);
+                    // The sheet's own facing at this point, from its bend, so that a crease is sharp wherever it falls.
+                    vec2 at = vUv - 0.5, e = vec2(0.002, 0.0);
+                    float slopeAcross = (sheetBend(at + e) - sheetBend(at - e)) / (2.0 * e.x);
+                    float slopeUp = (sheetBend(at + e.yx) - sheetBend(at - e.yx)) / (2.0 * e.x);
+                    vec3 upward = vUpSheet + vOut * slopeUp;
+                    vec3 n = normalize(cross(vAcross + vOut * slopeAcross, upward));
+                    // A view that mirrors turns the cross product round: the face is the side vOut leaves.
+                    n *= sign(dot(n, vOut));
+                    // Looked at from behind, the eye sees the back of the paper.
+                    bool back = dot(n, vSeen) > 0.0;
+                    vec3 paint = paperShown(vUv, back, uPictured > 0.5, back ? -n : n);
+                    if (uPictured > 0.5 && !back && inPrint(vUv)) {
+                        vec2 fromPointer = (vUv - uPointerAt) * uMarker.zw;
+                        if (pointer(fromPointer, 1.0)) {
+                            paint = vec3(0.86, 0.2, 0.06) * paperTone(vUv);
+                        } else if (pointer(fromPointer, 1.6)) {
+                            paint = vec3(0.07, 0.06, 0.05);
                         }
                     }
-                    // The sheet was folded in four, and the folds still show.
-                    vec2 fold = abs(vUv - 0.5);
-                    paint *= 1.0 - 0.07 * exp(-fold.x * fold.x * 4000.0) - 0.05 * exp(-fold.y * fold.y * 4000.0);
-                    // Held by its sides it curls a little, and the halves either side of each fold lie a little apart, so the light falls unevenly over it.
-                    vec3 n = normalize(vNormal);
-                    vec3 up = normalize(vTangent - n * dot(n, vTangent));
-                    vec3 side = cross(up, n);
-                    vec2 off = vUv - 0.5;
-                    vec3 facing = normalize(n + side * (off.x * 0.7 + sign(off.x) * 0.08) + up * sign(off.y) * 0.05);
+                    vec3 facing = paperFacing(back ? -n : n, normalize(upward), vUv);
+                    // Left out last, after everything that takes the change from pixel to pixel.
+                    if (!onSheet(vUv)) {
+                        discard;
+                    }
                     vec2 kept = floor(folded(facing) * 255.0 + 0.5) / 255.0;
                     float what = 128.0 + 64.0 + (uOutside > 0.5 ? 16.0 : 0.0) + 6.0;
                     gl_FragData[0] = vec4(clamp(paint, 0.0, 1.0), stood);
@@ -307,7 +472,7 @@ final class OwnArms {
     private static boolean tried;
     private static ArmModel model;
     private static int program, vertices, indices, colour, surface;
-    private static int projectionAt, femaleAt, toneAt, outsideAt, stoodAt, handedAt, wearAt, clothAt, spanAt, bloodAt, dirtAt, snowAt, upAt, wetAt, wetClockAt, picturedAt, markerAt;
+    private static int projectionAt, femaleAt, toneAt, outsideAt, stoodAt, handedAt, wearAt, clothAt, spanAt, bloodAt, dirtAt, snowAt, upAt, wetAt, wetClockAt, picturedAt, markerAt, sheetAt, stirAt, clockAt, pointerAt, sunSeenAt, scaleBarAt;
     /** How much snow has settled on the viewer, 0 to 1: see SnowCarried. */
     private static float snowOn;
     /** How wet the viewer is, by Soaked's WATER, SOAK and CLOCK. */
@@ -443,6 +608,12 @@ final class OwnArms {
             wetClockAt = GL20.glGetUniformLocation(id, "uWetClock");
             picturedAt = GL20.glGetUniformLocation(id, "uPictured");
             markerAt = GL20.glGetUniformLocation(id, "uMarker");
+            sheetAt = GL20.glGetUniformLocation(id, "uSheet");
+            stirAt = GL20.glGetUniformLocation(id, "uStir");
+            clockAt = GL20.glGetUniformLocation(id, "uClock");
+            pointerAt = GL20.glGetUniformLocation(id, "uPointerAt");
+            sunSeenAt = GL20.glGetUniformLocation(id, "uSunSeen");
+            scaleBarAt = GL20.glGetUniformLocation(id, "uScaleBar");
             Program.useOther(id);
             GL20.glUniform1i(GL20.glGetUniformLocation(id, "uColour"), COLOUR_UNIT);
             GL20.glUniform1i(GL20.glGetUniformLocation(id, "uSurface"), SURFACE_UNIT);
@@ -475,6 +646,8 @@ final class OwnArms {
     private static final int[] pieceFirst = new int[8], pieceCount = new int[8];
     /** The pieces a watch and a sheet are made of: a box of side one, a disc of radius one and one thick, and a square of side one facing +z. */
     private static final int BOX = 5, DISC = 6, SQUARE = 7;
+    /** How many cells the square is divided into across and up. */
+    private static final int SQUARE_ACROSS = 24, SQUARE_UP = 16;
     /** What a sheet of paper is drawn as, past what CharacterDraw names. */
     private static final int PAPER = 7;
     private static final int[][] PIECES = {{}, {0}, {1, 2}, {3, 4}};
@@ -582,13 +755,21 @@ final class OwnArms {
             }
         }
         pieceCount[DISC] = triangles.position() / Integer.BYTES - pieceFirst[DISC];
+        // The square is a grid, for the sheet to be bent on, its lines on the creases (TimedActs.bend): every sixth across and the eighth up.
         pieceFirst[SQUARE] = triangles.position() / Integer.BYTES;
         int square = count[0];
-        for (int corner = 0; corner < 4; corner++) {
-            float u = corner == 1 || corner == 2 ? 1f : 0f, v = corner >= 2 ? 1f : 0f;
-            corner(corners, count, u - 0.5f, v - 0.5f, 0f, 0f, 0f, 1f, u, v);
+        for (int row = 0; row <= SQUARE_UP; row++) {
+            for (int column = 0; column <= SQUARE_ACROSS; column++) {
+                float u = column / (float) SQUARE_ACROSS, v = row / (float) SQUARE_UP;
+                corner(corners, count, u - 0.5f, v - 0.5f, 0f, 0f, 0f, 1f, u, v);
+            }
         }
-        triangles.putInt(square).putInt(square + 1).putInt(square + 2).putInt(square).putInt(square + 2).putInt(square + 3);
+        for (int row = 0; row < SQUARE_UP; row++) {
+            for (int column = 0; column < SQUARE_ACROSS; column++) {
+                int at = square + row * (SQUARE_ACROSS + 1) + column, above = at + SQUARE_ACROSS + 1;
+                triangles.putInt(at).putInt(at + 1).putInt(above + 1).putInt(at).putInt(above + 1).putInt(above);
+            }
+        }
         pieceCount[SQUARE] = triangles.position() / Integer.BYTES - pieceFirst[SQUARE];
         corners.flip();
         triangles.flip();
@@ -707,25 +888,68 @@ final class OwnArms {
         endProps();
     }
 
+    /** The sun's way in the world's axes and how strong it is, 0 to 1, for the frame's drawing of the viewer: see sun. */
+    private static float sunX, sunY, sunUp, sunStrength;
+
+    /** Says the sun the viewer's held things are drawn in this frame: its way in the world's axes, and how strong it is, 0 to 1. */
+    static void sun(float x, float y, float up, float strength) {
+        sunX = x;
+        sunY = y;
+        sunUp = up;
+        sunStrength = strength;
+    }
+
+    /** The lengths a scale bar may be, in tiles: the one nearest SCALE_BAR_LONG metres of the sheet is printed. */
+    private static final float[] SCALE_TILES = {10f, 20f, 25f, 50f, 100f, 200f, 250f, 500f, 1000f, 2000f};
+    private static final float SCALE_BAR_LONG = 0.08f;
+
+    /** How long the scale bar is on a sheet whose width covers tilesAcross tiles, metres of the sheet, or nought for none. */
+    static float scaleBar(float tilesAcross) {
+        if (!(tilesAcross > 0f)) {
+            return 0f;
+        }
+        float best = 0f;
+        for (float tiles : SCALE_TILES) {
+            float metres = tiles / tilesAcross * TimedActs.SHEET_WIDE;
+            if (Math.abs(metres - SCALE_BAR_LONG) < Math.abs(best - SCALE_BAR_LONG)) {
+                best = metres;
+            }
+        }
+        return best;
+    }
+
     /**
-     * Draws a sheet of paper with a picture on it.
+     * Draws the held map's sheet of paper, bent as TimedActs.bend has it, with the map printed on it.
      *
      * @param at      the matrix from a square of side one, across x and up y, facing +z, to the view
      * @param picture the texture of the picture on it, or nought for blank paper
-     * @param east    with north, the way the viewer faces on the map, drawn as a pointer in its middle
+     * @param east    with north, the way the viewer faces on the map, drawn as a pointer where they are
+     * @param task    the hands' task, which says where the viewer is on the sheet, its scale and how the walk stirs it
      */
-    static void sheet(float[] projection, float[] at, int picture, float east, float north, float light, boolean outside) {
+    static void sheet(float[] projection, float[] at, int picture, float east, float north, ViewModel.Task task, float light, boolean outside) {
         beginProps(projection, light, outside);
         bone(at, 0);
         GL20.glUniform1f(wearAt, PAPER);
-        GL20.glUniform3f(clothAt, 0.86f, 0.82f, 0.71f);
+        GL20.glUniform3f(clothAt, TimedActs.PAPER[0], TimedActs.PAPER[1], TimedActs.PAPER[2]);
         GL20.glUniform1f(picturedAt, picture != 0 ? 1f : 0f);
         GL20.glUniform4f(markerAt, east, north, TimedActs.SHEET_WIDE, TimedActs.SHEET_TALL);
+        GL20.glUniform2f(pointerAt, task.pointerU(), task.pointerV());
+        GL20.glUniform1f(scaleBarAt, scaleBar(task.tilesAcross()));
+        GL20.glUniform1f(sheetAt, 1f);
+        GL20.glUniform1f(stirAt, task.stir());
+        GL20.glUniform1f(clockAt, (float) ((System.nanoTime() / 1e9) % 3600.0));
+        // The view's matrix by columns: the world's axes as the eye sees them (CharacterDraw.looking).
+        float[] seen = CharacterDraw.axesSeen();
+        float x = sunX * seen[0] + sunY * seen[3] + sunUp * seen[6], y = sunX * seen[1] + sunY * seen[4] + sunUp * seen[7],
+                z = sunX * seen[2] + sunY * seen[5] + sunUp * seen[8];
+        float length = (float) Math.sqrt(x * x + y * y + z * z), strong = length > 0f ? sunStrength / length : 0f;
+        GL20.glUniform3f(sunSeenAt, x * strong, y * strong, z * strong);
         GL13.glActiveTexture(GL_TEXTURE0 + COLOUR_UNIT);
         GL11.glBindTexture(GL_TEXTURE_2D, picture);
         GL13.glActiveTexture(GL_TEXTURE0);
         GL11.glDrawElements(GL_TRIANGLES, pieceCount[SQUARE], GL_UNSIGNED_INT, (long) pieceFirst[SQUARE] * Integer.BYTES);
         GL20.glUniform1f(picturedAt, 0f);
+        GL20.glUniform1f(sheetAt, 0f);
         endProps();
     }
 

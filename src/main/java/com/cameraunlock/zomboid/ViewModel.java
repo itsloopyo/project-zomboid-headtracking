@@ -154,8 +154,12 @@ public final class ViewModel {
      * @param watch  the watch glanced at, for a glance (TimedActs.WATCH), and null for anything else
      * @param pitch  the clean view's pitch, radians: a glance raises the arm in the body's axes
      * @param seated whether the player is in a vehicle seat, where the map is held in one hand
+     * @param pointerU with pointerV, where the player is on the held map's sheet, across it and up it from its lower left corner as shares
+     * @param tilesAcross how many tiles the held map's sheet covers across its width, for its scale bar
+     * @param stir   how much the walk stirs the held map's sheet, 0 standing, 1 at a walk
      */
-    record Task(int kind, boolean low, float time, float done, float up, String anim, int skin, boolean female, Watch watch, float pitch, boolean seated) {}
+    record Task(int kind, boolean low, float time, float done, float up, String anim, int skin, boolean female, Watch watch, float pitch, boolean seated,
+            float pointerU, float pointerV, float tilesAcross, float stir) {}
 
     /**
      * A watch on a wrist as it is glanced at.
@@ -191,6 +195,11 @@ public final class ViewModel {
     private int taskWearAsked;
     /** How far up the hands are left when one action follows another of another kind. */
     private static final float TASK_BETWEEN = 0.4f;
+    /** How much a run stirs the held map's sheet against a walk, and how fast the stir follows the pace, seconds. */
+    private static final float MAP_STIR_MOST = 1.6f, MAP_STIR_SECONDS = 0.3f;
+    /** Where the player was when the held map was last drawn, and whether it was drawn on the frame before, and how much the walk stirs its sheet. */
+    private float mapX, mapY, mapStir;
+    private boolean mapWalked;
     private int taskKind;
     private boolean taskLow;
     /** The last animation busy sorted, its kind, and whether it is low with the Loot animation's LootPosition Low, and with none. */
@@ -673,7 +682,18 @@ public final class ViewModel {
         if ((taskWearAsked++ & 31) == 0) {
             Cabins.noteWear(player, view.ride.dress);
         }
-        task = new Task(taskKind, taskLow, taskTime, taskDone, taskUp, taskAnim, player.getHumanVisual().getSkinTextureIndex(), player.isFemale(), null, pitch, player.getVehicle() != null);
+        boolean map = taskKind == TimedActs.MAP;
+        float walked = 0f, x = player.getX(), y = player.getY();
+        if (map && mapWalked && seconds > 1e-4f) {
+            walked = ViewModelMath.walked(x - mapX, y - mapY, seconds, FASTEST, player.getVehicle() != null);
+        }
+        mapWalked = map;
+        mapX = x;
+        mapY = y;
+        mapStir = ViewModelMath.ease(mapStir, map ? Math.min(walked / WALK_SPEED, MAP_STIR_MOST) : 0f, seconds, MAP_STIR_SECONDS);
+        task = new Task(taskKind, taskLow, taskTime, taskDone, map ? taskUp * (1f - HeldMap.lowered(view.index)) : taskUp, taskAnim,
+                player.getHumanVisual().getSkinTextureIndex(), player.isFemale(), null, pitch, player.getVehicle() != null,
+                map ? HeldMap.pointerU(view.index) : 0.5f, map ? HeldMap.pointerV(view.index) : 0.5f, map ? HeldMap.tilesAcross(view.index) : 0f, mapStir);
         return true;
     }
 
@@ -731,7 +751,7 @@ public final class ViewModel {
         if ((taskWearAsked++ & 31) == 0) {
             Cabins.noteWear(player, view.ride.dress);
         }
-        task = new Task(TimedActs.WATCH, false, 0f, 0f, up, GLANCE, player.getHumanVisual().getSkinTextureIndex(), player.isFemale(), watch, pitch, false);
+        task = new Task(TimedActs.WATCH, false, 0f, 0f, up, GLANCE, player.getHumanVisual().getSkinTextureIndex(), player.isFemale(), watch, pitch, false, 0.5f, 0.5f, 0f, 0f);
         return true;
     }
 
