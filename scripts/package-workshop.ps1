@@ -39,6 +39,12 @@ $java = Join-Path $mod '42/media/java/client'
 $common = Join-Path $mod 'common'
 New-Item -ItemType Directory -Path $java, $common -Force | Out-Null
 
+# Steam refuses an item description over 8000 characters, and the game's uploader reports
+# only "error 8". Counted with CRLF line ends, as the edit box on Steam submits them.
+$description = (Get-Content (Join-Path $source 'workshop.txt') -Encoding utf8 | Where-Object { $_.StartsWith('description=') } | ForEach-Object { $_.Substring(12) }) -join "`r`n"
+if ($description.Length -gt 8000) {
+    throw "workshop/workshop.txt's description is $($description.Length) characters. Steam takes at most 8000."
+}
 Copy-Item (Join-Path $source 'preview.png'), (Join-Path $source 'workshop.txt') -Destination $item -Force
 Copy-Item (Join-Path $source 'poster.png') -Destination (Join-Path $mod '42') -Force
 $modInfo = [System.IO.File]::ReadAllText((Join-Path $source 'mod.info'))
