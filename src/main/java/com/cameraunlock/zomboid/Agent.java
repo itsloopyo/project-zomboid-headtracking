@@ -1038,7 +1038,7 @@ public final class Agent {
         String character = "Lzombie/characters/IsoGameCharacter;", testResults = "Lzombie/iso/LosUtil$TestResults;", moving = "Lzombie/iso/IsoMovingObject;";
         String combat = "zombie/CombatManager";
         CallSite.Method hitListWeapon = new CallSite.Method(combat, "calculateHitListWeapon",
-                "(" + character + "Lzombie/network/fields/hit/AttackVars;Lzombie/util/list/PZArrayList;)V");
+                "(" + character + "Lzombie/network/fields/hit/AttackVars;Ljava/util/List;)V");
         CallSite.Method hitInfoList = new CallSite.Method(combat, "calculateHitInfoList", "(" + character + ")V");
         CallSite.Method validTarget = new CallSite.Method("zombie/core/physics/BallisticsController", "isValidTarget", "(I)Z");
         CallSite.Method keptThrough = new CallSite.Method(HOOKS, "validTarget", "(Z" + moving + ")Z");
@@ -1063,7 +1063,7 @@ public final class Agent {
                             CallSite.invokeStatic(code, keptThrough);
                         }, 2)),
                 new Patch(combat, "processBallisticsTargets after isValidTarget", classBytes -> CallSite.insertAfterEach(classBytes,
-                        new CallSite.Method(combat, "processBallisticsTargets", "(" + character + "Lzombie/inventory/types/HandWeapon;Lzombie/util/list/PZArrayList;)V"),
+                        new CallSite.Method(combat, "processBallisticsTargets", "(" + character + "Lzombie/inventory/types/HandWeapon;Ljava/util/List;)V"),
                         validTarget, List.of(CallSite.Stored.castTo("zombie/characters/IsoGameCharacter")), (code, slots) -> {
                             code.aload(slots[0]);
                             CallSite.invokeStatic(code, keptThrough);
@@ -1677,6 +1677,15 @@ public final class Agent {
                         new CallSite.Method("com/cameraunlock/zomboid/ScreenMarks", "marked", "(L" + television + ";J)V"), 1)));
     }
 
+    /** How an object takes the server's word of its state: 42.22.2 hands it the connection as well. */
+    private static CallSite.Method syncIsoObjectReceive(String owner) {
+        return new CallSite.Method(owner, "syncIsoObjectReceive", "(Lzombie/core/network/ByteBufferReader;Lzombie/core/raknet/UdpConnection;)V");
+    }
+
+    private static CallSite.Method syncIsoObjectReceive421(String owner) {
+        return new CallSite.Method(owner, "syncIsoObjectReceive", "(Lzombie/core/network/ByteBufferReader;)V");
+    }
+
     /**
      * Apart again, and each from the other: a window is given its smashed, open or shut sprite
      * in these methods, none of which marks the chunk, since the game draws windows afresh on
@@ -1699,10 +1708,10 @@ public final class Agent {
                     new CallSite.Method(window, method[0], method[1]), new CallSite.Method(method[2], method[3], method[4]),
                     code -> CallSite.passThis(code, changed), 1)));
         }
-        for (String[] method : new String[][] {{"setSmashed", "(Z)V"}, {"syncIsoObjectReceive", "(Lzombie/core/network/ByteBufferReader;)V"}}) {
-            patches.add(new Patch(window, method[0] + " telling of the window's new sprite", classBytes -> CallSite.insertBeforeReturns(classBytes,
-                    new CallSite.Method(window, method[0], method[1]), code -> CallSite.passThis(code, changed))));
-        }
+        patches.add(new Patch(window, "setSmashed telling of the window's new sprite", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                new CallSite.Method(window, "setSmashed", "(Z)V"), code -> CallSite.passThis(code, changed))));
+        patches.add(new Patch(window, "syncIsoObjectReceive telling of the window's new sprite", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                CallSite.declared(classBytes, syncIsoObjectReceive(window), syncIsoObjectReceive421(window)), code -> CallSite.passThis(code, changed))));
         return patches;
     }
 
@@ -1760,7 +1769,7 @@ public final class Agent {
                 new CallSite.Method(barricade, "Damage", "(F)V"), new CallSite.Method(barricade, "chooseSprite", "()V"),
                 code -> CallSite.passThis(code, changed), 3)));
         patches.add(new Patch(barricade, "syncIsoObjectReceive telling of what the server says is left of the barricade", classBytes -> CallSite.insertBeforeReturns(classBytes,
-                new CallSite.Method(barricade, "syncIsoObjectReceive", "(Lzombie/core/network/ByteBufferReader;)V"), code -> CallSite.passThis(code, changed))));
+                CallSite.declared(classBytes, syncIsoObjectReceive(barricade), syncIsoObjectReceive421(barricade)), code -> CallSite.passThis(code, changed))));
         for (String fire : new String[] {"zombie/iso/objects/IsoFireplace", "zombie/iso/objects/IsoBarbecue"}) {
             patches.add(new Patch(fire, "setLit telling of a fire lit or put out", classBytes -> CallSite.insertAtStartOfInstanceMethod(classBytes,
                     new CallSite.Method(fire, "setLit", "(Z)V"), code -> {

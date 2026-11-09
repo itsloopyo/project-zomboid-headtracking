@@ -340,7 +340,7 @@ final class MarkTests {
         String barricade = "zombie/iso/objects/IsoBarricade";
         placed(patches, barricade, "Damage", "(F)V", new Call(barricade, "chooseSprite", "()V", true), 3,
                 "return", "chooseSprite", "mark changed 0", "chooseSprite", "mark changed 0", "chooseSprite", "mark changed 0", "return");
-        placed(patches, barricade, "syncIsoObjectReceive", "(Lzombie/core/network/ByteBufferReader;)V", null, 0, "mark changed 0", "return", "mark changed 0", "return");
+        placed(patches, barricade, "syncIsoObjectReceive", "(Lzombie/core/network/ByteBufferReader;Lzombie/core/raknet/UdpConnection;)V", null, 0, "mark changed 0", "return", "mark changed 0", "return");
         for (String fire : new String[] {"zombie/iso/objects/IsoFireplace", "zombie/iso/objects/IsoBarbecue"}) {
             placed(patches, fire, "setLit", "(Z)V", null, 0, "isLit", "mark burning 0 0 1", "return", "return");
         }
@@ -371,7 +371,7 @@ final class MarkTests {
         placed(patches, window, "setGlassRemoved", "(Z)V", new Call(window, "getObjectIndex", "()I", true), 1,
                 "return", "getObjectIndex", "mark changed 0", "return");
         placed(patches, window, "setSmashed", "(Z)V", null, 0, "mark changed 0", "return", "mark changed 0", "return");
-        placed(patches, window, "syncIsoObjectReceive", "(Lzombie/core/network/ByteBufferReader;)V", null, 0, "mark changed 0", "return", "mark changed 0", "return");
+        placed(patches, window, "syncIsoObjectReceive", "(Lzombie/core/network/ByteBufferReader;Lzombie/core/raknet/UdpConnection;)V", null, 0, "mark changed 0", "return", "mark changed 0", "return");
     }
 
     /** Checks the steps (see steps) of the method once the patch of it is put into one shaped as the game's (see shaped). */

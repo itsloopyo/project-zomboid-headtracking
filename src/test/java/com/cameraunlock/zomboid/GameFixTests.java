@@ -46,6 +46,9 @@ final class GameFixTests {
         Checks.run("anItemIsHandedBackUntilTheScriptsChange", GameFixTests::anItemIsHandedBackUntilTheScriptsChange);
         Checks.run("whatBeginsWithAMethodEndsWithIt", GameFixTests::whatBeginsWithAMethodEndsWithIt);
         Checks.run("aPatchThatNoLongerFitsIsAGap", GameFixTests::aPatchThatNoLongerFitsIsAGap);
+        Checks.run("aPatchFindsItsMethodWhereABuildChangedItsParameters", GameFixTests::aPatchFindsItsMethodWhereABuildChangedItsParameters);
+        Checks.run("aMethodChangedAnyOtherWayIsNotTheOneAPatchNames", GameFixTests::aMethodChangedAnyOtherWayIsNotTheOneAPatchNames);
+        Checks.run("aPatchThatDoesNotFitTheChangedParametersIsRefused", GameFixTests::aPatchThatDoesNotFitTheChangedParametersIsRefused);
         Checks.run("aLocalIsFoundByWhatWasStoredInItWhereverItSits", GameFixTests::aLocalIsFoundByWhatWasStoredInItWhereverItSits);
         Checks.run("eachChangeToWhatANameFindsTellsGameFixes", GameFixTests::eachChangeToWhatANameFindsTellsGameFixes);
         Checks.run("theGuardStopsTheKeepingForCodeThatWasNotChecked", GameFixTests::theGuardStopsTheKeepingForCodeThatWasNotChecked);
@@ -422,6 +425,86 @@ final class GameFixTests {
         transformer.transform(null, owner, GameFixTests.class, null, new byte[3]);
         String gap = transformer.gap();
         check(gap != null && gap.contains("fitting two bytes"), "but it is once it does not fit the class's code as the class is transformed again, got " + gap);
+    }
+
+    private static Object received;
+
+    public static void received(Object first) {
+        received = first;
+    }
+
+    public static void takesText(String text) {}
+
+    /**
+     * 42.21.0's CombatManager took the game's own PZArrayList, a List, where 42.22.2 takes a List,
+     * and 42.22.2's IsoWindow.syncIsoObjectReceive takes a connection after what it took. A patch
+     * goes into a method that takes something narrower, or something more at the end.
+     */
+    private static void aPatchFindsItsMethodWhereABuildChangedItsParameters() throws Throwable {
+        String owner = "com/cameraunlock/zomboid/ChangedReceiver";
+        byte[] changed = ClassFile.of().build(type(owner), shape -> shape
+                .withFlags(ClassFile.ACC_PUBLIC)
+                .withSuperclass(ConstantDescs.CD_Object)
+                .withMethodBody("<init>", MethodTypeDesc.of(ConstantDescs.CD_void), ClassFile.ACC_PUBLIC,
+                        code -> code.aload(0).invokespecial(ConstantDescs.CD_Object, "<init>", MethodTypeDesc.of(ConstantDescs.CD_void)).return_())
+                .withMethodBody("receive", MethodTypeDesc.ofDescriptor("(Ljava/util/ArrayList;Ljava/lang/Object;)V"), ClassFile.ACC_PUBLIC, CodeBuilder::return_));
+        byte[] patched = CallSite.insertBeforeReturns(changed, new CallSite.Method(owner, "receive", "(Ljava/util/List;)V"),
+                code -> CallSite.passFirstArgument(code, new CallSite.Method("com/cameraunlock/zomboid/GameFixTests", "received", "(Ljava/lang/Object;)V")));
+        Class<?> defined = MethodHandles.lookup().defineClass(patched);
+        ArrayList<String> handed = new ArrayList<>(List.of("handed"));
+        received = null;
+        defined.getMethod("receive", ArrayList.class, Object.class).invoke(defined.getConstructor().newInstance(), handed, "connection");
+        check(received == handed, "the patch runs in the method as this build declares it, and is handed its first argument, got " + received);
+    }
+
+    private static void aMethodChangedAnyOtherWayIsNotTheOneAPatchNames() {
+        String owner = "com/mod/Changed";
+        ClassModel model = ClassFile.of().parse(ClassFile.of().build(type(owner), shape -> {
+            shape.withSuperclass(ConstantDescs.CD_Object);
+            for (String[] method : new String[][] {{"widened", "(J)V"}, {"fewer", "()V"}, {"returns", "()Ljava/lang/Object;"}, {"two", "(I)V"}, {"two", "(J)V"},
+                    {"before", "(ILjava/lang/Object;)V"}, {"after", "(Ljava/lang/Object;I)V"}, {"wider", "(Ljava/lang/Object;)V"},
+                    {"unrelated", "(Ljava/util/List;)V"}, {"narrower", "(Ljava/util/ArrayList;)V"}, {"alone", "(Ljava/util/ArrayList;)V"}}) {
+                MethodTypeDesc type = MethodTypeDesc.ofDescriptor(method[1]);
+                int flags = ClassFile.ACC_PUBLIC | (method[0].equals("alone") ? ClassFile.ACC_STATIC : 0);
+                shape.withMethodBody(method[0], type, flags, code -> {
+                    if (type.returnType().isPrimitive()) {
+                        code.return_();
+                    } else {
+                        code.aconst_null().areturn();
+                    }
+                });
+            }
+        }));
+        String[][] refused = {{"widened", "(I)V", "a primitive of another kind"}, {"returns", "()V", "another return"},
+                {"two", "(Ljava/lang/String;)V", "two methods of the name"}, {"fewer", "(Ljava/lang/Object;)V", "a parameter taken away"},
+                {"before", "(Ljava/lang/Object;)V", "a parameter put in front"}, {"missing", "()V", "no method of the name"},
+                {"wider", "(Ljava/lang/String;)V", "a wider type"}, {"unrelated", "(Ljava/lang/String;)V", "a type unrelated to the patch's"},
+                {"alone", "(Ljava/util/List;)V", "a static method"}};
+        for (String[] method : refused) {
+            check(CallSite.find(model, new CallSite.Method(owner, method[0], method[1])) == null, method[0] + method[1] + " is not found where a build has " + method[2]);
+        }
+        MethodModel two = CallSite.find(model, new CallSite.Method(owner, "two", "(J)V"));
+        check(two != null && two.methodType().equalsString("(J)V"), "one of two methods of a name is found by its descriptor");
+        MethodModel after = CallSite.find(model, new CallSite.Method(owner, "after", "(Ljava/lang/Object;)V"));
+        check(after != null && after.methodType().equalsString("(Ljava/lang/Object;I)V"), "a method that takes something new at the end is found");
+        MethodModel narrower = CallSite.find(model, new CallSite.Method(owner, "narrower", "(Ljava/util/List;)V"));
+        check(narrower != null && narrower.methodType().equalsString("(Ljava/util/ArrayList;)V"), "as is one that takes a class implementing the patch's type");
+    }
+
+    /** The class file verifier still checks what a patch put in: here it hands a List to a hook that takes text. */
+    private static void aPatchThatDoesNotFitTheChangedParametersIsRefused() {
+        String owner = "com/mod/TakesAList";
+        byte[] changed = ClassFile.of().build(type(owner), shape -> shape
+                .withFlags(ClassFile.ACC_PUBLIC)
+                .withSuperclass(ConstantDescs.CD_Object)
+                .withMethodBody("takes", MethodTypeDesc.ofDescriptor("(Ljava/util/ArrayList;)V"), ClassFile.ACC_PUBLIC, CodeBuilder::return_));
+        try {
+            CallSite.insertAtStartOfInstanceMethod(changed, new CallSite.Method(owner, "takes", "(Ljava/util/List;)V"),
+                    code -> CallSite.passFirstArgument(code, new CallSite.Method("com/cameraunlock/zomboid/GameFixTests", "takesText", "(Ljava/lang/String;)V")));
+            check(false, "a patch that hands a List on as text is refused");
+        } catch (IllegalStateException refused) {
+            check(refused.getMessage().contains("does not fit"), "a patch that hands a List on as text is refused as not fitting, got " + refused.getMessage());
+        }
     }
 
     /**

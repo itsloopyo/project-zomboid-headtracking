@@ -23,8 +23,11 @@ import java.lang.classfile.instruction.TypeCheckInstruction;
 import java.lang.constant.ClassDesc;
 import java.lang.constant.MethodTypeDesc;
 import java.lang.reflect.AccessFlag;
+import java.util.ArrayDeque;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -196,11 +199,9 @@ final class CallSite {
      * method by that name would take the patch and then fail the JVM's check of the class.
      */
     static byte[] insertAtStartOfInstanceMethod(byte[] classBytes, Method within, Consumer<CodeBuilder> inserted) {
-        for (MethodModel method : ClassFile.of().parse(classBytes).methods()) {
-            if (method.methodName().equalsString(within.name()) && method.methodType().equalsString(within.descriptor())
-                    && (method.flags().has(AccessFlag.STATIC) || method.flags().has(AccessFlag.ABSTRACT))) {
-                throw new IllegalStateException(within + " is static or has no body");
-            }
+        MethodModel method = find(ClassFile.of().parse(classBytes), within);
+        if (method != null && (method.flags().has(AccessFlag.STATIC) || method.flags().has(AccessFlag.ABSTRACT))) {
+            throw new IllegalStateException(within + " is static or has no body");
         }
         boolean[] begun = {false};
         CodeTransform insert = (code, element) -> {
@@ -215,11 +216,9 @@ final class CallSite {
 
     /** Inserts {@code code} before the first instruction of {@code within}, which has to be a static method with a body. */
     static byte[] insertAtStartOfStaticMethod(byte[] classBytes, Method within, Consumer<CodeBuilder> inserted) {
-        for (MethodModel method : ClassFile.of().parse(classBytes).methods()) {
-            if (method.methodName().equalsString(within.name()) && method.methodType().equalsString(within.descriptor())
-                    && (!method.flags().has(AccessFlag.STATIC) || method.flags().has(AccessFlag.NATIVE))) {
-                throw new IllegalStateException(within + " is not static or has no body");
-            }
+        MethodModel method = find(ClassFile.of().parse(classBytes), within);
+        if (method != null && (!method.flags().has(AccessFlag.STATIC) || method.flags().has(AccessFlag.NATIVE))) {
+            throw new IllegalStateException(within + " is not static or has no body");
         }
         boolean[] begun = {false};
         CodeTransform insert = (code, element) -> {
@@ -241,10 +240,14 @@ final class CallSite {
      * a method that writes over its argument as it works still says what it was asked.
      */
     static byte[] answerOnce(byte[] classBytes, Method within, Method known, Method learn) {
-        for (MethodModel method : ClassFile.of().parse(classBytes).methods()) {
-            if (method.methodName().equalsString(within.name()) && method.methodType().equalsString(within.descriptor()) && !method.flags().has(AccessFlag.STATIC)) {
-                throw new IllegalStateException(within + " is not static");
-            }
+        // By its descriptor alone: the answer is kept by the one argument, and a method that took
+        // more would have its answer kept whatever the others were.
+        MethodModel method = findExact(ClassFile.of().parse(classBytes), within);
+        if (method == null) {
+            throw new IllegalStateException("no method " + within);
+        }
+        if (!method.flags().has(AccessFlag.STATIC)) {
+            throw new IllegalStateException(within + " is not static");
         }
         boolean[] begun = {false};
         int[] asked = {-1}, returns = {0};
@@ -294,10 +297,12 @@ final class CallSite {
         if (!declared) {
             throw new IllegalStateException("no ArrayList " + field + " of its own in " + model.thisClass().asInternalName());
         }
-        MethodModel method = model.methods().stream()
-                .filter(candidate -> candidate.methodName().equalsString(within.name()) && candidate.methodType().equalsString(within.descriptor()))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("no method " + within));
+        // By its descriptor alone: the early answer is right only while the method asks nothing of
+        // its arguments but the one checked below, which another parameter could change.
+        MethodModel method = findExact(model, within);
+        if (method == null) {
+            throw new IllegalStateException("no method " + within);
+        }
         int listReads = 0, containsCalls = 0, otherCalls = 0;
         for (CodeElement element : method.code().orElseThrow(() -> new IllegalStateException(within + " has no body")).elementList()) {
             if (element instanceof FieldInstruction read && read.name().equalsString(field)) {
@@ -636,11 +641,9 @@ final class CallSite {
      * was not written for, and throws.
      */
     static byte[] filterFlooredQuotients(byte[] classBytes, Method within, float divisor, Method floor, List<Method> filters) {
-        for (MethodModel method : ClassFile.of().parse(classBytes).methods()) {
-            if (method.methodName().equalsString(within.name()) && method.methodType().equalsString(within.descriptor())
-                    && method.flags().has(AccessFlag.STATIC)) {
-                throw new IllegalStateException(within + " is static: it has no object to hand the filters");
-            }
+        MethodModel method = find(ClassFile.of().parse(classBytes), within);
+        if (method != null && method.flags().has(AccessFlag.STATIC)) {
+            throw new IllegalStateException(within + " is static: it has no object to hand the filters");
         }
         int[] matches = {0};
         // The float local loaded last, and how far the load, the divisor, the division and the floor have been seen in a row.
@@ -724,11 +727,9 @@ final class CallSite {
         if (!within.descriptor().startsWith("(I")) {
             throw new IllegalStateException(within + " does not take an int first");
         }
-        for (MethodModel method : ClassFile.of().parse(classBytes).methods()) {
-            if (method.methodName().equalsString(within.name()) && method.methodType().equalsString(within.descriptor())
-                    && (!method.flags().has(AccessFlag.STATIC) || method.flags().has(AccessFlag.ABSTRACT))) {
-                throw new IllegalStateException(within + " is not static or has no body");
-            }
+        MethodModel method = find(ClassFile.of().parse(classBytes), within);
+        if (method != null && (!method.flags().has(AccessFlag.STATIC) || method.flags().has(AccessFlag.ABSTRACT))) {
+            throw new IllegalStateException(within + " is not static or has no body");
         }
         boolean[] begun = {false};
         CodeTransform insert = (code, element) -> {
@@ -779,19 +780,118 @@ final class CallSite {
     private static byte[] transform(byte[] classBytes, Method within, CodeTransform transform) {
         ClassFile classFile = ClassFile.of();
         ClassModel model = classFile.parse(classBytes);
-        boolean[] found = {false};
-        byte[] transformed = classFile.transformClass(model, ClassTransform.transformingMethodBodies(
-                method -> {
-                    boolean match = method.methodName().equalsString(within.name())
-                            && method.methodType().equalsString(within.descriptor());
-                    found[0] |= match;
-                    return match;
-                },
-                transform));
-        if (!found[0]) {
+        MethodModel target = find(model, within);
+        if (target == null) {
             throw new IllegalStateException("no method " + within);
         }
+        String descriptor = target.methodType().stringValue();
+        byte[] transformed = classFile.transformClass(model, ClassTransform.transformingMethodBodies(
+                method -> method.methodName().equalsString(within.name()) && method.methodType().equalsString(descriptor),
+                transform));
+        if (!descriptor.equals(within.descriptor())) {
+            String named = within.owner() + "." + within.name() + within.descriptor();
+            // The patch was written for other parameters. find took only a method whose parameters
+            // are each the patch's or narrower; the class file verifier then checks the code the patch
+            // put in, and a class it refuses would stop the game as it loads.
+            List<VerifyError> errors = classFile.verify(transformed);
+            if (!errors.isEmpty()) {
+                throw new IllegalStateException(named + " is " + descriptor + " in this build, and the patch does not fit it: " + errors.getFirst());
+            }
+            Log.info(named + " is " + descriptor + " in this build: patched as that");
+        }
         return transformed;
+    }
+
+    /** The method of the class of that name and descriptor, or null where it has none. */
+    static MethodModel findExact(ClassModel model, Method within) {
+        for (MethodModel method : model.methods()) {
+            if (method.methodName().equalsString(within.name()) && method.methodType().equalsString(within.descriptor())) {
+                return method;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * The method of the class that {@code within} names, as this build of the game declares it,
+     * or null where it has none. That is the method of that name and descriptor; or, where a
+     * build has changed the method's parameters, the only method of that name other than a
+     * bridge, so long as it is a method of an object and not a static one, returns the same,
+     * takes each parameter {@code within} names in the same place, as the same type or one that
+     * extends or implements it, and takes anything new only after them. A patch that loads a
+     * parameter then loads one of the type it was written for, from the slot it was written for.
+     * A static method is found by its descriptor alone: one that turned into a method of an
+     * object, or back, moves every parameter's slot.
+     */
+    static MethodModel find(ClassModel model, Method within) {
+        MethodModel exact = findExact(model, within);
+        if (exact != null) {
+            return exact;
+        }
+        MethodModel only = null;
+        int named = 0;
+        for (MethodModel method : model.methods()) {
+            if (method.methodName().equalsString(within.name()) && !method.flags().has(AccessFlag.BRIDGE)) {
+                named++;
+                only = method;
+            }
+        }
+        if (named != 1 || only.flags().has(AccessFlag.STATIC)) {
+            return null;
+        }
+        MethodTypeDesc wanted = MethodTypeDesc.ofDescriptor(within.descriptor());
+        MethodTypeDesc found = only.methodTypeSymbol();
+        if (!found.returnType().equals(wanted.returnType()) || found.parameterCount() < wanted.parameterCount()) {
+            return null;
+        }
+        for (int i = 0; i < wanted.parameterCount(); i++) {
+            ClassDesc was = wanted.parameterType(i), is = found.parameterType(i);
+            if (!was.equals(is) && (was.isPrimitive() || was.isArray() || is.isPrimitive() || is.isArray()
+                    || !extendsOrImplements(internalName(is), internalName(was)))) {
+                return null;
+            }
+        }
+        return only;
+    }
+
+    /**
+     * Of {@code shapes}, the same method as two builds of the game declare it, the one this class
+     * has by its descriptor, or the first where it has none of them. For a method a build took a
+     * parameter away from, which find does not take for the one a patch names.
+     */
+    static Method declared(byte[] classBytes, Method... shapes) {
+        ClassModel model = ClassFile.of().parse(classBytes);
+        for (Method shape : shapes) {
+            if (findExact(model, shape) != null) {
+                return shape;
+            }
+        }
+        return shapes[0];
+    }
+
+    private static String internalName(ClassDesc type) {
+        String descriptor = type.descriptorString();
+        return descriptor.substring(1, descriptor.length() - 1);
+    }
+
+    /** Whether the class {@code type} is {@code wanted} or has it above it, read from the class files the game runs from. */
+    private static boolean extendsOrImplements(String type, String wanted) {
+        ArrayDeque<String> queue = new ArrayDeque<>(List.of(type));
+        Set<String> visited = new HashSet<>();
+        while (!queue.isEmpty()) {
+            String current = queue.poll();
+            if (current.equals(wanted)) {
+                return true;
+            }
+            byte[] bytes = visited.add(current) ? Links.running(current) : null;
+            if (bytes == null) {
+                continue;
+            }
+            ClassModel model = ClassFile.of().parse(bytes);
+            model.superclass().ifPresent(above -> queue.add(above.asInternalName()));
+            model.interfaces().forEach(above -> queue.add(above.asInternalName()));
+        }
+        return false;
     }
 
     private static boolean isCallTo(InvokeInstruction invoke, Method call) {
