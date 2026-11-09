@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import java.util.ArrayList;
+import java.util.List;
 import zombie.ai.states.ClimbOverFenceState;
 import zombie.characters.IsoPlayer;
 import zombie.core.properties.PropertyContainer;
@@ -9,7 +10,6 @@ import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.SpriteDetails.IsoFlagType;
 import zombie.iso.objects.IsoWindow;
-import zombie.util.list.PZArrayList;
 
 /**
  * Climbing through a hole shot in a fence, a wall or a shut door (BlastHoles, Breakage) that a
@@ -175,7 +175,7 @@ final class HoleHop {
      * has no holes.
      */
     private static boolean holed(IsoGridSquare owner, boolean north) {
-        PZArrayList<IsoObject> objects = owner.getObjects();
+        List<IsoObject> objects = SquareObjects.of(owner);
         boolean any = false;
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
@@ -211,7 +211,7 @@ final class HoleHop {
     /** What stops a character crossing a square's north or west edge: what collides there, and a shut door. */
     private static ArrayList<IsoObject> blockers(IsoGridSquare owner, boolean north) {
         ArrayList<IsoObject> found = new ArrayList<>();
-        PZArrayList<IsoObject> objects = owner.getObjects();
+        List<IsoObject> objects = SquareObjects.of(owner);
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
             if (blocks(object, north)) {

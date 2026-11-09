@@ -25,9 +25,9 @@ public final class BurntBuildings {
      */
     public static int takenAway(IsoGridSquare square, IsoObject object) {
         int index = square.RemoveTileObject(object);
-        if (square.getObjects().contains(object)) {
+        if (SquareObjects.of(square).contains(object)) {
             index = square.RemoveTileObject(object, false);
-            if (square.getObjects().contains(object)) {
+            if (SquareObjects.of(square).contains(object)) {
                 throw new IllegalStateException("a burnt building's " + object.getClass().getSimpleName() + " at " + square.getX() + ", " + square.getY() + ", "
                         + square.getZ() + " is still on its square after the game's own removal of it from that square alone");
             }

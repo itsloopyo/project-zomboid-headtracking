@@ -2,12 +2,12 @@ package com.cameraunlock.zomboid;
 
 import java.util.ArrayDeque;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.sprite.IsoSprite;
-import zombie.util.list.PZArrayList;
 
 /**
  * The rows the map leaves out of a tall hall's upper room. A hall two floors high is marked by
@@ -41,7 +41,7 @@ final class TallHalls {
         if (square == null) {
             return false;
         }
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             IsoSprite sprite = objects.get(i).getSprite();
             if (sprite != null && Terrain.isStair(sprite.getType())) {

@@ -2,6 +2,7 @@ package com.cameraunlock.zomboid;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import zombie.core.properties.PropertyContainer;
 import zombie.iso.IsoCell;
@@ -11,7 +12,6 @@ import zombie.iso.SpriteDetails.IsoFlagType;
 import zombie.iso.SpriteDetails.IsoObjectType;
 import zombie.iso.sprite.IsoSprite;
 import zombie.iso.sprite.IsoSpriteInstance;
-import zombie.util.list.PZArrayList;
 
 /**
  * The lie of the land in the first-person picture. The game's map is flat: a river is level
@@ -2059,7 +2059,7 @@ final class Terrain {
      */
     private static short standsOf(IsoGridSquare square, long room) {
         int stands = room != Footings.NONE ? ROOMED : 0;
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             IsoSprite sprite = objects.get(i).getSprite();
             if (sprite == null) {
@@ -2098,7 +2098,7 @@ final class Terrain {
 
     private static byte groundOn(IsoGridSquare square) {
         byte kind = Grounds.NONE;
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             IsoSprite sprite = objects.get(i).getSprite();
             if (sprite != null && sprite.getName() != null) {
@@ -2133,7 +2133,7 @@ final class Terrain {
         for (int z = highest; z >= 1; z--) {
             for (int at = 0; at < CHUNK_TILES * CHUNK_TILES; at++) {
                 IsoGridSquare on = cell.getGridSquare(x0 + at / CHUNK_TILES, y0 + at % CHUNK_TILES, z);
-                if (on == null || on.getObjects().isEmpty()) {
+                if (on == null || SquareObjects.of(on).isEmpty()) {
                     continue;
                 }
                 laid |= 1L << at;
@@ -2157,7 +2157,7 @@ final class Terrain {
             return Footings.BUILT;
         }
         boolean hung = false;
-        PZArrayList<IsoObject> objects = on.getObjects();
+        List<IsoObject> objects = SquareObjects.of(on);
         for (int i = 0; i < objects.size(); i++) {
             IsoSprite sprite = objects.get(i).getSprite();
             if (sprite == null || sprite.getName() != null && sprite.getName().startsWith(Footings.OVERHEAD_LINES)) {
@@ -2195,7 +2195,7 @@ final class Terrain {
     /** The straight lines painted on a square, as Lanes.mark gives them: the map hangs them on the square's floor. */
     private static byte marks(IsoGridSquare square) {
         int marks = 0;
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int k = 0; k < objects.size(); k++) {
             IsoObject object = objects.get(k);
             IsoSprite sprite = object.getSprite();

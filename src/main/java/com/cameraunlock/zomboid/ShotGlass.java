@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import java.util.List;
 import java.util.Locale;
 import zombie.characters.IsoGameCharacter;
 import zombie.inventory.types.HandWeapon;
@@ -7,7 +8,6 @@ import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.objects.IsoWindow;
-import zombie.util.list.PZArrayList;
 
 /**
  * The window glass a shot breaks, played alone: the pane of every shut window a shot crosses,
@@ -119,7 +119,7 @@ final class ShotGlass {
     }
 
     private static IsoWindow windowOn(IsoGridSquare square, boolean north) {
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             if (objects.get(i) instanceof IsoWindow window && window.getNorth() == north) {
                 return window;

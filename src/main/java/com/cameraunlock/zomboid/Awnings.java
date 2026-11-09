@@ -1,10 +1,10 @@
 package com.cameraunlock.zomboid;
 
+import java.util.List;
 import zombie.core.properties.PropertyContainer;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.sprite.IsoSprite;
-import zombie.util.list.PZArrayList;
 
 /**
  * A shop's awning as the map has one: a sprite on each square along the shop front, of a
@@ -163,7 +163,7 @@ final class Awnings {
      */
     static float meetsWall(IsoGridSquare square, boolean north) {
         int faces = north ? Outdoors.SOUTH : Outdoors.EAST;
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             IsoSprite sprite = objects.get(i).getSprite();
             Hung hung = sprite == null ? null : of(sprite);

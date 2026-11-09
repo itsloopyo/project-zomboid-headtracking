@@ -144,8 +144,8 @@ final class CarSmash {
                     if (square == null) {
                         continue;
                     }
-                    for (int i = 0; i < square.getObjects().size(); i++) {
-                        IsoObject thing = square.getObjects().get(i);
+                    for (int i = 0; i < SquareObjects.of(square).size(); i++) {
+                        IsoObject thing = SquareObjects.of(square).get(i);
                         Knockdown.Kind kind = knockable(thing);
                         if (kind == null) {
                             continue;
@@ -242,7 +242,7 @@ final class CarSmash {
             Knockdown.Kind kind = KINDS.get(i);
             IsoGridSquare square = thing.getSquare();
             // Breaking one fence piece changes the pieces either side of it, which may have been met too.
-            if (square == null || !square.getObjects().contains(thing)) {
+            if (square == null || !SquareObjects.of(square).contains(thing)) {
                 continue;
             }
             IsoSprite sprite = thing.getSprite();
@@ -310,8 +310,8 @@ final class CarSmash {
             return NO_LAMP;
         }
         float highest = NO_LAMP;
-        for (int i = above.getObjects().size() - 1; i >= 0; i--) {
-            IsoObject each = above.getObjects().get(i);
+        for (int i = SquareObjects.of(above).size() - 1; i >= 0; i--) {
+            IsoObject each = SquareObjects.of(above).get(i);
             IsoSprite sprite = each.getSprite();
             if (sprite != null && Knockdown.streetLamp(sprite.getName(), each.getProperties().get(IsoPropertyType.CUSTOM_NAME))) {
                 Texture texture = sprite.getTextureForCurrentFrame(each.getDir());

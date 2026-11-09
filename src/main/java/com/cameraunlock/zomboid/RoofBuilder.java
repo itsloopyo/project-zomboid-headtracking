@@ -3,6 +3,7 @@ package com.cameraunlock.zomboid;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Locale;
 import zombie.core.properties.PropertyContainer;
 import zombie.core.textures.Texture;
@@ -12,7 +13,6 @@ import zombie.iso.IsoObject;
 import zombie.iso.areas.IsoBuilding;
 import zombie.iso.sprite.IsoSprite;
 import zombie.iso.SpriteDetails.IsoFlagType;
-import zombie.util.list.PZArrayList;
 
 /**
  * The roofs of a chunk being built: the slopes, the backs under them, the caps, the eaves and their gutters, the rakes
@@ -898,8 +898,8 @@ final class RoofBuilder {
     /** Whether a sprite of the roofs' sheets is on the square. */
     private boolean roofOn(int x, int y, int z) {
         IsoGridSquare square = build.cell.getGridSquare(x, y, z);
-        for (int i = 0; square != null && i < square.getObjects().size(); i++) {
-            IsoSprite sprite = square.getObjects().get(i).getSprite();
+        for (int i = 0; square != null && i < SquareObjects.of(square).size(); i++) {
+            IsoSprite sprite = SquareObjects.of(square).get(i).getSprite();
             if (sprite != null && sprite.getName() != null && sprite.getName().startsWith("roofs_")) {
                 return true;
             }
@@ -933,7 +933,7 @@ final class RoofBuilder {
     private boolean underAnother(RoofFit.Tile tile, Texture own) {
         IsoGridSquare square = build.cell.getGridSquare(tile.x, tile.y, tile.z);
         RoofFit.cornersOf(tile.fitAxis, tile.fitLow, tile.fitHigh, mine);
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
             IsoSprite sprite = object.getSprite();

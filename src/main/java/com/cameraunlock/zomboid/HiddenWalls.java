@@ -463,8 +463,8 @@ final class HiddenWalls {
                         if (square == null) {
                             continue;
                         }
-                        for (int j = 0; j < square.getObjects().size(); j++) {
-                            ArrayList<IsoSprite> sprites = spritesOf(square.getObjects().get(j));
+                        for (int j = 0; j < SquareObjects.of(square).size(); j++) {
+                            ArrayList<IsoSprite> sprites = spritesOf(SquareObjects.of(square).get(j));
                             for (int k = 0; k < sprites.size(); k++) {
                                 IsoSprite sprite = sprites.get(k);
                                 PropertyContainer properties = sprite.getProperties();
@@ -745,8 +745,8 @@ final class HiddenWalls {
         ArrayList<Spot> spots = new ArrayList<>();
         for (int i = 0; i < squares.size(); i++) {
             IsoGridSquare square = squares.get(i);
-            for (int j = 0; j < square.getObjects().size(); j++) {
-                IsoObject object = square.getObjects().get(j);
+            for (int j = 0; j < SquareObjects.of(square).size(); j++) {
+                IsoObject object = SquareObjects.of(square).get(j);
                 ArrayList<IsoSprite> sprites = spritesOf(object);
                 boolean south = false, east = false;
                 for (int k = 0; k < sprites.size(); k++) {
@@ -1074,8 +1074,8 @@ final class HiddenWalls {
                         if (square == null) {
                             continue;
                         }
-                        for (int j = 0; j < square.getObjects().size(); j++) {
-                            ArrayList<IsoSprite> sprites = spritesOf(square.getObjects().get(j));
+                        for (int j = 0; j < SquareObjects.of(square).size(); j++) {
+                            ArrayList<IsoSprite> sprites = spritesOf(SquareObjects.of(square).get(j));
                             for (int k = 0; k < sprites.size(); k++) {
                                 IsoSprite sprite = sprites.get(k);
                                 PropertyContainer properties = sprite.getProperties();
@@ -1102,8 +1102,8 @@ final class HiddenWalls {
         ArrayList<Spot> spots = new ArrayList<>();
         for (int i = 0; i < squares.size(); i++) {
             IsoGridSquare square = squares.get(i);
-            for (int j = 0; j < square.getObjects().size(); j++) {
-                IsoObject object = square.getObjects().get(j);
+            for (int j = 0; j < SquareObjects.of(square).size(); j++) {
+                IsoObject object = SquareObjects.of(square).get(j);
                 ArrayList<IsoSprite> sprites = spritesOf(object);
                 for (int k = 0; k < sprites.size(); k++) {
                     PropertyContainer properties = sprites.get(k).getProperties();
@@ -1212,8 +1212,8 @@ final class HiddenWalls {
             return null;
         }
         boolean stands = false, low = true, sink = true;
-        for (int i = 0; i < square.getObjects().size(); i++) {
-            IsoObject object = square.getObjects().get(i);
+        for (int i = 0; i < SquareObjects.of(square).size(); i++) {
+            IsoObject object = SquareObjects.of(square).get(i);
             ArrayList<IsoSprite> sprites = spritesOf(object, spriteList);
             for (int k = object.getSprite() == null ? 0 : 1; k < sprites.size(); k++) {
                 if (hungOn(sprites.get(k).getProperties(), wall)) {
@@ -1275,8 +1275,8 @@ final class HiddenWalls {
     /** Whether a square has a whole wall on its north (or west) edge: no door, doorway or window in it. */
     private static boolean wholeWall(IsoGridSquare square, boolean north) {
         boolean wall = false;
-        for (int i = 0; i < square.getObjects().size(); i++) {
-            IsoObject object = square.getObjects().get(i);
+        for (int i = 0; i < SquareObjects.of(square).size(); i++) {
+            IsoObject object = SquareObjects.of(square).get(i);
             IsoSprite sprite = object.getSprite();
             if (sprite == null) {
                 continue;
@@ -1319,8 +1319,8 @@ final class HiddenWalls {
 
     /** Whether a square has a door or a doorway on its north (or west) edge. */
     private static boolean door(IsoGridSquare square, boolean north) {
-        for (int i = 0; i < square.getObjects().size(); i++) {
-            IsoObject object = square.getObjects().get(i);
+        for (int i = 0; i < SquareObjects.of(square).size(); i++) {
+            IsoObject object = SquareObjects.of(square).get(i);
             IsoSprite sprite = object.getSprite();
             if (sprite == null) {
                 continue;
@@ -1350,8 +1350,8 @@ final class HiddenWalls {
     }
 
     private static boolean opening(IsoGridSquare square, boolean north) {
-        for (int i = 0; i < square.getObjects().size(); i++) {
-            IsoObject object = square.getObjects().get(i);
+        for (int i = 0; i < SquareObjects.of(square).size(); i++) {
+            IsoObject object = SquareObjects.of(square).get(i);
             IsoSprite sprite = object.getSprite();
             if (sprite == null) {
                 continue;
@@ -1464,8 +1464,8 @@ final class HiddenWalls {
                         if (square == null) {
                             continue;
                         }
-                        for (int j = 0; j < square.getObjects().size(); j++) {
-                            countKinds(square.getObjects().get(j), kinds);
+                        for (int j = 0; j < SquareObjects.of(square).size(); j++) {
+                            countKinds(SquareObjects.of(square).get(j), kinds);
                         }
                     }
                 }
@@ -1611,8 +1611,8 @@ final class HiddenWalls {
      */
     private static boolean parted(IsoGridSquare square, int wall) {
         boolean north = wall == EAST;
-        for (int i = 0; i < square.getObjects().size(); i++) {
-            IsoSprite sprite = square.getObjects().get(i).getSprite();
+        for (int i = 0; i < SquareObjects.of(square).size(); i++) {
+            IsoSprite sprite = SquareObjects.of(square).get(i).getSprite();
             if (sprite != null && (sprite.getProperties().has(IsoFlagType.WallNW)
                     || sprite.getProperties().has(north ? IsoFlagType.WallN : IsoFlagType.WallW)
                     || sprite.getProperties().has(north ? IsoFlagType.WallNTrans : IsoFlagType.WallWTrans))) {

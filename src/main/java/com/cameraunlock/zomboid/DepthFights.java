@@ -277,8 +277,8 @@ final class DepthFights {
                 continue;
             }
             names.append(" z").append(z).append(':');
-            for (int i = 0; i < square.getObjects().size(); i++) {
-                IsoObject object = square.getObjects().get(i);
+            for (int i = 0; i < SquareObjects.of(square).size(); i++) {
+                IsoObject object = SquareObjects.of(square).get(i);
                 names.append(' ').append(object.getSprite() == null ? "?" : object.getSprite().getName());
             }
         }

@@ -19,7 +19,6 @@ import zombie.iso.RoomDef;
 import zombie.iso.SpriteDetails.IsoFlagType;
 import zombie.iso.SpriteDetails.IsoObjectType;
 import zombie.iso.sprite.IsoSprite;
-import zombie.util.list.PZArrayList;
 
 /**
  * The roofs of the loaded map, each read whole.
@@ -420,8 +419,8 @@ final class Roofs {
     /** Whether one of the roofs' gable sheets stands on the square's north edge, or on its west edge. */
     static boolean gableSheetOn(IsoCell cell, int x, int y, int z, boolean north) {
         IsoGridSquare square = cell.getGridSquare(x, y, z);
-        for (int i = 0; square != null && i < square.getObjects().size(); i++) {
-            IsoSprite sprite = square.getObjects().get(i).getSprite();
+        for (int i = 0; square != null && i < SquareObjects.of(square).size(); i++) {
+            IsoSprite sprite = SquareObjects.of(square).get(i).getSprite();
             if (sprite != null && sprite.getName() != null && sprite.getName().startsWith("walls_exterior_roofs")
                     && (north ? Edges.north(sprite.getProperties(), sprite.getType()) : Edges.west(sprite.getProperties(), sprite.getType()))) {
                 return true;
@@ -749,8 +748,8 @@ final class Roofs {
         if (square == null) {
             return false;
         }
-        for (int i = 0; i < square.getObjects().size(); i++) {
-            IsoSprite sprite = square.getObjects().get(i).getSprite();
+        for (int i = 0; i < SquareObjects.of(square).size(); i++) {
+            IsoSprite sprite = SquareObjects.of(square).get(i).getSprite();
             if (sprite != null && (gables || sprite.getName() == null || !sprite.getName().startsWith("walls_exterior_roofs"))
                     && (sprite.getProperties().has(IsoFlagType.WallNW) || sprite.getProperties().has(north ? IsoFlagType.WallN : IsoFlagType.WallW)
                             || sprite.getProperties().has(north ? IsoFlagType.WallNTrans : IsoFlagType.WallWTrans))) {
@@ -1035,7 +1034,7 @@ final class Roofs {
     }
 
     private static boolean holdsTile(IsoCell cell, IsoGridSquare square) {
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             IsoSprite sprite = objects.get(i).getSprite();
             if (sprite != null && isTile(sprite.getType()) && !accent(sprite.getName()) && !noRoof(cell, sprite, square.getX(), square.getY(), square.getZ())) {
@@ -1083,7 +1082,7 @@ final class Roofs {
 
     /** As roofing, leaving out one object of the square's. */
     private static boolean roofing(IsoCell cell, IsoGridSquare square, boolean trims, IsoObject besides) {
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             if (objects.get(i) == besides) {
                 continue;
@@ -1114,7 +1113,7 @@ final class Roofs {
         if (square == null) {
             return;
         }
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
             IsoSprite sprite = object.getSprite();
@@ -1224,7 +1223,7 @@ final class Roofs {
         if (square == null) {
             return false;
         }
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
             IsoSprite sprite = object.getSprite();

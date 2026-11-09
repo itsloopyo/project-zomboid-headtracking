@@ -2,6 +2,7 @@ package com.cameraunlock.zomboid;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import org.lwjglx.input.Keyboard;
 import se.krka.kahlua.vm.KahluaTable;
 import zombie.Lua.LuaManager;
@@ -32,7 +33,6 @@ import zombie.iso.objects.IsoWorldInventoryObject;
 import zombie.network.GameClient;
 import zombie.ui.SpeedControls;
 import zombie.ui.UIManager;
-import zombie.util.list.PZArrayList;
 
 /**
  * What the Interact key acts on in first person: the thing under the reticle.
@@ -621,7 +621,7 @@ final class CentreUse {
     private IsoObject onEdge(IsoGridSquare owner, IsoGridSquare other, boolean north) {
         IsoObject window = null;
         IsoCurtain curtain = null;
-        PZArrayList<IsoObject> objects = owner.getObjects();
+        List<IsoObject> objects = SquareObjects.of(owner);
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
             if (object instanceof IsoDoor door && drawnNorth(door, door.north, door.IsOpen()) == north
@@ -635,7 +635,7 @@ final class CentreUse {
             }
         }
         // A curtain on the far side of the edge hangs on that square's south or east.
-        objects = other.getObjects();
+        objects = SquareObjects.of(other);
         for (int i = 0; i < objects.size(); i++) {
             if (objects.get(i) instanceof IsoCurtain hung && hung.getType() == (north ? IsoObjectType.curtainS : IsoObjectType.curtainE)) {
                 curtain = hung;
@@ -722,7 +722,7 @@ final class CentreUse {
         float top = 0f;
         boolean appliance = false;
         IsoObject floor = square.getFloor();
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
             PropertyContainer properties = object.getProperties();
@@ -814,7 +814,7 @@ final class CentreUse {
         }
         IsoObject under = null, onTop = null;
         int top = 0;
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
             PropertyContainer properties = object.getProperties();
@@ -864,7 +864,7 @@ final class CentreUse {
      */
     private static IsoObject lowOn(IsoGridSquare square, ViewCamera.Pose view, float floorUp) {
         float passes = above(square, view, floorUp, 0f);
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
             PropertyContainer properties = object.getProperties();
@@ -879,7 +879,7 @@ final class CentreUse {
     /** Something standing on a square, which is not its floor: a sink, a counter, a stove. */
     private static IsoObject standing(IsoGridSquare square) {
         IsoObject floor = square.getFloor();
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             if (objects.get(i) != floor) {
                 return objects.get(i);
@@ -893,7 +893,7 @@ final class CentreUse {
      * crosses that wall, not anywhere over the square, which reaches the one on the wall behind the player.
      */
     private static IsoObject hungOn(IsoGridSquare square, String facing) {
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
             PropertyContainer properties = object.getProperties();
@@ -909,7 +909,7 @@ final class CentreUse {
     }
 
     private IsoObject switchOn(IsoGridSquare square) {
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             if (objects.get(i) instanceof IsoLightSwitch) {
                 return objects.get(i);

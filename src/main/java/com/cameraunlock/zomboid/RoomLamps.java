@@ -13,7 +13,6 @@ import zombie.iso.IsoLightSource;
 import zombie.iso.IsoObject;
 import zombie.iso.objects.IsoLightSwitch;
 import zombie.iso.objects.IsoTelevision;
-import zombie.util.list.PZArrayList;
 
 /**
  * The light a lamp in a room, and a television that is on, throws round it. The game lights
@@ -224,7 +223,7 @@ final class RoomLamps {
 
     /** The set on a square that shows a picture, or null. A set that is on lists a light of no switch on its own square (IsoTelevision.updateLightSource). */
     private static IsoTelevision showing(IsoGridSquare square) {
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             if (objects.get(i) instanceof IsoTelevision set && Screens.showing(set) != Screens.DARK) {
                 return set;

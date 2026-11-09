@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import java.util.List;
 import zombie.characters.IsoPlayer;
 import zombie.core.textures.Texture;
 import zombie.iso.IsoCell;
@@ -9,7 +10,6 @@ import zombie.iso.objects.IsoDoor;
 import zombie.iso.objects.IsoThumpable;
 import zombie.iso.objects.IsoWindow;
 import zombie.iso.sprite.IsoSprite;
-import zombie.util.list.PZArrayList;
 
 /**
  * The shut windows and glazed doors near the viewer. Glass throws back some of what is on the
@@ -75,7 +75,7 @@ final class WindowGlass {
                     if (square == null) {
                         continue;
                     }
-                    PZArrayList<IsoObject> objects = square.getObjects();
+                    List<IsoObject> objects = SquareObjects.of(square);
                     for (int i = 0; i < objects.size() && into.count < MOST; i++) {
                         IsoObject object = objects.get(i);
                         Windows.Shape leaf = null;

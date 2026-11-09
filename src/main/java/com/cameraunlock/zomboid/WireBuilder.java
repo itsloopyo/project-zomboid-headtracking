@@ -1,12 +1,12 @@
 package com.cameraunlock.zomboid;
 
 import java.util.Arrays;
+import java.util.List;
 import zombie.core.textures.Texture;
 import zombie.iso.IsoChunk;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.sprite.IsoSprite;
-import zombie.util.list.PZArrayList;
 
 /**
  * The poles and the overhead wires of a chunk being built. One to a frame of the world's picture, and it writes into
@@ -31,7 +31,7 @@ final class WireBuilder {
                 return 0;
             }
             int count = 0;
-            PZArrayList<IsoObject> objects = square.getObjects();
+            List<IsoObject> objects = SquareObjects.of(square);
             for (int i = 0; i < objects.size(); i++) {
                 IsoObject object = objects.get(i);
                 IsoSprite sprite = object.getSprite();
@@ -192,7 +192,7 @@ final class WireBuilder {
             x--;
             y--;
         }
-        PZArrayList<IsoObject> objects = build.cell.getGridSquare(x, y, z).getObjects();
+        List<IsoObject> objects = SquareObjects.of(build.cell.getGridSquare(x, y, z));
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
             IsoSprite sprite = object.getSprite();
@@ -216,7 +216,7 @@ final class WireBuilder {
         if (square == null) {
             return null;
         }
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             IsoSprite sprite = objects.get(i).getSprite();
             if (sprite != null && Poles.length(sprite.getName())) {

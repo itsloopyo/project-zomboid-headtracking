@@ -1,10 +1,10 @@
 package com.cameraunlock.zomboid;
 
+import java.util.List;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.sprite.IsoSprite;
-import zombie.util.list.PZArrayList;
 
 /**
  * Where a street lamp the map draws in two pieces apart stands. The game stands a lamp taller than a storey as the lower
@@ -141,7 +141,7 @@ final class StreetLampPlaces {
             return 0;
         }
         int kinds = 0;
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             IsoSprite sprite = objects.get(i).getSprite();
             if (sprite != null) {

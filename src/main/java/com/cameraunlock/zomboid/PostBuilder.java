@@ -2,13 +2,13 @@ package com.cameraunlock.zomboid;
 
 import java.util.Arrays;
 
+import java.util.List;
 import zombie.core.properties.PropertyContainer;
 import zombie.core.textures.Texture;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.SpriteDetails.IsoFlagType;
 import zombie.iso.sprite.IsoSprite;
-import zombie.util.list.PZArrayList;
 
 /**
  * The posts of a chunk being built and the sprites read as shapes: what stands in a wall's line, a post, a fence's
@@ -97,7 +97,7 @@ final class PostBuilder {
         if (square == null) {
             return null;
         }
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             IsoSprite sprite = objects.get(i).getSprite();
             Furniture piece = sprite == null ? null : Furniture.known(sprite);
@@ -114,7 +114,7 @@ final class PostBuilder {
         if (square == null) {
             return null;
         }
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
             IsoSprite sprite = object.getSprite();
@@ -282,7 +282,7 @@ final class PostBuilder {
 
     /** Whether (x, y) holds a piece of a sign hung on nothing that is not solid, with where along it paints into along. */
     private boolean freeSignOn(int x, int y, int z, boolean alongX, float[] along) {
-        PZArrayList<IsoObject> objects = build.cell.getGridSquare(x, y, z).getObjects();
+        List<IsoObject> objects = SquareObjects.of(build.cell.getGridSquare(x, y, z));
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
             IsoSprite sprite = object.getSprite();
@@ -329,7 +329,7 @@ final class PostBuilder {
         if (square == null) {
             return false;
         }
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
             IsoSprite sprite = object.getSprite();
@@ -425,7 +425,7 @@ final class PostBuilder {
             if (beside == null) {
                 continue;
             }
-            PZArrayList<IsoObject> objects = beside.getObjects();
+            List<IsoObject> objects = SquareObjects.of(beside);
             for (int i = 0; i < objects.size(); i++) {
                 IsoObject object = objects.get(i);
                 IsoSprite sprite = object.getSprite();

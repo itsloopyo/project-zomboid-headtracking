@@ -1,7 +1,6 @@
 package zombie.iso;
 
 import zombie.core.textures.ColorInfo;
-import zombie.util.list.PZArrayList;
 
 public final class IsoGridSquare {
     public boolean haveRoof;
@@ -32,7 +31,8 @@ public final class IsoGridSquare {
     public final ILighting[] lighting = null;
     public int lightLevel;
 
-    public PZArrayList<IsoObject> getObjects() { throw new UnsupportedOperationException("reference stub"); }
+    /** Its return type differs between builds: the mod reaches it through SquareObjects only. */
+    public java.util.List<IsoObject> getObjects() { throw new UnsupportedOperationException("reference stub"); }
     public void AddTileObject(IsoObject object) { throw new UnsupportedOperationException("reference stub"); }
     public se.krka.kahlua.vm.KahluaTable getModData() { throw new UnsupportedOperationException("reference stub"); }
     public boolean hasModData() { throw new UnsupportedOperationException("reference stub"); }

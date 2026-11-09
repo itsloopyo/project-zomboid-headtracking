@@ -1,11 +1,11 @@
 package com.cameraunlock.zomboid;
 
+import java.util.List;
 import zombie.iso.BuildingDef;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.sprite.IsoSprite;
-import zombie.util.list.PZArrayList;
 
 /**
  * Which storeys of the viewer's own building the eye cannot see from where it stands, but up
@@ -76,7 +76,7 @@ final class Lids {
     }
 
     private static boolean roofed(IsoGridSquare square) {
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             IsoSprite sprite = objects.get(i).getSprite();
             if (sprite != null && Roofs.isTile(sprite.getType())) {
@@ -91,7 +91,7 @@ final class Lids {
         if (below == null) {
             return false;
         }
-        PZArrayList<IsoObject> objects = below.getObjects();
+        List<IsoObject> objects = SquareObjects.of(below);
         for (int i = 0; i < objects.size(); i++) {
             IsoSprite sprite = objects.get(i).getSprite();
             if (sprite != null && WorldScene.isStair(sprite.getType())) {

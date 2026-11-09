@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import zombie.core.textures.Texture;
@@ -13,7 +14,6 @@ import zombie.iso.objects.IsoLightSwitch;
 import zombie.iso.objects.IsoTelevision;
 import zombie.iso.sprite.IsoSprite;
 import zombie.iso.sprite.IsoSpriteManager;
-import zombie.util.list.PZArrayList;
 
 /**
  * The furniture of a chunk being built and what hangs on its walls, as models of the mod's own. One to a frame of the
@@ -35,7 +35,7 @@ final class FurnishingBuilder {
         if (square == null || sprite == null) {
             return null;
         }
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             if (objects.get(i).getSprite() == sprite) {
                 return objects.get(i);
@@ -49,7 +49,7 @@ final class FurnishingBuilder {
         if (square == null) {
             return null;
         }
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             IsoSprite sprite = objects.get(i).getSprite();
             if (sprite != null && name.equals(sprite.getName())) {
@@ -214,7 +214,7 @@ final class FurnishingBuilder {
         if (square == null) {
             return null;
         }
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
             IsoSprite sprite = object.getSprite();
@@ -921,7 +921,7 @@ final class FurnishingBuilder {
         if (square == null) {
             return null;
         }
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             IsoSprite sprite = objects.get(i).getSprite();
             Furniture piece = sprite == null ? null : Furniture.known(sprite);

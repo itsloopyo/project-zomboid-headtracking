@@ -15,7 +15,6 @@ import zombie.iso.IsoObject;
 import zombie.iso.SpriteDetails.IsoObjectType;
 import zombie.iso.areas.IsoBuilding;
 import zombie.iso.sprite.IsoSprite;
-import zombie.util.list.PZArrayList;
 
 /** Tests of the height Terrain gives a street and the ground beside it, the hills of the country, and how high the player has them stand. */
 final class TerrainTests {
@@ -793,7 +792,7 @@ final class TerrainTests {
                     for (int i = 0; i < Terrain.CHUNK_TILES; i++) {
                         for (int j = 0; j < Terrain.CHUNK_TILES; j++) {
                             IsoGridSquare square = shipped.map.cell.getGridSquare(wx * Terrain.CHUNK_TILES + i, wy * Terrain.CHUNK_TILES + j, z);
-                            PZArrayList<IsoObject> objects = square == null ? new PZArrayList<>() : square.getObjects();
+                            List<IsoObject> objects = square == null ? List.of() : square.getObjects();
                             int[] held = new int[objects.size()];
                             for (int k = 0; k < held.length; k++) {
                                 held[k] = tileOf.get(objects.get(k).getSprite());

@@ -74,7 +74,7 @@ final class Outlines {
             return square == null || body.getContainer() == null ? NONE : key(square, BODY, square.getStaticMovingObjects().indexOf(body));
         }
         IsoGridSquare square = object.getSquare();
-        return square == null ? NONE : key(square, OBJECT, square.getObjects().indexOf(object));
+        return square == null ? NONE : key(square, OBJECT, SquareObjects.of(square).indexOf(object));
     }
 
     /** The key of the piece a drag would put down whose first part stands on the square: see DragAim.Ghost. */
@@ -190,7 +190,7 @@ final class Outlines {
             return square != null && square.getChunk() != null && square.getStaticMovingObjects().indexOf(body) >= 0;
         }
         IsoGridSquare square = object.getSquare();
-        return square != null && square.getChunk() != null && square.getObjects().indexOf(object) >= 0;
+        return square != null && square.getChunk() != null && SquareObjects.of(square).indexOf(object) >= 0;
     }
 
     private static boolean isFloor(IsoObject object) {

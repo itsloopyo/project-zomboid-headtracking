@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import zombie.GameTime;
 import zombie.core.textures.Texture;
@@ -10,7 +11,6 @@ import zombie.iso.IsoObject;
 import zombie.iso.SpriteDetails.IsoObjectType;
 import zombie.iso.sprite.IsoSprite;
 import zombie.iso.sprite.IsoSpriteInstance;
-import zombie.util.list.PZArrayList;
 
 /**
  * The game's side of LeafFall for one view, on the logic thread: reads the trees and the bushes
@@ -155,7 +155,7 @@ final class LeafTrees implements LeafFall.Ground {
 
     /** Offers the first bush on the square at (x, y) that is in leaf, with a crown measured and a colour read. */
     private void readBushes(IsoGridSquare square, int x, int y) {
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
             IsoSprite sprite = object.getSprite();
@@ -184,7 +184,7 @@ final class LeafTrees implements LeafFall.Ground {
     }
 
     private static IsoObject treeOn(IsoGridSquare square) {
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             if (objects.get(i).getType() == IsoObjectType.tree) {
                 return objects.get(i);

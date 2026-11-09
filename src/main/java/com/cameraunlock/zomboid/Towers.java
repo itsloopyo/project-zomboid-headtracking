@@ -9,7 +9,6 @@ import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.sprite.IsoSprite;
-import zombie.util.list.PZArrayList;
 
 /**
  * Structures the game builds of many sprites, several squares wide and several levels high,
@@ -102,7 +101,7 @@ final class Towers {
             // square is one not loaded only where the ground under it is missing too.
             return z != 0 && cell.getGridSquare(x, y, 0) != null ? Boolean.FALSE : null;
         }
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             IsoSprite on = objects.get(i).getSprite();
             if (on != null && sprite.equals(on.getName())) {

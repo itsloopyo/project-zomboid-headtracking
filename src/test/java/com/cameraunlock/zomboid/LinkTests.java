@@ -5,7 +5,10 @@ import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.lang.classfile.ClassBuilder;
 import java.lang.classfile.ClassFile;
+import java.lang.classfile.ClassModel;
 import java.lang.classfile.CodeBuilder;
+import java.lang.classfile.MethodModel;
+import java.lang.classfile.instruction.InvokeInstruction;
 import java.lang.constant.ClassDesc;
 import java.lang.constant.ConstantDescs;
 import java.lang.constant.DirectMethodHandleDesc;
@@ -14,6 +17,7 @@ import java.lang.constant.MethodHandleDesc;
 import java.lang.constant.MethodTypeDesc;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -47,6 +51,7 @@ final class LinkTests {
         Checks.run("aGameThatIsNotThereResolvesNothing", LinkTests::aGameThatIsNotThereResolvesNothing);
         Checks.run("aMethodIsHandedOnOnlyWhereItIsInheritedWithABody", LinkTests::aMethodIsHandedOnOnlyWhereItIsInheritedWithABody);
         Checks.run("whatTheJarCarriesIsNotLookedForInTheGame", LinkTests::whatTheJarCarriesIsNotLookedForInTheGame);
+        Checks.run("whatIsOnASquareIsAskedOnlyThroughSquareObjects", LinkTests::whatIsOnASquareIsAskedOnlyThroughSquareObjects);
     }
 
     /**
@@ -76,6 +81,29 @@ final class LinkTests {
         Checks.check(Links.notInherited(thing, "sides", "()I", game::get) == null, "a default method of an interface the class has is handed on to");
         game.put(shape, type(ClassDesc.of("game.Shape"), PUBLIC | INTERFACE | ABSTRACT, OBJECT, method("sides", TO_INT, PUBLIC | ABSTRACT)));
         Checks.check(Links.notInherited(thing, "sides", "()I", game::get) != null, "and an interface's method with no body is refused");
+    }
+
+    /**
+     * IsoGridSquare.getObjects returns another type on another build, so a call compiled against
+     * one build's would stop the mod on the other: every class of the mod and of its dev build
+     * goes through SquareObjects, which finds the method on the running build.
+     */
+    private static void whatIsOnASquareIsAskedOnlyThroughSquareObjects() throws IOException {
+        List<String> callers = new ArrayList<>();
+        for (String folder : List.of("build/classes", "build/dev-classes")) {
+            for (byte[] bytes : Links.classesIn(Path.of(folder))) {
+                ClassModel model = ClassFile.of().parse(bytes);
+                for (MethodModel method : model.methods()) {
+                    method.code().ifPresent(code -> code.forEach(element -> {
+                        if (element instanceof InvokeInstruction call && call.owner().asInternalName().equals("zombie/iso/IsoGridSquare")
+                                && call.name().equalsString("getObjects")) {
+                            callers.add(model.thisClass().asInternalName() + "." + method.methodName());
+                        }
+                    }));
+                }
+            }
+        }
+        Checks.check(callers.isEmpty(), "no class calls IsoGridSquare.getObjects itself, got " + callers);
     }
 
     /**

@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import se.krka.kahlua.vm.KahluaTable;
 import se.krka.kahlua.vm.KahluaTableIterator;
@@ -9,7 +10,6 @@ import zombie.core.textures.Texture;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.objects.IsoFeedingTrough;
-import zombie.util.list.PZArrayList;
 
 /** What the game paints in a farm trough, made: kept out of Farm, which the tests load without the game's classes. */
 final class Troughs {
@@ -80,7 +80,7 @@ final class Troughs {
         if (square == null) {
             return null;
         }
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             if (objects.get(i) instanceof IsoFeedingTrough) {
                 return objects.get(i);

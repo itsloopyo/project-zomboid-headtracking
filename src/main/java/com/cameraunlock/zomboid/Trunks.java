@@ -1,11 +1,11 @@
 package com.cameraunlock.zomboid;
 
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.LosUtil.TestResults;
 import zombie.iso.sprite.IsoSprite;
-import zombie.util.list.PZArrayList;
 
 /**
  * Trees as a shot meets them in first person. The game stops a shot anywhere on a tree's square:
@@ -32,7 +32,7 @@ final class Trunks {
 
     /** The radius of the bole the picture draws on a square, or NaN where it draws none. */
     static float on(IsoGridSquare square) {
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             // The game keeps objects with no sprite on squares (rig run a1, 1733, 10885).
             IsoSprite sprite = objects.get(i).getSprite();

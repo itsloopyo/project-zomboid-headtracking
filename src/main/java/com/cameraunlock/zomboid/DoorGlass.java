@@ -2,6 +2,7 @@ package com.cameraunlock.zomboid;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -15,7 +16,6 @@ import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.objects.IsoDoor;
 import zombie.iso.objects.IsoThumpable;
-import zombie.util.list.PZArrayList;
 
 /**
  * The lights of glass in a door that shots have broken. The game keeps no glass in a door, so
@@ -76,7 +76,7 @@ final class DoorGlass {
                 if (square == null) {
                     continue;
                 }
-                PZArrayList<IsoObject> objects = square.getObjects();
+                List<IsoObject> objects = SquareObjects.of(square);
                 for (int k = 0; k < objects.size(); k++) {
                     IsoObject object = objects.get(k);
                     if (isDoor(object) && object.hasModData() && object.getModData().rawget(BROKEN) instanceof Double lights) {
@@ -293,7 +293,7 @@ final class DoorGlass {
 
     /** The first door shut on a square's north or west edge, or null. */
     static IsoObject shutDoorOn(IsoGridSquare square, boolean north) {
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             if (shutOn(objects.get(i), north)) {
                 return objects.get(i);

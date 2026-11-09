@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.WeakHashMap;
@@ -11,7 +12,6 @@ import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.objects.IsoLightSwitch;
-import zombie.util.list.PZArrayList;
 import zombie.vehicles.BaseVehicle;
 import zombie.vehicles.VehiclePart;
 
@@ -196,7 +196,7 @@ final class ShotLights {
             if (!passesNear(line.eyeX, line.eyeY, line.forwardX, line.forwardY, square.getX(), square.getY())) {
                 continue;
             }
-            PZArrayList<IsoObject> objects = square.getObjects();
+            List<IsoObject> objects = SquareObjects.of(square);
             for (int i = 0; i < objects.size(); i++) {
                 if (objects.get(i) instanceof IsoLightSwitch lamp && !lamp.lightRoom && lamp.hasLightBulb() && streetLampOf(lamp) < 0) {
                     breakLamp(lamp, square, "");
@@ -220,7 +220,7 @@ final class ShotLights {
                         if (square == null) {
                             continue;
                         }
-                        PZArrayList<IsoObject> objects = square.getObjects();
+                        List<IsoObject> objects = SquareObjects.of(square);
                         for (int i = 0; i < objects.size(); i++) {
                             if (!(objects.get(i) instanceof IsoLightSwitch lamp) || !lamp.hasLightBulb()) {
                                 continue;

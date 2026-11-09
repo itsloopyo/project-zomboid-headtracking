@@ -16,7 +16,6 @@ import zombie.iso.IsoObject;
 import zombie.iso.SpriteDetails.IsoFlagType;
 import zombie.iso.SpriteDetails.IsoObjectType;
 import zombie.iso.sprite.IsoSprite;
-import zombie.util.list.PZArrayList;
 
 /**
  * The solid edges each figure a frame draws stands against, which its model is cut at. The game
@@ -236,7 +235,7 @@ final class FigureWalls {
             return false;
         }
         boolean wall = false, doorway = false, shut = false;
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
             if (DoorGlass.isDoor(object)) {

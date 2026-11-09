@@ -1,12 +1,13 @@
 package zombie.iso;
 
+import java.util.ArrayList;
+import java.util.List;
 import zombie.iso.sprite.IsoSprite;
-import zombie.util.list.PZArrayList;
 
 /** The tests' stand-in for a square of the map: what is on it, its room and its floor. See zombie.core.properties.PropertyContainer. */
 public final class IsoGridSquare {
     private final int x, y, z;
-    private final PZArrayList<IsoObject> objects = new PZArrayList<>();
+    private final List<IsoObject> objects = new ArrayList<>();
     private long roomID = -1L;
     private IsoObject floor;
     private boolean filling;
@@ -67,7 +68,7 @@ public final class IsoGridSquare {
         this.roomID = roomID;
     }
 
-    public PZArrayList<IsoObject> getObjects() {
+    public List<IsoObject> getObjects() {
         return objects;
     }
 

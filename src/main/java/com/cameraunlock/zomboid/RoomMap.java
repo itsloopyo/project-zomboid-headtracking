@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import java.util.Arrays;
+import java.util.List;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoChunk;
 import zombie.iso.IsoGridSquare;
@@ -13,7 +14,6 @@ import zombie.iso.objects.IsoDoor;
 import zombie.iso.objects.IsoThumpable;
 import zombie.iso.objects.IsoWindow;
 import zombie.iso.sprite.IsoSprite;
-import zombie.util.list.PZArrayList;
 
 /**
  * The game's map as RoomSight reads it: which room each square is in, what each edge between
@@ -617,7 +617,7 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
 
     /** How much of the day the barricades on a square's door or window on that edge let through, on either side of it. */
     private static float boarded(IsoGridSquare square, boolean north) {
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         float passed = 1f;
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
@@ -659,7 +659,7 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
         glassShut = false;
         wall = false;
         wallHoled = false;
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
             if (object instanceof IsoDoor each && each.getNorth() == north) {
@@ -713,7 +713,7 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
     }
 
     private static boolean drawn(IsoGridSquare square, IsoObjectType type) {
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             if (objects.get(i) instanceof IsoCurtain curtain && !curtain.IsOpen() && curtain.getType() == type) {
                 return true;
@@ -728,7 +728,7 @@ final class RoomMap implements Acoustics.Walls, RoomDaylight.Edges {
         if (square == null) {
             return false;
         }
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             IsoSprite sprite = objects.get(i).getSprite();
             if (sprite == null) {

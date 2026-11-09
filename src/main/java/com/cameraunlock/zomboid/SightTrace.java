@@ -3,6 +3,7 @@ package com.cameraunlock.zomboid;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import zombie.characters.IsoGameCharacter;
@@ -22,7 +23,6 @@ import zombie.iso.objects.IsoThumpable;
 import zombie.iso.objects.IsoWindow;
 import zombie.iso.objects.IsoWorldInventoryObject;
 import zombie.iso.sprite.IsoSprite;
-import zombie.util.list.PZArrayList;
 import zombie.vehicles.BaseVehicle;
 
 /**
@@ -95,7 +95,7 @@ final class SightTrace {
     /** Whether a curtain is drawn on a square's north or west edge, or with far on its south or east edge. */
     private static boolean curtained(IsoGridSquare square, boolean north, boolean far) {
         IsoObjectType wanted = north ? far ? IsoObjectType.curtainS : IsoObjectType.curtainN : far ? IsoObjectType.curtainE : IsoObjectType.curtainW;
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             if (objects.get(i) instanceof IsoCurtain curtain && !curtain.IsOpen() && curtain.getType() == wanted) {
                 return true;
@@ -137,7 +137,7 @@ final class SightTrace {
                     WorldScene.ChunkMeshes build = scene.latestOf(Math.floorDiv(x, WorldScene.CHUNK_TILES), Math.floorDiv(y, WorldScene.CHUNK_TILES));
                     boolean shown = build != null && build.shownFrame == frame;
                     IsoObject floor = square.getFloor();
-                    PZArrayList<IsoObject> objects = square.getObjects();
+                    List<IsoObject> objects = SquareObjects.of(square);
                     boolean centreAsked = false, centreOpen = false;
                     for (int i = 0; i < objects.size(); i++) {
                         IsoObject object = objects.get(i);

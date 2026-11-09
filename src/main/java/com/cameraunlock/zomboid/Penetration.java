@@ -1,5 +1,6 @@
 package com.cameraunlock.zomboid;
 
+import java.util.List;
 import zombie.characters.IsoGameCharacter;
 import zombie.characters.IsoPlayer;
 import zombie.inventory.types.HandWeapon;
@@ -11,7 +12,6 @@ import zombie.iso.IsoWorld;
 import zombie.iso.LosUtil;
 import zombie.iso.objects.IsoWindow;
 import zombie.scripting.objects.AmmoType;
-import zombie.util.list.PZArrayList;
 
 /**
  * How far a firearm's round goes on through what the game says stops it: a stud wall of
@@ -255,7 +255,7 @@ final class Penetration {
             // Beside its leaf a gate is its post, or the rest of its edge, which it leaves open.
             return onGate == Gates.POST ? cost(Gates.postMaterial(gate)) : 0f;
         }
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         float up = heightAt(x, y, square);
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);

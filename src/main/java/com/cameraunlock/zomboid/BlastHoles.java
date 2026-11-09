@@ -3,6 +3,7 @@ package com.cameraunlock.zomboid;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
@@ -19,7 +20,6 @@ import zombie.iso.IsoObject;
 import zombie.core.textures.Texture;
 import zombie.iso.SpriteDetails.IsoFlagType;
 import zombie.iso.sprite.IsoSprite;
-import zombie.util.list.PZArrayList;
 
 /**
  * The holes blasts have blown through wooden doors and board fences, the marks single pellets
@@ -251,7 +251,7 @@ final class BlastHoles {
      * over, which a shot crossing it under its top holes as it goes through; null where there is none.
      */
     static IsoObject lowFenceOn(IsoGridSquare square, boolean north) {
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
             IsoSprite sprite = object.getSprite();
@@ -289,7 +289,7 @@ final class BlastHoles {
                 if (square == null) {
                     continue;
                 }
-                PZArrayList<IsoObject> objects = square.getObjects();
+                List<IsoObject> objects = SquareObjects.of(square);
                 for (int k = 0; k < objects.size(); k++) {
                     IsoObject object = objects.get(k);
                     if (object.hasModData() && object.getModData().rawget(RIMS_KEY) instanceof String rims) {

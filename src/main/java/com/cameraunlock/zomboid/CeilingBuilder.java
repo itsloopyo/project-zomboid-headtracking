@@ -1,12 +1,12 @@
 package com.cameraunlock.zomboid;
 
+import java.util.List;
 import zombie.core.properties.PropertyContainer;
 import zombie.core.textures.Texture;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.SpriteDetails.IsoFlagType;
 import zombie.iso.sprite.IsoSprite;
-import zombie.util.list.PZArrayList;
 
 /**
  * The ceilings of a chunk being built: the ceiling of a room, the lining under a floor that is a roof over open air,
@@ -142,7 +142,7 @@ final class CeilingBuilder {
         if (owner == null) {
             return false;
         }
-        PZArrayList<IsoObject> objects = owner.getObjects();
+        List<IsoObject> objects = SquareObjects.of(owner);
         for (int i = 0; i < objects.size(); i++) {
             IsoSprite sprite = objects.get(i).getSprite();
             if (sprite == null) {
@@ -158,7 +158,7 @@ final class CeilingBuilder {
     }
 
     private static boolean overStairs(IsoGridSquare square) {
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             IsoSprite sprite = objects.get(i).getSprite();
             if (sprite != null && WorldScene.isStair(sprite.getType())) {
@@ -173,7 +173,7 @@ final class CeilingBuilder {
      * to be read: the build is made again once it has been.
      */
     private boolean glazed(IsoGridSquare square) {
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             IsoSprite sprite = objects.get(i).getSprite();
             if (sprite == null || sprite.getName() == null || !sprite.getName().startsWith("roofs")) {
@@ -208,7 +208,7 @@ final class CeilingBuilder {
             if (under == null) {
                 return null;
             }
-            PZArrayList<IsoObject> objects = under.getObjects();
+            List<IsoObject> objects = SquareObjects.of(under);
             for (int i = 0; i < objects.size(); i++) {
                 IsoSprite sprite = objects.get(i).getSprite();
                 if (sprite == null) {

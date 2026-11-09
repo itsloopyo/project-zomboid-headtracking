@@ -7,7 +7,6 @@ import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoLightSource;
 import zombie.iso.IsoObject;
 import zombie.iso.objects.IsoLightSwitch;
-import zombie.util.list.PZArrayList;
 
 /**
  * The light a lamp hung on the outside of a building, or up on a street lamp's post, throws round
@@ -234,7 +233,7 @@ final class Lamps {
         if (square == null) {
             return false;
         }
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             if (!(objects.get(i) instanceof IsoLightSwitch post)) {
                 continue;

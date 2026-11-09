@@ -1,10 +1,10 @@
 package com.cameraunlock.zomboid;
 
+import java.util.List;
 import zombie.core.properties.PropertyContainer;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.sprite.IsoSprite;
-import zombie.util.list.PZArrayList;
 
 /**
  * The low fences WallBuilder stands as models. The white picket fence: fencing_01_4 on a square's west edge, 5 on its
@@ -51,7 +51,7 @@ final class ModelFences {
      * crossing that edge may strike (ImpactFinder). Logic thread.
      */
     static IsoObject picketsOn(IsoGridSquare square, boolean north) {
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
             IsoSprite sprite = object.getSprite();

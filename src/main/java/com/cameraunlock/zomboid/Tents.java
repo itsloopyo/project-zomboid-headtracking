@@ -1,9 +1,9 @@
 package com.cameraunlock.zomboid;
 
+import java.util.List;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.sprite.IsoSprite;
-import zombie.util.list.PZArrayList;
 
 /**
  * The cloth of a tent and of a market stall's canopy, from the game's sheet of them
@@ -209,7 +209,7 @@ final class Tents {
 
     /** Whether a square holds a square of a tent's canopy. */
     static boolean canvasOn(IsoGridSquare square) {
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             IsoSprite sprite = objects.get(i).getSprite();
             if (sprite != null && isCanvas(sprite)) {

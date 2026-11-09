@@ -1,11 +1,11 @@
 package com.cameraunlock.zomboid;
 
+import java.util.List;
 import zombie.core.properties.PropertyContainer;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.sprite.IsoSprite;
-import zombie.util.list.PZArrayList;
 
 /**
  * A parasol as the map has one. The game has no sprite of a parasol: the map puts four quarters
@@ -82,7 +82,7 @@ final class Parasols {
         if (square == null) {
             return null;
         }
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             IsoSprite sprite = objects.get(i).getSprite();
             if (sprite != null && quarter(sprite) == quarter) {

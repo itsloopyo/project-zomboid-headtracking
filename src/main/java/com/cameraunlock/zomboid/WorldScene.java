@@ -69,7 +69,6 @@ import zombie.iso.sprite.IsoSpriteGrid;
 import zombie.iso.sprite.IsoSpriteInstance;
 import zombie.iso.sprite.IsoSpriteManager;
 import zombie.iso.weather.ClimateManager;
-import zombie.util.list.PZArrayList;
 
 /**
  * The world as one player's first-person view builds and keeps it, and inside it, as Frame,
@@ -3290,7 +3289,7 @@ final class WorldScene {
 
     /** The same, with or without a wall's corner post (pillar), which the game marks as on both edges and stands on neither. */
     static IsoObject wallOn(IsoGridSquare square, boolean north, boolean posts) {
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
             IsoSprite sprite = object.getSprite();
@@ -3360,7 +3359,7 @@ final class WorldScene {
         if (square == null) {
             return false;
         }
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             IsoSprite sprite = objects.get(i).getSprite();
             if (sprite != null && (north ? onNorthEdge(sprite.getProperties()) : onWestEdge(sprite.getProperties()))) {
@@ -5830,7 +5829,7 @@ final class WorldScene {
 
         /** Whether something lies on the square that its lawn does not grow up through: see Flat.grassThrough. */
         private boolean flattened(IsoGridSquare square) {
-            PZArrayList<IsoObject> objects = square.getObjects();
+            List<IsoObject> objects = SquareObjects.of(square);
             for (int i = 0; i < objects.size(); i++) {
                 IsoSprite sprite = objects.get(i).getSprite();
                 if (sprite != null && kindOf(sprite).lies && !Flat.grassThrough(sprite.getName())) {
@@ -5842,7 +5841,7 @@ final class WorldScene {
 
         /** Whether a stock tank stands on the square, whose floor nothing grows up through: see Farm.tank. */
         private boolean tanked(IsoGridSquare square) {
-            PZArrayList<IsoObject> objects = square.getObjects();
+            List<IsoObject> objects = SquareObjects.of(square);
             for (int i = 0; i < objects.size(); i++) {
                 IsoSprite sprite = objects.get(i).getSprite();
                 if (sprite != null && kindOf(sprite).tank) {
@@ -5858,7 +5857,7 @@ final class WorldScene {
             if (next == null) {
                 return Flat.REACH;
             }
-            PZArrayList<IsoObject> objects = next.getObjects();
+            List<IsoObject> objects = SquareObjects.of(next);
             for (int i = 0; i < objects.size(); i++) {
                 IsoSprite sprite = objects.get(i).getSprite();
                 if (sprite != null && kindOf(sprite).lies) {
@@ -6971,7 +6970,7 @@ final class WorldScene {
                         if (!mainsOn && z >= 1 && square.getRoomID() == -1L && square.getFloor() != null && isCanopy(square, squareAt(chunkX, chunkY, square.getX(), square.getY(), z - 1))) {
                             thing = sum(thing, square.haveElectricity() ? 1 : 0);
                         }
-                        PZArrayList<IsoObject> objects = square.getObjects();
+                        List<IsoObject> objects = SquareObjects.of(square);
                         thing = sum(thing, objects.size());
                         for (int k = 0; k < objects.size(); k++) {
                             IsoObject object = objects.get(k);
@@ -7143,7 +7142,7 @@ final class WorldScene {
                                 what.append(" gone");
                             } else {
                                 what.append(current.auditThings[index] == -1 ? " new" : "").append(" room ").append(square.getRoomID()).append(unexplored(square) ? " unexplored" : "");
-                                PZArrayList<IsoObject> objects = square.getObjects();
+                                List<IsoObject> objects = SquareObjects.of(square);
                                 for (int k = 0; k < objects.size(); k++) {
                                     IsoSprite sprite = objects.get(k).getSprite();
                                     Texture texture = sprite == null ? null : sprite.getTextureForCurrentFrame(objects.get(k).getDir());
@@ -8043,7 +8042,7 @@ final class WorldScene {
          * marks a square as having a tree for any object of the tree's type on it.
          */
         private byte treeDrops(IsoGridSquare square, boolean otherHue) {
-            PZArrayList<IsoObject> objects = square.getObjects();
+            List<IsoObject> objects = SquareObjects.of(square);
             for (int i = 0; i < objects.size(); i++) {
                 IsoObject object = objects.get(i);
                 if (object.getType() == IsoObjectType.tree) {
@@ -8684,7 +8683,7 @@ final class WorldScene {
                 if (square == null) {
                     return null;
                 }
-                PZArrayList<IsoObject> objects = square.getObjects();
+                List<IsoObject> objects = SquareObjects.of(square);
                 for (int i = 0; i < objects.size(); i++) {
                     IsoObject object = objects.get(i);
                     IsoSprite sprite = object.getSprite();
@@ -9002,7 +9001,7 @@ final class WorldScene {
                 if (square == null) {
                     continue;
                 }
-                PZArrayList<IsoObject> objects = square.getObjects();
+                List<IsoObject> objects = SquareObjects.of(square);
                 for (int i = 0; i < objects.size(); i++) {
                     IsoSprite sprite = objects.get(i).getSprite();
                     if (sprite != null) {
@@ -9018,7 +9017,7 @@ final class WorldScene {
 
         /** Whether the square being built holds nothing but trim and the grime laid over it. */
         private boolean onlyTrim() {
-            PZArrayList<IsoObject> objects = here.getObjects();
+            List<IsoObject> objects = SquareObjects.of(here);
             for (int i = 0; i < objects.size(); i++) {
                 IsoSprite sprite = objects.get(i).getSprite();
                 String name = sprite == null ? null : sprite.getName();
@@ -9045,7 +9044,7 @@ final class WorldScene {
             paintLater.clear();
             groundLaid = false;
             boolean openAbove = false;
-            PZArrayList<IsoObject> objects = square.getObjects();
+            List<IsoObject> objects = SquareObjects.of(square);
             for (int i = 0; i < objects.size(); i++) {
                 IsoObject object = objects.get(i);
                 IsoSprite sprite = object.getSprite();
@@ -9586,7 +9585,7 @@ final class WorldScene {
             if (square == null) {
                 return false;
             }
-            PZArrayList<IsoObject> objects = square.getObjects();
+            List<IsoObject> objects = SquareObjects.of(square);
             for (int i = 0; i < objects.size(); i++) {
                 IsoSprite sprite = objects.get(i).getSprite();
                 if (sprite != null && Roofs.accent(sprite.getName()) && sprite.getProperties().has(edge)) {
@@ -9598,14 +9597,14 @@ final class WorldScene {
 
         private boolean floatsFree(int x, int y, int z) {
             IsoGridSquare square = cell.getGridSquare(x, y, z), under = cell.getGridSquare(x, y, z - 1);
-            PZArrayList<IsoObject> objects = square.getObjects();
+            List<IsoObject> objects = SquareObjects.of(square);
             for (int n = 0; n < objects.size(); n++) {
                 IsoSprite each = objects.get(n).getSprite();
                 if (each == null || !Roofs.accent(each.getName())) {
                     return false;
                 }
             }
-            if (under != null && !under.getObjects().isEmpty()) {
+            if (under != null && !SquareObjects.of(under).isEmpty()) {
                 return false;
             }
             // A trim beside a roof edges it, wherever the map's view puts it.
@@ -10784,7 +10783,7 @@ final class WorldScene {
             if (square == null) {
                 return -1;
             }
-            PZArrayList<IsoObject> objects = square.getObjects();
+            List<IsoObject> objects = SquareObjects.of(square);
             for (int i = 0; i < objects.size(); i++) {
                 IsoSprite sprite = objects.get(i).getSprite();
                 if (sprite != null && thirdOf(sprite.getType()) >= 0 && climbsWest(sprite.getType()) == west) {
@@ -10893,7 +10892,7 @@ final class WorldScene {
             if (square == null) {
                 return -1;
             }
-            PZArrayList<IsoObject> objects = square.getObjects();
+            List<IsoObject> objects = SquareObjects.of(square);
             int n = 0;
             for (int i = 0; i < objects.size(); i++) {
                 IsoSprite sprite = objects.get(i).getSprite();
@@ -10928,7 +10927,7 @@ final class WorldScene {
             if (read != Track.LAID || ties == null || rails == null) {
                 return false;
             }
-            PZArrayList<IsoObject> objects = cell.getGridSquare(x, y, 0).getObjects();
+            List<IsoObject> objects = SquareObjects.of(cell.getGridSquare(x, y, 0));
             for (int i = 0; i < objects.size(); i++) {
                 IsoSprite sprite = objects.get(i).getSprite();
                 if (sprite != null && kindOf(sprite).track != null) {
@@ -10973,7 +10972,7 @@ final class WorldScene {
                 if (top == null || top.getFloor() == null) {
                     continue;
                 }
-                PZArrayList<IsoObject> objects = top.getObjects();
+                List<IsoObject> objects = SquareObjects.of(top);
                 for (int i = 0; i < objects.size(); i++) {
                     IsoObject object = objects.get(i);
                     IsoSprite sprite = object.getSprite();

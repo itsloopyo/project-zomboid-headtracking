@@ -502,14 +502,20 @@ public final class Agent {
 
     private static boolean start(Path gameDirectory, Instrumentation instrumentation) throws IOException {
         Links.Result links = Links.check();
-        if (!links.unresolved().isEmpty()) {
-            links.unresolved().forEach(missing -> Log.info("not in this build of the game as the mod uses it: " + missing));
-            Log.info("the mod stays out of the game: this build lacks " + links.unresolved().size() + " of the "
-                    + links.references() + " things of the game's the mod uses");
+        List<String> unresolved = new ArrayList<>(links.unresolved());
+        String squareObjects = SquareObjects.missing(Links::running);
+        if (squareObjects != null) {
+            unresolved.add(squareObjects);
+        }
+        int references = links.references() + 1;
+        if (!unresolved.isEmpty()) {
+            unresolved.forEach(missing -> Log.info("not in this build of the game as the mod uses it: " + missing));
+            Log.info("the mod stays out of the game: this build lacks " + unresolved.size() + " of the "
+                    + references + " things of the game's the mod uses");
             sayNotRunning(instrumentation, "it does not work with this version of the game");
             return false;
         }
-        Log.info("all " + links.references() + " things of the game's the mod uses are in this build");
+        Log.info("all " + references + " things of the game's the mod uses are in this build");
 
         Tracking.start(gameDirectory);
         try {

@@ -2,6 +2,7 @@ package com.cameraunlock.zomboid;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import zombie.core.properties.PropertyContainer;
@@ -14,7 +15,6 @@ import zombie.iso.SpriteDetails.IsoFlagType;
 import zombie.iso.areas.IsoBuilding;
 import zombie.iso.sprite.IsoSprite;
 import zombie.iso.sprite.IsoSpriteManager;
-import zombie.util.list.PZArrayList;
 
 /**
  * The walls of a chunk being built: a wall stood on the edge of its square with its two skins, its courses, the caps that
@@ -167,7 +167,7 @@ final class WallBuilder {
             return false;
         }
         IsoFlagType attached = da != 0f ? IsoFlagType.attachedN : IsoFlagType.attachedW;
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
             IsoSprite sprite = object.getSprite();
@@ -1289,7 +1289,7 @@ final class WallBuilder {
 
     /** As logsProud, for a square of the map read off the build threads: 0 for none. */
     static float logsProud(IsoGridSquare square, boolean onNorth) {
-        return Own.buildings() && square != null && logsAlong(square.getObjects(), onNorth) ? LogWalls.RADIUS - WorldScene.WALL_HALF : 0f;
+        return Own.buildings() && square != null && logsAlong(SquareObjects.of(square), onNorth) ? LogWalls.RADIUS - WorldScene.WALL_HALF : 0f;
     }
 
     /** Whether square (sx, sy) has a length of log wall on its north edge, or its west. */
@@ -1298,7 +1298,7 @@ final class WallBuilder {
     }
 
     /** Whether a square's things, null for none, hold a length of log wall on its north edge, or its west. */
-    private static boolean logsAlong(PZArrayList<IsoObject> objects, boolean onNorth) {
+    private static boolean logsAlong(List<IsoObject> objects, boolean onNorth) {
         for (int i = 0; objects != null && i < objects.size(); i++) {
             IsoSprite sprite = objects.get(i).getSprite();
             if (sprite != null && LogWalls.is(sprite.getName())
@@ -1311,7 +1311,7 @@ final class WallBuilder {
 
     /** Whether square (sx, sy) holds the lone post sprite post, which stands where a fence's own post would. */
     private boolean lonePostOn(int sx, int sy, int z, String post) {
-        PZArrayList<IsoObject> objects = objectsOn(sx, sy, z);
+        List<IsoObject> objects = objectsOn(sx, sy, z);
         for (int i = 0; objects != null && i < objects.size(); i++) {
             IsoSprite sprite = objects.get(i).getSprite();
             if (sprite != null && post.equals(sprite.getName())) {
@@ -1357,7 +1357,7 @@ final class WallBuilder {
         if (sx == x && sy == y && onNorth == north) {
             return false;
         }
-        PZArrayList<IsoObject> objects = objectsOn(sx, sy, z);
+        List<IsoObject> objects = objectsOn(sx, sy, z);
         for (int i = 0; objects != null && i < objects.size(); i++) {
             IsoSprite sprite = objects.get(i).getSprite();
             if (sprite == null || sprite.getName() == null) {
@@ -1377,7 +1377,7 @@ final class WallBuilder {
 
     /** Whether square (sx, sy) holds a lone post of chain link, which stands on its north-west corner: see Outdoors. */
     private boolean lonePostOn(int sx, int sy, int z) {
-        PZArrayList<IsoObject> objects = objectsOn(sx, sy, z);
+        List<IsoObject> objects = objectsOn(sx, sy, z);
         for (int i = 0; objects != null && i < objects.size(); i++) {
             IsoSprite sprite = objects.get(i).getSprite();
             if (sprite != null && ChainLink.lonePost(sprite.getName())) {
@@ -1392,7 +1392,7 @@ final class WallBuilder {
      * no square where there is only air, so a missing one is one not loaded only where the
      * ground under it is missing too: the build is then made again once the map has loaded it.
      */
-    private PZArrayList<IsoObject> objectsOn(int sx, int sy, int z) {
+    private List<IsoObject> objectsOn(int sx, int sy, int z) {
         IsoGridSquare square = build.cell.getGridSquare(sx, sy, z);
         if (square == null) {
             if (z == 0 || build.cell.getGridSquare(sx, sy, 0) == null) {
@@ -1400,7 +1400,7 @@ final class WallBuilder {
             }
             return null;
         }
-        return square.getObjects();
+        return SquareObjects.of(square);
     }
 
     private final float[] linkFrom = new float[3], linkTo = new float[3];
@@ -2368,7 +2368,7 @@ final class WallBuilder {
 
     /** The wall of the sheet being added that stands on the north edge of the square (along WallN) or the west edge, or null. */
     private IsoObject wallOfSheet(IsoGridSquare square, IsoFlagType along) {
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             IsoSprite sprite = objects.get(i).getSprite();
             if (sprite != null && sprite.getName() != null && sprite.getName().startsWith(build.tiledSheet)

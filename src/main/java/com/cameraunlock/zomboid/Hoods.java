@@ -1,12 +1,12 @@
 package com.cameraunlock.zomboid;
 
+import java.util.List;
 import zombie.core.properties.PropertyContainer;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.SpriteDetails.IsoFlagType;
 import zombie.iso.sprite.IsoSprite;
-import zombie.util.list.PZArrayList;
 
 /**
  * A hood of roofing over a wall that stands on its own: the notice board's kiosk on a pier.
@@ -81,7 +81,7 @@ final class Hoods {
         if (square == null) {
             return false;
         }
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             IsoSprite sprite = objects.get(i).getSprite();
             if (sprite != null && sprite.getProperties().has(IsoFlagType.isEave) && innerCornerOf(sprite.getName())) {
@@ -225,7 +225,7 @@ final class Hoods {
         if (square == null) {
             return false;
         }
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             IsoSprite sprite = objects.get(i).getSprite();
             if (sprite == null) {
@@ -247,7 +247,7 @@ final class Hoods {
         if (square == null) {
             return false;
         }
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = SquareObjects.of(square);
         for (int i = 0; i < objects.size(); i++) {
             IsoSprite sprite = objects.get(i).getSprite();
             if (sprite == null) {
@@ -272,7 +272,7 @@ final class Hoods {
                 if (square == null) {
                     return NONE;
                 }
-                PZArrayList<IsoObject> objects = square.getObjects();
+                List<IsoObject> objects = SquareObjects.of(square);
                 for (int i = 0; i < objects.size(); i++) {
                     IsoSprite sprite = objects.get(i).getSprite();
                     int wall = sprite == null ? NONE : Hoods.eave(sprite);
@@ -291,7 +291,7 @@ final class Hoods {
             @Override
             public boolean emptyAbove(int x, int y) {
                 IsoGridSquare square = cell.getGridSquare(x, y, z + 1);
-                return square == null || square.getObjects().isEmpty();
+                return square == null || SquareObjects.of(square).isEmpty();
             }
 
             @Override
@@ -300,7 +300,7 @@ final class Hoods {
                 if (square == null) {
                     return false;
                 }
-                PZArrayList<IsoObject> objects = square.getObjects();
+                List<IsoObject> objects = SquareObjects.of(square);
                 for (int i = 0; i < objects.size(); i++) {
                     IsoSprite sprite = objects.get(i).getSprite();
                     if (sprite != null && Hoods.endPiece(sprite)) {
