@@ -340,7 +340,7 @@ final class CentreUse {
 
     private static boolean near(IsoObject object, float within, IsoPlayer player, IsoGridSquare from) {
         IsoGridSquare square = object.getSquare();
-        return !"Tutorial".equals(Core.getInstance().getGameMode()) && !paused() && player.isAlive() && !player.isAiming() && from != null && square != null
+        return !Core.tutorial && !paused() && player.isAlive() && !player.isAiming() && from != null && square != null
                 && player.DistToSquared(square.getX() + 0.5f, square.getY() + 0.5f) < within && !from.isSomethingTo(square);
     }
 
