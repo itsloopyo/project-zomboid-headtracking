@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.1] - 2026-11-09
+
+### Added
+
+- make the held map a sheet of folded paper with a fixed print instead of a flat screen
+
+### Fixed
+
+- wire and bar fences a car knocks down throw steel pieces instead of wooden boards
+- count at most a tenth of a second a frame towards holding the map key, so the stall of the first lift no longer turns a tap into opening the game's map
+- read the game's own Core.tutorial flag for the tutorial check, since Core.getGameMode no longer returns a string in 42.22.2
+- find IsoGridSquare.getObjects on the running build, since 42.22.2 returns a List where 42.21.0 returned PZArrayList
+- patch game methods whose parameters a new build changed, so 42.22.2's CombatManager and syncIsoObjectReceive take the mod's patches
+
 ## [0.3.0] - 2026-11-04
 
 ### Added
