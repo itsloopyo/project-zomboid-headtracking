@@ -2,6 +2,7 @@ package com.cameraunlock.zomboid;
 
 import java.util.ArrayList;
 import zombie.GameTime;
+import zombie.characters.BodyDamage.BodyDamage;
 import zombie.characters.BodyDamage.BodyPart;
 import zombie.characters.BodyDamage.BodyPartType;
 import zombie.characters.IsoGameCharacter;
@@ -120,7 +121,12 @@ final class Soaked {
 
     /** The game's wetness of the wettest of the viewer's hands and forearms, 0 to GAME_WET_THROUGH. */
     private static float armsWetness(IsoGameCharacter viewer) {
-        ArrayList<BodyPart> parts = viewer.getBodyDamage().getBodyParts();
+        // A zombie has none: the eye is a zombie's head once the viewer's corpse has risen.
+        BodyDamage damage = viewer.getBodyDamage();
+        if (damage == null) {
+            return 0f;
+        }
+        ArrayList<BodyPart> parts = damage.getBodyParts();
         float wettest = 0f;
         for (int i = 0; i < parts.size(); i++) {
             BodyPart part = parts.get(i);
