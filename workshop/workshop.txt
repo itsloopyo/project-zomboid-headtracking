@@ -68,6 +68,7 @@ description=Offline, vehicles also smash through fences, lamp posts, barricades 
 description=
 description=[h1]Requirements[/h1]
 description=[list]
+description=[*] Tested on Project Zomboid 42.22.2.
 description=[*] ZombieBuddy 2.x (tested with 2.3.4), set up once as its Workshop page describes. ZombieBuddy 3.0 is not supported yet.
 description=[*] For first person: OpenGL 3.3. Without it first person stays off and the screen says so.
 description=[*] Windows 10 or 11, 64-bit.
