@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2] - 2026-11-12
+
+### Fixed
+
+- refuse to package a Workshop description longer than Steam's 8000 characters
+- keep first person on when a dead player's corpse rises, where reading the zombie's wetness threw on its missing body damage
+
 ## [0.3.1] - 2026-11-09
 
 ### Added
