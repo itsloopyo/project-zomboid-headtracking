@@ -21,6 +21,12 @@ public final class VehicleScript {
         public Vector3f getOffset() { throw new UnsupportedOperationException("reference stub"); }
     }
 
+    public Model getModel() { throw new UnsupportedOperationException("reference stub"); }
+
+    public static final class Model {
+        public Vector3f getOffset() { throw new UnsupportedOperationException("reference stub"); }
+    }
+
     public static final class Position {
         public Vector3f getOffset() { throw new UnsupportedOperationException("reference stub"); }
     }

@@ -2,6 +2,7 @@ package com.cameraunlock.zomboid;
 
 import java.util.Arrays;
 import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import org.joml.Vector3f;
 import zombie.GameTime;
@@ -26,6 +27,12 @@ final class Ride {
     private static final float EYE_HEIGHT_IN_VEHICLE = 1.1f;
     /** How far in from the door the driver's head is: in line with the middle of the wheel. */
     private static final float HEAD_INBOARD = 0.64f;
+    /**
+     * How far above the script's place inside a seat the eye is: in Base.CarNormal on level
+     * ground the car's body stands 0.271 above the floor and the driver's place is 0.240 above
+     * that, and its eye is EYE_HEIGHT_IN_VEHICLE above the floor.
+     */
+    private static final float EYE_ABOVE_SEAT = EYE_HEIGHT_IN_VEHICLE - 0.511f;
     private static final float[] DRIVER = {0f, 0f};
     /** The speedometer reads to 160 km/h, a hundred miles an hour, and the rev counter to 7000. */
     static final float SPEEDOMETER_FULL = 160f, REV_COUNTER_FULL = 7000f;
@@ -119,10 +126,18 @@ final class Ride {
      * with ModdedVehicleInteriors on.
      */
     final ConcurrentHashMap<String, float[]> eyeWheels = new ConcurrentHashMap<>();
+    /**
+     * Vehicle scripts whose inside is models of their own, as a vehicle mod's are: written by the
+     * picture's thread. One with no steering wheel among them has the eye in each seat put at the
+     * script's place inside that seat, with ModdedVehicleInteriors on.
+     */
+    final Set<String> ownInteriors = ConcurrentHashMap.newKeySet();
+
     /** As a save is left: another save may have another vehicle mod give a script of the same name another cabin. */
     void forgetWheels() {
         wheels.clear();
         eyeWheels.clear();
+        ownInteriors.clear();
     }
 
     /** What the viewer wears on the arms and hands, asked from the driver's seat and with a weapon in hand. */
@@ -131,6 +146,7 @@ final class Ride {
     private String seatsOf;
     private final Vector3f seatAt = new Vector3f();
     private final Vector3f facing = new Vector3f();
+    private final Vector3f insideAt = new Vector3f(), bodyAt = new Vector3f();
     private final Vector3f above = new Vector3f();
     private final Vector3f going = new Vector3f();
     private int seatSaid;
@@ -420,13 +436,33 @@ final class Ride {
         eye[0] = (double) seatAt.x - sideX / side * Math.min(HEAD_INBOARD, side);
         eye[1] = (double) seatAt.y - sideY / side * Math.min(HEAD_INBOARD, side);
         eye[2] = (double) floorUp + EYE_HEIGHT_IN_VEHICLE;
+        boolean modded = Part.MODDED_VEHICLE_INTERIORS.on();
+        if (modded && ownInteriors.contains(vehicle.getScriptName()) && !eyeWheels.containsKey(vehicle.getScriptName())) {
+            // The game's place for the seat is at the door until the player is seated, and stays
+            // there where nothing seats them; a vehicle mod may put that place behind its seats
+            // rather than at a door. The script's place inside the seat is where it sits the
+            // player's own model, at the seat's own height: an armoured car's seat is higher
+            // than a saloon's.
+            VehicleScript.Position inside = vehicle.getPassengerPosition(seat, "inside");
+            if (inside != null) {
+                Vector3f model = vehicle.getScript().getModel().getOffset(), offset = inside.getOffset();
+                vehicle.getWorldPos(model.x + offset.x, model.y + offset.y, model.z + offset.z, insideAt);
+                vehicle.getWorldPos(0f, 0f, 0f, bodyAt);
+                eye[0] = insideAt.x;
+                eye[1] = insideAt.y;
+                // getWorldPos gives the body's own height in floors and adds the place's height above
+                // it as it is, in the physics' units, which are the picture's. The floor is the
+                // vehicle's, without the lie of the land the picture lifts that floor by.
+                eye[2] = (double) floorUp + (bodyAt.z - (float) Math.floor(vehicle.getZ())) * ViewCamera.LEVEL_HEIGHT + (insideAt.z - bodyAt.z) + EYE_ABOVE_SEAT;
+            }
+        }
         // Where the vehicle's own wheel has been found the driver sits behind it: a
         // pickup's seat is higher than a saloon's and a van's further forward.
         // A passenger sits where the script seats them from the driver. The eye goes
         // with the vehicle however it is thrown.
         float[] axes = stands;
         float[] wheel = wheels.get(vehicle.getScriptName());
-        if (wheel == null && Part.MODDED_VEHICLE_INTERIORS.on()) {
+        if (wheel == null && modded) {
             wheel = eyeWheels.get(vehicle.getScriptName());
         }
         float[] fromDriver = wheel == null ? null : seat == 0 ? DRIVER : Cabins.fromDriver(vehicle.getScript(), seat, wheel[3]);

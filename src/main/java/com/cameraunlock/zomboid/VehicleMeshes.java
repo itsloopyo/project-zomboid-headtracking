@@ -470,6 +470,9 @@ final class VehicleMeshes {
         if (ride.eyeWheels.containsKey(script)) {
             seated.ownInterior = true;
         }
+        if (seated.ownInterior && !ride.ownInteriors.contains(script)) {
+            ride.ownInteriors.add(script);
+        }
         if (done || !all) {
             return;
         }
