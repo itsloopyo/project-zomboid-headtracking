@@ -10,6 +10,8 @@ package com.cameraunlock.zomboid;
  * character stays near the middle of the picture whichever way the mouse turns it, and comes
  * in over the right shoulder while the sights are up. The boom is shortened at once where a
  * wall would come between the pivot and the camera, and let out again slowly, as a lean is.
+ * Where the walls leave the boom too short to see past the character's head, in a small room
+ * or a passage, the camera comes in over the shoulder as it does for the sights.
  * The head turns the camera where it stands, as it turns the eye in first person, so a turn
  * of the head moves the picture as far in either view, and the lean moves the camera.
  *
@@ -20,6 +22,17 @@ final class ThirdPerson {
     static final float BEHIND = 2.4f, ABOVE = 0.3f, RIGHT = 0f;
     /** With the sights up: the same, in over the right shoulder. */
     static final float AIM_BEHIND = 1.1f, AIM_ABOVE = 0.12f, AIM_RIGHT = 0.5f;
+    /**
+     * The share of the boom on foot the walls leave the camera, at and under which it is all the
+     * way in over the shoulder, and from which it starts to come in: tuned, not measured.
+     */
+    static final float CRAMPED_FULL = 0.35f, CRAMPED_FROM = 0.6f;
+    /**
+     * The time constants the camera goes in over the shoulder in a cramped place in, and back out
+     * in: out slowly, as the boom is let out, or a doorway passed behind would swing it out and
+     * back in.
+     */
+    static final float CRAMP_SECONDS = 0.25f, UNCRAMP_SECONDS = 1f;
     /** In a vehicle: how far behind its back end the camera stands, and how far over its roof the pivot is. */
     static final float VEHICLE_BEHIND = 3.6f, VEHICLE_ABOVE = 0.9f;
     /**
@@ -62,6 +75,9 @@ final class ThirdPerson {
     private float out;
     /** 0 on foot at the hip, 1 with the sights up, eased. */
     private float aimed;
+    /** 0 where the walls leave the boom on foot its whole length, 1 where they leave too little to see past the head, eased; and whether it has been measured since the camera was last placed. */
+    private float cramped;
+    private boolean crampKnown;
     /** 0 at a walk or a run, 1 at a sprint, eased. */
     private float sprinted;
     /** Where the pivot is, trailing the character, and whether it has been put anywhere since the camera was last at the eye. */
@@ -70,10 +86,10 @@ final class ThirdPerson {
     /** Where the pivot was last asked to follow: how far that moves in a frame tells a teleport from a run. */
     private double wantedX, wantedY, wantedUp;
     /** 0 as the character sits down or gets up, 1 once the camera has reached its new place, even in time; and how far back and up it stood before. */
-    private float seat = 1f, seatFromBehind, seatFromAbove;
-    /** Whether the camera has been placed since it was last at the eye or cut, over a seat or not, and how far back and up it last stood. */
+    private float seat = 1f, seatFromBehind, seatFromAbove, seatFromRight;
+    /** Whether the camera has been placed since it was last at the eye or cut, over a seat or not, and how far back, up and right it last stood. */
     private boolean seatKnown, seated;
-    private float lastBehind, lastAbove;
+    private float lastBehind, lastAbove, lastRight;
     /** How far out along the boom the walls let the camera go, as last let out: for the clean camera, and for the one with the head's lean in it. */
     private final Boom clean = new Boom(), tracked = new Boom();
 
@@ -133,7 +149,7 @@ final class ThirdPerson {
 
     /**
      * Says whether the character sits this frame, before the pivot follows: on the frame they sit
-     * down or get up the camera sets off from how far back and up it last stood to its new place,
+     * down or get up the camera sets off from how far back, up and right it last stood to its new place,
      * over SEAT_SECONDS.
      */
     void seat(boolean sits) {
@@ -141,6 +157,7 @@ final class ThirdPerson {
             seat = 0f;
             seatFromBehind = lastBehind;
             seatFromAbove = lastAbove;
+            seatFromRight = lastRight;
         }
         seatKnown = true;
         seated = sits;
@@ -158,6 +175,12 @@ final class ThirdPerson {
         return lastAbove;
     }
 
+    /** How far right it stands, on the same way. */
+    float seatedRight(float wanted) {
+        lastRight = seatFromRight + (wanted - seatFromRight) * smooth(seat);
+        return lastRight;
+    }
+
     private static float smooth(float t) {
         return t * t * (3f - 2f * t);
     }
@@ -171,6 +194,32 @@ final class ThirdPerson {
     /** How far out of the eye the camera is: 0 at it, 1 at its place, setting off and arriving slowly. */
     float share() {
         return out * out * (3f - 2f * out);
+    }
+
+    /**
+     * Measures how far the walls let the camera out on foot at the hip, behind the pivot along
+     * the way `look` looks, whatever boom it has now: over the shoulder its own boom is short,
+     * and measured by that it would never go back out. Eases the cramped share towards what that
+     * room says over a frame, or puts it there at once after a cut.
+     */
+    void cramp(ViewCamera.Pose look, double pivotX, double pivotY, double pivotUp, Walls walls, float levelFloor, float ceiling, float seconds) {
+        float awayX = -look.forwardX * BEHIND + look.rightX * RIGHT, awayY = -look.forwardY * BEHIND + look.rightY * RIGHT;
+        float awayUp = -look.forwardUp * BEHIND + look.rightUp * RIGHT + ABOVE;
+        float flat = (float) Math.hypot(awayX, awayY);
+        float left = 1f;
+        if (flat > 1e-4f) {
+            float rise = (float) (Math.min(pivotUp + awayUp, ceiling - STANDOFF) - pivotUp) / flat;
+            left = Math.min(walls.room((float) pivotX, (float) pivotY, awayX / flat, awayY / flat, flat, STANDOFF, (float) pivotUp - levelFloor, rise), flat) / flat;
+        }
+        float wanted = 1f - smooth(Math.clamp((left - CRAMPED_FULL) / (CRAMPED_FROM - CRAMPED_FULL), 0f, 1f));
+        float constant = wanted > cramped ? CRAMP_SECONDS : UNCRAMP_SECONDS;
+        cramped = crampKnown ? cramped + (wanted - cramped) * (1f - (float) Math.exp(-seconds / constant)) : wanted;
+        crampKnown = true;
+    }
+
+    /** The share of the way a cramped place has brought the camera in over the shoulder, setting off slowly. */
+    float crampShare() {
+        return smooth(cramped);
     }
 
     /** The share of the way a sprint has taken the camera back, setting off and arriving slowly. */
@@ -324,6 +373,7 @@ final class ThirdPerson {
         tracked.forget();
         followed = false;
         seatKnown = false;
+        crampKnown = false;
         seat = 1f;
     }
 

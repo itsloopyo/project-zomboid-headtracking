@@ -26,6 +26,7 @@ final class ThirdPersonTests {
         Checks.run("aBoomAsHighAsAnEaveDoesNotGoInUnderTheRoofFromTheOpenAir", ThirdPersonTests::aBoomAsHighAsAnEaveDoesNotGoInUnderTheRoofFromTheOpenAir);
         Checks.run("aBoomOverTheTopOfAWallMeetsTheWallOfTheLevelAbove", ThirdPersonTests::aBoomOverTheTopOfAWallMeetsTheWallOfTheLevelAbove);
         Checks.run("aCameraOutFromUnderAPorchIsNotPushedBackUnderIt", ThirdPersonTests::aCameraOutFromUnderAPorchIsNotPushedBackUnderIt);
+        Checks.run("inACrampedPlaceTheCameraComesInOverTheShoulderAndGoesBackOutInTheOpen", ThirdPersonTests::inACrampedPlaceTheCameraComesInOverTheShoulderAndGoesBackOutInTheOpen);
     }
 
     private static void check(boolean condition, String what) {
@@ -75,6 +76,49 @@ final class ThirdPersonTests {
         place(out(), down, down, OPEN, 0f, Float.POSITIVE_INFINITY, 1f / 60f, clean, camera);
         double up = PIVOT_UP + Math.sin(Math.toRadians(40)) * ThirdPerson.BEHIND + ThirdPerson.ABOVE;
         check(near(camera.exactUp(), up, 1e-3), "looking 40 degrees down the camera is that far up the boom: " + camera.exactUp() + " against " + up);
+    }
+
+    private static void inACrampedPlaceTheCameraComesInOverTheShoulderAndGoesBackOutInTheOpen() {
+        ThirdPerson rig = out();
+        ViewCamera.Pose look = looking(0f, 0f);
+        float[] wall = {0.8f};
+        float[] asked = new float[1];
+        ThirdPerson.Walls walled = (x, y, dx, dy, reach, margin, up, rise) -> {
+            asked[0] = reach;
+            return Math.max(Math.min(reach, wall[0] - margin), 0f);
+        };
+        rig.cramp(look, PIVOT_X, PIVOT_Y, PIVOT_UP, walled, 0f, Float.POSITIVE_INFINITY, 1f / 60f);
+        check(rig.crampShare() == 1f, "the first measure after a cut is taken at once: a wall 0.8 tiles behind leaves too little boom: " + rig.crampShare());
+        check(near(asked[0], ThirdPerson.BEHIND, 1e-4), "the walls are asked about the whole boom on foot: " + asked[0]);
+        wall[0] = 1.4f;
+        rig.cramp(look, PIVOT_X, PIVOT_Y, PIVOT_UP, walled, 0f, Float.POSITIVE_INFINITY, 1f / 60f);
+        float share = (1.4f - ThirdPerson.STANDOFF) / ThirdPerson.BEHIND;
+        check(share > ThirdPerson.CRAMPED_FULL && share < ThirdPerson.CRAMPED_FROM && rig.crampShare() < 1f && rig.crampShare() > 0.9f,
+                "with half the boom left it starts back out, eased: " + rig.crampShare());
+        for (int frame = 0; frame < 360; frame++) {
+            rig.cramp(look, PIVOT_X, PIVOT_Y, PIVOT_UP, OPEN, 0f, Float.POSITIVE_INFINITY, 1f / 60f);
+        }
+        check(rig.crampShare() < 1e-3f, "six seconds in the open it is all the way back out: " + rig.crampShare());
+        wall[0] = 0.8f;
+        rig.cramp(look, PIVOT_X, PIVOT_Y, PIVOT_UP, walled, 0f, Float.POSITIVE_INFINITY, 1f / 60f);
+        float in = rig.crampShare();
+        check(in > 0f && in < 0.05f, "into a cramped place again it sets off slowly: " + in);
+        rig.seat(false);
+        rig.seat(true);
+        rig.cramp(look, PIVOT_X, PIVOT_Y, PIVOT_UP, walled, 0f, Float.POSITIVE_INFINITY, 1f / 60f);
+        check(rig.crampShare() > in && rig.crampShare() < 0.2f, "a seat change does not jump it: " + rig.crampShare());
+
+        // Out over the shoulder, sitting down glides the camera across to behind the vehicle, and getting out back.
+        ThirdPerson seats = out();
+        seats.seat(false);
+        check(seats.seatedRight(ThirdPerson.AIM_RIGHT) == ThirdPerson.AIM_RIGHT, "on foot it stands where it is wanted");
+        seats.seat(true);
+        check(seats.seatedRight(0f) == ThirdPerson.AIM_RIGHT, "on the frame they sit down it is still over the shoulder");
+        seats.advance(true, false, false, ThirdPerson.SEAT_SECONDS / 2f);
+        float halfway = seats.seatedRight(0f);
+        check(halfway > 0f && halfway < ThirdPerson.AIM_RIGHT, "half way through the glide it is between: " + halfway);
+        seats.advance(true, false, false, ThirdPerson.SEAT_SECONDS);
+        check(seats.seatedRight(0f) == 0f, "and then behind the vehicle");
     }
 
     private static void aWallBehindShortensTheBoomAtOnceAndItIsLetOutSlowly() {

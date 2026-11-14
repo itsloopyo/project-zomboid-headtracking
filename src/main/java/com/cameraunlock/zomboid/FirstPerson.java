@@ -1531,23 +1531,9 @@ public final class FirstPerson {
         IsoGameCharacter body = own(player);
         double fromX = vehicle != null ? vehicle.getX() : body.getX(), fromY = vehicle != null ? vehicle.getY() : body.getY();
         thirdPerson.seat(vehicle != null);
-        float back, above, right;
-        if (vehicle != null) {
-            Vector3f extents = vehicle.getScript().getExtents();
-            thirdPerson.follow(fromX, fromY, view.ride.groundUp + extents.y + ThirdPerson.VEHICLE_ABOVE, seconds);
-            back = extents.z / 2f + ThirdPerson.VEHICLE_BEHIND;
-            above = 0f;
-            right = 0f;
-        } else {
-            // Over where the character stands at the clean eye's height, and not on the head the animation sways with every stride.
-            thirdPerson.follow(fromX, fromY, mouseView.exactUp(), seconds);
-            float aimed = thirdPerson.aimShare();
-            back = ThirdPerson.BEHIND + (ThirdPerson.AIM_BEHIND - ThirdPerson.BEHIND) * aimed + ThirdPerson.SPRINT_BEHIND * thirdPerson.sprintShare() * (1f - aimed);
-            above = ThirdPerson.ABOVE + (ThirdPerson.AIM_ABOVE - ThirdPerson.ABOVE) * aimed;
-            right = ThirdPerson.RIGHT + (ThirdPerson.AIM_RIGHT - ThirdPerson.RIGHT) * aimed;
-        }
-        back = thirdPerson.seatedBehind(back);
-        above = thirdPerson.seatedAbove(above);
+        Vector3f extents = vehicle != null ? vehicle.getScript().getExtents() : null;
+        // On foot, over where the character stands at the clean eye's height, and not on the head the animation sways with every stride.
+        thirdPerson.follow(fromX, fromY, vehicle != null ? view.ride.groundUp + extents.y + ThirdPerson.VEHICLE_ABOVE : mouseView.exactUp(), seconds);
         // The pivot trails the character on the straight line to them, which round a corner goes through the wall: kept on their side of it.
         float trailX = (float) (thirdPerson.followX() - fromX), trailY = (float) (thirdPerson.followY() - fromY);
         float trail = (float) Math.hypot(trailX, trailY);
@@ -1558,8 +1544,25 @@ public final class FirstPerson {
                 ? behindWorld.roomForTheCamera((float) fromX, (float) fromY, trailX / trail, trailY / trail, trail, PIVOT_MARGIN, (float) pivotUp - levelFloor, 0f) / trail
                 : 1f;
         double pivotX = fromX + trailX * trailRoom, pivotY = fromY + trailY * trailRoom;
+        float ceiling = ceilingOver(pivotX, pivotY, level, floorUp);
+        float back, above, right;
+        if (vehicle != null) {
+            back = extents.z / 2f + ThirdPerson.VEHICLE_BEHIND;
+            above = 0f;
+            right = 0f;
+        } else {
+            // In a cramped place the camera is over the shoulder as it is for the sights.
+            thirdPerson.cramp(behindLook, pivotX, pivotY, pivotUp, behindWalls, levelFloor, ceiling, seconds);
+            float aimed = Math.max(thirdPerson.aimShare(), thirdPerson.crampShare());
+            back = ThirdPerson.BEHIND + (ThirdPerson.AIM_BEHIND - ThirdPerson.BEHIND) * aimed + ThirdPerson.SPRINT_BEHIND * thirdPerson.sprintShare() * (1f - aimed);
+            above = ThirdPerson.ABOVE + (ThirdPerson.AIM_ABOVE - ThirdPerson.ABOVE) * aimed;
+            right = ThirdPerson.RIGHT + (ThirdPerson.AIM_RIGHT - ThirdPerson.RIGHT) * aimed;
+        }
+        back = thirdPerson.seatedBehind(back);
+        above = thirdPerson.seatedAbove(above);
+        right = thirdPerson.seatedRight(right);
         thirdPerson.camera(behindLook, cleanView, trackedView, pivotX, pivotY, pivotUp, back, above, right, behindWalls,
-                levelFloor, floorUp, ceilingOver(pivotX, pivotY, level, floorUp), seconds, behindClean, behindView);
+                levelFloor, floorUp, ceiling, seconds, behindClean, behindView);
         keepInside(behindClean, level, pivotX, pivotY, pivotUp, levelFloor);
         keepInside(behindView, level, pivotX, pivotY, pivotUp, levelFloor);
     }
@@ -2987,9 +2990,9 @@ public final class FirstPerson {
                 reticleX, reticleY, ndc[0], ndc[1], shotDistance, trackedView.eyeX, trackedView.eyeY, trackedView.eyeUp,
                 trackedView.forwardX, trackedView.forwardY, trackedView.forwardUp,
                 risen == null ? "" : String.format(Locale.ROOT, " the head of risen zombie %d at (%.2f, %.2f, %.2f)", risen.getID(), risen.getX(), risen.getY(), risen.getZ()),
-                !pictureBehind ? "" : String.format(Locale.ROOT, " seen from behind at (%.3f, %.3f, %.3f) looking (%.2f, %.2f, %.2f), %.2f tiles from the eye, aimed %.2f, sprint %.2f",
+                !pictureBehind ? "" : String.format(Locale.ROOT, " seen from behind at (%.3f, %.3f, %.3f) looking (%.2f, %.2f, %.2f), %.2f tiles from the eye, aimed %.2f, cramped %.2f, sprint %.2f",
                         pictureView.exactX(), pictureView.exactY(), pictureView.exactUp(), pictureView.forwardX, pictureView.forwardY, pictureView.forwardUp,
-                        distance(pictureView, trackedView), thirdPerson.aimShare(), thirdPerson.sprintShare()),
+                        distance(pictureView, trackedView), thirdPerson.aimShare(), thirdPerson.crampShare(), thirdPerson.sprintShare()),
                 scene.describe(), view.controls.describe(), view.viewModel.describe()));
     }
 }
