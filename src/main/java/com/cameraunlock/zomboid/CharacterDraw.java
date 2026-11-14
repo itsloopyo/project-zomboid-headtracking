@@ -1784,23 +1784,33 @@ final class CharacterDraw {
         float eyeX = ((e * i - f * h) * x + (c * h - b * i) * y + (b * f - c * e) * z) / (det * scale);
         float eyeY = ((f * g - d * i) * x + (a * i - c * g) * y + (c * d - a * f) * z) / (det * scale);
         float eyeZ = ((d * h - e * g) * x + (b * g - a * h) * y + (a * e - b * d) * z) / (det * scale);
-        int floats = bones.remaining();
-        headless.clear();
-        headless.put(0, bones, bones.position(), floats);
-        headless.limit(floats);
+        return headAt(head, bones, eyeX, eyeY, eyeZ, headless);
+    }
+
+    /**
+     * The first BONES of a palette into {@code into}, with each of the head's bones taking every
+     * corner to (eyeX, eyeY, eyeZ). The game can pose a skeleton of more bones than that, and the
+     * shaders' palette, the game's and ours, holds 60: OpenGL drops what is handed past the end of
+     * a uniform array, so neither shader can reach the bones past it.
+     */
+    static FloatBuffer headAt(int[] head, FloatBuffer bones, float eyeX, float eyeY, float eyeZ, FloatBuffer into) {
+        int floats = Math.min(bones.remaining(), BONES * 16);
+        into.clear();
+        into.put(0, bones, bones.position(), floats);
+        into.limit(floats);
         for (int bone : head) {
             int at = bone * 16;
             if (at + 16 > floats) {
                 continue;
             }
             for (int part = 0; part < 12; part++) {
-                headless.put(at + part, 0f);
+                into.put(at + part, 0f);
             }
-            headless.put(at + 3, eyeX);
-            headless.put(at + 7, eyeY);
-            headless.put(at + 11, eyeZ);
+            into.put(at + 3, eyeX);
+            into.put(at + 7, eyeY);
+            into.put(at + 11, eyeZ);
         }
-        return headless;
+        return into;
     }
 
     /** The number of a part's head bone, or -1 for a part that has none: a part with no skeleton of its own, or one whose head is not among the bones posed for it. */

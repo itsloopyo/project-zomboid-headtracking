@@ -55,6 +55,7 @@ public final class Tests {
         Checks.run("cameraLooksAlongItsYaw", Tests::cameraLooksAlongItsYaw);
         Checks.run("keysAheadAreToldFromKeysAside", Tests::keysAheadAreToldFromKeysAside);
         Checks.run("cameraFollowsTheAnimatedHead", Tests::cameraFollowsTheAnimatedHead);
+        Checks.run("theHeadIsTakenToTheEyeInAPaletteOfMoreBonesThanTheShaderHolds", Tests::theHeadIsTakenToTheEyeInAPaletteOfMoreBonesThanTheShaderHolds);
         Checks.run("anIdleSwayOfTheHeadLeavesTheEyeWhereItIs", Tests::anIdleSwayOfTheHeadLeavesTheEyeWhereItIs);
         Checks.run("cameraPutsPlusYOnTheRightWhenFacingPlusX", Tests::cameraPutsPlusYOnTheRightWhenFacingPlusX);
         Checks.run("cameraPutsHigherPointsHigher", Tests::cameraPutsHigherPointsHigher);
@@ -2547,6 +2548,24 @@ public final class Tests {
 
     private static boolean near(float a, float b) {
         return Math.abs(a - b) < 1e-4f;
+    }
+
+    private static void theHeadIsTakenToTheEyeInAPaletteOfMoreBonesThanTheShaderHolds() {
+        java.nio.FloatBuffer bones = ByteBuffer.allocateDirect(65 * 16 * Float.BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
+        for (int at = 0; at < 65 * 16; at++) {
+            bones.put(at, at);
+        }
+        java.nio.FloatBuffer into = ByteBuffer.allocateDirect(60 * 16 * Float.BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
+        java.nio.FloatBuffer made = CharacterDraw.headAt(new int[] {5, 59, 62}, bones, 1f, 2f, 3f, into);
+        check(made.remaining() == 60 * 16, "the palette handed on is the shader's 60 bones, got " + made.remaining() + " floats");
+        check(made.get(4 * 16 + 7) == 4 * 16 + 7, "a bone not of the head is the game's");
+        for (int head : new int[] {5, 59}) {
+            int at = head * 16;
+            check(made.get(at) == 0f && made.get(at + 5) == 0f && made.get(at + 10) == 0f, "head bone " + head + " has no turn left in it");
+            check(made.get(at + 3) == 1f && made.get(at + 7) == 2f && made.get(at + 11) == 3f, "head bone " + head + " takes its corners to the eye");
+            check(made.get(at + 15) == at + 15, "head bone " + head + " keeps its last row");
+        }
+        check(bones.position() == 0 && bones.limit() == 65 * 16, "the game's palette is left as it was");
     }
 
     private static void cameraFollowsTheAnimatedHead() {
