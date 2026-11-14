@@ -58,7 +58,7 @@ final class Furniture {
     final int gridX, gridY;
     /** The model in place of model when a basin stands on the piece, or null for a piece that takes none. */
     Models.Model withBasin;
-    /** Whether this is a basin: part of the model of the counter it stands on, and nothing of its own. */
+    /** Whether this is a basin set in a table top: part of the model of a counter that takes one, and a bowl of its own on anything else. */
     boolean basin;
     /** The surfaces that take their colour from the game's sprite, a bit for each, and those that take it from a second place on it. */
     int dyed, alsoDyed;
@@ -755,9 +755,11 @@ final class Furniture {
             Furniture sink = new Furniture(sprite, "wall_sink", turns).stand(0f, 0f, true);
             return sink.raise(surfaceUp - SINK_RIM * sink.scaleUp);
         }
-        // A basin let into a counter. The counter's model has it.
+        // A basin let into a counter, which the counter's model has. On any other table, a chest of drawers or a shop's
+        // counter, it is a bowl of its own standing on the top, as a radio stands.
         if (called.equals("Sink") && onTable && single) {
-            Furniture basin = new Furniture(sprite, null, turns);
+            boolean ceramic = "Ceramic".equals(properties.get("SinkType"));
+            Furniture basin = new Furniture(sprite, ceramic ? "table_basin" : "table_basin_steel", turns).stand(0f, 0f, true).raise(surfaceUp);
             basin.basin = true;
             return basin;
         }

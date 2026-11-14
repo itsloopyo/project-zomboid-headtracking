@@ -3430,6 +3430,25 @@ def pedestal_sink():
     return model
 
 
+def table_basin(name, made):
+    """A basin standing on whatever table it is put on, the wall at +Y: a bowl on a foot and a mixer tap behind it. The
+    model's foot is the table's top."""
+    model = Model(name)
+    bowl = bmesh.new()
+    lathe(bowl, [(0.0, 0.0), (0.1, 0.0), (0.105, 0.015), (0.165, 0.045), (0.2, 0.095), (0.212, 0.13), (0.197, 0.13), (0.182, 0.097),
+                 (0.145, 0.055), (0.08, 0.035), (0.0, 0.032)], cy=-0.02, segments=24, sy=0.8)
+    model.turned(bowl, made, sharp=50.0)
+    drain = bmesh.new()
+    lathe(drain, [(0.0, 0.033), (0.022, 0.033), (0.022, 0.036), (0.0, 0.036)], cy=-0.02, segments=12)
+    model.turned(drain, "metal")
+    tap = bmesh.new()
+    lathe(tap, [(0.0, 0.0), (0.026, 0.0), (0.026, 0.01), (0.016, 0.022), (0.016, 0.2), (0.0, 0.205)], cy=0.19, segments=12)
+    prism_y(tap, (0.0, 0.185, 0.024, 0.022, 0.05), (0.0, 0.19, 0.024, 0.022, 0.19))
+    prism_y(tap, (0.0, 0.215, 0.014, 0.012, 0.13), (0.0, 0.205, 0.014, 0.012, 0.19))
+    model.turned(tap, "steel", sharp=40.0)
+    return model
+
+
 def medicine_cabinet():
     """A cupboard on a bathroom wall with a mirror for its door, the wall at +Y."""
     model = Model("medicine_cabinet")
@@ -4280,7 +4299,7 @@ def display_cases():
 def indoors():
     """What stands in rooms and hangs on their walls: the pieces Indoors.java places."""
     return [range_hood(), garbage_can(), waste_basket(), louvre("wall_vent", 0.56, 0.42, "plastic", 5), louvre("wall_grille", 0.64, 0.34, "enamel", 7, deep=0.03),
-            round_vent(), shutter_panelled(), shutter_louvred(), exit_sign(), sconce(), pedestal_sink(), medicine_cabinet(), hand_dryer(), light_switch(), coat_rack(),
+            round_vent(), shutter_panelled(), shutter_louvred(), exit_sign(), sconce(), pedestal_sink(), table_basin("table_basin", "ceramic"), table_basin("table_basin_steel", "steel"), medicine_cabinet(), hand_dryer(), light_switch(), coat_rack(),
             filing_cabinet(), carton("carton", 0.58, 0.58, 0.56), carton("carton_small", 0.44, 0.34, 0.3), battered_carton("carton_battered", 0.44, 0.34, 0.3), computer(), water_cooler(),
             floor_lamp("torchiere", False), floor_lamp("standard_lamp", True), dresser_mirror(), side_table(), media_stand(), bar_stool(), clothes_dryer(),
             plank_bench("plank_bench", "steel"), plank_bench("wood_plank_bench", "wood"), box_bench(), pew(), bunk_bed("bunk_bed", "dark_wood"), bunk_bed("steel_bunk_bed", "metal"),

@@ -26,6 +26,7 @@ final class FurnitureTests {
         Checks.run("shuttersHangOnTheirWallPanelledOrLouvredInTheirColour", FurnitureTests::shuttersHangOnTheirWallPanelledOrLouvredInTheirColour);
         Checks.run("binsGoByWhatTheyHoldWhereverTheyStand", FurnitureTests::binsGoByWhatTheyHoldWhereverTheyStand);
         Checks.run("aSteelCounterIsSteelAndAWoodenOneIsNot", FurnitureTests::aSteelCounterIsSteelAndAWoodenOneIsNot);
+        Checks.run("aSinkInATableTopIsABasinOfItsOwnWhereNoCounterTakesIt", FurnitureTests::aSinkInATableTopIsABasinOfItsOwnWhereNoCounterTakesIt);
         Checks.run("floorLampsAreToldByTheirPlace", FurnitureTests::floorLampsAreToldByTheirPlace);
         Checks.run("aBunkBedIsSteelOrWoodByItsGroup", FurnitureTests::aBunkBedIsSteelOrWoodByItsGroup);
         Checks.run("aLetteredSignHangsTheModsPictureOnlyWhereItHasOne", FurnitureTests::aLetteredSignHangsTheModsPictureOnlyWhereItHasOne);
@@ -418,6 +419,18 @@ final class FurnitureTests {
         check(model(corner).equals("steel_counter_corner") && corner.withBasin == null, "its corner is the steel corner, with no sink: " + model(corner));
         Furniture wood = Furniture.known(sprite("fixtures_counters_01_1" + row.replace("MetalPlates|Material2|Screws", "Wood|Material2|Nails") + "Modern"));
         check(!model(wood).startsWith("steel"), "a counter of another group is not steel: " + model(wood));
+    }
+
+    private static void aSinkInATableTopIsABasinOfItsOwnWhereNoCounterTakesIt() {
+        String row = "|CanBreak||CanScrap||CustomName|Sink|Facing|S|IsMoveAble||IsSurfaceOffset||IsTableTop||Material|Plumbing|Material2|Pipes|"
+                + "Material3|Sink|PickUpTool|Wrench|PickUpWeight|50|PlaceTool|Wrench|ScrapSize|Small|Surface|34|SinkType|";
+        Furniture white = Furniture.known(sprite("fixtures_sinks_01_2" + row + "Ceramic|GroupName|White"));
+        check(white != null && white.basin && model(white).equals("table_basin"), "a ceramic sink set in a table top is a ceramic basin where it stands alone: " + model(white));
+        check(white != null && Math.abs(white.raised - 34 * SURFACE_TILES) < 1e-4f, "standing on the top the game gives it: " + (white == null ? 0f : white.raised));
+        Furniture industrial = Furniture.known(sprite("fixtures_sinks_01_5" + row + "Ceramic|GroupName|Industrial"));
+        check(model(industrial).equals("table_basin"), "the game's sink type decides, not its group: " + model(industrial));
+        Furniture chrome = Furniture.known(sprite("fixtures_sinks_01_9" + row + "Metal|GroupName|Chrome"));
+        check(chrome != null && chrome.basin && model(chrome).equals("table_basin_steel"), "a metal one is steel: " + model(chrome));
     }
 
     private static void floorLampsAreToldByTheirPlace() {

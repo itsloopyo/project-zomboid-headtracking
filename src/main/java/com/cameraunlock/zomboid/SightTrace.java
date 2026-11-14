@@ -280,7 +280,7 @@ final class SightTrace {
         if (build.pictured != null && build.pictured.contains(object) && !Decor.ready(Decor.inRoom(piece.picture, x, y, z))) {
             return "its picture is not read yet";
         }
-        if (Own.furniture() && piece.model != null && piece.wall == WallHung.NONE && !piece.follows && !piece.basin && !piece.countertop && build.modelled != null
+        if (Own.furniture() && piece.model != null && piece.wall == WallHung.NONE && !piece.follows && !piece.countertop && build.modelled != null
                 && !build.modelled.contains(object)) {
             return "drawn as the game's sprite, its model not stood";
         }

@@ -952,10 +952,10 @@ final class FurnishingBuilder {
         if (piece.countertop) {
             return false;
         }
-        if (piece.basin) {
-            // Dealt with when the counter under it is: the counter's model has the basin in it.
-            IsoObject counter = onSquare(x, y, z, false);
-            return counter != null && ready(counter, Furniture.known(counter.getSprite()), x, y, z);
+        // A basin on a counter is dealt with when the counter is: the counter's model has the basin in it.
+        IsoObject counter = piece.basin ? onSquare(x, y, z, false) : null;
+        if (counter != null) {
+            return ready(counter, Furniture.known(counter.getSprite()), x, y, z);
         }
         if (piece.partner != null || piece.row != null) {
             Boolean others = othersThere(piece, squares, x, y, z);
