@@ -6318,6 +6318,10 @@ final class PipelineShaders {
             uniform sampler2D uParts;
             uniform sampler2D uPartsDepth;
             uniform vec2 uParted;
+            // Whether the vehicle sat in brought its inside as models of its own, a vehicle mod's
+            // dashboard and seats, and whether its glass was parts of their own, left out of the
+            // draw: what is done here to the game's painted cabins is then not done to it.
+            uniform vec2 uOwnInterior;
             uniform sampler2D uWood;
             uniform float uWoodGain;
             uniform sampler2D uBehind;
@@ -7376,7 +7380,7 @@ final class PipelineShaders {
                         }
                         grained = bonnet > 0.5 || plain > 0.5 ? 0.0 : woven > 0.5 ? (builtCabin ? 0.7 : 0.45) : 0.8;
                         sheen = plain > 0.5 ? 0.9 : woven > 0.5 ? 0.05 : 0.4;
-                    } else if (!dial && !wheel) {
+                    } else if (!dial && !wheel && uOwnInterior.x < 0.5) {
                         // The rest of the shell. In a body whose seats are not pieces of their
                         // own they are part of it, and are told as the game paints them: with
                         // colour in them, below the glass, and not changing with the body's
@@ -7409,7 +7413,7 @@ final class PipelineShaders {
                     if (!dial) {
                         figure.rgb *= mix(vec3(1.0), grain, grained);
                     }
-                    if (!dial && !wheel) {
+                    if (!dial && !wheel && uOwnInterior.x < 0.5) {
                         // The game's bodies have no bulkhead: past the dash the eye would see
                         // into the wheel arches. It is the dark of a footwell there.
                         // What the triangles say is dash, door or seat is not that gap.
@@ -7512,7 +7516,7 @@ final class PipelineShaders {
                 // where the paint, the trim and the seats are dark or coloured. Above the sills,
                 // what is pale and grey is glass and is looked through; the pillars, the frames
                 // of the windows and the roof stay.
-                if (cabin > 0.5 && !builtCabin && (uHavePanes > 0.5 || dot(at - uEye, uBodyAbove) > -0.23) && !wheel && !dial && !bonnetSeen) {
+                if (cabin > 0.5 && !builtCabin && uOwnInterior.y < 0.5 && (uHavePanes > 0.5 || dot(at - uEye, uBodyAbove) > -0.23) && !wheel && !dial && !bonnetSeen) {
                     // Taken over the pixel and its neighbours a few pixels off: a pane's edge
                     // against a pillar is then a clean line and not the ragged one where each
                     // pixel's shade of sky falls one side or other of the rule.

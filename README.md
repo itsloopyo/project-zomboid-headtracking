@@ -552,10 +552,31 @@ LightningBolts=true
 ; while any of them is on, the mod keeps changing the game's code for this.
 ; Takes effect at once. From the next start, off also stops the mod changing the game's own code for this.
 ShotImpacts=true
+; true: in first person, a fence, lamp post or road barricade a vehicle knocks down throws pieces of itself, and
+; what shots cut out of a fence, a wall or a door drops out of it: the pieces bounce, lie a few seconds and sink into the
+; ground. They are only in the picture and nothing touches them. false: no pieces: what is knocked down or shot
+; out goes from the picture at once.
+FallingDebris=true
+; true: in first person, in Medium and High, the street lamps, lamps and ceiling lights nearest you that are on at
+; night cast shadows of what stands in their light: fences, furniture, people and zombies. High has more of them
+; cast shadows, and sharper. false: what stands under a lamp casts no shadow from it.
+LampShadows=true
+; true: in first person, in Medium and High, sunlight through a stained glass window takes the colours of its
+; glass onto whatever it falls on behind it, and into the air of the room. false: a stained glass window lets no
+; sunlight through in those modes.
+ColouredGlassLight=true
 ; true: in first person, vehicles, zombies and animals in sight are drawn even past the edge of the game's own
 ; screen, and so are other players where players cannot fight. false: each is drawn only where the game's own
 ; view would show it.
 FarVehiclesAndZombies=true
+; true: in first person, from the seat of a vehicle a mod adds, the dashboard, steering wheel and seats the mod puts
+; in it are drawn, the windows it adds as parts of their own are left out so you see out through them, and the
+; driver's eye is put behind the steering wheel the mod models. Such a cabin keeps its own colours: the mod does
+; not repaint its seats and dashboard or darken its footwell, as it does for the game's own cars. Road wheels are
+; left out by the vehicle's own list of them. false: any part whose model or shader is named for a wheel is left
+; out from the seat, which leaves some vehicle mods with no dashboard, their windows are drawn as solid, and the
+; driver's eye is put from the game's seat.
+ModdedVehicleInteriors=true
 ; true: while anyone plays in first person, a body that is hit switches to its ragdoll at once, and a first person
 ; shot pushes it along the shot from where it went in. false: bodies switch to their ragdolls the way the
 ; game blends them in.
@@ -584,6 +605,20 @@ FinerSkins=true
 ; with its own lighting. false: the game tints the first person picture as it tints its own view.
 ; Takes effect when the game next starts. When off, the mod does not change the game's own code for this.
 LeaveOutScreenGrey=true
+; true: in first person, in Medium and High, rain wets your hands, your sleeves and what you hold over about a minute:
+; cloth and skin darken, metal and wood shine, and drops bead on them and run down the weapon. Snow that melts
+; on you indoors wets them too. Out of the rain, indoors, under a roof or in a vehicle they dry over a few minutes,
+; and clothes the game has soaked stay dark until the game dries them. false: they stay dry whatever the weather.
+WetOnThePlayer=true
+; true: in first person, in Medium and High, with a gun's sights up the background beyond what you aim at softens a
+; little, and the nearest parts of the gun a little less, eased in and out as the sights come up and go down. A
+; target close by softens the background more than one far off. Never through a scope. false: the picture stays
+; sharp from the gun to the horizon.
+AimBlur=true
+; true: in first person, in every graphics mode but Low, light is brought into the screen's range as Gran Turismo 7
+; does it, with Polyphony Digital's tone mapping: deeper shadows, brighter middle tones, and bright light reaching
+; white sooner. false: the mod's own film curve, softer at both ends.
+GranTurismoToneMapping=true
 ; true: on a server, in first person, the names and speech the game shows over people sit over their heads in the
 ; picture, and your own are hidden. false: the game shows them where its own view puts them.
 ; Takes effect when the game next starts. When off, the mod does not change the game's own code for this.
@@ -606,6 +641,12 @@ OverarmThrow=true
 ; cast, lifted while you reel in, and its line runs from its tip to the bobber. false: the rod is held as a swung
 ; weapon is, and no line is drawn. The bobber is drawn where it floats either way.
 FishingRod=true
+; true: in first person, in High, wet roads, puddles, polished floors and window glass also mirror the buildings,
+; ground and trees round you that are off the edge of the screen or behind something nearer, from a small picture of
+; your surroundings kept up as you move. People and vehicles are not in it. In Custom it needs ShadingAndLight and
+; Reflections on and ReflectionScale at 0.75 or more. false: they mirror only what is on the screen, and the sky where
+; that runs out.
+SurroundingsInReflections=true
 ; true: in first person, with a watch on a wrist and that hand free, looking down and then to that side raises the arm
 ; and turns the wrist so you can read the watch, standing or walking: the time as the game's clock shows it, in figures
 ; on a digital watch and as hands on any other. While head tracking is on only your head's look counts, and the mouse
@@ -867,13 +908,15 @@ HiddenWallDecor=true
 HiddenWallDecorSaved=true
 ; true: offline, a shotgun blast in first person whose pellets land close together on a wooden door, a wooden
 ; fence or a wall of boards or plasterboard blows a ragged hole through it that you can see and shoot through,
-; and the pellets that miss the hole leave marks on a door. The holes stay in your save. false: shots leave
-; doors, fences and walls whole. On a server they stay whole.
+; the pellets that miss the hole leave marks on a door, and each pellet that strikes a picket of a picket fence
+; breaks it. The holes and the broken pickets stay in your save. false: shots leave doors, fences and walls
+; whole. On a server they stay whole.
 BlastHoles=true
 ; true: offline, while ShotsThroughWalls is on, a round you fire in first person that goes through a door, a wall
 ; or a fence leaves a small hole where it went in and a wider, splintered one where it came out, which you can
-; see through. The holes stay in your save. false: rounds still go through, and leave only a mark. On a server
-; nothing is holed.
+; see through, and one that strikes a picket of a picket fence breaks it: struck between its rails it falls out
+; whole, above or below them it breaks off there. The holes and the broken pickets stay in your save. false:
+; rounds still go through, and leave only a mark. On a server nothing is holed or broken.
 BulletHoles=true
 ; true: offline, in first person, holding the Interact key with the crosshair on a hole shot through a fence,
 ; a wall or a door, where the hole is wide and tall enough for you to fit through and you stand beside it,

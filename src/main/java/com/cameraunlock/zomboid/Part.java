@@ -54,6 +54,14 @@ enum Part {
             "true: in first person, vehicles, zombies and animals in sight are drawn even past the edge of the game's own\n"
                     + "screen, and so are other players where players cannot fight. false: each is drawn only where the game's own\n"
                     + "view would show it."),
+    MODDED_VEHICLE_INTERIORS("FirstPerson", "ModdedVehicleInteriors", true, false,
+            "true: in first person, from the seat of a vehicle a mod adds, the dashboard, steering wheel and seats the mod puts\n"
+                    + "in it are drawn, the windows it adds as parts of their own are left out so you see out through them, and the\n"
+                    + "driver's eye is put behind the steering wheel the mod models. Such a cabin keeps its own colours: the mod does\n"
+                    + "not repaint its seats and dashboard or darken its footwell, as it does for the game's own cars. Road wheels are\n"
+                    + "left out by the vehicle's own list of them. false: any part whose model or shader is named for a wheel is left\n"
+                    + "out from the seat, which leaves some vehicle mods with no dashboard, their windows are drawn as solid, and the\n"
+                    + "driver's eye is put from the game's seat."),
     QUICK_RAGDOLLS("FirstPerson", "QuickRagdolls", false, true,
             "true: while anyone plays in first person, a body that is hit switches to its ragdoll at once, and a first person\n"
                     + "shot pushes it along the shot from where it went in. false: bodies switch to their ragdolls the way the\n"

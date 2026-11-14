@@ -95,6 +95,10 @@ final class CabinParts {
 
     /** A steering wheel is before its driver by no more than this, in tiles, and at least this much of the driver's own way out from the middle line. */
     private static final float WHEEL_BEFORE = 1f, WHEEL_OUT = 0.5f;
+    /** A wheel a vehicle mod models is in line with the driver: no further across from the seat than this share of the seat's own way out. */
+    private static final float WHEEL_OFF_SEAT = 0.4f;
+    /** How far across a modelled wheel may stand from a driver who sits on the middle line, as on a tractor. */
+    private static final float WHEEL_OFF_CENTRE = 0.1f;
 
     /**
      * Which of a body's vertices are its steering wheel: a loose ring of 36 triangles, as wide
@@ -153,6 +157,106 @@ final class CabinParts {
             }
         }
         return Arrays.copyOf(found, size);
+    }
+
+    /** A modelled steering wheel is a loose piece of at least this many triangles, this wide across the vehicle in tiles. */
+    private static final int ROUND_TRIANGLES = 24;
+    private static final float ROUND_LEAST = 0.15f, ROUND_MOST = 0.6f;
+    /** How far the face of a modelled wheel may lean from upright, towards lying flat, as a van's or a bus's does. The face is tried leant either way, as a model's along may run either way. */
+    private static final float ROUND_MOST_LEAN = (float) Math.toRadians(80);
+
+    /**
+     * Which vertices of a vehicle mod's interior model are its steering wheel, modelled as the
+     * mod's maker made it and not as the game's 36 triangle ring. A steering wheel faces the
+     * driver: it is a flat round loose piece, as wide across the vehicle as it is tall in its own
+     * face, which leans about the line across the vehicle anywhere from upright to most of
+     * the way flat. It stands before the driver's seat and in line with it. The dials in the
+     * dashboard are as round and flat but smaller. Of those that are, it is the widest. Null for
+     * a model with none.
+     *
+     * @param at         along, across and up for each vertex
+     * @param elements   three vertices a triangle
+     * @param seat       along, and across from the middle line, where the driver sits
+     * @param middleLine where across the vehicle's middle line is
+     */
+    static int[] roundWheelOf(float[] at, int[] elements, float[] seat, float middleLine) {
+        int vertices = at.length / 3, triangles = elements.length / 3;
+        int[] parent = pieces(at, elements);
+        int[] count = new int[vertices];
+        for (int t = 0; t < triangles; t++) {
+            count[root(parent, elements[t * 3])]++;
+        }
+        int[] start = new int[vertices + 1];
+        for (int i = 0; i < vertices; i++) {
+            start[root(parent, i) + 1]++;
+        }
+        for (int i = 0; i < vertices; i++) {
+            start[i + 1] += start[i];
+        }
+        int[] members = new int[vertices], filled = Arrays.copyOf(start, vertices);
+        for (int i = 0; i < vertices; i++) {
+            members[filled[root(parent, i)]++] = i;
+        }
+        int best = -1;
+        float widest = 0f;
+        for (int piece = 0; piece < vertices; piece++) {
+            if (count[piece] < ROUND_TRIANGLES) {
+                continue;
+            }
+            float[] low = {Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE}, high = {-Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE};
+            for (int k = start[piece]; k < start[piece + 1]; k++) {
+                for (int axis = 0; axis < 3; axis++) {
+                    low[axis] = Math.min(low[axis], at[members[k] * 3 + axis]);
+                    high[axis] = Math.max(high[axis], at[members[k] * 3 + axis]);
+                }
+            }
+            float wide = high[1] - low[1];
+            float midAlong = (low[0] + high[0]) / 2f, midAcross = (low[1] + high[1]) / 2f, midUp = (low[2] + high[2]) / 2f;
+            float before = midAlong - seat[0], off = midAcross - middleLine - seat[1];
+            if (wide < ROUND_LEAST || wide > ROUND_MOST || wide <= widest || before <= 0f || before >= WHEEL_BEFORE || Math.abs(off) > Math.max(WHEEL_OFF_SEAT * Math.abs(seat[1]), WHEEL_OFF_CENTRE)) {
+                continue;
+            }
+            boolean round = true;
+            for (int k = start[piece]; k < start[piece + 1] && round; k++) {
+                int i = members[k];
+                float a = at[i * 3] - midAlong, c = at[i * 3 + 1] - midAcross, u = at[i * 3 + 2] - midUp;
+                round = a * a + c * c + u * u <= 0.36f * wide * wide;
+            }
+            if (!round) {
+                continue;
+            }
+            // The face's lean, tried a few degrees at a time: the one the piece is thinnest
+            // across. A wheel's middle is dished towards its column, so the piece is thin only
+            // against how wide it is, and as tall in that face as it is wide.
+            float thinnest = Float.MAX_VALUE, tall = 0f;
+            for (float lean = -ROUND_MOST_LEAN; lean <= ROUND_MOST_LEAN + 1e-4f; lean += (float) Math.toRadians(5)) {
+                float faceAlong = (float) Math.cos(lean), faceUp = (float) Math.sin(lean);
+                float nearest = Float.MAX_VALUE, furthest = -Float.MAX_VALUE, lowest = Float.MAX_VALUE, highest = -Float.MAX_VALUE;
+                for (int k = start[piece]; k < start[piece + 1]; k++) {
+                    int i = members[k];
+                    float a = at[i * 3], u = at[i * 3 + 2];
+                    float deep = a * faceAlong + u * faceUp, rise = u * faceAlong - a * faceUp;
+                    nearest = Math.min(nearest, deep);
+                    furthest = Math.max(furthest, deep);
+                    lowest = Math.min(lowest, rise);
+                    highest = Math.max(highest, rise);
+                }
+                if (furthest - nearest < thinnest) {
+                    thinnest = furthest - nearest;
+                    tall = highest - lowest;
+                }
+            }
+            if (thinnest < 0.6f * wide && tall > 0.75f * wide && tall < 1.3f * wide) {
+                best = piece;
+                widest = wide;
+            }
+        }
+        if (best < 0) {
+            return null;
+        }
+        int[] found = new int[start[best + 1] - start[best]];
+        System.arraycopy(members, start[best], found, 0, found.length);
+        return found;
     }
 
     /**

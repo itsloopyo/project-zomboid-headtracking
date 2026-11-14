@@ -5717,6 +5717,8 @@ final class Pipeline {
         figureLight.set("uParts", PARTS_UNIT);
         figureLight.set("uPartsDepth", PARTS_DEPTH_UNIT);
         figureLight.set("uParted", parts != null ? 1f : 0f, parts != null && parts.seats ? 1f : 0f);
+        VehicleMeshes.Seated sat = view.characters.cabin;
+        figureLight.set("uOwnInterior", own && seated && sat.ownInterior ? 1f : 0f, own && seated && sat.glassParted ? 1f : 0f);
         figureLight.set("uWood", WOOD_UNIT);
         figureLight.set("uWoodGain", materialGain[WOOD]);
         figureLight.set("uCarpet", FIRST_MATERIAL_UNIT + CARPET);
@@ -5889,6 +5891,7 @@ final class Pipeline {
         figureLight.set("uPainted", 0f);
         figureLight.set("uHavePanes", 0f);
         figureLight.set("uParted", 0f, 0f);
+        figureLight.set("uOwnInterior", 0f, 0f);
         figureLight.set("uWheel", 0f, 0f, 0f, 0f);
         figureLight.set("uSeat", 0f, 0f, 0f);
         figureLight.set("uHaveFacing", 1f);
@@ -6388,6 +6391,7 @@ final class Pipeline {
             figureLight.set("uPainted", 0f);
             figureLight.set("uHavePanes", 0f);
             figureLight.set("uParted", 0f, 0f);
+            figureLight.set("uOwnInterior", 0f, 0f);
             figureLight.set("uWheel", 0f, 0f, 0f, 0f);
             figureLight.set("uSeat", 0f, 0f, 0f);
             figureLight.set("uFigureAmbient", view.characters.ownLight);

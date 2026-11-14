@@ -45,7 +45,7 @@ final class OptionsLayout {
                         Part.CUSTOMISE_CHARACTER_HEAD.key),
                 new Group(GRAPHICS, null, null, Config.qualityKey(0), Config.overheadQualityKey(0), Config.styleKey(0), Part.LIGHTNING_BOLTS.key,
                         Part.SHOT_IMPACTS.key, Part.FALLING_DEBRIS.key, Part.LAMP_SHADOWS.key, Part.COLOURED_GLASS_LIGHT.key, "MuzzleFlash", Part.WET_ON_THE_PLAYER.key, Part.AIM_BLUR.key, Part.GRAN_TURISMO_TONE_MAPPING.key, Part.ITEMS_AS_MODELS.key, Part.FINER_SKINS.key, Part.LEAVE_OUT_SCREEN_GREY.key,
-                        Part.SURROUNDINGS_IN_REFLECTIONS.key, Part.FAR_VEHICLES_AND_ZOMBIES.key, "HiddenWallDecor"),
+                        Part.SURROUNDINGS_IN_REFLECTIONS.key, Part.FAR_VEHICLES_AND_ZOMBIES.key, Part.MODDED_VEHICLE_INTERIORS.key, "HiddenWallDecor"),
                 new Group(CUSTOM_GRAPHICS, "These show what player 1's first person graphics mode draws. Changing one switches that mode to Custom, "
                         + "which draws these for every player set to Custom, in first person or the isometric view.", "Graphics"),
                 new Group(CONTENT, "Untick any of these to have the game's own in place of the mod's.", "Content"),
@@ -111,6 +111,7 @@ final class OptionsLayout {
             Map.entry(Part.LEAVE_OUT_SCREEN_GREY.key, "Leave out the grey weather tint"),
             Map.entry(Part.SURROUNDINGS_IN_REFLECTIONS.key, "Surroundings in reflections"),
             Map.entry(Part.FAR_VEHICLES_AND_ZOMBIES.key, "Distant vehicles and zombies"),
+            Map.entry(Part.MODDED_VEHICLE_INTERIORS.key, "Modded vehicle interiors"),
             Map.entry("HiddenWallDecor", "Pictures on hidden walls"),
             Map.entry("TreeQuality", "Trees"),
             Map.entry("GrassDensity", "Grass density"),

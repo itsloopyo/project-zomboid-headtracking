@@ -25,6 +25,7 @@ final class CabinTests {
         Checks.run("eyeIsSeatedAlongTheVehiclesOwnAxes", CabinTests::eyeIsSeatedAlongTheVehiclesOwnAxes);
         Checks.run("viewTipsAndRollsWithTheVehicle", CabinTests::viewTipsAndRollsWithTheVehicle);
         Checks.run("wheelIsTheRingBeforeTheDriverAndNotTheSpareOnTheBack", CabinTests::wheelIsTheRingBeforeTheDriverAndNotTheSpareOnTheBack);
+        Checks.run("moddedWheelIsTheWidestRoundPieceBeforeTheDriver", CabinTests::moddedWheelIsTheWidestRoundPieceBeforeTheDriver);
         Checks.run("everyInteriorAVehicleIsGivenIsInTheJarWithItsPictures", CabinTests::everyInteriorAVehicleIsGivenIsInTheJarWithItsPictures);
         Checks.run("everyInteriorsMirrorIsInSightAndItsWipersClearTheScreen", CabinTests::everyInteriorsMirrorIsInSightAndItsWipersClearTheScreen);
         Checks.run("anInteriorsPicturesAreReadAheadAgainAfterTheyAreLetGo", CabinTests::anInteriorsPicturesAreReadAheadAgainAfterTheyAreLetGo);
@@ -140,6 +141,94 @@ final class CabinTests {
         }
         check(CabinParts.wheelOf(new float[] {-1f, -0.8f, -0.5f, 1.2f, -0.8f, -0.5f, 1.2f, 0.8f, -0.5f, -1f, 0.8f, -0.5f}, new int[] {0, 1, 2, 0, 2, 3}, new float[] {0.16f, 0.32f}, 0f) == null,
                 "a body with no ring has no wheel");
+    }
+
+    private static void moddedWheelIsTheWidestRoundPieceBeforeTheDriver() {
+        for (float side : new float[] {1f, -1f}) {
+            Body body = new Body(side);
+            body.quad(new float[] {-1f, -0.8f, -0.5f, 1.2f, -0.8f, -0.5f, 1.2f, 0.8f, -0.5f, -1f, 0.8f, -0.5f}, UP, CabinParts.OTHER, false, false);
+            // A spare on the back, a small dial, a dial pod wide enough to count, a thick drum and
+            // a square plate on the driver's line, a wider round piece before the passenger, and
+            // the wheel, larger than the game's.
+            ring(body, -1.9f, 0f, 0.1f, 0.2f, 0.2f);
+            ring(body, 0.6f, -0.12f, 0.05f, 0.04f, 0.04f);
+            ring(body, 0.7f, -0.3f, 0.3f, 0.09f, 0.09f);
+            drum(body, 0.45f, -0.34f, -0.3f, 0.2f, 0.25f);
+            plate(body, 0.55f, -0.3f, 0.45f, 0.2f);
+            ring(body, 0.5f, 0.32f, 0f, 0.22f, 0.21f);
+            int wheel = ring(body, 0.5f, -0.32f, 0f, 0.18f, 0.17f);
+            float[] at = new float[body.at.size()];
+            for (int i = 0; i < at.length; i++) {
+                at[i] = body.at.get(i);
+            }
+            int[] elements = new int[body.elements.size()];
+            for (int i = 0; i < elements.length; i++) {
+                elements[i] = body.elements.get(i);
+            }
+            float[] driver = {0.16f, -0.32f * side};
+            int[] found = CabinParts.roundWheelOf(at, elements, driver, 0f);
+            check(found != null && found[0] == wheel, "the wheel is the widest round flat piece before the driver, on the driver's side");
+            // Leant 60 degrees, as a van's wheel is, one way and then the other, as a model's along may run either way.
+            for (float sin : new float[] {0.866f, -0.866f}) {
+                float[] leaning = at.clone();
+                for (int i : found) {
+                    float along = at[i * 3] - 0.5f, up = at[i * 3 + 2];
+                    leaning[i * 3] = 0.5f + along * 0.5f - up * sin;
+                    leaning[i * 3 + 2] = along * sin + up * 0.5f;
+                }
+                int[] leant = CabinParts.roundWheelOf(leaning, elements, driver, 0f);
+                check(leant != null && leant[0] == wheel, "a wheel leant either way is found as well");
+            }
+            int[] passenger = CabinParts.roundWheelOf(at, elements, new float[] {0.16f, 0.32f * side}, 0f);
+            check(passenger != null && passenger[0] != wheel && Math.abs(at[passenger[0] * 3 + 1] - 0.32f * side) < 0.25f,
+                    "from the other front seat it is the round piece before that seat, not the driver's wheel");
+            check(CabinParts.roundWheelOf(at, elements, new float[] {0.9f, -0.32f * side}, 0f) == null, "a driver sat past the wheel has none before them");
+
+            Body tractor = new Body(side);
+            int middle = ring(tractor, 0.5f, 0.05f, 0f, 0.18f, 0.17f);
+            float[] tractorAt = new float[tractor.at.size()];
+            for (int i = 0; i < tractorAt.length; i++) {
+                tractorAt[i] = tractor.at.get(i);
+            }
+            int[] tractorElements = new int[tractor.elements.size()];
+            for (int i = 0; i < tractorElements.length; i++) {
+                tractorElements[i] = tractor.elements.get(i);
+            }
+            int[] centred = CabinParts.roundWheelOf(tractorAt, tractorElements, new float[] {0.16f, 0f}, 0f);
+            check(centred != null && centred[0] == middle, "a driver sat on the middle line has the wheel before them");
+        }
+    }
+
+    /** A closed drum facing along, of 18 sides, as deep along as given. */
+    private static void drum(Body body, float along, float across, float up, float radius, float deep) {
+        int first = body.at.size() / 3;
+        for (int k = 0; k < 18; k++) {
+            double turn = Math.PI * 2 * k / 18;
+            body.vertex(along - deep / 2f, across + radius * (float) Math.cos(turn), up + radius * (float) Math.sin(turn), BACK);
+            body.vertex(along + deep / 2f, across + radius * (float) Math.cos(turn), up + radius * (float) Math.sin(turn), BACK);
+        }
+        for (int k = 0; k < 18; k++) {
+            int a = first + k * 2, b = first + (k + 1) % 18 * 2;
+            body.triangle(a, a + 1, b, -2, false);
+            body.triangle(b, a + 1, b + 1, -2, false);
+        }
+    }
+
+    /** A flat square facing along, as wide as given each way, of 32 triangles. */
+    private static void plate(Body body, float along, float across, float up, float half) {
+        int first = body.at.size() / 3;
+        for (int row = 0; row < 5; row++) {
+            for (int column = 0; column < 5; column++) {
+                body.vertex(along, across - half + half * column / 2f, up - half + half * row / 2f, BACK);
+            }
+        }
+        for (int row = 0; row < 4; row++) {
+            for (int column = 0; column < 4; column++) {
+                int a = first + row * 5 + column;
+                body.triangle(a, a + 1, a + 5, -2, false);
+                body.triangle(a + 1, a + 6, a + 5, -2, false);
+            }
+        }
     }
 
     private static void passengersSitWhereTheScriptSeatsThemFromTheDriver() {

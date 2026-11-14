@@ -113,6 +113,12 @@ final class Ride {
      * land's up. Written by the picture's thread: see VehicleMeshes.note.
      */
     final ConcurrentHashMap<String, float[]> wheels = new ConcurrentHashMap<>();
+    /**
+     * The same for a vehicle whose body has no wheel of the game's kind and whose steering wheel
+     * is in a model it hangs on a part, as a vehicle mod's are: read for the driver's eye only,
+     * with ModdedVehicleInteriors on.
+     */
+    final ConcurrentHashMap<String, float[]> eyeWheels = new ConcurrentHashMap<>();
     /** What the viewer wears on the arms and hands, asked from the driver's seat and with a weapon in hand. */
     final Cabins.Dress dress = new Cabins.Dress();
 
@@ -414,6 +420,9 @@ final class Ride {
         // with the vehicle however it is thrown.
         float[] axes = stands;
         float[] wheel = wheels.get(vehicle.getScriptName());
+        if (wheel == null && Part.MODDED_VEHICLE_INTERIORS.on()) {
+            wheel = eyeWheels.get(vehicle.getScriptName());
+        }
         float[] fromDriver = wheel == null ? null : seat == 0 ? DRIVER : Cabins.fromDriver(vehicle.getScript(), seat, wheel[3]);
         if (fromDriver != null) {
             float back = wheel[0] - Cabins.EYE_BEHIND + fromDriver[0], across = wheel[1] + fromDriver[1], raised = wheel[2] + Cabins.EYE_ABOVE;

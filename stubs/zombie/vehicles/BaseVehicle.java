@@ -64,4 +64,9 @@ public final class BaseVehicle extends zombie.iso.IsoMovingObject {
     public zombie.core.physics.Transform getWorldTransform(zombie.core.physics.Transform out) { throw new UnsupportedOperationException("reference stub"); }
     public void setWorldTransform(zombie.core.physics.Transform transform) { throw new UnsupportedOperationException("reference stub"); }
     public void playPassengerAnim(int seat, String name) { throw new UnsupportedOperationException("reference stub"); }
+
+    public static final class ModelInfo {
+        public VehiclePart part;
+        public int wheelIndex;
+    }
 }

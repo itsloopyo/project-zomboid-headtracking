@@ -843,7 +843,7 @@ public final class Characters {
                 CharacterDraw.looking(eyeView);
                 if (script != null && !parts(data).isEmpty()) {
                     multiply(projection, fromEye(camera), combined);
-                    VehicleMeshes.note(cabin, view.ride, script, parts(data).get(0), placed, view.pipeline.seatedAxes, WHEEL_SETTLES, view.pipeline.seatedX, view.pipeline.seatedY, groundUp,
+                    VehicleMeshes.note(cabin, view.ride, script, parts(data), placed, view.pipeline.seatedAxes, WHEEL_SETTLES, view.pipeline.seatedX, view.pipeline.seatedY, groundUp,
                             data.centerOfMassY, combined, camera);
                 }
                 float red = data.ambientR, green = data.ambientG, blue = data.ambientB;
@@ -3215,9 +3215,7 @@ public final class Characters {
             for (int part = 0; part < parts(data).size(); part++) {
                 GL11.glDepthMask(true);
                 ModelInstanceRenderData model = parts(data).get(part);
-                // The game's bodies have no bulkhead and no arches inside: from the seat the road
-                // wheels would stand in the cabin.
-                if (fromSeat && model.modelInstance.model != null && model.modelInstance.model.name.contains("wheel")) {
+                if (fromSeat && leftOutFromSeat(model)) {
                     continue;
                 }
                 if (repainted && model.modelInstance instanceof VehicleModelInstance body) {
@@ -3248,6 +3246,21 @@ public final class Characters {
         }
         ModelCamera.instance = gameCamera;
         data.squareDepth = squareDepth;
+    }
+
+    /**
+     * Whether a model of the vehicle sat in stays out of its draw from the seat. The game's
+     * bodies have no bulkhead and no arches inside, so the road wheels would stand in the cabin.
+     * A model's name is its mesh, shader and texture together (ModelManager.createModelKey), and
+     * KI5's dashboards are drawn with damnlib's damn_wheel_shader: a name with "wheel" in it took
+     * them out too. The part a model belongs to says which are road wheels, and which are glass a
+     * vehicle mod made a part of its own, which from inside is drawn as solid by the mod's shaders.
+     */
+    private static boolean leftOutFromSeat(ModelInstanceRenderData model) {
+        if (!Part.MODDED_VEHICLE_INTERIORS.on()) {
+            return model.modelInstance.model != null && model.modelInstance.model.name.contains("wheel");
+        }
+        return VehicleMeshes.roadWheel(model) || VehicleMeshes.pane(model);
     }
 
     /**

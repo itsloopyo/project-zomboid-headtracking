@@ -8,6 +8,8 @@ public final class VehiclePart {
     public void setContainerContentAmount(float amount) { throw new UnsupportedOperationException("reference stub"); }
     public float getContainerContentAmount() { throw new UnsupportedOperationException("reference stub"); }
     public String getId() { throw new UnsupportedOperationException("reference stub"); }
+    public VehiclePart getParent() { throw new UnsupportedOperationException("reference stub"); }
+    public int getWheelIndex() { throw new UnsupportedOperationException("reference stub"); }
     public VehicleLight getLight() { throw new UnsupportedOperationException("reference stub"); }
     public float getLightDistance() { throw new UnsupportedOperationException("reference stub"); }
     public int getCondition() { throw new UnsupportedOperationException("reference stub"); }

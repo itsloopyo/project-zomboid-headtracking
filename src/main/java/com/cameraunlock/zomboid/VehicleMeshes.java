@@ -11,10 +11,13 @@ import java.util.Locale;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL15;
 import zombie.core.skinnedmodel.model.ModelInstanceRenderData;
+import zombie.core.skinnedmodel.model.ModelInstanceRenderDataList;
 import zombie.core.skinnedmodel.model.ModelMesh;
 import zombie.core.skinnedmodel.model.VehicleModelInstance;
+import zombie.core.skinnedmodel.model.VehicleSubModelInstance;
 import zombie.core.skinnedmodel.model.VertexBufferObject;
 import zombie.core.textures.Texture;
+import zombie.vehicles.VehiclePart;
 
 /**
  * Where the steering wheel is in each vehicle, read from the vehicle's own model. Every body
@@ -107,12 +110,42 @@ final class VehicleMeshes {
         /** The vehicle's paint. */
         final float[] paint = new float[3];
         private final float[] wheelNow = new float[3];
+        /**
+         * Whether the vehicle's inside is models of its own, a vehicle mod's dashboard and seats
+         * hung on its parts, and whether its glass is parts of its own: with ModdedVehicleInteriors
+         * on, for a body with no wheel of the game's kind. The picture's treatment of the game's
+         * painted cabins is then left off, and so is telling its glass by colour.
+         */
+        boolean ownInterior, glassParted;
 
         void clear() {
             panes = null;
             parts = null;
             wheel = null;
+            ownInterior = false;
+            glassParted = false;
         }
+    }
+
+    /**
+     * Whether a model of a vehicle is one of its road wheels, or hangs on one as a hubcap or a
+     * brake drum does, by the vehicle's own list of them.
+     */
+    static boolean roadWheel(ModelInstanceRenderData model) {
+        if (!(model.modelInstance instanceof VehicleSubModelInstance sub) || sub.modelInfo == null) {
+            return false;
+        }
+        for (VehiclePart part = sub.modelInfo.part; part != null; part = part.getParent()) {
+            if (part.getWheelIndex() >= 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Whether a model of a vehicle is a window a vehicle mod made a part of its own. */
+    static boolean pane(ModelInstanceRenderData model) {
+        return model.modelInstance instanceof VehicleSubModelInstance sub && sub.modelInfo != null && sub.modelInfo.part.getWindow() != null;
     }
 
     private static final HashSet<String> turnedSaid = new HashSet<>();
@@ -134,12 +167,14 @@ final class VehicleMeshes {
      *
      * @param seated what that viewer's picture is told of the vehicle
      * @param ride   that viewer's vehicle as the logic thread has it
+     * @param models the vehicle's models as the game draws them, its body first
      * @param faces  the way the vehicle faces, its left and its up, as the logic thread had them when it seated the eye: see Ride.stands
      * @param eye    the projection times the turn of the view from the eye (ViewCamera.turned), which takes places counted from camera's eyeX
      */
-    static void note(Seated seated, Ride ride, String script, ModelInstanceRenderData body, float[] placed, float[] faces, float settles, float standsX, float standsY,
+    static void note(Seated seated, Ride ride, String script, ModelInstanceRenderDataList models, float[] placed, float[] faces, float settles, float standsX, float standsY,
             float groundUp, float centreOfMass, float[] eye, ViewCamera.Pose camera) {
         seated.clear();
+        ModelInstanceRenderData body = models.get(0);
         float[] seatedAxes = seated.axes, paneMatrix = seated.paneMatrix;
         float aheadX = ride.aheadX, aheadY = ride.aheadY;
         Cabins.level(aheadX, aheadY, seatedAxes);
@@ -235,19 +270,39 @@ final class VehicleMeshes {
             System.arraycopy(skin, 0, seated.paint, 0, 3);
         }
         if (middle == NONE) {
+            if (Part.MODDED_VEHICLE_INTERIORS.on()) {
+                ownInterior(seated, ride, script, models, axes, settles, placed, standsX, standsY, groundUp);
+            }
             return;
         }
         // On the body as it is drawn, tipped and rolled with it.
         float bodyX = stands[0] * middle[0] + stands[4] * middle[1] + stands[8] * middle[2] + stands[12];
         float bodyY = stands[1] * middle[0] + stands[5] * middle[1] + stands[9] * middle[2] + stands[13];
         float bodyUp = stands[2] * middle[0] + stands[6] * middle[1] + stands[10] * middle[2] + stands[14];
-        float x = bodyX - axes[6] * settles, y = bodyY - axes[7] * settles, up = bodyUp - axes[8] * settles;
-        seated.wheelNow[0] = x;
-        seated.wheelNow[1] = y;
-        seated.wheelNow[2] = up;
+        seated.wheelNow[0] = bodyX - axes[6] * settles;
+        seated.wheelNow[1] = bodyY - axes[7] * settles;
+        seated.wheelNow[2] = bodyUp - axes[8] * settles;
         seated.wheel = seated.wheelNow;
-        // The game's physics tips and rolls the body about its centre of mass, so the wheel is
-        // measured from there, and the eye is turned about the same point.
+        if (!ride.wheels.containsKey(script)) {
+            float[] measured = measured(bodyX, bodyY, bodyUp, axes, settles, placed, standsX, standsY, groundUp);
+            if (DevBuild.ON) {
+                Log.info(String.format(Locale.ROOT, "wheel of %s (%s): %.3f along, %.3f across, %.3f up from the centre of mass %.3f above the ground, %.3f from the body's middle",
+                        script, body.modelInstance.model.name, measured[0], measured[1], measured[2], measured[4], measured[3]));
+            }
+            // Repeated world-to-local measurements feed motion and rounding into the next frame's seat position.
+            ride.wheels.put(script, measured);
+        }
+    }
+
+    /**
+     * A wheel's middle on the body as it is drawn, as Ride seats the eye from it: along, across
+     * and up from the centre of mass, how far across from the body's middle, and how high the
+     * centre of mass is above the ground. The game's physics tips and rolls the body about its
+     * centre of mass, so the wheel is measured from there, and the eye is turned about the same
+     * point. Read with stands and shifted as note left them for the body.
+     */
+    private static float[] measured(float bodyX, float bodyY, float bodyUp, float[] axes, float settles, float[] placed, float standsX, float standsY, float groundUp) {
+        float x = bodyX - axes[6] * settles, y = bodyY - axes[7] * settles, up = bodyUp - axes[8] * settles;
         float toX = x - shifted[12], toY = y - shifted[13], toUp = up - shifted[14];
         float along = toX * axes[0] + toY * axes[1] + toUp * axes[2];
         float across = toX * axes[3] + toY * axes[4] + toUp * axes[5];
@@ -255,15 +310,156 @@ final class VehicleMeshes {
         float side = (bodyX - stands[12]) * axes[3] + (bodyY - stands[13]) * axes[4] + (bodyUp - stands[14]) * axes[5];
         float tall = (float) Math.sqrt(placed[4] * placed[4] + placed[5] * placed[5] + placed[6] * placed[6]);
         float centre = ((shifted[12] - standsX) * placed[4] + (shifted[13] - standsY) * placed[5] + (shifted[14] - groundUp) * placed[6]) / tall;
-        float[] known = ride.wheels.get(script);
-        if (known == null) {
-            if (DevBuild.ON) {
-                Log.info(String.format(Locale.ROOT, "wheel of %s (%s): %.3f along, %.3f across, %.3f up from the centre of mass %.3f above the ground, %.3f from the body's middle",
-                        script, body.modelInstance.model.name, along, across, above, centre, side));
+        return new float[] {along, across, above, side, centre};
+    }
+
+    private record PartMesh(ModelMesh mesh, String script, String part) {}
+
+    /**
+     * The steering wheel in each model a vehicle hangs on its parts, in the model's own space,
+     * as its middle and how wide it is across the vehicle in tiles, or NONE for a model with none.
+     * Keyed by the part as well, as one mesh can hang on several parts in different places.
+     */
+    private static final HashMap<PartMesh, float[]> partMiddles = new HashMap<>();
+    private static final float[] partXfrm = new float[16], partStands = new float[16], partFrame = new float[12];
+    /** Vehicles whose part models have all been looked through for a steering wheel. */
+    private static final HashSet<String> interiorDone = new HashSet<>();
+
+    /**
+     * A body with no wheel of the game's kind, whose vehicle may bring its inside as models of
+     * its own hung on its parts, as KI5's do: the dashboard on the glove box, a seat on each
+     * seat, the glass on each window. Notes which it does. Once every part model has been read,
+     * the widest steering wheel among them is noted for the driver's eye (Ride.eyeWheels). The
+     * picture builds nothing of its own round that wheel, so it goes no further than the eye.
+     */
+    private static void ownInterior(Seated seated, Ride ride, String script, ModelInstanceRenderDataList models, float[] axes, float settles, float[] placed,
+            float standsX, float standsY, float groundUp) {
+        float[] seats = ride.seats;
+        boolean done = interiorDone.contains(script) || seats == null || seats.length < 3;
+        boolean all = true;
+        float widest = 0f;
+        float[] chosen = null;
+        String chosenName = null;
+        for (int i = 1; i < models.size(); i++) {
+            ModelInstanceRenderData model = models.get(i);
+            if (roadWheel(model)) {
+                continue;
             }
-            // Repeated world-to-local measurements feed motion and rounding into the next frame's seat position.
-            ride.wheels.put(script, new float[] {along, across, above, side, centre});
+            if (pane(model)) {
+                seated.glassParted = true;
+                continue;
+            }
+            if (!(model.modelInstance instanceof VehicleSubModelInstance sub) || sub.modelInfo == null || model.modelInstance.model == null) {
+                continue;
+            }
+            String partId = sub.modelInfo.part.getId();
+            if (partId.startsWith("Seat")) {
+                seated.ownInterior = true;
+            }
+            if (done) {
+                continue;
+            }
+            ModelMesh mesh = model.modelInstance.model.mesh;
+            if (mesh == null || !mesh.isReady() || mesh.vb == null) {
+                all = false;
+                continue;
+            }
+            PartMesh key = new PartMesh(mesh, script, partId);
+            float[] middle = partMiddles.get(key);
+            if (middle == NONE) {
+                continue;
+            }
+            model.xfrm.get(partXfrm);
+            ViewCamera.multiply(shifted, partXfrm, partStands);
+            if (middle == null) {
+                // A model the game has not placed yet has a matrix of all noughts.
+                float turns = 0f;
+                for (int column = 0; column < 12; column += 4) {
+                    turns += partStands[column] * partStands[column] + partStands[column + 1] * partStands[column + 1] + partStands[column + 2] * partStands[column + 2];
+                }
+                if (!(turns > 0f)) {
+                    all = false;
+                    continue;
+                }
+                for (int column = 0; column < 4; column++) {
+                    float shift = column == 3 ? 1f : 0f;
+                    float x = partStands[column * 4] - standsX * shift, y = partStands[column * 4 + 1] - standsY * shift, up = partStands[column * 4 + 2] - groundUp * shift;
+                    for (int axis = 0; axis < 3; axis++) {
+                        partFrame[axis * 4 + column] = x * axes[axis * 3] + y * axes[axis * 3 + 1] + up * axes[axis * 3 + 2];
+                    }
+                }
+                // The seats are placed from the body's own middle, as the body's wheel is looked for.
+                // The script's x runs the other way from across here: every KI5 car seated at a
+                // positive x has its wheel at a negative across.
+                float bodyAlong = (stands[12] - standsX) * axes[0] + (stands[13] - standsY) * axes[1] + (stands[14] - groundUp) * axes[2];
+                float bodyAcross = (stands[12] - standsX) * axes[3] + (stands[13] - standsY) * axes[4] + (stands[14] - groundUp) * axes[5];
+                float[] seat = {bodyAlong + seats[2], -seats[0]};
+                middle = withVertices(mesh.vb, model.modelInstance.model.name, "no steering wheel is looked for in it",
+                        (raw, stride, vertices, elements) -> roundIn(raw, stride, vertices, elements, seat, bodyAcross));
+                partMiddles.put(key, middle);
+                if (middle == NONE) {
+                    continue;
+                }
+            }
+            if (middle[3] > widest) {
+                widest = middle[3];
+                float x = partStands[0] * middle[0] + partStands[4] * middle[1] + partStands[8] * middle[2] + partStands[12];
+                float y = partStands[1] * middle[0] + partStands[5] * middle[1] + partStands[9] * middle[2] + partStands[13];
+                float up = partStands[2] * middle[0] + partStands[6] * middle[1] + partStands[10] * middle[2] + partStands[14];
+                chosen = measured(x, y, up, axes, settles, placed, standsX, standsY, groundUp);
+                chosenName = model.modelInstance.model.name;
+            }
         }
+        if (ride.eyeWheels.containsKey(script)) {
+            seated.ownInterior = true;
+        }
+        if (done || !all) {
+            return;
+        }
+        interiorDone.add(script);
+        if (chosen != null) {
+            seated.ownInterior = true;
+            if (DevBuild.ON) {
+                Log.info(String.format(Locale.ROOT, "wheel of %s for the eye: %.3f along, %.3f across, %.3f up from the centre of mass %.3f above the ground, %.3f from the body's middle",
+                        script, chosen[0], chosen[1], chosen[2], chosen[4], chosen[3]));
+            }
+            ride.eyeWheels.put(script, chosen);
+        }
+        if (seated.ownInterior || seated.glassParted) {
+            Log.info(script + " brings its own inside as models on its parts" + (seated.glassParted ? ", and its glass as parts of their own, left out from the seat" : "")
+                    + (chosen != null ? String.format(Locale.ROOT, "; the driver's eye is put behind its steering wheel, a round piece %.2f tiles across in %s", widest, chosenName)
+                            : "; none of them holds a steering wheel, so the driver's eye is put from the game's seat"));
+        }
+    }
+
+    /** The steering wheel in a model a vehicle hangs on a part, in the model's own space, as its middle and how wide it is in tiles, or NONE. Read with partFrame set for the model. */
+    private static float[] roundIn(ByteBuffer raw, int stride, int vertices, int[] elements, float[] seat, float middleLine) {
+        float[] at = new float[vertices * 3];
+        for (int i = 0; i < vertices; i++) {
+            for (int row = 0; row < 3; row++) {
+                float place = partFrame[row * 4 + 3];
+                for (int axis = 0; axis < 3; axis++) {
+                    place += partFrame[row * 4 + axis] * raw.getFloat(i * stride + axis * 4);
+                }
+                at[i * 3 + row] = place;
+            }
+        }
+        int[] ring = CabinParts.roundWheelOf(at, elements, seat, middleLine);
+        if (ring == null) {
+            return NONE;
+        }
+        float[] low = {Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE}, high = {-Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE};
+        float least = Float.MAX_VALUE, most = -Float.MAX_VALUE;
+        for (int i : ring) {
+            for (int axis = 0; axis < 3; axis++) {
+                float v = raw.getFloat(i * stride + axis * 4);
+                low[axis] = Math.min(low[axis], v);
+                high[axis] = Math.max(high[axis], v);
+            }
+            least = Math.min(least, at[i * 3 + 1]);
+            most = Math.max(most, at[i * 3 + 1]);
+        }
+        return new float[] {(low[0] + high[0]) / 2f, (low[1] + high[1]) / 2f, (low[2] + high[2]) / 2f, most - least};
     }
 
     /**
@@ -347,7 +543,35 @@ final class VehicleMeshes {
      * @param seats where the vehicle's script seats its passengers, as Ride has them
      */
     private static float[] find(Body body, VehicleModelInstance instance, String name, float[] seats) {
-        VertexBufferObject buffer = body.mesh().vb;
+        return withVertices(body.mesh().vb, name, "its driver's place and its glass are the game's own", (raw, stride, vertices, elements) -> {
+            boolean[] glass = glassIn(raw, stride, elements, instance, name);
+            float[] wheel = wheelIn(raw, stride, vertices, elements, name, seats);
+            boolean[] front = new boolean[glass.length];
+            if (wheel != NONE) {
+                Parts made = partsIn(raw, stride, vertices, elements, glass, wheel, name, seats);
+                parts.put(body, made);
+                front = made.front;
+            }
+            FloatBuffer loose = loose(raw, stride, elements, glass, front);
+            panes.put(body, loose);
+            int rear = 0;
+            for (int t = 0; t < glass.length; t++) {
+                rear += glass[t] && !front[t] ? 3 : 0;
+            }
+            rearPanes.put(body, rear);
+            return wheel;
+        });
+    }
+
+    private interface VertexRead {
+        float[] read(ByteBuffer raw, int stride, int vertices, int[] elements);
+    }
+
+    /**
+     * Reads a model's vertices back from the graphics card and hands them to read, or says why
+     * not and returns NONE for one not laid out as the reads take it.
+     */
+    private static float[] withVertices(VertexBufferObject buffer, String name, String otherwise, VertexRead read) {
         try {
             if (handleField == null) {
                 handleField = VertexBufferObject.class.getDeclaredField(Links.BUFFER_HANDLE.name());
@@ -373,33 +597,18 @@ final class VehicleMeshes {
             String lacks = lacks(stride, bytes, elements);
             if (lacks != null) {
                 GL15.glBindBuffer(GL_ARRAY_BUFFER, bound);
-                Log.info("the vehicle model " + name + " is not laid out as the game's own bodies are (" + lacks + "): its driver's place and its glass are the game's own");
+                Log.info("the vehicle model " + name + " is not laid out as the game's own bodies are (" + lacks + "): " + otherwise);
                 return NONE;
             }
-            // The body's vertices as the graphics card has them, read once and given back when what is kept of them is made.
-            OffHeap.Block read = OffHeap.take(bytes);
+            // The vertices as the graphics card has them, read once and given back when what is kept of them is made.
+            OffHeap.Block block = OffHeap.take(bytes);
             try {
-                ByteBuffer raw = read.bytes;
+                ByteBuffer raw = block.bytes;
                 GL15.glGetBufferSubData(GL_ARRAY_BUFFER, 0L, raw);
                 GL15.glBindBuffer(GL_ARRAY_BUFFER, bound);
-                boolean[] glass = glassIn(raw, stride, elements, instance, name);
-                float[] wheel = wheelIn(raw, stride, bytes / stride, elements, name, seats);
-                boolean[] front = new boolean[glass.length];
-                if (wheel != NONE) {
-                    Parts made = partsIn(raw, stride, bytes / stride, elements, glass, wheel, name, seats);
-                    parts.put(body, made);
-                    front = made.front;
-                }
-                FloatBuffer loose = loose(raw, stride, elements, glass, front);
-                panes.put(body, loose);
-                int rear = 0;
-                for (int t = 0; t < glass.length; t++) {
-                    rear += glass[t] && !front[t] ? 3 : 0;
-                }
-                rearPanes.put(body, rear);
-                return wheel;
+                return read.read(raw, stride, bytes / stride, elements);
             } finally {
-                read.free();
+                block.free();
             }
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException("the game's vertex buffer is not laid out as this build of the mod knows it: " + e, e);
