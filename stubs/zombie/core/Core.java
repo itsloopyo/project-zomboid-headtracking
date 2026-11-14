@@ -15,6 +15,7 @@ public final class Core {
     public float getZoom(int playerIndex) { throw new UnsupportedOperationException("reference stub"); }
     public KeyBinding getKeyBinding(String name) { throw new UnsupportedOperationException("reference stub"); }
     public boolean isToggleToAim() { throw new UnsupportedOperationException("reference stub"); }
+    public String getOptionGamepadBindingPreset() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isDoingTextEntry() { throw new UnsupportedOperationException("reference stub"); }
     public void setForceSnow(boolean forced) { throw new UnsupportedOperationException("reference stub"); }
     public int getOptionBloodDecals() { throw new UnsupportedOperationException("reference stub"); }

@@ -11,6 +11,8 @@ import zombie.characters.CharacterJoypadButtonBinding;
 import zombie.characters.IsoGameCharacter;
 import zombie.characters.IsoPlayer;
 import zombie.characters.IsoZombie;
+import zombie.characters.component.CharacterInputComponent;
+import zombie.input.JoypadButton;
 import zombie.characters.animals.IsoAnimal;
 import zombie.core.Core;
 import zombie.core.PerformanceSettings;
@@ -271,6 +273,50 @@ public final class Controls {
     public boolean precisionAimKey(boolean stock) {
         IsoPlayer player = view.player();
         return view.firstPerson.lookCaptured() && player != null && View.onController(player) ? aimKey(stock) : stock;
+    }
+
+    /** Whether a click of a controller's sprint button keeps the character sprinting, and whether the button was down when last read. */
+    private boolean sprintLatched, sprintWasDown;
+    private long sprintReadNanos;
+
+    /**
+     * The game reads a controller's sprint button only on ticks the character jogs, so a gap this
+     * long between reads means the stick was let back from a full push, or the game stopped.
+     */
+    private static final long SPRINT_GAP_NANOS = 100_000_000L;
+
+    /**
+     * Called with what the game's sprint button reads. The game counts a controller's sprint only
+     * while the button is held, which cannot be done with the click of the stick that moves the
+     * character (Modern FPS has it there: PadPreset). With sprint on that click, a click keeps the
+     * character sprinting until the stick is let back from a full push or the player aims, as a
+     * sprint click does in other shooters. It goes by the binding and not the preset's name: the
+     * game saves a player's edit of a preset as a copy under a new name.
+     */
+    public boolean sprintKey(boolean stock, CharacterInputComponent input) {
+        IsoPlayer player = view.player();
+        if (player == null || !View.onController(player) || CharacterJoypadButtonBinding.Sprint.getJoypadButton() != JoypadButton.LeftStick) {
+            sprintLatched = false;
+            sprintWasDown = false;
+            return stock;
+        }
+        long now = System.nanoTime();
+        if (now - sprintReadNanos > SPRINT_GAP_NANOS) {
+            sprintLatched = false;
+            sprintWasDown = false;
+        }
+        sprintReadNanos = now;
+        int bind = player.getJoypadBind();
+        boolean down = CharacterJoypadButtonBinding.Sprint.isDown(bind);
+        if (down && !sprintWasDown) {
+            sprintLatched = true;
+        }
+        sprintWasDown = down;
+        boolean allowed = input.isAllowSprint() && input.isJoypadButtonsActive();
+        if (!allowed || !CharacterJoypadButtonBinding.Run.isDown(bind) || player.isAiming() && !turnedOnly) {
+            sprintLatched = false;
+        }
+        return stock || sprintLatched;
     }
 
     /** Whether the game's toggle to aim option holds this player's aim: it is the keyboard's and the mouse's, and a controller has none. */

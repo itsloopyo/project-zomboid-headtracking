@@ -817,6 +817,7 @@ public final class Agent {
                 returningWithThis(input, "isInteractButtonDownInternal", "()Z", "interactKey", inputFilter),
                 returningWithThis(input, "isMeleeButtonDownInternal", "()Z", "meleeKey", inputFilter),
                 returningWithThis(input, "isPrecisionAimKeyDownInternal", "()Z", "precisionAimKey", inputFilter),
+                returningWithThis(input, "isSprintButtonDown", "()Z", "sprintKey", inputFilter),
                 returning(UI, "checkPicked", "()Z", "picked", BOOLEAN_FILTER),
                 // Where a drag cursor is put: see DragAim.
                 new Patch("zombie/iso/IsoCell", "doBuildingInternal after getPickedTile", classBytes -> CallSite.insertAfterEach(classBytes,
@@ -1399,9 +1400,12 @@ public final class Agent {
     /** Apart from everything else: without it the mod's settings are in CameraUnlock.ini and on its keys, as they are in any game. */
     private static List<Patch> luaLoadedPatches() {
         String lua = "zombie/Lua/LuaManager";
-        return List.of(new Patch(lua, "LoadDirBase before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
-                new CallSite.Method(lua, "LoadDirBase", "()V"),
-                code -> CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "luaLoaded", "()V")))));
+        return List.of(new Patch(lua, "LoadDirBase at its start", classBytes -> CallSite.insertAtStartOfStaticMethod(classBytes,
+                        new CallSite.Method(lua, "LoadDirBase", "()V"),
+                        code -> CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "luaLoading", "()V")))),
+                new Patch(lua, "LoadDirBase before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                        new CallSite.Method(lua, "LoadDirBase", "()V"),
+                        code -> CallSite.invokeStatic(code, new CallSite.Method(HOOKS, "luaLoaded", "()V")))));
     }
 
     /**

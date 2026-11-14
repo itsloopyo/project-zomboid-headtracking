@@ -328,6 +328,8 @@ A short line under the crosshair says what `E` will do to what it is on, such as
 
 **Controller** - the controllers ticked in the game's Controller options are the ones that play. If none of the gamepads plugged in is ticked, every one the game recognises gets ticked and plays, and pressing **A** on the main menu gives that controller the menu. Player 1 plays on whatever last used the main menu: the controller that pressed **A**, or the keyboard and mouse once you click or press a key there. Any other controller can join once you're in the game: press **A** on it and choose **Add new player**. A 3Dconnexion SpaceMouse is never treated as a controller. Double-tap **Back** to switch views. The aiming stick turns the view, the right trigger attacks and the left trigger raises a gun's sights.
 
+**Modern FPS controller layout** - the mod adds a **Modern FPS** preset to the game's own list in **Options > Controller**. It is the game's Default layout with sprint on the left stick click and crouch on the right stick click. Click the left stick while jogging and you keep sprinting until you ease off the stick or aim. The click works the same way with any layout of your own that keeps sprint on the left stick click. The game's own presets are unchanged and still listed.
+
 **More players** - tap `Delete` twice to switch player 2's view, three times for player 3's and four times for player 4's. Hold it to change everyone at once: if anyone is in the isometric view, everyone goes to first person, and holding it again puts everyone in the isometric view. Players on a controller can double-tap **Back** instead. Send player 2's tracker to port **4243**, player 3's to **4244** and player 4's to **4245**.
 
 ## Configuration

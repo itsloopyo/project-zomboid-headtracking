@@ -139,8 +139,19 @@ public final class Hooks {
         return true;
     }
 
+    /** Called as the game begins loading its Lua: at its start, and each time it loads it again. */
+    public static void luaLoading() {
+        PadPreset.luaLoading();
+    }
+
     /** Called when the game has loaded its Lua: at its start, and each time it loads it again. */
     public static void luaLoaded() {
+        try {
+            PadPreset.luaLoaded();
+        } catch (RuntimeException failure) {
+            // Thrown on, it would stop the game inside its own loading of its Lua.
+            Log.error("the Modern FPS controller preset is not in the game's controller options", failure);
+        }
         try {
             OptionsPage.register();
         } catch (RuntimeException failure) {
@@ -473,6 +484,12 @@ public final class Hooks {
     public static boolean precisionAimKey(boolean stock, CharacterInputComponent input) {
         View view = of(input);
         return view == null ? stock : view.controls.precisionAimKey(stock);
+    }
+
+    /** Called with what a character's sprint button reads. */
+    public static boolean sprintKey(boolean stock, CharacterInputComponent input) {
+        View view = of(input);
+        return view == null ? stock : view.controls.sprintKey(stock, input);
     }
 
     /** Called with whether a character's Interact button is down. */
