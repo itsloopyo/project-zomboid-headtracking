@@ -461,8 +461,8 @@ final class Config {
                             + "for all of it. On a server the game's rules apply.\n" + Part.LIVE_AND_NEXT_START,
                     writable | live, true),
             localBool("Rules", "FacesTheView",
-                    "true: walking or sneaking sideways or backwards in first person, your character keeps facing where you look, and\n"
-                            + "you jog or sprint only straight ahead or on a forward diagonal. false: it always turns, as in the game. On a\n"
+                    "true: moving sideways or backwards in first person, your character keeps facing where you look and goes at up\n"
+                            + "to a jog, and sprints only ahead or on a forward diagonal. false: it always turns, as in the game. On a\n"
                             + "server where players can hurt each other it keeps facing where you look when going sideways and backwards, on\n"
                             + "or off, at the slower pace the game gives its aiming stance.",
                     writable | live, true),

@@ -295,7 +295,7 @@ Every key saves its new setting to `CameraUnlock.ini` as you press it, and `Dele
 
 ### Mouse and keyboard
 
-The mouse turns the view, and the movement keys move you relative to where you're looking. If you walk or sneak in any direction other than straight ahead, diagonals included, your character keeps facing where you look, in the game's aiming stance but at the speed you'd walk or sneak forwards. Jogging and sprinting go straight ahead or on a forward diagonal, at the game's own pace. Try them sideways or backwards and you walk. That's how it works offline and on servers without PvP. Set `FacesTheView=false` if you'd rather your character always turned to face the way it's going, as in vanilla. On a PvP server your character only keeps facing where you look when walking sideways or backwards, at the game's slower aiming speed: see [Multiplayer](#multiplayer).
+The mouse turns the view, and the movement keys move you relative to where you're looking. If you walk or sneak in any direction other than straight ahead, diagonals included, your character keeps facing where you look, in the game's aiming stance but at the speed you'd walk or sneak forwards. Jog sideways or backwards and you keep jogging pace. Sprinting goes straight ahead or on a forward diagonal, at the game's own pace, and turns into a jog sideways or backwards. That's how it works offline and on servers without PvP. Set `FacesTheView=false` if you'd rather your character always turned to face the way it's going, as in vanilla. On a PvP server your character only keeps facing where you look when walking sideways or backwards, at the game's slower aiming speed: see [Multiplayer](#multiplayer).
 
 | Input | Action |
 | --- | --- |
@@ -328,7 +328,7 @@ A short line under the crosshair says what `E` will do to what it is on, such as
 
 **Controller** - the controllers ticked in the game's Controller options are the ones that play. If none of the gamepads plugged in is ticked, every one the game recognises gets ticked and plays, and pressing **A** on the main menu gives that controller the menu. Player 1 plays on whatever last used the main menu: the controller that pressed **A**, or the keyboard and mouse once you click or press a key there. Any other controller can join once you're in the game: press **A** on it and choose **Add new player**. A 3Dconnexion SpaceMouse is never treated as a controller. Double-tap **Back** to switch views. The aiming stick turns the view, the right trigger attacks and the left trigger raises a gun's sights.
 
-**Modern FPS controller layout** - the mod adds a **Modern FPS** preset to the game's own list in **Options > Controller**. It is the game's Default layout with sprint on the left stick click and crouch on the right stick click. Click the left stick while jogging and you keep sprinting until you ease off the stick or aim. The click works the same way with any layout of your own that keeps sprint on the left stick click. The game's stick click wheel (toggle crouch, sit on the ground, auto walk) opens when you hold the right stick click instead of the left, in any layout with crouch on the right stick click. The game's own presets are unchanged and still listed.
+**Modern FPS controller layout** - the mod adds a **Modern FPS** preset to the game's own list in **Options > Controller**. It is the game's Default layout with sprint on the left stick click and crouch on the right stick click. Click the left stick while jogging and you keep sprinting until you ease off the stick or aim. Push it sideways or back while your character faces where you look and the sprint becomes a jog, and you click again to sprint once you are heading ahead. The click works the same way with any layout of your own that keeps sprint on the left stick click. The game's stick click wheel (toggle crouch, sit on the ground, auto walk) opens when you hold the right stick click instead of the left, in any layout with crouch on the right stick click. The game's own presets are unchanged and still listed.
 
 **More players** - tap `Delete` twice to switch player 2's view, three times for player 3's and four times for player 4's. Hold it to change everyone at once: if anyone is in the isometric view, everyone goes to first person, and holding it again puts everyone in the isometric view. Players on a controller can double-tap **Back** instead. Send player 2's tracker to port **4243**, player 3's to **4244** and player 4's to **4245**.
 
@@ -841,8 +841,8 @@ ShotsWoundLimbs=true
 ; for all of it. On a server the game's rules apply.
 ; Takes effect at once. From the next start, off also stops the mod changing the game's own code for this.
 VehiclesSmashThrough=true
-; true: walking or sneaking sideways or backwards in first person, your character keeps facing where you look, and
-; you jog or sprint only straight ahead or on a forward diagonal. false: it always turns, as in the game. On a
+; true: moving sideways or backwards in first person, your character keeps facing where you look and goes at up
+; to a jog, and sprints only ahead or on a forward diagonal. false: it always turns, as in the game. On a
 ; server where players can hurt each other it keeps facing where you look when going sideways and backwards, on
 ; or off, at the slower pace the game gives its aiming stance.
 FacesTheView=true

@@ -154,8 +154,8 @@ public final class Controls {
             return false;
         }
         boolean raises = facing.raises();
-        // Off, a jog or sprint asked for sideways or back is the walk, and only straight ahead runs.
-        int gait = raises && SPRINT_ASIDE ? askedGait(player) : Sidestep.WALKING;
+        // Sideways or back a sprint asked for is a jog, as in other shooters, where only ahead sprints.
+        int gait = !raises ? Sidestep.WALKING : SPRINT_ASIDE ? askedGait(player) : Math.min(askedGait(player), Sidestep.JOGGING);
         // Moved ahead and to one side it faces the view too, so a mirror shows it looking where the
         // player looks: only straight ahead is the game's own walk or run.
         // A jog or sprint on a forward diagonal is the game's own, at its own pace: the drawn figure
@@ -168,7 +168,7 @@ public final class Controls {
         return turned;
     }
 
-    /** Jogging and sprinting sideways, back and on a forward diagonal facing the view: off unless the game is started with this flag. */
+    /** Sprinting sideways or back, and jogging or sprinting on a forward diagonal, facing the view: off unless the game is started with this flag. */
     private static final boolean SPRINT_ASIDE = Boolean.getBoolean("cameraunlock.zomboid.sprintAside");
 
     /** The cosine of the angle off the view, 10 degrees, within which the keys or the stick ask for straight ahead. */
