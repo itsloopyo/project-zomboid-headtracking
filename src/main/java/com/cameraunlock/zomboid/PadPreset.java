@@ -14,6 +14,10 @@ import zombie.ui.UIManager;
  * else is Default's, because the game gives B and X several jobs each (B: cancel, climb through,
  * smash a window, brake; X: loot, interact options, cruise control).
  *
+ * The game's stick click wheel (toggle crouch, sit on the ground, auto walk) opens on a held
+ * left stick click whatever the preset. With crouch on the right stick's click it opens on that
+ * click held instead, the click that is the wheel's first job, and leaves the sprint click alone.
+ *
  * The game builds its list of presets in its Lua each time it loads it, and a saved choice the
  * list does not have yet is put back to Original before the mod can add this one. So the choice
  * is read before the Lua loads and given back once the preset is in the list.
@@ -38,6 +42,43 @@ final class PadPreset {
             }
             """;
 
+    private static final String WHEEL = """
+            local Menu, Prompt = ISJoystickButtonRadialMenu, ISButtonPrompt
+            local down, released, held, update = Menu.onJoypadDown, Menu.onJoypadButtonReleased, Menu.onRepeatLeftStickButton, Prompt.update
+
+            local function onRight()
+                return CharacterJoypadButtonBinding.Crouch:getJoypadButton() == JoypadButton.RightStick
+            end
+
+            -- The game's wheel code asks for the left stick's click by Joypad.LStickButton alone.
+            local function swapped(f, ...)
+                local left, right = Joypad.LStickButton, Joypad.RStickButton
+                Joypad.LStickButton, Joypad.RStickButton = right, left
+                local ran = {pcall(f, ...)}
+                Joypad.LStickButton, Joypad.RStickButton = left, right
+                if not ran[1] then error(tostring(ran[2]) .. (ran[3] and "\\n" .. tostring(ran[3]) or ""), 0) end
+            end
+
+            Menu.onJoypadDown = function(button, joypadData)
+                if onRight() then swapped(down, button, joypadData) else down(button, joypadData) end
+            end
+            Menu.onJoypadButtonReleased = function(button, joypadData)
+                if onRight() then swapped(released, button, joypadData) else released(button, joypadData) end
+            end
+            -- The game calls this only while the left stick's click is held.
+            Menu.onRepeatLeftStickButton = function(joypadData)
+                if not onRight() then held(joypadData) end
+            end
+            Prompt.update = function(self)
+                update(self)
+                if not onRight() or not self.player then return end
+                local joypadData = JoypadState.players[self.player + 1]
+                if joypadData and joypadData.isActive and isJoypadRightStickButtonPressed(joypadData.id) then
+                    swapped(held, joypadData)
+                end
+            end
+            """;
+
     private static final String CHOOSE = """
             local key = ...
             gamepadBinding:set(key)
@@ -57,6 +98,7 @@ final class PadPreset {
     /** Called once the game has loaded its Lua, each time it does. */
     static void luaLoaded() {
         run(LUA, "the mod's controller preset", KEY, LABEL, DESCRIPTION);
+        run(WHEEL, "the stick click wheel on the crouch click");
         if (KEY.equals(chosenBeforeLoad) && !KEY.equals(Core.getInstance().getOptionGamepadBindingPreset())) {
             Object[] ran = run(CHOOSE, "choosing the mod's controller preset", KEY);
             if (!KEY.equals(ran[1])) {
