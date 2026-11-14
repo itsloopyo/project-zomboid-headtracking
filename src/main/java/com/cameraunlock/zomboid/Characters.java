@@ -431,7 +431,7 @@ public final class Characters {
         ViewCamera.view(camera, eyeView);
         CharacterDraw.nearCut = scope ? 0f : CharacterDraw.NEAR_CUT;
         CharacterDraw.looking(eyeView);
-        int drawn = draw(fromEye(camera), view.pipeline.outside, false, null, camera.eyeX, camera.eyeY, Float.MAX_VALUE);
+        int drawn = draw(fromEye(camera), view.pipeline.outside || view.pipeline.viewerShown, false, null, camera.eyeX, camera.eyeY, Float.MAX_VALUE);
         CharacterDraw.nearCut = 0f;
         if (Dying.ON && !vehicles && !scope) {
             watchDeaths();
@@ -2579,10 +2579,10 @@ public final class Characters {
                 CharacterDraw.release();
                 seated(data, i * 4, viewMatrix);
             } else {
-                // Seen from outside, the viewer is one of the people in the picture, lit by the square
+                // Seen from outside or from behind, the viewer is one of the people in the picture, lit by the square
                 // they stand on: ownLight is the eye's, and is only worked out while first person is drawn.
-                character(data, standsUp, viewMatrix, data.character == own && !viewerWhole && !view.pipeline.outside, casting, false, false,
-                        data.character == own ? 0f : fromViewer(toX, toY, data.z - own.getZ()));
+                boolean ownBody = data.character == own && !viewerWhole && !view.pipeline.outside && !view.pipeline.viewerShown;
+                character(data, standsUp, viewMatrix, ownBody, casting, false, false, ownBody ? 0f : fromViewer(toX, toY, data.z - own.getZ()));
             }
             data.ambientR = red;
             data.ambientG = green;

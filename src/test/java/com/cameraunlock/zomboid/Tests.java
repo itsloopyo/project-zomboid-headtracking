@@ -80,6 +80,7 @@ public final class Tests {
         Checks.run("anEyeFlushAgainstAWallIsHeldOffItByTheMargin", Tests::anEyeFlushAgainstAWallIsHeldOffItByTheMargin);
         Checks.run("aFenceBetweenTwoSquaresIsTheSouthOrEastSquaresOwn", Tests::aFenceBetweenTwoSquaresIsTheSouthOrEastSquaresOwn);
         Checks.run("CabinTests", CabinTests::run);
+        Checks.run("ThirdPersonTests", ThirdPersonTests::run);
         Checks.run("GlassPullTests", GlassPullTests::run);
         Checks.run("GlassPlaceTests", GlassPlaceTests::run);
         Checks.run("MoversTests", MoversTests::run);

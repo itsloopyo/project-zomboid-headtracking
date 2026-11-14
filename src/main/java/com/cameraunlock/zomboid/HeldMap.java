@@ -277,7 +277,8 @@ final class HeldMap {
         if (refused) {
             holding |= MapHold.NO_PICTURE;
         }
-        if (!view.firstPerson.active()) {
+        // Behind the character the sheet would be held where no own arms are drawn.
+        if (!view.firstPerson.active() || view.firstPerson.inThirdPerson()) {
             holding |= MapHold.NOT_FIRST_PERSON;
         }
         if (!Own.arms() || !CharacterDraw.cutsSeen()) {

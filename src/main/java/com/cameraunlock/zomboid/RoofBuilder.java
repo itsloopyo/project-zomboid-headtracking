@@ -20,7 +20,8 @@ import zombie.iso.SpriteDetails.IsoFlagType;
  */
 final class RoofBuilder {
     /** How far a roof runs out past its wall, and how deep the board along its end is, in tiles. */
-    private static final float EAVE = 0.22f, FASCIA = 0.12f, RAKE = 0.14f, GUTTER = 0.07f, PIPE = 0.035f;
+    static final float EAVE = 0.22f, FASCIA = 0.12f, GUTTER = 0.07f;
+    private static final float RAKE = 0.14f, PIPE = 0.035f;
     /**
      * The cap along a ridge or down a hip, in tiles: how far it reaches either side of the line,
      * half the width of its level crown, how far the crown stands over the line and how far its

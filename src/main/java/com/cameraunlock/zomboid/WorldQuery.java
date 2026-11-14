@@ -6,6 +6,7 @@ import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
 import zombie.iso.LosUtil;
 import zombie.iso.SpriteDetails.IsoFlagType;
+import zombie.iso.SpriteDetails.IsoObjectType;
 
 /**
  * What the loaded map says is in the way of the eye and of a shot. Both
@@ -24,11 +25,23 @@ final class WorldQuery {
      */
     private static final float MIN_COSINE = 0.25f;
 
+    /** The underside of a door casing's head, in levels: 0.849 up the wall's sprite less a head 0.068 deep. */
+    static final float DOOR_HEAD = 0.78f;
+
     private final GridTrace trace = new GridTrace();
     private IsoCell cell;
     private int level;
+    /**
+     * How far up over the floor of the level looked at a ray traced for the camera starts, how
+     * much it rises a tile along the ground, and how far along it the camera is: the trace runs
+     * on past the camera by the margin, where the boom is no higher. See solidToTheCamera.
+     */
+    private float boomUp, boomRise, boomReach;
+    /** Whether offWalls is pushing the camera off what is round it, which only walls do: see solidToTheCamera. */
+    private boolean pushing;
     private final GridTrace.Edges solidToTheEye = this::solidToTheEye;
     private final GridTrace.Edges solidToAClimber = this::solidToAClimber;
+    private final GridTrace.Edges solidToTheCamera = this::solidToTheCamera;
     private final GridTrace.Edges solidToAShot = this::solidToAShot;
     private final GridTrace.Edges solidToADrag = this::solidToADrag;
 
@@ -61,8 +74,13 @@ final class WorldQuery {
      * isWindowTo finds between the two, or a square that is solid.
      */
     boolean solidToTheEye(int fromX, int fromY, int toX, int toY) {
-        IsoGridSquare from = cell.getGridSquare(fromX, fromY, level);
-        IsoGridSquare to = cell.getGridSquare(toX, toY, level);
+        return solidOn(level, fromX, fromY, toX, toY);
+    }
+
+    /** As solidToTheEye, on a given level. */
+    private boolean solidOn(int z, int fromX, int fromY, int toX, int toY) {
+        IsoGridSquare from = cell.getGridSquare(fromX, fromY, z);
+        IsoGridSquare to = cell.getGridSquare(toX, toY, z);
         if (from == null || to == null) {
             return wallBesideAir(from, to, fromX, fromY, toX, toY);
         }
@@ -82,6 +100,81 @@ final class WorldQuery {
             return to.isSolid();
         }
         return solidToTheEye(fromX, fromY, toX, toY);
+    }
+
+    /**
+     * As solidToTheEye, but for a camera behind the character, which goes over a low fence: one the
+     * game lets a character hop. A doorway only lets the boom through under the door's head: a
+     * camera over a car, or looking down from behind, crossed it through the wall above the door
+     * and stood in the room beyond. Within a STANDOFF of the top of the level's walls, the walls
+     * of the level above stop it too: a gable over the wall below, or a storey set back on it.
+     * From as low as an eave hangs, it does not go from the open air in under or through a
+     * roof: into a square with any of a roof on it, the eaves' trims included. That edge is no
+     * wall, and offWalls, which pushes the camera to the body's side of one, leaves it be.
+     */
+    private boolean solidToTheCamera(int fromX, int fromY, int toX, int toY) {
+        float up = boomUp + boomRise * Math.min(trace.crossing, boomReach);
+        if (up > ViewCamera.LEVEL_HEIGHT - ThirdPerson.STANDOFF && solidOn(level + 1, fromX, fromY, toX, toY)) {
+            return true;
+        }
+        if (!pushing && up > ROOFS_FROM && roofed(toX, toY) && open(fromX, fromY)) {
+            return true;
+        }
+        IsoGridSquare from = cell.getGridSquare(fromX, fromY, level);
+        IsoGridSquare to = cell.getGridSquare(toX, toY, level);
+        if (from != null && to != null && fenceBetween(fromX, fromY, toX, toY, lowFenceOnly(from, true), lowFenceOnly(from, false),
+                lowFenceOnly(to, true), lowFenceOnly(to, false))) {
+            return to.isSolid();
+        }
+        if (from != null && to != null && up > DOOR_HEAD * ViewCamera.LEVEL_HEIGHT
+                && fenceBetween(fromX, fromY, toX, toY, doorway(from, true), doorway(from, false), doorway(to, true), doorway(to, false))) {
+            return true;
+        }
+        return solidToTheEye(fromX, fromY, toX, toY);
+    }
+
+    /**
+     * How far up over the floor of its level the lowest edge of an eave can hang: see RoofBuilder.
+     * A camera behind a standing character looking level is under it, and the picture's near
+     * plane is well inside the gap.
+     */
+    static final float ROOFS_FROM = ViewCamera.LEVEL_HEIGHT - RoofBuilder.EAVE - RoofBuilder.FASCIA - RoofBuilder.GUTTER;
+
+    /** Whether the square at (x, y) on the level looked at, or the one over it, has any of a roof on it. */
+    private boolean roofed(int x, int y) {
+        for (int z = level; z <= level + 1; z++) {
+            IsoGridSquare square = cell.getGridSquare(x, y, z);
+            if (square != null && Roofs.roofing(cell, square)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Whether the square at (x, y) on the level looked at is in the open air: out of doors, with no floor and no roof over it. */
+    private boolean open(int x, int y) {
+        IsoGridSquare square = cell.getGridSquare(x, y, level);
+        IsoGridSquare over = cell.getGridSquare(x, y, level + 1);
+        return (square == null || square.isOutside()) && (over == null || over.getFloor() == null) && !roofed(x, y);
+    }
+
+    /** Whether a square's north or west edge is a doorway: a door, or a door frame, which some frames are only by their type. */
+    private static boolean doorway(IsoGridSquare square, boolean north) {
+        if (north ? square.has(IsoFlagType.DoorWallN) || square.has(IsoFlagType.doorN) : square.has(IsoFlagType.DoorWallW) || square.has(IsoFlagType.doorW)) {
+            return true;
+        }
+        java.util.List<IsoObject> objects = SquareObjects.of(square);
+        for (int i = 0; i < objects.size(); i++) {
+            if (objects.get(i).getType() == (north ? IsoObjectType.doorFrN : IsoObjectType.doorFrW)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** As fenceOnly, for a low fence: not a tall one, which the camera stays on its side of. */
+    private static boolean lowFenceOnly(IsoGridSquare square, boolean north) {
+        return fenceOnly(square, north) && !square.has(north ? IsoFlagType.TallHoppableN : IsoFlagType.TallHoppableW);
     }
 
     /**
@@ -283,6 +376,69 @@ final class WorldQuery {
             room = Math.min(room, hit - margin / cosine);
         }
         return Math.max(room, 0f);
+    }
+
+    /**
+     * As roomForTheEye, for a camera on a boom behind the character: low fences are passed
+     * (solidToTheCamera), and a ray beside the boom is only traced where the step out to it from
+     * (x, y) is clear. Along a wall the ray on its far side started in the next room and met that
+     * room's walls, and the camera was pulled in at each of them.
+     */
+    float roomForTheCamera(float x, float y, float directionX, float directionY, float reach, float margin, float up, float rise) {
+        float ground = (float) Math.sqrt(directionX * directionX + directionY * directionY);
+        if (ground < 1e-4f) {
+            return reach;
+        }
+        float acrossX = -directionY / ground, acrossY = directionX / ground;
+        float room = reach;
+        boomReach = reach;
+        for (int ray = -1; ray <= 1; ray++) {
+            boomUp = up;
+            boomRise = 0f;
+            if (ray != 0 && trace.firstBlockedEdge(solidToTheCamera, x, y, acrossX * ray, acrossY * ray, margin) < margin) {
+                continue;
+            }
+            boomRise = rise;
+            float hit = trace.firstBlockedEdge(solidToTheCamera, x + acrossX * margin * ray, y + acrossY * margin * ray,
+                    directionX, directionY, reach + margin / MIN_COSINE);
+            if (hit == Float.POSITIVE_INFINITY) {
+                continue;
+            }
+            float cosine = Math.max(Math.abs(trace.hitFacesX ? directionX : directionY), MIN_COSINE);
+            room = Math.min(room, hit - margin / cosine);
+        }
+        return Math.max(room, 0f);
+    }
+
+    /**
+     * As holdOffWalls, for a camera behind the character: see solidToTheCamera. offWalls pushes to
+     * the body's side of a wall, which is through it where the camera has gone round the wall's
+     * end: there the camera is left where it was. The camera is up over the floor of the level
+     * looked at, and the boom from the body is bodyUp there and rises by rise a tile, as for
+     * roomForTheCamera.
+     */
+    void holdCameraOffWalls(double[] at, double bodyX, double bodyY, float margin, float up, float bodyUp, float rise) {
+        double x = at[0], y = at[1];
+        boomUp = up;
+        boomRise = 0f;
+        pushing = true;
+        offWalls(trace, solidToTheCamera, at, bodyX, bodyY, margin);
+        pushing = false;
+        boomUp = bodyUp;
+        boomRise = rise;
+        float toX = (float) (at[0] - bodyX), toY = (float) (at[1] - bodyY);
+        float length = (float) Math.hypot(toX, toY);
+        boomReach = length;
+        if (length > 1e-4f && trace.firstBlockedEdge(solidToTheCamera, (float) bodyX, (float) bodyY, toX / length, toY / length, length) < length) {
+            at[0] = x;
+            at[1] = y;
+        }
+    }
+
+    /** Whether the square at (x, y) on the level above the one looked at has a floor: a camera up there stands on it. */
+    boolean floorAbove(double x, double y) {
+        IsoGridSquare square = cell.getGridSquare((int) Math.floor(x), (int) Math.floor(y), level + 1);
+        return square != null && square.getFloor() != null;
     }
 
     /**

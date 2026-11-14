@@ -22,7 +22,19 @@ When you play offline, the mod also changes some of the game's rules. Shots go t
 
 ## First person
 
-Press `Delete` to switch between the isometric view and first person, on foot or in a vehicle. Saves load in whichever view you used last, and a hint on screen shows the key that switches views, then the key that changes graphics quality.
+Press `Delete` to go from the isometric view to first person, on foot or in a vehicle. Press it again for third person, and once more to go back to the isometric view. Saves load in whichever view you used last, and a hint on screen shows the key that switches views, then the key that changes graphics quality.
+
+### Third person
+
+Third person puts the camera behind and a little above your character, so you see them in the world the mod draws in first person, with the same graphics. The mouse turns the camera around your character. The movement keys go by where the camera looks, and your character turns to run whichever way you push, so you can turn the camera to look back while you run on.
+
+- **Aiming** - hold aim and your character turns to face where the camera looks, and the camera comes in over your right shoulder. The shot leaves from your character and goes to what the middle of the picture is on, and the reticle sits where it will land.
+- **Following** - the camera trails your character a little as they move, and stands back a little further while they sprint.
+- **Walls** - the camera moves in where a wall would come between it and your character, and back out slowly once there's room. Indoors it stays under the ceiling. With your back right up against a wall, the picture goes back to first person until there's room again.
+- **Vehicles** - in a vehicle the camera sits behind and above it, and you see the vehicle from outside. Look around with the mouse as you drive, and about a second after you stop looking around, the camera swings back behind the vehicle while it's moving.
+- **The map** - the map key opens the game's own map, since there are no hands in view to hold the paper map in.
+- **Head tracking** - turning your head turns the camera, and leaning moves it. Neither moves where you aim.
+- **Turning it off** - untick **Third person view** on the options page (`ThirdPersonEnabled`) and `Delete` switches between first person and the isometric view only.
 
 ### World and graphics
 
@@ -270,7 +282,7 @@ Centring belongs to your tracker, recenter there.
 
 | Key | Action |
 | --- | --- |
-| `Delete` | Switch between first person and isometric (`Scroll Lock` with Project Viewpoint) |
+| `Delete` | Go from isometric to first person, third person and back (`Scroll Lock` with Project Viewpoint) |
 | `Page Up` | Track head rotation and movement, rotation only, or movement only |
 | `Page Down` | Switch between horizon-relative and camera-relative head turns |
 | `Insert` | Change aiming mode |
@@ -291,7 +303,7 @@ Centring belongs to your tracker, recenter there.
 
 To change any of these keys, open the mod's options page and go to Keys at the bottom: click a key, then press the new one, with Shift, Ctrl or Alt if you like. The mod listens for the new key as soon as you apply.
 
-Every key saves its new setting to `CameraUnlock.ini` as you press it, and `Delete` also saves which view your next load starts in (`FirstPerson`). There's no key to turn head tracking on or off: use the Head tracking on tick box at the top of the mod's options page, or `EnableOnStartup` in `CameraUnlock.ini`. There's no recenter key either, so centre the view in your tracker app.
+Every key saves its new setting to `CameraUnlock.ini` as you press it, and `Delete` also saves which view your next load starts in (`FirstPerson` and `ThirdPerson`). There's no key to turn head tracking on or off: use the Head tracking on tick box at the top of the mod's options page, or `EnableOnStartup` in `CameraUnlock.ini`. There's no recenter key either, so centre the view in your tracker app.
 
 ### Mouse and keyboard
 
@@ -330,7 +342,7 @@ A short line under the crosshair says what `E` will do to what it is on, such as
 
 **Modern FPS controller layout** - the mod adds a **Modern FPS** preset to the game's own list in **Options > Controller**. It is the game's Default layout with sprint on the left stick click and crouch on the right stick click. Click the left stick while jogging and you keep sprinting until you ease off the stick or aim. Push it sideways or back while your character faces where you look and the sprint becomes a jog, and you click again to sprint once you are heading ahead. The click works the same way with any layout of your own that keeps sprint on the left stick click. The game's stick click wheel (toggle crouch, sit on the ground, auto walk) opens when you hold the right stick click instead of the left, in any layout with crouch on the right stick click. The game's own presets are unchanged and still listed.
 
-**More players** - tap `Delete` twice to switch player 2's view, three times for player 3's and four times for player 4's. Hold it to change everyone at once: if anyone is in the isometric view, everyone goes to first person, and holding it again puts everyone in the isometric view. Players on a controller can double-tap **Back** instead. Send player 2's tracker to port **4243**, player 3's to **4244** and player 4's to **4245**.
+**More players** - tap `Delete` twice to switch player 2's view, three times for player 3's and four times for player 4's. Hold it to change everyone at once: if anyone is in the isometric view, everyone in it goes to first person, and holding it again puts everyone in the isometric view. Holding it never takes anyone to third person, and anyone already there stays there when the others go to first person. Players on a controller can double-tap **Back** instead. Send player 2's tracker to port **4243**, player 3's to **4244** and player 4's to **4245**.
 
 ## Configuration
 
@@ -418,6 +430,9 @@ DataFreshnessMs=default
 ; on to go to an isometric graphics mode other than Low.
 ; Takes effect at once. From the next start, off also stops the mod changing the game's own code for this.
 FirstPersonEnabled=true
+; true: the first person key goes on from first person to a third person view from behind your character, and from
+; there back to the isometric view. false: it switches between first person and the isometric view only.
+ThirdPersonEnabled=true
 ; Vertical field of view of the first person view, in degrees: 40 to 110.
 FieldOfView=65.0
 ; First person graphics mode: Low, Medium, High or Custom. Custom draws the [Graphics] rows. Every mode but Custom
@@ -435,6 +450,9 @@ Style=Bleak
 ; true: saves load in first person, while FirstPersonEnabled is on. Switching the view with the first person key, or a
 ; double tap of Back on a controller, changes this to match.
 FirstPerson=false
+; true: saves that load in first person load in the third person view instead, while ThirdPersonEnabled is on.
+; Switching the view changes this to match.
+ThirdPerson=false
 ; true: getting into a vehicle switches to first person, and getting out switches back to the isometric view, even
 ; with FirstPersonEnabled off. The first person key still switches the view at any time, and a view it chose is kept
 ; when you get out.
@@ -507,11 +525,12 @@ CycleTrackingModeKey=PageUp
 YawModeKey=PageDown
 ; Cycles the aim mode: sights locked, free look with a marker, stock sights.
 TrueFreeLookKey=Insert
-; Switches between first person and the isometric view. Tap once for player 1, twice for player 2, three times for
-; player 3, four times for player 4, or hold for every player.
+; Goes from the isometric view to first person, on to third person while ThirdPersonEnabled is on, and back to the
+; isometric view. Tap once for player 1, twice for player 2, three times for player 3, four times for player 4.
+; Held, it puts every player into first person if any is in the isometric view, or else every player back into it.
 FirstPersonKey=Delete
-; Switches between first person and the isometric view in place of FirstPersonKey while Project Viewpoint, another
-; mod, runs, as Viewpoint opens its settings window on Delete. Tapped and held as FirstPersonKey is.
+; Switches the view as FirstPersonKey does, in its place while Project Viewpoint, another mod, runs, as Viewpoint
+; opens its settings window on Delete. Tapped and held as FirstPersonKey is.
 FirstPersonKeyBesideViewpoint=ScrollLock
 ; Goes to the next graphics mode of the view a player is in: in first person Low, Medium, High, Custom
 ; (Quality), in the isometric view Low, Medium, High, Custom (IsometricQuality), and for players 2, 3 and 4 their
@@ -673,6 +692,8 @@ SecondPlayerIsometricQuality=Low
 SecondPlayerStyle=Bleak
 ; Player 2's view at load, as FirstPerson.
 SecondPlayerFirstPerson=false
+; Player 2's third person at load, as ThirdPerson.
+SecondPlayerThirdPerson=false
 ; Player 2's view in vehicles, as FirstPersonInVehicles.
 SecondPlayerFirstPersonInVehicles=false
 ; Player 3's first person graphics mode, as Quality.
@@ -683,6 +704,8 @@ ThirdPlayerIsometricQuality=Low
 ThirdPlayerStyle=Bleak
 ; Player 3's view at load, as FirstPerson.
 ThirdPlayerFirstPerson=false
+; Player 3's third person at load, as ThirdPerson.
+ThirdPlayerThirdPerson=false
 ; Player 3's view in vehicles, as FirstPersonInVehicles.
 ThirdPlayerFirstPersonInVehicles=false
 ; Player 4's first person graphics mode, as Quality.
@@ -693,6 +716,8 @@ FourthPlayerIsometricQuality=Low
 FourthPlayerStyle=Bleak
 ; Player 4's view at load, as FirstPerson.
 FourthPlayerFirstPerson=false
+; Player 4's third person at load, as ThirdPerson.
+FourthPlayerThirdPerson=false
 ; Player 4's view in vehicles, as FirstPersonInVehicles.
 FourthPlayerFirstPersonInVehicles=false
 
@@ -985,7 +1010,7 @@ Each part of the mod, gameplay tweak, game fix and optimization has its own tick
 **Quick settings**, at the top of the page, has the head tracking switch and five lists that each change a whole group of settings at once:
 
 - **Head tracking on** - on or off, saved as `EnableOnStartup`. No key turns it on or off.
-- **Everything** - `On` ticks every box on the page except Talking mouths, Horizon-relative head turns, the Custom graphics settings, and each player's Load saves in first person and Switch to first person in vehicles. It also turns head tracking on, and sets every player's first person graphics to High. `Off` unticks the same boxes and Switch to first person in vehicles, which brings back the game's own content, sets every player's graphics to Low (the game's own look) in both views, and puts split screen back to side by side, as in vanilla. Head tracking and Talking mouths stay as they are, so you can turn back on just the parts you want.
+- **Everything** - `On` ticks every box on the page except Talking mouths, Horizon-relative head turns, the Custom graphics settings, and each player's Load saves in first person, Load saves in third person and Switch to first person in vehicles. It also turns head tracking on, and sets every player's first person graphics to High. `Off` unticks the same boxes and Switch to first person in vehicles, which brings back the game's own content, sets every player's graphics to Low (the game's own look) in both views, and puts split screen back to side by side, as in vanilla. Head tracking and Talking mouths stay as they are, so you can turn back on just the parts you want.
 - **First person** - `On` turns first person on and Switch to first person in vehicles off for every player, without changing which view their saves load in. `In vehicles only` unticks First person view and ticks Switch to first person in vehicles for every player: saves load in the isometric view, getting into a vehicle switches to first person and getting out switches back. `Off` unticks both, so there is no first person view until you press `Delete`, which ticks First person view again.
 - **Enhanced graphics** - `On` ticks every box under Graphics and Mod content, and switches any player whose first person graphics are on Low to High. `Off` unticks them, which brings back the game's own content, and sets every player's graphics to Low in both views.
 - **Gameplay tweaks** - ticks or unticks every box under Gameplay tweaks.

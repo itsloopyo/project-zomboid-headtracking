@@ -1178,12 +1178,12 @@ public final class CoreTests {
         for (CameraUnlock.Option option : options) {
             ids.append(option.id).append(' ');
         }
-        check(ids.toString().equals("EnableOnStartup WorldSpaceYaw TrackingMode LocalSmoothing RemoteSmoothing AimMode LightMultiplier FirstPersonEnabled FieldOfView Quality IsometricQuality "
-                        + "Style FirstPerson FirstPersonInVehicles HillHeight MuzzleFlash Crosshair RegripTwoHandedWeapons SplitScreen CustomiseCharacterHead TorchFollowsHead HearFromTheEye LightningBolts "
+        check(ids.toString().equals("EnableOnStartup WorldSpaceYaw TrackingMode LocalSmoothing RemoteSmoothing AimMode LightMultiplier FirstPersonEnabled ThirdPersonEnabled FieldOfView Quality IsometricQuality "
+                        + "Style FirstPerson ThirdPerson FirstPersonInVehicles HillHeight MuzzleFlash Crosshair RegripTwoHandedWeapons SplitScreen CustomiseCharacterHead TorchFollowsHead HearFromTheEye LightningBolts "
                         + "ShotImpacts FallingDebris LampShadows ColouredGlassLight FarVehiclesAndZombies ModdedVehicleInteriors QuickRagdolls HitFlinch HitDirection HeadLedViewWhenDown ItemsAsModels FinerSkins LeaveOutScreenGrey WetOnThePlayer AimBlur GranTurismoToneMapping NameTagsAtHeads Highlights InteractLabel FiguresBehindWalls OverarmThrow FishingRod SurroundingsInReflections WatchGlance HeldMap SecondPlayerQuality "
-                        + "SecondPlayerIsometricQuality SecondPlayerStyle SecondPlayerFirstPerson SecondPlayerFirstPersonInVehicles ThirdPlayerQuality ThirdPlayerIsometricQuality "
-                        + "ThirdPlayerStyle ThirdPlayerFirstPerson ThirdPlayerFirstPersonInVehicles FourthPlayerQuality FourthPlayerIsometricQuality FourthPlayerStyle FourthPlayerFirstPerson "
-                        + "FourthPlayerFirstPersonInVehicles TreeQuality GrassDensity GrassDistance RenderScale ViewDistance ZombiesAndPropsDrawDistance FarTreeDistance RainOnGlass ShadingAndLight "
+                        + "SecondPlayerIsometricQuality SecondPlayerStyle SecondPlayerFirstPerson SecondPlayerThirdPerson SecondPlayerFirstPersonInVehicles ThirdPlayerQuality ThirdPlayerIsometricQuality "
+                        + "ThirdPlayerStyle ThirdPlayerFirstPerson ThirdPlayerThirdPerson ThirdPlayerFirstPersonInVehicles FourthPlayerQuality FourthPlayerIsometricQuality FourthPlayerStyle FourthPlayerFirstPerson "
+                        + "FourthPlayerThirdPerson FourthPlayerFirstPersonInVehicles TreeQuality GrassDensity GrassDistance RenderScale ViewDistance ZombiesAndPropsDrawDistance FarTreeDistance RainOnGlass ShadingAndLight "
                         + "Reflections ReflectionScale FullSizeTextures SurfaceDepth SharpShadows WholeFigureShadows FrameBlending Antialiasing LightDistance CorpseModels SpreadLightUpdates "
                         + "CachedGameLookups SkipCoveredGameDrawing SkinsComposedWhileWaiting ChunkChangeCounts UnseenRoomZombiesUnmodelled HoldChunkMapCentre GraphicsMemorySteps "
                         + "PrepareWhileLoading SpotBySight BuildOnWorkerThreads RebuildForOwnSprites HiddenWallReadsKept BuildingFactsKept VanillaWeapons VanillaFurniture "
@@ -1202,7 +1202,7 @@ public final class CoreTests {
             }
         }
         check(page.toString().equals("[Quick settings] EnableOnStartup "
-                        + "[First person] FirstPersonEnabled FirstPersonInVehicles FirstPerson FieldOfView Crosshair HitDirection Highlights InteractLabel HearFromTheEye HeadLedViewWhenDown NameTagsAtHeads "
+                        + "[First person] FirstPersonEnabled FirstPersonInVehicles FirstPerson ThirdPersonEnabled ThirdPerson FieldOfView Crosshair HitDirection Highlights InteractLabel HearFromTheEye HeadLedViewWhenDown NameTagsAtHeads "
                         + "QuickRagdolls HitFlinch FiguresBehindWalls OverarmThrow FishingRod WatchGlance HeldMap HillHeight [Head tracking] TrackingMode AimMode WorldSpaceYaw LocalSmoothing RemoteSmoothing TorchFollowsHead LightMultiplier CustomiseCharacterHead [Graphics] Quality IsometricQuality Style LightningBolts ShotImpacts FallingDebris LampShadows ColouredGlassLight MuzzleFlash WetOnThePlayer AimBlur GranTurismoToneMapping ItemsAsModels FinerSkins "
                         + "LeaveOutScreenGrey SurroundingsInReflections FarVehiclesAndZombies ModdedVehicleInteriors HiddenWallDecor [Custom graphics] TreeQuality GrassDensity GrassDistance RenderScale ViewDistance ZombiesAndPropsDrawDistance "
                         + "FarTreeDistance RainOnGlass ShadingAndLight Reflections ReflectionScale FullSizeTextures SurfaceDepth SharpShadows WholeFigureShadows FrameBlending Antialiasing "
@@ -1212,9 +1212,9 @@ public final class CoreTests {
                         + "HandLightOutAtTheWheel ZombiesSeenAtOnce HiddenWallDecorSaved [Game fixes] BurntBuildingFreezeFix CentreTheWindow ControllerChoiceFix [Optimizations] "
                         + "SpreadLightUpdates CachedGameLookups SkipCoveredGameDrawing SkinsComposedWhileWaiting ChunkChangeCounts UnseenRoomZombiesUnmodelled HoldChunkMapCentre "
                         + "GraphicsMemorySteps PrepareWhileLoading SpotBySight BuildOnWorkerThreads RebuildForOwnSprites HiddenWallReadsKept BuildingFactsKept [Split screen] "
-                        + "SplitScreen [Player 2] SecondPlayerQuality SecondPlayerIsometricQuality SecondPlayerStyle SecondPlayerFirstPerson SecondPlayerFirstPersonInVehicles "
-                        + "[Player 3] ThirdPlayerQuality ThirdPlayerIsometricQuality ThirdPlayerStyle ThirdPlayerFirstPerson ThirdPlayerFirstPersonInVehicles [Player 4] "
-                        + "FourthPlayerQuality FourthPlayerIsometricQuality FourthPlayerStyle FourthPlayerFirstPerson FourthPlayerFirstPersonInVehicles [Voice] TalkingMouths "),
+                        + "SplitScreen [Player 2] SecondPlayerQuality SecondPlayerIsometricQuality SecondPlayerStyle SecondPlayerFirstPerson SecondPlayerThirdPerson SecondPlayerFirstPersonInVehicles "
+                        + "[Player 3] ThirdPlayerQuality ThirdPlayerIsometricQuality ThirdPlayerStyle ThirdPlayerFirstPerson ThirdPlayerThirdPerson ThirdPlayerFirstPersonInVehicles [Player 4] "
+                        + "FourthPlayerQuality FourthPlayerIsometricQuality FourthPlayerStyle FourthPlayerFirstPerson FourthPlayerThirdPerson FourthPlayerFirstPersonInVehicles [Voice] TalkingMouths "),
                 "the page puts each setting under one title, head tracking first: " + page);
         CameraUnlock.Option[] unplaced = Arrays.copyOf(options, options.length + 1);
         unplaced[options.length] = new CameraUnlock.Option();

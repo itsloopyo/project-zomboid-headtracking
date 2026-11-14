@@ -37,6 +37,7 @@ final class OptionsLayout {
                 new Group(QUICK, "Each list below switches a whole class of settings on or off. A list shows Mixed when your settings match "
                         + "none of its lines.", null, Tracking.ENABLED_OPTION),
                 new Group(FIRST_PERSON, null, "FirstPerson", Part.FIRST_PERSON.key, Config.firstPersonInVehiclesRow(0), Config.firstPersonRow(0),
+                        Part.THIRD_PERSON.key, Config.thirdPersonRow(0),
                         "FieldOfView", "Crosshair", Part.HIT_DIRECTION.key, Part.HIGHLIGHTS.key, Part.INTERACT_LABEL.key, Part.HEAR_FROM_THE_EYE.key, Part.HEAD_LED_VIEW_WHEN_DOWN.key, Part.NAME_TAGS_AT_HEADS.key,
                         Part.QUICK_RAGDOLLS.key, Part.HIT_FLINCH.key, Part.FIGURES_BEHIND_WALLS.key, Part.OVERARM_THROW.key, Part.FISHING_ROD.key, Part.WATCH_GLANCE.key,
                         Part.HELD_MAP.key, "HillHeight"),
@@ -58,7 +59,7 @@ final class OptionsLayout {
                 new Group(SPLIT_SCREEN, null, null, "SplitScreen")));
         for (int player = 1; player < View.COUNT; player++) {
             groups.add(new Group("Player " + (player + 1), null, null, Config.qualityKey(player), Config.overheadQualityKey(player), Config.styleKey(player),
-                    Config.firstPersonRow(player), Config.firstPersonInVehiclesRow(player)));
+                    Config.firstPersonRow(player), Config.thirdPersonRow(player), Config.firstPersonInVehiclesRow(player)));
         }
         groups.add(new Group(VOICE, null, "Voice"));
         return groups.toArray(Group[]::new);
@@ -78,6 +79,8 @@ final class OptionsLayout {
             Map.entry(Part.FIRST_PERSON.key, "First person view"),
             Map.entry("FirstPerson", "Load saves in first person"),
             Map.entry("FirstPersonInVehicles", "Switch to first person in vehicles"),
+            Map.entry(Part.THIRD_PERSON.key, "Third person view"),
+            Map.entry("ThirdPerson", "Load saves in third person"),
             Map.entry("FieldOfView", "Field of view"),
             Map.entry("Crosshair", "Crosshair"),
             Map.entry(Part.HIT_DIRECTION.key, "Hit direction"),
@@ -294,9 +297,10 @@ final class OptionsLayout {
 
     /** The rows of [Hotkeys] under Keys, in the order the page shows them. */
     static final KeyRow[] KEY_ROWS = {
-        new KeyRow("FirstPersonKey", "Switch first person",
-                "Switches between first person and the isometric view. Tap once for player 1, twice for player 2, three times for player 3, "
-                        + "four times for player 4, or hold for every player."),
+        new KeyRow("FirstPersonKey", "Switch view",
+                "Goes from the isometric view to first person, on to third person and back. Tap once for player 1, twice for player 2, "
+                        + "three times for player 3, four times for player 4. Held, it puts every player into first person if any is in "
+                        + "the isometric view, or else every player back into it."),
         new KeyRow("CycleQualityKey", "Next graphics mode",
                 "Goes to the next graphics mode of the view you are in. Tapped and held as the first person key is."),
         new KeyRow("CycleStyleKey", "Next picture style", "Goes to the next picture style. Tapped and held as the first person key is."),
@@ -305,7 +309,7 @@ final class OptionsLayout {
         new KeyRow("CycleTrackingModeKey", "Next tracking mode", "Goes to the next tracking mode: rotation and position, rotation only, position only."),
         new KeyRow("YawModeKey", "Switch horizon-relative head turns", "Switches horizon-relative head turns on or off."),
         new KeyRow("TrueFreeLookKey", "Next aim mode", "Goes to the next aim mode: sights locked, free look with a marker, stock sights."),
-        new KeyRow("FirstPersonKeyBesideViewpoint", "Switch first person beside Viewpoint",
+        new KeyRow("FirstPersonKeyBesideViewpoint", "Switch view beside Viewpoint",
                 "Used in place of the first person key while Project Viewpoint, another mod, runs, as Viewpoint opens its settings "
                         + "window on Delete."),
         new KeyRow("CycleQualityKeyBesideViewpoint", "Next graphics mode beside Viewpoint",
@@ -538,10 +542,10 @@ final class OptionsLayout {
         return values;
     }
 
-    /** Whether a key is a player's FirstPerson or FirstPersonInVehicles row. */
+    /** Whether a key is a player's FirstPerson, ThirdPerson or FirstPersonInVehicles row. */
     private static boolean isFirstPersonUse(String id) {
         String own = basis(id);
-        return own.equals(Config.firstPersonRow(0)) || own.equals(Config.firstPersonInVehiclesRow(0));
+        return own.equals(Config.firstPersonRow(0)) || own.equals(Config.thirdPersonRow(0)) || own.equals(Config.firstPersonInVehiclesRow(0));
     }
 
     /**

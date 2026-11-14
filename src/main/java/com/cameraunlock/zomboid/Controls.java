@@ -147,7 +147,9 @@ public final class Controls {
      */
     private boolean turnedToTheView(IsoPlayer player) {
         Rules.Facing facing = Rules.facing();
-        if (facing == Rules.Facing.TURNS_TO_THE_WAY_IT_MOVES || player == null || player.getVehicle() != null || player.isDraggingCorpse()) {
+        // Seen from behind, the character turns to the way it goes, as in the game's own view.
+        if (facing == Rules.Facing.TURNS_TO_THE_WAY_IT_MOVES || player == null || player.getVehicle() != null || player.isDraggingCorpse()
+                || view.firstPerson.inThirdPerson()) {
             stanceGait = Sidestep.WALKING;
             runsAslant = false;
             paced = false;
@@ -433,7 +435,7 @@ public final class Controls {
         if (!view.firstPerson.lookCaptured()) {
             return stock;
         }
-        float yaw = view.firstPerson.yaw();
+        float yaw = view.firstPerson.aimYaw();
         return stock.set((float) Math.cos(yaw), (float) Math.sin(yaw));
     }
 
@@ -481,7 +483,7 @@ public final class Controls {
         float range = weapon.getMaxRange();
         float aimedX = aimPointX, aimedY = aimPointY;
         if (!aimPointMet) {
-            float yaw = view.firstPerson.yaw();
+            float yaw = view.firstPerson.aimYaw();
             aimedX = player.getX() + (float) Math.cos(yaw) * range * carry;
             aimedY = player.getY() + (float) Math.sin(yaw) * range * carry;
         }

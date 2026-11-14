@@ -13,6 +13,8 @@ final class GridTrace {
 
     /** Set by the last firstBlockedEdge that found one: true when the edge's normal runs along x. */
     boolean hitFacesX;
+    /** While an edge is asked about, how far along the ray it is crossed. */
+    float crossing;
 
     /**
      * The distance along the ray to the first blocked edge, or positive
@@ -41,6 +43,7 @@ final class GridTrace {
             }
             int toX = crossX ? tileX + stepX : tileX;
             int toY = crossX ? tileY : tileY + stepY;
+            crossing = distance;
             if (edges.blocked(tileX, tileY, toX, toY)) {
                 hitFacesX = crossX;
                 return distance;

@@ -3504,6 +3504,8 @@ final class WorldScene {
         private final float[] seatedTurn = new float[9];
         private final float[] seatedAxes = new float[9];
         private float outsideTan, outsideAway;
+        /** Set for a scene drawn from third person's camera, which stands near the viewer and sees them as one of the people in it. */
+        private boolean viewerShown;
         /** The windows near the viewer whose glass may throw the room back. */
         private WindowGlass.Panes panes = new WindowGlass.Panes();
         /** How much of the way from overhead to the eye the outside camera has come. */
@@ -3540,6 +3542,16 @@ final class WorldScene {
             outsideAway = away;
             this.landing = landing;
             outside = true;
+        }
+
+        /** The scene is drawn from behind the viewer, who is one of the people in it: see FirstPerson.buildBehind. */
+        void showsTheViewer() {
+            viewerShown = true;
+        }
+
+        /** The aim once built, turned onto what the middle of the picture shows from behind the viewer: see FirstPerson.convergeTheAim. */
+        void reaim(ViewCamera.Pose aimed) {
+            aim.set(aimed);
         }
 
         private float canopyX, canopyY, canopyUp, canopyAimX, canopyAimY;
@@ -4137,6 +4149,7 @@ final class WorldScene {
             aim.set(aimed);
             System.arraycopy(eyeFromAim, 0, this.eyeFromAim, 0, 3);
             outside = false;
+            viewerShown = false;
             opacity = 1f;
             seated = view.ride.seated;
             seatedX = view.ride.atX;
@@ -5186,7 +5199,7 @@ final class WorldScene {
                 pullLightsLeft(map);
             }
             SpriteColours.askingFrom(view.index, Float.NaN, Float.NaN);
-            addCharacters(player, pose);
+            addCharacters(player);
             takeLight(start);
             long gatherBegan = System.nanoTime();
             // The builds handed off may still be being made, and read the game's light under their lock as this does.
@@ -5672,12 +5685,13 @@ final class WorldScene {
          * The player comes in as handed to build and is not read off viewer: setting the picture
          * down lets go of viewer on the render thread, which may fall while a rehearsal builds.
          */
-        private void addCharacters(IsoPlayer player, ViewCamera.Pose pose) {
+        private void addCharacters(IsoPlayer player) {
             float reach = Controls.aimReach(player);
             for (IsoMovingObject mover : cell.getObjectList()) {
                 if (mover instanceof IsoGameCharacter character && character != player
                         && character.getAlpha(playerIndex) > CHARACTER_SHOWN_ALPHA && !character.isInvisible()) {
-                    float toX = character.getX() - pose.eyeX, toY = character.getY() - pose.eyeY;
+                    // From the player, whom the shot leaves, and not from the picture, which may be a camera behind them.
+                    float toX = character.getX() - player.getX(), toY = character.getY() - player.getY();
                     if (toX * toX + toY * toY <= reach * reach) {
                         addCharacter(character);
                     }
@@ -11035,6 +11049,7 @@ final class WorldScene {
             // What the picture does without for an eye thousands of tiles off, it has again once
             // the eye is as near as the place looked at is taken to be.
             view.pipeline.outside = outside;
+            view.pipeline.viewerShown = viewerShown;
             view.pipeline.landing = outside ? landing : 1f;
             view.pipeline.overhead = outside && outsideAway > OVERHEAD_RANGE;
             view.pipeline.seated = seated;

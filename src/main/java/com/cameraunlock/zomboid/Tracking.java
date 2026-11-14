@@ -227,6 +227,7 @@ final class Tracking {
             Style.set(player, live.style()[player]);
         }
         firstPersonAtLoad.set(live.firstPerson());
+        thirdPersonAtLoad.set(live.thirdPerson());
         HillHeight.set(live.hillHeight());
         MuzzleFlash.set(live.muzzleFlash());
         Crosshair.set(live.crosshair());
@@ -349,6 +350,8 @@ final class Tracking {
         // Only the rows the file changed: a toggle made since the file was read is saved after this reload, and kept.
         int changed = live.firstPerson() ^ was.firstPerson();
         firstPersonAtLoad.updateAndGet(bits -> bits & ~changed | live.firstPerson() & changed);
+        int thirdChanged = live.thirdPerson() ^ was.thirdPerson();
+        thirdPersonAtLoad.updateAndGet(bits -> bits & ~thirdChanged | live.thirdPerson() & thirdChanged);
         int vehiclesChanged = live.firstPersonInVehicles() ^ was.firstPersonInVehicles();
         if (vehiclesChanged != 0) {
             int now = firstPersonInVehicles.updateAndGet(bits -> bits & ~vehiclesChanged | live.firstPersonInVehicles() & vehiclesChanged);
@@ -476,6 +479,7 @@ final class Tracking {
         String id = config.optionId(option);
         int part = Config.graphicsPart(id), player = qualityPlayer(id), overheadPlayer = overheadQualityPlayer(id);
         int stylePlayer = playerOf(id, Config::styleKey), viewPlayer = playerOf(id, Config::firstPersonRow);
+        int behindPlayer = playerOf(id, Config::thirdPersonRow);
         return switch (id) {
             case TRACKING_MODE_OPTION -> trackingMode;
             case AIM_MODE_OPTION -> aimMode;
@@ -489,6 +493,7 @@ final class Tracking {
                     : overheadPlayer >= 0 ? Quality.overheadRow(overheadPlayer) - Quality.LOW
                     : stylePlayer >= 0 ? Style.of(stylePlayer).ordinal()
                     : viewPlayer >= 0 ? firstPersonRemembered(viewPlayer) ? 1 : 0
+                    : behindPlayer >= 0 ? thirdPersonRemembered(behindPlayer) ? 1 : 0
                     : id.equals(SPLIT_SCREEN_OPTION) ? SplitScreen.row()
                     : held(id, option);
         };
@@ -789,8 +794,9 @@ final class Tracking {
             owed[i] = said | ((told & 1 << i) != 0 ? Config.CYCLE_QUALITY : 0);
             if ((pressed & Config.FIRST_PERSON_ALL) != 0) {
                 View view = View.of(i);
+                // With the held bit too: held, the key puts a player in or out of the mod's views, and never on from first person to third.
                 if (atScreen(i) && (view == null ? allFirst : view.firstPerson.wanted() != allFirst)) {
-                    owed[i] |= Config.FIRST_PERSON;
+                    owed[i] |= Config.FIRST_PERSON | Config.FIRST_PERSON_ALL;
                 }
             } else if (theirs(pressed, i, Config.FIRST_PERSON_TAPS, 0, "first person")) {
                 owed[i] |= Config.FIRST_PERSON;
@@ -1021,6 +1027,17 @@ final class Tracking {
         setBit(firstPersonAtLoad, player, on);
     }
 
+    /** For each player, by their number's bit, whether a save that loads in first person loads in third person: the file's ThirdPerson rows. */
+    private static final AtomicInteger thirdPersonAtLoad = new AtomicInteger();
+
+    static boolean thirdPersonRemembered(int player) {
+        return (thirdPersonAtLoad.get() & 1 << player) != 0;
+    }
+
+    static void thirdPersonAtLoad(int player, boolean on) {
+        setBit(thirdPersonAtLoad, player, on);
+    }
+
     /** For each player, by their number's bit, whether getting into a vehicle and out again switches the view: the file's FirstPersonInVehicles rows. */
     private static final AtomicInteger firstPersonInVehicles = new AtomicInteger();
 
@@ -1105,6 +1122,11 @@ final class Tracking {
     static void rememberFirstPerson(int player, boolean on) {
         firstPersonAtLoad(player, on);
         save(() -> config.saveFirstPerson(player, on));
+    }
+
+    static void rememberThirdPerson(int player, boolean on) {
+        thirdPersonAtLoad(player, on);
+        save(() -> config.saveThirdPerson(player, on));
     }
 
     /** The other way for two players to share the screen, kept for the next start. */

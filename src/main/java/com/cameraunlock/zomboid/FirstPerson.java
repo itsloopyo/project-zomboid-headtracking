@@ -131,6 +131,10 @@ public final class FirstPerson {
      * picture and becomes the one it is seen by: the distance their own head is cut away within.
      */
     private static final float OWN_FROM = 0.3f;
+    /** How far from the eye a camera pushed in to it has to get again for the picture to be seen from behind once more. */
+    private static final float BEHIND_AGAIN = 0.45f;
+    /** How far the third person pivot is kept off a wall between it and the character, in tiles. */
+    private static final float PIVOT_MARGIN = 0.05f;
     /** The name the game stores its inventory key under. */
     private static final String INVENTORY_BINDING = "Toggle Inventory";
     private static final int ESCAPE_KEY = 1;
@@ -217,6 +221,13 @@ public final class FirstPerson {
     /** The view the player has asked for. The camera may still be on its way there. */
     private volatile boolean on;
     /**
+     * The mod's view asked for is third person, drawn from behind the character: see
+     * ThirdPerson. Kept while the camera flies home from there, so it sets off from behind.
+     */
+    private volatile boolean behind;
+    /** The next switch to the mod's view from the game's own goes to third person: the view a save loads in. */
+    private boolean behindOnSwitch;
+    /**
      * First person was asked for while Project Viewpoint's view was on: it is mixed in at the eye
      * over Viewpoint's picture, and Viewpoint's view is switched off once it covers it.
      */
@@ -228,6 +239,9 @@ public final class FirstPerson {
     private boolean wasRiding;
     /** The way the vehicle the player is in faced on the last frame. */
     private float rideHeading;
+    /** The look as the camera behind a vehicle last left it: one that has moved since is the player's, who has looked round. */
+    private float chasedYaw = Float.NaN, chasedPitch = Float.NaN;
+    private long lookedNanos;
     /** The view is played in, the game is running and the character is alive. */
     private boolean active;
     private boolean lookCaptured;
@@ -285,6 +299,23 @@ public final class FirstPerson {
 
     private final ViewCamera.Pose cleanView = new ViewCamera.Pose();
     private final ViewCamera.Pose trackedView = new ViewCamera.Pose();
+    /** The view the picture is drawn from, as the last frame had it: the tracked eye in first person, the camera behind the character in third. */
+    private final ViewCamera.Pose pictureView = new ViewCamera.Pose();
+    /**
+     * Third person's cameras: the clean one, which the aim meets the world from and which has
+     * nothing of the head in it, the one the picture is drawn from, and the way they both look.
+     */
+    private final ViewCamera.Pose behindClean = new ViewCamera.Pose(), behindView = new ViewCamera.Pose(), behindLook = new ViewCamera.Pose();
+    private final ThirdPerson thirdPerson = new ThirdPerson();
+    /** The map third person's camera is held off the walls of, and its middle traced along: kept apart from the aim's, whose line of fire the game's hit list reads. */
+    private final WorldQuery behindWorld = new WorldQuery();
+    private final ThirdPerson.Walls behindWalls = behindWorld::roomForTheCamera;
+    /** Where the aim's eye is from third person's camera, for the build. */
+    private final float[] behindFromAim = new float[3];
+    /** Whether this frame's picture is drawn from the camera behind the character, who is then one of the people in it. */
+    private boolean pictureBehind;
+    /** The yaw the game's cursor is held ahead of the character along: the view's in first person, the aim's in third. */
+    private float cursorYaw;
     /**
      * The aim: the clean view from where the shot starts, which is the clean eye moved by
      * whatever of a lean the weapon has. The weapon is drawn in this view and the shot is
@@ -328,6 +359,19 @@ public final class FirstPerson {
 
     boolean isOn() {
         return on;
+    }
+
+    /** The way the aim goes across the ground: from behind the character it is turned onto what the middle of the picture shows. */
+    float aimYaw() {
+        return inThirdPerson() ? cursorYaw : yaw;
+    }
+
+    /**
+     * Whether third person is the view asked for: the character turns to the way it is moved and
+     * is seen from behind, and everything else is first person's.
+     */
+    boolean inThirdPerson() {
+        return on && behind;
     }
 
     /** Whether first person is on or asked for and being made ready. */
@@ -378,7 +422,7 @@ public final class FirstPerson {
         // Turning one way all session would otherwise grow the yaw until a float no longer
         // holds a pixel's worth of turn.
         yaw = (float) Math.IEEEremainder(newYaw, 2 * Math.PI);
-        pitch = Math.clamp(newPitch, -PITCH_LIMIT, PITCH_LIMIT);
+        pitch = Math.clamp(newPitch, -PITCH_LIMIT, behind ? ThirdPerson.PITCH_UP : PITCH_LIMIT);
     }
 
     /**
@@ -429,6 +473,7 @@ public final class FirstPerson {
         if (gettingReady) {
             gettingReady = false;
             overViewpoint = false;
+            behindOnSwitch = false;
             Log.info(who() + "first person no longer asked for");
             return;
         }
@@ -640,6 +685,9 @@ public final class FirstPerson {
             view.nameTags.lookAway();
             view.hearing.rest();
             view.flight.cut(false);
+            behind = false;
+            behindOnSwitch = false;
+            thirdPerson.cut(false);
             Quality.inFirstPerson(view.index, false);
             if (pictureUp) {
                 pictureUp = false;
@@ -662,6 +710,12 @@ public final class FirstPerson {
 
     private void switchView(IsoPlayer player) {
         on = !on;
+        // Switched back on while the camera is still on its way home from behind, it goes back there.
+        if (on && view.flight.home()) {
+            behind = behindOnSwitch;
+            thirdPerson.cut(behind);
+        }
+        behindOnSwitch = false;
         if (on && player.getVehicle() != null) {
             setLook(view.ride.heading(player.getVehicle()), 0f);
         } else if (on) {
@@ -676,7 +730,7 @@ public final class FirstPerson {
             view.flight.atTheEye();
         }
         overViewpoint &= on;
-        Log.info(who() + "first person " + (on ? "on, " + facings(player) : "off"));
+        Log.info(who() + (behind ? "third person " : "first person ") + (on ? "on, " + facings(player) : "off"));
     }
 
     /** The first patch first person needs that the game's code did not take, as the log says it, or null. */
@@ -803,6 +857,8 @@ public final class FirstPerson {
                 SpriteRenderer.instance.drawGeneric(MouseGrab.DRAWER);
             }
             view.flight.cut(false);
+            behind = false;
+            thirdPerson.cut(false);
             view.hearing.rest();
         }
         // After the catch, so a frame that throws still shows what the screen has to say, its own failure first.
@@ -869,12 +925,27 @@ public final class FirstPerson {
             switchedForVehicle = false;
             switchHintDone();
             boolean asked = on || gettingReady;
-            if (!asked && !Part.FIRST_PERSON.on()) {
-                Tracking.applyForKey(Map.of(Part.FIRST_PERSON.key, 1.0), "the first person key");
-            }
-            toggle();
-            if ((on || gettingReady) != asked) {
-                Tracking.rememberFirstPerson(view.index, !asked);
+            // Tapped, the key goes on from first person to third person and from there to the game's own
+            // view. Held for every player, it puts each of them in or out of the mod's views as they are.
+            if (on && !behind && (pressed & Config.FIRST_PERSON_ALL) == 0 && Part.THIRD_PERSON.on()) {
+                behind = true;
+                Tracking.rememberThirdPerson(view.index, true);
+                // Within the lower limit the mouse has from behind, before the camera swings out.
+                setLook(yaw, pitch);
+                say("Third person");
+                Log.info(who() + "third person on");
+            } else {
+                if (!asked && !Part.FIRST_PERSON.on()) {
+                    Tracking.applyForKey(Map.of(Part.FIRST_PERSON.key, 1.0), "the first person key");
+                }
+                toggle();
+                if ((on || gettingReady) != asked) {
+                    Tracking.rememberFirstPerson(view.index, !asked);
+                }
+                // Pressed again on the way out of third person, the flight turns back to it.
+                if (behind) {
+                    Tracking.rememberThirdPerson(view.index, on);
+                }
             }
         }
         int troubles = Config.troubles();
@@ -921,7 +992,8 @@ public final class FirstPerson {
         if (viewAtLoadOwed && allowed) {
             viewAtLoadOwed = false;
             if (!on && !gettingReady && Part.FIRST_PERSON.row() && Tracking.firstPersonRemembered(view.index)) {
-                Log.info(who() + "first person was on when the view was last switched: asked for again");
+                behindOnSwitch = Part.THIRD_PERSON.on() && Tracking.thirdPersonRemembered(view.index);
+                Log.info(who() + (behindOnSwitch ? "third person" : "first person") + " was on when the view was last switched: asked for again");
                 toggle();
                 hintsOnLanding = on || gettingReady;
             } else if (!on && !gettingReady) {
@@ -948,7 +1020,8 @@ public final class FirstPerson {
         overheadWaited = overheadAsked && !overhead;
         view.worldScene.level(overhead());
         rideAlong(player);
-        Panels.dashboard(view.index, active() && player != null && player.getVehicle() != null);
+        // Seen from behind the vehicle has no dials in view, and the game's panel shows them.
+        Panels.dashboard(view.index, active() && !behind && player != null && player.getVehicle() != null);
         tread(player);
         if (player != null) {
             view.regrip.update(player, view.index);
@@ -961,6 +1034,11 @@ public final class FirstPerson {
             overViewpoint = false;
             view.flight.cut(false);
         }
+        if (on && behind && !Part.THIRD_PERSON.on()) {
+            Log.info(who() + "third person off: " + Part.THIRD_PERSON.key + " is off in " + Config.FILE_NAME + ", back to first person");
+            behind = false;
+            Tracking.rememberThirdPerson(view.index, false);
+        }
         long now = System.nanoTime();
         long frameNanos = now - lastFrameNanos;
         float sinceLastFrame = Math.min(frameNanos / 1e9f, MAX_FRAME_SECONDS);
@@ -969,6 +1047,10 @@ public final class FirstPerson {
         lastFrameNanos = now;
         frameSeconds += (Math.min(sinceLastFrame, 0.1f) - frameSeconds) * 0.05f;
         view.flight.advance(on, sinceLastFrame, !overhead || overViewpoint);
+        if (!on && view.flight.home() && behind) {
+            behind = false;
+            thirdPerson.cut(false);
+        }
         if (overViewpoint && view.flight.shown() == 1f) {
             overViewpoint = false;
             ViewpointView.leave(player);
@@ -998,7 +1080,7 @@ public final class FirstPerson {
             stride.landed(now);
             if (hintsOnLanding) {
                 hintsOnLanding = false;
-                sayHints(player, "the isometric view", "the save loaded in first person");
+                sayHints(player, behind || !Part.THIRD_PERSON.on() ? "the isometric view" : "third person", "the save loaded in " + (behind ? "third person" : "first person"));
             }
         } else if (!on) {
             stride.reset();
@@ -1013,7 +1095,9 @@ public final class FirstPerson {
             point();
         }
         lookCaptured = active && !pointer.on();
-        if (lookCaptured && View.onController(player) && !bodyWhole) {
+        chase(player, now, sinceLastFrame);
+        // From behind the character the camera is not the head's, and turns while the game's animation has the body.
+        if (lookCaptured && View.onController(player) && (!bodyWhole || behind)) {
             stickLook(player, sinceLastFrame);
         }
         if (lookCaptured && !wasCaptured) {
@@ -1094,7 +1178,7 @@ public final class FirstPerson {
         }
 
         float zoom = Core.getInstance().getZoom(player.getIndex());
-        holdTheCursorAhead(player, zoom);
+        cursorYaw = yaw;
         float floorUp = player.getZ() * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(player.getX(), player.getY(), player.getZ());
         float height = eyeHeight(player, sinceLastFrame);
         world.look(IsoWorld.instance.currentCell, (int) Math.floor((risen != null ? risen : player).getZ()));
@@ -1126,12 +1210,18 @@ public final class FirstPerson {
         view.headlights.gather(view.worldScene.terrain, (float) eye[0], (float) eye[1], view.ride);
         // Nothing is aimed while the game's animation has the body: a zoom would close in on the head's view.
         boolean sightsUp = view.controls.sightsUp(player) && !bodyLeads;
-        view.fieldOfView.ease(sightsUp, sinceLastFrame);
+        // Behind the character the sights come up over the shoulder, and nothing is zoomed: the camera comes in instead.
+        view.fieldOfView.ease(sightsUp && !behind, sinceLastFrame);
+        // The player's own aim input, with a weapon or without, and not the game's aiming, which a melee swing also sets: a swing
+        // would pull the camera onto the shoulder.
+        thirdPerson.advance(behind, view.controls.playerAims(player) && vehicle == null && !bodyLeads, player.isSprinting() && vehicle == null,
+                sinceLastFrame);
         // The arms are the game's own while its animation has the body: they are what fights the zombie off.
         if (bodyLeads) {
             view.viewModel.rest();
         } else {
-            view.viewModel.update(player, yaw, pitch, sinceLastFrame, GameTime.isGamePaused(), sightsUp, shotDistance);
+            // Behind the character no sights come up to the eye: no scope hides the reticle and nothing blurs past the aim.
+            view.viewModel.update(player, yaw, pitch, sinceLastFrame, GameTime.isGamePaused(), sightsUp && !behind, shotDistance);
         }
         ViewCamera.clean(cleanView, eye[0], eye[1], eye[2], yaw, pitch);
         // From a seat the view tips and rolls with the vehicle, as the eye does.
@@ -1144,8 +1234,10 @@ public final class FirstPerson {
             view.headTracking.rest();
             trackedView.set(view.bodyLed.heldTracked);
         } else {
-            view.headTracking.view(!GameTime.isGamePaused() && (!player.isDead() || bodyLeads), cleanView, yaw, tilt, world, sightsUp,
-                    vehicle == null && Online.leanCarriesTheShot() && !bodyLeads, view.viewModel.forwardStop(), vehicle != null,
+            // Behind the character no lean goes with the weapon, and no aim mode eases the head out with the sights up:
+            // nothing is seen down the sights.
+            view.headTracking.view(!GameTime.isGamePaused() && (!player.isDead() || bodyLeads), cleanView, yaw, tilt, world, sightsUp && !behind,
+                    vehicle == null && Online.leanCarriesTheShot() && !bodyLeads && !behind, view.viewModel.forwardStop(), vehicle != null,
                     view.bodyLed.share() > 0f, trackedView);
         }
         // The game's beam has the clean view's heading turned by the head's share for a light, and no height: it is
@@ -1168,15 +1260,34 @@ public final class FirstPerson {
             eyeFromAim[1] = cleanView.eyeY - mouseView.eyeY + alone[1];
             eyeFromAim[2] = cleanView.eyeUp - mouseView.eyeUp + alone[2];
         }
+        boolean wasBehind = pictureBehind;
+        pictureBehind = false;
+        if (thirdPerson.atTheEye()) {
+            thirdPerson.unplaced();
+            pictureView.set(trackedView);
+        } else {
+            placeBehind(player, vehicle, floorUp, sinceLastFrame);
+            // Nearer the eye than the viewer's own head reaches, the picture is first person's: a wall at the back has pushed the camera in.
+            // Out again only past BEHIND_AGAIN, or a camera at the edge flicked between the two along a wall.
+            pictureBehind = distance(behindView, trackedView) > (wasBehind || !thirdPerson.behind() ? OWN_FROM : BEHIND_AGAIN);
+            pictureView.set(pictureBehind ? behindView : trackedView);
+        }
         held = true;
         rehearsed = true;
         WorldScene.Frame scene = view.worldScene.next();
         if (landed) {
-            scene.build(player, trackedView, aimView, eyeFromAim, view.fieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), null, false);
+            if (pictureBehind) {
+                buildBehind(player, scene, behindView, view.fieldOfView.tanHalfVertical());
+            } else {
+                scene.build(player, trackedView, aimView, eyeFromAim, view.fieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), null, false);
+            }
             if (spotsBySight()) {
                 view.spotting.look(view.worldScene, scene, player, now);
             }
             view.hearing.face(trackedView, 0f, 1f);
+            if (behind && !thirdPerson.atTheEye() && (vehicle == null || Ride.armedFromSeat(player)) && !bodyLeads) {
+                convergeTheAim(player, scene);
+            }
         } else {
             fly(player, scene, floorUp);
         }
@@ -1185,6 +1296,7 @@ public final class FirstPerson {
         SpriteRenderer.instance.drawGeneric(scene);
         pictureUp = true;
         placeReticle(scene);
+        holdTheCursorAhead(player, zoom);
         aimDrag(player, scene);
         // Outlined in the next picture: this one was gathered before the reticle was placed.
         if (lookCaptured && vehicle == null && !bodyLeads && reticleOnScreen) {
@@ -1214,11 +1326,11 @@ public final class FirstPerson {
         float drawnAspect = view.worldScene.drawnAspect();
         showBobber(player, scene, drawnAspect);
         pointersLevel = (int) Math.floor(player.getZ());
-        view.crosshair.point(drawnAspect == 0f ? null : Homing.pointers(player.getIndex(), trackedView, pictureTanHalf, drawnAspect, pointersFloor));
+        view.crosshair.point(drawnAspect == 0f ? null : Homing.pointers(player.getIndex(), pictureView, pictureTanHalf, drawnAspect, pointersFloor));
         if (drawnAspect == 0f || !landed) {
             view.hitDirection.hide();
         } else {
-            view.hitDirection.look(player, own(player), trackedView, view.bodyLed.whole(), pictureTanHalf * drawnAspect, now);
+            view.hitDirection.look(player, own(player), pictureView, view.bodyLed.whole(), pictureTanHalf * drawnAspect, now);
         }
 
         if (TRACE) {
@@ -1242,15 +1354,15 @@ public final class FirstPerson {
         }
         float x = bobberAt[0], y = bobberAt[1], up = view.worldScene.terrain.lift(x, y, 0f) + BOBBER_FLOATS;
         float tanHalf = scene.tanHalfFieldOfView();
-        if (!ViewCamera.project(trackedView, tanHalf, aspect, x, y, up, bobberNdc)) {
+        if (!ViewCamera.project(pictureView, tanHalf, aspect, x, y, up, bobberNdc)) {
             view.crosshair.hideBobber();
             return;
         }
-        float dx = (float) (x - trackedView.exactX()), dy = (float) (y - trackedView.exactY()), du = (float) (up - trackedView.exactUp());
-        float ahead = dx * trackedView.forwardX + dy * trackedView.forwardY + du * trackedView.forwardUp;
-        float right = dx * trackedView.rightX + dy * trackedView.rightY + du * trackedView.rightUp, over = dx * trackedView.upX + dy * trackedView.upY + du * trackedView.upUp;
+        float dx = (float) (x - pictureView.exactX()), dy = (float) (y - pictureView.exactY()), du = (float) (up - pictureView.exactUp());
+        float ahead = dx * pictureView.forwardX + dy * pictureView.forwardY + du * pictureView.forwardUp;
+        float right = dx * pictureView.rightX + dy * pictureView.rightY + du * pictureView.rightUp, over = dx * pictureView.upX + dy * pictureView.upY + du * pictureView.upUp;
         view.crosshair.showBobber(bobberNdc[0], bobberNdc[1], BOBBER_RADIUS / (ahead * tanHalf) * 540f, right, over, -ahead,
-                -trackedView.rightUp, -trackedView.upUp, trackedView.forwardUp, tanHalf, aspect);
+                -pictureView.rightUp, -pictureView.upUp, pictureView.forwardUp, tanHalf, aspect);
     }
 
     /** Tiles the player can move in one frame before it is a jump across the map, after which the game loads its map round them afresh: more than a car at 250 km/h covers in a second-long frame. */
@@ -1334,8 +1446,9 @@ public final class FirstPerson {
      */
     private void fly(IsoPlayer player, WorldScene.Frame scene, float floorUp) {
         aimOverhead(player, floorUp);
+        // To or from third person the camera's end of the way is its place behind the character.
         view.flight.camera(overheadView, overheadHalfHigh / OVERHEAD_AWAY, OVERHEAD_AWAY, OVERHEAD_YAW, OVERHEAD_PITCH,
-                cleanView, trackedView, yaw, pitch, view.fieldOfView.tanHalfVertical(), flightView);
+                pictureBehind ? behindClean : cleanView, pictureBehind ? behindView : trackedView, yaw, pitch, view.fieldOfView.tanHalfVertical(), flightView);
         view.hearing.face(flightView, -OVERHEAD_PITCH * (1f - view.flight.share()), view.flight.share());
         if (view.flight.away() > OWN_FROM) {
             standingView.set(flightView);
@@ -1344,12 +1457,143 @@ public final class FirstPerson {
             scene.build(player, standingView, standingView, ViewCamera.SAME_EYE, view.fieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), flightView, false);
             scene.seenFrom(flightView, view.flight.tanHalfFieldOfView(), view.flight.away(), view.flight.share());
             scene.canopyWindow(canopyX, canopyY, floorUp, canopyAimed, canopyAimX, canopyAimY, canopyFaded, canopyFadedCount);
+        } else if (pictureBehind) {
+            buildBehind(player, scene, flightView, view.flight.tanHalfFieldOfView());
         } else {
             fromTheEye = true;
             ViewCamera.eyeFrom(aimView, flightView, flightFromAim);
             scene.build(player, flightView, aimView, flightFromAim, view.flight.tanHalfFieldOfView(), FieldOfView.setTanHalfVertical(), null, false);
         }
         scene.mixed(view.flight.shown());
+    }
+
+    /**
+     * Places third person's two cameras for this frame: on a boom from over the character's
+     * head, or from over the roof of the vehicle sat in, out along the way the mouse looks.
+     */
+    private void placeBehind(IsoPlayer player, BaseVehicle vehicle, float floorUp, float seconds) {
+        int level = (int) Math.floor(player.getZ());
+        behindWorld.look(IsoWorld.instance.currentCell, level);
+        ViewCamera.clean(behindLook, 0.0, 0.0, 0.0, yaw, pitch);
+        // Over the character the eye is in, which is the zombie a dead player's corpse rose as, or over the vehicle sat in.
+        IsoGameCharacter body = own(player);
+        double fromX = vehicle != null ? vehicle.getX() : body.getX(), fromY = vehicle != null ? vehicle.getY() : body.getY();
+        thirdPerson.seat(vehicle != null);
+        float back, above, right;
+        if (vehicle != null) {
+            Vector3f extents = vehicle.getScript().getExtents();
+            thirdPerson.follow(fromX, fromY, view.ride.groundUp + extents.y + ThirdPerson.VEHICLE_ABOVE, seconds);
+            back = extents.z / 2f + ThirdPerson.VEHICLE_BEHIND;
+            above = 0f;
+            right = 0f;
+        } else {
+            // Over where the character stands at the clean eye's height, and not on the head the animation sways with every stride.
+            thirdPerson.follow(fromX, fromY, mouseView.exactUp(), seconds);
+            float aimed = thirdPerson.aimShare();
+            back = ThirdPerson.BEHIND + (ThirdPerson.AIM_BEHIND - ThirdPerson.BEHIND) * aimed + ThirdPerson.SPRINT_BEHIND * thirdPerson.sprintShare() * (1f - aimed);
+            above = ThirdPerson.ABOVE + (ThirdPerson.AIM_ABOVE - ThirdPerson.ABOVE) * aimed;
+            right = ThirdPerson.RIGHT + (ThirdPerson.AIM_RIGHT - ThirdPerson.RIGHT) * aimed;
+        }
+        back = thirdPerson.seatedBehind(back);
+        above = thirdPerson.seatedAbove(above);
+        // The pivot trails the character on the straight line to them, which round a corner goes through the wall: kept on their side of it.
+        float trailX = (float) (thirdPerson.followX() - fromX), trailY = (float) (thirdPerson.followY() - fromY);
+        float trail = (float) Math.hypot(trailX, trailY);
+        double pivotUp = thirdPerson.followUp();
+        // The doorways and walls asked about are on the level the character is on, and are measured from its floor: on a stair it is under the character's.
+        float levelFloor = level * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift((float) fromX, (float) fromY, level);
+        float trailRoom = trail > 1e-4f
+                ? behindWorld.roomForTheCamera((float) fromX, (float) fromY, trailX / trail, trailY / trail, trail, PIVOT_MARGIN, (float) pivotUp - levelFloor, 0f) / trail
+                : 1f;
+        double pivotX = fromX + trailX * trailRoom, pivotY = fromY + trailY * trailRoom;
+        thirdPerson.camera(behindLook, cleanView, trackedView, pivotX, pivotY, pivotUp, back, above, right, behindWalls,
+                levelFloor, floorUp, ceilingOver(pivotX, pivotY, level, floorUp), seconds, behindClean, behindView);
+        keepInside(behindClean, level, pivotX, pivotY, pivotUp, levelFloor);
+        keepInside(behindView, level, pivotX, pivotY, pivotUp, levelFloor);
+    }
+
+    /**
+     * The height a camera at (x, y) on a level is kept under: the ceiling of a room, or of a
+     * square with a floor over it, and none in the open.
+     */
+    private static float ceilingOver(double x, double y, int level, float floorUp) {
+        IsoCell cell = IsoWorld.instance.currentCell;
+        int squareX = (int) Math.floor(x), squareY = (int) Math.floor(y);
+        IsoGridSquare square = cell.getGridSquare(squareX, squareY, level), over = cell.getGridSquare(squareX, squareY, level + 1);
+        boolean roofed = square != null && !square.isOutside() || over != null && over.getFloor() != null;
+        return roofed ? floorUp + ViewCamera.LEVEL_HEIGHT : Float.POSITIVE_INFINITY;
+    }
+
+    /**
+     * Keeps a camera over the land and under the ceiling of the square it ended up over, which may
+     * not be the character's, and off the walls round it: further off them about the height their
+     * tops are at, where a roof runs out past them.
+     */
+    private void keepInside(ViewCamera.Pose camera, int level, double pivotX, double pivotY, double pivotUp, float levelFloor) {
+        heldOff[0] = camera.exactX();
+        heldOff[1] = camera.exactY();
+        double along = Math.hypot(camera.exactX() - pivotX, camera.exactY() - pivotY);
+        float rise = along > 1e-4 ? (float) ((camera.exactUp() - pivotUp) / along) : 0f;
+        float overFloor = (float) camera.exactUp() - levelFloor;
+        // The boom only keeps the camera off walls across its way: one along it, the camera would have inside its near plane.
+        behindWorld.holdCameraOffWalls(heldOff, pivotX, pivotY, ThirdPerson.STANDOFF + ThirdPerson.offTheEave(overFloor), overFloor, (float) pivotUp - levelFloor, rise);
+        double x = heldOff[0], y = heldOff[1];
+        float lift = view.worldScene.terrain.lift((float) x, (float) y, level);
+        // The ceiling of the level the camera is up in: on a stair near the top it is in the air of the level above the character's,
+        // and over the landing there it stands on that level's floor.
+        int over = Math.max(level, (int) Math.floor((camera.exactUp() - lift) / ViewCamera.LEVEL_HEIGHT));
+        float ground = (over > level && behindWorld.floorAbove(x, y) ? level + 1 : level) * ViewCamera.LEVEL_HEIGHT + lift;
+        double up = Math.min(camera.exactUp(), ceilingOver(x, y, over, over * ViewCamera.LEVEL_HEIGHT + lift) - ThirdPerson.STANDOFF);
+        camera.eyeAt(x, y, Math.max(up, ground + ThirdPerson.STANDOFF));
+    }
+
+    private final double[] heldOff = new double[2];
+
+    private static float distance(ViewCamera.Pose a, ViewCamera.Pose b) {
+        double x = a.exactX() - b.exactX(), y = a.exactY() - b.exactY(), up = a.exactUp() - b.exactUp();
+        return (float) Math.sqrt(x * x + y * y + up * up);
+    }
+
+    /**
+     * Builds the frame from a camera behind the character, who is one of the people in it. The
+     * picture is the vehicle sat in seen from outside, and not its cabin from the seat.
+     */
+    private void buildBehind(IsoPlayer player, WorldScene.Frame scene, ViewCamera.Pose camera, float tanHalf) {
+        fromTheEye = false;
+        view.ride.seated = false;
+        ViewCamera.eyeFrom(aimView, camera, behindFromAim);
+        scene.build(player, camera, aimView, behindFromAim, tanHalf, FieldOfView.setTanHalfVertical(), null, false);
+        scene.showsTheViewer();
+    }
+
+    /** At the least, how far past the place nearest the character along the camera's middle the aim may meet the world, in tiles. */
+    private static final float CONVERGES_PAST = 1f;
+    private final ViewCamera.Pose convergedAim = new ViewCamera.Pose();
+
+    /**
+     * Turns the aim, which leaves from the character's eye, onto what the middle of third
+     * person's clean camera is on: the camera stands behind and to one side, and an aim along
+     * the way it looks would land beside what the middle of the picture shows. What the middle
+     * meets is never nearer the camera than just past the character.
+     */
+    private void convergeTheAim(IsoPlayer player, WorldScene.Frame scene) {
+        ViewCamera.Pose from = behindClean;
+        float ahead = (float) ((aimView.exactX() - from.exactX()) * from.forwardX + (aimView.exactY() - from.exactY()) * from.forwardY
+                + (aimView.exactUp() - from.exactUp()) * from.forwardUp);
+        float far = Math.max(ahead, 0f) + Controls.aimReach(player);
+        // A tree stops the middle of the picture as it stops the shot the reticle is then put on.
+        behindWorld.boles = Penetration.pastTrees(player, player.getPrimaryHandItem() instanceof HandWeapon held ? held : null);
+        float met = behindWorld.shotDistance(from, view.worldScene.terrain, player.getZ() * ViewCamera.LEVEL_HEIGHT, far,
+                scene.characterX, scene.characterY, scene.characterBase, scene.characters, null, player.getX(), player.getY());
+        float along = met == Float.POSITIVE_INFINITY ? far : Math.max(met, ahead + CONVERGES_PAST);
+        double toX = from.exactX() + from.forwardX * along - aimView.exactX(), toY = from.exactY() + from.forwardY * along - aimView.exactY();
+        double toUp = from.exactUp() + from.forwardUp * along - aimView.exactUp();
+        double length = Math.sqrt(toX * toX + toY * toY + toUp * toUp);
+        float aimYaw = (float) Math.atan2(toY, toX), aimPitch = (float) Math.asin(Math.clamp(toUp / length, -1.0, 1.0));
+        ViewCamera.clean(convergedAim, aimView.exactX(), aimView.exactY(), aimView.exactUp(), aimYaw, aimPitch);
+        aimView.set(convergedAim);
+        scene.reaim(aimView);
+        cursorYaw = aimYaw;
     }
 
     private int treadSaid;
@@ -1429,12 +1673,43 @@ public final class FirstPerson {
         BaseVehicle vehicle = player == null ? null : player.getVehicle();
         if (vehicle != null) {
             float heading = view.ride.heading(vehicle);
-            if (on) {
+            // Behind a vehicle the camera does not turn with it, nor face its way as the character sits down: it is left where the
+            // player looks, and swings round behind it once they stop looking round (chase).
+            if (on && !behind) {
                 setLook(wasRiding ? yaw + heading - rideHeading : heading, wasRiding ? pitch : 0f);
             }
             rideHeading = heading;
         }
         wasRiding = vehicle != null;
+    }
+
+    /**
+     * Swings the camera behind a moving vehicle back round behind it, and tips it to look down
+     * on it, once the player has not looked round for RECENTRE_AFTER_SECONDS.
+     */
+    private void chase(IsoPlayer player, long now, float seconds) {
+        BaseVehicle vehicle = player == null ? null : player.getVehicle();
+        if (!on || !behind || vehicle == null) {
+            chasedYaw = Float.NaN;
+            return;
+        }
+        // Paused, or with the pointer out, the player is not looking round with the mouse, and is not to have the view turned under them.
+        if (GameTime.isGamePaused() || !lookCaptured) {
+            lookedNanos = now;
+            chasedYaw = yaw;
+            chasedPitch = pitch;
+            return;
+        }
+        if (yaw != chasedYaw || pitch != chasedPitch) {
+            lookedNanos = now;
+        }
+        // Not while a weapon is up out of the window: the look is the aim then.
+        if (now - lookedNanos > (long) (ThirdPerson.RECENTRE_AFTER_SECONDS * 1e9f) && Math.abs(vehicle.getCurrentSpeedKmHour()) > ThirdPerson.RECENTRE_KMH
+                && !player.isAiming()) {
+            setLook(ThirdPerson.swungBehind(yaw, view.ride.heading(vehicle), seconds), ThirdPerson.tippedBehind(pitch, seconds));
+        }
+        chasedYaw = yaw;
+        chasedPitch = pitch;
     }
 
     private void notePace(long now, long frameNanos) {
@@ -1516,8 +1791,8 @@ public final class FirstPerson {
      * height, so that is the height the cursor's point is taken at.
      */
     private void holdTheCursorAhead(IsoPlayer player, float zoom) {
-        float cursorAtX = player.getAimOriginPosX() + (float) Math.cos(yaw) * CURSOR_DISTANCE;
-        float cursorAtY = player.getAimOriginPosY() + (float) Math.sin(yaw) * CURSOR_DISTANCE;
+        float cursorAtX = player.getAimOriginPosX() + (float) Math.cos(cursorYaw) * CURSOR_DISTANCE;
+        float cursorAtY = player.getAimOriginPosY() + (float) Math.sin(cursorYaw) * CURSOR_DISTANCE;
         float aimHeight = player.getAimOriginPosZ();
         cursorX = Math.round(IsoUtils.XToScreenExact(cursorAtX, cursorAtY, aimHeight, 0) / zoom);
         cursorY = Math.round(IsoUtils.YToScreenExact(cursorAtX, cursorAtY, aimHeight, 0) / zoom);
@@ -1761,21 +2036,22 @@ public final class FirstPerson {
         ViewCamera.Pose from = aimView;
         if (along == Float.POSITIVE_INFINITY) {
             along = 1f;
-            from = trackedView;
+            from = pictureView;
         }
         float shownX = from.eyeX + aimView.forwardX * along, shownY = from.eyeY + aimView.forwardY * along;
         float shownUp = from.eyeUp + aimView.forwardUp * along;
-        boolean inFront = ViewCamera.project(trackedView, scene.tanHalfFieldOfView(), aspect, shownX, shownY, shownUp, ndc);
+        boolean inFront = ViewCamera.project(pictureView, scene.tanHalfFieldOfView(), aspect, shownX, shownY, shownUp, ndc);
         if (!inFront) {
             hideReticle();
             return;
         }
-        float lineX = shownX - trackedView.eyeX, lineY = shownY - trackedView.eyeY, lineUp = shownUp - trackedView.eyeUp;
+        float lineX = shownX - pictureView.eyeX, lineY = shownY - pictureView.eyeY, lineUp = shownUp - pictureView.eyeUp;
         float lineLength = (float) Math.sqrt(lineX * lineX + lineY * lineY + lineUp * lineUp);
-        reticleLine.eyeAt(trackedView.exactX(), trackedView.exactY(), trackedView.exactUp());
+        reticleLine.set(pictureView);
         reticleLine.forwardX = lineX / lineLength;
         reticleLine.forwardY = lineY / lineLength;
         reticleLine.forwardUp = lineUp / lineLength;
+        fromTheCharacter(reticleLine);
         reticleOnScreen = true;
         int index = player.getIndex();
         reticleX = Math.round((ndc[0] * 0.5f + 0.5f) * IsoCamera.getScreenWidth(index));
@@ -1933,7 +2209,7 @@ public final class FirstPerson {
     /** Where a place this high over a floor falls in the picture as this frame draws it, into ndc, or false where it is not in front of the eye. */
     private boolean onSquareFloor(float x, float y, float high, int level, float tanHalf, float aspect, float[] ndc) {
         float up = level * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(x, y, level) + SQUARE_OVER_FLOOR + high;
-        return ViewCamera.project(trackedView, tanHalf, aspect, x, y, up, ndc);
+        return ViewCamera.project(pictureView, tanHalf, aspect, x, y, up, ndc);
     }
 
     /** Half the height of the picture's field of view, as a tangent, as it was last drawn. */
@@ -1945,7 +2221,7 @@ public final class FirstPerson {
      */
     boolean inPicture(float x, float y, float up, float[] ndc) {
         float aspect = view.worldScene.drawnAspect();
-        return aspect != 0f && pictureTanHalf != 0f && ViewCamera.project(trackedView, pictureTanHalf, aspect, x, y, up, ndc);
+        return aspect != 0f && pictureTanHalf != 0f && ViewCamera.project(pictureView, pictureTanHalf, aspect, x, y, up, ndc);
     }
 
     /**
@@ -2230,15 +2506,27 @@ public final class FirstPerson {
         }
         float across = ((x - IsoCamera.getScreenLeft(view.index)) / IsoCamera.getScreenWidth(view.index) * 2f - 1f) * pictureTanHalf * aspect;
         float up = (1f - (y - IsoCamera.getScreenTop(view.index)) / IsoCamera.getScreenHeight(view.index) * 2f) * pictureTanHalf;
-        pointerLine.set(trackedView);
-        float forwardX = trackedView.forwardX + trackedView.rightX * across + trackedView.upX * up;
-        float forwardY = trackedView.forwardY + trackedView.rightY * across + trackedView.upY * up;
-        float forwardUp = trackedView.forwardUp + trackedView.rightUp * across + trackedView.upUp * up;
+        pointerLine.set(pictureView);
+        float forwardX = pictureView.forwardX + pictureView.rightX * across + pictureView.upX * up;
+        float forwardY = pictureView.forwardY + pictureView.rightY * across + pictureView.upY * up;
+        float forwardUp = pictureView.forwardUp + pictureView.rightUp * across + pictureView.upUp * up;
         float length = (float) Math.sqrt(forwardX * forwardX + forwardY * forwardY + forwardUp * forwardUp);
         pointerLine.forwardX = forwardX / length;
         pointerLine.forwardY = forwardY / length;
         pointerLine.forwardUp = forwardUp / length;
+        fromTheCharacter(pointerLine);
         return pointerLine;
+    }
+
+    /**
+     * Moves the start of a line from the picture's camera on along it to where it passes the
+     * eye: from behind the character, what the line reaches is measured from them, and nothing
+     * between the camera and them is in its way. From the eye it stays where it is.
+     */
+    private void fromTheCharacter(ViewCamera.Pose line) {
+        float passes = Math.max((float) ((trackedView.exactX() - line.exactX()) * line.forwardX + (trackedView.exactY() - line.exactY()) * line.forwardY
+                + (trackedView.exactUp() - line.exactUp()) * line.forwardUp), 0f);
+        line.moveEye(line.forwardX * passes, line.forwardY * passes, line.forwardUp * passes);
     }
 
     /** The line from the eye through the pointer. Only its eye and its forward are set. */
@@ -2381,7 +2669,8 @@ public final class FirstPerson {
                             : bodyLeads ? "the mouse's: the game's animation has the body, the view stays" : "the mouse's again",
                     state == null ? "no state" : state.getClass().getSimpleName(), player.getHitReaction(), player.isDead() ? ", dead" : ""));
         }
-        if (wasWhole && !bodyWhole && !player.isDead()) {
+        // From behind the character the camera was the mouse's all along.
+        if (wasWhole && !bodyWhole && !player.isDead() && !behind) {
             // The mouse takes the view back facing where the head last did, so nothing turns as it does.
             ViewCamera.Pose head = view.bodyLed.head;
             setLook((float) Math.atan2(head.forwardY, head.forwardX), (float) Math.asin(Math.clamp(head.forwardUp, -1f, 1f)));
@@ -2530,7 +2819,7 @@ public final class FirstPerson {
         if (MouseGrab.moved.get() > 0 || System.nanoTime() - capturedNanos < LOOK_SETTLES_NANOS) {
             haveRawX = false;
         }
-        if (haveRawX && !MouseGrab.ISOLATED && !bodyWhole) {
+        if (haveRawX && !MouseGrab.ISOLATED && (!bodyWhole || behind)) {
             float turn = (raw - lastRawX) * RADIANS_PER_PIXEL * view.fieldOfView.zoom() * view.scope.turn();
             mouseTurned += turn;
             mouseMost = Math.max(mouseMost, Math.abs(raw - lastRawX));
@@ -2554,7 +2843,7 @@ public final class FirstPerson {
         if (System.nanoTime() - capturedNanos < LOOK_SETTLES_NANOS) {
             haveRawY = false;
         }
-        if (haveRawY && !MouseGrab.ISOLATED && !bodyWhole) {
+        if (haveRawY && !MouseGrab.ISOLATED && (!bodyWhole || behind)) {
             setLook(yaw, pitch - (raw - lastRawY) * RADIANS_PER_PIXEL * view.fieldOfView.zoom() * view.scope.turn());
         }
         lastRawY = raw;
@@ -2567,8 +2856,8 @@ public final class FirstPerson {
      * length one, and next to nothing while the view is straight up or down. Logic thread.
      */
     void facing(float[] out) {
-        out[0] = trackedView.forwardX;
-        out[1] = trackedView.forwardY;
+        out[0] = pictureView.forwardX;
+        out[1] = pictureView.forwardY;
     }
 
     /**
@@ -2607,14 +2896,16 @@ public final class FirstPerson {
             movingAside = false;
             walkingAhead = false;
             // While the game's animation has the body it faces where that left it: turned, the struggle would be played to one side.
-            if (!player.isAiming() && !bodyLeads) {
+            // Seen from behind it stands as it stopped, facing the way it went.
+            if (!player.isAiming() && !bodyLeads && !behind) {
                 player.setForwardDirection(forward.set((float) Math.cos(yaw), (float) Math.sin(yaw)));
             }
             return move;
         }
-        movingAside = Stride.aside(move.x, move.y);
-        keysAhead = -move.y / (float) Math.hypot(move.x, move.y);
-        walkingAhead = !movingAside;
+        // Seen from behind the character turns to the way it goes, as in the game's own view: none of the walks that keep it facing the view apply.
+        movingAside = !behind && Stride.aside(move.x, move.y);
+        keysAhead = behind ? 1f : -move.y / (float) Math.hypot(move.x, move.y);
+        walkingAhead = !behind && !movingAside;
         float turn = stride.turn(move.x, move.y, yaw, STOCK_FORWARD_YAW, System.nanoTime());
         float cos = (float) Math.cos(turn);
         float sin = (float) Math.sin(turn);
@@ -2637,13 +2928,16 @@ public final class FirstPerson {
         Log.info(String.format(Locale.ROOT,
                 "trace yaw %.1f pitch %.1f at (%.2f, %.2f, %.2f) facing (%.2f, %.2f) aim (%.2f, %.2f) aiming %b keys (%.2f, %.2f)"
                         + " cursor (%d, %d) zoom %.2f offset (%.0f, %.0f) captured %b pointer %s | %s | reticle (%d, %d) ndc (%.4f, %.4f)"
-                        + " shot distance %.3f render eye (%.3f, %.3f, %.3f) looking (%.2f, %.2f, %.2f)%s | %s | %s | %s",
+                        + " shot distance %.3f render eye (%.3f, %.3f, %.3f) looking (%.2f, %.2f, %.2f)%s%s | %s | %s | %s",
                 Math.toDegrees(yaw), Math.toDegrees(pitch), player.getX(), player.getY(), player.getZ(),
                 facing.x, facing.y, traceAim.x, traceAim.y, player.isAiming(), traceMoveX, traceMoveY,
                 cursorX, cursorY, zoom, IsoCamera.getOffX(), IsoCamera.getOffY(), lookCaptured, pointer.describe(), view.headTracking.describe(),
                 reticleX, reticleY, ndc[0], ndc[1], shotDistance, trackedView.eyeX, trackedView.eyeY, trackedView.eyeUp,
                 trackedView.forwardX, trackedView.forwardY, trackedView.forwardUp,
                 risen == null ? "" : String.format(Locale.ROOT, " the head of risen zombie %d at (%.2f, %.2f, %.2f)", risen.getID(), risen.getX(), risen.getY(), risen.getZ()),
+                !pictureBehind ? "" : String.format(Locale.ROOT, " seen from behind at (%.3f, %.3f, %.3f) looking (%.2f, %.2f, %.2f), %.2f tiles from the eye, aimed %.2f, sprint %.2f",
+                        pictureView.exactX(), pictureView.exactY(), pictureView.exactUp(), pictureView.forwardX, pictureView.forwardY, pictureView.forwardUp,
+                        distance(pictureView, trackedView), thirdPerson.aimShare(), thirdPerson.sprintShare()),
                 scene.describe(), view.controls.describe(), view.viewModel.describe()));
     }
 }

@@ -23,6 +23,11 @@ public class IsoObject {
         return sprite;
     }
 
+    /** As the game types a thing by its sprite: a door's frame, a wall. */
+    public zombie.iso.SpriteDetails.IsoObjectType getType() {
+        return sprite == null ? zombie.iso.SpriteDetails.IsoObjectType.normal : sprite.getType();
+    }
+
     public IsoDirections getDir() {
         return IsoDirections.N;
     }

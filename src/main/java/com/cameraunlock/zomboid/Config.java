@@ -74,7 +74,7 @@ final class Config {
      * rows as a bit a player, the HillHeight row, the MuzzleFlash row, the Crosshair row, the RegripTwoHandedWeapons row, the SplitScreen row, the rows of [Graphics], the TalkingMouths row
      * and each player's microphone.
      */
-    record Live(float fieldOfView, int own, int rules, int[] quality, int[] overheadQuality, int[] style, boolean spreadLightUpdates, int firstPerson, int firstPersonInVehicles, float hillHeight, boolean muzzleFlash, boolean crosshair, boolean regrip, int splitScreen,
+    record Live(float fieldOfView, int own, int rules, int[] quality, int[] overheadQuality, int[] style, boolean spreadLightUpdates, int firstPerson, int thirdPerson, int firstPersonInVehicles, float hillHeight, boolean muzzleFlash, boolean crosshair, boolean regrip, int splitScreen,
             Quality.Picture custom, boolean talkingMouths, List<String> microphones, long parts) {}
 
     /** The keys of [Content], in the order of Own's bits. */
@@ -97,7 +97,7 @@ final class Config {
     private final int fieldOfView, spreadLightUpdates, hillHeight, muzzleFlash, crosshair, regrip, splitScreen, talkingMouths;
     /** By player, the rows of their first person graphics mode, their isometric view's and their picture style. */
     private final int[] quality = new int[View.COUNT], overheadQuality = new int[View.COUNT], style = new int[View.COUNT];
-    private final int[] firstPerson = new int[View.COUNT], firstPersonInVehicles = new int[View.COUNT];
+    private final int[] firstPerson = new int[View.COUNT], thirdPerson = new int[View.COUNT], firstPersonInVehicles = new int[View.COUNT];
     private final int firstPersonKey, firstPersonKeyBesideViewpoint, cycleQualityKey, cycleQualityKeyBesideViewpoint, cycleStyleKey, splitScreenKey;
     /** The keys each key list row comes with, by the row's key: core's three are the game's own per_game rows of cameraunlock-core. */
     static final Map<String, String> DEFAULT_KEYS = Map.of("CycleTrackingModeKey", "PageUp", "YawModeKey", "PageDown", "TrueFreeLookKey", "Insert",
@@ -197,6 +197,7 @@ final class Config {
                         + "the view, more turns it further, and 0 leaves it where your character faces.", null);
 
         describe(Part.FIRST_PERSON);
+        describe(Part.THIRD_PERSON);
         fieldOfView = localFloat("General", "FieldOfView",
                 "Vertical field of view of the first person view, in degrees: 40 to 110.",
                 writable | live, FieldOfView.DEFAULT_DEGREES, MIN_FIELD_OF_VIEW, MAX_FIELD_OF_VIEW);
@@ -218,6 +219,9 @@ final class Config {
         firstPerson[0] = localBool("General", "FirstPerson",
                 "true: saves load in first person, while FirstPersonEnabled is on. Switching the view with the first person key, or a\n"
                         + "double tap of Back on a controller, changes this to match.", writable | live, false);
+        thirdPerson[0] = localBool("General", "ThirdPerson",
+                "true: saves that load in first person load in the third person view instead, while ThirdPersonEnabled is on.\n"
+                        + "Switching the view changes this to match.", writable | live, false);
         firstPersonInVehicles[0] = localBool("General", "FirstPersonInVehicles",
                 "true: getting into a vehicle switches to first person, and getting out switches back to the isometric view, even\n"
                         + "with FirstPersonEnabled off. The first person key still switches the view at any time, and a view it chose is kept\n"
@@ -257,6 +261,8 @@ final class Config {
             style[player] = localEnum("Players", styleKey(player), whose + "picture style, as Style.", writable | live,
                     Style.words(), Style.BLEAK.ordinal());
             firstPerson[player] = localBool("Players", firstPersonRow(player), whose + "view at load, as FirstPerson.",
+                    writable | live, false);
+            thirdPerson[player] = localBool("Players", thirdPersonRow(player), whose + "third person at load, as ThirdPerson.",
                     writable | live, false);
             firstPersonInVehicles[player] = localBool("Players", firstPersonInVehiclesRow(player),
                     whose + "view in vehicles, as FirstPersonInVehicles.", writable | live, false);
@@ -349,12 +355,13 @@ final class Config {
         describeParts("Optimizations");
 
         firstPersonKey = core.configLocalHotkeyTaps("FirstPersonKey",
-                "Switches between first person and the isometric view. Tap once for player 1, twice for player 2, three times for\n"
-                        + "player 3, four times for player 4, or hold for every player.",
+                "Goes from the isometric view to first person, on to third person while ThirdPersonEnabled is on, and back to the\n"
+                        + "isometric view. Tap once for player 1, twice for player 2, three times for player 3, four times for player 4.\n"
+                        + "Held, it puts every player into first person if any is in the isometric view, or else every player back into it.",
                 writable, DEFAULT_KEYS.get("FirstPersonKey"), FIRST_PERSON_TAPS, FIRST_PERSON_ALL);
         firstPersonKeyBesideViewpoint = core.configLocalHotkeyTaps("FirstPersonKeyBesideViewpoint",
-                "Switches between first person and the isometric view in place of FirstPersonKey while Project Viewpoint, another\n"
-                        + "mod, runs, as Viewpoint opens its settings window on Delete. Tapped and held as FirstPersonKey is.",
+                "Switches the view as FirstPersonKey does, in its place while Project Viewpoint, another mod, runs, as Viewpoint\n"
+                        + "opens its settings window on Delete. Tapped and held as FirstPersonKey is.",
                 writable, DEFAULT_KEYS.get("FirstPersonKeyBesideViewpoint"), FIRST_PERSON_BESIDE_VIEWPOINT_TAPS, FIRST_PERSON_BESIDE_VIEWPOINT_ALL);
         cycleQualityKey = core.configLocalHotkeyTaps("CycleQualityKey",
                 "Goes to the next graphics mode of the view a player is in: in first person Low, Medium, High, Custom\n"
@@ -541,6 +548,7 @@ final class Config {
             puts.put(overheadQualityKey(player), value -> Quality.setOverhead(whose, (int) value + Quality.LOW));
             puts.put(styleKey(player), value -> Style.set(whose, (int) value));
             puts.put(firstPersonRow(player), value -> Tracking.firstPersonAtLoad(whose, value != 0));
+            puts.put(thirdPersonRow(player), value -> Tracking.thirdPersonAtLoad(whose, value != 0));
             puts.put(firstPersonInVehiclesRow(player), value -> Tracking.firstPersonInVehicles(whose, value != 0));
         }
         puts.put("HillHeight", value -> HillHeight.set((float) value));
@@ -607,6 +615,11 @@ final class Config {
     /** The key of a player's row of whether their saves load in first person: FirstPerson, SecondPlayerFirstPerson and so on. */
     static String firstPersonRow(int player) {
         return PLAYER_ROW[player] + "FirstPerson";
+    }
+
+    /** The key of a player's row of whether their saves that load in first person load in third person: ThirdPerson, SecondPlayerThirdPerson and so on. */
+    static String thirdPersonRow(int player) {
+        return PLAYER_ROW[player] + "ThirdPerson";
     }
 
     static String firstPersonInVehiclesRow(int player) {
@@ -724,19 +737,20 @@ final class Config {
             custom[part] = part == RENDER_SCALE || part == REFLECTION_SCALE ? core.configGetFloat(graphics[part]) : core.configGetInt(graphics[part]);
         }
         int[] qualities = new int[View.COUNT], overheadQualities = new int[View.COUNT], styles = new int[View.COUNT];
-        int firstPersons = 0, inVehicles = 0;
+        int firstPersons = 0, thirdPersons = 0, inVehicles = 0;
         for (int player = 0; player < View.COUNT; player++) {
             qualities[player] = core.configGetInt(quality[player]);
             overheadQualities[player] = core.configGetInt(overheadQuality[player]) + Quality.LOW;
             styles[player] = core.configGetInt(style[player]);
             firstPersons |= core.configGetInt(firstPerson[player]) << player;
+            thirdPersons |= core.configGetInt(thirdPerson[player]) << player;
             inVehicles |= core.configGetInt(firstPersonInVehicles[player]) << player;
         }
         long partsOn = 0;
         for (Part part : Part.values()) {
             partsOn |= core.configGetInt(parts[part.ordinal()]) != 0 ? part.bit() : 0;
         }
-        return new Live(core.configGetFloat(fieldOfView), rows, changed, qualities, overheadQualities, styles, core.configGetInt(spreadLightUpdates) != 0, firstPersons, inVehicles, core.configGetFloat(hillHeight), core.configGetInt(muzzleFlash) != 0, core.configGetInt(crosshair) != 0, core.configGetInt(regrip) != 0, core.configGetInt(splitScreen), picture(custom),
+        return new Live(core.configGetFloat(fieldOfView), rows, changed, qualities, overheadQualities, styles, core.configGetInt(spreadLightUpdates) != 0, firstPersons, thirdPersons, inVehicles, core.configGetFloat(hillHeight), core.configGetInt(muzzleFlash) != 0, core.configGetInt(crosshair) != 0, core.configGetInt(regrip) != 0, core.configGetInt(splitScreen), picture(custom),
                 core.configGetInt(talkingMouths) != 0, List.of(microphones()), partsOn);
     }
 
@@ -924,6 +938,10 @@ final class Config {
 
     boolean saveFirstPerson(int player, boolean on) {
         return saved("player " + (player + 1) + "'s view at load", core.configSaveInt(firstPerson[player], on ? 1 : 0));
+    }
+
+    boolean saveThirdPerson(int player, boolean on) {
+        return saved("player " + (player + 1) + "'s third person at load", core.configSaveInt(thirdPerson[player], on ? 1 : 0));
     }
 
     boolean saveSplitScreen(int row) {

@@ -638,6 +638,11 @@ final class Pipeline {
     boolean overhead;
     /** The picture is drawn by a camera outside the viewer, who is then one of the people in it. */
     boolean outside;
+    /**
+     * The picture is drawn from third person's camera, behind the viewer: they are one of the
+     * people in it, as from outside, and everything else is drawn as from the eye.
+     */
+    boolean viewerShown;
     /** How much of the way from the game's own view to the eye the camera has come: 0 at rest overhead, 1 at the eye. */
     float landing;
     /** How much of the game's own picture, which is under this one, this one covers. */
@@ -3515,7 +3520,7 @@ final class Pipeline {
         steady.set("uKept", keptAny && !WITHOUT.contains("steady") ? KEPT : 0f);
         steady.set3x3("uCentring", CENTRING[jitterAt]);
         steady.set("uOwnWithin", seated ? 3.2f : 0f);
-        steady.set("uHeldWithin", seated || outside || overhead ? 0f : HELD_WITHIN);
+        steady.set("uHeldWithin", seated || outside || overhead || viewerShown ? 0f : HELD_WITHIN);
         quad();
         // The rest of the frame is made from the steadied picture. Nothing is drawn into the scene after this.
         frameColor = keptColor[next];
@@ -5689,7 +5694,7 @@ final class Pipeline {
         CharacterDraw.bare = !seated;
         // The fishing line is drawn from the rod's tip only when the rod was placed in this drawing of the viewer.
         view.viewModel.rodPlaced = false;
-        boolean own = !outside && view.characters.drawViewer(camera, state.held, tanHalfFieldOfView, aspect, OWN_NEAR, far);
+        boolean own = !outside && !viewerShown && view.characters.drawViewer(camera, state.held, tanHalfFieldOfView, aspect, OWN_NEAR, far);
         CharacterDraw.bare = false;
         smoothSkins(false);
         FloatBuffer glass = own && seated ? view.characters.cabin.panes : null;

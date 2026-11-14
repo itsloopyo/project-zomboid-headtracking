@@ -103,6 +103,41 @@ public final class IsoGridSquare {
         return roomID == -1L;
     }
 
+    /** Whether anything on the square has that flag, as the game ORs the flags of its sprites. */
+    public boolean has(zombie.iso.SpriteDetails.IsoFlagType flag) {
+        for (int i = 0; i < objects.size(); i++) {
+            IsoSprite sprite = objects.get(i).getSprite();
+            if (sprite != null && sprite.getProperties() != null && sprite.getProperties().has(flag)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Whether the edge to a square beside it has on it a thing with that flag, north or west: the edge is the north or west of whichever square is south or east. */
+    private boolean edge(IsoGridSquare to, zombie.iso.SpriteDetails.IsoFlagType north, zombie.iso.SpriteDetails.IsoFlagType west) {
+        if (to.y < y) {
+            return has(north);
+        }
+        if (to.y > y) {
+            return to.has(north);
+        }
+        return to.x < x ? has(west) : to.x > x && to.has(west);
+    }
+
+    /** As the game's, by the walls alone: a wall on the edge between the two squares. */
+    public boolean isBlockedTo(IsoGridSquare to) {
+        return edge(to, zombie.iso.SpriteDetails.IsoFlagType.WallN, zombie.iso.SpriteDetails.IsoFlagType.WallW);
+    }
+
+    public boolean isWindowTo(IsoGridSquare to) {
+        return edge(to, zombie.iso.SpriteDetails.IsoFlagType.windowN, zombie.iso.SpriteDetails.IsoFlagType.windowW);
+    }
+
+    public boolean isSolid() {
+        return has(zombie.iso.SpriteDetails.IsoFlagType.solid);
+    }
+
     public IsoChunk getChunk() {
         IsoChunk chunk = new IsoChunk();
         chunk.wx = Math.floorDiv(x, 8);

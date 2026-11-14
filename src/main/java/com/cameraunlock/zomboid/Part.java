@@ -18,6 +18,9 @@ enum Part {
                     + "ready for first person, though what is ready already stays until you leave the save. The first person key, or a\n"
                     + "double tap of Back on a controller, then turns this on and switches to first person, and the graphics key turns it\n"
                     + "on to go to an isometric graphics mode other than Low."),
+    THIRD_PERSON("General", "ThirdPersonEnabled", true, false,
+            "true: the first person key goes on from first person to a third person view from behind your character, and from\n"
+                    + "there back to the isometric view. false: it switches between first person and the isometric view only."),
     CUSTOMISE_CHARACTER_HEAD("General", "CustomiseCharacterHead", true, true,
             "true: on the game's Customise Character screen, the character shown turns its head as you turn yours, as your\n"
                     + "reflection would, and if TalkingMouths was on as the game started, its mouth moves with what you say into your\n"
