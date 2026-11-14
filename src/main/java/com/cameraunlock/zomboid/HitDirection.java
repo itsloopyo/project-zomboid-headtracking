@@ -202,9 +202,10 @@ final class HitDirection {
      * Logic thread, once a frame of the first person view: what is marked, from where the
      * picture is seen and how wide it is.
      *
+     * @param own         the character whose head the eye is in: the player, or the zombie their corpse rose as (FirstPerson.own)
      * @param tanHalfWide the tangent of half the picture's width
      */
-    void look(IsoPlayer player, ViewCamera.Pose eye, boolean lying, float tanHalfWide, long now) {
+    void look(IsoPlayer player, IsoGameCharacter own, ViewCamera.Pose eye, boolean lying, float tanHalfWide, long now) {
         if (!Part.HIT_DIRECTION.on()) {
             hide();
             return;
@@ -214,7 +215,7 @@ final class HitDirection {
         topBack = lying && HitArcs.topPointsBack(topBack, HitArcs.topAlong(eye.forwardX, eye.forwardY, eye.forwardUp, eye.upX, eye.upY));
         int index = player.getIndex();
         IsoCell cell = IsoWorld.instance.currentCell;
-        int floor = (int) Math.floor(player.getZ());
+        int floor = (int) Math.floor(own.getZ());
         glows = 0;
         Arrays.fill(listed, false);
         BaseVehicle seat = player.getVehicle();
@@ -226,7 +227,7 @@ final class HitDirection {
                 listed[j] |= attackers[j] == zombie;
             }
             float toX = zombie.getX() - eye.eyeX, toY = zombie.getY() - eye.eyeY;
-            if (Math.abs(toX) > reach || Math.abs(toY) > reach || zombie.isDead()) {
+            if (Math.abs(toX) > reach || Math.abs(toY) > reach || zombie.isDead() || zombie == own) {
                 continue;
             }
             if (attacks(zombie, player, seat)) {
@@ -251,7 +252,7 @@ final class HitDirection {
             }
             float bearing = bearing(eye, topBack, toX, toY);
             float strength = HitArcs.near(tiles, bearing, tanHalfWide);
-            if (strength <= 0f || glows == MOST_GLOWS || blocked(cell, player, zombie)) {
+            if (strength <= 0f || glows == MOST_GLOWS || blocked(cell, eye, zombie)) {
                 continue;
             }
             glowX[glows] = zombie.getX();
@@ -317,20 +318,22 @@ final class HitDirection {
         filling = (filling + 1) % buffers.length;
     }
 
-    /** The squares of a line between a zombie and the player, from HitArcs.lineSquares: the glow reaches two tiles, so a few. */
-    private static final int[] LINE_X = new int[8], LINE_Y = new int[8];
+    /** The squares of a line between a close zombie and the eye, from HitArcs.lineSquares. */
+    private static final int[] LINE_X = new int[HitArcs.NEAR_LINE_SQUARES], LINE_Y = new int[HitArcs.NEAR_LINE_SQUARES];
 
     /**
-     * Whether something between the player and a zombie stands in its way: a wall, a shut door,
+     * Whether something between the eye and a zombie stands in its way: a wall, a shut door,
      * which the game's own attack also stops at (AttackState), or a window that is shut and
      * whole, or barricaded. Each edge the game's line of sight crosses is asked on its own
      * (IsoGridSquare.testVisionAdjacent, as LosUtil.lineClear asks it): lineClear keeps the first
      * window it meets as its answer and so passes a shut door beyond it, and its answer for a
-     * window is the same open, shut or broken (IsoWindow.TestVision).
+     * window is the same open, shut or broken (IsoWindow.TestVision). The line runs to the eye, which
+     * the zombie is near, and not to the player: the eye can be far from them, at the head of the
+     * zombie their corpse rose as.
      */
-    private static boolean blocked(IsoCell cell, IsoPlayer player, IsoZombie zombie) {
+    private static boolean blocked(IsoCell cell, ViewCamera.Pose eye, IsoZombie zombie) {
         int fromX = (int) Math.floor(zombie.getX()), fromY = (int) Math.floor(zombie.getY()), floor = (int) Math.floor(zombie.getZ());
-        int squares = HitArcs.lineSquares(fromX, fromY, (int) Math.floor(player.getX()), (int) Math.floor(player.getY()), LINE_X, LINE_Y);
+        int squares = HitArcs.lineSquares(fromX, fromY, (int) Math.floor(eye.eyeX), (int) Math.floor(eye.eyeY), LINE_X, LINE_Y);
         IsoGridSquare at = cell.getGridSquare(fromX, fromY, floor);
         for (int i = 0; i < squares; i++) {
             IsoGridSquare next = cell.getGridSquare(LINE_X[i], LINE_Y[i], floor);

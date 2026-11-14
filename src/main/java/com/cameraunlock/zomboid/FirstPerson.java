@@ -1217,7 +1217,7 @@ public final class FirstPerson {
         if (drawnAspect == 0f || !landed) {
             view.hitDirection.hide();
         } else {
-            view.hitDirection.look(player, trackedView, view.bodyLed.whole(), pictureTanHalf * drawnAspect, now);
+            view.hitDirection.look(player, own(player), trackedView, view.bodyLed.whole(), pictureTanHalf * drawnAspect, now);
         }
 
         if (TRACE) {

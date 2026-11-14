@@ -16,6 +16,7 @@ final class HitArcsTests {
         Checks.run("lyingDownTheTopAndBottomChangePlacesOnceAndOtherwiseMoveSmoothly", HitArcsTests::lyingDownTheTopAndBottomChangePlacesOnceAndOtherwiseMoveSmoothly);
         Checks.run("aMarkIsNamedForTheEdgeItIsDrawnNearest", HitArcsTests::aMarkIsNamedForTheEdgeItIsDrawnNearest);
         Checks.run("aLineOfSightGoesSquareBySquareAsTheGamesDoes", HitArcsTests::aLineOfSightGoesSquareBySquareAsTheGamesDoes);
+        Checks.run("aLineFromACloseZombieToTheEyeFitsItsSquares", HitArcsTests::aLineFromACloseZombieToTheEyeFitsItsSquares);
         Checks.run("aHitFadesOutOverASecondAndAHalf", HitArcsTests::aHitFadesOutOverASecondAndAHalf);
         Checks.run("aCloseZombieGlowsOnlyOutOfViewAndNear", HitArcsTests::aCloseZombieGlowsOnlyOutOfViewAndNear);
         Checks.run("aCloseZombieGlowsMostBehindAndNear", HitArcsTests::aCloseZombieGlowsMostBehindAndNear);
@@ -222,6 +223,51 @@ final class HitArcsTests {
                         "to " + toX + "," + toY + " each step goes to a square next to the last, and the last is the end");
             }
         }
+    }
+
+    private static void aLineFromACloseZombieToTheEyeFitsItsSquares() {
+        // The eye at the head of the zombie a dead player's corpse rose as, 11.3 tiles from the corpse, and a zombie 1.5 tiles from that eye.
+        int zombieX = 113, zombieY = 50, eyeX = 112, eyeY = 50, corpseX = 101, corpseY = 50;
+        int[] xs = new int[HitArcs.NEAR_LINE_SQUARES], ys = new int[HitArcs.NEAR_LINE_SQUARES];
+        boolean overflows = false;
+        try {
+            HitArcs.lineSquares(zombieX, zombieY, corpseX, corpseY, xs, ys);
+        } catch (ArrayIndexOutOfBoundsException expected) {
+            overflows = true;
+        }
+        check(overflows, "a line from the zombie to the corpse does not fit a close zombie's squares");
+        int toEye = HitArcs.lineSquares(zombieX, zombieY, eyeX, eyeY, xs, ys);
+        check(toEye == 1 && xs[0] == eyeX && ys[0] == eyeY, "the line to the eye is one square: " + toEye);
+        // Every zombie within NEAR_TILES of an eye, as HitDirection.look measures it in floats, on a grid finer than a square and at
+        // the floats either side of it, near the map's corner, where the distance rounds most finely, and far out, where it rounds most.
+        float[] bases = {0f, 15000f}, eyes = {0f, Math.nextUp(0f), 0.37f, 0.5f, Math.nextDown(1f)};
+        int[] longX = new int[64], longY = new int[64];
+        int most = 0;
+        for (float base : bases) {
+            for (float ex : eyes) {
+                for (float ey : eyes) {
+                    float ax = base + ex, ay = base + ey;
+                    for (int stepX = -48; stepX <= 48; stepX++) {
+                        for (int stepY = -48; stepY <= 48; stepY++) {
+                            for (int edge = 0; edge < 9; edge++) {
+                                float zx = nudged(base + stepX / 16f, edge % 3), zy = nudged(base + stepY / 16f, edge / 3);
+                                if ((float) Math.hypot(zx - ax, zy - ay) > HitArcs.NEAR_TILES) {
+                                    continue;
+                                }
+                                most = Math.max(most, HitArcs.lineSquares((int) Math.floor(zx), (int) Math.floor(zy), (int) Math.floor(ax), (int) Math.floor(ay), longX, longY));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        check(most <= HitArcs.NEAR_LINE_SQUARES, "no line from a zombie within " + HitArcs.NEAR_TILES + " tiles of the eye is longer than "
+                + HitArcs.NEAR_LINE_SQUARES + " squares: the longest is " + most);
+    }
+
+    /** The float below a value, the value, or the float above it. */
+    private static float nudged(float value, int way) {
+        return way == 0 ? Math.nextDown(value) : way == 2 ? Math.nextUp(value) : value;
     }
 
     private static void aHitFadesOutOverASecondAndAHalf() {

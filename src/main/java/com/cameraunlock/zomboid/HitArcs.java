@@ -16,6 +16,12 @@ final class HitArcs {
     static final float FADE_SECONDS = 1.5f;
     /** How near a zombie out of view is marked, in tiles. */
     static final float NEAR_TILES = 2f;
+    /**
+     * The most squares lineSquares gives from the square of a zombie within NEAR_TILES of the eye
+     * to the eye's square. Two points that near lie in squares at most NEAR_TILES rounded up apart
+     * along each axis, and the one more covers the distance being measured in floats.
+     */
+    static final int NEAR_LINE_SQUARES = (int) Math.ceil(NEAR_TILES) + 1;
     /** Of a close zombie's mark, the share it has just out of the side of the view; behind, it has all of it. */
     static final float NEAR_AT_THE_SIDE = 0.35f;
 
