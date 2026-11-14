@@ -469,6 +469,12 @@ public final class Hooks {
         return view == null ? stock : view.controls.meleeKey(stock);
     }
 
+    /** Called with what a character's precision aim input reads. */
+    public static boolean precisionAimKey(boolean stock, CharacterInputComponent input) {
+        View view = of(input);
+        return view == null ? stock : view.controls.precisionAimKey(stock);
+    }
+
     /** Called with whether a character's Interact button is down. */
     public static boolean interactKey(boolean stock, CharacterInputComponent input) {
         View view = of(input);

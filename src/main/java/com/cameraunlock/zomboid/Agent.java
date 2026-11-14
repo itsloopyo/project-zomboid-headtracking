@@ -816,6 +816,7 @@ public final class Agent {
                 returningWithThis(input, "isAttackButtonDown", "()Z", "attackKey", inputFilter),
                 returningWithThis(input, "isInteractButtonDownInternal", "()Z", "interactKey", inputFilter),
                 returningWithThis(input, "isMeleeButtonDownInternal", "()Z", "meleeKey", inputFilter),
+                returningWithThis(input, "isPrecisionAimKeyDownInternal", "()Z", "precisionAimKey", inputFilter),
                 returning(UI, "checkPicked", "()Z", "picked", BOOLEAN_FILTER),
                 // Where a drag cursor is put: see DragAim.
                 new Patch("zombie/iso/IsoCell", "doBuildingInternal after getPickedTile", classBytes -> CallSite.insertAfterEach(classBytes,

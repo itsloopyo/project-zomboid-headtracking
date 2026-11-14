@@ -260,6 +260,19 @@ public final class Controls {
         return stock && !(view.firstPerson.lookCaptured() && player != null && View.onController(player) && sightsOnTheShove(player));
     }
 
+    /**
+     * Called with what the game's precision aim input reads. On the keyboard it is the aim input
+     * itself, which aimKey already answers. A controller's has a binding of its own, and the game's
+     * Original preset puts it on the aiming stick, which in first person turns the view: read as an
+     * aim it held the character in the aiming stance, at a walk, whenever the view was turned. In
+     * first person a controller's precision aim is its aim, as the keyboard's is, so the game's
+     * precise reticle (hit chance, target colour) still comes up with the sights raised.
+     */
+    public boolean precisionAimKey(boolean stock) {
+        IsoPlayer player = view.player();
+        return view.firstPerson.lookCaptured() && player != null && View.onController(player) ? aimKey(stock) : stock;
+    }
+
     /** Whether the game's toggle to aim option holds this player's aim: it is the keyboard's and the mouse's, and a controller has none. */
     private static boolean togglesAim(IsoPlayer player) {
         return !View.onController(player) && Core.getInstance().isToggleToAim();
