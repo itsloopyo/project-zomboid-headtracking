@@ -226,8 +226,10 @@ final class HitDirection {
             for (int j = 0; j < count; j++) {
                 listed[j] |= attackers[j] == zombie;
             }
+            // How near is measured from the character, which a third person camera stands back from, and where on the picture from the eye.
+            float nearX = zombie.getX() - player.getX(), nearY = zombie.getY() - player.getY();
             float toX = zombie.getX() - eye.eyeX, toY = zombie.getY() - eye.eyeY;
-            if (Math.abs(toX) > reach || Math.abs(toY) > reach || zombie.isDead() || zombie == own) {
+            if (Math.abs(nearX) > reach || Math.abs(nearY) > reach || zombie.isDead() || zombie == own) {
                 continue;
             }
             if (attacks(zombie, player, seat)) {
@@ -245,7 +247,7 @@ final class HitDirection {
                             index + 1, zombie.getID(), zombie.getTarget() == player ? "this player" : String.valueOf(zombie.getTarget())));
                 }
             }
-            float tiles = (float) Math.hypot(toX, toY);
+            float tiles = (float) Math.hypot(nearX, nearY);
             // The game's own view shows the player no more than this: a zombie it has faded out, in the dark or out of its sight, gives no glow.
             if (tiles > HitArcs.NEAR_TILES || (int) Math.floor(zombie.getZ()) != floor || zombie.isFakeDead() || zombie.getAlpha(index) <= SHOWN_ALPHA) {
                 continue;
