@@ -2666,6 +2666,9 @@ public final class Characters {
         }
         place(data.x, data.y, up, angle, CHARACTER_SCALE);
         multiplyPlaced(viewMatrix, combined);
+        if (kind == BY_EYE && !casting && data.character == viewer && view.pipeline.viewerShown) {
+            placeShownRod(data);
+        }
         EYE.Begin();
         CharacterDraw.begin(data, combined, projection, casting, fromEye,
                 Quality.wholeFigureShadows(view.index) ? Float.POSITIVE_INFINITY : CharacterDraw.SHADOW_WHOLE_WITHIN);
@@ -2731,6 +2734,35 @@ public final class Characters {
             keepPieces(data, up);
         }
         EYE.End();
+    }
+
+    private final float[] shownRodPlace = new float[16], shownRodTip = new float[3];
+    /** Whether the viewer's model drawn whole in the eye's picture this frame holds a fishing rod out for fishing, its tip placed. Render thread. */
+    boolean rodShown;
+
+    /** Where the tip of the fishing rod the viewer's model holds in the eye's picture is in the view, placed this frame, or null. Render thread. */
+    float[] shownRodTip() {
+        return rodShown ? shownRodTip : null;
+    }
+
+    /**
+     * Places the tip of the rod in the hand of the viewer's model, drawn whole in the eye's picture, where the game's animation
+     * has it: as far along its mesh as ViewModel.place puts the first person rod's, through the matrix the model is drawn by.
+     */
+    private void placeShownRod(ModelSlotRenderData data) {
+        ViewModel.Held hands = view.viewModel.held;
+        ModelInstanceRenderData rod = hands == null || hands.firearm() || hands.fished() == null ? null : weaponOf(data);
+        MeleeHold.Shape shape = rod == null ? null : swungShape(rod, hands.item());
+        if (shape == null) {
+            return;
+        }
+        float[] weapon = rod.xfrm.get(shownRodPlace), along = shape.along();
+        float tip = shape.tip(), scale = data.finalScale;
+        ViewModelMath.place(combined,
+                ((weapon[0] * along[0] + weapon[1] * along[1] + weapon[2] * along[2]) * tip + weapon[3]) * scale,
+                ((weapon[4] * along[0] + weapon[5] * along[1] + weapon[6] * along[2]) * tip + weapon[7]) * scale,
+                ((weapon[8] * along[0] + weapon[9] * along[1] + weapon[10] * along[2]) * tip + weapon[11]) * scale, shownRodTip);
+        rodShown = true;
     }
 
     /** The pieces cut off a zombie posed this frame are kept with its bones as drawn. See Pieces. */

@@ -643,6 +643,15 @@ final class Pipeline {
      * people in it, as from outside, and everything else is drawn as from the eye.
      */
     boolean viewerShown;
+
+    /**
+     * Where the tip of the fishing rod held out over water is in the view, placed this frame, or null: the first
+     * person rod's, or the one the viewer's model holds where it is drawn in the picture. Render thread.
+     */
+    float[] rodTip() {
+        return viewerShown ? view.characters.shownRodTip() : view.viewModel.rodTip();
+    }
+
     /** How much of the way from the game's own view to the eye the camera has come: 0 at rest overhead, 1 at the eye. */
     float landing;
     /** How much of the game's own picture, which is under this one, this one covers. */
@@ -1554,6 +1563,7 @@ final class Pipeline {
                 cabinDraw.forget();
             }
             view.characters.movers.begin(steadying);
+            view.characters.rodShown = false;
             if (figures) {
                 drawFigures(camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
             }
@@ -1641,7 +1651,7 @@ final class Pipeline {
             drawDeveloped(camera, state, tanHalfFieldOfView, aspect, exposure, near, far, fogStart, fogEnd);
             stage(STAGE_DEVELOP);
             showSmoothed(drawTarget, viewport);
-            view.crosshair.draw(viewport[0], viewport[1], viewport[2], viewport[3], view.viewModel.rodTip(), sceneDepth, near, far);
+            view.crosshair.draw(viewport[0], viewport[1], viewport[2], viewport[3], rodTip(), sceneDepth, near, far);
             view.hitDirection.draw(camera, viewport[2], viewport[3]);
             stage(STAGE_SMOOTH);
             reportStages();
