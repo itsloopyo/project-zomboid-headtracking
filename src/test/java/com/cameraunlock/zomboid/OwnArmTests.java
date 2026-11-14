@@ -39,6 +39,7 @@ final class OwnArmTests {
         Checks.run("aSpearsLeftArmStaysUnderThePictureThroughAThrust", () -> aSpearsLeftArmStaysUnderThePictureThroughAThrust(model));
         Checks.run("aTwoHandedSwingGoesThroughWithTheLeftWristEasy", () -> aTwoHandedSwingGoesThroughWithTheLeftWristEasy(model));
         Checks.run("aFishingRodHasTheLeftHandOnItsReelThroughACastAndTheReeling", () -> aFishingRodHasTheLeftHandOnItsReelThroughACastAndTheReeling(model));
+        Checks.run("aDriversElbowsHangBelowAndOutsideTheHandsOnTheWheel", () -> aDriversElbowsHangBelowAndOutsideTheHandsOnTheWheel(model));
     }
 
     /**
@@ -627,6 +628,45 @@ final class OwnArmTests {
         // Racking a pump is done by the hand that is on the fore-end, where it is.
         check(ArmHolds.place(model, SCALE, gun, new ArmHolds.Doing(0f, true, ArmActs.PUMP, -1f, ArmActs.RACKING, 0.2f, 0f, 1f, -1f, false, -1f, -1f, 2f, 0f), SAME, skins, said, carried, new ArmHolds.Settled()) == 2
                 && ArmPose.apart(placed(skins[1], model.wrist, fore), foreEndOf(gun)) < 1e-4f, "to rack it the left hand stays under the fore-end");
+    }
+
+    /**
+     * The driver's arms on the mod's own wheel with its column leaning from 10 to 60 degrees below
+     * level, as cars' and buses' do: on every one each elbow hangs below its wrist and outside it,
+     * out to the side of the plane through the eye, the shoulder and the wrist so that its bend is
+     * seen from the eye, with the wrist easy.
+     */
+    private static void aDriversElbowsHangBelowAndOutsideTheHandsOnTheWheel(ArmModel model) {
+        float[] frame = {1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f};
+        ViewCamera.Pose camera = new ViewCamera.Pose();
+        // Looking along the frame's x, which runs ahead; its y runs to the left.
+        camera.forwardX = 1f;
+        camera.rightY = -1f;
+        camera.upUp = 1f;
+        for (int lean = 10; lean <= 60; lean += 10) {
+            float[] wheel = {Cabins.EYE_BEHIND, 0f, -Cabins.EYE_ABOVE, (float) Math.cos(Math.toRadians(-lean)), 0f, (float) Math.sin(Math.toRadians(-lean)), Cabins.WHEEL_RADIUS};
+            CabinArms arms = new CabinArms();
+            check(arms.place(model, SCALE, frame, wheel, camera, 0f), "both hands reach a wheel leaning " + lean);
+            for (int side = 0; side < 2; side++) {
+                float[] said = arms.said[side];
+                // The right arm's outside is the view's right, the left arm's its left.
+                float outward = side == 0 ? 1f : -1f;
+                float out = (said[ArmPose.ELBOW] - said[ArmPose.WRIST]) * outward, down = said[ArmPose.WRIST + 1] - said[ArmPose.ELBOW + 1];
+                check(down > 0.025f, "on a wheel leaning " + lean + " the elbow hangs below the wrist: " + down);
+                check(out > 0.06f, "on a wheel leaning " + lean + " the elbow is outside the wrist: " + out);
+                float[] skin = arms.skins[side], shoulder = new float[3];
+                for (int axis = 0; axis < 3; axis++) {
+                    shoulder[axis] = skin[model.upper * 16 + axis] * model.shoulder[0] + skin[model.upper * 16 + 4 + axis] * model.shoulder[1]
+                            + skin[model.upper * 16 + 8 + axis] * model.shoulder[2] + skin[model.upper * 16 + 12 + axis];
+                }
+                float[] wrist = {said[ArmPose.WRIST], said[ArmPose.WRIST + 1], said[ArmPose.WRIST + 2]};
+                float[] square = {shoulder[1] * wrist[2] - shoulder[2] * wrist[1], shoulder[2] * wrist[0] - shoulder[0] * wrist[2], shoulder[0] * wrist[1] - shoulder[1] * wrist[0]};
+                float off = Math.abs(square[0] * said[ArmPose.ELBOW] + square[1] * said[ArmPose.ELBOW + 1] + square[2] * said[ArmPose.ELBOW + 2])
+                        / (float) Math.sqrt(square[0] * square[0] + square[1] * square[1] + square[2] * square[2]);
+                check(off > 0.03f, "on a wheel leaning " + lean + " the elbow is off the plane through the eye, the shoulder and the wrist, and its bend is seen: " + off);
+                check(said[ArmPose.BENT] <= ArmPose.WRIST_MOST + 0.01f, "on a wheel leaning " + lean + " the wrist is bent no further than a wrist goes: " + Math.toDegrees(said[ArmPose.BENT]));
+            }
+        }
     }
 
     private static void check(boolean condition, String what) {

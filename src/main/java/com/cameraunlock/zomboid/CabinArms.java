@@ -13,8 +13,24 @@ package com.cameraunlock.zomboid;
 final class CabinArms {
     /** How far round the rim from its top each hand holds it, in radians: ten and two. */
     static final float HAND_PLACE = (float) Math.toRadians(60);
-    /** The shoulders and where each forearm seems to come from, in the arm model's metres from the eye at rest: ahead, left, up. */
-    private static final float[] SHOULDER = {-0.07f, 0.19f, -0.22f}, FROM = {-0.02f, 0.40f, -0.58f};
+    /**
+     * The shoulders and where each forearm seems to come from, in the arm model's metres from the
+     * eye at rest: ahead, left, up. Where the forearm comes from is wide of the shoulder: an
+     * elbow in the plane through the eye, the shoulder and the wrist is seen from the eye as a
+     * straight arm however far it bends, and one out to the side of that plane shows its bend.
+     */
+    private static final float[] SHOULDER = {0f, 0.20f, -0.28f}, FROM = {-0.02f, 0.60f, -0.55f};
+    /**
+     * How much of the rim's way towards where the forearm comes from is taken out of the line
+     * across the fist. Square to the rim, a fist at ten or two can only have its forearm come from
+     * straight behind, the elbow level with the wrist and the arm held out straight; a driver's
+     * rim runs across the palm on a slant, the wrist turned in, and the elbow hangs below and
+     * outside the wrist. Measured with the arm model on the mod's own wheel with its column leaning
+     * 10 to 60 degrees from level: at 0.9 the elbow is 0.033 to 0.076 tiles below the wrist, 0.079
+     * to 0.104 outside it and 0.044 to 0.055 off the plane through the eye, the shoulder and the
+     * wrist, bent 61 to 87 degrees.
+     */
+    private static final float GRIP_SLANT = 0.9f;
 
     final float[][] skins = new float[2][24 * 16], said = new float[2][ArmPose.SAYS];
     private final float[] turn = new float[9];
@@ -49,6 +65,11 @@ final class CabinArms {
             float[] thumb = {-sign * (c * lx - s * ux), -sign * (c * ly - s * uy), -sign * (c * lz - s * uz)};
             turned(grip);
             turned(thumb);
+            float[] back = {FROM[0] * scale - w[0] - grip[0], sign * FROM[1] * scale - w[1] - grip[1], FROM[2] * scale - w[2] - grip[2]};
+            float along = (thumb[0] * back[0] + thumb[1] * back[1] + thumb[2] * back[2]) / (back[0] * back[0] + back[1] * back[1] + back[2] * back[2]);
+            for (int axis = 0; axis < 3; axis++) {
+                thumb[axis] -= GRIP_SLANT * along * back[axis];
+            }
             float[] centre = view(m, camera, w[0] + grip[0], w[1] + grip[1], w[2] + grip[2], true);
             float[] across = view(m, camera, thumb[0], thumb[1], thumb[2], false);
             float[] shoulder = view(m, camera, SHOULDER[0] * scale, sign * SHOULDER[1] * scale, SHOULDER[2] * scale, true);

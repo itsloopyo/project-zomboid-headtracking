@@ -32,6 +32,7 @@ final class Cabins {
 
     /** Where the eye of a driver is from the middle of the wheel: behind it and above. */
     static final float EYE_BEHIND = PLACE[0] * SCALE, EYE_ABOVE = -PLACE[2] * SCALE;
+    static final float WHEEL_RADIUS = PLACE[3] * SCALE;
 
     /**
      * The driver's place in the vehicle a viewer sits in or last sat in, or null where the
