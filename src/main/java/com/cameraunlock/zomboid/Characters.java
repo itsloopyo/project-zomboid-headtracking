@@ -453,6 +453,23 @@ public final class Characters {
     }
 
     /**
+     * Whether the eye's or the scope's picture leaves out a figure at (x, y) as past where the
+     * built world ends: see Pipeline.figurePastTheEnd. In first person it is measured from where
+     * the viewer stands and not from the eye at (eyeX, eyeY), which the head moves: a figure on
+     * the line came and went as the head swayed.
+     */
+    private boolean pastTheEnd(float x, float y, float eyeX, float eyeY) {
+        if (kind != BY_EYE && kind != BY_SCOPE) {
+            return false;
+        }
+        if (view.pipeline.outside) {
+            return view.pipeline.figurePastTheEnd(x, y, eyeX, eyeY);
+        }
+        IsoPlayer viewer = view.player();
+        return view.pipeline.figurePastTheEnd(x, y, viewer.getX(), viewer.getY());
+    }
+
+    /**
      * Draws the corpses that lie as models (Corpses) through the first-person camera, into
      * whatever target is bound, whose depth has to be the world's. They are drawn before what
      * is outlined is told from what is drawn over it, as the ground they lie on is: a corpse
@@ -2464,6 +2481,9 @@ public final class Characters {
             if (Dying.ON && kind == BY_EYE && data.character != null && !data.inVehicle && data.character != own) {
                 heldWhileDying(data, standsUp);
             }
+            if (pastTheEnd(data.x, data.y, eyeX, eyeY)) {
+                continue;
+            }
             if (map != null && outside(map, data)) {
                 continue;
             }
@@ -2742,7 +2762,7 @@ public final class Characters {
         for (int i = 0; i < pieces.size(); i++) {
             Pieces.Piece piece = pieces.get(i);
             float toX = piece.x - eyeX, toY = piece.y - eyeY;
-            if (toX * toX + toY * toY > reach * reach) {
+            if (toX * toX + toY * toY > reach * reach || pastTheEnd(piece.x, piece.y, eyeX, eyeY)) {
                 continue;
             }
             if (glassPlane != null && glassPlane[0] * piece.x + glassPlane[1] * piece.y + glassPlane[2] * piece.standsUp - glassPlane[3] < -BEHIND_GLASS) {
@@ -2794,6 +2814,9 @@ public final class Characters {
                 // Let go here, before the culls: a held figure stands where its corpse lies, and is left out of the picture with it.
                 if (!dying.isEmpty()) {
                     corpseDrawn(body, now);
+                }
+                if (pastTheEnd(x, y, eyeX, eyeY)) {
+                    continue;
                 }
                 if (glassPlane != null && glassPlane[0] * x + glassPlane[1] * y + glassPlane[2] * up - glassPlane[3] < -BEHIND_GLASS) {
                     continue;
@@ -2969,7 +2992,7 @@ public final class Characters {
             }
             float x = held.x, y = held.y, middle = held.up + PERSON_MIDDLE;
             float toX = x - eyeX, toY = y - eyeY;
-            if (toX * toX + toY * toY > reach * reach || !view.pipeline.drawDistance.draws(x, y)) {
+            if (toX * toX + toY * toY > reach * reach || !view.pipeline.drawDistance.draws(x, y) || pastTheEnd(x, y, eyeX, eyeY)) {
                 continue;
             }
             if (map != null) {

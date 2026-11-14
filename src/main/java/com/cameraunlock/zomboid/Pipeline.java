@@ -399,6 +399,8 @@ final class Pipeline {
     private static Program far, farTree;
     /** What the shaders are told as uBeyond this frame: see PipelineShaders.ENDS. Not 0 where the far land is drawn behind the built world. */
     private float beyond;
+    /** The fog the frame's picture is drawn with, in tiles: see figurePastTheEnd. */
+    private float figureFogStart, figureFogEnd;
     /** How many frames go by before the pixels the built world is thinned out by come round again. */
     private static final int SIEVES = 64;
     private static int whiteTexture, noiseTexture;
@@ -1420,6 +1422,8 @@ final class Pipeline {
             boolean farThere = view.worldScene.farLand.load(focusX, focusY);
             cut(round || outside && landing == 0f);
             beyond = (!outside || landing > 0f) && farThere ? 1f + (steadying ? frameNumber % SIEVES : 0) : 0f;
+            figureFogStart = fogStart;
+            figureFogEnd = fogEnd;
             all.of(chunks, null, true, null, Integer.MAX_VALUE, SpriteGeometry.NO_BUILDING);
             arrays();
             fires.take(state, chunks, eyesOwn() ? roomsSeen : null, camera, frameNanos);
@@ -5606,6 +5610,30 @@ final class Pipeline {
         if (drawn > 0) {
             quad();
         }
+    }
+
+    /**
+     * Whether a figure standing at (x, y), seen from (eyeX, eyeY), is left out of the picture
+     * for standing where the built world has mostly thinned out into the far land behind it:
+     * more than half of the ground there is gone (PipelineShaders.ENDS). It is left out whole.
+     * Thinned out pixel by pixel as the ground is, a zombie or a car was a see-through shimmer
+     * once frames were mixed, and the depth of the pixels left out stayed over the far land.
+     */
+    boolean figurePastTheEnd(float x, float y, float eyeX, float eyeY) {
+        if (beyond <= 0.5f) {
+            return false;
+        }
+        return gone((float) Math.hypot(x - eyeX, y - eyeY), (float) Math.hypot(x - loadedX, y - loadedY), figureFogStart, figureFogEnd, loadedWithin) > 0.75f;
+    }
+
+    /**
+     * PipelineShaders.ENDS' gone: how far gone the built world is, 0 whole to 1 none of it left,
+     * at a place so far from the eye and from the middle of the loaded map, which reaches
+     * loadedWithin from it, with the fog from fogStart to fogEnd.
+     */
+    static float gone(float fromEye, float fromLoaded, float fogStart, float fogEnd, float loadedWithin) {
+        float band = fogEnd - fogStart;
+        return Math.max(Terrain.smooth((fromEye - fogStart) / band), Terrain.smooth((fromLoaded - (loadedWithin - band)) / band));
     }
 
     private void drawFigures(ViewCamera.Pose camera, SkyState state, float tanHalfFieldOfView, float aspect,
