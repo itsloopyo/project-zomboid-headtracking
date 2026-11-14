@@ -6250,6 +6250,10 @@ final class PipelineShaders {
             uniform float uCabinArms;
             uniform sampler2DShadow uCabinSun;
             uniform mat4 uCabinSunMatrix;
+            // What of the sun reaches the arms where uCabinSunMatrix puts them off the map: all of it
+            // beside the mod's own interior, whose map covers its cabin, and in a vehicle mod's cabin,
+            // which has no map, what its roofed inside gets.
+            uniform float uCabinOpen;
             uniform float uCabinAround;
             uniform float uPainted;
             uniform float uGlassPass;
@@ -7503,14 +7507,14 @@ final class PipelineShaders {
                     vec3 over = (uNearMatrix * vec4(at + uLight * 3.5, 1.0)).xyz * 0.5 + 0.5;
                     float outside = inside(over) ? shadow2D(uShadowNear, over).r : 1.0;
                     vec3 s = (uCabinSunMatrix * vec4(at - uEye, 1.0)).xyz;
-                    sun = outside * (s.x > 0.0 && s.x < 1.0 && s.y > 0.0 && s.y < 1.0 ? shadow2D(uCabinSun, s).r : 1.0);
+                    sun = outside * (s.x > 0.0 && s.x < 1.0 && s.y > 0.0 && s.y < 1.0 ? shadow2D(uCabinSun, s).r : uCabinOpen);
                 }
                 // The vehicle in the shadow map is the one the game draws from outside, and
                 // from the seat its panels lie right on their own shadow: the sun comes and
                 // goes across them in rings. Under its roof the cabin has the sky's light only.
                 // The bonnet is out in the open, and is painted metal like the rest of the outside.
                 float roofed = cabin * (1.0 - bonnet);
-                sun = mix(sun, 0.22, roofed);
+                sun = mix(sun, %ROOFED_SUN%, roofed);
                 // From a seat the game's vehicle is all round the eye. Its windows are painted
                 // on its one body, as panes that show the sky: pale and nearly without colour,
                 // where the paint, the trim and the seats are dark or coloured. Above the sills,
@@ -7722,7 +7726,7 @@ final class PipelineShaders {
                 // steadying over time, sees them and not the ground behind them.
                 gl_FragDepth = uWriteNear > 0.0 ? 0.5 + 0.5 * (uFar + uWriteNear - 2.0 * uWriteNear * uFar / ahead) / (uFar - uWriteNear) : gl_FragCoord.z;
             }
-            """;
+            """.replace("%ROOFED_SUN%", Float.toString(Pipeline.ROOFED_SUN));
 
     static final String DEVELOP = "#version 130\n" + Sky.ATMOSPHERE + ENDS + TORCH + Surroundings.GLSL + """
             uniform sampler2D uScene;

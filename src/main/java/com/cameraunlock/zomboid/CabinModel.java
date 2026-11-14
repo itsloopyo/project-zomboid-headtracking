@@ -54,9 +54,9 @@ final class CabinModel {
      * arcs overlap in the middle and run off the glass at its sides, as a car's do.
      */
     final float wiperReach;
-    private static final float WIPER_SHARE = 0.85f;
+    static final float WIPER_SHARE = 0.85f;
     /** A windscreen's texture place is counted up from this far under its foot, where the wipers stand: see CabinGlass. */
-    private static final float WIPERS_BELOW = 0.3f;
+    static final float WIPERS_BELOW = 0.3f;
     /** Whose pictures the interior is drawn with: one style's are shared by the bodies built in it. */
     final String pictures;
     /** Each repeating surface's tiles to a repeat. */

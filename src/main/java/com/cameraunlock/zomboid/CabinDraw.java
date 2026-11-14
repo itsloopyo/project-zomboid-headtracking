@@ -347,6 +347,8 @@ final class CabinDraw {
             // Half the windscreen's width, in tiles: the wipers' arcs are laid out on it.
             uniform float uScreenHalf;
             uniform float uWiperReach;
+            // Set for a vehicle mod's window modelled as a slab: only the face turned to the eye is glass.
+            uniform float uOneSided;
             varying vec3 vRel;
             varying vec3 vLocal;
             varying vec3 vNormal;
@@ -361,6 +363,9 @@ final class CabinDraw {
                 gWiperReach = uWiperReach;
                 vec3 view = normalize(-vRel);
                 vec3 n = normalize(vNormal);
+                if (uOneSided > 0.5 && dot(n, view) < 0.0) {
+                    discard;
+                }
                 n = dot(n, view) < 0.0 ? -n : n;
                 // The texture place is the place on the pane, in tiles.
                 vec2 on = vUv;
@@ -507,7 +512,14 @@ final class CabinDraw {
         made.model.indexBytes.get(0, copy);
         indices.put(copy).flip();
         GL15.glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices, GL_STATIC_DRAW);
-        // Both programs bind the attributes to the same places: see ATTRIBUTES.
+        bindAttributes();
+        GL30.glBindVertexArray(0);
+        GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
+        GL15.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    }
+
+    /** The vertex array bound takes CabinModel's vertices from the buffer bound. Every program binds the attributes to the same places: see ATTRIBUTES. */
+    private static void bindAttributes() {
         attribute(0, 3, GL_FLOAT, false, 0);
         attribute(1, 3, GL_SHORT, true, CabinModel.NORMAL_AT);
         attribute(2, 3, GL_SHORT, true, CabinModel.TANGENT_AT);
@@ -517,9 +529,6 @@ final class CabinDraw {
         attribute(6, 1, GL_UNSIGNED_BYTE, true, CabinModel.FINISH_AT);
         attribute(7, 1, GL_UNSIGNED_BYTE, true, CabinModel.NEAR_AT);
         attribute(8, 1, GL_UNSIGNED_BYTE, true, CabinModel.KIND_AT);
-        GL30.glBindVertexArray(0);
-        GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
-        GL15.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     }
 
     private static void attribute(int at, int size, int type, boolean normalized, int offset) {
@@ -615,19 +624,7 @@ final class CabinDraw {
         f.model[13] = oy;
         f.model[14] = oz;
         f.model[15] = 1f;
-        float[] view = eyeView;
-        view[0] = camera.rightX;
-        view[1] = camera.upX;
-        view[2] = -camera.forwardX;
-        view[4] = camera.rightY;
-        view[5] = camera.upY;
-        view[6] = -camera.forwardY;
-        view[8] = camera.rightUp;
-        view[9] = camera.upUp;
-        view[10] = -camera.forwardUp;
-        view[15] = 1f;
-        ViewCamera.projection(tanHalf, aspect, near, far, projection);
-        ViewCamera.multiply(projection, view, f.seen);
+        seenFrom(camera, tanHalf, aspect, near, far, f.seen);
         // The sun's map: an orthographic view down the sun's way onto the cabin's middle, in the interior's own frame.
         float sx = sunWay[0] * axes[0] + sunWay[1] * axes[1] + sunWay[2] * axes[2];
         float sy = sunWay[0] * axes[3] + sunWay[1] * axes[4] + sunWay[2] * axes[5];
@@ -675,6 +672,89 @@ final class CabinDraw {
     }
 
     private final float[] turnedAxes = new float[9], eyeView = new float[16], projection = new float[16], toMap = new float[16], fromRel = new float[16];
+
+    /** From the world less the eye to the screen. */
+    private void seenFrom(ViewCamera.Pose camera, float tanHalf, float aspect, float near, float far, float[] out) {
+        float[] view = eyeView;
+        view[0] = camera.rightX;
+        view[1] = camera.upX;
+        view[2] = -camera.forwardX;
+        view[4] = camera.rightY;
+        view[5] = camera.upY;
+        view[6] = -camera.forwardY;
+        view[8] = camera.rightUp;
+        view[9] = camera.upUp;
+        view[10] = -camera.forwardUp;
+        view[15] = 1f;
+        ViewCamera.projection(tanHalf, aspect, near, far, projection);
+        ViewCamera.multiply(projection, view, out);
+    }
+
+    /** The windows a vehicle mod made parts of their own, on the graphics card: for each, its vertex array and its buffer. */
+    private final java.util.IdentityHashMap<VehicleMeshes.PaneMesh, int[]> loose = new java.util.IdentityHashMap<>();
+    private final float[] looseSeen = new float[16], looseModel = new float[16];
+
+    /**
+     * Draws the cabin's glass on the windows a vehicle mod made parts of their own, over the
+     * picture, behind whatever of the vehicle and the world stands before them, their depth left
+     * alone, with the glass's program in use as beginLooseGlass left it.
+     *
+     * @param stands for each window, from its model's own space to the world, as it is drawn this frame
+     */
+    void drawLooseGlass(VehicleMeshes.PaneMesh[] panes, float[][] stands, int count, ViewCamera.Pose camera, float tanHalf, float aspect, float near, float far) {
+        seenFrom(camera, tanHalf, aspect, near, far, looseSeen);
+        glassProgram.set("uSeen", looseSeen);
+        turnedIn(glassProgram);
+        GL11.glEnable(GL_DEPTH_TEST);
+        GL11.glDepthFunc(GL_LEQUAL);
+        GL11.glDepthMask(false);
+        GL11.glDisable(GL_CULL_FACE);
+        GL11.glEnable(GL_BLEND);
+        GL14.glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
+        for (int i = 0; i < count; i++) {
+            VehicleMeshes.PaneMesh pane = panes[i];
+            int[] made = loose.get(pane);
+            if (made == null) {
+                made = new int[] {GL30.glGenVertexArrays(), GL15.glGenBuffers()};
+                GL30.glBindVertexArray(made[0]);
+                GL15.glBindBuffer(GL_ARRAY_BUFFER, made[1]);
+                GL15.glBufferData(GL_ARRAY_BUFFER, pane.vertices(), GL_STATIC_DRAW);
+                bindAttributes();
+                GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
+                loose.put(pane, made);
+            }
+            // The eye's float place comes off first, which is exact, then what that misses of it (ViewCamera.Pose).
+            System.arraycopy(stands[i], 0, looseModel, 0, 16);
+            looseModel[12] = looseModel[12] - camera.eyeX - camera.eyeFineX;
+            looseModel[13] = looseModel[13] - camera.eyeY - camera.eyeFineY;
+            looseModel[14] = looseModel[14] - camera.eyeUp - camera.eyeFineUp;
+            glassProgram.set("uModel", looseModel);
+            glassProgram.set("uScreenHalf", pane.screenHalf());
+            glassProgram.set("uWiperReach", pane.wiperReach());
+            glassProgram.set("uOneSided", pane.slab() ? 1f : 0f);
+            GL30.glBindVertexArray(made[0]);
+            GL11.glDrawArrays(GL_TRIANGLES, 0, pane.count());
+        }
+        GL30.glBindVertexArray(0);
+        GL11.glDisable(GL_BLEND);
+        GL11.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        GL11.glDepthMask(true);
+        GL11.glDisable(GL_DEPTH_TEST);
+    }
+
+    /** Gives back the windows of vehicle mods on the graphics card: first person lets go of its pictures. */
+    void forgetLooseGlass() {
+        if (loose.isEmpty()) {
+            return;
+        }
+        int windows = loose.size();
+        for (int[] made : loose.values()) {
+            GL15.glDeleteBuffers(made[1]);
+            GL30.glDeleteVertexArrays(made[0]);
+        }
+        loose.clear();
+        Log.info("the graphics card's copy of the glass of " + windows + " windows of vehicle mods was given back");
+    }
     /** To read the sun's map, from the interior's frame to 0..1, a little towards the sun so that no surface shades itself. */
     private static final float[] BIAS = {0.5f, 0f, 0f, 0f, 0f, 0.5f, 0f, 0f, 0f, 0f, 0.5f, 0f, 0.5f, 0.5f, 0.5f - 0.0018f, 1f};
 
@@ -759,12 +839,20 @@ final class CabinDraw {
         return glassProgram;
     }
 
+    /** Begins drawing the glass of a vehicle mod's windows, which may come before any of the mod's own interiors has made the programs. */
+    static Program beginLooseGlass() throws IOException {
+        ensurePrograms();
+        glassProgram.use();
+        return glassProgram;
+    }
+
     /** Draws the panes over the picture, behind whatever of the interior and the world stands before them, their depth left alone. */
     void drawGlass(Frame f) {
         glassProgram.set("uModel", f.model);
         glassProgram.set("uSeen", f.seen);
         glassProgram.set("uScreenHalf", f.fitted.model.screenHalf);
         glassProgram.set("uWiperReach", f.fitted.model.wiperReach);
+        glassProgram.set("uOneSided", 0f);
         turnedIn(glassProgram);
         GL11.glEnable(GL_DEPTH_TEST);
         GL11.glDepthFunc(GL_LEQUAL);

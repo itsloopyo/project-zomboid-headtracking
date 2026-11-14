@@ -32,6 +32,64 @@ final class CabinTests {
         Checks.run("bodyBesideTheSeatIsLitFromItsDepthReadWide", CabinTests::bodyBesideTheSeatIsLitFromItsDepthReadWide);
         Checks.run("saloonsFuelAndHeatNeedlesStopAtTheEndTicksOnTheirFaces", CabinTests::saloonsFuelAndHeatNeedlesStopAtTheEndTicksOnTheirFaces);
         Checks.run("aSaveLeftIsToldOnceToTheRenderThread", CabinTests::aSaveLeftIsToldOnceToTheRenderThread);
+        Checks.run("moddedWheelsFaceDishAndRimAreReadFromItsPiece", CabinTests::moddedWheelsFaceDishAndRimAreReadFromItsPiece);
+        Checks.run("aModdedWindscreenIsLaidOutForTheWipersFromTheDriversSide", CabinTests::aModdedWindscreenIsLaidOutForTheWipersFromTheDriversSide);
+    }
+
+    /** A windscreen 1.4 tiles across, its slant 0.6 up leaning back 30 degrees, both its sides modelled. */
+    private static void aModdedWindscreenIsLaidOutForTheWipersFromTheDriversSide() {
+        float back = 0.6f * (float) Math.sin(Math.toRadians(30)), rise = 0.6f * (float) Math.cos(Math.toRadians(30));
+        float[] at = {1.0f, -0.7f, 1.0f, 1.0f, 0.7f, 1.0f, 1.0f - back, 0.7f, 1.0f + rise, 1.0f - back, -0.7f, 1.0f + rise};
+        int[] elements = {0, 1, 2, 0, 2, 3, 2, 1, 0, 3, 2, 0};
+        for (float driver : new float[] {-0.35f, 0.35f}) {
+            float[] on = CabinParts.paneFace(at, elements, true, driver);
+            check(Math.abs(on[0] - 0.7f) < 1e-3f, "half the windscreen's width is 0.7, not " + on[0]);
+            check(Math.abs(on[1] - 0.6f) < 1e-3f, "the windscreen's slant is 0.6, not " + on[1]);
+            float driverSide = driver < 0f ? on[4] : on[4 + 2];
+            check(driverSide < -0.69f, "the windscreen's driver's side is below nought across, not " + driverSide);
+            check(Math.abs(on[5] + CabinModel.WIPERS_BELOW) < 1e-3f && Math.abs(on[4 + 2 * 2 + 1] - (0.6f - CabinModel.WIPERS_BELOW)) < 1e-3f,
+                    "the slant is counted from under the windscreen's foot, as the wipers are laid out");
+        }
+        check(CabinParts.paneFace(at, elements, true, -0.35f)[2] > 0.5f, "a windscreen modelled with both its faces is a slab");
+        float[] side = {0.5f, -0.8f, 1.0f, 1.5f, -0.8f, 1.0f, 1.5f, -0.8f, 1.4f, 0.5f, -0.8f, 1.4f};
+        float[] door = CabinParts.paneFace(side, new int[] {0, 1, 2, 0, 2, 3}, false, -0.35f);
+        check(Math.abs(door[0] - 0.5f) < 1e-3f && Math.abs(door[1] - 0.4f) < 1e-3f, "a door's window runs level along the vehicle and up its height");
+        check(door[2] < 0.5f, "a window modelled with one face is not a slab");
+        check(Math.abs(door[4] - 6.5f) < 1e-3f && Math.abs(door[4 + 2] - 7.5f) < 1e-3f && Math.abs(door[5]) < 1e-3f && Math.abs(door[4 + 2 * 2 + 1] - 0.4f) < 1e-3f,
+                "a side window is laid out along the vehicle from 7 tiles behind its middle, as GlassRain tells side windows, and up from its foot");
+        float[] backPane = {-1.5f, -0.6f, 1.0f, -1.5f, 0.6f, 1.0f, -1.5f, 0.6f, 1.4f, -1.5f, -0.6f, 1.4f};
+        float[] rear = CabinParts.paneFace(backPane, new int[] {0, 1, 2, 0, 2, 3}, false, -0.35f);
+        check(Math.abs(rear[4] + 0.6f) < 1e-3f && Math.abs(rear[4 + 2] - 0.6f) < 1e-3f, "a back window is laid out across from its middle");
+    }
+
+    /** A wheel whose column runs ahead and down 30 degrees, its hub dished 0.04 towards the column, as a van's is. */
+    private static void moddedWheelsFaceDishAndRimAreReadFromItsPiece() {
+        double lean = Math.toRadians(-30);
+        float nA = (float) Math.cos(lean), nU = (float) Math.sin(lean), eA = -nU, eU = nA;
+        float cA = 0.5f, cC = -0.3f, cU = 0.1f, radius = 0.18f, dish = 0.04f;
+        int around = 24;
+        float[] at = new float[around * 3 * 3];
+        int[] piece = new int[around * 3];
+        int n = 0;
+        for (int k = 0; k < around; k++) {
+            double turn = Math.PI * 2 * k / around;
+            float across = (float) Math.cos(turn), rise = (float) Math.sin(turn);
+            float[][] rings = {{radius, -0.01f}, {radius, 0.01f}, {0.03f, dish}};
+            for (float[] ring : rings) {
+                at[n * 3] = cA + ring[0] * rise * eA + ring[1] * nA;
+                at[n * 3 + 1] = cC + ring[0] * across;
+                at[n * 3 + 2] = cU + ring[0] * rise * eU + ring[1] * nU;
+                piece[n] = n;
+                n++;
+            }
+        }
+        float[] face = CabinParts.faceOf(at, piece);
+        check(Math.abs(Math.toDegrees(face[0]) + 30) < 2.6, "the column leans ahead and down as modelled, not " + Math.toDegrees(face[0]));
+        check(Math.abs(face[3] - dish) < 0.005f, "the hub is dished towards the column by what was modelled, not " + face[3]);
+        float rimA = face[5] + (float) Math.cos(face[0]) * face[4], rimC = face[6], rimU = face[7] + (float) Math.sin(face[0]) * face[4];
+        check(Math.hypot(Math.hypot(rimA - cA, rimC - cC), rimU - cU) < 0.005, "the middle of the rim is where it was modelled");
+        float grip = CabinParts.gripRadius(2f * radius);
+        check(grip < radius && grip > radius * 0.9f, "a hand holds the rim a little in from its outer edge, not at " + grip);
     }
 
     private static void aSaveLeftIsToldOnceToTheRenderThread() {

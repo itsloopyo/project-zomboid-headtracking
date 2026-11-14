@@ -583,6 +583,8 @@ final class Pipeline {
     /** The mod's own interiors, and what this frame draws one with. */
     private final CabinDraw cabinDraw = new CabinDraw();
     private final CabinDraw.Frame cabinFrame = new CabinDraw.Frame();
+    /** What of the sun the figure light gives the inside of a vehicle under its roof, as the shader has it. */
+    static final float ROOFED_SUN = 0.22f;
     private final CabinArms cabinArms = new CabinArms();
     private boolean armsUnplacedSaid, armsDrawnSaid;
     private final float[] wheelArmsProjection = new float[16];
@@ -594,6 +596,8 @@ final class Pipeline {
     static final int PASS_UNIT = 27;
     /** Whether this frame drew the mod's own interior of the vehicle sat in. */
     private boolean ownCabinDrawn;
+    /** Whether the vehicle sat in has windows of a vehicle mod's, which the glass is drawn on (drawLooseGlass). */
+    private boolean looseGlass;
     /** The interiors the mod could not make, by script, said once each. */
     private final java.util.HashSet<String> cabinFailed = new java.util.HashSet<>();
     private static final float OWN_NEAR = 0.05f;
@@ -5697,6 +5701,15 @@ final class Pipeline {
             drawPartKinds(parts);
         }
         ownCabinDrawn = parts != null && view.characters.cabin.wheel != null && prepareOwnCabin(camera, state, tanHalfFieldOfView, aspect, near, far, parts);
+        looseGlass = own && seated && !ownCabinDrawn && view.characters.cabin.paneCount > 0;
+        if (looseGlass) {
+            cameraForGlass = camera;
+            stateForGlass = state;
+            looseTanHalf = tanHalfFieldOfView;
+            looseAspect = aspect;
+            looseNear = near;
+            looseFar = far;
+        }
         // On foot the cabin's pictures are not made: nothing is drawn in each, at any depth.
         GL13.glActiveTexture(GL_TEXTURE0 + PARTS_UNIT);
         GL11.glBindTexture(GL_TEXTURE_2D, cabin.made() ? partsColor : noneTexture);
@@ -5795,7 +5808,10 @@ final class Pipeline {
             GL11.glDisable(GL_DEPTH_TEST);
             if (ownCabinDrawn) {
                 drawOwnCabin(camera, state);
-                drawWheelArms(camera, tanHalfFieldOfView, aspect, near, far);
+                drawWheelArms(camera, tanHalfFieldOfView, aspect, near, far, cabinFrame.model, cabinFrame.fitted.wheel, cabinFrame.steer, true);
+            } else if (seated && sat.moddedWheel != null) {
+                moddedWheelFrame(camera, sat.moddedWheel, sat.axes);
+                drawWheelArms(camera, tanHalfFieldOfView, aspect, near, far, moddedArmsFrame, moddedArmsWheel, 0f, false);
             }
             if (view.characters.holding()) {
                 drawHeld(camera, state, tanHalfFieldOfView, aspect, near, far);
@@ -5848,12 +5864,46 @@ final class Pipeline {
         return true;
     }
 
+    /** From the frame of a vehicle mod's steering wheel to the world less the eye, and that wheel in it: see moddedWheelFrame. */
+    private final float[] moddedArmsFrame = new float[16], moddedArmsWheel = new float[7], noSunMap = new float[16];
+
     /**
-     * The driver's arms on the wheel of the mod's own interior, drawn as the arms on a held weapon
-     * are and lit by the pass that lights people, against the interior's depth so that the rim is
-     * before the fingers that go round it.
+     * Lays out the frame the driver's arms are placed in on the steering wheel a vehicle mod
+     * models (VehicleMeshes.Seated.moddedWheel), as the mod's own interior lays out its own: the
+     * vehicle's ahead, left and up, from the eye at rest behind the wheel, where Ride seats it.
      */
-    private void drawWheelArms(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far) {
+    private void moddedWheelFrame(ViewCamera.Pose camera, float[] wheel, float[] axes) {
+        float[] m = moddedArmsFrame;
+        for (int column = 0; column < 3; column++) {
+            // The vehicle's axes call its right aside; the frame's across is its left (CabinDraw.frame).
+            float sign = column == 1 ? -1f : 1f;
+            m[column * 4] = sign * axes[column * 3];
+            m[column * 4 + 1] = sign * axes[column * 3 + 1];
+            m[column * 4 + 2] = sign * axes[column * 3 + 2];
+            m[column * 4 + 3] = 0f;
+        }
+        m[12] = wheel[0] - camera.eyeX - camera.eyeFineX - axes[0] * Cabins.EYE_BEHIND + axes[6] * Cabins.EYE_ABOVE;
+        m[13] = wheel[1] - camera.eyeY - camera.eyeFineY - axes[1] * Cabins.EYE_BEHIND + axes[7] * Cabins.EYE_ABOVE;
+        m[14] = wheel[2] - camera.eyeUp - camera.eyeFineUp - axes[2] * Cabins.EYE_BEHIND + axes[8] * Cabins.EYE_ABOVE;
+        m[15] = 1f;
+        float[] w = moddedArmsWheel;
+        w[0] = Cabins.EYE_BEHIND;
+        w[1] = 0f;
+        w[2] = -Cabins.EYE_ABOVE;
+        System.arraycopy(wheel, 3, w, 3, 4);
+    }
+
+    /**
+     * The driver's arms on a steering wheel, drawn as the arms on a held weapon are and lit by
+     * the pass that lights people, against the depth of what is drawn of the vehicle so that the
+     * rim is before the fingers that go round it.
+     *
+     * @param frame   from the wheel's frame to the world less the eye
+     * @param wheel   the wheel in that frame (CabinArms.place)
+     * @param ownMap  whether the mod's own interior is drawn, with its own map of the sun: a vehicle
+     *                mod's has none, and the arms in it have the sun the cabin's pass gives its roofed inside
+     */
+    private void drawWheelArms(ViewCamera.Pose camera, float tanHalfFieldOfView, float aspect, float near, float far, float[] frame, float[] wheel, float steer, boolean ownMap) {
         ArmModel model = OwnArms.model();
         float scale = view.characters.viewerArmScale();
         if (!view.ride.driving || !Own.arms() || model == null) {
@@ -5863,7 +5913,7 @@ final class Pipeline {
             }
             return;
         }
-        if (!cabinArms.place(model, scale, cabinFrame, camera, cabinFrame.steer)) {
+        if (!cabinArms.place(model, scale, frame, wheel, camera, steer)) {
             if (!armsUnplacedSaid) {
                 armsUnplacedSaid = true;
                 Log.info("the driver's arms are not drawn: at a scale of " + scale + " they do not reach the wheel");
@@ -5897,12 +5947,16 @@ final class Pipeline {
         figureLight.set("uHaveFacing", 1f);
         figureLight.set("uCabinArms", 1f);
         figureLight.set("uCabinAround", 0.45f);
-        figureLight.set("uCabinSun", PASS_UNIT);
-        figureLight.set("uCabinSunMatrix", cabinFrame.relShadow);
+        // Without a map of its own the arms' sun is read from the world's near map, which is bound as a shadow map, and the zero matrix never asks it.
+        figureLight.set("uCabinSun", ownMap ? PASS_UNIT : 1);
+        figureLight.set("uCabinSunMatrix", ownMap ? cabinFrame.relShadow : noSunMap);
+        figureLight.set("uCabinOpen", ownMap ? 1f : ROOFED_SUN);
         figureLight.set("uNear", HELD_NEAR);
         figureLight.set("uWriteNear", near);
-        GL13.glActiveTexture(GL_TEXTURE0 + PASS_UNIT);
-        GL11.glBindTexture(GL_TEXTURE_2D, cabinDraw.shadowMap());
+        if (ownMap) {
+            GL13.glActiveTexture(GL_TEXTURE0 + PASS_UNIT);
+            GL11.glBindTexture(GL_TEXTURE_2D, cabinDraw.shadowMap());
+        }
         GL13.glActiveTexture(GL_TEXTURE0 + NORMAL_UNIT);
         GL11.glBindTexture(GL_TEXTURE_2D, ownNormal);
         GL13.glActiveTexture(GL_TEXTURE0 + 3);
@@ -5915,7 +5969,14 @@ final class Pipeline {
         quad();
         figureLight.set("uCabinArms", 0f);
         figureLight.set("uInside", 1f);
-        figureLight.set("uOwnCabin", 1f);
+        figureLight.set("uOwnCabin", ownMap ? 1f : 0f);
+        if (!ownMap) {
+            // The glass's pass may follow in the figures' program, and reads these as the cabin's pass left them.
+            VehicleMeshes.Seated sat = view.characters.cabin;
+            figureLight.set("uOwnInterior", sat.ownInterior ? 1f : 0f, sat.glassParted ? 1f : 0f);
+            figureLight.set("uPainted", 1f);
+            figureLight.set("uHavePanes", sat.panes != null ? 1f : 0f);
+        }
         GL11.glDisable(GL_DEPTH_TEST);
     }
 
@@ -5926,6 +5987,36 @@ final class Pipeline {
     /** The panes of the mod's own interior, over the world seen through them. */
     private void drawOwnGlass(ViewCamera.Pose camera, SkyState state) {
         Program glass = cabinDraw.beginGlass();
+        lightGlass(glass, camera, state);
+        cabinDraw.drawGlass(cabinFrame);
+        Program.useOther(0);
+    }
+
+    /** Where the windows of a vehicle mod's are seen from this frame, kept for the glass. */
+    private float looseTanHalf, looseAspect, looseNear, looseFar;
+    private boolean looseGlassFailed;
+
+    /** The windows a vehicle mod made parts of their own (VehicleMeshes.PaneMesh), over the world seen through them, as the mod's own interior's panes are. */
+    private void drawLooseGlass(VehicleMeshes.Seated sat) {
+        if (looseGlassFailed) {
+            return;
+        }
+        Program glass;
+        try {
+            glass = CabinDraw.beginLooseGlass();
+        } catch (java.io.IOException e) {
+            if (!looseGlassFailed) {
+                looseGlassFailed = true;
+                Log.error("the glass of a vehicle mod's windows cannot be drawn, and they are left clear: " + e.getMessage());
+            }
+            return;
+        }
+        lightGlass(glass, cameraForGlass, stateForGlass);
+        cabinDraw.drawLooseGlass(sat.paneMeshes, sat.paneStands, sat.paneCount, cameraForGlass, looseTanHalf, looseAspect, looseNear, looseFar);
+        Program.useOther(0);
+    }
+
+    private void lightGlass(Program glass, ViewCamera.Pose camera, SkyState state) {
         atmosphere(glass, state);
         setBeams(glass, PASS_UNIT);
         glass.set("uEye", camera.eyeX, camera.eyeY, camera.eyeUp);
@@ -5936,8 +6027,6 @@ final class Pipeline {
         glass.set("uSnowing", state.snow);
         glass.set("uGlassRain", (float) Quality.glassRain(view.index));
         glass.set("uGlassPull", view.glassPull.leanAhead, view.glassPull.leanAside, view.glassPull.front, view.glassPull.back);
-        cabinDraw.drawGlass(cabinFrame);
-        Program.useOther(0);
     }
 
     /** Draws the mod's own interior over what of the body was lit outside it, in the light of the frame. */
@@ -6308,6 +6397,10 @@ final class Pipeline {
             figureLight.set("uOwnCabin", 1f);
             Program.useOther(0);
             drawOwnGlass(cameraForGlass, stateForGlass);
+            figureLight.use();
+        } else if (looseGlass) {
+            Program.useOther(0);
+            drawLooseGlass(view.characters.cabin);
             figureLight.use();
         } else {
             figureLight.set("uGlassPass", 1f);
@@ -7429,6 +7522,7 @@ final class Pipeline {
             debrisDraw.letGo();
             SpriteColours.giveBackIdle();
             cabinDraw.forget();
+            cabinDraw.forgetLooseGlass();
             for (int other = 0; other < View.COUNT; other++) {
                 if (View.of(other) != null && View.of(other).pipeline.holds) {
                     // Another view is drawn with all of it still: this one gave its own back as it was set down.

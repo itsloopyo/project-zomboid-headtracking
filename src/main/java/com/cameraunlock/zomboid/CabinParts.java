@@ -225,27 +225,10 @@ final class CabinParts {
             if (!round) {
                 continue;
             }
-            // The face's lean, tried a few degrees at a time: the one the piece is thinnest
-            // across. A wheel's middle is dished towards its column, so the piece is thin only
-            // against how wide it is, and as tall in that face as it is wide.
-            float thinnest = Float.MAX_VALUE, tall = 0f;
-            for (float lean = -ROUND_MOST_LEAN; lean <= ROUND_MOST_LEAN + 1e-4f; lean += (float) Math.toRadians(5)) {
-                float faceAlong = (float) Math.cos(lean), faceUp = (float) Math.sin(lean);
-                float nearest = Float.MAX_VALUE, furthest = -Float.MAX_VALUE, lowest = Float.MAX_VALUE, highest = -Float.MAX_VALUE;
-                for (int k = start[piece]; k < start[piece + 1]; k++) {
-                    int i = members[k];
-                    float a = at[i * 3], u = at[i * 3 + 2];
-                    float deep = a * faceAlong + u * faceUp, rise = u * faceAlong - a * faceUp;
-                    nearest = Math.min(nearest, deep);
-                    furthest = Math.max(furthest, deep);
-                    lowest = Math.min(lowest, rise);
-                    highest = Math.max(highest, rise);
-                }
-                if (furthest - nearest < thinnest) {
-                    thinnest = furthest - nearest;
-                    tall = highest - lowest;
-                }
-            }
+            // A wheel's middle is dished towards its column, so the piece is thin only against
+            // how wide it is, and as tall in that face as it is wide.
+            float[] face = faceOf(at, Arrays.copyOfRange(members, start[piece], start[piece + 1]));
+            float thinnest = face[1], tall = face[2];
             if (thinnest < 0.6f * wide && tall > 0.75f * wide && tall < 1.3f * wide) {
                 best = piece;
                 widest = wide;
@@ -258,6 +241,171 @@ final class CabinParts {
         System.arraycopy(members, start[best], found, 0, found.length);
         return found;
     }
+
+    /**
+     * The face of a round flat piece that leans about the line across the vehicle: the lean,
+     * tried a few degrees at a time, at which the piece is thinnest along the way it faces, as
+     * radians from upright, a lean up turning that way ahead to point up; how thin it is that
+     * way; how tall it is in that face; how far its middle stands ahead of its rim along that
+     * way, the dish a steering wheel has towards its column; how far along that way the rim
+     * stands from the middle of the box the piece fills; and that middle, along, across and up.
+     * All in tiles.
+     *
+     * @param at    along, across and up for each vertex
+     * @param piece the piece's vertices
+     */
+    static float[] faceOf(float[] at, int[] piece) {
+        float thinnest = Float.MAX_VALUE, tall = 0f, best = 0f;
+        for (float lean = -ROUND_MOST_LEAN; lean <= ROUND_MOST_LEAN + 1e-4f; lean += (float) Math.toRadians(5)) {
+            float faceAlong = (float) Math.cos(lean), faceUp = (float) Math.sin(lean);
+            float nearest = Float.MAX_VALUE, furthest = -Float.MAX_VALUE, lowest = Float.MAX_VALUE, highest = -Float.MAX_VALUE;
+            for (int i : piece) {
+                float a = at[i * 3], u = at[i * 3 + 2];
+                float deep = a * faceAlong + u * faceUp, rise = u * faceAlong - a * faceUp;
+                nearest = Math.min(nearest, deep);
+                furthest = Math.max(furthest, deep);
+                lowest = Math.min(lowest, rise);
+                highest = Math.max(highest, rise);
+            }
+            if (furthest - nearest < thinnest) {
+                thinnest = furthest - nearest;
+                tall = highest - lowest;
+                best = lean;
+            }
+        }
+        // The dish: the mean depth of what is within a third of the radius of the middle in
+        // the face, less that of what is past two thirds of it.
+        float faceAlong = (float) Math.cos(best), faceUp = (float) Math.sin(best);
+        float[] low = {Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE}, high = {-Float.MAX_VALUE, -Float.MAX_VALUE, -Float.MAX_VALUE};
+        for (int i : piece) {
+            for (int axis = 0; axis < 3; axis++) {
+                low[axis] = Math.min(low[axis], at[i * 3 + axis]);
+                high[axis] = Math.max(high[axis], at[i * 3 + axis]);
+            }
+        }
+        float midA = (low[0] + high[0]) / 2f, midC = (low[1] + high[1]) / 2f, midU = (low[2] + high[2]) / 2f;
+        float radius = (high[1] - low[1]) / 2f;
+        float hub = 0f, rim = 0f;
+        int hubs = 0, rims = 0;
+        for (int i : piece) {
+            float a = at[i * 3] - midA, c = at[i * 3 + 1] - midC, u = at[i * 3 + 2] - midU;
+            float deep = a * faceAlong + u * faceUp, rise = u * faceAlong - a * faceUp;
+            float out = (float) Math.sqrt(c * c + rise * rise);
+            if (out < radius / 3f) {
+                hub += deep;
+                hubs++;
+            } else if (out > radius * 2f / 3f) {
+                rim += deep;
+                rims++;
+            }
+        }
+        float rimDeep = rims > 0 ? rim / rims : 0f;
+        float dish = hubs > 0 && rims > 0 ? hub / hubs - rimDeep : 0f;
+        return new float[] {best, thinnest, tall, dish, rimDeep, midA, midC, midU};
+    }
+
+    /**
+     * The places on a window pane the cabin's glass is laid out by (CabinGlass, GlassRain), in
+     * tiles, as the mod's own interiors lay out theirs (tools/models/cabin/make.py glass_places):
+     * on the windscreen, across from its middle with the driver's side below nought, and up its
+     * slant from CabinModel.WIPERS_BELOW under its foot; on a side window, along the vehicle
+     * from 7 tiles behind the pane's middle; on any other, across from its middle; on both of
+     * those, up from the pane's foot. Then how far the pane runs either way of its middle, how
+     * far up it, and 1 where it is modelled as a slab with both its faces, or 0; then a place for
+     * each vertex, two numbers each.
+     *
+     * @param at           along, across and up for each vertex
+     * @param elements     the pane's triangles
+     * @param driverAcross how far across the driver sits, as at counts it
+     */
+    static float[] paneFace(float[] at, int[] elements, boolean screen, float driverAcross) {
+        int vertices = at.length / 3;
+        // The pane's way: its faces summed, each turned to agree with those before it.
+        float nx = 0f, ny = 0f, nz = 0f;
+        float[] faces = new float[elements.length];
+        for (int t = 0; t + 2 < elements.length; t += 3) {
+            int a = elements[t] * 3, b = elements[t + 1] * 3, c = elements[t + 2] * 3;
+            float ux = at[b] - at[a], uy = at[b + 1] - at[a + 1], uz = at[b + 2] - at[a + 2];
+            float vx = at[c] - at[a], vy = at[c + 1] - at[a + 1], vz = at[c + 2] - at[a + 2];
+            float fx = uy * vz - uz * vy, fy = uz * vx - ux * vz, fz = ux * vy - uy * vx;
+            faces[t] = fx;
+            faces[t + 1] = fy;
+            faces[t + 2] = fz;
+            float sign = fx * nx + fy * ny + fz * nz < 0f ? -1f : 1f;
+            nx += sign * fx;
+            ny += sign * fy;
+            nz += sign * fz;
+        }
+        float length = (float) Math.sqrt(nx * nx + ny * ny + nz * nz);
+        if (length > 0f) {
+            nx /= length;
+            ny /= length;
+            nz /= length;
+        } else {
+            nx = 1f;
+        }
+        // A slab has as much of its face turned one way as the other.
+        float one = 0f, other = 0f;
+        for (int t = 0; t + 2 < elements.length; t += 3) {
+            float along = faces[t] * nx + faces[t + 1] * ny + faces[t + 2] * nz;
+            if (along > 0f) {
+                one += along;
+            } else {
+                other -= along;
+            }
+        }
+        boolean slab = Math.min(one, other) > 0.25f * Math.max(one, other);
+        // Up the windscreen's slant is the vehicle's up less what of it is along the pane's way.
+        float sx = -nz * nx, sy = -nz * ny, sz = 1f - nz * nz;
+        float slantLength = (float) Math.sqrt(sx * sx + sy * sy + sz * sz);
+        boolean side = Math.abs(ny) >= Math.abs(nx);
+        boolean[] used = new boolean[vertices];
+        for (int element : elements) {
+            used[element] = true;
+        }
+        float least = Float.MAX_VALUE, most = -Float.MAX_VALUE, foot = Float.MAX_VALUE, top = -Float.MAX_VALUE;
+        float[] out = new float[4 + vertices * 2];
+        for (int i = 0; i < vertices; i++) {
+            float x = at[i * 3], y = at[i * 3 + 1], z = at[i * 3 + 2];
+            float level = screen || !side ? y : x;
+            float up = screen && slantLength > 0f ? (x * sx + y * sy + z * sz) / slantLength : z;
+            out[4 + i * 2] = level;
+            out[4 + i * 2 + 1] = up;
+            if (used[i]) {
+                least = Math.min(least, level);
+                most = Math.max(most, level);
+                foot = Math.min(foot, up);
+                top = Math.max(top, up);
+            }
+        }
+        float middle = (least + most) / 2f;
+        float turn = screen && driverAcross > middle ? -1f : 1f;
+        float shift = screen || !side ? -middle : 7f - middle;
+        float rise = screen ? -foot - CabinModel.WIPERS_BELOW : -foot;
+        for (int i = 0; i < vertices; i++) {
+            out[4 + i * 2] = (out[4 + i * 2] + shift) * turn;
+            out[4 + i * 2 + 1] += rise;
+        }
+        out[0] = (most - least) / 2f;
+        out[1] = top - foot;
+        out[2] = slab ? 1f : 0f;
+        return out;
+    }
+
+    /**
+     * Where a driver's hand closes round the rim of a steering wheel as wide across as given,
+     * from its middle: on the middle of the rim, which is a little in from its outer edge.
+     */
+    static float gripRadius(float wide) {
+        return wide / 2f * (1f - HALF_RIM);
+    }
+
+    /**
+     * How much of a steering wheel's outer radius is half the thickness of its rim, as the mod's
+     * saloon interior has it (tools/models/cabin/sedan.py: the rim's middle 0.188 out, its tube
+     * 0.0118 either side of that).
+     */
+    static final float HALF_RIM = 0.0118f / (0.188f + 0.0118f);
 
     /**
      * @param at       along, across and up for each vertex

@@ -117,6 +117,18 @@ final class VehicleMeshes {
          * painted cabins is then left off, and so is telling its glass by colour.
          */
         boolean ownInterior, glassParted;
+        /**
+         * The steering wheel a vehicle mod models, with ModdedVehicleInteriors on, or null: where
+         * the middle of its rim is in the world this frame, x, y and up; the way its column runs
+         * away from the driver, along the vehicle, to its left and up; and how far out from its
+         * middle a hand holds its rim.
+         */
+        float[] moddedWheel;
+        private final float[] moddedWheelNow = new float[7];
+        /** The windows a vehicle mod made parts of their own, as drawn this frame: the first paneCount of each. */
+        int paneCount;
+        PaneMesh[] paneMeshes = new PaneMesh[8];
+        float[][] paneStands = new float[8][16];
 
         void clear() {
             panes = null;
@@ -124,6 +136,25 @@ final class VehicleMeshes {
             wheel = null;
             ownInterior = false;
             glassParted = false;
+            moddedWheel = null;
+            for (int i = 0; i < paneCount; i++) {
+                paneMeshes[i] = null;
+            }
+            paneCount = 0;
+        }
+
+        private void addPane(PaneMesh mesh, float[] stands) {
+            if (paneCount == paneMeshes.length) {
+                paneMeshes = java.util.Arrays.copyOf(paneMeshes, paneCount * 2);
+                float[][] more = java.util.Arrays.copyOf(paneStands, paneCount * 2);
+                for (int i = paneCount; i < more.length; i++) {
+                    more[i] = new float[16];
+                }
+                paneStands = more;
+            }
+            paneMeshes[paneCount] = mesh;
+            System.arraycopy(stands, 0, paneStands[paneCount], 0, 16);
+            paneCount++;
         }
     }
 
@@ -186,11 +217,15 @@ final class VehicleMeshes {
     static void note(Seated seated, Ride ride, String script, ModelInstanceRenderDataList models, float[] placed, float[] faces, float settles, float standsX, float standsY,
             float groundUp, float centreOfMass, float[] eye, ViewCamera.Pose camera) {
         seated.clear();
-        if (leftSaves.sinceAsked() && !interiorDone.isEmpty()) {
-            int vehicles = interiorDone.size();
+        if (leftSaves.sinceAsked()) {
+            int vehicles = interiorDone.size(), windows = paneMeshes.size();
             partMiddles.clear();
             interiorDone.clear();
-            Log.info("a save was left: what was read of the part models of " + vehicles + " vehicles is let go");
+            moddedWheels.clear();
+            paneMeshes.clear();
+            if (vehicles + windows > 0) {
+                Log.info("a save was left: what was read of the part models of " + vehicles + " vehicles, and of " + windows + " windows, is let go");
+            }
         }
         ModelInstanceRenderData body = models.get(0);
         float[] seatedAxes = seated.axes, paneMatrix = seated.paneMatrix;
@@ -334,29 +369,40 @@ final class VehicleMeshes {
     private record PartMesh(ModelMesh mesh, String script, String part) {}
 
     /**
-     * The steering wheel in each model a vehicle hangs on its parts, in the model's own space,
-     * as its middle and how wide it is across the vehicle in tiles, or NONE for a model with none.
-     * Keyed by the part as well, as one mesh can hang on several parts in different places.
+     * The steering wheel in each model a vehicle hangs on its parts, as roundIn reads it, or NONE
+     * for a model with none. Keyed by the part as well, as one mesh can hang on several parts in
+     * different places.
      */
     private static final HashMap<PartMesh, float[]> partMiddles = new HashMap<>();
     private static final float[] partXfrm = new float[16], partStands = new float[16], partFrame = new float[12];
     /** Vehicles whose part models have all been looked through for a steering wheel. */
     private static final HashSet<String> interiorDone = new HashSet<>();
 
+    /** The steering wheel chosen among a vehicle's part models: the part it is on, what roundIn read of it, and where it puts the driver's eye (Ride.eyeWheels). */
+    private record ModdedWheel(PartMesh on, float[] read, float[] eye) {}
+
+    private static final HashMap<String, ModdedWheel> moddedWheels = new HashMap<>();
+
     /**
      * A body with no wheel of the game's kind, whose vehicle may bring its inside as models of
      * its own hung on its parts, as KI5's do: the dashboard on the glove box, a seat on each
      * seat, the glass on each window. Notes which it does. Once every part model has been read,
-     * the widest steering wheel among them is noted for the driver's eye (Ride.eyeWheels). The
-     * picture builds nothing of its own round that wheel, so it goes no further than the eye.
+     * the widest steering wheel among them is noted for the driver's eye (Ride.eyeWheels), and
+     * from then on is placed each frame for the driver's hands (Seated.moddedWheel).
      */
     private static void ownInterior(Seated seated, Ride ride, String script, ModelInstanceRenderDataList models, float[] axes, float settles, float[] placed,
             float standsX, float standsY, float groundUp) {
         float[] seats = ride.seats;
         boolean done = interiorDone.contains(script) || seats == null || seats.length < 3;
+        ModdedWheel known = done ? moddedWheels.get(script) : null;
+        // Each view seats its own eye: another view may have been the one to read the wheel.
+        if (known != null && !ride.eyeWheels.containsKey(script)) {
+            ride.eyeWheels.put(script, known.eye);
+        }
         boolean all = true;
         float widest = 0f;
         float[] chosen = null;
+        PartMesh chosenOn = null;
         String chosenName = null;
         for (int i = 1; i < models.size(); i++) {
             ModelInstanceRenderData model = models.get(i);
@@ -365,6 +411,7 @@ final class VehicleMeshes {
             }
             if (pane(model)) {
                 seated.glassParted = true;
+                notePane(seated, model, script, seats, axes, standsX, standsY, groundUp);
                 continue;
             }
             if (!(model.modelInstance instanceof VehicleSubModelInstance sub) || sub.modelInfo == null || model.modelInstance.model == null) {
@@ -374,10 +421,13 @@ final class VehicleMeshes {
             if (partId.startsWith("Seat")) {
                 seated.ownInterior = true;
             }
+            ModelMesh mesh = model.modelInstance.model.mesh;
             if (done) {
+                if (known != null && known.on.mesh == mesh && known.on.part.equals(partId) && placedPart(model)) {
+                    placeWheel(seated, known.read, axes, settles);
+                }
                 continue;
             }
-            ModelMesh mesh = model.modelInstance.model.mesh;
             if (mesh == null || !mesh.isReady() || mesh.vb == null) {
                 all = false;
                 continue;
@@ -387,32 +437,19 @@ final class VehicleMeshes {
             if (middle == NONE) {
                 continue;
             }
-            model.xfrm.get(partXfrm);
-            ViewCamera.multiply(shifted, partXfrm, partStands);
+            if (!placedPart(model)) {
+                all = false;
+                continue;
+            }
             if (middle == null) {
-                // A model the game has not placed yet has a matrix of all noughts.
-                float turns = 0f;
-                for (int column = 0; column < 12; column += 4) {
-                    turns += partStands[column] * partStands[column] + partStands[column + 1] * partStands[column + 1] + partStands[column + 2] * partStands[column + 2];
-                }
-                if (!(turns > 0f)) {
-                    all = false;
-                    continue;
-                }
-                for (int column = 0; column < 4; column++) {
-                    float shift = column == 3 ? 1f : 0f;
-                    float x = partStands[column * 4] - standsX * shift, y = partStands[column * 4 + 1] - standsY * shift, up = partStands[column * 4 + 2] - groundUp * shift;
-                    for (int axis = 0; axis < 3; axis++) {
-                        partFrame[axis * 4 + column] = x * axes[axis * 3] + y * axes[axis * 3 + 1] + up * axes[axis * 3 + 2];
-                    }
-                }
+                framePart(axes, standsX, standsY, groundUp);
                 // The seats are placed from the body's own middle, as the body's wheel is looked for.
                 // The script's x runs the other way from across here: every KI5 car seated at a
                 // positive x has its wheel at a negative across.
                 float bodyAlong = (stands[12] - standsX) * axes[0] + (stands[13] - standsY) * axes[1] + (stands[14] - groundUp) * axes[2];
                 float bodyAcross = (stands[12] - standsX) * axes[3] + (stands[13] - standsY) * axes[4] + (stands[14] - groundUp) * axes[5];
                 float[] seat = {bodyAlong + seats[2], -seats[0]};
-                middle = withVertices(mesh.vb, model.modelInstance.model.name, "no steering wheel is looked for in it",
+                middle = withVertices(mesh.vb, model.modelInstance.model.name, "no steering wheel is looked for in it", NONE,
                         (raw, stride, vertices, elements) -> roundIn(raw, stride, vertices, elements, seat, bodyAcross));
                 partMiddles.put(key, middle);
                 if (middle == NONE) {
@@ -421,10 +458,12 @@ final class VehicleMeshes {
             }
             if (middle[3] > widest) {
                 widest = middle[3];
-                float x = partStands[0] * middle[0] + partStands[4] * middle[1] + partStands[8] * middle[2] + partStands[12];
-                float y = partStands[1] * middle[0] + partStands[5] * middle[1] + partStands[9] * middle[2] + partStands[13];
-                float up = partStands[2] * middle[0] + partStands[6] * middle[1] + partStands[10] * middle[2] + partStands[14];
+                // The eye is put behind the middle of the rim, where the hands are put on it (placeWheel).
+                float x = partStands[0] * middle[7] + partStands[4] * middle[8] + partStands[8] * middle[9] + partStands[12];
+                float y = partStands[1] * middle[7] + partStands[5] * middle[8] + partStands[9] * middle[9] + partStands[13];
+                float up = partStands[2] * middle[7] + partStands[6] * middle[8] + partStands[10] * middle[9] + partStands[14];
                 chosen = measured(x, y, up, axes, settles, placed, standsX, standsY, groundUp);
+                chosenOn = key;
                 chosenName = model.modelInstance.model.name;
             }
         }
@@ -437,20 +476,168 @@ final class VehicleMeshes {
         interiorDone.add(script);
         if (chosen != null) {
             seated.ownInterior = true;
+            float[] read = partMiddles.get(chosenOn);
+            moddedWheels.put(script, new ModdedWheel(chosenOn, read, chosen));
             if (DevBuild.ON) {
                 Log.info(String.format(Locale.ROOT, "wheel of %s for the eye: %.3f along, %.3f across, %.3f up from the centre of mass %.3f above the ground, %.3f from the body's middle",
                         script, chosen[0], chosen[1], chosen[2], chosen[4], chosen[3]));
             }
             ride.eyeWheels.put(script, chosen);
-        }
-        if (seated.ownInterior || seated.glassParted) {
+            Log.info(String.format(Locale.ROOT, "%s brings its own inside as models on its parts%s; the driver's eye is put behind its steering wheel, a round piece %.2f tiles across in %s,"
+                    + " whose column leans %.0f degrees from level and whose middle is dished %.3f tiles from its rim: the driver's hands hold it %.3f tiles out from its middle",
+                    script, seated.glassParted ? ", and its glass as parts of their own, left out from the seat" : "", widest, chosenName,
+                    Math.toDegrees(read[4]), read[5], read[6]));
+        } else if (seated.ownInterior || seated.glassParted) {
             Log.info(script + " brings its own inside as models on its parts" + (seated.glassParted ? ", and its glass as parts of their own, left out from the seat" : "")
-                    + (chosen != null ? String.format(Locale.ROOT, "; the driver's eye is put behind its steering wheel, a round piece %.2f tiles across in %s", widest, chosenName)
-                            : "; none of them holds a steering wheel, so the driver's eye is put from the game's seat"));
+                    + "; none of them holds a steering wheel, so the driver's eye is put from the game's seat");
         }
     }
 
-    /** The steering wheel in a model a vehicle hangs on a part, in the model's own space, as its middle and how wide it is in tiles, or NONE. Read with partFrame set for the model. */
+    /**
+     * A window a vehicle mod made a part of its own, as the cabin's glass is drawn on it
+     * (CabinDraw.drawLooseGlass): its triangles one by one, in the model's own space and laid
+     * out as CabinModel's vertices, each with its place on the pane in tiles; for the
+     * windscreen, which the wipers sweep, half its width and how far the blades reach up it; and
+     * whether it is a slab modelled with both its faces, of which only the one turned to the eye
+     * is drawn, or the glass would be laid on twice.
+     */
+    record PaneMesh(ByteBuffer vertices, int count, boolean wiped, float screenHalf, float wiperReach, boolean slab) {}
+
+    /** What each window part a vehicle mod models is drawn with, or UNREAD for one whose model could not be read. */
+    private static final HashMap<PartMesh, PaneMesh> paneMeshes = new HashMap<>();
+    private static final PaneMesh UNREAD = new PaneMesh(null, 0, false, 0f, 0f, false);
+
+    /**
+     * A window part's model, with partStands as placedPart left them for it, kept for the frame
+     * for the glass to be drawn on it: read once, with the vehicle laid out by axes.
+     */
+    private static void notePane(Seated seated, ModelInstanceRenderData model, String script, float[] seats, float[] axes, float standsX, float standsY, float groundUp) {
+        VehicleSubModelInstance sub = (VehicleSubModelInstance) model.modelInstance;
+        ModelMesh mesh = model.modelInstance.model == null ? null : model.modelInstance.model.mesh;
+        if (mesh == null || !mesh.isReady() || mesh.vb == null || !placedPart(model)) {
+            return;
+        }
+        String partId = sub.modelInfo.part.getId();
+        PartMesh key = new PartMesh(mesh, script, partId);
+        PaneMesh glass = paneMeshes.get(key);
+        if (glass == null) {
+            framePart(axes, standsX, standsY, groundUp);
+            // The game's own id for the windscreen, the pane its wipers sweep.
+            boolean screen = "Windshield".equals(partId);
+            float bodyAcross = (stands[12] - standsX) * axes[3] + (stands[13] - standsY) * axes[4] + (stands[14] - groundUp) * axes[5];
+            float driverAcross = seats != null && seats.length >= 3 ? bodyAcross - seats[0] : bodyAcross;
+            glass = withVertices(mesh.vb, model.modelInstance.model.name, "no glass is drawn on it", UNREAD,
+                    (raw, stride, vertices, elements) -> paneIn(raw, stride, vertices, elements, screen, driverAcross));
+            paneMeshes.put(key, glass);
+            if (DevBuild.ON && glass != UNREAD) {
+                Log.info(String.format(Locale.ROOT, "glass of %s on its part %s (%s): %d corners, %.2f tiles either way of its middle and %.2f up it%s%s",
+                        script, partId, model.modelInstance.model.name, glass.count(), glass.screenHalf(), glass.wiperReach() / CabinModel.WIPER_SHARE,
+                        screen ? ", swept by the wipers" : "", glass.slab() ? ", a slab drawn on the face turned to the eye" : ""));
+            }
+        }
+        if (glass != UNREAD) {
+            seated.addPane(glass, partStands);
+        }
+    }
+
+    /** Sets partFrame, from the model's own space to along, across and up from the ground under the vehicle, from partStands. */
+    private static void framePart(float[] axes, float standsX, float standsY, float groundUp) {
+        for (int column = 0; column < 4; column++) {
+            float shift = column == 3 ? 1f : 0f;
+            float x = partStands[column * 4] - standsX * shift, y = partStands[column * 4 + 1] - standsY * shift, up = partStands[column * 4 + 2] - groundUp * shift;
+            for (int axis = 0; axis < 3; axis++) {
+                partFrame[axis * 4 + column] = x * axes[axis * 3] + y * axes[axis * 3 + 1] + up * axes[axis * 3 + 2];
+            }
+        }
+    }
+
+    /**
+     * A window's model laid out for the cabin's glass, read with partFrame set for it. A place on
+     * the pane is counted in tiles along the pane's own level and up its slant; on the
+     * windscreen across from its middle, the driver's side below nought, and up from
+     * CabinModel.WIPERS_BELOW under its foot, as the mod's own interiors have it.
+     *
+     * @param driverAcross how far across the vehicle the driver sits, as partFrame counts it
+     */
+    private static PaneMesh paneIn(ByteBuffer raw, int stride, int vertices, int[] elements, boolean screen, float driverAcross) {
+        float[] at = new float[vertices * 3];
+        for (int i = 0; i < vertices; i++) {
+            for (int row = 0; row < 3; row++) {
+                float place = partFrame[row * 4 + 3];
+                for (int axis = 0; axis < 3; axis++) {
+                    place += partFrame[row * 4 + axis] * raw.getFloat(i * stride + axis * 4);
+                }
+                at[i * 3 + row] = place;
+            }
+        }
+        float[] on = CabinParts.paneFace(at, elements, screen, driverAcross);
+        int corners = elements.length;
+        ByteBuffer out = ByteBuffer.allocateDirect(corners * CabinModel.VERTEX_BYTES).order(ByteOrder.LITTLE_ENDIAN);
+        for (int t = 0; t < corners; t += 3) {
+            int a = elements[t], b = elements[t + 1], c = elements[t + 2];
+            // The face's way in the model's own space, which the drawing turns with the part.
+            float ux = raw.getFloat(b * stride) - raw.getFloat(a * stride), uy = raw.getFloat(b * stride + 4) - raw.getFloat(a * stride + 4), uz = raw.getFloat(b * stride + 8) - raw.getFloat(a * stride + 8);
+            float vx = raw.getFloat(c * stride) - raw.getFloat(a * stride), vy = raw.getFloat(c * stride + 4) - raw.getFloat(a * stride + 4), vz = raw.getFloat(c * stride + 8) - raw.getFloat(a * stride + 8);
+            float nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+            float length = (float) Math.sqrt(nx * nx + ny * ny + nz * nz);
+            if (!(length > 0f)) {
+                length = 1f;
+            }
+            for (int k = 0; k < 3; k++) {
+                int i = elements[t + k], base = (t + k) * CabinModel.VERTEX_BYTES;
+                out.putFloat(base, raw.getFloat(i * stride));
+                out.putFloat(base + 4, raw.getFloat(i * stride + 4));
+                out.putFloat(base + 8, raw.getFloat(i * stride + 8));
+                out.putShort(base + CabinModel.NORMAL_AT, (short) Math.round(nx / length * Short.MAX_VALUE));
+                out.putShort(base + CabinModel.NORMAL_AT + 2, (short) Math.round(ny / length * Short.MAX_VALUE));
+                out.putShort(base + CabinModel.NORMAL_AT + 4, (short) Math.round(nz / length * Short.MAX_VALUE));
+                out.putShort(base + CabinModel.WAY_AT, (short) 1);
+                out.putFloat(base + CabinModel.UV_AT, on[4 + i * 2]);
+                out.putFloat(base + CabinModel.UV_AT + 4, on[4 + i * 2 + 1]);
+                out.put(base + CabinModel.SKY_AT, screen ? (byte) 255 : 0);
+                out.put(base + CabinModel.NEAR_AT, (byte) 255);
+            }
+        }
+        return new PaneMesh(out, corners, screen, on[0], CabinModel.WIPER_SHARE * on[1], on[2] > 0.5f);
+    }
+
+    /** Sets partStands for a part model as it is drawn this frame. False for one the game has not placed yet, whose matrix is all noughts. */
+    private static boolean placedPart(ModelInstanceRenderData model) {
+        model.xfrm.get(partXfrm);
+        ViewCamera.multiply(shifted, partXfrm, partStands);
+        float turns = 0f;
+        for (int column = 0; column < 12; column += 4) {
+            turns += partStands[column] * partStands[column] + partStands[column + 1] * partStands[column + 1] + partStands[column + 2] * partStands[column + 2];
+        }
+        return turns > 0f;
+    }
+
+    /**
+     * The driver's hands' wheel for the frame, from what roundIn read of it and partStands as
+     * placedPart left them for its part: the middle of its rim in the world, as the body's own
+     * wheel is placed, and its column in the vehicle's own axes. The game turns no model hung on
+     * a part as the vehicle is steered, so the wheel stands as modelled.
+     */
+    private static void placeWheel(Seated seated, float[] read, float[] axes, float settles) {
+        float[] now = seated.moddedWheelNow;
+        for (int row = 0; row < 3; row++) {
+            now[row] = partStands[row] * read[7] + partStands[4 + row] * read[8] + partStands[8 + row] * read[9] + partStands[12 + row] - axes[6 + row] * settles;
+        }
+        now[3] = (float) Math.cos(read[4]);
+        now[4] = 0f;
+        now[5] = (float) Math.sin(read[4]);
+        now[6] = read[6];
+        seated.moddedWheel = now;
+    }
+
+    /**
+     * The steering wheel in a model a vehicle hangs on a part, or NONE. Read with partFrame set
+     * for the model, which takes the model's own space to along, across and up from the ground
+     * under the vehicle: the middle of the box its ring fills, in the model's own space, and how
+     * wide it is across the vehicle in tiles; then its face (CabinParts.faceOf): the lean of its
+     * column from level in radians, how dished it is in tiles, how far out from its middle a
+     * hand holds its rim; and where the middle of its rim is, in the model's own space.
+     */
     private static float[] roundIn(ByteBuffer raw, int stride, int vertices, int[] elements, float[] seat, float middleLine) {
         float[] at = new float[vertices * 3];
         for (int i = 0; i < vertices; i++) {
@@ -477,7 +664,23 @@ final class VehicleMeshes {
             least = Math.min(least, at[i * 3 + 1]);
             most = Math.max(most, at[i * 3 + 1]);
         }
-        return new float[] {(low[0] + high[0]) / 2f, (low[1] + high[1]) / 2f, (low[2] + high[2]) / 2f, most - least};
+        float wide = most - least;
+        float[] face = CabinParts.faceOf(at, ring);
+        float lean = face[0], deep = face[4];
+        // The rim's middle along, across and up, taken back into the model's own space through partFrame.
+        float[] rim = unframed(face[5] + (float) Math.cos(lean) * deep, face[6], face[7] + (float) Math.sin(lean) * deep);
+        return new float[] {(low[0] + high[0]) / 2f, (low[1] + high[1]) / 2f, (low[2] + high[2]) / 2f, wide, lean, face[3], CabinParts.gripRadius(wide), rim[0], rim[1], rim[2]};
+    }
+
+    /** A place along, across and up from the ground under the vehicle, in the model's own space: partFrame undone. */
+    private static float[] unframed(float along, float across, float up) {
+        float[] f = partFrame;
+        float bx = along - f[3], by = across - f[7], bz = up - f[11];
+        float det = f[0] * (f[5] * f[10] - f[6] * f[9]) - f[1] * (f[4] * f[10] - f[6] * f[8]) + f[2] * (f[4] * f[9] - f[5] * f[8]);
+        float x = (bx * (f[5] * f[10] - f[6] * f[9]) - f[1] * (by * f[10] - f[6] * bz) + f[2] * (by * f[9] - f[5] * bz)) / det;
+        float y = (f[0] * (by * f[10] - f[6] * bz) - bx * (f[4] * f[10] - f[6] * f[8]) + f[2] * (f[4] * bz - by * f[8])) / det;
+        float z = (f[0] * (f[5] * bz - by * f[9]) - f[1] * (f[4] * bz - by * f[8]) + bx * (f[4] * f[9] - f[5] * f[8])) / det;
+        return new float[] {x, y, z};
     }
 
     /**
@@ -561,7 +764,7 @@ final class VehicleMeshes {
      * @param seats where the vehicle's script seats its passengers, as Ride has them
      */
     private static float[] find(Body body, VehicleModelInstance instance, String name, float[] seats) {
-        return withVertices(body.mesh().vb, name, "its driver's place and its glass are the game's own", (raw, stride, vertices, elements) -> {
+        return withVertices(body.mesh().vb, name, "its driver's place and its glass are the game's own", NONE, (raw, stride, vertices, elements) -> {
             boolean[] glass = glassIn(raw, stride, elements, instance, name);
             float[] wheel = wheelIn(raw, stride, vertices, elements, name, seats);
             boolean[] front = new boolean[glass.length];
@@ -581,15 +784,15 @@ final class VehicleMeshes {
         });
     }
 
-    private interface VertexRead {
-        float[] read(ByteBuffer raw, int stride, int vertices, int[] elements);
+    private interface VertexRead<T> {
+        T read(ByteBuffer raw, int stride, int vertices, int[] elements);
     }
 
     /**
      * Reads a model's vertices back from the graphics card and hands them to read, or says why
      * not and returns NONE for one not laid out as the reads take it.
      */
-    private static float[] withVertices(VertexBufferObject buffer, String name, String otherwise, VertexRead read) {
+    private static <T> T withVertices(VertexBufferObject buffer, String name, String otherwise, T none, VertexRead<T> read) {
         try {
             if (handleField == null) {
                 handleField = VertexBufferObject.class.getDeclaredField(Links.BUFFER_HANDLE.name());
@@ -616,7 +819,7 @@ final class VehicleMeshes {
             if (lacks != null) {
                 GL15.glBindBuffer(GL_ARRAY_BUFFER, bound);
                 Log.info("the vehicle model " + name + " is not laid out as the game's own bodies are (" + lacks + "): " + otherwise);
-                return NONE;
+                return none;
             }
             // The vertices as the graphics card has them, read once and given back when what is kept of them is made.
             OffHeap.Block block = OffHeap.take(bytes);

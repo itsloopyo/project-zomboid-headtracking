@@ -23,9 +23,10 @@ final class CabinArms {
      * Poses both arms on the wheel. False where either has no way to reach it, and then neither is drawn.
      *
      * @param scale the arm model's metres to tiles
+     * @param m     from the interior's frame to the world less the eye (CabinDraw.Frame.model)
+     * @param w     the wheel in the interior's frame: its middle, the way its column runs away from the driver, and how far out from its middle a hand holds its rim
      */
-    boolean place(ArmModel model, float scale, CabinDraw.Frame f, ViewCamera.Pose camera, float steer) {
-        float[] w = f.fitted.wheel;
+    boolean place(ArmModel model, float scale, float[] m, float[] w, ViewCamera.Pose camera, float steer) {
         float ax = w[3], ay = w[4], az = w[5];
         // The wheel's own up, square to its column, and its left.
         float ux = -az * ax, uy = -az * ay, uz = 1f - az * az;
@@ -48,10 +49,10 @@ final class CabinArms {
             float[] thumb = {-sign * (c * lx - s * ux), -sign * (c * ly - s * uy), -sign * (c * lz - s * uz)};
             turned(grip);
             turned(thumb);
-            float[] centre = view(f, camera, w[0] + grip[0], w[1] + grip[1], w[2] + grip[2], true);
-            float[] across = view(f, camera, thumb[0], thumb[1], thumb[2], false);
-            float[] shoulder = view(f, camera, SHOULDER[0] * scale, sign * SHOULDER[1] * scale, SHOULDER[2] * scale, true);
-            float[] from = view(f, camera, FROM[0] * scale, sign * FROM[1] * scale, FROM[2] * scale, true);
+            float[] centre = view(m, camera, w[0] + grip[0], w[1] + grip[1], w[2] + grip[2], true);
+            float[] across = view(m, camera, thumb[0], thumb[1], thumb[2], false);
+            float[] shoulder = view(m, camera, SHOULDER[0] * scale, sign * SHOULDER[1] * scale, SHOULDER[2] * scale, true);
+            float[] from = view(m, camera, FROM[0] * scale, sign * FROM[1] * scale, FROM[2] * scale, true);
             float[] out = {across[1], -across[0], 0f};
             if (!ArmPose.solve(model, scale, weights, centre, across, out, shoulder, from, side == 1, true, skins[side], said[side])) {
                 return false;
@@ -68,8 +69,7 @@ final class CabinArms {
     }
 
     /** A place (or a way, without moving it) in the interior's frame, in the view's axes from the eye: right, up, back. */
-    private static float[] view(CabinDraw.Frame f, ViewCamera.Pose camera, float x, float y, float z, boolean place) {
-        float[] m = f.model;
+    private static float[] view(float[] m, ViewCamera.Pose camera, float x, float y, float z, boolean place) {
         float rx = m[0] * x + m[4] * y + m[8] * z + (place ? m[12] : 0f);
         float ry = m[1] * x + m[5] * y + m[9] * z + (place ? m[13] : 0f);
         float rz = m[2] * x + m[6] * y + m[10] * z + (place ? m[14] : 0f);
