@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.4.0] - 2026-11-14
+
+### Added
+
+- replace the wall pictures and TV stills of people with posed, seated scenes
+- add a Modern FPS controller preset with sprint on a left stick click that latches
+- open the controller's stick click wheel on the right stick when crouch is bound there
+- keep jog pace when strafing or backing up in first person, and turn a sprint sideways into a jog
+
+### Fixed
+
+- stop the right stick putting a controller player in the aiming stance in first person
+
 ## [0.3.2] - 2026-11-12
 
 ### Fixed
