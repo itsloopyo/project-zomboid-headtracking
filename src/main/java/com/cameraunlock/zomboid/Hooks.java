@@ -314,6 +314,7 @@ public final class Hooks {
             SkyState.forget();
             Soaked.forget();
             CarPhysics.forget();
+            VehicleMeshes.forget();
             ViewpointCamera.forget();
         } catch (RuntimeException | Error thrown) {
             // The world build and the card's copy of it are still given back.

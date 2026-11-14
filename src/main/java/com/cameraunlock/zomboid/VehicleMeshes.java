@@ -127,6 +127,18 @@ final class VehicleMeshes {
         }
     }
 
+    /** Saves left on the logic thread, for what the render thread keeps of each vehicle mod's script to be let go. */
+    private static final LeftSaves leftSaves = new LeftSaves();
+
+    /**
+     * Logic thread, as a save is left: what was read of each script's part models is let go at
+     * the next vehicle noted. Another save may have another vehicle mod give a script of the
+     * same name other models.
+     */
+    static void forget() {
+        leftSaves.left();
+    }
+
     /**
      * Whether a model of a vehicle is one of its road wheels, or hangs on one as a hubcap or a
      * brake drum does, by the vehicle's own list of them.
@@ -174,6 +186,12 @@ final class VehicleMeshes {
     static void note(Seated seated, Ride ride, String script, ModelInstanceRenderDataList models, float[] placed, float[] faces, float settles, float standsX, float standsY,
             float groundUp, float centreOfMass, float[] eye, ViewCamera.Pose camera) {
         seated.clear();
+        if (leftSaves.sinceAsked() && !interiorDone.isEmpty()) {
+            int vehicles = interiorDone.size();
+            partMiddles.clear();
+            interiorDone.clear();
+            Log.info("a save was left: what was read of the part models of " + vehicles + " vehicles is let go");
+        }
         ModelInstanceRenderData body = models.get(0);
         float[] seatedAxes = seated.axes, paneMatrix = seated.paneMatrix;
         float aheadX = ride.aheadX, aheadY = ride.aheadY;

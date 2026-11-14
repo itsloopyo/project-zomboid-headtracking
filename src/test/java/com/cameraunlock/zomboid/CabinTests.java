@@ -31,6 +31,18 @@ final class CabinTests {
         Checks.run("anInteriorsPicturesAreReadAheadAgainAfterTheyAreLetGo", CabinTests::anInteriorsPicturesAreReadAheadAgainAfterTheyAreLetGo);
         Checks.run("bodyBesideTheSeatIsLitFromItsDepthReadWide", CabinTests::bodyBesideTheSeatIsLitFromItsDepthReadWide);
         Checks.run("saloonsFuelAndHeatNeedlesStopAtTheEndTicksOnTheirFaces", CabinTests::saloonsFuelAndHeatNeedlesStopAtTheEndTicksOnTheirFaces);
+        Checks.run("aSaveLeftIsToldOnceToTheRenderThread", CabinTests::aSaveLeftIsToldOnceToTheRenderThread);
+    }
+
+    private static void aSaveLeftIsToldOnceToTheRenderThread() {
+        LeftSaves saves = new LeftSaves();
+        check(!saves.sinceAsked(), "no save has been left before the first ask");
+        saves.left();
+        check(saves.sinceAsked(), "a save left is told at the next ask");
+        check(!saves.sinceAsked(), "and not again at the ask after");
+        saves.left();
+        saves.left();
+        check(saves.sinceAsked() && !saves.sinceAsked(), "two saves left between asks are told once");
     }
 
     /**

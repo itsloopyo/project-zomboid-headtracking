@@ -119,6 +119,12 @@ final class Ride {
      * with ModdedVehicleInteriors on.
      */
     final ConcurrentHashMap<String, float[]> eyeWheels = new ConcurrentHashMap<>();
+    /** As a save is left: another save may have another vehicle mod give a script of the same name another cabin. */
+    void forgetWheels() {
+        wheels.clear();
+        eyeWheels.clear();
+    }
+
     /** What the viewer wears on the arms and hands, asked from the driver's seat and with a weapon in hand. */
     final Cabins.Dress dress = new Cabins.Dress();
 

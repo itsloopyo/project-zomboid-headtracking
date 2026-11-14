@@ -533,6 +533,7 @@ public final class FirstPerson {
         WallTiles.leftSave();
         view.heldLight.forget();
         view.characters.leftSave();
+        view.ride.forgetWheels();
         view.modeFade.giveBack("the save was left");
         giveBack("the save was left");
         coveredLastFrame = false;
