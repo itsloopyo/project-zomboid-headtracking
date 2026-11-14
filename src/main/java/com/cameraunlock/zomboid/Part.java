@@ -228,6 +228,8 @@ enum Part {
     private volatile boolean on, atStart, patched;
     /** FIRST_PERSON's alone: whether any player's FirstPersonInVehicles row is on, which needs first person whatever FirstPersonEnabled says. */
     private volatile boolean forVehicles;
+    /** Whether a fault has switched the part off until the game restarts, whatever the file says: see Faults. */
+    private volatile boolean broken;
 
     Part(String section, String key, boolean live, boolean start, String comment) {
         this(section, key, live, start, true, comment);
@@ -249,7 +251,16 @@ enum Part {
 
     /** Whether the part is on now: as the start found it, for a part not taken while the game runs. */
     boolean on() {
-        return on || forVehicles;
+        return (on || forVehicles) && !broken;
+    }
+
+    /** Switches the part off until the game restarts, leaving the file as it is: see Faults. */
+    void broke() {
+        broken = true;
+    }
+
+    boolean broken() {
+        return broken;
     }
 
     /** Whether the part's own row is on: for FIRST_PERSON, FirstPersonEnabled, leaving out FirstPersonInVehicles. */
@@ -330,7 +341,9 @@ enum Part {
     static String described() {
         StringBuilder off = new StringBuilder();
         for (Part part : values()) {
-            if (!part.on || part.start && !part.patched) {
+            if (part.broken) {
+                off.append(off.length() == 0 ? "" : ", ").append(part.key).append(" off after a fault");
+            } else if (!part.on || part.start && !part.patched) {
                 off.append(off.length() == 0 ? "" : ", ").append(part.key)
                         .append(part.on ? " on from the next start" : part.on() ? " off, but on for FirstPersonInVehicles" : " off");
             }

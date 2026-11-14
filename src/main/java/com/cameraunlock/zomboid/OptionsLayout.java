@@ -222,6 +222,15 @@ final class OptionsLayout {
         return id;
     }
 
+    /** The name a row of the file goes by on the options screen. */
+    static String label(String key) {
+        String label = LABELS.get(key);
+        if (label == null) {
+            throw new IllegalArgumentException("the options screen has no name for " + key);
+        }
+        return label;
+    }
+
     /** What a setting is called on the page. */
     static String label(CameraUnlock.Option described) {
         String label = LABELS.get(basis(described.id));

@@ -835,32 +835,11 @@ public final class FirstPerson {
                 Log.info(who() + "the screen says: " + hint);
             }
         } catch (RuntimeException | LinkageError thrown) {
-            // Thrown on into the game's frame it comes again every frame, and the game's own
-            // picture and panels pay for it. The view goes off for the session instead, the
-            // next frame lets go of the mouse, and the log has why. The frame is still run
-            // for its keys and for what it gives back, and what it throws from then on is
-            // written the first time it comes from each place.
-            StackTraceElement[] trace = thrown.getStackTrace();
-            if (thrownAt.add(thrown.getClass().getName() + (trace.length == 0 ? "" : " at " + trace[0]))) {
-                Log.error(failure == null ? "first person off: the frame could not be built"
-                        : "first person is off, and its frame has thrown from another place", thrown);
+            if (failure != null || !goesOnWithout(thrown)) {
+                goOff(thrown);
             }
-            if (failure == null) {
-                failure = "building the picture threw " + thrown;
-                say(FAILED);
-            }
-            on = false;
-            overhead = false;
-            // A frame that throws again before it reaches them never clears these.
-            stopLooking();
-            if (view.hasMouse() && (MouseGrab.applied || MouseGrab.keeping)) {
-                SpriteRenderer.instance.drawGeneric(MouseGrab.DRAWER);
-            }
-            view.flight.cut(false);
-            behind = false;
-            thirdPerson.cut(false);
-            view.hearing.rest();
         }
+        sayWhatFaultsSwitchedOff();
         // After the catch, so a frame that throws still shows what the screen has to say, its own failure first.
         long now = System.nanoTime();
         shown = gettingReady ? "First person: getting ready" : said != null && now - saidAt < SAID_FOR_NANOS ? said
@@ -891,6 +870,70 @@ public final class FirstPerson {
     /** Why the picture can no longer be built this session, or null. */
     private String failure;
     private final Set<String> thrownAt = new HashSet<>();
+    /** Where the faults the view went on after threw, each said once: see goesOnWithout. */
+    private final Set<String> leftOutAt = new HashSet<>();
+    private final Faults.Tally faults = new Faults.Tally();
+    /** How many of the parts faults have switched off this view has said: see Faults.switchedOff. */
+    private int switchedOffSaid;
+
+    /** Switches the view off for the session after a fault in building its frame that it does not go on without. */
+    private void goOff(Throwable thrown) {
+        // Thrown on into the game's frame it comes again every frame, and the game's own
+        // picture and panels pay for it. The view goes off for the session instead, the
+        // next frame lets go of the mouse, and the log has why. The frame is still run
+        // for its keys and for what it gives back, and what it throws from then on is
+        // written the first time it comes from each place.
+        StackTraceElement[] trace = thrown.getStackTrace();
+        if (thrownAt.add(thrown.getClass().getName() + (trace.length == 0 ? "" : " at " + trace[0]))) {
+            Log.error(failure == null ? "first person off: the frame could not be built"
+                    : "first person is off, and its frame has thrown from another place", thrown);
+        }
+        if (failure == null) {
+            failure = "building the picture threw " + thrown;
+            say(FAILED);
+        }
+        on = false;
+        overhead = false;
+        // A frame that throws again before it reaches them never clears these.
+        stopLooking();
+        if (view.hasMouse() && (MouseGrab.applied || MouseGrab.keeping)) {
+            SpriteRenderer.instance.drawGeneric(MouseGrab.DRAWER);
+        }
+        view.flight.cut(false);
+        behind = false;
+        thirdPerson.cut(false);
+        view.hearing.rest();
+    }
+
+    /**
+     * Whether the view goes on after a fault in building its frame: without the part of the mod
+     * that threw, or, where the fault is no part's, without the frame, unless such faults keep
+     * coming. See Faults.
+     */
+    private boolean goesOnWithout(Throwable thrown) {
+        String off = Faults.switchOff(thrown);
+        if (off != null) {
+            Log.error(who() + off + " is off until the game restarts: it threw as the frame was built, and the view goes on without it", thrown);
+            return true;
+        }
+        if (faults.tooMany(System.nanoTime())) {
+            return false;
+        }
+        StackTraceElement[] trace = thrown.getStackTrace();
+        if (leftOutAt.add(thrown.getClass().getName() + (trace.length == 0 ? "" : " at " + trace[0]))) {
+            Log.error(who() + "building the frame threw, and the view goes on (said once for where it threw)", thrown);
+        }
+        return true;
+    }
+
+    /** Says what faults have switched off, once more of it is. */
+    private void sayWhatFaultsSwitchedOff() {
+        int now = Faults.switchedOff();
+        if (now != switchedOffSaid) {
+            switchedOffSaid = now;
+            say(Faults.names() + " stopped after an error and " + (now == 1 ? "is" : "are") + " off until the game restarts. " + Log.FILE_NAME + " says why");
+        }
+    }
 
     /**
      * Says on screen how to switch to the other view, other, and after it, on a keyboard, how to
@@ -1034,7 +1077,12 @@ public final class FirstPerson {
             overViewpoint = false;
             view.flight.cut(false);
         }
-        if (on && behind && !Part.THIRD_PERSON.on()) {
+        if (on && behind && Part.THIRD_PERSON.broken()) {
+            // At once, and with the file left as it is: the camera's own code threw, and the next start has third person back.
+            // Nothing of the camera's is asked again: the picture is the eye's from now (see pictureView).
+            Log.info(who() + "third person off: it threw, back to first person");
+            behind = false;
+        } else if (on && behind && !Part.THIRD_PERSON.on()) {
             Log.info(who() + "third person off: " + Part.THIRD_PERSON.key + " is off in " + Config.FILE_NAME + ", back to first person");
             behind = false;
             Tracking.rememberThirdPerson(view.index, false);
@@ -1214,8 +1262,10 @@ public final class FirstPerson {
         view.fieldOfView.ease(sightsUp && !behind, sinceLastFrame);
         // The player's own aim input, with a weapon or without, and not the game's aiming, which a melee swing also sets: a swing
         // would pull the camera onto the shoulder.
-        thirdPerson.advance(behind, view.controls.playerAims(player) && vehicle == null && !bodyLeads, player.isSprinting() && vehicle == null,
-                sinceLastFrame);
+        if (!Part.THIRD_PERSON.broken()) {
+            thirdPerson.advance(behind, view.controls.playerAims(player) && vehicle == null && !bodyLeads, player.isSprinting() && vehicle == null,
+                    sinceLastFrame);
+        }
         // The arms are the game's own while its animation has the body: they are what fights the zombie off.
         if (bodyLeads) {
             view.viewModel.rest();
@@ -1262,7 +1312,9 @@ public final class FirstPerson {
         }
         boolean wasBehind = pictureBehind;
         pictureBehind = false;
-        if (thirdPerson.atTheEye()) {
+        if (Part.THIRD_PERSON.broken()) {
+            pictureView.set(trackedView);
+        } else if (thirdPerson.atTheEye()) {
             thirdPerson.unplaced();
             pictureView.set(trackedView);
         } else {
@@ -1348,7 +1400,7 @@ public final class FirstPerson {
      * with the line from the rod's tip to it.
      */
     private void showBobber(IsoPlayer player, WorldScene.Frame scene, float aspect) {
-        if (aspect == 0f || !FishingAim.bobber(player, bobberAt)) {
+        if (aspect == 0f || !Part.FISHING_ROD.running() || !FishingAim.bobber(player, bobberAt)) {
             view.crosshair.hideBobber();
             return;
         }

@@ -1292,11 +1292,21 @@ final class Pipeline {
             }
         } catch (RuntimeException | LinkageError thrown) {
             // Thrown on, it ends the game's whole frame, its own panels with it, and comes again
-            // on the next. The view goes off instead, and the log has why.
+            // on the next. The frame is given up instead, without the part of the mod that threw
+            // from then on (Faults), and the view goes off only where nothing else will do.
             int error = drained();
             boolean refused = chunks != null && thrown instanceof VideoMemory.Refused && error == 0;
+            // A fault that left an OpenGL error behind may have left the card in a state nothing here puts back.
+            String off = chunks == null || refused || error != 0 ? null : Faults.switchOff(thrown);
             if (refused && makeRoom(thrown.getMessage())) {
                 // Given up for this frame: the next is drawn with less.
+            } else if (off != null) {
+                Log.error(off + " is off until the game restarts: it threw as the frame was drawn, and the view goes on without it", thrown);
+            } else if (chunks != null && !refused && error == 0 && !faults.tooMany(System.nanoTime())) {
+                StackTraceElement[] trace = thrown.getStackTrace();
+                if (leftOutAt.add(thrown.getClass().getName() + (trace.length == 0 ? "" : " at " + trace[0]))) {
+                    Log.error("drawing the frame threw, and the view goes on (said once for where it threw)", thrown);
+                }
             } else if (refused) {
                 sayFailure();
             } else {
@@ -1697,6 +1707,10 @@ final class Pipeline {
             }
         }
     }
+
+    /** The faults no part owns in drawing a frame, and where each threw, said once: see Faults. */
+    private final Faults.Tally faults = new Faults.Tally();
+    private final java.util.Set<String> leftOutAt = new java.util.HashSet<>();
 
     private void sayFailure() {
         clearErrors();
