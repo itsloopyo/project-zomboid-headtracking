@@ -2,7 +2,6 @@ package com.cameraunlock.zomboid;
 
 import zombie.core.properties.PropertyContainer;
 import zombie.core.textures.Texture;
-import zombie.inventory.ItemContainer;
 import zombie.iso.IsoDirections;
 import zombie.iso.IsoObject;
 import zombie.iso.sprite.IsoSprite;
@@ -91,12 +90,6 @@ final class ShopFittings {
     private static Stock shelf(String model, float lowestBoard) {
         return new Stock(model + "_goods_many", model + "_goods_few", lowestBoard, false);
     }
-
-    /**
-     * ContainerOverlays.updateContainerOverlaySprite paints a container's square with its fewer things while it holds
-     * less than this many.
-     */
-    static final int MANY = 7;
 
     /** The sheet a mall's high table is on, and the first of its four quarters there: see unnamed. */
     private static final String MALL = "location_shop_mall_01_";
@@ -241,10 +234,10 @@ final class ShopFittings {
         };
     }
 
-    /** Whether the game paints a container's square with its many things, and not its fewer. */
+    /** Whether the game paints a container's square with its many things, and not its fewer: by the picture it paints. */
     static boolean many(IsoObject object) {
-        ItemContainer held = object.getContainer();
-        return held != null && held.getItems().size() >= MANY;
+        IsoSprite painted = object.getOverlaySprite();
+        return painted != null && !OverlayPictures.few(painted.getName());
     }
 
     /**

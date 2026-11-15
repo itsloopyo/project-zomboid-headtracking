@@ -22,6 +22,7 @@ final class ShopFittingTests {
         Checks.run("whatAFittingHoldsStandsWhereItsModelHasRoomForIt", ShopFittingTests::whatAFittingHoldsStandsWhereItsModelHasRoomForIt);
         Checks.run("eachSquaresGoodsStandOnThatSquare", ShopFittingTests::eachSquaresGoodsStandOnThatSquare);
         Checks.run("whatAShelfHoldsStandsOnItsBoardsWithinIt", ShopFittingTests::whatAShelfHoldsStandsOnItsBoardsWithinIt);
+        Checks.run("manyOrFewIsThePictureTheGamePaints", ShopFittingTests::manyOrFewIsThePictureTheGamePaints);
         Checks.run("aGlassCounterIsItsModelAndItsGlassIsInsideItsFrame", ShopFittingTests::aGlassCounterIsItsModelAndItsGlassIsInsideItsFrame);
         Checks.run("magazineStandsAreTheStandWithMagazinesOnItsTiers", ShopFittingTests::magazineStandsAreTheStandWithMagazinesOnItsTiers);
         Checks.run("aMallTablesFourQuartersMeetAtItsMiddle", ShopFittingTests::aMallTablesFourQuartersMeetAtItsMiddle);
@@ -249,6 +250,24 @@ final class ShopFittingTests {
         }
         check(Models.get(ShopFittings.BOOKCASE.many()).first[Models.BOOKS + 1] > Models.get(ShopFittings.BOOKCASE.many()).first[Models.BOOKS],
                 "a bookcase's many things are books");
+    }
+
+    /** The picture the game paints over a fitting says whether it holds many things or few, whatever the client has been told it holds. */
+    private static void manyOrFewIsThePictureTheGamePaints() {
+        zombie.iso.IsoObject square = new zombie.iso.IsoObject(TileRows.sprite("test_shelf_0|"));
+        square.container = new zombie.inventory.ItemContainer();
+        check(!ShopFittings.many(square), "nothing painted over it is no picture of many things");
+        square.overlaySprite = TileRows.sprite(zombie.iso.ContainerOverlays.TEST_MANY + "|");
+        check(ShopFittings.many(square), "the picture of many things is many, though the container holds nothing the client knows of");
+        square.overlaySprite = TileRows.sprite(zombie.iso.ContainerOverlays.TEST_FEW + "|");
+        for (int i = 0; i < 20; i++) {
+            square.container.getItems().add(new Object());
+        }
+        check(!ShopFittings.many(square), "the picture of few things is few, though the container holds twenty");
+        square.overlaySprite = TileRows.sprite(zombie.iso.ContainerOverlays.TEST_BOTH + "|");
+        check(ShopFittings.many(square), "a picture of many over one fitting and of few over another is taken as many");
+        square.overlaySprite = TileRows.sprite("test_overlay_many_3|");
+        check(ShopFittings.many(square), "a fitting with no picture of few things is painted with its picture of many");
     }
 
     private static void aGlassCounterIsItsModelAndItsGlassIsInsideItsFrame() {
