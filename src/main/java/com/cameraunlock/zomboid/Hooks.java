@@ -4,6 +4,7 @@ import zombie.iso.LosUtil;
 import zombie.iso.IsoChunk;
 import zombie.core.textures.Texture;
 import zombie.iso.objects.IsoDeadBody;
+import zombie.iso.objects.IsoWaveSignal;
 import zombie.core.skinnedmodel.advancedanimation.AnimatedModel;
 import zombie.core.skinnedmodel.DeadBodyAtlas;
 import fmod.fmod.FMODSoundEmitter;
@@ -1473,6 +1474,26 @@ public final class Hooks {
             speech.renderBatched(playerIndex, x, y, ignoreRadioLines);
         } else {
             view.nameTags.writeSpeech(speech, playerIndex, x, y, ignoreRadioLines);
+        }
+    }
+
+    /** In place of the game's writing of what a television or a radio is playing. */
+    public static void writeOverSet(ChatElement lines, int playerIndex, int x, int y, IsoWaveSignal set) {
+        View view = View.of(playerIndex);
+        if (view == null) {
+            lines.renderBatched(playerIndex, x, y);
+        } else {
+            view.setCaptions.writeOverSet(lines, playerIndex, x, y, set);
+        }
+    }
+
+    /** In place of the game's writing of what a car radio is playing. */
+    public static void writeOverCar(ChatElement lines, int playerIndex, int x, int y, BaseVehicle car) {
+        View view = View.of(playerIndex);
+        if (view == null) {
+            lines.renderBatched(playerIndex, x, y);
+        } else {
+            view.setCaptions.writeOverCar(lines, playerIndex, x, y, car);
         }
     }
 

@@ -54,6 +54,7 @@ final class View {
     final WorldMenu worldMenu = new WorldMenu(this);
     final DragAim dragAim = new DragAim();
     final NameTags nameTags = new NameTags(this);
+    final SetCaptions setCaptions = new SetCaptions(this);
     final ModelHead modelHead = new ModelHead(this);
     final FarModels farModels = new FarModels(this);
     final ViewModel viewModel = new ViewModel(this);

@@ -106,6 +106,10 @@ enum Part {
     NAME_TAGS_AT_HEADS("FirstPerson", "NameTagsAtHeads", false, true,
             "true: on a server, in first person, the names and speech the game shows over people sit over their heads in the\n"
                     + "picture, and your own are hidden. false: the game shows them where its own view puts them."),
+    CAPTIONS_OVER_SETS("FirstPerson", "CaptionsOverSets", false, true,
+            "true: in first person, the lines a television, a radio or a car radio shows of what it is playing sit over the\n"
+                    + "set in the picture, and those of the car you sit in low in the middle. false: the game shows them where its own\n"
+                    + "view puts them."),
     HIGHLIGHTS("FirstPerson", "Highlights", true, false,
             "true: in first person, a line is drawn round what the Interact key would act on, and round what the game highlights\n"
                     + "or marks on the ground for you, such as the container the loot panel shows. false: none of them, for immersion.\n"

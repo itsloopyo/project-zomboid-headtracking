@@ -634,6 +634,7 @@ public final class Agent {
                 new PatchSet("impacts", impacts, impactsOff),
                 new PatchSet("model head", modelHead, in),
                 new PatchSet("name tags", nameTags, offNow(Part.FIRST_PERSON, Part.NAME_TAGS_AT_HEADS)),
+                new PatchSet("set captions", new PatchTransformer(setCaptionPatches()), offNow(Part.FIRST_PERSON, Part.CAPTIONS_OVER_SETS)),
                 new PatchSet("cached lookups", new PatchTransformer(gameFixPatches()), offNow(Part.CACHED_GAME_LOOKUPS)),
                 new PatchSet("hang fix", new PatchTransformer(hangFixPatches()), offNow(Part.BURNT_BUILDING_FREEZE_FIX)),
                 new PatchSet("covered", new PatchTransformer(coveredPatches()), offNow(Part.FIRST_PERSON, Part.SKIP_COVERED_GAME_DRAWING)),
@@ -2105,6 +2106,29 @@ public final class Agent {
                 new Patch(character, "renderlast asking what is under the pointer", classBytes -> CallSite.replaceEach(classBytes, writing,
                         new CallSite.Method(picker, "ContextPick", "(II)L" + picker + "$ClickObject;"),
                         new CallSite.Method(tags, "underPointer", "(L" + picker + ";II)L" + picker + "$ClickObject;"), 1)));
+    }
+
+    /**
+     * Apart again: without these, in first person, what a television, a radio or a car radio is
+     * playing is written where the game's own view has the set, through its zoom. Each writing is
+     * handed the set or the car, so the place can be worked out from where it stands.
+     */
+    private static List<Patch> setCaptionPatches() {
+        String set = "zombie/iso/objects/IsoWaveSignal", car = "zombie/vehicles/BaseVehicle";
+        CallSite.Method lines = new CallSite.Method("zombie/chat/ChatElement", "renderBatched", "(III)V");
+        return List.of(
+                new Patch(set, "renderlast writing what the set plays", classBytes -> CallSite.replaceEach(classBytes,
+                        new CallSite.Method(set, "renderlast", "()V"), lines, code -> {
+                            code.aload(0);
+                            code.invokestatic(ClassDesc.ofInternalName(HOOKS), "writeOverSet",
+                                    MethodTypeDesc.ofDescriptor("(Lzombie/chat/ChatElement;IIIL" + set + ";)V"));
+                        }, 1)),
+                new Patch(car, "renderlast writing what the car radio plays", classBytes -> CallSite.replaceEach(classBytes,
+                        new CallSite.Method(car, "renderlast", "()V"), lines, code -> {
+                            code.aload(0);
+                            code.invokestatic(ClassDesc.ofInternalName(HOOKS), "writeOverCar",
+                                    MethodTypeDesc.ofDescriptor("(Lzombie/chat/ChatElement;IIIL" + car + ";)V"));
+                        }, 1)));
     }
 
     /** The game's reticle and aim cursor each read the screen position to draw at from one call, which names the player. */
