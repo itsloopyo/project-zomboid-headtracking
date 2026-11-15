@@ -1,0 +1,395 @@
+# Made by tools/models/props/counters.py: see Props.java for what each line says.
+marks	fixtures_overlay_counters_01_0	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_0	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_0	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_1	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_1	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_1	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+swap	fixtures_overlay_counters_01_10	counter	counters_counter_open_l	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_10	counter	counters_door_l	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_10	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_10	counter	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_10	counter_sink	counters_counter_sink_open_l	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_10	counter_sink	counters_door_l	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_10	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_10	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_10	counter_sink	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_11	counter	counters_counter_open_l	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_11	counter	counters_door_l	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_11	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_11	counter	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_11	counter_sink	counters_counter_sink_open_l	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_11	counter_sink	counters_door_l	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_11	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_11	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_11	counter_sink	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_12	counter	counters_counter_open_l	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_12	counter	counters_door_l	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_12	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_12	counter	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_12	counter_sink	counters_counter_sink_open_l	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_12	counter_sink	counters_door_l	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_12	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_12	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_12	counter_sink	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_13	counter	counters_counter_open_r	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_13	counter	counters_door_r	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_13	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_13	counter	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_13	counter_sink	counters_counter_sink_open_r	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_13	counter_sink	counters_door_r	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_13	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_13	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_13	counter_sink	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+marks	fixtures_overlay_counters_01_14	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_14	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_14	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_15	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_15	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_15	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_16	steel_counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_16	steel_counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_16	steel_counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_17	steel_counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_17	steel_counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_17	steel_counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+swap	fixtures_overlay_counters_01_18	steel_counter	counters_steel_counter_open_r	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_18	steel_counter	counters_steel_door_r	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_18	steel_counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_18	steel_counter	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_18	steel_counter_sink	counters_steel_counter_sink_open_r	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_18	steel_counter_sink	counters_steel_door_r	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_18	steel_counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_18	steel_counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_18	steel_counter_sink	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_19	steel_counter	counters_steel_counter_open_l	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_19	steel_counter	counters_steel_door_l	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_19	steel_counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_19	steel_counter	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_19	steel_counter_sink	counters_steel_counter_sink_open_l	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_19	steel_counter_sink	counters_steel_door_l	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_19	steel_counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_19	steel_counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_19	steel_counter_sink	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_2	counter	counters_counter_open_lr	0.00000 0.01400 0.00000
+prop	fixtures_overlay_counters_01_2	counter	counters_door_l	0.00000 0.01400 0.11200	host
+prop	fixtures_overlay_counters_01_2	counter	counters_door_r	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_2	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_2	counter	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_2	counter_sink	counters_counter_sink_open_lr	0.00000 0.01400 0.00000
+prop	fixtures_overlay_counters_01_2	counter_sink	counters_door_l	0.00000 0.01400 0.11200	host
+prop	fixtures_overlay_counters_01_2	counter_sink	counters_door_r	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_2	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_2	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_2	counter_sink	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_20	steel_counter	counters_steel_counter_open_r	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_20	steel_counter	counters_steel_door_r	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_20	steel_counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_20	steel_counter	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_20	steel_counter_sink	counters_steel_counter_sink_open_r	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_20	steel_counter_sink	counters_steel_door_r	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_20	steel_counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_20	steel_counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_20	steel_counter_sink	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_21	steel_counter	counters_steel_counter_open_l	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_21	steel_counter	counters_steel_door_l	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_21	steel_counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_21	steel_counter	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_21	steel_counter_sink	counters_steel_counter_sink_open_l	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_21	steel_counter_sink	counters_steel_door_l	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_21	steel_counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_21	steel_counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_21	steel_counter_sink	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+marks	fixtures_overlay_counters_01_22	steel_counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_22	steel_counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_22	steel_counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_23	steel_counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_23	steel_counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_23	steel_counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_24	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_24	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_24	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_25	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_25	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_25	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+swap	fixtures_overlay_counters_01_26	counter	counters_counter_open_l	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_26	counter	counters_door_l	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_26	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_26	counter	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_26	counter_sink	counters_counter_sink_open_l	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_26	counter_sink	counters_door_l	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_26	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_26	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_26	counter_sink	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_27	counter	counters_counter_open_lr	0.00000 0.01400 0.00000
+prop	fixtures_overlay_counters_01_27	counter	counters_door_l	0.00000 0.01400 0.11200	host
+prop	fixtures_overlay_counters_01_27	counter	counters_door_r	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_27	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_27	counter	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_27	counter_sink	counters_counter_sink_open_lr	0.00000 0.01400 0.00000
+prop	fixtures_overlay_counters_01_27	counter_sink	counters_door_l	0.00000 0.01400 0.11200	host
+prop	fixtures_overlay_counters_01_27	counter_sink	counters_door_r	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_27	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_27	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_27	counter_sink	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_28	counter	counters_counter_open_r	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_28	counter	counters_door_r	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_28	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_28	counter	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_28	counter_sink	counters_counter_sink_open_r	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_28	counter_sink	counters_door_r	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_28	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_28	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_28	counter_sink	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_29	counter	counters_counter_open_l	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_29	counter	counters_door_l	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_29	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_29	counter	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_29	counter_sink	counters_counter_sink_open_l	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_29	counter_sink	counters_door_l	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_29	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_29	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_29	counter_sink	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_3	counter	counters_counter_open_r	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_3	counter	counters_door_r	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_3	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_3	counter	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_3	counter_sink	counters_counter_sink_open_r	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_3	counter_sink	counters_door_r	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_3	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_3	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_3	counter_sink	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+marks	fixtures_overlay_counters_01_30	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_30	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_30	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_31	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_31	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_31	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_32	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_32	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_32	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_33	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_33	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_33	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+swap	fixtures_overlay_counters_01_34	counter	counters_counter_open_l	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_34	counter	counters_door_l	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_34	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_34	counter	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_34	counter_sink	counters_counter_sink_open_l	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_34	counter_sink	counters_door_l	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_34	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_34	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_34	counter_sink	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_35	counter	counters_counter_open_r	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_35	counter	counters_door_r	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_35	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_35	counter	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_35	counter_sink	counters_counter_sink_open_r	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_35	counter_sink	counters_door_r	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_35	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_35	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_35	counter_sink	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_36	counter	counters_counter_open_l	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_36	counter	counters_door_l	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_36	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_36	counter	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_36	counter_sink	counters_counter_sink_open_l	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_36	counter_sink	counters_door_l	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_36	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_36	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_36	counter_sink	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_37	counter	counters_counter_open_r	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_37	counter	counters_door_r	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_37	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_37	counter	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_37	counter_sink	counters_counter_sink_open_r	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_37	counter_sink	counters_door_r	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_37	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_37	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_37	counter_sink	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+marks	fixtures_overlay_counters_01_38	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_38	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_38	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_39	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_39	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_39	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+swap	fixtures_overlay_counters_01_4	counter	counters_counter_open_r	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_4	counter	counters_door_r	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_4	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_4	counter	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_4	counter_sink	counters_counter_sink_open_r	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_4	counter_sink	counters_door_r	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_4	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_4	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_4	counter_sink	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+marks	fixtures_overlay_counters_01_40	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_40	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_40	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_41	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_41	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_41	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+swap	fixtures_overlay_counters_01_42	counter	counters_counter_open_r	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_42	counter	counters_door_r	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_42	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_42	counter	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_42	counter_sink	counters_counter_sink_open_r	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_42	counter_sink	counters_door_r	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_42	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_42	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_42	counter_sink	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_43	counter	counters_counter_open_l	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_43	counter	counters_door_l	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_43	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_43	counter	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_43	counter_sink	counters_counter_sink_open_l	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_43	counter_sink	counters_door_l	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_43	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_43	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_43	counter_sink	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_44	counter	counters_counter_open_r	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_44	counter	counters_door_r	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_44	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_44	counter	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_44	counter_sink	counters_counter_sink_open_r	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_44	counter_sink	counters_door_r	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_44	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_44	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_44	counter_sink	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_45	counter	counters_counter_open_lr	0.00000 0.01400 0.00000
+prop	fixtures_overlay_counters_01_45	counter	counters_door_l	0.00000 0.01400 0.11200	host
+prop	fixtures_overlay_counters_01_45	counter	counters_door_r	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_45	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_45	counter	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_45	counter_sink	counters_counter_sink_open_lr	0.00000 0.01400 0.00000
+prop	fixtures_overlay_counters_01_45	counter_sink	counters_door_l	0.00000 0.01400 0.11200	host
+prop	fixtures_overlay_counters_01_45	counter_sink	counters_door_r	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_45	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_45	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_45	counter_sink	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+marks	fixtures_overlay_counters_01_46	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_46	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_46	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_47	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_47	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_47	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_48	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_48	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_48	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_49	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_49	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_49	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+swap	fixtures_overlay_counters_01_5	counter	counters_counter_open_l	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_5	counter	counters_door_l	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_5	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_5	counter	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_5	counter_sink	counters_counter_sink_open_l	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_5	counter_sink	counters_door_l	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_5	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_5	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_5	counter_sink	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_50	counter	counters_counter_open_lr	0.00000 0.01400 0.00000
+prop	fixtures_overlay_counters_01_50	counter	counters_door_l	0.00000 0.01400 0.11200	host
+prop	fixtures_overlay_counters_01_50	counter	counters_door_r	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_50	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_50	counter	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_50	counter_sink	counters_counter_sink_open_lr	0.00000 0.01400 0.00000
+prop	fixtures_overlay_counters_01_50	counter_sink	counters_door_l	0.00000 0.01400 0.11200	host
+prop	fixtures_overlay_counters_01_50	counter_sink	counters_door_r	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_50	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_50	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_50	counter_sink	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_51	counter	counters_counter_open_r	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_51	counter	counters_door_r	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_51	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_51	counter	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_51	counter_sink	counters_counter_sink_open_r	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_51	counter_sink	counters_door_r	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_51	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_51	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_51	counter_sink	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_52	counter	counters_counter_open_l	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_52	counter	counters_door_l	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_52	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_52	counter	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_52	counter_sink	counters_counter_sink_open_l	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_52	counter_sink	counters_door_l	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_52	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_52	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_52	counter_sink	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_53	counter	counters_counter_open_r	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_53	counter	counters_door_r	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_53	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_53	counter	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_53	counter_sink	counters_counter_sink_open_r	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_53	counter_sink	counters_door_r	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_53	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_53	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_53	counter_sink	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+marks	fixtures_overlay_counters_01_54	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_54	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_54	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_55	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_55	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_55	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_56	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_56	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_56	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_57	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_57	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_57	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+swap	fixtures_overlay_counters_01_58	counter	counters_counter_open_l	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_58	counter	counters_door_l	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_58	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_58	counter	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_58	counter_sink	counters_counter_sink_open_l	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_58	counter_sink	counters_door_l	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_58	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_58	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_58	counter_sink	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_59	counter	counters_counter_open_l	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_59	counter	counters_door_l	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_59	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_59	counter	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_59	counter_sink	counters_counter_sink_open_l	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_59	counter_sink	counters_door_l	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_59	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_59	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_59	counter_sink	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+marks	fixtures_overlay_counters_01_6	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_6	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_6	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+swap	fixtures_overlay_counters_01_60	counter	counters_counter_open_lr	0.00000 0.01400 0.00000
+prop	fixtures_overlay_counters_01_60	counter	counters_door_l	0.00000 0.01400 0.11200	host
+prop	fixtures_overlay_counters_01_60	counter	counters_door_r	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_60	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_60	counter	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_60	counter_sink	counters_counter_sink_open_lr	0.00000 0.01400 0.00000
+prop	fixtures_overlay_counters_01_60	counter_sink	counters_door_l	0.00000 0.01400 0.11200	host
+prop	fixtures_overlay_counters_01_60	counter_sink	counters_door_r	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_60	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_60	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_60	counter_sink	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_61	counter	counters_counter_open_l	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_61	counter	counters_door_l	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_61	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_61	counter	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+swap	fixtures_overlay_counters_01_61	counter_sink	counters_counter_sink_open_l	0.00000 0.00000 0.00000
+prop	fixtures_overlay_counters_01_61	counter_sink	counters_door_l	0.00000 0.01400 0.11200	host
+marks	fixtures_overlay_counters_01_61	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_61	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_61	counter_sink	counters_scuff_a,counters_scuff_b,counters_scuff_c	-0.46000 -0.21670 0.01200	0.92000 0.00000 0.00000	0.00000 0.00000 0.05000	8 1	1
+marks	fixtures_overlay_counters_01_62	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_62	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_62	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_63	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_63	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_63	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_7	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_7	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_7	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_8	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_8	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_8	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_9	counter	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.47000 -0.26600 0.90050	0.94000 0.00000 0.00000	0.00000 0.56000 0.00000	8 5	32768
+marks	fixtures_overlay_counters_01_9	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	-0.48000 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
+marks	fixtures_overlay_counters_01_9	counter_sink	counters_stain_a,counters_stain_b,counters_stain_c,counters_stain_d	0.30400 -0.26600 0.90050	0.17600 0.00000 0.00000	0.00000 0.56000 0.00000	2 5	32768
