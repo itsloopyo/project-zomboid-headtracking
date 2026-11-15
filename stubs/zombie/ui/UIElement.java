@@ -22,5 +22,5 @@ public class UIElement implements UIElementInterface {
     public void DrawItemIcon(zombie.inventory.InventoryItem item, double x, double y, double alpha, double width, double height) { throw new UnsupportedOperationException("reference stub"); }
     public void DrawText(UIFont font, String text, double x, double y, double r, double g, double b, double alpha) { throw new UnsupportedOperationException("reference stub"); }
     public void DrawTextRight(UIFont font, String text, double x, double y, double r, double g, double b, double alpha) { throw new UnsupportedOperationException("reference stub"); }
-    public void DrawTextureScaledColor(zombie.core.textures.Texture texture, Double x, Double y, Double width, Double height, Double r, Double g, Double b, Double alpha) { throw new UnsupportedOperationException("reference stub"); }
+    public void DrawTextureScaledCol(zombie.core.textures.Texture texture, double x, double y, double width, double height, double r, double g, double b, double alpha) { throw new UnsupportedOperationException("reference stub"); }
 }

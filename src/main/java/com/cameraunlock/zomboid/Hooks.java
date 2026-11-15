@@ -178,7 +178,7 @@ public final class Hooks {
         try {
             QuickLoot.luaLoaded();
         } catch (RuntimeException failure) {
-            Log.error("a controller's Interact prompt does not name the quick loot list's take, and does the game's own beside it", failure);
+            Log.error("the quick loot list takes no press of a controller's Interact: its prompt could not be wrapped", failure);
         }
     }
 

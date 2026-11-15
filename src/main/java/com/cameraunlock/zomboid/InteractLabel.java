@@ -30,7 +30,7 @@ final class InteractLabel {
     /** The game's name for the Interact key binding. */
     private static final String BINDING = "Interact";
     /** How far under the reticle the label is written, in pixels on a screen 1080 high: clear of the crosshair at its most spread. */
-    private static final float BELOW = 34f;
+    static final float BELOW = 34f;
     private static final int DESIGN_HEIGHT = 1080;
     /** How far the dark edge round the words stands out, in pixels on a screen 1080 high. */
     private static final float EDGE = 1f;

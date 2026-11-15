@@ -682,6 +682,7 @@ public final class FirstPerson {
         wasCaptured = false;
         fromTheEye = false;
         view.characters.wanted = false;
+        view.quickLoot.hide();
         if (view.hasMouse()) {
             MouseGrab.wanted = false;
             MouseGrab.kept = false;
@@ -812,7 +813,7 @@ public final class FirstPerson {
     void afterWorldText(int index) {
         if (lookCaptured() && reticleOnScreen) {
             view.interactLabel.draw(reticleX, reticleY, IsoCamera.getScreenHeight(index));
-            view.quickLoot.draw(reticleX, reticleY, IsoCamera.getScreenHeight(index));
+            view.quickLoot.draw(reticleX, reticleY, IsoCamera.getScreenWidth(index), IsoCamera.getScreenHeight(index));
         }
         if (shown != null) {
             TextManager.instance.DrawStringCentre(UIFont.Medium, IsoCamera.getScreenWidth(index) / 2.0, IsoCamera.getScreenHeight(index) * 0.12,
@@ -2593,59 +2594,98 @@ public final class FirstPerson {
     }
 
     /**
+     * The container the quick loot list is for with the reticle on found, where tap is what a tap
+     * would do (keyUse), or null: the one a tap shows in the loot panel, and for a controller
+     * player, whose key the game keeps there, the one it would show with a pointer (CentreUse.lootable).
+     */
+    private ItemContainer lootAt(IsoPlayer player, IsoObject found, CentreUse.Use tap) {
+        if (tap != null && tap.route() == CentreUse.Route.CONTAINER) {
+            return tap.container();
+        }
+        if (tap != null || found == null || view.onMouse()) {
+            return null;
+        }
+        return view.centreUse.lootable(found, reticleLine, floorUp(player), player);
+    }
+
+    /**
      * The container a tap of the key would loot with the reticle on found, where tap is what a
      * tap would do (keyUse), or null: the one a tap shows in the loot panel, and for a controller
-     * player, whose key the game keeps there, the one it would show with a pointer while the quick
-     * loot list is on (CentreUse.lootable). fresh: decided now; otherwise the one the list was last
-     * looked for, as the label takes it each frame.
+     * player the one the quick loot list is up for, only while the list takes the controller's
+     * Interact (QuickLoot.padTakes), so every other press stays the game's. fresh: the reticle is
+     * looked under now, and a list for something else than it is on takes nothing; otherwise the
+     * list's, as the label takes it each frame.
      */
     private ItemContainer lootFor(IsoPlayer player, IsoObject found, CentreUse.Use tap, boolean fresh) {
         if (tap != null && tap.route() == CentreUse.Route.CONTAINER) {
             return tap.container();
         }
-        if (tap != null || found == null || view.onMouse() || !Part.QUICK_LOOT.on()) {
+        if (tap != null || found == null || view.onMouse() || !quickLootUsable(player)) {
             return null;
         }
-        return fresh ? view.centreUse.lootable(found, reticleLine, floorUp(player), player) : view.quickLoot.container();
+        ItemContainer listed = view.quickLoot.padTakes(System.nanoTime());
+        if (listed == null || !fresh) {
+            return listed;
+        }
+        return view.centreUse.lootable(found, reticleLine, floorUp(player), player) == listed ? listed : null;
     }
 
     /** Whether the gap that keeps the quick loot list off has been logged, so it is once. */
     private boolean quickLootGapSaid;
 
     /**
-     * Keeps the quick loot list up for the container the reticle is on (lootFor), looked for a
-     * few times a second, and gone at once while the character aims or the game takes no Interact
-     * key from the player.
+     * Keeps the quick loot list up for the container the reticle is on (lootAt), looked for a few
+     * times a second, and gone at once wherever it may not take input (quickLootUsable).
      */
     private void lookForLoot(IsoPlayer player, IsoObject found, long now) {
-        if (!Part.QUICK_LOOT.running() || keyRefused(player) || player.isAiming()) {
+        if (!quickLootUsable(player)) {
             view.quickLoot.hide();
             return;
         }
+        if (!view.onMouse()) {
+            QuickLoot.wrapPrompt();
+        }
         if (view.quickLoot.looking(now)) {
-            String gap = Agent.quickLootGap();
-            if (gap != null && !quickLootGapSaid) {
-                quickLootGapSaid = true;
-                Log.info("the quick loot list of player " + (view.index + 1) + " is not shown: " + gap);
-            }
-            view.quickLoot.look(gap == null ? lootFor(player, found, keyUse(player, found), true) : null, player, now);
+            view.quickLoot.look(lootAt(player, found, keyUse(player, found)), player, now);
         }
         view.quickLoot.taking(true, now);
     }
 
+    /**
+     * Whether the quick loot list may be up and take input: the part is on with its patches in, the
+     * game takes the Interact key from the player, the character does not aim, and for a controller
+     * player no menu or panel of the game has the controller (its joypad focus).
+     */
+    private boolean quickLootUsable(IsoPlayer player) {
+        if (!Part.QUICK_LOOT.running() || keyRefused(player) || player.isAiming() || !view.onMouse() && QuickLoot.padFocused(view.index)) {
+            return false;
+        }
+        String gap = Agent.quickLootGap();
+        if (gap != null && !quickLootGapSaid) {
+            quickLootGapSaid = true;
+            Log.info("the quick loot list of player " + (view.index + 1) + " is not shown: " + gap);
+        }
+        return gap == null;
+    }
+
     /** Called with a turn of the mouse wheel: whether the mouse player's quick loot list took it. */
     boolean quickLootWheel(int notch) {
-        return lookCaptured && view.onMouse() && view.quickLoot.wheel(notch);
+        return lookCaptured && view.onMouse() && quickLootUsable(view.player()) && view.quickLoot.wheel(notch);
     }
 
     /** Called with the d-pad up or down of this player's controller as the game's Lua reads it: what it is to read (QuickLoot.pad). */
     boolean quickLootPad(boolean held, boolean upward) {
-        return view.quickLoot.pad(held, upward, System.nanoTime());
+        return view.quickLoot.pad(held, upward, QuickLoot.padFocused(view.index), System.nanoTime());
     }
 
-    /** Whether a tap of Interact takes the highlighted row of this player's quick loot list now. */
-    boolean quickLootTakes() {
-        return view.quickLoot.takes(view.quickLoot.container());
+    /**
+     * Called by the controller prompt with whether the game has an action of its own on the
+     * Interact button: whether a tap of it takes the highlighted row of the quick loot list.
+     */
+    boolean quickLootPrompt(boolean gameAction) {
+        long now = System.nanoTime();
+        view.quickLoot.prompted(gameAction, now);
+        return quickLootUsable(view.player()) && view.quickLoot.padTakes(now) != null;
     }
 
     /** The world menu the key opens where it acts on nothing else, or null. */
