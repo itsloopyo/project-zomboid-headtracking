@@ -305,6 +305,9 @@ final class ShaderTests {
         }
         String notice = "// Copyright (c) 2021 Advanced Micro Devices, Inc. All rights reserved.";
         Checks.check(PipelineShaders.EASU.contains(notice) && PipelineShaders.RCAS.contains(notice), "EASU and RCAS carry AMD's copyright notice");
+        Checks.check(PipelineShaders.DEVELOP.contains("c += uGrain * (hash(gl_FragCoord.xy) - 0.5) / 160.0;")
+                && PipelineShaders.RCAS.contains("sharpened += (fract(sin(dot(vec2(at) + 0.5, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 160.0;"),
+                "the grain is the develop pass's where Bilinear shows the picture and is added after RCAS's sharpening where FSR does");
         String sharpened = "gl_FragColor = vec4(clamp(smoothedHere + (smoothedHere - around) * 0.45, 0.0, 1.0) * uLight, 1.0);";
         for (String shown : List.of(PipelineShaders.SMOOTH_OFF, PipelineShaders.SMOOTH_LOW, PipelineShaders.SMOOTH_MEDIUM, PipelineShaders.SMOOTH_HIGH)) {
             Checks.check(shown.contains("vec2 uv = (gl_FragCoord.xy - uOrigin) / uShown;") && shown.contains(sharpened),

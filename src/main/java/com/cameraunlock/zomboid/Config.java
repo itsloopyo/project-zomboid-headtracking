@@ -339,10 +339,10 @@ final class Config {
                             + "of FrameBlending; Medium and High only touch the edges, for a sharper picture.",
                     writable | live, Quality.ANTIALIASINGS, high.antialiasing()),
             localEnum("Graphics", "Upscaling",
-                    "How the picture is brought up to the screen's size when RenderScale draws it at fewer pixels: Bilinear, each pixel\n"
-                            + "read between the four nearest, with a fixed sharpening; FSR, AMD's FSR 1 Super Resolution, which follows\n"
-                            + "edges as it enlarges and then sharpens by how much contrast is round each pixel. At a RenderScale of 1 both\n"
-                            + "show the same picture. The Low, Medium and High graphics modes use FSR.",
+                    "How the picture is brought up to the screen's size when it is drawn at fewer pixels than the screen: Bilinear, each\n"
+                            + "pixel read between the four nearest, with a fixed sharpening; FSR, AMD's FSR 1 Super Resolution, which follows\n"
+                            + "edges as it enlarges and then sharpens by how much contrast is round each pixel. A picture drawn at the screen's\n"
+                            + "size is shown the same either way. The Low, Medium and High graphics modes use FSR, in first person and isometric.",
                     writable | live, Quality.UPSCALINGS, high.upscaling()),
             localInt("Graphics", "LightDistance",
                     "How far away lamps light what is around them with light of their own, like the pool of light under a street lamp,\n"

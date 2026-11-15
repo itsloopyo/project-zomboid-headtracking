@@ -2399,7 +2399,7 @@ SOFTWARE.
 - **Where:** the `EASU` and `RCAS` shaders of `PipelineShaders.java`
 - **License:** MIT
 - **Upstream:** `ffx-fsr/ffx_fsr1.h` of FidelityFX FSR v1.0.2, https://github.com/GPUOpen-Effects/FidelityFX-FSR, commit a21ffb8f6c13233ba336352bdff293894c706575
-- **Usage:** Enlarges the first person picture to the screen's size, and sharpens it after, when `[Graphics] Upscaling=FSR` and the picture is drawn at fewer pixels than the screen.
+- **Usage:** Enlarges the picture the mod draws, in first person and in the isometric view, to the screen's size, and sharpens it after, when `[Graphics] Upscaling=FSR` and the picture is drawn at fewer pixels than the screen.
 - **Bundled:** yes, changed: the 32-bit `FsrEasuF` and `FsrRcasF` functions only, written out in GLSL 1.30 with point reads in place of gather, exact reciprocals and square roots in place of AMD's bit approximations, and RCAS's optional noise removal left out. `ffx_a.h` is not used.
 
 Copyright (c) 2021 Advanced Micro Devices, Inc. All rights reserved.

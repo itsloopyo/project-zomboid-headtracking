@@ -7791,6 +7791,8 @@ final class PipelineShaders {
             uniform vec2 uMeterTexel;
             // How much more the colours that are still weak are filled than those already full.
             uniform float uVibrance;
+            // 1 for the grain here, 0 where RCAS adds it at the view's size instead.
+            uniform float uGrain;
             // What red and blue are multiplied by to take the cast of the light out: see Develop.settle.
             uniform vec2 uBalance;
             // How much of the film works on each colour alone: see film.
@@ -8420,7 +8422,7 @@ final class PipelineShaders {
                 c *= 1.0 - dot(fromCentre, fromCentre) * uGrade.z;
                 // The grain that breaks up banding in smooth shades is the same at a pixel in every frame:
                 // drawn anew each frame it was a fizz over the whole picture that nothing blends away.
-                c += (hash(gl_FragCoord.xy) - 0.5) / 160.0;
+                c += uGrain * (hash(gl_FragCoord.xy) - 0.5) / 160.0;
                 if (uOutlined > 0.5) {
                     // What is outlined has a line round it, where it meets what is not it, in
                     // its own colour, and is a little lighter all over. The line is as wide on
@@ -9012,8 +9014,12 @@ final class PipelineShaders {
      * uShown pixels, sharpened into the view at uOrigin. Each pixel takes a negative share of the
      * four beside it, the most that keeps every channel inside 0 to 1 given the least and the
      * most round it, at most LIMIT, times uSharpness (2 to the minus Pipeline.RCAS_STOPS). The
-     * reciprocals are exact where AMD's are approximate, held off 0 as in EASU: a ring all black,
-     * or all white, then sharpens by nothing, as AMD's does.
+     * reciprocals are exact where AMD's are approximate, held off 0 as in EASU, so a ring all
+     * black, or all white, sharpens by nothing.
+     *
+     * DEVELOP's grain is added here, after the sharpening and at the view's pixels, and not
+     * there: AMD's notes put film grain after RCAS, which would otherwise sharpen it. It is
+     * DEVELOP's hash and strength, on the view's pixel and not the picture's.
      */
     static final String RCAS = "#version 130\n" + FSR_NOTICE + """
             uniform sampler2D uImage;
@@ -9043,6 +9049,7 @@ final class PipelineShaders {
                 vec3 lobes = max(-hitMin, hitMax);
                 float lobe = max(-LIMIT, min(max(lobes.r, max(lobes.g, lobes.b)), 0.0)) * uSharpness;
                 vec3 sharpened = (lobe * (b + d + f + h) + e) / (4.0 * lobe + 1.0);
+                sharpened += (fract(sin(dot(vec2(at) + 0.5, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 160.0;
                 gl_FragColor = vec4(clamp(sharpened, 0.0, 1.0) * uLight, 1.0);
             }
             """;

@@ -931,6 +931,7 @@ final class Quality {
      * How a first person picture drawn at fewer pixels than its view is brought up to the view's
      * size: UPSCALING_BILINEAR, each pixel shown read between the four nearest; UPSCALING_FSR, AMD's
      * FidelityFX Super Resolution 1, an upscale that follows the edges and a sharpening after it.
+     * The isometric view the mod draws takes it as first person does, by its own mode's picture.
      * A picture drawn at the view's size is shown as Bilinear shows it either way. See
      * PipelineShaders.EASU.
      */

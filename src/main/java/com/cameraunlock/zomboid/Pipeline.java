@@ -506,6 +506,8 @@ final class Pipeline {
     private int antialiasing;
     /** Quality.upscaling as the frame began. */
     private int upscaling;
+    /** Whether this frame's picture is shown through FSR: see showSmoothed. */
+    private boolean superResolving;
 
     /**
      * Pictures that only some frames draw into. Each set is made by the first frame that draws
@@ -572,12 +574,13 @@ final class Pipeline {
     }
 
     /**
-     * With Upscaling FSR and a picture drawn smaller than its view: the picture's edges smoothed,
-     * at its size, and EASU's enlarging of it, at the view's, upscaledWide by upscaledHigh.
+     * With Upscaling FSR and a picture drawn smaller than its view: the picture's edges smoothed
+     * at its size (not with Antialiasing Off), and EASU's enlarging of it at the view's,
+     * upscaledWide by upscaledHigh.
      */
-    private final Lent upscaled = new Lent("pictures FSR enlarges", this::makeUpscaled);
+    private final Lent smoothedAlone = new Lent("picture FSR enlarges", this::makeSmoothedAlone), upscaled = new Lent("picture FSR enlarged", this::makeUpscaled);
     private int smoothedColor, smoothedTarget, upscaledColor, upscaledTarget, upscaledWide, upscaledHigh;
-    private final Lent[] SIZED = sized(whole, steadied, cabin, shaded, watered, upscaled);
+    private final Lent[] SIZED = sized(whole, steadied, cabin, shaded, watered, smoothedAlone, upscaled);
     private final Lent[] UNSIZED = {beamed, torched, fired, lamped, glassed, mirrored, surrounded};
     private static final long LENT_FOR_NANOS = 10_000_000_000L;
 
@@ -1688,6 +1691,8 @@ final class Pipeline {
             if (outlinesDrawn) {
                 drawOutlined(camera, state, tanHalfFieldOfView, aspect, near, far, fogStart, fogEnd);
             }
+            superResolving = upscaling == Quality.UPSCALING_FSR && width <= viewport[2] && height <= viewport[3]
+                    && (width < viewport[2] || height < viewport[3]);
             drawDeveloped(camera, state, tanHalfFieldOfView, aspect, exposure, near, far, fogStart, fogEnd);
             stage(STAGE_DEVELOP);
             showSmoothed(drawTarget, viewport);
@@ -2262,11 +2267,11 @@ final class Pipeline {
     /**
      * The developed picture, its edges smoothed, into the part of the game's own picture the frame
      * is written to. Bilinear, or a picture as large as its view, is one pass; FSR enlarging a
-     * smaller one is three, the last of which writes the view (superResolved).
+     * smaller one (superResolving) is up to three, the last of which writes the view.
      */
     private void showSmoothed(int drawTarget, int[] viewport) {
         int wide = viewport[2], high = viewport[3];
-        boolean superResolved = upscaling == Quality.UPSCALING_FSR && width <= wide && height <= high && (width < wide || height < high);
+        boolean superResolved = superResolving;
         int shows = superResolved ? superResolved(wide, high) : shownColor;
         GL30.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, drawTarget);
         GL11.glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
@@ -2308,6 +2313,7 @@ final class Pipeline {
         GL11.glDisable(GL_DEPTH_TEST);
         int enlarges = shownColor;
         if (antialiasing != Quality.ANTIALIASING_OFF) {
+            lend(smoothedAlone);
             GL30.glBindFramebuffer(GL_FRAMEBUFFER, smoothedTarget);
             GL11.glViewport(0, 0, width, height);
             Program alone = smoothAlone[antialiasing];
@@ -5490,6 +5496,7 @@ final class Pipeline {
         GL13.glActiveTexture(GL_TEXTURE0);
         GL11.glBindTexture(GL_TEXTURE_2D, frameColor);
         develop.set("uSize", (float) width, (float) height);
+        develop.set("uGrain", superResolving ? 0f : 1f);
         develop.set("uLow", (float) levelWidth[0], (float) levelHeight[0]);
         develop.set("uExposure", exposure);
         Style.Fade style = styleFade.toward(Style.of(view.index), System.nanoTime());
@@ -7800,14 +7807,15 @@ final class Pipeline {
         }
     }
 
-    /** The pictures FSR enlarges through: only with Upscaling FSR and a picture smaller than its view. */
-    private String makeUpscaled() {
+    /** The picture's edges smoothed at its own size, for EASU: only with Upscaling FSR, Antialiasing not Off and a picture smaller than its view. */
+    private String makeSmoothedAlone() {
         smoothedColor = texture(GL_RGBA8, width, height, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST);
         smoothedTarget = target(smoothedColor);
-        String problem = complete("smoothed picture");
-        if (problem != null) {
-            return problem;
-        }
+        return complete("smoothed picture");
+    }
+
+    /** EASU's picture at the view's size: only with Upscaling FSR and a picture smaller than its view. */
+    private String makeUpscaled() {
         upscaledColor = texture(GL_RGBA8, upscaledWide, upscaledHigh, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST);
         upscaledTarget = target(upscaledColor);
         return complete("enlarged picture");
