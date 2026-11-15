@@ -928,9 +928,9 @@ final class FurnitureTests {
                 + "IsMoveAble||IsTable||Material|Wood|PickUpWeight|50|container|sidetable|solidtrans||Surface|23|");
         Furniture side = Furniture.known(table);
         check(model(side).equals("side_table"), "the small table is the side table: " + model(side));
-        check(side != null && FurnishingBuilder.standsOver(table, vase) == side, "a vase the game sets out on a side table stands on it");
-        check(side != null && FurnishingBuilder.standsOver(table, food) == side, "and so does the game's picture of what a container holds");
-        check(FurnishingBuilder.standsOver(table, stain) == null, "what else the game lays over it does not");
+        check(side != null && FurnishingBuilder.standsOver(table, vase, side.model) == side, "a vase the game sets out on a side table stands on it");
+        check(side != null && FurnishingBuilder.standsOver(table, food, side.model) == side, "and so does the game's picture of what a container holds");
+        check(FurnishingBuilder.standsOver(table, stain, side == null ? null : side.model) == null, "what else the game lays over it does not");
         if (side != null) {
             // Where the painting's foot is against the top at the middle of the table, as share of its height.
             float top = 23 / WorldScene.SURFACE_PIXELS_PER_LEVEL;
@@ -949,14 +949,14 @@ final class FurnitureTests {
         IsoSprite head = sprite("fixtures_bathroom_01_25" + row + "0,0"), foot = sprite("fixtures_bathroom_01_24" + row + "0,1|IsGridExtensionTile|");
         piece(1, 2, head, foot);
         check(model(Furniture.known(head)).equals("bath"), "the bath is the bath");
-        check(FurnishingBuilder.standsOver(head, vase) == null, "a bath the game gives no surface has no top to stand what it sets out on");
+        check(FurnishingBuilder.standsOver(head, vase, Furniture.known(head).model) == null, "a bath the game gives no surface has no top to stand what it sets out on");
 
         String shelves = "|BlocksPlacement||CanBreak||CanScrap||ContainerCapacity|30|CustomName|Shelves|Facing|S|IsMoveAble||ItemHeight|64|Material|Wood|"
                 + "Material2|Screws|MaterialType|Wood|PickUpTool|Hammer|PickUpWeight|75|PlaceTool|Hammer|ScrapSize|Large|container|shelves|solid||GroupName|";
         IsoSprite corner = sprite("furniture_shelving_01_8" + shelves + "Big Wall Corner|");
         Furniture shelving = Furniture.known(corner);
         check(model(shelving).equals("wall_shelving_corner") && shelving.stocked, "shelving in a corner holds goods of its own: " + model(shelving));
-        check(FurnishingBuilder.standsOver(corner, food) == null, "and no picture of them stands in front of it");
+        check(FurnishingBuilder.standsOver(corner, food, shelving.model) == null, "and no picture of them stands in front of it");
     }
 
     /** A frame of a painting 20 pixels high whose share under of its height is under the top of piece, top levels up. */

@@ -597,6 +597,43 @@ final class WorldScene {
             waitsOnAnything = true;
         }
 
+        /**
+         * The squares a piece standing in the chunk has parts on beyond the ring round the chunk that signature sums, a
+         * bed or a run of shelving four squares long, each x, y and z packed (packSquare), and what lay on each as the
+         * build read it (laidOn). The props of what the game lays over such a square stand from the piece's own square
+         * (FurnishingBuilder), and a change to it is marked on that square's chunk alone: that has this chunk summed
+         * again (ChunkMarks.thingsAround), and partsAwayHold finds it changed.
+         */
+        private long[] partsAway = new long[4], laidOnPartsAway = new long[4];
+        private int partsAwayCount;
+
+        /** The build stood a piece with a part on the square (x, y, z), beyond the ring signature sums. */
+        void partAway(IsoCell cell, int x, int y, int z) {
+            long packed = packSquare(x, y, z);
+            for (int i = 0; i < partsAwayCount; i++) {
+                if (partsAway[i] == packed) {
+                    return;
+                }
+            }
+            if (partsAwayCount == partsAway.length) {
+                partsAway = Arrays.copyOf(partsAway, partsAwayCount * 2);
+                laidOnPartsAway = Arrays.copyOf(laidOnPartsAway, partsAwayCount * 2);
+            }
+            partsAway[partsAwayCount] = packed;
+            laidOnPartsAway[partsAwayCount++] = laidOn(cell.getGridSquare(x, y, z));
+        }
+
+        /** Whether what lies on each square of partsAway is as the build read it. */
+        boolean partsAwayHold(IsoCell cell) {
+            for (int i = 0; i < partsAwayCount; i++) {
+                long packed = partsAway[i];
+                if (laidOn(cell.getGridSquare((int) (packed >> 40), (int) (packed << 24 >> 44), (int) (packed << 44 >> 44))) != laidOnPartsAway[i]) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
         /** Begins a build's list of what it waited for, as one that has waited for nothing. */
         void waitForNothing() {
             Arrays.fill(waits, 0, waitCount, null);
@@ -2801,6 +2838,32 @@ final class WorldScene {
         return (long) System.identityHashCode(sprite) << 32 | (texture == null ? 0 : texture.getID() & 0xffffffffL);
     }
 
+    /** A square's x, y and z as one number: x in the top 24 bits, y in the next 20, z in the last 20, each signed. */
+    static long packSquare(int x, int y, int z) {
+        return (long) x << 40 | ((long) y & 0xFFFFF) << 20 | (long) z & 0xFFFFF;
+    }
+
+    /** What is on a square, its objects' sprites and what the game lays over each, as one number: 0 for no square. */
+    static long laidOn(IsoGridSquare square) {
+        if (square == null) {
+            return 0;
+        }
+        List<IsoObject> objects = SquareObjects.of(square);
+        long laid = sum(SUM_FROM, objects.size());
+        for (int i = 0; i < objects.size(); i++) {
+            IsoObject object = objects.get(i);
+            IsoDirections dir = object.getDir();
+            laid = sum(sum(laid, shown(object.getSprite(), dir)), shown(object.getOverlaySprite(), dir));
+            ArrayList<IsoSpriteInstance> attached = object.getAttachedAnimSprite();
+            if (attached != null) {
+                for (int over = 0; over < attached.size(); over++) {
+                    laid = sum(laid, shown(attached.get(over).parentSprite, dir));
+                }
+            }
+        }
+        return laid;
+    }
+
     static long sum(long sum, long value) {
         return (sum ^ value) * 0x100000001B3L;
     }
@@ -4796,14 +4859,15 @@ final class WorldScene {
                         }
                         // The same triangles: the same sum, and nothing a build is told that its sum does not hold is otherwise.
                         // The sum holds the chunk's own heights. Those of the chunks round it that its build went by are in land alone.
-                        boolean same = !missing && current.signature == read && current.landSum == readLand && current.told == toldSoFar && current.epoch == epoch && seasonHolds(current, slot) && current.land == land;
+                        boolean same = !missing && current.signature == read && current.landSum == readLand && current.told == toldSoFar && current.epoch == epoch && seasonHolds(current, slot) && current.land == land
+                                && current.partsAwayHold(cell);
                         // Driving, the map loads a row of chunks every few frames, and the heights of every chunk
                         // within a valley's width of it are worked out again: most move by a few hundredths of a
                         // tile, and each passes its edges on to the chunks beside it. Far off, a build whose heights
                         // have moved by less than the picture can show is that build still.
                         if (!same && !missing && trusted && distance >= BUILT_WHATEVER_IT_TAKES && current.signature == read && current.told == toldSoFar
                                 && current.epoch == epoch && seasonHolds(current, slot) && (!current.wantsMap || current.loaded == loadedNow)
-                                && heightsHeld(current, distance * tanHalfFieldOfView / HELD_ROWS)) {
+                                && heightsHeld(current, distance * tanHalfFieldOfView / HELD_ROWS) && current.partsAwayHold(cell)) {
                             same = true;
                             tollHeightsHeld++;
                         }
@@ -6410,6 +6474,7 @@ final class WorldScene {
             heightsRound = 0;
             heightsFarCount = 0;
             wantsMap = false;
+            fresh.partsAwayCount = 0;
             trackReader.forget();
             placed = fresh.placed;
             lying = fresh.lying;
@@ -9837,7 +9902,7 @@ final class WorldScene {
             }
 
             if (overLayer == 0 && furnishingBuilder.addHung(object, sprite, texture, x, y, z) || furnishingBuilder.addFurniture(object, sprite, x, y, z)) {
-                Furniture over = overLayer > 0 ? FurnishingBuilder.standsOver(sprite, overSprite) : null;
+                Furniture over = overLayer > 0 ? FurnishingBuilder.standsOver(sprite, overSprite, furnishingBuilder.drawnAt(object, Furniture.known(sprite), x, y, z)) : null;
                 if (over != null) {
                     FurnishingBuilder.addDecor(geometry, mesh, frame, over, sprite, x, y, z);
                 }

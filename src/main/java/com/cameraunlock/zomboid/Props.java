@@ -226,15 +226,19 @@ final class Props {
     }
 
     /**
-     * Whether some batch makes the overlay on the piece, as the model the piece is drawn as or with its basin. A square
-     * of a piece that stands nothing of its own is the piece the square that stands it is, and a stocked fitting and a
-     * case are dressed by goods of their own.
+     * Whether some batch makes the overlay on the piece, which is drawn as drawn (FurnishingBuilder.drawnAt), the model
+     * addFurniture stands the props on. A square of a piece that stands nothing of its own, drawn null, is the piece the
+     * square that stands it is, as that is drawn with its basin or without. A stocked fitting and a case are dressed by
+     * goods of their own.
      */
-    static boolean makes(String overlay, Furniture piece) {
+    static boolean makes(String overlay, Furniture piece, Models.Model drawn) {
         Map<String, Dressing> hosts = made().get(overlay);
         Furniture stands = piece.model == null && piece.partner != null ? Furniture.known(IsoSpriteManager.instance.namedMap.get(piece.partner)) : piece;
         if (hosts == null || stands == null || stands.model == null || stands.stocked || stands.displayCase) {
             return false;
+        }
+        if (drawn != null) {
+            return hosts.containsKey(drawn.name);
         }
         return hosts.containsKey(stands.model.name) || stands.withBasin != null && hosts.containsKey(stands.withBasin.name);
     }
@@ -312,10 +316,27 @@ final class Props {
     private static final ThreadLocal<SpriteGeometry.Frame> OVER_FRAME = ThreadLocal.withInitial(SpriteGeometry.Frame::new);
 
     /**
+     * Whether the game has a picture to draw of every overlay over the first count squares whose props, on a piece of
+     * host model, take their colours from it. Where it has not, the piece is not ready, as FurnishingBuilder.ready has
+     * it, and the game's sprite and its overlays' pictures stand in its place until the square is built again.
+     */
+    static boolean picturesReady(List<Square> squares, int count, String host) {
+        for (int i = 0; i < count; i++) {
+            Square square = squares.get(i);
+            for (IsoSprite overlay : square.overlays) {
+                Dressing dressing = of(overlay.getName(), host);
+                if (dressing != null && needsPicture(dressing) && pictureOf(square.object, overlay) == null) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    /**
      * Stands the props every overlay over a square of a piece makes of the piece, whose model before any swap is host,
-     * where the piece stands. The overlays' pictures over the square give the props' colours; spriteScale is the frame's
-     * sprite scale. Where the game has no picture of an overlay to draw yet, what takes its colours from the picture
-     * waits for the square to be built again, and the rest stands.
+     * where the piece stands. The overlays' pictures over the square give the props' colours, and the piece is stood
+     * only once each is there to be read (picturesReady); spriteScale is the frame's sprite scale.
      */
     static void add(WorldScene.Frame build, Square square, String host, Stand at, float spriteScale) {
         for (IsoSprite overlay : square.overlays) {
@@ -323,7 +344,13 @@ final class Props {
             if (dressing == null) {
                 continue;
             }
-            Texture painted = needsPicture(dressing) ? pictureOf(square.object, overlay) : null;
+            Texture painted = null;
+            if (needsPicture(dressing)) {
+                painted = pictureOf(square.object, overlay);
+                if (painted == null) {
+                    throw new IllegalStateException(overlay.getName() + " over " + square.x + "," + square.y + " has no picture, which picturesReady found it had");
+                }
+            }
             SpriteGeometry.Frame frame = OVER_FRAME.get();
             if (painted != null) {
                 frame.scale = spriteScale;
@@ -343,9 +370,6 @@ final class Props {
                     alsoU = at.alsoU;
                     alsoV = at.alsoV;
                 } else if (prop.dye.equals(OVER_DYE)) {
-                    if (painted == null) {
-                        continue;
-                    }
                     float[] dyeAt = place(at, prop.dyeX, prop.dyeY);
                     float a = dyeAt[0] - square.x, b = dyeAt[1] - square.y, high = heightOnPicture(at, prop.dyeZ);
                     texture = painted.getID();
@@ -359,7 +383,7 @@ final class Props {
                     build.placed.span(at.across, at.down);
                 }
             }
-            for (Marks marks : painted == null ? List.<Marks>of() : dressing.marks) {
+            for (Marks marks : dressing.marks) {
                 for (int i = 0; i < marks.acrossCount; i++) {
                     for (int j = 0; j < marks.alongCount; j++) {
                         float s = (i + 0.5f) / marks.acrossCount, t = (j + 0.5f) / marks.alongCount;

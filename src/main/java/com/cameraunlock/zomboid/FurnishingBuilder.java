@@ -696,8 +696,17 @@ final class FurnishingBuilder {
      */
     static int overlaidSquares(Furniture piece, IsoObject object, int x, int y, Around<IsoObject> around, Named<IsoObject> named, int[] origin,
             List<Props.Square> out) {
+        return overlaidSquares(piece, object, x, y, around, named, origin, out, null);
+    }
+
+    /** The same, telling every square of the piece, (dx, dy) from (x, y), to each where it is not null. */
+    static int overlaidSquares(Furniture piece, IsoObject object, int x, int y, Around<IsoObject> around, Named<IsoObject> named, int[] origin,
+            List<Props.Square> out, Parts<IsoObject> each) {
         int[] count = {0};
         partsOf(piece, object, around, named, origin, (dx, dy, part) -> {
+            if (each != null) {
+                each.part(dx, dy, part);
+            }
             for (int i = 0; i < count[0]; i++) {
                 if (out.get(i).object == part) {
                     return;
@@ -1006,6 +1015,23 @@ final class FurnishingBuilder {
     }
 
     /**
+     * The model a piece standing its own model on that square is drawn as, before any batch of props swaps it, or null
+     * for a square of a piece another square stands: with its basin where one is on the square, and a drum lit as a burn
+     * barrel with its top cut out, the fire drawn burning in it.
+     */
+    Models.Model drawnAt(IsoObject object, Furniture piece, int x, int y, int z) {
+        if (piece.model == null) {
+            return null;
+        }
+        return drawnAs(piece, piece.withBasin != null && onSquare(x, y, z, true) != null, object instanceof IsoFireplace hearth && hearth.isLit());
+    }
+
+    static Models.Model drawnAs(Furniture piece, boolean basin, boolean burning) {
+        Models.Model model = basin && piece.withBasin != null ? piece.withBasin : piece.model;
+        return burning && model.name.equals("barrel") ? Models.get("burn_barrel") : model;
+    }
+
+    /**
      * Stands the mod's own model of a piece of furniture where the game has the sprites of
      * one, and says whether this sprite is thereby dealt with. A piece on several squares is
      * one model, added by the first of its squares, and its other squares add nothing.
@@ -1071,12 +1097,34 @@ final class FurnishingBuilder {
         }
         IsoSprite first = piece.grid == null ? null : piece.grid.getSprite(0, 0);
         boolean firstPaints = first == null || WorldScene.usable(first.getTextureForCurrentFrame(object.getDir()));
+        boolean stands = stands(piece, firstPaints, readyOrigin);
+        int objectX = x, objectY = y, objectZ = z;
+        // What the game lays over the piece, over any of its squares, that a batch of props makes: a cupboard whose door
+        // the game paints ajar is drawn with that door off, its open door a prop. A stocked fitting's goods and a case's
+        // cakes are the game's painting made already. Asked in each layer, so that a piece not ready for want of an
+        // overlay's picture is the game's sprite and its overlay's picture in both.
+        Models.Model host = stands ? drawnAt(object, piece, x + readyOrigin[0], y + readyOrigin[1], z) : null;
+        propCount = 0;
+        if (stands && Own.props() && !piece.stocked && !piece.displayCase) {
+            // The chunk's squares and the ring round them are summed for its build (WorldScene.Frame.signature): a part further
+            // off is noted, so that what the game lays over it later is found changed too.
+            int fromX = Math.floorDiv(objectX, WorldScene.CHUNK_TILES) * WorldScene.CHUNK_TILES, fromY = Math.floorDiv(objectY, WorldScene.CHUNK_TILES) * WorldScene.CHUNK_TILES;
+            propCount = overlaidSquares(piece, object, objectX, objectY, (dx, dy, part) -> holdingOrGhost(objectX + dx, objectY + dy, objectZ, part),
+                    (dx, dy, name) -> namedOrGhost(objectX + dx, objectY + dy, objectZ, name), partsOrigin, propSquares, (dx, dy, part) -> {
+                        int partX = objectX + dx, partY = objectY + dy;
+                        if (partX < fromX - 1 || partX > fromX + WorldScene.CHUNK_TILES || partY < fromY - 1 || partY > fromY + WorldScene.CHUNK_TILES) {
+                            build.building.partAway(build.cell, partX, partY, objectZ);
+                        }
+                    });
+            if (propCount > 0 && !Props.picturesReady(propSquares, propCount, host.name)) {
+                return false;
+            }
+        }
         // What the game lays over the piece's sprite, a stain, has no place on the model.
-        if (!stands(piece, firstPaints, readyOrigin) || build.overLayer > 0) {
+        if (!stands || build.overLayer > 0) {
             return true;
         }
         int chunkX = x - build.waterLocalX, chunkY = y - build.waterLocalY;
-        int objectX = x, objectY = y, objectZ = z;
         x += readyOrigin[0];
         y += readyOrigin[1];
         // A street lamp's head drawn a level off the post it tops stands on the post: see StreetLampPlaces.
@@ -1095,21 +1143,8 @@ final class FurnishingBuilder {
             z -= down;
             foot -= down * ViewCamera.LEVEL_HEIGHT;
         }
-        Models.Model model = piece.withBasin != null && onSquare(x, y, z, true) != null ? piece.withBasin : piece.model;
+        Models.Model model = host;
         boolean burning = object instanceof IsoFireplace hearth && hearth.isLit();
-        if (burning && model.name.equals("barrel")) {
-            // A drum lit as a burn barrel has had its top cut out: the fire is drawn burning in it.
-            model = Models.get("burn_barrel");
-        }
-        // What the game lays over the piece, over any of its squares, that a batch of props makes: a cupboard whose door
-        // the game paints ajar is drawn with that door off, its open door a prop. A stocked fitting's goods and a case's
-        // cakes are the game's painting made already.
-        Models.Model host = model;
-        propCount = 0;
-        if (Own.props() && !piece.stocked && !piece.displayCase) {
-            propCount = overlaidSquares(piece, object, objectX, objectY, (dx, dy, part) -> holdingOrGhost(objectX + dx, objectY + dy, objectZ, part),
-                    (dx, dy, name) -> namedOrGhost(objectX + dx, objectY + dy, objectZ, name), partsOrigin, propSquares);
-        }
         Props.Dressing swap = propCount == 0 ? null : Props.swapOf(propSquares, propCount, host);
         if (swap != null) {
             model = Models.get(swap.swap);
@@ -1381,15 +1416,16 @@ final class FurnishingBuilder {
      * screen, has a way of its own or none. A piece the game gives no surface, a bath or a filing cabinet, has no top to
      * stand a card on, and it stands on none: a batch's props stand on such a piece's model wherever its script puts them.
      *
+     * drawn is the model the square's piece is drawn as (drawnAt), or null on a square that stands nothing of its own.
      * The piece under it where it is to stand, or null where it is not.
      */
-    static Furniture standsOver(IsoSprite under, IsoSprite over) {
+    static Furniture standsOver(IsoSprite under, IsoSprite over, Models.Model drawn) {
         Furniture piece = Furniture.known(under);
         if (piece == null || piece.stocked || piece.displayCase || Surfaces.surface(under.getProperties()) <= 0) {
             return null;
         }
         // Made by a batch of props, which addFurniture stood with the piece.
-        if (Own.props() && Props.makes(over.getName(), piece)) {
+        if (Own.props() && Props.makes(over.getName(), piece, drawn)) {
             return null;
         }
         // Both are read only: each map is filled as the game loads its Lua, before any world is built.
