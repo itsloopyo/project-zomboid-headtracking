@@ -15,4 +15,7 @@ public class ItemContainer {
     public zombie.iso.IsoObject getParent() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isExplored() { throw new UnsupportedOperationException("reference stub"); }
     public void requestSync() { throw new UnsupportedOperationException("reference stub"); }
+    public float getCapacityWeight() { throw new UnsupportedOperationException("reference stub"); }
+    public int getEffectiveCapacity(zombie.characters.IsoGameCharacter character) { throw new UnsupportedOperationException("reference stub"); }
+    public float getMaxWeight() { throw new UnsupportedOperationException("reference stub"); }
 }

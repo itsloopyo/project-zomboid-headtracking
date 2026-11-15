@@ -90,4 +90,5 @@ public abstract class IsoGameCharacter extends IsoMovingObject {
     public zombie.characters.AttachedItems.AttachedItems getAttachedItems() { throw new UnsupportedOperationException("reference stub"); }
     public java.util.List<String> getKnownRecipes() { throw new UnsupportedOperationException("reference stub"); }
     private java.util.ArrayList<Object> readBooks;
+    public boolean isRecipeActuallyKnown(String recipe) { throw new UnsupportedOperationException("reference stub"); }
 }

@@ -135,6 +135,7 @@ public final class Tests {
         Checks.run("lootPanelFollowsTheCrosshairOncePerThing", Tests::lootPanelFollowsTheCrosshairOncePerThing);
         Checks.run("keptPanelsShowAfterThePointerFoldWhileAimingAndAreLetGo", Tests::keptPanelsShowAfterThePointerFoldWhileAimingAndAreLetGo);
         Checks.run("heldInteractTakesAllFromAContainerWithSomethingInIt", Tests::heldInteractTakesAllFromAContainerWithSomethingInIt);
+        Checks.run("QuickLootTests", QuickLootTests::run);
         Checks.run("transformerHasNoGapOnceEveryPatchIsIn", Tests::transformerHasNoGapOnceEveryPatchIsIn);
         Checks.run("exceptionTheGameCaughtFromTheModIsWrittenOnce", Tests::exceptionTheGameCaughtFromTheModIsWrittenOnce);
         Checks.run("exceptionWhoseCausesLoopIsLookedThroughOnce", Tests::exceptionWhoseCausesLoopIsLookedThroughOnce);

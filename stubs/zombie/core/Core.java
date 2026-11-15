@@ -27,4 +27,5 @@ public final class Core {
     public int getMaxTextureSize() { throw new UnsupportedOperationException("reference stub"); }
     public int getMaxVehicleTextureSize() { throw new UnsupportedOperationException("reference stub"); }
     public boolean getOptionModelTextureMipmaps() { throw new UnsupportedOperationException("reference stub"); }
+    public void doZoomScroll(int playerIndex, int direction) { throw new UnsupportedOperationException("reference stub"); }
 }

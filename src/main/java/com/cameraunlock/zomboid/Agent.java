@@ -237,6 +237,14 @@ public final class Agent {
         return waitingComposites.gap();
     }
 
+    /** The patches that hand the mouse wheel and a controller's d-pad up and down to the quick loot list while it is up. */
+    private static PatchTransformer quickLoot;
+
+    /** Why the quick loot list cannot take the wheel and the d-pad on this build of the game, or null once it can. */
+    static String quickLootGap() {
+        return quickLoot.gap();
+    }
+
     /** The patch that leaves the spotting of rooms and the marking of squares seen to Spotting while the first person picture covers the player's view. */
     private static PatchTransformer spotting;
 
@@ -597,6 +605,7 @@ public final class Agent {
         splitScreen = new PatchTransformer(splitScreenPatches());
         waitingComposites = new PatchTransformer(waitingCompositePatches());
         spotting = new PatchTransformer(spottingPatches());
+        quickLoot = new PatchTransformer(quickLootPatches());
         // A shot breaks lamps and glass, a blast holes doors and fences and a round what it goes through, where ImpactFinder finds it ends.
         Supplier<String> impactsOff = () -> (Rules.rows() & (Rules.BREAKS_LAMPS | Rules.BREAKS_GLASS | Rules.BLAST_HOLES | Rules.BULLET_HOLES)) != 0 ? null
                 : also(off(Part.FIRST_PERSON, Part.SHOT_IMPACTS), "were ShotsBreakLamps, ShotsBreakGlass, BlastHoles and BulletHoles");
@@ -664,6 +673,7 @@ public final class Agent {
                 new PatchSet("split screen", splitScreen, splitScreenOff),
                 new PatchSet("waiting composites", waitingComposites, offNow(Part.FIRST_PERSON, Part.SKINS_COMPOSED_WHILE_WAITING)),
                 new PatchSet("spotting", spotting, offNow(Part.FIRST_PERSON, Part.SKIP_COVERED_GAME_DRAWING, Part.SPOT_BY_SIGHT)),
+                new PatchSet("quick loot", quickLoot, offNow(Part.FIRST_PERSON, Part.QUICK_LOOT)),
                 new PatchSet("held map", new PatchTransformer(heldMapPatches()), offNow(Part.FIRST_PERSON, Part.HELD_MAP)),
                 new PatchSet("customise character", new PatchTransformer(customiseCharacterPatches()), offNow(Part.CUSTOMISE_CHARACTER_HEAD)),
                 new PatchSet("viewpoint", new PatchTransformer(viewpointPatches()), () -> Tracking.enabled() ? null : "head tracking is off"),
@@ -1056,6 +1066,26 @@ public final class Agent {
                 after(new CallSite.Method("zombie/gameStates/IngameState", "renderFrameTextInternal", "(I)V"),
                         new CallSite.Method("zombie/chat/ChatElement", "RenderBatch", "(I)V"),
                         new CallSite.Method(HOOKS, "afterWorldText", "()V")));
+    }
+
+    /**
+     * The quick loot list (QuickLoot): the turn of the mouse wheel goes to it before it zooms the
+     * game's view, and the d-pad up and down on a controller before the game's Lua opens its
+     * wheels for them, while the list is up. Without them the list is not shown.
+     */
+    private static List<Patch> quickLootPatches() {
+        String global = "zombie/Lua/LuaManager$GlobalObject";
+        return List.of(
+                new Patch(UI, "update calling doZoomScroll", classBytes -> CallSite.replaceEach(classBytes,
+                        new CallSite.Method(UI, "update", "()V"),
+                        new CallSite.Method("zombie/core/Core", "doZoomScroll", "(II)V"),
+                        new CallSite.Method(HOOKS, "zoomScroll", "(Lzombie/core/Core;II)V"), 1)),
+                new Patch(global, "isJoypadUp before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                        new CallSite.Method(global, "isJoypadUp", "(I)Z"),
+                        code -> CallSite.passFirstStaticInt(code, new CallSite.Method(HOOKS, "padUp", "(ZI)Z")))),
+                new Patch(global, "isJoypadDown before its returns", classBytes -> CallSite.insertBeforeReturns(classBytes,
+                        new CallSite.Method(global, "isJoypadDown", "(I)Z"),
+                        code -> CallSite.passFirstStaticInt(code, new CallSite.Method(HOOKS, "padDown", "(ZI)Z")))));
     }
 
     /**

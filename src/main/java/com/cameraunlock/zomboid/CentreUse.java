@@ -233,7 +233,8 @@ final class CentreUse {
         // The game's click (ISObjectClickHandler.doClick). Where its tests fail it takes the click and does nothing.
         IsoGridSquare from = player.getCurrentSquare();
         IsoGridSquare at = found instanceof IsoMovingObject body ? body.getCurrentSquare() : found.getSquare();
-        boolean seen = at != null && at.isSeen(0);
+        // The game's click asks for the first player, who has the mouse; the quick loot list asks for the player it is for (lootable).
+        boolean seen = at != null && at.isSeen(player.getPlayerNum());
         // A radio, a television or a workstation: the game's click opens its window, when the character is near enough.
         InteractWords.Does panel = seen ? panel(found, player, from) : null;
         boolean container = found.getContainer() != null;
@@ -366,6 +367,16 @@ final class CentreUse {
             opens = answered != null && answered.length > 1 && Boolean.TRUE.equals(answered[1]);
         }
         return opens;
+    }
+
+    /**
+     * The container a tap with a pointer would show in the loot panel with the reticle on found,
+     * by decide's own tests, or null: what the quick loot list of a controller player is for, who
+     * has no pointer and whose key decide leaves to the game there.
+     */
+    ItemContainer lootable(IsoObject found, ViewCamera.Pose view, float floorUp, IsoPlayer player) {
+        Use use = decide(found, view, floorUp, player, true);
+        return use != null && use.route() == Route.CONTAINER ? use.container() : null;
     }
 
     /**

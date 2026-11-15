@@ -105,6 +105,15 @@ final class ClickRules {
         return hole ? Held.HOLE : Held.AS_TAP;
     }
 
+    /**
+     * Whether a tap of the key takes the highlighted row of the quick loot list (QuickLoot) rather
+     * than doing what it did before the list: the list takes the input, it is up for the container
+     * the tap is on, and it has a row. On an empty container a tap still shows it in the loot panel.
+     */
+    static boolean tapTakesRow(boolean listTakes, boolean sameContainer, boolean row) {
+        return listTakes && sameContainer && row;
+    }
+
     /** Whether a hole at the reticle would change what held answers, so it is worth looking for one. */
     static boolean holeMatters(boolean climbable, boolean loot, boolean empty) {
         return held(climbable, loot, empty, false) == Held.AS_TAP;

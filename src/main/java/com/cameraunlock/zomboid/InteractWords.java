@@ -26,6 +26,8 @@ final class InteractWords {
         LOOT("IGUI_Controller_Loot", true),
         /** The loot panel's Take All. */
         TAKE_ALL("IGUI_invpage_Loot_all", false),
+        /** The quick loot list's take of its highlighted row (QuickLoot), in the words of the game's Grab. */
+        TAKE_ROW("ContextMenu_Grab", false),
         /** A radio's or a television's window. */
         DEVICE_OPTIONS("IGUI_DeviceOptions", false),
         /** A workstation's window, which the game's controller prompt names by the workstation alone. */

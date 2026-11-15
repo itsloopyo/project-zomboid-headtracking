@@ -37,6 +37,7 @@ final class View {
     final Crosshair crosshair = new Crosshair();
     final HitDirection hitDirection = new HitDirection();
     final InteractLabel interactLabel = new InteractLabel();
+    final QuickLoot quickLoot;
     final Ride ride = new Ride();
     final KerbSteps kerbSteps = new KerbSteps();
     final BodyLed bodyLed = new BodyLed();
@@ -81,6 +82,7 @@ final class View {
         modeFade = new ModeFade(index);
         torchLess = new TorchLess(index);
         muzzleFlash = new MuzzleFlash(index);
+        quickLoot = new QuickLoot(index);
         headTracking = new HeadTracking(index, fieldOfView, headFollowLight);
         spotting = new Spotting(index);
     }

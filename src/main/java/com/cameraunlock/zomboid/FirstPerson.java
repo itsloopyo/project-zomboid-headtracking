@@ -599,6 +599,7 @@ public final class FirstPerson {
         pointer.keepPanels(false);
         lootFollow.reset();
         mouseLookedLastFrame = false;
+        view.quickLoot.hide();
     }
 
     /** The view at load is owed again, and nothing is left of the vehicle the player was in or the hints of their landing. */
@@ -811,6 +812,7 @@ public final class FirstPerson {
     void afterWorldText(int index) {
         if (lookCaptured() && reticleOnScreen) {
             view.interactLabel.draw(reticleX, reticleY, IsoCamera.getScreenHeight(index));
+            view.quickLoot.draw(reticleX, reticleY, IsoCamera.getScreenHeight(index));
         }
         if (shown != null) {
             TextManager.instance.DrawStringCentre(UIFont.Medium, IsoCamera.getScreenWidth(index) / 2.0, IsoCamera.getScreenHeight(index) * 0.12,
@@ -1395,6 +1397,7 @@ public final class FirstPerson {
         if (lookCaptured && vehicle == null && !bodyLeads && reticleOnScreen) {
             IsoObject found = view.centreUse.under(reticleLine, floorUp, player, IsoWorld.instance.currentCell);
             view.centreUse.mark(found);
+            lookForLoot(player, found, now);
             label(player, found, now);
             if (keptPanels.kept() && lootFollow.looking(now)) {
                 followLoot(player, found, now);
@@ -1402,6 +1405,7 @@ public final class FirstPerson {
         } else {
             view.centreUse.marked = Outlines.NONE;
             view.interactLabel.hide();
+            view.quickLoot.hide();
         }
         if (Online.joined()) {
             view.nameTags.look(cleanView, IsoWorld.instance.currentCell, player);
@@ -2423,6 +2427,11 @@ public final class FirstPerson {
         if (inventoryPanels != PointerMode.Inventory.LEAVE) {
             Panels.showInventory(view.index, inventoryPanels == PointerMode.Inventory.OPEN);
         }
+        // The inventory key over the quick loot list opens the panels on what the list is of.
+        ItemContainer listed = view.quickLoot.container();
+        if (inventoryPanels == PointerMode.Inventory.OPEN && listed != null && !Panels.showOpened(view.index, listed)) {
+            Log.info("the loot panel of player " + (view.index + 1) + " did not take the " + listed.getType() + " the quick loot list was of");
+        }
         keepPanels(view.player());
         if (TRACE && !was.equals(pointer.describe())) {
             Log.info("pointer " + pointer.describe());
@@ -2529,7 +2538,7 @@ public final class FirstPerson {
         }
         IsoObject found = centre(player);
         CentreUse.Use tap = keyUse(player, found);
-        CentreUse.Use hold = holdUse(player, found, tap, true);
+        CentreUse.Use hold = holdUse(player, found, tap, lootFor(player, found, tap, true), true);
         return hold != null && hold != tap;
     }
 
@@ -2568,19 +2577,75 @@ public final class FirstPerson {
      * that fills it at once, and on a server its items come some frames later, until when holding
      * the key does what a tap does.
      */
-    private CentreUse.Use holdUse(IsoPlayer player, IsoObject found, CentreUse.Use tap, boolean say) {
-        boolean loot = tap != null && tap.route() == CentreUse.Route.CONTAINER;
-        if (loot && !tap.container().isExplored()) {
-            Panels.explore(view.index, tap.container(), player);
+    private CentreUse.Use holdUse(IsoPlayer player, IsoObject found, CentreUse.Use tap, ItemContainer container, boolean say) {
+        boolean loot = container != null;
+        if (loot && !container.isExplored()) {
+            Panels.explore(view.index, container, player);
         }
-        boolean climbable = CentreUse.climbable(found, player), empty = loot && tap.container().getItems().isEmpty();
+        boolean climbable = CentreUse.climbable(found, player), empty = loot && container.getItems().isEmpty();
         HoleHop.Hop hop = ClickRules.holeMatters(climbable, loot, empty) ? hopAtCentre(say) : null;
         return switch (ClickRules.held(climbable, loot, empty, hop != null)) {
             case CLIMB -> CentreUse.Use.of(CentreUse.Route.CLIMB, found, InteractWords.Does.CLIMB_THROUGH);
-            case TAKE_ALL -> new CentreUse.Use(CentreUse.Route.TAKE_ALL, found, InteractWords.Does.TAKE_ALL, tap.container(), null);
+            case TAKE_ALL -> new CentreUse.Use(CentreUse.Route.TAKE_ALL, found, InteractWords.Does.TAKE_ALL, container, null);
             case HOLE -> new CentreUse.Use(CentreUse.Route.HOLE, null, InteractWords.Does.CLIMB_THROUGH, null, hop);
             case AS_TAP -> tap;
         };
+    }
+
+    /**
+     * The container a tap of the key would loot with the reticle on found, where tap is what a
+     * tap would do (keyUse), or null: the one a tap shows in the loot panel, and for a controller
+     * player, whose key the game keeps there, the one it would show with a pointer while the quick
+     * loot list is on (CentreUse.lootable). fresh: decided now; otherwise the one the list was last
+     * looked for, as the label takes it each frame.
+     */
+    private ItemContainer lootFor(IsoPlayer player, IsoObject found, CentreUse.Use tap, boolean fresh) {
+        if (tap != null && tap.route() == CentreUse.Route.CONTAINER) {
+            return tap.container();
+        }
+        if (tap != null || found == null || view.onMouse() || !Part.QUICK_LOOT.on()) {
+            return null;
+        }
+        return fresh ? view.centreUse.lootable(found, reticleLine, floorUp(player), player) : view.quickLoot.container();
+    }
+
+    /** Whether the gap that keeps the quick loot list off has been logged, so it is once. */
+    private boolean quickLootGapSaid;
+
+    /**
+     * Keeps the quick loot list up for the container the reticle is on (lootFor), looked for a
+     * few times a second, and gone at once while the character aims or the game takes no Interact
+     * key from the player.
+     */
+    private void lookForLoot(IsoPlayer player, IsoObject found, long now) {
+        if (!Part.QUICK_LOOT.running() || keyRefused(player) || player.isAiming()) {
+            view.quickLoot.hide();
+            return;
+        }
+        if (view.quickLoot.looking(now)) {
+            String gap = Agent.quickLootGap();
+            if (gap != null && !quickLootGapSaid) {
+                quickLootGapSaid = true;
+                Log.info("the quick loot list of player " + (view.index + 1) + " is not shown: " + gap);
+            }
+            view.quickLoot.look(gap == null ? lootFor(player, found, keyUse(player, found), true) : null, player, now);
+        }
+        view.quickLoot.taking(true, now);
+    }
+
+    /** Called with a turn of the mouse wheel: whether the mouse player's quick loot list took it. */
+    boolean quickLootWheel(int notch) {
+        return lookCaptured && view.onMouse() && view.quickLoot.wheel(notch);
+    }
+
+    /** Called with the d-pad up or down of this player's controller as the game's Lua reads it: what it is to read (QuickLoot.pad). */
+    boolean quickLootPad(boolean held, boolean upward) {
+        return view.quickLoot.pad(held, upward, System.nanoTime());
+    }
+
+    /** Whether a tap of Interact takes the highlighted row of this player's quick loot list now. */
+    boolean quickLootTakes() {
+        return view.quickLoot.takes(view.quickLoot.container());
     }
 
     /** The world menu the key opens where it acts on nothing else, or null. */
@@ -2607,8 +2672,13 @@ public final class FirstPerson {
         }
         IsoObject found = centre(player);
         CentreUse.Use use = keyUse(player, found);
+        ItemContainer loot = lootFor(player, found, use, true);
+        if (!climb && view.quickLoot.takes(loot)) {
+            view.quickLoot.take(player);
+            return true;
+        }
         if (climb) {
-            use = holdUse(player, found, use, true);
+            use = holdUse(player, found, use, loot, true);
         }
         if (use != null && use.route() == CentreUse.Route.HOLE) {
             HoleHop.go(player, use.hop());
@@ -2654,8 +2724,11 @@ public final class FirstPerson {
             return;
         }
         CentreUse.Use tap = keyUse(player, found);
-        CentreUse.Use hold = holdUse(player, found, tap, false);
-        if (tap == null) {
+        ItemContainer loot = lootFor(player, found, tap, false);
+        CentreUse.Use hold = holdUse(player, found, tap, loot, false);
+        if (view.quickLoot.takes(loot)) {
+            tap = new CentreUse.Use(CentreUse.Route.CONTAINER, found, InteractWords.Does.TAKE_ROW, loot, null);
+        } else if (tap == null) {
             tap = menuUse(player);
         }
         view.interactLabel.update(tap, hold == tap || hold == null ? null : hold, player, now);

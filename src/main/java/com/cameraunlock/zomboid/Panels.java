@@ -7,6 +7,7 @@ import se.krka.kahlua.vm.KahluaTable;
 import zombie.Lua.LuaManager;
 import zombie.characters.IsoPlayer;
 import zombie.input.Mouse;
+import zombie.inventory.InventoryItem;
 import zombie.inventory.ItemContainer;
 import zombie.network.GameClient;
 import zombie.ui.UIElement;
@@ -287,7 +288,7 @@ final class Panels {
     }
 
     /** The kinds of trouble with the loot panel, each logged once per kind for each player. */
-    private enum Trouble { PANEL, SELECT, FLOOR, REFRESH, TAKE_ALL, EXPLORE, CLOSE_SOUND }
+    private enum Trouble { PANEL, SELECT, FLOOR, REFRESH, TAKE_ALL, EXPLORE, CLOSE_SOUND, GRAB }
 
     /** Whether each kind of trouble has been logged for each player: the loot panel is asked after several times a second. */
     private static final boolean[][] troubleSaid = new boolean[View.COUNT][Trouble.values().length];
@@ -409,6 +410,50 @@ final class Panels {
      */
     static void explore(int playerIndex, ItemContainer container, IsoPlayer player) {
         callPage(Trouble.EXPLORE, playerIndex, "checkExplored", LuaManager.env.rawget(INVENTORY_PAGE), container, player);
+    }
+
+    /**
+     * Takes every item of one row of the quick loot list into the player's inventory: a corpse or
+     * a generator is picked up in the hands (ISInventoryPaneContextMenu.equipHeavyItem), and anything else goes through the Grab
+     * of the game's item menu (ISInventoryPaneContextMenu.onGrabItems), which walks the character
+     * over where it has to and queues the game's own timed transfers. Says whether the game was asked.
+     */
+    static boolean grab(int playerIndex, IsoPlayer player, List<InventoryItem> items) {
+        if (!(LuaManager.env.rawget("ISInventoryPaneContextMenu") instanceof KahluaTable menu)) {
+            sayOnce(Trouble.GRAB, playerIndex, "the game's Lua has no ISInventoryPaneContextMenu, so the quick loot list of player " + (playerIndex + 1) + " takes nothing");
+            return false;
+        }
+        InventoryItem first = items.get(0);
+        Object[] done;
+        if (first.isForceDropHeavyItem()) {
+            done = LuaManager.caller.pcall(UIManager.getDefaultThread(), menu.rawget("equipHeavyItem"), player, first);
+        } else {
+            KahluaTable grabbed = LuaManager.platform.newTable();
+            for (int i = 0; i < items.size(); i++) {
+                grabbed.rawset(i + 1, items.get(i));
+            }
+            done = LuaManager.caller.pcall(UIManager.getDefaultThread(), menu.rawget("onGrabItems"), grabbed, Double.valueOf(playerIndex));
+        }
+        if (done.length == 0 || !Boolean.TRUE.equals(done[0])) {
+            sayOnce(Trouble.GRAB, playerIndex, "the game's grab of items failed for player " + (playerIndex + 1) + ": " + Arrays.toString(done));
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Has a player's loot panel, just opened, show a container, listing the containers round the
+     * character first where the game has not put it among them yet. Says whether it shows it.
+     */
+    static boolean showOpened(int playerIndex, ItemContainer container) {
+        KahluaTable loot = inventoryPanel(LOOT_PANEL, playerIndex);
+        if (loot == null) {
+            return false;
+        }
+        if (!listed(loot, container) && !callPage(Trouble.REFRESH, playerIndex, "refreshBackpacks", loot)) {
+            return false;
+        }
+        return showInLoot(playerIndex, container);
     }
 
     /** The container the game's loot panel gathers what lies on the floor round a player into, or null where its Lua has none to give. */

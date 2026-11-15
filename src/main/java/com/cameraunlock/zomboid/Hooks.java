@@ -175,6 +175,47 @@ public final class Hooks {
             Log.error("a fishing rod is aimed from the first person view at the square under the hidden pointer", failure);
         }
         HeldMap.luaLoaded();
+        try {
+            QuickLoot.luaLoaded();
+        } catch (RuntimeException failure) {
+            Log.error("a controller's Interact prompt does not name the quick loot list's take, and does the game's own beside it", failure);
+        }
+    }
+
+    /**
+     * In place of UIManager.update zooming the game's view for a turn of the mouse wheel, which
+     * the mouse player's quick loot list takes while it is up (QuickLoot.wheel).
+     *
+     * @param notch 1 for a notch towards the player, -1 away
+     */
+    public static void zoomScroll(zombie.core.Core core, int playerIndex, int notch) {
+        View view = View.first();
+        if (!view.firstPerson.quickLootWheel(notch)) {
+            core.doZoomScroll(playerIndex, notch);
+        }
+    }
+
+    /** Called with whether the d-pad of a controller is held up, as the game's Lua asks: see QuickLoot.pad. */
+    public static boolean padUp(boolean held, int joypad) {
+        View view = padsView(joypad);
+        return view == null ? held : view.firstPerson.quickLootPad(held, true);
+    }
+
+    /** Called with whether the d-pad of a controller is held down, as the game's Lua asks: see QuickLoot.pad. */
+    public static boolean padDown(boolean held, int joypad) {
+        View view = padsView(joypad);
+        return view == null ? held : view.firstPerson.quickLootPad(held, false);
+    }
+
+    /** The view of the player a controller is bound to, or null. */
+    private static View padsView(int joypad) {
+        for (int i = 0; i < View.COUNT; i++) {
+            IsoPlayer player = IsoPlayer.players[i];
+            if (player != null && player.getJoypadBind() == joypad) {
+                return View.of(i);
+            }
+        }
+        return null;
     }
 
     /** Called among the game's UI drawing, before any of it: see HeldMap. */

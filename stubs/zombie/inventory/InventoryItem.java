@@ -31,4 +31,9 @@ public class InventoryItem {
     public ItemContainer getContainer() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.iso.objects.IsoWorldInventoryObject getWorldItem() { throw new UnsupportedOperationException("reference stub"); }
     public void setWorldItem(zombie.iso.objects.IsoWorldInventoryObject worldItem) { throw new UnsupportedOperationException("reference stub"); }
+    public String getName(zombie.characters.IsoPlayer player) { throw new UnsupportedOperationException("reference stub"); }
+    public boolean isHidden() { throw new UnsupportedOperationException("reference stub"); }
+    public float getUnequippedWeight() { throw new UnsupportedOperationException("reference stub"); }
+    public boolean isForceDropHeavyItem() { throw new UnsupportedOperationException("reference stub"); }
+    public boolean IsFood() { throw new UnsupportedOperationException("reference stub"); }
 }

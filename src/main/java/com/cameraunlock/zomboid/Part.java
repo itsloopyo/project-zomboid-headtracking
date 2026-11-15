@@ -124,6 +124,12 @@ enum Part {
                     + "on none of those, a body you stand over. The inventory key or a middle click brings the mouse pointer out to use\n"
                     + "them, and the same again or Escape goes back to looking, with them open again. They fold while you aim.\n"
                     + "false: they open with the inventory key or Interact on a container, and close again as you go back to looking."),
+    QUICK_LOOT("FirstPerson", "QuickLoot", true, true,
+            "true: in first person, with the crosshair on a container or a body within reach, a short list of what is in it\n"
+                    + "stands beside the crosshair, with the container's weight against what it holds. A tap of the Interact key takes\n"
+                    + "the highlighted item, holding it takes everything, and the mouse wheel, or up and down on a controller's d-pad,\n"
+                    + "moves the highlight. The inventory key opens the game's panels with the container in the loot panel.\n"
+                    + "false: no list, and a tap of the Interact key on a container shows it in the loot panel."),
     FIGURES_BEHIND_WALLS("FirstPerson", "FiguresBehindWalls", true, false,
             "true: in first person, a zombie, person or animal against a wall, a shut door or a fence you cannot see through is\n"
                     + "not drawn reaching, leaning or poking through it to your side. false: they are drawn as the game poses them, so a\n"
