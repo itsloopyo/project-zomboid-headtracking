@@ -5,6 +5,7 @@ import java.util.List;
 import se.krka.kahlua.vm.KahluaTable;
 import zombie.Lua.LuaManager;
 import zombie.characters.IsoPlayer;
+import zombie.inventory.ItemContainer;
 import zombie.ui.UIElement;
 import zombie.ui.UIElementInterface;
 import zombie.ui.UIManager;
@@ -17,7 +18,8 @@ import zombie.ui.UIManager;
  */
 final class Panels {
     /** The Lua functions that hand back a player's inventory panel and loot panel. */
-    private static final List<String> INVENTORY_PANELS = List.of("getPlayerInventory", "getPlayerLoot");
+    private static final String LOOT_PANEL = "getPlayerLoot", INVENTORY_PAGE = "ISInventoryPage";
+    private static final List<String> INVENTORY_PANELS = List.of("getPlayerInventory", LOOT_PANEL);
 
     /**
      * The Lua classes whose panels are windows and dialogs. The inventory and
@@ -183,12 +185,132 @@ final class Panels {
      */
     static void showInventory(int playerIndex, boolean visible) {
         for (String function : INVENTORY_PANELS) {
-            Object[] found = LuaManager.caller.pcall(UIManager.getDefaultThread(), LuaManager.env.rawget(function), Double.valueOf(playerIndex));
-            if (found.length < 2 || !Boolean.TRUE.equals(found[0]) || !(found[1] instanceof KahluaTable panel)) {
+            KahluaTable panel = inventoryPanel(function, playerIndex);
+            if (panel != null) {
+                LuaManager.caller.pcallvoid(UIManager.getDefaultThread(), UIManager.tableget(panel, "setVisible"), panel, visible);
+            }
+        }
+    }
+
+    /**
+     * A player's inventory or loot panel, by the Lua function that hands it back, or null. That
+     * it gave none is logged once until it gives one again: the loot panel is asked after
+     * several times a second while it follows the look.
+     */
+    private static KahluaTable inventoryPanel(String function, int playerIndex) {
+        int which = INVENTORY_PANELS.indexOf(function);
+        Object[] found = LuaManager.caller.pcall(UIManager.getDefaultThread(), LuaManager.env.rawget(function), Double.valueOf(playerIndex));
+        if (found.length < 2 || !Boolean.TRUE.equals(found[0]) || !(found[1] instanceof KahluaTable panel)) {
+            if (!panelTroubleSaid[playerIndex][which]) {
+                panelTroubleSaid[playerIndex][which] = true;
                 Log.info("the game's " + function + "(" + playerIndex + ") gave no panel, which is left as it is: " + Arrays.toString(found));
+            }
+            return null;
+        }
+        panelTroubleSaid[playerIndex][which] = false;
+        return panel;
+    }
+
+    private static final boolean[][] panelTroubleSaid = new boolean[View.COUNT][INVENTORY_PANELS.size()];
+
+    /**
+     * For each player, which of the inventory and loot panels InventoryStaysOpen pinned, in
+     * INVENTORY_PANELS' order, so that only those are unpinned again as it lets go of them.
+     */
+    private static final boolean[][] pinnedHere = new boolean[View.COUNT][INVENTORY_PANELS.size()];
+
+    /**
+     * Keeps a player's inventory and loot panels open on the screen (InventoryStaysOpen), or lets
+     * go of them. Unpinned, the game folds a panel to its title bar a moment after the pointer
+     * leaves it and on any click outside it, and with the mouse turning the view the pointer is
+     * always outside, so each is shown and pinned with its own pin button's call. Letting go
+     * unpins only the panels pinned here and still pinned, and leaves them on the screen as the
+     * game has them: a player who pinned one themselves keeps it pinned. Says whether the game
+     * gave both panels.
+     */
+    static boolean keepOpen(int playerIndex, boolean kept) {
+        boolean both = true;
+        for (int i = 0; i < INVENTORY_PANELS.size(); i++) {
+            KahluaTable panel = inventoryPanel(INVENTORY_PANELS.get(i), playerIndex);
+            if (panel == null) {
+                both = false;
                 continue;
             }
-            LuaManager.caller.pcallvoid(UIManager.getDefaultThread(), UIManager.tableget(panel, "setVisible"), panel, visible);
+            boolean pinned = Boolean.TRUE.equals(panel.rawget("pin"));
+            if (kept) {
+                LuaManager.caller.pcallvoid(UIManager.getDefaultThread(), UIManager.tableget(panel, "setVisible"), panel, true);
+                if (!pinned) {
+                    callOn(panel, "setPinned", INVENTORY_PANELS.get(i), playerIndex);
+                    pinnedHere[playerIndex][i] = true;
+                }
+            } else {
+                if (pinnedHere[playerIndex][i] && pinned) {
+                    callOn(panel, "collapse", INVENTORY_PANELS.get(i), playerIndex);
+                }
+                pinnedHere[playerIndex][i] = false;
+            }
+        }
+        return both;
+    }
+
+    /** Calls a method of a player's panel that takes nothing, and logs where the game's Lua raised an error in it. */
+    private static void callOn(KahluaTable panel, String method, String function, int playerIndex) {
+        Object[] done = LuaManager.caller.pcall(UIManager.getDefaultThread(), UIManager.tableget(panel, method), panel);
+        if (done.length == 0 || !Boolean.TRUE.equals(done[0])) {
+            Log.info("the game's " + method + " on " + function + "(" + playerIndex + ") failed: " + Arrays.toString(done));
+        }
+    }
+
+    /** The container a player's loot panel shows now, or null where there is no panel or it shows none. */
+    static ItemContainer lootShown(int playerIndex) {
+        KahluaTable loot = inventoryPanel(LOOT_PANEL, playerIndex);
+        return loot != null && loot.rawget("inventoryPane") instanceof KahluaTable pane && pane.rawget("inventory") instanceof ItemContainer shown ? shown : null;
+    }
+
+    /**
+     * Has a player's loot panel show a container, through the call its own buttons make, where
+     * the game has put it among the panel's buttons: those are the containers round the
+     * character that it can reach (ISInventoryPage.refreshBackpacks). Says whether the panel now
+     * shows it.
+     */
+    static boolean showInLoot(int playerIndex, ItemContainer container) {
+        KahluaTable loot = inventoryPanel(LOOT_PANEL, playerIndex);
+        if (loot == null) {
+            return false;
+        }
+        Object select = inventoryPage("selectButtonForContainer");
+        Object[] done = select == null ? new Object[0] : LuaManager.caller.pcall(UIManager.getDefaultThread(), select, loot, container);
+        if (done.length == 0 || !Boolean.TRUE.equals(done[0])) {
+            sayLuaTrouble("the game's ISInventoryPage.selectButtonForContainer failed, so the loot panel does not follow the look: " + Arrays.toString(done));
+            return false;
+        }
+        return lootShown(playerIndex) == container;
+    }
+
+    /** The container the game's loot panel gathers what lies on the floor round a player into, or null where its Lua has none to give. */
+    static ItemContainer floor(int playerIndex) {
+        Object gather = inventoryPage("GetFloorContainer");
+        Object[] found = gather == null ? new Object[0] : LuaManager.caller.pcall(UIManager.getDefaultThread(), gather, Double.valueOf(playerIndex));
+        if (found.length > 1 && Boolean.TRUE.equals(found[0]) && found[1] instanceof ItemContainer floor) {
+            return floor;
+        }
+        sayLuaTrouble("the game's ISInventoryPage.GetFloorContainer(" + playerIndex + ") gave no container, so the loot panel does not follow the look to the floor: "
+                + Arrays.toString(found));
+        return null;
+    }
+
+    /** A function of the game's ISInventoryPage, or null where its Lua has none. */
+    private static Object inventoryPage(String function) {
+        return LuaManager.env.rawget(INVENTORY_PAGE) instanceof KahluaTable page ? page.rawget(function) : null;
+    }
+
+    /** Whether trouble with the loot panel following the look has been logged: it is asked several times a second. */
+    private static boolean luaTroubleSaid;
+
+    private static void sayLuaTrouble(String trouble) {
+        if (!luaTroubleSaid) {
+            luaTroubleSaid = true;
+            Log.info(trouble);
         }
     }
 

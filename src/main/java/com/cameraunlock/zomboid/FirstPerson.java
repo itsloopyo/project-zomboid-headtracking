@@ -35,7 +35,11 @@ import zombie.iso.IsoCell;
 import zombie.iso.IsoChunk;
 import zombie.iso.IsoChunkMap;
 import zombie.iso.IsoMetaGrid;
+import zombie.inventory.ItemContainer;
 import zombie.iso.IsoGridSquare;
+import zombie.iso.IsoMovingObject;
+import zombie.iso.objects.IsoDeadBody;
+import zombie.iso.objects.IsoWorldInventoryObject;
 import zombie.iso.IsoObject;
 import zombie.iso.IsoUtils;
 import zombie.iso.IsoWorld;
@@ -253,6 +257,9 @@ public final class FirstPerson {
     /** Logic frames in a row with no player at this view's number. */
     private int goneFor;
     private final PointerMode pointer = new PointerMode();
+    /** Whether the inventory and loot panels are kept open with the look (InventoryStaysOpen), and the loot panel following it. */
+    private boolean panelsKept;
+    private final LootFollow lootFollow = new LootFollow();
     /**
      * Leaving for the main menu stops the frames with the look still marked as captured, and
      * the game goes on reading its keys there.
@@ -1155,6 +1162,10 @@ public final class FirstPerson {
         // the look is let go of as the sleep begins, while frames still come to let go of the mouse.
         active = landed && !GameTime.isGamePaused() && !player.isDead() && !player.isAsleep();
         if (!landed || !view.onMouse()) {
+            if (panelsKept) {
+                // Out of first person the panels are the game's again, on the screen as it has them.
+                keepPanels(false, false);
+            }
             pointer.reset();
         } else if (active) {
             point();
@@ -1372,6 +1383,9 @@ public final class FirstPerson {
             IsoObject found = view.centreUse.under(reticleLine, floorUp, player, IsoWorld.instance.currentCell);
             view.centreUse.mark(found);
             label(player, found, now);
+            if (panelsKept && lootFollow.looking(now)) {
+                followLoot(player, found, now);
+            }
         } else {
             view.centreUse.marked = Outlines.NONE;
             view.interactLabel.hide();
@@ -2384,6 +2398,9 @@ public final class FirstPerson {
             GameKeyboard.eatKeyPress(ESCAPE_KEY);
         }
         String was = TRACE ? pointer.describe() : null;
+        if (Part.INVENTORY_STAYS_OPEN.on() != panelsKept) {
+            keepPanels(!panelsKept, !pointer.byKey());
+        }
         int panels = Panels.open(view.index);
         long now = System.nanoTime();
         if (aimButton) {
@@ -2399,6 +2416,69 @@ public final class FirstPerson {
         if (TRACE && !was.equals(pointer.describe())) {
             Log.info("pointer " + pointer.describe());
         }
+    }
+
+    /**
+     * Keeps the inventory and loot panels open with the look (InventoryStaysOpen), or lets go of
+     * them, and hides them as letting go where hide says: in first person with the pointer not
+     * out for the inventory, where they would be closed without the option. Where the game has
+     * not made a panel yet, keeping them open is tried again on the next frame.
+     */
+    private void keepPanels(boolean kept, boolean hide) {
+        if (!Panels.keepOpen(view.index, kept) && kept) {
+            return;
+        }
+        panelsKept = kept;
+        pointer.keepPanels(kept);
+        lootFollow.reset();
+        if (!kept && hide) {
+            Panels.showInventory(view.index, false);
+        }
+        Log.info("the inventory and loot panels of player " + (view.index + 1) + (kept ? " are kept open in first person" : " are no longer kept open"));
+    }
+
+    /**
+     * Has the loot panel show what the crosshair is on within reach, as Interact would open it: a
+     * container, the half of a fridge the view is on, or a body; the floor for something lying on
+     * it; and with the crosshair on none of those, a body the character stands over. The panel
+     * shows only what the game has put among its containers round the character.
+     */
+    private void followLoot(IsoPlayer player, IsoObject found, long now) {
+        ItemContainer target = null;
+        if (!player.isAiming()) {
+            if (found instanceof IsoWorldInventoryObject lying) {
+                IsoGridSquare from = player.getCurrentSquare(), at = lying.getSquare();
+                if (from != null && at != null && at.getZ() == from.getZ() && Math.abs(at.getX() - from.getX()) <= 1 && Math.abs(at.getY() - from.getY()) <= 1) {
+                    target = Panels.floor(view.index);
+                }
+            } else if (found != null) {
+                CentreUse.Use use = keyUse(player, found, false, null);
+                if (use != null && use.route() == CentreUse.Route.CONTAINER) {
+                    target = use.container();
+                }
+            }
+            if (target == null) {
+                target = bodyUnderfoot(player);
+            }
+        }
+        if (lootFollow.asks(target, now)) {
+            lootFollow.taken(Panels.showInLoot(view.index, target));
+        }
+    }
+
+    /** The container of a person's body on the character's square, or null. The game lists no animal's in the loot panel. */
+    private static ItemContainer bodyUnderfoot(IsoPlayer player) {
+        IsoGridSquare square = player.getCurrentSquare();
+        if (square == null) {
+            return null;
+        }
+        java.util.ArrayList<IsoMovingObject> lying = square.getStaticMovingObjects();
+        for (int i = 0; i < lying.size(); i++) {
+            if (lying.get(i) instanceof IsoDeadBody body && !body.isAnimal() && body.getContainer() != null) {
+                return body.getContainer();
+            }
+        }
+        return null;
     }
 
     /**

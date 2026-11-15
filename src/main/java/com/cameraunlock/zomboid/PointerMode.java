@@ -8,7 +8,9 @@ package com.cameraunlock.zomboid;
  * that opens; and a click of a button, which holds it until Escape is pressed.
  * A click of the button with the pointer out, whatever brought it out, is the
  * way back to the look: it closes the inventory as Escape does and leaves any
- * other panel open without the pointer.
+ * other panel open without the pointer. With InventoryStaysOpen on, the
+ * inventory and loot panels stay on the screen through all of that, and only
+ * the pointer comes and goes.
  */
 final class PointerMode {
     /** What the inventory and loot panels are to do after an update. */
@@ -18,6 +20,8 @@ final class PointerMode {
     private static final int UNCOUNTED = -1;
 
     private boolean byKey, byPanel, clicked;
+    /** Whether the inventory and loot panels stay on the screen with the look (InventoryStaysOpen): then nothing here closes them. */
+    private boolean panelsKept;
     /**
      * How many panels are open that the pointer is not out for: the ones
      * already there when the view was turned on or the player went back to the
@@ -67,7 +71,12 @@ final class PointerMode {
         } else if (click) {
             clicked = true;
         }
-        return inventory;
+        return panelsKept && inventory == Inventory.CLOSE ? Inventory.LEAVE : inventory;
+    }
+
+    /** Whether the panels stay on the screen when the pointer goes back to the look (InventoryStaysOpen). */
+    void keepPanels(boolean kept) {
+        panelsKept = kept;
     }
 
     /**

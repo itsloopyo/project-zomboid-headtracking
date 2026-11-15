@@ -131,6 +131,7 @@ public final class Tests {
         Checks.run("viewpointsCameraLetsGoOfASaveLeft", Tests::viewpointsCameraLetsGoOfASaveLeft);
         Checks.run("headTrackingReachesTheCaptureOfEitherViewpointVersion", Tests::headTrackingReachesTheCaptureOfEitherViewpointVersion);
         Checks.run("pointerComesOutForTheInventoryKeyAPanelAndAClickedButton", Tests::pointerComesOutForTheInventoryKeyAPanelAndAClickedButton);
+        Checks.run("lootPanelFollowsTheCrosshairOncePerThing", Tests::lootPanelFollowsTheCrosshairOncePerThing);
         Checks.run("transformerHasNoGapOnceEveryPatchIsIn", Tests::transformerHasNoGapOnceEveryPatchIsIn);
         Checks.run("exceptionTheGameCaughtFromTheModIsWrittenOnce", Tests::exceptionTheGameCaughtFromTheModIsWrittenOnce);
         Checks.run("exceptionWhoseCausesLoopIsLookedThroughOnce", Tests::exceptionWhoseCausesLoopIsLookedThroughOnce);
@@ -3321,6 +3322,41 @@ public final class Tests {
         pointer.forNewest(1);
         pointer.menuShut();
         check(pointer.update(false, false, false, 0) == leave && pointer.on() && pointer.byKey(), "but leaves the inventory open");
+
+        PointerMode kept = new PointerMode();
+        kept.keepPanels(true);
+        check(kept.update(true, false, false, 0) == open && kept.on(), "with the panels kept up, the inventory key still brings the pointer out");
+        check(kept.update(true, false, false, 0) == leave && !kept.on(), "and the key again goes back to the look, leaving the panels up");
+        kept.update(true, false, false, 0);
+        check(kept.update(false, true, false, 0) == leave && !kept.on(), "Escape goes back to the look and leaves them up");
+        kept.update(true, false, false, 0);
+        check(kept.update(false, false, true, 0) == leave && !kept.on(), "so does a click of the button");
+        kept.open();
+        check(kept.update(false, false, true, 0) == leave && !kept.on(), "and one after a container opened from the look");
+        kept.keepPanels(false);
+        kept.update(true, false, false, 0);
+        check(kept.update(true, false, false, 0) == close, "with the panels no longer kept, the key closes them again");
+    }
+
+    private static void lootPanelFollowsTheCrosshairOncePerThing() {
+        LootFollow follow = new LootFollow();
+        long ms = 1_000_000L;
+        check(follow.looking(0), "the first frame looks for what the crosshair is on");
+        check(!follow.looking(50 * ms), "the next frames do not");
+        check(follow.looking(100 * ms), "a tenth of a second later it looks again");
+        Object shelf = new Object(), fridge = new Object();
+        check(!follow.asks(null, 0), "the crosshair on nothing asks for nothing");
+        check(follow.asks(shelf, 0), "on a shelf, the panel is asked to show it");
+        follow.taken(true);
+        check(!follow.asks(shelf, 1000 * ms), "and once it shows it, not again while the crosshair stays on it");
+        check(follow.asks(fridge, 1000 * ms), "a fridge next is asked for");
+        follow.taken(false);
+        check(!follow.asks(fridge, 1100 * ms), "one the panel did not take is not asked for at once");
+        check(follow.asks(fridge, 1250 * ms), "but a quarter of a second later");
+        follow.taken(true);
+        check(!follow.asks(null, 1300 * ms) && follow.asks(fridge, 1400 * ms), "looking away and back at it asks again");
+        follow.reset();
+        check(follow.looking(1401 * ms) && follow.asks(fridge, 1401 * ms), "after a reset it looks and asks at once");
     }
 
     private static byte[] subjectWithField(String name, ClassDesc type, int flags) {
