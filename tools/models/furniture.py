@@ -1611,6 +1611,67 @@ def washing_machine(name="washing_machine", lid_off=False):
     return model
 
 
+# The front-loading washer the game paints as a Combo Washer Dryer: a white case under a blue cap, which wraps down over
+# the top of its front as the fascia its display and buttons are on, and a round door in its front, hinged on its left
+# with its latch on its right. Its half width, the y of its front and its back, the height of its case and of its cap's
+# top, and the height of its door's middle, the door's radius and the radius of the drum behind it.
+FRONT_LOADER_HALF, FRONT_LOADER_FRONT, FRONT_LOADER_BACK = 0.3, -0.3, 0.3
+FRONT_LOADER_CASE, FRONT_LOADER_TOP = 0.72, 0.86
+FRONT_LOADER_DOOR_Z, FRONT_LOADER_DOOR, FRONT_LOADER_DRUM = 0.4, 0.21, 0.16
+
+
+def front_loader_door(door, glass, latch):
+    """A front loader's round door, shut: its ring into door, its window into glass and its latch into latch, its middle at
+    (x = 0, z = FRONT_LOADER_DOOR_Z) on the case's front. Its hinge is the upright through x = -FRONT_LOADER_DOOR."""
+    front, reach = FRONT_LOADER_FRONT, FRONT_LOADER_DOOR
+    lathe(door, [(0.15, 0.0), (reach, 0.0), (reach, 0.022), (reach - 0.016, 0.04), (0.15, 0.04)], segments=24, closed=True,
+          to=along_y(0.0, front, FRONT_LOADER_DOOR_Z))
+    lathe(glass, [(0.0, 0.0), (0.15, 0.0), (0.15, 0.014), (0.1, 0.034), (0.0, 0.04)], segments=20, to=along_y(0.0, front, FRONT_LOADER_DOOR_Z))
+    cuboid(latch, reach - 0.035, reach + 0.008, front - 0.052, front - 0.03, FRONT_LOADER_DOOR_Z - 0.045, FRONT_LOADER_DOOR_Z + 0.045)
+
+
+def front_loader(name="front_loader", door_off=False):
+    """A front-loading washing machine. door_off leaves its door (front_loader_door) out over its open drum."""
+    model = Model(name)
+    half, front, back = FRONT_LOADER_HALF, FRONT_LOADER_FRONT, FRONT_LOADER_BACK
+    case, top = FRONT_LOADER_CASE, FRONT_LOADER_TOP
+    body = bmesh.new()
+    if door_off:
+        made = pocket_box(body, -half, half, 0.04, case, -(back - front), 0.0, round_hole(0.0, FRONT_LOADER_DOOR_Z, FRONT_LOADER_DRUM), 0.42,
+                          segments=32)
+        into_front(body, made, front)
+    else:
+        cuboid(body, -half, half, front, back, 0.04, case)
+    model.hard(body, "enamel", bevel=0.01, segments=2)
+
+    cap = bmesh.new()
+    cuboid(cap, -half - 0.004, half + 0.004, front - 0.004, back + 0.004, case, top)
+    model.hard(cap, "paint", bevel=0.016, segments=3)
+
+    plinth = bmesh.new()
+    cuboid(plinth, -half + 0.02, half - 0.02, front + 0.025, back - 0.02, 0.0, 0.04)
+    model.hard(plinth, "rubber", bevel=0.004, segments=1)
+
+    if not door_off:
+        door, glass, latch = bmesh.new(), bmesh.new(), bmesh.new()
+        front_loader_door(door, glass, latch)
+        model.turned(door, "metal", sharp=40.0)
+        model.turned(glass, "screen", sharp=50.0)
+        model.hard(latch, "paint", bevel=0.004, segments=1)
+
+    fascia = bmesh.new()
+    cuboid(fascia, -half + 0.05, -half + 0.2, front - 0.01, front - 0.002, case + 0.04, case + 0.09)
+    model.hard(fascia, "screen", bevel=0.002, segments=1)
+    buttons = bmesh.new()
+    for i in range(3):
+        for j in range(2):
+            lathe(buttons, [(0.0, 0.0), (0.011, 0.0), (0.01, 0.006), (0.0, 0.007)], segments=8,
+                  to=along_y(-0.04 + i * 0.04, front - 0.004, case + 0.045 + j * 0.035))
+    lathe(buttons, [(0.0, 0.0), (0.026, 0.0), (0.024, 0.016), (0.0, 0.018)], segments=14, to=along_y(half - 0.07, front - 0.004, case + 0.065))
+    model.turned(buttons, "metal")
+    return model
+
+
 def wheelie_bin():
     model = Model("wheelie_bin")
 
@@ -13867,7 +13928,7 @@ def every():
               cabinet("counter", 0.62, 0.90, True), cabinet("counter_sink", 0.62, 0.90, True, sink=True),
               cabinet("counter_corner", 0.62, 0.90, True, corner=True), cabinet("wall_cupboard", 0.34, 0.70, False),
               cabinet("wall_cupboard_corner", 0.34, 0.70, False, corner=True), fridge(), oven(), bookcase(), locker(), tv(), tv_wide(), tv_console(), lit_screen(),
-              table_lamp(), toilet(), bath(), washing_machine(), wheelie_bin(), litter_bin(), mailbox(), postbox(), park_bench(),
+              table_lamp(), toilet(), bath(), washing_machine(), front_loader(), wheelie_bin(), litter_bin(), mailbox(), postbox(), park_bench(),
               picnic_table(), crate(), barrel(),
               framed("frame_tall", 0.6, 0.9), framed("frame_square", 0.7, 0.7), framed("frame_wide", 0.9, 0.6), canvas(), sheet(), wall_clock(),
               table("table_2", 1.9, 0.92), table("table_3", 2.9, 0.92), table("table_4", 1.9, 1.9, leg=0.08), table("narrow_table", 0.92, 0.5),

@@ -834,6 +834,11 @@ final class Furniture {
         if (called.equals("Oven") && holds.equals("stove") && single && counterHigh) {
             return new Furniture(sprite, "oven", turns).dye(1 << Models.ENAMEL, surfaceHigh * 0.45f).stand(surfaceUp, OVEN_HOB, true);
         }
+        // The game's combination washer dryer is a front loader under a blue cap, its door in its front: the cap is
+        // dyed from the middle of its top.
+        if (holds.equals("clothingwasher") && called.equals("Combo Washer Dryer") && single && counterHigh) {
+            return new Furniture(sprite, "front_loader", turns).dye(1 << Models.PAINT, surfaceHigh).stand(surfaceUp, FRONT_LOADER_TOP, true);
+        }
         if (holds.equals("clothingwasher") && single && counterHigh) {
             return new Furniture(sprite, "washing_machine", turns).dye(1 << Models.ENAMEL, surfaceHigh * 0.5f).stand(surfaceUp, WASHER_TOP, true);
         }
@@ -1121,7 +1126,7 @@ final class Furniture {
     }
 
     /** How high, in metres, the part of a model is that the game gives the height of: an oven's hob under its back, a bench's seat, a basin's rim. */
-    private static final float OVEN_HOB = 0.91f, WASHER_TOP = 0.92f, BENCH_SEAT = 0.455f, SINK_RIM = 0.44f;
+    private static final float OVEN_HOB = 0.91f, WASHER_TOP = 0.92f, FRONT_LOADER_TOP = 0.86f, BENCH_SEAT = 0.455f, SINK_RIM = 0.44f;
     /** How high the top of the antique television's cabinet is on its model, which the game's Surface stands at. */
     static final float TV_CABINET_TOP = 0.78f;
     /** How far from the middle of its square, towards its back, a piece on the wall gives its colour. */

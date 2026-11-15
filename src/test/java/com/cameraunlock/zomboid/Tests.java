@@ -1797,7 +1797,7 @@ public final class Tests {
     private static void jarHoldsEveryModelStoodOnTheFloor() {
         String[] names = {"double_bed", "single_bed", "wardrobe", "dining_chair", "small_table", "sofa", "armchair", "bedside_cabinet", "dresser", "desk",
                 "office_chair", "counter", "counter_sink", "counter_corner", "wall_cupboard", "wall_cupboard_corner", "fridge", "oven", "bookcase", "locker",
-                "tv", "tv_wide", "tv_console", "lit_screen", "table_lamp", "toilet", "bath", "washing_machine", "wheelie_bin", "litter_bin", "mailbox", "postbox", "park_bench",
+                "tv", "tv_wide", "tv_console", "lit_screen", "table_lamp", "toilet", "bath", "washing_machine", "front_loader", "wheelie_bin", "litter_bin", "mailbox", "postbox", "park_bench",
                 "picnic_table", "crate", "barrel", "frame_tall", "frame_square", "frame_wide", "canvas", "wall_clock", "table_2", "table_3", "table_4",
                 "narrow_table", "low_table", "low_table_2", "round_table", "office_desk", "shop_counter", "low_shelves", "wall_shelf", "wall_shelves",
                 "metal_rack", "store_shelves", "plastic_chair", "garden_chair", "patio_table", "folding_chair", "booth", "stool", "vending_machine", "arcade_machine", "dumpster_sloped", "dumpster_domed",

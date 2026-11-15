@@ -26,6 +26,7 @@ final class FurnitureTests {
         Checks.run("shuttersHangOnTheirWallPanelledOrLouvredInTheirColour", FurnitureTests::shuttersHangOnTheirWallPanelledOrLouvredInTheirColour);
         Checks.run("binsGoByWhatTheyHoldWhereverTheyStand", FurnitureTests::binsGoByWhatTheyHoldWhereverTheyStand);
         Checks.run("aSteelCounterIsSteelAndAWoodenOneIsNot", FurnitureTests::aSteelCounterIsSteelAndAWoodenOneIsNot);
+        Checks.run("aComboWasherDryerIsAFrontLoaderAndAWashingMachineATopLoader", FurnitureTests::aComboWasherDryerIsAFrontLoaderAndAWashingMachineATopLoader);
         Checks.run("aSinkInATableTopIsABasinOfItsOwnWhereNoCounterTakesIt", FurnitureTests::aSinkInATableTopIsABasinOfItsOwnWhereNoCounterTakesIt);
         Checks.run("floorLampsAreToldByTheirPlace", FurnitureTests::floorLampsAreToldByTheirPlace);
         Checks.run("aBunkBedIsSteelOrWoodByItsGroup", FurnitureTests::aBunkBedIsSteelOrWoodByItsGroup);
@@ -421,6 +422,17 @@ final class FurnitureTests {
         check(model(corner).equals("steel_counter_corner") && corner.withBasin == null, "its corner is the steel corner, with no sink: " + model(corner));
         Furniture wood = Furniture.known(sprite("fixtures_counters_01_1" + row.replace("MetalPlates|Material2|Screws", "Wood|Material2|Nails") + "Modern"));
         check(!model(wood).startsWith("steel"), "a counter of another group is not steel: " + model(wood));
+    }
+
+    private static void aComboWasherDryerIsAFrontLoaderAndAWashingMachineATopLoader() {
+        String row = "|BlocksPlacement||CanScrap||ContainerCapacity|20|Facing|S|IsLow||IsMoveAble||IsTable||Material|Fridge|Material2|MetalScrap|"
+                + "Material3|Electric|MaterialType|Metal|PickUpLevel|3|PickUpTool|Electrician|PickUpWeight|200|PlaceTool|Electrician|container|clothingwasher|"
+                + "solidtrans||waterPiped||";
+        Furniture combo = Furniture.known(sprite("appliances_laundry_01_0" + row + "Surface|38|CustomName|Combo Washer Dryer|GroupName|Blue|IsoType|IsoCombinationWasherDryer"));
+        check(model(combo).equals("front_loader"), "the game's combination washer dryer is painted with its door in its front: " + model(combo));
+        check(combo != null && combo.dyed == 1 << Models.PAINT, "and its blue cap takes the sprite's colour, its white case its own");
+        Furniture washer = Furniture.known(sprite("appliances_laundry_01_4" + row + "Surface|36|CustomName|Washing Machine|GroupName|White|IsoType|IsoClothingWasher"));
+        check(model(washer).equals("washing_machine"), "a washing machine is painted with its lid in its top: " + model(washer));
     }
 
     private static void aSinkInATableTopIsABasinOfItsOwnWhereNoCounterTakesIt() {
