@@ -886,6 +886,23 @@ final class Pipeline {
     private static final int[] FIGURE_BUFFERS = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT0 + 1, GL_COLOR_ATTACHMENT0 + 2},
             LAMP_BUFFERS = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT0 + 2};
     private boolean lampsSaid;
+    private static boolean textureCapsSaid;
+
+    /**
+     * Says once what the game's own options shrink the textures of its models to, which first
+     * person draws far larger than the isometric view does. Its weapon and item textures are
+     * mostly 256 a side or smaller and its car skins 512, so only a cap under those makes them coarser still.
+     * The mipmap option is said for the record: this build of the game sets nothing by it.
+     */
+    private static void sayTextureCaps() {
+        if (textureCapsSaid) {
+            return;
+        }
+        textureCapsSaid = true;
+        Core options = Core.getInstance();
+        Log.info("the game's own options cap its model textures at " + options.getMaxTextureSize() + " (Maximum Texture Size) and its vehicle textures at "
+                + options.getMaxVehicleTextureSize() + " (Maximum Vehicle Texture Size); Model Texture Mipmaps is " + (options.getOptionModelTextureMipmaps() ? "on" : "off"));
+    }
     private static final int NORMAL_UNIT = 22;
     private static final int[] FIRST_BUFFER = {GL_COLOR_ATTACHMENT0}, BOTH_BUFFERS = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT0 + 1};
     private int mirrorColor, mirrorTarget, mirrorDepth;
@@ -7008,6 +7025,7 @@ final class Pipeline {
             if (preparing == 0) {
                 shadersBegan = start;
                 String limits = GlFloor.limits();
+                sayTextureCaps();
                 if (limits != null) {
                     Pictures.letGoOfReadAhead();
                     return limits;

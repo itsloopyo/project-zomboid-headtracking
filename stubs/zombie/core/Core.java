@@ -24,4 +24,7 @@ public final class Core {
 
     public record KeyBinding(String name, int keyValue, int altKey, boolean shift, boolean ctrl, boolean alt) {}
     public boolean getOptionAutoWalkContainer() { throw new UnsupportedOperationException("reference stub"); }
+    public int getMaxTextureSize() { throw new UnsupportedOperationException("reference stub"); }
+    public int getMaxVehicleTextureSize() { throw new UnsupportedOperationException("reference stub"); }
+    public boolean getOptionModelTextureMipmaps() { throw new UnsupportedOperationException("reference stub"); }
 }

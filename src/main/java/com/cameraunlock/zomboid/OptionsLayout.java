@@ -44,7 +44,9 @@ final class OptionsLayout {
                 new Group(HEAD_TRACKING, null, null, Tracking.TRACKING_MODE_OPTION, Tracking.AIM_MODE_OPTION, Tracking.YAW_MODE_OPTION,
                         Tracking.LOCAL_SMOOTHING_OPTION, Tracking.REMOTE_SMOOTHING_OPTION, Part.TORCH_FOLLOWS_HEAD.key, Tracking.LIGHT_MULTIPLIER_OPTION,
                         Part.CUSTOMISE_CHARACTER_HEAD.key),
-                new Group(GRAPHICS, null, null, Config.qualityKey(0), Config.overheadQualityKey(0), Config.styleKey(0), Part.LIGHTNING_BOLTS.key,
+                new Group(GRAPHICS, "Cars, and weapons and items the mod has no model of its own for, are drawn with the game's own textures, which are small and look coarse up close. "
+                        + "The game shrinks them further to its Maximum Texture Size and Maximum Vehicle Texture Size, under Display & Performance. "
+                        + "Set both to 2048 to see them at the size they were made (the game needs a restart).", null, Config.qualityKey(0), Config.overheadQualityKey(0), Config.styleKey(0), Part.LIGHTNING_BOLTS.key,
                         Part.SHOT_IMPACTS.key, Part.FALLING_DEBRIS.key, Part.LAMP_SHADOWS.key, Part.COLOURED_GLASS_LIGHT.key, "MuzzleFlash", Part.WET_ON_THE_PLAYER.key, Part.AIM_BLUR.key, Part.GRAN_TURISMO_TONE_MAPPING.key, Part.ITEMS_AS_MODELS.key, Part.FINER_SKINS.key, Part.LEAVE_OUT_SCREEN_GREY.key,
                         Part.SURROUNDINGS_IN_REFLECTIONS.key, Part.FAR_VEHICLES_AND_ZOMBIES.key, Part.MODDED_VEHICLE_INTERIORS.key, "HiddenWallDecor"),
                 new Group(CUSTOM_GRAPHICS, "These show what player 1's first person graphics mode draws. Changing one switches that mode to Custom, "
