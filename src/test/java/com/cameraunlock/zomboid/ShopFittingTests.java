@@ -232,7 +232,7 @@ final class ShopFittingTests {
     private static void whatAShelfHoldsStandsOnItsBoardsWithinIt() {
         // Two squares long, the goods on each square stand round that square's middle, half the model's length from its own.
         String[] shelves = {"bookcase", "low_shelves", "wall_shelf", "wall_shelves", "wire_wall_shelves", "metal_rack", "store_shelves", "wall_shelving",
-            "shop_wall_shelves", "zippee_wall_shelves"};
+            "shop_wall_shelves", "zippee_wall_shelves", "wall_shelving_corner"};
         for (String name : shelves) {
             Models.Model shelf = Models.get(name);
             Furniture piece = Furniture.single(null, name, 0);
@@ -247,6 +247,8 @@ final class ShopFittingTests {
                         + " in " + shelf.minY + " to " + shelf.maxY);
                 check(stock.at() + goods.height() < shelf.height() + 0.35f, held + " stands no more than a hand over " + name + "'s top");
             }
+            int many = Models.get(stock.many()).corners.length, few = Models.get(stock.few()).corners.length;
+            check(few < many * 0.6f, name + " holding few things holds plainly fewer than holding many: " + few + " corners of " + many);
         }
         check(Models.get(ShopFittings.BOOKCASE.many()).first[Models.BOOKS + 1] > Models.get(ShopFittings.BOOKCASE.many()).first[Models.BOOKS],
                 "a bookcase's many things are books");

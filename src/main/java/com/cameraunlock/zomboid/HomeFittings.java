@@ -118,10 +118,8 @@ final class HomeFittings {
         }
         if (called.equals("Shelves") && holds.equals("shelves") && single && name.startsWith("furniture_shelving") && surface == 0
                 && (group.equals("Big Wall") || group.equals("Big Wall Corner"))) {
-            Furniture shelving = new Furniture(sprite, group.equals("Big Wall") ? "wall_shelving" : "wall_shelving_corner", turns)
-                    .meet(0f, 0f, group.equals("Big Wall"));
-            // The corner's two runs of boards meet at a right angle: nothing is made to stand on them.
-            return group.equals("Big Wall") ? ShopFittings.stocked(shelving) : shelving;
+            return ShopFittings.stocked(new Furniture(sprite, group.equals("Big Wall") ? "wall_shelving" : "wall_shelving_corner", turns)
+                    .meet(0f, 0f, group.equals("Big Wall")));
         }
         if (called.equals("Oven") && group.equals("Large Modern") && holds.equals("stove") && pair) {
             return new Furniture(sprite, "double_oven", turns).stand(0f, 0f, true);

@@ -47,6 +47,7 @@ final class FurnitureTests {
         Checks.run("aBarsPanellingStandsWithItsFootRailUndyedWhereTheBrassIsNotPainted", FurnitureTests::aBarsPanellingStandsWithItsFootRailUndyedWhereTheBrassIsNotPainted);
         Checks.run("aWireRackOnACounterStandsOnTheCounterLongTheWayItFaces", FurnitureTests::aWireRackOnACounterStandsOnTheCounterLongTheWayItFaces);
         Checks.run("eachBookOnAShelfIsAPieceOfItsOwnInBothModels", FurnitureTests::eachBookOnAShelfIsAPieceOfItsOwnInBothModels);
+        Checks.run("theCommittedModelsAreTheOnesTheScriptBuilds", FurnitureTests::theCommittedModelsAreTheOnesTheScriptBuilds);
         Checks.run("aShopCounterOpenOverShelvesOpensWhereItsSpritePaintsTheShelves", FurnitureTests::aShopCounterOpenOverShelvesOpensWhereItsSpritePaintsTheShelves);
         Checks.run("aShelvingRunStandsWithItsMiddleSquaresLaidInAnyOrder", FurnitureTests::aShelvingRunStandsWithItsMiddleSquaresLaidInAnyOrder);
         Checks.run("aBanksStandingDepositBoxesFaceTheWayTheirSpritesDoAndMeetInARun", FurnitureTests::aBanksStandingDepositBoxesFaceTheWayTheirSpritesDoAndMeetInARun);
@@ -908,9 +909,8 @@ final class FurnitureTests {
             }
             check(faces, "the three corners of a face of a book are on one piece");
             check(corners, "and the faces that meet at a corner of it are on the same one, so a book is one colour all over");
-            // Two books may be told by the same number, as two spines may be the same colour. A full bookcase's books are
-            // spread over the books, vinyl, linen and cloth surfaces: these are the ones on books.
-            check(pieces.size() > 25, "a full bookcase holds many books of many colours, and had " + pieces.size());
+            // Two books may be told by the same number, as two spines may be the same colour.
+            check(pieces.size() > 50, "a full bookcase holds many books of many colours, and had " + pieces.size());
             if (whole == null) {
                 whole = pieces;
             } else {
@@ -918,6 +918,31 @@ final class FurnitureTests {
             }
         }
         check(Models.get("counter").piece[0] == 0, "a surface whose pieces are all alike carries none");
+    }
+
+    /**
+     * src/main/resources/models/furniture.bin.gz is what tools/models/furniture.py builds from itself and sculpture.bin.gz:
+     * the script writes their SHA-256 and the models' to tools/models/furniture.built as it writes the models. Blender
+     * builds them, and is no part of the tests, so a model changed in the script and not built again shows here.
+     */
+    private static void theCommittedModelsAreTheOnesTheScriptBuilds() {
+        try {
+            java.util.Map<String, String> built = new java.util.HashMap<>();
+            for (String line : java.nio.file.Files.readAllLines(java.nio.file.Path.of("tools/models/furniture.built"))) {
+                String[] named = line.split(" ");
+                built.put(named[0], named[1]);
+            }
+            String[][] files = {{"furniture.py", "tools/models/furniture.py"}, {"sculpture.bin.gz", "tools/models/sculpture.bin.gz"},
+                {"furniture.bin.gz", "src/main/resources/models/furniture.bin.gz"}};
+            for (String[] file : files) {
+                byte[] bytes = java.nio.file.Files.readAllBytes(java.nio.file.Path.of(file[1]));
+                String hash = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(bytes));
+                check(hash.equals(built.get(file[0])), file[1] + " is as the last build of the models had it: run tools/models/furniture.py in Blender"
+                        + " and commit what it writes (" + hash + " against " + built.get(file[0]) + ")");
+            }
+        } catch (java.io.IOException | java.security.NoSuchAlgorithmException failure) {
+            throw new IllegalStateException(failure);
+        }
     }
 
     private static void aShopCounterOpenOverShelvesOpensWhereItsSpritePaintsTheShelves() {

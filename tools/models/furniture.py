@@ -4,7 +4,8 @@ Run headless with Blender 4.4, from the repository root:
 
     blender --background --factory-startup --python tools/models/furniture.py
 
-It writes src/main/resources/models/furniture.bin.gz and prints each model's
+It writes src/main/resources/models/furniture.bin.gz, and beside this script furniture.built, the SHA-256 of this
+script, of sculpture.bin.gz and of what it wrote, and prints each model's
 triangle count and bounds. Every model is made here from nothing but the
 figures of the gallery's sculpture, which sculpture.py carves into
 sculpture.bin.gz beside this script: no mesh or texture is read from the game.
@@ -46,6 +47,7 @@ The file is gzip over this, all little-endian:
 """
 
 import gzip
+import hashlib
 import math
 import os
 import random
@@ -60,6 +62,8 @@ SURFACES = ["wood", "dark_wood", "cloth", "linen", "pillow", "metal", "paint", "
             "books", "shade", "rubber", "worktop", "pane", "vinyl", "straw"]
 
 OUTPUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "src", "main", "resources", "models", "furniture.bin.gz")
+# What OUTPUT was built from, and what it came to: FurnitureTests reads it to say the committed models are this script's.
+BUILT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "furniture.built")
 
 # How far a vertex looks for whatever stands between it and the room's light, in metres.
 OCCLUSION_REACH = 0.45
@@ -7908,18 +7912,20 @@ SHELF_STOCK = {
 }
 
 
-def home_goods(part, pick, levels, x0, x1, fill, books):
+def home_goods(part, pick, levels, x0, x1, many, books):
     """What a house keeps on its shelves, from x0 to x1 along each board: runs of books stood up, and among them boxes,
-    tins and jars, unless books is set. A place is left empty for 1 - fill of them, but never the first on the lowest board."""
-    first = True
+    tins and jars, unless books is set. A board is planned full, then many keeps all but a tenth of its places and few
+    a quarter of them, never fewer than two where it has two, the first of them a run of books where the board has one,
+    and each run of books left two to four books long. Every board holds something, so the lowest one is the goods'
+    foot."""
     for z, room, y0, y1 in levels:
+        places = []
         x = x0
         while True:
             kind = 0.0 if books else pick.random()
             widths = []
             if kind < 0.6:
-                count = pick.randint(3, 9)
-                widths = [pick.uniform(0.022, 0.05) for _ in range(count)]
+                widths = [pick.uniform(0.022, 0.05) for _ in range(pick.randint(3, 9))]
                 wide = sum(widths)
             elif kind < 0.85:
                 wide = pick.uniform(0.1, 0.24)
@@ -7927,29 +7933,38 @@ def home_goods(part, pick, levels, x0, x1, fill, books):
                 wide = 2 * pick.uniform(0.03, 0.045) + 0.01
             if x + wide > x1:
                 # Books to the end of the board, as many as fit.
-                if kind >= 0.6:
-                    kind, widths = 0.0, [pick.uniform(0.022, 0.05) for _ in range(9)]
+                widths = [pick.uniform(0.022, 0.05) for _ in range(9)]
                 while widths and x + sum(widths) > x1:
                     widths.pop()
-                if kind >= 0.6 or not widths:
-                    break
-                wide = sum(widths)
-            if first or pick.random() < fill:
-                first = False
-                if kind < 0.6:
-                    at = x
-                    for each in widths:
-                        tall = min(pick.uniform(0.17, 0.29), room - 0.02)
-                        deep = min(pick.uniform(0.13, 0.2), y1 - y0 - 0.01)
-                        back = y0 + pick.uniform(0.0, max(0.0, y1 - y0 - deep - 0.005))
-                        cuboid(part(pick.choice(("books", "books", "vinyl", "linen", "cloth"))), at, at + each - 0.002, back, back + deep, z, z + tall)
-                        at += each
-                elif kind < 0.85:
-                    packet(part, pick, x + 0.004, x + wide - 0.004, y0 + 0.01, min(y1, y0 + pick.uniform(0.12, 0.3)), z,
-                           min(pick.uniform(0.08, 0.22), room - 0.02))
-                else:
-                    tin(part, pick, x + wide / 2, (y0 + y1) / 2, z, wide / 2 - 0.006, min(pick.uniform(0.09, 0.16), room - 0.02))
+                if widths:
+                    places.append((0.0, x, sum(widths), widths))
+                break
+            places.append((kind, x, wide, widths))
             x += wide + pick.uniform(0.0, 0.03)
+        if many:
+            kept = [place for n, place in enumerate(places) if n == 0 or pick.random() < 0.9]
+        else:
+            runs = [place for place in places if place[0] < 0.6]
+            first = pick.choice(runs) if runs else pick.choice(places)
+            others = [place for place in places if place is not first]
+            kept = [first] + pick.sample(others, min(len(others), max(1, round(len(places) / 4) - 1)))
+        for kind, x, wide, widths in kept:
+            if kind < 0.6 and not many:
+                widths = widths[:pick.randint(2, 4)]
+            if kind < 0.6:
+                at = x
+                for each in widths:
+                    tall = min(pick.uniform(0.17, 0.29), room - 0.02)
+                    deep = min(pick.uniform(0.13, 0.2), y1 - y0 - 0.01)
+                    back = y0 + pick.uniform(0.0, max(0.0, y1 - y0 - deep - 0.005))
+                    # Each book is a piece of its own on the one surface, which gives every piece a colour of its own.
+                    cuboid(part("books"), at, at + each - 0.002, back, back + deep, z, z + tall)
+                    at += each
+            elif kind < 0.85:
+                packet(part, pick, x + 0.004, x + wide - 0.004, y0 + 0.01, min(y1, y0 + pick.uniform(0.12, 0.3)), z,
+                       min(pick.uniform(0.08, 0.22), room - 0.02))
+            else:
+                tin(part, pick, x + wide / 2, (y0 + y1) / 2, z, wide / 2 - 0.006, min(pick.uniform(0.09, 0.16), room - 0.02))
 
 
 def shelf_stock(shelf, name, seed, fill, depth_rows):
@@ -7967,8 +7982,36 @@ def shelf_stock(shelf, name, seed, fill, depth_rows):
         stocked(part, pick, levels[:1], held["x0"] + 0.125, held["x1"], fill, depth_rows)
         stocked(part, pick, levels[1:], held["x0"], held["x1"], fill, depth_rows)
     else:
-        home_goods(part, pick, levels, held["x0"], held["x1"], fill, held.get("books", False))
+        home_goods(part, pick, levels, held["x0"], held["x1"], fill >= 0.6, held.get("books", False))
     finish()
+    return model
+
+
+# wall_shelving_corner's boards, as wall_shelving builds them on its square: one run along x against the back at +y, the
+# other along y against the back at -x, each 0.4 deep, (top of the board, the room over it).
+CORNER_BOARDS = [(0.08, 0.42), (0.555, 0.44), (1.055, 0.44)]
+
+
+def corner_goods(name, seed, many):
+    """The books on wall_shelving_corner, as the game paints that shelving holding them: both runs of its boards filled
+    as a straight one's are. The run along y is built along x and turned onto its boards."""
+    model = Model(name, centred=False)
+    part, finish = parts(model)
+    pick = random.Random(seed)
+    home_goods(part, pick, [(z, room, 0.04, 0.43) for z, room in CORNER_BOARDS], -0.43, 0.46, many, True)
+    finish()
+    turned = {}
+
+    def side(surface):
+        if surface not in turned:
+            turned[surface] = bmesh.new()
+        return turned[surface]
+    home_goods(side, pick, [(z, room, 0.04, 0.43) for z, room in CORNER_BOARDS], -0.46, 0.03, many, True)
+    for surface, bm in turned.items():
+        # Along x onto along y, its front at -0.035 and its back at -0.435.
+        bmesh.ops.transform(bm, matrix=Matrix(((0.0, -1.0, 0.0, 0.0), (1.0, 0.0, 0.0, 0.0), (0.0, 0.0, 1.0, 0.0), (0.0, 0.0, 0.0, 1.0))),
+                            verts=bm.verts[:])
+        model.plain(bm, surface)
     return model
 
 
@@ -7977,7 +8020,7 @@ def shelves_stock():
     made = []
     for n, shelf in enumerate(sorted(SHELF_STOCK)):
         made += [shelf_stock(shelf, shelf + "_goods_many", 300 + 2 * n, 0.9, 2), shelf_stock(shelf, shelf + "_goods_few", 301 + 2 * n, 0.4, 1)]
-    return made
+    return made + [corner_goods("wall_shelving_corner_goods_many", 340, True), corner_goods("wall_shelving_corner_goods_few", 341, False)]
 
 
 def shop_fittings():
@@ -13573,6 +13616,11 @@ def main():
         with gzip.GzipFile(filename="", mode="wb", fileobj=raw, mtime=0) as packed:
             packed.write(b"".join(data))
     print("wrote %s, %d bytes" % (os.path.normpath(OUTPUT), os.path.getsize(OUTPUT)))
+    with open(BUILT, "w", newline="\n") as built:
+        for named in (os.path.abspath(__file__), SCULPTURE, OUTPUT):
+            with open(named, "rb") as read:
+                built.write("%s %s\n" % (os.path.basename(named), hashlib.sha256(read.read()).hexdigest()))
+    print("wrote %s" % os.path.normpath(BUILT))
 
 
 main()

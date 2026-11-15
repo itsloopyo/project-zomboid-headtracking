@@ -85,7 +85,8 @@ final class ShopFittings {
     static final Stock BOOKCASE = shelf("bookcase", 0.09f), LOW_SHELVES = shelf("low_shelves", 0.07f), WALL_SHELF = shelf("wall_shelf", 0.16f),
             WALL_SHELVES = shelf("wall_shelves", 0.16f), WIRE_WALL_SHELVES = shelf("wire_wall_shelves", 0.16f), METAL_RACK = shelf("metal_rack", 0.12f),
             STORE_SHELVES = shelf("store_shelves", 0.16f), WALL_SHELVING = shelf("wall_shelving", 0.08f),
-            SHOP_WALL_SHELVES = shelf("shop_wall_shelves", 0.26f), ZIPPEE_WALL_SHELVES = shelf("zippee_wall_shelves", 0.26f);
+            SHOP_WALL_SHELVES = shelf("shop_wall_shelves", 0.26f), ZIPPEE_WALL_SHELVES = shelf("zippee_wall_shelves", 0.26f),
+            WALL_SHELVING_CORNER = shelf("wall_shelving_corner", 0.08f);
 
     private static Stock shelf(String model, float lowestBoard) {
         return new Stock(model + "_goods_many", model + "_goods_few", lowestBoard, false);
@@ -230,6 +231,7 @@ final class ShopFittings {
             case "wall_shelving" -> WALL_SHELVING;
             case "shop_wall_shelves" -> SHOP_WALL_SHELVES;
             case "zippee_wall_shelves" -> ZIPPEE_WALL_SHELVES;
+            case "wall_shelving_corner" -> WALL_SHELVING_CORNER;
             default -> throw new IllegalStateException(piece.model.name + " is stocked and ShopFittings has nothing to stand on it");
         };
     }
