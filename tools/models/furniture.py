@@ -823,7 +823,10 @@ def pocket_box(bm, x0, x1, y0, y1, z0, z1, outline, deep, segments=24):
         reach = min([t for t in ((x1 - mx) / dx if dx > 1e-12 else None, (x0 - mx) / dx if dx < -1e-12 else None,
                                  (y1 - my) / dy if dy > 1e-12 else None, (y0 - my) / dy if dy < -1e-12 else None) if t is not None])
         x, y = mx + dx * reach, my + dy * reach
-        return min((x0, x1), key=lambda c: abs(c - x)) if min(abs(x - x0), abs(x - x1)) < 1e-9 else x,             min((y0, y1), key=lambda c: abs(c - y)) if min(abs(y - y0), abs(y - y1)) < 1e-9 else y
+        # A point on a side is put on it exactly: the ray's sum lands a hair off it.
+        on_x = min((x0, x1), key=lambda c: abs(c - x)) if min(abs(x - x0), abs(x - x1)) < 1e-9 else x
+        on_y = min((y0, y1), key=lambda c: abs(c - y)) if min(abs(y - y0), abs(y - y1)) < 1e-9 else y
+        return on_x, on_y
     # Where each lies is kept as worked out: a vertex holds only single precision, too coarse to tell which side it is on.
     edges = [edge(a) for a in angles]
     outer = [bm.verts.new((*point, z1)) for point in edges]
