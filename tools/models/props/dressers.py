@@ -11,9 +11,9 @@ drawer and how far it is out. A thing is stood so that the bottom of the pixels 
 and middle are, through the game's projection of the piece (project and lift below). A picture shows only what is not behind the piece's mirror
 or its other faces: the things of the overlays on a piece whose front faces north or west are made from the sides the picture shows.
 
-Colours come from the picture where the picture paints a part as a whole patch of one colour (a box, a mug, a pot, leaves, flowers: DYES), and from
-the shader's own surfaces where it paints a thin moulding or a small thing. A dyed part takes the colour of nine pixels round one pixel of the picture,
-which the table gives for each part, chosen to be the part's own colour.
+Colours come from the picture where the picture paints a part as a whole patch of one colour that the shader's nine-pixel sample keeps under a
+two pixel slip (a box, a mug, a terracotta pot, a perfume bulb): the table gives the pixel each takes it from, chosen as the one whose colour moves
+least under that slip. Leaves, flowers and white pots are patches too small or too mixed to sample cleanly, and take the shader's own surfaces.
 """
 
 import math
@@ -254,24 +254,24 @@ DRAWERS = {
 ITEMS = {
     0: [
         ('FRL', (89, 127, 104, 161), 90, 'gold', None),
-        ('TIS', (56, 156, 83, 178), 90, None, {'body': [68, 175]}),
+        ('TIS', (56, 156, 83, 178), 90, None, {'body': (62, 177)}),
     ],
     1: [
-        ('TIS', (48, 158, 74, 174), 45, None, {'body': [61, 173]}),
+        ('TIS', (48, 158, 74, 174), 45, None, {'body': (48, 173)}),
     ],
     2: [
         ('FRL', (60, 153, 77, 179), 225, 'back', None),
         ('FRS', (79, 155, 90, 171), 225, 'back', None),
     ],
     3: [
-        ('PLA', (24, 135, 44, 166), 0, None, {'pot': [41, 159], 'leaves': [42, 140]}),
+        ('PLA', (24, 135, 44, 166), 0, None, {'pot': (31, 165)}),
         ('FRL', (53, 151, 70, 177), 225, 'back', None),
         ('FRS', (72, 153, 83, 169), 225, 'back', None),
     ],
     4: [
-        ('MUG', (72, 137, 90, 157), 225, None, {'body': [80, 144]}),
-        ('PLA', (85, 129, 105, 160), 0, None, {'pot': [101, 153], 'leaves': [101, 142]}),
-        ('JOL', (56, 158, 82, 177), 90, None, {'body': [68, 175]}),
+        ('MUG', (72, 137, 90, 157), 225, None, {'body': (72, 151)}),
+        ('PLA', (85, 129, 105, 160), 0, None, {'pot': (101, 151)}),
+        ('JOL', (56, 158, 82, 177), 90, None, {'body': (60, 163)}),
     ],
     5: [
         ('FRL', (20, 129, 35, 163), 0, 'magenta', None),
@@ -280,12 +280,12 @@ ITEMS = {
     ],
     6: [
         ('FRL', (57, 148, 74, 177), 225, 'back', None),
-        ('PLB', (73, 138, 96, 168), 0, None, {'pot': [82, 162], 'leaves': [78, 144], 'blooms': [83, 142]}),
-        ('JBL', (92, 138, 109, 162), 90, None, {'body': [101, 157]}),
+        ('PLB', (73, 138, 96, 168), 0, None, None),
+        ('JBL', (92, 138, 109, 162), 90, None, {'body': (99, 157)}),
     ],
     7: [
-        ('VAS', (19, 115, 42, 163), 0, None, {'leaves': [28, 131], 'blooms': [28, 125]}),
-        ('JBR', (31, 150, 71, 178), 90, None, {'body': [50, 173]}),
+        ('VAS', (19, 115, 42, 163), 0, None, None),
+        ('JBR', (31, 150, 71, 178), 90, None, {'body': (53, 173)}),
     ],
     8: [
         ('FRL', (50, 114, 71, 140), 45, 'orange', None),
@@ -295,18 +295,18 @@ ITEMS = {
     9: [
         ('FRL', (52, 115, 72, 141), 45, 'dark', None),
         ('FRS', (69, 131, 86, 151), 45, 'gold', None),
-        ('JRD', (75, 140, 108, 164), 90, None, {'body': [93, 159]}),
+        ('JRD', (75, 140, 108, 164), 90, None, {'body': (93, 159)}),
     ],
     10: [
-        ('MUG', (16, 142, 35, 162), 45, None, {'body': [26, 150]}),
-        ('TIS', (59, 131, 77, 148), 45, None, {'body': [73, 145]}),
+        ('MUG', (16, 142, 35, 162), 45, None, {'body': (25, 157)}),
+        ('TIS', (59, 131, 77, 148), 45, None, {'body': (59, 135)}),
         ('PAP', (40, 141, 70, 158), 45, None, None),
     ],
     11: [
-        ('MUG', (76, 142, 95, 162), 225, None, {'body': [93, 149]}),
+        ('MUG', (76, 142, 95, 162), 225, None, {'body': (76, 157)}),
     ],
     12: [
-        ('TIS', (22, 140, 49, 162), 90, None, {'body': [34, 159]}),
+        ('TIS', (22, 140, 49, 162), 90, None, {'body': (28, 161)}),
     ],
     13: [
         ('FRL', (89, 131, 104, 165), 90, 'gold', None),
@@ -315,14 +315,14 @@ ITEMS = {
     14: [
         ('FRL', (19, 130, 34, 163), 0, 'gold', None),
         ('FRL', (51, 117, 71, 142), 45, 'dark', None),
-        ('JOL', (38, 138, 66, 155), 90, None, {'body': [53, 153]}),
+        ('JOL', (38, 138, 66, 155), 90, None, {'body': (44, 140)}),
     ],
     15: [
-        ('PLA', (66, 122, 86, 153), 0, None, {'pot': [83, 145], 'leaves': [83, 139]}),
+        ('PLA', (66, 122, 86, 153), 0, None, {'pot': (79, 153)}),
     ],
     16: [
-        ('MUG', (30, 131, 49, 151), 225, None, {'body': [34, 138]}),
-        ('TIS', (46, 129, 73, 150), 0, None, {'body': [57, 149]}),
+        ('MUG', (30, 131, 49, 151), 225, None, {'body': (35, 139)}),
+        ('TIS', (46, 129, 73, 150), 0, None, {'body': (57, 145)}),
         ('NOT', (16, 149, 41, 165), 45, None, None),
         ('PEN', (23, 163, 35, 168), 45, None, None),
         ('PAP', (40, 148, 55, 157), 45, None, None),
@@ -331,12 +331,12 @@ ITEMS = {
         ('MIR', (51, 106, 68, 140), 90, None, None),
         ('POL', (55, 139, 66, 148), 0, None, None),
         ('CMP', (42, 139, 53, 148), 0, None, None),
-        ('JBR', (65, 133, 105, 158), 90, None, {'body': [80, 153]}),
+        ('JBR', (65, 133, 105, 158), 90, None, {'body': (87, 157)}),
     ],
     18: [
-        ('PLA', (48, 113, 68, 144), 0, None, {'pot': [65, 137], 'leaves': [66, 118]}),
+        ('PLA', (48, 113, 68, 144), 0, None, {'pot': (55, 143)}),
         ('MIR', (21, 126, 38, 160), 90, None, None),
-        ('PRF', (36, 143, 49, 157), 0, None, {'ball': [45, 153]}),
+        ('PRF', (36, 143, 49, 157), 0, None, {'ball': (45, 155)}),
         ('COM', (38, 158, 59, 165), 0, None, None),
     ],
     19: [
@@ -344,44 +344,44 @@ ITEMS = {
         ('FRS', (74, 132, 88, 148), 45, 'gold', None),
     ],
     20: [
-        ('PLA', (52, 115, 72, 146), 0, None, {'pot': [69, 139], 'leaves': [70, 120]}),
+        ('PLA', (52, 115, 72, 146), 0, None, {'pot': (59, 145)}),
         ('FRL', (23, 133, 38, 167), 0, 'gold', None),
         ('FRS', (37, 135, 51, 151), 45, 'gold', None),
     ],
     21: [
-        ('VAS', (48, 93, 70, 141), 0, None, {'leaves': [67, 98], 'blooms': [54, 104]}),
-        ('JBR', (64, 134, 104, 162), 90, None, {'body': [80, 155]}),
+        ('VAS', (48, 93, 70, 141), 0, None, None),
+        ('JBR', (64, 134, 104, 162), 90, None, {'body': (85, 157)}),
     ],
     22: [
-        ('VAS', (53, 96, 76, 144), 0, None, {'leaves': [60, 102], 'blooms': [64, 104]}),
+        ('VAS', (53, 96, 76, 144), 0, None, None),
         ('FRL', (46, 125, 66, 151), 45, 'dark', None),
     ],
     23: [
-        ('JRD', (50, 129, 81, 158), 90, None, {'body': [71, 140]}),
+        ('JRD', (50, 129, 81, 158), 90, None, {'body': (60, 130)}),
         ('NEC', (45, 139, 54, 150), 0, None, None),
-        ('PRF', (66, 138, 87, 158), 0, None, {'ball': [74, 157]}),
+        ('PRF', (66, 138, 87, 158), 0, None, {'ball': (69, 149)}),
         ('COM', (81, 158, 87, 171), 0, None, None),
         ('MIR', (88, 125, 105, 159), 90, None, None),
     ],
     32: [
-        ('PLA', (39, 122, 59, 153), 0, None, {'pot': [57, 145], 'leaves': [55, 122]}),
+        ('PLA', (39, 122, 59, 153), 0, None, {'pot': (48, 153)}),
     ],
     33: [
-        ('JRD', (48, 130, 79, 159), 90, None, {'body': [67, 143]}),
+        ('JRD', (48, 130, 79, 159), 90, None, {'body': (56, 132)}),
         ('NEC', (43, 140, 52, 150), 0, None, None),
-        ('PRF', (64, 139, 85, 159), 0, None, {'ball': [70, 152]}),
+        ('PRF', (64, 139, 85, 159), 0, None, {'ball': (67, 151)}),
         ('COM', (79, 159, 85, 172), 0, None, None),
         ('MIR', (86, 126, 103, 160), 90, None, None),
     ],
     34: [
-        ('JBL', (30, 136, 55, 160), 90, None, {'body': [47, 149]}),
+        ('JBL', (30, 136, 55, 160), 90, None, {'body': (37, 155)}),
         ('MIR', (54, 114, 71, 148), 90, None, None),
         ('POL', (57, 147, 63, 155), 0, None, None),
     ],
     35: [
-        ('JRD', (48, 134, 81, 158), 90, None, {'body': [64, 151]}),
+        ('JRD', (48, 134, 81, 158), 90, None, {'body': (53, 137)}),
         ('PEN', (64, 159, 76, 161), 45, None, None),
-        ('TIS', (77, 145, 104, 166), 90, None, {'body': [89, 163]}),
+        ('TIS', (77, 145, 104, 166), 90, None, {'body': (83, 165)}),
     ],
     40: [
         ('FRL', (26, 133, 41, 166), 0, 'dark', None),
@@ -393,35 +393,35 @@ ITEMS = {
         ('FRL', (90, 132, 105, 165), 90, 'dark', None),
     ],
     42: [
-        ('MUG', (25, 141, 44, 161), 45, None, {'body': [34, 144]}),
+        ('MUG', (25, 141, 44, 161), 45, None, {'body': (35, 155)}),
     ],
     43: [
         ('FRL', (50, 128, 70, 151), 45, 'dark', None),
-        ('VAS', (66, 105, 92, 150), 0, None, {'leaves': [85, 110], 'blooms': [72, 116]}),
+        ('VAS', (66, 105, 92, 150), 0, None, None),
         ('FRS', (80, 144, 94, 160), 45, 'dark', None),
     ],
     44: [
-        ('PLB', (56, 151, 79, 181), 0, None, {'pot': [73, 174], 'leaves': [73, 156], 'blooms': [77, 159]}),
+        ('PLB', (56, 151, 79, 181), 0, None, None),
     ],
     45: [
         ('FRL', (38, 153, 53, 187), 0, 'gold', None),
         ('FRS', (52, 155, 66, 171), 45, 'gold', None),
     ],
     46: [
-        ('PLB', (51, 156, 74, 186), 0, None, {'pot': [65, 178], 'leaves': [67, 160], 'blooms': [62, 160]}),
+        ('PLB', (51, 156, 74, 186), 0, None, None),
     ],
     47: [
         ('FRL', (57, 164, 74, 190), 225, 'back', None),
         ('FRS', (44, 166, 55, 182), 225, 'back', None),
     ],
     48: [
-        ('JOL', (52, 159, 63, 176), 90, 'cut', {'body': [59, 173]}),
+        ('JOL', (52, 159, 63, 176), 90, 'cut', {'body': (63, 159)}),
     ],
     49: [
-        ('JBR', (62, 150, 80, 176), 90, 'cut', {'body': [71, 171]}),
+        ('JBR', (62, 150, 80, 176), 90, 'cut', {'body': (62, 150)}),
     ],
     50: [
-        ('PLB', (47, 143, 63, 173), 0, 'cut', {'pot': [63, 166], 'leaves': [63, 153], 'blooms': [61, 148]}),
+        ('PLB', (47, 143, 63, 173), 0, 'cut', None),
     ],
     51: [
         ('FRL', (62, 149, 77, 175), 225, 'back', None),
@@ -433,28 +433,28 @@ ITEMS = {
     ],
     53: [
         ('FRS', (51, 128, 67, 145), 45, 'gold', None),
-        ('JBR', (60, 135, 99, 158), 90, None, {'body': [83, 155]}),
+        ('JBR', (60, 135, 99, 158), 90, None, {'body': (81, 157)}),
     ],
     54: [
-        ('TIS', (48, 132, 74, 148), 45, None, {'body': [61, 147]}),
+        ('TIS', (48, 132, 74, 148), 45, None, {'body': (48, 147)}),
     ],
     55: [
-        ('PLA', (66, 121, 86, 152), 0, None, {'pot': [83, 145], 'leaves': [84, 126]}),
+        ('PLA', (66, 121, 86, 152), 0, None, {'pot': (73, 151)}),
     ],
     56: [
         ('FRL', (49, 151, 63, 176), 225, 'back', None),
     ],
     57: [
-        ('PLA', (62, 143, 74, 174), 0, 'cut', {'pot': [66, 167], 'leaves': [66, 148]}),
+        ('PLA', (62, 143, 74, 174), 0, 'cut', {'pot': (62, 173)}),
     ],
     58: [
-        ('JBL', (53, 155, 63, 177), 90, 'cut', {'body': [59, 169]}),
+        ('JBL', (53, 155, 63, 177), 90, 'cut', {'body': (63, 177)}),
     ],
     59: [
-        ('TIS', (62, 155, 76, 175), 90, 'cut', {'body': [69, 171]}),
+        ('TIS', (62, 155, 76, 175), 90, 'cut', {'body': (66, 175)}),
     ],
     60: [
-        ('VAS', (48, 93, 71, 141), 0, None, {'leaves': [67, 98], 'blooms': [63, 106]}),
+        ('VAS', (48, 93, 71, 141), 0, None, None),
         ('FRL', (29, 129, 44, 162), 0, 'gold', None),
         ('FRS', (44, 131, 57, 147), 45, 'gold', None),
     ],
@@ -463,39 +463,39 @@ ITEMS = {
         ('FRS', (72, 132, 86, 148), 45, 'gold', None),
     ],
     62: [
-        ('MUG', (20, 141, 39, 161), 45, None, {'body': [30, 150]}),
-        ('TIS', (55, 131, 81, 147), 45, None, {'body': [77, 145]}),
+        ('MUG', (20, 141, 39, 161), 45, None, {'body': (29, 155)}),
+        ('TIS', (55, 131, 81, 147), 45, None, {'body': (79, 143)}),
         ('PAP', (44, 140, 75, 157), 45, None, None),
     ],
     63: [
         ('FRL', (48, 116, 69, 143), 45, 'dark', None),
         ('FRS', (66, 132, 80, 150), 45, 'gold', None),
-        ('JRD', (71, 141, 104, 165), 90, None, {'body': [82, 159]}),
+        ('JRD', (71, 141, 104, 165), 90, None, {'body': (89, 159)}),
     ],
     64: [
-        ('TIS', (29, 144, 56, 166), 90, None, {'body': [42, 163]}),
+        ('TIS', (29, 144, 56, 166), 90, None, {'body': (35, 165)}),
     ],
     65: [
-        ('MUG', (57, 132, 76, 152), 225, None, {'body': [73, 145]}),
-        ('TIS', (68, 147, 94, 162), 45, None, {'body': [81, 161]}),
+        ('MUG', (57, 132, 76, 152), 225, None, {'body': (57, 147)}),
+        ('TIS', (68, 147, 94, 162), 45, None, {'body': (68, 161)}),
     ],
     66: [
-        ('TIS', (69, 143, 95, 159), 45, None, {'body': [82, 157]}),
+        ('TIS', (69, 143, 95, 159), 45, None, {'body': (69, 159)}),
     ],
     67: [
-        ('TIS', (29, 141, 56, 163), 90, None, {'body': [42, 161]}),
+        ('TIS', (29, 141, 56, 163), 90, None, {'body': (38, 163)}),
     ],
     68: [
-        ('TIS', (25, 146, 51, 162), 45, None, {'body': [38, 161]}),
+        ('TIS', (25, 146, 51, 162), 45, None, {'body': (25, 161)}),
     ],
     69: [
-        ('TIS', (49, 137, 76, 159), 90, None, {'body': [67, 157]}),
+        ('TIS', (49, 137, 76, 159), 90, None, {'body': (66, 159)}),
     ],
     70: [
-        ('TIS', (48, 150, 75, 172), 90, None, {'body': [60, 169]}),
+        ('TIS', (48, 150, 75, 172), 90, None, {'body': (54, 171)}),
     ],
     71: [
-        ('TIS', (32, 142, 59, 164), 90, None, {'body': [49, 161]}),
+        ('TIS', (32, 142, 59, 164), 90, None, {'body': (48, 163)}),
     ],
 }
 
@@ -628,12 +628,12 @@ def leaves(s, rng, look, base, spread, count, length, blooms=0, bloom_surface=No
         s.turned(heads, bloom_surface, sharp=60.0)
 
 
-def blooms_only(s, rng, look, base, spread, count, height):
+def blooms_only(s, rng, look, base, spread, count, height, surface):
     heads = bmesh.new()
     for k in range(count):
         angle, out = rng.uniform(0, 2 * math.pi), spread * math.sqrt(rng.uniform(0.0, 0.8))
         bloom_head(heads, out * math.cos(angle), out * math.sin(angle), base + (height - base) * rng.uniform(0.55, 1.0))
-    s.turned(heads, "vinyl", sharp=60.0)
+    s.turned(heads, surface, sharp=60.0)
 
 
 def vase_glass(s, rng, look):
@@ -667,7 +667,7 @@ def vase_blooms(s, rng, look):
         tip = F.arching((0.0, 0.0, 0.27), yaw, rise, 0.24, 0.02, 4)[-1]
         for petal in range(3):
             F.leaf_strip(heads, F.arching(tip, yaw + petal * 40 - 40, rng.uniform(40, 70), 0.07, 0.01, 3), [0.002, 0.016, 0.012, 0.002], thick=0.002)
-    s.turned(heads, "vinyl", sharp=60.0)
+    s.turned(heads, "wood", sharp=60.0)
 
 
 def jewel(s, rng, look, kind):
@@ -788,11 +788,11 @@ MADE = {
     "FRS": [("", lambda s, r, look: frame(s, r, look, "FRS"), None, None)],
     "MUG": [("", mug, ("ceramic",), "body")],
     "PLA": [("_pot", lambda s, r, look: pot(s, r, look, 0.085, 0.05, 0.12), ("ceramic",), "pot"),
-            ("_leaves", lambda s, r, look: leaves(s, r, look, 0.115, 0.1, 9, 0.15, blooms=14, bloom_surface="linen", height=0.3), ("plastic",), "leaves")],
-    "PLB": [("_pot", lambda s, r, look: pot(s, r, look, 0.095, 0.06, 0.15), ("ceramic",), "pot"),
-            ("_leaves", lambda s, r, look: leaves(s, r, look, 0.145, 0.1, 10, 0.14), ("plastic",), "leaves"),
-            ("_blooms", lambda s, r, look: blooms_only(s, r, look, 0.145, 0.09, 12, 0.29), ("vinyl",), "blooms")],
-    "VAS": [("_glass", vase_glass, None, None), ("_leaves", vase_leaves, ("plastic",), "leaves"), ("_blooms", vase_blooms, ("vinyl",), "blooms")],
+            ("_leaves", lambda s, r, look: leaves(s, r, look, 0.115, 0.1, 9, 0.15, blooms=14, bloom_surface="linen", height=0.3), None, None)],
+    "PLB": [("_pot", lambda s, r, look: pot(s, r, look, 0.095, 0.06, 0.15), None, None),
+            ("_leaves", lambda s, r, look: leaves(s, r, look, 0.145, 0.1, 10, 0.14), None, None),
+            ("_blooms", lambda s, r, look: blooms_only(s, r, look, 0.145, 0.09, 12, 0.29, "straw"), None, None)],
+    "VAS": [("_glass", vase_glass, None, None), ("_leaves", vase_leaves, None, None), ("_blooms", vase_blooms, None, None)],
     "JBR": [("", lambda s, r, look: jewel(s, r, look, "JBR"), ("paint",), "body")],
     "JOL": [("", lambda s, r, look: jewel(s, r, look, "JOL"), ("paint",), "body")],
     "JRD": [("", lambda s, r, look: jewel(s, r, look, "JRD"), ("paint",), "body")],
