@@ -2562,15 +2562,23 @@ public final class FirstPerson {
      * tap is what a tap would (keyUse): the one decision the key, the wait for its hold and the
      * label take. tap itself where holding does nothing more. say: HoleHop says why there is no
      * hole to climb through.
+     *
+     * A container never looked in is empty until the game looks in it, so it is looked in first, as
+     * the game's loot panel looks in each one it lists round the character (Panels.explore): alone
+     * that fills it at once, and on a server its items come some frames later, until when holding
+     * the key does what a tap does.
      */
     private CentreUse.Use holdUse(IsoPlayer player, IsoObject found, CentreUse.Use tap, boolean say) {
         boolean loot = tap != null && tap.route() == CentreUse.Route.CONTAINER;
-        HoleHop.Hop[] hop = {null};
-        return switch (ClickRules.held(CentreUse.climbable(found, player), loot, loot && tap.container().getItems().isEmpty(),
-                loot && tap.container().isExplored(), () -> (hop[0] = hopAtCentre(say)) != null)) {
+        if (loot && !tap.container().isExplored()) {
+            Panels.explore(view.index, tap.container(), player);
+        }
+        boolean climbable = CentreUse.climbable(found, player), empty = loot && tap.container().getItems().isEmpty();
+        HoleHop.Hop hop = ClickRules.holeMatters(climbable, loot, empty) ? hopAtCentre(say) : null;
+        return switch (ClickRules.held(climbable, loot, empty, hop != null)) {
             case CLIMB -> CentreUse.Use.of(CentreUse.Route.CLIMB, found, InteractWords.Does.CLIMB_THROUGH);
             case TAKE_ALL -> new CentreUse.Use(CentreUse.Route.TAKE_ALL, found, InteractWords.Does.TAKE_ALL, tap.container(), null);
-            case HOLE -> new CentreUse.Use(CentreUse.Route.HOLE, null, InteractWords.Does.CLIMB_THROUGH, null, hop[0]);
+            case HOLE -> new CentreUse.Use(CentreUse.Route.HOLE, null, InteractWords.Does.CLIMB_THROUGH, null, hop);
             case AS_TAP -> tap;
         };
     }

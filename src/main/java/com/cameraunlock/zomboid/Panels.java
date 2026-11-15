@@ -237,7 +237,7 @@ final class Panels {
             if (Boolean.TRUE.equals(panel.rawget("isCollapsed"))) {
                 panel.rawset("isCollapsed", Boolean.FALSE);
                 panel.rawset("collapseCounter", Double.valueOf(0));
-                // As ISInventoryPage.onMouseMove unfolds one: on a server, what a container round the character holds is asked for again.
+                // The call ISInventoryPage.onMouseMove makes as it unfolds one on a server. In this build of the game it returns without doing anything.
                 if (GameClient.client && !Boolean.TRUE.equals(panel.rawget("onCharacter")) && panel.rawget("inventoryPane") instanceof KahluaTable pane
                         && pane.rawget("inventory") instanceof ItemContainer shown) {
                     shown.requestSync();
@@ -286,10 +286,10 @@ final class Panels {
         return false;
     }
 
-    /** The troubles with the loot panel that are said once each, for each player. */
-    private enum Trouble { SELECT, FLOOR, REFRESH, TAKE_ALL, CLOSE_SOUND }
+    /** The kinds of trouble with the loot panel, each logged once per kind for each player. */
+    private enum Trouble { PANEL, SELECT, FLOOR, REFRESH, TAKE_ALL, EXPLORE, CLOSE_SOUND }
 
-    /** Whether each trouble has been said for each player: the loot panel is asked after several times a second. */
+    /** Whether each kind of trouble has been logged for each player: the loot panel is asked after several times a second. */
     private static final boolean[][] troubleSaid = new boolean[View.COUNT][Trouble.values().length];
 
     private static void sayOnce(Trouble trouble, int playerIndex, String words) {
@@ -326,10 +326,15 @@ final class Panels {
      */
     static boolean takeAll(int playerIndex, ItemContainer container) {
         KahluaTable loot = inventoryPanel(LOOT_PANEL, playerIndex);
-        if (loot == null || !(loot.rawget("javaObject") instanceof UIElementInterface element)) {
+        if (loot == null) {
+            return false;
+        }
+        if (!(loot.rawget("javaObject") instanceof UIElementInterface element)) {
+            sayOnce(Trouble.PANEL, playerIndex, "the game's loot panel of player " + (playerIndex + 1) + " has no javaObject, so Take All was not asked of it");
             return false;
         }
         boolean wasShown = element.isVisible();
+        Object soundedBefore = loot.rawget("selectedContainerForSound");
         try {
             if (!wasShown) {
                 LuaManager.caller.pcallvoid(UIManager.getDefaultThread(), UIManager.tableget(loot, "setVisible"), loot, true);
@@ -346,8 +351,17 @@ final class Panels {
         } finally {
             if (!wasShown) {
                 LuaManager.caller.pcallvoid(UIManager.getDefaultThread(), UIManager.tableget(loot, "setVisible"), loot, false);
-                // Shown, a container plays its opening sound (selectContainer); taken off the screen, the game's panel plays its closing one.
-                callPage(Trouble.CLOSE_SOUND, playerIndex, "playContainerCloseSound", loot, container);
+                // Where showing it played the container's opening sound (playContainerOpenCloseSounds noted the container), it is
+                // closed as the panel's close() closes one: its closing sound, and the note let go of where that played.
+                if (soundedBefore != container && loot.rawget("selectedContainerForSound") == container) {
+                    Object close = inventoryPage("playContainerCloseSound");
+                    Object[] played = close == null ? new Object[0] : LuaManager.caller.pcall(UIManager.getDefaultThread(), close, loot, container);
+                    if (played.length == 0 || !Boolean.TRUE.equals(played[0])) {
+                        sayOnce(Trouble.CLOSE_SOUND, playerIndex, "the game's ISInventoryPage.playContainerCloseSound failed for player " + (playerIndex + 1) + ": " + Arrays.toString(played));
+                    } else if (played.length > 1 && Boolean.TRUE.equals(played[1])) {
+                        loot.rawset("selectedContainerForSound", null);
+                    }
+                }
             }
         }
     }
@@ -387,6 +401,16 @@ final class Panels {
         }
     }
 
+    /**
+     * Has the game look in a container never looked in before, as its loot panel does for each
+     * container it lists round the character (ISInventoryPage.checkExplored): alone, it fills it
+     * by the game's own loot tables; on a server, it asks the server for what it holds, which
+     * comes some frames later.
+     */
+    static void explore(int playerIndex, ItemContainer container, IsoPlayer player) {
+        callPage(Trouble.EXPLORE, playerIndex, "checkExplored", LuaManager.env.rawget(INVENTORY_PAGE), container, player);
+    }
+
     /** The container the game's loot panel gathers what lies on the floor round a player into, or null where its Lua has none to give. */
     static ItemContainer floor(int playerIndex) {
         Object gather = inventoryPage("GetFloorContainer");
@@ -399,7 +423,7 @@ final class Panels {
         return null;
     }
 
-    /** Calls a function of the game's ISInventoryPage, and says once for each player and trouble where it is missing or raised an error. */
+    /** Calls a function of the game's ISInventoryPage, and logs once per kind of trouble for each player where it is missing or raised an error. */
     private static boolean callPage(Trouble trouble, int playerIndex, String function, Object... arguments) {
         Object callee = inventoryPage(function);
         Object[] done = callee == null ? new Object[0] : LuaManager.caller.pcall(UIManager.getDefaultThread(), callee, arguments);

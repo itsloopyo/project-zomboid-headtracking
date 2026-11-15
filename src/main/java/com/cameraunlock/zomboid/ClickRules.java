@@ -1,7 +1,6 @@
 package com.cameraunlock.zomboid;
 
 import com.cameraunlock.zomboid.InteractWords.Does;
-import java.util.function.BooleanSupplier;
 
 /**
  * What the game's click does (ISObjectClickHandler), by its own tests in its own order, on what
@@ -87,23 +86,27 @@ final class ClickRules {
     /**
      * What holding the key does with the reticle where it is, the one decision the key and the label
      * under the reticle take: a window that can be climbed through is climbed through; a container
-     * a tap would show in the loot panel is emptied with its Take All, where something may be in it
-     * (one never looked in is filled as the panel lists it, so it counts as having something); and
-     * otherwise a hole a body fits through is climbed through.
+     * a tap would show in the loot panel is emptied with its Take All, where there is something in
+     * it; and otherwise a hole a body fits through is climbed through.
      *
      * @param climbable a window the character can climb through
      * @param loot      a tap shows a container within reach in the loot panel
-     * @param empty     that container has nothing in it
-     * @param explored  that container has been looked in, so what it holds is known
-     * @param hole      whether there is a hole to climb through there, asked only where nothing else is held for
+     * @param empty     that container has nothing in it as the game knows it now
+     * @param hole      there is a hole a body fits through at the reticle, which matters only where
+     *                  this answers HOLE or AS_TAP with it false (holeMatters)
      */
-    static Held held(boolean climbable, boolean loot, boolean empty, boolean explored, BooleanSupplier hole) {
+    static Held held(boolean climbable, boolean loot, boolean empty, boolean hole) {
         if (climbable) {
             return Held.CLIMB;
         }
-        if (loot && (!empty || !explored)) {
+        if (loot && !empty) {
             return Held.TAKE_ALL;
         }
-        return hole.getAsBoolean() ? Held.HOLE : Held.AS_TAP;
+        return hole ? Held.HOLE : Held.AS_TAP;
+    }
+
+    /** Whether a hole at the reticle would change what held answers, so it is worth looking for one. */
+    static boolean holeMatters(boolean climbable, boolean loot, boolean empty) {
+        return held(climbable, loot, empty, false) == Held.AS_TAP;
     }
 }

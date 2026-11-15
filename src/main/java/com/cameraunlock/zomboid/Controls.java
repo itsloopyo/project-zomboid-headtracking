@@ -409,9 +409,10 @@ public final class Controls {
         if (!interactDown) {
             interactDown = true;
             interactSince = System.nanoTime();
-            // On a window that can be climbed through, a tap opens or shuts it and holding the key climbs, as in the game's own view;
-            // on a hole shot through something that a body fits through holding the key climbs through it, and on a container
-            // with something in it a tap shows it in the loot panel and holding the key takes all of it.
+            // Where holding the key does something a tap does not (FirstPerson.holdUse), the key waits to see if it is held: on a
+            // window that can be climbed through a tap opens or shuts it and holding climbs, as in the game's own view; on a
+            // container with something in it a tap shows it in the loot panel and holding takes all of it; and on a hole shot
+            // through something a body fits through, holding climbs through it. A tap then acts as the key comes up.
             windowHeld = view.firstPerson.lookCaptured() && view.firstPerson.holdableAtCentre();
             interactTaken = windowHeld || view.firstPerson.lookCaptured() && view.firstPerson.useAtCentre(false);
         } else if (windowHeld && System.nanoTime() - interactSince >= CLIMB_HOLD_NANOS) {

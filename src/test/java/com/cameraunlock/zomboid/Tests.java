@@ -3396,18 +3396,17 @@ public final class Tests {
     }
 
     private static void heldInteractTakesAllFromAContainerWithSomethingInIt() {
-        int[] holesAsked = {0};
-        java.util.function.BooleanSupplier hole = () -> { holesAsked[0]++; return true; }, none = () -> false;
-        check(ClickRules.held(false, true, false, true, none) == ClickRules.Held.TAKE_ALL, "held on a container a tap would show, with something in it, it takes all of it");
-        check(ClickRules.held(false, true, true, false, none) == ClickRules.Held.TAKE_ALL,
-                "and on one never looked in, which shows empty until the panel fills it as it lists it");
-        check(ClickRules.held(false, true, true, true, none) == ClickRules.Held.AS_TAP, "held on one known to be empty, it does what a tap does");
-        check(ClickRules.held(false, false, false, true, none) == ClickRules.Held.AS_TAP, "and on what a tap does not show in the loot panel");
-        check(ClickRules.held(true, false, false, true, hole) == ClickRules.Held.CLIMB, "held on a window that can be climbed through, it climbs");
-        check(ClickRules.held(false, true, false, true, hole) == ClickRules.Held.TAKE_ALL && holesAsked[0] == 0,
-                "a container to take from comes before a hole at the reticle, which is not looked for then");
-        check(ClickRules.held(false, true, true, true, hole) == ClickRules.Held.HOLE && holesAsked[0] == 1, "past an empty container the hole is climbed through");
-        check(ClickRules.held(false, false, false, true, hole) == ClickRules.Held.HOLE, "as it is with nothing else there");
+        check(ClickRules.held(false, true, false, false) == ClickRules.Held.TAKE_ALL, "held on a container a tap would show, with something in it, it takes all of it");
+        check(ClickRules.held(false, true, true, false) == ClickRules.Held.AS_TAP, "held on an empty one, it does what a tap does");
+        check(ClickRules.held(false, false, false, false) == ClickRules.Held.AS_TAP, "and on what a tap does not show in the loot panel");
+        check(ClickRules.held(true, false, false, true) == ClickRules.Held.CLIMB && ClickRules.held(true, true, false, true) == ClickRules.Held.CLIMB,
+                "held on a window that can be climbed through, it climbs, before anything else there");
+        check(ClickRules.held(false, true, false, true) == ClickRules.Held.TAKE_ALL, "a container to take from comes before a hole at the reticle");
+        check(ClickRules.held(false, true, true, true) == ClickRules.Held.HOLE, "past an empty container the hole is climbed through");
+        check(ClickRules.held(false, false, false, true) == ClickRules.Held.HOLE, "as it is with nothing else there");
+        check(!ClickRules.holeMatters(true, false, false) && !ClickRules.holeMatters(false, true, false),
+                "no hole is looked for where a window or a container decides the hold");
+        check(ClickRules.holeMatters(false, true, true) && ClickRules.holeMatters(false, false, false), "and one is where nothing else does");
         check(InteractWords.line("E", "Loot Shelves", "Take All").equals("[E] Loot Shelves   [Hold E] Take All"), "the label says both, the key named from its binding");
         check(InteractWords.line("E", "Loot Shelves", "Loot Shelves").equals("[E] Loot Shelves"), "and only the tap where holding does the same");
         check(InteractWords.Does.TAKE_ALL.key.equals("IGUI_invpage_Loot_all") && !InteractWords.Does.TAKE_ALL.named, "in the loot panel's own words for its button");
