@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.5.0] - 2026-11-15
+
+### Added
+
+- put the driver's hands on a modded car's own steering wheel and draw the cabin glass on its own window models
+- add a third person view behind the character, on the first person key after first person
+- keep the view on when one of the mod's features throws, switching off only that feature until the game restarts
+- move the third person camera in over the right shoulder where walls leave it too little room behind the character
+- add a dev key, Right Ctrl, that seats the player in the next KI5 car, and Shift with it the one before
+
+### Fixed
+
+- draw far zombies, people and cars solid instead of thinning them out pixel by pixel into the far land
+- stop first person turning off once the player's risen corpse walks away, by checking a close zombie's glow for walls along the line to the eye instead of to the dead player
+- stand a sink set in a table top as a basin of its own on a chest of drawers or shop counter, instead of the game's flat sprite
+- draw the cabins of modded cars from the driver's seat and seat the eye behind their steering wheel
+- stop first person crashing on the player's own body when their skeleton has more than 60 bones
+- forget the steering wheels measured for each vehicle script when a save is left, so another save's vehicle mods are measured afresh
+- seat the eye at the vehicle script's inside seat position in a modded car with no steering wheel found
+- hang the driver's elbows down and out to the side of the wheel so their bend shows from the seat
+- draw the inside of a modded car's body round the driver when the eye sits inside a body with no modelled cabin
+- turn and lean Project Viewpoint's camera again with its 0.1.7 nightlies, whose ThirdPerson.capture takes two more parameters
+- measure how close a zombie is from the character, not the third person camera, so the hit glow no longer throws and turns the view off
+- draw the fishing line from the rod's tip to the bobber in third person
+
 ## [0.4.0] - 2026-11-14
 
 ### Added
