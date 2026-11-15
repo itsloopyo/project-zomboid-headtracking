@@ -210,6 +210,86 @@ def grid_box(bm, xs, ys, zs, bottom=True):
     return verts
 
 
+def smooth_normals(mesh):
+    """Each corner's normal of a mesh with no custom normals, worked out as Blender does (each face's normal weighted by
+    the angle of its corner, summed over the faces smooth round the corner's vertex: those met across edges that are
+    neither sharp nor shared by other than two faces), in an order that never changes. Blender's own sum of the same
+    comes out a bit or two different from one build of a model to the next, and so did the models' file. Blender also
+    hands over the faces and their corners in an order that changes, so each sum here is taken in an order of its own."""
+    position = [Vector(vertex.co) for vertex in mesh.vertices]
+    corner_vert = [loop.vertex_index for loop in mesh.loops]
+    corner_edge = [loop.edge_index for loop in mesh.loops]
+    sharp_edge = mesh.attributes.get("sharp_edge")
+    sharp_edge = [False] * len(mesh.edges) if sharp_edge is None else [item.value for item in sharp_edge.data]
+    sharp_face = mesh.attributes.get("sharp_face")
+    sharp_face = [False] * len(mesh.polygons) if sharp_face is None else [item.value for item in sharp_face.data]
+    face_of = [0] * len(mesh.loops)
+    previous = [0] * len(mesh.loops)
+    angle = [0.0] * len(mesh.loops)
+    face_normal = []
+    faces_on_edge = [0] * len(mesh.edges)
+    for face in mesh.polygons:
+        loops = range(face.loop_start, face.loop_start + face.loop_total)
+        corners = [position[corner_vert[i]] for i in loops]
+        # Newell's normal, the same for a triangle as its cross product, summed from the face's lowest corner.
+        first = min(range(len(corners)), key=lambda k: tuple(corners[k]))
+        newell = Vector((0.0, 0.0, 0.0))
+        for k in range(len(corners)):
+            here, after = corners[(first + k) % len(corners)], corners[(first + k + 1) % len(corners)]
+            newell += Vector(((here.y - after.y) * (here.z + after.z), (here.z - after.z) * (here.x + after.x), (here.x - after.x) * (here.y + after.y)))
+        face_normal.append(newell.normalized())
+        for k, i in enumerate(loops):
+            face_of[i] = face.index
+            previous[i] = loops[k - 1]
+            faces_on_edge[corner_edge[i]] += 1
+            back, ahead = corners[k - 1] - corners[k], corners[(k + 1) % len(corners)] - corners[k]
+            angle[i] = back.angle(ahead, 0.0)
+    # The corners round each vertex, joined into fans across the smooth edges between them.
+    parent = list(range(len(mesh.loops)))
+
+    def root(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+    at_edge = {}
+    for i in range(len(mesh.loops)):
+        if sharp_face[face_of[i]]:
+            continue
+        for edge in (corner_edge[i], corner_edge[previous[i]]):
+            if sharp_edge[edge] or faces_on_edge[edge] != 2:
+                continue
+            other = at_edge.setdefault((corner_vert[i], edge), i)
+            if other != i:
+                a, b = root(i), root(other)
+                parent[max(a, b)] = min(a, b)
+    fans = {}
+    for i in range(len(mesh.loops)):
+        fans.setdefault(root(i), []).append(i)
+
+    def summed(corners):
+        total = Vector((0.0, 0.0, 0.0))
+        for share in sorted(tuple(face_normal[face_of[i]] * angle[i]) for i in corners):
+            total += Vector(share)
+        return total
+    at_vertex = {}
+    for i in range(len(mesh.loops)):
+        at_vertex.setdefault(corner_vert[i], []).append(i)
+    normals = [None] * len(mesh.loops)
+    for corners in fans.values():
+        normal = summed(corners)
+        # A fan of faces with no area has no normal of its own: Blender then gives it its vertex's, the sum over every
+        # face round it, and failing that the way from the origin to the vertex.
+        if normal.length == 0.0:
+            normal = summed(at_vertex[corner_vert[corners[0]]])
+        if normal.length == 0.0:
+            normal = Vector(position[corner_vert[corners[0]]])
+        normal = normal.normalized()
+        for i in corners:
+            normals[i] = normal
+    return normals
+
+
 def spread(low, high, cells):
     return [low + (high - low) * i / cells for i in range(cells + 1)]
 
@@ -304,11 +384,12 @@ class Model:
         shaped = obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
         done = shaped.to_mesh()
         done.calc_loop_triangles()
-        normals = done.corner_normals
+        # The custom normals the weighted-normal modifier sets come out the same every build; Blender's smooth ones do not.
+        normals = [Vector(normal.vector) for normal in done.corner_normals] if done.has_custom_normals else smooth_normals(done)
         index = SURFACES.index(surface)
         for triangle in done.loop_triangles:
             for corner, vertex in zip(triangle.loops, triangle.vertices):
-                self.vertices.append((Vector(done.vertices[vertex].co), Vector(normals[corner].vector).normalized(), index))
+                self.vertices.append((Vector(done.vertices[vertex].co), normals[corner].normalized(), index))
         shaped.to_mesh_clear()
         bpy.data.objects.remove(obj)
         bpy.data.meshes.remove(mesh)
@@ -318,6 +399,19 @@ class Model:
 
         whole is given for a plain copy: it stands where the whole one does, and is said to be as big.
         """
+        # Blender hands a part's faces over in an order that changes from one build to the next, each triangle led by any
+        # of its corners, and what a vertex is found to see of the room turns on which vertices were seen first: so each
+        # triangle is led by its least corner, its winding kept, and the triangles go in an order of their own.
+        def key(corner):
+            position, normal, surface = corner
+            return surface, tuple(position), tuple(normal)
+        triangles = []
+        for i in range(0, len(self.vertices), 3):
+            triangle = self.vertices[i:i + 3]
+            first = min(range(3), key=lambda k: key(triangle[k]))
+            triangles.append(tuple(triangle[first:] + triangle[:first]))
+        triangles.sort(key=lambda triangle: tuple(key(corner) for corner in triangle))
+        self.vertices = [corner for triangle in triangles for corner in triangle]
         low = Vector([min(v[0][axis] for v in self.vertices) for axis in range(3)])
         high = Vector([max(v[0][axis] for v in self.vertices) for axis in range(3)])
         if whole is None:
