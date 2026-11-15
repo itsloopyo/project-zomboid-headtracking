@@ -135,7 +135,7 @@ final class Furniture {
     boolean stocked;
     /** Whether this is a trough that Troughs.addFill fills with what the game paints in it. */
     boolean trough;
-    /** Whether this is a shop's glass counter, round whose case ShopFittings lays the glass. */
+    /** Whether this is a shop's glass counter, round whose case ShopFittings lays the glass, or a glass fridge or cooler, over whose doors it does. */
     boolean glazed;
     /** Whether it stands on the roof of its square where there is one: see Outdoors.Piece. */
     boolean onRoof;
@@ -763,6 +763,15 @@ final class Furniture {
             basin.basin = true;
             return basin;
         }
+        // A shop's fridge, and a cooler of two doors under a lit sign, whose front is glass: the game's material says so.
+        if (called.equals("Fridge") && holds.equals("fridge") && "Glass".equals(properties.get("MaterialType")) && (single || pair)) {
+            Furniture fridge = new Furniture(sprite, pair ? "glass_cooler" : "glass_fridge", turns).dye(1 << Models.ENAMEL, surfaceHigh * GLASS_FRIDGE_DYE);
+            if (pair) {
+                fridge.also(1 << Models.SHADE, COOLER_SIGN_DYE);
+            }
+            fridge.glazed = true;
+            return fridge.stand(surfaceUp, fridge.model.height(), true);
+        }
         if (called.equals("Fridge") && holds.equals("fridge") && (single || pair) && (surface >= 55 || single && counterHigh)) {
             Furniture fridge = new Furniture(sprite, pair ? "large_fridge" : surface >= 55 ? "fridge" : "mini_fridge", turns)
                     .dye(1 << Models.ENAMEL, surfaceHigh * 0.8f);
@@ -881,6 +890,12 @@ final class Furniture {
 
     /** The sheet of arcade cabinets, four sprites to a cabinet from 16: facing south, east, west and north. */
     static final String ARCADES = "recreational_01_";
+    /**
+     * Where on the sprite of a glass fridge or cooler the colour of its body is read: how far up the sprite's top, which is the
+     * body's own colour and not the glass's under it, and how high in tiles the orange of a cooler's sign is at the middle of its square.
+     */
+    static final float GLASS_FRIDGE_DYE = 0.95f, COOLER_SIGN_DYE = 0.669f;
+
     /**
      * Where an arcade cabinet's colours are taken. Its marquee is the sprite's own painting, the face of the model's pane
      * ARCADE_PANE_Y along its y from its middle. Its side panels, the edge of its control panel and its buttons are the

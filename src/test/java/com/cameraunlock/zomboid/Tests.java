@@ -1802,7 +1802,7 @@ public final class Tests {
                 "narrow_table", "low_table", "low_table_2", "round_table", "office_desk", "shop_counter", "low_shelves", "wall_shelf", "wall_shelves",
                 "metal_rack", "store_shelves", "plastic_chair", "garden_chair", "patio_table", "folding_chair", "booth", "stool", "vending_machine", "arcade_machine", "dumpster_sloped", "dumpster_domed",
                 "radio", "microwave", "dishwasher", "ice_chest", "register", "counter_rack", "open_counter", "deposit_boxes", "shower", "shower_head", "kettle_barbecue", "gas_barbecue",
-                "mini_fridge", "large_fridge",
+                "mini_fridge", "large_fridge", "glass_fridge", "glass_cooler",
                 "pool_table"};
         for (String name : names) {
             Models.Model model = Models.get(name);

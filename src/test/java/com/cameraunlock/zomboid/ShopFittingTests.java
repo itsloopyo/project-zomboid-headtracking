@@ -24,6 +24,8 @@ final class ShopFittingTests {
         Checks.run("whatAShelfHoldsStandsOnItsBoardsWithinIt", ShopFittingTests::whatAShelfHoldsStandsOnItsBoardsWithinIt);
         Checks.run("manyOrFewIsThePictureTheGamePaints", ShopFittingTests::manyOrFewIsThePictureTheGamePaints);
         Checks.run("aGlassCounterIsItsModelAndItsGlassIsInsideItsFrame", ShopFittingTests::aGlassCounterIsItsModelAndItsGlassIsInsideItsFrame);
+        Checks.run("glassFridgesAndCoolersAreTheirModelsWithTheirGlassInFrontOfTheirShelves",
+                ShopFittingTests::glassFridgesAndCoolersAreTheirModelsWithTheirGlassInFrontOfTheirShelves);
         Checks.run("magazineStandsAreTheStandWithMagazinesOnItsTiers", ShopFittingTests::magazineStandsAreTheStandWithMagazinesOnItsTiers);
         Checks.run("aMallTablesFourQuartersMeetAtItsMiddle", ShopFittingTests::aMallTablesFourQuartersMeetAtItsMiddle);
         Checks.run("aGrocersDisplayCrateIsTheCrateWithItsProduceOnItsDeck", ShopFittingTests::aGrocersDisplayCrateIsTheCrateWithItsProduceOnItsDeck);
@@ -304,6 +306,41 @@ final class ShopFittingTests {
                 && Math.abs(glazed.maxY - ShopFittings.COUNTER_HALF) < 0.002f, "the model is as wide as ShopFittings lays the glass for: " + glazed.minX + " to "
                 + glazed.maxX + ", " + glazed.minY + " to " + glazed.maxY);
         check(Math.abs(glazed.height() - ShopFittings.COUNTER_TOP) < 0.002f, "and as high: " + glazed.height());
+    }
+
+    private static void glassFridgesAndCoolersAreTheirModelsWithTheirGlassInFrontOfTheirShelves() {
+        String row = "|BlocksPlacement||CanScrap||ContainerCapacity|40|CustomName|Fridge|GroupName|%s|IsFridge||IsMoveAble||Material|Fridge|"
+                + "Material2|Electric|MaterialType|%s|PickUpLevel|3|PickUpWeight|400|ScrapSize|Large|Surface|%d|container|fridge|solidtrans||Facing|";
+        // The shop's fridge, black and white, facing south and east, and the metal one a kitchen has, which has no glass.
+        Object[][] singles = {{22, "Industrial", 62, "S", 2}, {23, "Industrial", 62, "E", 1}, {40, "White Industrial", 64, "S", 2}, {41, "White Industrial", 64, "E", 1}};
+        for (Object[] one : singles) {
+            Furniture fridge = Furniture.known(TileRows.sprite("appliances_refrigeration_01_" + one[0] + String.format(row, one[1], "Glass", one[2]) + one[3] + "|"));
+            check(model(fridge).equals("glass_fridge") && fridge.glazed && fridge.turns == (int) one[4], "tile " + one[0] + " is a glass fridge, glazed: " + model(fridge));
+            if (fridge != null && fridge.model != null) {
+                check(Math.abs(fridge.model.height() * fridge.scaleUp - (int) one[2] / WorldScene.SURFACE_PIXELS_PER_LEVEL * ViewCamera.LEVEL_HEIGHT) < 1e-4f,
+                        "as high as the game says its top is: " + fridge.model.height() * fridge.scaleUp);
+            }
+        }
+        Furniture metal = Furniture.known(TileRows.sprite("appliances_refrigeration_01_0" + String.format(row, "White", "Metal_Large", 60) + "S|"));
+        check(model(metal).equals("fridge") && !metal.glazed, "a metal fridge is still the fridge and has no glass laid: " + model(metal));
+        // The cooler of two doors, one to a tile.
+        for (String facing : new String[] {"S", "E"}) {
+            int[] numbers = facing.equals("S") ? new int[] {18, 19} : new int[] {17, 16};
+            for (Furniture square : laid("appliances_refrigeration_01_", String.format(row, "Large", "Glass", 78), numbers, facing, same(2, ""))) {
+                check(model(square).equals("glass_cooler") && square.glazed, "each square of the cooler facing " + facing + " is the cooler, glazed: " + model(square));
+            }
+        }
+        Furniture steel = laid("appliances_refrigeration_01_", String.format(row, "Large", "Metal_Large", 76), new int[] {45, 44}, "W", same(2, ""))[0];
+        check(model(steel).equals("large_fridge") && !steel.glazed, "the large metal fridge is still large_fridge: " + model(steel));
+        // The glass is laid by the numbers the model is built to: its width, the frame round it, and in front of its shelves.
+        for (String name : new String[] {"glass_fridge", "glass_cooler"}) {
+            Models.Model model = Models.get(name);
+            ShopFittings.Doors doors = ShopFittings.doorsOf(name);
+            check(doors != null && Math.abs(model.maxX - doors.half()) < 0.002f && Math.abs(model.minX + doors.half()) < 0.002f, name + " is as wide as ShopFittings lays its glass for: " + model.minX + " to " + model.maxX);
+            check(doors.high() < model.height() && doors.low() > 0.1f, name + "'s glass is between its foot and its top: " + doors.low() + " to " + doors.high());
+            check(doors.y() > model.minY + 0.02f && doors.y() < model.minY + 0.07f, name + "'s glass is just behind the front of its frame: " + doors.y() + " against " + model.minY);
+            check(doors.two() == name.equals("glass_cooler"), name + "'s glass is one pane for a fridge and two for a cooler");
+        }
     }
 
     private static void magazineStandsAreTheStandWithMagazinesOnItsTiers() {

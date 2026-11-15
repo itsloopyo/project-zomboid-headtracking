@@ -296,10 +296,14 @@ final class ShopFittings {
     /**
      * Lays the glass of a glass counter's case: its top, its front and its two ends, each a sheet inside the steel
      * frame round it. The back is the board whoever serves stands at. x and y are the counter's square, (centreX, centreY)
-     * where on it the counter stands, foot the floor under it.
+     * where on it the counter stands, foot the floor under it. A glass fridge or cooler has the glass of its doors laid instead.
      */
     static void addGlass(WorldScene.Frame build, Furniture piece, int x, int y, float centreX, float centreY, float foot) {
         Furniture.Glass glass = new Furniture.Glass(build, piece, x, y, centreX, centreY, foot);
+        if (!piece.model.name.equals("glass_counter")) {
+            addDoorGlass(glass, piece.model.name);
+            return;
+        }
         float in = COUNTER_HALF - COUNTER_POST / 2f, low = COUNTER_GLASS_FOOT, high = COUNTER_GLASS_TOP, top = high + 0.01f;
         float side = COUNTER_HALF - COUNTER_POST, back = COUNTER_BACK;
         glass.face(0f, 0f, 1f);
@@ -310,6 +314,39 @@ final class ShopFittings {
             float end = way * in;
             glass.face(way, 0f, 0f);
             pane(glass, end, -side, low, end, back, low, end, back, high, end, -side, high);
+        }
+    }
+
+    /**
+     * What a glass fridge's and a glass cooler's doors are, as tools/models/furniture.py builds glass_fridge and glass_cooler
+     * (GLASS_FRIDGE and GLASS_COOLER there), in metres from the middle of the model's footprint: half the width, the foot and
+     * the head of the doors' opening, how far along y the glass lies (a little behind the frame's face, which the fridge's
+     * handle and the cooler's sign stand out of), and whether a mullion stands in the middle of the opening. The frame
+     * round the opening is DOOR_RAIL wide.
+     */
+    record Doors(float half, float low, float high, float y, boolean two) {}
+
+    static final Doors GLASS_FRIDGE = new Doors(0.35f, 0.16f, 1.62f, -0.297f, false), GLASS_COOLER = new Doors(0.85f, 0.15f, 1.62f, -0.306f, true);
+    static final float DOOR_RAIL = 0.05f, DOOR_MULLION = 0.03f;
+
+    /** The doors of the named model, or null where it is no glass fridge or cooler. */
+    static Doors doorsOf(String model) {
+        return model.equals("glass_fridge") ? GLASS_FRIDGE : model.equals("glass_cooler") ? GLASS_COOLER : null;
+    }
+
+    /** Lays the glass of each door of a glass fridge or cooler across its opening. */
+    private static void addDoorGlass(Furniture.Glass glass, String model) {
+        Doors doors = doorsOf(model);
+        if (doors == null) {
+            throw new IllegalStateException(model + " is a glazed piece with no glass laid for it");
+        }
+        float edge = doors.half - DOOR_RAIL;
+        glass.face(0f, -1f, 0f);
+        if (doors.two) {
+            pane(glass, -edge, doors.y, doors.low, -DOOR_MULLION, doors.y, doors.low, -DOOR_MULLION, doors.y, doors.high, -edge, doors.y, doors.high);
+            pane(glass, DOOR_MULLION, doors.y, doors.low, edge, doors.y, doors.low, edge, doors.y, doors.high, DOOR_MULLION, doors.y, doors.high);
+        } else {
+            pane(glass, -edge, doors.y, doors.low, edge, doors.y, doors.low, edge, doors.y, doors.high, -edge, doors.y, doors.high);
         }
     }
 
