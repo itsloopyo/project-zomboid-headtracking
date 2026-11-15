@@ -106,12 +106,11 @@ final class Links {
     /** The game's pictures of what containers hold, by the sprite each is painted over, which OverlayPictures reads. */
     static final Field CONTAINER_OVERLAY_MAP = new Field(CONTAINER_OVERLAYS, "overlayMap", "Lgnu/trove/map/hash/THashMap;");
     static final Field CONTAINER_OVERLAY_ENTRIES = new Field(CONTAINER_OVERLAYS + "$ContainerOverlay", "entries", "Ljava/util/ArrayList;");
-    static final Field CONTAINER_OVERLAY_MANY = new Field(CONTAINER_OVERLAYS + "$ContainerOverlayEntry", "manyItems", "Ljava/lang/String;");
     static final Field CONTAINER_OVERLAY_FEW = new Field(CONTAINER_OVERLAYS + "$ContainerOverlayEntry", "fewItems", "Ljava/lang/String;");
     static final List<Field> REFLECTED = List.of(BUFFER_HANDLE, BUFFER_ELEMENTS, BUFFER_FORMAT, HANDLE_BUFFER, HANDLE_STRIDE, BODY_PICTURE, OUTLINED, GROUND_MARKERS, HOMING_POINTS, NODE_LAYER,
             ITEM_MODEL, ITEM_TRANSFORM, ITEM_TINT_R, ITEM_TINT_G, ITEM_TINT_B, ITEM_TINT_MASK,
             DOOR_SHUT, THUMPABLE_SHUT, DOUBLE_NORTH_OPENS, DOUBLE_WEST_OPENS, BODY_PICTURE_ENTRY, POSED_STATES, POSED_PARTS,
-            CONTAINER_OVERLAY_MAP, CONTAINER_OVERLAY_ENTRIES, CONTAINER_OVERLAY_MANY, CONTAINER_OVERLAY_FEW);
+            CONTAINER_OVERLAY_MAP, CONTAINER_OVERLAY_ENTRIES, CONTAINER_OVERLAY_FEW);
 
     private final Function<String, byte[]> classBytes;
     private final Map<String, Optional<ClassModel>> models = new HashMap<>();

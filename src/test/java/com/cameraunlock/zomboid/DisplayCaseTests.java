@@ -166,6 +166,7 @@ final class DisplayCaseTests {
             square.offsetX = 64f;
             square.offsetY = 192f;
             square.overlaySprite = square.getSprite();
+            zombie.iso.ContainerOverlays.instance.add(square.getSprite().getName(), square.getSprite().getName(), null);
         }
         if (logs) {
             for (int x = 10; x <= 11; x++) {

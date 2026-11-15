@@ -238,8 +238,7 @@ final class ShopFittings {
 
     /** Whether the game paints a container's square with its many things, and not its fewer: by the picture it paints. */
     static boolean many(IsoObject object) {
-        IsoSprite painted = object.getOverlaySprite();
-        return painted != null && !OverlayPictures.few(painted.getName());
+        return !OverlayPictures.few(object, object.getOverlaySprite().getName());
     }
 
     /**
