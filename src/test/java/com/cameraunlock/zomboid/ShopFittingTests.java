@@ -256,28 +256,32 @@ final class ShopFittingTests {
 
     /** The picture the game paints over a fitting says whether it holds many things or few, whatever the client has been told it holds. */
     private static void manyOrFewIsThePictureTheGamePaints() {
+        OverlayPictures.Holding many = OverlayPictures.Holding.MANY, few = OverlayPictures.Holding.FEW;
         zombie.iso.IsoObject square = new zombie.iso.IsoObject(TileRows.sprite("test_shelf_0|"));
         square.container = new zombie.inventory.ItemContainer();
+        check(OverlayPictures.holding(square) == null, "with nothing painted over it a fitting is painted holding nothing");
         square.overlaySprite = TileRows.sprite(zombie.iso.ContainerOverlays.TEST_MANY + "|");
-        check(ShopFittings.many(square), "the picture of many things is many, though the container holds nothing the client knows of");
+        check(OverlayPictures.holding(square) == many, "the picture of many things is many, though the container holds nothing the client knows of");
         square.overlaySprite = TileRows.sprite(zombie.iso.ContainerOverlays.TEST_FEW + "|");
         for (int i = 0; i < 20; i++) {
             square.container.getItems().add(new Object());
         }
-        check(!ShopFittings.many(square), "the picture of few things is few, though the container holds twenty");
+        check(OverlayPictures.holding(square) == few, "the picture of few things is few, though the container holds twenty");
+        square.overlaySprite = TileRows.sprite("test_soot|");
+        check(OverlayPictures.holding(square) == null, "a picture that is none of the game's pictures of what containers hold is no stock");
         // The game paints one picture as many over one fitting and as few over another: each is read by its own sprite.
         zombie.iso.IsoObject one = new zombie.iso.IsoObject(TileRows.sprite("test_shelf_1|")), other = new zombie.iso.IsoObject(TileRows.sprite("test_shelf_2|"));
         one.overlaySprite = other.overlaySprite = TileRows.sprite(zombie.iso.ContainerOverlays.TEST_BOTH + "|");
-        check(ShopFittings.many(one), "a picture the game paints over one fitting holding many things is many there");
-        check(!ShopFittings.many(other), "and few over the fitting it paints it holding few things on");
+        check(OverlayPictures.holding(one) == many, "a picture the game paints over one fitting holding many things is many there");
+        check(OverlayPictures.holding(other) == few, "and few over the fitting it paints it holding few things on");
         zombie.iso.IsoObject bin = new zombie.iso.IsoObject(TileRows.sprite("test_bin_0|"));
         bin.overlaySprite = TileRows.sprite("test_overlay_many_3|");
-        check(ShopFittings.many(bin), "a fitting the game has no picture of few things for is painted with its picture of many");
+        check(OverlayPictures.holding(bin) == many, "a fitting the game has no picture of few things for is painted with its picture of many");
         zombie.iso.IsoObject unknown = new zombie.iso.IsoObject(TileRows.sprite("test_shelf_none|"));
         unknown.overlaySprite = TileRows.sprite(zombie.iso.ContainerOverlays.TEST_MANY + "|");
         try {
-            ShopFittings.many(unknown);
-            check(false, "a picture over a sprite the game has no pictures for is no answer of many or few");
+            OverlayPictures.holding(unknown);
+            check(false, "a picture of what a container holds over a sprite the game has no such pictures for is no answer of many or few");
         } catch (IllegalStateException expected) {
             check(expected.getMessage().contains("test_shelf_none"), "the failure names the sprite: " + expected.getMessage());
         }

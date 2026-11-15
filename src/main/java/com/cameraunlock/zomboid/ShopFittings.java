@@ -236,11 +236,6 @@ final class ShopFittings {
         };
     }
 
-    /** Whether the game paints a container's square with its many things, and not its fewer: by the picture it paints. */
-    static boolean many(IsoObject object) {
-        return !OverlayPictures.few(object, object.getOverlaySprite().getName());
-    }
-
     /**
      * Stands goods or clothes on one square of a fitting while the game paints what the square holds over it, many or
      * few as the game paints them. x and y are the square, foot the floor under it, (awayX, awayY) how far the fitting
@@ -254,8 +249,12 @@ final class ShopFittings {
             addProduce(build, object, piece, x, y, foot, awayX, awayY);
             return;
         }
+        OverlayPictures.Holding held = OverlayPictures.holding(object);
+        if (held == null) {
+            return;
+        }
         Stock stock = stockOf(piece);
-        Models.Model goods = Models.get(many(object) ? stock.many : stock.few);
+        Models.Model goods = Models.get(held == OverlayPictures.Holding.MANY ? stock.many : stock.few);
         float up = (stock.hung ? stock.at - goods.height() : stock.at) * piece.scaleUp;
         float[] middle = new float[2];
         middleOf(piece, x, y, middle);

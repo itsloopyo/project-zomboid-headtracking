@@ -135,10 +135,11 @@ final class DisplayCases {
      * cakes. x and y are the square, foot the floor under it, (awayX, awayY) how far the case stands from where it is painted.
      */
     static void addStock(WorldScene.Frame build, IsoObject object, Furniture piece, int x, int y, float foot, float awayX, float awayY) {
-        if (object.getOverlaySprite() == null) {
+        OverlayPictures.Holding held = OverlayPictures.holding(object);
+        if (held == null) {
             return;
         }
-        Models.Model cakes = Models.get(STOCK[(ShopFittings.many(object) ? 2 : 0) + (piece.gridX + piece.gridY & 1)]);
+        Models.Model cakes = Models.get(STOCK[(held == OverlayPictures.Holding.MANY ? 2 : 0) + (piece.gridX + piece.gridY & 1)]);
         float[] middle = new float[2];
         middleOf(piece, x, y, middle);
         build.placed.add(cakes, build.frame, x, y, middle[0] + awayX, middle[1] + awayY, foot + DECK * piece.scaleUp, piece.turns, piece.scale, piece.scaleUp,
