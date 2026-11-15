@@ -1121,7 +1121,9 @@ final class Furniture {
     }
 
     /** How high, in metres, the part of a model is that the game gives the height of: an oven's hob under its back, a bench's seat, a basin's rim. */
-    private static final float OVEN_HOB = 0.91f, WASHER_TOP = 0.92f, TV_CABINET_TOP = 0.78f, BENCH_SEAT = 0.455f, SINK_RIM = 0.44f;
+    private static final float OVEN_HOB = 0.91f, WASHER_TOP = 0.92f, BENCH_SEAT = 0.455f, SINK_RIM = 0.44f;
+    /** How high the top of the antique television's cabinet is on its model, which the game's Surface stands at. */
+    static final float TV_CABINET_TOP = 0.78f;
     /** How far from the middle of its square, towards its back, a piece on the wall gives its colour. */
     private static final float BACK_DYE = 0.36f;
     /** How high above the floor the lowest part of a shower with no tray is, its taps, in tiles: its model starts there. */

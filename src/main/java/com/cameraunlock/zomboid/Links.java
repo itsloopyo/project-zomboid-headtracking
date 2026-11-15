@@ -114,11 +114,19 @@ final class Links {
     static final Field CHAT_HISTORY = new Field(CHAT, "historyVal", "F");
     static final Field CHAT_WRITTEN = new Field(CHAT_LINES, "chatLines", "[Lzombie/ui/TextDrawObject;");
     static final Field CHAT_SHOWN_FOR = new Field(CHAT_LINES, "lineDisplayTime", "I");
+    static final Field CHAT_SHOWING = new Field(CHAT, "hasChatToDisplay", "Z");
+    private static final String BLEND_VALUE = "zombie/core/opengl/GLState$C4IntsValue";
+    /** How the game is blending what it draws now, which SetCaptions puts back after drawing the backdrop behind a line: see GLState.BlendFuncSeparate. */
+    static final Field BLEND_NOW = new Field("zombie/core/opengl/IOpenGLState", "currentValue", "Lzombie/core/opengl/IOpenGLState$Value;");
+    static final Field BLEND_A = new Field(BLEND_VALUE, "a", "I");
+    static final Field BLEND_B = new Field(BLEND_VALUE, "b", "I");
+    static final Field BLEND_C = new Field(BLEND_VALUE, "c", "I");
+    static final Field BLEND_D = new Field(BLEND_VALUE, "d", "I");
     static final List<Field> REFLECTED = List.of(BUFFER_HANDLE, BUFFER_ELEMENTS, BUFFER_FORMAT, HANDLE_BUFFER, HANDLE_STRIDE, BODY_PICTURE, OUTLINED, GROUND_MARKERS, HOMING_POINTS, NODE_LAYER,
             ITEM_MODEL, ITEM_TRANSFORM, ITEM_TINT_R, ITEM_TINT_G, ITEM_TINT_B, ITEM_TINT_MASK,
             DOOR_SHUT, THUMPABLE_SHUT, DOUBLE_NORTH_OPENS, DOUBLE_WEST_OPENS, BODY_PICTURE_ENTRY, POSED_STATES, POSED_PARTS,
             CONTAINER_OVERLAY_MAP, CONTAINER_OVERLAY_ENTRIES, CONTAINER_OVERLAY_MANY, CONTAINER_OVERLAY_FEW,
-            CHAT_PLAYER_LINES, CHAT_HISTORY, CHAT_WRITTEN, CHAT_SHOWN_FOR);
+            CHAT_PLAYER_LINES, CHAT_HISTORY, CHAT_WRITTEN, CHAT_SHOWN_FOR, CHAT_SHOWING, BLEND_NOW, BLEND_A, BLEND_B, BLEND_C, BLEND_D);
 
     private final Function<String, byte[]> classBytes;
     private final Map<String, Optional<ClassModel>> models = new HashMap<>();

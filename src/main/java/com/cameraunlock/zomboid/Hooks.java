@@ -127,6 +127,15 @@ public final class Hooks {
         View view = View.of(player.getIndex());
         if (view != null) {
             view.firstPerson.afterWorldText(player.getIndex());
+            if (Part.CAPTIONS_OVER_SETS.on()) {
+                try {
+                    view.setCaptions.writeKept(player.getIndex());
+                } catch (RuntimeException | LinkageError thrown) {
+                    if (!setCaptionsOff(thrown)) {
+                        throw thrown;
+                    }
+                }
+            }
         }
     }
 
@@ -1479,9 +1488,6 @@ public final class Hooks {
             return;
         }
         boolean carried = !ignoreRadioLines && Part.CAPTIONS_OVER_SETS.running();
-        if (!Part.NAME_TAGS_AT_HEADS.running()) {
-            speech.renderBatched(playerIndex, x, y, ignoreRadioLines || carried);
-        }
         if (carried) {
             try {
                 view.setCaptions.writeCarriedRadio(speech, playerIndex);
@@ -1489,7 +1495,13 @@ public final class Hooks {
                 if (!setCaptionsOff(thrown)) {
                     throw thrown;
                 }
+                // The game writes this frame's speech, the radio's lines with it, as it does without the mod.
+                speech.renderBatched(playerIndex, x, y, ignoreRadioLines);
+                return;
             }
+        }
+        if (!Part.NAME_TAGS_AT_HEADS.running()) {
+            speech.renderBatched(playerIndex, x, y, ignoreRadioLines || carried);
         }
     }
 
