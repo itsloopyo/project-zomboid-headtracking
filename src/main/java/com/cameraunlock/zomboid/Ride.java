@@ -133,6 +133,14 @@ final class Ride {
      */
     final Set<String> ownInteriors = ConcurrentHashMap.newKeySet();
 
+    /**
+     * Whether a seat in the script has its eye at the script's place inside that seat: the
+     * vehicle's inside is a vehicle mod's own models and no steering wheel was found among them.
+     */
+    boolean eyeAtInsidePlace(String script) {
+        return Part.MODDED_VEHICLE_INTERIORS.on() && ownInteriors.contains(script) && !eyeWheels.containsKey(script);
+    }
+
     /** As a save is left: another save may have another vehicle mod give a script of the same name another cabin. */
     void forgetWheels() {
         wheels.clear();
@@ -437,7 +445,7 @@ final class Ride {
         eye[1] = (double) seatAt.y - sideY / side * Math.min(HEAD_INBOARD, side);
         eye[2] = (double) floorUp + EYE_HEIGHT_IN_VEHICLE;
         boolean modded = Part.MODDED_VEHICLE_INTERIORS.on();
-        if (modded && ownInteriors.contains(vehicle.getScriptName()) && !eyeWheels.containsKey(vehicle.getScriptName())) {
+        if (eyeAtInsidePlace(vehicle.getScriptName())) {
             // The game's place for the seat is at the door until the player is seated, and stays
             // there where nothing seats them; a vehicle mod may put that place behind its seats
             // rather than at a door. The script's place inside the seat is where it sits the

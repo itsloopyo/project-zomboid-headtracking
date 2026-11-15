@@ -118,6 +118,14 @@ final class VehicleMeshes {
          */
         boolean ownInterior, glassParted;
         /**
+         * Whether the eye is at the script's inside seat place, with the body drawn round it
+         * from behind (Characters.fromBehind): what the body has of glass is then not told,
+         * neither by its triangles' colours nor by the picture's colours, for from within the
+         * body is all the inside of its walls, and a decal the paint does not change is not a
+         * window.
+         */
+        boolean bodyFromBehind;
+        /**
          * The steering wheel a vehicle mod models, with ModdedVehicleInteriors on, or null: where
          * the middle of its rim is in the world this frame, x, y and up; the way its column runs
          * away from the driver, along the vehicle, to its left and up; and how far out from its
@@ -136,6 +144,7 @@ final class VehicleMeshes {
             wheel = null;
             ownInterior = false;
             glassParted = false;
+            bodyFromBehind = false;
             moddedWheel = null;
             for (int i = 0; i < paneCount; i++) {
                 paneMeshes[i] = null;
@@ -325,6 +334,11 @@ final class VehicleMeshes {
         if (middle == NONE) {
             if (Part.MODDED_VEHICLE_INTERIORS.on()) {
                 ownInterior(seated, ride, script, models, axes, settles, placed, standsX, standsY, groundUp);
+                if (ride.eyeAtInsidePlace(script)) {
+                    seated.bodyFromBehind = true;
+                    seated.panes = null;
+                    seated.rearPanes = 0;
+                }
             }
             return;
         }

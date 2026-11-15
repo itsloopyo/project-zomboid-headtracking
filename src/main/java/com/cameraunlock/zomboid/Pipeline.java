@@ -5731,7 +5731,7 @@ final class Pipeline {
         figureLight.set("uPartsDepth", PARTS_DEPTH_UNIT);
         figureLight.set("uParted", parts != null ? 1f : 0f, parts != null && parts.seats ? 1f : 0f);
         VehicleMeshes.Seated sat = view.characters.cabin;
-        figureLight.set("uOwnInterior", own && seated && sat.ownInterior ? 1f : 0f, own && seated && sat.glassParted ? 1f : 0f);
+        figureLight.set("uOwnInterior", own && seated && sat.ownInterior ? 1f : 0f, own && seated && (sat.glassParted || sat.bodyFromBehind) ? 1f : 0f);
         figureLight.set("uWood", WOOD_UNIT);
         figureLight.set("uWoodGain", materialGain[WOOD]);
         figureLight.set("uCarpet", FIRST_MATERIAL_UNIT + CARPET);
@@ -5973,7 +5973,7 @@ final class Pipeline {
         if (!ownMap) {
             // The glass's pass may follow in the figures' program, and reads these as the cabin's pass left them.
             VehicleMeshes.Seated sat = view.characters.cabin;
-            figureLight.set("uOwnInterior", sat.ownInterior ? 1f : 0f, sat.glassParted ? 1f : 0f);
+            figureLight.set("uOwnInterior", sat.ownInterior ? 1f : 0f, sat.glassParted || sat.bodyFromBehind ? 1f : 0f);
             figureLight.set("uPainted", 1f);
             figureLight.set("uHavePanes", sat.panes != null ? 1f : 0f);
         }

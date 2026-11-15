@@ -3209,6 +3209,7 @@ public final class Characters {
             GL20.glDrawBuffers(lamps);
         }
         float ambientR = data.ambientR, ambientG = data.ambientG, ambientB = data.ambientB;
+        boolean withinBody = fromSeat && data.object instanceof BaseVehicle sat && view.ride.eyeAtInsidePlace(sat.getScriptName());
         torchLeftOut(data);
         turnGameWinding(true);
         try {
@@ -3226,6 +3227,9 @@ public final class Characters {
                     // The paint is the vehicle's own, kept from frame to frame: it is put back whatever the draw does.
                     try {
                         model.RenderVehicle(data);
+                        if (withinBody) {
+                            fromBehind(model, data);
+                        }
                     } finally {
                         body.painColor.x = x;
                         body.painColor.y = y;
@@ -3233,6 +3237,9 @@ public final class Characters {
                     }
                 } else {
                     model.RenderVehicle(data);
+                    if (withinBody && model.modelInstance instanceof VehicleModelInstance) {
+                        fromBehind(model, data);
+                    }
                 }
             }
         } finally {
@@ -3246,6 +3253,42 @@ public final class Characters {
         }
         ModelCamera.instance = gameCamera;
         data.squareDepth = squareDepth;
+    }
+
+    /**
+     * Has the game draw the body of the vehicle sat in again with the other side of its faces,
+     * for an eye inside a body whose vehicle mod models no inside round the seat: the game draws
+     * a body's faces from outside only, and from within the walls are not there and the eye
+     * looks out over the ground. Seen from behind, the walls are in the cabin round the eye and
+     * the picture lights them as it does a cabin's. Only the body: a part model such as a rear
+     * compartment's inside is modelled to be seen from within, and its outer faces from behind
+     * would stand as a black wall between the seat and it.
+     */
+    private void fromBehind(ModelInstanceRenderData model, ModelSlotRenderData data) {
+        // Model.DrawVehicle culls one side of the faces by the model script's invertX. The
+        // script is shared, and the logic thread reads invertX for every vehicle of that body
+        // each tick, so the winding the faces are told by is turned instead. The game lights a
+        // face by its normal, which on a face seen from behind points away from the eye. For a
+        // vehicle each light is kept as its place from the vehicle, which Shader.setLight takes
+        // as the way to it (the vehicle's angle is NaN): turned round, a wall is lit as its
+        // inner side would be, by a light as far off.
+        ModelInstance.EffectLight[] lights = data.effectLights;
+        for (ModelInstance.EffectLight light : lights) {
+            light.x = -light.x;
+            light.y = -light.y;
+            light.z = -light.z;
+        }
+        GL11.glFrontFace(CharacterDraw.mirrored ? GL_CCW : GL_CW);
+        try {
+            model.RenderVehicle(data);
+        } finally {
+            GL11.glFrontFace(CharacterDraw.mirrored ? GL_CW : GL_CCW);
+            for (ModelInstance.EffectLight light : lights) {
+                light.x = -light.x;
+                light.y = -light.y;
+                light.z = -light.z;
+            }
+        }
     }
 
     /**
