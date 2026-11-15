@@ -8078,12 +8078,14 @@ final class WorldScene {
         private void addOver(IsoObject object, IsoSprite under, IsoSprite over, boolean isFloor, int x, int y, int z) {
             float material = frame.material;
             overObject = object;
+            overSprite = over;
             Texture underTexture = under.getTextureForCurrentFrame(object.getDir());
             overUnder = usable(underTexture) ? underTexture : null;
             try {
                 addOverOf(object, under, over, isFloor, x, y, z);
             } finally {
                 overObject = null;
+                overSprite = null;
                 overUnder = null;
             }
             frame.material = material;
@@ -9835,6 +9837,23 @@ final class WorldScene {
             }
 
             if (overLayer == 0 && furnishingBuilder.addHung(object, sprite, texture, x, y, z) || furnishingBuilder.addFurniture(object, sprite, x, y, z)) {
+                // What the game lays over a piece the mod has stood its model of, a vase on a dresser or the clutter on a
+                // counter, stands as a card on the middle of the piece's top, where the game paints it. Anchored on the
+                // floor or the middle of the square, the depth the picture gives the top stood it as height, and the
+                // things floated over and beside a dresser against its wall.
+                Furniture over = overLayer > 0 ? furnishingBuilder.standsOver(sprite, overSprite) : null;
+                if (over != null) {
+                    boolean single = over.width == 1 && over.height == 1;
+                    float a = single ? over.centreX : 0.5f, b = single ? over.centreY : 0.5f;
+                    float top = Surfaces.surface(sprite.getProperties()) / SURFACE_PIXELS_PER_LEVEL;
+                    float under = (frame.top + frame.height - SpriteGeometry.frameV(frame, a, b, top)) / frame.height;
+                    if (under < 1f) {
+                        float skipped = geometry.skipped;
+                        geometry.skipped = Math.max(under, 0f);
+                        geometry.addUpright(mesh, frame, x, y, z, a, b, top, 1f, 0f, true, false);
+                        geometry.skipped = skipped;
+                    }
+                }
                 if (SightTrace.ON && building.modelled != null) {
                     building.modelled.add(object);
                 }
@@ -10643,6 +10662,8 @@ final class WorldScene {
         /** The object whose overlay is being added, and the sprite of the object under it, while it is: see WallBuilder's grime. */
         IsoObject overObject;
         Texture overUnder;
+        /** The overlay being added, while it is. */
+        IsoSprite overSprite;
         /** How much further than HUNG_CLEAR out of its wall's skin the poster being added stands, clear of the mouldings behind it, in tiles: see trimClear. */
         float posterClear;
         /** The colour the papered wall's mesh is painted over in, as the picture is told it, and the light of the piece being added while its stripes are. */

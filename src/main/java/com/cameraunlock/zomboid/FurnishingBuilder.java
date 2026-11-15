@@ -5,9 +5,11 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import zombie.core.textures.Texture;
+import zombie.iso.ContainerOverlays;
 import zombie.iso.IsoDirections;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
+import zombie.iso.TileOverlays;
 import zombie.iso.objects.IsoBarbecue;
 import zombie.iso.objects.IsoFireplace;
 import zombie.iso.objects.IsoLightSwitch;
@@ -1247,6 +1249,25 @@ final class FurnishingBuilder {
         } else {
             build.placed.fire(Fires.unmodelled(sprite.getName()), x + 0.5f, y + 0.5f, foot, 0, 1f, 1f, seed, flames, smoke);
         }
+    }
+
+    /**
+     * Whether what the game lays over a piece the mod stands its model of is to stand on the piece as the game's own
+     * picture: the things the game sets out at random over a piece (TileOverlays) and what it paints a container holding
+     * (ContainerOverlays), where the mod makes nothing of its own for them. A stocked fitting's goods and a case's cakes
+     * are that painting made, and anything else the game lays over a piece, a set's lit screen, has a way of its own or none.
+     *
+     * The piece under it where it is to stand, or null where it is not.
+     */
+    Furniture standsOver(IsoSprite under, IsoSprite over) {
+        Furniture piece = Furniture.known(under);
+        if (over == null || over.getName() == null || piece == null || piece.stocked || piece.displayCase) {
+            return null;
+        }
+        // Both are read only: each map is filled as the game loads its Lua, before any world is built.
+        boolean decor = TileOverlays.instance.getUnderlyingSpriteNames(over.getName()) != null
+                || ContainerOverlays.instance.getUnderlyingSpriteNames(over.getName()) != null;
+        return decor ? piece : null;
     }
 
     /**
