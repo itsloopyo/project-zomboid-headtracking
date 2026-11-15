@@ -200,12 +200,16 @@ final class PropsTests {
         for (Over over : overlays()) {
             byOverlay.computeIfAbsent(over.overlay(), key -> new ArrayList<>()).add(over);
         }
+        Map<String, String> rows = new HashMap<>();
+        for (Over over : overlays()) {
+            rows.put(over.tile(), over.row());
+        }
         int pieces = 0;
         for (String batch : Models.propBatches()) {
             for (var overlay : Props.read(batch).dressings().entrySet()) {
                 Set<String> hosts = overlay.getValue().keySet();
                 for (Over over : byOverlay.getOrDefault(overlay.getKey(), List.of())) {
-                    Furniture piece = Furniture.known(TileRows.sprite(over.row()));
+                    Furniture piece = pieceOf(over, rows);
                     if (piece == null || piece.model == null) {
                         continue;
                     }
@@ -229,6 +233,49 @@ final class PropsTests {
             }
         }
         check(Models.propBatches().isEmpty() || pieces > 0, "the overlays the batches make lie over pieces the mod models: " + pieces);
+    }
+
+    /**
+     * The piece a tile is of. A tile that has a SpriteGridPos is a square of a piece on more than one, which the mod reads
+     * from the grid the game lays them in: it is laid here with the tile beside it of the same sheet and facing whose
+     * SpriteGridPos is the other square of two, when that makes a piece the mod models, and stands alone otherwise.
+     */
+    private static Furniture pieceOf(Over over, Map<String, String> rows) {
+        Furniture alone = Furniture.known(TileRows.sprite(over.row()));
+        String at = rowValue(over.row(), "|SpriteGridPos|");
+        if (at == null) {
+            return alone;
+        }
+        String sheet = over.tile().substring(0, over.tile().lastIndexOf('_') + 1);
+        int number = Integer.parseInt(over.tile().substring(sheet.length()));
+        String facing = rowValue(over.row(), "|Facing|");
+        for (int next : new int[] {number + 1, number - 1}) {
+            String other = rows.get(sheet + next);
+            String there = other == null ? null : rowValue(other, "|SpriteGridPos|");
+            if (there == null || there.equals(at) || !facing.equals(rowValue(other, "|Facing|"))) {
+                continue;
+            }
+            String[] a = at.split(","), b = there.split(",");
+            int width = Math.max(Integer.parseInt(a[0]), Integer.parseInt(b[0])) + 1, height = Math.max(Integer.parseInt(a[1]), Integer.parseInt(b[1])) + 1;
+            IsoSprite mine = TileRows.sprite(over.row());
+            TileRows.piece(width, height, mine, TileRows.sprite(other));
+            Furniture laid = Furniture.known(mine);
+            if (laid != null && laid.model != null) {
+                return laid;
+            }
+        }
+        return alone;
+    }
+
+    /** What follows the property in a row, up to the next bar, or null where the row has no such property. */
+    private static String rowValue(String row, String property) {
+        int at = row.indexOf(property);
+        if (at < 0) {
+            return null;
+        }
+        int from = at + property.length();
+        int to = row.indexOf('|', from);
+        return row.substring(from, to < 0 ? row.length() : to);
     }
 
     /**
