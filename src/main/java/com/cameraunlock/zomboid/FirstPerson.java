@@ -156,13 +156,9 @@ public final class FirstPerson {
     private static final long AFTER_AIM_NANOS = 400_000_000L;
     private long aimedAt = Long.MIN_VALUE / 2;
 
-    /** How far a pixel of mouse travel turns the view unzoomed. Zoomed it turns the view less, to move the picture as far. */
-    private static final float RADIANS_PER_PIXEL = 0.0025f;
     /** A frame longer than this is a hitch, and taking it whole would snap the zoom to its target. */
     private static final float MAX_FRAME_SECONDS = 0.25f;
     private static final float PITCH_LIMIT = (float) Math.toRadians(89);
-    /** How fast a controller's stick pushed right over turns the view unzoomed, in radians a second: across, and up or down. */
-    private static final float STICK_YAW = (float) Math.toRadians(220), STICK_PITCH = (float) Math.toRadians(140);
     private final Vector2 stick = new Vector2();
     /** How far ahead of the character the game's cursor is held, in tiles. */
     private static final float CURSOR_DISTANCE = 3f;
@@ -2899,7 +2895,7 @@ public final class FirstPerson {
         CharacterJoypadAxis2dBinding.Aiming.getValue(player.getJoypadBind(), stick);
         float pushed = Math.min((float) Math.hypot(stick.x, stick.y), 1f);
         float turn = pushed * seconds * view.fieldOfView.zoom() * view.scope.turn();
-        setLook(yaw + stick.x * turn * STICK_YAW, pitch - stick.y * turn * STICK_PITCH);
+        setLook(yaw + stick.x * turn * LookSpeed.stickAcross(), pitch - stick.y * turn * LookSpeed.stickUp());
     }
 
     /**
@@ -3155,7 +3151,7 @@ public final class FirstPerson {
             haveRawX = false;
         }
         if (haveRawX && !MouseGrab.ISOLATED && (!bodyWhole || behind)) {
-            float turn = (raw - lastRawX) * RADIANS_PER_PIXEL * view.fieldOfView.zoom() * view.scope.turn();
+            float turn = (raw - lastRawX) * LookSpeed.radiansPerPixel() * view.fieldOfView.zoom() * view.scope.turn();
             mouseTurned += turn;
             mouseMost = Math.max(mouseMost, Math.abs(raw - lastRawX));
             setLook(yaw + turn, pitch);
@@ -3179,7 +3175,7 @@ public final class FirstPerson {
             haveRawY = false;
         }
         if (haveRawY && !MouseGrab.ISOLATED && (!bodyWhole || behind)) {
-            setLook(yaw, pitch - (raw - lastRawY) * RADIANS_PER_PIXEL * view.fieldOfView.zoom() * view.scope.turn());
+            setLook(yaw, pitch - (raw - lastRawY) * LookSpeed.radiansPerPixel() * view.fieldOfView.zoom() * view.scope.turn());
         }
         lastRawY = raw;
         haveRawY = true;

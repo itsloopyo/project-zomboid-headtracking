@@ -119,6 +119,7 @@ public final class CoreTests {
         Checks.run("aGraphicsRowAppliedOnTheOptionsScreenGoesToCustom", CoreTests::aGraphicsRowAppliedOnTheOptionsScreenGoesToCustom);
         Checks.run("customKeepsItsRowsThroughTheOtherModes", CoreTests::customKeepsItsRowsThroughTheOtherModes);
         Checks.run("theHeightOfTheHillsIsASliderThatLeavesTheGraphicsModeAsItIs", CoreTests::theHeightOfTheHillsIsASliderThatLeavesTheGraphicsModeAsItIs);
+        Checks.run("theLookSpeedsAreSlidersThatLeaveTheHeadAlone", CoreTests::theLookSpeedsAreSlidersThatLeaveTheHeadAlone);
         Checks.run("aGraphicsRowEditedInTheFileGoesToCustom", CoreTests::aGraphicsRowEditedInTheFileGoesToCustom);
         Checks.run("theDrawDistanceFarTreesAndReflectionsGoToCustomAsTheOtherRowsDo", CoreTests::theDrawDistanceFarTreesAndReflectionsGoToCustomAsTheOtherRowsDo);
         Checks.run("theGrassDensityGoesToCustomAsTheOtherRowsDo", CoreTests::theGrassDensityGoesToCustomAsTheOtherRowsDo);
@@ -1097,7 +1098,7 @@ public final class CoreTests {
         String edited = saved.replace("FieldOfView=65.0", "FieldOfView=90").replace("VanillaWeapons=false", "VanillaWeapons=true")
                 .replace("VanillaPlants=false", "VanillaPlants=true").replace("Quality=Medium", "Quality=High").replace("Style=Warm", "Style=Natural")
                 .replace("MuzzleFlash=true", "MuzzleFlash=false").replace("Crosshair=true", "Crosshair=false").replace("RegripTwoHandedWeapons=true", "RegripTwoHandedWeapons=false").replace("SpreadLightUpdates=true", "SpreadLightUpdates=false").replace("SplitScreen=Horizontal", "SplitScreen=Vertical").replace("UdpPort=default", "UdpPort=5555")
-                .replace("HillHeight=1.5", "HillHeight=0.25");
+                .replace("HillHeight=1.5", "HillHeight=0.25").replace("MouseLookSpeed=1.0", "MouseLookSpeed=0.5").replace("StickLookSpeed=1.0", "StickLookSpeed=2.5");
         for (Part part : Part.values()) {
             edited = edited.replace("\r\n" + part.key + "=true\r\n", "\r\n" + part.key + "=false\r\n");
         }
@@ -1110,6 +1111,7 @@ public final class CoreTests {
                             : "read only as the game starts, so the part is as the start found it") + ": " + Part.described());
         }
         check(HillHeight.asked() == 0.25f, "and the height of the hills: " + HillHeight.asked());
+        check(LookSpeed.mouse() == 0.5f && LookSpeed.stick() == 2.5f, "and the look speeds: " + LookSpeed.mouse() + ", " + LookSpeed.stick());
         check(Own.rows() == (Own.ALL & ~Own.WEAPONS & ~Own.PLANTS), "rows of [Content] switched on are the game's, and the rest stay the mod's: " + Own.described(Own.rows()));
         check(Quality.name(0).equals("High") && Style.of(0) == Style.NATURAL, "and the graphics mode and the picture style");
         check(SplitScreen.row() == SplitScreen.VERTICAL, "and how two players share the screen");
@@ -1121,6 +1123,7 @@ public final class CoreTests {
         Tracking.watchSettings();
         check(FieldOfView.degrees() == 65f && Own.rows() == (Own.ALL & ~Own.ARMS) && Quality.name(0).equals("Medium") && Style.of(0) == Style.WARM
                         && MuzzleFlash.on() && Crosshair.on() && Regrip.on() && PendingLights.spread() && SplitScreen.row() == SplitScreen.HORIZONTAL && HillHeight.asked() == 1.5f
+                        && LookSpeed.mouse() == 1f && LookSpeed.stick() == 1f
                         && Arrays.stream(Part.values()).allMatch(part -> part.running() == part.byDefault),
                 "set back, they are as they were, and the arms row switched on is that row and no other: " + Own.described(Own.rows()));
         Tracking.cycleStyle(0);
@@ -1184,7 +1187,7 @@ public final class CoreTests {
         for (CameraUnlock.Option option : options) {
             ids.append(option.id).append(' ');
         }
-        check(ids.toString().equals("EnableOnStartup WorldSpaceYaw TrackingMode LocalSmoothing RemoteSmoothing AimMode LightMultiplier FirstPersonEnabled ThirdPersonEnabled FieldOfView Quality IsometricQuality "
+        check(ids.toString().equals("EnableOnStartup WorldSpaceYaw TrackingMode LocalSmoothing RemoteSmoothing AimMode LightMultiplier FirstPersonEnabled ThirdPersonEnabled FieldOfView MouseLookSpeed StickLookSpeed Quality IsometricQuality "
                         + "Style FirstPerson ThirdPerson FirstPersonInVehicles HillHeight MuzzleFlash Crosshair RegripTwoHandedWeapons SplitScreen CustomiseCharacterHead TorchFollowsHead HearFromTheEye LightningBolts "
                         + "ShotImpacts FallingDebris LampShadows ColouredGlassLight FarVehiclesAndZombies ModdedVehicleInteriors QuickRagdolls HitFlinch HitDirection HeadLedViewWhenDown ItemsAsModels FinerSkins LeaveOutScreenGrey WetOnThePlayer AimBlur GranTurismoToneMapping NameTagsAtHeads CaptionsOverSets Highlights InteractLabel InventoryStaysOpen QuickLoot FiguresBehindWalls OverarmThrow FishingRod SurroundingsInReflections WatchGlance HeldMap SecondPlayerQuality "
                         + "SecondPlayerIsometricQuality SecondPlayerStyle SecondPlayerFirstPerson SecondPlayerThirdPerson SecondPlayerFirstPersonInVehicles ThirdPlayerQuality ThirdPlayerIsometricQuality "
@@ -1208,7 +1211,7 @@ public final class CoreTests {
             }
         }
         check(page.toString().equals("[Quick settings] EnableOnStartup "
-                        + "[First person] FirstPersonEnabled FirstPersonInVehicles FirstPerson ThirdPersonEnabled ThirdPerson FieldOfView Crosshair HitDirection Highlights InteractLabel InventoryStaysOpen QuickLoot HearFromTheEye HeadLedViewWhenDown NameTagsAtHeads CaptionsOverSets "
+                        + "[First person] FirstPersonEnabled FirstPersonInVehicles FirstPerson ThirdPersonEnabled ThirdPerson FieldOfView MouseLookSpeed StickLookSpeed Crosshair HitDirection Highlights InteractLabel InventoryStaysOpen QuickLoot HearFromTheEye HeadLedViewWhenDown NameTagsAtHeads CaptionsOverSets "
                         + "QuickRagdolls HitFlinch FiguresBehindWalls OverarmThrow FishingRod WatchGlance HeldMap HillHeight [Head tracking] TrackingMode AimMode WorldSpaceYaw LocalSmoothing RemoteSmoothing TorchFollowsHead LightMultiplier CustomiseCharacterHead [Graphics] Quality IsometricQuality Style LightningBolts ShotImpacts FallingDebris LampShadows ColouredGlassLight MuzzleFlash WetOnThePlayer AimBlur GranTurismoToneMapping ItemsAsModels FinerSkins "
                         + "LeaveOutScreenGrey SurroundingsInReflections FarVehiclesAndZombies ModdedVehicleInteriors HiddenWallDecor [Custom graphics] TreeQuality GrassDensity GrassDistance RenderScale ViewDistance ZombiesAndPropsDrawDistance "
                         + "FarTreeDistance RainOnGlass ShadingAndLight Reflections ReflectionScale FullSizeTextures SurfaceDepth SharpShadows WholeFigureShadows FrameBlending Antialiasing Upscaling "
@@ -1520,6 +1523,38 @@ public final class CoreTests {
         screen.apply();
         savesMade();
         check(HillHeight.asked() == 1f && saved("HillHeight=1.0"), "and set back, it is back");
+    }
+
+    private static void theLookSpeedsAreSlidersThatLeaveTheHeadAlone() throws IOException, InterruptedException {
+        CameraUnlock.Option mouse = Tracking.options()[optionNamed(Tracking.options(), "MouseLookSpeed")],
+                stick = Tracking.options()[optionNamed(Tracking.options(), "StickLookSpeed")];
+        for (CameraUnlock.Option each : List.of(mouse, stick)) {
+            check(each.kind == CameraUnlock.OPTION_FLOAT && (float) each.min == LookSpeed.LEAST && (float) each.max == LookSpeed.MOST && each.step == 0.1
+                            && Tracking.notch(LookSpeed.DEFAULT, each.step) == LookSpeed.DEFAULT,
+                    each.id + " is a slider from " + LookSpeed.LEAST + " to " + LookSpeed.MOST + " in tenths, with today's speed on a notch: "
+                            + each.min + " " + each.max + " " + each.step);
+        }
+        check(OptionsLayout.label(mouse).equals("Mouse look speed") && OptionsLayout.label(stick).equals("Controller look speed"),
+                "named for the mouse and the controller: " + OptionsLayout.label(mouse) + ", " + OptionsLayout.label(stick));
+        check(LookSpeed.mouse() == 1f && LookSpeed.stick() == 1f && LookSpeed.radiansPerPixel() == 0.0025f
+                        && LookSpeed.stickAcross() == (float) Math.toRadians(220) && LookSpeed.stickUp() == (float) Math.toRadians(140),
+                "at 1 the mouse and the stick turn the view as fast as before the settings: " + LookSpeed.radiansPerPixel());
+        Screen screen = Screen.opened();
+        screen.set("MouseLookSpeed", 0.3);
+        screen.set("StickLookSpeed", 3);
+        screen.apply();
+        savesMade();
+        check(LookSpeed.mouse() == 0.3f && LookSpeed.stick() == 3f && saved("MouseLookSpeed=0.3", "StickLookSpeed=3.0"),
+                "applied there they are taken and saved: " + LookSpeed.mouse() + ", " + LookSpeed.stick());
+        check(LookSpeed.radiansPerPixel() == 0.0025f * 0.3f && LookSpeed.stickAcross() == (float) Math.toRadians(220) * 3f
+                        && LookSpeed.stickUp() == (float) Math.toRadians(140) * 3f,
+                "and scale the turn across and up alike");
+        screen = Screen.opened();
+        screen.set("MouseLookSpeed", 1);
+        screen.set("StickLookSpeed", 1);
+        screen.apply();
+        savesMade();
+        check(LookSpeed.mouse() == 1f && LookSpeed.stick() == 1f && saved("MouseLookSpeed=1.0", "StickLookSpeed=1.0"), "and set back, they are back");
     }
 
     /** Whether the next frame says the graphics mode, with the game's menu shut. */

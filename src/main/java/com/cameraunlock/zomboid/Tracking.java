@@ -235,12 +235,15 @@ final class Tracking {
         PendingLights.set(live.spreadLightUpdates());
         SplitScreen.set(live.splitScreen());
         FieldOfView.set(live.fieldOfView());
+        LookSpeed.setMouse(live.mouseLookSpeed());
+        LookSpeed.setStick(live.stickLookSpeed());
         talk(live.talkingMouths(), live.microphones());
         Log.info("the mod's own in first person: " + Own.described(Own.rows()));
         Log.info("the mod's rules offline: " + Rules.described(Rules.rows()));
         Log.info("the mod's parts: " + Part.described());
         Log.info("hill height " + HillHeight.asked());
         Log.info("first person field of view set to " + FieldOfView.degrees() + " degrees vertical");
+        Log.info("look speed " + LookSpeed.mouse() + " for the mouse, " + LookSpeed.stick() + " for a controller's stick");
         Log.info("head tracking " + (enabled ? "on" : "off") + ", " + TRACKING_MODE_LABEL[trackingMode] + ", yaw about "
                 + (worldYaw ? "straight up" : "the view's own up") + ", " + aimModeLabel());
         return loaded.udpPort;
@@ -286,7 +289,7 @@ final class Tracking {
         core.viewLean(view, found, out);
     }
 
-    /** FieldOfView, Quality, IsometricQuality, Style, HillHeight, MuzzleFlash, SplitScreen and the rows of [Content] and [Graphics] are the settings read again while the game runs: every other row is read at the start. */
+    /** FieldOfView, MouseLookSpeed, StickLookSpeed, Quality, IsometricQuality, Style, HillHeight, MuzzleFlash, SplitScreen and the rows of [Content] and [Graphics] are the settings read again while the game runs: every other row is read at the start. */
     static void watchSettings() {
         try {
             if (!config.changed()) {
@@ -312,6 +315,14 @@ final class Tracking {
         if (live.fieldOfView() != was.fieldOfView()) {
             FieldOfView.set(live.fieldOfView());
             Log.info(Config.FILE_NAME + " changed: first person field of view set to " + live.fieldOfView() + " degrees vertical");
+        }
+        if (live.mouseLookSpeed() != was.mouseLookSpeed()) {
+            LookSpeed.setMouse(live.mouseLookSpeed());
+            Log.info(Config.FILE_NAME + " changed: mouse look speed set to " + live.mouseLookSpeed());
+        }
+        if (live.stickLookSpeed() != was.stickLookSpeed()) {
+            LookSpeed.setStick(live.stickLookSpeed());
+            Log.info(Config.FILE_NAME + " changed: controller look speed set to " + live.stickLookSpeed());
         }
         boolean edited = !live.custom().equals(was.custom());
         if (edited) {

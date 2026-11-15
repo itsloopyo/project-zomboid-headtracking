@@ -309,6 +309,8 @@ Every key saves its new setting to `CameraUnlock.ini` as you press it, and `Dele
 
 The mouse turns the view, and the movement keys move you relative to where you're looking. If you walk or sneak in any direction other than straight ahead, diagonals included, your character keeps facing where you look, in the game's aiming stance but at the speed you'd walk or sneak forwards. Jog sideways or backwards and you keep jogging pace. Sprinting goes straight ahead or on a forward diagonal, at the game's own pace, and turns into a jog sideways or backwards. That's how it works offline and on servers without PvP. Set `FacesTheView=false` if you'd rather your character always turned to face the way it's going, as in vanilla. On a PvP server your character only keeps facing where you look when walking sideways or backwards, at the game's slower aiming speed: see [Multiplayer](#multiplayer).
 
+**Look speed** - **Mouse look speed** on the mod's options page (`MouseLookSpeed`) sets how fast the mouse turns the view, in first person, third person and vehicles alike: 1 is the normal speed, 0.5 half as fast and 2 twice as fast, from 0.1 to 3. It doesn't change head tracking, which turns the view as far as your tracker sends.
+
 | Input | Action |
 | --- | --- |
 | Left click | Attack |
@@ -342,7 +344,7 @@ A short line under the crosshair says what `E` will do to what it is on, such as
 
 ### Controller and split screen
 
-**Controller** - the controllers ticked in the game's Controller options are the ones that play. If none of the gamepads plugged in is ticked, every one the game recognises gets ticked and plays, and pressing **A** on the main menu gives that controller the menu. Player 1 plays on whatever last used the main menu: the controller that pressed **A**, or the keyboard and mouse once you click or press a key there. Any other controller can join once you're in the game: press **A** on it and choose **Add new player**. A 3Dconnexion SpaceMouse is never treated as a controller. Double-tap **Back** to switch views. The aiming stick turns the view, the right trigger attacks and the left trigger raises a gun's sights.
+**Controller** - the controllers ticked in the game's Controller options are the ones that play. If none of the gamepads plugged in is ticked, every one the game recognises gets ticked and plays, and pressing **A** on the main menu gives that controller the menu. Player 1 plays on whatever last used the main menu: the controller that pressed **A**, or the keyboard and mouse once you click or press a key there. Any other controller can join once you're in the game: press **A** on it and choose **Add new player**. A 3Dconnexion SpaceMouse is never treated as a controller. Double-tap **Back** to switch views. The aiming stick turns the view, the right trigger attacks and the left trigger raises a gun's sights. **Controller look speed** on the mod's options page (`StickLookSpeed`) sets how fast the stick turns the view, the same way **Mouse look speed** does for the mouse. In split screen every controller uses the same speed.
 
 **Modern FPS controller layout** - the mod adds a **Modern FPS** preset to the game's own list in **Options > Controller**. It is the game's Default layout with sprint on the left stick click and crouch on the right stick click. Click the left stick while jogging and you keep sprinting until you ease off the stick or aim. Push it sideways or back while your character faces where you look and the sprint becomes a jog, and you click again to sprint once you are heading ahead. The click works the same way with any layout of your own that keeps sprint on the left stick click. The game's stick click wheel (toggle crouch, sit on the ground, auto walk) opens when you hold the right stick click instead of the left, in any layout with crouch on the right stick click. The game's own presets are unchanged and still listed.
 
@@ -439,6 +441,12 @@ FirstPersonEnabled=true
 ThirdPersonEnabled=true
 ; Vertical field of view of the first person view, in degrees: 40 to 110.
 FieldOfView=65.0
+; How fast the mouse turns the first and third person view: 1 is the mod's own speed, 0.5 half as fast, 2 twice as
+; fast, from 0.1 to 3.0. Your head's turns are your tracker's and do not change with it.
+MouseLookSpeed=1.0
+; How fast a controller's aiming stick turns the first and third person view: 1 is the mod's own speed, 0.5 half as
+; fast, 2 twice as fast, from 0.1 to 3.0. Your head's turns are your tracker's and do not change with it.
+StickLookSpeed=1.0
 ; First person graphics mode: Low, Medium, High or Custom. Custom draws the [Graphics] rows. Every mode but Custom
 ; draws at most 2560x1440 pixels, however large the window. Automatic, as the file comes, measures your PC once:
 ; the first time first person shows, it starts at High, steps down while the picture is drawn fewer than 45 times
