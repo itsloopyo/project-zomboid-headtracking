@@ -136,6 +136,7 @@ final class OptionsLayout {
             Map.entry("WholeFigureShadows", "Full figure shadows"),
             Map.entry("FrameBlending", "Frame blending"),
             Map.entry("Antialiasing", "Anti-aliasing"),
+            Map.entry("Upscaling", "Upscaling"),
             Map.entry("LightDistance", "Lamp light distance"),
             Map.entry("CorpseModels", "Corpse models"),
             Map.entry("VanillaWeapons", "Weapons"),

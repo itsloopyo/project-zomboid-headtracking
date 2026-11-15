@@ -396,6 +396,20 @@ final class Pipeline {
     private static Program glassCast;
     /** By Quality.antialiasing, what shows the developed picture with its edges smoothed that much. */
     private static final Program[] smooth = new Program[Quality.ANTIALIASING_HIGH + 1];
+    /**
+     * With Upscaling FSR and a picture drawn smaller than its view: the edge smoothing alone at
+     * the picture's size, by Quality.antialiasing (none for Off), then EASU's enlarging and RCAS's
+     * sharpening (PipelineShaders.EASU, RCAS).
+     */
+    private static final Program[] smoothAlone = new Program[Quality.ANTIALIASING_HIGH + 1];
+    private static Program easu, rcas;
+    /**
+     * How much RCAS sharpens, in stops below its most, 0: AMD's scale, where each stop halves it.
+     * The fixed sharpening Bilinear shows with puts back 0.45 of each pixel's difference from the
+     * four round it; RCAS at its most takes at most 3/16 of each of the four, and less wherever
+     * that would take a channel past black or white.
+     */
+    private static final float RCAS_STOPS = 0.2f;
     private static Program far, farTree;
     /** What the shaders are told as uBeyond this frame: see PipelineShaders.ENDS. Not 0 where the far land is drawn behind the built world. */
     private float beyond;
@@ -490,6 +504,8 @@ final class Pipeline {
     private boolean steadying;
     /** Quality.antialiasing as the frame began. */
     private int antialiasing;
+    /** Quality.upscaling as the frame began. */
+    private int upscaling;
 
     /**
      * Pictures that only some frames draw into. Each set is made by the first frame that draws
@@ -555,7 +571,13 @@ final class Pipeline {
         }
     }
 
-    private final Lent[] SIZED = sized(whole, steadied, cabin, shaded, watered);
+    /**
+     * With Upscaling FSR and a picture drawn smaller than its view: the picture's edges smoothed,
+     * at its size, and EASU's enlarging of it, at the view's, upscaledWide by upscaledHigh.
+     */
+    private final Lent upscaled = new Lent("pictures FSR enlarges", this::makeUpscaled);
+    private int smoothedColor, smoothedTarget, upscaledColor, upscaledTarget, upscaledWide, upscaledHigh;
+    private final Lent[] SIZED = sized(whole, steadied, cabin, shaded, watered, upscaled);
     private final Lent[] UNSIZED = {beamed, torched, fired, lamped, glassed, mirrored, surrounded};
     private static final long LENT_FOR_NANOS = 10_000_000_000L;
 
@@ -1452,6 +1474,7 @@ final class Pipeline {
             reflectionScale = Quality.reflectionScale(view.index);
             steadying = Quality.frameBlending(view.index);
             antialiasing = Quality.antialiasing(view.index);
+            upscaling = Quality.upscaling(view.index);
             frameColor = sceneColor;
             SpriteColours.read(view.index, camera.eyeX, camera.eyeY);
             Rugs.putOnCard(view.index, camera.eyeX, camera.eyeY, camera.eyeUp);
@@ -2236,8 +2259,15 @@ final class Pipeline {
         view.scope.developed();
     }
 
-    /** The developed picture, its edges smoothed, into the part of the game's own picture the frame is written to. */
+    /**
+     * The developed picture, its edges smoothed, into the part of the game's own picture the frame
+     * is written to. Bilinear, or a picture as large as its view, is one pass; FSR enlarging a
+     * smaller one is three, the last of which writes the view (superResolved).
+     */
     private void showSmoothed(int drawTarget, int[] viewport) {
+        int wide = viewport[2], high = viewport[3];
+        boolean superResolved = upscaling == Quality.UPSCALING_FSR && width <= wide && height <= high && (width < wide || height < high);
+        int shows = superResolved ? superResolved(wide, high) : shownColor;
         GL30.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, drawTarget);
         GL11.glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
         // The game's own picture has a depth of its own, with the game's vehicles in it: tested
@@ -2248,16 +2278,55 @@ final class Pipeline {
             GL14.glBlendColor(0f, 0f, 0f, opacity);
             GL11.glBlendFunc(GL_CONSTANT_ALPHA, GL_ONE_MINUS_CONSTANT_ALPHA);
         }
-        Program shows = smooth[antialiasing];
-        shows.use();
-        GL11.glBindTexture(GL_TEXTURE_2D, shownColor);
-        shows.set("uImage", 0);
-        shows.set("uSize", (float) width, (float) height);
-        shows.set("uOrigin", (float) viewport[0], (float) viewport[1]);
-        shows.set("uShown", (float) viewport[2], (float) viewport[3]);
-        shows.set("uLight", 1f - dark);
+        Program program = superResolved ? rcas : smooth[antialiasing];
+        program.use();
+        GL11.glBindTexture(GL_TEXTURE_2D, shows);
+        program.set("uImage", 0);
+        if (superResolved) {
+            program.set("uSharpness", (float) Math.pow(2.0, -RCAS_STOPS));
+        } else {
+            program.set("uSize", (float) width, (float) height);
+        }
+        program.set("uOrigin", (float) viewport[0], (float) viewport[1]);
+        program.set("uShown", (float) wide, (float) high);
+        program.set("uLight", 1f - dark);
         quad();
         GL11.glDisable(GL_BLEND);
+    }
+
+    /**
+     * The developed picture's edges smoothed at its own size and the picture enlarged by EASU to
+     * wide by high, the view's size: the texture it is in, for RCAS to sharpen into the view.
+     */
+    private int superResolved(int wide, int high) {
+        if (upscaled.made() && (upscaledWide != wide || upscaledHigh != high)) {
+            giveBack(upscaled);
+        }
+        upscaledWide = wide;
+        upscaledHigh = high;
+        lend(upscaled);
+        GL11.glDisable(GL_DEPTH_TEST);
+        int enlarges = shownColor;
+        if (antialiasing != Quality.ANTIALIASING_OFF) {
+            GL30.glBindFramebuffer(GL_FRAMEBUFFER, smoothedTarget);
+            GL11.glViewport(0, 0, width, height);
+            Program alone = smoothAlone[antialiasing];
+            alone.use();
+            GL11.glBindTexture(GL_TEXTURE_2D, shownColor);
+            alone.set("uImage", 0);
+            alone.set("uSize", (float) width, (float) height);
+            quad();
+            enlarges = smoothedColor;
+        }
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, upscaledTarget);
+        GL11.glViewport(0, 0, wide, high);
+        easu.use();
+        GL11.glBindTexture(GL_TEXTURE_2D, enlarges);
+        easu.set("uImage", 0);
+        easu.set("uSize", (float) width, (float) height);
+        easu.set("uShown", (float) wide, (float) high);
+        quad();
+        return upscaledColor;
     }
 
     /**
@@ -7174,6 +7243,11 @@ final class Pipeline {
                 () -> smooth[Quality.ANTIALIASING_LOW] = Program.link("smooth low", SCREEN_VERTEX, PipelineShaders.SMOOTH_LOW, linkProblem),
                 () -> smooth[Quality.ANTIALIASING_MEDIUM] = Program.link("smooth medium", SCREEN_VERTEX, PipelineShaders.SMOOTH_MEDIUM, linkProblem),
                 () -> smooth[Quality.ANTIALIASING_HIGH] = Program.link("smooth high", SCREEN_VERTEX, PipelineShaders.SMOOTH_HIGH, linkProblem),
+                () -> smoothAlone[Quality.ANTIALIASING_LOW] = Program.link("smooth low alone", SCREEN_VERTEX, PipelineShaders.SMOOTH_ALONE_LOW, linkProblem),
+                () -> smoothAlone[Quality.ANTIALIASING_MEDIUM] = Program.link("smooth medium alone", SCREEN_VERTEX, PipelineShaders.SMOOTH_ALONE_MEDIUM, linkProblem),
+                () -> smoothAlone[Quality.ANTIALIASING_HIGH] = Program.link("smooth high alone", SCREEN_VERTEX, PipelineShaders.SMOOTH_ALONE_HIGH, linkProblem),
+                () -> easu = Program.link("fsr easu", SCREEN_VERTEX, PipelineShaders.EASU, linkProblem),
+                () -> rcas = Program.link("fsr rcas", SCREEN_VERTEX, PipelineShaders.RCAS, linkProblem),
                 () -> steady = Program.link("steady", SCREEN_VERTEX, PipelineShaders.STEADY, linkProblem),
                 () -> grassLit = Program.link("grass", WORLD_VERTEX, GRASS_FRAGMENT, linkProblem, PLACED_ATTRIBUTES, PLACED_NAMES),
                 () -> grassDepth = Program.link("grass depth", WORLD_VERTEX_DEPTH, GRASS_FRAGMENT_DEPTH, linkProblem, PLACED_ATTRIBUTES, PLACED_NAMES));
@@ -7724,6 +7798,19 @@ final class Pipeline {
         } finally {
             making = null;
         }
+    }
+
+    /** The pictures FSR enlarges through: only with Upscaling FSR and a picture smaller than its view. */
+    private String makeUpscaled() {
+        smoothedColor = texture(GL_RGBA8, width, height, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST);
+        smoothedTarget = target(smoothedColor);
+        String problem = complete("smoothed picture");
+        if (problem != null) {
+            return problem;
+        }
+        upscaledColor = texture(GL_RGBA8, upscaledWide, upscaledHigh, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST);
+        upscaledTarget = target(upscaledColor);
+        return complete("enlarged picture");
     }
 
     /** The steadied picture of the last frame and of this one: only with FrameBlending on. */

@@ -88,7 +88,7 @@ final class Config {
     /** The keys of [Graphics], the Custom graphics mode, in the order the options screen shows them. */
     static final String[] GRAPHICS = {"TreeQuality", "GrassDensity", "GrassDistance", "RenderScale", "ViewDistance", "ZombiesAndPropsDrawDistance",
         "FarTreeDistance", "RainOnGlass", "ShadingAndLight", "Reflections", "ReflectionScale", "FullSizeTextures", "SurfaceDepth", "SharpShadows",
-        "WholeFigureShadows", "FrameBlending", "Antialiasing", "LightDistance", "CorpseModels"};
+        "WholeFigureShadows", "FrameBlending", "Antialiasing", "Upscaling", "LightDistance", "CorpseModels"};
     private static final int RENDER_SCALE = 3, REFLECTION_SCALE = 10;
     static final float MIN_RENDER_SCALE = 0.5f, MIN_REFLECTION_SCALE = 0.25f;
     static final int MIN_VIEW_DISTANCE = 32, MIN_DRAW_DISTANCE = 16;
@@ -338,6 +338,12 @@ final class Config {
                             + "fainter ones too. The Low, Medium and High graphics modes use Low, whose slight softening also calms the shimmer\n"
                             + "of FrameBlending; Medium and High only touch the edges, for a sharper picture.",
                     writable | live, Quality.ANTIALIASINGS, high.antialiasing()),
+            localEnum("Graphics", "Upscaling",
+                    "How the picture is brought up to the screen's size when RenderScale draws it at fewer pixels: Bilinear, each pixel\n"
+                            + "read between the four nearest, with a fixed sharpening; FSR, AMD's FSR 1 Super Resolution, which follows\n"
+                            + "edges as it enlarges and then sharpens by how much contrast is round each pixel. At a RenderScale of 1 both\n"
+                            + "show the same picture. The Low, Medium and High graphics modes use FSR.",
+                    writable | live, Quality.UPSCALINGS, high.upscaling()),
             localInt("Graphics", "LightDistance",
                     "How far away lamps light what is around them with light of their own, like the pool of light under a street lamp,\n"
                             + "in tiles: 0 (the game's light only) to " + Quality.MOST_LIGHT_DISTANCE + ". Past that, lamps light the ground as the game does.",
@@ -661,15 +667,15 @@ final class Config {
             picture.drawDistance(), picture.farTreeDistance(), picture.rainOnGlass(), bit(picture.shadingAndLight()), bit(picture.reflections()), picture.reflectionScale(),
             bit(picture.fullSizeTextures()),
             bit(picture.surfaceDepth()), bit(picture.sharpShadows()), bit(picture.wholeFigureShadows()), bit(picture.frameBlending()),
-            picture.antialiasing(), picture.lightDistance(), bit(picture.corpseModels())};
+            picture.antialiasing(), picture.upscaling(), picture.lightDistance(), bit(picture.corpseModels())};
     }
 
     /** The picture the options of the rows of [Graphics] hold, in the order of GRAPHICS: Custom always draws what the mod made. */
     static Quality.Picture picture(double[] values) {
         return new Quality.Picture(false, (int) Math.rint(values[0]), (int) Math.rint(values[1]), (int) Math.rint(values[2]), (float) values[3],
                 values[13] != 0, (int) Math.rint(values[4]), (int) Math.rint(values[5]), (int) Math.rint(values[6]), (int) Math.rint(values[7]),
-                values[8] != 0, values[9] != 0, values[11] != 0, values[12] != 0, values[14] != 0, values[15] != 0, (int) Math.rint(values[17]),
-                (float) values[10], values[18] != 0, (int) Math.rint(values[16]));
+                values[8] != 0, values[9] != 0, values[11] != 0, values[12] != 0, values[14] != 0, values[15] != 0, (int) Math.rint(values[18]),
+                (float) values[10], values[19] != 0, (int) Math.rint(values[16]), (int) Math.rint(values[17]));
     }
 
     private static double bit(boolean on) {

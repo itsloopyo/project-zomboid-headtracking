@@ -8740,7 +8740,7 @@ final class PipelineShaders {
      * edge runs. The blend is the FXAA pass of glsl-fxaa, used under its BSD and MIT licences: the
      * notices are in THIRD-PARTY-NOTICES.md.
      */
-    static final String SMOOTH_LOW = SMOOTH_HEAD + """
+    private static final String SMOOTH_ACROSS = """
             vec3 smoothed(vec2 uv, vec2 px) {
                 vec3 middle = texture2D(uImage, uv).rgb;
                 float nw = lumaAt(uv + vec2(-1.0, -1.0) * px);
@@ -8758,7 +8758,8 @@ final class PipelineShaders {
                 float lumaB = luma(b);
                 return lumaB < lowest || lumaB > highest ? a : b;
             }
-            """ + SMOOTH_TAIL;
+            """;
+    static final String SMOOTH_LOW = SMOOTH_HEAD + SMOOTH_ACROSS + SMOOTH_TAIL;
 
     /**
      * Follows an edge from this pixel along its length both ways, to where it ends, and takes the
@@ -8841,22 +8842,210 @@ final class PipelineShaders {
             """;
 
     /** SMOOTH_ALONG with a short search and the coarser edges alone. */
-    static final String SMOOTH_MEDIUM = SMOOTH_HEAD + """
+    private static final String ALONG_MEDIUM = """
             const float EDGE_LEAST = 0.0833;
             const float EDGE_SHARE = 0.166;
             const float SUBPIXEL = 0.5;
             const int STEPS = 5;
             const float ALONG[5] = float[5](1.0, 1.5, 2.0, 4.0, 12.0);
-            """ + SMOOTH_ALONG + SMOOTH_TAIL;
+            """;
+    static final String SMOOTH_MEDIUM = SMOOTH_HEAD + ALONG_MEDIUM + SMOOTH_ALONG + SMOOTH_TAIL;
 
     /** SMOOTH_ALONG with a longer search, which finds fainter edges. */
-    static final String SMOOTH_HIGH = SMOOTH_HEAD + """
+    private static final String ALONG_HIGH = """
             const float EDGE_LEAST = 0.0625;
             const float EDGE_SHARE = 0.125;
             const float SUBPIXEL = 0.5;
             const int STEPS = 12;
             const float ALONG[12] = float[12](1.0, 1.0, 1.0, 1.0, 1.0, 1.5, 2.0, 2.0, 2.0, 2.0, 4.0, 8.0);
-            """ + SMOOTH_ALONG + SMOOTH_TAIL;
+            """;
+    static final String SMOOTH_HIGH = SMOOTH_HEAD + ALONG_HIGH + SMOOTH_ALONG + SMOOTH_TAIL;
+
+    /**
+     * The edge smoothing alone, at the picture's own size and into a picture of that size, for
+     * EASU to enlarge: FidelityFX Super Resolution takes a picture already antialiased. There is
+     * no sharpening here, since RCAS sharpens after the enlarging.
+     */
+    private static final String SMOOTH_ALONE_TAIL = """
+            void main() {
+                vec2 px = 1.0 / uSize;
+                gl_FragColor = vec4(smoothed(gl_FragCoord.xy * px, px), 1.0);
+            }
+            """;
+    static final String SMOOTH_ALONE_LOW = SMOOTH_HEAD + SMOOTH_ACROSS + SMOOTH_ALONE_TAIL;
+    static final String SMOOTH_ALONE_MEDIUM = SMOOTH_HEAD + ALONG_MEDIUM + SMOOTH_ALONG + SMOOTH_ALONE_TAIL;
+    static final String SMOOTH_ALONE_HIGH = SMOOTH_HEAD + ALONG_HIGH + SMOOTH_ALONG + SMOOTH_ALONE_TAIL;
+
+    /**
+     * AMD's notice for EASU and RCAS below, which are the FsrEasuF and FsrRcasF functions of
+     * ffx_fsr1.h in FidelityFX FSR v1.0.2 (commit a21ffb8f6c13233ba336352bdff293894c706575,
+     * https://github.com/GPUOpen-Effects/FidelityFX-FSR/blob/a21ffb8f6c13233ba336352bdff293894c706575/ffx-fsr/ffx_fsr1.h),
+     * written out in GLSL 1.30 for this project. The notice is also in THIRD-PARTY-NOTICES.md.
+     */
+    private static final String FSR_NOTICE = """
+            // Copyright (c) 2021 Advanced Micro Devices, Inc. All rights reserved.
+            // Permission is hereby granted, free of charge, to any person obtaining a copy
+            // of this software and associated documentation files(the "Software"), to deal
+            // in the Software without restriction, including without limitation the rights
+            // to use, copy, modify, merge, publish, distribute, sublicense, and / or sell
+            // copies of the Software, and to permit persons to whom the Software is
+            // furnished to do so, subject to the following conditions :
+            // The above copyright notice and this permission notice shall be included in
+            // all copies or substantial portions of the Software.
+            // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+            // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+            // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE
+            // AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+            // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+            // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+            // THE SOFTWARE.
+            """;
+
+    /**
+     * EASU, FidelityFX Super Resolution 1's Edge Adaptive Spatial Upsampling: the picture, uSize
+     * pixels, enlarged to the view's uShown, drawn from the corner of a target of that size. Each
+     * pixel is a Lanczos-like blend of the 12 nearest of the picture's, stretched along the edge
+     * the four nearest lie on and held between the least and the most of those four, so it does
+     * not ring. The picture is already display encoded (DEVELOP's pow 1/2.2), as EASU asks.
+     *
+     * Where AMD's code takes reciprocals and square roots by bit approximations, which GLSL 1.30
+     * cannot write, these are exact. AMD's approximate 1/x of 0 is a large finite number, which
+     * times a difference of 0 is 0; an exact 1/0 times 0 is undefined, so the divisor is held at
+     * LEAST, below any step an 8 bit picture's light can make.
+     */
+    static final String EASU = "#version 130\n" + FSR_NOTICE + """
+            uniform sampler2D uImage;
+            uniform vec2 uSize;
+            uniform vec2 uShown;
+            const float LEAST = 1.0 / 32768.0;
+
+            vec3 easuAt(ivec2 at) {
+                return texelFetch(uImage, clamp(at, ivec2(0), ivec2(uSize) - 1), 0).rgb;
+            }
+
+            float easuLuma(vec3 c) {
+                return c.b * 0.5 + (c.r * 0.5 + c.g);
+            }
+
+            // FsrEasuSetF: the gradient round c, one of the four nearest, from a above it, b c d across and e below, weighted w.
+            void easuSet(inout vec2 dir, inout float len, float w, float lA, float lB, float lC, float lD, float lE) {
+                float lenX = 1.0 / max(max(abs(lD - lC), abs(lC - lB)), LEAST);
+                float dirX = lD - lB;
+                dir.x += dirX * w;
+                lenX = clamp(abs(dirX) * lenX, 0.0, 1.0);
+                len += lenX * lenX * w;
+                float lenY = 1.0 / max(max(abs(lE - lC), abs(lC - lA)), LEAST);
+                float dirY = lE - lA;
+                dir.y += dirY * w;
+                lenY = clamp(abs(dirY) * lenY, 0.0, 1.0);
+                len += lenY * lenY * w;
+            }
+
+            // FsrEasuTapF.
+            void easuTap(inout vec3 aC, inout float aW, vec2 off, vec2 dir, vec2 len, float lob, float clp, vec3 c) {
+                vec2 v = vec2(off.x * dir.x + off.y * dir.y, off.x * -dir.y + off.y * dir.x) * len;
+                float d2 = min(dot(v, v), clp);
+                float wB = 2.0 / 5.0 * d2 - 1.0;
+                float wA = lob * d2 - 1.0;
+                wB *= wB;
+                wA *= wA;
+                wB = 25.0 / 16.0 * wB - (25.0 / 16.0 - 1.0);
+                float w = wB * wA;
+                aC += c * w;
+                aW += w;
+            }
+
+            void main() {
+                vec2 pp = gl_FragCoord.xy * (uSize / uShown) - 0.5;
+                vec2 fp = floor(pp);
+                pp -= fp;
+                ivec2 at = ivec2(fp);
+                //    b c
+                //  e f g h
+                //  i j k l
+                //    n o
+                vec3 b = easuAt(at + ivec2(0, -1)), c = easuAt(at + ivec2(1, -1));
+                vec3 e = easuAt(at + ivec2(-1, 0)), f = easuAt(at), g = easuAt(at + ivec2(1, 0)), h = easuAt(at + ivec2(2, 0));
+                vec3 i = easuAt(at + ivec2(-1, 1)), j = easuAt(at + ivec2(0, 1)), k = easuAt(at + ivec2(1, 1)), l = easuAt(at + ivec2(2, 1));
+                vec3 n = easuAt(at + ivec2(0, 2)), o = easuAt(at + ivec2(1, 2));
+                float bL = easuLuma(b), cL = easuLuma(c), eL = easuLuma(e), fL = easuLuma(f), gL = easuLuma(g), hL = easuLuma(h);
+                float iL = easuLuma(i), jL = easuLuma(j), kL = easuLuma(k), lL = easuLuma(l), nL = easuLuma(n), oL = easuLuma(o);
+                vec2 dir = vec2(0.0);
+                float len = 0.0;
+                easuSet(dir, len, (1.0 - pp.x) * (1.0 - pp.y), bL, eL, fL, gL, jL);
+                easuSet(dir, len, pp.x * (1.0 - pp.y), cL, fL, gL, hL, kL);
+                easuSet(dir, len, (1.0 - pp.x) * pp.y, fL, iL, jL, kL, nL);
+                easuSet(dir, len, pp.x * pp.y, gL, jL, kL, lL, oL);
+                float dirR = dot(dir, dir);
+                bool zro = dirR < 1.0 / 32768.0;
+                dirR = zro ? 1.0 : inversesqrt(dirR);
+                dir.x = zro ? 1.0 : dir.x;
+                dir *= dirR;
+                len = len * 0.5;
+                len *= len;
+                float stretch = dot(dir, dir) / max(abs(dir.x), abs(dir.y));
+                vec2 len2 = vec2(1.0 + (stretch - 1.0) * len, 1.0 - 0.5 * len);
+                float lob = 0.5 + (1.0 / 4.0 - 0.04 - 0.5) * len;
+                float clp = 1.0 / lob;
+                vec3 min4 = min(min(f, g), min(j, k));
+                vec3 max4 = max(max(f, g), max(j, k));
+                vec3 aC = vec3(0.0);
+                float aW = 0.0;
+                easuTap(aC, aW, vec2(0.0, -1.0) - pp, dir, len2, lob, clp, b);
+                easuTap(aC, aW, vec2(1.0, -1.0) - pp, dir, len2, lob, clp, c);
+                easuTap(aC, aW, vec2(-1.0, 1.0) - pp, dir, len2, lob, clp, i);
+                easuTap(aC, aW, vec2(0.0, 1.0) - pp, dir, len2, lob, clp, j);
+                easuTap(aC, aW, vec2(0.0, 0.0) - pp, dir, len2, lob, clp, f);
+                easuTap(aC, aW, vec2(-1.0, 0.0) - pp, dir, len2, lob, clp, e);
+                easuTap(aC, aW, vec2(1.0, 1.0) - pp, dir, len2, lob, clp, k);
+                easuTap(aC, aW, vec2(2.0, 1.0) - pp, dir, len2, lob, clp, l);
+                easuTap(aC, aW, vec2(2.0, 0.0) - pp, dir, len2, lob, clp, h);
+                easuTap(aC, aW, vec2(1.0, 0.0) - pp, dir, len2, lob, clp, g);
+                easuTap(aC, aW, vec2(1.0, 2.0) - pp, dir, len2, lob, clp, o);
+                easuTap(aC, aW, vec2(0.0, 2.0) - pp, dir, len2, lob, clp, n);
+                gl_FragColor = vec4(min(max4, max(min4, aC / aW)), 1.0);
+            }
+            """;
+
+    /**
+     * RCAS, FidelityFX Super Resolution 1's Robust Contrast Adaptive Sharpening: EASU's picture,
+     * uShown pixels, sharpened into the view at uOrigin. Each pixel takes a negative share of the
+     * four beside it, the most that keeps every channel inside 0 to 1 given the least and the
+     * most round it, at most LIMIT, times uSharpness (2 to the minus Pipeline.RCAS_STOPS). The
+     * reciprocals are exact where AMD's are approximate, held off 0 as in EASU: a ring all black,
+     * or all white, then sharpens by nothing, as AMD's does.
+     */
+    static final String RCAS = "#version 130\n" + FSR_NOTICE + """
+            uniform sampler2D uImage;
+            uniform vec2 uShown;
+            uniform vec2 uOrigin;
+            uniform float uSharpness;
+            // 1 as the picture is, down to 0 for black: see Pipeline.cut.
+            uniform float uLight;
+            const float LEAST = 1.0 / 32768.0;
+            const float LIMIT = 0.25 - 1.0 / 16.0;
+
+            vec3 rcasAt(ivec2 at) {
+                return texelFetch(uImage, clamp(at, ivec2(0), ivec2(uShown) - 1), 0).rgb;
+            }
+
+            void main() {
+                //    b
+                //  d e f
+                //    h
+                ivec2 at = ivec2(gl_FragCoord.xy - uOrigin);
+                vec3 b = rcasAt(at + ivec2(0, -1)), d = rcasAt(at + ivec2(-1, 0)), e = rcasAt(at);
+                vec3 f = rcasAt(at + ivec2(1, 0)), h = rcasAt(at + ivec2(0, 1));
+                vec3 mn4 = min(min(b, d), min(f, h));
+                vec3 mx4 = max(max(b, d), max(f, h));
+                vec3 hitMin = min(mn4, e) / max(4.0 * mx4, LEAST);
+                vec3 hitMax = (1.0 - max(mx4, e)) / min(4.0 * mn4 - 4.0, -LEAST);
+                vec3 lobes = max(-hitMin, hitMax);
+                float lobe = max(-LIMIT, min(max(lobes.r, max(lobes.g, lobes.b)), 0.0)) * uSharpness;
+                vec3 sharpened = (lobe * (b + d + f + h) + e) / (4.0 * lobe + 1.0);
+                gl_FragColor = vec4(clamp(sharpened, 0.0, 1.0) * uLight, 1.0);
+            }
+            """;
     static final String PANE_VERTEX = """
             #version 120
             void main() {

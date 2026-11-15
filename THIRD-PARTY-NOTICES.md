@@ -2394,6 +2394,32 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
+### AMD FidelityFX Super Resolution 1
+
+- **Where:** the `EASU` and `RCAS` shaders of `PipelineShaders.java`
+- **License:** MIT
+- **Upstream:** `ffx-fsr/ffx_fsr1.h` of FidelityFX FSR v1.0.2, https://github.com/GPUOpen-Effects/FidelityFX-FSR, commit a21ffb8f6c13233ba336352bdff293894c706575
+- **Usage:** Enlarges the first person picture to the screen's size, and sharpens it after, when `[Graphics] Upscaling=FSR` and the picture is drawn at fewer pixels than the screen.
+- **Bundled:** yes, changed: the 32-bit `FsrEasuF` and `FsrRcasF` functions only, written out in GLSL 1.30 with point reads in place of gather, exact reciprocals and square roots in place of AMD's bit approximations, and RCAS's optional noise removal left out. `ffx_a.h` is not used.
+
+Copyright (c) 2021 Advanced Micro Devices, Inc. All rights reserved.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files(the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and / or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions :
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
 ### Acknowledgements
 
 These are published formulas and methods. No code was taken beyond the formula

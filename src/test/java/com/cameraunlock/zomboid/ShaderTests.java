@@ -88,6 +88,7 @@ final class ShaderTests {
         Checks.run("spreadGroundThatDoesNotShowHidesNothing", () -> spreadGroundThatDoesNotShowHidesNothing(programs));
         Checks.run("grimeIsSeenOnlyFromItsSide", () -> grimeIsSeenOnlyFromItsSide(programs));
         Checks.run("aWallSkinHasNoBack", () -> aWallSkinHasNoBack(programs));
+        Checks.run("fsrIsCompiledBesideTheBilinearPassItLeavesAlone", () -> fsrIsCompiledBesideTheBilinearPassItLeavesAlone(programs));
         Checks.run("everyProgramPassesTheReferenceCompiler", () -> everyProgramPassesTheReferenceCompiler(programs));
         Checks.run("theFloorAsksForWhatTheFragmentStagesRead", () -> theFloorAsksForWhatTheFragmentStagesRead(programs));
         Checks.run("whatDrawsTheWorldsBufferReadsAVertexsAlphaUnderItsLightCode", () -> whatDrawsTheWorldsBufferReadsAVertexsAlphaUnderItsLightCode(programs));
@@ -290,6 +291,28 @@ final class ShaderTests {
         Checks.check(rise.startsWith("vec2 groundRise(") && rise.contains("textureGrad(picture, one + vec2(oneStep, 0.0), oneX, oneY)")
                 && !rise.contains("texture2D(") && !rise.contains("dFd") && !PipelineShaders.WORLD_FRAGMENT_MAIN_GROUND.contains("dFdx(high)"),
                 "the ground's bump does not lean by reads of its pictures told derivatives taken before the tests");
+    }
+
+    /**
+     * Upscaling FSR's five programs are among those the reference compiler and the floor's count
+     * are held to, with AMD's notice in EASU and RCAS; and Upscaling Bilinear still shows the
+     * picture through the one pass it always had, its fixed sharpening included.
+     */
+    private static void fsrIsCompiledBesideTheBilinearPassItLeavesAlone(List<Linked> programs) {
+        for (String name : List.of("smooth low alone", "smooth medium alone", "smooth high alone", "fsr easu", "fsr rcas")) {
+            Checks.check(programs.stream().anyMatch(program -> program.name.equals(name) && program.from.equals("Pipeline.java")),
+                    "the " + name + " program is linked in Pipeline.java where ShaderTests can read it");
+        }
+        String notice = "// Copyright (c) 2021 Advanced Micro Devices, Inc. All rights reserved.";
+        Checks.check(PipelineShaders.EASU.contains(notice) && PipelineShaders.RCAS.contains(notice), "EASU and RCAS carry AMD's copyright notice");
+        String sharpened = "gl_FragColor = vec4(clamp(smoothedHere + (smoothedHere - around) * 0.45, 0.0, 1.0) * uLight, 1.0);";
+        for (String shown : List.of(PipelineShaders.SMOOTH_OFF, PipelineShaders.SMOOTH_LOW, PipelineShaders.SMOOTH_MEDIUM, PipelineShaders.SMOOTH_HIGH)) {
+            Checks.check(shown.contains("vec2 uv = (gl_FragCoord.xy - uOrigin) / uShown;") && shown.contains(sharpened),
+                    "Bilinear reads the picture between its pixels at the view's and sharpens by 0.45, as it always has");
+        }
+        for (String alone : List.of(PipelineShaders.SMOOTH_ALONE_LOW, PipelineShaders.SMOOTH_ALONE_MEDIUM, PipelineShaders.SMOOTH_ALONE_HIGH)) {
+            Checks.check(!alone.contains("0.45") && alone.contains("gl_FragColor = vec4(smoothed(gl_FragCoord.xy * px, px), 1.0);"), "the edge smoothing FSR enlarges is not sharpened and is drawn at the picture's own size");
+        }
     }
 
     private static void everyProgramPassesTheReferenceCompiler(List<Linked> programs) throws IOException, InterruptedException {
