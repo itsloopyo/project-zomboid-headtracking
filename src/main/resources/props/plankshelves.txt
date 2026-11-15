@@ -1,0 +1,9 @@
+# Made by tools/models/props/plankshelves.py: see Props.java for what each line says.
+prop	books&misc_01_60	plank_shelves	plankshelves_books_many	0.00000 0.00000 0.08500	plain
+prop	books&misc_01_61	plank_shelves	plankshelves_books_many	0.00000 0.00000 0.08500	plain
+prop	books&misc_01_62	plank_shelves	plankshelves_books_01_62	0.00000 0.00000 0.08500	plain
+prop	books&misc_01_63	plank_shelves	plankshelves_books_01_63	0.00000 0.00000 0.08500	plain
+prop	books&misc_02_60	plank_shelves	plankshelves_books_many	0.00000 0.00000 0.08500	plain
+prop	books&misc_02_61	plank_shelves	plankshelves_books_many	0.00000 0.00000 0.08500	plain
+prop	books&misc_02_62	plank_shelves	plankshelves_books_02_62	0.00000 0.00000 0.08500	plain
+prop	books&misc_02_63	plank_shelves	plankshelves_books_02_63	0.00000 0.00000 0.08500	plain
