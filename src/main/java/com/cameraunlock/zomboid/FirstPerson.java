@@ -84,6 +84,8 @@ public final class FirstPerson {
 
     /** How long the name of a graphics mode, picture style or aim mode just gone to stays on the screen. */
     private static final long SAID_FOR_NANOS = 2_500_000_000L;
+    /** How long a line saying why first person is off stays: long enough to read a sentence and the log's name. */
+    private static final long REFUSAL_FOR_NANOS = 8_000_000_000L;
     private static final String FAILED = "First person stopped after an error and stays off until the game restarts. " + Log.FILE_NAME + " says why";
     /** How long a save that loads in the game's own view says which key turns first person on. */
     private static final long HINT_FOR_NANOS = 10_000_000_000L;
@@ -98,6 +100,7 @@ public final class FirstPerson {
     private boolean hintsOnLanding;
     private static final long HINT_GAP_NANOS = 3_000_000_000L;
     private long saidAt;
+    private long saidFor;
     private String said;
     /** The step of VideoMemory's the screen has said. */
     private int memoryStepSaid;
@@ -466,7 +469,7 @@ public final class FirstPerson {
             overViewpoint = false;
             Log.info(who() + "first person stays off: " + whyNot(player));
             if (player != null) {
-                say(refused());
+                sayRefusal(refused());
             }
             return;
         }
@@ -594,8 +597,18 @@ public final class FirstPerson {
 
     /** What the screen says, from now. */
     private void say(String line) {
+        sayFor(line, SAID_FOR_NANOS);
+    }
+
+    /** Says why first person is off, for long enough to read. */
+    private void sayRefusal(String line) {
+        sayFor(line, REFUSAL_FOR_NANOS);
+    }
+
+    private void sayFor(String line, long nanos) {
         said = line;
         saidAt = System.nanoTime();
+        saidFor = nanos;
     }
 
     /**
@@ -622,8 +635,8 @@ public final class FirstPerson {
 
     /** What the screen says when first person cannot be drawn on this PC; the log has the whole of why. */
     private static String cannotBeDrawn() {
-        return GlFloor.missing() != null ? "First person needs OpenGL 3.3 with EXT_texture_array"
-                : "First person cannot be drawn on this PC. " + Log.FILE_NAME + " says why";
+        return GlFloor.missing() != null ? "First person needs OpenGL 3.3, which your graphics card's driver provides: update the driver. " + Log.FILE_NAME + " says what is missing"
+                : "Your graphics card or its driver can't draw first person: update the driver. " + Log.FILE_NAME + " says why";
     }
 
     /** What the screen says when the first person key is refused for a player who is there; the log has the whole of why. */
@@ -842,7 +855,7 @@ public final class FirstPerson {
         sayWhatFaultsSwitchedOff();
         // After the catch, so a frame that throws still shows what the screen has to say, its own failure first.
         long now = System.nanoTime();
-        shown = gettingReady ? "First person: getting ready" : said != null && now - saidAt < SAID_FOR_NANOS ? said
+        shown = gettingReady ? "First person: getting ready" : said != null && now - saidAt < saidFor ? said
                 : hint != null && now - hintAt < HINT_FOR_NANOS ? hint : null;
         spottingFollowsCover();
         if (TRACE) {
@@ -890,7 +903,7 @@ public final class FirstPerson {
         }
         if (failure == null) {
             failure = "building the picture threw " + thrown;
-            say(FAILED);
+            sayRefusal(FAILED);
         }
         on = false;
         overhead = false;
@@ -1014,7 +1027,11 @@ public final class FirstPerson {
                     hint = null;
                 }
             }
-            say(view.pipeline.failure() != null ? cannotBeDrawn() : Quality.said(view.index));
+            if (view.pipeline.failure() != null) {
+                sayRefusal(cannotBeDrawn());
+            } else {
+                say(Quality.said(view.index));
+            }
         }
         if ((pressed & Config.CYCLE_STYLE) != 0) {
             say("Style: " + Style.of(view.index).label);
