@@ -2392,7 +2392,7 @@ def street_blade():
     for z in (-0.045, 0.045):
         cuboid(steel, 0.05, 0.12, -0.01, 0.01, z - 0.01, z + 0.01)
         lathe(steel, [(0.085, z - 0.015), (0.085, z + 0.015)], segments=12, caps=False)
-    model.hard(steel, "steel", bevel=0.002, segments=1)
+    model.plain(steel, "steel")
     plates, frames = bmesh.new(), bmesh.new()
     name_blade(plates, frames, 0.12, 0.82, 0.0, 0.0)
     model.hard(plates, "paint", bevel=0.003, segments=1)
@@ -10014,7 +10014,7 @@ def band_saw():
     cuboid(rubber, 0.14, 0.2, -0.06, 0.02, top + 0.05, top + 0.11)
     cuboid(steel, 0.166, 0.174, -0.001, 0.001, base, 1.36)
     model.hard(paint, "paint", bevel=0.012, segments=2)
-    model.hard(steel, "steel", bevel=0.002, segments=1)
+    model.plain(steel, "steel")
     model.plain(dark, "plastic")
     model.turned(rubber, "rubber")
     model.turned(red, "vinyl")
@@ -10094,7 +10094,7 @@ def bench_grinder():
         cuboid(glass, rest[0] - 0.04, rest[0] + 0.04, -0.085, -0.082, axis + 0.06, axis + 0.11)
     cuboid(dark, -0.03, 0.03, -0.076, -0.07, 0.02, 0.05)
     model.hard(paint, "paint", bevel=0.006, segments=2)
-    model.hard(steel, "steel", bevel=0.002, segments=1)
+    model.plain(steel, "steel")
     model.turned(metal, "metal")
     model.plain(dark, "rubber")
     model.plain(glass, "pane")
@@ -13922,6 +13922,88 @@ def church_fittings():
     return [chandelier_bowl(), chandelier_tiers(), wall_cross(), glory_cross()]
 
 
+# A shop's fridge with a glass door, one square wide, and a shop's cooler of two doors under a lit sign, two squares long:
+# their numbers in metres from the middle of their footprint, the front to -Y. A model is solid and glass is not, so each
+# stands with its doors open to the room and ShopFittings.java lays the glass over them where these say it is. The
+# goods stand on the shelves where tools/models/props/fridgefood.py puts them: all three must give the same numbers.
+GLASS_FRONT, GLASS_BACK, GLASS_FRAME, GLASS_DEPTH = -0.30, 0.34, 0.05, 0.04
+GLASS_FRIDGE = dict(half=0.35, top=1.70, doors=1, floor=0.14, shelves=(0.52, 0.89, 1.26), opening=(0.16, 1.62), sign=None)
+GLASS_COOLER = dict(half=0.85, top=1.95, doors=2, floor=0.13, shelves=(0.50, 0.87, 1.25), opening=(0.15, 1.62), sign=(1.67, 1.87))
+# Where the glass lies, a little behind the frame's face.
+GLASS_PANE_Y = GLASS_FRONT - 0.012
+
+
+def glass_front_fridge(name, half, top, doors, floor, shelves, opening, sign):
+    """A fridge whose front is a frame round one glass door, or two, with steel shelves inside it over a white lining.
+    sign is where a lit sign stands on the frame over the doors, or None."""
+    model = Model(name)
+    front, back, rail, wall = GLASS_FRONT, GLASS_BACK, GLASS_FRAME, 0.035
+    low, high = opening
+    foot = 0.09 if sign is None else 0.08
+    inner = half - wall
+    face = front - GLASS_DEPTH
+
+    body = bmesh.new()
+    cuboid(body, -half, -inner, front, back, foot, top)
+    cuboid(body, inner, half, front, back, foot, top)
+    cuboid(body, -inner, inner, back - wall, back, foot, top)
+    cuboid(body, -inner, inner, front, back - wall, foot, floor - 0.006)
+    cuboid(body, -inner, inner, front, back - wall, high, top)
+    model.hard(body, "enamel", bevel=0.012, segments=1)
+
+    lining = bmesh.new()
+    cuboid(lining, -inner, -inner + 0.006, front, back - wall, floor - 0.006, high)
+    cuboid(lining, inner - 0.006, inner, front, back - wall, floor - 0.006, high)
+    cuboid(lining, -inner, inner, back - wall - 0.006, back - wall, floor - 0.006, high)
+    cuboid(lining, -inner, inner, front, back - wall, floor - 0.006, floor)
+    model.plain(lining, "paint")
+
+    foot_block = bmesh.new()
+    cuboid(foot_block, -half + 0.02, half - 0.02, front + 0.03, back - 0.02, 0.0, foot)
+    for n in range(4):
+        cuboid(foot_block, -half + 0.06, half - 0.06, front + 0.026, front + 0.034, 0.02 + n * 0.015, 0.027 + n * 0.015)
+    model.plain(foot_block, "rubber")
+
+    frame = bmesh.new()
+    cuboid(frame, -half, -half + rail, face, front, foot, top)
+    cuboid(frame, half - rail, half, face, front, foot, top)
+    cuboid(frame, -half + rail, half - rail, face, front, foot, low)
+    cuboid(frame, -half + rail, half - rail, face, front, high, top)
+    if doors == 2:
+        cuboid(frame, -0.03, 0.03, face, front, low, high)
+    model.hard(frame, "enamel", bevel=0.01, segments=1)
+
+    seal = bmesh.new()
+    edges = [-half + rail] + ([-0.03, 0.03] if doors == 2 else []) + [half - rail]
+    for x0, x1 in zip(edges[::2], edges[1::2]):
+        for a, b in ((x0, x0 + 0.012), (x1 - 0.012, x1)):
+            cuboid(seal, a, b, front - 0.016, front + 0.004, low, high)
+        cuboid(seal, x0, x1, front - 0.016, front + 0.004, low, low + 0.012)
+        cuboid(seal, x0, x1, front - 0.016, front + 0.004, high - 0.012, high)
+    model.plain(seal, "rubber")
+
+    if doors == 1:
+        grip = bmesh.new()
+        bar_handle(grip, -half + 0.012, -half + 0.032, face, 0.75, 1.20, proud=0.03, thick=0.014)
+        model.hard(grip, "steel", bevel=0.004, segments=1)
+
+    steel = bmesh.new()
+    for z in shelves:
+        cuboid(steel, -inner + 0.004, inner - 0.004, front + 0.03, back - wall - 0.01, z - 0.012, z)
+        cuboid(steel, -inner + 0.004, inner - 0.004, front + 0.02, front + 0.03, z - 0.012, z + 0.022)
+    model.plain(steel, "steel")
+
+    if sign is not None:
+        plate = bmesh.new()
+        cuboid(plate, -half + rail, half - rail, face - 0.012, face, sign[0], sign[1])
+        model.plain(plate, "shade")
+    return model
+
+
+def glass_fridges():
+    return [glass_front_fridge("glass_fridge", **GLASS_FRIDGE), glass_front_fridge("glass_cooler", **GLASS_COOLER)]
+
+
 def every():
     return [bed("double_bed", 1.80, 2.00, 2), bed("single_bed", 0.90, 1.90, 1), wardrobe(), dining_chair(), small_table(),
               settee("sofa", 1.90, 2), settee("armchair", 1.02, 1), bedside_cabinet(), dresser(), desk(), office_chair(),
@@ -13944,7 +14026,7 @@ def every():
             + upholstered() + barrels_and_pots() + street() + display_cases() + awnings() + hoods() + industrial()
             + street_clutter() + home_fittings() + overhead() + office_medical() + wall_objects() + camp()
             + towers() + aerials() + farm_and_garden() + leisure() + shop_fittings() + shelves_stock() + dumpsters()
-            + bar_panelling() + sports() + shops() + log_walls() + gallery() + cameras() + netarcade() + pulpit() + church_fittings())
+            + bar_panelling() + sports() + shops() + log_walls() + gallery() + cameras() + netarcade() + pulpit() + church_fittings() + glass_fridges())
 
 
 def main():
