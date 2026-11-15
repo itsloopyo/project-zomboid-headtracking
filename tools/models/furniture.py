@@ -241,6 +241,12 @@ class Model:
         self.veined = False
         # A piece too long for one square, made whole and drawn as its shares, each (name, x0, x1) placed by its own square.
         self.shares = None
+        # What stands round the model where it is drawn and shades it there without being part of it: the piece of
+        # furniture a prop stands on (tools/models/props), as triangles of three points in the model's space before
+        # finish moves it, and the height of the floor under them in that space; None, the floor is under the model's
+        # lowest point.
+        self.around = []
+        self.floor = None
 
     def hard(self, bm, surface, bevel=0.004, segments=2, inward=False):
         """A part of wood or metal: every edge rounded off, its flat faces kept flat."""
@@ -327,8 +333,13 @@ class Model:
         # The floor the piece stands on shades its underside as the rest of it does.
         if not self.hung:
             ground = len(points)
-            points += [Vector((-9, -9, 0)), Vector((9, -9, 0)), Vector((9, 9, 0)), Vector((-9, 9, 0))]
+            floor = 0.0 if self.floor is None else self.floor - move.z
+            points += [Vector((-9, -9, floor)), Vector((9, -9, floor)), Vector((9, 9, floor)), Vector((-9, 9, floor))]
             faces.append((ground, ground + 1, ground + 2, ground + 3))
+        for triangle in self.around:
+            first = len(points)
+            points += [corner - move for corner in triangle]
+            faces.append((first, first + 1, first + 2))
         tree = BVHTree.FromPolygons(points, faces)
         rays = []
         for i in range(OCCLUSION_RAYS):
@@ -800,11 +811,15 @@ def desk():
     return model
 
 
-def cabinet(name, deep, high, base, corner=False, sink=False, panelled=False, made="wood", top_of="worktop"):
+def cabinet(name, deep, high, base, corner=False, sink=False, panelled=False, made="wood", top_of="worktop", open_doors=()):
     """One square of a run of cupboards, a metre wide so that each meets the next: the counter under a worktop when
     base, the cupboard on the wall when not. Its origin is the middle of its square, which a corner piece fills along
     two of its edges: its back, and the side on its left as it is looked at. A shop's counter is panelled: it has no
-    doors on the side its customers stand at."""
+    doors on the side its customers stand at.
+
+    open_doors names the doors, -1 the left as the cupboard is looked at and 1 the right, that are left off a straight
+    piece with doors, each over a bay of the cupboard's inside with a shelf across it: a prop of the door stands open in
+    front of it (tools/models/props)."""
     model = Model(name, centred=not corner)
     kick = 0.10 if base else 0.0
     top = high - 0.04 if base else high
@@ -818,7 +833,25 @@ def cabinet(name, deep, high, base, corner=False, sink=False, panelled=False, ma
     body = bmesh.new()
     if base:
         cuboid(body, side if corner else -0.5, 0.5, front + lip + 0.06, back, 0.0, kick)
-    cuboid(body, side if corner else -0.5, 0.5, front + lip, back, kick, top)
+    if open_doors:
+        if corner or panelled:
+            raise SystemExit("%s: only a straight cupboard with doors has a door to leave open" % name)
+        # The carcass round each open bay is CARCASS thick, its shelf half way up the bay.
+        bays = sorted((way * CARCASS_MIDDLE, way * (0.5 - CARCASS)) if way > 0 else (way * (0.5 - CARCASS), way * CARCASS_MIDDLE) for way in open_doors)
+        floor, ceiling = kick + CARCASS, top - CARCASS
+        x = -0.5
+        for x0, x1 in bays + [(0.5, 0.5)]:
+            if x0 > x:
+                cuboid(body, x, x0, front + lip, back, kick, top)
+            if x1 > x0:
+                cuboid(body, x0, x1, front + lip, back, kick, floor)
+                cuboid(body, x0, x1, front + lip, back, ceiling, top)
+                cuboid(body, x0, x1, back - CARCASS, back, floor, ceiling)
+                shelf = (floor + ceiling) / 2
+                cuboid(body, x0, x1, front + lip + 0.04, back - CARCASS, shelf - CARCASS / 2, shelf + CARCASS / 2)
+            x = x1
+    else:
+        cuboid(body, side if corner else -0.5, 0.5, front + lip, back, kick, top)
     if corner:
         if base:
             cuboid(body, side, side + deep - lip - 0.06, -0.5, front + lip + 0.06, 0.0, kick)
@@ -835,10 +868,8 @@ def cabinet(name, deep, high, base, corner=False, sink=False, panelled=False, ma
         frame, panel, pulls = bmesh.new(), bmesh.new(), bmesh.new()
         face = front + lip - 0.02
         for way in (-1, 1):
-            low, far = sorted((way * 0.004, way * 0.492))
-            framed_door(frame, panel, low, far, kick + 0.012, top - 0.012, face, rail=0.06, thick=0.02, field=False)
-            grip = top - 0.14 if base else kick + 0.07
-            bar_handle(pulls, way * 0.05 - 0.006, way * 0.05 + 0.006, face, grip, grip + 0.11, proud=0.028, thick=0.01)
+            if way not in open_doors:
+                cabinet_door(frame, panel, pulls, way, kick, top, face, base)
         model.hard(frame, made, bevel=0.004)
         model.hard(panel, made, bevel=0.003)
         model.hard(pulls, "metal", bevel=0.003, segments=1)
@@ -873,6 +904,20 @@ def cabinet(name, deep, high, base, corner=False, sink=False, panelled=False, ma
                 cuboid(tops, side, side + deep, -0.5, front, top, high)
         model.hard(tops, top_of, bevel=0.005, segments=2)
     return model
+
+
+# How thick the carcass is round the bay behind a cupboard door left open, and how far from the middle its bay starts.
+CARCASS = 0.018
+CARCASS_MIDDLE = 0.022
+
+
+def cabinet_door(frame, panel, pulls, way, kick, top, face, base):
+    """One door of a straight cupboard, -1 the left as it is looked at and 1 the right, hung on its outer edge, its face
+    at face: its frame and field into frame and panel, its handle into pulls."""
+    low, far = sorted((way * 0.004, way * 0.492))
+    framed_door(frame, panel, low, far, kick + 0.012, top - 0.012, face, rail=0.06, thick=0.02, field=False)
+    grip = top - 0.14 if base else kick + 0.07
+    bar_handle(pulls, way * 0.05 - 0.006, way * 0.05 + 0.006, face, grip, grip + 0.11, proud=0.028, thick=0.01)
 
 
 def fridge():
@@ -13623,4 +13668,5 @@ def main():
     print("wrote %s" % os.path.normpath(BUILT))
 
 
-main()
+if __name__ == "__main__":
+    main()
