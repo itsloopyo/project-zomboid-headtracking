@@ -127,6 +127,7 @@ public final class Tests {
         Checks.run("firstPersonKeysReplaceTheStockOnes", Tests::firstPersonKeysReplaceTheStockOnes);
         Checks.run("aKeyChosenOnTheOptionsScreenIsWrittenAsTheFileSpellsIt", Tests::aKeyChosenOnTheOptionsScreenIsWrittenAsTheFileSpellsIt);
         Checks.run("viewpointsCameraLetsGoOfASaveLeft", Tests::viewpointsCameraLetsGoOfASaveLeft);
+        Checks.run("headTrackingReachesTheCaptureOfEitherViewpointVersion", Tests::headTrackingReachesTheCaptureOfEitherViewpointVersion);
         Checks.run("pointerComesOutForTheInventoryKeyAPanelAndAClickedButton", Tests::pointerComesOutForTheInventoryKeyAPanelAndAClickedButton);
         Checks.run("transformerHasNoGapOnceEveryPatchIsIn", Tests::transformerHasNoGapOnceEveryPatchIsIn);
         Checks.run("exceptionTheGameCaughtFromTheModIsWrittenOnce", Tests::exceptionTheGameCaughtFromTheModIsWrittenOnce);
@@ -3150,6 +3151,21 @@ public final class Tests {
         fieldOfView.ease(true, 0.016f);
         fieldOfView.rest();
         check(fieldOfView.zoom() == 1f, "with no picture drawn it is unzoomed at once");
+    }
+
+    private static void headTrackingReachesTheCaptureOfEitherViewpointVersion() {
+        Agent.Patch capture = Agent.viewpointPatches().get(0);
+        for (String descriptor : List.of("(Lviewpoint/core/Frame;Lzombie/iso/IsoCell;Lzombie/characters/IsoGameCharacter;F)V",
+                "(Lviewpoint/core/Frame;Lzombie/iso/IsoCell;Lzombie/characters/IsoGameCharacter;FFLjava/util/function/Predicate;)V")) {
+            byte[] subject = ClassFile.of().build(ClassDesc.ofInternalName("viewpoint/camera/ThirdPerson"), type -> type
+                    .withFlags(ClassFile.ACC_PUBLIC | ClassFile.ACC_FINAL)
+                    .withMethodBody("capture", MethodTypeDesc.ofDescriptor(descriptor), ClassFile.ACC_PUBLIC | ClassFile.ACC_STATIC,
+                            code -> code.return_()));
+            java.lang.classfile.MethodModel patched = ClassFile.of().parse(capture.rewrite().apply(subject)).methods().get(0);
+            boolean hooked = patched.code().orElseThrow().elementStream().anyMatch(element ->
+                    element instanceof java.lang.classfile.instruction.InvokeInstruction call && call.name().equalsString("viewpointShot"));
+            check(hooked, "the head's turn is added as Project Viewpoint's capture " + descriptor + " returns");
+        }
     }
 
     private static void viewpointsCameraLetsGoOfASaveLeft() throws ReflectiveOperationException {

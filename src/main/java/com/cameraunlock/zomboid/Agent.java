@@ -2,6 +2,8 @@ package com.cameraunlock.zomboid;
 
 import com.cameraunlock.core.agent.Boot;
 import java.io.IOException;
+import java.lang.classfile.ClassFile;
+import java.lang.classfile.ClassModel;
 import java.lang.classfile.CodeBuilder;
 import java.lang.classfile.Opcode;
 import java.lang.constant.ClassDesc;
@@ -693,11 +695,9 @@ public final class Agent {
      * mod, as its ThirdPerson.capture returns, and the lean into the eye its Camera.eye draws from:
      * see ViewpointCamera. Their classes load only with that mod in use.
      */
-    private static List<Patch> viewpointPatches() {
+    static List<Patch> viewpointPatches() {
         return List.of(new Patch("viewpoint/camera/ThirdPerson", "capture with the head's turn and lean added to its camera shot",
-                classBytes -> CallSite.insertBeforeReturns(classBytes,
-                        new CallSite.Method("viewpoint/camera/ThirdPerson", "capture",
-                                "(Lviewpoint/core/Frame;Lzombie/iso/IsoCell;Lzombie/characters/IsoGameCharacter;F)V"),
+                classBytes -> CallSite.insertBeforeReturns(classBytes, viewpointCapture(classBytes),
                         code -> code.aload(0).aload(2).invokestatic(ClassDesc.ofInternalName(HOOKS), "viewpointShot",
                                 MethodTypeDesc.ofDescriptor("(Ljava/lang/Object;Lzombie/characters/IsoGameCharacter;)V")))),
                 new Patch("viewpoint/input/Camera", "eye with the lean added to the eye it gives",
@@ -705,6 +705,24 @@ public final class Agent {
                                 new CallSite.Method("viewpoint/input/Camera", "eye", "(Lviewpoint/core/Frame;F[F)V"),
                                 code -> code.aload(2).invokestatic(ClassDesc.ofInternalName(HOOKS), "viewpointEye",
                                         MethodTypeDesc.ofDescriptor("([F)V")))));
+    }
+
+    /**
+     * Viewpoint's ThirdPerson.capture as the version in use declares it: 0.1.6.2 takes the frame, cell,
+     * character and aspect, and the 0.1.7 nightlies add the snow's top and which squares lay snow after them.
+     * The frame and the character the patch loads are in slots 0 and 2 in both. CallSite.find does
+     * not match a static method by a longer descriptor, so both are named.
+     */
+    private static CallSite.Method viewpointCapture(byte[] classBytes) {
+        ClassModel model = ClassFile.of().parse(classBytes);
+        for (String descriptor : List.of("(Lviewpoint/core/Frame;Lzombie/iso/IsoCell;Lzombie/characters/IsoGameCharacter;F)V",
+                "(Lviewpoint/core/Frame;Lzombie/iso/IsoCell;Lzombie/characters/IsoGameCharacter;FFLjava/util/function/Predicate;)V")) {
+            CallSite.Method capture = new CallSite.Method("viewpoint/camera/ThirdPerson", "capture", descriptor);
+            if (CallSite.findExact(model, capture) != null) {
+                return capture;
+            }
+        }
+        throw new IllegalStateException("viewpoint/camera/ThirdPerson has no capture of a version this was made for");
     }
 
     /**
