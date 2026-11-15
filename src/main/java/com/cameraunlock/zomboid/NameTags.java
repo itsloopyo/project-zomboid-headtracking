@@ -95,10 +95,15 @@ public final class NameTags {
         name.AddBatchedDraw(x, placed ? placedY - NAME_HIGH : y, outlined);
     }
 
-    /** Called in place of the game's writing of what a person has said. */
+    /**
+     * Called in place of the game's writing of what a person has said. Of the viewer's own, only
+     * what a radio in their hands plays is written, by SetCaptions under CaptionsOverSets.
+     */
     public void writeSpeech(ChatElement speech, int playerIndex, int x, int y, boolean ignoreRadioLines) {
         if (!own) {
             speech.renderBatched(playerIndex, x, y, ignoreRadioLines);
+        } else if (!ignoreRadioLines && Part.CAPTIONS_OVER_SETS.running()) {
+            view.setCaptions.writeOwnRadio(speech, playerIndex);
         }
     }
 

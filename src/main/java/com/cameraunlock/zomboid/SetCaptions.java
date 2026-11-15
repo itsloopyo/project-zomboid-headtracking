@@ -1,24 +1,30 @@
 package com.cameraunlock.zomboid;
 
-import java.util.List;
+import java.lang.reflect.Field;
 import zombie.characters.IsoPlayer;
 import zombie.chat.ChatElement;
 import zombie.core.properties.PropertyContainer;
+import zombie.core.textures.Texture;
 import zombie.iso.IsoCamera;
 import zombie.iso.IsoGridSquare;
-import zombie.iso.IsoObject;
 import zombie.iso.objects.IsoTelevision;
 import zombie.iso.objects.IsoWaveSignal;
+import zombie.ui.TextDrawObject;
+import zombie.ui.UIFont;
 import zombie.vehicles.BaseVehicle;
 
 /**
- * The lines a television, a radio or a car radio shows of what it is playing, put over the set
- * in the first person picture.
+ * The lines a television, a radio, a car radio or a radio in the hands shows of what it is
+ * playing, put where they belong in the first person picture.
  *
- * The game writes them at the set's place in its own view, worked out through the isometric
- * zoom, so under the first person picture they hang wherever that view has the set and slide
- * about as the wheel zooms it. Only that place is changed: what is written, and whether it is
- * written at all, stay the game's.
+ * The game writes a set's lines at the set's place in its own view, worked out through the
+ * isometric zoom, so under the first person picture they hang wherever that view has the set and
+ * slide about as the wheel zooms it. Here they are written over the set as it is drawn, and not
+ * at all where the set is behind the eye or out of the picture. What is written stays the game's.
+ *
+ * A radio the player holds writes its lines into the player's own speech, which NameTags leaves
+ * out in first person: they are written low in the middle of the window, as are those of the
+ * radio of the car the player sits in, whose middle is beside or behind the eye.
  *
  * Everything runs on the game's logic thread.
  */
@@ -29,14 +35,20 @@ final class SetCaptions {
         this.view = view;
     }
 
-    /** How tall a set standing on something is: a television's 0.48 or 0.56, a radio less. */
-    private static final float TELEVISION_HIGH = 0.56f, RADIO_HIGH = 0.25f;
+    /**
+     * How tall the mod's models of the sets are: a wide screen 0.56 (a plain set 0.48), a radio's
+     * case 0.185, and the top of the antique console that stands on the floor 0.78
+     * (tools/models/furniture.py, Furniture.TV_CABINET_TOP).
+     */
+    static final float TELEVISION_HIGH = 0.56f, RADIO_HIGH = 0.185f, CONSOLE_TOP = 0.78f;
     /** How far over the top of a set the lowest line is written. */
     private static final float ABOVE = 0.12f;
     /** How far over a car's floor the lines of a car radio heard from outside are written: just over its roof. */
     private static final float OVER_A_CAR = 1.7f;
-    /** How far down the window the lowest line of the radio of the car the viewer sits in is written. */
-    private static final float OWN_CAR_DOWN = 0.82f;
+    /** The game's panel of a driver's instruments, which it stands at the bottom of the window as tall as this picture (ISVehicleDashboard). */
+    private static final String DASHBOARD = "media/ui/vehicles/dashboard.png";
+    /** How many pixels over the dashboard's top the lowest line of a radio written low in the window is. */
+    private static final int OVER_THE_DASHBOARD = 8;
 
     private final float[] ndc = new float[2];
 
@@ -50,8 +62,24 @@ final class SetCaptions {
         if (square == null) {
             return;
         }
+        PropertyContainer own = set.getProperties();
         float atX = square.getX() + 0.5f, atY = square.getY() + 0.5f;
-        writeAt(lines, playerIndex, atX, atY, square.getZ() * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(atX, atY, square.getZ()) + top(set, square) + ABOVE);
+        float top = top(own != null && own.has("IsTableTop"), own == null ? 0 : Surfaces.surface(own), set.getRenderYOffset(), set instanceof IsoTelevision);
+        writeAt(lines, playerIndex, atX, atY, square.getZ() * ViewCamera.LEVEL_HEIGHT + view.worldScene.terrain.lift(atX, atY, square.getZ()) + top + ABOVE);
+    }
+
+    /**
+     * How high over its floor the top of a set is drawn. A set that goes on a table is drawn
+     * standing at its own sprite's Surface, the height of the table it was painted on, raised by
+     * the offset the game gives it on a higher or lower piece (IsoGridSquare.FixStackableObjects),
+     * as WorldScene stands its model. Any other set, the antique console, stands on the floor.
+     *
+     * @param ownSurface    the set's own sprite's Surface, in the game's pixels
+     * @param renderYOffset the set's IsoObject.getRenderYOffset, in the same pixels
+     */
+    static float top(boolean tableTop, int ownSurface, float renderYOffset, boolean television) {
+        float foot = ((tableTop ? ownSurface : 0) + renderYOffset) / WorldScene.SURFACE_PIXELS_PER_LEVEL * ViewCamera.LEVEL_HEIGHT;
+        return foot + (television ? tableTop ? TELEVISION_HIGH : CONSOLE_TOP : RADIO_HIGH);
     }
 
     /** Called in place of the game's writing of a car radio's lines. */
@@ -62,8 +90,7 @@ final class SetCaptions {
         }
         IsoPlayer viewer = view.player();
         if (viewer != null && viewer.getVehicle() == car) {
-            // From the seat the car's middle is beside or behind the eye: the lines go low in the middle of the window.
-            lines.renderBatched(playerIndex, IsoCamera.getScreenWidth(playerIndex) / 2, Math.round(OWN_CAR_DOWN * IsoCamera.getScreenHeight(playerIndex)));
+            lines.renderBatched(playerIndex, IsoCamera.getScreenWidth(playerIndex) / 2, lowLine(playerIndex));
             return;
         }
         float atX = car.getX(), atY = car.getY(), z = car.getZ();
@@ -80,29 +107,76 @@ final class SetCaptions {
     }
 
     /**
-     * How high over its floor the top of a set is. A set on a table or a chest of drawers stands
-     * on the highest surface of the rest of its square, as the game lifts it there
-     * (IsoGridSquare.FixStackableObjects); a set that stands on the floor, the antique console,
-     * has its own top as its surface.
+     * Where the lowest line written low in the window goes: over the game's dashboard, which it
+     * shows in a seat whenever the mod does not hide it (Panels.dashboard), and which stands taller
+     * than the hotbar does.
      */
-    private static float top(IsoWaveSignal set, IsoGridSquare square) {
-        PropertyContainer own = set.getProperties();
-        if (own != null && !own.has("IsTableTop") && set.getRenderYOffset() <= 0f) {
-            int surface = Surfaces.surface(own);
-            if (surface > 0) {
-                return surface / WorldScene.SURFACE_PIXELS_PER_LEVEL * ViewCamera.LEVEL_HEIGHT;
-            }
+    private static int lowLine(int playerIndex) {
+        Texture dashboard = Texture.getSharedTexture(DASHBOARD);
+        if (dashboard == null) {
+            throw new IllegalStateException("the game has no " + DASHBOARD + " to keep radio lines clear of");
         }
-        int under = 0;
-        List<IsoObject> objects = SquareObjects.of(square);
-        for (int i = 0; i < objects.size(); i++) {
-            IsoObject object = objects.get(i);
-            PropertyContainer properties = object.getProperties();
-            if (object != set && !(object instanceof IsoWaveSignal) && properties != null && !properties.has("IsTableTop")) {
-                under = Math.max(under, Surfaces.surface(properties));
+        return IsoCamera.getScreenHeight(playerIndex) - dashboard.getHeight() - OVER_THE_DASHBOARD;
+    }
+
+    private static Field playerLines, chatLines, lineDisplayTime, historyVal;
+
+    /**
+     * Called where NameTags leaves out the viewer's own speech: writes the lines of a radio the
+     * viewer holds, the ones the game tags "radio", low in the middle of the window, as the game's
+     * PlayerLines.render writes them, newest first with the older fading by the history's share.
+     */
+    void writeOwnRadio(ChatElement speech, int playerIndex) {
+        try {
+            if (playerLines == null) {
+                Class<?> lines = Class.forName("zombie.chat.ChatElement$PlayerLines");
+                playerLines = accessible(ChatElement.class.getDeclaredField("playerLines"));
+                historyVal = accessible(ChatElement.class.getDeclaredField("historyVal"));
+                chatLines = accessible(lines.getDeclaredField("chatLines"));
+                lineDisplayTime = accessible(lines.getDeclaredField("lineDisplayTime"));
             }
+            Object[] all = (Object[]) playerLines.get(speech);
+            if (playerIndex >= all.length) {
+                return;
+            }
+            Object mine = all[playerIndex];
+            TextDrawObject[] written = (TextDrawObject[]) chatLines.get(mine);
+            float fadeAfter = lineDisplayTime.getInt(mine) / 4f, history = historyVal.getFloat(speech);
+            int x = IsoCamera.getScreenWidth(playerIndex) / 2, y = 0;
+            boolean placed = false;
+            int count = 0;
+            for (TextDrawObject line : written) {
+                if (!line.getEnabled() || !"radio".equals(line.getCustomTag())) {
+                    continue;
+                }
+                if (line.getWidth() <= 0 || line.getHeight() <= 0) {
+                    count++;
+                    continue;
+                }
+                float clock = line.getInternalClock();
+                if (clock <= 0f) {
+                    continue;
+                }
+                if (!placed) {
+                    y = lowLine(playerIndex);
+                    placed = true;
+                }
+                float alpha = Math.min(1f, clock / fadeAfter);
+                y -= line.getHeight() + 1;
+                if (count == 0) {
+                    line.AddBatchedDraw(x, y, line.getDefaultFontEnum() != UIFont.Dialogue, alpha);
+                } else if (history > 0f) {
+                    line.AddBatchedDraw(x, y, line.getDefaultFontEnum() != UIFont.Dialogue, alpha * history);
+                }
+                count++;
+            }
+        } catch (ReflectiveOperationException failure) {
+            throw new IllegalStateException("the game's ChatElement has not the lines this build of the mod reads a held radio's from", failure);
         }
-        return under / WorldScene.SURFACE_PIXELS_PER_LEVEL * ViewCamera.LEVEL_HEIGHT
-                + (set instanceof IsoTelevision ? TELEVISION_HIGH : RADIO_HIGH);
+    }
+
+    private static Field accessible(Field field) {
+        field.setAccessible(true);
+        return field;
     }
 }

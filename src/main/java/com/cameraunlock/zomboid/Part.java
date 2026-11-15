@@ -108,8 +108,8 @@ enum Part {
                     + "picture, and your own are hidden. false: the game shows them where its own view puts them."),
     CAPTIONS_OVER_SETS("FirstPerson", "CaptionsOverSets", false, true,
             "true: in first person, the lines a television, a radio or a car radio shows of what it is playing sit over the\n"
-                    + "set in the picture, and those of the car you sit in low in the middle. false: the game shows them where its own\n"
-                    + "view puts them."),
+                    + "set in the picture, and those of a radio in your hands or of the car you sit in low in the middle, over the\n"
+                    + "dashboard. false: the game shows a set's where its own view puts them, and a radio in your hands shows none."),
     HIGHLIGHTS("FirstPerson", "Highlights", true, false,
             "true: in first person, a line is drawn round what the Interact key would act on, and round what the game highlights\n"
                     + "or marks on the ground for you, such as the container the loot panel shows. false: none of them, for immersion.\n"
