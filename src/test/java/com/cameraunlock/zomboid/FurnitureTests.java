@@ -931,6 +931,18 @@ final class FurnitureTests {
         check(side != null && FurnishingBuilder.standsOver(table, vase) == side, "a vase the game sets out on a side table stands on it");
         check(side != null && FurnishingBuilder.standsOver(table, food) == side, "and so does the game's picture of what a container holds");
         check(FurnishingBuilder.standsOver(table, stain) == null, "what else the game lays over it does not");
+        if (side != null) {
+            // Where the painting's foot is against the top at the middle of the table, as share of its height.
+            float top = 23 / WorldScene.SURFACE_PIXELS_PER_LEVEL;
+            for (float under : new float[] {-0.5f, 0f, 0.88f, 0.92f, 1.2f}) {
+                SpriteGeometry.Frame frame = decorFrame(side, top, under);
+                SpriteGeometry.Mesh mesh = new SpriteGeometry.Mesh();
+                boolean stood = FurnishingBuilder.addDecor(new SpriteGeometry(), mesh, frame, side, table, 5, 7, 0);
+                boolean wanted = under < FurnishingBuilder.DECOR_UNDER_MOST;
+                check(stood == wanted && (mesh.floats > 0) == wanted, "a painting " + under + " of its height under the top "
+                        + (wanted ? "stands as a card" : "is of what is in the piece and stands nowhere") + ": " + stood + ", " + mesh.floats);
+            }
+        }
 
         String row = "|BlocksPlacement||CanScrap||CustomName|Bath|Facing|S|GroupName|Large Deluxe|IsMoveAble||ItemHeight|22|Material|Plumbing|"
                 + "Material2|Pipes|PickUpTool|Wrench|PickUpWeight|100|PlaceTool|Wrench|solidtrans||SpriteGridPos|";
@@ -945,6 +957,21 @@ final class FurnitureTests {
         Furniture shelving = Furniture.known(corner);
         check(model(shelving).equals("wall_shelving_corner") && shelving.stocked, "shelving in a corner holds goods of its own: " + model(shelving));
         check(FurnishingBuilder.standsOver(corner, food) == null, "and no picture of them stands in front of it");
+    }
+
+    /** A frame of a painting 20 pixels high whose share under of its height is under the top of piece, top levels up. */
+    private static SpriteGeometry.Frame decorFrame(Furniture piece, float top, float under) {
+        SpriteGeometry.Frame frame = new SpriteGeometry.Frame();
+        frame.scale = 2f;
+        frame.originU = 64f;
+        frame.originV = 192f;
+        frame.uStart = frame.vStart = 0f;
+        frame.uEnd = frame.vEnd = 1f;
+        frame.left = 0f;
+        frame.width = 128f;
+        frame.height = 20f;
+        frame.top = SpriteGeometry.frameV(frame, piece.centreX, piece.centreY, top) - (1f - under) * frame.height;
+        return LightSiteTests.sited(frame);
     }
 
     /**

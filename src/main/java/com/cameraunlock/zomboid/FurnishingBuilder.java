@@ -1271,6 +1271,32 @@ final class FurnishingBuilder {
         return decor ? piece : null;
     }
 
+    /** How much of a decor painting may lie under the top of the piece it is over, as a share of its height, and still stand on it as a card. */
+    static final float DECOR_UNDER_MOST = 0.9f;
+
+    /**
+     * Stands the decor painting in frame, which the game lays over under, as a card on the middle of the top of over,
+     * under's piece, where the game paints it, and false where it is not to stand there at all. What the painting has
+     * under the top is cut off. Anchored on the floor or the middle of the square, the depth the picture gives the top stood it as height, and
+     * the things floated over and beside a dresser against its wall. A painting all but wholly under the top is of what
+     * is in the piece, a fridge's food behind its glass, and has no card to stand over it.
+     */
+    static boolean addDecor(SpriteGeometry geometry, SpriteGeometry.Mesh mesh, SpriteGeometry.Frame frame, Furniture over, IsoSprite under,
+            int x, int y, int z) {
+        boolean single = over.width == 1 && over.height == 1;
+        float a = single ? over.centreX : 0.5f, b = single ? over.centreY : 0.5f;
+        float top = Surfaces.surface(under.getProperties()) / WorldScene.SURFACE_PIXELS_PER_LEVEL;
+        float below = (frame.top + frame.height - SpriteGeometry.frameV(frame, a, b, top)) / frame.height;
+        if (below >= DECOR_UNDER_MOST) {
+            return false;
+        }
+        float skipped = geometry.skipped;
+        geometry.skipped = Math.max(below, 0f);
+        geometry.addUpright(mesh, frame, x, y, z, a, b, top, 1f, 0f, true, false);
+        geometry.skipped = skipped;
+        return true;
+    }
+
     /**
      * Stands the board the game lays over a counter as its top, over the mod's model of that counter, coloured from the
      * board's own sprite, and says whether the board is thereby dealt with. The counter's model has a top of its own,
