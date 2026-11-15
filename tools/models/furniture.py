@@ -788,15 +788,124 @@ def bar_handle(bm, x0, x1, face, z0, z1, proud=0.03, thick=0.012):
             cuboid(bm, x0, x1, face - proud + thick, face, z, z + thick)
 
 
-def drawer_fronts(fronts, pulls, x0, x1, z0, z1, count, face, at=(0.5,), gap=0.008, thick=0.018, size=1.0):
+def drawer_fronts(fronts, pulls, x0, x1, z0, z1, count, face, at=(0.5,), gap=0.008, thick=0.018, size=1.0, left_off=()):
     """A stack of drawer fronts filling x0 to x1 and z0 to z1, their faces at y = face. Every front is the same
-    height, the gaps between them and round them are all the same, and each pull is at the middle of its front's height."""
+    height, the gaps between them and round them are all the same, and each pull is at the middle of its front's height.
+    The drawers counted from the lowest, 0, that are in left_off are left out. Gives every drawer's place, as
+    pulled_drawer and pocketed_body take it."""
     high = (z1 - z0 - gap * (count + 1)) / count
+    slots = []
     for n in range(count):
         low = z0 + gap + n * (high + gap)
+        def pull(bm, face, low=low):
+            for share in at:
+                knob(bm, x0 + (x1 - x0) * share, face, low + high / 2, size)
+        slots.append(dict(x0=x0 + gap, x1=x1 - gap, z0=low, z1=low + high, face=face, thick=thick, pull=pull))
+        if n in left_off:
+            continue
         cuboid(fronts, x0 + gap, x1 - gap, face, face + thick, low, low + high)
-        for share in at:
-            knob(pulls, x0 + (x1 - x0) * share, face, low + high / 2, size)
+        pull(pulls, face)
+    return slots
+
+
+def pocket_box(bm, x0, x1, y0, y1, z0, z1, outline, deep, segments=24):
+    """A box from (x0, y0, z0) to (x1, y1, z1) with a blind hole sunk deep into its top: the hole's edge is outline(angle),
+    the point of it in that direction from the hole's middle as (x, y, middle_x, middle_y), and the hole has straight
+    walls and a flat floor. The top between the box's edge and the hole is joined ring to ring, the box's corners among
+    them. Gives the vertices it made, to move with into_front and sink the hole into another face."""
+    mx, my = outline(0.0)[2:]
+    corner_angles = [math.atan2(y - my, x - mx) % (2 * math.pi) for x, y in ((x1, y1), (x0, y1), (x0, y0), (x1, y0))]
+    angles = sorted(set([round(2 * math.pi * i / segments, 12) for i in range(segments)] + [round(a, 12) for a in corner_angles]))
+
+    def edge(angle):
+        """Where a ray from the hole's middle at angle leaves the box's top."""
+        dx, dy = math.cos(angle), math.sin(angle)
+        reach = min([t for t in ((x1 - mx) / dx if dx > 1e-12 else None, (x0 - mx) / dx if dx < -1e-12 else None,
+                                 (y1 - my) / dy if dy > 1e-12 else None, (y0 - my) / dy if dy < -1e-12 else None) if t is not None])
+        x, y = mx + dx * reach, my + dy * reach
+        return min((x0, x1), key=lambda c: abs(c - x)) if min(abs(x - x0), abs(x - x1)) < 1e-9 else x,             min((y0, y1), key=lambda c: abs(c - y)) if min(abs(y - y0), abs(y - y1)) < 1e-9 else y
+    # Where each lies is kept as worked out: a vertex holds only single precision, too coarse to tell which side it is on.
+    edges = [edge(a) for a in angles]
+    outer = [bm.verts.new((*point, z1)) for point in edges]
+    rim = [bm.verts.new((*outline(a)[:2], z1)) for a in angles]
+    floor = [bm.verts.new((*outline(a)[:2], z1 - deep)) for a in angles]
+    count = len(angles)
+    for i in range(count):
+        j = (i + 1) % count
+        bm.faces.new((outer[i], outer[j], rim[j], rim[i]))
+        bm.faces.new((rim[i], rim[j], floor[j], floor[i]))
+    bm.faces.new(floor[::-1])
+    bottom = {}
+    for x, y in ((x0, y0), (x1, y0), (x1, y1), (x0, y1)):
+        bottom[(x, y)] = bm.verts.new((x, y, z0))
+    bm.faces.new([bottom[(x0, y0)], bottom[(x0, y1)], bottom[(x1, y1)], bottom[(x1, y0)]])
+    # Each side: its two corners below and every point of the outer ring along its top edge.
+    for (ax, ay), (bx, by) in (((x0, y0), (x1, y0)), ((x1, y0), (x1, y1)), ((x1, y1), (x0, y1)), ((x0, y1), (x0, y0))):
+        along = [(x, y, v) for (x, y), v in zip(edges, outer) if abs((x - ax) * (by - ay) - (y - ay) * (bx - ax)) < 1e-9
+                 and min(ax, bx) - 1e-9 <= x <= max(ax, bx) + 1e-9 and min(ay, by) - 1e-9 <= y <= max(ay, by) + 1e-9]
+        along.sort(key=lambda point: (point[0] - ax) ** 2 + (point[1] - ay) ** 2)
+        bm.faces.new([bottom[(ax, ay)], bottom[(bx, by)]] + [v for _, _, v in along[::-1]])
+    return outer + rim + floor + list(bottom.values())
+
+
+def round_hole(cx, cy, radius):
+    return lambda angle: (cx + radius * math.cos(angle), cy + radius * math.sin(angle), cx, cy)
+
+
+def square_hole(x0, x1, y0, y1):
+    """A rectangular hole for pocket_box, its edge met by a ray from its middle at each angle."""
+    mx, my = (x0 + x1) / 2, (y0 + y1) / 2
+
+    def outline(angle):
+        dx, dy = math.cos(angle), math.sin(angle)
+        reach = min(abs((x1 - mx) / dx) if abs(dx) > 1e-12 else math.inf, abs((y1 - my) / dy) if abs(dy) > 1e-12 else math.inf)
+        return mx + dx * reach, my + dy * reach, mx, my
+    return outline
+
+
+def into_front(bm, verts, front):
+    """Turns what pocket_box built with its top at z = 0 so the top faces -Y at y = front: x stays, y goes up and z
+    goes back."""
+    bmesh.ops.transform(bm, matrix=Matrix.Translation((0.0, front, 0.0)) @ Matrix.Rotation(math.radians(90), 4, "X"), verts=verts)
+
+
+def pocketed_body(body, x0, x1, front, back, z0, z1, slots, left_off, wall=0.015):
+    """A carcass from x0 to x1, front to back and z0 to z1, its front at -Y, with a pocket behind each drawer in left_off
+    as deep as the carcass less a wall, where that drawer is pulled out. Each band of the carcass a drawer stands in is a
+    box of its own, the pocket sunk in it; the rest of it is solid."""
+    bands = sorted((slots[n]["z0"] - 0.004, slots[n]["z1"] + 0.004, n) for n in left_off)
+    z = z0
+    for b0, b1, n in bands:
+        if b0 > z:
+            cuboid(body, x0, x1, front, back, z, b0)
+        slot = slots[n]
+        # Built with the front up at z = 0: x as it is, the carcass's height along y, its depth down.
+        made = pocket_box(body, x0, x1, b0, b1, -(back - front), 0.0, square_hole(slot["x0"], slot["x1"], slot["z0"], slot["z1"]), back - front - wall)
+        into_front(body, made, front)
+        z = b1
+    if z1 > z:
+        cuboid(body, x0, x1, front, back, z, z1)
+
+
+def pulled_drawer(name, slot, out, deep, made, pull="metal", centred=False):
+    """A drawer of a piece pulled out out metres, built where it stands in the piece's space: its front and pulls as
+    the piece makes them at slot (one of the piece's model.drawers), and its box behind, deep metres long, of sides, a
+    back and a bottom. pull is the surface of the pulls; model.drawer_deep is how deep a piece's pockets are."""
+    model = Model(name, centred=centred)
+    fronts, box, pulls = bmesh.new(), bmesh.new(), bmesh.new()
+    face = slot["face"] - out
+    cuboid(fronts, slot["x0"], slot["x1"], face, face + slot["thick"], slot["z0"], slot["z1"])
+    slot["pull"](pulls, face)
+    inside = face + slot["thick"]
+    x0, x1, z0, z1 = slot["x0"] + 0.012, slot["x1"] - 0.012, slot["z0"] + 0.01, slot["z1"] - 0.02
+    for xa, xb in ((x0, x0 + 0.012), (x1 - 0.012, x1)):
+        cuboid(box, xa, xb, inside, inside + deep, z0, z1)
+    cuboid(box, x0 + 0.012, x1 - 0.012, inside + deep - 0.012, inside + deep, z0, z1)
+    cuboid(box, x0 + 0.012, x1 - 0.012, inside, inside + deep - 0.012, z0, z0 + 0.008)
+    model.hard(fronts, made, bevel=0.005)
+    model.hard(box, made, bevel=0.002, segments=1)
+    model.turned(pulls, pull)
+    return model
 
 
 def framed_door(frame, panel, x0, x1, z0, z1, face, rail=0.07, thick=0.022, field=True):
@@ -838,49 +947,55 @@ def wardrobe():
     return model
 
 
-def bedside_cabinet():
-    model = Model("bedside_cabinet")
+def bedside_cabinet(name="bedside_cabinet", open_drawers=()):
+    """A bedside cabinet of two drawers. open_drawers, counted from the lowest, are left out over a pocket each:
+    model.drawers and model.drawer_deep give pulled_drawer what it needs to stand one pulled out."""
+    model = Model(name)
     half, front, back = 0.25, -0.20, 0.21
+
+    fronts, pulls = bmesh.new(), bmesh.new()
+    model.drawers = drawer_fronts(fronts, pulls, -half + 0.01, half - 0.01, 0.10, 0.62, 2, front - 0.018, size=1.1, left_off=open_drawers)
+    model.drawer_deep = back - front - 0.015 - 0.02
+    model.hard(fronts, "wood", bevel=0.005)
+    model.turned(pulls, "metal")
 
     body = bmesh.new()
     for x in (-1, 1):
         for y in (front + 0.04, back - 0.04):
             prism(body, (x * (half - 0.04), y, 0.028, 0.028, 0.0), (x * (half - 0.04), y, 0.042, 0.042, 0.1))
-    cuboid(body, -half, half, front, back, 0.09, 0.63)
+    pocketed_body(body, -half, half, front, back, 0.09, 0.63, model.drawers, open_drawers)
     model.hard(body, "wood", bevel=0.006)
 
     board = bmesh.new()
     cuboid(board, -half - 0.02, half + 0.02, front - 0.03, back, 0.63, 0.66)
     model.hard(board, "wood", bevel=0.009, segments=3)
-
-    fronts, pulls = bmesh.new(), bmesh.new()
-    drawer_fronts(fronts, pulls, -half + 0.01, half - 0.01, 0.10, 0.62, 2, front - 0.018, size=1.1)
-    model.hard(fronts, "wood", bevel=0.005)
-    model.turned(pulls, "metal")
     return model
 
 
-def chest_of_drawers(model):
-    """A dresser's chest: a plinth, a carcass, a top board and three drawers with pairs of pulls. Gives its half
-    width, the y of its front and its back, and the height of its top."""
+def chest_of_drawers(model, open_drawers=()):
+    """A dresser's chest: a plinth, a carcass, a top board and three drawers with pairs of pulls, those in open_drawers
+    (counted from the lowest) left out over a pocket each, as bedside_cabinet leaves them. Gives its half width, the y
+    of its front and its back, and the height of its top."""
     half, front, back, top = 0.46, -0.23, 0.24, 0.88
+    fronts, pulls = bmesh.new(), bmesh.new()
+    model.drawers = drawer_fronts(fronts, pulls, -half + 0.012, half - 0.012, 0.08, top - 0.045, 3, front - 0.018, at=(0.25, 0.75), size=1.15,
+                                  left_off=open_drawers)
+    model.drawer_deep = back - front - 0.015 - 0.02
+    model.hard(fronts, "wood", bevel=0.005)
+    model.turned(pulls, "metal")
     body = bmesh.new()
     cuboid(body, -half + 0.03, half - 0.03, front + 0.04, back, 0.0, 0.07)
-    cuboid(body, -half, half, front, back, 0.07, top - 0.035)
+    pocketed_body(body, -half, half, front, back, 0.07, top - 0.035, model.drawers, open_drawers)
     model.hard(body, "wood", bevel=0.006)
     board = bmesh.new()
     cuboid(board, -half - 0.025, half + 0.025, front - 0.035, back, top - 0.035, top)
     model.hard(board, "wood", bevel=0.01, segments=3)
-    fronts, pulls = bmesh.new(), bmesh.new()
-    drawer_fronts(fronts, pulls, -half + 0.012, half - 0.012, 0.08, top - 0.045, 3, front - 0.018, at=(0.25, 0.75), size=1.15)
-    model.hard(fronts, "wood", bevel=0.005)
-    model.turned(pulls, "metal")
     return half, front, back, top
 
 
-def dresser():
-    model = Model("dresser")
-    chest_of_drawers(model)
+def dresser(name="dresser", open_drawers=()):
+    model = Model(name)
+    chest_of_drawers(model, open_drawers)
     return model
 
 
@@ -1040,15 +1155,35 @@ def fridge():
     return model
 
 
-def oven():
-    model = Model("oven")
-    half, front, back, hob = 0.38, -0.31, 0.33, 0.91
+OVEN_HALF, OVEN_FRONT, OVEN_BACK, OVEN_HOB = 0.38, -0.31, 0.33, 0.91
+
+
+def oven_door(door, glass, trim):
+    """An oven's door, shut, into door, glass and trim: hung along its foot, the bottom edge of its face at
+    (y = OVEN_FRONT - 0.022, z = 0.165), and it opens down towards -Y."""
+    half, front = OVEN_HALF, OVEN_FRONT
+    cuboid(door, -half + 0.012, half - 0.012, front - 0.022, front, 0.165, 0.76)
+    cuboid(glass, -half + 0.11, half - 0.11, front - 0.028, front - 0.02, 0.30, 0.61)
+    bar_handle(trim, -half + 0.07, half - 0.07, front - 0.022, 0.685, 0.705, proud=0.04, thick=0.016)
+
+
+def oven(name="oven", door_off=False):
+    """A cooker: an oven under a hob, its dials along the back. door_off leaves its door (oven_door) out over the oven's
+    inside."""
+    model = Model(name)
+    half, front, back, hob = OVEN_HALF, OVEN_FRONT, OVEN_BACK, OVEN_HOB
 
     body = bmesh.new()
-    cuboid(body, -half, half, front, back, 0.03, hob)
+    if door_off:
+        made = pocket_box(body, -half, half, 0.03, hob, -(back - front), 0.0, square_hole(-half + 0.05, half - 0.05, 0.18, 0.74), back - front - 0.06)
+        into_front(body, made, front)
+    else:
+        cuboid(body, -half, half, front, back, 0.03, hob)
     cuboid(body, -half, half, back - 0.07, back, hob, hob + 0.18)
     cuboid(body, -half + 0.012, half - 0.012, front - 0.022, front, 0.045, 0.15)
-    cuboid(body, -half + 0.012, half - 0.012, front - 0.022, front, 0.165, 0.76)
+    glass, trim = bmesh.new(), bmesh.new()
+    if not door_off:
+        oven_door(body, glass, trim)
     model.hard(body, "enamel", bevel=0.01, segments=2)
 
     feet = bmesh.new()
@@ -1060,13 +1195,9 @@ def oven():
             lathe(feet, [(0.0, hob), (0.095, hob), (0.095, hob + 0.006), (0.08, hob + 0.016), (0.03, hob + 0.016), (0.0, hob + 0.01)], cx=x, cy=y, segments=16)
     model.turned(feet, "rubber")
 
-    glass = bmesh.new()
-    cuboid(glass, -half + 0.11, half - 0.11, front - 0.028, front - 0.02, 0.30, 0.61)
-    model.hard(glass, "screen", bevel=0.006)
-
-    trim = bmesh.new()
-    bar_handle(trim, -half + 0.07, half - 0.07, front - 0.022, 0.685, 0.705, proud=0.04, thick=0.016)
-    model.hard(trim, "steel", bevel=0.005)
+    if not door_off:
+        model.hard(glass, "screen", bevel=0.006)
+        model.hard(trim, "steel", bevel=0.005)
 
     dials = bmesh.new()
     for x in (-0.27, -0.135, 0.0, 0.135, 0.27):
@@ -1407,15 +1538,44 @@ def bath():
     return model
 
 
-def laundry_case(model):
-    """The white case of a washing machine or a dryer, with the console its dials are on along the back. Gives
-    its half width, the y of its front and its back, and the height of its top."""
-    half, front, back, top = 0.34, -0.33, 0.33, 0.92
+LAUNDRY_HALF, LAUNDRY_FRONT, LAUNDRY_BACK, LAUNDRY_TOP = 0.34, -0.33, 0.33, 0.92
+# The washing machine's tub, open under its lid: its middle's y and its radius. The dryer's drum, open behind its
+# door: the height of its middle and its radius.
+WASHER_TUB_Y, WASHER_TUB = -0.06, 0.2
+DRYER_DRUM_Z, DRYER_DRUM = 0.5, 0.15
+
+
+def laundry_case(model, mouth=None):
+    """The white case of a washing machine or a dryer, with the console its dials are on along the back. mouth "top"
+    opens the washing machine's tub in its top, "front" the dryer's drum in its front. Gives its half width, the y of
+    its front and its back, and the height of its top."""
+    half, front, back, top = LAUNDRY_HALF, LAUNDRY_FRONT, LAUNDRY_BACK, LAUNDRY_TOP
     body = bmesh.new()
-    cuboid(body, -half, half, front, back, 0.03, top)
+    if mouth == "top":
+        pocket_box(body, -half, half, front, back, 0.03, top, round_hole(0.0, WASHER_TUB_Y, WASHER_TUB), 0.5, segments=32)
+    elif mouth == "front":
+        made = pocket_box(body, -half, half, 0.03, top, -(back - front), 0.0, round_hole(0.0, DRYER_DRUM_Z, DRYER_DRUM), 0.45, segments=32)
+        into_front(body, made, front)
+    else:
+        cuboid(body, -half, half, front, back, 0.03, top)
     cuboid(body, -half, half, back - 0.14, back, top, top + 0.16)
     model.hard(body, "enamel", bevel=0.012, segments=3)
     return half, front, back, top
+
+
+def washer_lid(lid):
+    """A washing machine's lid, shut: hung along its back edge, at (y = LAUNDRY_BACK - 0.16, z = LAUNDRY_TOP), and it
+    lifts up towards +Z."""
+    half, front, back, top = LAUNDRY_HALF, LAUNDRY_FRONT, LAUNDRY_BACK, LAUNDRY_TOP
+    cuboid(lid, -half + 0.05, half - 0.05, front + 0.04, back - 0.16, top, top + 0.016)
+
+
+def dryer_door(door, glass):
+    """A dryer's round door, shut, its ring into door and its window into glass: its middle at (x = 0, z = DRYER_DRUM_Z)
+    on the case's front. Its hinge is the upright through x = -0.215 on that front."""
+    front = LAUNDRY_FRONT
+    lathe(door, [(0.15, 0.0), (0.215, 0.0), (0.215, 0.02), (0.2, 0.034), (0.15, 0.034)], segments=22, closed=True, to=along_y(0.0, front, DRYER_DRUM_Z))
+    lathe(glass, [(0.0, 0.0), (0.15, 0.0), (0.15, 0.012), (0.09, 0.026), (0.0, 0.03)], segments=18, to=along_y(0.0, front, DRYER_DRUM_Z))
 
 
 def laundry_feet(model, half, front, back, top):
@@ -1428,13 +1588,15 @@ def laundry_feet(model, half, front, back, top):
     model.turned(feet, "rubber")
 
 
-def washing_machine():
-    model = Model("washing_machine")
-    half, front, back, top = laundry_case(model)
+def washing_machine(name="washing_machine", lid_off=False):
+    """A top-loading washing machine. lid_off leaves its lid (washer_lid) out over its open tub."""
+    model = Model(name)
+    half, front, back, top = laundry_case(model, "top" if lid_off else None)
 
-    lid = bmesh.new()
-    cuboid(lid, -half + 0.05, half - 0.05, front + 0.04, back - 0.16, top, top + 0.016)
-    model.hard(lid, "enamel", bevel=0.006, segments=2)
+    if not lid_off:
+        lid = bmesh.new()
+        washer_lid(lid)
+        model.hard(lid, "enamel", bevel=0.006, segments=2)
 
     laundry_feet(model, half, front, back, top)
 
@@ -3662,20 +3824,29 @@ def coat_rack():
     return model
 
 
-def filing_cabinet():
-    """A steel filing cabinet of three drawers, each with a pull and a holder for its label."""
-    model = Model("filing_cabinet")
+def filing_cabinet(name="filing_cabinet", open_drawers=()):
+    """A steel filing cabinet of three drawers, each with a pull and a holder for its label. open_drawers, counted from
+    the lowest, are left out over a pocket each, as bedside_cabinet leaves them."""
+    model = Model(name)
     half, front, back, top = 0.235, -0.3, 0.3, 1.02
-    body = bmesh.new()
-    cuboid(body, -half, half, front, back, 0.0, top)
-    model.hard(body, "paint", bevel=0.006, segments=2)
     fronts, trim = bmesh.new(), bmesh.new()
     high = (top - 0.05) / 3
+    model.drawers = []
     for n in range(3):
         low = 0.03 + n * high
+
+        def pull(bm, face, low=low):
+            bar_handle(bm, -0.07, 0.07, face, low + high * 0.62, low + high * 0.62 + 0.016, proud=0.026, thick=0.01)
+            cuboid(bm, -0.045, 0.045, face - 0.004, face, low + high * 0.3, low + high * 0.3 + 0.035)
+        model.drawers.append(dict(x0=-half + 0.012, x1=half - 0.012, z0=low, z1=low + high - 0.012, face=front - 0.016, thick=0.016, pull=pull))
+        if n in open_drawers:
+            continue
         cuboid(fronts, -half + 0.012, half - 0.012, front - 0.016, front, low, low + high - 0.012)
-        bar_handle(trim, -0.07, 0.07, front - 0.016, low + high * 0.62, low + high * 0.62 + 0.016, proud=0.026, thick=0.01)
-        cuboid(trim, -0.045, 0.045, front - 0.02, front - 0.016, low + high * 0.3, low + high * 0.3 + 0.035)
+        pull(trim, front - 0.016)
+    model.drawer_deep = back - front - 0.015 - 0.02
+    body = bmesh.new()
+    pocketed_body(body, -half, half, front, back, 0.0, top, model.drawers, open_drawers)
+    model.hard(body, "paint", bevel=0.006, segments=2)
     model.hard(fronts, "paint", bevel=0.005, segments=2)
     model.hard(trim, "metal", bevel=0.003, segments=1)
     return model
@@ -3823,10 +3994,10 @@ def floor_lamp(name, shaded):
     return model
 
 
-def dresser_mirror():
+def dresser_mirror(name="dresser_mirror", open_drawers=()):
     """A chest of drawers with a looking glass standing on its top between two posts, the wall at +Y. The chest's top is 0.88 high."""
-    model = Model("dresser_mirror")
-    half, front, back, top = chest_of_drawers(model)
+    model = Model(name)
+    half, front, back, top = chest_of_drawers(model, open_drawers)
     frame = bmesh.new()
     wide, low, high, rail, face = 0.31, top + 0.05, top + 0.86, 0.05, back - 0.07
     for side in (-1, 1):
@@ -3843,23 +4014,26 @@ def dresser_mirror():
     return model
 
 
-def side_table():
-    """A small table for the end of a sofa, with one drawer under its top."""
-    model = Model("side_table")
+def side_table(name="side_table", open_drawers=()):
+    """A small table for the end of a sofa, with one drawer under its top: open_drawers (0) leaves it out over its
+    pocket, as bedside_cabinet does."""
+    model = Model(name)
     half, top = 0.25, 0.5
+    fronts, pulls = bmesh.new(), bmesh.new()
+    model.drawers = drawer_fronts(fronts, pulls, -half + 0.06, half - 0.06, top - 0.135, top - 0.03, 1, -half + 0.03 - 0.014, thick=0.014,
+                                  left_off=open_drawers)
+    model.drawer_deep = 2 * half - 0.06 - 0.015 - 0.02
+    model.hard(fronts, "wood", bevel=0.004)
+    model.turned(pulls, "metal")
     under = bmesh.new()
     for x in (-1, 1):
         for y in (-1, 1):
             prism(under, (x * (half - 0.035), y * (half - 0.035), 0.03, 0.03, 0.0), (x * (half - 0.035), y * (half - 0.035), 0.045, 0.045, top - 0.025))
-    cuboid(under, -half + 0.04, half - 0.04, -half + 0.03, half - 0.03, top - 0.14, top - 0.025)
+    pocketed_body(under, -half + 0.04, half - 0.04, -half + 0.03, half - 0.03, top - 0.14, top - 0.025, model.drawers, open_drawers)
     model.hard(under, "wood", bevel=0.004, segments=1)
     board = bmesh.new()
     cuboid(board, -half, half, -half, half, top - 0.025, top)
     model.hard(board, "wood", bevel=0.009, segments=3)
-    fronts, pulls = bmesh.new(), bmesh.new()
-    drawer_fronts(fronts, pulls, -half + 0.06, half - 0.06, top - 0.135, top - 0.03, 1, -half + 0.03 - 0.014, thick=0.014)
-    model.hard(fronts, "wood", bevel=0.004)
-    model.turned(pulls, "metal")
     return model
 
 
@@ -3896,16 +4070,16 @@ def bar_stool():
     return model
 
 
-def clothes_dryer():
-    """A tumble dryer: a white case with a round door in its front and its dials on a console along the back. Its top is 0.92 high."""
-    model = Model("clothes_dryer")
-    half, front, back, top = laundry_case(model)
-    door = bmesh.new()
-    lathe(door, [(0.15, 0.0), (0.215, 0.0), (0.215, 0.02), (0.2, 0.034), (0.15, 0.034)], segments=22, closed=True, to=along_y(0.0, front, 0.5))
-    model.turned(door, "enamel", sharp=40.0)
-    glass = bmesh.new()
-    lathe(glass, [(0.0, 0.0), (0.15, 0.0), (0.15, 0.012), (0.09, 0.026), (0.0, 0.03)], segments=18, to=along_y(0.0, front, 0.5))
-    model.turned(glass, "screen", sharp=50.0)
+def clothes_dryer(name="clothes_dryer", door_off=False):
+    """A tumble dryer: a white case with a round door in its front and its dials on a console along the back. Its top is
+    0.92 high. door_off leaves its door (dryer_door) out over its open drum."""
+    model = Model(name)
+    half, front, back, top = laundry_case(model, "front" if door_off else None)
+    if not door_off:
+        door, glass = bmesh.new(), bmesh.new()
+        dryer_door(door, glass)
+        model.turned(door, "enamel", sharp=40.0)
+        model.turned(glass, "screen", sharp=50.0)
     laundry_feet(model, half, front, back, top)
     dials = bmesh.new()
     lathe(dials, [(0.0, 0.0), (0.04, 0.0), (0.036, 0.022), (0.0, 0.025)], segments=14, to=along_y(0.17, back - 0.146, top + 0.08))
