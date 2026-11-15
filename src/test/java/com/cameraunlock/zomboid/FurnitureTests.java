@@ -47,6 +47,7 @@ final class FurnitureTests {
         Checks.run("aBarsPanellingStandsWithItsFootRailUndyedWhereTheBrassIsNotPainted", FurnitureTests::aBarsPanellingStandsWithItsFootRailUndyedWhereTheBrassIsNotPainted);
         Checks.run("aWireRackOnACounterStandsOnTheCounterLongTheWayItFaces", FurnitureTests::aWireRackOnACounterStandsOnTheCounterLongTheWayItFaces);
         Checks.run("eachBookOnAShelfIsAPieceOfItsOwnInBothModels", FurnitureTests::eachBookOnAShelfIsAPieceOfItsOwnInBothModels);
+        Checks.run("whatTheGameSetsOutOverAPieceStandsOnlyOnATop", FurnitureTests::whatTheGameSetsOutOverAPieceStandsOnlyOnATop);
         Checks.run("theCommittedModelsAreTheOnesTheScriptBuilds", FurnitureTests::theCommittedModelsAreTheOnesTheScriptBuilds);
         Checks.run("aShopCounterOpenOverShelvesOpensWhereItsSpritePaintsTheShelves", FurnitureTests::aShopCounterOpenOverShelvesOpensWhereItsSpritePaintsTheShelves);
         Checks.run("aShelvingRunStandsWithItsMiddleSquaresLaidInAnyOrder", FurnitureTests::aShelvingRunStandsWithItsMiddleSquaresLaidInAnyOrder);
@@ -918,6 +919,32 @@ final class FurnitureTests {
             }
         }
         check(Models.get("counter").piece[0] == 0, "a surface whose pieces are all alike carries none");
+    }
+
+    private static void whatTheGameSetsOutOverAPieceStandsOnlyOnATop() {
+        zombie.iso.TileOverlays.instance.add("test_decor_vase", "furniture_storage_01_53");
+        IsoSprite vase = sprite("test_decor_vase|"), stain = sprite("test_decor_stain|"), food = sprite(zombie.iso.ContainerOverlays.TEST_FEW + "|");
+        IsoSprite table = sprite("furniture_storage_01_53|BlocksPlacement||CanScrap||ContainerCapacity|10|CustomName|Table|Facing|E|GroupName|Small|IsLow||"
+                + "IsMoveAble||IsTable||Material|Wood|PickUpWeight|50|container|sidetable|solidtrans||Surface|23|");
+        Furniture side = Furniture.known(table);
+        check(model(side).equals("side_table"), "the small table is the side table: " + model(side));
+        check(side != null && FurnishingBuilder.standsOver(table, vase) == side, "a vase the game sets out on a side table stands on it");
+        check(side != null && FurnishingBuilder.standsOver(table, food) == side, "and so does the game's picture of what a container holds");
+        check(FurnishingBuilder.standsOver(table, stain) == null, "what else the game lays over it does not");
+
+        String row = "|BlocksPlacement||CanScrap||CustomName|Bath|Facing|S|GroupName|Large Deluxe|IsMoveAble||ItemHeight|22|Material|Plumbing|"
+                + "Material2|Pipes|PickUpTool|Wrench|PickUpWeight|100|PlaceTool|Wrench|solidtrans||SpriteGridPos|";
+        IsoSprite head = sprite("fixtures_bathroom_01_25" + row + "0,0"), foot = sprite("fixtures_bathroom_01_24" + row + "0,1|IsGridExtensionTile|");
+        piece(1, 2, head, foot);
+        check(model(Furniture.known(head)).equals("bath"), "the bath is the bath");
+        check(FurnishingBuilder.standsOver(head, vase) == null, "a bath the game gives no surface has no top to stand what it sets out on");
+
+        String shelves = "|BlocksPlacement||CanBreak||CanScrap||ContainerCapacity|30|CustomName|Shelves|Facing|S|IsMoveAble||ItemHeight|64|Material|Wood|"
+                + "Material2|Screws|MaterialType|Wood|PickUpTool|Hammer|PickUpWeight|75|PlaceTool|Hammer|ScrapSize|Large|container|shelves|solid||GroupName|";
+        IsoSprite corner = sprite("furniture_shelving_01_8" + shelves + "Big Wall Corner|");
+        Furniture shelving = Furniture.known(corner);
+        check(model(shelving).equals("wall_shelving_corner") && shelving.stocked, "shelving in a corner holds goods of its own: " + model(shelving));
+        check(FurnishingBuilder.standsOver(corner, food) == null, "and no picture of them stands in front of it");
     }
 
     /**

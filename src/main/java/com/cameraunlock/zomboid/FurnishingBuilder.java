@@ -1256,12 +1256,13 @@ final class FurnishingBuilder {
      * picture: the things the game sets out at random over a piece (TileOverlays) and what it paints a container holding
      * (ContainerOverlays), where the mod makes nothing of its own for them. A stocked fitting's goods and a case's cakes
      * are that painting made, and anything else the game lays over a piece, a set's lit screen, has a way of its own or none.
+     * A piece the game gives no surface, a bath or a filing cabinet, has no top to stand it on, and it stands on none.
      *
      * The piece under it where it is to stand, or null where it is not.
      */
-    Furniture standsOver(IsoSprite under, IsoSprite over) {
+    static Furniture standsOver(IsoSprite under, IsoSprite over) {
         Furniture piece = Furniture.known(under);
-        if (over == null || over.getName() == null || piece == null || piece.stocked || piece.displayCase) {
+        if (piece == null || piece.stocked || piece.displayCase || Surfaces.surface(under.getProperties()) <= 0) {
             return null;
         }
         // Both are read only: each map is filled as the game loads its Lua, before any world is built.

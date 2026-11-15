@@ -1383,6 +1383,8 @@ final class WorldScene {
     static final float HUNG_CLEAR = 0.012f;
     /** The game gives the height of a surface in pixels of its unscaled sprites, of which a level is this many. */
     static final float SURFACE_PIXELS_PER_LEVEL = 96f;
+    /** How much of a decor painting may lie under the top of the piece it is over, as a share of its height, and still stand on it as a card. */
+    static final float DECOR_UNDER_MOST = 0.9f;
     static final int TABLE_HIGHEST = 48;
     static final int TALL_SURFACE = 60;
     private static final float CUPBOARD_DEEP = 0.55f;
@@ -9841,13 +9843,15 @@ final class WorldScene {
                 // counter, stands as a card on the middle of the piece's top, where the game paints it. Anchored on the
                 // floor or the middle of the square, the depth the picture gives the top stood it as height, and the
                 // things floated over and beside a dresser against its wall.
-                Furniture over = overLayer > 0 ? furnishingBuilder.standsOver(sprite, overSprite) : null;
+                Furniture over = overLayer > 0 ? FurnishingBuilder.standsOver(sprite, overSprite) : null;
                 if (over != null) {
                     boolean single = over.width == 1 && over.height == 1;
                     float a = single ? over.centreX : 0.5f, b = single ? over.centreY : 0.5f;
                     float top = Surfaces.surface(sprite.getProperties()) / SURFACE_PIXELS_PER_LEVEL;
                     float under = (frame.top + frame.height - SpriteGeometry.frameV(frame, a, b, top)) / frame.height;
-                    if (under < 1f) {
+                    // A painting all but wholly under the top is of what is in the piece, a fridge's food behind its
+                    // glass, and has no card to stand over it.
+                    if (under < DECOR_UNDER_MOST) {
                         float skipped = geometry.skipped;
                         geometry.skipped = Math.max(under, 0f);
                         geometry.addUpright(mesh, frame, x, y, z, a, b, top, 1f, 0f, true, false);
